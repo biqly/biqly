@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://golangci-lint.run/jsonschema/golangci.next.jsonschema.json
 version: "2"
 
 run:
