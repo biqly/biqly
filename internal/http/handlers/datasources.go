@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -41,6 +42,9 @@ func (h *DatasourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "name, type, and dsn are required")
 		return
 	}
+	if req.Config == "" {
+		req.Config = "{}"
+	}
 
 	// Get driver to validate type
 	_, err := h.deps.DriverReg.Get(req.Type)
@@ -60,6 +64,7 @@ func (h *DatasourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	if err := h.deps.MetaRepo.CreateDatasource(ctx, ds); err != nil {
+		slog.ErrorContext(ctx, "create datasource failed", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create datasource")
 		return
 	}
@@ -72,6 +77,7 @@ func (h *DatasourceHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	datasources, err := h.deps.MetaRepo.ListDatasources(ctx)
 	if err != nil {
+		slog.ErrorContext(ctx, "list datasources failed", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list datasources")
 		return
 	}
@@ -145,6 +151,7 @@ func (h *DatasourceHandler) Test(w http.ResponseWriter, r *http.Request) {
 }
 
 // SyncMetadata introspects and persists the schema of a datasource.
+//
 //nolint:gocyclo // linear step-by-step sync process, each step is independent
 func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
@@ -175,6 +182,9 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	schemaIDs := make(map[string]string, len(result.Schemas))
+	tableIDs := make(map[[2]string]string, len(result.Tables))
+
 	// Store schemas
 	for _, s := range result.Schemas {
 		schema := metadata.Schema{
@@ -182,17 +192,26 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 			DatasourceID: ds.ID,
 			SchemaName:   s.Name,
 		}
-		if err := h.deps.MetaRepo.UpsertSchemas(ctx, ds.ID, []metadata.Schema{schema}); err != nil {
+		schemaID, err := h.deps.MetaRepo.UpsertSchema(ctx, ds.ID, schema)
+		if err != nil {
 			writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to save schemas: %s", err.Error()))
 			return
 		}
+		schemaIDs[s.Name] = schemaID
 	}
 
 	// Store tables (description from native DB comment when present)
 	for _, t := range result.Tables {
+		schemaID, ok := schemaIDs[t.SchemaName]
+		if !ok {
+			writeError(w, http.StatusInternalServerError, fmt.Sprintf("missing schema for table: %s.%s", t.SchemaName, t.TableName))
+			return
+		}
+
 		table := metadata.Table{
 			ID:           uuid.New().String(),
 			DatasourceID: ds.ID,
+			SchemaID:     schemaID,
 			SchemaName:   t.SchemaName,
 			TableName:    t.TableName,
 			TableType:    t.TableType,
@@ -202,30 +221,39 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 			c := t.Comment
 			table.Description = &c
 		}
-		if err := h.deps.MetaRepo.UpsertTables(ctx, ds.ID, []metadata.Table{table}); err != nil {
+		tableID, err := h.deps.MetaRepo.UpsertTable(ctx, ds.ID, table)
+		if err != nil {
 			writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to save tables: %s", err.Error()))
 			return
 		}
+		tableIDs[[2]string{t.SchemaName, t.TableName}] = tableID
 	}
 
 	// Store columns (description from native DB comment when present)
 	for _, c := range result.Columns {
+		tableID, ok := tableIDs[[2]string{c.SchemaName, c.TableName}]
+		if !ok {
+			writeError(w, http.StatusInternalServerError, fmt.Sprintf("missing table for column: %s.%s.%s", c.SchemaName, c.TableName, c.ColumnName))
+			return
+		}
+
 		colDefault := c.ColumnDefault
 		col := metadata.Column{
-			ID:             uuid.New().String(),
-			DatasourceID:   ds.ID,
-			SchemaName:     c.SchemaName,
-			TableName:      c.TableName,
-			ColumnName:     c.ColumnName,
-			DataType:       c.DataType,
-			Nullable:       c.Nullable,
-			OrdinalPosition: &c.OrdinalPosition,
-			CharMaxLength:  c.CharMaxLength,
+			ID:               uuid.New().String(),
+			DatasourceID:     ds.ID,
+			TableID:          tableID,
+			SchemaName:       c.SchemaName,
+			TableName:        c.TableName,
+			ColumnName:       c.ColumnName,
+			DataType:         c.DataType,
+			Nullable:         c.Nullable,
+			OrdinalPosition:  &c.OrdinalPosition,
+			CharMaxLength:    c.CharMaxLength,
 			NumericPrecision: c.NumericPrecision,
-			NumericScale:   c.NumericScale,
-			ColumnDefault:  &colDefault,
-			IsPrimaryKey:   c.IsPrimaryKey,
-			IsForeignKey:   c.IsForeignKey,
+			NumericScale:     c.NumericScale,
+			ColumnDefault:    &colDefault,
+			IsPrimaryKey:     c.IsPrimaryKey,
+			IsForeignKey:     c.IsForeignKey,
 		}
 		if c.Comment != "" {
 			cm := c.Comment

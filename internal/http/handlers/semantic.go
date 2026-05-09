@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/biqly/biqly/internal/app"
@@ -83,6 +84,7 @@ func (h *SemanticHandler) GetModel(w http.ResponseWriter, r *http.Request) {
 
 	model, err := h.deps.SemanticRepo.GetFullModel(ctx, id)
 	if err != nil {
+		slog.ErrorContext(ctx, "get semantic model failed", "id", id, "error", err)
 		writeError(w, http.StatusNotFound, "model not found")
 		return
 	}
@@ -179,13 +181,13 @@ func (h *SemanticHandler) CreateDimension(w http.ResponseWriter, r *http.Request
 	}
 
 	d := &semantic.Dimension{
-		ID:       uuid.New().String(),
-		ModelID:  modelID,
-		Name:     req.Name,
+		ID:        uuid.New().String(),
+		ModelID:   modelID,
+		Name:      req.Name,
 		ColumnRef: req.ColumnRef,
-		Type:     req.Type,
-		Synonyms: req.Synonyms,
-		IsActive: true,
+		Type:      req.Type,
+		Synonyms:  req.Synonyms,
+		IsActive:  true,
 	}
 
 	if req.Label != "" {
@@ -202,11 +204,11 @@ func (h *SemanticHandler) CreateDimension(w http.ResponseWriter, r *http.Request
 }
 
 type createMetricRequest struct {
-	Name        string `json:"name"`
-	Label       string `json:"label,omitempty"`
-	Expression  string `json:"expression"`
-	Aggregation string `json:"aggregation"`
-	Format      string `json:"format,omitempty"`
+	Name        string   `json:"name"`
+	Label       string   `json:"label,omitempty"`
+	Expression  string   `json:"expression"`
+	Aggregation string   `json:"aggregation"`
+	Format      string   `json:"format,omitempty"`
 	Synonyms    []string `json:"synonyms,omitempty"`
 }
 

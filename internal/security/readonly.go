@@ -2,6 +2,7 @@ package security
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -30,7 +31,8 @@ func (c *ReadOnlyChecker) Check(sql string) error {
 	}
 
 	for _, kw := range dangerous {
-		if strings.Contains(trimmed, kw) {
+		pattern := regexp.MustCompile(`\b` + regexp.QuoteMeta(kw) + `\b`)
+		if pattern.MatchString(trimmed) {
 			return fmt.Errorf("query contains dangerous keyword: %s", kw)
 		}
 	}

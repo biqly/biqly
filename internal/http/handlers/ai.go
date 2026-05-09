@@ -214,18 +214,22 @@ func (h *AIHandler) Describe(w http.ResponseWriter, r *http.Request) {
 func (h *AIHandler) loadModel(ctx context.Context, datasourceID, modelID string) (*semantic.SemanticModel, error) {
 	model, err := h.deps.SemanticRepo.GetModelByName(ctx, datasourceID, modelID)
 	if err != nil {
+		slog.ErrorContext(ctx, "load semantic model failed", "datasource_id", datasourceID, "model_id", modelID, "error", err)
 		return nil, err
 	}
 	model.Dimensions, err = h.deps.SemanticRepo.GetDimensions(ctx, model.ID)
 	if err != nil {
+		slog.ErrorContext(ctx, "load semantic dimensions failed", "model_id", model.ID, "error", err)
 		return nil, err
 	}
 	model.Metrics, err = h.deps.SemanticRepo.GetMetrics(ctx, model.ID)
 	if err != nil {
+		slog.ErrorContext(ctx, "load semantic metrics failed", "model_id", model.ID, "error", err)
 		return nil, err
 	}
 	model.Joins, err = h.deps.SemanticRepo.GetJoins(ctx, model.ID)
 	if err != nil {
+		slog.ErrorContext(ctx, "load semantic joins failed", "model_id", model.ID, "error", err)
 		return nil, err
 	}
 	return model, nil

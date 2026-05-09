@@ -51,7 +51,7 @@ func (r *Repository) ListDatasources(ctx context.Context) ([]Datasource, error) 
 	}
 	defer func() { _ = rows.Close() }()
 
-	var datasources []Datasource
+	datasources := make([]Datasource, 0)
 	for rows.Next() {
 		ds, err := r.scanDatasource(rows)
 		if err != nil {
@@ -91,17 +91,28 @@ func (r *Repository) scanDatasource(s scanner) (*Datasource, error) {
 
 // UpsertSchemas inserts or updates schema metadata.
 func (r *Repository) UpsertSchemas(ctx context.Context, datasourceID string, schemas []Schema) error {
-	query := `
-		INSERT INTO schemas (id, datasource_id, schema_name)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (datasource_id, schema_name) DO NOTHING
-	`
 	for _, s := range schemas {
-		if _, err := r.db.ExecContext(ctx, query, s.ID, datasourceID, s.SchemaName); err != nil {
-			return fmt.Errorf("upsert schema %s: %w", s.SchemaName, err)
+		if _, err := r.UpsertSchema(ctx, datasourceID, s); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// UpsertSchema inserts or updates schema metadata and returns the persisted ID.
+func (r *Repository) UpsertSchema(ctx context.Context, datasourceID string, s Schema) (string, error) {
+	query := `
+		INSERT INTO schemas (id, datasource_id, schema_name)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (datasource_id, schema_name) DO UPDATE
+		SET schema_name = EXCLUDED.schema_name
+		RETURNING id
+	`
+	var id string
+	if err := r.db.QueryRowContext(ctx, query, s.ID, datasourceID, s.SchemaName).Scan(&id); err != nil {
+		return "", fmt.Errorf("upsert schema %s: %w", s.SchemaName, err)
+	}
+	return id, nil
 }
 
 // Table operations
@@ -110,6 +121,16 @@ func (r *Repository) UpsertSchemas(ctx context.Context, datasourceID string, sch
 // when the incoming description is nil/empty so that user-provided descriptions are
 // not overwritten by a re-sync against a source DB that has no native comment.
 func (r *Repository) UpsertTables(ctx context.Context, datasourceID string, tables []Table) error {
+	for _, t := range tables {
+		if _, err := r.UpsertTable(ctx, datasourceID, t); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// UpsertTable inserts or updates table metadata and returns the persisted ID.
+func (r *Repository) UpsertTable(ctx context.Context, datasourceID string, t Table) (string, error) {
 	query := `
 		INSERT INTO tables (id, datasource_id, schema_id, schema_name, table_name, table_type, row_estimate, description)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -118,13 +139,13 @@ func (r *Repository) UpsertTables(ctx context.Context, datasourceID string, tabl
 			row_estimate = EXCLUDED.row_estimate,
 			description = COALESCE(NULLIF(EXCLUDED.description, ''), tables.description),
 			updated_at = now()
+		RETURNING id
 	`
-	for _, t := range tables {
-		if _, err := r.db.ExecContext(ctx, query, t.ID, datasourceID, t.SchemaID, t.SchemaName, t.TableName, t.TableType, t.RowEstimate, t.Description); err != nil {
-			return fmt.Errorf("upsert table %s.%s: %w", t.SchemaName, t.TableName, err)
-		}
+	var id string
+	if err := r.db.QueryRowContext(ctx, query, t.ID, datasourceID, t.SchemaID, t.SchemaName, t.TableName, t.TableType, t.RowEstimate, t.Description).Scan(&id); err != nil {
+		return "", fmt.Errorf("upsert table %s.%s: %w", t.SchemaName, t.TableName, err)
 	}
-	return nil
+	return id, nil
 }
 
 // ListTables returns all stored tables for a datasource, optionally filtered by schema.

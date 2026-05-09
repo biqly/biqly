@@ -8,7 +8,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - metadata_data:/var/lib/postgresql/data
+      - metadata_data:/var/lib/postgresql
       - ./migrations:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U bi_user -d bi_metadata"]
@@ -36,7 +36,7 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - test_data:/var/lib/postgresql/data
+      - test_data:/var/lib/postgresql
 
   api:
     build: .
@@ -48,6 +48,13 @@ services:
       BI_QUERY_MAX_ROWS: 10000
       BI_QUERY_MAX_RUNTIME_SECONDS: 60
       BI_ENCRYPTION_KEY: change-this-to-a-secure-32-byte-key!!
+      BI_AI_PROVIDER: ${BI_AI_PROVIDER:-openai}
+      BI_AI_API_KEY: ${BI_AI_API_KEY:-}
+      BI_AI_BASE_URL: ${BI_AI_BASE_URL:-}
+      BI_AI_MODEL: ${BI_AI_MODEL:-gpt-4o}
+      BI_AI_MAX_TOKENS: ${BI_AI_MAX_TOKENS:-4096}
+      BI_AI_TEMPERATURE: ${BI_AI_TEMPERATURE:-0.0}
+      BI_AI_RATE_LIMIT_PER_MINUTE: ${BI_AI_RATE_LIMIT_PER_MINUTE:-20}
     ports:
       - "8888:8888"
     depends_on:
@@ -55,6 +62,15 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3333:3333"
+    depends_on:
+      - api
 
 volumes:
   metadata_data:

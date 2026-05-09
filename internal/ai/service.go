@@ -73,6 +73,7 @@ func (s *Service) parseAndValidate(raw string, model *semantic.SemanticModel) (*
 	if err := json.Unmarshal([]byte(cleaned), &lq); err != nil {
 		return nil, warnings, fmt.Errorf("invalid JSON from AI: %w", err)
 	}
+	normalizeLogicalQueryContext(&lq, model)
 
 	// Guardrails: reject empty selects
 	if len(lq.Select) == 0 {
@@ -87,4 +88,12 @@ func (s *Service) parseAndValidate(raw string, model *semantic.SemanticModel) (*
 	}
 
 	return &lq, warnings, nil
+}
+
+func normalizeLogicalQueryContext(lq *query.LogicalQuery, model *semantic.SemanticModel) {
+	lq.DatasourceID = model.DatasourceID
+	lq.ModelID = model.Name
+	if lq.ModelID == "" {
+		lq.ModelID = model.ID
+	}
 }

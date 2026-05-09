@@ -2,6 +2,7 @@ package http
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/http/handlers"
@@ -19,7 +20,7 @@ func Router(deps *app.Dependencies) http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(60))
+	r.Use(middleware.Timeout(60 * time.Second))
 
 	// CORS
 	r.Use(cors.Handler(cors.Options{
