@@ -1,0 +1,203 @@
+package query
+
+import (
+	"fmt"
+
+	"github.com/biqly/biqly/internal/semantic"
+)
+
+// Planner analyzes a LogicalQuery and determines the optimal execution plan.
+type Planner struct{}
+
+// NewPlanner creates a new query planner.
+func NewPlanner() *Planner {
+	return &Planner{}
+}
+
+// PlanResult holds the planning output.
+type PlanResult struct {
+	RequiredJoins []string  `json:"required_joins"`
+	Warnings      []string  `json:"warnings"`
+	TableGraph    []TableNode `json:"table_graph"`
+}
+
+// TableNode represents a table in the join graph.
+type TableNode struct {
+	Name         string   `json:"name"`
+	Columns      []string `json:"columns"`
+	IsBaseTable  bool     `json:"is_base_table"`
+}
+
+// Plan analyzes a LogicalQuery and returns a plan.
+func (p *Planner) Plan(lq LogicalQuery, model *semantic.SemanticModel) (*PlanResult, error) {
+	var warnings []string
+	var requiredJoins []string
+
+	// Build dimension map
+	dimMap := make(map[string]semantic.Dimension)
+	for _, d := range model.Dimensions {
+		dimMap[d.Name] = d
+	}
+
+	// Build metric map
+	metricMap := make(map[string]semantic.Metric)
+	for _, m := range model.Metrics {
+		metricMap[m.Name] = m
+	}
+
+	// Determine which tables are needed
+	tables := make(map[string]bool)
+	tables[model.BaseTable] = true // Always include base table
+
+	// Check select items
+	for _, item := range lq.Select {
+		switch item.Type {
+		case SelectTypeDimension:
+			if dim, ok := dimMap[item.Name]; ok {
+				table := extractTable(dim.ColumnRef)
+				if table != "" && table != model.BaseTable {
+					tables[table] = true
+				}
+			}
+		case SelectTypeMetric:
+			if metric, ok := metricMap[item.Name]; ok {
+				table := extractTable(metric.Expression)
+				if table != "" && table != model.BaseTable {
+					tables[table] = true
+				}
+			}
+		}
+	}
+
+	// Check filters
+	for _, f := range lq.Filters {
+		if dim, ok := dimMap[f.Field]; ok {
+			table := extractTable(dim.ColumnRef)
+			if table != "" && table != model.BaseTable {
+				tables[table] = true
+			}
+		}
+	}
+
+	// Check group by
+	for _, gb := range lq.GroupBy {
+		if dim, ok := dimMap[gb.Field]; ok {
+			table := extractTable(dim.ColumnRef)
+			if table != "" && table != model.BaseTable {
+				tables[table] = true
+			}
+		}
+	}
+
+	// Determine required joins
+	for _, join := range model.Joins {
+		if tables[join.FromTable] || tables[join.ToTable] {
+			requiredJoins = append(requiredJoins, join.Name)
+		}
+	}
+
+	// Validate cardinality and detect fanout risks
+	fanoutWarnings := p.checkFanout(lq, model, dimMap, metricMap, tables)
+	warnings = append(warnings, fanoutWarnings...)
+
+	// Check for invalid metric/dimension combinations
+	aggWarnings := p.checkAggregations(lq, model, metricMap)
+	warnings = append(warnings, aggWarnings...)
+
+	// Build table graph
+	var tableGraph []TableNode
+	tableGraph = append(tableGraph, TableNode{
+		Name:        model.BaseTable,
+		IsBaseTable: true,
+	})
+	for table := range tables {
+		if table != model.BaseTable {
+			tableGraph = append(tableGraph, TableNode{
+				Name:        table,
+				IsBaseTable: false,
+			})
+		}
+	}
+
+	return &PlanResult{
+		RequiredJoins: requiredJoins,
+		Warnings:      warnings,
+		TableGraph:    tableGraph,
+	}, nil
+}
+
+// checkFanout detects potential fanout issues from many-to-many or multiple many-to-one joins.
+func (p *Planner) checkFanout(lq LogicalQuery, model *semantic.SemanticModel, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric, tables map[string]bool) []string {
+	var warnings []string
+
+	manyToManyCount := 0
+	manyToOneCount := 0
+
+	for _, join := range model.Joins {
+		if !tables[join.FromTable] && !tables[join.ToTable] {
+			continue
+		}
+		switch join.Relationship {
+		case "many_to_many":
+			manyToManyCount++
+		case "many_to_one", "one_to_many":
+			manyToOneCount++
+		}
+	}
+
+	if manyToManyCount > 0 {
+		warnings = append(warnings, fmt.Sprintf("query involves %d many-to-many join(s) which may cause fanout", manyToManyCount))
+	}
+
+	// Multiple many-to-one joins from the same table can cause fanout
+	if manyToOneCount > 2 {
+		warnings = append(warnings, "multiple many-to-one joins detected - verify aggregation accuracy")
+	}
+
+	return warnings
+}
+
+// checkAggregations validates that metrics and dimensions can be safely combined.
+func (p *Planner) checkAggregations(lq LogicalQuery, model *semantic.SemanticModel, metricMap map[string]semantic.Metric) []string {
+	var warnings []string
+
+	hasMetrics := false
+	hasGroupBy := false
+
+	for _, item := range lq.Select {
+		if item.Type == SelectTypeMetric {
+			hasMetrics = true
+		}
+	}
+
+	hasGroupBy = len(lq.GroupBy) > 0
+
+	// If metrics are selected without group_by, warn
+	if hasMetrics && !hasGroupBy {
+		warnings = append(warnings, "metrics selected without GROUP BY - result will be a single aggregated row")
+	}
+
+	return warnings
+}
+
+// extractTable gets the table name from a column reference like "table.column".
+func extractTable(colRef string) string {
+	parts := splitDot(colRef)
+	if len(parts) > 1 {
+		return parts[0]
+	}
+	return ""
+}
+
+func splitDot(s string) []string {
+	var result []string
+	start := 0
+	for i := 0; i < len(s); i++ {
+		if s[i] == '.' {
+			result = append(result, s[start:i])
+			start = i + 1
+		}
+	}
+	result = append(result, s[start:])
+	return result
+}

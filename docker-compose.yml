@@ -1,0 +1,61 @@
+services:
+  metadata-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: bi_metadata
+      POSTGRES_USER: bi_user
+      POSTGRES_PASSWORD: bi_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - metadata_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bi_user -d bi_metadata"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Test PostgreSQL datasource for introspection testing
+  test-datasource:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: test_data
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - test_data:/var/lib/postgresql/data
+
+  api:
+    build: .
+    environment:
+      BI_HTTP_PORT: 8888
+      BI_METADATA_DB_DSN: postgres://bi_user:bi_password@metadata-db:5432/bi_metadata?sslmode=disable
+      BI_REDIS_DSN: redis://redis:6379
+      BI_QUERY_TIMEOUT_SECONDS: 30
+      BI_QUERY_MAX_ROWS: 10000
+      BI_QUERY_MAX_RUNTIME_SECONDS: 60
+      BI_ENCRYPTION_KEY: change-this-to-a-secure-32-byte-key!!
+    ports:
+      - "8888:8888"
+    depends_on:
+      metadata-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  metadata_data:
+  test_data:
