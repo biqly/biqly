@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useApi } from '../hooks/useApi'
 
 interface Datasource {
@@ -65,6 +65,15 @@ export default function Metadata() {
     setOpenTableId(null)
     setColumns([])
   }, [datasourceId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!describeOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDescribeOpen(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [describeOpen])
 
   const toggleTable = async (t: TableRow) => {
     if (openTableId === t.id) {
@@ -166,19 +175,23 @@ export default function Metadata() {
                 <th>Schema.Table</th>
                 <th>Type</th>
                 <th>Description</th>
-                <th>Actions</th>
+                <th className="actions">Actions</th>
               </tr>
             </thead>
             <tbody>
               {tables.map((t) => (
-                <>
-                  <tr key={t.id}>
+                <Fragment key={t.id}>
+                  <tr>
                     <td>
                       <button
+                        type="button"
+                        className="icon-btn"
+                        aria-expanded={openTableId === t.id}
+                        aria-label={`${openTableId === t.id ? 'Collapse' : 'Expand'} ${t.schema_name}.${t.table_name}`}
                         onClick={() => toggleTable(t)}
-                        style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: 0 }}
                       >
-                        {openTableId === t.id ? '▼' : '▶'} {t.schema_name}.{t.table_name}
+                        <span className="chevron">{openTableId === t.id ? '▼' : '▶'}</span>
+                        {t.schema_name}.{t.table_name}
                       </button>
                     </td>
                     <td>{t.table_type}</td>
@@ -197,12 +210,14 @@ export default function Metadata() {
                         </span>
                       )}
                     </td>
-                    <td>
-                      <button className="btn" onClick={() => openDescribe(t)}>🤖 AI Describe</button>
+                    <td className="actions">
+                      <button type="button" className="btn btn-sm" onClick={() => openDescribe(t)}>
+                        🤖 AI Describe
+                      </button>
                     </td>
                   </tr>
                   {openTableId === t.id && columns.length > 0 && (
-                    <tr key={t.id + '-cols'}>
+                    <tr>
                       <td colSpan={4} style={{ background: 'var(--bg-card)', padding: 0 }}>
                         <table className="results-table" style={{ margin: 0 }}>
                           <thead>
@@ -244,7 +259,7 @@ export default function Metadata() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -252,93 +267,160 @@ export default function Metadata() {
       )}
 
       {describeOpen && (
-        <div className="card" style={{ position: 'fixed', top: '5%', left: '50%', transform: 'translateX(-50%)', maxWidth: 720, width: '90%', maxHeight: '90vh', overflow: 'auto', zIndex: 50, boxShadow: '0 10px 40px rgba(0,0,0,0.6)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <h2>🤖 AI Describe — {describeOpen.schema_name}.{describeOpen.table_name}</h2>
-            <button className="remove-btn" onClick={() => setDescribeOpen(null)}>×</button>
-          </div>
-          <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-            Samples N rows from the source DB and asks the LLM to describe the table and each column.
-          </p>
-
-          {!describeResult && (
-            <>
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label>Sample size</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={describeForm.sample_size}
-                    onChange={(e) => setDescribeForm({ ...describeForm, sample_size: Number(e.target.value) })}
-                  />
-                </div>
-                <div className="form-group" style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
-                  <input
-                    id="auto-apply"
-                    type="checkbox"
-                    checked={describeForm.auto_apply}
-                    onChange={(e) => setDescribeForm({ ...describeForm, auto_apply: e.target.checked })}
-                    style={{ width: 'auto' }}
-                  />
-                  <label htmlFor="auto-apply" style={{ marginBottom: 0 }}>Auto-apply suggestions</label>
-                </div>
-              </div>
-              <button className="btn" onClick={runDescribe} disabled={loading}>
-                {loading ? 'Analyzing…' : 'Generate Descriptions'}
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onClick={(e) => { if (e.target === e.currentTarget) setDescribeOpen(null) }}
+        >
+          <section
+            className="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="describe-title"
+          >
+            <header className="modal-header">
+              <h2 id="describe-title">
+                🤖 AI Describe — {describeOpen.schema_name}.{describeOpen.table_name}
+              </h2>
+              <button
+                type="button"
+                className="modal-close"
+                aria-label="Close AI Describe"
+                onClick={() => setDescribeOpen(null)}
+              >
+                ×
               </button>
-              {error && <div className="error" style={{ marginTop: '1rem' }}>{error}</div>}
-            </>
-          )}
+            </header>
 
-          {describeResult && (
-            <>
-              <p style={{ color: 'var(--text-secondary)' }}>
-                Sampled {describeResult.sample_rows} rows. {describeResult.applied ? <span className="success">All suggestions applied.</span> : 'Review and apply selectively.'}
+            <div className="modal-body">
+              <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+                Samples N rows from the source DB and asks the LLM to describe the table and each column.
               </p>
 
-              <h3 style={{ marginTop: '1rem' }}>Table description</h3>
-              <div style={{ background: 'var(--bg-card)', padding: '0.75rem', borderRadius: '0.5rem', marginTop: '0.25rem' }}>
-                {describeResult.description || <em style={{ color: 'var(--text-secondary)' }}>(none)</em>}
-              </div>
-              {!describeResult.applied && describeResult.description && (
-                <button className="btn" style={{ marginTop: '0.5rem' }} onClick={() => applySuggestion('table', '', describeResult.description)}>
-                  Apply to table
-                </button>
+              {!describeResult && (
+                <>
+                  <div className="modal-form-row">
+                    <div className="form-group">
+                      <label htmlFor="describe-sample-size">Sample size</label>
+                      <input
+                        id="describe-sample-size"
+                        name="sample_size"
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={describeForm.sample_size}
+                        onChange={(e) => setDescribeForm({ ...describeForm, sample_size: Number(e.target.value) })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Options</label>
+                      <div className="checkbox-row">
+                        <input
+                          id="auto-apply"
+                          name="auto_apply"
+                          type="checkbox"
+                          checked={describeForm.auto_apply}
+                          onChange={(e) => setDescribeForm({ ...describeForm, auto_apply: e.target.checked })}
+                        />
+                        <label htmlFor="auto-apply">Auto-apply suggestions</label>
+                      </div>
+                    </div>
+                  </div>
+                  {error && <div className="error">{error}</div>}
+                  <div className="modal-actions">
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setDescribeOpen(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={runDescribe}
+                      disabled={loading}
+                    >
+                      {loading ? 'Analyzing…' : 'Generate Descriptions'}
+                    </button>
+                  </div>
+                </>
               )}
 
-              <h3 style={{ marginTop: '1rem' }}>Columns</h3>
-              <table className="results-table">
-                <thead>
-                  <tr>
-                    <th>Column</th>
-                    <th>Suggestion</th>
-                    {!describeResult.applied && <th></th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {describeResult.columns.map((c) => (
-                    <tr key={c.name}>
-                      <td><code>{c.name}</code></td>
-                      <td>{c.description || <em style={{ color: 'var(--text-secondary)' }}>(none)</em>}</td>
-                      {!describeResult.applied && (
-                        <td>
-                          {c.description && (
-                            <button className="btn" onClick={() => applySuggestion('column', c.name, c.description)}>Apply</button>
-                          )}
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              {describeResult && (
+                <>
+                  <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+                    Sampled {describeResult.sample_rows} rows.{' '}
+                    {describeResult.applied
+                      ? <span className="success">All suggestions applied.</span>
+                      : 'Review and apply selectively.'}
+                  </p>
 
-              <button className="btn" style={{ marginTop: '1rem' }} onClick={() => { setDescribeResult(null); setDescribeOpen(null) }}>
-                Close
-              </button>
-            </>
-          )}
+                  <div>
+                    <h3 style={{ marginBottom: '0.4rem' }}>Table description</h3>
+                    <div className="suggestion-block">
+                      {describeResult.description || <em style={{ color: 'var(--text-secondary)' }}>(none)</em>}
+                    </div>
+                    {!describeResult.applied && describeResult.description && (
+                      <div className="modal-actions">
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          onClick={() => applySuggestion('table', '', describeResult.description)}
+                        >
+                          Apply to table
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <h3 style={{ marginBottom: '0.4rem' }}>Columns</h3>
+                    <table className="results-table">
+                      <thead>
+                        <tr>
+                          <th>Column</th>
+                          <th>Suggestion</th>
+                          {!describeResult.applied && <th style={{ textAlign: 'right' }}>Action</th>}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {describeResult.columns.map((c) => (
+                          <tr key={c.name}>
+                            <td><code>{c.name}</code></td>
+                            <td>{c.description || <em style={{ color: 'var(--text-secondary)' }}>(none)</em>}</td>
+                            {!describeResult.applied && (
+                              <td className="actions">
+                                {c.description && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm"
+                                    onClick={() => applySuggestion('column', c.name, c.description)}
+                                  >
+                                    Apply
+                                  </button>
+                                )}
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="modal-actions">
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => { setDescribeResult(null); setDescribeOpen(null) }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
         </div>
       )}
     </div>

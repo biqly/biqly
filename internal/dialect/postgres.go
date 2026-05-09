@@ -61,6 +61,9 @@ func (d PostgresDialect) CastType(sqlType string) string {
 
 // Aggregate formats an aggregation function call.
 func (d PostgresDialect) Aggregate(fn, column string) string {
+	if strings.ToLower(fn) == "count" && column == "*" {
+		return "COUNT(*)"
+	}
 	quotedCol := d.QuoteIdent(column)
 	switch strings.ToLower(fn) {
 	case "count":

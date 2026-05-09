@@ -65,6 +65,9 @@ func (d SQLServerDialect) CastType(sqlType string) string {
 
 // Aggregate formats an aggregation function call.
 func (d SQLServerDialect) Aggregate(fn, column string) string {
+	if strings.ToLower(fn) == "count" && column == "*" {
+		return "COUNT(*)"
+	}
 	quotedCol := d.QuoteIdent(column)
 	switch strings.ToLower(fn) {
 	case "count":

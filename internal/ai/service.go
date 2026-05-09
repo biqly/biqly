@@ -42,7 +42,9 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 	lq, warnings, err := s.parseAndValidate(rawResponse, model)
 	if err != nil {
 		return &AIResponse{
-			Warnings: append(warnings, err.Error()),
+			Warnings:    append(warnings, err.Error()),
+			Prompt:      prompt,
+			RawResponse: rawResponse,
 		}, nil
 	}
 
@@ -50,6 +52,8 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		LogicalQuery: lq,
 		Confidence:   0.8,
 		Warnings:     warnings,
+		Prompt:       prompt,
+		RawResponse:  rawResponse,
 	}
 
 	return resp, nil

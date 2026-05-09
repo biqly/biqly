@@ -4,6 +4,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -16,23 +17,26 @@ import (
 
 // AIHandler handles AI text-to-query operations.
 type AIHandler struct {
-	service *ai.Service
-	deps    *app.Dependencies
+	service     *ai.Service
+	tableRouter *ai.TableRouter
+	deps        *app.Dependencies
 }
 
 // NewAIHandler creates a new AI handler.
 func NewAIHandler(deps *app.Dependencies) *AIHandler {
 	svc := ai.NewService(deps.Config.AI, deps.Validator)
 	return &AIHandler{
-		service: svc,
-		deps:    deps,
+		service:     svc,
+		tableRouter: ai.NewTableRouter(deps.MetaRepo),
+		deps:        deps,
 	}
 }
 
 type aiQueryRequest struct {
-	DatasourceID string `json:"datasource_id"`
-	ModelID      string `json:"model_id"`
-	Question     string `json:"question"`
+	DatasourceID string   `json:"datasource_id"`
+	ModelID      string   `json:"model_id,omitempty"`
+	Question     string   `json:"question"`
+	Tables       []string `json:"tables,omitempty"`
 }
 
 // Query handles AI-powered natural language queries.
@@ -47,19 +51,32 @@ func (h *AIHandler) Query(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "question is required")
 		return
 	}
+	if req.DatasourceID == "" {
+		writeError(w, http.StatusBadRequest, "datasource_id is required")
+		return
+	}
 
 	ctx := r.Context()
-	model, err := h.loadModel(ctx, req.DatasourceID, req.ModelID)
+	model, routing, err := h.loadQueryModel(ctx, req)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "semantic model not found")
+		h.writeModelLoadError(w, req, err)
+		return
+	}
+	if routing != nil && routing.NeedsClarification {
+		resp := clarificationResponse(routing)
+		h.recordAIHistory(ctx, req, model, routing, resp)
+		writeJSON(w, http.StatusOK, resp)
 		return
 	}
 
 	resp, err := h.service.ProcessQuestion(ctx, req.Question, model)
 	if err != nil {
+		h.recordAIHistory(ctx, req, model, routing, failedAIResponse(err))
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	resp.TableRouting = routing
+	h.recordAIHistory(ctx, req, model, routing, resp)
 
 	writeJSON(w, http.StatusOK, resp)
 }
@@ -71,20 +88,37 @@ func (h *AIHandler) Preview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	if req.Question == "" {
+		writeError(w, http.StatusBadRequest, "question is required")
+		return
+	}
+	if req.DatasourceID == "" {
+		writeError(w, http.StatusBadRequest, "datasource_id is required")
+		return
+	}
 
 	ctx := r.Context()
-	model, err := h.loadModel(ctx, req.DatasourceID, req.ModelID)
+	model, routing, err := h.loadQueryModel(ctx, req)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "semantic model not found")
+		h.writeModelLoadError(w, req, err)
+		return
+	}
+	if routing != nil && routing.NeedsClarification {
+		resp := clarificationResponse(routing)
+		h.recordAIHistory(ctx, req, model, routing, resp)
+		writeJSON(w, http.StatusOK, resp)
 		return
 	}
 
 	// Get AI response
 	resp, err := h.service.ProcessQuestion(ctx, req.Question, model)
 	if err != nil {
+		h.recordAIHistory(ctx, req, model, routing, failedAIResponse(err))
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	resp.TableRouting = routing
+	h.recordAIHistory(ctx, req, model, routing, resp)
 
 	if resp.LogicalQuery == nil {
 		writeJSON(w, http.StatusOK, resp)
@@ -123,20 +157,37 @@ func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	if req.Question == "" {
+		writeError(w, http.StatusBadRequest, "question is required")
+		return
+	}
+	if req.DatasourceID == "" {
+		writeError(w, http.StatusBadRequest, "datasource_id is required")
+		return
+	}
 
 	ctx := r.Context()
-	model, err := h.loadModel(ctx, req.DatasourceID, req.ModelID)
+	model, routing, err := h.loadQueryModel(ctx, req)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "semantic model not found")
+		h.writeModelLoadError(w, req, err)
+		return
+	}
+	if routing != nil && routing.NeedsClarification {
+		resp := clarificationResponse(routing)
+		h.recordAIHistory(ctx, req, model, routing, resp)
+		writeJSON(w, http.StatusOK, resp)
 		return
 	}
 
 	// Get AI response
 	resp, err := h.service.ProcessQuestion(ctx, req.Question, model)
 	if err != nil {
+		h.recordAIHistory(ctx, req, model, routing, failedAIResponse(err))
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	resp.TableRouting = routing
+	h.recordAIHistory(ctx, req, model, routing, resp)
 
 	if resp.LogicalQuery == nil {
 		writeJSON(w, http.StatusOK, resp)
@@ -160,6 +211,7 @@ func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
 	compiler := query.NewCompiler(driver.Dialect())
 	cq, err := compiler.Compile(ctx, *resp.LogicalQuery, model)
 	if err != nil {
+		h.recordAIQueryHistory(ctx, *resp.LogicalQuery, model, nil, nil, queryStatusFailed, err)
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("compilation failed: %s", err.Error()))
 		return
 	}
@@ -181,11 +233,13 @@ func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.deps.Executor.Execute(ctx, db, cq)
 	if err != nil {
+		h.recordAIQueryHistory(ctx, *resp.LogicalQuery, model, cq, nil, queryStatusFailed, err)
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("execution failed: %s", err.Error()))
 		return
 	}
 
 	resp.Result = result
+	h.recordAIQueryHistory(ctx, *resp.LogicalQuery, model, cq, result, queryStatusSuccess, nil)
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -209,6 +263,46 @@ func (h *AIHandler) Describe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+func (h *AIHandler) loadQueryModel(
+	ctx context.Context,
+	req aiQueryRequest,
+) (*semantic.SemanticModel, *ai.TableRoutingResult, error) {
+	if req.ModelID != "" {
+		model, err := h.loadModel(ctx, req.DatasourceID, req.ModelID)
+		return model, nil, err
+	}
+	return h.tableRouter.Route(ctx, req.DatasourceID, req.Question, req.Tables)
+}
+
+func (h *AIHandler) writeModelLoadError(w http.ResponseWriter, req aiQueryRequest, err error) {
+	if errors.Is(err, ai.ErrTableScopeInvalid) {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if req.ModelID == "" {
+		writeError(w, http.StatusInternalServerError, "failed to route table scope")
+		return
+	}
+	writeError(w, http.StatusNotFound, "semantic model not found")
+}
+
+func clarificationResponse(routing *ai.TableRoutingResult) *ai.Response {
+	return &ai.Response{
+		Warnings: []string{
+			"could not confidently choose the relevant table scope; select one or more tables and try again",
+		},
+		Confidence:   0,
+		TableRouting: routing,
+	}
+}
+
+func failedAIResponse(err error) *ai.Response {
+	return &ai.Response{
+		Warnings:   []string{err.Error()},
+		Confidence: 0,
+	}
 }
 
 func (h *AIHandler) loadModel(ctx context.Context, datasourceID, modelID string) (*semantic.SemanticModel, error) {

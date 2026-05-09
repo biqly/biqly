@@ -73,12 +73,15 @@ export default function SavedQuestions() {
   return (
     <div>
       <div className="card">
-        <h2>Saved Questions</h2>
+        <h2>Question Library</h2>
         <div className="form-group">
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search questions or tags..."
+            placeholder="Search questions or tags…"
+            aria-label="Search saved questions"
+            name="saved_question_search"
+            autoComplete="off"
           />
         </div>
       </div>
@@ -86,10 +89,9 @@ export default function SavedQuestions() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1.5rem' }}>
         <div className="card">
           {filtered.map((q) => (
-            <div
+            <button
               key={q.id}
               className="saved-question-item"
-              style={{ borderRadius: '0.5rem', marginBottom: '0.5rem' }}
               onClick={() => setSelectedQuestion(q)}
             >
               <h3>{q.name}</h3>
@@ -110,7 +112,7 @@ export default function SavedQuestions() {
                   </span>
                 ))}
               </div>
-            </div>
+            </button>
           ))}
         </div>
 

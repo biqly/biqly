@@ -12,6 +12,18 @@ interface Datasource {
 
 const TYPES = ['postgres', 'mysql', 'sqlserver', 'clickhouse']
 
+const dateFormatter = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+})
+
+const formatDateTime = (value: string | null) => {
+  if (!value) return 'Never'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Never'
+  return dateFormatter.format(date)
+}
+
 export default function Datasources() {
   const { get, postData, deleteData, loading, error } = useApi()
   const [items, setItems] = useState<Datasource[]>([])
@@ -44,7 +56,7 @@ export default function Datasources() {
   }
 
   const test = async (id: string) => {
-    setTestResult({ ...testResult, [id]: 'testing...' })
+    setTestResult({ ...testResult, [id]: 'Testing…' })
     const res = await postData<{ success: boolean; latency_ms?: number; error?: string }>(`/api/datasources/${id}/test`, {})
     if (res?.success) {
       setTestResult({ ...testResult, [id]: `OK (${res.latency_ms}ms)` })
@@ -54,7 +66,7 @@ export default function Datasources() {
   }
 
   const sync = async (id: string) => {
-    setSyncResult({ ...syncResult, [id]: 'syncing...' })
+    setSyncResult({ ...syncResult, [id]: 'Syncing…' })
     const res = await postData<{ schemas: number; tables: number; columns: number; relations: number }>(
       `/api/datasources/${id}/sync-metadata`,
       {}
@@ -71,31 +83,35 @@ export default function Datasources() {
     <div>
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2>Datasources</h2>
+          <h2>Connection Registry</h2>
           <button className="btn" onClick={() => setShowForm(!showForm)}>
-            {showForm ? 'Cancel' : '+ New Datasource'}
+              {showForm ? 'Cancel' : '+ New Datasource'}
           </button>
         </div>
 
         {showForm && (
           <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
             <div className="form-group">
-              <label>Name</label>
-              <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="prod-orders-db" />
+              <label htmlFor="datasource-name">Name</label>
+              <input id="datasource-name" name="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="prod-orders-db…" autoComplete="off" />
             </div>
             <div className="form-group">
-              <label>Type</label>
-              <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+              <label htmlFor="datasource-type">Type</label>
+              <select id="datasource-type" name="type" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
                 {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div className="form-group">
-              <label>DSN / Connection String</label>
+              <label htmlFor="datasource-dsn">DSN / Connection String</label>
               <input
+                id="datasource-dsn"
+                name="dsn"
                 type="password"
                 value={form.dsn}
                 onChange={(e) => setForm({ ...form, dsn: e.target.value })}
-                placeholder="postgres://user:pass@host:5432/db?sslmode=require"
+                placeholder="postgres://user:pass@host:5432/db?sslmode=require…"
+                autoComplete="off"
+                spellCheck={false}
               />
               <small style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
                 Stored encrypted. Use a read-only DB user.
@@ -119,7 +135,7 @@ export default function Datasources() {
               <th>Name</th>
               <th>Type</th>
               <th>Last Sync</th>
-              <th>Actions</th>
+              <th className="actions">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -131,14 +147,16 @@ export default function Datasources() {
                 </td>
                 <td>{ds.type}</td>
                 <td>
-                  {ds.last_sync_at ? new Date(ds.last_sync_at).toLocaleString() : 'never'}
+                  {formatDateTime(ds.last_sync_at)}
                   {syncResult[ds.id] && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{syncResult[ds.id]}</div>}
                   {testResult[ds.id] && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{testResult[ds.id]}</div>}
                 </td>
-                <td style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button className="btn" onClick={() => test(ds.id)}>Test</button>
-                  <button className="btn" onClick={() => sync(ds.id)}>Sync</button>
-                  <button className="remove-btn" onClick={() => del(ds.id)}>Delete</button>
+                <td className="actions">
+                  <div className="row-actions">
+                    <button className="btn btn-sm" onClick={() => test(ds.id)}>Test</button>
+                    <button className="btn btn-sm" onClick={() => sync(ds.id)}>Sync</button>
+                    <button className="btn btn-sm btn-danger" onClick={() => del(ds.id)}>Delete</button>
+                  </div>
                 </td>
               </tr>
             ))}

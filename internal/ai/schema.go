@@ -6,12 +6,14 @@ import (
 
 // Request is the input for the AI query endpoint.
 type Request struct {
-	DatasourceID string `json:"datasource_id"`
-	ModelID      string `json:"model_id"`
-	Question     string `json:"question"`
+	DatasourceID string   `json:"datasource_id"`
+	ModelID      string   `json:"model_id,omitempty"`
+	Question     string   `json:"question"`
+	Tables       []string `json:"tables,omitempty"`
 }
 
 // AIRequest is a deprecated alias for Request.
+//
 //nolint:revive // alias for backward compatibility
 type AIRequest = Request
 
@@ -23,9 +25,13 @@ type Response struct {
 	Warnings     []string            `json:"warnings,omitempty"`
 	Result       *query.QueryResult  `json:"result,omitempty"`
 	Confidence   float64             `json:"confidence"`
+	TableRouting *TableRoutingResult `json:"table_routing,omitempty"`
+	Prompt       string              `json:"-"`
+	RawResponse  string              `json:"-"`
 }
 
 // AIResponse is a deprecated alias for Response.
+//
 //nolint:revive // alias for backward compatibility
 type AIResponse = Response
 

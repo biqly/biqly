@@ -34,7 +34,7 @@ export default function Dashboard() {
   return (
     <div>
       <div className="card">
-        <h2>Dashboard</h2>
+        <h2>Reporting Range</h2>
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
           {['24h', '7d', '30d', '90d'].map((r) => (
             <button
@@ -42,6 +42,7 @@ export default function Dashboard() {
               className={selectedRange === r ? 'btn' : ''}
               style={{ background: selectedRange === r ? undefined : 'var(--bg-card)', color: selectedRange === r ? undefined : 'var(--text-secondary)' }}
               onClick={() => setSelectedRange(r)}
+              aria-pressed={selectedRange === r}
             >
               {r}
             </button>

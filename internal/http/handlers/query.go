@@ -10,6 +10,7 @@ import (
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
+	"github.com/go-chi/chi/v5"
 )
 
 // QueryHandler handles query operations.
@@ -109,6 +110,7 @@ func (h *QueryHandler) Run(w http.ResponseWriter, r *http.Request) {
 	cq, compileErr := compiler.Compile(ctx, lq, model)
 	if compileErr != nil {
 		slog.ErrorContext(ctx, "compile failed", "error", compileErr)
+		h.recordQueryHistory(ctx, lq, model, nil, nil, queryStatusFailed, compileErr)
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("compilation failed: %s", compileErr.Error()))
 		return
 	}
@@ -124,6 +126,7 @@ func (h *QueryHandler) Run(w http.ResponseWriter, r *http.Request) {
 	result, execErr := h.deps.Executor.Execute(ctx, db, cq)
 	if execErr != nil {
 		slog.ErrorContext(ctx, "execute failed", "error", execErr)
+		h.recordQueryHistory(ctx, lq, model, cq, nil, queryStatusFailed, execErr)
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("execution failed: %s", execErr.Error()))
 		return
 	}
@@ -132,6 +135,7 @@ func (h *QueryHandler) Run(w http.ResponseWriter, r *http.Request) {
 		"duration_ms", result.Stats.DurationMs,
 		"rows", result.Stats.RowCount,
 	)
+	h.recordQueryHistory(ctx, lq, model, cq, result, queryStatusSuccess, nil)
 
 	writeJSON(w, http.StatusOK, result)
 }
@@ -177,23 +181,31 @@ func (h *QueryHandler) Explain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"logical_query": lq,
+		"logical_query":  lq,
 		"semantic_model": model,
-		"compiled_sql":  cq.SQL,
-		"args":          cq.Args,
+		"compiled_sql":   cq.SQL,
+		"args":           cq.Args,
 	})
 }
 
 // History returns query history.
 func (h *QueryHandler) History(w http.ResponseWriter, r *http.Request) {
-	// TODO: implement query history
-	writeJSON(w, http.StatusOK, []any{})
+	entries, err := h.deps.MetaRepo.ListQueryHistory(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list query history")
+		return
+	}
+	writeJSON(w, http.StatusOK, entries)
 }
 
 // GetHistory returns a single history entry.
 func (h *QueryHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
-	// TODO: implement get single history entry
-	writeError(w, http.StatusNotFound, "not implemented")
+	entry, err := h.deps.MetaRepo.GetQueryHistory(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, "query history not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, entry)
 }
 
 func (h *QueryHandler) loadModel(ctx context.Context, modelID string) (*semantic.SemanticModel, error) {
@@ -202,4 +214,3 @@ func (h *QueryHandler) loadModel(ctx context.Context, modelID string) (*semantic
 	}
 	return h.deps.SemanticRepo.GetFullModel(ctx, modelID)
 }
-

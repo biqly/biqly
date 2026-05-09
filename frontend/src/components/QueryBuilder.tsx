@@ -100,11 +100,11 @@ export default function QueryBuilder() {
   return (
     <div>
       <div className="card">
-        <h2>Query Builder</h2>
+        <h2>Query Setup</h2>
         <div style={{ display: 'flex', gap: '1rem' }}>
           <div className="form-group" style={{ flex: 1 }}>
-            <label>Datasource</label>
-            <select value={datasourceId} onChange={(e) => setDatasourceId(e.target.value)}>
+            <label htmlFor="query-datasource">Datasource</label>
+            <select id="query-datasource" name="datasource" value={datasourceId} onChange={(e) => setDatasourceId(e.target.value)}>
               <option value="">— select —</option>
               {datasources.map((d) => (
                 <option key={d.id} value={d.id}>{d.name}</option>
@@ -112,8 +112,8 @@ export default function QueryBuilder() {
             </select>
           </div>
           <div className="form-group" style={{ flex: 1 }}>
-            <label>Semantic Model</label>
-            <input value={modelId} onChange={(e) => setModelId(e.target.value)} placeholder="e.g. orders" />
+            <label htmlFor="query-model">Semantic Model</label>
+            <input id="query-model" name="model_id" value={modelId} onChange={(e) => setModelId(e.target.value)} placeholder="e.g. orders…" autoComplete="off" />
           </div>
         </div>
 
@@ -121,12 +121,12 @@ export default function QueryBuilder() {
           <label>Select Fields</label>
           {selectItems.map((item, i) => (
             <div key={i} className="query-builder-row">
-              <select value={item.type} onChange={(e) => updateSelectItem(i, 'type', e.target.value)}>
+              <select value={item.type} onChange={(e) => updateSelectItem(i, 'type', e.target.value)} aria-label={`Field ${i + 1} type`}>
                 <option value="dimension">Dimension</option>
                 <option value="metric">Metric</option>
               </select>
-              <input value={item.name} onChange={(e) => updateSelectItem(i, 'name', e.target.value)} placeholder="field name" />
-              <button className="remove-btn" onClick={() => removeSelectItem(i)}>×</button>
+              <input value={item.name} onChange={(e) => updateSelectItem(i, 'name', e.target.value)} placeholder="field name…" aria-label={`Field ${i + 1} name`} autoComplete="off" />
+              <button className="remove-btn" onClick={() => removeSelectItem(i)} aria-label={`Remove field ${i + 1}`}>×</button>
             </div>
           ))}
           <button className="add-btn" onClick={addSelectItem}>+ Add Field</button>
@@ -136,8 +136,8 @@ export default function QueryBuilder() {
           <label>Filters</label>
           {filters.map((f, i) => (
             <div key={i} className="query-builder-row">
-              <input value={f.field} onChange={(e) => updateFilter(i, 'field', e.target.value)} placeholder="field" />
-              <select value={f.operator} onChange={(e) => updateFilter(i, 'operator', e.target.value)}>
+              <input value={f.field} onChange={(e) => updateFilter(i, 'field', e.target.value)} placeholder="field…" aria-label={`Filter ${i + 1} field`} autoComplete="off" />
+              <select value={f.operator} onChange={(e) => updateFilter(i, 'operator', e.target.value)} aria-label={`Filter ${i + 1} operator`}>
                 <option value="eq">=</option>
                 <option value="neq">!=</option>
                 <option value="gt">&gt;</option>
@@ -148,38 +148,38 @@ export default function QueryBuilder() {
                 <option value="in">in</option>
                 <option value="between">between</option>
               </select>
-              <input value={f.value} onChange={(e) => updateFilter(i, 'value', e.target.value)} placeholder="value" />
-              <button className="remove-btn" onClick={() => removeFilter(i)}>×</button>
+              <input value={f.value} onChange={(e) => updateFilter(i, 'value', e.target.value)} placeholder="value…" aria-label={`Filter ${i + 1} value`} autoComplete="off" />
+              <button className="remove-btn" onClick={() => removeFilter(i)} aria-label={`Remove filter ${i + 1}`}>×</button>
             </div>
           ))}
           <button className="add-btn" onClick={addFilter}>+ Add Filter</button>
         </div>
 
         <div className="form-group">
-          <label>Group By</label>
-          <input value={groupBy.join(', ')} onChange={(e) => setGroupBy(e.target.value.split(',').map((s) => s.trim()))} placeholder="comma-separated fields" />
+          <label htmlFor="query-group-by">Group By</label>
+          <input id="query-group-by" name="group_by" value={groupBy.join(', ')} onChange={(e) => setGroupBy(e.target.value.split(',').map((s) => s.trim()))} placeholder="comma-separated fields…" autoComplete="off" />
         </div>
 
         <div style={{ display: 'flex', gap: '1rem' }}>
           <div className="form-group" style={{ flex: 1 }}>
-            <label>Order By</label>
-            <input value={orderBy} onChange={(e) => setOrderBy(e.target.value)} placeholder="field" />
+            <label htmlFor="query-order-by">Order By</label>
+            <input id="query-order-by" name="order_by" value={orderBy} onChange={(e) => setOrderBy(e.target.value)} placeholder="field…" autoComplete="off" />
           </div>
           <div className="form-group" style={{ flex: 1 }}>
-            <label>Direction</label>
-            <select value={orderDir} onChange={(e) => setOrderDir(e.target.value)}>
+            <label htmlFor="query-order-direction">Direction</label>
+            <select id="query-order-direction" name="order_direction" value={orderDir} onChange={(e) => setOrderDir(e.target.value)}>
               <option value="asc">ASC</option>
               <option value="desc">DESC</option>
             </select>
           </div>
           <div className="form-group" style={{ flex: 1 }}>
-            <label>Limit</label>
-            <input type="number" value={limit} onChange={(e) => setLimit(Number(e.target.value))} />
+            <label htmlFor="query-limit">Limit</label>
+            <input id="query-limit" name="limit" type="number" min={1} inputMode="numeric" value={limit} onChange={(e) => setLimit(Number(e.target.value))} />
           </div>
         </div>
 
         <button className="btn" onClick={runQuery} disabled={loading}>
-          {loading ? 'Running...' : 'Run Query'}
+          {loading ? 'Running…' : 'Run Query'}
         </button>
 
         {error && <div className="error">{error}</div>}

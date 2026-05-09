@@ -744,6 +744,13 @@ Endpoints:
 - [x] `GET /api/query/history`
 - [x] `GET /api/query/history/{id}`
 
+Persistence:
+
+- [x] Write successful `/api/query/run` executions to `query_history`
+- [x] Write failed `/api/query/run` compile/execute attempts to `query_history`
+- [x] Return recent query history from `/api/query/history`
+- [x] Return a single query history row from `/api/query/history/{id}`
+
 Example request:
 
 ```json
@@ -940,6 +947,83 @@ Response:
 - [x] Store AI prompt and response in `ai_query_history`
 - [x] Mask sensitive metadata
 - [x] Add per-user rate limit
+
+### 24.5 Add Automatic Table Routing When Semantic Model Is Empty
+
+When the user does not select a semantic model or table scope, the backend should
+decide which table or tables are relevant to the natural language question before
+building the AI prompt context.
+
+Required behavior:
+
+- [x] Treat `model_id` / semantic model selection as optional in AI query requests.
+- [x] Build a datasource metadata catalog from introspected schemas, tables,
+  columns, relations, indexes, descriptions, and lightweight table statistics.
+- [x] Generate a compact "table card" for each table, including:
+  - `schema.table`
+  - table description
+  - column names and types
+  - primary keys and foreign keys
+  - known joins / relations
+  - synonyms and business keywords
+- [x] Add a metadata-driven table retrieval step that combines:
+  - keyword matching over table cards
+  - synonym matching over business terms
+  - exact matches on table, column, metric, and entity names
+  - foreign-key graph expansion for related tables
+- [x] Score candidate tables and return top matches with confidence.
+- [x] Automatically continue when confidence is high.
+- [x] Ask for clarification when confidence is low or multiple unrelated table
+  groups match the question.
+- [x] Pass only selected tables, allowed columns, and join paths into the LLM
+  prompt to reduce hallucination risk.
+- [ ] Persist user confirmations/corrections so future routing can learn from
+  repeated choices.
+
+Completed implementation notes:
+
+- [x] Added `internal/ai/table_router.go`
+- [x] Added synthetic semantic model generation for routed tables
+- [x] Added `COUNT(*)` support in dialect aggregation for auto-generated row count metrics
+- [x] Added routing metadata to AI responses (`selected_tables`, `join_paths`, candidates, confidence)
+- [x] Persist AI query, preview, run, and clarification attempts to `ai_query_history`
+
+Suggested flow:
+
+```text
+User question
+  ↓
+Datasource metadata catalog
+  ↓
+Hybrid table retrieval
+  ↓
+Foreign-key join expansion
+  ↓
+Confidence check
+  ↓
+LogicalQuery generation
+```
+
+Example AI request without manual semantic model:
+
+```json
+{
+  "datasource_id": "ds_123",
+  "question": "Show last month's revenue by customer"
+}
+```
+
+Example router result:
+
+```json
+{
+  "selected_tables": ["public.orders", "public.customers"],
+  "join_paths": [
+    "public.orders.customer_id = public.customers.id"
+  ],
+  "confidence": 0.91
+}
+```
 
 ---
 
@@ -1164,6 +1248,45 @@ Suggested future frontend:
 - Semantic model editor
 - Datasource setup wizard
 - AI question box
+- Datasource-aware table selector for AI question scope
+
+### 30.5 Add Datasource Table Selector UI
+
+The AI question form should not require users to type semantic model or table
+names manually. After a datasource is selected, the UI should list available
+tables from that datasource and allow users to optionally constrain the AI query
+scope.
+
+Required behavior:
+
+- [x] Add a backend endpoint for listing queryable tables for a datasource, for
+  example `GET /api/datasources/{id}/tables`.
+- [x] Return tables in `schema.table` format with enough metadata for display
+  and search.
+- [x] Replace the free-text Semantic Model input with a searchable select or
+  multi-select combobox.
+- [x] Allow no manual table selection; in that case the backend uses automatic
+  table routing.
+- [x] Allow one or more manual table selections; in that case the backend limits
+  AI routing and prompt context to those tables.
+- [x] Display labels as `schema.table`, and optionally show descriptions and
+  key columns in the dropdown.
+- [x] Disable the table selector until a datasource is selected.
+- [x] Refresh the table list after datasource metadata sync.
+
+Example table listing response:
+
+```json
+[
+  {
+    "schema": "public",
+    "name": "orders",
+    "label": "public.orders",
+    "description": "Customer order records",
+    "columns": ["id", "customer_id", "created_at", "total_amount"]
+  }
+]
+```
 
 Initial backend-first endpoints are enough.
 
@@ -1180,6 +1303,8 @@ Initial backend-first endpoints are enough.
 - [x] Filter compiler
 - [x] Permission injection
 - [x] AI JSON schema validation
+- [x] Automatic table routing confidence scoring
+- [x] Table selector request/response mapping
 
 ### 32. Integration Tests
 
@@ -1197,6 +1322,8 @@ Test:
 - [x] compile query
 - [x] execute query
 - [x] compare result
+- [x] list datasource tables for frontend selection
+- [x] AI query without `model_id` routes to expected table set
 
 ### 33. Golden SQL Tests
 
@@ -1233,6 +1360,7 @@ Do not build everything at once.
 - [x] Prompt context from semantic layer
 - [x] AI preview endpoint
 - [x] AI validation and guardrails
+- [x] Automatic table routing when semantic model/table scope is empty
 
 ### MVP 3
 
@@ -1250,6 +1378,7 @@ Do not build everything at once.
 - [x] Charts
 - [x] Saved questions
 - [x] Scheduled reports
+- [x] Searchable datasource table selector for AI question scope
 
 ---
 

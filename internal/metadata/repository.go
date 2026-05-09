@@ -3,7 +3,11 @@ package metadata
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+
+	"github.com/biqly/biqly/internal/query"
+	"github.com/lib/pq"
 )
 
 // Repository handles metadata database operations.
@@ -299,6 +303,220 @@ func (r *Repository) UpsertRelations(ctx context.Context, datasourceID string, r
 		}
 	}
 	return nil
+}
+
+// ListRelations returns foreign-key relationships for a datasource.
+func (r *Repository) ListRelations(ctx context.Context, datasourceID string) ([]Relation, error) {
+	query := `
+		SELECT id, datasource_id, constraint_name, from_schema, from_table, from_column, to_schema, to_table, to_column, relationship_type, created_at
+		FROM relations
+		WHERE datasource_id = $1
+		ORDER BY from_schema, from_table, from_column
+	`
+	rows, err := r.db.QueryContext(ctx, query, datasourceID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var relations []Relation
+	for rows.Next() {
+		var rel Relation
+		if err := rows.Scan(
+			&rel.ID,
+			&rel.DatasourceID,
+			&rel.ConstraintName,
+			&rel.FromSchema,
+			&rel.FromTable,
+			&rel.FromColumn,
+			&rel.ToSchema,
+			&rel.ToTable,
+			&rel.ToColumn,
+			&rel.RelationshipType,
+			&rel.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		relations = append(relations, rel)
+	}
+	return relations, rows.Err()
+}
+
+// History operations
+
+// CreateQueryHistory stores a structured query execution history entry.
+func (r *Repository) CreateQueryHistory(ctx context.Context, entry *query.HistoryEntry) error {
+	logicalQueryJSON, err := json.Marshal(entry.LogicalQuery)
+	if err != nil {
+		return fmt.Errorf("marshal logical query: %w", err)
+	}
+
+	insert := `
+		INSERT INTO query_history (
+			datasource_id, model_id, user_id, logical_query, compiled_sql,
+			sql_args, status, row_count, duration_ms, error_message
+		)
+		VALUES ($1, $2, $3, $4::jsonb, $5, $6::jsonb, $7, $8, $9, $10)
+		RETURNING id, created_at
+	`
+	if err := r.db.QueryRowContext(
+		ctx,
+		insert,
+		entry.DatasourceID,
+		entry.ModelID,
+		entry.UserID,
+		string(logicalQueryJSON),
+		entry.CompiledSQL,
+		entry.SQLArgs,
+		entry.Status,
+		entry.RowCount,
+		entry.DurationMs,
+		entry.ErrorMessage,
+	).Scan(&entry.ID, &entry.CreatedAt); err != nil {
+		return fmt.Errorf("insert query history: %w", err)
+	}
+	return nil
+}
+
+// ListQueryHistory returns recent query history entries.
+func (r *Repository) ListQueryHistory(ctx context.Context) ([]query.HistoryEntry, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, datasource_id, model_id, user_id, logical_query, compiled_sql,
+			sql_args, status, row_count, duration_ms, error_message, created_at
+		FROM query_history
+		ORDER BY created_at DESC
+		LIMIT 100
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var entries []query.HistoryEntry
+	for rows.Next() {
+		entry, err := scanQueryHistoryEntry(rows)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, entry)
+	}
+	return entries, rows.Err()
+}
+
+// GetQueryHistory returns one query history entry by ID.
+func (r *Repository) GetQueryHistory(ctx context.Context, id string) (*query.HistoryEntry, error) {
+	row := r.db.QueryRowContext(ctx, `
+		SELECT id, datasource_id, model_id, user_id, logical_query, compiled_sql,
+			sql_args, status, row_count, duration_ms, error_message, created_at
+		FROM query_history
+		WHERE id = $1
+	`, id)
+	entry, err := scanQueryHistoryEntry(row)
+	if err != nil {
+		return nil, err
+	}
+	return &entry, nil
+}
+
+// CreateAIQueryHistory stores an AI natural-language query history entry.
+func (r *Repository) CreateAIQueryHistory(ctx context.Context, entry *AIQueryHistoryEntry) error {
+	promptContextJSON, err := nullableJSON(entry.PromptContext)
+	if err != nil {
+		return fmt.Errorf("marshal prompt context: %w", err)
+	}
+	aiResponseJSON, err := nullableJSON(entry.AIResponse)
+	if err != nil {
+		return fmt.Errorf("marshal AI response: %w", err)
+	}
+	logicalQueryJSON, err := nullableJSON(entry.LogicalQuery)
+	if err != nil {
+		return fmt.Errorf("marshal logical query: %w", err)
+	}
+
+	insert := `
+		INSERT INTO ai_query_history (
+			datasource_id, model_id, user_id, question, prompt_context,
+			ai_response, logical_query, confidence_score, warnings
+		)
+		VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8, $9)
+		RETURNING id, created_at
+	`
+	if err := r.db.QueryRowContext(
+		ctx,
+		insert,
+		entry.DatasourceID,
+		entry.ModelID,
+		entry.UserID,
+		entry.Question,
+		promptContextJSON,
+		aiResponseJSON,
+		logicalQueryJSON,
+		entry.ConfidenceScore,
+		pq.Array(entry.Warnings),
+	).Scan(&entry.ID, &entry.CreatedAt); err != nil {
+		return fmt.Errorf("insert AI query history: %w", err)
+	}
+	return nil
+}
+
+func scanQueryHistoryEntry(s scanner) (query.HistoryEntry, error) {
+	var entry query.HistoryEntry
+	var modelID, userID, compiledSQL, sqlArgs, errorMessage sql.NullString
+	var rowCount, durationMs sql.NullInt64
+	var logicalQueryRaw []byte
+
+	if err := s.Scan(
+		&entry.ID,
+		&entry.DatasourceID,
+		&modelID,
+		&userID,
+		&logicalQueryRaw,
+		&compiledSQL,
+		&sqlArgs,
+		&entry.Status,
+		&rowCount,
+		&durationMs,
+		&errorMessage,
+		&entry.CreatedAt,
+	); err != nil {
+		return entry, fmt.Errorf("scan query history: %w", err)
+	}
+	if err := json.Unmarshal(logicalQueryRaw, &entry.LogicalQuery); err != nil {
+		return entry, fmt.Errorf("unmarshal logical query: %w", err)
+	}
+	entry.ModelID = nullableStringPtr(modelID)
+	entry.UserID = nullableStringPtr(userID)
+	entry.CompiledSQL = nullableStringPtr(compiledSQL)
+	entry.SQLArgs = nullableStringPtr(sqlArgs)
+	entry.ErrorMessage = nullableStringPtr(errorMessage)
+	if rowCount.Valid {
+		v := int(rowCount.Int64)
+		entry.RowCount = &v
+	}
+	if durationMs.Valid {
+		v := int(durationMs.Int64)
+		entry.DurationMs = &v
+	}
+	return entry, nil
+}
+
+func nullableJSON(value any) (*string, error) {
+	if value == nil {
+		return nil, nil
+	}
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	s := string(encoded)
+	return &s, nil
+}
+
+func nullableStringPtr(value sql.NullString) *string {
+	if !value.Valid {
+		return nil
+	}
+	return &value.String
 }
 
 // Search operations
