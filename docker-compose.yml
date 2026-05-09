@@ -26,7 +26,9 @@ services:
       timeout: 3s
       retries: 5
 
-  # Test PostgreSQL datasource for introspection testing
+  # Test PostgreSQL datasource for introspection testing.
+  # Seeds AdventureWorks on first init if testdata/adventureworks/ exists
+  # (run scripts/fetch-adventureworks.sh once to populate it).
   test-datasource:
     image: postgres:18-alpine
     environment:
@@ -37,9 +39,16 @@ services:
       - "5433:5432"
     volumes:
       - test_data:/var/lib/postgresql
+      - ./testdata/adventureworks:/adventureworks
+      - ./scripts/init-adventureworks.sh:/docker-entrypoint-initdb.d/10-adventureworks.sh:ro
 
   api:
     build: .
+    # BI_AI_* (and other secrets): set in project .env — loaded from file, not ${VAR} interpolation
+    # (interpolation uses shell env first and can ignore .env edits; see env_file below).
+    env_file:
+      - path: .env
+        required: false
     environment:
       BI_HTTP_PORT: 8888
       BI_METADATA_DB_DSN: postgres://bi_user:bi_password@metadata-db:5432/bi_metadata?sslmode=disable
@@ -48,13 +57,6 @@ services:
       BI_QUERY_MAX_ROWS: 10000
       BI_QUERY_MAX_RUNTIME_SECONDS: 60
       BI_ENCRYPTION_KEY: change-this-to-a-secure-32-byte-key!!
-      BI_AI_PROVIDER: ${BI_AI_PROVIDER:-openai}
-      BI_AI_API_KEY: ${BI_AI_API_KEY:-}
-      BI_AI_BASE_URL: ${BI_AI_BASE_URL:-}
-      BI_AI_MODEL: ${BI_AI_MODEL:-gpt-4o}
-      BI_AI_MAX_TOKENS: ${BI_AI_MAX_TOKENS:-4096}
-      BI_AI_TEMPERATURE: ${BI_AI_TEMPERATURE:-0.0}
-      BI_AI_RATE_LIMIT_PER_MINUTE: ${BI_AI_RATE_LIMIT_PER_MINUTE:-20}
     ports:
       - "8888:8888"
     depends_on:

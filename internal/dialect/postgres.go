@@ -14,15 +14,17 @@ func (d PostgresDialect) Name() string {
 	return "postgres"
 }
 
-// QuoteIdent quotes a SQL identifier with dialect-specific delimiters.
+// QuoteIdentSegment quotes one identifier segment; dots are literal (column names like Emp.StartDate).
+func (d PostgresDialect) QuoteIdentSegment(identifier string) string {
+	return "\"" + strings.ReplaceAll(identifier, "\"", "\"\"") + "\""
+}
+
+// QuoteIdent quotes a qualified name by splitting on '.' (schema.table or a.b.c).
 func (d PostgresDialect) QuoteIdent(identifier string) string {
-	// Handle schema.table format: "schema"."table".
-	// Internal double quotes are escaped by doubling per the SQL standard so a
-	// crafted identifier cannot break out of the quoted name.
 	parts := strings.Split(identifier, ".")
 	quoted := make([]string, len(parts))
 	for i, part := range parts {
-		quoted[i] = "\"" + strings.ReplaceAll(part, "\"", "\"\"") + "\""
+		quoted[i] = d.QuoteIdentSegment(part)
 	}
 	return strings.Join(quoted, ".")
 }

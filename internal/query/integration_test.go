@@ -14,11 +14,14 @@ import (
 )
 
 // testDSN returns the DSN for the test database.
+// Defaults to the AdventureWorks sample DB seeded by docker-compose's
+// test-datasource service (see scripts/init-adventureworks.sh). The DB name
+// is mixed-case ("Adventureworks") because install.sql quotes it.
 func testDSN() string {
 	dsn := os.Getenv("BI_TEST_DB_DSN")
 	if dsn == "" {
 		//nolint:gosec // test-only default DSN for local development
-		dsn = "postgres://test_user:test_password@localhost:5433/test_data?sslmode=disable"
+		dsn = "postgres://test_user:test_password@localhost:5433/Adventureworks?sslmode=disable"
 	}
 	return dsn
 }
@@ -105,23 +108,23 @@ func TestIntegration_CompileAndExecute(t *testing.T) {
 	defer func() { _ = db.Close() }()
 
 	model := &semantic.SemanticModel{
-		Name:       "orders",
-		BaseSchema: "public",
-		BaseTable:  "orders",
+		Name:       "sales_orders",
+		BaseSchema: "sales",
+		BaseTable:  "salesorderheader",
 		Dimensions: []semantic.Dimension{
-			{Name: "country", ColumnRef: "customers.country", Type: "text"},
+			{Name: "country", ColumnRef: "salesterritory.countryregioncode", Type: "text"},
 		},
 		Metrics: []semantic.Metric{
-			{Name: "total", Expression: "orders.amount", Aggregation: "sum"},
-			{Name: "count", Expression: "orders.id", Aggregation: "count"},
+			{Name: "total", Expression: "salesorderheader.totaldue", Aggregation: "sum"},
+			{Name: "count", Expression: "salesorderheader.salesorderid", Aggregation: "count"},
 		},
 		Joins: []semantic.Join{
 			{
-				Name:         "orders_customers",
-				FromTable:    "orders",
-				FromColumn:   "customer_id",
-				ToTable:      "customers",
-				ToColumn:     "id",
+				Name:         "salesorderheader_salesterritory",
+				FromTable:    "salesorderheader",
+				FromColumn:   "territoryid",
+				ToTable:      "salesterritory",
+				ToColumn:     "territoryid",
 				JoinType:     "LEFT",
 				Relationship: "many_to_one",
 			},
@@ -129,7 +132,7 @@ func TestIntegration_CompileAndExecute(t *testing.T) {
 	}
 
 	lq := LogicalQuery{
-		ModelID: "orders",
+		ModelID: "sales_orders",
 		Select: []SelectItem{
 			{Type: "dimension", Name: "country"},
 			{Type: "metric", Name: "total"},

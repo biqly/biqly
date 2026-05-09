@@ -25,23 +25,23 @@ func TestGolden_PostgresSimpleSelect(t *testing.T) {
 	}
 
 	model := &semantic.SemanticModel{
-		Name:       "orders",
-		BaseSchema: "public",
-		BaseTable:  "orders",
+		Name:       "sales_orders",
+		BaseSchema: "sales",
+		BaseTable:  "salesorderheader",
 		Dimensions: []semantic.Dimension{
-			{Name: "country", ColumnRef: "customers.country", Type: "text"},
-			{Name: "created_at", ColumnRef: "orders.created_at", Type: "date"},
+			{Name: "country", ColumnRef: "salesterritory.countryregioncode", Type: "text"},
+			{Name: "order_date", ColumnRef: "salesorderheader.orderdate", Type: "date"},
 		},
 		Metrics: []semantic.Metric{
-			{Name: "order_count", Expression: "orders.id", Aggregation: "count"},
+			{Name: "order_count", Expression: "salesorderheader.salesorderid", Aggregation: "count"},
 		},
 		Joins: []semantic.Join{
 			{
-				Name:         "orders_customers",
-				FromTable:    "orders",
-				FromColumn:   "customer_id",
-				ToTable:      "customers",
-				ToColumn:     "id",
+				Name:         "salesorderheader_salesterritory",
+				FromTable:    "salesorderheader",
+				FromColumn:   "territoryid",
+				ToTable:      "salesterritory",
+				ToColumn:     "territoryid",
 				JoinType:     "LEFT",
 				Relationship: "many_to_one",
 			},
@@ -49,12 +49,12 @@ func TestGolden_PostgresSimpleSelect(t *testing.T) {
 	}
 
 	lq := LogicalQuery{
-		ModelID: "orders",
+		ModelID: "sales_orders",
 		Select: []SelectItem{
 			{Type: "dimension", Name: "country"},
 			{Type: "metric", Name: "order_count"},
 		},
-		Filters: []Filter{{Field: "created_at", Operator: OpGte, Value: "2026-01-01"}},
+		Filters: []Filter{{Field: "order_date", Operator: OpGte, Value: "2011-01-01"}},
 		GroupBy: []GroupBy{{Field: "country"}},
 		OrderBy: []OrderBy{{Field: "order_count", Direction: "desc"}},
 		Limit:   100,

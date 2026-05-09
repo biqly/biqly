@@ -55,6 +55,12 @@ type AIConfig struct {
 	MaxTokens     int
 	Temperature   float64
 	RateLimitPerMinute int
+	// MaxPromptInputRunes caps the semantic-model section of NL→query prompts (~4 chars/rune ≈ 1 token).
+	MaxPromptInputRunes int
+	// DescribeMaxCellRunes truncates each sampled cell in AI Describe before sending to the LLM.
+	DescribeMaxCellRunes int
+	// DescribeMaxSampleRows is a hard cap on rows sampled for Describe (wide tables × many columns).
+	DescribeMaxSampleRows int
 }
 
 // Load reads configuration from environment variables.
@@ -86,6 +92,9 @@ func Load() (*Config, error) {
 			MaxTokens:          getEnvAsInt("BI_AI_MAX_TOKENS", 4096),
 			Temperature:        getEnvAsFloat("BI_AI_TEMPERATURE", 0.0),
 			RateLimitPerMinute: getEnvAsInt("BI_AI_RATE_LIMIT_PER_MINUTE", 20),
+			MaxPromptInputRunes:   getEnvAsInt("BI_AI_MAX_PROMPT_RUNES", 80000),
+			DescribeMaxCellRunes:  getEnvAsInt("BI_AI_DESCRIBE_MAX_CELL_RUNES", 500),
+			DescribeMaxSampleRows: getEnvAsInt("BI_AI_DESCRIBE_MAX_SAMPLE_ROWS", 12),
 		},
 	}
 

@@ -17,7 +17,49 @@ const (
 	autoModelPrefix       = "auto:"
 	maxAutoSelectedTables = 3
 	minRouteConfidence    = 0.35
+	// Limits for auto-generated semantic models (avoids multi-hundred-column explosion in LLM prompts).
+	maxAutoModelDimensions = 150
+	maxAutoModelMetrics    = 120
 )
+
+type bundleColumn struct {
+	bundle tableBundle
+	col    metadata.Column
+}
+
+func columnPriority(c metadata.Column) int {
+	switch {
+	case c.IsPrimaryKey:
+		return 0
+	case c.IsForeignKey:
+		return 1
+	case isDisplayNameColumn(c.ColumnName):
+		return 2
+	default:
+		return 3
+	}
+}
+
+// sortedBundleColumns returns columns across selected tables in a stable, business-relevant order.
+func sortedBundleColumns(selected []tableBundle, columnsByTable map[string][]metadata.Column) []bundleColumn {
+	var out []bundleColumn
+	for _, bundle := range selected {
+		key := tableKey(bundle.table.SchemaName, bundle.table.TableName)
+		for _, col := range columnsByTable[key] {
+			out = append(out, bundleColumn{bundle: bundle, col: col})
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		pi, pj := columnPriority(out[i].col), columnPriority(out[j].col)
+		if pi != pj {
+			return pi < pj
+		}
+		li := tableLabel(out[i].bundle.table) + "." + out[i].col.ColumnName
+		lj := tableLabel(out[j].bundle.table) + "." + out[j].col.ColumnName
+		return li < lj
+	})
+	return out
+}
 
 // ErrTableScopeInvalid indicates that a manually provided table scope is invalid.
 var ErrTableScopeInvalid = errors.New("table scope invalid")
@@ -256,23 +298,75 @@ func buildSemanticModel(
 
 func buildDimensions(selected []tableBundle, columnsByTable map[string][]metadata.Column) []semantic.Dimension {
 	nameCounts := columnNameCounts(selected, columnsByTable)
-	var dimensions []semantic.Dimension
-	for _, bundle := range selected {
-		for _, col := range columnsByTable[tableKey(bundle.table.SchemaName, bundle.table.TableName)] {
-			name := col.ColumnName
-			if nameCounts[col.ColumnName] > 1 {
-				name = bundle.table.TableName + "_" + col.ColumnName
-			}
-			dimensions = append(dimensions, semantic.Dimension{
-				Name:        name,
-				ColumnRef:   bundle.table.TableName + "." + col.ColumnName,
-				Type:        dimensionType(col.DataType),
-				Description: col.Description,
-				IsActive:    true,
-			})
+	pairs := sortedBundleColumns(selected, columnsByTable)
+	if len(pairs) > maxAutoModelDimensions {
+		pairs = pairs[:maxAutoModelDimensions]
+	}
+	dimensions := make([]semantic.Dimension, 0, len(pairs))
+	for _, p := range pairs {
+		name := p.col.ColumnName
+		if nameCounts[p.col.ColumnName] > 1 {
+			name = p.bundle.table.TableName + "_" + p.col.ColumnName
 		}
+		dimensions = append(dimensions, semantic.Dimension{
+			Name:        name,
+			ColumnRef:   p.bundle.table.TableName + "." + p.col.ColumnName,
+			Type:        dimensionType(p.col.DataType),
+			Description: p.col.Description,
+			Synonyms:    displayNameSynonyms(p.bundle.table.TableName, p.col.ColumnName),
+			IsActive:    true,
+		})
 	}
 	return dimensions
+}
+
+// displayNameSynonyms tags human-readable label columns (name, title, label, ...)
+// with the parent table's name and its known translations, so a question that
+// refers to the entity generically ("customer" / "müşteri") routes to the
+// display column instead of the primary key.
+func displayNameSynonyms(tableName, columnName string) []string {
+	if !isDisplayNameColumn(columnName) {
+		return nil
+	}
+	base := singularize(strings.ToLower(tableName))
+	seen := map[string]bool{}
+	add := func(s string) []string {
+		s = strings.TrimSpace(strings.ToLower(s))
+		if s == "" || seen[s] {
+			return nil
+		}
+		seen[s] = true
+		return []string{s}
+	}
+	var out []string
+	out = append(out, add(tableName)...)
+	out = append(out, add(base)...)
+	for _, syn := range tokenSynonyms[base] {
+		out = append(out, add(syn)...)
+	}
+	return out
+}
+
+func isDisplayNameColumn(name string) bool {
+	n := strings.ToLower(name)
+	switch n {
+	case "name", "full_name", "fullname", "display_name", "displayname", "title", "label", "username", "email":
+		return true
+	}
+	return strings.HasSuffix(n, "_name")
+}
+
+func singularize(name string) string {
+	switch {
+	case strings.HasSuffix(name, "ies") && len(name) > 3:
+		return strings.TrimSuffix(name, "ies") + "y"
+	case strings.HasSuffix(name, "ses") && len(name) > 3:
+		return strings.TrimSuffix(name, "es")
+	case strings.HasSuffix(name, "s") && len(name) > 3:
+		return strings.TrimSuffix(name, "s")
+	default:
+		return name
+	}
 }
 
 func buildMetrics(selected []tableBundle, columnsByTable map[string][]metadata.Column) []semantic.Metric {
@@ -285,33 +379,53 @@ func buildMetrics(selected []tableBundle, columnsByTable map[string][]metadata.C
 	}}
 
 	nameCounts := columnNameCounts(selected, columnsByTable)
-	for _, bundle := range selected {
-		for _, col := range columnsByTable[tableKey(bundle.table.SchemaName, bundle.table.TableName)] {
-			if !isNumericType(col.DataType) {
-				continue
-			}
-			name := col.ColumnName
-			if nameCounts[col.ColumnName] > 1 {
-				name = bundle.table.TableName + "_" + col.ColumnName
-			}
-			expression := bundle.table.TableName + "." + col.ColumnName
-			metrics = append(metrics,
-				metric("sum_"+name, expression, semantic.AggSum, col.Description),
-				metric("avg_"+name, expression, semantic.AggAvg, col.Description),
-				metric("min_"+name, expression, semantic.AggMin, col.Description),
-				metric("max_"+name, expression, semantic.AggMax, col.Description),
-			)
+	pairs := sortedBundleColumns(selected, columnsByTable)
+
+	appendMetric := func(m semantic.Metric) {
+		if len(metrics) >= maxAutoModelMetrics {
+			return
+		}
+		metrics = append(metrics, m)
+	}
+
+	for _, p := range pairs {
+		if len(metrics) >= maxAutoModelMetrics {
+			break
+		}
+		col := p.col
+		name := col.ColumnName
+		if nameCounts[col.ColumnName] > 1 {
+			name = p.bundle.table.TableName + "_" + col.ColumnName
+		}
+		expression := p.bundle.table.TableName + "." + col.ColumnName
+		switch {
+		case isNumericType(col.DataType):
+			appendMetric(metric("sum_"+name, expression, semantic.AggSum, col.Description, nil))
+			appendMetric(metric("avg_"+name, expression, semantic.AggAvg, col.Description, nil))
+			appendMetric(metric("min_"+name, expression, semantic.AggMin, col.Description, minNumericSynonyms))
+			appendMetric(metric("max_"+name, expression, semantic.AggMax, col.Description, maxNumericSynonyms))
+		case isDateOrTimeType(col.DataType):
+			appendMetric(metric("min_"+name, expression, semantic.AggMin, col.Description, minDateSynonyms))
+			appendMetric(metric("max_"+name, expression, semantic.AggMax, col.Description, maxDateSynonyms))
 		}
 	}
 	return metrics
 }
 
-func metric(name string, expression string, aggregation semantic.AggregationType, description *string) semantic.Metric {
+var (
+	minNumericSynonyms = []string{"min", "minimum", "lowest", "smallest", "en az", "en kucuk"}
+	maxNumericSynonyms = []string{"max", "maximum", "highest", "largest", "en cok", "en buyuk"}
+	minDateSynonyms    = []string{"earliest", "first", "oldest", "ilk", "en eski", "en erken"}
+	maxDateSynonyms    = []string{"latest", "last", "most recent", "newest", "son", "en son", "en yeni", "son tarih"}
+)
+
+func metric(name string, expression string, aggregation semantic.AggregationType, description *string, synonyms []string) semantic.Metric {
 	return semantic.Metric{
 		Name:        name,
 		Expression:  expression,
 		Aggregation: string(aggregation),
 		Description: description,
+		Synonyms:    synonyms,
 		IsActive:    true,
 	}
 }
@@ -649,4 +763,9 @@ func isNumericType(dataType string) bool {
 		}
 	}
 	return false
+}
+
+func isDateOrTimeType(dataType string) bool {
+	t := strings.ToLower(dataType)
+	return strings.Contains(t, "date") || strings.Contains(t, "time")
 }

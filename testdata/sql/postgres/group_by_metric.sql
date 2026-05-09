@@ -1,13 +1,13 @@
 SELECT
-  "customers"."country" AS "country",
-  COUNT("orders"."id") AS "order_count"
+  "salesterritory"."countryregioncode" AS "country",
+  COUNT("salesorderheader"."salesorderid") AS "order_count"
 FROM
-  "public"."orders"
-LEFT JOIN "public"."customers" ON "public"."orders"."customer_id" = "public"."customers"."id"
+  "sales"."salesorderheader"
+LEFT JOIN "sales"."salesterritory" ON "sales"."salesorderheader"."territoryid" = "sales"."salesterritory"."territoryid"
 WHERE
-  "orders"."created_at" >= $1
+  "salesorderheader"."orderdate" >= $1
 GROUP BY
-  "customers"."country"
+  "salesterritory"."countryregioncode"
 ORDER BY
   "order_count" DESC
 LIMIT 100

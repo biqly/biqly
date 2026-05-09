@@ -25,3 +25,6 @@ frontend/.vite/
 
 # Logs
 *.log
+
+# Seed data (fetched via scripts/fetch-adventureworks.sh)
+testdata/adventureworks/

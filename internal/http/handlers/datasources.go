@@ -229,6 +229,22 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 		tableIDs[[2]string{t.SchemaName, t.TableName}] = tableID
 	}
 
+	// Build FK lookup so column rows carry referenced_table/_column even when the
+	// driver-level introspection only reports relations separately.
+	type fkTarget struct {
+		schema string
+		table  string
+		column string
+	}
+	fkBySource := make(map[[3]string]fkTarget, len(result.Relations))
+	for _, rel := range result.Relations {
+		fkBySource[[3]string{rel.FromSchema, rel.FromTable, rel.FromColumn}] = fkTarget{
+			schema: rel.ToSchema,
+			table:  rel.ToTable,
+			column: rel.ToColumn,
+		}
+	}
+
 	// Store columns (description from native DB comment when present)
 	for _, c := range result.Columns {
 		tableID, ok := tableIDs[[2]string{c.SchemaName, c.TableName}]
@@ -254,6 +270,13 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 			ColumnDefault:    &colDefault,
 			IsPrimaryKey:     c.IsPrimaryKey,
 			IsForeignKey:     c.IsForeignKey,
+		}
+		if target, isFK := fkBySource[[3]string{c.SchemaName, c.TableName, c.ColumnName}]; isFK {
+			col.IsForeignKey = true
+			schema, table, column := target.schema, target.table, target.column
+			col.ReferencedSchema = &schema
+			col.ReferencedTable = &table
+			col.ReferencedColumn = &column
 		}
 		if c.Comment != "" {
 			cm := c.Comment

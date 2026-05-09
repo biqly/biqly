@@ -64,7 +64,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 
 	// AI client + metadata describe service (lazy: only used when an AI provider is configured)
 	aiClient := ai.NewClient(cfg.AI)
-	describer := ai.NewDescribeService(aiClient, metaRepo, reg, 10)
+	describer := ai.NewDescribeService(aiClient, metaRepo, reg, 10, cfg.AI.DescribeMaxCellRunes, cfg.AI.DescribeMaxSampleRows)
 
 	return &Dependencies{
 		Config:       cfg,

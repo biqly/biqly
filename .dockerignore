@@ -1,0 +1,18 @@
+.git
+.gitignore
+
+# Frontend — built in its own image context
+frontend/node_modules
+frontend/dist
+frontend/.vite
+
+# Go / local
+bin/
+*.test
+*.out
+coverage.out
+.env
+.env.*
+*.md
+.idea
+.vscode

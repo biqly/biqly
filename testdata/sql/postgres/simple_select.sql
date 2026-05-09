@@ -1,8 +1,8 @@
 SELECT
-  "users"."name" AS "name",
-  "users"."email" AS "email"
+  "salesorderheader"."salesordernumber" AS "order_number",
+  "salesorderheader"."totaldue" AS "total_due"
 FROM
-  "public"."users"
+  "sales"."salesorderheader"
 WHERE
-  "users"."age" >= $1
+  "salesorderheader"."totaldue" >= $1
 LIMIT 50

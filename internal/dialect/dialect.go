@@ -9,6 +9,11 @@ type Dialect interface {
 	// QuoteIdent quotes an identifier (table name, column name) to prevent SQL injection.
 	QuoteIdent(identifier string) string
 
+	// QuoteIdentSegment quotes a single catalog name as returned by the database (e.g. a
+	// column "Emp.StartDate") without splitting on '.' . Use QuoteIdent for qualified
+	// refs like schema.table expressed as one string with dot separators.
+	QuoteIdentSegment(identifier string) string
+
 	// Placeholder returns the parameter placeholder for the given index (1-based).
 	Placeholder(index int) string
 

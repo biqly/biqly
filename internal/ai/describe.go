@@ -7,37 +7,48 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/dialect"
 	"github.com/biqly/biqly/internal/metadata"
 )
 
-// identRegex is the only shape of identifier we are willing to interpolate into
-// a sample query. Anything else is rejected before we touch the source DB so a
-// caller cannot smuggle SQL through schema/table/column names.
-var identRegex = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_$]*$`)
+// identRegex matches catalog names we interpolate into a sample query after
+// dialect-specific quoting. Leading digits and internal dots are allowed (e.g. "2012",
+// "Emp.StartDate"); spaces, semicolons, and quotes are rejected.
+var identRegex = regexp.MustCompile(`^[A-Za-z0-9_$][A-Za-z0-9_.$]*$`)
 
 func validIdent(s string) bool { return identRegex.MatchString(s) }
 
 // DescribeService generates table/column descriptions from sampled rows using an LLM.
 type DescribeService struct {
-	client     *Client
-	metaRepo   *metadata.Repository
-	driverReg  *datasource.Registry
-	sampleRows int
+	client               *Client
+	metaRepo             *metadata.Repository
+	driverReg            *datasource.Registry
+	sampleRows           int
+	maxCellRunes         int
+	maxSampleRowsHardCap int
 }
 
 // NewDescribeService wires the dependencies needed to sample, prompt, and persist descriptions.
-func NewDescribeService(client *Client, metaRepo *metadata.Repository, driverReg *datasource.Registry, sampleRows int) *DescribeService {
+func NewDescribeService(client *Client, metaRepo *metadata.Repository, driverReg *datasource.Registry, sampleRows, maxCellRunes, maxSampleRowsHardCap int) *DescribeService {
 	if sampleRows <= 0 {
 		sampleRows = 10
 	}
+	if maxCellRunes <= 0 {
+		maxCellRunes = 500
+	}
+	if maxSampleRowsHardCap <= 0 {
+		maxSampleRowsHardCap = 12
+	}
 	return &DescribeService{
-		client:     client,
-		metaRepo:   metaRepo,
-		driverReg:  driverReg,
-		sampleRows: sampleRows,
+		client:               client,
+		metaRepo:             metaRepo,
+		driverReg:            driverReg,
+		sampleRows:           sampleRows,
+		maxCellRunes:         maxCellRunes,
+		maxSampleRowsHardCap: maxSampleRowsHardCap,
 	}
 }
 
@@ -76,6 +87,9 @@ func (s *DescribeService) Describe(ctx context.Context, req DescribeRequest) (*D
 	if limit <= 0 {
 		limit = s.sampleRows
 	}
+	if limit > s.maxSampleRowsHardCap {
+		limit = s.maxSampleRowsHardCap
+	}
 
 	ds, err := s.metaRepo.GetDatasource(ctx, req.DatasourceID)
 	if err != nil {
@@ -94,6 +108,12 @@ func (s *DescribeService) Describe(ctx context.Context, req DescribeRequest) (*D
 	if len(cols) == 0 {
 		return nil, fmt.Errorf("no columns found for %s.%s — run sync-metadata first", req.Schema, req.Table)
 	}
+	// Very wide tables: fewer rows keep the LLM prompt bounded.
+	if len(cols) > 80 && limit > 4 {
+		limit = 4
+	} else if len(cols) > 40 && limit > 6 {
+		limit = 6
+	}
 
 	db, err := driver.Open(ctx, ds.DSNEncrypted)
 	if err != nil {
@@ -105,6 +125,7 @@ func (s *DescribeService) Describe(ctx context.Context, req DescribeRequest) (*D
 	if err != nil {
 		return nil, fmt.Errorf("fetch sample: %w", err)
 	}
+	sample = shrinkSampleForPrompt(sample, s.maxCellRunes)
 
 	prompt := buildDescribePrompt(req.Schema, req.Table, cols, sample)
 	raw, err := s.client.Generate(ctx, prompt)
@@ -150,11 +171,11 @@ func (s *DescribeService) fetchSample(ctx context.Context, db *sql.DB, d dialect
 		if !validIdent(c.ColumnName) {
 			return nil, fmt.Errorf("invalid column identifier: %q", c.ColumnName)
 		}
-		colIdents = append(colIdents, d.QuoteIdent(c.ColumnName))
+		colIdents = append(colIdents, d.QuoteIdentSegment(c.ColumnName))
 	}
-	from := d.QuoteIdent(table)
+	from := d.QuoteIdentSegment(table)
 	if schema != "" {
-		from = d.QuoteIdent(schema) + "." + d.QuoteIdent(table)
+		from = d.QuoteIdentSegment(schema) + "." + d.QuoteIdentSegment(table)
 	}
 	// Identifiers are validated above; LimitOffset emits an integer literal.
 	//nolint:gosec // identifiers validated against allowlist regex above
@@ -197,6 +218,52 @@ func (s *DescribeService) fetchSample(ctx context.Context, db *sql.DB, d dialect
 		out = append(out, row)
 	}
 	return out, rows.Err()
+}
+
+func shrinkSampleForPrompt(rows []map[string]any, maxCellRunes int) []map[string]any {
+	if maxCellRunes <= 0 {
+		maxCellRunes = 500
+	}
+	out := make([]map[string]any, len(rows))
+	for i, row := range rows {
+		m := make(map[string]any, len(row))
+		for k, v := range row {
+			m[k] = truncateAnyForPrompt(v, maxCellRunes)
+		}
+		out[i] = m
+	}
+	return out
+}
+
+func truncateAnyForPrompt(v any, maxRunes int) any {
+	if v == nil {
+		return nil
+	}
+	switch x := v.(type) {
+	case []byte:
+		return truncateStringRunes(string(x), maxRunes)
+	case string:
+		return truncateStringRunes(x, maxRunes)
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64, bool:
+		return v
+	default:
+		s := fmt.Sprint(x)
+		if utf8.RuneCountInString(s) <= maxRunes {
+			return v
+		}
+		return truncateStringRunes(s, maxRunes)
+	}
+}
+
+func truncateStringRunes(s string, maxRunes int) string {
+	if maxRunes <= 0 {
+		return ""
+	}
+	runes := []rune(s)
+	if len(runes) <= maxRunes {
+		return s
+	}
+	return string(runes[:maxRunes]) + "…"
 }
 
 func (s *DescribeService) apply(ctx context.Context, cols []metadata.Column, result *DescribeResult) error {
@@ -255,8 +322,8 @@ func buildDescribePrompt(schema, table string, cols []metadata.Column, sample []
 		sb.WriteString(line + "\n")
 	}
 
-	sb.WriteString("\n### Sample Rows (JSON)\n")
-	if data, err := json.MarshalIndent(sample, "", "  "); err == nil {
+	sb.WriteString("\n### Sample Rows (JSON, compact; cell strings may be truncated)\n")
+	if data, err := json.Marshal(sample); err == nil {
 		sb.Write(data)
 		sb.WriteString("\n")
 	}

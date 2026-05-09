@@ -513,6 +513,91 @@ a {
   background: rgba(96, 165, 250, 0.06);
 }
 
+/* Compact tables inside modals (bulk describe): no forced min-width, tighter rows */
+.results-table.results-table--dense {
+  min-width: 0;
+  width: 100%;
+  table-layout: fixed;
+  margin-top: 0;
+  font-size: 0.8125rem;
+}
+
+.results-table.results-table--dense th,
+.results-table.results-table--dense td {
+  padding: 0.3rem 0.45rem;
+  vertical-align: top;
+}
+
+.results-table.results-table--dense thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  box-shadow: 0 1px 0 rgba(148, 163, 184, 0.14);
+}
+
+.results-table.results-table--dense .bulk-col-idx {
+  width: 2.25rem;
+  text-align: right;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.results-table.results-table--dense .bulk-col-name code {
+  display: block;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.results-table.results-table--dense .bulk-col-status {
+  width: 6.5rem;
+}
+
+.results-table.results-table--dense .bulk-col-status span {
+  font-size: 0.78rem;
+}
+
+.results-table.results-table--dense .bulk-col-detail {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.modal-card.modal-card--bulk-describe {
+  width: min(100%, 52rem);
+  max-height: min(calc(100vh - 1.5rem), 90vh);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.modal-card.modal-card--bulk-describe .modal-body--scroll {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  gap: 0.65rem;
+  padding-top: 0.85rem;
+  padding-bottom: 1rem;
+}
+
+.modal-card.modal-card--bulk-describe .bulk-describe-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.modal-card.modal-card--bulk-describe .modal-actions {
+  flex-shrink: 0;
+  margin-top: 0;
+}
+
 .stats {
   display: flex;
   flex-wrap: wrap;

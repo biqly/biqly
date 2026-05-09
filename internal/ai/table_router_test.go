@@ -3,6 +3,7 @@ package ai
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/biqly/biqly/internal/dialect"
@@ -77,6 +78,71 @@ func TestTableRouter_RouteSelectsRelatedTables(t *testing.T) {
 	wantSQL := `SELECT "customers"."name" AS "name", SUM("orders"."total_amount") AS "sum_total_amount" FROM "public"."orders" LEFT JOIN "public"."customers" ON "public"."orders"."customer_id" = "public"."customers"."id" GROUP BY "customers"."name" LIMIT 100`
 	if compiled.SQL != wantSQL {
 		t.Errorf("Compile() with routed model SQL = %q, want %q", compiled.SQL, wantSQL)
+	}
+}
+
+func TestTableRouter_BuildsMinMaxMetricsForDateColumns(t *testing.T) {
+	reader := testMetadataReader()
+	reader.columns = append(reader.columns, metadata.Column{
+		DatasourceID: "ds1",
+		SchemaName:   "public",
+		TableName:    "orders",
+		ColumnName:   "order_date",
+		DataType:     "timestamp",
+	})
+	router := NewTableRouter(reader)
+
+	model, _, err := router.Route(context.Background(), "ds1", "show total sales by customer", nil)
+	if err != nil {
+		t.Fatalf("Route() error = %v, want nil", err)
+	}
+	if !hasMetric(model.Metrics, "max_order_date", "orders.order_date") {
+		t.Errorf("Route() metrics = %+v, want max_order_date metric", model.Metrics)
+	}
+	if !hasMetric(model.Metrics, "min_order_date", "orders.order_date") {
+		t.Errorf("Route() metrics = %+v, want min_order_date metric", model.Metrics)
+	}
+
+	lq := query.LogicalQuery{
+		DatasourceID: "ds1",
+		ModelID:      model.Name,
+		Select: []query.SelectItem{
+			{Type: query.SelectTypeDimension, Name: "name"},
+			{Type: query.SelectTypeMetric, Name: "row_count"},
+			{Type: query.SelectTypeMetric, Name: "max_order_date"},
+		},
+		GroupBy: []query.GroupBy{{Field: "name"}},
+		Limit:   100,
+	}
+	if _, err := query.NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model); err != nil {
+		t.Fatalf("Compile() with date metric error = %v, want nil", err)
+	}
+}
+
+func TestTableRouter_DisplayNameDimensionInheritsTableSynonyms(t *testing.T) {
+	router := NewTableRouter(testMetadataReader())
+
+	model, _, err := router.Route(context.Background(), "ds1", "show total sales by customer", nil)
+	if err != nil {
+		t.Fatalf("Route() error = %v, want nil", err)
+	}
+
+	var nameDim *semantic.Dimension
+	for i := range model.Dimensions {
+		if model.Dimensions[i].ColumnRef == "customers.name" {
+			nameDim = &model.Dimensions[i]
+			break
+		}
+	}
+	if nameDim == nil {
+		t.Fatalf("expected customers.name dimension, got %+v", model.Dimensions)
+	}
+
+	want := []string{"customer", "musteri"}
+	for _, syn := range want {
+		if !slices.Contains(nameDim.Synonyms, syn) {
+			t.Errorf("customers.name synonyms = %v, want to contain %q", nameDim.Synonyms, syn)
+		}
 	}
 }
 

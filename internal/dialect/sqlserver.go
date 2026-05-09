@@ -14,12 +14,17 @@ func (d SQLServerDialect) Name() string {
 	return "sqlserver"
 }
 
-// QuoteIdent quotes a SQL identifier with dialect-specific delimiters.
+// QuoteIdentSegment quotes one identifier segment; ']' is escaped per T-SQL rules.
+func (d SQLServerDialect) QuoteIdentSegment(identifier string) string {
+	return "[" + strings.ReplaceAll(identifier, "]", "]]") + "]"
+}
+
+// QuoteIdent quotes a qualified name by splitting on '.' .
 func (d SQLServerDialect) QuoteIdent(identifier string) string {
 	parts := strings.Split(identifier, ".")
 	quoted := make([]string, len(parts))
 	for i, part := range parts {
-		quoted[i] = "[" + part + "]"
+		quoted[i] = d.QuoteIdentSegment(part)
 	}
 	return strings.Join(quoted, ".")
 }

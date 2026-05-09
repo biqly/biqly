@@ -14,12 +14,17 @@ func (d MySQLDialect) Name() string {
 	return "mysql"
 }
 
-// QuoteIdent quotes a SQL identifier with dialect-specific delimiters.
+// QuoteIdentSegment quotes one identifier segment; backticks inside are doubled.
+func (d MySQLDialect) QuoteIdentSegment(identifier string) string {
+	return "`" + strings.ReplaceAll(identifier, "`", "``") + "`"
+}
+
+// QuoteIdent quotes a qualified name by splitting on '.' .
 func (d MySQLDialect) QuoteIdent(identifier string) string {
 	parts := strings.Split(identifier, ".")
 	quoted := make([]string, len(parts))
 	for i, part := range parts {
-		quoted[i] = "`" + part + "`"
+		quoted[i] = d.QuoteIdentSegment(part)
 	}
 	return strings.Join(quoted, ".")
 }

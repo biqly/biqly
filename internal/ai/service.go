@@ -13,24 +13,30 @@ import (
 
 // Service orchestrates the AI text-to-query flow.
 type Service struct {
-	client        *Client
-	promptBuilder *PromptBuilder
-	validator     *query.Validator
+	client           *Client
+	promptBuilder    *PromptBuilder
+	validator        *query.Validator
+	maxPromptRunes   int
 }
 
 // NewService creates a new AI service.
 func NewService(cfg config.AIConfig, validator *query.Validator) *Service {
+	maxR := cfg.MaxPromptInputRunes
+	if maxR <= 0 {
+		maxR = 80000
+	}
 	return &Service{
-		client:        NewClient(cfg),
-		promptBuilder: &PromptBuilder{},
-		validator:     validator,
+		client:         NewClient(cfg),
+		promptBuilder:  &PromptBuilder{},
+		validator:      validator,
+		maxPromptRunes: maxR,
 	}
 }
 
 // ProcessQuestion handles a natural language question.
 func (s *Service) ProcessQuestion(ctx context.Context, question string, model *semantic.SemanticModel) (*AIResponse, error) {
 	// Build prompt
-	prompt := s.promptBuilder.Build(question, model)
+	prompt := s.promptBuilder.Build(question, model, s.maxPromptRunes)
 
 	// Call LLM
 	rawResponse, err := s.client.Generate(ctx, prompt)

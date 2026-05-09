@@ -1,4 +1,4 @@
-.PHONY: build run test lint clean migrate-up migrate-down docker-up docker-down
+.PHONY: build run test lint clean migrate-up migrate-down docker-up docker-down seed-adventureworks
 
 BINARY_NAME=biqly
 GO_FILES=$(shell find . -name '*.go' -not -path './vendor/*')
@@ -24,7 +24,10 @@ migrate-up:
 migrate-down:
 	@go run ./cmd/migrate down
 
-docker-up:
+seed-adventureworks:
+	@./scripts/fetch-adventureworks.sh
+
+docker-up: seed-adventureworks
 	@docker compose up -d
 
 docker-down:
