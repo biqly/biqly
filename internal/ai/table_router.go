@@ -14,12 +14,15 @@ import (
 )
 
 const (
-	autoModelPrefix       = "auto:"
-	maxAutoSelectedTables = 3
-	minRouteConfidence    = 0.35
+	autoModelPrefix           = "auto:"
+	maxAutoSelectedTables     = 6
+	maxExpandedAutoTables     = 12 // after scoring: add FK bridge tables so picks form one component
+	nameResolverMaxHops       = 3  // max FK hops to follow when resolving "<entity> name" questions
+	minRouteConfidence        = 0.35
 	// Limits for auto-generated semantic models (avoids multi-hundred-column explosion in LLM prompts).
 	maxAutoModelDimensions = 150
 	maxAutoModelMetrics    = 120
+	maxDateGrainExtras     = 36 // year/quarter/month variants per date columns (cap total)
 )
 
 type bundleColumn struct {
@@ -28,15 +31,17 @@ type bundleColumn struct {
 }
 
 func columnPriority(c metadata.Column) int {
+	// List human-readable dimensions before raw identifiers so prompts and models
+	// default to names/titles rather than PK/FK columns.
 	switch {
-	case c.IsPrimaryKey:
-		return 0
-	case c.IsForeignKey:
-		return 1
 	case isDisplayNameColumn(c.ColumnName):
+		return 0
+	case c.IsPrimaryKey:
+		return 3
+	case c.IsForeignKey:
 		return 2
 	default:
-		return 3
+		return 1
 	}
 }
 
@@ -63,6 +68,9 @@ func sortedBundleColumns(selected []tableBundle, columnsByTable map[string][]met
 
 // ErrTableScopeInvalid indicates that a manually provided table scope is invalid.
 var ErrTableScopeInvalid = errors.New("table scope invalid")
+
+// ErrTypeScopeEmpty means both include_base_tables and include_views were false.
+var ErrTypeScopeEmpty = errors.New("at least one of include_base_tables or include_views must be true")
 
 // MetadataReader provides datasource metadata needed by TableRouter.
 type MetadataReader interface {
@@ -104,12 +112,20 @@ type tableBundle struct {
 }
 
 // Route selects tables for a question and returns a semantic model over them.
+// includeBaseTables / includeViews restrict which metadata objects participate in routing
+// (BASE TABLE vs VIEW). When both are true, behavior matches an unscoped datasource.
 func (r *TableRouter) Route(
 	ctx context.Context,
 	datasourceID string,
 	question string,
 	tableScope []string,
+	includeBaseTables bool,
+	includeViews bool,
 ) (*semantic.SemanticModel, *TableRoutingResult, error) {
+	if !includeBaseTables && !includeViews {
+		return nil, nil, ErrTypeScopeEmpty
+	}
+
 	tables, err := r.reader.ListTables(ctx, datasourceID, "")
 	if err != nil {
 		return nil, nil, fmt.Errorf("list tables: %w", err)
@@ -123,6 +139,19 @@ func (r *TableRouter) Route(
 		return nil, nil, fmt.Errorf("list relations: %w", err)
 	}
 
+	if err := validateManualScopeAgainstTypeScope(indexTables(tables), tableScope, includeBaseTables, includeViews); err != nil {
+		return nil, &TableRoutingResult{Manual: true, NeedsClarification: true}, err
+	}
+
+	tables = filterTablesByTypeScope(tables, includeBaseTables, includeViews)
+	columns = filterColumnsForTables(columns, tables)
+	if len(tables) == 0 {
+		return nil, &TableRoutingResult{
+			NeedsClarification: true,
+			Confidence:         0,
+		}, nil
+	}
+
 	columnsByTable := groupColumnsByTable(columns)
 	selected, result, err := r.selectTables(tables, columnsByTable, question, tableScope)
 	if err != nil {
@@ -130,6 +159,12 @@ func (r *TableRouter) Route(
 	}
 	if result.NeedsClarification {
 		return nil, result, nil
+	}
+
+	tblIdx := indexTables(tables)
+	if len(selected) > 0 && !result.Manual && len(nonEmptyScope(tableScope)) == 0 {
+		selected = appendEntityResolverTables(selected, columnsByTable, relations, tblIdx, tokenSet(question), maxExpandedAutoTables, nameResolverMaxHops)
+		selected = expandSelectedWithJoinBridges(selected, relations, tblIdx, maxExpandedAutoTables)
 	}
 
 	connected, joinPaths := connectSelectedTables(selected, relations)
@@ -243,6 +278,7 @@ func selectAutomaticTables(
 			selected = append(selected, bundle)
 		}
 	}
+	selected = appendCategoryTableIfMissing(selected, bundles, tokens, maxAutoSelectedTables)
 
 	result := &TableRoutingResult{
 		SelectedTables: bundleLabels(selected),
@@ -252,10 +288,287 @@ func selectAutomaticTables(
 	return selected, result, nil
 }
 
+// appendCategoryTableIfMissing ensures category breakdown questions pull in a *category* table
+// even when it ranked just below the score threshold (needed for revenue-by-category queries).
+func appendCategoryTableIfMissing(
+	selected []tableBundle,
+	bundles []tableBundle,
+	tokens map[string]bool,
+	maxN int,
+) []tableBundle {
+	if !isCategoryOrProductQuestion(tokens) {
+		return selected
+	}
+	for _, b := range selected {
+		if strings.Contains(strings.ToLower(b.table.TableName), "category") {
+			return selected
+		}
+	}
+	pick := func() (tableBundle, bool) {
+		for _, b := range bundles {
+			if b.score == 0 {
+				continue
+			}
+			tn := strings.ToLower(b.table.TableName)
+			if !strings.Contains(tn, "category") {
+				continue
+			}
+			k := tableKey(b.table.SchemaName, b.table.TableName)
+			if bundleSliceContains(selected, k) {
+				continue
+			}
+			return b, true
+		}
+		return tableBundle{}, false
+	}
+	if len(selected) < maxN {
+		if b, ok := pick(); ok {
+			selected = append(selected, b)
+		}
+		return selected
+	}
+	// Full slate but no category table: swap out the lowest-priority tail pick.
+	if len(selected) < 2 {
+		return selected
+	}
+	if b, ok := pick(); ok {
+		selected[len(selected)-1] = b
+	}
+	return selected
+}
+
+// appendEntityResolverTables ensures questions like "<entity> name" can be answered
+// by pulling in the entity table itself plus any downstream display-name table
+// reached through FK chains, even when those tables didn't score in the initial
+// top picks (or are views without FK metadata to begin with).
+func appendEntityResolverTables(
+	selected []tableBundle,
+	columnsByTable map[string][]metadata.Column,
+	relations []metadata.Relation,
+	idx tableIndex,
+	tokens map[string]bool,
+	maxN, maxHops int,
+) []tableBundle {
+	if !wantsReadableLabelsQuestion(tokens) {
+		return selected
+	}
+
+	entityTokens := make(map[string]bool)
+	for tok := range tokens {
+		if isNameLikeToken(tok) {
+			continue
+		}
+		entityTokens[tok] = true
+	}
+	if len(entityTokens) == 0 {
+		return selected
+	}
+
+	selectedKeys := make(map[string]bool)
+	for _, b := range selected {
+		selectedKeys[tableKey(b.table.SchemaName, b.table.TableName)] = true
+	}
+
+	adj := relationAdjacency(relations)
+
+	addPathTo := func(targetKey string) {
+		from := make(map[string]bool, len(selectedKeys))
+		for k := range selectedKeys {
+			from[k] = true
+		}
+		path := shortestPathFromSet(adj, from, targetKey)
+		if path == nil {
+			return
+		}
+		for i := 1; i < len(path); i++ {
+			if len(selected) >= maxN {
+				return
+			}
+			pkey := path[i]
+			if selectedKeys[pkey] {
+				continue
+			}
+			t, ok := idx.byFullName[pkey]
+			if !ok {
+				continue
+			}
+			score := 0.4
+			if pkey == targetKey {
+				score = 1.0
+			}
+			selected = append(selected, tableBundle{table: t, score: score})
+			selectedKeys[pkey] = true
+		}
+	}
+
+	type cand struct {
+		key  string
+		hops int
+	}
+
+	// BFS once to enumerate candidate tables matching entity tokens within maxHops.
+	visited := make(map[string]int, len(selectedKeys))
+	queue := make([]string, 0, len(selectedKeys))
+	for k := range selectedKeys {
+		visited[k] = 0
+		queue = append(queue, k)
+	}
+	var entityCands []cand
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		d := visited[cur]
+		if d >= maxHops {
+			continue
+		}
+		for _, nb := range adj[cur] {
+			if _, seen := visited[nb]; seen {
+				continue
+			}
+			visited[nb] = d + 1
+			queue = append(queue, nb)
+			if selectedKeys[nb] {
+				continue
+			}
+			t, ok := idx.byFullName[nb]
+			if !ok {
+				continue
+			}
+			tname := strings.ToLower(t.TableName)
+			if entityTokens[tname] || entityTokens[singularize(tname)] {
+				entityCands = append(entityCands, cand{nb, d + 1})
+			}
+		}
+	}
+	sort.SliceStable(entityCands, func(i, j int) bool { return entityCands[i].hops < entityCands[j].hops })
+
+	// Pass 1: include entity tables themselves (and bridges on the path).
+	for _, c := range entityCands {
+		if len(selected) >= maxN {
+			break
+		}
+		addPathTo(c.key)
+	}
+
+	// Pass 2: for each entity-matching table in the connected set (whether it
+	// was already there from initial scoring or just added in pass 1) that has
+	// no display-name column of its own, walk one or two more FK hops to find a
+	// display-bearing partner (e.g. customer → person.firstname/lastname).
+	entityKeys := make([]string, 0, len(entityCands)+len(selected))
+	for _, b := range selected {
+		bk := tableKey(b.table.SchemaName, b.table.TableName)
+		tname := strings.ToLower(b.table.TableName)
+		if entityTokens[tname] || entityTokens[singularize(tname)] {
+			entityKeys = append(entityKeys, bk)
+		}
+	}
+	for _, c := range entityCands {
+		entityKeys = append(entityKeys, c.key)
+	}
+	visitedEntity := make(map[string]bool, len(entityKeys))
+	for _, ek := range entityKeys {
+		if len(selected) >= maxN {
+			break
+		}
+		if visitedEntity[ek] {
+			continue
+		}
+		visitedEntity[ek] = true
+		if !selectedKeys[ek] {
+			continue
+		}
+		c := cand{key: ek}
+		if hasDisplayNameInColumns(columnsByTable[c.key]) {
+			continue
+		}
+		eVisited := map[string]int{c.key: 0}
+		eQueue := []string{c.key}
+		bestKey := ""
+		bestHops := -1
+		for len(eQueue) > 0 {
+			cur := eQueue[0]
+			eQueue = eQueue[1:]
+			d := eVisited[cur]
+			if d >= maxHops {
+				continue
+			}
+			for _, nb := range adj[cur] {
+				if _, seen := eVisited[nb]; seen {
+					continue
+				}
+				eVisited[nb] = d + 1
+				eQueue = append(eQueue, nb)
+				if !hasDisplayNameInColumns(columnsByTable[nb]) {
+					continue
+				}
+				if bestHops < 0 || d+1 < bestHops {
+					bestKey = nb
+					bestHops = d + 1
+				}
+			}
+		}
+		if bestKey != "" {
+			addPathTo(bestKey)
+		}
+	}
+
+	return selected
+}
+
+func hasDisplayNameInColumns(cols []metadata.Column) bool {
+	for _, c := range cols {
+		if isDisplayNameColumn(c.ColumnName) {
+			return true
+		}
+	}
+	return false
+}
+
+func isNameLikeToken(tok string) bool {
+	switch tok {
+	case "name", "names", "named", "title", "titles", "label", "labels",
+		"isim", "ismi", "adi", "ad", "unvan", "baslik", "basligi":
+		return true
+	}
+	return false
+}
+
+func bundleSliceContains(bundles []tableBundle, key string) bool {
+	for _, b := range bundles {
+		if tableKey(b.table.SchemaName, b.table.TableName) == key {
+			return true
+		}
+	}
+	return false
+}
+
+func wantsReadableLabelsQuestion(tokens map[string]bool) bool {
+	for t := range tokens {
+		switch strings.ToLower(strings.TrimSpace(t)) {
+		case "name", "names", "named", "title", "titles", "label", "labels",
+			"isim", "adı", "adi", "ad", "unvan", "başlık", "baslik":
+			return true
+		}
+	}
+	return false
+}
+
 func scoreTable(table metadata.Table, columns []metadata.Column, tokens map[string]bool) float64 {
 	score := weightedTokenScore(tokens, table.SchemaName+" "+table.TableName, 5)
 	if table.Description != nil {
 		score += weightedTokenScore(tokens, *table.Description, 1.5)
+	}
+	tn := strings.ToLower(table.TableName)
+	if isCategoryOrProductQuestion(tokens) {
+		if strings.Contains(tn, "category") || strings.Contains(tn, "subcategor") {
+			score += 14
+		}
+		if tn == "product" || strings.Contains(tn, "productcategory") || strings.Contains(tn, "productsubcategory") {
+			score += 8
+		}
+		if tn == "salesorderdetail" || strings.Contains(tn, "salesorderdetail") {
+			score += 12
+		}
 	}
 	for _, col := range columns {
 		score += weightedTokenScore(tokens, col.ColumnName, 2)
@@ -267,7 +580,27 @@ func scoreTable(table metadata.Table, columns []metadata.Column, tokens map[stri
 			score += 2
 		}
 	}
+	if wantsReadableLabelsQuestion(tokens) {
+		for _, col := range columns {
+			if isDisplayNameColumn(col.ColumnName) {
+				score += 5
+				break
+			}
+		}
+	}
 	return score
+}
+
+func isCategoryOrProductQuestion(tokens map[string]bool) bool {
+	for _, t := range []string{
+		"category", "categories", "kategori", "kategoriler",
+		"product", "products", "urun",
+	} {
+		if tokens[t] {
+			return true
+		}
+	}
+	return false
 }
 
 func buildSemanticModel(
@@ -303,19 +636,49 @@ func buildDimensions(selected []tableBundle, columnsByTable map[string][]metadat
 		pairs = pairs[:maxAutoModelDimensions]
 	}
 	dimensions := make([]semantic.Dimension, 0, len(pairs))
+	dateGrainAdded := 0
 	for _, p := range pairs {
+		if len(dimensions) >= maxAutoModelDimensions {
+			break
+		}
 		name := p.col.ColumnName
 		if nameCounts[p.col.ColumnName] > 1 {
 			name = p.bundle.table.TableName + "_" + p.col.ColumnName
 		}
+		colRef := p.bundle.table.TableName + "." + p.col.ColumnName
 		dimensions = append(dimensions, semantic.Dimension{
 			Name:        name,
-			ColumnRef:   p.bundle.table.TableName + "." + p.col.ColumnName,
+			ColumnRef:   colRef,
 			Type:        dimensionType(p.col.DataType),
 			Description: p.col.Description,
 			Synonyms:    displayNameSynonyms(p.bundle.table.TableName, p.col.ColumnName),
 			IsActive:    true,
 		})
+		if !isDateOrTimeType(p.col.DataType) || dateGrainAdded >= maxDateGrainExtras {
+			continue
+		}
+		for _, g := range []struct {
+			part, suffix string
+			syns         []string
+		}{
+			{"year", "_year", []string{"year", "years", "yearly", "annual", "yıl", "yıllık", "per year", "by year"}},
+			{"quarter", "_quarter", []string{"quarter", "quarters", "qtr", "çeyrek"}},
+			{"month", "_month", []string{"month", "months", "monthly", "ay", "aylık", "per month", "by month"}},
+		} {
+			if len(dimensions) >= maxAutoModelDimensions || dateGrainAdded >= maxDateGrainExtras {
+				break
+			}
+			dimensions = append(dimensions, semantic.Dimension{
+				Name:        name + g.suffix,
+				ColumnRef:   colRef,
+				Type:        string(semantic.DimensionTypeDate),
+				TimeGrain:   g.part,
+				Synonyms:    g.syns,
+				Description: p.col.Description,
+				IsActive:    true,
+			})
+			dateGrainAdded++
+		}
 	}
 	return dimensions
 }
@@ -350,10 +713,12 @@ func displayNameSynonyms(tableName, columnName string) []string {
 func isDisplayNameColumn(name string) bool {
 	n := strings.ToLower(name)
 	switch n {
-	case "name", "full_name", "fullname", "display_name", "displayname", "title", "label", "username", "email":
+	case "title", "label", "username", "email":
 		return true
 	}
-	return strings.HasSuffix(n, "_name")
+	// Matches name, firstname, lastname, middlename, surname, full_name,
+	// display_name, store_name, *Name, etc.
+	return strings.HasSuffix(n, "name")
 }
 
 func singularize(name string) string {
@@ -434,59 +799,204 @@ func buildJoins(selected []tableBundle, relations []metadata.Relation) []semanti
 	if len(selected) < 2 {
 		return nil
 	}
-	base := selected[0].table
-	selectedKeys := make(map[string]bool)
-	for _, bundle := range selected[1:] {
-		selectedKeys[tableKey(bundle.table.SchemaName, bundle.table.TableName)] = true
+	allKeys := make(map[string]bool, len(selected))
+	for _, bundle := range selected {
+		allKeys[tableKey(bundle.table.SchemaName, bundle.table.TableName)] = true
 	}
 
+	seen := make(map[string]bool)
 	var joins []semantic.Join
 	for _, rel := range relations {
-		switch {
-		case rel.FromSchema == base.SchemaName && rel.FromTable == base.TableName && selectedKeys[tableKey(rel.ToSchema, rel.ToTable)]:
-			joins = append(joins, semantic.Join{
-				Name:         rel.ConstraintName,
-				FromTable:    rel.FromTable,
-				FromColumn:   rel.FromColumn,
-				ToTable:      rel.ToTable,
-				ToColumn:     rel.ToColumn,
-				JoinType:     "LEFT",
-				Relationship: rel.RelationshipType,
-				IsActive:     true,
-			})
-		case rel.ToSchema == base.SchemaName && rel.ToTable == base.TableName && selectedKeys[tableKey(rel.FromSchema, rel.FromTable)]:
-			joins = append(joins, semantic.Join{
-				Name:         rel.ConstraintName,
-				FromTable:    rel.ToTable,
-				FromColumn:   rel.ToColumn,
-				ToTable:      rel.FromTable,
-				ToColumn:     rel.FromColumn,
-				JoinType:     "LEFT",
-				Relationship: rel.RelationshipType,
-				IsActive:     true,
-			})
+		fromKey := tableKey(rel.FromSchema, rel.FromTable)
+		toKey := tableKey(rel.ToSchema, rel.ToTable)
+		if !allKeys[fromKey] || !allKeys[toKey] {
+			continue
 		}
+		dedupe := rel.ConstraintName
+		if dedupe == "" {
+			dedupe = fromKey + "|" + toKey + "|" + rel.FromColumn + "|" + rel.ToColumn
+		}
+		if seen[dedupe] {
+			continue
+		}
+		seen[dedupe] = true
+		jname := rel.ConstraintName
+		if jname == "" {
+			jname = fmt.Sprintf("%s_%s_%s_to_%s", rel.FromTable, rel.FromColumn, rel.ToTable, rel.ToColumn)
+		}
+		joins = append(joins, semantic.Join{
+			Name:         jname,
+			FromTable:    rel.FromTable,
+			FromColumn:   rel.FromColumn,
+			ToTable:      rel.ToTable,
+			ToColumn:     rel.ToColumn,
+			JoinType:     "LEFT",
+			Relationship: rel.RelationshipType,
+			IsActive:     true,
+		})
 	}
 	return joins
 }
 
+// connectSelectedTables keeps every scored table that connects to the base table
+// through a path of metadata relations (not only direct base↔table edges).
 func connectSelectedTables(selected []tableBundle, relations []metadata.Relation) ([]tableBundle, []string) {
 	if len(selected) < 2 {
 		return selected, nil
 	}
 
-	base := selected[0]
-	connected := []tableBundle{base}
+	connected := []tableBundle{selected[0]}
+	remaining := append([]tableBundle(nil), selected[1:]...)
 	var joinPaths []string
-	for _, candidate := range selected[1:] {
-		rel, ok := directRelation(base.table, candidate.table, relations)
-		if !ok {
-			continue
+
+	for len(remaining) > 0 {
+		added := false
+		var still []tableBundle
+		for _, cand := range remaining {
+			attached := false
+			for _, exist := range connected {
+				if rel, ok := directRelation(exist.table, cand.table, relations); ok {
+					connected = append(connected, cand)
+					joinPaths = append(joinPaths, relationPath(rel))
+					attached = true
+					added = true
+					break
+				}
+			}
+			if !attached {
+				still = append(still, cand)
+			}
 		}
-		connected = append(connected, candidate)
-		joinPaths = append(joinPaths, relationPath(rel))
+		remaining = still
+		if !added {
+			break
+		}
 	}
 	return connected, joinPaths
+}
+
+// relationAdjacency builds an undirected graph of tables linked by metadata FKs.
+func relationAdjacency(relations []metadata.Relation) map[string][]string {
+	adj := make(map[string][]string)
+	link := func(a, b string) {
+		adj[a] = append(adj[a], b)
+		adj[b] = append(adj[b], a)
+	}
+	for _, rel := range relations {
+		a := tableKey(rel.FromSchema, rel.FromTable)
+		b := tableKey(rel.ToSchema, rel.ToTable)
+		link(a, b)
+	}
+	return adj
+}
+
+// shortestPathFromSet returns a path from any node in `from` to `to`, or nil if unreachable.
+func shortestPathFromSet(adj map[string][]string, from map[string]bool, to string) []string {
+	if from[to] {
+		return []string{to}
+	}
+	queue := make([]string, 0, len(from))
+	parent := make(map[string]string)
+	seen := make(map[string]bool)
+	for k := range from {
+		queue = append(queue, k)
+		seen[k] = true
+		parent[k] = ""
+	}
+	for qi := 0; qi < len(queue); qi++ {
+		cur := queue[qi]
+		for _, nb := range adj[cur] {
+			if seen[nb] {
+				continue
+			}
+			seen[nb] = true
+			parent[nb] = cur
+			if nb == to {
+				var path []string
+				for x := to; x != ""; x = parent[x] {
+					path = append(path, x)
+				}
+				for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
+					path[i], path[j] = path[j], path[i]
+				}
+				return path
+			}
+			queue = append(queue, nb)
+		}
+	}
+	return nil
+}
+
+// expandSelectedWithJoinBridges inserts intermediate tables on shortest FK paths so high-scoring
+// picks that were disconnected (e.g. sales header + production productcategory) become one component.
+func expandSelectedWithJoinBridges(
+	selected []tableBundle,
+	relations []metadata.Relation,
+	idx tableIndex,
+	maxTables int,
+) []tableBundle {
+	if len(selected) == 0 {
+		return nil
+	}
+	adj := relationAdjacency(relations)
+	keyOf := func(t metadata.Table) string { return tableKey(t.SchemaName, t.TableName) }
+
+	included := make(map[string]tableBundle)
+	list := make([]tableBundle, 0, maxTables)
+
+	put := func(b tableBundle) {
+		k := keyOf(b.table)
+		if existing, ok := included[k]; ok {
+			if b.score > existing.score {
+				for i := range list {
+					if keyOf(list[i].table) == k {
+						list[i] = b
+						break
+					}
+				}
+				included[k] = b
+			}
+			return
+		}
+		if len(list) >= maxTables {
+			return
+		}
+		included[k] = b
+		list = append(list, b)
+	}
+
+	put(selected[0])
+	for i := 1; i < len(selected); i++ {
+		tb := selected[i]
+		tkey := keyOf(tb.table)
+		from := make(map[string]bool, len(list))
+		for _, b := range list {
+			from[keyOf(b.table)] = true
+		}
+		if from[tkey] {
+			put(tb)
+			continue
+		}
+		path := shortestPathFromSet(adj, from, tkey)
+		if path == nil {
+			continue
+		}
+		for _, pkey := range path {
+			if len(list) >= maxTables {
+				break
+			}
+			tbl, ok := idx.byFullName[pkey]
+			if !ok {
+				continue
+			}
+			bundle := tableBundle{table: tbl, score: 0}
+			if pkey == tkey {
+				bundle = tb
+			}
+			put(bundle)
+		}
+	}
+	return list
 }
 
 func directRelation(
@@ -534,6 +1044,27 @@ func indexTables(tables []metadata.Table) tableIndex {
 		idx.byName[table.TableName] = append(idx.byName[table.TableName], table)
 	}
 	return idx
+}
+
+// validateManualScopeAgainstTypeScope checks manual table refs against the full datasource
+// catalog so we return a clear error when the user picks a base table while "views only" (or vice versa),
+// even if type filtering would remove all tables.
+func validateManualScopeAgainstTypeScope(
+	idx tableIndex,
+	tableScope []string,
+	includeBaseTables bool,
+	includeViews bool,
+) error {
+	for _, ref := range nonEmptyScope(tableScope) {
+		table, err := resolveTableRef(idx, ref)
+		if err != nil {
+			return fmt.Errorf("%w: %w", ErrTableScopeInvalid, err)
+		}
+		if !tableMatchesTypeScope(table, includeBaseTables, includeViews) {
+			return fmt.Errorf("%w: %q is excluded by type scope (base tables vs views)", ErrTableScopeInvalid, ref)
+		}
+	}
+	return nil
 }
 
 func resolveTableRef(idx tableIndex, ref string) (metadata.Table, error) {
@@ -625,6 +1156,43 @@ func tableKey(schemaName, tableName string) string {
 	return schemaName + "." + tableName
 }
 
+func tableMatchesTypeScope(table metadata.Table, includeBase, includeViews bool) bool {
+	typ := strings.ToUpper(strings.TrimSpace(table.TableType))
+	switch typ {
+	case "VIEW":
+		return includeViews
+	case "BASE TABLE":
+		return includeBase
+	default:
+		// Empty or unknown: treat like a physical table (older syncs).
+		return includeBase
+	}
+}
+
+func filterTablesByTypeScope(tables []metadata.Table, includeBase, includeViews bool) []metadata.Table {
+	out := make([]metadata.Table, 0, len(tables))
+	for _, t := range tables {
+		if tableMatchesTypeScope(t, includeBase, includeViews) {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+func filterColumnsForTables(columns []metadata.Column, tables []metadata.Table) []metadata.Column {
+	allowed := make(map[string]struct{}, len(tables))
+	for _, t := range tables {
+		allowed[tableKey(t.SchemaName, t.TableName)] = struct{}{}
+	}
+	out := make([]metadata.Column, 0, len(columns))
+	for _, c := range columns {
+		if _, ok := allowed[tableKey(c.SchemaName, c.TableName)]; ok {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 func weightedTokenScore(questionTokens map[string]bool, text string, weight float64) float64 {
 	textTokens := tokenSet(text)
 	score := 0.0
@@ -692,6 +1260,8 @@ func normalizeText(text string) string {
 
 var tokenSynonyms = map[string][]string{
 	"adet":     {"count", "row", "rows"},
+	"category": {"categories", "kategori", "kategoriler", "class", "group"},
+	"categories": {"category", "kategori"},
 	"amount":   {"total", "revenue", "sales"},
 	"avg":      {"average", "mean", "ortalama"},
 	"average":  {"avg", "ortalama"},
