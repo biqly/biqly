@@ -1,6 +1,6 @@
 services:
   metadata-db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_DB: bi_metadata
       POSTGRES_USER: bi_user
@@ -28,7 +28,7 @@ services:
 
   # Test PostgreSQL datasource for introspection testing
   test-datasource:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_DB: test_data
       POSTGRES_USER: test_user
