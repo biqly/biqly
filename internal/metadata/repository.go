@@ -219,6 +219,9 @@ func (r *Repository) UpsertColumns(ctx context.Context, datasourceID string, col
 			nullable = EXCLUDED.nullable,
 			is_primary_key = EXCLUDED.is_primary_key,
 			is_foreign_key = EXCLUDED.is_foreign_key,
+			referenced_schema = EXCLUDED.referenced_schema,
+			referenced_table = EXCLUDED.referenced_table,
+			referenced_column = EXCLUDED.referenced_column,
 			description = COALESCE(NULLIF(EXCLUDED.description, ''), columns.description)
 	`
 	for _, c := range columns {
