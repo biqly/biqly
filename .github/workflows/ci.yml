@@ -13,7 +13,7 @@ permissions:
 jobs:
   backend:
     name: Backend (Go)
-    runs-on: [ubuntu-latest]
+    runs-on: [ubuntu-24.04-arm]
     steps:
       - uses: actions/checkout@v4
 
@@ -64,7 +64,7 @@ jobs:
 
   frontend:
     name: Frontend (Vite + TS)
-    runs-on: [ubuntu-latest]
+    runs-on: [ubuntu-24.04-arm]
     defaults:
       run:
         working-directory: frontend
@@ -90,7 +90,7 @@ jobs:
 
   docker-api:
     name: Docker build & push (api)
-    runs-on: [ubuntu-latest]
+    runs-on: [ubuntu-24.04-arm]
     needs: [backend]
     env:
       REGISTRY: ghcr.io
@@ -133,7 +133,7 @@ jobs:
 
   docker-frontend:
     name: Docker build & push (frontend)
-    runs-on: [ubuntu-latest]
+    runs-on: [ubuntu-24.04-arm]
     needs: [frontend]
     env:
       REGISTRY: ghcr.io
