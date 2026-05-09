@@ -1,3 +1,4 @@
+// Package dialect defines SQL dialect interfaces for different database engines.
 package dialect
 
 import (
@@ -8,10 +9,12 @@ import (
 // ClickHouseDialect implements the Dialect interface for ClickHouse.
 type ClickHouseDialect struct{}
 
+// Name returns the dialect name.
 func (d ClickHouseDialect) Name() string {
 	return "clickhouse"
 }
 
+// QuoteIdent quotes a SQL identifier with dialect-specific delimiters.
 func (d ClickHouseDialect) QuoteIdent(identifier string) string {
 	parts := strings.Split(identifier, ".")
 	quoted := make([]string, len(parts))
@@ -21,10 +24,12 @@ func (d ClickHouseDialect) QuoteIdent(identifier string) string {
 	return strings.Join(quoted, ".")
 }
 
+// Placeholder returns the parameter placeholder for the given index.
 func (d ClickHouseDialect) Placeholder(index int) string {
 	return "?"
 }
 
+// LimitOffset generates the LIMIT/OFFSET clause.
 func (d ClickHouseDialect) LimitOffset(limit, offset int) string {
 	var parts []string
 	if limit > 0 {
@@ -36,20 +41,32 @@ func (d ClickHouseDialect) LimitOffset(limit, offset int) string {
 	return strings.Join(parts, " ")
 }
 
+// DateTrunc returns the date truncation expression.
 func (d ClickHouseDialect) DateTrunc(part, column string) string {
 	quoted := d.QuoteIdent(column)
-	return fmt.Sprintf("toStartOf%s(%s)", strings.Title(strings.ToLower(part)), quoted)
+	tc := titleCase(strings.ToLower(part))
+	return fmt.Sprintf("toStartOf%s(%s)", tc, quoted)
 }
 
+func titleCase(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+// ILike returns a case-insensitive LIKE expression.
 func (d ClickHouseDialect) ILike(column, placeholder string) string {
 	// ClickHouse is case-sensitive, use lower()
 	return fmt.Sprintf("lower(%s) LIKE lower(%s)", d.QuoteIdent(column), placeholder)
 }
 
+// CastType returns the dialect-specific SQL type name for casting.
 func (d ClickHouseDialect) CastType(sqlType string) string {
 	return strings.ToUpper(sqlType)
 }
 
+// Aggregate formats an aggregation function call.
 func (d ClickHouseDialect) Aggregate(fn, column string) string {
 	quotedCol := d.QuoteIdent(column)
 	switch strings.ToLower(fn) {

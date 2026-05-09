@@ -1,3 +1,4 @@
+// Package config provides application configuration loaded from environment variables.
 package config
 
 import (
@@ -17,29 +18,35 @@ type Config struct {
 	AI       AIConfig
 }
 
+// HTTPConfig holds HTTP server configuration.
 type HTTPConfig struct {
 	Host string
 	Port int
 }
 
+// MetadataConfig holds metadata database connection configuration.
 type MetadataConfig struct {
 	DSN string
 }
 
+// RedisConfig holds Redis connection configuration.
 type RedisConfig struct {
 	DSN string
 }
 
+// QueryConfig holds query execution limits and timeouts.
 type QueryConfig struct {
 	TimeoutSeconds    int
 	MaxRows           int
 	MaxRuntimeSeconds int
 }
 
+// SecurityConfig holds encryption key settings.
 type SecurityConfig struct {
 	EncryptionKey string
 }
 
+// AIConfig holds AI provider configuration.
 type AIConfig struct {
 	Provider      string
 	APIKey        string

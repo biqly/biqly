@@ -22,6 +22,7 @@ func NewQueryHandler(deps *app.Dependencies) *QueryHandler {
 	return &QueryHandler{deps: deps}
 }
 
+// Compile validates and compiles a LogicalQuery into SQL.
 func (h *QueryHandler) Compile(w http.ResponseWriter, r *http.Request) {
 	var lq query.LogicalQuery
 	if err := json.NewDecoder(r.Body).Decode(&lq); err != nil {
@@ -30,36 +31,36 @@ func (h *QueryHandler) Compile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	model, err := h.loadModel(ctx, lq.ModelID)
-	if err != nil {
+	model, modelErr := h.loadModel(ctx, lq.ModelID)
+	if modelErr != nil {
 		writeError(w, http.StatusNotFound, "semantic model not found")
 		return
 	}
 
 	// Validate
-	if err := h.deps.Validator.Validate(lq, model); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+	if valErr := h.deps.Validator.Validate(lq, model); valErr != nil {
+		writeError(w, http.StatusBadRequest, valErr.Error())
 		return
 	}
 
 	// Get datasource to find driver
-	ds, err := h.deps.MetaRepo.GetDatasource(ctx, lq.DatasourceID)
-	if err != nil {
+	ds, dsErr := h.deps.MetaRepo.GetDatasource(ctx, lq.DatasourceID)
+	if dsErr != nil {
 		writeError(w, http.StatusNotFound, "datasource not found")
 		return
 	}
 
-	driver, err := h.deps.DriverReg.Get(ds.Type)
-	if err != nil {
+	driver, driverErr := h.deps.DriverReg.Get(ds.Type)
+	if driverErr != nil {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("unsupported driver: %s", ds.Type))
 		return
 	}
 
 	// Compile
 	compiler := query.NewCompiler(driver.Dialect())
-	cq, err := compiler.Compile(ctx, lq, model)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("compilation failed: %s", err.Error()))
+	cq, compileErr := compiler.Compile(ctx, lq, model)
+	if compileErr != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("compilation failed: %s", compileErr.Error()))
 		return
 	}
 
@@ -69,6 +70,7 @@ func (h *QueryHandler) Compile(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Run validates, compiles, and executes a LogicalQuery.
 func (h *QueryHandler) Run(w http.ResponseWriter, r *http.Request) {
 	var lq query.LogicalQuery
 	if err := json.NewDecoder(r.Body).Decode(&lq); err != nil {
@@ -77,52 +79,52 @@ func (h *QueryHandler) Run(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	model, err := h.loadModel(ctx, lq.ModelID)
-	if err != nil {
+	model, modelErr := h.loadModel(ctx, lq.ModelID)
+	if modelErr != nil {
 		writeError(w, http.StatusNotFound, "semantic model not found")
 		return
 	}
 
 	// Validate
-	if err := h.deps.Validator.Validate(lq, model); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+	if valErr := h.deps.Validator.Validate(lq, model); valErr != nil {
+		writeError(w, http.StatusBadRequest, valErr.Error())
 		return
 	}
 
 	// Get datasource
-	ds, err := h.deps.MetaRepo.GetDatasource(ctx, lq.DatasourceID)
-	if err != nil {
+	ds, dsErr := h.deps.MetaRepo.GetDatasource(ctx, lq.DatasourceID)
+	if dsErr != nil {
 		writeError(w, http.StatusNotFound, "datasource not found")
 		return
 	}
 
-	driver, err := h.deps.DriverReg.Get(ds.Type)
-	if err != nil {
+	driver, driverErr := h.deps.DriverReg.Get(ds.Type)
+	if driverErr != nil {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("unsupported driver: %s", ds.Type))
 		return
 	}
 
 	// Compile
 	compiler := query.NewCompiler(driver.Dialect())
-	cq, err := compiler.Compile(ctx, lq, model)
-	if err != nil {
-		slog.ErrorContext(ctx, "compile failed", "error", err)
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("compilation failed: %s", err.Error()))
+	cq, compileErr := compiler.Compile(ctx, lq, model)
+	if compileErr != nil {
+		slog.ErrorContext(ctx, "compile failed", "error", compileErr)
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("compilation failed: %s", compileErr.Error()))
 		return
 	}
 
 	// Execute
-	db, err := driver.Open(ctx, ds.DSNEncrypted)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("connection failed: %s", err.Error()))
+	db, dbErr := driver.Open(ctx, ds.DSNEncrypted)
+	if dbErr != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("connection failed: %s", dbErr.Error()))
 		return
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
-	result, err := h.deps.Executor.Execute(ctx, db, cq)
-	if err != nil {
-		slog.ErrorContext(ctx, "execute failed", "error", err)
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("execution failed: %s", err.Error()))
+	result, execErr := h.deps.Executor.Execute(ctx, db, cq)
+	if execErr != nil {
+		slog.ErrorContext(ctx, "execute failed", "error", execErr)
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("execution failed: %s", execErr.Error()))
 		return
 	}
 
@@ -134,6 +136,7 @@ func (h *QueryHandler) Run(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
+// Explain returns the compiled SQL and metadata for debugging.
 func (h *QueryHandler) Explain(w http.ResponseWriter, r *http.Request) {
 	var lq query.LogicalQuery
 	if err := json.NewDecoder(r.Body).Decode(&lq); err != nil {
@@ -142,34 +145,34 @@ func (h *QueryHandler) Explain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	model, err := h.loadModel(ctx, lq.ModelID)
-	if err != nil {
+	model, modelErr := h.loadModel(ctx, lq.ModelID)
+	if modelErr != nil {
 		writeError(w, http.StatusNotFound, "semantic model not found")
 		return
 	}
 
 	// Validate
-	if err := h.deps.Validator.Validate(lq, model); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+	if valErr := h.deps.Validator.Validate(lq, model); valErr != nil {
+		writeError(w, http.StatusBadRequest, valErr.Error())
 		return
 	}
 
-	ds, err := h.deps.MetaRepo.GetDatasource(ctx, lq.DatasourceID)
-	if err != nil {
+	ds, dsErr := h.deps.MetaRepo.GetDatasource(ctx, lq.DatasourceID)
+	if dsErr != nil {
 		writeError(w, http.StatusNotFound, "datasource not found")
 		return
 	}
 
-	driver, err := h.deps.DriverReg.Get(ds.Type)
-	if err != nil {
+	driver, driverErr := h.deps.DriverReg.Get(ds.Type)
+	if driverErr != nil {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("unsupported driver: %s", ds.Type))
 		return
 	}
 
 	compiler := query.NewCompiler(driver.Dialect())
-	cq, err := compiler.Compile(ctx, lq, model)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("compilation failed: %s", err.Error()))
+	cq, compileErr := compiler.Compile(ctx, lq, model)
+	if compileErr != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("compilation failed: %s", compileErr.Error()))
 		return
 	}
 
@@ -181,11 +184,13 @@ func (h *QueryHandler) Explain(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// History returns query history.
 func (h *QueryHandler) History(w http.ResponseWriter, r *http.Request) {
 	// TODO: implement query history
 	writeJSON(w, http.StatusOK, []any{})
 }
 
+// GetHistory returns a single history entry.
 func (h *QueryHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
 	// TODO: implement get single history entry
 	writeError(w, http.StatusNotFound, "not implemented")

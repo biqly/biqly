@@ -18,6 +18,7 @@ func NewSchemaValidator() *SchemaValidator {
 }
 
 // Validate checks the raw AI response against the expected LogicalQuery schema.
+//nolint:gocyclo // linear validation steps, each check is independent and clear
 func (sv *SchemaValidator) Validate(rawJSON string, model *semantic.SemanticModel) (*query.LogicalQuery, error) {
 	// Clean markdown artifacts
 	cleaned := rawJSON

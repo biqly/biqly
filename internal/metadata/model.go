@@ -1,3 +1,4 @@
+// Package metadata defines types for datasource metadata storage.
 package metadata
 
 import "time"

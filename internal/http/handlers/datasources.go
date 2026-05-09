@@ -29,6 +29,7 @@ type createDatasourceRequest struct {
 	Config string `json:"config,omitempty"`
 }
 
+// Create handles datasource creation.
 func (h *DatasourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req createDatasourceRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -66,6 +67,7 @@ func (h *DatasourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, ds)
 }
 
+// List returns all configured datasources.
 func (h *DatasourceHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	datasources, err := h.deps.MetaRepo.ListDatasources(ctx)
@@ -82,6 +84,7 @@ func (h *DatasourceHandler) List(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, datasources)
 }
 
+// Get returns a single datasource by ID.
 func (h *DatasourceHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	ctx := r.Context()
@@ -96,6 +99,7 @@ func (h *DatasourceHandler) Get(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, ds)
 }
 
+// Delete removes a datasource by ID.
 func (h *DatasourceHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	ctx := r.Context()
@@ -108,6 +112,7 @@ func (h *DatasourceHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// Test verifies connectivity to a datasource.
 func (h *DatasourceHandler) Test(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	ctx := r.Context()
@@ -139,6 +144,8 @@ func (h *DatasourceHandler) Test(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// SyncMetadata introspects and persists the schema of a datasource.
+//nolint:gocyclo // linear step-by-step sync process, each step is independent
 func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	ctx := r.Context()
@@ -160,7 +167,7 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to open connection: %s", err.Error()))
 		return
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	result, err := driver.Introspect(ctx, db)
 	if err != nil {

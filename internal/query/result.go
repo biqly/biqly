@@ -1,3 +1,4 @@
+// Package query provides LogicalQuery types, SQL compilation, and execution.
 package query
 
 import (
@@ -5,12 +6,17 @@ import (
 	"time"
 )
 
-// QueryResult holds the execution result.
-type QueryResult struct {
+// Result holds the execution result.
+type Result struct {
 	Columns []ResultColumn `json:"columns"`
 	Rows    [][]any        `json:"rows"`
-	Stats   QueryStats     `json:"stats"`
+	Stats   Stats          `json:"stats"`
 }
+
+// QueryResult is an alias for backward compatibility.
+// Deprecated: Use Result instead.
+//nolint:revive // alias for backward compatibility
+type QueryResult = Result
 
 // ResultColumn describes a result column.
 type ResultColumn struct {
@@ -18,11 +24,16 @@ type ResultColumn struct {
 	Type string `json:"type"`
 }
 
-// QueryStats holds execution statistics.
-type QueryStats struct {
+// Stats holds execution statistics.
+type Stats struct {
 	DurationMs int64 `json:"duration_ms"`
 	RowCount   int   `json:"row_count"`
 }
+
+// QueryStats is an alias for backward compatibility.
+// Deprecated: Use Stats instead.
+//nolint:revive // alias for backward compatibility
+type QueryStats = Stats
 
 // CompiledQuery holds the SQL generated from a LogicalQuery.
 type CompiledQuery struct {
@@ -30,8 +41,8 @@ type CompiledQuery struct {
 	Args []any
 }
 
-// QueryHistoryEntry represents a stored query in history.
-type QueryHistoryEntry struct {
+// HistoryEntry represents a stored query in history.
+type HistoryEntry struct {
 	ID             string       `json:"id"`
 	DatasourceID   string       `json:"datasource_id"`
 	ModelID        *string      `json:"model_id"`
@@ -45,6 +56,11 @@ type QueryHistoryEntry struct {
 	ErrorMessage   *string      `json:"error_message"`
 	CreatedAt      time.Time    `json:"created_at"`
 }
+
+// QueryHistoryEntry is an alias for backward compatibility.
+// Deprecated: Use HistoryEntry instead.
+//nolint:revive // alias for backward compatibility
+type QueryHistoryEntry = HistoryEntry
 
 // ValidationError represents a LogicalQuery validation error.
 type ValidationError struct {

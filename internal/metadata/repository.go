@@ -18,6 +18,7 @@ func NewRepository(db *sql.DB) *Repository {
 
 // Datasource operations
 
+// CreateDatasource inserts a new datasource record.
 func (r *Repository) CreateDatasource(ctx context.Context, ds *Datasource) error {
 	query := `
 		INSERT INTO datasources (id, name, type, dsn_encrypted, config, is_active)
@@ -27,25 +28,28 @@ func (r *Repository) CreateDatasource(ctx context.Context, ds *Datasource) error
 	return err
 }
 
+// GetDatasource retrieves a datasource by ID.
 func (r *Repository) GetDatasource(ctx context.Context, id string) (*Datasource, error) {
 	query := `SELECT id, name, type, dsn_encrypted, config, is_active, last_sync_at, created_at, updated_at FROM datasources WHERE id = $1`
 	row := r.db.QueryRowContext(ctx, query, id)
 	return r.scanDatasource(row)
 }
 
+// GetDatasourceByName retrieves a datasource by name.
 func (r *Repository) GetDatasourceByName(ctx context.Context, name string) (*Datasource, error) {
 	query := `SELECT id, name, type, dsn_encrypted, config, is_active, last_sync_at, created_at, updated_at FROM datasources WHERE name = $1`
 	row := r.db.QueryRowContext(ctx, query, name)
 	return r.scanDatasource(row)
 }
 
+// ListDatasources returns all configured datasources.
 func (r *Repository) ListDatasources(ctx context.Context) ([]Datasource, error) {
 	query := `SELECT id, name, type, dsn_encrypted, config, is_active, last_sync_at, created_at, updated_at FROM datasources ORDER BY created_at DESC`
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var datasources []Datasource
 	for rows.Next() {
@@ -58,11 +62,13 @@ func (r *Repository) ListDatasources(ctx context.Context) ([]Datasource, error) 
 	return datasources, rows.Err()
 }
 
+// DeleteDatasource removes a datasource by ID.
 func (r *Repository) DeleteDatasource(ctx context.Context, id string) error {
 	_, err := r.db.ExecContext(ctx, `DELETE FROM datasources WHERE id = $1`, id)
 	return err
 }
 
+// UpdateDatasourceSync updates the last_sync_at timestamp.
 func (r *Repository) UpdateDatasourceSync(ctx context.Context, id string) error {
 	_, err := r.db.ExecContext(ctx, `UPDATE datasources SET last_sync_at = now(), updated_at = now() WHERE id = $1`, id)
 	return err
@@ -83,6 +89,7 @@ func (r *Repository) scanDatasource(s scanner) (*Datasource, error) {
 
 // Schema operations
 
+// UpsertSchemas inserts or updates schema metadata.
 func (r *Repository) UpsertSchemas(ctx context.Context, datasourceID string, schemas []Schema) error {
 	query := `
 		INSERT INTO schemas (id, datasource_id, schema_name)
@@ -138,7 +145,7 @@ func (r *Repository) ListTables(ctx context.Context, datasourceID, schemaName st
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var tables []Table
 	for rows.Next() {
@@ -210,6 +217,7 @@ func (r *Repository) ListColumns(ctx context.Context, datasourceID, schemaName, 
 		args = append(args, schemaName)
 	}
 	if tableName != "" {
+		//nolint:gosec // parameterized query with $N placeholders
 		query += fmt.Sprintf(" AND table_name = $%d", len(args)+1)
 		args = append(args, tableName)
 	}
@@ -219,7 +227,7 @@ func (r *Repository) ListColumns(ctx context.Context, datasourceID, schemaName, 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var columns []Column
 	for rows.Next() {
@@ -256,6 +264,7 @@ func (r *Repository) UpdateColumnDescription(ctx context.Context, id string, des
 
 // Relation operations
 
+// UpsertRelations inserts or updates relation metadata.
 func (r *Repository) UpsertRelations(ctx context.Context, datasourceID string, relations []Relation) error {
 	query := `
 		INSERT INTO relations (id, datasource_id, constraint_name, from_schema, from_table, from_column, to_schema, to_table, to_column, relationship_type)
@@ -273,6 +282,7 @@ func (r *Repository) UpsertRelations(ctx context.Context, datasourceID string, r
 
 // Search operations
 
+// SearchColumns searches columns by name or description.
 func (r *Repository) SearchColumns(ctx context.Context, datasourceID, searchTerm string) ([]Column, error) {
 	query := `
 		SELECT id, datasource_id, table_id, schema_name, table_name, column_name, data_type, nullable, ordinal_position, character_maximum_length, numeric_precision, numeric_scale, column_default, description, is_primary_key, is_foreign_key, created_at
@@ -284,7 +294,7 @@ func (r *Repository) SearchColumns(ctx context.Context, datasourceID, searchTerm
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var columns []Column
 	for rows.Next() {
@@ -297,6 +307,7 @@ func (r *Repository) SearchColumns(ctx context.Context, datasourceID, searchTerm
 	return columns, rows.Err()
 }
 
+// SearchTables searches tables by name or description.
 func (r *Repository) SearchTables(ctx context.Context, datasourceID, searchTerm string) ([]Table, error) {
 	query := `
 		SELECT id, datasource_id, schema_id, schema_name, table_name, table_type, row_estimate, description, created_at, updated_at
@@ -308,7 +319,7 @@ func (r *Repository) SearchTables(ctx context.Context, datasourceID, searchTerm 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var tables []Table
 	for rows.Next() {

@@ -23,26 +23,26 @@ func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel) st
 	sb.WriteString("- For date filters, use ISO 8601 format (YYYY-MM-DD).\n")
 	sb.WriteString("- If the question is ambiguous or cannot be answered, set an empty select array and add a warning.\n\n")
 
-	sb.WriteString(fmt.Sprintf("## Current Date/Time: %s\n\n", time.Now().Format("2006-01-02 15:04:05 UTC")))
+	fmt.Fprintf(&sb, "## Current Date/Time: %s\n\n", time.Now().Format("2006-01-02 15:04:05 UTC"))
 
-	sb.WriteString(fmt.Sprintf("## Semantic Model: %s\n", model.Name))
+	fmt.Fprintf(&sb, "## Semantic Model: %s\n", model.Name)
 	if model.Label != nil {
-		sb.WriteString(fmt.Sprintf("Label: %s\n", *model.Label))
+		fmt.Fprintf(&sb, "Label: %s\n", *model.Label)
 	}
 	if model.Description != nil {
-		sb.WriteString(fmt.Sprintf("Description: %s\n", *model.Description))
+		fmt.Fprintf(&sb, "Description: %s\n", *model.Description)
 	}
-	sb.WriteString(fmt.Sprintf("Base table: %s.%s\n\n", model.BaseSchema, model.BaseTable))
+	fmt.Fprintf(&sb, "Base table: %s.%s\n\n", model.BaseSchema, model.BaseTable)
 
 	if len(model.Synonyms) > 0 {
-		sb.WriteString(fmt.Sprintf("Model synonyms: %s\n\n", strings.Join(model.Synonyms, ", ")))
+		fmt.Fprintf(&sb, "Model synonyms: %s\n\n", strings.Join(model.Synonyms, ", "))
 	}
 
 	sb.WriteString("## Available Dimensions\n")
 	for _, d := range model.Dimensions {
-		sb.WriteString(fmt.Sprintf("- %s (type: %s, column: %s)", d.Name, d.Type, d.ColumnRef))
+		fmt.Fprintf(&sb, "- %s (type: %s, column: %s)", d.Name, d.Type, d.ColumnRef)
 		if len(d.Synonyms) > 0 {
-			sb.WriteString(fmt.Sprintf(", synonyms: %s", strings.Join(d.Synonyms, ", ")))
+			fmt.Fprintf(&sb, ", synonyms: %s", strings.Join(d.Synonyms, ", "))
 		}
 		sb.WriteString("\n")
 	}
@@ -50,9 +50,9 @@ func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel) st
 
 	sb.WriteString("## Available Metrics\n")
 	for _, m := range model.Metrics {
-		sb.WriteString(fmt.Sprintf("- %s (aggregation: %s, expression: %s)", m.Name, m.Aggregation, m.Expression))
+		fmt.Fprintf(&sb, "- %s (aggregation: %s, expression: %s)", m.Name, m.Aggregation, m.Expression)
 		if len(m.Synonyms) > 0 {
-			sb.WriteString(fmt.Sprintf(", synonyms: %s", strings.Join(m.Synonyms, ", ")))
+			fmt.Fprintf(&sb, ", synonyms: %s", strings.Join(m.Synonyms, ", "))
 		}
 		sb.WriteString("\n")
 	}
@@ -61,8 +61,8 @@ func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel) st
 	if len(model.Joins) > 0 {
 		sb.WriteString("## Available Joins\n")
 		for _, j := range model.Joins {
-			sb.WriteString(fmt.Sprintf("- %s: %s.%s → %s.%s (%s, %s)\n",
-				j.Name, j.FromTable, j.FromColumn, j.ToTable, j.ToColumn, j.JoinType, j.Relationship))
+			fmt.Fprintf(&sb, "- %s: %s.%s → %s.%s (%s, %s)\n",
+				j.Name, j.FromTable, j.FromColumn, j.ToTable, j.ToColumn, j.JoinType, j.Relationship)
 		}
 		sb.WriteString("\n")
 	}

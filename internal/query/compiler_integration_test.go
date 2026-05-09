@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/biqly/biqly/internal/dialect"
-	"github.com/biqly/biqly/internal/semantic"
 	"github.com/biqly/biqly/internal/security"
+	"github.com/biqly/biqly/internal/semantic"
 )
 
 // TestCompiler_Joins verifies that the compiler generates correct JOIN clauses.
@@ -164,7 +164,7 @@ func TestCompiler_FilterOperators(t *testing.T) {
 	tests := []struct {
 		name     string
 		operator string
-		value    interface{}
+		value    any
 		check    string // expected SQL fragment
 	}{
 		{"eq", OpEq, "active", "="},
@@ -173,12 +173,12 @@ func TestCompiler_FilterOperators(t *testing.T) {
 		{"gte", OpGte, 50, ">="},
 		{"lt", OpLt, 1000, "<"},
 		{"lte", OpLte, 500, "<="},
-		{"in", OpIn, []interface{}{"a", "b"}, "IN"},
-		{"not_in", OpNotIn, []interface{}{"x", "y"}, "NOT IN"},
+		{"in", OpIn, []any{"a", "b"}, "IN"},
+		{"not_in", OpNotIn, []any{"x", "y"}, "NOT IN"},
 		{"contains", OpContains, "test", "ILIKE"},
 		{"starts_with", OpStartsWith, "A", "ILIKE"},
 		{"ends_with", OpEndsWith, "Z", "ILIKE"},
-		{"between", OpBetween, []interface{}{"2026-01-01", "2026-12-31"}, "BETWEEN"},
+		{"between", OpBetween, []any{"2026-01-01", "2026-12-31"}, "BETWEEN"},
 		{"is_null", OpIsNull, nil, "IS NULL"},
 		{"is_not_null", OpIsNotNull, nil, "IS NOT NULL"},
 	}

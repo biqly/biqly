@@ -1,14 +1,14 @@
+// Package mysql provides a MySQL datasource driver.
 package mysql
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 
 	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/dialect"
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql" // MySQL driver registration
 )
 
 // Driver implements datasource.Driver for MySQL.
@@ -23,19 +23,22 @@ func NewDriver() *Driver {
 	}
 }
 
+// Type returns the datasource type.
 func (d *Driver) Type() string {
 	return "mysql"
 }
 
+// Ping verifies connectivity to the database.
 func (d *Driver) Ping(ctx context.Context, dsn string) error {
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return fmt.Errorf("failed to open mysql connection: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	return db.PingContext(ctx)
 }
 
+// Open creates a new database connection pool.
 func (d *Driver) Open(ctx context.Context, dsn string) (*sql.DB, error) {
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -46,10 +49,12 @@ func (d *Driver) Open(ctx context.Context, dsn string) (*sql.DB, error) {
 	return db, nil
 }
 
+// Dialect returns the SQL dialect for this datasource.
 func (d *Driver) Dialect() dialect.Dialect {
 	return d.dialect
 }
 
+// Introspect extracts schema metadata from the database.
 func (d *Driver) Introspect(ctx context.Context, db *sql.DB) (*datasource.IntrospectionResult, error) {
 	schemas, err := d.introspectSchemas(ctx, db)
 	if err != nil {
@@ -85,7 +90,7 @@ func (d *Driver) introspectSchemas(ctx context.Context, db *sql.DB) ([]datasourc
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var schemas []datasource.SchemaInfo
 	for rows.Next() {
@@ -104,7 +109,7 @@ func (d *Driver) introspectTables(ctx context.Context, db *sql.DB) ([]datasource
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var tables []datasource.TableInfo
 	for rows.Next() {
@@ -123,7 +128,7 @@ func (d *Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasourc
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var columns []datasource.ColumnInfo
 	for rows.Next() {
@@ -144,7 +149,7 @@ func (d *Driver) introspectRelations(ctx context.Context, db *sql.DB) ([]datasou
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var relations []datasource.RelationInfo
 	for rows.Next() {
@@ -158,6 +163,5 @@ func (d *Driver) introspectRelations(ctx context.Context, db *sql.DB) ([]datasou
 	return relations, rows.Err()
 }
 
-// Ensure compile-time checks
+// Ensure compile-time check
 var _ datasource.Driver = (*Driver)(nil)
-var _ = strings.Contains

@@ -1,3 +1,4 @@
+// Package db provides database connection pool management.
 package db
 
 import (
@@ -6,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/jackc/pgx/v5/stdlib" // PostgreSQL driver registration
 )
 
 // Config holds database connection parameters.
@@ -42,7 +43,7 @@ func NewPool(ctx context.Context, cfg Config) (*sql.DB, error) {
 	db.SetConnMaxIdleTime(cfg.ConnMaxIdleTime)
 
 	if err := db.PingContext(ctx); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
 

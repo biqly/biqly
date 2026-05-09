@@ -1,3 +1,4 @@
+// Package dialect defines SQL dialect interfaces for different database engines.
 package dialect
 
 import (
@@ -8,10 +9,12 @@ import (
 // MySQLDialect implements the Dialect interface for MySQL.
 type MySQLDialect struct{}
 
+// Name returns the dialect name.
 func (d MySQLDialect) Name() string {
 	return "mysql"
 }
 
+// QuoteIdent quotes a SQL identifier with dialect-specific delimiters.
 func (d MySQLDialect) QuoteIdent(identifier string) string {
 	parts := strings.Split(identifier, ".")
 	quoted := make([]string, len(parts))
@@ -21,10 +24,12 @@ func (d MySQLDialect) QuoteIdent(identifier string) string {
 	return strings.Join(quoted, ".")
 }
 
+// Placeholder returns the parameter placeholder for the given index.
 func (d MySQLDialect) Placeholder(index int) string {
 	return "?"
 }
 
+// LimitOffset generates the LIMIT/OFFSET clause.
 func (d MySQLDialect) LimitOffset(limit, offset int) string {
 	var parts []string
 	if limit > 0 {
@@ -36,20 +41,24 @@ func (d MySQLDialect) LimitOffset(limit, offset int) string {
 	return strings.Join(parts, " ")
 }
 
+// DateTrunc returns the date truncation expression.
 func (d MySQLDialect) DateTrunc(part, column string) string {
 	// MySQL doesn't have DATE_TRUNC, use DATE_FORMAT workaround
 	return fmt.Sprintf("DATE_FORMAT(%s, '%%Y-%%m-%%d %%H:%%i:%%s')", d.QuoteIdent(column))
 }
 
+// ILike returns a case-insensitive LIKE expression.
 func (d MySQLDialect) ILike(column, placeholder string) string {
 	// MySQL uses LOWER() + LIKE for case-insensitive matching
 	return fmt.Sprintf("LOWER(%s) LIKE LOWER(%s)", d.QuoteIdent(column), placeholder)
 }
 
+// CastType returns the dialect-specific SQL type name for casting.
 func (d MySQLDialect) CastType(sqlType string) string {
 	return strings.ToUpper(sqlType)
 }
 
+// Aggregate formats an aggregation function call.
 func (d MySQLDialect) Aggregate(fn, column string) string {
 	quotedCol := d.QuoteIdent(column)
 	switch strings.ToLower(fn) {

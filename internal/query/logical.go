@@ -22,9 +22,9 @@ type SelectItem struct {
 
 // Filter represents a WHERE condition.
 type Filter struct {
-	Field    string      `json:"field"`
-	Operator string      `json:"operator"`
-	Value    interface{} `json:"value"`
+	Field    string `json:"field"`
+	Operator string `json:"operator"`
+	Value    any    `json:"value"`
 }
 
 // GroupBy represents a GROUP BY field.
@@ -52,8 +52,8 @@ const (
 	OpStartsWith = "starts_with"
 	OpEndsWith   = "ends_with"
 	OpBetween    = "between"
-	OpIsNull   = "is_null"
-	OpIsNotNull = "is_not_null"
+	OpIsNull     = "is_null"
+	OpIsNotNull  = "is_not_null"
 )
 
 // Select types.

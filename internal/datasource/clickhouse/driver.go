@@ -1,17 +1,20 @@
+// Package clickhouse provides a ClickHouse datasource driver.
 package clickhouse
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/dialect"
-	_ "github.com/ClickHouse/clickhouse-go/v2"
+
+	_ "github.com/ClickHouse/clickhouse-go/v2" // register clickhouse driver
 )
 
-// Driver implements datasource.Driver for ClickHouse.
+// Driver implements the datasource.Driver interface for ClickHouse.
 type Driver struct {
 	dialect dialect.Dialect
 }
@@ -23,19 +26,26 @@ func NewDriver() *Driver {
 	}
 }
 
+// Type returns the driver type identifier.
 func (d *Driver) Type() string {
 	return "clickhouse"
 }
 
+// Ping tests connectivity to a ClickHouse instance.
 func (d *Driver) Ping(ctx context.Context, dsn string) error {
 	db, err := sql.Open("clickhouse", dsn)
 	if err != nil {
 		return fmt.Errorf("failed to open clickhouse connection: %w", err)
 	}
-	defer db.Close()
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			slog.Error("failed to close clickhouse connection", "error", closeErr)
+		}
+	}()
 	return db.PingContext(ctx)
 }
 
+// Open establishes a connection pool to ClickHouse.
 func (d *Driver) Open(ctx context.Context, dsn string) (*sql.DB, error) {
 	db, err := sql.Open("clickhouse", dsn)
 	if err != nil {
@@ -46,10 +56,12 @@ func (d *Driver) Open(ctx context.Context, dsn string) (*sql.DB, error) {
 	return db, nil
 }
 
+// Dialect returns the ClickHouse SQL dialect.
 func (d *Driver) Dialect() dialect.Dialect {
 	return d.dialect
 }
 
+// Introspect discovers the schema of a ClickHouse database.
 func (d *Driver) Introspect(ctx context.Context, db *sql.DB) (*datasource.IntrospectionResult, error) {
 	schemas, err := d.introspectSchemas(ctx, db)
 	if err != nil {
@@ -66,7 +78,6 @@ func (d *Driver) Introspect(ctx context.Context, db *sql.DB) (*datasource.Intros
 		return nil, fmt.Errorf("introspect columns: %w", err)
 	}
 
-	// ClickHouse doesn't have FK relations in the traditional sense
 	relations := []datasource.RelationInfo{}
 
 	return &datasource.IntrospectionResult{
@@ -83,7 +94,7 @@ func (d *Driver) introspectSchemas(ctx context.Context, db *sql.DB) ([]datasourc
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var schemas []datasource.SchemaInfo
 	for rows.Next() {
@@ -102,7 +113,7 @@ func (d *Driver) introspectTables(ctx context.Context, db *sql.DB) ([]datasource
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var tables []datasource.TableInfo
 	for rows.Next() {
@@ -123,7 +134,7 @@ func (d *Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasourc
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var columns []datasource.ColumnInfo
 	for rows.Next() {
@@ -137,6 +148,6 @@ func (d *Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasourc
 	return columns, rows.Err()
 }
 
-// Compile-time check
 var _ datasource.Driver = (*Driver)(nil)
+
 var _ = strings.Contains

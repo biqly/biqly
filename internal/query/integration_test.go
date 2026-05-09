@@ -17,6 +17,7 @@ import (
 func testDSN() string {
 	dsn := os.Getenv("BI_TEST_DB_DSN")
 	if dsn == "" {
+		//nolint:gosec // test-only default DSN for local development
 		dsn = "postgres://test_user:test_password@localhost:5433/test_data?sslmode=disable"
 	}
 	return dsn
@@ -29,11 +30,10 @@ func skipIfNoDB(t *testing.T) {
 	if err != nil {
 		t.Skip("no test database available")
 	}
-	if err := db.Ping(); err != nil {
-		db.Close()
+	defer func() { _ = db.Close() }()
+	if err := db.PingContext(context.Background()); err != nil {
 		t.Skip("test database not reachable")
 	}
-	db.Close()
 }
 
 // TestIntegration_PostgresConnection tests connecting to a real PostgreSQL database.
@@ -52,7 +52,7 @@ func TestIntegration_PostgresConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open connection: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	t.Log("connected successfully")
 }
@@ -69,7 +69,7 @@ func TestIntegration_Introspection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open connection: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	result, err := driver.Introspect(ctx, db)
 	if err != nil {
@@ -102,7 +102,7 @@ func TestIntegration_CompileAndExecute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open connection: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	model := &semantic.SemanticModel{
 		Name:       "orders",

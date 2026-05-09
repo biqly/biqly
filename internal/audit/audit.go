@@ -1,3 +1,4 @@
+// Package audit provides query audit logging.
 package audit
 
 import (
@@ -10,6 +11,7 @@ import (
 // EventType enumerates audit event types.
 type EventType string
 
+// Audit event types.
 const (
 	EventQueryExecuted  EventType = "query_executed"
 	EventQueryCompiled  EventType = "query_compiled"
@@ -56,6 +58,8 @@ func (l *Logger) Log(ctx context.Context, event Event) {
 	switch event.EventType {
 	case EventQueryFailed, EventPermissionDeny:
 		l.logger.ErrorContext(ctx, "audit", attrs...)
+	case EventQueryExecuted, EventQueryCompiled, EventDatasourceSync, EventAIGenerated:
+		l.logger.InfoContext(ctx, "audit", attrs...)
 	default:
 		l.logger.InfoContext(ctx, "audit", attrs...)
 	}

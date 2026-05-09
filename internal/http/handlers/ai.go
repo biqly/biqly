@@ -1,9 +1,11 @@
+// Package handlers provides HTTP handlers for the BI query engine API.
 package handlers
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/biqly/biqly/internal/ai"
@@ -33,6 +35,7 @@ type aiQueryRequest struct {
 	Question     string `json:"question"`
 }
 
+// Query handles AI-powered natural language queries.
 func (h *AIHandler) Query(w http.ResponseWriter, r *http.Request) {
 	var req aiQueryRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -61,6 +64,7 @@ func (h *AIHandler) Query(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+// Preview handles AI query preview (compiles but does not execute).
 func (h *AIHandler) Preview(w http.ResponseWriter, r *http.Request) {
 	var req aiQueryRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -112,6 +116,7 @@ func (h *AIHandler) Preview(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+// Run handles AI query execution (compiles and executes).
 func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
 	var req aiQueryRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -168,7 +173,11 @@ func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("connection failed: %s", err.Error()))
 		return
 	}
-	defer db.Close()
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			slog.Error("failed to close database connection", "error", closeErr)
+		}
+	}()
 
 	result, err := h.deps.Executor.Execute(ctx, db, cq)
 	if err != nil {
@@ -182,6 +191,7 @@ func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
 
 // Describe runs the AI metadata describer over a single table and (optionally) writes
 // the suggested table/column descriptions back into the metadata DB.
+// Describe handles AI-powered table/column description generation.
 func (h *AIHandler) Describe(w http.ResponseWriter, r *http.Request) {
 	var req ai.DescribeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

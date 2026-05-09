@@ -1,3 +1,4 @@
+// Package app wires together application dependencies.
 package app
 
 import (
@@ -15,7 +16,7 @@ import (
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
-	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/jackc/pgx/v5/stdlib" // PostgreSQL driver registration
 )
 
 // Dependencies holds all application dependencies.

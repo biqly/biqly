@@ -1,3 +1,4 @@
+// Package main is the main API server for the BI query engine.
 package main
 
 import (
@@ -35,7 +36,11 @@ func main() {
 		slog.Error("failed to initialize dependencies", "error", err)
 		os.Exit(1)
 	}
-	defer deps.Close()
+	defer func() {
+		if err := deps.Close(); err != nil {
+			slog.Error("failed to close dependencies", "error", err)
+		}
+	}()
 
 	slog.Info("dependencies initialized",
 		"metadata_db", cfg.Metadata.DSN,

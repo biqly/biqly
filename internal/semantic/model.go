@@ -1,8 +1,14 @@
+// Package semantic provides business-friendly semantic models over physical database tables.
 package semantic
 
 import "time"
 
+// Model defines a business-friendly view over a physical table.
+// Deprecated: Use SemanticModel instead; this alias exists for backward compatibility.
+type Model = SemanticModel
+
 // SemanticModel defines a business-friendly view over a physical table.
+//nolint:revive // 'SemanticModel' is clearer than 'Model' in the semantic package context
 type SemanticModel struct {
 	ID           string      `json:"id" db:"id"`
 	DatasourceID string      `json:"datasource_id" db:"datasource_id"`
@@ -68,6 +74,7 @@ type Join struct {
 // DimensionType enumerates supported dimension types.
 type DimensionType string
 
+// Supported dimension types.
 const (
 	DimensionTypeText     DimensionType = "text"
 	DimensionTypeNumber   DimensionType = "number"
@@ -79,6 +86,7 @@ const (
 // AggregationType enumerates supported aggregation functions.
 type AggregationType string
 
+// Supported aggregation functions.
 const (
 	AggCount          AggregationType = "count"
 	AggSum            AggregationType = "sum"

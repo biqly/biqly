@@ -1,3 +1,4 @@
+// Package main is the background worker process for the BI query engine.
 package main
 
 import (

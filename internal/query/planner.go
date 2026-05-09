@@ -29,8 +29,9 @@ type TableNode struct {
 }
 
 // Plan analyzes a LogicalQuery and returns a plan.
+//nolint:gocyclo // step-by-step planning process with independent phases
 func (p *Planner) Plan(lq LogicalQuery, model *semantic.SemanticModel) (*PlanResult, error) {
-	var warnings []string
+	warnings := make([]string, 0, 4)
 	var requiredJoins []string
 
 	// Build dimension map
@@ -97,11 +98,11 @@ func (p *Planner) Plan(lq LogicalQuery, model *semantic.SemanticModel) (*PlanRes
 	}
 
 	// Validate cardinality and detect fanout risks
-	fanoutWarnings := p.checkFanout(lq, model, dimMap, metricMap, tables)
+	fanoutWarnings := p.checkFanout(model, tables)
 	warnings = append(warnings, fanoutWarnings...)
 
 	// Check for invalid metric/dimension combinations
-	aggWarnings := p.checkAggregations(lq, model, metricMap)
+	aggWarnings := p.checkAggregations(lq)
 	warnings = append(warnings, aggWarnings...)
 
 	// Build table graph
@@ -127,7 +128,7 @@ func (p *Planner) Plan(lq LogicalQuery, model *semantic.SemanticModel) (*PlanRes
 }
 
 // checkFanout detects potential fanout issues from many-to-many or multiple many-to-one joins.
-func (p *Planner) checkFanout(lq LogicalQuery, model *semantic.SemanticModel, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric, tables map[string]bool) []string {
+func (p *Planner) checkFanout(model *semantic.SemanticModel, tables map[string]bool) []string {
 	var warnings []string
 
 	manyToManyCount := 0
@@ -158,22 +159,18 @@ func (p *Planner) checkFanout(lq LogicalQuery, model *semantic.SemanticModel, di
 }
 
 // checkAggregations validates that metrics and dimensions can be safely combined.
-func (p *Planner) checkAggregations(lq LogicalQuery, model *semantic.SemanticModel, metricMap map[string]semantic.Metric) []string {
+func (p *Planner) checkAggregations(lq LogicalQuery) []string {
 	var warnings []string
 
 	hasMetrics := false
-	hasGroupBy := false
-
 	for _, item := range lq.Select {
 		if item.Type == SelectTypeMetric {
 			hasMetrics = true
 		}
 	}
 
-	hasGroupBy = len(lq.GroupBy) > 0
-
 	// If metrics are selected without group_by, warn
-	if hasMetrics && !hasGroupBy {
+	if hasMetrics && len(lq.GroupBy) == 0 {
 		warnings = append(warnings, "metrics selected without GROUP BY - result will be a single aggregated row")
 	}
 

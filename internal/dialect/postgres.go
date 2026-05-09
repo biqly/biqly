@@ -1,3 +1,4 @@
+// Package dialect defines SQL dialect interfaces for different database engines.
 package dialect
 
 import (
@@ -8,10 +9,12 @@ import (
 // PostgresDialect implements the Dialect interface for PostgreSQL.
 type PostgresDialect struct{}
 
+// Name returns the dialect name.
 func (d PostgresDialect) Name() string {
 	return "postgres"
 }
 
+// QuoteIdent quotes a SQL identifier with dialect-specific delimiters.
 func (d PostgresDialect) QuoteIdent(identifier string) string {
 	// Handle schema.table format: "schema"."table".
 	// Internal double quotes are escaped by doubling per the SQL standard so a
@@ -24,10 +27,12 @@ func (d PostgresDialect) QuoteIdent(identifier string) string {
 	return strings.Join(quoted, ".")
 }
 
+// Placeholder returns the parameter placeholder for the given index.
 func (d PostgresDialect) Placeholder(index int) string {
 	return fmt.Sprintf("$%d", index)
 }
 
+// LimitOffset generates the LIMIT/OFFSET clause.
 func (d PostgresDialect) LimitOffset(limit, offset int) string {
 	var parts []string
 	if limit > 0 {
@@ -39,18 +44,22 @@ func (d PostgresDialect) LimitOffset(limit, offset int) string {
 	return strings.Join(parts, " ")
 }
 
+// DateTrunc returns the date truncation expression.
 func (d PostgresDialect) DateTrunc(part, column string) string {
 	return fmt.Sprintf("DATE_TRUNC('%s', %s)", part, d.QuoteIdent(column))
 }
 
+// ILike returns a case-insensitive LIKE expression.
 func (d PostgresDialect) ILike(column, placeholder string) string {
 	return fmt.Sprintf("%s ILIKE %s", d.QuoteIdent(column), placeholder)
 }
 
+// CastType returns the dialect-specific SQL type name for casting.
 func (d PostgresDialect) CastType(sqlType string) string {
 	return strings.ToUpper(sqlType)
 }
 
+// Aggregate formats an aggregation function call.
 func (d PostgresDialect) Aggregate(fn, column string) string {
 	quotedCol := d.QuoteIdent(column)
 	switch strings.ToLower(fn) {

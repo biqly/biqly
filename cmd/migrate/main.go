@@ -1,10 +1,12 @@
+// Package main runs database migrations.
 package main
 
 import (
+	"errors"
 	"flag"
-	"fmt"
-	"log"
+	"log/slog"
 	"os"
+	"strconv"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -17,18 +19,20 @@ func main() {
 	flag.Parse()
 
 	if *dsn == "" {
-		log.Fatal("BI_METADATA_DB_DSN is required")
+		slog.Error("BI_METADATA_DB_DSN is required")
+		os.Exit(1)
 	}
 
 	args := flag.Args()
 	if len(args) == 0 {
-		fmt.Println("Usage: migrate [up|down|force <version>]")
+		slog.Error("Usage: migrate [up|down|force <version>]")
 		os.Exit(1)
 	}
 
 	m, err := migrate.New("file://"+*dir, *dsn)
 	if err != nil {
-		log.Fatalf("Failed to create migrate instance: %v", err)
+		slog.Error("failed to create migrate instance", "error", err)
+		os.Exit(1)
 	}
 
 	switch args[0] {
@@ -38,22 +42,28 @@ func main() {
 		err = m.Down()
 	case "force":
 		if len(args) < 2 {
-			log.Fatal("force requires a version argument")
+			slog.Error("force requires a version argument")
+			os.Exit(1)
 		}
-		var version int
-		fmt.Sscanf(args[1], "%d", &version)
+		version, convErr := strconv.Atoi(args[1])
+		if convErr != nil {
+			slog.Error("invalid version", "error", convErr)
+			os.Exit(1)
+		}
 		err = m.Force(version)
 	default:
-		log.Fatalf("Unknown command: %s", args[0])
+		slog.Error("unknown command", "command", args[0])
+		os.Exit(1)
 	}
 
-	if err != nil && err != migrate.ErrNoChange {
-		log.Fatalf("Migration failed: %v", err)
+	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		slog.Error("migration failed", "error", err)
+		os.Exit(1)
 	}
 
-	if err == migrate.ErrNoChange {
-		fmt.Println("No changes to apply")
+	if errors.Is(err, migrate.ErrNoChange) {
+		slog.Info("no changes to apply")
 	} else {
-		fmt.Printf("Migration %s completed successfully\n", args[0])
+		slog.Info("migration completed", "command", args[0])
 	}
 }

@@ -1,3 +1,4 @@
+// Package datasource defines interfaces and types for database driver abstraction.
 package datasource
 
 import (

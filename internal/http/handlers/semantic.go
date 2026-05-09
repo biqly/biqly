@@ -30,6 +30,7 @@ type createModelRequest struct {
 	Synonyms     []string `json:"synonyms,omitempty"`
 }
 
+// CreateModel creates a new semantic model.
 func (h *SemanticHandler) CreateModel(w http.ResponseWriter, r *http.Request) {
 	var req createModelRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -63,6 +64,7 @@ func (h *SemanticHandler) CreateModel(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, m)
 }
 
+// ListModels returns all semantic models for a datasource.
 func (h *SemanticHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	models, err := h.deps.SemanticRepo.ListModels(ctx, "")
@@ -74,6 +76,7 @@ func (h *SemanticHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, models)
 }
 
+// GetModel returns a semantic model with its dimensions, metrics, and joins.
 func (h *SemanticHandler) GetModel(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	ctx := r.Context()
@@ -97,6 +100,7 @@ type updateModelRequest struct {
 	IsActive    *bool    `json:"is_active,omitempty"`
 }
 
+// UpdateModel updates an existing semantic model.
 func (h *SemanticHandler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	ctx := r.Context()
@@ -143,6 +147,7 @@ func (h *SemanticHandler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, existing)
 }
 
+// DeleteModel removes a semantic model.
 func (h *SemanticHandler) DeleteModel(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	ctx := r.Context()
@@ -163,6 +168,7 @@ type createDimensionRequest struct {
 	Synonyms  []string `json:"synonyms,omitempty"`
 }
 
+// CreateDimension adds a dimension to a semantic model.
 func (h *SemanticHandler) CreateDimension(w http.ResponseWriter, r *http.Request) {
 	modelID := chi.URLParam(r, "id")
 
@@ -204,6 +210,7 @@ type createMetricRequest struct {
 	Synonyms    []string `json:"synonyms,omitempty"`
 }
 
+// CreateMetric adds a metric to a semantic model.
 func (h *SemanticHandler) CreateMetric(w http.ResponseWriter, r *http.Request) {
 	modelID := chi.URLParam(r, "id")
 
@@ -249,6 +256,7 @@ type createJoinRequest struct {
 	Relationship string `json:"relationship,omitempty"`
 }
 
+// CreateJoin adds a join definition to a semantic model.
 func (h *SemanticHandler) CreateJoin(w http.ResponseWriter, r *http.Request) {
 	modelID := chi.URLParam(r, "id")
 

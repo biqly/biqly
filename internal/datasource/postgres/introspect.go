@@ -20,7 +20,7 @@ func (d *Driver) introspectSchemas(ctx context.Context, db *sql.DB) ([]datasourc
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var schemas []datasource.SchemaInfo
 	for rows.Next() {
@@ -58,7 +58,7 @@ func (d *Driver) introspectTables(ctx context.Context, db *sql.DB) ([]datasource
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var tables []datasource.TableInfo
 	for rows.Next() {
@@ -99,7 +99,7 @@ func (d *Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasourc
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var columns []datasource.ColumnInfo
 	for rows.Next() {
@@ -127,16 +127,18 @@ func (d *Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasourc
 		WHERE tc.constraint_type = 'PRIMARY KEY'
 	`
 
-	pkRows, err := db.QueryContext(ctx, pkQuery)
-	if err != nil {
-		return columns, nil // Non-fatal, skip PK info
+	pkRows, pkErr := db.QueryContext(ctx, pkQuery)
+	if pkErr != nil {
+		return columns, nil
 	}
-	defer pkRows.Close()
+	defer func() {
+		_ = pkRows.Close()
+	}()
 
 	pkSet := make(map[string]bool)
 	for pkRows.Next() {
 		var schema, table, column string
-		if err := pkRows.Scan(&schema, &table, &column); err != nil {
+		if scanErr := pkRows.Scan(&schema, &table, &column); scanErr != nil {
 			continue
 		}
 		key := fmt.Sprintf("%s.%s.%s", schema, table, column)
@@ -178,7 +180,7 @@ func (d *Driver) introspectRelations(ctx context.Context, db *sql.DB) ([]datasou
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var relations []datasource.RelationInfo
 	for rows.Next() {

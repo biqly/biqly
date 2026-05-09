@@ -512,7 +512,7 @@ type SelectItem struct {
 type Filter struct {
     Field    string      `json:"field"`
     Operator string      `json:"operator"`
-    Value    interface{} `json:"value"`
+    Value    any `json:"value"`
 }
 
 type GroupBy struct {

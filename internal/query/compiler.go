@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/biqly/biqly/internal/dialect"
-	"github.com/biqly/biqly/internal/semantic"
 	"github.com/biqly/biqly/internal/security"
+	"github.com/biqly/biqly/internal/semantic"
 )
 
 // Compiler compiles a LogicalQuery into dialect-specific SQL.
@@ -56,21 +56,18 @@ func (c *Compiler) Compile(ctx context.Context, lq LogicalQuery, model *semantic
 	joinClauses := c.buildJoins(neededJoins, joinMap, model)
 
 	// Build WHERE clause
-	var args []any
 	whereClause, whereArgs, err := c.buildWhere(lq.Filters, dimMap, metricMap)
 	if err != nil {
 		return nil, fmt.Errorf("build where: %w", err)
 	}
+	args := make([]any, 0, len(whereArgs))
 	args = append(args, whereArgs...)
 
 	// Build GROUP BY
-	groupByClause := c.buildGroupBy(lq.GroupBy, dimMap, metricMap)
+	groupByClause := c.buildGroupBy(lq.GroupBy, dimMap)
 
 	// Build ORDER BY
-	orderByClause, err := c.buildOrderBy(lq.OrderBy, dimMap, metricMap)
-	if err != nil {
-		return nil, fmt.Errorf("build order by: %w", err)
-	}
+	orderByClause := c.buildOrderBy(lq.OrderBy, dimMap, metricMap)
 
 	// Build LIMIT/OFFSET
 	limitClause := c.dialect.LimitOffset(lq.Limit, lq.Offset)
@@ -288,89 +285,116 @@ func (c *Compiler) buildWhere(filters []Filter, dimMap map[string]semantic.Dimen
 	var args []any
 
 	for _, f := range filters {
-		// Find the column reference
-		var colRef string
-		if dim, ok := dimMap[f.Field]; ok {
-			colRef = dim.ColumnRef
-		} else if metric, ok := metricMap[f.Field]; ok {
-			colRef = metric.Expression
-		} else {
-			return "", nil, fmt.Errorf("unknown field: %s", f.Field)
+		colRef, err := c.resolveField(f.Field, dimMap, metricMap)
+		if err != nil {
+			return "", nil, err
 		}
 
-		quoted := c.dialect.QuoteIdent(colRef)
-
-		switch f.Operator {
-		case OpEq:
-			args = append(args, f.Value)
-			parts = append(parts, fmt.Sprintf("%s = %s", quoted, c.dialect.Placeholder(len(args))))
-		case OpNeq:
-			args = append(args, f.Value)
-			parts = append(parts, fmt.Sprintf("%s != %s", quoted, c.dialect.Placeholder(len(args))))
-		case OpGt:
-			args = append(args, f.Value)
-			parts = append(parts, fmt.Sprintf("%s > %s", quoted, c.dialect.Placeholder(len(args))))
-		case OpGte:
-			args = append(args, f.Value)
-			parts = append(parts, fmt.Sprintf("%s >= %s", quoted, c.dialect.Placeholder(len(args))))
-		case OpLt:
-			args = append(args, f.Value)
-			parts = append(parts, fmt.Sprintf("%s < %s", quoted, c.dialect.Placeholder(len(args))))
-		case OpLte:
-			args = append(args, f.Value)
-			parts = append(parts, fmt.Sprintf("%s <= %s", quoted, c.dialect.Placeholder(len(args))))
-		case OpIn:
-			// Value should be a slice
-			vals, ok := f.Value.([]interface{})
-			if !ok {
-				return "", nil, fmt.Errorf("in operator expects array")
-			}
-			placeholders := make([]string, len(vals))
-			for i, v := range vals {
-				args = append(args, v)
-				placeholders[i] = c.dialect.Placeholder(len(args))
-			}
-			parts = append(parts, fmt.Sprintf("%s IN (%s)", quoted, strings.Join(placeholders, ", ")))
-		case OpNotIn:
-			vals, ok := f.Value.([]interface{})
-			if !ok {
-				return "", nil, fmt.Errorf("not_in operator expects array")
-			}
-			placeholders := make([]string, len(vals))
-			for i, v := range vals {
-				args = append(args, v)
-				placeholders[i] = c.dialect.Placeholder(len(args))
-			}
-			parts = append(parts, fmt.Sprintf("%s NOT IN (%s)", quoted, strings.Join(placeholders, ", ")))
-		case OpContains:
-			args = append(args, fmt.Sprintf("%%%v%%", f.Value))
-			parts = append(parts, c.dialect.ILike(colRef, c.dialect.Placeholder(len(args))))
-		case OpStartsWith:
-			args = append(args, fmt.Sprintf("%v%%", f.Value))
-			parts = append(parts, c.dialect.ILike(colRef, c.dialect.Placeholder(len(args))))
-		case OpEndsWith:
-			args = append(args, fmt.Sprintf("%%%v", f.Value))
-			parts = append(parts, c.dialect.ILike(colRef, c.dialect.Placeholder(len(args))))
-		case OpBetween:
-			vals, ok := f.Value.([]interface{})
-			if !ok || len(vals) != 2 {
-				return "", nil, fmt.Errorf("between operator expects 2 values")
-			}
-			args = append(args, vals[0], vals[1])
-			p1 := c.dialect.Placeholder(len(args) - 1)
-			p2 := c.dialect.Placeholder(len(args))
-			parts = append(parts, fmt.Sprintf("%s BETWEEN %s AND %s", quoted, p1, p2))
-		case OpIsNull:
-			parts = append(parts, fmt.Sprintf("%s IS NULL", quoted))
-		case OpIsNotNull:
-			parts = append(parts, fmt.Sprintf("%s IS NOT NULL", quoted))
+		part, newArgs, err := c.buildFilterPart(f, colRef, &args)
+		if err != nil {
+			return "", nil, err
 		}
+		args = append(args, newArgs...)
+		parts = append(parts, part)
 	}
 
 	return strings.Join(parts, " AND "), args, nil
 }
 
-func (c *Compiler) buildGroupBy(groupBy []GroupBy, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric) string {
+func (c *Compiler) resolveField(field string, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric) (string, error) {
+	if dim, ok := dimMap[field]; ok {
+		return dim.ColumnRef, nil
+	}
+	if metric, ok := metricMap[field]; ok {
+		return metric.Expression, nil
+	}
+	return "", fmt.Errorf("unknown field: %s", field)
+}
+
+func (c *Compiler) buildFilterPart(f Filter, colRef string, args *[]any) (string, []any, error) {
+	quoted := c.dialect.QuoteIdent(colRef)
+
+	switch f.Operator {
+	case OpEq:
+		*args = append(*args, f.Value)
+		return fmt.Sprintf("%s = %s", quoted, c.dialect.Placeholder(len(*args))), nil, nil
+	case OpNeq:
+		*args = append(*args, f.Value)
+		return fmt.Sprintf("%s != %s", quoted, c.dialect.Placeholder(len(*args))), nil, nil
+	case OpGt:
+		*args = append(*args, f.Value)
+		return fmt.Sprintf("%s > %s", quoted, c.dialect.Placeholder(len(*args))), nil, nil
+	case OpGte:
+		*args = append(*args, f.Value)
+		return fmt.Sprintf("%s >= %s", quoted, c.dialect.Placeholder(len(*args))), nil, nil
+	case OpLt:
+		*args = append(*args, f.Value)
+		return fmt.Sprintf("%s < %s", quoted, c.dialect.Placeholder(len(*args))), nil, nil
+	case OpLte:
+		*args = append(*args, f.Value)
+		return fmt.Sprintf("%s <= %s", quoted, c.dialect.Placeholder(len(*args))), nil, nil
+	case OpIn:
+		return c.buildInFilter(quoted, f.Value, args)
+	case OpNotIn:
+		return c.buildNotInFilter(quoted, f.Value, args)
+	case OpContains:
+		*args = append(*args, fmt.Sprintf("%%%v%%", f.Value))
+		return c.dialect.ILike(colRef, c.dialect.Placeholder(len(*args))), nil, nil
+	case OpStartsWith:
+		*args = append(*args, fmt.Sprintf("%v%%", f.Value))
+		return c.dialect.ILike(colRef, c.dialect.Placeholder(len(*args))), nil, nil
+	case OpEndsWith:
+		*args = append(*args, fmt.Sprintf("%%%v", f.Value))
+		return c.dialect.ILike(colRef, c.dialect.Placeholder(len(*args))), nil, nil
+	case OpBetween:
+		return c.buildBetweenFilter(quoted, f.Value, args)
+	case OpIsNull:
+		return fmt.Sprintf("%s IS NULL", quoted), nil, nil
+	case OpIsNotNull:
+		return fmt.Sprintf("%s IS NOT NULL", quoted), nil, nil
+	default:
+		return "", nil, fmt.Errorf("unsupported operator: %s", f.Operator)
+	}
+}
+
+func (c *Compiler) buildInFilter(quoted string, value any, args *[]any) (string, []any, error) {
+	vals, ok := value.([]any)
+	if !ok {
+		return "", nil, fmt.Errorf("in operator expects array")
+	}
+	placeholders := make([]string, len(vals))
+	for i, v := range vals {
+		*args = append(*args, v)
+		placeholders[i] = c.dialect.Placeholder(len(*args))
+	}
+	return fmt.Sprintf("%s IN (%s)", quoted, strings.Join(placeholders, ", ")), nil, nil
+}
+
+func (c *Compiler) buildNotInFilter(quoted string, value any, args *[]any) (string, []any, error) {
+	vals, ok := value.([]any)
+	if !ok {
+		return "", nil, fmt.Errorf("not_in operator expects array")
+	}
+	placeholders := make([]string, len(vals))
+	for i, v := range vals {
+		*args = append(*args, v)
+		placeholders[i] = c.dialect.Placeholder(len(*args))
+	}
+	return fmt.Sprintf("%s NOT IN (%s)", quoted, strings.Join(placeholders, ", ")), nil, nil
+}
+
+func (c *Compiler) buildBetweenFilter(quoted string, value any, args *[]any) (string, []any, error) {
+	vals, ok := value.([]any)
+	if !ok || len(vals) != 2 {
+		return "", nil, fmt.Errorf("between operator expects 2 values")
+	}
+	*args = append(*args, vals[0], vals[1])
+	p1 := c.dialect.Placeholder(len(*args) - 1)
+	p2 := c.dialect.Placeholder(len(*args))
+	return fmt.Sprintf("%s BETWEEN %s AND %s", quoted, p1, p2), nil, nil
+}
+
+func (c *Compiler) buildGroupBy(groupBy []GroupBy, dimMap map[string]semantic.Dimension) string {
 	if len(groupBy) == 0 {
 		return ""
 	}
@@ -384,9 +408,9 @@ func (c *Compiler) buildGroupBy(groupBy []GroupBy, dimMap map[string]semantic.Di
 	return strings.Join(parts, ", ")
 }
 
-func (c *Compiler) buildOrderBy(orderBy []OrderBy, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric) (string, error) {
+func (c *Compiler) buildOrderBy(orderBy []OrderBy, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric) string {
 	if len(orderBy) == 0 {
-		return "", nil
+		return ""
 	}
 
 	var parts []string
@@ -414,5 +438,5 @@ func (c *Compiler) buildOrderBy(orderBy []OrderBy, dimMap map[string]semantic.Di
 		}
 	}
 
-	return strings.Join(parts, ", "), nil
+	return strings.Join(parts, ", ")
 }

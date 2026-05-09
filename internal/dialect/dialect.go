@@ -1,3 +1,4 @@
+// Package dialect defines SQL dialect interfaces for different database engines.
 package dialect
 
 // Dialect defines database-specific SQL generation behavior.

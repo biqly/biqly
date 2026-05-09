@@ -1,3 +1,4 @@
+// Package http provides HTTP handlers, middleware, and metrics.
 package http
 
 import (
@@ -11,25 +12,20 @@ import (
 type Metrics struct {
 	mu sync.Mutex
 
-	// Query metrics
 	TotalQueries   int64
 	QueryErrors    int64
 	QueryDuration  time.Duration
 	CacheHits      int64
 	CacheMisses    int64
 
-	// AI metrics
-	AITotalRequests  int64
-	AIErrors         int64
-	AILatency        time.Duration
+	AITotalRequests int64
+	AIErrors        int64
+	AILatency       time.Duration
 
-	// Datasource metrics
 	ConnectionErrors int64
 
-	// Validation metrics
 	ValidationFailures int64
 
-	// Per-status histograms (simplified as counters)
 	QueryDurationBuckets map[string]int64
 }
 
@@ -60,7 +56,6 @@ func (m *Metrics) RecordQuery(durationMs int64, success bool, cacheHit bool) {
 		m.CacheMisses++
 	}
 
-	// Bucket
 	bucket := durationBucket(durationMs)
 	m.QueryDurationBuckets[bucket]++
 }
@@ -117,43 +112,47 @@ func MetricsHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain")
 
-	fmt.Fprintf(w, "# HELP bi_queries_total Total number of queries\n")
-	fmt.Fprintf(w, "# TYPE bi_queries_total counter\n")
-	fmt.Fprintf(w, "bi_queries_total %d\n", m.TotalQueries)
+	writeMetricsLine := func(format string, args ...any) {
+		_, _ = fmt.Fprintf(w, format, args...)
+	}
 
-	fmt.Fprintf(w, "# HELP bi_query_errors Total number of query errors\n")
-	fmt.Fprintf(w, "# TYPE bi_query_errors counter\n")
-	fmt.Fprintf(w, "bi_query_errors %d\n", m.QueryErrors)
+	writeMetricsLine("# HELP bi_queries_total Total number of queries\n")
+	writeMetricsLine("# TYPE bi_queries_total counter\n")
+	writeMetricsLine("bi_queries_total %d\n", m.TotalQueries)
 
-	fmt.Fprintf(w, "# HELP bi_cache_hits Total cache hits\n")
-	fmt.Fprintf(w, "# TYPE bi_cache_hits counter\n")
-	fmt.Fprintf(w, "bi_cache_hits %d\n", m.CacheHits)
+	writeMetricsLine("# HELP bi_query_errors Total number of query errors\n")
+	writeMetricsLine("# TYPE bi_query_errors counter\n")
+	writeMetricsLine("bi_query_errors %d\n", m.QueryErrors)
 
-	fmt.Fprintf(w, "# HELP bi_cache_misses Total cache misses\n")
-	fmt.Fprintf(w, "# TYPE bi_cache_misses counter\n")
-	fmt.Fprintf(w, "bi_cache_misses %d\n", m.CacheMisses)
+	writeMetricsLine("# HELP bi_cache_hits Total cache hits\n")
+	writeMetricsLine("# TYPE bi_cache_hits counter\n")
+	writeMetricsLine("bi_cache_hits %d\n", m.CacheHits)
 
-	fmt.Fprintf(w, "# HELP bi_ai_requests_total Total AI requests\n")
-	fmt.Fprintf(w, "# TYPE bi_ai_requests_total counter\n")
-	fmt.Fprintf(w, "bi_ai_requests_total %d\n", m.AITotalRequests)
+	writeMetricsLine("# HELP bi_cache_misses Total cache misses\n")
+	writeMetricsLine("# TYPE bi_cache_misses counter\n")
+	writeMetricsLine("bi_cache_misses %d\n", m.CacheMisses)
 
-	fmt.Fprintf(w, "# HELP bi_ai_errors Total AI errors\n")
-	fmt.Fprintf(w, "# TYPE bi_ai_errors counter\n")
-	fmt.Fprintf(w, "bi_ai_errors %d\n", m.AIErrors)
+	writeMetricsLine("# HELP bi_ai_requests_total Total AI requests\n")
+	writeMetricsLine("# TYPE bi_ai_requests_total counter\n")
+	writeMetricsLine("bi_ai_requests_total %d\n", m.AITotalRequests)
 
-	fmt.Fprintf(w, "# HELP bi_validation_failures Total validation failures\n")
-	fmt.Fprintf(w, "# TYPE bi_validation_failures counter\n")
-	fmt.Fprintf(w, "bi_validation_failures %d\n", m.ValidationFailures)
+	writeMetricsLine("# HELP bi_ai_errors Total AI errors\n")
+	writeMetricsLine("# TYPE bi_ai_errors counter\n")
+	writeMetricsLine("bi_ai_errors %d\n", m.AIErrors)
 
-	fmt.Fprintf(w, "# HELP bi_connection_errors Total connection errors\n")
-	fmt.Fprintf(w, "# TYPE bi_connection_errors counter\n")
-	fmt.Fprintf(w, "bi_connection_errors %d\n", m.ConnectionErrors)
+	writeMetricsLine("# HELP bi_validation_failures Total validation failures\n")
+	writeMetricsLine("# TYPE bi_validation_failures counter\n")
+	writeMetricsLine("bi_validation_failures %d\n", m.ValidationFailures)
 
-	fmt.Fprintf(w, "# HELP bi_query_duration_seconds Total query duration\n")
-	fmt.Fprintf(w, "# TYPE bi_query_duration_seconds counter\n")
-	fmt.Fprintf(w, "bi_query_duration_seconds %.3f\n", m.QueryDuration.Seconds())
+	writeMetricsLine("# HELP bi_connection_errors Total connection errors\n")
+	writeMetricsLine("# TYPE bi_connection_errors counter\n")
+	writeMetricsLine("bi_connection_errors %d\n", m.ConnectionErrors)
+
+	writeMetricsLine("# HELP bi_query_duration_seconds Total query duration\n")
+	writeMetricsLine("# TYPE bi_query_duration_seconds counter\n")
+	writeMetricsLine("bi_query_duration_seconds %.3f\n", m.QueryDuration.Seconds())
 
 	for bucket, count := range m.QueryDurationBuckets {
-		fmt.Fprintf(w, "bi_query_duration_bucket{le=\"%s\"} %d\n", bucket, count)
+		writeMetricsLine("bi_query_duration_bucket{le=\"%s\"} %d\n", bucket, count)
 	}
 }

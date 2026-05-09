@@ -46,7 +46,7 @@ func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (
 	if err != nil {
 		return nil, fmt.Errorf("query execution failed: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	// Get column info
 	colTypes, err := rows.ColumnTypes()
@@ -94,10 +94,10 @@ func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (
 
 	duration := time.Since(start).Milliseconds()
 
-	return &QueryResult{
+	return &Result{
 		Columns: columns,
 		Rows:    resultRows,
-		Stats: QueryStats{
+		Stats: Stats{
 			DurationMs: duration,
 			RowCount:   len(resultRows),
 		},

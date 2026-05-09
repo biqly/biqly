@@ -99,7 +99,7 @@ func (s *DescribeService) Describe(ctx context.Context, req DescribeRequest) (*D
 	if err != nil {
 		return nil, fmt.Errorf("open datasource: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	sample, err := s.fetchSample(ctx, db, driver.Dialect(), cols, req.Schema, req.Table, limit)
 	if err != nil {
@@ -157,7 +157,7 @@ func (s *DescribeService) fetchSample(ctx context.Context, db *sql.DB, d dialect
 		from = d.QuoteIdent(schema) + "." + d.QuoteIdent(table)
 	}
 	// Identifiers are validated above; LimitOffset emits an integer literal.
-	// nosemgrep
+	//nolint:gosec // identifiers validated against allowlist regex above
 	query := fmt.Sprintf("SELECT %s FROM %s %s",
 		strings.Join(colIdents, ", "),
 		from,
@@ -169,7 +169,7 @@ func (s *DescribeService) fetchSample(ctx context.Context, db *sql.DB, d dialect
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	colNames, err := rows.Columns()
 	if err != nil {
@@ -238,7 +238,7 @@ func buildDescribePrompt(schema, table string, cols []metadata.Column, sample []
 	sb.WriteString("- Describe the business meaning, not the data type.\n")
 	sb.WriteString("- If you cannot infer a column from the sample, leave its description empty.\n\n")
 
-	sb.WriteString(fmt.Sprintf("## Table: %s.%s\n", schema, table))
+	fmt.Fprintf(&sb, "## Table: %s.%s\n", schema, table)
 	sb.WriteString("### Columns\n")
 	for _, c := range cols {
 		line := fmt.Sprintf("- %s (%s", c.ColumnName, c.DataType)

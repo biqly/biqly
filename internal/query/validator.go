@@ -18,6 +18,7 @@ func NewValidator(maxRows int) *Validator {
 }
 
 // Validate checks a LogicalQuery for correctness.
+//nolint:gocyclo // linear validation checks, each field validated independently
 func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) error {
 	var errs ValidationErrors
 

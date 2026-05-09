@@ -1,3 +1,4 @@
+// Package logger provides structured logging utilities.
 package logger
 
 import (
@@ -30,6 +31,7 @@ func New(cfg Config) *slog.Logger {
 
 // NewWithFile creates a logger that writes to both stdout and a file.
 func NewWithFile(cfg Config, filepath string) (*slog.Logger, io.Closer, error) {
+	//nolint:gosec // G304: filepath is provided by application config, not user input
 	f, err := os.OpenFile(filepath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		return nil, nil, err

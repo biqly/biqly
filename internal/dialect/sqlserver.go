@@ -1,3 +1,4 @@
+// Package dialect defines SQL dialect interfaces for different database engines.
 package dialect
 
 import (
@@ -8,10 +9,12 @@ import (
 // SQLServerDialect implements the Dialect interface for SQL Server.
 type SQLServerDialect struct{}
 
+// Name returns the dialect name.
 func (d SQLServerDialect) Name() string {
 	return "sqlserver"
 }
 
+// QuoteIdent quotes a SQL identifier with dialect-specific delimiters.
 func (d SQLServerDialect) QuoteIdent(identifier string) string {
 	parts := strings.Split(identifier, ".")
 	quoted := make([]string, len(parts))
@@ -21,10 +24,12 @@ func (d SQLServerDialect) QuoteIdent(identifier string) string {
 	return strings.Join(quoted, ".")
 }
 
+// Placeholder returns the parameter placeholder for the given index.
 func (d SQLServerDialect) Placeholder(index int) string {
 	return fmt.Sprintf("@p%d", index)
 }
 
+// LimitOffset generates the LIMIT/OFFSET clause.
 func (d SQLServerDialect) LimitOffset(limit, offset int) string {
 	// SQL Server uses OFFSET ... ROWS FETCH NEXT ... ROWS ONLY
 	// Requires ORDER BY clause
@@ -41,20 +46,24 @@ func (d SQLServerDialect) LimitOffset(limit, offset int) string {
 	return strings.Join(parts, " ")
 }
 
+// DateTrunc returns the date truncation expression.
 func (d SQLServerDialect) DateTrunc(part, column string) string {
 	// SQL Server uses DATEADD/DATEDIFF for truncation
 	return fmt.Sprintf("DATEADD(%s, DATEDIFF(%s, 0, %s), 0)", part, part, d.QuoteIdent(column))
 }
 
+// ILike returns a case-insensitive LIKE expression.
 func (d SQLServerDialect) ILike(column, placeholder string) string {
 	// SQL Server is case-insensitive by default for LIKE
 	return fmt.Sprintf("%s LIKE %s", d.QuoteIdent(column), placeholder)
 }
 
+// CastType returns the dialect-specific SQL type name for casting.
 func (d SQLServerDialect) CastType(sqlType string) string {
 	return strings.ToUpper(sqlType)
 }
 
+// Aggregate formats an aggregation function call.
 func (d SQLServerDialect) Aggregate(fn, column string) string {
 	quotedCol := d.QuoteIdent(column)
 	switch strings.ToLower(fn) {

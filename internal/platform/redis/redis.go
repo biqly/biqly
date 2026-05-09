@@ -1,3 +1,4 @@
+// Package rediscache provides Redis caching utilities.
 package rediscache
 
 import (

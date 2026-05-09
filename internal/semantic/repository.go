@@ -19,6 +19,7 @@ func NewRepository(db *sql.DB) *Repository {
 
 // Model operations
 
+// CreateModel inserts a new semantic model.
 func (r *Repository) CreateModel(ctx context.Context, m *SemanticModel) error {
 	query := `
 		INSERT INTO semantic_models (id, datasource_id, name, label, description, base_schema, base_table, synonyms, is_active)
@@ -27,25 +28,26 @@ func (r *Repository) CreateModel(ctx context.Context, m *SemanticModel) error {
 	return r.db.QueryRowContext(ctx, query, m.ID, m.DatasourceID, m.Name, m.Label, m.Description, m.BaseSchema, m.BaseTable, m.Synonyms, m.IsActive).Err()
 }
 
+// GetModel retrieves a model by ID.
 func (r *Repository) GetModel(ctx context.Context, id string) (*SemanticModel, error) {
 	query := `SELECT id, datasource_id, name, label, description, base_schema, base_table, synonyms, is_active, created_by, created_at, updated_at FROM semantic_models WHERE id = $1`
 	row := r.db.QueryRowContext(ctx, query, id)
 	return r.scanModel(row)
 }
 
+// GetModelByName retrieves a model by datasource ID and name.
 func (r *Repository) GetModelByName(ctx context.Context, datasourceID, name string) (*SemanticModel, error) {
 	query := `SELECT id, datasource_id, name, label, description, base_schema, base_table, synonyms, is_active, created_by, created_at, updated_at FROM semantic_models WHERE datasource_id = $1 AND name = $2`
 	row := r.db.QueryRowContext(ctx, query, datasourceID, name)
 	return r.scanModel(row)
 }
 
+// ListModels returns all models, optionally filtered by datasource.
 func (r *Repository) ListModels(ctx context.Context, datasourceID string) ([]SemanticModel, error) {
 	query := `SELECT id, datasource_id, name, label, description, base_schema, base_table, synonyms, is_active, created_by, created_at, updated_at FROM semantic_models`
-	args := []any{}
-	where := ""
+	var args []any
 	if datasourceID != "" {
-		where = " WHERE datasource_id = $1"
-		query += where
+		query += " WHERE datasource_id = $1"
 		args = append(args, datasourceID)
 	}
 	query += " ORDER BY created_at DESC"
@@ -54,7 +56,7 @@ func (r *Repository) ListModels(ctx context.Context, datasourceID string) ([]Sem
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var models []SemanticModel
 	for rows.Next() {
@@ -67,6 +69,7 @@ func (r *Repository) ListModels(ctx context.Context, datasourceID string) ([]Sem
 	return models, rows.Err()
 }
 
+// UpdateModel updates an existing semantic model.
 func (r *Repository) UpdateModel(ctx context.Context, m *SemanticModel) error {
 	query := `
 		UPDATE semantic_models
@@ -77,6 +80,7 @@ func (r *Repository) UpdateModel(ctx context.Context, m *SemanticModel) error {
 	return err
 }
 
+// DeleteModel removes a semantic model.
 func (r *Repository) DeleteModel(ctx context.Context, id string) error {
 	_, err := r.db.ExecContext(ctx, `DELETE FROM semantic_models WHERE id = $1`, id)
 	return err
@@ -84,6 +88,7 @@ func (r *Repository) DeleteModel(ctx context.Context, id string) error {
 
 // Dimension operations
 
+// CreateDimension inserts a new dimension.
 func (r *Repository) CreateDimension(ctx context.Context, d *Dimension) error {
 	query := `
 		INSERT INTO semantic_dimensions (id, model_id, name, label, column_ref, type, synonyms, description, is_active)
@@ -92,13 +97,14 @@ func (r *Repository) CreateDimension(ctx context.Context, d *Dimension) error {
 	return r.db.QueryRowContext(ctx, query, d.ID, d.ModelID, d.Name, d.Label, d.ColumnRef, d.Type, d.Synonyms, d.Description, d.IsActive).Err()
 }
 
+// GetDimensions returns all active dimensions for a model.
 func (r *Repository) GetDimensions(ctx context.Context, modelID string) ([]Dimension, error) {
 	query := `SELECT id, model_id, name, label, column_ref, type, synonyms, description, is_active, created_at FROM semantic_dimensions WHERE model_id = $1 AND is_active = true ORDER BY name`
 	rows, err := r.db.QueryContext(ctx, query, modelID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var dims []Dimension
 	for rows.Next() {
@@ -113,6 +119,7 @@ func (r *Repository) GetDimensions(ctx context.Context, modelID string) ([]Dimen
 
 // Metric operations
 
+// CreateMetric inserts a new metric.
 func (r *Repository) CreateMetric(ctx context.Context, m *Metric) error {
 	query := `
 		INSERT INTO semantic_metrics (id, model_id, name, label, expression, aggregation, format, synonyms, description, is_active)
@@ -121,13 +128,14 @@ func (r *Repository) CreateMetric(ctx context.Context, m *Metric) error {
 	return r.db.QueryRowContext(ctx, query, m.ID, m.ModelID, m.Name, m.Label, m.Expression, m.Aggregation, m.Format, m.Synonyms, m.Description, m.IsActive).Err()
 }
 
+// GetMetrics returns all active metrics for a model.
 func (r *Repository) GetMetrics(ctx context.Context, modelID string) ([]Metric, error) {
 	query := `SELECT id, model_id, name, label, expression, aggregation, format, synonyms, description, is_active, created_at FROM semantic_metrics WHERE model_id = $1 AND is_active = true ORDER BY name`
 	rows, err := r.db.QueryContext(ctx, query, modelID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var metrics []Metric
 	for rows.Next() {
@@ -142,6 +150,7 @@ func (r *Repository) GetMetrics(ctx context.Context, modelID string) ([]Metric, 
 
 // Join operations
 
+// CreateJoin inserts a new join.
 func (r *Repository) CreateJoin(ctx context.Context, j *Join) error {
 	query := `
 		INSERT INTO semantic_joins (id, model_id, name, from_table, from_column, to_table, to_column, join_type, relationship, is_active)
@@ -150,13 +159,14 @@ func (r *Repository) CreateJoin(ctx context.Context, j *Join) error {
 	return r.db.QueryRowContext(ctx, query, j.ID, j.ModelID, j.Name, j.FromTable, j.FromColumn, j.ToTable, j.ToColumn, j.JoinType, j.Relationship, j.IsActive).Err()
 }
 
+// GetJoins returns all active joins for a model.
 func (r *Repository) GetJoins(ctx context.Context, modelID string) ([]Join, error) {
 	query := `SELECT id, model_id, name, from_table, from_column, to_table, to_column, join_type, relationship, is_active, created_at FROM semantic_joins WHERE model_id = $1 AND is_active = true ORDER BY name`
 	rows, err := r.db.QueryContext(ctx, query, modelID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var joins []Join
 	for rows.Next() {

@@ -4,15 +4,19 @@ import (
 	"github.com/biqly/biqly/internal/query"
 )
 
-// AIRequest is the input for the AI query endpoint.
-type AIRequest struct {
+// Request is the input for the AI query endpoint.
+type Request struct {
 	DatasourceID string `json:"datasource_id"`
 	ModelID      string `json:"model_id"`
 	Question     string `json:"question"`
 }
 
-// AIResponse is the output from the AI query endpoint.
-type AIResponse struct {
+// AIRequest is a deprecated alias for Request.
+//nolint:revive // alias for backward compatibility
+type AIRequest = Request
+
+// Response is the output from the AI query endpoint.
+type Response struct {
 	LogicalQuery *query.LogicalQuery `json:"logical_query,omitempty"`
 	SQL          string              `json:"sql,omitempty"`
 	Args         []any               `json:"args,omitempty"`
@@ -20,6 +24,10 @@ type AIResponse struct {
 	Result       *query.QueryResult  `json:"result,omitempty"`
 	Confidence   float64             `json:"confidence"`
 }
+
+// AIResponse is a deprecated alias for Response.
+//nolint:revive // alias for backward compatibility
+type AIResponse = Response
 
 // LogicalQuerySchema defines the JSON schema the AI must output.
 const LogicalQuerySchema = `{
