@@ -1,26 +1,29 @@
-FROM golang:1.23-alpine AS builder
+# Multi-binary build: SERVICE selects which directory under cmd/ to compile.
+# Defaults to "api"; pass --build-arg SERVICE=migrate (or worker) to build the others.
+FROM golang:1.26.3-alpine AS builder
 
-WORKDIR /app
+RUN apk --no-cache add ca-certificates
+
+WORKDIR /src
 
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /biqly ./cmd/api/
 
-FROM alpine:3.19
+ARG TARGETARCH
+ARG SERVICE=api
+RUN test -d "./cmd/${SERVICE}" && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
+    go build -ldflags="-s -w" -o /biqly-service "./cmd/${SERVICE}"
 
-RUN apk --no-cache add ca-certificates \
-    && addgroup -S biqly \
-    && adduser -S biqly -G biqly
+FROM scratch
 
-WORKDIR /home/biqly
-
-COPY --from=builder /biqly .
-RUN chown biqly:biqly /home/biqly/biqly
-
-USER biqly
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /biqly-service /biqly-service
 
 EXPOSE 8888
 
-CMD ["./biqly"]
+USER 65534:65534
+
+ENTRYPOINT ["/biqly-service"]
