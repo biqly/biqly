@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/biqly/biqly/internal/dialect"
@@ -69,6 +70,148 @@ func TestCompiler_SimpleSelect(t *testing.T) {
 	}
 	if cq.Args[0] != "2026-01-01" {
 		t.Errorf("expected arg 0 to be '2026-01-01', got %v", cq.Args[0])
+	}
+}
+
+func TestCompiler_OmitsJoinsWhenQueryUsesOnlyBaseTable(t *testing.T) {
+	// Two FKs from product to billofmaterials (component vs assembly). If the logical query
+	// only references product columns, we must not JOIN billofmaterials twice (or at all).
+	model := &semantic.SemanticModel{
+		Name:       "auto:production.product,production.billofmaterials",
+		BaseSchema: "production",
+		BaseTable:  "product",
+		Dimensions: []semantic.Dimension{
+			{Name: "name", ColumnRef: "product.name", Type: "text"},
+			{Name: "productid", ColumnRef: "product.productid", Type: "number"},
+			{Name: "bomlevel", ColumnRef: "billofmaterials.bomlevel", Type: "number"},
+		},
+		Joins: []semantic.Join{
+			{
+				Name:       "product_component_fk",
+				FromTable:  "product",
+				FromColumn: "productid",
+				ToTable:    "billofmaterials",
+				ToColumn:   "componentid",
+				JoinType:   "LEFT",
+			},
+			{
+				Name:       "product_assembly_fk",
+				FromTable:  "product",
+				FromColumn: "productid",
+				ToTable:    "billofmaterials",
+				ToColumn:   "productassemblyid",
+				JoinType:   "LEFT",
+			},
+		},
+	}
+
+	lq := LogicalQuery{
+		DatasourceID: "ds1",
+		ModelID:      model.Name,
+		Select: []SelectItem{
+			{Type: SelectTypeDimension, Name: "name"},
+			{Type: SelectTypeDimension, Name: "productid"},
+		},
+		Limit: 100,
+	}
+
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if containsStr(cq.SQL, "JOIN") {
+		t.Fatalf("expected no JOIN when only base table columns are used, got SQL:\n%s", cq.SQL)
+	}
+}
+
+func TestCompiler_SingleJoinWhenRelatedTableColumnUsed(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "auto:production.product,production.billofmaterials",
+		BaseSchema: "production",
+		BaseTable:  "product",
+		Dimensions: []semantic.Dimension{
+			{Name: "name", ColumnRef: "product.name", Type: "text"},
+			{Name: "bomlevel", ColumnRef: "billofmaterials.bomlevel", Type: "number"},
+		},
+		Joins: []semantic.Join{
+			{
+				Name:       "product_component_fk",
+				FromTable:  "product",
+				FromColumn: "productid",
+				ToTable:    "billofmaterials",
+				ToColumn:   "componentid",
+				JoinType:   "LEFT",
+			},
+			{
+				Name:       "product_assembly_fk",
+				FromTable:  "product",
+				FromColumn: "productid",
+				ToTable:    "billofmaterials",
+				ToColumn:   "productassemblyid",
+				JoinType:   "LEFT",
+			},
+		},
+	}
+
+	lq := LogicalQuery{
+		DatasourceID: "ds1",
+		ModelID:      model.Name,
+		Select: []SelectItem{
+			{Type: SelectTypeDimension, Name: "name"},
+			{Type: SelectTypeDimension, Name: "bomlevel"},
+		},
+		Limit: 50,
+	}
+
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	n := strings.Count(cq.SQL, "LEFT JOIN")
+	if n != 1 {
+		t.Fatalf("expected exactly 1 LEFT JOIN, got %d in SQL:\n%s", n, cq.SQL)
+	}
+}
+
+func TestCompiler_TimeGrainYearGroupBy(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "sales_orders",
+		BaseSchema: "sales",
+		BaseTable:  "salesorderheader",
+		Dimensions: []semantic.Dimension{
+			{Name: "orderdate", ColumnRef: "salesorderheader.orderdate", Type: "date"},
+			{
+				Name:      "orderdate_year",
+				ColumnRef: "salesorderheader.orderdate",
+				Type:      string(semantic.DimensionTypeDate),
+				TimeGrain: "year",
+			},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "sum_totaldue", Expression: "salesorderheader.totaldue", Aggregation: "sum"},
+		},
+	}
+
+	lq := LogicalQuery{
+		DatasourceID: "ds1",
+		ModelID:      model.Name,
+		Select: []SelectItem{
+			{Type: SelectTypeDimension, Name: "orderdate_year"},
+			{Type: SelectTypeMetric, Name: "sum_totaldue"},
+		},
+		GroupBy: []GroupBy{{Field: "orderdate_year"}},
+		OrderBy: []OrderBy{{Field: "orderdate_year", Direction: "asc"}},
+		Limit:   100,
+	}
+
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+
+	want := `SELECT CAST(EXTRACT(YEAR FROM "salesorderheader"."orderdate") AS INTEGER) AS "orderdate_year", SUM("salesorderheader"."totaldue") AS "sum_totaldue" FROM "sales"."salesorderheader" GROUP BY CAST(EXTRACT(YEAR FROM "salesorderheader"."orderdate") AS INTEGER) ORDER BY CAST(EXTRACT(YEAR FROM "salesorderheader"."orderdate") AS INTEGER) ASC LIMIT 100`
+	if cq.SQL != want {
+		t.Errorf("SQL mismatch.\nGot:\n%s\n\nWant:\n%s", cq.SQL, want)
 	}
 }
 
@@ -155,6 +298,60 @@ func TestValidator_InvalidQuery(t *testing.T) {
 	err = validator.Validate(lq2, model)
 	if err == nil {
 		t.Fatal("expected validation error for exceeding max rows")
+	}
+}
+
+// TestCompiler_JoinDirectionWhenBaseIsFKTarget verifies the compiler swaps
+// join orientation when the join's ToTable is the base table (or anything
+// already in the FROM set), so the SQL never lists the same table twice.
+// Regression for "table name X specified more than once" when the natural
+// FK direction points at the base table (e.g. salesorderdetail → salesorderheader
+// while salesorderheader is the base).
+func TestCompiler_JoinDirectionWhenBaseIsFKTarget(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "orders",
+		BaseSchema: "public",
+		BaseTable:  "salesorderheader",
+		Dimensions: []semantic.Dimension{
+			{Name: "qty", ColumnRef: "salesorderdetail.orderqty", Type: "number"},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "total", Expression: "salesorderheader.totaldue", Aggregation: "sum"},
+		},
+		Joins: []semantic.Join{
+			{
+				// FK direction: detail → header. base = header.
+				Name:         "fk_detail_header",
+				FromTable:    "salesorderdetail",
+				FromColumn:   "salesorderid",
+				ToTable:      "salesorderheader",
+				ToColumn:     "salesorderid",
+				JoinType:     "LEFT",
+				Relationship: "many_to_one",
+			},
+		},
+	}
+	lq := LogicalQuery{
+		DatasourceID: "ds1",
+		ModelID:      "orders",
+		Select: []SelectItem{
+			{Type: SelectTypeDimension, Name: "qty"},
+			{Type: SelectTypeMetric, Name: "total"},
+		},
+		GroupBy: []GroupBy{{Field: "qty"}},
+		Limit:   100,
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	if err != nil {
+		t.Fatalf("Compile() error = %v, want nil", err)
+	}
+	occurrences := strings.Count(cq.SQL, `"salesorderheader"`)
+	// header appears in: FROM + the metric expression alias. Should NOT appear in JOIN target.
+	if strings.Contains(cq.SQL, `JOIN "public"."salesorderheader"`) {
+		t.Fatalf("Compile() emitted duplicate base-table join, SQL=%q (header refs=%d)", cq.SQL, occurrences)
+	}
+	if !strings.Contains(cq.SQL, `JOIN "public"."salesorderdetail"`) {
+		t.Fatalf("Compile() did not introduce salesorderdetail via join, SQL=%q", cq.SQL)
 	}
 }
 

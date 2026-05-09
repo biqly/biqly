@@ -41,7 +41,7 @@ func (c *Compiler) Compile(ctx context.Context, lq LogicalQuery, model *semantic
 	}
 
 	// Determine which joins are needed by inspecting select columns
-	neededJoins := c.determineJoins(lq, model, dimMap)
+	neededJoins := c.determineJoins(lq, model, dimMap, metricMap)
 
 	// Build SELECT clause
 	selectParts, err := c.buildSelect(lq.Select, dimMap, metricMap)
@@ -178,39 +178,154 @@ func (c *Compiler) CompileWithPermissions(
 	return cq, nil
 }
 
-func (c *Compiler) determineJoins(lq LogicalQuery, model *semantic.SemanticModel, dimMap map[string]semantic.Dimension) []string {
-	// Collect all tables referenced in select + filters
+func addTableFromColumnRef(tables map[string]bool, colRef string) {
+	parts := strings.Split(colRef, ".")
+	if len(parts) < 2 {
+		return
+	}
+	tables[parts[0]] = true
+}
+
+func tablesReferencedInLogicalQuery(
+	lq LogicalQuery,
+	model *semantic.SemanticModel,
+	dimMap map[string]semantic.Dimension,
+	metricMap map[string]semantic.Metric,
+) map[string]bool {
 	tables := make(map[string]bool)
-	tables[model.BaseTable] = true // Always include base table
+	tables[model.BaseTable] = true
 
 	for _, item := range lq.Select {
-		if dim, ok := dimMap[item.Name]; ok {
-			// column_ref can be "table.column" or just "column"
-			parts := strings.Split(dim.ColumnRef, ".")
-			if len(parts) > 1 {
-				tables[parts[0]] = true
+		switch item.Type {
+		case SelectTypeDimension:
+			if dim, ok := dimMap[item.Name]; ok {
+				addTableFromColumnRef(tables, dim.ColumnRef)
+			}
+		case SelectTypeMetric:
+			if m, ok := metricMap[item.Name]; ok {
+				addTableFromColumnRef(tables, m.Expression)
 			}
 		}
 	}
 
 	for _, f := range lq.Filters {
 		if dim, ok := dimMap[f.Field]; ok {
-			parts := strings.Split(dim.ColumnRef, ".")
-			if len(parts) > 1 {
-				tables[parts[0]] = true
-			}
+			addTableFromColumnRef(tables, dim.ColumnRef)
+		}
+		if m, ok := metricMap[f.Field]; ok {
+			addTableFromColumnRef(tables, m.Expression)
 		}
 	}
 
-	// Find joins that connect base table to needed tables
-	var neededJoins []string
+	for _, gb := range lq.GroupBy {
+		if dim, ok := dimMap[gb.Field]; ok {
+			addTableFromColumnRef(tables, dim.ColumnRef)
+		}
+	}
+
+	for _, ob := range lq.OrderBy {
+		if dim, ok := dimMap[ob.Field]; ok {
+			addTableFromColumnRef(tables, dim.ColumnRef)
+		}
+		if m, ok := metricMap[ob.Field]; ok {
+			addTableFromColumnRef(tables, m.Expression)
+		}
+	}
+
+	return tables
+}
+
+type joinNeighbor struct {
+	table    string
+	joinName string
+}
+
+// determineJoins returns joins on paths from the base table to every table referenced
+// in the logical query. This avoids emitting duplicate joins to the same physical table
+// when multiple FKs exist but the query only uses base-table columns.
+func (c *Compiler) determineJoins(
+	lq LogicalQuery,
+	model *semantic.SemanticModel,
+	dimMap map[string]semantic.Dimension,
+	metricMap map[string]semantic.Metric,
+) []string {
+	neededTables := tablesReferencedInLogicalQuery(lq, model, dimMap, metricMap)
+	if len(model.Joins) == 0 {
+		return nil
+	}
+
+	neighbors := make(map[string][]joinNeighbor)
 	for _, j := range model.Joins {
-		if tables[j.FromTable] || tables[j.ToTable] {
-			neededJoins = append(neededJoins, j.Name)
+		neighbors[j.FromTable] = append(neighbors[j.FromTable], joinNeighbor{j.ToTable, j.Name})
+		neighbors[j.ToTable] = append(neighbors[j.ToTable], joinNeighbor{j.FromTable, j.Name})
+	}
+
+	base := model.BaseTable
+	type parentInfo struct {
+		prev    string
+		join    string
+	}
+	parent := make(map[string]parentInfo)
+	var joinDiscovery []string
+	joinFirst := make(map[string]bool)
+
+	queue := []string{base}
+	parent[base] = parentInfo{"", ""}
+	visited := map[string]bool{base: true}
+
+	for len(queue) > 0 {
+		u := queue[0]
+		queue = queue[1:]
+		for _, nb := range neighbors[u] {
+			if visited[nb.table] {
+				continue
+			}
+			visited[nb.table] = true
+			parent[nb.table] = parentInfo{u, nb.joinName}
+			if !joinFirst[nb.joinName] {
+				joinFirst[nb.joinName] = true
+				joinDiscovery = append(joinDiscovery, nb.joinName)
+			}
+			queue = append(queue, nb.table)
 		}
 	}
 
-	return neededJoins
+	required := make(map[string]bool)
+	for t := range neededTables {
+		if t == base {
+			continue
+		}
+		cur := t
+		for cur != base && cur != "" {
+			pi := parent[cur]
+			if pi.join == "" {
+				break
+			}
+			required[pi.join] = true
+			cur = pi.prev
+		}
+	}
+
+	var out []string
+	for _, jn := range joinDiscovery {
+		if required[jn] {
+			out = append(out, jn)
+		}
+	}
+	return out
+}
+
+func (c *Compiler) dimensionSQL(dim semantic.Dimension) string {
+	if strings.TrimSpace(dim.TimeGrain) == "" {
+		return c.dialect.QuoteIdent(dim.ColumnRef)
+	}
+	part := strings.ToLower(strings.TrimSpace(dim.TimeGrain))
+	switch part {
+	case "year", "quarter", "month":
+		return c.dialect.CalendarPart(part, dim.ColumnRef)
+	default:
+		return c.dialect.DateTrunc(part, dim.ColumnRef)
+	}
 }
 
 func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric) ([]string, error) {
@@ -222,7 +337,7 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]semantic.Di
 			if !ok {
 				return nil, fmt.Errorf("unknown dimension: %s", item.Name)
 			}
-			col := c.dialect.QuoteIdent(dim.ColumnRef)
+			col := c.dimensionSQL(dim)
 			alias := item.Alias
 			if alias == "" {
 				alias = dim.Name
@@ -252,6 +367,12 @@ func (c *Compiler) buildFrom(model *semantic.SemanticModel) string {
 }
 
 func (c *Compiler) buildJoins(joinNames []string, joinMap map[string]semantic.Join, model *semantic.SemanticModel) []string {
+	// Track which physical tables are already part of the FROM/JOIN set so we
+	// never emit the same table twice. Joins arrive in BFS discovery order, so
+	// swapping direction when ToTable is already known introduces the genuinely
+	// new table on the right side of the JOIN.
+	inSet := map[string]bool{model.BaseTable: true}
+
 	var clauses []string
 	for _, name := range joinNames {
 		j, ok := joinMap[name]
@@ -264,13 +385,25 @@ func (c *Compiler) buildJoins(joinNames []string, joinMap map[string]semantic.Jo
 			joinType = "LEFT"
 		}
 
-		fromTable := c.dialect.QuoteIdent(model.BaseSchema) + "." + c.dialect.QuoteIdent(j.FromTable)
-		fromCol := c.dialect.QuoteIdent(j.FromColumn)
-		toTable := c.dialect.QuoteIdent(model.BaseSchema) + "." + c.dialect.QuoteIdent(j.ToTable)
-		toCol := c.dialect.QuoteIdent(j.ToColumn)
+		fromTable, fromCol := j.FromTable, j.FromColumn
+		toTable, toCol := j.ToTable, j.ToColumn
+		if inSet[toTable] && !inSet[fromTable] {
+			fromTable, toTable = toTable, fromTable
+			fromCol, toCol = toCol, fromCol
+		} else if inSet[toTable] && inSet[fromTable] {
+			// Both sides already present — emitting another JOIN would duplicate
+			// a table. Skip; the existing edge already connects them.
+			continue
+		}
+		inSet[toTable] = true
+
+		fromTableSQL := c.dialect.QuoteIdent(model.BaseSchema) + "." + c.dialect.QuoteIdent(fromTable)
+		toTableSQL := c.dialect.QuoteIdent(model.BaseSchema) + "." + c.dialect.QuoteIdent(toTable)
 
 		clause := fmt.Sprintf("%s JOIN %s ON %s.%s = %s.%s",
-			joinType, toTable, fromTable, fromCol, toTable, toCol)
+			joinType, toTableSQL,
+			fromTableSQL, c.dialect.QuoteIdent(fromCol),
+			toTableSQL, c.dialect.QuoteIdent(toCol))
 		clauses = append(clauses, clause)
 	}
 	return clauses
@@ -285,12 +418,12 @@ func (c *Compiler) buildWhere(filters []Filter, dimMap map[string]semantic.Dimen
 	var args []any
 
 	for _, f := range filters {
-		colRef, err := c.resolveField(f.Field, dimMap, metricMap)
+		colSQL, err := c.resolveFilterLHS(f.Field, dimMap, metricMap)
 		if err != nil {
 			return "", nil, err
 		}
 
-		part, newArgs, err := c.buildFilterPart(f, colRef, &args)
+		part, newArgs, err := c.buildFilterPart(f, colSQL, &args)
 		if err != nil {
 			return "", nil, err
 		}
@@ -301,63 +434,62 @@ func (c *Compiler) buildWhere(filters []Filter, dimMap map[string]semantic.Dimen
 	return strings.Join(parts, " AND "), args, nil
 }
 
-func (c *Compiler) resolveField(field string, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric) (string, error) {
+// resolveFilterLHS returns SQL for the left-hand side of a filter (quoted column, metric expression, or date_trunc).
+func (c *Compiler) resolveFilterLHS(field string, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric) (string, error) {
 	if dim, ok := dimMap[field]; ok {
-		return dim.ColumnRef, nil
+		return c.dimensionSQL(dim), nil
 	}
 	if metric, ok := metricMap[field]; ok {
-		return metric.Expression, nil
+		return c.dialect.QuoteIdent(metric.Expression), nil
 	}
 	return "", fmt.Errorf("unknown field: %s", field)
 }
 
-func (c *Compiler) buildFilterPart(f Filter, colRef string, args *[]any) (string, []any, error) {
-	quoted := c.dialect.QuoteIdent(colRef)
-
+func (c *Compiler) buildFilterPart(f Filter, lhsSQL string, args *[]any) (string, []any, error) {
 	switch f.Operator {
 	case OpEq:
 		*args = append(*args, f.Value)
-		return fmt.Sprintf("%s = %s", quoted, c.dialect.Placeholder(len(*args))), nil, nil
+		return fmt.Sprintf("%s = %s", lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
 	case OpNeq:
 		*args = append(*args, f.Value)
-		return fmt.Sprintf("%s != %s", quoted, c.dialect.Placeholder(len(*args))), nil, nil
+		return fmt.Sprintf("%s != %s", lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
 	case OpGt:
 		*args = append(*args, f.Value)
-		return fmt.Sprintf("%s > %s", quoted, c.dialect.Placeholder(len(*args))), nil, nil
+		return fmt.Sprintf("%s > %s", lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
 	case OpGte:
 		*args = append(*args, f.Value)
-		return fmt.Sprintf("%s >= %s", quoted, c.dialect.Placeholder(len(*args))), nil, nil
+		return fmt.Sprintf("%s >= %s", lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
 	case OpLt:
 		*args = append(*args, f.Value)
-		return fmt.Sprintf("%s < %s", quoted, c.dialect.Placeholder(len(*args))), nil, nil
+		return fmt.Sprintf("%s < %s", lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
 	case OpLte:
 		*args = append(*args, f.Value)
-		return fmt.Sprintf("%s <= %s", quoted, c.dialect.Placeholder(len(*args))), nil, nil
+		return fmt.Sprintf("%s <= %s", lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
 	case OpIn:
-		return c.buildInFilter(quoted, f.Value, args)
+		return c.buildInFilter(lhsSQL, f.Value, args)
 	case OpNotIn:
-		return c.buildNotInFilter(quoted, f.Value, args)
+		return c.buildNotInFilter(lhsSQL, f.Value, args)
 	case OpContains:
 		*args = append(*args, fmt.Sprintf("%%%v%%", f.Value))
-		return c.dialect.ILike(colRef, c.dialect.Placeholder(len(*args))), nil, nil
+		return c.dialect.ILike(lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
 	case OpStartsWith:
 		*args = append(*args, fmt.Sprintf("%v%%", f.Value))
-		return c.dialect.ILike(colRef, c.dialect.Placeholder(len(*args))), nil, nil
+		return c.dialect.ILike(lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
 	case OpEndsWith:
 		*args = append(*args, fmt.Sprintf("%%%v", f.Value))
-		return c.dialect.ILike(colRef, c.dialect.Placeholder(len(*args))), nil, nil
+		return c.dialect.ILike(lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
 	case OpBetween:
-		return c.buildBetweenFilter(quoted, f.Value, args)
+		return c.buildBetweenFilter(lhsSQL, f.Value, args)
 	case OpIsNull:
-		return fmt.Sprintf("%s IS NULL", quoted), nil, nil
+		return fmt.Sprintf("%s IS NULL", lhsSQL), nil, nil
 	case OpIsNotNull:
-		return fmt.Sprintf("%s IS NOT NULL", quoted), nil, nil
+		return fmt.Sprintf("%s IS NOT NULL", lhsSQL), nil, nil
 	default:
 		return "", nil, fmt.Errorf("unsupported operator: %s", f.Operator)
 	}
 }
 
-func (c *Compiler) buildInFilter(quoted string, value any, args *[]any) (string, []any, error) {
+func (c *Compiler) buildInFilter(lhsSQL string, value any, args *[]any) (string, []any, error) {
 	vals, ok := value.([]any)
 	if !ok {
 		return "", nil, fmt.Errorf("in operator expects array")
@@ -367,10 +499,10 @@ func (c *Compiler) buildInFilter(quoted string, value any, args *[]any) (string,
 		*args = append(*args, v)
 		placeholders[i] = c.dialect.Placeholder(len(*args))
 	}
-	return fmt.Sprintf("%s IN (%s)", quoted, strings.Join(placeholders, ", ")), nil, nil
+	return fmt.Sprintf("%s IN (%s)", lhsSQL, strings.Join(placeholders, ", ")), nil, nil
 }
 
-func (c *Compiler) buildNotInFilter(quoted string, value any, args *[]any) (string, []any, error) {
+func (c *Compiler) buildNotInFilter(lhsSQL string, value any, args *[]any) (string, []any, error) {
 	vals, ok := value.([]any)
 	if !ok {
 		return "", nil, fmt.Errorf("not_in operator expects array")
@@ -380,10 +512,10 @@ func (c *Compiler) buildNotInFilter(quoted string, value any, args *[]any) (stri
 		*args = append(*args, v)
 		placeholders[i] = c.dialect.Placeholder(len(*args))
 	}
-	return fmt.Sprintf("%s NOT IN (%s)", quoted, strings.Join(placeholders, ", ")), nil, nil
+	return fmt.Sprintf("%s NOT IN (%s)", lhsSQL, strings.Join(placeholders, ", ")), nil, nil
 }
 
-func (c *Compiler) buildBetweenFilter(quoted string, value any, args *[]any) (string, []any, error) {
+func (c *Compiler) buildBetweenFilter(lhsSQL string, value any, args *[]any) (string, []any, error) {
 	vals, ok := value.([]any)
 	if !ok || len(vals) != 2 {
 		return "", nil, fmt.Errorf("between operator expects 2 values")
@@ -391,7 +523,7 @@ func (c *Compiler) buildBetweenFilter(quoted string, value any, args *[]any) (st
 	*args = append(*args, vals[0], vals[1])
 	p1 := c.dialect.Placeholder(len(*args) - 1)
 	p2 := c.dialect.Placeholder(len(*args))
-	return fmt.Sprintf("%s BETWEEN %s AND %s", quoted, p1, p2), nil, nil
+	return fmt.Sprintf("%s BETWEEN %s AND %s", lhsSQL, p1, p2), nil, nil
 }
 
 func (c *Compiler) buildGroupBy(groupBy []GroupBy, dimMap map[string]semantic.Dimension) string {
@@ -402,7 +534,7 @@ func (c *Compiler) buildGroupBy(groupBy []GroupBy, dimMap map[string]semantic.Di
 	var parts []string
 	for _, gb := range groupBy {
 		if dim, ok := dimMap[gb.Field]; ok {
-			parts = append(parts, c.dialect.QuoteIdent(dim.ColumnRef))
+			parts = append(parts, c.dimensionSQL(dim))
 		}
 	}
 	return strings.Join(parts, ", ")
@@ -421,7 +553,7 @@ func (c *Compiler) buildOrderBy(orderBy []OrderBy, dimMap map[string]semantic.Di
 			if dir == "" {
 				dir = "ASC"
 			}
-			parts = append(parts, fmt.Sprintf("%s %s", c.dialect.QuoteIdent(dim.ColumnRef), dir))
+			parts = append(parts, fmt.Sprintf("%s %s", c.dimensionSQL(dim), dir))
 		} else if metric, ok := metricMap[ob.Field]; ok {
 			dir := strings.ToUpper(ob.Direction)
 			if dir == "" {
