@@ -21,20 +21,20 @@ import (
 
 // Dependencies holds all application dependencies.
 type Dependencies struct {
-	Config         *config.Config
-	MetadataDB     *sql.DB
-	DriverReg      *datasource.Registry
-	MetaRepo       *metadata.Repository
-	SemanticRepo   *semantic.Repository
-	Validator      *query.Validator
-	Executor       *query.Executor
-	AIClient       ai.Provider
-	AIDescriber    *ai.DescribeService
+	Config       *config.Config
+	MetadataDB   *sql.DB
+	DriverReg    *datasource.Registry
+	MetaRepo     *metadata.Repository
+	SemanticRepo *semantic.Repository
+	Validator    *query.Validator
+	Executor     *query.Executor
+	AIClient     ai.Provider
+	AIDescriber  *ai.DescribeService
 	// Embedder is the embeddings provider used for vector-based table
 	// retrieval. nil when no API key is configured — callers MUST tolerate
 	// nil (the table router falls back to keyword scoring).
-	Embedder       ai.Embedder
-	AIEmbedMeta    *ai.EmbedMetadataService
+	Embedder    ai.Embedder
+	AIEmbedMeta *ai.EmbedMetadataService
 }
 
 // NewDependencies wires up all dependencies.
@@ -76,12 +76,10 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 	}
 	describer := ai.NewDescribeService(aiClient, metaRepo, reg, 10, cfg.AI.DescribeMaxCellRunes, cfg.AI.DescribeMaxSampleRows)
 
-	// Embeddings are optional. Skip the embedder (and the embed-metadata
-	// service) when no API key is configured so dev environments without
-	// OpenAI access still boot.
+	// Embeddings are optional: BI_AI_EMBEDDING_MODEL plus resolvable URL and API key.
 	var embedder ai.Embedder
 	var embedMeta *ai.EmbedMetadataService
-	if cfg.AI.APIKey != "" && cfg.AI.EmbeddingModel != "" {
+	if cfg.AI.EmbeddingsConfigured() {
 		embedder = ai.NewOpenAIEmbedder(cfg.AI)
 		embedMeta = ai.NewEmbedMetadataService(embedder, metaRepo)
 	}

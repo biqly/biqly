@@ -3,6 +3,7 @@ package query
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/biqly/biqly/internal/dialect"
@@ -64,7 +65,10 @@ func (c *Compiler) Compile(ctx context.Context, lq LogicalQuery, model *semantic
 	args = append(args, whereArgs...)
 
 	// Build GROUP BY
-	groupByClause := c.buildGroupBy(lq.GroupBy, dimMap)
+	groupByClause, err := c.buildGroupBy(lq.GroupBy, dimMap)
+	if err != nil {
+		return nil, fmt.Errorf("build group by: %w", err)
+	}
 
 	// Build HAVING (post-aggregation filter; each field references a metric)
 	havingClause, havingArgs, err := c.buildHaving(lq.Having, metricMap, len(args))
@@ -74,7 +78,10 @@ func (c *Compiler) Compile(ctx context.Context, lq LogicalQuery, model *semantic
 	args = append(args, havingArgs...)
 
 	// Build ORDER BY
-	orderByClause := c.buildOrderBy(lq.OrderBy, dimMap, metricMap)
+	orderByClause, err := c.buildOrderBy(lq.OrderBy, dimMap, metricMap)
+	if err != nil {
+		return nil, fmt.Errorf("build order by: %w", err)
+	}
 
 	// Build LIMIT/OFFSET
 	limitClause := c.dialect.LimitOffset(lq.Limit, lq.Offset)
@@ -179,10 +186,14 @@ func (c *Compiler) CompileWithPermissions(
 				continue
 			}
 			quoted := c.dialect.QuoteIdent(colRef)
-			filterParts = append(filterParts, quoted)
+			filterParts = append(filterParts, quoted+" IS NOT NULL")
 		}
 
-		whereClause := fmt.Sprintf(" WHERE %s IS NOT NULL", filterParts[0])
+		if len(filterParts) == 0 {
+			return cq, nil
+		}
+
+		whereClause := " WHERE " + strings.Join(filterParts, " AND ")
 		cq.SQL = cq.SQL[:injectPoint] + whereClause + cq.SQL[injectPoint:]
 		cq.Args = append(cq.Args, newArgs...)
 	}
@@ -305,8 +316,8 @@ func (c *Compiler) determineJoins(
 
 	base := model.BaseTable
 	type parentInfo struct {
-		prev    string
-		join    string
+		prev string
+		join string
 	}
 	parent := make(map[string]parentInfo)
 	var joinDiscovery []string
@@ -456,11 +467,12 @@ func (c *Compiler) buildWindowExpr(
 	case "row_number", "rank", "dense_rank":
 		head = strings.ToUpper(agg) + "()"
 	case "ntile":
-		// NTILE requires an integer argument; default to 4 quartiles when not
-		// supplied via Expression. Callers can pass "10" for deciles, etc.
 		bucket := expr
 		if bucket == "" {
 			bucket = "4"
+		}
+		if !isPositiveInt(bucket) {
+			return "", fmt.Errorf("ntile bucket must be a positive integer, got: %q", bucket)
 		}
 		head = fmt.Sprintf("NTILE(%s)", bucket)
 	default:
@@ -502,6 +514,9 @@ func (c *Compiler) buildWindowExpr(
 		clauses = append(clauses, "ORDER BY "+strings.Join(parts, ", "))
 	}
 	if frame := strings.TrimSpace(w.Frame); frame != "" {
+		if !isValidFrame(frame) {
+			return "", fmt.Errorf("invalid window frame clause: %q", frame)
+		}
 		clauses = append(clauses, frame)
 	}
 
@@ -746,28 +761,29 @@ func (c *Compiler) buildBetweenFilter(lhsSQL string, value any, args *[]any) (st
 	return fmt.Sprintf("%s BETWEEN %s AND %s", lhsSQL, p1, p2), nil, nil
 }
 
-func (c *Compiler) buildGroupBy(groupBy []GroupBy, dimMap map[string]semantic.Dimension) string {
+func (c *Compiler) buildGroupBy(groupBy []GroupBy, dimMap map[string]semantic.Dimension) (string, error) {
 	if len(groupBy) == 0 {
-		return ""
+		return "", nil
 	}
 
 	var parts []string
 	for _, gb := range groupBy {
-		if dim, ok := dimMap[gb.Field]; ok {
-			parts = append(parts, c.dimensionSQL(dim))
+		dim, ok := dimMap[gb.Field]
+		if !ok {
+			return "", fmt.Errorf("unknown dimension: %s", gb.Field)
 		}
+		parts = append(parts, c.dimensionSQL(dim))
 	}
-	return strings.Join(parts, ", ")
+	return strings.Join(parts, ", "), nil
 }
 
-func (c *Compiler) buildOrderBy(orderBy []OrderBy, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric) string {
+func (c *Compiler) buildOrderBy(orderBy []OrderBy, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric) (string, error) {
 	if len(orderBy) == 0 {
-		return ""
+		return "", nil
 	}
 
 	var parts []string
 	for _, ob := range orderBy {
-		// Could be a metric alias or a dimension
 		if dim, ok := dimMap[ob.Field]; ok {
 			dir := strings.ToUpper(ob.Direction)
 			if dir == "" {
@@ -781,14 +797,27 @@ func (c *Compiler) buildOrderBy(orderBy []OrderBy, dimMap map[string]semantic.Di
 			}
 			parts = append(parts, fmt.Sprintf("%s %s", c.dialect.QuoteIdent(metric.Name), dir))
 		} else {
-			// Could be a metric alias from select
-			dir := strings.ToUpper(ob.Direction)
-			if dir == "" {
-				dir = "ASC"
-			}
-			parts = append(parts, fmt.Sprintf("%s %s", c.dialect.QuoteIdent(ob.Field), dir))
+			return "", fmt.Errorf("unknown field: %s", ob.Field)
 		}
 	}
 
-	return strings.Join(parts, ", ")
+	return strings.Join(parts, ", "), nil
+}
+
+var validFramePattern = regexp.MustCompile(`(?i)^\s*(ROWS|RANGE|GROUPS)\s+BETWEEN\s+(UNBOUNDED\s+PRECEDING|\d+\s+PRECEDING|CURRENT\s+ROW)\s+AND\s+(UNBOUNDED\s+FOLLOWING|\d+\s+PRECEDING|\d+\s+FOLLOWING|CURRENT\s+ROW)\s*$`)
+
+func isValidFrame(frame string) bool {
+	return validFramePattern.MatchString(frame)
+}
+
+func isPositiveInt(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return s != "0"
 }

@@ -55,6 +55,7 @@ func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, ma
 	write("- Use strict JSON (RFC 8259): every property name MUST be double-quoted. Never use JavaScript object syntax (unquoted keys like {select: [...]}).\n")
 	write("- Do NOT invent fields that don't exist in the semantic layer.\n")
 	write("- Use ONLY the dimensions, metrics, and fields listed below.\n")
+	write("- In `select`, `group_by`, `filters`, `having`, and `order_by`, field/name values MUST be exact listed dimension or metric names. Do NOT write expressions such as `year(orderdate)`, `table.column`, SQL functions, or aliases unless they are listed names.\n")
 	write("- A single select array may combine multiple dimensions AND multiple metrics; include every column the question asks for.\n")
 	write("- When the question groups results by a dimension (e.g. \"per customer\", \"by month\"), put that dimension in both `select` and `group_by`.\n")
 	write("- Match metric names by their listed synonyms (e.g. \"latest date\"/\"en son tarih\" → max_<date_column>; \"how many\"/\"adet\" → row_count).\n")

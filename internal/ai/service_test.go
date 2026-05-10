@@ -150,6 +150,39 @@ func TestProcessQuestionGivesUpAfterMaxRetries(t *testing.T) {
 	}
 }
 
+func TestProcessQuestionDoesNotReturnInvalidLogicalQueryAfterValidationRetries(t *testing.T) {
+	srv := stubLLMServer(t, []string{
+		`{"select":[{"type":"metric","name":"row_count"}],"group_by":[{"field":"year(orders.created_at)"}],"limit":10}`,
+		`{"select":[{"type":"metric","name":"row_count"}],"group_by":[{"field":"year(orders.created_at)"}],"limit":10}`,
+		"Hangi yıl alanını kullanmalıyım?",
+	})
+	defer srv.Close()
+
+	cfg := config.AIConfig{Provider: "openai", BaseURL: srv.URL, APIKey: "x", Model: "test", MaxRetries: 1}
+	svc := NewService(cfg, query.NewValidator(1000))
+
+	model := &semantic.SemanticModel{
+		ID:           "m",
+		DatasourceID: "d",
+		Name:         "public.orders",
+		Dimensions:   []semantic.Dimension{{Name: "created_at_year", ColumnRef: "orders.created_at", Type: "date", TimeGrain: "year"}},
+		Metrics:      []semantic.Metric{{Name: "row_count", Aggregation: "count", Expression: "*"}},
+	}
+	resp, err := svc.ProcessQuestion(context.Background(), "yıllara göre siparişler", model)
+	if err != nil {
+		t.Fatalf("ProcessQuestion error = %v, want nil", err)
+	}
+	if resp.LogicalQuery != nil {
+		t.Fatalf("expected nil LogicalQuery after exhausted validation retries, got %+v", resp.LogicalQuery)
+	}
+	if resp.Confidence != 0 {
+		t.Errorf("expected confidence 0 on invalid exhausted validation, got %v", resp.Confidence)
+	}
+	if !resp.NeedsClarification {
+		t.Errorf("expected clarification after invalid exhausted validation")
+	}
+}
+
 func TestProcessQuestionEmitsClarificationAfterExhaustedRetries(t *testing.T) {
 	srv := stubLLMServer(t, []string{
 		"junk1",

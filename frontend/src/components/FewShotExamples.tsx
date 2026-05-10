@@ -13,7 +13,7 @@ interface FewShotExample {
 const DIALECTS = ['postgresql', 'mysql', 'bigquery', 'snowflake', 'duckdb']
 
 export default function FewShotExamples() {
-  const { get, postData, deleteData, loading, error } = useApi()
+  const { get, postData, putData, deleteData, loading, error } = useApi()
   const [examples, setExamples] = useState<FewShotExample[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -67,7 +67,7 @@ export default function FewShotExamples() {
       // Update
       const updated = examples.map((e) => e.id === editId ? { ...e, question: formQuestion, logical_query: lq, tags: formTags.split(',').map((t) => t.trim()).filter(Boolean), dialect: formDialect } : e)
       if (apiReady) {
-        await postData(`/api/ai/examples/${editId}`, updated.find((e) => e.id === editId))
+        await putData(`/api/ai/examples/${editId}`, updated.find((e) => e.id === editId))
       }
       persist(updated)
     } else {

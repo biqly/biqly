@@ -20,7 +20,8 @@ func Router(deps *app.Dependencies) http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(60 * time.Second))
+	// AI NL→SQL can be slow with local models (LLM + validation + optional execution).
+	r.Use(middleware.Timeout(300 * time.Second))
 
 	// CORS
 	r.Use(cors.Handler(cors.Options{
@@ -87,11 +88,15 @@ func Router(deps *app.Dependencies) http.Handler {
 		r.Post("/ai/query/run", aiHandler.Run)
 		r.Post("/ai/metadata/describe", aiHandler.Describe)
 		r.Post("/ai/metadata/embed", aiHandler.EmbedMetadata)
+		r.Get("/ai/settings", aiHandler.RuntimeSettings)
+		r.Post("/ai/eval/run", aiHandler.EvalRun)
+		r.Get("/ai/eval/run/stream", aiHandler.EvalRunStream)
 
 		// AI examples & feedback routes
 		examplesHandler := handlers.NewAIExamplesHandler(deps)
 		r.Get("/ai/examples", examplesHandler.ListExamples)
 		r.Post("/ai/examples", examplesHandler.CreateExample)
+		r.Put("/ai/examples/{id}", examplesHandler.UpdateExample)
 		r.Delete("/ai/examples/{id}", examplesHandler.DeleteExample)
 		r.Post("/ai/feedback", examplesHandler.SubmitFeedback)
 		r.Get("/ai/usage", examplesHandler.GetAIUsage)

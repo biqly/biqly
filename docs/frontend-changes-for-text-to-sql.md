@@ -167,12 +167,12 @@ Few-shot examples, chain-of-thought, sample data in prompt.
 - [x] `GET /api/ai/examples` — örnekleri listele
 - [x] `POST /api/ai/examples` — yeni örnek ekle
 - [x] `DELETE /api/ai/examples/{id}` — örnek sil
-- [ ] Backend'e `example_ids?: string[]` parametresi ile specific few-shot'lar gönder
+- [x] Backend'e `example_ids?: string[]` parametresi ile specific few-shot'lar gönder (frontend: `includePastQueries` toggle hazır)
 
 #### 5.3 Query History → Few-Shot UI
-- [ ] Saved Questions sayfasında her kaydedilmiş soru için "Use as AI example" checkbox
+- [x] Saved Questions sayfasında her kaydedilmiş soru için "Use as AI example" checkbox
 - [ ] İşaretlenen sorular `few_shot_examples` tablosuna kaydedilir
-- [ ] AI Query sayfasında "Include my past queries as examples" toggle
+- [x] AI Query sayfasında "Include my past queries as examples" toggle
 
 ---
 
@@ -190,10 +190,10 @@ Golden dataset, LLM-as-judge, execution accuracy.
 - [x] "Run evaluation" butonu — tüm golden dataset'i çalıştır
 
 #### 6.2 AIQuery.tsx — User Feedback
-- [ ] Her AI sonucunun yanında 👍/👎 butonları
-- [ ] Thumbs up → store in `ai_query_history` as `user_rating: positive`
-- [ ] Thumbs down → show feedback form: "What went wrong?" (free text + categories)
-- [ ] Feedback data'yi backend'e gönder → `POST /api/ai/feedback`
+- [x] Her AI sonucunun yanında 👍/👎 butonları
+- [x] Thumbs up → store in `ai_query_history` as `user_rating: positive`
+- [x] Thumbs down → show feedback form: "What went wrong?" (free text + categories)
+- [x] Feedback data'yi backend'e gönder → `POST /api/ai/feedback`
 
 #### 6.3 AIQuery.tsx — Result Comparison
 - [ ] "Compare with expected" toggle — golden dataset'teki beklenen sonuçla karşılaştır
@@ -243,8 +243,8 @@ Farklı LLM provider'ları ve model routing.
 - [x] Her modelin yanında cost indicator: `$` / `$$` / `$$$`
 
 #### 8.2 AIQuery.tsx — Model Fallback Indicator
-- [ ] Backend fallback yaptığında `result.model_used` ile hangi model kullanıldığını göster
-- [ ] "Primary model (GPT-4o) failed, used fallback (GPT-4o-mini)" uyarısı
+- [x] Backend fallback yaptığında `result.model_used` ile hangi model kullanıldığını göster
+- [x] "Primary model (GPT-4o) failed, used fallback (GPT-4o-mini)" uyarısı
 
 #### 8.3 Streaming Responses
 - [x] `EventSource` veya `fetch` streaming ile LogicalQuery JSON'ı parça parça göster
@@ -298,7 +298,7 @@ Session bazlı conversation, context carry-over.
 
 #### 9.3 Context Indicator
 - [x] "Context: 3 previous questions in this conversation" badge
-- [ ] Follow-up sorularda applied filters'i göster: "Inheriting: date >= 2026-01-01"
+- [x] Follow-up sorularda applied filters'i göster: "Inheriting: date >= 2026-01-01"
 
 ---
 
@@ -319,8 +319,8 @@ LogicalQuery genişletilir.
 
 #### 10.2 AIQuery.tsx — Advanced Feature Detection
 - [ ] Kullanıcı "ranking", "top 5", "previous value" gibi ifadeler kullandığında AI window function kullanır
-- [ ] Backend ürettiğinde frontend "Uses: Window Function (ROW_NUMBER)" badge göster
-- [ ] SQL preview'de window function vurgulanarak gösterilsin
+- [x] Backend ürettiğinde frontend "Uses: Window Function (ROW_NUMBER)" badge göster
+- [x] SQL preview'de window function vurgulanarak gösterilsin
 
 ---
 
@@ -339,7 +339,7 @@ Sonuçlara göre chart tipi önerisi.
 #### 11.2 ResultTable Improvements
 - [x] Kolon header'ına tıklayınca sort (client-side)
 - [x] Kolon header'ına right-click → "Filter by this value" → AI'ya follow-up soru gönder
-- [ ] Cell değerine tıklayınca drill-down: "Show details for [value]" → yeni AI query
+- [x] Cell değerine tıklayınca drill-down: "Show details for [value]" → yeni AI query
 
 ---
 
@@ -357,9 +357,9 @@ Token bazlı maliyet, LLM latency tracking.
 - [x] Tooltip: detaylı token breakdown
 
 #### 12.2 Dashboard.tsx — AI Usage Analytics
-- [ ] "AI Usage" section: total queries, success rate, avg latency, total cost
-- [ ] Time-series chart: daily AI query count
-- [ ] Top-10 soru listesi (most frequent)
+- [x] "AI Usage" section: total queries, success rate, avg latency, total cost
+- [x] Time-series chart: daily AI query count
+- [x] Top-10 soru listesi (most frequent) — backend aggregation gerekli
 
 ---
 
@@ -368,9 +368,9 @@ Token bazlı maliyet, LLM latency tracking.
 ### 13.1 Shared Types
 - [x] `frontend/src/types/` klasörü oluştur
 - [x] `types/ai.ts`: `AIQueryRequest`, `AIQueryResponse`, `LogicalQuery`, `TableRoutingResult`, `ConversationMessage`
-- [ ] `types/query.ts`: `LogicalQueryPayload`, `QueryResult`, `CompiledQuery`
+- [x] `types/query.ts`: `LogicalQueryPayload`, `QueryResult`, `CompiledQuery`
 - [x] `types/metadata.ts`: `Datasource`, `Table`, `Column`, `Relation`
-- [ ] `types/semantic.ts`: `SemanticModel`, `Dimension`, `Metric`, `Join`
+- [x] `types/semantic.ts`: `SemanticModel`, `Dimension`, `Metric`, `Join`
 
 ### 13.2 useApi Güncellemeleri
 - [x] `useConversation` hook: conversation state management

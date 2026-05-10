@@ -28,8 +28,48 @@ type Response struct {
 	TableRouting          *TableRoutingResult `json:"table_routing,omitempty"`
 	NeedsClarification    bool                `json:"needs_clarification,omitempty"`
 	ClarificationQuestion string              `json:"clarification_question,omitempty"`
+	ClarificationOptions  []string            `json:"clarification_options,omitempty"`
 	Prompt                string              `json:"-"`
 	RawResponse           string              `json:"-"`
+	// Multi-candidate generation
+	Candidates      []CandidateEntry `json:"candidates,omitempty"`
+	CandidatesCount int              `json:"candidates_count,omitempty"`
+	// Retry / validation
+	RetryCount       int                    `json:"retry_count,omitempty"`
+	ValidationResult *ValidationExplainResult `json:"validation_result,omitempty"`
+	// Model / cost tracking
+	ModelUsed  string      `json:"model_used,omitempty"`
+	TokenUsage *TokenUsage `json:"token_usage,omitempty"`
+	CostUSD    float64     `json:"cost_usd,omitempty"`
+	LatencyMs  int         `json:"latency_ms,omitempty"`
+	// Visualization hint for frontend chart auto-selection
+	VisualizationHint *VisualizationHint `json:"visualization_hint,omitempty"`
+}
+
+// CandidateEntry represents one LogicalQuery candidate from self-consistency.
+type CandidateEntry struct {
+	LogicalQuery *query.LogicalQuery `json:"logical_query"`
+	Confidence   float64             `json:"confidence"`
+	Reasoning    string              `json:"reasoning,omitempty"`
+}
+
+// ValidationExplainResult holds the EXPLAIN output and whether the plan is OK.
+type ValidationExplainResult struct {
+	ExplainOutput string `json:"explain_output,omitempty"`
+	PlanOK        bool   `json:"plan_ok"`
+}
+
+// TokenUsage tracks LLM token consumption.
+type TokenUsage struct {
+	Prompt     int `json:"prompt"`
+	Completion int `json:"completion"`
+	Total      int `json:"total"`
+}
+
+// VisualizationHint suggests a chart type for the result data.
+type VisualizationHint struct {
+	ChartType string `json:"chart_type"` // bar, line, pie, table
+	Reason    string `json:"reason"`
 }
 
 // AIResponse is a deprecated alias for Response.

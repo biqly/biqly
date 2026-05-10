@@ -8,7 +8,8 @@ import (
 	"io"
 	"math"
 	"net/http"
-	"time"
+
+	"strings"
 
 	"github.com/biqly/biqly/internal/config"
 )
@@ -21,8 +22,7 @@ type Embedder interface {
 }
 
 // OpenAIEmbedder calls the OpenAI /v1/embeddings endpoint (or any
-// OpenAI-compatible host). Default model is text-embedding-3-small (1536
-// dims, cheap, good for table-name retrieval).
+// OpenAI-compatible host). The model name comes from BI_AI_EMBEDDING_MODEL.
 type OpenAIEmbedder struct {
 	httpClient *http.Client
 	baseURL    string
@@ -30,23 +30,14 @@ type OpenAIEmbedder struct {
 	model      string
 }
 
-// NewOpenAIEmbedder configures an embedder against the AI config's BaseURL +
-// APIKey. The embedding model defaults to text-embedding-3-small when
-// EmbeddingModel is unset.
+// NewOpenAIEmbedder configures an embedder using BI_AI_EMBEDDING_* with
+// fallback to the main LLM BaseURL/APIKey. Call only when EmbeddingsConfigured().
 func NewOpenAIEmbedder(cfg config.AIConfig) *OpenAIEmbedder {
-	baseURL := cfg.BaseURL
-	if baseURL == "" && cfg.Provider == "openai" {
-		baseURL = "https://api.openai.com/v1"
-	}
-	model := cfg.EmbeddingModel
-	if model == "" {
-		model = "text-embedding-3-small"
-	}
 	return &OpenAIEmbedder{
-		httpClient: &http.Client{Timeout: 60 * time.Second},
-		baseURL:    baseURL,
-		apiKey:     cfg.APIKey,
-		model:      model,
+		httpClient: &http.Client{Timeout: cfg.AIHTTPTimeout()},
+		baseURL:    cfg.EffectiveEmbeddingBaseURL(),
+		apiKey:     cfg.EffectiveEmbeddingAPIKey(),
+		model:      strings.TrimSpace(cfg.EmbeddingModel),
 	}
 }
 

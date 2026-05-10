@@ -2,6 +2,8 @@
 
 > Bu doküman, Biqly projesinin text-to-SQL yaklaşımını endüstri standartlarına (Google Cloud, AWS, Vanna AI, Chat2DB, BIRD-bench) göre denetler. Her madde bir checkbox ile işaretlenir — yapıldıkça check ederiz.
 
+**Son güncelleme (2026-05):** Retry + dry-run (EXPLAIN), self-consistency, vektör tablo embedding’leri, çok sağlayıcı (OpenAI / Anthropic), golden eval HTTP API (`POST /api/ai/eval/run`, `GET /api/ai/eval/run/stream`), konuşma bağlamı (`prior_turns`), few-shot + örnek satırlar (Run yolunda), dinamik confidence ve LLM clarification tamamlandı veya kısmen tamamlandı; aşağıdaki maddeler kod durumuna göre işaretlendi.
+
 ## 1. Mimari Temel Yaklaşım (Doğru Yapılanlar)
 
 Biqly'nin temel tasarımı **endüstride en güvenli ve önerilen yaklaşımlardan biridir**:
@@ -20,46 +22,46 @@ Biqly'nin temel tasarımı **endüstride en güvenli ve önerilen yaklaşımlard
 
 ### 2.1 Disambiguation (Niyet Anlama)
 
-Mevcut durum: AI'ya tek seferde soru gönderilir, yanıt alınır. Belirsiz sorularda `empty select` uyarısı verilir ama kullanıcıya **clarification sorusu sorulmaz**.
+Mevcut durum: Tablo yönlendirmesi belirsizse veya parse/validation başarısızsa `tryGenerateClarification` ile kısa bir netleştirme sorusu üretilir; API `needs_clarification`, `clarification_question`, `clarification_options` döner. Konuşma geçmişi `prior_turns` ile prompt’a eklenir.
 
-- [ ] **LLM-driven disambiguation**: İlk LLM çağrısında soru belirsizse, ikinci bir LLM çağrısı ile "ne demek istediniz?" sorusu üret
-- [ ] **Multi-turn conversation context**: Kullanıcının önceki sorularını context'e ekle
-- [ ] **Clarification response type**: API'de `needs_clarification: true` ve `clarification_question: "..."` alanları tanımla
-- [ ] **Follow-up soru Parsing**: Kullanıcı "hayır, revenue olsun" dediğinde önceki context ile birleştir
+- [x] **LLM-driven disambiguation**: Parse/validation sonrası (ve tablo-router ihtiyacında) ikinci LLM çağrısı ile kısa clarification
+- [x] **Multi-turn conversation context**: `prior_turns` + `WithPriorTurns`; frontend `useConversation` ile oturum geçmişi
+- [x] **Clarification response type**: `needs_clarification`, `clarification_question`, `clarification_options` şemada ve handler’da
+- [x] **Follow-up soru Parsing**: Önceki tur metin + mümkünse `logical_query` JSON’u prompt’ta; tam anlam birleştirme (coreference) LLM’e bırakıldı — iyileştirme alanı
 
 > **Referans**: Google Cloud — "Disambiguation using LLMs: getting the system to respond with a clarifying question when faced with a question that is not clear enough"
 
 ### 2.2 Self-Consistency / Multi-Candidate Generation
 
-Mevcut durum: Tek LLM çağrısı, tek sonuç. Confidence score sabit `0.8` (hardcoded).
+Mevcut durum: `BI_AI_MULTI_CANDIDATE_COUNT` > 1 iken `tryMultiCandidate` adım sıcaklığı (`base + 0.2*i`), çoğunluk oylaması ve dry-run (varsa) ile seçim. Tek aday + retry yolunda `computeConfidence` (validation/retry cezası).
 
-- [ ] **Multi-candidate generation**: Aynı soru için 2-3 farklı LLM çağrısı yapıp en tutarlı sonucu seç
-- [ ] **Voting mechanism**: Birden fazla aday arasından en çok tekrar eden LogicalQuery'yi seç
-- [ ] **Dynamic confidence scoring**: Hardcoded `0.8` yerine, candidate'ler arası tutarlılık + semantic alignment skorla hesapla
-- [ ] **Temperature tuning**: İlk çağrı `temperature: 0.1`, ikinci çağrı `temperature: 0.3` gibi farklı parametrelerle dene
+- [x] **Multi-candidate generation**: `MultiCandidateCount` ile N tamamlama
+- [x] **Voting mechanism**: `logicalQueryFingerprint` ile aynı yapıya oy çoğunluğu
+- [x] **Dynamic confidence scoring**: Self-consistency’de `winnerCount/n`; tek yolda `computeConfidence`
+- [x] **Temperature tuning**: Adaylar için `baseTemperature + 0.2*i` (üst sınır 1)
 
 > **Referans**: Google Cloud — "Self-consistency: generate multiple queries for the same user question, potentially using different prompting techniques or model variants, and pick the best one"
 
 ### 2.3 Validation & Re-prompting
 
-Mevcut durum: Validation başarısız olursa `warnings` ile döner ama **LLM'e geri gönderilip düzeltme yapılmaz**.
+Mevcut durum: `ProcessQuestion` içinde parse/validation/dry-run hatasında `BuildRetry` ile LLM’e geri bildirim; `MaxRetries` config ile sınırlı. Run handler’da dialect `ExplainSQL` ile dry-run (SQL Server’da EXPLAIN yoksa no-op).
 
-- [ ] **Retry loop**: Validation başarısız olursa, hata mesajını LLM'e geri gönder ve düzeltilmiş JSON iste
-- [ ] **Max retry limit**: En fazla 2-3 retry denemesi
-- [ ] **Dry-run validation**: Compile edilen SQL'i `EXPLAIN` ile çalıştırıp syntax kontrolü yap
-- [ ] **Error feedback to LLM**: "Bu dimension yok, mevcut dimensionlar şunlar: ..." şeklinde LLM'e geri bildirim
+- [x] **Retry loop**: `BuildRetry(originalPrompt, raw, failureMsg)`
+- [x] **Max retry limit**: `BI_AI_MAX_RETRIES` (config)
+- [x] **Dry-run validation**: `newSQLDryRunValidator` → `ExplainSQL` + `QueryContext`
+- [x] **Error feedback to LLM**: `failureMessageFor` (parse, dry-run, validation uyarıları)
 
 > **Referans**: Google Cloud — "Validation and reprompting: pass back the mistake to the model for a second pass. When provided an example of a mistake, models can typically address what they got wrong."
 
 ### 2.4 Context Building & Table Retrieval
 
-Mevcut `TableRouter` keyword-matching tabanlı. Bu iyi bir başlangıç ama büyük şemalarda yetersiz kalır.
+Mevcut `TableRouter` keyword + (yapılandırıldıysa) önceden hesaplanmış tablo embedding’leri ile hibrit skor. Auto-model için boyut/metric kotası (`maxAutoModelDimensions` vb.) ile prompt sınırı.
 
-- [ ] **Vector embedding tablo seçimi**: Tablo/column açıklamalarını embed edip semantic similarity ile tablo seç
-- [ ] **Column-level retrieval**: Tablo seçildikten sonra, sadece ilgili column'ları getir (şu an tüm columnlar gidiyor)
-- [ ] **Schema partitioning**: Büyük datasource'larda schema bazlı filtreleme
-- [ ] **Sample data in prompt**: Tablodan 2-3 örnek satır prompt'a ekle (mevcut `describe` endpoint'i var ama AI query'de kullanılmıyor)
-- [ ] **Query history as context**: Kullanıcının geçmiş başarılı sorgularını few-shot example olarak prompt'a ekle
+- [x] **Vector embedding tablo seçimi**: `POST /api/ai/metadata/embed`, `EmbeddingReader` + cosine benzerliği
+- [ ] **Column-level retrieval**: Kolonlar öncelik + kota ile budanıyor; soruya göre semantik kolon alt kümesi seçimi henüz yok
+- [ ] **Schema partitioning**: Tablo kapsamı UI ile manuel daraltma var; otomatik şema kümeleme yok
+- [x] **Sample data in prompt**: `POST /api/ai/query/run` yolunda `WithSampleData` (`/ai/query` ve `/ai/query/preview` örnek satır içermez)
+- [x] **Query history as context**: Few-shot + `include_past_queries` / `example_ids`
 
 > **Referans**: AWS — "Vector embeddings created from a central data catalog can be supplied to an LLM to generate relevant and precise SQL responses"
 
@@ -69,25 +71,23 @@ Mevcut `TableRouter` keyword-matching tabanlı. Bu iyi bir başlangıç ama büy
 
 ### 3.1 Few-Shot Examples
 
-Mevcut prompt'ta tek bir örnek var (`orders per customer name`). Bu yeterli değil.
-
-- [ ] **Dynamic few-shot selection**: Kullanıcının sorusuna en benzer 2-3 geçmiş sorguyu prompt'a ekle
-- [ ] **Curated example library**: En sık kullanılan sorgu tipleri için elle seçilmiş örnekler
-- [ ] **Dialect-specific examples**: Her dialect için farklı SQL syntax örnekleri
-- [ ] **Failure examples**: "Bunu yapma" örnekleri — hallucination'ı azaltır
+- [x] **Dynamic few-shot selection**: Geçmiş / kayıtlı örnekler `loadFewShotExamples*` ile prompt’a
+- [x] **Curated example library**: `GET/POST/DELETE /api/ai/examples` + UI `FewShotExamples`
+- [ ] **Dialect-specific examples**: Çıktı LogicalQuery; derleyici dialect üstleniyor — prompt’ta dialect’e özel SQL örnekleri yok
+- [ ] **Failure examples**: Prompt’ta “bunu yapma” örnek seti yok
 
 ### 3.2 Prompt Structure
 
-- [ ] **Chain-of-thought prompting**: "Önce hangi tablolar gerekli düşün, sonra hangi kolonlar, sonra filtreler..." adımları ekle
-- [ ] **Structured output instruction**: JSON Schema'yı prompt'ta ver (zaten var ama daha vurgulu olabilir)
-- [ ] **Business glossary section**: Sektör-specific terimlerin açıklamalarını prompt'a ekle
-- [ ] **Date/time relative reference handling**: "Geçen ay", "bu çeyrek" gibi ifadeler için daha güçlü talimat
+- [ ] **Chain-of-thought prompting**: Açık adım adım “önce tablolar…” zinciri yok; kurallar uzun metin olarak var
+- [x] **Structured output instruction**: JSON-only ve şema kuralları prompt’ta
+- [ ] **Business glossary section**: Harici sözlük / RAG yok
+- [x] **Date/time relative reference handling**: Tarih grain, ISO filtre, `having`/window talimatları prompt’ta
 
 ### 3.3 Prompt Size Management
 
-- [ ] **Progressive context loading**: İlk çağrıda minimal context, retry'da daha fazla
-- [ ] **Token counting**: Prompt token sayısını logla ve optimize et
-- [ ] **Context window adaptation**: Model'e göre prompt boyutunu ayarla
+- [ ] **Progressive context loading**: Retry’da otomatik genişletme yok
+- [ ] **Token counting**: Yaklaşık token log’u yok (yalnızca rune kotası `maxPromptRunes`)
+- [ ] **Context window adaptation**: Model kartına göre dinamik bütçe yok
 
 ---
 
@@ -95,21 +95,19 @@ Mevcut prompt'ta tek bir örnek var (`orders per customer name`). Bu yeterli de�
 
 ### 4.1 Evaluation Framework
 
-Mevcut: Testler var ama text-to-SQL kalite ölçümü yok.
-
-- [ ] **Golden dataset**: 50-100 doğal dil sorusu + beklenen LogicalQuery çifti
-- [ ] **Execution accuracy test**: Üretilen SQL'in doğru sonuç döndüğünü doğrula
-- [ ] **LLM-as-a-judge**: Başka bir LLM ile üretilen sorgunun kalitesini değerlendir
-- [ ] **Benchmark suite**: BIRD-bench benzeri internal benchmark oluştur
-- [ ] **Regression testing**: Her prompt değişikliğinde tüm test setini çalıştır
+- [x] **Golden dataset**: `DefaultGoldenCases()` + `LogicalQueryEqual` + testler; büyük (50–100) set henüz yok
+- [ ] **Execution accuracy test**: Golden set yalnızca LogicalQuery eşleşmesi; üretilen SQL’in sonuç kümesi karşılaştırması yok
+- [ ] **LLM-as-a-judge**: Yok
+- [ ] **Benchmark suite**: İç BIRD-benzeri tam pipeline benchmark yok
+- [ ] **Regression testing**: Prompt değişiminde zorunlu eval gate (CI) yok; `BI_AI_GOLDEN_EVAL=1` ile isteğe bağlı live test var
 
 ### 4.2 Metrics
 
-- [ ] **Exact match accuracy**: Üretilen LogicalQuery'nin beklenenle birebir eşleşme oranı
-- [ ] **Execution accuracy**: SQL'in aynı sonuç kümesini döndürme oranı
-- [ ] **Failure rate**: Validation/retry sonrası hâlâ başarısız olan sorguların oranı
-- [ ] **Average retry count**: Başarılı bir sorgu için ortalama retry sayısı
-- [ ] **User satisfaction tracking**: Kullanıcının sonucu kabul/red oranı
+- [x] **Exact match accuracy**: Eval UI / `POST /api/ai/eval/run` pass_rate
+- [ ] **Execution accuracy**: Yok
+- [ ] **Failure rate**: Merkezi metrik panosu yok
+- [ ] **Average retry count**: Log/telemetri yok
+- [x] **User satisfaction tracking**: `POST /api/ai/feedback` (basit)
 
 ---
 
@@ -117,36 +115,36 @@ Mevcut: Testler var ama text-to-SQL kalite ölçümü yok.
 
 ### 5.1 Conversation Memory
 
-- [ ] **Session-based conversation**: Kullanıcının oturum bazlı soru geçmişi
-- [ ] **Context carry-over**: "Bunu product bazında kır" → önceki sorguyu product dimension'ı ile tekrar çalıştır
-- [ ] **Implicit filter persistence**: "Geçen ayın verisi" → sonraki sorularda da aynı filtre uygula
+- [x] **Session-based conversation**: `useConversation` (localStorage) + `conversation_id` isteğe bağlı
+- [x] **Context carry-over**: `prior_turns` ile önceki soru/JSON modele gidiyor
+- [ ] **Implicit filter persistence**: “Geçen ay” filtresini otomatik taşıyan ayrı bir state makinesi yok
 
 ### 5.2 Advanced SQL Features
 
-- [ ] **Subquery support**: LogicalQuery'de iç içe sorgu desteği
-- [ ] **Window functions**: ROW_NUMBER, RANK, LAG/LEAD desteği
-- [ ] **CTE support**: WITH clause desteği (okunabilirlik ve karmaşık sorgular için)
-- [ ] **HAVING clause**: Aggregation sonrası filtreleme
-- [ ] **CASE/WHEN in select**: Koşullu kolon üretimi
+- [ ] **Subquery support**: LogicalQuery’de iç içe alt sorgu modeli yok
+- [x] **Window functions**: `SelectTypeWindow` + derleyici
+- [x] **CTE support**: `LogicalQuery.CTEs` + derleyici
+- [x] **HAVING clause**: Derleyici + validator
+- [ ] **CASE/WHEN in select**: Henüz yok
 
 ### 5.3 Multi-Model Orchestration
 
-- [ ] **Model routing**: Basit sorular → hızlı/ucuz model, karmaşık sorular → güçlü model
-- [ ] **Model fallback**: Ana model başarısız olursa yedek modele geç
-- [ ] **Streaming responses**: LLM yanıtı streaming olarak client'a ilet
-- [ ] **Cost tracking**: Token bazlı maliyet takibi
+- [ ] **Model routing**: Soru zorluğuna göre model seçimi yok
+- [ ] **Model fallback**: Birincil başarısızsa otomatik yedek modele geçiş yok
+- [x] **Streaming responses**: Golden eval için `GET /api/ai/eval/run/stream` (SSE metin); ana `/ai/query` hâlâ tek JSON cevap
+- [ ] **Cost tracking**: Token maliyet takibi yok
 
 ### 5.4 Data Visualization Hints
 
-- [ ] **Chart type suggestion**: Sonuçlara göre "bu veri bar chart için uygun" önerisi
-- [ ] **Auto-pivot**: Pivot tablo önerisi
-- [ ] **Anomaly detection**: Sonuçlarda anormallik tespiti ve vurgulama
+- [ ] **Chart type suggestion**
+- [ ] **Auto-pivot**
+- [ ] **Anomaly detection**
 
 ### 5.5 RAG Integration
 
-- [ ] **Documentation RAG**: Şirket içi veri sözlüğü / wiki'yi RAG ile prompt'a ekle
-- [ ] **Column description enrichment**: AI ile otomatik column açıklaması üretimi (mevcut `describe` endpoint'ini AI query pipeline'ına entegre et)
-- [ ] **Schema change detection**: Metadata sync'te değişen kolonları tespit et ve AI context'ini güncelle
+- [ ] **Documentation RAG**
+- [ ] **Column description enrichment**: `describe` pipeline’ı var; otomatik zenginleştirme + AI query ile tam entegrasyon sınırlı
+- [ ] **Schema change detection**: AI context’i için özel tetikleyici yok
 
 ---
 
@@ -154,54 +152,58 @@ Mevcut: Testler var ama text-to-SQL kalite ölçümü yok.
 
 ### 6.1 Table Router
 
-- [ ] **Hardcoded domain logic**: `isCategoryOrProductQuestion`, `isRevenueLikeQuestion` gibi fonksiyonlar AdventureWorks'e özel — bunları generic yap veya configurable yap
-- [ ] **Turkish token synonyms hardcoded**: `tokenSynonyms` map'i code'da gömülü — bunu config veya DB'ye taşı
-- [ ] **Score calculation magic numbers**: `score += 14`, `score += 8` gibi hardcoded ağırlıklar — bunları tune edilebilir yap
-- [ ] **Missing unit tests for edge cases**: Türkçe sorular, çok tablolu şemalar, boş metadata
+- [ ] **Hardcoded domain logic**: AdventureWorks’e özel heuristikler hâlâ kodda
+- [ ] **Turkish token synonyms hardcoded**: `tokenSynonyms` vb. kod içi
+- [ ] **Score calculation magic numbers**: Ağırlıklar sabit
+- [x] **Missing unit tests for edge cases**: `table_router_test.go` genişledi; çok büyük şema/Türkçe köşe vakaları için hâlâ açık iş
 
 ### 6.2 AI Client
 
-- [ ] **Single provider lock-in**: Sadece OpenAI-compatible API desteği — Anthropic, Google, local modeller için adapter pattern gerek
-- [ ] **No retry on API failure**: Network timeout veya rate limit durumunda retry mekanizması yok
-- [ ] **No token counting**: Prompt/yanıt token sayısı loglanmıyor
+- [x] **Single provider lock-in**: `Provider` arayüzü + OpenAI + Anthropic
+- [x] **No retry on API failure**: 429 / 502–504 ve ağ zaman aşımı için 4 denemeye kadar exponential backoff (`client.go`, `anthropic.go`)
+- [ ] **No token counting**: Yaklaşık token log’u yok
 
 ### 6.3 Confidence Scoring
 
-- [ ] **Hardcoded 0.8**: `service.go:62` — `Confidence: 0.8` sabit değer, dynamic scoring gerek
-- [ ] **TableRouter confidence**: `routeConfidence` fonksiyonu var ama sadece relative scoring yapıyor, absolute threshold yok
+- [x] **Hardcoded 0.8**: Kaldırıldı; `computeConfidence` ve self-consistency oranı
+- [x] **TableRouter confidence**: `minRouteConfidence` ile alt eşik; embedding hibrit skor
 
 ### 6.4 Schema Awareness
 
-- [ ] **No schema prefix in joins**: `buildJoins` her zaman `model.BaseSchema` kullanıyor → farklı schema'lardaki tabloları join edemez
-- [ ] **No cross-schema query support**: LogicalQuery'de schema bilgisi yok
+- [ ] **No schema prefix in joins**: Çok şemalı join sınırlamaları devam ediyor
+- [ ] **No cross-schema query support**: LogicalQuery’de açık şema alanı yok
 
 ---
 
 ## 7. Öncelik Sırası (Önerilen Implementation Order)
 
 ### P0 — Hemen Yapılmalı
+
 1. [x] Retry/re-prompt loop (validation başarısız → LLM'e geri gönder)
 2. [x] Dynamic confidence scoring (hardcoded 0.8 kaldır)
 3. [x] Disambiguation endpoint (clarification question üretme)
 4. [x] Dry-run / EXPLAIN validation
 
 ### P1 — Kısa Vadede
+
 5. [x] Few-shot example library (dinamik)
 6. [x] Sample data in prompt (mevcut describe endpoint'ini kullan)
 7. [x] Golden evaluation dataset
 8. [x] Multi-provider support (adapter pattern)
 
 ### P2 — Orta Vadede
+
 9. [x] Self-consistency / multi-candidate
 10. [x] Vector embedding table retrieval
 11. [x] Conversation memory / multi-turn
 12. [x] Advanced SQL features (HAVING, window functions; CTE deferred to P3)
 
 ### P3 — Uzun Vadede
+
 13. [ ] LLM-as-a-judge evaluation
 14. [ ] Model routing (basit → ucuz, karmaşık → güçlü)
 15. [ ] RAG integration for business glossary
-16. [ ] Streaming responses
+16. [x] Streaming responses *(golden eval SSE; ana sorgu akışı hâlâ JSON)*
 
 ---
 
@@ -216,6 +218,7 @@ Mevcut: Testler var ama text-to-SQL kalite ölçümü yok.
 | **BIRD-bench** | Evaluation benchmark | Internal golden dataset |
 
 ### Kaynak Bağlantılar
+
 - [Google Cloud: Techniques for improving text-to-SQL](https://cloud.google.com/blog/products/databases/techniques-for-improving-text-to-sql)
 - [AWS: Best practices for Text2SQL and Generative AI](https://aws.amazon.com/blogs/machine-learning/generating-value-from-enterprise-data-best-practices-for-text2sql-and-generative-ai/)
 - [Google Cloud: Architectural Patterns for Text-to-SQL](https://medium.com/google-cloud/architectural-patterns-for-text-to-sql-leveraging-llms-for-enhanced-bigquery-interactions-59756a749e15)

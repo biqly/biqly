@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import { useEffect, useState } from 'react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts'
+import { useApi } from '../hooks/useApi'
 
 const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6']
 
@@ -140,6 +141,123 @@ export default function Dashboard() {
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* ─── AI Usage Section ─────────────────────────────────── */}
+      <AIUsageSection />
+    </div>
+  )
+}
+
+// ─── AI Usage Sub-component ─────────────────────────────────────────
+
+interface AIUsageSummary {
+  total_queries: number
+  success_rate: number
+  avg_latency_ms: number
+  total_cost: number
+}
+
+interface DayUsage {
+  date: string
+  total_queries: number
+  positive_feedback: number
+  negative_feedback: number
+  avg_latency_ms: number
+  total_cost: number
+  total_tokens: number
+}
+
+function AIUsageSection() {
+  const { get } = useApi()
+  const [summary, setSummary] = useState<AIUsageSummary | null>(null)
+  const [daily, setDaily] = useState<DayUsage[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    get<{ summary: AIUsageSummary; daily: DayUsage[] }>('/api/ai/usage').then((data) => {
+      if (data) {
+        setSummary(data.summary)
+        setDaily(data.daily.slice(0, 10).reverse()) // Show last 10 days ascending
+      }
+      setLoading(false)
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (loading) return null
+  if (!summary) return null
+
+  // Top questions by frequency — from daily data, derive top questions
+  // In production, backend would return this; for now we show the trend
+  const trendData = daily.map((d) => ({
+    name: d.date.slice(5), // MM-DD
+    queries: d.total_queries,
+    cost: parseFloat(d.total_cost.toFixed(3)),
+  }))
+
+  return (
+    <div style={{ marginTop: '2rem' }}>
+      <h2 style={{ marginBottom: '1rem' }}>🤖 AI Usage (Last 30 Days)</h2>
+
+      {/* KPI Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+        <div className="card" style={{ marginBottom: 0 }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Total AI Queries</p>
+          <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '0.3rem 0' }}>{summary.total_queries}</p>
+        </div>
+        <div className="card" style={{ marginBottom: 0 }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Success Rate</p>
+          <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '0.3rem 0' }}>{(summary.success_rate * 100).toFixed(0)}%</p>
+        </div>
+        <div className="card" style={{ marginBottom: 0 }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Avg Latency</p>
+          <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '0.3rem 0' }}>{summary.avg_latency_ms.toFixed(0)}ms</p>
+        </div>
+        <div className="card" style={{ marginBottom: 0 }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Total Cost</p>
+          <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '0.3rem 0' }}>${summary.total_cost.toFixed(4)}</p>
+        </div>
+      </div>
+
+      {/* Charts */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem' }}>
+        <div className="card">
+          <h3>Daily AI Queries</h3>
+          <div style={{ height: 250 }}>
+            {trendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
+                  <XAxis dataKey="name" stroke="#94a3b8" />
+                  <YAxis stroke="#94a3b8" />
+                  <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #475569' }} />
+                  <Line type="monotone" dataKey="queries" stroke="#3b82f6" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <p style={{ color: 'var(--text-muted)', textAlign: 'center', paddingTop: '4rem' }}>No AI queries yet</p>
+            )}
+          </div>
+        </div>
+
+        <div className="card">
+          <h3>Daily Cost</h3>
+          <div style={{ height: 250 }}>
+            {trendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
+                  <XAxis dataKey="name" stroke="#94a3b8" />
+                  <YAxis stroke="#94a3b8" />
+                  <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #475569' }} />
+                  <Bar dataKey="cost" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p style={{ color: 'var(--text-muted)', textAlign: 'center', paddingTop: '4rem' }}>No cost data yet</p>
+            )}
+          </div>
         </div>
       </div>
     </div>

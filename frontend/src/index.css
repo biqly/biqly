@@ -1352,6 +1352,34 @@ a {
 
 .query-controls .form-group { flex: 1; }
 
+.ai-runtime-settings {
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  padding: 0.55rem 0.75rem;
+  background: rgba(15, 23, 42, 0.35);
+}
+.ai-runtime-settings .ai-settings-dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.75rem;
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+}
+.ai-runtime-settings .ai-runtime-settings-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+.ai-runtime-settings .ai-settings-meta { color: var(--text-muted); font-size: 0.72rem; }
+.ai-runtime-settings dd { margin: 0; word-break: break-word; }
+.ai-runtime-settings code { font-size: 0.76rem; }
+.ai-runtime-settings .ai-settings-hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
 .routing-toggle label { display: block; margin-bottom: 0.3rem; }
 
 .toggle-group {
@@ -1713,4 +1741,143 @@ a {
   .query-builder-row--wide {
     grid-template-columns: 1fr;
   }
+}
+
+/* ─── Few-shot checkbox in saved questions ──────────────────────── */
+.fewshot-checkbox input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+/* ─── Feedback buttons ──────────────────────────────────────────── */
+.feedback-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.feedback-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.feedback-btn:hover { border-color: var(--accent); background: rgba(96,165,250,0.08); }
+.feedback-btn.feedback-active { border-color: var(--accent); background: rgba(96,165,250,0.15); color: var(--accent); }
+.feedback-btn.feedback-negative { border-color: var(--error); background: rgba(251,113,133,0.1); color: var(--error); }
+
+.feedback-form {
+  margin-top: 0.5rem;
+  padding: 0.6rem;
+  background: var(--bg-card-raised);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.feedback-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.feedback-cat-btn {
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.3rem;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.feedback-cat-btn:hover { border-color: var(--accent); color: var(--text-primary); }
+
+/* ─── Prompt large warning ─────────────────────────────────────── */
+.prompt-warning {
+  font-size: 0.75rem;
+  color: var(--warning);
+  background: rgba(251,191,36,0.06);
+  border: 1px solid rgba(251,191,36,0.2);
+  border-radius: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  margin-top: 0.4rem;
+}
+
+/* ─── Model fallback badge ──────────────────────────────────────── */
+.model-fallback-badge {
+  font-size: 0.72rem;
+  color: var(--warning);
+  background: rgba(251,191,36,0.06);
+  border: 1px solid rgba(251,191,36,0.2);
+  border-radius: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  margin-bottom: 0.5rem;
+  display: inline-block;
+}
+
+/* ─── Window function badge ─────────────────────────────────────── */
+.wf-badge {
+  font-size: 0.72rem;
+  color: var(--accent);
+  background: rgba(96,165,250,0.08);
+  border: 1px solid rgba(96,165,250,0.2);
+  border-radius: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  display: inline-block;
+  margin-right: 0.3rem;
+}
+
+/* ─── Cell drill-down ───────────────────────────────────────────── */
+.results-table td.cell-drillable {
+  cursor: pointer;
+  text-decoration: underline dotted var(--text-muted);
+  text-underline-offset: 2px;
+}
+
+.results-table td.cell-drillable:hover {
+  color: var(--accent);
+}
+
+/* ─── Inherited filters badge ───────────────────────────────────── */
+.inherited-filters-badge {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  background: rgba(148,163,184,0.08);
+  border: 1px solid rgba(148,163,184,0.15);
+  border-radius: 0.3rem;
+  padding: 0.15rem 0.5rem;
+  margin-left: 0.5rem;
+}
+
+/* ─── Include past queries toggle ───────────────────────────────── */
+.past-queries-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  margin-top: 0.5rem;
+}
+
+.past-queries-toggle input {
+  width: auto;
+  accent-color: var(--accent);
+}
+
+.past-queries-toggle label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  cursor: pointer;
 }

@@ -19,6 +19,7 @@ func NewValidator(maxRows int) *Validator {
 }
 
 // Validate checks a LogicalQuery for correctness.
+//
 //nolint:gocyclo // linear validation checks, each field validated independently
 func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) error {
 	var errs ValidationErrors
@@ -119,6 +120,12 @@ func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) err
 
 	// Check order by
 	for _, ob := range lq.OrderBy {
+		if !dimMap[ob.Field] && !metricMap[ob.Field] {
+			errs = append(errs, &ValidationError{
+				Field:   "order_by",
+				Message: "unknown field: " + ob.Field,
+			})
+		}
 		if ob.Direction != "" && ob.Direction != OrderAsc && ob.Direction != OrderDesc {
 			errs = append(errs, &ValidationError{
 				Field:   "order_by",

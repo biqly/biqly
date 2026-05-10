@@ -9,7 +9,8 @@ services:
       - "5432:5432"
     volumes:
       - metadata_data:/var/lib/postgresql
-      - ./migrations:/docker-entrypoint-initdb.d
+      - ./migrations:/migrations:ro
+      - ./scripts/init-metadata-db.sh:/docker-entrypoint-initdb.d/001-init-metadata-db.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U bi_user -d bi_metadata"]
       interval: 5s
@@ -44,8 +45,8 @@ services:
 
   api:
     build: .
-    # BI_AI_* (and other secrets): set in project .env — loaded from file, not ${VAR} interpolation
-    # (interpolation uses shell env first and can ignore .env edits; see env_file below).
+    # Secrets / AI: project `.env` (BI_AI_API_KEY, BI_AI_MODEL, BI_AI_BASE_URL,
+    # optional BI_AI_EMBEDDING_MODEL, BI_AI_EMBEDDING_BASE_URL, BI_AI_EMBEDDING_API_KEY).
     env_file:
       - path: .env
         required: false
@@ -56,7 +57,6 @@ services:
       BI_QUERY_TIMEOUT_SECONDS: 30
       BI_QUERY_MAX_ROWS: 10000
       BI_QUERY_MAX_RUNTIME_SECONDS: 60
-      BI_ENCRYPTION_KEY: change-this-to-a-secure-32-byte-key!!
     ports:
       - "8888:8888"
     depends_on:

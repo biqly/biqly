@@ -1,0 +1,78 @@
+package handlers
+
+import (
+	"net/http"
+	"strings"
+
+	"github.com/biqly/biqly/internal/config"
+)
+
+// aiRuntimeSettingsResponse is safe to expose in the browser: no secrets.
+type aiRuntimeSettingsResponse struct {
+	Provider         string `json:"provider"`
+	LLMModel         string `json:"llm_model"`
+	BaseURL          string `json:"base_url"`
+	BaseURLEffective string `json:"base_url_effective"`
+	APIKeyConfigured bool   `json:"api_key_configured"`
+
+	EmbeddingsEnabled         bool   `json:"embeddings_enabled"`
+	EmbeddingModel            string `json:"embedding_model,omitempty"`
+	EmbeddingBaseURL          string `json:"embedding_base_url,omitempty"`
+	EmbeddingBaseURLEffective string `json:"embedding_base_url_effective,omitempty"`
+	EmbeddingAPIKeyConfigured bool   `json:"embedding_api_key_configured,omitempty"`
+	EmbeddingAPIKeyDedicated  bool   `json:"embedding_api_key_dedicated,omitempty"`
+}
+
+func effectiveAIBaseURL(cfg config.AIConfig) string {
+	if strings.TrimSpace(cfg.BaseURL) != "" {
+		return cfg.BaseURL
+	}
+	switch strings.ToLower(strings.TrimSpace(cfg.Provider)) {
+	case "", "openai", "openai-compatible":
+		return "https://api.openai.com/v1 (default when BI_AI_BASE_URL is empty)"
+	case "anthropic":
+		return "https://api.anthropic.com/v1 (default when BI_AI_BASE_URL is empty)"
+	default:
+		return "(provider default — set BI_AI_BASE_URL to override)"
+	}
+}
+
+// embeddingBaseURLEffectiveLabel explains which URL embeddings HTTP calls use.
+func embeddingBaseURLEffectiveLabel(cfg config.AIConfig) string {
+	eff := cfg.EffectiveEmbeddingBaseURL()
+	if eff == "" {
+		return "— (set BI_AI_EMBEDDING_BASE_URL or BI_AI_BASE_URL for OpenAI-compatible providers)"
+	}
+	if strings.TrimSpace(cfg.EmbeddingBaseURL) != "" {
+		return eff
+	}
+	if strings.TrimSpace(cfg.BaseURL) != "" {
+		return eff + " (from BI_AI_BASE_URL; override with BI_AI_EMBEDDING_BASE_URL)"
+	}
+	return eff + " (default when embedding URL env vars are empty)"
+}
+
+// RuntimeSettings returns non-secret AI configuration for the UI (env-backed).
+func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	cfg := h.deps.Config.AI
+	out := aiRuntimeSettingsResponse{
+		Provider:         cfg.Provider,
+		LLMModel:         cfg.Model,
+		BaseURL:          cfg.BaseURL,
+		BaseURLEffective: effectiveAIBaseURL(cfg),
+		APIKeyConfigured: strings.TrimSpace(cfg.APIKey) != "",
+	}
+	if cfg.EmbeddingsConfigured() {
+		out.EmbeddingsEnabled = true
+		out.EmbeddingModel = strings.TrimSpace(cfg.EmbeddingModel)
+		out.EmbeddingBaseURL = cfg.EmbeddingBaseURL
+		out.EmbeddingBaseURLEffective = embeddingBaseURLEffectiveLabel(cfg)
+		out.EmbeddingAPIKeyConfigured = strings.TrimSpace(cfg.EffectiveEmbeddingAPIKey()) != ""
+		out.EmbeddingAPIKeyDedicated = strings.TrimSpace(cfg.EmbeddingAPIKey) != ""
+	}
+	writeJSON(w, http.StatusOK, out)
+}

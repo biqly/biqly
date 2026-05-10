@@ -3,7 +3,7 @@ import { useState, useCallback, useRef } from 'react'
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
 interface RequestOptions {
-  timeout?: number  // ms, default 30s
+  timeout?: number
   signal?: AbortSignal
 }
 
@@ -19,7 +19,6 @@ async function request<T>(
     options?.timeout ?? 30_000,
   )
 
-  // Honor passed-in signal
   const signal = options?.signal
     ? ((() => {
         const merged = new AbortController()
@@ -57,6 +56,7 @@ export function useApi() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
+  const inFlightRef = useRef(0)
 
   const abort = useCallback(() => {
     controllerRef.current?.abort()
@@ -70,6 +70,7 @@ export function useApi() {
       body?: unknown,
       options?: RequestOptions,
     ): Promise<T | null> => {
+      inFlightRef.current++
       setLoading(true)
       setError(null)
       const controller = new AbortController()
@@ -77,8 +78,11 @@ export function useApi() {
       const mergedSignal = { ...options, signal: controller.signal }
       const { data, error: err } = await request<T>(method, url, body, mergedSignal)
       if (err) setError(err)
-      setLoading(false)
-      controllerRef.current = null
+      inFlightRef.current--
+      if (inFlightRef.current === 0) {
+        setLoading(false)
+        controllerRef.current = null
+      }
       return data
     },
     [],
@@ -98,10 +102,15 @@ export function useApi() {
       call<T>('PATCH', url, body, options),
     [call],
   )
+  const putData = useCallback(
+    <T = any>(url: string, body: unknown, options?: RequestOptions) =>
+      call<T>('PUT', url, body, options),
+    [call],
+  )
   const deleteData = useCallback(
     <T = any>(url: string, options?: RequestOptions) => call<T>('DELETE', url, undefined, options),
     [call],
   )
 
-  return { get, postData, patchData, deleteData, loading, error, abort }
+  return { get, postData, putData, patchData, deleteData, loading, error, abort }
 }

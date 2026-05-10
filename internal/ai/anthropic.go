@@ -36,7 +36,7 @@ func NewAnthropicProvider(cfg config.AIConfig) *AnthropicProvider {
 		baseURL = anthropicDefaultBaseURL
 	}
 	return &AnthropicProvider{
-		httpClient:  &http.Client{Timeout: 60 * time.Second},
+		httpClient:  &http.Client{Timeout: cfg.AIHTTPTimeout()},
 		baseURL:     baseURL,
 		apiKey:      cfg.APIKey,
 		model:       cfg.Model,
@@ -75,6 +75,8 @@ func (p *AnthropicProvider) Generate(ctx context.Context, prompt string) (string
 }
 
 // GenerateAt sends a prompt with an explicit temperature override.
+// Transient HTTP failures (429, 502–504) and network errors trigger a short
+// exponential backoff retry (up to 4 attempts total).
 func (p *AnthropicProvider) GenerateAt(ctx context.Context, prompt string, temperature float64) (string, error) {
 	reqBody := anthropicRequest{
 		Model:       p.model,
@@ -88,39 +90,63 @@ func (p *AnthropicProvider) GenerateAt(ctx context.Context, prompt string, tempe
 		return "", fmt.Errorf("marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.baseURL+"/messages", bytes.NewReader(body))
-	if err != nil {
-		return "", fmt.Errorf("create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-api-key", p.apiKey)
-	req.Header.Set("anthropic-version", anthropicAPIVersion)
-
-	resp, err := p.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("send request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("read response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Anthropic API error %d: %s", resp.StatusCode, string(respBody))
-	}
-
-	var ar anthropicResponse
-	if err := json.Unmarshal(respBody, &ar); err != nil {
-		return "", fmt.Errorf("unmarshal response: %w", err)
-	}
-	if ar.Error != nil {
-		return "", fmt.Errorf("Anthropic API error: %s", ar.Error.Message)
-	}
-	for _, c := range ar.Content {
-		if c.Type == "text" && c.Text != "" {
-			return c.Text, nil
+	const maxAttempts = 4
+	var lastErr error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if attempt > 0 {
+			delay := time.Duration(250*(1<<uint(attempt-1))) * time.Millisecond
+			if err := sleepCtx(ctx, delay); err != nil {
+				return "", err
+			}
 		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.baseURL+"/messages", bytes.NewReader(body))
+		if err != nil {
+			return "", fmt.Errorf("create request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("x-api-key", p.apiKey)
+		req.Header.Set("anthropic-version", anthropicAPIVersion)
+
+		resp, err := p.httpClient.Do(req)
+		if err != nil {
+			lastErr = err
+			if attempt+1 < maxAttempts && isRetriableNetErr(err) {
+				continue
+			}
+			return "", fmt.Errorf("send request: %w", err)
+		}
+
+		respBody, readErr := io.ReadAll(resp.Body)
+		closeErr := resp.Body.Close()
+		if readErr != nil {
+			return "", fmt.Errorf("read response: %w", readErr)
+		}
+		if closeErr != nil {
+			return "", fmt.Errorf("close response: %w", closeErr)
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			var ar anthropicResponse
+			if err := json.Unmarshal(respBody, &ar); err != nil {
+				return "", fmt.Errorf("unmarshal response: %w", err)
+			}
+			if ar.Error != nil {
+				return "", fmt.Errorf("Anthropic API error: %s", ar.Error.Message)
+			}
+			for _, c := range ar.Content {
+				if c.Type == "text" && c.Text != "" {
+					return c.Text, nil
+				}
+			}
+			return "", fmt.Errorf("no text content in Anthropic response")
+		}
+
+		lastErr = fmt.Errorf("Anthropic API error %d: %s", resp.StatusCode, string(respBody))
+		if attempt+1 < maxAttempts && isRetriableHTTPStatus(resp.StatusCode) {
+			continue
+		}
+		return "", lastErr
 	}
-	return "", fmt.Errorf("no text content in Anthropic response")
+	return "", fmt.Errorf("send request: %w", lastErr)
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -44,16 +45,20 @@ type QueryConfig struct {
 // SecurityConfig holds encryption key settings.
 type SecurityConfig struct {
 	EncryptionKey string
+	AdminAPIKey   string
 }
 
 // AIConfig holds AI provider configuration.
 type AIConfig struct {
-	Provider      string
-	APIKey        string
-	BaseURL       string
-	Model         string
-	MaxTokens     int
-	Temperature   float64
+	Provider           string
+	APIKey             string
+	BaseURL            string
+	Model              string
+	MaxTokens          int
+	Temperature        float64
+	TopP               float64
+	NumCtx             int
+	HTTPTimeoutSeconds int
 	RateLimitPerMinute int
 	// MaxPromptInputRunes caps the semantic-model section of NL→query prompts (~4 chars/rune ≈ 1 token).
 	MaxPromptInputRunes int
@@ -68,9 +73,14 @@ type AIConfig struct {
 	// selects the majority. 1 = single-shot (default).
 	MultiCandidateCount int
 	// EmbeddingModel names the embeddings model used for vector-based table
-	// retrieval. Default: text-embedding-3-small. Empty disables the OpenAI
-	// embedder; the router falls back to keyword-only scoring.
+	// retrieval. Empty disables the embedder; the router uses keyword-only scoring.
 	EmbeddingModel string
+	// EmbeddingBaseURL, when set, is the OpenAI-compatible base for POST …/embeddings.
+	// Empty means use BaseURL (LLM), then provider default for OpenAI.
+	EmbeddingBaseURL string
+	// EmbeddingAPIKey, when set, is used only for embedding requests.
+	// Empty means use APIKey (LLM).
+	EmbeddingAPIKey string
 	// EmbeddingWeight scales the cosine-similarity contribution to the
 	// hybrid table-routing score. 0 disables the boost even when embeddings
 	// are present; 30 (default) makes a perfect match comparable to a fully
@@ -98,21 +108,27 @@ func Load() (*Config, error) {
 		},
 		Security: SecurityConfig{
 			EncryptionKey: getEnv("BI_ENCRYPTION_KEY", "change-this-to-a-secure-32-byte-key!!"),
+			AdminAPIKey:   getEnv("BI_ADMIN_API_KEY", ""),
 		},
 		AI: AIConfig{
-			Provider:           getEnv("BI_AI_PROVIDER", "openai"),
-			APIKey:             getEnv("BI_AI_API_KEY", ""),
-			BaseURL:            getEnv("BI_AI_BASE_URL", ""),
-			Model:              getEnv("BI_AI_MODEL", "gpt-4o"),
-			MaxTokens:          getEnvAsInt("BI_AI_MAX_TOKENS", 4096),
-			Temperature:        getEnvAsFloat("BI_AI_TEMPERATURE", 0.0),
-			RateLimitPerMinute: getEnvAsInt("BI_AI_RATE_LIMIT_PER_MINUTE", 20),
+			Provider:              getEnv("BI_AI_PROVIDER", "openai"),
+			APIKey:                getEnv("BI_AI_API_KEY", ""),
+			BaseURL:               getEnv("BI_AI_BASE_URL", ""),
+			Model:                 getEnv("BI_AI_MODEL", "gpt-4o"),
+			MaxTokens:             getEnvAsInt("BI_AI_MAX_TOKENS", 4096),
+			Temperature:           getEnvAsFloat("BI_AI_TEMPERATURE", 0.0),
+			TopP:                  getEnvAsFloat("BI_AI_TOP_P", 0.0),
+			NumCtx:                getEnvAsInt("BI_AI_NUM_CTX", 0),
+			HTTPTimeoutSeconds:    getEnvAsInt("BI_AI_HTTP_TIMEOUT_SECONDS", 300),
+			RateLimitPerMinute:    getEnvAsInt("BI_AI_RATE_LIMIT_PER_MINUTE", 20),
 			MaxPromptInputRunes:   getEnvAsInt("BI_AI_MAX_PROMPT_RUNES", 80000),
 			DescribeMaxCellRunes:  getEnvAsInt("BI_AI_DESCRIBE_MAX_CELL_RUNES", 500),
 			DescribeMaxSampleRows: getEnvAsInt("BI_AI_DESCRIBE_MAX_SAMPLE_ROWS", 12),
 			MaxRetries:            getEnvAsInt("BI_AI_MAX_RETRIES", 2),
 			MultiCandidateCount:   getEnvAsInt("BI_AI_MULTI_CANDIDATE_COUNT", 1),
-			EmbeddingModel:        getEnv("BI_AI_EMBEDDING_MODEL", "text-embedding-3-small"),
+			EmbeddingModel:        getEnv("BI_AI_EMBEDDING_MODEL", ""),
+			EmbeddingBaseURL:      getEnv("BI_AI_EMBEDDING_BASE_URL", ""),
+			EmbeddingAPIKey:       getEnv("BI_AI_EMBEDDING_API_KEY", ""),
 			EmbeddingWeight:       getEnvAsFloat("BI_AI_EMBEDDING_WEIGHT", 30.0),
 		},
 	}
@@ -123,8 +139,57 @@ func Load() (*Config, error) {
 	if cfg.Security.EncryptionKey == "" {
 		return nil, fmt.Errorf("BI_ENCRYPTION_KEY is required")
 	}
+	if cfg.Security.EncryptionKey == "change-this-to-a-secure-32-byte-key!!" {
+		return nil, fmt.Errorf("BI_ENCRYPTION_KEY must be changed from its default value")
+	}
 
 	return cfg, nil
+}
+
+// AIHTTPTimeout returns the provider HTTP timeout as time.Duration.
+func (c AIConfig) AIHTTPTimeout() time.Duration {
+	seconds := c.HTTPTimeoutSeconds
+	if seconds <= 0 {
+		seconds = 300
+	}
+	return time.Duration(seconds) * time.Second
+}
+
+// EffectiveEmbeddingAPIKey returns BI_AI_EMBEDDING_API_KEY when set, otherwise BI_AI_API_KEY.
+func (c AIConfig) EffectiveEmbeddingAPIKey() string {
+	if s := strings.TrimSpace(c.EmbeddingAPIKey); s != "" {
+		return s
+	}
+	return c.APIKey
+}
+
+// EffectiveEmbeddingBaseURL resolves the embeddings HTTP base (no trailing path).
+// Order: BI_AI_EMBEDDING_BASE_URL, then BI_AI_BASE_URL, then OpenAI default when provider is OpenAI-compatible.
+func (c AIConfig) EffectiveEmbeddingBaseURL() string {
+	if s := strings.TrimSpace(c.EmbeddingBaseURL); s != "" {
+		return strings.TrimRight(s, "/")
+	}
+	if s := strings.TrimSpace(c.BaseURL); s != "" {
+		return strings.TrimRight(s, "/")
+	}
+	p := strings.ToLower(strings.TrimSpace(c.Provider))
+	switch p {
+	case "", "openai", "openai-compatible":
+		return "https://api.openai.com/v1"
+	default:
+		return ""
+	}
+}
+
+// EmbeddingsConfigured reports whether vector table routing / embed-metadata can call an embeddings API.
+func (c AIConfig) EmbeddingsConfigured() bool {
+	if strings.TrimSpace(c.EmbeddingModel) == "" {
+		return false
+	}
+	if strings.TrimSpace(c.EffectiveEmbeddingAPIKey()) == "" {
+		return false
+	}
+	return strings.TrimSpace(c.EffectiveEmbeddingBaseURL()) != ""
 }
 
 func getEnv(key, defaultVal string) string {

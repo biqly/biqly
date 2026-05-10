@@ -11,7 +11,6 @@ import {
   Pie,
   Cell,
 } from 'recharts'
-import { useApi } from '../hooks/useApi'
 import useStreamingApi from '../hooks/useStreamingApi'
 
 // ─── Types ─────────────────────────────────────────────────────────
@@ -160,12 +159,12 @@ function TestCaseRow({ tc }: { tc: EvalTestCase }) {
 // ─── Main Component ────────────────────────────────────────────────
 
 export default function Evaluation() {
-  const { postData, loading: apiLoading, error: apiError } = useApi()
   const streaming = useStreamingApi({ typingSpeed: 4 })
 
   const [evalData, setEvalData] = useState<EvalRunResponse | null>(null)
   const [running, setRunning] = useState(false)
   const [showDemo, setShowDemo] = useState(false)
+  const [runError, setRunError] = useState<string | null>(null)
 
   // Derive pie chart data from current eval data
   const pieData = useMemo(() => {
@@ -187,16 +186,31 @@ export default function Evaluation() {
 
   const runEvaluation = async () => {
     setRunning(true)
-    const res = await postData<EvalRunResponse>('/api/ai/eval/run', {})
-    setRunning(false)
-
-    if (res) {
-      setEvalData(res)
-      setShowDemo(false)
-    } else {
-      // API not ready — show demo data
+    setRunError(null)
+    setShowDemo(false)
+    try {
+      const res = await fetch('/api/ai/eval/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      })
+      const text = await res.text()
+      const payload = (text ? JSON.parse(text) : null) as EvalRunResponse | { error?: string } | null
+      if (!res.ok) {
+        setEvalData(null)
+        const msg =
+          payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string'
+            ? payload.error
+            : `HTTP ${res.status}`
+        setRunError(msg)
+        return
+      }
+      setEvalData(payload as EvalRunResponse)
+    } catch {
       setEvalData(DEMO_DATA)
       setShowDemo(true)
+    } finally {
+      setRunning(false)
     }
   }
 
@@ -216,19 +230,19 @@ export default function Evaluation() {
             <button className="btn" onClick={runStreamEvaluation} disabled={running || streaming.loading}>
               {streaming.loading ? 'Streaming…' : 'Run (Stream)'}
             </button>
-            <button className="btn btn-primary" onClick={runEvaluation} disabled={running || apiLoading}>
-              {running || apiLoading ? 'Running…' : 'Run Evaluation'}
+            <button className="btn btn-primary" onClick={runEvaluation} disabled={running}>
+              {running ? 'Running…' : 'Run Evaluation'}
             </button>
           </div>
         </div>
 
         {showDemo && (
           <div className="demo-banner">
-            API endpoint not available — showing demo data. Start the backend to run live evaluation.
+            Server unreachable — showing demo data. When the API is available, click Run Evaluation again.
           </div>
         )}
 
-        {apiError && !showDemo && <div className="error">{apiError}</div>}
+        {runError && <div className="error">{runError}</div>}
         {streaming.error && <div className="error">{streaming.error}</div>}
 
         {/* Streaming output */}

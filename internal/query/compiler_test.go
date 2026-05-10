@@ -73,6 +73,37 @@ func TestCompiler_SimpleSelect(t *testing.T) {
 	}
 }
 
+func TestCompiler_RejectsUnknownGroupByAndOrderBy(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "orders",
+		BaseSchema: "public",
+		BaseTable:  "orders",
+		Dimensions: []semantic.Dimension{
+			{Name: "created_at_year", ColumnRef: "orders.created_at", Type: "date", TimeGrain: "year"},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "order_count", Expression: "orders.id", Aggregation: "count"},
+		},
+	}
+	compiler := NewCompiler(dialect.PostgresDialect{})
+
+	_, err := compiler.Compile(context.Background(), LogicalQuery{
+		Select:  []SelectItem{{Type: SelectTypeMetric, Name: "order_count"}},
+		GroupBy: []GroupBy{{Field: "year(orders.created_at)"}},
+	}, model)
+	if err == nil || !strings.Contains(err.Error(), "unknown dimension") {
+		t.Fatalf("expected unknown group_by dimension error, got %v", err)
+	}
+
+	_, err = compiler.Compile(context.Background(), LogicalQuery{
+		Select:  []SelectItem{{Type: SelectTypeMetric, Name: "order_count"}},
+		OrderBy: []OrderBy{{Field: "missing_metric", Direction: OrderDesc}},
+	}, model)
+	if err == nil || !strings.Contains(err.Error(), "unknown field") {
+		t.Fatalf("expected unknown order_by field error, got %v", err)
+	}
+}
+
 func TestCompiler_OmitsJoinsWhenQueryUsesOnlyBaseTable(t *testing.T) {
 	// Two FKs from product to billofmaterials (component vs assembly). If the logical query
 	// only references product columns, we must not JOIN billofmaterials twice (or at all).

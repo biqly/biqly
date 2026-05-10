@@ -1,3 +1,21 @@
+// ─── AI runtime (server env) ───────────────────────────────────────
+
+export interface AIRuntimeSettings {
+  provider: string
+  llm_model: string
+  base_url: string
+  base_url_effective: string
+  api_key_configured: boolean
+  /** When true, embedding env block is active. Absent/false: no embedding UI. */
+  embeddings_enabled?: boolean
+  embedding_model?: string
+  embedding_base_url?: string
+  embedding_base_url_effective?: string
+  embedding_api_key_configured?: boolean
+  /** True if BI_AI_EMBEDDING_API_KEY is set (vs only BI_AI_API_KEY). */
+  embedding_api_key_dedicated?: boolean
+}
+
 // ─── AI Query Types ────────────────────────────────────────────────
 
 export interface AIQueryRequest {
@@ -6,7 +24,6 @@ export interface AIQueryRequest {
   tables?: string[]
   include_base_tables?: boolean
   include_views?: boolean
-  model?: string
   conversation_id?: string
   example_ids?: string[]
   prior_turns?: PriorTurn[]
@@ -20,7 +37,10 @@ export interface PriorTurn {
 
 export interface TableRoutingCandidate {
   table: string
-  relevance_score: number
+  /** Normalized routing score from the API (0–1 scale in practice). */
+  score?: number
+  /** @deprecated API sends `score`; kept for older responses */
+  relevance_score?: number
   selected: boolean
 }
 

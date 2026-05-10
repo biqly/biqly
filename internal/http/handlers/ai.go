@@ -132,6 +132,7 @@ func (h *AIHandler) Query(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	resp.ModelUsed = h.deps.Config.AI.Model
 	resp.TableRouting = routing
 	h.recordAIHistory(ctx, req, model, routing, resp)
 
@@ -177,6 +178,7 @@ func (h *AIHandler) Preview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	resp.ModelUsed = h.deps.Config.AI.Model
 	resp.TableRouting = routing
 	h.recordAIHistory(ctx, req, model, routing, resp)
 
@@ -278,7 +280,7 @@ func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp.TableRouting = routing
-	resp.ModelUsed = h.deps.Config.AI.Provider
+	resp.ModelUsed = h.deps.Config.AI.Model
 	h.recordAIHistory(ctx, req, model, routing, resp)
 
 	if resp.LogicalQuery == nil {
@@ -357,7 +359,7 @@ func (h *AIHandler) EmbedMetadata(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.deps.AIEmbedMeta == nil || h.deps.Embedder == nil {
-		writeError(w, http.StatusServiceUnavailable, "embeddings are not configured (set BI_AI_API_KEY and BI_AI_EMBEDDING_MODEL)")
+		writeError(w, http.StatusServiceUnavailable, "embeddings are not configured (set BI_AI_EMBEDDING_MODEL and API access: BI_AI_EMBEDDING_API_KEY or BI_AI_API_KEY; optional BI_AI_EMBEDDING_BASE_URL / BI_AI_BASE_URL)")
 		return
 	}
 	results, err := h.deps.AIEmbedMeta.EmbedAllForDatasource(r.Context(), req.DatasourceID)

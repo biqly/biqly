@@ -11,6 +11,23 @@ interface SavedQuestion {
   tags: string[]
 }
 
+interface FewShotEntry {
+  questionId: string
+  savedAt: string
+}
+
+const FEWSHOT_STORAGE_KEY = 'biqly_saved_fewshot'
+
+function loadFewShotEntries(): FewShotEntry[] {
+  try {
+    return JSON.parse(localStorage.getItem(FEWSHOT_STORAGE_KEY) || '[]')
+  } catch { return [] }
+}
+
+function saveFewShotEntries(entries: FewShotEntry[]) {
+  localStorage.setItem(FEWSHOT_STORAGE_KEY, JSON.stringify(entries))
+}
+
 // Demo saved questions - connects to API when backend is available
 const demoQuestions: SavedQuestion[] = [
   {
@@ -63,6 +80,7 @@ export default function SavedQuestions() {
   const [questions] = useState<SavedQuestion[]>(demoQuestions)
   const [search, setSearch] = useState('')
   const [selectedQuestion, setSelectedQuestion] = useState<SavedQuestion | null>(null)
+  const [fewShotEntries, setFewShotEntries] = useState<FewShotEntry[]>(loadFewShotEntries)
 
   const filtered = questions.filter(
     (q) =>
@@ -70,10 +88,28 @@ export default function SavedQuestions() {
       q.tags.some((t) => t.toLowerCase().includes(search.toLowerCase()))
   )
 
+  const isFewShot = (id: string) => fewShotEntries.some((e) => e.questionId === id)
+
+  const toggleFewShot = (id: string) => {
+    const exists = isFewShot(id)
+    const updated = exists
+      ? fewShotEntries.filter((e) => e.questionId !== id)
+      : [...fewShotEntries, { questionId: id, savedAt: new Date().toISOString() }]
+    setFewShotEntries(updated)
+    saveFewShotEntries(updated)
+  }
+
+  const fewShotCount = fewShotEntries.length
+
   return (
     <div>
       <div className="card">
         <h2>Question Library</h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginBottom: '0.75rem' }}>
+          {fewShotCount > 0
+            ? `${fewShotCount} question${fewShotCount > 1 ? 's' : ''} marked as AI few-shot examples.`
+            : 'Mark questions as AI few-shot examples to improve text-to-SQL accuracy.'}
+        </p>
         <div className="form-group">
           <input
             value={search}
@@ -88,32 +124,62 @@ export default function SavedQuestions() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1.5rem' }}>
         <div className="card">
-          {filtered.map((q) => (
-            <button
-              key={q.id}
-              className="saved-question-item"
-              onClick={() => setSelectedQuestion(q)}
-            >
-              <h3>{q.name}</h3>
-              <p>{q.description}</p>
-              <div style={{ display: 'flex', gap: '0.25rem', marginTop: '0.5rem' }}>
-                {q.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    style={{
-                      background: 'var(--bg-card)',
-                      padding: '0.125rem 0.5rem',
-                      borderRadius: '0.25rem',
-                      fontSize: '0.75rem',
-                      color: 'var(--text-secondary)',
-                    }}
-                  >
-                    {tag}
-                  </span>
-                ))}
+          {filtered.map((q) => {
+            const checked = isFewShot(q.id)
+            return (
+              <div key={q.id} style={{ position: 'relative' }}>
+                <button
+                  className="saved-question-item"
+                  onClick={() => setSelectedQuestion(q)}
+                >
+                  <h3>{q.name}</h3>
+                  <p>{q.description}</p>
+                  <div style={{ display: 'flex', gap: '0.25rem', marginTop: '0.5rem' }}>
+                    {q.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        style={{
+                          background: 'var(--bg-card)',
+                          padding: '0.125rem 0.5rem',
+                          borderRadius: '0.25rem',
+                          fontSize: '0.75rem',
+                          color: 'var(--text-secondary)',
+                        }}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </button>
+                <label
+                  className="fewshot-checkbox"
+                  title="Use as AI few-shot example"
+                  style={{
+                    position: 'absolute',
+                    top: '0.6rem',
+                    right: '0.6rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.3rem',
+                    fontSize: '0.72rem',
+                    color: checked ? 'var(--accent)' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                    background: checked ? 'rgba(96,165,250,0.1)' : 'transparent',
+                    padding: '0.15rem 0.4rem',
+                    borderRadius: '0.3rem',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleFewShot(q.id)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <span>AI example</span>
+                </label>
               </div>
-            </button>
-          ))}
+            )
+          })}
         </div>
 
         {selectedQuestion && (

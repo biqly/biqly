@@ -15,6 +15,18 @@ type LogicalQuery struct {
 	OrderBy []OrderBy `json:"order_by,omitempty"`
 	Limit   int       `json:"limit"`
 	Offset  int       `json:"offset,omitempty"`
+	// CTEs (Common Table Expressions) — WITH ... AS clauses.
+	CTEs []CTE `json:"ctes,omitempty"`
+}
+
+// CTE represents a Common Table Expression (WITH ... AS ...).
+type CTE struct {
+	Name  string       `json:"name"`
+	Select []SelectItem `json:"select,omitempty"`
+	Filters []Filter   `json:"filters,omitempty"`
+	GroupBy []GroupBy  `json:"group_by,omitempty"`
+	OrderBy []OrderBy  `json:"order_by,omitempty"`
+	Limit   int        `json:"limit,omitempty"`
 }
 
 // SelectItem represents a field in the SELECT clause.

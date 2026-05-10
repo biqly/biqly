@@ -8,6 +8,7 @@ interface ResultTableProps {
   durationMs?: number
   question?: string
   onFilterByValue?: (column: string, value: string) => void
+  onCellClick?: (column: string, value: string) => void
 }
 
 type SortDirection = 'asc' | 'desc' | null
@@ -19,6 +20,7 @@ export default function ResultTable({
   durationMs,
   question,
   onFilterByValue,
+  onCellClick,
 }: ResultTableProps) {
   const [sortColIdx, setSortColIdx] = useState<number | null>(null)
   const [sortDir, setSortDir] = useState<SortDirection>(null)
@@ -145,9 +147,15 @@ export default function ResultTable({
                     handleContextMenu(e, columns[colIdx]?.name ?? '', String(cell))
                   }
                 >
-                  {formatResultCell(cell, columns[colIdx]?.name ?? '', {
-                    question,
-                  })}
+                  <span
+                    className={onCellClick ? 'cell-drillable' : ''}
+                    onClick={() => onCellClick?.(columns[colIdx]?.name ?? '', String(cell))}
+                    style={{ cursor: onCellClick ? 'pointer' : 'default' }}
+                  >
+                    {formatResultCell(cell, columns[colIdx]?.name ?? '', {
+                      question,
+                    })}
+                  </span>
                 </td>
               ))}
             </tr>

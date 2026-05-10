@@ -206,6 +206,14 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 	clarification := ""
 	if validationErrCount > 0 {
 		clarification = s.tryGenerateClarification(ctx, question, model, failureReason)
+		return &AIResponse{
+			Confidence:            0,
+			Warnings:              append(retryWarnings, warnings...),
+			Prompt:                prompt,
+			RawResponse:           lastRaw,
+			NeedsClarification:    clarification != "",
+			ClarificationQuestion: clarification,
+		}, nil
 	}
 
 	return &AIResponse{

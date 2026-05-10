@@ -17,17 +17,13 @@ import { useApi } from '../hooks/useApi'
 import { useConversation } from '../hooks/useConversation'
 import { formatResultCell } from '../utils/resultCellFormat'
 import ResultTable from './ResultTable'
-import type { AIQueryResponse, TableRoutingCandidate, LogicalQueryCandidate } from '../types/ai'
+import type { AIQueryResponse, TableRoutingCandidate, LogicalQueryCandidate, AIRuntimeSettings } from '../types/ai'
 import type { Datasource } from '../types/metadata'
 
-const AI_MODELS = [
-  { value: 'gpt-4o', label: 'GPT-4o', cost: '$$$' },
-  { value: 'gpt-4o-mini', label: 'GPT-4o-mini', cost: '$' },
-  { value: 'claude-3.5-sonnet', label: 'Claude 3.5', cost: '$$' },
-  { value: 'llama-3.1', label: 'Local Llama', cost: 'Free' },
-]
-
 const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316']
+
+/** NL→SQL can be slow with local models (routing, LLM, retries, EXPLAIN). */
+const AI_QUERY_TIMEOUT_MS = 300_000
 
 // ─── Sub-components ─────────────────────────────────────────────────
 
@@ -69,6 +65,11 @@ function BreakdownRow({ label, value }: { label: string; value: number }) {
 
 function TableRoutingViz({ routing }: { routing: NonNullable<AIQueryResponse['table_routing']> }) {
   const methodLabel = routing.ranking_method ?? 'keyword'
+  const candidateScore = (c: TableRoutingCandidate) => {
+    const v = c.score ?? c.relevance_score
+    return typeof v === 'number' && Number.isFinite(v) ? v : 0
+  }
+  const maxScore = Math.max(...(routing.candidates ?? []).map(candidateScore), 0)
   return (
     <div className="table-routing-viz">
       <div className="routing-header">
@@ -76,12 +77,13 @@ function TableRoutingViz({ routing }: { routing: NonNullable<AIQueryResponse['ta
         <span className="routing-confidence">{Math.round(routing.confidence * 100)}%</span>
       </div>
       {(routing.candidates ?? []).map((c: TableRoutingCandidate) => {
-        const pct = Math.round(c.relevance_score * 100)
+        const score = candidateScore(c)
+        const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
         return (
           <div key={c.table} className="routing-candidate">
             <span className="routing-table-name">{c.table}</span>
             <div className="routing-bar-bg"><div className="routing-bar-fill" style={{ width: `${pct}%` }} /></div>
-            <span className="routing-score">{pct}%</span>
+            <span className="routing-score">{score.toFixed(2)}</span>
             {c.selected && <span className="routing-selected">✓</span>}
           </div>
         )
@@ -153,6 +155,74 @@ function Collapsible({ title, children, defaultOpen = false }: { title: string; 
   )
 }
 
+function AIRuntimeSettingsPanel({ settings, err }: { settings: AIRuntimeSettings | null; err: string | null }) {
+  if (err) {
+    return (
+      <div className="ai-runtime-settings" role="status">
+        <div className="ai-runtime-settings-title">Server AI (from env)</div>
+        <p className="error" style={{ margin: '0.35rem 0 0', fontSize: '0.85rem' }}>{err}</p>
+      </div>
+    )
+  }
+  if (!settings) {
+    return (
+      <div className="ai-runtime-settings" role="status">
+        <div className="ai-runtime-settings-title">Server AI (from env)</div>
+        <p className="ai-settings-hint" style={{ margin: '0.35rem 0 0' }}>Loading server AI settings…</p>
+      </div>
+    )
+  }
+  const baseConfigured = settings.base_url?.trim() !== ''
+  return (
+    <div className="ai-runtime-settings" id="ai-runtime-config" role="region" aria-label="Server AI configuration from environment">
+      <div className="ai-runtime-settings-title">Server AI (from env)</div>
+      <dl className="ai-settings-dl">
+        <dt>Provider</dt>
+        <dd>{settings.provider?.trim() ? settings.provider : '—'}</dd>
+        <dt>Model</dt>
+        <dd><code>{settings.llm_model?.trim() ? settings.llm_model : '—'}</code> <span className="ai-settings-meta">(BI_AI_MODEL)</span></dd>
+        <dt>Base URL</dt>
+        <dd>
+          {baseConfigured ? (
+            <code>{settings.base_url}</code>
+          ) : (
+            <span><span className="ai-settings-meta">(default)</span> <code>{settings.base_url_effective}</code></span>
+          )}{' '}
+          <span className="ai-settings-meta">(BI_AI_BASE_URL)</span>
+        </dd>
+        <dt>API key</dt>
+        <dd>{settings.api_key_configured ? 'Configured' : 'Not set'} <span className="ai-settings-meta">(BI_AI_API_KEY)</span></dd>
+        {settings.embeddings_enabled === true ? (
+          <>
+            <dt>Embedding model</dt>
+            <dd><code>{settings.embedding_model ?? '—'}</code> <span className="ai-settings-meta">(BI_AI_EMBEDDING_MODEL)</span></dd>
+            <dt>Embedding base URL</dt>
+            <dd>
+              {settings.embedding_base_url?.trim() ? (
+                <code>{settings.embedding_base_url}</code>
+              ) : (
+                <span><span className="ai-settings-meta">(resolved)</span> <code>{settings.embedding_base_url_effective ?? '—'}</code></span>
+              )}{' '}
+              <span className="ai-settings-meta">(BI_AI_EMBEDDING_BASE_URL)</span>
+            </dd>
+            <dt>Embedding API key</dt>
+            <dd>
+              {settings.embedding_api_key_configured ? 'Configured' : 'Not set'}{' '}
+              <span className="ai-settings-meta">
+                (BI_AI_EMBEDDING_API_KEY
+                {settings.embedding_api_key_dedicated ? '' : ' — falls back to BI_AI_API_KEY'})
+              </span>
+            </dd>
+          </>
+        ) : null}
+      </dl>
+      <p className="ai-settings-hint">
+        The UI does not override these values. Set env vars on the API process and restart to change model or endpoint.
+      </p>
+    </div>
+  )
+}
+
 function SampleDataModal({ open, onClose, tableName, datasourceId, get }: { open: boolean; onClose: () => void; tableName: string; datasourceId: string; get: <T>(url: string) => Promise<T | null> }) {
   const [sample, setSample] = useState<any>(null)
   const [loading, setLoading] = useState(false)
@@ -219,18 +289,43 @@ export default function AIQuery() {
   // Query state
   const [question, setQuestion] = useState('')
   const [result, setResult] = useState<AIQueryResponse | null>(null)
-  const [selectedModel, setSelectedModel] = useState('gpt-4o')
+  const [aiRuntime, setAiRuntime] = useState<AIRuntimeSettings | null>(null)
+  const [aiRuntimeErr, setAiRuntimeErr] = useState<string | null>(null)
   const [chartType, setChartType] = useState<'bar' | 'line' | 'pie' | 'table'>('table')
 
   // Sample data modal
   const [sampleModalOpen, setSampleModalOpen] = useState(false)
   const [sampleModalTable, setSampleModalTable] = useState('')
 
+  // Feedback state
+  const [userFeedback, setUserFeedback] = useState<'positive' | 'negative' | null>(null)
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false)
+  const [feedbackCategories, setFeedbackCategories] = useState<string[]>([])
+  const [feedbackText, setFeedbackText] = useState('')
+
+  // Include past queries toggle
+  const [includePastQueries, setIncludePastQueries] = useState(false)
+
+  // Cell drill-down
+  const [drillDownTarget, setDrillDownTarget] = useState<string | null>(null)
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     get<Datasource[]>('/api/datasources').then((data) => {
       if (data) { setDatasources(data); if (data[0]) setDatasourceId(data[0].id) }
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    get<AIRuntimeSettings>('/api/ai/settings').then((data) => {
+      if (data) {
+        setAiRuntime(data)
+        setAiRuntimeErr(null)
+      } else {
+        setAiRuntime(null)
+        setAiRuntimeErr('Could not load server AI settings')
+      }
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -290,17 +385,26 @@ export default function AIQuery() {
     tables: autoTableRouting ? undefined : selectedTables,
     include_base_tables: includeBaseTables,
     include_views: includeViews,
-    model: selectedModel,
     conversation_id: activeConversation?.id,
-    prior_turns: recentPriorTurns(),
+    prior_turns: includePastQueries ? recentPriorTurns() : undefined,
   })
 
   const sendQuery = async (q: string, execute: boolean) => {
     setQuestion(q)
+    const body = {
+      datasource_id: datasourceId,
+      question: q,
+      tables: autoTableRouting ? undefined : selectedTables,
+      include_base_tables: includeBaseTables,
+      include_views: includeViews,
+      conversation_id: activeConversation?.id,
+      prior_turns: includePastQueries ? recentPriorTurns() : undefined,
+    }
     const endpoint = execute ? '/api/ai/query/run' : '/api/ai/query/preview'
-    const res = await postData<AIQueryResponse>(endpoint, requestBody())
+    const res = await postData<AIQueryResponse>(endpoint, body, { timeout: AI_QUERY_TIMEOUT_MS })
     if (!res) return
     setResult(res); setChartType('table')
+    setUserFeedback(null); setShowFeedbackForm(false); setFeedbackCategories([]); setFeedbackText('')
 
     if (res.needs_clarification) {
       addMessage({ role: 'user', content: q })
@@ -318,6 +422,36 @@ export default function AIQuery() {
   const handleFilterByValue = (column: string, value: string) => setQuestion((prev) => `${prev} where ${column} = "${value}"`)
 
   const handleSampleData = (tableName: string) => { setSampleModalTable(tableName); setSampleModalOpen(true) }
+
+  const FEEDBACK_CATS = ['Wrong table', 'Wrong columns', 'Incorrect aggregation', 'Missed date filter', 'Wrong logic', 'SQL error', 'Other']
+
+  const submitFeedback = async (rating: 'positive' | 'negative') => {
+    setUserFeedback(rating)
+    if (rating === 'positive') {
+      try { await postData('/api/ai/feedback', { question, datasource_id: datasourceId, rating: 'positive' }) } catch { /* noop */ }
+    } else {
+      setShowFeedbackForm(true)
+    }
+  }
+
+  const submitNegativeFeedback = async () => {
+    try {
+      await postData('/api/ai/feedback', {
+        question,
+        datasource_id: datasourceId,
+        rating: 'negative',
+        categories: feedbackCategories,
+        text: feedbackText,
+      })
+    } catch { /* noop */ }
+    setShowFeedbackForm(false)
+    setFeedbackCategories([])
+    setFeedbackText('')
+  }
+
+  const handleCellDrillDown = (column: string, value: string) => {
+    sendQuery(`Show details where ${column} = "${value}"`, true)
+  }
 
   const chartData = result?.result?.rows?.map((row) => {
     const obj: Record<string, any> = { name: String(row[0]) }
@@ -380,10 +514,7 @@ export default function AIQuery() {
               </select>
             </div>
             <div className="form-group">
-              <label htmlFor="ai-model">Model</label>
-              <select id="ai-model" value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}>
-                {AI_MODELS.map((m) => <option key={m.value} value={m.value}>{m.label} ({m.cost})</option>)}
-              </select>
+              <AIRuntimeSettingsPanel settings={aiRuntime} err={aiRuntimeErr} />
             </div>
             <div className="form-group routing-toggle">
               <label>Table Routing</label>
@@ -421,6 +552,12 @@ export default function AIQuery() {
             <textarea id="ai-question" value={question} onChange={(e) => setQuestion(e.target.value)}
               onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendQuery(question, true) } }}
               placeholder="Show total revenue by country for January 2026…" rows={3} autoComplete="off" />
+            {activeConversation && activeConversation.messages.length > 0 && (
+              <div className="past-queries-toggle">
+                <input type="checkbox" id="include-past" checked={includePastQueries} onChange={(e) => setIncludePastQueries(e.target.checked)} />
+                <label htmlFor="include-past">Include my past queries as few-shot examples</label>
+              </div>
+            )}
           </div>
 
           <div className="button-row">
@@ -437,6 +574,15 @@ export default function AIQuery() {
             {result.confidence !== undefined && <ConfidenceBar value={result.confidence} breakdown={result.confidence_breakdown} />}
             <CostBadge latencyMs={result.latency_ms} tokenUsage={result.token_usage} costUsd={result.cost_usd} />
 
+            {result.model_used && (
+              <div className="model-used-badge" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                Model used: <code>{result.model_used}</code>
+                {aiRuntime?.llm_model && result.model_used !== aiRuntime.llm_model && (
+                  <span> (configured: <code>{aiRuntime.llm_model}</code>)</span>
+                )}
+              </div>
+            )}
+
             {result.retry_count !== undefined && result.retry_count > 0 && (
               <div className="retry-badge">🔄 AI self-corrected (attempt {result.retry_count}/3)</div>
             )}
@@ -446,7 +592,10 @@ export default function AIQuery() {
             )}
 
             {result.candidates && result.candidates.length > 1 && !result.needs_clarification && (
-              <CandidateComparisonPanel candidates={result.candidates} onUse={() => {}} />
+              <CandidateComparisonPanel candidates={result.candidates} onUse={(i: number) => {
+                const c = result.candidates?.[i]
+                if (c) setResult({ ...result, logical_query: c.logical_query, confidence: c.confidence })
+              }} />
             )}
 
             {result.table_routing && (
@@ -467,6 +616,14 @@ export default function AIQuery() {
               </Collapsible>
             )}
 
+            {result.logical_query?.window_functions && result.logical_query.window_functions.length > 0 && (
+              <div style={{ marginBottom: '0.5rem' }}>
+                {result.logical_query.window_functions.map((wf: any, i: number) => (
+                  <span key={i} className="wf-badge">Uses: Window Function ({wf.function})</span>
+                ))}
+              </div>
+            )}
+
             {result.logical_query && (
               <Collapsible title="🧠 Generated LogicalQuery" defaultOpen>
                 <pre className="sql-preview">{JSON.stringify(result.logical_query, null, 2)}</pre>
@@ -483,6 +640,9 @@ export default function AIQuery() {
               <Collapsible title="🔍 Show prompt">
                 <pre className="sql-preview prompt-preview">{result.prompt}</pre>
                 {result.token_usage && <p className="token-info">Tokens: {result.token_usage.prompt} prompt · {result.token_usage.completion} completion · {result.token_usage.total} total</p>}
+                {result.token_usage && result.token_usage.prompt > 30000 && (
+                  <p className="prompt-warning">⚠️ Prompt is large ({(result.token_usage.prompt / 1000).toFixed(1)}K tokens) — may affect response quality.</p>
+                )}
               </Collapsible>
             )}
 
@@ -495,7 +655,9 @@ export default function AIQuery() {
                 <p>AI couldn't generate a valid query after {result.retry_count} attempts.</p>
                 <div className="recovery-options">
                   <button onClick={() => document.getElementById('ai-question')?.focus()}>Rephrase question</button>
-                  <button onClick={() => setSelectedModel('gpt-4o-mini')}>Switch model</button>
+                  <button type="button" onClick={() => document.getElementById('ai-runtime-config')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}>
+                    Check server AI settings
+                  </button>
                   <button onClick={() => { window.location.hash = '/query-builder' }}>Manual query builder</button>
                 </div>
               </div>
@@ -538,8 +700,47 @@ export default function AIQuery() {
                     durationMs={result.result.stats?.duration_ms}
                     question={question}
                     onFilterByValue={handleFilterByValue}
+                    onCellClick={(colName, value) => handleCellDrillDown(colName, String(value))}
                   />
                 )}
+              </div>
+            )}
+
+            {/* Feedback */}
+            <div className="feedback-row">
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginRight: '0.5rem' }}>Was this helpful?</span>
+              <button
+                className={`feedback-btn ${userFeedback === 'positive' ? 'feedback-active' : ''}`}
+                onClick={() => submitFeedback('positive')}
+              >👍</button>
+              <button
+                className={`feedback-btn ${userFeedback === 'negative' ? 'feedback-negative' : ''}`}
+                onClick={() => submitFeedback('negative')}
+              >👎</button>
+            </div>
+            {showFeedbackForm && (
+              <div className="feedback-form">
+                <p style={{ fontSize: '0.8rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>What went wrong?</p>
+                <div className="feedback-categories">
+                  {FEEDBACK_CATS.map((cat) => (
+                    <button
+                      key={cat}
+                      className={`feedback-cat-btn ${feedbackCategories.includes(cat) ? 'feedback-active' : ''}`}
+                      onClick={() => setFeedbackCategories((prev) => prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat])}
+                    >{cat}</button>
+                  ))}
+                </div>
+                <textarea
+                  value={feedbackText}
+                  onChange={(e) => setFeedbackText(e.target.value)}
+                  placeholder="Additional details (optional)…"
+                  rows={2}
+                  style={{ width: '100%', fontSize: '0.8rem', resize: 'vertical' }}
+                />
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem' }}>
+                  <button className="btn btn-sm btn-primary" onClick={submitNegativeFeedback}>Submit Feedback</button>
+                  <button className="btn btn-sm btn-ghost" onClick={() => { setShowFeedbackForm(false); setFeedbackCategories([]); setFeedbackText('') }}>Cancel</button>
+                </div>
               </div>
             )}
           </div>
@@ -567,7 +768,11 @@ export default function AIQuery() {
 
   async function handleFollowUp(followUp: string) {
     if (!activeConversation) createConversation()
-    const res = await postData<AIQueryResponse>('/api/ai/query/run', { ...requestBody(), question: followUp, conversation_id: activeConversation?.id })
+    const res = await postData<AIQueryResponse>(
+      '/api/ai/query/run',
+      { ...requestBody(), question: followUp, conversation_id: activeConversation?.id },
+      { timeout: AI_QUERY_TIMEOUT_MS },
+    )
     if (!res) return
     setResult(res)
     addMessage({ role: 'user', content: followUp })

@@ -54,23 +54,27 @@ export function useConversation() {
 
   const addMessage = useCallback(
     (message: Omit<ConversationMessage, 'timestamp'>) => {
-      if (!activeConversationId) {
-        createConversation()
-        return
+      let targetId = activeConversationId
+      if (!targetId) {
+        const conv = createConversation()
+        targetId = conv.id
       }
-      const updated = conversations.map((c) => {
-        if (c.id !== activeConversationId) return c
-        const ts = new Date().toISOString()
-        const msg: ConversationMessage = { ...message, timestamp: ts }
-        const newMessages = [...c.messages, msg]
-        const title =
-          c.title ??
-          (message.role === 'user' ? message.content.slice(0, 60) : undefined)
-        return { ...c, messages: newMessages, title, updated_at: ts }
+      setConversations((prev) => {
+        const updated = prev.map((c) => {
+          if (c.id !== targetId) return c
+          const ts = new Date().toISOString()
+          const msg: ConversationMessage = { ...message, timestamp: ts }
+          const newMessages = [...c.messages, msg]
+          const title =
+            c.title ??
+            (message.role === 'user' ? message.content.slice(0, 60) : undefined)
+          return { ...c, messages: newMessages, title, updated_at: ts }
+        })
+        saveConversations(updated)
+        return updated
       })
-      persist(updated)
     },
-    [activeConversationId, conversations, createConversation, persist]
+    [activeConversationId, createConversation],
   )
 
   const deleteConversation = useCallback(
