@@ -3,6 +3,7 @@ package query
 import (
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -49,10 +50,29 @@ func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) err
 					Message: "unknown metric: " + item.Name,
 				})
 			}
+		case SelectTypeWindow:
+			errs = append(errs, validateWindowSelect(item, dimMap, metricMap)...)
 		default:
 			errs = append(errs, &ValidationError{
 				Field:   "select",
 				Message: "invalid select type: " + item.Type,
+			})
+		}
+	}
+
+	// HAVING — each field must be a metric (post-aggregation).
+	havingOps := []string{OpEq, OpNeq, OpGt, OpGte, OpLt, OpLte, OpBetween, OpIsNull, OpIsNotNull}
+	for _, f := range lq.Having {
+		if !metricMap[f.Field] {
+			errs = append(errs, &ValidationError{
+				Field:   "having",
+				Message: "having field must reference a metric: " + f.Field,
+			})
+		}
+		if !slices.Contains(havingOps, f.Operator) {
+			errs = append(errs, &ValidationError{
+				Field:   "having",
+				Message: "operator not supported in having: " + f.Operator,
 			})
 		}
 	}
@@ -133,4 +153,41 @@ func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) err
 		return errs
 	}
 	return nil
+}
+
+// validateWindowSelect ensures a window SelectItem is well-formed: spec is
+// present, the aggregation is recognised, partition_by and order_by fields
+// resolve in the semantic model, and any referenced metric exists.
+func validateWindowSelect(item SelectItem, dimMap, metricMap map[string]bool) ValidationErrors {
+	var errs ValidationErrors
+	if item.Window == nil {
+		errs = append(errs, &ValidationError{Field: "select", Message: "window item missing window spec: " + item.Name})
+		return errs
+	}
+	w := item.Window
+	if w.Metric != "" && !metricMap[w.Metric] {
+		errs = append(errs, &ValidationError{Field: "select.window", Message: "unknown metric reference: " + w.Metric})
+	}
+	allowedAgg := map[string]bool{
+		"sum": true, "avg": true, "count": true, "count_distinct": true,
+		"min": true, "max": true,
+		"row_number": true, "rank": true, "dense_rank": true, "ntile": true,
+	}
+	if !allowedAgg[strings.ToLower(strings.TrimSpace(w.Aggregation))] && w.Metric == "" {
+		errs = append(errs, &ValidationError{Field: "select.window", Message: "unsupported window aggregation: " + w.Aggregation})
+	}
+	for _, p := range w.PartitionBy {
+		if !dimMap[p] {
+			errs = append(errs, &ValidationError{Field: "select.window.partition_by", Message: "unknown dimension: " + p})
+		}
+	}
+	for _, ob := range w.OrderBy {
+		if !dimMap[ob.Field] && !metricMap[ob.Field] {
+			errs = append(errs, &ValidationError{Field: "select.window.order_by", Message: "unknown field: " + ob.Field})
+		}
+		if ob.Direction != "" && ob.Direction != OrderAsc && ob.Direction != OrderDesc {
+			errs = append(errs, &ValidationError{Field: "select.window.order_by", Message: "invalid direction: " + ob.Direction})
+		}
+	}
+	return errs
 }

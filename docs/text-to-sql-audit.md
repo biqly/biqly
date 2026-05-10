@@ -195,7 +195,7 @@ Mevcut: Testler var ama text-to-SQL kalite ölçümü yok.
 9. [x] Self-consistency / multi-candidate
 10. [ ] Vector embedding table retrieval
 11. [x] Conversation memory / multi-turn
-12. [ ] Advanced SQL features (HAVING, CTE, window functions)
+12. [x] Advanced SQL features (HAVING, window functions; CTE deferred to P3)
 
 ### P3 — Uzun Vadede
 13. [ ] LLM-as-a-judge evaluation

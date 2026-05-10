@@ -66,6 +66,13 @@ func (c *Compiler) Compile(ctx context.Context, lq LogicalQuery, model *semantic
 	// Build GROUP BY
 	groupByClause := c.buildGroupBy(lq.GroupBy, dimMap)
 
+	// Build HAVING (post-aggregation filter; each field references a metric)
+	havingClause, havingArgs, err := c.buildHaving(lq.Having, metricMap, len(args))
+	if err != nil {
+		return nil, fmt.Errorf("build having: %w", err)
+	}
+	args = append(args, havingArgs...)
+
 	// Build ORDER BY
 	orderByClause := c.buildOrderBy(lq.OrderBy, dimMap, metricMap)
 
@@ -92,6 +99,11 @@ func (c *Compiler) Compile(ctx context.Context, lq LogicalQuery, model *semantic
 	if groupByClause != "" {
 		sql.WriteString(" GROUP BY ")
 		sql.WriteString(groupByClause)
+	}
+
+	if havingClause != "" {
+		sql.WriteString(" HAVING ")
+		sql.WriteString(havingClause)
 	}
 
 	if orderByClause != "" {
@@ -205,6 +217,37 @@ func tablesReferencedInLogicalQuery(
 			if m, ok := metricMap[item.Name]; ok {
 				addTableFromColumnRef(tables, m.Expression)
 			}
+		case SelectTypeWindow:
+			if item.Window == nil {
+				continue
+			}
+			if mname := item.Window.Metric; mname != "" {
+				if m, ok := metricMap[mname]; ok {
+					addTableFromColumnRef(tables, m.Expression)
+				}
+			}
+			if expr := item.Window.Expression; expr != "" {
+				addTableFromColumnRef(tables, expr)
+			}
+			for _, p := range item.Window.PartitionBy {
+				if dim, ok := dimMap[p]; ok {
+					addTableFromColumnRef(tables, dim.ColumnRef)
+				}
+			}
+			for _, ob := range item.Window.OrderBy {
+				if dim, ok := dimMap[ob.Field]; ok {
+					addTableFromColumnRef(tables, dim.ColumnRef)
+				}
+				if m, ok := metricMap[ob.Field]; ok {
+					addTableFromColumnRef(tables, m.Expression)
+				}
+			}
+		}
+	}
+
+	for _, f := range lq.Having {
+		if m, ok := metricMap[f.Field]; ok {
+			addTableFromColumnRef(tables, m.Expression)
 		}
 	}
 
@@ -355,9 +398,186 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]semantic.Di
 				alias = metric.Name
 			}
 			parts = append(parts, fmt.Sprintf("%s AS %s", agg, c.dialect.QuoteIdent(alias)))
+
+		case SelectTypeWindow:
+			windowSQL, err := c.buildWindowExpr(item, dimMap, metricMap)
+			if err != nil {
+				return nil, err
+			}
+			alias := item.Alias
+			if alias == "" {
+				alias = item.Name
+			}
+			parts = append(parts, fmt.Sprintf("%s AS %s", windowSQL, c.dialect.QuoteIdent(alias)))
 		}
 	}
 	return parts, nil
+}
+
+// buildWindowExpr renders a window/analytic expression:
+//
+//	<AGG>(<expr>) OVER (PARTITION BY ... ORDER BY ... <frame>)
+//
+// Aggregation/Expression are sourced from the SelectItem.Window or, when
+// Window.Metric is set, inherited from the named metric in the semantic model.
+// Ranking functions (row_number, rank, dense_rank, ntile) ignore Expression.
+func (c *Compiler) buildWindowExpr(
+	item SelectItem,
+	dimMap map[string]semantic.Dimension,
+	metricMap map[string]semantic.Metric,
+) (string, error) {
+	if item.Window == nil {
+		return "", fmt.Errorf("window select item %q missing window spec", item.Name)
+	}
+	w := item.Window
+
+	agg := strings.ToLower(strings.TrimSpace(w.Aggregation))
+	expr := strings.TrimSpace(w.Expression)
+
+	// Inherit aggregation+expression from a named metric when requested.
+	if mname := strings.TrimSpace(w.Metric); mname != "" {
+		m, ok := metricMap[mname]
+		if !ok {
+			return "", fmt.Errorf("window metric not found: %s", mname)
+		}
+		if agg == "" {
+			agg = strings.ToLower(m.Aggregation)
+		}
+		if expr == "" {
+			expr = m.Expression
+		}
+	}
+	if agg == "" {
+		return "", fmt.Errorf("window select item %q missing aggregation", item.Name)
+	}
+
+	var head string
+	switch agg {
+	case "row_number", "rank", "dense_rank":
+		head = strings.ToUpper(agg) + "()"
+	case "ntile":
+		// NTILE requires an integer argument; default to 4 quartiles when not
+		// supplied via Expression. Callers can pass "10" for deciles, etc.
+		bucket := expr
+		if bucket == "" {
+			bucket = "4"
+		}
+		head = fmt.Sprintf("NTILE(%s)", bucket)
+	default:
+		if expr == "" {
+			return "", fmt.Errorf("window aggregation %q requires expression", agg)
+		}
+		head = c.dialect.Aggregate(agg, expr)
+	}
+
+	var clauses []string
+	if len(w.PartitionBy) > 0 {
+		var cols []string
+		for _, name := range w.PartitionBy {
+			dim, ok := dimMap[name]
+			if !ok {
+				return "", fmt.Errorf("unknown partition_by dimension: %s", name)
+			}
+			cols = append(cols, c.dialect.QuoteIdent(dim.ColumnRef))
+		}
+		clauses = append(clauses, "PARTITION BY "+strings.Join(cols, ", "))
+	}
+	if len(w.OrderBy) > 0 {
+		var parts []string
+		for _, ob := range w.OrderBy {
+			dir := strings.ToUpper(strings.TrimSpace(ob.Direction))
+			if dir != "DESC" {
+				dir = "ASC"
+			}
+			ref := ""
+			if dim, ok := dimMap[ob.Field]; ok {
+				ref = c.dialect.QuoteIdent(dim.ColumnRef)
+			} else if metric, ok := metricMap[ob.Field]; ok {
+				ref = c.dialect.Aggregate(metric.Aggregation, metric.Expression)
+			} else {
+				return "", fmt.Errorf("unknown window order_by field: %s", ob.Field)
+			}
+			parts = append(parts, fmt.Sprintf("%s %s", ref, dir))
+		}
+		clauses = append(clauses, "ORDER BY "+strings.Join(parts, ", "))
+	}
+	if frame := strings.TrimSpace(w.Frame); frame != "" {
+		clauses = append(clauses, frame)
+	}
+
+	if len(clauses) == 0 {
+		return head + " OVER ()", nil
+	}
+	return head + " OVER (" + strings.Join(clauses, " ") + ")", nil
+}
+
+// buildHaving renders post-aggregation filters. Each filter's Field must be a
+// metric name; the aggregate expression is substituted so dialects emit e.g.
+// SUM("orders"."total_amount") > $1. Placeholder indices start at startArg+1.
+func (c *Compiler) buildHaving(
+	filters []Filter,
+	metricMap map[string]semantic.Metric,
+	startArg int,
+) (string, []any, error) {
+	if len(filters) == 0 {
+		return "", nil, nil
+	}
+	var parts []string
+	args := make([]any, 0, len(filters))
+	argCount := startArg
+	emitPlaceholder := func() string {
+		argCount++
+		return c.dialect.Placeholder(argCount)
+	}
+	for _, f := range filters {
+		metric, ok := metricMap[f.Field]
+		if !ok {
+			return "", nil, fmt.Errorf("unknown having field (must be a metric): %s", f.Field)
+		}
+		aggSQL := c.dialect.Aggregate(metric.Aggregation, metric.Expression)
+		switch f.Operator {
+		case OpEq, OpNeq, OpGt, OpGte, OpLt, OpLte:
+			args = append(args, f.Value)
+			parts = append(parts, fmt.Sprintf("%s %s %s", aggSQL, sqlComparator(f.Operator), emitPlaceholder()))
+		case OpBetween:
+			vals, ok := f.Value.([]any)
+			if !ok || len(vals) != 2 {
+				return "", nil, fmt.Errorf("having between expects 2 values for metric %q", f.Field)
+			}
+			args = append(args, vals[0], vals[1])
+			p1 := emitPlaceholder()
+			p2 := emitPlaceholder()
+			parts = append(parts, fmt.Sprintf("%s BETWEEN %s AND %s", aggSQL, p1, p2))
+		case OpIsNull:
+			parts = append(parts, fmt.Sprintf("%s IS NULL", aggSQL))
+		case OpIsNotNull:
+			parts = append(parts, fmt.Sprintf("%s IS NOT NULL", aggSQL))
+		default:
+			return "", nil, fmt.Errorf("operator %q not supported in HAVING for metric %q", f.Operator, f.Field)
+		}
+	}
+	return strings.Join(parts, " AND "), args, nil
+}
+
+// sqlComparator translates a logical operator to a SQL comparator. Only
+// basic scalar operators are mapped; HAVING only uses these.
+func sqlComparator(op string) string {
+	switch op {
+	case OpEq:
+		return "="
+	case OpNeq:
+		return "!="
+	case OpGt:
+		return ">"
+	case OpGte:
+		return ">="
+	case OpLt:
+		return "<"
+	case OpLte:
+		return "<="
+	default:
+		return "="
+	}
 }
 
 func (c *Compiler) buildFrom(model *semantic.SemanticModel) string {

@@ -355,6 +355,139 @@ func TestCompiler_JoinDirectionWhenBaseIsFKTarget(t *testing.T) {
 	}
 }
 
+// TestCompiler_Having verifies post-aggregation HAVING clauses are emitted
+// with the metric's aggregation expression substituted (e.g. SUM(orders.total)).
+func TestCompiler_Having(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "orders",
+		BaseSchema: "public",
+		BaseTable:  "orders",
+		Dimensions: []semantic.Dimension{
+			{Name: "country", ColumnRef: "customers.country", Type: "text"},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "total_revenue", Expression: "orders.total_amount", Aggregation: "sum"},
+			{Name: "order_count", Expression: "*", Aggregation: "count"},
+		},
+		Joins: []semantic.Join{
+			{
+				Name: "orders_customers", FromTable: "orders", FromColumn: "customer_id",
+				ToTable: "customers", ToColumn: "id", JoinType: "LEFT", Relationship: "many_to_one",
+			},
+		},
+	}
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeDimension, Name: "country"},
+			{Type: SelectTypeMetric, Name: "total_revenue"},
+		},
+		Filters: []Filter{{Field: "country", Operator: OpEq, Value: "US"}},
+		GroupBy: []GroupBy{{Field: "country"}},
+		Having:  []Filter{{Field: "total_revenue", Operator: OpGt, Value: 1000}},
+		Limit:   100,
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if !strings.Contains(cq.SQL, ` HAVING SUM("orders"."total_amount") > $2`) {
+		t.Errorf("expected HAVING with substituted aggregate; got SQL=%q", cq.SQL)
+	}
+	if len(cq.Args) != 2 || cq.Args[0] != "US" || cq.Args[1] != 1000 {
+		t.Errorf("unexpected args=%v", cq.Args)
+	}
+}
+
+func TestCompiler_HavingRejectsNonMetric(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name: "orders", BaseSchema: "public", BaseTable: "orders",
+		Dimensions: []semantic.Dimension{{Name: "country", ColumnRef: "orders.country", Type: "text"}},
+	}
+	lq := LogicalQuery{
+		Select:  []SelectItem{{Type: SelectTypeDimension, Name: "country"}},
+		GroupBy: []GroupBy{{Field: "country"}},
+		Having:  []Filter{{Field: "country", Operator: OpEq, Value: "US"}},
+	}
+	if _, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model); err == nil {
+		t.Fatal("expected having on non-metric to fail compilation")
+	}
+}
+
+// TestCompiler_WindowFunction verifies window/analytic select items render
+// as <AGG>(<expr>) OVER (PARTITION BY ... ORDER BY ...).
+func TestCompiler_WindowFunction(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name: "orders", BaseSchema: "public", BaseTable: "orders",
+		Dimensions: []semantic.Dimension{
+			{Name: "country", ColumnRef: "orders.country", Type: "text"},
+			{Name: "created_at", ColumnRef: "orders.created_at", Type: "date"},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "total_revenue", Expression: "orders.total_amount", Aggregation: "sum"},
+		},
+	}
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeDimension, Name: "country"},
+			{Type: SelectTypeDimension, Name: "created_at"},
+			{
+				Type:  SelectTypeWindow,
+				Name:  "running_total",
+				Alias: "running_total",
+				Window: &WindowSpec{
+					Metric:      "total_revenue",
+					PartitionBy: []string{"country"},
+					OrderBy:     []OrderBy{{Field: "created_at", Direction: "asc"}},
+					Frame:       "ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW",
+				},
+			},
+		},
+		Limit: 100,
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	want := `SUM("orders"."total_amount") OVER (PARTITION BY "orders"."country" ORDER BY "orders"."created_at" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "running_total"`
+	if !strings.Contains(cq.SQL, want) {
+		t.Errorf("expected window expr %q in SQL, got: %s", want, cq.SQL)
+	}
+}
+
+func TestCompiler_WindowRanking(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name: "orders", BaseSchema: "public", BaseTable: "orders",
+		Dimensions: []semantic.Dimension{
+			{Name: "country", ColumnRef: "orders.country", Type: "text"},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "total_revenue", Expression: "orders.total_amount", Aggregation: "sum"},
+		},
+	}
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeDimension, Name: "country"},
+			{
+				Type:  SelectTypeWindow,
+				Name:  "rnk",
+				Alias: "rnk",
+				Window: &WindowSpec{
+					Aggregation: "rank",
+					PartitionBy: []string{"country"},
+					OrderBy:     []OrderBy{{Field: "total_revenue", Direction: "desc"}},
+				},
+			},
+		},
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if !strings.Contains(cq.SQL, `RANK() OVER (PARTITION BY "orders"."country" ORDER BY SUM("orders"."total_amount") DESC) AS "rnk"`) {
+		t.Errorf("unexpected SQL: %s", cq.SQL)
+	}
+}
+
 func containsStr(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsStrHelper(s, substr))
 }
