@@ -35,6 +35,8 @@ Business users interact with models/dimensions/metrics, not raw tables/columns. 
 - Maps business terms to physical columns
 - Defines joins with cardinality awareness
 - Provides synonyms for AI understanding
+- Stores Turkish-first table/column descriptions when users ask Turkish questions
+- Optionally normalizes AI-generated descriptions through a dedicated translation model
 - Enables field-level permissions
 
 ### Driver Registry

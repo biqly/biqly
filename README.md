@@ -44,6 +44,36 @@ cp .env.example .env
 
 See `.env.example` for all available options.
 
+### Metadata descriptions for Turkish questions
+
+If business users mostly ask questions in Turkish, keep table and column
+descriptions Turkish-first. The AI router embeds user questions together with
+metadata descriptions, so Turkish descriptions usually improve table and column
+matching. Keep physical schema names or common English technical terms in the
+description when useful, for example:
+
+```text
+Müşteri siparişlerinin başlık bilgileri. Sipariş tarihi, müşteri, bölge,
+toplam tutar ve durum bilgisini içerir. Teknik tablo adı: SalesOrderHeader.
+```
+
+After metadata sync or description edits, refresh metadata embeddings from the
+AI Query page so routing uses the latest descriptions.
+
+Optionally enable a dedicated OpenAI-compatible translation layer for AI Describe
+output, for example Ollama TranslateGemma:
+
+```env
+BI_AI_TRANSLATION_MODEL=translategemma:4b
+BI_AI_TRANSLATION_BASE_URL=http://localhost:11434/v1
+BI_AI_TRANSLATION_TARGET_LANGUAGE=Turkish
+BI_AI_TRANSLATION_TARGET_CODE=tr
+```
+
+This layer only translates/normalizes table and column `description` values. It
+does not translate LogicalQuery JSON, table names, column names, or SQL
+identifiers.
+
 ## API Endpoints
 
 ### Datasources

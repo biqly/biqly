@@ -9,12 +9,24 @@ A **SemanticModel** represents a business entity:
 ```json
 {
   "name": "orders",
-  "label": "Customer Orders",
+  "label": "Müşteri Siparişleri",
+  "description": "Müşteri siparişlerinin başlık bilgileri. Teknik tablo adı: orders.",
   "base_schema": "public",
   "base_table": "orders",
-  "synonyms": ["purchases", "sales"]
+  "synonyms": ["siparişler", "satışlar", "purchases", "sales"]
 }
 ```
+
+If users usually ask questions in Turkish, prefer Turkish-first model, table,
+and column descriptions. Keep English physical names or common technical terms
+inside the description when they help bridge the Turkish business language to
+the database schema.
+
+AI Describe can optionally post-process generated descriptions through a
+translation model such as Ollama TranslateGemma. Configure
+`BI_AI_TRANSLATION_MODEL` and `BI_AI_TRANSLATION_BASE_URL` to translate or
+normalize only description text while preserving semantic names, table names,
+column names, and SQL identifiers.
 
 ## Dimensions
 
@@ -25,7 +37,8 @@ Group-by-able fields:
   "name": "country",
   "column_ref": "customers.country",
   "type": "text",
-  "synonyms": ["region", "market"]
+  "description": "Müşterinin ülkesi veya pazarı.",
+  "synonyms": ["ülke", "bölge", "pazar", "region", "market"]
 }
 ```
 

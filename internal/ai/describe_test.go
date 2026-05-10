@@ -1,6 +1,11 @@
 package ai
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"github.com/biqly/biqly/internal/metadata"
+)
 
 func TestValidIdent_columnNames(t *testing.T) {
 	tests := []struct {
@@ -24,5 +29,18 @@ func TestValidIdent_columnNames(t *testing.T) {
 				t.Fatalf("validIdent(%q) = %v, want %v", tt.id, got, tt.ok)
 			}
 		})
+	}
+}
+
+func TestBuildDescribePromptPrefersTurkishDescriptions(t *testing.T) {
+	prompt := buildDescribePrompt("sales", "salesorderheader", []metadata.Column{
+		{ColumnName: "totaldue", DataType: "numeric"},
+	}, nil)
+
+	if !strings.Contains(prompt, "Write descriptions in Turkish by default") {
+		t.Fatalf("describe prompt should instruct Turkish descriptions, got:\n%s", prompt)
+	}
+	if !strings.Contains(prompt, "Keep original table/column names") {
+		t.Fatalf("describe prompt should preserve technical schema names, got:\n%s", prompt)
 	}
 }

@@ -34,7 +34,7 @@ type OpenAIEmbedder struct {
 // fallback to the main LLM BaseURL/APIKey. Call only when EmbeddingsConfigured().
 func NewOpenAIEmbedder(cfg config.AIConfig) *OpenAIEmbedder {
 	return &OpenAIEmbedder{
-		httpClient: &http.Client{Timeout: cfg.AIHTTPTimeout()},
+		httpClient: &http.Client{Timeout: cfg.EmbeddingHTTPTimeout()},
 		baseURL:    cfg.EffectiveEmbeddingBaseURL(),
 		apiKey:     cfg.EffectiveEmbeddingAPIKey(),
 		model:      strings.TrimSpace(cfg.EmbeddingModel),

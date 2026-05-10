@@ -116,7 +116,9 @@ func (c *Client) GenerateAt(ctx context.Context, prompt string, temperature floa
 			return "", fmt.Errorf("create request: %w", err)
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+		if c.apiKey != "" {
+			req.Header.Set("Authorization", "Bearer "+c.apiKey)
+		}
 
 		resp, err := c.httpClient.Do(req)
 		if err != nil {

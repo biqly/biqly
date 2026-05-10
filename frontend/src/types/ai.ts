@@ -14,6 +14,16 @@ export interface AIRuntimeSettings {
   embedding_api_key_configured?: boolean
   /** True if BI_AI_EMBEDDING_API_KEY is set (vs only BI_AI_API_KEY). */
   embedding_api_key_dedicated?: boolean
+  /** When true, AI-generated metadata descriptions are translated/normalized after Describe. */
+  translation_enabled?: boolean
+  translation_model?: string
+  translation_base_url?: string
+  translation_base_url_effective?: string
+  translation_api_key_configured?: boolean
+  /** True if BI_AI_TRANSLATION_API_KEY is set (vs only BI_AI_API_KEY). */
+  translation_api_key_dedicated?: boolean
+  translation_target_language?: string
+  translation_target_code?: string
 }
 
 export interface EmbedMetadataResult {

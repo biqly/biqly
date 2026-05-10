@@ -7,6 +7,27 @@ interface RequestOptions {
   signal?: AbortSignal
 }
 
+function parseResponseBody(text: string): unknown {
+  if (!text) return null
+  try {
+    return JSON.parse(text)
+  } catch {
+    return text
+  }
+}
+
+function responseError(status: number, data: unknown): string {
+  if (data && typeof data === 'object' && 'error' in data) {
+    const err = (data as { error?: unknown }).error
+    if (typeof err === 'string' && err.trim()) return err
+  }
+  if (typeof data === 'string') {
+    const plain = data.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+    return plain ? `HTTP ${status}: ${plain}` : `HTTP ${status}`
+  }
+  return `HTTP ${status}`
+}
+
 async function request<T>(
   method: Method,
   url: string,
@@ -36,9 +57,12 @@ async function request<T>(
       signal,
     })
     const text = await res.text()
-    const data = text ? JSON.parse(text) : null
+    const data = parseResponseBody(text)
     if (!res.ok) {
-      return { data: null, error: data?.error || `HTTP ${res.status}` }
+      return { data: null, error: responseError(res.status, data) }
+    }
+    if (typeof data === 'string') {
+      return { data: null, error: `Expected JSON response from ${url}` }
     }
     return { data: data as T, error: null }
   } catch (err) {

@@ -209,52 +209,90 @@ function AIRuntimeSettingsPanel({
     )
   }
   const baseConfigured = settings.base_url?.trim() !== ''
+  const embeddingsBaseConfigured = settings.embedding_base_url?.trim() !== ''
+  const translationBaseConfigured = settings.translation_base_url?.trim() !== ''
   return (
     <div className="ai-runtime-settings" id="ai-runtime-config" role="region" aria-label="Server AI configuration from environment">
       <div className="ai-runtime-settings-title">Server AI (from env)</div>
-      <dl className="ai-settings-dl">
-        <dt>Provider</dt>
-        <dd>{settings.provider?.trim() ? settings.provider : '—'}</dd>
-        <dt>Model</dt>
-        <dd><code>{settings.llm_model?.trim() ? settings.llm_model : '—'}</code> <span className="ai-settings-meta">(BI_AI_MODEL)</span></dd>
-        <dt>Base URL</dt>
-        <dd>
-          {baseConfigured ? (
-            <code>{settings.base_url}</code>
-          ) : (
-            <span><span className="ai-settings-meta">(default)</span> <code>{settings.base_url_effective}</code></span>
-          )}{' '}
-          <span className="ai-settings-meta">(BI_AI_BASE_URL)</span>
-        </dd>
-        <dt>API key</dt>
-        <dd>{settings.api_key_configured ? 'Configured' : 'Not set'} <span className="ai-settings-meta">(BI_AI_API_KEY)</span></dd>
-        {settings.embeddings_enabled === true ? (
-          <>
-            <dt>Embedding model</dt>
-            <dd><code>{settings.embedding_model ?? '—'}</code> <span className="ai-settings-meta">(BI_AI_EMBEDDING_MODEL)</span></dd>
-            <dt>Embedding base URL</dt>
+      <div className="ai-settings-grid">
+        <section className="ai-settings-section" aria-labelledby="ai-settings-llm">
+          <h3 id="ai-settings-llm">LLM</h3>
+          <dl className="ai-settings-dl">
+            <dt>Provider</dt>
+            <dd>{settings.provider?.trim() ? settings.provider : '—'}</dd>
+            <dt>Model</dt>
+            <dd><code translate="no">{settings.llm_model?.trim() ? settings.llm_model : '—'}</code> <span className="ai-settings-meta" translate="no">BI_AI_MODEL</span></dd>
+            <dt>Base URL</dt>
             <dd>
-              {settings.embedding_base_url?.trim() ? (
-                <code>{settings.embedding_base_url}</code>
+              {baseConfigured ? (
+                <code translate="no">{settings.base_url}</code>
               ) : (
-                <span><span className="ai-settings-meta">(resolved)</span> <code>{settings.embedding_base_url_effective ?? '—'}</code></span>
-              )}{' '}
-              <span className="ai-settings-meta">(BI_AI_EMBEDDING_BASE_URL)</span>
+                <span><span className="ai-settings-meta">default</span> <code translate="no">{settings.base_url_effective}</code></span>
+              )}
+              <span className="ai-settings-meta" translate="no">BI_AI_BASE_URL</span>
             </dd>
-            <dt>Embedding API key</dt>
-            <dd>
-              {settings.embedding_api_key_configured ? 'Configured' : 'Not set'}{' '}
-              <span className="ai-settings-meta">
-                (BI_AI_EMBEDDING_API_KEY
-                {settings.embedding_api_key_dedicated ? '' : ' — falls back to BI_AI_API_KEY'})
-              </span>
-            </dd>
-          </>
+            <dt>API key</dt>
+            <dd>{settings.api_key_configured ? 'Configured' : 'Not set'} <span className="ai-settings-meta" translate="no">BI_AI_API_KEY</span></dd>
+          </dl>
+        </section>
+        {settings.embeddings_enabled === true ? (
+          <section className="ai-settings-section" aria-labelledby="ai-settings-embeddings">
+            <h3 id="ai-settings-embeddings">Embeddings</h3>
+            <dl className="ai-settings-dl">
+              <dt>Model</dt>
+              <dd><code translate="no">{settings.embedding_model ?? '—'}</code> <span className="ai-settings-meta" translate="no">BI_AI_EMBEDDING_MODEL</span></dd>
+              <dt>Base URL</dt>
+              <dd>
+                {embeddingsBaseConfigured ? (
+                  <code translate="no">{settings.embedding_base_url}</code>
+                ) : (
+                  <span><span className="ai-settings-meta">resolved</span> <code translate="no">{settings.embedding_base_url_effective ?? '—'}</code></span>
+                )}
+                <span className="ai-settings-meta" translate="no">BI_AI_EMBEDDING_BASE_URL</span>
+              </dd>
+              <dt>API key</dt>
+              <dd>
+                {settings.embedding_api_key_configured ? 'Configured' : 'Not set'}{' '}
+                <span className="ai-settings-meta" translate="no">
+                  BI_AI_EMBEDDING_API_KEY
+                  {settings.embedding_api_key_dedicated ? '' : ' — falls back to BI_AI_API_KEY'}
+                </span>
+              </dd>
+            </dl>
+          </section>
         ) : null}
-      </dl>
-      <p className="ai-settings-hint">
-        The UI does not override these values. Set env vars on the API process and restart to change model or endpoint.
-      </p>
+        {settings.translation_enabled === true ? (
+          <section className="ai-settings-section" aria-labelledby="ai-settings-translation">
+            <h3 id="ai-settings-translation">Translation</h3>
+            <dl className="ai-settings-dl">
+              <dt>Model</dt>
+              <dd><code translate="no">{settings.translation_model ?? '—'}</code> <span className="ai-settings-meta" translate="no">BI_AI_TRANSLATION_MODEL</span></dd>
+              <dt>Base URL</dt>
+              <dd>
+                {translationBaseConfigured ? (
+                  <code translate="no">{settings.translation_base_url}</code>
+                ) : (
+                  <span><span className="ai-settings-meta">resolved</span> <code translate="no">{settings.translation_base_url_effective ?? '—'}</code></span>
+                )}
+                <span className="ai-settings-meta" translate="no">BI_AI_TRANSLATION_BASE_URL</span>
+              </dd>
+              <dt>API key</dt>
+              <dd>
+                {settings.translation_api_key_configured ? 'Configured' : 'Not set'}{' '}
+                <span className="ai-settings-meta" translate="no">
+                  BI_AI_TRANSLATION_API_KEY
+                  {settings.translation_api_key_dedicated ? '' : ' — falls back to BI_AI_API_KEY'}
+                </span>
+              </dd>
+              <dt>Target</dt>
+              <dd>
+                {settings.translation_target_language ?? 'Turkish'}{' '}
+                <span className="ai-settings-meta">({settings.translation_target_code ?? 'tr'})</span>
+              </dd>
+            </dl>
+          </section>
+        ) : null}
+      </div>
       {settings.embeddings_enabled === true && (
         <div className="ai-embedding-actions">
           <button
@@ -267,12 +305,15 @@ function AIRuntimeSettingsPanel({
             {embeddingLoading ? 'Embedding metadata…' : 'Refresh metadata embeddings'}
           </button>
           <p className="ai-settings-hint">
-            Re-run after metadata sync or description changes so table routing and column retrieval use fresh vectors.
+            Re-run after metadata sync or Turkish description changes so table routing and column retrieval use fresh vectors.
           </p>
           {embeddingStatus && <p className="ai-embedding-status">{embeddingStatus}</p>}
           {embeddingError && <p className="ai-embedding-error">{embeddingError}</p>}
         </div>
       )}
+      <p className="ai-settings-hint">
+        Set env vars on the API process and restart to change model or endpoint.
+      </p>
     </div>
   )
 }
@@ -580,7 +621,7 @@ export default function AIQuery() {
           <p className="card-subtitle">Ask a question in natural language. The AI generates a LogicalQuery, the backend compiles it to SQL.</p>
 
           <div className="query-controls">
-            <div className="form-group">
+            <div className="form-group ai-settings-group">
               <label htmlFor="ai-datasource">Datasource</label>
               <select id="ai-datasource" value={datasourceId} onChange={(e) => setDatasourceId(e.target.value)}>
                 <option value="">— select —</option>

@@ -58,6 +58,7 @@ Mevcut durum: `ProcessQuestion` içinde parse/validation/dry-run hatasında `Bui
 Mevcut `TableRouter` keyword + (yapılandırıldıysa) önceden hesaplanmış tablo embedding’leri ile hibrit skor. Auto-model için boyut/metric kotası (`maxAutoModelDimensions` vb.) ile prompt sınırı.
 
 - [x] **Vector embedding tablo seçimi**: `POST /api/ai/metadata/embed`, `EmbeddingReader` + cosine benzerliği
+- [x] **Türkçe metadata açıklamaları**: AI Describe varsayılan olarak Türkçe iş açıklaması üretir; teknik tablo/kolon adlarını açıklamada koruyarak schema ile köprü kurar
 - [ ] **Column-level retrieval**: Kolonlar öncelik + kota ile budanıyor; soruya göre semantik kolon alt kümesi seçimi henüz yok
 - [ ] **Schema partitioning**: Tablo kapsamı UI ile manuel daraltma var; otomatik şema kümeleme yok
 - [x] **Sample data in prompt**: `POST /api/ai/query/run` yolunda `WithSampleData` (`/ai/query` ve `/ai/query/preview` örnek satır içermez)

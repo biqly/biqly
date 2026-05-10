@@ -21,6 +21,15 @@ type aiRuntimeSettingsResponse struct {
 	EmbeddingBaseURLEffective string `json:"embedding_base_url_effective,omitempty"`
 	EmbeddingAPIKeyConfigured bool   `json:"embedding_api_key_configured,omitempty"`
 	EmbeddingAPIKeyDedicated  bool   `json:"embedding_api_key_dedicated,omitempty"`
+
+	TranslationEnabled          bool   `json:"translation_enabled"`
+	TranslationModel            string `json:"translation_model,omitempty"`
+	TranslationBaseURL          string `json:"translation_base_url,omitempty"`
+	TranslationBaseURLEffective string `json:"translation_base_url_effective,omitempty"`
+	TranslationAPIKeyConfigured bool   `json:"translation_api_key_configured,omitempty"`
+	TranslationAPIKeyDedicated  bool   `json:"translation_api_key_dedicated,omitempty"`
+	TranslationTargetLanguage   string `json:"translation_target_language,omitempty"`
+	TranslationTargetCode       string `json:"translation_target_code,omitempty"`
 }
 
 func effectiveAIBaseURL(cfg config.AIConfig) string {
@@ -52,6 +61,17 @@ func embeddingBaseURLEffectiveLabel(cfg config.AIConfig) string {
 	return eff + " (default when embedding URL env vars are empty)"
 }
 
+func translationBaseURLEffectiveLabel(cfg config.AIConfig) string {
+	eff := cfg.EffectiveTranslationBaseURL()
+	if eff == "" {
+		return "— (set BI_AI_TRANSLATION_BASE_URL or BI_AI_BASE_URL)"
+	}
+	if strings.TrimSpace(cfg.TranslationBaseURL) != "" {
+		return eff
+	}
+	return eff + " (from BI_AI_BASE_URL; override with BI_AI_TRANSLATION_BASE_URL)"
+}
+
 // RuntimeSettings returns non-secret AI configuration for the UI (env-backed).
 func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -73,6 +93,16 @@ func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 		out.EmbeddingBaseURLEffective = embeddingBaseURLEffectiveLabel(cfg)
 		out.EmbeddingAPIKeyConfigured = strings.TrimSpace(cfg.EffectiveEmbeddingAPIKey()) != ""
 		out.EmbeddingAPIKeyDedicated = strings.TrimSpace(cfg.EmbeddingAPIKey) != ""
+	}
+	if cfg.TranslationConfigured() {
+		out.TranslationEnabled = true
+		out.TranslationModel = strings.TrimSpace(cfg.TranslationModel)
+		out.TranslationBaseURL = cfg.TranslationBaseURL
+		out.TranslationBaseURLEffective = translationBaseURLEffectiveLabel(cfg)
+		out.TranslationAPIKeyConfigured = strings.TrimSpace(cfg.EffectiveTranslationAPIKey()) != ""
+		out.TranslationAPIKeyDedicated = strings.TrimSpace(cfg.TranslationAPIKey) != ""
+		out.TranslationTargetLanguage = cfg.TranslationTargetLanguage
+		out.TranslationTargetCode = cfg.TranslationTargetCode
 	}
 	writeJSON(w, http.StatusOK, out)
 }

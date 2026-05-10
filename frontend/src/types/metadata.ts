@@ -43,6 +43,9 @@ export interface DescribeResult {
     description: string
   }[]
   sample_size: number
+  translation_applied?: boolean
+  translation_model?: string
+  translation_error?: string
 }
 
 export interface BulkDescribeEntry {

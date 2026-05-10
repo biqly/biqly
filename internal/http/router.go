@@ -2,7 +2,6 @@ package http
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/http/handlers"
@@ -20,8 +19,8 @@ func Router(deps *app.Dependencies) http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	// AI NL→SQL can be slow with local models (LLM + validation + optional execution).
-	r.Use(middleware.Timeout(300 * time.Second))
+	// AI NL→SQL and catalog embedding can be slow with local models.
+	r.Use(middleware.Timeout(deps.Config.AI.AIRequestTimeout()))
 
 	// CORS
 	r.Use(cors.Handler(cors.Options{

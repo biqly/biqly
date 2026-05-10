@@ -44,3 +44,12 @@ That means tables and columns are referenced as `sales.salesorderheader`,
 `soh.totaldue`, etc. Schema names: `person`, `humanresources`, `production`,
 `purchasing`, `sales`. The reserved word `group` (a column on
 `sales.salesterritory`) must be double-quoted.
+
+For Turkish natural-language questions, add Turkish-first descriptions before
+refreshing embeddings. Example for `sales.salesorderheader`:
+
+```text
+Müşteri siparişlerinin başlık bilgileri. Sipariş tarihi, müşteri, satış bölgesi,
+toplam tutar ve sipariş durumu bilgisini içerir. Teknik tablo adı:
+SalesOrderHeader.
+```

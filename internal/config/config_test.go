@@ -29,6 +29,79 @@ func TestAIConfig_AIHTTPTimeout(t *testing.T) {
 	}
 }
 
+func TestAIConfig_EmbeddingHTTPTimeout(t *testing.T) {
+	c := AIConfig{HTTPTimeoutSeconds: 12, EmbeddingHTTPTimeoutSeconds: 45}
+	if got := c.EmbeddingHTTPTimeout(); got != 45*time.Second {
+		t.Fatalf("configured embedding timeout: got %s", got)
+	}
+	fallback := AIConfig{HTTPTimeoutSeconds: 12}
+	if got := fallback.EmbeddingHTTPTimeout(); got != 12*time.Second {
+		t.Fatalf("embedding timeout should fall back to AI timeout: got %s", got)
+	}
+	if got := (AIConfig{}).EmbeddingHTTPTimeout(); got != 300*time.Second {
+		t.Fatalf("default embedding timeout: got %s", got)
+	}
+}
+
+func TestAIConfig_TranslationHTTPTimeout(t *testing.T) {
+	c := AIConfig{HTTPTimeoutSeconds: 12, TranslationHTTPTimeoutSeconds: 45}
+	if got := c.TranslationHTTPTimeout(); got != 45*time.Second {
+		t.Fatalf("configured translation timeout: got %s", got)
+	}
+	fallback := AIConfig{HTTPTimeoutSeconds: 12}
+	if got := fallback.TranslationHTTPTimeout(); got != 12*time.Second {
+		t.Fatalf("translation timeout should fall back to AI timeout: got %s", got)
+	}
+	if got := (AIConfig{}).TranslationHTTPTimeout(); got != 120*time.Second {
+		t.Fatalf("default translation timeout: got %s", got)
+	}
+}
+
+func TestAIConfig_AIRequestTimeout(t *testing.T) {
+	c := AIConfig{HTTPTimeoutSeconds: 12, EmbeddingHTTPTimeoutSeconds: 45, TranslationHTTPTimeoutSeconds: 60}
+	if got := c.AIRequestTimeout(); got != 90*time.Second {
+		t.Fatalf("request timeout should include the largest AI subrequest timeout plus buffer: got %s", got)
+	}
+	chatOnly := AIConfig{HTTPTimeoutSeconds: 12}
+	if got := chatOnly.AIRequestTimeout(); got != 42*time.Second {
+		t.Fatalf("request timeout should include chat timeout plus buffer: got %s", got)
+	}
+}
+
+func TestAIConfig_EffectiveTranslationConfig(t *testing.T) {
+	c := AIConfig{
+		APIKey:             "main",
+		BaseURL:            "https://chat.example/v1/",
+		TranslationModel:   "translategemma:4b",
+		TranslationBaseURL: "https://translate.example/v1/",
+		TranslationAPIKey:  "  translate  ",
+	}
+	if got := c.EffectiveTranslationAPIKey(); got != "translate" {
+		t.Fatalf("want dedicated trimmed key, got %q", got)
+	}
+	if got := c.EffectiveTranslationBaseURL(); got != "https://translate.example/v1" {
+		t.Fatalf("want dedicated trimmed base URL, got %q", got)
+	}
+	if !c.TranslationConfigured() {
+		t.Fatal("translation model plus base URL should enable translation")
+	}
+
+	fallback := AIConfig{APIKey: "main", BaseURL: "https://chat.example/v1", TranslationModel: "x"}
+	if got := fallback.EffectiveTranslationAPIKey(); got != "main" {
+		t.Fatalf("want main key fallback, got %q", got)
+	}
+	if got := fallback.EffectiveTranslationBaseURL(); got != "https://chat.example/v1" {
+		t.Fatalf("want main base URL fallback, got %q", got)
+	}
+	if !fallback.TranslationConfigured() {
+		t.Fatal("translation should use BI_AI_BASE_URL when dedicated URL is empty")
+	}
+
+	if (AIConfig{TranslationModel: "x"}).TranslationConfigured() {
+		t.Fatal("translation model without any base URL should not enable translation")
+	}
+}
+
 func TestAIConfig_EffectiveEmbeddingBaseURL(t *testing.T) {
 	c := AIConfig{EmbeddingBaseURL: "https://embed.example/v1/"}
 	if got := c.EffectiveEmbeddingBaseURL(); got != "https://embed.example/v1" {

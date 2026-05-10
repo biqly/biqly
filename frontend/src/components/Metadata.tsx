@@ -132,6 +132,9 @@ interface DescribeResult {
   columns: { name: string; description: string }[]
   applied: boolean
   sample_rows: number
+  translation_applied?: boolean
+  translation_model?: string
+  translation_error?: string
 }
 
 export default function Metadata() {
@@ -569,7 +572,7 @@ export default function Metadata() {
             <header className="modal-header modal-header--compact">
               <div>
                 <h2 id="bulk-metadata-title" className="bulk-modal-title">AI metadata generator</h2>
-                <p className="bulk-modal-subtitle">LLM-generated table &amp; column descriptions for your selection</p>
+                <p className="bulk-modal-subtitle">Turkish-first LLM descriptions for selected tables &amp; columns</p>
               </div>
               <button
                 type="button"
@@ -584,7 +587,7 @@ export default function Metadata() {
               {bulkEntries.length === 0 && !bulkRunning && (
                 <>
                   <p className="bulk-lede">
-                    Descriptions are inferred from sampled rows and saved to metadata. Large selections use more tokens and time.
+                    Descriptions are inferred from sampled rows and saved to metadata. They are generated in Turkish by default, while keeping useful technical table/column names. Large selections use more tokens and time.
                   </p>
                   <div className="bulk-panel-grid">
                     <fieldset className="bulk-fieldset">
@@ -807,7 +810,7 @@ export default function Metadata() {
 
             <div className="modal-body">
               <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
-                Samples N rows from the source DB and asks the LLM to describe the table and each column.
+                Samples N rows from the source DB and asks the LLM to describe the table and each column in Turkish, keeping useful technical names for schema matching.
               </p>
 
               {!describeResult && (
@@ -854,7 +857,7 @@ export default function Metadata() {
                       onClick={runDescribe}
                       disabled={loading}
                     >
-                      {loading ? 'Analyzing…' : 'Generate Descriptions'}
+                      {loading ? 'Analyzing…' : 'Generate Turkish Descriptions'}
                     </button>
                   </div>
                 </>
@@ -867,7 +870,15 @@ export default function Metadata() {
                     {describeResult.applied
                       ? <span className="success">All suggestions applied.</span>
                       : 'Review and apply selectively.'}
+                    {describeResult.translation_applied && describeResult.translation_model ? (
+                      <> Translation normalized by <code>{describeResult.translation_model}</code>.</>
+                    ) : null}
                   </p>
+                  {describeResult.translation_error && (
+                    <p style={{ margin: 0, color: 'var(--error)' }}>
+                      Translation layer failed; showing the original Turkish-first AI descriptions. {describeResult.translation_error}
+                    </p>
+                  )}
 
                   <div>
                     <h3 style={{ marginBottom: '0.4rem' }}>Table description</h3>

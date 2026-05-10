@@ -66,6 +66,19 @@ type AIConfig struct {
 	DescribeMaxCellRunes int
 	// DescribeMaxSampleRows is a hard cap on rows sampled for Describe (wide tables × many columns).
 	DescribeMaxSampleRows int
+	// TranslationModel enables a post-processing translation/normalization layer
+	// for AI-generated metadata descriptions.
+	TranslationModel string
+	// TranslationBaseURL is the OpenAI-compatible base URL for the translation model.
+	TranslationBaseURL string
+	// TranslationAPIKey is used for translation requests. Empty falls back to APIKey.
+	TranslationAPIKey string
+	// TranslationTargetLanguage is the human-readable target language name.
+	TranslationTargetLanguage string
+	// TranslationTargetCode is the BCP-47/ISO target language code.
+	TranslationTargetCode string
+	// TranslationHTTPTimeoutSeconds is the HTTP timeout for translation requests.
+	TranslationHTTPTimeoutSeconds int
 	// MaxRetries caps how many times the validator can re-prompt the model after parse/validation failure.
 	MaxRetries int
 	// MultiCandidateCount enables self-consistency voting: when >1, the service
@@ -81,6 +94,10 @@ type AIConfig struct {
 	// EmbeddingAPIKey, when set, is used only for embedding requests.
 	// Empty means use APIKey (LLM).
 	EmbeddingAPIKey string
+	// EmbeddingHTTPTimeoutSeconds overrides provider HTTP timeout for
+	// embedding requests, which can run longer than chat completions when
+	// refreshing an entire catalog.
+	EmbeddingHTTPTimeoutSeconds int
 	// EmbeddingWeight scales the cosine-similarity contribution to the
 	// hybrid table-routing score. 0 disables the boost even when embeddings
 	// are present; 30 (default) makes a perfect match comparable to a fully
@@ -124,12 +141,25 @@ func Load() (*Config, error) {
 			MaxPromptInputRunes:   getEnvAsInt("BI_AI_MAX_PROMPT_RUNES", 80000),
 			DescribeMaxCellRunes:  getEnvAsInt("BI_AI_DESCRIBE_MAX_CELL_RUNES", 500),
 			DescribeMaxSampleRows: getEnvAsInt("BI_AI_DESCRIBE_MAX_SAMPLE_ROWS", 12),
-			MaxRetries:            getEnvAsInt("BI_AI_MAX_RETRIES", 2),
-			MultiCandidateCount:   getEnvAsInt("BI_AI_MULTI_CANDIDATE_COUNT", 1),
-			EmbeddingModel:        getEnv("BI_AI_EMBEDDING_MODEL", ""),
-			EmbeddingBaseURL:      getEnv("BI_AI_EMBEDDING_BASE_URL", ""),
-			EmbeddingAPIKey:       getEnv("BI_AI_EMBEDDING_API_KEY", ""),
-			EmbeddingWeight:       getEnvAsFloat("BI_AI_EMBEDDING_WEIGHT", 30.0),
+			TranslationModel:      getEnv("BI_AI_TRANSLATION_MODEL", ""),
+			TranslationBaseURL:    getEnv("BI_AI_TRANSLATION_BASE_URL", ""),
+			TranslationAPIKey:     getEnv("BI_AI_TRANSLATION_API_KEY", ""),
+			TranslationTargetLanguage: getEnv(
+				"BI_AI_TRANSLATION_TARGET_LANGUAGE",
+				"Turkish",
+			),
+			TranslationTargetCode:         getEnv("BI_AI_TRANSLATION_TARGET_CODE", "tr"),
+			TranslationHTTPTimeoutSeconds: getEnvAsInt("BI_AI_TRANSLATION_HTTP_TIMEOUT_SECONDS", 120),
+			MaxRetries:                    getEnvAsInt("BI_AI_MAX_RETRIES", 2),
+			MultiCandidateCount:           getEnvAsInt("BI_AI_MULTI_CANDIDATE_COUNT", 1),
+			EmbeddingModel:                getEnv("BI_AI_EMBEDDING_MODEL", ""),
+			EmbeddingBaseURL:              getEnv("BI_AI_EMBEDDING_BASE_URL", ""),
+			EmbeddingAPIKey:               getEnv("BI_AI_EMBEDDING_API_KEY", ""),
+			EmbeddingHTTPTimeoutSeconds: getEnvAsInt(
+				"BI_AI_EMBEDDING_HTTP_TIMEOUT_SECONDS",
+				getEnvAsInt("BI_AI_HTTP_TIMEOUT_SECONDS", 600),
+			),
+			EmbeddingWeight: getEnvAsFloat("BI_AI_EMBEDDING_WEIGHT", 30.0),
 		},
 	}
 
@@ -153,6 +183,30 @@ func (c AIConfig) AIHTTPTimeout() time.Duration {
 		seconds = 300
 	}
 	return time.Duration(seconds) * time.Second
+}
+
+// EmbeddingHTTPTimeout returns the HTTP timeout for embedding requests.
+func (c AIConfig) EmbeddingHTTPTimeout() time.Duration {
+	seconds := c.EmbeddingHTTPTimeoutSeconds
+	if seconds <= 0 {
+		seconds = c.HTTPTimeoutSeconds
+	}
+	if seconds <= 0 {
+		seconds = 300
+	}
+	return time.Duration(seconds) * time.Second
+}
+
+// AIRequestTimeout returns the server-side request budget for AI endpoints.
+func (c AIConfig) AIRequestTimeout() time.Duration {
+	timeout := c.AIHTTPTimeout()
+	if embeddingTimeout := c.EmbeddingHTTPTimeout(); embeddingTimeout > timeout {
+		timeout = embeddingTimeout
+	}
+	if translationTimeout := c.TranslationHTTPTimeout(); translationTimeout > timeout {
+		timeout = translationTimeout
+	}
+	return timeout + 30*time.Second
 }
 
 // EffectiveEmbeddingAPIKey returns BI_AI_EMBEDDING_API_KEY when set, otherwise BI_AI_API_KEY.
@@ -190,6 +244,42 @@ func (c AIConfig) EmbeddingsConfigured() bool {
 		return false
 	}
 	return strings.TrimSpace(c.EffectiveEmbeddingBaseURL()) != ""
+}
+
+// EffectiveTranslationAPIKey returns BI_AI_TRANSLATION_API_KEY when set, otherwise BI_AI_API_KEY.
+func (c AIConfig) EffectiveTranslationAPIKey() string {
+	if s := strings.TrimSpace(c.TranslationAPIKey); s != "" {
+		return s
+	}
+	return c.APIKey
+}
+
+// EffectiveTranslationBaseURL resolves the OpenAI-compatible translation base URL.
+func (c AIConfig) EffectiveTranslationBaseURL() string {
+	if s := strings.TrimSpace(c.TranslationBaseURL); s != "" {
+		return strings.TrimRight(s, "/")
+	}
+	return strings.TrimRight(strings.TrimSpace(c.BaseURL), "/")
+}
+
+// TranslationHTTPTimeout returns the HTTP timeout for translation requests.
+func (c AIConfig) TranslationHTTPTimeout() time.Duration {
+	seconds := c.TranslationHTTPTimeoutSeconds
+	if seconds <= 0 {
+		seconds = c.HTTPTimeoutSeconds
+	}
+	if seconds <= 0 {
+		seconds = 120
+	}
+	return time.Duration(seconds) * time.Second
+}
+
+// TranslationConfigured reports whether metadata description translation is enabled.
+func (c AIConfig) TranslationConfigured() bool {
+	if strings.TrimSpace(c.TranslationModel) == "" {
+		return false
+	}
+	return strings.TrimSpace(c.EffectiveTranslationBaseURL()) != ""
 }
 
 func getEnv(key, defaultVal string) string {

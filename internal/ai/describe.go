@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -26,13 +27,14 @@ type DescribeService struct {
 	client               Provider
 	metaRepo             *metadata.Repository
 	driverReg            *datasource.Registry
+	translator           *TranslationService
 	sampleRows           int
 	maxCellRunes         int
 	maxSampleRowsHardCap int
 }
 
 // NewDescribeService wires the dependencies needed to sample, prompt, and persist descriptions.
-func NewDescribeService(client Provider, metaRepo *metadata.Repository, driverReg *datasource.Registry, sampleRows, maxCellRunes, maxSampleRowsHardCap int) *DescribeService {
+func NewDescribeService(client Provider, metaRepo *metadata.Repository, driverReg *datasource.Registry, translator *TranslationService, sampleRows, maxCellRunes, maxSampleRowsHardCap int) *DescribeService {
 	if sampleRows <= 0 {
 		sampleRows = 10
 	}
@@ -46,6 +48,7 @@ func NewDescribeService(client Provider, metaRepo *metadata.Repository, driverRe
 		client:               client,
 		metaRepo:             metaRepo,
 		driverReg:            driverReg,
+		translator:           translator,
 		sampleRows:           sampleRows,
 		maxCellRunes:         maxCellRunes,
 		maxSampleRowsHardCap: maxSampleRowsHardCap,
@@ -63,12 +66,15 @@ type DescribeRequest struct {
 
 // DescribeResult is what the AI proposed (and optionally what was persisted).
 type DescribeResult struct {
-	Table       string             `json:"table"`
-	Schema      string             `json:"schema"`
-	Description string             `json:"description"`
-	Columns     []ColumnDescription `json:"columns"`
-	Applied     bool               `json:"applied"`
-	SampleRows  int                `json:"sample_rows"`
+	Table              string              `json:"table"`
+	Schema             string              `json:"schema"`
+	Description        string              `json:"description"`
+	Columns            []ColumnDescription `json:"columns"`
+	Applied            bool                `json:"applied"`
+	SampleRows         int                 `json:"sample_rows"`
+	TranslationApplied bool                `json:"translation_applied,omitempty"`
+	TranslationModel   string              `json:"translation_model,omitempty"`
+	TranslationError   string              `json:"translation_error,omitempty"`
 }
 
 // ColumnDescription is one column's AI-generated description.
@@ -145,6 +151,7 @@ func (s *DescribeService) Describe(ctx context.Context, req DescribeRequest) (*D
 		Columns:     colDescs,
 		SampleRows:  len(sample),
 	}
+	s.translateDescribeResult(ctx, result)
 
 	if req.AutoApply {
 		if err := s.apply(ctx, cols, result); err != nil {
@@ -154,6 +161,17 @@ func (s *DescribeService) Describe(ctx context.Context, req DescribeRequest) (*D
 	}
 
 	return result, nil
+}
+
+func (s *DescribeService) translateDescribeResult(ctx context.Context, result *DescribeResult) {
+	if s.translator == nil {
+		return
+	}
+	if err := s.translator.TranslateDescribeResult(ctx, result); err != nil {
+		result.TranslationModel = s.translator.Model()
+		result.TranslationError = err.Error()
+		slog.WarnContext(ctx, "metadata description translation failed", "error", err)
+	}
 }
 
 func (s *DescribeService) fetchSample(ctx context.Context, db *sql.DB, d dialect.Dialect, cols []metadata.Column, schema, table string, limit int) ([]map[string]any, error) {
@@ -304,6 +322,8 @@ func buildDescribePrompt(schema, table string, cols []metadata.Column, sample []
 	sb.WriteString("- Use strict JSON: every property name MUST be double-quoted (e.g. \"table_description\", not table_description:).\n")
 	sb.WriteString("- Keep descriptions under 200 characters each.\n")
 	sb.WriteString("- Describe the business meaning, not the data type.\n")
+	sb.WriteString("- Write descriptions in Turkish by default because end users usually ask BI questions in Turkish.\n")
+	sb.WriteString("- Keep original table/column names and common English technical terms when useful, so Turkish descriptions still bridge to the physical schema.\n")
 	sb.WriteString("- If you cannot infer a column from the sample, leave its description empty.\n\n")
 
 	fmt.Fprintf(&sb, "## Table: %s.%s\n", schema, table)
