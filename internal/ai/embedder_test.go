@@ -52,12 +52,17 @@ func (f *fakeEmbedder) Embed(_ context.Context, texts []string) ([][]float32, er
 }
 
 type fakeEmbeddingReader struct {
-	embeddings []metadata.TableEmbedding
-	err        error
+	embeddings       []metadata.TableEmbedding
+	columnEmbeddings []metadata.ColumnEmbedding
+	err              error
 }
 
 func (r *fakeEmbeddingReader) ListTableEmbeddings(_ context.Context, _ string) ([]metadata.TableEmbedding, error) {
 	return r.embeddings, r.err
+}
+
+func (r *fakeEmbeddingReader) ListColumnEmbeddings(_ context.Context, _ string) ([]metadata.ColumnEmbedding, error) {
+	return r.columnEmbeddings, r.err
 }
 
 // TestTableRouter_EmbeddingBoostShiftsRanking verifies that a table whose

@@ -62,6 +62,16 @@ type Column struct {
 	CreatedAt        time.Time `json:"created_at" db:"created_at"`
 }
 
+// ColumnEmbedding pairs a fully-qualified column with its stored embedding.
+// Columns that have never been embedded are excluded from ListColumnEmbeddings.
+type ColumnEmbedding struct {
+	SchemaName string
+	TableName  string
+	ColumnName string
+	Model      string
+	Embedding  []float32
+}
+
 // Relation represents a foreign key relationship.
 type Relation struct {
 	ID               string    `json:"id" db:"id"`

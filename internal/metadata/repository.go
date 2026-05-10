@@ -378,6 +378,60 @@ func (r *Repository) UpdateColumnDescription(ctx context.Context, id string, des
 	return err
 }
 
+// UpsertColumnEmbedding stores (or replaces) the embedding vector for a single
+// column. It mirrors table embedding storage and keeps deployments independent
+// of pgvector.
+func (r *Repository) UpsertColumnEmbedding(ctx context.Context, columnID, modelName string, embedding []float32) error {
+	encoded, err := encodeEmbedding(embedding)
+	if err != nil {
+		return fmt.Errorf("encode embedding: %w", err)
+	}
+	_, err = r.db.ExecContext(ctx, `
+		UPDATE columns
+		SET embedding = $2::jsonb,
+		    embedding_model = $3,
+		    embedding_updated_at = now()
+		WHERE id = $1
+	`, columnID, encoded, modelName)
+	return err
+}
+
+// ListColumnEmbeddings returns every stored column embedding for a datasource in
+// one round-trip. Router code decides whether coverage is complete enough to use.
+func (r *Repository) ListColumnEmbeddings(ctx context.Context, datasourceID string) ([]ColumnEmbedding, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT schema_name, table_name, column_name, embedding_model, embedding
+		FROM columns
+		WHERE datasource_id = $1 AND embedding IS NOT NULL
+	`, datasourceID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []ColumnEmbedding
+	for rows.Next() {
+		var (
+			ce      ColumnEmbedding
+			modelN  *string
+			rawJSON []byte
+		)
+		if err := rows.Scan(&ce.SchemaName, &ce.TableName, &ce.ColumnName, &modelN, &rawJSON); err != nil {
+			return nil, err
+		}
+		if modelN != nil {
+			ce.Model = *modelN
+		}
+		emb, err := decodeEmbedding(rawJSON)
+		if err != nil {
+			continue
+		}
+		ce.Embedding = emb
+		out = append(out, ce)
+	}
+	return out, rows.Err()
+}
+
 // Relation operations
 
 // UpsertRelations inserts or updates relation metadata.

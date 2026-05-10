@@ -16,6 +16,23 @@ export interface AIRuntimeSettings {
   embedding_api_key_dedicated?: boolean
 }
 
+export interface EmbedMetadataResult {
+  schema: string
+  table: string
+  column?: string
+  kind?: 'table' | 'column'
+  skipped?: boolean
+  reason?: string
+}
+
+export interface EmbedMetadataResponse {
+  datasource_id: string
+  model: string
+  embedded: number
+  skipped: number
+  results?: EmbedMetadataResult[]
+}
+
 // ─── AI Query Types ────────────────────────────────────────────────
 
 export interface AIQueryRequest {

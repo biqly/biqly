@@ -345,8 +345,8 @@ type embedMetadataResponse struct {
 	Results      []ai.EmbedTableResult `json:"results,omitempty"`
 }
 
-// EmbedMetadata computes vector embeddings for every table in a datasource and
-// stores them so the AI router can blend cosine similarity into table scoring.
+// EmbedMetadata computes vector embeddings for every table and column in a
+// datasource and stores them so the AI router can use hybrid retrieval.
 // Idempotent — re-runs simply overwrite the prior vectors.
 func (h *AIHandler) EmbedMetadata(w http.ResponseWriter, r *http.Request) {
 	var req embedMetadataRequest

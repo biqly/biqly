@@ -17,13 +17,14 @@ import { useApi } from '../hooks/useApi'
 import { useConversation } from '../hooks/useConversation'
 import { formatResultCell } from '../utils/resultCellFormat'
 import ResultTable from './ResultTable'
-import type { AIQueryResponse, TableRoutingCandidate, LogicalQueryCandidate, AIRuntimeSettings } from '../types/ai'
+import type { AIQueryResponse, TableRoutingCandidate, LogicalQueryCandidate, AIRuntimeSettings, EmbedMetadataResponse } from '../types/ai'
 import type { Datasource } from '../types/metadata'
 
 const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316']
 
 /** NL→SQL can be slow with local models (routing, LLM, retries, EXPLAIN). */
 const AI_QUERY_TIMEOUT_MS = 300_000
+const AI_METADATA_EMBED_TIMEOUT_MS = 600_000
 
 // ─── Sub-components ─────────────────────────────────────────────────
 
@@ -155,7 +156,42 @@ function Collapsible({ title, children, defaultOpen = false }: { title: string; 
   )
 }
 
-function AIRuntimeSettingsPanel({ settings, err }: { settings: AIRuntimeSettings | null; err: string | null }) {
+function embeddingSummary(response: EmbedMetadataResponse) {
+  const counts = (response.results ?? []).reduce(
+    (acc, item) => {
+      if (item.skipped) return acc
+      const kind = item.kind ?? 'table'
+      if (kind === 'column') acc.columns += 1
+      else acc.tables += 1
+      return acc
+    },
+    { tables: 0, columns: 0 },
+  )
+  const details = counts.tables || counts.columns
+    ? ` (${counts.tables} tables, ${counts.columns} columns)`
+    : ''
+  return `Embedded ${response.embedded} metadata items${details} with ${response.model}.`
+}
+
+function AIRuntimeSettingsPanel({
+  settings,
+  err,
+  datasourceId,
+  datasourceName,
+  embeddingLoading,
+  embeddingError,
+  embeddingStatus,
+  onRefreshEmbeddings,
+}: {
+  settings: AIRuntimeSettings | null
+  err: string | null
+  datasourceId: string
+  datasourceName?: string
+  embeddingLoading: boolean
+  embeddingError: string | null
+  embeddingStatus: string | null
+  onRefreshEmbeddings: () => void
+}) {
   if (err) {
     return (
       <div className="ai-runtime-settings" role="status">
@@ -219,6 +255,24 @@ function AIRuntimeSettingsPanel({ settings, err }: { settings: AIRuntimeSettings
       <p className="ai-settings-hint">
         The UI does not override these values. Set env vars on the API process and restart to change model or endpoint.
       </p>
+      {settings.embeddings_enabled === true && (
+        <div className="ai-embedding-actions">
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={onRefreshEmbeddings}
+            disabled={!datasourceId || embeddingLoading}
+            title={datasourceId ? `Refresh embeddings for ${datasourceName ?? 'selected datasource'}` : 'Select a datasource first'}
+          >
+            {embeddingLoading ? 'Embedding metadata…' : 'Refresh metadata embeddings'}
+          </button>
+          <p className="ai-settings-hint">
+            Re-run after metadata sync or description changes so table routing and column retrieval use fresh vectors.
+          </p>
+          {embeddingStatus && <p className="ai-embedding-status">{embeddingStatus}</p>}
+          {embeddingError && <p className="ai-embedding-error">{embeddingError}</p>}
+        </div>
+      )}
     </div>
   )
 }
@@ -274,6 +328,7 @@ interface TableOption {
 
 export default function AIQuery() {
   const { get, postData, loading, error, abort } = useApi()
+  const { postData: postEmbedData, loading: embeddingLoading, error: embeddingError } = useApi()
   const { activeConversation, addMessage, createConversation, setActiveConversationId } = useConversation()
 
   // Datasource / table state
@@ -291,6 +346,7 @@ export default function AIQuery() {
   const [result, setResult] = useState<AIQueryResponse | null>(null)
   const [aiRuntime, setAiRuntime] = useState<AIRuntimeSettings | null>(null)
   const [aiRuntimeErr, setAiRuntimeErr] = useState<string | null>(null)
+  const [embeddingStatus, setEmbeddingStatus] = useState<string | null>(null)
   const [chartType, setChartType] = useState<'bar' | 'line' | 'pie' | 'table'>('table')
 
   // Sample data modal
@@ -331,6 +387,7 @@ export default function AIQuery() {
 
   useEffect(() => {
     setSelectedTables([]); setTableSearch(''); setIncludeBaseTables(true); setIncludeViews(true); setTables([])
+    setEmbeddingStatus(null)
     if (!datasourceId) return
     get<TableOption[]>(`/api/datasources/${datasourceId}/tables`).then((data) => setTables(data || []))
   }, [datasourceId]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -377,6 +434,23 @@ export default function AIQuery() {
       })
     }
     return turns.slice(-MAX)
+  }
+
+  const selectedDatasourceName = useMemo(
+    () => datasources.find((ds) => ds.id === datasourceId)?.name,
+    [datasources, datasourceId],
+  )
+
+  const refreshMetadataEmbeddings = async () => {
+    if (!datasourceId || embeddingLoading) return
+    setEmbeddingStatus(null)
+    const res = await postEmbedData<EmbedMetadataResponse>(
+      '/api/ai/metadata/embed',
+      { datasource_id: datasourceId },
+      { timeout: AI_METADATA_EMBED_TIMEOUT_MS },
+    )
+    if (!res) return
+    setEmbeddingStatus(embeddingSummary(res))
   }
 
   const requestBody = () => ({
@@ -514,7 +588,16 @@ export default function AIQuery() {
               </select>
             </div>
             <div className="form-group">
-              <AIRuntimeSettingsPanel settings={aiRuntime} err={aiRuntimeErr} />
+              <AIRuntimeSettingsPanel
+                settings={aiRuntime}
+                err={aiRuntimeErr}
+                datasourceId={datasourceId}
+                datasourceName={selectedDatasourceName}
+                embeddingLoading={embeddingLoading}
+                embeddingError={embeddingError}
+                embeddingStatus={embeddingStatus}
+                onRefreshEmbeddings={refreshMetadataEmbeddings}
+              />
             </div>
             <div className="form-group routing-toggle">
               <label>Table Routing</label>

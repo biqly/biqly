@@ -1379,6 +1379,19 @@ a {
   color: var(--text-muted);
   line-height: 1.35;
 }
+.ai-embedding-actions {
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+.ai-embedding-status,
+.ai-embedding-error {
+  margin: 0.45rem 0 0;
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+.ai-embedding-status { color: var(--success); }
+.ai-embedding-error { color: var(--error); }
 
 .routing-toggle label { display: block; margin-bottom: 0.3rem; }
 

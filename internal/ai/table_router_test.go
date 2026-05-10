@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -458,6 +459,104 @@ func TestTableRouter_RouteViewsOnlyAutoSelectsView(t *testing.T) {
 	}
 }
 
+func TestTableRouter_ColumnEmbeddingsNarrowWideTableButKeepRequiredColumns(t *testing.T) {
+	reader := fakeMetadataReader{
+		tables: []metadata.Table{
+			{DatasourceID: "ds1", SchemaName: "sales", TableName: "salesorderheader", TableType: "BASE TABLE"},
+		},
+	}
+	reader.columns = append(reader.columns,
+		metadata.Column{DatasourceID: "ds1", SchemaName: "sales", TableName: "salesorderheader", ColumnName: "salesorderid", DataType: "int", IsPrimaryKey: true},
+		metadata.Column{DatasourceID: "ds1", SchemaName: "sales", TableName: "salesorderheader", ColumnName: "customerid", DataType: "int", IsForeignKey: true},
+		metadata.Column{DatasourceID: "ds1", SchemaName: "sales", TableName: "salesorderheader", ColumnName: "orderdate", DataType: "timestamp"},
+		metadata.Column{DatasourceID: "ds1", SchemaName: "sales", TableName: "salesorderheader", ColumnName: "totaldue", DataType: "numeric"},
+	)
+	for i := 0; i < 40; i++ {
+		reader.columns = append(reader.columns, metadata.Column{
+			DatasourceID: "ds1",
+			SchemaName:   "sales",
+			TableName:    "salesorderheader",
+			ColumnName:   "noise_" + strconv.Itoa(i),
+			DataType:     "text",
+		})
+	}
+
+	columnEmbeddings := make([]metadata.ColumnEmbedding, 0, len(reader.columns))
+	for _, col := range reader.columns {
+		vec := []float32{-1, 0}
+		if col.ColumnName == "totaldue" {
+			vec = []float32{1, 0}
+		}
+		columnEmbeddings = append(columnEmbeddings, metadata.ColumnEmbedding{
+			SchemaName: col.SchemaName,
+			TableName:  col.TableName,
+			ColumnName: col.ColumnName,
+			Model:      "fake",
+			Embedding:  vec,
+		})
+	}
+	router := NewTableRouterWithEmbeddings(
+		reader,
+		&fakeEmbedder{model: "fake", vectors: map[string][]float32{"Yıllara göre toplam satış tutarını göster.": {1, 0}}, default_: []float32{1, 0}},
+		&fakeEmbeddingReader{columnEmbeddings: columnEmbeddings},
+		30.0,
+	)
+
+	model, routing, err := router.Route(context.Background(), "ds1", "Yıllara göre toplam satış tutarını göster.", []string{"sales.salesorderheader"}, true, true)
+	if err != nil {
+		t.Fatalf("Route() error = %v, want nil", err)
+	}
+	if routing.NeedsClarification {
+		t.Fatalf("Route() needs clarification = true, routing=%+v", routing)
+	}
+	if !hasMetric(model.Metrics, "sum_totaldue", "salesorderheader.totaldue") {
+		t.Fatalf("metrics missing sum_totaldue: %+v", model.Metrics)
+	}
+	if !hasDimension(model.Dimensions, "orderdate_year", "salesorderheader.orderdate") {
+		t.Fatalf("dimensions missing orderdate_year; got %v", dimNames(model.Dimensions))
+	}
+	if len(model.Dimensions) >= len(reader.columns) {
+		t.Fatalf("column embeddings should narrow wide table columns; dims=%d columns=%d", len(model.Dimensions), len(reader.columns))
+	}
+	if hasDimension(model.Dimensions, "noise_39", "salesorderheader.noise_39") {
+		t.Fatalf("column embeddings should have filtered tail low-similarity noise column; dims=%v", dimNames(model.Dimensions))
+	}
+}
+
+func TestTableRouter_ColumnEmbeddingsFallbackWhenCoverageIncomplete(t *testing.T) {
+	reader := fakeMetadataReader{
+		tables: []metadata.Table{
+			{DatasourceID: "ds1", SchemaName: "sales", TableName: "salesorderheader", TableType: "BASE TABLE"},
+		},
+	}
+	for i := 0; i < 14; i++ {
+		reader.columns = append(reader.columns, metadata.Column{
+			DatasourceID: "ds1",
+			SchemaName:   "sales",
+			TableName:    "salesorderheader",
+			ColumnName:   "noise_" + strconv.Itoa(i),
+			DataType:     "text",
+		})
+	}
+	columnEmbeddings := []metadata.ColumnEmbedding{
+		{SchemaName: "sales", TableName: "salesorderheader", ColumnName: "noise_1", Model: "fake", Embedding: []float32{1, 0}},
+	}
+	router := NewTableRouterWithEmbeddings(
+		reader,
+		&fakeEmbedder{model: "fake", default_: []float32{1, 0}},
+		&fakeEmbeddingReader{columnEmbeddings: columnEmbeddings},
+		30.0,
+	)
+
+	model, _, err := router.Route(context.Background(), "ds1", "anything", []string{"sales.salesorderheader"}, true, true)
+	if err != nil {
+		t.Fatalf("Route() error = %v, want nil", err)
+	}
+	if !hasDimension(model.Dimensions, "noise_0", "salesorderheader.noise_0") {
+		t.Fatalf("incomplete column embeddings should fall back to unfiltered columns; dims=%v", dimNames(model.Dimensions))
+	}
+}
+
 func testMetadataReader() fakeMetadataReader {
 	return fakeMetadataReader{
 		tables: []metadata.Table{
@@ -493,6 +592,15 @@ func testMetadataReader() fakeMetadataReader {
 func hasMetric(metrics []semantic.Metric, name, expression string) bool {
 	for _, metric := range metrics {
 		if metric.Name == name && metric.Expression == expression {
+			return true
+		}
+	}
+	return false
+}
+
+func hasDimension(dimensions []semantic.Dimension, name, columnRef string) bool {
+	for _, dimension := range dimensions {
+		if dimension.Name == name && dimension.ColumnRef == columnRef {
 			return true
 		}
 	}

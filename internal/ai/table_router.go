@@ -14,15 +14,17 @@ import (
 )
 
 const (
-	autoModelPrefix           = "auto:"
-	maxAutoSelectedTables     = 6
-	maxExpandedAutoTables     = 12 // after scoring: add FK bridge tables so picks form one component
-	nameResolverMaxHops       = 3  // max FK hops to follow when resolving "<entity> name" questions
-	minRouteConfidence        = 0.35
+	autoModelPrefix       = "auto:"
+	maxAutoSelectedTables = 6
+	maxExpandedAutoTables = 12 // after scoring: add FK bridge tables so picks form one component
+	nameResolverMaxHops   = 3  // max FK hops to follow when resolving "<entity> name" questions
+	minRouteConfidence    = 0.35
 	// Limits for auto-generated semantic models (avoids multi-hundred-column explosion in LLM prompts).
-	maxAutoModelDimensions = 150
-	maxAutoModelMetrics    = 120
-	maxDateGrainExtras     = 36 // year/quarter/month variants per date columns (cap total)
+	maxAutoModelDimensions   = 150
+	maxAutoModelMetrics      = 120
+	maxDateGrainExtras       = 36 // year/quarter/month variants per date columns (cap total)
+	maxRankedColumnsPerTable = 24
+	minColumnsBeforeRanking  = 12
 )
 
 type bundleColumn struct {
@@ -79,12 +81,12 @@ type MetadataReader interface {
 	ListRelations(ctx context.Context, datasourceID string) ([]metadata.Relation, error)
 }
 
-// EmbeddingReader returns previously-computed table embeddings for a
-// datasource. Tables without an embedding (never embedded, or embedded with
-// a different model) are simply absent from the result. Implementations may
-// also be nil — the router falls back to keyword-only scoring in that case.
+// EmbeddingReader returns previously-computed table and column embeddings for a
+// datasource. Metadata without embeddings is simply absent from the result; the
+// router falls back to keyword-only/table-wide context when vectors are missing.
 type EmbeddingReader interface {
 	ListTableEmbeddings(ctx context.Context, datasourceID string) ([]metadata.TableEmbedding, error)
+	ListColumnEmbeddings(ctx context.Context, datasourceID string) ([]metadata.ColumnEmbedding, error)
 }
 
 // TableRouter selects relevant tables and builds a synthetic semantic model.
@@ -143,6 +145,11 @@ type tableBundle struct {
 	score float64
 }
 
+type embeddingSignals struct {
+	tableBoost   map[string]float64
+	columnScores map[string]float64
+}
+
 // Route selects tables for a question and returns a semantic model over them.
 // includeBaseTables / includeViews restrict which metadata objects participate in routing
 // (BASE TABLE vs VIEW). When both are true, behavior matches an unscoped datasource.
@@ -186,12 +193,12 @@ func (r *TableRouter) Route(
 
 	columnsByTable := groupColumnsByTable(columns)
 
-	// Hybrid boost from precomputed table embeddings, when configured. Skipped
+	// Hybrid boost from precomputed embeddings, when configured. Skipped
 	// silently on any error so a transient embedding-API failure or missing
 	// vectors falls back cleanly to keyword scoring.
-	embedBoost := r.embeddingBoost(ctx, datasourceID, question)
+	embedSignals := r.embeddingSignals(ctx, datasourceID, question)
 
-	selected, result, err := r.selectTables(tables, columnsByTable, question, tableScope, embedBoost)
+	selected, result, err := r.selectTables(tables, columnsByTable, question, tableScope, embedSignals.tableBoost)
 	if err != nil {
 		return nil, result, err
 	}
@@ -199,7 +206,7 @@ func (r *TableRouter) Route(
 		switch {
 		case result.Manual:
 			result.RankingMethod = "manual"
-		case len(embedBoost) > 0:
+		case len(embedSignals.tableBoost) > 0:
 			result.RankingMethod = "hybrid"
 		default:
 			result.RankingMethod = "keyword"
@@ -227,7 +234,8 @@ func (r *TableRouter) Route(
 	result.SelectedTables = bundleLabels(connected)
 	result.JoinPaths = joinPaths
 
-	model := buildSemanticModel(datasourceID, connected, columnsByTable, relations)
+	columnsForModel := rankColumnsForSemanticModel(connected, columnsByTable, relations, embedSignals.columnScores)
+	model := buildSemanticModel(datasourceID, connected, columnsForModel, relations)
 	return model, result, nil
 }
 
@@ -252,31 +260,49 @@ func (r *TableRouter) selectTables(
 	return selectAutomaticTables(tables, columnsByTable, question, embedBoost)
 }
 
-// embeddingBoost returns a per-tableKey cosine-similarity score scaled by the
-// configured weight. Returns nil (no boost) when embeddings aren't configured
-// or any step fails — keyword-only scoring still works.
-func (r *TableRouter) embeddingBoost(ctx context.Context, datasourceID, question string) map[string]float64 {
+// embeddingSignals returns table boosts and per-column similarity from one
+// question embedding. Any failed piece falls back independently to current
+// keyword/table-wide behavior.
+func (r *TableRouter) embeddingSignals(ctx context.Context, datasourceID, question string) embeddingSignals {
 	if r.embedder == nil || r.embeddingReader == nil || r.embeddingWeight <= 0 {
-		return nil
+		return embeddingSignals{}
 	}
-	stored, err := r.embeddingReader.ListTableEmbeddings(ctx, datasourceID)
-	if err != nil || len(stored) == 0 {
-		return nil
+	storedTables, tableErr := r.embeddingReader.ListTableEmbeddings(ctx, datasourceID)
+	storedColumns, columnErr := r.embeddingReader.ListColumnEmbeddings(ctx, datasourceID)
+	if (tableErr != nil || len(storedTables) == 0) && (columnErr != nil || len(storedColumns) == 0) {
+		return embeddingSignals{}
 	}
 	qVecs, err := r.embedder.Embed(ctx, []string{question})
 	if err != nil || len(qVecs) == 0 || len(qVecs[0]) == 0 {
-		return nil
+		return embeddingSignals{}
 	}
 	q := qVecs[0]
-	out := make(map[string]float64, len(stored))
-	for _, te := range stored {
-		sim := CosineSimilarity(q, te.Embedding)
-		if sim <= 0 {
-			continue
+	model := r.embedder.Model()
+	signals := embeddingSignals{}
+	if tableErr == nil && len(storedTables) > 0 {
+		signals.tableBoost = make(map[string]float64, len(storedTables))
+		for _, te := range storedTables {
+			if te.Model != "" && te.Model != model {
+				continue
+			}
+			sim := CosineSimilarity(q, te.Embedding)
+			if sim <= 0 {
+				continue
+			}
+			signals.tableBoost[tableKey(te.SchemaName, te.TableName)] = sim * r.embeddingWeight
 		}
-		out[tableKey(te.SchemaName, te.TableName)] = sim * r.embeddingWeight
 	}
-	return out
+	if columnErr == nil && len(storedColumns) > 0 {
+		signals.columnScores = make(map[string]float64, len(storedColumns))
+		for _, ce := range storedColumns {
+			if ce.Model != "" && ce.Model != model {
+				continue
+			}
+			sim := CosineSimilarity(q, ce.Embedding)
+			signals.columnScores[columnKey(ce.SchemaName, ce.TableName, ce.ColumnName)] = sim
+		}
+	}
+	return signals
 }
 
 func selectManualTables(
@@ -781,6 +807,122 @@ func buildSemanticModel(
 	model.Metrics = buildMetrics(selected, columnsByTable)
 	model.Joins = buildJoins(selected, relations)
 	return model
+}
+
+func rankColumnsForSemanticModel(
+	selected []tableBundle,
+	columnsByTable map[string][]metadata.Column,
+	relations []metadata.Relation,
+	columnScores map[string]float64,
+) map[string][]metadata.Column {
+	if len(columnScores) == 0 {
+		return columnsByTable
+	}
+
+	selectedKeys := make(map[string]bool, len(selected))
+	for _, bundle := range selected {
+		selectedKeys[tableKey(bundle.table.SchemaName, bundle.table.TableName)] = true
+	}
+	relationCols := relationColumnsForSelectedTables(relations, selectedKeys)
+
+	out := make(map[string][]metadata.Column, len(columnsByTable))
+	for _, bundle := range selected {
+		key := tableKey(bundle.table.SchemaName, bundle.table.TableName)
+		cols := columnsByTable[key]
+		if len(cols) <= minColumnsBeforeRanking || !hasCompleteColumnEmbeddingCoverage(cols, columnScores) {
+			out[key] = cols
+			continue
+		}
+		out[key] = rankColumnsForTable(cols, columnScores, relationCols[key])
+	}
+	return out
+}
+
+func hasCompleteColumnEmbeddingCoverage(cols []metadata.Column, columnScores map[string]float64) bool {
+	for _, col := range cols {
+		if _, ok := columnScores[columnKey(col.SchemaName, col.TableName, col.ColumnName)]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func rankColumnsForTable(cols []metadata.Column, columnScores map[string]float64, relationCols map[string]bool) []metadata.Column {
+	type scoredColumn struct {
+		col      metadata.Column
+		score    float64
+		priority int
+	}
+	kept := make(map[string]bool)
+	out := make([]metadata.Column, 0, min(len(cols), maxRankedColumnsPerTable))
+	add := func(col metadata.Column) {
+		key := columnKey(col.SchemaName, col.TableName, col.ColumnName)
+		if kept[key] {
+			return
+		}
+		kept[key] = true
+		out = append(out, col)
+	}
+
+	var candidates []scoredColumn
+	for _, col := range cols {
+		if isMandatorySemanticColumn(col, relationCols) {
+			add(col)
+			continue
+		}
+		score := columnScores[columnKey(col.SchemaName, col.TableName, col.ColumnName)]
+		candidates = append(candidates, scoredColumn{
+			col:      col,
+			score:    score,
+			priority: columnPriority(col),
+		})
+	}
+	sort.SliceStable(candidates, func(i, j int) bool {
+		if candidates[i].score != candidates[j].score {
+			return candidates[i].score > candidates[j].score
+		}
+		if candidates[i].priority != candidates[j].priority {
+			return candidates[i].priority < candidates[j].priority
+		}
+		return candidates[i].col.ColumnName < candidates[j].col.ColumnName
+	})
+	for _, cand := range candidates {
+		if len(out) >= maxRankedColumnsPerTable {
+			break
+		}
+		add(cand.col)
+	}
+	return out
+}
+
+func isMandatorySemanticColumn(col metadata.Column, relationCols map[string]bool) bool {
+	if col.IsPrimaryKey || col.IsForeignKey || isDateOrTimeType(col.DataType) || isDisplayNameColumn(col.ColumnName) {
+		return true
+	}
+	if relationCols != nil && relationCols[col.ColumnName] {
+		return true
+	}
+	return false
+}
+
+func relationColumnsForSelectedTables(relations []metadata.Relation, selectedKeys map[string]bool) map[string]map[string]bool {
+	out := make(map[string]map[string]bool)
+	add := func(tableKey, columnName string) {
+		if out[tableKey] == nil {
+			out[tableKey] = make(map[string]bool)
+		}
+		out[tableKey][columnName] = true
+	}
+	for _, rel := range relations {
+		fromKey := tableKey(rel.FromSchema, rel.FromTable)
+		toKey := tableKey(rel.ToSchema, rel.ToTable)
+		if !selectedKeys[fromKey] || !selectedKeys[toKey] {
+			continue
+		}
+		add(fromKey, rel.FromColumn)
+		add(toKey, rel.ToColumn)
+	}
+	return out
 }
 
 func buildDimensions(selected []tableBundle, columnsByTable map[string][]metadata.Column) []semantic.Dimension {
@@ -1310,6 +1452,10 @@ func tableKey(schemaName, tableName string) string {
 	return schemaName + "." + tableName
 }
 
+func columnKey(schemaName, tableName, columnName string) string {
+	return schemaName + "." + tableName + "." + columnName
+}
+
 func tableMatchesTypeScope(table metadata.Table, includeBase, includeViews bool) bool {
 	typ := strings.ToUpper(strings.TrimSpace(table.TableType))
 	switch typ {
@@ -1413,40 +1559,40 @@ func normalizeText(text string) string {
 }
 
 var tokenSynonyms = map[string][]string{
-	"adet":     {"count", "row", "rows", "quantity", "qty"},
-	"adette":   {"count", "quantity", "adet"},
-	"bazinda":  {"by", "per", "basis"},
-	"bazli":    {"based", "by"},
-	"category": {"categories", "kategori", "kategoriler", "class", "group"},
+	"adet":       {"count", "row", "rows", "quantity", "qty"},
+	"adette":     {"count", "quantity", "adet"},
+	"bazinda":    {"by", "per", "basis"},
+	"bazli":      {"based", "by"},
+	"category":   {"categories", "kategori", "kategoriler", "class", "group"},
 	"categories": {"category", "kategori"},
-	"amount":   {"total", "revenue", "sales"},
-	"avg":      {"average", "mean", "ortalama"},
-	"average":  {"avg", "ortalama"},
-	"customer": {"client", "musteri"},
-	"gelir":    {"revenue", "sales", "amount", "total"},
-	"kac":      {"count", "row", "rows"},
-	"miktar":   {"quantity", "qty", "count", "amount"},
-	"miktari":  {"quantity", "qty", "miktar"},
-	"miktarda": {"quantity", "miktar"},
-	"musteri":  {"customer", "client"},
-	"order":    {"purchase", "sale", "siparis"},
-	"ortalama": {"avg", "average"},
-	"price":    {"amount", "total", "revenue", "sales"},
-	"purchase": {"order", "sale"},
-	"revenue":  {"amount", "total", "sales", "price"},
-	"sale":     {"order", "revenue", "amount", "total"},
-	"sales":    {"order", "revenue", "amount", "total"},
-	"satis":    {"sales", "sale", "revenue", "amount", "total"},
-	"sayisi":   {"count", "row", "rows"},
-	"siparis":  {"order", "sale", "purchase"},
-	"satan":    {"sale", "sales", "sold", "selling"},
-	"total":    {"amount", "revenue", "sales"},
-	"urun":     {"product", "item", "products"},
-	"urunden":  {"urun", "product", "item"},
-	"urunler":  {"urun", "product", "products", "items"},
-	"urunleri": {"urun", "product", "products"},
-	"urunun":   {"urun", "product"},
-	"urunu":    {"urun", "product", "products", "item"},
+	"amount":     {"total", "revenue", "sales"},
+	"avg":        {"average", "mean", "ortalama"},
+	"average":    {"avg", "ortalama"},
+	"customer":   {"client", "musteri"},
+	"gelir":      {"revenue", "sales", "amount", "total"},
+	"kac":        {"count", "row", "rows"},
+	"miktar":     {"quantity", "qty", "count", "amount"},
+	"miktari":    {"quantity", "qty", "miktar"},
+	"miktarda":   {"quantity", "miktar"},
+	"musteri":    {"customer", "client"},
+	"order":      {"purchase", "sale", "siparis"},
+	"ortalama":   {"avg", "average"},
+	"price":      {"amount", "total", "revenue", "sales"},
+	"purchase":   {"order", "sale"},
+	"revenue":    {"amount", "total", "sales", "price"},
+	"sale":       {"order", "revenue", "amount", "total"},
+	"sales":      {"order", "revenue", "amount", "total"},
+	"satis":      {"sales", "sale", "revenue", "amount", "total"},
+	"sayisi":     {"count", "row", "rows"},
+	"siparis":    {"order", "sale", "purchase"},
+	"satan":      {"sale", "sales", "sold", "selling"},
+	"total":      {"amount", "revenue", "sales"},
+	"urun":       {"product", "item", "products"},
+	"urunden":    {"urun", "product", "item"},
+	"urunler":    {"urun", "product", "products", "items"},
+	"urunleri":   {"urun", "product", "products"},
+	"urunun":     {"urun", "product"},
+	"urunu":      {"urun", "product", "products", "item"},
 }
 
 func isRevenueLikeQuestion(tokens map[string]bool) bool {
