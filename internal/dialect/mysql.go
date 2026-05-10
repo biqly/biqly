@@ -52,10 +52,25 @@ func (d MySQLDialect) DateTrunc(part, column string) string {
 	return fmt.Sprintf("DATE_FORMAT(%s, '%%Y-%%m-%%d %%H:%%i:%%s')", d.QuoteIdent(column))
 }
 
+// CalendarPart returns YEAR / QUARTER / MONTH for integer grouping.
+func (d MySQLDialect) CalendarPart(part, column string) string {
+	q := d.QuoteIdent(column)
+	switch strings.ToLower(strings.TrimSpace(part)) {
+	case "year":
+		return fmt.Sprintf("YEAR(%s)", q)
+	case "quarter":
+		return fmt.Sprintf("QUARTER(%s)", q)
+	case "month":
+		return fmt.Sprintf("MONTH(%s)", q)
+	default:
+		return d.DateTrunc(part, column)
+	}
+}
+
 // ILike returns a case-insensitive LIKE expression.
+// column must be a SQL expression (e.g. already-quoted identifiers).
 func (d MySQLDialect) ILike(column, placeholder string) string {
-	// MySQL uses LOWER() + LIKE for case-insensitive matching
-	return fmt.Sprintf("LOWER(%s) LIKE LOWER(%s)", d.QuoteIdent(column), placeholder)
+	return fmt.Sprintf("LOWER(%s) LIKE LOWER(%s)", column, placeholder)
 }
 
 // CastType returns the dialect-specific SQL type name for casting.
@@ -85,6 +100,11 @@ func (d MySQLDialect) Aggregate(fn, column string) string {
 	default:
 		return fmt.Sprintf("COUNT(%s)", quotedCol)
 	}
+}
+
+// ExplainSQL prefixes the statement with EXPLAIN; MySQL plans without executing.
+func (d MySQLDialect) ExplainSQL(sql string) string {
+	return "EXPLAIN " + sql
 }
 
 // Compile-time check

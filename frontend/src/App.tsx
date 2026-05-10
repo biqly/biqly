@@ -5,6 +5,8 @@ import SavedQuestions from './components/SavedQuestions'
 import AIQuery from './components/AIQuery'
 import Datasources from './components/Datasources'
 import Metadata from './components/Metadata'
+import FewShotExamples from './components/FewShotExamples'
+import Evaluation from './components/Evaluation'
 
 interface AppRoute {
   path: string
@@ -56,6 +58,20 @@ const routes: AppRoute[] = [
     eyebrow: 'Library',
     description: 'Browse reusable questions and query templates.',
     component: SavedQuestions,
+  },
+  {
+    path: '/few-shot-examples',
+    label: 'Few-Shot Examples',
+    eyebrow: 'Admin',
+    description: 'Manage AI few-shot examples to improve text-to-SQL accuracy.',
+    component: FewShotExamples,
+  },
+  {
+    path: '/evaluation',
+    label: 'Evaluation',
+    eyebrow: 'Quality',
+    description: 'Run and review AI text-to-SQL evaluation results.',
+    component: Evaluation,
   },
 ]
 

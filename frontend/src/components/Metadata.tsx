@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useApi } from '../hooks/useApi'
 
 type BulkStatus = 'pending' | 'running' | 'ok' | 'error' | 'skipped'
@@ -8,6 +8,27 @@ interface BulkEntry {
   table: string
   status: BulkStatus
   message?: string
+}
+
+/** Table view: active rows first; skipped (e.g. already described) at the bottom. */
+const BULK_DISPLAY_ORDER: Record<BulkStatus, number> = {
+  running: 0,
+  pending: 1,
+  error: 2,
+  ok: 3,
+  skipped: 4,
+}
+
+function sortBulkEntriesForDisplay(entries: BulkEntry[]): BulkEntry[] {
+  return [...entries]
+    .map((entry, queueIndex) => ({ entry, queueIndex }))
+    .sort((a, b) => {
+      const da = BULK_DISPLAY_ORDER[a.entry.status]
+      const db = BULK_DISPLAY_ORDER[b.entry.status]
+      if (da !== db) return da - db
+      return a.queueIndex - b.queueIndex
+    })
+    .map(({ entry }) => entry)
 }
 
 function BulkStatusBadge({ status }: { status: BulkStatus }) {
@@ -20,6 +41,13 @@ function BulkStatusBadge({ status }: { status: BulkStatus }) {
   }
   const s = map[status]
   return <span style={{ color: s.color, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{s.label}</span>
+}
+
+function objectTypeLabel(tableType: string): string {
+  const u = tableType.toUpperCase()
+  if (u === 'VIEW') return 'Views'
+  if (u === 'BASE TABLE') return 'Base tables'
+  return tableType
 }
 
 function BulkProgressHeader({
@@ -123,6 +151,12 @@ export default function Metadata() {
   const [bulkEntries, setBulkEntries] = useState<BulkEntry[]>([])
   const [bulkSummary, setBulkSummary] = useState<{ ok: number; error: number; skipped: number } | null>(null)
   const bulkCancelRef = useRef(false)
+  const [tableFilterSchema, setTableFilterSchema] = useState('')
+  const [tableFilterType, setTableFilterType] = useState('')
+  /** Batch modal: which table_type values to include (all keys set true in openBulk). */
+  const [bulkTypeEnabled, setBulkTypeEnabled] = useState<Record<string, boolean>>({})
+  const [bulkSchemaRestrict, setBulkSchemaRestrict] = useState(false)
+  const [bulkSchemasSelected, setBulkSchemasSelected] = useState<string[]>([])
 
   useEffect(() => {
     get<Datasource[]>('/api/datasources').then((data) => {
@@ -138,7 +172,56 @@ export default function Metadata() {
     get<TableRow[]>(`/api/datasources/${datasourceId}/tables`).then((data) => setTables(data || []))
     setOpenTableId(null)
     setColumns([])
+    setTableFilterSchema('')
+    setTableFilterType('')
   }, [datasourceId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const schemaOptions = useMemo(
+    () => [...new Set(tables.map((t) => t.schema_name))].sort((a, b) => a.localeCompare(b)),
+    [tables]
+  )
+  const typeOptions = useMemo(
+    () => [...new Set(tables.map((t) => t.table_type))].sort((a, b) => a.localeCompare(b)),
+    [tables]
+  )
+  const filteredTables = useMemo(
+    () =>
+      tables.filter((t) => {
+        if (tableFilterSchema && t.schema_name !== tableFilterSchema) return false
+        if (tableFilterType && t.table_type !== tableFilterType) return false
+        return true
+      }),
+    [tables, tableFilterSchema, tableFilterType]
+  )
+
+  useEffect(() => {
+    if (!openTableId) return
+    if (!filteredTables.some((t) => t.id === openTableId)) {
+      setOpenTableId(null)
+      setColumns([])
+    }
+  }, [filteredTables, openTableId])
+
+  const bulkTargetTables = useMemo(() => {
+    const restrictTypes = Object.keys(bulkTypeEnabled).length > 0
+    return tables.filter((t) => {
+      if (restrictTypes && !bulkTypeEnabled[t.table_type]) return false
+      if (bulkSchemaRestrict) {
+        if (bulkSchemasSelected.length === 0) return false
+        if (!bulkSchemasSelected.includes(t.schema_name)) return false
+      }
+      return true
+    })
+  }, [tables, bulkTypeEnabled, bulkSchemaRestrict, bulkSchemasSelected])
+
+  const bulkHasObjectType = typeOptions.length === 0 || typeOptions.some((ty) => bulkTypeEnabled[ty])
+  const bulkCanStart =
+    bulkTargetTables.length > 0 && bulkHasObjectType && (!bulkSchemaRestrict || bulkSchemasSelected.length > 0)
+
+  const bulkEntriesDisplay = useMemo(
+    () => (bulkEntries.length > 0 ? sortBulkEntriesForDisplay(bulkEntries) : []),
+    [bulkEntries]
+  )
 
   useEffect(() => {
     if (!describeOpen) return
@@ -207,6 +290,10 @@ export default function Metadata() {
   }
 
   const openBulk = () => {
+    const types = [...new Set(tables.map((t) => t.table_type))].sort((a, b) => a.localeCompare(b))
+    setBulkTypeEnabled(Object.fromEntries(types.map((ty) => [ty, true])))
+    setBulkSchemaRestrict(false)
+    setBulkSchemasSelected([])
     setBulkOpen(true)
     setBulkEntries([])
     setBulkSummary(null)
@@ -220,12 +307,13 @@ export default function Metadata() {
   }
 
   const runBulkDescribe = async () => {
-    if (!datasourceId || tables.length === 0) return
+    const targets = bulkTargetTables
+    if (!datasourceId || targets.length === 0) return
     bulkCancelRef.current = false
     setBulkRunning(true)
     setBulkSummary(null)
 
-    const queue: BulkEntry[] = tables.map((t) => {
+    const queue: BulkEntry[] = targets.map((t) => {
       if (bulkConfig.skip_existing && t.description) {
         return { schema: t.schema_name, table: t.table_name, status: 'skipped', message: 'already described' }
       }
@@ -237,9 +325,9 @@ export default function Metadata() {
     let errCount = 0
     let skipped = queue.filter((q) => q.status === 'skipped').length
 
-    for (let i = 0; i < tables.length; i++) {
+    for (let i = 0; i < targets.length; i++) {
       if (bulkCancelRef.current) break
-      const t = tables[i]
+      const t = targets[i]
       const entry = queue[i]
       if (!t || !entry || entry.status === 'skipped') continue
 
@@ -316,10 +404,14 @@ export default function Metadata() {
       {datasourceId && (
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <h2 style={{ margin: 0 }}>Tables ({tables.length})</h2>
+            <h2 style={{ margin: 0, fontSize: '1.05rem' }}>
+              Tables (
+              {filteredTables.length}
+              {filteredTables.length !== tables.length ? ` / ${tables.length}` : ''})
+            </h2>
             {tables.length > 0 && (
               <button type="button" className="btn btn-sm" onClick={openBulk} disabled={bulkRunning}>
-                🤖 Describe All Tables
+                AI metadata generator
               </button>
             )}
           </div>
@@ -328,17 +420,54 @@ export default function Metadata() {
               No tables. Run <strong>Sync</strong> from the Datasources tab.
             </p>
           )}
-          <table className="results-table">
+          {tables.length > 0 && (
+            <div className="metadata-table-filters">
+              <div className="form-group metadata-filter-field">
+                <label htmlFor="metadata-filter-schema">Schema</label>
+                <select
+                  id="metadata-filter-schema"
+                  value={tableFilterSchema}
+                  onChange={(e) => setTableFilterSchema(e.target.value)}
+                >
+                  <option value="">All schemas</option>
+                  {schemaOptions.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group metadata-filter-field">
+                <label htmlFor="metadata-filter-type">Type</label>
+                <select
+                  id="metadata-filter-type"
+                  value={tableFilterType}
+                  onChange={(e) => setTableFilterType(e.target.value)}
+                >
+                  <option value="">All types</option>
+                  {typeOptions.map((ty) => (
+                    <option key={ty} value={ty}>{ty}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+          <table className="results-table results-table--metadata-list">
             <thead>
               <tr>
                 <th>Schema.Table</th>
-                <th>Type</th>
+                <th className="metadata-col-type">Type</th>
                 <th>Description</th>
                 <th className="actions">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {tables.map((t) => (
+              {filteredTables.length === 0 && tables.length > 0 && (
+                <tr>
+                  <td colSpan={4} style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', padding: '0.75rem' }}>
+                    No tables match the current filters.
+                  </td>
+                </tr>
+              )}
+              {filteredTables.map((t) => (
                 <Fragment key={t.id}>
                   <tr>
                     <td>
@@ -353,7 +482,7 @@ export default function Metadata() {
                         {t.schema_name}.{t.table_name}
                       </button>
                     </td>
-                    <td>{t.table_type}</td>
+                    <td className="metadata-col-type">{t.table_type}</td>
                     <td onDoubleClick={() => setEditing({ kind: 'table', id: t.id, value: t.description ?? '' })}>
                       {editing?.kind === 'table' && editing.id === t.id ? (
                         <input
@@ -378,7 +507,7 @@ export default function Metadata() {
                   {openTableId === t.id && columns.length > 0 && (
                     <tr>
                       <td colSpan={4} style={{ background: 'var(--bg-card)', padding: 0 }}>
-                        <table className="results-table" style={{ margin: 0 }}>
+                        <table className="results-table results-table--metadata-list results-table--nested">
                           <thead>
                             <tr>
                               <th>Column</th>
@@ -435,10 +564,13 @@ export default function Metadata() {
             className="modal-card modal-card--bulk-describe"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="bulk-describe-title"
+            aria-labelledby="bulk-metadata-title"
           >
-            <header className="modal-header" style={{ flexShrink: 0, padding: '0.75rem 1rem' }}>
-              <h2 id="bulk-describe-title" style={{ fontSize: '1rem' }}>🤖 Describe All Tables</h2>
+            <header className="modal-header modal-header--compact">
+              <div>
+                <h2 id="bulk-metadata-title" className="bulk-modal-title">AI metadata generator</h2>
+                <p className="bulk-modal-subtitle">LLM-generated table &amp; column descriptions for your selection</p>
+              </div>
               <button
                 type="button"
                 className="modal-close"
@@ -451,39 +583,144 @@ export default function Metadata() {
             <div className={`modal-body${bulkEntries.length > 0 ? ' modal-body--scroll' : ''}`}>
               {bulkEntries.length === 0 && !bulkRunning && (
                 <>
-                  <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
-                    Iterates every table in this datasource, asking the LLM for table + column descriptions
-                    and applying them automatically. May take a while and consume LLM tokens.
+                  <p className="bulk-lede">
+                    Descriptions are inferred from sampled rows and saved to metadata. Large selections use more tokens and time.
                   </p>
-                  <div className="modal-form-row">
-                    <div className="form-group">
-                      <label htmlFor="bulk-sample-size">Sample size</label>
+                  <div className="bulk-panel-grid">
+                    <fieldset className="bulk-fieldset">
+                      <legend className="bulk-legend">Object types</legend>
+                      <div className="bulk-pill-row" role="group" aria-label="Object types to include">
+                        {typeOptions.map((ty) => (
+                          <button
+                            key={ty}
+                            type="button"
+                            className={`bulk-pill${bulkTypeEnabled[ty] === true ? ' bulk-pill--on' : ''}`}
+                            aria-pressed={bulkTypeEnabled[ty] === true}
+                            onClick={() =>
+                              setBulkTypeEnabled((prev) => ({ ...prev, [ty]: !prev[ty] }))
+                            }
+                          >
+                            <span className="bulk-pill-label">{objectTypeLabel(ty)}</span>
+                            <span className="bulk-pill-code">{ty}</span>
+                          </button>
+                        ))}
+                      </div>
+                      {!bulkHasObjectType && (
+                        <p className="bulk-modal-warn">Turn on at least one type.</p>
+                      )}
+                    </fieldset>
+                    <fieldset className="bulk-fieldset">
+                      <legend className="bulk-legend">Schemas</legend>
+                      <div
+                        className="bulk-segmented"
+                        role="group"
+                        aria-label="Schema scope"
+                      >
+                        <button
+                          type="button"
+                          className={!bulkSchemaRestrict ? 'bulk-segmented__btn bulk-segmented__btn--active' : 'bulk-segmented__btn'}
+                          onClick={() => {
+                            setBulkSchemaRestrict(false)
+                            setBulkSchemasSelected([])
+                          }}
+                        >
+                          All schemas
+                        </button>
+                        <button
+                          type="button"
+                          className={bulkSchemaRestrict ? 'bulk-segmented__btn bulk-segmented__btn--active' : 'bulk-segmented__btn'}
+                          onClick={() => {
+                            setBulkSchemaRestrict(true)
+                            setBulkSchemasSelected((prev) => (prev.length > 0 ? prev : [...schemaOptions]))
+                          }}
+                        >
+                          Choose…
+                        </button>
+                      </div>
+                      <div
+                        className={`bulk-schema-box${bulkSchemaRestrict ? ' bulk-schema-box--active' : ''}`}
+                      >
+                        {!bulkSchemaRestrict ? (
+                          <p className="bulk-schema-placeholder">Every schema in this datasource is included.</p>
+                        ) : (
+                          <>
+                            <select
+                              id="bulk-schema-multiselect"
+                              className="bulk-schema-multiselect"
+                              multiple
+                              size={Math.min(8, Math.max(4, schemaOptions.length))}
+                              value={bulkSchemasSelected}
+                              onChange={(e) =>
+                                setBulkSchemasSelected([...e.target.selectedOptions].map((o) => o.value))
+                              }
+                              aria-label="Schemas to include"
+                            >
+                              {schemaOptions.map((s) => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                            </select>
+                            <div className="bulk-schema-multiselect-tools">
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => setBulkSchemasSelected([...schemaOptions])}
+                              >
+                                All
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => setBulkSchemasSelected([])}
+                              >
+                                None
+                              </button>
+                              <span className="bulk-schema-hint">Ctrl/Cmd-click to multi-select</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </fieldset>
+                  </div>
+                  <div className="bulk-options-row">
+                    <div className="form-group bulk-opt-field">
+                      <label className="bulk-opt-label" htmlFor="bulk-sample-size">Sample rows</label>
                       <input
                         id="bulk-sample-size"
                         type="number"
                         min={1}
                         max={100}
+                        className="bulk-opt-input"
                         value={bulkConfig.sample_size}
                         onChange={(e) => setBulkConfig({ ...bulkConfig, sample_size: Number(e.target.value) })}
                       />
                     </div>
-                    <div className="form-group">
-                      <label>Options</label>
-                      <div className="checkbox-row">
-                        <input
-                          id="bulk-skip-existing"
-                          type="checkbox"
-                          checked={bulkConfig.skip_existing}
-                          onChange={(e) => setBulkConfig({ ...bulkConfig, skip_existing: e.target.checked })}
-                        />
-                        <label htmlFor="bulk-skip-existing">Skip tables that already have a description</label>
-                      </div>
-                    </div>
+                    <label className="bulk-skip-label" htmlFor="bulk-skip-existing">
+                      <input
+                        id="bulk-skip-existing"
+                        type="checkbox"
+                        checked={bulkConfig.skip_existing}
+                        onChange={(e) => setBulkConfig({ ...bulkConfig, skip_existing: e.target.checked })}
+                      />
+                      <span>Skip if table already has a description</span>
+                    </label>
+                  </div>
+                  <div className="bulk-scope-footer">
+                    <span className="bulk-scope-stat">
+                      <strong>{bulkTargetTables.length}</strong> object{bulkTargetTables.length === 1 ? '' : 's'} in scope
+                      {bulkTargetTables.length !== tables.length && (
+                        <span className="bulk-scope-of"> · {tables.length} total</span>
+                      )}
+                    </span>
                   </div>
                   <div className="modal-actions">
                     <button type="button" className="btn btn-ghost btn-sm" onClick={closeBulk}>Cancel</button>
-                    <button type="button" className="btn btn-sm" onClick={runBulkDescribe}>
-                      Start ({tables.length} tables)
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={runBulkDescribe}
+                      disabled={!bulkCanStart}
+                    >
+                      Start ({bulkTargetTables.length} in scope)
                     </button>
                   </div>
                 </>
@@ -503,7 +740,7 @@ export default function Metadata() {
                         </tr>
                       </thead>
                       <tbody>
-                        {bulkEntries.map((e, idx) => (
+                        {bulkEntriesDisplay.map((e, idx) => (
                           <tr key={`${e.schema}.${e.table}`}>
                             <td className="bulk-col-idx">{idx + 1}</td>
                             <td className="bulk-col-name">
@@ -512,8 +749,10 @@ export default function Metadata() {
                             <td className="bulk-col-status">
                               <BulkStatusBadge status={e.status} />
                             </td>
-                            <td className="bulk-col-detail" style={{ color: 'var(--text-secondary)' }} title={e.message}>
-                              {e.message || (e.status === 'pending' ? '—' : '')}
+                            <td className="bulk-col-detail" style={{ color: 'var(--text-secondary)' }}>
+                              <span className="bulk-col-detail-inner" title={e.message}>
+                                {e.message || (e.status === 'pending' ? '—' : '')}
+                              </span>
                             </td>
                           </tr>
                         ))}

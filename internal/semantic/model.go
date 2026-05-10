@@ -39,6 +39,10 @@ type Dimension struct {
 	Description *string   `json:"description" db:"description"`
 	IsActive    bool      `json:"is_active" db:"is_active"`
 	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	// TimeGrain drives calendar bucketing in SQL: year/quarter/month use integer parts (e.g. 2024, 1–4, 1–12);
+	// other values fall back to dialect DateTrunc (timestamp buckets).
+	// In-memory / JSON only; not stored in semantic_dimensions (use db:"-").
+	TimeGrain string `json:"time_grain,omitempty" db:"-"`
 }
 
 // Metric represents an aggregatable field in a semantic model.

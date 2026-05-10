@@ -23,6 +23,10 @@ type Dialect interface {
 	// DateTrunc returns the date truncation expression for the given date part and column.
 	DateTrunc(part, column string) string
 
+	// CalendarPart returns an integer grouping expression for calendar parts supported by time-grain
+	// dimensions: year (e.g. 2024), quarter (1–4), month (1–12). part is lower-case: year, quarter, month.
+	CalendarPart(part, column string) string
+
 	// ILike returns a case-insensitive LIKE expression.
 	ILike(column, placeholder string) string
 
@@ -31,4 +35,9 @@ type Dialect interface {
 
 	// Aggregate formats an aggregation function call.
 	Aggregate(fn, column string) string
+
+	// ExplainSQL wraps a SELECT statement so the database parses/plans it without
+	// returning rows (e.g. "EXPLAIN <sql>"). Returning "" indicates the dialect
+	// does not support a single-statement dry-run; callers should skip the check.
+	ExplainSQL(sql string) string
 }

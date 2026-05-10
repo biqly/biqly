@@ -19,15 +19,17 @@ type AIRequest = Request
 
 // Response is the output from the AI query endpoint.
 type Response struct {
-	LogicalQuery *query.LogicalQuery `json:"logical_query,omitempty"`
-	SQL          string              `json:"sql,omitempty"`
-	Args         []any               `json:"args,omitempty"`
-	Warnings     []string            `json:"warnings,omitempty"`
-	Result       *query.QueryResult  `json:"result,omitempty"`
-	Confidence   float64             `json:"confidence"`
-	TableRouting *TableRoutingResult `json:"table_routing,omitempty"`
-	Prompt       string              `json:"-"`
-	RawResponse  string              `json:"-"`
+	LogicalQuery          *query.LogicalQuery `json:"logical_query,omitempty"`
+	SQL                   string              `json:"sql,omitempty"`
+	Args                  []any               `json:"args,omitempty"`
+	Warnings              []string            `json:"warnings,omitempty"`
+	Result                *query.QueryResult  `json:"result,omitempty"`
+	Confidence            float64             `json:"confidence"`
+	TableRouting          *TableRoutingResult `json:"table_routing,omitempty"`
+	NeedsClarification    bool                `json:"needs_clarification,omitempty"`
+	ClarificationQuestion string              `json:"clarification_question,omitempty"`
+	Prompt                string              `json:"-"`
+	RawResponse           string              `json:"-"`
 }
 
 // AIResponse is a deprecated alias for Response.

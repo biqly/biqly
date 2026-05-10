@@ -322,6 +322,56 @@ func TestTableRouter_RouteRejectsInvalidManualScope(t *testing.T) {
 	}
 }
 
+// Turkish "top products by quantity" must not fall through to zero-score routing:
+// normalized "ürünü" is urunu, which must expand to product/urun tokens.
+func TestTableRouter_TurkishTopProductsByQuantity(t *testing.T) {
+	reader := fakeMetadataReader{
+		tables: []metadata.Table{
+			{DatasourceID: "ds1", SchemaName: "humanresources", TableName: "employee", TableType: "BASE TABLE"},
+			{DatasourceID: "ds1", SchemaName: "sales", TableName: "salesorderdetail", TableType: "BASE TABLE"},
+			{DatasourceID: "ds1", SchemaName: "production", TableName: "product", TableType: "BASE TABLE"},
+		},
+		columns: []metadata.Column{
+			{DatasourceID: "ds1", SchemaName: "humanresources", TableName: "employee", ColumnName: "businessentityid", DataType: "int", IsPrimaryKey: true},
+			{DatasourceID: "ds1", SchemaName: "sales", TableName: "salesorderdetail", ColumnName: "salesorderdetailid", DataType: "int", IsPrimaryKey: true},
+			{DatasourceID: "ds1", SchemaName: "sales", TableName: "salesorderdetail", ColumnName: "productid", DataType: "int", IsForeignKey: true},
+			{DatasourceID: "ds1", SchemaName: "sales", TableName: "salesorderdetail", ColumnName: "orderqty", DataType: "int"},
+			{DatasourceID: "ds1", SchemaName: "production", TableName: "product", ColumnName: "productid", DataType: "int", IsPrimaryKey: true},
+			{DatasourceID: "ds1", SchemaName: "production", TableName: "product", ColumnName: "name", DataType: "text"},
+		},
+		relations: []metadata.Relation{
+			{
+				DatasourceID: "ds1", ConstraintName: "sod_product",
+				FromSchema: "sales", FromTable: "salesorderdetail", FromColumn: "productid",
+				ToSchema: "production", ToTable: "product", ToColumn: "productid",
+				RelationshipType: "many_to_one",
+			},
+		},
+	}
+	router := NewTableRouter(reader)
+
+	q := "En çok satan 5 ürünü adet bazında göster."
+	model, routing, err := router.Route(context.Background(), "ds1", q, nil, true, true)
+	if err != nil {
+		t.Fatalf("Route() error = %v", err)
+	}
+	if routing.NeedsClarification {
+		t.Fatalf("Route() needs clarification, routing=%+v candidates=%+v", routing, routing.Candidates)
+	}
+	if model == nil {
+		t.Fatal("Route() model = nil")
+	}
+	got := strings.Join(routing.SelectedTables, ",")
+	for _, need := range []string{"sales.salesorderdetail", "production.product"} {
+		if !strings.Contains(got, need) {
+			t.Errorf("selected %q want substring %q", got, need)
+		}
+	}
+	if routing.Confidence < minRouteConfidence {
+		t.Errorf("confidence %v < minRouteConfidence", routing.Confidence)
+	}
+}
+
 func TestTableRouter_RouteNeedsClarificationForNoMatch(t *testing.T) {
 	router := NewTableRouter(testMetadataReader())
 

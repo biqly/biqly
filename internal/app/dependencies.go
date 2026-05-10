@@ -28,7 +28,7 @@ type Dependencies struct {
 	SemanticRepo   *semantic.Repository
 	Validator      *query.Validator
 	Executor       *query.Executor
-	AIClient       *ai.Client
+	AIClient       ai.Provider
 	AIDescriber    *ai.DescribeService
 }
 
@@ -62,8 +62,13 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 	validator := query.NewValidator(cfg.Query.MaxRows)
 	executor := query.NewExecutor(cfg.Query.MaxRows, cfg.QueryTimeout())
 
-	// AI client + metadata describe service (lazy: only used when an AI provider is configured)
-	aiClient := ai.NewClient(cfg.AI)
+	// AI provider (OpenAI / Anthropic / OpenAI-compatible) + metadata describe
+	// service. Failing here is fatal so misconfigured deployments stop early
+	// instead of crashing on first request.
+	aiClient, err := ai.NewProvider(cfg.AI)
+	if err != nil {
+		return nil, fmt.Errorf("ai provider: %w", err)
+	}
 	describer := ai.NewDescribeService(aiClient, metaRepo, reg, 10, cfg.AI.DescribeMaxCellRunes, cfg.AI.DescribeMaxSampleRows)
 
 	return &Dependencies{

@@ -279,6 +279,7 @@ func selectAutomaticTables(
 		}
 	}
 	selected = appendCategoryTableIfMissing(selected, bundles, tokens, maxAutoSelectedTables)
+	selected = appendProductTableIfMissing(selected, bundles, tokens, maxAutoSelectedTables)
 
 	result := &TableRoutingResult{
 		SelectedTables: bundleLabels(selected),
@@ -570,6 +571,13 @@ func scoreTable(table metadata.Table, columns []metadata.Column, tokens map[stri
 			score += 12
 		}
 	}
+	if isCategoryOrProductQuestion(tokens) && isQuantityOrCountIntent(tokens) {
+		// Line items / order detail: quantity sold, "adet", top products by count.
+		if strings.Contains(tn, "orderdetail") || strings.Contains(tn, "order_detail") ||
+			strings.Contains(tn, "orderline") || strings.Contains(tn, "order_line") {
+			score += 10
+		}
+	}
 	for _, col := range columns {
 		score += weightedTokenScore(tokens, col.ColumnName, 2)
 		score += weightedTokenScore(tokens, col.DataType, 0.2)
@@ -594,13 +602,79 @@ func scoreTable(table metadata.Table, columns []metadata.Column, tokens map[stri
 func isCategoryOrProductQuestion(tokens map[string]bool) bool {
 	for _, t := range []string{
 		"category", "categories", "kategori", "kategoriler",
-		"product", "products", "urun",
+		"product", "products", "item", "items",
+		"urun", "urunu", "urunun", "urunler", "urunleri", "urunden",
 	} {
 		if tokens[t] {
 			return true
 		}
 	}
 	return false
+}
+
+// isQuantityOrCountIntent matches questions about counts, units, or order quantity
+// (including Turkish "adet", "miktar") after token expansion.
+func isQuantityOrCountIntent(tokens map[string]bool) bool {
+	for _, t := range []string{
+		"quantity", "qty", "count", "rows", "row", "units", "unit",
+		"adet", "miktar", "miktari", "miktarda", "adette",
+		"pieces", "piece",
+	} {
+		if tokens[t] {
+			return true
+		}
+	}
+	return false
+}
+
+// appendProductTableIfMissing pulls in production.product (or subcategory) when the
+// question is product-focused but the top-N scored tables missed the catalog table
+// (common when line items score highest).
+func appendProductTableIfMissing(
+	selected []tableBundle,
+	bundles []tableBundle,
+	tokens map[string]bool,
+	maxN int,
+) []tableBundle {
+	if !isCategoryOrProductQuestion(tokens) {
+		return selected
+	}
+	for _, b := range selected {
+		tn := strings.ToLower(b.table.TableName)
+		if tn == "product" || strings.Contains(tn, "productsubcategor") {
+			return selected
+		}
+	}
+	pick := func() (tableBundle, bool) {
+		for _, b := range bundles {
+			if b.score == 0 {
+				continue
+			}
+			tn := strings.ToLower(b.table.TableName)
+			if tn != "product" && !strings.Contains(tn, "productsubcategor") {
+				continue
+			}
+			k := tableKey(b.table.SchemaName, b.table.TableName)
+			if bundleSliceContains(selected, k) {
+				continue
+			}
+			return b, true
+		}
+		return tableBundle{}, false
+	}
+	if len(selected) < maxN {
+		if b, ok := pick(); ok {
+			selected = append(selected, b)
+		}
+		return selected
+	}
+	if len(selected) < 2 {
+		return selected
+	}
+	if b, ok := pick(); ok {
+		selected[len(selected)-1] = b
+	}
+	return selected
 }
 
 func buildSemanticModel(
@@ -1259,7 +1333,10 @@ func normalizeText(text string) string {
 }
 
 var tokenSynonyms = map[string][]string{
-	"adet":     {"count", "row", "rows"},
+	"adet":     {"count", "row", "rows", "quantity", "qty"},
+	"adette":   {"count", "quantity", "adet"},
+	"bazinda":  {"by", "per", "basis"},
+	"bazli":    {"based", "by"},
 	"category": {"categories", "kategori", "kategoriler", "class", "group"},
 	"categories": {"category", "kategori"},
 	"amount":   {"total", "revenue", "sales"},
@@ -1268,6 +1345,9 @@ var tokenSynonyms = map[string][]string{
 	"customer": {"client", "musteri"},
 	"gelir":    {"revenue", "sales", "amount", "total"},
 	"kac":      {"count", "row", "rows"},
+	"miktar":   {"quantity", "qty", "count", "amount"},
+	"miktari":  {"quantity", "qty", "miktar"},
+	"miktarda": {"quantity", "miktar"},
 	"musteri":  {"customer", "client"},
 	"order":    {"purchase", "sale", "siparis"},
 	"ortalama": {"avg", "average"},
@@ -1279,8 +1359,14 @@ var tokenSynonyms = map[string][]string{
 	"satis":    {"sales", "sale", "revenue", "amount", "total"},
 	"sayisi":   {"count", "row", "rows"},
 	"siparis":  {"order", "sale", "purchase"},
+	"satan":    {"sale", "sales", "sold", "selling"},
 	"total":    {"amount", "revenue", "sales"},
-	"urun":     {"product", "item"},
+	"urun":     {"product", "item", "products"},
+	"urunden":  {"urun", "product", "item"},
+	"urunler":  {"urun", "product", "products", "items"},
+	"urunleri": {"urun", "product", "products"},
+	"urunun":   {"urun", "product"},
+	"urunu":    {"urun", "product", "products", "item"},
 }
 
 func isRevenueLikeQuestion(tokens map[string]bool) bool {

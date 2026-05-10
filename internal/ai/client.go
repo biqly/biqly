@@ -65,8 +65,13 @@ type openAIResponse struct {
 	} `json:"error,omitempty"`
 }
 
-// Generate sends a prompt to the LLM and returns the response text.
+// Generate sends a prompt to the LLM at the configured temperature.
 func (c *Client) Generate(ctx context.Context, prompt string) (string, error) {
+	return c.GenerateAt(ctx, prompt, c.temperature)
+}
+
+// GenerateAt sends a prompt with an explicit temperature override.
+func (c *Client) GenerateAt(ctx context.Context, prompt string, temperature float64) (string, error) {
 	reqBody := openAIRequest{
 		Model: c.model,
 		Messages: []openAIMessage{
@@ -74,7 +79,7 @@ func (c *Client) Generate(ctx context.Context, prompt string) (string, error) {
 			{Role: "user", Content: prompt},
 		},
 		MaxTokens:   c.maxTokens,
-		Temperature: c.temperature,
+		Temperature: temperature,
 	}
 
 	body, err := json.Marshal(reqBody)

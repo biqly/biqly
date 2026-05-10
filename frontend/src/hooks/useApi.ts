@@ -1,13 +1,40 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
-async function request<T>(method: Method, url: string, body?: unknown): Promise<{ data: T | null; error: string | null }> {
+interface RequestOptions {
+  timeout?: number  // ms, default 30s
+  signal?: AbortSignal
+}
+
+async function request<T>(
+  method: Method,
+  url: string,
+  body?: unknown,
+  options?: RequestOptions,
+): Promise<{ data: T | null; error: string | null }> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    options?.timeout ?? 30_000,
+  )
+
+  // Honor passed-in signal
+  const signal = options?.signal
+    ? ((() => {
+        const merged = new AbortController()
+        options?.signal?.addEventListener('abort', () => merged.abort())
+        controller.signal.addEventListener('abort', () => merged.abort())
+        return merged.signal
+      })())
+    : controller.signal
+
   try {
     const res = await fetch(url, {
       method,
       headers: body ? { 'Content-Type': 'application/json' } : undefined,
       body: body ? JSON.stringify(body) : undefined,
+      signal,
     })
     const text = await res.text()
     const data = text ? JSON.parse(text) : null
@@ -16,27 +43,65 @@ async function request<T>(method: Method, url: string, body?: unknown): Promise<
     }
     return { data: data as T, error: null }
   } catch (err) {
-    return { data: null, error: err instanceof Error ? err.message : 'Network error' }
+    const message = err instanceof Error ? err.message : 'Network error'
+    return {
+      data: null,
+      error: message.includes('aborted') ? 'Request timed out' : message,
+    }
+  } finally {
+    clearTimeout(timeoutId)
   }
 }
 
 export function useApi() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const controllerRef = useRef<AbortController | null>(null)
 
-  const call = useCallback(async <T = any>(method: Method, url: string, body?: unknown): Promise<T | null> => {
-    setLoading(true)
-    setError(null)
-    const { data, error: err } = await request<T>(method, url, body)
-    if (err) setError(err)
-    setLoading(false)
-    return data
+  const abort = useCallback(() => {
+    controllerRef.current?.abort()
+    controllerRef.current = null
   }, [])
 
-  const get = useCallback(<T = any>(url: string) => call<T>('GET', url), [call])
-  const postData = useCallback(<T = any>(url: string, body: unknown) => call<T>('POST', url, body), [call])
-  const patchData = useCallback(<T = any>(url: string, body: unknown) => call<T>('PATCH', url, body), [call])
-  const deleteData = useCallback(<T = any>(url: string) => call<T>('DELETE', url), [call])
+  const call = useCallback(
+    async <T = any>(
+      method: Method,
+      url: string,
+      body?: unknown,
+      options?: RequestOptions,
+    ): Promise<T | null> => {
+      setLoading(true)
+      setError(null)
+      const controller = new AbortController()
+      controllerRef.current = controller
+      const mergedSignal = { ...options, signal: controller.signal }
+      const { data, error: err } = await request<T>(method, url, body, mergedSignal)
+      if (err) setError(err)
+      setLoading(false)
+      controllerRef.current = null
+      return data
+    },
+    [],
+  )
 
-  return { get, postData, patchData, deleteData, loading, error }
+  const get = useCallback(
+    <T = any>(url: string, options?: RequestOptions) => call<T>('GET', url, undefined, options),
+    [call],
+  )
+  const postData = useCallback(
+    <T = any>(url: string, body: unknown, options?: RequestOptions) =>
+      call<T>('POST', url, body, options),
+    [call],
+  )
+  const patchData = useCallback(
+    <T = any>(url: string, body: unknown, options?: RequestOptions) =>
+      call<T>('PATCH', url, body, options),
+    [call],
+  )
+  const deleteData = useCallback(
+    <T = any>(url: string, options?: RequestOptions) => call<T>('DELETE', url, undefined, options),
+    [call],
+  )
+
+  return { get, postData, patchData, deleteData, loading, error, abort }
 }

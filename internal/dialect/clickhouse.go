@@ -53,6 +53,21 @@ func (d ClickHouseDialect) DateTrunc(part, column string) string {
 	return fmt.Sprintf("toStartOf%s(%s)", tc, quoted)
 }
 
+// CalendarPart returns toYear / toQuarter / toMonth for UInt-sized calendar integers.
+func (d ClickHouseDialect) CalendarPart(part, column string) string {
+	q := d.QuoteIdent(column)
+	switch strings.ToLower(strings.TrimSpace(part)) {
+	case "year":
+		return fmt.Sprintf("toYear(%s)", q)
+	case "quarter":
+		return fmt.Sprintf("toQuarter(%s)", q)
+	case "month":
+		return fmt.Sprintf("toMonth(%s)", q)
+	default:
+		return d.DateTrunc(part, column)
+	}
+}
+
 func titleCase(s string) string {
 	if s == "" {
 		return s
@@ -61,9 +76,9 @@ func titleCase(s string) string {
 }
 
 // ILike returns a case-insensitive LIKE expression.
+// column must be a SQL expression (e.g. already-quoted identifiers).
 func (d ClickHouseDialect) ILike(column, placeholder string) string {
-	// ClickHouse is case-sensitive, use lower()
-	return fmt.Sprintf("lower(%s) LIKE lower(%s)", d.QuoteIdent(column), placeholder)
+	return fmt.Sprintf("lower(%s) LIKE lower(%s)", column, placeholder)
 }
 
 // CastType returns the dialect-specific SQL type name for casting.
@@ -93,6 +108,11 @@ func (d ClickHouseDialect) Aggregate(fn, column string) string {
 	default:
 		return fmt.Sprintf("count(%s)", quotedCol)
 	}
+}
+
+// ExplainSQL prefixes the statement with EXPLAIN; ClickHouse plans without executing.
+func (d ClickHouseDialect) ExplainSQL(sql string) string {
+	return "EXPLAIN " + sql
 }
 
 // Compile-time check

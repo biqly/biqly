@@ -23,7 +23,7 @@ func validIdent(s string) bool { return identRegex.MatchString(s) }
 
 // DescribeService generates table/column descriptions from sampled rows using an LLM.
 type DescribeService struct {
-	client               *Client
+	client               Provider
 	metaRepo             *metadata.Repository
 	driverReg            *datasource.Registry
 	sampleRows           int
@@ -32,7 +32,7 @@ type DescribeService struct {
 }
 
 // NewDescribeService wires the dependencies needed to sample, prompt, and persist descriptions.
-func NewDescribeService(client *Client, metaRepo *metadata.Repository, driverReg *datasource.Registry, sampleRows, maxCellRunes, maxSampleRowsHardCap int) *DescribeService {
+func NewDescribeService(client Provider, metaRepo *metadata.Repository, driverReg *datasource.Registry, sampleRows, maxCellRunes, maxSampleRowsHardCap int) *DescribeService {
 	if sampleRows <= 0 {
 		sampleRows = 10
 	}
@@ -301,6 +301,7 @@ func buildDescribePrompt(schema, table string, cols []metadata.Column, sample []
 	sb.WriteString("You are a data documentation assistant. Examine the table schema and sample rows, then write concise, business-friendly descriptions.\n\n")
 	sb.WriteString("## Rules\n")
 	sb.WriteString("- Output ONLY valid JSON matching the schema below. No markdown, no explanation.\n")
+	sb.WriteString("- Use strict JSON: every property name MUST be double-quoted (e.g. \"table_description\", not table_description:).\n")
 	sb.WriteString("- Keep descriptions under 200 characters each.\n")
 	sb.WriteString("- Describe the business meaning, not the data type.\n")
 	sb.WriteString("- If you cannot infer a column from the sample, leave its description empty.\n\n")
@@ -335,19 +336,7 @@ func buildDescribePrompt(schema, table string, cols []metadata.Column, sample []
 }
 
 func parseDescribeResponse(raw string) (string, []ColumnDescription, error) {
-	cleaned := raw
-	if idx := strings.Index(cleaned, "```json"); idx >= 0 {
-		cleaned = cleaned[idx+7:]
-		if end := strings.Index(cleaned, "```"); end >= 0 {
-			cleaned = cleaned[:end]
-		}
-	} else if idx := strings.Index(cleaned, "```"); idx >= 0 {
-		cleaned = cleaned[idx+3:]
-		if end := strings.Index(cleaned, "```"); end >= 0 {
-			cleaned = cleaned[:end]
-		}
-	}
-	cleaned = strings.TrimSpace(cleaned)
+	cleaned := TrimToJSONObject(raw)
 
 	var payload struct {
 		TableDescription string              `json:"table_description"`

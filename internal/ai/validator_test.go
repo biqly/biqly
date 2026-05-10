@@ -45,6 +45,21 @@ func TestSchemaValidator_MarkdownStripping(t *testing.T) {
 	}
 }
 
+func TestSchemaValidator_LeadingPreambleBeforeJSON(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Dimensions: []semantic.Dimension{{Name: "id", ColumnRef: "t.id", Type: "text"}},
+	}
+	v := NewSchemaValidator()
+	input := "Here is the LogicalQuery you asked for:\n\n{\"select\": [{\"type\": \"dimension\", \"name\": \"id\"}], \"limit\": 10}\n"
+	lq, err := v.Validate(input, model)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(lq.Select) != 1 {
+		t.Errorf("expected 1 select item, got %d", len(lq.Select))
+	}
+}
+
 func TestSchemaValidator_RejectsInvalidType(t *testing.T) {
 	model := &semantic.SemanticModel{
 		Dimensions: []semantic.Dimension{{Name: "id", ColumnRef: "t.id", Type: "text"}},

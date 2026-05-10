@@ -123,7 +123,12 @@ func (d *Driver) introspectTables(ctx context.Context, db *sql.DB) ([]datasource
 }
 
 func (d *Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasource.ColumnInfo, error) {
-	query := `SELECT s.name, t.name, c.name, TYPE_NAME(c.user_type_id), CASE c.is_nullable WHEN 1 THEN 1 ELSE 0 END, c.column_id, c.max_length, c.precision, c.scale, OBJECT_DEFINITION(c.default_object_id) FROM sys.columns c JOIN sys.tables t ON c.object_id = t.object_id JOIN sys.schemas s ON t.schema_id = s.schema_id ORDER BY s.name, t.name, c.column_id`
+	// Join sys.objects (not sys.tables only): VIEW columns live under type 'V', tables under 'U'.
+	query := `SELECT s.name, o.name, c.name, TYPE_NAME(c.user_type_id), CASE c.is_nullable WHEN 1 THEN 1 ELSE 0 END, c.column_id, c.max_length, c.precision, c.scale, OBJECT_DEFINITION(c.default_object_id)
+FROM sys.columns c
+JOIN sys.objects o ON c.object_id = o.object_id AND o.type IN ('U', 'V') AND o.is_ms_shipped = 0
+JOIN sys.schemas s ON o.schema_id = s.schema_id
+ORDER BY s.name, o.name, c.column_id`
 	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err

@@ -57,10 +57,25 @@ func (d SQLServerDialect) DateTrunc(part, column string) string {
 	return fmt.Sprintf("DATEADD(%s, DATEDIFF(%s, 0, %s), 0)", part, part, d.QuoteIdent(column))
 }
 
+// CalendarPart returns YEAR / DATEPART(quarter|month) for integer grouping.
+func (d SQLServerDialect) CalendarPart(part, column string) string {
+	q := d.QuoteIdent(column)
+	switch strings.ToLower(strings.TrimSpace(part)) {
+	case "year":
+		return fmt.Sprintf("YEAR(%s)", q)
+	case "quarter":
+		return fmt.Sprintf("DATEPART(quarter, %s)", q)
+	case "month":
+		return fmt.Sprintf("MONTH(%s)", q)
+	default:
+		return d.DateTrunc(part, column)
+	}
+}
+
 // ILike returns a case-insensitive LIKE expression.
+// column must be a SQL expression (e.g. already-quoted identifiers).
 func (d SQLServerDialect) ILike(column, placeholder string) string {
-	// SQL Server is case-insensitive by default for LIKE
-	return fmt.Sprintf("%s LIKE %s", d.QuoteIdent(column), placeholder)
+	return fmt.Sprintf("%s LIKE %s", column, placeholder)
 }
 
 // CastType returns the dialect-specific SQL type name for casting.
@@ -90,6 +105,13 @@ func (d SQLServerDialect) Aggregate(fn, column string) string {
 	default:
 		return fmt.Sprintf("COUNT(%s)", quotedCol)
 	}
+}
+
+// ExplainSQL returns "" because SQL Server has no single-statement EXPLAIN form
+// (SHOWPLAN/NOEXEC require batch-level SET commands the driver may not honor in
+// QueryContext). Callers should treat empty as "skip dry-run".
+func (d SQLServerDialect) ExplainSQL(_ string) string {
+	return ""
 }
 
 // Compile-time check

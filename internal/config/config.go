@@ -61,6 +61,12 @@ type AIConfig struct {
 	DescribeMaxCellRunes int
 	// DescribeMaxSampleRows is a hard cap on rows sampled for Describe (wide tables × many columns).
 	DescribeMaxSampleRows int
+	// MaxRetries caps how many times the validator can re-prompt the model after parse/validation failure.
+	MaxRetries int
+	// MultiCandidateCount enables self-consistency voting: when >1, the service
+	// generates this many candidates per question (stepped temperatures) and
+	// selects the majority. 1 = single-shot (default).
+	MultiCandidateCount int
 }
 
 // Load reads configuration from environment variables.
@@ -95,6 +101,8 @@ func Load() (*Config, error) {
 			MaxPromptInputRunes:   getEnvAsInt("BI_AI_MAX_PROMPT_RUNES", 80000),
 			DescribeMaxCellRunes:  getEnvAsInt("BI_AI_DESCRIBE_MAX_CELL_RUNES", 500),
 			DescribeMaxSampleRows: getEnvAsInt("BI_AI_DESCRIBE_MAX_SAMPLE_ROWS", 12),
+			MaxRetries:            getEnvAsInt("BI_AI_MAX_RETRIES", 2),
+			MultiCandidateCount:   getEnvAsInt("BI_AI_MULTI_CANDIDATE_COUNT", 1),
 		},
 	}
 

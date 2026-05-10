@@ -421,6 +421,58 @@ func (r *Repository) GetQueryHistory(ctx context.Context, id string) (*query.His
 	return &entry, nil
 }
 
+// SuccessfulAIQuery is a stripped-down history row used to build dynamic few-shot
+// prompt examples. Only fields needed for the LLM are exposed.
+type SuccessfulAIQuery struct {
+	Question     string
+	LogicalQuery []byte
+}
+
+// ListSuccessfulAIQueries returns the most recent N AI history entries that
+// produced a high-confidence query with no warnings, scoped to the given
+// datasource and (optionally) semantic model. Used to inject dynamic few-shot
+// examples into the prompt builder.
+func (r *Repository) ListSuccessfulAIQueries(ctx context.Context, datasourceID string, modelName *string, limit int) ([]SuccessfulAIQuery, error) {
+	if limit <= 0 {
+		return nil, nil
+	}
+	const minConfidence = 0.7
+	q := `
+		SELECT question, logical_query
+		FROM ai_query_history
+		WHERE datasource_id = $1
+		  AND ($2::text IS NULL OR model_id = $2)
+		  AND confidence_score >= $3
+		  AND (warnings IS NULL OR cardinality(warnings) = 0)
+		  AND logical_query IS NOT NULL
+		ORDER BY created_at DESC
+		LIMIT $4
+	`
+	var modelArg sql.NullString
+	if modelName != nil && *modelName != "" {
+		modelArg = sql.NullString{String: *modelName, Valid: true}
+	}
+	rows, err := r.db.QueryContext(ctx, q, datasourceID, modelArg, minConfidence, limit)
+	if err != nil {
+		return nil, fmt.Errorf("query successful AI history: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []SuccessfulAIQuery
+	for rows.Next() {
+		var question string
+		var lq []byte
+		if err := rows.Scan(&question, &lq); err != nil {
+			return nil, fmt.Errorf("scan AI history row: %w", err)
+		}
+		out = append(out, SuccessfulAIQuery{Question: question, LogicalQuery: lq})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate AI history: %w", err)
+	}
+	return out, nil
+}
+
 // CreateAIQueryHistory stores an AI natural-language query history entry.
 func (r *Repository) CreateAIQueryHistory(ctx context.Context, entry *AIQueryHistoryEntry) error {
 	promptContextJSON, err := nullableJSON(entry.PromptContext)

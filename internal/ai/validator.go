@@ -3,7 +3,6 @@ package ai
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
@@ -20,15 +19,7 @@ func NewSchemaValidator() *SchemaValidator {
 // Validate checks the raw AI response against the expected LogicalQuery schema.
 //nolint:gocyclo // linear validation steps, each check is independent and clear
 func (sv *SchemaValidator) Validate(rawJSON string, model *semantic.SemanticModel) (*query.LogicalQuery, error) {
-	// Clean markdown artifacts
-	cleaned := rawJSON
-	if idx := strings.Index(cleaned, "```json"); idx >= 0 {
-		cleaned = cleaned[idx+7:]
-		if end := strings.Index(cleaned, "```"); end >= 0 {
-			cleaned = cleaned[:end]
-		}
-	}
-	cleaned = strings.TrimSpace(cleaned)
+	cleaned := TrimToJSONObject(rawJSON)
 	if cleaned == "" {
 		return nil, fmt.Errorf("empty AI response")
 	}
