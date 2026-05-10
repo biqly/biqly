@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/app"
+	"github.com/biqly/biqly/internal/dialect"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -24,7 +26,7 @@ type AIHandler struct {
 
 // NewAIHandler creates a new AI handler.
 func NewAIHandler(deps *app.Dependencies) *AIHandler {
-	svc := ai.NewService(deps.Config.AI, deps.Validator)
+	svc := ai.NewServiceWithProvider(deps.Config.AI, deps.Validator, deps.AIClient)
 	return &AIHandler{
 		service:     svc,
 		tableRouter: ai.NewTableRouter(deps.MetaRepo),
@@ -37,6 +39,47 @@ type aiQueryRequest struct {
 	ModelID      string   `json:"model_id,omitempty"`
 	Question     string   `json:"question"`
 	Tables       []string `json:"tables,omitempty"`
+	// IncludeBaseTables / IncludeViews default to true when omitted (backward compatible).
+	IncludeBaseTables *bool `json:"include_base_tables,omitempty"`
+	IncludeViews      *bool `json:"include_views,omitempty"`
+	// PriorTurns are recent (question, logical_query) pairs from the active
+	// conversation, sent by the frontend so follow-ups can be resolved in
+	// context ("filter that to last quarter", "now group by region").
+	PriorTurns []priorTurnPayload `json:"prior_turns,omitempty"`
+}
+
+// priorTurnPayload is the wire shape for one entry in aiQueryRequest.PriorTurns.
+// LogicalQuery is sent as raw JSON if available; an empty value is fine
+// (e.g. when the prior turn never produced a valid query).
+type priorTurnPayload struct {
+	Question     string          `json:"question"`
+	LogicalQuery json.RawMessage `json:"logical_query,omitempty"`
+	Note         string          `json:"note,omitempty"`
+}
+
+// maxPriorTurns caps how many turns we forward to the LLM. Older turns drop
+// off so the prompt stays bounded regardless of how long the conversation runs.
+const maxPriorTurns = 5
+
+// priorTurnsForPrompt converts wire-format turns into the AI service's
+// ConversationTurn slice, taking the most recent maxPriorTurns entries.
+func priorTurnsForPrompt(payload []priorTurnPayload) []ai.ConversationTurn {
+	if len(payload) == 0 {
+		return nil
+	}
+	start := 0
+	if len(payload) > maxPriorTurns {
+		start = len(payload) - maxPriorTurns
+	}
+	out := make([]ai.ConversationTurn, 0, len(payload)-start)
+	for _, t := range payload[start:] {
+		out = append(out, ai.ConversationTurn{
+			Question:     t.Question,
+			LogicalQuery: string(t.LogicalQuery),
+			Note:         t.Note,
+		})
+	}
+	return out
 }
 
 // Query handles AI-powered natural language queries.
@@ -69,7 +112,10 @@ func (h *AIHandler) Query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.service.ProcessQuestion(ctx, req.Question, model)
+	resp, err := h.service.ProcessQuestion(ctx, req.Question, model,
+		ai.WithFewShotExamples(h.loadFewShotExamples(ctx, model)),
+		ai.WithPriorTurns(priorTurnsForPrompt(req.PriorTurns)),
+	)
 	if err != nil {
 		h.recordAIHistory(ctx, req, model, routing, failedAIResponse(err))
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -111,7 +157,10 @@ func (h *AIHandler) Preview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get AI response
-	resp, err := h.service.ProcessQuestion(ctx, req.Question, model)
+	resp, err := h.service.ProcessQuestion(ctx, req.Question, model,
+		ai.WithFewShotExamples(h.loadFewShotExamples(ctx, model)),
+		ai.WithPriorTurns(priorTurnsForPrompt(req.PriorTurns)),
+	)
 	if err != nil {
 		h.recordAIHistory(ctx, req, model, routing, failedAIResponse(err))
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -179,8 +228,39 @@ func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get AI response
-	resp, err := h.service.ProcessQuestion(ctx, req.Question, model)
+	// Open the datasource up front so the dry-run validator (and later the
+	// real Execute call) share a single connection. Both happen before we
+	// stream a response, so a failure aborts cleanly.
+	ds, err := h.deps.MetaRepo.GetDatasource(ctx, req.DatasourceID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "datasource not found")
+		return
+	}
+	driver, err := h.deps.DriverReg.Get(ds.Type)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("unsupported driver: %s", ds.Type))
+		return
+	}
+	db, err := driver.Open(ctx, ds.DSNEncrypted)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("connection failed: %s", err.Error()))
+		return
+	}
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			slog.Error("failed to close database connection", "error", closeErr)
+		}
+	}()
+	compiler := query.NewCompiler(driver.Dialect())
+	dryRun := newSQLDryRunValidator(db, compiler, driver.Dialect(), model)
+
+	// Get AI response (with EXPLAIN dry-run + few-shot history + sample rows)
+	resp, err := h.service.ProcessQuestion(ctx, req.Question, model,
+		ai.WithSQLValidator(dryRun),
+		ai.WithFewShotExamples(h.loadFewShotExamples(ctx, model)),
+		ai.WithSampleData(h.loadSampleData(ctx, db, driver.Dialect(), model)),
+		ai.WithPriorTurns(priorTurnsForPrompt(req.PriorTurns)),
+	)
 	if err != nil {
 		h.recordAIHistory(ctx, req, model, routing, failedAIResponse(err))
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -194,21 +274,7 @@ func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get datasource and execute
-	ds, err := h.deps.MetaRepo.GetDatasource(ctx, req.DatasourceID)
-	if err != nil {
-		writeError(w, http.StatusNotFound, "datasource not found")
-		return
-	}
-
-	driver, err := h.deps.DriverReg.Get(ds.Type)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("unsupported driver: %s", ds.Type))
-		return
-	}
-
-	// Compile
-	compiler := query.NewCompiler(driver.Dialect())
+	// Compile (final, for execution — the dry-run already succeeded above)
 	cq, err := compiler.Compile(ctx, *resp.LogicalQuery, model)
 	if err != nil {
 		h.recordAIQueryHistory(ctx, *resp.LogicalQuery, model, nil, nil, queryStatusFailed, err)
@@ -218,18 +284,6 @@ func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
 
 	resp.SQL = cq.SQL
 	resp.Args = cq.Args
-
-	// Execute
-	db, err := driver.Open(ctx, ds.DSNEncrypted)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("connection failed: %s", err.Error()))
-		return
-	}
-	defer func() {
-		if closeErr := db.Close(); closeErr != nil {
-			slog.Error("failed to close database connection", "error", closeErr)
-		}
-	}()
 
 	result, err := h.deps.Executor.Execute(ctx, db, cq)
 	if err != nil {
@@ -273,10 +327,33 @@ func (h *AIHandler) loadQueryModel(
 		model, err := h.loadModel(ctx, req.DatasourceID, req.ModelID)
 		return model, nil, err
 	}
-	return h.tableRouter.Route(ctx, req.DatasourceID, req.Question, req.Tables)
+	base, views, err := typeScopeFromAIQueryRequest(req)
+	if err != nil {
+		return nil, nil, err
+	}
+	return h.tableRouter.Route(ctx, req.DatasourceID, req.Question, req.Tables, base, views)
+}
+
+func typeScopeFromAIQueryRequest(req aiQueryRequest) (includeBase, includeViews bool, err error) {
+	includeBase = true
+	includeViews = true
+	if req.IncludeBaseTables != nil {
+		includeBase = *req.IncludeBaseTables
+	}
+	if req.IncludeViews != nil {
+		includeViews = *req.IncludeViews
+	}
+	if !includeBase && !includeViews {
+		return false, false, ai.ErrTypeScopeEmpty
+	}
+	return includeBase, includeViews, nil
 }
 
 func (h *AIHandler) writeModelLoadError(w http.ResponseWriter, req aiQueryRequest, err error) {
+	if errors.Is(err, ai.ErrTypeScopeEmpty) {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	if errors.Is(err, ai.ErrTableScopeInvalid) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -288,13 +365,75 @@ func (h *AIHandler) writeModelLoadError(w http.ResponseWriter, req aiQueryReques
 	writeError(w, http.StatusNotFound, "semantic model not found")
 }
 
+// fewShotLimit caps how many prior successful queries we attach to the prompt.
+// Higher values dilute attention and inflate tokens; lower values miss context.
+const fewShotLimit = 5
+
+// sampleRowLimit and sampleCellRunes shape the prompt-side sample-data block:
+// few rows, short cells. The goal is to show value formats, not full data.
+const (
+	sampleRowLimit   = 3
+	sampleCellRunes  = 80
+	sampleColumnsMax = 30 // skip super-wide tables to keep tokens bounded
+)
+
+// loadSampleData fetches a small sample of rows from the model's base table to
+// embed in the prompt. Errors are non-fatal — sampling is purely advisory.
+func (h *AIHandler) loadSampleData(ctx context.Context, db *sql.DB, d dialect.Dialect, model *semantic.SemanticModel) []ai.TableSample {
+	if model == nil || db == nil || model.BaseTable == "" {
+		return nil
+	}
+	cols, err := h.deps.MetaRepo.ListColumns(ctx, model.DatasourceID, model.BaseSchema, model.BaseTable)
+	if err != nil {
+		slog.WarnContext(ctx, "load columns for sample failed", "error", err)
+		return nil
+	}
+	if len(cols) == 0 || len(cols) > sampleColumnsMax {
+		return nil
+	}
+	rows, err := ai.FetchTableSample(ctx, db, d, cols, model.BaseSchema, model.BaseTable, sampleRowLimit, sampleCellRunes)
+	if err != nil {
+		slog.WarnContext(ctx, "fetch sample rows failed", "error", err)
+		return nil
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	return []ai.TableSample{{Schema: model.BaseSchema, Table: model.BaseTable, Rows: rows}}
+}
+
+// loadFewShotExamples returns recent high-confidence (question, logical_query)
+// pairs for this datasource+model. Errors are non-fatal — we just log and skip.
+func (h *AIHandler) loadFewShotExamples(ctx context.Context, model *semantic.SemanticModel) []ai.FewShotExample {
+	if model == nil {
+		return nil
+	}
+	var modelName *string
+	if model.Name != "" {
+		n := model.Name
+		modelName = &n
+	}
+	rows, err := h.deps.MetaRepo.ListSuccessfulAIQueries(ctx, model.DatasourceID, modelName, fewShotLimit)
+	if err != nil {
+		slog.WarnContext(ctx, "load few-shot examples failed", "error", err)
+		return nil
+	}
+	out := make([]ai.FewShotExample, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, ai.FewShotExample{Question: r.Question, LogicalQuery: string(r.LogicalQuery)})
+	}
+	return out
+}
+
 func clarificationResponse(routing *ai.TableRoutingResult) *ai.Response {
 	return &ai.Response{
 		Warnings: []string{
 			"could not confidently choose the relevant table scope; select one or more tables and try again",
 		},
-		Confidence:   0,
-		TableRouting: routing,
+		Confidence:            0,
+		TableRouting:          routing,
+		NeedsClarification:    true,
+		ClarificationQuestion: "Which table or topic do you want to query? Please pick one or more from the candidates.",
 	}
 }
 

@@ -87,6 +87,7 @@ type processOptions struct {
 	sqlValidator SQLValidator
 	fewShot      []FewShotExample
 	samples      []TableSample
+	priorTurns   []ConversationTurn
 }
 
 // WithSQLValidator wires a dialect-aware dry-run check (e.g. EXPLAIN) into the
@@ -109,6 +110,13 @@ func WithSampleData(samples []TableSample) ProcessOption {
 	return func(o *processOptions) { o.samples = samples }
 }
 
+// WithPriorTurns supplies recent turns from the active conversation so the
+// model can resolve follow-ups in context. Pass the most recent N turns
+// (caller should cap N — typically 3-5 — to keep the prompt bounded).
+func WithPriorTurns(turns []ConversationTurn) ProcessOption {
+	return func(o *processOptions) { o.priorTurns = turns }
+}
+
 // ProcessQuestion handles a natural language question. On parse or validation
 // failure the LLM is re-prompted with the prior output and error message, up
 // to s.maxRetries additional attempts.
@@ -118,7 +126,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		opt(&options)
 	}
 
-	originalPrompt := s.promptBuilder.Build(question, model, s.maxPromptRunes, options.fewShot, options.samples)
+	originalPrompt := s.promptBuilder.Build(question, model, s.maxPromptRunes, options.fewShot, options.samples, options.priorTurns)
 
 	// Self-consistency: when configured, draw N candidates with stepped temperatures
 	// and vote. A clear majority returns immediately; otherwise we fall through to
