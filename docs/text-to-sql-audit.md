@@ -193,7 +193,7 @@ Mevcut: Testler var ama text-to-SQL kalite ölçümü yok.
 
 ### P2 — Orta Vadede
 9. [x] Self-consistency / multi-candidate
-10. [ ] Vector embedding table retrieval
+10. [x] Vector embedding table retrieval
 11. [x] Conversation memory / multi-turn
 12. [x] Advanced SQL features (HAVING, window functions; CTE deferred to P3)
 

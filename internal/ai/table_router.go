@@ -79,14 +79,42 @@ type MetadataReader interface {
 	ListRelations(ctx context.Context, datasourceID string) ([]metadata.Relation, error)
 }
 
-// TableRouter selects relevant tables and builds a synthetic semantic model.
-type TableRouter struct {
-	reader MetadataReader
+// EmbeddingReader returns previously-computed table embeddings for a
+// datasource. Tables without an embedding (never embedded, or embedded with
+// a different model) are simply absent from the result. Implementations may
+// also be nil — the router falls back to keyword-only scoring in that case.
+type EmbeddingReader interface {
+	ListTableEmbeddings(ctx context.Context, datasourceID string) ([]metadata.TableEmbedding, error)
 }
 
-// NewTableRouter creates a metadata-backed table router.
+// TableRouter selects relevant tables and builds a synthetic semantic model.
+// When both an Embedder and EmbeddingReader are configured (and embeddings
+// have been precomputed for the datasource), scoring blends keyword overlap
+// with cosine similarity between the question and each table embedding.
+type TableRouter struct {
+	reader          MetadataReader
+	embedder        Embedder
+	embeddingReader EmbeddingReader
+	embeddingWeight float64
+}
+
+// NewTableRouter creates a metadata-backed table router with no embeddings.
+// Equivalent to NewTableRouterWithEmbeddings(reader, nil, nil, 0).
 func NewTableRouter(reader MetadataReader) *TableRouter {
 	return &TableRouter{reader: reader}
+}
+
+// NewTableRouterWithEmbeddings creates a router that, when an Embedder and
+// EmbeddingReader are both present, computes the question's embedding once
+// per request and blends cosine-similarity into the scoring loop. weight
+// controls the magnitude of that contribution (0 disables it).
+func NewTableRouterWithEmbeddings(reader MetadataReader, embedder Embedder, embeddingReader EmbeddingReader, weight float64) *TableRouter {
+	return &TableRouter{
+		reader:          reader,
+		embedder:        embedder,
+		embeddingReader: embeddingReader,
+		embeddingWeight: weight,
+	}
 }
 
 // TableCandidate is a scored table candidate returned by automatic routing.
@@ -104,6 +132,10 @@ type TableRoutingResult struct {
 	Confidence         float64          `json:"confidence"`
 	NeedsClarification bool             `json:"needs_clarification"`
 	Manual             bool             `json:"manual"`
+	// RankingMethod tells the frontend which signal drove this decision:
+	// "manual" when the user supplied a scope, "hybrid" when both keyword
+	// and embedding similarity contributed, otherwise "keyword".
+	RankingMethod string `json:"ranking_method,omitempty"`
 }
 
 type tableBundle struct {
@@ -153,9 +185,25 @@ func (r *TableRouter) Route(
 	}
 
 	columnsByTable := groupColumnsByTable(columns)
-	selected, result, err := r.selectTables(tables, columnsByTable, question, tableScope)
+
+	// Hybrid boost from precomputed table embeddings, when configured. Skipped
+	// silently on any error so a transient embedding-API failure or missing
+	// vectors falls back cleanly to keyword scoring.
+	embedBoost := r.embeddingBoost(ctx, datasourceID, question)
+
+	selected, result, err := r.selectTables(tables, columnsByTable, question, tableScope, embedBoost)
 	if err != nil {
 		return nil, result, err
+	}
+	if result.RankingMethod == "" {
+		switch {
+		case result.Manual:
+			result.RankingMethod = "manual"
+		case len(embedBoost) > 0:
+			result.RankingMethod = "hybrid"
+		default:
+			result.RankingMethod = "keyword"
+		}
 	}
 	if result.NeedsClarification {
 		return nil, result, nil
@@ -188,6 +236,7 @@ func (r *TableRouter) selectTables(
 	columnsByTable map[string][]metadata.Column,
 	question string,
 	tableScope []string,
+	embedBoost map[string]float64,
 ) ([]tableBundle, *TableRoutingResult, error) {
 	if len(tables) == 0 {
 		return nil, &TableRoutingResult{
@@ -200,7 +249,34 @@ func (r *TableRouter) selectTables(
 		return selectManualTables(tables, tableScope)
 	}
 
-	return selectAutomaticTables(tables, columnsByTable, question)
+	return selectAutomaticTables(tables, columnsByTable, question, embedBoost)
+}
+
+// embeddingBoost returns a per-tableKey cosine-similarity score scaled by the
+// configured weight. Returns nil (no boost) when embeddings aren't configured
+// or any step fails — keyword-only scoring still works.
+func (r *TableRouter) embeddingBoost(ctx context.Context, datasourceID, question string) map[string]float64 {
+	if r.embedder == nil || r.embeddingReader == nil || r.embeddingWeight <= 0 {
+		return nil
+	}
+	stored, err := r.embeddingReader.ListTableEmbeddings(ctx, datasourceID)
+	if err != nil || len(stored) == 0 {
+		return nil
+	}
+	qVecs, err := r.embedder.Embed(ctx, []string{question})
+	if err != nil || len(qVecs) == 0 || len(qVecs[0]) == 0 {
+		return nil
+	}
+	q := qVecs[0]
+	out := make(map[string]float64, len(stored))
+	for _, te := range stored {
+		sim := CosineSimilarity(q, te.Embedding)
+		if sim <= 0 {
+			continue
+		}
+		out[tableKey(te.SchemaName, te.TableName)] = sim * r.embeddingWeight
+	}
+	return out
 }
 
 func selectManualTables(
@@ -240,12 +316,16 @@ func selectAutomaticTables(
 	tables []metadata.Table,
 	columnsByTable map[string][]metadata.Column,
 	question string,
+	embedBoost map[string]float64,
 ) ([]tableBundle, *TableRoutingResult, error) {
 	tokens := tokenSet(question)
 	bundles := make([]tableBundle, 0, len(tables))
 	for _, table := range tables {
 		key := tableKey(table.SchemaName, table.TableName)
 		score := scoreTable(table, columnsByTable[key], tokens)
+		if boost, ok := embedBoost[key]; ok {
+			score += boost
+		}
 		bundles = append(bundles, tableBundle{
 			table: table,
 			score: score,

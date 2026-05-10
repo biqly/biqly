@@ -67,6 +67,15 @@ type AIConfig struct {
 	// generates this many candidates per question (stepped temperatures) and
 	// selects the majority. 1 = single-shot (default).
 	MultiCandidateCount int
+	// EmbeddingModel names the embeddings model used for vector-based table
+	// retrieval. Default: text-embedding-3-small. Empty disables the OpenAI
+	// embedder; the router falls back to keyword-only scoring.
+	EmbeddingModel string
+	// EmbeddingWeight scales the cosine-similarity contribution to the
+	// hybrid table-routing score. 0 disables the boost even when embeddings
+	// are present; 30 (default) makes a perfect match comparable to a fully
+	// matched table-name token.
+	EmbeddingWeight float64
 }
 
 // Load reads configuration from environment variables.
@@ -103,6 +112,8 @@ func Load() (*Config, error) {
 			DescribeMaxSampleRows: getEnvAsInt("BI_AI_DESCRIBE_MAX_SAMPLE_ROWS", 12),
 			MaxRetries:            getEnvAsInt("BI_AI_MAX_RETRIES", 2),
 			MultiCandidateCount:   getEnvAsInt("BI_AI_MULTI_CANDIDATE_COUNT", 1),
+			EmbeddingModel:        getEnv("BI_AI_EMBEDDING_MODEL", "text-embedding-3-small"),
+			EmbeddingWeight:       getEnvAsFloat("BI_AI_EMBEDDING_WEIGHT", 30.0),
 		},
 	}
 

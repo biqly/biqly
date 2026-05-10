@@ -205,6 +205,94 @@ func (r *Repository) UpdateTableDescription(ctx context.Context, id string, desc
 	return err
 }
 
+// TableEmbedding pairs a tableKey ("schema.table") with its stored embedding.
+// Tables that have never been embedded are excluded from ListTableEmbeddings.
+type TableEmbedding struct {
+	SchemaName string
+	TableName  string
+	Model      string
+	Embedding  []float32
+}
+
+// UpsertTableEmbedding stores (or replaces) the embedding vector for a single
+// table. The vector is JSON-encoded so deployments without pgvector keep
+// working; cosine similarity is computed in-process by the AI router.
+func (r *Repository) UpsertTableEmbedding(ctx context.Context, tableID, modelName string, embedding []float32) error {
+	encoded, err := encodeEmbedding(embedding)
+	if err != nil {
+		return fmt.Errorf("encode embedding: %w", err)
+	}
+	_, err = r.db.ExecContext(ctx, `
+		UPDATE tables
+		SET embedding = $2::jsonb,
+		    embedding_model = $3,
+		    embedding_updated_at = now()
+		WHERE id = $1
+	`, tableID, encoded, modelName)
+	return err
+}
+
+// ListTableEmbeddings returns every stored embedding for a datasource. Used by
+// the AI router on each NL→query request; we keep this single round-trip
+// rather than fanning out per-table lookups.
+func (r *Repository) ListTableEmbeddings(ctx context.Context, datasourceID string) ([]TableEmbedding, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT schema_name, table_name, embedding_model, embedding
+		FROM tables
+		WHERE datasource_id = $1 AND embedding IS NOT NULL
+	`, datasourceID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []TableEmbedding
+	for rows.Next() {
+		var (
+			te      TableEmbedding
+			modelN  *string
+			rawJSON []byte
+		)
+		if err := rows.Scan(&te.SchemaName, &te.TableName, &modelN, &rawJSON); err != nil {
+			return nil, err
+		}
+		if modelN != nil {
+			te.Model = *modelN
+		}
+		emb, err := decodeEmbedding(rawJSON)
+		if err != nil {
+			// Skip rows with a bad payload rather than failing the whole list;
+			// the router still gets every well-formed entry.
+			continue
+		}
+		te.Embedding = emb
+		out = append(out, te)
+	}
+	return out, rows.Err()
+}
+
+func encodeEmbedding(vec []float32) (string, error) {
+	if vec == nil {
+		return "null", nil
+	}
+	b, err := json.Marshal(vec)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+func decodeEmbedding(raw []byte) ([]float32, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var vec []float32
+	if err := json.Unmarshal(raw, &vec); err != nil {
+		return nil, err
+	}
+	return vec, nil
+}
+
 // Column operations
 
 // UpsertColumns inserts or updates column metadata. Description is preserved when the

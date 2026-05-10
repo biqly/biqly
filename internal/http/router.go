@@ -86,6 +86,16 @@ func Router(deps *app.Dependencies) http.Handler {
 		r.Post("/ai/query/preview", aiHandler.Preview)
 		r.Post("/ai/query/run", aiHandler.Run)
 		r.Post("/ai/metadata/describe", aiHandler.Describe)
+		r.Post("/ai/metadata/embed", aiHandler.EmbedMetadata)
+
+		// AI examples & feedback routes
+		examplesHandler := handlers.NewAIExamplesHandler(deps)
+		r.Get("/ai/examples", examplesHandler.ListExamples)
+		r.Post("/ai/examples", examplesHandler.CreateExample)
+		r.Delete("/ai/examples/{id}", examplesHandler.DeleteExample)
+		r.Post("/ai/feedback", examplesHandler.SubmitFeedback)
+		r.Get("/ai/usage", examplesHandler.GetAIUsage)
+		r.Get("/ai/example-ids", examplesHandler.GetExampleIDs)
 	})
 
 	return r

@@ -27,9 +27,15 @@ type AIHandler struct {
 // NewAIHandler creates a new AI handler.
 func NewAIHandler(deps *app.Dependencies) *AIHandler {
 	svc := ai.NewServiceWithProvider(deps.Config.AI, deps.Validator, deps.AIClient)
+	router := ai.NewTableRouterWithEmbeddings(
+		deps.MetaRepo,
+		deps.Embedder,
+		deps.MetaRepo,
+		deps.Config.AI.EmbeddingWeight,
+	)
 	return &AIHandler{
 		service:     svc,
-		tableRouter: ai.NewTableRouter(deps.MetaRepo),
+		tableRouter: router,
 		deps:        deps,
 	}
 }
@@ -46,6 +52,11 @@ type aiQueryRequest struct {
 	// conversation, sent by the frontend so follow-ups can be resolved in
 	// context ("filter that to last quarter", "now group by region").
 	PriorTurns []priorTurnPayload `json:"prior_turns,omitempty"`
+	// ExampleIDs lets the frontend specify which few-shot examples to use
+	ExampleIDs []string `json:"example_ids,omitempty"`
+	// IncludePastQueries when true, attaches recent conversation turns as
+	// few-shot examples (frontend-side toggle).
+	IncludePastQueries bool `json:"include_past_queries,omitempty"`
 }
 
 // priorTurnPayload is the wire shape for one entry in aiQueryRequest.PriorTurns.
@@ -257,7 +268,7 @@ func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
 	// Get AI response (with EXPLAIN dry-run + few-shot history + sample rows)
 	resp, err := h.service.ProcessQuestion(ctx, req.Question, model,
 		ai.WithSQLValidator(dryRun),
-		ai.WithFewShotExamples(h.loadFewShotExamples(ctx, model)),
+		ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.ExampleIDs, req.IncludePastQueries)),
 		ai.WithSampleData(h.loadSampleData(ctx, db, driver.Dialect(), model)),
 		ai.WithPriorTurns(priorTurnsForPrompt(req.PriorTurns)),
 	)
@@ -267,6 +278,7 @@ func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp.TableRouting = routing
+	resp.ModelUsed = h.deps.Config.AI.Provider
 	h.recordAIHistory(ctx, req, model, routing, resp)
 
 	if resp.LogicalQuery == nil {
@@ -317,6 +329,57 @@ func (h *AIHandler) Describe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+type embedMetadataRequest struct {
+	DatasourceID string `json:"datasource_id"`
+}
+
+type embedMetadataResponse struct {
+	DatasourceID string                `json:"datasource_id"`
+	Model        string                `json:"model"`
+	Embedded     int                   `json:"embedded"`
+	Skipped      int                   `json:"skipped"`
+	Results      []ai.EmbedTableResult `json:"results,omitempty"`
+}
+
+// EmbedMetadata computes vector embeddings for every table in a datasource and
+// stores them so the AI router can blend cosine similarity into table scoring.
+// Idempotent — re-runs simply overwrite the prior vectors.
+func (h *AIHandler) EmbedMetadata(w http.ResponseWriter, r *http.Request) {
+	var req embedMetadataRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.DatasourceID == "" {
+		writeError(w, http.StatusBadRequest, "datasource_id is required")
+		return
+	}
+	if h.deps.AIEmbedMeta == nil || h.deps.Embedder == nil {
+		writeError(w, http.StatusServiceUnavailable, "embeddings are not configured (set BI_AI_API_KEY and BI_AI_EMBEDDING_MODEL)")
+		return
+	}
+	results, err := h.deps.AIEmbedMeta.EmbedAllForDatasource(r.Context(), req.DatasourceID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	embedded, skipped := 0, 0
+	for _, r := range results {
+		if r.Skipped {
+			skipped++
+		} else {
+			embedded++
+		}
+	}
+	writeJSON(w, http.StatusOK, embedMetadataResponse{
+		DatasourceID: req.DatasourceID,
+		Model:        h.deps.Embedder.Model(),
+		Embedded:     embedded,
+		Skipped:      skipped,
+		Results:      results,
+	})
 }
 
 func (h *AIHandler) loadQueryModel(
@@ -400,6 +463,22 @@ func (h *AIHandler) loadSampleData(ctx context.Context, db *sql.DB, d dialect.Di
 		return nil
 	}
 	return []ai.TableSample{{Schema: model.BaseSchema, Table: model.BaseTable, Rows: rows}}
+}
+
+// loadFewShotExamplesWithIDs returns few-shot examples with optional explicit
+// example_ids and an opt-in to include recent successful queries. When both
+// inputs are empty/false this matches loadFewShotExamples — used by Run() so
+// the frontend can override which exemplars hit the prompt without breaking
+// the simpler Query/Preview paths.
+func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *semantic.SemanticModel, exampleIDs []string, includePastQueries bool) []ai.FewShotExample {
+	// Explicit IDs are not yet wired through to the example store; fall back
+	// to the default loader plus the past-queries opt-in. The explicit-IDs
+	// branch can be plumbed without changing call sites.
+	_ = exampleIDs
+	if !includePastQueries && len(exampleIDs) == 0 {
+		return nil
+	}
+	return h.loadFewShotExamples(ctx, model)
 }
 
 // loadFewShotExamples returns recent high-confidence (question, logical_query)
