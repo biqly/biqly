@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/config"
@@ -16,6 +17,7 @@ import (
 	"github.com/biqly/biqly/internal/datasource/sqlserver"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/query"
+	"github.com/biqly/biqly/internal/security"
 	"github.com/biqly/biqly/internal/semantic"
 	_ "github.com/jackc/pgx/v5/stdlib" // PostgreSQL driver registration
 )
@@ -32,6 +34,8 @@ type Dependencies struct {
 	QueryService *core.QueryService
 	AIClient     ai.Provider
 	AIDescriber  *ai.DescribeService
+	Encryptor    *security.Encryption
+	EvalRepo     *ai.EvalRepository
 	// Embedder is the embeddings provider used for vector-based table
 	// retrieval. nil when no API key is configured — callers MUST tolerate
 	// nil (the table router falls back to keyword scoring).
@@ -95,6 +99,24 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		embedMeta = ai.NewEmbedMetadataService(embedder, metaRepo)
 	}
 
+	// Encryption for sensitive fields (DSNs, etc.). Falls back to nil if
+	// BI_ENCRYPTION_KEY is not set — datasource handler tolerates nil and
+	// stores plaintext with a warning.
+	var encryptor *security.Encryption
+	enc, err := security.NewEncryption()
+	if err != nil {
+		slog.Warn("encryption disabled; DSNs will be stored in plaintext", "detail", err)
+	} else {
+		encryptor = enc
+		// Migrate any existing plaintext DSNs to encrypted format on startup.
+		if err := migratePlaintextDSNs(ctx, db, encryptor); err != nil {
+			slog.Warn("failed to migrate existing plaintext DSNs to encrypted format", "error", err)
+		}
+	}
+
+	// Eval repository for persistent golden test results and regression reports.
+	evalRepo := ai.NewEvalRepository(db)
+
 	return &Dependencies{
 		Config:       cfg,
 		MetadataDB:   db,
@@ -106,9 +128,52 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		QueryService: queryService,
 		AIClient:     aiClient,
 		AIDescriber:  describer,
+		Encryptor:    encryptor,
+		EvalRepo:     evalRepo,
 		Embedder:     embedder,
 		AIEmbedMeta:  embedMeta,
 	}, nil
+}
+
+// migratePlaintextDSNs scans the datasources table for DSNs that do not look
+// encrypted and encrypts them in-place. This runs once on startup.
+func migratePlaintextDSNs(ctx context.Context, db *sql.DB, enc *security.Encryption) error {
+	rows, err := db.QueryContext(ctx, "SELECT id, dsn_encrypted FROM datasources")
+	if err != nil {
+		return fmt.Errorf("query datasources: %w", err)
+	}
+	defer rows.Close()
+
+	type pair struct {
+		id  string
+		dsn string
+	}
+	var toEncrypt []pair
+	for rows.Next() {
+		var id, dsn string
+		if err := rows.Scan(&id, &dsn); err != nil {
+			continue
+		}
+		if !enc.IsEncrypted(dsn) {
+			toEncrypt = append(toEncrypt, pair{id: id, dsn: dsn})
+		}
+	}
+	if len(toEncrypt) == 0 {
+		return nil
+	}
+
+	for _, p := range toEncrypt {
+		encrypted, err := enc.Encrypt(p.dsn)
+		if err != nil {
+			slog.Error("encrypt datasource DSN failed", "id", p.id, "error", err)
+			continue
+		}
+		if _, err := db.ExecContext(ctx, "UPDATE datasources SET dsn_encrypted = $1 WHERE id = $2", encrypted, p.id); err != nil {
+			slog.Error("update encrypted DSN failed", "id", p.id, "error", err)
+		}
+	}
+	slog.Info("migrated plaintext DSNs", "count", len(toEncrypt))
+	return nil
 }
 
 // Close cleans up resources.

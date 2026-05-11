@@ -136,17 +136,6 @@ func (c *Compiler) CompileWithPermissions(
 	model *semantic.SemanticModel,
 	rowFilters []security.RowFilter,
 ) (*CompiledQuery, error) {
-	// First compile normally
-	cq, err := c.Compile(ctx, lq, model)
-	if err != nil {
-		return nil, err
-	}
-
-	// If no row filters, return as-is
-	if len(rowFilters) == 0 {
-		return cq, nil
-	}
-
 	// Build dimension map for field resolution
 	dimMap := make(map[string]string)
 	for _, d := range model.Dimensions {
@@ -156,46 +145,85 @@ func (c *Compiler) CompileWithPermissions(
 		dimMap[m.Name] = m.Expression
 	}
 
-	// Inject row filters into WHERE clause
-	injector := security.NewPermissionInjector()
-	filteredWhere, newArgs, err := injector.InjectRowFilters(
-		c.dialect, rowFilters, dimMap, cq.SQL, cq.Args,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("inject row filters: %w", err)
+	// If no row filters, compile normally
+	if len(rowFilters) == 0 {
+		return c.Compile(ctx, lq, model)
 	}
 
-	// If the original SQL has WHERE, append AND filters
-	// Otherwise, insert WHERE clause
-	if strings.Contains(strings.ToUpper(cq.SQL), " WHERE ") {
-		cq.SQL = filteredWhere
-		cq.Args = newArgs
+	// Compile normally first
+	cq, err := c.Compile(ctx, lq, model)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if original SQL has WHERE clause
+	upperSQL := strings.ToUpper(cq.SQL)
+	hasWhere := strings.Index(upperSQL, " WHERE ") >= 0
+
+	// Build row filter SQL parts with correct placeholder offsets
+	baseArgCount := len(cq.Args)
+	var filterParts []string
+	var filterArgs []any
+	for _, rf := range rowFilters {
+		colRef, ok := dimMap[rf.Field]
+		if !ok {
+			continue
+		}
+		quoted := c.dialect.QuoteIdent(colRef)
+		offset := baseArgCount
+		switch rf.Operator {
+		case "eq":
+			filterArgs = append(filterArgs, rf.Value)
+			filterParts = append(filterParts, quoted+" = "+c.dialect.Placeholder(offset+len(filterArgs)))
+		case "in":
+			if vals, ok := rf.Value.([]any); ok {
+				placeholders := make([]string, len(vals))
+				for i, v := range vals {
+					filterArgs = append(filterArgs, v)
+					placeholders[i] = c.dialect.Placeholder(offset + len(filterArgs))
+				}
+				filterParts = append(filterParts, quoted+" IN ("+strings.Join(placeholders, ", ")+")")
+			}
+		default:
+			filterArgs = append(filterArgs, rf.Value)
+			filterParts = append(filterParts, quoted+" = "+c.dialect.Placeholder(offset+len(filterArgs)))
+		}
+	}
+
+	if len(filterParts) == 0 {
+		return cq, nil
+	}
+
+	rowFilterSQL := strings.Join(filterParts, " AND ")
+
+	if hasWhere {
+		// Find where the WHERE clause content ends (before GROUP BY/ORDER BY/LIMIT)
+		whereIdx := strings.Index(upperSQL, " WHERE ")
+		whereEnd := whereIdx + len(" WHERE ")
+		// Find the end of WHERE content (start of next clause)
+		contentEnd := len(cq.SQL)
+		for _, kw := range []string{" GROUP BY ", " ORDER BY ", " LIMIT ", " OFFSET "} {
+			if idx := strings.Index(upperSQL, kw); idx != -1 && idx > whereEnd && idx < contentEnd {
+				contentEnd = idx
+			}
+		}
+		// Insert row filter between existing WHERE content and next clause
+		existingWhereContent := cq.SQL[whereEnd:contentEnd]
+		afterContent := cq.SQL[contentEnd:]
+		cq.SQL = cq.SQL[:whereEnd] + existingWhereContent + " AND " + rowFilterSQL + afterContent
+		cq.Args = append(cq.Args, filterArgs...)
 	} else {
-		// Insert WHERE before GROUP BY / ORDER BY / LIMIT
+		// Insert WHERE before GROUP BY / ORDER BY / LIMIT / OFFSET
 		injectPoint := len(cq.SQL)
 		for _, kw := range []string{"GROUP BY", "ORDER BY", "LIMIT", "OFFSET"} {
-			if idx := strings.Index(strings.ToUpper(cq.SQL), kw); idx != -1 && idx < injectPoint {
+			if idx := strings.Index(upperSQL, kw); idx != -1 && idx < injectPoint {
 				injectPoint = idx
 			}
 		}
 
-		var filterParts []string
-		for _, rf := range rowFilters {
-			colRef, ok := dimMap[rf.Field]
-			if !ok {
-				continue
-			}
-			quoted := c.dialect.QuoteIdent(colRef)
-			filterParts = append(filterParts, quoted+" IS NOT NULL")
-		}
-
-		if len(filterParts) == 0 {
-			return cq, nil
-		}
-
-		whereClause := " WHERE " + strings.Join(filterParts, " AND ")
+		whereClause := " WHERE " + rowFilterSQL + " "
 		cq.SQL = cq.SQL[:injectPoint] + whereClause + cq.SQL[injectPoint:]
-		cq.Args = append(cq.Args, newArgs...)
+		cq.Args = append(cq.Args, filterArgs...)
 	}
 
 	return cq, nil

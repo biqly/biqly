@@ -221,6 +221,69 @@ func (h *AIExamplesHandler) SubmitFeedback(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusOK, map[string]string{"status": "recorded"})
 }
 
+// GetModelSuccessRates returns per-model success/failure statistics.
+func (h *AIExamplesHandler) GetModelSuccessRates(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	days := r.URL.Query().Get("days")
+	if days == "" {
+		days = "30"
+	}
+
+	type ModelStats struct {
+		ModelID        string  `json:"model_id"`
+		ModelName      string  `json:"model_name,omitempty"`
+		TotalQueries   int     `json:"total_queries"`
+		SuccessCount   int     `json:"success_count"`
+		FailureCount   int     `json:"failure_count"`
+		SuccessRate    float64 `json:"success_rate"`
+		AvgConfidence  float64 `json:"avg_confidence"`
+		AvgLatencyMs   float64 `json:"avg_latency_ms"`
+		PositiveCount  int     `json:"positive_count"`
+		NegativeCount  int     `json:"negative_count"`
+	}
+
+	q := `
+		SELECT 
+			COALESCE(h.model_id, 'unknown') AS model_id,
+			COUNT(*) AS total_queries,
+			COUNT(*) FILTER (WHERE h.confidence_score >= 0.7 AND (h.warnings IS NULL OR jsonb_array_length(h.warnings) = 0)) AS success_count,
+			COUNT(*) FILTER (WHERE h.confidence_score < 0.7 OR (h.warnings IS NOT NULL AND jsonb_array_length(h.warnings) > 0)) AS failure_count,
+			COALESCE(AVG(h.confidence_score), 0) AS avg_confidence,
+			COALESCE(AVG(h.latency_ms), 0) AS avg_latency_ms,
+			COUNT(*) FILTER (WHERE h.user_rating = 'positive') AS positive_count,
+			COUNT(*) FILTER (WHERE h.user_rating = 'negative') AS negative_count
+		FROM ai_query_history h
+		WHERE h.created_at >= NOW() - ($1 || ' days')::INTERVAL
+		GROUP BY COALESCE(h.model_id, 'unknown')
+		ORDER BY total_queries DESC
+	`
+
+	rows, err := h.deps.MetadataDB.QueryContext(ctx, q, days)
+	if err != nil {
+		slog.ErrorContext(ctx, "get model success rates failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to get model statistics")
+		return
+	}
+	defer rows.Close()
+
+	var stats []ModelStats
+	for rows.Next() {
+		var s ModelStats
+		if err := rows.Scan(&s.ModelID, &s.TotalQueries, &s.SuccessCount, &s.FailureCount, &s.AvgConfidence, &s.AvgLatencyMs, &s.PositiveCount, &s.NegativeCount); err != nil {
+			slog.ErrorContext(ctx, "scan model stats failed", "error", err)
+			continue
+		}
+		if s.TotalQueries > 0 {
+			s.SuccessRate = float64(s.SuccessCount) / float64(s.TotalQueries) * 100
+		}
+		stats = append(stats, s)
+	}
+	if stats == nil {
+		stats = []ModelStats{}
+	}
+	writeJSON(w, http.StatusOK, stats)
+}
+
 // GetAIUsage returns aggregated AI usage statistics.
 func (h *AIExamplesHandler) GetAIUsage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

@@ -7,9 +7,11 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/query"
+	"github.com/google/uuid"
 )
 
 // --- Wire types (match frontend Evaluation.tsx) ---
@@ -64,12 +66,20 @@ func (h *AIHandler) evalAIConfigured() error {
 
 // executeGoldenCases runs each golden case once and returns aggregated results.
 func (h *AIHandler) executeGoldenCases(ctx context.Context) (*evalRunResponseWire, error) {
+	result, _, err := h.executeGoldenCasesWithMetrics(ctx)
+	return result, err
+}
+
+// executeGoldenCasesWithMetrics runs each golden case once and returns both the
+// wire response and per-case metrics for persistence.
+func (h *AIHandler) executeGoldenCasesWithMetrics(ctx context.Context) (*evalRunResponseWire, []ai.EvalResultWithMetrics, error) {
 	if err := h.evalAIConfigured(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	cases := ai.DefaultGoldenCases()
 	out := make([]evalTestCaseWire, 0, len(cases))
+	metrics := make([]ai.EvalResultWithMetrics, 0, len(cases))
 	var confSum float64
 	var confN int
 	passed := 0
@@ -83,10 +93,17 @@ func (h *AIHandler) executeGoldenCases(ctx context.Context) (*evalRunResponseWir
 			Status:               "fail",
 		}
 
+		start := time.Now()
 		resp, err := h.service.ProcessQuestion(ctx, c.Question, c.Model)
+		latencyMs := time.Since(start).Milliseconds()
+
 		if err != nil {
 			tc.ErrorMessage = err.Error()
 			out = append(out, tc)
+			metrics = append(metrics, ai.EvalResultWithMetrics{
+				EvalResult: ai.EvalResult{Case: c, Got: nil, Match: false, Reason: err.Error()},
+				LatencyMs:  latencyMs,
+			})
 			continue
 		}
 		if resp.LogicalQuery != nil {
@@ -100,11 +117,24 @@ func (h *AIHandler) executeGoldenCases(ctx context.Context) (*evalRunResponseWir
 		}
 
 		ok, reason := ai.LogicalQueryEqual(resp.LogicalQuery, &c.Expected)
+		tokenCount := 0 // would need LLM client to provide this
 		if ok {
 			tc.Status = "pass"
 			passed++
+			metrics = append(metrics, ai.EvalResultWithMetrics{
+				EvalResult: ai.EvalResult{Case: c, Got: resp.LogicalQuery, Match: true},
+				Confidence: resp.Confidence,
+				LatencyMs:  latencyMs,
+				TokenCount: tokenCount,
+			})
 		} else {
 			tc.ErrorMessage = reason
+			metrics = append(metrics, ai.EvalResultWithMetrics{
+				EvalResult: ai.EvalResult{Case: c, Got: resp.LogicalQuery, Match: false, Reason: reason},
+				Confidence: resp.Confidence,
+				LatencyMs:  latencyMs,
+				TokenCount: tokenCount,
+			})
 		}
 		out = append(out, tc)
 	}
@@ -127,7 +157,7 @@ func (h *AIHandler) executeGoldenCases(ctx context.Context) (*evalRunResponseWir
 		PassRate:      passRate,
 		AvgConfidence: avgConf,
 		TestCases:     out,
-	}, nil
+	}, metrics, nil
 }
 
 // EvalRun executes the built-in golden text-to-SQL cases against the live
@@ -141,11 +171,28 @@ func (h *AIHandler) EvalRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.executeGoldenCases(r.Context())
+	result, resultsWithMetrics, err := h.executeGoldenCasesWithMetrics(r.Context())
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
+
+	// Persist results if eval repo is available
+	if h.deps.EvalRepo != nil {
+		runID := uuid.New().String()
+		ctx := r.Context()
+		model := h.deps.Config.AI.Model
+		provider := h.deps.Config.AI.Provider
+		if provider == "" {
+			provider = "openai-compatible"
+		}
+		if err := h.deps.EvalRepo.SaveRunResults(ctx, runID, provider, model, 0, time.Time{}, resultsWithMetrics); err != nil {
+			slog.ErrorContext(ctx, "failed to persist eval results", "run_id", runID, "error", err)
+		} else {
+			slog.InfoContext(ctx, "eval results persisted", "run_id", runID, "passed", result.Passed, "failed", result.Failed)
+		}
+	}
+
 	writeJSON(w, http.StatusOK, result)
 }
 
@@ -232,4 +279,108 @@ func (h *AIHandler) requireAdminKey(w http.ResponseWriter, r *http.Request) bool
 		return false
 	}
 	return true
+}
+
+// EvalListRuns returns a list of past eval runs.
+func (h *AIHandler) EvalListRuns(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdminKey(w, r) {
+		return
+	}
+	if h.deps.EvalRepo == nil {
+		writeError(w, http.StatusServiceUnavailable, "eval storage not configured")
+		return
+	}
+
+	ctx := r.Context()
+	runs, err := h.deps.EvalRepo.ListRuns(ctx, 50)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list eval runs")
+		return
+	}
+	writeJSON(w, http.StatusOK, runs)
+}
+
+// EvalGetRun returns results for a specific eval run.
+func (h *AIHandler) EvalGetRun(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdminKey(w, r) {
+		return
+	}
+	if h.deps.EvalRepo == nil {
+		writeError(w, http.StatusServiceUnavailable, "eval storage not configured")
+		return
+	}
+
+	runID := extractUUIDFromPath(r)
+	if runID == "" {
+		writeError(w, http.StatusBadRequest, "run id is required")
+		return
+	}
+
+	ctx := r.Context()
+	summary, err := h.deps.EvalRepo.GetRunSummary(ctx, runID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "eval run not found")
+		return
+	}
+
+	results, err := h.deps.EvalRepo.GetRunResults(ctx, runID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get eval results")
+		return
+	}
+
+	type testCaseWire struct {
+		CaseID     string  `json:"case_id"`
+		Question   string  `json:"question"`
+		Match      bool    `json:"match"`
+		Reason     string  `json:"reason"`
+		Confidence float64 `json:"confidence"`
+		LatencyMs  int64   `json:"latency_ms"`
+	}
+	var testCases []testCaseWire
+	for _, res := range results {
+		testCases = append(testCases, testCaseWire{
+			CaseID:     res.CaseID,
+			Question:   res.Question,
+			Match:      res.Match,
+			Reason:     res.Reason,
+			Confidence: res.Confidence,
+			LatencyMs:  res.LatencyMs,
+		})
+	}
+	if testCases == nil {
+		testCases = []testCaseWire{}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"summary":    summary,
+		"test_cases": testCases,
+	})
+}
+
+// EvalRegression generates a regression report between two eval runs.
+func (h *AIHandler) EvalRegression(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdminKey(w, r) {
+		return
+	}
+	if h.deps.EvalRepo == nil {
+		writeError(w, http.StatusServiceUnavailable, "eval storage not configured")
+		return
+	}
+
+	baselineRunID := r.URL.Query().Get("baseline")
+	currentRunID := r.URL.Query().Get("current")
+	if baselineRunID == "" || currentRunID == "" {
+		writeError(w, http.StatusBadRequest, "baseline and current query params are required")
+		return
+	}
+
+	ctx := r.Context()
+	report, err := h.deps.EvalRepo.GenerateRegressionReport(ctx, baselineRunID, currentRunID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to generate regression report")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, report)
 }

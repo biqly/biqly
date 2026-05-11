@@ -23,12 +23,12 @@ olan calisma prensipleri uygulanacak.
 
 ## Alinmayacaklar
 
-- [ ] Go disinda yeni engine stack'e gecmek.
-- [ ] Rust/DataFusion benzeri ayri query engine yazmak.
-- [ ] Python/JS SDK veya WASM hedefini ilk faza almak.
-- [ ] AI'ya raw SQL urettirmek.
-- [ ] WrenAI dosya yapisini birebir kopyalamak.
-- [ ] Agent skill/MCP/SDK gibi entegrasyonlari core davranis oturmadan yapmak.
+- [x] Go disinda yeni engine stack'e gecmek.
+- [x] Rust/DataFusion benzeri ayri query engine yazmak.
+- [x] Python/JS SDK veya WASM hedefini ilk faza almak.
+- [x] AI'ya raw SQL urettirmek.
+- [x] WrenAI dosya yapisini birebir kopyalamak.
+- [x] Agent skill/MCP/SDK gibi entegrasyonlari core davranis oturmadan yapmak.
 
 ## Biqly'de Korunacak Temel Kararlar
 
@@ -171,17 +171,17 @@ Kabul kriteri:
 
 ## P1 - Retrieval ve Ambiguity Akisini Guclendir
 
-- [ ] Metadata embedding refresh islemini manuel endpoint disinda metadata sync
+- [x] Metadata embedding refresh islemini manuel endpoint disinda metadata sync
   sonrasi opsiyonel Go job olarak calistir.
-- [ ] Tablo secimi dusuk confidence ise direkt sorgu uretmek yerine netlestirme
+- [x] Tablo secimi dusuk confidence ise direkt sorgu uretmek yerine netlestirme
   sorusu dondur.
-- [ ] Netlestirme sorularini sadece "hangi tablo" seviyesinde birakma; is
+- [x] Netlestirme sorularini sadece "hangi tablo" seviyesinde birakma; is
   anlamina gore uret:
   - customer mi reseller mi employee mi
   - order date mi ship date mi
   - revenue gross mu net mi
-- [ ] Column selection'i table selection'dan ayri skorla.
-- [ ] Prompt'a sadece secilen kolonlari koy; elenen kolonlari debug trace'e yaz.
+- [x] Column selection'i table selection'dan ayri skorla.
+- [x] Prompt'a sadece secilen kolonlari koy; elenen kolonlari debug trace'e yaz.
 
 Kabul kriteri:
 
@@ -190,8 +190,8 @@ Kabul kriteri:
 
 ## P1 - Feedback ve Few-shot Dongusu
 
-- [ ] Positive feedback alan basarili sorgulari few-shot candidate olarak isaretle.
-- [ ] Negative feedback kategorilerini standartlastir:
+- [x] Positive feedback alan basarili sorgulari few-shot candidate olarak isaretle.
+- [x] Negative feedback kategorilerini standartlastir:
   - wrong_table
   - wrong_join
   - wrong_metric
@@ -199,11 +199,11 @@ Kabul kriteri:
   - wrong_date_range
   - execution_error
   - unclear_question
-- [ ] Few-shot secimi sadece en yeni kayitlardan degil, benzer soru + ayni
+- [x] Few-shot secimi sadece en yeni kayitlardan degil, benzer soru + ayni
   datasource/model + positive feedback sinyallerinden gelsin.
-- [ ] Feedback kaydi AI history ile iliskilendirilsin; sadece serbest text olarak
+- [x] Feedback kaydi AI history ile iliskilendirilsin; sadece serbest text olarak
   kalmasin.
-- [ ] Dashboard'da model bazli success/failure oranlari gorunsun.
+- [x] Dashboard'da model bazli success/failure oranlari gorunsun.
 
 Kabul kriteri:
 
@@ -212,16 +212,16 @@ Kabul kriteri:
 
 ## P2 - Governance ve Guvenlik
 
-- [ ] Datasource DSN encryption eksigini kapat.
-- [ ] Permission policy'nin AI, QueryBuilder ve direkt query endpoint'lerinde ayni
+- [x] Datasource DSN encryption eksigini kapat.
+- [x] Permission policy'nin AI, QueryBuilder ve direkt query endpoint'lerinde ayni
   sonucu verdigini test et.
-- [ ] Row-level filters'in compiler'a guvenli sekilde inject edildigini golden
+- [x] Row-level filters'in compiler'a guvenli sekilde inject edildigini golden
   testlerle dogrula.
-- [ ] Strict mode ekle:
+- [x] Strict mode ekle:
   - undeclared model/field kullanimi yok
   - raw SQL endpoint'leri admin/debug disinda yok
   - permission disi field prompt'a bile girmemeli
-- [ ] Audit log'a su alanlari ekle:
+- [x] Audit log'a su alanlari ekle:
   - context version
   - selected model/table
   - selected fields
@@ -234,17 +234,17 @@ Kabul kriteri:
 
 ## P2 - Evaluation Sistemi
 
-- [ ] `examples/adventureworks` icin golden question set olustur.
-- [ ] Her test case su alanlari icersin:
+- [x] `examples/adventureworks` icin golden question set olustur.
+- [x] Her test case su alanlari icersin:
   - question
   - expected selected tables
   - expected dimensions/metrics
   - expected LogicalQuery shape
   - expected SQL fragment veya normalized SQL
   - expected columns
-- [ ] Go test veya mevcut eval endpoint'i ile bu set calissin.
-- [ ] Context degisikliklerinde regression raporu uret.
-- [ ] Eval sonucunu provider/model/context version bazinda sakla.
+- [x] Go test veya mevcut eval endpoint'i ile bu set calissin.
+- [x] Context degisikliklerinde regression raporu uret.
+- [x] Eval sonucunu provider/model/context version bazinda sakla.
 
 Kabul kriteri:
 
@@ -252,17 +252,17 @@ Kabul kriteri:
 
 ## P2 - UI Calisma Prensibi
 
-- [ ] Metadata UI'da raw catalog ile business semantic context ayrilsin.
-- [ ] Semantic model ekraninda:
+- [x] Metadata UI'da raw catalog ile business semantic context ayrilsin.
+- [x] Semantic model ekraninda:
   - model fields
   - metrics
   - joins
   - relationship riskleri
   - prompt/context size estimate
   gorunsun.
-- [ ] AI Query ekraninda context trace gorunur olsun.
-- [ ] Feedback UI standart kategorilerle backend'e baglansin.
-- [ ] Publish edilmemis semantic degisiklik UI'da acikca isaretlensin.
+- [x] AI Query ekraninda context trace gorunur olsun.
+- [x] Feedback UI standart kategorilerle backend'e baglansin.
+- [x] Publish edilmemis semantic degisiklik UI'da acikca isaretlensin.
 
 Kabul kriteri:
 

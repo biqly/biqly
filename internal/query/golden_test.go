@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/biqly/biqly/internal/dialect"
+	"github.com/biqly/biqly/internal/security"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
@@ -699,5 +700,104 @@ func TestGolden_PostgresCalculatedDimension(t *testing.T) {
 
 	if expected != actual {
 		t.Errorf("SQL mismatch.\nExpected:\n%s\n\nGot:\n%s", expected, actual)
+	}
+}
+
+// TestGolden_RowFilterInjection verifies row-level security filters are
+// correctly injected into compiled SQL (golden test for permission injection).
+func TestGolden_RowFilterInjection_Eq(t *testing.T) {
+	golden, err := os.ReadFile(filepath.Join("..", "..", "testdata", "sql", "postgres", "row_filter_eq.sql"))
+	if err != nil {
+		t.Skip("golden file not found")
+	}
+
+	fixture := fixtureManyToOne()
+	compiler := NewCompiler(dialect.PostgresDialect{})
+	// Use a field that exists in the fixture: order_date -> orders.created_at
+	rowFilters := []security.RowFilter{
+		{Field: "order_date", Operator: "eq", Value: "2024-01-01"},
+	}
+
+	cq, err := compiler.CompileWithPermissions(context.Background(), fixture.LogicalQuery, fixture.Model, rowFilters)
+	if err != nil {
+		t.Fatalf("compilation with permissions failed: %v", err)
+	}
+
+	expected := normalizeSQL(string(golden))
+	actual := normalizeSQL(cq.SQL)
+
+	if expected != actual {
+		t.Errorf("Row filter injection SQL mismatch.\nExpected:\n%s\n\nGot:\n%s", expected, actual)
+	}
+}
+
+func TestGolden_RowFilterInjection_In(t *testing.T) {
+	golden, err := os.ReadFile(filepath.Join("..", "..", "testdata", "sql", "postgres", "row_filter_in.sql"))
+	if err != nil {
+		t.Skip("golden file not found")
+	}
+
+	fixture := fixtureManyToOne()
+	compiler := NewCompiler(dialect.PostgresDialect{})
+	rowFilters := []security.RowFilter{
+		{Field: "order_date", Operator: "in", Value: []any{"2024-01-01", "2024-02-01", "2024-03-01"}},
+	}
+
+	cq, err := compiler.CompileWithPermissions(context.Background(), fixture.LogicalQuery, fixture.Model, rowFilters)
+	if err != nil {
+		t.Fatalf("compilation with permissions failed: %v", err)
+	}
+
+	expected := normalizeSQL(string(golden))
+	actual := normalizeSQL(cq.SQL)
+
+	if expected != actual {
+		t.Errorf("Row filter IN injection SQL mismatch.\nExpected:\n%s\n\nGot:\n%s", expected, actual)
+	}
+}
+
+func TestGolden_RowFilterInjection_WithExistingWhere(t *testing.T) {
+	fixture := fixtureManyToOne()
+	compiler := NewCompiler(dialect.PostgresDialect{})
+	rowFilters := []security.RowFilter{
+		{Field: "customer_name", Operator: "eq", Value: "acme"},
+	}
+
+	lq := fixture.LogicalQuery
+	lq.Filters = append(lq.Filters, Filter{Field: "order_date", Operator: OpGte, Value: "2024-01-01"})
+
+	cq, err := compiler.CompileWithPermissions(context.Background(), lq, fixture.Model, rowFilters)
+	if err != nil {
+		t.Fatalf("compilation with permissions failed: %v", err)
+	}
+
+	// Should contain both the original WHERE and the row filter
+	sql := strings.ToUpper(cq.SQL)
+	if !strings.Contains(sql, "WHERE") {
+		t.Fatalf("expected WHERE clause, got: %s", cq.SQL)
+	}
+	// Both filters should be ANDed
+	if !strings.Contains(sql, "AND") {
+		t.Errorf("expected AND combining filters, got: %s", cq.SQL)
+	}
+}
+
+func TestGolden_RowFilterInjection_NoFilters(t *testing.T) {
+	fixture := fixtureManyToOne()
+	compiler := NewCompiler(dialect.PostgresDialect{})
+
+	cq, err := compiler.CompileWithPermissions(context.Background(), fixture.LogicalQuery, fixture.Model, nil)
+	if err != nil {
+		t.Fatalf("compilation with permissions failed: %v", err)
+	}
+
+	// Without row filters, should produce same SQL as normal compile
+	cqNormal, err := compiler.Compile(context.Background(), fixture.LogicalQuery, fixture.Model)
+	if err != nil {
+		t.Fatalf("normal compilation failed: %v", err)
+	}
+
+	if cq.SQL != cqNormal.SQL {
+		t.Errorf("expected same SQL without row filters.\nNormal:\n%s\n\nWithPermissions:\n%s", cqNormal.SQL, cq.SQL)
 	}
 }

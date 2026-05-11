@@ -19,7 +19,7 @@ func TestPromptBuildIncludesFewShotExamples(t *testing.T) {
 		{Question: "kaç sipariş var", LogicalQuery: `{"select":[{"type":"metric","name":"row_count"}]}`},
 		{Question: "    ", LogicalQuery: "junk"}, // should be skipped (empty question)
 	}
-	got := pb.Build("ne kadar sipariş var", model, 0, examples, nil, nil)
+	got := pb.Build("ne kadar sipariş var", model, 0, examples, nil, nil, nil)
 
 	if !strings.Contains(got, "Successful Past Queries") {
 		t.Errorf("expected few-shot section header in prompt; got:\n%s", got)
@@ -38,7 +38,7 @@ func TestPromptBuildIncludesFewShotExamples(t *testing.T) {
 func TestPromptBuildOmitsFewShotSectionWhenEmpty(t *testing.T) {
 	pb := &PromptBuilder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x"}
-	got := pb.Build("q", model, 0, nil, nil, nil)
+	got := pb.Build("q", model, 0, nil, nil, nil, nil)
 	if strings.Contains(got, "Successful Past Queries") {
 		t.Errorf("expected no few-shot header when examples nil")
 	}
@@ -52,7 +52,7 @@ func TestPromptBuildIncludesPriorTurns(t *testing.T) {
 		{Question: "    "}, // blank — should be skipped
 		{Question: "müşteri kırılımı yap"},
 	}
-	got := pb.Build("şimdi son çeyrek için filtrele", model, 0, nil, nil, turns)
+	got := pb.Build("şimdi son çeyrek için filtrele", model, 0, nil, nil, turns, nil)
 	if !strings.Contains(got, "## Prior Turns in This Conversation") {
 		t.Errorf("expected prior-turns header in prompt, got:\n%s", got)
 	}
@@ -74,7 +74,7 @@ func TestPromptBuildIncludesPriorTurns(t *testing.T) {
 func TestPromptBuildOmitsPriorTurnsHeaderWhenEmpty(t *testing.T) {
 	pb := &PromptBuilder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x"}
-	got := pb.Build("q", model, 0, nil, nil, nil)
+	got := pb.Build("q", model, 0, nil, nil, nil, nil)
 	if strings.Contains(got, "Prior Turns in This Conversation") {
 		t.Errorf("expected no prior-turns header when turns nil")
 	}
@@ -94,7 +94,7 @@ func TestPromptBuildIncludesSampleData(t *testing.T) {
 		},
 		{Schema: "public", Table: "empty", Rows: nil}, // skipped
 	}
-	got := pb.Build("q", model, 0, nil, samples, nil)
+	got := pb.Build("q", model, 0, nil, samples, nil, nil)
 	if !strings.Contains(got, "## Sample Data") {
 		t.Errorf("expected '## Sample Data' header in prompt")
 	}

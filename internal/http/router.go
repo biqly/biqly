@@ -93,6 +93,9 @@ func Router(deps *app.Dependencies) http.Handler {
 		r.Get("/ai/settings", aiHandler.RuntimeSettings)
 		r.Post("/ai/eval/run", aiHandler.EvalRun)
 		r.Get("/ai/eval/run/stream", aiHandler.EvalRunStream)
+		r.Get("/ai/eval/runs", aiHandler.EvalListRuns)
+		r.Get("/ai/eval/runs/{id}", aiHandler.EvalGetRun)
+		r.Get("/ai/eval/regression", aiHandler.EvalRegression)
 
 		// AI examples & feedback routes
 		examplesHandler := handlers.NewAIExamplesHandler(deps)
@@ -103,6 +106,7 @@ func Router(deps *app.Dependencies) http.Handler {
 		r.Post("/ai/feedback", examplesHandler.SubmitFeedback)
 		r.Get("/ai/usage", examplesHandler.GetAIUsage)
 		r.Get("/ai/example-ids", examplesHandler.GetExampleIDs)
+		r.Get("/ai/stats/models", examplesHandler.GetModelSuccessRates)
 	})
 
 	return r

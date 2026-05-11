@@ -57,12 +57,23 @@ func (h *DatasourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 		ID:           uuid.New().String(),
 		Name:         req.Name,
 		Type:         req.Type,
-		DSNEncrypted: req.DSN, // TODO: encrypt this
+		DSNEncrypted: req.DSN,
 		Config:       req.Config,
 		IsActive:     true,
 	}
 
+	// Encrypt DSN before storing if encryptor is available
 	ctx := r.Context()
+	if h.deps.Encryptor != nil {
+		encrypted, err := h.deps.Encryptor.Encrypt(req.DSN)
+		if err != nil {
+			slog.ErrorContext(ctx, "encrypt DSN failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "failed to encrypt DSN")
+			return
+		}
+		ds.DSNEncrypted = encrypted
+	}
+
 	if err := h.deps.MetaRepo.CreateDatasource(ctx, ds); err != nil {
 		slog.ErrorContext(ctx, "create datasource failed", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create datasource")
@@ -135,8 +146,18 @@ func (h *DatasourceHandler) Test(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	dsn := ds.DSNEncrypted
+	if h.deps.Encryptor != nil && h.deps.Encryptor.IsEncrypted(dsn) {
+		dsn, err = h.deps.Encryptor.Decrypt(dsn)
+		if err != nil {
+			slog.ErrorContext(ctx, "decrypt DSN failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "failed to decrypt DSN")
+			return
+		}
+	}
+
 	start := time.Now()
-	if err := driver.Ping(ctx, ds.DSNEncrypted); err != nil {
+	if err := driver.Ping(ctx, dsn); err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"success": false,
 			"error":   err.Error(),
@@ -169,7 +190,17 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	db, err := driver.Open(ctx, ds.DSNEncrypted)
+	dsn := ds.DSNEncrypted
+	if h.deps.Encryptor != nil && h.deps.Encryptor.IsEncrypted(dsn) {
+		dsn, err = h.deps.Encryptor.Decrypt(dsn)
+		if err != nil {
+			slog.ErrorContext(ctx, "decrypt DSN failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "failed to decrypt DSN")
+			return
+		}
+	}
+
+	db, err := driver.Open(ctx, dsn)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to open connection: %s", err.Error()))
 		return

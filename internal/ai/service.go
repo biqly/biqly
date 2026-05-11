@@ -88,6 +88,7 @@ type processOptions struct {
 	fewShot      []FewShotExample
 	samples      []TableSample
 	priorTurns   []ConversationTurn
+	deniedFields []string
 }
 
 // WithSQLValidator wires a dialect-aware dry-run check (e.g. EXPLAIN) into the
@@ -117,6 +118,13 @@ func WithPriorTurns(turns []ConversationTurn) ProcessOption {
 	return func(o *processOptions) { o.priorTurns = turns }
 }
 
+// WithDeniedFields prevents listed field names (dimensions, metrics, columns)
+// from appearing in the AI prompt — used in strict mode so the LLM cannot see
+// or select permission-denied fields.
+func WithDeniedFields(fields []string) ProcessOption {
+	return func(o *processOptions) { o.deniedFields = fields }
+}
+
 // ProcessQuestion handles a natural language question. On parse or validation
 // failure the LLM is re-prompted with the prior output and error message, up
 // to s.maxRetries additional attempts.
@@ -126,7 +134,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		opt(&options)
 	}
 
-	originalPrompt := s.promptBuilder.Build(question, model, s.maxPromptRunes, options.fewShot, options.samples, options.priorTurns)
+	originalPrompt := s.promptBuilder.Build(question, model, s.maxPromptRunes, options.fewShot, options.samples, options.priorTurns, options.deniedFields)
 
 	// Self-consistency: when configured, draw N candidates with stepped temperatures
 	// and vote. A clear majority returns immediately; otherwise we fall through to

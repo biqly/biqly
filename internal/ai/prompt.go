@@ -39,9 +39,17 @@ type ConversationTurn struct {
 // so providers with finite context windows do not receive huge auto-generated semantic models.
 // examples are dynamic few-shot pairs from the project's history; pass nil for none.
 // samples are concrete rows from queried tables; pass nil for none.
-func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, maxPromptRunes int, examples []FewShotExample, samples []TableSample, priorTurns []ConversationTurn) string {
+// deniedFields is an optional list of qualified field names (e.g. "model.secret_field") that
+// must NOT appear in the prompt — used in strict mode to enforce row-level security at prompt time.
+func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, maxPromptRunes int, examples []FewShotExample, samples []TableSample, priorTurns []ConversationTurn, deniedFields []string) string {
 	if maxPromptRunes <= 0 {
 		maxPromptRunes = 80000
+	}
+
+	// Build set of denied field names for fast lookup
+	deniedSet := make(map[string]bool, len(deniedFields))
+	for _, f := range deniedFields {
+		deniedSet[strings.ToLower(f)] = true
 	}
 
 	var sb strings.Builder
@@ -89,8 +97,24 @@ func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, ma
 		remaining = 16000
 	}
 
+	// Filter out denied fields from dimensions
+	var allowedDims []semantic.Dimension
+	for _, d := range model.Dimensions {
+		if !deniedSet[strings.ToLower(d.ColumnRef)] && !deniedSet[strings.ToLower(d.Name)] {
+			allowedDims = append(allowedDims, d)
+		}
+	}
+
+	// Filter out denied fields from metrics
+	var allowedMetrics []semantic.Metric
+	for _, m := range model.Metrics {
+		if !deniedSet[strings.ToLower(m.Expression)] && !deniedSet[strings.ToLower(m.Name)] {
+			allowedMetrics = append(allowedMetrics, m)
+		}
+	}
+
 	write("## Available Dimensions\n")
-	omittedDims := b.writeDimensions(&sb, model.Dimensions, remaining/2)
+	omittedDims := b.writeDimensions(&sb, allowedDims, remaining/2)
 	write("\n")
 
 	write("## Available Metrics\n")
@@ -98,7 +122,7 @@ func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, ma
 	if metricsBudget < 4000 {
 		metricsBudget = 4000
 	}
-	omittedMetrics := b.writeMetrics(&sb, model.Metrics, metricsBudget)
+	omittedMetrics := b.writeMetrics(&sb, allowedMetrics, metricsBudget)
 	write("\n")
 
 	if omittedDims > 0 || omittedMetrics > 0 {
@@ -106,9 +130,17 @@ func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, ma
 			omittedDims, omittedMetrics)
 	}
 
-	if len(model.Joins) > 0 {
+	// Filter out denied fields from joins
+	var allowedJoins []semantic.Join
+	for _, j := range model.Joins {
+		if !deniedSet[strings.ToLower(j.FromTable+"."+j.FromColumn)] && !deniedSet[strings.ToLower(j.ToTable+"."+j.ToColumn)] {
+			allowedJoins = append(allowedJoins, j)
+		}
+	}
+
+	if len(allowedJoins) > 0 {
 		write("## Available Joins\n")
-		for _, j := range model.Joins {
+		for _, j := range allowedJoins {
 			fmt.Fprintf(&sb, "- %s: %s.%s → %s.%s (%s, %s)\n",
 				j.Name, j.FromTable, j.FromColumn, j.ToTable, j.ToColumn, j.JoinType, j.Relationship)
 		}
