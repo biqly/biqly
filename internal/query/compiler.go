@@ -158,7 +158,7 @@ func (c *Compiler) CompileWithPermissions(
 
 	// Check if original SQL has WHERE clause
 	upperSQL := strings.ToUpper(cq.SQL)
-	hasWhere := strings.Index(upperSQL, " WHERE ") >= 0
+	hasWhere := strings.Contains(upperSQL, " WHERE ")
 
 	// Build row filter SQL parts with correct placeholder offsets
 	baseArgCount := len(cq.Args)

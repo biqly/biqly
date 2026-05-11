@@ -81,11 +81,11 @@ export default function Datasources() {
   }
 
   return (
-    <div>
+    <div className="page-stack">
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="card-header-row">
           <h2>Bağlantı Kayıtları</h2>
-          <button className="btn" onClick={() => setShowForm(!showForm)}>
+          <button className="btn" type="button" onClick={() => setShowForm(!showForm)}>
               {showForm ? 'İptal' : '+ Yeni Veri Kaynağı'}
           </button>
         </div>
@@ -137,9 +137,9 @@ export default function Datasources() {
         <table className="results-table">
           <thead>
             <tr>
-              <th>Ad</th>
-              <th>Tür</th>
-              <th>Son Eşitleme</th>
+              <th>Kayıt adı</th>
+              <th>Veri kaynağı türü</th>
+              <th>Son eşitleme</th>
               <th className="actions">İşlemler</th>
             </tr>
           </thead>

@@ -127,6 +127,37 @@ interface ColumnRow {
   referenced_column: string | null
 }
 
+/** PK / FK etiketleri — ayrı kolon yerine kolon adı satırında gösterilir. */
+function columnKeySuffix(c: ColumnRow): string | null {
+  const parts: string[] = []
+  if (c.is_primary_key) parts.push('PK')
+  if (c.is_foreign_key) {
+    if (c.referenced_table && c.referenced_column) {
+      parts.push(`FK→${c.referenced_table}.${c.referenced_column}`)
+    } else {
+      parts.push('FK')
+    }
+  }
+  if (parts.length === 0) return null
+  return parts.join(', ')
+}
+
+const DESC_TEXTAREA_MAX_ROWS = 24
+/** Yaklaşık sütun genişliği (karakter); tek satırda yumuşak satır kırılımı tahmini için. */
+const DESC_SOFT_WRAP_CHARS = 72
+
+/** Düzenleme açılırken textarea satır sayısı: gerçek \n satırları + uzun satırlar için tahmini kırılım. */
+function textareaRowsForDescription(text: string | null | undefined): number {
+  const raw = text ?? ''
+  if (!raw.trim()) return 1
+  const parts = raw.split('\n')
+  let rows = 0
+  for (const line of parts) {
+    rows += line.length === 0 ? 1 : Math.max(1, Math.ceil(line.length / DESC_SOFT_WRAP_CHARS))
+  }
+  return Math.min(DESC_TEXTAREA_MAX_ROWS, Math.max(1, rows))
+}
+
 interface DescribeResult {
   schema: string
   table: string
@@ -159,6 +190,7 @@ export default function Metadata() {
   const [bulkEntries, setBulkEntries] = useState<BulkEntry[]>([])
   const [bulkSummary, setBulkSummary] = useState<{ ok: number; error: number; skipped: number } | null>(null)
   const bulkCancelRef = useRef(false)
+  const skipBlurSaveRef = useRef(false)
   const [tableFilterSchema, setTableFilterSchema] = useState(schemaParam)
   const [tableFilterType, setTableFilterType] = useState(typeParam)
   /** Batch modal: which table_type values to include (all keys set true in openBulk). */
@@ -273,6 +305,10 @@ export default function Metadata() {
   }
 
   const saveDescription = async () => {
+    if (skipBlurSaveRef.current) {
+      skipBlurSaveRef.current = false
+      return
+    }
     if (!editing) return
     const url = editing.kind === 'table' ? `/api/metadata/tables/${editing.id}` : `/api/metadata/columns/${editing.id}`
     const value = editing.value.trim() === '' ? null : editing.value
@@ -413,7 +449,7 @@ export default function Metadata() {
   }
 
   return (
-    <div>
+    <div className="page-stack">
       <div className="card">
         <h2>Metadata Tarayıcı</h2>
         <div className="form-group">
@@ -431,8 +467,8 @@ export default function Metadata() {
 
       {datasourceId && (
         <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <h2 style={{ margin: 0, fontSize: '1.05rem' }}>
+          <div className="card-header-row card-header-row--spaced">
+            <h2>
               Tablolar (
               {filteredTables.length}
               {filteredTables.length !== tables.length ? ` / ${tables.length}` : ''})
@@ -451,9 +487,9 @@ export default function Metadata() {
           {tables.length > 0 && (
             <div className="metadata-table-filters">
               <div className="form-group metadata-filter-field">
-                <label htmlFor="metadata-filter-schema">Şema</label>
                 <Select
                   id="metadata-filter-schema"
+                  ariaLabel="Şema filtresi"
                   value={tableFilterSchema}
                   onChange={setTableFilterSchema}
                   options={[
@@ -463,9 +499,9 @@ export default function Metadata() {
                 />
               </div>
               <div className="form-group metadata-filter-field">
-                <label htmlFor="metadata-filter-type">Tür</label>
                 <Select
                   id="metadata-filter-type"
+                  ariaLabel="Tablo türü filtresi"
                   value={tableFilterType}
                   onChange={setTableFilterType}
                   options={[
@@ -476,12 +512,18 @@ export default function Metadata() {
               </div>
             </div>
           )}
-          <table className="results-table results-table--metadata-list">
+          <table className="results-table results-table--metadata-list" lang="tr">
+            <colgroup>
+              <col className="metadata-cw-name" />
+              <col className="metadata-cw-type" />
+              <col className="metadata-cw-desc" />
+              <col className="metadata-cw-actions" />
+            </colgroup>
             <thead>
               <tr>
-                <th>Şema.Tablo</th>
-                <th className="metadata-col-type">Tür</th>
-                <th>Açıklama</th>
+                <th>Tablo adı</th>
+                <th className="metadata-col-type">Nesne türü</th>
+                <th>Tablo açıklaması</th>
                 <th className="actions">İşlemler</th>
               </tr>
             </thead>
@@ -495,7 +537,7 @@ export default function Metadata() {
               )}
               {filteredTables.map((t) => (
                 <Fragment key={t.id}>
-                  <tr>
+                  <tr className={openTableId === t.id ? 'metadata-table-row metadata-table-row--expanded' : 'metadata-table-row'}>
                     <td>
                       <button
                         type="button"
@@ -509,14 +551,33 @@ export default function Metadata() {
                       </button>
                     </td>
                     <td className="metadata-col-type">{t.table_type}</td>
-                    <td onDoubleClick={() => setEditing({ kind: 'table', id: t.id, value: t.description ?? '' })}>
+                    <td
+                      className={editing?.kind === 'table' && editing.id === t.id ? 'metadata-desc-cell metadata-desc-cell--editing' : 'metadata-desc-cell'}
+                      onDoubleClick={() => {
+                        skipBlurSaveRef.current = false
+                        setEditing({ kind: 'table', id: t.id, value: t.description ?? '' })
+                      }}
+                    >
                       {editing?.kind === 'table' && editing.id === t.id ? (
-                        <input
+                        <textarea
+                          className="metadata-inline-field metadata-inline-field--fit-rows"
+                          title="Kaydetmek için Cmd/Ctrl+Enter veya dışarı tıklayın. İptal: Escape."
                           autoFocus
+                          rows={textareaRowsForDescription(editing.value)}
                           value={editing.value}
                           onChange={(e) => setEditing({ ...editing, value: e.target.value })}
-                          onBlur={saveDescription}
-                          onKeyDown={(e) => { if (e.key === 'Enter') saveDescription(); if (e.key === 'Escape') setEditing(null) }}
+                          onBlur={() => void saveDescription()}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Escape') {
+                              e.preventDefault()
+                              skipBlurSaveRef.current = true
+                              setEditing(null)
+                            }
+                            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                              e.preventDefault()
+                              void saveDescription()
+                            }
+                          }}
                         />
                       ) : (
                         <span style={{ color: t.description ? 'var(--text-primary)' : 'var(--text-secondary)', fontStyle: t.description ? 'normal' : 'italic' }}>
@@ -531,34 +592,77 @@ export default function Metadata() {
                     </td>
                   </tr>
                   {openTableId === t.id && columns.length > 0 && (
-                    <tr>
-                      <td colSpan={4} style={{ background: 'var(--bg-card)', padding: 0 }}>
-                        <table className="results-table results-table--metadata-list results-table--nested">
+                    <tr className="metadata-nested-row">
+                      <td colSpan={4} className="metadata-nested-cell">
+                        <div className="metadata-nested-panel">
+                          <table className="results-table results-table--metadata-list results-table--nested" lang="tr">
+                          <caption className="metadata-nested-caption">
+                            Kolonlar — {t.schema_name}.{t.table_name}
+                          </caption>
+                          <colgroup>
+                            <col className="metadata-ncol-name" />
+                            <col className="metadata-ncol-type" />
+                            <col className="metadata-ncol-desc" />
+                          </colgroup>
                           <thead>
                             <tr>
-                              <th>Kolon</th>
-                              <th>Tür</th>
-                              <th>Bayraklar</th>
-                              <th>Açıklama</th>
+                              <th scope="col">Kolon adı</th>
+                              <th scope="col" className="metadata-col-type">Veri türü</th>
+                              <th scope="col">Kolon tanımı</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {columns.map((c) => (
+                            {columns.map((c) => {
+                              const keySuffix = columnKeySuffix(c)
+                              const suffixMultiline = Boolean(keySuffix?.includes('FK'))
+                              return (
                               <tr key={c.id}>
-                                <td>{c.column_name}</td>
-                                <td>{c.data_type}{c.nullable ? '' : ' NOT NULL'}</td>
-                                <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                  {c.is_primary_key && 'PK '}
-                                  {c.is_foreign_key && c.referenced_table && `FK→${c.referenced_table}.${c.referenced_column}`}
+                                <td className="metadata-col-name-cell">
+                                  <span className="metadata-col-name-base">{c.column_name}</span>
+                                  {keySuffix && (
+                                    <span
+                                      className={
+                                        suffixMultiline
+                                          ? 'metadata-col-name-suffix metadata-col-name-suffix--multiline'
+                                          : 'metadata-col-name-suffix'
+                                      }
+                                    >
+                                      {suffixMultiline ? `(${keySuffix})` : ` (${keySuffix})`}
+                                    </span>
+                                  )}
                                 </td>
-                                <td onDoubleClick={() => setEditing({ kind: 'column', id: c.id, value: c.description ?? '' })}>
+                                <td className="metadata-col-type">{c.data_type}{c.nullable ? '' : ' NOT NULL'}</td>
+                                <td
+                                  className={
+                                    editing?.kind === 'column' && editing.id === c.id
+                                      ? 'metadata-desc-cell metadata-desc-cell--editing'
+                                      : 'metadata-desc-cell'
+                                  }
+                                  onDoubleClick={() => {
+                                    skipBlurSaveRef.current = false
+                                    setEditing({ kind: 'column', id: c.id, value: c.description ?? '' })
+                                  }}
+                                >
                                   {editing?.kind === 'column' && editing.id === c.id ? (
-                                    <input
+                                    <textarea
+                                      className="metadata-inline-field metadata-inline-field--fit-rows"
+                                      title="Kaydetmek için Cmd/Ctrl+Enter veya dışarı tıklayın. İptal: Escape."
                                       autoFocus
+                                      rows={textareaRowsForDescription(editing.value)}
                                       value={editing.value}
                                       onChange={(e) => setEditing({ ...editing, value: e.target.value })}
-                                      onBlur={saveDescription}
-                                      onKeyDown={(e) => { if (e.key === 'Enter') saveDescription(); if (e.key === 'Escape') setEditing(null) }}
+                                      onBlur={() => void saveDescription()}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Escape') {
+                                          e.preventDefault()
+                                          skipBlurSaveRef.current = true
+                                          setEditing(null)
+                                        }
+                                        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                          e.preventDefault()
+                                          void saveDescription()
+                                        }
+                                      }}
                                     />
                                   ) : (
                                     <span style={{ color: c.description ? 'var(--text-primary)' : 'var(--text-secondary)', fontStyle: c.description ? 'normal' : 'italic' }}>
@@ -567,9 +671,11 @@ export default function Metadata() {
                                   )}
                                 </td>
                               </tr>
-                            ))}
+                              )
+                            })}
                           </tbody>
                         </table>
+                        </div>
                       </td>
                     </tr>
                   )}

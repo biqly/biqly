@@ -194,10 +194,10 @@ export default function QueryBuilder() {
   }) || []
 
   return (
-    <div>
+    <div className="page-stack">
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h2 style={{ margin: 0 }}>Sorgu kurulumu</h2>
+        <div className="card-header-row card-header-row--spaced">
+          <h2>Sorgu kurulumu</h2>
           <div className="toggle-group">
             <button className={`toggle-btn ${mode === 'simple' ? 'active' : ''}`} onClick={() => setMode('simple')}>Basit</button>
             <button className={`toggle-btn ${mode === 'advanced' ? 'active' : ''}`} onClick={() => setMode('advanced')}>Gelişmiş</button>
@@ -390,15 +390,21 @@ export default function QueryBuilder() {
 
       {result && (
         <div className="card">
-          <h2>Sonuçlar ({result.stats?.row_count || 0} satır, {result.stats?.duration_ms || 0} ms)</h2>
+          {chartData.length > 0 ? (
+            <div className="card-header-row card-header-row--spaced">
+              <h2>Sonuçlar ({result.stats?.row_count || 0} satır, {result.stats?.duration_ms || 0} ms)</h2>
+              <div className="toggle-group" role="group" aria-label="Grafik türü">
+                <button type="button" className={`toggle-btn ${chartType === 'bar' ? 'active' : ''}`} onClick={() => setChartType('bar')}>Çubuk</button>
+                <button type="button" className={`toggle-btn ${chartType === 'line' ? 'active' : ''}`} onClick={() => setChartType('line')}>Çizgi</button>
+                <button type="button" className={`toggle-btn ${chartType === 'pie' ? 'active' : ''}`} onClick={() => setChartType('pie')}>Pasta</button>
+              </div>
+            </div>
+          ) : (
+            <h2>Sonuçlar ({result.stats?.row_count || 0} satır, {result.stats?.duration_ms || 0} ms)</h2>
+          )}
 
           {chartData.length > 0 && (
             <>
-              <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem' }}>
-                <button className={chartType === 'bar' ? 'btn' : ''} onClick={() => setChartType('bar')}>Çubuk</button>
-                <button className={chartType === 'line' ? 'btn' : ''} onClick={() => setChartType('line')}>Çizgi</button>
-                <button className={chartType === 'pie' ? 'btn' : ''} onClick={() => setChartType('pie')}>Pasta</button>
-              </div>
               <div className="chart-container" style={{ height: 300 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   {chartType === 'bar' ? (

@@ -97,7 +97,7 @@ export default function FewShotExamples() {
   }
 
   return (
-    <div>
+    <div className="page-stack">
       {!apiReady && (
         <div className="error" style={{ marginBottom: '1rem' }}>
           Backend uç noktası henüz hazır değil. Örnekler tarayıcınızda yerel olarak saklanıyor.

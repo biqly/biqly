@@ -102,7 +102,7 @@ export default function SavedQuestions() {
   const fewShotCount = fewShotEntries.length
 
   return (
-    <div>
+    <div className="page-stack">
       <div className="card">
         <h2>Soru kütüphanesi</h2>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginBottom: '0.75rem' }}>
