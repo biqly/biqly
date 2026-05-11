@@ -15,8 +15,10 @@ import {
 } from 'recharts'
 import { useApi } from '../hooks/useApi'
 import { useConversation } from '../hooks/useConversation'
+import { useQueryParam } from '../hooks/useQueryParam'
 import { formatResultCell } from '../utils/resultCellFormat'
 import ResultTable from './ResultTable'
+import { Select } from './ui/Select'
 import type { AIQueryResponse, TableRoutingCandidate, LogicalQueryCandidate, AIRuntimeSettings, EmbedMetadataResponse } from '../types/ai'
 import type { Datasource } from '../types/metadata'
 
@@ -111,8 +113,8 @@ function TableRoutingViz({ routing }: { routing: NonNullable<AIQueryResponse['ta
         <div><span>Kaynak</span><strong>{sourceLabel}</strong></div>
         {selectedModels && <div><span>Model</span><strong>{selectedModels}</strong></div>}
         {selectedTables && <div><span>Tablolar</span><strong>{selectedTables}</strong></div>}
-        {selectedDims && <div><span>Dimensions</span><strong>{selectedDims}</strong></div>}
-        {selectedMetrics && <div><span>Metrics</span><strong>{selectedMetrics}</strong></div>}
+        {selectedDims && <div><span>Boyutlar</span><strong>{selectedDims}</strong></div>}
+        {selectedMetrics && <div><span>Metrikler</span><strong>{selectedMetrics}</strong></div>}
         {routing.context_updated_at && <div><span>Context zamanı</span><strong>{new Date(routing.context_updated_at).toLocaleString()}</strong></div>}
       </div>
       {(routing.candidates ?? []).map((c: TableRoutingCandidate) => {
@@ -134,10 +136,10 @@ function TableRoutingViz({ routing }: { routing: NonNullable<AIQueryResponse['ta
       {routing.debug && (
         <div className="routing-debug">
           {routing.debug.relation_expansion && routing.debug.relation_expansion.length > 0 && (
-            <div><span>Relation expansion</span><code>{routing.debug.relation_expansion.join(' | ')}</code></div>
+            <div><span>İlişki genişletmesi</span><code>{routing.debug.relation_expansion.join(' | ')}</code></div>
           )}
           {routing.debug.bridge_tables && routing.debug.bridge_tables.length > 0 && (
-            <div><span>Bridge tables</span><code>{routing.debug.bridge_tables.join(', ')}</code></div>
+            <div><span>Köprü tabloları</span><code>{routing.debug.bridge_tables.join(', ')}</code></div>
           )}
           {routing.debug.eliminated_candidates && routing.debug.eliminated_candidates.length > 0 && (
             <div><span>Elenen adaylar</span><code>{routing.debug.eliminated_candidates.join(', ')}</code></div>
@@ -181,7 +183,7 @@ function CandidateComparisonPanel({ candidates, onUse }: { candidates: LogicalQu
               </div>
               {c.reasoning && <p className="candidate-reasoning">{c.reasoning}</p>}
               <details>
-                <summary>LogicalQuery (JSON)</summary>
+                <summary>Mantıksal Sorgu (JSON)</summary>
                 <pre className="sql-preview candidate-json">{JSON.stringify(c.logical_query, null, 2)}</pre>
               </details>
               <button className="btn btn-candidate-use" onClick={() => onUse(i)}>{isBest ? 'Kullan (önerilen)' : 'Bunu kullan'}</button>
@@ -430,7 +432,8 @@ export default function AIQuery() {
   // Datasource / table state
   const [datasources, setDatasources] = useState<Datasource[]>([])
   const [tables, setTables] = useState<TableOption[]>([])
-  const [datasourceId, setDatasourceId] = useState('')
+  const [dsParam, setDsParam] = useQueryParam('ds')
+  const [datasourceId, setDatasourceId] = useState(dsParam)
   const [selectedTables, setSelectedTables] = useState<string[]>([])
   const [tableSearch, setTableSearch] = useState('')
   const [includeBaseTables, setIncludeBaseTables] = useState(true)
@@ -458,6 +461,9 @@ export default function AIQuery() {
   // Include past queries toggle
   const [includePastQueries, setIncludePastQueries] = useState(false)
 
+  /** Which primary action is in flight — avoids both buttons showing the same loading text */
+  const [queryAction, setQueryAction] = useState<'preview' | 'execute' | null>(null)
+
   // Cell drill-down
   const [drillDownTarget, setDrillDownTarget] = useState<string | null>(null)
 
@@ -465,9 +471,18 @@ export default function AIQuery() {
 
   useEffect(() => {
     get<Datasource[]>('/api/datasources').then((data) => {
-      if (data) { setDatasources(data); if (data[0]) setDatasourceId(data[0].id) }
+      if (!data) return
+      setDatasources(data)
+      setDatasourceId((prev) => {
+        if (prev && data.some((d) => d.id === prev)) return prev
+        return data[0]?.id ?? ''
+      })
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    setDsParam(datasourceId)
+  }, [datasourceId, setDsParam])
 
   useEffect(() => {
     get<AIRuntimeSettings>('/api/ai/settings').then((data) => {
@@ -561,29 +576,34 @@ export default function AIQuery() {
 
   const sendQuery = async (q: string, execute: boolean) => {
     setQuestion(q)
-    const body = {
-      datasource_id: datasourceId,
-      question: q,
-      tables: autoTableRouting ? undefined : selectedTables,
-      include_base_tables: includeBaseTables,
-      include_views: includeViews,
-      conversation_id: activeConversation?.id,
-      prior_turns: includePastQueries ? recentPriorTurns() : undefined,
-    }
-    const endpoint = execute ? '/api/ai/query/run' : '/api/ai/query/preview'
-    const res = await postData<AIQueryResponse>(endpoint, body, { timeout: AI_QUERY_TIMEOUT_MS })
-    if (!res) return
-    setResult(res); setChartType('table')
-    setUserFeedback(null); setShowFeedbackForm(false); setFeedbackCategories([]); setFeedbackText('')
+    setQueryAction(execute ? 'execute' : 'preview')
+    try {
+      const body = {
+        datasource_id: datasourceId,
+        question: q,
+        tables: autoTableRouting ? undefined : selectedTables,
+        include_base_tables: includeBaseTables,
+        include_views: includeViews,
+        conversation_id: activeConversation?.id,
+        prior_turns: includePastQueries ? recentPriorTurns() : undefined,
+      }
+      const endpoint = execute ? '/api/ai/query/run' : '/api/ai/query/preview'
+      const res = await postData<AIQueryResponse>(endpoint, body, { timeout: AI_QUERY_TIMEOUT_MS })
+      if (!res) return
+      setResult(res); setChartType('table')
+      setUserFeedback(null); setShowFeedbackForm(false); setFeedbackCategories([]); setFeedbackText('')
 
-    if (res.needs_clarification) {
+      if (res.needs_clarification) {
+        addMessage({ role: 'user', content: q })
+        addMessage({ role: 'assistant', content: res.clarification_question ?? 'Lütfen netleştirin.', ai_response: res })
+        return
+      }
       addMessage({ role: 'user', content: q })
-      addMessage({ role: 'assistant', content: res.clarification_question ?? 'Lütfen netleştirin.', ai_response: res })
-      return
+      const summary = res.sql ? `SQL: ${res.sql.slice(0, 120)}…` : 'Sorgu çalıştırıldı'
+      addMessage({ role: 'assistant', content: summary, ai_response: res })
+    } finally {
+      setQueryAction(null)
     }
-    addMessage({ role: 'user', content: q })
-    const summary = res.sql ? `SQL: ${res.sql.slice(0, 120)}…` : 'Sorgu çalıştırıldı'
-    addMessage({ role: 'assistant', content: summary, ai_response: res })
   }
 
   const handleClarificationSelect = (opt: string) => sendQuery(`${question} (${opt})`, true)
@@ -637,6 +657,9 @@ export default function AIQuery() {
     : 'Düşünülüyor…'
     : ''
 
+  const previewButtonLabel = loading && queryAction === 'preview' ? loadingLabel : 'SQL Önizle'
+  const executeButtonLabel = loading && queryAction === 'execute' ? loadingLabel : 'Önizle & Çalıştır'
+
   return (
     <div className="ai-query-layout">
       {/* ─── Conversation Sidebar ─────────────────────────────── */}
@@ -676,14 +699,25 @@ export default function AIQuery() {
           <p className="card-subtitle">Doğal dilde bir soru sorun. AI bir LogicalQuery oluşturur, backend bunu SQL'e derler.</p>
 
           <div className="query-controls">
-            <div className="form-group ai-settings-group">
-              <label htmlFor="ai-datasource">Veri Kaynağı</label>
-              <select id="ai-datasource" value={datasourceId} onChange={(e) => setDatasourceId(e.target.value)}>
-                <option value="">— seçin —</option>
-                {datasources.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
-            </div>
             <div className="form-group">
+              <label htmlFor="ai-datasource">Veri Kaynağı</label>
+              <Select
+                id="ai-datasource"
+                value={datasourceId}
+                onChange={setDatasourceId}
+                placeholder="— seçin —"
+                header="Veri kaynakları"
+                options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
+              />
+            </div>
+            <div className="form-group routing-toggle">
+              <label>Tablo Yönlendirme</label>
+              <div className="toggle-group">
+                <button className={`toggle-btn ${autoTableRouting ? 'active' : ''}`} onClick={() => setAutoTableRouting(true)}>Otomatik</button>
+                <button className={`toggle-btn ${!autoTableRouting ? 'active' : ''}`} onClick={() => setAutoTableRouting(false)}>Manuel</button>
+              </div>
+            </div>
+            <div className="form-group ai-settings-group">
               <AIRuntimeSettingsPanel
                 settings={aiRuntime}
                 err={aiRuntimeErr}
@@ -694,13 +728,6 @@ export default function AIQuery() {
                 embeddingStatus={embeddingStatus}
                 onRefreshEmbeddings={refreshMetadataEmbeddings}
               />
-            </div>
-            <div className="form-group routing-toggle">
-              <label>Tablo Yönlendirme</label>
-              <div className="toggle-group">
-                <button className={`toggle-btn ${autoTableRouting ? 'active' : ''}`} onClick={() => setAutoTableRouting(true)}>Otomatik</button>
-                <button className={`toggle-btn ${!autoTableRouting ? 'active' : ''}`} onClick={() => setAutoTableRouting(false)}>Manuel</button>
-              </div>
             </div>
           </div>
 
@@ -740,8 +767,8 @@ export default function AIQuery() {
           </div>
 
           <div className="button-row">
-            <button className="btn" onClick={() => sendQuery(question, false)} disabled={loading || !question || !datasourceId}>{loadingLabel || 'SQL Önizle'}</button>
-            <button className="btn btn-primary" onClick={() => sendQuery(question, true)} disabled={loading || !question || !datasourceId}>{loadingLabel || 'Önizle & Çalıştır'}</button>
+            <button className="btn" onClick={() => sendQuery(question, false)} disabled={loading || !question || !datasourceId}>{previewButtonLabel}</button>
+            <button className="btn btn-primary" onClick={() => sendQuery(question, true)} disabled={loading || !question || !datasourceId}>{executeButtonLabel}</button>
             {loading && <button className="btn btn-ghost" onClick={abort}>İptal</button>}
           </div>
           {error && <div className="error" style={{ marginTop: '1rem' }}>{error}</div>}

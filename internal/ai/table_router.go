@@ -422,7 +422,7 @@ func selectAutomaticTables(
 		if len(selected) >= maxAutoSelectedTables || bundle.score == 0 {
 			break
 		}
-		if bundle.score >= bundles[0].score*0.30 || bundle.score >= 5 {
+		if bundle.score >= bundles[0].score*0.30 {
 			selected = append(selected, bundle)
 		}
 	}

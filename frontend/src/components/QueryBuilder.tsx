@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
 import { useApi } from '../hooks/useApi'
+import { useQueryParam } from '../hooks/useQueryParam'
 import { formatResultCell } from '../utils/resultCellFormat'
+import { Select } from './ui/Select'
 import type { FilterClause, GroupByField, OrderByField, CTE, LogicalQuery } from '../types/ai'
 
 interface Datasource {
@@ -46,17 +48,24 @@ const WINDOW_FUNC_OPTIONS = ['ROW_NUMBER', 'RANK', 'DENSE_RANK', 'LAG', 'LEAD', 
 export default function QueryBuilder() {
   const { get, postData, loading, error } = useApi()
   const [datasources, setDatasources] = useState<Datasource[]>([])
-  const [datasourceId, setDatasourceId] = useState('')
+  const [dsParam, setDsParam] = useQueryParam('ds')
+  const [datasourceId, setDatasourceId] = useState(dsParam)
   const [modelId, setModelId] = useState('')
 
   useEffect(() => {
     get<Datasource[]>('/api/datasources').then((data) => {
-      if (data) {
-        setDatasources(data)
-        if (data[0]) setDatasourceId(data[0].id)
-      }
+      if (!data) return
+      setDatasources(data)
+      setDatasourceId((prev) => {
+        if (prev && data.some((d) => d.id === prev)) return prev
+        return data[0]?.id ?? ''
+      })
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    setDsParam(datasourceId)
+  }, [datasourceId, setDsParam])
   const [selectItems, setSelectItems] = useState<SelectItem[]>([])
   const [filters, setFilters] = useState<FilterRow[]>([])
   const [groupBy, setGroupBy] = useState<string[]>([])
@@ -197,12 +206,15 @@ export default function QueryBuilder() {
         <div style={{ display: 'flex', gap: '1rem' }}>
           <div className="form-group" style={{ flex: 1 }}>
             <label htmlFor="query-datasource">Veri kaynağı</label>
-            <select id="query-datasource" name="datasource" value={datasourceId} onChange={(e) => setDatasourceId(e.target.value)}>
-              <option value="">— seçin —</option>
-              {datasources.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
+            <Select
+              id="query-datasource"
+              name="datasource"
+              value={datasourceId}
+              onChange={setDatasourceId}
+              placeholder="— seçin —"
+              header="Veri kaynakları"
+              options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
+            />
           </div>
           <div className="form-group" style={{ flex: 1 }}>
             <label htmlFor="query-model">Anlamsal model</label>
@@ -214,10 +226,15 @@ export default function QueryBuilder() {
           <label>Seçim alanları</label>
           {selectItems.map((item, i) => (
             <div key={i} className="query-builder-row">
-              <select value={item.type} onChange={(e) => updateSelectItem(i, 'type', e.target.value)} aria-label={`Alan ${i + 1} türü`}>
-                <option value="dimension">Boyut</option>
-                <option value="metric">Metrik</option>
-              </select>
+              <Select
+                value={item.type}
+                onChange={(v) => updateSelectItem(i, 'type', v)}
+                ariaLabel={`Alan ${i + 1} türü`}
+                options={[
+                  { value: 'dimension', label: 'Boyut' },
+                  { value: 'metric', label: 'Metrik' },
+                ]}
+              />
               <input value={item.name} onChange={(e) => updateSelectItem(i, 'name', e.target.value)} placeholder="alan adı…" aria-label={`Alan ${i + 1} adı`} autoComplete="off" />
               <button className="remove-btn" onClick={() => removeSelectItem(i)} aria-label={`Alan ${i + 1} kaldır`}>×</button>
             </div>
@@ -230,17 +247,22 @@ export default function QueryBuilder() {
           {filters.map((f, i) => (
             <div key={i} className="query-builder-row">
               <input value={f.field} onChange={(e) => updateFilter(i, 'field', e.target.value)} placeholder="alan…" aria-label={`Filtre ${i + 1} alan`} autoComplete="off" />
-              <select value={f.operator} onChange={(e) => updateFilter(i, 'operator', e.target.value)} aria-label={`Filtre ${i + 1} operatör`}>
-                <option value="eq">=</option>
-                <option value="neq">!=</option>
-                <option value="gt">&gt;</option>
-                <option value="gte">&gt;=</option>
-                <option value="lt">&lt;</option>
-                <option value="lte">&lt;=</option>
-                <option value="contains">içerir</option>
-                <option value="in">içinde</option>
-                <option value="between">arasında</option>
-              </select>
+              <Select
+                value={f.operator}
+                onChange={(v) => updateFilter(i, 'operator', v)}
+                ariaLabel={`Filtre ${i + 1} operatör`}
+                options={[
+                  { value: 'eq', label: '=' },
+                  { value: 'neq', label: '!=' },
+                  { value: 'gt', label: '>' },
+                  { value: 'gte', label: '>=' },
+                  { value: 'lt', label: '<' },
+                  { value: 'lte', label: '<=' },
+                  { value: 'contains', label: 'içerir' },
+                  { value: 'in', label: 'içinde' },
+                  { value: 'between', label: 'arasında' },
+                ]}
+              />
               <input value={f.value} onChange={(e) => updateFilter(i, 'value', e.target.value)} placeholder="değer…" aria-label={`Filtre ${i + 1} değer`} autoComplete="off" />
               <button className="remove-btn" onClick={() => removeFilter(i)} aria-label={`Filtre ${i + 1} kaldır`}>×</button>
             </div>
@@ -260,10 +282,16 @@ export default function QueryBuilder() {
           </div>
           <div className="form-group" style={{ flex: 1 }}>
             <label htmlFor="query-order-direction">Yön</label>
-            <select id="query-order-direction" name="order_direction" value={orderDir} onChange={(e) => setOrderDir(e.target.value)}>
-              <option value="asc">ASC</option>
-              <option value="desc">DESC</option>
-            </select>
+            <Select
+              id="query-order-direction"
+              name="order_direction"
+              value={orderDir}
+              onChange={setOrderDir}
+              options={[
+                { value: 'asc', label: 'ASC' },
+                { value: 'desc', label: 'DESC' },
+              ]}
+            />
           </div>
           <div className="form-group" style={{ flex: 1 }}>
             <label htmlFor="query-limit">Limit</label>
@@ -286,14 +314,19 @@ export default function QueryBuilder() {
                 {having.map((h, i) => (
                   <div key={i} className="query-builder-row">
                     <input value={h.field} onChange={(e) => updateHaving(i, 'field', e.target.value)} placeholder="özetlenmiş alan…" aria-label={`Having ${i + 1} alan`} autoComplete="off" />
-                    <select value={h.operator} onChange={(e) => updateHaving(i, 'operator', e.target.value)} aria-label={`Having ${i + 1} operator`}>
-                      <option value="gt">&gt;</option>
-                      <option value="gte">&gt;=</option>
-                      <option value="lt">&lt;</option>
-                      <option value="lte">&lt;=</option>
-                      <option value="eq">=</option>
-                      <option value="neq">!=</option>
-                    </select>
+                    <Select
+                      value={h.operator}
+                      onChange={(v) => updateHaving(i, 'operator', v)}
+                      ariaLabel={`Having ${i + 1} operator`}
+                      options={[
+                        { value: 'gt', label: '>' },
+                        { value: 'gte', label: '>=' },
+                        { value: 'lt', label: '<' },
+                        { value: 'lte', label: '<=' },
+                        { value: 'eq', label: '=' },
+                        { value: 'neq', label: '!=' },
+                      ]}
+                    />
                     <input value={h.value} onChange={(e) => updateHaving(i, 'value', e.target.value)} placeholder="değer…" aria-label={`Having ${i + 1} değer`} autoComplete="off" />
                     <button className="remove-btn" onClick={() => removeHaving(i)} aria-label={`Having ${i + 1} kaldır`}>×</button>
                   </div>
@@ -307,9 +340,12 @@ export default function QueryBuilder() {
               <div className="form-group" style={{ marginTop: '0.5rem' }}>
                 {windowFunctions.map((w, i) => (
                   <div key={i} className="query-builder-row query-builder-row--wide">
-                    <select value={w.func} onChange={(e) => updateWindowFunc(i, 'func', e.target.value)} aria-label={`Pencere ${i + 1} tür`}>
-                      {WINDOW_FUNC_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-                    </select>
+                    <Select
+                      value={w.func}
+                      onChange={(v) => updateWindowFunc(i, 'func', v)}
+                      ariaLabel={`Pencere ${i + 1} tür`}
+                      options={WINDOW_FUNC_OPTIONS.map((opt) => ({ value: opt, label: opt }))}
+                    />
                     <input value={w.field} onChange={(e) => updateWindowFunc(i, 'field', e.target.value)} placeholder="alan…" aria-label={`Pencere ${i + 1} alan`} autoComplete="off" />
                     <input value={w.partition_by} onChange={(e) => updateWindowFunc(i, 'partition_by', e.target.value)} placeholder="PARTITION BY (virgülle)" aria-label={`Pencere ${i + 1} bölüm`} autoComplete="off" />
                     <input value={w.order_by} onChange={(e) => updateWindowFunc(i, 'order_by', e.target.value)} placeholder="ORDER BY alanı" aria-label={`Pencere ${i + 1} sıra`} autoComplete="off" />

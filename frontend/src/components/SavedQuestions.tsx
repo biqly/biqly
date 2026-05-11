@@ -188,7 +188,7 @@ export default function SavedQuestions() {
             <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
               {selectedQuestion.description}
             </p>
-            <h3>LogicalQuery</h3>
+            <h3>Mantıksal Sorgu</h3>
             <div className="sql-preview">
               {JSON.stringify(selectedQuestion.logical_query, null, 2)}
             </div>

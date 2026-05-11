@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useApi } from '../hooks/useApi'
+import { Select } from './ui/Select'
 
 interface Datasource {
   id: string
@@ -18,9 +19,9 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
 })
 
 const formatDateTime = (value: string | null) => {
-  if (!value) return 'Never'
+  if (!value) return 'Hiç'
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'Never'
+  if (Number.isNaN(date.getTime())) return 'Hiç'
   return dateFormatter.format(date)
 }
 
@@ -50,32 +51,32 @@ export default function Datasources() {
   }
 
   const del = async (id: string) => {
-    if (!confirm('Delete datasource and all its metadata?')) return
+    if (!confirm('Veri kaynağını ve tüm metadata kayıtlarını silmek istediğinize emin misiniz?')) return
     await deleteData(`/api/datasources/${id}`)
     load()
   }
 
   const test = async (id: string) => {
-    setTestResult({ ...testResult, [id]: 'Testing…' })
+    setTestResult({ ...testResult, [id]: 'Test ediliyor…' })
     const res = await postData<{ success: boolean; latency_ms?: number; error?: string }>(`/api/datasources/${id}/test`, {})
     if (res?.success) {
-      setTestResult({ ...testResult, [id]: `OK (${res.latency_ms}ms)` })
+      setTestResult({ ...testResult, [id]: `Başarılı (${res.latency_ms} ms)` })
     } else {
-      setTestResult({ ...testResult, [id]: `Failed: ${res?.error ?? 'unknown'}` })
+      setTestResult({ ...testResult, [id]: `Başarısız: ${res?.error ?? 'bilinmeyen'}` })
     }
   }
 
   const sync = async (id: string) => {
-    setSyncResult({ ...syncResult, [id]: 'Syncing…' })
+    setSyncResult({ ...syncResult, [id]: 'Eşitleniyor…' })
     const res = await postData<{ schemas: number; tables: number; columns: number; relations: number }>(
       `/api/datasources/${id}/sync-metadata`,
       {}
     )
     if (res) {
-      setSyncResult({ ...syncResult, [id]: `${res.tables} tables, ${res.columns} columns` })
+      setSyncResult({ ...syncResult, [id]: `${res.tables} tablo, ${res.columns} kolon` })
       load()
     } else {
-      setSyncResult({ ...syncResult, [id]: 'failed' })
+      setSyncResult({ ...syncResult, [id]: 'başarısız' })
     }
   }
 
@@ -83,26 +84,30 @@ export default function Datasources() {
     <div>
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2>Connection Registry</h2>
+          <h2>Bağlantı Kayıtları</h2>
           <button className="btn" onClick={() => setShowForm(!showForm)}>
-              {showForm ? 'Cancel' : '+ New Datasource'}
+              {showForm ? 'İptal' : '+ Yeni Veri Kaynağı'}
           </button>
         </div>
 
         {showForm && (
           <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
             <div className="form-group">
-              <label htmlFor="datasource-name">Name</label>
+              <label htmlFor="datasource-name">Ad</label>
               <input id="datasource-name" name="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="prod-orders-db…" autoComplete="off" />
             </div>
             <div className="form-group">
-              <label htmlFor="datasource-type">Type</label>
-              <select id="datasource-type" name="type" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-                {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
+              <label htmlFor="datasource-type">Tür</label>
+              <Select
+                id="datasource-type"
+                name="type"
+                value={form.type}
+                onChange={(v) => setForm({ ...form, type: v })}
+                options={TYPES.map((t) => ({ value: t, label: t }))}
+              />
             </div>
             <div className="form-group">
-              <label htmlFor="datasource-dsn">DSN / Connection String</label>
+              <label htmlFor="datasource-dsn">DSN / Bağlantı Dizesi</label>
               <input
                 id="datasource-dsn"
                 name="dsn"
@@ -114,10 +119,10 @@ export default function Datasources() {
                 spellCheck={false}
               />
               <small style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
-                Stored encrypted. Use a read-only DB user.
+                Şifrelenmiş olarak saklanır. Salt okunur bir veritabanı kullanıcısı tercih edin.
               </small>
             </div>
-            <button className="btn" onClick={create} disabled={loading}>Create</button>
+            <button className="btn" onClick={create} disabled={loading}>Oluştur</button>
           </div>
         )}
 
@@ -125,17 +130,17 @@ export default function Datasources() {
       </div>
 
       <div className="card">
-        <h2>Registered ({items.length})</h2>
+        <h2>Kayıtlı ({items.length})</h2>
         {items.length === 0 && !loading && (
-          <p style={{ color: 'var(--text-secondary)' }}>No datasources yet. Add one above.</p>
+          <p style={{ color: 'var(--text-secondary)' }}>Henüz veri kaynağı yok. Yukarıdan ekleyin.</p>
         )}
         <table className="results-table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Type</th>
-              <th>Last Sync</th>
-              <th className="actions">Actions</th>
+              <th>Ad</th>
+              <th>Tür</th>
+              <th>Son Eşitleme</th>
+              <th className="actions">İşlemler</th>
             </tr>
           </thead>
           <tbody>
@@ -153,9 +158,9 @@ export default function Datasources() {
                 </td>
                 <td className="actions">
                   <div className="row-actions">
-                    <button className="btn btn-sm" onClick={() => test(ds.id)}>Test</button>
-                    <button className="btn btn-sm" onClick={() => sync(ds.id)}>Sync</button>
-                    <button className="btn btn-sm btn-danger" onClick={() => del(ds.id)}>Delete</button>
+                    <button className="btn btn-sm" onClick={() => test(ds.id)}>Test Et</button>
+                    <button className="btn btn-sm" onClick={() => sync(ds.id)}>Eşitle</button>
+                    <button className="btn btn-sm btn-danger" onClick={() => del(ds.id)}>Sil</button>
                   </div>
                 </td>
               </tr>

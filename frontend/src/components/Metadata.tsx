@@ -1,5 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useApi } from '../hooks/useApi'
+import { useQueryParam } from '../hooks/useQueryParam'
+import { Select } from './ui/Select'
 
 type BulkStatus = 'pending' | 'running' | 'ok' | 'error' | 'skipped'
 
@@ -33,11 +35,11 @@ function sortBulkEntriesForDisplay(entries: BulkEntry[]): BulkEntry[] {
 
 function BulkStatusBadge({ status }: { status: BulkStatus }) {
   const map: Record<BulkStatus, { label: string; color: string }> = {
-    pending: { label: '⏳ pending', color: 'var(--text-secondary)' },
-    running: { label: '⚙️ running', color: '#60a5fa' },
-    ok: { label: '✓ ok', color: '#4ade80' },
-    error: { label: '✗ error', color: '#f87171' },
-    skipped: { label: '↷ skipped', color: 'var(--text-secondary)' },
+    pending: { label: '⏳ bekliyor', color: 'var(--text-secondary)' },
+    running: { label: '⚙️ çalışıyor', color: '#60a5fa' },
+    ok: { label: '✓ tamam', color: '#4ade80' },
+    error: { label: '✗ hata', color: '#f87171' },
+    skipped: { label: '↷ atlandı', color: 'var(--text-secondary)' },
   }
   const s = map[status]
   return <span style={{ color: s.color, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{s.label}</span>
@@ -45,8 +47,8 @@ function BulkStatusBadge({ status }: { status: BulkStatus }) {
 
 function objectTypeLabel(tableType: string): string {
   const u = tableType.toUpperCase()
-  if (u === 'VIEW') return 'Views'
-  if (u === 'BASE TABLE') return 'Base tables'
+  if (u === 'VIEW') return 'Görünümler'
+  if (u === 'BASE TABLE') return 'Temel tablolar'
   return tableType
 }
 
@@ -71,9 +73,9 @@ function BulkProgressHeader({
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.25rem', gap: '0.5rem' }}>
         <span>
           {running
-            ? <>Processing {done} / {total} — current: <code>{current ? `${current.schema}.${current.table}` : '…'}</code></>
+            ? <>İşleniyor {done} / {total} — şu an: <code>{current ? `${current.schema}.${current.table}` : '…'}</code></>
             : summary
-              ? <>Done — {summary.ok} ok, {summary.error} error, {summary.skipped} skipped</>
+              ? <>Tamamlandı — {summary.ok} başarılı, {summary.error} hata, {summary.skipped} atlandı</>
               : <>{done} / {total}</>}
         </span>
         <span>{pct}%</span>
@@ -140,7 +142,10 @@ interface DescribeResult {
 export default function Metadata() {
   const { get, postData, patchData, loading, error } = useApi()
   const [datasources, setDatasources] = useState<Datasource[]>([])
-  const [datasourceId, setDatasourceId] = useState('')
+  const [dsParam, setDsParam] = useQueryParam('ds')
+  const [schemaParam, setSchemaParam] = useQueryParam('schema')
+  const [typeParam, setTypeParam] = useQueryParam('type')
+  const [datasourceId, setDatasourceId] = useState(dsParam)
   const [tables, setTables] = useState<TableRow[]>([])
   const [openTableId, setOpenTableId] = useState<string | null>(null)
   const [columns, setColumns] = useState<ColumnRow[]>([])
@@ -154,8 +159,8 @@ export default function Metadata() {
   const [bulkEntries, setBulkEntries] = useState<BulkEntry[]>([])
   const [bulkSummary, setBulkSummary] = useState<{ ok: number; error: number; skipped: number } | null>(null)
   const bulkCancelRef = useRef(false)
-  const [tableFilterSchema, setTableFilterSchema] = useState('')
-  const [tableFilterType, setTableFilterType] = useState('')
+  const [tableFilterSchema, setTableFilterSchema] = useState(schemaParam)
+  const [tableFilterType, setTableFilterType] = useState(typeParam)
   /** Batch modal: which table_type values to include (all keys set true in openBulk). */
   const [bulkTypeEnabled, setBulkTypeEnabled] = useState<Record<string, boolean>>({})
   const [bulkSchemaRestrict, setBulkSchemaRestrict] = useState(false)
@@ -163,20 +168,39 @@ export default function Metadata() {
 
   useEffect(() => {
     get<Datasource[]>('/api/datasources').then((data) => {
-      if (data) {
-        setDatasources(data)
-        if (data[0]) setDatasourceId(data[0].id)
-      }
+      if (!data) return
+      setDatasources(data)
+      setDatasourceId((prev) => {
+        if (prev && data.some((d) => d.id === prev)) return prev
+        return data[0]?.id ?? ''
+      })
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    setDsParam(datasourceId)
+  }, [datasourceId, setDsParam])
+  useEffect(() => {
+    setSchemaParam(tableFilterSchema)
+  }, [tableFilterSchema, setSchemaParam])
+  useEffect(() => {
+    setTypeParam(tableFilterType)
+  }, [tableFilterType, setTypeParam])
+
+  /** Reset filters only when DS actually changes (preserves URL filters on first load,
+   *  and is safe under StrictMode double-invoke in dev). */
+  const prevDsRef = useRef(datasourceId)
 
   useEffect(() => {
     if (!datasourceId) return
     get<TableRow[]>(`/api/datasources/${datasourceId}/tables`).then((data) => setTables(data || []))
     setOpenTableId(null)
     setColumns([])
-    setTableFilterSchema('')
-    setTableFilterType('')
+    if (prevDsRef.current && prevDsRef.current !== datasourceId) {
+      setTableFilterSchema('')
+      setTableFilterType('')
+    }
+    prevDsRef.current = datasourceId
   }, [datasourceId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const schemaOptions = useMemo(
@@ -318,7 +342,7 @@ export default function Metadata() {
 
     const queue: BulkEntry[] = targets.map((t) => {
       if (bulkConfig.skip_existing && t.description) {
-        return { schema: t.schema_name, table: t.table_name, status: 'skipped', message: 'already described' }
+        return { schema: t.schema_name, table: t.table_name, status: 'skipped', message: 'zaten açıklamalı' }
       }
       return { schema: t.schema_name, table: t.table_name, status: 'pending' }
     })
@@ -358,11 +382,11 @@ export default function Metadata() {
           errCount++
         } else {
           const cols = data?.columns?.length ?? 0
-          queue[i] = { schema, table, status: 'ok', message: `${cols} columns described` }
+          queue[i] = { schema, table, status: 'ok', message: `${cols} kolon açıklandı` }
           ok++
         }
       } catch (err) {
-        queue[i] = { schema, table, status: 'error', message: err instanceof Error ? err.message : 'network error' }
+        queue[i] = { schema, table, status: 'error', message: err instanceof Error ? err.message : 'ağ hatası' }
         errCount++
       }
       setBulkEntries([...queue])
@@ -391,15 +415,16 @@ export default function Metadata() {
   return (
     <div>
       <div className="card">
-        <h2>Metadata Browser</h2>
+        <h2>Metadata Tarayıcı</h2>
         <div className="form-group">
-          <label>Datasource</label>
-          <select value={datasourceId} onChange={(e) => setDatasourceId(e.target.value)}>
-            <option value="">— select —</option>
-            {datasources.map((d) => (
-              <option key={d.id} value={d.id}>{d.name} ({d.type})</option>
-            ))}
-          </select>
+          <label>Veri Kaynağı</label>
+          <Select
+            value={datasourceId}
+            onChange={setDatasourceId}
+            placeholder="— seçin —"
+            header="Veri Kaynakları"
+            options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
+          />
         </div>
         {error && <div className="error">{error}</div>}
       </div>
@@ -408,65 +433,63 @@ export default function Metadata() {
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0, fontSize: '1.05rem' }}>
-              Tables (
+              Tablolar (
               {filteredTables.length}
               {filteredTables.length !== tables.length ? ` / ${tables.length}` : ''})
             </h2>
             {tables.length > 0 && (
               <button type="button" className="btn btn-sm" onClick={openBulk} disabled={bulkRunning}>
-                AI metadata generator
+                AI Metadata Üretici
               </button>
             )}
           </div>
           {tables.length === 0 && !loading && (
             <p style={{ color: 'var(--text-secondary)' }}>
-              No tables. Run <strong>Sync</strong> from the Datasources tab.
+              Tablo yok. Veri Kaynakları sekmesinden <strong>Eşitle</strong> çalıştırın.
             </p>
           )}
           {tables.length > 0 && (
             <div className="metadata-table-filters">
               <div className="form-group metadata-filter-field">
-                <label htmlFor="metadata-filter-schema">Schema</label>
-                <select
+                <label htmlFor="metadata-filter-schema">Şema</label>
+                <Select
                   id="metadata-filter-schema"
                   value={tableFilterSchema}
-                  onChange={(e) => setTableFilterSchema(e.target.value)}
-                >
-                  <option value="">All schemas</option>
-                  {schemaOptions.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
+                  onChange={setTableFilterSchema}
+                  options={[
+                    { value: '', label: 'Tüm şemalar' },
+                    ...schemaOptions.map((s) => ({ value: s, label: s })),
+                  ]}
+                />
               </div>
               <div className="form-group metadata-filter-field">
-                <label htmlFor="metadata-filter-type">Type</label>
-                <select
+                <label htmlFor="metadata-filter-type">Tür</label>
+                <Select
                   id="metadata-filter-type"
                   value={tableFilterType}
-                  onChange={(e) => setTableFilterType(e.target.value)}
-                >
-                  <option value="">All types</option>
-                  {typeOptions.map((ty) => (
-                    <option key={ty} value={ty}>{ty}</option>
-                  ))}
-                </select>
+                  onChange={setTableFilterType}
+                  options={[
+                    { value: '', label: 'Tüm türler' },
+                    ...typeOptions.map((ty) => ({ value: ty, label: ty })),
+                  ]}
+                />
               </div>
             </div>
           )}
           <table className="results-table results-table--metadata-list">
             <thead>
               <tr>
-                <th>Schema.Table</th>
-                <th className="metadata-col-type">Type</th>
-                <th>Description</th>
-                <th className="actions">Actions</th>
+                <th>Şema.Tablo</th>
+                <th className="metadata-col-type">Tür</th>
+                <th>Açıklama</th>
+                <th className="actions">İşlemler</th>
               </tr>
             </thead>
             <tbody>
               {filteredTables.length === 0 && tables.length > 0 && (
                 <tr>
                   <td colSpan={4} style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', padding: '0.75rem' }}>
-                    No tables match the current filters.
+                    Mevcut filtrelerle eşleşen tablo yok.
                   </td>
                 </tr>
               )}
@@ -478,7 +501,7 @@ export default function Metadata() {
                         type="button"
                         className="icon-btn"
                         aria-expanded={openTableId === t.id}
-                        aria-label={`${openTableId === t.id ? 'Collapse' : 'Expand'} ${t.schema_name}.${t.table_name}`}
+                        aria-label={`${t.schema_name}.${t.table_name} ${openTableId === t.id ? 'kapat' : 'genişlet'}`}
                         onClick={() => toggleTable(t)}
                       >
                         <span className="chevron">{openTableId === t.id ? '▼' : '▶'}</span>
@@ -497,13 +520,13 @@ export default function Metadata() {
                         />
                       ) : (
                         <span style={{ color: t.description ? 'var(--text-primary)' : 'var(--text-secondary)', fontStyle: t.description ? 'normal' : 'italic' }}>
-                          {t.description || '(double-click to edit)'}
+                          {t.description || '(düzenlemek için çift tıklayın)'}
                         </span>
                       )}
                     </td>
                     <td className="actions">
                       <button type="button" className="btn btn-sm" onClick={() => openDescribe(t)}>
-                        🤖 AI Describe
+                        🤖 AI Açıkla
                       </button>
                     </td>
                   </tr>
@@ -513,10 +536,10 @@ export default function Metadata() {
                         <table className="results-table results-table--metadata-list results-table--nested">
                           <thead>
                             <tr>
-                              <th>Column</th>
-                              <th>Type</th>
-                              <th>Flags</th>
-                              <th>Description</th>
+                              <th>Kolon</th>
+                              <th>Tür</th>
+                              <th>Bayraklar</th>
+                              <th>Açıklama</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -539,7 +562,7 @@ export default function Metadata() {
                                     />
                                   ) : (
                                     <span style={{ color: c.description ? 'var(--text-primary)' : 'var(--text-secondary)', fontStyle: c.description ? 'normal' : 'italic' }}>
-                                      {c.description || '(double-click to edit)'}
+                                      {c.description || '(düzenlemek için çift tıklayın)'}
                                     </span>
                                   )}
                                 </td>
@@ -571,13 +594,13 @@ export default function Metadata() {
           >
             <header className="modal-header modal-header--compact">
               <div>
-                <h2 id="bulk-metadata-title" className="bulk-modal-title">AI metadata generator</h2>
-                <p className="bulk-modal-subtitle">Turkish-first LLM descriptions for selected tables &amp; columns</p>
+                <h2 id="bulk-metadata-title" className="bulk-modal-title">AI Metadata Üretici</h2>
+                <p className="bulk-modal-subtitle">Seçili tablo ve kolonlar için Türkçe öncelikli LLM açıklamaları</p>
               </div>
               <button
                 type="button"
                 className="modal-close"
-                aria-label="Close"
+                aria-label="Kapat"
                 onClick={closeBulk}
               >
                 ×
@@ -587,12 +610,12 @@ export default function Metadata() {
               {bulkEntries.length === 0 && !bulkRunning && (
                 <>
                   <p className="bulk-lede">
-                    Descriptions are inferred from sampled rows and saved to metadata. They are generated in Turkish by default, while keeping useful technical table/column names. Large selections use more tokens and time.
+                    Açıklamalar örneklenen satırlardan çıkarılır ve metadata'ya kaydedilir. Varsayılan olarak Türkçe üretilirken yararlı teknik tablo/kolon adları korunur. Büyük seçimler daha fazla token ve zaman kullanır.
                   </p>
                   <div className="bulk-panel-grid">
                     <fieldset className="bulk-fieldset">
-                      <legend className="bulk-legend">Object types</legend>
-                      <div className="bulk-pill-row" role="group" aria-label="Object types to include">
+                      <legend className="bulk-legend">Nesne türleri</legend>
+                      <div className="bulk-pill-row" role="group" aria-label="Dahil edilecek nesne türleri">
                         {typeOptions.map((ty) => (
                           <button
                             key={ty}
@@ -609,15 +632,15 @@ export default function Metadata() {
                         ))}
                       </div>
                       {!bulkHasObjectType && (
-                        <p className="bulk-modal-warn">Turn on at least one type.</p>
+                        <p className="bulk-modal-warn">En az bir tür seçin.</p>
                       )}
                     </fieldset>
                     <fieldset className="bulk-fieldset">
-                      <legend className="bulk-legend">Schemas</legend>
+                      <legend className="bulk-legend">Şemalar</legend>
                       <div
                         className="bulk-segmented"
                         role="group"
-                        aria-label="Schema scope"
+                        aria-label="Şema kapsamı"
                       >
                         <button
                           type="button"
@@ -627,7 +650,7 @@ export default function Metadata() {
                             setBulkSchemasSelected([])
                           }}
                         >
-                          All schemas
+                          Tüm şemalar
                         </button>
                         <button
                           type="button"
@@ -637,14 +660,14 @@ export default function Metadata() {
                             setBulkSchemasSelected((prev) => (prev.length > 0 ? prev : [...schemaOptions]))
                           }}
                         >
-                          Choose…
+                          Seç…
                         </button>
                       </div>
                       <div
                         className={`bulk-schema-box${bulkSchemaRestrict ? ' bulk-schema-box--active' : ''}`}
                       >
                         {!bulkSchemaRestrict ? (
-                          <p className="bulk-schema-placeholder">Every schema in this datasource is included.</p>
+                          <p className="bulk-schema-placeholder">Bu veri kaynağındaki tüm şemalar dahil.</p>
                         ) : (
                           <>
                             <select
@@ -656,7 +679,7 @@ export default function Metadata() {
                               onChange={(e) =>
                                 setBulkSchemasSelected([...e.target.selectedOptions].map((o) => o.value))
                               }
-                              aria-label="Schemas to include"
+                              aria-label="Dahil edilecek şemalar"
                             >
                               {schemaOptions.map((s) => (
                                 <option key={s} value={s}>{s}</option>
@@ -668,16 +691,16 @@ export default function Metadata() {
                                 className="btn btn-ghost btn-sm"
                                 onClick={() => setBulkSchemasSelected([...schemaOptions])}
                               >
-                                All
+                                Tümü
                               </button>
                               <button
                                 type="button"
                                 className="btn btn-ghost btn-sm"
                                 onClick={() => setBulkSchemasSelected([])}
                               >
-                                None
+                                Hiçbiri
                               </button>
-                              <span className="bulk-schema-hint">Ctrl/Cmd-click to multi-select</span>
+                              <span className="bulk-schema-hint">Çoklu seçim için Ctrl/Cmd+tıklayın</span>
                             </div>
                           </>
                         )}
@@ -686,7 +709,7 @@ export default function Metadata() {
                   </div>
                   <div className="bulk-options-row">
                     <div className="form-group bulk-opt-field">
-                      <label className="bulk-opt-label" htmlFor="bulk-sample-size">Sample rows</label>
+                      <label className="bulk-opt-label" htmlFor="bulk-sample-size">Örnek satır</label>
                       <input
                         id="bulk-sample-size"
                         type="number"
@@ -704,26 +727,26 @@ export default function Metadata() {
                         checked={bulkConfig.skip_existing}
                         onChange={(e) => setBulkConfig({ ...bulkConfig, skip_existing: e.target.checked })}
                       />
-                      <span>Skip if table already has a description</span>
+                      <span>Açıklaması olan tabloları atla</span>
                     </label>
                   </div>
                   <div className="bulk-scope-footer">
                     <span className="bulk-scope-stat">
-                      <strong>{bulkTargetTables.length}</strong> object{bulkTargetTables.length === 1 ? '' : 's'} in scope
+                      Kapsamda <strong>{bulkTargetTables.length}</strong> nesne
                       {bulkTargetTables.length !== tables.length && (
-                        <span className="bulk-scope-of"> · {tables.length} total</span>
+                        <span className="bulk-scope-of"> · toplam {tables.length}</span>
                       )}
                     </span>
                   </div>
                   <div className="modal-actions">
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={closeBulk}>Cancel</button>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={closeBulk}>İptal</button>
                     <button
                       type="button"
                       className="btn btn-sm"
                       onClick={runBulkDescribe}
                       disabled={!bulkCanStart}
                     >
-                      Start ({bulkTargetTables.length} in scope)
+                      Başlat ({bulkTargetTables.length} kapsamda)
                     </button>
                   </div>
                 </>
@@ -737,9 +760,9 @@ export default function Metadata() {
                       <thead>
                         <tr>
                           <th className="bulk-col-idx">#</th>
-                          <th>Schema.Table</th>
-                          <th className="bulk-col-status">Status</th>
-                          <th>Detail</th>
+                          <th>Şema.Tablo</th>
+                          <th className="bulk-col-status">Durum</th>
+                          <th>Detay</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -769,10 +792,10 @@ export default function Metadata() {
                         className="btn btn-ghost btn-sm"
                         onClick={() => { bulkCancelRef.current = true }}
                       >
-                        Stop after current
+                        Bu işten sonra durdur
                       </button>
                     ) : (
-                      <button type="button" className="btn btn-sm" onClick={closeBulk}>Close</button>
+                      <button type="button" className="btn btn-sm" onClick={closeBulk}>Kapat</button>
                     )}
                   </div>
                 </>
@@ -796,12 +819,12 @@ export default function Metadata() {
           >
             <header className="modal-header">
               <h2 id="describe-title">
-                🤖 AI Describe — {describeOpen.schema_name}.{describeOpen.table_name}
+                🤖 AI Açıkla — {describeOpen.schema_name}.{describeOpen.table_name}
               </h2>
               <button
                 type="button"
                 className="modal-close"
-                aria-label="Close AI Describe"
+                aria-label="AI Açıkla'yı kapat"
                 onClick={() => setDescribeOpen(null)}
               >
                 ×
@@ -810,14 +833,14 @@ export default function Metadata() {
 
             <div className="modal-body">
               <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
-                Samples N rows from the source DB and asks the LLM to describe the table and each column in Turkish, keeping useful technical names for schema matching.
+                Kaynak veritabanından N satır örnekler ve LLM'den tablo ile her kolonu Türkçe açıklamasını ister; şema eşleştirmesi için yararlı teknik adlar korunur.
               </p>
 
               {!describeResult && (
                 <>
                   <div className="modal-form-row">
                     <div className="form-group">
-                      <label htmlFor="describe-sample-size">Sample size</label>
+                      <label htmlFor="describe-sample-size">Örnek boyutu</label>
                       <input
                         id="describe-sample-size"
                         name="sample_size"
@@ -829,7 +852,7 @@ export default function Metadata() {
                       />
                     </div>
                     <div className="form-group">
-                      <label>Options</label>
+                      <label>Seçenekler</label>
                       <div className="checkbox-row">
                         <input
                           id="auto-apply"
@@ -838,7 +861,7 @@ export default function Metadata() {
                           checked={describeForm.auto_apply}
                           onChange={(e) => setDescribeForm({ ...describeForm, auto_apply: e.target.checked })}
                         />
-                        <label htmlFor="auto-apply">Auto-apply suggestions</label>
+                        <label htmlFor="auto-apply">Önerileri otomatik uygula</label>
                       </div>
                     </div>
                   </div>
@@ -849,7 +872,7 @@ export default function Metadata() {
                       className="btn btn-ghost btn-sm"
                       onClick={() => setDescribeOpen(null)}
                     >
-                      Cancel
+                      İptal
                     </button>
                     <button
                       type="button"
@@ -857,7 +880,7 @@ export default function Metadata() {
                       onClick={runDescribe}
                       disabled={loading}
                     >
-                      {loading ? 'Analyzing…' : 'Generate Turkish Descriptions'}
+                      {loading ? 'Analiz ediliyor…' : 'Türkçe Açıklama Üret'}
                     </button>
                   </div>
                 </>
@@ -866,24 +889,24 @@ export default function Metadata() {
               {describeResult && (
                 <>
                   <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
-                    Sampled {describeResult.sample_rows} rows.{' '}
+                    {describeResult.sample_rows} satır örneklendi.{' '}
                     {describeResult.applied
-                      ? <span className="success">All suggestions applied.</span>
-                      : 'Review and apply selectively.'}
+                      ? <span className="success">Tüm öneriler uygulandı.</span>
+                      : 'İnceleyip seçerek uygulayın.'}
                     {describeResult.translation_applied && describeResult.translation_model ? (
-                      <> Translation normalized by <code>{describeResult.translation_model}</code>.</>
+                      <> Çeviri <code>{describeResult.translation_model}</code> tarafından düzenlendi.</>
                     ) : null}
                   </p>
                   {describeResult.translation_error && (
                     <p style={{ margin: 0, color: 'var(--error)' }}>
-                      Translation layer failed; showing the original Turkish-first AI descriptions. {describeResult.translation_error}
+                      Çeviri katmanı başarısız oldu; özgün Türkçe öncelikli AI açıklamaları gösteriliyor. {describeResult.translation_error}
                     </p>
                   )}
 
                   <div>
-                    <h3 style={{ marginBottom: '0.4rem' }}>Table description</h3>
+                    <h3 style={{ marginBottom: '0.4rem' }}>Tablo açıklaması</h3>
                     <div className="suggestion-block">
-                      {describeResult.description || <em style={{ color: 'var(--text-secondary)' }}>(none)</em>}
+                      {describeResult.description || <em style={{ color: 'var(--text-secondary)' }}>(yok)</em>}
                     </div>
                     {!describeResult.applied && describeResult.description && (
                       <div className="modal-actions">
@@ -892,27 +915,27 @@ export default function Metadata() {
                           className="btn btn-sm"
                           onClick={() => applySuggestion('table', '', describeResult.description)}
                         >
-                          Apply to table
+                          Tabloya uygula
                         </button>
                       </div>
                     )}
                   </div>
 
                   <div>
-                    <h3 style={{ marginBottom: '0.4rem' }}>Columns</h3>
+                    <h3 style={{ marginBottom: '0.4rem' }}>Kolonlar</h3>
                     <table className="results-table">
                       <thead>
                         <tr>
-                          <th>Column</th>
-                          <th>Suggestion</th>
-                          {!describeResult.applied && <th style={{ textAlign: 'right' }}>Action</th>}
+                          <th>Kolon</th>
+                          <th>Öneri</th>
+                          {!describeResult.applied && <th style={{ textAlign: 'right' }}>İşlem</th>}
                         </tr>
                       </thead>
                       <tbody>
                         {describeResult.columns.map((c) => (
                           <tr key={c.name}>
                             <td><code>{c.name}</code></td>
-                            <td>{c.description || <em style={{ color: 'var(--text-secondary)' }}>(none)</em>}</td>
+                            <td>{c.description || <em style={{ color: 'var(--text-secondary)' }}>(yok)</em>}</td>
                             {!describeResult.applied && (
                               <td className="actions">
                                 {c.description && (
@@ -921,7 +944,7 @@ export default function Metadata() {
                                     className="btn btn-sm"
                                     onClick={() => applySuggestion('column', c.name, c.description)}
                                   >
-                                    Apply
+                                    Uygula
                                   </button>
                                 )}
                               </td>
@@ -938,7 +961,7 @@ export default function Metadata() {
                       className="btn btn-ghost btn-sm"
                       onClick={() => { setDescribeResult(null); setDescribeOpen(null) }}
                     >
-                      Close
+                      Kapat
                     </button>
                   </div>
                 </>

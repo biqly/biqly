@@ -13,6 +13,8 @@ import {
 } from 'recharts'
 import useStreamingApi from '../hooks/useStreamingApi'
 import { useAdminApi } from '../hooks/useApi'
+import { useQueryParam } from '../hooks/useQueryParam'
+import { Select } from './ui/Select'
 import type { EvalRunSummary, EvalRunDetail, RegressionReport } from '../types/ai'
 
 // ─── Types ─────────────────────────────────────────────────────────
@@ -170,15 +172,30 @@ export default function Evaluation() {
   const [runError, setRunError] = useState<string | null>(null)
 
   // Eval runs history
-  const [activeTab, setActiveTab] = useState<'run' | 'history' | 'regression'>('run')
+  const [tabParam, setTabParam] = useQueryParam('tab')
+  const initialTab: 'run' | 'history' | 'regression' =
+    tabParam === 'history' || tabParam === 'regression' ? tabParam : 'run'
+  const [activeTab, setActiveTab] = useState<'run' | 'history' | 'regression'>(initialTab)
   const [runHistory, setRunHistory] = useState<EvalRunSummary[]>([])
   const [selectedRun, setSelectedRun] = useState<EvalRunDetail | null>(null)
 
   // Regression
-  const [baselineId, setBaselineId] = useState('')
-  const [currentId, setCurrentId] = useState('')
+  const [baselineParam, setBaselineParam] = useQueryParam('baseline')
+  const [currentParam, setCurrentParam] = useQueryParam('current')
+  const [baselineId, setBaselineId] = useState(baselineParam)
+  const [currentId, setCurrentId] = useState(currentParam)
   const [regression, setRegression] = useState<RegressionReport | null>(null)
   const [regressionLoading, setRegressionLoading] = useState(false)
+
+  useEffect(() => {
+    setTabParam(activeTab === 'run' ? '' : activeTab)
+  }, [activeTab, setTabParam])
+  useEffect(() => {
+    setBaselineParam(baselineId)
+  }, [baselineId, setBaselineParam])
+  useEffect(() => {
+    setCurrentParam(currentId)
+  }, [currentId, setCurrentParam])
 
   useEffect(() => {
     adminApi.get<EvalRunSummary[]>('/api/eval/runs').then((data) => {
@@ -266,21 +283,26 @@ export default function Evaluation() {
   return (
     <div className="evaluation-layout">
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+      <div className="page-tabs" role="tablist" aria-label="Değerlendirme sekmeleri">
         {([
           { key: 'run' as const, label: '🧪 Değerlendirme Çalıştır' },
           { key: 'history' as const, label: `📋 Geçmiş (${runHistory.length})` },
           { key: 'regression' as const, label: '📉 Regresyon' },
-        ]).map((tab) => (
-          <button
-            key={tab.key}
-            className={activeTab === tab.key ? 'btn' : ''}
-            style={{ background: activeTab === tab.key ? undefined : 'var(--bg-card)', color: activeTab === tab.key ? undefined : 'var(--text-secondary)' }}
-            onClick={() => { setActiveTab(tab.key); setSelectedRun(null); setRegression(null) }}
-          >
-            {tab.label}
-          </button>
-        ))}
+        ]).map((tab) => {
+          const isActive = activeTab === tab.key
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              className={`btn btn-sm${isActive ? '' : ' btn-ghost'}`}
+              onClick={() => { setActiveTab(tab.key); setSelectedRun(null); setRegression(null) }}
+            >
+              {tab.label}
+            </button>
+          )
+        })}
       </div>
 
       {/* ─── TAB: Run Evaluation ─────────────────────────────── */}
@@ -290,10 +312,10 @@ export default function Evaluation() {
         <div className="card-header-row">
           <h2>Değerlendirme Paneli</h2>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button className="btn" onClick={runStreamEvaluation} disabled={running || streaming.loading}>
+            <button className="btn btn-sm" onClick={runStreamEvaluation} disabled={running || streaming.loading}>
               {streaming.loading ? 'Akış…' : 'Çalıştır (akış)'}
             </button>
-            <button className="btn btn-primary" onClick={runEvaluation} disabled={running}>
+            <button className="btn btn-sm btn-primary" onClick={runEvaluation} disabled={running}>
               {running ? 'Çalışıyor…' : 'Değerlendirmeyi çalıştır'}
             </button>
           </div>
@@ -512,33 +534,35 @@ export default function Evaluation() {
           <div className="card">
             <h3>Regresyon Karşılaştırması</h3>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-              <div>
+              <div style={{ flex: 1, minWidth: '14rem' }}>
                 <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.3rem' }}>Temel (Baseline)</label>
-                <select
+                <Select
                   value={baselineId}
-                  onChange={(e) => setBaselineId(e.target.value)}
-                  style={{ padding: '0.5rem', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '0.375rem' }}
-                >
-                  <option value="">Seçiniz</option>
-                  {runHistory.map((r) => (
-                    <option key={r.run_id} value={r.run_id}>{r.model} — {(r.pass_rate * 100).toFixed(0)}% — {new Date(r.completed_at).toLocaleString('tr-TR')}</option>
-                  ))}
-                </select>
+                  onChange={setBaselineId}
+                  placeholder="Seçiniz"
+                  header="Çalıştırma geçmişi"
+                  options={runHistory.map((r) => ({
+                    value: r.run_id,
+                    label: `${r.model} — ${(r.pass_rate * 100).toFixed(0)}%`,
+                    hint: new Date(r.completed_at).toLocaleString('tr-TR'),
+                  }))}
+                />
               </div>
-              <div>
+              <div style={{ flex: 1, minWidth: '14rem' }}>
                 <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.3rem' }}>Karşılaştırılacak (Current)</label>
-                <select
+                <Select
                   value={currentId}
-                  onChange={(e) => setCurrentId(e.target.value)}
-                  style={{ padding: '0.5rem', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '0.375rem' }}
-                >
-                  <option value="">Seçiniz</option>
-                  {runHistory.map((r) => (
-                    <option key={r.run_id} value={r.run_id}>{r.model} — {(r.pass_rate * 100).toFixed(0)}% — {new Date(r.completed_at).toLocaleString('tr-TR')}</option>
-                  ))}
-                </select>
+                  onChange={setCurrentId}
+                  placeholder="Seçiniz"
+                  header="Çalıştırma geçmişi"
+                  options={runHistory.map((r) => ({
+                    value: r.run_id,
+                    label: `${r.model} — ${(r.pass_rate * 100).toFixed(0)}%`,
+                    hint: new Date(r.completed_at).toLocaleString('tr-TR'),
+                  }))}
+                />
               </div>
-              <button className="btn" onClick={runRegression} disabled={!baselineId || !currentId || regressionLoading}>
+              <button className="btn btn-sm btn-primary" onClick={runRegression} disabled={!baselineId || !currentId || regressionLoading}>
                 {regressionLoading ? 'Karşılaştırılıyor…' : 'Karşılaştır'}
               </button>
             </div>

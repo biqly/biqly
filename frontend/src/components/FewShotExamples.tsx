@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useApi } from '../hooks/useApi'
+import { Select } from './ui/Select'
 
 interface FewShotExample {
   id: string
@@ -167,7 +168,7 @@ export default function FewShotExamples() {
                 <textarea id="fs-question" value={formQuestion} onChange={(e) => setFormQuestion(e.target.value)} placeholder="Geçen aya göre ülke bazında toplam geliri göster…" rows={3} />
               </div>
               <div className="form-group">
-                <label htmlFor="fs-lq">LogicalQuery (JSON)</label>
+                <label htmlFor="fs-lq">Mantıksal Sorgu (JSON)</label>
                 <textarea id="fs-lq" value={formLq} onChange={(e) => setFormLq(e.target.value)} placeholder='{"select": [{"type": "metric", "name": "revenue"}]}' rows={6} style={{ fontFamily: 'monospace', fontSize: '0.8rem' }} />
               </div>
               <div className="modal-form-row">
@@ -177,9 +178,12 @@ export default function FewShotExamples() {
                 </div>
                 <div className="form-group">
                   <label htmlFor="fs-dialect">SQL diyalekti</label>
-                  <select id="fs-dialect" value={formDialect} onChange={(e) => setFormDialect(e.target.value)}>
-                    {DIALECTS.map((d) => <option key={d} value={d}>{d}</option>)}
-                  </select>
+                  <Select
+                    id="fs-dialect"
+                    value={formDialect}
+                    onChange={setFormDialect}
+                    options={DIALECTS.map((d) => ({ value: d, label: d }))}
+                  />
                 </div>
               </div>
               {formError && <div className="error">{formError}</div>}
