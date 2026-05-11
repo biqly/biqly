@@ -251,3 +251,68 @@ export interface CompiledQuery {
   dialect: string
   parameters?: Record<string, unknown>
 }
+
+// ─── Model Success Rates (Dashboard) ───────────────────────────────
+
+export interface ModelStats {
+  model_id: string
+  model_name?: string
+  total_queries: number
+  success_count: number
+  failure_count: number
+  success_rate: number
+  avg_confidence: number
+  avg_latency_ms: number
+  positive_count: number
+  negative_count: number
+}
+
+// ─── Eval Runs (History & Detail) ──────────────────────────────────
+
+export interface EvalRunSummary {
+  run_id: string
+  provider: string
+  model: string
+  context_version: number
+  total_cases: number
+  passed: number
+  failed: number
+  pass_rate: number
+  avg_confidence: number
+  avg_latency_ms: number
+  total_tokens: number
+  completed_at: string
+}
+
+export interface EvalRunTestCase {
+  case_id: string
+  question: string
+  match: boolean
+  reason: string
+  confidence: number
+  latency_ms: number
+}
+
+export interface EvalRunDetail {
+  summary: EvalRunSummary
+  test_cases: EvalRunTestCase[]
+}
+
+// ─── Regression Report ─────────────────────────────────────────────
+
+export interface RegressionChange {
+  case_id: string
+  question: string
+  was_match: boolean
+  is_match: boolean
+  was_reason: string
+  is_reason: string
+}
+
+export interface RegressionReport {
+  baseline_run_id: string
+  current_run_id: string
+  new_failures: RegressionChange[]
+  fixed_failures: RegressionChange[]
+  changed_cases: RegressionChange[]
+}

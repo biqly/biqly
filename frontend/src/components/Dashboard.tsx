@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts'
 import { useApi } from '../hooks/useApi'
+import type { ModelStats } from '../types/ai'
 
 const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6']
 
@@ -151,6 +152,9 @@ export default function Dashboard() {
 
       {/* ─── AI Usage Section ─────────────────────────────────── */}
       <AIUsageSection />
+
+      {/* ─── Model Success Rates ──────────────────────────────── */}
+      <ModelSuccessRates />
     </div>
   )
 }
@@ -263,6 +267,88 @@ function AIUsageSection() {
               <p style={{ color: 'var(--text-muted)', textAlign: 'center', paddingTop: '4rem' }}>Henüz maliyet verisi yok</p>
             )}
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Model Success Rates Sub-component ──────────────────────────────
+
+function ModelSuccessRates() {
+  const { get } = useApi()
+  const [models, setModels] = useState<ModelStats[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    get<ModelStats[]>('/api/ai/stats/models').then((data) => {
+      if (data) setModels(data)
+      setLoading(false)
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (loading) return null
+  if (models.length === 0) return null
+
+  return (
+    <div style={{ marginTop: '2rem' }}>
+      <h2 style={{ marginBottom: '1rem' }}>📊 Model bazlı başarı oranları</h2>
+      <table className="results-table">
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th style={{ textAlign: 'right' }}>Toplam</th>
+            <th style={{ textAlign: 'right' }}>Başarılı</th>
+            <th style={{ textAlign: 'right' }}>Başarısız</th>
+            <th style={{ textAlign: 'right' }}>Başarı %</th>
+            <th style={{ textAlign: 'right' }}>Güven</th>
+            <th style={{ textAlign: 'right' }}>Gecikme</th>
+            <th style={{ textAlign: 'right' }}>👍</th>
+            <th style={{ textAlign: 'right' }}>👎</th>
+          </tr>
+        </thead>
+        <tbody>
+          {models.map((m) => (
+            <tr key={m.model_id}>
+              <td>{m.model_name || m.model_id}</td>
+              <td style={{ textAlign: 'right' }}>{m.total_queries}</td>
+              <td style={{ textAlign: 'right', color: 'var(--success)' }}>{m.success_count}</td>
+              <td style={{ textAlign: 'right', color: 'var(--error)' }}>{m.failure_count}</td>
+              <td style={{ textAlign: 'right' }}>
+                <span style={{
+                  color: m.success_rate >= 80 ? 'var(--success)' : m.success_rate >= 50 ? 'var(--warning)' : 'var(--error)',
+                  fontWeight: 700,
+                }}>
+                  {m.success_rate.toFixed(1)}%
+                </span>
+              </td>
+              <td style={{ textAlign: 'right' }}>{(m.avg_confidence * 100).toFixed(0)}%</td>
+              <td style={{ textAlign: 'right' }}>{m.avg_latency_ms.toFixed(0)}ms</td>
+              <td style={{ textAlign: 'right', color: 'var(--success)' }}>{m.positive_count}</td>
+              <td style={{ textAlign: 'right', color: 'var(--error)' }}>{m.negative_count}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* Bar chart visualization */}
+      <div className="card" style={{ marginTop: '1rem' }}>
+        <h3>Başarı oranı karşılaştırması</h3>
+        <div style={{ height: 250 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={models.map((m) => ({
+              name: m.model_name || m.model_id,
+              success_rate: m.success_rate,
+              confidence: m.avg_confidence * 100,
+            }))}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
+              <XAxis dataKey="name" stroke="#94a3b8" tick={{ fontSize: 11 }} />
+              <YAxis stroke="#94a3b8" domain={[0, 100]} />
+              <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #475569' }} />
+              <Bar dataKey="success_rate" fill="#22c55e" radius={[4, 4, 0, 0]} name="Başarı %" />
+              <Bar dataKey="confidence" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Güven %" />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </div>

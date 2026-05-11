@@ -5,6 +5,7 @@ type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 interface RequestOptions {
   timeout?: number
   signal?: AbortSignal
+  headers?: Record<string, string>
 }
 
 function parseResponseBody(text: string): unknown {
@@ -50,9 +51,13 @@ async function request<T>(
     : controller.signal
 
   try {
+    const headers: Record<string, string> = body ? { 'Content-Type': 'application/json' } : {}
+    if (options?.headers) {
+      Object.assign(headers, options.headers)
+    }
     const res = await fetch(url, {
       method,
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      headers: Object.keys(headers).length > 0 ? headers : undefined,
       body: body ? JSON.stringify(body) : undefined,
       signal,
     })
@@ -137,4 +142,45 @@ export function useApi() {
   )
 
   return { get, postData, putData, patchData, deleteData, loading, error, abort }
+}
+
+/**
+ * useAdminApi is a convenience wrapper that automatically attaches the
+ * BI_ADMIN_API_KEY as a Bearer token in the Authorization header.
+ * All eval/history/regression endpoints require this header.
+ */
+export function useAdminApi() {
+  const api = useApi()
+
+  const adminHeaders = {
+    Authorization: `Bearer ${import.meta.env.VITE_BI_ADMIN_API_KEY || ''}`,
+  }
+
+  const get = useCallback(
+    <T = any>(url: string, options?: RequestOptions) =>
+      api.get<T>(url, { ...options, headers: { ...adminHeaders, ...options?.headers } }),
+    [api],
+  )
+  const postData = useCallback(
+    <T = any>(url: string, body: unknown, options?: RequestOptions) =>
+      api.postData<T>(url, body, { ...options, headers: { ...adminHeaders, ...options?.headers } }),
+    [api],
+  )
+  const putData = useCallback(
+    <T = any>(url: string, body: unknown, options?: RequestOptions) =>
+      api.putData<T>(url, body, { ...options, headers: { ...adminHeaders, ...options?.headers } }),
+    [api],
+  )
+  const patchData = useCallback(
+    <T = any>(url: string, body: unknown, options?: RequestOptions) =>
+      api.patchData<T>(url, body, { ...options, headers: { ...adminHeaders, ...options?.headers } }),
+    [api],
+  )
+  const deleteData = useCallback(
+    <T = any>(url: string, options?: RequestOptions) =>
+      api.deleteData<T>(url, { ...options, headers: { ...adminHeaders, ...options?.headers } }),
+    [api],
+  )
+
+  return { ...api, get, postData, putData, patchData, deleteData }
 }
