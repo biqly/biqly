@@ -110,6 +110,16 @@ func TestTableRouter_EmbeddingBoostShiftsRanking(t *testing.T) {
 	if routing.RankingMethod != "hybrid" {
 		t.Errorf("expected RankingMethod=hybrid, got %q", routing.RankingMethod)
 	}
+	eventsCandidate, ok := findRoutingCandidate(routing.Candidates, "public.events")
+	if !ok {
+		t.Fatalf("expected public.events candidate, got %+v", routing.Candidates)
+	}
+	if eventsCandidate.EmbeddingScore <= 0 {
+		t.Errorf("public.events embedding score = %v, want > 0", eventsCandidate.EmbeddingScore)
+	}
+	if eventsCandidate.TotalScore <= eventsCandidate.KeywordScore {
+		t.Errorf("public.events scores = %+v, want embedding to boost total above keyword", eventsCandidate)
+	}
 }
 
 func TestTableRouter_EmbeddingBoostFallbackToKeyword(t *testing.T) {

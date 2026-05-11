@@ -1007,6 +1007,62 @@ a {
   margin-bottom: 1rem;
 }
 
+.warning-panel {
+  display: grid;
+  gap: 0.7rem;
+  border: 1px solid rgba(251, 191, 36, 0.24);
+  border-radius: 0.85rem;
+  background: linear-gradient(180deg, rgba(251, 191, 36, 0.11), rgba(251, 113, 133, 0.08));
+  color: #fde68a;
+  padding: 0.9rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.warning-panel strong {
+  display: block;
+  color: #fef3c7;
+  font-size: 0.92rem;
+  margin-bottom: 0.25rem;
+}
+
+.warning-panel p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.warning-panel ul {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.warning-panel li {
+  position: relative;
+  min-width: 0;
+  border-radius: 0.55rem;
+  background: rgba(15, 23, 42, 0.34);
+  color: #fecdd3;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  padding: 0.55rem 0.65rem 0.55rem 1.65rem;
+}
+
+.warning-panel li::before {
+  position: absolute;
+  top: 0.72rem;
+  left: 0.75rem;
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 999px;
+  background: var(--warning);
+  content: "";
+}
+
 .success {
   color: var(--success);
 }
@@ -1558,13 +1614,56 @@ a {
 .table-routing-viz { padding: 0.25rem 0; }
 .routing-header { display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.5rem; }
 .routing-confidence { color: var(--text-muted); }
+.routing-context-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.45rem;
+  margin: 0.55rem 0 0.75rem;
+}
+.routing-context-grid > div {
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  padding: 0.45rem 0.55rem;
+  min-width: 0;
+}
+.routing-context-grid span,
+.routing-debug span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  margin-bottom: 0.18rem;
+  text-transform: uppercase;
+}
+.routing-context-grid strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
 .routing-candidate { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; margin-bottom: 0.3rem; }
 .routing-table-name { min-width: 140px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.75rem; }
 .routing-bar-bg { flex: 1; height: 6px; border-radius: 3px; background: var(--bg-primary); overflow: hidden; }
 .routing-bar-fill { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.3s ease; }
 .routing-score { min-width: 32px; text-align: right; font-size: 0.72rem; color: var(--text-muted); }
+.routing-score-detail { min-width: 92px; color: var(--text-muted); font-size: 0.68rem; }
 .routing-selected { color: var(--success); font-weight: 700; }
 .routing-reasoning { font-size: 0.75rem; color: var(--text-secondary); font-style: italic; margin-top: 0.4rem; }
+.routing-debug {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
+}
+.routing-debug code {
+  display: block;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
 .btn-sample { margin-top: 0.5rem; font-size: 0.75rem; padding: 0.25rem 0.6rem; }
 
 /* Collapsible */

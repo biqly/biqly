@@ -101,3 +101,12 @@ type AIQueryHistoryEntry struct {
 	Warnings        []string  `json:"warnings" db:"warnings"`
 	CreatedAt       time.Time `json:"created_at" db:"created_at"`
 }
+
+type PermissionPolicyRecord struct {
+	DeniedFields []string
+	RowFilters   []PermissionRowFilter
+}
+
+type PermissionRowFilter struct {
+	Field string `json:"field"`
+}

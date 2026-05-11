@@ -116,11 +116,11 @@ function DiffView({ expected, got }: { expected: Record<string, unknown>; got: R
   return (
     <div className="diff-view">
       <div className="diff-col">
-        <div className="diff-col-header">Expected</div>
+        <div className="diff-col-header">Beklenen</div>
         <pre className="diff-pre">{expectedStr}</pre>
       </div>
       <div className="diff-col">
-        <div className="diff-col-header">Got</div>
+        <div className="diff-col-header">Üretilen</div>
         <pre className="diff-pre">{gotStr}</pre>
       </div>
     </div>
@@ -137,12 +137,12 @@ function TestCaseRow({ tc }: { tc: EvalTestCase }) {
         <td className="eval-tc-id">{tc.id}</td>
         <td className="eval-tc-question">{tc.question}</td>
         <td>
-          <span className={`status-badge ${isFail ? 'error' : 'success'}`}>{tc.status}</span>
+          <span className={`status-badge ${isFail ? 'error' : 'success'}`}>{isFail ? 'kaldı' : 'geçti'}</span>
         </td>
         <td className="eval-tc-confidence">{tc.confidence !== undefined ? `${Math.round(tc.confidence * 100)}%` : '—'}</td>
         <td>
           {isFail && tc.error_message && <span className="eval-error-hint">{tc.error_message}</span>}
-          <button className="btn btn-sm btn-ghost" onClick={() => setOpen(!open)}>{open ? 'Hide diff' : 'Show diff'}</button>
+          <button className="btn btn-sm btn-ghost" onClick={() => setOpen(!open)}>{open ? 'Farkı gizle' : 'Farkı göster'}</button>
         </td>
       </tr>
       {open && (
@@ -170,8 +170,8 @@ export default function Evaluation() {
   const pieData = useMemo(() => {
     if (!evalData) return []
     return [
-      { name: 'Passed', value: evalData.passed, fill: '#22c55e' },
-      { name: 'Failed', value: evalData.failed, fill: '#ef4444' },
+      { name: 'Geçen', value: evalData.passed, fill: '#22c55e' },
+      { name: 'Kalan', value: evalData.failed, fill: '#ef4444' },
     ]
   }, [evalData])
 
@@ -225,20 +225,20 @@ export default function Evaluation() {
     <div className="evaluation-layout">
       <div className="card">
         <div className="card-header-row">
-          <h2>Evaluation Dashboard</h2>
+          <h2>Değerlendirme Paneli</h2>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button className="btn" onClick={runStreamEvaluation} disabled={running || streaming.loading}>
-              {streaming.loading ? 'Streaming…' : 'Run (Stream)'}
+              {streaming.loading ? 'Akış…' : 'Çalıştır (akış)'}
             </button>
             <button className="btn btn-primary" onClick={runEvaluation} disabled={running}>
-              {running ? 'Running…' : 'Run Evaluation'}
+              {running ? 'Çalışıyor…' : 'Değerlendirmeyi çalıştır'}
             </button>
           </div>
         </div>
 
         {showDemo && (
           <div className="demo-banner">
-            Server unreachable — showing demo data. When the API is available, click Run Evaluation again.
+            Sunucuya ulaşılamadı — örnek veriler gösteriliyor. API hazır olduğunda «Değerlendirmeyi çalıştır»a tekrar basın.
           </div>
         )}
 
@@ -257,16 +257,16 @@ export default function Evaluation() {
         <>
           {/* KPI Cards */}
           <div className="kpi-row">
-            <KPICard label="Total Cases" value={activeData.total} color="var(--accent)" />
-            <KPICard label="Pass Rate" value={`${Math.round(activeData.pass_rate * 100)}%`} color="var(--success)" />
-            <KPICard label="Failed Cases" value={activeData.failed} color="var(--error)" />
-            <KPICard label="Avg Confidence" value={`${Math.round(activeData.avg_confidence * 100)}%`} color="var(--warning)" />
+            <KPICard label="Toplam senaryo" value={activeData.total} color="var(--accent)" />
+            <KPICard label="Geçme oranı" value={`${Math.round(activeData.pass_rate * 100)}%`} color="var(--success)" />
+            <KPICard label="Kalan senaryo" value={activeData.failed} color="var(--error)" />
+            <KPICard label="Ort. güven" value={`${Math.round(activeData.avg_confidence * 100)}%`} color="var(--warning)" />
           </div>
 
           {/* Charts */}
           <div className="eval-charts-row">
             <div className="card">
-              <h3>Pass Rate</h3>
+              <h3>Geçme oranı</h3>
               <div className="chart-container" style={{ height: 240 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -290,7 +290,7 @@ export default function Evaluation() {
             </div>
 
             <div className="card">
-              <h3>Accuracy Trend</h3>
+              <h3>Doğruluk eğilimi</h3>
               {trendData.length > 0 ? (
                 <div className="chart-container" style={{ height: 240 }}>
                   <ResponsiveContainer width="100%" height="100%">
@@ -307,22 +307,22 @@ export default function Evaluation() {
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <p className="eval-empty-chart">No trend data available.</p>
+                <p className="eval-empty-chart">Eğilim verisi yok.</p>
               )}
             </div>
           </div>
 
           {/* Test Cases Table */}
           <div className="card">
-            <h3>Test Cases</h3>
+            <h3>Test senaryoları</h3>
             <table className="results-table eval-results-table">
               <thead>
                 <tr>
-                  <th>ID</th>
-                  <th>Question</th>
-                  <th>Status</th>
-                  <th>Confidence</th>
-                  <th>Diff</th>
+                  <th>Kimlik</th>
+                  <th>Soru</th>
+                  <th>Durum</th>
+                  <th>Güven</th>
+                  <th>Fark</th>
                 </tr>
               </thead>
               <tbody>
@@ -337,8 +337,8 @@ export default function Evaluation() {
 
       {!activeData && (
         <div className="card empty-state">
-          <h2>No evaluation results yet</h2>
-          <p>Click &quot;Run Evaluation&quot; to start a test run against the AI text-to-SQL pipeline.</p>
+          <h2>Henüz değerlendirme sonucu yok</h2>
+          <p>AI metinden-SQL hattına karşı bir test çalıştırmak için «Değerlendirmeyi çalıştır»a tıklayın.</p>
         </div>
       )}
     </div>

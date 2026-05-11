@@ -10,13 +10,13 @@ export default function Dashboard() {
 
   const sampleData = {
     revenue: [
-      { name: 'Mon', value: 4200 },
-      { name: 'Tue', value: 3800 },
-      { name: 'Wed', value: 5100 },
-      { name: 'Thu', value: 4600 },
-      { name: 'Fri', value: 6200 },
-      { name: 'Sat', value: 3100 },
-      { name: 'Sun', value: 2800 },
+      { name: 'Pzt', value: 4200 },
+      { name: 'Sal', value: 3800 },
+      { name: 'Çar', value: 5100 },
+      { name: 'Per', value: 4600 },
+      { name: 'Cum', value: 6200 },
+      { name: 'Cts', value: 3100 },
+      { name: 'Paz', value: 2800 },
     ],
     countries: [
       { name: 'USA', value: 45 },
@@ -26,26 +26,31 @@ export default function Dashboard() {
       { name: 'Japan', value: 5 },
     ],
     orders: [
-      { name: 'Completed', value: 340 },
-      { name: 'Pending', value: 120 },
-      { name: 'Cancelled', value: 45 },
+      { name: 'Tamamlandı', value: 340 },
+      { name: 'Beklemede', value: 120 },
+      { name: 'İptal', value: 45 },
     ],
   }
 
   return (
     <div>
       <div className="card">
-        <h2>Reporting Range</h2>
+        <h2>Raporlama aralığı</h2>
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-          {['24h', '7d', '30d', '90d'].map((r) => (
+          {[
+            { key: '24h', label: '24 saat' },
+            { key: '7d', label: '7 gün' },
+            { key: '30d', label: '30 gün' },
+            { key: '90d', label: '90 gün' },
+          ].map(({ key, label }) => (
             <button
-              key={r}
-              className={selectedRange === r ? 'btn' : ''}
-              style={{ background: selectedRange === r ? undefined : 'var(--bg-card)', color: selectedRange === r ? undefined : 'var(--text-secondary)' }}
-              onClick={() => setSelectedRange(r)}
-              aria-pressed={selectedRange === r}
+              key={key}
+              className={selectedRange === key ? 'btn' : ''}
+              style={{ background: selectedRange === key ? undefined : 'var(--bg-card)', color: selectedRange === key ? undefined : 'var(--text-secondary)' }}
+              onClick={() => setSelectedRange(key)}
+              aria-pressed={selectedRange === key}
             >
-              {r}
+              {label}
             </button>
           ))}
         </div>
@@ -53,10 +58,10 @@ export default function Dashboard() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
         {[
-          { label: 'Total Revenue', value: '$29,800', change: '+12.5%' },
-          { label: 'Orders', value: '505', change: '+8.2%' },
-          { label: 'Avg Order Value', value: '$59.01', change: '+3.1%' },
-          { label: 'Active Users', value: '1,247', change: '+15.3%' },
+          { label: 'Toplam gelir', value: '$29,800', change: '+%12,5' },
+          { label: 'Siparişler', value: '505', change: '+%8,2' },
+          { label: 'Ort. sipariş tutarı', value: '$59,01', change: '+%3,1' },
+          { label: 'Aktif kullanıcılar', value: '1.247', change: '+%15,3' },
         ].map((card, i) => (
           <div key={i} className="card" style={{ marginBottom: 0 }}>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>{card.label}</p>
@@ -68,7 +73,7 @@ export default function Dashboard() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem' }}>
         <div className="card">
-          <h3>Revenue Trend</h3>
+          <h3>Gelir eğilimi</h3>
           <div style={{ height: 300 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={sampleData.revenue}>
@@ -83,7 +88,7 @@ export default function Dashboard() {
         </div>
 
         <div className="card">
-          <h3>Orders by Country</h3>
+          <h3>Ülkelere göre siparişler</h3>
           <div style={{ height: 300 }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -99,7 +104,7 @@ export default function Dashboard() {
         </div>
 
         <div className="card">
-          <h3>Order Status</h3>
+          <h3>Sipariş durumu</h3>
           <div style={{ height: 300 }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -115,22 +120,22 @@ export default function Dashboard() {
         </div>
 
         <div className="card">
-          <h3>Recent Queries</h3>
+          <h3>Son sorgular</h3>
           <table className="results-table">
             <thead>
               <tr>
-                <th>Time</th>
+                <th>Zaman</th>
                 <th>Model</th>
-                <th>Rows</th>
-                <th>Duration</th>
+                <th>Satır</th>
+                <th>Süre</th>
               </tr>
             </thead>
             <tbody>
               {[
-                { time: '2 min ago', model: 'orders', rows: 12, ms: 45 },
-                { time: '5 min ago', model: 'users', rows: 8, ms: 23 },
-                { time: '12 min ago', model: 'products', rows: 25, ms: 67 },
-                { time: '18 min ago', model: 'orders', rows: 3, ms: 12 },
+                { time: '2 dk önce', model: 'orders', rows: 12, ms: 45 },
+                { time: '5 dk önce', model: 'users', rows: 8, ms: 23 },
+                { time: '12 dk önce', model: 'products', rows: 25, ms: 67 },
+                { time: '18 dk önce', model: 'orders', rows: 3, ms: 12 },
               ].map((q, i) => (
                 <tr key={i}>
                   <td>{q.time}</td>
@@ -198,24 +203,24 @@ function AIUsageSection() {
 
   return (
     <div style={{ marginTop: '2rem' }}>
-      <h2 style={{ marginBottom: '1rem' }}>🤖 AI Usage (Last 30 Days)</h2>
+      <h2 style={{ marginBottom: '1rem' }}>🤖 AI kullanımı (son 30 gün)</h2>
 
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
         <div className="card" style={{ marginBottom: 0 }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Total AI Queries</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Toplam AI sorgusu</p>
           <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '0.3rem 0' }}>{summary.total_queries}</p>
         </div>
         <div className="card" style={{ marginBottom: 0 }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Success Rate</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Başarı oranı</p>
           <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '0.3rem 0' }}>{(summary.success_rate * 100).toFixed(0)}%</p>
         </div>
         <div className="card" style={{ marginBottom: 0 }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Avg Latency</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Ort. gecikme</p>
           <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '0.3rem 0' }}>{summary.avg_latency_ms.toFixed(0)}ms</p>
         </div>
         <div className="card" style={{ marginBottom: 0 }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Total Cost</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Toplam maliyet</p>
           <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '0.3rem 0' }}>${summary.total_cost.toFixed(4)}</p>
         </div>
       </div>
@@ -223,7 +228,7 @@ function AIUsageSection() {
       {/* Charts */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem' }}>
         <div className="card">
-          <h3>Daily AI Queries</h3>
+          <h3>Günlük AI sorguları</h3>
           <div style={{ height: 250 }}>
             {trendData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -236,13 +241,13 @@ function AIUsageSection() {
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <p style={{ color: 'var(--text-muted)', textAlign: 'center', paddingTop: '4rem' }}>No AI queries yet</p>
+              <p style={{ color: 'var(--text-muted)', textAlign: 'center', paddingTop: '4rem' }}>Henüz AI sorgusu yok</p>
             )}
           </div>
         </div>
 
         <div className="card">
-          <h3>Daily Cost</h3>
+          <h3>Günlük maliyet</h3>
           <div style={{ height: 250 }}>
             {trendData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -255,7 +260,7 @@ function AIUsageSection() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <p style={{ color: 'var(--text-muted)', textAlign: 'center', paddingTop: '4rem' }}>No cost data yet</p>
+              <p style={{ color: 'var(--text-muted)', textAlign: 'center', paddingTop: '4rem' }}>Henüz maliyet verisi yok</p>
             )}
           </div>
         </div>

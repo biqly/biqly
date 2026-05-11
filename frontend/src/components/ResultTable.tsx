@@ -95,7 +95,7 @@ export default function ResultTable({
                 closeContextMenu()
               }}
             >
-              Filter: {contextMenu.colName} = "{contextMenu.value}"
+              Filtre: {contextMenu.colName} = "{contextMenu.value}"
             </button>
             <button
               className="context-menu-item"
@@ -104,7 +104,7 @@ export default function ResultTable({
                 closeContextMenu()
               }}
             >
-              Copy value
+              Değeri kopyala
             </button>
           </div>
         </>
@@ -128,7 +128,7 @@ export default function ResultTable({
                   className={sortDir ? 'sortable' : ''}
                   onClick={() => handleSort(colIdx)}
                   style={{ cursor: 'pointer', userSelect: 'none' }}
-                  title={`Click to sort${isActive ? ` (${sortDir})` : ''}`}
+                  title={`Sıralamak için tıklayın${isActive ? ` (${sortDir === 'asc' ? 'artan' : sortDir === 'desc' ? 'azalan' : ''})` : ''}`}
                 >
                   {col.name}
                   {arrow}
@@ -165,12 +165,12 @@ export default function ResultTable({
 
       <div className="result-footer">
         <span>
-          {rowCount} row{rowCount !== 1 ? 's' : ''}
-          {durationMs !== undefined ? ` · ${durationMs}ms` : ''}
+          {rowCount} satır
+          {durationMs !== undefined ? ` · ${durationMs} ms` : ''}
         </span>
         {sortDir && (
           <span>
-            Sorted by {columns[sortColIdx!]?.name} ({sortDir})
+            Sıralama: {columns[sortColIdx!]?.name} ({sortDir === 'asc' ? 'artan' : 'azalan'})
           </span>
         )}
       </div>

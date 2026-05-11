@@ -7,6 +7,7 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/biqly/biqly/internal/metadata"
@@ -121,19 +122,31 @@ func NewTableRouterWithEmbeddings(reader MetadataReader, embedder Embedder, embe
 
 // TableCandidate is a scored table candidate returned by automatic routing.
 type TableCandidate struct {
-	Table       string  `json:"table"`
-	Score       float64 `json:"score"`
-	Description string  `json:"description,omitempty"`
+	Table          string  `json:"table"`
+	Score          float64 `json:"score"`
+	TotalScore     float64 `json:"total_score"`
+	KeywordScore   float64 `json:"keyword_score"`
+	EmbeddingScore float64 `json:"embedding_score"`
+	Selected       bool    `json:"selected"`
+	Description    string  `json:"description,omitempty"`
+	RejectedReason string  `json:"rejected_reason,omitempty"`
 }
 
 // TableRoutingResult describes the table-routing decision for an AI query.
 type TableRoutingResult struct {
-	SelectedTables     []string         `json:"selected_tables,omitempty"`
-	JoinPaths          []string         `json:"join_paths,omitempty"`
-	Candidates         []TableCandidate `json:"candidates,omitempty"`
-	Confidence         float64          `json:"confidence"`
-	NeedsClarification bool             `json:"needs_clarification"`
-	Manual             bool             `json:"manual"`
+	SelectedModels     []string           `json:"selected_models,omitempty"`
+	SelectedTables     []string           `json:"selected_tables,omitempty"`
+	SelectedDimensions []string           `json:"selected_dimensions,omitempty"`
+	SelectedMetrics    []string           `json:"selected_metrics,omitempty"`
+	JoinPaths          []string           `json:"join_paths,omitempty"`
+	Candidates         []TableCandidate   `json:"candidates,omitempty"`
+	Confidence         float64            `json:"confidence"`
+	NeedsClarification bool               `json:"needs_clarification"`
+	Manual             bool               `json:"manual"`
+	ContextSource      string             `json:"context_source,omitempty"`
+	ContextKey         string             `json:"context_key,omitempty"`
+	ContextUpdatedAt   *time.Time         `json:"context_updated_at,omitempty"`
+	Debug              *TableRoutingDebug `json:"debug,omitempty"`
 	// RankingMethod tells the frontend which signal drove this decision:
 	// "manual" when the user supplied a scope, "hybrid" when both keyword
 	// and embedding similarity contributed, otherwise "keyword".
@@ -141,8 +154,25 @@ type TableRoutingResult struct {
 }
 
 type tableBundle struct {
-	table metadata.Table
-	score float64
+	table          metadata.Table
+	score          float64
+	keywordScore   float64
+	embeddingScore float64
+}
+
+// TableRoutingDebug carries explainability details for route decisions. It is
+// intentionally compact so it can be returned in regular API responses.
+type TableRoutingDebug struct {
+	RelationExpansion    []string `json:"relation_expansion,omitempty"`
+	BridgeTables         []string `json:"bridge_tables,omitempty"`
+	EliminatedCandidates []string `json:"eliminated_candidates,omitempty"`
+}
+
+func (r *TableRoutingResult) ensureDebug() *TableRoutingDebug {
+	if r.Debug == nil {
+		r.Debug = &TableRoutingDebug{}
+	}
+	return r.Debug
 }
 
 type embeddingSignals struct {
@@ -219,7 +249,9 @@ func (r *TableRouter) Route(
 	tblIdx := indexTables(tables)
 	if len(selected) > 0 && !result.Manual && len(nonEmptyScope(tableScope)) == 0 {
 		selected = appendEntityResolverTables(selected, columnsByTable, relations, tblIdx, tokenSet(question), maxExpandedAutoTables, nameResolverMaxHops)
+		beforeBridge := bundleKeySet(selected)
 		selected = expandSelectedWithJoinBridges(selected, relations, tblIdx, maxExpandedAutoTables)
+		result.ensureDebug().BridgeTables = addedBundleLabels(beforeBridge, selected)
 	}
 
 	connected, joinPaths := connectSelectedTables(selected, relations)
@@ -233,9 +265,17 @@ func (r *TableRouter) Route(
 	}
 	result.SelectedTables = bundleLabels(connected)
 	result.JoinPaths = joinPaths
+	result.ensureDebug().RelationExpansion = joinPaths
+	markSelectedCandidates(result.Candidates, result.SelectedTables)
+	result.ensureDebug().EliminatedCandidates = eliminatedCandidateLabels(result.Candidates)
 
 	columnsForModel := rankColumnsForSemanticModel(connected, columnsByTable, relations, embedSignals.columnScores)
 	model := buildSemanticModel(datasourceID, connected, columnsForModel, relations)
+	contextSource := "auto"
+	if result.Manual {
+		contextSource = "manual"
+	}
+	applyModelContextToRouting(result, model, contextSource, nil)
 	return model, result, nil
 }
 
@@ -325,8 +365,9 @@ func selectManualTables(
 		}
 		seen[key] = true
 		selected = append(selected, tableBundle{
-			table: table,
-			score: 1,
+			table:        table,
+			score:        1,
+			keywordScore: 1,
 		})
 	}
 
@@ -348,13 +389,14 @@ func selectAutomaticTables(
 	bundles := make([]tableBundle, 0, len(tables))
 	for _, table := range tables {
 		key := tableKey(table.SchemaName, table.TableName)
-		score := scoreTable(table, columnsByTable[key], tokens)
-		if boost, ok := embedBoost[key]; ok {
-			score += boost
-		}
+		keywordScore := scoreTable(table, columnsByTable[key], tokens)
+		embeddingScore := embedBoost[key]
+		score := keywordScore + embeddingScore
 		bundles = append(bundles, tableBundle{
-			table: table,
-			score: score,
+			table:          table,
+			score:          score,
+			keywordScore:   keywordScore,
+			embeddingScore: embeddingScore,
 		})
 	}
 
@@ -1403,8 +1445,11 @@ func topCandidates(bundles []tableBundle, limit int) []TableCandidate {
 	candidates := make([]TableCandidate, 0, limit)
 	for _, bundle := range bundles[:limit] {
 		candidate := TableCandidate{
-			Table: tableLabel(bundle.table),
-			Score: math.Round(bundle.score*100) / 100,
+			Table:          tableLabel(bundle.table),
+			Score:          roundScore(bundle.score),
+			TotalScore:     roundScore(bundle.score),
+			KeywordScore:   roundScore(bundle.keywordScore),
+			EmbeddingScore: roundScore(bundle.embeddingScore),
 		}
 		if bundle.table.Description != nil {
 			candidate.Description = *bundle.table.Description
@@ -1412,6 +1457,97 @@ func topCandidates(bundles []tableBundle, limit int) []TableCandidate {
 		candidates = append(candidates, candidate)
 	}
 	return candidates
+}
+
+func roundScore(score float64) float64 {
+	return math.Round(score*100) / 100
+}
+
+func markSelectedCandidates(candidates []TableCandidate, selectedTables []string) {
+	selected := make(map[string]bool, len(selectedTables))
+	for _, table := range selectedTables {
+		selected[table] = true
+	}
+	for i := range candidates {
+		if selected[candidates[i].Table] {
+			candidates[i].Selected = true
+			continue
+		}
+		candidates[i].RejectedReason = "not selected for final connected context"
+	}
+}
+
+func eliminatedCandidateLabels(candidates []TableCandidate) []string {
+	var out []string
+	for _, candidate := range candidates {
+		if !candidate.Selected {
+			out = append(out, candidate.Table)
+		}
+	}
+	return out
+}
+
+func applyModelContextToRouting(
+	result *TableRoutingResult,
+	model *semantic.SemanticModel,
+	contextSource string,
+	updatedAt *time.Time,
+) {
+	if result == nil || model == nil {
+		return
+	}
+	result.ContextSource = contextSource
+	result.ContextKey = model.ID
+	if result.ContextKey == "" {
+		result.ContextKey = model.Name
+	}
+	if model.Name != "" {
+		result.SelectedModels = []string{model.Name}
+	}
+	if updatedAt != nil {
+		result.ContextUpdatedAt = updatedAt
+	} else if !model.UpdatedAt.IsZero() {
+		t := model.UpdatedAt
+		result.ContextUpdatedAt = &t
+	}
+	result.SelectedDimensions = dimensionNames(model.Dimensions)
+	result.SelectedMetrics = metricNames(model.Metrics)
+}
+
+func dimensionNames(dimensions []semantic.Dimension) []string {
+	names := make([]string, 0, len(dimensions))
+	for _, dimension := range dimensions {
+		names = append(names, dimension.Name)
+	}
+	return names
+}
+
+func metricNames(metrics []semantic.Metric) []string {
+	names := make([]string, 0, len(metrics))
+	for _, metric := range metrics {
+		names = append(names, metric.Name)
+	}
+	return names
+}
+
+func bundleKeySet(bundles []tableBundle) map[string]bool {
+	keys := make(map[string]bool, len(bundles))
+	for _, bundle := range bundles {
+		keys[tableKey(bundle.table.SchemaName, bundle.table.TableName)] = true
+	}
+	return keys
+}
+
+func addedBundleLabels(before map[string]bool, bundles []tableBundle) []string {
+	var added []string
+	for _, bundle := range bundles {
+		label := tableLabel(bundle.table)
+		if before[label] {
+			continue
+		}
+		added = append(added, label)
+	}
+	return added
 }
 
 func routeConfidence(bundles []tableBundle) float64 {

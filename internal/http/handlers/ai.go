@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/dialect"
-	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
@@ -200,8 +200,7 @@ func (h *AIHandler) Preview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	compiler := query.NewCompiler(driver.Dialect())
-	cq, err := compiler.Compile(ctx, *resp.LogicalQuery, model)
+	cq, err := h.deps.QueryService.CompileWithContext(ctx, *resp.LogicalQuery, model, driver)
 	if err != nil {
 		resp.Warnings = append(resp.Warnings, "compilation failed: "+err.Error())
 	} else {
@@ -264,8 +263,7 @@ func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
 			slog.Error("failed to close database connection", "error", closeErr)
 		}
 	}()
-	compiler := query.NewCompiler(driver.Dialect())
-	dryRun := newSQLDryRunValidator(db, compiler, driver.Dialect(), model)
+	dryRun := newSQLDryRunValidator(h.deps.QueryService, db, driver, model)
 
 	// Get AI response (with EXPLAIN dry-run + few-shot history + sample rows)
 	resp, err := h.service.ProcessQuestion(ctx, req.Question, model,
@@ -289,7 +287,7 @@ func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Compile (final, for execution — the dry-run already succeeded above)
-	cq, err := compiler.Compile(ctx, *resp.LogicalQuery, model)
+	cq, err := h.deps.QueryService.CompileWithContext(ctx, *resp.LogicalQuery, model, driver)
 	if err != nil {
 		h.recordAIQueryHistory(ctx, *resp.LogicalQuery, model, nil, nil, queryStatusFailed, err)
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("compilation failed: %s", err.Error()))
@@ -390,13 +388,258 @@ func (h *AIHandler) loadQueryModel(
 ) (*semantic.SemanticModel, *ai.TableRoutingResult, error) {
 	if req.ModelID != "" {
 		model, err := h.loadModel(ctx, req.DatasourceID, req.ModelID)
-		return model, nil, err
+		if err != nil {
+			return nil, nil, err
+		}
+		return model, routingForSemanticModel(model, 1), nil
+	}
+	if len(nonEmptyStringSlice(req.Tables)) == 0 {
+		if model, routing, ok := h.loadPreferredSemanticModel(ctx, req.DatasourceID, req.Question); ok {
+			return model, routing, nil
+		}
 	}
 	base, views, err := typeScopeFromAIQueryRequest(req)
 	if err != nil {
 		return nil, nil, err
 	}
 	return h.tableRouter.Route(ctx, req.DatasourceID, req.Question, req.Tables, base, views)
+}
+
+func (h *AIHandler) loadPreferredSemanticModel(ctx context.Context, datasourceID, question string) (*semantic.SemanticModel, *ai.TableRoutingResult, bool) {
+	models, err := h.deps.SemanticRepo.ListModels(ctx, datasourceID)
+	if err != nil {
+		slog.WarnContext(ctx, "list semantic models failed; falling back to auto context", "datasource_id", datasourceID, "error", err)
+		return nil, nil, false
+	}
+	model, ok := chooseSemanticModelForQuestion(models, question)
+	if !ok {
+		return nil, nil, false
+	}
+	full, err := h.loadModel(ctx, datasourceID, model.Name)
+	if err != nil {
+		slog.WarnContext(ctx, "load preferred semantic model failed; falling back to auto context", "datasource_id", datasourceID, "model", model.Name, "error", err)
+		return nil, nil, false
+	}
+	return full, routingForSemanticModel(full, semanticModelConfidence(models, model, question)), true
+}
+
+func chooseSemanticModelForQuestion(models []semantic.SemanticModel, question string) (semantic.SemanticModel, bool) {
+	active := make([]semantic.SemanticModel, 0, len(models))
+	for _, model := range models {
+		status := model.Status
+		if status == "" {
+			status = semantic.ModelStatusPublished
+		}
+		if !model.IsActive || status != semantic.ModelStatusPublished || strings.HasPrefix(model.Name, "auto:") {
+			continue
+		}
+		active = append(active, model)
+	}
+	if len(active) == 0 {
+		return semantic.SemanticModel{}, false
+	}
+	if len(active) == 1 {
+		return active[0], true
+	}
+
+	tokens := handlerTokenSet(question)
+	var (
+		best      semantic.SemanticModel
+		bestScore float64
+	)
+	for _, model := range active {
+		score := scoreSemanticModelForQuestion(model, tokens)
+		if score > bestScore {
+			best = model
+			bestScore = score
+		}
+	}
+	if bestScore == 0 {
+		return semantic.SemanticModel{}, false
+	}
+	return best, true
+}
+
+func semanticModelConfidence(models []semantic.SemanticModel, selected semantic.SemanticModel, question string) float64 {
+	activeCount := 0
+	for _, model := range models {
+		status := model.Status
+		if status == "" {
+			status = semantic.ModelStatusPublished
+		}
+		if model.IsActive && status == semantic.ModelStatusPublished && !strings.HasPrefix(model.Name, "auto:") {
+			activeCount++
+		}
+	}
+	if activeCount <= 1 {
+		return 1
+	}
+	score := scoreSemanticModelForQuestion(selected, handlerTokenSet(question))
+	if score <= 0 {
+		return 0.65
+	}
+	if score > 10 {
+		return 0.95
+	}
+	return 0.75
+}
+
+func scoreSemanticModelForQuestion(model semantic.SemanticModel, tokens map[string]bool) float64 {
+	score := weightedHandlerTokenScore(tokens, model.Name, 4)
+	score += weightedHandlerTokenScore(tokens, model.BaseTable, 3)
+	if model.Label != nil {
+		score += weightedHandlerTokenScore(tokens, *model.Label, 2)
+	}
+	if model.Description != nil {
+		score += weightedHandlerTokenScore(tokens, *model.Description, 1.5)
+	}
+	for _, synonym := range model.Synonyms {
+		score += weightedHandlerTokenScore(tokens, synonym, 3)
+	}
+	return score
+}
+
+func routingForSemanticModel(model *semantic.SemanticModel, confidence float64) *ai.TableRoutingResult {
+	if model == nil {
+		return nil
+	}
+	selectedTables := selectedTablesForSemanticModel(model)
+	routing := &ai.TableRoutingResult{
+		SelectedModels:     []string{model.Name},
+		SelectedTables:     selectedTables,
+		SelectedDimensions: semanticDimensionNames(model.Dimensions),
+		SelectedMetrics:    semanticMetricNames(model.Metrics),
+		JoinPaths:          semanticJoinPaths(model),
+		Confidence:         confidence,
+		ContextSource:      "semantic_model",
+		ContextKey:         model.ID,
+		RankingMethod:      "semantic",
+		Candidates: []ai.TableCandidate{{
+			Table:      qualifySemanticTable(model, model.BaseTable),
+			Score:      confidence,
+			TotalScore: confidence,
+			Selected:   true,
+		}},
+		Debug: &ai.TableRoutingDebug{
+			RelationExpansion: semanticJoinPaths(model),
+		},
+	}
+	if routing.ContextKey == "" {
+		routing.ContextKey = model.Name
+	}
+	if !model.UpdatedAt.IsZero() {
+		t := model.UpdatedAt
+		routing.ContextUpdatedAt = &t
+	}
+	return routing
+}
+
+func selectedTablesForSemanticModel(model *semantic.SemanticModel) []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(table string) {
+		table = qualifySemanticTable(model, table)
+		if table == "" || seen[table] {
+			return
+		}
+		seen[table] = true
+		out = append(out, table)
+	}
+	add(model.BaseTable)
+	for _, join := range model.Joins {
+		add(join.FromTable)
+		add(join.ToTable)
+	}
+	return out
+}
+
+func semanticJoinPaths(model *semantic.SemanticModel) []string {
+	var out []string
+	for _, join := range model.Joins {
+		out = append(out, fmt.Sprintf(
+			"%s.%s = %s.%s",
+			qualifySemanticTable(model, join.FromTable),
+			join.FromColumn,
+			qualifySemanticTable(model, join.ToTable),
+			join.ToColumn,
+		))
+	}
+	return out
+}
+
+func qualifySemanticTable(model *semantic.SemanticModel, table string) string {
+	table = strings.TrimSpace(table)
+	if table == "" {
+		return ""
+	}
+	if strings.Contains(table, ".") || model.BaseSchema == "" {
+		return table
+	}
+	return model.BaseSchema + "." + table
+}
+
+func semanticDimensionNames(dimensions []semantic.Dimension) []string {
+	out := make([]string, 0, len(dimensions))
+	for _, dimension := range dimensions {
+		out = append(out, dimension.Name)
+	}
+	return out
+}
+
+func semanticMetricNames(metrics []semantic.Metric) []string {
+	out := make([]string, 0, len(metrics))
+	for _, metric := range metrics {
+		out = append(out, metric.Name)
+	}
+	return out
+}
+
+func nonEmptyStringSlice(values []string) []string {
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			out = append(out, value)
+		}
+	}
+	return out
+}
+
+func weightedHandlerTokenScore(questionTokens map[string]bool, text string, weight float64) float64 {
+	textTokens := handlerTokenSet(text)
+	score := 0.0
+	for token := range questionTokens {
+		if textTokens[token] {
+			score += weight
+		}
+	}
+	return score
+}
+
+func handlerTokenSet(text string) map[string]bool {
+	text = strings.ToLower(strings.NewReplacer(
+		"İ", "i", "I", "i", "ı", "i",
+		"Ş", "s", "ş", "s",
+		"Ğ", "g", "ğ", "g",
+		"Ü", "u", "ü", "u",
+		"Ö", "o", "ö", "o",
+		"Ç", "c", "ç", "c",
+	).Replace(text))
+	var normalized strings.Builder
+	for _, r := range text {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			normalized.WriteRune(r)
+			continue
+		}
+		normalized.WriteRune(' ')
+	}
+	tokens := make(map[string]bool)
+	for _, token := range strings.Fields(normalized.String()) {
+		tokens[token] = true
+		if strings.HasSuffix(token, "s") && len(token) > 3 {
+			tokens[strings.TrimSuffix(token, "s")] = true
+		}
+	}
+	return tokens
 }
 
 func typeScopeFromAIQueryRequest(req aiQueryRequest) (includeBase, includeViews bool, err error) {
@@ -526,24 +769,9 @@ func failedAIResponse(err error) *ai.Response {
 }
 
 func (h *AIHandler) loadModel(ctx context.Context, datasourceID, modelID string) (*semantic.SemanticModel, error) {
-	model, err := h.deps.SemanticRepo.GetModelByName(ctx, datasourceID, modelID)
+	model, err := h.deps.SemanticRepo.GetPublishedModelByName(ctx, datasourceID, modelID)
 	if err != nil {
 		slog.ErrorContext(ctx, "load semantic model failed", "datasource_id", datasourceID, "model_id", modelID, "error", err)
-		return nil, err
-	}
-	model.Dimensions, err = h.deps.SemanticRepo.GetDimensions(ctx, model.ID)
-	if err != nil {
-		slog.ErrorContext(ctx, "load semantic dimensions failed", "model_id", model.ID, "error", err)
-		return nil, err
-	}
-	model.Metrics, err = h.deps.SemanticRepo.GetMetrics(ctx, model.ID)
-	if err != nil {
-		slog.ErrorContext(ctx, "load semantic metrics failed", "model_id", model.ID, "error", err)
-		return nil, err
-	}
-	model.Joins, err = h.deps.SemanticRepo.GetJoins(ctx, model.ID)
-	if err != nil {
-		slog.ErrorContext(ctx, "load semantic joins failed", "model_id", model.ID, "error", err)
 		return nil, err
 	}
 	return model, nil

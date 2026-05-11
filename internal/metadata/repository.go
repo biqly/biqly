@@ -372,6 +372,36 @@ func (r *Repository) GetColumn(ctx context.Context, id string) (*Column, error) 
 	return &c, nil
 }
 
+func (r *Repository) ListPermissionPolicies(ctx context.Context, datasourceID string) ([]PermissionPolicyRecord, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT denied_fields, row_filters
+		FROM permissions
+		WHERE datasource_id::text = $1
+	`, datasourceID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var policies []PermissionPolicyRecord
+	for rows.Next() {
+		var (
+			policy     PermissionPolicyRecord
+			rowFilters []byte
+			denied     pq.StringArray
+		)
+		if err := rows.Scan(&denied, &rowFilters); err != nil {
+			return nil, err
+		}
+		policy.DeniedFields = []string(denied)
+		if len(rowFilters) > 0 {
+			_ = json.Unmarshal(rowFilters, &policy.RowFilters)
+		}
+		policies = append(policies, policy)
+	}
+	return policies, rows.Err()
+}
+
 // UpdateColumnDescription replaces the description text on a column row.
 func (r *Repository) UpdateColumnDescription(ctx context.Context, id string, description *string) error {
 	_, err := r.db.ExecContext(ctx, `UPDATE columns SET description = $2 WHERE id = $1`, id, description)

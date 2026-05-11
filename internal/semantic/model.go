@@ -8,23 +8,29 @@ import "time"
 type Model = SemanticModel
 
 // SemanticModel defines a business-friendly view over a physical table.
+//
 //nolint:revive // 'SemanticModel' is clearer than 'Model' in the semantic package context
 type SemanticModel struct {
-	ID           string      `json:"id" db:"id"`
-	DatasourceID string      `json:"datasource_id" db:"datasource_id"`
-	Name         string      `json:"name" db:"name"`
-	Label        *string     `json:"label" db:"label"`
-	Description  *string     `json:"description" db:"description"`
-	BaseSchema   string      `json:"base_schema" db:"base_schema"`
-	BaseTable    string      `json:"base_table" db:"base_table"`
-	Synonyms     []string    `json:"synonyms" db:"synonyms"`
-	IsActive     bool        `json:"is_active" db:"is_active"`
-	CreatedBy    *string     `json:"created_by" db:"created_by"`
-	Dimensions   []Dimension `json:"dimensions,omitempty"`
-	Metrics      []Metric    `json:"metrics,omitempty"`
-	Joins        []Join      `json:"joins,omitempty"`
-	CreatedAt    time.Time   `json:"created_at" db:"created_at"`
-	UpdatedAt    time.Time   `json:"updated_at" db:"updated_at"`
+	ID             string      `json:"id" db:"id"`
+	DatasourceID   string      `json:"datasource_id" db:"datasource_id"`
+	Name           string      `json:"name" db:"name"`
+	Label          *string     `json:"label" db:"label"`
+	Description    *string     `json:"description" db:"description"`
+	BaseSchema     string      `json:"base_schema" db:"base_schema"`
+	BaseTable      string      `json:"base_table" db:"base_table"`
+	Synonyms       []string    `json:"synonyms" db:"synonyms"`
+	IsActive       bool        `json:"is_active" db:"is_active"`
+	Status         string      `json:"status" db:"status"`
+	Version        int         `json:"version" db:"version"`
+	PublishedAt    *time.Time  `json:"published_at,omitempty" db:"published_at"`
+	PublishedBy    *string     `json:"published_by,omitempty" db:"published_by"`
+	DraftUpdatedAt time.Time   `json:"draft_updated_at" db:"draft_updated_at"`
+	CreatedBy      *string     `json:"created_by" db:"created_by"`
+	Dimensions     []Dimension `json:"dimensions,omitempty"`
+	Metrics        []Metric    `json:"metrics,omitempty"`
+	Joins          []Join      `json:"joins,omitempty"`
+	CreatedAt      time.Time   `json:"created_at" db:"created_at"`
+	UpdatedAt      time.Time   `json:"updated_at" db:"updated_at"`
 }
 
 // Dimension represents a group-by-able field in a semantic model.
@@ -69,7 +75,7 @@ type Join struct {
 	FromColumn   string    `json:"from_column" db:"from_column"`
 	ToTable      string    `json:"to_table" db:"to_table"`
 	ToColumn     string    `json:"to_column" db:"to_column"`
-	JoinType     string    `json:"join_type" db:"join_type"` // LEFT, INNER, RIGHT
+	JoinType     string    `json:"join_type" db:"join_type"`       // LEFT, INNER, RIGHT
 	Relationship string    `json:"relationship" db:"relationship"` // many_to_one, one_to_many, one_to_one, many_to_many
 	IsActive     bool      `json:"is_active" db:"is_active"`
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
@@ -80,11 +86,11 @@ type DimensionType string
 
 // Supported dimension types.
 const (
-	DimensionTypeText     DimensionType = "text"
-	DimensionTypeNumber   DimensionType = "number"
-	DimensionTypeDate     DimensionType = "date"
-	DimensionTypeBoolean  DimensionType = "boolean"
-	DimensionTypeGeo      DimensionType = "geo"
+	DimensionTypeText    DimensionType = "text"
+	DimensionTypeNumber  DimensionType = "number"
+	DimensionTypeDate    DimensionType = "date"
+	DimensionTypeBoolean DimensionType = "boolean"
+	DimensionTypeGeo     DimensionType = "geo"
 )
 
 // AggregationType enumerates supported aggregation functions.
@@ -92,10 +98,10 @@ type AggregationType string
 
 // Supported aggregation functions.
 const (
-	AggCount          AggregationType = "count"
-	AggSum            AggregationType = "sum"
-	AggAvg            AggregationType = "avg"
-	AggMin            AggregationType = "min"
-	AggMax            AggregationType = "max"
-	AggCountDistinct  AggregationType = "count_distinct"
+	AggCount         AggregationType = "count"
+	AggSum           AggregationType = "sum"
+	AggAvg           AggregationType = "avg"
+	AggMin           AggregationType = "min"
+	AggMax           AggregationType = "max"
+	AggCountDistinct AggregationType = "count_distinct"
 )

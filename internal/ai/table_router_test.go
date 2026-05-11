@@ -53,6 +53,37 @@ func TestTableRouter_RouteSelectsRelatedTables(t *testing.T) {
 	if len(routing.JoinPaths) != 1 {
 		t.Errorf("Route() join path count = %d, want 1", len(routing.JoinPaths))
 	}
+	if routing.ContextSource != "auto" {
+		t.Errorf("Route() context source = %q, want auto", routing.ContextSource)
+	}
+	if routing.ContextKey == "" {
+		t.Errorf("Route() context key is empty, want generated context key")
+	}
+	if !slices.Contains(routing.SelectedDimensions, "name") {
+		t.Errorf("Route() selected dimensions = %v, want name", routing.SelectedDimensions)
+	}
+	if !slices.Contains(routing.SelectedMetrics, "sum_total_amount") {
+		t.Errorf("Route() selected metrics = %v, want sum_total_amount", routing.SelectedMetrics)
+	}
+	ordersCandidate, ok := findRoutingCandidate(routing.Candidates, "public.orders")
+	if !ok {
+		t.Fatalf("Route() candidates = %+v, want public.orders candidate", routing.Candidates)
+	}
+	if !ordersCandidate.Selected {
+		t.Errorf("Route() public.orders selected = false, want true")
+	}
+	if ordersCandidate.KeywordScore <= 0 {
+		t.Errorf("Route() public.orders keyword score = %v, want > 0", ordersCandidate.KeywordScore)
+	}
+	if ordersCandidate.TotalScore <= 0 {
+		t.Errorf("Route() public.orders total score = %v, want > 0", ordersCandidate.TotalScore)
+	}
+	if routing.Debug == nil {
+		t.Fatalf("Route() debug = nil, want routing debug details")
+	}
+	if !slices.Contains(routing.Debug.RelationExpansion, "public.orders.customer_id = public.customers.id") {
+		t.Errorf("Route() relation expansion = %v, want orders/customers relation", routing.Debug.RelationExpansion)
+	}
 	if model.BaseTable != "orders" {
 		t.Errorf("Route() base table = %q, want %q", model.BaseTable, "orders")
 	}
@@ -605,6 +636,15 @@ func hasDimension(dimensions []semantic.Dimension, name, columnRef string) bool 
 		}
 	}
 	return false
+}
+
+func findRoutingCandidate(candidates []TableCandidate, table string) (TableCandidate, bool) {
+	for _, candidate := range candidates {
+		if candidate.Table == table {
+			return candidate, true
+		}
+	}
+	return TableCandidate{}, false
 }
 
 func sameStrings(got, want []string) bool {

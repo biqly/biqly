@@ -32,8 +32,8 @@ function saveFewShotEntries(entries: FewShotEntry[]) {
 const demoQuestions: SavedQuestion[] = [
   {
     id: '1',
-    name: 'Revenue by Country',
-    description: 'Monthly revenue breakdown by country',
+    name: 'Ülkeye göre gelir',
+    description: 'Ülkelere göre aylık gelir dağılımı',
     datasource_id: 'ds_1',
     model_id: 'orders',
     logical_query: {
@@ -47,8 +47,8 @@ const demoQuestions: SavedQuestion[] = [
   },
   {
     id: '2',
-    name: 'Active Users This Week',
-    description: 'Count of active users by day',
+    name: 'Bu hafta aktif kullanıcılar',
+    description: 'Güne göre aktif kullanıcı sayısı',
     datasource_id: 'ds_1',
     model_id: 'users',
     logical_query: {
@@ -61,8 +61,8 @@ const demoQuestions: SavedQuestion[] = [
   },
   {
     id: '3',
-    name: 'Product Sales Top 10',
-    description: 'Top 10 products by sales count',
+    name: 'En çok satan 10 ürün',
+    description: 'Satış adedine göre ilk 10 ürün',
     datasource_id: 'ds_1',
     model_id: 'products',
     logical_query: {
@@ -104,18 +104,18 @@ export default function SavedQuestions() {
   return (
     <div>
       <div className="card">
-        <h2>Question Library</h2>
+        <h2>Soru kütüphanesi</h2>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginBottom: '0.75rem' }}>
           {fewShotCount > 0
-            ? `${fewShotCount} question${fewShotCount > 1 ? 's' : ''} marked as AI few-shot examples.`
-            : 'Mark questions as AI few-shot examples to improve text-to-SQL accuracy.'}
+            ? `${fewShotCount} soru AI few-shot örneği olarak işaretlendi.`
+            : 'Metinden-SQL doğruluğunu artırmak için soruları AI few-shot örneği olarak işaretleyin.'}
         </p>
         <div className="form-group">
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search questions or tags…"
-            aria-label="Search saved questions"
+            placeholder="Soru veya etiket ara…"
+            aria-label="Kayıtlı sorularda ara"
             name="saved_question_search"
             autoComplete="off"
           />
@@ -153,7 +153,7 @@ export default function SavedQuestions() {
                 </button>
                 <label
                   className="fewshot-checkbox"
-                  title="Use as AI few-shot example"
+                  title="AI few-shot örneği olarak kullan"
                   style={{
                     position: 'absolute',
                     top: '0.6rem',
@@ -175,7 +175,7 @@ export default function SavedQuestions() {
                     onChange={() => toggleFewShot(q.id)}
                     onClick={(e) => e.stopPropagation()}
                   />
-                  <span>AI example</span>
+                  <span>AI örneği</span>
                 </label>
               </div>
             )
@@ -193,11 +193,11 @@ export default function SavedQuestions() {
               {JSON.stringify(selectedQuestion.logical_query, null, 2)}
             </div>
             <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
-              <button className="btn">Run Query</button>
+              <button className="btn">Sorguyu çalıştır</button>
               <button className="btn" style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)' }}>
-                Edit
+                Düzenle
               </button>
-              <button className="btn" style={{ background: 'var(--error)' }}>Delete</button>
+              <button className="btn" style={{ background: 'var(--error)' }}>Sil</button>
             </div>
           </div>
         )}

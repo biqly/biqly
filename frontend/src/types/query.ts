@@ -1,8 +1,8 @@
 // ─── Query Execution Types ─────────────────────────────────────────
 
 export interface LogicalQueryPayload {
-  data_source: string
-  tables?: string[]
+  datasource_id: string
+  model_id: string
   select?: SelectField[]
   filters?: FilterClause[]
   group_by?: GroupByField[]
@@ -11,14 +11,22 @@ export interface LogicalQueryPayload {
   limit?: number
   offset?: number
   ctes?: CTE[]
-  window_functions?: WindowFunction[]
 }
 
 export interface SelectField {
-  type: 'dimension' | 'metric'
+  type: 'dimension' | 'metric' | 'window'
   name: string
   alias?: string
-  aggregation?: string
+  window?: WindowSpec
+}
+
+export interface WindowSpec {
+  aggregation: string
+  expression?: string
+  metric?: string
+  partition_by?: string[]
+  order_by?: OrderByField[]
+  frame?: string
 }
 
 export interface FilterClause {

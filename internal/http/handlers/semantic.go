@@ -1,11 +1,15 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 
 	"github.com/biqly/biqly/internal/app"
+	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/semantic"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -162,6 +166,61 @@ func (h *SemanticHandler) DeleteModel(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+type publishRequest struct {
+	PublishedBy string `json:"published_by,omitempty"`
+}
+
+type rollbackRequest struct {
+	Version     int    `json:"version,omitempty"`
+	PublishedBy string `json:"published_by,omitempty"`
+}
+
+func (h *SemanticHandler) ValidateModel(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	result, err := h.deps.SemanticRepo.ValidateModel(r.Context(), id, semanticCatalogAdapter{repo: h.deps.MetaRepo})
+	if err != nil {
+		writeError(w, http.StatusNotFound, "model not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (h *SemanticHandler) PublishModel(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var req publishRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	result, err := h.deps.SemanticRepo.PublishModel(r.Context(), id, req.PublishedBy, semanticCatalogAdapter{repo: h.deps.MetaRepo})
+	if err != nil {
+		slog.ErrorContext(r.Context(), "publish semantic model failed", "id", id, "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to publish model")
+		return
+	}
+	if !result.Validation.Valid {
+		writeJSON(w, http.StatusUnprocessableEntity, result)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (h *SemanticHandler) RollbackModel(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var req rollbackRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	result, err := h.deps.SemanticRepo.RollbackModel(r.Context(), id, req.Version, req.PublishedBy)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "rollback semantic model failed", "id", id, "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to rollback model")
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
 type createDimensionRequest struct {
 	Name      string   `json:"name"`
 	Label     string   `json:"label,omitempty"`
@@ -298,4 +357,63 @@ func (h *SemanticHandler) CreateJoin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, j)
+}
+
+type semanticCatalogAdapter struct {
+	repo interface {
+		ListColumns(ctx context.Context, datasourceID, schemaName, tableName string) ([]metadata.Column, error)
+		ListRelations(ctx context.Context, datasourceID string) ([]metadata.Relation, error)
+		ListPermissionPolicies(ctx context.Context, datasourceID string) ([]metadata.PermissionPolicyRecord, error)
+	}
+}
+
+func (a semanticCatalogAdapter) ListSemanticColumns(ctx context.Context, datasourceID string) ([]semantic.CatalogColumn, error) {
+	columns, err := a.repo.ListColumns(ctx, datasourceID, "", "")
+	if err != nil {
+		return nil, err
+	}
+	out := make([]semantic.CatalogColumn, 0, len(columns))
+	for _, col := range columns {
+		out = append(out, semantic.CatalogColumn{
+			SchemaName: col.SchemaName,
+			TableName:  col.TableName,
+			ColumnName: col.ColumnName,
+		})
+	}
+	return out, nil
+}
+
+func (a semanticCatalogAdapter) ListSemanticRelations(ctx context.Context, datasourceID string) ([]semantic.CatalogRelation, error) {
+	relations, err := a.repo.ListRelations(ctx, datasourceID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]semantic.CatalogRelation, 0, len(relations))
+	for _, rel := range relations {
+		out = append(out, semantic.CatalogRelation{
+			FromSchema: rel.FromSchema,
+			FromTable:  rel.FromTable,
+			FromColumn: rel.FromColumn,
+			ToSchema:   rel.ToSchema,
+			ToTable:    rel.ToTable,
+			ToColumn:   rel.ToColumn,
+		})
+	}
+	return out, nil
+}
+
+func (a semanticCatalogAdapter) ListSemanticPolicies(ctx context.Context, datasourceID string) ([]semantic.CatalogPolicy, error) {
+	policies, err := a.repo.ListPermissionPolicies(ctx, datasourceID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]semantic.CatalogPolicy, 0, len(policies))
+	for _, policy := range policies {
+		p := semantic.CatalogPolicy{DeniedFields: policy.DeniedFields}
+		for _, filter := range policy.RowFilters {
+			p.RowFilters = append(p.RowFilters, semantic.CatalogRowFilter{Field: filter.Field})
+		}
+		out = append(out, p)
+	}
+	return out, nil
 }

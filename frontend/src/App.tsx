@@ -19,58 +19,58 @@ interface AppRoute {
 const routes: AppRoute[] = [
   {
     path: '/datasources',
-    label: 'Datasources',
-    eyebrow: 'Connections',
-    description: 'Connect databases, test access, and sync metadata.',
+    label: 'Veri Kaynakları',
+    eyebrow: 'Bağlantılar',
+    description: 'Veritabanı bağlayın, erişimi test edin ve metadata eşitleyin.',
     component: Datasources,
   },
   {
     path: '/metadata',
     label: 'Metadata',
-    eyebrow: 'Catalog',
-    description: 'Review schemas, enrich table descriptions, and prepare AI context.',
+    eyebrow: 'Katalog',
+    description: 'Şemaları inceleyin, tablo açıklamalarını zenginleştirin ve AI bağlamını hazırlayın.',
     component: Metadata,
   },
   {
     path: '/query-builder',
-    label: 'Query Builder',
-    eyebrow: 'Explore',
-    description: 'Build governed logical queries and preview generated SQL.',
+    label: 'Sorgu Oluşturucu',
+    eyebrow: 'Keşfet',
+    description: 'Yönetilen mantıksal sorgular oluşturun ve üretilen SQL\'i önizleyin.',
     component: QueryBuilder,
   },
   {
     path: '/ai-query',
-    label: 'AI Query',
-    eyebrow: 'Ask',
-    description: 'Ask natural-language questions with automatic table routing.',
+    label: 'AI Sorgu',
+    eyebrow: 'Sor',
+    description: 'Otomatik tablo yönlendirme ile doğal dilde soru sorun.',
     component: AIQuery,
   },
   {
     path: '/dashboard',
-    label: 'Dashboard',
-    eyebrow: 'Visualize',
-    description: 'Track KPI examples and chart query results.',
+    label: 'Gösterge Paneli',
+    eyebrow: 'Görselleştir',
+    description: 'KPI örneklerini takip edin ve sorgu sonuçlarını grafikleyin.',
     component: Dashboard,
   },
   {
     path: '/saved',
-    label: 'Saved Questions',
-    eyebrow: 'Library',
-    description: 'Browse reusable questions and query templates.',
+    label: 'Kaydedilmiş Sorular',
+    eyebrow: 'Kütüphane',
+    description: 'Yeniden kullanılabilir soruları ve sorgu şablonlarını görüntüleyin.',
     component: SavedQuestions,
   },
   {
     path: '/few-shot-examples',
-    label: 'Few-Shot Examples',
-    eyebrow: 'Admin',
-    description: 'Manage AI few-shot examples to improve text-to-SQL accuracy.',
+    label: 'Few-Shot Örnekleri',
+    eyebrow: 'Yönetim',
+    description: 'AI few-shot örneklerini yönetin ve text-to-SQL doğruluğunu artırın.',
     component: FewShotExamples,
   },
   {
     path: '/evaluation',
-    label: 'Evaluation',
-    eyebrow: 'Quality',
-    description: 'Run and review AI text-to-SQL evaluation results.',
+    label: 'Değerlendirme',
+    eyebrow: 'Kalite',
+    description: 'AI text-to-SQL değerlendirme sonuçlarını çalıştırın ve inceleyin.',
     component: Evaluation,
   },
 ]
@@ -103,7 +103,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    document.title = activeRoute ? `${activeRoute.label} · Biqly` : 'Page Not Found · Biqly'
+    document.title = activeRoute ? `${activeRoute.label} · Biqly` : 'Sayfa bulunamadı · Biqly'
   }, [activeRoute])
 
   const navigate = (path: string) => {
@@ -136,17 +136,17 @@ function App() {
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">
-        Skip to content
+        İçeriğe atla
       </a>
 
-      <aside className="sidebar" aria-label="Primary navigation">
+      <aside className="sidebar" aria-label="Ana gezinme">
         <a className="brand" href={defaultRoute.path} onClick={(event) => handleNavClick(event, defaultRoute.path)}>
           <span className="brand-mark" aria-hidden="true">
             B
           </span>
           <span>
             <strong>Biqly</strong>
-            <small>BI Workspace</small>
+            <small>BI Çalışma Alanı</small>
           </span>
         </a>
 
@@ -167,16 +167,16 @@ function App() {
 
         <div className="sidebar-footer">
           <span className="status-dot" aria-hidden="true" />
-          <span>Local API · localhost:8888</span>
+          <span>Yerel API · localhost:8888</span>
         </div>
       </aside>
 
       <main id="main-content" className="main" tabIndex={-1}>
         <header className="page-header">
-          <p>{activeRoute?.eyebrow ?? 'Not Found'}</p>
+          <p>{activeRoute?.eyebrow ?? 'Bulunamadı'}</p>
           <div>
-            <h1>{activeRoute?.label ?? 'Page Not Found'}</h1>
-            <span>{activeRoute?.description ?? 'This module does not exist or the link is outdated.'}</span>
+            <h1>{activeRoute?.label ?? 'Sayfa Bulunamadı'}</h1>
+            <span>{activeRoute?.description ?? 'Bu modül mevcut değil veya bağlantı güncel değil.'}</span>
           </div>
         </header>
 
@@ -184,10 +184,10 @@ function App() {
           <ActiveComponent />
         ) : (
           <section className="card empty-state">
-            <h2>Module Not Found</h2>
-            <p>The requested page is not available. Use the navigation to open an existing module.</p>
+            <h2>Modül Bulunamadı</h2>
+            <p>İstenen sayfa mevcut değil. Var olan bir modülü açmak için navigasyonu kullanın.</p>
             <a className="btn" href={defaultRoute.path} onClick={(event) => handleNavClick(event, defaultRoute.path)}>
-              Go to Datasources
+              Veri Kaynaklarına Git
             </a>
           </section>
         )}

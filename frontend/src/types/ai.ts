@@ -66,16 +66,35 @@ export interface TableRoutingCandidate {
   table: string
   /** Normalized routing score from the API (0–1 scale in practice). */
   score?: number
+  total_score?: number
+  keyword_score?: number
+  embedding_score?: number
   /** @deprecated API sends `score`; kept for older responses */
   relevance_score?: number
-  selected: boolean
+  selected?: boolean
+  rejected_reason?: string
+  description?: string
+}
+
+export interface TableRoutingDebug {
+  relation_expansion?: string[]
+  bridge_tables?: string[]
+  eliminated_candidates?: string[]
 }
 
 export interface TableRoutingResult {
-  selected_tables: string[]
+  selected_models?: string[]
+  selected_tables?: string[]
+  selected_dimensions?: string[]
+  selected_metrics?: string[]
+  join_paths?: string[]
   confidence: number
-  ranking_method: 'keyword' | 'vector' | 'hybrid'
-  candidates: TableRoutingCandidate[]
+  ranking_method?: 'keyword' | 'vector' | 'hybrid' | 'manual' | 'semantic'
+  context_source?: 'auto' | 'manual' | 'semantic_model' | string
+  context_key?: string
+  context_updated_at?: string
+  candidates?: TableRoutingCandidate[]
+  debug?: TableRoutingDebug
   reasoning?: string
 }
 
@@ -155,23 +174,32 @@ export interface Conversation {
 // ─── LogicalQuery Types ────────────────────────────────────────────
 
 export interface LogicalQuery {
-  data_source: string
-  tables?: string[]
+  datasource_id: string
+  model_id: string
   select?: SelectField[]
   filters?: FilterClause[]
   group_by?: GroupByField[]
   order_by?: OrderByField[]
   having?: FilterClause[]
   limit?: number
+  offset?: number
   ctes?: CTE[]
-  window_functions?: WindowFunction[]
 }
 
 export interface SelectField {
-  type: 'dimension' | 'metric'
+  type: 'dimension' | 'metric' | 'window'
   name: string
   alias?: string
-  aggregation?: string
+  window?: WindowSpec
+}
+
+export interface WindowSpec {
+  aggregation: string
+  expression?: string
+  metric?: string
+  partition_by?: string[]
+  order_by?: OrderByField[]
+  frame?: string
 }
 
 export interface FilterClause {

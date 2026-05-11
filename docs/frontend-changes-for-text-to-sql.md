@@ -1,7 +1,7 @@
 # Backend Geliştirmeleri → Frontend Değişiklikleri
 
 > `docs/text-to-sql-audit.md` dosyasındaki her backend geliştirmesinin frontend tarafında gerektirdiği UI/UX değişiklikleri.
-> Tüm checkbox'lar boş — yapıldıkça işaretleriz.
+> Maddeler uygulandıkça `[x]` ile işaretlenir; backend’e bağlı veya henüz yapılmayanlar `[ ]` kalır.
 
 ---
 
@@ -170,9 +170,9 @@ Few-shot examples, chain-of-thought, sample data in prompt.
 - [x] Backend'e `example_ids?: string[]` parametresi ile specific few-shot'lar gönder (frontend: `includePastQueries` toggle hazır)
 
 #### 5.3 Query History → Few-Shot UI
-- [x] Saved Questions sayfasında her kaydedilmiş soru için "Use as AI example" checkbox
-- [ ] İşaretlenen sorular `few_shot_examples` tablosuna kaydedilir
-- [x] AI Query sayfasında "Include my past queries as examples" toggle
+- [x] Kayıtlı sorular sayfasında her soru için AI few-shot örneği onayı (`SavedQuestions.tsx` — yerel işaretleme)
+- [ ] İşaretlenen soruların sunucuda `few_shot_examples` tablosuna kalıcı yazılması (backend + API)
+- [x] AI Query sayfasında geçmiş sorguları few-shot olarak dahil etme seçeneği
 
 ---
 
@@ -184,7 +184,7 @@ Golden dataset, LLM-as-judge, execution accuracy.
 ### Frontend Değişiklikleri
 
 #### 6.1 Evaluation Dashboard (Yeni Component)
-- [x] "Evaluation" sayfası route'a ekle: `{ path: '/evaluation', label: 'Evaluation', ... }`
+- [x] "Değerlendirme" sayfası route'a ekle: `{ path: '/evaluation', label: 'Değerlendirme', ... }` (`App.tsx`)
 - [x] Golden dataset listesi + her test case'in durumu (pass/fail)
 - [x] Accuracy metrics: pie chart (pass rate), trend line (accuracy over time)
 - [x] "Run evaluation" butonu — tüm golden dataset'i çalıştır
@@ -196,8 +196,8 @@ Golden dataset, LLM-as-judge, execution accuracy.
 - [x] Feedback data'yi backend'e gönder → `POST /api/ai/feedback`
 
 #### 6.3 AIQuery.tsx — Result Comparison
-- [ ] "Compare with expected" toggle — golden dataset'teki beklenen sonuçla karşılaştır
-- [ ] Diff view: expected vs actual LogicalQuery
+- [ ] "Beklenenle karşılaştır" toggle — golden dataset'teki beklenen sonuçla AI yanıtını doğrudan AI Sorgu ekranında kıyaslama
+- [x] Beklenen vs üretilen LogicalQuery diff görünümü (`Evaluation.tsx` test senaryosu detayında «Farkı göster»)
 
 ---
 
@@ -376,6 +376,21 @@ Token bazlı maliyet, LLM latency tracking.
 - [x] `useConversation` hook: conversation state management
 - [x] `useStreamingApi` hook: SSE/streaming response handling
 - [x] Error handling iyileştirmesi: network error retry, timeout handling
+
+---
+
+## 14. Türkçe arayüz (i18n)
+
+Kullanıcıya dönük tüm sabit metinlerin Türkçeleştirilmesi (teknik alan adları, JSON anahtarları, env değişken kodları ve diyalekt adları İngilizce bırakılabilir).
+
+- [x] `App.tsx` — menü etiketleri, sayfa başlığı/alt başlığı, boş durum, skip link, aria etiketleri
+- [x] `AIQuery.tsx` — form, yükleme, güven, tablo yönlendirme, adaylar, geri bildirim, sonuçlar, grafik seçenekleri, hata kurtarma
+- [x] `Evaluation.tsx` — panel, KPI, grafikler, tablo başlıkları, demo banner, boş durum, diff başlıkları
+- [x] `FewShotExamples.tsx` — liste, modal, hata mesajları, tablo başlıkları
+- [x] `Dashboard.tsx` — örnek KPI/grafikler, AI kullanım bölümü, son sorgular tablosu
+- [x] `SavedQuestions.tsx` — kütüphane metinleri, arama, demo soru adları, eylem düğmeleri
+- [x] `ResultTable.tsx` — bağlam menüsü, sıralama ipucu, alt bilgi
+- [x] `QueryBuilder.tsx` — basit/gelişmiş mod, form etiketleri, grafik türleri, sonuç başlığı
 
 ---
 

@@ -34,7 +34,7 @@ function ConfidenceBar({ value, breakdown }: { value: number; breakdown?: { tabl
   return (
     <div className="confidence-section">
       <div className="confidence-header">
-        <span>Confidence</span>
+        <span>Güven</span>
         <span style={{ color, fontWeight: 600 }}>{pct}%</span>
       </div>
       <div className="confidence-bar-bg">
@@ -42,12 +42,12 @@ function ConfidenceBar({ value, breakdown }: { value: number; breakdown?: { tabl
       </div>
       {breakdown && (
         <div className="confidence-breakdown">
-          <BreakdownRow label="Table routing" value={breakdown.table_routing} />
-          <BreakdownRow label="LLM output" value={breakdown.llm} />
-          <BreakdownRow label="Validation" value={breakdown.validation} />
+          <BreakdownRow label="Tablo yönlendirme" value={breakdown.table_routing} />
+          <BreakdownRow label="LLM çıktısı" value={breakdown.llm} />
+          <BreakdownRow label="Doğrulama" value={breakdown.validation} />
         </div>
       )}
-      {value < 0.5 && <p className="confidence-hint">Try being more specific, or select tables manually.</p>}
+      {value < 0.5 && <p className="confidence-hint">Daha spesifik olun veya tabloları manuel seçin.</p>}
     </div>
   )
 }
@@ -64,18 +64,56 @@ function BreakdownRow({ label, value }: { label: string; value: number }) {
   )
 }
 
+function routingMethodLabel(method: string | undefined) {
+  const m = (method ?? 'keyword').toLowerCase()
+  if (m === 'keyword') return 'anahtar kelime'
+  if (m === 'vector') return 'vektör'
+  if (m === 'hybrid') return 'hibrit'
+  if (m === 'manual') return 'manuel'
+  if (m === 'semantic') return 'semantic model'
+  return method ?? 'keyword'
+}
+
+function contextSourceLabel(source: string | undefined) {
+  const s = (source ?? 'auto').toLowerCase()
+  if (s === 'semantic_model') return 'kalıcı semantic context'
+  if (s === 'manual') return 'manuel tablo kapsamı'
+  if (s === 'auto') return 'otomatik context'
+  return source ?? 'otomatik context'
+}
+
+function compactList(items: string[] | undefined, limit = 8) {
+  if (!items || items.length === 0) return null
+  const visible = items.slice(0, limit)
+  const rest = items.length - visible.length
+  return `${visible.join(', ')}${rest > 0 ? ` +${rest}` : ''}`
+}
+
 function TableRoutingViz({ routing }: { routing: NonNullable<AIQueryResponse['table_routing']> }) {
-  const methodLabel = routing.ranking_method ?? 'keyword'
+  const methodLabel = routingMethodLabel(routing.ranking_method)
+  const sourceLabel = contextSourceLabel(routing.context_source)
   const candidateScore = (c: TableRoutingCandidate) => {
-    const v = c.score ?? c.relevance_score
+    const v = c.total_score ?? c.score ?? c.relevance_score
     return typeof v === 'number' && Number.isFinite(v) ? v : 0
   }
   const maxScore = Math.max(...(routing.candidates ?? []).map(candidateScore), 0)
+  const selectedDims = compactList(routing.selected_dimensions)
+  const selectedMetrics = compactList(routing.selected_metrics)
+  const selectedTables = compactList(routing.selected_tables)
+  const selectedModels = compactList(routing.selected_models)
   return (
     <div className="table-routing-viz">
       <div className="routing-header">
-        <span>Table Routing (<strong>{methodLabel}</strong>)</span>
+        <span>Tablo Yönlendirme (<strong>{methodLabel}</strong>)</span>
         <span className="routing-confidence">{Math.round(routing.confidence * 100)}%</span>
+      </div>
+      <div className="routing-context-grid">
+        <div><span>Kaynak</span><strong>{sourceLabel}</strong></div>
+        {selectedModels && <div><span>Model</span><strong>{selectedModels}</strong></div>}
+        {selectedTables && <div><span>Tablolar</span><strong>{selectedTables}</strong></div>}
+        {selectedDims && <div><span>Dimensions</span><strong>{selectedDims}</strong></div>}
+        {selectedMetrics && <div><span>Metrics</span><strong>{selectedMetrics}</strong></div>}
+        {routing.context_updated_at && <div><span>Context zamanı</span><strong>{new Date(routing.context_updated_at).toLocaleString()}</strong></div>}
       </div>
       {(routing.candidates ?? []).map((c: TableRoutingCandidate) => {
         const score = candidateScore(c)
@@ -86,9 +124,26 @@ function TableRoutingViz({ routing }: { routing: NonNullable<AIQueryResponse['ta
             <div className="routing-bar-bg"><div className="routing-bar-fill" style={{ width: `${pct}%` }} /></div>
             <span className="routing-score">{score.toFixed(2)}</span>
             {c.selected && <span className="routing-selected">✓</span>}
+            <span className="routing-score-detail">
+              k:{(c.keyword_score ?? 0).toFixed(2)}
+              {c.embedding_score !== undefined && ` · e:${c.embedding_score.toFixed(2)}`}
+            </span>
           </div>
         )
       })}
+      {routing.debug && (
+        <div className="routing-debug">
+          {routing.debug.relation_expansion && routing.debug.relation_expansion.length > 0 && (
+            <div><span>Relation expansion</span><code>{routing.debug.relation_expansion.join(' | ')}</code></div>
+          )}
+          {routing.debug.bridge_tables && routing.debug.bridge_tables.length > 0 && (
+            <div><span>Bridge tables</span><code>{routing.debug.bridge_tables.join(', ')}</code></div>
+          )}
+          {routing.debug.eliminated_candidates && routing.debug.eliminated_candidates.length > 0 && (
+            <div><span>Elenen adaylar</span><code>{routing.debug.eliminated_candidates.join(', ')}</code></div>
+          )}
+        </div>
+      )}
       {routing.reasoning && <p className="routing-reasoning">{routing.reasoning}</p>}
     </div>
   )
@@ -97,14 +152,14 @@ function TableRoutingViz({ routing }: { routing: NonNullable<AIQueryResponse['ta
 function ClarificationCard({ question, options, onSelect, onSkip }: { question: string; options: string[]; onSelect: (o: string) => void; onSkip: () => void }) {
   return (
     <div className="clarification-card">
-      <div className="clarification-title"><span>🤔</span><span>AI needs clarification</span></div>
+      <div className="clarification-title"><span>🤔</span><span>AI'nın netleştirmeye ihtiyacı var</span></div>
       <p className="clarification-question">{question}</p>
       <div className="clarification-options">
         {options.map((opt) => (
           <button key={opt} className="btn btn-clarification" onClick={() => onSelect(opt)}>{opt}</button>
         ))}
       </div>
-      <button className="btn btn-skip" onClick={onSkip}>Skip — show whatever you have</button>
+      <button className="btn btn-skip" onClick={onSkip}>Atla — elimizdekini göster</button>
     </div>
   )
 }
@@ -113,7 +168,7 @@ function CandidateComparisonPanel({ candidates, onUse }: { candidates: LogicalQu
   const bestIdx = candidates.reduce((best, c, i) => (c.confidence > (candidates[best]?.confidence ?? 0) ? i : best), 0)
   return (
     <div className="candidate-panel">
-      <div className="candidate-header"><span>🔄 {candidates.length} candidates generated</span></div>
+      <div className="candidate-header"><span>🔄 {candidates.length} aday üretildi</span></div>
       <div className="candidate-cards">
         {candidates.map((c, i) => {
           const isBest = i === bestIdx
@@ -121,15 +176,15 @@ function CandidateComparisonPanel({ candidates, onUse }: { candidates: LogicalQu
           return (
             <div key={i} className={`candidate-card ${isBest ? 'candidate-best' : ''}`}>
               <div className="candidate-card-header">
-                <span>Candidate #{i + 1}</span>
-                <span className={`candidate-score ${isBest ? 'score-best' : ''}`}>Score: {pct}%</span>
+                 <span>Aday #{i + 1}</span>
+                 <span className={`candidate-score ${isBest ? 'score-best' : ''}`}>Puan: {pct}%</span>
               </div>
               {c.reasoning && <p className="candidate-reasoning">{c.reasoning}</p>}
               <details>
-                <summary>LogicalQuery JSON</summary>
+                <summary>LogicalQuery (JSON)</summary>
                 <pre className="sql-preview candidate-json">{JSON.stringify(c.logical_query, null, 2)}</pre>
               </details>
-              <button className="btn btn-candidate-use" onClick={() => onUse(i)}>{isBest ? 'Use (recommended)' : 'Use this'}</button>
+              <button className="btn btn-candidate-use" onClick={() => onUse(i)}>{isBest ? 'Kullan (önerilen)' : 'Bunu kullan'}</button>
             </div>
           )
         })}
@@ -142,7 +197,7 @@ function CostBadge({ latencyMs, tokenUsage, costUsd }: { latencyMs?: number; tok
   if (!latencyMs && !tokenUsage && !costUsd) return null
   const parts: string[] = []
   if (latencyMs) parts.push(`⏱ ${(latencyMs / 1000).toFixed(1)}s`)
-  if (tokenUsage) parts.push(`🪙 ${tokenUsage.total} tokens`)
+  if (tokenUsage) parts.push(`🪙 ${tokenUsage.total} token`)
   if (costUsd !== undefined) parts.push(`$${costUsd.toFixed(4)}`)
   return <div className="cost-badge">{parts.join(' · ')}</div>
 }
@@ -168,9 +223,9 @@ function embeddingSummary(response: EmbedMetadataResponse) {
     { tables: 0, columns: 0 },
   )
   const details = counts.tables || counts.columns
-    ? ` (${counts.tables} tables, ${counts.columns} columns)`
+    ? ` (${counts.tables} tablo, ${counts.columns} kolon)`
     : ''
-  return `Embedded ${response.embedded} metadata items${details} with ${response.model}.`
+  return `Gömülen ${response.embedded} metadata ögesi${details} (${response.model}).`
 }
 
 function AIRuntimeSettingsPanel({
@@ -195,7 +250,7 @@ function AIRuntimeSettingsPanel({
   if (err) {
     return (
       <div className="ai-runtime-settings" role="status">
-        <div className="ai-runtime-settings-title">Server AI (from env)</div>
+        <div className="ai-runtime-settings-title">Sunucu AI (ortam değişkenleri)</div>
         <p className="error" style={{ margin: '0.35rem 0 0', fontSize: '0.85rem' }}>{err}</p>
       </div>
     )
@@ -203,8 +258,8 @@ function AIRuntimeSettingsPanel({
   if (!settings) {
     return (
       <div className="ai-runtime-settings" role="status">
-        <div className="ai-runtime-settings-title">Server AI (from env)</div>
-        <p className="ai-settings-hint" style={{ margin: '0.35rem 0 0' }}>Loading server AI settings…</p>
+        <div className="ai-runtime-settings-title">Sunucu AI (ortam değişkenleri)</div>
+        <p className="ai-settings-hint" style={{ margin: '0.35rem 0 0' }}>Sunucu AI ayarları yükleniyor…</p>
       </div>
     )
   }
@@ -212,50 +267,50 @@ function AIRuntimeSettingsPanel({
   const embeddingsBaseConfigured = settings.embedding_base_url?.trim() !== ''
   const translationBaseConfigured = settings.translation_base_url?.trim() !== ''
   return (
-    <div className="ai-runtime-settings" id="ai-runtime-config" role="region" aria-label="Server AI configuration from environment">
-      <div className="ai-runtime-settings-title">Server AI (from env)</div>
+    <div className="ai-runtime-settings" id="ai-runtime-config" role="region" aria-label="Ortam değişkenlerinden sunucu AI yapılandırması">
+      <div className="ai-runtime-settings-title">Sunucu AI (ortam değişkenleri)</div>
       <div className="ai-settings-grid">
         <section className="ai-settings-section" aria-labelledby="ai-settings-llm">
           <h3 id="ai-settings-llm">LLM</h3>
           <dl className="ai-settings-dl">
-            <dt>Provider</dt>
+            <dt>Sağlayıcı</dt>
             <dd>{settings.provider?.trim() ? settings.provider : '—'}</dd>
             <dt>Model</dt>
             <dd><code translate="no">{settings.llm_model?.trim() ? settings.llm_model : '—'}</code> <span className="ai-settings-meta" translate="no">BI_AI_MODEL</span></dd>
-            <dt>Base URL</dt>
+            <dt>Temel URL</dt>
             <dd>
               {baseConfigured ? (
                 <code translate="no">{settings.base_url}</code>
               ) : (
-                <span><span className="ai-settings-meta">default</span> <code translate="no">{settings.base_url_effective}</code></span>
+                <span><span className="ai-settings-meta">varsayılan</span> <code translate="no">{settings.base_url_effective}</code></span>
               )}
               <span className="ai-settings-meta" translate="no">BI_AI_BASE_URL</span>
             </dd>
-            <dt>API key</dt>
-            <dd>{settings.api_key_configured ? 'Configured' : 'Not set'} <span className="ai-settings-meta" translate="no">BI_AI_API_KEY</span></dd>
+            <dt>API anahtarı</dt>
+            <dd>{settings.api_key_configured ? 'Yapıldı' : 'Ayarlanmadı'} <span className="ai-settings-meta" translate="no">BI_AI_API_KEY</span></dd>
           </dl>
         </section>
         {settings.embeddings_enabled === true ? (
           <section className="ai-settings-section" aria-labelledby="ai-settings-embeddings">
-            <h3 id="ai-settings-embeddings">Embeddings</h3>
+            <h3 id="ai-settings-embeddings">Embedding'ler</h3>
             <dl className="ai-settings-dl">
               <dt>Model</dt>
               <dd><code translate="no">{settings.embedding_model ?? '—'}</code> <span className="ai-settings-meta" translate="no">BI_AI_EMBEDDING_MODEL</span></dd>
-              <dt>Base URL</dt>
+              <dt>Temel URL</dt>
               <dd>
                 {embeddingsBaseConfigured ? (
                   <code translate="no">{settings.embedding_base_url}</code>
                 ) : (
-                  <span><span className="ai-settings-meta">resolved</span> <code translate="no">{settings.embedding_base_url_effective ?? '—'}</code></span>
+                  <span><span className="ai-settings-meta">çözüldü</span> <code translate="no">{settings.embedding_base_url_effective ?? '—'}</code></span>
                 )}
                 <span className="ai-settings-meta" translate="no">BI_AI_EMBEDDING_BASE_URL</span>
               </dd>
-              <dt>API key</dt>
+              <dt>API anahtarı</dt>
               <dd>
-                {settings.embedding_api_key_configured ? 'Configured' : 'Not set'}{' '}
+                {settings.embedding_api_key_configured ? 'Yapıldı' : 'Ayarlanmadı'}{' '}
                 <span className="ai-settings-meta" translate="no">
                   BI_AI_EMBEDDING_API_KEY
-                  {settings.embedding_api_key_dedicated ? '' : ' — falls back to BI_AI_API_KEY'}
+                  {settings.embedding_api_key_dedicated ? '' : ' — BI_AI_API_KEY\'e düşer'}
                 </span>
               </dd>
             </dl>
@@ -263,30 +318,30 @@ function AIRuntimeSettingsPanel({
         ) : null}
         {settings.translation_enabled === true ? (
           <section className="ai-settings-section" aria-labelledby="ai-settings-translation">
-            <h3 id="ai-settings-translation">Translation</h3>
+            <h3 id="ai-settings-translation">Çeviri</h3>
             <dl className="ai-settings-dl">
               <dt>Model</dt>
               <dd><code translate="no">{settings.translation_model ?? '—'}</code> <span className="ai-settings-meta" translate="no">BI_AI_TRANSLATION_MODEL</span></dd>
-              <dt>Base URL</dt>
+              <dt>Temel URL</dt>
               <dd>
                 {translationBaseConfigured ? (
                   <code translate="no">{settings.translation_base_url}</code>
                 ) : (
-                  <span><span className="ai-settings-meta">resolved</span> <code translate="no">{settings.translation_base_url_effective ?? '—'}</code></span>
+                  <span><span className="ai-settings-meta">çözüldü</span> <code translate="no">{settings.translation_base_url_effective ?? '—'}</code></span>
                 )}
                 <span className="ai-settings-meta" translate="no">BI_AI_TRANSLATION_BASE_URL</span>
               </dd>
-              <dt>API key</dt>
+              <dt>API anahtarı</dt>
               <dd>
-                {settings.translation_api_key_configured ? 'Configured' : 'Not set'}{' '}
+                {settings.translation_api_key_configured ? 'Yapıldı' : 'Ayarlanmadı'}{' '}
                 <span className="ai-settings-meta" translate="no">
                   BI_AI_TRANSLATION_API_KEY
-                  {settings.translation_api_key_dedicated ? '' : ' — falls back to BI_AI_API_KEY'}
+                  {settings.translation_api_key_dedicated ? '' : ' — BI_AI_API_KEY\'e düşer'}
                 </span>
               </dd>
-              <dt>Target</dt>
+              <dt>Hedef</dt>
               <dd>
-                {settings.translation_target_language ?? 'Turkish'}{' '}
+                {settings.translation_target_language ?? 'Türkçe'}{' '}
                 <span className="ai-settings-meta">({settings.translation_target_code ?? 'tr'})</span>
               </dd>
             </dl>
@@ -300,19 +355,19 @@ function AIRuntimeSettingsPanel({
             className="btn btn-sm"
             onClick={onRefreshEmbeddings}
             disabled={!datasourceId || embeddingLoading}
-            title={datasourceId ? `Refresh embeddings for ${datasourceName ?? 'selected datasource'}` : 'Select a datasource first'}
+            title={datasourceId ? `Seçilen veri kaynağı (${datasourceName ?? ''}) için embedding'leri yenile` : 'Önce bir veri kaynağı seçin'}
           >
-            {embeddingLoading ? 'Embedding metadata…' : 'Refresh metadata embeddings'}
+            {embeddingLoading ? 'Metadata gömülüyor…' : 'Metadata embedding\'lerini yenile'}
           </button>
           <p className="ai-settings-hint">
-            Re-run after metadata sync or Turkish description changes so table routing and column retrieval use fresh vectors.
+            Metadata eşitlemesinden veya Türkçe açıklama değişikliklerinden sonra tekrar çalıştırın; böylece tablo yönlendirme ve kolon erişimi güncel vektörleri kullanır.
           </p>
           {embeddingStatus && <p className="ai-embedding-status">{embeddingStatus}</p>}
           {embeddingError && <p className="ai-embedding-error">{embeddingError}</p>}
         </div>
       )}
       <p className="ai-settings-hint">
-        Set env vars on the API process and restart to change model or endpoint.
+        Model veya uç noktayı değiştirmek için API sürecindeki ortam değişkenlerini ayarlayın ve yeniden başlatın.
       </p>
     </div>
   )
@@ -336,11 +391,11 @@ function SampleDataModal({ open, onClose, tableName, datasourceId, get }: { open
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>Sample Data — {tableName}</h3>
+          <h3>Örnek Veri — {tableName}</h3>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
         <div className="modal-body">
-          {loading && <p>Loading…</p>}
+          {loading && <p>Yükleniyor…</p>}
           {sample?.columns && sample?.rows && (
             <table className="results-table">
               <thead><tr>{sample.columns.map((c: any) => <th key={c.name}>{c.name}</th>)}</tr></thead>
@@ -421,7 +476,7 @@ export default function AIQuery() {
         setAiRuntimeErr(null)
       } else {
         setAiRuntime(null)
-        setAiRuntimeErr('Could not load server AI settings')
+        setAiRuntimeErr('Sunucu AI ayarları yüklenemedi')
       }
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -523,22 +578,22 @@ export default function AIQuery() {
 
     if (res.needs_clarification) {
       addMessage({ role: 'user', content: q })
-      addMessage({ role: 'assistant', content: res.clarification_question ?? 'Please clarify.', ai_response: res })
+      addMessage({ role: 'assistant', content: res.clarification_question ?? 'Lütfen netleştirin.', ai_response: res })
       return
     }
     addMessage({ role: 'user', content: q })
-    const summary = res.sql ? `SQL: ${res.sql.slice(0, 120)}…` : 'Query executed'
+    const summary = res.sql ? `SQL: ${res.sql.slice(0, 120)}…` : 'Sorgu çalıştırıldı'
     addMessage({ role: 'assistant', content: summary, ai_response: res })
   }
 
   const handleClarificationSelect = (opt: string) => sendQuery(`${question} (${opt})`, true)
   const handleClarificationSkip = () => sendQuery(question, true)
 
-  const handleFilterByValue = (column: string, value: string) => setQuestion((prev) => `${prev} where ${column} = "${value}"`)
+  const handleFilterByValue = (column: string, value: string) => setQuestion((prev) => `${prev} ${column} = "${value}" ile filtrele`)
 
   const handleSampleData = (tableName: string) => { setSampleModalTable(tableName); setSampleModalOpen(true) }
 
-  const FEEDBACK_CATS = ['Wrong table', 'Wrong columns', 'Incorrect aggregation', 'Missed date filter', 'Wrong logic', 'SQL error', 'Other']
+  const FEEDBACK_CATS = ['Yanlış tablo', 'Yanlış kolonlar', 'Yanlış toplama', 'Tarih filtresi eksik', 'Yanlış mantık', 'SQL hatası', 'Diğer']
 
   const submitFeedback = async (rating: 'positive' | 'negative') => {
     setUserFeedback(rating)
@@ -565,7 +620,7 @@ export default function AIQuery() {
   }
 
   const handleCellDrillDown = (column: string, value: string) => {
-    sendQuery(`Show details where ${column} = "${value}"`, true)
+    sendQuery(`${column} = "${value}" olan satırların detayını göster`, true)
   }
 
   const chartData = result?.result?.rows?.map((row) => {
@@ -577,9 +632,9 @@ export default function AIQuery() {
   useEffect(() => { if (result?.visualization_hint?.chart_type) setChartType(result.visualization_hint.chart_type) }, [result?.visualization_hint?.chart_type])
 
   const loadingLabel = loading
-    ? result?.retry_count ? `AI self-corrected (attempt ${result.retry_count + 1}/3)…`
-    : result?.candidates_count ? `Generating candidates…`
-    : 'Thinking…'
+    ? result?.retry_count ? `AI kendini düzeltti (deneme ${result.retry_count + 1}/3)…`
+    : result?.candidates_count ? `Adaylar üretiliyor…`
+    : 'Düşünülüyor…'
     : ''
 
   return (
@@ -587,14 +642,14 @@ export default function AIQuery() {
       {/* ─── Conversation Sidebar ─────────────────────────────── */}
       <aside className="conversation-sidebar">
         <div className="sidebar-header">
-          <h3>Conversations</h3>
-          <button className="btn btn-sm" onClick={() => { createConversation(); setResult(null); setQuestion('') }}>+ New</button>
+          <h3>Konuşmalar</h3>
+          <button className="btn btn-sm" onClick={() => { createConversation(); setResult(null); setQuestion('') }}>+ Yeni</button>
         </div>
         {activeConversation && (
           <>
             <button className="conversation-item active" onClick={() => setActiveConversationId(activeConversation.id)}>
-              <span className="conv-title">{activeConversation.title ?? 'Current'}</span>
-              <span className="conv-time">{activeConversation.messages.length} msgs</span>
+              <span className="conv-title">{activeConversation.title ?? 'Şu anki'}</span>
+              <span className="conv-time">{activeConversation.messages.length} mesaj</span>
             </button>
             <div className="conv-messages-list">
               {activeConversation.messages.slice(-10).map((m, i) => (
@@ -613,18 +668,18 @@ export default function AIQuery() {
         {/* Input Card */}
         <div className="card">
           <div className="card-header-row">
-            <h2>Natural-language Query</h2>
+            <h2>Doğal Dil Sorgusu</h2>
             {activeConversation && activeConversation.messages.length > 0 && (
-              <div className="context-badge">Context: {activeConversation.messages.length} msgs</div>
+              <div className="context-badge">Bağlam: {activeConversation.messages.length} mesaj</div>
             )}
           </div>
-          <p className="card-subtitle">Ask a question in natural language. The AI generates a LogicalQuery, the backend compiles it to SQL.</p>
+          <p className="card-subtitle">Doğal dilde bir soru sorun. AI bir LogicalQuery oluşturur, backend bunu SQL'e derler.</p>
 
           <div className="query-controls">
             <div className="form-group ai-settings-group">
-              <label htmlFor="ai-datasource">Datasource</label>
+              <label htmlFor="ai-datasource">Veri Kaynağı</label>
               <select id="ai-datasource" value={datasourceId} onChange={(e) => setDatasourceId(e.target.value)}>
-                <option value="">— select —</option>
+                <option value="">— seçin —</option>
                 {datasources.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
             </div>
@@ -641,29 +696,29 @@ export default function AIQuery() {
               />
             </div>
             <div className="form-group routing-toggle">
-              <label>Table Routing</label>
+              <label>Tablo Yönlendirme</label>
               <div className="toggle-group">
-                <button className={`toggle-btn ${autoTableRouting ? 'active' : ''}`} onClick={() => setAutoTableRouting(true)}>Auto</button>
-                <button className={`toggle-btn ${!autoTableRouting ? 'active' : ''}`} onClick={() => setAutoTableRouting(false)}>Manual</button>
+                <button className={`toggle-btn ${autoTableRouting ? 'active' : ''}`} onClick={() => setAutoTableRouting(true)}>Otomatik</button>
+                <button className={`toggle-btn ${!autoTableRouting ? 'active' : ''}`} onClick={() => setAutoTableRouting(false)}>Manuel</button>
               </div>
             </div>
           </div>
 
           {!autoTableRouting && (
             <div className="form-group">
-              <span className="ai-scope-label">Tables / Semantic Scope</span>
+              <span className="ai-scope-label">Tablolar / Anlamsal Kapsam</span>
               <div className="ai-scope-type-filters" role="group">
                 <label className="ai-scope-type-option">
                   <input type="checkbox" checked={includeBaseTables} onChange={(e) => setIncludeBaseTables(e.target.checked)} disabled={!datasourceId || tables.length === 0} />
-                  <span>Base tables</span>
+                  <span>Temel tablolar</span>
                 </label>
                 <label className="ai-scope-type-option">
                   <input type="checkbox" checked={includeViews} onChange={(e) => setIncludeViews(e.target.checked)} disabled={!datasourceId || tables.length === 0} />
-                  <span>Views</span>
+                  <span>Görünümler</span>
                 </label>
               </div>
-              <input value={tableSearch} onChange={(e) => setTableSearch(e.target.value)} placeholder="Search tables…" disabled={!datasourceId || tables.length === 0} autoComplete="off" />
-              <select aria-label="Selected tables" multiple value={selectedTables} onChange={(e) => setSelectedTables(Array.from(e.target.selectedOptions, (o) => o.value))}
+              <input value={tableSearch} onChange={(e) => setTableSearch(e.target.value)} placeholder="Tablo ara…" disabled={!datasourceId || tables.length === 0} autoComplete="off" />
+              <select aria-label="Seçilen tablolar" multiple value={selectedTables} onChange={(e) => setSelectedTables(Array.from(e.target.selectedOptions, (o) => o.value))}
                 disabled={!datasourceId || tables.length === 0 || (!includeBaseTables && !includeViews)}
                 className="ai-scope-multiselect" size={Math.min(8, Math.max(3, filteredTables.length || 3))}>
                 {filteredTables.map((table) => { const label = tableLabel(table); return <option key={label} value={label}>{label}</option> })}
@@ -672,22 +727,22 @@ export default function AIQuery() {
           )}
 
           <div className="form-group">
-            <label htmlFor="ai-question">Your Question</label>
+            <label htmlFor="ai-question">Sorunuz</label>
             <textarea id="ai-question" value={question} onChange={(e) => setQuestion(e.target.value)}
               onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendQuery(question, true) } }}
-              placeholder="Show total revenue by country for January 2026…" rows={3} autoComplete="off" />
+              placeholder="Ülkeye göre toplam geliri göster, Ocak 2026…" rows={3} autoComplete="off" />
             {activeConversation && activeConversation.messages.length > 0 && (
               <div className="past-queries-toggle">
                 <input type="checkbox" id="include-past" checked={includePastQueries} onChange={(e) => setIncludePastQueries(e.target.checked)} />
-                <label htmlFor="include-past">Include my past queries as few-shot examples</label>
+                <label htmlFor="include-past">Geçmiş sorgularımı few-shot örneği olarak dahil et</label>
               </div>
             )}
           </div>
 
           <div className="button-row">
-            <button className="btn" onClick={() => sendQuery(question, false)} disabled={loading || !question || !datasourceId}>{loadingLabel || 'Preview SQL'}</button>
-            <button className="btn btn-primary" onClick={() => sendQuery(question, true)} disabled={loading || !question || !datasourceId}>{loadingLabel || 'Preview & Execute'}</button>
-            {loading && <button className="btn btn-ghost" onClick={abort}>Cancel</button>}
+            <button className="btn" onClick={() => sendQuery(question, false)} disabled={loading || !question || !datasourceId}>{loadingLabel || 'SQL Önizle'}</button>
+            <button className="btn btn-primary" onClick={() => sendQuery(question, true)} disabled={loading || !question || !datasourceId}>{loadingLabel || 'Önizle & Çalıştır'}</button>
+            {loading && <button className="btn btn-ghost" onClick={abort}>İptal</button>}
           </div>
           {error && <div className="error" style={{ marginTop: '1rem' }}>{error}</div>}
         </div>
@@ -700,19 +755,19 @@ export default function AIQuery() {
 
             {result.model_used && (
               <div className="model-used-badge" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-                Model used: <code>{result.model_used}</code>
+                Model kullanıldı: <code>{result.model_used}</code>
                 {aiRuntime?.llm_model && result.model_used !== aiRuntime.llm_model && (
-                  <span> (configured: <code>{aiRuntime.llm_model}</code>)</span>
+                  <span> (yapılandırılan: <code>{aiRuntime.llm_model}</code>)</span>
                 )}
               </div>
             )}
 
             {result.retry_count !== undefined && result.retry_count > 0 && (
-              <div className="retry-badge">🔄 AI self-corrected (attempt {result.retry_count}/3)</div>
+              <div className="retry-badge">🔄 AI kendini düzeltti (deneme {result.retry_count}/3)</div>
             )}
 
             {result.needs_clarification && result.clarification_options && (
-              <ClarificationCard question={result.clarification_question ?? 'Please clarify.'} options={result.clarification_options} onSelect={handleClarificationSelect} onSkip={handleClarificationSkip} />
+              <ClarificationCard question={result.clarification_question ?? 'Lütfen netleştirin.'} options={result.clarification_options} onSelect={handleClarificationSelect} onSkip={handleClarificationSkip} />
             )}
 
             {result.candidates && result.candidates.length > 1 && !result.needs_clarification && (
@@ -723,66 +778,85 @@ export default function AIQuery() {
             )}
 
             {result.table_routing && (
-              <Collapsible title="📋 Table Routing" defaultOpen>
+              <Collapsible title="📋 Tablo Yönlendirme" defaultOpen>
                 <TableRoutingViz routing={result.table_routing} />
-                {result.table_routing.selected_tables?.length > 0 && (
-                  <button className="btn btn-sm btn-sample" onClick={() => { const t = result.table_routing?.selected_tables?.[0]; if (t) handleSampleData(t) }}>Preview sample data</button>
+                {(result.table_routing.selected_tables?.length ?? 0) > 0 && (
+                  <button className="btn btn-sm btn-sample" onClick={() => { const t = result.table_routing?.selected_tables?.[0]; if (t) handleSampleData(t) }}>Örnek veriyi önizle</button>
                 )}
               </Collapsible>
             )}
 
             {result.validation_result && (
-              <Collapsible title={result.validation_result.plan_ok ? '✅ SQL Plan' : '⚠️ SQL Plan — Issues found'} defaultOpen={!result.validation_result.plan_ok}>
+              <Collapsible title={result.validation_result.plan_ok ? '✅ SQL Planı' : '⚠️ SQL Planı — Sorun bulundu'} defaultOpen={!result.validation_result.plan_ok}>
                 {result.validation_result.explain_output && <pre className="sql-preview explain-output">{result.validation_result.explain_output}</pre>}
                 <p className={`plan-status ${result.validation_result.plan_ok ? 'plan-ok' : 'plan-warn'}`}>
-                  {result.validation_result.plan_ok ? 'Plan looks good — query will execute safely.' : 'Plan has warnings. Review before executing.'}
+                  {result.validation_result.plan_ok ? 'Plan iyi görünüyor — sorgu güvenle çalıştırılacak.' : 'Planda uyarılar var. Çalıştırmadan önce inceleyin.'}
                 </p>
               </Collapsible>
             )}
 
-            {result.logical_query?.window_functions && result.logical_query.window_functions.length > 0 && (
+            {(result.logical_query?.select?.filter((s: any) => s.type === 'window') ?? []).length > 0 && (
               <div style={{ marginBottom: '0.5rem' }}>
-                {result.logical_query.window_functions.map((wf: any, i: number) => (
-                  <span key={i} className="wf-badge">Uses: Window Function ({wf.function})</span>
+                {(result.logical_query?.select ?? []).filter((s: any) => s.type === 'window').map((s: any, i: number) => (
+                  <span key={i} className="wf-badge">Pencere fonksiyonu: {s.window?.aggregation || s.name}</span>
                 ))}
               </div>
             )}
 
             {result.logical_query && (
-              <Collapsible title="🧠 Generated LogicalQuery" defaultOpen>
+              <Collapsible title="🧠 Oluşturulan LogicalQuery" defaultOpen>
                 <pre className="sql-preview">{JSON.stringify(result.logical_query, null, 2)}</pre>
               </Collapsible>
             )}
 
             {result.sql && (
-              <Collapsible title="📝 Compiled SQL" defaultOpen>
+              <Collapsible title="📝 Derlenmiş SQL" defaultOpen>
                 <pre className="sql-preview">{result.sql}</pre>
               </Collapsible>
             )}
 
             {result.prompt && (
-              <Collapsible title="🔍 Show prompt">
+              <Collapsible title="🔍 İstem metnini göster">
                 <pre className="sql-preview prompt-preview">{result.prompt}</pre>
-                {result.token_usage && <p className="token-info">Tokens: {result.token_usage.prompt} prompt · {result.token_usage.completion} completion · {result.token_usage.total} total</p>}
+                {result.token_usage && (
+                  <p className="token-info">
+                    Token: {result.token_usage.prompt} istem · {result.token_usage.completion} tamamlama · {result.token_usage.total} toplam
+                  </p>
+                )}
                 {result.token_usage && result.token_usage.prompt > 30000 && (
-                  <p className="prompt-warning">⚠️ Prompt is large ({(result.token_usage.prompt / 1000).toFixed(1)}K tokens) — may affect response quality.</p>
+                  <p className="prompt-warning">
+                    ⚠️ İstem büyük ({(result.token_usage.prompt / 1000).toFixed(1)}K token) — yanıt kalitesini etkileyebilir.
+                  </p>
                 )}
               </Collapsible>
             )}
 
             {result.warnings && result.warnings.length > 0 && (
-              <div className="error"><strong>Warnings:</strong><ul>{result.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul></div>
+              <section className="warning-panel" aria-live="polite">
+                <div>
+                  <strong>Uyarılar</strong>
+                  <p>
+                    AI, anlamsal modelle uyuşmayan bir sorgu şekli üretti. En iyi eşleşen tabloyu elle seçmeyi veya alanları net belirterek soruyu yeniden yazmayı deneyin.
+                  </p>
+                </div>
+                <ul>
+                  {result.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                </ul>
+              </section>
             )}
 
             {result.retry_count !== undefined && result.retry_count >= 3 && !result.sql && (
               <div className="error-recovery">
-                <p>AI couldn't generate a valid query after {result.retry_count} attempts.</p>
+                <p>AI, {result.retry_count} denemeden sonra geçerli bir sorgu üretemedi.</p>
                 <div className="recovery-options">
-                  <button onClick={() => document.getElementById('ai-question')?.focus()}>Rephrase question</button>
-                  <button type="button" onClick={() => document.getElementById('ai-runtime-config')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}>
-                    Check server AI settings
+                  <button onClick={() => document.getElementById('ai-question')?.focus()}>Soruyu yeniden yaz</button>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('ai-runtime-config')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
+                  >
+                    Sunucu AI ayarlarını kontrol et
                   </button>
-                  <button onClick={() => { window.location.hash = '/query-builder' }}>Manual query builder</button>
+                  <a className="btn" href="/query-builder">Manuel sorgu oluşturucu</a>
                 </div>
               </div>
             )}
@@ -791,12 +865,16 @@ export default function AIQuery() {
             {result.result?.columns && result.result.rows && (
               <div className="results-section">
                 <div className="results-header">
-                  <h3>Results ({result.result.stats?.row_count ?? 0} rows)</h3>
-                  {result.visualization_hint && <span className="viz-hint" title={result.visualization_hint.reason}>💡 {result.visualization_hint.chart_type}</span>}
+                  <h3>Sonuçlar ({result.result.stats?.row_count ?? 0} satır)</h3>
+                  {result.visualization_hint && (
+                    <span className="viz-hint" title={result.visualization_hint.reason}>
+                      💡 {result.visualization_hint.chart_type}
+                    </span>
+                  )}
                   <div className="chart-toggle">
                     {(['bar', 'line', 'pie', 'table'] as const).map((t) => (
                       <button key={t} className={chartType === t ? 'active' : ''} onClick={() => setChartType(t)}>
-                        {t === 'table' ? 'Table' : t.charAt(0).toUpperCase() + t.slice(1)}
+                        {t === 'table' ? 'Tablo' : t === 'bar' ? 'Çubuk' : t === 'line' ? 'Çizgi' : 'Pasta'}
                       </button>
                     ))}
                   </div>
@@ -832,7 +910,7 @@ export default function AIQuery() {
 
             {/* Feedback */}
             <div className="feedback-row">
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginRight: '0.5rem' }}>Was this helpful?</span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginRight: '0.5rem' }}>Bu yanıt yararlı oldu mu?</span>
               <button
                 className={`feedback-btn ${userFeedback === 'positive' ? 'feedback-active' : ''}`}
                 onClick={() => submitFeedback('positive')}
@@ -844,7 +922,7 @@ export default function AIQuery() {
             </div>
             {showFeedbackForm && (
               <div className="feedback-form">
-                <p style={{ fontSize: '0.8rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>What went wrong?</p>
+                <p style={{ fontSize: '0.8rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>Ne yanlış gitti?</p>
                 <div className="feedback-categories">
                   {FEEDBACK_CATS.map((cat) => (
                     <button
@@ -857,13 +935,13 @@ export default function AIQuery() {
                 <textarea
                   value={feedbackText}
                   onChange={(e) => setFeedbackText(e.target.value)}
-                  placeholder="Additional details (optional)…"
+                  placeholder="Ek açıklama (isteğe bağlı)…"
                   rows={2}
                   style={{ width: '100%', fontSize: '0.8rem', resize: 'vertical' }}
                 />
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem' }}>
-                  <button className="btn btn-sm btn-primary" onClick={submitNegativeFeedback}>Submit Feedback</button>
-                  <button className="btn btn-sm btn-ghost" onClick={() => { setShowFeedbackForm(false); setFeedbackCategories([]); setFeedbackText('') }}>Cancel</button>
+                  <button className="btn btn-sm btn-primary" onClick={submitNegativeFeedback}>Geri bildirimi gönder</button>
+                  <button className="btn btn-sm btn-ghost" onClick={() => { setShowFeedbackForm(false); setFeedbackCategories([]); setFeedbackText('') }}>Vazgeç</button>
                 </div>
               </div>
             )}
@@ -874,7 +952,7 @@ export default function AIQuery() {
         {activeConversation && activeConversation.messages.length > 0 && (
           <div className="follow-up-bar">
             <input
-              placeholder="Ask a follow-up…"
+              placeholder="Takip sorusu yazın…"
               onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
                 if (e.key === 'Enter' && e.currentTarget.value.trim()) {
                   handleFollowUp(e.currentTarget.value.trim())
@@ -900,7 +978,7 @@ export default function AIQuery() {
     if (!res) return
     setResult(res)
     addMessage({ role: 'user', content: followUp })
-    const summary = res.sql ? `SQL: ${res.sql.slice(0, 120)}…` : 'Query executed'
+    const summary = res.sql ? `SQL: ${res.sql.slice(0, 120)}…` : 'Sorgu çalıştırıldı'
     addMessage({ role: 'assistant', content: summary, ai_response: res })
   }
 }

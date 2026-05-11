@@ -8,6 +8,7 @@ import (
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/config"
+	"github.com/biqly/biqly/internal/core"
 	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/datasource/clickhouse"
 	"github.com/biqly/biqly/internal/datasource/mysql"
@@ -28,6 +29,7 @@ type Dependencies struct {
 	SemanticRepo *semantic.Repository
 	Validator    *query.Validator
 	Executor     *query.Executor
+	QueryService *core.QueryService
 	AIClient     ai.Provider
 	AIDescriber  *ai.DescribeService
 	// Embedder is the embeddings provider used for vector-based table
@@ -66,6 +68,14 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 	// Setup query components
 	validator := query.NewValidator(cfg.Query.MaxRows)
 	executor := query.NewExecutor(cfg.Query.MaxRows, cfg.QueryTimeout())
+	queryService := core.NewQueryService(core.QueryServiceDeps{
+		Models:      semanticRepo,
+		Datasources: metaRepo,
+		Drivers:     reg,
+		Validator:   validator,
+		Executor:    executor,
+		History:     metaRepo,
+	})
 
 	// AI provider (OpenAI / Anthropic / OpenAI-compatible) + metadata describe
 	// service. Failing here is fatal so misconfigured deployments stop early
@@ -93,6 +103,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		SemanticRepo: semanticRepo,
 		Validator:    validator,
 		Executor:     executor,
+		QueryService: queryService,
 		AIClient:     aiClient,
 		AIDescriber:  describer,
 		Embedder:     embedder,

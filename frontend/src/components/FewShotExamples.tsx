@@ -60,8 +60,8 @@ export default function FewShotExamples() {
   const handleSave = async () => {
     setFormError(null)
     let lq: Record<string, unknown>
-    try { lq = JSON.parse(formLq) } catch { setFormError('Invalid JSON in LogicalQuery'); return }
-    if (!formQuestion.trim()) { setFormError('Question is required'); return }
+    try { lq = JSON.parse(formLq) } catch { setFormError('LogicalQuery geçersiz JSON'); return }
+    if (!formQuestion.trim()) { setFormError('Soru zorunludur'); return }
 
     if (editId) {
       // Update
@@ -99,31 +99,31 @@ export default function FewShotExamples() {
     <div>
       {!apiReady && (
         <div className="error" style={{ marginBottom: '1rem' }}>
-          Backend endpoint not ready yet. Examples are stored locally in your browser.
+          Backend uç noktası henüz hazır değil. Örnekler tarayıcınızda yerel olarak saklanıyor.
         </div>
       )}
 
       <div className="card">
         <div className="card-header-row">
-          <h2>Few-Shot Examples</h2>
-          <button className="btn btn-sm" onClick={openAdd}>+ Add Example</button>
+          <h2>Few-shot örnekleri</h2>
+          <button className="btn btn-sm" onClick={openAdd}>+ Örnek ekle</button>
         </div>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1rem' }}>
-          Manage examples used as few-shot prompts for the AI text-to-SQL engine. Each example teaches the AI a pattern.
+          AI metinden-SQL motorunun few-shot istemlerinde kullanılacak örnekleri yönetin. Her örnek modele bir kalıp öğretir.
         </p>
 
         {examples.length === 0 && (
-          <p style={{ color: 'var(--text-muted)' }}>No examples yet. Add one to improve AI query generation.</p>
+          <p style={{ color: 'var(--text-muted)' }}>Henüz örnek yok. AI sorgu üretimini iyileştirmek için bir tane ekleyin.</p>
         )}
 
         {examples.length > 0 && (
           <table className="results-table">
             <thead>
               <tr>
-                <th>Question</th>
-                <th>Dialect</th>
-                <th>Tags</th>
-                <th className="actions">Actions</th>
+                <th>Soru</th>
+                <th>Diyalekt</th>
+                <th>Etiketler</th>
+                <th className="actions">İşlemler</th>
               </tr>
             </thead>
             <tbody>
@@ -142,8 +142,8 @@ export default function FewShotExamples() {
                   </td>
                   <td className="actions">
                     <div className="row-actions">
-                      <button className="btn btn-sm btn-ghost" onClick={() => openEdit(ex)}>Edit</button>
-                      <button className="btn btn-sm btn-danger" onClick={() => handleDelete(ex.id)}>Delete</button>
+                      <button className="btn btn-sm btn-ghost" onClick={() => openEdit(ex)}>Düzenle</button>
+                      <button className="btn btn-sm btn-danger" onClick={() => handleDelete(ex.id)}>Sil</button>
                     </div>
                   </td>
                 </tr>
@@ -158,13 +158,13 @@ export default function FewShotExamples() {
         <div className="modal-backdrop" onClick={resetForm}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>{editId ? 'Edit Example' : 'Add Few-Shot Example'}</h2>
+              <h2>{editId ? 'Örneği düzenle' : 'Few-shot örneği ekle'}</h2>
               <button className="modal-close" onClick={resetForm}>×</button>
             </div>
             <div className="modal-body">
               <div className="form-group">
-                <label htmlFor="fs-question">Natural Language Question</label>
-                <textarea id="fs-question" value={formQuestion} onChange={(e) => setFormQuestion(e.target.value)} placeholder="Show total revenue by country for last month…" rows={3} />
+                <label htmlFor="fs-question">Doğal dil sorusu</label>
+                <textarea id="fs-question" value={formQuestion} onChange={(e) => setFormQuestion(e.target.value)} placeholder="Geçen aya göre ülke bazında toplam geliri göster…" rows={3} />
               </div>
               <div className="form-group">
                 <label htmlFor="fs-lq">LogicalQuery (JSON)</label>
@@ -172,11 +172,11 @@ export default function FewShotExamples() {
               </div>
               <div className="modal-form-row">
                 <div className="form-group">
-                  <label htmlFor="fs-tags">Tags (comma-separated)</label>
-                  <input id="fs-tags" value={formTags} onChange={(e) => setFormTags(e.target.value)} placeholder="aggregation, revenue, date-filter" />
+                  <label htmlFor="fs-tags">Etiketler (virgülle ayırın)</label>
+                  <input id="fs-tags" value={formTags} onChange={(e) => setFormTags(e.target.value)} placeholder="toplama, gelir, tarih-filtresi" />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="fs-dialect">SQL Dialect</label>
+                  <label htmlFor="fs-dialect">SQL diyalekti</label>
                   <select id="fs-dialect" value={formDialect} onChange={(e) => setFormDialect(e.target.value)}>
                     {DIALECTS.map((d) => <option key={d} value={d}>{d}</option>)}
                   </select>
@@ -185,8 +185,8 @@ export default function FewShotExamples() {
               {formError && <div className="error">{formError}</div>}
             </div>
             <div className="modal-actions">
-              <button className="btn btn-ghost" onClick={resetForm}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSave} disabled={loading}>{loading ? 'Saving…' : 'Save'}</button>
+              <button className="btn btn-ghost" onClick={resetForm}>Vazgeç</button>
+              <button className="btn btn-primary" onClick={handleSave} disabled={loading}>{loading ? 'Kaydediliyor…' : 'Kaydet'}</button>
             </div>
           </div>
         </div>
