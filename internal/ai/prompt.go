@@ -205,9 +205,41 @@ func (b *PromptBuilder) writeDimensions(sb *strings.Builder, dims []semantic.Dim
 		fmt.Fprintf(sb, "(dimensions omitted — size budget)\n")
 		return len(dims)
 	}
+
+	// Surface display dimensions first — these are the human-readable columns
+	// (name, title, label) that users expect when asking for "list X", "names",
+	// or readable labels.
+	var displayDims, otherDims []semantic.Dimension
+	for _, d := range dims {
+		if d.IsDisplay {
+			displayDims = append(displayDims, d)
+		} else {
+			otherDims = append(otherDims, d)
+		}
+	}
+
+	if len(displayDims) > 0 {
+		sb.WriteString("### Display Dimensions (preferred for SELECT when asking for names/labels)\n")
+		for _, d := range displayDims {
+			syn := joinSynonymsCap(d.Synonyms, maxSynonymsPerLine)
+			line := fmt.Sprintf("- %s (type: %s, column: %s)", d.Name, d.Type, d.ColumnRef)
+			if syn != "" {
+				line += fmt.Sprintf(", synonyms: %s", syn)
+			}
+			line += "\n"
+			r := utf8.RuneCountInString(line)
+			if r > budgetRunes {
+				return len(dims)
+			}
+			sb.WriteString(line)
+			budgetRunes -= r
+		}
+		sb.WriteString("\n")
+	}
+
 	used := 0
 	omitted := 0
-	for i, d := range dims {
+	for i, d := range otherDims {
 		syn := joinSynonymsCap(d.Synonyms, maxSynonymsPerLine)
 		line := fmt.Sprintf("- %s (type: %s, column: %s)", d.Name, d.Type, d.ColumnRef)
 		if syn != "" {
@@ -216,12 +248,18 @@ func (b *PromptBuilder) writeDimensions(sb *strings.Builder, dims []semantic.Dim
 		line += "\n"
 		r := utf8.RuneCountInString(line)
 		if used+r > budgetRunes {
-			omitted = len(dims) - i
+			omitted = len(otherDims) - i + len(displayDims)
 			break
 		}
 		sb.WriteString(line)
 		used += r
 	}
+
+	// Reinforce the display-dimension priority rule
+	if len(displayDims) > 0 {
+		sb.WriteString("\n**IMPORTANT**: When the user asks for names, labels, or readable identifiers, ALWAYS use the display dimensions above — NOT the *_id or *_key columns.\n")
+	}
+
 	return omitted
 }
 

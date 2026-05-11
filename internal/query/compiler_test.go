@@ -531,3 +531,60 @@ func containsStrHelper(s, substr string) bool {
 	}
 	return false
 }
+
+// TestCompiler_CalculatedDimension verifies dimensions with calculated
+// expressions emit the expression directly instead of quoting a column ref.
+func TestCompiler_CalculatedDimension(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name: "orders", BaseSchema: "public", BaseTable: "orders",
+		Dimensions: []semantic.Dimension{
+			{Name: "full_name", CalculatedExpression: `COALESCE(orders.first_name, '') || ' ' || COALESCE(orders.last_name, '')`, Type: "text"},
+			{Name: "total_with_tax", CalculatedExpression: `orders.total_amount * 1.18`, Type: "number"},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "order_count", Expression: "orders.id", Aggregation: "count"},
+		},
+	}
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeDimension, Name: "full_name"},
+			{Type: SelectTypeMetric, Name: "order_count"},
+		},
+		GroupBy: []GroupBy{{Field: "full_name"}},
+		Limit:   50,
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	// Calculated expression should appear directly in SELECT and GROUP BY
+	if !strings.Contains(cq.SQL, `COALESCE(orders.first_name, '') || ' ' || COALESCE(orders.last_name, '')`) {
+		t.Errorf("expected calculated expression in SQL, got: %s", cq.SQL)
+	}
+	if !strings.Contains(cq.SQL, `COUNT("orders"."id")`) {
+		t.Errorf("expected metric in SQL, got: %s", cq.SQL)
+	}
+}
+
+// TestCompiler_CalculatedDimensionWithFilter verifies filters work with
+// calculated dimensions.
+func TestCompiler_CalculatedDimensionWithFilter(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name: "orders", BaseSchema: "public", BaseTable: "orders",
+		Dimensions: []semantic.Dimension{
+			{Name: "total_with_tax", CalculatedExpression: `orders.total_amount * 1.18`, Type: "number"},
+		},
+	}
+	lq := LogicalQuery{
+		Select:  []SelectItem{{Type: SelectTypeDimension, Name: "total_with_tax"}},
+		Filters: []Filter{{Field: "total_with_tax", Operator: OpGt, Value: 100}},
+		Limit:   50,
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if !strings.Contains(cq.SQL, `orders.total_amount * 1.18`) {
+		t.Errorf("expected calculated expression in WHERE, got: %s", cq.SQL)
+	}
+}

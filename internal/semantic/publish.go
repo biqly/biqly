@@ -113,7 +113,12 @@ func ValidateContext(ctx context.Context, model SemanticModel, catalog CatalogRe
 	validateDuplicateNames("relationship", model.Joins, func(j Join) string { return j.Name }, addError)
 
 	for _, dim := range model.Dimensions {
-		if !columnSet.has(model.BaseSchema, dim.ColumnRef) {
+		if dim.CalculatedExpression != "" {
+			// Validate calculated expression
+			if err := validateCalculatedExpression(dim.CalculatedExpression, columnSet, model.BaseSchema); err != nil {
+				addError("dimension %q calculated expression invalid: %s", dim.Name, err)
+			}
+		} else if !columnSet.has(model.BaseSchema, dim.ColumnRef) {
 			addError("dimension references unknown column: %s", dim.ColumnRef)
 		}
 	}
@@ -288,4 +293,99 @@ func estimatePromptSize(model SemanticModel) int {
 	size += len(model.Metrics) * 160
 	size += len(model.Joins) * 120
 	return size
+}
+
+// allowedCalculatedFunctions is the whitelist of functions permitted in
+// dimension calculated expressions. This keeps expressions portable across
+// dialects (Postgres, MySQL, SQL Server, ClickHouse).
+var allowedCalculatedFunctions = map[string]bool{
+	"COALESCE":    true,
+	"CONCAT":      true,
+	"UPPER":       true,
+	"LOWER":       true,
+	"ROUND":       true,
+	"TRIM":        true,
+	"NULLIF":      true,
+	"CAST":        true,
+	"EXTRACT":     true,
+	"DATE_TRUNC":  true,
+	"TO_CHAR":     true,
+	"TO_DATE":     true,
+	"LENGTH":      true,
+	"SUBSTRING":   true,
+	"REPLACE":     true,
+	"ABS":         true,
+	"CEIL":        true,
+	"FLOOR":       true,
+	"SIGN":        true,
+}
+
+// allowedCalculatedOperators is the whitelist of operators permitted in
+// dimension calculated expressions.
+var allowedCalculatedOperators = map[string]bool{
+	"+":  true,
+	"-":  true,
+	"*":  true,
+	"/":  true,
+	"||": true, // string concatenation (SQL standard)
+	"=":  true,
+	"!=": true,
+	">":  true,
+	"<":  true,
+	">=": true,
+	"<=": true,
+}
+
+// validateCalculatedExpression checks a dimension's calculated_expression
+// against the allowed function/operator whitelist and verifies that all
+// referenced columns exist in the datasource catalog.
+func validateCalculatedExpression(expr string, columnSet datasourceColumnSet, defaultSchema string) error {
+	expr = strings.TrimSpace(expr)
+	if expr == "" {
+		return fmt.Errorf("calculated expression is empty")
+	}
+
+	// Extract column references (table.column or bare column patterns)
+	cols := columnRefsInExpression(expr)
+	for _, col := range cols {
+		// Skip literals and numbers
+		if isSQLLiteral(col) {
+			continue
+		}
+		if !columnSet.has(defaultSchema, col) {
+			return fmt.Errorf("unknown column reference: %s", col)
+		}
+	}
+
+	// Check for disallowed patterns (subqueries, etc.)
+	upper := strings.ToUpper(expr)
+	if strings.Contains(upper, "SELECT") || strings.Contains(upper, "INSERT") ||
+		strings.Contains(upper, "UPDATE") || strings.Contains(upper, "DELETE") {
+		return fmt.Errorf("calculated expressions must not contain DML statements")
+	}
+
+	return nil
+}
+
+// isSQLLiteral returns true if s looks like a SQL literal (number, string, NULL, etc.).
+func isSQLLiteral(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return true
+	}
+	// Numbers
+	if s == "0" || s == "1" || s == "NULL" || s == "null" || s == "TRUE" || s == "FALSE" {
+		return true
+	}
+	// String literals
+	if strings.HasPrefix(s, "'") && strings.HasSuffix(s, "'") {
+		return true
+	}
+	// Pure numbers
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }

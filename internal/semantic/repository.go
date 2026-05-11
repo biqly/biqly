@@ -227,7 +227,7 @@ func (r *Repository) GetPublishedFullModel(ctx context.Context, id string) (*Sem
 	if err == nil {
 		return published, nil
 	}
-	if err != nil && err != sql.ErrNoRows {
+	if err != sql.ErrNoRows {
 		return nil, err
 	}
 	if model.Status == ModelStatusDraft {

@@ -24,16 +24,13 @@ func NewValidator(maxRows int) *Validator {
 func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) error {
 	var errs ValidationErrors
 
-	// Check select items
+	// Build lookup maps from the semantic model — single source of truth.
 	dimMap := make(map[string]bool)
 	for _, d := range model.Dimensions {
 		dimMap[d.Name] = true
 	}
 
-	metricMap := make(map[string]bool)
-	for _, m := range model.Metrics {
-		metricMap[m.Name] = true
-	}
+	metricRegistry := semantic.NewMetricRegistry(model.Metrics)
 
 	for _, item := range lq.Select {
 		switch item.Type {
@@ -45,14 +42,14 @@ func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) err
 				})
 			}
 		case SelectTypeMetric:
-			if !metricMap[item.Name] {
+			if !metricRegistry.Has(item.Name) {
 				errs = append(errs, &ValidationError{
 					Field:   "select",
 					Message: "unknown metric: " + item.Name,
 				})
 			}
 		case SelectTypeWindow:
-			errs = append(errs, validateWindowSelect(item, dimMap, metricMap)...)
+			errs = append(errs, validateWindowSelect(item, dimMap, metricRegistry)...)
 		default:
 			errs = append(errs, &ValidationError{
 				Field:   "select",
@@ -64,7 +61,7 @@ func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) err
 	// HAVING — each field must be a metric (post-aggregation).
 	havingOps := []string{OpEq, OpNeq, OpGt, OpGte, OpLt, OpLte, OpBetween, OpIsNull, OpIsNotNull}
 	for _, f := range lq.Having {
-		if !metricMap[f.Field] {
+		if !metricRegistry.Has(f.Field) {
 			errs = append(errs, &ValidationError{
 				Field:   "having",
 				Message: "having field must reference a metric: " + f.Field,
@@ -120,7 +117,7 @@ func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) err
 
 	// Check order by
 	for _, ob := range lq.OrderBy {
-		if !dimMap[ob.Field] && !metricMap[ob.Field] {
+		if !dimMap[ob.Field] && !metricRegistry.Has(ob.Field) {
 			errs = append(errs, &ValidationError{
 				Field:   "order_by",
 				Message: "unknown field: " + ob.Field,
@@ -165,14 +162,14 @@ func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) err
 // validateWindowSelect ensures a window SelectItem is well-formed: spec is
 // present, the aggregation is recognised, partition_by and order_by fields
 // resolve in the semantic model, and any referenced metric exists.
-func validateWindowSelect(item SelectItem, dimMap, metricMap map[string]bool) ValidationErrors {
+func validateWindowSelect(item SelectItem, dimMap map[string]bool, metricRegistry *semantic.MetricRegistry) ValidationErrors {
 	var errs ValidationErrors
 	if item.Window == nil {
 		errs = append(errs, &ValidationError{Field: "select", Message: "window item missing window spec: " + item.Name})
 		return errs
 	}
 	w := item.Window
-	if w.Metric != "" && !metricMap[w.Metric] {
+	if w.Metric != "" && !metricRegistry.Has(w.Metric) {
 		errs = append(errs, &ValidationError{Field: "select.window", Message: "unknown metric reference: " + w.Metric})
 	}
 	allowedAgg := map[string]bool{
@@ -189,7 +186,7 @@ func validateWindowSelect(item SelectItem, dimMap, metricMap map[string]bool) Va
 		}
 	}
 	for _, ob := range w.OrderBy {
-		if !dimMap[ob.Field] && !metricMap[ob.Field] {
+		if !dimMap[ob.Field] && !metricRegistry.Has(ob.Field) {
 			errs = append(errs, &ValidationError{Field: "select.window.order_by", Message: "unknown field: " + ob.Field})
 		}
 		if ob.Direction != "" && ob.Direction != OrderAsc && ob.Direction != OrderDesc {

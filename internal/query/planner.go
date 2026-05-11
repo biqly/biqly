@@ -2,6 +2,7 @@ package query
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -133,6 +134,8 @@ func (p *Planner) checkFanout(model *semantic.SemanticModel, tables map[string]b
 
 	manyToManyCount := 0
 	manyToOneCount := 0
+	oneToManyCount := 0
+	var riskyJoins []string
 
 	for _, join := range model.Joins {
 		if !tables[join.FromTable] && !tables[join.ToTable] {
@@ -141,13 +144,27 @@ func (p *Planner) checkFanout(model *semantic.SemanticModel, tables map[string]b
 		switch join.Relationship {
 		case "many_to_many":
 			manyToManyCount++
-		case "many_to_one", "one_to_many":
+			riskyJoins = append(riskyJoins, join.Name)
+		case "one_to_many":
+			oneToManyCount++
+			riskyJoins = append(riskyJoins, join.Name)
+		case "many_to_one", "one_to_one":
 			manyToOneCount++
 		}
 	}
 
 	if manyToManyCount > 0 {
-		warnings = append(warnings, fmt.Sprintf("query involves %d many-to-many join(s) which may cause fanout", manyToManyCount))
+		warnings = append(warnings, fmt.Sprintf(
+			"fanout risk: query involves %d many-to-many join(s) [%s] — aggregation results may be inflated",
+			manyToManyCount, strings.Join(riskyJoins, ", "),
+		))
+	}
+
+	if oneToManyCount > 0 && manyToManyCount == 0 {
+		warnings = append(warnings, fmt.Sprintf(
+			"fanout risk: query involves %d one-to-many join(s) [%s] — verify aggregation accuracy when grouping by base table columns",
+			oneToManyCount, strings.Join(riskyJoins, ", "),
+		))
 	}
 
 	// Multiple many-to-one joins from the same table can cause fanout

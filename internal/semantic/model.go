@@ -1,7 +1,10 @@
 // Package semantic provides business-friendly semantic models over physical database tables.
 package semantic
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // Model defines a business-friendly view over a physical table.
 // Deprecated: Use SemanticModel instead; this alias exists for backward compatibility.
@@ -49,6 +52,17 @@ type Dimension struct {
 	// other values fall back to dialect DateTrunc (timestamp buckets).
 	// In-memory / JSON only; not stored in semantic_dimensions (use db:"-").
 	TimeGrain string `json:"time_grain,omitempty" db:"-"`
+	// IsDisplay marks this dimension as the preferred human-readable display
+	// column for its table (e.g. customer.name over customer.id). The AI prompt
+	// builder and query planner prioritise display dimensions for SELECT when
+	// the user asks for readable labels ("list customers", "names").
+	IsDisplay bool `json:"is_display,omitempty" db:"is_display"`
+	// CalculatedExpression is an optional SQL expression that derives this
+	// dimension's value from other columns. When set, ColumnRef is ignored
+	// during compilation. Supported: simple arithmetic (+,-,*,/), scalar
+	// functions (COALESCE, CONCAT, UPPER, LOWER, ROUND), CASE WHEN, and
+	// dialect-specific date functions.
+	CalculatedExpression string `json:"calculated_expression,omitempty" db:"calculated_expression"`
 }
 
 // Metric represents an aggregatable field in a semantic model.
@@ -105,3 +119,65 @@ const (
 	AggMax           AggregationType = "max"
 	AggCountDistinct AggregationType = "count_distinct"
 )
+
+// MetricRegistry provides a single source of truth for metric definitions,
+// used by the AI prompt builder, query validator, and SQL compiler.
+type MetricRegistry struct {
+	byName   map[string]*Metric
+	bySynonym map[string]*Metric // maps synonyms and aliases to canonical metric
+}
+
+// NewMetricRegistry builds a registry from a semantic model's metrics.
+func NewMetricRegistry(metrics []Metric) *MetricRegistry {
+	r := &MetricRegistry{
+		byName:    make(map[string]*Metric, len(metrics)),
+		bySynonym: make(map[string]*Metric, len(metrics)*2),
+	}
+	for i := range metrics {
+		m := &metrics[i]
+		key := strings.ToLower(m.Name)
+		r.byName[key] = m
+		for _, syn := range m.Synonyms {
+			r.bySynonym[strings.ToLower(syn)] = m
+		}
+		if m.Label != nil {
+			r.bySynonym[strings.ToLower(*m.Label)] = m
+		}
+	}
+	return r
+}
+
+// Lookup finds a metric by name, synonym, or label. Returns nil if not found.
+func (r *MetricRegistry) Lookup(name string) *Metric {
+	key := strings.ToLower(strings.TrimSpace(name))
+	if m, ok := r.byName[key]; ok {
+		return m
+	}
+	if m, ok := r.bySynonym[key]; ok {
+		return m
+	}
+	return nil
+}
+
+// Has returns true if the metric exists by any known name.
+func (r *MetricRegistry) Has(name string) bool {
+	return r.Lookup(name) != nil
+}
+
+// All returns all registered metrics in definition order.
+func (r *MetricRegistry) All() []Metric {
+	out := make([]Metric, 0, len(r.byName))
+	for _, m := range r.byName {
+		out = append(out, *m)
+	}
+	return out
+}
+
+// Names returns the canonical names of all registered metrics.
+func (r *MetricRegistry) Names() []string {
+	names := make([]string, 0, len(r.byName))
+	for n := range r.byName {
+		names = append(names, n)
+	}
+	return names
+}

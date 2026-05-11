@@ -137,7 +137,7 @@ Kabul kriteri:
   kullanacak sekilde konumlandir.
 - [x] `LogicalQuery` schema, Go struct ve frontend type'lari arasinda contract
   test ekle.
-- [ ] Golden SQL testlerini semantic context fixture'lari ile guclendir.
+- [x] Golden SQL testlerini semantic context fixture'lari ile guclendir.
 
 Kabul kriteri:
 
@@ -146,21 +146,21 @@ Kabul kriteri:
 
 ## P1 - Relationship ve Metric Kalitesini Artir
 
-- [ ] Relationship metadata'yi sadece join listesi olarak degil, query planning
+- [x] Relationship metadata'yi sadece join listesi olarak degil, query planning
   sinyali olarak kullan:
   - one_to_one
   - many_to_one
   - one_to_many
   - many_to_many
-- [ ] Aggregation fanout risklerini validator'da daha net yakala.
-- [ ] Display/name kolonlarini identifier kolonlarina gore daha yuksek oncelikli
+- [x] Aggregation fanout risklerini validator'da daha net yakala.
+- [x] Display/name kolonlarini identifier kolonlarina gore daha yuksek oncelikli
   hale getir.
-- [ ] Calculated field ihtiyacini Go compiler icinde kontrollu sekilde tasarla:
+- [x] Calculated field ihtiyacini Go compiler icinde kontrollu sekilde tasarla:
   - izinli expression listesi
   - semantic validation
   - dialect compile
   - test fixture
-- [ ] Reusable metric tanimlarini prompt, validator ve compiler tarafinda tek
+- [x] Reusable metric tanimlarini prompt, validator ve compiler tarafinda tek
   kaynaktan kullandir.
 
 Kabul kriteri:

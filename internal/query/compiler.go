@@ -370,6 +370,10 @@ func (c *Compiler) determineJoins(
 }
 
 func (c *Compiler) dimensionSQL(dim semantic.Dimension) string {
+	// If a calculated expression is defined, use it directly.
+	if strings.TrimSpace(dim.CalculatedExpression) != "" {
+		return dim.CalculatedExpression
+	}
 	if strings.TrimSpace(dim.TimeGrain) == "" {
 		return c.dialect.QuoteIdent(dim.ColumnRef)
 	}
