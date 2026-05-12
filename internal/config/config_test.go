@@ -117,6 +117,53 @@ func TestAIConfig_EffectiveEmbeddingBaseURL(t *testing.T) {
 	}
 }
 
+func TestAIConfig_EffectiveQueryConfigOverrides(t *testing.T) {
+	base := AIConfig{
+		Provider:           "openai-compatible",
+		APIKey:             "ollama",
+		BaseURL:            "http://local/v1",
+		Model:              "gemma4:e4b",
+		HTTPTimeoutSeconds: 300,
+	}
+	t.Run("no overrides reuses base", func(t *testing.T) {
+		got := base.EffectiveQueryConfig()
+		if got.Model != "gemma4:e4b" || got.BaseURL != "http://local/v1" || got.APIKey != "ollama" {
+			t.Errorf("expected base fields preserved, got %+v", got)
+		}
+		if base.HasQueryOverride() {
+			t.Error("HasQueryOverride should be false for empty overrides")
+		}
+	})
+
+	t.Run("model override only", func(t *testing.T) {
+		c := base
+		c.QueryModel = "gpt-4o"
+		if !c.HasQueryOverride() {
+			t.Error("HasQueryOverride should be true when QueryModel set")
+		}
+		got := c.EffectiveQueryConfig()
+		if got.Model != "gpt-4o" {
+			t.Errorf("model not overridden: %q", got.Model)
+		}
+		if got.BaseURL != base.BaseURL {
+			t.Errorf("base URL must fall back when not overridden: %q", got.BaseURL)
+		}
+	})
+
+	t.Run("full provider swap", func(t *testing.T) {
+		c := base
+		c.QueryProvider = "openai"
+		c.QueryModel = "gpt-4o"
+		c.QueryBaseURL = "https://api.openai.com/v1"
+		c.QueryAPIKey = "sk-xxx"
+		c.QueryHTTPTimeoutSeconds = 60
+		got := c.EffectiveQueryConfig()
+		if got.Provider != "openai" || got.Model != "gpt-4o" || got.BaseURL != "https://api.openai.com/v1" || got.APIKey != "sk-xxx" || got.HTTPTimeoutSeconds != 60 {
+			t.Errorf("expected full override, got %+v", got)
+		}
+	})
+}
+
 func TestAIConfig_EmbeddingsConfigured(t *testing.T) {
 	if (AIConfig{}).EmbeddingsConfigured() {
 		t.Fatal("empty config should not enable embeddings")

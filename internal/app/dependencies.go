@@ -33,7 +33,12 @@ type Dependencies struct {
 	Executor     *query.Executor
 	QueryService *core.QueryService
 	AIClient     ai.Provider
-	AIDescriber  *ai.DescribeService
+	// AIQueryClient powers the NL→LogicalQuery path. Aliases AIClient when no
+	// BI_AI_QUERY_* overrides are set; otherwise points at a separate provider
+	// (typically a smarter model) so describe/metadata work can keep using the
+	// cheaper local model on AIClient.
+	AIQueryClient ai.Provider
+	AIDescriber   *ai.DescribeService
 	Encryptor    *security.Encryption
 	EvalRepo     *ai.EvalRepository
 	// Embedder is the embeddings provider used for vector-based table
@@ -88,6 +93,21 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 	if err != nil {
 		return nil, fmt.Errorf("ai provider: %w", err)
 	}
+	// Dedicated provider for NL→LogicalQuery when BI_AI_QUERY_* overrides are
+	// set; otherwise reuse the base client. Fatal on misconfiguration so
+	// startup fails fast.
+	aiQueryClient := aiClient
+	if cfg.AI.HasQueryOverride() {
+		queryClient, err := ai.NewProvider(cfg.AI.EffectiveQueryConfig())
+		if err != nil {
+			return nil, fmt.Errorf("ai query provider: %w", err)
+		}
+		aiQueryClient = queryClient
+		slog.Info("AI query provider overridden",
+			"model", cfg.AI.EffectiveQueryConfig().Model,
+			"base_url", cfg.AI.EffectiveQueryConfig().BaseURL,
+			"describe_model", cfg.AI.Model)
+	}
 	translator := ai.NewTranslationServiceFromConfig(cfg.AI)
 	describer := ai.NewDescribeService(aiClient, metaRepo, reg, translator, 10, cfg.AI.DescribeMaxCellRunes, cfg.AI.DescribeMaxSampleRows)
 
@@ -126,8 +146,9 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		Validator:    validator,
 		Executor:     executor,
 		QueryService: queryService,
-		AIClient:     aiClient,
-		AIDescriber:  describer,
+		AIClient:      aiClient,
+		AIQueryClient: aiQueryClient,
+		AIDescriber:   describer,
 		Encryptor:    encryptor,
 		EvalRepo:     evalRepo,
 		Embedder:     embedder,

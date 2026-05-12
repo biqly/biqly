@@ -26,7 +26,12 @@ type AIHandler struct {
 
 // NewAIHandler creates a new AI handler.
 func NewAIHandler(deps *app.Dependencies) *AIHandler {
-	svc := ai.NewServiceWithProvider(deps.Config.AI, deps.Validator, deps.AIClient)
+	queryCfg := deps.Config.AI.EffectiveQueryConfig()
+	provider := deps.AIQueryClient
+	if provider == nil {
+		provider = deps.AIClient
+	}
+	svc := ai.NewServiceWithProvider(queryCfg, deps.Validator, provider)
 	router := ai.NewTableRouterWithEmbeddings(
 		deps.MetaRepo,
 		deps.Embedder,

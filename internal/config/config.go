@@ -103,6 +103,16 @@ type AIConfig struct {
 	// are present; 30 (default) makes a perfect match comparable to a fully
 	// matched table-name token.
 	EmbeddingWeight float64
+
+	// Query* fields let the NL-to-LogicalQuery path use a different model
+	// (typically a smarter one) without disturbing describe / metadata work,
+	// which prefers cheaper coverage on a smaller local model. All four are
+	// optional: empty falls back to the matching base BI_AI_* setting.
+	QueryProvider           string
+	QueryModel              string
+	QueryBaseURL            string
+	QueryAPIKey             string
+	QueryHTTPTimeoutSeconds int
 }
 
 // Load reads configuration from environment variables.
@@ -159,7 +169,12 @@ func Load() (*Config, error) {
 				"BI_AI_EMBEDDING_HTTP_TIMEOUT_SECONDS",
 				getEnvAsInt("BI_AI_HTTP_TIMEOUT_SECONDS", 600),
 			),
-			EmbeddingWeight: getEnvAsFloat("BI_AI_EMBEDDING_WEIGHT", 30.0),
+			EmbeddingWeight:         getEnvAsFloat("BI_AI_EMBEDDING_WEIGHT", 30.0),
+			QueryProvider:           getEnv("BI_AI_QUERY_PROVIDER", ""),
+			QueryModel:              getEnv("BI_AI_QUERY_MODEL", ""),
+			QueryBaseURL:            getEnv("BI_AI_QUERY_BASE_URL", ""),
+			QueryAPIKey:             getEnv("BI_AI_QUERY_API_KEY", ""),
+			QueryHTTPTimeoutSeconds: getEnvAsInt("BI_AI_QUERY_HTTP_TIMEOUT_SECONDS", 0),
 		},
 	}
 
@@ -207,6 +222,45 @@ func (c AIConfig) AIRequestTimeout() time.Duration {
 		timeout = translationTimeout
 	}
 	return timeout + 30*time.Second
+}
+
+// EffectiveQueryConfig returns an AIConfig whose Provider/APIKey/BaseURL/Model
+// are overridden by BI_AI_QUERY_* when those are set, so the NL-to-LogicalQuery
+// path can route to a smarter (or just different) model than describe /
+// metadata work. Every other tuning knob (max tokens, retries, etc.) is shared
+// with the base config — this is a transport override, not a separate runtime.
+//
+// HasQueryOverride() reports whether any field was overridden so callers can
+// avoid building a duplicate provider when nothing changed.
+func (c AIConfig) EffectiveQueryConfig() AIConfig {
+	out := c
+	if s := strings.TrimSpace(c.QueryProvider); s != "" {
+		out.Provider = s
+	}
+	if s := strings.TrimSpace(c.QueryModel); s != "" {
+		out.Model = s
+	}
+	if s := strings.TrimSpace(c.QueryBaseURL); s != "" {
+		out.BaseURL = s
+	}
+	if s := strings.TrimSpace(c.QueryAPIKey); s != "" {
+		out.APIKey = s
+	}
+	if c.QueryHTTPTimeoutSeconds > 0 {
+		out.HTTPTimeoutSeconds = c.QueryHTTPTimeoutSeconds
+	}
+	return out
+}
+
+// HasQueryOverride reports whether any BI_AI_QUERY_* knob is set. When false,
+// callers should reuse the base AI provider instead of constructing a second
+// one that points at the same endpoint and model.
+func (c AIConfig) HasQueryOverride() bool {
+	return strings.TrimSpace(c.QueryProvider) != "" ||
+		strings.TrimSpace(c.QueryModel) != "" ||
+		strings.TrimSpace(c.QueryBaseURL) != "" ||
+		strings.TrimSpace(c.QueryAPIKey) != "" ||
+		c.QueryHTTPTimeoutSeconds > 0
 }
 
 // EffectiveEmbeddingAPIKey returns BI_AI_EMBEDDING_API_KEY when set, otherwise BI_AI_API_KEY.
