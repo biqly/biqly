@@ -231,180 +231,6 @@ function embeddingSummary(response: EmbedMetadataResponse) {
   return `Gömülen ${response.embedded} metadata ögesi${details} (${response.model}).`
 }
 
-function AIRuntimeSettingsPanel({
-  settings,
-  err,
-  datasourceId,
-  datasourceName,
-  embeddingLoading,
-  embeddingError,
-  embeddingStatus,
-  onRefreshEmbeddings,
-}: {
-  settings: AIRuntimeSettings | null
-  err: string | null
-  datasourceId: string
-  datasourceName?: string
-  embeddingLoading: boolean
-  embeddingError: string | null
-  embeddingStatus: string | null
-  onRefreshEmbeddings: () => void
-}) {
-  if (err) {
-    return (
-      <div className="ai-runtime-settings" role="status">
-        <div className="ai-runtime-settings-title">Sunucu AI (ortam değişkenleri)</div>
-        <p className="error" style={{ margin: '0.35rem 0 0', fontSize: '0.85rem' }}>{err}</p>
-      </div>
-    )
-  }
-  if (!settings) {
-    return (
-      <div className="ai-runtime-settings" role="status">
-        <div className="ai-runtime-settings-title">Sunucu AI (ortam değişkenleri)</div>
-        <p className="ai-settings-hint" style={{ margin: '0.35rem 0 0' }}>Sunucu AI ayarları yükleniyor…</p>
-      </div>
-    )
-  }
-  const baseConfigured = settings.base_url?.trim() !== ''
-  const embeddingsBaseConfigured = settings.embedding_base_url?.trim() !== ''
-  const translationBaseConfigured = settings.translation_base_url?.trim() !== ''
-  return (
-    <div className="ai-runtime-settings" id="ai-runtime-config" role="region" aria-label="Ortam değişkenlerinden sunucu AI yapılandırması">
-      <div className="ai-runtime-settings-title">Sunucu AI (ortam değişkenleri)</div>
-      <div className="ai-settings-grid">
-        <section className="ai-settings-section" aria-labelledby="ai-settings-llm">
-          <h3 id="ai-settings-llm">LLM (Describe / Çeviri)</h3>
-          <dl className="ai-settings-dl">
-            <dt>Sağlayıcı</dt>
-            <dd>{settings.provider?.trim() ? settings.provider : '—'}</dd>
-            <dt>Model</dt>
-            <dd><code translate="no">{settings.llm_model?.trim() ? settings.llm_model : '—'}</code> <span className="ai-settings-meta" translate="no">BI_AI_MODEL</span></dd>
-            <dt>Temel URL</dt>
-            <dd>
-              {baseConfigured ? (
-                <code translate="no">{settings.base_url}</code>
-              ) : (
-                <span><span className="ai-settings-meta">varsayılan</span> <code translate="no">{settings.base_url_effective}</code></span>
-              )}
-              <span className="ai-settings-meta" translate="no">BI_AI_BASE_URL</span>
-            </dd>
-            <dt>API anahtarı</dt>
-            <dd>{settings.api_key_configured ? 'Yapıldı' : 'Ayarlanmadı'} <span className="ai-settings-meta" translate="no">BI_AI_API_KEY</span></dd>
-          </dl>
-        </section>
-        <section className="ai-settings-section" aria-labelledby="ai-settings-query">
-          <h3 id="ai-settings-query">AI Sorgu modeli</h3>
-          <dl className="ai-settings-dl">
-            <dt>Sağlayıcı</dt>
-            <dd>{settings.query_provider?.trim() ? settings.query_provider : settings.provider?.trim() ? settings.provider : '—'}</dd>
-            <dt>Model</dt>
-            <dd>
-              <code translate="no">{settings.query_model ?? settings.llm_model ?? '—'}</code>{' '}
-              <span className="ai-settings-meta" translate="no">
-                {settings.query_model_override ? 'BI_AI_QUERY_MODEL' : 'BI_AI_MODEL mirası'}
-              </span>
-            </dd>
-            <dt>Temel URL</dt>
-            <dd>
-              {settings.query_base_url?.trim() ? (
-                <code translate="no">{settings.query_base_url}</code>
-              ) : (
-                <span><span className="ai-settings-meta">miras</span> <code translate="no">{settings.query_base_url_effective ?? settings.base_url_effective ?? '—'}</code></span>
-              )}
-              <span className="ai-settings-meta" translate="no">BI_AI_QUERY_BASE_URL</span>
-            </dd>
-            <dt>API anahtarı</dt>
-            <dd>
-              {settings.query_api_key_dedicated
-                ? <>Özel anahtar <span className="ai-settings-meta" translate="no">BI_AI_QUERY_API_KEY</span></>
-                : <>{(settings.query_api_key_configured ?? settings.api_key_configured) ? 'BI_AI_API_KEY mirası' : 'Ayarlanmadı'}</>}
-            </dd>
-          </dl>
-        </section>
-        {settings.embeddings_enabled === true ? (
-          <section className="ai-settings-section" aria-labelledby="ai-settings-embeddings">
-            <h3 id="ai-settings-embeddings">Embedding'ler</h3>
-            <dl className="ai-settings-dl">
-              <dt>Model</dt>
-              <dd><code translate="no">{settings.embedding_model ?? '—'}</code> <span className="ai-settings-meta" translate="no">BI_AI_EMBEDDING_MODEL</span></dd>
-              <dt>Temel URL</dt>
-              <dd>
-                {embeddingsBaseConfigured ? (
-                  <code translate="no">{settings.embedding_base_url}</code>
-                ) : (
-                  <span><span className="ai-settings-meta">çözüldü</span> <code translate="no">{settings.embedding_base_url_effective ?? '—'}</code></span>
-                )}
-                <span className="ai-settings-meta" translate="no">BI_AI_EMBEDDING_BASE_URL</span>
-              </dd>
-              <dt>API anahtarı</dt>
-              <dd>
-                {settings.embedding_api_key_configured ? 'Yapıldı' : 'Ayarlanmadı'}{' '}
-                <span className="ai-settings-meta" translate="no">
-                  BI_AI_EMBEDDING_API_KEY
-                  {settings.embedding_api_key_dedicated ? '' : ' — BI_AI_API_KEY\'e düşer'}
-                </span>
-              </dd>
-            </dl>
-          </section>
-        ) : null}
-        {settings.translation_enabled === true ? (
-          <section className="ai-settings-section" aria-labelledby="ai-settings-translation">
-            <h3 id="ai-settings-translation">Çeviri</h3>
-            <dl className="ai-settings-dl">
-              <dt>Model</dt>
-              <dd><code translate="no">{settings.translation_model ?? '—'}</code> <span className="ai-settings-meta" translate="no">BI_AI_TRANSLATION_MODEL</span></dd>
-              <dt>Temel URL</dt>
-              <dd>
-                {translationBaseConfigured ? (
-                  <code translate="no">{settings.translation_base_url}</code>
-                ) : (
-                  <span><span className="ai-settings-meta">çözüldü</span> <code translate="no">{settings.translation_base_url_effective ?? '—'}</code></span>
-                )}
-                <span className="ai-settings-meta" translate="no">BI_AI_TRANSLATION_BASE_URL</span>
-              </dd>
-              <dt>API anahtarı</dt>
-              <dd>
-                {settings.translation_api_key_configured ? 'Yapıldı' : 'Ayarlanmadı'}{' '}
-                <span className="ai-settings-meta" translate="no">
-                  BI_AI_TRANSLATION_API_KEY
-                  {settings.translation_api_key_dedicated ? '' : ' — BI_AI_API_KEY\'e düşer'}
-                </span>
-              </dd>
-              <dt>Hedef</dt>
-              <dd>
-                {settings.translation_target_language ?? 'Türkçe'}{' '}
-                <span className="ai-settings-meta">({settings.translation_target_code ?? 'tr'})</span>
-              </dd>
-            </dl>
-          </section>
-        ) : null}
-      </div>
-      {settings.embeddings_enabled === true && (
-        <div className="ai-embedding-actions">
-          <button
-            type="button"
-            className="btn btn-sm"
-            onClick={onRefreshEmbeddings}
-            disabled={!datasourceId || embeddingLoading}
-            title={datasourceId ? `Seçilen veri kaynağı (${datasourceName ?? ''}) için embedding'leri yenile` : 'Önce bir veri kaynağı seçin'}
-          >
-            {embeddingLoading ? 'Metadata gömülüyor…' : 'Metadata embedding\'lerini yenile'}
-          </button>
-          <p className="ai-settings-hint">
-            Metadata eşitlemesinden veya Türkçe açıklama değişikliklerinden sonra tekrar çalıştırın; böylece tablo yönlendirme ve kolon erişimi güncel vektörleri kullanır.
-          </p>
-          {embeddingStatus && <p className="ai-embedding-status">{embeddingStatus}</p>}
-          {embeddingError && <p className="ai-embedding-error">{embeddingError}</p>}
-        </div>
-      )}
-      <p className="ai-settings-hint">
-        Model veya uç noktayı değiştirmek için API sürecindeki ortam değişkenlerini ayarlayın ve yeniden başlatın.
-      </p>
-    </div>
-  )
-}
-
 function SampleDataModal({ open, onClose, tableName, datasourceId, get }: { open: boolean; onClose: () => void; tableName: string; datasourceId: string; get: <T>(url: string) => Promise<T | null> }) {
   const [sample, setSample] = useState<any>(null)
   const [loading, setLoading] = useState(false)
@@ -763,18 +589,29 @@ export default function AIQuery() {
                 <button className={`toggle-btn ${!autoTableRouting ? 'active' : ''}`} onClick={() => setAutoTableRouting(false)}>Manuel</button>
               </div>
             </div>
-            <div className="form-group ai-settings-group">
-              <AIRuntimeSettingsPanel
-                settings={aiRuntime}
-                err={aiRuntimeErr}
-                datasourceId={datasourceId}
-                datasourceName={selectedDatasourceName}
-                embeddingLoading={embeddingLoading}
-                embeddingError={embeddingError}
-                embeddingStatus={embeddingStatus}
-                onRefreshEmbeddings={refreshMetadataEmbeddings}
-              />
-            </div>
+            {aiRuntime?.embeddings_enabled === true && (
+              <div className="form-group ai-settings-group" style={{ alignItems: 'flex-start' }}>
+                <label style={{ visibility: 'hidden' }}>&nbsp;</label>
+                <div style={{ display: 'inline-flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={refreshMetadataEmbeddings}
+                    disabled={!datasourceId || embeddingLoading}
+                    title={
+                      datasourceId
+                        ? `Seçilen veri kaynağı (${selectedDatasourceName ?? ''}) için embedding'leri yenile`
+                        : 'Önce bir veri kaynağı seçin'
+                    }
+                  >
+                    {embeddingLoading ? 'Embedding\'ler yenileniyor…' : 'Embedding\'leri yenile'}
+                  </button>
+                  {embeddingStatus && <span className="ai-embedding-status" style={{ fontSize: '0.75rem' }}>{embeddingStatus}</span>}
+                  {embeddingError && <span className="ai-embedding-error" style={{ fontSize: '0.75rem' }}>{embeddingError}</span>}
+                  {aiRuntimeErr && <span className="error" style={{ fontSize: '0.75rem' }}>{aiRuntimeErr}</span>}
+                </div>
+              </div>
+            )}
           </div>
 
           {!autoTableRouting && (
@@ -926,12 +763,6 @@ export default function AIQuery() {
                 <p>AI, {result.retry_count} denemeden sonra geçerli bir sorgu üretemedi.</p>
                 <div className="recovery-options">
                   <button onClick={() => document.getElementById('ai-question')?.focus()}>Soruyu yeniden yaz</button>
-                  <button
-                    type="button"
-                    onClick={() => document.getElementById('ai-runtime-config')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
-                  >
-                    Sunucu AI ayarlarını kontrol et
-                  </button>
                   <a className="btn" href="/query-builder">Manuel sorgu oluşturucu</a>
                 </div>
               </div>
