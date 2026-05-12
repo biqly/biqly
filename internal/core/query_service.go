@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strconv"
 
 	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/metadata"
@@ -80,6 +81,7 @@ func NewQueryService(deps QueryServiceDeps) *QueryService {
 }
 
 func (s *QueryService) Compile(ctx context.Context, lq query.LogicalQuery) (*CompileResult, error) {
+	lq.EnsureVersion()
 	loaded, err := s.loadContext(ctx, lq)
 	if err != nil {
 		return nil, err
@@ -104,6 +106,7 @@ func (s *QueryService) CompileWithContext(ctx context.Context, lq query.LogicalQ
 }
 
 func (s *QueryService) Run(ctx context.Context, lq query.LogicalQuery) (*RunResult, error) {
+	lq.EnsureVersion()
 	compiled, err := s.Compile(ctx, lq)
 	if err != nil {
 		return nil, err
@@ -119,6 +122,7 @@ func (s *QueryService) Run(ctx context.Context, lq query.LogicalQuery) (*RunResu
 		s.recordHistory(ctx, lq, compiled.Model, compiled.Compiled, nil, QueryStatusFailed, err)
 		return nil, fmt.Errorf("execute: %w", err)
 	}
+	query.EnrichResult(result, lq, compiled.Model)
 	s.recordHistory(ctx, lq, compiled.Model, compiled.Compiled, result, QueryStatusSuccess, nil)
 	return &RunResult{CompileResult: *compiled, Result: result}, nil
 }
@@ -205,11 +209,17 @@ func BuildQueryHistoryEntry(
 	status string,
 	queryErr error,
 ) (*query.HistoryEntry, error) {
+	lq.EnsureVersion()
 	entry := &query.HistoryEntry{
 		DatasourceID: lq.DatasourceID,
 		ModelID:      historyModelID(model),
 		LogicalQuery: lq,
 		Status:       status,
+		Fingerprint: query.ComputeFingerprint(query.FingerprintInputs{
+			LogicalQuery:   lq,
+			DatasourceID:   lq.DatasourceID,
+			ContextVersion: semanticContextVersion(model),
+		}),
 	}
 	if cq != nil {
 		entry.CompiledSQL = &cq.SQL
@@ -237,6 +247,16 @@ func historyModelID(model *semantic.SemanticModel) *string {
 		return nil
 	}
 	return &model.ID
+}
+
+// semanticContextVersion stamps the semantic model version onto a query
+// fingerprint so re-publishing the model naturally invalidates any cached
+// matches keyed by the previous schema.
+func semanticContextVersion(model *semantic.SemanticModel) string {
+	if model == nil {
+		return ""
+	}
+	return strconv.Itoa(model.Version)
 }
 
 func marshalSQLArgs(args []any) (*string, error) {

@@ -249,6 +249,7 @@ func (r *TableRouter) Route(
 	tblIdx := indexTables(tables)
 	if len(selected) > 0 && !result.Manual && len(nonEmptyScope(tableScope)) == 0 {
 		selected = appendEntityResolverTables(selected, columnsByTable, relations, tblIdx, tokenSet(question), maxExpandedAutoTables, nameResolverMaxHops)
+		selected = appendQuestionEntityTables(selected, tables, relations, tblIdx, tokenSet(question), maxExpandedAutoTables, nameResolverMaxHops)
 		beforeBridge := bundleKeySet(selected)
 		selected = expandSelectedWithJoinBridges(selected, relations, tblIdx, maxExpandedAutoTables)
 		result.ensureDebug().BridgeTables = addedBundleLabels(beforeBridge, selected)
@@ -482,6 +483,87 @@ func appendCategoryTableIfMissing(
 	}
 	if b, ok := pick(); ok {
 		selected[len(selected)-1] = b
+	}
+	return selected
+}
+
+// appendQuestionEntityTables pulls in unselected tables whose name (after token
+// expansion) matches a question token, following the shortest FK path from the
+// already-selected set. This covers "show total sales by customer" — the user
+// names an entity but does not say "customer name", so the readable-labels
+// resolver does not fire, yet the customers table still needs to be in the
+// context for a "by customer" group-by to be sensible.
+//
+// Conservative: only adds a table when there is an FK path to one of the
+// already-selected tables within maxHops, so unrelated entity collisions
+// ("show sales" → don't pull in employees) are filtered out.
+func appendQuestionEntityTables(
+	selected []tableBundle,
+	tables []metadata.Table,
+	relations []metadata.Relation,
+	idx tableIndex,
+	tokens map[string]bool,
+	maxN, maxHops int,
+) []tableBundle {
+	if len(tokens) == 0 || len(selected) >= maxN {
+		return selected
+	}
+	selectedKeys := make(map[string]bool, len(selected))
+	for _, b := range selected {
+		selectedKeys[tableKey(b.table.SchemaName, b.table.TableName)] = true
+	}
+
+	adj := relationAdjacency(relations)
+	from := make(map[string]bool, len(selectedKeys))
+	for k := range selectedKeys {
+		from[k] = true
+	}
+
+	for _, t := range tables {
+		key := tableKey(t.SchemaName, t.TableName)
+		if selectedKeys[key] {
+			continue
+		}
+		nameTokens := tokenSet(t.TableName)
+		matched := false
+		for tok := range nameTokens {
+			// Ignore generic tokens that match too eagerly across schemas
+			// (e.g. table called "data" or column-name leftover).
+			if len(tok) < 3 {
+				continue
+			}
+			if tokens[tok] {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			continue
+		}
+		path := shortestPathFromSet(adj, from, key)
+		if path == nil || len(path) > maxHops+1 {
+			continue
+		}
+		for i := 1; i < len(path); i++ {
+			if len(selected) >= maxN {
+				return selected
+			}
+			pkey := path[i]
+			if selectedKeys[pkey] {
+				continue
+			}
+			pt, ok := idx.byFullName[pkey]
+			if !ok {
+				continue
+			}
+			score := 0.5
+			if pkey == key {
+				score = 1.0
+			}
+			selected = append(selected, tableBundle{table: pt, score: score})
+			selectedKeys[pkey] = true
+			from[pkey] = true
+		}
 	}
 	return selected
 }

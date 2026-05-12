@@ -124,7 +124,11 @@ biqly/
 │   │   ├── model.go
 │   │   ├── repository.go
 │   │   ├── resolver.go
-│   │   └── validator.go
+│   │   ├── validator.go
+│   │   ├── composite_model.go
+│   │   ├── composite_repository.go
+│   │   ├── composite_resolver.go
+│   │   └── composite_validator.go
 │   ├── query/
 │   │   ├── logical.go
 │   │   ├── compiler.go
@@ -1054,6 +1058,287 @@ Important concepts:
 
 ---
 
+## Phase 11.5 — Composite Semantic Models
+
+> Composite model, semantic layer ile query planner arasina kurgulanir.
+> Raw metadata tarafinda degil, AI prompt icinde rastgele degil, SQL compiler
+> icinde de sonradan uydurularak degil.
+>
+> WrenAI'deki semantic context yaklasimindan ilham alir; ancak Biqly'de Go +
+> LogicalQuery-first mimari korunur. Composite model bir SQL view veya ayri
+> query engine degildir.
+
+Composite model, birden fazla base semantic modelin kontrollu sekilde bir araya
+getirilmesiyle olusan business-level virtual dataset'tir. AI'nin ham tablolar
+veya rastgele join path'ler uzerinden calismasi yerine, oncedan tanimlanmis,
+validate edilmis ve publish edilmis is baglamlari uzerinden LogicalQuery uretir.
+
+### 34. Extend LogicalQuery for Composite Models
+
+Update `internal/query/logical.go`.
+
+```go
+type LogicalQuery struct {
+    DatasourceID     string       `json:"datasource_id"`
+    ModelID          string       `json:"model_id,omitempty"`
+    CompositeModelID string       `json:"composite_model_id,omitempty"`
+    Select           []SelectItem `json:"select"`
+    Filters          []Filter     `json:"filters"`
+    GroupBy          []GroupBy    `json:"group_by"`
+    OrderBy          []OrderBy    `json:"order_by"`
+    Limit            int          `json:"limit"`
+    Offset           int          `json:"offset"`
+}
+```
+
+Validation rules:
+
+- [ ] `model_id` or `composite_model_id` — only one may be set.
+- [ ] Both set → reject.
+- [ ] Neither set → TableRouter decides.
+- [ ] `composite_model_id` set → select/filter/group/order fields must be
+      exposed in the composite model.
+- [ ] Composite model must be published; draft → reject.
+
+### 35. Add Composite Model Database Tables
+
+Create migrations for:
+
+- [ ] `semantic_composite_models`
+  - `id UUID PK`
+  - `datasource_id UUID FK → datasources(id)`
+  - `name TEXT NOT NULL`
+  - `label TEXT`
+  - `description TEXT`
+  - `version INT NOT NULL DEFAULT 1`
+  - `status TEXT NOT NULL DEFAULT 'draft'` (draft | published | archived)
+  - `published_at TIMESTAMPTZ`
+  - `published_by UUID`
+  - `created_at TIMESTAMPTZ`
+  - `updated_at TIMESTAMPTZ`
+
+- [ ] `semantic_composite_model_members`
+  - `id UUID PK`
+  - `composite_model_id UUID FK → semantic_composite_models(id)`
+  - `semantic_model_id UUID FK → semantic_models(id)`
+  - `role TEXT NOT NULL DEFAULT 'related'` (base | related | optional)
+  - `alias TEXT`
+  - `required BOOLEAN NOT NULL DEFAULT false`
+
+- [ ] `semantic_composite_fields`
+  - `id UUID PK`
+  - `composite_model_id UUID FK → semantic_composite_models(id)`
+  - `source_model_id UUID FK → semantic_models(id)`
+  - `source_field_name TEXT NOT NULL`
+  - `field_type TEXT NOT NULL` (dimension | metric)
+  - `exposed_name TEXT NOT NULL`
+  - `label TEXT`
+  - `description TEXT`
+  - `is_default BOOLEAN NOT NULL DEFAULT false`
+
+- [ ] `semantic_composite_joins`
+  - `id UUID PK`
+  - `composite_model_id UUID FK → semantic_composite_models(id)`
+  - `from_model_id UUID FK → semantic_models(id)`
+  - `to_model_id UUID FK → semantic_models(id)`
+  - `join_name TEXT NOT NULL`
+  - `join_type TEXT NOT NULL DEFAULT 'left'`
+  - `relationship TEXT NOT NULL` (one_to_one | many_to_one | one_to_many | many_to_many)
+  - `required BOOLEAN NOT NULL DEFAULT false`
+  - `risk_level TEXT NOT NULL DEFAULT 'low'`
+
+### 36. Add Composite Model CRUD and Publish API
+
+Create:
+
+```text
+internal/semantic/composite_model.go
+internal/semantic/composite_repository.go
+internal/semantic/composite_resolver.go
+internal/semantic/composite_validator.go
+```
+
+Endpoints:
+
+- [ ] `POST /api/semantic/composite-models`
+- [ ] `GET /api/semantic/composite-models`
+- [ ] `GET /api/semantic/composite-models/{id}`
+- [ ] `PUT /api/semantic/composite-models/{id}`
+- [ ] `DELETE /api/semantic/composite-models/{id}`
+- [ ] `POST /api/semantic/composite-models/{id}/members`
+- [ ] `POST /api/semantic/composite-models/{id}/fields`
+- [ ] `POST /api/semantic/composite-models/{id}/joins`
+- [ ] `POST /api/semantic/composite-models/{id}/validate`
+- [ ] `POST /api/semantic/composite-models/{id}/publish`
+- [ ] `POST /api/semantic/composite-models/{id}/rollback`
+
+### 37. Add Composite Resolver
+
+Create `internal/semantic/composite_resolver.go`.
+
+Responsibilities:
+
+- [ ] Load published active version of composite model.
+- [ ] Resolve member semantic models.
+- [ ] Produce exposed dimension and metric list.
+- [ ] Resolve source field → exposed field mapping:
+
+```text
+orders.total_revenue    → total_revenue
+customers.country       → customer_country
+products.category       → product_category
+sales_reps.name         → sales_rep_name
+orders.created_at       → order_date
+```
+
+- [ ] Provide approved join paths to query planner.
+- [ ] Apply field-level permissions before producing context.
+- [ ] Send only permitted fields to AI prompt.
+
+### 38. Extend Query Planner for Composite Models
+
+Update `internal/query/planner.go`.
+
+- [ ] Determine required base models from selected composite fields.
+- [ ] Use only composite-approved join paths.
+- [ ] Reject if join path is missing.
+- [ ] Validate relationship cardinality.
+- [ ] Warn or reject on aggregation fanout risk.
+- [ ] Reject many-to-many metric aggregation if unsafe.
+- [ ] Auto-include required joins.
+- [ ] Conditionally include optional joins.
+
+### 39. Extend AI Context for Composite Models
+
+Update `internal/ai/prompt.go`.
+
+- [ ] Include composite models in prompt context.
+- [ ] Format composite model as structured context:
+
+```json
+{
+  "type": "composite_model",
+  "name": "sales_performance",
+  "description": "Sales, customer, product and revenue analysis context",
+  "dimensions": ["customer_name", "customer_country", "product_category",
+                  "sales_rep_name", "order_date"],
+  "metrics": ["total_revenue", "order_count", "average_order_value"],
+  "allowed_filters": ["order_date", "customer_country", "product_category",
+                       "sales_rep_name"]
+}
+```
+
+- [ ] AI cannot see fields outside the composite model context.
+- [ ] AI cannot use table/column names outside the composite model.
+- [ ] Return clarification question if composite context confidence is low.
+- [ ] Include composite model in debug trace response.
+
+Example AI output using composite model:
+
+```json
+{
+  "datasource_id": "ds_123",
+  "composite_model_id": "sales_performance",
+  "select": [
+    {"type": "dimension", "name": "customer_country"},
+    {"type": "metric", "name": "total_revenue"}
+  ],
+  "group_by": [{"field": "customer_country"}],
+  "order_by": [{"field": "total_revenue", "direction": "desc"}],
+  "limit": 50
+}
+```
+
+### 40. Extend TableRouter for Composite Context
+
+Update `internal/ai/table_router.go`.
+
+- [ ] Add composite semantic model as candidate type alongside base semantic
+      model and raw table group.
+- [ ] Priority: published composite → published base → auto-generated raw.
+- [ ] Return routing metadata:
+
+```json
+{
+  "selected_context_type": "composite_model",
+  "selected_context_name": "sales_performance",
+  "selected_models": ["orders", "customers", "products"],
+  "selected_fields": ["customer_country", "total_revenue"],
+  "join_paths": [
+    "orders.customer_id = customers.id",
+    "orders.product_id = products.id"
+  ],
+  "confidence": 0.91,
+  "ranking_method": "keyword+embedding+semantic_model"
+}
+```
+
+### 41. Composite Model Validation and Publish Flow
+
+Pre-publish checks:
+
+- [ ] Referenced base semantic models exist.
+- [ ] Base semantic models are published.
+- [ ] Exposed fields exist in source models.
+- [ ] No duplicate exposed field names.
+- [ ] Metric expression references are valid.
+- [ ] Join paths are compatible with semantic join metadata.
+- [ ] Relationship cardinality is safe for aggregation.
+- [ ] Many-to-many metric aggregation is safe.
+- [ ] Permission policy references are valid.
+- [ ] Prompt/context size is reasonable.
+- [ ] At least one dimension or metric is exposed.
+
+Runtime rules:
+
+- [ ] Draft composite model does not affect query runtime.
+- [ ] Only published composite model is usable.
+- [ ] Published version recorded in query history and audit log.
+- [ ] Erroneous composite join/metric caught at publish stage.
+- [ ] Previous published version retained for rollback.
+
+### 42. Composite Model Permission Integration
+
+- [ ] Composite model visibility governed by user permissions.
+- [ ] If user cannot access a base model, composite model is unavailable or
+      restricted fields are removed.
+- [ ] Field-level permission applied at composite exposed field level.
+- [ ] Disallowed fields never enter AI prompt.
+- [ ] Row-level filters safely injected by compiler.
+- [ ] Audit log: composite_model_id, composite_model_version,
+      selected_base_models, selected_fields, selected_join_paths,
+      permission_decision, query_fingerprint.
+
+### 43. Composite Model Tests
+
+Unit tests:
+
+- [ ] Composite model resolver tests.
+- [ ] Composite field mapping tests.
+- [ ] Composite join validation tests.
+- [ ] Duplicate exposed field validation tests.
+- [ ] model_id / composite_model_id conflict validation tests.
+- [ ] Disallowed field excluded from prompt context test.
+- [ ] Fanout risk validator tests.
+
+Golden SQL tests:
+
+- [ ] Composite model simple select.
+- [ ] Composite model dimension + metric group by.
+- [ ] Composite model filter.
+- [ ] Composite model order by metric.
+- [ ] Composite model multi-join query.
+- [ ] Risky many-to-many aggregation rejection.
+
+Eval tests:
+
+- [ ] "monthly revenue by customer country" → sales_performance composite model.
+- [ ] "top products by revenue" → products + orders path.
+- [ ] "customer payment status" → customer_360 or finance context.
+- [ ] Ambiguous context → clarification question.
+
+---
+
 ## Phase 12 — Permissions
 
 ### 26. Add Permission Model
@@ -1379,6 +1664,234 @@ Do not build everything at once.
 - [x] Saved questions
 - [x] Scheduled reports
 - [x] Searchable datasource table selector for AI question scope
+
+---
+
+## Phase 11.6 — Reviewer Roadmap Additions
+
+External review (kasım 2026) raporu sonrası eklenen kalemler. Roadmap'in
+çekirdek omurgası (`LogicalQuery → Validate → Compile → Execute` + semantic
+context + AI text-to-LogicalQuery) doğru kabul edildi; aşağıdaki maddeler hem
+"eksik gördüğüm noktalar" hem de "ileride patlamayı önleyen küçük eklentiler"
+olarak işaretlendi.
+
+### R1. LogicalQuery Versioning
+
+`LogicalQuery` ileride büyüyecek. Eval, replay ve history için şimdiden version
+alanı taşımak gerekiyor.
+
+- [ ] `LogicalQuery` struct'ına `Version string` alanı ekle (`omitempty`).
+- [ ] Mevcut sorgular için varsayılan `v1`.
+- [ ] Query history ve audit log içine LogicalQuery version alanını yaz.
+- [ ] Eval/replay testleri version'a göre filtrelenebilsin.
+
+```go
+type LogicalQuery struct {
+    Version string `json:"version,omitempty"`
+    // ...
+}
+```
+
+### R2. Time Grain Support
+
+BI sorgularında çok gerekli. Şu anda `GroupBy` sadece field içeriyor.
+
+- [ ] `GroupBy` struct'ını `TimeGrain` alanı ile genişlet
+  (`day | week | month | quarter | year`).
+- [ ] Dialect bazlı date truncation (PostgreSQL `date_trunc`, MySQL `DATE_FORMAT`,
+  SQL Server `DATETRUNC`, ClickHouse `toStartOf*`).
+- [ ] AI prompt mapping: "daily", "weekly", "monthly", "yearly".
+- [ ] Golden SQL test her dialect için ayrı.
+
+```go
+type GroupBy struct {
+    Field     string `json:"field"`
+    TimeGrain string `json:"time_grain,omitempty"`
+}
+```
+
+### R3. HAVING Support
+
+Şu an WHERE filtreleri var ama "100'den fazla siparişi olan müşteriler" gibi
+metric-level filter HAVING gerektirir.
+
+- [ ] LogicalQuery'ye `Having []Filter` alanı ekle.
+- [ ] Validator HAVING field'larının metric olmasını zorunlu kılsın.
+- [ ] Compiler GROUP BY'dan sonra HAVING üretsin.
+- [ ] Golden SQL testleri.
+
+### R4. Clarification Response Model
+
+AI veya router belirsiz kaldığında düz error dönmek yerine yapılandırılmış
+response dönmeli.
+
+- [ ] AI response için `status: needs_clarification` modeli.
+- [ ] Options listesi (`gross_revenue` vs `net_revenue` gibi).
+- [ ] Reason ve aday context listesi.
+- [ ] AI history'ye clarification denemesi olarak yazılsın.
+- [ ] UI bu structured response'u soru olarak gösterebilsin.
+
+```json
+{
+  "status": "needs_clarification",
+  "question": "Revenue derken gross mu net mi?",
+  "options": [
+    {"key": "gross_revenue", "label": "Gross revenue"},
+    {"key": "net_revenue",  "label": "Net revenue"}
+  ],
+  "reason": "Multiple revenue metrics matched the question."
+}
+```
+
+### R5. Query Fingerprint
+
+Audit ve cache için çok değerli. Aynı sorguları gruplayabilmek lazım.
+
+- [ ] Fingerprint = normalize(LogicalQuery JSON) + `datasource_id` +
+  `context_version` + `permission_scope` hash.
+- [ ] Query history ve audit log'a yazılsın.
+- [ ] Cache key olarak da kullanılsın.
+
+### R6. Semantic Context Size Budget
+
+Prompt büyümesini erken kontrol altına almak için her context'e bütçe.
+
+- [ ] Composite/base modelde `max_models`, `max_dimensions`, `max_metrics`,
+  `max_joins`, `max_prompt_chars` limitleri.
+- [ ] Validate aşamasında budget aşılırsa uyar.
+- [ ] Prompt builder budget'ı zorla.
+
+```text
+max_models: 3
+max_dimensions: 80
+max_metrics: 40
+max_joins: 30
+max_prompt_chars: 20000
+```
+
+### R7. Chart-Ready Result Metadata
+
+Result modeli sade; frontend için biraz daha bilgi şart.
+
+- [ ] `ResultColumn`'a `semantic_type` (dimension | metric), `format`
+  (currency | percent | date | number) ekle.
+- [ ] Result envelope'una `chart_suggestions []string` (örn. `["bar", "table"]`).
+- [ ] Frontend'in tip seçimini kolaylaştırır.
+
+```json
+{
+  "columns": [
+    {"name": "country", "type": "string", "semantic_type": "dimension"},
+    {"name": "total_revenue", "type": "number",
+     "semantic_type": "metric", "format": "currency"}
+  ],
+  "rows": [],
+  "chart_suggestions": ["bar", "table"]
+}
+```
+
+---
+
+## Phase 11.7 — Design Risks (Reviewer)
+
+Bu maddeler kod yazılırken kasten korunması gereken sınırlar. MVP üretimini
+yavaşlatan değil, hızlı büyürken yanlış soyutlama açılmasını engelleyen kurallar.
+
+### Risk 1 — Metric expression güvenliği
+
+Metric `expression` alanı serbest SQL olursa `SUM(CASE WHEN ...)` veya kötü
+durumda `DROP TABLE ...` yazılabilir. İlk sürümde serbest SQL yok.
+
+- [ ] Metric tanımı `source_column` + `aggregation` ikilisinden ibaret olsun:
+
+```json
+{
+  "name": "total_revenue",
+  "source_column": "orders.total_amount",
+  "aggregation": "sum"
+}
+```
+
+- [ ] Calculated metric gerekirse kontrollü AST üzerinden tanımlansın
+  (ör: `divide(total_revenue, order_count)`); serbest SQL en geç gelmeli.
+- [ ] Validator: aggregation enum (`sum|avg|min|max|count|count_distinct`),
+  source_column semantic layer'da tanımlı olmalı.
+
+### Risk 2 — Join fanout
+
+BI'da en çok yanlış sonuç üreten problem. Relationship metadata sadece bilgi
+değil, query planner input'u.
+
+- [ ] Cardinality kuralları:
+  - `many_to_one`: güvenli
+  - `one_to_many`: metric aggregation için warn veya reject
+  - `many_to_many` + metric: reject
+- [ ] Planner sessizce yanlış JOIN üretmesin; risk seviyesi response'a yazılsın.
+
+### Risk 3 — Permission tüm katmanlarda uygulanmalı
+
+Permission sadece endpoint seviyesinde değil; aşağıdaki tüm katmanlar permission
+filtresinden geçmiş context kullanmalı:
+
+- [ ] Semantic context builder
+- [ ] AI prompt builder (permission dışı field prompt'a hiç girmemeli)
+- [ ] LogicalQuery validator
+- [ ] SQL compiler (row-level filter inject)
+- [ ] Audit log (permission decision dahil)
+
+### Risk 4 — TableRouter erken karmaşıklaşıyor
+
+İlk router için embedding/few-shot/feedback loop zorunlu değil. Şu sıra yeter:
+
+```text
+1. Exact match
+2. Synonym match
+3. Column/table description keyword match
+4. Semantic model name/label match
+5. FK neighbor expansion
+```
+
+Embedding sonra eklenir; erken eklemek silent regression riski yaratır.
+
+### Risk 5 — Çok erken multi-database
+
+PostgreSQL compiler tam olgunlaşmadan diğer dialect'leri eklemek silent SQL
+hatası riski getirir.
+
+```text
+PostgreSQL compiler tam olsun
+  → Golden SQL otursun
+  → Dialect interface stabilize olsun
+  → MySQL ekle
+  → SQL Server ekle
+  → ClickHouse ekle
+```
+
+ClickHouse özellikle OLAP fonksiyonları, date truncation, LIMIT sözdizimi ve
+aggregation davranışları farklı; en son.
+
+---
+
+## Reviewer Recommended Sequence
+
+Composite model dahil tüm geniş kapsam doğru kabul edildi; fakat sıra şu:
+
+```text
+Core              : LogicalQuery, Semantic model, Compiler, Validator,
+                    Executor, Read-only safety, Golden SQL tests
+        ↓
+AI + Routing      : Text → LogicalQuery, TableRouter (basit),
+                    Feedback, Eval, Publish/version
+        ↓
+Composite model   : Composite semantic model, Advanced governance,
+                    Dashboard, Scheduled reports, Complex frontend
+```
+
+Composite model fikri **doğru**, ama erken eklemek; LogicalQuery, validator,
+planner, prompt builder, TableRouter, permission, audit, query history, UI ve
+tests'i aynı anda etkilediği için sistemi gereğinden fazla karmaşıklaştırır.
+Önce base semantic model + query compiler + AI flow taş gibi çalışmalı, sonra
+composite eklenmeli.
 
 ---
 

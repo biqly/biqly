@@ -246,6 +246,107 @@ func TestCompiler_TimeGrainYearGroupBy(t *testing.T) {
 	}
 }
 
+// TestCompiler_GroupByTimeGrainOverridesDimensionDefault verifies that
+// LogicalQuery.GroupBy.TimeGrain is propagated to the dimension projection in
+// both SELECT and GROUP BY without callers having to declare a separate
+// pre-bucketed dimension. This is the BI-facing knob for per-query
+// daily/weekly/monthly rollups.
+func TestCompiler_GroupByTimeGrainOverridesDimensionDefault(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "orders",
+		BaseSchema: "public",
+		BaseTable:  "orders",
+		Dimensions: []semantic.Dimension{
+			{Name: "order_date", ColumnRef: "orders.created_at", Type: "date"},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "order_count", Expression: "orders.id", Aggregation: "count"},
+		},
+	}
+	lq := LogicalQuery{
+		DatasourceID: "ds1",
+		ModelID:      model.Name,
+		Select: []SelectItem{
+			{Type: SelectTypeDimension, Name: "order_date"},
+			{Type: SelectTypeMetric, Name: "order_count"},
+		},
+		GroupBy: []GroupBy{{Field: "order_date", TimeGrain: TimeGrainMonth}},
+		Limit:   100,
+	}
+
+	tests := []struct {
+		name    string
+		dialect dialect.Dialect
+		wantSQL string
+	}{
+		{
+			name:    "postgres",
+			dialect: dialect.PostgresDialect{},
+			wantSQL: `SELECT CAST(EXTRACT(MONTH FROM "orders"."created_at") AS INTEGER) AS "order_date", COUNT("orders"."id") AS "order_count" FROM "public"."orders" GROUP BY CAST(EXTRACT(MONTH FROM "orders"."created_at") AS INTEGER) LIMIT 100`,
+		},
+		{
+			name:    "mysql",
+			dialect: dialect.MySQLDialect{},
+			wantSQL: "SELECT MONTH(`orders`.`created_at`) AS `order_date`, COUNT(`orders`.`id`) AS `order_count` FROM `public`.`orders` GROUP BY MONTH(`orders`.`created_at`) LIMIT 100",
+		},
+		{
+			name:    "clickhouse",
+			dialect: dialect.ClickHouseDialect{},
+			wantSQL: "SELECT toMonth(`orders`.`created_at`) AS `order_date`, count(`orders`.`id`) AS `order_count` FROM `public`.`orders` GROUP BY toMonth(`orders`.`created_at`) LIMIT 100",
+		},
+		{
+			name:    "sqlserver",
+			dialect: dialect.SQLServerDialect{},
+			wantSQL: `SELECT MONTH([orders].[created_at]) AS [order_date], COUNT([orders].[id]) AS [order_count] FROM [public].[orders] GROUP BY MONTH([orders].[created_at]) FETCH NEXT 100 ROWS ONLY`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cq, err := NewCompiler(tt.dialect).Compile(context.Background(), lq, model)
+			if err != nil {
+				t.Fatalf("Compile() error = %v", err)
+			}
+			if cq.SQL != tt.wantSQL {
+				t.Errorf("SQL mismatch.\nGot:\n%s\n\nWant:\n%s", cq.SQL, tt.wantSQL)
+			}
+		})
+	}
+}
+
+// TestCompiler_GroupByTimeGrainDayUsesDateTrunc covers grains that fall through
+// to dialect DateTrunc rather than the CalendarPart integer shortcut.
+func TestCompiler_GroupByTimeGrainDayUsesDateTrunc(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "orders",
+		BaseSchema: "public",
+		BaseTable:  "orders",
+		Dimensions: []semantic.Dimension{
+			{Name: "order_date", ColumnRef: "orders.created_at", Type: "date"},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "order_count", Expression: "orders.id", Aggregation: "count"},
+		},
+	}
+	lq := LogicalQuery{
+		DatasourceID: "ds1",
+		ModelID:      model.Name,
+		Select: []SelectItem{
+			{Type: SelectTypeDimension, Name: "order_date"},
+			{Type: SelectTypeMetric, Name: "order_count"},
+		},
+		GroupBy: []GroupBy{{Field: "order_date", TimeGrain: TimeGrainWeek}},
+		Limit:   50,
+	}
+
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if !strings.Contains(cq.SQL, `DATE_TRUNC('week', "orders"."created_at")`) {
+		t.Errorf("expected DATE_TRUNC('week', ...) wrapping in SQL, got:\n%s", cq.SQL)
+	}
+}
+
 func TestCompiler_MultipleFilters(t *testing.T) {
 	model := &semantic.SemanticModel{
 		Name:       "users",

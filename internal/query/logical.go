@@ -1,8 +1,18 @@
 package query
 
+// CurrentLogicalQueryVersion is the schema version applied to LogicalQuery
+// payloads when callers leave Version empty. Bump this only when the LogicalQuery
+// shape changes in a way that affects compilation or replay; older values remain
+// valid for history/eval traversal and must be migrated explicitly.
+const CurrentLogicalQueryVersion = "v1"
+
 // LogicalQuery is the database-independent query representation.
 // The AI layer produces LogicalQuery JSON, which the backend validates and compiles to SQL.
 type LogicalQuery struct {
+	// Version identifies the LogicalQuery schema revision. Persisted in query
+	// history and audit logs so eval/replay tools can filter by the shape that
+	// produced a given run.
+	Version      string       `json:"version,omitempty"`
 	DatasourceID string       `json:"datasource_id"`
 	ModelID      string       `json:"model_id"`
 	Select       []SelectItem `json:"select"`
@@ -62,8 +72,35 @@ type Filter struct {
 }
 
 // GroupBy represents a GROUP BY field.
+//
+// TimeGrain optionally buckets a date/timestamp dimension into calendar parts
+// (day | week | month | quarter | year). When non-empty, the compiler applies
+// the dialect's DateTrunc/CalendarPart wrapping to the dimension's SELECT
+// projection and the GROUP BY expression so both stay consistent. Callers that
+// also list the dimension in `select` do NOT need to repeat the grain there —
+// the compiler propagates from GroupBy.
 type GroupBy struct {
-	Field string `json:"field"`
+	Field     string `json:"field"`
+	TimeGrain string `json:"time_grain,omitempty"`
+}
+
+// Supported time grains for GroupBy.TimeGrain.
+const (
+	TimeGrainDay     = "day"
+	TimeGrainWeek    = "week"
+	TimeGrainMonth   = "month"
+	TimeGrainQuarter = "quarter"
+	TimeGrainYear    = "year"
+)
+
+// IsValidTimeGrain reports whether the supplied value matches a supported
+// grain. Empty is considered valid (means "no bucketing").
+func IsValidTimeGrain(grain string) bool {
+	switch grain {
+	case "", TimeGrainDay, TimeGrainWeek, TimeGrainMonth, TimeGrainQuarter, TimeGrainYear:
+		return true
+	}
+	return false
 }
 
 // OrderBy represents an ORDER BY field.
@@ -102,3 +139,16 @@ const (
 	OrderAsc  = "asc"
 	OrderDesc = "desc"
 )
+
+// EnsureVersion stamps the LogicalQuery with the current schema version if the
+// caller left Version blank. Callers entering the query pipeline (HTTP handlers,
+// AI service, eval runner) should invoke this before persistence so history and
+// audit rows always carry an explicit version.
+func (lq *LogicalQuery) EnsureVersion() {
+	if lq == nil {
+		return
+	}
+	if lq.Version == "" {
+		lq.Version = CurrentLogicalQueryVersion
+	}
+}

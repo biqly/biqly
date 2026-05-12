@@ -11,6 +11,11 @@ type Result struct {
 	Columns []ResultColumn `json:"columns"`
 	Rows    [][]any        `json:"rows"`
 	Stats   Stats          `json:"stats"`
+	// ChartSuggestions is a frontend hint: a small ordered list of chart types
+	// that would render this result well ("bar", "line", "table", "number").
+	// Populated by EnrichResult based on the selected dimensions/metrics; empty
+	// when no semantic-model context is available.
+	ChartSuggestions []string `json:"chart_suggestions,omitempty"`
 }
 
 // QueryResult is an alias for backward compatibility.
@@ -22,7 +27,39 @@ type QueryResult = Result
 type ResultColumn struct {
 	Name string `json:"name"`
 	Type string `json:"type"`
+	// SemanticType identifies the role of this column in the semantic layer:
+	// "dimension", "metric", or "" when the column did not map to any semantic
+	// entity (raw SQL escape hatches, expressions, etc.).
+	SemanticType string `json:"semantic_type,omitempty"`
+	// Format is a frontend rendering hint. Common values: "number", "currency",
+	// "percent", "date", "datetime", "text".
+	Format string `json:"format,omitempty"`
 }
+
+// Semantic-type values for ResultColumn.SemanticType.
+const (
+	SemanticTypeDimension = "dimension"
+	SemanticTypeMetric    = "metric"
+)
+
+// Format values for ResultColumn.Format.
+const (
+	FormatNumber   = "number"
+	FormatCurrency = "currency"
+	FormatPercent  = "percent"
+	FormatDate     = "date"
+	FormatDateTime = "datetime"
+	FormatText     = "text"
+)
+
+// Chart suggestion identifiers.
+const (
+	ChartBar    = "bar"
+	ChartLine   = "line"
+	ChartTable  = "table"
+	ChartNumber = "number"
+	ChartPie    = "pie"
+)
 
 // Stats holds execution statistics.
 type Stats struct {
@@ -43,18 +80,21 @@ type CompiledQuery struct {
 
 // HistoryEntry represents a stored query in history.
 type HistoryEntry struct {
-	ID             string       `json:"id"`
-	DatasourceID   string       `json:"datasource_id"`
-	ModelID        *string      `json:"model_id"`
-	UserID         *string      `json:"user_id"`
-	LogicalQuery   LogicalQuery `json:"logical_query"`
-	CompiledSQL    *string      `json:"compiled_sql"`
-	SQLArgs        *string      `json:"sql_args"`
-	Status         string       `json:"status"`
-	RowCount       *int         `json:"row_count"`
-	DurationMs     *int         `json:"duration_ms"`
-	ErrorMessage   *string      `json:"error_message"`
-	CreatedAt      time.Time    `json:"created_at"`
+	ID           string       `json:"id"`
+	DatasourceID string       `json:"datasource_id"`
+	ModelID      *string      `json:"model_id"`
+	UserID       *string      `json:"user_id"`
+	LogicalQuery LogicalQuery `json:"logical_query"`
+	CompiledSQL  *string      `json:"compiled_sql"`
+	SQLArgs      *string      `json:"sql_args"`
+	Status       string       `json:"status"`
+	RowCount     *int         `json:"row_count"`
+	DurationMs   *int         `json:"duration_ms"`
+	ErrorMessage *string      `json:"error_message"`
+	// Fingerprint groups runs of the same canonical LogicalQuery under the same
+	// semantic-model version and permission scope. See ComputeFingerprint.
+	Fingerprint string    `json:"fingerprint,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // QueryHistoryEntry is an alias for backward compatibility.

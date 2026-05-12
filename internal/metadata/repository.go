@@ -529,9 +529,10 @@ func (r *Repository) CreateQueryHistory(ctx context.Context, entry *query.Histor
 	insert := `
 		INSERT INTO query_history (
 			datasource_id, model_id, user_id, logical_query, compiled_sql,
-			sql_args, status, row_count, duration_ms, error_message
+			sql_args, status, row_count, duration_ms, error_message,
+			query_fingerprint
 		)
-		VALUES ($1, $2, $3, $4::jsonb, $5, $6::jsonb, $7, $8, $9, $10)
+		VALUES ($1, $2, $3, $4::jsonb, $5, $6::jsonb, $7, $8, $9, $10, $11)
 		RETURNING id, created_at
 	`
 	if err := r.db.QueryRowContext(
@@ -547,6 +548,7 @@ func (r *Repository) CreateQueryHistory(ctx context.Context, entry *query.Histor
 		entry.RowCount,
 		entry.DurationMs,
 		entry.ErrorMessage,
+		sql.NullString{String: entry.Fingerprint, Valid: entry.Fingerprint != ""},
 	).Scan(&entry.ID, &entry.CreatedAt); err != nil {
 		return fmt.Errorf("insert query history: %w", err)
 	}
@@ -557,7 +559,8 @@ func (r *Repository) CreateQueryHistory(ctx context.Context, entry *query.Histor
 func (r *Repository) ListQueryHistory(ctx context.Context) ([]query.HistoryEntry, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, datasource_id, model_id, user_id, logical_query, compiled_sql,
-			sql_args, status, row_count, duration_ms, error_message, created_at
+			sql_args, status, row_count, duration_ms, error_message,
+			query_fingerprint, created_at
 		FROM query_history
 		ORDER BY created_at DESC
 		LIMIT 100
@@ -582,7 +585,8 @@ func (r *Repository) ListQueryHistory(ctx context.Context) ([]query.HistoryEntry
 func (r *Repository) GetQueryHistory(ctx context.Context, id string) (*query.HistoryEntry, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, datasource_id, model_id, user_id, logical_query, compiled_sql,
-			sql_args, status, row_count, duration_ms, error_message, created_at
+			sql_args, status, row_count, duration_ms, error_message,
+			query_fingerprint, created_at
 		FROM query_history
 		WHERE id = $1
 	`, id)
@@ -688,7 +692,7 @@ func (r *Repository) CreateAIQueryHistory(ctx context.Context, entry *AIQueryHis
 
 func scanQueryHistoryEntry(s scanner) (query.HistoryEntry, error) {
 	var entry query.HistoryEntry
-	var modelID, userID, compiledSQL, sqlArgs, errorMessage sql.NullString
+	var modelID, userID, compiledSQL, sqlArgs, errorMessage, fingerprint sql.NullString
 	var rowCount, durationMs sql.NullInt64
 	var logicalQueryRaw []byte
 
@@ -704,6 +708,7 @@ func scanQueryHistoryEntry(s scanner) (query.HistoryEntry, error) {
 		&rowCount,
 		&durationMs,
 		&errorMessage,
+		&fingerprint,
 		&entry.CreatedAt,
 	); err != nil {
 		return entry, fmt.Errorf("scan query history: %w", err)
@@ -716,6 +721,9 @@ func scanQueryHistoryEntry(s scanner) (query.HistoryEntry, error) {
 	entry.CompiledSQL = nullableStringPtr(compiledSQL)
 	entry.SQLArgs = nullableStringPtr(sqlArgs)
 	entry.ErrorMessage = nullableStringPtr(errorMessage)
+	if fingerprint.Valid {
+		entry.Fingerprint = fingerprint.String
+	}
 	if rowCount.Valid {
 		v := int(rowCount.Int64)
 		entry.RowCount = &v

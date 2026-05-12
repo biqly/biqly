@@ -138,6 +138,7 @@ export interface AIQueryResponse {
   needs_clarification?: boolean
   clarification_question?: string
   clarification_options?: string[]
+  clarification?: Clarification
   // Multi-candidate
   candidates?: LogicalQueryCandidate[]
   candidates_count?: number
@@ -174,6 +175,7 @@ export interface Conversation {
 // ─── LogicalQuery Types ────────────────────────────────────────────
 
 export interface LogicalQuery {
+  version?: string
   datasource_id: string
   model_id: string
   select?: SelectField[]
@@ -210,6 +212,7 @@ export interface FilterClause {
 
 export interface GroupByField {
   field: string
+  time_grain?: 'day' | 'week' | 'month' | 'quarter' | 'year'
 }
 
 export interface OrderByField {
@@ -239,11 +242,50 @@ export interface QueryResultPayload {
     row_count: number
     duration_ms: number
   }
+  chart_suggestions?: ChartSuggestion[]
 }
+
+export type ChartSuggestion = 'bar' | 'line' | 'table' | 'number' | 'pie'
+
+export type ClarificationStatus = 'needs_clarification'
+
+export interface ClarificationOption {
+  key: string
+  label: string
+  hint?: string
+}
+
+export interface ClarificationContext {
+  type: 'semantic_model' | 'table'
+  name: string
+  score?: number
+  reason?: string
+}
+
+export interface Clarification {
+  status: ClarificationStatus
+  question: string
+  reason?: string
+  options?: ClarificationOption[]
+  candidates?: ClarificationContext[]
+  source?: 'router' | 'validator' | 'ai'
+}
+
+export type QueryColumnSemanticType = 'dimension' | 'metric'
+
+export type QueryColumnFormat =
+  | 'number'
+  | 'currency'
+  | 'percent'
+  | 'date'
+  | 'datetime'
+  | 'text'
 
 export interface QueryColumn {
   name: string
   type?: string
+  semantic_type?: QueryColumnSemanticType
+  format?: QueryColumnFormat
 }
 
 export interface CompiledQuery {

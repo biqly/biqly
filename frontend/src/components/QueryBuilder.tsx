@@ -1,15 +1,113 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
 import { useApi } from '../hooks/useApi'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { formatResultCell } from '../utils/resultCellFormat'
 import { Select } from './ui/Select'
-import type { FilterClause, GroupByField, OrderByField, CTE, LogicalQuery } from '../types/ai'
+import type { CTE, LogicalQuery } from '../types/ai'
 
 interface Datasource {
   id: string
   name: string
   type: string
+}
+
+interface SemanticModelSummary {
+  id: string
+  datasource_id: string
+  name: string
+  label?: string | null
+  status: string
+  base_schema: string
+  base_table: string
+}
+
+interface SemanticDimension {
+  id: string
+  name: string
+  label?: string | null
+  type: string
+}
+
+interface SemanticMetric {
+  id: string
+  name: string
+  label?: string | null
+  aggregation: string
+}
+
+interface SemanticModelDetail {
+  id: string
+  name: string
+  status: string
+  dimensions?: SemanticDimension[]
+  metrics?: SemanticMetric[]
+}
+
+function modelListLabel(m: SemanticModelSummary): string {
+  if (m.label && m.label.trim()) return `${m.name} (${m.label})`
+  return m.name
+}
+
+function modelListHint(m: SemanticModelSummary): string {
+  const bits = [m.status, `${m.base_schema}.${m.base_table}`]
+  return bits.join(' · ')
+}
+
+function dimFieldOptions(dims: SemanticDimension[]) {
+  return dims.map((d) => ({
+    value: d.name,
+    label: d.label && d.label.trim() ? `${d.name} (${d.label})` : d.name,
+    hint: d.type,
+  }))
+}
+
+function metricFieldOptions(metrics: SemanticMetric[]) {
+  return metrics.map((m) => ({
+    value: m.name,
+    label: m.label && m.label.trim() ? `${m.name} (${m.label})` : m.name,
+    hint: m.aggregation,
+  }))
+}
+
+function orderByFieldOptions(dims: SemanticDimension[], metrics: SemanticMetric[]) {
+  const out: { value: string; label: string; hint: string }[] = []
+  for (const d of dims) {
+    out.push({
+      value: d.name,
+      label: d.label && d.label.trim() ? `${d.name} (${d.label})` : d.name,
+      hint: `boyut · ${d.type}`,
+    })
+  }
+  for (const m of metrics) {
+    out.push({
+      value: m.name,
+      label: m.label && m.label.trim() ? `${m.name} (${m.label})` : m.name,
+      hint: `metrik · ${m.aggregation}`,
+    })
+  }
+  return out
+}
+
+function filterFieldOptions(dims: SemanticDimension[], metrics: SemanticMetric[]) {
+  return orderByFieldOptions(dims, metrics)
+}
+
+function dimOptionsForGroupRow(
+  dimensions: SemanticDimension[],
+  groupBy: string[],
+  rowIndex: number,
+): { value: string; label: string; hint: string }[] {
+  const chosenElsewhere = new Set(
+    groupBy.filter((g, j) => j !== rowIndex && g !== '').map((g) => g),
+  )
+  return dimensions
+    .filter((d) => !chosenElsewhere.has(d.name) || d.name === groupBy[rowIndex])
+    .map((d) => ({
+      value: d.name,
+      label: d.label && d.label.trim() ? `${d.name} (${d.label})` : d.name,
+      hint: d.type,
+    }))
 }
 
 interface FilterRow {
@@ -51,6 +149,8 @@ export default function QueryBuilder() {
   const [dsParam, setDsParam] = useQueryParam('ds')
   const [datasourceId, setDatasourceId] = useState(dsParam)
   const [modelId, setModelId] = useState('')
+  const [models, setModels] = useState<SemanticModelSummary[]>([])
+  const [modelDetail, setModelDetail] = useState<SemanticModelDetail | null>(null)
 
   useEffect(() => {
     get<Datasource[]>('/api/datasources').then((data) => {
@@ -66,6 +166,44 @@ export default function QueryBuilder() {
   useEffect(() => {
     setDsParam(datasourceId)
   }, [datasourceId, setDsParam])
+
+  useEffect(() => {
+    if (!datasourceId) {
+      setModels([])
+      return
+    }
+    let cancelled = false
+    void get<SemanticModelSummary[]>(
+      `/api/semantic/models?datasource_id=${encodeURIComponent(datasourceId)}`,
+    ).then((data) => {
+      if (!data || cancelled) return
+      setModels(data)
+      setModelId((prev) => {
+        if (prev && data.some((m) => m.id === prev)) return prev
+        const published = data.filter((m) => m.status === 'published')
+        if (published.length > 0) return published[0]!.id
+        return data[0]?.id ?? ''
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [datasourceId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!modelId) {
+      setModelDetail(null)
+      return
+    }
+    let cancelled = false
+    void get<SemanticModelDetail>(`/api/semantic/models/${encodeURIComponent(modelId)}`).then((d) => {
+      if (!cancelled) setModelDetail(d ?? null)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [modelId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const [selectItems, setSelectItems] = useState<SelectItem[]>([])
   const [filters, setFilters] = useState<FilterRow[]>([])
   const [groupBy, setGroupBy] = useState<string[]>([])
@@ -81,11 +219,26 @@ export default function QueryBuilder() {
   const [sql, setSql] = useState('')
   const [chartType, setChartType] = useState<'bar' | 'line' | 'pie'>('bar')
 
+  const dimensions = useMemo(() => modelDetail?.dimensions ?? [], [modelDetail])
+  const metrics = useMemo(() => modelDetail?.metrics ?? [], [modelDetail])
+  const filterFieldOpts = useMemo(() => filterFieldOptions(dimensions, metrics), [dimensions, metrics])
+  const orderByOpts = useMemo(() => {
+    const fields = orderByFieldOptions(dimensions, metrics)
+    if (fields.length === 0) return []
+    return [{ value: '', label: '(sıralama yok)', hint: '' }, ...fields]
+  }, [dimensions, metrics])
+  const metricOptsHaving = useMemo(() => metricFieldOptions(metrics), [metrics])
+
   const addSelectItem = () => setSelectItems([...selectItems, { type: 'dimension', name: '' }])
   const updateSelectItem = (i: number, field: keyof SelectItem, value: string) => {
     const items = [...selectItems]
     const existing = items[i]
-    items[i] = { type: existing?.type ?? 'dimension', name: existing?.name ?? '', [field]: value }
+    if (!existing) return
+    if (field === 'type' && value !== existing.type) {
+      items[i] = { type: value as 'dimension' | 'metric', name: '' }
+    } else {
+      items[i] = { ...existing, [field]: value }
+    }
     setSelectItems(items)
   }
   const removeSelectItem = (i: number) => setSelectItems(selectItems.filter((_, idx) => idx !== i))
@@ -98,6 +251,14 @@ export default function QueryBuilder() {
     setFilters(items)
   }
   const removeFilter = (i: number) => setFilters(filters.filter((_, idx) => idx !== i))
+
+  const addGroupByRow = () => setGroupBy([...groupBy, ''])
+  const updateGroupByRow = (i: number, value: string) => {
+    const next = [...groupBy]
+    next[i] = value
+    setGroupBy(next)
+  }
+  const removeGroupByRow = (i: number) => setGroupBy(groupBy.filter((_, idx) => idx !== i))
 
   // HAVING helpers (advanced mode)
   const addHaving = () => setHaving([...having, { field: '', operator: 'gt', value: '' }])
@@ -195,15 +356,15 @@ export default function QueryBuilder() {
 
   return (
     <div className="page-stack">
-      <div className="card">
+      <div className="card card--query-builder">
         <div className="card-header-row card-header-row--spaced">
           <h2>Sorgu kurulumu</h2>
           <div className="toggle-group">
-            <button className={`toggle-btn ${mode === 'simple' ? 'active' : ''}`} onClick={() => setMode('simple')}>Basit</button>
-            <button className={`toggle-btn ${mode === 'advanced' ? 'active' : ''}`} onClick={() => setMode('advanced')}>Gelişmiş</button>
+            <button type="button" className={`toggle-btn ${mode === 'simple' ? 'active' : ''}`} onClick={() => setMode('simple')}>Basit</button>
+            <button type="button" className={`toggle-btn ${mode === 'advanced' ? 'active' : ''}`} onClick={() => setMode('advanced')}>Gelişmiş</button>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '1rem' }}>
+        <div className="query-builder-inline-2">
           <div className="form-group" style={{ flex: 1 }}>
             <label htmlFor="query-datasource">Veri kaynağı</label>
             <Select
@@ -218,7 +379,25 @@ export default function QueryBuilder() {
           </div>
           <div className="form-group" style={{ flex: 1 }}>
             <label htmlFor="query-model">Anlamsal model</label>
-            <input id="query-model" name="model_id" value={modelId} onChange={(e) => setModelId(e.target.value)} placeholder="ör. orders…" autoComplete="off" />
+            <Select
+              id="query-model"
+              name="model_id"
+              value={modelId}
+              onChange={setModelId}
+              placeholder={models.length ? '— model seçin —' : 'Bu kaynakta model yok'}
+              header="Anlamsal modeller"
+              disabled={models.length === 0}
+              options={models.map((m) => ({
+                value: m.id,
+                label: modelListLabel(m),
+                hint: modelListHint(m),
+              }))}
+            />
+            {modelId && models.find((m) => m.id === modelId)?.status !== 'published' ? (
+              <p className="hint-text" style={{ marginTop: '0.35rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                Taslak model: sorgu yalnızca yayınlanmış anlamsal bağlamda derlenir. Gerekirse modeli yayınlayın.
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -235,18 +414,37 @@ export default function QueryBuilder() {
                   { value: 'metric', label: 'Metrik' },
                 ]}
               />
-              <input value={item.name} onChange={(e) => updateSelectItem(i, 'name', e.target.value)} placeholder="alan adı…" aria-label={`Alan ${i + 1} adı`} autoComplete="off" />
-              <button className="remove-btn" onClick={() => removeSelectItem(i)} aria-label={`Alan ${i + 1} kaldır`}>×</button>
+              <Select
+                value={item.name}
+                onChange={(v) => updateSelectItem(i, 'name', v)}
+                ariaLabel={`Alan ${i + 1} adı`}
+                placeholder="— alan seçin —"
+                header={item.type === 'dimension' ? 'Boyutlar' : 'Metrikler'}
+                disabled={
+                  !modelId
+                  || (item.type === 'dimension' ? dimensions.length === 0 : metrics.length === 0)
+                }
+                options={item.type === 'dimension' ? dimFieldOptions(dimensions) : metricFieldOptions(metrics)}
+              />
+              <button type="button" className="remove-btn remove-btn--compact" onClick={() => removeSelectItem(i)} aria-label={`Alan ${i + 1} kaldır`}>×</button>
             </div>
           ))}
-          <button className="add-btn" onClick={addSelectItem}>+ Alan ekle</button>
+          <button type="button" className="add-btn" onClick={addSelectItem}>+ Alan ekle</button>
         </div>
 
         <div className="form-group">
           <label>Filtreler</label>
           {filters.map((f, i) => (
-            <div key={i} className="query-builder-row">
-              <input value={f.field} onChange={(e) => updateFilter(i, 'field', e.target.value)} placeholder="alan…" aria-label={`Filtre ${i + 1} alan`} autoComplete="off" />
+            <div key={i} className="query-builder-row query-builder-row--filter">
+              <Select
+                value={f.field}
+                onChange={(v) => updateFilter(i, 'field', v)}
+                ariaLabel={`Filtre ${i + 1} alan`}
+                placeholder="— alan seçin —"
+                header="Boyut veya metrik"
+                disabled={!modelId || filterFieldOpts.length === 0}
+                options={filterFieldOpts}
+              />
               <Select
                 value={f.operator}
                 onChange={(v) => updateFilter(i, 'operator', v)}
@@ -264,21 +462,47 @@ export default function QueryBuilder() {
                 ]}
               />
               <input value={f.value} onChange={(e) => updateFilter(i, 'value', e.target.value)} placeholder="değer…" aria-label={`Filtre ${i + 1} değer`} autoComplete="off" />
-              <button className="remove-btn" onClick={() => removeFilter(i)} aria-label={`Filtre ${i + 1} kaldır`}>×</button>
+              <button type="button" className="remove-btn remove-btn--compact" onClick={() => removeFilter(i)} aria-label={`Filtre ${i + 1} kaldır`}>×</button>
             </div>
           ))}
-          <button className="add-btn" onClick={addFilter}>+ Filtre ekle</button>
+          <button type="button" className="add-btn" onClick={addFilter}>+ Filtre ekle</button>
         </div>
 
         <div className="form-group">
-          <label htmlFor="query-group-by">Grupla</label>
-          <input id="query-group-by" name="group_by" value={groupBy.join(', ')} onChange={(e) => setGroupBy(e.target.value.split(',').map((s) => s.trim()))} placeholder="virgülle ayrılmış alanlar…" autoComplete="off" />
+          <label>Grupla</label>
+          <p style={{ margin: '0 0 0.4rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            Yalnızca boyut alanları. Aynı alanı iki kez eklemeyin.
+          </p>
+          {groupBy.map((g, i) => (
+            <div key={i} className="query-builder-row query-builder-row--group">
+              <Select
+                value={g}
+                onChange={(v) => updateGroupByRow(i, v)}
+                ariaLabel={`Gruplama ${i + 1}`}
+                placeholder="— boyut seçin —"
+                header="Boyutlar"
+                disabled={!modelId || dimensions.length === 0}
+                options={dimOptionsForGroupRow(dimensions, groupBy, i)}
+              />
+              <button type="button" className="remove-btn remove-btn--compact" onClick={() => removeGroupByRow(i)} aria-label={`Gruplama ${i + 1} kaldır`}>×</button>
+            </div>
+          ))}
+          <button type="button" className="add-btn" onClick={addGroupByRow}>+ Gruplama alanı</button>
         </div>
 
-        <div style={{ display: 'flex', gap: '1rem' }}>
+        <div className="query-builder-inline-2">
           <div className="form-group" style={{ flex: 1 }}>
             <label htmlFor="query-order-by">Sırala</label>
-            <input id="query-order-by" name="order_by" value={orderBy} onChange={(e) => setOrderBy(e.target.value)} placeholder="alan…" autoComplete="off" />
+            <Select
+              id="query-order-by"
+              name="order_by"
+              value={orderBy}
+              onChange={setOrderBy}
+              placeholder="— alan seçin —"
+              header="Boyut veya metrik"
+              disabled={!modelId || orderByOpts.length === 0}
+              options={orderByOpts}
+            />
           </div>
           <div className="form-group" style={{ flex: 1 }}>
             <label htmlFor="query-order-direction">Yön</label>
@@ -307,76 +531,98 @@ export default function QueryBuilder() {
 
         {/* ─── Advanced Mode Sections ─────────────────────────── */}
         {mode === 'advanced' && (
-          <>
-            <details open={false}>
+          <div className="query-builder-advanced">
+            <details className="query-builder-panel">
               <summary>HAVING (özet sonrası filtre)</summary>
-              <div className="form-group" style={{ marginTop: '0.5rem' }}>
-                {having.map((h, i) => (
-                  <div key={i} className="query-builder-row">
-                    <input value={h.field} onChange={(e) => updateHaving(i, 'field', e.target.value)} placeholder="özetlenmiş alan…" aria-label={`Having ${i + 1} alan`} autoComplete="off" />
-                    <Select
-                      value={h.operator}
-                      onChange={(v) => updateHaving(i, 'operator', v)}
-                      ariaLabel={`Having ${i + 1} operator`}
-                      options={[
-                        { value: 'gt', label: '>' },
-                        { value: 'gte', label: '>=' },
-                        { value: 'lt', label: '<' },
-                        { value: 'lte', label: '<=' },
-                        { value: 'eq', label: '=' },
-                        { value: 'neq', label: '!=' },
-                      ]}
-                    />
-                    <input value={h.value} onChange={(e) => updateHaving(i, 'value', e.target.value)} placeholder="değer…" aria-label={`Having ${i + 1} değer`} autoComplete="off" />
-                    <button className="remove-btn" onClick={() => removeHaving(i)} aria-label={`Having ${i + 1} kaldır`}>×</button>
-                  </div>
-                ))}
-                <button className="add-btn" onClick={addHaving}>+ HAVING koşulu ekle</button>
-              </div>
-            </details>
-
-            <details open={false}>
-              <summary>Pencere fonksiyonları</summary>
-              <div className="form-group" style={{ marginTop: '0.5rem' }}>
-                {windowFunctions.map((w, i) => (
-                  <div key={i} className="query-builder-row query-builder-row--wide">
-                    <Select
-                      value={w.func}
-                      onChange={(v) => updateWindowFunc(i, 'func', v)}
-                      ariaLabel={`Pencere ${i + 1} tür`}
-                      options={WINDOW_FUNC_OPTIONS.map((opt) => ({ value: opt, label: opt }))}
-                    />
-                    <input value={w.field} onChange={(e) => updateWindowFunc(i, 'field', e.target.value)} placeholder="alan…" aria-label={`Pencere ${i + 1} alan`} autoComplete="off" />
-                    <input value={w.partition_by} onChange={(e) => updateWindowFunc(i, 'partition_by', e.target.value)} placeholder="PARTITION BY (virgülle)" aria-label={`Pencere ${i + 1} bölüm`} autoComplete="off" />
-                    <input value={w.order_by} onChange={(e) => updateWindowFunc(i, 'order_by', e.target.value)} placeholder="ORDER BY alanı" aria-label={`Pencere ${i + 1} sıra`} autoComplete="off" />
-                    <button className="remove-btn" onClick={() => removeWindowFunc(i)} aria-label={`Pencere ${i + 1} kaldır`}>×</button>
-                  </div>
-                ))}
-                <button className="add-btn" onClick={addWindowFunc}>+ Pencere fonksiyonu ekle</button>
-              </div>
-            </details>
-
-            <details open={false}>
-              <summary>Ortak tablo ifadeleri (CTE / WITH)</summary>
-              <div className="form-group" style={{ marginTop: '0.5rem' }}>
-                {ctes.map((c, i) => (
-                  <div key={i} style={{ marginBottom: '0.75rem', padding: '0.5rem', border: '1px dashed var(--border)', borderRadius: '0.5rem' }}>
-                    <div className="query-builder-row" style={{ marginBottom: '0.4rem' }}>
-                      <input value={c.name} onChange={(e) => updateCTE(i, 'name', e.target.value)} placeholder="CTE adı…" aria-label={`CTE ${i + 1} ad`} autoComplete="off" style={{ gridColumn: '1 / -2' }} />
-                      <button className="remove-btn" onClick={() => removeCTE(i)} aria-label={`CTE ${i + 1} kaldır`}>×</button>
+              <div className="query-builder-panel__body">
+                <div className="form-group query-builder-panel__fields">
+                  {having.map((h, i) => (
+                    <div key={i} className="query-builder-row query-builder-row--filter">
+                      <Select
+                        value={h.field}
+                        onChange={(v) => updateHaving(i, 'field', v)}
+                        ariaLabel={`Having ${i + 1} alan`}
+                        placeholder="— metrik seçin —"
+                        header="Metrikler (özet sonrası)"
+                        disabled={!modelId || metricOptsHaving.length === 0}
+                        options={metricOptsHaving}
+                      />
+                      <Select
+                        value={h.operator}
+                        onChange={(v) => updateHaving(i, 'operator', v)}
+                        ariaLabel={`Having ${i + 1} operator`}
+                        options={[
+                          { value: 'gt', label: '>' },
+                          { value: 'gte', label: '>=' },
+                          { value: 'lt', label: '<' },
+                          { value: 'lte', label: '<=' },
+                          { value: 'eq', label: '=' },
+                          { value: 'neq', label: '!=' },
+                        ]}
+                      />
+                      <input value={h.value} onChange={(e) => updateHaving(i, 'value', e.target.value)} placeholder="değer…" aria-label={`Having ${i + 1} değer`} autoComplete="off" />
+                      <button type="button" className="remove-btn remove-btn--compact" onClick={() => removeHaving(i)} aria-label={`Having ${i + 1} kaldır`}>×</button>
                     </div>
-                    <textarea value={c.query} onChange={(e) => updateCTE(i, 'query', e.target.value)} placeholder="Sorgu tanımı (ör. SELECT ... FROM ...)" rows={3} style={{ width: '100%', boxSizing: 'border-box' }} />
-                  </div>
-                ))}
-                <button className="add-btn" onClick={addCTE}>+ CTE ekle</button>
+                  ))}
+                  <button type="button" className="add-btn" onClick={addHaving}>+ HAVING koşulu ekle</button>
+                </div>
               </div>
             </details>
-          </>
+
+            <details className="query-builder-panel">
+              <summary>Pencere fonksiyonları</summary>
+              <div className="query-builder-panel__body">
+                <div className="form-group query-builder-panel__fields">
+                  {windowFunctions.map((w, i) => (
+                    <div key={i} className="query-builder-row query-builder-row--wide">
+                      <Select
+                        value={w.func}
+                        onChange={(v) => updateWindowFunc(i, 'func', v)}
+                        ariaLabel={`Pencere ${i + 1} tür`}
+                        options={WINDOW_FUNC_OPTIONS.map((opt) => ({ value: opt, label: opt }))}
+                      />
+                      <input value={w.field} onChange={(e) => updateWindowFunc(i, 'field', e.target.value)} placeholder="alan…" aria-label={`Pencere ${i + 1} alan`} autoComplete="off" />
+                      <input value={w.partition_by} onChange={(e) => updateWindowFunc(i, 'partition_by', e.target.value)} placeholder="PARTITION BY (virgülle)" aria-label={`Pencere ${i + 1} bölüm`} autoComplete="off" />
+                      <input value={w.order_by} onChange={(e) => updateWindowFunc(i, 'order_by', e.target.value)} placeholder="ORDER BY alanı" aria-label={`Pencere ${i + 1} sıra`} autoComplete="off" />
+                      <button type="button" className="remove-btn remove-btn--compact" onClick={() => removeWindowFunc(i)} aria-label={`Pencere ${i + 1} kaldır`}>×</button>
+                    </div>
+                  ))}
+                  <button type="button" className="add-btn" onClick={addWindowFunc}>+ Pencere fonksiyonu ekle</button>
+                </div>
+              </div>
+            </details>
+
+            <details className="query-builder-panel">
+              <summary>Ortak tablo ifadeleri (CTE / WITH)</summary>
+              <div className="query-builder-panel__body">
+                <div className="form-group query-builder-panel__fields">
+                  {ctes.map((c, i) => (
+                    <div key={i} className="query-builder-cte-card">
+                      <div className="query-builder-row query-builder-row--cte-head">
+                        <input value={c.name} onChange={(e) => updateCTE(i, 'name', e.target.value)} placeholder="CTE adı…" aria-label={`CTE ${i + 1} ad`} autoComplete="off" />
+                        <button type="button" className="remove-btn remove-btn--compact" onClick={() => removeCTE(i)} aria-label={`CTE ${i + 1} kaldır`}>×</button>
+                      </div>
+                      <textarea
+                        className="query-builder-cte-textarea"
+                        value={c.query}
+                        onChange={(e) => updateCTE(i, 'query', e.target.value)}
+                        placeholder="Sorgu tanımı (ör. SELECT ... FROM ...)"
+                        rows={3}
+                      />
+                    </div>
+                  ))}
+                  <button type="button" className="add-btn" onClick={addCTE}>+ CTE ekle</button>
+                </div>
+              </div>
+            </details>
+          </div>
         )}
 
-        <button className="btn" onClick={runQuery} disabled={loading}>
-          {loading ? 'Çalışıyor…' : 'Sorguyu çalıştır'}
-        </button>
+        <div className="query-builder-footer">
+          <button type="button" className="btn btn-sm" onClick={runQuery} disabled={loading}>
+            {loading ? 'Çalışıyor…' : 'Sorguyu çalıştır'}
+          </button>
+        </div>
 
         {error && <div className="error">{error}</div>}
       </div>

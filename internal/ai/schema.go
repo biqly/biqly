@@ -29,6 +29,11 @@ type Response struct {
 	NeedsClarification    bool                `json:"needs_clarification,omitempty"`
 	ClarificationQuestion string              `json:"clarification_question,omitempty"`
 	ClarificationOptions  []string            `json:"clarification_options,omitempty"`
+	// Clarification is the structured form of a needs-clarification response.
+	// Populated alongside ClarificationQuestion/ClarificationOptions when the
+	// router or validator cannot proceed without user input. Frontend can
+	// render the options as selectable chips.
+	Clarification *Clarification `json:"clarification,omitempty"`
 	Prompt                string              `json:"-"`
 	RawResponse           string              `json:"-"`
 	// Multi-candidate generation
@@ -44,6 +49,81 @@ type Response struct {
 	LatencyMs  int         `json:"latency_ms,omitempty"`
 	// Visualization hint for frontend chart auto-selection
 	VisualizationHint *VisualizationHint `json:"visualization_hint,omitempty"`
+}
+
+// ClarificationStatus enumerates the structured clarification states.
+const (
+	ClarificationStatusNeeded = "needs_clarification"
+)
+
+// Clarification surfaces a structured ask-the-user response from the AI or the
+// table router. The frontend renders Question with Options as selectable
+// answers; selecting an option re-issues the original request with the chosen
+// key appended (the backend wires it through Request.Tables or a dedicated
+// clarification continuation depending on the source).
+type Clarification struct {
+	Status     string                 `json:"status"`                // ClarificationStatusNeeded
+	Question   string                 `json:"question"`              // user-facing prompt
+	Reason     string                 `json:"reason,omitempty"`      // short explanation, e.g. "Multiple revenue metrics matched"
+	Options    []ClarificationOption  `json:"options,omitempty"`     // discrete choices
+	Candidates []ClarificationContext `json:"candidates,omitempty"`  // alternative semantic contexts when the router was unsure
+	Source     string                 `json:"source,omitempty"`      // "router" | "validator" | "ai"
+}
+
+// ClarificationOption is a single discrete answer a user can pick.
+type ClarificationOption struct {
+	Key   string `json:"key"`             // machine-readable answer key
+	Label string `json:"label"`           // human-readable label
+	Hint  string `json:"hint,omitempty"`  // optional explanation
+}
+
+// ClarificationContext describes one of several candidate semantic contexts
+// the router was deciding between. Surfaces to the user as "did you mean this
+// model?" when scores were close.
+type ClarificationContext struct {
+	Type   string  `json:"type"`             // "semantic_model" | "table"
+	Name   string  `json:"name"`             // model or table identifier
+	Score  float64 `json:"score,omitempty"`  // routing score [0,1]
+	Reason string  `json:"reason,omitempty"` // short why this candidate
+}
+
+// ClarificationFromRouting wraps an ambiguous table-routing decision into the
+// structured Clarification envelope so the frontend can render the router's
+// top candidates as selectable options. Returns nil when the routing did not
+// flag NeedsClarification or has no candidates to surface.
+func ClarificationFromRouting(routing *TableRoutingResult, question string) *Clarification {
+	if routing == nil || !routing.NeedsClarification || len(routing.Candidates) == 0 {
+		return nil
+	}
+	if question == "" {
+		question = "Which table set should I use to answer this question?"
+	}
+	candidates := make([]ClarificationContext, 0, len(routing.Candidates))
+	options := make([]ClarificationOption, 0, len(routing.Candidates))
+	for _, c := range routing.Candidates {
+		label := c.Table
+		if c.Description != "" {
+			label = c.Table + " — " + c.Description
+		}
+		candidates = append(candidates, ClarificationContext{
+			Type:   "table",
+			Name:   c.Table,
+			Score:  c.Score,
+			Reason: c.RejectedReason,
+		})
+		options = append(options, ClarificationOption{
+			Key:   c.Table,
+			Label: label,
+		})
+	}
+	return &Clarification{
+		Status:     ClarificationStatusNeeded,
+		Question:   question,
+		Reason:     "Multiple table sets scored similarly for this question.",
+		Options:    options,
+		Candidates: candidates,
+		Source:     "router",
+	}
 }
 
 // CandidateEntry represents one LogicalQuery candidate from self-consistency.

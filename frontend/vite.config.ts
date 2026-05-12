@@ -9,8 +9,9 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8888',
         changeOrigin: true,
-        timeout: 300_000,
-        proxyTimeout: 300_000,
+        // Long AI routes (metadata describe, embeddings); align with nginx proxy_read_timeout
+        timeout: 650_000,
+        proxyTimeout: 650_000,
       },
     },
   },

@@ -27,6 +27,27 @@ func TestLogicalQueryFrontendTypeMatchesGoJSONContract(t *testing.T) {
 	}
 }
 
+func TestEnsureVersionDefaultsToCurrent(t *testing.T) {
+	lq := LogicalQuery{}
+	lq.EnsureVersion()
+	if lq.Version != CurrentLogicalQueryVersion {
+		t.Errorf("EnsureVersion default = %q, want %q", lq.Version, CurrentLogicalQueryVersion)
+	}
+}
+
+func TestEnsureVersionPreservesExistingValue(t *testing.T) {
+	lq := LogicalQuery{Version: "v2-experiment"}
+	lq.EnsureVersion()
+	if lq.Version != "v2-experiment" {
+		t.Errorf("EnsureVersion overwrote caller version: got %q", lq.Version)
+	}
+}
+
+func TestEnsureVersionNilReceiverIsSafe(t *testing.T) {
+	var lq *LogicalQuery
+	lq.EnsureVersion()
+}
+
 func logicalQueryJSONFields(t *testing.T) []string {
 	t.Helper()
 	typ := reflect.TypeOf(LogicalQuery{})

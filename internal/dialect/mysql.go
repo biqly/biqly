@@ -46,10 +46,25 @@ func (d MySQLDialect) LimitOffset(limit, offset int) string {
 	return strings.Join(parts, " ")
 }
 
-// DateTrunc returns the date truncation expression.
+// DateTrunc returns the date truncation expression. MySQL has no native
+// DATE_TRUNC so each grain uses its idiomatic workaround.
 func (d MySQLDialect) DateTrunc(part, column string) string {
-	// MySQL doesn't have DATE_TRUNC, use DATE_FORMAT workaround
-	return fmt.Sprintf("DATE_FORMAT(%s, '%%Y-%%m-%%d %%H:%%i:%%s')", d.QuoteIdent(column))
+	q := d.QuoteIdent(column)
+	switch strings.ToLower(strings.TrimSpace(part)) {
+	case "day":
+		return fmt.Sprintf("DATE(%s)", q)
+	case "week":
+		// ISO-ish start of week (Monday). WEEKDAY returns 0 for Monday.
+		return fmt.Sprintf("DATE_SUB(DATE(%s), INTERVAL WEEKDAY(%s) DAY)", q, q)
+	case "month":
+		return fmt.Sprintf("DATE_FORMAT(%s, '%%Y-%%m-01')", q)
+	case "quarter":
+		return fmt.Sprintf("MAKEDATE(YEAR(%s), 1) + INTERVAL (QUARTER(%s) - 1) QUARTER", q, q)
+	case "year":
+		return fmt.Sprintf("MAKEDATE(YEAR(%s), 1)", q)
+	default:
+		return fmt.Sprintf("DATE_FORMAT(%s, '%%Y-%%m-%%d %%H:%%i:%%s')", q)
+	}
 }
 
 // CalendarPart returns YEAR / QUARTER / MONTH for integer grouping.

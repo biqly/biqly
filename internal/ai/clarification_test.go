@@ -1,0 +1,65 @@
+package ai
+
+import "testing"
+
+func TestBuildClarificationReturnsNilOnEmptyQuestion(t *testing.T) {
+	if got := buildClarification("", "", "ai"); got != nil {
+		t.Errorf("expected nil for empty question, got %+v", got)
+	}
+}
+
+func TestBuildClarificationPopulatesEnvelope(t *testing.T) {
+	got := buildClarification("Did you mean gross or net revenue?", "ambiguous metric", "ai")
+	if got == nil {
+		t.Fatal("expected envelope, got nil")
+	}
+	if got.Status != ClarificationStatusNeeded {
+		t.Errorf("status = %q, want %q", got.Status, ClarificationStatusNeeded)
+	}
+	if got.Question != "Did you mean gross or net revenue?" {
+		t.Errorf("question = %q", got.Question)
+	}
+	if got.Reason != "ambiguous metric" {
+		t.Errorf("reason = %q", got.Reason)
+	}
+	if got.Source != "ai" {
+		t.Errorf("source = %q", got.Source)
+	}
+}
+
+func TestClarificationFromRoutingNilWhenNotNeeded(t *testing.T) {
+	if got := ClarificationFromRouting(nil, ""); got != nil {
+		t.Errorf("nil routing should yield nil envelope, got %+v", got)
+	}
+	routing := &TableRoutingResult{NeedsClarification: false, Candidates: []TableCandidate{{Table: "x"}}}
+	if got := ClarificationFromRouting(routing, ""); got != nil {
+		t.Errorf("clear routing should yield nil envelope, got %+v", got)
+	}
+	empty := &TableRoutingResult{NeedsClarification: true}
+	if got := ClarificationFromRouting(empty, ""); got != nil {
+		t.Errorf("no candidates should yield nil envelope, got %+v", got)
+	}
+}
+
+func TestClarificationFromRoutingBuildsOptionsAndCandidates(t *testing.T) {
+	routing := &TableRoutingResult{
+		NeedsClarification: true,
+		Candidates: []TableCandidate{
+			{Table: "public.orders", Score: 0.62, Description: "Customer orders"},
+			{Table: "public.sales", Score: 0.58, Description: "Sales transactions"},
+		},
+	}
+	c := ClarificationFromRouting(routing, "")
+	if c == nil {
+		t.Fatal("expected envelope, got nil")
+	}
+	if c.Source != "router" {
+		t.Errorf("source = %q, want router", c.Source)
+	}
+	if len(c.Options) != 2 || c.Options[0].Key != "public.orders" {
+		t.Errorf("options not built: %+v", c.Options)
+	}
+	if len(c.Candidates) != 2 || c.Candidates[0].Score != 0.62 {
+		t.Errorf("candidates not built: %+v", c.Candidates)
+	}
+}

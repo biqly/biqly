@@ -208,6 +208,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 			Confidence:            0,
 			NeedsClarification:    clarification != "",
 			ClarificationQuestion: clarification,
+			Clarification:         buildClarification(clarification, failureReason, "ai"),
 		}, nil
 	}
 
@@ -221,6 +222,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 			RawResponse:           lastRaw,
 			NeedsClarification:    clarification != "",
 			ClarificationQuestion: clarification,
+			Clarification:         buildClarification(clarification, failureReason, "validator"),
 		}, nil
 	}
 
@@ -232,7 +234,25 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		RawResponse:           lastRaw,
 		NeedsClarification:    clarification != "",
 		ClarificationQuestion: clarification,
+		Clarification:         buildClarification(clarification, failureReason, "ai"),
 	}, nil
+}
+
+// buildClarification wraps a free-text clarification question into the
+// structured Clarification envelope. Returns nil when there is nothing to ask.
+// Options are populated by callers that have discrete candidates (router,
+// validator with ambiguous metric names); the AI fallback path leaves them
+// empty.
+func buildClarification(question, reason, source string) *Clarification {
+	if question == "" {
+		return nil
+	}
+	return &Clarification{
+		Status:   ClarificationStatusNeeded,
+		Question: question,
+		Reason:   reason,
+		Source:   source,
+	}
 }
 
 // tryMultiCandidate draws s.multiCandidateCount completions at stepped
@@ -427,6 +447,7 @@ func computeConfidence(validationErrCount, retries int) float64 {
 }
 
 func normalizeLogicalQueryContext(lq *query.LogicalQuery, model *semantic.SemanticModel) {
+	lq.EnsureVersion()
 	lq.DatasourceID = model.DatasourceID
 	lq.ModelID = model.Name
 	if lq.ModelID == "" {

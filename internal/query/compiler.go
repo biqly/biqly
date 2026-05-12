@@ -29,6 +29,20 @@ func (c *Compiler) Compile(ctx context.Context, lq LogicalQuery, model *semantic
 		dimMap[d.Name] = d
 	}
 
+	// Per-query GroupBy.TimeGrain overrides the dimension's default bucketing.
+	// Applied as a local mutation on the map copy so the same dimension is
+	// rendered identically in SELECT and GROUP BY without callers having to
+	// repeat the grain in two places.
+	for _, gb := range lq.GroupBy {
+		if gb.TimeGrain == "" {
+			continue
+		}
+		if dim, ok := dimMap[gb.Field]; ok {
+			dim.TimeGrain = gb.TimeGrain
+			dimMap[gb.Field] = dim
+		}
+	}
+
 	// Build metric map
 	metricMap := make(map[string]semantic.Metric)
 	for _, m := range model.Metrics {

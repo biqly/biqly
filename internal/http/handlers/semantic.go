@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/metadata"
@@ -69,10 +70,11 @@ func (h *SemanticHandler) CreateModel(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, m)
 }
 
-// ListModels returns all semantic models for a datasource.
+// ListModels returns semantic models, optionally filtered by ?datasource_id=.
 func (h *SemanticHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	models, err := h.deps.SemanticRepo.ListModels(ctx, "")
+	dsID := strings.TrimSpace(r.URL.Query().Get("datasource_id"))
+	models, err := h.deps.SemanticRepo.ListModels(ctx, dsID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list models")
 		return

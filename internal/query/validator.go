@@ -105,12 +105,35 @@ func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) err
 		}
 	}
 
+	// Date/timestamp dimensions are the only ones a time-grain can bucket.
+	dimTypes := make(map[string]string, len(model.Dimensions))
+	for _, d := range model.Dimensions {
+		dimTypes[d.Name] = strings.ToLower(strings.TrimSpace(d.Type))
+	}
+
 	// Check group by
 	for _, gb := range lq.GroupBy {
 		if !dimMap[gb.Field] {
 			errs = append(errs, &ValidationError{
 				Field:   "group_by",
 				Message: "unknown dimension: " + gb.Field,
+			})
+			continue
+		}
+		if gb.TimeGrain == "" {
+			continue
+		}
+		if !IsValidTimeGrain(gb.TimeGrain) {
+			errs = append(errs, &ValidationError{
+				Field:   "group_by.time_grain",
+				Message: "invalid time_grain (expected day|week|month|quarter|year): " + gb.TimeGrain,
+			})
+			continue
+		}
+		if t := dimTypes[gb.Field]; t != "date" && t != "timestamp" && t != "datetime" {
+			errs = append(errs, &ValidationError{
+				Field:   "group_by.time_grain",
+				Message: "time_grain only valid on date/timestamp dimensions: " + gb.Field,
 			})
 		}
 	}

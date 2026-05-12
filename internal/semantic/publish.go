@@ -156,6 +156,10 @@ func ValidateContext(ctx context.Context, model SemanticModel, catalog CatalogRe
 		addWarning("semantic context prompt estimate is high: %d runes", result.EstimatedPromptSize)
 	}
 
+	for _, msg := range EnforceBudget(model, DefaultContextBudget(), result.EstimatedPromptSize) {
+		addWarning("%s", msg)
+	}
+
 	return result
 }
 

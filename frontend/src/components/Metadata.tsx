@@ -12,6 +12,12 @@ interface BulkEntry {
   message?: string
 }
 
+/**
+ * AI metadata/describe can run primary LLM + optional translation in one request.
+ * Default useApi timeout (30s) aborts too early; align with server AIRequestTimeout / nginx.
+ */
+const AI_METADATA_DESCRIBE_TIMEOUT_MS = 600_000
+
 /** Table view: active rows first; skipped (e.g. already described) at the bottom. */
 const BULK_DISPLAY_ORDER: Record<BulkStatus, number> = {
   running: 0,
@@ -331,13 +337,17 @@ export default function Metadata() {
 
   const runDescribe = async () => {
     if (!describeOpen) return
-    const res = await postData<DescribeResult>('/api/ai/metadata/describe', {
-      datasource_id: datasourceId,
-      schema: describeOpen.schema_name,
-      table: describeOpen.table_name,
-      sample_size: describeForm.sample_size,
-      auto_apply: describeForm.auto_apply,
-    })
+    const res = await postData<DescribeResult>(
+      '/api/ai/metadata/describe',
+      {
+        datasource_id: datasourceId,
+        schema: describeOpen.schema_name,
+        table: describeOpen.table_name,
+        sample_size: describeForm.sample_size,
+        auto_apply: describeForm.auto_apply,
+      },
+      { timeout: AI_METADATA_DESCRIBE_TIMEOUT_MS },
+    )
     if (res) {
       setDescribeResult(res)
       if (res.applied) {

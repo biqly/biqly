@@ -750,6 +750,7 @@ func (h *AIHandler) loadFewShotExamples(ctx context.Context, model *semantic.Sem
 }
 
 func clarificationResponse(routing *ai.TableRoutingResult) *ai.Response {
+	question := "Which table or topic do you want to query? Please pick one or more from the candidates."
 	return &ai.Response{
 		Warnings: []string{
 			"could not confidently choose the relevant table scope; select one or more tables and try again",
@@ -757,7 +758,8 @@ func clarificationResponse(routing *ai.TableRoutingResult) *ai.Response {
 		Confidence:            0,
 		TableRouting:          routing,
 		NeedsClarification:    true,
-		ClarificationQuestion: "Which table or topic do you want to query? Please pick one or more from the candidates.",
+		ClarificationQuestion: question,
+		Clarification:         ai.ClarificationFromRouting(routing, question),
 	}
 }
 
