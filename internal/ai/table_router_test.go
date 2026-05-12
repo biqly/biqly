@@ -150,6 +150,49 @@ func TestTableRouter_DateGrainDimensionsOnDateColumns(t *testing.T) {
 	}
 }
 
+// TestTableRouter_DateGrainDayDimensionAdded covers the daily/günlük grain that
+// was missing from auto-context: prior to this change date columns only got
+// year/quarter/month variants so AI fell back to monthly for "günlük" questions.
+func TestTableRouter_DateGrainDayDimensionAdded(t *testing.T) {
+	reader := testMetadataReader()
+	reader.columns = append(reader.columns, metadata.Column{
+		DatasourceID: "ds1",
+		SchemaName:   "public",
+		TableName:    "orders",
+		ColumnName:   "orderdate",
+		DataType:     "timestamp",
+	})
+	router := NewTableRouter(reader)
+
+	model, _, err := router.Route(context.Background(), "ds1", "günlük sipariş sayısı", nil, true, true)
+	if err != nil {
+		t.Fatalf("Route() error = %v, want nil", err)
+	}
+
+	var dayDim *semantic.Dimension
+	for i := range model.Dimensions {
+		if model.Dimensions[i].Name == "orderdate_day" {
+			dayDim = &model.Dimensions[i]
+			break
+		}
+	}
+	if dayDim == nil {
+		t.Fatalf("expected orderdate_day dimension, got names: %v", dimNames(model.Dimensions))
+	}
+	if dayDim.TimeGrain != "day" {
+		t.Errorf("orderdate_day TimeGrain = %q, want day", dayDim.TimeGrain)
+	}
+	if dayDim.ColumnRef != "orders.orderdate" {
+		t.Errorf("orderdate_day ColumnRef = %q, want orders.orderdate", dayDim.ColumnRef)
+	}
+	wantSyns := []string{"daily", "günlük", "by day"}
+	for _, s := range wantSyns {
+		if !slices.Contains(dayDim.Synonyms, s) {
+			t.Errorf("orderdate_day synonyms missing %q; got %v", s, dayDim.Synonyms)
+		}
+	}
+}
+
 func dimNames(dims []semantic.Dimension) []string {
 	out := make([]string, len(dims))
 	for i := range dims {

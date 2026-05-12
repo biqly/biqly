@@ -23,7 +23,7 @@ const (
 	// Limits for auto-generated semantic models (avoids multi-hundred-column explosion in LLM prompts).
 	maxAutoModelDimensions   = 150
 	maxAutoModelMetrics      = 120
-	maxDateGrainExtras       = 36 // year/quarter/month variants per date columns (cap total)
+	maxDateGrainExtras       = 48 // day/month/quarter/year variants per date columns (cap total)
 	maxRankedColumnsPerTable = 24
 	minColumnsBeforeRanking  = 12
 )
@@ -1081,9 +1081,10 @@ func buildDimensions(selected []tableBundle, columnsByTable map[string][]metadat
 			part, suffix string
 			syns         []string
 		}{
-			{"year", "_year", []string{"year", "years", "yearly", "annual", "yıl", "yıllık", "per year", "by year"}},
-			{"quarter", "_quarter", []string{"quarter", "quarters", "qtr", "çeyrek"}},
-			{"month", "_month", []string{"month", "months", "monthly", "ay", "aylık", "per month", "by month"}},
+			{"year", "_year", []string{"year", "years", "yearly", "annual", "yıl", "yil", "yıllık", "yillik", "per year", "by year"}},
+			{"quarter", "_quarter", []string{"quarter", "quarters", "qtr", "çeyrek", "ceyrek", "çeyreklik", "ceyreklik"}},
+			{"month", "_month", []string{"month", "months", "monthly", "ay", "aylık", "aylik", "per month", "by month"}},
+			{"day", "_day", []string{"day", "days", "daily", "gün", "gun", "günlük", "gunluk", "per day", "by day", "günü", "gunu"}},
 		} {
 			if len(dimensions) >= maxAutoModelDimensions || dateGrainAdded >= maxDateGrainExtras {
 				break
