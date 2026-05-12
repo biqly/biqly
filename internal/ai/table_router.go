@@ -1077,15 +1077,22 @@ func buildDimensions(selected []tableBundle, columnsByTable map[string][]metadat
 		if !isDateOrTimeType(p.col.DataType) || dateGrainAdded >= maxDateGrainExtras {
 			continue
 		}
-		for _, g := range []struct {
+		hasTime := hasTimeComponent(p.col.DataType)
+		grains := []struct {
 			part, suffix string
+			requiresTime bool
 			syns         []string
 		}{
-			{"year", "_year", []string{"year", "years", "yearly", "annual", "yıl", "yil", "yıllık", "yillik", "per year", "by year"}},
-			{"quarter", "_quarter", []string{"quarter", "quarters", "qtr", "çeyrek", "ceyrek", "çeyreklik", "ceyreklik"}},
-			{"month", "_month", []string{"month", "months", "monthly", "ay", "aylık", "aylik", "per month", "by month"}},
-			{"day", "_day", []string{"day", "days", "daily", "gün", "gun", "günlük", "gunluk", "per day", "by day", "günü", "gunu"}},
-		} {
+			{"year", "_year", false, []string{"year", "years", "yearly", "annual", "yıl", "yil", "yıllık", "yillik", "per year", "by year"}},
+			{"quarter", "_quarter", false, []string{"quarter", "quarters", "qtr", "çeyrek", "ceyrek", "çeyreklik", "ceyreklik"}},
+			{"month", "_month", false, []string{"month", "months", "monthly", "ay", "aylık", "aylik", "per month", "by month"}},
+			{"day", "_day", false, []string{"day", "days", "daily", "gün", "gun", "günlük", "gunluk", "per day", "by day", "günü", "gunu"}},
+			{"hour", "_hour", true, []string{"hour", "hours", "hourly", "saat", "saatlik", "saatte", "saatli", "per hour", "by hour"}},
+		}
+		for _, g := range grains {
+			if g.requiresTime && !hasTime {
+				continue
+			}
 			if len(dimensions) >= maxAutoModelDimensions || dateGrainAdded >= maxDateGrainExtras {
 				break
 			}
@@ -1869,4 +1876,21 @@ func isNumericType(dataType string) bool {
 func isDateOrTimeType(dataType string) bool {
 	t := strings.ToLower(dataType)
 	return strings.Contains(t, "date") || strings.Contains(t, "time")
+}
+
+// hasTimeComponent reports whether a date/time column carries clock time, so
+// hour-grain bucketing is meaningful. Pure DATE columns get only y/q/m/d
+// variants; TIMESTAMP / DATETIME / TIME-typed columns also get _hour.
+func hasTimeComponent(dataType string) bool {
+	t := strings.ToLower(dataType)
+	if strings.Contains(t, "timestamp") || strings.Contains(t, "datetime") {
+		return true
+	}
+	// "time without time zone" / "time with time zone" / "time" — has clock,
+	// but no calendar; skip hour as a calendar bucket anyway. Only true
+	// "date" rejects.
+	if strings.Contains(t, "date") && !strings.Contains(t, "datetime") {
+		return false
+	}
+	return strings.Contains(t, "time")
 }

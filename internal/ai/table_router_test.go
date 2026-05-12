@@ -150,6 +150,56 @@ func TestTableRouter_DateGrainDimensionsOnDateColumns(t *testing.T) {
 	}
 }
 
+// TestTableRouter_DateGrainHourDimensionForTimestamp covers the hourly /
+// saatlik grain that auto-context emits for timestamp/datetime columns. Pure
+// DATE columns should not get a `_hour` variant (hour bucketing on a clockless
+// value is meaningless).
+func TestTableRouter_DateGrainHourDimensionForTimestamp(t *testing.T) {
+	reader := testMetadataReader()
+	reader.columns = append(reader.columns,
+		metadata.Column{
+			DatasourceID: "ds1", SchemaName: "public", TableName: "orders",
+			ColumnName: "orderdate", DataType: "timestamp",
+		},
+		metadata.Column{
+			DatasourceID: "ds1", SchemaName: "public", TableName: "orders",
+			ColumnName: "ship_date", DataType: "date",
+		},
+	)
+	router := NewTableRouter(reader)
+
+	model, _, err := router.Route(context.Background(), "ds1", "saatlik sipariş sayısı", nil, true, true)
+	if err != nil {
+		t.Fatalf("Route() error = %v, want nil", err)
+	}
+
+	var hourDim *semantic.Dimension
+	for i := range model.Dimensions {
+		if model.Dimensions[i].Name == "orderdate_hour" {
+			hourDim = &model.Dimensions[i]
+			break
+		}
+	}
+	if hourDim == nil {
+		t.Fatalf("expected orderdate_hour dimension for timestamp column, got names: %v", dimNames(model.Dimensions))
+	}
+	if hourDim.TimeGrain != "hour" {
+		t.Errorf("orderdate_hour TimeGrain = %q, want hour", hourDim.TimeGrain)
+	}
+	for _, s := range []string{"hourly", "saatlik", "by hour"} {
+		if !slices.Contains(hourDim.Synonyms, s) {
+			t.Errorf("orderdate_hour synonyms missing %q; got %v", s, hourDim.Synonyms)
+		}
+	}
+
+	// ship_date (pure DATE) must NOT receive an _hour variant.
+	for _, d := range model.Dimensions {
+		if d.Name == "ship_date_hour" {
+			t.Errorf("ship_date is pure DATE; should not produce ship_date_hour, but found: %+v", d)
+		}
+	}
+}
+
 // TestTableRouter_DateGrainDayDimensionAdded covers the daily/günlük grain that
 // was missing from auto-context: prior to this change date columns only got
 // year/quarter/month variants so AI fell back to monthly for "günlük" questions.
