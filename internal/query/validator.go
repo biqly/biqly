@@ -103,6 +103,9 @@ func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) err
 				Message: "invalid operator: " + f.Operator,
 			})
 		}
+		if err := validateDateFilterValueType(f, model.Dimensions); err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	// Date/timestamp dimensions are the only ones a time-grain can bucket.
@@ -180,6 +183,57 @@ func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) err
 		return errs
 	}
 	return nil
+}
+
+// validateDateFilterValueType catches the common AI mistake of comparing a raw
+// timestamp/date dimension to an integer year/month/day (e.g. "created_at = 2026").
+// PostgreSQL rejects this at bind time with a confusing encode error; we surface
+// it during validation instead so the retry loop has a clearer message that
+// points at the matching `*_year` / `*_month` / `*_day` grain dimension.
+//
+// Scope is intentionally narrow: only scalar comparison operators with a numeric
+// value on a raw (non-time-grain) date/timestamp dimension. Bucketed grain
+// dimensions (TimeGrain set) accept integers — those project to ints via
+// CalendarPart. Array operators (in/between) and string values pass through.
+func validateDateFilterValueType(f Filter, dimensions []semantic.Dimension) *ValidationError {
+	switch f.Operator {
+	case OpEq, OpNeq, OpGt, OpGte, OpLt, OpLte:
+	default:
+		return nil
+	}
+	var dim *semantic.Dimension
+	for i := range dimensions {
+		if dimensions[i].Name == f.Field {
+			dim = &dimensions[i]
+			break
+		}
+	}
+	if dim == nil {
+		return nil
+	}
+	t := strings.ToLower(strings.TrimSpace(dim.Type))
+	if t != "date" && t != "timestamp" && t != "datetime" {
+		return nil
+	}
+	if strings.TrimSpace(dim.TimeGrain) != "" {
+		return nil
+	}
+	if !isNumericFilterValue(f.Value) {
+		return nil
+	}
+	return &ValidationError{
+		Field: "filters",
+		Message: "filter on raw date/timestamp dimension " + f.Field +
+			" must use an ISO date string (\"YYYY-MM-DD\"); for integer year/month/day filters use the matching *_year, *_month, or *_day grain dimension",
+	}
+}
+
+func isNumericFilterValue(v any) bool {
+	switch v.(type) {
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
+		return true
+	}
+	return false
 }
 
 // validateWindowSelect ensures a window SelectItem is well-formed: spec is

@@ -393,6 +393,61 @@ func TestCompiler_MultipleFilters(t *testing.T) {
 	}
 }
 
+// TestValidator_RejectsIntegerFilterOnRawTimestamp catches the AI mistake of
+// comparing a raw timestamp column to an integer year/month value, which would
+// otherwise blow up at bind time with a confusing pgx encode error. The
+// validator must point the caller at the matching *_year/*_month grain
+// dimension whose value space is actually integers.
+func TestValidator_RejectsIntegerFilterOnRawTimestamp(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "orders",
+		BaseSchema: "public",
+		BaseTable:  "orders",
+		Dimensions: []semantic.Dimension{
+			{Name: "created_at", ColumnRef: "orders.created_at", Type: "timestamp"},
+			{Name: "created_at_year", ColumnRef: "orders.created_at", Type: "date", TimeGrain: "year"},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "order_count", Expression: "orders.id", Aggregation: "count"},
+		},
+	}
+
+	validator := NewValidator(10000)
+
+	// Wrong: raw timestamp = 2026
+	bad := LogicalQuery{
+		ModelID: "orders",
+		Select:  []SelectItem{{Type: "metric", Name: "order_count"}},
+		Filters: []Filter{{Field: "created_at", Operator: OpEq, Value: 2026}},
+		Limit:   100,
+	}
+	if err := validator.Validate(bad, model); err == nil {
+		t.Fatal("expected validation error for integer filter on raw timestamp")
+	}
+
+	// OK: grain dim accepts integer
+	good := LogicalQuery{
+		ModelID: "orders",
+		Select:  []SelectItem{{Type: "metric", Name: "order_count"}},
+		Filters: []Filter{{Field: "created_at_year", Operator: OpEq, Value: 2026}},
+		Limit:   100,
+	}
+	if err := validator.Validate(good, model); err != nil {
+		t.Errorf("expected no error for integer filter on grain dim, got %v", err)
+	}
+
+	// OK: raw timestamp with ISO date string
+	goodIso := LogicalQuery{
+		ModelID: "orders",
+		Select:  []SelectItem{{Type: "metric", Name: "order_count"}},
+		Filters: []Filter{{Field: "created_at", Operator: OpGte, Value: "2026-01-01"}},
+		Limit:   100,
+	}
+	if err := validator.Validate(goodIso, model); err != nil {
+		t.Errorf("expected no error for ISO string filter on raw timestamp, got %v", err)
+	}
+}
+
 func TestValidator_InvalidQuery(t *testing.T) {
 	model := &semantic.SemanticModel{
 		Name:       "orders",
