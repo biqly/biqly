@@ -6,6 +6,16 @@ export interface AIRuntimeSettings {
   base_url: string
   base_url_effective: string
   api_key_configured: boolean
+  /** True when BI_AI_QUERY_* split is active. When false the query_* fields
+   * mirror the base llm_model/base_url and the UI hides the duplicate row. */
+  query_model_override?: boolean
+  query_provider?: string
+  query_model?: string
+  query_base_url?: string
+  query_base_url_effective?: string
+  query_api_key_configured?: boolean
+  query_api_key_dedicated?: boolean
+  query_http_timeout_seconds?: number
   /** When true, embedding env block is active. Absent/false: no embedding UI. */
   embeddings_enabled?: boolean
   embedding_model?: string

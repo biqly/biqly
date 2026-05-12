@@ -171,6 +171,8 @@ interface DescribeResult {
   columns: { name: string; description: string }[]
   applied: boolean
   sample_rows: number
+  /** LLM that produced the suggestions (Backend BI_AI_MODEL). */
+  model?: string
   translation_applied?: boolean
   translation_model?: string
   translation_error?: string
@@ -1004,14 +1006,19 @@ export default function Metadata() {
 
               {describeResult && (
                 <>
+                  {describeResult.model && (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      Açıklama modeli: <code translate="no">{describeResult.model}</code>
+                      {describeResult.translation_applied && describeResult.translation_model ? (
+                        <> · Çeviri: <code translate="no">{describeResult.translation_model}</code></>
+                      ) : null}
+                    </div>
+                  )}
                   <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
                     {describeResult.sample_rows} satır örneklendi.{' '}
                     {describeResult.applied
                       ? <span className="success">Tüm öneriler uygulandı.</span>
                       : 'İnceleyip seçerek uygulayın.'}
-                    {describeResult.translation_applied && describeResult.translation_model ? (
-                      <> Çeviri <code>{describeResult.translation_model}</code> tarafından düzenlendi.</>
-                    ) : null}
                   </p>
                   {describeResult.translation_error && (
                     <p style={{ margin: 0, color: 'var(--error)' }}>

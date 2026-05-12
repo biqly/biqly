@@ -137,7 +137,7 @@ func (h *AIHandler) Query(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	resp.ModelUsed = h.deps.Config.AI.Model
+	resp.ModelUsed = h.deps.Config.AI.EffectiveQueryConfig().Model
 	resp.TableRouting = routing
 	h.recordAIHistory(ctx, req, model, routing, resp)
 
@@ -183,7 +183,7 @@ func (h *AIHandler) Preview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	resp.ModelUsed = h.deps.Config.AI.Model
+	resp.ModelUsed = h.deps.Config.AI.EffectiveQueryConfig().Model
 	resp.TableRouting = routing
 	h.recordAIHistory(ctx, req, model, routing, resp)
 
@@ -283,7 +283,7 @@ func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp.TableRouting = routing
-	resp.ModelUsed = h.deps.Config.AI.Model
+	resp.ModelUsed = h.deps.Config.AI.EffectiveQueryConfig().Model
 	h.recordAIHistory(ctx, req, model, routing, resp)
 
 	if resp.LogicalQuery == nil {

@@ -273,7 +273,7 @@ function AIRuntimeSettingsPanel({
       <div className="ai-runtime-settings-title">Sunucu AI (ortam değişkenleri)</div>
       <div className="ai-settings-grid">
         <section className="ai-settings-section" aria-labelledby="ai-settings-llm">
-          <h3 id="ai-settings-llm">LLM</h3>
+          <h3 id="ai-settings-llm">LLM (Describe / Çeviri)</h3>
           <dl className="ai-settings-dl">
             <dt>Sağlayıcı</dt>
             <dd>{settings.provider?.trim() ? settings.provider : '—'}</dd>
@@ -292,6 +292,32 @@ function AIRuntimeSettingsPanel({
             <dd>{settings.api_key_configured ? 'Yapıldı' : 'Ayarlanmadı'} <span className="ai-settings-meta" translate="no">BI_AI_API_KEY</span></dd>
           </dl>
         </section>
+        {settings.query_model_override === true ? (
+          <section className="ai-settings-section" aria-labelledby="ai-settings-query">
+            <h3 id="ai-settings-query">AI Sorgu modeli</h3>
+            <dl className="ai-settings-dl">
+              <dt>Sağlayıcı</dt>
+              <dd>{settings.query_provider?.trim() ? settings.query_provider : '—'}</dd>
+              <dt>Model</dt>
+              <dd><code translate="no">{settings.query_model ?? '—'}</code> <span className="ai-settings-meta" translate="no">BI_AI_QUERY_MODEL</span></dd>
+              <dt>Temel URL</dt>
+              <dd>
+                {settings.query_base_url?.trim() ? (
+                  <code translate="no">{settings.query_base_url}</code>
+                ) : (
+                  <span><span className="ai-settings-meta">miras</span> <code translate="no">{settings.query_base_url_effective ?? '—'}</code></span>
+                )}
+                <span className="ai-settings-meta" translate="no">BI_AI_QUERY_BASE_URL</span>
+              </dd>
+              <dt>API anahtarı</dt>
+              <dd>
+                {settings.query_api_key_dedicated
+                  ? <>Özel anahtar <span className="ai-settings-meta" translate="no">BI_AI_QUERY_API_KEY</span></>
+                  : <>{settings.query_api_key_configured ? 'BI_AI_API_KEY mirası' : 'Ayarlanmadı'}</>}
+              </dd>
+            </dl>
+          </section>
+        ) : null}
         {settings.embeddings_enabled === true ? (
           <section className="ai-settings-section" aria-labelledby="ai-settings-embeddings">
             <h3 id="ai-settings-embeddings">Embedding'ler</h3>
@@ -782,9 +808,12 @@ export default function AIQuery() {
 
             {result.model_used && (
               <div className="model-used-badge" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-                Model kullanıldı: <code>{result.model_used}</code>
-                {aiRuntime?.llm_model && result.model_used !== aiRuntime.llm_model && (
-                  <span> (yapılandırılan: <code>{aiRuntime.llm_model}</code>)</span>
+                Sorgu modeli: <code translate="no">{result.model_used}</code>
+                {aiRuntime?.query_model_override && aiRuntime.query_model && result.model_used !== aiRuntime.query_model && (
+                  <span> (yapılandırılan: <code translate="no">{aiRuntime.query_model}</code>)</span>
+                )}
+                {!aiRuntime?.query_model_override && aiRuntime?.llm_model && result.model_used !== aiRuntime.llm_model && (
+                  <span> (yapılandırılan: <code translate="no">{aiRuntime.llm_model}</code>)</span>
                 )}
               </div>
             )}

@@ -109,7 +109,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 			"describe_model", cfg.AI.Model)
 	}
 	translator := ai.NewTranslationServiceFromConfig(cfg.AI)
-	describer := ai.NewDescribeService(aiClient, metaRepo, reg, translator, 10, cfg.AI.DescribeMaxCellRunes, cfg.AI.DescribeMaxSampleRows)
+	describer := ai.NewDescribeService(aiClient, metaRepo, reg, translator, 10, cfg.AI.DescribeMaxCellRunes, cfg.AI.DescribeMaxSampleRows).WithModel(cfg.AI.Model)
 
 	// Embeddings are optional: BI_AI_EMBEDDING_MODEL plus resolvable URL and API key.
 	var embedder ai.Embedder

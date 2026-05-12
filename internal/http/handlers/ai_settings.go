@@ -15,6 +15,20 @@ type aiRuntimeSettingsResponse struct {
 	BaseURLEffective string `json:"base_url_effective"`
 	APIKeyConfigured bool   `json:"api_key_configured"`
 
+	// QueryModelOverride is true when BI_AI_QUERY_* knobs split the
+	// NL→LogicalQuery model away from the base. QueryModel / QueryBaseURL /
+	// QueryProvider always report the effective values so the UI can show
+	// "AI Sorgu modeli: X" alongside "Describe modeli: Y" — frontend hides
+	// the dedicated row when override is false to avoid duplicate badges.
+	QueryModelOverride        bool   `json:"query_model_override"`
+	QueryProvider             string `json:"query_provider,omitempty"`
+	QueryModel                string `json:"query_model,omitempty"`
+	QueryBaseURL              string `json:"query_base_url,omitempty"`
+	QueryBaseURLEffective     string `json:"query_base_url_effective,omitempty"`
+	QueryAPIKeyConfigured     bool   `json:"query_api_key_configured,omitempty"`
+	QueryAPIKeyDedicated      bool   `json:"query_api_key_dedicated,omitempty"`
+	QueryHTTPTimeoutSeconds   int    `json:"query_http_timeout_seconds,omitempty"`
+
 	EmbeddingsEnabled         bool   `json:"embeddings_enabled"`
 	EmbeddingModel            string `json:"embedding_model,omitempty"`
 	EmbeddingBaseURL          string `json:"embedding_base_url,omitempty"`
@@ -85,6 +99,17 @@ func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 		BaseURL:          cfg.BaseURL,
 		BaseURLEffective: effectiveAIBaseURL(cfg),
 		APIKeyConfigured: strings.TrimSpace(cfg.APIKey) != "",
+	}
+	queryCfg := cfg.EffectiveQueryConfig()
+	out.QueryModelOverride = cfg.HasQueryOverride()
+	out.QueryProvider = queryCfg.Provider
+	out.QueryModel = queryCfg.Model
+	out.QueryBaseURL = queryCfg.BaseURL
+	out.QueryBaseURLEffective = effectiveAIBaseURL(queryCfg)
+	out.QueryAPIKeyConfigured = strings.TrimSpace(queryCfg.APIKey) != ""
+	out.QueryAPIKeyDedicated = strings.TrimSpace(cfg.QueryAPIKey) != ""
+	if cfg.QueryHTTPTimeoutSeconds > 0 {
+		out.QueryHTTPTimeoutSeconds = cfg.QueryHTTPTimeoutSeconds
 	}
 	if cfg.EmbeddingsConfigured() {
 		out.EmbeddingsEnabled = true
