@@ -2,6 +2,8 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useApi } from '../hooks/useApi'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { Select } from './ui/Select'
+import { ModelBadgeRow } from './ui/ModelBadgeRow'
+import type { AIRuntimeSettings } from '../types/ai'
 
 type BulkStatus = 'pending' | 'running' | 'ok' | 'error' | 'skipped'
 
@@ -201,6 +203,7 @@ export default function Metadata() {
   const skipBlurSaveRef = useRef(false)
   const [tableFilterSchema, setTableFilterSchema] = useState(schemaParam)
   const [tableFilterType, setTableFilterType] = useState(typeParam)
+  const [aiRuntime, setAiRuntime] = useState<AIRuntimeSettings | null>(null)
   /** Batch modal: which table_type values to include (all keys set true in openBulk). */
   const [bulkTypeEnabled, setBulkTypeEnabled] = useState<Record<string, boolean>>({})
   const [bulkSchemaRestrict, setBulkSchemaRestrict] = useState(false)
@@ -214,6 +217,11 @@ export default function Metadata() {
         if (prev && data.some((d) => d.id === prev)) return prev
         return data[0]?.id ?? ''
       })
+    })
+    // Server AI runtime (BI_AI_MODEL etc.) — fed into the Describe / Bulk
+    // Describe modals so users can see which LLM will write the descriptions.
+    get<AIRuntimeSettings>('/api/ai/settings').then((data) => {
+      if (data) setAiRuntime(data)
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -714,6 +722,11 @@ export default function Metadata() {
               <div>
                 <h2 id="bulk-metadata-title" className="bulk-modal-title">AI Metadata Üretici</h2>
                 <p className="bulk-modal-subtitle">Seçili tablo ve kolonlar için Türkçe öncelikli LLM açıklamaları</p>
+                <ModelBadgeRow
+                  primaryLabel="Açıklama"
+                  primaryModel={aiRuntime?.llm_model}
+                  translationModel={aiRuntime?.translation_enabled ? aiRuntime?.translation_model : undefined}
+                />
               </div>
               <button
                 type="button"
@@ -936,9 +949,22 @@ export default function Metadata() {
             aria-labelledby="describe-title"
           >
             <header className="modal-header">
-              <h2 id="describe-title">
-                🤖 AI Açıkla — {describeOpen.schema_name}.{describeOpen.table_name}
-              </h2>
+              <div>
+                <h2 id="describe-title">
+                  🤖 AI Açıkla — {describeOpen.schema_name}.{describeOpen.table_name}
+                </h2>
+                <ModelBadgeRow
+                  primaryLabel="Açıklama"
+                  primaryModel={describeResult?.model ?? aiRuntime?.llm_model}
+                  translationModel={
+                    describeResult?.translation_applied
+                      ? describeResult?.translation_model
+                      : aiRuntime?.translation_enabled
+                        ? aiRuntime?.translation_model
+                        : undefined
+                  }
+                />
+              </div>
               <button
                 type="button"
                 className="modal-close"
