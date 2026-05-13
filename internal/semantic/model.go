@@ -6,10 +6,6 @@ import (
 	"time"
 )
 
-// Model defines a business-friendly view over a physical table.
-// Deprecated: Use SemanticModel instead; this alias exists for backward compatibility.
-type Model = SemanticModel
-
 // SemanticModel defines a business-friendly view over a physical table.
 //
 //nolint:revive // 'SemanticModel' is clearer than 'Model' in the semantic package context
@@ -123,7 +119,7 @@ const (
 // MetricRegistry provides a single source of truth for metric definitions,
 // used by the AI prompt builder, query validator, and SQL compiler.
 type MetricRegistry struct {
-	byName   map[string]*Metric
+	byName    map[string]*Metric
 	bySynonym map[string]*Metric // maps synonyms and aliases to canonical metric
 }
 

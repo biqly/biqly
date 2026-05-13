@@ -9,6 +9,7 @@ import (
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/metadata"
+	"github.com/biqly/biqly/internal/security"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
@@ -146,14 +147,11 @@ func (h *DatasourceHandler) Test(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dsn := ds.DSNEncrypted
-	if h.deps.Encryptor != nil && h.deps.Encryptor.IsEncrypted(dsn) {
-		dsn, err = h.deps.Encryptor.Decrypt(dsn)
-		if err != nil {
-			slog.ErrorContext(ctx, "decrypt DSN failed", "error", err)
-			writeError(w, http.StatusInternalServerError, "failed to decrypt DSN")
-			return
-		}
+	dsn, err := security.ConnectionDSN(h.deps.Encryptor, ds.DSNEncrypted)
+	if err != nil {
+		slog.ErrorContext(ctx, "decrypt DSN failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to decrypt DSN")
+		return
 	}
 
 	start := time.Now()
@@ -190,14 +188,11 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	dsn := ds.DSNEncrypted
-	if h.deps.Encryptor != nil && h.deps.Encryptor.IsEncrypted(dsn) {
-		dsn, err = h.deps.Encryptor.Decrypt(dsn)
-		if err != nil {
-			slog.ErrorContext(ctx, "decrypt DSN failed", "error", err)
-			writeError(w, http.StatusInternalServerError, "failed to decrypt DSN")
-			return
-		}
+	dsn, err := security.ConnectionDSN(h.deps.Encryptor, ds.DSNEncrypted)
+	if err != nil {
+		slog.ErrorContext(ctx, "decrypt DSN failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to decrypt DSN")
+		return
 	}
 
 	db, err := driver.Open(ctx, dsn)

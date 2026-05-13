@@ -13,6 +13,7 @@ import (
 	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/dialect"
 	"github.com/biqly/biqly/internal/metadata"
+	"github.com/biqly/biqly/internal/security"
 )
 
 // identRegex matches catalog names we interpolate into a sample query after
@@ -29,13 +30,14 @@ type DescribeService struct {
 	metaRepo             *metadata.Repository
 	driverReg            *datasource.Registry
 	translator           *TranslationService
+	encryptor            *security.Encryption
 	sampleRows           int
 	maxCellRunes         int
 	maxSampleRowsHardCap int
 }
 
 // NewDescribeService wires the dependencies needed to sample, prompt, and persist descriptions.
-func NewDescribeService(client Provider, metaRepo *metadata.Repository, driverReg *datasource.Registry, translator *TranslationService, sampleRows, maxCellRunes, maxSampleRowsHardCap int) *DescribeService {
+func NewDescribeService(client Provider, metaRepo *metadata.Repository, driverReg *datasource.Registry, translator *TranslationService, sampleRows, maxCellRunes, maxSampleRowsHardCap int, encryptor *security.Encryption) *DescribeService {
 	if sampleRows <= 0 {
 		sampleRows = 10
 	}
@@ -50,6 +52,7 @@ func NewDescribeService(client Provider, metaRepo *metadata.Repository, driverRe
 		metaRepo:             metaRepo,
 		driverReg:            driverReg,
 		translator:           translator,
+		encryptor:            encryptor,
 		sampleRows:           sampleRows,
 		maxCellRunes:         maxCellRunes,
 		maxSampleRowsHardCap: maxSampleRowsHardCap,
@@ -135,7 +138,11 @@ func (s *DescribeService) Describe(ctx context.Context, req DescribeRequest) (*D
 		limit = 6
 	}
 
-	db, err := driver.Open(ctx, ds.DSNEncrypted)
+	dsn, err := security.ConnectionDSN(s.encryptor, ds.DSNEncrypted)
+	if err != nil {
+		return nil, fmt.Errorf("datasource DSN: %w", err)
+	}
+	db, err := driver.Open(ctx, dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open datasource: %w", err)
 	}

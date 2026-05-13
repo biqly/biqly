@@ -167,15 +167,18 @@ func (r *EvalRepository) GetRunResults(ctx context.Context, runID string) ([]Eva
 	if err != nil {
 		return nil, fmt.Errorf("query eval results: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []EvalResultRecord
 	for rows.Next() {
 		var rec EvalResultRecord
 		if err := rows.Scan(&rec.ID, &rec.RunID, &rec.Provider, &rec.Model, &rec.ContextVersion, &rec.ContextUpdatedAt, &rec.CaseID, &rec.Question, &rec.ExpectedLQ, &rec.GotLQ, &rec.Match, &rec.Reason, &rec.Confidence, &rec.LatencyMs, &rec.TokenCount, &rec.CreatedAt); err != nil {
-			continue
+			return nil, fmt.Errorf("scan eval result: %w", err)
 		}
 		results = append(results, rec)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("eval results rows: %w", err)
 	}
 	return results, nil
 }
@@ -212,18 +215,21 @@ func (r *EvalRepository) ListRuns(ctx context.Context, limit int) ([]EvalRunSumm
 	if err != nil {
 		return nil, fmt.Errorf("list eval runs: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var runs []EvalRunSummary
 	for rows.Next() {
 		var s EvalRunSummary
 		if err := rows.Scan(&s.RunID, &s.Provider, &s.Model, &s.ContextVersion, &s.TotalCases, &s.Passed, &s.Failed, &s.AvgConfidence, &s.AvgLatencyMs, &s.TotalTokens, &s.CompletedAt); err != nil {
-			continue
+			return nil, fmt.Errorf("scan eval run: %w", err)
 		}
 		if s.TotalCases > 0 {
 			s.PassRate = float64(s.Passed) / float64(s.TotalCases) * 100
 		}
 		runs = append(runs, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("eval runs rows: %w", err)
 	}
 	return runs, nil
 }

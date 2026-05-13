@@ -2,14 +2,12 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
-	"github.com/google/uuid"
 )
 
 const (
@@ -26,7 +24,7 @@ func (h *QueryHandler) recordQueryHistory(
 	status string,
 	queryErr error,
 ) {
-	entry, err := buildQueryHistoryEntry(lq, model, cq, result, status, queryErr)
+	entry, err := query.BuildQueryHistoryEntry(lq, model, cq, result, status, queryErr)
 	if err != nil {
 		slog.ErrorContext(ctx, "build query history failed", "error", err)
 		return
@@ -58,7 +56,7 @@ func (h *AIHandler) recordAIQueryHistory(
 	status string,
 	queryErr error,
 ) {
-	entry, err := buildQueryHistoryEntry(lq, model, cq, result, status, queryErr)
+	entry, err := query.BuildQueryHistoryEntry(lq, model, cq, result, status, queryErr)
 	if err != nil {
 		slog.ErrorContext(ctx, "build AI query history failed", "error", err)
 		return
@@ -66,41 +64,6 @@ func (h *AIHandler) recordAIQueryHistory(
 	if err := h.deps.MetaRepo.CreateQueryHistory(ctx, entry); err != nil {
 		slog.ErrorContext(ctx, "create AI query history failed", "error", err)
 	}
-}
-
-func buildQueryHistoryEntry(
-	lq query.LogicalQuery,
-	model *semantic.SemanticModel,
-	cq *query.CompiledQuery,
-	result *query.QueryResult,
-	status string,
-	queryErr error,
-) (*query.HistoryEntry, error) {
-	entry := &query.HistoryEntry{
-		DatasourceID: lq.DatasourceID,
-		ModelID:      historyModelID(model),
-		LogicalQuery: lq,
-		Status:       status,
-	}
-	if cq != nil {
-		entry.CompiledSQL = &cq.SQL
-		sqlArgs, err := marshalSQLArgs(cq.Args)
-		if err != nil {
-			return nil, err
-		}
-		entry.SQLArgs = sqlArgs
-	}
-	if result != nil {
-		rowCount := result.Stats.RowCount
-		durationMs := int(result.Stats.DurationMs)
-		entry.RowCount = &rowCount
-		entry.DurationMs = &durationMs
-	}
-	if queryErr != nil {
-		msg := queryErr.Error()
-		entry.ErrorMessage = &msg
-	}
-	return entry, nil
 }
 
 func buildAIHistoryEntry(
@@ -111,7 +74,7 @@ func buildAIHistoryEntry(
 ) *metadata.AIQueryHistoryEntry {
 	entry := &metadata.AIQueryHistoryEntry{
 		DatasourceID: req.DatasourceID,
-		ModelID:      historyModelID(model),
+		ModelID:      query.HistoryModelID(model),
 		Question:     req.Question,
 		PromptContext: map[string]any{
 			"model_id":       req.ModelID,
@@ -128,26 +91,4 @@ func buildAIHistoryEntry(
 		Warnings:        resp.Warnings,
 	}
 	return entry
-}
-
-func historyModelID(model *semantic.SemanticModel) *string {
-	if model == nil {
-		return nil
-	}
-	if _, err := uuid.Parse(model.ID); err != nil {
-		return nil
-	}
-	return &model.ID
-}
-
-func marshalSQLArgs(args []any) (*string, error) {
-	if args == nil {
-		return nil, nil
-	}
-	encoded, err := json.Marshal(args)
-	if err != nil {
-		return nil, err
-	}
-	s := string(encoded)
-	return &s, nil
 }

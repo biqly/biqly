@@ -176,34 +176,11 @@ func (c *Compiler) CompileWithPermissions(
 	upperSQL := strings.ToUpper(cq.SQL)
 	hasWhere := strings.Contains(upperSQL, " WHERE ")
 
-	// Build row filter SQL parts with correct placeholder offsets
-	baseArgCount := len(cq.Args)
-	var filterParts []string
-	var filterArgs []any
-	for _, rf := range rowFilters {
-		colRef, ok := dimMap[rf.Field]
-		if !ok {
-			continue
-		}
-		quoted := c.dialect.QuoteIdent(colRef)
-		offset := baseArgCount
-		switch rf.Operator {
-		case "eq":
-			filterArgs = append(filterArgs, rf.Value)
-			filterParts = append(filterParts, quoted+" = "+c.dialect.Placeholder(offset+len(filterArgs)))
-		case "in":
-			if vals, ok := rf.Value.([]any); ok {
-				placeholders := make([]string, len(vals))
-				for i, v := range vals {
-					filterArgs = append(filterArgs, v)
-					placeholders[i] = c.dialect.Placeholder(offset + len(filterArgs))
-				}
-				filterParts = append(filterParts, quoted+" IN ("+strings.Join(placeholders, ", ")+")")
-			}
-		default:
-			filterArgs = append(filterArgs, rf.Value)
-			filterParts = append(filterParts, quoted+" = "+c.dialect.Placeholder(offset+len(filterArgs)))
-		}
+	filterParts, filterArgs, err := security.BuildRowFilterPredicates(
+		c.dialect, dimMap, rowFilters, len(cq.Args), true,
+	)
+	if err != nil {
+		return nil, err
 	}
 
 	if len(filterParts) == 0 {

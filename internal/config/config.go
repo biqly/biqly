@@ -40,6 +40,10 @@ type QueryConfig struct {
 	TimeoutSeconds    int
 	MaxRows           int
 	MaxRuntimeSeconds int
+	// HistoryListLimit caps rows returned by the query history list API (newest first).
+	HistoryListLimit int
+	// EvalRunsListLimit caps rows returned by the AI eval runs list admin API.
+	EvalRunsListLimit int
 }
 
 // SecurityConfig holds encryption key settings.
@@ -132,6 +136,8 @@ func Load() (*Config, error) {
 			TimeoutSeconds:    getEnvAsInt("BI_QUERY_TIMEOUT_SECONDS", 30),
 			MaxRows:           getEnvAsInt("BI_QUERY_MAX_ROWS", 10000),
 			MaxRuntimeSeconds: getEnvAsInt("BI_QUERY_MAX_RUNTIME_SECONDS", 60),
+			HistoryListLimit:  getEnvAsInt("BI_QUERY_HISTORY_LIST_LIMIT", 100),
+			EvalRunsListLimit: getEnvAsInt("BI_EVAL_RUNS_LIST_LIMIT", 50),
 		},
 		Security: SecurityConfig{
 			EncryptionKey: getEnv("BI_ENCRYPTION_KEY", "change-this-to-a-secure-32-byte-key!!"),

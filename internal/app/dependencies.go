@@ -60,8 +60,9 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		return nil, fmt.Errorf("ping metadata db: %w", err)
 	}
 
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
+	lims := datasource.DefaultPoolLimits()
+	db.SetMaxOpenConns(lims.MaxOpen)
+	db.SetMaxIdleConns(lims.MaxIdle)
 
 	// Setup driver registry
 	reg := datasource.NewRegistry()
@@ -74,6 +75,21 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 	metaRepo := metadata.NewRepository(db)
 	semanticRepo := semantic.NewRepository(db)
 
+	// Encryption for sensitive fields (DSNs, etc.). Falls back to nil if
+	// BI_ENCRYPTION_KEY is not set — datasource handler tolerates nil and
+	// stores plaintext with a warning.
+	var encryptor *security.Encryption
+	enc, err := security.NewEncryption()
+	if err != nil {
+		slog.Warn("encryption disabled; DSNs will be stored in plaintext", "detail", err)
+	} else {
+		encryptor = enc
+		// Migrate any existing plaintext DSNs to encrypted format on startup.
+		if err := migratePlaintextDSNs(ctx, db, encryptor); err != nil {
+			slog.Warn("failed to migrate existing plaintext DSNs to encrypted format", "error", err)
+		}
+	}
+
 	// Setup query components
 	validator := query.NewValidator(cfg.Query.MaxRows)
 	executor := query.NewExecutor(cfg.Query.MaxRows, cfg.QueryTimeout())
@@ -84,6 +100,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		Validator:   validator,
 		Executor:    executor,
 		History:     metaRepo,
+		Encryptor:   encryptor,
 	})
 
 	// AI provider (OpenAI / Anthropic / OpenAI-compatible) + metadata describe
@@ -109,7 +126,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 			"describe_model", cfg.AI.Model)
 	}
 	translator := ai.NewTranslationServiceFromConfig(cfg.AI)
-	describer := ai.NewDescribeService(aiClient, metaRepo, reg, translator, 10, cfg.AI.DescribeMaxCellRunes, cfg.AI.DescribeMaxSampleRows).WithModel(cfg.AI.Model)
+	describer := ai.NewDescribeService(aiClient, metaRepo, reg, translator, 10, cfg.AI.DescribeMaxCellRunes, cfg.AI.DescribeMaxSampleRows, encryptor).WithModel(cfg.AI.Model)
 
 	// Embeddings are optional: BI_AI_EMBEDDING_MODEL plus resolvable URL and API key.
 	var embedder ai.Embedder
@@ -117,21 +134,6 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 	if cfg.AI.EmbeddingsConfigured() {
 		embedder = ai.NewOpenAIEmbedder(cfg.AI)
 		embedMeta = ai.NewEmbedMetadataService(embedder, metaRepo)
-	}
-
-	// Encryption for sensitive fields (DSNs, etc.). Falls back to nil if
-	// BI_ENCRYPTION_KEY is not set — datasource handler tolerates nil and
-	// stores plaintext with a warning.
-	var encryptor *security.Encryption
-	enc, err := security.NewEncryption()
-	if err != nil {
-		slog.Warn("encryption disabled; DSNs will be stored in plaintext", "detail", err)
-	} else {
-		encryptor = enc
-		// Migrate any existing plaintext DSNs to encrypted format on startup.
-		if err := migratePlaintextDSNs(ctx, db, encryptor); err != nil {
-			slog.Warn("failed to migrate existing plaintext DSNs to encrypted format", "error", err)
-		}
 	}
 
 	// Eval repository for persistent golden test results and regression reports.
@@ -163,7 +165,7 @@ func migratePlaintextDSNs(ctx context.Context, db *sql.DB, enc *security.Encrypt
 	if err != nil {
 		return fmt.Errorf("query datasources: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	type pair struct {
 		id  string
@@ -173,11 +175,14 @@ func migratePlaintextDSNs(ctx context.Context, db *sql.DB, enc *security.Encrypt
 	for rows.Next() {
 		var id, dsn string
 		if err := rows.Scan(&id, &dsn); err != nil {
-			continue
+			return fmt.Errorf("scan datasource row: %w", err)
 		}
 		if !enc.IsEncrypted(dsn) {
 			toEncrypt = append(toEncrypt, pair{id: id, dsn: dsn})
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate datasources for DSN migration: %w", err)
 	}
 	if len(toEncrypt) == 0 {
 		return nil

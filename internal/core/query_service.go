@@ -3,14 +3,13 @@ package core
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"log/slog"
-	"strconv"
 
 	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/query"
+	"github.com/biqly/biqly/internal/security"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
@@ -43,6 +42,8 @@ type QueryServiceDeps struct {
 	Executor    *query.Executor
 	History     HistoryRecorder
 	Logger      *slog.Logger
+	// Encryptor decrypts datasource DSNs when stored encrypted; nil means plaintext only.
+	Encryptor *security.Encryption
 }
 
 type QueryService struct {
@@ -53,6 +54,7 @@ type QueryService struct {
 	executor    *query.Executor
 	history     HistoryRecorder
 	logger      *slog.Logger
+	encryptor   *security.Encryption
 }
 
 type CompileResult struct {
@@ -77,6 +79,7 @@ func NewQueryService(deps QueryServiceDeps) *QueryService {
 		executor:    deps.Executor,
 		history:     deps.History,
 		logger:      deps.Logger,
+		encryptor:   deps.Encryptor,
 	}
 }
 
@@ -114,7 +117,11 @@ func (s *QueryService) Run(ctx context.Context, lq query.LogicalQuery) (*RunResu
 	if err != nil {
 		return nil, err
 	}
-	db, err := compiled.Driver.Open(ctx, compiled.Datasource.DSNEncrypted)
+	dsn, err := security.ConnectionDSN(s.encryptor, compiled.Datasource.DSNEncrypted)
+	if err != nil {
+		return nil, fmt.Errorf("datasource DSN: %w", err)
+	}
+	db, err := compiled.Driver.Open(ctx, dsn)
 	if err != nil {
 		return nil, fmt.Errorf("connection: %w", err)
 	}
@@ -143,7 +150,13 @@ func (s *QueryService) DryRun(ctx context.Context, db *sql.DB, lq query.LogicalQ
 	if err != nil {
 		return fmt.Errorf("explain: %w", err)
 	}
-	_ = rows.Close()
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		// Drain result set so the driver can reuse the connection.
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("explain: %w", err)
+	}
 	return nil
 }
 
@@ -186,7 +199,7 @@ func (s *QueryService) recordHistory(
 	if s.history == nil {
 		return
 	}
-	entry, err := BuildQueryHistoryEntry(lq, model, cq, result, status, queryErr)
+	entry, err := query.BuildQueryHistoryEntry(lq, model, cq, result, status, queryErr)
 	if err != nil {
 		s.logError(ctx, "build query history failed", err)
 		return
@@ -202,74 +215,4 @@ func (s *QueryService) logError(ctx context.Context, msg string, err error) {
 		return
 	}
 	slog.ErrorContext(ctx, msg, "error", err)
-}
-
-func BuildQueryHistoryEntry(
-	lq query.LogicalQuery,
-	model *semantic.SemanticModel,
-	cq *query.CompiledQuery,
-	result *query.QueryResult,
-	status string,
-	queryErr error,
-) (*query.HistoryEntry, error) {
-	lq.EnsureVersion()
-	entry := &query.HistoryEntry{
-		DatasourceID: lq.DatasourceID,
-		ModelID:      historyModelID(model),
-		LogicalQuery: lq,
-		Status:       status,
-		Fingerprint: query.ComputeFingerprint(query.FingerprintInputs{
-			LogicalQuery:   lq,
-			DatasourceID:   lq.DatasourceID,
-			ContextVersion: semanticContextVersion(model),
-		}),
-	}
-	if cq != nil {
-		entry.CompiledSQL = &cq.SQL
-		sqlArgs, err := marshalSQLArgs(cq.Args)
-		if err != nil {
-			return nil, err
-		}
-		entry.SQLArgs = sqlArgs
-	}
-	if result != nil {
-		rowCount := result.Stats.RowCount
-		durationMs := int(result.Stats.DurationMs)
-		entry.RowCount = &rowCount
-		entry.DurationMs = &durationMs
-	}
-	if queryErr != nil {
-		msg := queryErr.Error()
-		entry.ErrorMessage = &msg
-	}
-	return entry, nil
-}
-
-func historyModelID(model *semantic.SemanticModel) *string {
-	if model == nil || model.ID == "" {
-		return nil
-	}
-	return &model.ID
-}
-
-// semanticContextVersion stamps the semantic model version onto a query
-// fingerprint so re-publishing the model naturally invalidates any cached
-// matches keyed by the previous schema.
-func semanticContextVersion(model *semantic.SemanticModel) string {
-	if model == nil {
-		return ""
-	}
-	return strconv.Itoa(model.Version)
-}
-
-func marshalSQLArgs(args []any) (*string, error) {
-	if args == nil {
-		return nil, nil
-	}
-	b, err := json.Marshal(args)
-	if err != nil {
-		return nil, err
-	}
-	s := string(b)
-	return &s, nil
 }

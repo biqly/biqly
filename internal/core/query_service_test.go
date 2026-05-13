@@ -26,6 +26,7 @@ func TestQueryServiceCompileUsesSameSQLAsCompiler(t *testing.T) {
 		Drivers:     registry,
 		Validator:   query.NewValidator(1000),
 		Executor:    query.NewExecutor(1000, 0),
+		Encryptor:   nil,
 	})
 
 	got, err := service.Compile(ctx, lq)

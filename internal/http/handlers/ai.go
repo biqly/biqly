@@ -14,6 +14,7 @@ import (
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/dialect"
+	"github.com/biqly/biqly/internal/security"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
@@ -98,36 +99,47 @@ func priorTurnsForPrompt(payload []priorTurnPayload) []ai.ConversationTurn {
 	return out
 }
 
-// Query handles AI-powered natural language queries.
-func (h *AIHandler) Query(w http.ResponseWriter, r *http.Request) {
+// parseAndRouteAIQuery decodes the request, validates required fields, loads the semantic
+// model (and table routing). If it writes a response to w (bad request, model load error, or
+// clarification-only response), ok is false.
+func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request) (aiQueryRequest, *semantic.SemanticModel, *ai.TableRoutingResult, bool) {
 	var req aiQueryRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
+		return req, nil, nil, false
 	}
-
 	if req.Question == "" {
 		writeError(w, http.StatusBadRequest, "question is required")
-		return
+		return req, nil, nil, false
 	}
 	if req.DatasourceID == "" {
 		writeError(w, http.StatusBadRequest, "datasource_id is required")
-		return
+		return req, nil, nil, false
 	}
 
 	ctx := r.Context()
 	model, routing, err := h.loadQueryModel(ctx, req)
 	if err != nil {
 		h.writeModelLoadError(w, req, err)
-		return
+		return req, nil, nil, false
 	}
 	if routing != nil && routing.NeedsClarification {
 		resp := clarificationResponse(routing)
 		h.recordAIHistory(ctx, req, model, routing, resp)
 		writeJSON(w, http.StatusOK, resp)
+		return req, nil, nil, false
+	}
+	return req, model, routing, true
+}
+
+// Query handles AI-powered natural language queries.
+func (h *AIHandler) Query(w http.ResponseWriter, r *http.Request) {
+	req, model, routing, ok := h.parseAndRouteAIQuery(w, r)
+	if !ok {
 		return
 	}
 
+	ctx := r.Context()
 	resp, err := h.service.ProcessQuestion(ctx, req.Question, model,
 		ai.WithFewShotExamples(h.loadFewShotExamples(ctx, model)),
 		ai.WithPriorTurns(priorTurnsForPrompt(req.PriorTurns)),
@@ -146,32 +158,12 @@ func (h *AIHandler) Query(w http.ResponseWriter, r *http.Request) {
 
 // Preview handles AI query preview (compiles but does not execute).
 func (h *AIHandler) Preview(w http.ResponseWriter, r *http.Request) {
-	var req aiQueryRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Question == "" {
-		writeError(w, http.StatusBadRequest, "question is required")
-		return
-	}
-	if req.DatasourceID == "" {
-		writeError(w, http.StatusBadRequest, "datasource_id is required")
+	req, model, routing, ok := h.parseAndRouteAIQuery(w, r)
+	if !ok {
 		return
 	}
 
 	ctx := r.Context()
-	model, routing, err := h.loadQueryModel(ctx, req)
-	if err != nil {
-		h.writeModelLoadError(w, req, err)
-		return
-	}
-	if routing != nil && routing.NeedsClarification {
-		resp := clarificationResponse(routing)
-		h.recordAIHistory(ctx, req, model, routing, resp)
-		writeJSON(w, http.StatusOK, resp)
-		return
-	}
 
 	// Get AI response
 	resp, err := h.service.ProcessQuestion(ctx, req.Question, model,
@@ -218,32 +210,12 @@ func (h *AIHandler) Preview(w http.ResponseWriter, r *http.Request) {
 
 // Run handles AI query execution (compiles and executes).
 func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
-	var req aiQueryRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Question == "" {
-		writeError(w, http.StatusBadRequest, "question is required")
-		return
-	}
-	if req.DatasourceID == "" {
-		writeError(w, http.StatusBadRequest, "datasource_id is required")
+	req, model, routing, ok := h.parseAndRouteAIQuery(w, r)
+	if !ok {
 		return
 	}
 
 	ctx := r.Context()
-	model, routing, err := h.loadQueryModel(ctx, req)
-	if err != nil {
-		h.writeModelLoadError(w, req, err)
-		return
-	}
-	if routing != nil && routing.NeedsClarification {
-		resp := clarificationResponse(routing)
-		h.recordAIHistory(ctx, req, model, routing, resp)
-		writeJSON(w, http.StatusOK, resp)
-		return
-	}
 
 	// Open the datasource up front so the dry-run validator (and later the
 	// real Execute call) share a single connection. Both happen before we
@@ -258,7 +230,13 @@ func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("unsupported driver: %s", ds.Type))
 		return
 	}
-	db, err := driver.Open(ctx, ds.DSNEncrypted)
+	dsn, err := security.ConnectionDSN(h.deps.Encryptor, ds.DSNEncrypted)
+	if err != nil {
+		slog.ErrorContext(ctx, "decrypt datasource DSN failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to read datasource credentials")
+		return
+	}
+	db, err := driver.Open(ctx, dsn)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("connection failed: %s", err.Error()))
 		return

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	platformdb "github.com/biqly/biqly/internal/platform/db"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/lib/pq"
 )
@@ -29,7 +30,10 @@ func (r *Repository) CreateDatasource(ctx context.Context, ds *Datasource) error
 		VALUES ($1, $2, $3, $4, $5, $6)
 	`
 	_, err := r.db.ExecContext(ctx, query, ds.ID, ds.Name, ds.Type, ds.DSNEncrypted, ds.Config, ds.IsActive)
-	return err
+	if err != nil {
+		return fmt.Errorf("create datasource: %w", err)
+	}
+	return nil
 }
 
 // GetDatasource retrieves a datasource by ID.
@@ -51,7 +55,7 @@ func (r *Repository) ListDatasources(ctx context.Context) ([]Datasource, error) 
 	query := `SELECT id, name, type, dsn_encrypted, config, is_active, last_sync_at, created_at, updated_at FROM datasources ORDER BY created_at DESC`
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list datasources: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -59,30 +63,35 @@ func (r *Repository) ListDatasources(ctx context.Context) ([]Datasource, error) 
 	for rows.Next() {
 		ds, err := r.scanDatasource(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("list datasources: %w", err)
 		}
 		datasources = append(datasources, *ds)
 	}
-	return datasources, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list datasources: %w", err)
+	}
+	return datasources, nil
 }
 
 // DeleteDatasource removes a datasource by ID.
 func (r *Repository) DeleteDatasource(ctx context.Context, id string) error {
 	_, err := r.db.ExecContext(ctx, `DELETE FROM datasources WHERE id = $1`, id)
-	return err
+	if err != nil {
+		return fmt.Errorf("delete datasource: %w", err)
+	}
+	return nil
 }
 
 // UpdateDatasourceSync updates the last_sync_at timestamp.
 func (r *Repository) UpdateDatasourceSync(ctx context.Context, id string) error {
 	_, err := r.db.ExecContext(ctx, `UPDATE datasources SET last_sync_at = now(), updated_at = now() WHERE id = $1`, id)
-	return err
+	if err != nil {
+		return fmt.Errorf("update datasource sync: %w", err)
+	}
+	return nil
 }
 
-type scanner interface {
-	Scan(dest ...any) error
-}
-
-func (r *Repository) scanDatasource(s scanner) (*Datasource, error) {
+func (r *Repository) scanDatasource(s platformdb.Scanner) (*Datasource, error) {
 	ds := &Datasource{}
 	err := s.Scan(&ds.ID, &ds.Name, &ds.Type, &ds.DSNEncrypted, &ds.Config, &ds.IsActive, &ds.LastSyncAt, &ds.CreatedAt, &ds.UpdatedAt)
 	if err != nil {
@@ -97,7 +106,7 @@ func (r *Repository) scanDatasource(s scanner) (*Datasource, error) {
 func (r *Repository) UpsertSchemas(ctx context.Context, datasourceID string, schemas []Schema) error {
 	for _, s := range schemas {
 		if _, err := r.UpsertSchema(ctx, datasourceID, s); err != nil {
-			return err
+			return fmt.Errorf("upsert schemas: %w", err)
 		}
 	}
 	return nil
@@ -127,7 +136,7 @@ func (r *Repository) UpsertSchema(ctx context.Context, datasourceID string, s Sc
 func (r *Repository) UpsertTables(ctx context.Context, datasourceID string, tables []Table) error {
 	for _, t := range tables {
 		if _, err := r.UpsertTable(ctx, datasourceID, t); err != nil {
-			return err
+			return fmt.Errorf("upsert tables: %w", err)
 		}
 	}
 	return nil
@@ -168,7 +177,7 @@ func (r *Repository) ListTables(ctx context.Context, datasourceID, schemaName st
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list tables: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -176,11 +185,14 @@ func (r *Repository) ListTables(ctx context.Context, datasourceID, schemaName st
 	for rows.Next() {
 		var t Table
 		if err := rows.Scan(&t.ID, &t.DatasourceID, &t.SchemaID, &t.SchemaName, &t.TableName, &t.TableType, &t.RowEstimate, &t.Description, &t.CreatedAt, &t.UpdatedAt); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scan table: %w", err)
 		}
 		tables = append(tables, t)
 	}
-	return tables, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list tables: %w", err)
+	}
+	return tables, nil
 }
 
 // GetTable returns a single table by ID.
@@ -194,7 +206,7 @@ func (r *Repository) GetTable(ctx context.Context, id string) (*Table, error) {
 		&t.ID, &t.DatasourceID, &t.SchemaID, &t.SchemaName, &t.TableName, &t.TableType, &t.RowEstimate, &t.Description, &t.CreatedAt, &t.UpdatedAt,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get table: %w", err)
 	}
 	return &t, nil
 }
@@ -202,7 +214,10 @@ func (r *Repository) GetTable(ctx context.Context, id string) (*Table, error) {
 // UpdateTableDescription replaces the description text on a table row.
 func (r *Repository) UpdateTableDescription(ctx context.Context, id string, description *string) error {
 	_, err := r.db.ExecContext(ctx, `UPDATE tables SET description = $2, updated_at = now() WHERE id = $1`, id, description)
-	return err
+	if err != nil {
+		return fmt.Errorf("update table description: %w", err)
+	}
+	return nil
 }
 
 // TableEmbedding pairs a tableKey ("schema.table") with its stored embedding.
@@ -229,7 +244,10 @@ func (r *Repository) UpsertTableEmbedding(ctx context.Context, tableID, modelNam
 		    embedding_updated_at = now()
 		WHERE id = $1
 	`, tableID, encoded, modelName)
-	return err
+	if err != nil {
+		return fmt.Errorf("upsert table embedding: %w", err)
+	}
+	return nil
 }
 
 // ListTableEmbeddings returns every stored embedding for a datasource. Used by
@@ -242,7 +260,7 @@ func (r *Repository) ListTableEmbeddings(ctx context.Context, datasourceID strin
 		WHERE datasource_id = $1 AND embedding IS NOT NULL
 	`, datasourceID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list table embeddings: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -254,7 +272,7 @@ func (r *Repository) ListTableEmbeddings(ctx context.Context, datasourceID strin
 			rawJSON []byte
 		)
 		if err := rows.Scan(&te.SchemaName, &te.TableName, &modelN, &rawJSON); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scan table embedding: %w", err)
 		}
 		if modelN != nil {
 			te.Model = *modelN
@@ -268,7 +286,10 @@ func (r *Repository) ListTableEmbeddings(ctx context.Context, datasourceID strin
 		te.Embedding = emb
 		out = append(out, te)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list table embeddings: %w", err)
+	}
+	return out, nil
 }
 
 func encodeEmbedding(vec []float32) (string, error) {
@@ -277,7 +298,7 @@ func encodeEmbedding(vec []float32) (string, error) {
 	}
 	b, err := json.Marshal(vec)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("encode embedding: %w", err)
 	}
 	return string(b), nil
 }
@@ -288,7 +309,7 @@ func decodeEmbedding(raw []byte) ([]float32, error) {
 	}
 	var vec []float32
 	if err := json.Unmarshal(raw, &vec); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decode embedding: %w", err)
 	}
 	return vec, nil
 }
@@ -341,7 +362,7 @@ func (r *Repository) ListColumns(ctx context.Context, datasourceID, schemaName, 
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list columns: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -349,11 +370,14 @@ func (r *Repository) ListColumns(ctx context.Context, datasourceID, schemaName, 
 	for rows.Next() {
 		var c Column
 		if err := rows.Scan(&c.ID, &c.DatasourceID, &c.TableID, &c.SchemaName, &c.TableName, &c.ColumnName, &c.DataType, &c.Nullable, &c.OrdinalPosition, &c.CharMaxLength, &c.NumericPrecision, &c.NumericScale, &c.ColumnDefault, &c.Description, &c.IsPrimaryKey, &c.IsForeignKey, &c.ReferencedSchema, &c.ReferencedTable, &c.ReferencedColumn, &c.CreatedAt); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scan column: %w", err)
 		}
 		columns = append(columns, c)
 	}
-	return columns, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list columns: %w", err)
+	}
+	return columns, nil
 }
 
 // GetColumn returns a single column by ID.
@@ -367,7 +391,7 @@ func (r *Repository) GetColumn(ctx context.Context, id string) (*Column, error) 
 		&c.ID, &c.DatasourceID, &c.TableID, &c.SchemaName, &c.TableName, &c.ColumnName, &c.DataType, &c.Nullable, &c.OrdinalPosition, &c.CharMaxLength, &c.NumericPrecision, &c.NumericScale, &c.ColumnDefault, &c.Description, &c.IsPrimaryKey, &c.IsForeignKey, &c.ReferencedSchema, &c.ReferencedTable, &c.ReferencedColumn, &c.CreatedAt,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get column: %w", err)
 	}
 	return &c, nil
 }
@@ -379,7 +403,7 @@ func (r *Repository) ListPermissionPolicies(ctx context.Context, datasourceID st
 		WHERE datasource_id::text = $1
 	`, datasourceID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list permission policies: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -391,21 +415,29 @@ func (r *Repository) ListPermissionPolicies(ctx context.Context, datasourceID st
 			denied     pq.StringArray
 		)
 		if err := rows.Scan(&denied, &rowFilters); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scan permission policy: %w", err)
 		}
 		policy.DeniedFields = []string(denied)
 		if len(rowFilters) > 0 {
-			_ = json.Unmarshal(rowFilters, &policy.RowFilters)
+			if err := json.Unmarshal(rowFilters, &policy.RowFilters); err != nil {
+				return nil, fmt.Errorf("list permission policies: row filters: %w", err)
+			}
 		}
 		policies = append(policies, policy)
 	}
-	return policies, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list permission policies: %w", err)
+	}
+	return policies, nil
 }
 
 // UpdateColumnDescription replaces the description text on a column row.
 func (r *Repository) UpdateColumnDescription(ctx context.Context, id string, description *string) error {
 	_, err := r.db.ExecContext(ctx, `UPDATE columns SET description = $2 WHERE id = $1`, id, description)
-	return err
+	if err != nil {
+		return fmt.Errorf("update column description: %w", err)
+	}
+	return nil
 }
 
 // UpsertColumnEmbedding stores (or replaces) the embedding vector for a single
@@ -423,7 +455,10 @@ func (r *Repository) UpsertColumnEmbedding(ctx context.Context, columnID, modelN
 		    embedding_updated_at = now()
 		WHERE id = $1
 	`, columnID, encoded, modelName)
-	return err
+	if err != nil {
+		return fmt.Errorf("upsert column embedding: %w", err)
+	}
+	return nil
 }
 
 // ListColumnEmbeddings returns every stored column embedding for a datasource in
@@ -435,7 +470,7 @@ func (r *Repository) ListColumnEmbeddings(ctx context.Context, datasourceID stri
 		WHERE datasource_id = $1 AND embedding IS NOT NULL
 	`, datasourceID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list column embeddings: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -447,7 +482,7 @@ func (r *Repository) ListColumnEmbeddings(ctx context.Context, datasourceID stri
 			rawJSON []byte
 		)
 		if err := rows.Scan(&ce.SchemaName, &ce.TableName, &ce.ColumnName, &modelN, &rawJSON); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scan column embedding: %w", err)
 		}
 		if modelN != nil {
 			ce.Model = *modelN
@@ -459,7 +494,10 @@ func (r *Repository) ListColumnEmbeddings(ctx context.Context, datasourceID stri
 		ce.Embedding = emb
 		out = append(out, ce)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list column embeddings: %w", err)
+	}
+	return out, nil
 }
 
 // Relation operations
@@ -490,7 +528,7 @@ func (r *Repository) ListRelations(ctx context.Context, datasourceID string) ([]
 	`
 	rows, err := r.db.QueryContext(ctx, query, datasourceID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list relations: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -510,11 +548,14 @@ func (r *Repository) ListRelations(ctx context.Context, datasourceID string) ([]
 			&rel.RelationshipType,
 			&rel.CreatedAt,
 		); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scan relation: %w", err)
 		}
 		relations = append(relations, rel)
 	}
-	return relations, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list relations: %w", err)
+	}
+	return relations, nil
 }
 
 // History operations
@@ -555,18 +596,21 @@ func (r *Repository) CreateQueryHistory(ctx context.Context, entry *query.Histor
 	return nil
 }
 
-// ListQueryHistory returns recent query history entries.
-func (r *Repository) ListQueryHistory(ctx context.Context) ([]query.HistoryEntry, error) {
+// ListQueryHistory returns recent query history entries (newest first), capped at limit.
+func (r *Repository) ListQueryHistory(ctx context.Context, limit int) ([]query.HistoryEntry, error) {
+	if limit <= 0 {
+		limit = 100
+	}
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, datasource_id, model_id, user_id, logical_query, compiled_sql,
 			sql_args, status, row_count, duration_ms, error_message,
 			query_fingerprint, created_at
 		FROM query_history
 		ORDER BY created_at DESC
-		LIMIT 100
-	`)
+		LIMIT $1
+	`, limit)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list query history: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -574,11 +618,14 @@ func (r *Repository) ListQueryHistory(ctx context.Context) ([]query.HistoryEntry
 	for rows.Next() {
 		entry, err := scanQueryHistoryEntry(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("list query history: %w", err)
 		}
 		entries = append(entries, entry)
 	}
-	return entries, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list query history: %w", err)
+	}
+	return entries, nil
 }
 
 // GetQueryHistory returns one query history entry by ID.
@@ -592,7 +639,7 @@ func (r *Repository) GetQueryHistory(ctx context.Context, id string) (*query.His
 	`, id)
 	entry, err := scanQueryHistoryEntry(row)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get query history: %w", err)
 	}
 	return &entry, nil
 }
@@ -690,7 +737,7 @@ func (r *Repository) CreateAIQueryHistory(ctx context.Context, entry *AIQueryHis
 	return nil
 }
 
-func scanQueryHistoryEntry(s scanner) (query.HistoryEntry, error) {
+func scanQueryHistoryEntry(s platformdb.Scanner) (query.HistoryEntry, error) {
 	var entry query.HistoryEntry
 	var modelID, userID, compiledSQL, sqlArgs, errorMessage, fingerprint sql.NullString
 	var rowCount, durationMs sql.NullInt64
@@ -741,7 +788,7 @@ func nullableJSON(value any) (*string, error) {
 	}
 	encoded, err := json.Marshal(value)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("marshal json: %w", err)
 	}
 	s := string(encoded)
 	return &s, nil
@@ -766,7 +813,7 @@ func (r *Repository) SearchColumns(ctx context.Context, datasourceID, searchTerm
 	`
 	rows, err := r.db.QueryContext(ctx, query, datasourceID, "%"+searchTerm+"%")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("search columns: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -774,11 +821,14 @@ func (r *Repository) SearchColumns(ctx context.Context, datasourceID, searchTerm
 	for rows.Next() {
 		var c Column
 		if err := rows.Scan(&c.ID, &c.DatasourceID, &c.TableID, &c.SchemaName, &c.TableName, &c.ColumnName, &c.DataType, &c.Nullable, &c.OrdinalPosition, &c.CharMaxLength, &c.NumericPrecision, &c.NumericScale, &c.ColumnDefault, &c.Description, &c.IsPrimaryKey, &c.IsForeignKey, &c.CreatedAt); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("search columns scan: %w", err)
 		}
 		columns = append(columns, c)
 	}
-	return columns, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("search columns: %w", err)
+	}
+	return columns, nil
 }
 
 // SearchTables searches tables by name or description.
@@ -791,7 +841,7 @@ func (r *Repository) SearchTables(ctx context.Context, datasourceID, searchTerm 
 	`
 	rows, err := r.db.QueryContext(ctx, query, datasourceID, "%"+searchTerm+"%")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("search tables: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -799,9 +849,12 @@ func (r *Repository) SearchTables(ctx context.Context, datasourceID, searchTerm 
 	for rows.Next() {
 		var t Table
 		if err := rows.Scan(&t.ID, &t.DatasourceID, &t.SchemaID, &t.SchemaName, &t.TableName, &t.TableType, &t.RowEstimate, &t.Description, &t.CreatedAt, &t.UpdatedAt); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("search tables scan: %w", err)
 		}
 		tables = append(tables, t)
 	}
-	return tables, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("search tables: %w", err)
+	}
+	return tables, nil
 }

@@ -21,12 +21,7 @@ func (d ClickHouseDialect) QuoteIdentSegment(identifier string) string {
 
 // QuoteIdent quotes a qualified name by splitting on '.' .
 func (d ClickHouseDialect) QuoteIdent(identifier string) string {
-	parts := strings.Split(identifier, ".")
-	quoted := make([]string, len(parts))
-	for i, part := range parts {
-		quoted[i] = d.QuoteIdentSegment(part)
-	}
-	return strings.Join(quoted, ".")
+	return QuoteIdentQualified(d, identifier)
 }
 
 // Placeholder returns the parameter placeholder for the given index.
@@ -36,14 +31,7 @@ func (d ClickHouseDialect) Placeholder(index int) string {
 
 // LimitOffset generates the LIMIT/OFFSET clause.
 func (d ClickHouseDialect) LimitOffset(limit, offset int) string {
-	var parts []string
-	if limit > 0 {
-		parts = append(parts, fmt.Sprintf("LIMIT %d", limit))
-	}
-	if offset > 0 {
-		parts = append(parts, fmt.Sprintf("OFFSET %d", offset))
-	}
-	return strings.Join(parts, " ")
+	return StandardLimitOffset(limit, offset)
 }
 
 // DateTrunc returns the date truncation expression.
@@ -83,31 +71,12 @@ func (d ClickHouseDialect) ILike(column, placeholder string) string {
 
 // CastType returns the dialect-specific SQL type name for casting.
 func (d ClickHouseDialect) CastType(sqlType string) string {
-	return strings.ToUpper(sqlType)
+	return CastTypeUpper(sqlType)
 }
 
 // Aggregate formats an aggregation function call.
 func (d ClickHouseDialect) Aggregate(fn, column string) string {
-	if strings.ToLower(fn) == "count" && column == "*" {
-		return "count()"
-	}
-	quotedCol := d.QuoteIdent(column)
-	switch strings.ToLower(fn) {
-	case "count":
-		return fmt.Sprintf("count(%s)", quotedCol)
-	case "count_distinct":
-		return fmt.Sprintf("uniq(%s)", quotedCol)
-	case "sum":
-		return fmt.Sprintf("sum(%s)", quotedCol)
-	case "avg":
-		return fmt.Sprintf("avg(%s)", quotedCol)
-	case "min":
-		return fmt.Sprintf("min(%s)", quotedCol)
-	case "max":
-		return fmt.Sprintf("max(%s)", quotedCol)
-	default:
-		return fmt.Sprintf("count(%s)", quotedCol)
-	}
+	return AggregateClickHouseSQL(d, fn, column)
 }
 
 // ExplainSQL prefixes the statement with EXPLAIN; ClickHouse plans without executing.

@@ -21,12 +21,7 @@ func (d PostgresDialect) QuoteIdentSegment(identifier string) string {
 
 // QuoteIdent quotes a qualified name by splitting on '.' (schema.table or a.b.c).
 func (d PostgresDialect) QuoteIdent(identifier string) string {
-	parts := strings.Split(identifier, ".")
-	quoted := make([]string, len(parts))
-	for i, part := range parts {
-		quoted[i] = d.QuoteIdentSegment(part)
-	}
-	return strings.Join(quoted, ".")
+	return QuoteIdentQualified(d, identifier)
 }
 
 // Placeholder returns the parameter placeholder for the given index.
@@ -36,14 +31,7 @@ func (d PostgresDialect) Placeholder(index int) string {
 
 // LimitOffset generates the LIMIT/OFFSET clause.
 func (d PostgresDialect) LimitOffset(limit, offset int) string {
-	var parts []string
-	if limit > 0 {
-		parts = append(parts, fmt.Sprintf("LIMIT %d", limit))
-	}
-	if offset > 0 {
-		parts = append(parts, fmt.Sprintf("OFFSET %d", offset))
-	}
-	return strings.Join(parts, " ")
+	return StandardLimitOffset(limit, offset)
 }
 
 // DateTrunc returns the date truncation expression.
@@ -74,31 +62,12 @@ func (d PostgresDialect) ILike(column, placeholder string) string {
 
 // CastType returns the dialect-specific SQL type name for casting.
 func (d PostgresDialect) CastType(sqlType string) string {
-	return strings.ToUpper(sqlType)
+	return CastTypeUpper(sqlType)
 }
 
 // Aggregate formats an aggregation function call.
 func (d PostgresDialect) Aggregate(fn, column string) string {
-	if strings.ToLower(fn) == "count" && column == "*" {
-		return "COUNT(*)"
-	}
-	quotedCol := d.QuoteIdent(column)
-	switch strings.ToLower(fn) {
-	case "count":
-		return fmt.Sprintf("COUNT(%s)", quotedCol)
-	case "count_distinct":
-		return fmt.Sprintf("COUNT(DISTINCT %s)", quotedCol)
-	case "sum":
-		return fmt.Sprintf("SUM(%s)", quotedCol)
-	case "avg":
-		return fmt.Sprintf("AVG(%s)", quotedCol)
-	case "min":
-		return fmt.Sprintf("MIN(%s)", quotedCol)
-	case "max":
-		return fmt.Sprintf("MAX(%s)", quotedCol)
-	default:
-		return fmt.Sprintf("COUNT(%s)", quotedCol)
-	}
+	return AggregateStandardSQL(d, fn, column)
 }
 
 // ExplainSQL prefixes the statement with EXPLAIN; PostgreSQL plans without executing.

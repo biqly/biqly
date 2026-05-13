@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log/slog"
 
 	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/dialect"
@@ -32,28 +31,18 @@ func (d *Driver) Type() string {
 
 // Ping tests connectivity to a PostgreSQL instance.
 func (d *Driver) Ping(ctx context.Context, dsn string) error {
-	db, err := sql.Open("pgx", dsn)
-	if err != nil {
+	if err := datasource.Ping(ctx, "pgx", dsn); err != nil {
 		return fmt.Errorf("failed to open postgres connection: %w", err)
 	}
-	defer func() {
-		if closeErr := db.Close(); closeErr != nil {
-			slog.Error("failed to close postgres connection", "error", closeErr)
-		}
-	}()
-	return db.PingContext(ctx)
+	return nil
 }
 
 // Open establishes a connection pool to PostgreSQL.
 func (d *Driver) Open(ctx context.Context, dsn string) (*sql.DB, error) {
-	db, err := sql.Open("pgx", dsn)
+	db, err := datasource.OpenPool(ctx, "pgx", dsn, datasource.DefaultPoolLimits())
 	if err != nil {
 		return nil, fmt.Errorf("failed to open postgres connection: %w", err)
 	}
-
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
-
 	return db, nil
 }
 

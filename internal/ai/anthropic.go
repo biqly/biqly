@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/biqly/biqly/internal/config"
 )
@@ -90,19 +89,10 @@ func (p *AnthropicProvider) GenerateAt(ctx context.Context, prompt string, tempe
 		return "", fmt.Errorf("marshal request: %w", err)
 	}
 
-	const maxAttempts = 4
-	var lastErr error
-	for attempt := 0; attempt < maxAttempts; attempt++ {
-		if attempt > 0 {
-			delay := time.Duration(250*(1<<uint(attempt-1))) * time.Millisecond
-			if err := sleepCtx(ctx, delay); err != nil {
-				return "", err
-			}
-		}
-
+	return execLLMHTTPRetry(ctx, func() (string, error, bool) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.baseURL+"/messages", bytes.NewReader(body))
 		if err != nil {
-			return "", fmt.Errorf("create request: %w", err)
+			return "", fmt.Errorf("create request: %w", err), false
 		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("x-api-key", p.apiKey)
@@ -110,43 +100,35 @@ func (p *AnthropicProvider) GenerateAt(ctx context.Context, prompt string, tempe
 
 		resp, err := p.httpClient.Do(req)
 		if err != nil {
-			lastErr = err
-			if attempt+1 < maxAttempts && isRetriableNetErr(err) {
-				continue
-			}
-			return "", fmt.Errorf("send request: %w", err)
+			return "", fmt.Errorf("send request: %w", err), isRetriableNetErr(err)
 		}
 
 		respBody, readErr := io.ReadAll(resp.Body)
 		closeErr := resp.Body.Close()
 		if readErr != nil {
-			return "", fmt.Errorf("read response: %w", readErr)
+			return "", fmt.Errorf("read response: %w", readErr), false
 		}
 		if closeErr != nil {
-			return "", fmt.Errorf("close response: %w", closeErr)
+			return "", fmt.Errorf("close response: %w", closeErr), false
 		}
 
 		if resp.StatusCode == http.StatusOK {
 			var ar anthropicResponse
 			if err := json.Unmarshal(respBody, &ar); err != nil {
-				return "", fmt.Errorf("unmarshal response: %w", err)
+				return "", fmt.Errorf("unmarshal response: %w", err), false
 			}
 			if ar.Error != nil {
-				return "", fmt.Errorf("Anthropic API error: %s", ar.Error.Message)
+				return "", fmt.Errorf("Anthropic API error: %s", ar.Error.Message), false
 			}
 			for _, c := range ar.Content {
 				if c.Type == "text" && c.Text != "" {
-					return c.Text, nil
+					return c.Text, nil, false
 				}
 			}
-			return "", fmt.Errorf("no text content in Anthropic response")
+			return "", fmt.Errorf("no text content in Anthropic response"), false
 		}
 
-		lastErr = fmt.Errorf("Anthropic API error %d: %s", resp.StatusCode, string(respBody))
-		if attempt+1 < maxAttempts && isRetriableHTTPStatus(resp.StatusCode) {
-			continue
-		}
-		return "", lastErr
-	}
-	return "", fmt.Errorf("send request: %w", lastErr)
+		apiErr := fmt.Errorf("Anthropic API error %d: %s", resp.StatusCode, string(respBody))
+		return "", apiErr, isRetriableHTTPStatus(resp.StatusCode)
+	})
 }

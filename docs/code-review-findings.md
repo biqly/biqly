@@ -3,6 +3,8 @@
 > 4 paralel agent tarafından backend ve frontend kodu incelendi. Aşağıda öncelik sırasına göre tüm bulgular.
 > Tüm checkbox'lar boş — düzelttikçe işaretleriz.
 
+**Not (güncel kod):** Aşağıdaki liste orijinal audit anındaki satır numaralarına dayanır; bazı maddeler sonradan kodda giderilmiş olabilir (ör. DSN şifreleme, repository hata sarımı). Kapatmadan önce ilgili dosyayı doğrulayın. Backend repository katmanında tutarlı `fmt.Errorf("...: %w", err)` kullanımı, `rows.Err()` kontrolleri ve `rowserrcheck` linter etkinliği nice-to-have refaktörüyle güçlendirildi; `permissions.row_filters` için geçersiz JSON artık yutulmuyor.
+
 ---
 
 ## P0 — CRITICAL (Güvenlik / Crash / Veri Kaybı)

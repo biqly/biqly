@@ -81,7 +81,7 @@ func (h *QueryHandler) Explain(w http.ResponseWriter, r *http.Request) {
 
 // History returns query history.
 func (h *QueryHandler) History(w http.ResponseWriter, r *http.Request) {
-	entries, err := h.deps.MetaRepo.ListQueryHistory(r.Context())
+	entries, err := h.deps.MetaRepo.ListQueryHistory(r.Context(), h.deps.Config.Query.HistoryListLimit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list query history")
 		return

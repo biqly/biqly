@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/biqly/biqly/internal/config"
 )
@@ -101,19 +100,10 @@ func (c *Client) GenerateAt(ctx context.Context, prompt string, temperature floa
 		return "", fmt.Errorf("marshal request: %w", err)
 	}
 
-	const maxAttempts = 4
-	var lastErr error
-	for attempt := 0; attempt < maxAttempts; attempt++ {
-		if attempt > 0 {
-			delay := time.Duration(250*(1<<uint(attempt-1))) * time.Millisecond
-			if err := sleepCtx(ctx, delay); err != nil {
-				return "", err
-			}
-		}
-
+	return execLLMHTTPRetry(ctx, func() (string, error, bool) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/chat/completions", bytes.NewReader(body))
 		if err != nil {
-			return "", fmt.Errorf("create request: %w", err)
+			return "", fmt.Errorf("create request: %w", err), false
 		}
 		req.Header.Set("Content-Type", "application/json")
 		if c.apiKey != "" {
@@ -122,43 +112,35 @@ func (c *Client) GenerateAt(ctx context.Context, prompt string, temperature floa
 
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
-			lastErr = err
-			if attempt+1 < maxAttempts && isRetriableNetErr(err) {
-				continue
-			}
-			return "", fmt.Errorf("send request: %w", err)
+			return "", fmt.Errorf("send request: %w", err), isRetriableNetErr(err)
 		}
 
 		respBody, readErr := io.ReadAll(resp.Body)
 		closeErr := resp.Body.Close()
 		if readErr != nil {
-			return "", fmt.Errorf("read response: %w", readErr)
+			return "", fmt.Errorf("read response: %w", readErr), false
 		}
 		if closeErr != nil {
-			return "", fmt.Errorf("close response: %w", closeErr)
+			return "", fmt.Errorf("close response: %w", closeErr), false
 		}
 
 		if resp.StatusCode == http.StatusOK {
 			var aiResp openAIResponse
 			if err := json.Unmarshal(respBody, &aiResp); err != nil {
-				return "", fmt.Errorf("unmarshal response: %w", err)
+				return "", fmt.Errorf("unmarshal response: %w", err), false
 			}
 			if aiResp.Error != nil {
-				return "", fmt.Errorf("API error: %s", aiResp.Error.Message)
+				return "", fmt.Errorf("API error: %s", aiResp.Error.Message), false
 			}
 			if len(aiResp.Choices) == 0 {
-				return "", fmt.Errorf("no choices in response")
+				return "", fmt.Errorf("no choices in response"), false
 			}
-			return aiResp.Choices[0].Message.Content, nil
+			return aiResp.Choices[0].Message.Content, nil, false
 		}
 
-		lastErr = fmt.Errorf("API error %d: %s", resp.StatusCode, string(respBody))
-		if attempt+1 < maxAttempts && isRetriableHTTPStatus(resp.StatusCode) {
-			continue
-		}
-		return "", lastErr
-	}
-	return "", fmt.Errorf("send request: %w", lastErr)
+		apiErr := fmt.Errorf("API error %d: %s", resp.StatusCode, string(respBody))
+		return "", apiErr, isRetriableHTTPStatus(resp.StatusCode)
+	})
 }
 
 func (c *Client) ollamaOptions(temperature float64) *ollamaOptions {

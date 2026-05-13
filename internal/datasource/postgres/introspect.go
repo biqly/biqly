@@ -15,22 +15,11 @@ func (d *Driver) introspectSchemas(ctx context.Context, db *sql.DB) ([]datasourc
 		WHERE schema_name NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
 		ORDER BY schema_name
 	`
-
-	rows, err := db.QueryContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-
-	var schemas []datasource.SchemaInfo
-	for rows.Next() {
+	return datasource.QueryAll(ctx, db, query, func(rows *sql.Rows) (datasource.SchemaInfo, error) {
 		var s datasource.SchemaInfo
-		if err := rows.Scan(&s.Name); err != nil {
-			return nil, fmt.Errorf("scan schema: %w", err)
-		}
-		schemas = append(schemas, s)
-	}
-	return schemas, rows.Err()
+		err := rows.Scan(&s.Name)
+		return s, err
+	})
 }
 
 func (d *Driver) introspectTables(ctx context.Context, db *sql.DB) ([]datasource.TableInfo, error) {
@@ -53,22 +42,11 @@ func (d *Driver) introspectTables(ctx context.Context, db *sql.DB) ([]datasource
 			AND c.relkind IN ('r', 'p', 'v', 'm')
 		ORDER BY n.nspname, c.relname
 	`
-
-	rows, err := db.QueryContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-
-	var tables []datasource.TableInfo
-	for rows.Next() {
+	return datasource.QueryAll(ctx, db, query, func(rows *sql.Rows) (datasource.TableInfo, error) {
 		var t datasource.TableInfo
-		if err := rows.Scan(&t.SchemaName, &t.TableName, &t.TableType, &t.RowEstimate, &t.Comment); err != nil {
-			return nil, fmt.Errorf("scan table: %w", err)
-		}
-		tables = append(tables, t)
-	}
-	return tables, rows.Err()
+		err := rows.Scan(&t.SchemaName, &t.TableName, &t.TableType, &t.RowEstimate, &t.Comment)
+		return t, err
+	})
 }
 
 func (d *Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasource.ColumnInfo, error) {
@@ -95,26 +73,19 @@ func (d *Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasourc
 		ORDER BY c.table_schema, c.table_name, c.ordinal_position
 	`
 
-	rows, err := db.QueryContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-
-	var columns []datasource.ColumnInfo
-	for rows.Next() {
+	columns, err := datasource.QueryAll(ctx, db, query, func(rows *sql.Rows) (datasource.ColumnInfo, error) {
 		var c datasource.ColumnInfo
-		if err := rows.Scan(
+		err := rows.Scan(
 			&c.SchemaName, &c.TableName, &c.ColumnName, &c.DataType,
 			&c.Nullable, &c.OrdinalPosition, &c.CharMaxLength,
 			&c.NumericPrecision, &c.NumericScale, &c.ColumnDefault, &c.Comment,
-		); err != nil {
-			return nil, fmt.Errorf("scan column: %w", err)
-		}
-		columns = append(columns, c)
+		)
+		return c, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("scan columns: %w", err)
 	}
 
-	// Now get primary key info
 	pkQuery := `
 		SELECT 
 			tc.table_schema,
@@ -127,25 +98,25 @@ func (d *Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasourc
 		WHERE tc.constraint_type = 'PRIMARY KEY'
 	`
 
-	pkRows, pkErr := db.QueryContext(ctx, pkQuery)
+	pkRows, pkErr := datasource.QueryAll(ctx, db, pkQuery, func(rows *sql.Rows) (struct {
+		schema, table, column string
+	}, error) {
+		var p struct {
+			schema, table, column string
+		}
+		err := rows.Scan(&p.schema, &p.table, &p.column)
+		return p, err
+	})
 	if pkErr != nil {
 		return columns, nil
 	}
-	defer func() {
-		_ = pkRows.Close()
-	}()
 
 	pkSet := make(map[string]bool)
-	for pkRows.Next() {
-		var schema, table, column string
-		if scanErr := pkRows.Scan(&schema, &table, &column); scanErr != nil {
-			continue
-		}
-		key := fmt.Sprintf("%s.%s.%s", schema, table, column)
+	for _, p := range pkRows {
+		key := fmt.Sprintf("%s.%s.%s", p.schema, p.table, p.column)
 		pkSet[key] = true
 	}
 
-	// Mark primary keys
 	for i := range columns {
 		key := fmt.Sprintf("%s.%s.%s", columns[i].SchemaName, columns[i].TableName, columns[i].ColumnName)
 		if pkSet[key] {
@@ -153,7 +124,7 @@ func (d *Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasourc
 		}
 	}
 
-	return columns, rows.Err()
+	return columns, nil
 }
 
 func (d *Driver) introspectRelations(ctx context.Context, db *sql.DB) ([]datasource.RelationInfo, error) {
@@ -175,24 +146,13 @@ func (d *Driver) introspectRelations(ctx context.Context, db *sql.DB) ([]datasou
 			AND tc.table_schema = ccu.table_schema
 		WHERE tc.constraint_type = 'FOREIGN KEY'
 	`
-
-	rows, err := db.QueryContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-
-	var relations []datasource.RelationInfo
-	for rows.Next() {
+	return datasource.QueryAll(ctx, db, query, func(rows *sql.Rows) (datasource.RelationInfo, error) {
 		var r datasource.RelationInfo
 		r.RelationshipType = "many_to_one"
-		if err := rows.Scan(
+		err := rows.Scan(
 			&r.ConstraintName, &r.FromSchema, &r.FromTable, &r.FromColumn,
 			&r.ToSchema, &r.ToTable, &r.ToColumn,
-		); err != nil {
-			return nil, fmt.Errorf("scan relation: %w", err)
-		}
-		relations = append(relations, r)
-	}
-	return relations, rows.Err()
+		)
+		return r, err
+	})
 }

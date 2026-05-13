@@ -21,12 +21,7 @@ func (d SQLServerDialect) QuoteIdentSegment(identifier string) string {
 
 // QuoteIdent quotes a qualified name by splitting on '.' .
 func (d SQLServerDialect) QuoteIdent(identifier string) string {
-	parts := strings.Split(identifier, ".")
-	quoted := make([]string, len(parts))
-	for i, part := range parts {
-		quoted[i] = d.QuoteIdentSegment(part)
-	}
-	return strings.Join(quoted, ".")
+	return QuoteIdentQualified(d, identifier)
 }
 
 // Placeholder returns the parameter placeholder for the given index.
@@ -80,31 +75,12 @@ func (d SQLServerDialect) ILike(column, placeholder string) string {
 
 // CastType returns the dialect-specific SQL type name for casting.
 func (d SQLServerDialect) CastType(sqlType string) string {
-	return strings.ToUpper(sqlType)
+	return CastTypeUpper(sqlType)
 }
 
 // Aggregate formats an aggregation function call.
 func (d SQLServerDialect) Aggregate(fn, column string) string {
-	if strings.ToLower(fn) == "count" && column == "*" {
-		return "COUNT(*)"
-	}
-	quotedCol := d.QuoteIdent(column)
-	switch strings.ToLower(fn) {
-	case "count":
-		return fmt.Sprintf("COUNT(%s)", quotedCol)
-	case "count_distinct":
-		return fmt.Sprintf("COUNT(DISTINCT %s)", quotedCol)
-	case "sum":
-		return fmt.Sprintf("SUM(%s)", quotedCol)
-	case "avg":
-		return fmt.Sprintf("AVG(%s)", quotedCol)
-	case "min":
-		return fmt.Sprintf("MIN(%s)", quotedCol)
-	case "max":
-		return fmt.Sprintf("MAX(%s)", quotedCol)
-	default:
-		return fmt.Sprintf("COUNT(%s)", quotedCol)
-	}
+	return AggregateStandardSQL(d, fn, column)
 }
 
 // ExplainSQL returns "" because SQL Server has no single-statement EXPLAIN form

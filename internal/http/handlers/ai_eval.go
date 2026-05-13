@@ -11,6 +11,7 @@ import (
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/query"
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
 
@@ -292,7 +293,7 @@ func (h *AIHandler) EvalListRuns(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	runs, err := h.deps.EvalRepo.ListRuns(ctx, 50)
+	runs, err := h.deps.EvalRepo.ListRuns(ctx, h.deps.Config.Query.EvalRunsListLimit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list eval runs")
 		return
@@ -310,7 +311,7 @@ func (h *AIHandler) EvalGetRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	runID := extractUUIDFromPath(r)
+	runID := chi.URLParam(r, "id")
 	if runID == "" {
 		writeError(w, http.StatusBadRequest, "run id is required")
 		return

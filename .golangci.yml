@@ -31,6 +31,7 @@ linters:
     - wastedassign
     - forbidigo
     - usestdlibvars
+    - rowserrcheck
   settings:
     revive:
       rules:
