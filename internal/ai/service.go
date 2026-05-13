@@ -404,6 +404,7 @@ func (s *Service) parseAndValidate(raw string, model *semantic.SemanticModel) (*
 		return nil, warnings, 0, fmt.Errorf("invalid JSON from AI: %w", err)
 	}
 	normalizeLogicalQueryContext(&lq, model)
+	lq.EnsureGroupBySelected()
 
 	// Guardrails: reject empty selects
 	if len(lq.Select) == 0 {

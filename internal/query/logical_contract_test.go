@@ -48,6 +48,43 @@ func TestEnsureVersionNilReceiverIsSafe(t *testing.T) {
 	lq.EnsureVersion()
 }
 
+func TestEnsureGroupBySelectedAddsMissingDimensionsBeforeMetrics(t *testing.T) {
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeMetric, Name: "row_count"},
+			{Type: SelectTypeMetric, Name: "sum_retweets"},
+		},
+		GroupBy: []GroupBy{{Field: "created_at_ts_day"}},
+	}
+
+	lq.EnsureGroupBySelected()
+
+	want := []SelectItem{
+		{Type: SelectTypeDimension, Name: "created_at_ts_day"},
+		{Type: SelectTypeMetric, Name: "row_count"},
+		{Type: SelectTypeMetric, Name: "sum_retweets"},
+	}
+	if !reflect.DeepEqual(lq.Select, want) {
+		t.Errorf("EnsureGroupBySelected() select = %+v, want %+v", lq.Select, want)
+	}
+}
+
+func TestEnsureGroupBySelectedDoesNotDuplicateExistingDimension(t *testing.T) {
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeDimension, Name: "created_at_ts_day"},
+			{Type: SelectTypeMetric, Name: "row_count"},
+		},
+		GroupBy: []GroupBy{{Field: "created_at_ts_day"}},
+	}
+
+	lq.EnsureGroupBySelected()
+
+	if len(lq.Select) != 2 {
+		t.Errorf("EnsureGroupBySelected() duplicated select items: %+v", lq.Select)
+	}
+}
+
 func logicalQueryJSONFields(t *testing.T) []string {
 	t.Helper()
 	typ := reflect.TypeOf(LogicalQuery{})

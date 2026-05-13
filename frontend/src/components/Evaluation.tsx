@@ -12,7 +12,7 @@ import {
   Cell,
 } from 'recharts'
 import useStreamingApi from '../hooks/useStreamingApi'
-import { useAdminApi } from '../hooks/useApi'
+import { adminAuthHeaders, useAdminApi } from '../hooks/useApi'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { Select } from './ui/Select'
 import type { EvalRunSummary, EvalRunDetail, RegressionReport } from '../types/ai'
@@ -178,6 +178,7 @@ export default function Evaluation() {
   const [activeTab, setActiveTab] = useState<'run' | 'history' | 'regression'>(initialTab)
   const [runHistory, setRunHistory] = useState<EvalRunSummary[]>([])
   const [selectedRun, setSelectedRun] = useState<EvalRunDetail | null>(null)
+  const [historyLoaded, setHistoryLoaded] = useState(false)
 
   // Regression
   const [baselineParam, setBaselineParam] = useQueryParam('baseline')
@@ -197,11 +198,18 @@ export default function Evaluation() {
     setCurrentParam(currentId)
   }, [currentId, setCurrentParam])
 
+  const loadRunHistory = async () => {
+    if (!adminApi.configured || historyLoaded) return
+    const data = await adminApi.get<EvalRunSummary[]>('/api/ai/eval/runs')
+    if (data) setRunHistory(data)
+    setHistoryLoaded(true)
+  }
+
   useEffect(() => {
-    adminApi.get<EvalRunSummary[]>('/api/eval/runs').then((data) => {
-      if (data) setRunHistory(data)
-    })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    if (activeTab === 'history' || activeTab === 'regression') {
+      void loadRunHistory()
+    }
+  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (selectedRun) return // don't reload if already selected
@@ -212,15 +220,16 @@ export default function Evaluation() {
   }, [activeTab, runHistory, selectedRun])
 
   const loadRunDetail = async (runId: string) => {
-    const data = await adminApi.get<EvalRunDetail>(`/api/eval/runs/${runId}`)
+    if (!adminApi.configured) return
+    const data = await adminApi.get<EvalRunDetail>(`/api/ai/eval/runs/${runId}`)
     if (data) setSelectedRun(data)
   }
 
   const runRegression = async () => {
-    if (!baselineId || !currentId) return
+    if (!baselineId || !currentId || !adminApi.configured) return
     setRegressionLoading(true)
     setRegression(null)
-    const data = await adminApi.get<RegressionReport>(`/api/eval/regression?baseline=${baselineId}&current=${currentId}`)
+    const data = await adminApi.get<RegressionReport>(`/api/ai/eval/regression?baseline=${baselineId}&current=${currentId}`)
     if (data) setRegression(data)
     setRegressionLoading(false)
   }
@@ -244,27 +253,17 @@ export default function Evaluation() {
   }, [evalData])
 
   const runEvaluation = async () => {
+    if (!adminApi.configured) {
+      setRunError('VITE_BI_ADMIN_API_KEY ayarlı değil. Değerlendirme endpointleri admin anahtarı ister.')
+      return
+    }
     setRunning(true)
     setRunError(null)
     setShowDemo(false)
     try {
-      const res = await fetch('/api/ai/eval/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: '{}',
-      })
-      const text = await res.text()
-      const payload = (text ? JSON.parse(text) : null) as EvalRunResponse | { error?: string } | null
-      if (!res.ok) {
-        setEvalData(null)
-        const msg =
-          payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string'
-            ? payload.error
-            : `HTTP ${res.status}`
-        setRunError(msg)
-        return
-      }
-      setEvalData(payload as EvalRunResponse)
+      const res = await adminApi.postData<EvalRunResponse>('/api/ai/eval/run', {})
+      if (res) setEvalData(res)
+      else setEvalData(null)
     } catch {
       setEvalData(DEMO_DATA)
       setShowDemo(true)
@@ -274,8 +273,12 @@ export default function Evaluation() {
   }
 
   const runStreamEvaluation = () => {
+    if (!adminApi.configured) {
+      setRunError('VITE_BI_ADMIN_API_KEY ayarlı değil. Değerlendirme endpointleri admin anahtarı ister.')
+      return
+    }
     // Alternative: use streaming endpoint if available
-    streaming.start('/api/ai/eval/run/stream', {})
+    streaming.start('/api/ai/eval/run/stream', undefined, adminAuthHeaders())
   }
 
   const activeData = evalData ?? (showDemo ? DEMO_DATA : null)
@@ -305,6 +308,12 @@ export default function Evaluation() {
         })}
       </div>
 
+      {!adminApi.configured && (
+        <div className="error" style={{ marginBottom: '1rem' }}>
+          Admin API anahtarı frontend ortamında ayarlı değil. Değerlendirme geçmişi ve çalıştırma işlemleri devre dışı.
+        </div>
+      )}
+
       {/* ─── TAB: Run Evaluation ─────────────────────────────── */}
       {activeTab === 'run' && (
       <>
@@ -312,10 +321,10 @@ export default function Evaluation() {
         <div className="card-header-row">
           <h2>Değerlendirme Paneli</h2>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button className="btn btn-sm" onClick={runStreamEvaluation} disabled={running || streaming.loading}>
+            <button className="btn btn-sm" onClick={runStreamEvaluation} disabled={!adminApi.configured || running || streaming.loading}>
               {streaming.loading ? 'Akış…' : 'Çalıştır (akış)'}
             </button>
-            <button className="btn btn-sm btn-primary" onClick={runEvaluation} disabled={running}>
+            <button className="btn btn-sm btn-primary" onClick={runEvaluation} disabled={!adminApi.configured || running}>
               {running ? 'Çalışıyor…' : 'Değerlendirmeyi çalıştır'}
             </button>
           </div>
@@ -562,7 +571,7 @@ export default function Evaluation() {
                   }))}
                 />
               </div>
-              <button className="btn btn-sm btn-primary" onClick={runRegression} disabled={!baselineId || !currentId || regressionLoading}>
+              <button className="btn btn-sm btn-primary" onClick={runRegression} disabled={!adminApi.configured || !baselineId || !currentId || regressionLoading}>
                 {regressionLoading ? 'Karşılaştırılıyor…' : 'Karşılaştır'}
               </button>
             </div>

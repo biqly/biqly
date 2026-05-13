@@ -23,6 +23,8 @@ func NewCompiler(d dialect.Dialect) *Compiler {
 
 // Compile converts a LogicalQuery + semantic model into SQL.
 func (c *Compiler) Compile(ctx context.Context, lq LogicalQuery, model *semantic.SemanticModel) (*CompiledQuery, error) {
+	lq.EnsureGroupBySelected()
+
 	// Build dimension map
 	dimMap := make(map[string]semantic.Dimension)
 	for _, d := range model.Dimensions {

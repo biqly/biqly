@@ -31,12 +31,12 @@ type LogicalQuery struct {
 
 // CTE represents a Common Table Expression (WITH ... AS ...).
 type CTE struct {
-	Name  string       `json:"name"`
-	Select []SelectItem `json:"select,omitempty"`
-	Filters []Filter   `json:"filters,omitempty"`
-	GroupBy []GroupBy  `json:"group_by,omitempty"`
-	OrderBy []OrderBy  `json:"order_by,omitempty"`
-	Limit   int        `json:"limit,omitempty"`
+	Name    string       `json:"name"`
+	Select  []SelectItem `json:"select,omitempty"`
+	Filters []Filter     `json:"filters,omitempty"`
+	GroupBy []GroupBy    `json:"group_by,omitempty"`
+	OrderBy []OrderBy    `json:"order_by,omitempty"`
+	Limit   int          `json:"limit,omitempty"`
 }
 
 // SelectItem represents a field in the SELECT clause.
@@ -56,9 +56,9 @@ type SelectItem struct {
 
 // WindowSpec describes an analytic window expression.
 type WindowSpec struct {
-	Aggregation string    `json:"aggregation"`           // sum | avg | count | count_distinct | min | max | row_number | rank | dense_rank | ntile
-	Expression  string    `json:"expression,omitempty"`  // raw column ref, optional for ranking functions
-	Metric      string    `json:"metric,omitempty"`      // metric name to inherit aggregation+expression from
+	Aggregation string    `json:"aggregation"`            // sum | avg | count | count_distinct | min | max | row_number | rank | dense_rank | ntile
+	Expression  string    `json:"expression,omitempty"`   // raw column ref, optional for ranking functions
+	Metric      string    `json:"metric,omitempty"`       // metric name to inherit aggregation+expression from
 	PartitionBy []string  `json:"partition_by,omitempty"` // dimension names
 	OrderBy     []OrderBy `json:"order_by,omitempty"`     // dimension or metric names
 	Frame       string    `json:"frame,omitempty"`        // optional raw frame clause, e.g. "ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW"
@@ -151,4 +151,43 @@ func (lq *LogicalQuery) EnsureVersion() {
 	if lq.Version == "" {
 		lq.Version = CurrentLogicalQueryVersion
 	}
+}
+
+// EnsureGroupBySelected makes grouped result sets self-describing by projecting
+// every GROUP BY dimension. LLMs sometimes emit metrics in select and put the
+// date/category only in group_by; that SQL is valid, but the returned rows lose
+// the label that explains each aggregate.
+func (lq *LogicalQuery) EnsureGroupBySelected() {
+	if lq == nil || len(lq.GroupBy) == 0 {
+		return
+	}
+
+	selectedDims := make(map[string]bool, len(lq.Select))
+	firstMetric := len(lq.Select)
+	for i, item := range lq.Select {
+		if item.Type == SelectTypeDimension {
+			selectedDims[item.Name] = true
+		}
+		if firstMetric == len(lq.Select) && item.Type == SelectTypeMetric {
+			firstMetric = i
+		}
+	}
+
+	missing := make([]SelectItem, 0, len(lq.GroupBy))
+	for _, gb := range lq.GroupBy {
+		if selectedDims[gb.Field] {
+			continue
+		}
+		missing = append(missing, SelectItem{Type: SelectTypeDimension, Name: gb.Field})
+		selectedDims[gb.Field] = true
+	}
+	if len(missing) == 0 {
+		return
+	}
+
+	selectItems := make([]SelectItem, 0, len(lq.Select)+len(missing))
+	selectItems = append(selectItems, lq.Select[:firstMetric]...)
+	selectItems = append(selectItems, missing...)
+	selectItems = append(selectItems, lq.Select[firstMetric:]...)
+	lq.Select = selectItems
 }

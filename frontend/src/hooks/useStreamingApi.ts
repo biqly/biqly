@@ -17,7 +17,7 @@ interface UseStreamingApiResult {
   /** Abort the current stream */
   abort: () => void
   /** Start a streaming request */
-  start: (url: string, body?: unknown) => void
+  start: (url: string, body?: unknown, headers?: Record<string, string>) => void
 }
 
 /**
@@ -66,7 +66,7 @@ export default function useStreamingApi(
     if (idx >= full.length) return // done
 
     // Advance one character (handle surrogate pairs)
-    const next = idx + (full.codePointAt(idx) ?? 0) > 0xffff ? 2 : 1
+    const next = idx + ((full.codePointAt(idx) ?? 0) > 0xffff ? 2 : 1)
     displayedRef.current = full.slice(0, Math.min(next, full.length))
     typingIndexRef.current = next
     setData(displayedRef.current)
@@ -264,11 +264,12 @@ export default function useStreamingApi(
    *              (EventSource cannot send POST).
    */
   const start = useCallback(
-    (url: string, body?: unknown) => {
+    (url: string, body?: unknown, headers?: Record<string, string>) => {
       abort() // cancel any in-flight
+      const hasHeaders = headers && Object.keys(headers).length > 0
 
-      if (body === undefined) {
-        // GET — try EventSource first
+      if (body === undefined && !hasHeaders) {
+        // GET without custom headers — try EventSource first
         if (streamWithEventSource(url)) return
       }
 
@@ -276,12 +277,12 @@ export default function useStreamingApi(
       if (body !== undefined) {
         void streamWithFetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...headers },
           body: JSON.stringify(body),
         })
       } else {
         // GET without EventSource → fetch streaming
-        void streamWithFetch(url, { method: 'GET' })
+        void streamWithFetch(url, { method: 'GET', headers })
       }
     },
     [abort, streamWithEventSource, streamWithFetch],

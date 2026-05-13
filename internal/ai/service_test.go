@@ -39,6 +39,34 @@ func TestParseAndValidateNormalizesLogicalQueryContext(t *testing.T) {
 	}
 }
 
+func TestParseAndValidateAddsMissingGroupByDimensionToSelect(t *testing.T) {
+	service := &Service{validator: query.NewValidator(1000)}
+	model := &semantic.SemanticModel{
+		ID:           "model-uuid",
+		DatasourceID: "datasource-uuid",
+		Name:         "public.timeline_tweets",
+		Dimensions: []semantic.Dimension{
+			{Name: "created_at_ts_day", ColumnRef: "timeline_tweets.created_at_ts", Type: "timestamp", TimeGrain: query.TimeGrainDay},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "row_count", Expression: "*", Aggregation: "count"},
+			{Name: "sum_retweets", Expression: "timeline_tweets.retweets", Aggregation: "sum"},
+		},
+	}
+	raw := `{"select":[{"type":"metric","name":"row_count"},{"type":"metric","name":"sum_retweets"}],"group_by":[{"field":"created_at_ts_day"}],"limit":100}`
+
+	got, _, _, err := service.parseAndValidate(raw, model)
+	if err != nil {
+		t.Fatalf("parseAndValidate(%s) error = %v, want nil", raw, err)
+	}
+	if len(got.Select) != 3 {
+		t.Fatalf("select len = %d, want 3: %+v", len(got.Select), got.Select)
+	}
+	if got.Select[0].Type != query.SelectTypeDimension || got.Select[0].Name != "created_at_ts_day" {
+		t.Fatalf("first select = %+v, want created_at_ts_day dimension", got.Select[0])
+	}
+}
+
 // stubLLMServer returns an httptest.Server whose /chat/completions endpoint
 // emits successive responses from `replies`, cycling on the last one.
 func stubLLMServer(t *testing.T, replies []string) *httptest.Server {

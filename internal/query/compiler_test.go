@@ -246,6 +246,42 @@ func TestCompiler_TimeGrainYearGroupBy(t *testing.T) {
 	}
 }
 
+func TestCompiler_ProjectsGroupByDimensionWhenSelectOnlyHasMetrics(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "tweets",
+		BaseSchema: "public",
+		BaseTable:  "timeline_tweets",
+		Dimensions: []semantic.Dimension{
+			{Name: "created_at_ts_day", ColumnRef: "timeline_tweets.created_at_ts", Type: "timestamp", TimeGrain: TimeGrainDay},
+			{Name: "created_at_ts_year", ColumnRef: "timeline_tweets.created_at_ts", Type: "timestamp", TimeGrain: TimeGrainYear},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "row_count", Expression: "*", Aggregation: "count"},
+			{Name: "sum_retweets", Expression: "timeline_tweets.retweets", Aggregation: "sum"},
+		},
+	}
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeMetric, Name: "row_count"},
+			{Type: SelectTypeMetric, Name: "sum_retweets"},
+		},
+		Filters: []Filter{{Field: "created_at_ts_year", Operator: OpEq, Value: 2026}},
+		GroupBy: []GroupBy{{Field: "created_at_ts_day"}},
+		OrderBy: []OrderBy{{Field: "created_at_ts_day", Direction: OrderAsc}},
+		Limit:   100,
+	}
+
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+
+	want := `SELECT DATE_TRUNC('day', "timeline_tweets"."created_at_ts") AS "created_at_ts_day", COUNT(*) AS "row_count", SUM("timeline_tweets"."retweets") AS "sum_retweets" FROM "public"."timeline_tweets" WHERE CAST(EXTRACT(YEAR FROM "timeline_tweets"."created_at_ts") AS INTEGER) = $1 GROUP BY DATE_TRUNC('day', "timeline_tweets"."created_at_ts") ORDER BY DATE_TRUNC('day', "timeline_tweets"."created_at_ts") ASC LIMIT 100`
+	if cq.SQL != want {
+		t.Errorf("SQL mismatch.\nGot:\n%s\n\nWant:\n%s", cq.SQL, want)
+	}
+}
+
 // TestCompiler_GroupByTimeGrainOverridesDimensionDefault verifies that
 // LogicalQuery.GroupBy.TimeGrain is propagated to the dimension projection in
 // both SELECT and GROUP BY without callers having to declare a separate

@@ -41,15 +41,15 @@ func (h *AIExamplesHandler) ListExamples(w http.ResponseWriter, r *http.Request)
 	datasourceID := r.URL.Query().Get("datasource_id")
 	modelID := r.URL.Query().Get("model_id")
 
-	q := `SELECT id, datasource_id, COALESCE(model_id,''), question, logical_query,
+	q := `SELECT id::text, datasource_id::text, COALESCE(model_id::text,''), question, logical_query,
 		COALESCE(tags,'{}'), COALESCE(dialect,'postgresql'), COALESCE(created_by,''),
 		created_at, updated_at FROM few_shot_examples`
 	args := []any{}
 	if datasourceID != "" {
-		q += " WHERE datasource_id = $1"
+		q += " WHERE datasource_id = $1::uuid"
 		args = append(args, datasourceID)
 		if modelID != "" {
-			q += " AND model_id = $2"
+			q += " AND model_id = $2::uuid"
 			args = append(args, modelID)
 		}
 	}
@@ -105,7 +105,7 @@ func (h *AIExamplesHandler) CreateExample(w http.ResponseWriter, r *http.Request
 
 	var id string
 	err := h.deps.MetadataDB.QueryRowContext(r.Context(),
-		"INSERT INTO few_shot_examples (datasource_id, model_id, question, logical_query, tags, dialect) VALUES ($1, NULLIF($2,''), $3, $4, $5, $6) RETURNING id",
+		"INSERT INTO few_shot_examples (datasource_id, model_id, question, logical_query, tags, dialect) VALUES ($1::uuid, NULLIF($2,'')::uuid, $3, $4, $5::text[], $6) RETURNING id::text",
 		input.DatasourceID, input.ModelID, input.Question, input.LogicalQuery, pqStringArray(input.Tags), input.Dialect,
 	).Scan(&id)
 	if err != nil {
@@ -134,7 +134,7 @@ func (h *AIExamplesHandler) DeleteExample(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusBadRequest, "example id is required")
 		return
 	}
-	_, err := h.deps.MetadataDB.ExecContext(r.Context(), "DELETE FROM few_shot_examples WHERE id = $1", id)
+	_, err := h.deps.MetadataDB.ExecContext(r.Context(), "DELETE FROM few_shot_examples WHERE id = $1::uuid", id)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "delete few-shot example failed", "id", id, "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to delete example")
@@ -168,7 +168,7 @@ func (h *AIExamplesHandler) UpdateExample(w http.ResponseWriter, r *http.Request
 		input.Dialect = "postgresql"
 	}
 	_, err := h.deps.MetadataDB.ExecContext(r.Context(),
-		"UPDATE few_shot_examples SET question = $1, logical_query = $2, tags = $3, dialect = $4, updated_at = NOW() WHERE id = $5",
+		"UPDATE few_shot_examples SET question = $1, logical_query = $2, tags = $3::text[], dialect = $4, updated_at = NOW() WHERE id = $5::uuid",
 		input.Question, input.LogicalQuery, pqStringArray(input.Tags), input.Dialect, id,
 	)
 	if err != nil {
@@ -202,7 +202,7 @@ func (h *AIExamplesHandler) SubmitFeedback(w http.ResponseWriter, r *http.Reques
 	}
 
 	_, err := h.deps.MetadataDB.ExecContext(r.Context(),
-		"INSERT INTO ai_feedback (question, datasource_id, rating, categories, feedback_text) VALUES ($1, $2, $3, $4, $5)",
+		"INSERT INTO ai_feedback (question, datasource_id, rating, categories, feedback_text) VALUES ($1, $2::uuid, $3, $4::text[], $5)",
 		input.Question, input.DatasourceID, input.Rating, pqStringArray(input.Categories), input.Text,
 	)
 	if err != nil {
@@ -230,16 +230,16 @@ func (h *AIExamplesHandler) GetModelSuccessRates(w http.ResponseWriter, r *http.
 	}
 
 	type ModelStats struct {
-		ModelID        string  `json:"model_id"`
-		ModelName      string  `json:"model_name,omitempty"`
-		TotalQueries   int     `json:"total_queries"`
-		SuccessCount   int     `json:"success_count"`
-		FailureCount   int     `json:"failure_count"`
-		SuccessRate    float64 `json:"success_rate"`
-		AvgConfidence  float64 `json:"avg_confidence"`
-		AvgLatencyMs   float64 `json:"avg_latency_ms"`
-		PositiveCount  int     `json:"positive_count"`
-		NegativeCount  int     `json:"negative_count"`
+		ModelID       string  `json:"model_id"`
+		ModelName     string  `json:"model_name,omitempty"`
+		TotalQueries  int     `json:"total_queries"`
+		SuccessCount  int     `json:"success_count"`
+		FailureCount  int     `json:"failure_count"`
+		SuccessRate   float64 `json:"success_rate"`
+		AvgConfidence float64 `json:"avg_confidence"`
+		AvgLatencyMs  float64 `json:"avg_latency_ms"`
+		PositiveCount int     `json:"positive_count"`
+		NegativeCount int     `json:"negative_count"`
 	}
 
 	q := `
@@ -367,10 +367,15 @@ func (h *AIExamplesHandler) GetExampleIDs(w http.ResponseWriter, r *http.Request
 	datasourceID := r.URL.Query().Get("datasource_id")
 	modelID := r.URL.Query().Get("model_id")
 
-	q := "SELECT id FROM few_shot_examples WHERE datasource_id = $1"
+	if datasourceID == "" {
+		writeError(w, http.StatusBadRequest, "datasource_id is required")
+		return
+	}
+
+	q := "SELECT id::text FROM few_shot_examples WHERE datasource_id = $1::uuid"
 	args := []any{datasourceID}
 	if modelID != "" {
-		q += " AND model_id = $2"
+		q += " AND model_id = $2::uuid"
 		args = append(args, modelID)
 	}
 	q += " ORDER BY created_at DESC LIMIT 10"

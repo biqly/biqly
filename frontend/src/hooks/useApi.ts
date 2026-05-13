@@ -144,6 +144,11 @@ export function useApi() {
   return { get, postData, putData, patchData, deleteData, loading, error, abort }
 }
 
+export function adminAuthHeaders(): Record<string, string> {
+  const adminKey = import.meta.env.VITE_BI_ADMIN_API_KEY || ''
+  return adminKey ? { Authorization: `Bearer ${adminKey}` } : {}
+}
+
 /**
  * useAdminApi is a convenience wrapper that automatically attaches the
  * BI_ADMIN_API_KEY as a Bearer token in the Authorization header.
@@ -152,9 +157,8 @@ export function useApi() {
 export function useAdminApi() {
   const api = useApi()
 
-  const adminHeaders = {
-    Authorization: `Bearer ${import.meta.env.VITE_BI_ADMIN_API_KEY || ''}`,
-  }
+  const adminHeaders = adminAuthHeaders()
+  const configured = Object.keys(adminHeaders).length > 0
 
   const get = useCallback(
     <T = any>(url: string, options?: RequestOptions) =>
@@ -182,5 +186,5 @@ export function useAdminApi() {
     [api],
   )
 
-  return { ...api, get, postData, putData, patchData, deleteData }
+  return { ...api, get, postData, putData, patchData, deleteData, configured }
 }

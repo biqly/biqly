@@ -82,6 +82,7 @@ func NewQueryService(deps QueryServiceDeps) *QueryService {
 
 func (s *QueryService) Compile(ctx context.Context, lq query.LogicalQuery) (*CompileResult, error) {
 	lq.EnsureVersion()
+	lq.EnsureGroupBySelected()
 	loaded, err := s.loadContext(ctx, lq)
 	if err != nil {
 		return nil, err
@@ -95,6 +96,7 @@ func (s *QueryService) Compile(ctx context.Context, lq query.LogicalQuery) (*Com
 }
 
 func (s *QueryService) CompileWithContext(ctx context.Context, lq query.LogicalQuery, model *semantic.SemanticModel, driver datasource.Driver) (*query.CompiledQuery, error) {
+	lq.EnsureGroupBySelected()
 	if err := s.validator.Validate(lq, model); err != nil {
 		return nil, err
 	}
@@ -107,6 +109,7 @@ func (s *QueryService) CompileWithContext(ctx context.Context, lq query.LogicalQ
 
 func (s *QueryService) Run(ctx context.Context, lq query.LogicalQuery) (*RunResult, error) {
 	lq.EnsureVersion()
+	lq.EnsureGroupBySelected()
 	compiled, err := s.Compile(ctx, lq)
 	if err != nil {
 		return nil, err

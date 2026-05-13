@@ -85,11 +85,39 @@ function contextSourceLabel(source: string | undefined) {
   return source ?? 'otomatik context'
 }
 
-function compactList(items: string[] | undefined, limit = 8) {
+function compactItems(items: string[] | undefined, limit = 8) {
   if (!items || items.length === 0) return null
   const visible = items.slice(0, limit)
   const rest = items.length - visible.length
-  return `${visible.join(', ')}${rest > 0 ? ` +${rest}` : ''}`
+  return { visible, rest }
+}
+
+function compactList(items: string[] | undefined, limit = 8) {
+  const compacted = compactItems(items, limit)
+  if (!compacted) return null
+  return `${compacted.visible.join(', ')}${compacted.rest > 0 ? ` +${compacted.rest}` : ''}`
+}
+
+function RoutingTableList({ items }: { items: string[] | undefined }) {
+  const compacted = compactItems(items)
+  if (!compacted) return null
+  return (
+    <strong className="routing-table-list">
+      {compacted.visible.map((item) => <span key={item}>{item}</span>)}
+      {compacted.rest > 0 && <span>+{compacted.rest}</span>}
+    </strong>
+  )
+}
+
+function RoutingDebugList({ items }: { items: string[] | undefined }) {
+  const compacted = compactItems(items, 12)
+  if (!compacted) return null
+  return (
+    <code className="routing-debug-list">
+      {compacted.visible.map((item) => <span key={item}>{item}</span>)}
+      {compacted.rest > 0 && <span>+{compacted.rest}</span>}
+    </code>
+  )
 }
 
 function TableRoutingViz({ routing }: { routing: NonNullable<AIQueryResponse['table_routing']> }) {
@@ -102,7 +130,7 @@ function TableRoutingViz({ routing }: { routing: NonNullable<AIQueryResponse['ta
   const maxScore = Math.max(...(routing.candidates ?? []).map(candidateScore), 0)
   const selectedDims = compactList(routing.selected_dimensions)
   const selectedMetrics = compactList(routing.selected_metrics)
-  const selectedTables = compactList(routing.selected_tables)
+  const selectedTables = compactItems(routing.selected_tables)
   const selectedModels = compactList(routing.selected_models)
   return (
     <div className="table-routing-viz">
@@ -113,7 +141,7 @@ function TableRoutingViz({ routing }: { routing: NonNullable<AIQueryResponse['ta
       <div className="routing-context-grid">
         <div><span>Kaynak</span><strong>{sourceLabel}</strong></div>
         {selectedModels && <div><span>Model</span><strong>{selectedModels}</strong></div>}
-        {selectedTables && <div><span>Tablolar</span><strong>{selectedTables}</strong></div>}
+        {selectedTables && <div><span>Tablolar</span><RoutingTableList items={routing.selected_tables} /></div>}
         {selectedDims && <div><span>Boyutlar</span><strong>{selectedDims}</strong></div>}
         {selectedMetrics && <div><span>Metrikler</span><strong>{selectedMetrics}</strong></div>}
         {routing.context_updated_at && <div><span>Context zamanı</span><strong>{new Date(routing.context_updated_at).toLocaleString()}</strong></div>}
@@ -126,7 +154,7 @@ function TableRoutingViz({ routing }: { routing: NonNullable<AIQueryResponse['ta
             <span className="routing-table-name">{c.table}</span>
             <div className="routing-bar-bg"><div className="routing-bar-fill" style={{ width: `${pct}%` }} /></div>
             <span className="routing-score">{score.toFixed(2)}</span>
-            {c.selected && <span className="routing-selected">✓</span>}
+            <span className={`routing-selected ${c.selected ? '' : 'routing-selected--empty'}`}>{c.selected ? '✓' : ''}</span>
             <span className="routing-score-detail">
               k:{(c.keyword_score ?? 0).toFixed(2)}
               {c.embedding_score !== undefined && ` · e:${c.embedding_score.toFixed(2)}`}
@@ -140,10 +168,10 @@ function TableRoutingViz({ routing }: { routing: NonNullable<AIQueryResponse['ta
             <div><span>İlişki genişletmesi</span><code>{routing.debug.relation_expansion.join(' | ')}</code></div>
           )}
           {routing.debug.bridge_tables && routing.debug.bridge_tables.length > 0 && (
-            <div><span>Köprü tabloları</span><code>{routing.debug.bridge_tables.join(', ')}</code></div>
+            <div><span>Köprü tabloları</span><RoutingDebugList items={routing.debug.bridge_tables} /></div>
           )}
           {routing.debug.eliminated_candidates && routing.debug.eliminated_candidates.length > 0 && (
-            <div><span>Elenen adaylar</span><code>{routing.debug.eliminated_candidates.join(', ')}</code></div>
+            <div><span>Elenen adaylar</span><RoutingDebugList items={routing.debug.eliminated_candidates} /></div>
           )}
         </div>
       )}
