@@ -4,6 +4,8 @@ export interface Datasource {
   id: string
   name: string
   type: string
+  is_active?: boolean
+  last_sync_at?: string | null
   created_at?: string
   updated_at?: string
 }

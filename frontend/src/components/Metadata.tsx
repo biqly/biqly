@@ -1,18 +1,12 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useApi } from '../hooks/useApi'
 import { useQueryParam } from '../hooks/useQueryParam'
+import type { Datasource } from '../types/metadata'
+import { InlineEdit } from './ui/InlineEdit'
 import { Select } from './ui/Select'
 import { ModelBadgeRow } from './ui/ModelBadgeRow'
 import type { AIRuntimeSettings } from '../types/ai'
-
-type BulkStatus = 'pending' | 'running' | 'ok' | 'error' | 'skipped'
-
-interface BulkEntry {
-  schema: string
-  table: string
-  status: BulkStatus
-  message?: string
-}
+import { BulkProgressHeader, BulkStatusBadge, objectTypeLabel, sortBulkEntriesForDisplay, type BulkEntry } from './metadata/bulkProgress'
 
 /**
  * AI metadata/describe can run primary LLM + optional translation in one request.
@@ -20,98 +14,6 @@ interface BulkEntry {
  */
 const AI_METADATA_DESCRIBE_TIMEOUT_MS = 600_000
 
-/** Table view: active rows first; skipped (e.g. already described) at the bottom. */
-const BULK_DISPLAY_ORDER: Record<BulkStatus, number> = {
-  running: 0,
-  pending: 1,
-  error: 2,
-  ok: 3,
-  skipped: 4,
-}
-
-function sortBulkEntriesForDisplay(entries: BulkEntry[]): BulkEntry[] {
-  return [...entries]
-    .map((entry, queueIndex) => ({ entry, queueIndex }))
-    .sort((a, b) => {
-      const da = BULK_DISPLAY_ORDER[a.entry.status]
-      const db = BULK_DISPLAY_ORDER[b.entry.status]
-      if (da !== db) return da - db
-      return a.queueIndex - b.queueIndex
-    })
-    .map(({ entry }) => entry)
-}
-
-function BulkStatusBadge({ status }: { status: BulkStatus }) {
-  const map: Record<BulkStatus, { label: string; color: string }> = {
-    pending: { label: '⏳ bekliyor', color: 'var(--text-secondary)' },
-    running: { label: '⚙️ çalışıyor', color: '#60a5fa' },
-    ok: { label: '✓ tamam', color: '#4ade80' },
-    error: { label: '✗ hata', color: '#f87171' },
-    skipped: { label: '↷ atlandı', color: 'var(--text-secondary)' },
-  }
-  const s = map[status]
-  return <span style={{ color: s.color, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{s.label}</span>
-}
-
-function objectTypeLabel(tableType: string): string {
-  const u = tableType.toUpperCase()
-  if (u === 'VIEW') return 'Görünümler'
-  if (u === 'BASE TABLE') return 'Temel tablolar'
-  return tableType
-}
-
-function BulkProgressHeader({
-  entries,
-  running,
-  summary,
-}: {
-  entries: BulkEntry[]
-  running: boolean
-  summary: { ok: number; error: number; skipped: number } | null
-}) {
-  const total = entries.length
-  const done = entries.filter((e) => e.status === 'ok' || e.status === 'error' || e.status === 'skipped').length
-  const ok = entries.filter((e) => e.status === 'ok').length
-  const err = entries.filter((e) => e.status === 'error').length
-  const skipped = entries.filter((e) => e.status === 'skipped').length
-  const current = entries.find((e) => e.status === 'running')
-  const pct = total === 0 ? 0 : Math.round((done / total) * 100)
-  return (
-    <div style={{ marginBottom: '0.5rem', flexShrink: 0 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.25rem', gap: '0.5rem' }}>
-        <span>
-          {running
-            ? <>İşleniyor {done} / {total} — şu an: <code>{current ? `${current.schema}.${current.table}` : '…'}</code></>
-            : summary
-              ? <>Tamamlandı — {summary.ok} başarılı, {summary.error} hata, {summary.skipped} atlandı</>
-              : <>{done} / {total}</>}
-        </span>
-        <span>{pct}%</span>
-      </div>
-      <div style={{ height: '6px', background: 'var(--bg-card)', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-        <div
-          style={{
-            width: `${pct}%`,
-            height: '100%',
-            background: err > 0 ? 'linear-gradient(90deg, #4ade80, #f87171)' : '#4ade80',
-            transition: 'width 0.2s ease',
-          }}
-        />
-      </div>
-      <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.3rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-        <span style={{ color: '#4ade80' }}>✓ {ok}</span>
-        <span style={{ color: '#f87171' }}>✗ {err}</span>
-        <span>↷ {skipped}</span>
-      </div>
-    </div>
-  )
-}
-
-interface Datasource {
-  id: string
-  name: string
-  type: string
-}
 
 interface TableRow {
   id: string
@@ -223,7 +125,7 @@ export default function Metadata() {
     get<AIRuntimeSettings>('/api/ai/settings').then((data) => {
       if (data) setAiRuntime(data)
     })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     setDsParam(datasourceId)
@@ -249,7 +151,7 @@ export default function Metadata() {
       setTableFilterType('')
     }
     prevDsRef.current = datasourceId
-  }, [datasourceId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [datasourceId])
 
   const schemaOptions = useMemo(
     () => [...new Set(tables.map((t) => t.schema_name))].sort((a, b) => a.localeCompare(b)),
@@ -571,40 +473,22 @@ export default function Metadata() {
                       </button>
                     </td>
                     <td className="metadata-col-type">{t.table_type}</td>
-                    <td
-                      className={editing?.kind === 'table' && editing.id === t.id ? 'metadata-desc-cell metadata-desc-cell--editing' : 'metadata-desc-cell'}
-                      onDoubleClick={() => {
+                    <InlineEdit
+                      editing={editing?.kind === 'table' && editing.id === t.id}
+                      value={editing?.kind === 'table' && editing.id === t.id ? editing.value : t.description ?? ''}
+                      placeholder="(düzenlemek için çift tıklayın)"
+                      rows={textareaRowsForDescription(editing?.kind === 'table' && editing.id === t.id ? editing.value : t.description)}
+                      onStart={() => {
                         skipBlurSaveRef.current = false
                         setEditing({ kind: 'table', id: t.id, value: t.description ?? '' })
                       }}
-                    >
-                      {editing?.kind === 'table' && editing.id === t.id ? (
-                        <textarea
-                          className="metadata-inline-field metadata-inline-field--fit-rows"
-                          title="Kaydetmek için Cmd/Ctrl+Enter veya dışarı tıklayın. İptal: Escape."
-                          autoFocus
-                          rows={textareaRowsForDescription(editing.value)}
-                          value={editing.value}
-                          onChange={(e) => setEditing({ ...editing, value: e.target.value })}
-                          onBlur={() => void saveDescription()}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Escape') {
-                              e.preventDefault()
-                              skipBlurSaveRef.current = true
-                              setEditing(null)
-                            }
-                            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                              e.preventDefault()
-                              void saveDescription()
-                            }
-                          }}
-                        />
-                      ) : (
-                        <span style={{ color: t.description ? 'var(--text-primary)' : 'var(--text-secondary)', fontStyle: t.description ? 'normal' : 'italic' }}>
-                          {t.description || '(düzenlemek için çift tıklayın)'}
-                        </span>
-                      )}
-                    </td>
+                      onChange={(value) => setEditing({ kind: 'table', id: t.id, value })}
+                      onSave={() => void saveDescription()}
+                      onCancel={() => {
+                        skipBlurSaveRef.current = true
+                        setEditing(null)
+                      }}
+                    />
                     <td className="actions">
                       <button type="button" className="btn btn-sm" onClick={() => openDescribe(t)}>
                         🤖 AI Açıkla
@@ -652,44 +536,22 @@ export default function Metadata() {
                                   )}
                                 </td>
                                 <td className="metadata-col-type">{c.data_type}{c.nullable ? '' : ' NOT NULL'}</td>
-                                <td
-                                  className={
-                                    editing?.kind === 'column' && editing.id === c.id
-                                      ? 'metadata-desc-cell metadata-desc-cell--editing'
-                                      : 'metadata-desc-cell'
-                                  }
-                                  onDoubleClick={() => {
+                                <InlineEdit
+                                  editing={editing?.kind === 'column' && editing.id === c.id}
+                                  value={editing?.kind === 'column' && editing.id === c.id ? editing.value : c.description ?? ''}
+                                  placeholder="(düzenlemek için çift tıklayın)"
+                                  rows={textareaRowsForDescription(editing?.kind === 'column' && editing.id === c.id ? editing.value : c.description)}
+                                  onStart={() => {
                                     skipBlurSaveRef.current = false
                                     setEditing({ kind: 'column', id: c.id, value: c.description ?? '' })
                                   }}
-                                >
-                                  {editing?.kind === 'column' && editing.id === c.id ? (
-                                    <textarea
-                                      className="metadata-inline-field metadata-inline-field--fit-rows"
-                                      title="Kaydetmek için Cmd/Ctrl+Enter veya dışarı tıklayın. İptal: Escape."
-                                      autoFocus
-                                      rows={textareaRowsForDescription(editing.value)}
-                                      value={editing.value}
-                                      onChange={(e) => setEditing({ ...editing, value: e.target.value })}
-                                      onBlur={() => void saveDescription()}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Escape') {
-                                          e.preventDefault()
-                                          skipBlurSaveRef.current = true
-                                          setEditing(null)
-                                        }
-                                        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                                          e.preventDefault()
-                                          void saveDescription()
-                                        }
-                                      }}
-                                    />
-                                  ) : (
-                                    <span style={{ color: c.description ? 'var(--text-primary)' : 'var(--text-secondary)', fontStyle: c.description ? 'normal' : 'italic' }}>
-                                      {c.description || '(düzenlemek için çift tıklayın)'}
-                                    </span>
-                                  )}
-                                </td>
+                                  onChange={(value) => setEditing({ kind: 'column', id: c.id, value })}
+                                  onSave={() => void saveDescription()}
+                                  onCancel={() => {
+                                    skipBlurSaveRef.current = true
+                                    setEditing(null)
+                                  }}
+                                />
                               </tr>
                               )
                             })}

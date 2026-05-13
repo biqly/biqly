@@ -1,11 +1,13 @@
-import { useEffect, useState, type ComponentType, type MouseEvent, type ReactNode } from 'react'
-import QueryBuilder from './components/QueryBuilder'
-import SavedQuestions from './components/SavedQuestions'
-import AIQuery from './components/AIQuery'
-import Datasources from './components/Datasources'
-import Metadata from './components/Metadata'
-import FewShotExamples from './components/FewShotExamples'
-import Evaluation from './components/Evaluation'
+import { Suspense, lazy, useEffect, useState, type ComponentType, type LazyExoticComponent, type MouseEvent, type ReactNode } from 'react'
+import { ErrorBoundary } from './components/ui/ErrorBoundary'
+
+const Datasources = lazy(() => import('./components/Datasources'))
+const Metadata = lazy(() => import('./components/Metadata'))
+const QueryBuilder = lazy(() => import('./components/QueryBuilder'))
+const AIQuery = lazy(() => import('./components/AIQuery'))
+const SavedQuestions = lazy(() => import('./components/SavedQuestions'))
+const FewShotExamples = lazy(() => import('./components/FewShotExamples'))
+const Evaluation = lazy(() => import('./components/Evaluation'))
 
 interface AppRoute {
   path: string
@@ -13,7 +15,7 @@ interface AppRoute {
   eyebrow: string
   description: string
   icon: ReactNode
-  component: ComponentType
+  component: LazyExoticComponent<ComponentType>
 }
 
 const iconProps = {
@@ -254,7 +256,11 @@ function App() {
         </header>
 
         {ActiveComponent ? (
-          <ActiveComponent />
+          <ErrorBoundary key={activeRoute.path}>
+            <Suspense fallback={<section className="card empty-state"><h2>Modül yükleniyor</h2></section>}>
+              <ActiveComponent />
+            </Suspense>
+          </ErrorBoundary>
         ) : (
           <section className="card empty-state">
             <h2>Modül Bulunamadı</h2>

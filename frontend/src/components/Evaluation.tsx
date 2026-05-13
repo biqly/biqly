@@ -14,6 +14,9 @@ import {
 import useStreamingApi from '../hooks/useStreamingApi'
 import { adminAuthHeaders, useAdminApi } from '../hooks/useApi'
 import { useQueryParam } from '../hooks/useQueryParam'
+import { chartAxisStroke, chartGridStroke, chartTooltipStyle, smallChartTick } from '../utils/chartConfig'
+import { getRateColor } from '../utils/formatters'
+import { KPICard } from './ui/KPICard'
 import { Select } from './ui/Select'
 import type { EvalRunSummary, EvalRunDetail, RegressionReport } from '../types/ai'
 
@@ -101,18 +104,7 @@ const DEMO_DATA: EvalRunResponse = {
   ],
 }
 
-const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444']
-
 // ─── Sub-components ────────────────────────────────────────────────
-
-function KPICard({ label, value, color }: { label: string; value: string | number; color: string }) {
-  return (
-    <div className="kpi-card" style={{ borderColor: color }}>
-      <div className="kpi-label">{label}</div>
-      <div className="kpi-value" style={{ color }}>{value}</div>
-    </div>
-  )
-}
 
 function DiffView({ expected, got }: { expected: Record<string, unknown>; got: Record<string, unknown> }) {
   const expectedStr = JSON.stringify(expected, null, 2)
@@ -209,7 +201,7 @@ export default function Evaluation() {
     if (activeTab === 'history' || activeTab === 'regression') {
       void loadRunHistory()
     }
-  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTab])
 
   useEffect(() => {
     if (selectedRun) return // don't reload if already selected
@@ -377,7 +369,7 @@ export default function Evaluation() {
                         <Cell key={i} fill={entry.fill} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #475569' }} />
+                    <Tooltip contentStyle={chartTooltipStyle} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -389,11 +381,11 @@ export default function Evaluation() {
                 <div className="chart-container" style={{ height: 240 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={trendData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
-                      <XAxis dataKey="date" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                      <YAxis stroke="#94a3b8" domain={[0, 100]} tick={{ fontSize: 11 }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} />
+                      <XAxis dataKey="date" stroke={chartAxisStroke} tick={smallChartTick} />
+                      <YAxis stroke={chartAxisStroke} domain={[0, 100]} tick={smallChartTick} />
                       <Tooltip
-                        contentStyle={{ background: '#1e293b', border: '1px solid #475569' }}
+                        contentStyle={chartTooltipStyle}
                         formatter={(v: number) => `${v}%`}
                       />
                       <Bar dataKey="pass_rate_pct" fill="#3b82f6" radius={[4, 4, 0, 0]} />
@@ -466,7 +458,7 @@ export default function Evaluation() {
                     <td style={{ color: 'var(--success)' }}>{r.passed}</td>
                     <td style={{ color: 'var(--error)' }}>{r.failed}</td>
                     <td style={{
-                      color: r.pass_rate >= 80 ? 'var(--success)' : r.pass_rate >= 50 ? 'var(--warning)' : 'var(--error)',
+                      color: getRateColor(r.pass_rate * 100),
                       fontWeight: 700,
                     }}>
                       {(r.pass_rate * 100).toFixed(0)}%
@@ -488,22 +480,10 @@ export default function Evaluation() {
             <button className="btn btn-sm btn-ghost" onClick={() => setSelectedRun(null)}>← Geri</button>
           </div>
           <div className="kpi-row">
-            <div className="kpi-card" style={{ borderColor: 'var(--accent)' }}>
-              <div className="kpi-label">Toplam</div>
-              <div className="kpi-value">{selectedRun.summary.total_cases}</div>
-            </div>
-            <div className="kpi-card" style={{ borderColor: 'var(--success)' }}>
-              <div className="kpi-label">Geçen</div>
-              <div className="kpi-value" style={{ color: 'var(--success)' }}>{selectedRun.summary.passed}</div>
-            </div>
-            <div className="kpi-card" style={{ borderColor: 'var(--error)' }}>
-              <div className="kpi-label">Kalan</div>
-              <div className="kpi-value" style={{ color: 'var(--error)' }}>{selectedRun.summary.failed}</div>
-            </div>
-            <div className="kpi-card" style={{ borderColor: 'var(--warning)' }}>
-              <div className="kpi-label">Başarı %</div>
-              <div className="kpi-value" style={{ color: 'var(--warning)' }}>{(selectedRun.summary.pass_rate * 100).toFixed(0)}%</div>
-            </div>
+            <KPICard label="Toplam" value={selectedRun.summary.total_cases} color="var(--accent)" />
+            <KPICard label="Geçen" value={selectedRun.summary.passed} color="var(--success)" />
+            <KPICard label="Kalan" value={selectedRun.summary.failed} color="var(--error)" />
+            <KPICard label="Başarı %" value={`${(selectedRun.summary.pass_rate * 100).toFixed(0)}%`} color="var(--warning)" />
           </div>
           <div className="card">
             <h3>Test Senaryoları — {selectedRun.summary.model} ({new Date(selectedRun.summary.completed_at).toLocaleString('tr-TR')})</h3>

@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react'
+import { frontendEnv } from '../utils/env'
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
@@ -93,7 +94,7 @@ export function useApi() {
   }, [])
 
   const call = useCallback(
-    async <T = any>(
+    async <T = unknown>(
       method: Method,
       url: string,
       body?: unknown,
@@ -118,26 +119,26 @@ export function useApi() {
   )
 
   const get = useCallback(
-    <T = any>(url: string, options?: RequestOptions) => call<T>('GET', url, undefined, options),
+    <T = unknown>(url: string, options?: RequestOptions) => call<T>('GET', url, undefined, options),
     [call],
   )
   const postData = useCallback(
-    <T = any>(url: string, body: unknown, options?: RequestOptions) =>
+    <T = unknown>(url: string, body: unknown, options?: RequestOptions) =>
       call<T>('POST', url, body, options),
     [call],
   )
   const patchData = useCallback(
-    <T = any>(url: string, body: unknown, options?: RequestOptions) =>
+    <T = unknown>(url: string, body: unknown, options?: RequestOptions) =>
       call<T>('PATCH', url, body, options),
     [call],
   )
   const putData = useCallback(
-    <T = any>(url: string, body: unknown, options?: RequestOptions) =>
+    <T = unknown>(url: string, body: unknown, options?: RequestOptions) =>
       call<T>('PUT', url, body, options),
     [call],
   )
   const deleteData = useCallback(
-    <T = any>(url: string, options?: RequestOptions) => call<T>('DELETE', url, undefined, options),
+    <T = unknown>(url: string, options?: RequestOptions) => call<T>('DELETE', url, undefined, options),
     [call],
   )
 
@@ -145,8 +146,12 @@ export function useApi() {
 }
 
 export function adminAuthHeaders(): Record<string, string> {
-  const adminKey = import.meta.env.VITE_BI_ADMIN_API_KEY || ''
+  const adminKey = frontendEnv.adminApiKey
   return adminKey ? { Authorization: `Bearer ${adminKey}` } : {}
+}
+
+function withHeaders(options: RequestOptions | undefined, headers: Record<string, string>): RequestOptions {
+  return { ...options, headers: { ...headers, ...options?.headers } }
 }
 
 /**
@@ -161,28 +166,28 @@ export function useAdminApi() {
   const configured = Object.keys(adminHeaders).length > 0
 
   const get = useCallback(
-    <T = any>(url: string, options?: RequestOptions) =>
-      api.get<T>(url, { ...options, headers: { ...adminHeaders, ...options?.headers } }),
+    <T = unknown>(url: string, options?: RequestOptions) =>
+      api.get<T>(url, withHeaders(options, adminHeaders)),
     [api],
   )
   const postData = useCallback(
-    <T = any>(url: string, body: unknown, options?: RequestOptions) =>
-      api.postData<T>(url, body, { ...options, headers: { ...adminHeaders, ...options?.headers } }),
+    <T = unknown>(url: string, body: unknown, options?: RequestOptions) =>
+      api.postData<T>(url, body, withHeaders(options, adminHeaders)),
     [api],
   )
   const putData = useCallback(
-    <T = any>(url: string, body: unknown, options?: RequestOptions) =>
-      api.putData<T>(url, body, { ...options, headers: { ...adminHeaders, ...options?.headers } }),
+    <T = unknown>(url: string, body: unknown, options?: RequestOptions) =>
+      api.putData<T>(url, body, withHeaders(options, adminHeaders)),
     [api],
   )
   const patchData = useCallback(
-    <T = any>(url: string, body: unknown, options?: RequestOptions) =>
-      api.patchData<T>(url, body, { ...options, headers: { ...adminHeaders, ...options?.headers } }),
+    <T = unknown>(url: string, body: unknown, options?: RequestOptions) =>
+      api.patchData<T>(url, body, withHeaders(options, adminHeaders)),
     [api],
   )
   const deleteData = useCallback(
-    <T = any>(url: string, options?: RequestOptions) =>
-      api.deleteData<T>(url, { ...options, headers: { ...adminHeaders, ...options?.headers } }),
+    <T = unknown>(url: string, options?: RequestOptions) =>
+      api.deleteData<T>(url, withHeaders(options, adminHeaders)),
     [api],
   )
 

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts'
 import { useApi } from '../hooks/useApi'
+import { chartAxisStroke, chartGridStroke, chartTooltipStyle } from '../utils/chartConfig'
+import { chartColor } from '../utils/constants'
+import { getRateColor } from '../utils/formatters'
+import { KPICard } from './ui/KPICard'
 import type { ModelStats } from '../types/ai'
-
-const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6']
 
 // Demo dashboard with sample data
 export default function Dashboard() {
@@ -64,11 +66,7 @@ export default function Dashboard() {
           { label: 'Ort. sipariş tutarı', value: '$59,01', change: '+%3,1' },
           { label: 'Aktif kullanıcılar', value: '1.247', change: '+%15,3' },
         ].map((card, i) => (
-          <div key={i} className="card" style={{ marginBottom: 0 }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>{card.label}</p>
-            <p style={{ fontSize: '2rem', fontWeight: 700, margin: '0.5rem 0' }}>{card.value}</p>
-            <p className="success" style={{ fontSize: '0.875rem' }}>{card.change}</p>
-          </div>
+          <KPICard key={i} label={`${card.label} ${card.change}`} value={card.value} color="var(--success)" />
         ))}
       </div>
 
@@ -78,10 +76,10 @@ export default function Dashboard() {
           <div style={{ height: 300 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={sampleData.revenue}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
-                <XAxis dataKey="name" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" />
-                <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #475569' }} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} />
+                <XAxis dataKey="name" stroke={chartAxisStroke} />
+                <YAxis stroke={chartAxisStroke} />
+                <Tooltip contentStyle={chartTooltipStyle} />
                 <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -94,11 +92,11 @@ export default function Dashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={sampleData.countries} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
-                  {sampleData.countries.map((_: any, i: number) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                  {sampleData.countries.map((_, i) => (
+                    <Cell key={i} fill={chartColor(i)} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #475569' }} />
+                <Tooltip contentStyle={chartTooltipStyle} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -110,11 +108,11 @@ export default function Dashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={sampleData.orders} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
-                  {sampleData.orders.map((_: any, i: number) => (
-                    <Cell key={i} fill={COLORS[(i + 3) % COLORS.length]} />
+                  {sampleData.orders.map((_, i) => (
+                    <Cell key={i} fill={chartColor(i + 3)} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #475569' }} />
+                <Tooltip contentStyle={chartTooltipStyle} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -192,7 +190,7 @@ function AIUsageSection() {
       }
       setLoading(false)
     })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   if (loading) return null
   if (!summary) return null
@@ -211,22 +209,10 @@ function AIUsageSection() {
 
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-        <div className="card" style={{ marginBottom: 0 }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Toplam AI sorgusu</p>
-          <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '0.3rem 0' }}>{summary.total_queries}</p>
-        </div>
-        <div className="card" style={{ marginBottom: 0 }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Başarı oranı</p>
-          <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '0.3rem 0' }}>{(summary.success_rate * 100).toFixed(0)}%</p>
-        </div>
-        <div className="card" style={{ marginBottom: 0 }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Ort. gecikme</p>
-          <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '0.3rem 0' }}>{summary.avg_latency_ms.toFixed(0)}ms</p>
-        </div>
-        <div className="card" style={{ marginBottom: 0 }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Toplam maliyet</p>
-          <p style={{ fontSize: '1.8rem', fontWeight: 700, margin: '0.3rem 0' }}>${summary.total_cost.toFixed(4)}</p>
-        </div>
+        <KPICard label="Toplam AI sorgusu" value={summary.total_queries} color="var(--accent)" />
+        <KPICard label="Başarı oranı" value={`${(summary.success_rate * 100).toFixed(0)}%`} color={getRateColor(summary.success_rate * 100)} />
+        <KPICard label="Ort. gecikme" value={`${summary.avg_latency_ms.toFixed(0)}ms`} color="var(--warning)" />
+        <KPICard label="Toplam maliyet" value={`$${summary.total_cost.toFixed(4)}`} color="var(--success)" />
       </div>
 
       {/* Charts */}
@@ -237,10 +223,10 @@ function AIUsageSection() {
             {trendData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
-                  <XAxis dataKey="name" stroke="#94a3b8" />
-                  <YAxis stroke="#94a3b8" />
-                  <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #475569' }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} />
+                  <XAxis dataKey="name" stroke={chartAxisStroke} />
+                  <YAxis stroke={chartAxisStroke} />
+                  <Tooltip contentStyle={chartTooltipStyle} />
                   <Line type="monotone" dataKey="queries" stroke="#3b82f6" strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
@@ -256,10 +242,10 @@ function AIUsageSection() {
             {trendData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
-                  <XAxis dataKey="name" stroke="#94a3b8" />
-                  <YAxis stroke="#94a3b8" />
-                  <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #475569' }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} />
+                  <XAxis dataKey="name" stroke={chartAxisStroke} />
+                  <YAxis stroke={chartAxisStroke} />
+                  <Tooltip contentStyle={chartTooltipStyle} />
                   <Bar dataKey="cost" fill="#f59e0b" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -285,7 +271,7 @@ function ModelSuccessRates() {
       if (data) setModels(data)
       setLoading(false)
     })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   if (loading) return null
   if (models.length === 0) return null
@@ -316,7 +302,7 @@ function ModelSuccessRates() {
               <td style={{ textAlign: 'right', color: 'var(--error)' }}>{m.failure_count}</td>
               <td style={{ textAlign: 'right' }}>
                 <span style={{
-                  color: m.success_rate >= 80 ? 'var(--success)' : m.success_rate >= 50 ? 'var(--warning)' : 'var(--error)',
+                  color: getRateColor(m.success_rate),
                   fontWeight: 700,
                 }}>
                   {m.success_rate.toFixed(1)}%
@@ -341,10 +327,10 @@ function ModelSuccessRates() {
               success_rate: m.success_rate,
               confidence: m.avg_confidence * 100,
             }))}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
-              <XAxis dataKey="name" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-              <YAxis stroke="#94a3b8" domain={[0, 100]} />
-              <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #475569' }} />
+              <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} />
+              <XAxis dataKey="name" stroke={chartAxisStroke} tick={{ fontSize: 11 }} />
+              <YAxis stroke={chartAxisStroke} domain={[0, 100]} />
+              <Tooltip contentStyle={chartTooltipStyle} />
               <Bar dataKey="success_rate" fill="#22c55e" radius={[4, 4, 0, 0]} name="Başarı %" />
               <Bar dataKey="confidence" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Güven %" />
             </BarChart>

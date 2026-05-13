@@ -1,15 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useApi } from '../hooks/useApi'
+import type { Datasource } from '../types/metadata'
 import { Select } from './ui/Select'
-
-interface Datasource {
-  id: string
-  name: string
-  type: string
-  is_active: boolean
-  last_sync_at: string | null
-  created_at: string
-}
 
 const TYPES = ['postgres', 'mysql', 'sqlserver', 'clickhouse']
 
@@ -18,7 +10,7 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
   timeStyle: 'short',
 })
 
-const formatDateTime = (value: string | null) => {
+const formatDateTime = (value: string | null | undefined) => {
   if (!value) return 'Hiç'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return 'Hiç'
@@ -38,7 +30,7 @@ export default function Datasources() {
     if (data) setItems(data)
   }
 
-  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load() }, [])
 
   const create = async () => {
     if (!form.name || !form.dsn) return

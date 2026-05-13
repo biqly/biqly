@@ -39,7 +39,7 @@ export default function FewShotExamples() {
         setApiReady(false)
       }
     })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   const persist = (updated: FewShotExample[]) => {
     setExamples(updated)

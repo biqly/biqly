@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { LogicalQuery } from '../types/ai'
 
 interface SavedQuestion {
   id: string
@@ -6,7 +7,7 @@ interface SavedQuestion {
   description: string
   datasource_id: string
   model_id: string
-  logical_query: any
+  logical_query: Partial<LogicalQuery>
   created_at: string
   tags: string[]
 }

@@ -1,16 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
 import { useApi } from '../hooks/useApi'
+import { useArrayState } from '../hooks/useArrayState'
 import { useQueryParam } from '../hooks/useQueryParam'
+import type { Datasource } from '../types/metadata'
 import { formatResultCell } from '../utils/resultCellFormat'
+import { chartAxisStroke, chartGridStroke, chartTooltipStyle } from '../utils/chartConfig'
+import { chartColor } from '../utils/constants'
 import { Select } from './ui/Select'
 import type { CTE, LogicalQuery } from '../types/ai'
-
-interface Datasource {
-  id: string
-  name: string
-  type: string
-}
 
 interface SemanticModelSummary {
   id: string
@@ -139,7 +137,18 @@ interface CTERow {
   query: string
 }
 
-const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316']
+interface QueryBuilderResult {
+  columns?: { name: string; type?: string }[]
+  rows?: unknown[][]
+  stats?: {
+    row_count?: number
+    duration_ms?: number
+  }
+}
+
+interface QueryExplainResponse {
+  compiled_sql?: string
+}
 
 const WINDOW_FUNC_OPTIONS = ['ROW_NUMBER', 'RANK', 'DENSE_RANK', 'LAG', 'LEAD', 'SUM', 'AVG', 'COUNT']
 
@@ -161,7 +170,7 @@ export default function QueryBuilder() {
         return data[0]?.id ?? ''
       })
     })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     setDsParam(datasourceId)
@@ -188,7 +197,7 @@ export default function QueryBuilder() {
     return () => {
       cancelled = true
     }
-  }, [datasourceId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [datasourceId])
 
   useEffect(() => {
     if (!modelId) {
@@ -202,20 +211,26 @@ export default function QueryBuilder() {
     return () => {
       cancelled = true
     }
-  }, [modelId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [modelId])
 
-  const [selectItems, setSelectItems] = useState<SelectItem[]>([])
-  const [filters, setFilters] = useState<FilterRow[]>([])
-  const [groupBy, setGroupBy] = useState<string[]>([])
+  const selectItemsState = useArrayState<SelectItem>([])
+  const filterState = useArrayState<FilterRow>([])
+  const groupByState = useArrayState<string>([])
+  const { items: selectItems, setItems: setSelectItems } = selectItemsState
+  const { items: filters } = filterState
+  const { items: groupBy } = groupByState
   const [orderBy, setOrderBy] = useState<string>('')
   const [orderDir, setOrderDir] = useState('asc')
   const [limit, setLimit] = useState(100)
   const [offset, setOffset] = useState(0)
   const [mode, setMode] = useState<'simple' | 'advanced'>('simple')
-  const [having, setHaving] = useState<HavingRow[]>([])
-  const [windowFunctions, setWindowFunctions] = useState<WindowFuncRow[]>([])
-  const [ctes, setCTEs] = useState<CTERow[]>([])
-  const [result, setResult] = useState<any>(null)
+  const havingState = useArrayState<HavingRow>([])
+  const windowFunctionState = useArrayState<WindowFuncRow>([])
+  const cteState = useArrayState<CTERow>([])
+  const { items: having } = havingState
+  const { items: windowFunctions } = windowFunctionState
+  const { items: ctes } = cteState
+  const [result, setResult] = useState<QueryBuilderResult | null>(null)
   const [sql, setSql] = useState('')
   const [chartType, setChartType] = useState<'bar' | 'line' | 'pie'>('bar')
 
@@ -229,66 +244,52 @@ export default function QueryBuilder() {
   }, [dimensions, metrics])
   const metricOptsHaving = useMemo(() => metricFieldOptions(metrics), [metrics])
 
-  const addSelectItem = () => setSelectItems([...selectItems, { type: 'dimension', name: '' }])
+  const addSelectItem = () => selectItemsState.add({ type: 'dimension', name: '' })
   const updateSelectItem = (i: number, field: keyof SelectItem, value: string) => {
-    const items = [...selectItems]
-    const existing = items[i]
+    const existing = selectItems[i]
     if (!existing) return
     if (field === 'type' && value !== existing.type) {
-      items[i] = { type: value as 'dimension' | 'metric', name: '' }
+      selectItemsState.update(i, { type: value as 'dimension' | 'metric', name: '' })
     } else {
-      items[i] = { ...existing, [field]: value }
+      selectItemsState.update(i, { ...existing, [field]: value })
     }
-    setSelectItems(items)
   }
-  const removeSelectItem = (i: number) => setSelectItems(selectItems.filter((_, idx) => idx !== i))
+  const removeSelectItem = (i: number) => selectItemsState.remove(i)
 
-  const addFilter = () => setFilters([...filters, { field: '', operator: 'eq', value: '' }])
+  const addFilter = () => filterState.add({ field: '', operator: 'eq', value: '' })
   const updateFilter = (i: number, field: keyof FilterRow, value: string) => {
-    const items = [...filters]
-    const existing = items[i]
-    items[i] = { field: existing?.field ?? '', operator: existing?.operator ?? 'eq', value: existing?.value ?? '', [field]: value }
-    setFilters(items)
+    const existing = filters[i]
+    filterState.update(i, { field: existing?.field ?? '', operator: existing?.operator ?? 'eq', value: existing?.value ?? '', [field]: value })
   }
-  const removeFilter = (i: number) => setFilters(filters.filter((_, idx) => idx !== i))
+  const removeFilter = (i: number) => filterState.remove(i)
 
-  const addGroupByRow = () => setGroupBy([...groupBy, ''])
-  const updateGroupByRow = (i: number, value: string) => {
-    const next = [...groupBy]
-    next[i] = value
-    setGroupBy(next)
-  }
-  const removeGroupByRow = (i: number) => setGroupBy(groupBy.filter((_, idx) => idx !== i))
+  const addGroupByRow = () => groupByState.add('')
+  const updateGroupByRow = (i: number, value: string) => groupByState.update(i, value)
+  const removeGroupByRow = (i: number) => groupByState.remove(i)
 
   // HAVING helpers (advanced mode)
-  const addHaving = () => setHaving([...having, { field: '', operator: 'gt', value: '' }])
+  const addHaving = () => havingState.add({ field: '', operator: 'gt', value: '' })
   const updateHaving = (i: number, field: keyof HavingRow, value: string) => {
-    const items = [...having]
-    const existing = items[i]
-    items[i] = { field: existing?.field ?? '', operator: existing?.operator ?? 'gt', value: existing?.value ?? '', [field]: value }
-    setHaving(items)
+    const existing = having[i]
+    havingState.update(i, { field: existing?.field ?? '', operator: existing?.operator ?? 'gt', value: existing?.value ?? '', [field]: value })
   }
-  const removeHaving = (i: number) => setHaving(having.filter((_, idx) => idx !== i))
+  const removeHaving = (i: number) => havingState.remove(i)
 
   // Window function helpers
-  const addWindowFunc = () => setWindowFunctions([...windowFunctions, { func: 'ROW_NUMBER', field: '', partition_by: '', order_by: '' }])
+  const addWindowFunc = () => windowFunctionState.add({ func: 'ROW_NUMBER', field: '', partition_by: '', order_by: '' })
   const updateWindowFunc = (i: number, field: keyof WindowFuncRow, value: string) => {
-    const items = [...windowFunctions]
-    const existing = items[i]
-    items[i] = { func: existing?.func ?? 'ROW_NUMBER', field: existing?.field ?? '', partition_by: existing?.partition_by ?? '', order_by: existing?.order_by ?? '', [field]: value }
-    setWindowFunctions(items)
+    const existing = windowFunctions[i]
+    windowFunctionState.update(i, { func: existing?.func ?? 'ROW_NUMBER', field: existing?.field ?? '', partition_by: existing?.partition_by ?? '', order_by: existing?.order_by ?? '', [field]: value })
   }
-  const removeWindowFunc = (i: number) => setWindowFunctions(windowFunctions.filter((_, idx) => idx !== i))
+  const removeWindowFunc = (i: number) => windowFunctionState.remove(i)
 
   // CTE helpers
-  const addCTE = () => setCTEs([...ctes, { name: '', query: '' }])
+  const addCTE = () => cteState.add({ name: '', query: '' })
   const updateCTE = (i: number, field: keyof CTERow, value: string) => {
-    const items = [...ctes]
-    const existing = items[i]
-    items[i] = { name: existing?.name ?? '', query: existing?.query ?? '', [field]: value }
-    setCTEs(items)
+    const existing = ctes[i]
+    cteState.update(i, { name: existing?.name ?? '', query: existing?.query ?? '', [field]: value })
   }
-  const removeCTE = (i: number) => setCTEs(ctes.filter((_, idx) => idx !== i))
+  const removeCTE = (i: number) => cteState.remove(i)
 
   const runQuery = async () => {
     const payload = {
@@ -336,20 +337,20 @@ export default function QueryBuilder() {
     }
 
     // First get SQL preview
-    const explainRes = await postData('/api/query/explain', payload)
+    const explainRes = await postData<QueryExplainResponse>('/api/query/explain', payload)
     if (explainRes?.compiled_sql) {
       setSql(explainRes.compiled_sql)
     }
 
     // Then execute
-    const res = await postData('/api/query/run', payload)
+    const res = await postData<QueryBuilderResult>('/api/query/run', payload)
     if (res) {
       setResult(res)
     }
   }
 
-  const chartData = result?.rows?.map((row: any[]) => {
-    const obj: Record<string, any> = { name: String(row[0]) }
+  const chartData = result?.rows?.map((row) => {
+    const obj: { name: string; value?: number } = { name: String(row[0]) }
     if (row[1] !== undefined) obj.value = Number(row[1]) || 0
     return obj
   }) || []
@@ -655,28 +656,28 @@ export default function QueryBuilder() {
                 <ResponsiveContainer width="100%" height="100%">
                   {chartType === 'bar' ? (
                     <BarChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
-                      <XAxis dataKey="name" stroke="#94a3b8" />
-                      <YAxis stroke="#94a3b8" />
-                      <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #475569' }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} />
+                      <XAxis dataKey="name" stroke={chartAxisStroke} />
+                      <YAxis stroke={chartAxisStroke} />
+                      <Tooltip contentStyle={chartTooltipStyle} />
                       <Bar dataKey="value" fill="#3b82f6" />
                     </BarChart>
                   ) : chartType === 'line' ? (
                     <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
-                      <XAxis dataKey="name" stroke="#94a3b8" />
-                      <YAxis stroke="#94a3b8" />
-                      <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #475569' }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} />
+                      <XAxis dataKey="name" stroke={chartAxisStroke} />
+                      <YAxis stroke={chartAxisStroke} />
+                      <Tooltip contentStyle={chartTooltipStyle} />
                       <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} />
                     </LineChart>
                   ) : (
                     <PieChart>
                       <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
-                        {chartData.map((_: any, i: number) => (
-                          <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                        {chartData.map((_, i) => (
+                          <Cell key={i} fill={chartColor(i)} />
                         ))}
                       </Pie>
-                      <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #475569' }} />
+                      <Tooltip contentStyle={chartTooltipStyle} />
                     </PieChart>
                   )}
                 </ResponsiveContainer>
@@ -688,16 +689,16 @@ export default function QueryBuilder() {
             <table className="results-table">
               <thead>
                 <tr>
-                  {result.columns.map((col: any) => (
+                  {result.columns.map((col) => (
                     <th key={col.name}>{col.name}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {result.rows.map((row: any[], i: number) => (
+                {result.rows.map((row, i) => (
                   <tr key={i}>
-                    {row.map((cell: any, j: number) => (
-                      <td key={j}>{formatResultCell(cell, result.columns[j]?.name ?? '', {})}</td>
+                    {row.map((cell, j) => (
+                      <td key={j}>{formatResultCell(cell, result.columns?.[j]?.name ?? '', {})}</td>
                     ))}
                   </tr>
                 ))}

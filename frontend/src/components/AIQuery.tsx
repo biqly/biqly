@@ -16,14 +16,15 @@ import {
 import { useApi } from '../hooks/useApi'
 import { useConversation } from '../hooks/useConversation'
 import { useQueryParam } from '../hooks/useQueryParam'
+import { chartAxisStroke, chartGridStroke, chartTooltipStyle } from '../utils/chartConfig'
+import { chartColor } from '../utils/constants'
 import { formatResultCell } from '../utils/resultCellFormat'
 import ResultTable from './ResultTable'
 import { Select } from './ui/Select'
 import { ModelBadgeRow } from './ui/ModelBadgeRow'
-import type { AIQueryResponse, TableRoutingCandidate, LogicalQueryCandidate, AIRuntimeSettings, EmbedMetadataResponse } from '../types/ai'
+import { Modal } from './ui/Modal'
+import type { AIQueryRequest, AIQueryResponse, TableRoutingCandidate, LogicalQueryCandidate, AIRuntimeSettings, EmbedMetadataResponse, PriorTurn, SelectField } from '../types/ai'
 import type { Datasource } from '../types/metadata'
-
-const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316']
 
 /** NL→SQL can be slow with local models (routing, LLM, retries, EXPLAIN). */
 const AI_QUERY_TIMEOUT_MS = 300_000
@@ -259,8 +260,17 @@ function embeddingSummary(response: EmbedMetadataResponse) {
   return `Gömülen ${response.embedded} metadata ögesi${details} (${response.model}).`
 }
 
+interface SampleColumn {
+  name: string
+}
+
+interface SampleData {
+  columns: SampleColumn[]
+  rows: unknown[][]
+}
+
 function SampleDataModal({ open, onClose, tableName, datasourceId, get }: { open: boolean; onClose: () => void; tableName: string; datasourceId: string; get: <T>(url: string) => Promise<T | null> }) {
-  const [sample, setSample] = useState<any>(null)
+  const [sample, setSample] = useState<SampleData | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -269,32 +279,23 @@ function SampleDataModal({ open, onClose, tableName, datasourceId, get }: { open
     const [schema, ...rest] = tableName.split('.')
     const tName = rest.length > 0 ? rest.join('.') : schema
     const url = `/api/datasources/${datasourceId}/tables/${schema ?? 'public'}/${tName}/sample`
-    get<any>(url).then((data) => { setSample(data); setLoading(false) })
-  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+    get<SampleData>(url).then((data) => { setSample(data); setLoading(false) })
+  }, [datasourceId, get, open, tableName])
 
-  if (!open) return null
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>Örnek Veri — {tableName}</h3>
-          <button className="modal-close" onClick={onClose}>×</button>
-        </div>
-        <div className="modal-body">
-          {loading && <p>Yükleniyor…</p>}
-          {sample?.columns && sample?.rows && (
-            <table className="results-table">
-              <thead><tr>{sample.columns.map((c: any) => <th key={c.name}>{c.name}</th>)}</tr></thead>
-              <tbody>
-                {sample.rows.map((row: any[], i: number) => (
-                  <tr key={i}>{row.map((cell, j) => <td key={j}>{formatResultCell(cell, sample.columns[j]?.name ?? '', {})}</td>)}</tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-    </div>
+    <Modal open={open} title={`Örnek Veri — ${tableName}`} onClose={onClose} labelledBy="sample-data-title">
+      {loading && <p>Yükleniyor…</p>}
+      {sample?.columns && sample?.rows && (
+        <table className="results-table">
+          <thead><tr>{sample.columns.map((c) => <th key={c.name}>{c.name}</th>)}</tr></thead>
+          <tbody>
+            {sample.rows.map((row, i) => (
+              <tr key={i}>{row.map((cell, j) => <td key={j}>{formatResultCell(cell, sample.columns[j]?.name ?? '', {})}</td>)}</tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </Modal>
   )
 }
 
@@ -362,7 +363,7 @@ export default function AIQuery() {
         return data[0]?.id ?? ''
       })
     })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     setDsParam(datasourceId)
@@ -378,14 +379,14 @@ export default function AIQuery() {
         setAiRuntimeErr('Sunucu AI ayarları yüklenemedi')
       }
     })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     setSelectedTables([]); setTableSearch(''); setIncludeBaseTables(true); setIncludeViews(true); setTables([])
     setEmbeddingStatus(null)
     if (!datasourceId) return
     get<TableOption[]>(`/api/datasources/${datasourceId}/tables`).then((data) => setTables(data || []))
-  }, [datasourceId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [datasourceId])
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [activeConversation?.messages.length])
 
@@ -415,7 +416,7 @@ export default function AIQuery() {
   const recentPriorTurns = () => {
     if (!activeConversation) return undefined
     const MAX = 5
-    const turns: { question: string; logical_query?: unknown; note?: string }[] = []
+    const turns: PriorTurn[] = []
     const msgs = activeConversation.messages
     for (let i = 0; i < msgs.length; i++) {
       const m = msgs[i]
@@ -448,9 +449,9 @@ export default function AIQuery() {
     setEmbeddingStatus(embeddingSummary(res))
   }
 
-  const requestBody = () => ({
+  const requestBody = (q = question): AIQueryRequest => ({
     datasource_id: datasourceId,
-    question,
+    question: q,
     tables: autoTableRouting ? undefined : selectedTables,
     include_base_tables: includeBaseTables,
     include_views: includeViews,
@@ -462,15 +463,7 @@ export default function AIQuery() {
     setQuestion(q)
     setQueryAction(execute ? 'execute' : 'preview')
     try {
-      const body = {
-        datasource_id: datasourceId,
-        question: q,
-        tables: autoTableRouting ? undefined : selectedTables,
-        include_base_tables: includeBaseTables,
-        include_views: includeViews,
-        conversation_id: activeConversation?.id,
-        prior_turns: includePastQueries ? recentPriorTurns() : undefined,
-      }
+      const body = requestBody(q)
       const endpoint = execute ? '/api/ai/query/run' : '/api/ai/query/preview'
       const res = await postData<AIQueryResponse>(endpoint, body, { timeout: AI_QUERY_TIMEOUT_MS })
       if (!res) return
@@ -528,7 +521,7 @@ export default function AIQuery() {
   }
 
   const chartData = result?.result?.rows?.map((row) => {
-    const obj: Record<string, any> = { name: String(row[0]) }
+    const obj: { name: string; value?: number } = { name: String(row[0]) }
     if (row[1] !== undefined) obj.value = Number(row[1]) || 0
     return obj
   }) ?? []
@@ -736,9 +729,9 @@ export default function AIQuery() {
               </Collapsible>
             )}
 
-            {(result.logical_query?.select?.filter((s: any) => s.type === 'window') ?? []).length > 0 && (
+            {(result.logical_query?.select?.filter((s): s is SelectField & { type: 'window' } => s.type === 'window') ?? []).length > 0 && (
               <div style={{ marginBottom: '0.5rem' }}>
-                {(result.logical_query?.select ?? []).filter((s: any) => s.type === 'window').map((s: any, i: number) => (
+                {(result.logical_query?.select ?? []).filter((s): s is SelectField & { type: 'window' } => s.type === 'window').map((s, i) => (
                   <span key={i} className="wf-badge">Pencere fonksiyonu: {s.window?.aggregation || s.name}</span>
                 ))}
               </div>
@@ -819,11 +812,11 @@ export default function AIQuery() {
                   <div className="chart-container" style={{ height: 300 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       {chartType === 'bar' ? (
-                        <BarChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis dataKey="name" stroke="#94a3b8" /><YAxis stroke="#94a3b8" /><Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #475569' }} /><Bar dataKey="value" fill="#3b82f6" /></BarChart>
+                        <BarChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} /><XAxis dataKey="name" stroke={chartAxisStroke} /><YAxis stroke={chartAxisStroke} /><Tooltip contentStyle={chartTooltipStyle} /><Bar dataKey="value" fill="#3b82f6" /></BarChart>
                       ) : chartType === 'line' ? (
-                        <LineChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis dataKey="name" stroke="#94a3b8" /><YAxis stroke="#94a3b8" /><Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #475569' }} /><Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} /></LineChart>
+                        <LineChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} /><XAxis dataKey="name" stroke={chartAxisStroke} /><YAxis stroke={chartAxisStroke} /><Tooltip contentStyle={chartTooltipStyle} /><Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} /></LineChart>
                       ) : (
-                        <PieChart><Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>{chartData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #475569' }} /></PieChart>
+                        <PieChart><Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>{chartData.map((_, i) => <Cell key={i} fill={chartColor(i)} />)}</Pie><Tooltip contentStyle={chartTooltipStyle} /></PieChart>
                       )}
                     </ResponsiveContainer>
                   </div>
