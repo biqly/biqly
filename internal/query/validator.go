@@ -1,6 +1,7 @@
 package query
 
 import (
+	"encoding/json"
 	"slices"
 	"strconv"
 	"strings"
@@ -106,6 +107,10 @@ func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) err
 		if err := validateDateFilterValueType(f, model.Dimensions); err != nil {
 			errs = append(errs, err)
 		}
+	}
+
+	if err := validateCalendarGrainYearCoverage(lq, model); err != nil {
+		errs = append(errs, err)
 	}
 
 	// Date/timestamp dimensions are the only ones a time-grain can bucket.
@@ -231,6 +236,8 @@ func validateDateFilterValueType(f Filter, dimensions []semantic.Dimension) *Val
 func isNumericFilterValue(v any) bool {
 	switch v.(type) {
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
+		return true
+	case json.Number:
 		return true
 	}
 	return false

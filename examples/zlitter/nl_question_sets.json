@@ -1,0 +1,306 @@
+{
+  "title": "Zlitter (PostgreSQL) — doğal dil örnek soru setleri",
+  "generated_at": "2026-05-14",
+  "schema": "public",
+  "snapshot_row_counts": {
+    "timeline_tweets": 54053,
+    "timeline_tweets_deleted_at_not_null": 1111,
+    "profiles": 701,
+    "app_users": 4,
+    "outbound_mails": 35,
+    "user_tracked_profiles": 147
+  },
+  "usage": "Biqly AI Sorgu veya eval için: veri kaynağını bu veritabanına bağlayıp tablo kapsamını ilgili tablolarla sınırlayın. Beklenen SQL/LogicalQuery doğrulaması için reference_sql isteğe bağlı ipucudur.",
+  "sets": [
+    {
+      "id": "counts-basics",
+      "name_tr": "Temel sayımlar",
+      "name_en": "Basic counts",
+      "questions": [
+        {
+          "id": "cnt-01",
+          "question_tr": "Toplam kaç tweet kaydı var?",
+          "question_en": "How many tweet rows are there in total?",
+          "focus_tables": ["timeline_tweets"],
+          "intent_tags": ["count", "row_count"],
+          "reference_sql": "SELECT COUNT(*) FROM public.timeline_tweets"
+        },
+        {
+          "id": "cnt-02",
+          "question_tr": "Kaç farklı profil (Twitter hesabı) meta verisi tutuluyor?",
+          "question_en": "How many profile records do we have?",
+          "focus_tables": ["profiles"],
+          "intent_tags": ["count"],
+          "reference_sql": "SELECT COUNT(*) FROM public.profiles"
+        },
+        {
+          "id": "cnt-03",
+          "question_tr": "Sistemde kayıtlı kaç uygulama kullanıcısı var?",
+          "question_en": "How many app users are registered?",
+          "focus_tables": ["app_users"],
+          "intent_tags": ["count"],
+          "reference_sql": "SELECT COUNT(*) FROM public.app_users"
+        },
+        {
+          "id": "cnt-04",
+          "question_tr": "Giden e-posta kuyruğunda kaç kayıt var?",
+          "question_en": "How many outbound mail queue rows exist?",
+          "focus_tables": ["outbound_mails"],
+          "intent_tags": ["count"],
+          "reference_sql": "SELECT COUNT(*) FROM public.outbound_mails"
+        },
+        {
+          "id": "cnt-05",
+          "question_tr": "Kullanıcı başına kaç takip edilen profil eşlemesi var? (toplam satır)",
+          "question_en": "How many user–tracked profile mapping rows are there?",
+          "focus_tables": ["user_tracked_profiles"],
+          "intent_tags": ["count"],
+          "reference_sql": "SELECT COUNT(*) FROM public.user_tracked_profiles"
+        }
+      ]
+    },
+    {
+      "id": "soft-delete-tweets",
+      "name_tr": "Silinen / aktif tweetler",
+      "name_en": "Deleted vs active tweets",
+      "questions": [
+        {
+          "id": "sd-01",
+          "question_tr": "Silinen toplam kaç tweet var?",
+          "question_en": "How many deleted tweets are there in total?",
+          "focus_tables": ["timeline_tweets"],
+          "intent_tags": ["soft_delete", "deleted_at", "is_not_null", "count"],
+          "reference_sql": "SELECT COUNT(*) FROM public.timeline_tweets WHERE deleted_at IS NOT NULL"
+        },
+        {
+          "id": "sd-02",
+          "question_tr": "Henüz silinmemiş aktif tweet sayısı nedir?",
+          "question_en": "How many tweets are not deleted (active)?",
+          "focus_tables": ["timeline_tweets"],
+          "intent_tags": ["soft_delete", "deleted_at", "is_null", "count"],
+          "reference_sql": "SELECT COUNT(*) FROM public.timeline_tweets WHERE deleted_at IS NULL"
+        },
+        {
+          "id": "sd-03",
+          "question_tr": "Silinen tweetlerin yüzdesi yaklaşık ne kadar?",
+          "question_en": "What share of tweets are deleted (approximate %)?",
+          "focus_tables": ["timeline_tweets"],
+          "intent_tags": ["ratio", "aggregate"],
+          "notes_tr": "İki ayrı count veya tek sorguda CASE; NL→SQL zorluk orta.",
+          "reference_sql": "SELECT ROUND(100.0 * COUNT(*) FILTER (WHERE deleted_at IS NOT NULL) / NULLIF(COUNT(*), 0), 2) AS pct_deleted FROM public.timeline_tweets"
+        },
+        {
+          "id": "sd-04",
+          "question_tr": "Silinen tweetleri dil (lang) bazında say",
+          "question_en": "Count deleted tweets grouped by language",
+          "focus_tables": ["timeline_tweets"],
+          "intent_tags": ["group_by", "soft_delete"],
+          "reference_sql": "SELECT lang, COUNT(*) FROM public.timeline_tweets WHERE deleted_at IS NOT NULL GROUP BY lang ORDER BY COUNT(*) DESC"
+        }
+      ]
+    },
+    {
+      "id": "profiles-ranking",
+      "name_tr": "Profiller — sıralama ve doğrulama",
+      "name_en": "Profiles — ranking and verification",
+      "questions": [
+        {
+          "id": "pr-01",
+          "question_tr": "Takipçi sayısı en yüksek ilk 10 profil hangileri?",
+          "question_en": "Top 10 profiles by follower count",
+          "focus_tables": ["profiles"],
+          "intent_tags": ["order_by", "limit", "ranking"],
+          "reference_sql": "SELECT screen_name::text, name, followers FROM public.profiles ORDER BY followers DESC NULLS LAST LIMIT 10"
+        },
+        {
+          "id": "pr-02",
+          "question_tr": "Doğrulanmış (verified) kaç profil var?",
+          "question_en": "How many verified profiles?",
+          "focus_tables": ["profiles"],
+          "intent_tags": ["filter", "boolean", "count"],
+          "reference_sql": "SELECT COUNT(*) FROM public.profiles WHERE verified = true"
+        },
+        {
+          "id": "pr-03",
+          "question_tr": "Tweet sayısı 10 binden fazla olan profilleri listele",
+          "question_en": "List profiles with more than 10k tweets",
+          "focus_tables": ["profiles"],
+          "intent_tags": ["filter", "threshold"],
+          "reference_sql": "SELECT screen_name::text, name, tweet_count FROM public.profiles WHERE tweet_count > 10000 ORDER BY tweet_count DESC"
+        },
+        {
+          "id": "pr-04",
+          "question_tr": "Son getirilme zamanına göre en eski 5 profil hangisi?",
+          "question_en": "5 profiles with oldest last_fetched",
+          "focus_tables": ["profiles"],
+          "intent_tags": ["order_by", "date"],
+          "reference_sql": "SELECT screen_name::text, last_fetched FROM public.profiles ORDER BY last_fetched ASC NULLS LAST LIMIT 5"
+        }
+      ]
+    },
+    {
+      "id": "outbound-mail",
+      "name_tr": "Giden e-posta kuyruğu",
+      "name_en": "Outbound mail queue",
+      "questions": [
+        {
+          "id": "om-01",
+          "question_tr": "Durumu failed olan kaç mail var?",
+          "question_en": "How many outbound mails have status failed?",
+          "focus_tables": ["outbound_mails"],
+          "intent_tags": ["filter", "status", "count"],
+          "reference_sql": "SELECT COUNT(*) FROM public.outbound_mails WHERE status = 'failed'"
+        },
+        {
+          "id": "om-02",
+          "question_tr": "Mail tipine göre gönderim sayıları (mail_type kırılımı)",
+          "question_en": "Count outbound mails by mail_type",
+          "focus_tables": ["outbound_mails"],
+          "intent_tags": ["group_by", "count"],
+          "reference_sql": "SELECT mail_type, COUNT(*) FROM public.outbound_mails GROUP BY mail_type ORDER BY COUNT(*) DESC"
+        },
+        {
+          "id": "om-03",
+          "question_tr": "Başarıyla gönderilmiş maillerin ortalama deneme sayısı (attempt_count)",
+          "question_en": "Average attempt_count for successfully sent mails",
+          "focus_tables": ["outbound_mails"],
+          "intent_tags": ["aggregate", "avg"],
+          "reference_sql": "SELECT AVG(attempt_count)::numeric(10,2) FROM public.outbound_mails WHERE sent_at IS NOT NULL"
+        },
+        {
+          "id": "om-04",
+          "question_tr": "Kullanıcıya göre kaç mail kuyruğa alınmış? (user_id bazında)",
+          "question_en": "How many queued mails per user_id?",
+          "focus_tables": ["outbound_mails", "app_users"],
+          "intent_tags": ["group_by", "join_optional"],
+          "reference_sql": "SELECT user_id, COUNT(*) FROM public.outbound_mails GROUP BY user_id ORDER BY COUNT(*) DESC"
+        }
+      ]
+    },
+    {
+      "id": "cross-user-tracking",
+      "name_tr": "Kullanıcı — takip ve oturum",
+      "name_en": "Users, tracking, sessions",
+      "questions": [
+        {
+          "id": "ux-01",
+          "question_tr": "E-postası doğrulanmış kaç kullanıcı var?",
+          "question_en": "How many users have verified email?",
+          "focus_tables": ["app_users"],
+          "intent_tags": ["filter", "boolean"],
+          "reference_sql": "SELECT COUNT(*) FROM public.app_users WHERE email_verified = true"
+        },
+        {
+          "id": "ux-02",
+          "question_tr": "Anonimleştirilmiş (anonymized_at dolu) kullanıcı var mı, kaç tane?",
+          "question_en": "How many anonymized users (anonymized_at set)?",
+          "focus_tables": ["app_users"],
+          "intent_tags": ["soft_delete", "is_not_null"],
+          "reference_sql": "SELECT COUNT(*) FROM public.app_users WHERE anonymized_at IS NOT NULL"
+        },
+        {
+          "id": "ux-03",
+          "question_tr": "Hangi kullanıcı en çok profil takip ediyor? (user_tracked_profiles satır sayısı)",
+          "question_en": "Which user tracks the most profiles?",
+          "focus_tables": ["user_tracked_profiles", "app_users"],
+          "intent_tags": ["group_by", "ranking"],
+          "reference_sql": "SELECT user_id, COUNT(*) AS n FROM public.user_tracked_profiles WHERE deleted_at IS NULL AND is_deleted = false GROUP BY user_id ORDER BY n DESC LIMIT 5"
+        },
+        {
+          "id": "ux-04",
+          "question_tr": "Aktif oturum sayısı: süresi dolmamış oturumlar",
+          "question_en": "Count sessions that have not expired yet",
+          "focus_tables": ["user_sessions"],
+          "intent_tags": ["filter", "date", "now_relative"],
+          "reference_sql": "SELECT COUNT(*) FROM public.user_sessions WHERE expires_at > now()"
+        },
+        {
+          "id": "ux-05",
+          "question_tr": "Oturumları kimlik doğrulama yöntemine göre say",
+          "question_en": "Count sessions by auth_method",
+          "focus_tables": ["user_sessions"],
+          "intent_tags": ["group_by"],
+          "reference_sql": "SELECT auth_method, COUNT(*) FROM public.user_sessions GROUP BY auth_method"
+        }
+      ]
+    },
+    {
+      "id": "joins-tweets-profiles",
+      "name_tr": "Tweet + profil birleşik sorular",
+      "name_en": "Join-style tweet + profile questions",
+      "questions": [
+        {
+          "id": "jn-01",
+          "question_tr": "Tweeti olan ama profil tablosunda bulunmayan ekran adı var mı? (örnek kontrol)",
+          "question_en": "Sample screen names in tweets missing from profiles (anti-join sanity)",
+          "focus_tables": ["timeline_tweets", "profiles"],
+          "intent_tags": ["join", "anti_join", "hard"],
+          "notes_tr": "İleri seviye; NL→SQL veya ham SQL ile doğrulanabilir.",
+          "reference_sql": "SELECT DISTINCT t.screen_name::text FROM public.timeline_tweets t LEFT JOIN public.profiles p ON t.screen_name = p.screen_name WHERE p.screen_name IS NULL LIMIT 20"
+        },
+        {
+          "id": "jn-02",
+          "question_tr": "Her profil için toplam kaç tweet saklanıyor? (screen_name ile grupla)",
+          "question_en": "Tweet count per profile screen_name",
+          "focus_tables": ["timeline_tweets", "profiles"],
+          "intent_tags": ["group_by", "join"],
+          "reference_sql": "SELECT t.screen_name::text, COUNT(*) FROM public.timeline_tweets t GROUP BY t.screen_name ORDER BY COUNT(*) DESC LIMIT 20"
+        },
+        {
+          "id": "jn-03",
+          "question_tr": "2026 yılında oluşturulmuş (created_at_ts) silinmemiş tweet sayısı",
+          "question_en": "Non-deleted tweets in 2026 by created_at_ts",
+          "focus_tables": ["timeline_tweets"],
+          "intent_tags": ["date_filter", "soft_delete"],
+          "reference_sql": "SELECT COUNT(*) FROM public.timeline_tweets WHERE deleted_at IS NULL AND created_at_ts >= '2026-01-01' AND created_at_ts < '2027-01-01'"
+        }
+      ]
+    },
+    {
+      "id": "lexicon-wordfreq",
+      "name_tr": "Kelime frekansları",
+      "name_en": "Word frequencies",
+      "questions": [
+        {
+          "id": "wf-01",
+          "question_tr": "En çok geçen 20 kelime hangileri?",
+          "question_en": "Top 20 words by frequency count",
+          "focus_tables": ["word_frequencies"],
+          "intent_tags": ["order_by", "limit"],
+          "reference_sql": "SELECT word, count FROM public.word_frequencies ORDER BY count DESC LIMIT 20"
+        },
+        {
+          "id": "wf-02",
+          "question_tr": "En az 100 kez geçmiş kaç kelime var?",
+          "question_en": "How many words appear at least 100 times?",
+          "focus_tables": ["word_frequencies"],
+          "intent_tags": ["having_or_filter", "count"],
+          "reference_sql": "SELECT COUNT(*) FROM public.word_frequencies WHERE count >= 100"
+        }
+      ]
+    },
+    {
+      "id": "saved-reports-meta",
+      "name_tr": "Kayıtlı raporlar",
+      "name_en": "Saved reports",
+      "questions": [
+        {
+          "id": "sr-01",
+          "question_tr": "Kaç kayıtlı rapor var?",
+          "question_en": "How many saved reports?",
+          "focus_tables": ["saved_reports"],
+          "intent_tags": ["count"],
+          "reference_sql": "SELECT COUNT(*) FROM public.saved_reports"
+        },
+        {
+          "id": "sr-02",
+          "question_tr": "Sahibine göre kayıtlı rapor sayısı",
+          "question_en": "Saved reports count per owner",
+          "focus_tables": ["saved_reports"],
+          "intent_tags": ["group_by"],
+          "reference_sql": "SELECT owner_id, COUNT(*) FROM public.saved_reports GROUP BY owner_id ORDER BY COUNT(*) DESC"
+        }
+      ]
+    }
+  ]
+}

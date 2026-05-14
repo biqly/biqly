@@ -30,6 +30,15 @@ import type { Datasource } from '../types/metadata'
 const AI_QUERY_TIMEOUT_MS = 300_000
 const AI_METADATA_EMBED_TIMEOUT_MS = 600_000
 
+function formatAiWaitElapsed(ms: number): string {
+  if (ms < 1000) return `${ms} ms`
+  const sec = ms / 1000
+  if (sec < 60) return `${sec.toFixed(1)} sn`
+  const m = Math.floor(sec / 60)
+  const s = Math.floor(sec % 60)
+  return `${m} dk ${s} sn`
+}
+
 // ─── Sub-components ─────────────────────────────────────────────────
 
 function ConfidenceBar({ value, breakdown }: { value: number; breakdown?: { table_routing: number; llm: number; validation: number } }) {
@@ -226,12 +235,27 @@ function CandidateComparisonPanel({ candidates, onUse }: { candidates: LogicalQu
 }
 
 function CostBadge({ latencyMs, tokenUsage, costUsd }: { latencyMs?: number; tokenUsage?: { prompt: number; completion: number; total: number }; costUsd?: number }) {
-  if (!latencyMs && !tokenUsage && !costUsd) return null
+  if (!latencyMs && !tokenUsage && costUsd === undefined) return null
   const parts: string[] = []
-  if (latencyMs) parts.push(`⏱ ${(latencyMs / 1000).toFixed(1)}s`)
-  if (tokenUsage) parts.push(`🪙 ${tokenUsage.total} token`)
+  if (latencyMs !== undefined && latencyMs > 0) parts.push(`⏱ ${(latencyMs / 1000).toFixed(1)}s`)
+  if (tokenUsage) {
+    parts.push(`🪙 ${tokenUsage.total} token`)
+  }
   if (costUsd !== undefined) parts.push(`$${costUsd.toFixed(4)}`)
-  return <div className="cost-badge">{parts.join(' · ')}</div>
+  const tokenTitle = tokenUsage
+    ? `İstem (prompt): ${tokenUsage.prompt.toLocaleString('tr-TR')} · Tamamlama: ${tokenUsage.completion.toLocaleString('tr-TR')} · Toplam: ${tokenUsage.total.toLocaleString('tr-TR')}`
+    : undefined
+  return (
+    <div className="cost-badge" title={tokenTitle}>
+      {parts.join(' · ')}
+      {tokenUsage && (
+        <span className="cost-badge-detail">
+          {' '}
+          ({tokenUsage.prompt.toLocaleString('tr-TR')} + {tokenUsage.completion.toLocaleString('tr-TR')})
+        </span>
+      )}
+    </div>
+  )
 }
 
 function Collapsible({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
@@ -348,6 +372,22 @@ export default function AIQuery() {
 
   /** Which primary action is in flight — avoids both buttons showing the same loading text */
   const [queryAction, setQueryAction] = useState<'preview' | 'execute' | null>(null)
+  const [followUpBusy, setFollowUpBusy] = useState(false)
+  const [aiElapsedMs, setAiElapsedMs] = useState(0)
+  const aiBusy = queryAction !== null || followUpBusy
+
+  useEffect(() => {
+    if (!aiBusy) {
+      setAiElapsedMs(0)
+      return
+    }
+    const t0 = performance.now()
+    setAiElapsedMs(0)
+    const id = window.setInterval(() => {
+      setAiElapsedMs(Math.round(performance.now() - t0))
+    }, 200)
+    return () => window.clearInterval(id)
+  }, [aiBusy])
 
   // Cell drill-down
   const [drillDownTarget, setDrillDownTarget] = useState<string | null>(null)
@@ -528,14 +568,14 @@ export default function AIQuery() {
 
   useEffect(() => { if (result?.visualization_hint?.chart_type) setChartType(result.visualization_hint.chart_type) }, [result?.visualization_hint?.chart_type])
 
-  const loadingLabel = loading
+  const loadingLabel = loading && (queryAction !== null || followUpBusy)
     ? result?.retry_count ? `AI kendini düzeltti (deneme ${result.retry_count + 1}/3)…`
     : result?.candidates_count ? `Adaylar üretiliyor…`
     : 'Düşünülüyor…'
     : ''
 
   const previewButtonLabel = loading && queryAction === 'preview' ? loadingLabel : 'SQL Önizle'
-  const executeButtonLabel = loading && queryAction === 'execute' ? loadingLabel : 'Önizle & Çalıştır'
+  const executeButtonLabel = loading && (queryAction === 'execute' || followUpBusy) ? loadingLabel : 'Önizle & Çalıştır'
 
   return (
     <div className="ai-query-layout">
@@ -673,8 +713,16 @@ export default function AIQuery() {
           <div className="button-row">
             <button className="btn" onClick={() => sendQuery(question, false)} disabled={loading || !question || !datasourceId}>{previewButtonLabel}</button>
             <button className="btn btn-primary" onClick={() => sendQuery(question, true)} disabled={loading || !question || !datasourceId}>{executeButtonLabel}</button>
-            {loading && <button className="btn btn-ghost" onClick={abort}>İptal</button>}
+            {loading && (queryAction !== null || followUpBusy) && <button className="btn btn-ghost" onClick={abort}>İptal</button>}
           </div>
+          {aiBusy && (
+            <div className="ai-wait-meta" role="status" aria-live="polite">
+              <span className="ai-wait-meta-time">Geçen süre: {formatAiWaitElapsed(aiElapsedMs)}</span>
+              <span className="ai-wait-meta-hint">
+                Token ve gecikme özeti yanıt gelince gösterilir. Zaman aşımı en fazla {Math.round(AI_QUERY_TIMEOUT_MS / 60_000)} dk.
+              </span>
+            </div>
+          )}
           {error && <div className="error" style={{ marginTop: '1rem' }}>{error}</div>}
         </div>
 
@@ -898,15 +946,20 @@ export default function AIQuery() {
 
   async function handleFollowUp(followUp: string) {
     if (!activeConversation) createConversation()
-    const res = await postData<AIQueryResponse>(
-      '/api/ai/query/run',
-      { ...requestBody(), question: followUp, conversation_id: activeConversation?.id },
-      { timeout: AI_QUERY_TIMEOUT_MS },
-    )
-    if (!res) return
-    setResult(res)
-    addMessage({ role: 'user', content: followUp })
-    const summary = res.sql ? `SQL: ${res.sql.slice(0, 120)}…` : 'Sorgu çalıştırıldı'
-    addMessage({ role: 'assistant', content: summary, ai_response: res })
+    setFollowUpBusy(true)
+    try {
+      const res = await postData<AIQueryResponse>(
+        '/api/ai/query/run',
+        { ...requestBody(), question: followUp, conversation_id: activeConversation?.id },
+        { timeout: AI_QUERY_TIMEOUT_MS },
+      )
+      if (!res) return
+      setResult(res)
+      addMessage({ role: 'user', content: followUp })
+      const summary = res.sql ? `SQL: ${res.sql.slice(0, 120)}…` : 'Sorgu çalıştırıldı'
+      addMessage({ role: 'assistant', content: summary, ai_response: res })
+    } finally {
+      setFollowUpBusy(false)
+    }
   }
 }

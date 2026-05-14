@@ -713,6 +713,35 @@ func testMetadataReader() fakeMetadataReader {
 	}
 }
 
+func TestSoftDeleteColumnSynonyms(t *testing.T) {
+	tests := []struct {
+		col, typ string
+		substr  string
+		empty   bool
+	}{
+		{"deleted_at", "timestamp with time zone", "silinen", false},
+		{"timeline_tweets_deleted_at", "timestamptz", "silinen", false},
+		{"archived_at", "timestamp with time zone", "arsiv", false},
+		{"is_deleted", "boolean", "silinen", false},
+		{"is_deleted", "bool", "deleted", false},
+		{"delete_flag", "integer", "silinen", false},
+		{"created_at", "timestamp with time zone", "", true},
+		{"email", "text", "", true},
+	}
+	for _, tt := range tests {
+		got := softDeleteColumnSynonyms(tt.col, tt.typ)
+		if tt.empty {
+			if len(got) != 0 {
+				t.Errorf("%s %s: want no synonyms, got %v", tt.col, tt.typ, got)
+			}
+			continue
+		}
+		if !slices.Contains(got, tt.substr) {
+			t.Errorf("%s %s: want synonyms to contain %q, got %v", tt.col, tt.typ, tt.substr, got)
+		}
+	}
+}
+
 func hasMetric(metrics []semantic.Metric, name, expression string) bool {
 	for _, metric := range metrics {
 		if metric.Name == name && metric.Expression == expression {

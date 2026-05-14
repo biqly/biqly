@@ -454,4 +454,11 @@ func normalizeLogicalQueryContext(lq *query.LogicalQuery, model *semantic.Semant
 	if lq.ModelID == "" {
 		lq.ModelID = model.ID
 	}
+	if model != nil && len(model.Dimensions) > 0 {
+		names := make([]string, 0, len(model.Dimensions))
+		for _, d := range model.Dimensions {
+			names = append(names, d.Name)
+		}
+		query.RepairMisnamedCalendarGrainDimensions(lq, names)
+	}
 }

@@ -85,12 +85,13 @@ func NewQueryService(deps QueryServiceDeps) *QueryService {
 
 func (s *QueryService) Compile(ctx context.Context, lq query.LogicalQuery) (*CompileResult, error) {
 	lq.EnsureVersion()
-	lq.EnsureGroupBySelected()
 	loaded, err := s.loadContext(ctx, lq)
 	if err != nil {
 		return nil, err
 	}
-	compiled, err := s.CompileWithContext(ctx, lq, loaded.Model, loaded.Driver)
+	query.RepairMisnamedCalendarGrainDimensions(&loaded.LogicalQuery, dimensionNames(loaded.Model))
+	loaded.LogicalQuery.EnsureGroupBySelected()
+	compiled, err := s.CompileWithContext(ctx, loaded.LogicalQuery, loaded.Model, loaded.Driver)
 	if err != nil {
 		return nil, err
 	}
@@ -99,6 +100,7 @@ func (s *QueryService) Compile(ctx context.Context, lq query.LogicalQuery) (*Com
 }
 
 func (s *QueryService) CompileWithContext(ctx context.Context, lq query.LogicalQuery, model *semantic.SemanticModel, driver datasource.Driver) (*query.CompiledQuery, error) {
+	query.RepairMisnamedCalendarGrainDimensions(&lq, dimensionNames(model))
 	lq.EnsureGroupBySelected()
 	if err := s.validator.Validate(lq, model); err != nil {
 		return nil, err
@@ -112,7 +114,6 @@ func (s *QueryService) CompileWithContext(ctx context.Context, lq query.LogicalQ
 
 func (s *QueryService) Run(ctx context.Context, lq query.LogicalQuery) (*RunResult, error) {
 	lq.EnsureVersion()
-	lq.EnsureGroupBySelected()
 	compiled, err := s.Compile(ctx, lq)
 	if err != nil {
 		return nil, err
@@ -129,11 +130,11 @@ func (s *QueryService) Run(ctx context.Context, lq query.LogicalQuery) (*RunResu
 
 	result, err := s.executor.Execute(ctx, db, compiled.Compiled)
 	if err != nil {
-		s.recordHistory(ctx, lq, compiled.Model, compiled.Compiled, nil, QueryStatusFailed, err)
+		s.recordHistory(ctx, compiled.LogicalQuery, compiled.Model, compiled.Compiled, nil, QueryStatusFailed, err)
 		return nil, fmt.Errorf("execute: %w", err)
 	}
 	query.EnrichResult(result, lq, compiled.Model)
-	s.recordHistory(ctx, lq, compiled.Model, compiled.Compiled, result, QueryStatusSuccess, nil)
+	s.recordHistory(ctx, compiled.LogicalQuery, compiled.Model, compiled.Compiled, result, QueryStatusSuccess, nil)
 	return &RunResult{CompileResult: *compiled, Result: result}, nil
 }
 
@@ -158,6 +159,17 @@ func (s *QueryService) DryRun(ctx context.Context, db *sql.DB, lq query.LogicalQ
 		return fmt.Errorf("explain: %w", err)
 	}
 	return nil
+}
+
+func dimensionNames(model *semantic.SemanticModel) []string {
+	if model == nil {
+		return nil
+	}
+	out := make([]string, 0, len(model.Dimensions))
+	for _, d := range model.Dimensions {
+		out = append(out, d.Name)
+	}
+	return out
 }
 
 func (s *QueryService) loadContext(ctx context.Context, lq query.LogicalQuery) (*CompileResult, error) {

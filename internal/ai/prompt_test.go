@@ -35,6 +35,31 @@ func TestPromptBuildIncludesFewShotExamples(t *testing.T) {
 	}
 }
 
+func TestPromptBuildIncludesSoftDeleteRules(t *testing.T) {
+	pb := &PromptBuilder{}
+	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x", BaseSchema: "public", BaseTable: "t"}
+	got := pb.Build("q", model, 0, nil, nil, nil, nil)
+	if !strings.Contains(got, "Soft-delete") {
+		t.Errorf("expected soft-delete rules in prompt, got excerpt:\n%s", truncatePrompt(got, 800))
+	}
+	if !strings.Contains(got, "is_not_null") {
+		t.Errorf("expected is_not_null in soft-delete guidance")
+	}
+	if !strings.Contains(got, "delete_flag") {
+		t.Errorf("expected delete_flag pattern in soft-delete guidance")
+	}
+	if !strings.Contains(got, "created_at_ts_month") {
+		t.Errorf("expected prompt to mention created_at_ts_month stem example")
+	}
+}
+
+func truncatePrompt(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "…"
+}
+
 func TestPromptBuildOmitsFewShotSectionWhenEmpty(t *testing.T) {
 	pb := &PromptBuilder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x"}

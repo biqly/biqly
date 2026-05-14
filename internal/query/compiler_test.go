@@ -524,6 +524,87 @@ func TestValidator_InvalidQuery(t *testing.T) {
 	}
 }
 
+func TestValidator_CalendarMonthNumericRequiresYearFilter(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "tweets",
+		BaseSchema: "public",
+		BaseTable:  "tweets",
+		Dimensions: []semantic.Dimension{
+			{Name: "created_at_ts_month", ColumnRef: "public.tweets.created_at_ts", Type: "timestamp", TimeGrain: TimeGrainMonth},
+			{Name: "created_at_ts_year", ColumnRef: "public.tweets.created_at_ts", Type: "timestamp", TimeGrain: TimeGrainYear},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "row_count", Expression: "*", Aggregation: "count"},
+		},
+	}
+	v := NewValidator(10000)
+	bad := LogicalQuery{
+		ModelID: "tweets",
+		Select:  []SelectItem{{Type: SelectTypeMetric, Name: "row_count"}},
+		Filters: []Filter{{Field: "created_at_ts_month", Operator: OpEq, Value: 4}},
+		Limit:   100,
+	}
+	if err := v.Validate(bad, model); err == nil {
+		t.Fatal("expected validation error for month int without year")
+	}
+
+	good := LogicalQuery{
+		ModelID: "tweets",
+		Select:  []SelectItem{{Type: SelectTypeMetric, Name: "row_count"}},
+		Filters: []Filter{
+			{Field: "created_at_ts_year", Operator: OpEq, Value: 2026},
+			{Field: "created_at_ts_month", Operator: OpEq, Value: 4},
+		},
+		Limit: 100,
+	}
+	if err := v.Validate(good, model); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	iso := LogicalQuery{
+		ModelID: "tweets",
+		Select:  []SelectItem{{Type: SelectTypeMetric, Name: "row_count"}},
+		Filters: []Filter{{Field: "created_at_ts_month", Operator: OpEq, Value: "2026-04-01"}},
+		Limit:   100,
+	}
+	if err := v.Validate(iso, model); err != nil {
+		t.Fatalf("unexpected error for ISO month anchor: %v", err)
+	}
+}
+
+func TestCompiler_MonthGrainISOUsesDateTruncInWhere(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "tweets",
+		BaseSchema: "public",
+		BaseTable:  "tweets",
+		Dimensions: []semantic.Dimension{
+			{Name: "created_at_ts_month", ColumnRef: "public.tweets.created_at_ts", Type: "timestamp", TimeGrain: TimeGrainMonth},
+			{Name: "created_at_ts_year", ColumnRef: "public.tweets.created_at_ts", Type: "timestamp", TimeGrain: TimeGrainYear},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "row_count", Expression: "*", Aggregation: "count"},
+		},
+	}
+	lq := LogicalQuery{
+		DatasourceID: "ds",
+		ModelID:      "tweets",
+		Select:       []SelectItem{{Type: SelectTypeMetric, Name: "row_count"}},
+		Filters:      []Filter{{Field: "created_at_ts_month", Operator: OpEq, Value: "2026-04-01T00:00:00Z"}},
+		Limit:        100,
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	if err != nil {
+		t.Fatal(err)
+	}
+	low := strings.ToLower(cq.SQL)
+	if !strings.Contains(low, "date_trunc('month'") {
+		t.Fatalf("expected DATE_TRUNC('month' in WHERE, got:\n%s", cq.SQL)
+	}
+	if strings.Contains(low, "extract(month") {
+		t.Fatalf("EXTRACT(MONTH) should not be used for ISO month-grain equality, got:\n%s", cq.SQL)
+	}
+}
+
 // TestCompiler_JoinDirectionWhenBaseIsFKTarget verifies the compiler swaps
 // join orientation when the join's ToTable is the base table (or anything
 // already in the FROM set), so the SQL never lists the same table twice.

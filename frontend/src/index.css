@@ -1985,6 +1985,21 @@ input[type='checkbox']:disabled {
 
 /* Cost / retry */
 .cost-badge { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem; }
+.cost-badge-detail { font-weight: 400; opacity: 0.9; }
+.ai-wait-meta {
+  margin-top: 0.65rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 6px;
+  background: var(--surface-elevated, rgba(127, 127, 127, 0.08));
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+}
+.ai-wait-meta-time { font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.ai-wait-meta-hint { flex: 1 1 12rem; min-width: 0; line-height: 1.35; }
 .retry-badge {
   font-size: 0.78rem; color: var(--text-secondary);
   background: var(--bg-card-raised); border: 1px solid var(--border);

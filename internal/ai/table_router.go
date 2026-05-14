@@ -1066,12 +1066,16 @@ func buildDimensions(selected []tableBundle, columnsByTable map[string][]metadat
 			name = p.bundle.table.TableName + "_" + p.col.ColumnName
 		}
 		colRef := p.bundle.table.TableName + "." + p.col.ColumnName
+		syn := displayNameSynonyms(p.bundle.table.TableName, p.col.ColumnName)
+		if sx := softDeleteColumnSynonyms(p.col.ColumnName, p.col.DataType); len(sx) > 0 {
+			syn = append(syn, sx...)
+		}
 		dimensions = append(dimensions, semantic.Dimension{
 			Name:        name,
 			ColumnRef:   colRef,
 			Type:        dimensionType(p.col.DataType),
 			Description: p.col.Description,
-			Synonyms:    displayNameSynonyms(p.bundle.table.TableName, p.col.ColumnName),
+			Synonyms:    syn,
 			IsActive:    true,
 		})
 		if !isDateOrTimeType(p.col.DataType) || dateGrainAdded >= maxDateGrainExtras {
@@ -1109,6 +1113,44 @@ func buildDimensions(selected []tableBundle, columnsByTable map[string][]metadat
 		}
 	}
 	return dimensions
+}
+
+// softDeleteColumnSynonyms adds NL phrases so questions like "silinen tweet"
+// map to deletion-indicator dimensions (deleted_at, is_deleted, delete_flag, …).
+func softDeleteColumnSynonyms(columnName, dataType string) []string {
+	n := strings.ToLower(strings.TrimSpace(columnName))
+	t := strings.ToLower(strings.TrimSpace(dataType))
+	isTimeish := strings.Contains(t, "timestamp") || strings.Contains(t, "timestamptz") ||
+		t == "date"
+	isBool := strings.Contains(t, "bool")
+	isNum := isNumericType(t)
+
+	tsDeleted := n == "deleted_at" || strings.HasSuffix(n, "_deleted_at") ||
+		n == "removed_at" || strings.HasSuffix(n, "_removed_at")
+	tsArchived := n == "archived_at" || strings.HasSuffix(n, "_archived_at")
+
+	switch {
+	case isTimeish && tsDeleted:
+		return []string{
+			"deleted", "removed", "trashed", "erased", "soft delete", "soft-delete",
+			"silinen", "silinmiş", "silindi", "silinmis", "kaldırılan", "kaldirilan",
+		}
+	case isTimeish && tsArchived:
+		return []string{
+			"archived", "arşiv", "arsiv", "arşivlenmiş", "arsivlenmis",
+			"deleted", "silinen", "kaldırılan", "kaldirilan",
+		}
+	case isBool && (n == "is_deleted" || n == "is_removed" || n == "is_archived" || n == "deleted"):
+		return []string{
+			"deleted", "removed", "archived", "silinen", "silinmiş", "silinmis", "silindi", "kaldırılan", "kaldirilan",
+		}
+	case isNum && (n == "delete_flag" || n == "deleted_flag" || n == "is_delete"):
+		return []string{
+			"deleted", "delete flag", "silinen", "silme bayrağı", "silme bayragi",
+		}
+	default:
+		return nil
+	}
 }
 
 // displayNameSynonyms tags human-readable label columns (name, title, label, ...)

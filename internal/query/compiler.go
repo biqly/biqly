@@ -678,6 +678,33 @@ func (c *Compiler) buildWhere(filters []Filter, dimMap map[string]semantic.Dimen
 	var args []any
 
 	for _, f := range filters {
+		if dim, ok := dimMap[f.Field]; ok && monthGrainFilterUsesDateTrunc(dim, f) {
+			anchor, ok := calendarAnchorTime(f.Value)
+			if !ok {
+				return "", nil, fmt.Errorf("month grain filter on %q: expected calendar anchor value", f.Field)
+			}
+			expr, err := c.dateTruncCompareExpr(TimeGrainMonth, dim.ColumnRef, f.Operator, len(args)+1)
+			if err != nil {
+				return "", nil, err
+			}
+			args = append(args, anchor.UTC())
+			parts = append(parts, expr)
+			continue
+		}
+		if dim, ok := dimMap[f.Field]; ok && quarterGrainFilterUsesDateTrunc(dim, f) {
+			anchor, ok := calendarAnchorTime(f.Value)
+			if !ok {
+				return "", nil, fmt.Errorf("quarter grain filter on %q: expected calendar anchor value", f.Field)
+			}
+			expr, err := c.dateTruncCompareExpr(TimeGrainQuarter, dim.ColumnRef, f.Operator, len(args)+1)
+			if err != nil {
+				return "", nil, err
+			}
+			args = append(args, anchor.UTC())
+			parts = append(parts, expr)
+			continue
+		}
+
 		colSQL, err := c.resolveFilterLHS(f.Field, dimMap, metricMap)
 		if err != nil {
 			return "", nil, err
