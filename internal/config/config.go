@@ -280,6 +280,25 @@ func (c AIConfig) EffectiveQueryConfig() AIConfig {
 	return out
 }
 
+// QueryLLMConfigured reports whether the NL-to-LogicalQuery path (and golden eval) can call an LLM.
+// Uses EffectiveQueryConfig. Model is required. API key may be omitted when BaseURL targets a
+// keyless local OpenAI-compatible server (Ollama, llama-server, etc.).
+func (c AIConfig) QueryLLMConfigured() bool {
+	cfg := c.EffectiveQueryConfig()
+	if strings.TrimSpace(cfg.Model) == "" {
+		return false
+	}
+	if strings.TrimSpace(cfg.APIKey) != "" {
+		return true
+	}
+	switch strings.ToLower(strings.TrimSpace(cfg.Provider)) {
+	case "", "openai", "openai-compatible":
+		return strings.TrimSpace(cfg.BaseURL) != ""
+	default:
+		return false
+	}
+}
+
 // HasQueryOverride reports whether any BI_AI_QUERY_* knob is set. When false,
 // callers should reuse the base AI provider instead of constructing a second
 // one that points at the same endpoint and model.

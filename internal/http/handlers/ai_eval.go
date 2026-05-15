@@ -65,11 +65,10 @@ func logicalQueryToMap(lq *query.LogicalQuery) map[string]interface{} {
 }
 
 func (h *AIHandler) evalAIConfigured() error {
-	cfg := h.deps.Config.AI
-	if strings.TrimSpace(cfg.APIKey) == "" || strings.TrimSpace(cfg.Model) == "" {
-		return fmt.Errorf("AI is not configured (set BI_AI_API_KEY and BI_AI_MODEL)")
+	if h.deps.Config.AI.QueryLLMConfigured() {
+		return nil
 	}
-	return nil
+	return fmt.Errorf("AI is not configured (set BI_AI_MODEL and BI_AI_API_KEY, or BI_AI_BASE_URL for keyless local LLM)")
 }
 
 func evalModesFromRequest(r *http.Request) (ai.EvalMode, string, string, []ai.GoldenCase) {

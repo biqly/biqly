@@ -109,8 +109,8 @@ func TestGoldenEvalAgainstLiveLLM(t *testing.T) {
 		Temperature: 0.0,
 		MaxRetries:  1,
 	}
-	if cfg.APIKey == "" || cfg.Model == "" {
-		t.Skip("BI_AI_API_KEY and BI_AI_MODEL are required for live golden eval")
+	if !cfg.QueryLLMConfigured() {
+		t.Skip("BI_AI_MODEL and BI_AI_API_KEY (or BI_AI_BASE_URL for keyless local LLM) are required for live golden eval")
 	}
 	svc := NewService(cfg, query.NewValidator(1000))
 

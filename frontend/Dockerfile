@@ -7,6 +7,11 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
+
+# Vite inlines VITE_* at build time (not runtime). Pass via docker compose build.args.
+ARG VITE_BI_ADMIN_API_KEY=
+ENV VITE_BI_ADMIN_API_KEY=$VITE_BI_ADMIN_API_KEY
+
 RUN npm run build
 
 # Runtime: nginx serving the built bundle. SPA fallback to index.html.

@@ -164,6 +164,37 @@ func TestAIConfig_EffectiveQueryConfigOverrides(t *testing.T) {
 	})
 }
 
+func TestAIConfig_QueryLLMConfigured(t *testing.T) {
+	if (AIConfig{}).QueryLLMConfigured() {
+		t.Fatal("empty config should not enable query LLM")
+	}
+	if (AIConfig{Model: "gpt-4o"}).QueryLLMConfigured() {
+		t.Fatal("openai without key or base URL should not enable")
+	}
+	local := AIConfig{
+		Provider: "openai-compatible",
+		BaseURL:  "http://127.0.0.1:12434/v1",
+		Model:    "local",
+	}
+	if !local.QueryLLMConfigured() {
+		t.Fatal("keyless local openai-compatible should enable when base URL set")
+	}
+	withKey := AIConfig{
+		Provider: "openai",
+		APIKey:   "sk-test",
+		Model:    "gpt-4o",
+	}
+	if !withKey.QueryLLMConfigured() {
+		t.Fatal("api key + model should enable")
+	}
+	if (AIConfig{
+		Provider: "anthropic",
+		Model:    "claude-3",
+	}).QueryLLMConfigured() {
+		t.Fatal("anthropic without API key should not enable")
+	}
+}
+
 func TestAIConfig_EmbeddingsConfigured(t *testing.T) {
 	if (AIConfig{}).EmbeddingsConfigured() {
 		t.Fatal("empty config should not enable embeddings")

@@ -82,6 +82,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        # Loaded from project .env for variable substitution (must match BI_ADMIN_API_KEY).
+        VITE_BI_ADMIN_API_KEY: ${VITE_BI_ADMIN_API_KEY}
     ports:
       - "3333:3333"
     depends_on:
