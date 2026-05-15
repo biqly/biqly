@@ -99,6 +99,7 @@ type TableRouter struct {
 	embedder        Embedder
 	embeddingReader EmbeddingReader
 	embeddingWeight float64
+	limits          RoutingLimits
 }
 
 // NewTableRouter creates a metadata-backed table router with no embeddings.
@@ -117,7 +118,13 @@ func NewTableRouterWithEmbeddings(reader MetadataReader, embedder Embedder, embe
 		embedder:        embedder,
 		embeddingReader: embeddingReader,
 		embeddingWeight: weight,
+		limits:          DefaultRoutingLimits(),
 	}
+}
+
+// SetRoutingLimits overrides auto-model caps (zero fields use defaults).
+func (r *TableRouter) SetRoutingLimits(limits RoutingLimits) {
+	r.limits = limits.withDefaults()
 }
 
 // TableCandidate is a scored table candidate returned by automatic routing.
@@ -279,8 +286,12 @@ func (r *TableRouter) Route(
 	markSelectedCandidates(result.Candidates, result.SelectedTables)
 	result.ensureDebug().EliminatedCandidates = eliminatedCandidateLabels(result.Candidates)
 
-	columnsForModel := rankColumnsForSemanticModel(connected, columnsByTable, relations, question, embedSignals.columnScores)
-	model := buildSemanticModel(datasourceID, connected, columnsForModel, relations)
+	limits := r.limits.withDefaults()
+	columnsForModel := rankColumnsForSemanticModel(connected, columnsByTable, relations, question, embedSignals.columnScores, limits.MaxColumnsPerTable)
+	model := buildSemanticModel(datasourceID, connected, columnsForModel, relations, limits)
+	if !result.Manual {
+		pruneAutoSemanticModel(model, question, limits, embedSignals.columnScores)
+	}
 	contextSource := "auto"
 	if result.Manual {
 		contextSource = "manual"
@@ -880,7 +891,9 @@ func buildSemanticModel(
 	selected []tableBundle,
 	columnsByTable map[string][]metadata.Column,
 	relations []metadata.Relation,
+	limits RoutingLimits,
 ) *semantic.SemanticModel {
+	limits = limits.withDefaults()
 	base := selected[0].table
 	label := "Auto-detected tables"
 	description := "Generated from datasource metadata for an AI question."
@@ -895,8 +908,8 @@ func buildSemanticModel(
 		IsActive:     true,
 	}
 
-	model.Dimensions = buildDimensions(selected, columnsByTable)
-	model.Metrics = buildMetrics(selected, columnsByTable)
+	model.Dimensions = buildDimensions(selected, columnsByTable, limits)
+	model.Metrics = buildMetrics(selected, columnsByTable, limits)
 	model.Joins = buildJoins(selected, relations)
 	return model
 }
@@ -931,16 +944,19 @@ func relationColumnsForSelectedTables(relations []metadata.Relation, selectedKey
 	return out
 }
 
-func buildDimensions(selected []tableBundle, columnsByTable map[string][]metadata.Column) []semantic.Dimension {
+func buildDimensions(selected []tableBundle, columnsByTable map[string][]metadata.Column, limits RoutingLimits) []semantic.Dimension {
+	limits = limits.withDefaults()
+	maxDims := limits.MaxDimensions
+	maxDateGrains := limits.MaxDateGrainExtras
 	nameCounts := columnNameCounts(selected, columnsByTable)
 	pairs := sortedBundleColumns(selected, columnsByTable)
-	if len(pairs) > maxAutoModelDimensions {
-		pairs = pairs[:maxAutoModelDimensions]
+	if len(pairs) > maxDims {
+		pairs = pairs[:maxDims]
 	}
 	dimensions := make([]semantic.Dimension, 0, len(pairs))
 	dateGrainAdded := 0
 	for _, p := range pairs {
-		if len(dimensions) >= maxAutoModelDimensions {
+		if len(dimensions) >= maxDims {
 			break
 		}
 		name := p.col.ColumnName
@@ -960,7 +976,7 @@ func buildDimensions(selected []tableBundle, columnsByTable map[string][]metadat
 			Synonyms:    syn,
 			IsActive:    true,
 		})
-		if !isDateOrTimeType(p.col.DataType) || dateGrainAdded >= maxDateGrainExtras {
+		if !isDateOrTimeType(p.col.DataType) || dateGrainAdded >= maxDateGrains {
 			continue
 		}
 		hasTime := hasTimeComponent(p.col.DataType)
@@ -979,7 +995,7 @@ func buildDimensions(selected []tableBundle, columnsByTable map[string][]metadat
 			if g.requiresTime && !hasTime {
 				continue
 			}
-			if len(dimensions) >= maxAutoModelDimensions || dateGrainAdded >= maxDateGrainExtras {
+			if len(dimensions) >= maxDims || dateGrainAdded >= maxDateGrains {
 				break
 			}
 			dimensions = append(dimensions, semantic.Dimension{
@@ -1086,7 +1102,9 @@ func singularize(name string) string {
 	}
 }
 
-func buildMetrics(selected []tableBundle, columnsByTable map[string][]metadata.Column) []semantic.Metric {
+func buildMetrics(selected []tableBundle, columnsByTable map[string][]metadata.Column, limits RoutingLimits) []semantic.Metric {
+	limits = limits.withDefaults()
+	maxMetrics := limits.MaxMetrics
 	lex := ActiveRoutingLexicon()
 	metrics := []semantic.Metric{{
 		Name:        "row_count",
@@ -1100,14 +1118,14 @@ func buildMetrics(selected []tableBundle, columnsByTable map[string][]metadata.C
 	pairs := sortedBundleColumns(selected, columnsByTable)
 
 	appendMetric := func(m semantic.Metric) {
-		if len(metrics) >= maxAutoModelMetrics {
+		if len(metrics) >= maxMetrics {
 			return
 		}
 		metrics = append(metrics, m)
 	}
 
 	for _, p := range pairs {
-		if len(metrics) >= maxAutoModelMetrics {
+		if len(metrics) >= maxMetrics {
 			break
 		}
 		col := p.col
@@ -1119,8 +1137,10 @@ func buildMetrics(selected []tableBundle, columnsByTable map[string][]metadata.C
 		switch {
 		case isNumericType(col.DataType):
 			appendMetric(metric("sum_"+name, expression, semantic.AggSum, col.Description, nil))
-			appendMetric(metric("avg_"+name, expression, semantic.AggAvg, col.Description, nil))
-			appendMetric(metric("min_"+name, expression, semantic.AggMin, col.Description, lex.MetricSynonymList("min_numeric")))
+			if !limits.SlimNumericMetrics {
+				appendMetric(metric("avg_"+name, expression, semantic.AggAvg, col.Description, nil))
+				appendMetric(metric("min_"+name, expression, semantic.AggMin, col.Description, lex.MetricSynonymList("min_numeric")))
+			}
 			appendMetric(metric("max_"+name, expression, semantic.AggMax, col.Description, lex.MetricSynonymList("max_numeric")))
 		case isDateOrTimeType(col.DataType):
 			appendMetric(metric("min_"+name, expression, semantic.AggMin, col.Description, lex.MetricSynonymList("min_date")))

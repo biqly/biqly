@@ -22,7 +22,7 @@ func TestRankColumnsForTable_KeywordMatchWithoutEmbeddings(t *testing.T) {
 		})
 	}
 	tokens := tokenSet("show shipment date by order")
-	ranked := rankColumnsForTable(cols, nil, nil, tokens)
+	ranked := rankColumnsForTable(cols, nil, nil, tokens, maxRankedColumnsPerTable)
 	if !columnNamesContain(ranked, "shipment_date") {
 		t.Fatalf("expected shipment_date in ranked columns, got %v", columnNames(ranked))
 	}

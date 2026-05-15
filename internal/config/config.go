@@ -122,6 +122,16 @@ type AIConfig struct {
 	RoutingLexiconPath string
 	// RoutingWeightsPath overrides table-routing score weights and boost rules (JSON).
 	RoutingWeightsPath string
+	// RouteMaxDimensions caps dimensions in auto-generated semantic models (prompt size).
+	RouteMaxDimensions int
+	// RouteMaxMetrics caps metrics in auto-generated semantic models.
+	RouteMaxMetrics int
+	// RouteMaxColumnsPerTable caps ranked columns per wide table during auto-routing.
+	RouteMaxColumnsPerTable int
+	// RouteMaxDateGrainExtras caps date-grain dimension variants per date column.
+	RouteMaxDateGrainExtras int
+	// RouteSlimNumericMetrics when true emits only sum_/max_ per numeric column (not avg_/min_).
+	RouteSlimNumericMetrics bool
 }
 
 // Load reads configuration from environment variables.
@@ -188,6 +198,11 @@ func Load() (*Config, error) {
 			QueryHTTPTimeoutSeconds: getEnvAsInt("BI_AI_QUERY_HTTP_TIMEOUT_SECONDS", 0),
 			RoutingLexiconPath:      getEnv("BI_AI_ROUTING_LEXICON_PATH", ""),
 			RoutingWeightsPath:      getEnv("BI_AI_ROUTING_WEIGHTS_PATH", ""),
+			RouteMaxDimensions:      getEnvAsInt("BI_AI_ROUTE_MAX_DIMENSIONS", 0),
+			RouteMaxMetrics:         getEnvAsInt("BI_AI_ROUTE_MAX_METRICS", 0),
+			RouteMaxColumnsPerTable: getEnvAsInt("BI_AI_ROUTE_MAX_COLUMNS_PER_TABLE", 0),
+			RouteMaxDateGrainExtras: getEnvAsInt("BI_AI_ROUTE_MAX_DATE_GRAIN_EXTRAS", 0),
+			RouteSlimNumericMetrics: getEnvAsBool("BI_AI_ROUTE_SLIM_NUMERIC_METRICS", true),
 		},
 	}
 
@@ -378,6 +393,21 @@ func getEnvAsFloat(key string, defaultVal float64) float64 {
 		return defaultVal
 	}
 	return val
+}
+
+func getEnvAsBool(key string, defaultVal bool) bool {
+	valStr := strings.TrimSpace(os.Getenv(key))
+	if valStr == "" {
+		return defaultVal
+	}
+	switch strings.ToLower(valStr) {
+	case "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return defaultVal
+	}
 }
 
 // HTTPAddr returns the full HTTP listen address.

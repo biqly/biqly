@@ -14,7 +14,11 @@ func rankColumnsForSemanticModel(
 	relations []metadata.Relation,
 	question string,
 	columnScores map[string]float64,
+	maxColsPerTable int,
 ) map[string][]metadata.Column {
+	if maxColsPerTable <= 0 {
+		maxColsPerTable = DefaultRoutingLimits().MaxColumnsPerTable
+	}
 	tokens := tokenSet(question)
 	selectedKeys := make(map[string]bool, len(selected))
 	for _, bundle := range selected {
@@ -30,7 +34,7 @@ func rankColumnsForSemanticModel(
 			out[key] = cols
 			continue
 		}
-		out[key] = rankColumnsForTable(cols, columnScores, relationCols[key], tokens)
+		out[key] = rankColumnsForTable(cols, columnScores, relationCols[key], tokens, maxColsPerTable)
 	}
 	return out
 }
@@ -40,14 +44,18 @@ func rankColumnsForTable(
 	columnScores map[string]float64,
 	relationCols map[string]bool,
 	tokens map[string]bool,
+	maxCols int,
 ) []metadata.Column {
+	if maxCols <= 0 {
+		maxCols = maxRankedColumnsPerTable
+	}
 	type scoredColumn struct {
 		col      metadata.Column
 		score    float64
 		priority int
 	}
 	kept := make(map[string]bool)
-	out := make([]metadata.Column, 0, min(len(cols), maxRankedColumnsPerTable))
+	out := make([]metadata.Column, 0, min(len(cols), maxCols))
 	add := func(col metadata.Column) {
 		key := columnKey(col.SchemaName, col.TableName, col.ColumnName)
 		if kept[key] {
@@ -81,7 +89,7 @@ func rankColumnsForTable(
 		return candidates[i].col.ColumnName < candidates[j].col.ColumnName
 	})
 	for _, cand := range candidates {
-		if len(out) >= maxRankedColumnsPerTable {
+		if len(out) >= maxCols {
 			break
 		}
 		add(cand.col)

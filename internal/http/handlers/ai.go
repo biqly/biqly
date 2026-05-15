@@ -47,6 +47,13 @@ func NewAIHandler(deps *app.Dependencies) *AIHandler {
 		deps.MetaRepo,
 		deps.Config.AI.EmbeddingWeight,
 	)
+	router.SetRoutingLimits(ai.RoutingLimitsFromConfig(
+		deps.Config.AI.RouteMaxDimensions,
+		deps.Config.AI.RouteMaxMetrics,
+		deps.Config.AI.RouteMaxColumnsPerTable,
+		deps.Config.AI.RouteMaxDateGrainExtras,
+		deps.Config.AI.RouteSlimNumericMetrics,
+	))
 	return &AIHandler{
 		service:     svc,
 		tableRouter: router,

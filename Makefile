@@ -27,6 +27,8 @@ migrate-up:
 migrate-down:
 	@go run ./cmd/migrate down
 
+# docker compose runs the migrate service automatically before api starts.
+
 export-sft:
 	@go run ./cmd/export-sft -out data/biqly-gemma4
 
