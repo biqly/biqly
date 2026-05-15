@@ -861,3 +861,118 @@ func TestCompiler_CalculatedDimensionWithFilter(t *testing.T) {
 		t.Errorf("expected calculated expression in WHERE, got: %s", cq.SQL)
 	}
 }
+
+func TestCompiler_CaseSelect(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name: "orders", BaseSchema: "public", BaseTable: "orders",
+		Dimensions: []semantic.Dimension{
+			{Name: "country", ColumnRef: "orders.country", Type: "text"},
+			{Name: "amount", ColumnRef: "orders.amount", Type: "number"},
+		},
+	}
+	lq := LogicalQuery{
+		Select: []SelectItem{{
+			Type: "case",
+			Name: "size_band",
+			Case: &CaseExpr{
+				Branches: []CaseBranch{{
+					When: []Filter{{Field: "amount", Operator: OpGt, Value: 1000}},
+					Then: CaseThen{Type: CaseThenTypeLiteral, Literal: "Large"},
+				}},
+				Else: &CaseThen{Type: CaseThenTypeLiteral, Literal: "Small"},
+			},
+		}},
+		Limit: 10,
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if !strings.Contains(cq.SQL, "CASE") || !strings.Contains(cq.SQL, "WHEN") {
+		t.Errorf("expected CASE expression, got: %s", cq.SQL)
+	}
+	if !strings.Contains(cq.SQL, `"size_band"`) {
+		t.Errorf("expected case alias, got: %s", cq.SQL)
+	}
+}
+
+func TestCompiler_InSubqueryFilter(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name: "orders", BaseSchema: "public", BaseTable: "orders",
+		Dimensions: []semantic.Dimension{
+			{Name: "customer_id", ColumnRef: "orders.customer_id", Type: "number"},
+			{Name: "order_date", ColumnRef: "orders.order_date", Type: "date"},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "order_count", Expression: "orders.id", Aggregation: "count"},
+		},
+	}
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeDimension, Name: "customer_id"},
+			{Type: SelectTypeMetric, Name: "order_count"},
+		},
+		Filters: []Filter{{
+			Field:    "customer_id",
+			Operator: OpIn,
+			Subquery: &SubqueryFilter{
+				ResultField: "customer_id",
+				Body: SubqueryBody{
+					Select: []SelectItem{{Type: SelectTypeDimension, Name: "customer_id"}},
+					Filters: []Filter{
+						{Field: "order_date", Operator: OpGte, Value: "2026-01-01"},
+					},
+					GroupBy: []GroupBy{{Field: "customer_id"}},
+				},
+			},
+		}},
+		GroupBy: []GroupBy{{Field: "customer_id"}},
+		Limit:   50,
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if !strings.Contains(cq.SQL, " IN (SELECT") {
+		t.Errorf("expected IN (subquery), got: %s", cq.SQL)
+	}
+}
+
+func TestCompiler_CTEWithFromCTE(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name: "orders", BaseSchema: "public", BaseTable: "orders",
+		Dimensions: []semantic.Dimension{
+			{Name: "country", ColumnRef: "orders.country", Type: "text"},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "order_count", Expression: "orders.id", Aggregation: "count"},
+		},
+	}
+	lq := LogicalQuery{
+		CTEs: []CTE{{
+			Name: "by_country",
+			Select: []SelectItem{
+				{Type: SelectTypeDimension, Name: "country"},
+				{Type: SelectTypeMetric, Name: "order_count"},
+			},
+			GroupBy: []GroupBy{{Field: "country"}},
+		}},
+		FromCTE: "by_country",
+		Select: []SelectItem{
+			{Type: SelectTypeDimension, Name: "country"},
+			{Type: SelectTypeMetric, Name: "order_count"},
+		},
+		OrderBy: []OrderBy{{Field: "order_count", Direction: OrderDesc}},
+		Limit:   5,
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if !strings.HasPrefix(cq.SQL, "WITH ") {
+		t.Errorf("expected WITH clause, got: %s", cq.SQL)
+	}
+	if !strings.Contains(cq.SQL, `FROM "by_country"`) {
+		t.Errorf("expected FROM cte name, got: %s", cq.SQL)
+	}
+}

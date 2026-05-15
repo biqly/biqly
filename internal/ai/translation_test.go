@@ -11,13 +11,13 @@ type fakeTranslationProvider struct {
 	prompt   string
 }
 
-func (p *fakeTranslationProvider) Generate(ctx context.Context, prompt string) (string, error) {
+func (p *fakeTranslationProvider) Generate(ctx context.Context, prompt string) (GenerationResult, error) {
 	return p.GenerateAt(ctx, prompt, 0)
 }
 
-func (p *fakeTranslationProvider) GenerateAt(ctx context.Context, prompt string, temperature float64) (string, error) {
+func (p *fakeTranslationProvider) GenerateAt(ctx context.Context, prompt string, temperature float64) (GenerationResult, error) {
 	p.prompt = prompt
-	return p.response, nil
+	return GenerationResult{Content: p.response}, nil
 }
 
 func TestTranslationServiceTranslateDescribeResult(t *testing.T) {

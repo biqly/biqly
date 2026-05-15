@@ -47,11 +47,13 @@ func (sv *SchemaValidator) Validate(rawJSON string, model *semantic.SemanticMode
 
 	// Validate select items
 	for i, item := range lq.Select {
-		if item.Type != query.SelectTypeDimension && item.Type != query.SelectTypeMetric {
-			return nil, fmt.Errorf("select[%d].type must be 'dimension' or 'metric', got '%s'", i, item.Type)
+		switch item.Type {
+		case query.SelectTypeDimension, query.SelectTypeMetric, query.SelectTypeWindow, query.SelectTypeCase:
+		default:
+			return nil, fmt.Errorf("select[%d].type must be dimension, metric, window, or case, got '%s'", i, item.Type)
 		}
-		if item.Name == "" {
-			return nil, fmt.Errorf("select[%d].name is required", i)
+		if item.Name == "" && item.Alias == "" && item.Type != query.SelectTypeWindow {
+			return nil, fmt.Errorf("select[%d].name or alias is required", i)
 		}
 
 		switch item.Type {
@@ -62,6 +64,14 @@ func (sv *SchemaValidator) Validate(rawJSON string, model *semantic.SemanticMode
 		case query.SelectTypeMetric:
 			if !metricSet[item.Name] {
 				return nil, fmt.Errorf("select[%d]: unknown metric '%s'", i, item.Name)
+			}
+		case query.SelectTypeWindow:
+			if item.Window == nil {
+				return nil, fmt.Errorf("select[%d]: window item missing window spec", i)
+			}
+		case query.SelectTypeCase:
+			if item.Case == nil || len(item.Case.Branches) == 0 {
+				return nil, fmt.Errorf("select[%d]: case item missing case branches", i)
 			}
 		}
 	}

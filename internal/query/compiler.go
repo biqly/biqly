@@ -23,126 +23,16 @@ func NewCompiler(d dialect.Dialect) *Compiler {
 
 // Compile converts a LogicalQuery + semantic model into SQL.
 func (c *Compiler) Compile(ctx context.Context, lq LogicalQuery, model *semantic.SemanticModel) (*CompiledQuery, error) {
-	lq.EnsureGroupBySelected()
-
-	// Build dimension map
-	dimMap := make(map[string]semantic.Dimension)
-	for _, d := range model.Dimensions {
-		dimMap[d.Name] = d
-	}
-
-	// Per-query GroupBy.TimeGrain overrides the dimension's default bucketing.
-	// Applied as a local mutation on the map copy so the same dimension is
-	// rendered identically in SELECT and GROUP BY without callers having to
-	// repeat the grain in two places.
-	for _, gb := range lq.GroupBy {
-		if gb.TimeGrain == "" {
-			continue
-		}
-		if dim, ok := dimMap[gb.Field]; ok {
-			dim.TimeGrain = gb.TimeGrain
-			dimMap[gb.Field] = dim
-		}
-	}
-
-	// Build metric map
-	metricMap := make(map[string]semantic.Metric)
-	for _, m := range model.Metrics {
-		metricMap[m.Name] = m
-	}
-
-	// Build join map
-	joinMap := make(map[string]semantic.Join)
-	for _, j := range model.Joins {
-		joinMap[j.Name] = j
-	}
-
-	// Determine which joins are needed by inspecting select columns
-	neededJoins := c.determineJoins(lq, model, dimMap, metricMap)
-
-	// Build SELECT clause
-	selectParts, err := c.buildSelect(lq.Select, dimMap, metricMap)
+	args := make([]any, 0, 8)
+	withPrefix, err := c.buildWithClause(lq.CTEs, model, &args)
 	if err != nil {
-		return nil, fmt.Errorf("build select: %w", err)
+		return nil, err
 	}
-
-	// Build FROM clause
-	fromClause := c.buildFrom(model)
-
-	// Build JOIN clauses
-	joinClauses := c.buildJoins(neededJoins, joinMap, model)
-
-	// Build WHERE clause
-	whereClause, whereArgs, err := c.buildWhere(lq.Filters, dimMap, metricMap)
+	fromClause, err := c.resolveFromClause(lq, model, &args)
 	if err != nil {
-		return nil, fmt.Errorf("build where: %w", err)
+		return nil, err
 	}
-	args := make([]any, 0, len(whereArgs))
-	args = append(args, whereArgs...)
-
-	// Build GROUP BY
-	groupByClause, err := c.buildGroupBy(lq.GroupBy, dimMap)
-	if err != nil {
-		return nil, fmt.Errorf("build group by: %w", err)
-	}
-
-	// Build HAVING (post-aggregation filter; each field references a metric)
-	havingClause, havingArgs, err := c.buildHaving(lq.Having, metricMap, len(args))
-	if err != nil {
-		return nil, fmt.Errorf("build having: %w", err)
-	}
-	args = append(args, havingArgs...)
-
-	// Build ORDER BY
-	orderByClause, err := c.buildOrderBy(lq.OrderBy, dimMap, metricMap)
-	if err != nil {
-		return nil, fmt.Errorf("build order by: %w", err)
-	}
-
-	// Build LIMIT/OFFSET
-	limitClause := c.dialect.LimitOffset(lq.Limit, lq.Offset)
-
-	// Assemble SQL
-	var sql strings.Builder
-	sql.WriteString("SELECT ")
-	sql.WriteString(strings.Join(selectParts, ", "))
-	sql.WriteString(" FROM ")
-	sql.WriteString(fromClause)
-
-	for _, jc := range joinClauses {
-		sql.WriteString(" ")
-		sql.WriteString(jc)
-	}
-
-	if whereClause != "" {
-		sql.WriteString(" WHERE ")
-		sql.WriteString(whereClause)
-	}
-
-	if groupByClause != "" {
-		sql.WriteString(" GROUP BY ")
-		sql.WriteString(groupByClause)
-	}
-
-	if havingClause != "" {
-		sql.WriteString(" HAVING ")
-		sql.WriteString(havingClause)
-	}
-
-	if orderByClause != "" {
-		sql.WriteString(" ORDER BY ")
-		sql.WriteString(orderByClause)
-	}
-
-	if limitClause != "" {
-		sql.WriteString(" ")
-		sql.WriteString(limitClause)
-	}
-
-	return &CompiledQuery{
-		SQL:  sql.String(),
-		Args: args,
-	}, nil
+	return c.compileStatement(ctx, lq, model, fromClause, withPrefix, &args)
 }
 
 // CompileWithPermissions compiles a LogicalQuery with row-level security filters injected.
@@ -222,12 +112,10 @@ func (c *Compiler) CompileWithPermissions(
 	return cq, nil
 }
 
-func addTableFromColumnRef(tables map[string]bool, colRef string) {
-	parts := strings.Split(colRef, ".")
-	if len(parts) < 2 {
-		return
+func addTableFromColumnRef(tables map[string]bool, colRef string, resolver *SchemaResolver) {
+	if p, ok := resolver.ParseColumnRef(colRef); ok {
+		tables[TableKey(p.Schema, p.Table)] = true
 	}
-	tables[parts[0]] = true
 }
 
 func tablesReferencedInLogicalQuery(
@@ -235,19 +123,20 @@ func tablesReferencedInLogicalQuery(
 	model *semantic.SemanticModel,
 	dimMap map[string]semantic.Dimension,
 	metricMap map[string]semantic.Metric,
+	resolver *SchemaResolver,
 ) map[string]bool {
 	tables := make(map[string]bool)
-	tables[model.BaseTable] = true
+	tables[TableKey(model.BaseSchema, model.BaseTable)] = true
 
 	for _, item := range lq.Select {
 		switch item.Type {
 		case SelectTypeDimension:
 			if dim, ok := dimMap[item.Name]; ok {
-				addTableFromColumnRef(tables, dim.ColumnRef)
+				addTableFromColumnRef(tables, dim.ColumnRef, resolver)
 			}
 		case SelectTypeMetric:
 			if m, ok := metricMap[item.Name]; ok {
-				addTableFromColumnRef(tables, m.Expression)
+				addTableFromColumnRef(tables, m.Expression, resolver)
 			}
 		case SelectTypeWindow:
 			if item.Window == nil {
@@ -255,23 +144,23 @@ func tablesReferencedInLogicalQuery(
 			}
 			if mname := item.Window.Metric; mname != "" {
 				if m, ok := metricMap[mname]; ok {
-					addTableFromColumnRef(tables, m.Expression)
+					addTableFromColumnRef(tables, m.Expression, resolver)
 				}
 			}
 			if expr := item.Window.Expression; expr != "" {
-				addTableFromColumnRef(tables, expr)
+				addTableFromColumnRef(tables, expr, resolver)
 			}
 			for _, p := range item.Window.PartitionBy {
 				if dim, ok := dimMap[p]; ok {
-					addTableFromColumnRef(tables, dim.ColumnRef)
+					addTableFromColumnRef(tables, dim.ColumnRef, resolver)
 				}
 			}
 			for _, ob := range item.Window.OrderBy {
 				if dim, ok := dimMap[ob.Field]; ok {
-					addTableFromColumnRef(tables, dim.ColumnRef)
+					addTableFromColumnRef(tables, dim.ColumnRef, resolver)
 				}
 				if m, ok := metricMap[ob.Field]; ok {
-					addTableFromColumnRef(tables, m.Expression)
+					addTableFromColumnRef(tables, m.Expression, resolver)
 				}
 			}
 		}
@@ -279,31 +168,31 @@ func tablesReferencedInLogicalQuery(
 
 	for _, f := range lq.Having {
 		if m, ok := metricMap[f.Field]; ok {
-			addTableFromColumnRef(tables, m.Expression)
+			addTableFromColumnRef(tables, m.Expression, resolver)
 		}
 	}
 
 	for _, f := range lq.Filters {
 		if dim, ok := dimMap[f.Field]; ok {
-			addTableFromColumnRef(tables, dim.ColumnRef)
+			addTableFromColumnRef(tables, dim.ColumnRef, resolver)
 		}
 		if m, ok := metricMap[f.Field]; ok {
-			addTableFromColumnRef(tables, m.Expression)
+			addTableFromColumnRef(tables, m.Expression, resolver)
 		}
 	}
 
 	for _, gb := range lq.GroupBy {
 		if dim, ok := dimMap[gb.Field]; ok {
-			addTableFromColumnRef(tables, dim.ColumnRef)
+			addTableFromColumnRef(tables, dim.ColumnRef, resolver)
 		}
 	}
 
 	for _, ob := range lq.OrderBy {
 		if dim, ok := dimMap[ob.Field]; ok {
-			addTableFromColumnRef(tables, dim.ColumnRef)
+			addTableFromColumnRef(tables, dim.ColumnRef, resolver)
 		}
 		if m, ok := metricMap[ob.Field]; ok {
-			addTableFromColumnRef(tables, m.Expression)
+			addTableFromColumnRef(tables, m.Expression, resolver)
 		}
 	}
 
@@ -323,19 +212,22 @@ func (c *Compiler) determineJoins(
 	model *semantic.SemanticModel,
 	dimMap map[string]semantic.Dimension,
 	metricMap map[string]semantic.Metric,
+	resolver *SchemaResolver,
 ) []string {
-	neededTables := tablesReferencedInLogicalQuery(lq, model, dimMap, metricMap)
+	neededTables := tablesReferencedInLogicalQuery(lq, model, dimMap, metricMap, resolver)
 	if len(model.Joins) == 0 {
 		return nil
 	}
 
 	neighbors := make(map[string][]joinNeighbor)
 	for _, j := range model.Joins {
-		neighbors[j.FromTable] = append(neighbors[j.FromTable], joinNeighbor{j.ToTable, j.Name})
-		neighbors[j.ToTable] = append(neighbors[j.ToTable], joinNeighbor{j.FromTable, j.Name})
+		fromKey := resolver.JoinSideKey(j.FromSchema, j.FromTable)
+		toKey := resolver.JoinSideKey(j.ToSchema, j.ToTable)
+		neighbors[fromKey] = append(neighbors[fromKey], joinNeighbor{toKey, j.Name})
+		neighbors[toKey] = append(neighbors[toKey], joinNeighbor{fromKey, j.Name})
 	}
 
-	base := model.BaseTable
+	base := TableKey(model.BaseSchema, model.BaseTable)
 	type parentInfo struct {
 		prev string
 		join string
@@ -390,24 +282,45 @@ func (c *Compiler) determineJoins(
 	return out
 }
 
-func (c *Compiler) dimensionSQL(dim semantic.Dimension) string {
+func (c *Compiler) dimensionSQL(dim semantic.Dimension, resolver *SchemaResolver) string {
 	// If a calculated expression is defined, use it directly.
 	if strings.TrimSpace(dim.CalculatedExpression) != "" {
 		return dim.CalculatedExpression
 	}
+	colRef := resolver.PhysicalColumnRef(dim.ColumnRef)
 	if strings.TrimSpace(dim.TimeGrain) == "" {
-		return c.dialect.QuoteIdent(dim.ColumnRef)
+		return c.dialect.QuoteIdent(colRef)
 	}
 	part := strings.ToLower(strings.TrimSpace(dim.TimeGrain))
 	switch part {
 	case "year", "quarter", "month":
-		return c.dialect.CalendarPart(part, dim.ColumnRef)
+		return c.dialect.CalendarPart(part, colRef)
 	default:
-		return c.dialect.DateTrunc(part, dim.ColumnRef)
+		return c.dialect.DateTrunc(part, colRef)
 	}
 }
 
-func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric) ([]string, error) {
+func (c *Compiler) metricExpressionRef(expr string, resolver *SchemaResolver) string {
+	if expr == "*" {
+		return expr
+	}
+	if _, ok := resolver.ParseColumnRef(expr); ok {
+		return resolver.PhysicalColumnRef(expr)
+	}
+	return expr
+}
+
+func (c *Compiler) qualifyMetricExpression(expr string, resolver *SchemaResolver) string {
+	if expr == "*" {
+		return expr
+	}
+	if _, ok := resolver.ParseColumnRef(expr); ok {
+		return c.dialect.QuoteIdent(resolver.PhysicalColumnRef(expr))
+	}
+	return c.dialect.QuoteIdent(expr)
+}
+
+func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric, model *semantic.SemanticModel, resolver *SchemaResolver, args *[]any) ([]string, error) {
 	var parts []string
 	for _, item := range items {
 		switch item.Type {
@@ -416,7 +329,7 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]semantic.Di
 			if !ok {
 				return nil, fmt.Errorf("unknown dimension: %s", item.Name)
 			}
-			col := c.dimensionSQL(dim)
+			col := c.dimensionSQL(dim, resolver)
 			alias := item.Alias
 			if alias == "" {
 				alias = dim.Name
@@ -428,7 +341,7 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]semantic.Di
 			if !ok {
 				return nil, fmt.Errorf("unknown metric: %s", item.Name)
 			}
-			agg := c.dialect.Aggregate(metric.Aggregation, metric.Expression)
+			agg := c.dialect.Aggregate(metric.Aggregation, c.metricExpressionRef(metric.Expression, resolver))
 			alias := item.Alias
 			if alias == "" {
 				alias = metric.Name
@@ -436,7 +349,7 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]semantic.Di
 			parts = append(parts, fmt.Sprintf("%s AS %s", agg, c.dialect.QuoteIdent(alias)))
 
 		case SelectTypeWindow:
-			windowSQL, err := c.buildWindowExpr(item, dimMap, metricMap)
+			windowSQL, err := c.buildWindowExpr(item, dimMap, metricMap, resolver)
 			if err != nil {
 				return nil, err
 			}
@@ -445,6 +358,20 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]semantic.Di
 				alias = item.Name
 			}
 			parts = append(parts, fmt.Sprintf("%s AS %s", windowSQL, c.dialect.QuoteIdent(alias)))
+
+		case SelectTypeCase:
+			caseSQL, err := c.buildCaseExpr(item, dimMap, metricMap, model, resolver, args)
+			if err != nil {
+				return nil, err
+			}
+			alias := item.Alias
+			if alias == "" {
+				alias = item.Name
+			}
+			if alias == "" {
+				return nil, fmt.Errorf("case select item requires name or alias")
+			}
+			parts = append(parts, fmt.Sprintf("%s AS %s", caseSQL, c.dialect.QuoteIdent(alias)))
 		}
 	}
 	return parts, nil
@@ -461,6 +388,7 @@ func (c *Compiler) buildWindowExpr(
 	item SelectItem,
 	dimMap map[string]semantic.Dimension,
 	metricMap map[string]semantic.Metric,
+	resolver *SchemaResolver,
 ) (string, error) {
 	if item.Window == nil {
 		return "", fmt.Errorf("window select item %q missing window spec", item.Name)
@@ -482,6 +410,9 @@ func (c *Compiler) buildWindowExpr(
 		if expr == "" {
 			expr = m.Expression
 		}
+	}
+	if expr != "" && expr != "*" {
+		expr = c.metricExpressionRef(expr, resolver)
 	}
 	if agg == "" {
 		return "", fmt.Errorf("window select item %q missing aggregation", item.Name)
@@ -515,7 +446,7 @@ func (c *Compiler) buildWindowExpr(
 			if !ok {
 				return "", fmt.Errorf("unknown partition_by dimension: %s", name)
 			}
-			cols = append(cols, c.dialect.QuoteIdent(dim.ColumnRef))
+			cols = append(cols, c.dimensionSQL(dim, resolver))
 		}
 		clauses = append(clauses, "PARTITION BY "+strings.Join(cols, ", "))
 	}
@@ -528,9 +459,9 @@ func (c *Compiler) buildWindowExpr(
 			}
 			ref := ""
 			if dim, ok := dimMap[ob.Field]; ok {
-				ref = c.dialect.QuoteIdent(dim.ColumnRef)
+				ref = c.dimensionSQL(dim, resolver)
 			} else if metric, ok := metricMap[ob.Field]; ok {
-				ref = c.dialect.Aggregate(metric.Aggregation, metric.Expression)
+				ref = c.dialect.Aggregate(metric.Aggregation, c.metricExpressionRef(metric.Expression, resolver))
 			} else {
 				return "", fmt.Errorf("unknown window order_by field: %s", ob.Field)
 			}
@@ -557,6 +488,7 @@ func (c *Compiler) buildWindowExpr(
 func (c *Compiler) buildHaving(
 	filters []Filter,
 	metricMap map[string]semantic.Metric,
+	resolver *SchemaResolver,
 	startArg int,
 ) (string, []any, error) {
 	if len(filters) == 0 {
@@ -574,7 +506,7 @@ func (c *Compiler) buildHaving(
 		if !ok {
 			return "", nil, fmt.Errorf("unknown having field (must be a metric): %s", f.Field)
 		}
-		aggSQL := c.dialect.Aggregate(metric.Aggregation, metric.Expression)
+		aggSQL := c.dialect.Aggregate(metric.Aggregation, c.metricExpressionRef(metric.Expression, resolver))
 		switch f.Operator {
 		case OpEq, OpNeq, OpGt, OpGte, OpLt, OpLte:
 			args = append(args, f.Value)
@@ -626,12 +558,9 @@ func (c *Compiler) buildFrom(model *semantic.SemanticModel) string {
 	return fmt.Sprintf("%s.%s", schema, table)
 }
 
-func (c *Compiler) buildJoins(joinNames []string, joinMap map[string]semantic.Join, model *semantic.SemanticModel) []string {
-	// Track which physical tables are already part of the FROM/JOIN set so we
-	// never emit the same table twice. Joins arrive in BFS discovery order, so
-	// swapping direction when ToTable is already known introduces the genuinely
-	// new table on the right side of the JOIN.
-	inSet := map[string]bool{model.BaseTable: true}
+func (c *Compiler) buildJoins(joinNames []string, joinMap map[string]semantic.Join, model *semantic.SemanticModel, resolver *SchemaResolver) []string {
+	baseKey := TableKey(model.BaseSchema, model.BaseTable)
+	inSet := map[string]bool{baseKey: true}
 
 	var clauses []string
 	for _, name := range joinNames {
@@ -645,94 +574,95 @@ func (c *Compiler) buildJoins(joinNames []string, joinMap map[string]semantic.Jo
 			joinType = "LEFT"
 		}
 
-		fromTable, fromCol := j.FromTable, j.FromColumn
-		toTable, toCol := j.ToTable, j.ToColumn
-		if inSet[toTable] && !inSet[fromTable] {
+		fromSchema, fromTable, fromCol := j.FromSchema, j.FromTable, j.FromColumn
+		toSchema, toTable, toCol := j.ToSchema, j.ToTable, j.ToColumn
+		fromKey := resolver.JoinSideKey(fromSchema, fromTable)
+		toKey := resolver.JoinSideKey(toSchema, toTable)
+		if inSet[toKey] && !inSet[fromKey] {
+			fromSchema, toSchema = toSchema, fromSchema
 			fromTable, toTable = toTable, fromTable
 			fromCol, toCol = toCol, fromCol
-		} else if inSet[toTable] && inSet[fromTable] {
-			// Both sides already present — emitting another JOIN would duplicate
-			// a table. Skip; the existing edge already connects them.
+			fromKey, toKey = toKey, fromKey
+		} else if inSet[toKey] && inSet[fromKey] {
 			continue
 		}
-		inSet[toTable] = true
+		inSet[toKey] = true
 
-		fromTableSQL := c.dialect.QuoteIdent(model.BaseSchema) + "." + c.dialect.QuoteIdent(fromTable)
-		toTableSQL := c.dialect.QuoteIdent(model.BaseSchema) + "." + c.dialect.QuoteIdent(toTable)
+		fromTableSQL := resolver.QualifyTable(c.dialect, fromSchema, fromTable)
+		toTableSQL := resolver.QualifyTable(c.dialect, toSchema, toTable)
 
 		clause := fmt.Sprintf("%s JOIN %s ON %s.%s = %s.%s",
 			joinType, toTableSQL,
-			fromTableSQL, c.dialect.QuoteIdent(fromCol),
-			toTableSQL, c.dialect.QuoteIdent(toCol))
+			fromTableSQL, c.dialect.QuoteIdentSegment(fromCol),
+			toTableSQL, c.dialect.QuoteIdentSegment(toCol))
 		clauses = append(clauses, clause)
 	}
 	return clauses
 }
 
-func (c *Compiler) buildWhere(filters []Filter, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric) (string, []any, error) {
+func (c *Compiler) buildWhere(filters []Filter, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric, model *semantic.SemanticModel, resolver *SchemaResolver, args *[]any) (string, error) {
 	if len(filters) == 0 {
-		return "", nil, nil
+		return "", nil
 	}
 
 	var parts []string
-	var args []any
 
 	for _, f := range filters {
 		if dim, ok := dimMap[f.Field]; ok && monthGrainFilterUsesDateTrunc(dim, f) {
 			anchor, ok := calendarAnchorTime(f.Value)
 			if !ok {
-				return "", nil, fmt.Errorf("month grain filter on %q: expected calendar anchor value", f.Field)
+				return "", fmt.Errorf("month grain filter on %q: expected calendar anchor value", f.Field)
 			}
-			expr, err := c.dateTruncCompareExpr(TimeGrainMonth, dim.ColumnRef, f.Operator, len(args)+1)
+			expr, err := c.dateTruncCompareExpr(TimeGrainMonth, resolver.PhysicalColumnRef(dim.ColumnRef), f.Operator, len(*args)+1)
 			if err != nil {
-				return "", nil, err
+				return "", err
 			}
-			args = append(args, anchor.UTC())
+			*args = append(*args, anchor.UTC())
 			parts = append(parts, expr)
 			continue
 		}
 		if dim, ok := dimMap[f.Field]; ok && quarterGrainFilterUsesDateTrunc(dim, f) {
 			anchor, ok := calendarAnchorTime(f.Value)
 			if !ok {
-				return "", nil, fmt.Errorf("quarter grain filter on %q: expected calendar anchor value", f.Field)
+				return "", fmt.Errorf("quarter grain filter on %q: expected calendar anchor value", f.Field)
 			}
-			expr, err := c.dateTruncCompareExpr(TimeGrainQuarter, dim.ColumnRef, f.Operator, len(args)+1)
+			expr, err := c.dateTruncCompareExpr(TimeGrainQuarter, resolver.PhysicalColumnRef(dim.ColumnRef), f.Operator, len(*args)+1)
 			if err != nil {
-				return "", nil, err
+				return "", err
 			}
-			args = append(args, anchor.UTC())
+			*args = append(*args, anchor.UTC())
 			parts = append(parts, expr)
 			continue
 		}
 
-		colSQL, err := c.resolveFilterLHS(f.Field, dimMap, metricMap)
+		colSQL, err := c.resolveFilterLHS(f.Field, dimMap, metricMap, resolver)
 		if err != nil {
-			return "", nil, err
+			return "", err
 		}
 
-		part, newArgs, err := c.buildFilterPart(f, colSQL, &args)
+		part, newArgs, err := c.buildFilterPart(f, colSQL, model, args)
 		if err != nil {
-			return "", nil, err
+			return "", err
 		}
-		args = append(args, newArgs...)
+		*args = append(*args, newArgs...)
 		parts = append(parts, part)
 	}
 
-	return strings.Join(parts, " AND "), args, nil
+	return strings.Join(parts, " AND "), nil
 }
 
 // resolveFilterLHS returns SQL for the left-hand side of a filter (quoted column, metric expression, or date_trunc).
-func (c *Compiler) resolveFilterLHS(field string, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric) (string, error) {
+func (c *Compiler) resolveFilterLHS(field string, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric, resolver *SchemaResolver) (string, error) {
 	if dim, ok := dimMap[field]; ok {
-		return c.dimensionSQL(dim), nil
+		return c.dimensionSQL(dim, resolver), nil
 	}
 	if metric, ok := metricMap[field]; ok {
-		return c.dialect.QuoteIdent(metric.Expression), nil
+		return c.qualifyMetricExpression(metric.Expression, resolver), nil
 	}
 	return "", fmt.Errorf("unknown field: %s", field)
 }
 
-func (c *Compiler) buildFilterPart(f Filter, lhsSQL string, args *[]any) (string, []any, error) {
+func (c *Compiler) buildFilterPart(f Filter, lhsSQL string, model *semantic.SemanticModel, args *[]any) (string, []any, error) {
 	switch f.Operator {
 	case OpEq:
 		*args = append(*args, f.Value)
@@ -753,8 +683,14 @@ func (c *Compiler) buildFilterPart(f Filter, lhsSQL string, args *[]any) (string
 		*args = append(*args, f.Value)
 		return fmt.Sprintf("%s <= %s", lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
 	case OpIn:
+		if f.Subquery != nil {
+			return c.buildInSubqueryFilter(lhsSQL, f, model, true, args)
+		}
 		return c.buildInFilter(lhsSQL, f.Value, args)
 	case OpNotIn:
+		if f.Subquery != nil {
+			return c.buildInSubqueryFilter(lhsSQL, f, model, false, args)
+		}
 		return c.buildNotInFilter(lhsSQL, f.Value, args)
 	case OpContains:
 		*args = append(*args, fmt.Sprintf("%%%v%%", f.Value))
@@ -813,7 +749,7 @@ func (c *Compiler) buildBetweenFilter(lhsSQL string, value any, args *[]any) (st
 	return fmt.Sprintf("%s BETWEEN %s AND %s", lhsSQL, p1, p2), nil, nil
 }
 
-func (c *Compiler) buildGroupBy(groupBy []GroupBy, dimMap map[string]semantic.Dimension) (string, error) {
+func (c *Compiler) buildGroupBy(groupBy []GroupBy, dimMap map[string]semantic.Dimension, resolver *SchemaResolver) (string, error) {
 	if len(groupBy) == 0 {
 		return "", nil
 	}
@@ -824,12 +760,12 @@ func (c *Compiler) buildGroupBy(groupBy []GroupBy, dimMap map[string]semantic.Di
 		if !ok {
 			return "", fmt.Errorf("unknown dimension: %s", gb.Field)
 		}
-		parts = append(parts, c.dimensionSQL(dim))
+		parts = append(parts, c.dimensionSQL(dim, resolver))
 	}
 	return strings.Join(parts, ", "), nil
 }
 
-func (c *Compiler) buildOrderBy(orderBy []OrderBy, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric) (string, error) {
+func (c *Compiler) buildOrderBy(orderBy []OrderBy, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric, resolver *SchemaResolver) (string, error) {
 	if len(orderBy) == 0 {
 		return "", nil
 	}
@@ -841,7 +777,7 @@ func (c *Compiler) buildOrderBy(orderBy []OrderBy, dimMap map[string]semantic.Di
 			if dir == "" {
 				dir = "ASC"
 			}
-			parts = append(parts, fmt.Sprintf("%s %s", c.dimensionSQL(dim), dir))
+			parts = append(parts, fmt.Sprintf("%s %s", c.dimensionSQL(dim, resolver), dir))
 		} else if metric, ok := metricMap[ob.Field]; ok {
 			dir := strings.ToUpper(ob.Direction)
 			if dir == "" {

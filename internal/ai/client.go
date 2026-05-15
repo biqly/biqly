@@ -12,6 +12,8 @@ import (
 	"github.com/biqly/biqly/internal/config"
 )
 
+const openAIProviderName = "openai"
+
 // Client handles communication with LLM providers.
 type Client struct {
 	httpClient  *http.Client
@@ -70,20 +72,26 @@ type openAIResponse struct {
 			Content string `json:"content"`
 		} `json:"message"`
 	} `json:"choices"`
+	Usage *struct {
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		TotalTokens      int `json:"total_tokens"`
+	} `json:"usage,omitempty"`
 	Error *struct {
 		Message string `json:"message"`
 	} `json:"error,omitempty"`
 }
 
 // Generate sends a prompt to the LLM at the configured temperature.
-func (c *Client) Generate(ctx context.Context, prompt string) (string, error) {
+func (c *Client) Generate(ctx context.Context, prompt string) (GenerationResult, error) {
 	return c.GenerateAt(ctx, prompt, c.temperature)
 }
 
 // GenerateAt sends a prompt with an explicit temperature override.
 // Transient HTTP failures (429, 502–504) and network errors trigger a short
 // exponential backoff retry (up to 4 attempts total).
-func (c *Client) GenerateAt(ctx context.Context, prompt string, temperature float64) (string, error) {
+func (c *Client) GenerateAt(ctx context.Context, prompt string, temperature float64) (GenerationResult, error) {
+	estPrompt := EstimateTokens(prompt)
 	reqBody := openAIRequest{
 		Model: c.model,
 		Messages: []openAIMessage{
@@ -97,13 +105,13 @@ func (c *Client) GenerateAt(ctx context.Context, prompt string, temperature floa
 
 	body, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", fmt.Errorf("marshal request: %w", err)
+		return GenerationResult{}, fmt.Errorf("marshal request: %w", err)
 	}
 
-	return execLLMHTTPRetry(ctx, func() (string, error, bool) {
+	result, err := execLLMHTTPRetry(ctx, func() (GenerationResult, error, bool) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/chat/completions", bytes.NewReader(body))
 		if err != nil {
-			return "", fmt.Errorf("create request: %w", err), false
+			return GenerationResult{}, fmt.Errorf("create request: %w", err), false
 		}
 		req.Header.Set("Content-Type", "application/json")
 		if c.apiKey != "" {
@@ -112,35 +120,48 @@ func (c *Client) GenerateAt(ctx context.Context, prompt string, temperature floa
 
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
-			return "", fmt.Errorf("send request: %w", err), isRetriableNetErr(err)
+			return GenerationResult{}, fmt.Errorf("send request: %w", err), isRetriableNetErr(err)
 		}
 
 		respBody, readErr := io.ReadAll(resp.Body)
 		closeErr := resp.Body.Close()
 		if readErr != nil {
-			return "", fmt.Errorf("read response: %w", readErr), false
+			return GenerationResult{}, fmt.Errorf("read response: %w", readErr), false
 		}
 		if closeErr != nil {
-			return "", fmt.Errorf("close response: %w", closeErr), false
+			return GenerationResult{}, fmt.Errorf("close response: %w", closeErr), false
 		}
 
 		if resp.StatusCode == http.StatusOK {
 			var aiResp openAIResponse
 			if err := json.Unmarshal(respBody, &aiResp); err != nil {
-				return "", fmt.Errorf("unmarshal response: %w", err), false
+				return GenerationResult{}, fmt.Errorf("unmarshal response: %w", err), false
 			}
 			if aiResp.Error != nil {
-				return "", fmt.Errorf("API error: %s", aiResp.Error.Message), false
+				return GenerationResult{}, fmt.Errorf("API error: %s", aiResp.Error.Message), false
 			}
 			if len(aiResp.Choices) == 0 {
-				return "", fmt.Errorf("no choices in response"), false
+				return GenerationResult{}, fmt.Errorf("no choices in response"), false
 			}
-			return aiResp.Choices[0].Message.Content, nil, false
+			gen := GenerationResult{Content: aiResp.Choices[0].Message.Content}
+			if aiResp.Usage != nil {
+				gen.Usage = &TokenUsage{
+					Prompt:     aiResp.Usage.PromptTokens,
+					Completion: aiResp.Usage.CompletionTokens,
+					Total:      aiResp.Usage.TotalTokens,
+				}
+			}
+			return gen, nil, false
 		}
 
 		apiErr := fmt.Errorf("API error %d: %s", resp.StatusCode, string(respBody))
-		return "", apiErr, isRetriableHTTPStatus(resp.StatusCode)
+		return GenerationResult{}, apiErr, isRetriableHTTPStatus(resp.StatusCode)
 	})
+	if err != nil {
+		return GenerationResult{}, err
+	}
+	logLLMCompletion(ctx, openAIProviderName, c.model, estPrompt, result)
+	return result, nil
 }
 
 func (c *Client) ollamaOptions(temperature float64) *ollamaOptions {

@@ -90,6 +90,19 @@ export interface TableRoutingDebug {
   relation_expansion?: string[]
   bridge_tables?: string[]
   eliminated_candidates?: string[]
+  /** Schemas included after multi-schema partitioning (audit §2.4). */
+  schema_partitions?: string[]
+}
+
+export interface PromptStats {
+  prompt_runes?: number
+  est_prompt_tokens?: number
+  est_completion_reserve?: number
+  context_window_tokens?: number
+  max_prompt_runes?: number
+  context_tier?: number
+  context_tier_label?: string
+  model?: string
 }
 
 export interface TableRoutingResult {
@@ -157,6 +170,7 @@ export interface AIQueryResponse {
   validation_result?: ValidationExplainResult
   // Prompt transparency
   prompt?: string
+  prompt_stats?: PromptStats
   token_usage?: TokenUsage
   // Model info
   model_used?: string
@@ -196,13 +210,45 @@ export interface LogicalQuery {
   limit?: number
   offset?: number
   ctes?: CTE[]
+  from_subquery?: SubqueryBody
+  from_cte?: string
+  from_alias?: string
+  default_schema?: string
+  table_schemas?: Record<string, string>
+}
+
+export interface SubqueryBody {
+  select?: SelectField[]
+  filters?: FilterClause[]
+  group_by?: GroupByField[]
+  having?: FilterClause[]
+  order_by?: OrderByField[]
+  limit?: number
+  offset?: number
 }
 
 export interface SelectField {
-  type: 'dimension' | 'metric' | 'window'
+  type: 'dimension' | 'metric' | 'window' | 'case'
   name: string
   alias?: string
   window?: WindowSpec
+  case?: CaseExpr
+}
+
+export interface CaseExpr {
+  branches: CaseBranch[]
+  else?: CaseThen
+}
+
+export interface CaseBranch {
+  when: FilterClause[]
+  then: CaseThen
+}
+
+export interface CaseThen {
+  type: 'dimension' | 'literal'
+  dimension?: string
+  literal?: unknown
 }
 
 export interface WindowSpec {
@@ -218,6 +264,12 @@ export interface FilterClause {
   field: string
   operator: string
   value: unknown
+  subquery?: SubqueryFilter
+}
+
+export interface SubqueryFilter {
+  body: SubqueryBody
+  result_field: string
 }
 
 export interface GroupByField {
@@ -232,7 +284,13 @@ export interface OrderByField {
 
 export interface CTE {
   name: string
-  query: LogicalQuery
+  select?: SelectField[]
+  filters?: FilterClause[]
+  group_by?: GroupByField[]
+  having?: FilterClause[]
+  order_by?: OrderByField[]
+  limit?: number
+  offset?: number
 }
 
 export interface WindowFunction {
@@ -245,6 +303,20 @@ export interface WindowFunction {
 
 // ─── Query Result Types ────────────────────────────────────────────
 
+export interface PivotHint {
+  row_field: string
+  column_field: string
+  value_fields: string[]
+  reason?: string
+}
+
+export interface ResultAnomaly {
+  row_index: number
+  column: string
+  value: unknown
+  score: number
+}
+
 export interface QueryResultPayload {
   columns: QueryColumn[]
   rows: unknown[][]
@@ -253,6 +325,8 @@ export interface QueryResultPayload {
     duration_ms: number
   }
   chart_suggestions?: ChartSuggestion[]
+  pivot_hint?: PivotHint
+  anomalies?: ResultAnomaly[]
 }
 
 export type ChartSuggestion = 'bar' | 'line' | 'table' | 'number' | 'pie'

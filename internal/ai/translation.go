@@ -88,13 +88,13 @@ func (s *TranslationService) TranslateDescribeResult(ctx context.Context, result
 		return fmt.Errorf("marshal describe translation payload: %w", err)
 	}
 
-	raw, err := s.provider.GenerateAt(ctx, buildDescribeTranslationPrompt(string(rawPayload), s.targetLanguage, s.targetCode), 0)
+	gen, err := s.provider.GenerateAt(ctx, buildDescribeTranslationPrompt(string(rawPayload), s.targetLanguage, s.targetCode), 0)
 	if err != nil {
 		return fmt.Errorf("translate metadata descriptions: %w", err)
 	}
 
 	var translated describeTranslationPayload
-	if err := json.Unmarshal([]byte(TrimToJSONObject(raw)), &translated); err != nil {
+	if err := json.Unmarshal([]byte(TrimToJSONObject(gen.Content)), &translated); err != nil {
 		return fmt.Errorf("parse translated metadata descriptions: %w", err)
 	}
 	if err := validateDescribeTranslation(payload, translated); err != nil {

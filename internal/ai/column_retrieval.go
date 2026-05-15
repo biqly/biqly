@@ -6,8 +6,6 @@ import (
 	"github.com/biqly/biqly/internal/metadata"
 )
 
-const columnKeywordMatchWeight = 2.5
-
 // rankColumnsForSemanticModel narrows wide tables to columns relevant to the
 // question using embedding similarity (when available) plus keyword overlap.
 func rankColumnsForSemanticModel(
@@ -93,22 +91,24 @@ func rankColumnsForTable(
 
 func scoreColumnForQuestion(col metadata.Column, tokens map[string]bool, embeddingScore float64) float64 {
 	keyword := scoreColumnKeywords(col, tokens)
+	w := ActiveRoutingWeights()
 	if embeddingScore > 0 {
-		return embeddingScore + keyword*columnKeywordMatchWeight
+		return embeddingScore + keyword*w.ColumnKeywordMatch
 	}
 	return keyword
 }
 
 func scoreColumnKeywords(col metadata.Column, tokens map[string]bool) float64 {
-	score := weightedTokenScore(tokens, col.ColumnName, 2)
+	w := ActiveRoutingWeights()
+	score := weightedTokenScore(tokens, col.ColumnName, w.ColumnKeywordName)
 	if col.Description != nil {
-		score += weightedTokenScore(tokens, *col.Description, 1.5)
+		score += weightedTokenScore(tokens, *col.Description, w.ColumnKeywordDescription)
 	}
 	if isRevenueLikeQuestion(tokens) && isRevenueLikeColumn(col) {
-		score += 3
+		score += w.ColumnRevenueBoost
 	}
 	if isDisplayNameColumn(col.ColumnName) && wantsReadableLabelsQuestion(tokens) {
-		score += 2
+		score += w.ColumnDisplayNameBoost
 	}
 	return score
 }

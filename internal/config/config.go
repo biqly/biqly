@@ -117,6 +117,11 @@ type AIConfig struct {
 	QueryBaseURL            string
 	QueryAPIKey             string
 	QueryHTTPTimeoutSeconds int
+
+	// RoutingLexiconPath overrides embedded NL token synonyms and intent vocabulary (JSON).
+	RoutingLexiconPath string
+	// RoutingWeightsPath overrides table-routing score weights and boost rules (JSON).
+	RoutingWeightsPath string
 }
 
 // Load reads configuration from environment variables.
@@ -181,6 +186,8 @@ func Load() (*Config, error) {
 			QueryBaseURL:            getEnv("BI_AI_QUERY_BASE_URL", ""),
 			QueryAPIKey:             getEnv("BI_AI_QUERY_API_KEY", ""),
 			QueryHTTPTimeoutSeconds: getEnvAsInt("BI_AI_QUERY_HTTP_TIMEOUT_SECONDS", 0),
+			RoutingLexiconPath:      getEnv("BI_AI_ROUTING_LEXICON_PATH", ""),
+			RoutingWeightsPath:      getEnv("BI_AI_ROUTING_WEIGHTS_PATH", ""),
 		},
 	}
 

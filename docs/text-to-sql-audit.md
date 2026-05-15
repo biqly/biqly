@@ -118,15 +118,15 @@ Mevcut `TableRouter` keyword + (yapılandırıldıysa) önceden hesaplanmış ta
 
 - [x] **Session-based conversation**: `useConversation` (localStorage) + `conversation_id` isteğe bağlı
 - [x] **Context carry-over**: `prior_turns` ile önceki soru/JSON modele gidiyor
-- [ ] **Implicit filter persistence**: “Geçen ay” filtresini otomatik taşıyan ayrı bir state makinesi yok
+- [x] **Implicit filter persistence**: `FilterSessionState` + `ClassifyFollowUpIntent` (refine / replace / new); önceki tur `filters`/`having` refine’da programatik merge + prompt’ta “Active Filters” bölümü
 
 ### 5.2 Advanced SQL Features
 
-- [ ] **Subquery support**: LogicalQuery’de iç içe alt sorgu modeli yok
+- [x] **Subquery support**: `SubqueryBody`, `Filter.subquery` (IN/NOT IN), `from_subquery` / `from_cte`
 - [x] **Window functions**: `SelectTypeWindow` + derleyici
 - [x] **CTE support**: `LogicalQuery.CTEs` + derleyici
 - [x] **HAVING clause**: Derleyici + validator
-- [ ] **CASE/WHEN in select**: Henüz yok
+- [x] **CASE/WHEN in select**: `SelectTypeCase` + `CaseExpr` / derleyici
 
 ### 5.3 Multi-Model Orchestration
 
@@ -137,9 +137,9 @@ Mevcut `TableRouter` keyword + (yapılandırıldıysa) önceden hesaplanmış ta
 
 ### 5.4 Data Visualization Hints
 
-- [ ] **Chart type suggestion**
-- [ ] **Auto-pivot**
-- [ ] **Anomaly detection**
+- [x] **Chart type suggestion**: `EnrichResult` → `chart_suggestions`; AI `/ai/query/run` → `visualization_hint`; frontend otomatik chart seçimi
+- [x] **Auto-pivot**: `pivot_hint` (2 kategorik boyut + metrik); UI’da pivot önerisi
+- [x] **Anomaly detection**: `anomalies[]` (metrik sütunlarda IQR); UI’da aykırı sayacı
 
 ### 5.5 RAG Integration
 
@@ -153,16 +153,16 @@ Mevcut `TableRouter` keyword + (yapılandırıldıysa) önceden hesaplanmış ta
 
 ### 6.1 Table Router
 
-- [ ] **Hardcoded domain logic**: AdventureWorks’e özel heuristikler hâlâ kodda
-- [ ] **Turkish token synonyms hardcoded**: `tokenSynonyms` vb. kod içi
-- [ ] **Score calculation magic numbers**: Ağırlıklar sabit
+- [x] **Hardcoded domain logic**: Tablo boost kuralları `routing_weights_default.json` içinde genel substring kalıpları (`orderdetail`, `category`, `product`); AdventureWorks’e özel tablo adı yok
+- [x] **Turkish token synonyms hardcoded**: `routing_lexicon_default.json` + `BI_AI_ROUTING_LEXICON_PATH` ile override
+- [x] **Score calculation magic numbers**: `routing_weights_default.json` + `BI_AI_ROUTING_WEIGHTS_PATH` ile override
 - [x] **Missing unit tests for edge cases**: `table_router_test.go` genişledi; çok büyük şema/Türkçe köşe vakaları için hâlâ açık iş
 
 ### 6.2 AI Client
 
 - [x] **Single provider lock-in**: `Provider` arayüzü + OpenAI + Anthropic
 - [x] **No retry on API failure**: 429 / 502–504 ve ağ zaman aşımı için 4 denemeye kadar exponential backoff (`client.go`, `anthropic.go`)
-- [ ] **No token counting**: Yaklaşık token log’u yok
+- [x] **Token counting**: OpenAI/Anthropic `usage` parse; `llm completion` slog (`est_prompt_tokens`, `tokens_from_api`, prompt/completion/total); service prefers API usage over estimate
 
 ### 6.3 Confidence Scoring
 
@@ -171,8 +171,8 @@ Mevcut `TableRouter` keyword + (yapılandırıldıysa) önceden hesaplanmış ta
 
 ### 6.4 Schema Awareness
 
-- [ ] **No schema prefix in joins**: Çok şemalı join sınırlamaları devam ediyor
-- [ ] **No cross-schema query support**: LogicalQuery’de açık şema alanı yok
+- [x] **No schema prefix in joins**: `semantic.Join` `from_schema`/`to_schema`; compiler `buildJoins` şema bazlı qualify
+- [x] **No cross-schema query support**: `default_schema`, `table_schemas`, üç parçalı `column_ref` (`schema.table.column`)
 
 ---
 

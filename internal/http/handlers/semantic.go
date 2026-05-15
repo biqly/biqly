@@ -311,8 +311,10 @@ func (h *SemanticHandler) CreateMetric(w http.ResponseWriter, r *http.Request) {
 
 type createJoinRequest struct {
 	Name         string `json:"name"`
+	FromSchema   string `json:"from_schema,omitempty"`
 	FromTable    string `json:"from_table"`
 	FromColumn   string `json:"from_column"`
+	ToSchema     string `json:"to_schema,omitempty"`
 	ToTable      string `json:"to_table"`
 	ToColumn     string `json:"to_column"`
 	JoinType     string `json:"join_type,omitempty"`
@@ -343,8 +345,10 @@ func (h *SemanticHandler) CreateJoin(w http.ResponseWriter, r *http.Request) {
 		ID:           uuid.New().String(),
 		ModelID:      modelID,
 		Name:         req.Name,
+		FromSchema:   req.FromSchema,
 		FromTable:    req.FromTable,
 		FromColumn:   req.FromColumn,
+		ToSchema:     req.ToSchema,
 		ToTable:      req.ToTable,
 		ToColumn:     req.ToColumn,
 		JoinType:     joinType,

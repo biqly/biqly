@@ -33,6 +33,7 @@ interface ColumnRow {
   description: string | null
   is_primary_key: boolean
   is_foreign_key: boolean
+  referenced_schema?: string | null
   referenced_table: string | null
   referenced_column: string | null
 }
@@ -43,7 +44,12 @@ function columnKeySuffix(c: ColumnRow): string | null {
   if (c.is_primary_key) parts.push('PK')
   if (c.is_foreign_key) {
     if (c.referenced_table && c.referenced_column) {
-      parts.push(`FK→${c.referenced_table}.${c.referenced_column}`)
+      const refSchema = c.referenced_schema?.trim()
+      const crossSchema = refSchema && refSchema !== c.schema_name
+      const target = crossSchema
+        ? `${refSchema}.${c.referenced_table}.${c.referenced_column}`
+        : `${c.referenced_table}.${c.referenced_column}`
+      parts.push(`FK→${target}`)
     } else {
       parts.push('FK')
     }

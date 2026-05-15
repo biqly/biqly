@@ -35,11 +35,23 @@ export interface Metric {
 }
 
 export interface Join {
+  id?: string
   name: string
-  left_table: string
-  left_column: string
-  right_table: string
-  right_column: string
-  join_type: 'inner' | 'left' | 'right' | 'full'
+  from_schema?: string
+  from_table: string
+  from_column: string
+  to_schema?: string
+  to_table: string
+  to_column: string
+  join_type?: string
+  relationship?: string
+  /** @deprecated use from_table / to_table */
+  left_table?: string
+  /** @deprecated use from_column / to_column */
+  left_column?: string
+  /** @deprecated */
+  right_table?: string
+  /** @deprecated */
+  right_column?: string
   description?: string
 }

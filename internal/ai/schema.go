@@ -198,7 +198,12 @@ const LogicalQuerySchema = `{
       "items": {"type": "object", "required": ["field"], "properties": {"field": {"type": "string"}, "direction": {"type": "string", "enum": ["asc", "desc"]}}}
     },
     "limit": {"type": "integer", "minimum": 0},
-    "offset": {"type": "integer", "minimum": 0}
+    "offset": {"type": "integer", "minimum": 0},
+    "default_schema": {"type": "string"},
+    "table_schemas": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    }
   },
   "additionalProperties": false
 }`

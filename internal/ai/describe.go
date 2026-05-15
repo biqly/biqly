@@ -155,12 +155,12 @@ func (s *DescribeService) Describe(ctx context.Context, req DescribeRequest) (*D
 	sample = shrinkSampleForPrompt(sample, s.maxCellRunes)
 
 	prompt := buildDescribePrompt(req.Schema, req.Table, cols, sample)
-	raw, err := s.client.Generate(ctx, prompt)
+	gen, err := s.client.Generate(ctx, prompt)
 	if err != nil {
 		return nil, fmt.Errorf("ai generate: %w", err)
 	}
 
-	tableDesc, colDescs, err := parseDescribeResponse(raw)
+	tableDesc, colDescs, err := parseDescribeResponse(gen.Content)
 	if err != nil {
 		return nil, fmt.Errorf("parse ai response: %w", err)
 	}

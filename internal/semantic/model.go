@@ -81,8 +81,10 @@ type Join struct {
 	ID           string    `json:"id" db:"id"`
 	ModelID      string    `json:"model_id" db:"model_id"`
 	Name         string    `json:"name" db:"name"`
+	FromSchema   string    `json:"from_schema,omitempty" db:"from_schema"`
 	FromTable    string    `json:"from_table" db:"from_table"`
 	FromColumn   string    `json:"from_column" db:"from_column"`
+	ToSchema     string    `json:"to_schema,omitempty" db:"to_schema"`
 	ToTable      string    `json:"to_table" db:"to_table"`
 	ToColumn     string    `json:"to_column" db:"to_column"`
 	JoinType     string    `json:"join_type" db:"join_type"`       // LEFT, INNER, RIGHT

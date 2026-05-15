@@ -62,6 +62,10 @@ type anthropicResponse struct {
 		Type string `json:"type"`
 		Text string `json:"text"`
 	} `json:"content"`
+	Usage *struct {
+		InputTokens  int `json:"input_tokens"`
+		OutputTokens int `json:"output_tokens"`
+	} `json:"usage,omitempty"`
 	Error *struct {
 		Type    string `json:"type"`
 		Message string `json:"message"`
@@ -69,14 +73,15 @@ type anthropicResponse struct {
 }
 
 // Generate sends a prompt at the configured temperature.
-func (p *AnthropicProvider) Generate(ctx context.Context, prompt string) (string, error) {
+func (p *AnthropicProvider) Generate(ctx context.Context, prompt string) (GenerationResult, error) {
 	return p.GenerateAt(ctx, prompt, p.temperature)
 }
 
 // GenerateAt sends a prompt with an explicit temperature override.
 // Transient HTTP failures (429, 502–504) and network errors trigger a short
 // exponential backoff retry (up to 4 attempts total).
-func (p *AnthropicProvider) GenerateAt(ctx context.Context, prompt string, temperature float64) (string, error) {
+func (p *AnthropicProvider) GenerateAt(ctx context.Context, prompt string, temperature float64) (GenerationResult, error) {
+	estPrompt := EstimateTokens(prompt)
 	reqBody := anthropicRequest{
 		Model:       p.model,
 		System:      anthropicSystemDirective,
@@ -86,13 +91,13 @@ func (p *AnthropicProvider) GenerateAt(ctx context.Context, prompt string, tempe
 	}
 	body, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", fmt.Errorf("marshal request: %w", err)
+		return GenerationResult{}, fmt.Errorf("marshal request: %w", err)
 	}
 
-	return execLLMHTTPRetry(ctx, func() (string, error, bool) {
+	result, err := execLLMHTTPRetry(ctx, func() (GenerationResult, error, bool) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.baseURL+"/messages", bytes.NewReader(body))
 		if err != nil {
-			return "", fmt.Errorf("create request: %w", err), false
+			return GenerationResult{}, fmt.Errorf("create request: %w", err), false
 		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("x-api-key", p.apiKey)
@@ -100,35 +105,53 @@ func (p *AnthropicProvider) GenerateAt(ctx context.Context, prompt string, tempe
 
 		resp, err := p.httpClient.Do(req)
 		if err != nil {
-			return "", fmt.Errorf("send request: %w", err), isRetriableNetErr(err)
+			return GenerationResult{}, fmt.Errorf("send request: %w", err), isRetriableNetErr(err)
 		}
 
 		respBody, readErr := io.ReadAll(resp.Body)
 		closeErr := resp.Body.Close()
 		if readErr != nil {
-			return "", fmt.Errorf("read response: %w", readErr), false
+			return GenerationResult{}, fmt.Errorf("read response: %w", readErr), false
 		}
 		if closeErr != nil {
-			return "", fmt.Errorf("close response: %w", closeErr), false
+			return GenerationResult{}, fmt.Errorf("close response: %w", closeErr), false
 		}
 
 		if resp.StatusCode == http.StatusOK {
 			var ar anthropicResponse
 			if err := json.Unmarshal(respBody, &ar); err != nil {
-				return "", fmt.Errorf("unmarshal response: %w", err), false
+				return GenerationResult{}, fmt.Errorf("unmarshal response: %w", err), false
 			}
 			if ar.Error != nil {
-				return "", fmt.Errorf("Anthropic API error: %s", ar.Error.Message), false
+				return GenerationResult{}, fmt.Errorf("Anthropic API error: %s", ar.Error.Message), false
 			}
+			var text string
 			for _, c := range ar.Content {
 				if c.Type == "text" && c.Text != "" {
-					return c.Text, nil, false
+					text = c.Text
+					break
 				}
 			}
-			return "", fmt.Errorf("no text content in Anthropic response"), false
+			if text == "" {
+				return GenerationResult{}, fmt.Errorf("no text content in Anthropic response"), false
+			}
+			gen := GenerationResult{Content: text}
+			if ar.Usage != nil {
+				gen.Usage = &TokenUsage{
+					Prompt:     ar.Usage.InputTokens,
+					Completion: ar.Usage.OutputTokens,
+					Total:      ar.Usage.InputTokens + ar.Usage.OutputTokens,
+				}
+			}
+			return gen, nil, false
 		}
 
 		apiErr := fmt.Errorf("Anthropic API error %d: %s", resp.StatusCode, string(respBody))
-		return "", apiErr, isRetriableHTTPStatus(resp.StatusCode)
+		return GenerationResult{}, apiErr, isRetriableHTTPStatus(resp.StatusCode)
 	})
+	if err != nil {
+		return GenerationResult{}, err
+	}
+	logLLMCompletion(ctx, "anthropic", p.model, estPrompt, result)
+	return result, nil
 }

@@ -2,6 +2,7 @@ package query
 
 import (
 	"encoding/json"
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -51,6 +52,8 @@ func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) err
 			}
 		case SelectTypeWindow:
 			errs = append(errs, validateWindowSelect(item, dimMap, metricRegistry)...)
+		case SelectTypeCase:
+			errs = append(errs, validateCaseSelect(item, dimMap)...)
 		default:
 			errs = append(errs, &ValidationError{
 				Field:   "select",
@@ -104,8 +107,38 @@ func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) err
 				Message: "invalid operator: " + f.Operator,
 			})
 		}
+		if f.Subquery != nil {
+			errs = append(errs, validateSubqueryFilter(f)...)
+		}
 		if err := validateDateFilterValueType(f, model.Dimensions); err != nil {
 			errs = append(errs, err)
+		}
+	}
+
+	if lq.FromSubquery != nil && strings.TrimSpace(lq.FromCTE) != "" {
+		errs = append(errs, &ValidationError{
+			Field:   "from",
+			Message: "from_subquery and from_cte are mutually exclusive",
+		})
+	}
+	for _, cte := range lq.CTEs {
+		if strings.TrimSpace(cte.Name) == "" {
+			errs = append(errs, &ValidationError{Field: "ctes", Message: "cte name is required"})
+		}
+	}
+	if strings.TrimSpace(lq.FromCTE) != "" {
+		found := false
+		for _, cte := range lq.CTEs {
+			if cte.Name == lq.FromCTE {
+				found = true
+				break
+			}
+		}
+		if !found {
+			errs = append(errs, &ValidationError{
+				Field:   "from_cte",
+				Message: "from_cte must match a defined cte name: " + lq.FromCTE,
+			})
 		}
 	}
 
@@ -276,6 +309,61 @@ func validateWindowSelect(item SelectItem, dimMap map[string]bool, metricRegistr
 		if ob.Direction != "" && ob.Direction != OrderAsc && ob.Direction != OrderDesc {
 			errs = append(errs, &ValidationError{Field: "select.window.order_by", Message: "invalid direction: " + ob.Direction})
 		}
+	}
+	return errs
+}
+
+func validateCaseSelect(item SelectItem, dimMap map[string]bool) ValidationErrors {
+	var errs ValidationErrors
+	if item.Case == nil || len(item.Case.Branches) == 0 {
+		errs = append(errs, &ValidationError{Field: "select.case", Message: "case item requires branches: " + item.Name})
+		return errs
+	}
+	if strings.TrimSpace(item.Name) == "" && strings.TrimSpace(item.Alias) == "" {
+		errs = append(errs, &ValidationError{Field: "select.case", Message: "case item requires name or alias"})
+	}
+	for i, br := range item.Case.Branches {
+		if len(br.When) == 0 {
+			errs = append(errs, &ValidationError{Field: "select.case", Message: fmt.Sprintf("case branch %d missing when filters", i)})
+		}
+		errs = append(errs, validateCaseThen(br.Then, dimMap, "select.case")...)
+	}
+	if item.Case.Else != nil {
+		errs = append(errs, validateCaseThen(*item.Case.Else, dimMap, "select.case")...)
+	}
+	return errs
+}
+
+func validateCaseThen(then CaseThen, dimMap map[string]bool, field string) ValidationErrors {
+	var errs ValidationErrors
+	switch strings.ToLower(strings.TrimSpace(then.Type)) {
+	case CaseThenTypeDimension, "":
+		if then.Dimension == "" || !dimMap[then.Dimension] {
+			errs = append(errs, &ValidationError{Field: field, Message: "unknown case then dimension: " + then.Dimension})
+		}
+	case CaseThenTypeLiteral:
+		if then.Literal == nil {
+			errs = append(errs, &ValidationError{Field: field, Message: "case then literal value required"})
+		}
+	default:
+		errs = append(errs, &ValidationError{Field: field, Message: "invalid case then type: " + then.Type})
+	}
+	return errs
+}
+
+func validateSubqueryFilter(f Filter) ValidationErrors {
+	var errs ValidationErrors
+	if f.Operator != OpIn && f.Operator != OpNotIn {
+		errs = append(errs, &ValidationError{Field: "filters.subquery", Message: "subquery filter requires in or not_in operator"})
+	}
+	if f.Subquery == nil {
+		return errs
+	}
+	if strings.TrimSpace(f.Subquery.ResultField) == "" {
+		errs = append(errs, &ValidationError{Field: "filters.subquery", Message: "subquery result_field is required"})
+	}
+	if len(f.Subquery.Body.Select) == 0 {
+		errs = append(errs, &ValidationError{Field: "filters.subquery", Message: "subquery body requires select"})
 	}
 	return errs
 }

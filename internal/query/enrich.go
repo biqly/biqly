@@ -1,6 +1,8 @@
 package query
 
 import (
+	"math"
+	"sort"
 	"strings"
 
 	"github.com/biqly/biqly/internal/semantic"
@@ -71,6 +73,16 @@ func EnrichResult(result *Result, lq LogicalQuery, model *semantic.SemanticModel
 	}
 
 	result.ChartSuggestions = suggestCharts(result.Columns, len(result.Rows))
+	result.PivotHint = suggestPivot(result.Columns)
+	result.Anomalies = detectAnomalies(result)
+}
+
+// PrimaryChartSuggestion returns the preferred chart type for UI defaults.
+func PrimaryChartSuggestion(suggestions []string) string {
+	if len(suggestions) == 0 {
+		return ChartTable
+	}
+	return suggestions[0]
 }
 
 func formatForDimension(dimType string) string {
@@ -138,5 +150,122 @@ func suggestCharts(columns []ResultColumn, rowCount int) []string {
 		return []string{ChartTable}
 	default:
 		return []string{ChartTable}
+	}
+}
+
+// suggestPivot recommends a pivot layout when there are two categorical dimensions
+// and at least one metric (typical cross-tab shape).
+func suggestPivot(columns []ResultColumn) *PivotHint {
+	var catDims []string
+	var metrics []string
+	for _, c := range columns {
+		switch c.SemanticType {
+		case SemanticTypeDimension:
+			if c.Format == FormatDate || c.Format == FormatDateTime {
+				continue
+			}
+			catDims = append(catDims, c.Name)
+		case SemanticTypeMetric:
+			metrics = append(metrics, c.Name)
+		}
+	}
+	if len(catDims) < 2 || len(metrics) == 0 {
+		return nil
+	}
+	return &PivotHint{
+		RowField:    catDims[0],
+		ColumnField: catDims[1],
+		ValueFields: append([]string(nil), metrics...),
+		Reason:      "Two categorical dimensions with metrics — pivot for a matrix view.",
+	}
+}
+
+const (
+	anomalyMinRows   = 8
+	anomalyMaxFlags  = 20
+	anomalyIQRFactor = 1.5
+)
+
+// detectAnomalies flags metric cells outside the IQR fence (Q1 - 1.5*IQR, Q3 + 1.5*IQR).
+func detectAnomalies(result *Result) []Anomaly {
+	if result == nil || len(result.Rows) < anomalyMinRows {
+		return nil
+	}
+	var out []Anomaly
+	for colIdx, col := range result.Columns {
+		if col.SemanticType != SemanticTypeMetric {
+			continue
+		}
+		vals := make([]float64, 0, len(result.Rows))
+		rowIdxs := make([]int, 0, len(result.Rows))
+		for ri, row := range result.Rows {
+			if colIdx >= len(row) {
+				continue
+			}
+			v, ok := toFloat64(row[colIdx])
+			if !ok {
+				continue
+			}
+			vals = append(vals, v)
+			rowIdxs = append(rowIdxs, ri)
+		}
+		if len(vals) < anomalyMinRows {
+			continue
+		}
+		q1, q3 := quartiles(vals)
+		iqr := q3 - q1
+		if iqr == 0 {
+			continue
+		}
+		low := q1 - anomalyIQRFactor*iqr
+		high := q3 + anomalyIQRFactor*iqr
+		for i, v := range vals {
+			if v < low || v > high {
+				dev := math.Max(low-v, v-high) / iqr
+				out = append(out, Anomaly{
+					RowIndex: rowIdxs[i],
+					Column:   col.Name,
+					Value:    result.Rows[rowIdxs[i]][colIdx],
+					Score:    dev,
+				})
+			}
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Score > out[j].Score })
+	if len(out) > anomalyMaxFlags {
+		out = out[:anomalyMaxFlags]
+	}
+	return out
+}
+
+func quartiles(sortedVals []float64) (q1, q3 float64) {
+	cp := append([]float64(nil), sortedVals...)
+	sort.Float64s(cp)
+	n := len(cp)
+	if n == 0 {
+		return 0, 0
+	}
+	q1 = cp[n/4]
+	q3 = cp[(3*n)/4]
+	return q1, q3
+}
+
+func toFloat64(v any) (float64, bool) {
+	switch x := v.(type) {
+	case float64:
+		return x, true
+	case float32:
+		return float64(x), true
+	case int:
+		return float64(x), true
+	case int64:
+		return float64(x), true
+	case int32:
+		return float64(x), true
+	default:
+		return 0, false
 	}
 }

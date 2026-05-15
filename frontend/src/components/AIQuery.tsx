@@ -19,11 +19,25 @@ import { useQueryParam } from '../hooks/useQueryParam'
 import { chartAxisStroke, chartGridStroke, chartTooltipStyle } from '../utils/chartConfig'
 import { chartColor } from '../utils/constants'
 import { formatResultCell } from '../utils/resultCellFormat'
+import { buildPivotTable } from '../utils/pivotTable'
 import ResultTable from './ResultTable'
 import { Select } from './ui/Select'
 import { ModelBadgeRow } from './ui/ModelBadgeRow'
 import { Modal } from './ui/Modal'
-import type { AIQueryRequest, AIQueryResponse, TableRoutingCandidate, LogicalQueryCandidate, AIRuntimeSettings, EmbedMetadataResponse, PriorTurn, SelectField } from '../types/ai'
+import type {
+  AIQueryRequest,
+  AIQueryResponse,
+  Clarification,
+  LogicalQuery,
+  TableRoutingCandidate,
+  LogicalQueryCandidate,
+  AIRuntimeSettings,
+  EmbedMetadataResponse,
+  PriorTurn,
+  SelectField,
+  PromptStats,
+  TokenUsage,
+} from '../types/ai'
 import type { Datasource } from '../types/metadata'
 
 /** NL→SQL can be slow with local models (routing, LLM, retries, EXPLAIN). */
@@ -154,6 +168,9 @@ function TableRoutingViz({ routing }: { routing: NonNullable<AIQueryResponse['ta
         {selectedTables && <div><span>Tablolar</span><RoutingTableList items={routing.selected_tables} /></div>}
         {selectedDims && <div><span>Boyutlar</span><strong>{selectedDims}</strong></div>}
         {selectedMetrics && <div><span>Metrikler</span><strong>{selectedMetrics}</strong></div>}
+        {(routing.join_paths?.length ?? 0) > 0 && (
+          <div><span>Join yolları</span><RoutingDebugList items={routing.join_paths} /></div>
+        )}
         {routing.context_updated_at && <div><span>Context zamanı</span><strong>{new Date(routing.context_updated_at).toLocaleString()}</strong></div>}
       </div>
       {(routing.candidates ?? []).map((c: TableRoutingCandidate) => {
@@ -180,6 +197,9 @@ function TableRoutingViz({ routing }: { routing: NonNullable<AIQueryResponse['ta
           {routing.debug.bridge_tables && routing.debug.bridge_tables.length > 0 && (
             <div><span>Köprü tabloları</span><RoutingDebugList items={routing.debug.bridge_tables} /></div>
           )}
+          {routing.debug.schema_partitions && routing.debug.schema_partitions.length > 0 && (
+            <div><span>Şema bölümleri</span><RoutingDebugList items={routing.debug.schema_partitions} /></div>
+          )}
           {routing.debug.eliminated_candidates && routing.debug.eliminated_candidates.length > 0 && (
             <div><span>Elenen adaylar</span><RoutingDebugList items={routing.debug.eliminated_candidates} /></div>
           )}
@@ -190,17 +210,45 @@ function TableRoutingViz({ routing }: { routing: NonNullable<AIQueryResponse['ta
   )
 }
 
-function ClarificationCard({ question, options, onSelect, onSkip }: { question: string; options: string[]; onSelect: (o: string) => void; onSkip: () => void }) {
+function ClarificationCard({
+  question,
+  options,
+  clarification,
+  onSelect,
+  onSkip,
+}: {
+  question: string
+  options: string[]
+  clarification?: Clarification
+  onSelect: (o: string) => void
+  onSkip: () => void
+}) {
+  const structured = clarification?.options?.filter((o) => o.label?.trim()) ?? []
+  const useStructured = structured.length > 0
   return (
     <div className="clarification-card">
       <div className="clarification-title"><span>🤔</span><span>AI'nın netleştirmeye ihtiyacı var</span></div>
+      {clarification?.reason && <p className="clarification-reason">{clarification.reason}</p>}
       <p className="clarification-question">{question}</p>
       <div className="clarification-options">
-        {options.map((opt) => (
-          <button key={opt} className="btn btn-clarification" onClick={() => onSelect(opt)}>{opt}</button>
-        ))}
+        {useStructured
+          ? structured.map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                className="btn btn-clarification"
+                title={opt.hint}
+                onClick={() => onSelect(opt.label)}
+              >
+                {opt.label}
+                {opt.hint ? <span className="clarification-option-hint">{opt.hint}</span> : null}
+              </button>
+            ))
+          : options.map((opt) => (
+              <button key={opt} type="button" className="btn btn-clarification" onClick={() => onSelect(opt)}>{opt}</button>
+            ))}
       </div>
-      <button className="btn btn-skip" onClick={onSkip}>Atla — elimizdekini göster</button>
+      <button type="button" className="btn btn-skip" onClick={onSkip}>Atla — elimizdekini göster</button>
     </div>
   )
 }
@@ -252,6 +300,67 @@ function CostBadge({ latencyMs, tokenUsage, costUsd }: { latencyMs?: number; tok
         <span className="cost-badge-detail">
           {' '}
           ({tokenUsage.prompt.toLocaleString('tr-TR')} + {tokenUsage.completion.toLocaleString('tr-TR')})
+        </span>
+      )}
+    </div>
+  )
+}
+
+function LogicalQueryMetaBadges({ lq }: { lq: LogicalQuery }) {
+  const badges: string[] = []
+  if (lq.default_schema?.trim()) badges.push(`Varsayılan şema: ${lq.default_schema}`)
+  const schemaMap = lq.table_schemas ?? {}
+  const mapped = Object.entries(schemaMap).filter(([, s]) => s?.trim())
+  if (mapped.length > 0) {
+    badges.push(`Şema: ${mapped.map(([t, s]) => `${t}→${s}`).join(', ')}`)
+  }
+  if ((lq.ctes?.length ?? 0) > 0) badges.push(`CTE ×${lq.ctes!.length}`)
+  const caseCount = (lq.select ?? []).filter((s) => s.type === 'case').length
+  if (caseCount > 0) badges.push(`CASE ×${caseCount}`)
+  if (badges.length === 0) return null
+  return (
+    <div className="lq-meta-badges">
+      {badges.map((b) => (
+        <span key={b} className="wf-badge">{b}</span>
+      ))}
+    </div>
+  )
+}
+
+function PromptStatsPanel({ stats, tokenUsage }: { stats?: PromptStats; tokenUsage?: TokenUsage }) {
+  if (!stats && !tokenUsage) return null
+  return (
+    <div className="prompt-stats-panel">
+      {stats && (
+        <>
+          {stats.context_tier_label && (
+            <span className="wf-badge" title={`Bağlam katmanı ${stats.context_tier ?? ''}`}>
+              Bağlam: {stats.context_tier_label}
+            </span>
+          )}
+          {stats.est_prompt_tokens !== undefined && (
+            <span className="wf-badge" title="Tahmini istem token (sunucu)">
+              ~{stats.est_prompt_tokens.toLocaleString('tr-TR')} istem token
+            </span>
+          )}
+          {stats.context_window_tokens !== undefined && (
+            <span className="wf-badge" title="Model bağlam penceresi">
+              Pencere: {stats.context_window_tokens.toLocaleString('tr-TR')}
+            </span>
+          )}
+          {stats.prompt_runes !== undefined && (
+            <span className="wf-badge" title="İstem boyutu (Unicode rune)">
+              {stats.prompt_runes.toLocaleString('tr-TR')} rune
+            </span>
+          )}
+        </>
+      )}
+      {tokenUsage && stats?.est_prompt_tokens !== undefined && tokenUsage.prompt > 0 && (
+        <span
+          className="wf-badge"
+          title="Yanıttaki token_usage ile tahmini istem karşılaştırması"
+        >
+          Token (yanıt): {tokenUsage.prompt.toLocaleString('tr-TR')}
         </span>
       )}
     </div>
@@ -356,6 +465,7 @@ export default function AIQuery() {
   const [aiRuntimeErr, setAiRuntimeErr] = useState<string | null>(null)
   const [embeddingStatus, setEmbeddingStatus] = useState<string | null>(null)
   const [chartType, setChartType] = useState<'bar' | 'line' | 'pie' | 'table'>('table')
+  const [tableView, setTableView] = useState<'flat' | 'pivot'>('flat')
 
   // Sample data modal
   const [sampleModalOpen, setSampleModalOpen] = useState(false)
@@ -566,7 +676,27 @@ export default function AIQuery() {
     return obj
   }) ?? []
 
-  useEffect(() => { if (result?.visualization_hint?.chart_type) setChartType(result.visualization_hint.chart_type) }, [result?.visualization_hint?.chart_type])
+  const pivotTable = useMemo(() => {
+    const hint = result?.result?.pivot_hint
+    const cols = result?.result?.columns
+    const rows = result?.result?.rows
+    if (!hint || !cols || !rows) return null
+    return buildPivotTable(cols, rows, hint)
+  }, [result?.result?.pivot_hint, result?.result?.columns, result?.result?.rows])
+
+  useEffect(() => {
+    if (pivotTable) setTableView('pivot')
+    else setTableView('flat')
+  }, [pivotTable, result?.logical_query?.model_id])
+
+  useEffect(() => {
+    const raw = result?.visualization_hint?.chart_type ?? result?.result?.chart_suggestions?.[0]
+    if (!raw) return
+    const mapped = raw === 'number' ? 'table' : raw
+    if (mapped === 'bar' || mapped === 'line' || mapped === 'pie' || mapped === 'table') {
+      setChartType(mapped)
+    }
+  }, [result?.visualization_hint?.chart_type, result?.result?.chart_suggestions])
 
   const loadingLabel = loading && (queryAction !== null || followUpBusy)
     ? result?.retry_count ? `AI kendini düzeltti (deneme ${result.retry_count + 1}/3)…`
@@ -731,6 +861,7 @@ export default function AIQuery() {
           <div className="card result-card">
             {result.confidence !== undefined && <ConfidenceBar value={result.confidence} breakdown={result.confidence_breakdown} />}
             <CostBadge latencyMs={result.latency_ms} tokenUsage={result.token_usage} costUsd={result.cost_usd} />
+            <PromptStatsPanel stats={result.prompt_stats} tokenUsage={result.token_usage} />
 
             {result.model_used && (
               <div className="model-used-badge" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
@@ -748,9 +879,15 @@ export default function AIQuery() {
               <div className="retry-badge">🔄 AI kendini düzeltti (deneme {result.retry_count}/3)</div>
             )}
 
-            {result.needs_clarification && result.clarification_options && (
-              <ClarificationCard question={result.clarification_question ?? 'Lütfen netleştirin.'} options={result.clarification_options} onSelect={handleClarificationSelect} onSkip={handleClarificationSkip} />
-            )}
+            {result.needs_clarification && (result.clarification_options?.length || result.clarification?.options?.length) ? (
+              <ClarificationCard
+                question={result.clarification?.question ?? result.clarification_question ?? 'Lütfen netleştirin.'}
+                options={result.clarification_options ?? result.clarification?.options?.map((o) => o.label) ?? []}
+                clarification={result.clarification}
+                onSelect={handleClarificationSelect}
+                onSkip={handleClarificationSkip}
+              />
+            ) : null}
 
             {result.candidates && result.candidates.length > 1 && !result.needs_clarification && (
               <CandidateComparisonPanel candidates={result.candidates} onUse={(i: number) => {
@@ -787,6 +924,7 @@ export default function AIQuery() {
 
             {result.logical_query && (
               <Collapsible title="🧠 Oluşturulan LogicalQuery" defaultOpen>
+                <LogicalQueryMetaBadges lq={result.logical_query} />
                 <pre className="sql-preview">{JSON.stringify(result.logical_query, null, 2)}</pre>
               </Collapsible>
             )}
@@ -847,6 +985,34 @@ export default function AIQuery() {
                       💡 {result.visualization_hint.chart_type}
                     </span>
                   )}
+                  {result.result.pivot_hint && (
+                    <span className="viz-hint" title={result.result.pivot_hint.reason ?? ''}>
+                      ↕ {result.result.pivot_hint.row_field} × {result.result.pivot_hint.column_field}
+                    </span>
+                  )}
+                  {(result.result.anomalies?.length ?? 0) > 0 && (
+                    <span className="viz-hint" title="IQR tabanlı aykırı değerler">
+                      ⚠ {result.result.anomalies!.length} aykırı
+                    </span>
+                  )}
+                  {pivotTable && (
+                    <div className="chart-toggle">
+                      <button
+                        type="button"
+                        className={tableView === 'flat' ? 'active' : ''}
+                        onClick={() => setTableView('flat')}
+                      >
+                        Düz
+                      </button>
+                      <button
+                        type="button"
+                        className={tableView === 'pivot' ? 'active' : ''}
+                        onClick={() => setTableView('pivot')}
+                      >
+                        Pivot
+                      </button>
+                    </div>
+                  )}
                   <div className="chart-toggle">
                     {(['bar', 'line', 'pie', 'table'] as const).map((t) => (
                       <button key={t} className={chartType === t ? 'active' : ''} onClick={() => setChartType(t)}>
@@ -870,17 +1036,32 @@ export default function AIQuery() {
                   </div>
                 )}
 
-                {chartType === 'table' && (
-                  <ResultTable
-                    columns={result.result.columns}
-                    rows={result.result.rows}
-                    rowCount={result.result.stats?.row_count ?? 0}
-                    durationMs={result.result.stats?.duration_ms}
-                    question={question}
-                    onFilterByValue={handleFilterByValue}
-                    onCellClick={(colName, value) => handleCellDrillDown(colName, String(value))}
-                  />
-                )}
+                {chartType === 'table' && (() => {
+                  const flat = {
+                    columns: result.result.columns,
+                    rows: result.result.rows,
+                  }
+                  const view =
+                    tableView === 'pivot' && pivotTable
+                      ? pivotTable
+                      : flat
+                  return (
+                    <ResultTable
+                      columns={view.columns}
+                      rows={view.rows}
+                      rowCount={view.rows.length}
+                      durationMs={result.result.stats?.duration_ms}
+                      question={question}
+                      anomalies={tableView === 'flat' ? result.result.anomalies : undefined}
+                      onFilterByValue={tableView === 'flat' ? handleFilterByValue : undefined}
+                      onCellClick={
+                        tableView === 'flat'
+                          ? (colName, value) => handleCellDrillDown(colName, String(value))
+                          : undefined
+                      }
+                    />
+                  )
+                })()}
               </div>
             )}
 

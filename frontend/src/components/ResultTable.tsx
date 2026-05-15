@@ -1,5 +1,6 @@
-import { useState, type MouseEvent, type KeyboardEvent } from 'react'
+import { useMemo, useState, type MouseEvent, type KeyboardEvent } from 'react'
 import { formatResultCell } from '../utils/resultCellFormat'
+import type { ResultAnomaly } from '../types/ai'
 
 interface ResultTableProps {
   columns: { name: string; type?: string }[]
@@ -7,6 +8,7 @@ interface ResultTableProps {
   rowCount: number
   durationMs?: number
   question?: string
+  anomalies?: ResultAnomaly[]
   onFilterByValue?: (column: string, value: string) => void
   onCellClick?: (column: string, value: string) => void
 }
@@ -19,9 +21,17 @@ export default function ResultTable({
   rowCount,
   durationMs,
   question,
+  anomalies,
   onFilterByValue,
   onCellClick,
 }: ResultTableProps) {
+  const anomalyCells = useMemo(() => {
+    const set = new Set<string>()
+    for (const a of anomalies ?? []) {
+      set.add(`${a.row_index}:${a.column}`)
+    }
+    return set
+  }, [anomalies])
   const [sortColIdx, setSortColIdx] = useState<number | null>(null)
   const [sortDir, setSortDir] = useState<SortDirection>(null)
   const [contextMenu, setContextMenu] = useState<{
@@ -41,12 +51,17 @@ export default function ResultTable({
     }
   }
 
+  const indexedRows = useMemo(
+    () => rows.map((row, originalIndex) => ({ row, originalIndex })),
+    [rows],
+  )
+
   const sortedRows = (() => {
-    if (sortColIdx === null || sortDir === null) return rows
+    if (sortColIdx === null || sortDir === null) return indexedRows
     const dir = sortDir === 'asc' ? 1 : -1
-    return [...rows].sort((a, b) => {
-      const av = a[sortColIdx]
-      const bv = b[sortColIdx]
+    return [...indexedRows].sort((a, b) => {
+      const av = a.row[sortColIdx]
+      const bv = b.row[sortColIdx]
       if (av == null && bv == null) return 0
       if (av == null) return dir
       if (bv == null) return -dir
@@ -110,6 +125,7 @@ export default function ResultTable({
         </>
       )}
 
+      <div className="results-table-scroll">
       <table className="results-table">
         <thead>
           <tr>
@@ -138,30 +154,36 @@ export default function ResultTable({
           </tr>
         </thead>
         <tbody>
-          {sortedRows.map((row, rowIdx) => (
-            <tr key={rowIdx}>
-              {row.map((cell, colIdx) => (
-                <td
-                  key={colIdx}
-                  onContextMenu={(e) =>
-                    handleContextMenu(e, columns[colIdx]?.name ?? '', String(cell))
-                  }
-                >
-                  <span
-                    className={onCellClick ? 'cell-drillable' : ''}
-                    onClick={() => onCellClick?.(columns[colIdx]?.name ?? '', String(cell))}
-                    style={{ cursor: onCellClick ? 'pointer' : 'default' }}
-                  >
-                    {formatResultCell(cell, columns[colIdx]?.name ?? '', {
-                      question,
-                    })}
-                  </span>
-                </td>
-              ))}
-            </tr>
-          ))}
+          {sortedRows.map(({ row, originalIndex }, rowIdx) => {
+            const rowHasAnomaly = (anomalies ?? []).some((a) => a.row_index === originalIndex)
+            return (
+              <tr key={rowIdx} className={rowHasAnomaly ? 'results-row--anomaly' : undefined}>
+                {row.map((cell, colIdx) => {
+                  const colName = columns[colIdx]?.name ?? ''
+                  const isAnomaly = anomalyCells.has(`${originalIndex}:${colName}`)
+                  return (
+                    <td
+                      key={colIdx}
+                      className={isAnomaly ? 'results-cell--anomaly' : undefined}
+                      title={isAnomaly ? 'IQR tabanlı aykırı değer' : undefined}
+                      onContextMenu={(e) => handleContextMenu(e, colName, String(cell))}
+                    >
+                      <span
+                        className={onCellClick ? 'cell-drillable' : ''}
+                        onClick={() => onCellClick?.(colName, String(cell))}
+                        style={{ cursor: onCellClick ? 'pointer' : 'default' }}
+                      >
+                        {formatResultCell(cell, colName, { question })}
+                      </span>
+                    </td>
+                  )
+                })}
+              </tr>
+            )
+          })}
         </tbody>
       </table>
+      </div>
 
       <div className="result-footer">
         <span>

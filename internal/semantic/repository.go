@@ -185,10 +185,10 @@ func (r *Repository) GetMetrics(ctx context.Context, modelID string) ([]Metric, 
 // CreateJoin inserts a new join.
 func (r *Repository) CreateJoin(ctx context.Context, j *Join) error {
 	query := `
-		INSERT INTO semantic_joins (id, model_id, name, from_table, from_column, to_table, to_column, join_type, relationship, is_active)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO semantic_joins (id, model_id, name, from_schema, from_table, from_column, to_schema, to_table, to_column, join_type, relationship, is_active)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`
-	if err := r.db.QueryRowContext(ctx, query, j.ID, j.ModelID, j.Name, j.FromTable, j.FromColumn, j.ToTable, j.ToColumn, j.JoinType, j.Relationship, j.IsActive).Err(); err != nil {
+	if err := r.db.QueryRowContext(ctx, query, j.ID, j.ModelID, j.Name, j.FromSchema, j.FromTable, j.FromColumn, j.ToSchema, j.ToTable, j.ToColumn, j.JoinType, j.Relationship, j.IsActive).Err(); err != nil {
 		return fmt.Errorf("create join: %w", err)
 	}
 	return r.MarkModelDraft(ctx, j.ModelID)
@@ -196,7 +196,7 @@ func (r *Repository) CreateJoin(ctx context.Context, j *Join) error {
 
 // GetJoins returns all active joins for a model.
 func (r *Repository) GetJoins(ctx context.Context, modelID string) ([]Join, error) {
-	query := `SELECT id::text, model_id::text, name, from_table, from_column, to_table, to_column, join_type, relationship, is_active, created_at FROM semantic_joins WHERE model_id::text = $1 AND is_active = true ORDER BY name`
+	query := `SELECT id::text, model_id::text, name, from_schema, from_table, from_column, to_schema, to_table, to_column, join_type, relationship, is_active, created_at FROM semantic_joins WHERE model_id::text = $1 AND is_active = true ORDER BY name`
 	rows, err := r.db.QueryContext(ctx, query, modelID)
 	if err != nil {
 		return nil, fmt.Errorf("get joins: %w", err)
@@ -206,7 +206,7 @@ func (r *Repository) GetJoins(ctx context.Context, modelID string) ([]Join, erro
 	joins := make([]Join, 0)
 	for rows.Next() {
 		var j Join
-		if err := rows.Scan(&j.ID, &j.ModelID, &j.Name, &j.FromTable, &j.FromColumn, &j.ToTable, &j.ToColumn, &j.JoinType, &j.Relationship, &j.IsActive, &j.CreatedAt); err != nil {
+		if err := rows.Scan(&j.ID, &j.ModelID, &j.Name, &j.FromSchema, &j.FromTable, &j.FromColumn, &j.ToSchema, &j.ToTable, &j.ToColumn, &j.JoinType, &j.Relationship, &j.IsActive, &j.CreatedAt); err != nil {
 			return nil, fmt.Errorf("get joins scan: %w", err)
 		}
 		joins = append(joins, j)

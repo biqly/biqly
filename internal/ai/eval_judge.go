@@ -71,11 +71,11 @@ Respond with JSON only:
 		string(gotJSON),
 	)
 
-	raw, err := provider.Generate(ctx, prompt)
+	gen, err := provider.Generate(ctx, prompt)
 	if err != nil {
 		return false, "", err
 	}
-	cleaned := CleanAIResponseForJSON(raw)
+	cleaned := CleanAIResponseForJSON(gen.Content)
 	var v judgeVerdict
 	if err := json.Unmarshal([]byte(cleaned), &v); err != nil {
 		return false, "", fmt.Errorf("parse judge response: %w", err)

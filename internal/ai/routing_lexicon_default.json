@@ -1,0 +1,67 @@
+{
+  "token_synonyms": {
+    "adet": ["count", "row", "rows", "quantity", "qty"],
+    "adette": ["count", "quantity", "adet"],
+    "bazinda": ["by", "per", "basis"],
+    "bazli": ["based", "by"],
+    "category": ["categories", "kategori", "kategoriler", "class", "group"],
+    "categories": ["category", "kategori"],
+    "amount": ["total", "revenue", "sales"],
+    "avg": ["average", "mean", "ortalama"],
+    "average": ["avg", "ortalama"],
+    "customer": ["client", "musteri"],
+    "gelir": ["revenue", "sales", "amount", "total"],
+    "kac": ["count", "row", "rows"],
+    "miktar": ["quantity", "qty", "count", "amount"],
+    "miktari": ["quantity", "qty", "miktar"],
+    "miktarda": ["quantity", "miktar"],
+    "musteri": ["customer", "client"],
+    "order": ["purchase", "sale", "siparis"],
+    "ortalama": ["avg", "average"],
+    "price": ["amount", "total", "revenue", "sales"],
+    "purchase": ["order", "sale"],
+    "revenue": ["amount", "total", "sales", "price"],
+    "sale": ["order", "revenue", "amount", "total"],
+    "sales": ["order", "revenue", "amount", "total"],
+    "satis": ["sales", "sale", "revenue", "amount", "total"],
+    "sayisi": ["count", "row", "rows"],
+    "siparis": ["order", "sale", "purchase"],
+    "satan": ["sale", "sales", "sold", "selling"],
+    "total": ["amount", "revenue", "sales"],
+    "urun": ["product", "item", "products"],
+    "urunden": ["urun", "product", "item"],
+    "urunler": ["urun", "product", "products", "items"],
+    "urunleri": ["urun", "product", "products"],
+    "urunun": ["urun", "product"],
+    "urunu": ["urun", "product", "products", "item"]
+  },
+  "category_product_tokens": [
+    "category", "categories", "kategori", "kategoriler",
+    "product", "products", "item", "items",
+    "urun", "urunu", "urunun", "urunler", "urunleri", "urunden"
+  ],
+  "quantity_tokens": [
+    "quantity", "qty", "count", "rows", "row", "units", "unit",
+    "adet", "miktar", "miktari", "miktarda", "adette",
+    "pieces", "piece"
+  ],
+  "revenue_tokens": ["revenue", "sales", "sale", "amount", "total", "gelir", "satis"],
+  "revenue_column_tokens": ["amount", "total", "price", "revenue", "sales"],
+  "name_like_tokens": [
+    "name", "names", "named", "title", "titles", "label", "labels",
+    "isim", "ismi", "adi", "ad", "unvan", "baslik", "basligi"
+  ],
+  "readable_label_tokens": [
+    "name", "names", "named", "title", "titles", "label", "labels",
+    "isim", "adı", "adi", "ad", "unvan", "başlık", "baslik"
+  ],
+  "row_count_synonyms": ["count", "rows", "total", "adet", "sayisi", "sayısı", "kaç", "kac"],
+  "metric_synonyms": {
+    "min_numeric": ["min", "minimum", "lowest", "smallest", "en az", "en kucuk"],
+    "max_numeric": ["max", "maximum", "highest", "largest", "en cok", "en buyuk"],
+    "min_date": ["earliest", "first", "oldest", "ilk", "en eski", "en erken"],
+    "max_date": ["latest", "last", "most recent", "newest", "son", "en son", "en yeni", "son tarih"]
+  },
+  "category_table_substrings": ["category"],
+  "product_catalog_substrings": ["product", "productsubcategor"]
+}

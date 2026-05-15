@@ -34,12 +34,46 @@ interface SemanticMetric {
   aggregation: string
 }
 
+
+interface SemanticJoin {
+  id?: string
+  name: string
+  from_schema?: string
+  from_table: string
+  from_column: string
+  to_schema?: string
+  to_table: string
+  to_column: string
+  join_type?: string
+  relationship?: string
+}
+
 interface SemanticModelDetail {
   id: string
   name: string
   status: string
+  base_schema?: string
+  base_table?: string
   dimensions?: SemanticDimension[]
   metrics?: SemanticMetric[]
+  joins?: SemanticJoin[]
+}
+
+
+function joinEdgeLabel(j: SemanticJoin, baseSchema?: string): string {
+  const fromS = j.from_schema?.trim() || baseSchema || ''
+  const toS = j.to_schema?.trim() || baseSchema || ''
+  const from = fromS ? `${fromS}.${j.from_table}.${j.from_column}` : `${j.from_table}.${j.from_column}`
+  const to = toS ? `${toS}.${j.to_table}.${j.to_column}` : `${j.to_table}.${j.to_column}`
+  const jt = j.join_type ? ` ${j.join_type}` : ''
+  return `${from} → ${to}${jt}`
+}
+
+function isCrossSchemaJoin(j: SemanticJoin, baseSchema?: string): boolean {
+  const fromS = j.from_schema?.trim() || baseSchema || ''
+  const toS = j.to_schema?.trim() || baseSchema || ''
+  if (!fromS || !toS) return false
+  return fromS !== toS
 }
 
 function modelListLabel(m: SemanticModelSummary): string {
@@ -151,6 +185,20 @@ interface QueryExplainResponse {
 }
 
 const WINDOW_FUNC_OPTIONS = ['ROW_NUMBER', 'RANK', 'DENSE_RANK', 'LAG', 'LEAD', 'SUM', 'AVG', 'COUNT']
+
+function parseCTEBody(raw: string): Omit<CTE, 'name'> {
+  const trimmed = raw.trim()
+  if (!trimmed) {
+    return {}
+  }
+  try {
+    const parsed = JSON.parse(trimmed) as Partial<CTE>
+    const { name: _name, ...body } = parsed
+    return body
+  } catch {
+    return {}
+  }
+}
 
 export default function QueryBuilder() {
   const { get, postData, loading, error } = useApi()
@@ -329,10 +377,12 @@ export default function QueryBuilder() {
         select: selectItems.filter((s) => s.name),
       }),
       ctes: mode === 'advanced'
-        ? ctes.filter((c) => c.name && c.query).map((c): CTE => ({
-            name: c.name,
-            query: { datasource_id: datasourceId, model_id: modelId, select: [], query_text: c.query } as unknown as LogicalQuery,
-          }))
+        ? ctes
+            .filter((c) => c.name)
+            .map((c): CTE => ({
+              name: c.name,
+              ...parseCTEBody(c.query),
+            }))
         : undefined,
     }
 
@@ -401,6 +451,25 @@ export default function QueryBuilder() {
             ) : null}
           </div>
         </div>
+
+        {(modelDetail?.joins?.length ?? 0) > 0 && (
+          <details className="semantic-joins-panel">
+            <summary>Join tanımları ({modelDetail!.joins!.length})</summary>
+            <ul className="semantic-joins-list">
+              {modelDetail!.joins!.map((j) => {
+                const cross = isCrossSchemaJoin(j, modelDetail?.base_schema)
+                return (
+                  <li key={j.id ?? j.name} className={cross ? 'semantic-join--cross-schema' : undefined}>
+                    <code>{joinEdgeLabel(j, modelDetail?.base_schema)}</code>
+                    {j.relationship ? <span className="semantic-join-rel">{j.relationship}</span> : null}
+                    {cross ? <span className="semantic-join-badge">çapraz şema</span> : null}
+                  </li>
+                )
+              })}
+            </ul>
+          </details>
+        )}
+
 
         <div className="form-group">
           <label>Seçim alanları</label>
@@ -607,7 +676,7 @@ export default function QueryBuilder() {
                         className="query-builder-cte-textarea"
                         value={c.query}
                         onChange={(e) => updateCTE(i, 'query', e.target.value)}
-                        placeholder="Sorgu tanımı (ör. SELECT ... FROM ...)"
+                        placeholder='JSON: {"select":[{"type":"dimension","name":"country"}],"filters":[...]}'
                         rows={3}
                       />
                     </div>

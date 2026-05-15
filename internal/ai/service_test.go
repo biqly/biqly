@@ -6,6 +6,7 @@ import (
 	stderrors "errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/biqly/biqly/internal/config"
@@ -332,6 +333,55 @@ func TestProcessQuestionMultiCandidateNoMajorityFallsBack(t *testing.T) {
 		if w == "self-consistency: 1/3 candidates agreed" || w == "self-consistency: 0/3 candidates agreed" {
 			t.Errorf("did not expect self-consistency warning when no majority; got %q", w)
 		}
+	}
+}
+
+func TestProcessQuestionInheritsFiltersOnRefineFollowUp(t *testing.T) {
+	srv := stubLLMServer(t, []string{
+		`{"select":[{"type":"dimension","name":"region"},{"type":"metric","name":"row_count"}],"group_by":[{"field":"region"}],"limit":100}`,
+	})
+	defer srv.Close()
+
+	cfg := config.AIConfig{Provider: "openai", BaseURL: srv.URL, APIKey: "x", Model: "test", MaxRetries: 0}
+	svc := NewService(cfg, query.NewValidator(1000))
+
+	model := &semantic.SemanticModel{
+		ID:           "m",
+		DatasourceID: "d",
+		Name:         "public.orders",
+		Dimensions:   []semantic.Dimension{{Name: "region", ColumnRef: "orders.region", Type: "text"}},
+		Metrics:      []semantic.Metric{{Name: "row_count", Aggregation: "count", Expression: "*"}},
+	}
+
+	prevLQ := query.LogicalQuery{
+		Filters: []query.Filter{
+			{Field: "order_date", Operator: query.OpBetween, Value: []any{"2025-04-01", "2025-04-30"}},
+		},
+	}
+	prevRaw, _ := json.Marshal(prevLQ)
+	prior := []ConversationTurn{
+		{Question: "geçen ay satışlar", LogicalQuery: string(prevRaw)},
+	}
+
+	resp, err := svc.ProcessQuestion(context.Background(), "bölgeye göre grupla", model, WithPriorTurns(prior))
+	if err != nil {
+		t.Fatalf("ProcessQuestion error = %v", err)
+	}
+	if resp.LogicalQuery == nil || len(resp.LogicalQuery.Filters) != 1 {
+		t.Fatalf("expected inherited order_date filter, got %+v", resp.LogicalQuery)
+	}
+	if resp.LogicalQuery.Filters[0].Field != "order_date" {
+		t.Errorf("filter field = %q, want order_date", resp.LogicalQuery.Filters[0].Field)
+	}
+	foundNote := false
+	for _, w := range resp.Warnings {
+		if strings.Contains(w, "inherited") {
+			foundNote = true
+			break
+		}
+	}
+	if !foundNote {
+		t.Errorf("expected inheritance warning, got %v", resp.Warnings)
 	}
 }
 

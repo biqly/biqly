@@ -139,6 +139,10 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 	// Eval repository for persistent golden test results and regression reports.
 	evalRepo := ai.NewEvalRepository(db)
 
+	if err := ai.InitRouting(cfg.AI.RoutingLexiconPath, cfg.AI.RoutingWeightsPath); err != nil {
+		return nil, fmt.Errorf("routing config: %w", err)
+	}
+
 	return &Dependencies{
 		Config:       cfg,
 		MetadataDB:   db,

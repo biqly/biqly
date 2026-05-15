@@ -27,6 +27,32 @@ type LogicalQuery struct {
 	Offset  int       `json:"offset,omitempty"`
 	// CTEs (Common Table Expressions) — WITH ... AS clauses.
 	CTEs []CTE `json:"ctes,omitempty"`
+	// FromSubquery wraps a nested query as the primary FROM source instead of
+	// the semantic model base table. Use for derived tables / inline views.
+	FromSubquery *SubqueryBody `json:"from_subquery,omitempty"`
+	// FromCTE names a CTE (defined in CTEs) as the primary FROM source.
+	FromCTE string `json:"from_cte,omitempty"`
+	// FromAlias is the SQL alias for from_subquery (default: "_sub").
+	FromAlias string `json:"from_alias,omitempty"`
+	// DefaultSchema overrides the semantic model base_schema when resolving
+	// two-part column references (table.column). Three-part refs
+	// (schema.table.column) are always explicit.
+	DefaultSchema string `json:"default_schema,omitempty"`
+	// TableSchemas maps physical table name to schema when it differs from
+	// DefaultSchema or the model base schema.
+	TableSchemas map[string]string `json:"table_schemas,omitempty"`
+}
+
+// SubqueryBody is a nested LogicalQuery fragment without datasource metadata.
+// It reuses the parent query's semantic model for field resolution.
+type SubqueryBody struct {
+	Select  []SelectItem `json:"select"`
+	Filters []Filter     `json:"filters,omitempty"`
+	GroupBy []GroupBy    `json:"group_by,omitempty"`
+	Having  []Filter     `json:"having,omitempty"`
+	OrderBy []OrderBy    `json:"order_by,omitempty"`
+	Limit   int          `json:"limit,omitempty"`
+	Offset  int          `json:"offset,omitempty"`
 }
 
 // CTE represents a Common Table Expression (WITH ... AS ...).
@@ -35,15 +61,32 @@ type CTE struct {
 	Select  []SelectItem `json:"select,omitempty"`
 	Filters []Filter     `json:"filters,omitempty"`
 	GroupBy []GroupBy    `json:"group_by,omitempty"`
+	Having  []Filter     `json:"having,omitempty"`
 	OrderBy []OrderBy    `json:"order_by,omitempty"`
 	Limit   int          `json:"limit,omitempty"`
+	Offset  int          `json:"offset,omitempty"`
+}
+
+// Subquery returns a SubqueryBody copy of this CTE for shared compilation.
+func (c CTE) Subquery() SubqueryBody {
+	return SubqueryBody{
+		Select:  c.Select,
+		Filters: c.Filters,
+		GroupBy: c.GroupBy,
+		Having:  c.Having,
+		OrderBy: c.OrderBy,
+		Limit:   c.Limit,
+		Offset:  c.Offset,
+	}
 }
 
 // SelectItem represents a field in the SELECT clause.
 type SelectItem struct {
-	Type  string `json:"type"` // dimension | metric | window
+	Type  string `json:"type"` // dimension | metric | window | case
 	Name  string `json:"name"`
 	Alias string `json:"alias,omitempty"`
+	// Case is populated only when Type == SelectTypeCase.
+	Case *CaseExpr `json:"case,omitempty"`
 	// Window is populated only when Type == SelectTypeWindow. It describes a
 	// window/analytic function, e.g. SUM(orders.total_amount) OVER (PARTITION
 	// BY customers.country ORDER BY orders.created_at). Field names refer to
@@ -69,6 +112,34 @@ type Filter struct {
 	Field    string `json:"field"`
 	Operator string `json:"operator"`
 	Value    any    `json:"value"`
+	// Subquery is used with operator in/not_in instead of Value: the outer Field
+	// is compared to the single column projected by the nested query.
+	Subquery *SubqueryFilter `json:"subquery,omitempty"`
+}
+
+// SubqueryFilter embeds a nested query for IN / NOT IN predicates.
+type SubqueryFilter struct {
+	Body        SubqueryBody `json:"body"`
+	ResultField string       `json:"result_field"`
+}
+
+// CaseExpr is a structured CASE WHEN for select items (type "case").
+type CaseExpr struct {
+	Branches []CaseBranch `json:"branches"`
+	Else     *CaseThen    `json:"else,omitempty"`
+}
+
+// CaseBranch is one WHEN ... THEN arm. All When filters are ANDed.
+type CaseBranch struct {
+	When []Filter `json:"when"`
+	Then CaseThen `json:"then"`
+}
+
+// CaseThen is the result of a CASE branch or ELSE.
+type CaseThen struct {
+	Type      string `json:"type"` // dimension | literal
+	Dimension string `json:"dimension,omitempty"`
+	Literal   any    `json:"literal,omitempty"`
 }
 
 // GroupBy represents a GROUP BY field.
@@ -132,6 +203,12 @@ const (
 	SelectTypeDimension = "dimension"
 	SelectTypeMetric    = "metric"
 	SelectTypeWindow    = "window"
+	SelectTypeCase      = "case"
+)
+
+const (
+	CaseThenTypeDimension = "dimension"
+	CaseThenTypeLiteral   = "literal"
 )
 
 // Order directions.

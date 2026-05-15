@@ -15,6 +15,7 @@ import (
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/dialect"
+	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/security"
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -307,6 +308,12 @@ func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	query.EnrichResult(result, *resp.LogicalQuery, model)
+	chartType, reason := query.VisualizationHintFromResult(result)
+	resp.VisualizationHint = &ai.VisualizationHint{ChartType: chartType, Reason: reason}
+	if anomalyWarnings := query.AnomalyWarningMessages(result); len(anomalyWarnings) > 0 {
+		resp.Warnings = append(resp.Warnings, anomalyWarnings...)
+	}
 	resp.Result = result
 	h.recordAIQueryHistory(ctx, *resp.LogicalQuery, model, cq, result, queryStatusSuccess, nil)
 	writeJSON(w, http.StatusOK, resp)

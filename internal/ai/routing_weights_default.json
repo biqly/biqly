@@ -1,0 +1,41 @@
+{
+  "table_name": 5,
+  "table_description": 1.5,
+  "column_name": 2,
+  "column_data_type": 0.2,
+  "column_description": 1,
+  "revenue_column_boost": 2,
+  "readable_label_column_boost": 5,
+  "column_keyword_match": 2.5,
+  "column_keyword_name": 2,
+  "column_keyword_description": 1.5,
+  "column_revenue_boost": 3,
+  "column_display_name_boost": 2,
+  "selection_relative_threshold": 0.3,
+  "entity_path_bridge_score": 0.5,
+  "entity_path_target_score": 1,
+  "resolver_path_bridge_score": 0.4,
+  "resolver_path_target_score": 1,
+  "table_boost_rules": [
+    {
+      "intents": ["catalog"],
+      "table_substrings": ["category", "subcategor"],
+      "boost": 14
+    },
+    {
+      "intents": ["catalog"],
+      "table_substrings": ["product", "productcategory", "productsubcategory"],
+      "boost": 8
+    },
+    {
+      "intents": ["catalog"],
+      "table_substrings": ["orderdetail", "order_detail"],
+      "boost": 12
+    },
+    {
+      "intents": ["catalog", "quantity"],
+      "table_substrings": ["orderdetail", "order_detail", "orderline", "order_line"],
+      "boost": 10
+    }
+  ]
+}

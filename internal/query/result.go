@@ -16,6 +16,26 @@ type Result struct {
 	// Populated by EnrichResult based on the selected dimensions/metrics; empty
 	// when no semantic-model context is available.
 	ChartSuggestions []string `json:"chart_suggestions,omitempty"`
+	// PivotHint suggests row/column fields when the result is a good pivot candidate.
+	PivotHint *PivotHint `json:"pivot_hint,omitempty"`
+	// Anomalies flags outlier metric values (IQR method) for post-query inspection.
+	Anomalies []Anomaly `json:"anomalies,omitempty"`
+}
+
+// PivotHint tells the frontend how to lay out a wide result as a pivot table.
+type PivotHint struct {
+	RowField    string   `json:"row_field"`
+	ColumnField string   `json:"column_field"`
+	ValueFields []string `json:"value_fields"`
+	Reason      string   `json:"reason,omitempty"`
+}
+
+// Anomaly marks one cell that deviates strongly from the column distribution.
+type Anomaly struct {
+	RowIndex int     `json:"row_index"`
+	Column   string  `json:"column"`
+	Value    any     `json:"value"`
+	Score    float64 `json:"score"`
 }
 
 // QueryResult is an alias for backward compatibility.

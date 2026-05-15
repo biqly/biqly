@@ -161,13 +161,16 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		opt(&options)
 	}
 
-	basePrompt, baseStats := s.buildPrompt(ctx, question, model, 0, options)
+	filterSess := FilterSessionFromPriorTurns(options.priorTurns)
+	followIntent := ClassifyFollowUpIntent(question, filterSess)
+
+	basePrompt, baseStats := s.buildPrompt(ctx, question, model, 0, options, filterSess, followIntent)
 
 	// Self-consistency: when configured, draw N candidates with stepped temperatures
 	// and vote. A clear majority returns immediately; otherwise we fall through to
 	// the standard retry loop which handles single-shot generation + correction.
 	if s.multiCandidateCount > 1 {
-		if resp, ok := s.tryMultiCandidate(ctx, basePrompt, model, options, baseStats); ok {
+		if resp, ok := s.tryMultiCandidate(ctx, basePrompt, model, options, baseStats, filterSess, followIntent); ok {
 			return resp, nil
 		}
 	}
@@ -176,6 +179,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		prompt             = basePrompt
 		promptStats        = baseStats
 		lastRaw            string
+		lastGen            GenerationResult
 		retryWarnings      []string
 		lq                 *query.LogicalQuery
 		warnings           []string
@@ -184,13 +188,14 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 	)
 
 	for attempt := 0; attempt <= s.maxRetries; attempt++ {
-		raw, genErr := s.client.Generate(ctx, prompt)
+		gen, genErr := s.client.Generate(ctx, prompt)
 		if genErr != nil {
 			return nil, fmt.Errorf("AI generation failed: %w", genErr)
 		}
-		lastRaw = raw
+		lastGen = gen
+		lastRaw = gen.Content
 
-		lq, warnings, validationErrCount, parseErr = s.parseAndValidate(raw, model)
+		lq, warnings, validationErrCount, parseErr = s.parseAndValidate(gen.Content, model)
 
 		// Dry-run check (e.g. EXPLAIN) only when the query parsed and passed
 		// semantic validation; otherwise the SQL would not be compilable anyway.
@@ -203,16 +208,19 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		}
 
 		if parseErr == nil && validationErrCount == 0 && sqlErr == nil {
+			if inheritNotes := ApplyFilterSession(lq, filterSess, followIntent); len(inheritNotes) > 0 {
+				warnings = append(warnings, inheritNotes...)
+			}
 			retries := attempt
 			resp := &AIResponse{
 				LogicalQuery: lq,
 				Confidence:   computeConfidence(validationErrCount, retries),
 				Warnings:     append(retryWarnings, warnings...),
 				Prompt:       prompt,
-				RawResponse:  raw,
+				RawResponse:  gen.Content,
 				RetryCount:   retries,
 				PromptStats:  &promptStats,
-				TokenUsage:   tokenUsageEstimate(promptStats, raw),
+				TokenUsage:   tokenUsageFromGeneration(promptStats, gen),
 			}
 			return resp, nil
 		}
@@ -226,8 +234,8 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		failureMsg := failureMessageFor(parseErr, sqlErr, warnings)
 		retryWarnings = append(retryWarnings, fmt.Sprintf("retry %d (context %s): %s", attempt+1, contextTierLabel(contextTierForAttempt(attempt+1)), failureMsg))
 		nextTier := contextTierForAttempt(attempt + 1)
-		expanded, _ := s.buildPrompt(ctx, question, model, nextTier, options)
-		prompt = s.promptBuilder.BuildRetry(expanded, raw, failureMsg)
+		expanded, _ := s.buildPrompt(ctx, question, model, nextTier, options, filterSess, followIntent)
+		prompt = s.promptBuilder.BuildRetry(expanded, gen.Content, failureMsg)
 		promptStats = MeasurePrompt(prompt, s.queryModel, nextTier, s.aiCfg)
 	}
 
@@ -242,7 +250,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 			Confidence:            0,
 			RetryCount:            s.maxRetries,
 			PromptStats:           &promptStats,
-			TokenUsage:            tokenUsageEstimate(promptStats, lastRaw),
+			TokenUsage:            tokenUsageFromGeneration(promptStats, lastGen),
 			NeedsClarification:    clarification != "",
 			ClarificationQuestion: clarification,
 			Clarification:         buildClarification(clarification, failureReason, "ai"),
@@ -259,7 +267,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 			RawResponse:           lastRaw,
 			RetryCount:            s.maxRetries,
 			PromptStats:           &promptStats,
-			TokenUsage:            tokenUsageEstimate(promptStats, lastRaw),
+			TokenUsage:            tokenUsageFromGeneration(promptStats, lastGen),
 			NeedsClarification:    clarification != "",
 			ClarificationQuestion: clarification,
 			Clarification:         buildClarification(clarification, failureReason, "validator"),
@@ -274,7 +282,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		RawResponse:           lastRaw,
 		RetryCount:            s.maxRetries,
 		PromptStats:           &promptStats,
-		TokenUsage:            tokenUsageEstimate(promptStats, lastRaw),
+		TokenUsage:            tokenUsageFromGeneration(promptStats, lastGen),
 		NeedsClarification:    clarification != "",
 		ClarificationQuestion: clarification,
 		Clarification:         buildClarification(clarification, failureReason, "ai"),
@@ -287,6 +295,8 @@ func (s *Service) buildPrompt(
 	model *semantic.SemanticModel,
 	tier int,
 	options processOptions,
+	filterSess *FilterSessionState,
+	followIntent FollowUpIntent,
 ) (string, PromptStats) {
 	tiered := applyContextTier(options, tier)
 	promptRunes := PromptRunesForTier(s.maxPromptRunes, tier, s.aiCfg, s.queryModel)
@@ -301,6 +311,9 @@ func (s *Service) buildPrompt(
 		tiered.deniedFields,
 		tiered.glossary,
 	)
+	if block := ActiveFilterInstructions(filterSess, followIntent); block != "" {
+		prompt += block
+	}
 	stats := MeasurePrompt(prompt, s.queryModel, tier, s.aiCfg)
 	slog.InfoContext(ctx, "ai prompt context",
 		"model", stats.Model,
@@ -354,6 +367,8 @@ func (s *Service) tryMultiCandidate(
 	model *semantic.SemanticModel,
 	options processOptions,
 	stats PromptStats,
+	filterSess *FilterSessionState,
+	followIntent FollowUpIntent,
 ) (*AIResponse, bool) {
 	n := s.multiCandidateCount
 	if n < 2 {
@@ -362,7 +377,7 @@ func (s *Service) tryMultiCandidate(
 
 	type candidate struct {
 		lq       *query.LogicalQuery
-		raw      string
+		gen      GenerationResult
 		warnings []string
 	}
 	groups := make(map[string][]candidate)
@@ -373,11 +388,11 @@ func (s *Service) tryMultiCandidate(
 		if temp > 1 {
 			temp = 1
 		}
-		raw, err := s.client.GenerateAt(ctx, prompt, temp)
+		gen, err := s.client.GenerateAt(ctx, prompt, temp)
 		if err != nil {
 			continue
 		}
-		lq, warnings, validationErrCount, parseErr := s.parseAndValidate(raw, model)
+		lq, warnings, validationErrCount, parseErr := s.parseAndValidate(gen.Content, model)
 		if parseErr != nil || validationErrCount > 0 || lq == nil {
 			continue
 		}
@@ -387,7 +402,7 @@ func (s *Service) tryMultiCandidate(
 			}
 		}
 		fp := logicalQueryFingerprint(lq)
-		groups[fp] = append(groups[fp], candidate{lq: lq, raw: raw, warnings: warnings})
+		groups[fp] = append(groups[fp], candidate{lq: lq, gen: gen, warnings: warnings})
 		successCount++
 	}
 
@@ -408,6 +423,9 @@ func (s *Service) tryMultiCandidate(
 		return nil, false
 	}
 	winner := groups[winnerKey][0]
+	if inheritNotes := ApplyFilterSession(winner.lq, filterSess, followIntent); len(inheritNotes) > 0 {
+		winner.warnings = append(winner.warnings, inheritNotes...)
+	}
 
 	confidence := float64(winnerCount) / float64(n)
 	if confidence > 1 {
@@ -421,9 +439,9 @@ func (s *Service) tryMultiCandidate(
 			winner.warnings...,
 		),
 		Prompt:       prompt,
-		RawResponse:  winner.raw,
+		RawResponse:  winner.gen.Content,
 		PromptStats:  &stats,
-		TokenUsage:   tokenUsageEstimate(stats, winner.raw),
+		TokenUsage:   tokenUsageFromGeneration(stats, winner.gen),
 	}, true
 }
 
@@ -461,11 +479,11 @@ func logicalQueryFingerprint(lq *query.LogicalQuery) string {
 // and must never mask the underlying validation/parse error to the caller.
 func (s *Service) tryGenerateClarification(ctx context.Context, question string, model *semantic.SemanticModel, failureReason string) string {
 	prompt := s.promptBuilder.BuildClarification(question, model, failureReason)
-	raw, err := s.client.Generate(ctx, prompt)
+	gen, err := s.client.Generate(ctx, prompt)
 	if err != nil {
 		return ""
 	}
-	return strings.TrimSpace(raw)
+	return strings.TrimSpace(gen.Content)
 }
 
 // failureMessageFor renders a concise, LLM-readable description of why the

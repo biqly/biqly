@@ -143,6 +143,74 @@ func TestEnrichResultNilSafe(t *testing.T) {
 	EnrichResult(&Result{}, LogicalQuery{}, nil)
 }
 
+func TestSuggestPivotTwoDimensions(t *testing.T) {
+	cols := []ResultColumn{
+		{Name: "region", SemanticType: SemanticTypeDimension, Format: FormatText},
+		{Name: "product", SemanticType: SemanticTypeDimension, Format: FormatText},
+		{Name: "revenue", SemanticType: SemanticTypeMetric, Format: FormatNumber},
+	}
+	hint := suggestPivot(cols)
+	if hint == nil {
+		t.Fatal("expected pivot hint")
+	}
+	if hint.RowField != "region" || hint.ColumnField != "product" {
+		t.Errorf("pivot fields = %+v", hint)
+	}
+}
+
+func TestDetectAnomaliesFlagsOutlier(t *testing.T) {
+	rows := make([][]any, 12)
+	for i := range rows {
+		rows[i] = []any{float64(10 + float64(i%5))}
+	}
+	rows[11] = []any{float64(1000)}
+	result := &Result{
+		Columns: []ResultColumn{{Name: "amount", SemanticType: SemanticTypeMetric, Format: FormatNumber}},
+		Rows:    rows,
+	}
+	anomalies := detectAnomalies(result)
+	if len(anomalies) == 0 {
+		t.Fatal("expected at least one anomaly")
+	}
+	if anomalies[0].RowIndex != 11 {
+		t.Errorf("anomaly row = %d, want 11", anomalies[0].RowIndex)
+	}
+}
+
+func TestVisualizationHintFromResult(t *testing.T) {
+	ct, reason := VisualizationHintFromResult(&Result{ChartSuggestions: []string{ChartBar, ChartTable}})
+	if ct != ChartBar || reason == "" {
+		t.Errorf("hint = %q %q", ct, reason)
+	}
+	ct, _ = VisualizationHintFromResult(&Result{ChartSuggestions: []string{ChartNumber}})
+	if ct != ChartTable {
+		t.Errorf("number maps to table, got %q", ct)
+	}
+}
+
+func TestAnomalyWarningMessages(t *testing.T) {
+	if msgs := AnomalyWarningMessages(nil); msgs != nil {
+		t.Fatalf("nil result: got %v, want nil", msgs)
+	}
+	if msgs := AnomalyWarningMessages(&Result{}); msgs != nil {
+		t.Fatalf("empty anomalies: got %v, want nil", msgs)
+	}
+
+	result := &Result{
+		Anomalies: []Anomaly{
+			{RowIndex: 0, Column: "revenue", Score: 3.2},
+			{RowIndex: 5, Column: "revenue", Score: 2.8},
+		},
+	}
+	msgs := AnomalyWarningMessages(result)
+	if len(msgs) != 3 {
+		t.Fatalf("len(msgs) = %d, want 3 (summary + 2 details)", len(msgs))
+	}
+	if msgs[0] == "" || msgs[1] == "" {
+		t.Fatal("expected non-empty summary and detail messages")
+	}
+}
+
 func equalStringSlices(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

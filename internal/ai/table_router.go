@@ -432,7 +432,7 @@ func selectAutomaticTables(
 		if len(selected) >= maxAutoSelectedTables || bundle.score == 0 {
 			break
 		}
-		if bundle.score >= bundles[0].score*0.30 {
+		if bundle.score >= bundles[0].score*ActiveRoutingWeights().SelectionRelativeThreshold {
 			selected = append(selected, bundle)
 		}
 	}
@@ -458,8 +458,9 @@ func appendCategoryTableIfMissing(
 	if !isCategoryOrProductQuestion(tokens) {
 		return selected
 	}
+	lex := ActiveRoutingLexicon()
 	for _, b := range selected {
-		if strings.Contains(strings.ToLower(b.table.TableName), "category") {
+		if tableNameMatchesSubstrings(b.table.TableName, lex.CategoryTableSubstrings) {
 			return selected
 		}
 	}
@@ -468,8 +469,7 @@ func appendCategoryTableIfMissing(
 			if b.score == 0 {
 				continue
 			}
-			tn := strings.ToLower(b.table.TableName)
-			if !strings.Contains(tn, "category") {
+			if !tableNameMatchesSubstrings(b.table.TableName, lex.CategoryTableSubstrings) {
 				continue
 			}
 			k := tableKey(b.table.SchemaName, b.table.TableName)
@@ -565,9 +565,10 @@ func appendQuestionEntityTables(
 			if !ok {
 				continue
 			}
-			score := 0.5
+			w := ActiveRoutingWeights()
+			score := w.EntityPathBridgeScore
 			if pkey == key {
-				score = 1.0
+				score = w.EntityPathTargetScore
 			}
 			selected = append(selected, tableBundle{table: pt, score: score})
 			selectedKeys[pkey] = true
@@ -632,9 +633,10 @@ func appendEntityResolverTables(
 			if !ok {
 				continue
 			}
-			score := 0.4
+			w := ActiveRoutingWeights()
+			score := w.ResolverPathBridgeScore
 			if pkey == targetKey {
-				score = 1.0
+				score = w.ResolverPathTargetScore
 			}
 			selected = append(selected, tableBundle{table: t, score: score})
 			selectedKeys[pkey] = true
@@ -765,10 +767,11 @@ func hasDisplayNameInColumns(cols []metadata.Column) bool {
 }
 
 func isNameLikeToken(tok string) bool {
-	switch tok {
-	case "name", "names", "named", "title", "titles", "label", "labels",
-		"isim", "ismi", "adi", "ad", "unvan", "baslik", "basligi":
-		return true
+	lex := ActiveRoutingLexicon()
+	for _, t := range lex.NameLikeTokens {
+		if tok == t {
+			return true
+		}
 	}
 	return false
 }
@@ -783,54 +786,31 @@ func bundleSliceContains(bundles []tableBundle, key string) bool {
 }
 
 func wantsReadableLabelsQuestion(tokens map[string]bool) bool {
-	for t := range tokens {
-		switch strings.ToLower(strings.TrimSpace(t)) {
-		case "name", "names", "named", "title", "titles", "label", "labels",
-			"isim", "adı", "adi", "ad", "unvan", "başlık", "baslik":
-			return true
-		}
-	}
-	return false
+	return ActiveRoutingLexicon().HasAnyToken(tokens, ActiveRoutingLexicon().ReadableLabelTokens)
 }
 
 func scoreTable(table metadata.Table, columns []metadata.Column, tokens map[string]bool) float64 {
-	score := weightedTokenScore(tokens, table.SchemaName+" "+table.TableName, 5)
+	w := ActiveRoutingWeights()
+	lex := ActiveRoutingLexicon()
+	score := weightedTokenScore(tokens, table.SchemaName+" "+table.TableName, w.TableName)
 	if table.Description != nil {
-		score += weightedTokenScore(tokens, *table.Description, 1.5)
+		score += weightedTokenScore(tokens, *table.Description, w.TableDescription)
 	}
-	tn := strings.ToLower(table.TableName)
-	if isCategoryOrProductQuestion(tokens) {
-		if strings.Contains(tn, "category") || strings.Contains(tn, "subcategor") {
-			score += 14
-		}
-		if tn == "product" || strings.Contains(tn, "productcategory") || strings.Contains(tn, "productsubcategory") {
-			score += 8
-		}
-		if tn == "salesorderdetail" || strings.Contains(tn, "salesorderdetail") {
-			score += 12
-		}
-	}
-	if isCategoryOrProductQuestion(tokens) && isQuantityOrCountIntent(tokens) {
-		// Line items / order detail: quantity sold, "adet", top products by count.
-		if strings.Contains(tn, "orderdetail") || strings.Contains(tn, "order_detail") ||
-			strings.Contains(tn, "orderline") || strings.Contains(tn, "order_line") {
-			score += 10
-		}
-	}
+	score = w.ApplyTableBoosts(table.TableName, tokens, score, lex)
 	for _, col := range columns {
-		score += weightedTokenScore(tokens, col.ColumnName, 2)
-		score += weightedTokenScore(tokens, col.DataType, 0.2)
+		score += weightedTokenScore(tokens, col.ColumnName, w.ColumnName)
+		score += weightedTokenScore(tokens, col.DataType, w.ColumnDataType)
 		if col.Description != nil {
-			score += weightedTokenScore(tokens, *col.Description, 1)
+			score += weightedTokenScore(tokens, *col.Description, w.ColumnDescription)
 		}
 		if isRevenueLikeQuestion(tokens) && isRevenueLikeColumn(col) {
-			score += 2
+			score += w.RevenueColumnBoost
 		}
 	}
 	if wantsReadableLabelsQuestion(tokens) {
 		for _, col := range columns {
 			if isDisplayNameColumn(col.ColumnName) {
-				score += 5
+				score += w.ReadableLabelColumnBoost
 				break
 			}
 		}
@@ -839,31 +819,11 @@ func scoreTable(table metadata.Table, columns []metadata.Column, tokens map[stri
 }
 
 func isCategoryOrProductQuestion(tokens map[string]bool) bool {
-	for _, t := range []string{
-		"category", "categories", "kategori", "kategoriler",
-		"product", "products", "item", "items",
-		"urun", "urunu", "urunun", "urunler", "urunleri", "urunden",
-	} {
-		if tokens[t] {
-			return true
-		}
-	}
-	return false
+	return ActiveRoutingLexicon().HasAnyToken(tokens, ActiveRoutingLexicon().CategoryProductTokens)
 }
 
-// isQuantityOrCountIntent matches questions about counts, units, or order quantity
-// (including Turkish "adet", "miktar") after token expansion.
 func isQuantityOrCountIntent(tokens map[string]bool) bool {
-	for _, t := range []string{
-		"quantity", "qty", "count", "rows", "row", "units", "unit",
-		"adet", "miktar", "miktari", "miktarda", "adette",
-		"pieces", "piece",
-	} {
-		if tokens[t] {
-			return true
-		}
-	}
-	return false
+	return ActiveRoutingLexicon().HasAnyToken(tokens, ActiveRoutingLexicon().QuantityTokens)
 }
 
 // appendProductTableIfMissing pulls in production.product (or subcategory) when the
@@ -878,9 +838,9 @@ func appendProductTableIfMissing(
 	if !isCategoryOrProductQuestion(tokens) {
 		return selected
 	}
+	lex := ActiveRoutingLexicon()
 	for _, b := range selected {
-		tn := strings.ToLower(b.table.TableName)
-		if tn == "product" || strings.Contains(tn, "productsubcategor") {
+		if tableNameMatchesSubstrings(b.table.TableName, lex.ProductCatalogSubstrings) {
 			return selected
 		}
 	}
@@ -889,8 +849,7 @@ func appendProductTableIfMissing(
 			if b.score == 0 {
 				continue
 			}
-			tn := strings.ToLower(b.table.TableName)
-			if tn != "product" && !strings.Contains(tn, "productsubcategor") {
+			if !tableNameMatchesSubstrings(b.table.TableName, lex.ProductCatalogSubstrings) {
 				continue
 			}
 			k := tableKey(b.table.SchemaName, b.table.TableName)
@@ -1097,7 +1056,7 @@ func displayNameSynonyms(tableName, columnName string) []string {
 	var out []string
 	out = append(out, add(tableName)...)
 	out = append(out, add(base)...)
-	for _, syn := range tokenSynonyms[base] {
+	for _, syn := range ActiveRoutingLexicon().ExpandTokenSynonyms(base) {
 		out = append(out, add(syn)...)
 	}
 	return out
@@ -1128,11 +1087,12 @@ func singularize(name string) string {
 }
 
 func buildMetrics(selected []tableBundle, columnsByTable map[string][]metadata.Column) []semantic.Metric {
+	lex := ActiveRoutingLexicon()
 	metrics := []semantic.Metric{{
 		Name:        "row_count",
 		Expression:  "*",
 		Aggregation: string(semantic.AggCount),
-		Synonyms:    []string{"count", "rows", "total", "adet", "sayisi", "sayısı", "kaç", "kac"},
+		Synonyms:    append([]string(nil), lex.RowCountSynonyms...),
 		IsActive:    true,
 	}}
 
@@ -1160,22 +1120,15 @@ func buildMetrics(selected []tableBundle, columnsByTable map[string][]metadata.C
 		case isNumericType(col.DataType):
 			appendMetric(metric("sum_"+name, expression, semantic.AggSum, col.Description, nil))
 			appendMetric(metric("avg_"+name, expression, semantic.AggAvg, col.Description, nil))
-			appendMetric(metric("min_"+name, expression, semantic.AggMin, col.Description, minNumericSynonyms))
-			appendMetric(metric("max_"+name, expression, semantic.AggMax, col.Description, maxNumericSynonyms))
+			appendMetric(metric("min_"+name, expression, semantic.AggMin, col.Description, lex.MetricSynonymList("min_numeric")))
+			appendMetric(metric("max_"+name, expression, semantic.AggMax, col.Description, lex.MetricSynonymList("max_numeric")))
 		case isDateOrTimeType(col.DataType):
-			appendMetric(metric("min_"+name, expression, semantic.AggMin, col.Description, minDateSynonyms))
-			appendMetric(metric("max_"+name, expression, semantic.AggMax, col.Description, maxDateSynonyms))
+			appendMetric(metric("min_"+name, expression, semantic.AggMin, col.Description, lex.MetricSynonymList("min_date")))
+			appendMetric(metric("max_"+name, expression, semantic.AggMax, col.Description, lex.MetricSynonymList("max_date")))
 		}
 	}
 	return metrics
 }
-
-var (
-	minNumericSynonyms = []string{"min", "minimum", "lowest", "smallest", "en az", "en kucuk"}
-	maxNumericSynonyms = []string{"max", "maximum", "highest", "largest", "en cok", "en buyuk"}
-	minDateSynonyms    = []string{"earliest", "first", "oldest", "ilk", "en eski", "en erken"}
-	maxDateSynonyms    = []string{"latest", "last", "most recent", "newest", "son", "en son", "en yeni", "son tarih"}
-)
 
 func metric(name string, expression string, aggregation semantic.AggregationType, description *string, synonyms []string) semantic.Metric {
 	return semantic.Metric{
@@ -1219,8 +1172,10 @@ func buildJoins(selected []tableBundle, relations []metadata.Relation) []semanti
 		}
 		joins = append(joins, semantic.Join{
 			Name:         jname,
+			FromSchema:   rel.FromSchema,
 			FromTable:    rel.FromTable,
 			FromColumn:   rel.FromColumn,
+			ToSchema:     rel.ToSchema,
 			ToTable:      rel.ToTable,
 			ToColumn:     rel.ToColumn,
 			JoinType:     "LEFT",
@@ -1717,7 +1672,7 @@ func expandToken(token string) []string {
 	if strings.HasSuffix(token, "s") && len(token) > 3 {
 		expanded = append(expanded, strings.TrimSuffix(token, "s"))
 	}
-	expanded = append(expanded, tokenSynonyms[token]...)
+	expanded = append(expanded, ActiveRoutingLexicon().ExpandTokenSynonyms(token)...)
 	return expanded
 }
 
@@ -1749,56 +1704,18 @@ func normalizeText(text string) string {
 	return sb.String()
 }
 
-var tokenSynonyms = map[string][]string{
-	"adet":       {"count", "row", "rows", "quantity", "qty"},
-	"adette":     {"count", "quantity", "adet"},
-	"bazinda":    {"by", "per", "basis"},
-	"bazli":      {"based", "by"},
-	"category":   {"categories", "kategori", "kategoriler", "class", "group"},
-	"categories": {"category", "kategori"},
-	"amount":     {"total", "revenue", "sales"},
-	"avg":        {"average", "mean", "ortalama"},
-	"average":    {"avg", "ortalama"},
-	"customer":   {"client", "musteri"},
-	"gelir":      {"revenue", "sales", "amount", "total"},
-	"kac":        {"count", "row", "rows"},
-	"miktar":     {"quantity", "qty", "count", "amount"},
-	"miktari":    {"quantity", "qty", "miktar"},
-	"miktarda":   {"quantity", "miktar"},
-	"musteri":    {"customer", "client"},
-	"order":      {"purchase", "sale", "siparis"},
-	"ortalama":   {"avg", "average"},
-	"price":      {"amount", "total", "revenue", "sales"},
-	"purchase":   {"order", "sale"},
-	"revenue":    {"amount", "total", "sales", "price"},
-	"sale":       {"order", "revenue", "amount", "total"},
-	"sales":      {"order", "revenue", "amount", "total"},
-	"satis":      {"sales", "sale", "revenue", "amount", "total"},
-	"sayisi":     {"count", "row", "rows"},
-	"siparis":    {"order", "sale", "purchase"},
-	"satan":      {"sale", "sales", "sold", "selling"},
-	"total":      {"amount", "revenue", "sales"},
-	"urun":       {"product", "item", "products"},
-	"urunden":    {"urun", "product", "item"},
-	"urunler":    {"urun", "product", "products", "items"},
-	"urunleri":   {"urun", "product", "products"},
-	"urunun":     {"urun", "product"},
-	"urunu":      {"urun", "product", "products", "item"},
-}
-
 func isRevenueLikeQuestion(tokens map[string]bool) bool {
-	for _, token := range []string{"revenue", "sales", "sale", "amount", "total", "gelir", "satis"} {
-		if tokens[token] {
-			return true
-		}
-	}
-	return false
+	return ActiveRoutingLexicon().HasAnyToken(tokens, ActiveRoutingLexicon().RevenueTokens)
 }
 
 func isRevenueLikeColumn(col metadata.Column) bool {
-	tokens := tokenSet(col.ColumnName)
-	for _, token := range []string{"amount", "total", "price", "revenue", "sales"} {
-		if tokens[token] {
+	return ActiveRoutingLexicon().HasAnyToken(tokenSet(col.ColumnName), ActiveRoutingLexicon().RevenueColumnTokens)
+}
+
+func tableNameMatchesSubstrings(tableName string, substrings []string) bool {
+	tn := strings.ToLower(tableName)
+	for _, sub := range substrings {
+		if strings.Contains(tn, sub) {
 			return true
 		}
 	}

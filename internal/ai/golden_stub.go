@@ -31,12 +31,16 @@ func NewGoldenStubProviderForCases(cases []GoldenCase) Provider {
 	return &goldenStubProvider{byQuestion: byQ}
 }
 
-func (p *goldenStubProvider) Generate(_ context.Context, prompt string) (string, error) {
-	return p.lookup(prompt)
+func (p *goldenStubProvider) Generate(_ context.Context, prompt string) (GenerationResult, error) {
+	content, err := p.lookup(prompt)
+	if err != nil {
+		return GenerationResult{}, err
+	}
+	return GenerationResult{Content: content}, nil
 }
 
-func (p *goldenStubProvider) GenerateAt(ctx context.Context, prompt string, _ float64) (string, error) {
-	return p.lookup(prompt)
+func (p *goldenStubProvider) GenerateAt(ctx context.Context, prompt string, _ float64) (GenerationResult, error) {
+	return p.Generate(ctx, prompt)
 }
 
 func (p *goldenStubProvider) lookup(prompt string) (string, error) {

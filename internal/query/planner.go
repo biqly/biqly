@@ -56,14 +56,14 @@ func (p *Planner) Plan(lq LogicalQuery, model *semantic.SemanticModel) (*PlanRes
 		switch item.Type {
 		case SelectTypeDimension:
 			if dim, ok := dimMap[item.Name]; ok {
-				table := extractTable(dim.ColumnRef)
+				table := extractTable(dim.ColumnRef, model.BaseSchema)
 				if table != "" && table != model.BaseTable {
 					tables[table] = true
 				}
 			}
 		case SelectTypeMetric:
 			if metric, ok := metricMap[item.Name]; ok {
-				table := extractTable(metric.Expression)
+				table := extractTable(metric.Expression, model.BaseSchema)
 				if table != "" && table != model.BaseTable {
 					tables[table] = true
 				}
@@ -74,7 +74,7 @@ func (p *Planner) Plan(lq LogicalQuery, model *semantic.SemanticModel) (*PlanRes
 	// Check filters
 	for _, f := range lq.Filters {
 		if dim, ok := dimMap[f.Field]; ok {
-			table := extractTable(dim.ColumnRef)
+			table := extractTable(dim.ColumnRef, model.BaseSchema)
 			if table != "" && table != model.BaseTable {
 				tables[table] = true
 			}
@@ -84,7 +84,7 @@ func (p *Planner) Plan(lq LogicalQuery, model *semantic.SemanticModel) (*PlanRes
 	// Check group by
 	for _, gb := range lq.GroupBy {
 		if dim, ok := dimMap[gb.Field]; ok {
-			table := extractTable(dim.ColumnRef)
+			table := extractTable(dim.ColumnRef, model.BaseSchema)
 			if table != "" && table != model.BaseTable {
 				tables[table] = true
 			}
@@ -194,24 +194,10 @@ func (p *Planner) checkAggregations(lq LogicalQuery) []string {
 	return warnings
 }
 
-// extractTable gets the table name from a column reference like "table.column".
-func extractTable(colRef string) string {
-	parts := splitDot(colRef)
-	if len(parts) > 1 {
-		return parts[0]
+// extractTable gets the table name from a column reference like "table.column" or "schema.table.column".
+func extractTable(colRef, defaultSchema string) string {
+	if p, ok := ParseColumnRef(colRef, defaultSchema); ok {
+		return p.Table
 	}
 	return ""
-}
-
-func splitDot(s string) []string {
-	var result []string
-	start := 0
-	for i := 0; i < len(s); i++ {
-		if s[i] == '.' {
-			result = append(result, s[start:i])
-			start = i + 1
-		}
-	}
-	result = append(result, s[start:])
-	return result
 }

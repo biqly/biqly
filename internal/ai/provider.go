@@ -10,13 +10,14 @@ import (
 
 // Provider is the abstraction over LLM backends. Each implementation owns its
 // own HTTP client, request shape, and authentication scheme — the rest of the
-// service treats them all the same: prompt in, raw text out.
+// service treats them all the same: prompt in, completion out (with token usage
+// when the provider returns it).
 //
 // GenerateAt overrides the default temperature for a single call. Used by the
 // self-consistency loop to draw varied candidates without rebuilding clients.
 type Provider interface {
-	Generate(ctx context.Context, prompt string) (string, error)
-	GenerateAt(ctx context.Context, prompt string, temperature float64) (string, error)
+	Generate(ctx context.Context, prompt string) (GenerationResult, error)
+	GenerateAt(ctx context.Context, prompt string, temperature float64) (GenerationResult, error)
 }
 
 // NewProvider returns a Provider for the configured backend. Unknown providers
