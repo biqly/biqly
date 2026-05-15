@@ -2,10 +2,29 @@ package ai
 
 import "strings"
 
+// stripReasoningPreamble removes an optional "## Reasoning" block emitted before the JSON object.
+func stripReasoningPreamble(s string) string {
+	const marker = "## Reasoning"
+	idx := strings.Index(s, marker)
+	if idx < 0 {
+		return s
+	}
+	firstBrace := strings.IndexByte(s, '{')
+	if firstBrace >= 0 && firstBrace < idx {
+		return s
+	}
+	rest := strings.TrimSpace(s[idx+len(marker):])
+	if brace := strings.IndexByte(rest, '{'); brace >= 0 {
+		return strings.TrimSpace(rest[brace:])
+	}
+	return rest
+}
+
 // CleanAIResponseForJSON strips BOM, markdown fences, and leading noise before JSON parsing.
 func CleanAIResponseForJSON(raw string) string {
 	s := strings.TrimSpace(raw)
 	s = strings.TrimPrefix(s, "\ufeff")
+	s = stripReasoningPreamble(s)
 
 	if idx := strings.Index(s, "```json"); idx >= 0 {
 		s = s[idx+len("```json"):]

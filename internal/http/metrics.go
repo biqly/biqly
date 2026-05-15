@@ -21,6 +21,8 @@ type Metrics struct {
 	AITotalRequests int64
 	AIErrors        int64
 	AILatency       time.Duration
+	AITotalRetries  int64
+	AIClarifications int64
 
 	ConnectionErrors int64
 
@@ -60,14 +62,19 @@ func (m *Metrics) RecordQuery(durationMs int64, success bool, cacheHit bool) {
 	m.QueryDurationBuckets[bucket]++
 }
 
-// RecordAIRequest records an AI request.
-func (m *Metrics) RecordAIRequest(latencyMs int64, success bool) {
+// RecordAIRequest records an AI text-to-query attempt for /metrics and ops dashboards.
+func (m *Metrics) RecordAIRequest(latencyMs int64, success bool, retryCount int, clarification bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	m.AITotalRequests++
 	m.AILatency += time.Duration(latencyMs) * time.Millisecond
-
+	if retryCount > 0 {
+		m.AITotalRetries += int64(retryCount)
+	}
+	if clarification {
+		m.AIClarifications++
+	}
 	if !success {
 		m.AIErrors++
 	}
@@ -139,6 +146,25 @@ func MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	writeMetricsLine("# HELP bi_ai_errors Total AI errors\n")
 	writeMetricsLine("# TYPE bi_ai_errors counter\n")
 	writeMetricsLine("bi_ai_errors %d\n", m.AIErrors)
+
+	writeMetricsLine("# HELP bi_ai_retries_total Sum of LLM retry attempts\n")
+	writeMetricsLine("# TYPE bi_ai_retries_total counter\n")
+	writeMetricsLine("bi_ai_retries_total %d\n", m.AITotalRetries)
+
+	writeMetricsLine("# HELP bi_ai_clarifications_total Clarification responses\n")
+	writeMetricsLine("# TYPE bi_ai_clarifications_total counter\n")
+	writeMetricsLine("bi_ai_clarifications_total %d\n", m.AIClarifications)
+
+	if m.AITotalRequests > 0 {
+		failureRate := float64(m.AIErrors) / float64(m.AITotalRequests)
+		avgRetries := float64(m.AITotalRetries) / float64(m.AITotalRequests)
+		writeMetricsLine("# HELP bi_ai_failure_rate Approximate failure rate (process lifetime)\n")
+		writeMetricsLine("# TYPE bi_ai_failure_rate gauge\n")
+		writeMetricsLine("bi_ai_failure_rate %.6f\n", failureRate)
+		writeMetricsLine("# HELP bi_ai_avg_retry_count Approximate avg retries per request (process lifetime)\n")
+		writeMetricsLine("# TYPE bi_ai_avg_retry_count gauge\n")
+		writeMetricsLine("bi_ai_avg_retry_count %.6f\n", avgRetries)
+	}
 
 	writeMetricsLine("# HELP bi_validation_failures Total validation failures\n")
 	writeMetricsLine("# TYPE bi_validation_failures counter\n")

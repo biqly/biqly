@@ -85,6 +85,7 @@ func Router(deps *app.Dependencies) http.Handler {
 
 		// AI routes
 		aiHandler := handlers.NewAIHandler(deps)
+		aiHandler.SetAIMetricsRecorder(GetMetrics())
 		r.Post("/ai/query", aiHandler.Query)
 		r.Post("/ai/query/preview", aiHandler.Preview)
 		r.Post("/ai/query/run", aiHandler.Run)
@@ -107,6 +108,12 @@ func Router(deps *app.Dependencies) http.Handler {
 		r.Get("/ai/usage", examplesHandler.GetAIUsage)
 		r.Get("/ai/example-ids", examplesHandler.GetExampleIDs)
 		r.Get("/ai/stats/models", examplesHandler.GetModelSuccessRates)
+
+		glossaryHandler := handlers.NewAIGlossaryHandler(deps)
+		r.Get("/ai/glossary", glossaryHandler.ListGlossary)
+		r.Post("/ai/glossary", glossaryHandler.CreateGlossary)
+		r.Put("/ai/glossary/{id}", glossaryHandler.UpdateGlossary)
+		r.Delete("/ai/glossary/{id}", glossaryHandler.DeleteGlossary)
 	})
 
 	return r

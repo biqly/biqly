@@ -89,17 +89,24 @@ type Relation struct {
 
 // AIQueryHistoryEntry represents one natural-language AI query attempt.
 type AIQueryHistoryEntry struct {
-	ID              string    `json:"id" db:"id"`
-	DatasourceID    string    `json:"datasource_id" db:"datasource_id"`
-	ModelID         *string   `json:"model_id" db:"model_id"`
-	UserID          *string   `json:"user_id" db:"user_id"`
-	Question        string    `json:"question" db:"question"`
-	PromptContext   any       `json:"prompt_context" db:"prompt_context"`
-	AIResponse      any       `json:"ai_response" db:"ai_response"`
-	LogicalQuery    any       `json:"logical_query" db:"logical_query"`
-	ConfidenceScore *float64  `json:"confidence_score" db:"confidence_score"`
-	Warnings        []string  `json:"warnings" db:"warnings"`
-	CreatedAt       time.Time `json:"created_at" db:"created_at"`
+	ID                 string    `json:"id" db:"id"`
+	DatasourceID       string    `json:"datasource_id" db:"datasource_id"`
+	ModelID            *string   `json:"model_id" db:"model_id"`
+	UserID             *string   `json:"user_id" db:"user_id"`
+	Question           string    `json:"question" db:"question"`
+	PromptContext      any       `json:"prompt_context" db:"prompt_context"`
+	AIResponse         any       `json:"ai_response" db:"ai_response"`
+	LogicalQuery       any       `json:"logical_query" db:"logical_query"`
+	ConfidenceScore    *float64  `json:"confidence_score" db:"confidence_score"`
+	Warnings           []string  `json:"warnings" db:"warnings"`
+	OutcomeStatus      string    `json:"outcome_status" db:"outcome_status"`
+	RetryCount         int       `json:"retry_count" db:"retry_count"`
+	NeedsClarification bool      `json:"needs_clarification" db:"needs_clarification"`
+	ModelUsed          *string   `json:"model_used" db:"model_used"`
+	TokenCount         *int      `json:"token_count" db:"token_count"`
+	CostUSD            *float64  `json:"cost_usd" db:"cost_usd"`
+	LatencyMs          *int      `json:"latency_ms" db:"latency_ms"`
+	CreatedAt          time.Time `json:"created_at" db:"created_at"`
 }
 
 type PermissionPolicyRecord struct {

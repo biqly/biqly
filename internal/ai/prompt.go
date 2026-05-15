@@ -37,11 +37,12 @@ type ConversationTurn struct {
 
 // Build creates the full prompt for the AI. maxPromptRunes caps the total size (0 = default 80000)
 // so providers with finite context windows do not receive huge auto-generated semantic models.
+// targetDialect is the datasource engine (postgres, mysql, sqlserver, clickhouse); empty defaults to postgres.
 // examples are dynamic few-shot pairs from the project's history; pass nil for none.
 // samples are concrete rows from queried tables; pass nil for none.
 // deniedFields is an optional list of qualified field names (e.g. "model.secret_field") that
 // must NOT appear in the prompt — used in strict mode to enforce row-level security at prompt time.
-func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, maxPromptRunes int, examples []FewShotExample, samples []TableSample, priorTurns []ConversationTurn, deniedFields []string) string {
+func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, maxPromptRunes int, targetDialect string, examples []FewShotExample, samples []TableSample, priorTurns []ConversationTurn, deniedFields []string, glossary []GlossaryEntry) string {
 	if maxPromptRunes <= 0 {
 		maxPromptRunes = 80000
 	}
@@ -59,7 +60,9 @@ func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, ma
 
 	write("You are a Business Intelligence query engine. Convert the user's natural language question into a LogicalQuery JSON object.\n\n")
 	write("## Rules\n")
-	write("- Output ONLY valid JSON. No markdown, no code blocks, no explanation.\n")
+	write("- Your response must contain exactly one LogicalQuery JSON object (RFC 8259, double-quoted keys).\n")
+	write("- Optionally prefix the JSON with a `## Reasoning` section: copy the numbered Planning Steps you applied (steps 1–8), max 12 lines, plain text only — no `{`, `}`, markdown fences, or SQL.\n")
+	write("- After any `## Reasoning` block, output only the JSON object (no trailing prose).\n")
 	write("- Use strict JSON (RFC 8259): every property name MUST be double-quoted. Never use JavaScript object syntax (unquoted keys like {select: [...]}).\n")
 	write("- Do NOT invent fields that don't exist in the semantic layer.\n")
 	write("- Use ONLY the dimensions, metrics, and fields listed below.\n")
@@ -158,12 +161,19 @@ func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, ma
 	write("## Supported Filter Operators\n")
 	write("eq, neq, gt, gte, lt, lte, in, not_in, contains, starts_with, ends_with, between, is_null, is_not_null\n\n")
 
+	b.writeBusinessGlossary(&sb, glossary)
+
+	b.writeDialectCompilationGuide(&sb, targetDialect)
+	b.writeFailureExamples(&sb)
+	b.writePlanningSteps(&sb)
+
 	write("## User Question\n")
 	write(question)
 	write("\n\n")
 
 	write("## Output Format\n")
-	write("Output ONLY the JSON object matching this structure:\n")
+	write("Either (A) JSON only, or (B) optional `## Reasoning` (Planning Steps 1–8, concise) then the JSON object on the following lines.\n")
+	write("The JSON must match this structure:\n")
 	write(`{"select": [{"type": "dimension|metric", "name": "..."}], "filters": [{"field": "...", "operator": "...", "value": ...}], "group_by": [{"field": "..."}], "order_by": [{"field": "...", "direction": "asc|desc"}], "limit": 100}`)
 	write("\n\n## Example — multi-metric grouping\n")
 	write(`Question: "orders per customer name and the most recent order date"` + "\n")
@@ -376,7 +386,7 @@ func (b *PromptBuilder) BuildRetry(originalPrompt, lastResponse, validationError
 	sb.WriteString("\n\n## Why It Failed\n")
 	sb.WriteString(validationError)
 	sb.WriteString("\n\n## Required Action\n")
-	sb.WriteString("Re-emit ONLY a corrected JSON object using dimensions, metrics, and operators that exist in the semantic model above. Do not repeat the previous mistake. Output JSON only — no prose, no markdown, no code fences.\n")
+	sb.WriteString("Re-run the **Planning Steps** from the original prompt, then re-emit a corrected LogicalQuery JSON object using dimensions, metrics, and operators that exist in the semantic model above. Do not repeat the previous mistake. Optional `## Reasoning` prefix allowed; final output must include valid JSON — no markdown fences.\n")
 	return sb.String()
 }
 

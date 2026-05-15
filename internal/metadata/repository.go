@@ -711,12 +711,20 @@ func (r *Repository) CreateAIQueryHistory(ctx context.Context, entry *AIQueryHis
 		return fmt.Errorf("marshal logical query: %w", err)
 	}
 
+	outcome := entry.OutcomeStatus
+	if outcome == "" {
+		outcome = AIOutcomeUnknown
+	}
+
 	insert := `
 		INSERT INTO ai_query_history (
 			datasource_id, model_id, user_id, question, prompt_context,
-			ai_response, logical_query, confidence_score, warnings
+			ai_response, logical_query, confidence_score, warnings,
+			outcome_status, retry_count, needs_clarification,
+			model_used, token_count, cost_usd, latency_ms
 		)
-		VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8, $9)
+		VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8, $9,
+			$10, $11, $12, $13, $14, $15, $16)
 		RETURNING id, created_at
 	`
 	if err := r.db.QueryRowContext(
@@ -731,6 +739,13 @@ func (r *Repository) CreateAIQueryHistory(ctx context.Context, entry *AIQueryHis
 		logicalQueryJSON,
 		entry.ConfidenceScore,
 		pq.Array(entry.Warnings),
+		outcome,
+		entry.RetryCount,
+		entry.NeedsClarification,
+		entry.ModelUsed,
+		entry.TokenCount,
+		entry.CostUSD,
+		entry.LatencyMs,
 	).Scan(&entry.ID, &entry.CreatedAt); err != nil {
 		return fmt.Errorf("insert AI query history: %w", err)
 	}

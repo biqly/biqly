@@ -162,15 +162,19 @@ export default function Dashboard() {
 interface AIUsageSummary {
   total_queries: number
   success_rate: number
+  failure_rate: number
+  avg_retry_count: number
   avg_latency_ms: number
   total_cost: number
+  positive_feedback?: number
+  negative_feedback?: number
 }
 
 interface DayUsage {
   date: string
   total_queries: number
-  positive_feedback: number
-  negative_feedback: number
+  failure_rate: number
+  avg_retry_count: number
   avg_latency_ms: number
   total_cost: number
   total_tokens: number
@@ -208,9 +212,11 @@ function AIUsageSection() {
       <h2 style={{ marginBottom: '1rem' }}>🤖 AI kullanımı (son 30 gün)</h2>
 
       {/* KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
         <KPICard label="Toplam AI sorgusu" value={summary.total_queries} color="var(--accent)" />
         <KPICard label="Başarı oranı" value={`${(summary.success_rate * 100).toFixed(0)}%`} color={getRateColor(summary.success_rate * 100)} />
+        <KPICard label="Hata oranı" value={`${(summary.failure_rate * 100).toFixed(0)}%`} color={getRateColor(100 - summary.failure_rate * 100)} />
+        <KPICard label="Ort. yeniden deneme" value={summary.avg_retry_count.toFixed(2)} color="var(--text-muted)" />
         <KPICard label="Ort. gecikme" value={`${summary.avg_latency_ms.toFixed(0)}ms`} color="var(--warning)" />
         <KPICard label="Toplam maliyet" value={`$${summary.total_cost.toFixed(4)}`} color="var(--success)" />
       </div>

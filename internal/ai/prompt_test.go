@@ -19,7 +19,7 @@ func TestPromptBuildIncludesFewShotExamples(t *testing.T) {
 		{Question: "kaç sipariş var", LogicalQuery: `{"select":[{"type":"metric","name":"row_count"}]}`},
 		{Question: "    ", LogicalQuery: "junk"}, // should be skipped (empty question)
 	}
-	got := pb.Build("ne kadar sipariş var", model, 0, examples, nil, nil, nil)
+	got := pb.Build("ne kadar sipariş var", model, 0, "postgres", examples, nil, nil, nil, nil)
 
 	if !strings.Contains(got, "Successful Past Queries") {
 		t.Errorf("expected few-shot section header in prompt; got:\n%s", got)
@@ -38,7 +38,7 @@ func TestPromptBuildIncludesFewShotExamples(t *testing.T) {
 func TestPromptBuildIncludesSoftDeleteRules(t *testing.T) {
 	pb := &PromptBuilder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x", BaseSchema: "public", BaseTable: "t"}
-	got := pb.Build("q", model, 0, nil, nil, nil, nil)
+	got := pb.Build("q", model, 0, "", nil, nil, nil, nil, nil)
 	if !strings.Contains(got, "Soft-delete") {
 		t.Errorf("expected soft-delete rules in prompt, got excerpt:\n%s", truncatePrompt(got, 800))
 	}
@@ -63,7 +63,7 @@ func truncatePrompt(s string, max int) string {
 func TestPromptBuildOmitsFewShotSectionWhenEmpty(t *testing.T) {
 	pb := &PromptBuilder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x"}
-	got := pb.Build("q", model, 0, nil, nil, nil, nil)
+	got := pb.Build("q", model, 0, "", nil, nil, nil, nil, nil)
 	if strings.Contains(got, "Successful Past Queries") {
 		t.Errorf("expected no few-shot header when examples nil")
 	}
@@ -77,7 +77,7 @@ func TestPromptBuildIncludesPriorTurns(t *testing.T) {
 		{Question: "    "}, // blank — should be skipped
 		{Question: "müşteri kırılımı yap"},
 	}
-	got := pb.Build("şimdi son çeyrek için filtrele", model, 0, nil, nil, turns, nil)
+	got := pb.Build("şimdi son çeyrek için filtrele", model, 0, "", nil, nil, turns, nil, nil)
 	if !strings.Contains(got, "## Prior Turns in This Conversation") {
 		t.Errorf("expected prior-turns header in prompt, got:\n%s", got)
 	}
@@ -99,9 +99,73 @@ func TestPromptBuildIncludesPriorTurns(t *testing.T) {
 func TestPromptBuildOmitsPriorTurnsHeaderWhenEmpty(t *testing.T) {
 	pb := &PromptBuilder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x"}
-	got := pb.Build("q", model, 0, nil, nil, nil, nil)
+	got := pb.Build("q", model, 0, "", nil, nil, nil, nil, nil)
 	if strings.Contains(got, "Prior Turns in This Conversation") {
 		t.Errorf("expected no prior-turns header when turns nil")
+	}
+}
+
+func TestPromptBuildIncludesDialectGuide(t *testing.T) {
+	pb := &PromptBuilder{}
+	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "public.orders"}
+	got := pb.Build("q", model, 0, "mysql", nil, nil, nil, nil, nil)
+	if !strings.Contains(got, "## Datasource SQL Dialect") {
+		t.Errorf("expected dialect section in prompt")
+	}
+	if !strings.Contains(got, "**this datasource**") {
+		t.Errorf("expected active dialect marker for mysql")
+	}
+	if !strings.Contains(got, "LOWER(`name`) LIKE LOWER(?)") {
+		t.Errorf("expected mysql contains compilation hint")
+	}
+}
+
+func TestPromptBuildIncludesPlanningSteps(t *testing.T) {
+	pb := &PromptBuilder{}
+	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x", BaseSchema: "public", BaseTable: "t"}
+	got := pb.Build("q", model, 0, "", nil, nil, nil, nil, nil)
+	if !strings.Contains(got, "## Planning Steps") {
+		t.Errorf("expected planning-steps section in prompt")
+	}
+	if !strings.Contains(got, "1. Parse the question") {
+		t.Errorf("expected first planning step")
+	}
+	if !strings.Contains(got, "8. Build and verify JSON") {
+		t.Errorf("expected final planning step")
+	}
+	if !strings.Contains(got, "## Reasoning") {
+		t.Errorf("expected optional reasoning block instructions")
+	}
+}
+
+func TestPromptBuildIncludesFailureExamples(t *testing.T) {
+	pb := &PromptBuilder{}
+	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x"}
+	got := pb.Build("q", model, 0, "postgres", nil, nil, nil, nil, nil)
+	if !strings.Contains(got, "## Examples — Common Mistakes") {
+		t.Errorf("expected failure-examples section in prompt")
+	}
+	if !strings.Contains(got, "Raw SQL instead of LogicalQuery") {
+		t.Errorf("expected anti-pattern title for raw SQL")
+	}
+	if !strings.Contains(got, `"having"`) {
+		t.Errorf("expected having vs filters anti-pattern")
+	}
+}
+
+func TestNormalizeDialectName(t *testing.T) {
+	tests := map[string]string{
+		"postgresql": "postgres",
+		"Postgres":   "postgres",
+		"mssql":      "sqlserver",
+		"clickhouse": "clickhouse",
+		"":           "postgres",
+		"unknown":    "postgres",
+	}
+	for in, want := range tests {
+		if got := normalizeDialectName(in); got != want {
+			t.Errorf("normalizeDialectName(%q) = %q, want %q", in, got, want)
+		}
 	}
 }
 
@@ -119,7 +183,7 @@ func TestPromptBuildIncludesSampleData(t *testing.T) {
 		},
 		{Schema: "public", Table: "empty", Rows: nil}, // skipped
 	}
-	got := pb.Build("q", model, 0, nil, samples, nil, nil)
+	got := pb.Build("q", model, 0, "", nil, samples, nil, nil, nil)
 	if !strings.Contains(got, "## Sample Data") {
 		t.Errorf("expected '## Sample Data' header in prompt")
 	}

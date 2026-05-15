@@ -43,8 +43,9 @@ type Response struct {
 	RetryCount       int                    `json:"retry_count,omitempty"`
 	ValidationResult *ValidationExplainResult `json:"validation_result,omitempty"`
 	// Model / cost tracking
-	ModelUsed  string      `json:"model_used,omitempty"`
-	TokenUsage *TokenUsage `json:"token_usage,omitempty"`
+	ModelUsed    string       `json:"model_used,omitempty"`
+	PromptStats  *PromptStats `json:"prompt_stats,omitempty"`
+	TokenUsage   *TokenUsage  `json:"token_usage,omitempty"`
 	CostUSD    float64     `json:"cost_usd,omitempty"`
 	LatencyMs  int         `json:"latency_ms,omitempty"`
 	// Visualization hint for frontend chart auto-selection

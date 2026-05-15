@@ -208,17 +208,17 @@ func (h *AIExamplesHandler) GetModelSuccessRates(w http.ResponseWriter, r *http.
 // DayUsage is one day in the AI usage breakdown.
 type DayUsage = metadata.AIUsageDayRow
 
-// GetAIUsage returns aggregated AI usage statistics.
+// GetAIUsage returns aggregated AI usage and pipeline telemetry for the dashboard.
 func (h *AIExamplesHandler) GetAIUsage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	daily, summary, err := h.deps.MetaRepo.GetAIUsageLast30Days(ctx)
+	summary, daily, err := h.deps.MetaRepo.GetAIMetricsDashboard(ctx, 30)
 	if err != nil {
-		slog.ErrorContext(ctx, "get AI usage failed", "error", err)
+		slog.ErrorContext(ctx, "get AI metrics failed", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to get usage data")
 		return
 	}
 	if daily == nil {
-		daily = []metadata.AIUsageDayRow{}
+		daily = []metadata.AIMetricsDayRow{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"summary": summary, "daily": daily})
 }

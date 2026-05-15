@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/biqly/biqly/internal/query"
@@ -87,8 +88,7 @@ func filtersEqual(a, b []query.Filter) bool {
 func filterKeys(filters []query.Filter) []string {
 	out := make([]string, 0, len(filters))
 	for _, f := range filters {
-		// Value comparison via fmt %v keeps ints/strings/bools comparable as text.
-		out = append(out, f.Field+"|"+f.Operator)
+		out = append(out, f.Field+"|"+f.Operator+"|"+fmt.Sprint(f.Value))
 	}
 	return out
 }

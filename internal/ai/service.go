@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/biqly/biqly/internal/config"
@@ -17,6 +18,8 @@ type Service struct {
 	client              Provider
 	promptBuilder       *PromptBuilder
 	validator           *query.Validator
+	aiCfg               config.AIConfig
+	queryModel          string
 	maxPromptRunes      int
 	maxRetries          int
 	multiCandidateCount int
@@ -41,10 +44,13 @@ func NewService(cfg config.AIConfig, validator *query.Validator) *Service {
 	if err != nil {
 		provider = NewClient(cfg)
 	}
+	effective := cfg.EffectiveQueryConfig()
 	return &Service{
 		client:              provider,
 		promptBuilder:       &PromptBuilder{},
 		validator:           validator,
+		aiCfg:               effective,
+		queryModel:          effective.Model,
 		maxPromptRunes:      maxR,
 		maxRetries:          retries,
 		multiCandidateCount: cfg.MultiCandidateCount,
@@ -63,15 +69,23 @@ func NewServiceWithProvider(cfg config.AIConfig, validator *query.Validator, pro
 	if retries < 0 {
 		retries = 0
 	}
+	effective := cfg.EffectiveQueryConfig()
 	return &Service{
 		client:              provider,
 		promptBuilder:       &PromptBuilder{},
 		validator:           validator,
+		aiCfg:               effective,
+		queryModel:          effective.Model,
 		maxPromptRunes:      maxR,
 		maxRetries:          retries,
 		multiCandidateCount: cfg.MultiCandidateCount,
 		baseTemperature:     cfg.Temperature,
 	}
+}
+
+// LLMProvider returns the configured generation backend (for eval judge, etc.).
+func (s *Service) LLMProvider() Provider {
+	return s.client
 }
 
 // SQLValidator dry-runs a compiled LogicalQuery against the live datasource
@@ -84,11 +98,13 @@ type SQLValidator func(ctx context.Context, lq *query.LogicalQuery) error
 type ProcessOption func(*processOptions)
 
 type processOptions struct {
-	sqlValidator SQLValidator
-	fewShot      []FewShotExample
-	samples      []TableSample
-	priorTurns   []ConversationTurn
-	deniedFields []string
+	sqlValidator  SQLValidator
+	fewShot       []FewShotExample
+	samples       []TableSample
+	priorTurns    []ConversationTurn
+	deniedFields  []string
+	targetDialect string
+	glossary      []GlossaryEntry
 }
 
 // WithSQLValidator wires a dialect-aware dry-run check (e.g. EXPLAIN) into the
@@ -125,6 +141,17 @@ func WithDeniedFields(fields []string) ProcessOption {
 	return func(o *processOptions) { o.deniedFields = fields }
 }
 
+// WithTargetDialect sets the datasource SQL engine name for dialect-aware
+// compilation examples in the prompt (postgres, mysql, sqlserver, clickhouse).
+func WithTargetDialect(dialectName string) ProcessOption {
+	return func(o *processOptions) { o.targetDialect = dialectName }
+}
+
+// WithGlossary injects business-term → field mappings into the prompt.
+func WithGlossary(entries []GlossaryEntry) ProcessOption {
+	return func(o *processOptions) { o.glossary = entries }
+}
+
 // ProcessQuestion handles a natural language question. On parse or validation
 // failure the LLM is re-prompted with the prior output and error message, up
 // to s.maxRetries additional attempts.
@@ -134,19 +161,20 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		opt(&options)
 	}
 
-	originalPrompt := s.promptBuilder.Build(question, model, s.maxPromptRunes, options.fewShot, options.samples, options.priorTurns, options.deniedFields)
+	basePrompt, baseStats := s.buildPrompt(ctx, question, model, 0, options)
 
 	// Self-consistency: when configured, draw N candidates with stepped temperatures
 	// and vote. A clear majority returns immediately; otherwise we fall through to
 	// the standard retry loop which handles single-shot generation + correction.
 	if s.multiCandidateCount > 1 {
-		if resp, ok := s.tryMultiCandidate(ctx, originalPrompt, model, options); ok {
+		if resp, ok := s.tryMultiCandidate(ctx, basePrompt, model, options, baseStats); ok {
 			return resp, nil
 		}
 	}
 
 	var (
-		prompt             = originalPrompt
+		prompt             = basePrompt
+		promptStats        = baseStats
 		lastRaw            string
 		retryWarnings      []string
 		lq                 *query.LogicalQuery
@@ -182,6 +210,9 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 				Warnings:     append(retryWarnings, warnings...),
 				Prompt:       prompt,
 				RawResponse:  raw,
+				RetryCount:   retries,
+				PromptStats:  &promptStats,
+				TokenUsage:   tokenUsageEstimate(promptStats, raw),
 			}
 			return resp, nil
 		}
@@ -193,8 +224,11 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 
 		// Re-prompt with the failure context for the next attempt.
 		failureMsg := failureMessageFor(parseErr, sqlErr, warnings)
-		retryWarnings = append(retryWarnings, fmt.Sprintf("retry %d: %s", attempt+1, failureMsg))
-		prompt = s.promptBuilder.BuildRetry(originalPrompt, raw, failureMsg)
+		retryWarnings = append(retryWarnings, fmt.Sprintf("retry %d (context %s): %s", attempt+1, contextTierLabel(contextTierForAttempt(attempt+1)), failureMsg))
+		nextTier := contextTierForAttempt(attempt + 1)
+		expanded, _ := s.buildPrompt(ctx, question, model, nextTier, options)
+		prompt = s.promptBuilder.BuildRetry(expanded, raw, failureMsg)
+		promptStats = MeasurePrompt(prompt, s.queryModel, nextTier, s.aiCfg)
 	}
 
 	failureReason := failureMessageFor(parseErr, nil, warnings)
@@ -206,6 +240,9 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 			Prompt:                prompt,
 			RawResponse:           lastRaw,
 			Confidence:            0,
+			RetryCount:            s.maxRetries,
+			PromptStats:           &promptStats,
+			TokenUsage:            tokenUsageEstimate(promptStats, lastRaw),
 			NeedsClarification:    clarification != "",
 			ClarificationQuestion: clarification,
 			Clarification:         buildClarification(clarification, failureReason, "ai"),
@@ -220,6 +257,9 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 			Warnings:              append(retryWarnings, warnings...),
 			Prompt:                prompt,
 			RawResponse:           lastRaw,
+			RetryCount:            s.maxRetries,
+			PromptStats:           &promptStats,
+			TokenUsage:            tokenUsageEstimate(promptStats, lastRaw),
 			NeedsClarification:    clarification != "",
 			ClarificationQuestion: clarification,
 			Clarification:         buildClarification(clarification, failureReason, "validator"),
@@ -232,10 +272,58 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		Warnings:              append(retryWarnings, warnings...),
 		Prompt:                prompt,
 		RawResponse:           lastRaw,
+		RetryCount:            s.maxRetries,
+		PromptStats:           &promptStats,
+		TokenUsage:            tokenUsageEstimate(promptStats, lastRaw),
 		NeedsClarification:    clarification != "",
 		ClarificationQuestion: clarification,
 		Clarification:         buildClarification(clarification, failureReason, "ai"),
 	}, nil
+}
+
+func (s *Service) buildPrompt(
+	ctx context.Context,
+	question string,
+	model *semantic.SemanticModel,
+	tier int,
+	options processOptions,
+) (string, PromptStats) {
+	tiered := applyContextTier(options, tier)
+	promptRunes := PromptRunesForTier(s.maxPromptRunes, tier, s.aiCfg, s.queryModel)
+	prompt := s.promptBuilder.Build(
+		question,
+		model,
+		promptRunes,
+		options.targetDialect,
+		tiered.fewShot,
+		tiered.samples,
+		tiered.priorTurns,
+		tiered.deniedFields,
+		tiered.glossary,
+	)
+	stats := MeasurePrompt(prompt, s.queryModel, tier, s.aiCfg)
+	slog.InfoContext(ctx, "ai prompt context",
+		"model", stats.Model,
+		"context_tier", stats.ContextTierLabel,
+		"prompt_runes", stats.PromptRunes,
+		"est_prompt_tokens", stats.EstPromptTokens,
+		"max_prompt_runes", stats.MaxPromptRunes,
+		"context_window_tokens", stats.ContextWindowTokens,
+	)
+	return prompt, stats
+}
+
+func tokenUsageEstimate(stats PromptStats, completion string) *TokenUsage {
+	promptTok := stats.EstPromptTokens
+	completionTok := EstimateTokens(completion)
+	if promptTok == 0 && completionTok == 0 {
+		return nil
+	}
+	return &TokenUsage{
+		Prompt:     promptTok,
+		Completion: completionTok,
+		Total:      promptTok + completionTok,
+	}
 }
 
 // buildClarification wraps a free-text clarification question into the
@@ -265,6 +353,7 @@ func (s *Service) tryMultiCandidate(
 	prompt string,
 	model *semantic.SemanticModel,
 	options processOptions,
+	stats PromptStats,
 ) (*AIResponse, bool) {
 	n := s.multiCandidateCount
 	if n < 2 {
@@ -331,8 +420,10 @@ func (s *Service) tryMultiCandidate(
 			[]string{fmt.Sprintf("self-consistency: %d/%d candidates agreed", winnerCount, n)},
 			winner.warnings...,
 		),
-		Prompt:      prompt,
-		RawResponse: winner.raw,
+		Prompt:       prompt,
+		RawResponse:  winner.raw,
+		PromptStats:  &stats,
+		TokenUsage:   tokenUsageEstimate(stats, winner.raw),
 	}, true
 }
 

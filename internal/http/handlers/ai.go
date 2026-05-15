@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/app"
@@ -23,6 +24,12 @@ type AIHandler struct {
 	service     *ai.Service
 	tableRouter *ai.TableRouter
 	deps        *app.Dependencies
+	metrics     AIMetricsRecorder
+}
+
+// SetAIMetricsRecorder wires process-level counters (e.g. Prometheus /metrics).
+func (h *AIHandler) SetAIMetricsRecorder(m AIMetricsRecorder) {
+	h.metrics = m
 }
 
 // NewAIHandler creates a new AI handler.
@@ -125,7 +132,7 @@ func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request)
 	}
 	if routing != nil && routing.NeedsClarification {
 		resp := clarificationResponse(routing)
-		h.recordAIHistory(ctx, req, model, routing, resp)
+		h.observeAIRequest(ctx, req, model, routing, resp, nil, 0)
 		writeJSON(w, http.StatusOK, resp)
 		return req, nil, nil, false
 	}
@@ -140,18 +147,23 @@ func (h *AIHandler) Query(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
+	start := time.Now()
 	resp, err := h.service.ProcessQuestion(ctx, req.Question, model,
+		ai.WithTargetDialect(h.datasourceDialectName(ctx, req.DatasourceID)),
 		ai.WithFewShotExamples(h.loadFewShotExamples(ctx, model)),
 		ai.WithPriorTurns(priorTurnsForPrompt(req.PriorTurns)),
+		ai.WithGlossary(h.loadGlossaryForPrompt(ctx, model, req.Question)),
 	)
+	if resp != nil {
+		resp.ModelUsed = h.deps.Config.AI.EffectiveQueryConfig().Model
+		resp.TableRouting = routing
+	}
 	if err != nil {
-		h.recordAIHistory(ctx, req, model, routing, failedAIResponse(err))
+		h.observeAIRequest(ctx, req, model, routing, nil, err, time.Since(start).Milliseconds())
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	resp.ModelUsed = h.deps.Config.AI.EffectiveQueryConfig().Model
-	resp.TableRouting = routing
-	h.recordAIHistory(ctx, req, model, routing, resp)
+	resp = h.observeAIRequest(ctx, req, model, routing, resp, nil, time.Since(start).Milliseconds())
 
 	writeJSON(w, http.StatusOK, resp)
 }
@@ -164,20 +176,24 @@ func (h *AIHandler) Preview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
+	start := time.Now()
 
-	// Get AI response
 	resp, err := h.service.ProcessQuestion(ctx, req.Question, model,
+		ai.WithTargetDialect(h.datasourceDialectName(ctx, req.DatasourceID)),
 		ai.WithFewShotExamples(h.loadFewShotExamples(ctx, model)),
 		ai.WithPriorTurns(priorTurnsForPrompt(req.PriorTurns)),
+		ai.WithGlossary(h.loadGlossaryForPrompt(ctx, model, req.Question)),
 	)
+	if resp != nil {
+		resp.ModelUsed = h.deps.Config.AI.EffectiveQueryConfig().Model
+		resp.TableRouting = routing
+	}
 	if err != nil {
-		h.recordAIHistory(ctx, req, model, routing, failedAIResponse(err))
+		h.observeAIRequest(ctx, req, model, routing, nil, err, time.Since(start).Milliseconds())
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	resp.ModelUsed = h.deps.Config.AI.EffectiveQueryConfig().Model
-	resp.TableRouting = routing
-	h.recordAIHistory(ctx, req, model, routing, resp)
+	resp = h.observeAIRequest(ctx, req, model, routing, resp, nil, time.Since(start).Milliseconds())
 
 	if resp.LogicalQuery == nil {
 		writeJSON(w, http.StatusOK, resp)
@@ -248,21 +264,25 @@ func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
 	}()
 	dryRun := newSQLDryRunValidator(h.deps.QueryService, db, driver, model)
 
-	// Get AI response (with EXPLAIN dry-run + few-shot history + sample rows)
+	start := time.Now()
 	resp, err := h.service.ProcessQuestion(ctx, req.Question, model,
 		ai.WithSQLValidator(dryRun),
+		ai.WithTargetDialect(driver.Dialect().Name()),
 		ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.ExampleIDs, req.IncludePastQueries)),
 		ai.WithSampleData(h.loadSampleData(ctx, db, driver.Dialect(), model)),
 		ai.WithPriorTurns(priorTurnsForPrompt(req.PriorTurns)),
+		ai.WithGlossary(h.loadGlossaryForPrompt(ctx, model, req.Question)),
 	)
+	if resp != nil {
+		resp.TableRouting = routing
+		resp.ModelUsed = h.deps.Config.AI.EffectiveQueryConfig().Model
+	}
 	if err != nil {
-		h.recordAIHistory(ctx, req, model, routing, failedAIResponse(err))
+		h.observeAIRequest(ctx, req, model, routing, nil, err, time.Since(start).Milliseconds())
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	resp.TableRouting = routing
-	resp.ModelUsed = h.deps.Config.AI.EffectiveQueryConfig().Model
-	h.recordAIHistory(ctx, req, model, routing, resp)
+	resp = h.observeAIRequest(ctx, req, model, routing, resp, nil, time.Since(start).Milliseconds())
 
 	if resp.LogicalQuery == nil {
 		writeJSON(w, http.StatusOK, resp)
@@ -707,6 +727,46 @@ func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *seman
 		return nil
 	}
 	return h.loadFewShotExamples(ctx, model)
+}
+
+// datasourceDialectName returns the driver type for prompt dialect examples.
+// Failures are non-fatal — empty string defaults to postgres in the prompt builder.
+func (h *AIHandler) datasourceDialectName(ctx context.Context, datasourceID string) string {
+	if datasourceID == "" {
+		return ""
+	}
+	ds, err := h.deps.MetaRepo.GetDatasource(ctx, datasourceID)
+	if err != nil {
+		slog.WarnContext(ctx, "load datasource for dialect hint failed", "error", err)
+		return ""
+	}
+	return ds.Type
+}
+
+// loadGlossaryForPrompt merges catalog synonyms with curated glossary terms and
+// selects entries relevant to the user question.
+func (h *AIHandler) loadGlossaryForPrompt(ctx context.Context, model *semantic.SemanticModel, question string) []ai.GlossaryEntry {
+	if model == nil {
+		return nil
+	}
+	catalog := ai.GlossaryFromSemanticModel(model)
+	var ext []ai.ExternalGlossaryInput
+	rows, err := h.deps.MetaRepo.ListBusinessGlossary(ctx, model.DatasourceID, model.ID)
+	if err != nil {
+		slog.WarnContext(ctx, "load business glossary failed", "error", err)
+	} else {
+		for _, r := range rows {
+			ext = append(ext, ai.ExternalGlossaryInput{
+				Term:         r.Term,
+				Definition:   r.Definition,
+				MapsToType:   r.MapsToType,
+				MapsToName:   r.MapsToName,
+				Aliases:      r.Aliases,
+			})
+		}
+	}
+	merged := ai.MergeGlossaryEntries(catalog, ai.GlossaryFromExternal(ext))
+	return ai.SelectGlossaryForQuestion(question, merged, model)
 }
 
 // loadFewShotExamples returns recent high-confidence (question, logical_query)

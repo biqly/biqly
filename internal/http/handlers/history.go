@@ -90,5 +90,6 @@ func buildAIHistoryEntry(
 		ConfidenceScore: &resp.Confidence,
 		Warnings:        resp.Warnings,
 	}
+	enrichAIHistoryEntry(entry, resp)
 	return entry
 }

@@ -55,6 +55,20 @@ func TestLogicalQueryEqualBaseline(t *testing.T) {
 	if ok, _ := LogicalQueryEqual(&d, &e); ok {
 		t.Errorf("expected mismatch on order_by direction, got equivalence")
 	}
+
+	f1 := query.LogicalQuery{
+		Select:  []query.SelectItem{{Type: "metric", Name: "row_count"}},
+		Filters: []query.Filter{{Field: "status", Operator: "eq", Value: "shipped"}},
+		Limit:   100,
+	}
+	f2 := query.LogicalQuery{
+		Select:  []query.SelectItem{{Type: "metric", Name: "row_count"}},
+		Filters: []query.Filter{{Field: "status", Operator: "eq", Value: "pending"}},
+		Limit:   100,
+	}
+	if ok, _ := LogicalQueryEqual(&f1, &f2); ok {
+		t.Errorf("expected mismatch on filter value, got equivalence")
+	}
 }
 
 // TestGoldenSeedSelfConsistent guards the seed set: every expected query must

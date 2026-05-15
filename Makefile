@@ -1,4 +1,4 @@
-.PHONY: build run test lint clean migrate-up migrate-down docker-up docker-down seed-adventureworks
+.PHONY: build run test eval-regression lint clean migrate-up migrate-down docker-up docker-down seed-adventureworks
 
 BINARY_NAME=biqly
 GO_FILES=$(shell find . -name '*.go' -not -path './vendor/*')
@@ -12,6 +12,9 @@ run: build
 test:
 	@go test -v -race -coverprofile=coverage.out ./...
 
+eval-regression:
+	@go test ./internal/ai/ -run 'TestGoldenSeedSelfConsistent|TestLogicalQueryEqualBaseline|TestResultSetEqualBaseline|TestExecutionAccuracyGolden|TestEvalRegressionGate|TestBenchmarkSuiteRegressionGate|TestBenchmarkSuiteSelfConsistent' -count=1 -v
+
 lint:
 	@golangci-lint run ./...
 
@@ -23,6 +26,9 @@ migrate-up:
 
 migrate-down:
 	@go run ./cmd/migrate down
+
+export-sft:
+	@go run ./cmd/export-sft -out data/biqly-gemma4
 
 seed-adventureworks:
 	@./scripts/fetch-adventureworks.sh

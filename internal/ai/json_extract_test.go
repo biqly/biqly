@@ -33,6 +33,16 @@ func TestTrimToJSONObject_Preamble(t *testing.T) {
 	}
 }
 
+func TestTrimToJSONObject_ReasoningPreamble(t *testing.T) {
+	raw := "## Reasoning\n1. Intent: count orders\n2. Metric: row_count\n\n" +
+		`{"select":[{"type":"metric","name":"row_count"}],"limit":100}`
+	got := TrimToJSONObject(raw)
+	want := `{"select":[{"type":"metric","name":"row_count"}],"limit":100}`
+	if got != want {
+		t.Errorf("TrimToJSONObject() = %q, want %q", got, want)
+	}
+}
+
 func TestCleanAIResponseForJSON_BOM(t *testing.T) {
 	raw := "\ufeff{\"a\": 1}"
 	got := CleanAIResponseForJSON(raw)

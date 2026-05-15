@@ -647,39 +647,6 @@ func TestTableRouter_ColumnEmbeddingsNarrowWideTableButKeepRequiredColumns(t *te
 	}
 }
 
-func TestTableRouter_ColumnEmbeddingsFallbackWhenCoverageIncomplete(t *testing.T) {
-	reader := fakeMetadataReader{
-		tables: []metadata.Table{
-			{DatasourceID: "ds1", SchemaName: "sales", TableName: "salesorderheader", TableType: "BASE TABLE"},
-		},
-	}
-	for i := 0; i < 14; i++ {
-		reader.columns = append(reader.columns, metadata.Column{
-			DatasourceID: "ds1",
-			SchemaName:   "sales",
-			TableName:    "salesorderheader",
-			ColumnName:   "noise_" + strconv.Itoa(i),
-			DataType:     "text",
-		})
-	}
-	columnEmbeddings := []metadata.ColumnEmbedding{
-		{SchemaName: "sales", TableName: "salesorderheader", ColumnName: "noise_1", Model: "fake", Embedding: []float32{1, 0}},
-	}
-	router := NewTableRouterWithEmbeddings(
-		reader,
-		&fakeEmbedder{model: "fake", default_: []float32{1, 0}},
-		&fakeEmbeddingReader{columnEmbeddings: columnEmbeddings},
-		30.0,
-	)
-
-	model, _, err := router.Route(context.Background(), "ds1", "anything", []string{"sales.salesorderheader"}, true, true)
-	if err != nil {
-		t.Fatalf("Route() error = %v, want nil", err)
-	}
-	if !hasDimension(model.Dimensions, "noise_0", "salesorderheader.noise_0") {
-		t.Fatalf("incomplete column embeddings should fall back to unfiltered columns; dims=%v", dimNames(model.Dimensions))
-	}
-}
 
 func testMetadataReader() fakeMetadataReader {
 	return fakeMetadataReader{

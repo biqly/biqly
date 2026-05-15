@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/config"
 )
 
@@ -44,6 +45,11 @@ type aiRuntimeSettingsResponse struct {
 	TranslationAPIKeyDedicated  bool   `json:"translation_api_key_dedicated,omitempty"`
 	TranslationTargetLanguage   string `json:"translation_target_language,omitempty"`
 	TranslationTargetCode       string `json:"translation_target_code,omitempty"`
+
+	MaxPromptInputRunes      int `json:"max_prompt_input_runes,omitempty"`
+	EffectiveMaxPromptRunes  int `json:"effective_max_prompt_runes,omitempty"`
+	ContextWindowTokens      int `json:"context_window_tokens,omitempty"`
+	ContextWindowSource      string `json:"context_window_source,omitempty"`
 }
 
 func effectiveAIBaseURL(cfg config.AIConfig) string {
@@ -93,6 +99,8 @@ func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg := h.deps.Config.AI
+	queryCfg := cfg.EffectiveQueryConfig()
+	profile := ai.LookupModelContextProfile(queryCfg.Model, queryCfg.NumCtx)
 	out := aiRuntimeSettingsResponse{
 		Provider:         cfg.Provider,
 		LLMModel:         cfg.Model,
@@ -100,7 +108,6 @@ func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 		BaseURLEffective: effectiveAIBaseURL(cfg),
 		APIKeyConfigured: strings.TrimSpace(cfg.APIKey) != "",
 	}
-	queryCfg := cfg.EffectiveQueryConfig()
 	out.QueryModelOverride = cfg.HasQueryOverride()
 	out.QueryProvider = queryCfg.Provider
 	out.QueryModel = queryCfg.Model
@@ -111,6 +118,10 @@ func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 	if cfg.QueryHTTPTimeoutSeconds > 0 {
 		out.QueryHTTPTimeoutSeconds = cfg.QueryHTTPTimeoutSeconds
 	}
+	out.MaxPromptInputRunes = queryCfg.MaxPromptInputRunes
+	out.EffectiveMaxPromptRunes = ai.EffectiveMaxPromptRunes(queryCfg, queryCfg.Model)
+	out.ContextWindowTokens = profile.ContextWindowTokens
+	out.ContextWindowSource = profile.Source
 	if cfg.EmbeddingsConfigured() {
 		out.EmbeddingsEnabled = true
 		out.EmbeddingModel = strings.TrimSpace(cfg.EmbeddingModel)

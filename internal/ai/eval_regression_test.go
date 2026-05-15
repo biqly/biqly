@@ -1,0 +1,105 @@
+package ai
+
+import (
+	"context"
+	"testing"
+
+	"github.com/biqly/biqly/internal/config"
+	"github.com/biqly/biqly/internal/query"
+)
+
+func TestResultSetEqualBaseline(t *testing.T) {
+	a := &query.Result{
+		Columns: []query.ResultColumn{{Name: "country"}, {Name: "row_count"}},
+		Rows: [][]any{
+			{"DE", float64(2)},
+			{"TR", float64(2)},
+		},
+	}
+	b := &query.Result{
+		Columns: []query.ResultColumn{{Name: "row_count"}, {Name: "country"}},
+		Rows: [][]any{
+			{float64(2), "TR"},
+			{float64(2), "DE"},
+		},
+	}
+	ok, reason := ResultSetEqual(a, b)
+	if !ok {
+		t.Fatalf("expected equivalent result sets, got: %s", reason)
+	}
+}
+
+func TestExecutionAccuracyGolden(t *testing.T) {
+	exec := MemoryResultExecutor{}
+	ctx := context.Background()
+	for _, c := range DefaultGoldenCases() {
+		expRes, err := exec.Execute(ctx, c.Model, &c.Expected)
+		if err != nil {
+			t.Fatalf("[%s] execute expected: %v", c.ID, err)
+		}
+		ok, reason := ResultSetEqual(expRes, expRes)
+		if !ok {
+			t.Fatalf("[%s] self-compare: %s", c.ID, reason)
+		}
+	}
+}
+
+func TestBenchmarkSuiteSelfConsistent(t *testing.T) {
+	v := query.NewValidator(1000)
+	sv := NewSchemaValidator()
+	for _, c := range BenchmarkCases() {
+		raw, err := marshalLogicalQuery(c.Expected)
+		if err != nil {
+			t.Errorf("[%s] marshal: %v", c.ID, err)
+			continue
+		}
+		if _, err := sv.Validate(raw, c.Model); err != nil {
+			t.Errorf("[%s] schema: %v", c.ID, err)
+		}
+		if err := v.Validate(c.Expected, c.Model); err != nil {
+			t.Errorf("[%s] semantic: %v", c.ID, err)
+		}
+	}
+}
+
+func TestEvalRegressionGate(t *testing.T) {
+	cfg := config.AIConfig{
+		Model:       "stub",
+		MaxTokens:   2048,
+		Temperature: 0,
+		MaxRetries:  0,
+	}
+	svc := NewServiceWithProvider(cfg, query.NewValidator(1000), NewGoldenStubProvider())
+	opts := EvalSuiteOptions{
+		Cases: DefaultGoldenCases(),
+		Modes: EvalModeLogical | EvalModeExecution,
+	}
+	result := RunGoldenSuite(context.Background(), svc, opts)
+	if result.Failed > 0 {
+		for _, c := range result.Cases {
+			if !c.Pass(opts) {
+				t.Errorf("[%s] failed: logical=%v (%s) exec=%v (%s)",
+					c.Case.ID, c.LogicalMatch, c.LogicalReason, c.ExecutionMatch, c.ExecutionReason)
+			}
+		}
+		t.Fatalf("regression gate: %d/%d failed", result.Failed, result.Total)
+	}
+}
+
+func TestBenchmarkSuiteRegressionGate(t *testing.T) {
+	cfg := config.AIConfig{
+		Model:       "stub",
+		MaxTokens:   2048,
+		Temperature: 0,
+		MaxRetries:  0,
+	}
+	svc := NewServiceWithProvider(cfg, query.NewValidator(1000), NewGoldenStubProviderForCases(BenchmarkCases()))
+	opts := EvalSuiteOptions{
+		Cases: BenchmarkCases(),
+		Modes: EvalModeLogical | EvalModeExecution,
+	}
+	result := RunGoldenSuite(context.Background(), svc, opts)
+	if result.PassRate < 1.0 {
+		t.Fatalf("benchmark gate: pass_rate=%.2f (%d/%d)", result.PassRate, result.Passed, result.Total)
+	}
+}

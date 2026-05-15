@@ -115,6 +115,12 @@ func TestProcessQuestionRetriesOnInvalidJSON(t *testing.T) {
 	if resp.Confidence <= 0 || resp.Confidence >= 0.9 {
 		t.Errorf("expected reduced (but non-zero) confidence after 1 retry, got %v", resp.Confidence)
 	}
+	if resp.PromptStats == nil || resp.TokenUsage == nil {
+		t.Fatalf("expected prompt_stats and token_usage on success, got stats=%v usage=%v", resp.PromptStats, resp.TokenUsage)
+	}
+	if resp.TokenUsage.Total <= 0 {
+		t.Fatalf("expected positive token estimate, got %+v", resp.TokenUsage)
+	}
 }
 
 func TestProcessQuestionRetriesOnSQLDryRunFailure(t *testing.T) {

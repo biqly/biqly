@@ -15,8 +15,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// --- Wire types (match frontend Evaluation.tsx) ---
-
 type evalTestCaseWire struct {
 	ID                   string                 `json:"id"`
 	Question             string                 `json:"question"`
@@ -25,16 +23,25 @@ type evalTestCaseWire struct {
 	GotLogicalQuery      map[string]interface{} `json:"got_logical_query"`
 	Confidence           *float64               `json:"confidence,omitempty"`
 	ErrorMessage         string                 `json:"error_message,omitempty"`
+	LogicalMatch         *bool                  `json:"logical_match,omitempty"`
+	ExecutionMatch       *bool                  `json:"execution_match,omitempty"`
+	JudgeMatch           *bool                  `json:"judge_match,omitempty"`
+	JudgeRationale       string                 `json:"judge_rationale,omitempty"`
 }
 
 type evalRunResponseWire struct {
-	Total         int                `json:"total"`
-	Passed        int                `json:"passed"`
-	Failed        int                `json:"failed"`
-	PassRate      float64            `json:"pass_rate"`
-	AvgConfidence float64            `json:"avg_confidence"`
-	TestCases     []evalTestCaseWire `json:"test_cases"`
-	AccuracyTrend []evalTrendPoint   `json:"accuracy_trend,omitempty"`
+	Total           int                `json:"total"`
+	Passed          int                `json:"passed"`
+	Failed          int                `json:"failed"`
+	PassRate        float64            `json:"pass_rate"`
+	AvgConfidence   float64            `json:"avg_confidence"`
+	LogicalPassed   int                `json:"logical_passed"`
+	ExecutionPassed int                `json:"execution_passed"`
+	JudgePassed     int                `json:"judge_passed"`
+	Suite           string             `json:"suite,omitempty"`
+	Modes           string             `json:"modes,omitempty"`
+	TestCases       []evalTestCaseWire `json:"test_cases"`
+	AccuracyTrend   []evalTrendPoint   `json:"accuracy_trend,omitempty"`
 }
 
 type evalTrendPoint struct {
@@ -65,104 +72,120 @@ func (h *AIHandler) evalAIConfigured() error {
 	return nil
 }
 
-// executeGoldenCases runs each golden case once and returns aggregated results.
-func (h *AIHandler) executeGoldenCases(ctx context.Context) (*evalRunResponseWire, error) {
-	result, _, err := h.executeGoldenCasesWithMetrics(ctx)
-	return result, err
+func evalModesFromRequest(r *http.Request) (ai.EvalMode, string, string, []ai.GoldenCase) {
+	modes := ai.EvalModeLogical | ai.EvalModeExecution
+	parts := []string{"logical", "execution"}
+
+	if r.URL.Query().Get("judge") == "1" || strings.Contains(r.URL.Query().Get("modes"), "judge") {
+		modes |= ai.EvalModeJudge
+		parts = append(parts, "judge")
+	}
+	if r.URL.Query().Get("logical") == "0" {
+		modes &^= ai.EvalModeLogical
+		parts = removeMode(parts, "logical")
+	}
+	if r.URL.Query().Get("execution") == "0" {
+		modes &^= ai.EvalModeExecution
+		parts = removeMode(parts, "execution")
+	}
+
+	var cases []ai.GoldenCase
+	suiteName := "golden"
+	switch strings.TrimSpace(r.URL.Query().Get("suite")) {
+	case "benchmark", ai.BenchmarkSuiteName:
+		cases = ai.BenchmarkCases()
+		suiteName = ai.BenchmarkSuiteName
+	default:
+		cases = ai.DefaultGoldenCases()
+	}
+	return modes, suiteName, suiteName + ":" + strings.Join(parts, ","), cases
 }
 
-// executeGoldenCasesWithMetrics runs each golden case once and returns both the
-// wire response and per-case metrics for persistence.
-func (h *AIHandler) executeGoldenCasesWithMetrics(ctx context.Context) (*evalRunResponseWire, []ai.EvalResultWithMetrics, error) {
+func removeMode(parts []string, mode string) []string {
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p != mode {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func (h *AIHandler) executeGoldenCasesWithMetrics(ctx context.Context, r *http.Request) (*evalRunResponseWire, []ai.EvalResultWithMetrics, error) {
 	if err := h.evalAIConfigured(); err != nil {
 		return nil, nil, err
 	}
 
-	cases := ai.DefaultGoldenCases()
-	out := make([]evalTestCaseWire, 0, len(cases))
-	metrics := make([]ai.EvalResultWithMetrics, 0, len(cases))
-	var confSum float64
-	var confN int
-	passed := 0
+	modes, suiteName, modesLabel, cases := evalModesFromRequest(r)
+	opts := ai.EvalSuiteOptions{
+		Cases: cases,
+		Modes: modes,
+	}
+	if modes&ai.EvalModeJudge != 0 {
+		opts.Judge = h.service.LLMProvider()
+	}
 
-	for _, c := range cases {
+	result := ai.RunGoldenSuite(ctx, h.service, opts)
+	wire := suiteResultToWire(result, opts, suiteName, modesLabel)
+	return wire, result.ToEvalResultsWithMetrics(), nil
+}
+
+func suiteResultToWire(result *ai.EvalSuiteResult, opts ai.EvalSuiteOptions, suiteName, modesLabel string) *evalRunResponseWire {
+	out := make([]evalTestCaseWire, 0, len(result.Cases))
+	for _, c := range result.Cases {
 		tc := evalTestCaseWire{
-			ID:                   c.ID,
-			Question:             c.Question,
-			ExpectedLogicalQuery: logicalQueryToMap(&c.Expected),
-			GotLogicalQuery:      map[string]interface{}{},
+			ID:                   c.Case.ID,
+			Question:             c.Case.Question,
+			ExpectedLogicalQuery: logicalQueryToMap(&c.Case.Expected),
+			GotLogicalQuery:      logicalQueryToMap(c.Got),
 			Status:               "fail",
 		}
-
-		start := time.Now()
-		resp, err := h.service.ProcessQuestion(ctx, c.Question, c.Model)
-		latencyMs := time.Since(start).Milliseconds()
-
-		if err != nil {
-			tc.ErrorMessage = err.Error()
-			out = append(out, tc)
-			metrics = append(metrics, ai.EvalResultWithMetrics{
-				EvalResult: ai.EvalResult{Case: c, Got: nil, Match: false, Reason: err.Error()},
-				LatencyMs:  latencyMs,
-			})
-			continue
+		if c.Err != nil {
+			tc.ErrorMessage = c.Err.Error()
+		} else if !c.Pass(opts) {
+			tc.ErrorMessage = firstNonEmpty(c.LogicalReason, c.ExecutionReason, c.JudgeReason)
 		}
-		if resp.LogicalQuery != nil {
-			tc.GotLogicalQuery = logicalQueryToMap(resp.LogicalQuery)
-		}
-		if resp.Confidence > 0 {
-			cf := resp.Confidence
+		if c.Confidence > 0 {
+			cf := c.Confidence
 			tc.Confidence = &cf
-			confSum += resp.Confidence
-			confN++
 		}
-
-		ok, reason := ai.LogicalQueryEqual(resp.LogicalQuery, &c.Expected)
-		tokenCount := 0 // would need LLM client to provide this
-		if ok {
+		lm, em, jm := c.LogicalMatch, c.ExecutionMatch, c.JudgeMatch
+		tc.LogicalMatch = &lm
+		tc.ExecutionMatch = &em
+		if opts.Modes&ai.EvalModeJudge != 0 && opts.Judge != nil {
+			tc.JudgeMatch = &jm
+			tc.JudgeRationale = c.JudgeReason
+		}
+		if c.Pass(opts) {
 			tc.Status = "pass"
-			passed++
-			metrics = append(metrics, ai.EvalResultWithMetrics{
-				EvalResult: ai.EvalResult{Case: c, Got: resp.LogicalQuery, Match: true},
-				Confidence: resp.Confidence,
-				LatencyMs:  latencyMs,
-				TokenCount: tokenCount,
-			})
-		} else {
-			tc.ErrorMessage = reason
-			metrics = append(metrics, ai.EvalResultWithMetrics{
-				EvalResult: ai.EvalResult{Case: c, Got: resp.LogicalQuery, Match: false, Reason: reason},
-				Confidence: resp.Confidence,
-				LatencyMs:  latencyMs,
-				TokenCount: tokenCount,
-			})
 		}
 		out = append(out, tc)
 	}
 
-	total := len(out)
-	failed := total - passed
-	passRate := 0.0
-	if total > 0 {
-		passRate = float64(passed) / float64(total)
-	}
-	avgConf := 0.0
-	if confN > 0 {
-		avgConf = confSum / float64(confN)
-	}
-
 	return &evalRunResponseWire{
-		Total:         total,
-		Passed:        passed,
-		Failed:        failed,
-		PassRate:      passRate,
-		AvgConfidence: avgConf,
-		TestCases:     out,
-	}, metrics, nil
+		Total:           result.Total,
+		Passed:          result.Passed,
+		Failed:          result.Failed,
+		PassRate:        result.PassRate,
+		AvgConfidence:   result.AvgConfidence,
+		LogicalPassed:   result.LogicalPassed,
+		ExecutionPassed: result.ExecutionPassed,
+		JudgePassed:     result.JudgePassed,
+		Suite:           suiteName,
+		Modes:           modesLabel,
+		TestCases:       out,
+	}
 }
 
-// EvalRun executes the built-in golden text-to-SQL cases against the live
-// configured LLM. Requires BI_AI_API_KEY and BI_AI_MODEL.
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 func (h *AIHandler) EvalRun(w http.ResponseWriter, r *http.Request) {
 	if !h.requireAdminKey(w, r) {
 		return
@@ -172,13 +195,12 @@ func (h *AIHandler) EvalRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, resultsWithMetrics, err := h.executeGoldenCasesWithMetrics(r.Context())
+	result, resultsWithMetrics, err := h.executeGoldenCasesWithMetrics(r.Context(), r)
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
 
-	// Persist results if eval repo is available
 	if h.deps.EvalRepo != nil {
 		runID := uuid.New().String()
 		ctx := r.Context()
@@ -197,8 +219,6 @@ func (h *AIHandler) EvalRun(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
-// EvalRunStream runs the same golden set and streams one-line SSE progress
-// events, then sends data: [DONE] so clients can close the stream.
 func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) {
 	if !h.requireAdminKey(w, r) {
 		return
@@ -226,8 +246,7 @@ func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) {
 
 	send := func(line string) {
 		safe := strings.ReplaceAll(strings.ReplaceAll(line, "\r", " "), "\n", " ")
-		_, err := fmt.Fprintf(w, "data: %s\n\n", safe)
-		if err != nil {
+		if _, err := fmt.Fprintf(w, "data: %s\n\n", safe); err != nil {
 			slog.Error("eval stream write", "error", err)
 			return
 		}
@@ -235,12 +254,22 @@ func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	cases := ai.DefaultGoldenCases()
-	send(fmt.Sprintf("Starting golden eval (%d cases)…", len(cases)))
+	modes, _, modesLabel, cases := evalModesFromRequest(r)
+	opts := ai.EvalSuiteOptions{Cases: cases, Modes: modes}
+	if modes&ai.EvalModeJudge != 0 {
+		opts.Judge = h.service.LLMProvider()
+	}
+	exec := ai.MemoryResultExecutor{}
 
-	passed := 0
+	send(fmt.Sprintf("Starting eval (%d cases, modes=%s)…", len(cases), modesLabel))
+
+	passed, logicalPassed, execPassed, judgePassed := 0, 0, 0, 0
 
 	for i, c := range cases {
+		if ctx.Err() != nil {
+			send("Cancelled.")
+			return
+		}
 		send(fmt.Sprintf("[%d/%d] %s — %s", i+1, len(cases), c.ID, c.Question))
 
 		resp, err := h.service.ProcessQuestion(ctx, c.Question, c.Model)
@@ -249,12 +278,48 @@ func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		ok, reason := ai.LogicalQueryEqual(resp.LogicalQuery, &c.Expected)
-		if ok {
-			passed++
-			send(fmt.Sprintf("[%d/%d] PASS confidence=%.2f", i+1, len(cases), resp.Confidence))
+		cr := ai.EvalCaseResult{Case: c, Got: resp.LogicalQuery, Confidence: resp.Confidence}
+		if modes&ai.EvalModeLogical != 0 {
+			cr.LogicalMatch, cr.LogicalReason = ai.LogicalQueryEqual(resp.LogicalQuery, &c.Expected)
+			if cr.LogicalMatch {
+				logicalPassed++
+			}
 		} else {
-			send(fmt.Sprintf("[%d/%d] FAIL: %s", i+1, len(cases), reason))
+			cr.LogicalMatch = true
+			logicalPassed++
+		}
+		if modes&ai.EvalModeExecution != 0 {
+			cr.ExecutionMatch, cr.ExecutionReason = ai.CompareExecutionResults(ctx, exec, c.Model, &c.Expected, resp.LogicalQuery)
+			if cr.ExecutionMatch {
+				execPassed++
+			}
+		} else {
+			cr.ExecutionMatch = true
+			execPassed++
+		}
+		if modes&ai.EvalModeJudge != 0 && opts.Judge != nil {
+			ok, rationale, jerr := ai.JudgeLogicalQuery(ctx, opts.Judge, c.Question, c.Model, &c.Expected, resp.LogicalQuery)
+			if jerr != nil {
+				cr.JudgeMatch = false
+				cr.JudgeReason = jerr.Error()
+			} else {
+				cr.JudgeMatch = ok
+				cr.JudgeReason = rationale
+				if ok {
+					judgePassed++
+				}
+			}
+		} else {
+			cr.JudgeMatch = true
+			judgePassed++
+		}
+
+		if cr.Pass(opts) {
+			passed++
+			send(fmt.Sprintf("[%d/%d] PASS logical=%v exec=%v judge=%v conf=%.2f",
+				i+1, len(cases), cr.LogicalMatch, cr.ExecutionMatch, cr.JudgeMatch, resp.Confidence))
+		} else {
+			send(fmt.Sprintf("[%d/%d] FAIL: %s", i+1, len(cases), firstNonEmpty(cr.LogicalReason, cr.ExecutionReason, cr.JudgeReason)))
 		}
 	}
 
@@ -263,7 +328,8 @@ func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) {
 	if total > 0 {
 		passRate = float64(passed) / float64(total)
 	}
-	send(fmt.Sprintf("Summary: %d/%d passed (%.0f%%)", passed, total, passRate*100))
+	send(fmt.Sprintf("Summary: %d/%d passed (%.0f%%) logical=%d exec=%d judge=%d",
+		passed, total, passRate*100, logicalPassed, execPassed, judgePassed))
 	send("[DONE]")
 }
 
@@ -273,16 +339,25 @@ func (h *AIHandler) requireAdminKey(w http.ResponseWriter, r *http.Request) bool
 		writeError(w, http.StatusForbidden, "eval endpoints require BI_ADMIN_API_KEY to be configured")
 		return false
 	}
-	authHeader := r.Header.Get("Authorization")
-	token := strings.TrimPrefix(authHeader, "Bearer ")
-	if token != adminKey {
+	token := adminKeyFromRequest(r)
+	if token == "" || token != adminKey {
 		writeError(w, http.StatusUnauthorized, "invalid or missing admin API key")
 		return false
 	}
 	return true
 }
 
-// EvalListRuns returns a list of past eval runs.
+func adminKeyFromRequest(r *http.Request) string {
+	if k := strings.TrimSpace(r.Header.Get("X-Admin-Key")); k != "" {
+		return k
+	}
+	authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
+	if strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
+		return strings.TrimSpace(authHeader[7:])
+	}
+	return authHeader
+}
+
 func (h *AIHandler) EvalListRuns(w http.ResponseWriter, r *http.Request) {
 	if !h.requireAdminKey(w, r) {
 		return
@@ -301,7 +376,6 @@ func (h *AIHandler) EvalListRuns(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, runs)
 }
 
-// EvalGetRun returns results for a specific eval run.
 func (h *AIHandler) EvalGetRun(w http.ResponseWriter, r *http.Request) {
 	if !h.requireAdminKey(w, r) {
 		return
@@ -359,7 +433,6 @@ func (h *AIHandler) EvalGetRun(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// EvalRegression generates a regression report between two eval runs.
 func (h *AIHandler) EvalRegression(w http.ResponseWriter, r *http.Request) {
 	if !h.requireAdminKey(w, r) {
 		return

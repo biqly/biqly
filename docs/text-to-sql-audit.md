@@ -59,8 +59,8 @@ Mevcut `TableRouter` keyword + (yapılandırıldıysa) önceden hesaplanmış ta
 
 - [x] **Vector embedding tablo seçimi**: `POST /api/ai/metadata/embed`, `EmbeddingReader` + cosine benzerliği
 - [x] **Türkçe metadata açıklamaları**: AI Describe varsayılan olarak Türkçe iş açıklaması üretir; teknik tablo/kolon adlarını açıklamada koruyarak schema ile köprü kurar
-- [ ] **Column-level retrieval**: Kolonlar öncelik + kota ile budanıyor; soruya göre semantik kolon alt kümesi seçimi henüz yok
-- [ ] **Schema partitioning**: Tablo kapsamı UI ile manuel daraltma var; otomatik şema kümeleme yok
+- [x] **Column-level retrieval**: Geniş tablolarda soru anahtar kelimeleri + kolon embedding benzerliği birleşik skorla kolon alt kümesi seçilir (`column_retrieval.go`); tam embedding kapsamı şartı kaldırıldı
+- [x] **Schema partitioning**: Çok şemalı datasource’larda otomatik şema kümeleme — soru skoruna göre en ilgili 1–2 şema (`schema_partition.go`, `TableRoutingDebug.schema_partitions`)
 - [x] **Sample data in prompt**: `POST /api/ai/query/run` yolunda `WithSampleData` (`/ai/query` ve `/ai/query/preview` örnek satır içermez)
 - [x] **Query history as context**: Few-shot + `include_past_queries` / `example_ids`
 
@@ -74,21 +74,21 @@ Mevcut `TableRouter` keyword + (yapılandırıldıysa) önceden hesaplanmış ta
 
 - [x] **Dynamic few-shot selection**: Geçmiş / kayıtlı örnekler `loadFewShotExamples*` ile prompt’a
 - [x] **Curated example library**: `GET/POST/DELETE /api/ai/examples` + UI `FewShotExamples`
-- [ ] **Dialect-specific examples**: Çıktı LogicalQuery; derleyici dialect üstleniyor — prompt’ta dialect’e özel SQL örnekleri yok
-- [ ] **Failure examples**: Prompt’ta “bunu yapma” örnek seti yok
+- [x] **Dialect-specific examples**: `PromptBuilder` dialect rehberi — aynı LogicalQuery’nin postgres/mysql/sqlserver/clickhouse derlemesi; `WithTargetDialect` handler’lardan
+- [x] **Failure examples**: `## Examples — Common Mistakes` — SQL üretme, uydurma alan, having/filters, grain filtreleri vb.
 
 ### 3.2 Prompt Structure
 
-- [ ] **Chain-of-thought prompting**: Açık adım adım “önce tablolar…” zinciri yok; kurallar uzun metin olarak var
+- [x] **Chain-of-thought prompting**: `## Planning Steps` (8 adım: niyet → tablo/join → metric → dimension → filter/group_by → having/window → order/limit → JSON); isteğe bağlı `## Reasoning` öneki + `stripReasoningPreamble` ile parse
 - [x] **Structured output instruction**: JSON-only ve şema kuralları prompt’ta
-- [ ] **Business glossary section**: Harici sözlük / RAG yok
+- [x] **Business glossary section**: `## Business Glossary` prompt bölümü; katalog eşanlamlıları + `business_glossary_terms` (CRUD `/api/ai/glossary`); soru token eşleşmesi ile seçim — tam vektör RAG henüz yok (P3)
 - [x] **Date/time relative reference handling**: Tarih grain, ISO filtre, `having`/window talimatları prompt’ta
 
 ### 3.3 Prompt Size Management
 
-- [ ] **Progressive context loading**: Retry’da otomatik genişletme yok
-- [ ] **Token counting**: Yaklaşık token log’u yok (yalnızca rune kotası `maxPromptRunes`)
-- [ ] **Context window adaptation**: Model kartına göre dinamik bütçe yok
+- [x] **Progressive context loading**: Retry’da context tier yükselir (compact → standard → expanded): prompt rune bütçesi ×1.35/×1.75, daha fazla few-shot / prior turn / glossary; tam prompt `BuildRetry` ile yeniden kurulur
+- [x] **Token counting**: `EstimateTokens` (~4 char/token); `slog` + API `prompt_stats` / `token_usage` (tahmini prompt+completion)
+- [x] **Context window adaptation**: Model registry + `BI_AI_NUM_CTX` + `EffectiveMaxPromptRunes`; `/api/ai/settings` exposes `context_window_tokens`, `effective_max_prompt_runes`
 
 ---
 
@@ -97,17 +97,17 @@ Mevcut `TableRouter` keyword + (yapılandırıldıysa) önceden hesaplanmış ta
 ### 4.1 Evaluation Framework
 
 - [x] **Golden dataset**: `DefaultGoldenCases()` + `LogicalQueryEqual` + testler; büyük (50–100) set henüz yok
-- [ ] **Execution accuracy test**: Golden set yalnızca LogicalQuery eşleşmesi; üretilen SQL’in sonuç kümesi karşılaştırması yok
-- [ ] **LLM-as-a-judge**: Yok
-- [ ] **Benchmark suite**: İç BIRD-benzeri tam pipeline benchmark yok
-- [ ] **Regression testing**: Prompt değişiminde zorunlu eval gate (CI) yok; `BI_AI_GOLDEN_EVAL=1` ile isteğe bağlı live test var
+- [x] **Execution accuracy test**: `ResultSetEqual` + `MemoryResultExecutor`; eval runner `EvalModeExecution`; HTTP eval varsayılan logical+execution
+- [x] **LLM-as-a-judge**: `JudgeLogicalQuery` + `EvalModeJudge`; `POST /api/ai/eval/run?judge=1`
+- [x] **Benchmark suite**: `BenchmarkCases()` (`biqly-benchmark-v1`); `?suite=benchmark`; stub regression testi
+- [x] **Regression testing**: CI + `make eval-regression` stub gate; canlı LLM için `BI_AI_GOLDEN_EVAL=1` ayrı
 
 ### 4.2 Metrics
 
 - [x] **Exact match accuracy**: Eval UI / `POST /api/ai/eval/run` pass_rate
-- [ ] **Execution accuracy**: Yok
-- [ ] **Failure rate**: Merkezi metrik panosu yok
-- [ ] **Average retry count**: Log/telemetri yok
+- [x] **Execution accuracy**: Eval runner execution pass rate; in-memory golden executor
+- [x] **Failure rate**: `outcome_status` + `GetAIMetricsDashboard`; dashboard KPI; Prometheus `bi_ai_failure_rate`
+- [x] **Average retry count**: `retry_count` persist + structured log; dashboard + Prometheus `bi_ai_avg_retry_count`
 - [x] **User satisfaction tracking**: `POST /api/ai/feedback` (basit)
 
 ---
@@ -203,7 +203,7 @@ Mevcut `TableRouter` keyword + (yapılandırıldıysa) önceden hesaplanmış ta
 
 13. [ ] LLM-as-a-judge evaluation
 14. [ ] Model routing (basit → ucuz, karmaşık → güçlü)
-15. [ ] RAG integration for business glossary
+15. [ ] RAG integration for business glossary *(v1: keyword retrieval + harici tablo tamam; embedding RAG açık)*
 16. [x] Streaming responses *(golden eval SSE; ana sorgu akışı hâlâ JSON)*
 
 ---

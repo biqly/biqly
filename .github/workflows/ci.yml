@@ -31,6 +31,10 @@ jobs:
       - name: Test (race detector + coverage)
         run: go test -race -coverprofile=coverage.out ./...
 
+      - name: AI eval regression gate (stub, no LLM)
+        run: |
+          go test ./internal/ai/ -run 'TestGoldenSeedSelfConsistent|TestLogicalQueryEqualBaseline|TestResultSetEqualBaseline|TestExecutionAccuracyGolden|TestEvalRegressionGate|TestBenchmarkSuiteRegressionGate|TestBenchmarkSuiteSelfConsistent' -count=1
+
       - name: Build all cmd targets
         run: |
           for dir in cmd/*/; do
