@@ -62,22 +62,13 @@ func (r *Repository) ListModels(ctx context.Context, datasourceID string) ([]Sem
 	}
 	query += " ORDER BY created_at DESC"
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	ptrs, err := platformdb.QuerySliceErr(ctx, r.db, "list models", query, args, r.scanModel)
 	if err != nil {
-		return nil, fmt.Errorf("list models: %w", err)
+		return nil, err
 	}
-	defer func() { _ = rows.Close() }()
-
-	models := make([]SemanticModel, 0)
-	for rows.Next() {
-		m, err := r.scanModel(rows)
-		if err != nil {
-			return nil, fmt.Errorf("list models: %w", err)
-		}
-		models = append(models, *m)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("list models: %w", err)
+	models := make([]SemanticModel, len(ptrs))
+	for i, m := range ptrs {
+		models[i] = *m
 	}
 	return models, nil
 }
@@ -123,24 +114,26 @@ func (r *Repository) CreateDimension(ctx context.Context, d *Dimension) error {
 // GetDimensions returns all active dimensions for a model.
 func (r *Repository) GetDimensions(ctx context.Context, modelID string) ([]Dimension, error) {
 	query := `SELECT id::text, model_id::text, name, label, column_ref, type, synonyms, description, is_active, created_at FROM semantic_dimensions WHERE model_id::text = $1 AND is_active = true ORDER BY name`
-	rows, err := r.db.QueryContext(ctx, query, modelID)
-	if err != nil {
-		return nil, fmt.Errorf("get dimensions: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
+	return platformdb.QuerySliceErr(ctx, r.db, "get dimensions", query, []any{modelID}, scanDimension)
+}
 
-	dims := make([]Dimension, 0)
-	for rows.Next() {
-		var d Dimension
-		if err := rows.Scan(&d.ID, &d.ModelID, &d.Name, &d.Label, &d.ColumnRef, &d.Type, &nullStringArray{s: &d.Synonyms}, &d.Description, &d.IsActive, &d.CreatedAt); err != nil {
-			return nil, fmt.Errorf("get dimensions scan: %w", err)
-		}
-		dims = append(dims, d)
+// DeleteDimension soft-deletes a dimension by setting is_active = false.
+func (r *Repository) DeleteDimension(ctx context.Context, modelID, dimensionID string) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE semantic_dimensions SET is_active = false WHERE id::text = $1 AND model_id::text = $2`, dimensionID, modelID)
+	if err != nil {
+		return fmt.Errorf("delete dimension: %w", err)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("get dimensions: %w", err)
+	return r.MarkModelDraft(ctx, modelID)
+}
+
+// UpdateDimension updates an existing dimension.
+func (r *Repository) UpdateDimension(ctx context.Context, d *Dimension) error {
+	query := `UPDATE semantic_dimensions SET name = $2, label = $3, column_ref = $4, type = $5, synonyms = $6, description = $7, is_active = $8 WHERE id::text = $1 AND model_id::text = $9`
+	_, err := r.db.ExecContext(ctx, query, d.ID, d.Name, d.Label, d.ColumnRef, d.Type, d.Synonyms, d.Description, d.IsActive, d.ModelID)
+	if err != nil {
+		return fmt.Errorf("update dimension: %w", err)
 	}
-	return dims, nil
+	return r.MarkModelDraft(ctx, d.ModelID)
 }
 
 // Metric operations
@@ -160,24 +153,26 @@ func (r *Repository) CreateMetric(ctx context.Context, m *Metric) error {
 // GetMetrics returns all active metrics for a model.
 func (r *Repository) GetMetrics(ctx context.Context, modelID string) ([]Metric, error) {
 	query := `SELECT id::text, model_id::text, name, label, expression, aggregation, format, synonyms, description, is_active, created_at FROM semantic_metrics WHERE model_id::text = $1 AND is_active = true ORDER BY name`
-	rows, err := r.db.QueryContext(ctx, query, modelID)
-	if err != nil {
-		return nil, fmt.Errorf("get metrics: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
+	return platformdb.QuerySliceErr(ctx, r.db, "get metrics", query, []any{modelID}, scanMetric)
+}
 
-	metrics := make([]Metric, 0)
-	for rows.Next() {
-		var m Metric
-		if err := rows.Scan(&m.ID, &m.ModelID, &m.Name, &m.Label, &m.Expression, &m.Aggregation, &m.Format, &nullStringArray{s: &m.Synonyms}, &m.Description, &m.IsActive, &m.CreatedAt); err != nil {
-			return nil, fmt.Errorf("get metrics scan: %w", err)
-		}
-		metrics = append(metrics, m)
+// DeleteMetric soft-deletes a metric by setting is_active = false.
+func (r *Repository) DeleteMetric(ctx context.Context, modelID, metricID string) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE semantic_metrics SET is_active = false WHERE id::text = $1 AND model_id::text = $2`, metricID, modelID)
+	if err != nil {
+		return fmt.Errorf("delete metric: %w", err)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("get metrics: %w", err)
+	return r.MarkModelDraft(ctx, modelID)
+}
+
+// UpdateMetric updates an existing metric.
+func (r *Repository) UpdateMetric(ctx context.Context, m *Metric) error {
+	query := `UPDATE semantic_metrics SET name = $2, label = $3, expression = $4, aggregation = $5, format = $6, synonyms = $7, description = $8, is_active = $9 WHERE id::text = $1 AND model_id::text = $10`
+	_, err := r.db.ExecContext(ctx, query, m.ID, m.Name, m.Label, m.Expression, m.Aggregation, m.Format, m.Synonyms, m.Description, m.IsActive, m.ModelID)
+	if err != nil {
+		return fmt.Errorf("update metric: %w", err)
 	}
-	return metrics, nil
+	return r.MarkModelDraft(ctx, m.ModelID)
 }
 
 // Join operations
@@ -197,24 +192,26 @@ func (r *Repository) CreateJoin(ctx context.Context, j *Join) error {
 // GetJoins returns all active joins for a model.
 func (r *Repository) GetJoins(ctx context.Context, modelID string) ([]Join, error) {
 	query := `SELECT id::text, model_id::text, name, from_schema, from_table, from_column, to_schema, to_table, to_column, join_type, relationship, is_active, created_at FROM semantic_joins WHERE model_id::text = $1 AND is_active = true ORDER BY name`
-	rows, err := r.db.QueryContext(ctx, query, modelID)
-	if err != nil {
-		return nil, fmt.Errorf("get joins: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
+	return platformdb.QuerySliceErr(ctx, r.db, "get joins", query, []any{modelID}, scanJoin)
+}
 
-	joins := make([]Join, 0)
-	for rows.Next() {
-		var j Join
-		if err := rows.Scan(&j.ID, &j.ModelID, &j.Name, &j.FromSchema, &j.FromTable, &j.FromColumn, &j.ToSchema, &j.ToTable, &j.ToColumn, &j.JoinType, &j.Relationship, &j.IsActive, &j.CreatedAt); err != nil {
-			return nil, fmt.Errorf("get joins scan: %w", err)
-		}
-		joins = append(joins, j)
+// DeleteJoin soft-deletes a join by setting is_active = false.
+func (r *Repository) DeleteJoin(ctx context.Context, modelID, joinID string) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE semantic_joins SET is_active = false WHERE id::text = $1 AND model_id::text = $2`, joinID, modelID)
+	if err != nil {
+		return fmt.Errorf("delete join: %w", err)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("get joins: %w", err)
+	return r.MarkModelDraft(ctx, modelID)
+}
+
+// UpdateJoin updates an existing join.
+func (r *Repository) UpdateJoin(ctx context.Context, j *Join) error {
+	query := `UPDATE semantic_joins SET name = $2, from_schema = $3, from_table = $4, from_column = $5, to_schema = $6, to_table = $7, to_column = $8, join_type = $9, relationship = $10, is_active = $11 WHERE id::text = $1 AND model_id::text = $12`
+	_, err := r.db.ExecContext(ctx, query, j.ID, j.Name, j.FromSchema, j.FromTable, j.FromColumn, j.ToSchema, j.ToTable, j.ToColumn, j.JoinType, j.Relationship, j.IsActive, j.ModelID)
+	if err != nil {
+		return fmt.Errorf("update join: %w", err)
 	}
-	return joins, nil
+	return r.MarkModelDraft(ctx, j.ModelID)
 }
 
 // GetFullModel retrieves a model with its dimensions, metrics, and joins.
@@ -315,25 +312,8 @@ func (r *Repository) PublishModel(ctx context.Context, id, publishedBy string, c
 	if err != nil {
 		return nil, fmt.Errorf("publish model marshal validation: %w", err)
 	}
-	if _, errExec := tx.ExecContext(ctx, `
-		INSERT INTO semantic_context_snapshots (model_id, version, context, validation_result, created_by)
-		VALUES ($1, $2, $3::jsonb, $4::jsonb, NULLIF($5, ''))
-	`, model.ID, nextVersion, payload, validationPayload, publishedBy); errExec != nil {
-		return nil, fmt.Errorf("publish model insert snapshot: %w", errExec)
-	}
-	if _, errExec := tx.ExecContext(ctx, `
-		UPDATE semantic_models
-		SET status = 'published',
-		    version = $2,
-		    published_at = now(),
-		    published_by = NULLIF($3, ''),
-		    updated_at = now()
-		WHERE id::text = $1
-	`, model.ID, nextVersion, publishedBy); errExec != nil {
-		return nil, fmt.Errorf("publish model update: %w", errExec)
-	}
-	if errCommit := tx.Commit(); errCommit != nil {
-		return nil, fmt.Errorf("publish model commit: %w", errCommit)
+	if err := r.commitPublishedVersionTx(ctx, tx, model.ID, nextVersion, payload, validationPayload, publishedBy); err != nil {
+		return nil, fmt.Errorf("publish model: %w", err)
 	}
 	published, err := r.GetPublishedFullModel(ctx, model.ID)
 	if err != nil {
@@ -378,13 +358,31 @@ func (r *Repository) RollbackModel(ctx context.Context, id string, targetVersion
 		return nil, fmt.Errorf("rollback model begin tx: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
-	if _, errExec := tx.ExecContext(ctx, `
+	if err := r.commitPublishedVersionTx(ctx, tx, current.ID, nextVersion, payload, validationPayload, publishedBy); err != nil {
+		return nil, fmt.Errorf("rollback model: %w", err)
+	}
+	published, err := r.GetPublishedFullModel(ctx, current.ID)
+	if err != nil {
+		return nil, fmt.Errorf("rollback model reload: %w", err)
+	}
+	return &PublishResult{Model: published, Validation: validation, Version: nextVersion}, nil
+}
+
+func (r *Repository) commitPublishedVersionTx(
+	ctx context.Context,
+	tx *sql.Tx,
+	modelID string,
+	version int,
+	contextPayload, validationPayload []byte,
+	publishedBy string,
+) error {
+	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO semantic_context_snapshots (model_id, version, context, validation_result, created_by)
 		VALUES ($1, $2, $3::jsonb, $4::jsonb, NULLIF($5, ''))
-	`, current.ID, nextVersion, payload, validationPayload, publishedBy); errExec != nil {
-		return nil, fmt.Errorf("rollback model insert snapshot: %w", errExec)
+	`, modelID, version, contextPayload, validationPayload, publishedBy); err != nil {
+		return fmt.Errorf("insert snapshot: %w", err)
 	}
-	if _, errExec := tx.ExecContext(ctx, `
+	if _, err := tx.ExecContext(ctx, `
 		UPDATE semantic_models
 		SET status = 'published',
 		    version = $2,
@@ -392,17 +390,13 @@ func (r *Repository) RollbackModel(ctx context.Context, id string, targetVersion
 		    published_by = NULLIF($3, ''),
 		    updated_at = now()
 		WHERE id::text = $1
-	`, current.ID, nextVersion, publishedBy); errExec != nil {
-		return nil, fmt.Errorf("rollback model update: %w", errExec)
+	`, modelID, version, publishedBy); err != nil {
+		return fmt.Errorf("update model: %w", err)
 	}
-	if errCommit := tx.Commit(); errCommit != nil {
-		return nil, fmt.Errorf("rollback model commit: %w", errCommit)
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit: %w", err)
 	}
-	published, err := r.GetPublishedFullModel(ctx, current.ID)
-	if err != nil {
-		return nil, fmt.Errorf("rollback model reload: %w", err)
-	}
-	return &PublishResult{Model: published, Validation: validation, Version: nextVersion}, nil
+	return nil
 }
 
 func (r *Repository) MarkModelDraft(ctx context.Context, id string) error {
@@ -459,6 +453,30 @@ func modelSelectSQL() string {
 	return `SELECT id::text, datasource_id::text, name, label, description, base_schema, base_table, synonyms, is_active,
 		status, version, published_at, published_by, draft_updated_at, created_by, created_at, updated_at
 		FROM semantic_models`
+}
+
+func scanDimension(s platformdb.Scanner) (Dimension, error) {
+	var d Dimension
+	if err := s.Scan(&d.ID, &d.ModelID, &d.Name, &d.Label, &d.ColumnRef, &d.Type, &nullStringArray{s: &d.Synonyms}, &d.Description, &d.IsActive, &d.CreatedAt); err != nil {
+		return d, fmt.Errorf("scan dimension: %w", err)
+	}
+	return d, nil
+}
+
+func scanMetric(s platformdb.Scanner) (Metric, error) {
+	var m Metric
+	if err := s.Scan(&m.ID, &m.ModelID, &m.Name, &m.Label, &m.Expression, &m.Aggregation, &m.Format, &nullStringArray{s: &m.Synonyms}, &m.Description, &m.IsActive, &m.CreatedAt); err != nil {
+		return m, fmt.Errorf("scan metric: %w", err)
+	}
+	return m, nil
+}
+
+func scanJoin(s platformdb.Scanner) (Join, error) {
+	var j Join
+	if err := s.Scan(&j.ID, &j.ModelID, &j.Name, &j.FromSchema, &j.FromTable, &j.FromColumn, &j.ToSchema, &j.ToTable, &j.ToColumn, &j.JoinType, &j.Relationship, &j.IsActive, &j.CreatedAt); err != nil {
+		return j, fmt.Errorf("scan join: %w", err)
+	}
+	return j, nil
 }
 
 func (r *Repository) scanModel(s platformdb.Scanner) (*SemanticModel, error) {

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
@@ -228,7 +229,7 @@ func (e *SFTExporter) collectItems(ctx context.Context, opts SFTExportOptions) (
 				continue
 			}
 			add("golden", c.Question, lqBytes, "golden:"+c.ID, func() (string, string, error) {
-				user := e.builder.Build(c.Question, c.Model, opts.MaxPromptRunes, "postgres", nil, nil, nil, nil, nil)
+				user := e.builder.Build(c.Question, c.Model, opts.MaxPromptRunes, i18n.DefaultLocale, "postgres", nil, nil, nil, nil, nil)
 				return user, assistant, nil
 			})
 		}
@@ -265,7 +266,7 @@ func (e *SFTExporter) buildFromDB(
 			dialect = ds.Type
 		}
 	}
-	user := e.builder.Build(question, model, maxPromptRunes, dialect, nil, nil, nil, nil, nil)
+	user := e.builder.Build(question, model, maxPromptRunes, i18n.DefaultLocale, dialect, nil, nil, nil, nil, nil)
 	return user, assistant, nil
 }
 

@@ -1,3 +1,6 @@
+import { useT } from '../../i18n'
+import type { TranslationKey } from '../../i18n'
+
 export type BulkStatus = 'pending' | 'running' | 'ok' | 'error' | 'skipped'
 
 export interface BulkEntry {
@@ -27,22 +30,36 @@ export function sortBulkEntriesForDisplay(entries: BulkEntry[]): BulkEntry[] {
     .map(({ entry }) => entry)
 }
 
-export function BulkStatusBadge({ status }: { status: BulkStatus }) {
-  const map: Record<BulkStatus, { label: string; color: string }> = {
-    pending: { label: 'bekliyor', color: 'var(--text-secondary)' },
-    running: { label: 'çalışıyor', color: '#60a5fa' },
-    ok: { label: 'tamam', color: '#4ade80' },
-    error: { label: 'hata', color: '#f87171' },
-    skipped: { label: 'atlandı', color: 'var(--text-secondary)' },
-  }
-  const s = map[status]
-  return <span style={{ color: s.color, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{s.label}</span>
+const STATUS_KEYS: Record<BulkStatus, TranslationKey> = {
+  pending: 'metadata.bulk_status_pending',
+  running: 'metadata.bulk_status_running',
+  ok: 'metadata.bulk_status_ok',
+  error: 'metadata.bulk_status_error',
+  skipped: 'metadata.bulk_status_skipped',
 }
 
-export function objectTypeLabel(tableType: string): string {
+export function BulkStatusBadge({ status }: { status: BulkStatus }) {
+  const t = useT()
+  const COLOR: Record<BulkStatus, string> = {
+    pending: 'var(--text-secondary)',
+    running: '#60a5fa',
+    ok: '#4ade80',
+    error: '#f87171',
+    skipped: 'var(--text-secondary)',
+  }
+  return (
+    <span style={{ color: COLOR[status], fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+      {t(STATUS_KEYS[status])}
+    </span>
+  )
+}
+
+type TFn = ReturnType<typeof useT>
+
+export function objectTypeLabel(tableType: string, t: TFn): string {
   const u = tableType.toUpperCase()
-  if (u === 'VIEW') return 'Görünümler'
-  if (u === 'BASE TABLE') return 'Temel tablolar'
+  if (u === 'VIEW') return t('metadata.type_view')
+  if (u === 'BASE TABLE') return t('metadata.type_base_table')
   return tableType
 }
 
@@ -55,6 +72,7 @@ export function BulkProgressHeader({
   running: boolean
   summary: { ok: number; error: number; skipped: number } | null
 }) {
+  const t = useT()
   const total = entries.length
   const done = entries.filter((e) => e.status === 'ok' || e.status === 'error' || e.status === 'skipped').length
   const ok = entries.filter((e) => e.status === 'ok').length
@@ -63,15 +81,27 @@ export function BulkProgressHeader({
   const current = entries.find((e) => e.status === 'running')
   const pct = total === 0 ? 0 : Math.round((done / total) * 100)
 
+  const currentDisplay = current
+    ? `${current.schema}.${current.table}`
+    : t('metadata.bulk_progress_placeholder')
+
   return (
     <div style={{ marginBottom: '0.5rem', flexShrink: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.25rem', gap: '0.5rem' }}>
         <span>
-          {running
-            ? <>İşleniyor {done} / {total} — şu an: <code>{current ? `${current.schema}.${current.table}` : '…'}</code></>
-            : summary
-              ? <>Tamamlandı — {summary.ok} başarılı, {summary.error} hata, {summary.skipped} atlandı</>
-              : <>{done} / {total}</>}
+          {running ? (
+            <>{t('metadata.bulk_progress_processing', { done, total, current: currentDisplay })}</>
+          ) : summary ? (
+            <>
+              {t('metadata.bulk_progress_done', {
+                ok: summary.ok,
+                err: summary.error,
+                skipped: summary.skipped,
+              })}
+            </>
+          ) : (
+            <>{t('metadata.bulk_progress_count', { done, total })}</>
+          )}
         </span>
         <span>{pct}%</span>
       </div>
@@ -86,9 +116,9 @@ export function BulkProgressHeader({
         />
       </div>
       <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.3rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-        <span style={{ color: '#4ade80' }}>OK {ok}</span>
-        <span style={{ color: '#f87171' }}>ERR {err}</span>
-        <span>SKIP {skipped}</span>
+        <span style={{ color: '#4ade80' }}>{t('metadata.bulk_counts_ok', { ok })}</span>
+        <span style={{ color: '#f87171' }}>{t('metadata.bulk_counts_err', { err })}</span>
+        <span>{t('metadata.bulk_counts_skip', { skipped })}</span>
       </div>
     </div>
   )

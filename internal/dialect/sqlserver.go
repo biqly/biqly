@@ -7,7 +7,9 @@ import (
 )
 
 // SQLServerDialect implements the Dialect interface for SQL Server.
-type SQLServerDialect struct{}
+type SQLServerDialect struct {
+	BaseDialect
+}
 
 // Name returns the dialect name.
 func (d SQLServerDialect) Name() string {
@@ -54,17 +56,7 @@ func (d SQLServerDialect) DateTrunc(part, column string) string {
 
 // CalendarPart returns YEAR / DATEPART(quarter|month) for integer grouping.
 func (d SQLServerDialect) CalendarPart(part, column string) string {
-	q := d.QuoteIdent(column)
-	switch strings.ToLower(strings.TrimSpace(part)) {
-	case "year":
-		return fmt.Sprintf("YEAR(%s)", q)
-	case "quarter":
-		return fmt.Sprintf("DATEPART(quarter, %s)", q)
-	case "month":
-		return fmt.Sprintf("MONTH(%s)", q)
-	default:
-		return d.DateTrunc(part, column)
-	}
+	return CalendarPartLookup(d, part, column, "YEAR(%s)", "DATEPART(quarter, %s)", "MONTH(%s)")
 }
 
 // ILike returns a case-insensitive LIKE expression.
@@ -73,14 +65,9 @@ func (d SQLServerDialect) ILike(column, placeholder string) string {
 	return fmt.Sprintf("%s LIKE %s", column, placeholder)
 }
 
-// CastType returns the dialect-specific SQL type name for casting.
-func (d SQLServerDialect) CastType(sqlType string) string {
-	return CastTypeUpper(sqlType)
-}
-
 // Aggregate formats an aggregation function call.
 func (d SQLServerDialect) Aggregate(fn, column string) string {
-	return AggregateStandardSQL(d, fn, column)
+	return d.BaseDialect.Aggregate(d, fn, column)
 }
 
 // ExplainSQL returns "" because SQL Server has no single-statement EXPLAIN form

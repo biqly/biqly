@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/biqly/biqly/internal/config"
+	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -26,9 +27,7 @@ type Service struct {
 	baseTemperature     float64
 }
 
-// NewService creates a new AI service. Returns an error if the configured
-// provider is unknown — callers should surface this at startup.
-func NewService(cfg config.AIConfig, validator *query.Validator) *Service {
+func newService(cfg config.AIConfig, validator *query.Validator, provider Provider) *Service {
 	maxR := cfg.MaxPromptInputRunes
 	if maxR <= 0 {
 		maxR = 80000
@@ -36,13 +35,6 @@ func NewService(cfg config.AIConfig, validator *query.Validator) *Service {
 	retries := cfg.MaxRetries
 	if retries < 0 {
 		retries = 0
-	}
-	// Fall back to the OpenAI client on unknown providers so test setups that
-	// pass minimal configs (no Provider field) keep working. Production code
-	// should call NewServiceWithProvider for explicit error handling.
-	provider, err := NewProvider(cfg)
-	if err != nil {
-		provider = NewClient(cfg)
 	}
 	effective := cfg.EffectiveQueryConfig()
 	return &Service{
@@ -58,29 +50,23 @@ func NewService(cfg config.AIConfig, validator *query.Validator) *Service {
 	}
 }
 
+// NewService creates a new AI service. Returns an error if the configured
+// provider is unknown — callers should surface this at startup.
+func NewService(cfg config.AIConfig, validator *query.Validator) *Service {
+	// Fall back to the OpenAI client on unknown providers so test setups that
+	// pass minimal configs (no Provider field) keep working. Production code
+	// should call NewServiceWithProvider for explicit error handling.
+	provider, err := NewProvider(cfg)
+	if err != nil {
+		provider = NewClient(cfg)
+	}
+	return newService(cfg, validator, provider)
+}
+
 // NewServiceWithProvider wires a service around an explicitly-supplied Provider.
 // Use this in production wiring where unknown-provider should be a fatal error.
 func NewServiceWithProvider(cfg config.AIConfig, validator *query.Validator, provider Provider) *Service {
-	maxR := cfg.MaxPromptInputRunes
-	if maxR <= 0 {
-		maxR = 80000
-	}
-	retries := cfg.MaxRetries
-	if retries < 0 {
-		retries = 0
-	}
-	effective := cfg.EffectiveQueryConfig()
-	return &Service{
-		client:              provider,
-		promptBuilder:       &PromptBuilder{},
-		validator:           validator,
-		aiCfg:               effective,
-		queryModel:          effective.Model,
-		maxPromptRunes:      maxR,
-		maxRetries:          retries,
-		multiCandidateCount: cfg.MultiCandidateCount,
-		baseTemperature:     cfg.Temperature,
-	}
+	return newService(cfg, validator, provider)
 }
 
 // LLMProvider returns the configured generation backend (for eval judge, etc.).
@@ -304,6 +290,7 @@ func (s *Service) buildPrompt(
 		question,
 		model,
 		promptRunes,
+		i18n.FromContext(ctx),
 		options.targetDialect,
 		tiered.fewShot,
 		tiered.samples,
@@ -505,11 +492,8 @@ func failureMessageFor(parseErr, sqlErr error, warnings []string) string {
 func (s *Service) parseAndValidate(raw string, model *semantic.SemanticModel) (*query.LogicalQuery, []string, int, error) {
 	var warnings []string
 
-	cleaned := TrimToJSONObject(raw)
-
-	// Parse JSON
-	var lq query.LogicalQuery
-	if err := json.Unmarshal([]byte(cleaned), &lq); err != nil {
+	lq, err := parseLogicalQueryFromRaw(raw)
+	if err != nil {
 		return nil, warnings, 0, fmt.Errorf("invalid JSON from AI: %w", err)
 	}
 	normalizeLogicalQueryContext(&lq, model)

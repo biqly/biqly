@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import { frontendEnv } from '../utils/env'
+import { getLocale } from '../i18n'
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
@@ -53,6 +54,7 @@ async function request<T>(
 
   try {
     const headers: Record<string, string> = body ? { 'Content-Type': 'application/json' } : {}
+    headers['X-Locale'] = getLocale()
     if (options?.headers) {
       Object.assign(headers, options.headers)
     }

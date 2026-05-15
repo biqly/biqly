@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/biqly/biqly/internal/dialect"
+	"github.com/biqly/biqly/internal/errmsg"
 	"github.com/biqly/biqly/internal/security"
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -327,7 +328,7 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]semantic.Di
 		case SelectTypeDimension:
 			dim, ok := dimMap[item.Name]
 			if !ok {
-				return nil, fmt.Errorf("unknown dimension: %s", item.Name)
+				return nil, validationErr("select", errmsg.UnknownDimensionMsg(item.Name))
 			}
 			col := c.dimensionSQL(dim, resolver)
 			alias := item.Alias
@@ -339,7 +340,7 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]semantic.Di
 		case SelectTypeMetric:
 			metric, ok := metricMap[item.Name]
 			if !ok {
-				return nil, fmt.Errorf("unknown metric: %s", item.Name)
+				return nil, validationErr("select", errmsg.UnknownMetricMsg(item.Name))
 			}
 			agg := c.dialect.Aggregate(metric.Aggregation, c.metricExpressionRef(metric.Expression, resolver))
 			alias := item.Alias
@@ -659,7 +660,7 @@ func (c *Compiler) resolveFilterLHS(field string, dimMap map[string]semantic.Dim
 	if metric, ok := metricMap[field]; ok {
 		return c.qualifyMetricExpression(metric.Expression, resolver), nil
 	}
-	return "", fmt.Errorf("unknown field: %s", field)
+	return "", validationErr("filters", errmsg.UnknownFieldMsg(field))
 }
 
 func (c *Compiler) buildFilterPart(f Filter, lhsSQL string, model *semantic.SemanticModel, args *[]any) (string, []any, error) {
@@ -758,7 +759,7 @@ func (c *Compiler) buildGroupBy(groupBy []GroupBy, dimMap map[string]semantic.Di
 	for _, gb := range groupBy {
 		dim, ok := dimMap[gb.Field]
 		if !ok {
-			return "", fmt.Errorf("unknown dimension: %s", gb.Field)
+			return "", validationErr("group_by", errmsg.UnknownDimensionMsg(gb.Field))
 		}
 		parts = append(parts, c.dimensionSQL(dim, resolver))
 	}
@@ -785,7 +786,7 @@ func (c *Compiler) buildOrderBy(orderBy []OrderBy, dimMap map[string]semantic.Di
 			}
 			parts = append(parts, fmt.Sprintf("%s %s", c.dialect.QuoteIdent(metric.Name), dir))
 		} else {
-			return "", fmt.Errorf("unknown field: %s", ob.Field)
+			return "", validationErr("order_by", errmsg.UnknownFieldMsg(ob.Field))
 		}
 	}
 

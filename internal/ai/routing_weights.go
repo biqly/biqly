@@ -3,6 +3,7 @@ package ai
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"sync"
@@ -45,14 +46,27 @@ var (
 )
 
 // ActiveRoutingWeights returns the active routing weights (embedded default or file override).
-func ActiveRoutingWeights() *RoutingWeights {
+func ActiveRoutingWeights() (*RoutingWeights, error) {
 	routingWeightsOnce.Do(func() {
 		routingWeights, routingWeightsErr = loadRoutingWeights("")
 	})
 	if routingWeightsErr != nil {
-		panic(routingWeightsErr)
+		return nil, routingWeightsErr
 	}
-	return routingWeights
+	return routingWeights, nil
+}
+
+func activeRoutingWeights() *RoutingWeights {
+	w, err := ActiveRoutingWeights()
+	if err != nil {
+		slog.Error("routing weights unavailable, using embedded defaults", "error", err)
+		fallback, parseErr := parseRoutingWeightsJSON(embeddedRoutingWeightsJSON)
+		if parseErr != nil {
+			panic(parseErr)
+		}
+		return fallback
+	}
+	return w
 }
 
 // InitRoutingWeights loads routing weights from an optional JSON file path.

@@ -280,5 +280,3 @@ export function Select<T extends string = string>({
     </div>
   )
 }
-
-export default Select

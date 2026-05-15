@@ -14,10 +14,18 @@ import (
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/app"
+	"github.com/biqly/biqly/internal/core"
 	"github.com/biqly/biqly/internal/dialect"
 	"github.com/biqly/biqly/internal/query"
-	"github.com/biqly/biqly/internal/security"
 	"github.com/biqly/biqly/internal/semantic"
+)
+
+type aiQueryPhase int
+
+const (
+	aiPhaseGenerate aiQueryPhase = iota
+	aiPhasePreview
+	aiPhaseRun
 )
 
 // AIHandler handles AI text-to-query operations.
@@ -118,190 +126,155 @@ func priorTurnsForPrompt(payload []priorTurnPayload) []ai.ConversationTurn {
 // model (and table routing). If it writes a response to w (bad request, model load error, or
 // clarification-only response), ok is false.
 func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request) (aiQueryRequest, *semantic.SemanticModel, *ai.TableRoutingResult, bool) {
-	var req aiQueryRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return req, nil, nil, false
+	req, ok := decodeJSON[aiQueryRequest](w, r)
+	if !ok {
+		return aiQueryRequest{}, nil, nil, false
 	}
 	if req.Question == "" {
 		writeError(w, http.StatusBadRequest, "question is required")
-		return req, nil, nil, false
+		return *req, nil, nil, false
 	}
 	if req.DatasourceID == "" {
 		writeError(w, http.StatusBadRequest, "datasource_id is required")
-		return req, nil, nil, false
+		return *req, nil, nil, false
 	}
 
 	ctx := r.Context()
-	model, routing, err := h.loadQueryModel(ctx, req)
+	model, routing, err := h.loadQueryModel(ctx, *req)
 	if err != nil {
-		h.writeModelLoadError(w, req, err)
-		return req, nil, nil, false
+		h.writeModelLoadError(ctx, w, *req, err)
+		return *req, nil, nil, false
 	}
 	if routing != nil && routing.NeedsClarification {
 		resp := clarificationResponse(routing)
-		h.observeAIRequest(ctx, req, model, routing, resp, nil, 0)
+		h.observeAIRequest(ctx, *req, model, routing, resp, nil, 0)
 		writeJSON(w, http.StatusOK, resp)
-		return req, nil, nil, false
+		return *req, nil, nil, false
 	}
-	return req, model, routing, true
+	return *req, model, routing, true
 }
 
-// Query handles AI-powered natural language queries.
-func (h *AIHandler) Query(w http.ResponseWriter, r *http.Request) {
-	req, model, routing, ok := h.parseAndRouteAIQuery(w, r)
-	if !ok {
-		return
-	}
-
-	ctx := r.Context()
-	start := time.Now()
-	resp, err := h.service.ProcessQuestion(ctx, req.Question, model,
+func (h *AIHandler) standardProcessOptions(ctx context.Context, req aiQueryRequest, model *semantic.SemanticModel) []ai.ProcessOption {
+	return []ai.ProcessOption{
 		ai.WithTargetDialect(h.datasourceDialectName(ctx, req.DatasourceID)),
 		ai.WithFewShotExamples(h.loadFewShotExamples(ctx, model)),
 		ai.WithPriorTurns(priorTurnsForPrompt(req.PriorTurns)),
 		ai.WithGlossary(h.loadGlossaryForPrompt(ctx, model, req.Question)),
-	)
+	}
+}
+
+func (h *AIHandler) processAIQuestion(
+	ctx context.Context,
+	req aiQueryRequest,
+	model *semantic.SemanticModel,
+	routing *ai.TableRoutingResult,
+	extra ...ai.ProcessOption,
+) (*ai.Response, error) {
+	start := time.Now()
+	opts := h.standardProcessOptions(ctx, req, model)
+	opts = append(opts, extra...)
+	resp, err := h.service.ProcessQuestion(ctx, req.Question, model, opts...)
 	if resp != nil {
 		resp.ModelUsed = h.deps.Config.AI.EffectiveQueryConfig().Model
 		resp.TableRouting = routing
 	}
 	if err != nil {
 		h.observeAIRequest(ctx, req, model, routing, nil, err, time.Since(start).Milliseconds())
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
+		return nil, err
 	}
-	resp = h.observeAIRequest(ctx, req, model, routing, resp, nil, time.Since(start).Milliseconds())
-
-	writeJSON(w, http.StatusOK, resp)
+	return h.observeAIRequest(ctx, req, model, routing, resp, nil, time.Since(start).Milliseconds()), nil
 }
 
-// Preview handles AI query preview (compiles but does not execute).
-func (h *AIHandler) Preview(w http.ResponseWriter, r *http.Request) {
+// processAndObserve is the shared entry for Query, Preview, and Run: parse/route,
+// optional Run-phase datasource pool, LLM process + telemetry, then phase-specific compile/execute.
+func (h *AIHandler) processAndObserve(w http.ResponseWriter, r *http.Request, phase aiQueryPhase) {
 	req, model, routing, ok := h.parseAndRouteAIQuery(w, r)
 	if !ok {
 		return
 	}
-
 	ctx := r.Context()
-	start := time.Now()
 
-	resp, err := h.service.ProcessQuestion(ctx, req.Question, model,
-		ai.WithTargetDialect(h.datasourceDialectName(ctx, req.DatasourceID)),
-		ai.WithFewShotExamples(h.loadFewShotExamples(ctx, model)),
-		ai.WithPriorTurns(priorTurnsForPrompt(req.PriorTurns)),
-		ai.WithGlossary(h.loadGlossaryForPrompt(ctx, model, req.Question)),
-	)
-	if resp != nil {
-		resp.ModelUsed = h.deps.Config.AI.EffectiveQueryConfig().Model
-		resp.TableRouting = routing
+	var resolved *app.ResolvedDatasource
+	var processOpts []ai.ProcessOption
+	if phase == aiPhaseRun {
+		var err error
+		resolved, err = h.deps.ResolveDatasourceDB(ctx, req.DatasourceID)
+		if err != nil {
+			writeCoreServiceError(ctx, w, err)
+			return
+		}
+		defer closeResolvedDatasource(ctx, resolved)
+
+		driver := resolved.Driver
+		db := resolved.DB
+		processOpts = []ai.ProcessOption{
+			ai.WithSQLValidator(newSQLDryRunValidator(h.deps.QueryService, db, driver, model)),
+			ai.WithTargetDialect(driver.Dialect().Name()),
+			ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.ExampleIDs, req.IncludePastQueries)),
+			ai.WithSampleData(h.loadSampleData(ctx, db, driver.Dialect(), model)),
+		}
 	}
+
+	resp, err := h.processAIQuestion(ctx, req, model, routing, processOpts...)
 	if err != nil {
-		h.observeAIRequest(ctx, req, model, routing, nil, err, time.Since(start).Milliseconds())
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to process question", err)
 		return
 	}
-	resp = h.observeAIRequest(ctx, req, model, routing, resp, nil, time.Since(start).Milliseconds())
 
+	switch phase {
+	case aiPhaseGenerate:
+		writeJSON(w, http.StatusOK, resp)
+	case aiPhasePreview:
+		h.finishAIPreview(ctx, w, req, model, resp)
+	case aiPhaseRun:
+		h.finishAIRun(ctx, w, req, model, resp, resolved)
+	}
+}
+
+func closeResolvedDatasource(ctx context.Context, resolved *app.ResolvedDatasource) {
+	if resolved == nil || resolved.DB == nil {
+		return
+	}
+	if closeErr := resolved.DB.Close(); closeErr != nil {
+		slog.ErrorContext(ctx, "failed to close database connection", "error", closeErr)
+	}
+}
+
+func (h *AIHandler) finishAIPreview(ctx context.Context, w http.ResponseWriter, req aiQueryRequest, model *semantic.SemanticModel, resp *ai.Response) {
 	if resp.LogicalQuery == nil {
 		writeJSON(w, http.StatusOK, resp)
 		return
 	}
-
-	// Compile to SQL for preview
-	ds, err := h.deps.MetaRepo.GetDatasource(ctx, req.DatasourceID)
+	resolved, err := h.deps.ResolveDatasourceDB(ctx, req.DatasourceID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "datasource not found")
+		writeCoreServiceError(ctx, w, err)
 		return
 	}
+	defer closeResolvedDatasource(ctx, resolved)
 
-	driver, err := h.deps.DriverReg.Get(ds.Type)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("unsupported driver: %s", ds.Type))
-		return
-	}
-
-	cq, err := h.deps.QueryService.CompileWithContext(ctx, *resp.LogicalQuery, model, driver)
-	if err != nil {
-		resp.Warnings = append(resp.Warnings, "compilation failed: "+err.Error())
+	cq, se := h.deps.QueryService.CompileWithContext(ctx, *resp.LogicalQuery, model, resolved.Driver)
+	if se != nil {
+		slog.ErrorContext(ctx, "AI preview compilation failed", "error", core.LogCause(se))
+		resp.Warnings = append(resp.Warnings, "compilation failed")
 	} else {
 		resp.SQL = cq.SQL
 		resp.Args = cq.Args
 	}
-
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// Run handles AI query execution (compiles and executes).
-func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
-	req, model, routing, ok := h.parseAndRouteAIQuery(w, r)
-	if !ok {
-		return
-	}
-
-	ctx := r.Context()
-
-	// Open the datasource up front so the dry-run validator (and later the
-	// real Execute call) share a single connection. Both happen before we
-	// stream a response, so a failure aborts cleanly.
-	ds, err := h.deps.MetaRepo.GetDatasource(ctx, req.DatasourceID)
-	if err != nil {
-		writeError(w, http.StatusNotFound, "datasource not found")
-		return
-	}
-	driver, err := h.deps.DriverReg.Get(ds.Type)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("unsupported driver: %s", ds.Type))
-		return
-	}
-	dsn, err := security.ConnectionDSN(h.deps.Encryptor, ds.DSNEncrypted)
-	if err != nil {
-		slog.ErrorContext(ctx, "decrypt datasource DSN failed", "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to read datasource credentials")
-		return
-	}
-	db, err := driver.Open(ctx, dsn)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("connection failed: %s", err.Error()))
-		return
-	}
-	defer func() {
-		if closeErr := db.Close(); closeErr != nil {
-			slog.Error("failed to close database connection", "error", closeErr)
-		}
-	}()
-	dryRun := newSQLDryRunValidator(h.deps.QueryService, db, driver, model)
-
-	start := time.Now()
-	resp, err := h.service.ProcessQuestion(ctx, req.Question, model,
-		ai.WithSQLValidator(dryRun),
-		ai.WithTargetDialect(driver.Dialect().Name()),
-		ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.ExampleIDs, req.IncludePastQueries)),
-		ai.WithSampleData(h.loadSampleData(ctx, db, driver.Dialect(), model)),
-		ai.WithPriorTurns(priorTurnsForPrompt(req.PriorTurns)),
-		ai.WithGlossary(h.loadGlossaryForPrompt(ctx, model, req.Question)),
-	)
-	if resp != nil {
-		resp.TableRouting = routing
-		resp.ModelUsed = h.deps.Config.AI.EffectiveQueryConfig().Model
-	}
-	if err != nil {
-		h.observeAIRequest(ctx, req, model, routing, nil, err, time.Since(start).Milliseconds())
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	resp = h.observeAIRequest(ctx, req, model, routing, resp, nil, time.Since(start).Milliseconds())
-
+func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, req aiQueryRequest, model *semantic.SemanticModel, resp *ai.Response, resolved *app.ResolvedDatasource) {
 	if resp.LogicalQuery == nil {
 		writeJSON(w, http.StatusOK, resp)
 		return
 	}
+	driver := resolved.Driver
+	db := resolved.DB
 
-	// Compile (final, for execution — the dry-run already succeeded above)
-	cq, err := h.deps.QueryService.CompileWithContext(ctx, *resp.LogicalQuery, model, driver)
-	if err != nil {
-		h.recordAIQueryHistory(ctx, *resp.LogicalQuery, model, nil, nil, queryStatusFailed, err)
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("compilation failed: %s", err.Error()))
+	cq, se := h.deps.QueryService.CompileWithContext(ctx, *resp.LogicalQuery, model, driver)
+	if se != nil {
+		persistQueryHistory(ctx, h.deps.MetaRepo, "AI query history", *resp.LogicalQuery, model, nil, nil, queryStatusFailed, core.ErrAsError(se))
+		writeServiceError(ctx, w, se)
 		return
 	}
 
@@ -310,8 +283,8 @@ func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.deps.Executor.Execute(ctx, db, cq)
 	if err != nil {
-		h.recordAIQueryHistory(ctx, *resp.LogicalQuery, model, cq, nil, queryStatusFailed, err)
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("execution failed: %s", err.Error()))
+		persistQueryHistory(ctx, h.deps.MetaRepo, "AI query history", *resp.LogicalQuery, model, cq, nil, queryStatusFailed, err)
+		writeInternalError(ctx, w, http.StatusInternalServerError, "execution failed", err)
 		return
 	}
 
@@ -322,17 +295,31 @@ func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
 		resp.Warnings = append(resp.Warnings, anomalyWarnings...)
 	}
 	resp.Result = result
-	h.recordAIQueryHistory(ctx, *resp.LogicalQuery, model, cq, result, queryStatusSuccess, nil)
+	persistQueryHistory(ctx, h.deps.MetaRepo, "AI query history", *resp.LogicalQuery, model, cq, result, queryStatusSuccess, nil)
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// Query handles AI-powered natural language queries.
+func (h *AIHandler) Query(w http.ResponseWriter, r *http.Request) {
+	h.processAndObserve(w, r, aiPhaseGenerate)
+}
+
+// Preview handles AI query preview (compiles but does not execute).
+func (h *AIHandler) Preview(w http.ResponseWriter, r *http.Request) {
+	h.processAndObserve(w, r, aiPhasePreview)
+}
+
+// Run handles AI query execution (compiles and executes).
+func (h *AIHandler) Run(w http.ResponseWriter, r *http.Request) {
+	h.processAndObserve(w, r, aiPhaseRun)
 }
 
 // Describe runs the AI metadata describer over a single table and (optionally) writes
 // the suggested table/column descriptions back into the metadata DB.
 // Describe handles AI-powered table/column description generation.
 func (h *AIHandler) Describe(w http.ResponseWriter, r *http.Request) {
-	var req ai.DescribeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeJSON[ai.DescribeRequest](w, r)
+	if !ok {
 		return
 	}
 	if req.DatasourceID == "" || req.Table == "" {
@@ -340,9 +327,9 @@ func (h *AIHandler) Describe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.deps.AIDescriber.Describe(r.Context(), req)
+	result, err := h.deps.AIDescriber.Describe(r.Context(), *req)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeCoreServiceError(r.Context(), w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
@@ -364,9 +351,8 @@ type embedMetadataResponse struct {
 // datasource and stores them so the AI router can use hybrid retrieval.
 // Idempotent — re-runs simply overwrite the prior vectors.
 func (h *AIHandler) EmbedMetadata(w http.ResponseWriter, r *http.Request) {
-	var req embedMetadataRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeJSON[embedMetadataRequest](w, r)
+	if !ok {
 		return
 	}
 	if req.DatasourceID == "" {
@@ -379,7 +365,7 @@ func (h *AIHandler) EmbedMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 	results, err := h.deps.AIEmbedMeta.EmbedAllForDatasource(r.Context(), req.DatasourceID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "embedding failed", err)
 		return
 	}
 	embedded, skipped := 0, 0
@@ -674,20 +660,21 @@ func typeScopeFromAIQueryRequest(req aiQueryRequest) (includeBase, includeViews 
 	return includeBase, includeViews, nil
 }
 
-func (h *AIHandler) writeModelLoadError(w http.ResponseWriter, req aiQueryRequest, err error) {
-	if errors.Is(err, ai.ErrTypeScopeEmpty) {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if errors.Is(err, ai.ErrTableScopeInvalid) {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if req.ModelID == "" {
+func (h *AIHandler) writeModelLoadError(ctx context.Context, w http.ResponseWriter, req aiQueryRequest, err error) {
+	switch {
+	case errors.Is(err, ai.ErrTypeScopeEmpty):
+		writeError(w, http.StatusBadRequest, "at least one of include_base_tables or include_views must be true")
+	case errors.Is(err, ai.ErrTableScopeInvalid):
+		writeError(w, http.StatusBadRequest, "table scope invalid")
+	case errors.Is(err, core.ErrLoadSemanticModel):
+		writeError(w, http.StatusNotFound, "semantic model not found")
+	case req.ModelID == "":
+		slog.ErrorContext(ctx, "failed to route table scope", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to route table scope")
-		return
+	default:
+		slog.ErrorContext(ctx, "failed to load query model", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load query model")
 	}
-	writeError(w, http.StatusNotFound, "semantic model not found")
 }
 
 // fewShotLimit caps how many prior successful queries we attach to the prompt.
@@ -830,8 +817,7 @@ func failedAIResponse(err error) *ai.Response {
 func (h *AIHandler) loadModel(ctx context.Context, datasourceID, modelID string) (*semantic.SemanticModel, error) {
 	model, err := h.deps.SemanticRepo.GetPublishedModelByName(ctx, datasourceID, modelID)
 	if err != nil {
-		slog.ErrorContext(ctx, "load semantic model failed", "datasource_id", datasourceID, "model_id", modelID, "error", err)
-		return nil, err
+		return nil, fmt.Errorf("%w: %v", core.ErrLoadSemanticModel, err)
 	}
 	return model, nil
 }

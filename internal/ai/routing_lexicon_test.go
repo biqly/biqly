@@ -19,8 +19,8 @@ func TestRoutingLexicon_ExpandTokenSynonyms(t *testing.T) {
 }
 
 func TestRoutingWeights_ApplyTableBoosts(t *testing.T) {
-	w := ActiveRoutingWeights()
-	lex := ActiveRoutingLexicon()
+	w := activeRoutingWeights()
+	lex := activeRoutingLexicon()
 	tokens := map[string]bool{"urun": true, "adet": true}
 	score := w.ApplyTableBoosts("salesorderdetail", tokens, 0, lex)
 	if score < 10 {
@@ -37,7 +37,7 @@ func TestRoutingLexicon_LoadOverride(t *testing.T) {
 	if err := InitRoutingLexicon(path); err != nil {
 		t.Fatal(err)
 	}
-	if syns := ActiveRoutingLexicon().ExpandTokenSynonyms("foo"); len(syns) != 1 || syns[0] != "bar" {
+	if syns := activeRoutingLexicon().ExpandTokenSynonyms("foo"); len(syns) != 1 || syns[0] != "bar" {
 		t.Fatalf("override synonyms = %v", syns)
 	}
 	if err := InitRoutingLexicon(""); err != nil {

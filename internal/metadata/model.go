@@ -1,7 +1,17 @@
 // Package metadata defines types for datasource metadata storage.
 package metadata
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
+
+const (
+	// DSNModeRaw uses the legacy single encrypted DSN string column.
+	DSNModeRaw = "raw"
+	// DSNModeStructured composes the DSN from structured fields at runtime.
+	DSNModeStructured = "structured"
+)
 
 // Datasource represents a configured database connection.
 type Datasource struct {
@@ -14,6 +24,16 @@ type Datasource struct {
 	LastSyncAt   *time.Time `json:"last_sync_at" db:"last_sync_at"`
 	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at" db:"updated_at"`
+
+	Host *string `json:"host,omitempty"`
+	Port *int    `json:"port,omitempty"`
+	Username *string `json:"username,omitempty"`
+
+	PasswordEncrypted string          `json:"-" db:"password_encrypted"`
+	DatabaseName      *string         `json:"database_name,omitempty"`
+	SSLMode           *string         `json:"ssl_mode,omitempty"`
+	ConnectionParams  json.RawMessage `json:"connection_params,omitempty"`
+	DSNMode           string          `json:"dsn_mode,omitempty"`
 }
 
 // Schema represents a database schema within a datasource.

@@ -7,8 +7,8 @@ import (
 
 // QueryAll runs query and collects one element per row using scan.
 // It closes rows and returns rows.Err() after iteration.
-func QueryAll[T any](ctx context.Context, db *sql.DB, query string, scan func(*sql.Rows) (T, error)) ([]T, error) {
-	rows, err := db.QueryContext(ctx, query)
+func QueryAll[T any](ctx context.Context, db *sql.DB, query string, args []any, scan func(*sql.Rows) (T, error)) ([]T, error) {
+	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

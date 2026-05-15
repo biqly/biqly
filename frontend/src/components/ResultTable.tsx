@@ -15,7 +15,7 @@ interface ResultTableProps {
 
 type SortDirection = 'asc' | 'desc' | null
 
-export default function ResultTable({
+export function ResultTable({
   columns,
   rows,
   rowCount,

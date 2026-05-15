@@ -1,0 +1,8 @@
+## Output Format
+Either (A) JSON only, or (B) optional `## Reasoning` (Planning Steps 1–8, concise) then the JSON object on the following lines.
+The JSON must match this structure:
+{"select": [{"type": "dimension|metric", "name": "..."}], "filters": [{"field": "...", "operator": "...", "value": ...}], "group_by": [{"field": "..."}], "order_by": [{"field": "...", "direction": "asc|desc"}], "limit": 100}
+
+## Example — multi-metric grouping
+Question: "orders per customer name and the most recent order date"
+{"select":[{"type":"dimension","name":"name"},{"type":"metric","name":"row_count"},{"type":"metric","name":"max_order_date"}],"group_by":[{"field":"name"}],"order_by":[{"field":"row_count","direction":"desc"}],"limit":100}

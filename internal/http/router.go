@@ -5,6 +5,7 @@ import (
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/http/handlers"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -22,11 +23,14 @@ func Router(deps *app.Dependencies) http.Handler {
 	// AI NL→SQL and catalog embedding can be slow with local models.
 	r.Use(middleware.Timeout(deps.Config.AI.AIRequestTimeout()))
 
+	// Resolve user locale from Accept-Language / X-Locale / ?lang= and store on context.
+	r.Use(bimw.Locale)
+
 	// CORS
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		AllowedHeaders:   []string{"Accept", "Accept-Language", "Authorization", "Content-Type", "X-CSRF-Token", "X-Locale"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
 		MaxAge:           300,
@@ -55,6 +59,7 @@ func Router(deps *app.Dependencies) http.Handler {
 		// Semantic layer routes
 		semHandler := handlers.NewSemanticHandler(deps)
 		r.Post("/semantic/models", semHandler.CreateModel)
+		r.Post("/semantic/models/generate", semHandler.GenerateModel)
 		r.Get("/semantic/models", semHandler.ListModels)
 		r.Get("/semantic/models/{id}", semHandler.GetModel)
 		r.Put("/semantic/models/{id}", semHandler.UpdateModel)
@@ -63,8 +68,15 @@ func Router(deps *app.Dependencies) http.Handler {
 		r.Post("/semantic/models/{id}/publish", semHandler.PublishModel)
 		r.Post("/semantic/models/{id}/rollback", semHandler.RollbackModel)
 		r.Post("/semantic/models/{id}/dimensions", semHandler.CreateDimension)
+		r.Delete("/semantic/models/{id}/dimensions/{dimension_id}", semHandler.DeleteDimension)
+		r.Put("/semantic/models/{id}/dimensions/{dimension_id}", semHandler.UpdateDimension)
 		r.Post("/semantic/models/{id}/metrics", semHandler.CreateMetric)
+		r.Delete("/semantic/models/{id}/metrics/{metric_id}", semHandler.DeleteMetric)
+		r.Put("/semantic/models/{id}/metrics/{metric_id}", semHandler.UpdateMetric)
 		r.Post("/semantic/models/{id}/joins", semHandler.CreateJoin)
+		r.Delete("/semantic/models/{id}/joins/{join_id}", semHandler.DeleteJoin)
+		r.Put("/semantic/models/{id}/joins/{join_id}", semHandler.UpdateJoin)
+		r.Get("/semantic/models/{id}/suggested-joins", semHandler.SuggestedJoins)
 
 		// Query routes
 		queryHandler := handlers.NewQueryHandler(deps)
@@ -82,6 +94,10 @@ func Router(deps *app.Dependencies) http.Handler {
 		r.Get("/metadata/tables/search", metaHandler.SearchTables)
 		r.Patch("/metadata/tables/{id}", metaHandler.UpdateTableDescription)
 		r.Patch("/metadata/columns/{id}", metaHandler.UpdateColumnDescription)
+		r.Get("/metadata/tables/{id}/translations", metaHandler.GetTableTranslations)
+		r.Put("/metadata/tables/{id}/translations", metaHandler.PutTableTranslations)
+		r.Get("/metadata/columns/{id}/translations", metaHandler.GetColumnTranslations)
+		r.Put("/metadata/columns/{id}/translations", metaHandler.PutColumnTranslations)
 
 		// AI routes
 		aiHandler := handlers.NewAIHandler(deps)
@@ -92,11 +108,14 @@ func Router(deps *app.Dependencies) http.Handler {
 		r.Post("/ai/metadata/describe", aiHandler.Describe)
 		r.Post("/ai/metadata/embed", aiHandler.EmbedMetadata)
 		r.Get("/ai/settings", aiHandler.RuntimeSettings)
-		r.Post("/ai/eval/run", aiHandler.EvalRun)
-		r.Get("/ai/eval/run/stream", aiHandler.EvalRunStream)
-		r.Get("/ai/eval/runs", aiHandler.EvalListRuns)
-		r.Get("/ai/eval/runs/{id}", aiHandler.EvalGetRun)
-		r.Get("/ai/eval/regression", aiHandler.EvalRegression)
+		r.Group(func(r chi.Router) {
+			r.Use(handlers.AdminKeyMiddleware(deps.Config.Security.AdminAPIKey))
+			r.Post("/ai/eval/run", aiHandler.EvalRun)
+			r.Get("/ai/eval/run/stream", aiHandler.EvalRunStream)
+			r.Get("/ai/eval/runs", aiHandler.EvalListRuns)
+			r.Get("/ai/eval/runs/{id}", aiHandler.EvalGetRun)
+			r.Get("/ai/eval/regression", aiHandler.EvalRegression)
+		})
 
 		// AI examples & feedback routes
 		examplesHandler := handlers.NewAIExamplesHandler(deps)

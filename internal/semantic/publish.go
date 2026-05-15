@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/biqly/biqly/internal/errmsg"
 )
 
 const (
@@ -119,27 +121,27 @@ func ValidateContext(ctx context.Context, model SemanticModel, catalog CatalogRe
 				addError("dimension %q calculated expression invalid: %s", dim.Name, err)
 			}
 		} else if !columnSet.has(model.BaseSchema, dim.ColumnRef) {
-			addError("dimension references unknown column: %s", dim.ColumnRef)
+			addError("%s: %s", errmsg.DimensionUnknownColumn, dim.ColumnRef)
 		}
 	}
 
 	for _, metric := range model.Metrics {
 		for _, ref := range columnRefsInExpression(metric.Expression) {
 			if !columnSet.has(model.BaseSchema, ref) {
-				addError("metric expression references unknown column: %s", ref)
+				addError("%s: %s", errmsg.MetricExpressionUnknownColumn, ref)
 			}
 		}
 	}
 
 	for _, join := range model.Joins {
 		if !columnSet.hasTableColumn(model.BaseSchema, join.FromTable, join.FromColumn) {
-			addError("join references unknown from column: %s.%s", join.FromTable, join.FromColumn)
+			addError("%s: %s.%s", errmsg.JoinUnknownFromColumn, join.FromTable, join.FromColumn)
 		}
 		if !columnSet.hasTableColumn(model.BaseSchema, join.ToTable, join.ToColumn) {
-			addError("join references unknown to column: %s.%s", join.ToTable, join.ToColumn)
+			addError("%s: %s.%s", errmsg.JoinUnknownToColumn, join.ToTable, join.ToColumn)
 		}
 		if !relationExists(model.BaseSchema, join, relations) {
-			addError("join does not match datasource metadata relation: %s", join.Name)
+			addWarning("join does not match datasource metadata relation: %s (manual join)", join.Name)
 		}
 		switch strings.ToLower(strings.TrimSpace(join.Relationship)) {
 		case "", "one_to_one", "many_to_one":
@@ -179,14 +181,14 @@ func validatePolicies(model SemanticModel, policies []CatalogPolicy, addError fu
 			if field == "" || fields[field] {
 				continue
 			}
-			addError("permission policy references unknown field: %s", field)
+			addError("%s: %s", errmsg.PermissionPolicyUnknownField, field)
 		}
 		for _, filter := range policy.RowFilters {
 			field := strings.ToLower(strings.TrimSpace(filter.Field))
 			if field == "" || fields[field] {
 				continue
 			}
-			addError("permission row filter references unknown field: %s", field)
+			addError("%s: %s", errmsg.PermissionRowFilterUnknownField, field)
 		}
 	}
 }

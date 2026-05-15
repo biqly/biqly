@@ -8,11 +8,36 @@ import (
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/metadata"
-	"github.com/go-chi/chi/v5"
 )
 
 // FewShotExample is the wire format for a curated few-shot example (alias for metadata row type).
 type FewShotExample = metadata.FewShotCuratedRow
+
+type createFewShotExampleRequest struct {
+	DatasourceID string          `json:"datasource_id"`
+	ModelID      string          `json:"model_id,omitempty"`
+	Question     string          `json:"question"`
+	LogicalQuery json.RawMessage `json:"logical_query"`
+	Tags         []string        `json:"tags"`
+	Dialect      string          `json:"dialect"`
+	Locale       string          `json:"locale,omitempty"`
+}
+
+type updateFewShotExampleRequest struct {
+	Question     string          `json:"question"`
+	LogicalQuery json.RawMessage `json:"logical_query"`
+	Tags         []string        `json:"tags"`
+	Dialect      string          `json:"dialect"`
+	Locale       string          `json:"locale,omitempty"`
+}
+
+type submitAIFeedbackRequest struct {
+	Question     string   `json:"question"`
+	DatasourceID string   `json:"datasource_id"`
+	Rating       string   `json:"rating"`
+	Categories   []string `json:"categories"`
+	Text         string   `json:"text"`
+}
 
 // AIExamplesHandler handles few-shot example CRUD and feedback operations.
 type AIExamplesHandler struct {
@@ -44,16 +69,8 @@ func (h *AIExamplesHandler) ListExamples(w http.ResponseWriter, r *http.Request)
 
 // CreateExample creates a new few-shot example.
 func (h *AIExamplesHandler) CreateExample(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		DatasourceID string          `json:"datasource_id"`
-		ModelID      string          `json:"model_id,omitempty"`
-		Question     string          `json:"question"`
-		LogicalQuery json.RawMessage `json:"logical_query"`
-		Tags         []string        `json:"tags"`
-		Dialect      string          `json:"dialect"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	input, ok := decodeJSON[createFewShotExampleRequest](w, r)
+	if !ok {
 		return
 	}
 	if input.Question == "" || input.DatasourceID == "" || len(input.LogicalQuery) == 0 {
@@ -71,6 +88,7 @@ func (h *AIExamplesHandler) CreateExample(w http.ResponseWriter, r *http.Request
 		LogicalQuery: input.LogicalQuery,
 		Tags:         input.Tags,
 		Dialect:      input.Dialect,
+		Locale:       input.Locale,
 	})
 	if err != nil {
 		slog.ErrorContext(r.Context(), "create few-shot example failed", "error", err)
@@ -86,6 +104,7 @@ func (h *AIExamplesHandler) CreateExample(w http.ResponseWriter, r *http.Request
 		LogicalQuery: input.LogicalQuery,
 		Tags:         input.Tags,
 		Dialect:      input.Dialect,
+		Locale:       input.Locale,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
@@ -94,9 +113,8 @@ func (h *AIExamplesHandler) CreateExample(w http.ResponseWriter, r *http.Request
 
 // DeleteExample deletes a few-shot example by ID.
 func (h *AIExamplesHandler) DeleteExample(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	if id == "" {
-		writeError(w, http.StatusBadRequest, "example id is required")
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
 		return
 	}
 	ok, err := h.deps.MetaRepo.DeleteFewShotCurated(r.Context(), id)
@@ -114,19 +132,12 @@ func (h *AIExamplesHandler) DeleteExample(w http.ResponseWriter, r *http.Request
 
 // UpdateExample updates an existing few-shot example.
 func (h *AIExamplesHandler) UpdateExample(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	if id == "" {
-		writeError(w, http.StatusBadRequest, "example id is required")
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
 		return
 	}
-	var input struct {
-		Question     string          `json:"question"`
-		LogicalQuery json.RawMessage `json:"logical_query"`
-		Tags         []string        `json:"tags"`
-		Dialect      string          `json:"dialect"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	input, ok := decodeJSON[updateFewShotExampleRequest](w, r)
+	if !ok {
 		return
 	}
 	if input.Question == "" || len(input.LogicalQuery) == 0 {
@@ -141,6 +152,7 @@ func (h *AIExamplesHandler) UpdateExample(w http.ResponseWriter, r *http.Request
 		LogicalQuery: input.LogicalQuery,
 		Tags:         input.Tags,
 		Dialect:      input.Dialect,
+		Locale:       input.Locale,
 	}); err != nil {
 		slog.ErrorContext(r.Context(), "update few-shot example failed", "id", id, "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update example")
@@ -151,15 +163,8 @@ func (h *AIExamplesHandler) UpdateExample(w http.ResponseWriter, r *http.Request
 
 // SubmitFeedback records user feedback on an AI query result.
 func (h *AIExamplesHandler) SubmitFeedback(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		Question     string   `json:"question"`
-		DatasourceID string   `json:"datasource_id"`
-		Rating       string   `json:"rating"`
-		Categories   []string `json:"categories"`
-		Text         string   `json:"text"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	input, ok := decodeJSON[submitAIFeedbackRequest](w, r)
+	if !ok {
 		return
 	}
 	if input.Rating != "positive" && input.Rating != "negative" {

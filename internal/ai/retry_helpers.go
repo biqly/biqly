@@ -12,15 +12,16 @@ import (
 
 const llmHTTPMaxAttempts = 4
 
-// execLLMHTTPRetry runs op with exponential backoff between attempts (same policy as before:
-// up to llmHTTPMaxAttempts tries; op returns retry=true for transient HTTP/network failures).
-func execLLMHTTPRetry(ctx context.Context, op func() (GenerationResult, error, bool)) (GenerationResult, error) {
+// execRetry runs op with exponential backoff (up to llmHTTPMaxAttempts). op returns
+// retry=true for transient HTTP/network failures.
+func execRetry[T any](ctx context.Context, op func() (T, error, bool)) (T, error) {
+	var zero T
 	var lastErr error
 	for attempt := range llmHTTPMaxAttempts {
 		if attempt > 0 {
 			delay := time.Duration(250*(1<<uint(attempt-1))) * time.Millisecond
 			if err := sleepCtx(ctx, delay); err != nil {
-				return GenerationResult{}, err
+				return zero, err
 			}
 		}
 		result, err, retry := op()
@@ -29,10 +30,14 @@ func execLLMHTTPRetry(ctx context.Context, op func() (GenerationResult, error, b
 		}
 		lastErr = err
 		if !retry {
-			return GenerationResult{}, err
+			return zero, err
 		}
 	}
-	return GenerationResult{}, fmt.Errorf("send request: %w", lastErr)
+	return zero, fmt.Errorf("send request: %w", lastErr)
+}
+
+func execLLMHTTPRetry(ctx context.Context, op func() (GenerationResult, error, bool)) (GenerationResult, error) {
+	return execRetry(ctx, op)
 }
 
 func sleepCtx(ctx context.Context, d time.Duration) error {

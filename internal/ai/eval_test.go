@@ -74,21 +74,15 @@ func TestLogicalQueryEqualBaseline(t *testing.T) {
 // TestGoldenSeedSelfConsistent guards the seed set: every expected query must
 // pass schema + semantic validation, otherwise the dataset itself is broken.
 func TestGoldenSeedSelfConsistent(t *testing.T) {
-	v := query.NewValidator(1000)
-	sv := NewSchemaValidator()
+	sv := NewSchemaValidatorWith(query.NewValidator(1000))
 	for _, c := range DefaultGoldenCases() {
-		// Schema validator works on the raw JSON form, so re-marshal via the
-		// service's parse path to mimic real flow.
 		raw, err := marshalLogicalQuery(c.Expected)
 		if err != nil {
 			t.Errorf("[%s] marshal expected: %v", c.ID, err)
 			continue
 		}
 		if _, err := sv.Validate(raw, c.Model); err != nil {
-			t.Errorf("[%s] schema validate expected: %v", c.ID, err)
-		}
-		if err := v.Validate(c.Expected, c.Model); err != nil {
-			t.Errorf("[%s] semantic validate expected: %v", c.ID, err)
+			t.Errorf("[%s] validate expected: %v", c.ID, err)
 		}
 	}
 }

@@ -45,8 +45,7 @@ func TestExecutionAccuracyGolden(t *testing.T) {
 }
 
 func TestBenchmarkSuiteSelfConsistent(t *testing.T) {
-	v := query.NewValidator(1000)
-	sv := NewSchemaValidator()
+	sv := NewSchemaValidatorWith(query.NewValidator(1000))
 	for _, c := range BenchmarkCases() {
 		raw, err := marshalLogicalQuery(c.Expected)
 		if err != nil {
@@ -54,10 +53,7 @@ func TestBenchmarkSuiteSelfConsistent(t *testing.T) {
 			continue
 		}
 		if _, err := sv.Validate(raw, c.Model); err != nil {
-			t.Errorf("[%s] schema: %v", c.ID, err)
-		}
-		if err := v.Validate(c.Expected, c.Model); err != nil {
-			t.Errorf("[%s] semantic: %v", c.ID, err)
+			t.Errorf("[%s] validate: %v", c.ID, err)
 		}
 	}
 }

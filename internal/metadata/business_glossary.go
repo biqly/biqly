@@ -2,8 +2,10 @@ package metadata
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	platformdb "github.com/biqly/biqly/internal/platform/db"
 	"github.com/lib/pq"
 )
 
@@ -55,24 +57,18 @@ func (r *Repository) ListBusinessGlossary(ctx context.Context, datasourceID, mod
 	}
 	q += ` ORDER BY term`
 
-	rows, err := r.db.QueryContext(ctx, q, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
+	return platformdb.QuerySliceErr(ctx, r.db, "list business glossary", q, args, scanBusinessGlossaryRow)
+}
 
-	var out []BusinessGlossaryRow
-	for rows.Next() {
-		var e BusinessGlossaryRow
-		var aliases pq.StringArray
-		if err := rows.Scan(&e.ID, &e.DatasourceID, &e.ModelID, &e.Term, &e.Definition,
-			&e.MapsToType, &e.MapsToName, &aliases, &e.IsActive, &e.CreatedAt, &e.UpdatedAt); err != nil {
-			return nil, err
-		}
-		e.Aliases = []string(aliases)
-		out = append(out, e)
+func scanBusinessGlossaryRow(s platformdb.Scanner) (BusinessGlossaryRow, error) {
+	var e BusinessGlossaryRow
+	var aliases pq.StringArray
+	if err := s.Scan(&e.ID, &e.DatasourceID, &e.ModelID, &e.Term, &e.Definition,
+		&e.MapsToType, &e.MapsToName, &aliases, &e.IsActive, &e.CreatedAt, &e.UpdatedAt); err != nil {
+		return e, fmt.Errorf("scan business glossary: %w", err)
 	}
-	return out, rows.Err()
+	e.Aliases = []string(aliases)
+	return e, nil
 }
 
 // InsertBusinessGlossary inserts a row and returns the new id.

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
+	platformdb "github.com/biqly/biqly/internal/platform/db"
 )
 
 // SFTCandidateRow is a labeled NL → LogicalQuery pair for SFT dataset export.
@@ -55,33 +57,32 @@ func (r *Repository) ListPositiveAIHistorySFTCandidates(ctx context.Context, min
 		  AND (warnings IS NULL OR cardinality(warnings) = 0)
 		ORDER BY created_at DESC
 	`
-	rows, err := r.db.QueryContext(ctx, q, minConfidence)
+	candidates, err := platformdb.QuerySliceErr(ctx, r.db, "list positive AI history for SFT", q, []any{minConfidence}, scanPositiveAIHistorySFTRow)
 	if err != nil {
-		return nil, fmt.Errorf("list positive AI history for SFT: %w", err)
+		return nil, err
 	}
-	defer func() { _ = rows.Close() }()
-
-	var out []SFTCandidateRow
-	for rows.Next() {
-		var question string
-		var lq json.RawMessage
-		var dsID, modelID string
-		if err := rows.Scan(&question, &lq, &dsID, &modelID); err != nil {
-			return nil, fmt.Errorf("scan AI history SFT row: %w", err)
-		}
-		if len(lq) == 0 {
+	out := make([]SFTCandidateRow, 0, len(candidates))
+	for _, row := range candidates {
+		if len(row.LogicalQuery) == 0 {
 			continue
 		}
-		out = append(out, SFTCandidateRow{
-			Source:          "history_positive",
-			Question:        question,
-			LogicalQuery:    lq,
-			DatasourceID:    dsID,
-			SemanticModelID: modelID,
-		})
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate AI history SFT: %w", err)
+		out = append(out, row)
 	}
 	return out, nil
+}
+
+func scanPositiveAIHistorySFTRow(s platformdb.Scanner) (SFTCandidateRow, error) {
+	var question string
+	var lq json.RawMessage
+	var dsID, modelID string
+	if err := s.Scan(&question, &lq, &dsID, &modelID); err != nil {
+		return SFTCandidateRow{}, fmt.Errorf("scan AI history SFT row: %w", err)
+	}
+	return SFTCandidateRow{
+		Source:          "history_positive",
+		Question:        question,
+		LogicalQuery:    lq,
+		DatasourceID:    dsID,
+		SemanticModelID: modelID,
+	}, nil
 }

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 	"github.com/biqly/biqly/internal/query"
@@ -26,10 +27,27 @@ func NewRepository(db *sql.DB) *Repository {
 // CreateDatasource inserts a new datasource record.
 func (r *Repository) CreateDatasource(ctx context.Context, ds *Datasource) error {
 	query := `
-		INSERT INTO datasources (id, name, type, dsn_encrypted, config, is_active)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO datasources (
+			id, name, type, dsn_encrypted, config, is_active,
+			host, port, username, password_encrypted, database_name, ssl_mode, connection_params, dsn_mode
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14)
 	`
-	_, err := r.db.ExecContext(ctx, query, ds.ID, ds.Name, ds.Type, ds.DSNEncrypted, ds.Config, ds.IsActive)
+	cp := ds.ConnectionParams
+	if len(cp) == 0 {
+		cp = []byte("{}")
+	}
+	mode := ds.DSNMode
+	if mode == "" {
+		mode = DSNModeRaw
+	}
+	_, err := r.db.ExecContext(ctx, query,
+		ds.ID, ds.Name, ds.Type, ds.DSNEncrypted, ds.Config, ds.IsActive,
+		nullableString(ds.Host), nullableInt(ds.Port), nullableString(ds.Username),
+		nullableEncrypted(ds.PasswordEncrypted),
+		nullableString(ds.DatabaseName), nullableString(ds.SSLMode),
+		cp, mode,
+	)
 	if err != nil {
 		return fmt.Errorf("create datasource: %w", err)
 	}
@@ -38,39 +56,32 @@ func (r *Repository) CreateDatasource(ctx context.Context, ds *Datasource) error
 
 // GetDatasource retrieves a datasource by ID.
 func (r *Repository) GetDatasource(ctx context.Context, id string) (*Datasource, error) {
-	query := `SELECT id, name, type, dsn_encrypted, config, is_active, last_sync_at, created_at, updated_at FROM datasources WHERE id = $1`
+	query := `SELECT ` + datasourceSelectColumns + ` FROM datasources WHERE id = $1`
 	row := r.db.QueryRowContext(ctx, query, id)
 	return r.scanDatasource(row)
 }
 
 // GetDatasourceByName retrieves a datasource by name.
 func (r *Repository) GetDatasourceByName(ctx context.Context, name string) (*Datasource, error) {
-	query := `SELECT id, name, type, dsn_encrypted, config, is_active, last_sync_at, created_at, updated_at FROM datasources WHERE name = $1`
+	query := `SELECT ` + datasourceSelectColumns + ` FROM datasources WHERE name = $1`
 	row := r.db.QueryRowContext(ctx, query, name)
 	return r.scanDatasource(row)
 }
 
 // ListDatasources returns all configured datasources.
 func (r *Repository) ListDatasources(ctx context.Context) ([]Datasource, error) {
-	query := `SELECT id, name, type, dsn_encrypted, config, is_active, last_sync_at, created_at, updated_at FROM datasources ORDER BY created_at DESC`
-	rows, err := r.db.QueryContext(ctx, query)
+	query := `SELECT ` + datasourceSelectColumns + ` FROM datasources ORDER BY created_at DESC`
+	rows, err := platformdb.QuerySliceErr(ctx, r.db, "list datasources", query, nil, func(s platformdb.Scanner) (*Datasource, error) {
+		return r.scanDatasource(s)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("list datasources: %w", err)
+		return nil, err
 	}
-	defer func() { _ = rows.Close() }()
-
-	datasources := make([]Datasource, 0)
-	for rows.Next() {
-		ds, err := r.scanDatasource(rows)
-		if err != nil {
-			return nil, fmt.Errorf("list datasources: %w", err)
-		}
-		datasources = append(datasources, *ds)
+	out := make([]Datasource, len(rows))
+	for i, ds := range rows {
+		out[i] = *ds
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("list datasources: %w", err)
-	}
-	return datasources, nil
+	return out, nil
 }
 
 // DeleteDatasource removes a datasource by ID.
@@ -93,9 +104,50 @@ func (r *Repository) UpdateDatasourceSync(ctx context.Context, id string) error 
 
 func (r *Repository) scanDatasource(s platformdb.Scanner) (*Datasource, error) {
 	ds := &Datasource{}
-	err := s.Scan(&ds.ID, &ds.Name, &ds.Type, &ds.DSNEncrypted, &ds.Config, &ds.IsActive, &ds.LastSyncAt, &ds.CreatedAt, &ds.UpdatedAt)
+	var host, username, dbName, sslMode sql.NullString
+	var port sql.NullInt64
+	var passEnc sql.NullString
+	var cp []byte
+	var dsnMode sql.NullString
+	err := s.Scan(
+		&ds.ID, &ds.Name, &ds.Type, &ds.DSNEncrypted, &ds.Config, &ds.IsActive, &ds.LastSyncAt, &ds.CreatedAt, &ds.UpdatedAt,
+		&host, &port, &username, &passEnc, &dbName, &sslMode, &cp, &dsnMode,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("scan datasource: %w", err)
+	}
+	if host.Valid {
+		v := host.String
+		ds.Host = &v
+	}
+	if port.Valid {
+		p := int(port.Int64)
+		ds.Port = &p
+	}
+	if username.Valid {
+		v := username.String
+		ds.Username = &v
+	}
+	if passEnc.Valid {
+		ds.PasswordEncrypted = passEnc.String
+	}
+	if dbName.Valid {
+		v := dbName.String
+		ds.DatabaseName = &v
+	}
+	if sslMode.Valid {
+		v := sslMode.String
+		ds.SSLMode = &v
+	}
+	if len(cp) > 0 {
+		ds.ConnectionParams = append(json.RawMessage(nil), cp...)
+	} else {
+		ds.ConnectionParams = json.RawMessage("{}")
+	}
+	if dsnMode.Valid {
+		ds.DSNMode = dsnMode.String
+	} else {
+		ds.DSNMode = DSNModeRaw
 	}
 	return ds, nil
 }
@@ -104,28 +156,22 @@ func (r *Repository) scanDatasource(s platformdb.Scanner) (*Datasource, error) {
 
 // UpsertSchemas inserts or updates schema metadata.
 func (r *Repository) UpsertSchemas(ctx context.Context, datasourceID string, schemas []Schema) error {
-	for _, s := range schemas {
-		if _, err := r.UpsertSchema(ctx, datasourceID, s); err != nil {
-			return fmt.Errorf("upsert schemas: %w", err)
-		}
+	if len(schemas) == 0 {
+		return nil
 	}
-	return nil
+	return execBatchInTx(ctx, r.db, "upsert schemas", func(tx *sql.Tx) error {
+		for _, s := range schemas {
+			if _, err := upsertSchemaRow(ctx, tx, datasourceID, s); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // UpsertSchema inserts or updates schema metadata and returns the persisted ID.
 func (r *Repository) UpsertSchema(ctx context.Context, datasourceID string, s Schema) (string, error) {
-	query := `
-		INSERT INTO schemas (id, datasource_id, schema_name)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (datasource_id, schema_name) DO UPDATE
-		SET schema_name = EXCLUDED.schema_name
-		RETURNING id
-	`
-	var id string
-	if err := r.db.QueryRowContext(ctx, query, s.ID, datasourceID, s.SchemaName).Scan(&id); err != nil {
-		return "", fmt.Errorf("upsert schema %s: %w", s.SchemaName, err)
-	}
-	return id, nil
+	return upsertSchemaRow(ctx, r.db, datasourceID, s)
 }
 
 // Table operations
@@ -134,37 +180,28 @@ func (r *Repository) UpsertSchema(ctx context.Context, datasourceID string, s Sc
 // when the incoming description is nil/empty so that user-provided descriptions are
 // not overwritten by a re-sync against a source DB that has no native comment.
 func (r *Repository) UpsertTables(ctx context.Context, datasourceID string, tables []Table) error {
-	for _, t := range tables {
-		if _, err := r.UpsertTable(ctx, datasourceID, t); err != nil {
-			return fmt.Errorf("upsert tables: %w", err)
-		}
+	if len(tables) == 0 {
+		return nil
 	}
-	return nil
+	return execBatchInTx(ctx, r.db, "upsert tables", func(tx *sql.Tx) error {
+		for _, t := range tables {
+			if _, err := upsertTableRow(ctx, tx, datasourceID, t); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // UpsertTable inserts or updates table metadata and returns the persisted ID.
 func (r *Repository) UpsertTable(ctx context.Context, datasourceID string, t Table) (string, error) {
-	query := `
-		INSERT INTO tables (id, datasource_id, schema_id, schema_name, table_name, table_type, row_estimate, description)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		ON CONFLICT (datasource_id, schema_name, table_name) DO UPDATE
-		SET table_type = EXCLUDED.table_type,
-			row_estimate = EXCLUDED.row_estimate,
-			description = COALESCE(NULLIF(EXCLUDED.description, ''), tables.description),
-			updated_at = now()
-		RETURNING id
-	`
-	var id string
-	if err := r.db.QueryRowContext(ctx, query, t.ID, datasourceID, t.SchemaID, t.SchemaName, t.TableName, t.TableType, t.RowEstimate, t.Description).Scan(&id); err != nil {
-		return "", fmt.Errorf("upsert table %s.%s: %w", t.SchemaName, t.TableName, err)
-	}
-	return id, nil
+	return upsertTableRow(ctx, r.db, datasourceID, t)
 }
 
 // ListTables returns all stored tables for a datasource, optionally filtered by schema.
 func (r *Repository) ListTables(ctx context.Context, datasourceID, schemaName string) ([]Table, error) {
 	query := `
-		SELECT id, datasource_id, schema_id, schema_name, table_name, table_type, row_estimate, description, created_at, updated_at
+		SELECT ` + tableSelectColumns + `
 		FROM tables
 		WHERE datasource_id = $1
 	`
@@ -175,38 +212,15 @@ func (r *Repository) ListTables(ctx context.Context, datasourceID, schemaName st
 	}
 	query += " ORDER BY schema_name, table_name"
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("list tables: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var tables []Table
-	for rows.Next() {
-		var t Table
-		if err := rows.Scan(&t.ID, &t.DatasourceID, &t.SchemaID, &t.SchemaName, &t.TableName, &t.TableType, &t.RowEstimate, &t.Description, &t.CreatedAt, &t.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("scan table: %w", err)
-		}
-		tables = append(tables, t)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("list tables: %w", err)
-	}
-	return tables, nil
+	return platformdb.QuerySliceErr(ctx, r.db, "list tables", query, args, scanTable)
 }
 
 // GetTable returns a single table by ID.
 func (r *Repository) GetTable(ctx context.Context, id string) (*Table, error) {
-	query := `
-		SELECT id, datasource_id, schema_id, schema_name, table_name, table_type, row_estimate, description, created_at, updated_at
-		FROM tables WHERE id = $1
-	`
-	var t Table
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&t.ID, &t.DatasourceID, &t.SchemaID, &t.SchemaName, &t.TableName, &t.TableType, &t.RowEstimate, &t.Description, &t.CreatedAt, &t.UpdatedAt,
-	)
+	query := `SELECT ` + tableSelectColumns + ` FROM tables WHERE id = $1`
+	t, err := scanTable(r.db.QueryRowContext(ctx, query, id))
 	if err != nil {
-		return nil, fmt.Errorf("get table: %w", err)
+		return nil, err
 	}
 	return &t, nil
 }
@@ -233,63 +247,18 @@ type TableEmbedding struct {
 // table. The vector is JSON-encoded so deployments without pgvector keep
 // working; cosine similarity is computed in-process by the AI router.
 func (r *Repository) UpsertTableEmbedding(ctx context.Context, tableID, modelName string, embedding []float32) error {
-	encoded, err := encodeEmbedding(embedding)
-	if err != nil {
-		return fmt.Errorf("encode embedding: %w", err)
-	}
-	_, err = r.db.ExecContext(ctx, `
-		UPDATE tables
-		SET embedding = $2::jsonb,
-		    embedding_model = $3,
-		    embedding_updated_at = now()
-		WHERE id = $1
-	`, tableID, encoded, modelName)
-	if err != nil {
-		return fmt.Errorf("upsert table embedding: %w", err)
-	}
-	return nil
+	return r.upsertEntityEmbedding(ctx, "tables", tableID, modelName, embedding)
 }
 
 // ListTableEmbeddings returns every stored embedding for a datasource. Used by
 // the AI router on each NL→query request; we keep this single round-trip
 // rather than fanning out per-table lookups.
 func (r *Repository) ListTableEmbeddings(ctx context.Context, datasourceID string) ([]TableEmbedding, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	return listEmbeddingsSkippingCorrupt(ctx, r.db, "list table embeddings", `
 		SELECT schema_name, table_name, embedding_model, embedding
 		FROM tables
 		WHERE datasource_id = $1 AND embedding IS NOT NULL
-	`, datasourceID)
-	if err != nil {
-		return nil, fmt.Errorf("list table embeddings: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var out []TableEmbedding
-	for rows.Next() {
-		var (
-			te      TableEmbedding
-			modelN  *string
-			rawJSON []byte
-		)
-		if err := rows.Scan(&te.SchemaName, &te.TableName, &modelN, &rawJSON); err != nil {
-			return nil, fmt.Errorf("scan table embedding: %w", err)
-		}
-		if modelN != nil {
-			te.Model = *modelN
-		}
-		emb, err := decodeEmbedding(rawJSON)
-		if err != nil {
-			// Skip rows with a bad payload rather than failing the whole list;
-			// the router still gets every well-formed entry.
-			continue
-		}
-		te.Embedding = emb
-		out = append(out, te)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("list table embeddings: %w", err)
-	}
-	return out, nil
+	`, []any{datasourceID}, scanTableEmbedding)
 }
 
 func encodeEmbedding(vec []float32) (string, error) {
@@ -320,31 +289,18 @@ func decodeEmbedding(raw []byte) ([]float32, error) {
 // incoming description is nil/empty so manually edited / AI-generated descriptions
 // survive a metadata re-sync.
 func (r *Repository) UpsertColumns(ctx context.Context, datasourceID string, columns []Column) error {
-	query := `
-		INSERT INTO columns (id, datasource_id, table_id, schema_name, table_name, column_name, data_type, nullable, ordinal_position, character_maximum_length, numeric_precision, numeric_scale, column_default, description, is_primary_key, is_foreign_key, referenced_schema, referenced_table, referenced_column)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
-		ON CONFLICT (datasource_id, schema_name, table_name, column_name) DO UPDATE
-		SET data_type = EXCLUDED.data_type,
-			nullable = EXCLUDED.nullable,
-			is_primary_key = EXCLUDED.is_primary_key,
-			is_foreign_key = EXCLUDED.is_foreign_key,
-			referenced_schema = EXCLUDED.referenced_schema,
-			referenced_table = EXCLUDED.referenced_table,
-			referenced_column = EXCLUDED.referenced_column,
-			description = COALESCE(NULLIF(EXCLUDED.description, ''), columns.description)
-	`
-	for _, c := range columns {
-		if _, err := r.db.ExecContext(ctx, query, c.ID, datasourceID, c.TableID, c.SchemaName, c.TableName, c.ColumnName, c.DataType, c.Nullable, c.OrdinalPosition, c.CharMaxLength, c.NumericPrecision, c.NumericScale, c.ColumnDefault, c.Description, c.IsPrimaryKey, c.IsForeignKey, c.ReferencedSchema, c.ReferencedTable, c.ReferencedColumn); err != nil {
-			return fmt.Errorf("upsert column %s.%s.%s: %w", c.SchemaName, c.TableName, c.ColumnName, err)
-		}
+	if len(columns) == 0 {
+		return nil
 	}
-	return nil
+	return execBatchInTx(ctx, r.db, "upsert columns", func(tx *sql.Tx) error {
+		return upsertColumnsBatch(ctx, tx, datasourceID, columns)
+	})
 }
 
 // ListColumns returns columns for a datasource, optionally scoped to a single table.
 func (r *Repository) ListColumns(ctx context.Context, datasourceID, schemaName, tableName string) ([]Column, error) {
 	query := `
-		SELECT id, datasource_id, table_id, schema_name, table_name, column_name, data_type, nullable, ordinal_position, character_maximum_length, numeric_precision, numeric_scale, column_default, description, is_primary_key, is_foreign_key, referenced_schema, referenced_table, referenced_column, created_at
+		SELECT ` + columnSelectColumns + `
 		FROM columns
 		WHERE datasource_id = $1
 	`
@@ -360,75 +316,25 @@ func (r *Repository) ListColumns(ctx context.Context, datasourceID, schemaName, 
 	}
 	query += " ORDER BY schema_name, table_name, ordinal_position"
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("list columns: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var columns []Column
-	for rows.Next() {
-		var c Column
-		if err := rows.Scan(&c.ID, &c.DatasourceID, &c.TableID, &c.SchemaName, &c.TableName, &c.ColumnName, &c.DataType, &c.Nullable, &c.OrdinalPosition, &c.CharMaxLength, &c.NumericPrecision, &c.NumericScale, &c.ColumnDefault, &c.Description, &c.IsPrimaryKey, &c.IsForeignKey, &c.ReferencedSchema, &c.ReferencedTable, &c.ReferencedColumn, &c.CreatedAt); err != nil {
-			return nil, fmt.Errorf("scan column: %w", err)
-		}
-		columns = append(columns, c)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("list columns: %w", err)
-	}
-	return columns, nil
+	return platformdb.QuerySliceErr(ctx, r.db, "list columns", query, args, scanColumn)
 }
 
 // GetColumn returns a single column by ID.
 func (r *Repository) GetColumn(ctx context.Context, id string) (*Column, error) {
-	query := `
-		SELECT id, datasource_id, table_id, schema_name, table_name, column_name, data_type, nullable, ordinal_position, character_maximum_length, numeric_precision, numeric_scale, column_default, description, is_primary_key, is_foreign_key, referenced_schema, referenced_table, referenced_column, created_at
-		FROM columns WHERE id = $1
-	`
-	var c Column
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&c.ID, &c.DatasourceID, &c.TableID, &c.SchemaName, &c.TableName, &c.ColumnName, &c.DataType, &c.Nullable, &c.OrdinalPosition, &c.CharMaxLength, &c.NumericPrecision, &c.NumericScale, &c.ColumnDefault, &c.Description, &c.IsPrimaryKey, &c.IsForeignKey, &c.ReferencedSchema, &c.ReferencedTable, &c.ReferencedColumn, &c.CreatedAt,
-	)
+	query := `SELECT ` + columnSelectColumns + ` FROM columns WHERE id = $1`
+	c, err := scanColumn(r.db.QueryRowContext(ctx, query, id))
 	if err != nil {
-		return nil, fmt.Errorf("get column: %w", err)
+		return nil, err
 	}
 	return &c, nil
 }
 
 func (r *Repository) ListPermissionPolicies(ctx context.Context, datasourceID string) ([]PermissionPolicyRecord, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	return platformdb.QuerySliceErr(ctx, r.db, "list permission policies", `
 		SELECT denied_fields, row_filters
 		FROM permissions
 		WHERE datasource_id::text = $1
-	`, datasourceID)
-	if err != nil {
-		return nil, fmt.Errorf("list permission policies: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var policies []PermissionPolicyRecord
-	for rows.Next() {
-		var (
-			policy     PermissionPolicyRecord
-			rowFilters []byte
-			denied     pq.StringArray
-		)
-		if err := rows.Scan(&denied, &rowFilters); err != nil {
-			return nil, fmt.Errorf("scan permission policy: %w", err)
-		}
-		policy.DeniedFields = []string(denied)
-		if len(rowFilters) > 0 {
-			if err := json.Unmarshal(rowFilters, &policy.RowFilters); err != nil {
-				return nil, fmt.Errorf("list permission policies: row filters: %w", err)
-			}
-		}
-		policies = append(policies, policy)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("list permission policies: %w", err)
-	}
-	return policies, nil
+	`, []any{datasourceID}, scanPermissionPolicy)
 }
 
 // UpdateColumnDescription replaces the description text on a column row.
@@ -444,118 +350,40 @@ func (r *Repository) UpdateColumnDescription(ctx context.Context, id string, des
 // column. It mirrors table embedding storage and keeps deployments independent
 // of pgvector.
 func (r *Repository) UpsertColumnEmbedding(ctx context.Context, columnID, modelName string, embedding []float32) error {
-	encoded, err := encodeEmbedding(embedding)
-	if err != nil {
-		return fmt.Errorf("encode embedding: %w", err)
-	}
-	_, err = r.db.ExecContext(ctx, `
-		UPDATE columns
-		SET embedding = $2::jsonb,
-		    embedding_model = $3,
-		    embedding_updated_at = now()
-		WHERE id = $1
-	`, columnID, encoded, modelName)
-	if err != nil {
-		return fmt.Errorf("upsert column embedding: %w", err)
-	}
-	return nil
+	return r.upsertEntityEmbedding(ctx, "columns", columnID, modelName, embedding)
 }
 
 // ListColumnEmbeddings returns every stored column embedding for a datasource in
 // one round-trip. Router code decides whether coverage is complete enough to use.
 func (r *Repository) ListColumnEmbeddings(ctx context.Context, datasourceID string) ([]ColumnEmbedding, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	return listEmbeddingsSkippingCorrupt(ctx, r.db, "list column embeddings", `
 		SELECT schema_name, table_name, column_name, embedding_model, embedding
 		FROM columns
 		WHERE datasource_id = $1 AND embedding IS NOT NULL
-	`, datasourceID)
-	if err != nil {
-		return nil, fmt.Errorf("list column embeddings: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var out []ColumnEmbedding
-	for rows.Next() {
-		var (
-			ce      ColumnEmbedding
-			modelN  *string
-			rawJSON []byte
-		)
-		if err := rows.Scan(&ce.SchemaName, &ce.TableName, &ce.ColumnName, &modelN, &rawJSON); err != nil {
-			return nil, fmt.Errorf("scan column embedding: %w", err)
-		}
-		if modelN != nil {
-			ce.Model = *modelN
-		}
-		emb, err := decodeEmbedding(rawJSON)
-		if err != nil {
-			continue
-		}
-		ce.Embedding = emb
-		out = append(out, ce)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("list column embeddings: %w", err)
-	}
-	return out, nil
+	`, []any{datasourceID}, scanColumnEmbedding)
 }
 
 // Relation operations
 
 // UpsertRelations inserts or updates relation metadata.
 func (r *Repository) UpsertRelations(ctx context.Context, datasourceID string, relations []Relation) error {
-	query := `
-		INSERT INTO relations (id, datasource_id, constraint_name, from_schema, from_table, from_column, to_schema, to_table, to_column, relationship_type)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		ON CONFLICT (datasource_id, constraint_name) DO UPDATE
-		SET relationship_type = EXCLUDED.relationship_type
-	`
-	for _, rel := range relations {
-		if _, err := r.db.ExecContext(ctx, query, rel.ID, datasourceID, rel.ConstraintName, rel.FromSchema, rel.FromTable, rel.FromColumn, rel.ToSchema, rel.ToTable, rel.ToColumn, rel.RelationshipType); err != nil {
-			return fmt.Errorf("upsert relation %s: %w", rel.ConstraintName, err)
-		}
+	if len(relations) == 0 {
+		return nil
 	}
-	return nil
+	return execBatchInTx(ctx, r.db, "upsert relations", func(tx *sql.Tx) error {
+		return upsertRelationsBatch(ctx, tx, datasourceID, relations)
+	})
 }
 
 // ListRelations returns foreign-key relationships for a datasource.
 func (r *Repository) ListRelations(ctx context.Context, datasourceID string) ([]Relation, error) {
 	query := `
-		SELECT id, datasource_id, constraint_name, from_schema, from_table, from_column, to_schema, to_table, to_column, relationship_type, created_at
+		SELECT ` + relationSelectColumns + `
 		FROM relations
 		WHERE datasource_id = $1
 		ORDER BY from_schema, from_table, from_column
 	`
-	rows, err := r.db.QueryContext(ctx, query, datasourceID)
-	if err != nil {
-		return nil, fmt.Errorf("list relations: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var relations []Relation
-	for rows.Next() {
-		var rel Relation
-		if err := rows.Scan(
-			&rel.ID,
-			&rel.DatasourceID,
-			&rel.ConstraintName,
-			&rel.FromSchema,
-			&rel.FromTable,
-			&rel.FromColumn,
-			&rel.ToSchema,
-			&rel.ToTable,
-			&rel.ToColumn,
-			&rel.RelationshipType,
-			&rel.CreatedAt,
-		); err != nil {
-			return nil, fmt.Errorf("scan relation: %w", err)
-		}
-		relations = append(relations, rel)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("list relations: %w", err)
-	}
-	return relations, nil
+	return platformdb.QuerySliceErr(ctx, r.db, "list relations", query, []any{datasourceID}, scanRelation)
 }
 
 // History operations
@@ -601,31 +429,14 @@ func (r *Repository) ListQueryHistory(ctx context.Context, limit int) ([]query.H
 	if limit <= 0 {
 		limit = 100
 	}
-	rows, err := r.db.QueryContext(ctx, `
+	return platformdb.QuerySliceErr(ctx, r.db, "list query history", `
 		SELECT id, datasource_id, model_id, user_id, logical_query, compiled_sql,
 			sql_args, status, row_count, duration_ms, error_message,
 			query_fingerprint, created_at
 		FROM query_history
 		ORDER BY created_at DESC
 		LIMIT $1
-	`, limit)
-	if err != nil {
-		return nil, fmt.Errorf("list query history: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var entries []query.HistoryEntry
-	for rows.Next() {
-		entry, err := scanQueryHistoryEntry(rows)
-		if err != nil {
-			return nil, fmt.Errorf("list query history: %w", err)
-		}
-		entries = append(entries, entry)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("list query history: %w", err)
-	}
-	return entries, nil
+	`, []any{limit}, scanQueryHistoryEntry)
 }
 
 // GetQueryHistory returns one query history entry by ID.
@@ -675,25 +486,16 @@ func (r *Repository) ListSuccessfulAIQueries(ctx context.Context, datasourceID s
 	if modelName != nil && *modelName != "" {
 		modelArg = sql.NullString{String: *modelName, Valid: true}
 	}
-	rows, err := r.db.QueryContext(ctx, q, datasourceID, modelArg, minConfidence, limit)
-	if err != nil {
-		return nil, fmt.Errorf("query successful AI history: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var out []SuccessfulAIQuery
-	for rows.Next() {
-		var question string
-		var lq []byte
-		if err := rows.Scan(&question, &lq); err != nil {
-			return nil, fmt.Errorf("scan AI history row: %w", err)
-		}
-		out = append(out, SuccessfulAIQuery{Question: question, LogicalQuery: lq})
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate AI history: %w", err)
-	}
-	return out, nil
+	return platformdb.QuerySliceErr(ctx, r.db, "list successful AI queries", q,
+		[]any{datasourceID, modelArg, minConfidence, limit},
+		func(s platformdb.Scanner) (SuccessfulAIQuery, error) {
+			var question string
+			var lq []byte
+			if err := s.Scan(&question, &lq); err != nil {
+				return SuccessfulAIQuery{}, fmt.Errorf("scan AI history row: %w", err)
+			}
+			return SuccessfulAIQuery{Question: question, LogicalQuery: lq}, nil
+		})
 }
 
 // CreateAIQueryHistory stores an AI natural-language query history entry.
@@ -750,6 +552,60 @@ func (r *Repository) CreateAIQueryHistory(ctx context.Context, entry *AIQueryHis
 		return fmt.Errorf("insert AI query history: %w", err)
 	}
 	return nil
+}
+
+func scanTable(s platformdb.Scanner) (Table, error) {
+	var t Table
+	if err := s.Scan(&t.ID, &t.DatasourceID, &t.SchemaID, &t.SchemaName, &t.TableName, &t.TableType, &t.RowEstimate, &t.Description, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		return t, fmt.Errorf("scan table: %w", err)
+	}
+	return t, nil
+}
+
+func scanColumn(s platformdb.Scanner) (Column, error) {
+	var c Column
+	if err := s.Scan(&c.ID, &c.DatasourceID, &c.TableID, &c.SchemaName, &c.TableName, &c.ColumnName, &c.DataType, &c.Nullable, &c.OrdinalPosition, &c.CharMaxLength, &c.NumericPrecision, &c.NumericScale, &c.ColumnDefault, &c.Description, &c.IsPrimaryKey, &c.IsForeignKey, &c.ReferencedSchema, &c.ReferencedTable, &c.ReferencedColumn, &c.CreatedAt); err != nil {
+		return c, fmt.Errorf("scan column: %w", err)
+	}
+	return c, nil
+}
+
+func scanRelation(s platformdb.Scanner) (Relation, error) {
+	var rel Relation
+	if err := s.Scan(
+		&rel.ID,
+		&rel.DatasourceID,
+		&rel.ConstraintName,
+		&rel.FromSchema,
+		&rel.FromTable,
+		&rel.FromColumn,
+		&rel.ToSchema,
+		&rel.ToTable,
+		&rel.ToColumn,
+		&rel.RelationshipType,
+		&rel.CreatedAt,
+	); err != nil {
+		return rel, fmt.Errorf("scan relation: %w", err)
+	}
+	return rel, nil
+}
+
+func scanPermissionPolicy(s platformdb.Scanner) (PermissionPolicyRecord, error) {
+	var (
+		policy     PermissionPolicyRecord
+		rowFilters []byte
+		denied     pq.StringArray
+	)
+	if err := s.Scan(&denied, &rowFilters); err != nil {
+		return policy, fmt.Errorf("scan permission policy: %w", err)
+	}
+	policy.DeniedFields = []string(denied)
+	if len(rowFilters) > 0 {
+		if err := json.Unmarshal(rowFilters, &policy.RowFilters); err != nil {
+			return policy, fmt.Errorf("row filters: %w", err)
+		}
+	}
+	return policy, nil
 }
 
 func scanQueryHistoryEntry(s platformdb.Scanner) (query.HistoryEntry, error) {
@@ -821,55 +677,46 @@ func nullableStringPtr(value sql.NullString) *string {
 // SearchColumns searches columns by name or description.
 func (r *Repository) SearchColumns(ctx context.Context, datasourceID, searchTerm string) ([]Column, error) {
 	query := `
-		SELECT id, datasource_id, table_id, schema_name, table_name, column_name, data_type, nullable, ordinal_position, character_maximum_length, numeric_precision, numeric_scale, column_default, description, is_primary_key, is_foreign_key, created_at
+		SELECT ` + columnSelectColumns + `
 		FROM columns
 		WHERE datasource_id = $1 AND (column_name ILIKE $2 OR description ILIKE $2)
 		ORDER BY table_name, column_name
 	`
-	rows, err := r.db.QueryContext(ctx, query, datasourceID, "%"+searchTerm+"%")
-	if err != nil {
-		return nil, fmt.Errorf("search columns: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var columns []Column
-	for rows.Next() {
-		var c Column
-		if err := rows.Scan(&c.ID, &c.DatasourceID, &c.TableID, &c.SchemaName, &c.TableName, &c.ColumnName, &c.DataType, &c.Nullable, &c.OrdinalPosition, &c.CharMaxLength, &c.NumericPrecision, &c.NumericScale, &c.ColumnDefault, &c.Description, &c.IsPrimaryKey, &c.IsForeignKey, &c.CreatedAt); err != nil {
-			return nil, fmt.Errorf("search columns scan: %w", err)
-		}
-		columns = append(columns, c)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("search columns: %w", err)
-	}
-	return columns, nil
+	return platformdb.QuerySliceErr(ctx, r.db, "search columns", query, []any{datasourceID, "%" + searchTerm + "%"}, scanColumn)
 }
 
 // SearchTables searches tables by name or description.
 func (r *Repository) SearchTables(ctx context.Context, datasourceID, searchTerm string) ([]Table, error) {
 	query := `
-		SELECT id, datasource_id, schema_id, schema_name, table_name, table_type, row_estimate, description, created_at, updated_at
+		SELECT ` + tableSelectColumns + `
 		FROM tables
 		WHERE datasource_id = $1 AND (table_name ILIKE $2 OR description ILIKE $2)
 		ORDER BY schema_name, table_name
 	`
-	rows, err := r.db.QueryContext(ctx, query, datasourceID, "%"+searchTerm+"%")
-	if err != nil {
-		return nil, fmt.Errorf("search tables: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
+	return platformdb.QuerySliceErr(ctx, r.db, "search tables", query, []any{datasourceID, "%" + searchTerm + "%"}, scanTable)
+}
 
-	var tables []Table
-	for rows.Next() {
-		var t Table
-		if err := rows.Scan(&t.ID, &t.DatasourceID, &t.SchemaID, &t.SchemaName, &t.TableName, &t.TableType, &t.RowEstimate, &t.Description, &t.CreatedAt, &t.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("search tables scan: %w", err)
-		}
-		tables = append(tables, t)
+func nullableString(p *string) any {
+	if p == nil {
+		return nil
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("search tables: %w", err)
+	s := strings.TrimSpace(*p)
+	if s == "" {
+		return nil
 	}
-	return tables, nil
+	return s
+}
+
+func nullableInt(p *int) any {
+	if p == nil {
+		return nil
+	}
+	return *p
+}
+
+func nullableEncrypted(s string) any {
+	if strings.TrimSpace(s) == "" {
+		return nil
+	}
+	return s
 }

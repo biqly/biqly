@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/biqly/biqly/internal/dialect"
+	"github.com/biqly/biqly/internal/errmsg"
 )
 
 // PermissionInjector injects row-level security filters into compiled SQL.
@@ -36,7 +37,7 @@ func BuildRowFilterPredicates(
 			if omitUnknownFields {
 				continue
 			}
-			return nil, nil, fmt.Errorf("row filter references unknown field: %s", rf.Field)
+			return nil, nil, errmsg.RowFilterUnknownField(rf.Field)
 		}
 		quoted := d.QuoteIdent(colRef)
 		switch rf.Operator {

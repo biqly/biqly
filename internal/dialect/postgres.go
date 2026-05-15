@@ -7,7 +7,9 @@ import (
 )
 
 // PostgresDialect implements the Dialect interface for PostgreSQL.
-type PostgresDialect struct{}
+type PostgresDialect struct {
+	BaseDialect
+}
 
 // Name returns the dialect name.
 func (d PostgresDialect) Name() string {
@@ -29,11 +31,6 @@ func (d PostgresDialect) Placeholder(index int) string {
 	return fmt.Sprintf("$%d", index)
 }
 
-// LimitOffset generates the LIMIT/OFFSET clause.
-func (d PostgresDialect) LimitOffset(limit, offset int) string {
-	return StandardLimitOffset(limit, offset)
-}
-
 // DateTrunc returns the date truncation expression.
 func (d PostgresDialect) DateTrunc(part, column string) string {
 	return fmt.Sprintf("DATE_TRUNC('%s', %s)", part, d.QuoteIdent(column))
@@ -41,17 +38,11 @@ func (d PostgresDialect) DateTrunc(part, column string) string {
 
 // CalendarPart returns CAST(EXTRACT(...)) AS INTEGER for scalar year/quarter/month buckets.
 func (d PostgresDialect) CalendarPart(part, column string) string {
-	q := d.QuoteIdent(column)
-	switch strings.ToLower(strings.TrimSpace(part)) {
-	case "year":
-		return fmt.Sprintf("CAST(EXTRACT(YEAR FROM %s) AS INTEGER)", q)
-	case "quarter":
-		return fmt.Sprintf("CAST(EXTRACT(QUARTER FROM %s) AS INTEGER)", q)
-	case "month":
-		return fmt.Sprintf("CAST(EXTRACT(MONTH FROM %s) AS INTEGER)", q)
-	default:
-		return d.DateTrunc(part, column)
-	}
+	return CalendarPartLookup(d, part, column,
+		"CAST(EXTRACT(YEAR FROM %s) AS INTEGER)",
+		"CAST(EXTRACT(QUARTER FROM %s) AS INTEGER)",
+		"CAST(EXTRACT(MONTH FROM %s) AS INTEGER)",
+	)
 }
 
 // ILike returns a case-insensitive LIKE expression.
@@ -60,17 +51,9 @@ func (d PostgresDialect) ILike(column, placeholder string) string {
 	return fmt.Sprintf("%s ILIKE %s", column, placeholder)
 }
 
-// CastType returns the dialect-specific SQL type name for casting.
-func (d PostgresDialect) CastType(sqlType string) string {
-	return CastTypeUpper(sqlType)
-}
-
 // Aggregate formats an aggregation function call.
 func (d PostgresDialect) Aggregate(fn, column string) string {
-	return AggregateStandardSQL(d, fn, column)
+	return d.BaseDialect.Aggregate(d, fn, column)
 }
 
-// ExplainSQL prefixes the statement with EXPLAIN; PostgreSQL plans without executing.
-func (d PostgresDialect) ExplainSQL(sql string) string {
-	return "EXPLAIN " + sql
-}
+var _ Dialect = PostgresDialect{}

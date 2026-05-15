@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	platformdb "github.com/biqly/biqly/internal/platform/db"
 	"github.com/google/uuid"
 )
 
@@ -157,30 +158,12 @@ func (r *EvalRepository) SaveRunResults(ctx context.Context, runID, provider, mo
 
 // GetRunResults returns all results for a given run.
 func (r *EvalRepository) GetRunResults(ctx context.Context, runID string) ([]EvalResultRecord, error) {
-	rows, err := r.db.QueryContext(ctx,
+	return platformdb.QuerySliceErr(ctx, r.db, "query eval results",
 		`SELECT id, run_id, provider, model, context_version, context_updated_at,
 			case_id, question, expected_lq, got_lq, match, reason,
 			confidence, latency_ms, token_count, created_at
 		FROM eval_results WHERE run_id = $1 ORDER BY case_id`,
-		runID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("query eval results: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var results []EvalResultRecord
-	for rows.Next() {
-		var rec EvalResultRecord
-		if err := rows.Scan(&rec.ID, &rec.RunID, &rec.Provider, &rec.Model, &rec.ContextVersion, &rec.ContextUpdatedAt, &rec.CaseID, &rec.Question, &rec.ExpectedLQ, &rec.GotLQ, &rec.Match, &rec.Reason, &rec.Confidence, &rec.LatencyMs, &rec.TokenCount, &rec.CreatedAt); err != nil {
-			return nil, fmt.Errorf("scan eval result: %w", err)
-		}
-		results = append(results, rec)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("eval results rows: %w", err)
-	}
-	return results, nil
+		[]any{runID}, scanEvalResultRecord)
 }
 
 // GetRunSummary returns the aggregate summary for a run.
@@ -206,32 +189,11 @@ func (r *EvalRepository) ListRuns(ctx context.Context, limit int) ([]EvalRunSumm
 	if limit <= 0 {
 		limit = 20
 	}
-	rows, err := r.db.QueryContext(ctx,
+	return platformdb.QuerySliceErr(ctx, r.db, "list eval runs",
 		`SELECT run_id, provider, model, context_version, total_cases, passed, failed,
 			avg_confidence, avg_latency_ms, total_tokens, completed_at
 		FROM eval_runs ORDER BY completed_at DESC LIMIT $1`,
-		limit,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("list eval runs: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var runs []EvalRunSummary
-	for rows.Next() {
-		var s EvalRunSummary
-		if err := rows.Scan(&s.RunID, &s.Provider, &s.Model, &s.ContextVersion, &s.TotalCases, &s.Passed, &s.Failed, &s.AvgConfidence, &s.AvgLatencyMs, &s.TotalTokens, &s.CompletedAt); err != nil {
-			return nil, fmt.Errorf("scan eval run: %w", err)
-		}
-		if s.TotalCases > 0 {
-			s.PassRate = float64(s.Passed) / float64(s.TotalCases) * 100
-		}
-		runs = append(runs, s)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("eval runs rows: %w", err)
-	}
-	return runs, nil
+		[]any{limit}, scanEvalRunSummary)
 }
 
 // GenerateRegressionReport compares two runs and produces a regression report.
@@ -329,4 +291,23 @@ type EvalResultWithMetrics struct {
 	Confidence float64 `json:"confidence"`
 	LatencyMs  int64   `json:"latency_ms"`
 	TokenCount int     `json:"token_count"`
+}
+
+func scanEvalResultRecord(s platformdb.Scanner) (EvalResultRecord, error) {
+	var rec EvalResultRecord
+	if err := s.Scan(&rec.ID, &rec.RunID, &rec.Provider, &rec.Model, &rec.ContextVersion, &rec.ContextUpdatedAt, &rec.CaseID, &rec.Question, &rec.ExpectedLQ, &rec.GotLQ, &rec.Match, &rec.Reason, &rec.Confidence, &rec.LatencyMs, &rec.TokenCount, &rec.CreatedAt); err != nil {
+		return rec, fmt.Errorf("scan eval result: %w", err)
+	}
+	return rec, nil
+}
+
+func scanEvalRunSummary(s platformdb.Scanner) (EvalRunSummary, error) {
+	var summary EvalRunSummary
+	if err := s.Scan(&summary.RunID, &summary.Provider, &summary.Model, &summary.ContextVersion, &summary.TotalCases, &summary.Passed, &summary.Failed, &summary.AvgConfidence, &summary.AvgLatencyMs, &summary.TotalTokens, &summary.CompletedAt); err != nil {
+		return summary, fmt.Errorf("scan eval run: %w", err)
+	}
+	if summary.TotalCases > 0 {
+		summary.PassRate = float64(summary.Passed) / float64(summary.TotalCases) * 100
+	}
+	return summary, nil
 }

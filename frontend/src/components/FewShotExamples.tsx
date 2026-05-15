@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useApi } from '../hooks/useApi'
+import { useT } from '../i18n'
+import { EmptyState } from './ui/EmptyState'
+import { ErrorAlert } from './ui/ErrorAlert'
 import { Select } from './ui/Select'
 
 interface FewShotExample {
@@ -14,6 +17,7 @@ interface FewShotExample {
 const DIALECTS = ['postgresql', 'mysql', 'bigquery', 'snowflake', 'duckdb']
 
 export default function FewShotExamples() {
+  const t = useT()
   const { get, postData, putData, deleteData, loading, error } = useApi()
   const [examples, setExamples] = useState<FewShotExample[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -61,12 +65,12 @@ export default function FewShotExamples() {
   const handleSave = async () => {
     setFormError(null)
     let lq: Record<string, unknown>
-    try { lq = JSON.parse(formLq) } catch { setFormError('LogicalQuery geçersiz JSON'); return }
-    if (!formQuestion.trim()) { setFormError('Soru zorunludur'); return }
+    try { lq = JSON.parse(formLq) } catch { setFormError(t('few_shot.err_invalid_lq')); return }
+    if (!formQuestion.trim()) { setFormError(t('few_shot.err_question_required')); return }
 
     if (editId) {
       // Update
-      const updated = examples.map((e) => e.id === editId ? { ...e, question: formQuestion, logical_query: lq, tags: formTags.split(',').map((t) => t.trim()).filter(Boolean), dialect: formDialect } : e)
+      const updated = examples.map((e) => e.id === editId ? { ...e, question: formQuestion, logical_query: lq, tags: formTags.split(',').map((tok) => tok.trim()).filter(Boolean), dialect: formDialect } : e)
       if (apiReady) {
         await putData(`/api/ai/examples/${editId}`, updated.find((e) => e.id === editId))
       }
@@ -76,7 +80,7 @@ export default function FewShotExamples() {
         id: `ex_${Date.now()}`,
         question: formQuestion,
         logical_query: lq,
-        tags: formTags.split(',').map((t) => t.trim()).filter(Boolean),
+        tags: formTags.split(',').map((tok) => tok.trim()).filter(Boolean),
         dialect: formDialect,
       }
       if (apiReady) {
@@ -99,32 +103,26 @@ export default function FewShotExamples() {
   return (
     <div className="page-stack">
       {!apiReady && (
-        <div className="error" style={{ marginBottom: '1rem' }}>
-          Backend uç noktası henüz hazır değil. Örnekler tarayıcınızda yerel olarak saklanıyor.
-        </div>
+        <ErrorAlert error={t('few_shot.api_offline_alert')} />
       )}
 
       <div className="card">
         <div className="card-header-row">
-          <h2>Few-shot örnekleri</h2>
-          <button className="btn btn-sm" onClick={openAdd}>+ Örnek ekle</button>
+          <h2>{t('few_shot.title')}</h2>
+          <button type="button" className="btn btn-sm" onClick={openAdd}>{t('few_shot.new')}</button>
         </div>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1rem' }}>
-          AI metinden-SQL motorunun few-shot istemlerinde kullanılacak örnekleri yönetin. Her örnek modele bir kalıp öğretir.
-        </p>
+        <p className="card-subtitle">{t('few_shot.manage_hint')}</p>
 
-        {examples.length === 0 && (
-          <p style={{ color: 'var(--text-muted)' }}>Henüz örnek yok. AI sorgu üretimini iyileştirmek için bir tane ekleyin.</p>
-        )}
+        {examples.length === 0 && <EmptyState description={t('few_shot.empty')} />}
 
         {examples.length > 0 && (
           <table className="results-table">
             <thead>
               <tr>
-                <th>Soru</th>
-                <th>Diyalekt</th>
-                <th>Etiketler</th>
-                <th className="actions">İşlemler</th>
+                <th>{t('few_shot.col_question')}</th>
+                <th>{t('few_shot.col_dialect')}</th>
+                <th>{t('few_shot.col_tags')}</th>
+                <th className="actions">{t('few_shot.col_actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -143,8 +141,8 @@ export default function FewShotExamples() {
                   </td>
                   <td className="actions">
                     <div className="row-actions">
-                      <button className="btn btn-sm btn-ghost" onClick={() => openEdit(ex)}>Düzenle</button>
-                      <button className="btn btn-sm btn-danger" onClick={() => handleDelete(ex.id)}>Sil</button>
+                      <button type="button" className="btn btn-sm btn-ghost" onClick={() => openEdit(ex)}>{t('common.edit')}</button>
+                      <button type="button" className="btn btn-sm btn-danger" onClick={() => handleDelete(ex.id)}>{t('common.delete')}</button>
                     </div>
                   </td>
                 </tr>
@@ -159,25 +157,25 @@ export default function FewShotExamples() {
         <div className="modal-backdrop" onClick={resetForm}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>{editId ? 'Örneği düzenle' : 'Few-shot örneği ekle'}</h2>
+              <h2>{editId ? t('few_shot.form_edit_title') : t('few_shot.form_add_title')}</h2>
               <button className="modal-close" onClick={resetForm}>×</button>
             </div>
             <div className="modal-body">
               <div className="form-group">
-                <label htmlFor="fs-question">Doğal dil sorusu</label>
-                <textarea id="fs-question" value={formQuestion} onChange={(e) => setFormQuestion(e.target.value)} placeholder="Geçen aya göre ülke bazında toplam geliri göster…" rows={3} />
+                <label htmlFor="fs-question">{t('few_shot.label_nl_question')}</label>
+                <textarea id="fs-question" value={formQuestion} onChange={(e) => setFormQuestion(e.target.value)} placeholder={t('few_shot.placeholder_nl_question')} rows={3} />
               </div>
               <div className="form-group">
-                <label htmlFor="fs-lq">Mantıksal Sorgu (JSON)</label>
+                <label htmlFor="fs-lq">{t('few_shot.label_lq_json')}</label>
                 <textarea id="fs-lq" value={formLq} onChange={(e) => setFormLq(e.target.value)} placeholder='{"select": [{"type": "metric", "name": "revenue"}]}' rows={6} style={{ fontFamily: 'monospace', fontSize: '0.8rem' }} />
               </div>
               <div className="modal-form-row">
                 <div className="form-group">
-                  <label htmlFor="fs-tags">Etiketler (virgülle ayırın)</label>
-                  <input id="fs-tags" value={formTags} onChange={(e) => setFormTags(e.target.value)} placeholder="toplama, gelir, tarih-filtresi" />
+                  <label htmlFor="fs-tags">{t('few_shot.label_tags')}</label>
+                  <input id="fs-tags" value={formTags} onChange={(e) => setFormTags(e.target.value)} placeholder={t('few_shot.placeholder_tags')} />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="fs-dialect">SQL diyalekti</label>
+                  <label htmlFor="fs-dialect">{t('few_shot.label_dialect')}</label>
                   <Select
                     id="fs-dialect"
                     value={formDialect}
@@ -186,11 +184,11 @@ export default function FewShotExamples() {
                   />
                 </div>
               </div>
-              {formError && <div className="error">{formError}</div>}
+              <ErrorAlert error={formError} />
             </div>
             <div className="modal-actions">
-              <button className="btn btn-ghost" onClick={resetForm}>Vazgeç</button>
-              <button className="btn btn-primary" onClick={handleSave} disabled={loading}>{loading ? 'Kaydediliyor…' : 'Kaydet'}</button>
+              <button type="button" className="btn btn-ghost" onClick={resetForm}>{t('common.cancel')}</button>
+              <button type="button" className="btn btn-primary" onClick={handleSave} disabled={loading}>{loading ? t('common.saving') : t('common.save')}</button>
             </div>
           </div>
         </div>

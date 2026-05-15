@@ -35,7 +35,7 @@ func isCountLikeQuestion(question string, tokens map[string]bool) bool {
 		return true
 	}
 	q := strings.ToLower(strings.TrimSpace(question))
-	for _, syn := range ActiveRoutingLexicon().RowCountSynonyms {
+	for _, syn := range activeRoutingLexicon().RowCountSynonyms {
 		s := strings.ToLower(strings.TrimSpace(syn))
 		if s != "" && strings.Contains(q, s) {
 			return true

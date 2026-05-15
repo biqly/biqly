@@ -3,6 +3,7 @@ package ai
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"sync"
 )
@@ -29,15 +30,28 @@ var (
 	routingLexiconErr  error
 )
 
-// RoutingLexicon returns the active routing lexicon (embedded default or file override).
-func ActiveRoutingLexicon() *RoutingLexicon {
+// ActiveRoutingLexicon returns the active routing lexicon (embedded default or file override).
+func ActiveRoutingLexicon() (*RoutingLexicon, error) {
 	routingLexiconOnce.Do(func() {
 		routingLexicon, routingLexiconErr = loadRoutingLexicon("")
 	})
 	if routingLexiconErr != nil {
-		panic(routingLexiconErr)
+		return nil, routingLexiconErr
 	}
-	return routingLexicon
+	return routingLexicon, nil
+}
+
+func activeRoutingLexicon() *RoutingLexicon {
+	lex, err := ActiveRoutingLexicon()
+	if err != nil {
+		slog.Error("routing lexicon unavailable, using embedded defaults", "error", err)
+		fallback, parseErr := parseRoutingLexiconJSON(embeddedRoutingLexiconJSON)
+		if parseErr != nil {
+			panic(parseErr)
+		}
+		return fallback
+	}
+	return lex
 }
 
 // InitRoutingLexicon loads routing vocabulary from an optional JSON file path.

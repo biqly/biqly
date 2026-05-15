@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/biqly/biqly/internal/errmsg"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
@@ -40,14 +41,14 @@ func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) err
 			if !dimMap[item.Name] {
 				errs = append(errs, &ValidationError{
 					Field:   "select",
-					Message: "unknown dimension: " + item.Name,
+					Message: errmsg.UnknownDimensionMsg(item.Name),
 				})
 			}
 		case SelectTypeMetric:
 			if !metricRegistry.Has(item.Name) {
 				errs = append(errs, &ValidationError{
 					Field:   "select",
-					Message: "unknown metric: " + item.Name,
+					Message: errmsg.UnknownMetricMsg(item.Name),
 				})
 			}
 		case SelectTypeWindow:
@@ -98,7 +99,7 @@ func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) err
 		if !allowedFields[f.Field] {
 			errs = append(errs, &ValidationError{
 				Field:   "filters",
-				Message: "unknown field: " + f.Field,
+				Message: errmsg.UnknownFieldMsg(f.Field),
 			})
 		}
 		if !slices.Contains(validOps, f.Operator) {
@@ -157,7 +158,7 @@ func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) err
 		if !dimMap[gb.Field] {
 			errs = append(errs, &ValidationError{
 				Field:   "group_by",
-				Message: "unknown dimension: " + gb.Field,
+				Message: errmsg.UnknownDimensionMsg(gb.Field),
 			})
 			continue
 		}
@@ -184,7 +185,7 @@ func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) err
 		if !dimMap[ob.Field] && !metricRegistry.Has(ob.Field) {
 			errs = append(errs, &ValidationError{
 				Field:   "order_by",
-				Message: "unknown field: " + ob.Field,
+				Message: errmsg.UnknownFieldMsg(ob.Field),
 			})
 		}
 		if ob.Direction != "" && ob.Direction != OrderAsc && ob.Direction != OrderDesc {
@@ -299,12 +300,12 @@ func validateWindowSelect(item SelectItem, dimMap map[string]bool, metricRegistr
 	}
 	for _, p := range w.PartitionBy {
 		if !dimMap[p] {
-			errs = append(errs, &ValidationError{Field: "select.window.partition_by", Message: "unknown dimension: " + p})
+			errs = append(errs, &ValidationError{Field: "select.window.partition_by", Message: errmsg.UnknownDimensionMsg(p)})
 		}
 	}
 	for _, ob := range w.OrderBy {
 		if !dimMap[ob.Field] && !metricRegistry.Has(ob.Field) {
-			errs = append(errs, &ValidationError{Field: "select.window.order_by", Message: "unknown field: " + ob.Field})
+			errs = append(errs, &ValidationError{Field: "select.window.order_by", Message: errmsg.UnknownFieldMsg(ob.Field)})
 		}
 		if ob.Direction != "" && ob.Direction != OrderAsc && ob.Direction != OrderDesc {
 			errs = append(errs, &ValidationError{Field: "select.window.order_by", Message: "invalid direction: " + ob.Direction})

@@ -7,7 +7,9 @@ import (
 )
 
 // ClickHouseDialect implements the Dialect interface for ClickHouse.
-type ClickHouseDialect struct{}
+type ClickHouseDialect struct {
+	BaseDialect
+}
 
 // Name returns the dialect name.
 func (d ClickHouseDialect) Name() string {
@@ -43,17 +45,7 @@ func (d ClickHouseDialect) DateTrunc(part, column string) string {
 
 // CalendarPart returns toYear / toQuarter / toMonth for UInt-sized calendar integers.
 func (d ClickHouseDialect) CalendarPart(part, column string) string {
-	q := d.QuoteIdent(column)
-	switch strings.ToLower(strings.TrimSpace(part)) {
-	case "year":
-		return fmt.Sprintf("toYear(%s)", q)
-	case "quarter":
-		return fmt.Sprintf("toQuarter(%s)", q)
-	case "month":
-		return fmt.Sprintf("toMonth(%s)", q)
-	default:
-		return d.DateTrunc(part, column)
-	}
+	return CalendarPartLookup(d, part, column, "toYear(%s)", "toQuarter(%s)", "toMonth(%s)")
 }
 
 func titleCase(s string) string {
@@ -69,19 +61,9 @@ func (d ClickHouseDialect) ILike(column, placeholder string) string {
 	return fmt.Sprintf("lower(%s) LIKE lower(%s)", column, placeholder)
 }
 
-// CastType returns the dialect-specific SQL type name for casting.
-func (d ClickHouseDialect) CastType(sqlType string) string {
-	return CastTypeUpper(sqlType)
-}
-
 // Aggregate formats an aggregation function call.
 func (d ClickHouseDialect) Aggregate(fn, column string) string {
 	return AggregateClickHouseSQL(d, fn, column)
-}
-
-// ExplainSQL prefixes the statement with EXPLAIN; ClickHouse plans without executing.
-func (d ClickHouseDialect) ExplainSQL(sql string) string {
-	return "EXPLAIN " + sql
 }
 
 // Compile-time check

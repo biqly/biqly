@@ -1,15 +1,32 @@
 package handlers
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/metadata"
-	"github.com/go-chi/chi/v5"
 )
+
+type createGlossaryRequest struct {
+	DatasourceID string   `json:"datasource_id"`
+	ModelID      string   `json:"model_id,omitempty"`
+	Term         string   `json:"term"`
+	Definition   string   `json:"definition,omitempty"`
+	MapsToType   string   `json:"maps_to_type"`
+	MapsToName   string   `json:"maps_to_name"`
+	Aliases      []string `json:"aliases,omitempty"`
+}
+
+type updateGlossaryRequest struct {
+	Term       string   `json:"term"`
+	Definition string   `json:"definition,omitempty"`
+	MapsToType string   `json:"maps_to_type"`
+	MapsToName string   `json:"maps_to_name"`
+	Aliases    []string `json:"aliases,omitempty"`
+	IsActive   *bool    `json:"is_active,omitempty"`
+}
 
 // BusinessGlossaryTerm is the wire format for a curated glossary row.
 type BusinessGlossaryTerm = metadata.BusinessGlossaryRow
@@ -48,17 +65,8 @@ func (h *AIGlossaryHandler) ListGlossary(w http.ResponseWriter, r *http.Request)
 
 // CreateGlossary creates a glossary term.
 func (h *AIGlossaryHandler) CreateGlossary(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		DatasourceID string   `json:"datasource_id"`
-		ModelID      string   `json:"model_id,omitempty"`
-		Term         string   `json:"term"`
-		Definition   string   `json:"definition,omitempty"`
-		MapsToType   string   `json:"maps_to_type"`
-		MapsToName   string   `json:"maps_to_name"`
-		Aliases      []string `json:"aliases,omitempty"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	input, ok := decodeJSON[createGlossaryRequest](w, r)
+	if !ok {
 		return
 	}
 	if input.DatasourceID == "" || input.Term == "" || input.MapsToType == "" || input.MapsToName == "" {
@@ -104,21 +112,12 @@ func (h *AIGlossaryHandler) CreateGlossary(w http.ResponseWriter, r *http.Reques
 
 // UpdateGlossary updates a glossary term.
 func (h *AIGlossaryHandler) UpdateGlossary(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	if id == "" {
-		writeError(w, http.StatusBadRequest, "id is required")
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
 		return
 	}
-	var input struct {
-		Term       string   `json:"term"`
-		Definition string   `json:"definition,omitempty"`
-		MapsToType string   `json:"maps_to_type"`
-		MapsToName string   `json:"maps_to_name"`
-		Aliases    []string `json:"aliases,omitempty"`
-		IsActive   *bool    `json:"is_active,omitempty"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	input, ok := decodeJSON[updateGlossaryRequest](w, r)
+	if !ok {
 		return
 	}
 	if input.Term == "" || input.MapsToType == "" || input.MapsToName == "" {
@@ -148,9 +147,8 @@ func (h *AIGlossaryHandler) UpdateGlossary(w http.ResponseWriter, r *http.Reques
 
 // DeleteGlossary deletes a glossary term.
 func (h *AIGlossaryHandler) DeleteGlossary(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	if id == "" {
-		writeError(w, http.StatusBadRequest, "id is required")
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
 		return
 	}
 	ok, err := h.deps.MetaRepo.DeleteBusinessGlossary(r.Context(), id)

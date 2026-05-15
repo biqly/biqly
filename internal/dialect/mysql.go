@@ -7,7 +7,9 @@ import (
 )
 
 // MySQLDialect implements the Dialect interface for MySQL.
-type MySQLDialect struct{}
+type MySQLDialect struct {
+	BaseDialect
+}
 
 // Name returns the dialect name.
 func (d MySQLDialect) Name() string {
@@ -29,11 +31,6 @@ func (d MySQLDialect) Placeholder(index int) string {
 	return "?"
 }
 
-// LimitOffset generates the LIMIT/OFFSET clause.
-func (d MySQLDialect) LimitOffset(limit, offset int) string {
-	return StandardLimitOffset(limit, offset)
-}
-
 // DateTrunc returns the date truncation expression. MySQL has no native
 // DATE_TRUNC so each grain uses its idiomatic workaround.
 func (d MySQLDialect) DateTrunc(part, column string) string {
@@ -42,7 +39,6 @@ func (d MySQLDialect) DateTrunc(part, column string) string {
 	case "day":
 		return fmt.Sprintf("DATE(%s)", q)
 	case "week":
-		// ISO-ish start of week (Monday). WEEKDAY returns 0 for Monday.
 		return fmt.Sprintf("DATE_SUB(DATE(%s), INTERVAL WEEKDAY(%s) DAY)", q, q)
 	case "month":
 		return fmt.Sprintf("DATE_FORMAT(%s, '%%Y-%%m-01')", q)
@@ -57,17 +53,7 @@ func (d MySQLDialect) DateTrunc(part, column string) string {
 
 // CalendarPart returns YEAR / QUARTER / MONTH for integer grouping.
 func (d MySQLDialect) CalendarPart(part, column string) string {
-	q := d.QuoteIdent(column)
-	switch strings.ToLower(strings.TrimSpace(part)) {
-	case "year":
-		return fmt.Sprintf("YEAR(%s)", q)
-	case "quarter":
-		return fmt.Sprintf("QUARTER(%s)", q)
-	case "month":
-		return fmt.Sprintf("MONTH(%s)", q)
-	default:
-		return d.DateTrunc(part, column)
-	}
+	return CalendarPartLookup(d, part, column, "YEAR(%s)", "QUARTER(%s)", "MONTH(%s)")
 }
 
 // ILike returns a case-insensitive LIKE expression.
@@ -76,20 +62,9 @@ func (d MySQLDialect) ILike(column, placeholder string) string {
 	return fmt.Sprintf("LOWER(%s) LIKE LOWER(%s)", column, placeholder)
 }
 
-// CastType returns the dialect-specific SQL type name for casting.
-func (d MySQLDialect) CastType(sqlType string) string {
-	return CastTypeUpper(sqlType)
-}
-
 // Aggregate formats an aggregation function call.
 func (d MySQLDialect) Aggregate(fn, column string) string {
-	return AggregateStandardSQL(d, fn, column)
+	return d.BaseDialect.Aggregate(d, fn, column)
 }
 
-// ExplainSQL prefixes the statement with EXPLAIN; MySQL plans without executing.
-func (d MySQLDialect) ExplainSQL(sql string) string {
-	return "EXPLAIN " + sql
-}
-
-// Compile-time check
 var _ Dialect = MySQLDialect{}

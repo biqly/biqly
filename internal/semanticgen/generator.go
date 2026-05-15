@@ -1,0 +1,426 @@
+package semanticgen
+
+import (
+	"fmt"
+	"regexp"
+	"slices"
+	"strings"
+
+	"github.com/biqly/biqly/internal/metadata"
+	"github.com/biqly/biqly/internal/semantic"
+	"github.com/google/uuid"
+)
+
+type GenerateModelOptions struct {
+	DatasourceID   string
+	BaseSchema     string
+	BaseTable      string
+	ExistingNames  []string
+	MaxDimensions  int
+	MaxMetrics     int
+	MaxRelatedDims int
+}
+
+type GeneratedModel struct {
+	Model    *semantic.SemanticModel `json:"model"`
+	Warnings []string                `json:"warnings,omitempty"`
+}
+
+func GenerateModelFromMetadata(tables []metadata.Table, columns []metadata.Column, relations []metadata.Relation, opts GenerateModelOptions) (*GeneratedModel, error) {
+	if opts.DatasourceID == "" {
+		return nil, fmt.Errorf("datasource_id is required")
+	}
+	if len(tables) == 0 {
+		return nil, fmt.Errorf("metadata has no tables; sync metadata first")
+	}
+	if opts.MaxDimensions <= 0 {
+		opts.MaxDimensions = 48
+	}
+	if opts.MaxMetrics <= 0 {
+		opts.MaxMetrics = 24
+	}
+	if opts.MaxRelatedDims <= 0 {
+		opts.MaxRelatedDims = 24
+	}
+
+	base, ok := chooseBaseTable(tables, relations, opts.BaseSchema, opts.BaseTable)
+	if !ok {
+		return nil, fmt.Errorf("base table not found")
+	}
+
+	modelID := uuid.New().String()
+	label := humanLabel(base.TableName)
+	model := &semantic.SemanticModel{
+		ID:           modelID,
+		DatasourceID: opts.DatasourceID,
+		Name:         uniqueModelName(normalizeName(base.TableName), opts.ExistingNames),
+		Label:        &label,
+		Description:  base.Description,
+		BaseSchema:   base.SchemaName,
+		BaseTable:    base.TableName,
+		Synonyms:     synonyms(base.TableName),
+		IsActive:     true,
+		Status:       semantic.ModelStatusDraft,
+		Dimensions:   make([]semantic.Dimension, 0, opts.MaxDimensions),
+		Metrics:      make([]semantic.Metric, 0, opts.MaxMetrics),
+		Joins:        make([]semantic.Join, 0, len(relations)),
+	}
+
+	selectedTables := map[string]bool{tableKey(base.SchemaName, base.TableName): true}
+	for _, rel := range relations {
+		if rel.FromSchema == base.SchemaName && rel.FromTable == base.TableName {
+			selectedTables[tableKey(rel.ToSchema, rel.ToTable)] = true
+		}
+		if rel.ToSchema == base.SchemaName && rel.ToTable == base.TableName {
+			selectedTables[tableKey(rel.FromSchema, rel.FromTable)] = true
+		}
+	}
+
+	warnings := make([]string, 0, 4)
+	dimNames := map[string]bool{}
+	metricNames := map[string]bool{}
+	baseCols := filterColumns(columns, base.SchemaName, base.TableName)
+
+	for _, col := range baseCols {
+		if len(model.Dimensions) >= opts.MaxDimensions {
+			warnings = append(warnings, "dimension limit reached; some base columns were skipped")
+			break
+		}
+		if shouldSkipDimension(col) {
+			continue
+		}
+		model.Dimensions = append(model.Dimensions, dimensionFromColumn(modelID, col, base.SchemaName, dimNames, false))
+	}
+
+	relatedAdded := 0
+	for _, col := range columns {
+		if relatedAdded >= opts.MaxRelatedDims || len(model.Dimensions) >= opts.MaxDimensions {
+			break
+		}
+		if col.SchemaName == base.SchemaName && col.TableName == base.TableName {
+			continue
+		}
+		if !selectedTables[tableKey(col.SchemaName, col.TableName)] || shouldSkipRelatedDimension(col) {
+			continue
+		}
+		model.Dimensions = append(model.Dimensions, dimensionFromColumn(modelID, col, base.SchemaName, dimNames, true))
+		relatedAdded++
+	}
+
+	model.Metrics = append(model.Metrics, countMetric(modelID, metricNames))
+	for _, col := range baseCols {
+		if len(model.Metrics) >= opts.MaxMetrics {
+			warnings = append(warnings, "metric limit reached; some numeric columns were skipped")
+			break
+		}
+		if !isNumericType(col.DataType) || col.IsPrimaryKey || col.IsForeignKey {
+			continue
+		}
+		model.Metrics = append(model.Metrics, metricsFromNumericColumn(modelID, col, base.SchemaName, metricNames)...)
+	}
+
+	joinNames := map[string]bool{}
+	for _, rel := range relations {
+		if selectedTables[tableKey(rel.FromSchema, rel.FromTable)] && selectedTables[tableKey(rel.ToSchema, rel.ToTable)] {
+			model.Joins = append(model.Joins, joinFromRelation(modelID, rel, joinNames))
+		}
+	}
+
+	if len(model.Dimensions) == 0 {
+		warnings = append(warnings, "no dimensions could be inferred from metadata")
+	}
+	return &GeneratedModel{Model: model, Warnings: warnings}, nil
+}
+
+func chooseBaseTable(tables []metadata.Table, relations []metadata.Relation, schemaName, tableName string) (metadata.Table, bool) {
+	if tableName != "" {
+		for _, t := range tables {
+			if t.TableName == tableName && (schemaName == "" || t.SchemaName == schemaName) {
+				return t, true
+			}
+		}
+		return metadata.Table{}, false
+	}
+	scores := map[string]int{}
+	for _, rel := range relations {
+		scores[tableKey(rel.FromSchema, rel.FromTable)] += 2
+		scores[tableKey(rel.ToSchema, rel.ToTable)]++
+	}
+	sorted := slices.Clone(tables)
+	slices.SortFunc(sorted, func(a, b metadata.Table) int {
+		as := scores[tableKey(a.SchemaName, a.TableName)]
+		bs := scores[tableKey(b.SchemaName, b.TableName)]
+		if as != bs {
+			return bs - as
+		}
+		if rowEstimate(a) != rowEstimate(b) {
+			if rowEstimate(b) > rowEstimate(a) {
+				return 1
+			}
+			return -1
+		}
+		return strings.Compare(tableKey(a.SchemaName, a.TableName), tableKey(b.SchemaName, b.TableName))
+	})
+	return sorted[0], true
+}
+
+func dimensionFromColumn(modelID string, col metadata.Column, baseSchema string, names map[string]bool, related bool) semantic.Dimension {
+	name := normalizeName(col.ColumnName)
+	if related {
+		name = normalizeName(col.TableName + "_" + col.ColumnName)
+	}
+	name = uniqueName(name, names)
+	label := humanLabel(col.ColumnName)
+	return semantic.Dimension{
+		ID:          uuid.New().String(),
+		ModelID:     modelID,
+		Name:        name,
+		Label:       &label,
+		ColumnRef:   columnRef(col, baseSchema),
+		Type:        semanticType(col.DataType),
+		Synonyms:    synonyms(col.ColumnName),
+		Description: col.Description,
+		IsActive:    true,
+		IsDisplay:   isDisplayColumn(col.ColumnName),
+	}
+}
+
+func countMetric(modelID string, names map[string]bool) semantic.Metric {
+	label := "Count"
+	return semantic.Metric{
+		ID:          uuid.New().String(),
+		ModelID:     modelID,
+		Name:        uniqueName("count", names),
+		Label:       &label,
+		Expression:  "*",
+		Aggregation: string(semantic.AggCount),
+		Synonyms:    []string{"count", "total rows", "adet", "sayisi", "kac tane"},
+		IsActive:    true,
+	}
+}
+
+func metricsFromNumericColumn(modelID string, col metadata.Column, baseSchema string, names map[string]bool) []semantic.Metric {
+	base := normalizeName(col.ColumnName)
+	label := humanLabel(col.ColumnName)
+	expr := columnRef(col, baseSchema)
+	format := metricFormat(col.ColumnName)
+	sumLabel := "Sum " + label
+	avgLabel := "Average " + label
+	return []semantic.Metric{
+		{
+			ID:          uuid.New().String(),
+			ModelID:     modelID,
+			Name:        uniqueName("sum_"+base, names),
+			Label:       &sumLabel,
+			Expression:  expr,
+			Aggregation: string(semantic.AggSum),
+			Format:      format,
+			Synonyms:    synonyms(col.ColumnName),
+			Description: col.Description,
+			IsActive:    true,
+		},
+		{
+			ID:          uuid.New().String(),
+			ModelID:     modelID,
+			Name:        uniqueName("avg_"+base, names),
+			Label:       &avgLabel,
+			Expression:  expr,
+			Aggregation: string(semantic.AggAvg),
+			Format:      format,
+			Synonyms:    append(synonyms(col.ColumnName), "average "+strings.ToLower(label), "ortalama "+strings.ToLower(label)),
+			Description: col.Description,
+			IsActive:    true,
+		},
+	}
+}
+
+func joinFromRelation(modelID string, rel metadata.Relation, names map[string]bool) semantic.Join {
+	relationship := rel.RelationshipType
+	if relationship == "" {
+		relationship = "many_to_one"
+	}
+	return semantic.Join{
+		ID:           uuid.New().String(),
+		ModelID:      modelID,
+		Name:         uniqueName(normalizeName(rel.FromTable+"_"+rel.FromColumn+"_to_"+rel.ToTable+"_"+rel.ToColumn), names),
+		FromSchema:   rel.FromSchema,
+		FromTable:    rel.FromTable,
+		FromColumn:   rel.FromColumn,
+		ToSchema:     rel.ToSchema,
+		ToTable:      rel.ToTable,
+		ToColumn:     rel.ToColumn,
+		JoinType:     "LEFT",
+		Relationship: relationship,
+		IsActive:     true,
+	}
+}
+
+func filterColumns(columns []metadata.Column, schemaName, tableName string) []metadata.Column {
+	out := make([]metadata.Column, 0)
+	for _, c := range columns {
+		if c.SchemaName == schemaName && c.TableName == tableName {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+func shouldSkipDimension(col metadata.Column) bool {
+	name := strings.ToLower(col.ColumnName)
+	return strings.Contains(name, "password") || strings.Contains(name, "secret") || strings.Contains(name, "token")
+}
+
+func shouldSkipRelatedDimension(col metadata.Column) bool {
+	if shouldSkipDimension(col) || col.IsForeignKey {
+		return true
+	}
+	if col.IsPrimaryKey && !isDisplayColumn(col.ColumnName) {
+		return true
+	}
+	return !(isTextType(col.DataType) || isDateType(col.DataType) || isBooleanType(col.DataType) || isDisplayColumn(col.ColumnName))
+}
+
+func semanticType(dataType string) string {
+	switch {
+	case isDateType(dataType):
+		return string(semantic.DimensionTypeDate)
+	case isBooleanType(dataType):
+		return string(semantic.DimensionTypeBoolean)
+	case isNumericType(dataType):
+		return string(semantic.DimensionTypeNumber)
+	default:
+		return string(semantic.DimensionTypeText)
+	}
+}
+
+func isNumericType(dataType string) bool {
+	t := strings.ToLower(dataType)
+	return strings.Contains(t, "int") || strings.Contains(t, "numeric") || strings.Contains(t, "decimal") ||
+		strings.Contains(t, "double") || strings.Contains(t, "float") || strings.Contains(t, "real") || strings.Contains(t, "money")
+}
+
+func isDateType(dataType string) bool {
+	t := strings.ToLower(dataType)
+	return strings.Contains(t, "date") || strings.Contains(t, "time")
+}
+
+func isBooleanType(dataType string) bool {
+	t := strings.ToLower(dataType)
+	return t == "bool" || t == "boolean" || strings.Contains(t, "tinyint(1)")
+}
+
+func isTextType(dataType string) bool {
+	t := strings.ToLower(dataType)
+	return strings.Contains(t, "char") || strings.Contains(t, "text") || strings.Contains(t, "uuid") ||
+		strings.Contains(t, "json") || strings.Contains(t, "enum")
+}
+
+func isDisplayColumn(name string) bool {
+	n := strings.ToLower(name)
+	return n == "name" || n == "title" || n == "label" || n == "code" || n == "number" ||
+		strings.HasSuffix(n, "_name") || strings.HasSuffix(n, "_title") || strings.HasSuffix(n, "_code") ||
+		strings.Contains(n, "description")
+}
+
+func metricFormat(name string) *string {
+	n := strings.ToLower(name)
+	if strings.Contains(n, "amount") || strings.Contains(n, "total") || strings.Contains(n, "price") ||
+		strings.Contains(n, "cost") || strings.Contains(n, "revenue") {
+		v := "#,##0.00"
+		return &v
+	}
+	return nil
+}
+
+func columnRef(col metadata.Column, baseSchema string) string {
+	if col.SchemaName != "" && col.SchemaName != baseSchema {
+		return col.SchemaName + "." + col.TableName + "." + col.ColumnName
+	}
+	return col.TableName + "." + col.ColumnName
+}
+
+func rowEstimate(t metadata.Table) int64 {
+	if t.RowEstimate == nil {
+		return 0
+	}
+	return *t.RowEstimate
+}
+
+func tableKey(schemaName, tableName string) string {
+	if schemaName == "" {
+		return tableName
+	}
+	return schemaName + "." + tableName
+}
+
+var nonNameRunes = regexp.MustCompile(`[^a-z0-9]+`)
+
+func normalizeName(value string) string {
+	name := strings.ToLower(strings.TrimSpace(value))
+	name = nonNameRunes.ReplaceAllString(name, "_")
+	name = strings.Trim(name, "_")
+	if name == "" {
+		return "field"
+	}
+	return name
+}
+
+func humanLabel(value string) string {
+	parts := strings.Fields(strings.ReplaceAll(normalizeName(value), "_", " "))
+	for i, part := range parts {
+		parts[i] = strings.ToUpper(part[:1]) + part[1:]
+	}
+	return strings.Join(parts, " ")
+}
+
+func synonyms(name string) []string {
+	return dedupeStrings([]string{name, humanLabel(name), strings.ReplaceAll(name, "_", " ")})
+}
+
+func dedupeStrings(values []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		key := strings.ToLower(trimmed)
+		if trimmed == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, trimmed)
+	}
+	return out
+}
+
+func uniqueModelName(base string, existing []string) string {
+	seen := map[string]bool{}
+	for _, name := range existing {
+		seen[name] = true
+	}
+	if !seen[base] {
+		return base
+	}
+	for i := 2; ; i++ {
+		candidate := fmt.Sprintf("%s_%d", base, i)
+		if !seen[candidate] {
+			return candidate
+		}
+	}
+}
+
+func uniqueName(base string, seen map[string]bool) string {
+	if base == "" {
+		base = "field"
+	}
+	if !seen[base] {
+		seen[base] = true
+		return base
+	}
+	for i := 2; ; i++ {
+		candidate := fmt.Sprintf("%s_%d", base, i)
+		if !seen[candidate] {
+			seen[candidate] = true
+			return candidate
+		}
+	}
+}

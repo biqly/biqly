@@ -1,0 +1,54 @@
+package dialect
+
+import (
+	"fmt"
+	"strings"
+)
+
+// BaseDialect provides shared Dialect method implementations. Embed in concrete dialect types
+// and implement Name, QuoteIdentSegment, Placeholder, DateTrunc, CalendarPart, and ILike.
+type BaseDialect struct {
+	ExplainDisabled  bool
+	ClickHouseAggs   bool
+}
+
+// CastType returns the upper-cased SQL type name.
+func (b BaseDialect) CastType(sqlType string) string {
+	return CastTypeUpper(sqlType)
+}
+
+// LimitOffset generates a standard LIMIT/OFFSET clause.
+func (b BaseDialect) LimitOffset(limit, offset int) string {
+	return StandardLimitOffset(limit, offset)
+}
+
+// ExplainSQL prefixes EXPLAIN unless disabled for the dialect.
+func (b BaseDialect) ExplainSQL(sql string) string {
+	if b.ExplainDisabled {
+		return ""
+	}
+	return "EXPLAIN " + sql
+}
+
+// Aggregate formats an aggregation call using the dialect's conventions.
+func (b BaseDialect) Aggregate(d Dialect, fn, column string) string {
+	if b.ClickHouseAggs {
+		return AggregateClickHouseSQL(d, fn, column)
+	}
+	return AggregateStandardSQL(d, fn, column)
+}
+
+// CalendarPartLookup maps year/quarter/month to dialect-specific expressions.
+func CalendarPartLookup(d Dialect, part, column string, yearFmt, quarterFmt, monthFmt string) string {
+	q := d.QuoteIdent(column)
+	switch strings.ToLower(strings.TrimSpace(part)) {
+	case "year":
+		return fmt.Sprintf(yearFmt, q)
+	case "quarter":
+		return fmt.Sprintf(quarterFmt, q)
+	case "month":
+		return fmt.Sprintf(monthFmt, q)
+	default:
+		return d.DateTrunc(part, column)
+	}
+}

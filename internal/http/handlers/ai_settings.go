@@ -94,10 +94,6 @@ func translationBaseURLEffectiveLabel(cfg config.AIConfig) string {
 
 // RuntimeSettings returns non-secret AI configuration for the UI (env-backed).
 func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
 	cfg := h.deps.Config.AI
 	queryCfg := cfg.EffectiveQueryConfig()
 	profile := ai.LookupModelContextProfile(queryCfg.Model, queryCfg.NumCtx)

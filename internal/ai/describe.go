@@ -2,7 +2,6 @@ package ai
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -10,8 +9,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/biqly/biqly/internal/core"
 	"github.com/biqly/biqly/internal/datasource"
-	"github.com/biqly/biqly/internal/dialect"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/security"
 )
@@ -92,6 +91,15 @@ type DescribeResult struct {
 	TranslationApplied bool   `json:"translation_applied,omitempty"`
 	TranslationModel   string `json:"translation_model,omitempty"`
 	TranslationError   string `json:"translation_error,omitempty"`
+
+	// originalDescription / originalColumns capture the LLM output BEFORE the
+	// translator post-processes it. We persist this snapshot to
+	// entity_translations under the source locale ("en") so multi-language
+	// readers keep access to the original wording. Not exported in JSON;
+	// internal to Describe/apply.
+	originalDescription string
+	originalColumns     []ColumnDescription
+	originalLang        string
 }
 
 // ColumnDescription is one column's AI-generated description.
@@ -116,12 +124,12 @@ func (s *DescribeService) Describe(ctx context.Context, req DescribeRequest) (*D
 
 	ds, err := s.metaRepo.GetDatasource(ctx, req.DatasourceID)
 	if err != nil {
-		return nil, fmt.Errorf("get datasource: %w", err)
+		return nil, fmt.Errorf("%w: %v", core.ErrLoadDatasource, err)
 	}
 
 	driver, err := s.driverReg.Get(ds.Type)
 	if err != nil {
-		return nil, fmt.Errorf("driver: %w", err)
+		return nil, fmt.Errorf("%w: %v", core.ErrLoadDriver, err)
 	}
 
 	cols, err := s.metaRepo.ListColumns(ctx, ds.ID, req.Schema, req.Table)
@@ -138,21 +146,20 @@ func (s *DescribeService) Describe(ctx context.Context, req DescribeRequest) (*D
 		limit = 6
 	}
 
-	dsn, err := security.ConnectionDSN(s.encryptor, ds.DSNEncrypted)
+	dsn, err := ds.RuntimeDSN(s.encryptor)
 	if err != nil {
-		return nil, fmt.Errorf("datasource DSN: %w", err)
+		return nil, fmt.Errorf("%w: %v", core.ErrLoadDatasource, err)
 	}
 	db, err := driver.Open(ctx, dsn)
 	if err != nil {
-		return nil, fmt.Errorf("open datasource: %w", err)
+		return nil, fmt.Errorf("%w: %v", core.ErrConnection, err)
 	}
 	defer func() { _ = db.Close() }()
 
-	sample, err := s.fetchSample(ctx, db, driver.Dialect(), cols, req.Schema, req.Table, limit)
+	sample, err := FetchTableSample(ctx, db, driver.Dialect(), cols, req.Schema, req.Table, limit, s.maxCellRunes)
 	if err != nil {
 		return nil, fmt.Errorf("fetch sample: %w", err)
 	}
-	sample = shrinkSampleForPrompt(sample, s.maxCellRunes)
 
 	prompt := buildDescribePrompt(req.Schema, req.Table, cols, sample)
 	gen, err := s.client.Generate(ctx, prompt)
@@ -189,75 +196,20 @@ func (s *DescribeService) translateDescribeResult(ctx context.Context, result *D
 	if s.translator == nil {
 		return
 	}
+	// Snapshot the LLM's native-language output (English) so we can persist it
+	// as an "en" overlay in entity_translations after apply succeeds. The
+	// translator may overwrite result.Description/Columns in place.
+	result.originalDescription = result.Description
+	result.originalColumns = append([]ColumnDescription(nil), result.Columns...)
+	result.originalLang = "en"
 	if err := s.translator.TranslateDescribeResult(ctx, result); err != nil {
 		result.TranslationModel = s.translator.Model()
 		result.TranslationError = err.Error()
+		// Clear snapshot so apply() does not store a stale English overlay.
+		result.originalDescription = ""
+		result.originalColumns = nil
 		slog.WarnContext(ctx, "metadata description translation failed", "error", err)
 	}
-}
-
-func (s *DescribeService) fetchSample(ctx context.Context, db *sql.DB, d dialect.Dialect, cols []metadata.Column, schema, table string, limit int) ([]map[string]any, error) {
-	// SQL placeholders cannot bind identifiers, so we hard-validate every
-	// schema / table / column name against an allowlist regex before letting
-	// it near the query. Names that survive this gate cannot encode SQL.
-	if table != "" && !validIdent(table) {
-		return nil, fmt.Errorf("invalid table identifier: %q", table)
-	}
-	if schema != "" && !validIdent(schema) {
-		return nil, fmt.Errorf("invalid schema identifier: %q", schema)
-	}
-	colIdents := make([]string, 0, len(cols))
-	for _, c := range cols {
-		if !validIdent(c.ColumnName) {
-			return nil, fmt.Errorf("invalid column identifier: %q", c.ColumnName)
-		}
-		colIdents = append(colIdents, d.QuoteIdentSegment(c.ColumnName))
-	}
-	from := d.QuoteIdentSegment(table)
-	if schema != "" {
-		from = d.QuoteIdentSegment(schema) + "." + d.QuoteIdentSegment(table)
-	}
-	// Identifiers are validated above; LimitOffset emits an integer literal.
-	//nolint:gosec // identifiers validated against allowlist regex above
-	query := fmt.Sprintf("SELECT %s FROM %s %s",
-		strings.Join(colIdents, ", "),
-		from,
-		d.LimitOffset(limit, 0),
-	)
-
-	// nosemgrep
-	rows, err := db.QueryContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-
-	colNames, err := rows.Columns()
-	if err != nil {
-		return nil, err
-	}
-
-	var out []map[string]any
-	for rows.Next() {
-		holders := make([]any, len(colNames))
-		ptrs := make([]any, len(colNames))
-		for i := range holders {
-			ptrs[i] = &holders[i]
-		}
-		if err := rows.Scan(ptrs...); err != nil {
-			return nil, err
-		}
-		row := make(map[string]any, len(colNames))
-		for i, name := range colNames {
-			v := holders[i]
-			if b, ok := v.([]byte); ok {
-				v = string(b)
-			}
-			row[name] = v
-		}
-		out = append(out, row)
-	}
-	return out, rows.Err()
 }
 
 func shrinkSampleForPrompt(rows []map[string]any, maxCellRunes int) []map[string]any {
@@ -331,6 +283,37 @@ func (s *DescribeService) apply(ctx context.Context, cols []metadata.Column, res
 		desc := cd.Description
 		if err := s.metaRepo.UpdateColumnDescription(ctx, col.ID, &desc); err != nil {
 			return fmt.Errorf("update column %s: %w", cd.Name, err)
+		}
+	}
+
+	// Persist the pre-translation (English) snapshot as an entity_translations
+	// overlay so multi-language readers keep access to the original wording
+	// even though the raw `description` column now holds the translated text.
+	if result.originalLang != "" && result.TranslationApplied && len(cols) > 0 {
+		if result.originalDescription != "" {
+			_ = s.metaRepo.UpsertTranslation(ctx, metadata.Translation{
+				EntityType: metadata.EntityTypeTable,
+				EntityID:   cols[0].TableID,
+				Lang:       result.originalLang,
+				Field:      metadata.TranslationFieldDescription,
+				Value:      result.originalDescription,
+			})
+		}
+		for _, cd := range result.originalColumns {
+			if cd.Description == "" {
+				continue
+			}
+			col, ok := colByName[cd.Name]
+			if !ok {
+				continue
+			}
+			_ = s.metaRepo.UpsertTranslation(ctx, metadata.Translation{
+				EntityType: metadata.EntityTypeColumn,
+				EntityID:   col.ID,
+				Lang:       result.originalLang,
+				Field:      metadata.TranslationFieldDescription,
+				Value:      cd.Description,
+			})
 		}
 	}
 	return nil

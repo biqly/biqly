@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/biqly/biqly/internal/app"
+	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/security"
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
 
@@ -24,55 +25,204 @@ func NewDatasourceHandler(deps *app.Dependencies) *DatasourceHandler {
 	return &DatasourceHandler{deps: deps}
 }
 
+type connectionRequest struct {
+	Host             string            `json:"host"`
+	Port             *int              `json:"port,omitempty"`
+	Username         string            `json:"username,omitempty"`
+	Password         string            `json:"password,omitempty"`
+	DatabaseName     string            `json:"database_name,omitempty"`
+	SSLMode          string            `json:"ssl_mode,omitempty"`
+	ConnectionParams map[string]string `json:"connection_params,omitempty"`
+}
+
 type createDatasourceRequest struct {
-	Name   string `json:"name"`
-	Type   string `json:"type"`
-	DSN    string `json:"dsn"`
-	Config string `json:"config,omitempty"`
+	Name       string              `json:"name"`
+	Type       string              `json:"type"`
+	Mode       string              `json:"mode,omitempty"` // raw | structured
+	DSN        string              `json:"dsn,omitempty"`
+	Connection *connectionRequest  `json:"connection,omitempty"`
+	Config     string              `json:"config,omitempty"`
+}
+
+func resolveCreateDatasourceMode(req *createDatasourceRequest) string {
+	mode := strings.ToLower(strings.TrimSpace(req.Mode))
+	if mode != "" {
+		return mode
+	}
+	hasConn := req.Connection != nil && strings.TrimSpace(req.Connection.Host) != ""
+	hasDSN := strings.TrimSpace(req.DSN) != ""
+	if hasConn && hasDSN {
+		return ""
+	}
+	if hasConn {
+		return metadata.DSNModeStructured
+	}
+	if hasDSN {
+		return metadata.DSNModeRaw
+	}
+	return ""
+}
+
+func encryptSecret(enc *security.Encryption, plaintext string) (string, error) {
+	if plaintext == "" {
+		return "", nil
+	}
+	if enc == nil {
+		return plaintext, nil
+	}
+	return enc.Encrypt(plaintext)
+}
+
+func optionalStringPtr(s string) *string {
+	v := strings.TrimSpace(s)
+	if v == "" {
+		return nil
+	}
+	return &v
 }
 
 // Create handles datasource creation.
+//
+//nolint:gocyclo // raw vs structured branching and validation are explicit UX surface
 func (h *DatasourceHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var req createDatasourceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeJSON[createDatasourceRequest](w, r)
+	if !ok {
 		return
 	}
 
-	if req.Name == "" || req.Type == "" || req.DSN == "" {
-		writeError(w, http.StatusBadRequest, "name, type, and dsn are required")
+	if strings.TrimSpace(req.Name) == "" || strings.TrimSpace(req.Type) == "" {
+		writeError(w, http.StatusBadRequest, "name and type are required")
 		return
 	}
 	if req.Config == "" {
 		req.Config = "{}"
 	}
 
-	// Get driver to validate type
-	_, err := h.deps.DriverReg.Get(req.Type)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+	driverType := datasource.NormalizeDriverType(req.Type)
+	if _, err := h.deps.DriverReg.Get(driverType); err != nil {
+		writeError(w, http.StatusBadRequest, "unsupported datasource type")
 		return
 	}
 
-	ds := &metadata.Datasource{
-		ID:           uuid.New().String(),
-		Name:         req.Name,
-		Type:         req.Type,
-		DSNEncrypted: req.DSN,
-		Config:       req.Config,
-		IsActive:     true,
+	mode := resolveCreateDatasourceMode(req)
+	if mode != metadata.DSNModeRaw && mode != metadata.DSNModeStructured {
+		writeError(w, http.StatusBadRequest, "set mode to raw or structured, or supply only dsn or only structured connection fields")
+		return
 	}
 
-	// Encrypt DSN before storing if encryptor is available
+	if mode == metadata.DSNModeStructured && strings.TrimSpace(req.DSN) != "" {
+		writeError(w, http.StatusBadRequest, "omit dsn when mode is structured")
+		return
+	}
+	if mode == metadata.DSNModeRaw && req.Connection != nil {
+		hasConnPayload := strings.TrimSpace(req.Connection.Host) != "" ||
+			(req.Connection.Port != nil && *req.Connection.Port > 0) ||
+			strings.TrimSpace(req.Connection.Username) != "" ||
+			strings.TrimSpace(req.Connection.Password) != "" ||
+			strings.TrimSpace(req.Connection.DatabaseName) != "" ||
+			len(req.Connection.ConnectionParams) > 0
+		if hasConnPayload {
+			writeError(w, http.StatusBadRequest, "omit connection when mode is raw")
+			return
+		}
+	}
+
 	ctx := r.Context()
-	if h.deps.Encryptor != nil {
-		encrypted, err := h.deps.Encryptor.Encrypt(req.DSN)
+	ds := &metadata.Datasource{
+		ID:       uuid.New().String(),
+		Name:     strings.TrimSpace(req.Name),
+		Type:     driverType,
+		Config:   req.Config,
+		IsActive: true,
+	}
+
+	switch mode {
+	case metadata.DSNModeRaw:
+		dsnPlain := strings.TrimSpace(req.DSN)
+		if dsnPlain == "" {
+			writeError(w, http.StatusBadRequest, "dsn is required when mode is raw")
+			return
+		}
+		ds.DSNMode = metadata.DSNModeRaw
+		encStr, err := encryptSecret(h.deps.Encryptor, dsnPlain)
 		if err != nil {
 			slog.ErrorContext(ctx, "encrypt DSN failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "failed to encrypt DSN")
 			return
 		}
-		ds.DSNEncrypted = encrypted
+		ds.DSNEncrypted = encStr
+	case metadata.DSNModeStructured:
+		if req.Connection == nil {
+			writeError(w, http.StatusBadRequest, "connection is required when mode is structured")
+			return
+		}
+		c := req.Connection
+		host := strings.TrimSpace(c.Host)
+		if host == "" {
+			writeError(w, http.StatusBadRequest, "connection.host is required")
+			return
+		}
+		ds.Host = &host
+
+		port := datasource.DefaultPort(driverType)
+		if c.Port != nil && *c.Port > 0 {
+			port = *c.Port
+		}
+		ds.Port = &port
+
+		if u := optionalStringPtr(c.Username); u != nil {
+			ds.Username = u
+		}
+		if db := optionalStringPtr(c.DatabaseName); db != nil {
+			ds.DatabaseName = db
+		}
+		defaults := datasource.DriverConnectionDefaults(driverType)
+		ssl := strings.TrimSpace(c.SSLMode)
+		if ssl == "" {
+			ssl = defaults.SSLMode
+		}
+		if ssl != "" {
+			ds.SSLMode = &ssl
+		}
+
+		ext := map[string]string{}
+		for k, v := range c.ConnectionParams {
+			k = strings.TrimSpace(k)
+			if k != "" {
+				ext[k] = v
+			}
+		}
+		cpRaw, err := json.Marshal(ext)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid connection_params")
+			return
+		}
+		ds.ConnectionParams = append(json.RawMessage(nil), cpRaw...)
+
+		fields := datasource.ConnectionFields{
+			Host:         host,
+			Port:         port,
+			Username:     strings.TrimSpace(c.Username),
+			Password:     c.Password,
+			DatabaseName: strings.TrimSpace(c.DatabaseName),
+			SSLMode:      ssl,
+			Extra:        ext,
+		}
+		if _, err := datasource.ComposeDSN(driverType, fields); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		passEnc, err := encryptSecret(h.deps.Encryptor, c.Password)
+		if err != nil {
+			slog.ErrorContext(ctx, "encrypt datasource password failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "failed to encrypt password")
+			return
+		}
+		ds.PasswordEncrypted = passEnc
+
+		ds.DSNMode = metadata.DSNModeStructured
+		ds.DSNEncrypted = ""
 	}
 
 	if err := h.deps.MetaRepo.CreateDatasource(ctx, ds); err != nil {
@@ -81,6 +231,8 @@ func (h *DatasourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ds.DSNEncrypted = ""
+	ds.PasswordEncrypted = ""
 	writeJSON(w, http.StatusCreated, ds)
 }
 
@@ -104,7 +256,10 @@ func (h *DatasourceHandler) List(w http.ResponseWriter, r *http.Request) {
 
 // Get returns a single datasource by ID.
 func (h *DatasourceHandler) Get(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
 	ctx := r.Context()
 
 	ds, err := h.deps.MetaRepo.GetDatasource(ctx, id)
@@ -119,7 +274,10 @@ func (h *DatasourceHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 // Delete removes a datasource by ID.
 func (h *DatasourceHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
 	ctx := r.Context()
 
 	if err := h.deps.MetaRepo.DeleteDatasource(ctx, id); err != nil {
@@ -132,7 +290,10 @@ func (h *DatasourceHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 // Test verifies connectivity to a datasource.
 func (h *DatasourceHandler) Test(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
 	ctx := r.Context()
 
 	ds, err := h.deps.MetaRepo.GetDatasource(ctx, id)
@@ -143,11 +304,11 @@ func (h *DatasourceHandler) Test(w http.ResponseWriter, r *http.Request) {
 
 	driver, err := h.deps.DriverReg.Get(ds.Type)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("unsupported driver: %s", ds.Type))
+		writeError(w, http.StatusBadRequest, app.MsgUnsupportedDriver)
 		return
 	}
 
-	dsn, err := security.ConnectionDSN(h.deps.Encryptor, ds.DSNEncrypted)
+	dsn, err := ds.RuntimeDSN(h.deps.Encryptor)
 	if err != nil {
 		slog.ErrorContext(ctx, "decrypt DSN failed", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to decrypt DSN")
@@ -156,9 +317,10 @@ func (h *DatasourceHandler) Test(w http.ResponseWriter, r *http.Request) {
 
 	start := time.Now()
 	if err := driver.Ping(ctx, dsn); err != nil {
+		slog.ErrorContext(ctx, "datasource ping failed", "datasource_id", id, "error", err)
 		writeJSON(w, http.StatusOK, map[string]any{
 			"success": false,
-			"error":   err.Error(),
+			"error":   "connection failed",
 		})
 		return
 	}
@@ -173,38 +335,25 @@ func (h *DatasourceHandler) Test(w http.ResponseWriter, r *http.Request) {
 //
 //nolint:gocyclo // linear step-by-step sync process, each step is independent
 func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
 	ctx := r.Context()
 
-	ds, err := h.deps.MetaRepo.GetDatasource(ctx, id)
+	resolved, err := h.deps.ResolveDatasourceDB(ctx, id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "datasource not found")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to open connection", err)
 		return
 	}
-
-	driver, err := h.deps.DriverReg.Get(ds.Type)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("unsupported driver: %s", ds.Type))
-		return
-	}
-
-	dsn, err := security.ConnectionDSN(h.deps.Encryptor, ds.DSNEncrypted)
-	if err != nil {
-		slog.ErrorContext(ctx, "decrypt DSN failed", "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to decrypt DSN")
-		return
-	}
-
-	db, err := driver.Open(ctx, dsn)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to open connection: %s", err.Error()))
-		return
-	}
-	defer func() { _ = db.Close() }()
+	defer func() { _ = resolved.DB.Close() }()
+	ds := resolved.Record
+	driver := resolved.Driver
+	db := resolved.DB
 
 	result, err := driver.Introspect(ctx, db)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("introspection failed: %s", err.Error()))
+		writeInternalError(ctx, w, http.StatusInternalServerError, "introspection failed", err)
 		return
 	}
 
@@ -220,7 +369,7 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 		}
 		schemaID, err := h.deps.MetaRepo.UpsertSchema(ctx, ds.ID, schema)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to save schemas: %s", err.Error()))
+			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to save schemas", err)
 			return
 		}
 		schemaIDs[s.Name] = schemaID
@@ -230,7 +379,8 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 	for _, t := range result.Tables {
 		schemaID, ok := schemaIDs[t.SchemaName]
 		if !ok {
-			writeError(w, http.StatusInternalServerError, fmt.Sprintf("missing schema for table: %s.%s", t.SchemaName, t.TableName))
+			writeInternalError(ctx, w, http.StatusInternalServerError, "metadata sync failed",
+				fmt.Errorf("missing schema for table %s.%s", t.SchemaName, t.TableName))
 			return
 		}
 
@@ -249,7 +399,7 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 		}
 		tableID, err := h.deps.MetaRepo.UpsertTable(ctx, ds.ID, table)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to save tables: %s", err.Error()))
+			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to save tables", err)
 			return
 		}
 		tableIDs[[2]string{t.SchemaName, t.TableName}] = tableID
@@ -275,7 +425,8 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 	for _, c := range result.Columns {
 		tableID, ok := tableIDs[[2]string{c.SchemaName, c.TableName}]
 		if !ok {
-			writeError(w, http.StatusInternalServerError, fmt.Sprintf("missing table for column: %s.%s.%s", c.SchemaName, c.TableName, c.ColumnName))
+			writeInternalError(ctx, w, http.StatusInternalServerError, "metadata sync failed",
+				fmt.Errorf("missing table for column %s.%s.%s", c.SchemaName, c.TableName, c.ColumnName))
 			return
 		}
 
@@ -309,7 +460,7 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 			col.Description = &cm
 		}
 		if err := h.deps.MetaRepo.UpsertColumns(ctx, ds.ID, []metadata.Column{col}); err != nil {
-			writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to save columns: %s", err.Error()))
+			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to save columns", err)
 			return
 		}
 	}
@@ -329,7 +480,7 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 			RelationshipType: rel.RelationshipType,
 		}
 		if err := h.deps.MetaRepo.UpsertRelations(ctx, ds.ID, []metadata.Relation{relation}); err != nil {
-			writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to save relations: %s", err.Error()))
+			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to save relations", err)
 			return
 		}
 	}

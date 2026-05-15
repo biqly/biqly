@@ -3,6 +3,8 @@ package metadata
 import (
 	"context"
 	"time"
+
+	platformdb "github.com/biqly/biqly/internal/platform/db"
 )
 
 const (
@@ -52,7 +54,7 @@ func (r *Repository) GetAIMetricsDashboard(ctx context.Context, days int) (summa
 	}
 	interval := days
 
-	rows, err := r.db.QueryContext(ctx, `
+	daily, err = platformdb.QuerySliceErr(ctx, r.db, "AI metrics daily", `
 		SELECT DATE(created_at),
 			COUNT(*),
 			COUNT(*) FILTER (WHERE outcome_status = 'success'),
@@ -67,33 +69,9 @@ func (r *Repository) GetAIMetricsDashboard(ctx context.Context, days int) (summa
 		WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
 		GROUP BY DATE(created_at)
 		ORDER BY DATE(created_at) DESC
-	`, interval)
+	`, []any{interval}, scanAIMetricsDayRow)
 	if err != nil {
 		return summary, nil, err
-	}
-	defer func() { _ = rows.Close() }()
-
-	for rows.Next() {
-		var d AIMetricsDayRow
-		var dateVal time.Time
-		var total, success, failed, partial, clarification int
-		if err := rows.Scan(&dateVal, &total, &success, &failed, &partial, &clarification,
-			&d.AvgRetryCount, &d.AvgLatencyMs, &d.TotalCost, &d.TotalTokens); err != nil {
-			return summary, nil, err
-		}
-		d.Date = dateVal.Format("2006-01-02")
-		d.TotalQueries = total
-		d.SuccessCount = success
-		d.FailedCount = failed
-		d.PartialCount = partial
-		d.ClarificationCount = clarification
-		if total > 0 {
-			d.FailureRate = float64(failed) / float64(total)
-		}
-		daily = append(daily, d)
-	}
-	if err := rows.Err(); err != nil {
-		return summary, daily, err
 	}
 
 	err = r.db.QueryRowContext(ctx, `
@@ -131,4 +109,24 @@ func (r *Repository) GetAIMetricsDashboard(ctx context.Context, days int) (summa
 		summary.FailureRate = float64(summary.FailedCount) / float64(summary.TotalQueries)
 	}
 	return summary, daily, nil
+}
+
+func scanAIMetricsDayRow(s platformdb.Scanner) (AIMetricsDayRow, error) {
+	var d AIMetricsDayRow
+	var dateVal time.Time
+	var total, success, failed, partial, clarification int
+	if err := s.Scan(&dateVal, &total, &success, &failed, &partial, &clarification,
+		&d.AvgRetryCount, &d.AvgLatencyMs, &d.TotalCost, &d.TotalTokens); err != nil {
+		return AIMetricsDayRow{}, err
+	}
+	d.Date = dateVal.Format("2006-01-02")
+	d.TotalQueries = total
+	d.SuccessCount = success
+	d.FailedCount = failed
+	d.PartialCount = partial
+	d.ClarificationCount = clarification
+	if total > 0 {
+		d.FailureRate = float64(failed) / float64(total)
+	}
+	return d, nil
 }

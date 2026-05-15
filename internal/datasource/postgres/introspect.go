@@ -15,7 +15,7 @@ func (d *Driver) introspectSchemas(ctx context.Context, db *sql.DB) ([]datasourc
 		WHERE schema_name NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
 		ORDER BY schema_name
 	`
-	return datasource.QueryAll(ctx, db, query, func(rows *sql.Rows) (datasource.SchemaInfo, error) {
+	return datasource.QueryAll(ctx, db, query, nil, func(rows *sql.Rows) (datasource.SchemaInfo, error) {
 		var s datasource.SchemaInfo
 		err := rows.Scan(&s.Name)
 		return s, err
@@ -42,7 +42,7 @@ func (d *Driver) introspectTables(ctx context.Context, db *sql.DB) ([]datasource
 			AND c.relkind IN ('r', 'p', 'v', 'm')
 		ORDER BY n.nspname, c.relname
 	`
-	return datasource.QueryAll(ctx, db, query, func(rows *sql.Rows) (datasource.TableInfo, error) {
+	return datasource.QueryAll(ctx, db, query, nil, func(rows *sql.Rows) (datasource.TableInfo, error) {
 		var t datasource.TableInfo
 		err := rows.Scan(&t.SchemaName, &t.TableName, &t.TableType, &t.RowEstimate, &t.Comment)
 		return t, err
@@ -73,7 +73,7 @@ func (d *Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasourc
 		ORDER BY c.table_schema, c.table_name, c.ordinal_position
 	`
 
-	columns, err := datasource.QueryAll(ctx, db, query, func(rows *sql.Rows) (datasource.ColumnInfo, error) {
+	columns, err := datasource.QueryAll(ctx, db, query, nil, func(rows *sql.Rows) (datasource.ColumnInfo, error) {
 		var c datasource.ColumnInfo
 		err := rows.Scan(
 			&c.SchemaName, &c.TableName, &c.ColumnName, &c.DataType,
@@ -98,7 +98,7 @@ func (d *Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasourc
 		WHERE tc.constraint_type = 'PRIMARY KEY'
 	`
 
-	pkRows, pkErr := datasource.QueryAll(ctx, db, pkQuery, func(rows *sql.Rows) (struct {
+	pkRows, pkErr := datasource.QueryAll(ctx, db, pkQuery, nil, func(rows *sql.Rows) (struct {
 		schema, table, column string
 	}, error) {
 		var p struct {
@@ -146,7 +146,7 @@ func (d *Driver) introspectRelations(ctx context.Context, db *sql.DB) ([]datasou
 			AND tc.table_schema = ccu.table_schema
 		WHERE tc.constraint_type = 'FOREIGN KEY'
 	`
-	return datasource.QueryAll(ctx, db, query, func(rows *sql.Rows) (datasource.RelationInfo, error) {
+	return datasource.QueryAll(ctx, db, query, nil, func(rows *sql.Rows) (datasource.RelationInfo, error) {
 		var r datasource.RelationInfo
 		r.RelationshipType = "many_to_one"
 		err := rows.Scan(

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
@@ -58,7 +59,7 @@ func TestPromptBuildIncludesBusinessGlossary(t *testing.T) {
 	glossary := []GlossaryEntry{
 		{Term: "ciro", MapsToName: "revenue", MapsToType: "metric", Definition: "toplam satış", Source: "glossary"},
 	}
-	got := pb.Build("q", model, 0, "", nil, nil, nil, nil, glossary)
+	got := pb.Build("q", model, 0, i18n.DefaultLocale, "", nil, nil, nil, nil, glossary)
 	if !strings.Contains(got, "## Business Glossary") {
 		t.Errorf("expected business glossary section")
 	}

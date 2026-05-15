@@ -58,10 +58,10 @@ func TestValidateContextRejectsJoinNotInMetadata(t *testing.T) {
 
 	result := semantic.ValidateContext(context.Background(), model, validPublishCatalog())
 	if result.Valid {
-		t.Fatal("ValidateContext() valid = true, want false")
+		t.Fatal("ValidateContext() valid = true, want false (unknown columns)")
 	}
-	if !result.HasError("join does not match datasource metadata relation: orders_to_products") {
-		t.Fatalf("ValidateContext() errors = %v, want metadata relation error", result.Errors)
+	if !result.HasWarning("join does not match datasource metadata relation: orders_to_products") {
+		t.Fatalf("ValidateContext() warnings = %v, want metadata relation warning", result.Warnings)
 	}
 }
 

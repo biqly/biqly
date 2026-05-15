@@ -11,7 +11,6 @@ import (
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/query"
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
 
@@ -19,8 +18,8 @@ type evalTestCaseWire struct {
 	ID                   string                 `json:"id"`
 	Question             string                 `json:"question"`
 	Status               string                 `json:"status"`
-	ExpectedLogicalQuery map[string]interface{} `json:"expected_logical_query"`
-	GotLogicalQuery      map[string]interface{} `json:"got_logical_query"`
+	ExpectedLogicalQuery map[string]any `json:"expected_logical_query"`
+	GotLogicalQuery      map[string]any `json:"got_logical_query"`
 	Confidence           *float64               `json:"confidence,omitempty"`
 	ErrorMessage         string                 `json:"error_message,omitempty"`
 	LogicalMatch         *bool                  `json:"logical_match,omitempty"`
@@ -49,17 +48,17 @@ type evalTrendPoint struct {
 	PassRate float64 `json:"pass_rate"`
 }
 
-func logicalQueryToMap(lq *query.LogicalQuery) map[string]interface{} {
+func logicalQueryToMap(lq *query.LogicalQuery) map[string]any {
 	if lq == nil {
-		return map[string]interface{}{}
+		return map[string]any{}
 	}
 	b, err := json.Marshal(lq)
 	if err != nil {
-		return map[string]interface{}{"_marshal_error": err.Error()}
+		return map[string]any{"_marshal_error": err.Error()}
 	}
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(b, &m); err != nil {
-		return map[string]interface{}{}
+		return map[string]any{}
 	}
 	return m
 }
@@ -186,17 +185,9 @@ func firstNonEmpty(vals ...string) string {
 }
 
 func (h *AIHandler) EvalRun(w http.ResponseWriter, r *http.Request) {
-	if !h.requireAdminKey(w, r) {
-		return
-	}
-	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	result, resultsWithMetrics, err := h.executeGoldenCasesWithMetrics(r.Context(), r)
 	if err != nil {
-		writeError(w, http.StatusServiceUnavailable, err.Error())
+		writeInternalError(r.Context(), w, http.StatusServiceUnavailable, "eval run failed", err)
 		return
 	}
 
@@ -219,16 +210,8 @@ func (h *AIHandler) EvalRun(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) {
-	if !h.requireAdminKey(w, r) {
-		return
-	}
-	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if err := h.evalAIConfigured(); err != nil {
-		writeError(w, http.StatusServiceUnavailable, err.Error())
+		writeInternalError(r.Context(), w, http.StatusServiceUnavailable, "AI eval is not configured", err)
 		return
 	}
 
@@ -243,16 +226,16 @@ func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ctx := r.Context()
 	send := func(line string) {
 		safe := strings.ReplaceAll(strings.ReplaceAll(line, "\r", " "), "\n", " ")
 		if _, err := fmt.Fprintf(w, "data: %s\n\n", safe); err != nil {
-			slog.Error("eval stream write", "error", err)
+			slog.ErrorContext(ctx, "eval stream write", "error", err)
 			return
 		}
 		flusher.Flush()
 	}
 
-	ctx := r.Context()
 	modes, _, modesLabel, cases := evalModesFromRequest(r)
 	opts := ai.EvalSuiteOptions{Cases: cases, Modes: modes}
 	if modes&ai.EvalModeJudge != 0 {
@@ -273,7 +256,8 @@ func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) {
 
 		resp, err := h.service.ProcessQuestion(ctx, c.Question, c.Model)
 		if err != nil {
-			send(fmt.Sprintf("[%d/%d] ERROR: %s", i+1, len(cases), err.Error()))
+			slog.ErrorContext(ctx, "eval case failed", "case_id", c.ID, "error", err)
+			send(fmt.Sprintf("[%d/%d] ERROR: processing failed", i+1, len(cases)))
 			continue
 		}
 
@@ -332,35 +316,7 @@ func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) {
 	send("[DONE]")
 }
 
-func (h *AIHandler) requireAdminKey(w http.ResponseWriter, r *http.Request) bool {
-	adminKey := h.deps.Config.Security.AdminAPIKey
-	if adminKey == "" {
-		writeError(w, http.StatusForbidden, "eval endpoints require BI_ADMIN_API_KEY to be configured")
-		return false
-	}
-	token := adminKeyFromRequest(r)
-	if token == "" || token != adminKey {
-		writeError(w, http.StatusUnauthorized, "invalid or missing admin API key")
-		return false
-	}
-	return true
-}
-
-func adminKeyFromRequest(r *http.Request) string {
-	if k := strings.TrimSpace(r.Header.Get("X-Admin-Key")); k != "" {
-		return k
-	}
-	authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
-	if strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
-		return strings.TrimSpace(authHeader[7:])
-	}
-	return authHeader
-}
-
 func (h *AIHandler) EvalListRuns(w http.ResponseWriter, r *http.Request) {
-	if !h.requireAdminKey(w, r) {
-		return
-	}
 	if h.deps.EvalRepo == nil {
 		writeError(w, http.StatusServiceUnavailable, "eval storage not configured")
 		return
@@ -376,17 +332,13 @@ func (h *AIHandler) EvalListRuns(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AIHandler) EvalGetRun(w http.ResponseWriter, r *http.Request) {
-	if !h.requireAdminKey(w, r) {
-		return
-	}
 	if h.deps.EvalRepo == nil {
 		writeError(w, http.StatusServiceUnavailable, "eval storage not configured")
 		return
 	}
 
-	runID := chi.URLParam(r, "id")
-	if runID == "" {
-		writeError(w, http.StatusBadRequest, "run id is required")
+	runID, ok := requireURLParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -433,9 +385,6 @@ func (h *AIHandler) EvalGetRun(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AIHandler) EvalRegression(w http.ResponseWriter, r *http.Request) {
-	if !h.requireAdminKey(w, r) {
-		return
-	}
 	if h.deps.EvalRepo == nil {
 		writeError(w, http.StatusServiceUnavailable, "eval storage not configured")
 		return

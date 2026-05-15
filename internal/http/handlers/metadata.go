@@ -1,11 +1,11 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/biqly/biqly/internal/app"
-	"github.com/go-chi/chi/v5"
+	"github.com/biqly/biqly/internal/i18n"
+	"github.com/biqly/biqly/internal/metadata"
 )
 
 // MetadataHandler exposes endpoints for browsing and editing introspected metadata.
@@ -20,7 +20,10 @@ func NewMetadataHandler(deps *app.Dependencies) *MetadataHandler {
 
 // ListTables returns all introspected tables for a datasource (optionally filtered by schema).
 func (h *MetadataHandler) ListTables(w http.ResponseWriter, r *http.Request) {
-	datasourceID := chi.URLParam(r, "id")
+	datasourceID, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
 	schemaName := r.URL.Query().Get("schema")
 
 	tables, err := h.deps.MetaRepo.ListTables(r.Context(), datasourceID, schemaName)
@@ -28,18 +31,31 @@ func (h *MetadataHandler) ListTables(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to list tables")
 		return
 	}
+	loc := i18n.FromContext(r.Context())
+	if err := h.deps.MetaRepo.ApplyTableTranslations(r.Context(), tables, loc); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to apply table translations")
+		return
+	}
 	writeJSON(w, http.StatusOK, tables)
 }
 
 // ListColumns returns columns for a datasource, scoped by schema/table query params.
 func (h *MetadataHandler) ListColumns(w http.ResponseWriter, r *http.Request) {
-	datasourceID := chi.URLParam(r, "id")
+	datasourceID, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
 	schemaName := r.URL.Query().Get("schema")
 	tableName := r.URL.Query().Get("table")
 
 	cols, err := h.deps.MetaRepo.ListColumns(r.Context(), datasourceID, schemaName, tableName)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list columns")
+		return
+	}
+	loc := i18n.FromContext(r.Context())
+	if err := h.deps.MetaRepo.ApplyColumnTranslations(r.Context(), cols, loc); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to apply column translations")
 		return
 	}
 	writeJSON(w, http.StatusOK, cols)
@@ -83,11 +99,13 @@ type updateDescriptionRequest struct {
 
 // UpdateTableDescription edits the description of a single table row.
 func (h *MetadataHandler) UpdateTableDescription(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
 
-	var req updateDescriptionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeJSON[updateDescriptionRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -106,11 +124,13 @@ func (h *MetadataHandler) UpdateTableDescription(w http.ResponseWriter, r *http.
 
 // UpdateColumnDescription edits the description of a single column row.
 func (h *MetadataHandler) UpdateColumnDescription(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
 
-	var req updateDescriptionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeJSON[updateDescriptionRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -125,4 +145,83 @@ func (h *MetadataHandler) UpdateColumnDescription(w http.ResponseWriter, r *http
 		return
 	}
 	writeJSON(w, http.StatusOK, c)
+}
+
+// translationUpsertRequest is the payload for PUT /metadata/{entity}/{id}/translations.
+// Body shape: { "tr": { "description": "..." }, "en": { ... } }
+type translationUpsertRequest map[string]map[string]string
+
+func (h *MetadataHandler) putTranslations(w http.ResponseWriter, r *http.Request, entityType string) {
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
+	req, ok := decodeJSON[translationUpsertRequest](w, r)
+	if !ok {
+		return
+	}
+	for lang, fields := range *req {
+		loc := i18n.ParseLocale(lang)
+		for field, value := range fields {
+			if field != metadata.TranslationFieldDescription && field != metadata.TranslationFieldLabel {
+				writeError(w, http.StatusBadRequest, "unsupported translation field: "+field)
+				return
+			}
+			err := h.deps.MetaRepo.UpsertTranslation(r.Context(), metadata.Translation{
+				EntityType: entityType,
+				EntityID:   id,
+				Lang:       string(loc),
+				Field:      field,
+				Value:      value,
+			})
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "failed to upsert translation")
+				return
+			}
+		}
+	}
+	rows, err := h.deps.MetaRepo.ListEntityTranslations(r.Context(), entityType, id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list translations")
+		return
+	}
+	writeJSON(w, http.StatusOK, rows)
+}
+
+// GetTableTranslations returns every stored translation row for a table.
+func (h *MetadataHandler) GetTableTranslations(w http.ResponseWriter, r *http.Request) {
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
+	rows, err := h.deps.MetaRepo.ListEntityTranslations(r.Context(), metadata.EntityTypeTable, id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list table translations")
+		return
+	}
+	writeJSON(w, http.StatusOK, rows)
+}
+
+// PutTableTranslations upserts language-specific overrides for a table.
+func (h *MetadataHandler) PutTableTranslations(w http.ResponseWriter, r *http.Request) {
+	h.putTranslations(w, r, metadata.EntityTypeTable)
+}
+
+// GetColumnTranslations returns every stored translation row for a column.
+func (h *MetadataHandler) GetColumnTranslations(w http.ResponseWriter, r *http.Request) {
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
+	rows, err := h.deps.MetaRepo.ListEntityTranslations(r.Context(), metadata.EntityTypeColumn, id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list column translations")
+		return
+	}
+	writeJSON(w, http.StatusOK, rows)
+}
+
+// PutColumnTranslations upserts language-specific overrides for a column.
+func (h *MetadataHandler) PutColumnTranslations(w http.ResponseWriter, r *http.Request) {
+	h.putTranslations(w, r, metadata.EntityTypeColumn)
 }

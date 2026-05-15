@@ -78,28 +78,42 @@ func cloneFilters(in []query.Filter) []query.Filter {
 }
 
 var (
-	replaceFilterPatterns = []*regexp.Regexp{
-		regexp.MustCompile(`(?i)\b(geçen|önceki|bu|son)\s+(ay|hafta|yıl|çeyrek|quarter|month|week|year)\b`),
-		regexp.MustCompile(`(?i)\b(last|this|previous|next)\s+(month|week|year|quarter)\b`),
-		regexp.MustCompile(`(?i)\bson\s+\d+\s+(gün|günler|day|days|hafta|weeks?)\b`),
-		regexp.MustCompile(`(?i)\b(past|last)\s+\d+\s+(days?|weeks?|months?)\b`),
-		regexp.MustCompile(`(?i)\b(20\d{2})\b`),
-		regexp.MustCompile(`(?i)\b(tarih|date|period|dönem)\s*(değiş|change|olarak|instead)\b`),
-		regexp.MustCompile(`(?i)\b(artık|instead|yerine)\b`),
-	}
-	newQueryPatterns = []*regexp.Regexp{
-		regexp.MustCompile(`(?i)\b(yeni\s+soru|baştan|sıfırdan|from\s+scratch|new\s+question)\b`),
-		regexp.MustCompile(`(?i)\b(tüm\s+zamanlar|all\s+time|without\s+filter|filtresiz)\b`),
-		regexp.MustCompile(`(?i)\b(farklı\s+(tablo|model|konu)|different\s+(table|topic))\b`),
-	}
-	refinePatterns = []*regexp.Regexp{
-		regexp.MustCompile(`(?i)\b(göre|grupla|group\s+by|break\s+down|sırala|sort\s+by|order\s+by)\b`),
-		regexp.MustCompile(`(?i)\b(bölge|region|kategori|category|müşteri|customer)\s*(göre|bazında|by)\b`),
-		regexp.MustCompile(`(?i)\b(şimdi|now|also|ayrıca|ekle|add|sadece\s+grupla)\b`),
-		regexp.MustCompile(`(?i)\b(top\s+\d+|ilk\s+\d+|limit)\b`),
-		regexp.MustCompile(`(?i)^(bölgeye|regiona|kategoriye)\s+göre`),
-	}
+	replaceFilterPatterns []*regexp.Regexp
+	newQueryPatterns      []*regexp.Regexp
+	refinePatterns        []*regexp.Regexp
 )
+
+func init() {
+	replaceFilterPatterns = compileFollowUpPatterns([]string{
+		`(?i)\b(geçen|önceki|bu|son)\s+(ay|hafta|yıl|çeyrek|quarter|month|week|year)\b`,
+		`(?i)\b(last|this|previous|next)\s+(month|week|year|quarter)\b`,
+		`(?i)\bson\s+\d+\s+(gün|günler|day|days|hafta|weeks?)\b`,
+		`(?i)\b(past|last)\s+\d+\s+(days?|weeks?|months?)\b`,
+		`(?i)\b(20\d{2})\b`,
+		`(?i)\b(tarih|date|period|dönem)\s*(değiş|change|olarak|instead)\b`,
+		`(?i)\b(artık|instead|yerine)\b`,
+	})
+	newQueryPatterns = compileFollowUpPatterns([]string{
+		`(?i)\b(yeni\s+soru|baştan|sıfırdan|from\s+scratch|new\s+question)\b`,
+		`(?i)\b(tüm\s+zamanlar|all\s+time|without\s+filter|filtresiz)\b`,
+		`(?i)\b(farklı\s+(tablo|model|konu)|different\s+(table|topic))\b`,
+	})
+	refinePatterns = compileFollowUpPatterns([]string{
+		`(?i)\b(göre|grupla|group\s+by|break\s+down|sırala|sort\s+by|order\s+by)\b`,
+		`(?i)\b(bölge|region|kategori|category|müşteri|customer)\s*(göre|bazında|by)\b`,
+		`(?i)\b(şimdi|now|also|ayrıca|ekle|add|sadece\s+grupla)\b`,
+		`(?i)\b(top\s+\d+|ilk\s+\d+|limit)\b`,
+		`(?i)^(bölgeye|regiona|kategoriye)\s+göre`,
+	})
+}
+
+func compileFollowUpPatterns(src []string) []*regexp.Regexp {
+	out := make([]*regexp.Regexp, len(src))
+	for i, pattern := range src {
+		out[i] = regexp.MustCompile(pattern)
+	}
+	return out
+}
 
 // ClassifyFollowUpIntent decides whether the current question should inherit
 // filters from the session, replace them, or start fresh.

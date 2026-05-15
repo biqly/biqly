@@ -14,8 +14,10 @@ import {
 import useStreamingApi from '../hooks/useStreamingApi'
 import { adminAuthHeaders, useAdminApi } from '../hooks/useApi'
 import { useQueryParam } from '../hooks/useQueryParam'
+import { useI18n, useT } from '../i18n'
 import { chartAxisStroke, chartGridStroke, chartTooltipStyle, smallChartTick } from '../utils/chartConfig'
 import { getRateColor } from '../utils/formatters'
+import { ErrorAlert } from './ui/ErrorAlert'
 import { KPICard } from './ui/KPICard'
 import { Select } from './ui/Select'
 import type { EvalRunSummary, EvalRunDetail, RegressionReport } from '../types/ai'
@@ -107,16 +109,17 @@ const DEMO_DATA: EvalRunResponse = {
 // ─── Sub-components ────────────────────────────────────────────────
 
 function DiffView({ expected, got }: { expected: Record<string, unknown>; got: Record<string, unknown> }) {
+  const t = useT()
   const expectedStr = JSON.stringify(expected, null, 2)
   const gotStr = JSON.stringify(got, null, 2)
   return (
     <div className="diff-view">
       <div className="diff-col">
-        <div className="diff-col-header">Beklenen</div>
+        <div className="diff-col-header">{t('evaluation.diff_expected')}</div>
         <pre className="diff-pre">{expectedStr}</pre>
       </div>
       <div className="diff-col">
-        <div className="diff-col-header">Üretilen</div>
+        <div className="diff-col-header">{t('evaluation.diff_actual')}</div>
         <pre className="diff-pre">{gotStr}</pre>
       </div>
     </div>
@@ -124,6 +127,7 @@ function DiffView({ expected, got }: { expected: Record<string, unknown>; got: R
 }
 
 function TestCaseRow({ tc }: { tc: EvalTestCase }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const isFail = tc.status === 'fail'
 
@@ -133,12 +137,12 @@ function TestCaseRow({ tc }: { tc: EvalTestCase }) {
         <td className="eval-tc-id">{tc.id}</td>
         <td className="eval-tc-question">{tc.question}</td>
         <td>
-          <span className={`status-badge ${isFail ? 'error' : 'success'}`}>{isFail ? 'kaldı' : 'geçti'}</span>
+          <span className={`status-badge ${isFail ? 'error' : 'success'}`}>{isFail ? t('evaluation.status_fail_short') : t('evaluation.status_pass_short')}</span>
         </td>
-        <td className="eval-tc-confidence">{tc.confidence !== undefined ? `${Math.round(tc.confidence * 100)}%` : '—'}</td>
+        <td className="eval-tc-confidence">{tc.confidence !== undefined ? `${Math.round(tc.confidence * 100)}%` : t('common.em_dash')}</td>
         <td>
           {isFail && tc.error_message && <span className="eval-error-hint">{tc.error_message}</span>}
-          <button className="btn btn-sm btn-ghost" onClick={() => setOpen(!open)}>{open ? 'Farkı gizle' : 'Farkı göster'}</button>
+          <button className="btn btn-sm btn-ghost" onClick={() => setOpen(!open)}>{open ? t('evaluation.hide_diff') : t('evaluation.show_diff')}</button>
         </td>
       </tr>
       {open && (
@@ -155,6 +159,9 @@ function TestCaseRow({ tc }: { tc: EvalTestCase }) {
 // ─── Main Component ────────────────────────────────────────────────
 
 export default function Evaluation() {
+  const t = useT()
+  const { locale } = useI18n()
+  const localeTag = locale === 'tr' ? 'tr-TR' : 'en-US'
   const streaming = useStreamingApi({ typingSpeed: 4 })
   const adminApi = useAdminApi()
 
@@ -230,10 +237,10 @@ export default function Evaluation() {
   const pieData = useMemo(() => {
     if (!evalData) return []
     return [
-      { name: 'Geçen', value: evalData.passed, fill: '#22c55e' },
-      { name: 'Kalan', value: evalData.failed, fill: '#ef4444' },
+      { name: t('evaluation.pie_passed'), value: evalData.passed, fill: '#22c55e' },
+      { name: t('evaluation.pie_failed'), value: evalData.failed, fill: '#ef4444' },
     ]
-  }, [evalData])
+  }, [evalData, t])
 
   // Derive trend data
   const trendData = useMemo(() => {
@@ -246,7 +253,7 @@ export default function Evaluation() {
 
   const runEvaluation = async () => {
     if (!adminApi.configured) {
-      setRunError('VITE_BI_ADMIN_API_KEY ayarlı değil. Değerlendirme endpointleri admin anahtarı ister.')
+      setRunError(t('evaluation.admin_key_missing_run'))
       return
     }
     setRunning(true)
@@ -266,7 +273,7 @@ export default function Evaluation() {
 
   const runStreamEvaluation = () => {
     if (!adminApi.configured) {
-      setRunError('VITE_BI_ADMIN_API_KEY ayarlı değil. Değerlendirme endpointleri admin anahtarı ister.')
+      setRunError(t('evaluation.admin_key_missing_run'))
       return
     }
     // Alternative: use streaming endpoint if available
@@ -278,11 +285,11 @@ export default function Evaluation() {
   return (
     <div className="evaluation-layout">
       {/* Tabs */}
-      <div className="page-tabs" role="tablist" aria-label="Değerlendirme sekmeleri">
+      <div className="page-tabs" role="tablist" aria-label={t('evaluation.tabs_aria')}>
         {([
-          { key: 'run' as const, label: '🧪 Değerlendirme Çalıştır' },
-          { key: 'history' as const, label: `📋 Geçmiş (${runHistory.length})` },
-          { key: 'regression' as const, label: '📉 Regresyon' },
+          { key: 'run' as const, label: t('evaluation.tab_run') },
+          { key: 'history' as const, label: t('evaluation.tab_history', { count: runHistory.length }) },
+          { key: 'regression' as const, label: t('evaluation.tab_regression') },
         ]).map((tab) => {
           const isActive = activeTab === tab.key
           return (
@@ -301,35 +308,33 @@ export default function Evaluation() {
       </div>
 
       {!adminApi.configured && (
-        <div className="error" style={{ marginBottom: '1rem' }}>
-          Admin API anahtarı frontend ortamında ayarlı değil. Değerlendirme geçmişi ve çalıştırma işlemleri devre dışı.
-        </div>
+        <ErrorAlert error={t('evaluation.admin_key_missing_ui')} />
       )}
 
       {/* ─── TAB: Run Evaluation ─────────────────────────────── */}
       {activeTab === 'run' && (
       <>
-      <div className="card">
+        <div className="card">
         <div className="card-header-row">
-          <h2>Değerlendirme Paneli</h2>
+          <h2>{t('evaluation.panel_title')}</h2>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button className="btn btn-sm" onClick={runStreamEvaluation} disabled={!adminApi.configured || running || streaming.loading}>
-              {streaming.loading ? 'Akış…' : 'Çalıştır (akış)'}
+              {streaming.loading ? t('evaluation.stream_loading') : t('evaluation.stream_run')}
             </button>
             <button className="btn btn-sm btn-primary" onClick={runEvaluation} disabled={!adminApi.configured || running}>
-              {running ? 'Çalışıyor…' : 'Değerlendirmeyi çalıştır'}
+              {running ? t('evaluation.running') : t('evaluation.run_submit')}
             </button>
           </div>
         </div>
 
         {showDemo && (
           <div className="demo-banner">
-            Sunucuya ulaşılamadı — örnek veriler gösteriliyor. API hazır olduğunda «Değerlendirmeyi çalıştır»a tekrar basın.
+            {t('evaluation.demo_banner')}
           </div>
         )}
 
-        {runError && <div className="error">{runError}</div>}
-        {streaming.error && <div className="error">{streaming.error}</div>}
+        <ErrorAlert error={runError} />
+        <ErrorAlert error={streaming.error} />
 
         {/* Streaming output */}
         {streaming.data && (
@@ -343,16 +348,16 @@ export default function Evaluation() {
         <>
           {/* KPI Cards */}
           <div className="kpi-row">
-            <KPICard label="Toplam senaryo" value={activeData.total} color="var(--accent)" />
-            <KPICard label="Geçme oranı" value={`${Math.round(activeData.pass_rate * 100)}%`} color="var(--success)" />
-            <KPICard label="Kalan senaryo" value={activeData.failed} color="var(--error)" />
-            <KPICard label="Ort. güven" value={`${Math.round(activeData.avg_confidence * 100)}%`} color="var(--warning)" />
+            <KPICard label={t('evaluation.kpi_total_scenarios')} value={activeData.total} color="var(--accent)" />
+            <KPICard label={t('evaluation.kpi_pass_rate')} value={`${Math.round(activeData.pass_rate * 100)}%`} color="var(--success)" />
+            <KPICard label={t('evaluation.kpi_failed_scenarios')} value={activeData.failed} color="var(--error)" />
+            <KPICard label={t('evaluation.kpi_avg_confidence')} value={`${Math.round(activeData.avg_confidence * 100)}%`} color="var(--warning)" />
           </div>
 
           {/* Charts */}
           <div className="eval-charts-row">
             <div className="card">
-              <h3>Geçme oranı</h3>
+              <h3>{t('evaluation.chart_pass_distribution')}</h3>
               <div className="chart-container" style={{ height: 240 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -376,7 +381,7 @@ export default function Evaluation() {
             </div>
 
             <div className="card">
-              <h3>Doğruluk eğilimi</h3>
+              <h3>{t('evaluation.chart_accuracy_trend')}</h3>
               {trendData.length > 0 ? (
                 <div className="chart-container" style={{ height: 240 }}>
                   <ResponsiveContainer width="100%" height="100%">
@@ -393,22 +398,22 @@ export default function Evaluation() {
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <p className="eval-empty-chart">Eğilim verisi yok.</p>
+                <p className="eval-empty-chart">{t('evaluation.no_trend_data')}</p>
               )}
             </div>
           </div>
 
           {/* Test Cases Table */}
           <div className="card">
-            <h3>Test senaryoları</h3>
+            <h3>{t('evaluation.test_cases_title')}</h3>
             <table className="results-table eval-results-table">
               <thead>
                 <tr>
-                  <th>Kimlik</th>
-                  <th>Soru</th>
-                  <th>Durum</th>
-                  <th>Güven</th>
-                  <th>Fark</th>
+                  <th>{t('evaluation.col_id')}</th>
+                  <th>{t('evaluation.col_question')}</th>
+                  <th>{t('evaluation.col_status')}</th>
+                  <th>{t('evaluation.col_confidence')}</th>
+                  <th>{t('evaluation.col_diff')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -423,8 +428,8 @@ export default function Evaluation() {
 
       {!activeData && (
         <div className="card empty-state">
-          <h2>Henüz değerlendirme sonucu yok</h2>
-          <p>AI metinden-SQL hattına karşı bir test çalıştırmak için «Değerlendirmeyi çalıştır»a tıklayın.</p>
+          <h2>{t('evaluation.empty_no_results_title')}</h2>
+          <p>{t('evaluation.empty_no_results_hint')}</p>
         </div>
       )}
       </>
@@ -433,26 +438,26 @@ export default function Evaluation() {
       {/* ─── TAB: History ────────────────────────────────────── */}
       {activeTab === 'history' && !selectedRun && (
         <div className="card">
-          <h3>Geçmiş Değerlendirmeler</h3>
+          <h3>{t('evaluation.history_title')}</h3>
           {runHistory.length === 0 ? (
-            <p className="eval-empty-chart">Henüz geçmiş değerlendirme yok.</p>
+            <p className="eval-empty-chart">{t('evaluation.history_empty')}</p>
           ) : (
             <table className="results-table">
               <thead>
                 <tr>
-                  <th>Tarih</th>
-                  <th>Model</th>
-                  <th>Toplam</th>
-                  <th>Geçen</th>
-                  <th>Kalan</th>
-                  <th>Başarı %</th>
-                  <th>Detay</th>
+                  <th>{t('evaluation.hist_date')}</th>
+                  <th>{t('evaluation.hist_model')}</th>
+                  <th>{t('evaluation.hist_total')}</th>
+                  <th>{t('evaluation.hist_passed')}</th>
+                  <th>{t('evaluation.hist_failed')}</th>
+                  <th>{t('evaluation.hist_success_pct')}</th>
+                  <th>{t('evaluation.hist_detail')}</th>
                 </tr>
               </thead>
               <tbody>
                 {runHistory.map((r) => (
                   <tr key={r.run_id}>
-                    <td>{new Date(r.completed_at).toLocaleString('tr-TR')}</td>
+                    <td>{new Date(r.completed_at).toLocaleString(localeTag)}</td>
                     <td>{r.model}</td>
                     <td>{r.total_cases}</td>
                     <td style={{ color: 'var(--success)' }}>{r.passed}</td>
@@ -464,7 +469,7 @@ export default function Evaluation() {
                       {(r.pass_rate * 100).toFixed(0)}%
                     </td>
                     <td>
-                      <button className="btn btn-sm" onClick={() => loadRunDetail(r.run_id)}>Detay</button>
+                      <button className="btn btn-sm" onClick={() => loadRunDetail(r.run_id)}>{t('evaluation.detail_btn')}</button>
                     </td>
                   </tr>
                 ))}
@@ -477,25 +482,28 @@ export default function Evaluation() {
       {activeTab === 'history' && selectedRun && (
         <>
           <div style={{ marginBottom: '0.5rem' }}>
-            <button className="btn btn-sm btn-ghost" onClick={() => setSelectedRun(null)}>← Geri</button>
+            <button className="btn btn-sm btn-ghost" onClick={() => setSelectedRun(null)}>{t('evaluation.back')}</button>
           </div>
           <div className="kpi-row">
-            <KPICard label="Toplam" value={selectedRun.summary.total_cases} color="var(--accent)" />
-            <KPICard label="Geçen" value={selectedRun.summary.passed} color="var(--success)" />
-            <KPICard label="Kalan" value={selectedRun.summary.failed} color="var(--error)" />
-            <KPICard label="Başarı %" value={`${(selectedRun.summary.pass_rate * 100).toFixed(0)}%`} color="var(--warning)" />
+            <KPICard label={t('evaluation.detail_kpi_total')} value={selectedRun.summary.total_cases} color="var(--accent)" />
+            <KPICard label={t('evaluation.detail_kpi_passed')} value={selectedRun.summary.passed} color="var(--success)" />
+            <KPICard label={t('evaluation.detail_kpi_failed')} value={selectedRun.summary.failed} color="var(--error)" />
+            <KPICard label={t('evaluation.detail_kpi_rate')} value={`${(selectedRun.summary.pass_rate * 100).toFixed(0)}%`} color="var(--warning)" />
           </div>
           <div className="card">
-            <h3>Test Senaryoları — {selectedRun.summary.model} ({new Date(selectedRun.summary.completed_at).toLocaleString('tr-TR')})</h3>
+            <h3>{t('evaluation.detail_cases_title', {
+              model: selectedRun.summary.model,
+              date: new Date(selectedRun.summary.completed_at).toLocaleString(localeTag),
+            })}</h3>
             <table className="results-table eval-results-table">
               <thead>
                 <tr>
-                  <th>Senaryo</th>
-                  <th>Soru</th>
-                  <th>Durum</th>
-                  <th>Neden</th>
-                  <th>Güven</th>
-                  <th>Gecikme</th>
+                  <th>{t('evaluation.col_scenario')}</th>
+                  <th>{t('evaluation.col_question')}</th>
+                  <th>{t('evaluation.col_status')}</th>
+                  <th>{t('evaluation.col_reason')}</th>
+                  <th>{t('evaluation.col_confidence')}</th>
+                  <th>{t('evaluation.col_latency')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -504,11 +512,11 @@ export default function Evaluation() {
                     <td>{tc.case_id}</td>
                     <td>{tc.question}</td>
                     <td>
-                      <span className={`status-badge ${tc.match ? 'success' : 'error'}`}>{tc.match ? 'eşleşti' : 'eşleşmedi'}</span>
+                      <span className={`status-badge ${tc.match ? 'success' : 'error'}`}>{tc.match ? t('evaluation.match_yes') : t('evaluation.match_no')}</span>
                     </td>
-                    <td style={{ fontSize: '0.8rem', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tc.reason || '—'}</td>
+                    <td style={{ fontSize: '0.8rem', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tc.reason || t('common.em_dash')}</td>
                     <td>{(tc.confidence * 100).toFixed(0)}%</td>
-                    <td>{tc.latency_ms}ms</td>
+                    <td>{t('evaluation.latency_ms', { ms: tc.latency_ms })}</td>
                   </tr>
                 ))}
               </tbody>
@@ -521,38 +529,38 @@ export default function Evaluation() {
       {activeTab === 'regression' && (
         <>
           <div className="card">
-            <h3>Regresyon Karşılaştırması</h3>
+            <h3>{t('evaluation.regression_title')}</h3>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: '14rem' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.3rem' }}>Temel (Baseline)</label>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.3rem' }}>{t('evaluation.baseline_label')}</label>
                 <Select
                   value={baselineId}
                   onChange={setBaselineId}
-                  placeholder="Seçiniz"
-                  header="Çalıştırma geçmişi"
+                  placeholder={t('evaluation.placeholder_select')}
+                  header={t('evaluation.runs_header')}
                   options={runHistory.map((r) => ({
                     value: r.run_id,
-                    label: `${r.model} — ${(r.pass_rate * 100).toFixed(0)}%`,
-                    hint: new Date(r.completed_at).toLocaleString('tr-TR'),
+                    label: `${r.model} ${t('common.em_dash')} ${(r.pass_rate * 100).toFixed(0)}%`,
+                    hint: new Date(r.completed_at).toLocaleString(localeTag),
                   }))}
                 />
               </div>
               <div style={{ flex: 1, minWidth: '14rem' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.3rem' }}>Karşılaştırılacak (Current)</label>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.3rem' }}>{t('evaluation.current_label')}</label>
                 <Select
                   value={currentId}
                   onChange={setCurrentId}
-                  placeholder="Seçiniz"
-                  header="Çalıştırma geçmişi"
+                  placeholder={t('evaluation.placeholder_select')}
+                  header={t('evaluation.runs_header')}
                   options={runHistory.map((r) => ({
                     value: r.run_id,
-                    label: `${r.model} — ${(r.pass_rate * 100).toFixed(0)}%`,
-                    hint: new Date(r.completed_at).toLocaleString('tr-TR'),
+                    label: `${r.model} ${t('common.em_dash')} ${(r.pass_rate * 100).toFixed(0)}%`,
+                    hint: new Date(r.completed_at).toLocaleString(localeTag),
                   }))}
                 />
               </div>
               <button className="btn btn-sm btn-primary" onClick={runRegression} disabled={!adminApi.configured || !baselineId || !currentId || regressionLoading}>
-                {regressionLoading ? 'Karşılaştırılıyor…' : 'Karşılaştır'}
+                {regressionLoading ? t('evaluation.comparing') : t('evaluation.compare')}
               </button>
             </div>
           </div>
@@ -561,31 +569,39 @@ export default function Evaluation() {
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                 <div className="card" style={{ borderColor: 'var(--error)', marginBottom: 0 }}>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Yeni Başarısızlıklar</p>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{t('evaluation.reg_new_failures')}</p>
                   <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--error)' }}>{regression.new_failures.length}</p>
                 </div>
                 <div className="card" style={{ borderColor: 'var(--success)', marginBottom: 0 }}>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Düzeltilen</p>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{t('evaluation.reg_fixed')}</p>
                   <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--success)' }}>{regression.fixed_failures.length}</p>
                 </div>
                 <div className="card" style={{ borderColor: 'var(--warning)', marginBottom: 0 }}>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Değişen</p>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{t('evaluation.reg_changed')}</p>
                   <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--warning)' }}>{regression.changed_cases.length}</p>
                 </div>
               </div>
 
               {regression.new_failures.length > 0 && (
                 <div className="card">
-                  <h3 style={{ color: 'var(--error)' }}>🔴 Yeni Başarısızlıklar</h3>
+                  <h3 style={{ color: 'var(--error)' }}>{t('evaluation.reg_new_failures_heading')}</h3>
                   <table className="results-table">
-                    <thead><tr><th>Senaryo</th><th>Soru</th><th>Önce</th><th>Sonra</th><th>Neden</th></tr></thead>
+                    <thead>
+                      <tr>
+                        <th>{t('evaluation.col_scenario')}</th>
+                        <th>{t('evaluation.col_question')}</th>
+                        <th>{t('evaluation.reg_col_before')}</th>
+                        <th>{t('evaluation.reg_col_after')}</th>
+                        <th>{t('evaluation.reg_col_why')}</th>
+                      </tr>
+                    </thead>
                     <tbody>
                       {regression.new_failures.map((c) => (
                         <tr key={c.case_id}>
                           <td>{c.case_id}</td>
                           <td>{c.question}</td>
-                          <td><span className="status-badge success">eşleşti</span></td>
-                          <td><span className="status-badge error">eşleşmedi</span></td>
+                          <td><span className="status-badge success">{t('evaluation.match_yes')}</span></td>
+                          <td><span className="status-badge error">{t('evaluation.match_no')}</span></td>
                           <td style={{ fontSize: '0.8rem' }}>{c.is_reason}</td>
                         </tr>
                       ))}
@@ -596,16 +612,23 @@ export default function Evaluation() {
 
               {regression.fixed_failures.length > 0 && (
                 <div className="card">
-                  <h3 style={{ color: 'var(--success)' }}>🟢 Düzeltilen Başarısızlıklar</h3>
+                  <h3 style={{ color: 'var(--success)' }}>{t('evaluation.reg_fixed_heading')}</h3>
                   <table className="results-table">
-                    <thead><tr><th>Senaryo</th><th>Soru</th><th>Önce</th><th>Sonra</th></tr></thead>
+                    <thead>
+                      <tr>
+                        <th>{t('evaluation.col_scenario')}</th>
+                        <th>{t('evaluation.col_question')}</th>
+                        <th>{t('evaluation.reg_col_before')}</th>
+                        <th>{t('evaluation.reg_col_after')}</th>
+                      </tr>
+                    </thead>
                     <tbody>
                       {regression.fixed_failures.map((c) => (
                         <tr key={c.case_id}>
                           <td>{c.case_id}</td>
                           <td>{c.question}</td>
-                          <td><span className="status-badge error">eşleşmedi</span></td>
-                          <td><span className="status-badge success">eşleşti</span></td>
+                          <td><span className="status-badge error">{t('evaluation.match_no')}</span></td>
+                          <td><span className="status-badge success">{t('evaluation.match_yes')}</span></td>
                         </tr>
                       ))}
                     </tbody>
@@ -615,18 +638,27 @@ export default function Evaluation() {
 
               {regression.changed_cases.length > 0 && (
                 <div className="card">
-                  <h3 style={{ color: 'var(--warning)' }}>🟡 Değişen Senaryolar</h3>
+                  <h3 style={{ color: 'var(--warning)' }}>{t('evaluation.reg_changed_heading')}</h3>
                   <table className="results-table">
-                    <thead><tr><th>Senaryo</th><th>Soru</th><th>Önce</th><th>Sonra</th><th>Önce Neden</th><th>Sonra Neden</th></tr></thead>
+                    <thead>
+                      <tr>
+                        <th>{t('evaluation.col_scenario')}</th>
+                        <th>{t('evaluation.col_question')}</th>
+                        <th>{t('evaluation.reg_col_before')}</th>
+                        <th>{t('evaluation.reg_col_after')}</th>
+                        <th>{t('evaluation.reg_col_prev_why')}</th>
+                        <th>{t('evaluation.reg_col_next_why')}</th>
+                      </tr>
+                    </thead>
                     <tbody>
                       {regression.changed_cases.map((c) => (
                         <tr key={c.case_id}>
                           <td>{c.case_id}</td>
                           <td>{c.question}</td>
-                          <td><span className={`status-badge ${c.was_match ? 'success' : 'error'}`}>{c.was_match ? 'eşleşti' : 'eşleşmedi'}</span></td>
-                          <td><span className={`status-badge ${c.is_match ? 'success' : 'error'}`}>{c.is_match ? 'eşleşti' : 'eşleşmedi'}</span></td>
-                          <td style={{ fontSize: '0.8rem' }}>{c.was_reason || '—'}</td>
-                          <td style={{ fontSize: '0.8rem' }}>{c.is_reason || '—'}</td>
+                          <td><span className={`status-badge ${c.was_match ? 'success' : 'error'}`}>{c.was_match ? t('evaluation.match_yes') : t('evaluation.match_no')}</span></td>
+                          <td><span className={`status-badge ${c.is_match ? 'success' : 'error'}`}>{c.is_match ? t('evaluation.match_yes') : t('evaluation.match_no')}</span></td>
+                          <td style={{ fontSize: '0.8rem' }}>{c.was_reason || t('common.em_dash')}</td>
+                          <td style={{ fontSize: '0.8rem' }}>{c.is_reason || t('common.em_dash')}</td>
                         </tr>
                       ))}
                     </tbody>

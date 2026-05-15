@@ -99,7 +99,7 @@ func rankColumnsForTable(
 
 func scoreColumnForQuestion(col metadata.Column, tokens map[string]bool, embeddingScore float64) float64 {
 	keyword := scoreColumnKeywords(col, tokens)
-	w := ActiveRoutingWeights()
+	w := activeRoutingWeights()
 	if embeddingScore > 0 {
 		return embeddingScore + keyword*w.ColumnKeywordMatch
 	}
@@ -107,7 +107,7 @@ func scoreColumnForQuestion(col metadata.Column, tokens map[string]bool, embeddi
 }
 
 func scoreColumnKeywords(col metadata.Column, tokens map[string]bool) float64 {
-	w := ActiveRoutingWeights()
+	w := activeRoutingWeights()
 	score := weightedTokenScore(tokens, col.ColumnName, w.ColumnKeywordName)
 	if col.Description != nil {
 		score += weightedTokenScore(tokens, *col.Description, w.ColumnKeywordDescription)

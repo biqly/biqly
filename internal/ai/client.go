@@ -2,12 +2,9 @@
 package ai
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 
 	"github.com/biqly/biqly/internal/config"
 )
@@ -16,14 +13,9 @@ const openAIProviderName = "openai"
 
 // Client handles communication with LLM providers.
 type Client struct {
-	httpClient  *http.Client
-	baseURL     string
-	apiKey      string
-	model       string
-	maxTokens   int
-	temperature float64
-	topP        float64
-	numCtx      int
+	base   baseProvider
+	topP   float64
+	numCtx int
 }
 
 // NewClient creates a new AI client.
@@ -32,19 +24,25 @@ func NewClient(cfg config.AIConfig) *Client {
 	if cfg.Provider == "openai" && baseURL == "" {
 		baseURL = "https://api.openai.com/v1"
 	}
-
-	return &Client{
-		httpClient: &http.Client{
-			Timeout: cfg.AIHTTPTimeout(),
-		},
-		baseURL:     baseURL,
-		apiKey:      cfg.APIKey,
+	http := newHTTPProvider(cfg.AIHTTPTimeout(), baseURL, cfg.APIKey)
+	c := &Client{
+		topP:   cfg.TopP,
+		numCtx: cfg.NumCtx,
+	}
+	c.base = baseProvider{
+		http:        http,
 		model:       cfg.Model,
 		maxTokens:   cfg.MaxTokens,
 		temperature: cfg.Temperature,
-		topP:        cfg.TopP,
-		numCtx:      cfg.NumCtx,
+		logName:     openAIProviderName,
+		hooks: providerHooks{
+			path:    "/chat/completions",
+			headers: func(p httpProvider) map[string]string { return p.bearerAuthHeaders() },
+			marshal: c.marshalOpenAIRequest(cfg.Model, cfg.MaxTokens),
+			parse:   parseOpenAIResponse,
+		},
 	}
+	return c
 }
 
 type openAIRequest struct {
@@ -84,84 +82,50 @@ type openAIResponse struct {
 
 // Generate sends a prompt to the LLM at the configured temperature.
 func (c *Client) Generate(ctx context.Context, prompt string) (GenerationResult, error) {
-	return c.GenerateAt(ctx, prompt, c.temperature)
+	return c.base.generate(ctx, prompt)
 }
 
 // GenerateAt sends a prompt with an explicit temperature override.
-// Transient HTTP failures (429, 502–504) and network errors trigger a short
-// exponential backoff retry (up to 4 attempts total).
 func (c *Client) GenerateAt(ctx context.Context, prompt string, temperature float64) (GenerationResult, error) {
-	estPrompt := EstimateTokens(prompt)
-	reqBody := openAIRequest{
-		Model: c.model,
-		Messages: []openAIMessage{
-			{Role: "system", Content: "You are a Business Intelligence query assistant. Output only valid JSON."},
-			{Role: "user", Content: prompt},
-		},
-		MaxTokens:   c.maxTokens,
-		Temperature: temperature,
-		Options:     c.ollamaOptions(temperature),
+	return c.base.generateAt(ctx, prompt, temperature)
+}
+
+func (c *Client) marshalOpenAIRequest(model string, maxTokens int) func(string, float64) ([]byte, error) {
+	return func(prompt string, temperature float64) ([]byte, error) {
+		reqBody := openAIRequest{
+			Model: model,
+			Messages: []openAIMessage{
+				{Role: "system", Content: "You are a Business Intelligence query assistant. Output only valid JSON."},
+				{Role: "user", Content: prompt},
+			},
+			MaxTokens:   maxTokens,
+			Temperature: temperature,
+			Options:     c.ollamaOptions(temperature),
+		}
+		return json.Marshal(reqBody)
 	}
+}
 
-	body, err := json.Marshal(reqBody)
-	if err != nil {
-		return GenerationResult{}, fmt.Errorf("marshal request: %w", err)
+func parseOpenAIResponse(respBody []byte) (GenerationResult, error) {
+	var aiResp openAIResponse
+	if err := json.Unmarshal(respBody, &aiResp); err != nil {
+		return GenerationResult{}, fmt.Errorf("unmarshal response: %w", err)
 	}
-
-	result, err := execLLMHTTPRetry(ctx, func() (GenerationResult, error, bool) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/chat/completions", bytes.NewReader(body))
-		if err != nil {
-			return GenerationResult{}, fmt.Errorf("create request: %w", err), false
-		}
-		req.Header.Set("Content-Type", "application/json")
-		if c.apiKey != "" {
-			req.Header.Set("Authorization", "Bearer "+c.apiKey)
-		}
-
-		resp, err := c.httpClient.Do(req)
-		if err != nil {
-			return GenerationResult{}, fmt.Errorf("send request: %w", err), isRetriableNetErr(err)
-		}
-
-		respBody, readErr := io.ReadAll(resp.Body)
-		closeErr := resp.Body.Close()
-		if readErr != nil {
-			return GenerationResult{}, fmt.Errorf("read response: %w", readErr), false
-		}
-		if closeErr != nil {
-			return GenerationResult{}, fmt.Errorf("close response: %w", closeErr), false
-		}
-
-		if resp.StatusCode == http.StatusOK {
-			var aiResp openAIResponse
-			if err := json.Unmarshal(respBody, &aiResp); err != nil {
-				return GenerationResult{}, fmt.Errorf("unmarshal response: %w", err), false
-			}
-			if aiResp.Error != nil {
-				return GenerationResult{}, fmt.Errorf("API error: %s", aiResp.Error.Message), false
-			}
-			if len(aiResp.Choices) == 0 {
-				return GenerationResult{}, fmt.Errorf("no choices in response"), false
-			}
-			gen := GenerationResult{Content: aiResp.Choices[0].Message.Content}
-			if aiResp.Usage != nil {
-				gen.Usage = &TokenUsage{
-					Prompt:     aiResp.Usage.PromptTokens,
-					Completion: aiResp.Usage.CompletionTokens,
-					Total:      aiResp.Usage.TotalTokens,
-				}
-			}
-			return gen, nil, false
-		}
-
-		apiErr := fmt.Errorf("API error %d: %s", resp.StatusCode, string(respBody))
-		return GenerationResult{}, apiErr, isRetriableHTTPStatus(resp.StatusCode)
-	})
-	if err != nil {
-		return GenerationResult{}, err
+	if aiResp.Error != nil {
+		return GenerationResult{}, fmt.Errorf("API error: %s", aiResp.Error.Message)
 	}
-	logLLMCompletion(ctx, openAIProviderName, c.model, estPrompt, result)
-	return result, nil
+	if len(aiResp.Choices) == 0 {
+		return GenerationResult{}, fmt.Errorf("no choices in response")
+	}
+	gen := GenerationResult{Content: aiResp.Choices[0].Message.Content}
+	if aiResp.Usage != nil {
+		gen.Usage = &TokenUsage{
+			Prompt:     aiResp.Usage.PromptTokens,
+			Completion: aiResp.Usage.CompletionTokens,
+			Total:      aiResp.Usage.TotalTokens,
+		}
+	}
+	return gen, nil
 }
 
 func (c *Client) ollamaOptions(temperature float64) *ollamaOptions {

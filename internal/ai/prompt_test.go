@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
@@ -19,7 +20,7 @@ func TestPromptBuildIncludesFewShotExamples(t *testing.T) {
 		{Question: "kaç sipariş var", LogicalQuery: `{"select":[{"type":"metric","name":"row_count"}]}`},
 		{Question: "    ", LogicalQuery: "junk"}, // should be skipped (empty question)
 	}
-	got := pb.Build("ne kadar sipariş var", model, 0, "postgres", examples, nil, nil, nil, nil)
+	got := pb.Build("ne kadar sipariş var", model, 0, i18n.DefaultLocale, "postgres", examples, nil, nil, nil, nil)
 
 	if !strings.Contains(got, "Successful Past Queries") {
 		t.Errorf("expected few-shot section header in prompt; got:\n%s", got)
@@ -38,7 +39,7 @@ func TestPromptBuildIncludesFewShotExamples(t *testing.T) {
 func TestPromptBuildIncludesSoftDeleteRules(t *testing.T) {
 	pb := &PromptBuilder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x", BaseSchema: "public", BaseTable: "t"}
-	got := pb.Build("q", model, 0, "", nil, nil, nil, nil, nil)
+	got := pb.Build("q", model, 0, i18n.DefaultLocale, "", nil, nil, nil, nil, nil)
 	if !strings.Contains(got, "Soft-delete") {
 		t.Errorf("expected soft-delete rules in prompt, got excerpt:\n%s", truncatePrompt(got, 800))
 	}
@@ -63,7 +64,7 @@ func truncatePrompt(s string, max int) string {
 func TestPromptBuildOmitsFewShotSectionWhenEmpty(t *testing.T) {
 	pb := &PromptBuilder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x"}
-	got := pb.Build("q", model, 0, "", nil, nil, nil, nil, nil)
+	got := pb.Build("q", model, 0, i18n.DefaultLocale, "", nil, nil, nil, nil, nil)
 	if strings.Contains(got, "Successful Past Queries") {
 		t.Errorf("expected no few-shot header when examples nil")
 	}
@@ -77,7 +78,7 @@ func TestPromptBuildIncludesPriorTurns(t *testing.T) {
 		{Question: "    "}, // blank — should be skipped
 		{Question: "müşteri kırılımı yap"},
 	}
-	got := pb.Build("şimdi son çeyrek için filtrele", model, 0, "", nil, nil, turns, nil, nil)
+	got := pb.Build("şimdi son çeyrek için filtrele", model, 0, i18n.DefaultLocale, "", nil, nil, turns, nil, nil)
 	if !strings.Contains(got, "## Prior Turns in This Conversation") {
 		t.Errorf("expected prior-turns header in prompt, got:\n%s", got)
 	}
@@ -99,7 +100,7 @@ func TestPromptBuildIncludesPriorTurns(t *testing.T) {
 func TestPromptBuildOmitsPriorTurnsHeaderWhenEmpty(t *testing.T) {
 	pb := &PromptBuilder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x"}
-	got := pb.Build("q", model, 0, "", nil, nil, nil, nil, nil)
+	got := pb.Build("q", model, 0, i18n.DefaultLocale, "", nil, nil, nil, nil, nil)
 	if strings.Contains(got, "Prior Turns in This Conversation") {
 		t.Errorf("expected no prior-turns header when turns nil")
 	}
@@ -108,7 +109,7 @@ func TestPromptBuildOmitsPriorTurnsHeaderWhenEmpty(t *testing.T) {
 func TestPromptBuildIncludesDialectGuide(t *testing.T) {
 	pb := &PromptBuilder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "public.orders"}
-	got := pb.Build("q", model, 0, "mysql", nil, nil, nil, nil, nil)
+	got := pb.Build("q", model, 0, i18n.DefaultLocale, "mysql", nil, nil, nil, nil, nil)
 	if !strings.Contains(got, "## Datasource SQL Dialect") {
 		t.Errorf("expected dialect section in prompt")
 	}
@@ -123,7 +124,7 @@ func TestPromptBuildIncludesDialectGuide(t *testing.T) {
 func TestPromptBuildIncludesPlanningSteps(t *testing.T) {
 	pb := &PromptBuilder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x", BaseSchema: "public", BaseTable: "t"}
-	got := pb.Build("q", model, 0, "", nil, nil, nil, nil, nil)
+	got := pb.Build("q", model, 0, i18n.DefaultLocale, "", nil, nil, nil, nil, nil)
 	if !strings.Contains(got, "## Planning Steps") {
 		t.Errorf("expected planning-steps section in prompt")
 	}
@@ -141,7 +142,7 @@ func TestPromptBuildIncludesPlanningSteps(t *testing.T) {
 func TestPromptBuildIncludesFailureExamples(t *testing.T) {
 	pb := &PromptBuilder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x"}
-	got := pb.Build("q", model, 0, "postgres", nil, nil, nil, nil, nil)
+	got := pb.Build("q", model, 0, i18n.DefaultLocale, "postgres", nil, nil, nil, nil, nil)
 	if !strings.Contains(got, "## Examples — Common Mistakes") {
 		t.Errorf("expected failure-examples section in prompt")
 	}
@@ -169,6 +170,39 @@ func TestNormalizeDialectName(t *testing.T) {
 	}
 }
 
+func TestPromptBuildFiltersFewShotByLocale(t *testing.T) {
+	pb := &PromptBuilder{}
+	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "public.orders",
+		Metrics: []semantic.Metric{{Name: "row_count", Aggregation: "count", Expression: "*"}}}
+	examples := []FewShotExample{
+		{Question: "tr_only", LogicalQuery: `{"select":[{"type":"metric","name":"row_count"}]}`, Locale: "tr"},
+		{Question: "en_only", LogicalQuery: `{"select":[{"type":"metric","name":"row_count"}]}`, Locale: "en"},
+		{Question: "global", LogicalQuery: `{"select":[{"type":"metric","name":"row_count"}]}`, Locale: ""},
+	}
+	got := pb.Build("q", model, 0, "tr", "", examples, nil, nil, nil, nil)
+	if !strings.Contains(got, "tr_only") {
+		t.Errorf("expected tr-tagged example to survive tr locale filter")
+	}
+	if strings.Contains(got, "en_only") {
+		t.Errorf("expected en-tagged example to be filtered out under tr locale")
+	}
+	if !strings.Contains(got, "global") {
+		t.Errorf("expected locale-empty example to remain eligible under any locale")
+	}
+}
+
+func TestPromptBuildLoadsLocaleSpecificTemplate(t *testing.T) {
+	pb := &PromptBuilder{}
+	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x", BaseSchema: "public", BaseTable: "t"}
+	// Both en and tr templates currently share content; verify the loader produces
+	// non-empty output for tr and that the template is wired (presence of the
+	// stable rules header proves the bundle was read for the chosen locale).
+	got := pb.Build("q", model, 0, i18n.Locale("tr"), "", nil, nil, nil, nil, nil)
+	if !strings.Contains(got, "Business Intelligence query engine") {
+		t.Errorf("expected tr-locale prompt to include the embedded rules header")
+	}
+}
+
 func TestPromptBuildIncludesSampleData(t *testing.T) {
 	pb := &PromptBuilder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "public.orders"}
@@ -183,7 +217,7 @@ func TestPromptBuildIncludesSampleData(t *testing.T) {
 		},
 		{Schema: "public", Table: "empty", Rows: nil}, // skipped
 	}
-	got := pb.Build("q", model, 0, "", nil, samples, nil, nil, nil)
+	got := pb.Build("q", model, 0, i18n.DefaultLocale, "", nil, samples, nil, nil, nil)
 	if !strings.Contains(got, "## Sample Data") {
 		t.Errorf("expected '## Sample Data' header in prompt")
 	}

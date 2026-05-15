@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	platformdb "github.com/biqly/biqly/internal/platform/db"
 	"github.com/lib/pq"
 )
 
@@ -18,6 +19,7 @@ type FewShotCuratedRow struct {
 	LogicalQuery json.RawMessage `json:"logical_query"`
 	Tags         []string        `json:"tags"`
 	Dialect      string          `json:"dialect"`
+	Locale       string          `json:"locale,omitempty"`
 	CreatedBy    string          `json:"created_by,omitempty"`
 	CreatedAt    time.Time       `json:"created_at"`
 	UpdatedAt    time.Time       `json:"updated_at"`
@@ -31,6 +33,7 @@ type FewShotCuratedInsert struct {
 	LogicalQuery json.RawMessage
 	Tags         []string
 	Dialect      string
+	Locale       string
 }
 
 // FewShotCuratedUpdate is input for updating a curated few-shot example.
@@ -39,12 +42,13 @@ type FewShotCuratedUpdate struct {
 	LogicalQuery json.RawMessage
 	Tags         []string
 	Dialect      string
+	Locale       string
 }
 
 // ListFewShotCurated returns few-shot examples, optionally filtered by datasource and model.
 func (r *Repository) ListFewShotCurated(ctx context.Context, datasourceID, modelID string) ([]FewShotCuratedRow, error) {
 	q := `SELECT id::text, datasource_id::text, COALESCE(model_id::text,''), question, logical_query,
-		COALESCE(tags,'{}'), COALESCE(dialect,'postgresql'), COALESCE(created_by,''),
+		COALESCE(tags,'{}'), COALESCE(dialect,'postgresql'), COALESCE(locale,''), COALESCE(created_by,''),
 		created_at, updated_at FROM few_shot_examples`
 	args := []any{}
 	argPos := 1
@@ -60,35 +64,30 @@ func (r *Repository) ListFewShotCurated(ctx context.Context, datasourceID, model
 	}
 	q += " ORDER BY created_at DESC"
 
-	rows, err := r.db.QueryContext(ctx, q, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
+	return platformdb.QuerySliceErr(ctx, r.db, "list few-shot curated", q, args, scanFewShotCuratedRow)
+}
 
-	var out []FewShotCuratedRow
-	for rows.Next() {
-		var e FewShotCuratedRow
-		var mid, createdBy string
-		var tags pq.StringArray
-		if err := rows.Scan(&e.ID, &e.DatasourceID, &mid, &e.Question, &e.LogicalQuery, &tags, &e.Dialect, &createdBy, &e.CreatedAt, &e.UpdatedAt); err != nil {
-			return nil, err
-		}
-		e.ModelID = mid
-		e.CreatedBy = createdBy
-		e.Tags = []string(tags)
-		out = append(out, e)
+func scanFewShotCuratedRow(s platformdb.Scanner) (FewShotCuratedRow, error) {
+	var e FewShotCuratedRow
+	var mid, createdBy, locale string
+	var tags pq.StringArray
+	if err := s.Scan(&e.ID, &e.DatasourceID, &mid, &e.Question, &e.LogicalQuery, &tags, &e.Dialect, &locale, &createdBy, &e.CreatedAt, &e.UpdatedAt); err != nil {
+		return e, fmt.Errorf("scan few-shot curated: %w", err)
 	}
-	return out, rows.Err()
+	e.ModelID = mid
+	e.CreatedBy = createdBy
+	e.Locale = locale
+	e.Tags = []string(tags)
+	return e, nil
 }
 
 // InsertFewShotCurated inserts a row and returns the new id.
 func (r *Repository) InsertFewShotCurated(ctx context.Context, in FewShotCuratedInsert) (string, error) {
 	var id string
 	err := r.db.QueryRowContext(ctx,
-		`INSERT INTO few_shot_examples (datasource_id, model_id, question, logical_query, tags, dialect)
-		 VALUES ($1::uuid, NULLIF($2,'')::uuid, $3, $4, $5::text[], $6) RETURNING id::text`,
-		in.DatasourceID, in.ModelID, in.Question, in.LogicalQuery, pq.Array(in.Tags), in.Dialect,
+		`INSERT INTO few_shot_examples (datasource_id, model_id, question, logical_query, tags, dialect, locale)
+		 VALUES ($1::uuid, NULLIF($2,'')::uuid, $3, $4, $5::text[], $6, NULLIF($7,'')) RETURNING id::text`,
+		in.DatasourceID, in.ModelID, in.Question, in.LogicalQuery, pq.Array(in.Tags), in.Dialect, in.Locale,
 	).Scan(&id)
 	if err != nil {
 		return "", err
@@ -112,8 +111,8 @@ func (r *Repository) DeleteFewShotCurated(ctx context.Context, id string) (bool,
 // UpdateFewShotCurated updates a row by id.
 func (r *Repository) UpdateFewShotCurated(ctx context.Context, id string, in FewShotCuratedUpdate) error {
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE few_shot_examples SET question = $1, logical_query = $2, tags = $3::text[], dialect = $4, updated_at = NOW() WHERE id = $5::uuid`,
-		in.Question, in.LogicalQuery, pq.Array(in.Tags), in.Dialect, id,
+		`UPDATE few_shot_examples SET question = $1, logical_query = $2, tags = $3::text[], dialect = $4, locale = NULLIF($5,''), updated_at = NOW() WHERE id = $6::uuid`,
+		in.Question, in.LogicalQuery, pq.Array(in.Tags), in.Dialect, in.Locale, id,
 	)
 	return err
 }
@@ -167,24 +166,19 @@ func (r *Repository) ListModelSuccessRates(ctx context.Context, days string) ([]
 		GROUP BY COALESCE(h.model_id, 'unknown')
 		ORDER BY total_queries DESC
 	`
-	rows, err := r.db.QueryContext(ctx, q, days)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
+	return platformdb.QuerySliceErr(ctx, r.db, "list model success rates", q, []any{days}, scanModelSuccessRateRow)
+}
 
-	var stats []ModelSuccessRateRow
-	for rows.Next() {
-		var s ModelSuccessRateRow
-		if err := rows.Scan(&s.ModelID, &s.TotalQueries, &s.SuccessCount, &s.FailureCount, &s.AvgConfidence, &s.AvgLatencyMs, &s.PositiveCount, &s.NegativeCount); err != nil {
-			return nil, err
-		}
-		if s.TotalQueries > 0 {
-			s.SuccessRate = float64(s.SuccessCount) / float64(s.TotalQueries) * 100
-		}
-		stats = append(stats, s)
+func scanModelSuccessRateRow(s platformdb.Scanner) (ModelSuccessRateRow, error) {
+	var row ModelSuccessRateRow
+	if err := s.Scan(&row.ModelID, &row.TotalQueries, &row.SuccessCount, &row.FailureCount,
+		&row.AvgConfidence, &row.AvgLatencyMs, &row.PositiveCount, &row.NegativeCount); err != nil {
+		return ModelSuccessRateRow{}, err
 	}
-	return stats, rows.Err()
+	if row.TotalQueries > 0 {
+		row.SuccessRate = float64(row.SuccessCount) / float64(row.TotalQueries) * 100
+	}
+	return row, nil
 }
 
 // AIUsageDayRow is daily AI usage aggregates.
@@ -208,7 +202,7 @@ type AIUsageSummary struct {
 
 // GetAIUsageLast30Days returns per-day breakdown and a summary for the trailing 30 days.
 func (r *Repository) GetAIUsageLast30Days(ctx context.Context) (daily []AIUsageDayRow, summary AIUsageSummary, err error) {
-	rows, err := r.db.QueryContext(ctx, `
+	daily, err = platformdb.QuerySliceErr(ctx, r.db, "AI usage daily", `
 		SELECT DATE(created_at) AS usage_date, COUNT(*),
 			COUNT(*) FILTER (WHERE user_rating = 'positive'),
 			COUNT(*) FILTER (WHERE user_rating = 'negative'),
@@ -219,22 +213,8 @@ func (r *Repository) GetAIUsageLast30Days(ctx context.Context) (daily []AIUsageD
 		WHERE created_at >= NOW() - INTERVAL '30 days'
 		GROUP BY DATE(created_at)
 		ORDER BY usage_date DESC
-	`)
+	`, nil, scanAIUsageDayRow)
 	if err != nil {
-		return nil, summary, err
-	}
-	defer func() { _ = rows.Close() }()
-
-	for rows.Next() {
-		var d AIUsageDayRow
-		var dateVal time.Time
-		if err := rows.Scan(&dateVal, &d.TotalQueries, &d.PositiveFeedback, &d.NegativeFeedback, &d.AvgLatencyMs, &d.TotalCost, &d.TotalTokens); err != nil {
-			return nil, summary, err
-		}
-		d.Date = dateVal.Format("2006-01-02")
-		daily = append(daily, d)
-	}
-	if err := rows.Err(); err != nil {
 		return nil, summary, err
 	}
 
@@ -264,19 +244,23 @@ func (r *Repository) ListFewShotExampleIDs(ctx context.Context, datasourceID, mo
 	}
 	q += fmt.Sprintf(" ORDER BY created_at DESC LIMIT %d", limit)
 
-	rows, err := r.db.QueryContext(ctx, q, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
+	return platformdb.QuerySliceErr(ctx, r.db, "list few-shot example ids", q, args, scanFewShotExampleID)
+}
 
-	var ids []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		ids = append(ids, id)
+func scanFewShotExampleID(s platformdb.Scanner) (string, error) {
+	var id string
+	if err := s.Scan(&id); err != nil {
+		return "", err
 	}
-	return ids, rows.Err()
+	return id, nil
+}
+
+func scanAIUsageDayRow(s platformdb.Scanner) (AIUsageDayRow, error) {
+	var d AIUsageDayRow
+	var dateVal time.Time
+	if err := s.Scan(&dateVal, &d.TotalQueries, &d.PositiveFeedback, &d.NegativeFeedback, &d.AvgLatencyMs, &d.TotalCost, &d.TotalTokens); err != nil {
+		return AIUsageDayRow{}, err
+	}
+	d.Date = dateVal.Format("2006-01-02")
+	return d, nil
 }

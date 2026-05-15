@@ -1,0 +1,36 @@
+package ai
+
+import (
+	"net/http"
+	"strings"
+	"time"
+)
+
+// httpProvider holds shared HTTP transport settings for LLM and embedding APIs.
+type httpProvider struct {
+	client  *http.Client
+	baseURL string
+	apiKey  string
+}
+
+func newHTTPProvider(timeout time.Duration, baseURL, apiKey string) httpProvider {
+	return httpProvider{
+		client:  &http.Client{Timeout: timeout},
+		baseURL: strings.TrimRight(strings.TrimSpace(baseURL), "/"),
+		apiKey:  apiKey,
+	}
+}
+
+func (p httpProvider) url(path string) string {
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return p.baseURL + path
+}
+
+func (p httpProvider) bearerAuthHeaders() map[string]string {
+	if p.apiKey == "" {
+		return nil
+	}
+	return map[string]string{"Authorization": "Bearer " + p.apiKey}
+}

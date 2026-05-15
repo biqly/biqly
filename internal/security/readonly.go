@@ -6,6 +6,25 @@ import (
 	"strings"
 )
 
+var (
+	dangerousKeywords        []string
+	dangerousKeywordPatterns []*regexp.Regexp
+)
+
+func init() {
+	dangerous := []string{
+		"INSERT", "UPDATE", "DELETE", "DROP", "ALTER",
+		"TRUNCATE", "CREATE", "GRANT", "REVOKE", "MERGE",
+		"CALL", "EXEC", "EXECUTE",
+	}
+	dangerousKeywords = dangerous
+	dangerousKeywordPatterns = make([]*regexp.Regexp, 0, len(dangerous))
+	for _, kw := range dangerous {
+		dangerousKeywordPatterns = append(dangerousKeywordPatterns,
+			regexp.MustCompile(`\b`+regexp.QuoteMeta(kw)+`\b`))
+	}
+}
+
 // ReadOnlyChecker validates that SQL is safe to execute.
 type ReadOnlyChecker struct{}
 
@@ -23,17 +42,9 @@ func (c *ReadOnlyChecker) Check(sql string) error {
 		return fmt.Errorf("only SELECT queries are allowed, got: %s", trimmed[:min(50, len(trimmed))])
 	}
 
-	// Reject dangerous keywords
-	dangerous := []string{
-		"INSERT", "UPDATE", "DELETE", "DROP", "ALTER",
-		"TRUNCATE", "CREATE", "GRANT", "REVOKE", "MERGE",
-		"CALL", "EXEC", "EXECUTE",
-	}
-
-	for _, kw := range dangerous {
-		pattern := regexp.MustCompile(`\b` + regexp.QuoteMeta(kw) + `\b`)
+	for i, pattern := range dangerousKeywordPatterns {
 		if pattern.MatchString(trimmed) {
-			return fmt.Errorf("query contains dangerous keyword: %s", kw)
+			return fmt.Errorf("query contains dangerous keyword: %s", dangerousKeywords[i])
 		}
 	}
 
@@ -43,11 +54,4 @@ func (c *ReadOnlyChecker) Check(sql string) error {
 	}
 
 	return nil
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

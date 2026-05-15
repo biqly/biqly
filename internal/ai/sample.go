@@ -62,32 +62,8 @@ func FetchTableSample(ctx context.Context, db *sql.DB, d dialect.Dialect, cols [
 	}
 	defer func() { _ = rows.Close() }()
 
-	colNames, err := rows.Columns()
+	out, err := scanSQLRowsToMaps(rows)
 	if err != nil {
-		return nil, err
-	}
-
-	var out []map[string]any
-	for rows.Next() {
-		holders := make([]any, len(colNames))
-		ptrs := make([]any, len(colNames))
-		for i := range holders {
-			ptrs[i] = &holders[i]
-		}
-		if err := rows.Scan(ptrs...); err != nil {
-			return nil, err
-		}
-		row := make(map[string]any, len(colNames))
-		for i, name := range colNames {
-			v := holders[i]
-			if b, ok := v.([]byte); ok {
-				v = string(b)
-			}
-			row[name] = v
-		}
-		out = append(out, row)
-	}
-	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 	return shrinkSampleForPrompt(out, maxCellRunes), nil

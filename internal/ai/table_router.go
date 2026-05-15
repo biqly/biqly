@@ -378,7 +378,7 @@ func selectManualTables(
 		table, err := resolveTableRef(tableIndex, ref)
 		if err != nil {
 			result := &TableRoutingResult{Manual: true, NeedsClarification: true}
-			return nil, result, fmt.Errorf("%w: %w", ErrTableScopeInvalid, err)
+			return nil, result, fmt.Errorf("%w: %v", ErrTableScopeInvalid, err)
 		}
 		key := tableKey(table.SchemaName, table.TableName)
 		if seen[key] {
@@ -443,7 +443,7 @@ func selectAutomaticTables(
 		if len(selected) >= maxAutoSelectedTables || bundle.score == 0 {
 			break
 		}
-		if bundle.score >= bundles[0].score*ActiveRoutingWeights().SelectionRelativeThreshold {
+		if bundle.score >= bundles[0].score*activeRoutingWeights().SelectionRelativeThreshold {
 			selected = append(selected, bundle)
 		}
 	}
@@ -469,7 +469,7 @@ func appendCategoryTableIfMissing(
 	if !isCategoryOrProductQuestion(tokens) {
 		return selected
 	}
-	lex := ActiveRoutingLexicon()
+	lex := activeRoutingLexicon()
 	for _, b := range selected {
 		if tableNameMatchesSubstrings(b.table.TableName, lex.CategoryTableSubstrings) {
 			return selected
@@ -576,7 +576,7 @@ func appendQuestionEntityTables(
 			if !ok {
 				continue
 			}
-			w := ActiveRoutingWeights()
+			w := activeRoutingWeights()
 			score := w.EntityPathBridgeScore
 			if pkey == key {
 				score = w.EntityPathTargetScore
@@ -644,7 +644,7 @@ func appendEntityResolverTables(
 			if !ok {
 				continue
 			}
-			w := ActiveRoutingWeights()
+			w := activeRoutingWeights()
 			score := w.ResolverPathBridgeScore
 			if pkey == targetKey {
 				score = w.ResolverPathTargetScore
@@ -778,7 +778,7 @@ func hasDisplayNameInColumns(cols []metadata.Column) bool {
 }
 
 func isNameLikeToken(tok string) bool {
-	lex := ActiveRoutingLexicon()
+	lex := activeRoutingLexicon()
 	for _, t := range lex.NameLikeTokens {
 		if tok == t {
 			return true
@@ -797,12 +797,12 @@ func bundleSliceContains(bundles []tableBundle, key string) bool {
 }
 
 func wantsReadableLabelsQuestion(tokens map[string]bool) bool {
-	return ActiveRoutingLexicon().HasAnyToken(tokens, ActiveRoutingLexicon().ReadableLabelTokens)
+	return activeRoutingLexicon().HasAnyToken(tokens, activeRoutingLexicon().ReadableLabelTokens)
 }
 
 func scoreTable(table metadata.Table, columns []metadata.Column, tokens map[string]bool) float64 {
-	w := ActiveRoutingWeights()
-	lex := ActiveRoutingLexicon()
+	w := activeRoutingWeights()
+	lex := activeRoutingLexicon()
 	score := weightedTokenScore(tokens, table.SchemaName+" "+table.TableName, w.TableName)
 	if table.Description != nil {
 		score += weightedTokenScore(tokens, *table.Description, w.TableDescription)
@@ -830,11 +830,11 @@ func scoreTable(table metadata.Table, columns []metadata.Column, tokens map[stri
 }
 
 func isCategoryOrProductQuestion(tokens map[string]bool) bool {
-	return ActiveRoutingLexicon().HasAnyToken(tokens, ActiveRoutingLexicon().CategoryProductTokens)
+	return activeRoutingLexicon().HasAnyToken(tokens, activeRoutingLexicon().CategoryProductTokens)
 }
 
 func isQuantityOrCountIntent(tokens map[string]bool) bool {
-	return ActiveRoutingLexicon().HasAnyToken(tokens, ActiveRoutingLexicon().QuantityTokens)
+	return activeRoutingLexicon().HasAnyToken(tokens, activeRoutingLexicon().QuantityTokens)
 }
 
 // appendProductTableIfMissing pulls in production.product (or subcategory) when the
@@ -849,7 +849,7 @@ func appendProductTableIfMissing(
 	if !isCategoryOrProductQuestion(tokens) {
 		return selected
 	}
-	lex := ActiveRoutingLexicon()
+	lex := activeRoutingLexicon()
 	for _, b := range selected {
 		if tableNameMatchesSubstrings(b.table.TableName, lex.ProductCatalogSubstrings) {
 			return selected
@@ -1072,7 +1072,7 @@ func displayNameSynonyms(tableName, columnName string) []string {
 	var out []string
 	out = append(out, add(tableName)...)
 	out = append(out, add(base)...)
-	for _, syn := range ActiveRoutingLexicon().ExpandTokenSynonyms(base) {
+	for _, syn := range activeRoutingLexicon().ExpandTokenSynonyms(base) {
 		out = append(out, add(syn)...)
 	}
 	return out
@@ -1105,7 +1105,7 @@ func singularize(name string) string {
 func buildMetrics(selected []tableBundle, columnsByTable map[string][]metadata.Column, limits RoutingLimits) []semantic.Metric {
 	limits = limits.withDefaults()
 	maxMetrics := limits.MaxMetrics
-	lex := ActiveRoutingLexicon()
+	lex := activeRoutingLexicon()
 	metrics := []semantic.Metric{{
 		Name:        "row_count",
 		Expression:  "*",
@@ -1426,7 +1426,7 @@ func validateManualScopeAgainstTypeScope(
 	for _, ref := range nonEmptyScope(tableScope) {
 		table, err := resolveTableRef(idx, ref)
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrTableScopeInvalid, err)
+			return fmt.Errorf("%w: %v", ErrTableScopeInvalid, err)
 		}
 		if !tableMatchesTypeScope(table, includeBaseTables, includeViews) {
 			return fmt.Errorf("%w: %q is excluded by type scope (base tables vs views)", ErrTableScopeInvalid, ref)
@@ -1692,7 +1692,7 @@ func expandToken(token string) []string {
 	if strings.HasSuffix(token, "s") && len(token) > 3 {
 		expanded = append(expanded, strings.TrimSuffix(token, "s"))
 	}
-	expanded = append(expanded, ActiveRoutingLexicon().ExpandTokenSynonyms(token)...)
+	expanded = append(expanded, activeRoutingLexicon().ExpandTokenSynonyms(token)...)
 	return expanded
 }
 
@@ -1725,11 +1725,11 @@ func normalizeText(text string) string {
 }
 
 func isRevenueLikeQuestion(tokens map[string]bool) bool {
-	return ActiveRoutingLexicon().HasAnyToken(tokens, ActiveRoutingLexicon().RevenueTokens)
+	return activeRoutingLexicon().HasAnyToken(tokens, activeRoutingLexicon().RevenueTokens)
 }
 
 func isRevenueLikeColumn(col metadata.Column) bool {
-	return ActiveRoutingLexicon().HasAnyToken(tokenSet(col.ColumnName), ActiveRoutingLexicon().RevenueColumnTokens)
+	return activeRoutingLexicon().HasAnyToken(tokenSet(col.ColumnName), activeRoutingLexicon().RevenueColumnTokens)
 }
 
 func tableNameMatchesSubstrings(tableName string, substrings []string) bool {

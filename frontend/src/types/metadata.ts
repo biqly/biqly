@@ -8,6 +8,14 @@ export interface Datasource {
   last_sync_at?: string | null
   created_at?: string
   updated_at?: string
+  config?: string
+  host?: string | null
+  port?: number | null
+  username?: string | null
+  database_name?: string | null
+  ssl_mode?: string | null
+  connection_params?: Record<string, string>
+  dsn_mode?: 'raw' | 'structured'
 }
 
 export interface Table {

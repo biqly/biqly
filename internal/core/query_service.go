@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -83,65 +84,69 @@ func NewQueryService(deps QueryServiceDeps) *QueryService {
 	}
 }
 
-func (s *QueryService) Compile(ctx context.Context, lq query.LogicalQuery) (*CompileResult, error) {
+func (s *QueryService) Compile(ctx context.Context, lq query.LogicalQuery) (*CompileResult, *ServiceError) {
 	lq.EnsureVersion()
-	loaded, err := s.loadContext(ctx, lq)
-	if err != nil {
-		return nil, err
+	loaded, se := s.loadContext(ctx, lq)
+	if se != nil {
+		return nil, se
 	}
 	query.RepairMisnamedCalendarGrainDimensions(&loaded.LogicalQuery, dimensionNames(loaded.Model))
 	loaded.LogicalQuery.EnsureGroupBySelected()
-	compiled, err := s.CompileWithContext(ctx, loaded.LogicalQuery, loaded.Model, loaded.Driver)
-	if err != nil {
-		return nil, err
+	compiled, se := s.CompileWithContext(ctx, loaded.LogicalQuery, loaded.Model, loaded.Driver)
+	if se != nil {
+		return nil, se
 	}
 	loaded.Compiled = compiled
 	return loaded, nil
 }
 
-func (s *QueryService) CompileWithContext(ctx context.Context, lq query.LogicalQuery, model *semantic.SemanticModel, driver datasource.Driver) (*query.CompiledQuery, error) {
+func (s *QueryService) CompileWithContext(ctx context.Context, lq query.LogicalQuery, model *semantic.SemanticModel, driver datasource.Driver) (*query.CompiledQuery, *ServiceError) {
 	query.RepairMisnamedCalendarGrainDimensions(&lq, dimensionNames(model))
 	lq.EnsureGroupBySelected()
 	if err := s.validator.Validate(lq, model); err != nil {
-		return nil, err
+		return nil, ToServiceError(err)
 	}
 	compiled, err := query.NewCompiler(driver.Dialect()).Compile(ctx, lq, model)
 	if err != nil {
-		return nil, fmt.Errorf("compile: %w", err)
+		var valErrs query.ValidationErrors
+		if errors.As(err, &valErrs) {
+			return nil, ToServiceError(err)
+		}
+		return nil, ToServiceError(fmt.Errorf("compile: %w", err))
 	}
 	return compiled, nil
 }
 
-func (s *QueryService) Run(ctx context.Context, lq query.LogicalQuery) (*RunResult, error) {
+func (s *QueryService) Run(ctx context.Context, lq query.LogicalQuery) (*RunResult, *ServiceError) {
 	lq.EnsureVersion()
-	compiled, err := s.Compile(ctx, lq)
-	if err != nil {
-		return nil, err
+	compiled, se := s.Compile(ctx, lq)
+	if se != nil {
+		return nil, se
 	}
-	dsn, err := security.ConnectionDSN(s.encryptor, compiled.Datasource.DSNEncrypted)
+	dsn, err := compiled.Datasource.RuntimeDSN(s.encryptor)
 	if err != nil {
-		return nil, fmt.Errorf("datasource DSN: %w", err)
+		return nil, ToServiceError(fmt.Errorf("%w: %v", ErrLoadDatasource, err))
 	}
 	db, err := compiled.Driver.Open(ctx, dsn)
 	if err != nil {
-		return nil, fmt.Errorf("connection: %w", err)
+		return nil, ToServiceError(fmt.Errorf("%w: %v", ErrConnection, err))
 	}
 	defer func() { _ = db.Close() }()
 
 	result, err := s.executor.Execute(ctx, db, compiled.Compiled)
 	if err != nil {
 		s.recordHistory(ctx, compiled.LogicalQuery, compiled.Model, compiled.Compiled, nil, QueryStatusFailed, err)
-		return nil, fmt.Errorf("execute: %w", err)
+		return nil, ToServiceError(fmt.Errorf("%w: %v", ErrQueryExecution, err))
 	}
 	query.EnrichResult(result, lq, compiled.Model)
 	s.recordHistory(ctx, compiled.LogicalQuery, compiled.Model, compiled.Compiled, result, QueryStatusSuccess, nil)
 	return &RunResult{CompileResult: *compiled, Result: result}, nil
 }
 
-func (s *QueryService) DryRun(ctx context.Context, db *sql.DB, lq query.LogicalQuery, model *semantic.SemanticModel, driver datasource.Driver) error {
-	compiled, err := s.CompileWithContext(ctx, lq, model, driver)
-	if err != nil {
-		return fmt.Errorf("compile: %w", err)
+func (s *QueryService) DryRun(ctx context.Context, db *sql.DB, lq query.LogicalQuery, model *semantic.SemanticModel, driver datasource.Driver) *ServiceError {
+	compiled, se := s.CompileWithContext(ctx, lq, model, driver)
+	if se != nil {
+		return se
 	}
 	explain := driver.Dialect().ExplainSQL(compiled.SQL)
 	if explain == "" {
@@ -149,14 +154,14 @@ func (s *QueryService) DryRun(ctx context.Context, db *sql.DB, lq query.LogicalQ
 	}
 	rows, err := db.QueryContext(ctx, explain, compiled.Args...)
 	if err != nil {
-		return fmt.Errorf("explain: %w", err)
+		return ToServiceError(fmt.Errorf("explain: %w", err))
 	}
 	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		// Drain result set so the driver can reuse the connection.
 	}
 	if err := rows.Err(); err != nil {
-		return fmt.Errorf("explain: %w", err)
+		return ToServiceError(fmt.Errorf("explain: %w", err))
 	}
 	return nil
 }
@@ -172,24 +177,24 @@ func dimensionNames(model *semantic.SemanticModel) []string {
 	return out
 }
 
-func (s *QueryService) loadContext(ctx context.Context, lq query.LogicalQuery) (*CompileResult, error) {
+func (s *QueryService) loadContext(ctx context.Context, lq query.LogicalQuery) (*CompileResult, *ServiceError) {
 	if lq.ModelID == "" {
-		return nil, fmt.Errorf("model_id is required")
+		return nil, ToServiceError(ErrModelIDRequired)
 	}
 	if lq.DatasourceID == "" {
-		return nil, fmt.Errorf("datasource_id is required")
+		return nil, ToServiceError(ErrDatasourceIDRequired)
 	}
 	model, err := s.models.GetPublishedFullModel(ctx, lq.ModelID)
 	if err != nil {
-		return nil, fmt.Errorf("load semantic model: %w", err)
+		return nil, ToServiceError(fmt.Errorf("%w: %v", ErrLoadSemanticModel, err))
 	}
 	ds, err := s.datasources.GetDatasource(ctx, lq.DatasourceID)
 	if err != nil {
-		return nil, fmt.Errorf("load datasource: %w", err)
+		return nil, ToServiceError(fmt.Errorf("%w: %v", ErrLoadDatasource, err))
 	}
 	driver, err := s.drivers.Get(ds.Type)
 	if err != nil {
-		return nil, fmt.Errorf("load driver: %w", err)
+		return nil, ToServiceError(fmt.Errorf("%w: %v", ErrLoadDriver, err))
 	}
 	return &CompileResult{
 		LogicalQuery: lq,

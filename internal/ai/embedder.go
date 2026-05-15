@@ -1,14 +1,10 @@
 package ai
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math"
-	"net/http"
-
 	"strings"
 
 	"github.com/biqly/biqly/internal/config"
@@ -24,27 +20,30 @@ type Embedder interface {
 // OpenAIEmbedder calls the OpenAI /v1/embeddings endpoint (or any
 // OpenAI-compatible host). The model name comes from BI_AI_EMBEDDING_MODEL.
 type OpenAIEmbedder struct {
-	httpClient *http.Client
-	baseURL    string
-	apiKey     string
-	model      string
+	base baseEmbedder
 }
 
 // NewOpenAIEmbedder configures an embedder using BI_AI_EMBEDDING_* with
 // fallback to the main LLM BaseURL/APIKey. Call only when EmbeddingsConfigured().
 func NewOpenAIEmbedder(cfg config.AIConfig) *OpenAIEmbedder {
+	model := strings.TrimSpace(cfg.EmbeddingModel)
+	http := newHTTPProvider(cfg.EmbeddingHTTPTimeout(), cfg.EffectiveEmbeddingBaseURL(), cfg.EffectiveEmbeddingAPIKey())
 	return &OpenAIEmbedder{
-		httpClient: &http.Client{Timeout: cfg.EmbeddingHTTPTimeout()},
-		baseURL:    cfg.EffectiveEmbeddingBaseURL(),
-		apiKey:     cfg.EffectiveEmbeddingAPIKey(),
-		model:      strings.TrimSpace(cfg.EmbeddingModel),
+		base: baseEmbedder{
+			http:  http,
+			model: model,
+			hooks: embeddingHooks{
+				path:    "/embeddings",
+				headers: func(p httpProvider) map[string]string { return p.bearerAuthHeaders() },
+				marshal: marshalOpenAIEmbeddingRequest(model),
+				parse:   parseOpenAIEmbeddingResponse,
+			},
+		},
 	}
 }
 
 // Model returns the embedding model identifier (e.g. text-embedding-3-small).
-// Used to record which model produced a stored vector so we can re-embed when
-// the model changes.
-func (e *OpenAIEmbedder) Model() string { return e.model }
+func (e *OpenAIEmbedder) Model() string { return e.base.model }
 
 type openAIEmbeddingRequest struct {
 	Input []string `json:"input"`
@@ -63,41 +62,24 @@ type openAIEmbeddingResponse struct {
 
 // Embed returns one embedding vector per input text. Order is preserved.
 func (e *OpenAIEmbedder) Embed(ctx context.Context, texts []string) ([][]float32, error) {
-	if len(texts) == 0 {
-		return nil, nil
-	}
-	body, err := json.Marshal(openAIEmbeddingRequest{Input: texts, Model: e.model})
-	if err != nil {
-		return nil, fmt.Errorf("marshal embedding request: %w", err)
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, e.baseURL+"/embeddings", bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("create embedding request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+e.apiKey)
+	return e.base.embed(ctx, texts)
+}
 
-	resp, err := e.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("send embedding request: %w", err)
+func marshalOpenAIEmbeddingRequest(model string) func([]string) ([]byte, error) {
+	return func(texts []string) ([]byte, error) {
+		return json.Marshal(openAIEmbeddingRequest{Input: texts, Model: model})
 	}
-	defer func() { _ = resp.Body.Close() }()
+}
 
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read embedding response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("embedding API error %d: %s", resp.StatusCode, string(respBody))
-	}
+func parseOpenAIEmbeddingResponse(body []byte, count int) ([][]float32, error) {
 	var parsed openAIEmbeddingResponse
-	if err := json.Unmarshal(respBody, &parsed); err != nil {
+	if err := json.Unmarshal(body, &parsed); err != nil {
 		return nil, fmt.Errorf("unmarshal embedding response: %w", err)
 	}
 	if parsed.Error != nil {
 		return nil, fmt.Errorf("embedding API error: %s", parsed.Error.Message)
 	}
-	out := make([][]float32, len(texts))
+	out := make([][]float32, count)
 	for _, d := range parsed.Data {
 		if d.Index < 0 || d.Index >= len(out) {
 			continue

@@ -37,7 +37,7 @@ func Ping(ctx context.Context, driverName, dsn string) error {
 	}
 	defer func() {
 		if closeErr := db.Close(); closeErr != nil {
-			slog.Error("failed to close connection after ping", "driver", driverName, "error", closeErr)
+			slog.ErrorContext(ctx, "failed to close connection after ping", "driver", driverName, "error", closeErr)
 		}
 	}()
 	return db.PingContext(ctx)

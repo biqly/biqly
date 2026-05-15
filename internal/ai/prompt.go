@@ -7,6 +7,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
@@ -23,6 +24,9 @@ type PromptBuilder struct{}
 type FewShotExample struct {
 	Question     string
 	LogicalQuery string // raw JSON, already validated when stored
+	// Locale is the language of the question text (e.g. "tr", "en"). Empty
+	// means locale-agnostic — always eligible regardless of the active locale.
+	Locale string
 }
 
 // ConversationTurn captures one earlier exchange in the active conversation so
@@ -37,14 +41,20 @@ type ConversationTurn struct {
 
 // Build creates the full prompt for the AI. maxPromptRunes caps the total size (0 = default 80000)
 // so providers with finite context windows do not receive huge auto-generated semantic models.
+// locale selects which prompt template bundle is rendered. The LLM-facing rules
+// stay English (model accuracy is sensitive to phrasing), but the template
+// indirection keeps the door open for locale-specific wording where it is safe.
 // targetDialect is the datasource engine (postgres, mysql, sqlserver, clickhouse); empty defaults to postgres.
 // examples are dynamic few-shot pairs from the project's history; pass nil for none.
 // samples are concrete rows from queried tables; pass nil for none.
 // deniedFields is an optional list of qualified field names (e.g. "model.secret_field") that
 // must NOT appear in the prompt — used in strict mode to enforce row-level security at prompt time.
-func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, maxPromptRunes int, targetDialect string, examples []FewShotExample, samples []TableSample, priorTurns []ConversationTurn, deniedFields []string, glossary []GlossaryEntry) string {
+func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, maxPromptRunes int, locale i18n.Locale, targetDialect string, examples []FewShotExample, samples []TableSample, priorTurns []ConversationTurn, deniedFields []string, glossary []GlossaryEntry) string {
 	if maxPromptRunes <= 0 {
 		maxPromptRunes = 80000
+	}
+	if locale == "" {
+		locale = i18n.DefaultLocale
 	}
 
 	// Build set of denied field names for fast lookup
@@ -58,37 +68,12 @@ func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, ma
 		sb.WriteString(s)
 	}
 
-	write("You are a Business Intelligence query engine. Convert the user's natural language question into a LogicalQuery JSON object.\n\n")
-	write("## Rules\n")
-	write("- Your response must contain exactly one LogicalQuery JSON object (RFC 8259, double-quoted keys).\n")
-	write("- Optionally prefix the JSON with a `## Reasoning` section: copy the numbered Planning Steps you applied (steps 1–8), max 12 lines, plain text only — no `{`, `}`, markdown fences, or SQL.\n")
-	write("- After any `## Reasoning` block, output only the JSON object (no trailing prose).\n")
-	write("- Use strict JSON (RFC 8259): every property name MUST be double-quoted. Never use JavaScript object syntax (unquoted keys like {select: [...]}).\n")
-	write("- Do NOT invent fields that don't exist in the semantic layer.\n")
-	write("- Use ONLY the dimensions, metrics, and fields listed below.\n")
-	write("- In `select`, `group_by`, `filters`, `having`, and `order_by`, field/name values MUST be exact listed dimension or metric names. Do NOT write expressions such as `year(orderdate)`, `table.column`, SQL functions, or aliases unless they are listed names.\n")
-	write("- A single select array may combine multiple dimensions AND multiple metrics; include every column the question asks for.\n")
-	write("- When the question groups results by a dimension (e.g. \"per customer\", \"by month\"), put that dimension in both `select` and `group_by`.\n")
-	write("- Match metric names by their listed synonyms (e.g. \"latest date\"/\"en son tarih\" → max_<date_column>; \"how many\"/\"adet\" → row_count).\n")
-	write("- When the question refers to an entity generically (e.g. \"customer\"/\"müşteri\", \"product\"/\"ürün\") without naming a column, prefer the human-readable display dimension whose synonyms include that entity (typically a name/title/label column) over identifier columns like *_id.\n")
-	write("- Do NOT put raw identifier dimensions in `select` (e.g. columns ending in _id, *id, *key, businessentityid, departmentid) unless the user explicitly asks for ids, keys, codes, or identifiers. For requests like \"names\", \"list X with Y\", or readable labels, use `name`, `title`, `label`, or other descriptive text dimensions from the joined tables instead.\n")
-	write("- For date filters, use ISO 8601 format (YYYY-MM-DD).\n")
-	write("- Calendar period grain dimensions: `*_hour` for \"hourly\" / \"saatlik\", `*_day` for \"daily\" / \"günlük\", `*_month` for \"monthly\" / \"aylık\", `*_quarter` for \"quarterly\" / \"çeyreklik\", `*_year` for \"yearly\" / \"yıllık\". Always include the chosen grain dimension in BOTH `select` AND `group_by` so the result shows the period column alongside the metrics — never put a grain dimension only in `group_by`.\n")
-	write("- Multi-grain breakdowns: when the user lists more than one period together (\"yıl ay gün bazında\", \"yıl ve ay\", \"year, month and day\", \"date and hour\"), include EVERY listed grain as a separate dimension in BOTH `select` AND `group_by`, ordered from coarsest to finest. Sort `order_by` from coarsest to finest (year asc, month asc, day asc).\n")
-	write("- Period filter vs grouping: a phrase like \"2026 yılında\", \"in 2026\", \"5 Mart günü\", \"on March 5\", \"Ocak ayında\" CONSTRAINS to that period and goes into `filters` — do NOT add the constrained grain to `group_by`. Grouping triggers are words like \"bazında\", \"by\", \"per\", \"yearly\", \"monthly\", \"daily\", \"hourly\", \"yıllık\", \"aylık\", \"günlük\", \"saatlik\". Combine both when needed: \"2026 yılında günlük tweet sayısı\" → filter on `*_year` = 2026, group by `*_day`.\n")
-	write("- Period filter typing: NEVER compare a raw timestamp/date column to an integer or short string. Use the matching grain dimension whose value space is integers. Year filter → `*_year` = 2026 (NOT `created_at` = 2026). Month filter → `*_month` = 12 (NOT `created_at` = 12). Day-of-month filter → `*_day` = 15 (NOT raw timestamp = 15). For specific date filters, compare the raw timestamp/date column to an ISO date string: `{field: created_at, operator: gte, value: \"2026-01-01\"}`.\n")
-	write("- **Year + month/quarter:** If the user names BOTH a calendar year and a month or quarter (\"May 2024\", \"April 2026\", \"2026 Nisan\", \"Q2 2025\"), a lone `*_month` filter with integer 1–12 is ambiguous (it matches every year). Use either **two** filters (`*_year` = 2026 AND `*_month` = 4) **or** a **single** `*_month` filter whose `value` is an ISO anchor that includes the year, e.g. `\"2026-04-01\"` or `\"2026-04-01T00:00:00Z\"` (any day in that month is fine). For `*_quarter`, same idea with a date inside the quarter or pair `*_year` with integer quarter 1–4.\n")
-	write("- Grain dimension names use the **exact** base timestamp dimension name from the catalog plus the suffix (`_year`, `_month`, …). Example: if the listed raw timestamp dimension is `created_at_ts`, the April month filter dimension is `created_at_ts_month` (calendar month integer 1–12), **not** `created_at_month`. The stem always includes any infix such as `_ts`, `_at`, or table prefixes like `timeline_tweets_created_at_ts_month` when the catalog uses that form.\n")
-	write("- Wrong: `{\"filters\":[{\"field\":\"created_at\",\"operator\":\"eq\",\"value\":2026}]}` (timestamp column compared to int year).  \n  Right: `{\"filters\":[{\"field\":\"created_at_year\",\"operator\":\"eq\",\"value\":2026}]}`.\n")
-	write("- If no pre-bucketed dimension exists but the user asks for a calendar grain (\"monthly revenue\", \"weekly orders\", \"daily signups\", \"aylık ciro\", \"haftalık sipariş\", \"günlük satış\"), put the raw date dimension in `select` and `group_by` and add `\"time_grain\":\"day|week|month|quarter|year\"` ONLY on the matching `group_by` entry. Mapping: daily/günlük → day, weekly/haftalık → week, monthly/aylık → month, quarterly/çeyreklik → quarter, yearly/yıllık → year. Omit `time_grain` for raw timestamp grouping.\n")
-	write("- For ranking questions (\"which … highest/largest/most revenue\", \"top …\"): put the breakdown dimension in `select` and `group_by`, put the revenue/count metric in `select`, `order_by` that metric `desc`, and `limit` 1 (or a small N) — never return an empty `select` if the model lists usable dimensions and metrics.\n")
-	write("- For threshold questions on aggregates (\"customers with more than 10 orders\", \"products averaging > 100\"), use `having` (post-aggregation) — not `filters` (pre-aggregation). Each `having` entry is `{\"field\":\"<metric_name>\", \"operator\":\"gt|gte|lt|lte|eq|neq|between\", \"value\": ...}`.\n")
-	write("- For running totals, ranks per group, or moving averages (\"running total of revenue by month\", \"rank customers within each region\"), emit a window select item: `{\"type\":\"window\",\"name\":\"<alias>\",\"window\":{\"aggregation\":\"sum|avg|count|min|max|row_number|rank|dense_rank|ntile\",\"metric\":\"<metric_name>\" OR \"expression\":\"<table.column>\",\"partition_by\":[\"<dim>\",...],\"order_by\":[{\"field\":\"<dim_or_metric>\",\"direction\":\"asc|desc\"}]}}`. Ranking functions (row_number/rank/dense_rank) ignore `expression`; `ntile` puts the bucket count in `expression` (e.g. \"4\").\n")
-	write("- For conditional labels or bucketing (\"high/medium/low\", \"segment by status\"), use a case select item: `{\"type\":\"case\",\"name\":\"<alias>\",\"case\":{\"branches\":[{\"when\":[{\"field\":\"<dim>\",\"operator\":\"gt\",\"value\":100}],\"then\":{\"type\":\"literal\",\"literal\":\"High\"}}],\"else\":{\"type\":\"dimension\",\"dimension\":\"country\"}}}`. Each `when` is an AND of filters (same operators as `filters`). `then`/`else` use `type` `literal` (with `literal` value) or `dimension` (with listed dimension name).\n")
-	write("- For membership against another grouped set (\"customers who ordered in 2024\", \"products in top categories\"), use `in`/`not_in` with a subquery: `{\"field\":\"<dim>\",\"operator\":\"in\",\"subquery\":{\"body\":{\"select\":[{\"type\":\"dimension\",\"name\":\"customer_id\"}],\"group_by\":[{\"field\":\"customer_id\"}],\"filters\":[...]},\"result_field\":\"customer_id\"}}`. `body` uses the same shape as the main query (select/filters/group_by/having/order_by/limit) without datasource fields. `result_field` must match the single projected column alias in the subquery select list.\n")
-	write("- For reusable intermediate results, define `ctes` and optionally query from one: `{\"ctes\":[{\"name\":\"active_customers\",\"select\":[...],\"filters\":[...]}],\"from_cte\":\"active_customers\",...}`. Do not set both `from_subquery` and `from_cte`.\n")
-	write("- Soft-delete / removed rows (English: \"deleted\", \"removed\", \"trashed\", \"erased\"; Turkish: \"silinen\", \"silinmiş\", \"silindi\", \"kaldırılan\", \"silinmiş kayıt\", \"silinen mesaj/tweet/sipariş\", \"arşivlenmiş\"): NEVER answer with a bare `row_count` on the full base table — that counts all rows. Add `filters` using a deletion-indicator dimension that actually exists in **Available Dimensions** below: (1) Timestamp-style columns typically named `deleted_at`, `*_deleted_at`, `removed_at`, `*_removed_at`, `archived_at`, `*_archived_at` → deleted rows use `{\"field\":\"<dimension_name>\",\"operator\":\"is_not_null\",\"value\":null}`; active / not-deleted rows use `is_null` instead. (2) Boolean columns such as `is_deleted`, `is_removed`, `is_archived`, or boolean `deleted` → deleted rows use `{\"field\":\"<dimension_name>\",\"operator\":\"eq\",\"value\":true}`; not deleted use `eq` with `false`. (3) Numeric 0/1 flags such as `delete_flag`, `deleted_flag` → deleted rows typically `eq` with `1`, not deleted `eq` with `0` (if unsure, prefer the timestamp/boolean column when both exist). When several indicators exist on the same entity, prefer the timestamp null-check (`deleted_at` / `*_deleted_at`) for generic \"silinen\" wording unless the user names a specific column. **Always copy the dimension `field` string exactly as listed** (including any `table_` prefix when joins deduplicate column names); do not invent a shorter alias like `is_deleted` if the catalog only shows `timeline_tweets_is_deleted`.\n")
-	write("- Only return an empty select if NO listed dimension or metric can answer the question; never use empty select to avoid combining fields.\n\n")
+	rules := promptTemplate(locale, "system_rules")
+	if rules == "" {
+		rules = promptTemplate(i18n.DefaultLocale, "system_rules")
+	}
+	write(rules)
+	write("\n")
 
 	fmt.Fprintf(&sb, "## Current Date/Time: %s\n\n", time.Now().Format("2006-01-02 15:04:05 UTC"))
 
@@ -174,16 +159,14 @@ func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, ma
 	write(question)
 	write("\n\n")
 
-	write("## Output Format\n")
-	write("Either (A) JSON only, or (B) optional `## Reasoning` (Planning Steps 1–8, concise) then the JSON object on the following lines.\n")
-	write("The JSON must match this structure:\n")
-	write(`{"select": [{"type": "dimension|metric", "name": "..."}], "filters": [{"field": "...", "operator": "...", "value": ...}], "group_by": [{"field": "..."}], "order_by": [{"field": "...", "direction": "asc|desc"}], "limit": 100}`)
-	write("\n\n## Example — multi-metric grouping\n")
-	write(`Question: "orders per customer name and the most recent order date"` + "\n")
-	write(`{"select":[{"type":"dimension","name":"name"},{"type":"metric","name":"row_count"},{"type":"metric","name":"max_order_date"}],"group_by":[{"field":"name"}],"order_by":[{"field":"row_count","direction":"desc"}],"limit":100}`)
+	outputFmt := promptTemplate(locale, "output_format")
+	if outputFmt == "" {
+		outputFmt = promptTemplate(i18n.DefaultLocale, "output_format")
+	}
+	write(outputFmt)
 
 	b.writeSampleData(&sb, samples)
-	b.writeFewShotExamples(&sb, examples)
+	b.writeFewShotExamples(&sb, examples, locale)
 	b.writePriorTurns(&sb, priorTurns)
 
 	return sb.String()
@@ -237,19 +220,34 @@ func (b *PromptBuilder) writeSampleData(sb *strings.Builder, samples []TableSamp
 }
 
 // writeFewShotExamples appends previously-successful (question, logical_query)
-// pairs to the prompt as additional examples. Skipped silently if empty.
-func (b *PromptBuilder) writeFewShotExamples(sb *strings.Builder, examples []FewShotExample) {
+// pairs to the prompt as additional examples. Locale-tagged rows are preferred
+// when matching the active locale; locale-empty rows are always eligible and
+// rows tagged for a different locale are filtered out. Skipped silently if no
+// rows survive the filter.
+func (b *PromptBuilder) writeFewShotExamples(sb *strings.Builder, examples []FewShotExample, locale i18n.Locale) {
 	if len(examples) == 0 {
 		return
 	}
-	sb.WriteString("\n\n## Examples — Successful Past Queries\n")
+	target := string(locale)
+	var filtered []FewShotExample
 	for _, ex := range examples {
 		q := strings.TrimSpace(ex.Question)
 		lq := strings.TrimSpace(ex.LogicalQuery)
 		if q == "" || lq == "" {
 			continue
 		}
-		fmt.Fprintf(sb, "Question: %q\n%s\n\n", q, lq)
+		loc := strings.ToLower(strings.TrimSpace(ex.Locale))
+		if loc != "" && target != "" && loc != target {
+			continue
+		}
+		filtered = append(filtered, ex)
+	}
+	if len(filtered) == 0 {
+		return
+	}
+	sb.WriteString("\n\n## Examples — Successful Past Queries\n")
+	for _, ex := range filtered {
+		fmt.Fprintf(sb, "Question: %q\n%s\n\n", strings.TrimSpace(ex.Question), strings.TrimSpace(ex.LogicalQuery))
 	}
 }
 

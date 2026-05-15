@@ -35,9 +35,9 @@ type tieredProcessOptions struct {
 
 func applyContextTier(base processOptions, tier int) tieredProcessOptions {
 	return tieredProcessOptions{
-		fewShot:      tailFewShot(base.fewShot, fewShotCap(tier)),
+		fewShot:      tailSlice(base.fewShot, fewShotCap(tier)),
 		samples:      base.samples,
-		priorTurns:   tailPriorTurns(base.priorTurns, priorTurnsCap(tier)),
+		priorTurns:   tailSlice(base.priorTurns, priorTurnsCap(tier)),
 		deniedFields: base.deniedFields,
 		glossary:     tailGlossary(base.glossary, glossaryCap(tier)),
 	}
@@ -76,24 +76,14 @@ func glossaryCap(tier int) int {
 	}
 }
 
-func tailFewShot(examples []FewShotExample, max int) []FewShotExample {
-	if len(examples) == 0 || max <= 0 {
+func tailSlice[T any](items []T, max int) []T {
+	if len(items) == 0 || max <= 0 {
 		return nil
 	}
-	if len(examples) <= max {
-		return examples
+	if len(items) <= max {
+		return items
 	}
-	return append([]FewShotExample(nil), examples[len(examples)-max:]...)
-}
-
-func tailPriorTurns(turns []ConversationTurn, max int) []ConversationTurn {
-	if len(turns) == 0 || max <= 0 {
-		return nil
-	}
-	if len(turns) <= max {
-		return turns
-	}
-	return append([]ConversationTurn(nil), turns[len(turns)-max:]...)
+	return append([]T(nil), items[len(items)-max:]...)
 }
 
 func tailGlossary(entries []GlossaryEntry, max int) []GlossaryEntry {
