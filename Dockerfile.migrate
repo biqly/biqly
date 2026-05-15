@@ -20,6 +20,8 @@ RUN apk --no-cache add ca-certificates
 COPY --from=builder /migrate /migrate
 COPY migrations /migrations
 
+WORKDIR /
+
 USER 65534:65534
 
 ENTRYPOINT ["/migrate"]
