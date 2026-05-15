@@ -1,0 +1,569 @@
+---
+alwaysApply: true
+---
+## Project Structure
+
+```
+biqly/
+├── cmd/
+│   ├── api/main.go              # HTTP server (port 8888, chi router)
+│   ├── migrate/main.go          # DB migration CLI
+│   └── worker/main.go           # Background worker (skeleton)
+├── internal/
+│   ├── ai/                      # AI/LLM text-to-LogicalQuery layer
+│   │   ├── service.go           # Orchestrator: question → LogicalQuery
+│   │   ├── prompt.go            # Prompt builder (semantic context)
+│   │   ├── table_router.go      # Hybrid table routing (keyword + embedding + FK)
+│   │   ├── client.go            # OpenAI-compatible HTTP client
+│   │   ├── anthropic.go         # Anthropic provider
+│   │   ├── provider.go          # Provider factory interface
+│   │   ├── schema.go            # Request/Response types, JSON schema
+│   │   ├── validator.go         # AI output validation
+│   │   ├── describe.go          # AI-generated metadata descriptions
+│   │   ├── embedder.go          # OpenAI embeddings client
+│   │   ├── embed_metadata.go    # Table/column embedding refresh
+│   │   ├── translation.go       # Translation layer for descriptions
+│   │   ├── eval.go              # Evaluation framework
+│   │   ├── eval_repository.go   # Eval result persistence
+│   │   ├── sample.go            # Table data sampling for prompts
+│   │   ├── golden_seed.go       # Golden eval test seed data
+│   │   └── retry_helpers.go     # Retry logic
+│   ├── query/                   # Query compilation and execution
+│   │   ├── logical.go           # LogicalQuery struct + all types
+│   │   ├── compiler.go          # LogicalQuery → SQL compiler (848 lines)
+│   │   ├── executor.go          # Safe query executor
+│   │   ├── validator.go         # LogicalQuery validation
+│   │   ├── planner.go           # Query planner (joins, fanout)
+│   │   ├── enrich.go            # Chart suggestions
+│   │   ├── fingerprint.go       # SHA-256 query fingerprint
+│   │   └── result.go            # Result types, CompiledQuery
+│   ├── semantic/                # Semantic layer
+│   │   ├── model.go             # SemanticModel, Dimension, Metric, Join
+│   │   ├── repository.go        # PostgreSQL CRUD
+│   │   ├── publish.go           # Draft/publish/rollback workflow
+│   │   └── budget.go            # Context size budget enforcement
+│   ├── metadata/                # Datasource metadata storage
+│   │   ├── model.go             # Datasource, Table, Column, Relation
+│   │   └── repository.go        # PostgreSQL metadata repository
+│   ├── datasource/              # Database driver abstraction
+│   │   ├── datasource.go        # Driver interface
+│   │   ├── registry.go          # Thread-safe driver registry
+│   │   ├── postgres/            # PostgreSQL driver
+│   │   ├── mysql/               # MySQL driver
+│   │   ├── sqlserver/           # SQL Server driver
+│   │   └── clickhouse/          # ClickHouse driver
+│   ├── dialect/                 # SQL dialect implementations
+│   │   ├── dialect.go           # Dialect interface (13 methods)
+│   │   ├── postgres.go
+│   │   ├── mysql.go
+│   │   ├── sqlserver.go
+│   │   └── clickhouse.go
+│   ├── security/                # Security layer
+│   │   ├── readonly.go          # Read-only SQL checker
+│   │   ├── permissions.go       # Permission policies
+│   │   ├── encryption.go        # AES-based DSN encryption
+│   │   └── row_injection.go     # Row-level filter injection
+│   ├── audit/                   # Audit logging
+│   ├── config/                  # Environment-based config
+│   ├── http/                    # HTTP layer
+│   │   ├── router.go            # Chi router with all routes
+│   │   └── handlers/            # Request handlers
+│   ├── core/                    # Core query service
+│   ├── app/                     # Dependency injection
+│   └── platform/                # Infrastructure (db, redis, logger)
+├── frontend/                    # React 19 + TypeScript + Vite 6
+├── migrations/                  # PostgreSQL metadata DB migrations (010)
+├── docs/                        # Architecture and design docs
+└── testdata/                    # Golden SQL test files
+```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Language | Go 1.26.3 |
+| HTTP | `go-chi/chi/v5` |
+| Metadata DB | PostgreSQL via `jackc/pgx/v5` |
+| Migrations | `golang-migrate/migrate/v4` |
+| Cache | Redis `redis/go-redis/v9` |
+| Logging | `log/slog` |
+| Linting | golangci-lint v2 (strict) |
+| Testing | `stretchr/testify` + Go standard |
+| Frontend | React 19 + Vite 6 + TypeScript 5.7 + Recharts |
+| AI Providers | OpenAI-compatible, Anthropic |
+| Supported DBs | PostgreSQL, MySQL, SQL Server, ClickHouse |
+
+---
+
+## Core Types Reference
+
+### LogicalQuery (`internal/query/logical.go`)
+
+```go
+type LogicalQuery struct {
+    Version      string       `json:"version,omitempty"`      // schema version (v1)
+    DatasourceID string       `json:"datasource_id"`
+    ModelID      string       `json:"model_id"`
+    Select       []SelectItem `json:"select"`
+    Filters      []Filter     `json:"filters,omitempty"`
+    GroupBy      []GroupBy    `json:"group_by,omitempty"`
+    Having       []Filter     `json:"having,omitempty"`       // post-aggregation filters
+    OrderBy      []OrderBy    `json:"order_by,omitempty"`
+    Limit        int          `json:"limit"`
+    Offset       int          `json:"offset,omitempty"`
+    CTEs         []CTE        `json:"ctes,omitempty"`         // WITH ... AS clauses
+}
+
+type SelectItem struct {
+    Type   string      `json:"type"`              // dimension | metric | window
+    Name   string      `json:"name"`
+    Alias  string      `json:"alias,omitempty"`
+    Window *WindowSpec  `json:"window,omitempty"`  // only when Type == "window"
+}
+
+type WindowSpec struct {
+    Aggregation string    `json:"aggregation"`
+    Expression  string    `json:"expression,omitempty"`
+    Metric      string    `json:"metric,omitempty"`
+    PartitionBy []string  `json:"partition_by,omitempty"`
+    OrderBy     []OrderBy `json:"order_by,omitempty"`
+    Frame       string    `json:"frame,omitempty"`
+}
+
+type Filter struct {
+    Field    string `json:"field"`
+    Operator string `json:"operator"`
+    Value    any    `json:"value"`
+}
+
+type GroupBy struct {
+    Field     string `json:"field"`
+    TimeGrain string `json:"time_grain,omitempty"` // day|week|month|quarter|year
+}
+
+type OrderBy struct {
+    Field     string `json:"field"`
+    Direction string `json:"direction"` // asc|desc
+}
+```
+
+**Operators**: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in`, `not_in`, `contains`, `starts_with`, `ends_with`, `between`, `is_null`, `is_not_null`
+
+**TimeGrain**: `day`, `week`, `month`, `quarter`, `year`
+
+### SemanticModel (`internal/semantic/model.go`)
+
+```go
+type SemanticModel struct {
+    ID             string      `json:"id"`
+    DatasourceID   string      `json:"datasource_id"`
+    Name           string      `json:"name"`
+    Label          *string     `json:"label"`
+    Description    *string     `json:"description"`
+    BaseSchema     string      `json:"base_schema"`
+    BaseTable      string      `json:"base_table"`
+    Synonyms       []string    `json:"synonyms"`
+    IsActive       bool        `json:"is_active"`
+    Status         string      `json:"status"`       // draft | published
+    Version        int         `json:"version"`
+    Dimensions     []Dimension `json:"dimensions"`
+    Metrics        []Metric    `json:"metrics"`
+    Joins          []Join      `json:"joins"`
+}
+
+type Dimension struct {
+    Name                 string   `json:"name"`
+    ColumnRef            string   `json:"column_ref"`
+    Type                 string   `json:"type"`        // text|number|date|boolean|geo
+    Synonyms             []string `json:"synonyms"`
+    IsDisplay            bool     `json:"is_display"`  // preferred for readable labels
+    CalculatedExpression string   `json:"calculated_expression,omitempty"`
+}
+
+type Metric struct {
+    Name        string   `json:"name"`
+    Expression  string   `json:"expression"`   // e.g. "orders.total_amount"
+    Aggregation string   `json:"aggregation"`  // count|sum|avg|min|max|count_distinct
+    Format      *string  `json:"format"`
+    Synonyms    []string `json:"synonyms"`
+}
+
+type Join struct {
+    Name         string `json:"name"`
+    FromTable    string `json:"from_table"`
+    FromColumn   string `json:"from_column"`
+    ToTable      string `json:"to_table"`
+    ToColumn     string `json:"to_column"`
+    JoinType     string `json:"join_type"`       // LEFT|INNER|RIGHT
+    Relationship string `json:"relationship"`    // many_to_one|one_to_many|one_to_one|many_to_many
+}
+```
+
+### Driver Interface (`internal/datasource/datasource.go`)
+
+```go
+type Driver interface {
+    Type() string
+    Ping(ctx context.Context, dsn string) error
+    Open(ctx context.Context, dsn string) (*sql.DB, error)
+    Introspect(ctx context.Context, db *sql.DB) (*IntrospectionResult, error)
+    Dialect() dialect.Dialect
+}
+```
+
+### Dialect Interface (`internal/dialect/dialect.go`)
+
+```go
+type Dialect interface {
+    Name() string
+    QuoteIdent(identifier string) string
+    QuoteIdentSegment(identifier string) string
+    Placeholder(index int) string
+    LimitOffset(limit, offset int) string
+    DateTrunc(part, column string) string
+    CalendarPart(part, column string) string
+    ILike(column, placeholder string) string
+    CastType(sqlType string) string
+    Aggregate(fn, column string) string
+    ExplainSQL(sql string) string
+}
+```
+
+---
+
+## API Endpoints
+
+### Datasources
+- `POST /api/datasources` — Create datasource
+- `GET /api/datasources` — List datasources
+- `GET /api/datasources/{id}` — Get datasource
+- `DELETE /api/datasources/{id}` — Delete datasource
+- `POST /api/datasources/{id}/test` — Test connection
+- `POST /api/datasources/{id}/sync-metadata` — Introspect & store schema
+
+### Metadata
+- `GET /api/datasources/{id}/tables` — List synced tables
+- `GET /api/datasources/{id}/columns` — List synced columns
+- `GET /api/metadata/columns/search` — Search columns
+- `GET /api/metadata/tables/search` — Search tables
+- `PATCH /api/metadata/tables/{id}` — Update table description
+- `PATCH /api/metadata/columns/{id}` — Update column description
+
+### Semantic Layer
+- `POST /api/semantic/models` — Create semantic model
+- `GET /api/semantic/models` — List models
+- `GET /api/semantic/models/{id}` — Get full model
+- `PUT /api/semantic/models/{id}` — Update model
+- `DELETE /api/semantic/models/{id}` — Delete model
+- `POST /api/semantic/models/{id}/validate` — Validate model
+- `POST /api/semantic/models/{id}/publish` — Publish model
+- `POST /api/semantic/models/{id}/rollback` — Rollback model
+- `POST /api/semantic/models/{id}/dimensions` — Add dimension
+- `POST /api/semantic/models/{id}/metrics` — Add metric
+- `POST /api/semantic/models/{id}/joins` — Add join
+
+### Queries
+- `POST /api/query/compile` — Compile LogicalQuery to SQL
+- `POST /api/query/run` — Execute query
+- `POST /api/query/explain` — EXPLAIN query
+- `GET /api/query/history` — Query history
+- `GET /api/query/history/{id}` — Single history entry
+
+### AI
+- `POST /api/ai/query` — NL to LogicalQuery (auto table routing)
+- `POST /api/ai/query/preview` — Preview generated SQL
+- `POST /api/ai/query/run` — Execute AI-generated query
+- `POST /api/ai/metadata/describe` — AI-generated descriptions
+- `POST /api/ai/metadata/embed` — Refresh embeddings
+- `GET /api/ai/settings` — Runtime AI settings
+- `POST /api/ai/eval/run` — Run evaluation suite
+- `GET /api/ai/eval/run/stream` — Streaming eval
+- `GET /api/ai/eval/runs` — List eval runs
+- `GET /api/ai/eval/runs/{id}` — Get eval run
+- `GET /api/ai/eval/regression` — Regression report
+- `GET /api/ai/examples` — List few-shot examples
+- `POST /api/ai/examples` — Create example
+- `PUT /api/ai/examples/{id}` — Update example
+- `DELETE /api/ai/examples/{id}` — Delete example
+- `POST /api/ai/feedback` — Submit AI feedback
+- `GET /api/ai/usage` — AI usage analytics
+
+---
+
+## Security Rules
+
+### Always Reject
+INSERT, UPDATE, DELETE, MERGE, DROP, ALTER, TRUNCATE, CREATE, GRANT, REVOKE, EXEC, EXECUTE, CALL, xp_cmdshell, OPENROWSET, BULK INSERT, pg_read_file, LOAD_FILE, dblink, lo_import
+
+### Always Enforce
+- Read-only connection credentials
+- Query timeout (`BI_QUERY_TIMEOUT_SECONDS`, default 30s)
+- Row limit (`BI_QUERY_MAX_ROWS`, default 10000)
+- Parameterized queries (never concatenate values)
+- Identifier quoting per dialect
+- Permission checks before generation AND execution
+- Audit log for every generated/executed query
+- AES-encrypted DSN storage
+- SQL fingerprint (SHA-256) for cache/audit
+
+### Permission Layers
+1. **Semantic context builder** — permission-denied fields never enter AI prompt
+2. **AI prompt builder** — `WithDeniedFields` strips fields from prompt
+3. **LogicalQuery validator** — validates against permitted fields
+4. **SQL compiler** — row-level filter injection via `CompileWithPermissions`
+5. **Audit log** — permission decision logged
+
+---
+
+## Validation Pipeline
+
+For every generated LogicalQuery:
+
+1. Parse JSON into `LogicalQuery` struct
+2. Normalize: set version, datasource_id, model_id
+3. Ensure GROUP BY dimensions are in SELECT (`EnsureGroupBySelected`)
+4. Reject empty selects
+5. Validate all fields exist in semantic model
+6. Validate metric aggregation expressions
+7. Validate join paths against declared relationships
+8. Check permission access for each field
+9. Compile to parameterized SQL
+10. Run `ReadOnlyChecker` on compiled SQL
+11. Optional: dry-run via EXPLAIN
+12. Execute with timeout, read-only creds, row limit
+13. Log prompt, context, SQL, user, datasource, duration, row count, errors
+
+---
+
+## AI Service Flow
+
+### Service (`internal/ai/service.go`)
+
+```
+ProcessQuestion(ctx, question, model, opts...)
+  1. Build prompt (PromptBuilder.Build)
+  2. If multi-candidate enabled → tryMultiCandidate (self-consistency voting)
+  3. Single-shot: client.Generate → parseAndValidate
+  4. On failure: BuildRetry with error context → re-attempt (up to maxRetries)
+  5. On persistent failure: tryGenerateClarification → return NeedsClarification
+  6. On success: return AIResponse with LogicalQuery, confidence, warnings
+```
+
+**Options**: `WithSQLValidator`, `WithFewShotExamples`, `WithSampleData`, `WithPriorTurns`, `WithDeniedFields`
+
+**Self-consistency**: `multiCandidateCount > 1` draws N candidates at stepped temperatures, votes by structural fingerprint, requires strict majority.
+
+### TableRouter (`internal/ai/table_router.go`)
+
+Hybrid routing strategy:
+1. Keyword matching over table/column names and descriptions
+2. Synonym matching over business terms
+3. Exact match on table, column, metric, entity names
+4. FK graph expansion for related tables
+5. Optional: embedding similarity via `embedder.go`
+
+Priority: published composite model → published base model → auto-generated raw tables
+
+When no semantic model is selected, router auto-generates a synthetic semantic model from introspected metadata.
+
+### PromptBuilder (`internal/ai/prompt.go`)
+
+Prompt sections:
+1. Role + rules (no invented fields, use only declared dimensions/metrics)
+2. Current date/time
+3. Semantic model metadata (name, description, base table, synonyms)
+4. Available dimensions (display dimensions first, with types and synonyms)
+5. Available metrics (aggregation, expression, synonyms)
+6. Available joins
+7. Supported filter operators
+8. User question
+9. Output format (JSON schema)
+10. Sample data (if provided)
+11. Few-shot examples (if provided)
+12. Prior conversation turns (if provided)
+
+Prompt size capped by `maxPromptRunes` (default 80,000). Static reserve: 14,000 runes.
+
+---
+
+## Compilation Flow
+
+### Compiler (`internal/query/compiler.go`)
+
+```
+Compile(ctx, lq, model)
+  1. EnsureGroupBySelected()
+  2. Build dimension map + metric map + join map
+  3. Apply GroupBy.TimeGrain overrides to dimension map
+  4. Determine needed joins (BFS from base table through join graph)
+  5. Build SELECT clause (dimensions, metrics, window functions)
+  6. Build FROM clause (schema.table, dialect-quoted)
+  7. Build JOIN clauses (BFS discovery order, dedup tables)
+  8. Build WHERE clause (parameterized filters)
+  9. Build GROUP BY (with date_trunc / calendar_part for time grains)
+  10. Build HAVING (post-aggregation, references metrics only)
+  11. Build ORDER BY
+  12. Build LIMIT/OFFSET
+  13. Assemble SQL string
+  14. Return CompiledQuery{SQL, Args}
+```
+
+**CompileWithPermissions** — after normal compile, injects row-level security filters into WHERE clause.
+
+### Join Resolution
+
+- BFS from base table through declared join relationships
+- Deduplication: each physical table appears at most once
+- Direction swap: if ToTable is already in set, swap join sides
+- Skip: both sides already in set → edge already exists
+
+### Dimension SQL
+
+- `CalculatedExpression` set → use directly
+- `TimeGrain` = year/quarter/month → `CalendarPart()`
+- `TimeGrain` = day/week → `DateTrunc()`
+- Otherwise → `QuoteIdent(ColumnRef)`
+
+---
+
+## Database Schema
+
+Metadata DB: PostgreSQL `bi_metadata`, 10 migrations:
+
+| Table | Purpose |
+|---|---|
+| `datasources` | Database connections (DSN encrypted with AES) |
+| `schemas` | Database schemas per datasource |
+| `tables` | Synced tables with descriptions, row estimates, embeddings |
+| `columns` | Synced columns with types, FK refs, descriptions, embeddings |
+| `relations` | Foreign key relationships |
+| `semantic_models` | Semantic models with synonyms, status (draft/published), version |
+| `semantic_dimensions` | Dimensions with column_ref, type, synonyms, is_display, calculated_expression |
+| `semantic_metrics` | Metrics with expression, aggregation, format, synonyms |
+| `semantic_joins` | Join definitions with type, relationship cardinality |
+| `query_history` | Compiled SQL, status, duration, fingerprint |
+| `ai_query_history` | AI prompts, responses, confidence, token usage, cost |
+| `few_shot_examples` | Curated NL→LogicalQuery pairs |
+| `ai_feedback` | User feedback (correct/wrong/unsafe/ambiguous) |
+| `permissions` | Allowed models, denied fields, row filters |
+| `eval_runs` / `eval_results` | Golden eval persistence |
+| `semantic_context_snapshots` | Publish-time snapshots |
+
+---
+
+## Configuration
+
+Environment variables (prefix `BI_`):
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `BI_HTTP_PORT` | 8888 | API server port |
+| `BI_METADATA_DB_DSN` | — | PostgreSQL metadata DB |
+| `BI_REDIS_DSN` | — | Redis cache |
+| `BI_QUERY_TIMEOUT_SECONDS` | 30 | Query execution timeout |
+| `BI_QUERY_MAX_ROWS` | 10000 | Max result rows |
+| `BI_ENCRYPTION_KEY` | — | 32-byte AES key for DSNs |
+| `BI_AI_PROVIDER` | openai | AI provider (openai/anthropic) |
+| `BI_AI_MODEL` | gpt-4o | LLM model |
+| `BI_AI_TEMPERATURE` | 0.0 | Generation temperature |
+| `BI_AI_MAX_PROMPT_RUNES` | 80000 | Prompt size cap |
+| `BI_AI_MULTI_CANDIDATE_COUNT` | 1 | Self-consistency candidates |
+| `BI_AI_EMBEDDING_MODEL` | — | Embedding model (optional) |
+| `BI_AI_QUERY_MODEL` | — | Separate model for NL→LQ path |
+
+---
+
+## Common Tasks
+
+### Adding a New Datasource Driver
+
+1. Create `internal/datasource/<driver>/driver.go` implementing `Driver` interface
+2. Create `internal/dialect/<driver>.go` implementing `Dialect` interface
+3. Register in `internal/datasource/registry.go`
+4. Add introspection queries for schemas, tables, columns, PKs, FKs
+5. Add golden SQL tests in `testdata/sql/<driver>/`
+6. Add integration test against Docker container
+
+### Adding a New Semantic Model Field
+
+1. Add dimension/metric/join via API (`POST /api/semantic/models/{id}/dimensions`)
+2. Ensure `ColumnRef` matches a synced column
+3. Add synonyms for Turkish/English business terms
+4. Set `IsDisplay` on human-readable label dimensions
+5. Publish model (`POST /api/semantic/models/{id}/publish`)
+
+### Extending the AI Prompt
+
+1. Modify `PromptBuilder.Build()` in `internal/ai/prompt.go`
+2. Keep prompt under `maxPromptRunes` (budget calculation with `utf8.RuneCountInString`)
+3. Filter denied fields from dimensions/metrics before rendering
+4. Add new sections before `## User Question`
+5. Test with eval suite
+
+### Adding a Filter Operator
+
+1. Add constant to `internal/query/logical.go`
+2. Add case in `Compiler.buildFilterPart()` in `internal/query/compiler.go`
+3. Add operator to `PromptBuilder` rules section
+4. Add operator to `LogicalQuerySchema` in `internal/ai/schema.go`
+5. Add golden SQL test
+
+### Running Evaluation
+
+```bash
+POST /api/ai/eval/run   # Run golden eval suite
+GET  /api/ai/eval/regression  # Check for regressions
+```
+
+### Development Commands
+
+```bash
+make build              # Build API binary
+make run                # Build and run
+make test               # Run tests with coverage
+make lint               # Run golangci-lint
+make migrate-up         # Run DB migrations
+make docker-up          # Start all services
+make seed-adventureworks # Load test data
+```
+
+---
+
+## Coding Conventions
+
+- Go, no comments unless asked
+- Interfaces for datasource drivers and dialects
+- Parameterized queries always, never concatenate values
+- Quote identifiers using dialect
+- Context timeouts for all DB operations
+- Never log secrets or DSNs
+- Tests for every compiler feature
+- One feature at a time
+- `nolint:revive` annotations where `SemanticModel` naming is clearer than `Model`
+- Turkish-first descriptions when user base is Turkish
+
+---
+
+## Failure Modes to Watch
+
+- LLM inventing columns not in semantic model
+- Wrong join path (fanout risk on one_to_many / many_to_many)
+- Multiple definitions of revenue or similar metrics
+- Missing date filters (no time bounding)
+- Wrong timezone on date comparisons
+- Incorrect grain (counting rows vs distinct business entities)
+- Leaking masked/denied columns through AI prompt
+- Generating destructive SQL (blocked by ReadOnlyChecker)
+- Querying raw tables outside the semantic model
+- Overloading the prompt with irrelevant schema
+
+---
+
+## Future Work (Deferred)
+
+- **Composite Semantic Models** (ROADMAP Phase 11.5) — combining multiple base models
+- **Metric expression security** — controlled AST instead of free SQL fragments
+- **Composite model DB tables** — migrations not yet created
+- **Embedding-based learning from user confirmations** for table routing
