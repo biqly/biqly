@@ -173,6 +173,19 @@ function joinName(form: JoinForm) {
 
 type Tab = 'joins' | 'dimensions' | 'metrics' | 'tables'
 
+type RenameTarget =
+  | { kind: 'model'; current: string; title: string; subtitle: string }
+  | { kind: 'table'; current: string; table: TableRow; title: string; subtitle: string }
+  | { kind: 'dimension'; current: string; dimension: SemanticDimension; title: string; subtitle: string }
+  | { kind: 'metric'; current: string; metric: SemanticMetric; title: string; subtitle: string }
+
+type ConfirmTarget =
+  | { kind: 'model'; modelId: string; title: string; body: string; action: string }
+  | { kind: 'schema'; schemaName: string; title: string; body: string; action: string }
+  | { kind: 'join'; joinId: string; title: string; body: string; action: string }
+  | { kind: 'dimension'; dimId: string; title: string; body: string; action: string }
+  | { kind: 'metric'; metricId: string; title: string; body: string; action: string }
+
 interface Pt {
   x: number
   y: number
@@ -206,6 +219,11 @@ export default function Modeling() {
   const [highlightJoinId, setHighlightJoinId] = useState<string | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(true)
   const [editorOpen, setEditorOpen] = useState(true)
+  const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [savingRename, setSavingRename] = useState(false)
+  const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget | null>(null)
+  const [savingConfirm, setSavingConfirm] = useState(false)
 
   const viewportRef = useRef(viewport)
   viewportRef.current = viewport
@@ -254,6 +272,11 @@ export default function Modeling() {
     [model],
   )
 
+  const includedTables = useMemo(
+    () => tables.filter((t) => !excludedSchemas.has(t.schema_name)),
+    [tables, excludedSchemas],
+  )
+
   const tableCards = useMemo(() => {
     const keys = new Set<string>()
     if (model) keys.add(tableKey(model.base_schema, model.base_table))
@@ -261,11 +284,10 @@ export default function Modeling() {
       keys.add(tableKey(join.from_schema || model?.base_schema || '', join.from_table))
       keys.add(tableKey(join.to_schema || model?.base_schema || '', join.to_table))
     }
-    const visible = tables.filter((t) => !excludedSchemas.has(t.schema_name))
-    const preferred = visible.filter((t) => keys.has(tableKey(t.schema_name, t.table_name)))
-    const rest = visible.filter((t) => !keys.has(tableKey(t.schema_name, t.table_name))).slice(0, Math.max(0, 9 - preferred.length))
+    const preferred = includedTables.filter((t) => keys.has(tableKey(t.schema_name, t.table_name)))
+    const rest = includedTables.filter((t) => !keys.has(tableKey(t.schema_name, t.table_name))).slice(0, Math.max(0, 9 - preferred.length))
     return [...preferred, ...rest]
-  }, [model, tables, excludedSchemas])
+  }, [model, includedTables])
 
   const cardLayouts = useMemo(() => {
     const joinColumns = new Map<string, Set<string>>()
@@ -493,36 +515,39 @@ export default function Modeling() {
     }
   }
 
+  const openRename = (target: RenameTarget) => {
+    setRenameTarget(target)
+    setRenameValue(target.current)
+    setMessage(null)
+  }
+
+  const closeRename = () => {
+    if (savingRename) return
+    setRenameTarget(null)
+    setRenameValue('')
+  }
+
   const removeModel = async () => {
     if (!model) return
-    const ok = window.confirm(t('modeling.delete_model_confirm', { name: model.label || model.name }))
-    if (!ok) return
-    setMessage(null)
-    await deleteData(`/api/semantic/models/${model.id}`)
-    const list = await get<SemanticModelSummary[]>(`/api/semantic/models?datasource_id=${encodeURIComponent(datasourceId)}`)
-    const next = list ?? []
-    setModels(next)
-    const nextId = next[0]?.id ?? ''
-    setModelId(nextId)
-    if (!nextId) setModel(null)
-    setMessage(t('modeling.model_deleted'))
+    const name = model.label || model.name
+    setConfirmTarget({
+      kind: 'model',
+      modelId: model.id,
+      title: t('modeling.confirm_delete_model_title'),
+      body: t('modeling.confirm_delete_model_body', { name }),
+      action: t('common.delete'),
+    })
   }
 
   const renameModel = async () => {
     if (!model) return
     const current = model.label || model.name
-    const raw = window.prompt('Model adı', current)
-    if (raw == null) return
-    const trimmed = raw.trim()
-    if (!trimmed || trimmed === current) return
-    setMessage(null)
-    await putData(`/api/semantic/models/${model.id}`, {
-      label: trimmed,
-      base_schema: model.base_schema,
-      base_table: model.base_table,
+    openRename({
+      kind: 'model',
+      current,
+      title: t('modeling.rename_model_title'),
+      subtitle: model.name,
     })
-    await refreshModels(model.id)
-    setMessage('Model yeniden adlandırıldı.')
   }
 
   const publishModel = async () => {
@@ -588,25 +613,42 @@ export default function Modeling() {
   }
 
   const deleteJoin = async (joinId: string) => {
-    if (!model) return
-    await deleteData(`/api/semantic/models/${model.id}/joins/${joinId}`)
-    await refreshModels(model.id)
-    await loadSuggestedJoins()
-    setMessage(t('modeling.relationship_deleted'))
+    const join = joins.find((item) => item.id === joinId)
+    setConfirmTarget({
+      kind: 'join',
+      joinId,
+      title: t('modeling.delete_join_title'),
+      body: join
+        ? t('modeling.delete_join_body_named', { name: join.name })
+        : t('modeling.delete_join_body_generic'),
+      action: t('common.delete'),
+    })
   }
 
   const deleteDimension = async (dimId: string) => {
-    if (!model) return
-    await deleteData(`/api/semantic/models/${model.id}/dimensions/${dimId}`)
-    await refreshModels(model.id)
-    setMessage(t('modeling.dimension_deleted'))
+    const dim = dims.find((item) => item.id === dimId)
+    setConfirmTarget({
+      kind: 'dimension',
+      dimId,
+      title: t('modeling.confirm_delete_dimension_title'),
+      body: dim
+        ? t('modeling.confirm_delete_dimension_body_named', { name: dim.label || dim.name })
+        : t('modeling.confirm_delete_dimension_body_generic'),
+      action: t('common.delete'),
+    })
   }
 
   const deleteMetric = async (metricId: string) => {
-    if (!model) return
-    await deleteData(`/api/semantic/models/${model.id}/metrics/${metricId}`)
-    await refreshModels(model.id)
-    setMessage(t('modeling.metric_deleted'))
+    const metric = metrics.find((item) => item.id === metricId)
+    setConfirmTarget({
+      kind: 'metric',
+      metricId,
+      title: t('modeling.confirm_delete_metric_title'),
+      body: metric
+        ? t('modeling.confirm_delete_metric_body_named', { name: metric.label || metric.name })
+        : t('modeling.confirm_delete_metric_body_generic'),
+      action: t('common.delete'),
+    })
   }
 
   const reactivateJoin = async (join: SemanticJoin) => {
@@ -624,7 +666,7 @@ export default function Modeling() {
       is_active: true,
     })
     await refreshModels(model.id)
-    setMessage('İlişki yeniden eklendi.')
+    setMessage(t('modeling.reactivate_relationship'))
   }
 
   const reactivateDimension = async (dim: SemanticDimension) => {
@@ -639,60 +681,42 @@ export default function Modeling() {
       is_active: true,
     })
     await refreshModels(model.id)
-    setMessage('Kırılım yeniden eklendi.')
+    setMessage(t('modeling.reactivate_dimension'))
   }
 
   const renameTable = async (tbl: TableRow) => {
     const current = tbl.label || tbl.table_name
-    const raw = window.prompt(`${tbl.schema_name}.${tbl.table_name} için görünen ad`, current)
-    if (raw == null) return
-    const trimmed = raw.trim()
-    if (!trimmed || trimmed === current) return
-    const updated = await patchData<TableRow>(`/api/metadata/tables/${tbl.id}`, { label: trimmed })
-    if (!updated) return
-    setTables((prev) => prev.map((p) => (p.id === tbl.id ? updated : p)))
-    setMessage('Tablo adı güncellendi.')
+    openRename({
+      kind: 'table',
+      current,
+      table: tbl,
+      title: t('modeling.rename_table_title'),
+      subtitle: `${tbl.schema_name}.${tbl.table_name}`,
+    })
   }
 
   const renameDimension = async (dim: SemanticDimension) => {
     if (!model) return
     const current = dim.label || dim.name
-    const raw = window.prompt('Kırılım için görünen ad', current)
-    if (raw == null) return
-    const trimmed = raw.trim()
-    if (!trimmed || trimmed === current) return
-    await putData(`/api/semantic/models/${model.id}/dimensions/${dim.id}`, {
-      name: dim.name,
-      label: trimmed,
-      column_ref: dim.column_ref,
-      type: dim.type,
-      synonyms: dim.synonyms ?? [],
-      description: dim.description ?? '',
-      is_active: dim.is_active,
+    openRename({
+      kind: 'dimension',
+      current,
+      dimension: dim,
+      title: t('modeling.rename_dimension_title'),
+      subtitle: dim.column_ref,
     })
-    await refreshModels(model.id)
-    setMessage('Kırılım adı güncellendi.')
   }
 
   const renameMetric = async (metric: SemanticMetric) => {
     if (!model) return
     const current = metric.label || metric.name
-    const raw = window.prompt('Metrik için görünen ad', current)
-    if (raw == null) return
-    const trimmed = raw.trim()
-    if (!trimmed || trimmed === current) return
-    await putData(`/api/semantic/models/${model.id}/metrics/${metric.id}`, {
-      name: metric.name,
-      label: trimmed,
-      expression: metric.expression,
-      aggregation: metric.aggregation,
-      format: metric.format ?? '',
-      synonyms: metric.synonyms ?? [],
-      description: metric.description ?? '',
-      is_active: metric.is_active,
+    openRename({
+      kind: 'metric',
+      current,
+      metric,
+      title: t('modeling.rename_metric_title'),
+      subtitle: `${metric.aggregation}(${metric.expression})`,
     })
-    await refreshModels(model.id)
-    setMessage('Metrik adı güncellendi.')
   }
 
   const toggleSchemaExcluded = async (schemaName: string) => {
@@ -707,7 +731,120 @@ export default function Modeling() {
       excluded_schemas: next,
     })
     await refreshModels(model.id)
-    setMessage('Şema filtresi güncellendi.')
+    setMessage(t('modeling.schema_filter_updated'))
+  }
+
+  const requestSchemaToggle = (schemaName: string, isExcluded: boolean) => {
+    if (isExcluded) {
+      void toggleSchemaExcluded(schemaName)
+      return
+    }
+    setConfirmTarget({
+      kind: 'schema',
+      schemaName,
+      title: t('modeling.exclude_schema_title'),
+      body: t('modeling.exclude_schema_body', { schema: schemaName }),
+      action: t('modeling.exclude_schema_action'),
+    })
+  }
+
+  const submitRename = async () => {
+    if (!renameTarget || savingRename) return
+    const trimmed = renameValue.trim()
+    if (!trimmed || trimmed === renameTarget.current) {
+      closeRename()
+      return
+    }
+    setSavingRename(true)
+    try {
+      if (renameTarget.kind === 'table') {
+        const updated = await patchData<TableRow>(`/api/metadata/tables/${renameTarget.table.id}`, { label: trimmed })
+        if (updated) {
+          setTables((prev) => prev.map((p) => (p.id === renameTarget.table.id ? updated : p)))
+          setMessage(t('modeling.table_label_updated'))
+        }
+      } else if (renameTarget.kind === 'model' && model) {
+        await putData(`/api/semantic/models/${model.id}`, {
+          label: trimmed,
+          base_schema: model.base_schema,
+          base_table: model.base_table,
+        })
+        await refreshModels(model.id)
+        setMessage(t('modeling.model_renamed'))
+      } else if (renameTarget.kind === 'dimension' && model) {
+        const dim = renameTarget.dimension
+        await putData(`/api/semantic/models/${model.id}/dimensions/${dim.id}`, {
+          name: dim.name,
+          label: trimmed,
+          column_ref: dim.column_ref,
+          type: dim.type,
+          synonyms: dim.synonyms ?? [],
+          description: dim.description ?? '',
+          is_active: dim.is_active,
+        })
+        await refreshModels(model.id)
+        setMessage(t('modeling.dimension_label_updated'))
+      } else if (renameTarget.kind === 'metric' && model) {
+        const metric = renameTarget.metric
+        await putData(`/api/semantic/models/${model.id}/metrics/${metric.id}`, {
+          name: metric.name,
+          label: trimmed,
+          expression: metric.expression,
+          aggregation: metric.aggregation,
+          format: metric.format ?? '',
+          synonyms: metric.synonyms ?? [],
+          description: metric.description ?? '',
+          is_active: metric.is_active,
+        })
+        await refreshModels(model.id)
+        setMessage(t('modeling.metric_label_updated'))
+      }
+      setRenameTarget(null)
+      setRenameValue('')
+    } finally {
+      setSavingRename(false)
+    }
+  }
+
+  const closeConfirm = () => {
+    if (savingConfirm) return
+    setConfirmTarget(null)
+  }
+
+  const submitConfirm = async () => {
+    if (!confirmTarget || savingConfirm) return
+    setSavingConfirm(true)
+    setMessage(null)
+    try {
+      if (confirmTarget.kind === 'model') {
+        await deleteData(`/api/semantic/models/${confirmTarget.modelId}`)
+        const list = await get<SemanticModelSummary[]>(`/api/semantic/models?datasource_id=${encodeURIComponent(datasourceId)}`)
+        const next = list ?? []
+        setModels(next)
+        const nextId = next[0]?.id ?? ''
+        setModelId(nextId)
+        if (!nextId) setModel(null)
+        setMessage(t('modeling.model_deleted'))
+      } else if (confirmTarget.kind === 'schema') {
+        await toggleSchemaExcluded(confirmTarget.schemaName)
+      } else if (model && confirmTarget.kind === 'join') {
+        await deleteData(`/api/semantic/models/${model.id}/joins/${confirmTarget.joinId}`)
+        await refreshModels(model.id)
+        await loadSuggestedJoins()
+        setMessage(t('modeling.relationship_deleted'))
+      } else if (model && confirmTarget.kind === 'dimension') {
+        await deleteData(`/api/semantic/models/${model.id}/dimensions/${confirmTarget.dimId}`)
+        await refreshModels(model.id)
+        setMessage(t('modeling.dimension_deleted'))
+      } else if (model && confirmTarget.kind === 'metric') {
+        await deleteData(`/api/semantic/models/${model.id}/metrics/${confirmTarget.metricId}`)
+        await refreshModels(model.id)
+        setMessage(t('modeling.metric_deleted'))
+      }
+      setConfirmTarget(null)
+    } finally {
+      setSavingConfirm(false)
+    }
   }
 
   const reactivateMetric = async (metric: SemanticMetric) => {
@@ -723,7 +860,7 @@ export default function Modeling() {
       is_active: true,
     })
     await refreshModels(model.id)
-    setMessage('Metrik yeniden eklendi.')
+    setMessage(t('modeling.reactivate_metric'))
   }
 
   const loadSuggestedJoins = async () => {
@@ -840,7 +977,7 @@ export default function Modeling() {
             {creatingModel ? t('modeling.creating') : t('modeling.create_from_metadata')}
           </button>
           {model && (
-            <button className="btn btn-secondary" type="button" onClick={renameModel} title="Modeli yeniden adlandır">
+            <button className="btn btn-secondary" type="button" onClick={renameModel} title={t('modeling.rename_model_button_title')}>
               Yeniden adlandır
             </button>
           )}
@@ -880,6 +1017,10 @@ export default function Modeling() {
           </div>
           <div className="modeling-stat-grid">
             <div>
+              <strong>{includedTables.length}</strong>
+              <span>Tablo</span>
+            </div>
+            <div>
               <strong>{dims.length}</strong>
               <span>{t('modeling.dimension_label')}</span>
             </div>
@@ -895,7 +1036,7 @@ export default function Modeling() {
 
           <div className="modeling-tabs">
             <button className={`modeling-tab ${activeTab === 'tables' ? 'modeling-tab--active' : ''}`} onClick={() => setActiveTab('tables')}>
-              Tablolar
+              {t('modeling.tables_tab')}
             </button>
             <button className={`modeling-tab ${activeTab === 'joins' ? 'modeling-tab--active' : ''}`} onClick={() => setActiveTab('joins')}>
               {t('modeling.joins_tab')}
@@ -911,7 +1052,7 @@ export default function Modeling() {
           <div className="modeling-tab-content">
             {activeTab === 'tables' && (
               <div className="modeling-join-list">
-                <h3>Şemalar</h3>
+                <h3>{t('modeling.schemas_heading')}</h3>
                 {Array.from(new Set(tables.map((tbl) => tbl.schema_name))).sort().map((schemaName) => {
                   const isExcluded = excludedSchemas.has(schemaName)
                   return (
@@ -920,23 +1061,24 @@ export default function Modeling() {
                         <strong>{schemaName}</strong>
                         <button
                           className={isExcluded ? 'modeling-add-btn' : 'modeling-delete-btn'}
-                          onClick={() => toggleSchemaExcluded(schemaName)}
-                          title={isExcluded ? 'Tekrar dahil et' : 'Bu şemayı hariç tut'}
+                          onClick={() => requestSchemaToggle(schemaName, isExcluded)}
+                          title={isExcluded ? t('modeling.include_schema_again_title') : t('modeling.exclude_schema_title_short')}
                         >
                           {isExcluded ? '+' : '×'}
                         </button>
                       </div>
-                      <span className="modeling-join-meta">{isExcluded ? 'Hariç tutuluyor' : 'Dahil'}</span>
+                      <span className="modeling-join-meta">
+                        {isExcluded ? t('modeling.schema_excluded_status') : t('modeling.schema_included_status')}
+                      </span>
                     </div>
                   )
                 })}
 
-                <h3>Veri kaynağındaki tablolar</h3>
+                <h3>{t('modeling.datasource_tables_heading')}</h3>
                 {tables.length === 0 ? (
-                  <p className="modeling-empty">Tablo yok. Önce metadata sync edin.</p>
+                  <p className="modeling-empty">{t('modeling.no_tables_sync')}</p>
                 ) : (
-                  tables
-                    .filter((tbl) => !excludedSchemas.has(tbl.schema_name))
+                  includedTables
                     .map((tbl) => {
                       const key = tableKey(tbl.schema_name, tbl.table_name)
                       const isOnCanvas = tableCards.some((tc) => tableKey(tc.schema_name, tc.table_name) === key)
@@ -944,10 +1086,10 @@ export default function Modeling() {
                         <div className={`modeling-join-pill ${isOnCanvas ? 'modeling-join-pill--active' : ''}`} key={tbl.id}>
                           <div className="modeling-join-pill-header">
                             <strong>{tbl.label || tbl.table_name}</strong>
-                            <button className="modeling-rename-btn" onClick={() => renameTable(tbl)} title="Görünen adı düzenle">✎</button>
+                            <button className="modeling-rename-btn" onClick={() => renameTable(tbl)} title={t('modeling.edit_display_name_title')}>✎</button>
                           </div>
                           <span className="modeling-join-meta">{tbl.schema_name}.{tbl.table_name}</span>
-                          <span className="modeling-join-meta">{isOnCanvas ? 'Canvas üstünde' : 'Görünür değil'}</span>
+                          <span className="modeling-join-meta">{isOnCanvas ? t('modeling.on_canvas') : t('modeling.not_visible')}</span>
                         </div>
                       )
                     })
@@ -994,12 +1136,12 @@ export default function Modeling() {
                 )}
                 {inactiveJoins.length > 0 && (
                   <>
-                    <h3>Pasif ilişkiler (tekrar eklemek için tıkla)</h3>
+                    <h3>{t('modeling.inactive_joins_heading')}</h3>
                     {inactiveJoins.map((join) => (
                       <div className="modeling-join-pill modeling-join-pill--suggested" key={join.id}>
                         <div className="modeling-join-pill-header">
                           <strong>{join.name}</strong>
-                          <button className="modeling-add-btn" onClick={() => reactivateJoin(join)} title="Yeniden ekle">+</button>
+                          <button className="modeling-add-btn" onClick={() => reactivateJoin(join)} title={t('modeling.reactivate_title')}>+</button>
                         </div>
                         <span>{join.from_table}.{join.from_column} → {join.to_table}.{join.to_column}</span>
                       </div>
@@ -1020,7 +1162,7 @@ export default function Modeling() {
                       <div className="modeling-join-pill-header">
                         <strong>{dim.label || dim.name}</strong>
                         <span className="modeling-pill-actions">
-                          <button className="modeling-rename-btn" onClick={() => renameDimension(dim)} title="Görünen adı düzenle">✎</button>
+                          <button className="modeling-rename-btn" onClick={() => renameDimension(dim)} title={t('modeling.edit_display_name_title')}>✎</button>
                           <button className="modeling-delete-btn" onClick={() => deleteDimension(dim.id)} title={t('modeling.delete_dimension_title')}>×</button>
                         </span>
                       </div>
@@ -1031,12 +1173,12 @@ export default function Modeling() {
                 )}
                 {inactiveDims.length > 0 && (
                   <>
-                    <h3>Pasif kırılımlar</h3>
+                    <h3>{t('modeling.inactive_dimensions_heading')}</h3>
                     {inactiveDims.map((dim) => (
                       <div className="modeling-join-pill modeling-join-pill--suggested" key={dim.id}>
                         <div className="modeling-join-pill-header">
                           <strong>{dim.label || dim.name}</strong>
-                          <button className="modeling-add-btn" onClick={() => reactivateDimension(dim)} title="Yeniden ekle">+</button>
+                          <button className="modeling-add-btn" onClick={() => reactivateDimension(dim)} title={t('modeling.reactivate_title')}>+</button>
                         </div>
                         <span>{dim.column_ref}</span>
                       </div>
@@ -1057,7 +1199,7 @@ export default function Modeling() {
                       <div className="modeling-join-pill-header">
                         <strong>{metric.label || metric.name}</strong>
                         <span className="modeling-pill-actions">
-                          <button className="modeling-rename-btn" onClick={() => renameMetric(metric)} title="Görünen adı düzenle">✎</button>
+                          <button className="modeling-rename-btn" onClick={() => renameMetric(metric)} title={t('modeling.edit_display_name_title')}>✎</button>
                           <button className="modeling-delete-btn" onClick={() => deleteMetric(metric.id)} title={t('modeling.delete_metric_title')}>×</button>
                         </span>
                       </div>
@@ -1068,12 +1210,12 @@ export default function Modeling() {
                 )}
                 {inactiveMetrics.length > 0 && (
                   <>
-                    <h3>Pasif metrikler</h3>
+                    <h3>{t('modeling.inactive_metrics_heading')}</h3>
                     {inactiveMetrics.map((metric) => (
                       <div className="modeling-join-pill modeling-join-pill--suggested" key={metric.id}>
                         <div className="modeling-join-pill-header">
                           <strong>{metric.label || metric.name}</strong>
-                          <button className="modeling-add-btn" onClick={() => reactivateMetric(metric)} title="Yeniden ekle">+</button>
+                          <button className="modeling-add-btn" onClick={() => reactivateMetric(metric)} title={t('modeling.reactivate_title')}>+</button>
                         </div>
                         <span>{metric.expression}</span>
                       </div>
@@ -1206,7 +1348,7 @@ export default function Modeling() {
           </div>
           <div className="modeling-editor-grid">
             <div className="form-group">
-              <label>Join</label>
+              <label>{t('modeling.join_type_label')}</label>
               <select value={joinForm.joinType} onChange={(event) => updateJoinForm({ joinType: event.target.value as JoinForm['joinType'] })}>
                 <option value="LEFT">LEFT</option>
                 <option value="INNER">INNER</option>
@@ -1229,6 +1371,80 @@ export default function Modeling() {
           </div>
         </aside>
       </section>
+      {renameTarget && (
+        <div className="modal-backdrop" onClick={closeRename}>
+          <form
+            className="modal-card modal-card--modeling"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modeling-rename-title"
+            onClick={(event) => event.stopPropagation()}
+            onSubmit={(event) => {
+              event.preventDefault()
+              void submitRename()
+            }}
+          >
+            <header className="modal-header">
+              <div>
+                <h2 id="modeling-rename-title">{renameTarget.title}</h2>
+                <p className="modeling-dialog-subtitle">{renameTarget.subtitle}</p>
+              </div>
+              <button className="modal-close" type="button" onClick={closeRename} aria-label={t('common.close')}>
+                ×
+              </button>
+            </header>
+            <div className="modal-body">
+              <label className="form-group">
+                <span>{t('modeling.display_name_label')}</span>
+                <input
+                  autoFocus
+                  value={renameValue}
+                  onChange={(event) => setRenameValue(event.target.value)}
+                  placeholder={renameTarget.current}
+                  disabled={savingRename}
+                />
+              </label>
+              <div className="modal-actions">
+                <button className="btn btn-secondary" type="button" onClick={closeRename} disabled={savingRename}>
+                  {t('common.cancel')}
+                </button>
+                <button className="btn btn-primary" type="submit" disabled={savingRename || !renameValue.trim()}>
+                  {savingRename ? t('common.saving') : t('common.update')}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+      {confirmTarget && (
+        <div className="modal-backdrop" onClick={closeConfirm}>
+          <div
+            className="modal-card modal-card--modeling"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modeling-confirm-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="modal-header">
+              <h2 id="modeling-confirm-title">{confirmTarget.title}</h2>
+              <button className="modal-close" type="button" onClick={closeConfirm} aria-label={t('common.close')}>
+                ×
+              </button>
+            </header>
+            <div className="modal-body">
+              <p className="modeling-dialog-copy">{confirmTarget.body}</p>
+              <div className="modal-actions">
+                <button className="btn btn-secondary" type="button" onClick={closeConfirm} disabled={savingConfirm}>
+                  {t('common.cancel')}
+                </button>
+                <button className="btn btn-danger" type="button" onClick={() => void submitConfirm()} disabled={savingConfirm}>
+                  {savingConfirm ? t('common.saving') : confirmTarget.action}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

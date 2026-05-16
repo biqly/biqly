@@ -338,7 +338,7 @@ a {
 }
 
 .main {
-  width: min(100%, 1560px);
+  width: min(100%, 1800px);
   min-width: 0;
   margin: 0 auto;
   padding: 1.75rem clamp(1rem, 3vw, 2rem) 3rem;
@@ -2082,6 +2082,23 @@ input[type='checkbox']:disabled {
   padding: 1.1rem 1.25rem 1.25rem;
 }
 
+.modal-card--modeling {
+  width: min(100%, 30rem);
+}
+
+.modeling-dialog-subtitle,
+.modeling-dialog-copy {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.modeling-dialog-subtitle {
+  margin-top: 0.2rem;
+  overflow-wrap: anywhere;
+}
+
 .modal-body .form-group {
   margin-bottom: 0;
 }
@@ -3596,7 +3613,7 @@ input[type='checkbox']:disabled {
 
 .modeling-shell {
   display: grid;
-  grid-template-columns: minmax(17.5rem, 18rem) minmax(0, 1fr) minmax(21rem, 22rem);
+  grid-template-columns: minmax(18.5rem, 20rem) minmax(0, 1fr) minmax(21rem, 22rem);
   grid-template-rows: 1fr;
   height: calc(100vh - 17rem);
   min-height: 32rem;
@@ -3613,7 +3630,7 @@ input[type='checkbox']:disabled {
 }
 
 .modeling-shell--editor-closed {
-  grid-template-columns: minmax(17.5rem, 18rem) minmax(0, 1fr) 2rem;
+  grid-template-columns: minmax(18.5rem, 20rem) minmax(0, 1fr) 2rem;
 }
 
 .modeling-shell--palette-closed.modeling-shell--editor-closed {
@@ -3721,7 +3738,7 @@ input[type='checkbox']:disabled {
 
 .modeling-stat-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.5rem;
 }
 
