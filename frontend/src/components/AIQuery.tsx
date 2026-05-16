@@ -632,9 +632,11 @@ export default function AIQuery() {
   const refreshMetadataEmbeddings = async () => {
     if (!datasourceId || embeddingLoading) return
     setEmbeddingStatus(null)
+    const body: { datasource_id: string; model_id?: string } = { datasource_id: datasourceId }
+    if (semanticModelId) body.model_id = semanticModelId
     const res = await postEmbedData<EmbedMetadataResponse>(
       '/api/ai/metadata/embed',
-      { datasource_id: datasourceId },
+      body,
       { timeout: AI_METADATA_EMBED_TIMEOUT_MS },
     )
     if (!res) return
@@ -855,11 +857,17 @@ export default function AIQuery() {
                     disabled={!datasourceId || embeddingLoading}
                     title={
                       datasourceId
-                        ? t('ai_query.embed_title_ds', { name: selectedDatasourceName ?? '' })
+                        ? semanticModelId
+                          ? t('ai_query.embed_title_model', { name: semanticModels.find((m) => m.id === semanticModelId)?.label || semanticModels.find((m) => m.id === semanticModelId)?.name || '' })
+                          : t('ai_query.embed_title_ds', { name: selectedDatasourceName ?? '' })
                         : t('ai_query.embed_title_none')
                     }
                   >
-                    {embeddingLoading ? t('ai_query.embed_refreshing') : t('ai_query.embed_refresh')}
+                    {embeddingLoading
+                      ? t('ai_query.embed_refreshing')
+                      : semanticModelId
+                        ? t('ai_query.embed_refresh_model')
+                        : t('ai_query.embed_refresh')}
                   </button>
                   {embeddingStatus && <span className="ai-embedding-status" style={{ fontSize: '0.75rem' }}>{embeddingStatus}</span>}
                   {embeddingError && <span className="ai-embedding-error" style={{ fontSize: '0.75rem' }}>{embeddingError}</span>}

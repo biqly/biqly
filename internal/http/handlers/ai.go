@@ -337,10 +337,12 @@ func (h *AIHandler) Describe(w http.ResponseWriter, r *http.Request) {
 
 type embedMetadataRequest struct {
 	DatasourceID string `json:"datasource_id"`
+	ModelID      string `json:"model_id,omitempty"`
 }
 
 type embedMetadataResponse struct {
 	DatasourceID string                `json:"datasource_id"`
+	ModelID      string                `json:"model_id,omitempty"`
 	Model        string                `json:"model"`
 	Embedded     int                   `json:"embedded"`
 	Skipped      int                   `json:"skipped"`
@@ -363,9 +365,24 @@ func (h *AIHandler) EmbedMetadata(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "embeddings are not configured (set BI_AI_EMBEDDING_MODEL and API access: BI_AI_EMBEDDING_API_KEY or BI_AI_API_KEY; optional BI_AI_EMBEDDING_BASE_URL / BI_AI_BASE_URL)")
 		return
 	}
-	results, err := h.deps.AIEmbedMeta.EmbedAllForDatasource(r.Context(), req.DatasourceID)
+	ctx := r.Context()
+	var (
+		results []ai.EmbedTableResult
+		err     error
+	)
+	if req.ModelID != "" {
+		model, ferr := h.deps.SemanticRepo.GetFullModel(ctx, req.ModelID)
+		if ferr != nil {
+			writeError(w, http.StatusNotFound, "semantic model not found")
+			return
+		}
+		allowed := tablesForModel(model)
+		results, err = h.deps.AIEmbedMeta.EmbedForTables(ctx, req.DatasourceID, allowed)
+	} else {
+		results, err = h.deps.AIEmbedMeta.EmbedAllForDatasource(ctx, req.DatasourceID)
+	}
 	if err != nil {
-		writeInternalError(r.Context(), w, http.StatusInternalServerError, "embedding failed", err)
+		writeInternalError(ctx, w, http.StatusInternalServerError, "embedding failed", err)
 		return
 	}
 	embedded, skipped := 0, 0
@@ -378,11 +395,68 @@ func (h *AIHandler) EmbedMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, embedMetadataResponse{
 		DatasourceID: req.DatasourceID,
+		ModelID:      req.ModelID,
 		Model:        h.deps.Embedder.Model(),
 		Embedded:     embedded,
 		Skipped:      skipped,
 		Results:      results,
 	})
+}
+
+func tablesForModel(model *semantic.SemanticModel) map[string]bool {
+	allowed := map[string]bool{}
+	if model == nil {
+		return allowed
+	}
+	add := func(schema, table string) {
+		if table == "" {
+			return
+		}
+		if schema == "" {
+			schema = model.BaseSchema
+		}
+		allowed[schema+"."+table] = true
+	}
+	add(model.BaseSchema, model.BaseTable)
+	for _, j := range model.Joins {
+		if j.IsActive {
+			add(j.FromSchema, j.FromTable)
+			add(j.ToSchema, j.ToTable)
+		}
+	}
+	for _, d := range model.Dimensions {
+		if !d.IsActive {
+			continue
+		}
+		if s, t := splitColumnRef(d.ColumnRef, model.BaseSchema); t != "" {
+			add(s, t)
+		}
+	}
+	for _, m := range model.Metrics {
+		if !m.IsActive {
+			continue
+		}
+		if s, t := splitColumnRef(m.Expression, model.BaseSchema); t != "" {
+			add(s, t)
+		}
+	}
+	return allowed
+}
+
+func splitColumnRef(ref, baseSchema string) (schema, table string) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return "", ""
+	}
+	parts := strings.Split(ref, ".")
+	switch len(parts) {
+	case 2:
+		return baseSchema, parts[0]
+	case 3:
+		return parts[0], parts[1]
+	default:
+		return "", ""
+	}
 }
 
 func (h *AIHandler) loadQueryModel(

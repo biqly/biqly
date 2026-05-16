@@ -46,6 +46,19 @@ type EmbedTableResult struct {
 // EmbedAllForDatasource computes embeddings for every table and column in the
 // datasource and writes them to the metadata DB.
 func (s *EmbedMetadataService) EmbedAllForDatasource(ctx context.Context, datasourceID string) ([]EmbedTableResult, error) {
+	return s.embedForFilter(ctx, datasourceID, nil)
+}
+
+// EmbedForTables embeds only the tables/columns whose schema.table key is in
+// the provided allowlist. Used to scope embedding work to one semantic model.
+func (s *EmbedMetadataService) EmbedForTables(ctx context.Context, datasourceID string, allowed map[string]bool) ([]EmbedTableResult, error) {
+	if len(allowed) == 0 {
+		return nil, nil
+	}
+	return s.embedForFilter(ctx, datasourceID, allowed)
+}
+
+func (s *EmbedMetadataService) embedForFilter(ctx context.Context, datasourceID string, allowed map[string]bool) ([]EmbedTableResult, error) {
 	tables, err := s.writer.ListTables(ctx, datasourceID, "")
 	if err != nil {
 		return nil, fmt.Errorf("list tables: %w", err)
@@ -53,6 +66,22 @@ func (s *EmbedMetadataService) EmbedAllForDatasource(ctx context.Context, dataso
 	cols, err := s.writer.ListColumns(ctx, datasourceID, "", "")
 	if err != nil {
 		return nil, fmt.Errorf("list columns: %w", err)
+	}
+	if allowed != nil {
+		filteredTables := make([]metadata.Table, 0, len(tables))
+		for _, t := range tables {
+			if allowed[t.SchemaName+"."+t.TableName] {
+				filteredTables = append(filteredTables, t)
+			}
+		}
+		tables = filteredTables
+		filteredCols := make([]metadata.Column, 0, len(cols))
+		for _, c := range cols {
+			if allowed[c.SchemaName+"."+c.TableName] {
+				filteredCols = append(filteredCols, c)
+			}
+		}
+		cols = filteredCols
 	}
 	colsByTable := make(map[string][]metadata.Column, len(tables))
 	for _, c := range cols {
