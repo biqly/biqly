@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useApi } from '../hooks/useApi'
-import { useT } from '../i18n'
+import { useT, type TranslationKey } from '../i18n'
 import type { Datasource } from '../types/metadata'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { Select } from './ui/Select'
@@ -133,16 +133,82 @@ function splitTableKey(key: string) {
   return { schema: key.slice(0, idx), table: key.slice(idx + 1) }
 }
 
+function compareColumns(a: ColumnRow, b: ColumnRow, linked?: Set<string>) {
+  const pk = Number(b.is_primary_key) - Number(a.is_primary_key)
+  if (pk !== 0) return pk
+  const fk = Number(b.is_foreign_key) - Number(a.is_foreign_key)
+  if (fk !== 0) return fk
+  if (linked) {
+    const joinLinked = Number(linked.has(b.column_name)) - Number(linked.has(a.column_name))
+    if (joinLinked !== 0) return joinLinked
+  }
+  return a.column_name.localeCompare(b.column_name)
+}
+
 function columnOptions(columns: ColumnRow[], tableRef: string) {
   const { schema, table } = splitTableKey(tableRef)
   return columns
     .filter((c) => c.schema_name === schema && c.table_name === table)
-    .sort(
-      (a, b) =>
-        Number(b.is_primary_key) - Number(a.is_primary_key) ||
-        Number(b.is_foreign_key) - Number(a.is_foreign_key) ||
-        a.column_name.localeCompare(b.column_name),
-    )
+    .sort((a, b) => compareColumns(a, b))
+}
+
+const DATA_TYPE_LABEL_KEYS: Record<string, TranslationKey> = {
+  'timestamp with time zone': 'modeling.data_type_timestamptz',
+  text: 'modeling.data_type_text',
+  uuid: 'modeling.data_type_uuid',
+  'user-defined': 'modeling.data_type_user_defined',
+}
+
+function formatDataType(t: (key: TranslationKey) => string, dataType: string) {
+  const key = DATA_TYPE_LABEL_KEYS[dataType.toLowerCase().trim()]
+  return key ? t(key) : dataType
+}
+
+function columnSelectHint(column: ColumnRow, t: (key: TranslationKey) => string) {
+  const parts: string[] = []
+  if (column.is_primary_key) parts.push(t('modeling.pk_badge'))
+  if (column.is_foreign_key) parts.push(t('modeling.fk_badge'))
+  parts.push(formatDataType(t, column.data_type))
+  return parts.join(' · ')
+}
+
+function columnSelectOptions(cols: ColumnRow[], t: (key: TranslationKey) => string) {
+  return cols.map((column) => ({
+    value: column.column_name,
+    label: column.column_name,
+    hint: columnSelectHint(column, t),
+  }))
+}
+
+function normalizeJoinDataType(dataType: string) {
+  const type = dataType.toLowerCase().replace(/\(.+\)/, '').replace(/\s+/g, ' ').trim()
+  if (['smallint', 'int2', 'integer', 'int', 'int4', 'bigint', 'int8', 'serial', 'serial4', 'bigserial', 'serial8'].includes(type)) {
+    return 'integer'
+  }
+  if (['text', 'character varying', 'varchar', 'character', 'char', 'citext', 'nvarchar', 'nchar', 'string'].includes(type)) {
+    return 'text'
+  }
+  if (['boolean', 'bool'].includes(type)) return 'boolean'
+  if (['timestamp', 'timestamp without time zone', 'timestamp with time zone', 'timestamptz', 'datetime'].includes(type)) return 'timestamp'
+  if (['date'].includes(type)) return 'date'
+  if (['numeric', 'decimal', 'double precision', 'float', 'float4', 'float8', 'real', 'money'].includes(type)) return 'decimal'
+  if (['json', 'jsonb'].includes(type)) return 'json'
+  return type
+}
+
+function columnsAreJoinCompatible(left: ColumnRow | null | undefined, right: ColumnRow | null | undefined) {
+  if (!left || !right) return false
+  return normalizeJoinDataType(left.data_type) === normalizeJoinDataType(right.data_type)
+}
+
+function findColumn(columns: ColumnRow[], tableRef: string, columnName: string) {
+  return columnOptions(columns, tableRef).find((column) => column.column_name === columnName) ?? null
+}
+
+function firstCompatibleColumnName(columns: ColumnRow[], tableRef: string, sourceColumn: ColumnRow | null) {
+  const options = columnOptions(columns, tableRef)
+  if (!sourceColumn) return options[0]?.column_name ?? ''
+  return options.find((column) => columnsAreJoinCompatible(sourceColumn, column))?.column_name ?? ''
 }
 
 function defaultJoinForm(tables: TableRow[], columns: ColumnRow[], model: SemanticModelDetail | null): JoinForm {
@@ -153,11 +219,13 @@ function defaultJoinForm(tables: TableRow[], columns: ColumnRow[], model: Semant
       : ''
   const target = tables.find((t) => tableKey(t.schema_name, t.table_name) !== base)
   const toTable = target ? tableKey(target.schema_name, target.table_name) : base
+  const fromColumn = columnOptions(columns, base)[0]?.column_name ?? ''
+  const sourceColumn = findColumn(columns, base, fromColumn)
   return {
     fromTable: base,
-    fromColumn: columnOptions(columns, base)[0]?.column_name ?? '',
+    fromColumn,
     toTable,
-    toColumn: columnOptions(columns, toTable)[0]?.column_name ?? '',
+    toColumn: firstCompatibleColumnName(columns, toTable, sourceColumn),
     joinType: 'LEFT',
     relationship: 'many_to_one',
   }
@@ -310,11 +378,9 @@ export default function Modeling() {
     >()
     for (const t of tableCards) {
       const key = tableKey(t.schema_name, t.table_name)
-      const allCols = columnOptions(columns, key)
       const linked = joinColumns.get(key) ?? new Set<string>()
-      const linkedCols = allCols.filter((c) => linked.has(c.column_name))
-      const regularCols = allCols.filter((c) => !linked.has(c.column_name))
-      const cols = [...linkedCols, ...regularCols].slice(0, COL_LIMIT)
+      const allCols = columnOptions(columns, key)
+      const cols = [...allCols].sort((a, b) => compareColumns(a, b, linked)).slice(0, COL_LIMIT)
       const idx = new Map<string, number>()
       cols.forEach((c, i) => idx.set(c.column_name, i))
       const hidden = Math.max(0, allCols.length - cols.length)
@@ -474,13 +540,39 @@ export default function Modeling() {
   }
 
   const fromColumns = useMemo(() => columnOptions(columns, joinForm.fromTable), [columns, joinForm.fromTable])
-  const toColumns = useMemo(() => columnOptions(columns, joinForm.toTable), [columns, joinForm.toTable])
+  const allToColumns = useMemo(() => columnOptions(columns, joinForm.toTable), [columns, joinForm.toTable])
+  const selectedFromColumn = useMemo(
+    () => findColumn(columns, joinForm.fromTable, joinForm.fromColumn),
+    [columns, joinForm.fromTable, joinForm.fromColumn],
+  )
+  const selectedToColumn = useMemo(
+    () => findColumn(columns, joinForm.toTable, joinForm.toColumn),
+    [columns, joinForm.toTable, joinForm.toColumn],
+  )
+  const toColumns = useMemo(
+    () => (selectedFromColumn ? allToColumns.filter((column) => columnsAreJoinCompatible(selectedFromColumn, column)) : allToColumns),
+    [allToColumns, selectedFromColumn],
+  )
+  const fromColumnOptions = useMemo(() => columnSelectOptions(fromColumns, t), [fromColumns, t])
+  const toColumnOptions = useMemo(() => columnSelectOptions(toColumns, t), [toColumns, t])
+  const fromColumnValue = fromColumns.some((c) => c.column_name === joinForm.fromColumn) ? joinForm.fromColumn : ''
+  const toColumnValue = toColumns.some((c) => c.column_name === joinForm.toColumn) ? joinForm.toColumn : ''
+  const hasCompatibleJoinColumns = Boolean(selectedFromColumn && selectedToColumn && columnsAreJoinCompatible(selectedFromColumn, selectedToColumn))
+  const canSaveJoin = Boolean(model && joinForm.fromTable && joinForm.fromColumn && joinForm.toTable && joinForm.toColumn && hasCompatibleJoinColumns)
 
   const updateJoinForm = (patch: Partial<JoinForm>) => {
     setJoinForm((prev) => {
       const next = { ...prev, ...patch }
-      if (patch.fromTable) next.fromColumn = columnOptions(columns, patch.fromTable)[0]?.column_name ?? ''
-      if (patch.toTable) next.toColumn = columnOptions(columns, patch.toTable)[0]?.column_name ?? ''
+      if (patch.fromTable) {
+        next.fromColumn = columnOptions(columns, patch.fromTable)[0]?.column_name ?? ''
+      }
+      const sourceColumn = findColumn(columns, next.fromTable, next.fromColumn)
+      if (patch.fromTable || patch.fromColumn || patch.toTable) {
+        const currentTarget = findColumn(columns, next.toTable, next.toColumn)
+        if (!columnsAreJoinCompatible(sourceColumn, currentTarget)) {
+          next.toColumn = firstCompatibleColumnName(columns, next.toTable, sourceColumn)
+        }
+      }
       return next
     })
   }
@@ -564,7 +656,7 @@ export default function Modeling() {
   }
 
   const saveJoin = async () => {
-    if (!model || !joinForm.fromTable || !joinForm.fromColumn || !joinForm.toTable || !joinForm.toColumn) return
+    if (!model || !canSaveJoin) return
     setSavingJoin(true)
     setMessage(null)
     try {
@@ -1018,7 +1110,7 @@ export default function Modeling() {
           <div className="modeling-stat-grid">
             <div>
               <strong>{includedTables.length}</strong>
-              <span>Tablo</span>
+              <span>{t('modeling.table_stat_label')}</span>
             </div>
             <div>
               <strong>{dims.length}</strong>
@@ -1293,11 +1385,11 @@ export default function Modeling() {
                       return (
                         <li key={column.id} className={`${isJoinCol ? 'modeling-row--joined' : ''} ${isActiveJoinCol ? 'modeling-row--active' : ''}`}>
                           <span className="modeling-column-name">
-                            {column.is_primary_key && <b>PK</b>}
-                            {column.is_foreign_key && <b>FK</b>}
+                            {column.is_primary_key && <b>{t('modeling.pk_badge')}</b>}
+                            {column.is_foreign_key && <b>{t('modeling.fk_badge')}</b>}
                             {column.column_name}
                           </span>
-                          <small>{column.data_type}</small>
+                          <small>{formatDataType(t, column.data_type)}</small>
                         </li>
                       )
                     })}
@@ -1332,9 +1424,15 @@ export default function Modeling() {
           </div>
           <div className="form-group">
             <label>{t('modeling.source_column')}</label>
-            <select value={joinForm.fromColumn} onChange={(event) => updateJoinForm({ fromColumn: event.target.value })}>
-              {fromColumns.map((column) => <option key={column.id} value={column.column_name}>{column.column_name}</option>)}
-            </select>
+            <Select
+              name="fromColumn"
+              value={fromColumnValue}
+              onChange={(value) => updateJoinForm({ fromColumn: value })}
+              placeholder={fromColumns.length === 0 ? t('modeling.no_columns') : t('modeling.column_placeholder')}
+              header={t('modeling.source_column')}
+              options={fromColumnOptions}
+              disabled={!joinForm.fromTable || fromColumns.length === 0}
+            />
           </div>
           <div className="form-group">
             <label>{t('modeling.target_table')}</label>
@@ -1342,9 +1440,20 @@ export default function Modeling() {
           </div>
           <div className="form-group">
             <label>{t('modeling.target_column')}</label>
-            <select value={joinForm.toColumn} onChange={(event) => updateJoinForm({ toColumn: event.target.value })}>
-              {toColumns.map((column) => <option key={column.id} value={column.column_name}>{column.column_name}</option>)}
-            </select>
+            <Select
+              name="toColumn"
+              value={toColumnValue}
+              onChange={(value) => updateJoinForm({ toColumn: value })}
+              placeholder={toColumns.length === 0 ? t('modeling.no_compatible_columns') : t('modeling.column_placeholder')}
+              header={t('modeling.target_column')}
+              options={toColumnOptions}
+              disabled={!joinForm.toTable || toColumns.length === 0}
+            />
+            {selectedFromColumn && (
+              <small className="modeling-type-hint">
+                {t('modeling.compatible_columns_hint', { type: formatDataType(t, selectedFromColumn.data_type) })}
+              </small>
+            )}
           </div>
           <div className="modeling-editor-grid">
             <div className="form-group">
@@ -1365,7 +1474,7 @@ export default function Modeling() {
               </select>
             </div>
           </div>
-          <button className="btn btn-primary" type="button" onClick={saveJoin} disabled={!model || savingJoin || loading}>
+          <button className="btn btn-primary" type="button" onClick={saveJoin} disabled={!canSaveJoin || savingJoin || loading}>
             {savingJoin ? t('common.saving') : t('modeling.add_relationship')}
           </button>
           </div>

@@ -715,15 +715,16 @@ input[type='checkbox']:disabled {
 }
 
 .btn-danger {
-  border-color: rgba(251, 113, 133, 0.32);
-  background: rgba(251, 113, 133, 0.1);
-  color: #fda4af;
+  border-color: color-mix(in srgb, var(--error) 75%, transparent);
+  background: var(--error);
+  color: #fff;
+  font-weight: 600;
 }
 
-.btn-danger:hover {
-  background: rgba(251, 113, 133, 0.18);
-  border-color: rgba(251, 113, 133, 0.5);
-  color: #fecdd3;
+.btn-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--error) 88%, #000);
+  border-color: color-mix(in srgb, var(--error) 88%, #000);
+  color: #fff;
 }
 
 .btn-danger-outline {
@@ -4036,6 +4037,13 @@ body.modeling-grabbing * {
   color: var(--text-primary);
   min-height: 2.55rem;
   padding: 0 0.75rem;
+}
+
+.modeling-type-hint {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.35;
 }
 
 .modeling-editor-grid {
