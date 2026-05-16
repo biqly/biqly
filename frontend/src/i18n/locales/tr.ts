@@ -795,6 +795,8 @@ export const tr: Dictionary = {
     edit_display_name_title: 'Görünen adı düzenle',
     on_canvas: 'Canvas üstünde',
     not_visible: 'Görünür değil',
+    show_on_canvas_title: 'Canvas\'a ekle',
+    hide_from_canvas_title: 'Canvas\'tan kaldır',
     inactive_joins_heading: 'Pasif ilişkiler (tekrar eklemek için tıkla)',
     inactive_dimensions_heading: 'Pasif kırılımlar',
     inactive_metrics_heading: 'Pasif metrikler',

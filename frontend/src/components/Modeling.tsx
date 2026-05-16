@@ -345,6 +345,47 @@ export default function Modeling() {
     [tables, excludedSchemas],
   )
 
+  const visibilityStorageKey = modelId ? `modeling.visibility.${modelId}` : ''
+  const [manualShown, setManualShown] = useState<Set<string>>(new Set())
+  const [manualHidden, setManualHidden] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    if (!visibilityStorageKey) {
+      setManualShown(new Set())
+      setManualHidden(new Set())
+      return
+    }
+    try {
+      const raw = localStorage.getItem(visibilityStorageKey)
+      if (!raw) {
+        setManualShown(new Set())
+        setManualHidden(new Set())
+        return
+      }
+      const parsed = JSON.parse(raw) as { shown?: string[]; hidden?: string[] }
+      setManualShown(new Set(parsed.shown ?? []))
+      setManualHidden(new Set(parsed.hidden ?? []))
+    } catch {
+      setManualShown(new Set())
+      setManualHidden(new Set())
+    }
+  }, [visibilityStorageKey])
+
+  const persistVisibility = useCallback(
+    (shown: Set<string>, hidden: Set<string>) => {
+      if (!visibilityStorageKey) return
+      try {
+        localStorage.setItem(
+          visibilityStorageKey,
+          JSON.stringify({ shown: Array.from(shown), hidden: Array.from(hidden) }),
+        )
+      } catch {
+        // ignore quota errors
+      }
+    },
+    [visibilityStorageKey],
+  )
+
   const tableCards = useMemo(() => {
     const keys = new Set<string>()
     if (model) keys.add(tableKey(model.base_schema, model.base_table))
@@ -352,10 +393,43 @@ export default function Modeling() {
       keys.add(tableKey(join.from_schema || model?.base_schema || '', join.from_table))
       keys.add(tableKey(join.to_schema || model?.base_schema || '', join.to_table))
     }
+    const baseKey = model ? tableKey(model.base_schema, model.base_table) : ''
     const preferred = includedTables.filter((t) => keys.has(tableKey(t.schema_name, t.table_name)))
-    const rest = includedTables.filter((t) => !keys.has(tableKey(t.schema_name, t.table_name))).slice(0, Math.max(0, 9 - preferred.length))
-    return [...preferred, ...rest]
-  }, [model, includedTables])
+    const autofill = includedTables
+      .filter((t) => !keys.has(tableKey(t.schema_name, t.table_name)))
+      .slice(0, Math.max(0, 9 - preferred.length))
+    const auto = [...preferred, ...autofill]
+    const autoKeys = new Set(auto.map((t) => tableKey(t.schema_name, t.table_name)))
+    const filteredAuto = auto.filter((t) => {
+      const k = tableKey(t.schema_name, t.table_name)
+      if (k === baseKey) return true
+      return !manualHidden.has(k)
+    })
+    const extras = includedTables.filter((t) => {
+      const k = tableKey(t.schema_name, t.table_name)
+      return manualShown.has(k) && !autoKeys.has(k)
+    })
+    return [...filteredAuto, ...extras]
+  }, [model, includedTables, manualShown, manualHidden])
+
+  const toggleTableVisibility = useCallback(
+    (schema: string, table: string, makeVisible: boolean) => {
+      const k = tableKey(schema, table)
+      const nextShown = new Set(manualShown)
+      const nextHidden = new Set(manualHidden)
+      if (makeVisible) {
+        nextShown.add(k)
+        nextHidden.delete(k)
+      } else {
+        nextHidden.add(k)
+        nextShown.delete(k)
+      }
+      setManualShown(nextShown)
+      setManualHidden(nextHidden)
+      persistVisibility(nextShown, nextHidden)
+    },
+    [manualShown, manualHidden, persistVisibility],
+  )
 
   const cardLayouts = useMemo(() => {
     const joinColumns = new Map<string, Set<string>>()
@@ -1174,11 +1248,23 @@ export default function Modeling() {
                     .map((tbl) => {
                       const key = tableKey(tbl.schema_name, tbl.table_name)
                       const isOnCanvas = tableCards.some((tc) => tableKey(tc.schema_name, tc.table_name) === key)
+                      const isBase = model ? key === tableKey(model.base_schema, model.base_table) : false
                       return (
                         <div className={`modeling-join-pill ${isOnCanvas ? 'modeling-join-pill--active' : ''}`} key={tbl.id}>
                           <div className="modeling-join-pill-header">
                             <strong>{tbl.label || tbl.table_name}</strong>
-                            <button className="modeling-rename-btn" onClick={() => renameTable(tbl)} title={t('modeling.edit_display_name_title')}>✎</button>
+                            <span className="modeling-pill-actions">
+                              <button className="modeling-rename-btn" onClick={() => renameTable(tbl)} title={t('modeling.edit_display_name_title')}>✎</button>
+                              {!isBase && (
+                                <button
+                                  className={isOnCanvas ? 'modeling-delete-btn' : 'modeling-add-btn'}
+                                  onClick={() => toggleTableVisibility(tbl.schema_name, tbl.table_name, !isOnCanvas)}
+                                  title={isOnCanvas ? t('modeling.hide_from_canvas_title') : t('modeling.show_on_canvas_title')}
+                                >
+                                  {isOnCanvas ? '×' : '+'}
+                                </button>
+                              )}
+                            </span>
                           </div>
                           <span className="modeling-join-meta">{tbl.schema_name}.{tbl.table_name}</span>
                           <span className="modeling-join-meta">{isOnCanvas ? t('modeling.on_canvas') : t('modeling.not_visible')}</span>

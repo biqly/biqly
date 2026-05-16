@@ -793,6 +793,8 @@ export const en = {
     edit_display_name_title: 'Edit display name',
     on_canvas: 'On canvas',
     not_visible: 'Not visible',
+    show_on_canvas_title: 'Show on canvas',
+    hide_from_canvas_title: 'Hide from canvas',
     inactive_joins_heading: 'Inactive relationships (click to re-add)',
     inactive_dimensions_heading: 'Inactive dimensions',
     inactive_metrics_heading: 'Inactive metrics',
