@@ -30,10 +30,7 @@ type execContexter interface {
 
 func upsertColumnsBatch(ctx context.Context, q execContexter, datasourceID string, columns []Column) error {
 	for start := 0; start < len(columns); start += columnUpsertChunkRows {
-		end := start + columnUpsertChunkRows
-		if end > len(columns) {
-			end = len(columns)
-		}
+		end := min(start+columnUpsertChunkRows, len(columns))
 		if err := upsertColumnsChunk(ctx, q, datasourceID, columns[start:end]); err != nil {
 			return err
 		}
@@ -54,7 +51,7 @@ func upsertColumnsChunk(ctx context.Context, q execContexter, datasourceID strin
 			values.WriteByte(',')
 		}
 		values.WriteByte('(')
-		for col := 0; col < columnUpsertRowCols; col++ {
+		for col := range columnUpsertRowCols {
 			if col > 0 {
 				values.WriteByte(',')
 			}

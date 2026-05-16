@@ -234,6 +234,15 @@ func (r *Repository) UpdateTableDescription(ctx context.Context, id string, desc
 	return nil
 }
 
+// UpdateTableLabel replaces the human-friendly display label on a table row.
+func (r *Repository) UpdateTableLabel(ctx context.Context, id string, label *string) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE tables SET label = $2, updated_at = now() WHERE id = $1`, id, label)
+	if err != nil {
+		return fmt.Errorf("update table label: %w", err)
+	}
+	return nil
+}
+
 // TableEmbedding pairs a tableKey ("schema.table") with its stored embedding.
 // Tables that have never been embedded are excluded from ListTableEmbeddings.
 type TableEmbedding struct {
@@ -556,7 +565,7 @@ func (r *Repository) CreateAIQueryHistory(ctx context.Context, entry *AIQueryHis
 
 func scanTable(s platformdb.Scanner) (Table, error) {
 	var t Table
-	if err := s.Scan(&t.ID, &t.DatasourceID, &t.SchemaID, &t.SchemaName, &t.TableName, &t.TableType, &t.RowEstimate, &t.Description, &t.CreatedAt, &t.UpdatedAt); err != nil {
+	if err := s.Scan(&t.ID, &t.DatasourceID, &t.SchemaID, &t.SchemaName, &t.TableName, &t.TableType, &t.RowEstimate, &t.Description, &t.Label, &t.CreatedAt, &t.UpdatedAt); err != nil {
 		return t, fmt.Errorf("scan table: %w", err)
 	}
 	return t, nil

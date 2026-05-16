@@ -13,6 +13,7 @@ import (
 
 type GenerateModelOptions struct {
 	DatasourceID   string
+	DatasourceName string
 	BaseSchema     string
 	BaseTable      string
 	ExistingNames  []string
@@ -34,13 +35,13 @@ func GenerateModelFromMetadata(tables []metadata.Table, columns []metadata.Colum
 		return nil, fmt.Errorf("metadata has no tables; sync metadata first")
 	}
 	if opts.MaxDimensions <= 0 {
-		opts.MaxDimensions = 48
+		opts.MaxDimensions = 512
 	}
 	if opts.MaxMetrics <= 0 {
-		opts.MaxMetrics = 24
+		opts.MaxMetrics = 128
 	}
 	if opts.MaxRelatedDims <= 0 {
-		opts.MaxRelatedDims = 24
+		opts.MaxRelatedDims = 512
 	}
 
 	base, ok := chooseBaseTable(tables, relations, opts.BaseSchema, opts.BaseTable)
@@ -49,16 +50,21 @@ func GenerateModelFromMetadata(tables []metadata.Table, columns []metadata.Colum
 	}
 
 	modelID := uuid.New().String()
-	label := humanLabel(base.TableName)
+	baseNameForModel := strings.TrimSpace(opts.DatasourceName)
+	if baseNameForModel == "" {
+		baseNameForModel = base.TableName
+	}
+	modelName := uniqueModelName(normalizeName(baseNameForModel), opts.ExistingNames)
+	label := humanLabel(baseNameForModel)
 	model := &semantic.SemanticModel{
 		ID:           modelID,
 		DatasourceID: opts.DatasourceID,
-		Name:         uniqueModelName(normalizeName(base.TableName), opts.ExistingNames),
+		Name:         modelName,
 		Label:        &label,
 		Description:  base.Description,
 		BaseSchema:   base.SchemaName,
 		BaseTable:    base.TableName,
-		Synonyms:     synonyms(base.TableName),
+		Synonyms:     synonyms(baseNameForModel),
 		IsActive:     true,
 		Status:       semantic.ModelStatusDraft,
 		Dimensions:   make([]semantic.Dimension, 0, opts.MaxDimensions),
@@ -66,14 +72,9 @@ func GenerateModelFromMetadata(tables []metadata.Table, columns []metadata.Colum
 		Joins:        make([]semantic.Join, 0, len(relations)),
 	}
 
-	selectedTables := map[string]bool{tableKey(base.SchemaName, base.TableName): true}
-	for _, rel := range relations {
-		if rel.FromSchema == base.SchemaName && rel.FromTable == base.TableName {
-			selectedTables[tableKey(rel.ToSchema, rel.ToTable)] = true
-		}
-		if rel.ToSchema == base.SchemaName && rel.ToTable == base.TableName {
-			selectedTables[tableKey(rel.FromSchema, rel.FromTable)] = true
-		}
+	selectedTables := make(map[string]bool, len(tables))
+	for _, t := range tables {
+		selectedTables[tableKey(t.SchemaName, t.TableName)] = true
 	}
 
 	warnings := make([]string, 0, 4)

@@ -3,6 +3,7 @@ package query
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -40,6 +41,7 @@ type Anomaly struct {
 
 // QueryResult is an alias for backward compatibility.
 // Deprecated: Use Result instead.
+//
 //nolint:revive // alias for backward compatibility
 type QueryResult = Result
 
@@ -89,6 +91,7 @@ type Stats struct {
 
 // QueryStats is an alias for backward compatibility.
 // Deprecated: Use Stats instead.
+//
 //nolint:revive // alias for backward compatibility
 type QueryStats = Stats
 
@@ -119,6 +122,7 @@ type HistoryEntry struct {
 
 // QueryHistoryEntry is an alias for backward compatibility.
 // Deprecated: Use HistoryEntry instead.
+//
 //nolint:revive // alias for backward compatibility
 type QueryHistoryEntry = HistoryEntry
 
@@ -139,9 +143,10 @@ func (ve ValidationErrors) Error() string {
 	if len(ve) == 0 {
 		return ""
 	}
-	msg := "validation failed:"
+	var msg strings.Builder
+	msg.WriteString("validation failed:")
 	for _, e := range ve {
-		msg += fmt.Sprintf(" %s: %s;", e.Field, e.Message)
+		fmt.Fprintf(&msg, " %s: %s;", e.Field, e.Message)
 	}
-	return msg
+	return msg.String()
 }

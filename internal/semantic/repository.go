@@ -28,11 +28,14 @@ func (r *Repository) CreateModel(ctx context.Context, m *SemanticModel) error {
 	if m.Status == "" {
 		m.Status = ModelStatusDraft
 	}
+	if m.ExcludedSchemas == nil {
+		m.ExcludedSchemas = []string{}
+	}
 	query := `
-		INSERT INTO semantic_models (id, datasource_id, name, label, description, base_schema, base_table, synonyms, is_active, status, version)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0)
+		INSERT INTO semantic_models (id, datasource_id, name, label, description, base_schema, base_table, synonyms, excluded_schemas, is_active, status, version)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 0)
 	`
-	if err := r.db.QueryRowContext(ctx, query, m.ID, m.DatasourceID, m.Name, m.Label, m.Description, m.BaseSchema, m.BaseTable, m.Synonyms, m.IsActive, m.Status).Err(); err != nil {
+	if err := r.db.QueryRowContext(ctx, query, m.ID, m.DatasourceID, m.Name, m.Label, m.Description, m.BaseSchema, m.BaseTable, m.Synonyms, m.ExcludedSchemas, m.IsActive, m.Status).Err(); err != nil {
 		return fmt.Errorf("create model: %w", err)
 	}
 	return nil
@@ -75,13 +78,16 @@ func (r *Repository) ListModels(ctx context.Context, datasourceID string) ([]Sem
 
 // UpdateModel updates an existing semantic model.
 func (r *Repository) UpdateModel(ctx context.Context, m *SemanticModel) error {
+	if m.ExcludedSchemas == nil {
+		m.ExcludedSchemas = []string{}
+	}
 	query := `
 		UPDATE semantic_models
-		SET name = $2, label = $3, description = $4, base_schema = $5, base_table = $6, synonyms = $7, is_active = $8,
+		SET name = $2, label = $3, description = $4, base_schema = $5, base_table = $6, synonyms = $7, excluded_schemas = $8, is_active = $9,
 		    status = 'draft', draft_updated_at = now(), updated_at = now()
 		WHERE id::text = $1
 	`
-	_, err := r.db.ExecContext(ctx, query, m.ID, m.Name, m.Label, m.Description, m.BaseSchema, m.BaseTable, m.Synonyms, m.IsActive)
+	_, err := r.db.ExecContext(ctx, query, m.ID, m.Name, m.Label, m.Description, m.BaseSchema, m.BaseTable, m.Synonyms, m.ExcludedSchemas, m.IsActive)
 	if err != nil {
 		return fmt.Errorf("update model: %w", err)
 	}
@@ -94,6 +100,75 @@ func (r *Repository) DeleteModel(ctx context.Context, id string) error {
 	if err != nil {
 		return fmt.Errorf("delete model: %w", err)
 	}
+	return nil
+}
+
+// BulkInsertModelChildren inserts many dimensions, metrics, and joins for a
+// model inside a single transaction with prepared statements. Used when
+// generating a model from metadata to avoid one round-trip per row.
+func (r *Repository) BulkInsertModelChildren(ctx context.Context, modelID string, dims []Dimension, mets []Metric, joins []Join) error {
+	if len(dims) == 0 && len(mets) == 0 && len(joins) == 0 {
+		return nil
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+	if len(dims) > 0 {
+		stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_dimensions (id, model_id, name, label, column_ref, type, synonyms, description, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`)
+		if err != nil {
+			return fmt.Errorf("prepare dimensions: %w", err)
+		}
+		for i := range dims {
+			d := &dims[i]
+			if _, err := stmt.ExecContext(ctx, d.ID, d.ModelID, d.Name, d.Label, d.ColumnRef, d.Type, d.Synonyms, d.Description, d.IsActive); err != nil {
+				stmt.Close()
+				return fmt.Errorf("insert dimension %q: %w", d.Name, err)
+			}
+		}
+		stmt.Close()
+	}
+	if len(mets) > 0 {
+		stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_metrics (id, model_id, name, label, expression, aggregation, format, synonyms, description, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`)
+		if err != nil {
+			return fmt.Errorf("prepare metrics: %w", err)
+		}
+		for i := range mets {
+			m := &mets[i]
+			if _, err := stmt.ExecContext(ctx, m.ID, m.ModelID, m.Name, m.Label, m.Expression, m.Aggregation, m.Format, m.Synonyms, m.Description, m.IsActive); err != nil {
+				stmt.Close()
+				return fmt.Errorf("insert metric %q: %w", m.Name, err)
+			}
+		}
+		stmt.Close()
+	}
+	if len(joins) > 0 {
+		stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_joins (id, model_id, name, from_schema, from_table, from_column, to_schema, to_table, to_column, join_type, relationship, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`)
+		if err != nil {
+			return fmt.Errorf("prepare joins: %w", err)
+		}
+		for i := range joins {
+			j := &joins[i]
+			if _, err := stmt.ExecContext(ctx, j.ID, j.ModelID, j.Name, j.FromSchema, j.FromTable, j.FromColumn, j.ToSchema, j.ToTable, j.ToColumn, j.JoinType, j.Relationship, j.IsActive); err != nil {
+				stmt.Close()
+				return fmt.Errorf("insert join %q: %w", j.Name, err)
+			}
+		}
+		stmt.Close()
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE semantic_models SET status = 'draft', draft_updated_at = now(), updated_at = now() WHERE id::text = $1`, modelID); err != nil {
+		return fmt.Errorf("mark model draft: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit: %w", err)
+	}
+	committed = true
 	return nil
 }
 
@@ -115,6 +190,13 @@ func (r *Repository) CreateDimension(ctx context.Context, d *Dimension) error {
 func (r *Repository) GetDimensions(ctx context.Context, modelID string) ([]Dimension, error) {
 	query := `SELECT id::text, model_id::text, name, label, column_ref, type, synonyms, description, is_active, created_at FROM semantic_dimensions WHERE model_id::text = $1 AND is_active = true ORDER BY name`
 	return platformdb.QuerySliceErr(ctx, r.db, "get dimensions", query, []any{modelID}, scanDimension)
+}
+
+// ListAllDimensions returns every dimension (active and inactive) for a model
+// so the modeling UI can show soft-deleted items in a "Pasif" section.
+func (r *Repository) ListAllDimensions(ctx context.Context, modelID string) ([]Dimension, error) {
+	query := `SELECT id::text, model_id::text, name, label, column_ref, type, synonyms, description, is_active, created_at FROM semantic_dimensions WHERE model_id::text = $1 ORDER BY is_active DESC, name`
+	return platformdb.QuerySliceErr(ctx, r.db, "list all dimensions", query, []any{modelID}, scanDimension)
 }
 
 // DeleteDimension soft-deletes a dimension by setting is_active = false.
@@ -156,6 +238,12 @@ func (r *Repository) GetMetrics(ctx context.Context, modelID string) ([]Metric, 
 	return platformdb.QuerySliceErr(ctx, r.db, "get metrics", query, []any{modelID}, scanMetric)
 }
 
+// ListAllMetrics returns every metric (active and inactive) for a model.
+func (r *Repository) ListAllMetrics(ctx context.Context, modelID string) ([]Metric, error) {
+	query := `SELECT id::text, model_id::text, name, label, expression, aggregation, format, synonyms, description, is_active, created_at FROM semantic_metrics WHERE model_id::text = $1 ORDER BY is_active DESC, name`
+	return platformdb.QuerySliceErr(ctx, r.db, "list all metrics", query, []any{modelID}, scanMetric)
+}
+
 // DeleteMetric soft-deletes a metric by setting is_active = false.
 func (r *Repository) DeleteMetric(ctx context.Context, modelID, metricID string) error {
 	_, err := r.db.ExecContext(ctx, `UPDATE semantic_metrics SET is_active = false WHERE id::text = $1 AND model_id::text = $2`, metricID, modelID)
@@ -193,6 +281,12 @@ func (r *Repository) CreateJoin(ctx context.Context, j *Join) error {
 func (r *Repository) GetJoins(ctx context.Context, modelID string) ([]Join, error) {
 	query := `SELECT id::text, model_id::text, name, from_schema, from_table, from_column, to_schema, to_table, to_column, join_type, relationship, is_active, created_at FROM semantic_joins WHERE model_id::text = $1 AND is_active = true ORDER BY name`
 	return platformdb.QuerySliceErr(ctx, r.db, "get joins", query, []any{modelID}, scanJoin)
+}
+
+// ListAllJoins returns every join (active and inactive) for a model.
+func (r *Repository) ListAllJoins(ctx context.Context, modelID string) ([]Join, error) {
+	query := `SELECT id::text, model_id::text, name, from_schema, from_table, from_column, to_schema, to_table, to_column, join_type, relationship, is_active, created_at FROM semantic_joins WHERE model_id::text = $1 ORDER BY is_active DESC, name`
+	return platformdb.QuerySliceErr(ctx, r.db, "list all joins", query, []any{modelID}, scanJoin)
 }
 
 // DeleteJoin soft-deletes a join by setting is_active = false.
@@ -450,7 +544,7 @@ func decodeModelSnapshot(raw []byte) (*SemanticModel, error) {
 }
 
 func modelSelectSQL() string {
-	return `SELECT id::text, datasource_id::text, name, label, description, base_schema, base_table, synonyms, is_active,
+	return `SELECT id::text, datasource_id::text, name, label, description, base_schema, base_table, synonyms, excluded_schemas, is_active,
 		status, version, published_at, published_by, draft_updated_at, created_by, created_at, updated_at
 		FROM semantic_models`
 }
@@ -490,6 +584,7 @@ func (r *Repository) scanModel(s platformdb.Scanner) (*SemanticModel, error) {
 		&m.BaseSchema,
 		&m.BaseTable,
 		&nullStringArray{s: &m.Synonyms},
+		&nullStringArray{s: &m.ExcludedSchemas},
 		&m.IsActive,
 		&m.Status,
 		&m.Version,

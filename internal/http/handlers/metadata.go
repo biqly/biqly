@@ -94,10 +94,11 @@ func (h *MetadataHandler) SearchTables(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateDescriptionRequest struct {
-	Description *string `json:"description"`
+	Description *string `json:"description,omitempty"`
+	Label       *string `json:"label,omitempty"`
 }
 
-// UpdateTableDescription edits the description of a single table row.
+// UpdateTableDescription edits the description and/or label of a single table row.
 func (h *MetadataHandler) UpdateTableDescription(w http.ResponseWriter, r *http.Request) {
 	id, ok := requireURLParam(w, r, "id")
 	if !ok {
@@ -109,9 +110,17 @@ func (h *MetadataHandler) UpdateTableDescription(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if err := h.deps.MetaRepo.UpdateTableDescription(r.Context(), id, req.Description); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update table description")
-		return
+	if req.Description != nil {
+		if err := h.deps.MetaRepo.UpdateTableDescription(r.Context(), id, req.Description); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to update table description")
+			return
+		}
+	}
+	if req.Label != nil {
+		if err := h.deps.MetaRepo.UpdateTableLabel(r.Context(), id, req.Label); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to update table label")
+			return
+		}
 	}
 
 	t, err := h.deps.MetaRepo.GetTable(r.Context(), id)

@@ -54,6 +54,7 @@ type Table struct {
 	TableType    string    `json:"table_type" db:"table_type"`
 	RowEstimate  *int64    `json:"row_estimate" db:"row_estimate"`
 	Description  *string   `json:"description" db:"description"`
+	Label        *string   `json:"label" db:"label"`
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
 }

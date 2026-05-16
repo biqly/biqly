@@ -16,6 +16,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -212,12 +213,7 @@ func parseFloatStrict(s string) (float64, error) {
 }
 
 func isSupported(loc Locale) bool {
-	for _, l := range SupportedLocales {
-		if l == loc {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(SupportedLocales, loc)
 }
 
 type ctxKey struct{}

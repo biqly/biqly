@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	relationUpsertRowCols   = 10
-	relationUpsertChunkRows = 500
+	relationUpsertRowCols    = 10
+	relationUpsertChunkRows  = 500
 	relationUpsertValueQuery = `
 		INSERT INTO relations (id, datasource_id, constraint_name, from_schema, from_table, from_column, to_schema, to_table, to_column, relationship_type)
 		VALUES %s
@@ -18,10 +18,7 @@ const (
 
 func upsertRelationsBatch(ctx context.Context, q execContexter, datasourceID string, relations []Relation) error {
 	for start := 0; start < len(relations); start += relationUpsertChunkRows {
-		end := start + relationUpsertChunkRows
-		if end > len(relations) {
-			end = len(relations)
-		}
+		end := min(start+relationUpsertChunkRows, len(relations))
 		if err := upsertRelationsChunk(ctx, q, datasourceID, relations[start:end]); err != nil {
 			return err
 		}
@@ -42,7 +39,7 @@ func upsertRelationsChunk(ctx context.Context, q execContexter, datasourceID str
 			values.WriteByte(',')
 		}
 		values.WriteByte('(')
-		for col := 0; col < relationUpsertRowCols; col++ {
+		for col := range relationUpsertRowCols {
 			if col > 0 {
 				values.WriteByte(',')
 			}

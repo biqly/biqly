@@ -92,11 +92,17 @@ func (h *SemanticHandler) GenerateModel(w http.ResponseWriter, r *http.Request) 
 		existingNames = append(existingNames, model.Name)
 	}
 
+	datasourceName := ""
+	if ds, err := h.deps.MetaRepo.GetDatasource(ctx, req.DatasourceID); err == nil && ds != nil {
+		datasourceName = ds.Name
+	}
+
 	generated, err := semanticgen.GenerateModelFromMetadata(tables, columns, relations, semanticgen.GenerateModelOptions{
-		DatasourceID:  req.DatasourceID,
-		BaseSchema:    req.BaseSchema,
-		BaseTable:     req.BaseTable,
-		ExistingNames: existingNames,
+		DatasourceID:   req.DatasourceID,
+		DatasourceName: datasourceName,
+		BaseSchema:     req.BaseSchema,
+		BaseTable:      req.BaseTable,
+		ExistingNames:  existingNames,
 	})
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -164,20 +170,8 @@ func (h *SemanticHandler) persistGeneratedModel(ctx context.Context, model *sema
 			_ = h.deps.SemanticRepo.DeleteModel(ctx, model.ID)
 		}
 	}()
-	for i := range model.Dimensions {
-		if err := h.deps.SemanticRepo.CreateDimension(ctx, &model.Dimensions[i]); err != nil {
-			return err
-		}
-	}
-	for i := range model.Metrics {
-		if err := h.deps.SemanticRepo.CreateMetric(ctx, &model.Metrics[i]); err != nil {
-			return err
-		}
-	}
-	for i := range model.Joins {
-		if err := h.deps.SemanticRepo.CreateJoin(ctx, &model.Joins[i]); err != nil {
-			return err
-		}
+	if err := h.deps.SemanticRepo.BulkInsertModelChildren(ctx, model.ID, model.Dimensions, model.Metrics, model.Joins); err != nil {
+		return err
 	}
 	cleanup = false
 	return nil
@@ -230,6 +224,8 @@ func (h *SemanticHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetModel returns a semantic model with its dimensions, metrics, and joins.
+// When ?include_inactive=true is passed the response also contains soft-deleted
+// children so the modeling UI can offer "re-add" controls.
 func (h *SemanticHandler) GetModel(w http.ResponseWriter, r *http.Request) {
 	id, ok := requireURLParam(w, r, "id")
 	if !ok {
@@ -244,17 +240,30 @@ func (h *SemanticHandler) GetModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.URL.Query().Get("include_inactive") == "true" {
+		if dims, err := h.deps.SemanticRepo.ListAllDimensions(ctx, id); err == nil {
+			model.Dimensions = dims
+		}
+		if mets, err := h.deps.SemanticRepo.ListAllMetrics(ctx, id); err == nil {
+			model.Metrics = mets
+		}
+		if joins, err := h.deps.SemanticRepo.ListAllJoins(ctx, id); err == nil {
+			model.Joins = joins
+		}
+	}
+
 	writeJSON(w, http.StatusOK, model)
 }
 
 type updateModelRequest struct {
-	Name        string   `json:"name"`
-	Label       string   `json:"label,omitempty"`
-	Description string   `json:"description,omitempty"`
-	BaseSchema  string   `json:"base_schema"`
-	BaseTable   string   `json:"base_table"`
-	Synonyms    []string `json:"synonyms,omitempty"`
-	IsActive    *bool    `json:"is_active,omitempty"`
+	Name            string    `json:"name"`
+	Label           string    `json:"label,omitempty"`
+	Description     string    `json:"description,omitempty"`
+	BaseSchema      string    `json:"base_schema"`
+	BaseTable       string    `json:"base_table"`
+	Synonyms        []string  `json:"synonyms,omitempty"`
+	ExcludedSchemas *[]string `json:"excluded_schemas,omitempty"`
+	IsActive        *bool     `json:"is_active,omitempty"`
 }
 
 // UpdateModel updates an existing semantic model.
@@ -287,6 +296,9 @@ func (h *SemanticHandler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Synonyms != nil {
 		existing.Synonyms = req.Synonyms
+	}
+	if req.ExcludedSchemas != nil {
+		existing.ExcludedSchemas = *req.ExcludedSchemas
 	}
 	if req.Label != "" {
 		existing.Label = &req.Label

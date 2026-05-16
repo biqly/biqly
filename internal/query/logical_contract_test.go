@@ -87,10 +87,10 @@ func TestEnsureGroupBySelectedDoesNotDuplicateExistingDimension(t *testing.T) {
 
 func logicalQueryJSONFields(t *testing.T) []string {
 	t.Helper()
-	typ := reflect.TypeOf(LogicalQuery{})
+	typ := reflect.TypeFor[LogicalQuery]()
 	fields := make([]string, 0, typ.NumField())
-	for i := 0; i < typ.NumField(); i++ {
-		tag := typ.Field(i).Tag.Get("json")
+	for field := range typ.Fields() {
+		tag := field.Tag.Get("json")
 		if tag == "-" || tag == "" {
 			continue
 		}

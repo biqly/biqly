@@ -301,47 +301,6 @@ func estimatePromptSize(model SemanticModel) int {
 	return size
 }
 
-// allowedCalculatedFunctions is the whitelist of functions permitted in
-// dimension calculated expressions. This keeps expressions portable across
-// dialects (Postgres, MySQL, SQL Server, ClickHouse).
-var allowedCalculatedFunctions = map[string]bool{
-	"COALESCE":    true,
-	"CONCAT":      true,
-	"UPPER":       true,
-	"LOWER":       true,
-	"ROUND":       true,
-	"TRIM":        true,
-	"NULLIF":      true,
-	"CAST":        true,
-	"EXTRACT":     true,
-	"DATE_TRUNC":  true,
-	"TO_CHAR":     true,
-	"TO_DATE":     true,
-	"LENGTH":      true,
-	"SUBSTRING":   true,
-	"REPLACE":     true,
-	"ABS":         true,
-	"CEIL":        true,
-	"FLOOR":       true,
-	"SIGN":        true,
-}
-
-// allowedCalculatedOperators is the whitelist of operators permitted in
-// dimension calculated expressions.
-var allowedCalculatedOperators = map[string]bool{
-	"+":  true,
-	"-":  true,
-	"*":  true,
-	"/":  true,
-	"||": true, // string concatenation (SQL standard)
-	"=":  true,
-	"!=": true,
-	">":  true,
-	"<":  true,
-	">=": true,
-	"<=": true,
-}
-
 // validateCalculatedExpression checks a dimension's calculated_expression
 // against the allowed function/operator whitelist and verifies that all
 // referenced columns exist in the datasource catalog.
