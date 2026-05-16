@@ -114,6 +114,14 @@ function metricFieldOptions(metrics: SemanticMetric[]) {
   }))
 }
 
+function metricDisplayName(metric: SemanticMetric) {
+  return metric.label && metric.label.trim() ? metric.label : metric.name
+}
+
+function aggregationDisplayName(aggregation: string) {
+  return aggregation.replace(/_/g, ' ').toUpperCase()
+}
+
 type Translate = (key: TranslationKey, params?: Record<string, string | number>) => string
 
 function orderByFieldOptions(dims: SemanticDimension[], metrics: SemanticMetric[], t: Translate) {
@@ -310,6 +318,10 @@ export default function QueryBuilder() {
     return [{ value: '', label: t('query_builder.order_none'), hint: '' }, ...fields]
   }, [dimensions, metrics, t])
   const metricOptsHaving = useMemo(() => metricFieldOptions(metrics), [metrics])
+  const selectedMetricNames = useMemo(
+    () => new Set(selectItems.filter((item) => item.type === 'metric' && item.name).map((item) => item.name)),
+    [selectItems],
+  )
 
   const createSemanticModel = async () => {
     if (!datasourceId || generatingModel) return
@@ -334,6 +346,10 @@ export default function QueryBuilder() {
   }
 
   const addSelectItem = () => selectItemsState.add({ type: 'dimension', name: '' })
+  const addMetricSelectItem = (metricName = '') => {
+    if (metricName && selectedMetricNames.has(metricName)) return
+    selectItemsState.add({ type: 'metric', name: metricName })
+  }
   const updateSelectItem = (i: number, field: keyof SelectItem, value: string) => {
     const existing = selectItems[i]
     if (!existing) return
@@ -633,6 +649,33 @@ export default function QueryBuilder() {
             </div>
           ))}
           <button type="button" className="add-btn" onClick={addGroupByRow}>{t('query_builder.add_group_row')}</button>
+        </div>
+
+        <div className="form-group query-builder-aggregations">
+          <label>{t('query_builder.aggregations_label')}</label>
+          <p className="query-builder-section-hint">{t('query_builder.aggregations_hint')}</p>
+          {metrics.length === 0 ? (
+            <p className="query-builder-empty-note">{t('query_builder.aggregations_empty')}</p>
+          ) : (
+            <div className="query-builder-aggregation-grid">
+              {metrics.map((metric) => {
+                const selected = selectedMetricNames.has(metric.name)
+                return (
+                  <button
+                    key={metric.id}
+                    type="button"
+                    className={`query-builder-aggregation-chip ${selected ? 'query-builder-aggregation-chip--selected' : ''}`}
+                    onClick={() => addMetricSelectItem(metric.name)}
+                    disabled={selected}
+                    aria-label={t('query_builder.add_aggregation_aria', { name: metricDisplayName(metric), aggregation: aggregationDisplayName(metric.aggregation) })}
+                  >
+                    <span>{aggregationDisplayName(metric.aggregation)}</span>
+                    <strong>{metricDisplayName(metric)}</strong>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         <div className="query-builder-inline-2">

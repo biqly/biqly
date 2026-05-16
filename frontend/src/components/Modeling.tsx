@@ -118,7 +118,37 @@ const ORIGIN_X = 40
 const ORIGIN_Y = 40
 const MIN_SCALE = 0.3
 const MAX_SCALE = 2.5
+const ZOOM_STEPS = [0.3, 0.4, 0.5, 0.6, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5]
 const LAYOUT_COLS = 4
+
+function clampScale(scale: number) {
+  return Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale))
+}
+
+function zoomStepIndex(scale: number) {
+  const clamped = clampScale(scale)
+  let idx = 0
+  for (let i = 0; i < ZOOM_STEPS.length; i++) {
+    const step = ZOOM_STEPS[i]
+    if (step !== undefined && step <= clamped + 1e-9) idx = i
+  }
+  return idx
+}
+
+function zoomStep(scale: number, direction: 1 | -1) {
+  const idx = zoomStepIndex(scale)
+  const next = Math.min(ZOOM_STEPS.length - 1, Math.max(0, idx + direction))
+  return ZOOM_STEPS[next] ?? clampScale(scale)
+}
+
+function snapScaleNearest(scale: number) {
+  const clamped = clampScale(scale)
+  let best = ZOOM_STEPS[0] ?? MIN_SCALE
+  for (const step of ZOOM_STEPS) {
+    if (Math.abs(step - clamped) < Math.abs(best - clamped)) best = step
+  }
+  return best
+}
 
 const cardHeight = (count: number) => HEADER_HEIGHT + count * ROW_HEIGHT + CARD_PAD_Y * 2
 const rowCenterY = (idx: number) => HEADER_HEIGHT + CARD_PAD_Y + idx * ROW_HEIGHT + ROW_HEIGHT / 2
@@ -577,8 +607,9 @@ export default function Modeling() {
       const cx = ev.clientX - rect.left
       const cy = ev.clientY - rect.top
       setViewport((vp) => {
-        const factor = ev.deltaY < 0 ? 1.12 : 1 / 1.12
-        const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, vp.scale * factor))
+        const direction: 1 | -1 = ev.deltaY < 0 ? 1 : -1
+        const newScale = zoomStep(vp.scale, direction)
+        if (newScale === vp.scale) return vp
         const k = newScale / vp.scale
         return { scale: newScale, tx: cx - k * (cx - vp.tx), ty: cy - k * (cy - vp.ty) }
       })
@@ -587,10 +618,11 @@ export default function Modeling() {
     return () => node.removeEventListener('wheel', onWheel)
   }, [])
 
-  const zoomBy = (factor: number) => {
+  const zoomBy = (direction: 1 | -1) => {
     const node = wrapRef.current
     setViewport((vp) => {
-      const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, vp.scale * factor))
+      const newScale = zoomStep(vp.scale, direction)
+      if (newScale === vp.scale) return vp
       if (!node) return { ...vp, scale: newScale }
       const rect = node.getBoundingClientRect()
       const cx = rect.width / 2
@@ -609,7 +641,7 @@ export default function Modeling() {
     const padding = 40
     const scaleX = (rect.width - padding * 2) / Math.max(1, canvasBounds.width)
     const scaleY = (rect.height - padding * 2) / Math.max(1, canvasBounds.height)
-    const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, Math.min(scaleX, scaleY, 1)))
+    const scale = snapScaleNearest(Math.min(scaleX, scaleY, 1))
     setViewport({ scale, tx: padding, ty: padding })
   }
 
@@ -1408,8 +1440,8 @@ export default function Modeling() {
 
         <div className="modeling-canvas-wrap" ref={wrapRef} onMouseDown={onCanvasMouseDown}>
           <div className="modeling-zoom-controls" onMouseDown={(e) => e.stopPropagation()}>
-            <button type="button" onClick={() => zoomBy(1.2)} title={t('modeling.zoom_in')}>+</button>
-            <button type="button" onClick={() => zoomBy(1 / 1.2)} title={t('modeling.zoom_out')}>−</button>
+            <button type="button" onClick={() => zoomBy(1)} title={t('modeling.zoom_in')}>+</button>
+            <button type="button" onClick={() => zoomBy(-1)} title={t('modeling.zoom_out')}>−</button>
             <button type="button" onClick={fitView} title={t('modeling.fit_view')}>⤢</button>
             <button type="button" onClick={resetView} title={t('modeling.reset_view')}>1:1</button>
             <span className="modeling-zoom-readout">{Math.round(viewport.scale * 100)}%</span>
@@ -1419,7 +1451,7 @@ export default function Modeling() {
             style={{
               width: canvasBounds.width,
               height: canvasBounds.height,
-              transform: `translate(${viewport.tx}px, ${viewport.ty}px) scale(${viewport.scale})`,
+              transform: `translate3d(${viewport.tx}px, ${viewport.ty}px, 0) scale(${viewport.scale})`,
               transformOrigin: '0 0',
             }}
           >

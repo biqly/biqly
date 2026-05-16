@@ -1850,6 +1850,68 @@ input[type='checkbox']:disabled {
   justify-self: center;
 }
 
+.query-builder-section-hint,
+.query-builder-empty-note {
+  margin: 0 0 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.query-builder-aggregation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.45rem;
+}
+
+.query-builder-aggregation-chip {
+  display: grid;
+  min-width: 0;
+  gap: 0.14rem;
+  align-content: center;
+  justify-items: start;
+  min-height: 3rem;
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  background: var(--bg-card-raised);
+  color: var(--text-primary);
+  padding: 0.48rem 0.62rem;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
+}
+
+.query-builder-aggregation-chip:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-card-raised));
+  transform: translateY(-1px);
+}
+
+.query-builder-aggregation-chip:disabled {
+  cursor: default;
+  opacity: 0.74;
+}
+
+.query-builder-aggregation-chip--selected {
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-card-raised));
+}
+
+.query-builder-aggregation-chip span {
+  color: var(--accent);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.query-builder-aggregation-chip strong {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.78rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sql-preview {
   overflow: auto;
   border: 1px solid var(--border);
@@ -3864,7 +3926,6 @@ body.modeling-grabbing * {
   position: absolute;
   top: 0;
   left: 0;
-  will-change: transform;
 }
 
 .modeling-lines {
