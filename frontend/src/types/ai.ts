@@ -57,6 +57,7 @@ export interface EmbedMetadataResponse {
 
 export interface AIQueryRequest {
   datasource_id: string
+  model_id?: string
   question: string
   tables?: string[]
   include_base_tables?: boolean

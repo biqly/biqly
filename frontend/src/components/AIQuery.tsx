@@ -487,6 +487,8 @@ export default function AIQuery() {
   const [tables, setTables] = useState<TableOption[]>([])
   const [dsParam, setDsParam] = useQueryParam('ds')
   const [datasourceId, setDatasourceId] = useState(dsParam)
+  const [semanticModels, setSemanticModels] = useState<{ id: string; name: string; label?: string | null; status: string }[]>([])
+  const [semanticModelId, setSemanticModelId] = useState<string>('')
   const [selectedTables, setSelectedTables] = useState<string[]>([])
   const [tableSearch, setTableSearch] = useState('')
   const [includeBaseTables, setIncludeBaseTables] = useState(true)
@@ -569,8 +571,13 @@ export default function AIQuery() {
   useEffect(() => {
     setSelectedTables([]); setTableSearch(''); setIncludeBaseTables(true); setIncludeViews(true); setTables([])
     setEmbeddingStatus(null)
+    setSemanticModels([])
+    setSemanticModelId('')
     if (!datasourceId) return
     get<TableOption[]>(`/api/datasources/${datasourceId}/tables`).then((data) => setTables(data || []))
+    get<{ id: string; name: string; label?: string | null; status: string }[]>(
+      `/api/semantic/models?datasource_id=${encodeURIComponent(datasourceId)}`,
+    ).then((data) => setSemanticModels(data ?? []))
   }, [datasourceId])
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [activeConversation?.messages.length])
@@ -636,6 +643,7 @@ export default function AIQuery() {
 
   const requestBody = (q = question): AIQueryRequest => ({
     datasource_id: datasourceId,
+    model_id: semanticModelId || undefined,
     question: q,
     tables: autoTableRouting ? undefined : selectedTables,
     include_base_tables: includeBaseTables,
@@ -809,6 +817,24 @@ export default function AIQuery() {
                 placeholder={t('ai_query.select_placeholder')}
                 header={t('ai_query.header_datasources')}
                 options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="ai-semantic-model">{t('ai_query.semantic_model_label')}</label>
+              <Select
+                id="ai-semantic-model"
+                value={semanticModelId}
+                onChange={setSemanticModelId}
+                placeholder={t('ai_query.semantic_model_auto')}
+                header={t('ai_query.semantic_model_header')}
+                options={[
+                  { value: '', label: t('ai_query.semantic_model_auto') },
+                  ...semanticModels.map((m) => ({
+                    value: m.id,
+                    label: m.label || m.name,
+                    hint: m.status,
+                  })),
+                ]}
               />
             </div>
             <div className="form-group routing-toggle">
