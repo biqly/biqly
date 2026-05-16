@@ -283,6 +283,7 @@ type ConfirmTarget =
   | { kind: 'join'; joinId: string; title: string; body: string; action: string }
   | { kind: 'dimension'; dimId: string; title: string; body: string; action: string }
   | { kind: 'metric'; metricId: string; title: string; body: string; action: string }
+  | { kind: 'table'; schema: string; table: string; title: string; body: string; action: string }
 
 interface Pt {
   x: number
@@ -442,6 +443,52 @@ export default function Modeling() {
     return [...filteredAuto, ...extras]
   }, [model, includedTables, manualShown, manualHidden])
 
+  const [baseSwapOpen, setBaseSwapOpen] = useState(false)
+  const [savingBaseSwap, setSavingBaseSwap] = useState(false)
+  const [addMetricOpen, setAddMetricOpen] = useState(false)
+
+  const columnRefMatchesTable = useCallback(
+    (ref: string | undefined | null, schema: string, table: string) => {
+      if (!ref) return false
+      const r = ref.trim()
+      if (!r) return false
+      const base = model?.base_schema ?? ''
+      if (r.startsWith(`${schema}.${table}.`)) return true
+      if (schema === base && r.startsWith(`${table}.`)) return true
+      return false
+    },
+    [model],
+  )
+
+  const expressionRefsTable = useCallback(
+    (expr: string | undefined | null, schema: string, table: string) => {
+      if (!expr) return false
+      const e = expr.toLowerCase()
+      const tokens = [`${schema}.${table}.`, `"${schema}"."${table}".`]
+      const base = model?.base_schema ?? ''
+      if (schema === base) tokens.push(`${table}.`, `"${table}".`)
+      return tokens.some((tok) => e.includes(tok.toLowerCase()))
+    },
+    [model],
+  )
+
+  const tableImpact = useCallback(
+    (schema: string, table: string) => {
+      if (!model) return { joins: 0, dims: 0, metrics: 0 }
+      const base = model.base_schema
+      const joins = (model.joins ?? []).filter((j) => {
+        if (j.is_active === false) return false
+        const fs = j.from_schema || base
+        const ts = j.to_schema || base
+        return (fs === schema && j.from_table === table) || (ts === schema && j.to_table === table)
+      }).length
+      const dims = (model.dimensions ?? []).filter((d) => d.is_active !== false && columnRefMatchesTable(d.column_ref, schema, table)).length
+      const metrics = (model.metrics ?? []).filter((m) => m.is_active !== false && expressionRefsTable(m.expression, schema, table)).length
+      return { joins, dims, metrics }
+    },
+    [model, columnRefMatchesTable, expressionRefsTable],
+  )
+
   const toggleTableVisibility = useCallback(
     (schema: string, table: string, makeVisible: boolean) => {
       const k = tableKey(schema, table)
@@ -459,6 +506,75 @@ export default function Modeling() {
       persistVisibility(nextShown, nextHidden)
     },
     [manualShown, manualHidden, persistVisibility],
+  )
+
+  const requestMakeBase = useCallback(
+    async (schema: string, table: string) => {
+      if (!model) return
+      await putData(`/api/semantic/models/${model.id}`, {
+        base_schema: schema,
+        base_table: table,
+      })
+      await refreshModels(model.id)
+      setMessage(t('modeling.base_changed'))
+    },
+    [model, putData, t],
+  )
+
+  const swapBaseAndRemoveOld = useCallback(
+    async (newSchema: string, newTable: string) => {
+      if (!model) return
+      const oldSchema = model.base_schema
+      const oldTable = model.base_table
+      setSavingBaseSwap(true)
+      try {
+        await putData(`/api/semantic/models/${model.id}`, {
+          base_schema: newSchema,
+          base_table: newTable,
+        })
+        await postData(`/api/semantic/models/${model.id}/tables/remove`, {
+          schema: oldSchema,
+          table: oldTable,
+        })
+        await refreshModels(model.id)
+        await loadSuggestedJoins()
+        setMessage(t('modeling.table_removed'))
+        setBaseSwapOpen(false)
+      } finally {
+        setSavingBaseSwap(false)
+      }
+    },
+    [model, putData, postData, t],
+  )
+
+  const requestTableRemoval = useCallback(
+    (schema: string, table: string) => {
+      if (!model) return
+      const isBase = schema === model.base_schema && table === model.base_table
+      if (isBase) {
+        setBaseSwapOpen(true)
+        return
+      }
+      const impact = tableImpact(schema, table)
+      if (impact.joins === 0 && impact.dims === 0 && impact.metrics === 0) {
+        toggleTableVisibility(schema, table, false)
+        return
+      }
+      setConfirmTarget({
+        kind: 'table',
+        schema,
+        table,
+        title: t('modeling.remove_table_title'),
+        body: t('modeling.remove_table_body', {
+          table,
+          joins: impact.joins,
+          dims: impact.dims,
+          metrics: impact.metrics,
+        }),
+        action: t('modeling.remove_table_action'),
+      })
+    },
+    [model, tableImpact, toggleTableVisibility, t],
   )
 
   const cardLayouts = useMemo(() => {
@@ -1038,6 +1154,14 @@ export default function Modeling() {
         await deleteData(`/api/semantic/models/${model.id}/metrics/${confirmTarget.metricId}`)
         await refreshModels(model.id)
         setMessage(t('modeling.metric_deleted'))
+      } else if (model && confirmTarget.kind === 'table') {
+        await postData(`/api/semantic/models/${model.id}/tables/remove`, {
+          schema: confirmTarget.schema,
+          table: confirmTarget.table,
+        })
+        await refreshModels(model.id)
+        await loadSuggestedJoins()
+        setMessage(t('modeling.table_removed'))
       }
       setConfirmTarget(null)
     } finally {
@@ -1233,17 +1357,17 @@ export default function Modeling() {
           </div>
 
           <div className="modeling-tabs">
-            <button className={`modeling-tab ${activeTab === 'tables' ? 'modeling-tab--active' : ''}`} onClick={() => setActiveTab('tables')}>
-              {t('modeling.tables_tab')}
+            <button className={`modeling-tab ${activeTab === 'tables' ? 'modeling-tab--active' : ''}`} onClick={() => setActiveTab('tables')} title={t('modeling.tables_tab')}>
+              {t('modeling.tab_short_tables')}
             </button>
-            <button className={`modeling-tab ${activeTab === 'joins' ? 'modeling-tab--active' : ''}`} onClick={() => setActiveTab('joins')}>
-              {t('modeling.joins_tab')}
+            <button className={`modeling-tab ${activeTab === 'joins' ? 'modeling-tab--active' : ''}`} onClick={() => setActiveTab('joins')} title={t('modeling.joins_tab')}>
+              {t('modeling.tab_short_rel')}
             </button>
-            <button className={`modeling-tab ${activeTab === 'dimensions' ? 'modeling-tab--active' : ''}`} onClick={() => setActiveTab('dimensions')}>
-              {t('modeling.dimensions_tab')}
+            <button className={`modeling-tab ${activeTab === 'dimensions' ? 'modeling-tab--active' : ''}`} onClick={() => setActiveTab('dimensions')} title={t('modeling.dimensions_tab')}>
+              {t('modeling.tab_short_dim')}
             </button>
-            <button className={`modeling-tab ${activeTab === 'metrics' ? 'modeling-tab--active' : ''}`} onClick={() => setActiveTab('metrics')}>
-              {t('modeling.metrics_tab')}
+            <button className={`modeling-tab ${activeTab === 'metrics' ? 'modeling-tab--active' : ''}`} onClick={() => setActiveTab('metrics')} title={t('modeling.metrics_tab')}>
+              {t('modeling.tab_short_metric')}
             </button>
           </div>
 
@@ -1281,20 +1405,44 @@ export default function Modeling() {
                       const key = tableKey(tbl.schema_name, tbl.table_name)
                       const isOnCanvas = tableCards.some((tc) => tableKey(tc.schema_name, tc.table_name) === key)
                       const isBase = model ? key === tableKey(model.base_schema, model.base_table) : false
+                      const impact = model ? tableImpact(tbl.schema_name, tbl.table_name) : { joins: 0, dims: 0, metrics: 0 }
+                      const inModel = isBase || impact.joins > 0 || impact.dims > 0 || impact.metrics > 0
                       return (
                         <div className={`modeling-join-pill ${isOnCanvas ? 'modeling-join-pill--active' : ''}`} key={tbl.id}>
                           <div className="modeling-join-pill-header">
-                            <strong>{tbl.label || tbl.table_name}</strong>
+                            <strong>
+                              {tbl.label || tbl.table_name}
+                              {isBase && <span className="modeling-base-badge" title={t('modeling.base_table_label')}> ★</span>}
+                            </strong>
                             <span className="modeling-pill-actions">
                               <button className="modeling-rename-btn" onClick={() => renameTable(tbl)} title={t('modeling.edit_display_name_title')}>✎</button>
-                              {!isBase && (
+                              {!isBase && inModel && (
                                 <button
-                                  className={isOnCanvas ? 'modeling-delete-btn' : 'modeling-add-btn'}
-                                  onClick={() => toggleTableVisibility(tbl.schema_name, tbl.table_name, !isOnCanvas)}
-                                  title={isOnCanvas ? t('modeling.hide_from_canvas_title') : t('modeling.show_on_canvas_title')}
-                                >
-                                  {isOnCanvas ? '×' : '+'}
-                                </button>
+                                  className="modeling-rename-btn"
+                                  onClick={() => requestMakeBase(tbl.schema_name, tbl.table_name)}
+                                  title={t('modeling.make_base_title')}
+                                >★</button>
+                              )}
+                              {isOnCanvas && !isBase && (
+                                <button
+                                  className="modeling-delete-btn"
+                                  onClick={() => requestTableRemoval(tbl.schema_name, tbl.table_name)}
+                                  title={inModel ? t('modeling.remove_from_model_title') : t('modeling.hide_from_canvas_title')}
+                                >×</button>
+                              )}
+                              {!isOnCanvas && (
+                                <button
+                                  className="modeling-add-btn"
+                                  onClick={() => toggleTableVisibility(tbl.schema_name, tbl.table_name, true)}
+                                  title={t('modeling.show_on_canvas_title')}
+                                >+</button>
+                              )}
+                              {isBase && (
+                                <button
+                                  className="modeling-delete-btn"
+                                  onClick={() => setBaseSwapOpen(true)}
+                                  title={t('modeling.change_base_title')}
+                                >×</button>
                               )}
                             </span>
                           </div>
@@ -1400,7 +1548,12 @@ export default function Modeling() {
 
             {activeTab === 'metrics' && (
               <div className="modeling-join-list">
-                <h3>{t('modeling.metrics_tab')}</h3>
+                <div className="modeling-section-header">
+                  <h3>{t('modeling.metrics_tab')}</h3>
+                  <button className="btn btn-sm btn-primary" type="button" onClick={() => setAddMetricOpen(true)} disabled={!model}>
+                    {t('modeling.add_metric_btn')}
+                  </button>
+                </div>
                 {metrics.length === 0 ? (
                   <p className="modeling-empty">{t('modeling.no_metrics')}</p>
                 ) : (
@@ -1672,6 +1825,197 @@ export default function Modeling() {
           </div>
         </div>
       )}
+      {baseSwapOpen && model && (
+        <BaseSwapModal
+          model={model}
+          includedTables={includedTables}
+          tableImpact={tableImpact}
+          onCancel={() => setBaseSwapOpen(false)}
+          onSubmit={swapBaseAndRemoveOld}
+          saving={savingBaseSwap}
+          t={t}
+        />
+      )}
+      {addMetricOpen && model && (
+        <AddMetricModal
+          modelId={model.id}
+          onClose={() => setAddMetricOpen(false)}
+          onCreated={async () => {
+            setAddMetricOpen(false)
+            await refreshModels(model.id)
+            setMessage(t('modeling.metric_added'))
+          }}
+          postData={postData}
+          t={t}
+        />
+      )}
+    </div>
+  )
+}
+
+interface BaseSwapModalProps {
+  model: SemanticModelDetail
+  includedTables: TableRow[]
+  tableImpact: (schema: string, table: string) => { joins: number; dims: number; metrics: number }
+  onCancel: () => void
+  onSubmit: (schema: string, table: string) => Promise<void>
+  saving: boolean
+  t: ReturnType<typeof useT>
+}
+
+function BaseSwapModal({ model, includedTables, tableImpact, onCancel, onSubmit, saving, t }: BaseSwapModalProps) {
+  const candidates = includedTables.filter((tbl) => {
+    if (tbl.schema_name === model.base_schema && tbl.table_name === model.base_table) return false
+    const impact = tableImpact(tbl.schema_name, tbl.table_name)
+    return impact.joins > 0 || impact.dims > 0 || impact.metrics > 0
+  })
+  const fallback = includedTables.filter((tbl) =>
+    !(tbl.schema_name === model.base_schema && tbl.table_name === model.base_table),
+  )
+  const options = candidates.length > 0 ? candidates : fallback
+  const [picked, setPicked] = useState<string>(() =>
+    options[0] ? `${options[0].schema_name}.${options[0].table_name}` : '',
+  )
+
+  return (
+    <div className="modal-backdrop" onClick={saving ? undefined : onCancel}>
+      <div
+        className="modal-card modal-card--modeling"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modeling-base-swap-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="modal-header">
+          <div>
+            <h2 id="modeling-base-swap-title">{t('modeling.change_base_title')}</h2>
+            <p className="modeling-dialog-subtitle">{t('modeling.pick_new_base')}</p>
+          </div>
+          <button className="modal-close" type="button" onClick={onCancel} aria-label={t('common.close')} disabled={saving}>×</button>
+        </header>
+        <div className="modal-body">
+          {options.length === 0 ? (
+            <p className="modeling-empty">{t('modeling.no_alternative_base')}</p>
+          ) : (
+            <div className="form-group">
+              <select value={picked} onChange={(e) => setPicked(e.target.value)} disabled={saving} size={Math.min(8, Math.max(3, options.length))} style={{ width: '100%' }}>
+                {options.map((tbl) => {
+                  const key = `${tbl.schema_name}.${tbl.table_name}`
+                  return (
+                    <option key={tbl.id} value={key}>
+                      {tbl.label || tbl.table_name} — {tbl.schema_name}.{tbl.table_name}
+                    </option>
+                  )
+                })}
+              </select>
+            </div>
+          )}
+          <div className="modal-actions">
+            <button className="btn btn-secondary" type="button" onClick={onCancel} disabled={saving}>{t('common.cancel')}</button>
+            <button
+              className="btn btn-danger"
+              type="button"
+              disabled={saving || !picked}
+              onClick={() => {
+                const parts = picked.split('.')
+                const schema = parts[0] ?? ''
+                const table = parts.slice(1).join('.')
+                if (!schema || !table) return
+                void onSubmit(schema, table)
+              }}
+            >
+              {saving ? t('common.saving') : t('modeling.remove_table_action')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface AddMetricModalProps {
+  modelId: string
+  onClose: () => void
+  onCreated: () => void | Promise<void>
+  postData: (url: string, body: unknown) => Promise<unknown>
+  t: ReturnType<typeof useT>
+}
+
+function AddMetricModal({ modelId, onClose, onCreated, postData, t }: AddMetricModalProps) {
+  const [name, setName] = useState('')
+  const [label, setLabel] = useState('')
+  const [expression, setExpression] = useState('')
+  const [aggregation, setAggregation] = useState<'count' | 'sum' | 'avg' | 'min' | 'max' | 'count_distinct'>('sum')
+  const [format, setFormat] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const submit = async () => {
+    if (!name.trim() || !expression.trim()) return
+    setSaving(true)
+    try {
+      await postData(`/api/semantic/models/${modelId}/metrics`, {
+        name: name.trim(),
+        label: label.trim() || undefined,
+        expression: expression.trim(),
+        aggregation,
+        format: format.trim() || undefined,
+      })
+      await onCreated()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={saving ? undefined : onClose}>
+      <form
+        className="modal-card modal-card--modeling"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modeling-add-metric-title"
+        onClick={(event) => event.stopPropagation()}
+        onSubmit={(event) => { event.preventDefault(); void submit() }}
+      >
+        <header className="modal-header">
+          <h2 id="modeling-add-metric-title">{t('modeling.add_metric_title')}</h2>
+          <button className="modal-close" type="button" onClick={onClose} aria-label={t('common.close')} disabled={saving}>×</button>
+        </header>
+        <div className="modal-body">
+          <label className="form-group">
+            <span>{t('modeling.metric_name_label')}</span>
+            <input autoFocus value={name} onChange={(e) => setName(e.target.value)} disabled={saving} />
+          </label>
+          <label className="form-group">
+            <span>{t('modeling.metric_label_label')}</span>
+            <input value={label} onChange={(e) => setLabel(e.target.value)} disabled={saving} />
+          </label>
+          <label className="form-group">
+            <span>{t('modeling.metric_expression_label')}</span>
+            <input value={expression} onChange={(e) => setExpression(e.target.value)} disabled={saving} placeholder="orders.total_amount" />
+          </label>
+          <label className="form-group">
+            <span>{t('modeling.metric_aggregation_label')}</span>
+            <select value={aggregation} onChange={(e) => setAggregation(e.target.value as typeof aggregation)} disabled={saving}>
+              <option value="count">count</option>
+              <option value="count_distinct">count_distinct</option>
+              <option value="sum">sum</option>
+              <option value="avg">avg</option>
+              <option value="min">min</option>
+              <option value="max">max</option>
+            </select>
+          </label>
+          <label className="form-group">
+            <span>{t('modeling.metric_format_label')}</span>
+            <input value={format} onChange={(e) => setFormat(e.target.value)} disabled={saving} placeholder="$#,##0.00" />
+          </label>
+          <div className="modal-actions">
+            <button className="btn btn-secondary" type="button" onClick={onClose} disabled={saving}>{t('common.cancel')}</button>
+            <button className="btn btn-primary" type="submit" disabled={saving || !name.trim() || !expression.trim()}>
+              {saving ? t('common.saving') : t('common.create')}
+            </button>
+          </div>
+        </div>
+      </form>
     </div>
   )
 }

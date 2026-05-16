@@ -664,6 +664,122 @@ func (h *SemanticHandler) DeleteJoin(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+type removeTableRequest struct {
+	Schema string `json:"schema"`
+	Table  string `json:"table"`
+}
+
+type removeTableResponse struct {
+	JoinsRemoved      int `json:"joins_removed"`
+	DimensionsRemoved int `json:"dimensions_removed"`
+	MetricsRemoved    int `json:"metrics_removed"`
+}
+
+// RemoveTable cascade-deletes joins, dimensions, and metrics referencing the
+// given table. Rejects the request if the table is the model's base table.
+func (h *SemanticHandler) RemoveTable(w http.ResponseWriter, r *http.Request) {
+	modelID, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
+	req, ok := decodeJSON[removeTableRequest](w, r)
+	if !ok {
+		return
+	}
+	if strings.TrimSpace(req.Table) == "" {
+		writeError(w, http.StatusBadRequest, "table is required")
+		return
+	}
+	ctx := r.Context()
+	model, err := h.deps.SemanticRepo.GetFullModel(ctx, modelID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "model not found")
+		return
+	}
+	schema := strings.TrimSpace(req.Schema)
+	if schema == "" {
+		schema = model.BaseSchema
+	}
+	if schema == model.BaseSchema && req.Table == model.BaseTable {
+		writeError(w, http.StatusBadRequest, "cannot remove base table; change base first")
+		return
+	}
+
+	resp := removeTableResponse{}
+	for _, j := range model.Joins {
+		fromSchema := j.FromSchema
+		if fromSchema == "" {
+			fromSchema = model.BaseSchema
+		}
+		toSchema := j.ToSchema
+		if toSchema == "" {
+			toSchema = model.BaseSchema
+		}
+		if (fromSchema == schema && j.FromTable == req.Table) || (toSchema == schema && j.ToTable == req.Table) {
+			if err := h.deps.SemanticRepo.DeleteJoin(ctx, modelID, j.ID); err != nil {
+				slog.WarnContext(ctx, "remove table: delete join failed", "model_id", modelID, "join_id", j.ID, "error", err)
+				continue
+			}
+			resp.JoinsRemoved++
+		}
+	}
+	for _, d := range model.Dimensions {
+		if columnRefMatchesTable(d.ColumnRef, schema, req.Table, model.BaseSchema) {
+			if err := h.deps.SemanticRepo.DeleteDimension(ctx, modelID, d.ID); err != nil {
+				slog.WarnContext(ctx, "remove table: delete dimension failed", "model_id", modelID, "dimension_id", d.ID, "error", err)
+				continue
+			}
+			resp.DimensionsRemoved++
+		}
+	}
+	for _, m := range model.Metrics {
+		if expressionReferencesTable(m.Expression, schema, req.Table, model.BaseSchema) {
+			if err := h.deps.SemanticRepo.DeleteMetric(ctx, modelID, m.ID); err != nil {
+				slog.WarnContext(ctx, "remove table: delete metric failed", "model_id", modelID, "metric_id", m.ID, "error", err)
+				continue
+			}
+			resp.MetricsRemoved++
+		}
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func columnRefMatchesTable(ref, schema, table, baseSchema string) bool {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return false
+	}
+	qualified := schema + "." + table + "."
+	if strings.HasPrefix(ref, qualified) {
+		return true
+	}
+	if schema == baseSchema && strings.HasPrefix(ref, table+".") {
+		return true
+	}
+	return false
+}
+
+func expressionReferencesTable(expr, schema, table, baseSchema string) bool {
+	expr = strings.TrimSpace(expr)
+	if expr == "" {
+		return false
+	}
+	tokens := []string{
+		schema + "." + table + ".",
+		`"` + schema + `"."` + table + `".`,
+	}
+	if schema == baseSchema {
+		tokens = append(tokens, table+".", `"`+table+`".`)
+	}
+	lower := strings.ToLower(expr)
+	for _, tok := range tokens {
+		if strings.Contains(lower, strings.ToLower(tok)) {
+			return true
+		}
+	}
+	return false
+}
+
 // UpdateJoin modifies an existing join.
 func (h *SemanticHandler) UpdateJoin(w http.ResponseWriter, r *http.Request) {
 	modelID, ok := requireURLParam(w, r, "id")

@@ -73,6 +73,7 @@ func Router(deps *app.Dependencies) http.Handler {
 		r.Post("/semantic/models/{id}/metrics", semHandler.CreateMetric)
 		r.Delete("/semantic/models/{id}/metrics/{metric_id}", semHandler.DeleteMetric)
 		r.Put("/semantic/models/{id}/metrics/{metric_id}", semHandler.UpdateMetric)
+		r.Post("/semantic/models/{id}/tables/remove", semHandler.RemoveTable)
 		r.Post("/semantic/models/{id}/joins", semHandler.CreateJoin)
 		r.Delete("/semantic/models/{id}/joins/{join_id}", semHandler.DeleteJoin)
 		r.Put("/semantic/models/{id}/joins/{join_id}", semHandler.UpdateJoin)
