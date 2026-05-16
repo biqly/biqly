@@ -814,8 +814,11 @@ func failedAIResponse(err error) *ai.Response {
 	}
 }
 
-func (h *AIHandler) loadModel(ctx context.Context, datasourceID, modelID string) (*semantic.SemanticModel, error) {
-	model, err := h.deps.SemanticRepo.GetPublishedModelByName(ctx, datasourceID, modelID)
+func (h *AIHandler) loadModel(ctx context.Context, datasourceID, modelRef string) (*semantic.SemanticModel, error) {
+	if model, err := h.deps.SemanticRepo.GetPublishedFullModel(ctx, modelRef); err == nil {
+		return model, nil
+	}
+	model, err := h.deps.SemanticRepo.GetPublishedModelByName(ctx, datasourceID, modelRef)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", core.ErrLoadSemanticModel, err)
 	}
