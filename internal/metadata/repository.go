@@ -518,7 +518,7 @@ type SuccessfulAIQuery struct {
 // produced a high-confidence query with no warnings, scoped to the given
 // datasource and (optionally) semantic model. Used to inject dynamic few-shot
 // examples into the prompt builder.
-func (r *Repository) ListSuccessfulAIQueries(ctx context.Context, datasourceID string, modelName *string, limit int) ([]SuccessfulAIQuery, error) {
+func (r *Repository) ListSuccessfulAIQueries(ctx context.Context, datasourceID string, modelID *string, limit int) ([]SuccessfulAIQuery, error) {
 	if limit <= 0 {
 		return nil, nil
 	}
@@ -526,8 +526,8 @@ func (r *Repository) ListSuccessfulAIQueries(ctx context.Context, datasourceID s
 	q := `
 		SELECT question, logical_query
 		FROM ai_query_history
-		WHERE datasource_id = $1
-		  AND ($2::text IS NULL OR model_id = $2)
+		WHERE datasource_id = $1::uuid
+		  AND ($2::uuid IS NULL OR model_id = $2::uuid)
 		  AND confidence_score >= $3
 		  AND (warnings IS NULL OR cardinality(warnings) = 0)
 		  AND logical_query IS NOT NULL
@@ -535,8 +535,8 @@ func (r *Repository) ListSuccessfulAIQueries(ctx context.Context, datasourceID s
 		LIMIT $4
 	`
 	var modelArg sql.NullString
-	if modelName != nil && *modelName != "" {
-		modelArg = sql.NullString{String: *modelName, Valid: true}
+	if modelID != nil && *modelID != "" {
+		modelArg = sql.NullString{String: *modelID, Valid: true}
 	}
 	return platformdb.QuerySliceErr(ctx, r.db, "list successful AI queries", q,
 		[]any{datasourceID, modelArg, minConfidence, limit},

@@ -94,6 +94,24 @@ func repairOneGrainFieldName(field string, dimSet map[string]bool) string {
 		if cand := base + "_ts" + suf; dimSet[cand] {
 			return cand
 		}
+		if cand, ok := uniqueDimensionWithSuffix(dimSet, base, suf); ok {
+			return cand
+		}
 	}
 	return field
+}
+
+func uniqueDimensionWithSuffix(dimSet map[string]bool, base, suffix string) (string, bool) {
+	needlePrefix := base + "_"
+	var match string
+	for dim := range dimSet {
+		if !strings.HasSuffix(dim, suffix) || !strings.HasPrefix(dim, needlePrefix) {
+			continue
+		}
+		if match != "" {
+			return "", false
+		}
+		match = dim
+	}
+	return match, match != ""
 }

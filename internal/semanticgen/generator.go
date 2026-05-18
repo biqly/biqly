@@ -90,7 +90,9 @@ func GenerateModelFromMetadata(tables []metadata.Table, columns []metadata.Colum
 		if shouldSkipDimension(col) {
 			continue
 		}
-		model.Dimensions = append(model.Dimensions, dimensionFromColumn(modelID, col, base.SchemaName, dimNames, false))
+		dim := dimensionFromColumn(modelID, col, base.SchemaName, dimNames, false)
+		model.Dimensions = append(model.Dimensions, dim)
+		model.Dimensions = appendDateGrainDimensions(model.Dimensions, modelID, col, dim, dimNames, opts.MaxDimensions)
 	}
 
 	relatedAdded := 0
@@ -104,7 +106,9 @@ func GenerateModelFromMetadata(tables []metadata.Table, columns []metadata.Colum
 		if !selectedTables[tableKey(col.SchemaName, col.TableName)] || shouldSkipRelatedDimension(col) {
 			continue
 		}
-		model.Dimensions = append(model.Dimensions, dimensionFromColumn(modelID, col, base.SchemaName, dimNames, true))
+		dim := dimensionFromColumn(modelID, col, base.SchemaName, dimNames, true)
+		model.Dimensions = append(model.Dimensions, dim)
+		model.Dimensions = appendDateGrainDimensions(model.Dimensions, modelID, col, dim, dimNames, opts.MaxDimensions)
 		relatedAdded++
 	}
 
@@ -184,6 +188,41 @@ func dimensionFromColumn(modelID string, col metadata.Column, baseSchema string,
 		IsActive:    true,
 		IsDisplay:   isDisplayColumn(col.ColumnName),
 	}
+}
+
+func appendDateGrainDimensions(dimensions []semantic.Dimension, modelID string, col metadata.Column, base semantic.Dimension, names map[string]bool, maxDimensions int) []semantic.Dimension {
+	if !isDateType(col.DataType) {
+		return dimensions
+	}
+	grains := []struct {
+		name     string
+		suffix   string
+		synonyms []string
+	}{
+		{"year", "_year", []string{"year", "years", "yearly", "annual", "yıl", "yil", "yıllık", "yillik", "per year", "by year", "yıl bazında"}},
+		{"quarter", "_quarter", []string{"quarter", "quarters", "qtr", "çeyrek", "ceyrek", "çeyreklik", "ceyreklik"}},
+		{"month", "_month", []string{"month", "months", "monthly", "ay", "aylık", "aylik", "per month", "by month", "ay bazında"}},
+		{"day", "_day", []string{"day", "days", "daily", "gün", "gun", "günlük", "gunluk", "per day", "by day", "günü", "gunu"}},
+	}
+	for _, grain := range grains {
+		if len(dimensions) >= maxDimensions {
+			break
+		}
+		labelValue := humanLabel(base.Name + grain.suffix)
+		dimensions = append(dimensions, semantic.Dimension{
+			ID:          uuid.New().String(),
+			ModelID:     modelID,
+			Name:        uniqueName(base.Name+grain.suffix, names),
+			Label:       &labelValue,
+			ColumnRef:   base.ColumnRef,
+			Type:        string(semantic.DimensionTypeDate),
+			TimeGrain:   grain.name,
+			Synonyms:    dedupeStrings(append(synonyms(col.ColumnName+grain.suffix), grain.synonyms...)),
+			Description: col.Description,
+			IsActive:    true,
+		})
+	}
+	return dimensions
 }
 
 func countMetric(modelID string, names map[string]bool) semantic.Metric {

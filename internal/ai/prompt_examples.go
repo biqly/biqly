@@ -33,9 +33,9 @@ func (b *PromptBuilder) writeDialectCompilationGuide(sb *strings.Builder, target
 		key, key)
 
 	sb.WriteString("### Same LogicalQuery, different compiled SQL\n")
-	sb.WriteString("Illustrative fragments for one filter + one monthly grain dimension (catalog has `order_date`, `revenue` metric on `amount`):\n\n")
+	sb.WriteString("Illustrative fragments for one filter + one monthly grain dimension (catalog has `order_date_month`, `order_date`, `revenue` metric on `amount`):\n\n")
 	sb.WriteString("LogicalQuery (always emit this shape):\n")
-	sb.WriteString(`{"select":[{"type":"dimension","name":"order_month"},{"type":"metric","name":"revenue"}],"filters":[{"field":"order_date","operator":"gte","value":"2024-01-01"}],"group_by":[{"field":"order_month"}],"limit":100}`)
+	sb.WriteString(`{"select":[{"type":"dimension","name":"order_date_month"},{"type":"metric","name":"revenue"}],"filters":[{"field":"order_date","operator":"gte","value":"2024-01-01"}],"group_by":[{"field":"order_date_month"}],"limit":100}`)
 	sb.WriteString("\n\n")
 
 	type dialectRow struct {
@@ -121,13 +121,13 @@ func (b *PromptBuilder) writeFailureExamples(sb *strings.Builder) {
 		{
 			title: "SQL expressions inside JSON field slots",
 			bad:   `{"select":[{"type":"dimension","name":"year(order_date)"}]}`,
-			good:  `{"select":[{"type":"dimension","name":"order_year"}],"group_by":[{"field":"order_year"}]}`,
-			note:  "No functions in `name`/`field` — pick the listed grain dimension (e.g. order_year, order_month).",
+			good:  `{"select":[{"type":"dimension","name":"order_date_year"}],"group_by":[{"field":"order_date_year"}]}`,
+			note:  "No functions in `name`/`field` — pick the exact listed grain dimension (e.g. order_date_year, order_date_month).",
 		},
 		{
 			title: "Year filter on raw timestamp column",
 			bad:   `{"filters":[{"field":"order_date","operator":"eq","value":2024}]}`,
-			good:  `{"filters":[{"field":"order_year","operator":"eq","value":2024}]}`,
+			good:  `{"filters":[{"field":"order_date_year","operator":"eq","value":2024}]}`,
 			note:  "Compare integers to `*_year` / `*_month` dimensions, or ISO strings to raw date columns.",
 		},
 		{
@@ -172,35 +172,35 @@ func (b *PromptBuilder) writePlanningSteps(sb *strings.Builder) {
 	}{
 		{
 			title: "1. Parse the question",
-			body: "Identify intent: aggregate (how many/total/average), list/detail, trend over time, ranking (top/highest/most), comparison, or filter-only. Note Turkish/English time phrases and entity words (müşteri, sipariş, silinen, aylık, …).",
+			body:  "Identify intent: aggregate (how many/total/average), list/detail, trend over time, ranking (top/highest/most), comparison, or filter-only. Note Turkish/English time phrases and entity words (müşteri, sipariş, silinen, aylık, …).",
 		},
 		{
 			title: "2. Map entities to tables",
-			body: "Start from the base table. Add joins from **Available Joins** only when the question needs columns from another table. Do not invent tables or join paths.",
+			body:  "Start from the base table. Add joins from **Available Joins** only when the question needs columns from another table. Do not invent tables or join paths.",
 		},
 		{
 			title: "3. Select metrics",
-			body: "Pick metric names from **Available Metrics** (match synonyms). Use `row_count` for row counts; sum/avg/min/max/count_distinct only when the question asks for that measure. Never invent metrics.",
+			body:  "Pick metric names from **Available Metrics** (match synonyms). Use `row_count` for row counts; sum/avg/min/max/count_distinct only when the question asks for that measure. Never invent metrics.",
 		},
 		{
 			title: "4. Select dimensions",
-			body: "For readable labels use **Display Dimensions**. For time breakdowns use listed `*_year`, `*_month`, `*_day`, … grain dimensions (or `time_grain` on `group_by` when instructed in Rules). Avoid `*_id` columns unless the user asks for ids/codes.",
+			body:  "For readable labels use **Display Dimensions**. For time breakdowns use exact listed grain dimensions like `order_date_year`, `order_date_month`, `order_date_day`; do not shorten them to `order_year` or `order_month`. If no listed grain exists, use the raw date dimension with `time_grain` on `group_by` as instructed in Rules. Avoid `*_id` columns unless the user asks for ids/codes.",
 		},
 		{
 			title: "5. Decide filters vs group_by",
-			body: "Period constraints (“in 2026”, “May 2024”, “last quarter”) → `filters` on grain or ISO date dimensions. Breakdown triggers (“by month”, “per customer”, “bazında”, “aylık”) → matching dimensions in **both** `select` and `group_by`. Soft-delete wording → deletion-indicator filters per Rules.",
+			body:  "Period constraints (“in 2026”, “May 2024”, “last quarter”) → `filters` on grain or ISO date dimensions. Breakdown triggers (“by month”, “per customer”, “bazında”, “aylık”) → matching dimensions in **both** `select` and `group_by`. Soft-delete wording → deletion-indicator filters per Rules.",
 		},
 		{
 			title: "6. Post-aggregation and windows",
-			body: "Thresholds on aggregates (“more than 10 orders”) → `having` on metric names. Running totals, ranks, moving averages → `window` select items per Rules.",
+			body:  "Thresholds on aggregates (“more than 10 orders”) → `having` on metric names. Running totals, ranks, moving averages → `window` select items per Rules.",
 		},
 		{
 			title: "7. Order, limit, and sort",
-			body: "Top-N / highest → `order_by` metric `desc` and small `limit`. Time series → `order_by` grain dimensions `asc` (coarsest to finest when multiple grains).",
+			body:  "Top-N / highest → `order_by` metric `desc` and small `limit`. Time series → `order_by` grain dimensions `asc` (coarsest to finest when multiple grains).",
 		},
 		{
 			title: "8. Build and verify JSON",
-			body: "Assemble LogicalQuery: every `field`/`name` is an exact catalog dimension or metric name; RFC 8259 double-quoted keys; include every column the question asks for; empty `select` only if the catalog cannot answer.",
+			body:  "Assemble LogicalQuery: every `field`/`name` is an exact catalog dimension or metric name; RFC 8259 double-quoted keys; include every column the question asks for; empty `select` only if the catalog cannot answer.",
 		},
 	}
 

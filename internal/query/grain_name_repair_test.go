@@ -48,6 +48,34 @@ func TestRepairMisnamedCalendarGrainDimensions_noOpWhenUnknown(t *testing.T) {
 	}
 }
 
+func TestRepairMisnamedCalendarGrainDimensions_shorthandOrderGrain(t *testing.T) {
+	dims := []string{"order_date", "order_date_year", "order_date_month", "count"}
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeDimension, Name: "order_year"},
+			{Type: SelectTypeDimension, Name: "order_month"},
+			{Type: SelectTypeMetric, Name: "count"},
+		},
+		GroupBy: []GroupBy{{Field: "order_year"}, {Field: "order_month"}},
+		OrderBy: []OrderBy{{Field: "order_year", Direction: OrderAsc}, {Field: "order_month", Direction: OrderAsc}},
+		Limit:   100,
+	}
+	RepairMisnamedCalendarGrainDimensions(&lq, dims)
+
+	if lq.Select[0].Name != "order_date_year" {
+		t.Errorf("select year: got %q", lq.Select[0].Name)
+	}
+	if lq.Select[1].Name != "order_date_month" {
+		t.Errorf("select month: got %q", lq.Select[1].Name)
+	}
+	if lq.GroupBy[0].Field != "order_date_year" || lq.GroupBy[1].Field != "order_date_month" {
+		t.Errorf("group_by = %#v", lq.GroupBy)
+	}
+	if lq.OrderBy[0].Field != "order_date_year" || lq.OrderBy[1].Field != "order_date_month" {
+		t.Errorf("order_by = %#v", lq.OrderBy)
+	}
+}
+
 func TestRepairMisnamedCalendarGrainDimensions_noOpWhenAlreadyValid(t *testing.T) {
 	dims := []string{"created_at_ts_month", "created_at_month"}
 	lq := LogicalQuery{

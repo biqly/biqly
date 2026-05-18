@@ -121,13 +121,13 @@ func (r *Repository) BulkInsertModelChildren(ctx context.Context, modelID string
 		}
 	}()
 	if len(dims) > 0 {
-		stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_dimensions (id, model_id, name, label, column_ref, type, synonyms, description, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`)
+		stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_dimensions (id, model_id, name, label, column_ref, type, time_grain, synonyms, description, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`)
 		if err != nil {
 			return fmt.Errorf("prepare dimensions: %w", err)
 		}
 		for i := range dims {
 			d := &dims[i]
-			if _, err := stmt.ExecContext(ctx, d.ID, d.ModelID, d.Name, d.Label, d.ColumnRef, d.Type, d.Synonyms, d.Description, d.IsActive); err != nil {
+			if _, err := stmt.ExecContext(ctx, d.ID, d.ModelID, d.Name, d.Label, d.ColumnRef, d.Type, nullableString(d.TimeGrain), d.Synonyms, d.Description, d.IsActive); err != nil {
 				stmt.Close()
 				return fmt.Errorf("insert dimension %q: %w", d.Name, err)
 			}
@@ -177,10 +177,10 @@ func (r *Repository) BulkInsertModelChildren(ctx context.Context, modelID string
 // CreateDimension inserts a new dimension.
 func (r *Repository) CreateDimension(ctx context.Context, d *Dimension) error {
 	query := `
-		INSERT INTO semantic_dimensions (id, model_id, name, label, column_ref, type, synonyms, description, is_active)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO semantic_dimensions (id, model_id, name, label, column_ref, type, time_grain, synonyms, description, is_active)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
-	if err := r.db.QueryRowContext(ctx, query, d.ID, d.ModelID, d.Name, d.Label, d.ColumnRef, d.Type, d.Synonyms, d.Description, d.IsActive).Err(); err != nil {
+	if err := r.db.QueryRowContext(ctx, query, d.ID, d.ModelID, d.Name, d.Label, d.ColumnRef, d.Type, nullableString(d.TimeGrain), d.Synonyms, d.Description, d.IsActive).Err(); err != nil {
 		return fmt.Errorf("create dimension: %w", err)
 	}
 	return r.MarkModelDraft(ctx, d.ModelID)
@@ -188,14 +188,14 @@ func (r *Repository) CreateDimension(ctx context.Context, d *Dimension) error {
 
 // GetDimensions returns all active dimensions for a model.
 func (r *Repository) GetDimensions(ctx context.Context, modelID string) ([]Dimension, error) {
-	query := `SELECT id::text, model_id::text, name, label, column_ref, type, synonyms, description, is_active, created_at FROM semantic_dimensions WHERE model_id::text = $1 AND is_active = true ORDER BY name`
+	query := `SELECT id::text, model_id::text, name, label, column_ref, type, time_grain, synonyms, description, is_active, created_at FROM semantic_dimensions WHERE model_id::text = $1 AND is_active = true ORDER BY name`
 	return platformdb.QuerySliceErr(ctx, r.db, "get dimensions", query, []any{modelID}, scanDimension)
 }
 
 // ListAllDimensions returns every dimension (active and inactive) for a model
 // so the modeling UI can show soft-deleted items in a "Pasif" section.
 func (r *Repository) ListAllDimensions(ctx context.Context, modelID string) ([]Dimension, error) {
-	query := `SELECT id::text, model_id::text, name, label, column_ref, type, synonyms, description, is_active, created_at FROM semantic_dimensions WHERE model_id::text = $1 ORDER BY is_active DESC, name`
+	query := `SELECT id::text, model_id::text, name, label, column_ref, type, time_grain, synonyms, description, is_active, created_at FROM semantic_dimensions WHERE model_id::text = $1 ORDER BY is_active DESC, name`
 	return platformdb.QuerySliceErr(ctx, r.db, "list all dimensions", query, []any{modelID}, scanDimension)
 }
 
@@ -210,8 +210,8 @@ func (r *Repository) DeleteDimension(ctx context.Context, modelID, dimensionID s
 
 // UpdateDimension updates an existing dimension.
 func (r *Repository) UpdateDimension(ctx context.Context, d *Dimension) error {
-	query := `UPDATE semantic_dimensions SET name = $2, label = $3, column_ref = $4, type = $5, synonyms = $6, description = $7, is_active = $8 WHERE id::text = $1 AND model_id::text = $9`
-	_, err := r.db.ExecContext(ctx, query, d.ID, d.Name, d.Label, d.ColumnRef, d.Type, d.Synonyms, d.Description, d.IsActive, d.ModelID)
+	query := `UPDATE semantic_dimensions SET name = $2, label = $3, column_ref = $4, type = $5, time_grain = $6, synonyms = $7, description = $8, is_active = $9 WHERE id::text = $1 AND model_id::text = $10`
+	_, err := r.db.ExecContext(ctx, query, d.ID, d.Name, d.Label, d.ColumnRef, d.Type, nullableString(d.TimeGrain), d.Synonyms, d.Description, d.IsActive, d.ModelID)
 	if err != nil {
 		return fmt.Errorf("update dimension: %w", err)
 	}
@@ -551,10 +551,22 @@ func modelSelectSQL() string {
 
 func scanDimension(s platformdb.Scanner) (Dimension, error) {
 	var d Dimension
-	if err := s.Scan(&d.ID, &d.ModelID, &d.Name, &d.Label, &d.ColumnRef, &d.Type, &nullStringArray{s: &d.Synonyms}, &d.Description, &d.IsActive, &d.CreatedAt); err != nil {
+	var timeGrain sql.NullString
+	if err := s.Scan(&d.ID, &d.ModelID, &d.Name, &d.Label, &d.ColumnRef, &d.Type, &timeGrain, &nullStringArray{s: &d.Synonyms}, &d.Description, &d.IsActive, &d.CreatedAt); err != nil {
 		return d, fmt.Errorf("scan dimension: %w", err)
 	}
+	if timeGrain.Valid {
+		d.TimeGrain = timeGrain.String
+	}
 	return d, nil
+}
+
+func nullableString(value string) any {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	return value
 }
 
 func scanMetric(s platformdb.Scanner) (Metric, error) {

@@ -34,20 +34,20 @@ type Response struct {
 	// router or validator cannot proceed without user input. Frontend can
 	// render the options as selectable chips.
 	Clarification *Clarification `json:"clarification,omitempty"`
-	Prompt                string              `json:"-"`
-	RawResponse           string              `json:"-"`
+	Prompt        string         `json:"-"`
+	RawResponse   string         `json:"-"`
 	// Multi-candidate generation
 	Candidates      []CandidateEntry `json:"candidates,omitempty"`
 	CandidatesCount int              `json:"candidates_count,omitempty"`
 	// Retry / validation
-	RetryCount       int                    `json:"retry_count,omitempty"`
+	RetryCount       int                      `json:"retry_count,omitempty"`
 	ValidationResult *ValidationExplainResult `json:"validation_result,omitempty"`
 	// Model / cost tracking
-	ModelUsed    string       `json:"model_used,omitempty"`
-	PromptStats  *PromptStats `json:"prompt_stats,omitempty"`
-	TokenUsage   *TokenUsage  `json:"token_usage,omitempty"`
-	CostUSD    float64     `json:"cost_usd,omitempty"`
-	LatencyMs  int         `json:"latency_ms,omitempty"`
+	ModelUsed   string       `json:"model_used,omitempty"`
+	PromptStats *PromptStats `json:"prompt_stats,omitempty"`
+	TokenUsage  *TokenUsage  `json:"token_usage,omitempty"`
+	CostUSD     float64      `json:"cost_usd,omitempty"`
+	LatencyMs   int          `json:"latency_ms,omitempty"`
 	// Visualization hint for frontend chart auto-selection
 	VisualizationHint *VisualizationHint `json:"visualization_hint,omitempty"`
 }
@@ -63,19 +63,19 @@ const (
 // key appended (the backend wires it through Request.Tables or a dedicated
 // clarification continuation depending on the source).
 type Clarification struct {
-	Status     string                 `json:"status"`                // ClarificationStatusNeeded
-	Question   string                 `json:"question"`              // user-facing prompt
-	Reason     string                 `json:"reason,omitempty"`      // short explanation, e.g. "Multiple revenue metrics matched"
-	Options    []ClarificationOption  `json:"options,omitempty"`     // discrete choices
-	Candidates []ClarificationContext `json:"candidates,omitempty"`  // alternative semantic contexts when the router was unsure
-	Source     string                 `json:"source,omitempty"`      // "router" | "validator" | "ai"
+	Status     string                 `json:"status"`               // ClarificationStatusNeeded
+	Question   string                 `json:"question"`             // user-facing prompt
+	Reason     string                 `json:"reason,omitempty"`     // short explanation, e.g. "Multiple revenue metrics matched"
+	Options    []ClarificationOption  `json:"options,omitempty"`    // discrete choices
+	Candidates []ClarificationContext `json:"candidates,omitempty"` // alternative semantic contexts when the router was unsure
+	Source     string                 `json:"source,omitempty"`     // "router" | "validator" | "ai"
 }
 
 // ClarificationOption is a single discrete answer a user can pick.
 type ClarificationOption struct {
-	Key   string `json:"key"`             // machine-readable answer key
-	Label string `json:"label"`           // human-readable label
-	Hint  string `json:"hint,omitempty"`  // optional explanation
+	Key   string `json:"key"`            // machine-readable answer key
+	Label string `json:"label"`          // human-readable label
+	Hint  string `json:"hint,omitempty"` // optional explanation
 }
 
 // ClarificationContext describes one of several candidate semantic contexts
@@ -191,7 +191,14 @@ const LogicalQuerySchema = `{
     },
     "group_by": {
       "type": "array",
-      "items": {"type": "object", "required": ["field"], "properties": {"field": {"type": "string"}}}
+      "items": {
+        "type": "object",
+        "required": ["field"],
+        "properties": {
+          "field": {"type": "string"},
+          "time_grain": {"type": "string", "enum": ["day","week","month","quarter","year"]}
+        }
+      }
     },
     "order_by": {
       "type": "array",

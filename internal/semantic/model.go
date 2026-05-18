@@ -22,15 +22,15 @@ type SemanticModel struct {
 	IsActive        bool        `json:"is_active" db:"is_active"`
 	Status          string      `json:"status" db:"status"`
 	Version         int         `json:"version" db:"version"`
-	PublishedAt    *time.Time  `json:"published_at,omitempty" db:"published_at"`
-	PublishedBy    *string     `json:"published_by,omitempty" db:"published_by"`
-	DraftUpdatedAt time.Time   `json:"draft_updated_at" db:"draft_updated_at"`
-	CreatedBy      *string     `json:"created_by" db:"created_by"`
-	Dimensions     []Dimension `json:"dimensions,omitempty"`
-	Metrics        []Metric    `json:"metrics,omitempty"`
-	Joins          []Join      `json:"joins,omitempty"`
-	CreatedAt      time.Time   `json:"created_at" db:"created_at"`
-	UpdatedAt      time.Time   `json:"updated_at" db:"updated_at"`
+	PublishedAt     *time.Time  `json:"published_at,omitempty" db:"published_at"`
+	PublishedBy     *string     `json:"published_by,omitempty" db:"published_by"`
+	DraftUpdatedAt  time.Time   `json:"draft_updated_at" db:"draft_updated_at"`
+	CreatedBy       *string     `json:"created_by" db:"created_by"`
+	Dimensions      []Dimension `json:"dimensions,omitempty"`
+	Metrics         []Metric    `json:"metrics,omitempty"`
+	Joins           []Join      `json:"joins,omitempty"`
+	CreatedAt       time.Time   `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time   `json:"updated_at" db:"updated_at"`
 }
 
 // Dimension represents a group-by-able field in a semantic model.
@@ -47,8 +47,7 @@ type Dimension struct {
 	CreatedAt   time.Time `json:"created_at" db:"created_at"`
 	// TimeGrain drives calendar bucketing in SQL: year/quarter/month use integer parts (e.g. 2024, 1–4, 1–12);
 	// other values fall back to dialect DateTrunc (timestamp buckets).
-	// In-memory / JSON only; not stored in semantic_dimensions (use db:"-").
-	TimeGrain string `json:"time_grain,omitempty" db:"-"`
+	TimeGrain string `json:"time_grain,omitempty" db:"time_grain"`
 	// IsDisplay marks this dimension as the preferred human-readable display
 	// column for its table (e.g. customer.name over customer.id). The AI prompt
 	// builder and query planner prioritise display dimensions for SELECT when

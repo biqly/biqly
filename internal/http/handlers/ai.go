@@ -832,11 +832,11 @@ func (h *AIHandler) loadGlossaryForPrompt(ctx context.Context, model *semantic.S
 	} else {
 		for _, r := range rows {
 			ext = append(ext, ai.ExternalGlossaryInput{
-				Term:         r.Term,
-				Definition:   r.Definition,
-				MapsToType:   r.MapsToType,
-				MapsToName:   r.MapsToName,
-				Aliases:      r.Aliases,
+				Term:       r.Term,
+				Definition: r.Definition,
+				MapsToType: r.MapsToType,
+				MapsToName: r.MapsToName,
+				Aliases:    r.Aliases,
 			})
 		}
 	}
@@ -850,12 +850,12 @@ func (h *AIHandler) loadFewShotExamples(ctx context.Context, model *semantic.Sem
 	if model == nil {
 		return nil
 	}
-	var modelName *string
-	if model.Name != "" {
-		n := model.Name
-		modelName = &n
+	var modelID *string
+	if model.ID != "" {
+		id := model.ID
+		modelID = &id
 	}
-	rows, err := h.deps.MetaRepo.ListSuccessfulAIQueries(ctx, model.DatasourceID, modelName, fewShotLimit)
+	rows, err := h.deps.MetaRepo.ListSuccessfulAIQueries(ctx, model.DatasourceID, modelID, fewShotLimit)
 	if err != nil {
 		slog.WarnContext(ctx, "load few-shot examples failed", "error", err)
 		return nil

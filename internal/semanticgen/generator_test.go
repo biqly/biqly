@@ -53,6 +53,12 @@ func TestGenerateModelFromMetadata(t *testing.T) {
 	if !hasDimension(got.Model.Dimensions, "order_date", "orders.order_date") {
 		t.Fatalf("missing order_date dimension: %#v", got.Model.Dimensions)
 	}
+	if !hasDimensionWithGrain(got.Model.Dimensions, "order_date_year", "orders.order_date", "year") {
+		t.Fatalf("missing order_date_year grain dimension: %#v", got.Model.Dimensions)
+	}
+	if !hasDimensionWithGrain(got.Model.Dimensions, "order_date_month", "orders.order_date", "month") {
+		t.Fatalf("missing order_date_month grain dimension: %#v", got.Model.Dimensions)
+	}
 	if !hasDimension(got.Model.Dimensions, "customers_name", "customers.name") {
 		t.Fatalf("missing related customer name dimension: %#v", got.Model.Dimensions)
 	}
@@ -70,6 +76,15 @@ func TestGenerateModelFromMetadata(t *testing.T) {
 func hasDimension(dimensions []semantic.Dimension, name, ref string) bool {
 	for _, dim := range dimensions {
 		if dim.Name == name && dim.ColumnRef == ref {
+			return true
+		}
+	}
+	return false
+}
+
+func hasDimensionWithGrain(dimensions []semantic.Dimension, name, ref, grain string) bool {
+	for _, dim := range dimensions {
+		if dim.Name == name && dim.ColumnRef == ref && dim.TimeGrain == grain {
 			return true
 		}
 	}

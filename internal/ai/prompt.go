@@ -274,6 +274,9 @@ func (b *PromptBuilder) writeDimensions(sb *strings.Builder, dims []semantic.Dim
 		for _, d := range displayDims {
 			syn := joinSynonymsCap(d.Synonyms, maxSynonymsPerLine)
 			line := fmt.Sprintf("- %s (type: %s, column: %s)", d.Name, d.Type, d.ColumnRef)
+			if d.TimeGrain != "" {
+				line = strings.TrimSuffix(line, ")") + fmt.Sprintf(", time_grain: %s)", d.TimeGrain)
+			}
 			if syn != "" {
 				line += fmt.Sprintf(", synonyms: %s", syn)
 			}
@@ -293,6 +296,9 @@ func (b *PromptBuilder) writeDimensions(sb *strings.Builder, dims []semantic.Dim
 	for i, d := range otherDims {
 		syn := joinSynonymsCap(d.Synonyms, maxSynonymsPerLine)
 		line := fmt.Sprintf("- %s (type: %s, column: %s)", d.Name, d.Type, d.ColumnRef)
+		if d.TimeGrain != "" {
+			line = strings.TrimSuffix(line, ")") + fmt.Sprintf(", time_grain: %s)", d.TimeGrain)
+		}
 		if syn != "" {
 			line += fmt.Sprintf(", synonyms: %s", syn)
 		}

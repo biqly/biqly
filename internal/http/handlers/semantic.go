@@ -401,6 +401,7 @@ type createDimensionRequest struct {
 	Label     string   `json:"label,omitempty"`
 	ColumnRef string   `json:"column_ref"`
 	Type      string   `json:"type"`
+	TimeGrain string   `json:"time_grain,omitempty"`
 	Synonyms  []string `json:"synonyms,omitempty"`
 }
 
@@ -422,6 +423,7 @@ func (h *SemanticHandler) CreateDimension(w http.ResponseWriter, r *http.Request
 		Name:      req.Name,
 		ColumnRef: req.ColumnRef,
 		Type:      req.Type,
+		TimeGrain: req.TimeGrain,
 		Synonyms:  req.Synonyms,
 		IsActive:  true,
 	}
@@ -581,6 +583,7 @@ func (h *SemanticHandler) UpdateDimension(w http.ResponseWriter, r *http.Request
 		Name:      req.Name,
 		ColumnRef: req.ColumnRef,
 		Type:      req.Type,
+		TimeGrain: req.TimeGrain,
 		Synonyms:  req.Synonyms,
 		IsActive:  true,
 	}
