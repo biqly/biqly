@@ -165,6 +165,8 @@ func (c *Compiler) compileStatement(
 	if orderByClause != "" {
 		sql.WriteString(" ORDER BY ")
 		sql.WriteString(orderByClause)
+	} else if c.dialect.Name() == "sqlserver" && limitClause != "" {
+		sql.WriteString(" ORDER BY (SELECT NULL)")
 	}
 	if limitClause != "" {
 		sql.WriteString(" ")

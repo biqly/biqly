@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/biqly/biqly/internal/dialect"
 	"github.com/biqly/biqly/internal/metadata"
 )
 
@@ -42,5 +43,20 @@ func TestBuildDescribePromptPrefersTurkishDescriptions(t *testing.T) {
 	}
 	if !strings.Contains(prompt, "Keep original table/column names") {
 		t.Fatalf("describe prompt should preserve technical schema names, got:\n%s", prompt)
+	}
+}
+
+func TestBuildTableSampleSQLUsesTopForSQLServer(t *testing.T) {
+	got, err := buildTableSampleSQL(dialect.SQLServerDialect{}, []metadata.Column{
+		{ColumnName: "brand_id"},
+		{ColumnName: "brand_name"},
+	}, "production", "brands", 10)
+	if err != nil {
+		t.Fatalf("buildTableSampleSQL() error = %v", err)
+	}
+
+	want := "SELECT TOP (10) [brand_id], [brand_name] FROM [production].[brands]"
+	if got != want {
+		t.Fatalf("sample SQL mismatch.\nGot:  %s\nWant: %s", got, want)
 	}
 }

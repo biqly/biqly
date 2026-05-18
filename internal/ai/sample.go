@@ -27,16 +27,36 @@ func FetchTableSample(ctx context.Context, db *sql.DB, d dialect.Dialect, cols [
 	if limit <= 0 {
 		return nil, nil
 	}
+	query, err := buildTableSampleSQL(d, cols, schema, table, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	// nosemgrep
+	rows, err := db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	out, err := scanSQLRowsToMaps(rows)
+	if err != nil {
+		return nil, err
+	}
+	return shrinkSampleForPrompt(out, maxCellRunes), nil
+}
+
+func buildTableSampleSQL(d dialect.Dialect, cols []metadata.Column, schema, table string, limit int) (string, error) {
 	if table != "" && !validIdent(table) {
-		return nil, fmt.Errorf("invalid table identifier: %q", table)
+		return "", fmt.Errorf("invalid table identifier: %q", table)
 	}
 	if schema != "" && !validIdent(schema) {
-		return nil, fmt.Errorf("invalid schema identifier: %q", schema)
+		return "", fmt.Errorf("invalid schema identifier: %q", schema)
 	}
 	colIdents := make([]string, 0, len(cols))
 	for _, c := range cols {
 		if !validIdent(c.ColumnName) {
-			return nil, fmt.Errorf("invalid column identifier: %q", c.ColumnName)
+			return "", fmt.Errorf("invalid column identifier: %q", c.ColumnName)
 		}
 		colIdents = append(colIdents, d.QuoteIdentSegment(c.ColumnName))
 	}
@@ -49,22 +69,17 @@ func FetchTableSample(ctx context.Context, db *sql.DB, d dialect.Dialect, cols [
 	// static analyzers that pattern-match string-formatted SQL stay quiet.
 	var qb strings.Builder
 	qb.WriteString("SELECT ")
+	if d.Name() == "sqlserver" {
+		qb.WriteString("TOP (")
+		qb.WriteString(fmt.Sprint(limit))
+		qb.WriteString(") ")
+	}
 	qb.WriteString(strings.Join(colIdents, ", "))
 	qb.WriteString(" FROM ")
 	qb.WriteString(from)
-	qb.WriteString(" ")
-	qb.WriteString(d.LimitOffset(limit, 0))
-
-	// nosemgrep
-	rows, err := db.QueryContext(ctx, qb.String())
-	if err != nil {
-		return nil, err
+	if d.Name() != "sqlserver" {
+		qb.WriteString(" ")
+		qb.WriteString(d.LimitOffset(limit, 0))
 	}
-	defer func() { _ = rows.Close() }()
-
-	out, err := scanSQLRowsToMaps(rows)
-	if err != nil {
-		return nil, err
-	}
-	return shrinkSampleForPrompt(out, maxCellRunes), nil
+	return qb.String(), nil
 }

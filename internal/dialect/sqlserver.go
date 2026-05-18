@@ -33,17 +33,13 @@ func (d SQLServerDialect) Placeholder(index int) string {
 
 // LimitOffset generates the LIMIT/OFFSET clause.
 func (d SQLServerDialect) LimitOffset(limit, offset int) string {
-	// SQL Server uses OFFSET ... ROWS FETCH NEXT ... ROWS ONLY
-	// Requires ORDER BY clause
 	var parts []string
-	if offset > 0 {
-		parts = append(parts, fmt.Sprintf("OFFSET %d ROWS", offset))
-	}
+	parts = append(parts, fmt.Sprintf("OFFSET %d ROWS", offset))
 	if limit > 0 {
 		parts = append(parts, fmt.Sprintf("FETCH NEXT %d ROWS ONLY", limit))
 	}
-	if len(parts) == 0 && limit > 0 {
-		return fmt.Sprintf("OFFSET 0 ROWS FETCH NEXT %d ROWS ONLY", limit)
+	if limit <= 0 && offset <= 0 {
+		return ""
 	}
 	return strings.Join(parts, " ")
 }

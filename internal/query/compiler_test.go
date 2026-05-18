@@ -333,7 +333,7 @@ func TestCompiler_GroupByTimeGrainOverridesDimensionDefault(t *testing.T) {
 		{
 			name:    "sqlserver",
 			dialect: dialect.SQLServerDialect{},
-			wantSQL: `SELECT MONTH([orders].[created_at]) AS [order_date], COUNT([orders].[id]) AS [order_count] FROM [public].[orders] GROUP BY MONTH([orders].[created_at]) FETCH NEXT 100 ROWS ONLY`,
+			wantSQL: `SELECT MONTH([orders].[created_at]) AS [order_date], COUNT([orders].[id]) AS [order_count] FROM [public].[orders] GROUP BY MONTH([orders].[created_at]) ORDER BY (SELECT NULL) OFFSET 0 ROWS FETCH NEXT 100 ROWS ONLY`,
 		},
 	}
 	for _, tt := range tests {

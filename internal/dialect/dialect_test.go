@@ -54,3 +54,11 @@ func TestAggregateCountStar(t *testing.T) {
 		})
 	}
 }
+
+func TestSQLServerLimitOffsetIncludesOffsetForLimitOnly(t *testing.T) {
+	got := SQLServerDialect{}.LimitOffset(100, 0)
+	want := "OFFSET 0 ROWS FETCH NEXT 100 ROWS ONLY"
+	if got != want {
+		t.Fatalf("LimitOffset(100, 0) = %q, want %q", got, want)
+	}
+}
