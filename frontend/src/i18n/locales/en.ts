@@ -360,6 +360,8 @@ export const en = {
     warnings_title: 'Warnings',
     warnings_body:
       'The AI produced a query shape that does not fully match the semantic model. Try manually selecting the best table or restating fields clearly.',
+    warnings_body_success:
+      'The query ran successfully, but there are notes worth reviewing.',
     recovery_failed: 'The AI could not produce a valid query after {{n}} attempts.',
     recovery_rewrite: 'Rewrite question',
     recovery_query_builder: 'Manual query builder',

@@ -425,10 +425,10 @@ func (s *Service) tryMultiCandidate(
 			[]string{fmt.Sprintf("self-consistency: %d/%d candidates agreed", winnerCount, n)},
 			winner.warnings...,
 		),
-		Prompt:       prompt,
-		RawResponse:  winner.gen.Content,
-		PromptStats:  &stats,
-		TokenUsage:   tokenUsageFromGeneration(stats, winner.gen),
+		Prompt:      prompt,
+		RawResponse: winner.gen.Content,
+		PromptStats: &stats,
+		TokenUsage:  tokenUsageFromGeneration(stats, winner.gen),
 	}, true
 }
 
@@ -498,6 +498,7 @@ func (s *Service) parseAndValidate(raw string, model *semantic.SemanticModel) (*
 	}
 	normalizeLogicalQueryContext(&lq, model)
 	lq.EnsureGroupBySelected()
+	ensureTimeSeriesOrderBy(&lq, model)
 
 	// Guardrails: reject empty selects
 	if len(lq.Select) == 0 {
@@ -553,5 +554,24 @@ func normalizeLogicalQueryContext(lq *query.LogicalQuery, model *semantic.Semant
 			names = append(names, d.Name)
 		}
 		query.RepairMisnamedCalendarGrainDimensions(lq, names)
+	}
+}
+
+func ensureTimeSeriesOrderBy(lq *query.LogicalQuery, model *semantic.SemanticModel) {
+	if lq == nil || model == nil || len(lq.GroupBy) == 0 || len(lq.OrderBy) > 0 {
+		return
+	}
+	grainByDimension := make(map[string]string, len(model.Dimensions))
+	for _, dim := range model.Dimensions {
+		grainByDimension[dim.Name] = dim.TimeGrain
+	}
+	for _, gb := range lq.GroupBy {
+		if gb.TimeGrain == "" && grainByDimension[gb.Field] == "" {
+			continue
+		}
+		lq.OrderBy = append(lq.OrderBy, query.OrderBy{
+			Field:     gb.Field,
+			Direction: query.OrderAsc,
+		})
 	}
 }

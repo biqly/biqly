@@ -361,6 +361,8 @@ export const tr: Dictionary = {
     warnings_title: 'Uyarılar',
     warnings_body:
       'AI, anlamsal modelle uyuşmayan bir sorgu şekli üretti. En iyi eşleşen tabloyu elle seçmeyi veya alanları net belirterek soruyu yeniden yazmayı deneyin.',
+    warnings_body_success:
+      'Sorgu başarıyla çalıştı; yine de gözden geçirilecek notlar var.',
     recovery_failed: 'AI, {{n}} denemeden sonra geçerli bir sorgu üretemedi.',
     recovery_rewrite: 'Soruyu yeniden yaz',
     recovery_query_builder: 'Manuel sorgu oluşturucu',

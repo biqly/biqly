@@ -68,6 +68,51 @@ func TestParseAndValidateAddsMissingGroupByDimensionToSelect(t *testing.T) {
 	}
 }
 
+func TestParseAndValidateOrdersTimeSeriesGroupBy(t *testing.T) {
+	service := &Service{validator: query.NewValidator(1000)}
+	model := &semantic.SemanticModel{
+		ID:           "model-uuid",
+		DatasourceID: "datasource-uuid",
+		Name:         "bikestores",
+		Dimensions: []semantic.Dimension{
+			{Name: "order_date_year", ColumnRef: "orders.order_date", Type: "date", TimeGrain: query.TimeGrainYear},
+			{Name: "order_date_month", ColumnRef: "orders.order_date", Type: "date", TimeGrain: query.TimeGrainMonth},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "count", Expression: "*", Aggregation: "count"},
+		},
+	}
+	raw := `{
+		"select":[
+			{"type":"dimension","name":"order_date_year"},
+			{"type":"dimension","name":"order_date_month"},
+			{"type":"metric","name":"count"}
+		],
+		"group_by":[
+			{"field":"order_date_year","time_grain":"year"},
+			{"field":"order_date_month","time_grain":"month"}
+		],
+		"limit":0
+	}`
+
+	got, _, _, err := service.parseAndValidate(raw, model)
+	if err != nil {
+		t.Fatalf("parseAndValidate(%s) error = %v, want nil", raw, err)
+	}
+	want := []query.OrderBy{
+		{Field: "order_date_year", Direction: query.OrderAsc},
+		{Field: "order_date_month", Direction: query.OrderAsc},
+	}
+	if len(got.OrderBy) != len(want) {
+		t.Fatalf("order_by len = %d, want %d: %+v", len(got.OrderBy), len(want), got.OrderBy)
+	}
+	for i := range want {
+		if got.OrderBy[i] != want[i] {
+			t.Fatalf("order_by[%d] = %+v, want %+v", i, got.OrderBy[i], want[i])
+		}
+	}
+}
+
 // stubLLMServer returns an httptest.Server whose /chat/completions endpoint
 // emits successive responses from `replies`, cycling on the last one.
 func stubLLMServer(t *testing.T, replies []string) *httptest.Server {

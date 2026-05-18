@@ -49,6 +49,16 @@ function formatAiWaitElapsed(ms: number, t: TFunction): string {
   return t('ai_query.wait_min_sec', { m, s })
 }
 
+function warningBodyKey(result: AIQueryResponse): TranslationKey {
+  const hasQueryShapeWarning = result.warnings?.some((warning) => (
+    /validation|semantic|unknown (dimension|field|metric)|ambiguous|dry-run|compilation|compile/i.test(warning)
+  ))
+  if (result.sql && !hasQueryShapeWarning) {
+    return 'ai_query.warnings_body_success'
+  }
+  return 'ai_query.warnings_body'
+}
+
 // ─── Sub-components ─────────────────────────────────────────────────
 
 function ConfidenceBar({ value, breakdown }: { value: number; breakdown?: { table_routing: number; llm: number; validation: number } }) {
@@ -1043,7 +1053,7 @@ export default function AIQuery() {
               <section className="warning-panel" aria-live="polite">
                 <div>
                   <strong>{t('ai_query.warnings_title')}</strong>
-                  <p>{t('ai_query.warnings_body')}</p>
+                  <p>{t(warningBodyKey(result))}</p>
                 </div>
                 <ul>
                   {result.warnings.map((w, i) => <li key={i}>{w}</li>)}
