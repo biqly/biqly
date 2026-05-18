@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -36,6 +37,7 @@ type connectionRequest struct {
 }
 
 type createDatasourceRequest struct {
+	ID         string              `json:"id,omitempty"`
 	Name       string              `json:"name"`
 	Type       string              `json:"type"`
 	Mode       string              `json:"mode,omitempty"` // raw | structured
@@ -236,6 +238,173 @@ func (h *DatasourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, ds)
 }
 
+func (h *DatasourceHandler) datasourceDraft(ctx context.Context, req createDatasourceRequest, id string, existing *metadata.Datasource) (*metadata.Datasource, string, int, string, error) {
+	if strings.TrimSpace(req.Name) == "" || strings.TrimSpace(req.Type) == "" {
+		return nil, "", http.StatusBadRequest, "name and type are required", nil
+	}
+	if req.Config == "" {
+		req.Config = "{}"
+	}
+
+	driverType := datasource.NormalizeDriverType(req.Type)
+	if _, err := h.deps.DriverReg.Get(driverType); err != nil {
+		return nil, "", http.StatusBadRequest, "unsupported datasource type", err
+	}
+
+	mode := resolveCreateDatasourceMode(&req)
+	if mode == "" && existing != nil {
+		mode = strings.TrimSpace(existing.DSNMode)
+	}
+	if mode != metadata.DSNModeRaw && mode != metadata.DSNModeStructured {
+		return nil, "", http.StatusBadRequest, "set mode to raw or structured, or supply only dsn or only structured connection fields", nil
+	}
+	if mode == metadata.DSNModeStructured && strings.TrimSpace(req.DSN) != "" {
+		return nil, "", http.StatusBadRequest, "omit dsn when mode is structured", nil
+	}
+	if mode == metadata.DSNModeRaw && req.Connection != nil {
+		hasConnPayload := strings.TrimSpace(req.Connection.Host) != "" ||
+			req.Connection.Port != nil ||
+			strings.TrimSpace(req.Connection.Username) != "" ||
+			req.Connection.Password != "" ||
+			strings.TrimSpace(req.Connection.DatabaseName) != "" ||
+			len(req.Connection.ConnectionParams) > 0
+		if hasConnPayload {
+			return nil, "", http.StatusBadRequest, "omit connection when mode is raw", nil
+		}
+	}
+
+	ds := &metadata.Datasource{
+		ID:       id,
+		Name:     strings.TrimSpace(req.Name),
+		Type:     driverType,
+		Config:   req.Config,
+		IsActive: true,
+	}
+	if ds.ID == "" {
+		ds.ID = uuid.New().String()
+	}
+	if existing != nil {
+		ds.LastSyncAt = existing.LastSyncAt
+		ds.CreatedAt = existing.CreatedAt
+	}
+
+	switch mode {
+	case metadata.DSNModeRaw:
+		dsnPlain := strings.TrimSpace(req.DSN)
+		if dsnPlain == "" {
+			if existing == nil || strings.TrimSpace(existing.DSNEncrypted) == "" {
+				return nil, "", http.StatusBadRequest, "dsn is required when mode is raw", nil
+			}
+			runtimeDSN, err := existing.RuntimeDSN(h.deps.Encryptor)
+			if err != nil {
+				return nil, "", http.StatusInternalServerError, "failed to decrypt DSN", err
+			}
+			ds.DSNEncrypted = existing.DSNEncrypted
+			ds.DSNMode = metadata.DSNModeRaw
+			return ds, runtimeDSN, http.StatusOK, "", nil
+		}
+		encStr, err := encryptSecret(h.deps.Encryptor, dsnPlain)
+		if err != nil {
+			return nil, "", http.StatusInternalServerError, "failed to encrypt DSN", err
+		}
+		ds.DSNEncrypted = encStr
+		ds.DSNMode = metadata.DSNModeRaw
+		return ds, dsnPlain, http.StatusOK, "", nil
+	case metadata.DSNModeStructured:
+		if req.Connection == nil {
+			return nil, "", http.StatusBadRequest, "connection is required when mode is structured", nil
+		}
+		c := req.Connection
+		host := strings.TrimSpace(c.Host)
+		if host == "" {
+			return nil, "", http.StatusBadRequest, "connection.host is required", nil
+		}
+		ds.Host = &host
+
+		port := datasource.DefaultPort(driverType)
+		if c.Port != nil && *c.Port > 0 {
+			port = *c.Port
+		}
+		ds.Port = &port
+
+		if u := optionalStringPtr(c.Username); u != nil {
+			ds.Username = u
+		}
+		if db := optionalStringPtr(c.DatabaseName); db != nil {
+			ds.DatabaseName = db
+		}
+		defaults := datasource.DriverConnectionDefaults(driverType)
+		ssl := strings.TrimSpace(c.SSLMode)
+		if ssl == "" {
+			ssl = defaults.SSLMode
+		}
+		if ssl != "" {
+			ds.SSLMode = &ssl
+		}
+
+		ext := map[string]string{}
+		for k, v := range c.ConnectionParams {
+			k = strings.TrimSpace(k)
+			if k != "" {
+				ext[k] = v
+			}
+		}
+		cpRaw, err := json.Marshal(ext)
+		if err != nil {
+			return nil, "", http.StatusBadRequest, "invalid connection_params", err
+		}
+		ds.ConnectionParams = append(json.RawMessage(nil), cpRaw...)
+
+		password := c.Password
+		if password == "" && existing != nil && existing.DSNMode == metadata.DSNModeStructured {
+			password, err = security.ConnectionDSN(h.deps.Encryptor, existing.PasswordEncrypted)
+			if err != nil {
+				return nil, "", http.StatusInternalServerError, "failed to decrypt password", err
+			}
+			ds.PasswordEncrypted = existing.PasswordEncrypted
+		}
+
+		fields := datasource.ConnectionFields{
+			Host:         host,
+			Port:         port,
+			Username:     strings.TrimSpace(c.Username),
+			Password:     password,
+			DatabaseName: strings.TrimSpace(c.DatabaseName),
+			SSLMode:      ssl,
+			Extra:        ext,
+		}
+		runtimeDSN, err := datasource.ComposeDSN(driverType, fields)
+		if err != nil {
+			return nil, "", http.StatusBadRequest, err.Error(), err
+		}
+
+		if c.Password != "" || ds.PasswordEncrypted == "" {
+			passEnc, err := encryptSecret(h.deps.Encryptor, c.Password)
+			if err != nil {
+				return nil, "", http.StatusInternalServerError, "failed to encrypt password", err
+			}
+			ds.PasswordEncrypted = passEnc
+		}
+		ds.DSNMode = metadata.DSNModeStructured
+		ds.DSNEncrypted = ""
+		return ds, runtimeDSN, http.StatusOK, "", nil
+	default:
+		return nil, "", http.StatusBadRequest, "unsupported datasource mode", nil
+	}
+}
+
+func writeDatasourcePayloadError(ctx context.Context, w http.ResponseWriter, status int, message string, err error) {
+	if status >= http.StatusInternalServerError {
+		slog.ErrorContext(ctx, "datasource payload failed", "error", err)
+	}
+	writeError(w, status, message)
+}
+
+func maskDatasourceSecrets(ds *metadata.Datasource) {
+	ds.DSNEncrypted = ""
+	ds.PasswordEncrypted = ""
+}
+
 // List returns all configured datasources.
 func (h *DatasourceHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -248,7 +417,7 @@ func (h *DatasourceHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	// Mask DSN in response
 	for i := range datasources {
-		datasources[i].DSNEncrypted = "***REDACTED***"
+		maskDatasourceSecrets(&datasources[i])
 	}
 
 	writeJSON(w, http.StatusOK, datasources)
@@ -268,7 +437,41 @@ func (h *DatasourceHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ds.DSNEncrypted = "***REDACTED***"
+	maskDatasourceSecrets(ds)
+	writeJSON(w, http.StatusOK, ds)
+}
+
+// Update changes connection settings for an existing datasource.
+func (h *DatasourceHandler) Update(w http.ResponseWriter, r *http.Request) {
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
+	req, ok := decodeJSON[createDatasourceRequest](w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+
+	existing, err := h.deps.MetaRepo.GetDatasource(ctx, id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "datasource not found")
+		return
+	}
+
+	ds, _, status, message, err := h.datasourceDraft(ctx, *req, id, existing)
+	if err != nil || status >= http.StatusBadRequest {
+		writeDatasourcePayloadError(ctx, w, status, message, err)
+		return
+	}
+
+	if err := h.deps.MetaRepo.UpdateDatasource(ctx, ds); err != nil {
+		slog.ErrorContext(ctx, "update datasource failed", "datasource_id", id, "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to update datasource")
+		return
+	}
+
+	maskDatasourceSecrets(ds)
 	writeJSON(w, http.StatusOK, ds)
 }
 
@@ -318,6 +521,52 @@ func (h *DatasourceHandler) Test(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	if err := driver.Ping(ctx, dsn); err != nil {
 		slog.ErrorContext(ctx, "datasource ping failed", "datasource_id", id, "error", err)
+		writeJSON(w, http.StatusOK, map[string]any{
+			"success": false,
+			"error":   "connection failed",
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success":    true,
+		"latency_ms": time.Since(start).Milliseconds(),
+	})
+}
+
+// TestDraft verifies connectivity for unsaved datasource settings.
+func (h *DatasourceHandler) TestDraft(w http.ResponseWriter, r *http.Request) {
+	req, ok := decodeJSON[createDatasourceRequest](w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+
+	var existing *metadata.Datasource
+	if strings.TrimSpace(req.ID) != "" {
+		ds, err := h.deps.MetaRepo.GetDatasource(ctx, strings.TrimSpace(req.ID))
+		if err != nil {
+			writeError(w, http.StatusNotFound, "datasource not found")
+			return
+		}
+		existing = ds
+	}
+
+	ds, runtimeDSN, status, message, err := h.datasourceDraft(ctx, *req, strings.TrimSpace(req.ID), existing)
+	if err != nil || status >= http.StatusBadRequest {
+		writeDatasourcePayloadError(ctx, w, status, message, err)
+		return
+	}
+
+	driver, err := h.deps.DriverReg.Get(ds.Type)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, app.MsgUnsupportedDriver)
+		return
+	}
+
+	start := time.Now()
+	if err := driver.Ping(ctx, runtimeDSN); err != nil {
+		slog.ErrorContext(ctx, "draft datasource ping failed", "datasource_id", req.ID, "error", err)
 		writeJSON(w, http.StatusOK, map[string]any{
 			"success": false,
 			"error":   "connection failed",

@@ -60,17 +60,30 @@ ORDER BY s.name, o.name, c.column_id`
 	return datasource.QueryAll(ctx, db, query, nil, func(rows *sql.Rows) (datasource.ColumnInfo, error) {
 		var c datasource.ColumnInfo
 		var nullable int
-		err := rows.Scan(&c.SchemaName, &c.TableName, &c.ColumnName, &c.DataType, &nullable, &c.OrdinalPosition, &c.CharMaxLength, &c.NumericPrecision, &c.NumericScale, &c.ColumnDefault)
+		var columnDefault sql.NullString
+		err := rows.Scan(&c.SchemaName, &c.TableName, &c.ColumnName, &c.DataType, &nullable, &c.OrdinalPosition, &c.CharMaxLength, &c.NumericPrecision, &c.NumericScale, &columnDefault)
 		if err != nil {
 			return c, err
 		}
 		c.Nullable = nullable == 1
+		if columnDefault.Valid {
+			c.ColumnDefault = columnDefault.String
+		}
 		return c, nil
 	})
 }
 
 func (d *Driver) introspectRelations(ctx context.Context, db *sql.DB) ([]datasource.RelationInfo, error) {
-	query := `SELECT fk.name, s1.name, OBJECT_NAME(fk.parent_object_id), c1.name, s2.name, OBJECT_NAME(fk.referenced_object_id), c2.name FROM sys.foreign_keys fk JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id JOIN sys.schemas s1 ON fk.schema_id = s1.schema_id JOIN sys.schemas s2 ON fk.referenced_schema_id = s2.schema_id JOIN sys.columns c1 ON fkc.parent_object_id = c1.object_id AND fkc.parent_column_id = c1.column_id JOIN sys.columns c2 ON fkc.referenced_object_id = c2.object_id AND fkc.referenced_column_id = c2.column_id`
+	query := `SELECT fk.name, ps.name, po.name, pc.name, rs.name, ro.name, rc.name
+FROM sys.foreign_keys fk
+JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
+JOIN sys.objects po ON fk.parent_object_id = po.object_id
+JOIN sys.schemas ps ON po.schema_id = ps.schema_id
+JOIN sys.objects ro ON fk.referenced_object_id = ro.object_id
+JOIN sys.schemas rs ON ro.schema_id = rs.schema_id
+JOIN sys.columns pc ON fkc.parent_object_id = pc.object_id AND fkc.parent_column_id = pc.column_id
+JOIN sys.columns rc ON fkc.referenced_object_id = rc.object_id AND fkc.referenced_column_id = rc.column_id
+ORDER BY ps.name, po.name, fk.name, fkc.constraint_column_id`
 	return datasource.QueryAll(ctx, db, query, nil, func(rows *sql.Rows) (datasource.RelationInfo, error) {
 		var r datasource.RelationInfo
 		r.RelationshipType = "many_to_one"

@@ -54,6 +54,49 @@ func (r *Repository) CreateDatasource(ctx context.Context, ds *Datasource) error
 	return nil
 }
 
+// UpdateDatasource updates an existing datasource connection record.
+func (r *Repository) UpdateDatasource(ctx context.Context, ds *Datasource) error {
+	query := `
+		UPDATE datasources SET
+			name = $2,
+			type = $3,
+			dsn_encrypted = $4,
+			config = $5,
+			is_active = $6,
+			host = $7,
+			port = $8,
+			username = $9,
+			password_encrypted = $10,
+			database_name = $11,
+			ssl_mode = $12,
+			connection_params = $13::jsonb,
+			dsn_mode = $14,
+			updated_at = now()
+		WHERE id = $1
+	`
+	cp := ds.ConnectionParams
+	if len(cp) == 0 {
+		cp = json.RawMessage("{}")
+	}
+	mode := strings.TrimSpace(ds.DSNMode)
+	if mode == "" {
+		mode = DSNModeRaw
+	}
+	res, err := r.db.ExecContext(ctx, query,
+		ds.ID, ds.Name, ds.Type, ds.DSNEncrypted, ds.Config, ds.IsActive,
+		nullableString(ds.Host), nullableInt(ds.Port), nullableString(ds.Username),
+		nullableEncrypted(ds.PasswordEncrypted), nullableString(ds.DatabaseName), nullableString(ds.SSLMode),
+		cp, mode,
+	)
+	if err != nil {
+		return fmt.Errorf("update datasource: %w", err)
+	}
+	if rows, err := res.RowsAffected(); err == nil && rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 // GetDatasource retrieves a datasource by ID.
 func (r *Repository) GetDatasource(ctx context.Context, id string) (*Datasource, error) {
 	query := `SELECT ` + datasourceSelectColumns + ` FROM datasources WHERE id = $1`

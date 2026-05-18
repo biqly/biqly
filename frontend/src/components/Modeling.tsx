@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useApi } from '../hooks/useApi'
+import { useQueryParam } from '../hooks/useQueryParam'
 import { useT, type TranslationKey } from '../i18n'
 import type { Datasource } from '../types/metadata'
 import { ErrorAlert } from './ui/ErrorAlert'
@@ -299,12 +300,14 @@ interface Viewport {
 export default function Modeling() {
   const t = useT()
   const { get, postData, putData, patchData, deleteData, loading, error } = useApi()
+  const [dsParam, setDsParam] = useQueryParam('ds')
+  const [modelParam, setModelParam] = useQueryParam('model')
   const [datasources, setDatasources] = useState<Datasource[]>([])
-  const [datasourceId, setDatasourceId] = useState('')
+  const [datasourceId, setDatasourceId] = useState(dsParam)
   const [tables, setTables] = useState<TableRow[]>([])
   const [columns, setColumns] = useState<ColumnRow[]>([])
   const [models, setModels] = useState<SemanticModelSummary[]>([])
-  const [modelId, setModelId] = useState('')
+  const [modelId, setModelId] = useState(modelParam)
   const [model, setModel] = useState<SemanticModelDetail | null>(null)
   const [joinForm, setJoinForm] = useState<JoinForm>(() => defaultJoinForm([], [], null))
   const [creatingModel, setCreatingModel] = useState(false)
@@ -327,6 +330,7 @@ export default function Modeling() {
   const viewportRef = useRef(viewport)
   viewportRef.current = viewport
   const wrapRef = useRef<HTMLDivElement | null>(null)
+  const prevDsRef = useRef(datasourceId)
 
   useEffect(() => {
     get<Datasource[]>('/api/datasources').then((data) => {
@@ -337,17 +341,34 @@ export default function Modeling() {
   }, [])
 
   useEffect(() => {
+    setDsParam(datasourceId)
+  }, [datasourceId, setDsParam])
+
+  useEffect(() => {
+    setModelParam(modelId)
+  }, [modelId, setModelParam])
+
+  useEffect(() => {
     if (!datasourceId) return
+    const dsChanged = Boolean(prevDsRef.current && prevDsRef.current !== datasourceId)
+    prevDsRef.current = datasourceId
+
     setMessage(null)
-    setModel(null)
-    setModelId('')
+    if (dsChanged) {
+      setModel(null)
+      setModelId('')
+    }
+
     get<TableRow[]>(`/api/datasources/${datasourceId}/tables`).then((data) => setTables(data ?? []))
     get<ColumnRow[]>(`/api/datasources/${datasourceId}/columns`).then((data) => setColumns(data ?? []))
     get<SemanticModelSummary[]>(`/api/semantic/models?datasource_id=${encodeURIComponent(datasourceId)}`).then((data) => {
       const next = data ?? []
       setModels(next)
-      const published = next.find((m) => m.status === 'published')
-      setModelId(published?.id ?? next[0]?.id ?? '')
+      setModelId((prev) => {
+        if (prev && next.some((m) => m.id === prev)) return prev
+        const published = next.find((m) => m.status === 'published')
+        return published?.id ?? next[0]?.id ?? ''
+      })
     })
   }, [datasourceId])
 
@@ -1208,6 +1229,15 @@ export default function Modeling() {
   const inactiveMetrics = allMetrics.filter((m) => m.is_active === false)
 
   const baseKey = model ? tableKey(model.base_schema, model.base_table) : null
+  const usedTableCount = useMemo(() => {
+    if (!model) return 0
+    return includedTables.filter((tbl) => {
+      const key = tableKey(tbl.schema_name, tbl.table_name)
+      if (key === baseKey) return true
+      const impact = tableImpact(tbl.schema_name, tbl.table_name)
+      return impact.joins > 0 || impact.dims > 0 || impact.metrics > 0
+    }).length
+  }, [baseKey, includedTables, model, tableImpact])
 
   const highlightedTables = useMemo(() => {
     if (!highlightJoinId) return null
@@ -1300,7 +1330,7 @@ export default function Modeling() {
           </button>
           {model && (
             <button className="btn btn-secondary" type="button" onClick={renameModel} title={t('modeling.rename_model_button_title')}>
-              Yeniden adlandır
+              {t('modeling.rename_model_button')}
             </button>
           )}
           {model && (
@@ -1339,20 +1369,20 @@ export default function Modeling() {
           </div>
           <div className="modeling-stat-grid">
             <div>
-              <strong>{includedTables.length}</strong>
-              <span>{t('modeling.table_stat_label')}</span>
-            </div>
-            <div>
-              <strong>{dims.length}</strong>
-              <span>{t('modeling.dimension_label')}</span>
-            </div>
-            <div>
-              <strong>{metrics.length}</strong>
-              <span>{t('modeling.metric_label')}</span>
+              <strong>{usedTableCount}</strong>
+              <span>{t('modeling.tab_short_tables')}</span>
             </div>
             <div>
               <strong>{joins.length}</strong>
-              <span>{t('modeling.join_label')}</span>
+              <span>{t('modeling.tab_short_rel')}</span>
+            </div>
+            <div>
+              <strong>{dims.length}</strong>
+              <span>{t('modeling.tab_short_dim')}</span>
+            </div>
+            <div>
+              <strong>{metrics.length}</strong>
+              <span>{t('modeling.tab_short_metric')}</span>
             </div>
           </div>
 
@@ -1774,17 +1804,19 @@ export default function Modeling() {
               </button>
             </header>
             <div className="modal-body">
-              <label className="form-group">
-                <span>{t('modeling.display_name_label')}</span>
+              <div className="form-group">
+                <label htmlFor="modeling-rename-value">{t('modeling.display_name_label')}</label>
                 <input
+                  id="modeling-rename-value"
                   autoFocus
                   value={renameValue}
                   onChange={(event) => setRenameValue(event.target.value)}
                   placeholder={renameTarget.current}
                   disabled={savingRename}
                 />
-              </label>
-              <div className="modal-actions">
+              </div>
+            </div>
+            <div className="modal-actions">
                 <button className="btn btn-secondary" type="button" onClick={closeRename} disabled={savingRename}>
                   {t('common.cancel')}
                 </button>
@@ -1792,7 +1824,6 @@ export default function Modeling() {
                   {savingRename ? t('common.saving') : t('common.update')}
                 </button>
               </div>
-            </div>
           </form>
         </div>
       )}
@@ -1933,6 +1964,15 @@ function BaseSwapModal({ model, includedTables, tableImpact, onCancel, onSubmit,
   )
 }
 
+const METRIC_AGGREGATION_OPTIONS = [
+  { value: 'count', label: 'count' },
+  { value: 'count_distinct', label: 'count_distinct' },
+  { value: 'sum', label: 'sum' },
+  { value: 'avg', label: 'avg' },
+  { value: 'min', label: 'min' },
+  { value: 'max', label: 'max' },
+] as const
+
 interface AddMetricModalProps {
   modelId: string
   onClose: () => void
@@ -1981,39 +2021,72 @@ function AddMetricModal({ modelId, onClose, onCreated, postData, t }: AddMetricM
           <button className="modal-close" type="button" onClick={onClose} aria-label={t('common.close')} disabled={saving}>×</button>
         </header>
         <div className="modal-body">
-          <label className="form-group">
-            <span>{t('modeling.metric_name_label')}</span>
-            <input autoFocus value={name} onChange={(e) => setName(e.target.value)} disabled={saving} />
-          </label>
-          <label className="form-group">
-            <span>{t('modeling.metric_label_label')}</span>
-            <input value={label} onChange={(e) => setLabel(e.target.value)} disabled={saving} />
-          </label>
-          <label className="form-group">
-            <span>{t('modeling.metric_expression_label')}</span>
-            <input value={expression} onChange={(e) => setExpression(e.target.value)} disabled={saving} placeholder="orders.total_amount" />
-          </label>
-          <label className="form-group">
-            <span>{t('modeling.metric_aggregation_label')}</span>
-            <select value={aggregation} onChange={(e) => setAggregation(e.target.value as typeof aggregation)} disabled={saving}>
-              <option value="count">count</option>
-              <option value="count_distinct">count_distinct</option>
-              <option value="sum">sum</option>
-              <option value="avg">avg</option>
-              <option value="min">min</option>
-              <option value="max">max</option>
-            </select>
-          </label>
-          <label className="form-group">
-            <span>{t('modeling.metric_format_label')}</span>
-            <input value={format} onChange={(e) => setFormat(e.target.value)} disabled={saving} placeholder="$#,##0.00" />
-          </label>
-          <div className="modal-actions">
-            <button className="btn btn-secondary" type="button" onClick={onClose} disabled={saving}>{t('common.cancel')}</button>
-            <button className="btn btn-primary" type="submit" disabled={saving || !name.trim() || !expression.trim()}>
-              {saving ? t('common.saving') : t('common.create')}
-            </button>
+          <div className="modal-form-row">
+            <div className="form-group">
+              <label htmlFor="metric-name">{t('modeling.metric_name_label')}</label>
+              <input
+                id="metric-name"
+                autoFocus
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={saving}
+                autoComplete="off"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="metric-label">{t('modeling.metric_label_label')}</label>
+              <input
+                id="metric-label"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                disabled={saving}
+                autoComplete="off"
+              />
+            </div>
           </div>
+          <div className="form-group">
+            <label htmlFor="metric-expression">{t('modeling.metric_expression_label')}</label>
+            <input
+              id="metric-expression"
+              value={expression}
+              onChange={(e) => setExpression(e.target.value)}
+              disabled={saving}
+              placeholder="orders.total_amount"
+              autoComplete="off"
+            />
+          </div>
+          <div className="modal-form-row">
+            <div className="form-group">
+              <label htmlFor="metric-aggregation">{t('modeling.metric_aggregation_label')}</label>
+              <Select
+                id="metric-aggregation"
+                name="aggregation"
+                value={aggregation}
+                onChange={(value) => setAggregation(value as typeof aggregation)}
+                disabled={saving}
+                options={[...METRIC_AGGREGATION_OPTIONS]}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="metric-format">{t('modeling.metric_format_label')}</label>
+              <input
+                id="metric-format"
+                value={format}
+                onChange={(e) => setFormat(e.target.value)}
+                disabled={saving}
+                placeholder="$#,##0.00"
+                autoComplete="off"
+              />
+            </div>
+          </div>
+        </div>
+        <div className="modal-actions">
+          <button className="btn btn-secondary" type="button" onClick={onClose} disabled={saving}>
+            {t('common.cancel')}
+          </button>
+          <button className="btn btn-primary" type="submit" disabled={saving || !name.trim() || !expression.trim()}>
+            {saving ? t('common.saving') : t('common.create')}
+          </button>
         </div>
       </form>
     </div>

@@ -19,6 +19,34 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
   timeStyle: 'short',
 })
 
+type ConnectionMode = 'structured' | 'raw'
+
+interface StructuredForm {
+  host: string
+  port: string
+  username: string
+  password: string
+  database_name: string
+  ssl_mode: string
+}
+
+interface DatasourceForm {
+  name: string
+  type: string
+  dsn: string
+}
+
+function emptyStructured(): StructuredForm {
+  return {
+    host: '',
+    port: '',
+    username: '',
+    password: '',
+    database_name: '',
+    ssl_mode: '',
+  }
+}
+
 function connectionSummary(ds: Datasource): { line1: string; line2?: string } {
   if (ds.dsn_mode === 'structured') {
     const host = ds.host?.trim()
@@ -32,21 +60,16 @@ function connectionSummary(ds: Datasource): { line1: string; line2?: string } {
 
 export default function Datasources() {
   const t = useT()
-  const { get, postData, deleteData, loading, error } = useApi()
+  const { get, postData, putData, deleteData, loading, error } = useApi()
   const [items, setItems] = useState<Datasource[]>([])
   const [showForm, setShowForm] = useState(false)
-  const [connMode, setConnMode] = useState<'structured' | 'raw'>('structured')
-  const [form, setForm] = useState({ name: '', type: 'postgres', dsn: '' })
-  const [structured, setStructured] = useState({
-    host: '',
-    port: '',
-    username: '',
-    password: '',
-    database_name: '',
-    ssl_mode: '',
-  })
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [connMode, setConnMode] = useState<ConnectionMode>('structured')
+  const [form, setForm] = useState<DatasourceForm>({ name: '', type: 'postgres', dsn: '' })
+  const [structured, setStructured] = useState<StructuredForm>(emptyStructured)
   const [syncResult, setSyncResult] = useState<Record<string, string>>({})
   const [testResult, setTestResult] = useState<Record<string, string>>({})
+  const [draftTestResult, setDraftTestResult] = useState<string | null>(null)
 
   const formatDateTime = (value: string | null | undefined) => {
     if (!value) return t('datasources.never')
@@ -64,51 +87,49 @@ export default function Datasources() {
     load()
   }, [])
 
-  useEffect(() => {
-    if (!showForm || connMode !== 'structured') return
-    const next = driverStructuredDefaults(form.type)
-    setStructured((prev) => ({ ...prev, port: next.port, ssl_mode: next.ssl_mode }))
-  }, [showForm, connMode, form.type])
-
   const driverConnHints = driverStructuredDefaults(form.type)
   const defaultPortHint = driverDefaultPort(form.type)
   const resetForm = () => {
+    setEditingId(null)
     setForm({ name: '', type: 'postgres', dsn: '' })
-    setStructured({
-      host: '',
-      port: '',
-      username: '',
-      password: '',
-      database_name: '',
-      ssl_mode: '',
-    })
+    setStructured(emptyStructured())
+    setDraftTestResult(null)
   }
 
-  const create = async () => {
-    const name = form.name.trim()
-    if (!name) return
-
-    if (connMode === 'raw') {
-      if (!form.dsn.trim()) return
-      const created = await postData('/api/datasources', {
-        name,
-        type: form.type,
-        dsn: form.dsn.trim(),
-      })
-      if (created) {
-        resetForm()
-        setShowForm(false)
-        load()
-      }
+  const openNewForm = () => {
+    if (showForm && !editingId) {
+      resetForm()
+      setShowForm(false)
       return
     }
+    resetForm()
+    const defaults = driverStructuredDefaults('postgres')
+    setStructured({ ...emptyStructured(), port: defaults.port, ssl_mode: defaults.ssl_mode })
+    setConnMode('structured')
+    setShowForm(true)
+  }
 
-    if (!structured.host.trim()) return
+  const draftPayload = () => {
+    const name = form.name.trim()
+    if (!name) return null
+
+    if (connMode === 'raw') {
+      if (!editingId && !form.dsn.trim()) return null
+      return {
+        id: editingId ?? undefined,
+        name,
+        type: form.type,
+        mode: 'raw',
+        dsn: form.dsn.trim(),
+      }
+    }
+
+    if (!structured.host.trim()) return null
     const portStr = structured.port.trim()
     let port: number | undefined
     if (portStr !== '') {
       const n = parseInt(portStr, 10)
-      if (Number.isNaN(n) || n <= 0) return
+      if (Number.isNaN(n) || n <= 0) return null
       port = n
     }
 
@@ -126,17 +147,65 @@ export default function Datasources() {
       connection.ssl_mode = ssl
     }
 
-    const created = await postData('/api/datasources', {
+    return {
+      id: editingId ?? undefined,
       name,
       type: form.type,
       mode: 'structured',
       connection,
-    })
-    if (created) {
+    }
+  }
+
+  const save = async () => {
+    const payload = draftPayload()
+    if (!payload) return
+
+    const saved = editingId
+      ? await putData(`/api/datasources/${editingId}`, payload)
+      : await postData('/api/datasources', payload)
+    if (saved) {
       resetForm()
       setShowForm(false)
       load()
     }
+  }
+
+  const testDraft = async () => {
+    const payload = draftPayload()
+    if (!payload) return
+    setDraftTestResult(t('datasources.testing'))
+    const res = await postData<{ success: boolean; latency_ms?: number; error?: string }>(
+      '/api/datasources/test-connection',
+      payload,
+    )
+    if (res?.success) {
+      setDraftTestResult(t('datasources.test_success', { ms: res.latency_ms ?? 0 }))
+    } else {
+      setDraftTestResult(t('datasources.test_failed', { error: res?.error ?? 'unknown' }))
+    }
+  }
+
+  const edit = (ds: Datasource) => {
+    const mode: ConnectionMode = ds.dsn_mode === 'raw' ? 'raw' : 'structured'
+    setEditingId(ds.id)
+    setConnMode(mode)
+    setForm({ name: ds.name, type: ds.type, dsn: '' })
+    setStructured({
+      host: ds.host ?? '',
+      port: ds.port ? String(ds.port) : driverStructuredDefaults(ds.type).port,
+      username: ds.username ?? '',
+      password: '',
+      database_name: ds.database_name ?? '',
+      ssl_mode: ds.ssl_mode ?? driverStructuredDefaults(ds.type).ssl_mode,
+    })
+    setDraftTestResult(null)
+    setShowForm(true)
+  }
+
+  const setDriver = (type: string) => {
+    setForm({ ...form, type })
+    const defaults = driverStructuredDefaults(type)
+    setStructured({ ...structured, port: defaults.port, ssl_mode: defaults.ssl_mode })
   }
 
   const del = async (id: string) => {
@@ -181,22 +250,30 @@ export default function Datasources() {
   const canSubmit =
     form.name.trim() !== '' &&
     (connMode === 'raw'
-      ? form.dsn.trim() !== ''
+      ? editingId !== null || form.dsn.trim() !== ''
       : structured.host.trim() !== '' &&
         (structured.port.trim() === '' || (!Number.isNaN(parseInt(structured.port, 10)) && parseInt(structured.port, 10) > 0)))
 
   return (
     <div className="page-stack">
-      <div className="card">
-        <div className="card-header-row">
-          <h2>{t('datasources.panel_title')}</h2>
-          <button className="btn" type="button" onClick={() => setShowForm(!showForm)}>
-            {showForm ? t('datasources.cancel') : t('datasources.new')}
-          </button>
-        </div>
+        <div className="card">
+          <div className="card-header-row">
+            <h2>{t('datasources.panel_title')}</h2>
+            <button className="btn" type="button" onClick={openNewForm}>
+              {showForm && !editingId ? t('datasources.cancel') : t('datasources.new')}
+            </button>
+          </div>
 
         {showForm && (
           <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+            <div className="card-header-row datasource-form-header">
+              <h3 style={{ margin: 0 }}>{editingId ? t('datasources.edit_title') : t('datasources.new')}</h3>
+              {editingId && (
+                <button className="btn btn-sm" type="button" onClick={() => { resetForm(); setShowForm(false) }}>
+                  {t('datasources.cancel')}
+                </button>
+              )}
+            </div>
             <div className="form-group">
               <div style={{ fontWeight: 600, marginBottom: '0.35rem' }}>{t('datasources.connection_mode')}</div>
               <div className="bulk-segmented" role="group" aria-label={t('datasources.connection_mode')}>
@@ -231,7 +308,7 @@ export default function Datasources() {
               <div style={{ fontWeight: 600, marginBottom: '0.35rem' }}>{t('datasources.type')}</div>
               <DriverTileGrid
                 value={form.type}
-                onChange={(id) => setForm({ ...form, type: id })}
+                onChange={setDriver}
                 ids={DRIVER_IDS}
                 ariaLabel={t('datasources.pick_driver')}
                 t={t}
@@ -251,7 +328,7 @@ export default function Datasources() {
                   spellCheck={false}
                 />
                 <small style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
-                  {t('datasources.dsn_hint')}
+                  {editingId ? t('datasources.dsn_keep_hint') : t('datasources.dsn_hint')}
                 </small>
               </div>
             ) : (
@@ -308,7 +385,7 @@ export default function Datasources() {
                     autoComplete="off"
                   />
                   <small style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
-                    {t('datasources.dsn_hint')}
+                    {editingId ? t('datasources.password_keep_hint') : t('datasources.dsn_hint')}
                   </small>
                 </div>
                 <div className="form-group">
@@ -326,9 +403,17 @@ export default function Datasources() {
                 </div>
               </>
             )}
-            <button className="btn" type="button" onClick={create} disabled={loading || !canSubmit}>
-              {t('datasources.create')}
-            </button>
+            <div className="datasource-form-actions">
+              <button className="btn" type="button" onClick={testDraft} disabled={loading || !canSubmit}>
+                {t('datasources.test_before_save')}
+              </button>
+              <button className="btn btn-primary" type="button" onClick={save} disabled={loading || !canSubmit}>
+                {editingId ? t('datasources.save') : t('datasources.create')}
+              </button>
+              {draftTestResult && (
+                <small style={{ color: 'var(--text-secondary)' }}>{draftTestResult}</small>
+              )}
+            </div>
           </div>
         )}
 
@@ -388,6 +473,9 @@ export default function Datasources() {
                 </td>
                 <td className="actions">
                   <div className="row-actions">
+                    <button type="button" className="btn btn-sm" onClick={() => edit(ds)}>
+                      {t('datasources.edit')}
+                    </button>
                     <button type="button" className="btn btn-sm" onClick={() => test(ds.id)}>
                       {t('datasources.test')}
                     </button>

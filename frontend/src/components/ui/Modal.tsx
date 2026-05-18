@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useT } from '../../i18n'
 
 interface ModalProps {
   open: boolean
@@ -9,6 +10,7 @@ interface ModalProps {
 }
 
 export function Modal({ open, title, children, onClose, labelledBy = 'modal-title' }: ModalProps) {
+  const t = useT()
   if (!open) return null
 
   return (
@@ -20,7 +22,7 @@ export function Modal({ open, title, children, onClose, labelledBy = 'modal-titl
       <section className="modal-card modal-content" role="dialog" aria-modal="true" aria-labelledby={labelledBy}>
         <header className="modal-header">
           <h3 id={labelledBy}>{title}</h3>
-          <button type="button" className="modal-close" aria-label="Modalı kapat" onClick={onClose}>
+          <button type="button" className="modal-close" aria-label={t('common.modal_close_aria')} onClick={onClose}>
             ×
           </button>
         </header>

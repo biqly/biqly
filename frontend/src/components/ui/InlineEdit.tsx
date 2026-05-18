@@ -1,4 +1,5 @@
 import type { KeyboardEvent } from 'react'
+import { useT } from '../../i18n'
 
 interface InlineEditProps {
   editing: boolean
@@ -23,6 +24,7 @@ export function InlineEdit({
   onSave,
   onCancel,
 }: InlineEditProps) {
+  const t = useT()
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Escape') {
       event.preventDefault()
@@ -42,7 +44,7 @@ export function InlineEdit({
       {editing ? (
         <textarea
           className="metadata-inline-field metadata-inline-field--fit-rows"
-          title="Kaydetmek için Cmd/Ctrl+Enter veya dışarı tıklayın. İptal: Escape."
+          title={t('common.inline_edit_save_hint')}
           autoFocus
           rows={rows}
           value={value}
