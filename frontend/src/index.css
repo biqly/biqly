@@ -1025,16 +1025,8 @@ input[type='checkbox']:disabled {
   background-color: var(--table-stripe-hover);
 }
 
-.results-table tbody tr.results-row--anomaly td {
-  background-color: color-mix(in srgb, var(--warning) 14%, var(--table-stripe-even)) !important;
-}
-
-.results-table tbody tr.results-row--anomaly:hover td {
-  background-color: color-mix(in srgb, var(--warning) 22%, var(--table-stripe-hover)) !important;
-}
-
 .results-table td.results-cell--anomaly {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 55%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 50%, transparent);
   font-weight: 600;
   color: var(--text-primary);
 }
