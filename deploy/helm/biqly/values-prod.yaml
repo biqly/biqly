@@ -1,7 +1,28 @@
 global:
+  imagePullSecrets:
+    - name: ghcr-registry
+  secrets:
+    createSecrets: false
   config:
     BI_LOG_LEVEL: info
     BI_LOG_FORMAT: json
+  observability:
+    serviceMonitor:
+      enabled: false
+    prometheusRules:
+      enabled: false
+    alertmanager:
+      enabled: false
+    logs:
+      vectorConfig:
+        enabled: false
+    tracing:
+      otelCollector:
+        enabled: false
+      jaeger:
+        enabled: false
+    dashboards:
+      enabled: true
 
 catalog:
   replicaCount: 3
@@ -17,6 +38,8 @@ query:
 
 ai:
   replicaCount: 3
+  rollout:
+    enabled: false
   autoscaling:
     minReplicas: 3
     maxReplicas: 10

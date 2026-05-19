@@ -273,7 +273,7 @@ Legend: `[ ]` pending · `[~]` in-progress · `[x]` done · `[-]` cancelled
 - [~] **I3.7** `dig biqly.il1.nl` → 192.168.0.160 (lan-gw IP) dogrula
       _`dig +short biqly.il1.nl` su anda `172.67.221.102` donuyor; beklenen LAN Gateway IP `192.168.0.160` degil. DNS/Cloudflare split-horizon veya internal resolver kaydi ayrica duzeltilmeli/dogrulanmali._
 - [ ] **I3.8** `curl https://biqly.il1.nl/health` → 200 dogrula
-      _Helm chart henuz cluster'a deploy edilmedigi ve DNS beklenen LAN VIP'e donmedigi icin canli HTTPS smoke test tamamlanmadi._
+      _ArgoCD Application `biqly` cluster'a apply edildi; sync sonrasi smoke test yapilacak. DNS hala Cloudflare IP donuyorsa LAN'de `/etc/hosts` veya internal resolver ile `192.168.0.160` bypass gerekebilir._
 
 ---
 
@@ -354,6 +354,8 @@ Legend: `[ ]` pending · `[~]` in-progress · `[x]` done · `[-]` cancelled
 
 - [x] **I7.1** ArgoCD `Application` manifest — repo `github.com/biqly/biqly`, path `deploy/helm/biqly`, automated prune+selfHeal
       _`deploy/argocd/application.yaml` eklendi. `repoURL=https://github.com/biqly/biqly.git`, `path=deploy/helm/biqly`, `valueFiles=[values-prod.yaml]`, automated `prune/selfHeal` ve `CreateNamespace/ServerSideApply` sync options tanimli. `kubectl apply --dry-run=client` basarili._
+- [~] **I7.1b** Ilk cluster deploy (2026-05-19)
+      _Private repo: `argocd/repo-biqly-biqly` secret zlitter PAT'ten turetildi. Private GHCR: `zlitter/ghcr-registry` reflector ile `biqly` ns'ine yansitildi; `values-prod` `imagePullSecrets: [ghcr-registry]`. App secret'lari (`biqly-postgresql-auth`, `biqly-db`, `biqly-security`, `biqly-ai-secrets`) cluster'da elle olusturuldu; chart `global.secrets.createSecrets=false`. TLS: `gateway/wildcard-il1-nl-tls` reflector ile `biqly` ns'ine yansitildi. Observability CRD template'leri prod'da kapali (Prometheus Operator yok)._
 - [x] **I7.2** ArgoCD AppProject `biqly` — RBAC, allowed sources, allowed destinations
       _`deploy/argocd/project.yaml` eklendi. Source repo ve `biqly` namespace destination kisitlandi; readonly role eklendi. `kubectl apply --dry-run=client` basarili._
 - [x] **I7.3** GitHub Actions `.github/workflows/build-ai.yml` — multi-arch Docker build → `ghcr.io/biqly/ai:sha-<commit>`
@@ -376,7 +378,7 @@ Legend: `[ ]` pending · `[~]` in-progress · `[x]` done · `[-]` cancelled
 ## Phase 14 — Observability (Infra)
 
 - [~] **I8.1** ServiceMonitor (prom-operator) veya `prometheus.io/scrape` annotation ile metric scrape
-      _AI/Query/Catalog Deployment'larinda zaten `prometheus.io/scrape=true` annotation'i vardi. Ek olarak `templates/servicemonitors.yaml` eklendi ve `monitoring` namespace'ine 3 ServiceMonitor render ediyor. Read-only cluster kontrolunde `servicemonitors.monitoring.coreos.com` CRD'si bulunamadi; Prometheus Operator kurulana kadar annotation fallback kullanilmali._
+      _AI/Query/Catalog Deployment'larinda `prometheus.io/scrape=true` annotation'i var. Ilk prod deploy'da `values-prod.yaml` icinde `global.observability.serviceMonitor.enabled=false` (cluster'da Prometheus Operator CRD yok; Alloy + vanilla Prometheus + Loki kullaniliyor). Sonraki adim: Alloy scrape config ile `/metrics` endpoint'lerini baglamak._
 - [x] **I8.2** Grafana dashboard `biqly-ai` — LLM request duration, tokens used, cost estimate, success rate
       _`templates/grafana-dashboards.yaml` eklendi. `biqly-ai.json` request rate, success rate, average LLM latency, tokens used ve clarification metriklerini render ediyor._
 - [x] **I8.3** Grafana dashboard `biqly-query` — compile/execute duration, rows returned, error rate
