@@ -1,4 +1,4 @@
-.PHONY: build build-catalog build-query build-ai run run-catalog run-query run-ai test eval-regression lint helm-lint helm-template clean migrate-up migrate-down docker-up docker-down seed-adventureworks
+.PHONY: build build-catalog build-query build-ai run run-catalog run-query run-ai test eval-regression lint helm-deps helm-lint helm-template clean migrate-up migrate-down docker-up docker-down seed-adventureworks
 
 BINARY_NAME=biqly
 GO_FILES=$(shell find . -name '*.go' -not -path './vendor/*')
@@ -39,13 +39,16 @@ eval-regression:
 lint:
 	@golangci-lint run ./...
 
-helm-lint:
+helm-deps:
+	@helm repo add bitnami https://charts.bitnami.com/bitnami --force-update >/dev/null
 	@helm dependency build $(HELM_CHART)
+
+helm-lint: helm-deps
 	@helm lint $(HELM_CHART) \
 		--set global.secrets.BI_METADATA_DB_DSN='$(HELM_TEST_METADATA_DSN)' \
 		--set global.secrets.BI_ENCRYPTION_KEY='$(HELM_TEST_ENCRYPTION_KEY)'
 
-helm-template:
+helm-template: helm-deps
 	@helm template biqly $(HELM_CHART) \
 		--set global.secrets.BI_METADATA_DB_DSN='$(HELM_TEST_METADATA_DSN)' \
 		--set global.secrets.BI_ENCRYPTION_KEY='$(HELM_TEST_ENCRYPTION_KEY)' >/tmp/biqly-helm-template.yaml
