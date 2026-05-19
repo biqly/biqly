@@ -317,7 +317,7 @@ func shouldSkipRelatedDimension(col metadata.Column) bool {
 	if col.IsPrimaryKey && !isDisplayColumn(col.ColumnName) {
 		return true
 	}
-	return !(isTextType(col.DataType) || isDateType(col.DataType) || isBooleanType(col.DataType) || isDisplayColumn(col.ColumnName))
+	return !isTextType(col.DataType) && !isDateType(col.DataType) && !isBooleanType(col.DataType) && !isDisplayColumn(col.ColumnName)
 }
 
 func semanticType(dataType string) string {

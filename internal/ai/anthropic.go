@@ -105,7 +105,7 @@ func parseAnthropicResponse(respBody []byte) (GenerationResult, error) {
 		return GenerationResult{}, fmt.Errorf("unmarshal response: %w", err)
 	}
 	if ar.Error != nil {
-		return GenerationResult{}, fmt.Errorf("Anthropic API error: %s", ar.Error.Message)
+		return GenerationResult{}, fmt.Errorf("anthropic API error: %s", ar.Error.Message)
 	}
 	var text string
 	for _, block := range ar.Content {

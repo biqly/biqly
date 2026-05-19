@@ -59,7 +59,6 @@ func (r *Repository) ListFewShotCurated(ctx context.Context, datasourceID, model
 		if modelID != "" {
 			q += fmt.Sprintf(" AND model_id = $%d::uuid", argPos)
 			args = append(args, modelID)
-			argPos++
 		}
 	}
 	q += " ORDER BY created_at DESC"

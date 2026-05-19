@@ -124,12 +124,12 @@ func (s *DescribeService) Describe(ctx context.Context, req DescribeRequest) (*D
 
 	ds, err := s.metaRepo.GetDatasource(ctx, req.DatasourceID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", core.ErrLoadDatasource, err)
+		return nil, fmt.Errorf("%w: %w", core.ErrLoadDatasource, err)
 	}
 
 	driver, err := s.driverReg.Get(ds.Type)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", core.ErrLoadDriver, err)
+		return nil, fmt.Errorf("%w: %w", core.ErrLoadDriver, err)
 	}
 
 	cols, err := s.metaRepo.ListColumns(ctx, ds.ID, req.Schema, req.Table)
@@ -148,11 +148,11 @@ func (s *DescribeService) Describe(ctx context.Context, req DescribeRequest) (*D
 
 	dsn, err := metadata.RuntimeDSN(ds, s.encryptor)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", core.ErrLoadDatasource, err)
+		return nil, fmt.Errorf("%w: %w", core.ErrLoadDatasource, err)
 	}
 	db, err := driver.Open(ctx, dsn)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", core.ErrConnection, err)
+		return nil, fmt.Errorf("%w: %w", core.ErrConnection, err)
 	}
 	defer func() { _ = db.Close() }()
 

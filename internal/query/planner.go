@@ -17,20 +17,19 @@ func NewPlanner() *Planner {
 
 // PlanResult holds the planning output.
 type PlanResult struct {
-	RequiredJoins []string  `json:"required_joins"`
-	Warnings      []string  `json:"warnings"`
+	RequiredJoins []string    `json:"required_joins"`
+	Warnings      []string    `json:"warnings"`
 	TableGraph    []TableNode `json:"table_graph"`
 }
 
 // TableNode represents a table in the join graph.
 type TableNode struct {
-	Name         string   `json:"name"`
-	Columns      []string `json:"columns"`
-	IsBaseTable  bool     `json:"is_base_table"`
+	Name        string   `json:"name"`
+	Columns     []string `json:"columns"`
+	IsBaseTable bool     `json:"is_base_table"`
 }
 
 // Plan analyzes a LogicalQuery and returns a plan.
-//nolint:gocyclo // step-by-step planning process with independent phases
 func (p *Planner) Plan(lq LogicalQuery, model *semantic.SemanticModel) (*PlanResult, error) {
 	warnings := make([]string, 0, 4)
 	requiredJoins := make([]string, 0, len(model.Joins))

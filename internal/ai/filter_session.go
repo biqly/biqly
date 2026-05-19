@@ -22,6 +22,8 @@ const (
 
 func (i FollowUpIntent) String() string {
 	switch i {
+	case IntentUnknown:
+		return "unknown"
 	case IntentNewQuery:
 		return "new_query"
 	case IntentRefine:

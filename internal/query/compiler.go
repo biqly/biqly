@@ -93,7 +93,7 @@ func (c *Compiler) CompileWithPermissions(
 		whereEnd := whereLoc[1]
 		// Find the end of WHERE content (start of next clause)
 		contentEnd := len(cq.SQL)
-		
+
 		for _, re := range []*regexp.Regexp{reGroupBy, reOrderBy, reLimit, reOffset} {
 			if loc := re.FindStringIndex(cq.SQL); loc != nil && loc[0] > whereEnd && loc[0] < contentEnd {
 				contentEnd = loc[0]
@@ -466,7 +466,7 @@ func (c *Compiler) buildWindowExpr(
 			if dir != "DESC" {
 				dir = "ASC"
 			}
-			ref := ""
+			var ref string
 			if dim, ok := dimMap[ob.Field]; ok {
 				ref = c.dimensionSQL(dim, resolver)
 			} else if metric, ok := metricMap[ob.Field]; ok {
@@ -587,15 +587,15 @@ func (c *Compiler) buildJoins(joinNames []string, joinMap map[string]semantic.Jo
 		toSchema, toTable, toCol := j.ToSchema, j.ToTable, j.ToColumn
 		fromKey := resolver.JoinSideKey(fromSchema, fromTable)
 		toKey := resolver.JoinSideKey(toSchema, toTable)
-		
+
 		_, toInSet := inSet[toKey]
 		_, fromInSet := inSet[fromKey]
-		
+
 		if toInSet && !fromInSet {
 			fromSchema, toSchema = toSchema, fromSchema
 			fromTable, toTable = toTable, fromTable
 			fromCol, toCol = toCol, fromCol
-			fromKey, toKey = toKey, fromKey
+			toKey = fromKey
 		} else if toInSet && fromInSet {
 			continue
 		}
@@ -705,7 +705,7 @@ func (c *Compiler) buildFilterPart(f Filter, lhsSQL string, model *semantic.Sema
 		}
 		return c.buildNotInFilter(lhsSQL, f.Value, args)
 	case OpContains:
-		valStr := ""
+		var valStr string
 		if str, ok := f.Value.(string); ok {
 			valStr = str
 		} else {
@@ -714,7 +714,7 @@ func (c *Compiler) buildFilterPart(f Filter, lhsSQL string, model *semantic.Sema
 		*args = append(*args, "%"+valStr+"%")
 		return c.dialect.ILike(lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
 	case OpStartsWith:
-		valStr := ""
+		var valStr string
 		if str, ok := f.Value.(string); ok {
 			valStr = str
 		} else {
@@ -723,7 +723,7 @@ func (c *Compiler) buildFilterPart(f Filter, lhsSQL string, model *semantic.Sema
 		*args = append(*args, valStr+"%")
 		return c.dialect.ILike(lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
 	case OpEndsWith:
-		valStr := ""
+		var valStr string
 		if str, ok := f.Value.(string); ok {
 			valStr = str
 		} else {

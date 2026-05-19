@@ -108,7 +108,7 @@ func (d *Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasourc
 		return p, err
 	})
 	if pkErr != nil {
-		return columns, nil
+		return nil, fmt.Errorf("load primary keys: %w", pkErr)
 	}
 
 	pkSet := make(map[string]struct{}, len(pkRows))

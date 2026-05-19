@@ -36,12 +36,12 @@ type SFTMessage struct {
 
 // SFTExportOptions configures dataset export.
 type SFTExportOptions struct {
-	OutDir           string
-	TrainRatio       float64
-	ValidationRatio  float64
-	MaxPromptRunes   int
-	MinHistoryConf   float64
-	IncludeGolden    bool
+	OutDir          string
+	TrainRatio      float64
+	ValidationRatio float64
+	MaxPromptRunes  int
+	MinHistoryConf  float64
+	IncludeGolden   bool
 }
 
 // SFTExportResult summarizes written files.
@@ -55,9 +55,9 @@ type SFTExportResult struct {
 
 // SFTExporter builds train/validation/hard_eval JSONL from metadata using PromptBuilder.
 type SFTExporter struct {
-	meta     *metadata.Repository
-	semantic *semantic.Repository
-	builder  *PromptBuilder
+	meta      *metadata.Repository
+	semantic  *semantic.Repository
+	builder   *PromptBuilder
 	validator *query.Validator
 }
 
@@ -93,7 +93,7 @@ func (e *SFTExporter) Export(ctx context.Context, opts SFTExportOptions) (*SFTEx
 	if opts.MaxPromptRunes <= 0 {
 		opts.MaxPromptRunes = defaultMaxPromptRunes
 	}
-	if err := os.MkdirAll(opts.OutDir, 0o755); err != nil {
+	if err := os.MkdirAll(opts.OutDir, 0o750); err != nil {
 		return nil, fmt.Errorf("create output dir: %w", err)
 	}
 
@@ -104,17 +104,17 @@ func (e *SFTExporter) Export(ctx context.Context, opts SFTExportOptions) (*SFTEx
 	valPath := filepath.Join(opts.OutDir, "validation.jsonl")
 	hardPath := filepath.Join(opts.OutDir, "hard_eval.jsonl")
 
-	trainW, err := os.Create(trainPath)
+	trainW, err := os.Create(trainPath) //nolint:gosec // output path is under the caller-provided export directory
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = trainW.Close() }()
-	valW, err := os.Create(valPath)
+	valW, err := os.Create(valPath) //nolint:gosec // output path is under the caller-provided export directory
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = valW.Close() }()
-	hardW, err := os.Create(hardPath)
+	hardW, err := os.Create(hardPath) //nolint:gosec // output path is under the caller-provided export directory
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +191,6 @@ func (e *SFTExporter) collectItems(ctx context.Context, opts SFTExportOptions) (
 		errs = append(errs, "few_shot: "+err.Error())
 	} else {
 		for _, row := range fewShot {
-			row := row
 			add(row.Source, row.Question, row.LogicalQuery, "", func() (string, string, error) {
 				return e.buildFromDB(ctx, row.Question, row.LogicalQuery, row.DatasourceID, row.SemanticModelID, row.Dialect, opts.MaxPromptRunes)
 			})
@@ -203,7 +202,6 @@ func (e *SFTExporter) collectItems(ctx context.Context, opts SFTExportOptions) (
 		errs = append(errs, "history: "+err.Error())
 	} else {
 		for _, row := range history {
-			row := row
 			add(row.Source, row.Question, row.LogicalQuery, "", func() (string, string, error) {
 				return e.buildFromDB(ctx, row.Question, row.LogicalQuery, row.DatasourceID, row.SemanticModelID, "", opts.MaxPromptRunes)
 			})
@@ -212,7 +210,6 @@ func (e *SFTExporter) collectItems(ctx context.Context, opts SFTExportOptions) (
 
 	if opts.IncludeGolden {
 		for _, c := range DefaultGoldenCases() {
-			c := c
 			lqBytes, err := json.Marshal(c.Expected)
 			if err != nil {
 				skipped++
@@ -347,7 +344,7 @@ func renderGemma4SFTText(system, user, assistant string) string {
 
 // WriteJSONL appends records to path (used in tests).
 func WriteJSONL(path string, records []SFTRecord) error {
-	f, err := os.Create(path)
+	f, err := os.Create(path) //nolint:gosec // helper writes to caller-provided test/export path
 	if err != nil {
 		return err
 	}

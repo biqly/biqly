@@ -57,8 +57,8 @@ func EnrichResult(result *Result, lq LogicalQuery, model *semantic.SemanticModel
 				byAlias[alias] = role{semanticType: SemanticTypeDimension, format: format}
 			}
 		case SelectTypeMetric:
-			if metric, ok := metricByName[item.Name]; ok {
-				byAlias[alias] = role{semanticType: SemanticTypeMetric, format: formatForMetric(metric)}
+			if _, ok := metricByName[item.Name]; ok {
+				byAlias[alias] = role{semanticType: SemanticTypeMetric, format: FormatNumber}
 			}
 		case SelectTypeWindow:
 			byAlias[alias] = role{semanticType: SemanticTypeMetric, format: FormatNumber}
@@ -106,17 +106,6 @@ func formatForTimeGrain(grain, fallback string) string {
 		return FormatDate
 	}
 	return fallback
-}
-
-func formatForMetric(metric semantic.Metric) string {
-	switch strings.ToLower(string(metric.Aggregation)) {
-	case "count", "count_distinct":
-		return FormatNumber
-	}
-	// Without dedicated unit metadata on the metric we cannot reliably infer
-	// currency vs. plain number. Leave it as number; UI can override via the
-	// metric's label/description.
-	return FormatNumber
 }
 
 // suggestCharts returns a short, ordered list of chart types appropriate for

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,14 +16,14 @@ func TestAdminKeyFromRequest(t *testing.T) {
 		want   string
 	}{
 		{
-			name: "x-admin-key",
+			name:   "x-admin-key",
 			header: http.Header{"X-Admin-Key": []string{"secret"}},
-			want: "secret",
+			want:   "secret",
 		},
 		{
-			name: "bearer",
+			name:   "bearer",
 			header: http.Header{"Authorization": []string{"Bearer secret"}},
-			want: "secret",
+			want:   "secret",
 		},
 		{
 			name:   "missing",
@@ -34,7 +35,7 @@ func TestAdminKeyFromRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			r := httptest.NewRequest(http.MethodPost, "/api/ai/eval/run", nil)
+			r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/ai/eval/run", nil)
 			r.Header = tt.header
 			if got := adminKeyFromRequest(r); got != tt.want {
 				t.Fatalf("adminKeyFromRequest() = %q, want %q", got, tt.want)

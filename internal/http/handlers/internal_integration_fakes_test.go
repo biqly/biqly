@@ -12,19 +12,20 @@ import (
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/audit"
-	"github.com/biqly/biqly/internal/semantic"
 	"github.com/biqly/biqly/internal/core"
 	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/dialect"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/query"
+	"github.com/biqly/biqly/internal/semantic"
 	"github.com/go-chi/chi/v5"
 )
 
 const (
-	integrationToken  = "integration-secret"
-	integrationDSID   = "ds_1"
-	integrationModel  = "orders"
+	integrationToken = "integration-secret"
+	integrationDSID  = "ds_1"
+	integrationModel = "orders"
+	//nolint:gosec // test fixture DSN, not a real credential
 	plaintextProbeDSN = "postgres://user:supersecret@localhost:5432/db"
 )
 

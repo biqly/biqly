@@ -378,7 +378,7 @@ func selectManualTables(
 		table, err := resolveTableRef(tableIndex, ref)
 		if err != nil {
 			result := &TableRoutingResult{Manual: true, NeedsClarification: true}
-			return nil, result, fmt.Errorf("%w: %v", ErrTableScopeInvalid, err)
+			return nil, result, fmt.Errorf("%w: %w", ErrTableScopeInvalid, err)
 		}
 		key := tableKey(table.SchemaName, table.TableName)
 		if _, ok := seen[key]; ok {
@@ -831,10 +831,6 @@ func scoreTable(table metadata.Table, columns []metadata.Column, tokens map[stri
 
 func isCategoryOrProductQuestion(tokens map[string]bool) bool {
 	return activeRoutingLexicon().HasAnyToken(tokens, activeRoutingLexicon().CategoryProductTokens)
-}
-
-func isQuantityOrCountIntent(tokens map[string]bool) bool {
-	return activeRoutingLexicon().HasAnyToken(tokens, activeRoutingLexicon().QuantityTokens)
 }
 
 // appendProductTableIfMissing pulls in production.product (or subcategory) when the
@@ -1426,7 +1422,7 @@ func validateManualScopeAgainstTypeScope(
 	for _, ref := range nonEmptyScope(tableScope) {
 		table, err := resolveTableRef(idx, ref)
 		if err != nil {
-			return fmt.Errorf("%w: %v", ErrTableScopeInvalid, err)
+			return fmt.Errorf("%w: %w", ErrTableScopeInvalid, err)
 		}
 		if !tableMatchesTypeScope(table, includeBaseTables, includeViews) {
 			return fmt.Errorf("%w: %q is excluded by type scope (base tables vs views)", ErrTableScopeInvalid, ref)

@@ -22,19 +22,19 @@ type ResolvedDatasource struct {
 func (d *Dependencies) ResolveDatasourceDB(ctx context.Context, id string) (*ResolvedDatasource, error) {
 	ds, err := d.MetaRepo.GetDatasource(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", core.ErrLoadDatasource, err)
+		return nil, fmt.Errorf("%w: %w", core.ErrLoadDatasource, err)
 	}
 	driver, err := d.DriverReg.Get(ds.Type)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", core.ErrLoadDriver, err)
+		return nil, fmt.Errorf("%w: %w", core.ErrLoadDriver, err)
 	}
 	dsn, err := metadata.RuntimeDSN(ds, d.Encryptor)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", core.ErrLoadDatasource, err)
+		return nil, fmt.Errorf("%w: %w", core.ErrLoadDatasource, err)
 	}
 	db, err := driver.Open(ctx, dsn)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", core.ErrConnection, err)
+		return nil, fmt.Errorf("%w: %w", core.ErrConnection, err)
 	}
 	return &ResolvedDatasource{Record: ds, Driver: driver, DB: db}, nil
 }

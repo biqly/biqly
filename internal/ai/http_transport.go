@@ -11,7 +11,6 @@ import (
 const maxResponseSize = 10 * 1024 * 1024 // 10 MB
 
 func readResponseBody(resp *http.Response) ([]byte, error) {
-	defer resp.Body.Close()
 	limited := io.LimitReader(resp.Body, maxResponseSize)
 	body, readErr := io.ReadAll(limited)
 	if readErr != nil {
@@ -40,6 +39,7 @@ func execHTTPPost(ctx context.Context, client *http.Client, spec httpPostSpec) (
 	if err != nil {
 		return 0, nil, fmt.Errorf("send request: %w", err)
 	}
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := readResponseBody(resp)
 	if err != nil {

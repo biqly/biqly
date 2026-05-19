@@ -366,7 +366,6 @@ func (r *Repository) ListColumns(ctx context.Context, datasourceID, schemaName, 
 		args = append(args, schemaName)
 	}
 	if tableName != "" {
-		//nolint:gosec // parameterized query with $N placeholders
 		query += fmt.Sprintf(" AND table_name = $%d", len(args)+1)
 		args = append(args, tableName)
 	}

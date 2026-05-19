@@ -16,7 +16,7 @@ func TestEncryptionRoundTrip(t *testing.T) {
 	enc, err := NewEncryptionWithKey(key)
 	require.NoError(t, err)
 
-	plaintext := "postgres://user:password@localhost:5432/mydb?sslmode=disable"
+	plaintext := "postgres://user:password@localhost:5432/mydb?sslmode=disable" //nolint:gosec // test fixture DSN, not a real credential
 
 	encrypted, err := enc.Encrypt(plaintext)
 	require.NoError(t, err)

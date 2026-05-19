@@ -11,32 +11,32 @@ import (
 
 // TableBoostRule adds score when all listed intents match and the table name contains a substring.
 type TableBoostRule struct {
-	Intents          []string  `json:"intents"`
-	TableSubstrings  []string  `json:"table_substrings"`
-	Boost            float64   `json:"boost"`
+	Intents         []string `json:"intents"`
+	TableSubstrings []string `json:"table_substrings"`
+	Boost           float64  `json:"boost"`
 }
 
 // RoutingWeights configures keyword-scoring magnitudes for table routing.
 // Defaults are embedded; override with BI_AI_ROUTING_WEIGHTS_PATH (JSON).
 type RoutingWeights struct {
-	TableName                 float64          `json:"table_name"`
-	TableDescription          float64          `json:"table_description"`
-	ColumnName                float64          `json:"column_name"`
-	ColumnDataType            float64          `json:"column_data_type"`
-	ColumnDescription         float64          `json:"column_description"`
-	RevenueColumnBoost        float64          `json:"revenue_column_boost"`
-	ReadableLabelColumnBoost  float64          `json:"readable_label_column_boost"`
-	ColumnKeywordMatch        float64          `json:"column_keyword_match"`
-	ColumnKeywordName         float64          `json:"column_keyword_name"`
-	ColumnKeywordDescription  float64          `json:"column_keyword_description"`
-	ColumnRevenueBoost        float64          `json:"column_revenue_boost"`
-	ColumnDisplayNameBoost    float64          `json:"column_display_name_boost"`
-	SelectionRelativeThreshold float64         `json:"selection_relative_threshold"`
-	EntityPathBridgeScore     float64          `json:"entity_path_bridge_score"`
-	EntityPathTargetScore     float64          `json:"entity_path_target_score"`
-	ResolverPathBridgeScore   float64          `json:"resolver_path_bridge_score"`
-	ResolverPathTargetScore   float64          `json:"resolver_path_target_score"`
-	TableBoostRules           []TableBoostRule `json:"table_boost_rules"`
+	TableName                  float64          `json:"table_name"`
+	TableDescription           float64          `json:"table_description"`
+	ColumnName                 float64          `json:"column_name"`
+	ColumnDataType             float64          `json:"column_data_type"`
+	ColumnDescription          float64          `json:"column_description"`
+	RevenueColumnBoost         float64          `json:"revenue_column_boost"`
+	ReadableLabelColumnBoost   float64          `json:"readable_label_column_boost"`
+	ColumnKeywordMatch         float64          `json:"column_keyword_match"`
+	ColumnKeywordName          float64          `json:"column_keyword_name"`
+	ColumnKeywordDescription   float64          `json:"column_keyword_description"`
+	ColumnRevenueBoost         float64          `json:"column_revenue_boost"`
+	ColumnDisplayNameBoost     float64          `json:"column_display_name_boost"`
+	SelectionRelativeThreshold float64          `json:"selection_relative_threshold"`
+	EntityPathBridgeScore      float64          `json:"entity_path_bridge_score"`
+	EntityPathTargetScore      float64          `json:"entity_path_target_score"`
+	ResolverPathBridgeScore    float64          `json:"resolver_path_bridge_score"`
+	ResolverPathTargetScore    float64          `json:"resolver_path_target_score"`
+	TableBoostRules            []TableBoostRule `json:"table_boost_rules"`
 }
 
 var (
@@ -62,7 +62,8 @@ func activeRoutingWeights() *RoutingWeights {
 		slog.Error("routing weights unavailable, using embedded defaults", "error", err)
 		fallback, parseErr := parseRoutingWeightsJSON(embeddedRoutingWeightsJSON)
 		if parseErr != nil {
-			panic(parseErr)
+			slog.Error("embedded routing weights invalid", "error", parseErr)
+			return &RoutingWeights{}
 		}
 		return fallback
 	}
@@ -90,7 +91,7 @@ func loadRoutingWeights(path string) (*RoutingWeights, error) {
 	if path == "" {
 		return w, nil
 	}
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) //nolint:gosec // operator-provided routing weights path
 	if err != nil {
 		return nil, fmt.Errorf("read routing weights %q: %w", path, err)
 	}

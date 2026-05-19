@@ -72,7 +72,7 @@ func TestToServiceErrorPreservesCause(t *testing.T) {
 	if !errors.Is(se, core.ErrLoadSemanticModel) {
 		t.Fatal("expected sentinel via unwrap chain")
 	}
-	if core.LogCause(se) != inner {
+	if !errors.Is(core.LogCause(se), inner) {
 		t.Fatal("LogCause should return original")
 	}
 }

@@ -18,8 +18,6 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-const appliedMigrationsTable = "biqly_applied_migrations"
-
 func main() {
 	dsn := flag.String("dsn", os.Getenv("BI_METADATA_DB_DSN"), "Database DSN")
 	dir := flag.String("dir", "migrations", "Migrations directory")
@@ -50,7 +48,7 @@ func main() {
 		slog.Error("open database", "error", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	if err := db.PingContext(ctx); err != nil {
 		slog.Error("ping database", "error", err)
@@ -110,7 +108,7 @@ func migrateUp(ctx context.Context, db *sql.DB, dir string) error {
 		if applied[name] {
 			continue
 		}
-		body, readErr := os.ReadFile(path)
+		body, readErr := os.ReadFile(path) //nolint:gosec // path is constrained to migration files discovered from the configured migrations directory
 		if readErr != nil {
 			return fmt.Errorf("read %s: %w", name, readErr)
 		}
@@ -150,7 +148,7 @@ func migrateDown(ctx context.Context, db *sql.DB, dir string) error {
 		return fmt.Errorf("no down migration for %s", latest)
 	}
 	path := filepath.Join(dir, downName)
-	body, err := os.ReadFile(path)
+	body, err := os.ReadFile(path) //nolint:gosec // path is derived from the latest applied migration name and configured migrations directory
 	if err != nil {
 		return fmt.Errorf("read %s: %w", downName, err)
 	}
@@ -181,7 +179,7 @@ func loadAppliedSet(ctx context.Context, db *sql.DB) (map[string]bool, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	out := make(map[string]bool)
 	for rows.Next() {

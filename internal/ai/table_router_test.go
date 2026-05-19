@@ -513,11 +513,12 @@ func TestTableRouter_RouteNeedsClarificationForNoMatch(t *testing.T) {
 }
 
 func TestExpandSelectedWithJoinBridges_AddsIntermediateTables(t *testing.T) {
-	tables := []metadata.Table{
-		{DatasourceID: "ds1", SchemaName: "sales", TableName: "header", TableType: "BASE TABLE"},
-		{DatasourceID: "ds1", SchemaName: "sales", TableName: "detail", TableType: "BASE TABLE"},
-		{DatasourceID: "ds1", SchemaName: "prod", TableName: "productcategory", TableType: "BASE TABLE"},
-	}
+	tables := make([]metadata.Table, 0, 4)
+	tables = append(tables,
+		metadata.Table{DatasourceID: "ds1", SchemaName: "sales", TableName: "header", TableType: "BASE TABLE"},
+		metadata.Table{DatasourceID: "ds1", SchemaName: "sales", TableName: "detail", TableType: "BASE TABLE"},
+		metadata.Table{DatasourceID: "ds1", SchemaName: "prod", TableName: "productcategory", TableType: "BASE TABLE"},
+	)
 	relations := []metadata.Relation{
 		{DatasourceID: "ds1", FromSchema: "sales", FromTable: "header", FromColumn: "id", ToSchema: "sales", ToTable: "detail", ToColumn: "order_id"},
 		{DatasourceID: "ds1", FromSchema: "sales", FromTable: "detail", FromColumn: "product_id", ToSchema: "prod", ToTable: "product", ToColumn: "id"},
@@ -621,7 +622,7 @@ func TestTableRouter_ColumnEmbeddingsNarrowWideTableButKeepRequiredColumns(t *te
 	}
 	router := NewTableRouterWithEmbeddings(
 		reader,
-		&fakeEmbedder{model: "fake", vectors: map[string][]float32{"Yıllara göre toplam satış tutarını göster.": {1, 0}}, default_: []float32{1, 0}},
+		&fakeEmbedder{model: "fake", vectors: map[string][]float32{"Yıllara göre toplam satış tutarını göster.": {1, 0}}, fallback: []float32{1, 0}},
 		&fakeEmbeddingReader{columnEmbeddings: columnEmbeddings},
 		30.0,
 	)
@@ -646,7 +647,6 @@ func TestTableRouter_ColumnEmbeddingsNarrowWideTableButKeepRequiredColumns(t *te
 		t.Fatalf("column embeddings should have filtered tail low-similarity noise column; dims=%v", dimNames(model.Dimensions))
 	}
 }
-
 
 func testMetadataReader() fakeMetadataReader {
 	return fakeMetadataReader{
@@ -683,8 +683,8 @@ func testMetadataReader() fakeMetadataReader {
 func TestSoftDeleteColumnSynonyms(t *testing.T) {
 	tests := []struct {
 		col, typ string
-		substr  string
-		empty   bool
+		substr   string
+		empty    bool
 	}{
 		{"deleted_at", "timestamp with time zone", "silinen", false},
 		{"timeline_tweets_deleted_at", "timestamptz", "silinen", false},

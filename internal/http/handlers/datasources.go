@@ -37,13 +37,13 @@ type connectionRequest struct {
 }
 
 type createDatasourceRequest struct {
-	ID         string              `json:"id,omitempty"`
-	Name       string              `json:"name"`
-	Type       string              `json:"type"`
-	Mode       string              `json:"mode,omitempty"` // raw | structured
-	DSN        string              `json:"dsn,omitempty"`
-	Connection *connectionRequest  `json:"connection,omitempty"`
-	Config     string              `json:"config,omitempty"`
+	ID         string             `json:"id,omitempty"`
+	Name       string             `json:"name"`
+	Type       string             `json:"type"`
+	Mode       string             `json:"mode,omitempty"` // raw | structured
+	DSN        string             `json:"dsn,omitempty"`
+	Connection *connectionRequest `json:"connection,omitempty"`
+	Config     string             `json:"config,omitempty"`
 }
 
 func resolveCreateDatasourceMode(req *createDatasourceRequest) string {
@@ -446,8 +446,6 @@ func (h *DatasourceHandler) TestDraft(w http.ResponseWriter, r *http.Request) {
 }
 
 // SyncMetadata introspects and persists the schema of a datasource.
-//
-//nolint:gocyclo // linear step-by-step sync process, each step is independent
 func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request) {
 	id, ok := requireURLParam(w, r, "id")
 	if !ok {

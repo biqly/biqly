@@ -26,11 +26,11 @@ type GlossaryEntry struct {
 
 // ExternalGlossaryInput is a curated term from the business_glossary_terms table.
 type ExternalGlossaryInput struct {
-	Term         string
-	Definition   string
-	MapsToType   string
-	MapsToName   string
-	Aliases      []string
+	Term       string
+	Definition string
+	MapsToType string
+	MapsToName string
+	Aliases    []string
 }
 
 // GlossaryFromSemanticModel derives term→field mappings from model/dimension/metric synonyms.
@@ -235,7 +235,7 @@ func defaultGlossarySlice(entries []GlossaryEntry, model *semantic.SemanticModel
 		e GlossaryEntry
 		p int
 	}
-	var pool []scored
+	pool := make([]scored, 0, len(entries))
 	for _, e := range entries {
 		p := 1
 		if e.Source == "glossary" {

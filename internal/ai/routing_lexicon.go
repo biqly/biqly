@@ -11,17 +11,17 @@ import (
 // RoutingLexicon holds token expansion and intent vocabulary for table routing.
 // Defaults are embedded; override with BI_AI_ROUTING_LEXICON_PATH (JSON).
 type RoutingLexicon struct {
-	TokenSynonyms             map[string][]string `json:"token_synonyms"`
-	CategoryProductTokens     []string            `json:"category_product_tokens"`
-	QuantityTokens            []string            `json:"quantity_tokens"`
-	RevenueTokens             []string            `json:"revenue_tokens"`
-	RevenueColumnTokens       []string            `json:"revenue_column_tokens"`
-	NameLikeTokens            []string            `json:"name_like_tokens"`
-	ReadableLabelTokens       []string            `json:"readable_label_tokens"`
-	RowCountSynonyms          []string            `json:"row_count_synonyms"`
-	MetricSynonyms            map[string][]string `json:"metric_synonyms"`
-	CategoryTableSubstrings   []string            `json:"category_table_substrings"`
-	ProductCatalogSubstrings  []string            `json:"product_catalog_substrings"`
+	TokenSynonyms            map[string][]string `json:"token_synonyms"`
+	CategoryProductTokens    []string            `json:"category_product_tokens"`
+	QuantityTokens           []string            `json:"quantity_tokens"`
+	RevenueTokens            []string            `json:"revenue_tokens"`
+	RevenueColumnTokens      []string            `json:"revenue_column_tokens"`
+	NameLikeTokens           []string            `json:"name_like_tokens"`
+	ReadableLabelTokens      []string            `json:"readable_label_tokens"`
+	RowCountSynonyms         []string            `json:"row_count_synonyms"`
+	MetricSynonyms           map[string][]string `json:"metric_synonyms"`
+	CategoryTableSubstrings  []string            `json:"category_table_substrings"`
+	ProductCatalogSubstrings []string            `json:"product_catalog_substrings"`
 }
 
 var (
@@ -47,7 +47,8 @@ func activeRoutingLexicon() *RoutingLexicon {
 		slog.Error("routing lexicon unavailable, using embedded defaults", "error", err)
 		fallback, parseErr := parseRoutingLexiconJSON(embeddedRoutingLexiconJSON)
 		if parseErr != nil {
-			panic(parseErr)
+			slog.Error("embedded routing lexicon invalid", "error", parseErr)
+			return &RoutingLexicon{}
 		}
 		return fallback
 	}
@@ -76,7 +77,7 @@ func loadRoutingLexicon(path string) (*RoutingLexicon, error) {
 	if path == "" {
 		return lex, nil
 	}
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) //nolint:gosec // operator-provided routing lexicon path
 	if err != nil {
 		return nil, fmt.Errorf("read routing lexicon %q: %w", path, err)
 	}

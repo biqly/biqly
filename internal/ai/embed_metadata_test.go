@@ -48,7 +48,7 @@ func TestEmbedMetadataService_EmbedsTablesAndColumns(t *testing.T) {
 			{ID: "column-2", DatasourceID: "ds1", SchemaName: "sales", TableName: "orders", ColumnName: "totaldue", DataType: "numeric"},
 		},
 	}
-	embedder := &fakeEmbedder{model: "fake", default_: []float32{1, 0}}
+	embedder := &fakeEmbedder{model: "fake", fallback: []float32{1, 0}}
 	service := NewEmbedMetadataService(embedder, writer)
 
 	results, err := service.EmbedAllForDatasource(context.Background(), "ds1")

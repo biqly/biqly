@@ -35,7 +35,7 @@ func TestCosineSimilarity(t *testing.T) {
 type fakeEmbedder struct {
 	model    string
 	vectors  map[string][]float32
-	default_ []float32
+	fallback []float32
 }
 
 func (f *fakeEmbedder) Model() string { return f.model }
@@ -46,7 +46,7 @@ func (f *fakeEmbedder) Embed(_ context.Context, texts []string) ([][]float32, er
 			out[i] = v
 			continue
 		}
-		out[i] = f.default_
+		out[i] = f.fallback
 	}
 	return out, nil
 }
@@ -87,7 +87,7 @@ func TestTableRouter_EmbeddingBoostShiftsRanking(t *testing.T) {
 	emb := &fakeEmbedder{
 		model:    "fake",
 		vectors:  map[string][]float32{"login activity": {0, 1, 0}},
-		default_: []float32{1, 0, 0},
+		fallback: []float32{1, 0, 0},
 	}
 	embReader := &fakeEmbeddingReader{
 		embeddings: []metadata.TableEmbedding{
@@ -133,7 +133,7 @@ func TestTableRouter_EmbeddingBoostFallbackToKeyword(t *testing.T) {
 			{DatasourceID: "ds1", SchemaName: "public", TableName: "sales", ColumnName: "amount", DataType: "numeric"},
 		},
 	}
-	emb := &fakeEmbedder{model: "fake", default_: nil}
+	emb := &fakeEmbedder{model: "fake", fallback: nil}
 	embReader := &fakeEmbeddingReader{err: errors.New("network down")}
 	router := NewTableRouterWithEmbeddings(reader, emb, embReader, 30.0)
 

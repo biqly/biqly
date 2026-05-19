@@ -219,7 +219,7 @@ func TestInternalIntegration_AuthMiddleware(t *testing.T) {
 	}
 	assertAPIError(t, rec, internalapi.CodeUnauthorized)
 
-	unset := newInternalIntegrationEnvUnsetToken(t, integrationCatalogFixture("enc"), integrationQueryRunner{})
+	unset := newInternalIntegrationEnvUnsetToken(t, integrationCatalogFixture("enc"))
 	rec = unset.do(t, http.MethodGet, "/internal/health", nil, "", "ai")
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("unset token: got %d want 403", rec.Code)
@@ -238,7 +238,7 @@ func TestInternalIntegration_AuditMiddleware(t *testing.T) {
 	}
 }
 
-func newInternalIntegrationEnvUnsetToken(t *testing.T, catalog integrationCatalog, queryRunner internalQueryRunner) *internalIntegrationEnv {
+func newInternalIntegrationEnvUnsetToken(t *testing.T, catalog integrationCatalog) *internalIntegrationEnv {
 	t.Helper()
 	var auditBuf bytes.Buffer
 	auditLogger := audit.NewLogger(slog.New(slog.NewJSONHandler(&auditBuf, nil)))
@@ -323,12 +323,12 @@ func assertGoldenJSON(t *testing.T, name string, got []byte) {
 		t.Fatalf("compact got: %v", err)
 	}
 	if os.Getenv("UPDATE_INTERNAL_GOLDEN") == "1" {
-		if err := os.WriteFile(path, append(gotNorm.Bytes(), '\n'), 0o644); err != nil {
+		if err := os.WriteFile(path, append(gotNorm.Bytes(), '\n'), 0o600); err != nil {
 			t.Fatalf("write golden %s: %v", name, err)
 		}
 		return
 	}
-	want, err := os.ReadFile(path)
+	want, err := os.ReadFile(path) //nolint:gosec // test fixture path comes from the fixed golden directory and test case name
 	if err != nil {
 		t.Fatalf("read golden %s: %v", name, err)
 	}

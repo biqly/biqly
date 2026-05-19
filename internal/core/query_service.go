@@ -125,18 +125,18 @@ func (s *QueryService) Run(ctx context.Context, lq query.LogicalQuery) (*RunResu
 	}
 	dsn, err := metadata.RuntimeDSN(compiled.Datasource, s.encryptor)
 	if err != nil {
-		return nil, ToServiceError(fmt.Errorf("%w: %v", ErrLoadDatasource, err))
+		return nil, ToServiceError(fmt.Errorf("%w: %w", ErrLoadDatasource, err))
 	}
 	db, err := compiled.Driver.Open(ctx, dsn)
 	if err != nil {
-		return nil, ToServiceError(fmt.Errorf("%w: %v", ErrConnection, err))
+		return nil, ToServiceError(fmt.Errorf("%w: %w", ErrConnection, err))
 	}
 	defer func() { _ = db.Close() }()
 
 	result, err := s.executor.Execute(ctx, db, compiled.Compiled)
 	if err != nil {
 		s.recordHistory(ctx, compiled.LogicalQuery, compiled.Model, compiled.Compiled, nil, QueryStatusFailed, err)
-		return nil, ToServiceError(fmt.Errorf("%w: %v", ErrQueryExecution, err))
+		return nil, ToServiceError(fmt.Errorf("%w: %w", ErrQueryExecution, err))
 	}
 	query.EnrichResult(result, lq, compiled.Model)
 	s.recordHistory(ctx, compiled.LogicalQuery, compiled.Model, compiled.Compiled, result, QueryStatusSuccess, nil)
@@ -186,15 +186,15 @@ func (s *QueryService) loadContext(ctx context.Context, lq query.LogicalQuery) (
 	}
 	model, err := s.models.GetPublishedFullModel(ctx, lq.ModelID)
 	if err != nil {
-		return nil, ToServiceError(fmt.Errorf("%w: %v", ErrLoadSemanticModel, err))
+		return nil, ToServiceError(fmt.Errorf("%w: %w", ErrLoadSemanticModel, err))
 	}
 	ds, err := s.datasources.GetDatasource(ctx, lq.DatasourceID)
 	if err != nil {
-		return nil, ToServiceError(fmt.Errorf("%w: %v", ErrLoadDatasource, err))
+		return nil, ToServiceError(fmt.Errorf("%w: %w", ErrLoadDatasource, err))
 	}
 	driver, err := s.drivers.Get(ds.Type)
 	if err != nil {
-		return nil, ToServiceError(fmt.Errorf("%w: %v", ErrLoadDriver, err))
+		return nil, ToServiceError(fmt.Errorf("%w: %w", ErrLoadDriver, err))
 	}
 	return &CompileResult{
 		LogicalQuery: lq,

@@ -3,8 +3,6 @@ package semantic
 import "time"
 
 // SemanticModel defines a business-friendly view over a physical table.
-//
-//nolint:revive // 'SemanticModel' is clearer than 'Model' in the semantic package context
 type SemanticModel struct {
 	ID              string      `json:"id" db:"id"`
 	DatasourceID    string      `json:"datasource_id" db:"datasource_id"`

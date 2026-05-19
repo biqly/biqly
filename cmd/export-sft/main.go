@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"flag"
-	"fmt"
 	"log/slog"
 	"os"
 
@@ -70,13 +69,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Wrote %s\n", *out)
-	fmt.Printf("  train.jsonl:      %d\n", result.TrainCount)
-	fmt.Printf("  validation.jsonl: %d\n", result.ValidationCount)
-	fmt.Printf("  hard_eval.jsonl:  %d\n", result.HardEvalCount)
-	fmt.Printf("  skipped/dedup:    %d\n", result.Skipped)
+	slog.Info("sft export completed",
+		"out", *out,
+		"train", result.TrainCount,
+		"validation", result.ValidationCount,
+		"hard_eval", result.HardEvalCount,
+		"skipped", result.Skipped,
+	)
 	for _, e := range result.Errors {
-		fmt.Printf("  warn: %s\n", e)
+		slog.Warn("sft export warning", "warning", e)
 	}
 	if result.TrainCount+result.ValidationCount+result.HardEvalCount == 0 {
 		slog.Error("no records exported — add few_shot_examples or successful ai_query_history rows")

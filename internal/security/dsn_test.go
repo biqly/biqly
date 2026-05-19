@@ -21,7 +21,7 @@ func TestConnectionDSN_plaintextWithEncryptor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plain := "postgres://user:pass@host:5432/db"
+	plain := "postgres://user:pass@host:5432/db" //nolint:gosec // test fixture DSN, not a real credential
 	got, err := security.ConnectionDSN(enc, plain)
 	if err != nil {
 		t.Fatal(err)

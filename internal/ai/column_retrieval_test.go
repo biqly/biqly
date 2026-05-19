@@ -55,7 +55,7 @@ func TestTableRouter_ColumnKeywordRankingWhenEmbeddingsIncomplete(t *testing.T) 
 	}
 	router := NewTableRouterWithEmbeddings(
 		reader,
-		&fakeEmbedder{model: "fake", default_: []float32{1, 0}},
+		&fakeEmbedder{model: "fake", fallback: []float32{1, 0}},
 		&fakeEmbeddingReader{columnEmbeddings: columnEmbeddings},
 		30.0,
 	)

@@ -13,8 +13,6 @@ type Request struct {
 }
 
 // AIRequest is a deprecated alias for Request.
-//
-//nolint:revive // alias for backward compatibility
 type AIRequest = Request
 
 // Response is the output from the AI query endpoint.
@@ -154,8 +152,6 @@ type VisualizationHint struct {
 }
 
 // AIResponse is a deprecated alias for Response.
-//
-//nolint:revive // alias for backward compatibility
 type AIResponse = Response
 
 // LogicalQuerySchema defines the JSON schema the AI must output.
