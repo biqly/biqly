@@ -743,11 +743,9 @@ func (h *AIHandler) writeModelLoadError(ctx context.Context, w http.ResponseWrit
 	case errors.Is(err, core.ErrLoadSemanticModel):
 		writeError(w, http.StatusNotFound, "semantic model not found")
 	case req.ModelID == "":
-		slog.ErrorContext(ctx, "failed to route table scope", "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to route table scope")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to route table scope", err)
 	default:
-		slog.ErrorContext(ctx, "failed to load query model", "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to load query model")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to load query model", err)
 	}
 }
 

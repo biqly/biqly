@@ -21,17 +21,9 @@ export function ResultTable({
   rowCount,
   durationMs,
   question,
-  anomalies,
   onFilterByValue,
   onCellClick,
 }: ResultTableProps) {
-  const anomalyCells = useMemo(() => {
-    const set = new Set<string>()
-    for (const a of anomalies ?? []) {
-      set.add(`${a.row_index}:${a.column}`)
-    }
-    return set
-  }, [anomalies])
   const [sortColIdx, setSortColIdx] = useState<number | null>(null)
   const [sortDir, setSortDir] = useState<SortDirection>(null)
   const [contextMenu, setContextMenu] = useState<{
@@ -52,7 +44,7 @@ export function ResultTable({
   }
 
   const indexedRows = useMemo(
-    () => rows.map((row, originalIndex) => ({ row, originalIndex })),
+    () => rows.map((row) => ({ row })),
     [rows],
   )
 
@@ -126,46 +118,41 @@ export function ResultTable({
       )}
 
       <div className="results-table-scroll">
-      <table className="results-table">
-        <thead>
-          <tr>
-            {columns.map((col, colIdx) => {
-              const isActive = sortColIdx === colIdx
-              const arrow = isActive
-                ? sortDir === 'asc'
-                  ? ' ↑'
-                  : sortDir === 'desc'
-                    ? ' ↓'
-                    : ''
-                : ''
-              return (
-                <th
-                  key={col.name}
-                  className={sortDir ? 'sortable' : ''}
-                  onClick={() => handleSort(colIdx)}
-                  style={{ cursor: 'pointer', userSelect: 'none' }}
-                  title={`Sıralamak için tıklayın${isActive ? ` (${sortDir === 'asc' ? 'artan' : sortDir === 'desc' ? 'azalan' : ''})` : ''}`}
-                >
-                  {col.name}
-                  {arrow}
-                </th>
-              )
-            })}
-          </tr>
-        </thead>
-        <tbody>
-          {sortedRows.map(({ row, originalIndex }, rowIdx) => {
-            const rowHasAnomaly = (anomalies ?? []).some((a) => a.row_index === originalIndex)
-            return (
-              <tr key={rowIdx} className={rowHasAnomaly ? 'results-row--anomaly' : undefined}>
+        <table className="results-table">
+          <thead>
+            <tr>
+              {columns.map((col, colIdx) => {
+                const isActive = sortColIdx === colIdx
+                const arrow = isActive
+                  ? sortDir === 'asc'
+                    ? ' ↑'
+                    : sortDir === 'desc'
+                      ? ' ↓'
+                      : ''
+                  : ''
+                return (
+                  <th
+                    key={col.name}
+                    className={sortDir ? 'sortable' : ''}
+                    onClick={() => handleSort(colIdx)}
+                    style={{ cursor: 'pointer', userSelect: 'none' }}
+                    title={`Sıralamak için tıklayın${isActive ? ` (${sortDir === 'asc' ? 'artan' : sortDir === 'desc' ? 'azalan' : ''})` : ''}`}
+                  >
+                    {col.name}
+                    {arrow}
+                  </th>
+                )
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {sortedRows.map(({ row }, rowIdx) => (
+              <tr key={rowIdx}>
                 {row.map((cell, colIdx) => {
                   const colName = columns[colIdx]?.name ?? ''
-                  const isAnomaly = anomalyCells.has(`${originalIndex}:${colName}`)
                   return (
                     <td
                       key={colIdx}
-                      className={isAnomaly ? 'results-cell--anomaly' : undefined}
-                      title={isAnomaly ? 'IQR tabanlı aykırı değer' : undefined}
                       onContextMenu={(e) => handleContextMenu(e, colName, String(cell))}
                     >
                       <span
@@ -179,10 +166,9 @@ export function ResultTable({
                   )
                 })}
               </tr>
-            )
-          })}
-        </tbody>
-      </table>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       <div className="result-footer">

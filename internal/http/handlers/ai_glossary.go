@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"log/slog"
 	"net/http"
 	"time"
 
@@ -53,12 +52,8 @@ func (h *AIGlossaryHandler) ListGlossary(w http.ResponseWriter, r *http.Request)
 
 	rows, err := h.deps.MetaRepo.ListBusinessGlossary(ctx, datasourceID, modelID)
 	if err != nil {
-		slog.ErrorContext(ctx, "list business glossary failed", "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to list glossary")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list glossary", err)
 		return
-	}
-	if rows == nil {
-		rows = []metadata.BusinessGlossaryRow{}
 	}
 	writeJSON(w, http.StatusOK, rows)
 }
@@ -90,8 +85,7 @@ func (h *AIGlossaryHandler) CreateGlossary(w http.ResponseWriter, r *http.Reques
 		Aliases:      input.Aliases,
 	})
 	if err != nil {
-		slog.ErrorContext(r.Context(), "create business glossary failed", "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to create glossary term")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to create glossary term", err)
 		return
 	}
 	now := time.Now()
@@ -138,8 +132,7 @@ func (h *AIGlossaryHandler) UpdateGlossary(w http.ResponseWriter, r *http.Reques
 		Aliases:    input.Aliases,
 		IsActive:   input.IsActive,
 	}); err != nil {
-		slog.ErrorContext(r.Context(), "update business glossary failed", "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to update glossary term")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to update glossary term", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -153,8 +146,7 @@ func (h *AIGlossaryHandler) DeleteGlossary(w http.ResponseWriter, r *http.Reques
 	}
 	ok, err := h.deps.MetaRepo.DeleteBusinessGlossary(r.Context(), id)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "delete business glossary failed", "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to delete glossary term")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to delete glossary term", err)
 		return
 	}
 	if !ok {

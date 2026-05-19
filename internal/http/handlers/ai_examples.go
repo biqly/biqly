@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"log/slog"
 	"net/http"
 	"time"
 
@@ -57,12 +56,8 @@ func (h *AIExamplesHandler) ListExamples(w http.ResponseWriter, r *http.Request)
 
 	examples, err := h.deps.MetaRepo.ListFewShotCurated(ctx, datasourceID, modelID)
 	if err != nil {
-		slog.ErrorContext(ctx, "list few-shot examples failed", "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to list examples")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list examples", err)
 		return
-	}
-	if examples == nil {
-		examples = []metadata.FewShotCuratedRow{}
 	}
 	writeJSON(w, http.StatusOK, examples)
 }
@@ -91,8 +86,7 @@ func (h *AIExamplesHandler) CreateExample(w http.ResponseWriter, r *http.Request
 		Locale:       input.Locale,
 	})
 	if err != nil {
-		slog.ErrorContext(r.Context(), "create few-shot example failed", "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to create example")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to create example", err)
 		return
 	}
 	now := time.Now()
@@ -119,8 +113,7 @@ func (h *AIExamplesHandler) DeleteExample(w http.ResponseWriter, r *http.Request
 	}
 	ok, err := h.deps.MetaRepo.DeleteFewShotCurated(r.Context(), id)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "delete few-shot example failed", "id", id, "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to delete example")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to delete example", err)
 		return
 	}
 	if !ok {
@@ -154,8 +147,7 @@ func (h *AIExamplesHandler) UpdateExample(w http.ResponseWriter, r *http.Request
 		Dialect:      input.Dialect,
 		Locale:       input.Locale,
 	}); err != nil {
-		slog.ErrorContext(r.Context(), "update few-shot example failed", "id", id, "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to update example")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to update example", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
@@ -178,8 +170,7 @@ func (h *AIExamplesHandler) SubmitFeedback(w http.ResponseWriter, r *http.Reques
 
 	ctx := r.Context()
 	if err := h.deps.MetaRepo.InsertAIFeedback(ctx, input.Question, input.DatasourceID, input.Rating, input.Categories, input.Text); err != nil {
-		slog.ErrorContext(ctx, "submit feedback failed", "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to submit feedback")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to submit feedback", err)
 		return
 	}
 	_ = h.deps.MetaRepo.UpdateLatestAIQueryHistoryRating(ctx, input.DatasourceID, input.Rating)
@@ -200,12 +191,8 @@ func (h *AIExamplesHandler) GetModelSuccessRates(w http.ResponseWriter, r *http.
 
 	stats, err := h.deps.MetaRepo.ListModelSuccessRates(ctx, days)
 	if err != nil {
-		slog.ErrorContext(ctx, "get model success rates failed", "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to get model statistics")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get model statistics", err)
 		return
-	}
-	if stats == nil {
-		stats = []metadata.ModelSuccessRateRow{}
 	}
 	writeJSON(w, http.StatusOK, stats)
 }
@@ -218,12 +205,8 @@ func (h *AIExamplesHandler) GetAIUsage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	summary, daily, err := h.deps.MetaRepo.GetAIMetricsDashboard(ctx, 30)
 	if err != nil {
-		slog.ErrorContext(ctx, "get AI metrics failed", "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to get usage data")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get usage data", err)
 		return
-	}
-	if daily == nil {
-		daily = []metadata.AIMetricsDayRow{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"summary": summary, "daily": daily})
 }
@@ -241,12 +224,8 @@ func (h *AIExamplesHandler) GetExampleIDs(w http.ResponseWriter, r *http.Request
 
 	ids, err := h.deps.MetaRepo.ListFewShotExampleIDs(ctx, datasourceID, modelID, 10)
 	if err != nil {
-		slog.ErrorContext(ctx, "get example IDs failed", "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to get example IDs")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get example IDs", err)
 		return
-	}
-	if ids == nil {
-		ids = []string{}
 	}
 	writeJSON(w, http.StatusOK, ids)
 }

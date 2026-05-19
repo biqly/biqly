@@ -1025,12 +1025,6 @@ input[type='checkbox']:disabled {
   background-color: var(--table-stripe-hover);
 }
 
-.results-table td.results-cell--anomaly {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 50%, transparent);
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
 /* İç içe kolon tablosu: genel zebra kurallarından sonra, panel içinde daha belirgin şerit */
 .results-table.results-table--nested thead th {
   vertical-align: middle;

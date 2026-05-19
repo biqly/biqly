@@ -11,8 +11,7 @@ import {
   Pie,
   Cell,
 } from 'recharts'
-import useStreamingApi from '../hooks/useStreamingApi'
-import { adminAuthHeaders, useAdminApi } from '../hooks/useApi'
+import { useAdminApi } from '../hooks/useApi'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { useI18n, useT } from '../i18n'
 import { chartAxisStroke, chartGridStroke, chartTooltipStyle, smallChartTick } from '../utils/chartConfig'
@@ -162,7 +161,6 @@ export default function Evaluation() {
   const t = useT()
   const { locale } = useI18n()
   const localeTag = locale === 'tr' ? 'tr-TR' : 'en-US'
-  const streaming = useStreamingApi({ typingSpeed: 4 })
   const adminApi = useAdminApi()
 
   const [evalData, setEvalData] = useState<EvalRunResponse | null>(null)
@@ -271,15 +269,6 @@ export default function Evaluation() {
     }
   }
 
-  const runStreamEvaluation = () => {
-    if (!adminApi.configured) {
-      setRunError(t('evaluation.admin_key_missing_run'))
-      return
-    }
-    // Alternative: use streaming endpoint if available
-    streaming.start('/api/ai/eval/run/stream', undefined, adminAuthHeaders())
-  }
-
   const activeData = evalData ?? (showDemo ? DEMO_DATA : null)
 
   return (
@@ -318,9 +307,6 @@ export default function Evaluation() {
         <div className="card-header-row">
           <h2>{t('evaluation.panel_title')}</h2>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button className="btn btn-sm" onClick={runStreamEvaluation} disabled={!adminApi.configured || running || streaming.loading}>
-              {streaming.loading ? t('evaluation.stream_loading') : t('evaluation.stream_run')}
-            </button>
             <button className="btn btn-sm btn-primary" onClick={runEvaluation} disabled={!adminApi.configured || running}>
               {running ? t('evaluation.running') : t('evaluation.run_submit')}
             </button>
@@ -334,14 +320,6 @@ export default function Evaluation() {
         )}
 
         <ErrorAlert error={runError} />
-        <ErrorAlert error={streaming.error} />
-
-        {/* Streaming output */}
-        {streaming.data && (
-          <div className="stream-output">
-            <pre>{streaming.data}</pre>
-          </div>
-        )}
       </div>
 
       {activeData && (

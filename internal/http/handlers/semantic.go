@@ -65,26 +65,22 @@ func (h *SemanticHandler) GenerateModel(w http.ResponseWriter, r *http.Request) 
 	ctx := r.Context()
 	tables, err := h.deps.MetaRepo.ListTables(ctx, req.DatasourceID, "")
 	if err != nil {
-		slog.ErrorContext(ctx, "list tables for generated semantic model failed", "datasource_id", req.DatasourceID, "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to load tables")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to load tables", err)
 		return
 	}
 	columns, err := h.deps.MetaRepo.ListColumns(ctx, req.DatasourceID, "", "")
 	if err != nil {
-		slog.ErrorContext(ctx, "list columns for generated semantic model failed", "datasource_id", req.DatasourceID, "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to load columns")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to load columns", err)
 		return
 	}
 	relations, err := h.deps.MetaRepo.ListRelations(ctx, req.DatasourceID)
 	if err != nil {
-		slog.ErrorContext(ctx, "list relations for generated semantic model failed", "datasource_id", req.DatasourceID, "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to load relations")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to load relations", err)
 		return
 	}
 	existing, err := h.deps.SemanticRepo.ListModels(ctx, req.DatasourceID)
 	if err != nil {
-		slog.ErrorContext(ctx, "list existing semantic models failed", "datasource_id", req.DatasourceID, "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to list semantic models")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list semantic models", err)
 		return
 	}
 	existingNames := make([]string, 0, len(existing))
@@ -111,22 +107,19 @@ func (h *SemanticHandler) GenerateModel(w http.ResponseWriter, r *http.Request) 
 
 	model := generated.Model
 	if err := h.persistGeneratedModel(ctx, model); err != nil {
-		slog.ErrorContext(ctx, "persist generated semantic model failed", "datasource_id", req.DatasourceID, "model", model.Name, "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to create generated model")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to create generated model", err)
 		return
 	}
 
 	validation, err := h.deps.SemanticRepo.ValidateModel(ctx, model.ID, semanticCatalogAdapter{repo: h.deps.MetaRepo})
 	if err != nil {
-		slog.ErrorContext(ctx, "validate generated semantic model failed", "model_id", model.ID, "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to validate generated model")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to validate generated model", err)
 		return
 	}
 
 	full, err := h.deps.SemanticRepo.GetFullModel(ctx, model.ID)
 	if err != nil {
-		slog.ErrorContext(ctx, "reload generated semantic model failed", "model_id", model.ID, "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to load generated model")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to load generated model", err)
 		return
 	}
 
@@ -143,8 +136,7 @@ func (h *SemanticHandler) GenerateModel(w http.ResponseWriter, r *http.Request) 
 		}
 		result, err := h.deps.SemanticRepo.PublishModel(ctx, model.ID, req.PublishedBy, semanticCatalogAdapter{repo: h.deps.MetaRepo})
 		if err != nil {
-			slog.ErrorContext(ctx, "publish generated semantic model failed", "model_id", model.ID, "error", err)
-			writeError(w, http.StatusInternalServerError, "failed to publish generated model")
+			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to publish generated model", err)
 			return
 		}
 		full = result.Model
@@ -203,7 +195,7 @@ func (h *SemanticHandler) CreateModel(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	if err := h.deps.SemanticRepo.CreateModel(ctx, m); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to create model")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to create model", err)
 		return
 	}
 
@@ -216,7 +208,7 @@ func (h *SemanticHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 	dsID := strings.TrimSpace(r.URL.Query().Get("datasource_id"))
 	models, err := h.deps.SemanticRepo.ListModels(ctx, dsID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list models")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list models", err)
 		return
 	}
 
@@ -235,8 +227,7 @@ func (h *SemanticHandler) GetModel(w http.ResponseWriter, r *http.Request) {
 
 	model, err := h.deps.SemanticRepo.GetFullModel(ctx, id)
 	if err != nil {
-		slog.ErrorContext(ctx, "get semantic model failed", "id", id, "error", err)
-		writeError(w, http.StatusNotFound, "model not found")
+		writeInternalError(ctx, w, http.StatusNotFound, "model not found", err)
 		return
 	}
 
@@ -311,7 +302,7 @@ func (h *SemanticHandler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.deps.SemanticRepo.UpdateModel(ctx, existing); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update model")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to update model", err)
 		return
 	}
 
@@ -327,7 +318,7 @@ func (h *SemanticHandler) DeleteModel(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	if err := h.deps.SemanticRepo.DeleteModel(ctx, id); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to delete model")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to delete model", err)
 		return
 	}
 
@@ -367,8 +358,7 @@ func (h *SemanticHandler) PublishModel(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := h.deps.SemanticRepo.PublishModel(r.Context(), id, req.PublishedBy, semanticCatalogAdapter{repo: h.deps.MetaRepo})
 	if err != nil {
-		slog.ErrorContext(r.Context(), "publish semantic model failed", "id", id, "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to publish model")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to publish model", err)
 		return
 	}
 	if !result.Validation.Valid {
@@ -389,8 +379,7 @@ func (h *SemanticHandler) RollbackModel(w http.ResponseWriter, r *http.Request) 
 	}
 	result, err := h.deps.SemanticRepo.RollbackModel(r.Context(), id, req.Version, req.PublishedBy)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "rollback semantic model failed", "id", id, "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to rollback model")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to rollback model", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
@@ -434,7 +423,7 @@ func (h *SemanticHandler) CreateDimension(w http.ResponseWriter, r *http.Request
 
 	ctx := r.Context()
 	if err := h.deps.SemanticRepo.CreateDimension(ctx, d); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to create dimension")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to create dimension", err)
 		return
 	}
 
@@ -481,7 +470,7 @@ func (h *SemanticHandler) CreateMetric(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	if err := h.deps.SemanticRepo.CreateMetric(ctx, m); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to create metric")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to create metric", err)
 		return
 	}
 
@@ -539,7 +528,7 @@ func (h *SemanticHandler) CreateJoin(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	if err := h.deps.SemanticRepo.CreateJoin(ctx, j); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to create join")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to create join", err)
 		return
 	}
 
@@ -557,7 +546,7 @@ func (h *SemanticHandler) DeleteDimension(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if err := h.deps.SemanticRepo.DeleteDimension(r.Context(), modelID, dimID); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to delete dimension")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to delete dimension", err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -591,7 +580,7 @@ func (h *SemanticHandler) UpdateDimension(w http.ResponseWriter, r *http.Request
 		d.Label = &req.Label
 	}
 	if err := h.deps.SemanticRepo.UpdateDimension(r.Context(), d); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update dimension")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to update dimension", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, d)
@@ -608,7 +597,7 @@ func (h *SemanticHandler) DeleteMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.deps.SemanticRepo.DeleteMetric(r.Context(), modelID, metricID); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to delete metric")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to delete metric", err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -644,7 +633,7 @@ func (h *SemanticHandler) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 		m.Format = &req.Format
 	}
 	if err := h.deps.SemanticRepo.UpdateMetric(r.Context(), m); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update metric")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to update metric", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, m)
@@ -661,7 +650,7 @@ func (h *SemanticHandler) DeleteJoin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.deps.SemanticRepo.DeleteJoin(r.Context(), modelID, joinID); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to delete join")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to delete join", err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -820,7 +809,7 @@ func (h *SemanticHandler) UpdateJoin(w http.ResponseWriter, r *http.Request) {
 		IsActive:     true,
 	}
 	if err := h.deps.SemanticRepo.UpdateJoin(r.Context(), j); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update join")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to update join", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, j)
@@ -850,7 +839,7 @@ func (h *SemanticHandler) SuggestedJoins(w http.ResponseWriter, r *http.Request)
 	}
 	relations, err := h.deps.MetaRepo.ListRelations(ctx, model.DatasourceID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load relations")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to load relations", err)
 		return
 	}
 	existing := make(map[string]bool, len(model.Joins))

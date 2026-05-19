@@ -294,14 +294,6 @@ export interface CTE {
   offset?: number
 }
 
-export interface WindowFunction {
-  function: 'ROW_NUMBER' | 'RANK' | 'DENSE_RANK' | 'LAG' | 'LEAD' | 'SUM' | 'AVG' | 'COUNT'
-  field: string
-  partition_by?: string[]
-  order_by?: OrderByField[]
-  alias?: string
-}
-
 // ─── Query Result Types ────────────────────────────────────────────
 
 export interface PivotHint {
@@ -371,12 +363,6 @@ export interface QueryColumn {
   type?: string
   semantic_type?: QueryColumnSemanticType
   format?: QueryColumnFormat
-}
-
-export interface CompiledQuery {
-  sql: string
-  dialect: string
-  parameters?: Record<string, unknown>
 }
 
 // ─── Model Success Rates (Dashboard) ───────────────────────────────
