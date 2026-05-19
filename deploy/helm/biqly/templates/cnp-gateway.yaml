@@ -39,4 +39,16 @@ spec:
               protocol: TCP
             - port: "8082"
               protocol: TCP
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            app.kubernetes.io/part-of: biqly
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+            - port: "8081"
+              protocol: TCP
+            - port: "8082"
+              protocol: TCP
 {{- end }}
