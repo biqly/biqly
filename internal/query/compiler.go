@@ -330,7 +330,7 @@ func (c *Compiler) qualifyMetricExpression(expr string, resolver *SchemaResolver
 }
 
 func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric, model *semantic.SemanticModel, resolver *SchemaResolver, args *[]any) ([]string, error) {
-	var parts []string
+	parts := make([]string, 0, len(items))
 	for _, item := range items {
 		switch item.Type {
 		case SelectTypeDimension:
@@ -474,7 +474,7 @@ func (c *Compiler) buildWindowExpr(
 			} else {
 				return "", fmt.Errorf("unknown window order_by field: %s", ob.Field)
 			}
-			parts = append(parts, fmt.Sprintf("%s %s", ref, dir))
+			parts = append(parts, ref+" "+dir)
 		}
 		clauses = append(clauses, "ORDER BY "+strings.Join(parts, ", "))
 	}
@@ -503,7 +503,7 @@ func (c *Compiler) buildHaving(
 	if len(filters) == 0 {
 		return "", nil, nil
 	}
-	var parts []string
+	parts := make([]string, 0, len(filters))
 	args := make([]any, 0, len(filters))
 	argCount := startArg
 	emitPlaceholder := func() string {
@@ -519,7 +519,7 @@ func (c *Compiler) buildHaving(
 		switch f.Operator {
 		case OpEq, OpNeq, OpGt, OpGte, OpLt, OpLte:
 			args = append(args, f.Value)
-			parts = append(parts, fmt.Sprintf("%s %s %s", aggSQL, sqlComparator(f.Operator), emitPlaceholder()))
+			parts = append(parts, aggSQL+" "+sqlComparator(f.Operator)+" "+emitPlaceholder())
 		case OpBetween:
 			vals, ok := f.Value.([]any)
 			if !ok || len(vals) != 2 {
@@ -528,11 +528,11 @@ func (c *Compiler) buildHaving(
 			args = append(args, vals[0], vals[1])
 			p1 := emitPlaceholder()
 			p2 := emitPlaceholder()
-			parts = append(parts, fmt.Sprintf("%s BETWEEN %s AND %s", aggSQL, p1, p2))
+			parts = append(parts, aggSQL+" BETWEEN "+p1+" AND "+p2)
 		case OpIsNull:
-			parts = append(parts, fmt.Sprintf("%s IS NULL", aggSQL))
+			parts = append(parts, aggSQL+" IS NULL")
 		case OpIsNotNull:
-			parts = append(parts, fmt.Sprintf("%s IS NOT NULL", aggSQL))
+			parts = append(parts, aggSQL+" IS NOT NULL")
 		default:
 			return "", nil, fmt.Errorf("operator %q not supported in HAVING for metric %q", f.Operator, f.Field)
 		}
@@ -564,14 +564,14 @@ func sqlComparator(op string) string {
 func (c *Compiler) buildFrom(model *semantic.SemanticModel) string {
 	schema := c.dialect.QuoteIdent(model.BaseSchema)
 	table := c.dialect.QuoteIdent(model.BaseTable)
-	return fmt.Sprintf("%s.%s", schema, table)
+	return schema + "." + table
 }
 
 func (c *Compiler) buildJoins(joinNames []string, joinMap map[string]semantic.Join, model *semantic.SemanticModel, resolver *SchemaResolver) []string {
 	baseKey := TableKey(model.BaseSchema, model.BaseTable)
 	inSet := map[string]struct{}{baseKey: {}}
 
-	var clauses []string
+	clauses := make([]string, 0, len(joinNames))
 	for _, name := range joinNames {
 		j, ok := joinMap[name]
 		if !ok {
@@ -604,10 +604,9 @@ func (c *Compiler) buildJoins(joinNames []string, joinMap map[string]semantic.Jo
 		fromTableSQL := resolver.QualifyTable(c.dialect, fromSchema, fromTable)
 		toTableSQL := resolver.QualifyTable(c.dialect, toSchema, toTable)
 
-		clause := fmt.Sprintf("%s JOIN %s ON %s.%s = %s.%s",
-			joinType, toTableSQL,
-			fromTableSQL, c.dialect.QuoteIdentSegment(fromCol),
-			toTableSQL, c.dialect.QuoteIdentSegment(toCol))
+		clause := joinType + " JOIN " + toTableSQL +
+			" ON " + fromTableSQL + "." + c.dialect.QuoteIdentSegment(fromCol) +
+			" = " + toTableSQL + "." + c.dialect.QuoteIdentSegment(toCol)
 		clauses = append(clauses, clause)
 	}
 	return clauses
@@ -618,7 +617,7 @@ func (c *Compiler) buildWhere(filters []Filter, dimMap map[string]semantic.Dimen
 		return "", nil
 	}
 
-	var parts []string
+	parts := make([]string, 0, len(filters))
 
 	for _, f := range filters {
 		if dim, ok := dimMap[f.Field]; ok && monthGrainFilterUsesDateTrunc(dim, f) {
@@ -753,7 +752,7 @@ func (c *Compiler) buildInFilter(lhsSQL string, value any, args *[]any) (string,
 		*args = append(*args, v)
 		placeholders[i] = c.dialect.Placeholder(len(*args))
 	}
-	return fmt.Sprintf("%s IN (%s)", lhsSQL, strings.Join(placeholders, ", ")), nil, nil
+	return lhsSQL + " IN (" + strings.Join(placeholders, ", ") + ")", nil, nil
 }
 
 func (c *Compiler) buildNotInFilter(lhsSQL string, value any, args *[]any) (string, []any, error) {
@@ -766,7 +765,7 @@ func (c *Compiler) buildNotInFilter(lhsSQL string, value any, args *[]any) (stri
 		*args = append(*args, v)
 		placeholders[i] = c.dialect.Placeholder(len(*args))
 	}
-	return fmt.Sprintf("%s NOT IN (%s)", lhsSQL, strings.Join(placeholders, ", ")), nil, nil
+	return lhsSQL + " NOT IN (" + strings.Join(placeholders, ", ") + ")", nil, nil
 }
 
 func (c *Compiler) buildBetweenFilter(lhsSQL string, value any, args *[]any) (string, []any, error) {
@@ -777,7 +776,7 @@ func (c *Compiler) buildBetweenFilter(lhsSQL string, value any, args *[]any) (st
 	*args = append(*args, vals[0], vals[1])
 	p1 := c.dialect.Placeholder(len(*args) - 1)
 	p2 := c.dialect.Placeholder(len(*args))
-	return fmt.Sprintf("%s BETWEEN %s AND %s", lhsSQL, p1, p2), nil, nil
+	return lhsSQL + " BETWEEN " + p1 + " AND " + p2, nil, nil
 }
 
 func (c *Compiler) buildGroupBy(groupBy []GroupBy, dimMap map[string]semantic.Dimension, resolver *SchemaResolver) (string, error) {
@@ -785,7 +784,7 @@ func (c *Compiler) buildGroupBy(groupBy []GroupBy, dimMap map[string]semantic.Di
 		return "", nil
 	}
 
-	var parts []string
+	parts := make([]string, 0, len(groupBy))
 	for _, gb := range groupBy {
 		dim, ok := dimMap[gb.Field]
 		if !ok {
@@ -801,20 +800,20 @@ func (c *Compiler) buildOrderBy(orderBy []OrderBy, dimMap map[string]semantic.Di
 		return "", nil
 	}
 
-	var parts []string
+	parts := make([]string, 0, len(orderBy))
 	for _, ob := range orderBy {
 		if dim, ok := dimMap[ob.Field]; ok {
 			dir := strings.ToUpper(ob.Direction)
 			if dir == "" {
 				dir = "ASC"
 			}
-			parts = append(parts, fmt.Sprintf("%s %s", c.dimensionSQL(dim, resolver), dir))
+			parts = append(parts, c.dimensionSQL(dim, resolver)+" "+dir)
 		} else if metric, ok := metricMap[ob.Field]; ok {
 			dir := strings.ToUpper(ob.Direction)
 			if dir == "" {
 				dir = "ASC"
 			}
-			parts = append(parts, fmt.Sprintf("%s %s", c.dialect.QuoteIdent(metric.Name), dir))
+			parts = append(parts, c.dialect.QuoteIdent(metric.Name)+" "+dir)
 		} else {
 			return "", validationErr("order_by", errmsg.UnknownFieldMsg(ob.Field))
 		}

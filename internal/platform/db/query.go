@@ -6,6 +6,11 @@ import (
 	"fmt"
 )
 
+// querySliceInitialCap is the starting capacity for QuerySlice's result slice.
+// Most repository list calls return on the order of tens to a few hundred
+// rows; 64 amortizes the typical case to ~2 growth cycles instead of ~7.
+const querySliceInitialCap = 64
+
 // QuerySlice runs query with args and collects rows using scan.
 func QuerySlice[T any](ctx context.Context, db *sql.DB, query string, args []any, scan func(Scanner) (T, error)) ([]T, error) {
 	rows, err := db.QueryContext(ctx, query, args...)
@@ -14,7 +19,7 @@ func QuerySlice[T any](ctx context.Context, db *sql.DB, query string, args []any
 	}
 	defer func() { _ = rows.Close() }()
 
-	var out []T
+	out := make([]T, 0, querySliceInitialCap)
 	for rows.Next() {
 		v, err := scan(rows)
 		if err != nil {

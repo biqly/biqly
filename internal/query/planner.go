@@ -33,22 +33,22 @@ type TableNode struct {
 //nolint:gocyclo // step-by-step planning process with independent phases
 func (p *Planner) Plan(lq LogicalQuery, model *semantic.SemanticModel) (*PlanResult, error) {
 	warnings := make([]string, 0, 4)
-	var requiredJoins []string
+	requiredJoins := make([]string, 0, len(model.Joins))
 
 	// Build dimension map
-	dimMap := make(map[string]semantic.Dimension)
+	dimMap := make(map[string]semantic.Dimension, len(model.Dimensions))
 	for _, d := range model.Dimensions {
 		dimMap[d.Name] = d
 	}
 
 	// Build metric map
-	metricMap := make(map[string]semantic.Metric)
+	metricMap := make(map[string]semantic.Metric, len(model.Metrics))
 	for _, m := range model.Metrics {
 		metricMap[m.Name] = m
 	}
 
 	// Determine which tables are needed
-	tables := make(map[string]bool)
+	tables := make(map[string]bool, len(model.Joins)+1)
 	tables[model.BaseTable] = true // Always include base table
 
 	// Check select items

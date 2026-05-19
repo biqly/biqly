@@ -11,6 +11,10 @@ import (
 	"github.com/go-chi/cors"
 )
 
+// healthCheckBody is the static JSON payload served by the /health endpoint;
+// kept at package scope so the byte slice is allocated once at init.
+var healthCheckBody = []byte(`{"status":"ok"}`)
+
 // Router sets up all HTTP routes.
 func Router(deps *app.Dependencies) http.Handler {
 	r := chi.NewRouter()
@@ -39,7 +43,7 @@ func Router(deps *app.Dependencies) http.Handler {
 	// Health check
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"ok"}`))
+		_, _ = w.Write(healthCheckBody)
 	})
 
 	// Metrics

@@ -692,15 +692,20 @@ func weightedHandlerTokenScore(questionTokens map[string]bool, text string, weig
 	return score
 }
 
+// handlerTurkishReplacer normalizes Turkish-specific uppercase variants so
+// keyword matching in the handler-side router agrees with ai.normalizeText.
+// Hoisted to package scope to avoid building a Replacer on every call.
+var handlerTurkishReplacer = strings.NewReplacer(
+	"İ", "i", "I", "i", "ı", "i",
+	"Ş", "s", "ş", "s",
+	"Ğ", "g", "ğ", "g",
+	"Ü", "u", "ü", "u",
+	"Ö", "o", "ö", "o",
+	"Ç", "c", "ç", "c",
+)
+
 func handlerTokenSet(text string) map[string]bool {
-	text = strings.ToLower(strings.NewReplacer(
-		"İ", "i", "I", "i", "ı", "i",
-		"Ş", "s", "ş", "s",
-		"Ğ", "g", "ğ", "g",
-		"Ü", "u", "ü", "u",
-		"Ö", "o", "ö", "o",
-		"Ç", "c", "ç", "c",
-	).Replace(text))
+	text = strings.ToLower(handlerTurkishReplacer.Replace(text))
 	var normalized strings.Builder
 	for _, r := range text {
 		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
@@ -710,7 +715,7 @@ func handlerTokenSet(text string) map[string]bool {
 		normalized.WriteRune(' ')
 	}
 	tokens := make(map[string]bool)
-	for _, token := range strings.Fields(normalized.String()) {
+	for token := range strings.FieldsSeq(normalized.String()) {
 		tokens[token] = true
 		if strings.HasSuffix(token, "s") && len(token) > 3 {
 			tokens[strings.TrimSuffix(token, "s")] = true

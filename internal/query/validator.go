@@ -11,6 +11,17 @@ import (
 	"github.com/biqly/biqly/internal/semantic"
 )
 
+// havingOps lists the operators legal in a HAVING clause; restricted to
+// scalar comparisons because HAVING only references aggregated metrics.
+var havingOps = []string{OpEq, OpNeq, OpGt, OpGte, OpLt, OpLte, OpBetween, OpIsNull, OpIsNotNull}
+
+// validFilterOps lists every operator legal in a WHERE-clause filter.
+var validFilterOps = []string{
+	OpEq, OpNeq, OpGt, OpGte, OpLt, OpLte,
+	OpIn, OpNotIn, OpContains, OpStartsWith, OpEndsWith,
+	OpBetween, OpIsNull, OpIsNotNull,
+}
+
 // Validator validates a LogicalQuery against a semantic model and config.
 type Validator struct {
 	maxRows int
@@ -28,7 +39,7 @@ func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) err
 	var errs ValidationErrors
 
 	// Build lookup maps from the semantic model — single source of truth.
-	dimMap := make(map[string]bool)
+	dimMap := make(map[string]bool, len(model.Dimensions))
 	for _, d := range model.Dimensions {
 		dimMap[d.Name] = true
 	}
@@ -64,7 +75,6 @@ func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) err
 	}
 
 	// HAVING — each field must be a metric (post-aggregation).
-	havingOps := []string{OpEq, OpNeq, OpGt, OpGte, OpLt, OpLte, OpBetween, OpIsNull, OpIsNotNull}
 	for _, f := range lq.Having {
 		if !metricRegistry.Has(f.Field) {
 			errs = append(errs, &ValidationError{
@@ -81,18 +91,12 @@ func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) err
 	}
 
 	// Check filters
-	allowedFields := make(map[string]bool)
+	allowedFields := make(map[string]bool, len(model.Dimensions)+len(model.Metrics))
 	for _, d := range model.Dimensions {
 		allowedFields[d.Name] = true
 	}
 	for _, m := range model.Metrics {
 		allowedFields[m.Name] = true
-	}
-
-	validOps := []string{
-		OpEq, OpNeq, OpGt, OpGte, OpLt, OpLte,
-		OpIn, OpNotIn, OpContains, OpStartsWith, OpEndsWith,
-		OpBetween, OpIsNull, OpIsNotNull,
 	}
 
 	for _, f := range lq.Filters {
@@ -102,7 +106,7 @@ func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) err
 				Message: errmsg.UnknownFieldMsg(f.Field),
 			})
 		}
-		if !slices.Contains(validOps, f.Operator) {
+		if !slices.Contains(validFilterOps, f.Operator) {
 			errs = append(errs, &ValidationError{
 				Field:   "filters",
 				Message: "invalid operator: " + f.Operator,

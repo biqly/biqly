@@ -3,6 +3,7 @@ package dialect
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -28,7 +29,7 @@ func (d PostgresDialect) QuoteIdent(identifier string) string {
 
 // Placeholder returns the parameter placeholder for the given index.
 func (d PostgresDialect) Placeholder(index int) string {
-	return fmt.Sprintf("$%d", index)
+	return "$" + strconv.Itoa(index)
 }
 
 // DateTrunc returns the date truncation expression.

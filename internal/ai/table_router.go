@@ -1696,23 +1696,27 @@ func expandToken(token string) []string {
 	return expanded
 }
 
+// turkishLowerReplacer maps Turkish-specific upper/lowercase variants onto
+// ASCII counterparts so downstream keyword and token matching is locale-safe.
+// Allocated once at package init to avoid per-call NewReplacer cost.
+var turkishLowerReplacer = strings.NewReplacer(
+	"İ", "i",
+	"I", "i",
+	"ı", "i",
+	"Ş", "s",
+	"ş", "s",
+	"Ğ", "g",
+	"ğ", "g",
+	"Ü", "u",
+	"ü", "u",
+	"Ö", "o",
+	"ö", "o",
+	"Ç", "c",
+	"ç", "c",
+)
+
 func normalizeText(text string) string {
-	replacer := strings.NewReplacer(
-		"İ", "i",
-		"I", "i",
-		"ı", "i",
-		"Ş", "s",
-		"ş", "s",
-		"Ğ", "g",
-		"ğ", "g",
-		"Ü", "u",
-		"ü", "u",
-		"Ö", "o",
-		"ö", "o",
-		"Ç", "c",
-		"ç", "c",
-	)
-	text = strings.ToLower(replacer.Replace(text))
+	text = strings.ToLower(turkishLowerReplacer.Replace(text))
 	var sb strings.Builder
 	for _, r := range text {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) {

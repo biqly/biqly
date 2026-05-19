@@ -111,15 +111,15 @@ func (d *Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasourc
 		return columns, nil
 	}
 
-	pkSet := make(map[string]bool)
+	pkSet := make(map[string]struct{}, len(pkRows))
 	for _, p := range pkRows {
 		key := fmt.Sprintf("%s.%s.%s", p.schema, p.table, p.column)
-		pkSet[key] = true
+		pkSet[key] = struct{}{}
 	}
 
 	for i := range columns {
 		key := fmt.Sprintf("%s.%s.%s", columns[i].SchemaName, columns[i].TableName, columns[i].ColumnName)
-		if pkSet[key] {
+		if _, ok := pkSet[key]; ok {
 			columns[i].IsPrimaryKey = true
 		}
 	}
