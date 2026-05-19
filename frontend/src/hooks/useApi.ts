@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 import { frontendEnv } from '../utils/env'
 import { getLocale } from '../i18n'
 
@@ -164,33 +164,33 @@ function withHeaders(options: RequestOptions | undefined, headers: Record<string
 export function useAdminApi() {
   const api = useApi()
 
-  const adminHeaders = adminAuthHeaders()
+  const adminHeaders = useMemo(() => adminAuthHeaders(), [])
   const configured = Object.keys(adminHeaders).length > 0
 
   const get = useCallback(
     <T = unknown>(url: string, options?: RequestOptions) =>
       api.get<T>(url, withHeaders(options, adminHeaders)),
-    [api],
+    [adminHeaders, api],
   )
   const postData = useCallback(
     <T = unknown>(url: string, body: unknown, options?: RequestOptions) =>
       api.postData<T>(url, body, withHeaders(options, adminHeaders)),
-    [api],
+    [adminHeaders, api],
   )
   const putData = useCallback(
     <T = unknown>(url: string, body: unknown, options?: RequestOptions) =>
       api.putData<T>(url, body, withHeaders(options, adminHeaders)),
-    [api],
+    [adminHeaders, api],
   )
   const patchData = useCallback(
     <T = unknown>(url: string, body: unknown, options?: RequestOptions) =>
       api.patchData<T>(url, body, withHeaders(options, adminHeaders)),
-    [api],
+    [adminHeaders, api],
   )
   const deleteData = useCallback(
     <T = unknown>(url: string, options?: RequestOptions) =>
       api.deleteData<T>(url, withHeaders(options, adminHeaders)),
-    [api],
+    [adminHeaders, api],
   )
 
   return { ...api, get, postData, putData, patchData, deleteData, configured }

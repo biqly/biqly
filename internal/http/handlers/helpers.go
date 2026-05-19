@@ -52,6 +52,12 @@ func writeInternalError(ctx context.Context, w http.ResponseWriter, status int, 
 	writeError(w, status, publicMsg)
 }
 
+// writeEntityNotFound writes a standardized 404 response of the form
+// "<entity> not found".
+func writeEntityNotFound(w http.ResponseWriter, entity string) {
+	writeError(w, http.StatusNotFound, entity+" not found")
+}
+
 func writeServiceError(ctx context.Context, w http.ResponseWriter, se *core.ServiceError) {
 	if se == nil {
 		writeError(w, http.StatusInternalServerError, "query failed")

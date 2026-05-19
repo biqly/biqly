@@ -2036,6 +2036,12 @@ input[type='checkbox']:disabled {
   margin-bottom: 1rem;
 }
 
+.range-toggle .btn--selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 @media (max-width: 980px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -2774,6 +2780,24 @@ input[type='checkbox']:disabled {
 /* Result table extras */
 .result-footer { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); padding-top: 0.4rem; }
 .results-table th.sortable:hover { color: var(--text-primary); }
+.results-table-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: inherit;
+  text-align: left;
+}
+
+.results-table-sort-button:focus-visible {
+  outline: 2px solid var(--control-focus-border);
+  outline-offset: 2px;
+}
 
 /* Context menu */
 .context-menu {
@@ -2903,14 +2927,23 @@ input[type='checkbox']:disabled {
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
+}
+
+.status-badge.warning {
+  background: rgba(245, 158, 11, 0.14);
+  color: var(--warning);
 }
 
 .status-badge.success {
   background: rgba(52, 211, 153, 0.12);
   color: var(--success);
+}
+
+.bulk-status-badge {
+  white-space: nowrap;
 }
 
 .status-badge.error {

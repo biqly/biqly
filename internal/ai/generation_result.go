@@ -11,17 +11,23 @@ type GenerationResult struct {
 	Usage   *TokenUsage
 }
 
+// newTokenUsage builds a *TokenUsage from prompt and completion counts,
+// deriving the total when the caller does not supply one. Pass total=0 to
+// auto-compute as prompt+completion.
+func newTokenUsage(prompt, completion, total int) *TokenUsage {
+	if total == 0 {
+		total = prompt + completion
+	}
+	return &TokenUsage{
+		Prompt:     prompt,
+		Completion: completion,
+		Total:      total,
+	}
+}
+
 func tokenUsageFromGeneration(stats PromptStats, result GenerationResult) *TokenUsage {
 	if u := result.Usage; u != nil && (u.Prompt > 0 || u.Completion > 0) {
-		total := u.Total
-		if total == 0 {
-			total = u.Prompt + u.Completion
-		}
-		return &TokenUsage{
-			Prompt:     u.Prompt,
-			Completion: u.Completion,
-			Total:      total,
-		}
+		return newTokenUsage(u.Prompt, u.Completion, u.Total)
 	}
 	return tokenUsageEstimate(stats, result.Content)
 }

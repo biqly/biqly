@@ -135,7 +135,7 @@ func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request)
 		return *req, nil, nil, false
 	}
 	if req.DatasourceID == "" {
-		writeError(w, http.StatusBadRequest, "datasource_id is required")
+		writeError(w, http.StatusBadRequest, core.MsgDatasourceIDRequired)
 		return *req, nil, nil, false
 	}
 
@@ -358,7 +358,7 @@ func (h *AIHandler) EmbedMetadata(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.DatasourceID == "" {
-		writeError(w, http.StatusBadRequest, "datasource_id is required")
+		writeError(w, http.StatusBadRequest, core.MsgDatasourceIDRequired)
 		return
 	}
 	if h.deps.AIEmbedMeta == nil || h.deps.Embedder == nil {
@@ -373,7 +373,7 @@ func (h *AIHandler) EmbedMetadata(w http.ResponseWriter, r *http.Request) {
 	if req.ModelID != "" {
 		model, ferr := h.deps.SemanticRepo.GetFullModel(ctx, req.ModelID)
 		if ferr != nil {
-			writeError(w, http.StatusNotFound, "semantic model not found")
+			writeEntityNotFound(w, "semantic model")
 			return
 		}
 		allowed := tablesForModel(model)
@@ -741,7 +741,7 @@ func (h *AIHandler) writeModelLoadError(ctx context.Context, w http.ResponseWrit
 	case errors.Is(err, ai.ErrTableScopeInvalid):
 		writeError(w, http.StatusBadRequest, "table scope invalid")
 	case errors.Is(err, core.ErrLoadSemanticModel):
-		writeError(w, http.StatusNotFound, "semantic model not found")
+		writeEntityNotFound(w, "semantic model")
 	case req.ModelID == "":
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to route table scope", err)
 	default:

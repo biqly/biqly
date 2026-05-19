@@ -1,4 +1,5 @@
 import type { KeyboardEvent } from 'react'
+import clsx from 'clsx'
 import { useT } from '../../i18n'
 
 interface InlineEditProps {
@@ -36,10 +37,20 @@ export function InlineEdit({
     }
   }
 
+  const handleDisplayKeyDown = (event: KeyboardEvent<HTMLTableCellElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    onStart()
+  }
+
   return (
     <td
-      className={editing ? `${className} ${className}--editing` : className}
+      className={clsx(className, editing && `${className}--editing`)}
       onDoubleClick={onStart}
+      onKeyDown={editing ? undefined : handleDisplayKeyDown}
+      role={editing ? undefined : 'button'}
+      tabIndex={editing ? undefined : 0}
+      aria-label={editing ? undefined : value || placeholder}
     >
       {editing ? (
         <textarea

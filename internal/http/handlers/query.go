@@ -91,7 +91,7 @@ func (h *QueryHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	entry, err := h.deps.MetaRepo.GetQueryHistory(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "query history not found")
+		writeEntityNotFound(w, "query history")
 		return
 	}
 	writeJSON(w, http.StatusOK, entry)

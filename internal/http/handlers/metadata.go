@@ -125,7 +125,7 @@ func (h *MetadataHandler) UpdateTableDescription(w http.ResponseWriter, r *http.
 
 	t, err := h.deps.MetaRepo.GetTable(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "table not found")
+		writeEntityNotFound(w, "table")
 		return
 	}
 	writeJSON(w, http.StatusOK, t)
@@ -150,7 +150,7 @@ func (h *MetadataHandler) UpdateColumnDescription(w http.ResponseWriter, r *http
 
 	c, err := h.deps.MetaRepo.GetColumn(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "column not found")
+		writeEntityNotFound(w, "column")
 		return
 	}
 	writeJSON(w, http.StatusOK, c)

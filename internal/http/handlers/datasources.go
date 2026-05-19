@@ -300,7 +300,7 @@ func (h *DatasourceHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	ds, err := h.deps.MetaRepo.GetDatasource(ctx, id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "datasource not found")
+		writeEntityNotFound(w, "datasource")
 		return
 	}
 
@@ -322,7 +322,7 @@ func (h *DatasourceHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	existing, err := h.deps.MetaRepo.GetDatasource(ctx, id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "datasource not found")
+		writeEntityNotFound(w, "datasource")
 		return
 	}
 
@@ -367,7 +367,7 @@ func (h *DatasourceHandler) Test(w http.ResponseWriter, r *http.Request) {
 
 	ds, err := h.deps.MetaRepo.GetDatasource(ctx, id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "datasource not found")
+		writeEntityNotFound(w, "datasource")
 		return
 	}
 
@@ -411,7 +411,7 @@ func (h *DatasourceHandler) TestDraft(w http.ResponseWriter, r *http.Request) {
 	if strings.TrimSpace(req.ID) != "" {
 		ds, err := h.deps.MetaRepo.GetDatasource(ctx, strings.TrimSpace(req.ID))
 		if err != nil {
-			writeError(w, http.StatusNotFound, "datasource not found")
+			writeEntityNotFound(w, "datasource")
 			return
 		}
 		existing = ds

@@ -67,7 +67,7 @@ func TestValidateTrainingLogicalQuery(t *testing.T) {
 func TestSFTRecordJSONShape(t *testing.T) {
 	rec := SFTRecord{
 		Messages: []SFTMessage{
-			{Role: "system", Content: sftSystemMessage},
+			{Role: "system", Content: SystemDirective},
 			{Role: "user", Content: "q"},
 			{Role: "assistant", Content: `{"select":[{"type":"metric","name":"row_count"}],"limit":100}`},
 		},

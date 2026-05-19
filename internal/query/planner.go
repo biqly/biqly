@@ -142,13 +142,13 @@ func (p *Planner) checkFanout(model *semantic.SemanticModel, tables map[string]b
 			continue
 		}
 		switch join.Relationship {
-		case "many_to_many":
+		case semantic.RelationshipManyToMany:
 			manyToManyCount++
 			riskyJoins = append(riskyJoins, join.Name)
-		case "one_to_many":
+		case semantic.RelationshipOneToMany:
 			oneToManyCount++
 			riskyJoins = append(riskyJoins, join.Name)
-		case "many_to_one", "one_to_one":
+		case semantic.RelationshipManyToOne, semantic.RelationshipOneToOne:
 			manyToOneCount++
 		}
 	}

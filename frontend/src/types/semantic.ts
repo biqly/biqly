@@ -16,7 +16,7 @@ export interface Dimension {
   name: string
   table: string
   column: string
-  type: 'string' | 'number' | 'date' | 'boolean'
+  type: 'string' | 'text' | 'number' | 'date' | 'boolean' | 'geo'
   label?: string
   description?: string
   format?: string

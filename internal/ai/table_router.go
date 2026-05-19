@@ -1198,7 +1198,7 @@ func buildJoins(selected []tableBundle, relations []metadata.Relation) []semanti
 			ToSchema:     rel.ToSchema,
 			ToTable:      rel.ToTable,
 			ToColumn:     rel.ToColumn,
-			JoinType:     "LEFT",
+			JoinType:     semantic.DefaultJoinType,
 			Relationship: rel.RelationshipType,
 			IsActive:     true,
 		})

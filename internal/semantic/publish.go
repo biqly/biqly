@@ -144,8 +144,8 @@ func ValidateContext(ctx context.Context, model SemanticModel, catalog CatalogRe
 			addWarning("join does not match datasource metadata relation: %s (manual join)", join.Name)
 		}
 		switch strings.ToLower(strings.TrimSpace(join.Relationship)) {
-		case "", "one_to_one", "many_to_one":
-		case "one_to_many", "many_to_many":
+		case "", RelationshipOneToOne, RelationshipManyToOne:
+		case RelationshipOneToMany, RelationshipManyToMany:
 			addWarning("join can fan out aggregations: %s uses %s", join.Name, join.Relationship)
 		default:
 			addError("join has invalid relationship type: %s", join.Relationship)

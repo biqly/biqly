@@ -229,50 +229,86 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 
 	if parseErr != nil {
 		clarification := s.tryGenerateClarification(ctx, question, model, failureReason)
-		return &AIResponse{
-			Warnings:              append(retryWarnings, append(warnings, parseErr.Error())...),
-			Prompt:                prompt,
-			RawResponse:           lastRaw,
-			Confidence:            0,
-			RetryCount:            s.maxRetries,
-			PromptStats:           &promptStats,
-			TokenUsage:            tokenUsageFromGeneration(promptStats, lastGen),
-			NeedsClarification:    clarification != "",
-			ClarificationQuestion: clarification,
-			Clarification:         buildClarification(clarification, failureReason, "ai"),
-		}, nil
+		return newClarificationResponse(clarificationInputs{
+			LogicalQuery:  nil,
+			Confidence:    0,
+			Warnings:      append(retryWarnings, append(warnings, parseErr.Error())...),
+			Prompt:        prompt,
+			RawResponse:   lastRaw,
+			RetryCount:    s.maxRetries,
+			PromptStats:   promptStats,
+			Gen:           lastGen,
+			Clarification: clarification,
+			FailureReason: failureReason,
+			Source:        "ai",
+		}), nil
 	}
 
 	clarification := ""
 	if validationErrCount > 0 {
 		clarification = s.tryGenerateClarification(ctx, question, model, failureReason)
-		return &AIResponse{
-			Confidence:            0,
-			Warnings:              append(retryWarnings, warnings...),
-			Prompt:                prompt,
-			RawResponse:           lastRaw,
-			RetryCount:            s.maxRetries,
-			PromptStats:           &promptStats,
-			TokenUsage:            tokenUsageFromGeneration(promptStats, lastGen),
-			NeedsClarification:    clarification != "",
-			ClarificationQuestion: clarification,
-			Clarification:         buildClarification(clarification, failureReason, "validator"),
-		}, nil
+		return newClarificationResponse(clarificationInputs{
+			LogicalQuery:  nil,
+			Confidence:    0,
+			Warnings:      append(retryWarnings, warnings...),
+			Prompt:        prompt,
+			RawResponse:   lastRaw,
+			RetryCount:    s.maxRetries,
+			PromptStats:   promptStats,
+			Gen:           lastGen,
+			Clarification: clarification,
+			FailureReason: failureReason,
+			Source:        "validator",
+		}), nil
 	}
 
+	return newClarificationResponse(clarificationInputs{
+		LogicalQuery:  lq,
+		Confidence:    computeConfidence(validationErrCount, s.maxRetries),
+		Warnings:      append(retryWarnings, warnings...),
+		Prompt:        prompt,
+		RawResponse:   lastRaw,
+		RetryCount:    s.maxRetries,
+		PromptStats:   promptStats,
+		Gen:           lastGen,
+		Clarification: clarification,
+		FailureReason: failureReason,
+		Source:        "ai",
+	}), nil
+}
+
+// clarificationInputs collects the variable fields used to assemble an
+// AIResponse for failure / partial-success paths that may need to request
+// clarification from the user.
+type clarificationInputs struct {
+	LogicalQuery  *query.LogicalQuery
+	Confidence    float64
+	Warnings      []string
+	Prompt        string
+	RawResponse   string
+	RetryCount    int
+	PromptStats   PromptStats
+	Gen           GenerationResult
+	Clarification string
+	FailureReason string
+	Source        string
+}
+
+func newClarificationResponse(in clarificationInputs) *AIResponse {
+	stats := in.PromptStats
 	return &AIResponse{
-		LogicalQuery:          lq,
-		Confidence:            computeConfidence(validationErrCount, s.maxRetries),
-		Warnings:              append(retryWarnings, warnings...),
-		Prompt:                prompt,
-		RawResponse:           lastRaw,
-		RetryCount:            s.maxRetries,
-		PromptStats:           &promptStats,
-		TokenUsage:            tokenUsageFromGeneration(promptStats, lastGen),
-		NeedsClarification:    clarification != "",
-		ClarificationQuestion: clarification,
-		Clarification:         buildClarification(clarification, failureReason, "ai"),
-	}, nil
+		LogicalQuery:          in.LogicalQuery,
+		Confidence:            in.Confidence,
+		Warnings:              in.Warnings,
+		Prompt:                in.Prompt,
+		RawResponse:           in.RawResponse,
+		RetryCount:            in.RetryCount,
+		PromptStats:           &stats,
+		TokenUsage:            tokenUsageFromGeneration(stats, in.Gen),
+		NeedsClarification:    in.Clarification != "",
+		ClarificationQuestion: in.Clarification,
+		Clarification:         buildClarification(in.Clarification, in.FailureReason, in.Source),
+	}
 }
 
 func (s *Service) buildPrompt(
@@ -319,11 +355,7 @@ func tokenUsageEstimate(stats PromptStats, completion string) *TokenUsage {
 	if promptTok == 0 && completionTok == 0 {
 		return nil
 	}
-	return &TokenUsage{
-		Prompt:     promptTok,
-		Completion: completionTok,
-		Total:      promptTok + completionTok,
-	}
+	return newTokenUsage(promptTok, completionTok, 0)
 }
 
 // buildClarification wraps a free-text clarification question into the

@@ -1,5 +1,6 @@
 import { useT } from '../../i18n'
 import type { TranslationKey } from '../../i18n'
+import { TagBadge } from '../ui/TagBadge'
 
 export type BulkStatus = 'pending' | 'running' | 'ok' | 'error' | 'skipped'
 
@@ -40,17 +41,17 @@ const STATUS_KEYS: Record<BulkStatus, TranslationKey> = {
 
 export function BulkStatusBadge({ status }: { status: BulkStatus }) {
   const t = useT()
-  const COLOR: Record<BulkStatus, string> = {
-    pending: 'var(--text-secondary)',
-    running: '#60a5fa',
-    ok: '#4ade80',
-    error: '#f87171',
-    skipped: 'var(--text-secondary)',
+  const tone: Record<BulkStatus, 'default' | 'success' | 'warning' | 'error'> = {
+    pending: 'default',
+    running: 'warning',
+    ok: 'success',
+    error: 'error',
+    skipped: 'default',
   }
   return (
-    <span style={{ color: COLOR[status], fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+    <TagBadge tone={tone[status]} className="bulk-status-badge" ariaLabel={t(STATUS_KEYS[status])}>
       {t(STATUS_KEYS[status])}
-    </span>
+    </TagBadge>
   )
 }
 

@@ -572,7 +572,7 @@ func (c *Compiler) buildJoins(joinNames []string, joinMap map[string]semantic.Jo
 
 		joinType := strings.ToUpper(j.JoinType)
 		if joinType == "" {
-			joinType = "LEFT"
+			joinType = semantic.DefaultJoinType
 		}
 
 		fromSchema, fromTable, fromCol := j.FromSchema, j.FromTable, j.FromColumn

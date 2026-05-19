@@ -9,9 +9,8 @@ import (
 )
 
 const (
-	anthropicDefaultBaseURL  = "https://api.anthropic.com/v1"
-	anthropicAPIVersion      = "2023-06-01"
-	anthropicSystemDirective = "You are a Business Intelligence query assistant. Output only valid JSON."
+	anthropicDefaultBaseURL = "https://api.anthropic.com/v1"
+	anthropicAPIVersion     = "2023-06-01"
 )
 
 // AnthropicProvider speaks Anthropic's Messages API. It mirrors the OpenAI
@@ -91,7 +90,7 @@ func marshalAnthropicRequest(model string, maxTokens int) func(string, float64) 
 	return func(prompt string, temperature float64) ([]byte, error) {
 		reqBody := anthropicRequest{
 			Model:       model,
-			System:      anthropicSystemDirective,
+			System:      SystemDirective,
 			Messages:    []anthropicMessage{{Role: "user", Content: prompt}},
 			MaxTokens:   maxTokens,
 			Temperature: temperature,
@@ -120,11 +119,7 @@ func parseAnthropicResponse(respBody []byte) (GenerationResult, error) {
 	}
 	gen := GenerationResult{Content: text}
 	if ar.Usage != nil {
-		gen.Usage = &TokenUsage{
-			Prompt:     ar.Usage.InputTokens,
-			Completion: ar.Usage.OutputTokens,
-			Total:      ar.Usage.InputTokens + ar.Usage.OutputTokens,
-		}
+		gen.Usage = newTokenUsage(ar.Usage.InputTokens, ar.Usage.OutputTokens, 0)
 	}
 	return gen, nil
 }

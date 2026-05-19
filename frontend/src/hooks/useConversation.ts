@@ -16,9 +16,11 @@ function saveConversations(conversations: Conversation[]) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations))
   } catch {
-    // quota exceeded — silently drop oldest
-    const trimmed = conversations.slice(-20)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed))
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations.slice(-20)))
+    } catch {
+      // Ignore storage quota/private-mode failures; in-memory state still updates.
+    }
   }
 }
 
@@ -27,9 +29,10 @@ function generateId(): string {
 }
 
 export function useConversation() {
-  const [conversations, setConversations] = useState<Conversation[]>(loadConversations)
+  const [initialConversations] = useState(loadConversations)
+  const [conversations, setConversations] = useState<Conversation[]>(initialConversations)
   const [activeConversationId, setActiveConversationId] = useState<string | null>(
-    () => loadConversations()[0]?.id ?? null
+    () => initialConversations[0]?.id ?? null
   )
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) ?? null
@@ -47,10 +50,14 @@ export function useConversation() {
       created_at: now,
       updated_at: now,
     }
-    persist([conv, ...conversations])
     setActiveConversationId(conv.id)
+    setConversations((prev) => {
+      const updated = [conv, ...prev]
+      saveConversations(updated)
+      return updated
+    })
     return conv
-  }, [conversations, persist])
+  }, [])
 
   const addMessage = useCallback(
     (message: Omit<ConversationMessage, 'timestamp'>) => {

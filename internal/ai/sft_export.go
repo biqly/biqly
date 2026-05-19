@@ -18,8 +18,7 @@ import (
 )
 
 const (
-	sftSystemMessage     = "You are a Business Intelligence query assistant. Output only valid JSON."
-	defaultSFTLimit      = 100
+	defaultSFTLimit       = 100
 	defaultMaxPromptRunes = 80000
 )
 
@@ -130,11 +129,11 @@ func (e *SFTExporter) Export(ctx context.Context, opts SFTExportOptions) (*SFTEx
 		}
 		rec := SFTRecord{
 			Messages: []SFTMessage{
-				{Role: "system", Content: sftSystemMessage},
+				{Role: "system", Content: SystemDirective},
 				{Role: "user", Content: user},
 				{Role: "assistant", Content: assistant},
 			},
-			Text: renderGemma4SFTText(sftSystemMessage, user, assistant),
+			Text: renderGemma4SFTText(SystemDirective, user, assistant),
 		}
 		line, err := json.Marshal(rec)
 		if err != nil {

@@ -118,6 +118,16 @@ const (
 	AggCountDistinct AggregationType = "count_distinct"
 )
 
+// Join defaults and relationship cardinality strings.
+const (
+	DefaultJoinType         = "LEFT"
+	RelationshipManyToOne   = "many_to_one"
+	RelationshipOneToMany   = "one_to_many"
+	RelationshipOneToOne    = "one_to_one"
+	RelationshipManyToMany  = "many_to_many"
+	DefaultRelationshipType = RelationshipManyToOne
+)
+
 // MetricRegistry provides a single source of truth for metric definitions,
 // used by the AI prompt builder, query validator, and SQL compiler.
 type MetricRegistry struct {

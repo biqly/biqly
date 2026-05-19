@@ -59,6 +59,11 @@ type RelationInfo struct {
 	RelationshipType string `json:"relationship_type"`
 }
 
+// DefaultRelationshipType is the relationship cardinality assumed for foreign
+// keys discovered via driver introspection when the database itself does not
+// expose cardinality metadata.
+const DefaultRelationshipType = "many_to_one"
+
 // Driver is the interface for database datasource operations.
 type Driver interface {
 	// Type returns the datasource type name (e.g. "postgres", "mysql").

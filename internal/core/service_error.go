@@ -71,9 +71,9 @@ func MapQueryServiceError(err error) *ServiceError {
 func mapQueryServiceError(err error) *ServiceError {
 	switch {
 	case errors.Is(err, ErrModelIDRequired):
-		return &ServiceError{Status: http.StatusBadRequest, Message: "model_id is required"}
+		return &ServiceError{Status: http.StatusBadRequest, Message: MsgModelIDRequired}
 	case errors.Is(err, ErrDatasourceIDRequired):
-		return &ServiceError{Status: http.StatusBadRequest, Message: "datasource_id is required"}
+		return &ServiceError{Status: http.StatusBadRequest, Message: MsgDatasourceIDRequired}
 	case errors.Is(err, ErrLoadSemanticModel), errors.Is(err, ErrLoadDatasource):
 		return &ServiceError{Status: http.StatusNotFound, Message: "resource not found"}
 	case errors.Is(err, ErrLoadDriver):

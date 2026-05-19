@@ -3,3 +3,7 @@ export function getRateColor(rate: number): string {
   if (rate >= 50) return 'var(--warning)'
   return 'var(--error)'
 }
+
+export function localeNumberTag(locale: string): string {
+  return locale === 'en' ? 'en-US' : 'tr-TR'
+}

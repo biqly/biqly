@@ -117,7 +117,7 @@ func (h *AIExamplesHandler) DeleteExample(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if !ok {
-		writeError(w, http.StatusNotFound, "example not found")
+		writeEntityNotFound(w, "example")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})

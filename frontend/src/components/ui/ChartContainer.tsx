@@ -12,6 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import clsx from 'clsx'
 import { chartAxisStroke, chartGridStroke, chartTooltipStyle } from '../../utils/chartConfig'
 import { chartColor } from '../../utils/constants'
 
@@ -35,6 +36,7 @@ interface ChartContainerProps {
   colorFn?: (index: number) => string
   outerRadius?: number
   showLabel?: boolean
+  ariaLabel?: string
 }
 
 export function ChartContainer({
@@ -49,9 +51,15 @@ export function ChartContainer({
   colorFn = chartColor,
   outerRadius = 100,
   showLabel = true,
+  ariaLabel,
 }: ChartContainerProps) {
   return (
-    <div className={`chart-container${className ? ` ${className}` : ''}`} style={{ height }}>
+    <div
+      className={clsx('chart-container', className)}
+      style={{ height }}
+      role="img"
+      aria-label={ariaLabel ?? `${type} chart`}
+    >
       <ResponsiveContainer width="100%" height="100%">
         {type === 'bar' ? (
           <BarChart data={data}>

@@ -95,7 +95,7 @@ func (c *Client) marshalOpenAIRequest(model string, maxTokens int) func(string, 
 		reqBody := openAIRequest{
 			Model: model,
 			Messages: []openAIMessage{
-				{Role: "system", Content: "You are a Business Intelligence query assistant. Output only valid JSON."},
+				{Role: "system", Content: SystemDirective},
 				{Role: "user", Content: prompt},
 			},
 			MaxTokens:   maxTokens,
@@ -119,11 +119,7 @@ func parseOpenAIResponse(respBody []byte) (GenerationResult, error) {
 	}
 	gen := GenerationResult{Content: aiResp.Choices[0].Message.Content}
 	if aiResp.Usage != nil {
-		gen.Usage = &TokenUsage{
-			Prompt:     aiResp.Usage.PromptTokens,
-			Completion: aiResp.Usage.CompletionTokens,
-			Total:      aiResp.Usage.TotalTokens,
-		}
+		gen.Usage = newTokenUsage(aiResp.Usage.PromptTokens, aiResp.Usage.CompletionTokens, aiResp.Usage.TotalTokens)
 	}
 	return gen, nil
 }

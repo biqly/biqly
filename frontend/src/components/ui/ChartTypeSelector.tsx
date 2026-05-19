@@ -1,3 +1,5 @@
+import { ToggleButtonGroup, type ToggleButtonOption } from './ToggleButtonGroup'
+
 export type ChartTypeOption = 'bar' | 'line' | 'pie' | 'table'
 
 const FALLBACK_LABELS: Record<ChartTypeOption, string> = {
@@ -32,21 +34,20 @@ export function ChartTypeSelector<T extends ChartTypeOption>({
   const wrapperClass = variant === 'group'
     ? `toggle-group${className ? ` ${className}` : ''}`
     : `chart-toggle${className ? ` ${className}` : ''}`
-  const btnClass = variant === 'group' ? 'toggle-btn' : ''
+  const btnClass = variant === 'group' ? 'toggle-btn' : undefined
+  const toggleOptions: ToggleButtonOption<T>[] = items.map((opt) => ({
+    value: opt,
+    label: labels?.[opt] ?? FALLBACK_LABELS[opt],
+  }))
 
   return (
-    <div className={wrapperClass} role="group" aria-label={ariaLabel}>
-      {items.map((opt) => (
-        <button
-          key={opt}
-          type="button"
-          className={`${btnClass} ${value === opt ? 'active' : ''}`.trim()}
-          onClick={() => onChange(opt)}
-          aria-pressed={value === opt}
-        >
-          {labels?.[opt] ?? FALLBACK_LABELS[opt]}
-        </button>
-      ))}
-    </div>
+    <ToggleButtonGroup
+      value={value}
+      options={toggleOptions}
+      onChange={onChange}
+      ariaLabel={ariaLabel}
+      className={wrapperClass}
+      buttonClassName={btnClass}
+    />
   )
 }

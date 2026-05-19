@@ -33,25 +33,32 @@ func (r *Repository) CreateDatasource(ctx context.Context, ds *Datasource) error
 		)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14)
 	`
-	cp := ds.ConnectionParams
-	if len(cp) == 0 {
-		cp = []byte("{}")
-	}
+	cp := defaultConnectionParams(ds.ConnectionParams)
 	mode := ds.DSNMode
 	if mode == "" {
 		mode = DSNModeRaw
 	}
 	_, err := r.db.ExecContext(ctx, query,
 		ds.ID, ds.Name, ds.Type, ds.DSNEncrypted, ds.Config, ds.IsActive,
-		nullableString(ds.Host), nullableInt(ds.Port), nullableString(ds.Username),
+		platformdb.NullIfEmptyPtr(ds.Host), nullableInt(ds.Port), platformdb.NullIfEmptyPtr(ds.Username),
 		nullableEncrypted(ds.PasswordEncrypted),
-		nullableString(ds.DatabaseName), nullableString(ds.SSLMode),
+		platformdb.NullIfEmptyPtr(ds.DatabaseName), platformdb.NullIfEmptyPtr(ds.SSLMode),
 		cp, mode,
 	)
 	if err != nil {
 		return fmt.Errorf("create datasource: %w", err)
 	}
 	return nil
+}
+
+// defaultConnectionParams normalizes a raw JSON connection_params payload so
+// the database always sees a valid jsonb object literal, even when the caller
+// passed nil or an empty byte slice.
+func defaultConnectionParams(cp []byte) []byte {
+	if len(cp) == 0 {
+		return []byte("{}")
+	}
+	return cp
 }
 
 // UpdateDatasource updates an existing datasource connection record.
@@ -74,18 +81,15 @@ func (r *Repository) UpdateDatasource(ctx context.Context, ds *Datasource) error
 			updated_at = now()
 		WHERE id = $1
 	`
-	cp := ds.ConnectionParams
-	if len(cp) == 0 {
-		cp = json.RawMessage("{}")
-	}
+	cp := defaultConnectionParams(ds.ConnectionParams)
 	mode := strings.TrimSpace(ds.DSNMode)
 	if mode == "" {
 		mode = DSNModeRaw
 	}
 	res, err := r.db.ExecContext(ctx, query,
 		ds.ID, ds.Name, ds.Type, ds.DSNEncrypted, ds.Config, ds.IsActive,
-		nullableString(ds.Host), nullableInt(ds.Port), nullableString(ds.Username),
-		nullableEncrypted(ds.PasswordEncrypted), nullableString(ds.DatabaseName), nullableString(ds.SSLMode),
+		platformdb.NullIfEmptyPtr(ds.Host), nullableInt(ds.Port), platformdb.NullIfEmptyPtr(ds.Username),
+		nullableEncrypted(ds.PasswordEncrypted), platformdb.NullIfEmptyPtr(ds.DatabaseName), platformdb.NullIfEmptyPtr(ds.SSLMode),
 		cp, mode,
 	)
 	if err != nil {
@@ -686,11 +690,11 @@ func scanQueryHistoryEntry(s platformdb.Scanner) (query.HistoryEntry, error) {
 	if err := json.Unmarshal(logicalQueryRaw, &entry.LogicalQuery); err != nil {
 		return entry, fmt.Errorf("unmarshal logical query: %w", err)
 	}
-	entry.ModelID = nullableStringPtr(modelID)
-	entry.UserID = nullableStringPtr(userID)
-	entry.CompiledSQL = nullableStringPtr(compiledSQL)
-	entry.SQLArgs = nullableStringPtr(sqlArgs)
-	entry.ErrorMessage = nullableStringPtr(errorMessage)
+	entry.ModelID = platformdb.StringPtrFromNull(modelID)
+	entry.UserID = platformdb.StringPtrFromNull(userID)
+	entry.CompiledSQL = platformdb.StringPtrFromNull(compiledSQL)
+	entry.SQLArgs = platformdb.StringPtrFromNull(sqlArgs)
+	entry.ErrorMessage = platformdb.StringPtrFromNull(errorMessage)
 	if fingerprint.Valid {
 		entry.Fingerprint = fingerprint.String
 	}
@@ -717,13 +721,6 @@ func nullableJSON(value any) (*string, error) {
 	return &s, nil
 }
 
-func nullableStringPtr(value sql.NullString) *string {
-	if !value.Valid {
-		return nil
-	}
-	return &value.String
-}
-
 // Search operations
 
 // SearchColumns searches columns by name or description.
@@ -746,17 +743,6 @@ func (r *Repository) SearchTables(ctx context.Context, datasourceID, searchTerm 
 		ORDER BY schema_name, table_name
 	`
 	return platformdb.QuerySliceErr(ctx, r.db, "search tables", query, []any{datasourceID, "%" + searchTerm + "%"}, scanTable)
-}
-
-func nullableString(p *string) any {
-	if p == nil {
-		return nil
-	}
-	s := strings.TrimSpace(*p)
-	if s == "" {
-		return nil
-	}
-	return s
 }
 
 func nullableInt(p *int) any {

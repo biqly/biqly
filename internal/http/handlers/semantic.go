@@ -267,7 +267,7 @@ func (h *SemanticHandler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 
 	existing, err := h.deps.SemanticRepo.GetModel(ctx, id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "model not found")
+		writeEntityNotFound(w, "model")
 		return
 	}
 
@@ -341,7 +341,7 @@ func (h *SemanticHandler) ValidateModel(w http.ResponseWriter, r *http.Request) 
 	}
 	result, err := h.deps.SemanticRepo.ValidateModel(r.Context(), id, semanticCatalogAdapter{repo: h.deps.MetaRepo})
 	if err != nil {
-		writeError(w, http.StatusNotFound, "model not found")
+		writeEntityNotFound(w, "model")
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
@@ -489,30 +489,19 @@ type createJoinRequest struct {
 	Relationship string `json:"relationship,omitempty"`
 }
 
-// CreateJoin adds a join definition to a semantic model.
-func (h *SemanticHandler) CreateJoin(w http.ResponseWriter, r *http.Request) {
-	modelID, ok := requireURLParam(w, r, "id")
-	if !ok {
-		return
-	}
-
-	req, ok := decodeJSON[createJoinRequest](w, r)
-	if !ok {
-		return
-	}
-
+// joinFromRequest builds a semantic.Join from a createJoinRequest, applying
+// project-wide defaults for join type and relationship cardinality.
+func joinFromRequest(id, modelID string, req createJoinRequest) *semantic.Join {
 	joinType := req.JoinType
 	if joinType == "" {
-		joinType = "LEFT"
+		joinType = semantic.DefaultJoinType
 	}
-
 	relationship := req.Relationship
 	if relationship == "" {
-		relationship = "many_to_one"
+		relationship = semantic.DefaultRelationshipType
 	}
-
-	j := &semantic.Join{
-		ID:           uuid.New().String(),
+	return &semantic.Join{
+		ID:           id,
 		ModelID:      modelID,
 		Name:         req.Name,
 		FromSchema:   req.FromSchema,
@@ -525,6 +514,21 @@ func (h *SemanticHandler) CreateJoin(w http.ResponseWriter, r *http.Request) {
 		Relationship: relationship,
 		IsActive:     true,
 	}
+}
+
+// CreateJoin adds a join definition to a semantic model.
+func (h *SemanticHandler) CreateJoin(w http.ResponseWriter, r *http.Request) {
+	modelID, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeJSON[createJoinRequest](w, r)
+	if !ok {
+		return
+	}
+
+	j := joinFromRequest(uuid.New().String(), modelID, *req)
 
 	ctx := r.Context()
 	if err := h.deps.SemanticRepo.CreateJoin(ctx, j); err != nil {
@@ -685,7 +689,7 @@ func (h *SemanticHandler) RemoveTable(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	model, err := h.deps.SemanticRepo.GetFullModel(ctx, modelID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "model not found")
+		writeEntityNotFound(w, "model")
 		return
 	}
 	schema := strings.TrimSpace(req.Schema)
@@ -786,28 +790,7 @@ func (h *SemanticHandler) UpdateJoin(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	joinType := req.JoinType
-	if joinType == "" {
-		joinType = "LEFT"
-	}
-	relationship := req.Relationship
-	if relationship == "" {
-		relationship = "many_to_one"
-	}
-	j := &semantic.Join{
-		ID:           joinID,
-		ModelID:      modelID,
-		Name:         req.Name,
-		FromSchema:   req.FromSchema,
-		FromTable:    req.FromTable,
-		FromColumn:   req.FromColumn,
-		ToSchema:     req.ToSchema,
-		ToTable:      req.ToTable,
-		ToColumn:     req.ToColumn,
-		JoinType:     joinType,
-		Relationship: relationship,
-		IsActive:     true,
-	}
+	j := joinFromRequest(joinID, modelID, *req)
 	if err := h.deps.SemanticRepo.UpdateJoin(r.Context(), j); err != nil {
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to update join", err)
 		return
@@ -834,7 +817,7 @@ func (h *SemanticHandler) SuggestedJoins(w http.ResponseWriter, r *http.Request)
 	ctx := r.Context()
 	model, err := h.deps.SemanticRepo.GetFullModel(ctx, modelID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "model not found")
+		writeEntityNotFound(w, "model")
 		return
 	}
 	relations, err := h.deps.MetaRepo.ListRelations(ctx, model.DatasourceID)

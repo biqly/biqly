@@ -4,6 +4,7 @@ import { useConversation } from '../hooks/useConversation'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { formatResultCell } from '../utils/resultCellFormat'
 import { buildPivotTable } from '../utils/pivotTable'
+import { localeNumberTag } from '../utils/formatters'
 import { ResultTable } from './ResultTable'
 import { ChartContainer } from './ui/ChartContainer'
 import { ChartTypeSelector } from './ui/ChartTypeSelector'
@@ -27,16 +28,12 @@ import type {
   TokenUsage,
 } from '../types/ai'
 import type { Datasource } from '../types/metadata'
-import { useLocale, useT, type Locale } from '../i18n'
+import { useLocale, useT } from '../i18n'
 import type { TranslationKey } from '../i18n'
 
 /** NL→SQL can be slow with local models (routing, LLM, retries, EXPLAIN). */
 const AI_QUERY_TIMEOUT_MS = 300_000
 const AI_METADATA_EMBED_TIMEOUT_MS = 600_000
-
-function localeNumberTag(locale: Locale): string {
-  return locale === 'en' ? 'en-US' : 'tr-TR'
-}
 
 type TFunction = ReturnType<typeof useT>
 

@@ -2,9 +2,16 @@ package core
 
 import "errors"
 
+// Shared validation/error message strings — useful where an error value isn't
+// appropriate (e.g. HTTP handler payloads, fmt.Errorf formatting).
+const (
+	MsgDatasourceIDRequired = "datasource_id is required"
+	MsgModelIDRequired      = "model_id is required"
+)
+
 var (
-	ErrModelIDRequired      = errors.New("model_id is required")
-	ErrDatasourceIDRequired = errors.New("datasource_id is required")
+	ErrModelIDRequired      = errors.New(MsgModelIDRequired)
+	ErrDatasourceIDRequired = errors.New(MsgDatasourceIDRequired)
 	ErrLoadSemanticModel    = errors.New("load semantic model")
 	ErrLoadDatasource       = errors.New("load datasource")
 	ErrLoadDriver           = errors.New("load driver")

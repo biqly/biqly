@@ -86,7 +86,7 @@ JOIN sys.columns rc ON fkc.referenced_object_id = rc.object_id AND fkc.reference
 ORDER BY ps.name, po.name, fk.name, fkc.constraint_column_id`
 	return datasource.QueryAll(ctx, db, query, nil, func(rows *sql.Rows) (datasource.RelationInfo, error) {
 		var r datasource.RelationInfo
-		r.RelationshipType = "many_to_one"
+		r.RelationshipType = datasource.DefaultRelationshipType
 		err := rows.Scan(&r.ConstraintName, &r.FromSchema, &r.FromTable, &r.FromColumn, &r.ToSchema, &r.ToTable, &r.ToColumn)
 		return r, err
 	})

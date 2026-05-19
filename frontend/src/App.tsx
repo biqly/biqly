@@ -19,7 +19,7 @@ const Settings = lazy(() => import('./components/Settings'))
 
 type RouteSectionKey = 'data' | 'query' | 'ai' | 'analytics' | 'preferences'
 
-const ROUTE_SECTION_ORDER: RouteSectionKey[] = ['data', 'query', 'ai', 'analytics', 'preferences']
+const ROUTE_SECTION_ORDER: RouteSectionKey[] = ['data', 'query', 'ai', 'preferences']
 
 const sectionLabelKeys: Record<RouteSectionKey, TranslationKey> = {
   data: 'app.sections.data',
@@ -216,7 +216,7 @@ const routeDefs: AppRouteDef[] = [
   },
   {
     path: '/dashboard',
-    sectionKey: 'analytics',
+    sectionKey: 'ai',
     labelKey: 'app.nav.dashboard',
     eyebrowKey: 'app.nav.dashboard_eyebrow',
     descriptionKey: 'app.nav.dashboard_desc',

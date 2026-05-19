@@ -68,7 +68,7 @@ func (d *Driver) introspectRelations(ctx context.Context, db *sql.DB) ([]datasou
 	query := `SELECT CONSTRAINT_NAME, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_SCHEMA, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_NAME IS NOT NULL`
 	return datasource.QueryAll(ctx, db, query, nil, func(rows *sql.Rows) (datasource.RelationInfo, error) {
 		var rel datasource.RelationInfo
-		rel.RelationshipType = "many_to_one"
+		rel.RelationshipType = datasource.DefaultRelationshipType
 		err := rows.Scan(&rel.ConstraintName, &rel.FromSchema, &rel.FromTable, &rel.FromColumn, &rel.ToSchema, &rel.ToTable, &rel.ToColumn)
 		return rel, err
 	})

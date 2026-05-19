@@ -150,7 +150,7 @@ func (h *AIGlossaryHandler) DeleteGlossary(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if !ok {
-		writeError(w, http.StatusNotFound, "glossary term not found")
+		writeEntityNotFound(w, "glossary term")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

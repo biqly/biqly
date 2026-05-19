@@ -123,23 +123,27 @@ export function ResultTable({
             <tr>
               {columns.map((col, colIdx) => {
                 const isActive = sortColIdx === colIdx
-                const arrow = isActive
+                const arrow = isActive && sortDir ? (sortDir === 'asc' ? '↑' : '↓') : ''
+                const ariaSort = isActive && sortDir
                   ? sortDir === 'asc'
-                    ? ' ↑'
-                    : sortDir === 'desc'
-                      ? ' ↓'
-                      : ''
-                  : ''
+                    ? 'ascending'
+                    : 'descending'
+                  : 'none'
                 return (
                   <th
                     key={col.name}
-                    className={sortDir ? 'sortable' : ''}
-                    onClick={() => handleSort(colIdx)}
-                    style={{ cursor: 'pointer', userSelect: 'none' }}
+                    className="sortable"
+                    aria-sort={ariaSort}
                     title={`Sıralamak için tıklayın${isActive ? ` (${sortDir === 'asc' ? 'artan' : sortDir === 'desc' ? 'azalan' : ''})` : ''}`}
                   >
-                    {col.name}
-                    {arrow}
+                    <button
+                      type="button"
+                      className="results-table-sort-button"
+                      onClick={() => handleSort(colIdx)}
+                    >
+                      <span>{col.name}</span>
+                      {arrow && <span aria-hidden="true">{arrow}</span>}
+                    </button>
                   </th>
                 )
               })}

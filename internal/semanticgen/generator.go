@@ -277,7 +277,7 @@ func metricsFromNumericColumn(modelID string, col metadata.Column, baseSchema st
 func joinFromRelation(modelID string, rel metadata.Relation, names map[string]bool) semantic.Join {
 	relationship := rel.RelationshipType
 	if relationship == "" {
-		relationship = "many_to_one"
+		relationship = semantic.DefaultRelationshipType
 	}
 	return semantic.Join{
 		ID:           uuid.New().String(),
@@ -289,7 +289,7 @@ func joinFromRelation(modelID string, rel metadata.Relation, names map[string]bo
 		ToSchema:     rel.ToSchema,
 		ToTable:      rel.ToTable,
 		ToColumn:     rel.ToColumn,
-		JoinType:     "LEFT",
+		JoinType:     semantic.DefaultJoinType,
 		Relationship: relationship,
 		IsActive:     true,
 	}

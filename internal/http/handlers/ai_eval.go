@@ -345,7 +345,7 @@ func (h *AIHandler) EvalGetRun(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	summary, err := h.deps.EvalRepo.GetRunSummary(ctx, runID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "eval run not found")
+		writeEntityNotFound(w, "eval run")
 		return
 	}
 
