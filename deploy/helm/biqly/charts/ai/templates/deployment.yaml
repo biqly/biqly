@@ -84,7 +84,7 @@ spec:
             - configMapRef:
                 name: {{ .Values.global.secretNames.config }}
             - configMapRef:
-                name: {{ .Values.global.secretNames.aiConfig }}
+                name: {{ .Values.global.secretNames.aiConfig }}-provider
             - configMapRef:
                 name: {{ include "ai.fullname" . }}-config
             - secretRef:

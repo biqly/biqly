@@ -5,7 +5,6 @@ metadata:
   labels:
     {{- include "biqly.labels" . | nindent 4 }}
 data:
-  BI_HTTP_PORT: "8080"
   {{- range $key, $value := .Values.global.config }}
   {{ $key }}: {{ $value | quote }}
   {{- end }}
@@ -13,7 +12,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Values.global.secretNames.aiConfig }}
+  name: {{ .Values.global.secretNames.aiConfig }}-provider
   labels:
     {{- include "biqly.labels" . | nindent 4 }}
 data:
