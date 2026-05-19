@@ -74,11 +74,17 @@ func (r *Repository) ListModels(ctx context.Context, datasourceID string) ([]Sem
 	return models, nil
 }
 
-// UpdateModel updates an existing semantic model.
-func (r *Repository) UpdateModel(ctx context.Context, m *SemanticModel) error {
+// ensureModelDefaults zeroes-out optional fields that the database layer
+// requires to be non-nil (notably array columns that map to NOT NULL JSONB).
+func ensureModelDefaults(m *SemanticModel) {
 	if m.ExcludedSchemas == nil {
 		m.ExcludedSchemas = []string{}
 	}
+}
+
+// UpdateModel updates an existing semantic model.
+func (r *Repository) UpdateModel(ctx context.Context, m *SemanticModel) error {
+	ensureModelDefaults(m)
 	query := `
 		UPDATE semantic_models
 		SET name = $2, label = $3, description = $4, base_schema = $5, base_table = $6, synonyms = $7, excluded_schemas = $8, is_active = $9,
