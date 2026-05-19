@@ -3,6 +3,7 @@ package dialect
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -28,15 +29,15 @@ func (d SQLServerDialect) QuoteIdent(identifier string) string {
 
 // Placeholder returns the parameter placeholder for the given index.
 func (d SQLServerDialect) Placeholder(index int) string {
-	return fmt.Sprintf("@p%d", index)
+	return "@p" + strconv.Itoa(index)
 }
 
 // LimitOffset generates the LIMIT/OFFSET clause.
 func (d SQLServerDialect) LimitOffset(limit, offset int) string {
 	var parts []string
-	parts = append(parts, fmt.Sprintf("OFFSET %d ROWS", offset))
+	parts = append(parts, "OFFSET "+strconv.Itoa(offset)+" ROWS")
 	if limit > 0 {
-		parts = append(parts, fmt.Sprintf("FETCH NEXT %d ROWS ONLY", limit))
+		parts = append(parts, "FETCH NEXT "+strconv.Itoa(limit)+" ROWS ONLY")
 	}
 	if limit <= 0 && offset <= 0 {
 		return ""

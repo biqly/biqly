@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/biqly/biqly/internal/dialect"
@@ -71,7 +72,7 @@ func buildTableSampleSQL(d dialect.Dialect, cols []metadata.Column, schema, tabl
 	qb.WriteString("SELECT ")
 	if d.Name() == "sqlserver" {
 		qb.WriteString("TOP (")
-		qb.WriteString(fmt.Sprint(limit))
+		qb.WriteString(strconv.Itoa(limit))
 		qb.WriteString(") ")
 	}
 	qb.WriteString(strings.Join(colIdents, ", "))

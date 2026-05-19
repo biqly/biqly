@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/biqly/biqly/internal/query"
@@ -61,11 +62,24 @@ func memoryFilterMatch(r memoryOrderRow, f query.Filter, model *semantic.Semanti
 	val := memoryFieldValue(r, col)
 	switch strings.ToLower(f.Operator) {
 	case "eq", "=":
-		return fmt.Sprint(val) == fmt.Sprint(f.Value)
+		return anyToString(val) == anyToString(f.Value)
 	case "neq", "!=":
-		return fmt.Sprint(val) != fmt.Sprint(f.Value)
+		return anyToString(val) != anyToString(f.Value)
 	default:
-		return fmt.Sprint(val) == fmt.Sprint(f.Value)
+		return anyToString(val) == anyToString(f.Value)
+	}
+}
+
+func anyToString(v any) string {
+	switch x := v.(type) {
+	case string:
+		return x
+	case float64:
+		return strconv.FormatFloat(x, 'f', -1, 64)
+	case int:
+		return strconv.Itoa(x)
+	default:
+		return fmt.Sprint(v)
 	}
 }
 
@@ -102,7 +116,7 @@ func groupMemoryRows(rows []memoryOrderRow, lq *query.LogicalQuery, model *seman
 	gbCol := memoryColumnForField(gbField, model)
 	buckets := make(map[string][]memoryOrderRow)
 	for _, r := range rows {
-		key := fmt.Sprint(memoryFieldValue(r, gbCol))
+		key := anyToString(memoryFieldValue(r, gbCol))
 		buckets[key] = append(buckets[key], r)
 	}
 	keys := make([]string, 0, len(buckets))

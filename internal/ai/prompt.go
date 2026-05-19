@@ -1,9 +1,11 @@
 package ai
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -15,6 +17,10 @@ const (
 	promptStaticReserveRunes = 14000 // question, rules, output format, date
 	maxSynonymsPerLine       = 6
 )
+
+var promptBuilderPool = sync.Pool{
+	New: func() any { return new(bytes.Buffer) },
+}
 
 // PromptBuilder constructs the AI prompt with semantic context.
 type PromptBuilder struct{}
@@ -63,7 +69,10 @@ func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, ma
 		deniedSet[strings.ToLower(f)] = true
 	}
 
-	var sb strings.Builder
+	sb := promptBuilderPool.Get().(*bytes.Buffer)
+	sb.Reset()
+	defer promptBuilderPool.Put(sb)
+
 	write := func(s string) {
 		sb.WriteString(s)
 	}
@@ -75,29 +84,29 @@ func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, ma
 	write(rules)
 	write("\n")
 
-	fmt.Fprintf(&sb, "## Current Date/Time: %s\n\n", time.Now().Format("2006-01-02 15:04:05 UTC"))
+	fmt.Fprintf(sb, "## Current Date/Time: %s\n\n", time.Now().Format("2006-01-02 15:04:05 UTC"))
 
-	fmt.Fprintf(&sb, "## Semantic Model: %s\n", model.Name)
+	fmt.Fprintf(sb, "## Semantic Model: %s\n", model.Name)
 	if model.Label != nil {
-		fmt.Fprintf(&sb, "Label: %s\n", *model.Label)
+		fmt.Fprintf(sb, "Label: %s\n", *model.Label)
 	}
 	if model.Description != nil {
-		fmt.Fprintf(&sb, "Description: %s\n", *model.Description)
+		fmt.Fprintf(sb, "Description: %s\n", *model.Description)
 	}
-	fmt.Fprintf(&sb, "Base table: %s.%s\n\n", model.BaseSchema, model.BaseTable)
+	fmt.Fprintf(sb, "Base table: %s.%s\n\n", model.BaseSchema, model.BaseTable)
 
 	if len(model.Synonyms) > 0 {
-		fmt.Fprintf(&sb, "Model synonyms: %s\n\n", strings.Join(model.Synonyms, ", "))
+		fmt.Fprintf(sb, "Model synonyms: %s\n\n", strings.Join(model.Synonyms, ", "))
 	}
 
-	headRunes := utf8.RuneCountInString(sb.String())
+	headRunes := utf8.RuneCount(sb.Bytes())
 	remaining := maxPromptRunes - headRunes - promptStaticReserveRunes
 	if remaining < 16000 {
 		remaining = 16000
 	}
 
 	// Filter out denied fields from dimensions
-	var allowedDims []semantic.Dimension
+	allowedDims := make([]semantic.Dimension, 0, len(model.Dimensions))
 	for _, d := range model.Dimensions {
 		if !deniedSet[strings.ToLower(d.ColumnRef)] && !deniedSet[strings.ToLower(d.Name)] {
 			allowedDims = append(allowedDims, d)
@@ -105,7 +114,7 @@ func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, ma
 	}
 
 	// Filter out denied fields from metrics
-	var allowedMetrics []semantic.Metric
+	allowedMetrics := make([]semantic.Metric, 0, len(model.Metrics))
 	for _, m := range model.Metrics {
 		if !deniedSet[strings.ToLower(m.Expression)] && !deniedSet[strings.ToLower(m.Name)] {
 			allowedMetrics = append(allowedMetrics, m)
@@ -113,24 +122,24 @@ func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, ma
 	}
 
 	write("## Available Dimensions\n")
-	omittedDims := b.writeDimensions(&sb, allowedDims, remaining/2)
+	omittedDims := b.writeDimensions(sb, allowedDims, remaining/2)
 	write("\n")
 
 	write("## Available Metrics\n")
-	metricsBudget := maxPromptRunes - utf8.RuneCountInString(sb.String()) - promptStaticReserveRunes/2
+	metricsBudget := maxPromptRunes - utf8.RuneCount(sb.Bytes()) - promptStaticReserveRunes/2
 	if metricsBudget < 4000 {
 		metricsBudget = 4000
 	}
-	omittedMetrics := b.writeMetrics(&sb, allowedMetrics, metricsBudget)
+	omittedMetrics := b.writeMetrics(sb, allowedMetrics, metricsBudget)
 	write("\n")
 
 	if omittedDims > 0 || omittedMetrics > 0 {
-		fmt.Fprintf(&sb, "## Note\nSome catalog entries were omitted to fit the model context window (%d dimensions, %d metrics skipped). Narrow **Tables** scope in the UI or define a smaller semantic model if a field is missing.\n\n",
+		fmt.Fprintf(sb, "## Note\nSome catalog entries were omitted to fit the model context window (%d dimensions, %d metrics skipped). Narrow **Tables** scope in the UI or define a smaller semantic model if a field is missing.\n\n",
 			omittedDims, omittedMetrics)
 	}
 
 	// Filter out denied fields from joins
-	var allowedJoins []semantic.Join
+	allowedJoins := make([]semantic.Join, 0, len(model.Joins))
 	for _, j := range model.Joins {
 		if !deniedSet[strings.ToLower(j.FromTable+"."+j.FromColumn)] && !deniedSet[strings.ToLower(j.ToTable+"."+j.ToColumn)] {
 			allowedJoins = append(allowedJoins, j)
@@ -140,7 +149,7 @@ func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, ma
 	if len(allowedJoins) > 0 {
 		write("## Available Joins\n")
 		for _, j := range allowedJoins {
-			fmt.Fprintf(&sb, "- %s: %s.%s → %s.%s (%s, %s)\n",
+			fmt.Fprintf(sb, "- %s: %s.%s → %s.%s (%s, %s)\n",
 				j.Name, j.FromTable, j.FromColumn, j.ToTable, j.ToColumn, j.JoinType, j.Relationship)
 		}
 		write("\n")
@@ -149,11 +158,11 @@ func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, ma
 	write("## Supported Filter Operators\n")
 	write("eq, neq, gt, gte, lt, lte, in, not_in, contains, starts_with, ends_with, between, is_null, is_not_null\n\n")
 
-	b.writeBusinessGlossary(&sb, glossary)
+	b.writeBusinessGlossary(sb, glossary)
 
-	b.writeDialectCompilationGuide(&sb, targetDialect)
-	b.writeFailureExamples(&sb)
-	b.writePlanningSteps(&sb)
+	b.writeDialectCompilationGuide(sb, targetDialect)
+	b.writeFailureExamples(sb)
+	b.writePlanningSteps(sb)
 
 	write("## User Question\n")
 	write(question)
@@ -165,9 +174,9 @@ func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, ma
 	}
 	write(outputFmt)
 
-	b.writeSampleData(&sb, samples)
-	b.writeFewShotExamples(&sb, examples, locale)
-	b.writePriorTurns(&sb, priorTurns)
+	b.writeSampleData(sb, samples)
+	b.writeFewShotExamples(sb, examples, locale)
+	b.writePriorTurns(sb, priorTurns)
 
 	return sb.String()
 }
@@ -176,7 +185,7 @@ func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, ma
 // model can resolve follow-ups like "now filter to last quarter" or "same
 // breakdown but by region". Each turn shows the user's question and, if
 // available, the prior LogicalQuery the assistant produced.
-func (b *PromptBuilder) writePriorTurns(sb *strings.Builder, turns []ConversationTurn) {
+func (b *PromptBuilder) writePriorTurns(sb *bytes.Buffer, turns []ConversationTurn) {
 	if len(turns) == 0 {
 		return
 	}
@@ -200,7 +209,7 @@ func (b *PromptBuilder) writePriorTurns(sb *strings.Builder, turns []Conversatio
 // writeSampleData appends a compact JSON block of concrete rows so the LLM can
 // see actual values (formats, casing, enum-like fields). Skipped silently if
 // no samples were provided.
-func (b *PromptBuilder) writeSampleData(sb *strings.Builder, samples []TableSample) {
+func (b *PromptBuilder) writeSampleData(sb *bytes.Buffer, samples []TableSample) {
 	if len(samples) == 0 {
 		return
 	}
@@ -210,11 +219,10 @@ func (b *PromptBuilder) writeSampleData(sb *strings.Builder, samples []TableSamp
 			continue
 		}
 		fmt.Fprintf(sb, "### %s.%s\n", s.Schema, s.Table)
-		data, err := json.Marshal(s.Rows)
-		if err != nil {
+		enc := json.NewEncoder(sb)
+		if err := enc.Encode(s.Rows); err != nil {
 			continue
 		}
-		sb.Write(data)
 		sb.WriteString("\n")
 	}
 }
@@ -224,12 +232,12 @@ func (b *PromptBuilder) writeSampleData(sb *strings.Builder, samples []TableSamp
 // when matching the active locale; locale-empty rows are always eligible and
 // rows tagged for a different locale are filtered out. Skipped silently if no
 // rows survive the filter.
-func (b *PromptBuilder) writeFewShotExamples(sb *strings.Builder, examples []FewShotExample, locale i18n.Locale) {
+func (b *PromptBuilder) writeFewShotExamples(sb *bytes.Buffer, examples []FewShotExample, locale i18n.Locale) {
 	if len(examples) == 0 {
 		return
 	}
 	target := string(locale)
-	var filtered []FewShotExample
+	filtered := make([]FewShotExample, 0, len(examples))
 	for _, ex := range examples {
 		q := strings.TrimSpace(ex.Question)
 		lq := strings.TrimSpace(ex.LogicalQuery)
@@ -251,7 +259,7 @@ func (b *PromptBuilder) writeFewShotExamples(sb *strings.Builder, examples []Few
 	}
 }
 
-func (b *PromptBuilder) writeDimensions(sb *strings.Builder, dims []semantic.Dimension, budgetRunes int) int {
+func (b *PromptBuilder) writeDimensions(sb *bytes.Buffer, dims []semantic.Dimension, budgetRunes int) int {
 	if budgetRunes <= 0 {
 		fmt.Fprintf(sb, "(dimensions omitted — size budget)\n")
 		return len(dims)
@@ -260,7 +268,8 @@ func (b *PromptBuilder) writeDimensions(sb *strings.Builder, dims []semantic.Dim
 	// Surface display dimensions first — these are the human-readable columns
 	// (name, title, label) that users expect when asking for "list X", "names",
 	// or readable labels.
-	var displayDims, otherDims []semantic.Dimension
+	displayDims := make([]semantic.Dimension, 0, len(dims))
+	otherDims := make([]semantic.Dimension, 0, len(dims))
 	for _, d := range dims {
 		if d.IsDisplay {
 			displayDims = append(displayDims, d)
@@ -273,14 +282,15 @@ func (b *PromptBuilder) writeDimensions(sb *strings.Builder, dims []semantic.Dim
 		sb.WriteString("### Display Dimensions (preferred for SELECT when asking for names/labels)\n")
 		for _, d := range displayDims {
 			syn := joinSynonymsCap(d.Synonyms, maxSynonymsPerLine)
-			line := fmt.Sprintf("- %s (type: %s, column: %s)", d.Name, d.Type, d.ColumnRef)
+			tg := ""
 			if d.TimeGrain != "" {
-				line = strings.TrimSuffix(line, ")") + fmt.Sprintf(", time_grain: %s)", d.TimeGrain)
+				tg = fmt.Sprintf(", time_grain: %s", d.TimeGrain)
 			}
+			sy := ""
 			if syn != "" {
-				line += fmt.Sprintf(", synonyms: %s", syn)
+				sy = fmt.Sprintf(", synonyms: %s", syn)
 			}
-			line += "\n"
+			line := fmt.Sprintf("- %s (type: %s, column: %s%s%s)\n", d.Name, d.Type, d.ColumnRef, tg, sy)
 			r := utf8.RuneCountInString(line)
 			if r > budgetRunes {
 				return len(dims)
@@ -295,14 +305,15 @@ func (b *PromptBuilder) writeDimensions(sb *strings.Builder, dims []semantic.Dim
 	omitted := 0
 	for i, d := range otherDims {
 		syn := joinSynonymsCap(d.Synonyms, maxSynonymsPerLine)
-		line := fmt.Sprintf("- %s (type: %s, column: %s)", d.Name, d.Type, d.ColumnRef)
+		tg := ""
 		if d.TimeGrain != "" {
-			line = strings.TrimSuffix(line, ")") + fmt.Sprintf(", time_grain: %s)", d.TimeGrain)
+			tg = fmt.Sprintf(", time_grain: %s", d.TimeGrain)
 		}
+		sy := ""
 		if syn != "" {
-			line += fmt.Sprintf(", synonyms: %s", syn)
+			sy = fmt.Sprintf(", synonyms: %s", syn)
 		}
-		line += "\n"
+		line := fmt.Sprintf("- %s (type: %s, column: %s%s%s)\n", d.Name, d.Type, d.ColumnRef, tg, sy)
 		r := utf8.RuneCountInString(line)
 		if used+r > budgetRunes {
 			omitted = len(otherDims) - i + len(displayDims)
@@ -320,7 +331,7 @@ func (b *PromptBuilder) writeDimensions(sb *strings.Builder, dims []semantic.Dim
 	return omitted
 }
 
-func (b *PromptBuilder) writeMetrics(sb *strings.Builder, metrics []semantic.Metric, budgetRunes int) int {
+func (b *PromptBuilder) writeMetrics(sb *bytes.Buffer, metrics []semantic.Metric, budgetRunes int) int {
 	if budgetRunes <= 0 {
 		fmt.Fprintf(sb, "(metrics omitted — size budget)\n")
 		return len(metrics)
@@ -329,11 +340,11 @@ func (b *PromptBuilder) writeMetrics(sb *strings.Builder, metrics []semantic.Met
 	omitted := 0
 	for i, m := range metrics {
 		syn := joinSynonymsCap(m.Synonyms, maxSynonymsPerLine)
-		line := fmt.Sprintf("- %s (aggregation: %s, expression: %s)", m.Name, m.Aggregation, m.Expression)
+		sy := ""
 		if syn != "" {
-			line += fmt.Sprintf(", synonyms: %s", syn)
+			sy = fmt.Sprintf(", synonyms: %s", syn)
 		}
-		line += "\n"
+		line := fmt.Sprintf("- %s (aggregation: %s, expression: %s%s)\n", m.Name, m.Aggregation, m.Expression, sy)
 		r := utf8.RuneCountInString(line)
 		if used+r > budgetRunes {
 			omitted = len(metrics) - i
@@ -349,13 +360,15 @@ func (b *PromptBuilder) writeMetrics(sb *strings.Builder, metrics []semantic.Met
 // question explaining what is ambiguous about the original request, given the
 // available semantic model. Output is plain text (no JSON) — short, natural.
 func (b *PromptBuilder) BuildClarification(question string, model *semantic.SemanticModel, failureReason string) string {
-	var sb strings.Builder
+	sb := promptBuilderPool.Get().(*bytes.Buffer)
+	sb.Reset()
+	defer promptBuilderPool.Put(sb)
 	sb.WriteString("You are a Business Intelligence assistant. The user asked a question that could not be answered with the current semantic model.\n\n")
-	fmt.Fprintf(&sb, "## User Question\n%s\n\n", question)
+	fmt.Fprintf(sb, "## User Question\n%s\n\n", question)
 	if failureReason != "" {
-		fmt.Fprintf(&sb, "## Why It Was Ambiguous\n%s\n\n", failureReason)
+		fmt.Fprintf(sb, "## Why It Was Ambiguous\n%s\n\n", failureReason)
 	}
-	fmt.Fprintf(&sb, "## Semantic Model: %s\n", model.Name)
+	fmt.Fprintf(sb, "## Semantic Model: %s\n", model.Name)
 	if len(model.Dimensions) > 0 {
 		sb.WriteString("Dimensions: ")
 		names := make([]string, 0, len(model.Dimensions))
@@ -385,7 +398,9 @@ func (b *PromptBuilder) BuildClarification(question string, model *semantic.Sema
 // original prompt is reused as the source of truth for the schema; the
 // addendum carries the model's failed response and the validation error.
 func (b *PromptBuilder) BuildRetry(originalPrompt, lastResponse, validationError string) string {
-	var sb strings.Builder
+	sb := promptBuilderPool.Get().(*bytes.Buffer)
+	sb.Reset()
+	defer promptBuilderPool.Put(sb)
 	sb.WriteString(originalPrompt)
 	sb.WriteString("\n\n## Previous Attempt (incorrect)\n")
 	sb.WriteString("Your previous response was:\n")

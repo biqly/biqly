@@ -12,6 +12,14 @@ import (
 	"github.com/biqly/biqly/internal/semantic"
 )
 
+var (
+	reWhere   = regexp.MustCompile(`(?i)\sWHERE\s`)
+	reGroupBy = regexp.MustCompile(`(?i)\sGROUP BY\s`)
+	reOrderBy = regexp.MustCompile(`(?i)\sORDER BY\s`)
+	reLimit   = regexp.MustCompile(`(?i)\sLIMIT\s`)
+	reOffset  = regexp.MustCompile(`(?i)\sOFFSET\s`)
+)
+
 // Compiler compiles a LogicalQuery into dialect-specific SQL.
 type Compiler struct {
 	dialect dialect.Dialect
@@ -64,8 +72,8 @@ func (c *Compiler) CompileWithPermissions(
 	}
 
 	// Check if original SQL has WHERE clause
-	upperSQL := strings.ToUpper(cq.SQL)
-	hasWhere := strings.Contains(upperSQL, " WHERE ")
+	whereLoc := reWhere.FindStringIndex(cq.SQL)
+	hasWhere := whereLoc != nil
 
 	filterParts, filterArgs, err := security.BuildRowFilterPredicates(
 		c.dialect, dimMap, rowFilters, len(cq.Args), true,
@@ -82,13 +90,13 @@ func (c *Compiler) CompileWithPermissions(
 
 	if hasWhere {
 		// Find where the WHERE clause content ends (before GROUP BY/ORDER BY/LIMIT)
-		whereIdx := strings.Index(upperSQL, " WHERE ")
-		whereEnd := whereIdx + len(" WHERE ")
+		whereEnd := whereLoc[1]
 		// Find the end of WHERE content (start of next clause)
 		contentEnd := len(cq.SQL)
-		for _, kw := range []string{" GROUP BY ", " ORDER BY ", " LIMIT ", " OFFSET "} {
-			if idx := strings.Index(upperSQL, kw); idx != -1 && idx > whereEnd && idx < contentEnd {
-				contentEnd = idx
+		
+		for _, re := range []*regexp.Regexp{reGroupBy, reOrderBy, reLimit, reOffset} {
+			if loc := re.FindStringIndex(cq.SQL); loc != nil && loc[0] > whereEnd && loc[0] < contentEnd {
+				contentEnd = loc[0]
 			}
 		}
 		// Insert row filter between existing WHERE content and next clause
@@ -99,9 +107,9 @@ func (c *Compiler) CompileWithPermissions(
 	} else {
 		// Insert WHERE before GROUP BY / ORDER BY / LIMIT / OFFSET
 		injectPoint := len(cq.SQL)
-		for _, kw := range []string{"GROUP BY", "ORDER BY", "LIMIT", "OFFSET"} {
-			if idx := strings.Index(upperSQL, kw); idx != -1 && idx < injectPoint {
-				injectPoint = idx
+		for _, re := range []*regexp.Regexp{reGroupBy, reOrderBy, reLimit, reOffset} {
+			if loc := re.FindStringIndex(cq.SQL); loc != nil && loc[0] < injectPoint {
+				injectPoint = loc[0]
 			}
 		}
 
@@ -113,9 +121,9 @@ func (c *Compiler) CompileWithPermissions(
 	return cq, nil
 }
 
-func addTableFromColumnRef(tables map[string]bool, colRef string, resolver *SchemaResolver) {
+func addTableFromColumnRef(tables map[string]struct{}, colRef string, resolver *SchemaResolver) {
 	if p, ok := resolver.ParseColumnRef(colRef); ok {
-		tables[TableKey(p.Schema, p.Table)] = true
+		tables[TableKey(p.Schema, p.Table)] = struct{}{}
 	}
 }
 
@@ -125,9 +133,9 @@ func tablesReferencedInLogicalQuery(
 	dimMap map[string]semantic.Dimension,
 	metricMap map[string]semantic.Metric,
 	resolver *SchemaResolver,
-) map[string]bool {
-	tables := make(map[string]bool)
-	tables[TableKey(model.BaseSchema, model.BaseTable)] = true
+) map[string]struct{} {
+	tables := make(map[string]struct{})
+	tables[TableKey(model.BaseSchema, model.BaseTable)] = struct{}{}
 
 	for _, item := range lq.Select {
 		switch item.Type {
@@ -235,30 +243,30 @@ func (c *Compiler) determineJoins(
 	}
 	parent := make(map[string]parentInfo)
 	var joinDiscovery []string
-	joinFirst := make(map[string]bool)
+	joinFirst := make(map[string]struct{})
 
 	queue := []string{base}
 	parent[base] = parentInfo{"", ""}
-	visited := map[string]bool{base: true}
+	visited := map[string]struct{}{base: {}}
 
 	for len(queue) > 0 {
 		u := queue[0]
 		queue = queue[1:]
 		for _, nb := range neighbors[u] {
-			if visited[nb.table] {
+			if _, ok := visited[nb.table]; ok {
 				continue
 			}
-			visited[nb.table] = true
+			visited[nb.table] = struct{}{}
 			parent[nb.table] = parentInfo{u, nb.joinName}
-			if !joinFirst[nb.joinName] {
-				joinFirst[nb.joinName] = true
+			if _, ok := joinFirst[nb.joinName]; !ok {
+				joinFirst[nb.joinName] = struct{}{}
 				joinDiscovery = append(joinDiscovery, nb.joinName)
 			}
 			queue = append(queue, nb.table)
 		}
 	}
 
-	required := make(map[string]bool)
+	required := make(map[string]struct{})
 	for t := range neededTables {
 		if t == base {
 			continue
@@ -269,14 +277,14 @@ func (c *Compiler) determineJoins(
 			if pi.join == "" {
 				break
 			}
-			required[pi.join] = true
+			required[pi.join] = struct{}{}
 			cur = pi.prev
 		}
 	}
 
 	var out []string
 	for _, jn := range joinDiscovery {
-		if required[jn] {
+		if _, ok := required[jn]; ok {
 			out = append(out, jn)
 		}
 	}
@@ -335,7 +343,7 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]semantic.Di
 			if alias == "" {
 				alias = dim.Name
 			}
-			parts = append(parts, fmt.Sprintf("%s AS %s", col, c.dialect.QuoteIdent(alias)))
+			parts = append(parts, col+" AS "+c.dialect.QuoteIdent(alias))
 
 		case SelectTypeMetric:
 			metric, ok := metricMap[item.Name]
@@ -347,7 +355,7 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]semantic.Di
 			if alias == "" {
 				alias = metric.Name
 			}
-			parts = append(parts, fmt.Sprintf("%s AS %s", agg, c.dialect.QuoteIdent(alias)))
+			parts = append(parts, agg+" AS "+c.dialect.QuoteIdent(alias))
 
 		case SelectTypeWindow:
 			windowSQL, err := c.buildWindowExpr(item, dimMap, metricMap, resolver)
@@ -358,7 +366,7 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]semantic.Di
 			if alias == "" {
 				alias = item.Name
 			}
-			parts = append(parts, fmt.Sprintf("%s AS %s", windowSQL, c.dialect.QuoteIdent(alias)))
+			parts = append(parts, windowSQL+" AS "+c.dialect.QuoteIdent(alias))
 
 		case SelectTypeCase:
 			caseSQL, err := c.buildCaseExpr(item, dimMap, metricMap, model, resolver, args)
@@ -372,7 +380,7 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]semantic.Di
 			if alias == "" {
 				return nil, fmt.Errorf("case select item requires name or alias")
 			}
-			parts = append(parts, fmt.Sprintf("%s AS %s", caseSQL, c.dialect.QuoteIdent(alias)))
+			parts = append(parts, caseSQL+" AS "+c.dialect.QuoteIdent(alias))
 		}
 	}
 	return parts, nil
@@ -561,7 +569,7 @@ func (c *Compiler) buildFrom(model *semantic.SemanticModel) string {
 
 func (c *Compiler) buildJoins(joinNames []string, joinMap map[string]semantic.Join, model *semantic.SemanticModel, resolver *SchemaResolver) []string {
 	baseKey := TableKey(model.BaseSchema, model.BaseTable)
-	inSet := map[string]bool{baseKey: true}
+	inSet := map[string]struct{}{baseKey: {}}
 
 	var clauses []string
 	for _, name := range joinNames {
@@ -579,15 +587,19 @@ func (c *Compiler) buildJoins(joinNames []string, joinMap map[string]semantic.Jo
 		toSchema, toTable, toCol := j.ToSchema, j.ToTable, j.ToColumn
 		fromKey := resolver.JoinSideKey(fromSchema, fromTable)
 		toKey := resolver.JoinSideKey(toSchema, toTable)
-		if inSet[toKey] && !inSet[fromKey] {
+		
+		_, toInSet := inSet[toKey]
+		_, fromInSet := inSet[fromKey]
+		
+		if toInSet && !fromInSet {
 			fromSchema, toSchema = toSchema, fromSchema
 			fromTable, toTable = toTable, fromTable
 			fromCol, toCol = toCol, fromCol
 			fromKey, toKey = toKey, fromKey
-		} else if inSet[toKey] && inSet[fromKey] {
+		} else if toInSet && fromInSet {
 			continue
 		}
-		inSet[toKey] = true
+		inSet[toKey] = struct{}{}
 
 		fromTableSQL := resolver.QualifyTable(c.dialect, fromSchema, fromTable)
 		toTableSQL := resolver.QualifyTable(c.dialect, toSchema, toTable)
@@ -667,22 +679,22 @@ func (c *Compiler) buildFilterPart(f Filter, lhsSQL string, model *semantic.Sema
 	switch f.Operator {
 	case OpEq:
 		*args = append(*args, f.Value)
-		return fmt.Sprintf("%s = %s", lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
+		return lhsSQL + " = " + c.dialect.Placeholder(len(*args)), nil, nil
 	case OpNeq:
 		*args = append(*args, f.Value)
-		return fmt.Sprintf("%s != %s", lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
+		return lhsSQL + " != " + c.dialect.Placeholder(len(*args)), nil, nil
 	case OpGt:
 		*args = append(*args, f.Value)
-		return fmt.Sprintf("%s > %s", lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
+		return lhsSQL + " > " + c.dialect.Placeholder(len(*args)), nil, nil
 	case OpGte:
 		*args = append(*args, f.Value)
-		return fmt.Sprintf("%s >= %s", lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
+		return lhsSQL + " >= " + c.dialect.Placeholder(len(*args)), nil, nil
 	case OpLt:
 		*args = append(*args, f.Value)
-		return fmt.Sprintf("%s < %s", lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
+		return lhsSQL + " < " + c.dialect.Placeholder(len(*args)), nil, nil
 	case OpLte:
 		*args = append(*args, f.Value)
-		return fmt.Sprintf("%s <= %s", lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
+		return lhsSQL + " <= " + c.dialect.Placeholder(len(*args)), nil, nil
 	case OpIn:
 		if f.Subquery != nil {
 			return c.buildInSubqueryFilter(lhsSQL, f, model, true, args)
@@ -694,20 +706,38 @@ func (c *Compiler) buildFilterPart(f Filter, lhsSQL string, model *semantic.Sema
 		}
 		return c.buildNotInFilter(lhsSQL, f.Value, args)
 	case OpContains:
-		*args = append(*args, fmt.Sprintf("%%%v%%", f.Value))
+		valStr := ""
+		if str, ok := f.Value.(string); ok {
+			valStr = str
+		} else {
+			valStr = fmt.Sprint(f.Value)
+		}
+		*args = append(*args, "%"+valStr+"%")
 		return c.dialect.ILike(lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
 	case OpStartsWith:
-		*args = append(*args, fmt.Sprintf("%v%%", f.Value))
+		valStr := ""
+		if str, ok := f.Value.(string); ok {
+			valStr = str
+		} else {
+			valStr = fmt.Sprint(f.Value)
+		}
+		*args = append(*args, valStr+"%")
 		return c.dialect.ILike(lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
 	case OpEndsWith:
-		*args = append(*args, fmt.Sprintf("%%%v", f.Value))
+		valStr := ""
+		if str, ok := f.Value.(string); ok {
+			valStr = str
+		} else {
+			valStr = fmt.Sprint(f.Value)
+		}
+		*args = append(*args, "%"+valStr)
 		return c.dialect.ILike(lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
 	case OpBetween:
 		return c.buildBetweenFilter(lhsSQL, f.Value, args)
 	case OpIsNull:
-		return fmt.Sprintf("%s IS NULL", lhsSQL), nil, nil
+		return lhsSQL + " IS NULL", nil, nil
 	case OpIsNotNull:
-		return fmt.Sprintf("%s IS NOT NULL", lhsSQL), nil, nil
+		return lhsSQL + " IS NOT NULL", nil, nil
 	default:
 		return "", nil, fmt.Errorf("unsupported operator: %s", f.Operator)
 	}

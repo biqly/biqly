@@ -21,7 +21,7 @@ func init() {
 	dangerousKeywordPatterns = make([]*regexp.Regexp, 0, len(dangerous))
 	for _, kw := range dangerous {
 		dangerousKeywordPatterns = append(dangerousKeywordPatterns,
-			regexp.MustCompile(`\b`+regexp.QuoteMeta(kw)+`\b`))
+			regexp.MustCompile(`(?i)\b`+regexp.QuoteMeta(kw)+`\b`))
 	}
 }
 
@@ -35,10 +35,10 @@ func NewReadOnlyChecker() *ReadOnlyChecker {
 
 // Check verifies the SQL is a safe SELECT query.
 func (c *ReadOnlyChecker) Check(sql string) error {
-	trimmed := strings.TrimSpace(strings.ToUpper(sql))
+	trimmed := strings.TrimSpace(sql)
 
 	// Must start with SELECT
-	if !strings.HasPrefix(trimmed, "SELECT") {
+	if len(trimmed) < 6 || !strings.EqualFold(trimmed[:6], "SELECT") {
 		return fmt.Errorf("only SELECT queries are allowed, got: %s", trimmed[:min(50, len(trimmed))])
 	}
 

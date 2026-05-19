@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"strings"
@@ -262,22 +263,22 @@ func defaultGlossarySlice(entries []GlossaryEntry, model *semantic.SemanticModel
 	return out
 }
 
-func (b *PromptBuilder) writeBusinessGlossary(sb *strings.Builder, entries []GlossaryEntry) {
+func (b *PromptBuilder) writeBusinessGlossary(sb *bytes.Buffer, entries []GlossaryEntry) {
 	if len(entries) == 0 {
 		return
 	}
 	sb.WriteString("\n\n## Business Glossary\n")
 	sb.WriteString("Map business language in the question to exact catalog names. Prefer **glossary** rows over guessing.\n\n")
 	for _, e := range entries {
-		line := fmt.Sprintf("- **%s** → `%s` (%s)", e.Term, e.MapsToName, e.MapsToType)
+		def := ""
 		if e.Definition != "" {
-			line += fmt.Sprintf(" — %s", e.Definition)
+			def = fmt.Sprintf(" — %s", e.Definition)
 		}
+		cur := ""
 		if e.Source == "glossary" {
-			line += " [curated]"
+			cur = " [curated]"
 		}
-		line += "\n"
-		sb.WriteString(line)
+		fmt.Fprintf(sb, "- **%s** → `%s` (%s)%s%s\n", e.Term, e.MapsToName, e.MapsToType, def, cur)
 	}
 	sb.WriteString("\n")
 }

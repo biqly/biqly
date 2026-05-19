@@ -372,7 +372,7 @@ func selectManualTables(
 ) ([]tableBundle, *TableRoutingResult, error) {
 	tableIndex := indexTables(tables)
 	var selected []tableBundle
-	seen := make(map[string]bool)
+	seen := make(map[string]struct{})
 
 	for _, ref := range nonEmptyScope(tableScope) {
 		table, err := resolveTableRef(tableIndex, ref)
@@ -381,10 +381,10 @@ func selectManualTables(
 			return nil, result, fmt.Errorf("%w: %v", ErrTableScopeInvalid, err)
 		}
 		key := tableKey(table.SchemaName, table.TableName)
-		if seen[key] {
+		if _, ok := seen[key]; ok {
 			continue
 		}
-		seen[key] = true
+		seen[key] = struct{}{}
 		selected = append(selected, tableBundle{
 			table:        table,
 			score:        1,
@@ -528,20 +528,20 @@ func appendQuestionEntityTables(
 	if len(tokens) == 0 || len(selected) >= maxN {
 		return selected
 	}
-	selectedKeys := make(map[string]bool, len(selected))
+	selectedKeys := make(map[string]struct{}, len(selected))
 	for _, b := range selected {
-		selectedKeys[tableKey(b.table.SchemaName, b.table.TableName)] = true
+		selectedKeys[tableKey(b.table.SchemaName, b.table.TableName)] = struct{}{}
 	}
 
 	adj := relationAdjacency(relations)
-	from := make(map[string]bool, len(selectedKeys))
+	from := make(map[string]struct{}, len(selectedKeys))
 	for k := range selectedKeys {
-		from[k] = true
+		from[k] = struct{}{}
 	}
 
 	for _, t := range tables {
 		key := tableKey(t.SchemaName, t.TableName)
-		if selectedKeys[key] {
+		if _, ok := selectedKeys[key]; ok {
 			continue
 		}
 		nameTokens := tokenSet(t.TableName)
@@ -569,7 +569,7 @@ func appendQuestionEntityTables(
 				return selected
 			}
 			pkey := path[i]
-			if selectedKeys[pkey] {
+			if _, ok := selectedKeys[pkey]; ok {
 				continue
 			}
 			pt, ok := idx.byFullName[pkey]
@@ -582,8 +582,8 @@ func appendQuestionEntityTables(
 				score = w.EntityPathTargetScore
 			}
 			selected = append(selected, tableBundle{table: pt, score: score})
-			selectedKeys[pkey] = true
-			from[pkey] = true
+			selectedKeys[pkey] = struct{}{}
+			from[pkey] = struct{}{}
 		}
 	}
 	return selected
@@ -616,17 +616,17 @@ func appendEntityResolverTables(
 		return selected
 	}
 
-	selectedKeys := make(map[string]bool)
+	selectedKeys := make(map[string]struct{})
 	for _, b := range selected {
-		selectedKeys[tableKey(b.table.SchemaName, b.table.TableName)] = true
+		selectedKeys[tableKey(b.table.SchemaName, b.table.TableName)] = struct{}{}
 	}
 
 	adj := relationAdjacency(relations)
 
 	addPathTo := func(targetKey string) {
-		from := make(map[string]bool, len(selectedKeys))
+		from := make(map[string]struct{}, len(selectedKeys))
 		for k := range selectedKeys {
-			from[k] = true
+			from[k] = struct{}{}
 		}
 		path := shortestPathFromSet(adj, from, targetKey)
 		if path == nil {
@@ -637,7 +637,7 @@ func appendEntityResolverTables(
 				return
 			}
 			pkey := path[i]
-			if selectedKeys[pkey] {
+			if _, ok := selectedKeys[pkey]; ok {
 				continue
 			}
 			t, ok := idx.byFullName[pkey]
@@ -650,7 +650,7 @@ func appendEntityResolverTables(
 				score = w.ResolverPathTargetScore
 			}
 			selected = append(selected, tableBundle{table: t, score: score})
-			selectedKeys[pkey] = true
+			selectedKeys[pkey] = struct{}{}
 		}
 	}
 
@@ -680,7 +680,7 @@ func appendEntityResolverTables(
 			}
 			visited[nb] = d + 1
 			queue = append(queue, nb)
-			if selectedKeys[nb] {
+			if _, ok := selectedKeys[nb]; ok {
 				continue
 			}
 			t, ok := idx.byFullName[nb]
@@ -727,7 +727,7 @@ func appendEntityResolverTables(
 			continue
 		}
 		visitedEntity[ek] = true
-		if !selectedKeys[ek] {
+		if _, ok := selectedKeys[ek]; !ok {
 			continue
 		}
 		c := cand{key: ek}
@@ -1259,25 +1259,25 @@ func relationAdjacency(relations []metadata.Relation) map[string][]string {
 }
 
 // shortestPathFromSet returns a path from any node in `from` to `to`, or nil if unreachable.
-func shortestPathFromSet(adj map[string][]string, from map[string]bool, to string) []string {
-	if from[to] {
+func shortestPathFromSet(adj map[string][]string, from map[string]struct{}, to string) []string {
+	if _, ok := from[to]; ok {
 		return []string{to}
 	}
 	queue := make([]string, 0, len(from))
 	parent := make(map[string]string)
-	seen := make(map[string]bool)
+	seen := make(map[string]struct{})
 	for k := range from {
 		queue = append(queue, k)
-		seen[k] = true
+		seen[k] = struct{}{}
 		parent[k] = ""
 	}
 	for qi := 0; qi < len(queue); qi++ {
 		cur := queue[qi]
 		for _, nb := range adj[cur] {
-			if seen[nb] {
+			if _, ok := seen[nb]; ok {
 				continue
 			}
-			seen[nb] = true
+			seen[nb] = struct{}{}
 			parent[nb] = cur
 			if nb == to {
 				var path []string
@@ -1337,11 +1337,11 @@ func expandSelectedWithJoinBridges(
 	for i := 1; i < len(selected); i++ {
 		tb := selected[i]
 		tkey := keyOf(tb.table)
-		from := make(map[string]bool, len(list))
+		from := make(map[string]struct{}, len(list))
 		for _, b := range list {
-			from[keyOf(b.table)] = true
+			from[keyOf(b.table)] = struct{}{}
 		}
-		if from[tkey] {
+		if _, ok := from[tkey]; ok {
 			put(tb)
 			continue
 		}

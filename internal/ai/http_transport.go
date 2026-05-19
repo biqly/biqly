@@ -8,14 +8,14 @@ import (
 	"net/http"
 )
 
+const maxResponseSize = 10 * 1024 * 1024 // 10 MB
+
 func readResponseBody(resp *http.Response) ([]byte, error) {
-	body, readErr := io.ReadAll(resp.Body)
-	closeErr := resp.Body.Close()
+	defer resp.Body.Close()
+	limited := io.LimitReader(resp.Body, maxResponseSize)
+	body, readErr := io.ReadAll(limited)
 	if readErr != nil {
 		return nil, fmt.Errorf("read response: %w", readErr)
-	}
-	if closeErr != nil {
-		return nil, fmt.Errorf("close response: %w", closeErr)
 	}
 	return body, nil
 }

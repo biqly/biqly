@@ -476,6 +476,9 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 
 	// Store schemas
 	for _, s := range result.Schemas {
+		if ctx.Err() != nil {
+			return
+		}
 		schema := metadata.Schema{
 			ID:           uuid.New().String(),
 			DatasourceID: ds.ID,
@@ -491,6 +494,9 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 
 	// Store tables (description from native DB comment when present)
 	for _, t := range result.Tables {
+		if ctx.Err() != nil {
+			return
+		}
 		schemaID, ok := schemaIDs[t.SchemaName]
 		if !ok {
 			writeInternalError(ctx, w, http.StatusInternalServerError, "metadata sync failed",
@@ -536,7 +542,11 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Store columns (description from native DB comment when present)
+	colBatch := make([]metadata.Column, 0, 100)
 	for _, c := range result.Columns {
+		if ctx.Err() != nil {
+			return
+		}
 		tableID, ok := tableIDs[[2]string{c.SchemaName, c.TableName}]
 		if !ok {
 			writeInternalError(ctx, w, http.StatusInternalServerError, "metadata sync failed",
@@ -573,14 +583,28 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 			cm := c.Comment
 			col.Description = &cm
 		}
-		if err := h.deps.MetaRepo.UpsertColumns(ctx, ds.ID, []metadata.Column{col}); err != nil {
+		colBatch = append(colBatch, col)
+		if len(colBatch) >= 100 {
+			if err := h.deps.MetaRepo.UpsertColumns(ctx, ds.ID, colBatch); err != nil {
+				writeInternalError(ctx, w, http.StatusInternalServerError, "failed to save columns", err)
+				return
+			}
+			colBatch = colBatch[:0]
+		}
+	}
+	if len(colBatch) > 0 {
+		if err := h.deps.MetaRepo.UpsertColumns(ctx, ds.ID, colBatch); err != nil {
 			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to save columns", err)
 			return
 		}
 	}
 
 	// Store relations
+	relBatch := make([]metadata.Relation, 0, 100)
 	for _, rel := range result.Relations {
+		if ctx.Err() != nil {
+			return
+		}
 		relation := metadata.Relation{
 			ID:               uuid.New().String(),
 			DatasourceID:     ds.ID,
@@ -593,7 +617,17 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 			ToColumn:         rel.ToColumn,
 			RelationshipType: rel.RelationshipType,
 		}
-		if err := h.deps.MetaRepo.UpsertRelations(ctx, ds.ID, []metadata.Relation{relation}); err != nil {
+		relBatch = append(relBatch, relation)
+		if len(relBatch) >= 100 {
+			if err := h.deps.MetaRepo.UpsertRelations(ctx, ds.ID, relBatch); err != nil {
+				writeInternalError(ctx, w, http.StatusInternalServerError, "failed to save relations", err)
+				return
+			}
+			relBatch = relBatch[:0]
+		}
+	}
+	if len(relBatch) > 0 {
+		if err := h.deps.MetaRepo.UpsertRelations(ctx, ds.ID, relBatch); err != nil {
 			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to save relations", err)
 			return
 		}

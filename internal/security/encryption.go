@@ -13,7 +13,9 @@ import (
 
 // Encryption provides AES-256-GCM encryption/decryption for sensitive fields.
 type Encryption struct {
-	key []byte
+	key   []byte
+	block cipher.Block
+	aead  cipher.AEAD
 }
 
 // NewEncryption creates an Encryption instance using BI_ENCRYPTION_KEY env var.
@@ -32,7 +34,16 @@ func NewEncryption() (*Encryption, error) {
 		return nil, fmt.Errorf("invalid BI_ENCRYPTION_KEY: decoded key must be 32 bytes, got %d", len(key))
 	}
 
-	return &Encryption{key: key}, nil
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cipher: %w", err)
+	}
+	aead, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GCM: %w", err)
+	}
+
+	return &Encryption{key: key, block: block, aead: aead}, nil
 }
 
 // NewEncryptionWithKey creates an Encryption instance with the provided key bytes.
@@ -41,28 +52,26 @@ func NewEncryptionWithKey(key []byte) (*Encryption, error) {
 	if len(key) != 32 {
 		return nil, fmt.Errorf("invalid key: must be 32 bytes, got %d", len(key))
 	}
-	return &Encryption{key: key}, nil
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cipher: %w", err)
+	}
+	aead, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GCM: %w", err)
+	}
+	return &Encryption{key: key, block: block, aead: aead}, nil
 }
 
 // Encrypt encrypts plaintext and returns base64-encoded ciphertext.
 // Format: base64(nonce + ciphertext) where nonce is 12 bytes.
 func (e *Encryption) Encrypt(plaintext string) (string, error) {
-	block, err := aes.NewCipher(e.key)
-	if err != nil {
-		return "", fmt.Errorf("failed to create cipher: %w", err)
-	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", fmt.Errorf("failed to create GCM: %w", err)
-	}
-
-	nonce := make([]byte, gcm.NonceSize())
+	nonce := make([]byte, e.aead.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return "", fmt.Errorf("failed to generate nonce: %w", err)
 	}
 
-	ciphertext := gcm.Seal(nonce, nonce, []byte(plaintext), nil)
+	ciphertext := e.aead.Seal(nonce, nonce, []byte(plaintext), nil)
 	return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
@@ -73,23 +82,13 @@ func (e *Encryption) Decrypt(encoded string) (string, error) {
 		return "", fmt.Errorf("failed to decode base64: %w", err)
 	}
 
-	block, err := aes.NewCipher(e.key)
-	if err != nil {
-		return "", fmt.Errorf("failed to create cipher: %w", err)
-	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", fmt.Errorf("failed to create GCM: %w", err)
-	}
-
-	nonceSize := gcm.NonceSize()
+	nonceSize := e.aead.NonceSize()
 	if len(data) < nonceSize {
 		return "", errors.New("ciphertext too short")
 	}
 
 	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
-	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	plaintext, err := e.aead.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
 		return "", fmt.Errorf("decryption failed: %w", err)
 	}

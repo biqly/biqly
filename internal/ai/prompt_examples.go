@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 )
@@ -22,7 +23,7 @@ func normalizeDialectName(name string) string {
 	}
 }
 
-func (b *PromptBuilder) writeDialectCompilationGuide(sb *strings.Builder, targetDialect string) {
+func (b *PromptBuilder) writeDialectCompilationGuide(sb *bytes.Buffer, targetDialect string) {
 	key := normalizeDialectName(targetDialect)
 	if key == "" {
 		key = "postgres"
@@ -96,7 +97,7 @@ func (b *PromptBuilder) writeDialectCompilationGuide(sb *strings.Builder, target
 	sb.WriteString("Use catalog dimension/metric **names** in LogicalQuery; the compiler applies the dialect rules above.\n")
 }
 
-func (b *PromptBuilder) writeFailureExamples(sb *strings.Builder) {
+func (b *PromptBuilder) writeFailureExamples(sb *bytes.Buffer) {
 	sb.WriteString("\n\n## Examples — Common Mistakes (do NOT do this)\n")
 	sb.WriteString("Output must be corrected LogicalQuery JSON. These pairs show frequent errors.\n\n")
 
@@ -161,7 +162,7 @@ func (b *PromptBuilder) writeFailureExamples(sb *strings.Builder) {
 	}
 }
 
-func (b *PromptBuilder) writePlanningSteps(sb *strings.Builder) {
+func (b *PromptBuilder) writePlanningSteps(sb *bytes.Buffer) {
 	sb.WriteString("\n\n## Planning Steps (chain-of-thought — follow in order)\n")
 	sb.WriteString("Work through every step below using **only** the semantic catalog above, then produce the LogicalQuery JSON.\n")
 	sb.WriteString("You may echo these steps in an optional `## Reasoning` block immediately before the JSON (see Output Format).\n\n")

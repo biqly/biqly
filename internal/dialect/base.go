@@ -2,6 +2,7 @@ package dialect
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -24,10 +25,10 @@ func QuoteIdentQualified(q identSegmentQuoter, identifier string) string {
 func StandardLimitOffset(limit, offset int) string {
 	var parts []string
 	if limit > 0 {
-		parts = append(parts, fmt.Sprintf("LIMIT %d", limit))
+		parts = append(parts, "LIMIT "+strconv.Itoa(limit))
 	}
 	if offset > 0 {
-		parts = append(parts, fmt.Sprintf("OFFSET %d", offset))
+		parts = append(parts, "OFFSET "+strconv.Itoa(offset))
 	}
 	return strings.Join(parts, " ")
 }

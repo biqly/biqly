@@ -63,18 +63,22 @@ func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (
 	}
 
 	// Read rows
-	var resultRows [][]any
+	capacity := e.maxRows
+	if capacity <= 0 {
+		capacity = 64
+	}
+	resultRows := make([][]any, 0, capacity)
 	count := 0
+
+	vals := make([]any, len(colTypes))
+	valPtrs := make([]any, len(colTypes))
+	for i := range vals {
+		valPtrs[i] = &vals[i]
+	}
+
 	for rows.Next() {
 		if e.maxRows > 0 && count >= e.maxRows {
 			break
-		}
-
-		// Create scan targets
-		vals := make([]any, len(colTypes))
-		valPtrs := make([]any, len(colTypes))
-		for i := range vals {
-			valPtrs[i] = &vals[i]
 		}
 
 		if err := rows.Scan(valPtrs...); err != nil {
