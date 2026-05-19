@@ -44,5 +44,9 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end -}}
 
 {{- define "ai.secretChecksum" -}}
+{{- if .Values.global.secrets.createSecrets -}}
 {{- include (print $.Template.BasePath "/secret.yaml") . | sha256sum -}}
+{{- else -}}
+{{- printf "%s-%s-%s" .Values.global.secretNames.db .Values.global.secretNames.security .Values.global.secretNames.ai | sha256sum -}}
+{{- end -}}
 {{- end -}}

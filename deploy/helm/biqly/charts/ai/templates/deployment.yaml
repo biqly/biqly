@@ -96,8 +96,6 @@ spec:
             - secretRef:
                 name: {{ .Values.global.secretNames.embedding }}
                 optional: true
-            - secretRef:
-                name: {{ include "ai.fullname" . }}-secret
           livenessProbe:
             httpGet:
               path: /health

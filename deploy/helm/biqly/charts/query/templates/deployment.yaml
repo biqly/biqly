@@ -89,8 +89,6 @@ spec:
                 name: {{ .Values.global.secretNames.db }}
             - secretRef:
                 name: {{ .Values.global.secretNames.security }}
-            - secretRef:
-                name: {{ include "query.fullname" . }}-secret
           livenessProbe:
             httpGet:
               path: /health
