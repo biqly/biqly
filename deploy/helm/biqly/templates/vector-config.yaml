@@ -1,0 +1,39 @@
+{{- if .Values.global.observability.logs.vectorConfig.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: biqly-vector-config
+  labels:
+    {{- include "biqly.labels" . | nindent 4 }}
+data:
+  vector.yaml: |
+    sources:
+      kubernetes_logs:
+        type: kubernetes_logs
+        extra_label_selector: "app.kubernetes.io/part-of=biqly"
+
+    transforms:
+      parse_biqly_json:
+        type: remap
+        inputs:
+          - kubernetes_logs
+        source: |
+          parsed, err = parse_json(.message)
+          if err == null {
+            . = merge(., parsed)
+          }
+          .correlation_id = .request_id ?? .traceparent ?? null
+
+    sinks:
+      loki:
+        type: loki
+        inputs:
+          - parse_biqly_json
+        endpoint: http://loki-gateway.monitoring.svc.cluster.local
+        encoding:
+          codec: json
+        labels:
+          app: biqly
+          component: "{{`{{ kubernetes.pod_labels.\"app.kubernetes.io/component\" }}`}}"
+          request_id: "{{`{{ correlation_id }}`}}"
+{{- end }}

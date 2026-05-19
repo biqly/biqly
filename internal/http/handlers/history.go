@@ -44,6 +44,12 @@ func (h *AIHandler) recordAIHistory(
 	resp *ai.Response,
 ) {
 	entry := buildAIHistoryEntry(req, model, routing, resp)
+	if h.deps.CatalogClient != nil {
+		if _, err := h.deps.CatalogClient.CreateAIHistory(ctx, *entry); err != nil {
+			slog.ErrorContext(ctx, "create AI query history via catalog failed", "error", err)
+		}
+		return
+	}
 	if err := h.deps.MetaRepo.CreateAIQueryHistory(ctx, entry); err != nil {
 		slog.ErrorContext(ctx, "create AI query history failed", "error", err)
 	}

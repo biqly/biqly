@@ -1,0 +1,22 @@
+{{- if .Values.rollout.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: {{ include "ai.fullname" . }}
+  labels:
+    {{- include "ai.labels" . | nindent 4 }}
+spec:
+  workloadRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "ai.fullname" . }}
+    scaleDown: progressively
+  strategy:
+    canary:
+      steps:
+        {{- toYaml .Values.rollout.canary.steps | nindent 8 }}
+      analysis:
+        templates:
+          - templateName: {{ include "ai.fullname" . }}-success-rate
+          - templateName: {{ include "ai.fullname" . }}-llm-latency
+{{- end }}

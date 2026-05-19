@@ -876,7 +876,7 @@ r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 ## Summary Table
 
 | # | Severity | File | Issue | Hot Path |
-|---|----------|------|-------|----------|
+| --- | ---------- | ------ | ------- | ---------- |
 | 1 | CRITICAL | `query/executor.go:66-88` | Per-row triple allocation (30K allocs/query) | Yes |
 | 2 | HIGH | `security/encryption.go:50-82` | Cipher recreated per call | Yes |
 | 3 | HIGH | `ai/http_transport.go:12` | io.ReadAll unbounded, no limit | Yes |
@@ -909,7 +909,7 @@ r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 ## Priority Fixes (Estimated Impact)
 
 | Priority | Fix | Estimated Reduction |
-|----------|-----|-------------------|
+| ---------- | ----- | ------------------- |
 | 1 | Executor per-row allocation reuse | ~20,000 allocs/query |
 | 2 | Encryption cipher caching | ~1 KB/query |
 | 3 | Prompt builder sync.Pool | ~160 KB/concurrent request |

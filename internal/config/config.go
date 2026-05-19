@@ -12,10 +12,12 @@ import (
 // Config holds all application configuration.
 type Config struct {
 	HTTP     HTTPConfig
+	Logging  LoggingConfig
 	Metadata MetadataConfig
 	Redis    RedisConfig
 	Query    QueryConfig
 	Security SecurityConfig
+	Services ServicesConfig
 	AI       AIConfig
 }
 
@@ -23,6 +25,12 @@ type Config struct {
 type HTTPConfig struct {
 	Host string
 	Port int
+}
+
+// LoggingConfig holds structured logger configuration.
+type LoggingConfig struct {
+	Level  string
+	Format string
 }
 
 // MetadataConfig holds metadata database connection configuration.
@@ -50,6 +58,15 @@ type QueryConfig struct {
 type SecurityConfig struct {
 	EncryptionKey string
 	AdminAPIKey   string
+	// InternalAPIToken protects /internal/* peer-service endpoints.
+	InternalAPIToken string
+}
+
+// ServicesConfig holds upstream service URLs used when the monolith runs as a BFF.
+type ServicesConfig struct {
+	CatalogURL string
+	QueryURL   string
+	AIURL      string
 }
 
 // AIConfig holds AI provider configuration.
@@ -141,6 +158,10 @@ func Load() (*Config, error) {
 			Host: getEnv("BI_HTTP_HOST", "0.0.0.0"),
 			Port: getEnvAsInt("BI_HTTP_PORT", 8888),
 		},
+		Logging: LoggingConfig{
+			Level:  strings.ToLower(strings.TrimSpace(getEnv("BI_LOG_LEVEL", "info"))),
+			Format: strings.ToLower(strings.TrimSpace(getEnv("BI_LOG_FORMAT", "json"))),
+		},
 		Metadata: MetadataConfig{
 			DSN: getEnv("BI_METADATA_DB_DSN", "postgres://bi_user:bi_password@localhost:5432/bi_metadata?sslmode=disable"),
 		},
@@ -155,8 +176,14 @@ func Load() (*Config, error) {
 			EvalRunsListLimit: getEnvAsInt("BI_EVAL_RUNS_LIST_LIMIT", 50),
 		},
 		Security: SecurityConfig{
-			EncryptionKey: getEnv("BI_ENCRYPTION_KEY", "change-this-to-a-secure-32-byte-key!!"),
-			AdminAPIKey:   getEnv("BI_ADMIN_API_KEY", ""),
+			EncryptionKey:    getEnv("BI_ENCRYPTION_KEY", "change-this-to-a-secure-32-byte-key!!"),
+			AdminAPIKey:      getEnv("BI_ADMIN_API_KEY", ""),
+			InternalAPIToken: getEnv("BI_INTERNAL_API_TOKEN", ""),
+		},
+		Services: ServicesConfig{
+			CatalogURL: strings.TrimRight(getEnv("BI_CATALOG_SERVICE_URL", ""), "/"),
+			QueryURL:   strings.TrimRight(getEnv("BI_QUERY_SERVICE_URL", ""), "/"),
+			AIURL:      strings.TrimRight(getEnv("BI_AI_SERVICE_URL", ""), "/"),
 		},
 		AI: AIConfig{
 			Provider:              getEnv("BI_AI_PROVIDER", "openai"),

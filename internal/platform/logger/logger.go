@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"strings"
 )
 
 // Config holds logger configuration.
@@ -47,4 +48,28 @@ func NewWithFile(cfg Config, filepath string) (*slog.Logger, io.Closer, error) {
 	}
 
 	return slog.New(handler), f, nil
+}
+
+// LevelFromString parses BI_LOG_LEVEL-style values.
+func LevelFromString(level string) slog.Level {
+	switch strings.ToLower(strings.TrimSpace(level)) {
+	case "debug":
+		return slog.LevelDebug
+	case "warn", "warning":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}
+
+// JSONFromString reports whether logs should be emitted as JSON.
+func JSONFromString(format string) bool {
+	switch strings.ToLower(strings.TrimSpace(format)) {
+	case "text", "console":
+		return false
+	default:
+		return true
+	}
 }

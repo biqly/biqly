@@ -1,0 +1,46 @@
+{{- if .Values.global.observability.dashboards.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: biqly-grafana-dashboards
+  labels:
+    {{- include "biqly.labels" . | nindent 4 }}
+    {{- toYaml .Values.global.observability.dashboards.labels | nindent 4 }}
+data:
+  biqly-ai.json: |
+    {
+      "title": "Biqly AI",
+      "schemaVersion": 39,
+      "panels": [
+        {"type":"timeseries","title":"AI request rate","targets":[{"expr":"sum(rate(bi_ai_requests_total[5m]))"}]},
+        {"type":"timeseries","title":"AI success rate","targets":[{"expr":"1 - (sum(rate(bi_ai_errors[5m])) / clamp_min(sum(rate(bi_ai_requests_total[5m])), 1))"}]},
+        {"type":"timeseries","title":"Average LLM latency","targets":[{"expr":"sum(rate(llm_request_duration_seconds[5m])) / clamp_min(sum(rate(bi_ai_requests_total[5m])), 1)"}]},
+        {"type":"timeseries","title":"Tokens used","targets":[{"expr":"sum(rate(llm_tokens_used_total[5m]))"}]},
+        {"type":"timeseries","title":"Clarifications","targets":[{"expr":"sum(rate(bi_ai_clarifications_total[5m]))"}]}
+      ]
+    }
+  biqly-query.json: |
+    {
+      "title": "Biqly Query",
+      "schemaVersion": 39,
+      "panels": [
+        {"type":"timeseries","title":"Compile rate","targets":[{"expr":"sum(rate(query_compile_total[5m]))"}]},
+        {"type":"timeseries","title":"Compile error rate","targets":[{"expr":"sum(rate(query_compile_errors_total[5m])) / clamp_min(sum(rate(query_compile_total[5m])), 1)"}]},
+        {"type":"timeseries","title":"Average compile duration","targets":[{"expr":"sum(rate(query_compile_duration_seconds[5m])) / clamp_min(sum(rate(query_compile_total[5m])), 1)"}]},
+        {"type":"timeseries","title":"Execute duration","targets":[{"expr":"sum(rate(query_execute_duration_seconds[5m])) / clamp_min(sum(rate(query_execute_total[5m])), 1)"}]},
+        {"type":"timeseries","title":"Rows returned","targets":[{"expr":"sum(rate(query_rows_returned[5m]))"}]}
+      ]
+    }
+  biqly-catalog.json: |
+    {
+      "title": "Biqly Catalog",
+      "schemaVersion": 39,
+      "panels": [
+        {"type":"timeseries","title":"DB query rate","targets":[{"expr":"sum(rate(catalog_db_queries_total[5m]))"}]},
+        {"type":"timeseries","title":"DB error rate","targets":[{"expr":"sum(rate(catalog_db_query_errors_total[5m])) / clamp_min(sum(rate(catalog_db_queries_total[5m])), 1)"}]},
+        {"type":"timeseries","title":"Average DB duration","targets":[{"expr":"sum(rate(catalog_db_query_duration_seconds[5m])) / clamp_min(sum(rate(catalog_db_queries_total[5m])), 1)"}]},
+        {"type":"timeseries","title":"Model publish duration","targets":[{"expr":"sum(rate(model_publish_duration_seconds[5m])) / clamp_min(sum(rate(model_publish_total[5m])), 1)"}]},
+        {"type":"timeseries","title":"Model publish error rate","targets":[{"expr":"sum(rate(model_publish_errors_total[5m])) / clamp_min(sum(rate(model_publish_total[5m])), 1)"}]}
+      ]
+    }
+{{- end }}

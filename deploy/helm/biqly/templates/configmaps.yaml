@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.global.secretNames.config }}
+  labels:
+    {{- include "biqly.labels" . | nindent 4 }}
+data:
+  BI_HTTP_PORT: "8080"
+  {{- range $key, $value := .Values.global.config }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.global.secretNames.aiConfig }}
+  labels:
+    {{- include "biqly.labels" . | nindent 4 }}
+data:
+  BI_AI_PROVIDER: {{ .Values.ai.config.BI_AI_PROVIDER | quote }}
+  BI_AI_MODEL: {{ .Values.ai.config.BI_AI_MODEL | quote }}
+  BI_AI_TEMPERATURE: {{ .Values.ai.config.BI_AI_TEMPERATURE | quote }}
+  {{- with .Values.ai.config.BI_AI_EMBEDDING_MODEL }}
+  BI_AI_EMBEDDING_MODEL: {{ . | quote }}
+  {{- end }}

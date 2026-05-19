@@ -146,7 +146,7 @@ func (s *DescribeService) Describe(ctx context.Context, req DescribeRequest) (*D
 		limit = 6
 	}
 
-	dsn, err := ds.RuntimeDSN(s.encryptor)
+	dsn, err := metadata.RuntimeDSN(ds, s.encryptor)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", core.ErrLoadDatasource, err)
 	}

@@ -1,0 +1,27 @@
+{{- if and .Values.global.networkPolicy.enabled .Values.global.networkPolicy.queryUserDbs.enabled }}
+{{- if not .Values.global.networkPolicy.queryUserDbs.cidrs }}
+{{- fail "global.networkPolicy.queryUserDbs.cidrs is required when queryUserDbs.enabled=true" }}
+{{- end }}
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: biqly-query-egress-user-dbs
+  labels:
+    {{- include "biqly.labels" . | nindent 4 }}
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/component: query
+      app.kubernetes.io/part-of: biqly
+  egress:
+    - toCIDRSet:
+        {{- range .Values.global.networkPolicy.queryUserDbs.cidrs }}
+        - cidr: {{ . | quote }}
+        {{- end }}
+      toPorts:
+        - ports:
+            {{- range .Values.global.networkPolicy.queryUserDbs.ports }}
+            - port: {{ . | quote }}
+              protocol: TCP
+            {{- end }}
+{{- end }}

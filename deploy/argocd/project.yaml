@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: biqly
+  namespace: argocd
+spec:
+  description: Biqly microservice platform
+  sourceRepos:
+    - https://github.com/biqly/biqly.git
+  destinations:
+    - namespace: biqly
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  roles:
+    - name: readonly
+      description: Read-only access to the Biqly project
+      policies:
+        - p, proj:biqly:readonly, applications, get, biqly/*, allow

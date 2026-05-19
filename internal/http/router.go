@@ -21,6 +21,8 @@ func Router(deps *app.Dependencies) http.Handler {
 
 	// Middleware
 	r.Use(middleware.RequestID)
+	r.Use(requestIDPropagationMiddleware)
+	r.Use(traceContextPropagationMiddleware)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
@@ -45,101 +47,78 @@ func Router(deps *app.Dependencies) http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(healthCheckBody)
 	})
+	r.Get("/ready", ReadinessHandler(deps, map[string]string{
+		"catalog": deps.Config.Services.CatalogURL,
+		"query":   deps.Config.Services.QueryURL,
+		"ai":      deps.Config.Services.AIURL,
+	}))
 
 	// Metrics
 	r.Get("/metrics", MetricsHandler)
 
 	// API routes
 	r.Route("/api", func(r chi.Router) {
-		// Datasource routes
-		dsHandler := handlers.NewDatasourceHandler(deps)
-		r.Post("/datasources", dsHandler.Create)
-		r.Get("/datasources", dsHandler.List)
-		r.Post("/datasources/test-connection", dsHandler.TestDraft)
-		r.Get("/datasources/{id}", dsHandler.Get)
-		r.Put("/datasources/{id}", dsHandler.Update)
-		r.Delete("/datasources/{id}", dsHandler.Delete)
-		r.Post("/datasources/{id}/test", dsHandler.Test)
-		r.Post("/datasources/{id}/sync-metadata", dsHandler.SyncMetadata)
-
-		// Semantic layer routes
-		semHandler := handlers.NewSemanticHandler(deps)
-		r.Post("/semantic/models", semHandler.CreateModel)
-		r.Post("/semantic/models/generate", semHandler.GenerateModel)
-		r.Get("/semantic/models", semHandler.ListModels)
-		r.Get("/semantic/models/{id}", semHandler.GetModel)
-		r.Put("/semantic/models/{id}", semHandler.UpdateModel)
-		r.Delete("/semantic/models/{id}", semHandler.DeleteModel)
-		r.Post("/semantic/models/{id}/validate", semHandler.ValidateModel)
-		r.Post("/semantic/models/{id}/publish", semHandler.PublishModel)
-		r.Post("/semantic/models/{id}/rollback", semHandler.RollbackModel)
-		r.Post("/semantic/models/{id}/dimensions", semHandler.CreateDimension)
-		r.Delete("/semantic/models/{id}/dimensions/{dimension_id}", semHandler.DeleteDimension)
-		r.Put("/semantic/models/{id}/dimensions/{dimension_id}", semHandler.UpdateDimension)
-		r.Post("/semantic/models/{id}/metrics", semHandler.CreateMetric)
-		r.Delete("/semantic/models/{id}/metrics/{metric_id}", semHandler.DeleteMetric)
-		r.Put("/semantic/models/{id}/metrics/{metric_id}", semHandler.UpdateMetric)
-		r.Post("/semantic/models/{id}/tables/remove", semHandler.RemoveTable)
-		r.Post("/semantic/models/{id}/joins", semHandler.CreateJoin)
-		r.Delete("/semantic/models/{id}/joins/{join_id}", semHandler.DeleteJoin)
-		r.Put("/semantic/models/{id}/joins/{join_id}", semHandler.UpdateJoin)
-		r.Get("/semantic/models/{id}/suggested-joins", semHandler.SuggestedJoins)
+		if deps.Config.Services.CatalogURL != "" {
+			registerCatalogProxyRoutes(r, deps.Config.Services.CatalogURL)
+		} else {
+			r.Group(func(r chi.Router) {
+				r.Use(CatalogMetricsMiddleware(GetMetrics()))
+				registerCatalogAPIRoutes(r, deps)
+			})
+		}
 
 		// Query routes
-		queryHandler := handlers.NewQueryHandler(deps)
-		r.Post("/query/compile", queryHandler.Compile)
-		r.Post("/query/run", queryHandler.Run)
-		r.Post("/query/explain", queryHandler.Explain)
-		r.Get("/query/history", queryHandler.History)
-		r.Get("/query/history/{id}", queryHandler.GetHistory)
-
-		// Metadata routes
-		metaHandler := handlers.NewMetadataHandler(deps)
-		r.Get("/datasources/{id}/tables", metaHandler.ListTables)
-		r.Get("/datasources/{id}/columns", metaHandler.ListColumns)
-		r.Get("/metadata/columns/search", metaHandler.SearchColumns)
-		r.Get("/metadata/tables/search", metaHandler.SearchTables)
-		r.Patch("/metadata/tables/{id}", metaHandler.UpdateTableDescription)
-		r.Patch("/metadata/columns/{id}", metaHandler.UpdateColumnDescription)
-		r.Get("/metadata/tables/{id}/translations", metaHandler.GetTableTranslations)
-		r.Put("/metadata/tables/{id}/translations", metaHandler.PutTableTranslations)
-		r.Get("/metadata/columns/{id}/translations", metaHandler.GetColumnTranslations)
-		r.Put("/metadata/columns/{id}/translations", metaHandler.PutColumnTranslations)
+		if deps.Config.Services.QueryURL != "" {
+			registerQueryProxyRoutes(r, deps.Config.Services.QueryURL)
+		} else {
+			registerQueryAPIRoutes(r, deps)
+		}
 
 		// AI routes
-		aiHandler := handlers.NewAIHandler(deps)
-		aiHandler.SetAIMetricsRecorder(GetMetrics())
-		r.Post("/ai/query", aiHandler.Query)
-		r.Post("/ai/query/preview", aiHandler.Preview)
-		r.Post("/ai/query/run", aiHandler.Run)
-		r.Post("/ai/metadata/describe", aiHandler.Describe)
-		r.Post("/ai/metadata/embed", aiHandler.EmbedMetadata)
-		r.Get("/ai/settings", aiHandler.RuntimeSettings)
-		r.Group(func(r chi.Router) {
-			r.Use(handlers.AdminKeyMiddleware(deps.Config.Security.AdminAPIKey))
-			r.Post("/ai/eval/run", aiHandler.EvalRun)
-			r.Get("/ai/eval/run/stream", aiHandler.EvalRunStream)
-			r.Get("/ai/eval/runs", aiHandler.EvalListRuns)
-			r.Get("/ai/eval/runs/{id}", aiHandler.EvalGetRun)
-			r.Get("/ai/eval/regression", aiHandler.EvalRegression)
-		})
+		if deps.Config.Services.AIURL != "" {
+			registerAIProxyRoutes(r, deps.Config.Services.AIURL)
+		} else {
+			registerAIAPIRoutes(r, deps)
+		}
+	})
 
-		// AI examples & feedback routes
-		examplesHandler := handlers.NewAIExamplesHandler(deps)
-		r.Get("/ai/examples", examplesHandler.ListExamples)
-		r.Post("/ai/examples", examplesHandler.CreateExample)
-		r.Put("/ai/examples/{id}", examplesHandler.UpdateExample)
-		r.Delete("/ai/examples/{id}", examplesHandler.DeleteExample)
-		r.Post("/ai/feedback", examplesHandler.SubmitFeedback)
-		r.Get("/ai/usage", examplesHandler.GetAIUsage)
-		r.Get("/ai/example-ids", examplesHandler.GetExampleIDs)
-		r.Get("/ai/stats/models", examplesHandler.GetModelSuccessRates)
+	// Internal API routes (Phase 1 of microservice decomposition).
+	// These endpoints are NOT part of the public API and MUST NOT be reached
+	// from outside the cluster — they are the wire protocol the future AI /
+	// Query Engine binaries will speak to the Catalog (today: this monolith).
+	// In production they are fronted by a NetworkPolicy / Cilium policy that
+	// only allows peer-service service accounts. See docs/microservice-decomposition.md.
+	r.Route("/internal", func(r chi.Router) {
+		r.Use(handlers.InternalAuditMiddleware(deps.AuditLogger))
+		r.Use(handlers.InternalTokenMiddleware(deps.Config.Security.InternalAPIToken))
 
-		glossaryHandler := handlers.NewAIGlossaryHandler(deps)
-		r.Get("/ai/glossary", glossaryHandler.ListGlossary)
-		r.Post("/ai/glossary", glossaryHandler.CreateGlossary)
-		r.Put("/ai/glossary/{id}", glossaryHandler.UpdateGlossary)
-		r.Delete("/ai/glossary/{id}", glossaryHandler.DeleteGlossary)
+		internalHandler := handlers.NewInternalHandler(deps)
+		r.Get("/health", internalHandler.Health)
+
+		// Catalog read endpoints — consumed by every peer service.
+		r.Get("/datasources", internalHandler.ListDatasources)
+		r.Get("/datasources/{id}", internalHandler.GetDatasource)
+		r.Get("/models", internalHandler.ListModels)
+		r.Get("/models/{id}", internalHandler.GetFullModel)
+		r.Get("/datasources/{id}/tables", internalHandler.ListTables)
+		r.Get("/datasources/{id}/columns", internalHandler.ListColumns)
+		r.Get("/datasources/{id}/relations", internalHandler.ListRelations)
+		r.Get("/few-shot", internalHandler.ListFewShot)
+		r.Get("/glossary", internalHandler.ListGlossary)
+
+		// History write endpoints — consumed by AI Service after generation
+		// and Query Engine after execution. POST-only by design: history is
+		// append-only and any future mutation goes through the same audit
+		// trail as the original write.
+		r.Post("/history/ai", internalHandler.CreateAIHistory)
+		r.Post("/history/query", internalHandler.CreateQueryHistory)
+		r.Post("/eval-results", internalHandler.CreateEvalResults)
+
+		// Internal query endpoints — same compile/run pipeline as /api/query/*,
+		// minus the user-facing concerns (auth, RBAC project scoping, etc.).
+		// Today they delegate to the monolith's core.QueryService; in Phase 3
+		// they move into the standalone Query Engine binary unchanged.
+		registerQueryInternalRoutes(r, deps)
 	})
 
 	return r

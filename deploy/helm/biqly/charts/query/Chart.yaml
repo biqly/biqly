@@ -1,0 +1,6 @@
+apiVersion: v2
+name: query
+description: Biqly Query Engine
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

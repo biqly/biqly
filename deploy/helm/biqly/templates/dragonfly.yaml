@@ -1,0 +1,74 @@
+{{- if .Values.global.dragonfly.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: biqly-dragonfly
+  labels:
+    {{- include "biqly.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cache
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: biqly-dragonfly
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: cache
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: biqly-dragonfly
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: cache
+        app.kubernetes.io/part-of: biqly
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: dragonfly
+          image: {{ .Values.global.dragonfly.image | quote }}
+          args:
+            - --bind
+            - 0.0.0.0
+          ports:
+            - name: redis
+              containerPort: {{ .Values.global.dragonfly.service.port }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.global.dragonfly.resources | nindent 12 }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: biqly-dragonfly
+  labels:
+    {{- include "biqly.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cache
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: biqly-dragonfly
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: cache
+  ports:
+    - name: redis
+      port: {{ .Values.global.dragonfly.service.port }}
+      targetPort: redis
+      protocol: TCP
+{{- end }}

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 
 	"github.com/biqly/biqly/internal/ai"
+	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/core"
 	"github.com/biqly/biqly/internal/datasource"
@@ -19,28 +20,33 @@ import (
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/security"
 	"github.com/biqly/biqly/internal/semantic"
+	"github.com/biqly/biqly/pkg/catalogclient"
+	"github.com/biqly/biqly/pkg/queryclient"
 	_ "github.com/jackc/pgx/v5/stdlib" // PostgreSQL driver registration
 )
 
 // Dependencies holds all application dependencies.
 type Dependencies struct {
-	Config       *config.Config
-	MetadataDB   *sql.DB
-	DriverReg    *datasource.Registry
-	MetaRepo     *metadata.Repository
-	SemanticRepo *semantic.Repository
-	Validator    *query.Validator
-	Executor     *query.Executor
-	QueryService *core.QueryService
-	AIClient     ai.Provider
+	Config        *config.Config
+	MetadataDB    *sql.DB
+	DriverReg     *datasource.Registry
+	MetaRepo      *metadata.Repository
+	SemanticRepo  *semantic.Repository
+	Validator     *query.Validator
+	Executor      *query.Executor
+	QueryService  *core.QueryService
+	CatalogClient *catalogclient.Client
+	QueryClient   *queryclient.Client
+	AIClient      ai.Provider
 	// AIQueryClient powers the NL→LogicalQuery path. Aliases AIClient when no
 	// BI_AI_QUERY_* overrides are set; otherwise points at a separate provider
 	// (typically a smarter model) so describe/metadata work can keep using the
 	// cheaper local model on AIClient.
 	AIQueryClient ai.Provider
 	AIDescriber   *ai.DescribeService
-	Encryptor    *security.Encryption
-	EvalRepo     *ai.EvalRepository
+	Encryptor     *security.Encryption
+	EvalRepo      *ai.EvalRepository
+	AuditLogger   *audit.Logger
 	// Embedder is the embeddings provider used for vector-based table
 	// retrieval. nil when no API key is configured — callers MUST tolerate
 	// nil (the table router falls back to keyword scoring).
@@ -56,8 +62,8 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		return nil, fmt.Errorf("open metadata db: %w", err)
 	}
 
-	if err := db.PingContext(ctx); err != nil {
-		return nil, fmt.Errorf("ping metadata db: %w", err)
+	if pingErr := db.PingContext(ctx); pingErr != nil {
+		return nil, fmt.Errorf("ping metadata db: %w", pingErr)
 	}
 
 	lims := datasource.DefaultPoolLimits()
@@ -85,8 +91,8 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 	} else {
 		encryptor = enc
 		// Migrate any existing plaintext DSNs to encrypted format on startup.
-		if err := migratePlaintextDSNs(ctx, db, encryptor); err != nil {
-			slog.Warn("failed to migrate existing plaintext DSNs to encrypted format", "error", err)
+		if migrateErr := migratePlaintextDSNs(ctx, db, encryptor); migrateErr != nil {
+			slog.Warn("failed to migrate existing plaintext DSNs to encrypted format", "error", migrateErr)
 		}
 	}
 
@@ -144,21 +150,22 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 	}
 
 	return &Dependencies{
-		Config:       cfg,
-		MetadataDB:   db,
-		DriverReg:    reg,
-		MetaRepo:     metaRepo,
-		SemanticRepo: semanticRepo,
-		Validator:    validator,
-		Executor:     executor,
-		QueryService: queryService,
+		Config:        cfg,
+		MetadataDB:    db,
+		DriverReg:     reg,
+		MetaRepo:      metaRepo,
+		SemanticRepo:  semanticRepo,
+		Validator:     validator,
+		Executor:      executor,
+		QueryService:  queryService,
 		AIClient:      aiClient,
 		AIQueryClient: aiQueryClient,
 		AIDescriber:   describer,
-		Encryptor:    encryptor,
-		EvalRepo:     evalRepo,
-		Embedder:     embedder,
-		AIEmbedMeta:  embedMeta,
+		Encryptor:     encryptor,
+		EvalRepo:      evalRepo,
+		AuditLogger:   audit.NewLogger(slog.Default()),
+		Embedder:      embedder,
+		AIEmbedMeta:   embedMeta,
 	}, nil
 }
 

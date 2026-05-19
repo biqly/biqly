@@ -13,20 +13,20 @@ import (
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/config"
 	httprouter "github.com/biqly/biqly/internal/http"
+	"github.com/biqly/biqly/internal/platform/logger"
 )
 
 func main() {
-	// Setup logger
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	})))
-
 	// Load config
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("failed to load config", "error", err)
 		os.Exit(1)
 	}
+	slog.SetDefault(logger.New(logger.Config{
+		Level: logger.LevelFromString(cfg.Logging.Level),
+		JSON:  logger.JSONFromString(cfg.Logging.Format),
+	}))
 
 	ctx := context.Background()
 
@@ -74,7 +74,7 @@ func main() {
 
 	slog.Info("shutting down server...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {

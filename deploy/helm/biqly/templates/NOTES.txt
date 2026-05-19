@@ -1,0 +1,9 @@
+Biqly Helm release {{ .Release.Name }} rendered.
+
+Gateway checks:
+  kubectl get gateway {{ .Values.global.gateway.parentRef.name }} -n {{ .Values.global.gateway.parentRef.namespace }} -o yaml
+  kubectl get httproute -n {{ .Release.Namespace }} -l app.kubernetes.io/part-of=biqly
+
+DNS and smoke checks:
+  dig {{ first .Values.global.gateway.hostnames }}
+  curl -f https://{{ first .Values.global.gateway.hostnames }}/health

@@ -123,7 +123,7 @@ func (s *QueryService) Run(ctx context.Context, lq query.LogicalQuery) (*RunResu
 	if se != nil {
 		return nil, se
 	}
-	dsn, err := compiled.Datasource.RuntimeDSN(s.encryptor)
+	dsn, err := metadata.RuntimeDSN(compiled.Datasource, s.encryptor)
 	if err != nil {
 		return nil, ToServiceError(fmt.Errorf("%w: %v", ErrLoadDatasource, err))
 	}

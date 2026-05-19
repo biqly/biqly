@@ -8,10 +8,19 @@ import (
 	"github.com/biqly/biqly/internal/security"
 )
 
-// RuntimeDSN returns a driver-ready connection string. Raw mode decrypts
-// dsn_encrypted; structured mode composes from columns and decrypts the
-// password field when applicable.
-func (ds *Datasource) RuntimeDSN(enc *security.Encryption) (string, error) {
+// RuntimeDSN returns a driver-ready connection string for ds. Raw mode
+// decrypts dsn_encrypted; structured mode composes the DSN from individual
+// columns and decrypts the password field when applicable.
+//
+// This is a free function rather than a method so the pkg/metadata.Datasource
+// data type can stay free of encryption/dialect dependencies — the metadata
+// package only needs to know "what" a datasource is, while resolution of
+// "how" to connect lives here in internal/metadata next to the security and
+// driver layers it talks to.
+func RuntimeDSN(ds *Datasource, enc *security.Encryption) (string, error) {
+	if ds == nil {
+		return "", fmt.Errorf("metadata: nil datasource")
+	}
 	mode := strings.TrimSpace(ds.DSNMode)
 	if mode == "" {
 		mode = DSNModeRaw

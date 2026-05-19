@@ -35,6 +35,39 @@ make dev
 
 API will be available at `http://localhost:8888`.
 
+### Local Microservice Mode
+
+The backend can also run as three service binaries plus the legacy API as a
+frontend BFF/proxy:
+
+```bash
+# Terminal 1: Catalog Service
+BI_HTTP_PORT=8880 make run-catalog
+
+# Terminal 2: Query Engine
+BI_HTTP_PORT=8881 \
+BI_CATALOG_SERVICE_URL=http://localhost:8880 \
+make run-query
+
+# Terminal 3: AI Service
+BI_HTTP_PORT=8882 \
+BI_CATALOG_SERVICE_URL=http://localhost:8880 \
+BI_QUERY_SERVICE_URL=http://localhost:8881 \
+make run-ai
+
+# Terminal 4: frontend BFF on the public API port
+BI_HTTP_PORT=8888 \
+BI_CATALOG_SERVICE_URL=http://localhost:8880 \
+BI_QUERY_SERVICE_URL=http://localhost:8881 \
+BI_AI_SERVICE_URL=http://localhost:8882 \
+make run
+```
+
+In BFF mode, `cmd/api` keeps CORS and the public `/api/*` surface while routing
+Catalog-owned, Query-owned, and AI-owned paths to their respective services.
+Unset a service URL to fall back to the in-process monolith handler for that
+domain.
+
 ### Environment Variables
 
 ```bash
@@ -43,6 +76,15 @@ cp .env.example .env
 ```
 
 See `.env.example` for all available options.
+
+Operational defaults:
+
+```env
+BI_LOG_LEVEL=info
+BI_LOG_FORMAT=json
+```
+
+Use `BI_LOG_FORMAT=text` for local console-friendly logs.
 
 ### Metadata descriptions for Turkish questions
 

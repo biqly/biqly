@@ -1,0 +1,22 @@
+{{- if and .Values.global.networkPolicy.enabled .Values.global.networkPolicy.aiExternal.enabled }}
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: biqly-ai-egress-external
+  labels:
+    {{- include "biqly.labels" . | nindent 4 }}
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/component: ai
+      app.kubernetes.io/part-of: biqly
+  egress:
+    - toFQDNs:
+        {{- range .Values.global.networkPolicy.aiExternal.fqdnNames }}
+        - matchName: {{ . | quote }}
+        {{- end }}
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+{{- end }}

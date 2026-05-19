@@ -1,0 +1,29 @@
+{{- if .Values.global.observability.serviceMonitor.enabled }}
+{{- $root := . -}}
+{{- range $component, $cfg := dict "catalog" .Values.catalog "query" .Values.query "ai" .Values.ai }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: biqly-{{ $component }}
+  namespace: {{ $root.Values.global.observability.serviceMonitor.namespace }}
+  labels:
+    {{- include "biqly.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+    {{- toYaml $root.Values.global.observability.serviceMonitor.labels | nindent 4 }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ default $root.Values.global.namespace.name $root.Values.global.namespaceOverride }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $component }}
+      app.kubernetes.io/instance: {{ $root.Release.Name }}
+      app.kubernetes.io/component: {{ $component }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ $root.Values.global.observability.serviceMonitor.interval }}
+      scrapeTimeout: {{ $root.Values.global.observability.serviceMonitor.scrapeTimeout }}
+{{- end }}
+{{- end }}

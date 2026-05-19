@@ -1,0 +1,26 @@
+{{- if and .Values.global.networkPolicy.enabled .Values.global.networkPolicy.metadata.enabled }}
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: biqly-egress-metadata
+  labels:
+    {{- include "biqly.labels" . | nindent 4 }}
+spec:
+  endpointSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - ai
+          - query
+          - catalog
+  egress:
+    - toEntities:
+        - cluster
+      toPorts:
+        - ports:
+            - port: {{ .Values.global.networkPolicy.metadata.ports.postgres | quote }}
+              protocol: TCP
+            - port: {{ .Values.global.networkPolicy.metadata.ports.redis | quote }}
+              protocol: TCP
+{{- end }}

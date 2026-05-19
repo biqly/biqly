@@ -163,7 +163,7 @@ func (h *DatasourceHandler) datasourceDraft(_ context.Context, req createDatasou
 			if existing == nil || strings.TrimSpace(existing.DSNEncrypted) == "" {
 				return nil, "", http.StatusBadRequest, "dsn is required when mode is raw", nil
 			}
-			runtimeDSN, err := existing.RuntimeDSN(h.deps.Encryptor)
+			runtimeDSN, err := metadata.RuntimeDSN(existing, h.deps.Encryptor)
 			if err != nil {
 				return nil, "", http.StatusInternalServerError, "failed to decrypt DSN", err
 			}
@@ -377,7 +377,7 @@ func (h *DatasourceHandler) Test(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dsn, err := ds.RuntimeDSN(h.deps.Encryptor)
+	dsn, err := metadata.RuntimeDSN(ds, h.deps.Encryptor)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to decrypt DSN", err)
 		return

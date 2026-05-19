@@ -27,6 +27,7 @@ type PromptStats struct {
 	EstCompletionReserve  int    `json:"est_completion_reserve,omitempty"`
 	ContextWindowTokens   int    `json:"context_window_tokens,omitempty"`
 	MaxPromptRunes        int    `json:"max_prompt_runes,omitempty"`
+	PromptBuildDurationMs int64  `json:"prompt_build_duration_ms,omitempty"`
 	ContextTier           int    `json:"context_tier,omitempty"`
 	ContextTierLabel      string `json:"context_tier_label,omitempty"`
 	Model                 string `json:"model,omitempty"`
@@ -165,31 +166,31 @@ func normalizeModelKey(model string) string {
 }
 
 var modelContextRegistry = map[string]int{
-	"gpt-4o":                    128_000,
-	"gpt-4o-mini":               128_000,
-	"gpt-4-turbo":               128_000,
-	"gpt-4":                     128_000,
-	"gpt-3.5-turbo":             16_385,
+	"gpt-4o":                     128_000,
+	"gpt-4o-mini":                128_000,
+	"gpt-4-turbo":                128_000,
+	"gpt-4":                      128_000,
+	"gpt-3.5-turbo":              16_385,
 	"claude-3-5-sonnet-20241022": 200_000,
-	"claude-3-5-sonnet-latest":  200_000,
-	"claude-3-5-haiku-latest":   200_000,
-	"claude-3-opus-20240229":    200_000,
-	"gemma2:9b":                 8192,
-	"gemma2:27b":                8192,
+	"claude-3-5-sonnet-latest":   200_000,
+	"claude-3-5-haiku-latest":    200_000,
+	"claude-3-opus-20240229":     200_000,
+	"gemma2:9b":                  8192,
+	"gemma2:27b":                 8192,
 }
 
 var modelContextPrefixRegistry = map[string]int{
-	"gpt-4o":        128_000,
-	"gpt-4":         128_000,
-	"claude-3-5":    200_000,
-	"claude-3":      200_000,
-	"gemini-1.5":    1_000_000,
-	"gemini-2":      1_000_000,
-	"llama3":        128_000,
-	"llama3.1":      128_000,
-	"llama3.2":      128_000,
-	"mistral":       32_768,
-	"mixtral":       32_768,
-	"qwen2.5":       128_000,
-	"deepseek":      64_000,
+	"gpt-4o":     128_000,
+	"gpt-4":      128_000,
+	"claude-3-5": 200_000,
+	"claude-3":   200_000,
+	"gemini-1.5": 1_000_000,
+	"gemini-2":   1_000_000,
+	"llama3":     128_000,
+	"llama3.1":   128_000,
+	"llama3.2":   128_000,
+	"mistral":    32_768,
+	"mixtral":    32_768,
+	"qwen2.5":    128_000,
+	"deepseek":   64_000,
 }

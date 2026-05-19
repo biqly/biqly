@@ -1,0 +1,30 @@
+{{- if and .Values.global.networkPolicy.enabled .Values.global.networkPolicy.dns.enabled }}
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: biqly-allow-dns
+  labels:
+    {{- include "biqly.labels" . | nindent 4 }}
+spec:
+  endpointSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - ai
+          - query
+          - catalog
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: {{ .Values.global.networkPolicy.dns.kubeDNSNamespace | quote }}
+            {{- range $key, $value := .Values.global.networkPolicy.dns.kubeDNSLabels }}
+            {{ $key }}: {{ $value | quote }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+{{- end }}

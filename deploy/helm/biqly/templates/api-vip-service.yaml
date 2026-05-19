@@ -1,0 +1,17 @@
+{{- if .Values.global.apiVIP.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.global.apiVIP.name }}
+  labels:
+    {{- include "biqly.labels" . | nindent 4 }}
+  annotations:
+    {{- toYaml .Values.global.apiVIP.annotations | nindent 4 }}
+spec:
+  type: LoadBalancer
+  ports:
+    - name: https
+      port: {{ .Values.global.apiVIP.port }}
+      targetPort: {{ .Values.global.apiVIP.targetPort }}
+      protocol: TCP
+{{- end }}

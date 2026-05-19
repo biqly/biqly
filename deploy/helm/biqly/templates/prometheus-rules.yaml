@@ -1,0 +1,84 @@
+{{- if .Values.global.observability.prometheusRules.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: biqly-alerts
+  labels:
+    {{- include "biqly.labels" . | nindent 4 }}
+    {{- toYaml .Values.global.observability.prometheusRules.labels | nindent 4 }}
+spec:
+  groups:
+    - name: biqly.ai
+      rules:
+        - alert: BiqlyAILLMLatencyHigh
+          expr: |
+            sum(rate(llm_request_duration_seconds[5m]))
+            /
+            clamp_min(sum(rate(bi_ai_requests_total[5m])), 1) > 30
+          for: 5m
+          labels:
+            severity: warning
+            service: ai
+          annotations:
+            summary: "Biqly AI average LLM latency is above 30s"
+            description: "Current metrics are counters, so this approximates latency until histogram buckets are added."
+        - alert: BiqlyAIErrorBudgetBurn
+          expr: |
+            sum(rate(bi_ai_errors[5m]))
+            /
+            clamp_min(sum(rate(bi_ai_requests_total[5m])), 1) > 0.05
+          for: 5m
+          labels:
+            severity: critical
+            service: ai
+          annotations:
+            summary: "Biqly AI error rate is burning the 95% success SLO"
+    - name: biqly.query
+      rules:
+        - alert: BiqlyQueryCompileLatencyHigh
+          expr: |
+            sum(rate(query_compile_duration_seconds[10m]))
+            /
+            clamp_min(sum(rate(query_compile_total[10m])), 1) > 0.1
+          for: 10m
+          labels:
+            severity: warning
+            service: query
+          annotations:
+            summary: "Biqly Query average compile latency is above 100ms"
+        - alert: BiqlyQueryErrorBudgetBurn
+          expr: |
+            sum(rate(query_compile_errors_total[5m]) + rate(query_execute_errors_total[5m]))
+            /
+            clamp_min(sum(rate(query_compile_total[5m]) + rate(query_execute_total[5m])), 1) > 0.05
+          for: 5m
+          labels:
+            severity: critical
+            service: query
+          annotations:
+            summary: "Biqly Query error rate is burning the 95% success SLO"
+    - name: biqly.catalog
+      rules:
+        - alert: BiqlyCatalogDBLatencyHigh
+          expr: |
+            sum(rate(catalog_db_query_duration_seconds[10m]))
+            /
+            clamp_min(sum(rate(catalog_db_queries_total[10m])), 1) > 0.2
+          for: 10m
+          labels:
+            severity: warning
+            service: catalog
+          annotations:
+            summary: "Biqly Catalog average DB latency is above 200ms"
+        - alert: BiqlyCatalogErrorBudgetBurn
+          expr: |
+            sum(rate(catalog_db_query_errors_total[5m]) + rate(model_publish_errors_total[5m]))
+            /
+            clamp_min(sum(rate(catalog_db_queries_total[5m]) + rate(model_publish_total[5m])), 1) > 0.05
+          for: 5m
+          labels:
+            severity: critical
+            service: catalog
+          annotations:
+            summary: "Biqly Catalog error rate is burning the 95% success SLO"
+{{- end }}

@@ -1,0 +1,294 @@
+global:
+  namespace:
+    create: true
+    name: biqly
+    labels:
+      name: biqly
+      pod-security.kubernetes.io/enforce: restricted
+      pod-security.kubernetes.io/audit: restricted
+      pod-security.kubernetes.io/warn: restricted
+  biqlyImageRegistry: ghcr.io/biqly
+  imagePullSecrets: []
+  registrySecret:
+    create: false
+    name: ghcr-registry
+    dockerconfigjson: ""
+    annotations:
+      reflector.v1.k8s.emberstack.com/reflection-allowed: "true"
+      reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
+  reflectedTLSSecret:
+    create: false
+    name: wildcard-il1-nl-tls
+    type: kubernetes.io/tls
+    annotations: {}
+    tlsCrt: ""
+    tlsKey: ""
+  namespaceOverride: ""
+  gateway:
+    enabled: true
+    parentRef:
+      name: lan-gw
+      namespace: gateway
+      sectionName: https
+    httpParentRef:
+      name: lan-gw
+      namespace: gateway
+      sectionName: http
+    hostnames:
+      - biqly.il1.nl
+    redirect:
+      enabled: false
+      scheme: https
+      statusCode: 301
+  apiVIP:
+    enabled: false
+    name: biqly-api-vip
+    ip: 192.168.0.160
+    annotations:
+      io.cilium/lb-ipam-ips: 192.168.0.160
+    port: 443
+    targetPort: 8080
+  networkPolicy:
+    enabled: true
+    dns:
+      enabled: true
+      kubeDNSNamespace: kube-system
+      kubeDNSLabels:
+        k8s-app: kube-dns
+    gateway:
+      enabled: true
+    metadata:
+      enabled: true
+      ports:
+        postgres: 5432
+        redis: 6379
+    queryUserDbs:
+      enabled: false
+      cidrs: []
+      ports:
+        - 5432
+        - 3306
+        - 1433
+        - 8123
+        - 9000
+    aiExternal:
+      enabled: true
+      fqdnNames:
+        - api.openai.com
+        - api.anthropic.com
+  migrate:
+    enabled: true
+    image:
+      repository: migrate
+      tag: latest
+      pullPolicy: IfNotPresent
+    backoffLimit: 3
+  backup:
+    enabled: false
+    schedule: "0 2 * * *"
+    image: postgres:18-alpine
+    s3:
+      bucket: ""
+      endpoint: ""
+  postgresqlVIP:
+    enabled: false
+    name: biqly-postgresql-vip
+    port: 5432
+    annotations: {}
+  dragonfly:
+    enabled: true
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.34.1
+    service:
+      port: 6379
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+  serviceAccount:
+    create: true
+    name: biqly
+    automountServiceAccountToken: false
+  secretNames:
+    config: biqly-config
+    aiConfig: biqly-ai-config
+    db: biqly-db
+    security: biqly-security
+    ai: biqly-ai-secrets
+    embedding: biqly-embedding-secrets
+  config:
+    BI_LOG_LEVEL: info
+    BI_LOG_FORMAT: json
+    BI_QUERY_TIMEOUT_SECONDS: "30"
+    BI_QUERY_MAX_ROWS: "10000"
+    BI_QUERY_MAX_RUNTIME_SECONDS: "60"
+    BI_REDIS_DSN: redis://biqly-dragonfly:6379
+  secrets:
+    BI_METADATA_DB_DSN: ""
+    BI_ENCRYPTION_KEY: ""
+    BI_INTERNAL_API_TOKEN: ""
+    BI_AI_API_KEY: ""
+    BI_AI_EMBEDDING_API_KEY: ""
+  observability:
+    serviceMonitor:
+      enabled: true
+      namespace: monitoring
+      interval: 30s
+      scrapeTimeout: 10s
+      labels:
+        release: kube-prometheus-stack
+    dashboards:
+      enabled: true
+      labels:
+        grafana_dashboard: "1"
+    prometheusRules:
+      enabled: true
+      labels:
+        release: kube-prometheus-stack
+    logs:
+      vectorConfig:
+        enabled: true
+    tracing:
+      otelCollector:
+        enabled: true
+        image: otel/opentelemetry-collector-contrib:0.116.1
+      jaeger:
+        enabled: true
+        image: jaegertracing/all-in-one:1.62.0
+    alertmanager:
+      enabled: false
+      webhookURLSecret:
+        name: biqly-alertmanager-webhook
+        key: url
+
+postgresql:
+  enabled: true
+  fullnameOverride: biqly-postgresql
+  auth:
+    username: biqly
+    database: bi_metadata
+    existingSecret: biqly-postgresql-auth
+    secretKeys:
+      adminPasswordKey: postgres-password
+      userPasswordKey: password
+  architecture: standalone
+  primary:
+    persistence:
+      enabled: true
+      size: 20Gi
+      resourcePolicy: keep
+    networkPolicy:
+      enabled: true
+      allowExternal: false
+
+catalog:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: catalog
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8080
+  config:
+    BI_HTTP_PORT: "8080"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 60
+  route:
+    enabled: true
+    pathPrefixes:
+      - /api/datasources
+      - /api/metadata
+      - /api/semantic
+      - /health
+      - /ready
+      - /metrics
+
+query:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: query
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8081
+  config:
+    BI_HTTP_PORT: "8081"
+    BI_CATALOG_SERVICE_URL: http://biqly-catalog:8080
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  route:
+    enabled: true
+    pathPrefixes:
+      - /api/query
+
+ai:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: ai
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8082
+  config:
+    BI_HTTP_PORT: "8082"
+    BI_CATALOG_SERVICE_URL: http://biqly-catalog:8080
+    BI_QUERY_SERVICE_URL: http://biqly-query:8081
+    BI_AI_PROVIDER: openai
+    BI_AI_MODEL: gpt-4o
+    BI_AI_TEMPERATURE: "0"
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "2"
+      memory: 1Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+  route:
+    enabled: true
+    pathPrefixes:
+      - /api/ai
+  rollout:
+    enabled: false
+    analysis:
+      successRateThreshold: "0.95"
+      llmLatencyThresholdSeconds: "30"
+      prometheusAddress: http://kube-prometheus-stack-prometheus.monitoring:9090
+    canary:
+      steps:
+        - setWeight: 20
+        - pause:
+            duration: 5m
+        - setWeight: 50
+        - pause:
+            duration: 10m
+        - setWeight: 100

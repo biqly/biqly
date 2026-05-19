@@ -9,6 +9,7 @@ import (
 	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
+	"github.com/biqly/biqly/pkg/queryclient"
 )
 
 // newSQLDryRunValidator returns an ai.SQLValidator that compiles a candidate
@@ -18,5 +19,12 @@ import (
 func newSQLDryRunValidator(service *core.QueryService, db *sql.DB, driver datasource.Driver, model *semantic.SemanticModel) ai.SQLValidator {
 	return func(ctx context.Context, lq *query.LogicalQuery) error {
 		return core.ErrAsError(service.DryRun(ctx, db, *lq, model, driver))
+	}
+}
+
+func newQueryClientDryRunValidator(client *queryclient.Client) ai.SQLValidator {
+	return func(ctx context.Context, lq *query.LogicalQuery) error {
+		_, err := client.DryRun(ctx, *lq)
+		return err
 	}
 }

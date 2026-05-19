@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/metadata"
@@ -16,12 +17,18 @@ import (
 
 // SemanticHandler handles semantic layer CRUD operations.
 type SemanticHandler struct {
-	deps *app.Dependencies
+	deps    *app.Dependencies
+	metrics CatalogMetricsRecorder
 }
 
 // NewSemanticHandler creates a new semantic handler.
 func NewSemanticHandler(deps *app.Dependencies) *SemanticHandler {
 	return &SemanticHandler{deps: deps}
+}
+
+// SetCatalogMetricsRecorder wires process-level Catalog metrics.
+func (h *SemanticHandler) SetCatalogMetricsRecorder(m CatalogMetricsRecorder) {
+	h.metrics = m
 }
 
 type createModelRequest struct {
@@ -334,6 +341,7 @@ type rollbackRequest struct {
 	PublishedBy string `json:"published_by,omitempty"`
 }
 
+// ValidateModel validates whether a semantic model can be published.
 func (h *SemanticHandler) ValidateModel(w http.ResponseWriter, r *http.Request) {
 	id, ok := requireURLParam(w, r, "id")
 	if !ok {
@@ -347,6 +355,7 @@ func (h *SemanticHandler) ValidateModel(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, result)
 }
 
+// PublishModel publishes a draft semantic model after validation.
 func (h *SemanticHandler) PublishModel(w http.ResponseWriter, r *http.Request) {
 	id, ok := requireURLParam(w, r, "id")
 	if !ok {
@@ -356,7 +365,11 @@ func (h *SemanticHandler) PublishModel(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	start := time.Now()
 	result, err := h.deps.SemanticRepo.PublishModel(r.Context(), id, req.PublishedBy, semanticCatalogAdapter{repo: h.deps.MetaRepo})
+	if h.metrics != nil {
+		h.metrics.RecordModelPublish(time.Since(start).Milliseconds(), err == nil && result != nil && result.Validation.Valid)
+	}
 	if err != nil {
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to publish model", err)
 		return
@@ -368,6 +381,7 @@ func (h *SemanticHandler) PublishModel(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
+// RollbackModel restores a previously published semantic model version.
 func (h *SemanticHandler) RollbackModel(w http.ResponseWriter, r *http.Request) {
 	id, ok := requireURLParam(w, r, "id")
 	if !ok {

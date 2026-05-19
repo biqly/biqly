@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: biqly
+  namespace: argocd
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: ai=ghcr.io/biqly/ai,query=ghcr.io/biqly/query,catalog=ghcr.io/biqly/catalog
+    argocd-image-updater.argoproj.io/ai.helm.image-tag: ai.image.tag
+    argocd-image-updater.argoproj.io/query.helm.image-tag: query.image.tag
+    argocd-image-updater.argoproj.io/catalog.helm.image-tag: catalog.image.tag
+    argocd-image-updater.argoproj.io/write-back-method: git
+    argocd-image-updater.argoproj.io/git-branch: main
+spec:
+  project: biqly
+  source:
+    repoURL: https://github.com/biqly/biqly.git
+    targetRevision: main
+    path: deploy/helm/biqly
+    helm:
+      valueFiles:
+        - values-prod.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: biqly
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

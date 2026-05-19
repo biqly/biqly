@@ -1,0 +1,77 @@
+global:
+  biqlyImageRegistry: ghcr.io/biqly
+  imagePullSecrets: []
+  registrySecret:
+    create: false
+    name: ghcr-registry
+  serviceAccount:
+    name: biqly
+    automountServiceAccountToken: false
+  secretNames:
+    config: biqly-config
+    aiConfig: biqly-ai-config
+    db: biqly-db
+    security: biqly-security
+    ai: biqly-ai-secrets
+    embedding: biqly-embedding-secrets
+  config: {}
+  secrets:
+    BI_METADATA_DB_DSN: ""
+    BI_ENCRYPTION_KEY: ""
+    BI_INTERNAL_API_TOKEN: ""
+    BI_AI_API_KEY: ""
+    BI_AI_EMBEDDING_API_KEY: ""
+  gateway:
+    enabled: true
+    parentRef:
+      name: lan-gw
+      namespace: gateway
+      sectionName: https
+    hostnames:
+      - biqly.il1.nl
+
+replicaCount: 2
+image:
+  repository: ai
+  tag: latest
+  pullPolicy: IfNotPresent
+service:
+  port: 8082
+config:
+  BI_HTTP_PORT: "8082"
+  BI_CATALOG_SERVICE_URL: http://biqly-catalog:8080
+  BI_QUERY_SERVICE_URL: http://biqly-query:8081
+  BI_AI_PROVIDER: openai
+  BI_AI_MODEL: gpt-4o
+  BI_AI_TEMPERATURE: "0"
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: "2"
+    memory: 1Gi
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 70
+route:
+  enabled: true
+  pathPrefixes:
+    - /api/ai
+rollout:
+  enabled: false
+  analysis:
+    successRateThreshold: "0.95"
+    llmLatencyThresholdSeconds: "30"
+    prometheusAddress: http://kube-prometheus-stack-prometheus.monitoring:9090
+  canary:
+    steps:
+      - setWeight: 20
+      - pause:
+          duration: 5m
+      - setWeight: 50
+      - pause:
+          duration: 10m
+      - setWeight: 100

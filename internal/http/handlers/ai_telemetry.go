@@ -48,6 +48,15 @@ func (h *AIHandler) observeAIRequest(
 	success := outcome == metadata.AIOutcomeSuccess
 	if h.metrics != nil {
 		h.metrics.RecordAIRequest(latencyMs, success, resp.RetryCount, resp.NeedsClarification)
+		tokensUsed := 0
+		if resp.TokenUsage != nil {
+			tokensUsed = resp.TokenUsage.Total
+		}
+		promptBuildMs := int64(0)
+		if resp.PromptStats != nil {
+			promptBuildMs = resp.PromptStats.PromptBuildDurationMs
+		}
+		h.metrics.RecordLLMRequest(latencyMs, tokensUsed, promptBuildMs)
 	}
 
 	logArgs := []any{

@@ -1,0 +1,42 @@
+{{- if and .Values.global.networkPolicy.enabled .Values.global.networkPolicy.gateway.enabled }}
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: biqly-allow-gateway
+  labels:
+    {{- include "biqly.labels" . | nindent 4 }}
+spec:
+  endpointSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - ai
+          - query
+          - catalog
+  ingress:
+    - fromEntities:
+        - ingress
+        - host
+        - remote-node
+        - health
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+            - port: "8081"
+              protocol: TCP
+            - port: "8082"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/part-of: biqly
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+            - port: "8081"
+              protocol: TCP
+            - port: "8082"
+              protocol: TCP
+{{- end }}

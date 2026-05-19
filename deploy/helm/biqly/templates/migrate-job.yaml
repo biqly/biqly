@@ -1,0 +1,60 @@
+{{- if .Values.global.migrate.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "biqly.fullname" . }}-migrate
+  labels:
+    {{- include "biqly.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.global.migrate.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "biqly.name" . }}-migrate
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: migrate
+        app.kubernetes.io/part-of: biqly
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: {{ include "biqly.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: {{ printf "%s/%s:%s" (trimSuffix "/" .Values.global.biqlyImageRegistry) .Values.global.migrate.image.repository .Values.global.migrate.image.tag | quote }}
+          imagePullPolicy: {{ .Values.global.migrate.image.pullPolicy }}
+          args:
+            - -dir
+            - /migrations
+            - up
+          envFrom:
+            - secretRef:
+                name: {{ .Values.global.secretNames.db }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+{{- end }}

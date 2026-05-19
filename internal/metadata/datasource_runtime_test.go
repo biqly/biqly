@@ -10,7 +10,7 @@ import (
 func TestDatasource_RuntimeDSN_rawPlaintext(t *testing.T) {
 	t.Parallel()
 	ds := &Datasource{Type: "postgres", DSNMode: DSNModeRaw, DSNEncrypted: "postgres://u:x@example:5432/db"} //nolint:gosec // test fixture URL, not real credentials
-	out, err := ds.RuntimeDSN(nil)
+	out, err := RuntimeDSN(ds, nil)
 	require.NoError(t, err)
 	require.Equal(t, ds.DSNEncrypted, out)
 }
@@ -32,7 +32,7 @@ func TestDatasource_RuntimeDSN_structuredMinimalPostgres(t *testing.T) {
 		SSLMode:          &ssl,
 		ConnectionParams: []byte("{}"),
 	}
-	out, err := ds.RuntimeDSN(nil)
+	out, err := RuntimeDSN(ds, nil)
 	require.NoError(t, err)
 	require.Contains(t, out, "postgres://")
 	require.Contains(t, out, "127.0.0.1:5432")
@@ -63,7 +63,7 @@ func TestDatasource_RuntimeDSN_decryptsPassword(t *testing.T) {
 		SSLMode:           &ssl,
 		ConnectionParams:  []byte("{}"),
 	}
-	out, err := ds.RuntimeDSN(enc)
+	out, err := RuntimeDSN(ds, enc)
 	require.NoError(t, err)
 	require.Contains(t, out, "secret")
 }

@@ -28,7 +28,7 @@ func (d *Dependencies) ResolveDatasourceDB(ctx context.Context, id string) (*Res
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", core.ErrLoadDriver, err)
 	}
-	dsn, err := ds.RuntimeDSN(d.Encryptor)
+	dsn, err := metadata.RuntimeDSN(ds, d.Encryptor)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", core.ErrLoadDatasource, err)
 	}

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/query"
@@ -9,12 +10,19 @@ import (
 
 // QueryHandler handles query operations.
 type QueryHandler struct {
-	deps *app.Dependencies
+	deps    *app.Dependencies
+	query   internalQueryRunner
+	metrics QueryMetricsRecorder
 }
 
 // NewQueryHandler creates a new query handler.
 func NewQueryHandler(deps *app.Dependencies) *QueryHandler {
-	return &QueryHandler{deps: deps}
+	return &QueryHandler{deps: deps, query: deps.QueryService}
+}
+
+// SetQueryMetricsRecorder wires process-level Query metrics.
+func (h *QueryHandler) SetQueryMetricsRecorder(m QueryMetricsRecorder) {
+	h.metrics = m
 }
 
 // Compile validates and compiles a LogicalQuery into SQL.
@@ -24,7 +32,11 @@ func (h *QueryHandler) Compile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	compiled, se := h.deps.QueryService.Compile(r.Context(), *lq)
+	start := time.Now()
+	compiled, se := h.query.Compile(r.Context(), *lq)
+	if h.metrics != nil {
+		h.metrics.RecordQueryCompile(time.Since(start).Milliseconds(), se == nil)
+	}
 	if se != nil {
 		writeServiceError(r.Context(), w, se)
 		return
@@ -43,7 +55,15 @@ func (h *QueryHandler) Run(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, se := h.deps.QueryService.Run(r.Context(), *lq)
+	start := time.Now()
+	result, se := h.query.Run(r.Context(), *lq)
+	rows := 0
+	if result != nil && result.Result != nil {
+		rows = result.Result.Stats.RowCount
+	}
+	if h.metrics != nil {
+		h.metrics.RecordQueryExecution(time.Since(start).Milliseconds(), se == nil, rows)
+	}
 	if se != nil {
 		writeServiceError(r.Context(), w, se)
 		return
@@ -59,7 +79,11 @@ func (h *QueryHandler) Explain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	compiled, se := h.deps.QueryService.Compile(r.Context(), *lq)
+	start := time.Now()
+	compiled, se := h.query.Compile(r.Context(), *lq)
+	if h.metrics != nil {
+		h.metrics.RecordQueryCompile(time.Since(start).Milliseconds(), se == nil)
+	}
 	if se != nil {
 		writeServiceError(r.Context(), w, se)
 		return
@@ -96,4 +120,3 @@ func (h *QueryHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, entry)
 }
-

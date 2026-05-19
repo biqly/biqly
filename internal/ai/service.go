@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/i18n"
@@ -322,6 +323,7 @@ func (s *Service) buildPrompt(
 ) (string, PromptStats) {
 	tiered := applyContextTier(options, tier)
 	promptRunes := PromptRunesForTier(s.maxPromptRunes, tier, s.aiCfg, s.queryModel)
+	start := time.Now()
 	prompt := s.promptBuilder.Build(
 		question,
 		model,
@@ -337,7 +339,9 @@ func (s *Service) buildPrompt(
 	if block := ActiveFilterInstructions(filterSess, followIntent); block != "" {
 		prompt += block
 	}
+	buildDurationMs := time.Since(start).Milliseconds()
 	stats := MeasurePrompt(prompt, s.queryModel, tier, s.aiCfg)
+	stats.PromptBuildDurationMs = buildDurationMs
 	slog.InfoContext(ctx, "ai prompt context",
 		"model", stats.Model,
 		"context_tier", stats.ContextTierLabel,
@@ -345,6 +349,7 @@ func (s *Service) buildPrompt(
 		"est_prompt_tokens", stats.EstPromptTokens,
 		"max_prompt_runes", stats.MaxPromptRunes,
 		"context_window_tokens", stats.ContextWindowTokens,
+		"prompt_build_ms", stats.PromptBuildDurationMs,
 	)
 	return prompt, stats
 }

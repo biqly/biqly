@@ -16,6 +16,7 @@ import (
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/core"
 	"github.com/biqly/biqly/internal/dialect"
+	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -49,10 +50,16 @@ func NewAIHandler(deps *app.Dependencies) *AIHandler {
 		provider = deps.AIClient
 	}
 	svc := ai.NewServiceWithProvider(queryCfg, deps.Validator, provider)
+	metadataReader := ai.MetadataReader(deps.MetaRepo)
+	var embeddingReader ai.EmbeddingReader = deps.MetaRepo
+	if deps.CatalogClient != nil {
+		metadataReader = deps.CatalogClient
+		embeddingReader = nil
+	}
 	router := ai.NewTableRouterWithEmbeddings(
-		deps.MetaRepo,
+		metadataReader,
 		deps.Embedder,
-		deps.MetaRepo,
+		embeddingReader,
 		deps.Config.AI.EmbeddingWeight,
 	)
 	router.SetRoutingLimits(ai.RoutingLimitsFromConfig(
@@ -197,21 +204,29 @@ func (h *AIHandler) processAndObserve(w http.ResponseWriter, r *http.Request, ph
 	var resolved *app.ResolvedDatasource
 	var processOpts []ai.ProcessOption
 	if phase == aiPhaseRun {
-		var err error
-		resolved, err = h.deps.ResolveDatasourceDB(ctx, req.DatasourceID)
-		if err != nil {
-			writeCoreServiceError(ctx, w, err)
-			return
-		}
-		defer closeResolvedDatasource(ctx, resolved)
+		if h.deps.QueryClient != nil {
+			processOpts = []ai.ProcessOption{
+				ai.WithSQLValidator(newQueryClientDryRunValidator(h.deps.QueryClient)),
+				ai.WithTargetDialect(h.datasourceDialectName(ctx, req.DatasourceID)),
+				ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.ExampleIDs, req.IncludePastQueries)),
+			}
+		} else {
+			var err error
+			resolved, err = h.deps.ResolveDatasourceDB(ctx, req.DatasourceID)
+			if err != nil {
+				writeCoreServiceError(ctx, w, err)
+				return
+			}
+			defer closeResolvedDatasource(ctx, resolved)
 
-		driver := resolved.Driver
-		db := resolved.DB
-		processOpts = []ai.ProcessOption{
-			ai.WithSQLValidator(newSQLDryRunValidator(h.deps.QueryService, db, driver, model)),
-			ai.WithTargetDialect(driver.Dialect().Name()),
-			ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.ExampleIDs, req.IncludePastQueries)),
-			ai.WithSampleData(h.loadSampleData(ctx, db, driver.Dialect(), model)),
+			driver := resolved.Driver
+			db := resolved.DB
+			processOpts = []ai.ProcessOption{
+				ai.WithSQLValidator(newSQLDryRunValidator(h.deps.QueryService, db, driver, model)),
+				ai.WithTargetDialect(driver.Dialect().Name()),
+				ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.ExampleIDs, req.IncludePastQueries)),
+				ai.WithSampleData(h.loadSampleData(ctx, db, driver.Dialect(), model)),
+			}
 		}
 	}
 
@@ -227,7 +242,7 @@ func (h *AIHandler) processAndObserve(w http.ResponseWriter, r *http.Request, ph
 	case aiPhasePreview:
 		h.finishAIPreview(ctx, w, req, model, resp)
 	case aiPhaseRun:
-		h.finishAIRun(ctx, w, req, model, resp, resolved)
+		h.finishAIRun(ctx, w, model, resp, resolved)
 	}
 }
 
@@ -245,6 +260,19 @@ func (h *AIHandler) finishAIPreview(ctx context.Context, w http.ResponseWriter, 
 		writeJSON(w, http.StatusOK, resp)
 		return
 	}
+	if h.deps.QueryClient != nil {
+		compiled, err := h.deps.QueryClient.DryRun(ctx, *resp.LogicalQuery)
+		if err != nil {
+			slog.ErrorContext(ctx, "AI preview query service dry-run failed", "error", err)
+			resp.Warnings = append(resp.Warnings, "compilation failed")
+		} else {
+			resp.SQL = compiled.SQL
+			resp.Args = compiled.Args
+		}
+		writeJSON(w, http.StatusOK, resp)
+		return
+	}
+
 	resolved, err := h.deps.ResolveDatasourceDB(ctx, req.DatasourceID)
 	if err != nil {
 		writeCoreServiceError(ctx, w, err)
@@ -263,11 +291,16 @@ func (h *AIHandler) finishAIPreview(ctx context.Context, w http.ResponseWriter, 
 	writeJSON(w, http.StatusOK, resp)
 }
 
-func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, req aiQueryRequest, model *semantic.SemanticModel, resp *ai.Response, resolved *app.ResolvedDatasource) {
+func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, model *semantic.SemanticModel, resp *ai.Response, resolved *app.ResolvedDatasource) {
 	if resp.LogicalQuery == nil {
 		writeJSON(w, http.StatusOK, resp)
 		return
 	}
+	if h.deps.QueryClient != nil {
+		h.finishAIRunWithQueryClient(ctx, w, resp, model)
+		return
+	}
+
 	driver := resolved.Driver
 	db := resolved.DB
 
@@ -296,6 +329,32 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, req 
 	}
 	resp.Result = result
 	persistQueryHistory(ctx, h.deps.MetaRepo, "AI query history", *resp.LogicalQuery, model, cq, result, queryStatusSuccess, nil)
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (h *AIHandler) finishAIRunWithQueryClient(ctx context.Context, w http.ResponseWriter, resp *ai.Response, model *semantic.SemanticModel) {
+	run, err := h.deps.QueryClient.Run(ctx, *resp.LogicalQuery, 0, 0)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "query service execution failed", err)
+		return
+	}
+
+	resp.SQL = run.SQL
+	result := &query.QueryResult{
+		Columns: run.Columns,
+		Rows:    run.Rows,
+		Stats: query.QueryStats{
+			RowCount:   run.RowCount,
+			DurationMs: run.DurationMs,
+		},
+	}
+	query.EnrichResult(result, *resp.LogicalQuery, model)
+	chartType, reason := query.VisualizationHintFromResult(result)
+	resp.VisualizationHint = &ai.VisualizationHint{ChartType: chartType, Reason: reason}
+	if anomalyWarnings := query.AnomalyWarningMessages(result); len(anomalyWarnings) > 0 {
+		resp.Warnings = append(resp.Warnings, anomalyWarnings...)
+	}
+	resp.Result = result
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -483,7 +542,7 @@ func (h *AIHandler) loadQueryModel(
 }
 
 func (h *AIHandler) loadPreferredSemanticModel(ctx context.Context, datasourceID, question string) (*semantic.SemanticModel, *ai.TableRoutingResult, bool) {
-	models, err := h.deps.SemanticRepo.ListModels(ctx, datasourceID)
+	models, err := h.listSemanticModels(ctx, datasourceID)
 	if err != nil {
 		slog.WarnContext(ctx, "list semantic models failed; falling back to auto context", "datasource_id", datasourceID, "error", err)
 		return nil, nil, false
@@ -498,6 +557,13 @@ func (h *AIHandler) loadPreferredSemanticModel(ctx context.Context, datasourceID
 		return nil, nil, false
 	}
 	return full, routingForSemanticModel(full, semanticModelConfidence(models, model, question)), true
+}
+
+func (h *AIHandler) listSemanticModels(ctx context.Context, datasourceID string) ([]semantic.SemanticModel, error) {
+	if h.deps.CatalogClient != nil {
+		return h.deps.CatalogClient.ListModels(ctx, datasourceID)
+	}
+	return h.deps.SemanticRepo.ListModels(ctx, datasourceID)
 }
 
 func chooseSemanticModelForQuestion(models []semantic.SemanticModel, question string) (semantic.SemanticModel, bool) {
@@ -631,7 +697,7 @@ func selectedTablesForSemanticModel(model *semantic.SemanticModel) []string {
 }
 
 func semanticJoinPaths(model *semantic.SemanticModel) []string {
-	var out []string
+	out := make([]string, 0, len(model.Joins))
 	for _, join := range model.Joins {
 		out = append(out, fmt.Sprintf(
 			"%s.%s = %s.%s",
@@ -813,12 +879,19 @@ func (h *AIHandler) datasourceDialectName(ctx context.Context, datasourceID stri
 	if datasourceID == "" {
 		return ""
 	}
-	ds, err := h.deps.MetaRepo.GetDatasource(ctx, datasourceID)
+	ds, err := h.loadDatasource(ctx, datasourceID)
 	if err != nil {
 		slog.WarnContext(ctx, "load datasource for dialect hint failed", "error", err)
 		return ""
 	}
 	return ds.Type
+}
+
+func (h *AIHandler) loadDatasource(ctx context.Context, datasourceID string) (*metadata.Datasource, error) {
+	if h.deps.CatalogClient != nil {
+		return h.deps.CatalogClient.GetDatasource(ctx, datasourceID)
+	}
+	return h.deps.MetaRepo.GetDatasource(ctx, datasourceID)
 }
 
 // loadGlossaryForPrompt merges catalog synonyms with curated glossary terms and
@@ -829,7 +902,7 @@ func (h *AIHandler) loadGlossaryForPrompt(ctx context.Context, model *semantic.S
 	}
 	catalog := ai.GlossaryFromSemanticModel(model)
 	var ext []ai.ExternalGlossaryInput
-	rows, err := h.deps.MetaRepo.ListBusinessGlossary(ctx, model.DatasourceID, model.ID)
+	rows, err := h.listBusinessGlossary(ctx, model.DatasourceID, model.ID)
 	if err != nil {
 		slog.WarnContext(ctx, "load business glossary failed", "error", err)
 	} else {
@@ -847,6 +920,13 @@ func (h *AIHandler) loadGlossaryForPrompt(ctx context.Context, model *semantic.S
 	return ai.SelectGlossaryForQuestion(question, merged, model)
 }
 
+func (h *AIHandler) listBusinessGlossary(ctx context.Context, datasourceID, modelID string) ([]metadata.BusinessGlossaryRow, error) {
+	if h.deps.CatalogClient != nil {
+		return h.deps.CatalogClient.ListGlossary(ctx, datasourceID, modelID)
+	}
+	return h.deps.MetaRepo.ListBusinessGlossary(ctx, datasourceID, modelID)
+}
+
 // loadFewShotExamples returns recent high-confidence (question, logical_query)
 // pairs for this datasource+model. Errors are non-fatal — we just log and skip.
 func (h *AIHandler) loadFewShotExamples(ctx context.Context, model *semantic.SemanticModel) []ai.FewShotExample {
@@ -858,6 +938,21 @@ func (h *AIHandler) loadFewShotExamples(ctx context.Context, model *semantic.Sem
 		id := model.ID
 		modelID = &id
 	}
+	if h.deps.CatalogClient != nil {
+		rows, err := h.deps.CatalogClient.ListFewShot(ctx, model.DatasourceID, stringValue(modelID))
+		if err != nil {
+			slog.WarnContext(ctx, "load curated few-shot examples failed", "error", err)
+			return nil
+		}
+		out := make([]ai.FewShotExample, 0, len(rows))
+		for _, r := range rows {
+			out = append(out, ai.FewShotExample{Question: r.Question, LogicalQuery: string(r.LogicalQuery)})
+			if len(out) >= fewShotLimit {
+				break
+			}
+		}
+		return out
+	}
 	rows, err := h.deps.MetaRepo.ListSuccessfulAIQueries(ctx, model.DatasourceID, modelID, fewShotLimit)
 	if err != nil {
 		slog.WarnContext(ctx, "load few-shot examples failed", "error", err)
@@ -868,6 +963,13 @@ func (h *AIHandler) loadFewShotExamples(ctx context.Context, model *semantic.Sem
 		out = append(out, ai.FewShotExample{Question: r.Question, LogicalQuery: string(r.LogicalQuery)})
 	}
 	return out
+}
+
+func stringValue(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 func clarificationResponse(routing *ai.TableRoutingResult) *ai.Response {
@@ -892,12 +994,17 @@ func failedAIResponse(err error) *ai.Response {
 }
 
 func (h *AIHandler) loadModel(ctx context.Context, datasourceID, modelRef string) (*semantic.SemanticModel, error) {
+	if h.deps.CatalogClient != nil {
+		if model, err := h.deps.CatalogClient.GetModel(ctx, modelRef); err == nil {
+			return model, nil
+		}
+	}
 	if model, err := h.deps.SemanticRepo.GetPublishedFullModel(ctx, modelRef); err == nil {
 		return model, nil
 	}
 	model, err := h.deps.SemanticRepo.GetPublishedModelByName(ctx, datasourceID, modelRef)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", core.ErrLoadSemanticModel, err)
+		return nil, fmt.Errorf("%w: %w", core.ErrLoadSemanticModel, err)
 	}
 	return model, nil
 }

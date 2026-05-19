@@ -1,0 +1,122 @@
+package http
+
+import (
+	"net/http"
+	"time"
+
+	"github.com/biqly/biqly/internal/app"
+	"github.com/biqly/biqly/internal/http/handlers"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
+)
+
+// CatalogRouter sets up only the routes owned by the Catalog Service.
+func CatalogRouter(deps *app.Dependencies) http.Handler {
+	r := chi.NewRouter()
+
+	r.Use(middleware.RequestID)
+	r.Use(requestIDPropagationMiddleware)
+	r.Use(traceContextPropagationMiddleware)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.Timeout(60 * time.Second))
+	r.Use(bimw.Locale)
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"https://*", "http://*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Accept-Language", "Authorization", "Content-Type", "X-CSRF-Token", "X-Locale"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
+
+	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(healthCheckBody)
+	})
+	r.Get("/ready", ReadinessHandler(deps, nil))
+	r.Get("/metrics", MetricsHandler)
+
+	r.Route("/api", func(r chi.Router) {
+		r.Use(CatalogMetricsMiddleware(GetMetrics()))
+		registerCatalogAPIRoutes(r, deps)
+	})
+
+	r.Route("/internal", func(r chi.Router) {
+		r.Use(handlers.InternalAuditMiddleware(deps.AuditLogger))
+		r.Use(handlers.InternalTokenMiddleware(deps.Config.Security.InternalAPIToken))
+		r.Use(CatalogMetricsMiddleware(GetMetrics()))
+		registerCatalogInternalRoutes(r, deps, "biqly-catalog")
+	})
+
+	return r
+}
+
+func registerCatalogAPIRoutes(r chi.Router, deps *app.Dependencies) {
+	dsHandler := handlers.NewDatasourceHandler(deps)
+	r.Post("/datasources", dsHandler.Create)
+	r.Get("/datasources", dsHandler.List)
+	r.Post("/datasources/test-connection", dsHandler.TestDraft)
+	r.Get("/datasources/{id}", dsHandler.Get)
+	r.Put("/datasources/{id}", dsHandler.Update)
+	r.Delete("/datasources/{id}", dsHandler.Delete)
+	r.Post("/datasources/{id}/test", dsHandler.Test)
+	r.Post("/datasources/{id}/sync-metadata", dsHandler.SyncMetadata)
+
+	semHandler := handlers.NewSemanticHandler(deps)
+	semHandler.SetCatalogMetricsRecorder(GetMetrics())
+	r.Post("/semantic/models", semHandler.CreateModel)
+	r.Post("/semantic/models/generate", semHandler.GenerateModel)
+	r.Get("/semantic/models", semHandler.ListModels)
+	r.Get("/semantic/models/{id}", semHandler.GetModel)
+	r.Put("/semantic/models/{id}", semHandler.UpdateModel)
+	r.Delete("/semantic/models/{id}", semHandler.DeleteModel)
+	r.Post("/semantic/models/{id}/validate", semHandler.ValidateModel)
+	r.Post("/semantic/models/{id}/publish", semHandler.PublishModel)
+	r.Post("/semantic/models/{id}/rollback", semHandler.RollbackModel)
+	r.Post("/semantic/models/{id}/dimensions", semHandler.CreateDimension)
+	r.Delete("/semantic/models/{id}/dimensions/{dimension_id}", semHandler.DeleteDimension)
+	r.Put("/semantic/models/{id}/dimensions/{dimension_id}", semHandler.UpdateDimension)
+	r.Post("/semantic/models/{id}/metrics", semHandler.CreateMetric)
+	r.Delete("/semantic/models/{id}/metrics/{metric_id}", semHandler.DeleteMetric)
+	r.Put("/semantic/models/{id}/metrics/{metric_id}", semHandler.UpdateMetric)
+	r.Post("/semantic/models/{id}/tables/remove", semHandler.RemoveTable)
+	r.Post("/semantic/models/{id}/joins", semHandler.CreateJoin)
+	r.Delete("/semantic/models/{id}/joins/{join_id}", semHandler.DeleteJoin)
+	r.Put("/semantic/models/{id}/joins/{join_id}", semHandler.UpdateJoin)
+	r.Get("/semantic/models/{id}/suggested-joins", semHandler.SuggestedJoins)
+
+	metaHandler := handlers.NewMetadataHandler(deps)
+	r.Get("/datasources/{id}/tables", metaHandler.ListTables)
+	r.Get("/datasources/{id}/columns", metaHandler.ListColumns)
+	r.Get("/metadata/columns/search", metaHandler.SearchColumns)
+	r.Get("/metadata/tables/search", metaHandler.SearchTables)
+	r.Patch("/metadata/tables/{id}", metaHandler.UpdateTableDescription)
+	r.Patch("/metadata/columns/{id}", metaHandler.UpdateColumnDescription)
+	r.Get("/metadata/tables/{id}/translations", metaHandler.GetTableTranslations)
+	r.Put("/metadata/tables/{id}/translations", metaHandler.PutTableTranslations)
+	r.Get("/metadata/columns/{id}/translations", metaHandler.GetColumnTranslations)
+	r.Put("/metadata/columns/{id}/translations", metaHandler.PutColumnTranslations)
+}
+
+func registerCatalogInternalRoutes(r chi.Router, deps *app.Dependencies, serviceName string) {
+	internalHandler := handlers.NewInternalHandlerWithService(deps, serviceName)
+	r.Get("/health", internalHandler.Health)
+
+	r.Get("/datasources", internalHandler.ListDatasources)
+	r.Get("/datasources/{id}", internalHandler.GetDatasource)
+	r.Get("/models", internalHandler.ListModels)
+	r.Get("/models/{id}", internalHandler.GetFullModel)
+	r.Get("/datasources/{id}/tables", internalHandler.ListTables)
+	r.Get("/datasources/{id}/columns", internalHandler.ListColumns)
+	r.Get("/datasources/{id}/relations", internalHandler.ListRelations)
+	r.Get("/few-shot", internalHandler.ListFewShot)
+	r.Get("/glossary", internalHandler.ListGlossary)
+
+	r.Post("/history/ai", internalHandler.CreateAIHistory)
+	r.Post("/history/query", internalHandler.CreateQueryHistory)
+	r.Post("/eval-results", internalHandler.CreateEvalResults)
+}

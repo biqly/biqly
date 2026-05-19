@@ -1,0 +1,11 @@
+{{- if .Values.global.namespace.create }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.global.namespace.name }}
+  labels:
+    kubernetes.io/metadata.name: {{ .Values.global.namespace.name }}
+    {{- range $key, $value := .Values.global.namespace.labels }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+{{- end }}
