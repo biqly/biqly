@@ -41,6 +41,7 @@ func TestTableRouter_RouteSelectsRelatedTables(t *testing.T) {
 	}
 	if model == nil {
 		t.Fatal("Route() model = nil, want semantic model")
+		return
 	}
 	if routing.NeedsClarification {
 		t.Fatalf("Route() needs clarification = true, want false; routing = %+v", routing)

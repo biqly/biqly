@@ -12,6 +12,7 @@ func TestBuildClarificationPopulatesEnvelope(t *testing.T) {
 	got := buildClarification("Did you mean gross or net revenue?", "ambiguous metric", "ai")
 	if got == nil {
 		t.Fatal("expected envelope, got nil")
+		return
 	}
 	if got.Status != ClarificationStatusNeeded {
 		t.Errorf("status = %q, want %q", got.Status, ClarificationStatusNeeded)
@@ -52,6 +53,7 @@ func TestClarificationFromRoutingBuildsOptionsAndCandidates(t *testing.T) {
 	c := ClarificationFromRouting(routing, "")
 	if c == nil {
 		t.Fatal("expected envelope, got nil")
+		return
 	}
 	if c.Source != "router" {
 		t.Errorf("source = %q, want router", c.Source)
