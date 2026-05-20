@@ -34,3 +34,7 @@ route:
   enabled: true
   pathPrefixes:
     - /
+runtimeAdminKey:
+  enabled: false
+  secretName: ""
+  secretKey: BI_ADMIN_API_KEY
