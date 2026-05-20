@@ -1,5 +1,5 @@
-import { useState, useCallback, useMemo, useRef } from 'react'
-import { frontendEnv } from '../utils/env'
+import { useState, useCallback, useRef } from 'react'
+import { resolveAdminApiKey } from '../utils/env'
 import { getLocale } from '../i18n'
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
@@ -148,7 +148,7 @@ export function useApi() {
 }
 
 export function adminAuthHeaders(): Record<string, string> {
-  const adminKey = frontendEnv.adminApiKey
+  const adminKey = resolveAdminApiKey()
   return adminKey ? { Authorization: `Bearer ${adminKey}` } : {}
 }
 
@@ -164,33 +164,32 @@ function withHeaders(options: RequestOptions | undefined, headers: Record<string
 export function useAdminApi() {
   const api = useApi()
 
-  const adminHeaders = useMemo(() => adminAuthHeaders(), [])
-  const configured = Object.keys(adminHeaders).length > 0
+  const configured = resolveAdminApiKey().length > 0
 
   const get = useCallback(
     <T = unknown>(url: string, options?: RequestOptions) =>
-      api.get<T>(url, withHeaders(options, adminHeaders)),
-    [adminHeaders, api],
+      api.get<T>(url, withHeaders(options, adminAuthHeaders())),
+    [api],
   )
   const postData = useCallback(
     <T = unknown>(url: string, body: unknown, options?: RequestOptions) =>
-      api.postData<T>(url, body, withHeaders(options, adminHeaders)),
-    [adminHeaders, api],
+      api.postData<T>(url, body, withHeaders(options, adminAuthHeaders())),
+    [api],
   )
   const putData = useCallback(
     <T = unknown>(url: string, body: unknown, options?: RequestOptions) =>
-      api.putData<T>(url, body, withHeaders(options, adminHeaders)),
-    [adminHeaders, api],
+      api.putData<T>(url, body, withHeaders(options, adminAuthHeaders())),
+    [api],
   )
   const patchData = useCallback(
     <T = unknown>(url: string, body: unknown, options?: RequestOptions) =>
-      api.patchData<T>(url, body, withHeaders(options, adminHeaders)),
-    [adminHeaders, api],
+      api.patchData<T>(url, body, withHeaders(options, adminAuthHeaders())),
+    [api],
   )
   const deleteData = useCallback(
     <T = unknown>(url: string, options?: RequestOptions) =>
-      api.deleteData<T>(url, withHeaders(options, adminHeaders)),
-    [adminHeaders, api],
+      api.deleteData<T>(url, withHeaders(options, adminAuthHeaders())),
+    [api],
   )
 
   return { ...api, get, postData, putData, patchData, deleteData, configured }

@@ -14,7 +14,7 @@ function optionalString(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
 
-function resolveAdminApiKey(): string {
+export function resolveAdminApiKey(): string {
   const runtime = typeof window !== 'undefined' ? window.__BIQLY_ENV__?.adminApiKey : ''
   if (runtime) {
     return runtime
@@ -23,5 +23,7 @@ function resolveAdminApiKey(): string {
 }
 
 export const frontendEnv: FrontendEnv = {
-  adminApiKey: resolveAdminApiKey(),
+  get adminApiKey() {
+    return resolveAdminApiKey()
+  },
 }
