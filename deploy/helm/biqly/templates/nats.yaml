@@ -32,7 +32,7 @@ spec:
       containers:
         - name: nats
           image: {{ .Values.global.nats.image | quote }}
-          args: ["-js", "-m", "8222"]
+          args: ["-js", "-sd", "/data", "-m", "8222"]
           ports:
             - name: client
               containerPort: {{ .Values.global.nats.service.clientPort }}
@@ -40,6 +40,9 @@ spec:
               containerPort: {{ .Values.global.nats.service.monitorPort }}
           resources:
             {{- toYaml .Values.global.nats.resources | nindent 12 }}
+          volumeMounts:
+            - name: jetstream-data
+              mountPath: /data
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -57,6 +60,9 @@ spec:
               port: monitor
             initialDelaySeconds: 3
             periodSeconds: 5
+      volumes:
+        - name: jetstream-data
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
