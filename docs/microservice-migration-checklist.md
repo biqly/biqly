@@ -272,8 +272,8 @@ Legend: `[ ]` pending · `[~]` in-progress · `[x]` done · `[-]` cancelled
       _Opsiyonel `templates/api-vip-service.yaml` eklendi ve `global.apiVIP.enabled=false` default birakildi. Cilium Gateway zaten `io.cilium/lb-ipam-ips=["192.168.0.160"]` annotation'i ile VIP almis durumda; ayrica uygulama LoadBalancer Service'i gerekip gerekmedigi cluster ingress standardina bagli._
 - [~] **I3.7** `dig biqly.il1.nl` → 192.168.0.160 (lan-gw IP) dogrula
       _`dig +short biqly.il1.nl` su anda `172.67.221.102` donuyor; beklenen LAN Gateway IP `192.168.0.160` degil. DNS/Cloudflare split-horizon veya internal resolver kaydi ayrica duzeltilmeli/dogrulanmali._
-- [ ] **I3.8** `curl https://biqly.il1.nl/health` → 200 dogrula
-      _ArgoCD Application `biqly` cluster'a apply edildi; sync sonrasi smoke test yapilacak. DNS hala Cloudflare IP donuyorsa LAN'de `/etc/hosts` veya internal resolver ile `192.168.0.160` bypass gerekebilir._
+- [x] **I3.8** `curl https://biqly.il1.nl/health` → 200 dogrula
+      _LAN gateway (`192.168.0.160`) uzerinden `curl -k --resolve biqly.il1.nl:443:192.168.0.160 https://biqly.il1.nl/health` → `{"status":"ok"}`. Public DNS hala Cloudflare donuyor; internal erisim icin `/etc/hosts` veya internal resolver gerekir._
 
 ---
 
@@ -282,7 +282,7 @@ Legend: `[ ]` pending · `[~]` in-progress · `[x]` done · `[-]` cancelled
 - [x] **I4.1** `biqly-allow-dns` — endpointSelector component IN (ai, query, catalog), egress kube-dns 53/UDP+TCP
       _`templates/cnp-dns.yaml` eklendi. `app.kubernetes.io/component IN (ai, query, catalog)` endpoint selector ile kube-dns 53/UDP+TCP egress izni values kontrollu render ediliyor._
 - [x] **I4.2** `biqly-allow-gateway` — fromEntities `ingress` + `host`/`remote-node`/`health` + intra-namespace, ports 8080/8081/8082
-      _`templates/cnp-gateway.yaml` eklendi. Gateway/host/remote-node/health entities ve `app.kubernetes.io/part-of=biqly` intra-namespace endpoints icin 8080/8081/8082 ingress izni render ediliyor._
+      _`templates/cnp-gateway.yaml` eklendi. Gateway/host/remote-node/health entities ve `app.kubernetes.io/part-of=biqly` intra-namespace endpoints icin 8080/8081/8082 ingress + egress izni render ediliyor (Query→Catalog readiness icin egress gerekli)._
 - [x] **I4.3** `biqly-egress-metadata` — egress toEntities `cluster`, ports 5432 (postgres) + 6379 (dragonfly)
       _`templates/cnp-metadata.yaml` eklendi. AI/Query/Catalog pod'larindan cluster entity'lerine sadece metadata/cache portlari (5432, 6379 default) icin egress izni render ediliyor._
 - [~] **I4.4** `biqly-query-egress-user-dbs` — sadece component=query, toCIDR user DB subnet, ports 5432/3306/1433/8123/9000

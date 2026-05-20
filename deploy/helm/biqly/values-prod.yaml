@@ -25,21 +25,21 @@ global:
       enabled: true
 
 catalog:
-  replicaCount: 3
+  replicaCount: 2
   autoscaling:
-    minReplicas: 3
-    maxReplicas: 6
+    minReplicas: 2
+    maxReplicas: 4
 
 query:
-  replicaCount: 4
+  replicaCount: 2
   autoscaling:
-    minReplicas: 4
-    maxReplicas: 12
+    minReplicas: 2
+    maxReplicas: 6
 
 ai:
-  replicaCount: 3
+  replicaCount: 2
   rollout:
     enabled: false
   autoscaling:
-    minReplicas: 3
-    maxReplicas: 10
+    minReplicas: 2
+    maxReplicas: 4
