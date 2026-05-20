@@ -35,7 +35,7 @@ global:
       namespace: gateway
       sectionName: http
     hostnames:
-      - biqly.il1.nl
+      - abi.il1.nl
     redirect:
       enabled: false
       scheme: https

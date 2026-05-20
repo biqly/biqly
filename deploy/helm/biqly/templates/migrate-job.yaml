@@ -21,6 +21,15 @@ spec:
       restartPolicy: OnFailure
       serviceAccountName: {{ include "biqly.serviceAccountName" . }}
       automountServiceAccountToken: false
+      {{- if or .Values.global.imagePullSecrets .Values.global.registrySecret.create }}
+      imagePullSecrets:
+        {{- with .Values.global.imagePullSecrets }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if .Values.global.registrySecret.create }}
+        - name: {{ .Values.global.registrySecret.name }}
+        {{- end }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532

@@ -28,7 +28,7 @@ global:
       namespace: gateway
       sectionName: https
     hostnames:
-      - biqly.il1.nl
+      - abi.il1.nl
 
 replicaCount: 2
 image:
