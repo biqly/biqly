@@ -12,6 +12,13 @@ spec:
       {{- with .Values.global.gateway.parentRef.sectionName }}
       sectionName: {{ . }}
       {{- end }}
+    {{- with .Values.global.gateway.httpParentRef }}
+    - name: {{ .name }}
+      namespace: {{ .namespace }}
+      {{- with .sectionName }}
+      sectionName: {{ . }}
+      {{- end }}
+    {{- end }}
   hostnames:
     {{- toYaml .Values.global.gateway.hostnames | nindent 4 }}
   rules:
