@@ -164,14 +164,14 @@ func (h *AIHandler) finishAIRunResult(ctx context.Context, req aiQueryRequest, m
 	db := resolved.DB
 	cq, se := h.deps.QueryService.CompileWithContext(ctx, *resp.LogicalQuery, model, driver)
 	if se != nil {
-		persistQueryHistory(ctx, h.deps.MetaRepo, "AI query history", *resp.LogicalQuery, model, nil, nil, queryStatusFailed, core.ErrAsError(se))
+		persistQueryHistory(ctx, h.deps.MetaRepo, *resp.LogicalQuery, model, nil, nil, queryStatusFailed, core.ErrAsError(se))
 		return nil, core.ErrAsError(se)
 	}
 	resp.SQL = cq.SQL
 	resp.Args = cq.Args
 	result, err := h.deps.Executor.Execute(ctx, db, cq)
 	if err != nil {
-		persistQueryHistory(ctx, h.deps.MetaRepo, "AI query history", *resp.LogicalQuery, model, cq, nil, queryStatusFailed, err)
+		persistQueryHistory(ctx, h.deps.MetaRepo, *resp.LogicalQuery, model, cq, nil, queryStatusFailed, err)
 		return nil, err
 	}
 	query.EnrichResult(result, *resp.LogicalQuery, model)
@@ -181,7 +181,7 @@ func (h *AIHandler) finishAIRunResult(ctx context.Context, req aiQueryRequest, m
 		resp.Warnings = append(resp.Warnings, anomalyWarnings...)
 	}
 	resp.Result = result
-	persistQueryHistory(ctx, h.deps.MetaRepo, "AI query history", *resp.LogicalQuery, model, cq, result, queryStatusSuccess, nil)
+	persistQueryHistory(ctx, h.deps.MetaRepo, *resp.LogicalQuery, model, cq, result, queryStatusSuccess, nil)
 	return resp, nil
 }
 

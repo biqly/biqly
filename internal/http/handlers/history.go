@@ -18,7 +18,6 @@ const (
 func persistQueryHistory(
 	ctx context.Context,
 	repo *metadata.Repository,
-	logPrefix string,
 	lq query.LogicalQuery,
 	model *semantic.SemanticModel,
 	cq *query.CompiledQuery,
@@ -28,11 +27,11 @@ func persistQueryHistory(
 ) {
 	entry, err := query.BuildQueryHistoryEntry(lq, model, cq, result, status, queryErr)
 	if err != nil {
-		slog.ErrorContext(ctx, logPrefix+" build failed", "error", err)
+		slog.ErrorContext(ctx, "AI query history build failed", "error", err)
 		return
 	}
 	if err := repo.CreateQueryHistory(ctx, entry); err != nil {
-		slog.ErrorContext(ctx, logPrefix+" create failed", "error", err)
+		slog.ErrorContext(ctx, "AI query history create failed", "error", err)
 	}
 }
 

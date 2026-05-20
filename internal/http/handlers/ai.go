@@ -306,7 +306,7 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, mode
 
 	cq, se := h.deps.QueryService.CompileWithContext(ctx, *resp.LogicalQuery, model, driver)
 	if se != nil {
-		persistQueryHistory(ctx, h.deps.MetaRepo, "AI query history", *resp.LogicalQuery, model, nil, nil, queryStatusFailed, core.ErrAsError(se))
+		persistQueryHistory(ctx, h.deps.MetaRepo, *resp.LogicalQuery, model, nil, nil, queryStatusFailed, core.ErrAsError(se))
 		writeServiceError(ctx, w, se)
 		return
 	}
@@ -316,7 +316,7 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, mode
 
 	result, err := h.deps.Executor.Execute(ctx, db, cq)
 	if err != nil {
-		persistQueryHistory(ctx, h.deps.MetaRepo, "AI query history", *resp.LogicalQuery, model, cq, nil, queryStatusFailed, err)
+		persistQueryHistory(ctx, h.deps.MetaRepo, *resp.LogicalQuery, model, cq, nil, queryStatusFailed, err)
 		writeInternalError(ctx, w, http.StatusInternalServerError, "execution failed", err)
 		return
 	}
@@ -328,7 +328,7 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, mode
 		resp.Warnings = append(resp.Warnings, anomalyWarnings...)
 	}
 	resp.Result = result
-	persistQueryHistory(ctx, h.deps.MetaRepo, "AI query history", *resp.LogicalQuery, model, cq, result, queryStatusSuccess, nil)
+	persistQueryHistory(ctx, h.deps.MetaRepo, *resp.LogicalQuery, model, cq, result, queryStatusSuccess, nil)
 	writeJSON(w, http.StatusOK, resp)
 }
 
