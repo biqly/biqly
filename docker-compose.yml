@@ -27,6 +27,18 @@ services:
       timeout: 3s
       retries: 5
 
+  nats:
+    image: nats:2.10-alpine
+    command: ["-js", "-m", "8222"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   # Test PostgreSQL datasource for introspection testing.
   # Seeds AdventureWorks on first init if testdata/adventureworks/ exists
   # (run scripts/fetch-adventureworks.sh once to populate it).

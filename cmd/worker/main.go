@@ -7,53 +7,72 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
+	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/config"
+	"github.com/biqly/biqly/internal/http/handlers"
+	"github.com/biqly/biqly/internal/platform/logger"
+	"github.com/biqly/biqly/internal/queue"
 )
 
 func main() {
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	})))
-
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("failed to load config", "error", err)
 		os.Exit(1)
 	}
+	slog.SetDefault(logger.New(logger.Config{
+		Level: logger.LevelFromString(cfg.Logging.Level),
+		JSON:  logger.JSONFromString(cfg.Logging.Format),
+	}))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	slog.Info("worker started",
-		"query_timeout", cfg.Query.TimeoutSeconds,
-		"max_rows", cfg.Query.MaxRows,
-	)
+	if cfg.NATS.URL == "" {
+		slog.Error("BI_NATS_URL is required for worker")
+		os.Exit(1)
+	}
 
-	// TODO: Add background job processing
-	// - Stale cache cleanup
-	// - Query history archival
-	// - Datasource health checks
-	// - AI query history persistence
+	deps, err := app.NewAIDependencies(ctx, cfg)
+	if err != nil {
+		slog.Error("failed to initialize dependencies", "error", err)
+		os.Exit(1)
+	}
+	defer func() {
+		if err := deps.Close(); err != nil {
+			slog.Error("failed to close dependencies", "error", err)
+		}
+		if q, ok := deps.AIJobQueue.(interface{ Close() error }); ok {
+			_ = q.Close()
+		}
+	}()
 
-	// Placeholder: periodic health check ticker
-	ticker := time.NewTicker(60 * time.Second)
-	defer ticker.Stop()
+	pub, err := app.NewAIJobQueue(cfg)
+	if err != nil {
+		slog.Error("failed to create ai job queue", "error", err)
+		os.Exit(1)
+	}
+	deps.AIJobQueue = pub
+	if _, ok := pub.(queue.AIJobConsumer); !ok {
+		slog.Error("job queue does not support consume")
+		os.Exit(1)
+	}
+	aiHandler := handlers.NewAIHandler(deps)
+	jobSvc := handlers.NewAIJobService(deps.MetaRepo, pub, aiHandler)
+
+	slog.Info("worker started", "nats_url", cfg.NATS.URL, "group", cfg.NATS.ConsumerGroup)
+
+	go func() {
+		if err := jobSvc.StartConsumer(ctx, cfg.NATS.ConsumerGroup); err != nil && ctx.Err() == nil {
+			slog.Error("ai job consumer stopped", "error", err)
+			os.Exit(1)
+		}
+	}()
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-
-	for {
-		select {
-		case <-ticker.C:
-			slog.Info("worker heartbeat")
-		case <-ctx.Done():
-			slog.Info("worker shutting down")
-			return
-		case <-quit:
-			slog.Info("received shutdown signal")
-			cancel()
-		}
-	}
+	<-quit
+	cancel()
+	slog.Info("worker shutting down")
 }

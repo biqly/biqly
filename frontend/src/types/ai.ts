@@ -67,6 +67,37 @@ export interface AIQueryRequest {
   prior_turns?: PriorTurn[]
 }
 
+export type AIJobKind = 'query' | 'preview' | 'run'
+
+export type AIJobStatus =
+  | 'pending'
+  | 'queued'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled'
+
+export interface AIJob {
+  id: string
+  client_session_id: string
+  kind: AIJobKind
+  status: AIJobStatus
+  phase: string
+  phase_message: string
+  progress_pct: number
+  request_json?: unknown
+  result_json?: unknown
+  error_message?: string
+  created_at: string
+  updated_at: string
+  started_at?: string | null
+  finished_at?: string | null
+}
+
+export interface AIJobListResponse {
+  jobs: AIJob[]
+}
+
 export interface PriorTurn {
   question: string
   logical_query?: LogicalQuery

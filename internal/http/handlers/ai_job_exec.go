@@ -1,0 +1,234 @@
+package handlers
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+
+	"github.com/biqly/biqly/internal/ai"
+	"github.com/biqly/biqly/internal/app"
+	"github.com/biqly/biqly/internal/core"
+	"github.com/biqly/biqly/internal/metadata"
+	"github.com/biqly/biqly/internal/query"
+	"github.com/biqly/biqly/internal/semantic"
+)
+
+type AIJobProgress struct {
+	Phase    string
+	Message  string
+	Progress int
+	Status   string
+}
+
+type AIJobProgressFunc func(p AIJobProgress)
+
+func (h *AIHandler) resolveAIQuery(ctx context.Context, req aiQueryRequest) (*semantic.SemanticModel, *ai.TableRoutingResult, *ai.Response, error) {
+	if req.Question == "" {
+		return nil, nil, nil, fmt.Errorf("question is required")
+	}
+	if req.DatasourceID == "" {
+		return nil, nil, nil, fmt.Errorf(core.MsgDatasourceIDRequired)
+	}
+	model, routing, err := h.loadQueryModel(ctx, req)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if routing != nil && routing.NeedsClarification {
+		return nil, routing, clarificationResponse(routing), nil
+	}
+	return model, routing, nil, nil
+}
+
+func (h *AIHandler) executeAIQueryPhase(
+	ctx context.Context,
+	req aiQueryRequest,
+	phase aiQueryPhase,
+	report AIJobProgressFunc,
+) (*ai.Response, error) {
+	if report != nil {
+		report(AIJobProgress{Phase: "routing", Message: "routing tables", Progress: 10, Status: metadata.AIJobStatusRunning})
+	}
+	model, routing, clarify, err := h.resolveAIQuery(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if clarify != nil {
+		return clarify, nil
+	}
+
+	if report != nil {
+		report(AIJobProgress{Phase: "generating", Message: "generating logical query", Progress: 35, Status: metadata.AIJobStatusRunning})
+	}
+
+	var resolved *app.ResolvedDatasource
+	var processOpts []ai.ProcessOption
+	if phase == aiPhaseRun {
+		if h.deps.QueryClient != nil {
+			processOpts = []ai.ProcessOption{
+				ai.WithSQLValidator(newQueryClientDryRunValidator(h.deps.QueryClient)),
+				ai.WithTargetDialect(h.datasourceDialectName(ctx, req.DatasourceID)),
+				ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.ExampleIDs, req.IncludePastQueries)),
+			}
+		} else {
+			var resolveErr error
+			resolved, resolveErr = h.deps.ResolveDatasourceDB(ctx, req.DatasourceID)
+			if resolveErr != nil {
+				return nil, resolveErr
+			}
+			defer closeResolvedDatasource(ctx, resolved)
+			driver := resolved.Driver
+			db := resolved.DB
+			processOpts = []ai.ProcessOption{
+				ai.WithSQLValidator(newSQLDryRunValidator(h.deps.QueryService, db, driver, model)),
+				ai.WithTargetDialect(driver.Dialect().Name()),
+				ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.ExampleIDs, req.IncludePastQueries)),
+				ai.WithSampleData(h.loadSampleData(ctx, db, driver.Dialect(), model)),
+			}
+		}
+	} else {
+		processOpts = h.standardProcessOptions(ctx, req, model)
+	}
+
+	if report != nil {
+		report(AIJobProgress{Phase: "validating", Message: "validating response", Progress: 55, Status: metadata.AIJobStatusRunning})
+	}
+
+	resp, err := h.processAIQuestion(ctx, req, model, routing, processOpts...)
+	if err != nil {
+		return nil, err
+	}
+
+	switch phase {
+	case aiPhaseGenerate:
+		return resp, nil
+	case aiPhasePreview:
+		if report != nil {
+			report(AIJobProgress{Phase: "compiling", Message: "compiling sql", Progress: 75, Status: metadata.AIJobStatusRunning})
+		}
+		return h.finishAIPreviewResult(ctx, req, model, resp)
+	case aiPhaseRun:
+		if report != nil {
+			report(AIJobProgress{Phase: "executing", Message: "executing query", Progress: 85, Status: metadata.AIJobStatusRunning})
+		}
+		return h.finishAIRunResult(ctx, req, model, resp, resolved)
+	default:
+		return resp, nil
+	}
+}
+
+func (h *AIHandler) finishAIPreviewResult(ctx context.Context, req aiQueryRequest, model *semantic.SemanticModel, resp *ai.Response) (*ai.Response, error) {
+	if resp.LogicalQuery == nil {
+		return resp, nil
+	}
+	if h.deps.QueryClient != nil {
+		compiled, err := h.deps.QueryClient.DryRun(ctx, *resp.LogicalQuery)
+		if err != nil {
+			resp.Warnings = append(resp.Warnings, "compilation failed")
+		} else {
+			resp.SQL = compiled.SQL
+			resp.Args = compiled.Args
+		}
+		return resp, nil
+	}
+	resolved, err := h.deps.ResolveDatasourceDB(ctx, req.DatasourceID)
+	if err != nil {
+		return nil, err
+	}
+	defer closeResolvedDatasource(ctx, resolved)
+	cq, se := h.deps.QueryService.CompileWithContext(ctx, *resp.LogicalQuery, model, resolved.Driver)
+	if se != nil {
+		resp.Warnings = append(resp.Warnings, "compilation failed")
+	} else {
+		resp.SQL = cq.SQL
+		resp.Args = cq.Args
+	}
+	return resp, nil
+}
+
+func (h *AIHandler) finishAIRunResult(ctx context.Context, req aiQueryRequest, model *semantic.SemanticModel, resp *ai.Response, resolved *app.ResolvedDatasource) (*ai.Response, error) {
+	if resp.LogicalQuery == nil {
+		return resp, nil
+	}
+	if h.deps.QueryClient != nil {
+		return h.finishAIRunResultWithQueryClient(ctx, resp, model)
+	}
+	if resolved == nil {
+		var err error
+		resolved, err = h.deps.ResolveDatasourceDB(ctx, req.DatasourceID)
+		if err != nil {
+			return nil, err
+		}
+		defer closeResolvedDatasource(ctx, resolved)
+	}
+	driver := resolved.Driver
+	db := resolved.DB
+	cq, se := h.deps.QueryService.CompileWithContext(ctx, *resp.LogicalQuery, model, driver)
+	if se != nil {
+		persistQueryHistory(ctx, h.deps.MetaRepo, "AI query history", *resp.LogicalQuery, model, nil, nil, queryStatusFailed, core.ErrAsError(se))
+		return nil, core.ErrAsError(se)
+	}
+	resp.SQL = cq.SQL
+	resp.Args = cq.Args
+	result, err := h.deps.Executor.Execute(ctx, db, cq)
+	if err != nil {
+		persistQueryHistory(ctx, h.deps.MetaRepo, "AI query history", *resp.LogicalQuery, model, cq, nil, queryStatusFailed, err)
+		return nil, err
+	}
+	query.EnrichResult(result, *resp.LogicalQuery, model)
+	chartType, reason := query.VisualizationHintFromResult(result)
+	resp.VisualizationHint = &ai.VisualizationHint{ChartType: chartType, Reason: reason}
+	if anomalyWarnings := query.AnomalyWarningMessages(result); len(anomalyWarnings) > 0 {
+		resp.Warnings = append(resp.Warnings, anomalyWarnings...)
+	}
+	resp.Result = result
+	persistQueryHistory(ctx, h.deps.MetaRepo, "AI query history", *resp.LogicalQuery, model, cq, result, queryStatusSuccess, nil)
+	return resp, nil
+}
+
+func (h *AIHandler) finishAIRunResultWithQueryClient(ctx context.Context, resp *ai.Response, model *semantic.SemanticModel) (*ai.Response, error) {
+	run, err := h.deps.QueryClient.Run(ctx, *resp.LogicalQuery, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+	resp.SQL = run.SQL
+	result := &query.QueryResult{
+		Columns: run.Columns,
+		Rows:    run.Rows,
+		Stats: query.QueryStats{
+			RowCount:   run.RowCount,
+			DurationMs: run.DurationMs,
+		},
+	}
+	query.EnrichResult(result, *resp.LogicalQuery, model)
+	chartType, reason := query.VisualizationHintFromResult(result)
+	resp.VisualizationHint = &ai.VisualizationHint{ChartType: chartType, Reason: reason}
+	if anomalyWarnings := query.AnomalyWarningMessages(result); len(anomalyWarnings) > 0 {
+		resp.Warnings = append(resp.Warnings, anomalyWarnings...)
+	}
+	resp.Result = result
+	return resp, nil
+}
+
+func aiJobPhaseFromKind(kind string) (aiQueryPhase, error) {
+	switch kind {
+	case "query":
+		return aiPhaseGenerate, nil
+	case "preview":
+		return aiPhasePreview, nil
+	case "run":
+		return aiPhaseRun, nil
+	default:
+		return 0, fmt.Errorf("unknown job kind %q", kind)
+	}
+}
+
+func encodeAIJobResult(resp *ai.Response) (json.RawMessage, error) {
+	if resp == nil {
+		return nil, nil
+	}
+	b, err := json.Marshal(resp)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}

@@ -19,6 +19,21 @@ type Config struct {
 	Security SecurityConfig
 	Services ServicesConfig
 	AI       AIConfig
+	NATS     NATSConfig
+	Jobs     JobsConfig
+}
+
+// NATSConfig holds NATS JetStream settings for async AI jobs.
+type NATSConfig struct {
+	URL           string
+	Stream        string
+	Subject       string
+	ConsumerGroup string
+}
+
+// JobsConfig toggles background AI job processing.
+type JobsConfig struct {
+	Enabled bool
 }
 
 // HTTPConfig holds HTTP server configuration.
@@ -230,6 +245,15 @@ func Load() (*Config, error) {
 			RouteMaxColumnsPerTable: getEnvAsInt("BI_AI_ROUTE_MAX_COLUMNS_PER_TABLE", 0),
 			RouteMaxDateGrainExtras: getEnvAsInt("BI_AI_ROUTE_MAX_DATE_GRAIN_EXTRAS", 0),
 			RouteSlimNumericMetrics: getEnvAsBool("BI_AI_ROUTE_SLIM_NUMERIC_METRICS", true),
+		},
+		NATS: NATSConfig{
+			URL:           getEnv("BI_NATS_URL", ""),
+			Stream:        getEnv("BI_NATS_STREAM", "BIQLY_AI_JOBS"),
+			Subject:       getEnv("BI_NATS_SUBJECT", "biqly.ai.jobs"),
+			ConsumerGroup: getEnv("BI_NATS_CONSUMER_GROUP", "biqly-ai-workers"),
+		},
+		Jobs: JobsConfig{
+			Enabled: getEnvAsBool("BI_AI_JOBS_ENABLED", true),
 		},
 	}
 

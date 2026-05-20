@@ -140,5 +140,6 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		AuditLogger:   audit.NewLogger(slog.Default()),
 		Embedder:      embedder,
 		AIEmbedMeta:   embedMeta,
+		Jobs:          cfg.Jobs,
 	}, nil
 }

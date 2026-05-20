@@ -107,6 +107,19 @@ global:
       limits:
         cpu: "1"
         memory: 1Gi
+  nats:
+    enabled: true
+    image: nats:2.10-alpine
+    service:
+      clientPort: 4222
+      monitorPort: 8222
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
   serviceAccount:
     create: true
     name: biqly

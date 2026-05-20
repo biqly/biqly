@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"net/http"
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/audit"
@@ -22,6 +23,7 @@ import (
 	"github.com/biqly/biqly/internal/semantic"
 	"github.com/biqly/biqly/pkg/catalogclient"
 	"github.com/biqly/biqly/pkg/queryclient"
+	"github.com/biqly/biqly/internal/queue"
 	_ "github.com/jackc/pgx/v5/stdlib" // PostgreSQL driver registration
 )
 
@@ -52,6 +54,23 @@ type Dependencies struct {
 	// nil (the table router falls back to keyword scoring).
 	Embedder    ai.Embedder
 	AIEmbedMeta *ai.EmbedMetadataService
+	Jobs         config.JobsConfig
+	AIJobQueue   queue.AIJobPublisher
+	AIJobService AIJobRunner
+	AIJobsHTTP   AIJobsHTTPHandler
+}
+
+// AIJobRunner processes queued NL→query jobs (implemented by handlers.AIJobService).
+type AIJobRunner interface {
+	Process(ctx context.Context, jobID string) error
+	StartConsumer(ctx context.Context, group string) error
+}
+
+// AIJobsHTTPHandler serves /api/ai/jobs* (implemented by handlers.AIJobsHandler).
+type AIJobsHTTPHandler interface {
+	Create(http.ResponseWriter, *http.Request)
+	Get(http.ResponseWriter, *http.Request)
+	List(http.ResponseWriter, *http.Request)
 }
 
 // NewDependencies wires up all dependencies.

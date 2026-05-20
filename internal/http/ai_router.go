@@ -61,6 +61,11 @@ func AIRouter(deps *app.Dependencies) http.Handler {
 func registerAIAPIRoutes(r chi.Router, deps *app.Dependencies) {
 	aiHandler := handlers.NewAIHandler(deps)
 	aiHandler.SetAIMetricsRecorder(GetMetrics())
+	if deps.Jobs.Enabled && deps.AIJobsHTTP != nil {
+		r.Post("/ai/jobs", deps.AIJobsHTTP.Create)
+		r.Get("/ai/jobs", deps.AIJobsHTTP.List)
+		r.Get("/ai/jobs/{id}", deps.AIJobsHTTP.Get)
+	}
 	r.Post("/ai/query", aiHandler.Query)
 	r.Post("/ai/query/preview", aiHandler.Preview)
 	r.Post("/ai/query/run", aiHandler.Run)

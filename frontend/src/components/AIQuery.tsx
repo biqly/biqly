@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useApi } from '../hooks/useApi'
+import { useAIJobs } from '../hooks/useAIJobs'
 import { useConversation } from '../hooks/useConversation'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { formatResultCell } from '../utils/resultCellFormat'
@@ -485,6 +486,7 @@ export default function AIQuery() {
   const t = useT()
   const [locale] = useLocale()
   const localeTag = localeNumberTag(locale)
+  const { runJob } = useAIJobs()
   const { get, postData, loading, error, abort } = useApi()
   const { postData: postEmbedData, loading: embeddingLoading, error: embeddingError } = useApi()
   const { activeConversation, addMessage, createConversation, setActiveConversationId } = useConversation()
@@ -661,27 +663,41 @@ export default function AIQuery() {
     prior_turns: includePastQueries ? recentPriorTurns() : undefined,
   })
 
+  const applyAIResponse = (q: string, res: AIQueryResponse) => {
+    setResult(res)
+    setChartType('table')
+    setUserFeedback(null)
+    setShowFeedbackForm(false)
+    setFeedbackCategories([])
+    setFeedbackText('')
+    if (res.needs_clarification) {
+      addMessage({ role: 'user', content: q })
+      addMessage({ role: 'assistant', content: res.clarification_question ?? t('ai_query.clarify_default'), ai_response: res })
+      return
+    }
+    addMessage({ role: 'user', content: q })
+    const summary = res.sql
+      ? t('ai_query.assistant_sql_preview', { snippet: res.sql.slice(0, 120) })
+      : t('ai_query.assistant_executed')
+    addMessage({ role: 'assistant', content: summary, ai_response: res })
+  }
+
   const sendQuery = async (q: string, execute: boolean) => {
     setQuestion(q)
     setQueryAction(execute ? 'execute' : 'preview')
     try {
       const body = requestBody(q)
-      const endpoint = execute ? '/api/ai/query/run' : '/api/ai/query/preview'
-      const res = await postData<AIQueryResponse>(endpoint, body, { timeout: AI_QUERY_TIMEOUT_MS })
-      if (!res) return
-      setResult(res); setChartType('table')
-      setUserFeedback(null); setShowFeedbackForm(false); setFeedbackCategories([]); setFeedbackText('')
-
-      if (res.needs_clarification) {
-        addMessage({ role: 'user', content: q })
-        addMessage({ role: 'assistant', content: res.clarification_question ?? t('ai_query.clarify_default'), ai_response: res })
+      const kind = execute ? 'run' : 'preview'
+      const outcome = await runJob(kind, body)
+      if (outcome === 'fallback') {
+        const endpoint = execute ? '/api/ai/query/run' : '/api/ai/query/preview'
+        const res = await postData<AIQueryResponse>(endpoint, body, { timeout: AI_QUERY_TIMEOUT_MS })
+        if (!res) return
+        applyAIResponse(q, res)
         return
       }
-      addMessage({ role: 'user', content: q })
-      const summary = res.sql
-        ? t('ai_query.assistant_sql_preview', { snippet: res.sql.slice(0, 120) })
-        : t('ai_query.assistant_executed')
-      addMessage({ role: 'assistant', content: summary, ai_response: res })
+      if (!outcome) return
+      applyAIResponse(q, outcome)
     } finally {
       setQueryAction(null)
     }
@@ -1232,11 +1248,12 @@ export default function AIQuery() {
     if (!activeConversation) createConversation()
     setFollowUpBusy(true)
     try {
-      const res = await postData<AIQueryResponse>(
-        '/api/ai/query/run',
-        { ...requestBody(), question: followUp, conversation_id: activeConversation?.id },
-        { timeout: AI_QUERY_TIMEOUT_MS },
-      )
+      const body = { ...requestBody(), question: followUp, conversation_id: activeConversation?.id }
+      const outcome = await runJob('run', body)
+      let res: AIQueryResponse | null = outcome === 'fallback' ? null : outcome
+      if (outcome === 'fallback') {
+        res = await postData<AIQueryResponse>('/api/ai/query/run', body, { timeout: AI_QUERY_TIMEOUT_MS })
+      }
       if (!res) return
       setResult(res)
       addMessage({ role: 'user', content: followUp })
