@@ -81,6 +81,7 @@ func TestTableRouter_RouteSelectsRelatedTables(t *testing.T) {
 	}
 	if routing.Debug == nil {
 		t.Fatalf("Route() debug = nil, want routing debug details")
+		return
 	}
 	if !slices.Contains(routing.Debug.RelationExpansion, "public.orders.customer_id = public.customers.id") {
 		t.Errorf("Route() relation expansion = %v, want orders/customers relation", routing.Debug.RelationExpansion)
@@ -139,6 +140,7 @@ func TestTableRouter_DateGrainDimensionsOnDateColumns(t *testing.T) {
 	}
 	if yearDim == nil {
 		t.Fatalf("expected orderdate_year dimension, got names: %v", dimNames(model.Dimensions))
+		return
 	}
 	if yearDim.TimeGrain != "year" {
 		t.Errorf("orderdate_year TimeGrain = %q, want year", yearDim.TimeGrain)
@@ -183,6 +185,7 @@ func TestTableRouter_DateGrainHourDimensionForTimestamp(t *testing.T) {
 	}
 	if hourDim == nil {
 		t.Fatalf("expected orderdate_hour dimension for timestamp column, got names: %v", dimNames(model.Dimensions))
+		return
 	}
 	if hourDim.TimeGrain != "hour" {
 		t.Errorf("orderdate_hour TimeGrain = %q, want hour", hourDim.TimeGrain)
@@ -229,6 +232,7 @@ func TestTableRouter_DateGrainDayDimensionAdded(t *testing.T) {
 	}
 	if dayDim == nil {
 		t.Fatalf("expected orderdate_day dimension, got names: %v", dimNames(model.Dimensions))
+		return
 	}
 	if dayDim.TimeGrain != "day" {
 		t.Errorf("orderdate_day TimeGrain = %q, want day", dayDim.TimeGrain)
@@ -307,6 +311,7 @@ func TestTableRouter_DisplayNameDimensionInheritsTableSynonyms(t *testing.T) {
 	}
 	if nameDim == nil {
 		t.Fatalf("expected customers.name dimension, got %+v", model.Dimensions)
+		return
 	}
 
 	want := []string{"customer", "musteri"}
@@ -486,6 +491,7 @@ func TestTableRouter_TurkishTopProductsByQuantity(t *testing.T) {
 	}
 	if model == nil {
 		t.Fatal("Route() model = nil")
+		return
 	}
 	got := strings.Join(routing.SelectedTables, ",")
 	for _, need := range []string{"sales.salesorderdetail", "production.product"} {
