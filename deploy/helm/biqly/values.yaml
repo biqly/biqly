@@ -259,6 +259,27 @@ query:
     pathPrefixes:
       - /api/query
 
+frontend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: biqly-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8080
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  route:
+    enabled: true
+    pathPrefixes:
+      - /
+
 ai:
   enabled: true
   replicaCount: 2

@@ -1,0 +1,36 @@
+global:
+  biqlyImageRegistry: ghcr.io/biqly
+  imagePullSecrets: []
+  registrySecret:
+    create: false
+    name: ghcr-registry
+  serviceAccount:
+    name: biqly
+    automountServiceAccountToken: false
+  gateway:
+    enabled: true
+    parentRef:
+      name: lan-gw
+      namespace: gateway
+      sectionName: https
+    hostnames:
+      - abi.il1.nl
+
+replicaCount: 1
+image:
+  repository: biqly-frontend
+  tag: latest
+  pullPolicy: IfNotPresent
+service:
+  port: 8080
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+route:
+  enabled: true
+  pathPrefixes:
+    - /

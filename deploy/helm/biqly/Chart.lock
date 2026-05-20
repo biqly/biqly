@@ -11,5 +11,8 @@ dependencies:
 - name: ai
   repository: file://charts/ai
   version: 0.1.0
-digest: sha256:72d56be9adcf01a22fd78364fdf1f48d89eb919cb3efa7ec92a7999a3efff33c
-generated: "2026-05-19T18:48:24.637222+03:00"
+- name: frontend
+  repository: file://charts/frontend
+  version: 0.1.0
+digest: sha256:a393538f75b5c93ff2fadb3aedb2a0d388bedd74cbb0c2c6b25390d913d4b2e1
+generated: "2026-05-20T08:15:03.271614+03:00"

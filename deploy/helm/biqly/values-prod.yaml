@@ -31,6 +31,9 @@ global:
     dashboards:
       enabled: true
 
+frontend:
+  replicaCount: 1
+
 catalog:
   replicaCount: 1
   autoscaling:

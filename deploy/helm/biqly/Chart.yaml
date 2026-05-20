@@ -18,3 +18,7 @@ dependencies:
   - name: ai
     version: 0.1.0
     repository: file://charts/ai
+  - name: frontend
+    version: 0.1.0
+    repository: file://charts/frontend
+    condition: frontend.enabled
