@@ -76,6 +76,11 @@ global:
       fqdnNames:
         - api.openai.com
         - api.anthropic.com
+      fqdnPorts:
+        - 443
+      cidrs: []
+      cidrPorts:
+        - 11434
   migrate:
     enabled: true
     image:

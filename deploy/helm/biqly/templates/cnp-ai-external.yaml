@@ -11,12 +11,28 @@ spec:
       app.kubernetes.io/component: ai
       app.kubernetes.io/part-of: biqly
   egress:
+    {{- with .Values.global.networkPolicy.aiExternal.fqdnNames }}
     - toFQDNs:
-        {{- range .Values.global.networkPolicy.aiExternal.fqdnNames }}
+        {{- range . }}
         - matchName: {{ . | quote }}
         {{- end }}
       toPorts:
         - ports:
-            - port: "443"
+            {{- range $.Values.global.networkPolicy.aiExternal.fqdnPorts }}
+            - port: {{ . | quote }}
               protocol: TCP
+            {{- end }}
+    {{- end }}
+    {{- with .Values.global.networkPolicy.aiExternal.cidrs }}
+    - toCIDRSet:
+        {{- range . }}
+        - cidr: {{ . | quote }}
+        {{- end }}
+      toPorts:
+        - ports:
+            {{- range $.Values.global.networkPolicy.aiExternal.cidrPorts }}
+            - port: {{ . | quote }}
+              protocol: TCP
+            {{- end }}
+    {{- end }}
 {{- end }}

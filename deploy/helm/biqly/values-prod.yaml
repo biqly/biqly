@@ -30,6 +30,10 @@ global:
         enabled: false
     dashboards:
       enabled: true
+  networkPolicy:
+    aiExternal:
+      cidrs:
+        - 192.168.50.0/24
 
 frontend:
   replicaCount: 1
