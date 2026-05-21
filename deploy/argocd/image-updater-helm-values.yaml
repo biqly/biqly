@@ -1,0 +1,21 @@
+# Helm values for: helm upgrade --install argocd-image-updater argo/argocd-image-updater -n argocd -f deploy/argocd/image-updater-helm-values.yaml
+createClusterRoles: true
+rbac:
+  enabled: true
+
+config:
+  log.level: info
+  git.user: argocd-image-updater
+  git.email: argocd-image-updater@users.noreply.github.com
+  git.commit-message-template: |
+    chore(deploy): bump image tags via argocd-image-updater
+
+    {{range .AppChanges -}}
+    - {{.Image}}: {{.OldTag}} -> {{.NewTag}}
+    {{end -}}
+  registries:
+    - name: ghcr
+      prefix: ghcr.io
+      api_url: https://ghcr.io
+      credentials: pullsecret:argocd/ghcr-registry
+      ping: no

@@ -1,0 +1,44 @@
+apiVersion: argocd-image-updater.argoproj.io/v1alpha1
+kind: ImageUpdater
+metadata:
+  name: biqly
+  namespace: argocd
+spec:
+  writeBackConfig:
+    method: git:secret:argocd/argocd-image-updater-git
+    gitConfig:
+      branch: main
+  commonUpdateSettings:
+    updateStrategy: newest-build
+    allowTags: regexp:^sha-[0-9a-f]{40}$
+    ignoreTags:
+      - latest
+    forceUpdate: true
+  applicationRefs:
+    - namePattern: biqly
+      images:
+        - alias: ai
+          imageName: ghcr.io/biqly/ai:sha-91a9ff58d06ca78fdf3cf136c42c65c1e8b349a6
+          manifestTargets:
+            helm:
+              tag: ai.image.tag
+        - alias: query
+          imageName: ghcr.io/biqly/query:sha-91a9ff58d06ca78fdf3cf136c42c65c1e8b349a6
+          manifestTargets:
+            helm:
+              tag: query.image.tag
+        - alias: catalog
+          imageName: ghcr.io/biqly/catalog:sha-91a9ff58d06ca78fdf3cf136c42c65c1e8b349a6
+          manifestTargets:
+            helm:
+              tag: catalog.image.tag
+        - alias: frontend
+          imageName: ghcr.io/biqly/biqly-frontend:sha-56b921c7800edf2ee5c29a91dfad5f764bdd9d87
+          manifestTargets:
+            helm:
+              tag: frontend.image.tag
+        - alias: migrate
+          imageName: ghcr.io/biqly/migrate:sha-91a9ff58d06ca78fdf3cf136c42c65c1e8b349a6
+          manifestTargets:
+            helm:
+              tag: global.migrate.image.tag

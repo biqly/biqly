@@ -366,8 +366,8 @@ Legend: `[ ]` pending · `[~]` in-progress · `[x]` done · `[-]` cancelled
       _Catalog image workflow eklendi. PR'da build-only, main push'ta GHCR push; multi-arch ve sha tag kullaniyor._
 - [x] **I7.6** GitHub Actions test workflow — `go test ./...` + `golangci-lint run` + `helm lint`
       _`.github/workflows/test.yml` eklendi. Go test, golangci-lint ve `make helm-lint`/`make helm-template` job'lari ayri calisiyor. Workflow YAML parse dogrulamasi basarili._
-- [~] **I7.7** `argocd-image-updater` ile values.yaml `image.tag` otomatik bump (write-back commit)
-      _ArgoCD Application annotation'lari eklendi: `ai/query/catalog` image-list ve `*.helm.image-tag` path'leri `ai.image.tag`, `query.image.tag`, `catalog.image.tag`. Runtime dogrulama icin cluster'da argocd-image-updater kurulu ve repo write-back yetkili olmali._
+- [x] **I7.7** `argocd-image-updater` ile image tag otomatik bump (git write-back)
+      _Cluster: `helm upgrade --install argocd-image-updater argo/argocd-image-updater -f deploy/argocd/image-updater-helm-values.yaml`. CR: `deploy/argocd/image-updater.yaml` (`namePattern: biqly`, `newest-build`, `sha-*` tags). Git: `deploy/helm/biqly/.argocd-source-biqly.yaml` + `argocd-image-updater-git` secret (see `image-updater-git-secret.example.yaml`)._
 - [~] **I7.8** Branch protection — main'e direkt push yasak, PR + CI yesil + 1 review
       _GitHub branch protection repo state oldugu icin dogrudan degistirilmedi. `docs/github-branch-protection.md` eklendi; main icin PR zorunlu, 1 approval, required checks ve up-to-date branch politikasini dokumante ediyor._
 - [x] **I7.9** Renovate veya Dependabot — Go module + Helm chart dependency update
