@@ -41,7 +41,7 @@ func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID string, req 
 		req = []byte("{}")
 	}
 	var datasourceID *string
-	var scopeSchemas []string
+	scopeSchemas := []string{}
 	if kind == "describe_batch" {
 		var batchReq ai.DescribeBatchRequest
 		if err := json.Unmarshal(req, &batchReq); err != nil {

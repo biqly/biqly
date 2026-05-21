@@ -44,13 +44,17 @@ func (r *Repository) CreateAIJob(ctx context.Context, job *AIJob) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}
+	scopeSchemas := job.ScopeSchemas
+	if scopeSchemas == nil {
+		scopeSchemas = []string{}
+	}
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO ai_jobs (
 			id, client_session_id, kind, status, phase, phase_message, progress_pct,
 			datasource_id, scope_schemas, request_json
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::uuid, $9, $10::jsonb)`,
 		job.ID, job.ClientSessionID, job.Kind, job.Status, job.Phase, job.PhaseMessage, job.ProgressPct,
-		job.DatasourceID, pq.Array(job.ScopeSchemas), job.RequestJSON,
+		job.DatasourceID, pq.Array(scopeSchemas), job.RequestJSON,
 	)
 	if err != nil {
 		return fmt.Errorf("create ai job: %w", err)
