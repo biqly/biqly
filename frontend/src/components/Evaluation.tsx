@@ -13,7 +13,7 @@ import {
 } from 'recharts'
 import { useAdminApi } from '../hooks/useApi'
 import { useQueryParam } from '../hooks/useQueryParam'
-import { useI18n, useT } from '../i18n'
+import { localeLanguageTag, useI18n, useT } from '../i18n'
 import { chartAxisStroke, chartGridStroke, chartTooltipStyle, smallChartTick } from '../utils/chartConfig'
 import { getRateColor } from '../utils/formatters'
 import { ErrorAlert } from './ui/ErrorAlert'
@@ -160,7 +160,7 @@ function TestCaseRow({ tc }: { tc: EvalTestCase }) {
 export default function Evaluation() {
   const t = useT()
   const { locale } = useI18n()
-  const localeTag = locale === 'tr' ? 'tr-TR' : 'en-US'
+  const localeTag = localeLanguageTag(locale)
   const adminApi = useAdminApi()
 
   const [evalData, setEvalData] = useState<EvalRunResponse | null>(null)
@@ -429,6 +429,7 @@ export default function Evaluation() {
                   <th>{t('evaluation.hist_passed')}</th>
                   <th>{t('evaluation.hist_failed')}</th>
                   <th>{t('evaluation.hist_success_pct')}</th>
+                  <th>{t('evaluation.hist_prompt_version')}</th>
                   <th>{t('evaluation.hist_detail')}</th>
                 </tr>
               </thead>
@@ -446,6 +447,7 @@ export default function Evaluation() {
                     }}>
                       {(r.pass_rate * 100).toFixed(0)}%
                     </td>
+                    <td>v{r.prompt_template_bundle_version ?? 0}</td>
                     <td>
                       <button className="btn btn-sm" onClick={() => loadRunDetail(r.run_id)}>{t('evaluation.detail_btn')}</button>
                     </td>

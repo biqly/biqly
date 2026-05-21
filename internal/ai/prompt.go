@@ -352,7 +352,30 @@ func (b *PromptBuilder) writeMetrics(sb *bytes.Buffer, metrics []semantic.Metric
 // BuildClarification asks the LLM to produce a single, user-facing clarifying
 // question explaining what is ambiguous about the original request, given the
 // available semantic model. Output is plain text (no JSON) — short, natural.
-func (b *PromptBuilder) BuildClarification(question string, model *semantic.SemanticModel, failureReason string) string {
+func (b *PromptBuilder) BuildClarification(ctx context.Context, locale i18n.Locale, question string, model *semantic.SemanticModel, failureReason string) string {
+	locale = PromptLocaleForQuestion(question, locale)
+	tmpl := promptTemplate(ctx, locale, "clarification")
+	if tmpl != "" {
+		if model == nil {
+			model = &semantic.SemanticModel{}
+		}
+		names := make([]string, 0, len(model.Dimensions))
+		for _, d := range model.Dimensions {
+			names = append(names, d.Name)
+		}
+		metricNames := make([]string, 0, len(model.Metrics))
+		for _, m := range model.Metrics {
+			metricNames = append(metricNames, m.Name)
+		}
+		return renderPromptTemplate(tmpl, map[string]any{
+			"Question":      question,
+			"FailureReason": failureReason,
+			"ModelName":     model.Name,
+			"Dimensions":    strings.Join(names, ", "),
+			"Metrics":       strings.Join(metricNames, ", "),
+		})
+	}
+
 	sb := promptBuilderPool.Get().(*bytes.Buffer)
 	sb.Reset()
 	defer promptBuilderPool.Put(sb)
@@ -390,7 +413,17 @@ func (b *PromptBuilder) BuildClarification(question string, model *semantic.Sema
 // previous attempt produced unparseable or semantically-invalid output. The
 // original prompt is reused as the source of truth for the schema; the
 // addendum carries the model's failed response and the validation error.
-func (b *PromptBuilder) BuildRetry(originalPrompt, lastResponse, validationError string) string {
+func (b *PromptBuilder) BuildRetry(ctx context.Context, locale i18n.Locale, originalPrompt, lastResponse, validationError string) string {
+	tmpl := promptTemplate(ctx, locale, "retry")
+	if tmpl != "" {
+		return renderPromptTemplate(tmpl, map[string]any{
+			"OriginalPrompt":   originalPrompt,
+			"LastResponse":     lastResponse,
+			"ValidationError":  validationError,
+			"ValidationErrors": validationError,
+		})
+	}
+
 	sb := promptBuilderPool.Get().(*bytes.Buffer)
 	sb.Reset()
 	defer promptBuilderPool.Put(sb)

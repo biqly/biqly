@@ -61,7 +61,7 @@ func (h *AIPromptTemplatesHandler) UpdatePromptTemplate(w http.ResponseWriter, r
 	}
 	loc, okLoc := promptTemplateLocale(localeStr)
 	if !okLoc {
-		writeError(w, http.StatusBadRequest, "locale must be en or tr")
+		writeError(w, http.StatusBadRequest, "unsupported locale")
 		return
 	}
 	if !isKnownPromptTemplateName(name) {
@@ -100,7 +100,7 @@ func (h *AIPromptTemplatesHandler) RestorePromptTemplate(w http.ResponseWriter, 
 	}
 	loc, okLoc := promptTemplateLocale(localeStr)
 	if !okLoc {
-		writeError(w, http.StatusBadRequest, "locale must be en or tr")
+		writeError(w, http.StatusBadRequest, "unsupported locale")
 		return
 	}
 	if !isKnownPromptTemplateName(name) {
@@ -135,14 +135,7 @@ func isKnownPromptTemplateName(name string) bool {
 }
 
 func promptTemplateLocale(raw string) (i18n.Locale, bool) {
-	switch raw {
-	case string(i18n.LocaleEN):
-		return i18n.LocaleEN, true
-	case string(i18n.LocaleTR):
-		return i18n.LocaleTR, true
-	default:
-		return i18n.DefaultLocale, false
-	}
+	return i18n.ParseSupportedLocale(raw)
 }
 
 // PromptTemplateRow is the API wire type for list responses.

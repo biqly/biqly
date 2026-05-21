@@ -7,7 +7,7 @@ import (
 	"github.com/biqly/biqly/internal/i18n"
 )
 
-//go:embed prompts/en/*.tmpl prompts/tr/*.tmpl
+//go:embed prompts/*/*.tmpl
 var promptFS embed.FS
 
 // promptTemplateFromEmbed reads embedded defaults (seed + fallback).

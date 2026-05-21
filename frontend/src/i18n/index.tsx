@@ -2,15 +2,24 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { en, type Dictionary } from './locales/en'
 import { tr } from './locales/tr'
 
-export type Locale = 'tr' | 'en'
-export const SUPPORTED_LOCALES: Locale[] = ['tr', 'en']
-export const DEFAULT_LOCALE: Locale = 'tr'
-
 const STORAGE_KEY = 'biqly_locale'
 
-const dictionaries: Record<Locale, Dictionary> = {
+const dictionaries = {
   en,
   tr,
+} satisfies Record<string, Dictionary>
+
+export type Locale = keyof typeof dictionaries
+export const SUPPORTED_LOCALES = Object.keys(dictionaries) as Locale[]
+export const DEFAULT_LOCALE: Locale = 'tr'
+export const FALLBACK_LOCALE: Locale = 'en'
+export const LOCALE_OPTIONS: Record<Locale, { label: string; short: string; languageTag: string }> = {
+  en: { label: 'English', short: 'EN', languageTag: 'en-US' },
+  tr: { label: 'Türkçe', short: 'TR', languageTag: 'tr-TR' },
+}
+
+export function localeLanguageTag(locale: Locale): string {
+  return LOCALE_OPTIONS[locale]?.languageTag ?? LOCALE_OPTIONS[FALLBACK_LOCALE].languageTag
 }
 
 type LeafKeys<T, Prefix extends string = ''> = {
@@ -97,8 +106,8 @@ function interpolate(template: string, params?: Record<string, string | number>)
 function translate(locale: Locale, key: TranslationKey, params?: Record<string, string | number>): string {
   const primary = lookup(dictionaries[locale], key)
   if (primary !== undefined) return interpolate(primary, params)
-  if (locale !== 'en') {
-    const fallback = lookup(dictionaries.en, key)
+  if (locale !== FALLBACK_LOCALE) {
+    const fallback = lookup(dictionaries[FALLBACK_LOCALE], key)
     if (fallback !== undefined) return interpolate(fallback, params)
   }
   return key

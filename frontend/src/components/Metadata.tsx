@@ -4,8 +4,8 @@ import { fetchDescribeBatchConflict } from '../api/describeBatchConflict'
 import { jobIsActive, useAIJobs } from '../hooks/useAIJobs'
 import { runMetadataDescribeDirect, type DescribeResult } from '../api/metadataDescribe'
 import { useQueryParam } from '../hooks/useQueryParam'
-import { useLocale, useT } from '../i18n'
-import type { TranslationKey } from '../i18n'
+import { FALLBACK_LOCALE, LOCALE_OPTIONS, SUPPORTED_LOCALES, useLocale, useT } from '../i18n'
+import type { Locale, TranslationKey } from '../i18n'
 import type { Datasource } from '../types/metadata'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { InlineEdit } from './ui/InlineEdit'
@@ -86,7 +86,7 @@ export default function Metadata() {
   const { runJob, bulkDescribe, jobs } = useAIJobs()
   const t = useT()
   const [locale] = useLocale()
-  const [editLocale, setEditLocale] = useState<'tr' | 'en'>(locale === 'en' ? 'en' : 'tr')
+  const [editLocale, setEditLocale] = useState<Locale>(locale)
   const descriptionLocaleOpts = useMemo(
     () => ({ headers: { 'X-Locale': editLocale } }),
     [editLocale],
@@ -293,8 +293,8 @@ export default function Metadata() {
     const entityPath = editing.kind === 'table' ? 'tables' : 'columns'
     const value = editing.value.trim() === '' ? null : editing.value
     let ok = false
-    if (editLocale === 'en') {
-      // English overlay corresponds to the legacy raw `description` column.
+    if (editLocale === FALLBACK_LOCALE) {
+      // The fallback locale corresponds to the legacy raw `description` column.
       const res = await patchData(`/api/metadata/${entityPath}/${editing.id}`, { description: value })
       ok = !!res
     } else {
@@ -443,26 +443,20 @@ export default function Metadata() {
                 role="tablist"
                 aria-label={t('metadata.lang_tabs_aria')}
               >
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={editLocale === 'tr'}
-                  className={`metadata-lang-tab${editLocale === 'tr' ? ' metadata-lang-tab--active' : ''}`}
-                  onClick={() => setEditLocale('tr')}
-                >
-                  TR
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={editLocale === 'en'}
-                  className={`metadata-lang-tab${editLocale === 'en' ? ' metadata-lang-tab--active' : ''}`}
-                  onClick={() => setEditLocale('en')}
-                >
-                  EN
-                </button>
+                {SUPPORTED_LOCALES.map((loc) => (
+                  <button
+                    key={loc}
+                    type="button"
+                    role="tab"
+                    aria-selected={editLocale === loc}
+                    className={`metadata-lang-tab${editLocale === loc ? ' metadata-lang-tab--active' : ''}`}
+                    onClick={() => setEditLocale(loc)}
+                  >
+                    {LOCALE_OPTIONS[loc].short}
+                  </button>
+                ))}
               </div>
-              {editLocale === 'tr' && (
+              {editLocale !== FALLBACK_LOCALE && (
                 <p className="metadata-desc-lang-hint" style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', margin: 0 }}>
                   {t('metadata.desc_lang_tr_hint')}
                 </p>

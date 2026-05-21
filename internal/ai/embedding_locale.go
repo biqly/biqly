@@ -39,4 +39,6 @@ func EmbeddingModelMatches(storedModel, baseModel string, loc i18n.Locale) bool 
 }
 
 // embeddingLocalesWritten are persisted on each metadata embed refresh.
-var embeddingLocalesWritten = []i18n.Locale{i18n.LocaleEN, i18n.LocaleTR}
+func embeddingLocalesWritten() []i18n.Locale {
+	return append([]i18n.Locale(nil), i18n.SupportedLocales...)
+}

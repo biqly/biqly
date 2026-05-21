@@ -15,17 +15,17 @@ import (
 )
 
 type evalTestCaseWire struct {
-	ID                   string                 `json:"id"`
-	Question             string                 `json:"question"`
-	Status               string                 `json:"status"`
+	ID                   string         `json:"id"`
+	Question             string         `json:"question"`
+	Status               string         `json:"status"`
 	ExpectedLogicalQuery map[string]any `json:"expected_logical_query"`
 	GotLogicalQuery      map[string]any `json:"got_logical_query"`
-	Confidence           *float64               `json:"confidence,omitempty"`
-	ErrorMessage         string                 `json:"error_message,omitempty"`
-	LogicalMatch         *bool                  `json:"logical_match,omitempty"`
-	ExecutionMatch       *bool                  `json:"execution_match,omitempty"`
-	JudgeMatch           *bool                  `json:"judge_match,omitempty"`
-	JudgeRationale       string                 `json:"judge_rationale,omitempty"`
+	Confidence           *float64       `json:"confidence,omitempty"`
+	ErrorMessage         string         `json:"error_message,omitempty"`
+	LogicalMatch         *bool          `json:"logical_match,omitempty"`
+	ExecutionMatch       *bool          `json:"execution_match,omitempty"`
+	JudgeMatch           *bool          `json:"judge_match,omitempty"`
+	JudgeRationale       string         `json:"judge_rationale,omitempty"`
 }
 
 type evalRunResponseWire struct {
@@ -261,7 +261,16 @@ func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		cr := ai.EvalCaseResult{Case: c, Got: resp.LogicalQuery, Confidence: resp.Confidence}
+		cr := ai.EvalCaseResult{
+			Case:                        c,
+			Got:                         resp.LogicalQuery,
+			Confidence:                  resp.Confidence,
+			PromptTemplateVersions:      resp.PromptTemplateVersions,
+			PromptTemplateBundleVersion: resp.PromptTemplateBundleVersion,
+		}
+		if resp.TokenUsage != nil {
+			cr.TokenCount = resp.TokenUsage.Total
+		}
 		if modes&ai.EvalModeLogical != 0 {
 			cr.LogicalMatch, cr.LogicalReason = ai.LogicalQueryEqual(resp.LogicalQuery, &c.Expected)
 			if cr.LogicalMatch {

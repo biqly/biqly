@@ -438,6 +438,8 @@ export interface EvalRunSummary {
   avg_latency_ms: number
   total_tokens: number
   completed_at: string
+  prompt_template_versions?: Record<string, number>
+  prompt_template_bundle_version?: number
 }
 
 export interface EvalRunTestCase {

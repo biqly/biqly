@@ -65,10 +65,13 @@ func buildAIHistoryEntry(
 		ModelID:      query.HistoryModelID(model),
 		Question:     req.Question,
 		PromptContext: map[string]any{
-			"model_id":       req.ModelID,
-			"selected_scope": req.Tables,
-			"routing":        routing,
-			"prompt":         resp.Prompt,
+			"model_id":                       req.ModelID,
+			"selected_scope":                 req.Tables,
+			"routing":                        routing,
+			"prompt":                         resp.Prompt,
+			"prompt_template_locale":         resp.PromptTemplateLocale,
+			"prompt_template_versions":       resp.PromptTemplateVersions,
+			"prompt_template_bundle_version": resp.PromptTemplateBundleVersion,
 		},
 		AIResponse: map[string]any{
 			"response":     resp,

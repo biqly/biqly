@@ -33,6 +33,85 @@ const (
 // SupportedLocales lists all locales that have an embedded bundle.
 var SupportedLocales = []Locale{LocaleEN, LocaleTR}
 
+// LocaleProfile contains UI labels and lightweight NL detection hints for one locale.
+type LocaleProfile struct {
+	Locale                   Locale
+	Label                    string
+	ShortLabel               string
+	QuestionLetters          string
+	QuestionSignals          []string
+	UsesMetadataTranslations bool
+}
+
+var localeProfiles = map[Locale]LocaleProfile{
+	LocaleEN: {
+		Locale:     LocaleEN,
+		Label:      "English",
+		ShortLabel: "EN",
+		QuestionSignals: []string{
+			" show ", " list ", " total ", " average ", " count ", " by ", " per ",
+			" today ", " yesterday ", " last ", " between ", " customer ", " order ",
+			" sales ", " product ", " tweet ", " user ", " amount ",
+		},
+	},
+	LocaleTR: {
+		Locale:                   LocaleTR,
+		Label:                    "Türkçe",
+		ShortLabel:               "TR",
+		QuestionLetters:          "ıİşŞğĞüÜöÖçÇ",
+		UsesMetadataTranslations: true,
+		QuestionSignals: []string{
+			" kaç ", " kaç? ", " adet ", " göster ", " listele ", " toplam ",
+			" ortalama ", " günlük ", " aylık ", " yıllık ", " dün ", " bugün ", " geçen ",
+			" son ", " filtre ", " göre ", " arasında ", " tarih ", " müşteri ", " sipariş ",
+			" satis ", " satış ", " ürün ", " tweet ", " kullanıcı ", " sayısı ", " miktar ",
+			" silinen ", " silinmis ", " silinmiş ", " silindi ", " kaldırılan ", " kaldirilan ",
+		},
+	},
+}
+
+// SupportedLocaleProfiles returns profile data in SupportedLocales order.
+func SupportedLocaleProfiles() []LocaleProfile {
+	out := make([]LocaleProfile, 0, len(SupportedLocales))
+	for _, loc := range SupportedLocales {
+		if profile, ok := LocaleProfileFor(loc); ok {
+			out = append(out, profile)
+		}
+	}
+	return out
+}
+
+// LocaleProfileFor returns the profile for a supported locale.
+func LocaleProfileFor(loc Locale) (LocaleProfile, bool) {
+	profile, ok := localeProfiles[loc]
+	return profile, ok
+}
+
+// SupportedLocaleCodes returns supported locale codes in priority order.
+func SupportedLocaleCodes() []string {
+	out := make([]string, 0, len(SupportedLocales))
+	for _, loc := range SupportedLocales {
+		out = append(out, string(loc))
+	}
+	return out
+}
+
+// IsSupported reports whether loc is configured in SupportedLocales.
+func IsSupported(loc Locale) bool {
+	return isSupported(loc)
+}
+
+// MetadataTranslationLocales returns locales that should receive translated metadata.
+func MetadataTranslationLocales() []Locale {
+	out := make([]Locale, 0, len(SupportedLocales))
+	for _, profile := range SupportedLocaleProfiles() {
+		if profile.UsesMetadataTranslations {
+			out = append(out, profile.Locale)
+		}
+	}
+	return out
+}
+
 //go:embed locales/*.json
 var localeFS embed.FS
 
@@ -130,19 +209,15 @@ func interpolate(tmpl string, args map[string]any) string {
 // ParseLocale normalizes raw locale strings ("tr-TR", "TR", "en_US") into a
 // supported Locale value, returning DefaultLocale when unrecognized.
 func ParseLocale(raw string) Locale {
-	if raw == "" {
-		return DefaultLocale
-	}
-	lower := strings.ToLower(raw)
-	if idx := strings.IndexAny(lower, "-_"); idx > 0 {
-		lower = lower[:idx]
-	}
-	for _, loc := range SupportedLocales {
-		if string(loc) == lower {
-			return loc
-		}
+	if loc, ok := ParseSupportedLocale(raw); ok {
+		return loc
 	}
 	return DefaultLocale
+}
+
+// ParseSupportedLocale normalizes raw locale strings and reports whether they are supported.
+func ParseSupportedLocale(raw string) (Locale, bool) {
+	return matchSupported(raw)
 }
 
 // ParseAcceptLanguage returns the highest-quality supported locale from an

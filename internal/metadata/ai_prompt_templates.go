@@ -14,7 +14,10 @@ import (
 type PromptTemplate struct {
 	Name      string    `json:"name"`
 	Locale    string    `json:"locale"`
+	Version   int       `json:"version"`
 	Content   string    `json:"content"`
+	IsActive  bool      `json:"is_active"`
+	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
@@ -27,49 +30,79 @@ func (r *Repository) CountPromptTemplates(ctx context.Context) (int, error) {
 	return n, nil
 }
 
-// GetPromptTemplate loads a single section. Missing rows return ("", nil).
+// GetPromptTemplate loads the active section. Missing rows return ("", nil).
 func (r *Repository) GetPromptTemplate(ctx context.Context, name string, loc i18n.Locale) (string, error) {
+	content, _, err := r.GetPromptTemplateVersion(ctx, name, loc)
+	return content, err
+}
+
+// GetPromptTemplateVersion loads the active section with its version.
+func (r *Repository) GetPromptTemplateVersion(ctx context.Context, name string, loc i18n.Locale) (string, int, error) {
 	if loc == "" {
 		loc = i18n.DefaultLocale
 	}
 	var content string
+	var version int
 	err := r.db.QueryRowContext(ctx, `
-		SELECT content FROM ai_prompt_templates
-		WHERE name = $1 AND locale = $2`,
+		SELECT content, version FROM ai_prompt_templates
+		WHERE name = $1 AND locale = $2 AND is_active = TRUE
+		ORDER BY version DESC LIMIT 1`,
 		name, string(loc),
-	).Scan(&content)
+	).Scan(&content, &version)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", nil
+			return "", 0, nil
 		}
-		return "", fmt.Errorf("get prompt template: %w", err)
+		return "", 0, fmt.Errorf("get prompt template: %w", err)
 	}
-	return content, nil
+	return content, version, nil
 }
 
-// UpsertPromptTemplate inserts or replaces a prompt section.
+// UpsertPromptTemplate creates a new active version for a prompt section.
 func (r *Repository) UpsertPromptTemplate(ctx context.Context, name string, loc i18n.Locale, content string) error {
 	if loc == "" {
 		loc = i18n.DefaultLocale
 	}
-	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO ai_prompt_templates (name, locale, content, updated_at)
-		VALUES ($1, $2, $3, now())
-		ON CONFLICT (name, locale) DO UPDATE SET
-			content = EXCLUDED.content,
-			updated_at = now()`,
-		name, string(loc), content,
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin prompt template version tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var nextVersion int
+	if err := tx.QueryRowContext(ctx, `
+		SELECT COALESCE(MAX(version), 0) + 1
+		FROM ai_prompt_templates
+		WHERE name = $1 AND locale = $2`,
+		name, string(loc),
+	).Scan(&nextVersion); err != nil {
+		return fmt.Errorf("next prompt template version: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE ai_prompt_templates
+		SET is_active = FALSE, updated_at = now()
+		WHERE name = $1 AND locale = $2 AND is_active = TRUE`,
+		name, string(loc),
+	); err != nil {
+		return fmt.Errorf("deactivate prompt template versions: %w", err)
+	}
+	_, err = tx.ExecContext(ctx, `
+		INSERT INTO ai_prompt_templates (name, locale, version, content, is_active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, TRUE, now(), now())`,
+		name, string(loc), nextVersion, content,
 	)
 	if err != nil {
 		return fmt.Errorf("upsert prompt template: %w", err)
 	}
-	return nil
+	return tx.Commit()
 }
 
-// ListPromptTemplates returns all rows (admin/diagnostics).
+// ListPromptTemplates returns all rows including inactive versions.
 func (r *Repository) ListPromptTemplates(ctx context.Context) ([]PromptTemplate, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT name, locale, content, updated_at FROM ai_prompt_templates ORDER BY name, locale`)
+		SELECT name, locale, version, content, is_active, created_at, updated_at
+		FROM ai_prompt_templates
+		ORDER BY name, locale, version DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("list prompt templates: %w", err)
 	}
@@ -77,7 +110,7 @@ func (r *Repository) ListPromptTemplates(ctx context.Context) ([]PromptTemplate,
 	var out []PromptTemplate
 	for rows.Next() {
 		var t PromptTemplate
-		if err := rows.Scan(&t.Name, &t.Locale, &t.Content, &t.UpdatedAt); err != nil {
+		if err := rows.Scan(&t.Name, &t.Locale, &t.Version, &t.Content, &t.IsActive, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan prompt template: %w", err)
 		}
 		out = append(out, t)

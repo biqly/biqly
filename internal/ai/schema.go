@@ -46,6 +46,10 @@ type Response struct {
 	TokenUsage  *TokenUsage  `json:"token_usage,omitempty"`
 	CostUSD     float64      `json:"cost_usd,omitempty"`
 	LatencyMs   int          `json:"latency_ms,omitempty"`
+	// Prompt template traceability for prompt-version A/B comparison and evals.
+	PromptTemplateLocale        string         `json:"prompt_template_locale,omitempty"`
+	PromptTemplateVersions      map[string]int `json:"prompt_template_versions,omitempty"`
+	PromptTemplateBundleVersion int            `json:"prompt_template_bundle_version,omitempty"`
 	// Visualization hint for frontend chart auto-selection
 	VisualizationHint *VisualizationHint `json:"visualization_hint,omitempty"`
 }

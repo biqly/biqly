@@ -35,17 +35,20 @@ type EvalSuiteOptions struct {
 
 // EvalCaseResult is the outcome for one eval case.
 type EvalCaseResult struct {
-	Case             GoldenCase
-	Got              *query.LogicalQuery
-	LogicalMatch     bool
-	LogicalReason    string
-	ExecutionMatch   bool
-	ExecutionReason  string
-	JudgeMatch       bool
-	JudgeReason      string
-	Confidence       float64
-	LatencyMs        int64
-	Err              error
+	Case                        GoldenCase
+	Got                         *query.LogicalQuery
+	LogicalMatch                bool
+	LogicalReason               string
+	ExecutionMatch              bool
+	ExecutionReason             string
+	JudgeMatch                  bool
+	JudgeReason                 string
+	Confidence                  float64
+	LatencyMs                   int64
+	TokenCount                  int
+	PromptTemplateVersions      map[string]int
+	PromptTemplateBundleVersion int
+	Err                         error
 }
 
 // Pass returns true when all enabled modes passed for this case.
@@ -67,15 +70,15 @@ func (r EvalCaseResult) Pass(opts EvalSuiteOptions) bool {
 
 // EvalSuiteResult aggregates a full suite run.
 type EvalSuiteResult struct {
-	Total            int
-	LogicalPassed    int
-	ExecutionPassed  int
-	JudgePassed      int
-	Passed           int
-	Failed           int
-	PassRate         float64
-	AvgConfidence    float64
-	Cases            []EvalCaseResult
+	Total           int
+	LogicalPassed   int
+	ExecutionPassed int
+	JudgePassed     int
+	Passed          int
+	Failed          int
+	PassRate        float64
+	AvgConfidence   float64
+	Cases           []EvalCaseResult
 }
 
 // RunGoldenSuite runs each case through the AI service and optional checks.
@@ -114,6 +117,11 @@ func RunGoldenSuite(ctx context.Context, svc *Service, opts EvalSuiteOptions) *E
 			confSum += resp.Confidence
 			confN++
 		}
+		if resp.TokenUsage != nil {
+			cr.TokenCount = resp.TokenUsage.Total
+		}
+		cr.PromptTemplateVersions = resp.PromptTemplateVersions
+		cr.PromptTemplateBundleVersion = resp.PromptTemplateBundleVersion
 
 		if opts.Modes&EvalModeLogical != 0 {
 			cr.LogicalMatch, cr.LogicalReason = LogicalQueryEqual(resp.LogicalQuery, &c.Expected)
@@ -212,9 +220,12 @@ func (r *EvalSuiteResult) ToEvalResultsWithMetrics() []EvalResultWithMetrics {
 			er.Reason = c.Err.Error()
 		}
 		out = append(out, EvalResultWithMetrics{
-			EvalResult: er,
-			Confidence: c.Confidence,
-			LatencyMs:  c.LatencyMs,
+			EvalResult:                  er,
+			Confidence:                  c.Confidence,
+			LatencyMs:                   c.LatencyMs,
+			TokenCount:                  c.TokenCount,
+			PromptTemplateVersions:      c.PromptTemplateVersions,
+			PromptTemplateBundleVersion: c.PromptTemplateBundleVersion,
 		})
 	}
 	return out

@@ -1,0 +1,90 @@
+package ai
+
+import (
+	"context"
+	"strings"
+	"testing"
+
+	"github.com/biqly/biqly/internal/i18n"
+	"github.com/biqly/biqly/internal/semantic"
+)
+
+type testPromptStore struct {
+	templates map[string]PromptTemplateSnapshot
+}
+
+func (s testPromptStore) Template(ctx context.Context, loc i18n.Locale, name string) string {
+	return s.Snapshot(ctx, loc, name).Content
+}
+
+func (s testPromptStore) Snapshot(_ context.Context, loc i18n.Locale, name string) PromptTemplateSnapshot {
+	if v, ok := s.templates[name+"\x00"+string(loc)]; ok {
+		return v
+	}
+	return PromptTemplateSnapshot{Name: name, Locale: loc, Content: "", Version: 0}
+}
+
+func withPromptStore(t *testing.T, store PromptTemplateStore) {
+	t.Helper()
+	prev := activePromptStore
+	SetPromptTemplateStore(store)
+	t.Cleanup(func() { SetPromptTemplateStore(prev) })
+}
+
+func TestKnownPromptTemplateNamesIncludesRetryAndClarification(t *testing.T) {
+	got := strings.Join(KnownPromptTemplateNames(), ",")
+	for _, name := range []string{"system_rules", "output_format", "retry", "clarification"} {
+		if !strings.Contains(got, name) {
+			t.Fatalf("expected %s in editable prompt template names, got %q", name, got)
+		}
+	}
+}
+
+func TestBuildRetryUsesEditableTemplate(t *testing.T) {
+	withPromptStore(t, testPromptStore{templates: map[string]PromptTemplateSnapshot{
+		"retry\x00tr": {
+			Name:    "retry",
+			Locale:  i18n.LocaleTR,
+			Content: "CUSTOM RETRY {{.OriginalPrompt}} {{.LastResponse}} {{.ValidationError}}",
+			Version: 7,
+		},
+	}})
+
+	pb := &PromptBuilder{}
+	got := pb.BuildRetry(context.Background(), i18n.LocaleTR, "ORIGINAL", "BAD", "BROKEN")
+	if !strings.Contains(got, "CUSTOM RETRY ORIGINAL BAD BROKEN") {
+		t.Fatalf("expected retry template to render from store, got %q", got)
+	}
+}
+
+func TestBuildClarificationUsesEditableTemplate(t *testing.T) {
+	withPromptStore(t, testPromptStore{templates: map[string]PromptTemplateSnapshot{
+		"clarification\x00tr": {
+			Name:    "clarification",
+			Locale:  i18n.LocaleTR,
+			Content: "CUSTOM CLARIFY {{.Question}} {{.ModelName}} {{.FailureReason}}",
+			Version: 3,
+		},
+	}})
+
+	pb := &PromptBuilder{}
+	model := &semantic.SemanticModel{Name: "tweets"}
+	got := pb.BuildClarification(context.Background(), i18n.LocaleTR, "silinen tweetler", model, "ambiguous")
+	if !strings.Contains(got, "CUSTOM CLARIFY silinen tweetler tweets ambiguous") {
+		t.Fatalf("expected clarification template to render from store, got %q", got)
+	}
+}
+
+func TestPromptTemplateBundleVersionsReturnsActiveVersions(t *testing.T) {
+	withPromptStore(t, testPromptStore{templates: map[string]PromptTemplateSnapshot{
+		"system_rules\x00tr":  {Name: "system_rules", Locale: i18n.LocaleTR, Version: 2},
+		"output_format\x00tr": {Name: "output_format", Locale: i18n.LocaleTR, Version: 5},
+		"retry\x00tr":         {Name: "retry", Locale: i18n.LocaleTR, Version: 8},
+		"clarification\x00tr": {Name: "clarification", Locale: i18n.LocaleTR, Version: 13},
+	}})
+
+	got := PromptTemplateBundleVersions(context.Background(), i18n.LocaleTR)
+	if got["system_rules"] != 2 || got["output_format"] != 5 || got["retry"] != 8 || got["clarification"] != 13 {
+		t.Fatalf("unexpected version bundle: %#v", got)
+	}
+}

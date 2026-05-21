@@ -90,11 +90,13 @@ func (s *EmbedMetadataService) embedForFilter(ctx context.Context, datasourceID 
 		return nil, nil
 	}
 
-	results := make([]EmbedTableResult, 0, (len(tables)+len(cols))*len(embeddingLocalesWritten))
-	for _, loc := range embeddingLocalesWritten {
+	locales := embeddingLocalesWritten()
+	results := make([]EmbedTableResult, 0, (len(tables)+len(cols))*len(locales))
+	for _, loc := range locales {
 		locTables := tables
 		locCols := cols
-		if loc == i18n.LocaleTR {
+		profile, _ := i18n.LocaleProfileFor(loc)
+		if profile.UsesMetadataTranslations {
 			locTables = append([]metadata.Table(nil), tables...)
 			locCols = append([]metadata.Column(nil), cols...)
 			if err := s.writer.ApplyTableTranslations(ctx, locTables, loc); err != nil {

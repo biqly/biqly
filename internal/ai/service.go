@@ -157,7 +157,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 	// and vote. A clear majority returns immediately; otherwise we fall through to
 	// the standard retry loop which handles single-shot generation + correction.
 	if s.multiCandidateCount > 1 {
-		if resp, ok := s.tryMultiCandidate(ctx, basePrompt, model, options, baseStats, filterSess, followIntent); ok {
+		if resp, ok := s.tryMultiCandidate(ctx, question, basePrompt, model, options, baseStats, filterSess, followIntent); ok {
 			return resp, nil
 		}
 	}
@@ -199,15 +199,19 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 				warnings = append(warnings, inheritNotes...)
 			}
 			retries := attempt
+			templateLocale, templateVersions, bundleVersion := promptTemplateTrace(ctx, question)
 			resp := &AIResponse{
-				LogicalQuery: lq,
-				Confidence:   computeConfidence(validationErrCount, retries),
-				Warnings:     append(retryWarnings, warnings...),
-				Prompt:       prompt,
-				RawResponse:  gen.Content,
-				RetryCount:   retries,
-				PromptStats:  &promptStats,
-				TokenUsage:   tokenUsageFromGeneration(promptStats, gen),
+				LogicalQuery:                lq,
+				Confidence:                  computeConfidence(validationErrCount, retries),
+				Warnings:                    append(retryWarnings, warnings...),
+				Prompt:                      prompt,
+				RawResponse:                 gen.Content,
+				RetryCount:                  retries,
+				PromptStats:                 &promptStats,
+				TokenUsage:                  tokenUsageFromGeneration(promptStats, gen),
+				PromptTemplateLocale:        templateLocale,
+				PromptTemplateVersions:      templateVersions,
+				PromptTemplateBundleVersion: bundleVersion,
 			}
 			return resp, nil
 		}
@@ -222,7 +226,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		retryWarnings = append(retryWarnings, fmt.Sprintf("retry %d (context %s): %s", attempt+1, contextTierLabel(contextTierForAttempt(attempt+1)), failureMsg))
 		nextTier := contextTierForAttempt(attempt + 1)
 		expanded, _ := s.buildPrompt(ctx, question, model, nextTier, options, filterSess, followIntent)
-		prompt = s.promptBuilder.BuildRetry(expanded, gen.Content, failureMsg)
+		prompt = s.promptBuilder.BuildRetry(ctx, PromptLocaleForQuestion(question, i18n.FromContext(ctx)), expanded, gen.Content, failureMsg)
 		promptStats = MeasurePrompt(prompt, s.queryModel, nextTier, s.aiCfg)
 	}
 
@@ -230,51 +234,63 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 
 	if parseErr != nil {
 		clarification := s.tryGenerateClarification(ctx, question, model, failureReason)
+		templateLocale, templateVersions, bundleVersion := promptTemplateTrace(ctx, question)
 		return newClarificationResponse(clarificationInputs{
-			LogicalQuery:  nil,
-			Confidence:    0,
-			Warnings:      append(retryWarnings, append(warnings, parseErr.Error())...),
-			Prompt:        prompt,
-			RawResponse:   lastRaw,
-			RetryCount:    s.maxRetries,
-			PromptStats:   promptStats,
-			Gen:           lastGen,
-			Clarification: clarification,
-			FailureReason: failureReason,
-			Source:        "ai",
+			LogicalQuery:                nil,
+			Confidence:                  0,
+			Warnings:                    append(retryWarnings, append(warnings, parseErr.Error())...),
+			Prompt:                      prompt,
+			RawResponse:                 lastRaw,
+			RetryCount:                  s.maxRetries,
+			PromptStats:                 promptStats,
+			Gen:                         lastGen,
+			Clarification:               clarification,
+			FailureReason:               failureReason,
+			Source:                      "ai",
+			PromptTemplateLocale:        templateLocale,
+			PromptTemplateVersions:      templateVersions,
+			PromptTemplateBundleVersion: bundleVersion,
 		}), nil
 	}
 
 	clarification := ""
 	if validationErrCount > 0 {
 		clarification = s.tryGenerateClarification(ctx, question, model, failureReason)
+		templateLocale, templateVersions, bundleVersion := promptTemplateTrace(ctx, question)
 		return newClarificationResponse(clarificationInputs{
-			LogicalQuery:  nil,
-			Confidence:    0,
-			Warnings:      append(retryWarnings, warnings...),
-			Prompt:        prompt,
-			RawResponse:   lastRaw,
-			RetryCount:    s.maxRetries,
-			PromptStats:   promptStats,
-			Gen:           lastGen,
-			Clarification: clarification,
-			FailureReason: failureReason,
-			Source:        "validator",
+			LogicalQuery:                nil,
+			Confidence:                  0,
+			Warnings:                    append(retryWarnings, warnings...),
+			Prompt:                      prompt,
+			RawResponse:                 lastRaw,
+			RetryCount:                  s.maxRetries,
+			PromptStats:                 promptStats,
+			Gen:                         lastGen,
+			Clarification:               clarification,
+			FailureReason:               failureReason,
+			Source:                      "validator",
+			PromptTemplateLocale:        templateLocale,
+			PromptTemplateVersions:      templateVersions,
+			PromptTemplateBundleVersion: bundleVersion,
 		}), nil
 	}
 
+	templateLocale, templateVersions, bundleVersion := promptTemplateTrace(ctx, question)
 	return newClarificationResponse(clarificationInputs{
-		LogicalQuery:  lq,
-		Confidence:    computeConfidence(validationErrCount, s.maxRetries),
-		Warnings:      append(retryWarnings, warnings...),
-		Prompt:        prompt,
-		RawResponse:   lastRaw,
-		RetryCount:    s.maxRetries,
-		PromptStats:   promptStats,
-		Gen:           lastGen,
-		Clarification: clarification,
-		FailureReason: failureReason,
-		Source:        "ai",
+		LogicalQuery:                lq,
+		Confidence:                  computeConfidence(validationErrCount, s.maxRetries),
+		Warnings:                    append(retryWarnings, warnings...),
+		Prompt:                      prompt,
+		RawResponse:                 lastRaw,
+		RetryCount:                  s.maxRetries,
+		PromptStats:                 promptStats,
+		Gen:                         lastGen,
+		Clarification:               clarification,
+		FailureReason:               failureReason,
+		Source:                      "ai",
+		PromptTemplateLocale:        templateLocale,
+		PromptTemplateVersions:      templateVersions,
+		PromptTemplateBundleVersion: bundleVersion,
 	}), nil
 }
 
@@ -282,34 +298,52 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 // AIResponse for failure / partial-success paths that may need to request
 // clarification from the user.
 type clarificationInputs struct {
-	LogicalQuery  *query.LogicalQuery
-	Confidence    float64
-	Warnings      []string
-	Prompt        string
-	RawResponse   string
-	RetryCount    int
-	PromptStats   PromptStats
-	Gen           GenerationResult
-	Clarification string
-	FailureReason string
-	Source        string
+	LogicalQuery                *query.LogicalQuery
+	Confidence                  float64
+	Warnings                    []string
+	Prompt                      string
+	RawResponse                 string
+	RetryCount                  int
+	PromptStats                 PromptStats
+	Gen                         GenerationResult
+	Clarification               string
+	FailureReason               string
+	Source                      string
+	PromptTemplateLocale        string
+	PromptTemplateVersions      map[string]int
+	PromptTemplateBundleVersion int
 }
 
 func newClarificationResponse(in clarificationInputs) *AIResponse {
 	stats := in.PromptStats
 	return &AIResponse{
-		LogicalQuery:          in.LogicalQuery,
-		Confidence:            in.Confidence,
-		Warnings:              in.Warnings,
-		Prompt:                in.Prompt,
-		RawResponse:           in.RawResponse,
-		RetryCount:            in.RetryCount,
-		PromptStats:           &stats,
-		TokenUsage:            tokenUsageFromGeneration(stats, in.Gen),
-		NeedsClarification:    in.Clarification != "",
-		ClarificationQuestion: in.Clarification,
-		Clarification:         buildClarification(in.Clarification, in.FailureReason, in.Source),
+		LogicalQuery:                in.LogicalQuery,
+		Confidence:                  in.Confidence,
+		Warnings:                    in.Warnings,
+		Prompt:                      in.Prompt,
+		RawResponse:                 in.RawResponse,
+		RetryCount:                  in.RetryCount,
+		PromptStats:                 &stats,
+		TokenUsage:                  tokenUsageFromGeneration(stats, in.Gen),
+		NeedsClarification:          in.Clarification != "",
+		ClarificationQuestion:       in.Clarification,
+		Clarification:               buildClarification(in.Clarification, in.FailureReason, in.Source),
+		PromptTemplateLocale:        in.PromptTemplateLocale,
+		PromptTemplateVersions:      in.PromptTemplateVersions,
+		PromptTemplateBundleVersion: in.PromptTemplateBundleVersion,
 	}
+}
+
+func promptTemplateTrace(ctx context.Context, question string) (string, map[string]int, int) {
+	loc := PromptLocaleForQuestion(question, i18n.FromContext(ctx))
+	versions := PromptTemplateBundleVersions(ctx, loc)
+	maxVersion := 0
+	for _, v := range versions {
+		if v > maxVersion {
+			maxVersion = v
+		}
+	}
+	return string(loc), versions, maxVersion
 }
 
 func (s *Service) buildPrompt(
@@ -388,6 +422,7 @@ func buildClarification(question, reason, source string) *Clarification {
 // falls back rather than aborting the whole request.
 func (s *Service) tryMultiCandidate(
 	ctx context.Context,
+	question string,
 	prompt string,
 	model *semantic.SemanticModel,
 	options processOptions,
@@ -456,6 +491,7 @@ func (s *Service) tryMultiCandidate(
 	if confidence > 1 {
 		confidence = 1
 	}
+	templateLocale, templateVersions, bundleVersion := promptTemplateTrace(ctx, question)
 	return &AIResponse{
 		LogicalQuery: winner.lq,
 		Confidence:   confidence,
@@ -463,10 +499,13 @@ func (s *Service) tryMultiCandidate(
 			[]string{fmt.Sprintf("self-consistency: %d/%d candidates agreed", winnerCount, n)},
 			winner.warnings...,
 		),
-		Prompt:      prompt,
-		RawResponse: winner.gen.Content,
-		PromptStats: &stats,
-		TokenUsage:  tokenUsageFromGeneration(stats, winner.gen),
+		Prompt:                      prompt,
+		RawResponse:                 winner.gen.Content,
+		PromptStats:                 &stats,
+		TokenUsage:                  tokenUsageFromGeneration(stats, winner.gen),
+		PromptTemplateLocale:        templateLocale,
+		PromptTemplateVersions:      templateVersions,
+		PromptTemplateBundleVersion: bundleVersion,
 	}, true
 }
 
@@ -503,7 +542,7 @@ func logicalQueryFingerprint(lq *query.LogicalQuery) string {
 // surface to the user. Failures are swallowed: clarification is best-effort
 // and must never mask the underlying validation/parse error to the caller.
 func (s *Service) tryGenerateClarification(ctx context.Context, question string, model *semantic.SemanticModel, failureReason string) string {
-	prompt := s.promptBuilder.BuildClarification(question, model, failureReason)
+	prompt := s.promptBuilder.BuildClarification(ctx, PromptLocaleForQuestion(question, i18n.FromContext(ctx)), question, model, failureReason)
 	gen, err := s.client.Generate(ctx, prompt)
 	if err != nil {
 		return ""
@@ -548,8 +587,7 @@ func (s *Service) parseAndValidate(raw string, model *semantic.SemanticModel) (*
 	validationErrCount := 0
 	if err := s.validator.Validate(lq, model); err != nil {
 		warnings = append(warnings, "validation warnings: "+err.Error())
-		var ve query.ValidationErrors
-		if errors.As(err, &ve) {
+		if ve, ok := errors.AsType[query.ValidationErrors](err); ok {
 			validationErrCount = len(ve)
 		} else {
 			validationErrCount = 1

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -22,9 +23,6 @@ const (
 	nameResolverMaxHops   = 3  // max FK hops to follow when resolving "<entity> name" questions
 	minRouteConfidence    = 0.35
 	// Limits for auto-generated semantic models (avoids multi-hundred-column explosion in LLM prompts).
-	maxAutoModelDimensions   = 150
-	maxAutoModelMetrics      = 120
-	maxDateGrainExtras       = 48 // day/month/quarter/year variants per date columns (cap total)
 	maxRankedColumnsPerTable = 24
 	minColumnsBeforeRanking  = 12
 )
@@ -247,7 +245,8 @@ func (r *TableRouter) Route(
 	columnsByTable := groupColumnsByTable(columns)
 
 	questionLocale := DetectQuestionLocale(question)
-	if r.translator != nil && questionLocale == i18n.LocaleTR {
+	questionLocaleProfile, _ := i18n.LocaleProfileFor(questionLocale)
+	if r.translator != nil && questionLocaleProfile.UsesMetadataTranslations {
 		if err := r.translator.ApplyTableTranslations(ctx, tables, questionLocale); err != nil {
 			return nil, nil, fmt.Errorf("apply table translations: %w", err)
 		}
@@ -808,12 +807,7 @@ func hasDisplayNameInColumns(cols []metadata.Column) bool {
 
 func isNameLikeToken(tok string) bool {
 	lex := activeRoutingLexicon()
-	for _, t := range lex.NameLikeTokens {
-		if tok == t {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(lex.NameLikeTokens, tok)
 }
 
 func bundleSliceContains(bundles []tableBundle, key string) bool {

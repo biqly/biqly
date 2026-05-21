@@ -23,6 +23,16 @@ export default function Settings() {
         </div>
       </section>
 
+      <section className="card card--elevated settings-prefs-card">
+        <h2>{t('settings.prompt_templates_section')}</h2>
+        <p className="card-subtitle">{t('settings.prompt_templates_hint')}</p>
+        <div className="settings-control-row">
+          <button type="button" className="btn btn-primary" onClick={() => window.location.assign('/prompt-templates')}>
+            {t('settings.prompt_templates_open')}
+          </button>
+        </div>
+      </section>
+
       <p className="settings-footnote">{t('settings.persist_hint')}</p>
     </div>
   )

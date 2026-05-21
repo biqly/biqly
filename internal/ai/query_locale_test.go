@@ -15,10 +15,18 @@ func TestDetectQuestionLocale(t *testing.T) {
 		{"show total sales by customer", i18n.LocaleEN},
 		{"", i18n.DefaultLocale},
 		{"İstanbul sales", i18n.LocaleTR},
+		{"silinen tweetler", i18n.LocaleTR},
 	}
 	for _, tc := range tests {
 		if got := DetectQuestionLocale(tc.q); got != tc.want {
 			t.Errorf("DetectQuestionLocale(%q) = %q, want %q", tc.q, got, tc.want)
 		}
+	}
+}
+
+func TestPromptLocaleForQuestionFallsBackToUILocaleWhenQuestionHasNoSignals(t *testing.T) {
+	got := PromptLocaleForQuestion("q", i18n.LocaleTR)
+	if got != i18n.LocaleTR {
+		t.Fatalf("PromptLocaleForQuestion() = %q, want %q", got, i18n.LocaleTR)
 	}
 }

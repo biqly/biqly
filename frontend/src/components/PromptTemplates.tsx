@@ -1,31 +1,36 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useApi } from '../hooks/useApi'
-import { useT } from '../i18n'
-import type { TranslationKey } from '../i18n'
+import { DEFAULT_LOCALE, LOCALE_OPTIONS, SUPPORTED_LOCALES, useT } from '../i18n'
+import type { Locale, TranslationKey } from '../i18n'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { Select } from './ui/Select'
 
-const TEMPLATE_NAMES = ['system_rules', 'output_format'] as const
+const TEMPLATE_NAMES = ['system_rules', 'output_format', 'retry', 'clarification'] as const
 type TemplateName = (typeof TEMPLATE_NAMES)[number]
-type EditLocale = 'en' | 'tr'
+type EditLocale = Locale
 
 interface PromptTemplateRow {
   name: string
   locale: string
+  version: number
   content: string
+  is_active: boolean
+  created_at: string
   updated_at: string
 }
 
 const nameLabelKeys: Record<TemplateName, TranslationKey> = {
   system_rules: 'prompt_templates.name_system_rules',
   output_format: 'prompt_templates.name_output_format',
+  retry: 'prompt_templates.name_retry',
+  clarification: 'prompt_templates.name_clarification',
 }
 
 export default function PromptTemplates() {
   const t = useT()
   const { get, putData, postData, loading, error } = useApi()
   const [rows, setRows] = useState<PromptTemplateRow[]>([])
-  const [editLocale, setEditLocale] = useState<EditLocale>('tr')
+  const [editLocale, setEditLocale] = useState<EditLocale>(DEFAULT_LOCALE)
   const [selectedName, setSelectedName] = useState<TemplateName>('system_rules')
   const [draft, setDraft] = useState('')
   const [dirty, setDirty] = useState(false)
@@ -42,7 +47,12 @@ export default function PromptTemplates() {
   }, [load])
 
   const currentRow = useMemo(
-    () => rows.find((r) => r.name === selectedName && r.locale === editLocale),
+    () => rows.find((r) => r.name === selectedName && r.locale === editLocale && r.is_active),
+    [rows, selectedName, editLocale],
+  )
+
+  const versionHistory = useMemo(
+    () => rows.filter((r) => r.name === selectedName && r.locale === editLocale),
     [rows, selectedName, editLocale],
   )
 
@@ -53,11 +63,12 @@ export default function PromptTemplates() {
   }, [currentRow?.name, currentRow?.locale, currentRow?.content, currentRow?.updated_at])
 
   const localeOptions = useMemo(
-    () => [
-      { value: 'tr', label: t('prompt_templates.locale_tr') },
-      { value: 'en', label: t('prompt_templates.locale_en') },
-    ],
-    [t],
+    () =>
+      SUPPORTED_LOCALES.map((loc) => ({
+        value: loc,
+        label: LOCALE_OPTIONS[loc].label,
+      })),
+    [],
   )
 
   const templateOptions = useMemo(
@@ -147,6 +158,8 @@ export default function PromptTemplates() {
           {t('prompt_templates.meta_updated', { date: updatedLabel })}
           {' · '}
           {t('prompt_templates.meta_chars', { count: draft.length })}
+          {' · '}
+          {t('prompt_templates.meta_version', { version: currentRow?.version ?? '-' })}
         </p>
 
         <textarea
@@ -178,6 +191,34 @@ export default function PromptTemplates() {
             {t('prompt_templates.reseed_all')}
           </button>
         </div>
+
+        {versionHistory.length > 0 && (
+          <div style={{ marginTop: '1rem' }}>
+            <h3 style={{ fontSize: '0.95rem', marginBottom: '0.5rem' }}>{t('prompt_templates.version_history')}</h3>
+            <div className="table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>{t('prompt_templates.col_version')}</th>
+                    <th>{t('prompt_templates.col_status')}</th>
+                    <th>{t('prompt_templates.col_updated')}</th>
+                    <th>{t('prompt_templates.col_chars')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {versionHistory.map((row) => (
+                    <tr key={`${row.name}:${row.locale}:${row.version}`}>
+                      <td>v{row.version}</td>
+                      <td>{row.is_active ? t('prompt_templates.status_active') : t('prompt_templates.status_inactive')}</td>
+                      <td>{new Date(row.updated_at).toLocaleString()}</td>
+                      <td>{row.content.length}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
