@@ -1,6 +1,8 @@
 global:
   imagePullSecrets:
     - name: ghcr-registry
+  postgresqlVIP:
+    enabled: true
   gateway:
     hostnames:
       - abi.il1.nl
