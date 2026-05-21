@@ -51,4 +51,6 @@ spec:
               protocol: TCP
             - port: "8082"
               protocol: TCP
+            - port: {{ .Values.global.nats.service.clientPort | quote }}
+              protocol: TCP
 {{- end }}
