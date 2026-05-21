@@ -54,6 +54,8 @@ query:
 
 ai:
   replicaCount: 1
+  image:
+    tag: sha-20216718266a913b9f893c386bbab67f01a49255
   rollout:
     enabled: false
   autoscaling:
