@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -139,7 +140,7 @@ func (r *Repository) FindConflictingDescribeBatch(
 		ORDER BY created_at ASC
 		LIMIT 1`, datasourceID, pq.Array(scopeSchemas))
 	job, err := scanAIJob(row)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
