@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import type { AIJob, AIJobKind, AIQueryRequest, AIQueryResponse } from '../types/ai'
+import type { AIJob, AIJobKind, AIQueryResponse } from '../types/ai'
 import { getLocale } from '../i18n'
 import { getAIClientSessionId } from '../utils/aiSession'
 
@@ -19,8 +19,8 @@ export type TrackedAIJob = AIJob & {
   questionPreview?: string
 }
 
-type JobCallbacks = {
-  onComplete?: (result: AIQueryResponse) => void
+type JobCallbacks<TResult = unknown> = {
+  onComplete?: (result: TResult) => void
   onError?: (message: string) => void
 }
 
@@ -32,11 +32,11 @@ type AIJobsContextValue = {
   minimized: boolean
   setMinimized: (v: boolean) => void
   dismissJob: (id: string) => void
-  runJob: (
+  runJob: <TRequest extends object, TResult = AIQueryResponse>(
     kind: AIJobKind,
-    request: AIQueryRequest,
-    callbacks?: JobCallbacks,
-  ) => Promise<AIQueryResponse | 'fallback' | null>
+    request: TRequest,
+    callbacks?: JobCallbacks<TResult>,
+  ) => Promise<TResult | 'fallback' | null>
 }
 
 const AIJobsContext = createContext<AIJobsContextValue | null>(null)
@@ -59,15 +59,27 @@ async function fetchJSON<T>(url: string, init?: RequestInit): Promise<{ data: T 
   }
 }
 
-function questionPreview(req: AIQueryRequest): string {
-  const q = req.question?.trim() ?? ''
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function questionPreview(kind: AIJobKind, req: unknown): string {
+  if (!req || typeof req !== 'object') return kind
+  const record = req as Record<string, unknown>
+  if (kind === 'describe') {
+    const schema = asString(record.schema)
+    const table = asString(record.table)
+    const target = [schema, table].filter(Boolean).join('.')
+    return target || kind
+  }
+  const q = asString(record.question)
   if (q.length <= 80) return q
   return `${q.slice(0, 77)}…`
 }
 
-function parseResult(job: AIJob): AIQueryResponse | null {
+function parseResult<TResult>(job: AIJob): TResult | null {
   if (!job.result_json) return null
-  if (typeof job.result_json === 'object') return job.result_json as AIQueryResponse
+  if (typeof job.result_json === 'object') return job.result_json as TResult
   return null
 }
 
@@ -76,7 +88,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   const [jobs, setJobs] = useState<TrackedAIJob[]>([])
   const [expanded, setExpanded] = useState(false)
   const [minimized, setMinimized] = useState(true)
-  const callbacksRef = useRef<Map<string, JobCallbacks>>(new Map())
+  const callbacksRef = useRef<Map<string, JobCallbacks<unknown>>>(new Map())
   const pollTimers = useRef<Map<string, number>>(new Map())
 
   const upsertJob = useCallback((job: TrackedAIJob) => {
@@ -98,7 +110,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       pollTimers.current.delete(job.id)
     }
     if (job.status === 'succeeded') {
-      const result = parseResult(job)
+      const result = parseResult<unknown>(job)
       if (result) cbs?.onComplete?.(result)
     } else if (job.status === 'failed') {
       cbs?.onError?.(job.error_message || 'Job failed')
@@ -111,7 +123,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       if (status === 404 || !data) return
       const preview =
         data.request_json && typeof data.request_json === 'object'
-          ? questionPreview(data.request_json as AIQueryRequest)
+          ? questionPreview(data.kind, data.request_json)
           : undefined
       upsertJob({ ...data, questionPreview: preview })
       if (TERMINAL.has(data.status)) {
@@ -142,7 +154,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     for (const job of data.jobs) {
       const preview =
         job.request_json && typeof job.request_json === 'object'
-          ? questionPreview(job.request_json as AIQueryRequest)
+          ? questionPreview(job.kind, job.request_json)
           : undefined
       upsertJob({ ...job, questionPreview: preview })
       startPolling(job.id)
@@ -159,7 +171,11 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   }, [resumeActiveJobs])
 
   const runJob = useCallback(
-    async (kind: AIJobKind, request: AIQueryRequest, callbacks?: JobCallbacks) => {
+    async <TRequest extends object, TResult = AIQueryResponse>(
+      kind: AIJobKind,
+      request: TRequest,
+      callbacks?: JobCallbacks<TResult>,
+    ) => {
       const body = {
         client_session_id: sessionId,
         kind,
@@ -176,14 +192,15 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
         callbacks?.onError?.('Failed to enqueue AI job')
         return null
       }
-      upsertJob({ ...data, questionPreview: questionPreview(request) })
+      upsertJob({ ...data, questionPreview: questionPreview(kind, request) })
       setMinimized(false)
       startPolling(data.id)
-      return new Promise<AIQueryResponse | null>((resolve) => {
+      return new Promise<TResult | null>((resolve) => {
         callbacksRef.current.set(data.id, {
           onComplete: (result) => {
-            callbacks?.onComplete?.(result)
-            resolve(result)
+            const typed = result as TResult
+            callbacks?.onComplete?.(typed)
+            resolve(typed)
           },
           onError: (message) => {
             callbacks?.onError?.(message)

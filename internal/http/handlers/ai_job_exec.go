@@ -232,3 +232,33 @@ func encodeAIJobResult(resp *ai.Response) (json.RawMessage, error) {
 	}
 	return b, nil
 }
+
+func (h *AIHandler) executeMetadataDescribeJob(
+	ctx context.Context,
+	req ai.DescribeRequest,
+	report AIJobProgressFunc,
+) (*ai.DescribeResult, error) {
+	if report != nil {
+		report(AIJobProgress{Phase: "sampling", Message: "sampling table metadata", Progress: 15, Status: metadata.AIJobStatusRunning})
+		report(AIJobProgress{Phase: "generating", Message: "generating metadata descriptions", Progress: 35, Status: metadata.AIJobStatusRunning})
+	}
+	result, err := h.executeMetadataDescribe(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if report != nil {
+		report(AIJobProgress{Phase: "applying", Message: "saving generated descriptions", Progress: 90, Status: metadata.AIJobStatusRunning})
+	}
+	return result, nil
+}
+
+func encodeDescribeJobResult(result *ai.DescribeResult) (json.RawMessage, error) {
+	if result == nil {
+		return nil, nil
+	}
+	b, err := json.Marshal(result)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}

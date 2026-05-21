@@ -386,12 +386,16 @@ func (h *AIHandler) Describe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.deps.AIDescriber.Describe(r.Context(), *req)
+	result, err := h.executeMetadataDescribe(r.Context(), *req)
 	if err != nil {
 		writeCoreServiceError(r.Context(), w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+func (h *AIHandler) executeMetadataDescribe(ctx context.Context, req ai.DescribeRequest) (*ai.DescribeResult, error) {
+	return h.deps.AIDescriber.Describe(ctx, req)
 }
 
 type embedMetadataRequest struct {

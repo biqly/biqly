@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useApi } from '../hooks/useApi'
+import { useAIJobs } from '../hooks/useAIJobs'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { useLocale, useT } from '../i18n'
 import type { TranslationKey } from '../i18n'
@@ -93,8 +94,36 @@ interface DescribeResult {
   translation_error?: string
 }
 
+function plainTextFromResponse(text: string): string {
+  return text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+async function readDescribeResponse(res: Response): Promise<{ data: DescribeResult | null; error: string | null }> {
+  const text = await res.text()
+  if (!text) {
+    return res.ok ? { data: null, error: null } : { data: null, error: `HTTP ${res.status}` }
+  }
+
+  const contentType = res.headers.get('content-type') ?? ''
+  const looksJSON = contentType.includes('application/json') || /^[\s[{]/.test(text)
+  if (!looksJSON) {
+    const message = plainTextFromResponse(text)
+    return { data: null, error: message ? `HTTP ${res.status}: ${message}` : `HTTP ${res.status}` }
+  }
+
+  try {
+    const data = JSON.parse(text) as DescribeResult & { error?: string }
+    if (!res.ok) return { data: null, error: data.error || `HTTP ${res.status}` }
+    return { data, error: null }
+  } catch {
+    const message = plainTextFromResponse(text)
+    return { data: null, error: message ? `HTTP ${res.status}: ${message}` : `HTTP ${res.status}: invalid JSON response` }
+  }
+}
+
 export default function Metadata() {
-  const { get, postData, patchData, putData, loading, error } = useApi()
+  const { get, patchData, putData, loading, error } = useApi()
+  const { runJob } = useAIJobs()
   const t = useT()
   const [locale] = useLocale()
   const [editLocale, setEditLocale] = useState<'tr' | 'en'>(locale === 'en' ? 'en' : 'tr')
@@ -113,6 +142,8 @@ export default function Metadata() {
   const [describeOpen, setDescribeOpen] = useState<TableRow | null>(null)
   const [describeForm, setDescribeForm] = useState({ sample_size: 10, auto_apply: false })
   const [describeResult, setDescribeResult] = useState<DescribeResult | null>(null)
+  const [describeRunning, setDescribeRunning] = useState(false)
+  const [describeError, setDescribeError] = useState<string | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulkConfig, setBulkConfig] = useState({ sample_size: 10, skip_existing: true })
   const [bulkRunning, setBulkRunning] = useState(false)
@@ -274,33 +305,67 @@ export default function Metadata() {
   const openDescribe = (t: TableRow) => {
     setDescribeOpen(t)
     setDescribeResult(null)
+    setDescribeError(null)
     setDescribeForm({ sample_size: 10, auto_apply: false })
+  }
+
+  const refreshDescribeTarget = (row: TableRow, applied: boolean) => {
+    if (!applied) return
+    get<TableRow[]>(`/api/datasources/${datasourceId}/tables`).then((d) => setTables(d || []))
+    if (openTableId === row.id) {
+      get<ColumnRow[]>(
+        `/api/datasources/${datasourceId}/columns?schema=${encodeURIComponent(row.schema_name)}&table=${encodeURIComponent(row.table_name)}`
+      ).then((d) => setColumns(d || []))
+    }
+  }
+
+  const runDescribeDirect = async (request: Record<string, unknown>): Promise<DescribeResult> => {
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), AI_METADATA_DESCRIBE_TIMEOUT_MS)
+    try {
+      const res = await fetch('/api/ai/metadata/describe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Locale': locale },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      })
+      const { data, error } = await readDescribeResponse(res)
+      if (!res.ok || error || !data) {
+        throw new Error(error || `HTTP ${res.status}`)
+      }
+      return data
+    } finally {
+      window.clearTimeout(timeout)
+    }
   }
 
   const runDescribe = async () => {
     if (!describeOpen) return
-    const res = await postData<DescribeResult>(
-      '/api/ai/metadata/describe',
-      {
-        datasource_id: datasourceId,
-        schema: describeOpen.schema_name,
-        table: describeOpen.table_name,
-        sample_size: describeForm.sample_size,
-        auto_apply: describeForm.auto_apply,
-      },
-      { timeout: AI_METADATA_DESCRIBE_TIMEOUT_MS },
-    )
-    if (res) {
-      setDescribeResult(res)
-      if (res.applied) {
-        // refresh table + columns
-        get<TableRow[]>(`/api/datasources/${datasourceId}/tables`).then((d) => setTables(d || []))
-        if (openTableId === describeOpen.id) {
-          get<ColumnRow[]>(
-            `/api/datasources/${datasourceId}/columns?schema=${encodeURIComponent(describeOpen.schema_name)}&table=${encodeURIComponent(describeOpen.table_name)}`
-          ).then((d) => setColumns(d || []))
-        }
+    setDescribeRunning(true)
+    setDescribeError(null)
+    const row = describeOpen
+    const request = {
+      datasource_id: datasourceId,
+      schema: row.schema_name,
+      table: row.table_name,
+      sample_size: describeForm.sample_size,
+      auto_apply: describeForm.auto_apply,
+    }
+    try {
+      let res = await runJob<typeof request, DescribeResult>('describe', request, {
+        onError: (message) => setDescribeError(message),
+      })
+      if (res === 'fallback') {
+        res = await runDescribeDirect(request)
       }
+      if (res) {
+        setDescribeResult(res)
+        refreshDescribeTarget(row, res.applied)
+      }
+    } catch (err) {
+      setDescribeError(err instanceof Error ? err.message : t('metadata.bulk_network_error'))
+    } finally {
+      setDescribeRunning(false)
     }
   }
 
@@ -352,21 +417,19 @@ export default function Metadata() {
       setBulkEntries([...queue])
 
       try {
-        const res = await fetch('/api/ai/metadata/describe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            datasource_id: datasourceId,
-            schema,
-            table,
-            sample_size: bulkConfig.sample_size,
-            auto_apply: true,
-          }),
-        })
-        const text = await res.text()
-        const data = text ? JSON.parse(text) : null
-        if (!res.ok) {
-          queue[i] = { schema, table, status: 'error', message: data?.error || `HTTP ${res.status}` }
+        const request = {
+          datasource_id: datasourceId,
+          schema,
+          table,
+          sample_size: bulkConfig.sample_size,
+          auto_apply: true,
+        }
+        let data = await runJob<typeof request, DescribeResult>('describe', request)
+        if (data === 'fallback') {
+          data = await runDescribeDirect(request)
+        }
+        if (!data) {
+          queue[i] = { schema, table, status: 'error', message: t('metadata.bulk_network_error') }
           errCount++
         } else {
           const cols = data?.columns?.length ?? 0
@@ -933,7 +996,7 @@ export default function Metadata() {
                       </div>
                     </div>
                   </div>
-                  <ErrorAlert error={error} />
+                  <ErrorAlert error={describeError || error} />
                   <div className="modal-actions">
                     <button
                       type="button"
@@ -946,9 +1009,9 @@ export default function Metadata() {
                       type="button"
                       className="btn btn-sm"
                       onClick={runDescribe}
-                      disabled={loading}
+                      disabled={describeRunning}
                     >
-                      {loading ? t('metadata.describe_analyzing') : t('metadata.describe_generate')}
+                      {describeRunning ? t('metadata.describe_analyzing') : t('metadata.describe_generate')}
                     </button>
                   </div>
                 </>

@@ -11,15 +11,28 @@ const PIPELINE_PHASES = [
   'executing',
 ] as const
 
-type PipelinePhase = (typeof PIPELINE_PHASES)[number]
+const DESCRIBE_PHASES = ['queued', 'sampling', 'generating', 'applying'] as const
 
-function phaseIndex(phase: string): number {
-  const i = PIPELINE_PHASES.indexOf(phase as PipelinePhase)
+type PipelinePhase = (typeof PIPELINE_PHASES)[number] | (typeof DESCRIBE_PHASES)[number]
+
+function phasesForJob(job: TrackedAIJob): readonly PipelinePhase[] {
+  return job.kind === 'describe' ? DESCRIBE_PHASES : PIPELINE_PHASES
+}
+
+function phaseIndex(phases: readonly PipelinePhase[], phase: string): number {
+  const i = phases.indexOf(phase as PipelinePhase)
   return i === -1 ? 0 : i
 }
 
 function phaseKey(phase: PipelinePhase): TranslationKey {
   return `ai_jobs.phase_${phase}` as TranslationKey
+}
+
+function phaseLabelKey(job: TrackedAIJob, phase: PipelinePhase): TranslationKey {
+  if (job.kind === 'describe' && phase === 'generating') {
+    return 'ai_jobs.phase_describing' as TranslationKey
+  }
+  return phaseKey(phase)
 }
 
 function isActive(job: TrackedAIJob): boolean {
@@ -28,13 +41,14 @@ function isActive(job: TrackedAIJob): boolean {
 
 function JobPipeline({ job }: { job: TrackedAIJob }) {
   const t = useT()
-  const current = phaseIndex(job.phase)
+  const phases = phasesForJob(job)
+  const current = phaseIndex(phases, job.phase)
   const done = job.status === 'succeeded'
   const failed = job.status === 'failed'
 
   return (
     <ol className="ai-job-pipeline" aria-label={t('ai_jobs.pipeline_aria')}>
-      {PIPELINE_PHASES.map((phase, idx) => {
+      {phases.map((phase, idx) => {
         let state: 'done' | 'current' | 'pending' | 'failed' = 'pending'
         if (failed && idx === current) state = 'failed'
         else if (done || idx < current) state = 'done'
@@ -42,7 +56,7 @@ function JobPipeline({ job }: { job: TrackedAIJob }) {
         return (
           <li key={phase} className={`ai-job-pipeline__step ai-job-pipeline__step--${state}`}>
             <span className="ai-job-pipeline__dot" aria-hidden="true" />
-            <span className="ai-job-pipeline__label">{t(phaseKey(phase))}</span>
+            <span className="ai-job-pipeline__label">{t(phaseLabelKey(job, phase))}</span>
           </li>
         )
       })}
@@ -62,7 +76,9 @@ function JobCard({
   const t = useT()
   const active = isActive(job)
   const kindLabel =
-    job.kind === 'run'
+    job.kind === 'describe'
+      ? t('ai_jobs.kind_describe')
+      : job.kind === 'run'
       ? t('ai_jobs.kind_run')
       : job.kind === 'preview'
         ? t('ai_jobs.kind_preview')
