@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/biqly/biqly/internal/dialect"
+	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
@@ -613,6 +614,7 @@ func TestTableRouter_ColumnEmbeddingsNarrowWideTableButKeepRequiredColumns(t *te
 		})
 	}
 
+	trModel := EmbeddingModelForLocale("fake", i18n.LocaleTR)
 	columnEmbeddings := make([]metadata.ColumnEmbedding, 0, len(reader.columns))
 	for _, col := range reader.columns {
 		vec := []float32{-1, 0}
@@ -623,7 +625,7 @@ func TestTableRouter_ColumnEmbeddingsNarrowWideTableButKeepRequiredColumns(t *te
 			SchemaName: col.SchemaName,
 			TableName:  col.TableName,
 			ColumnName: col.ColumnName,
-			Model:      "fake",
+			Model:      trModel,
 			Embedding:  vec,
 		})
 	}
