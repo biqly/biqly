@@ -54,7 +54,6 @@ func NewAIHandler(deps *app.Dependencies) *AIHandler {
 	var embeddingReader ai.EmbeddingReader = deps.MetaRepo
 	if deps.CatalogClient != nil {
 		metadataReader = deps.CatalogClient
-		embeddingReader = nil
 	}
 	router := ai.NewTableRouterWithEmbeddings(
 		metadataReader,
@@ -62,6 +61,7 @@ func NewAIHandler(deps *app.Dependencies) *AIHandler {
 		embeddingReader,
 		deps.Config.AI.EmbeddingWeight,
 	)
+	router.SetMetadataTranslator(deps.MetaRepo)
 	router.SetRoutingLimits(ai.RoutingLimitsFromConfig(
 		deps.Config.AI.RouteMaxDimensions,
 		deps.Config.AI.RouteMaxMetrics,

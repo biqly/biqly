@@ -325,6 +325,7 @@ func (s *Service) buildPrompt(
 	promptRunes := PromptRunesForTier(s.maxPromptRunes, tier, s.aiCfg, s.queryModel)
 	start := time.Now()
 	prompt := s.promptBuilder.Build(
+		ctx,
 		question,
 		model,
 		promptRunes,

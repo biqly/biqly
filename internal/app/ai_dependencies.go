@@ -101,6 +101,12 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		return nil, fmt.Errorf("routing config: %w", err)
 	}
 
+	ai.SetPromptTemplateStore(ai.NewDBPromptTemplateStore(metaRepo))
+	if err := ai.SeedPromptTemplatesFromEmbed(ctx, metaRepo); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("seed prompt templates: %w", err)
+	}
+
 	var catalogHTTPClient *catalogclient.Client
 	if cfg.Services.CatalogURL != "" {
 		catalogHTTPClient = catalogclient.New(

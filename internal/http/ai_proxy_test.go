@@ -50,6 +50,8 @@ func TestRouter_ProxiesAIOwnedPublicRoutes(t *testing.T) {
 		{stdhttp.MethodGet, "/api/ai/examples"},
 		{stdhttp.MethodPost, "/api/ai/feedback"},
 		{stdhttp.MethodGet, "/api/ai/glossary"},
+		{stdhttp.MethodGet, "/api/ai/prompt-templates"},
+		{stdhttp.MethodPut, "/api/ai/prompt-templates/system_rules/en"},
 	}
 
 	for _, tc := range cases {

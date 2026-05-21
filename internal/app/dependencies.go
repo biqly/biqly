@@ -175,6 +175,11 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		return nil, fmt.Errorf("routing config: %w", err)
 	}
 
+	ai.SetPromptTemplateStore(ai.NewDBPromptTemplateStore(metaRepo))
+	if err := ai.SeedPromptTemplatesFromEmbed(ctx, metaRepo); err != nil {
+		return nil, fmt.Errorf("seed prompt templates: %w", err)
+	}
+
 	return &Dependencies{
 		Config:        cfg,
 		MetadataDB:    db,

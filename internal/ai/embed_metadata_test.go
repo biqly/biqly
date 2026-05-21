@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
 )
 
@@ -22,19 +23,27 @@ func (w *fakeMetadataWriter) ListColumns(context.Context, string, string, string
 	return w.columns, nil
 }
 
-func (w *fakeMetadataWriter) UpsertTableEmbedding(_ context.Context, tableID, _ string, embedding []float32) error {
+func (w *fakeMetadataWriter) UpsertTableEmbedding(_ context.Context, tableID, model string, embedding []float32) error {
 	if w.tableEmbeddings == nil {
 		w.tableEmbeddings = make(map[string][]float32)
 	}
-	w.tableEmbeddings[tableID] = embedding
+	w.tableEmbeddings[tableID+"|"+model] = embedding
 	return nil
 }
 
-func (w *fakeMetadataWriter) UpsertColumnEmbedding(_ context.Context, columnID, _ string, embedding []float32) error {
+func (w *fakeMetadataWriter) UpsertColumnEmbedding(_ context.Context, columnID, model string, embedding []float32) error {
 	if w.columnEmbeddings == nil {
 		w.columnEmbeddings = make(map[string][]float32)
 	}
-	w.columnEmbeddings[columnID] = embedding
+	w.columnEmbeddings[columnID+"|"+model] = embedding
+	return nil
+}
+
+func (w *fakeMetadataWriter) ApplyTableTranslations(context.Context, []metadata.Table, i18n.Locale) error {
+	return nil
+}
+
+func (w *fakeMetadataWriter) ApplyColumnTranslations(context.Context, []metadata.Column, i18n.Locale) error {
 	return nil
 }
 
@@ -55,13 +64,15 @@ func TestEmbedMetadataService_EmbedsTablesAndColumns(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EmbedAllForDatasource() error = %v, want nil", err)
 	}
-	if len(results) != 3 {
-		t.Fatalf("results len = %d, want 3: %+v", len(results), results)
+	if len(results) != 6 {
+		t.Fatalf("results len = %d, want 6 (en+tr): %+v", len(results), results)
 	}
-	if len(writer.tableEmbeddings["table-1"]) == 0 {
-		t.Fatalf("table embedding was not stored")
+	enModel := EmbeddingModelForLocale("fake", i18n.LocaleEN)
+	trModel := EmbeddingModelForLocale("fake", i18n.LocaleTR)
+	if len(writer.tableEmbeddings["table-1|"+enModel]) == 0 || len(writer.tableEmbeddings["table-1|"+trModel]) == 0 {
+		t.Fatalf("table embeddings per locale were not stored: %+v", writer.tableEmbeddings)
 	}
-	if len(writer.columnEmbeddings["column-1"]) == 0 || len(writer.columnEmbeddings["column-2"]) == 0 {
-		t.Fatalf("column embeddings were not stored: %+v", writer.columnEmbeddings)
+	if len(writer.columnEmbeddings["column-1|"+enModel]) == 0 || len(writer.columnEmbeddings["column-1|"+trModel]) == 0 {
+		t.Fatalf("column embeddings per locale were not stored: %+v", writer.columnEmbeddings)
 	}
 }

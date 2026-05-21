@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
 )
 
@@ -15,6 +16,8 @@ type MetadataWriter interface {
 	ListColumns(ctx context.Context, datasourceID, schemaName, tableName string) ([]metadata.Column, error)
 	UpsertTableEmbedding(ctx context.Context, tableID, modelName string, embedding []float32) error
 	UpsertColumnEmbedding(ctx context.Context, columnID, modelName string, embedding []float32) error
+	ApplyTableTranslations(ctx context.Context, tables []metadata.Table, loc i18n.Locale) error
+	ApplyColumnTranslations(ctx context.Context, cols []metadata.Column, loc i18n.Locale) error
 }
 
 // EmbedMetadataService computes table and column embeddings from datasource
@@ -83,31 +86,40 @@ func (s *EmbedMetadataService) embedForFilter(ctx context.Context, datasourceID 
 		}
 		cols = filteredCols
 	}
-	colsByTable := make(map[string][]metadata.Column, len(tables))
-	for _, c := range cols {
-		k := c.SchemaName + "." + c.TableName
-		colsByTable[k] = append(colsByTable[k], c)
-	}
-
 	if len(tables) == 0 {
 		return nil, nil
 	}
 
-	results := make([]EmbedTableResult, 0, len(tables)+len(cols))
-	if tableResults, err := s.embedTables(ctx, tables, colsByTable); err != nil {
-		return nil, err
-	} else {
-		results = append(results, tableResults...)
-	}
-	if columnResults, err := s.embedColumns(ctx, cols); err != nil {
-		return nil, err
-	} else {
-		results = append(results, columnResults...)
+	results := make([]EmbedTableResult, 0, (len(tables)+len(cols))*len(embeddingLocalesWritten))
+	for _, loc := range embeddingLocalesWritten {
+		locTables := tables
+		locCols := cols
+		if loc == i18n.LocaleTR {
+			locTables = append([]metadata.Table(nil), tables...)
+			locCols = append([]metadata.Column(nil), cols...)
+			if err := s.writer.ApplyTableTranslations(ctx, locTables, loc); err != nil {
+				return nil, fmt.Errorf("apply table translations (%s): %w", loc, err)
+			}
+			if err := s.writer.ApplyColumnTranslations(ctx, locCols, loc); err != nil {
+				return nil, fmt.Errorf("apply column translations (%s): %w", loc, err)
+			}
+		}
+		locColsByTable := groupColumnsByTableKey(locCols)
+		if tableResults, err := s.embedTables(ctx, locTables, locColsByTable, loc); err != nil {
+			return nil, err
+		} else {
+			results = append(results, tableResults...)
+		}
+		if columnResults, err := s.embedColumns(ctx, locCols, loc); err != nil {
+			return nil, err
+		} else {
+			results = append(results, columnResults...)
+		}
 	}
 	return results, nil
 }
 
-func (s *EmbedMetadataService) embedTables(ctx context.Context, tables []metadata.Table, colsByTable map[string][]metadata.Column) ([]EmbedTableResult, error) {
+func (s *EmbedMetadataService) embedTables(ctx context.Context, tables []metadata.Table, colsByTable map[string][]metadata.Column, loc i18n.Locale) ([]EmbedTableResult, error) {
 	texts := make([]string, 0, len(tables))
 	refs := make([]metadata.Table, 0, len(tables))
 	for i, t := range tables {
@@ -125,7 +137,7 @@ func (s *EmbedMetadataService) embedTables(ctx context.Context, tables []metadat
 		return nil, fmt.Errorf("embed tables: %w", err)
 	}
 
-	model := s.embedder.Model()
+	model := EmbeddingModelForLocale(s.embedder.Model(), loc)
 	results := make([]EmbedTableResult, 0, len(refs))
 	for i, t := range refs {
 		results = append(results, EmbedTableResult{Schema: t.SchemaName, Table: t.TableName, Kind: "table"})
@@ -143,7 +155,7 @@ func (s *EmbedMetadataService) embedTables(ctx context.Context, tables []metadat
 	return results, nil
 }
 
-func (s *EmbedMetadataService) embedColumns(ctx context.Context, cols []metadata.Column) ([]EmbedTableResult, error) {
+func (s *EmbedMetadataService) embedColumns(ctx context.Context, cols []metadata.Column, loc i18n.Locale) ([]EmbedTableResult, error) {
 	texts := make([]string, 0, len(cols))
 	refs := make([]metadata.Column, 0, len(cols))
 	for i, c := range cols {
@@ -160,7 +172,7 @@ func (s *EmbedMetadataService) embedColumns(ctx context.Context, cols []metadata
 		return nil, fmt.Errorf("embed columns: %w", err)
 	}
 
-	model := s.embedder.Model()
+	model := EmbeddingModelForLocale(s.embedder.Model(), loc)
 	results := make([]EmbedTableResult, 0, len(refs))
 	for i, c := range refs {
 		results = append(results, EmbedTableResult{Schema: c.SchemaName, Table: c.TableName, Column: c.ColumnName, Kind: "column"})
@@ -247,4 +259,13 @@ func buildColumnEmbeddingText(c metadata.Column) string {
 		fmt.Fprintf(&sb, "\nReferences: %s.%s.%s", refSchema, *c.ReferencedTable, *c.ReferencedColumn)
 	}
 	return sb.String()
+}
+
+func groupColumnsByTableKey(cols []metadata.Column) map[string][]metadata.Column {
+	out := make(map[string][]metadata.Column)
+	for _, c := range cols {
+		k := c.SchemaName + "." + c.TableName
+		out[k] = append(out[k], c)
+	}
+	return out
 }

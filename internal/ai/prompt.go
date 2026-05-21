@@ -2,6 +2,7 @@ package ai
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -55,13 +56,11 @@ type ConversationTurn struct {
 // samples are concrete rows from queried tables; pass nil for none.
 // deniedFields is an optional list of qualified field names (e.g. "model.secret_field") that
 // must NOT appear in the prompt — used in strict mode to enforce row-level security at prompt time.
-func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, maxPromptRunes int, locale i18n.Locale, targetDialect string, examples []FewShotExample, samples []TableSample, priorTurns []ConversationTurn, deniedFields []string, glossary []GlossaryEntry) string {
+func (b *PromptBuilder) Build(ctx context.Context, question string, model *semantic.SemanticModel, maxPromptRunes int, locale i18n.Locale, targetDialect string, examples []FewShotExample, samples []TableSample, priorTurns []ConversationTurn, deniedFields []string, glossary []GlossaryEntry) string {
 	if maxPromptRunes <= 0 {
 		maxPromptRunes = 80000
 	}
-	if locale == "" {
-		locale = i18n.DefaultLocale
-	}
+	locale = PromptLocaleForQuestion(question, locale)
 
 	// Build set of denied field names for fast lookup
 	deniedSet := make(map[string]bool, len(deniedFields))
@@ -77,10 +76,7 @@ func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, ma
 		sb.WriteString(s)
 	}
 
-	rules := promptTemplate(locale, "system_rules")
-	if rules == "" {
-		rules = promptTemplate(i18n.DefaultLocale, "system_rules")
-	}
+	rules := promptTemplate(ctx, locale, "system_rules")
 	write(rules)
 	write("\n")
 
@@ -168,10 +164,7 @@ func (b *PromptBuilder) Build(question string, model *semantic.SemanticModel, ma
 	write(question)
 	write("\n\n")
 
-	outputFmt := promptTemplate(locale, "output_format")
-	if outputFmt == "" {
-		outputFmt = promptTemplate(i18n.DefaultLocale, "output_format")
-	}
+	outputFmt := promptTemplate(ctx, locale, "output_format")
 	write(outputFmt)
 
 	b.writeSampleData(sb, samples)

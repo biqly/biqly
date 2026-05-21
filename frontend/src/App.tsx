@@ -13,6 +13,7 @@ const QueryBuilder = lazy(() => import('./components/QueryBuilder'))
 const AIQuery = lazy(() => import('./components/AIQuery'))
 const SavedQuestions = lazy(() => import('./components/SavedQuestions'))
 const FewShotExamples = lazy(() => import('./components/FewShotExamples'))
+const PromptTemplates = lazy(() => import('./components/PromptTemplates'))
 const Evaluation = lazy(() => import('./components/Evaluation'))
 const Dashboard = lazy(() => import('./components/Dashboard'))
 const Settings = lazy(() => import('./components/Settings'))
@@ -113,6 +114,15 @@ const IconFewShot = (
   </svg>
 )
 
+const IconPromptTemplates = (
+  <svg {...iconProps}>
+    <path d="M7 4.5h10a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z" />
+    <path d="M9 8.5h6" />
+    <path d="M9 12h6" />
+    <path d="M9 15.5h4" />
+  </svg>
+)
+
 const IconEvaluation = (
   <svg {...iconProps}>
     <path d="M4 20V10" />
@@ -204,6 +214,15 @@ const routeDefs: AppRouteDef[] = [
     descriptionKey: 'app.nav.few_shot_desc',
     icon: IconFewShot,
     component: FewShotExamples,
+  },
+  {
+    path: '/prompt-templates',
+    sectionKey: 'ai',
+    labelKey: 'app.nav.prompt_templates',
+    eyebrowKey: 'app.nav.prompt_templates_eyebrow',
+    descriptionKey: 'app.nav.prompt_templates_desc',
+    icon: IconPromptTemplates,
+    component: PromptTemplates,
   },
   {
     path: '/evaluation',

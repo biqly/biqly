@@ -110,4 +110,10 @@ func registerAIAPIRoutes(r chi.Router, deps *app.Dependencies) {
 	r.Post("/ai/glossary", glossaryHandler.CreateGlossary)
 	r.Put("/ai/glossary/{id}", glossaryHandler.UpdateGlossary)
 	r.Delete("/ai/glossary/{id}", glossaryHandler.DeleteGlossary)
+
+	promptTemplatesHandler := handlers.NewAIPromptTemplatesHandler(deps)
+	r.Get("/ai/prompt-templates", promptTemplatesHandler.ListPromptTemplates)
+	r.Put("/ai/prompt-templates/{name}/{locale}", promptTemplatesHandler.UpdatePromptTemplate)
+	r.Post("/ai/prompt-templates/restore", promptTemplatesHandler.RestorePromptTemplate)
+	r.Post("/ai/prompt-templates/reseed", promptTemplatesHandler.ReseedPromptTemplates)
 }

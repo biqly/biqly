@@ -310,11 +310,11 @@ func (r *Repository) UpsertTableEmbedding(ctx context.Context, tableID, modelNam
 // the AI router on each NL→query request; we keep this single round-trip
 // rather than fanning out per-table lookups.
 func (r *Repository) ListTableEmbeddings(ctx context.Context, datasourceID string) ([]TableEmbedding, error) {
-	return listEmbeddingsSkippingCorrupt(ctx, r.db, "list table embeddings", `
+	return listEmbeddingsExpanded(ctx, r.db, "list table embeddings", `
 		SELECT schema_name, table_name, embedding_model, embedding
 		FROM tables
 		WHERE datasource_id = $1 AND embedding IS NOT NULL
-	`, []any{datasourceID}, scanTableEmbedding)
+	`, []any{datasourceID}, scanTableEmbeddingRow)
 }
 
 func encodeEmbedding(vec []float32) (string, error) {
@@ -411,11 +411,11 @@ func (r *Repository) UpsertColumnEmbedding(ctx context.Context, columnID, modelN
 // ListColumnEmbeddings returns every stored column embedding for a datasource in
 // one round-trip. Router code decides whether coverage is complete enough to use.
 func (r *Repository) ListColumnEmbeddings(ctx context.Context, datasourceID string) ([]ColumnEmbedding, error) {
-	return listEmbeddingsSkippingCorrupt(ctx, r.db, "list column embeddings", `
+	return listEmbeddingsExpanded(ctx, r.db, "list column embeddings", `
 		SELECT schema_name, table_name, column_name, embedding_model, embedding
 		FROM columns
 		WHERE datasource_id = $1 AND embedding IS NOT NULL
-	`, []any{datasourceID}, scanColumnEmbedding)
+	`, []any{datasourceID}, scanColumnEmbeddingRow)
 }
 
 // Relation operations

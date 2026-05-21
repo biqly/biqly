@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -94,8 +95,15 @@ type EmbeddingReader interface {
 // When both an Embedder and EmbeddingReader are configured (and embeddings
 // have been precomputed for the datasource), scoring blends keyword overlap
 // with cosine similarity between the question and each table embedding.
+// MetadataTranslator overlays entity_translations onto metadata rows for routing.
+type MetadataTranslator interface {
+	ApplyTableTranslations(ctx context.Context, tables []metadata.Table, loc i18n.Locale) error
+	ApplyColumnTranslations(ctx context.Context, cols []metadata.Column, loc i18n.Locale) error
+}
+
 type TableRouter struct {
 	reader          MetadataReader
+	translator      MetadataTranslator
 	embedder        Embedder
 	embeddingReader EmbeddingReader
 	embeddingWeight float64
@@ -123,6 +131,12 @@ func NewTableRouterWithEmbeddings(reader MetadataReader, embedder Embedder, embe
 }
 
 // SetRoutingLimits overrides auto-model caps (zero fields use defaults).
+// SetMetadataTranslator enables localized descriptions for keyword routing and
+// is required for Turkish embedding refresh (entity_translations).
+func (r *TableRouter) SetMetadataTranslator(t MetadataTranslator) {
+	r.translator = t
+}
+
 func (r *TableRouter) SetRoutingLimits(limits RoutingLimits) {
 	r.limits = limits.withDefaults()
 }
@@ -170,6 +184,7 @@ type tableBundle struct {
 // TableRoutingDebug carries explainability details for route decisions. It is
 // intentionally compact so it can be returned in regular API responses.
 type TableRoutingDebug struct {
+	QuestionLocale       string   `json:"question_locale,omitempty"`
 	RelationExpansion    []string `json:"relation_expansion,omitempty"`
 	BridgeTables         []string `json:"bridge_tables,omitempty"`
 	EliminatedCandidates []string `json:"eliminated_candidates,omitempty"`
@@ -231,10 +246,21 @@ func (r *TableRouter) Route(
 
 	columnsByTable := groupColumnsByTable(columns)
 
+	questionLocale := DetectQuestionLocale(question)
+	if r.translator != nil && questionLocale == i18n.LocaleTR {
+		if err := r.translator.ApplyTableTranslations(ctx, tables, questionLocale); err != nil {
+			return nil, nil, fmt.Errorf("apply table translations: %w", err)
+		}
+		if err := r.translator.ApplyColumnTranslations(ctx, columns, questionLocale); err != nil {
+			return nil, nil, fmt.Errorf("apply column translations: %w", err)
+		}
+		columnsByTable = groupColumnsByTable(columns)
+	}
+
 	// Hybrid boost from precomputed embeddings, when configured. Skipped
 	// silently on any error so a transient embedding-API failure or missing
 	// vectors falls back cleanly to keyword scoring.
-	embedSignals := r.embeddingSignals(ctx, datasourceID, question)
+	embedSignals := r.embeddingSignals(ctx, datasourceID, question, questionLocale)
 
 	var schemaPartitions []string
 	if len(nonEmptyScope(tableScope)) == 0 {
@@ -242,6 +268,9 @@ func (r *TableRouter) Route(
 	}
 
 	selected, result, err := r.selectTables(tables, columnsByTable, question, tableScope, embedSignals.tableBoost)
+	if result != nil {
+		result.ensureDebug().QuestionLocale = string(questionLocale)
+	}
 	if err != nil {
 		return nil, result, err
 	}
@@ -324,7 +353,7 @@ func (r *TableRouter) selectTables(
 // embeddingSignals returns table boosts and per-column similarity from one
 // question embedding. Any failed piece falls back independently to current
 // keyword/table-wide behavior.
-func (r *TableRouter) embeddingSignals(ctx context.Context, datasourceID, question string) embeddingSignals {
+func (r *TableRouter) embeddingSignals(ctx context.Context, datasourceID, question string, loc i18n.Locale) embeddingSignals {
 	if r.embedder == nil || r.embeddingReader == nil || r.embeddingWeight <= 0 {
 		return embeddingSignals{}
 	}
@@ -338,12 +367,12 @@ func (r *TableRouter) embeddingSignals(ctx context.Context, datasourceID, questi
 		return embeddingSignals{}
 	}
 	q := qVecs[0]
-	model := r.embedder.Model()
+	baseModel := r.embedder.Model()
 	signals := embeddingSignals{}
 	if tableErr == nil && len(storedTables) > 0 {
 		signals.tableBoost = make(map[string]float64, len(storedTables))
 		for _, te := range storedTables {
-			if te.Model != "" && te.Model != model {
+			if !EmbeddingModelMatches(te.Model, baseModel, loc) {
 				continue
 			}
 			sim := CosineSimilarity(q, te.Embedding)
@@ -356,7 +385,7 @@ func (r *TableRouter) embeddingSignals(ctx context.Context, datasourceID, questi
 	if columnErr == nil && len(storedColumns) > 0 {
 		signals.columnScores = make(map[string]float64, len(storedColumns))
 		for _, ce := range storedColumns {
-			if ce.Model != "" && ce.Model != model {
+			if !EmbeddingModelMatches(ce.Model, baseModel, loc) {
 				continue
 			}
 			sim := CosineSimilarity(q, ce.Embedding)

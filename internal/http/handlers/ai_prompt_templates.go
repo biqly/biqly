@@ -1,0 +1,149 @@
+package handlers
+
+import (
+	"net/http"
+	"strings"
+
+	"github.com/biqly/biqly/internal/ai"
+	"github.com/biqly/biqly/internal/app"
+	"github.com/biqly/biqly/internal/i18n"
+	"github.com/biqly/biqly/internal/metadata"
+	"github.com/go-chi/chi/v5"
+)
+
+type updatePromptTemplateRequest struct {
+	Content string `json:"content"`
+}
+
+type restorePromptTemplateRequest struct {
+	Name   string `json:"name"`
+	Locale string `json:"locale"`
+}
+
+// AIPromptTemplatesHandler serves admin CRUD for locale-specific static prompt sections.
+type AIPromptTemplatesHandler struct {
+	deps *app.Dependencies
+}
+
+// NewAIPromptTemplatesHandler creates a prompt templates handler.
+func NewAIPromptTemplatesHandler(deps *app.Dependencies) *AIPromptTemplatesHandler {
+	return &AIPromptTemplatesHandler{deps: deps}
+}
+
+// ListPromptTemplates returns all rows, optionally filtered by ?locale=en|tr.
+func (h *AIPromptTemplatesHandler) ListPromptTemplates(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	rows, err := h.deps.MetaRepo.ListPromptTemplates(ctx)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list prompt templates", err)
+		return
+	}
+	locFilter := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("locale")))
+	if locFilter != "" {
+		filtered := rows[:0]
+		for _, row := range rows {
+			if row.Locale == locFilter {
+				filtered = append(filtered, row)
+			}
+		}
+		rows = filtered
+	}
+	writeJSON(w, http.StatusOK, rows)
+}
+
+// UpdatePromptTemplate upserts content for name/locale path params.
+func (h *AIPromptTemplatesHandler) UpdatePromptTemplate(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimSpace(chi.URLParam(r, "name"))
+	localeStr := strings.TrimSpace(strings.ToLower(chi.URLParam(r, "locale")))
+	if name == "" || localeStr == "" {
+		writeError(w, http.StatusBadRequest, "name and locale are required")
+		return
+	}
+	loc, okLoc := promptTemplateLocale(localeStr)
+	if !okLoc {
+		writeError(w, http.StatusBadRequest, "locale must be en or tr")
+		return
+	}
+	if !isKnownPromptTemplateName(name) {
+		writeError(w, http.StatusBadRequest, "unknown prompt template name")
+		return
+	}
+	input, ok := decodeJSON[updatePromptTemplateRequest](w, r)
+	if !ok {
+		return
+	}
+	content := strings.TrimSpace(input.Content)
+	if content == "" {
+		writeError(w, http.StatusBadRequest, "content is required")
+		return
+	}
+	ctx := r.Context()
+	if err := h.deps.MetaRepo.UpsertPromptTemplate(ctx, name, loc, content); err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to update prompt template", err)
+		return
+	}
+	ai.InvalidatePromptTemplateCache(name, loc)
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// RestorePromptTemplate resets one template from embedded defaults.
+func (h *AIPromptTemplatesHandler) RestorePromptTemplate(w http.ResponseWriter, r *http.Request) {
+	input, ok := decodeJSON[restorePromptTemplateRequest](w, r)
+	if !ok {
+		return
+	}
+	name := strings.TrimSpace(input.Name)
+	localeStr := strings.TrimSpace(strings.ToLower(input.Locale))
+	if name == "" || localeStr == "" {
+		writeError(w, http.StatusBadRequest, "name and locale are required")
+		return
+	}
+	loc, okLoc := promptTemplateLocale(localeStr)
+	if !okLoc {
+		writeError(w, http.StatusBadRequest, "locale must be en or tr")
+		return
+	}
+	if !isKnownPromptTemplateName(name) {
+		writeError(w, http.StatusBadRequest, "unknown prompt template name")
+		return
+	}
+	ctx := r.Context()
+	if err := ai.RestorePromptTemplateFromEmbed(ctx, h.deps.MetaRepo, name, loc); err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to restore prompt template", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// ReseedPromptTemplates replaces all templates from embedded files.
+func (h *AIPromptTemplatesHandler) ReseedPromptTemplates(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if err := ai.ReseedAllPromptTemplatesFromEmbed(ctx, h.deps.MetaRepo); err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to reseed prompt templates", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func isKnownPromptTemplateName(name string) bool {
+	for _, n := range ai.KnownPromptTemplateNames() {
+		if n == name {
+			return true
+		}
+	}
+	return false
+}
+
+func promptTemplateLocale(raw string) (i18n.Locale, bool) {
+	switch raw {
+	case string(i18n.LocaleEN):
+		return i18n.LocaleEN, true
+	case string(i18n.LocaleTR):
+		return i18n.LocaleTR, true
+	default:
+		return i18n.DefaultLocale, false
+	}
+}
+
+// PromptTemplateRow is the API wire type for list responses.
+type PromptTemplateRow = metadata.PromptTemplate
