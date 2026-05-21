@@ -41,7 +41,7 @@ global:
 frontend:
   replicaCount: 1
   image:
-    tag: sha-56b921c7800edf2ee5c29a91ebfad5f764bdd9d87
+    tag: sha-56b921c7800edf2ee5c29a91dfad5f764bdd9d87
   runtimeAdminKey:
     enabled: true
 
