@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/core"
@@ -82,19 +83,64 @@ func validateAIJobRequest(kind string, raw json.RawMessage) error {
 		if req.DatasourceID == "" || req.Table == "" {
 			return fmt.Errorf("datasource_id and table are required")
 		}
+	case "describe_batch":
+		var req ai.DescribeBatchRequest
+		if err := json.Unmarshal(raw, &req); err != nil {
+			return fmt.Errorf("invalid request payload")
+		}
+		if req.DatasourceID == "" || len(req.Tables) == 0 {
+			return fmt.Errorf("datasource_id and tables are required")
+		}
+		if len(req.Tables) > 200 {
+			return fmt.Errorf("at most 200 tables per batch")
+		}
 	default:
 		return fmt.Errorf("invalid kind")
 	}
 	return nil
 }
 
+func (s *AIJobService) Cancel(ctx context.Context, jobID string) (*metadata.AIJob, error) {
+	ok, err := s.repo.CancelAIJob(ctx, jobID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		job, getErr := s.repo.GetAIJob(ctx, jobID)
+		if getErr != nil {
+			return nil, getErr
+		}
+		switch job.Status {
+		case metadata.AIJobStatusSucceeded, metadata.AIJobStatusFailed, metadata.AIJobStatusCancelled:
+			return job, nil
+		default:
+			return nil, fmt.Errorf("job cannot be cancelled")
+		}
+	}
+	return s.repo.GetAIJob(ctx, jobID)
+}
+
 func (s *AIJobService) Process(ctx context.Context, jobID string) error {
-	if err := s.repo.MarkAIJobRunning(ctx, jobID); err != nil {
+	started, err := s.repo.TryMarkAIJobRunning(ctx, jobID)
+	if err != nil {
 		return err
+	}
+	if !started {
+		job, getErr := s.repo.GetAIJob(ctx, jobID)
+		if getErr != nil {
+			return getErr
+		}
+		if job.Status == metadata.AIJobStatusCancelled {
+			return nil
+		}
+		return fmt.Errorf("job %s is not runnable (status=%s)", jobID, job.Status)
 	}
 	job, err := s.repo.GetAIJob(ctx, jobID)
 	if err != nil {
 		return err
+	}
+	if job.Status == metadata.AIJobStatusCancelled {
+		return nil
 	}
 	report := func(p AIJobProgress) {
 		status := p.Status
@@ -107,6 +153,13 @@ func (s *AIJobService) Process(ctx context.Context, jobID string) error {
 	}
 	raw, err := s.processJob(ctx, job, report)
 	if err != nil {
+		job, getErr := s.repo.GetAIJob(ctx, jobID)
+		if getErr == nil && job.Status == metadata.AIJobStatusCancelled {
+			return nil
+		}
+		if strings.Contains(strings.ToLower(err.Error()), "cancelled") {
+			return nil
+		}
 		_ = s.repo.FailAIJob(ctx, jobID, err.Error())
 		return err
 	}
@@ -139,6 +192,19 @@ func (s *AIJobService) processJob(ctx context.Context, job *metadata.AIJob, repo
 			return nil, err
 		}
 		return encodeDescribeJobResult(result)
+	case "describe_batch":
+		var req ai.DescribeBatchRequest
+		if err := json.Unmarshal(job.RequestJSON, &req); err != nil {
+			return nil, fmt.Errorf("invalid request payload")
+		}
+		result, err := s.ai.executeMetadataDescribeBatchJob(ctx, job.ID, req, report)
+		if err != nil {
+			if strings.Contains(strings.ToLower(err.Error()), "cancelled") {
+				return encodeDescribeBatchJobResult(result)
+			}
+			return nil, err
+		}
+		return encodeDescribeBatchJobResult(result)
 	default:
 		return nil, fmt.Errorf("unknown job kind %q", job.Kind)
 	}

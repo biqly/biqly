@@ -71,6 +71,12 @@ type AIJobsHTTPHandler interface {
 	Create(http.ResponseWriter, *http.Request)
 	Get(http.ResponseWriter, *http.Request)
 	List(http.ResponseWriter, *http.Request)
+	Cancel(http.ResponseWriter, *http.Request)
+	ListStale(http.ResponseWriter, *http.Request)
+	CancelBatch(http.ResponseWriter, *http.Request)
+	CancelActive(http.ResponseWriter, *http.Request)
+	AdminListStale(http.ResponseWriter, *http.Request)
+	AdminCancelAllStale(http.ResponseWriter, *http.Request)
 }
 
 // NewDependencies wires up all dependencies.

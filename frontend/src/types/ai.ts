@@ -67,7 +67,7 @@ export interface AIQueryRequest {
   prior_turns?: PriorTurn[]
 }
 
-export type AIJobKind = 'query' | 'preview' | 'run' | 'describe'
+export type AIJobKind = 'query' | 'preview' | 'run' | 'describe' | 'describe_batch'
 
 export type AIJobStatus =
   | 'pending'

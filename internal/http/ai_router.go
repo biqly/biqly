@@ -68,7 +68,11 @@ func registerAIAPIRoutes(r chi.Router, deps *app.Dependencies) {
 	if deps.Jobs.Enabled && deps.AIJobsHTTP != nil {
 		r.Post("/ai/jobs", deps.AIJobsHTTP.Create)
 		r.Get("/ai/jobs", deps.AIJobsHTTP.List)
+		r.Get("/ai/jobs/stale", deps.AIJobsHTTP.ListStale)
+		r.Post("/ai/jobs/cancel-active", deps.AIJobsHTTP.CancelActive)
+		r.Post("/ai/jobs/cancel-batch", deps.AIJobsHTTP.CancelBatch)
 		r.Get("/ai/jobs/{id}", deps.AIJobsHTTP.Get)
+		r.Delete("/ai/jobs/{id}", deps.AIJobsHTTP.Cancel)
 	}
 	r.Post("/ai/query", aiHandler.Query)
 	r.Post("/ai/query/preview", aiHandler.Preview)
@@ -78,6 +82,11 @@ func registerAIAPIRoutes(r chi.Router, deps *app.Dependencies) {
 	r.Get("/ai/settings", aiHandler.RuntimeSettings)
 	r.Group(func(r chi.Router) {
 		r.Use(handlers.AdminKeyMiddleware(deps.Config.Security.AdminAPIKey))
+		if deps.Jobs.Enabled && deps.AIJobsHTTP != nil {
+			r.Get("/ai/jobs/admin/stale", deps.AIJobsHTTP.AdminListStale)
+			r.Post("/ai/jobs/admin/cancel-all-stale", deps.AIJobsHTTP.AdminCancelAllStale)
+			r.Post("/ai/jobs/admin/cancel-batch", deps.AIJobsHTTP.CancelBatch)
+		}
 		r.Post("/ai/eval/run", aiHandler.EvalRun)
 		r.Get("/ai/eval/run/stream", aiHandler.EvalRunStream)
 		r.Get("/ai/eval/runs", aiHandler.EvalListRuns)

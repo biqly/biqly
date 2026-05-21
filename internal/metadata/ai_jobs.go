@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 const (
@@ -134,6 +136,112 @@ func (r *Repository) FailAIJob(ctx context.Context, id, message string) error {
 		return fmt.Errorf("fail ai job: %w", err)
 	}
 	return nil
+}
+
+func (r *Repository) CancelAIJob(ctx context.Context, id string) (bool, error) {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE ai_jobs
+		SET status = $2, phase = 'cancelled', phase_message = 'cancelled by user',
+		    progress_pct = 0, finished_at = NOW(), updated_at = NOW()
+		WHERE id = $1 AND status IN ($3, $4, $5)`,
+		id, AIJobStatusCancelled, AIJobStatusPending, AIJobStatusQueued, AIJobStatusRunning)
+	if err != nil {
+		return false, fmt.Errorf("cancel ai job: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("cancel ai job rows: %w", err)
+	}
+	return n > 0, nil
+}
+
+func (r *Repository) ListStaleAIJobs(ctx context.Context, sessionID string, olderThan time.Duration, limit int) ([]AIJob, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	cutoff := time.Now().Add(-olderThan)
+	q := `
+		SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct,
+		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at
+		FROM ai_jobs
+		WHERE status IN ($1, $2, $3) AND updated_at < $4`
+	args := []any{AIJobStatusPending, AIJobStatusQueued, AIJobStatusRunning, cutoff}
+	if sessionID != "" {
+		q += ` AND client_session_id = $5 ORDER BY updated_at ASC LIMIT $6`
+		args = append(args, sessionID, limit)
+	} else {
+		q += ` ORDER BY updated_at ASC LIMIT $5`
+		args = append(args, limit)
+	}
+
+	rows, err := r.db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list stale ai jobs: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []AIJob
+	for rows.Next() {
+		job, err := scanAIJobRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *job)
+	}
+	return out, rows.Err()
+}
+
+func (r *Repository) CancelAIJobs(ctx context.Context, ids []string) (int, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE ai_jobs
+		SET status = $1, phase = 'cancelled', phase_message = 'cancelled by user',
+		    progress_pct = 0, finished_at = NOW(), updated_at = NOW()
+		WHERE id = ANY($2) AND status IN ($3, $4, $5)`,
+		AIJobStatusCancelled, pq.Array(ids), AIJobStatusPending, AIJobStatusQueued, AIJobStatusRunning)
+	if err != nil {
+		return 0, fmt.Errorf("cancel ai jobs: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("cancel ai jobs rows: %w", err)
+	}
+	return int(n), nil
+}
+
+func (r *Repository) CancelActiveAIJobsBySession(ctx context.Context, sessionID string) (int, error) {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE ai_jobs
+		SET status = $1, phase = 'cancelled', phase_message = 'cancelled by user',
+		    progress_pct = 0, finished_at = NOW(), updated_at = NOW()
+		WHERE client_session_id = $2 AND status IN ($3, $4, $5)`,
+		AIJobStatusCancelled, sessionID, AIJobStatusPending, AIJobStatusQueued, AIJobStatusRunning)
+	if err != nil {
+		return 0, fmt.Errorf("cancel active ai jobs: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("cancel active ai jobs rows: %w", err)
+	}
+	return int(n), nil
+}
+
+func (r *Repository) TryMarkAIJobRunning(ctx context.Context, id string) (bool, error) {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE ai_jobs
+		SET status = $2, phase = 'routing', phase_message = '', progress_pct = 5,
+		    started_at = COALESCE(started_at, NOW()), updated_at = NOW()
+		WHERE id = $1 AND status IN ($3, $4)`, id, AIJobStatusRunning, AIJobStatusPending, AIJobStatusQueued)
+	if err != nil {
+		return false, fmt.Errorf("mark ai job running: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("mark ai job running rows: %w", err)
+	}
+	return n > 0, nil
 }
 
 func scanAIJob(row *sql.Row) (*AIJob, error) {

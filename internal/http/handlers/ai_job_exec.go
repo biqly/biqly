@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/app"
@@ -261,4 +262,120 @@ func encodeDescribeJobResult(result *ai.DescribeResult) (json.RawMessage, error)
 		return nil, err
 	}
 	return b, nil
+}
+
+func encodeDescribeBatchJobResult(result *ai.DescribeBatchResult) (json.RawMessage, error) {
+	if result == nil {
+		return nil, nil
+	}
+	b, err := json.Marshal(result)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
+func (h *AIHandler) isAIJobCancelled(ctx context.Context, jobID string) bool {
+	if jobID == "" || h.deps.MetaRepo == nil {
+		return false
+	}
+	job, err := h.deps.MetaRepo.GetAIJob(ctx, jobID)
+	if err != nil {
+		return false
+	}
+	return job.Status == metadata.AIJobStatusCancelled
+}
+
+func (h *AIHandler) executeMetadataDescribeBatchJob(
+	ctx context.Context,
+	jobID string,
+	req ai.DescribeBatchRequest,
+	report AIJobProgressFunc,
+) (*ai.DescribeBatchResult, error) {
+	if req.DatasourceID == "" || len(req.Tables) == 0 {
+		return nil, fmt.Errorf("datasource_id and tables are required")
+	}
+
+	existingDesc := map[string]bool{}
+	if req.SkipExisting && h.deps.MetaRepo != nil {
+		tables, err := h.deps.MetaRepo.ListTables(ctx, req.DatasourceID, "")
+		if err != nil {
+			return nil, err
+		}
+		for _, t := range tables {
+			if t.Description != nil && strings.TrimSpace(*t.Description) != "" {
+				existingDesc[t.SchemaName+"."+t.TableName] = true
+			}
+		}
+	}
+
+	out := &ai.DescribeBatchResult{Entries: make([]ai.DescribeBatchEntryResult, 0, len(req.Tables))}
+	total := len(req.Tables)
+	for i, target := range req.Tables {
+		if h.isAIJobCancelled(ctx, jobID) {
+			return out, fmt.Errorf("job cancelled")
+		}
+		schema := strings.TrimSpace(target.Schema)
+		table := strings.TrimSpace(target.Table)
+		if schema == "" || table == "" {
+			out.Entries = append(out.Entries, ai.DescribeBatchEntryResult{
+				Schema: schema, Table: table, Status: "error", Message: "schema and table are required",
+			})
+			out.Error++
+			continue
+		}
+		key := schema + "." + table
+		if req.SkipExisting && existingDesc[key] {
+			out.Entries = append(out.Entries, ai.DescribeBatchEntryResult{
+				Schema: schema, Table: table, Status: "skipped", Message: "already has description",
+			})
+			out.Skipped++
+			continue
+		}
+
+		denom := total
+		if denom < 1 {
+			denom = 1
+		}
+		pct := 5 + (i*90/denom)
+		if report != nil {
+			report(AIJobProgress{
+				Phase:    "generating",
+				Message:  fmt.Sprintf("describing %s", key),
+				Progress: pct,
+				Status:   metadata.AIJobStatusRunning,
+			})
+		}
+
+		single := ai.DescribeRequest{
+			DatasourceID: req.DatasourceID,
+			Schema:       schema,
+			Table:        table,
+			SampleSize:   req.SampleSize,
+			AutoApply:    req.AutoApply,
+		}
+		result, err := h.executeMetadataDescribeJob(ctx, single, nil)
+		if err != nil {
+			out.Entries = append(out.Entries, ai.DescribeBatchEntryResult{
+				Schema: schema, Table: table, Status: "error", Message: err.Error(),
+			})
+			out.Error++
+			continue
+		}
+		cols := 0
+		if result != nil {
+			cols = len(result.Columns)
+		}
+		out.Entries = append(out.Entries, ai.DescribeBatchEntryResult{
+			Schema: schema, Table: table, Status: "ok",
+			Message: fmt.Sprintf("%d columns described", cols),
+			Result:  result,
+		})
+		out.OK++
+	}
+
+	if report != nil {
+		report(AIJobProgress{Phase: "applying", Message: "batch complete", Progress: 100, Status: metadata.AIJobStatusRunning})
+	}
+	return out, nil
 }

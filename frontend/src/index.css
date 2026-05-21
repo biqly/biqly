@@ -4522,6 +4522,49 @@ body.modeling-grabbing * {
   flex-shrink: 0;
 }
 
+.ai-job-panel__manage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0 0.75rem 0.5rem;
+  align-items: flex-start;
+}
+
+.ai-job-panel__stale {
+  width: 100%;
+  margin-top: 0.35rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px dashed var(--border);
+  border-radius: 0.45rem;
+  font-size: 0.8rem;
+}
+
+.ai-job-panel__stale-head {
+  margin: 0 0 0.35rem;
+  color: var(--text-secondary);
+}
+
+.ai-job-panel__stale-list {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.ai-job-panel__stale-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ai-job-panel__stale-empty {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
 .ai-job-panel__list {
   display: grid;
   gap: 0.65rem;
@@ -4544,6 +4587,29 @@ body.modeling-grabbing * {
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.5rem;
+}
+
+.ai-job-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.ai-job-card__cancel {
+  color: var(--danger, #e57373);
+}
+
+.ai-job-card__cancelled {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.ai-job-card__hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
 }
 
 .ai-job-card__titles {

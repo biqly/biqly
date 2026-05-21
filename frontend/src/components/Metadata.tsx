@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useApi } from '../hooks/useApi'
 import { useAIJobs } from '../hooks/useAIJobs'
+import { runMetadataDescribeDirect, type DescribeResult } from '../api/metadataDescribe'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { useLocale, useT } from '../i18n'
 import type { TranslationKey } from '../i18n'
@@ -11,13 +12,6 @@ import { Select } from './ui/Select'
 import { ModelBadgeRow } from './ui/ModelBadgeRow'
 import type { AIRuntimeSettings } from '../types/ai'
 import { BulkProgressHeader, BulkStatusBadge, objectTypeLabel, sortBulkEntriesForDisplay, type BulkEntry } from './metadata/bulkProgress'
-
-/**
- * AI metadata/describe can run primary LLM + optional translation in one request.
- * Default useApi timeout (30s) aborts too early; align with server AIRequestTimeout / nginx.
- */
-const AI_METADATA_DESCRIBE_TIMEOUT_MS = 600_000
-
 
 interface TableRow {
   id: string
@@ -80,50 +74,9 @@ function textareaRowsForDescription(text: string | null | undefined): number {
   return Math.min(DESC_TEXTAREA_MAX_ROWS, Math.max(1, rows))
 }
 
-interface DescribeResult {
-  schema: string
-  table: string
-  description: string
-  columns: { name: string; description: string }[]
-  applied: boolean
-  sample_rows: number
-  /** LLM that produced the suggestions (Backend BI_AI_MODEL). */
-  model?: string
-  translation_applied?: boolean
-  translation_model?: string
-  translation_error?: string
-}
-
-function plainTextFromResponse(text: string): string {
-  return text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-}
-
-async function readDescribeResponse(res: Response): Promise<{ data: DescribeResult | null; error: string | null }> {
-  const text = await res.text()
-  if (!text) {
-    return res.ok ? { data: null, error: null } : { data: null, error: `HTTP ${res.status}` }
-  }
-
-  const contentType = res.headers.get('content-type') ?? ''
-  const looksJSON = contentType.includes('application/json') || /^[\s[{]/.test(text)
-  if (!looksJSON) {
-    const message = plainTextFromResponse(text)
-    return { data: null, error: message ? `HTTP ${res.status}: ${message}` : `HTTP ${res.status}` }
-  }
-
-  try {
-    const data = JSON.parse(text) as DescribeResult & { error?: string }
-    if (!res.ok) return { data: null, error: data.error || `HTTP ${res.status}` }
-    return { data, error: null }
-  } catch {
-    const message = plainTextFromResponse(text)
-    return { data: null, error: message ? `HTTP ${res.status}: ${message}` : `HTTP ${res.status}: invalid JSON response` }
-  }
-}
-
 export default function Metadata() {
   const { get, patchData, putData, loading, error } = useApi()
-  const { runJob } = useAIJobs()
+  const { runJob, bulkDescribe } = useAIJobs()
   const t = useT()
   const [locale] = useLocale()
   const [editLocale, setEditLocale] = useState<'tr' | 'en'>(locale === 'en' ? 'en' : 'tr')
@@ -146,10 +99,8 @@ export default function Metadata() {
   const [describeError, setDescribeError] = useState<string | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulkConfig, setBulkConfig] = useState({ sample_size: 10, skip_existing: true })
-  const [bulkRunning, setBulkRunning] = useState(false)
-  const [bulkEntries, setBulkEntries] = useState<BulkEntry[]>([])
-  const [bulkSummary, setBulkSummary] = useState<{ ok: number; error: number; skipped: number } | null>(null)
-  const bulkCancelRef = useRef(false)
+  const { running: bulkRunning, entries: bulkEntries, summary: bulkSummary, start: startBulkDescribe, cancel: cancelBulkDescribe } =
+    bulkDescribe
   const skipBlurSaveRef = useRef(false)
   const [tableFilterSchema, setTableFilterSchema] = useState(schemaParam)
   const [tableFilterType, setTableFilterType] = useState(typeParam)
@@ -319,26 +270,6 @@ export default function Metadata() {
     }
   }
 
-  const runDescribeDirect = async (request: Record<string, unknown>): Promise<DescribeResult> => {
-    const controller = new AbortController()
-    const timeout = window.setTimeout(() => controller.abort(), AI_METADATA_DESCRIBE_TIMEOUT_MS)
-    try {
-      const res = await fetch('/api/ai/metadata/describe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Locale': locale },
-        body: JSON.stringify(request),
-        signal: controller.signal,
-      })
-      const { data, error } = await readDescribeResponse(res)
-      if (!res.ok || error || !data) {
-        throw new Error(error || `HTTP ${res.status}`)
-      }
-      return data
-    } finally {
-      window.clearTimeout(timeout)
-    }
-  }
-
   const runDescribe = async () => {
     if (!describeOpen) return
     setDescribeRunning(true)
@@ -356,7 +287,7 @@ export default function Metadata() {
         onError: (message) => setDescribeError(message),
       })
       if (res === 'fallback') {
-        res = await runDescribeDirect(request)
+        res = await runMetadataDescribeDirect(request)
       }
       if (res) {
         setDescribeResult(res)
@@ -375,79 +306,29 @@ export default function Metadata() {
     setBulkSchemaRestrict(false)
     setBulkSchemasSelected([])
     setBulkOpen(true)
-    setBulkEntries([])
-    setBulkSummary(null)
-    setBulkRunning(false)
-    bulkCancelRef.current = false
   }
 
   const closeBulk = () => {
-    if (bulkRunning) bulkCancelRef.current = true
     setBulkOpen(false)
   }
 
-  const runBulkDescribe = async () => {
+  const runBulkDescribe = () => {
     const targets = bulkTargetTables
     if (!datasourceId || targets.length === 0) return
-    bulkCancelRef.current = false
-    setBulkRunning(true)
-    setBulkSummary(null)
-
-    const queue: BulkEntry[] = targets.map((row) => {
-      if (bulkConfig.skip_existing && row.description) {
-        return { schema: row.schema_name, table: row.table_name, status: 'skipped', message: t('metadata.bulk_skip_has_desc') }
-      }
-      return { schema: row.schema_name, table: row.table_name, status: 'pending' }
+    startBulkDescribe({
+      datasourceId,
+      targets,
+      sampleSize: bulkConfig.sample_size,
+      skipExisting: bulkConfig.skip_existing,
+      skipExistingMessage: t('metadata.bulk_skip_has_desc'),
+      networkErrorMessage: t('metadata.bulk_network_error'),
+      okColumnsMessage: (cols) => t('metadata.bulk_ok_columns', { cols }),
+      onFinished: () => {
+        void get<TableRow[]>(`/api/datasources/${datasourceId}/tables`).then((fresh) => {
+          if (fresh) setTables(fresh)
+        })
+      },
     })
-    setBulkEntries(queue)
-
-    let ok = 0
-    let errCount = 0
-    let skipped = queue.filter((q) => q.status === 'skipped').length
-
-    for (let i = 0; i < targets.length; i++) {
-      if (bulkCancelRef.current) break
-      const row = targets[i]
-      const entry = queue[i]
-      if (!row || !entry || entry.status === 'skipped') continue
-
-      const schema = row.schema_name
-      const table = row.table_name
-      queue[i] = { schema, table, status: 'running' }
-      setBulkEntries([...queue])
-
-      try {
-        const request = {
-          datasource_id: datasourceId,
-          schema,
-          table,
-          sample_size: bulkConfig.sample_size,
-          auto_apply: true,
-        }
-        let data = await runJob<typeof request, DescribeResult>('describe', request)
-        if (data === 'fallback') {
-          data = await runDescribeDirect(request)
-        }
-        if (!data) {
-          queue[i] = { schema, table, status: 'error', message: t('metadata.bulk_network_error') }
-          errCount++
-        } else {
-          const cols = data?.columns?.length ?? 0
-          queue[i] = { schema, table, status: 'ok', message: t('metadata.bulk_ok_columns', { cols }) }
-          ok++
-        }
-      } catch (err) {
-        queue[i] = { schema, table, status: 'error', message: err instanceof Error ? err.message : t('metadata.bulk_network_error') }
-        errCount++
-      }
-      setBulkEntries([...queue])
-    }
-
-    setBulkRunning(false)
-    setBulkSummary({ ok, error: errCount, skipped })
-    // refresh table list to pick up new descriptions
-    const fresh = await get<TableRow[]>(`/api/datasources/${datasourceId}/tables`)
-    if (fresh) setTables(fresh)
   }
 
   const applySuggestion = async (kind: 'table' | 'column', name: string, description: string) => {
@@ -697,7 +578,7 @@ export default function Metadata() {
         <div
           className="modal-backdrop"
           role="presentation"
-          onClick={(e) => { if (e.target === e.currentTarget && !bulkRunning) closeBulk() }}
+          onClick={(e) => { if (e.target === e.currentTarget) closeBulk() }}
         >
           <section
             className="modal-card modal-card--bulk-describe"
@@ -905,13 +786,14 @@ export default function Metadata() {
                   </div>
                   <div className="modal-actions">
                     {bulkRunning ? (
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => { bulkCancelRef.current = true }}
-                      >
-                        {t('metadata.bulk_stop_after')}
-                      </button>
+                      <>
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={closeBulk}>
+                          {t('metadata.bulk_run_background')}
+                        </button>
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={cancelBulkDescribe}>
+                          {t('metadata.bulk_stop_after')}
+                        </button>
+                      </>
                     ) : (
                       <button type="button" className="btn btn-sm" onClick={closeBulk}>{t('metadata.bulk_close_btn')}</button>
                     )}
