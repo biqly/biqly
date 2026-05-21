@@ -22,7 +22,7 @@ func AIRouter(deps *app.Dependencies) http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(deps.Config.MaxQueryRuntime() + 10*time.Second))
+	r.Use(middleware.Timeout(aiServiceRequestTimeout(deps)))
 	r.Use(bimw.Locale)
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*"},
@@ -56,6 +56,10 @@ func AIRouter(deps *app.Dependencies) http.Handler {
 	})
 
 	return r
+}
+
+func aiServiceRequestTimeout(deps *app.Dependencies) time.Duration {
+	return deps.Config.AI.AIRequestTimeout()
 }
 
 func registerAIAPIRoutes(r chi.Router, deps *app.Dependencies) {

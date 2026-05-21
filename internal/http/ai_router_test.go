@@ -5,11 +5,29 @@ import (
 	stdhttp "net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/query"
 )
+
+func TestAIRouter_UsesAIRequestTimeout(t *testing.T) {
+	t.Parallel()
+	deps := &app.Dependencies{
+		Config: &config.Config{
+			Query: config.QueryConfig{MaxRuntimeSeconds: 60},
+			AI: config.AIConfig{
+				HTTPTimeoutSeconds:            12,
+				TranslationHTTPTimeoutSeconds: 90,
+			},
+		},
+	}
+
+	if got := aiServiceRequestTimeout(deps); got != 120*time.Second {
+		t.Fatalf("timeout = %s, want AI request timeout", got)
+	}
+}
 
 func TestAIRouter_OnlyMountsAIRoutes(t *testing.T) {
 	t.Parallel()
