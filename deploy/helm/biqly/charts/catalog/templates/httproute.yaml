@@ -7,13 +7,17 @@ metadata:
     {{- include "catalog.labels" . | nindent 4 }}
 spec:
   parentRefs:
-    - name: {{ .Values.global.gateway.parentRef.name }}
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.global.gateway.parentRef.name }}
       namespace: {{ .Values.global.gateway.parentRef.namespace }}
       {{- with .Values.global.gateway.parentRef.sectionName }}
       sectionName: {{ . }}
       {{- end }}
     {{- with .Values.global.gateway.httpParentRef }}
-    - name: {{ .name }}
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .name }}
       namespace: {{ .namespace }}
       {{- with .sectionName }}
       sectionName: {{ . }}
@@ -28,7 +32,10 @@ spec:
             type: PathPrefix
             value: {{ . | quote }}
       backendRefs:
-        - name: {{ include "catalog.fullname" $ }}
+        - group: ""
+          kind: Service
+          name: {{ include "catalog.fullname" $ }}
           port: {{ $.Values.service.port }}
+          weight: 1
     {{- end }}
 {{- end }}
