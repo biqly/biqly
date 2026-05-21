@@ -34,9 +34,14 @@ global:
     aiExternal:
       cidrs:
         - 192.168.50.0/24
+  migrate:
+    image:
+      tag: sha-5bbf7450e0d42ab2b8be43a77ce1b43d69577b62
 
 frontend:
   replicaCount: 1
+  image:
+    tag: sha-5bbf7450e0d42ab2b8be43a77ce1b43d69577b62
   runtimeAdminKey:
     enabled: true
 
@@ -55,7 +60,7 @@ query:
 ai:
   replicaCount: 1
   image:
-    tag: sha-20216718266a913b9f893c386bbab67f01a49255
+    tag: sha-5bbf7450e0d42ab2b8be43a77ce1b43d69577b62
   rollout:
     enabled: false
   autoscaling:
