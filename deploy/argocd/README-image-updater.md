@@ -6,14 +6,39 @@ Credentials **never** live in this repository. Create the git write secret in th
 
 - `kubectl` context pointing at the Argo CD cluster
 - `helm` 3.x
-- A **fine-grained GitHub PAT** (or machine user PAT) with **Contents: write** on `biqly/biqly`
+- A **fine-grained GitHub PAT** with **Contents: write** on `biqly/biqly` (cannot be created via `gh api`; use GitHub UI once)
 - GHCR pull secret `ghcr-registry` already in namespace `argocd` (same as Argo CD)
+
+## One-time: fine-grained PAT + cluster secret
+
+```bash
+./deploy/argocd/setup-github-pat.sh
+```
+
+This opens [GitHub → New fine-grained PAT](https://github.com/settings/personal-access-tokens/new), prompts for the token, saves it to `.env.local` as `BIQLY_GITHUB_TOKEN`, validates push access, and runs the install script.
+
+**GitHub UI checklist**
+
+| Field | Value |
+|--------|--------|
+| Resource owner | `biqly` |
+| Repository access | Only `biqly` |
+| Contents | Read and write |
+| Metadata | Read |
+
+Username for HTTPS git is `x-access-token` (default); password is the PAT.
+
+Non-interactive (after you have the PAT):
+
+```bash
+BIQLY_GITHUB_TOKEN='github_pat_...' ./deploy/argocd/setup-github-pat.sh
+```
 
 ## Install / reinstall
 
 ```bash
-export BIQLY_GITHUB_TOKEN='<pat-with-repo-write>'
-# optional: export BIQLY_GITHUB_USER='biqly-bot'
+# loads BIQLY_GITHUB_TOKEN from .env.local if exported in your shell
+source .env.local 2>/dev/null || true
 # optional when main has branch protection:
 # export ARGOCD_IMAGE_UPDATER_USE_PR=true
 

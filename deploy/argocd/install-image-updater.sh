@@ -10,8 +10,20 @@ USE_PR="${ARGOCD_IMAGE_UPDATER_USE_PR:-false}"
 
 if [[ -z "$TOKEN" ]]; then
   echo "error: set BIQLY_GITHUB_TOKEN to a GitHub PAT with write access to biqly/biqly (do not commit it)." >&2
+  echo "hint: run ./deploy/argocd/setup-github-pat.sh" >&2
   exit 1
 fi
+
+case "$TOKEN" in
+  gho_*)
+    if [[ "${BIQLY_GITHUB_ALLOW_OAUTH:-}" != true && "${BIQLY_GITHUB_ALLOW_OAUTH:-}" != 1 ]]; then
+      echo "error: BIQLY_GITHUB_TOKEN looks like gh OAuth (gho_). Use a fine-grained PAT (github_pat_...)." >&2
+      echo "hint: ./deploy/argocd/setup-github-pat.sh" >&2
+      exit 1
+    fi
+    echo "warn: using OAuth token; not recommended for production" >&2
+    ;;
+esac
 
 echo "==> Git write secret ($SECRET_NAME in $NS)"
 kubectl create secret generic "$SECRET_NAME" -n "$NS" \
