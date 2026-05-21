@@ -67,6 +67,7 @@ func registerAIAPIRoutes(r chi.Router, deps *app.Dependencies) {
 	aiHandler.SetAIMetricsRecorder(GetMetrics())
 	if deps.Jobs.Enabled && deps.AIJobsHTTP != nil {
 		r.Post("/ai/jobs", deps.AIJobsHTTP.Create)
+		r.Get("/ai/jobs/describe-batch/conflict", deps.AIJobsHTTP.DescribeBatchConflict)
 		r.Get("/ai/jobs", deps.AIJobsHTTP.List)
 		r.Get("/ai/jobs/stale", deps.AIJobsHTTP.ListStale)
 		r.Post("/ai/jobs/cancel-active", deps.AIJobsHTTP.CancelActive)

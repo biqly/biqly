@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/biqly/biqly/internal/metadata"
@@ -26,10 +28,59 @@ func (h *AIJobsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	req = *parsed
 	job, err := h.svc.Enqueue(r.Context(), req.Kind, req.ClientSessionID, req.Request)
 	if err != nil {
+		var conflict *AIJobConflictError
+		if errors.As(err, &conflict) {
+			writeAIJobConflict(w, conflict)
+			return
+		}
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusAccepted, job)
+}
+
+func (h *AIJobsHandler) DescribeBatchConflict(w http.ResponseWriter, r *http.Request) {
+	datasourceID := r.URL.Query().Get("datasource_id")
+	if datasourceID == "" {
+		writeError(w, http.StatusBadRequest, "datasource_id is required")
+		return
+	}
+	rawSchemas := r.URL.Query()["schemas"]
+	if len(rawSchemas) == 1 && strings.Contains(rawSchemas[0], ",") {
+		rawSchemas = strings.Split(rawSchemas[0], ",")
+	}
+	schemas := make([]string, 0, len(rawSchemas))
+	seen := make(map[string]struct{})
+	for _, s := range rawSchemas {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
+		schemas = append(schemas, s)
+	}
+	if len(schemas) == 0 {
+		writeJSON(w, http.StatusOK, map[string]any{"conflict": false})
+		return
+	}
+	existing, err := h.svc.repo.FindConflictingDescribeBatch(r.Context(), datasourceID, schemas)
+	if err != nil {
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to check describe batch conflict", err)
+		return
+	}
+	if existing == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"conflict": false})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"conflict":        true,
+		"existing_job_id": existing.ID,
+		"existing_job":    existing,
+		"scope_schemas":   existing.ScopeSchemas,
+	})
 }
 
 func (h *AIJobsHandler) Get(w http.ResponseWriter, r *http.Request) {

@@ -40,6 +40,21 @@ function isActive(job: TrackedAIJob): boolean {
   return job.status === 'pending' || job.status === 'queued' || job.status === 'running'
 }
 
+function describeBatchScopeLine(job: TrackedAIJob): string | null {
+  if (job.kind !== 'describe_batch' || !job.scope_schemas?.length) return null
+  return job.scope_schemas.join(', ')
+}
+
+function describeBatchQueueLine(job: TrackedAIJob): { current: string | null; next: string | null } | null {
+  if (job.kind !== 'describe_batch' || !job.progress_json) return null
+  const p = job.progress_json
+  const current =
+    p.current_schema && p.current_table ? `${p.current_schema}.${p.current_table}` : null
+  const next = p.pending_preview?.length ? p.pending_preview.join(', ') : null
+  if (!current && !next) return null
+  return { current, next }
+}
+
 function JobPipeline({ job }: { job: TrackedAIJob }) {
   const t = useT()
   const phases = phasesForJob(job)
@@ -80,6 +95,8 @@ function JobCard({
 }) {
   const t = useT()
   const active = isActive(job)
+  const scopeLine = describeBatchScopeLine(job)
+  const queueLine = describeBatchQueueLine(job)
   const kindLabel =
     job.kind === 'describe_batch'
       ? t('ai_jobs.kind_describe_batch')
@@ -98,6 +115,7 @@ function JobCard({
           <strong className="ai-job-card__title">{job.questionPreview || kindLabel}</strong>
           <span className="ai-job-card__meta">
             {kindLabel} · {job.progress_pct}%
+            {scopeLine ? ` · ${t('ai_jobs.scope_schemas', { schemas: scopeLine })}` : ''}
             {job.phase_message ? ` · ${job.phase_message}` : ''}
           </span>
         </div>
@@ -122,6 +140,16 @@ function JobCard({
       {expanded && (
         <div className="ai-job-card__body">
           <JobPipeline job={job} />
+          {queueLine?.current && (
+            <p className="ai-job-card__hint">
+              {t('ai_jobs.queue_current', { table: queueLine.current })}
+            </p>
+          )}
+          {queueLine?.next && (
+            <p className="ai-job-card__hint">
+              {t('ai_jobs.queue_next', { tables: queueLine.next })}
+            </p>
+          )}
           {job.status === 'failed' && job.error_message && (
             <p className="ai-job-card__error" role="alert">
               {job.error_message}

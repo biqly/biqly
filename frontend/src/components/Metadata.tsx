@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useApi } from '../hooks/useApi'
-import { useAIJobs } from '../hooks/useAIJobs'
+import { fetchDescribeBatchConflict } from '../api/describeBatchConflict'
+import { jobIsActive, useAIJobs } from '../hooks/useAIJobs'
 import { runMetadataDescribeDirect, type DescribeResult } from '../api/metadataDescribe'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { useLocale, useT } from '../i18n'
@@ -11,7 +12,13 @@ import { InlineEdit } from './ui/InlineEdit'
 import { Select } from './ui/Select'
 import { ModelBadgeRow } from './ui/ModelBadgeRow'
 import type { AIRuntimeSettings } from '../types/ai'
-import { BulkProgressHeader, BulkStatusBadge, objectTypeLabel, sortBulkEntriesForDisplay, type BulkEntry } from './metadata/bulkProgress'
+import {
+  BulkProgressHeader,
+  BulkQueuePreview,
+  BulkStatusBadge,
+  objectTypeLabel,
+  sortBulkEntriesForDisplay,
+} from './metadata/bulkProgress'
 
 interface TableRow {
   id: string
@@ -76,7 +83,7 @@ function textareaRowsForDescription(text: string | null | undefined): number {
 
 export default function Metadata() {
   const { get, patchData, putData, loading, error } = useApi()
-  const { runJob, bulkDescribe } = useAIJobs()
+  const { runJob, bulkDescribe, jobs } = useAIJobs()
   const t = useT()
   const [locale] = useLocale()
   const [editLocale, setEditLocale] = useState<'tr' | 'en'>(locale === 'en' ? 'en' : 'tr')
@@ -109,6 +116,10 @@ export default function Metadata() {
   const [bulkTypeEnabled, setBulkTypeEnabled] = useState<Record<string, boolean>>({})
   const [bulkSchemaRestrict, setBulkSchemaRestrict] = useState(false)
   const [bulkSchemasSelected, setBulkSchemasSelected] = useState<string[]>([])
+  const [bulkScopeConflict, setBulkScopeConflict] = useState<{
+    message: string
+    schemas?: string
+  } | null>(null)
 
   useEffect(() => {
     get<Datasource[]>('/api/datasources').then((data) => {
@@ -191,8 +202,46 @@ export default function Metadata() {
   }, [tables, bulkTypeEnabled, bulkSchemaRestrict, bulkSchemasSelected])
 
   const bulkHasObjectType = typeOptions.length === 0 || typeOptions.some((ty) => bulkTypeEnabled[ty])
+  const bulkScopeSchemas = useMemo(() => {
+    if (bulkSchemaRestrict) {
+      return [...bulkSchemasSelected].sort((a, b) => a.localeCompare(b))
+    }
+    return [...new Set(bulkTargetTables.map((t) => t.schema_name))].sort((a, b) => a.localeCompare(b))
+  }, [bulkSchemaRestrict, bulkSchemasSelected, bulkTargetTables])
+
+  const activeDescribeBatchJob = useMemo(
+    () => jobs.find((j) => j.kind === 'describe_batch' && jobIsActive(j)),
+    [jobs],
+  )
+
+  useEffect(() => {
+    if (!datasourceId || bulkScopeSchemas.length === 0) {
+      setBulkScopeConflict(null)
+      return
+    }
+    let cancelled = false
+    void fetchDescribeBatchConflict(datasourceId, bulkScopeSchemas).then((res) => {
+      if (cancelled) return
+      if (res?.conflict) {
+        setBulkScopeConflict({
+          message: t('metadata.already_running'),
+          schemas: res.scope_schemas?.join(', ') ?? bulkScopeSchemas.join(', '),
+        })
+      } else {
+        setBulkScopeConflict(null)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [datasourceId, bulkScopeSchemas, t])
+
   const bulkCanStart =
-    bulkTargetTables.length > 0 && bulkHasObjectType && (!bulkSchemaRestrict || bulkSchemasSelected.length > 0)
+    bulkTargetTables.length > 0 &&
+    bulkHasObjectType &&
+    (!bulkSchemaRestrict || bulkSchemasSelected.length > 0) &&
+    !bulkScopeConflict &&
+    !bulkRunning
 
   const bulkEntriesDisplay = useMemo(
     () => (bulkEntries.length > 0 ? sortBulkEntriesForDisplay(bulkEntries) : []),
@@ -314,7 +363,8 @@ export default function Metadata() {
 
   const runBulkDescribe = () => {
     const targets = bulkTargetTables
-    if (!datasourceId || targets.length === 0) return
+    if (!datasourceId || targets.length === 0 || bulkScopeConflict) return
+    setBulkScopeConflict(null)
     startBulkDescribe({
       datasourceId,
       targets,
@@ -323,6 +373,9 @@ export default function Metadata() {
       skipExistingMessage: t('metadata.bulk_skip_has_desc'),
       networkErrorMessage: t('metadata.bulk_network_error'),
       okColumnsMessage: (cols) => t('metadata.bulk_ok_columns', { cols }),
+      onConflict: (message) => {
+        setBulkScopeConflict({ message })
+      },
       onFinished: () => {
         void get<TableRow[]>(`/api/datasources/${datasourceId}/tables`).then((fresh) => {
           if (fresh) setTables(fresh)
@@ -395,7 +448,17 @@ export default function Metadata() {
                 </button>
               </div>
               {tables.length > 0 && (
-                <button type="button" className="btn btn-sm" onClick={openBulk} disabled={bulkRunning}>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={openBulk}
+                  disabled={bulkRunning || (!!bulkScopeConflict && !bulkOpen)}
+                  title={
+                    bulkScopeConflict
+                      ? `${bulkScopeConflict.message} ${t('metadata.already_running_schemas', { schemas: bulkScopeConflict.schemas ?? '' })}`
+                      : undefined
+                  }
+                >
                   {t('metadata.bulk_ai_btn')}
                 </button>
               )}
@@ -737,6 +800,14 @@ export default function Metadata() {
                       )}
                     </span>
                   </div>
+                  {bulkScopeConflict && (
+                    <p className="bulk-modal-warn" role="status">
+                      {bulkScopeConflict.message}{' '}
+                      {bulkScopeConflict.schemas
+                        ? t('metadata.already_running_schemas', { schemas: bulkScopeConflict.schemas })
+                        : null}
+                    </p>
+                  )}
                   <div className="modal-actions">
                     <button type="button" className="btn btn-ghost btn-sm" onClick={closeBulk}>{t('metadata.bulk_cancel')}</button>
                     <button
@@ -754,6 +825,12 @@ export default function Metadata() {
               {bulkEntries.length > 0 && (
                 <>
                   <BulkProgressHeader entries={bulkEntries} running={bulkRunning} summary={bulkSummary} />
+                  {bulkRunning && (
+                    <BulkQueuePreview
+                      entries={bulkEntries}
+                      progress={activeDescribeBatchJob?.progress_json ?? null}
+                    />
+                  )}
                   <div className="bulk-describe-scroll">
                     <table className="results-table results-table--dense" style={{ margin: 0 }}>
                       <thead>

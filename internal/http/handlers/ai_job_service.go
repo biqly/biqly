@@ -40,6 +40,34 @@ func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID string, req 
 	if len(req) == 0 {
 		req = []byte("{}")
 	}
+	var datasourceID *string
+	var scopeSchemas []string
+	if kind == "describe_batch" {
+		var batchReq ai.DescribeBatchRequest
+		if err := json.Unmarshal(req, &batchReq); err != nil {
+			return nil, fmt.Errorf("invalid request payload")
+		}
+		ds := strings.TrimSpace(batchReq.DatasourceID)
+		if ds == "" {
+			return nil, fmt.Errorf("datasource_id is required")
+		}
+		datasourceID = &ds
+		scopeSchemas = ai.DescribeBatchScopeSchemas(batchReq.Tables)
+		if len(scopeSchemas) == 0 {
+			return nil, fmt.Errorf("tables must include at least one schema")
+		}
+		existing, err := s.repo.FindConflictingDescribeBatch(ctx, ds, scopeSchemas)
+		if err != nil {
+			return nil, err
+		}
+		if existing != nil {
+			return nil, &AIJobConflictError{
+				Message:    "metadata describe batch already running for overlapping schema(s)",
+				ExistingID: existing.ID,
+				Existing:   existing,
+			}
+		}
+	}
 	job := &metadata.AIJob{
 		ID:              uuid.NewString(),
 		ClientSessionID: sessionID,
@@ -48,6 +76,8 @@ func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID string, req 
 		Phase:           "queued",
 		PhaseMessage:    "waiting in queue",
 		ProgressPct:     0,
+		DatasourceID:    datasourceID,
+		ScopeSchemas:    scopeSchemas,
 		RequestJSON:     req,
 	}
 	if err := s.repo.CreateAIJob(ctx, job); err != nil {
@@ -147,7 +177,7 @@ func (s *AIJobService) Process(ctx context.Context, jobID string) error {
 		if status == "" {
 			status = metadata.AIJobStatusRunning
 		}
-		if uerr := s.repo.UpdateAIJobProgress(ctx, jobID, status, p.Phase, p.Message, p.Progress); uerr != nil {
+		if uerr := s.repo.UpdateAIJobProgressDetail(ctx, jobID, status, p.Phase, p.Message, p.Progress, p.Detail); uerr != nil {
 			slog.WarnContext(ctx, "ai job progress update failed", "job_id", jobID, "error", uerr)
 		}
 	}

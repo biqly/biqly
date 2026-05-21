@@ -77,6 +77,15 @@ export type AIJobStatus =
   | 'failed'
   | 'cancelled'
 
+export interface DescribeBatchJobProgress {
+  total: number
+  index: number
+  current_schema?: string
+  current_table?: string
+  completed?: string[]
+  pending_preview?: string[]
+}
+
 export interface AIJob {
   id: string
   client_session_id: string
@@ -85,6 +94,9 @@ export interface AIJob {
   phase: string
   phase_message: string
   progress_pct: number
+  datasource_id?: string | null
+  scope_schemas?: string[]
+  progress_json?: DescribeBatchJobProgress | null
   request_json?: unknown
   result_json?: unknown
   error_message?: string

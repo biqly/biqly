@@ -27,6 +27,9 @@ type AIJob struct {
 	Phase           string          `json:"phase"`
 	PhaseMessage    string          `json:"phase_message"`
 	ProgressPct     int             `json:"progress_pct"`
+	DatasourceID    *string         `json:"datasource_id,omitempty"`
+	ScopeSchemas    []string        `json:"scope_schemas,omitempty"`
+	ProgressJSON    json.RawMessage `json:"progress_json,omitempty"`
 	RequestJSON     json.RawMessage `json:"request_json"`
 	ResultJSON      json.RawMessage `json:"result_json,omitempty"`
 	ErrorMessage    string          `json:"error_message,omitempty"`
@@ -42,9 +45,11 @@ func (r *Repository) CreateAIJob(ctx context.Context, job *AIJob) error {
 	}
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO ai_jobs (
-			id, client_session_id, kind, status, phase, phase_message, progress_pct, request_json
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)`,
-		job.ID, job.ClientSessionID, job.Kind, job.Status, job.Phase, job.PhaseMessage, job.ProgressPct, job.RequestJSON,
+			id, client_session_id, kind, status, phase, phase_message, progress_pct,
+			datasource_id, scope_schemas, request_json
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::uuid, $9, $10::jsonb)`,
+		job.ID, job.ClientSessionID, job.Kind, job.Status, job.Phase, job.PhaseMessage, job.ProgressPct,
+		job.DatasourceID, pq.Array(job.ScopeSchemas), job.RequestJSON,
 	)
 	if err != nil {
 		return fmt.Errorf("create ai job: %w", err)
@@ -55,6 +60,7 @@ func (r *Repository) CreateAIJob(ctx context.Context, job *AIJob) error {
 func (r *Repository) GetAIJob(ctx context.Context, id string) (*AIJob, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct,
+		       datasource_id, scope_schemas, progress_json,
 		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at
 		FROM ai_jobs WHERE id = $1`, id)
 	return scanAIJob(row)
@@ -66,6 +72,7 @@ func (r *Repository) ListAIJobsBySession(ctx context.Context, sessionID string, 
 	}
 	q := `
 		SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct,
+		       datasource_id, scope_schemas, progress_json,
 		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at
 		FROM ai_jobs
 		WHERE client_session_id = $1`
@@ -92,14 +99,53 @@ func (r *Repository) ListAIJobsBySession(ctx context.Context, sessionID string, 
 }
 
 func (r *Repository) UpdateAIJobProgress(ctx context.Context, id, status, phase, phaseMessage string, progressPct int) error {
+	return r.UpdateAIJobProgressDetail(ctx, id, status, phase, phaseMessage, progressPct, nil)
+}
+
+func (r *Repository) UpdateAIJobProgressDetail(
+	ctx context.Context,
+	id, status, phase, phaseMessage string,
+	progressPct int,
+	progressJSON json.RawMessage,
+) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE ai_jobs
-		SET status = $2, phase = $3, phase_message = $4, progress_pct = $5, updated_at = NOW()
-		WHERE id = $1`, id, status, phase, phaseMessage, progressPct)
+		SET status = $2, phase = $3, phase_message = $4, progress_pct = $5,
+		    progress_json = COALESCE($6::jsonb, progress_json), updated_at = NOW()
+		WHERE id = $1`, id, status, phase, phaseMessage, progressPct, nullableRawJSON(progressJSON))
 	if err != nil {
 		return fmt.Errorf("update ai job progress: %w", err)
 	}
 	return nil
+}
+
+func (r *Repository) FindConflictingDescribeBatch(
+	ctx context.Context,
+	datasourceID string,
+	scopeSchemas []string,
+) (*AIJob, error) {
+	if datasourceID == "" || len(scopeSchemas) == 0 {
+		return nil, nil
+	}
+	row := r.db.QueryRowContext(ctx, `
+		SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct,
+		       datasource_id, scope_schemas, progress_json,
+		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at
+		FROM ai_jobs
+		WHERE kind = 'describe_batch'
+		  AND status IN ('pending', 'queued', 'running')
+		  AND datasource_id = $1::uuid
+		  AND scope_schemas && $2::text[]
+		ORDER BY created_at ASC
+		LIMIT 1`, datasourceID, pq.Array(scopeSchemas))
+	job, err := scanAIJob(row)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find conflicting describe batch: %w", err)
+	}
+	return job, nil
 }
 
 func (r *Repository) MarkAIJobRunning(ctx context.Context, id string) error {
@@ -162,6 +208,7 @@ func (r *Repository) ListStaleAIJobs(ctx context.Context, sessionID string, olde
 	cutoff := time.Now().Add(-olderThan)
 	q := `
 		SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct,
+		       datasource_id, scope_schemas, progress_json,
 		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at
 		FROM ai_jobs
 		WHERE status IN ($1, $2, $3) AND updated_at < $4`
@@ -244,13 +291,24 @@ func (r *Repository) TryMarkAIJobRunning(ctx context.Context, id string) (bool, 
 	return n > 0, nil
 }
 
+func nullableRawJSON(raw json.RawMessage) any {
+	if len(raw) == 0 {
+		return nil
+	}
+	return raw
+}
+
 func scanAIJob(row *sql.Row) (*AIJob, error) {
 	var job AIJob
 	var result []byte
+	var progress []byte
 	var errMsg sql.NullString
+	var dsID sql.NullString
+	var scope pq.StringArray
 	var started, finished sql.NullTime
 	err := row.Scan(
 		&job.ID, &job.ClientSessionID, &job.Kind, &job.Status, &job.Phase, &job.PhaseMessage, &job.ProgressPct,
+		&dsID, &scope, &progress,
 		&job.RequestJSON, &result, &errMsg, &job.CreatedAt, &job.UpdatedAt, &started, &finished,
 	)
 	if err != nil {
@@ -258,6 +316,16 @@ func scanAIJob(row *sql.Row) (*AIJob, error) {
 	}
 	if len(result) > 0 {
 		job.ResultJSON = json.RawMessage(result)
+	}
+	if len(progress) > 0 {
+		job.ProgressJSON = json.RawMessage(progress)
+	}
+	if dsID.Valid {
+		s := dsID.String
+		job.DatasourceID = &s
+	}
+	if len(scope) > 0 {
+		job.ScopeSchemas = []string(scope)
 	}
 	if errMsg.Valid {
 		job.ErrorMessage = errMsg.String
@@ -280,10 +348,14 @@ type aiJobScanner interface {
 func scanAIJobRows(rows aiJobScanner) (*AIJob, error) {
 	var job AIJob
 	var result []byte
+	var progress []byte
 	var errMsg sql.NullString
+	var dsID sql.NullString
+	var scope pq.StringArray
 	var started, finished sql.NullTime
 	err := rows.Scan(
 		&job.ID, &job.ClientSessionID, &job.Kind, &job.Status, &job.Phase, &job.PhaseMessage, &job.ProgressPct,
+		&dsID, &scope, &progress,
 		&job.RequestJSON, &result, &errMsg, &job.CreatedAt, &job.UpdatedAt, &started, &finished,
 	)
 	if err != nil {
@@ -291,6 +363,16 @@ func scanAIJobRows(rows aiJobScanner) (*AIJob, error) {
 	}
 	if len(result) > 0 {
 		job.ResultJSON = json.RawMessage(result)
+	}
+	if len(progress) > 0 {
+		job.ProgressJSON = json.RawMessage(progress)
+	}
+	if dsID.Valid {
+		s := dsID.String
+		job.DatasourceID = &s
+	}
+	if len(scope) > 0 {
+		job.ScopeSchemas = []string(scope)
 	}
 	if errMsg.Valid {
 		job.ErrorMessage = errMsg.String

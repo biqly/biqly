@@ -124,3 +124,64 @@ export function BulkProgressHeader({
     </div>
   )
 }
+
+export function BulkQueuePreview({
+  entries,
+  progress,
+}: {
+  entries: BulkEntry[]
+  progress?: {
+    pending_preview?: string[]
+    completed?: string[]
+    current_schema?: string
+    current_table?: string
+  } | null
+}) {
+  const t = useT()
+  const completedSet = new Set(progress?.completed ?? [])
+  const pending = entries.filter((e) => {
+    const key = `${e.schema}.${e.table}`
+    if (completedSet.has(key)) return false
+    if (e.status === 'ok' || e.status === 'error' || e.status === 'skipped') return false
+    return e.status === 'pending' || e.status === 'running'
+  })
+  const preview =
+    progress?.pending_preview?.length
+      ? progress.pending_preview
+      : pending.slice(0, 6).map((e) => `${e.schema}.${e.table}`)
+
+  if (!preview.length && !progress?.current_schema) return null
+
+  const current =
+    progress?.current_schema && progress?.current_table
+      ? `${progress.current_schema}.${progress.current_table}`
+      : entries.find((e) => e.status === 'running')
+        ? `${entries.find((e) => e.status === 'running')!.schema}.${entries.find((e) => e.status === 'running')!.table}`
+        : null
+
+  const shown = preview.slice(0, 5)
+  const more = preview.length > 5 ? preview.length - 5 : 0
+
+  return (
+    <div className="bulk-queue-preview" style={{ marginBottom: '0.75rem', flexShrink: 0 }}>
+      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
+        {t('metadata.bulk_queue_heading')}
+      </div>
+      {current && (
+        <p style={{ margin: '0 0 0.35rem', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+          {t('metadata.bulk_progress_processing', {
+            done: completedSet.size,
+            total: entries.length,
+            current,
+          })}
+        </p>
+      )}
+      {shown.length > 0 && (
+        <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+          {t('metadata.bulk_queue_next', { items: shown.join(', ') })}
+          {more > 0 ? ` ${t('metadata.bulk_queue_more', { count: more })}` : ''}
+        </p>
+      )}
+    </div>
+  )
+}

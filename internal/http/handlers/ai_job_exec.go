@@ -19,6 +19,7 @@ type AIJobProgress struct {
 	Message  string
 	Progress int
 	Status   string
+	Detail   json.RawMessage
 }
 
 type AIJobProgressFunc func(p AIJobProgress)
@@ -311,6 +312,7 @@ func (h *AIHandler) executeMetadataDescribeBatchJob(
 
 	out := &ai.DescribeBatchResult{Entries: make([]ai.DescribeBatchEntryResult, 0, len(req.Tables))}
 	total := len(req.Tables)
+	var completedKeys []string
 	for i, target := range req.Tables {
 		if h.isAIJobCancelled(ctx, jobID) {
 			return out, fmt.Errorf("job cancelled")
@@ -322,6 +324,7 @@ func (h *AIHandler) executeMetadataDescribeBatchJob(
 				Schema: schema, Table: table, Status: "error", Message: "schema and table are required",
 			})
 			out.Error++
+			completedKeys = append(completedKeys, ai.DescribeBatchTableKey(schema, table))
 			continue
 		}
 		key := schema + "." + table
@@ -330,6 +333,7 @@ func (h *AIHandler) executeMetadataDescribeBatchJob(
 				Schema: schema, Table: table, Status: "skipped", Message: "already has description",
 			})
 			out.Skipped++
+			completedKeys = append(completedKeys, key)
 			continue
 		}
 
@@ -339,11 +343,29 @@ func (h *AIHandler) executeMetadataDescribeBatchJob(
 		}
 		pct := 5 + (i*90/denom)
 		if report != nil {
+			nextPreview := make([]string, 0, 5)
+			for j := i + 1; j < len(req.Tables) && len(nextPreview) < 5; j++ {
+				ns := strings.TrimSpace(req.Tables[j].Schema)
+				nt := strings.TrimSpace(req.Tables[j].Table)
+				if ns == "" || nt == "" {
+					continue
+				}
+				nextPreview = append(nextPreview, ai.DescribeBatchTableKey(ns, nt))
+			}
+			detail, _ := json.Marshal(ai.DescribeBatchJobProgress{
+				Total:          total,
+				Index:          i,
+				CurrentSchema:  schema,
+				CurrentTable:   table,
+				Completed:      append([]string(nil), completedKeys...),
+				PendingPreview: nextPreview,
+			})
 			report(AIJobProgress{
 				Phase:    "generating",
 				Message:  fmt.Sprintf("describing %s", key),
 				Progress: pct,
 				Status:   metadata.AIJobStatusRunning,
+				Detail:   detail,
 			})
 		}
 
@@ -360,6 +382,7 @@ func (h *AIHandler) executeMetadataDescribeBatchJob(
 				Schema: schema, Table: table, Status: "error", Message: err.Error(),
 			})
 			out.Error++
+			completedKeys = append(completedKeys, key)
 			continue
 		}
 		cols := 0
@@ -372,6 +395,7 @@ func (h *AIHandler) executeMetadataDescribeBatchJob(
 			Result:  result,
 		})
 		out.OK++
+		completedKeys = append(completedKeys, key)
 	}
 
 	if report != nil {
