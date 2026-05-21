@@ -812,7 +812,7 @@ func (h *SemanticHandler) RemoveSchema(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	for _, m := range model.Metrics {
-		if expressionReferencesSchema(m.Expression, schema, model.BaseSchema) {
+		if expressionReferencesSchema(m.Expression, schema) {
 			if err := h.deps.SemanticRepo.DeleteMetric(ctx, modelID, m.ID); err != nil {
 				slog.WarnContext(ctx, "remove schema: delete metric failed", "model_id", modelID, "metric_id", m.ID, "error", err)
 				continue
@@ -866,7 +866,7 @@ func columnRefMatchesSchema(ref, schema, baseSchema string) bool {
 	return false
 }
 
-func expressionReferencesSchema(expr, schema, baseSchema string) bool {
+func expressionReferencesSchema(expr, schema string) bool {
 	expr = strings.TrimSpace(expr)
 	if expr == "" {
 		return false

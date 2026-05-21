@@ -41,14 +41,13 @@ func TestColumnRefMatchesSchema(t *testing.T) {
 }
 
 func TestExpressionReferencesSchema(t *testing.T) {
-	base := "public"
-	if !expressionReferencesSchema("sum(analytics.orders.amount)", "analytics", base) {
+	if !expressionReferencesSchema("sum(analytics.orders.amount)", "analytics") {
 		t.Fatal("expression with analytics prefix")
 	}
-	if expressionReferencesSchema("sum(public.orders.amount)", "analytics", base) {
+	if expressionReferencesSchema("sum(public.orders.amount)", "analytics") {
 		t.Fatal("other schema in expression")
 	}
-	if !expressionReferencesSchema(`sum("analytics"."orders"."amount")`, "analytics", base) {
+	if !expressionReferencesSchema(`sum("analytics"."orders"."amount")`, "analytics") {
 		t.Fatal("quoted schema prefix")
 	}
 }
