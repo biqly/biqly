@@ -4,10 +4,17 @@ metadata:
   name: biqly
   namespace: argocd
   annotations:
-    argocd-image-updater.argoproj.io/image-list: ai=ghcr.io/biqly/ai,query=ghcr.io/biqly/query,catalog=ghcr.io/biqly/catalog
+    argocd-image-updater.argoproj.io/image-list: >-
+      ai=ghcr.io/biqly/ai,
+      query=ghcr.io/biqly/query,
+      catalog=ghcr.io/biqly/catalog,
+      frontend=ghcr.io/biqly/biqly-frontend,
+      migrate=ghcr.io/biqly/migrate
     argocd-image-updater.argoproj.io/ai.helm.image-tag: ai.image.tag
     argocd-image-updater.argoproj.io/query.helm.image-tag: query.image.tag
     argocd-image-updater.argoproj.io/catalog.helm.image-tag: catalog.image.tag
+    argocd-image-updater.argoproj.io/frontend.helm.image-tag: frontend.image.tag
+    argocd-image-updater.argoproj.io/migrate.helm.image-tag: global.migrate.image.tag
     argocd-image-updater.argoproj.io/write-back-method: git
     argocd-image-updater.argoproj.io/git-branch: main
 spec:

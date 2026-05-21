@@ -36,23 +36,27 @@ global:
         - 100.118.9.4/32
   migrate:
     image:
-      tag: sha-5bbf7450e0d42ab2b8be43a77ce1b43d69577b62
+      tag: sha-91a9ff58d06ca78fdf3cf136c42c65c1e8b349a6
 
 frontend:
   replicaCount: 1
   image:
-    tag: sha-5bbf7450e0d42ab2b8be43a77ce1b43d69577b62
+    tag: sha-56b921c7800edf2ee5c29a91bfad5f764bdd9d87
   runtimeAdminKey:
     enabled: true
 
 catalog:
   replicaCount: 1
+  image:
+    tag: sha-91a9ff58d06ca78fdf3cf136c42c65c1e8b349a6
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
 
 query:
   replicaCount: 1
+  image:
+    tag: sha-91a9ff58d06ca78fdf3cf136c42c65c1e8b349a6
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
@@ -60,7 +64,7 @@ query:
 ai:
   replicaCount: 1
   image:
-    tag: sha-ea1c5bd7e202825015696b96c76671d5362b3768
+    tag: sha-91a9ff58d06ca78fdf3cf136c42c65c1e8b349a6
   rollout:
     enabled: false
   autoscaling:
