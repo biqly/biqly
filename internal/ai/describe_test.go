@@ -33,13 +33,13 @@ func TestValidIdent_columnNames(t *testing.T) {
 	}
 }
 
-func TestBuildDescribePromptPrefersTurkishDescriptions(t *testing.T) {
+func TestBuildDescribePromptRequestsEnglishDescriptions(t *testing.T) {
 	prompt := buildDescribePrompt("sales", "salesorderheader", []metadata.Column{
 		{ColumnName: "totaldue", DataType: "numeric"},
 	}, nil)
 
-	if !strings.Contains(prompt, "Write descriptions in Turkish by default") {
-		t.Fatalf("describe prompt should instruct Turkish descriptions, got:\n%s", prompt)
+	if !strings.Contains(prompt, "Write descriptions in English") {
+		t.Fatalf("describe prompt should instruct English descriptions, got:\n%s", prompt)
 	}
 	if !strings.Contains(prompt, "Keep original table/column names") {
 		t.Fatalf("describe prompt should preserve technical schema names, got:\n%s", prompt)

@@ -92,11 +92,9 @@ type DescribeResult struct {
 	TranslationModel   string `json:"translation_model,omitempty"`
 	TranslationError   string `json:"translation_error,omitempty"`
 
-	// originalDescription / originalColumns capture the LLM output BEFORE the
-	// translator post-processes it. We persist this snapshot to
-	// entity_translations under the source locale ("en") so multi-language
-	// readers keep access to the original wording. Not exported in JSON;
-	// internal to Describe/apply.
+	// originalDescription / originalColumns capture the English LLM output BEFORE
+	// the translator post-processes it. They become the raw metadata description
+	// and English overlay; translated values are stored under the target locale.
 	originalDescription string
 	originalColumns     []ColumnDescription
 	originalLang        string
@@ -196,9 +194,8 @@ func (s *DescribeService) translateDescribeResult(ctx context.Context, result *D
 	if s.translator == nil {
 		return
 	}
-	// Snapshot the LLM's native-language output (English) so we can persist it
-	// as an "en" overlay in entity_translations after apply succeeds. The
-	// translator may overwrite result.Description/Columns in place.
+	// Snapshot the LLM's English output before the translator overwrites
+	// result.Description/Columns in place.
 	result.originalDescription = result.Description
 	result.originalColumns = append([]ColumnDescription(nil), result.Columns...)
 	result.originalLang = "en"
@@ -264,15 +261,22 @@ func (s *DescribeService) apply(ctx context.Context, cols []metadata.Column, res
 		colByName[c.ColumnName] = c
 	}
 
-	if result.Description != "" && len(cols) > 0 {
-		desc := result.Description
+	tableDescription := result.Description
+	columnDescriptions := result.Columns
+	if result.TranslationApplied && result.originalDescription != "" {
+		tableDescription = result.originalDescription
+		columnDescriptions = result.originalColumns
+	}
+
+	if tableDescription != "" && len(cols) > 0 {
+		desc := tableDescription
 		// Apply to the first matching table_id (all sampled cols share the same table).
 		if err := s.metaRepo.UpdateTableDescription(ctx, cols[0].TableID, &desc); err != nil {
 			return fmt.Errorf("update table description: %w", err)
 		}
 	}
 
-	for _, cd := range result.Columns {
+	for _, cd := range columnDescriptions {
 		if cd.Description == "" {
 			continue
 		}
@@ -286,9 +290,6 @@ func (s *DescribeService) apply(ctx context.Context, cols []metadata.Column, res
 		}
 	}
 
-	// Persist the pre-translation (English) snapshot as an entity_translations
-	// overlay so multi-language readers keep access to the original wording
-	// even though the raw `description` column now holds the translated text.
 	if result.originalLang != "" && result.TranslationApplied && len(cols) > 0 {
 		if result.originalDescription != "" {
 			_ = s.metaRepo.UpsertTranslation(ctx, metadata.Translation{
@@ -315,6 +316,35 @@ func (s *DescribeService) apply(ctx context.Context, cols []metadata.Column, res
 				Value:      cd.Description,
 			})
 		}
+
+		targetLang := s.translator.TargetCode()
+		if targetLang != "" {
+			if result.Description != "" {
+				_ = s.metaRepo.UpsertTranslation(ctx, metadata.Translation{
+					EntityType: metadata.EntityTypeTable,
+					EntityID:   cols[0].TableID,
+					Lang:       targetLang,
+					Field:      metadata.TranslationFieldDescription,
+					Value:      result.Description,
+				})
+			}
+			for _, cd := range result.Columns {
+				if cd.Description == "" {
+					continue
+				}
+				col, ok := colByName[cd.Name]
+				if !ok {
+					continue
+				}
+				_ = s.metaRepo.UpsertTranslation(ctx, metadata.Translation{
+					EntityType: metadata.EntityTypeColumn,
+					EntityID:   col.ID,
+					Lang:       targetLang,
+					Field:      metadata.TranslationFieldDescription,
+					Value:      cd.Description,
+				})
+			}
+		}
 	}
 	return nil
 }
@@ -327,8 +357,8 @@ func buildDescribePrompt(schema, table string, cols []metadata.Column, sample []
 	sb.WriteString("- Use strict JSON: every property name MUST be double-quoted (e.g. \"table_description\", not table_description:).\n")
 	sb.WriteString("- Keep descriptions under 200 characters each.\n")
 	sb.WriteString("- Describe the business meaning, not the data type.\n")
-	sb.WriteString("- Write descriptions in Turkish by default because end users usually ask BI questions in Turkish.\n")
-	sb.WriteString("- Keep original table/column names and common English technical terms when useful, so Turkish descriptions still bridge to the physical schema.\n")
+	sb.WriteString("- Write descriptions in English. A separate translation layer handles Turkish output.\n")
+	sb.WriteString("- Keep original table/column names and common technical terms when useful, so descriptions still bridge to the physical schema.\n")
 	sb.WriteString("- If you cannot infer a column from the sample, leave its description empty.\n\n")
 
 	fmt.Fprintf(&sb, "## Table: %s.%s\n", schema, table)

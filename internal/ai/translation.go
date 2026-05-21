@@ -73,6 +73,13 @@ func (s *TranslationService) Model() string {
 	return s.model
 }
 
+func (s *TranslationService) TargetCode() string {
+	if s == nil {
+		return ""
+	}
+	return s.targetCode
+}
+
 // TranslateDescribeResult translates only free-text descriptions. Table/column identifiers are preserved.
 func (s *TranslationService) TranslateDescribeResult(ctx context.Context, result *DescribeResult) error {
 	if s == nil || result == nil {
