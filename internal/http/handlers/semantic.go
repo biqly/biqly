@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -752,6 +753,135 @@ func (h *SemanticHandler) RemoveTable(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, resp)
+}
+
+type removeSchemaRequest struct {
+	Schema string `json:"schema"`
+}
+
+type removeSchemaResponse struct {
+	JoinsRemoved      int `json:"joins_removed"`
+	DimensionsRemoved int `json:"dimensions_removed"`
+	MetricsRemoved    int `json:"metrics_removed"`
+}
+
+// RemoveSchema cascade-deletes joins, dimensions, and metrics referencing the
+// given schema and adds it to excluded_schemas. Rejects excluding the base schema.
+func (h *SemanticHandler) RemoveSchema(w http.ResponseWriter, r *http.Request) {
+	modelID, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
+	req, ok := decodeJSON[removeSchemaRequest](w, r)
+	if !ok {
+		return
+	}
+	schema := strings.TrimSpace(req.Schema)
+	if schema == "" {
+		writeError(w, http.StatusBadRequest, "schema is required")
+		return
+	}
+	ctx := r.Context()
+	model, err := h.deps.SemanticRepo.GetFullModel(ctx, modelID)
+	if err != nil {
+		writeEntityNotFound(w, "model")
+		return
+	}
+	if schema == model.BaseSchema {
+		writeError(w, http.StatusBadRequest, "cannot exclude base schema")
+		return
+	}
+
+	resp := removeSchemaResponse{}
+	for _, j := range model.Joins {
+		if joinMatchesSchema(j, schema, model.BaseSchema) {
+			if err := h.deps.SemanticRepo.DeleteJoin(ctx, modelID, j.ID); err != nil {
+				slog.WarnContext(ctx, "remove schema: delete join failed", "model_id", modelID, "join_id", j.ID, "error", err)
+				continue
+			}
+			resp.JoinsRemoved++
+		}
+	}
+	for _, d := range model.Dimensions {
+		if columnRefMatchesSchema(d.ColumnRef, schema, model.BaseSchema) {
+			if err := h.deps.SemanticRepo.DeleteDimension(ctx, modelID, d.ID); err != nil {
+				slog.WarnContext(ctx, "remove schema: delete dimension failed", "model_id", modelID, "dimension_id", d.ID, "error", err)
+				continue
+			}
+			resp.DimensionsRemoved++
+		}
+	}
+	for _, m := range model.Metrics {
+		if expressionReferencesSchema(m.Expression, schema, model.BaseSchema) {
+			if err := h.deps.SemanticRepo.DeleteMetric(ctx, modelID, m.ID); err != nil {
+				slog.WarnContext(ctx, "remove schema: delete metric failed", "model_id", modelID, "metric_id", m.ID, "error", err)
+				continue
+			}
+			resp.MetricsRemoved++
+		}
+	}
+
+	excluded := model.ExcludedSchemas
+	if excluded == nil {
+		excluded = []string{}
+	}
+	if !slices.Contains(excluded, schema) {
+		excluded = append(excluded, schema)
+		model.ExcludedSchemas = excluded
+		if err := h.deps.SemanticRepo.UpdateModel(ctx, model); err != nil {
+			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to update excluded schemas", err)
+			return
+		}
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func joinMatchesSchema(j semantic.Join, schema, baseSchema string) bool {
+	fromSchema := j.FromSchema
+	if fromSchema == "" {
+		fromSchema = baseSchema
+	}
+	toSchema := j.ToSchema
+	if toSchema == "" {
+		toSchema = baseSchema
+	}
+	return fromSchema == schema || toSchema == schema
+}
+
+func columnRefMatchesSchema(ref, schema, baseSchema string) bool {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return false
+	}
+	if strings.HasPrefix(ref, schema+".") {
+		return true
+	}
+	if schema == baseSchema {
+		parts := strings.Split(ref, ".")
+		if len(parts) == 2 {
+			return true
+		}
+	}
+	return false
+}
+
+func expressionReferencesSchema(expr, schema, baseSchema string) bool {
+	expr = strings.TrimSpace(expr)
+	if expr == "" {
+		return false
+	}
+	tokens := []string{
+		schema + ".",
+		`"` + schema + `".`,
+	}
+	lower := strings.ToLower(expr)
+	for _, tok := range tokens {
+		if strings.Contains(lower, strings.ToLower(tok)) {
+			return true
+		}
+	}
+	return false
 }
 
 func columnRefMatchesTable(ref, schema, table, baseSchema string) bool {

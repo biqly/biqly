@@ -158,6 +158,8 @@ export const en = {
     loading_tables: 'Loading tables…',
     loading_columns: 'Loading columns…',
     lang_tabs_aria: 'Description language',
+    desc_lang_tr_hint:
+      'TR shows Turkish translations when available. If you only see English, run AI describe with translation enabled (BI_TRANSLATION_MODEL) or edit text with TR selected.',
     bulk_ai_btn: 'AI metadata generator',
     already_running: 'A metadata describe job is already running for overlapping schema(s).',
     already_running_schemas: 'Running for: {{schemas}}',
@@ -807,7 +809,8 @@ export const en = {
     confirm_delete_metric_body_generic: 'This metric will be deactivated.',
     exclude_schema_title: 'Exclude schema?',
     exclude_schema_body:
-      '"{{schema}}" will be removed from the model scope. Tables in this schema are hidden from the canvas and AI prompts.',
+      'Excluding {{schema}} will hide its tables and delete {{joins}} relationships, {{dims}} dimensions, and {{metrics}} metrics that reference it. This cannot be undone.',
+    schema_excluded: 'Schema excluded from model.',
     exclude_schema_action: 'Exclude',
     reactivate_relationship: 'Relationship re-added.',
     reactivate_dimension: 'Dimension re-added.',

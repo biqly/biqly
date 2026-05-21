@@ -510,6 +510,46 @@ export default function Modeling() {
     [model, columnRefMatchesTable, expressionRefsTable],
   )
 
+  const columnRefMatchesSchema = useCallback(
+    (ref: string | undefined | null, schema: string) => {
+      if (!ref) return false
+      const r = ref.trim()
+      if (!r) return false
+      const base = model?.base_schema ?? ''
+      if (r.startsWith(`${schema}.`)) return true
+      if (schema === base && r.split('.').length === 2) return true
+      return false
+    },
+    [model],
+  )
+
+  const expressionRefsSchema = useCallback(
+    (expr: string | undefined | null, schema: string) => {
+      if (!expr) return false
+      const e = expr.toLowerCase()
+      const tokens = [`${schema}.`, `"${schema}".`]
+      return tokens.some((tok) => e.includes(tok.toLowerCase()))
+    },
+    [],
+  )
+
+  const schemaImpact = useCallback(
+    (schema: string) => {
+      if (!model) return { joins: 0, dims: 0, metrics: 0 }
+      const base = model.base_schema
+      const joins = (model.joins ?? []).filter((j) => {
+        if (j.is_active === false) return false
+        const fs = j.from_schema || base
+        const ts = j.to_schema || base
+        return fs === schema || ts === schema
+      }).length
+      const dims = (model.dimensions ?? []).filter((d) => d.is_active !== false && columnRefMatchesSchema(d.column_ref, schema)).length
+      const metrics = (model.metrics ?? []).filter((m) => m.is_active !== false && expressionRefsSchema(m.expression, schema)).length
+      return { joins, dims, metrics }
+    },
+    [model, columnRefMatchesSchema, expressionRefsSchema],
+  )
+
   const toggleTableVisibility = useCallback(
     (schema: string, table: string, makeVisible: boolean) => {
       const k = tableKey(schema, table)
@@ -1074,11 +1114,17 @@ export default function Modeling() {
       void toggleSchemaExcluded(schemaName)
       return
     }
+    const impact = schemaImpact(schemaName)
     setConfirmTarget({
       kind: 'schema',
       schemaName,
       title: t('modeling.exclude_schema_title'),
-      body: t('modeling.exclude_schema_body', { schema: schemaName }),
+      body: t('modeling.exclude_schema_body', {
+        schema: schemaName,
+        joins: impact.joins,
+        dims: impact.dims,
+        metrics: impact.metrics,
+      }),
       action: t('modeling.exclude_schema_action'),
     })
   }
@@ -1160,8 +1206,13 @@ export default function Modeling() {
         setModelId(nextId)
         if (!nextId) setModel(null)
         setMessage(t('modeling.model_deleted'))
-      } else if (confirmTarget.kind === 'schema') {
-        await toggleSchemaExcluded(confirmTarget.schemaName)
+      } else if (confirmTarget.kind === 'schema' && model) {
+        await postData(`/api/semantic/models/${model.id}/schemas/remove`, {
+          schema: confirmTarget.schemaName,
+        })
+        await refreshModels(model.id)
+        await loadSuggestedJoins()
+        setMessage(t('modeling.schema_excluded'))
       } else if (model && confirmTarget.kind === 'join') {
         await deleteData(`/api/semantic/models/${model.id}/joins/${confirmTarget.joinId}`)
         await refreshModels(model.id)

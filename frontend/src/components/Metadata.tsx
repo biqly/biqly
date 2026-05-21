@@ -87,9 +87,10 @@ export default function Metadata() {
   const t = useT()
   const [locale] = useLocale()
   const [editLocale, setEditLocale] = useState<'tr' | 'en'>(locale === 'en' ? 'en' : 'tr')
-  useEffect(() => {
-    setEditLocale(locale === 'en' ? 'en' : 'tr')
-  }, [locale])
+  const descriptionLocaleOpts = useMemo(
+    () => ({ headers: { 'X-Locale': editLocale } }),
+    [editLocale],
+  )
   const [datasources, setDatasources] = useState<Datasource[]>([])
   const [dsParam, setDsParam] = useQueryParam('ds')
   const [schemaParam, setSchemaParam] = useQueryParam('schema')
@@ -153,7 +154,9 @@ export default function Metadata() {
 
   useEffect(() => {
     if (!datasourceId) return
-    get<TableRow[]>(`/api/datasources/${datasourceId}/tables`).then((data) => setTables(data || []))
+    get<TableRow[]>(`/api/datasources/${datasourceId}/tables`, descriptionLocaleOpts).then((data) =>
+      setTables(data || []),
+    )
     setOpenTableId(null)
     setColumns([])
     if (prevDsRef.current && prevDsRef.current !== datasourceId) {
@@ -161,7 +164,7 @@ export default function Metadata() {
       setTableFilterType('')
     }
     prevDsRef.current = datasourceId
-  }, [datasourceId])
+  }, [datasourceId, editLocale, descriptionLocaleOpts, get])
 
   const schemaOptions = useMemo(
     () => [...new Set(tables.map((t) => t.schema_name))].sort((a, b) => a.localeCompare(b)),
@@ -188,6 +191,16 @@ export default function Metadata() {
       setColumns([])
     }
   }, [filteredTables, openTableId])
+
+  useEffect(() => {
+    if (!datasourceId || !openTableId) return
+    const tab = tables.find((t) => t.id === openTableId)
+    if (!tab) return
+    get<ColumnRow[]>(
+      `/api/datasources/${datasourceId}/columns?schema=${encodeURIComponent(tab.schema_name)}&table=${encodeURIComponent(tab.table_name)}`,
+      descriptionLocaleOpts,
+    ).then((data) => setColumns(data || []))
+  }, [datasourceId, openTableId, editLocale, descriptionLocaleOpts, get, tables])
 
   const bulkTargetTables = useMemo(() => {
     const restrictTypes = Object.keys(bulkTypeEnabled).length > 0
@@ -265,7 +278,8 @@ export default function Metadata() {
     }
     setOpenTableId(t.id)
     const data = await get<ColumnRow[]>(
-      `/api/datasources/${datasourceId}/columns?schema=${encodeURIComponent(t.schema_name)}&table=${encodeURIComponent(t.table_name)}`
+      `/api/datasources/${datasourceId}/columns?schema=${encodeURIComponent(t.schema_name)}&table=${encodeURIComponent(t.table_name)}`,
+      descriptionLocaleOpts,
     )
     setColumns(data || [])
   }
@@ -311,10 +325,11 @@ export default function Metadata() {
 
   const refreshDescribeTarget = (row: TableRow, applied: boolean) => {
     if (!applied) return
-    get<TableRow[]>(`/api/datasources/${datasourceId}/tables`).then((d) => setTables(d || []))
+    get<TableRow[]>(`/api/datasources/${datasourceId}/tables`, descriptionLocaleOpts).then((d) => setTables(d || []))
     if (openTableId === row.id) {
       get<ColumnRow[]>(
-        `/api/datasources/${datasourceId}/columns?schema=${encodeURIComponent(row.schema_name)}&table=${encodeURIComponent(row.table_name)}`
+        `/api/datasources/${datasourceId}/columns?schema=${encodeURIComponent(row.schema_name)}&table=${encodeURIComponent(row.table_name)}`,
+        descriptionLocaleOpts,
       ).then((d) => setColumns(d || []))
     }
   }
@@ -377,7 +392,7 @@ export default function Metadata() {
         setBulkScopeConflict({ message })
       },
       onFinished: () => {
-        void get<TableRow[]>(`/api/datasources/${datasourceId}/tables`).then((fresh) => {
+        void get<TableRow[]>(`/api/datasources/${datasourceId}/tables`, descriptionLocaleOpts).then((fresh) => {
           if (fresh) setTables(fresh)
         })
       },
@@ -447,6 +462,11 @@ export default function Metadata() {
                   EN
                 </button>
               </div>
+              {editLocale === 'tr' && (
+                <p className="metadata-desc-lang-hint" style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', margin: 0 }}>
+                  {t('metadata.desc_lang_tr_hint')}
+                </p>
+              )}
               {tables.length > 0 && (
                 <button
                   type="button"

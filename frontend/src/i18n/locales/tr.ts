@@ -160,6 +160,8 @@ export const tr: Dictionary = {
     loading_tables: 'Tablolar yükleniyor…',
     loading_columns: 'Kolonlar yükleniyor…',
     lang_tabs_aria: 'Açıklama dili',
+    desc_lang_tr_hint:
+      'TR, kayıtlı Türkçe çevirileri gösterir. Yalnızca İngilizce görüyorsanız çeviri katmanını açıp (BI_TRANSLATION_MODEL) AI describe çalıştırın veya TR seçiliyken metni düzenleyin.',
     bulk_ai_btn: 'AI Metadata üretici',
     already_running: 'Çakışan şema(lar) için metadata açıklama işi zaten çalışıyor.',
     already_running_schemas: 'Çalışan şemalar: {{schemas}}',
@@ -809,7 +811,8 @@ export const tr: Dictionary = {
     confirm_delete_metric_body_generic: 'Bu metrik pasife alınacak.',
     exclude_schema_title: 'Şema hariç tutulsun mu?',
     exclude_schema_body:
-      '"{{schema}}" şeması model kapsamından çıkarılacak. Bu şemadaki tablolar canvas ve prompt kapsamından gizlenir.',
+      '{{schema}} hariç tutulunca tablolar gizlenir; bu şemaya bağlı {{joins}} ilişki, {{dims}} kırılım ve {{metrics}} metrik kalıcı silinir.',
+    schema_excluded: 'Şema modelden hariç tutuldu.',
     exclude_schema_action: 'Hariç tut',
     reactivate_relationship: 'İlişki yeniden eklendi.',
     reactivate_dimension: 'Kırılım yeniden eklendi.',
