@@ -19,6 +19,20 @@ import { getAIClientSessionId } from '../utils/aiSession'
 const POLL_MS = 1200
 const TERMINAL = new Set(['succeeded', 'failed', 'cancelled'])
 
+function isValidJobId(id: unknown): id is string {
+  if (typeof id !== 'string') return false
+  const trimmed = id.trim()
+  return trimmed.length > 0 && trimmed !== 'undefined' && trimmed !== 'null'
+}
+
+function jobEnqueueError(data: unknown, status: number): string {
+  if (data && typeof data === 'object') {
+    const err = (data as Record<string, unknown>).error
+    if (typeof err === 'string' && err.trim()) return err.trim()
+  }
+  return `Failed to enqueue AI job (${status})`
+}
+
 export function jobIsActive(job: AIJob): boolean {
   return job.status === 'pending' || job.status === 'queued' || job.status === 'running'
 }
@@ -171,6 +185,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const upsertJob = useCallback((job: TrackedAIJob) => {
+    if (!isValidJobId(job.id)) return
     setJobs((prev) => {
       const idx = prev.findIndex((j) => j.id === job.id)
       if (idx === -1) return [job, ...prev].slice(0, 12)
@@ -198,10 +213,25 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const stopPolling = useCallback((jobId: string) => {
+    const timer = pollTimers.current.get(jobId)
+    if (timer != null) {
+      window.clearInterval(timer)
+      pollTimers.current.delete(jobId)
+    }
+  }, [])
+
   const pollJob = useCallback(
     async (jobId: string) => {
+      if (!isValidJobId(jobId)) {
+        stopPolling(jobId)
+        return
+      }
       const { data, status } = await fetchJSON<AIJob>(`/api/ai/jobs/${encodeURIComponent(jobId)}`)
-      if (status === 404 || !data) return
+      if (status === 404 || !data) {
+        stopPolling(jobId)
+        return
+      }
       const preview =
         data.request_json && typeof data.request_json === 'object'
           ? jobQuestionPreview(data.kind, data.request_json)
@@ -221,11 +251,12 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [applyBulkProgressFromJob, finishJob, upsertJob],
+    [applyBulkProgressFromJob, finishJob, stopPolling, upsertJob],
   )
 
   const startPolling = useCallback(
     (jobId: string) => {
+      if (!isValidJobId(jobId)) return
       if (pollTimers.current.has(jobId)) return
       void pollJob(jobId)
       const id = window.setInterval(() => void pollJob(jobId), POLL_MS)
@@ -240,6 +271,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     )
     if (status === 404 || !data?.jobs?.length) return
     for (const job of data.jobs) {
+      if (!isValidJobId(job.id)) continue
       const preview =
         job.request_json && typeof job.request_json === 'object'
           ? jobQuestionPreview(job.kind, job.request_json)
@@ -276,8 +308,8 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       if (status === 404 || status === 405) {
         return 'fallback'
       }
-      if (!data) {
-        callbacks?.onError?.('Failed to enqueue AI job')
+      if (status < 200 || status >= 300 || !data || !isValidJobId(data.id)) {
+        callbacks?.onError?.(jobEnqueueError(data, status))
         return null
       }
       upsertJob({ ...data, questionPreview: jobQuestionPreview(kind, request) })
@@ -547,7 +579,12 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
           return
         }
 
-        if (status !== 404 && status !== 405 && enqueued && 'id' in enqueued) {
+        if (
+          status >= 200 &&
+          status < 300 &&
+          enqueued &&
+          isValidJobId((enqueued as AIJob).id)
+        ) {
           const job = enqueued as AIJob
           bulkBatchJobIdRef.current = job.id
           upsertJob({

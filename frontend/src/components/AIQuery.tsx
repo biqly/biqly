@@ -529,6 +529,7 @@ export default function AIQuery() {
   /** Which primary action is in flight — avoids both buttons showing the same loading text */
   const [queryAction, setQueryAction] = useState<'preview' | 'execute' | null>(null)
   const [followUpBusy, setFollowUpBusy] = useState(false)
+  const [jobError, setJobError] = useState<string | null>(null)
   const [aiElapsedMs, setAiElapsedMs] = useState(0)
   const aiBusy = queryAction !== null || followUpBusy
 
@@ -685,10 +686,13 @@ export default function AIQuery() {
   const sendQuery = async (q: string, execute: boolean) => {
     setQuestion(q)
     setQueryAction(execute ? 'execute' : 'preview')
+    setJobError(null)
     try {
       const body = requestBody(q)
       const kind = execute ? 'run' : 'preview'
-      const outcome = await runJob(kind, body)
+      const outcome = await runJob(kind, body, {
+        onError: (message) => setJobError(message),
+      })
       if (outcome === 'fallback') {
         const endpoint = execute ? '/api/ai/query/run' : '/api/ai/query/preview'
         const res = await postData<AIQueryResponse>(endpoint, body, { timeout: AI_QUERY_TIMEOUT_MS })
@@ -697,6 +701,7 @@ export default function AIQuery() {
         return
       }
       if (!outcome) return
+      setJobError(null)
       applyAIResponse(q, outcome)
     } finally {
       setQueryAction(null)
@@ -948,7 +953,7 @@ export default function AIQuery() {
               </span>
             </div>
           )}
-          <ErrorAlert error={error} className="error--top-gap" />
+          <ErrorAlert error={error ?? jobError} className="error--top-gap" />
         </div>
 
         {/* ─── Result Card ──────────────────────────────────────── */}
@@ -1247,9 +1252,12 @@ export default function AIQuery() {
   async function handleFollowUp(followUp: string) {
     if (!activeConversation) createConversation()
     setFollowUpBusy(true)
+    setJobError(null)
     try {
       const body = { ...requestBody(), question: followUp, conversation_id: activeConversation?.id }
-      const outcome = await runJob('run', body)
+      const outcome = await runJob('run', body, {
+        onError: (message) => setJobError(message),
+      })
       let res: AIQueryResponse | null = outcome === 'fallback' ? null : outcome
       if (outcome === 'fallback') {
         res = await postData<AIQueryResponse>('/api/ai/query/run', body, { timeout: AI_QUERY_TIMEOUT_MS })
