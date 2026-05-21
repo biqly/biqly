@@ -1,4 +1,5 @@
 import { useMemo, useState, type MouseEvent, type KeyboardEvent } from 'react'
+import { useT } from '../i18n'
 import { formatResultCell } from '../utils/resultCellFormat'
 import type { ResultAnomaly } from '../types/ai'
 
@@ -21,9 +22,18 @@ export function ResultTable({
   rowCount,
   durationMs,
   question,
+  anomalies,
   onFilterByValue,
   onCellClick,
 }: ResultTableProps) {
+  const t = useT()
+  const anomalyCells = useMemo(() => {
+    const set = new Set<string>()
+    for (const a of anomalies ?? []) {
+      set.add(`${a.row_index}:${a.column}`)
+    }
+    return set
+  }, [anomalies])
   const [sortColIdx, setSortColIdx] = useState<number | null>(null)
   const [sortDir, setSortDir] = useState<SortDirection>(null)
   const [contextMenu, setContextMenu] = useState<{
@@ -44,7 +54,7 @@ export function ResultTable({
   }
 
   const indexedRows = useMemo(
-    () => rows.map((row) => ({ row })),
+    () => rows.map((row, originalIndex) => ({ row, originalIndex })),
     [rows],
   )
 
@@ -150,13 +160,18 @@ export function ResultTable({
             </tr>
           </thead>
           <tbody>
-            {sortedRows.map(({ row }, rowIdx) => (
+            {sortedRows.map(({ row, originalIndex }, rowIdx) => {
+              const anomalyTitle = t('ai_query.anomalies_title')
+              return (
               <tr key={rowIdx}>
                 {row.map((cell, colIdx) => {
                   const colName = columns[colIdx]?.name ?? ''
+                  const isAnomaly = anomalyCells.has(`${originalIndex}:${colName}`)
                   return (
                     <td
                       key={colIdx}
+                      className={isAnomaly ? 'results-cell--anomaly' : undefined}
+                      title={isAnomaly ? anomalyTitle : undefined}
                       onContextMenu={(e) => handleContextMenu(e, colName, String(cell))}
                     >
                       <span
@@ -170,7 +185,7 @@ export function ResultTable({
                   )
                 })}
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       </div>
