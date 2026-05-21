@@ -33,7 +33,7 @@ global:
   networkPolicy:
     aiExternal:
       cidrs:
-        - 192.168.50.0/24
+        - 100.118.9.4/32
   migrate:
     image:
       tag: sha-5bbf7450e0d42ab2b8be43a77ce1b43d69577b62
@@ -70,14 +70,14 @@ ai:
     BI_AI_PROVIDER: openai
     BI_AI_MODEL: gemma4:e4b
     BI_AI_TEMPERATURE: "0.0"
-    BI_AI_BASE_URL: http://192.168.50.217:11434/v1
+    BI_AI_BASE_URL: http://100.118.9.4:11434/v1
     BI_AI_QUERY_PROVIDER: openai
-    BI_AI_QUERY_BASE_URL: http://192.168.50.217:11434/v1
+    BI_AI_QUERY_BASE_URL: http://100.118.9.4:11434/v1
     BI_AI_QUERY_MODEL: gemma4:e4b
     BI_AI_EMBEDDING_MODEL: embeddinggemma:300m
-    BI_AI_EMBEDDING_BASE_URL: http://192.168.50.217:11434/v1
+    BI_AI_EMBEDDING_BASE_URL: http://100.118.9.4:11434/v1
     BI_AI_TRANSLATION_MODEL: translategemma:4b
-    BI_AI_TRANSLATION_BASE_URL: http://192.168.50.217:11434/v1
+    BI_AI_TRANSLATION_BASE_URL: http://100.118.9.4:11434/v1
     BI_AI_TRANSLATION_TARGET_LANGUAGE: Turkish
     BI_AI_TRANSLATION_TARGET_CODE: tr
     BI_AI_TRANSLATION_HTTP_TIMEOUT_SECONDS: "120"
