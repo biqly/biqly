@@ -60,7 +60,7 @@ query:
 ai:
   replicaCount: 1
   image:
-    tag: sha-5bbf7450e0d42ab2b8be43a77ce1b43d69577b62
+    tag: sha-ea1c5bd7e202825015696b96c76671d5362b3768
   rollout:
     enabled: false
   autoscaling:
