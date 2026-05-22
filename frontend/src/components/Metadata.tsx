@@ -431,13 +431,41 @@ export default function Metadata() {
 
       {datasourceId && (
         <div className="card">
-          <div className="card-header-row card-header-row--spaced">
-            <h2>
+          <div className="metadata-toolbar">
+            <h2 className="metadata-toolbar__title">
               {t('metadata.tables')} (
               {filteredTables.length}
               {filteredTables.length !== tables.length ? ` / ${tables.length}` : ''})
             </h2>
-            <div className="metadata-header-tools">
+            {tables.length > 0 && (
+              <div className="metadata-table-filters metadata-table-filters--toolbar">
+                <div className="form-group metadata-filter-field">
+                  <Select
+                    id="metadata-filter-schema"
+                    ariaLabel={t('metadata.filter_schema_aria')}
+                    value={tableFilterSchema}
+                    onChange={setTableFilterSchema}
+                    options={[
+                      { value: '', label: t('metadata.filter_all_schemas') },
+                      ...schemaOptions.map((s) => ({ value: s, label: s })),
+                    ]}
+                  />
+                </div>
+                <div className="form-group metadata-filter-field">
+                  <Select
+                    id="metadata-filter-type"
+                    ariaLabel={t('metadata.filter_type_aria')}
+                    value={tableFilterType}
+                    onChange={setTableFilterType}
+                    options={[
+                      { value: '', label: t('metadata.filter_all_types') },
+                      ...typeOptions.map((ty) => ({ value: ty, label: ty })),
+                    ]}
+                  />
+                </div>
+              </div>
+            )}
+            <div className="metadata-toolbar__actions">
               <div
                 className="metadata-lang-tabs"
                 role="tablist"
@@ -457,9 +485,14 @@ export default function Metadata() {
                 ))}
               </div>
               {editLocale !== FALLBACK_LOCALE && (
-                <p className="metadata-desc-lang-hint" style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', margin: 0 }}>
-                  {t('metadata.desc_lang_tr_hint')}
-                </p>
+                <button
+                  type="button"
+                  className="metadata-hint-btn"
+                  aria-label={t('metadata.desc_lang_hint_aria')}
+                  title={t('metadata.desc_lang_tr_hint')}
+                >
+                  i
+                </button>
               )}
               {tables.length > 0 && (
                 <button
@@ -479,39 +512,11 @@ export default function Metadata() {
             </div>
           </div>
           {tables.length === 0 && !loading && (
-            <p style={{ color: 'var(--text-secondary)' }}>
+            <p className="metadata-empty-hint">
               {t('metadata.no_tables_before')}
               <strong>{t('datasources.sync')}</strong>
               {t('metadata.no_tables_after')}
             </p>
-          )}
-          {tables.length > 0 && (
-            <div className="metadata-table-filters">
-              <div className="form-group metadata-filter-field">
-                <Select
-                  id="metadata-filter-schema"
-                  ariaLabel={t('metadata.filter_schema_aria')}
-                  value={tableFilterSchema}
-                  onChange={setTableFilterSchema}
-                  options={[
-                    { value: '', label: t('metadata.filter_all_schemas') },
-                    ...schemaOptions.map((s) => ({ value: s, label: s })),
-                  ]}
-                />
-              </div>
-              <div className="form-group metadata-filter-field">
-                <Select
-                  id="metadata-filter-type"
-                  ariaLabel={t('metadata.filter_type_aria')}
-                  value={tableFilterType}
-                  onChange={setTableFilterType}
-                  options={[
-                    { value: '', label: t('metadata.filter_all_types') },
-                    ...typeOptions.map((ty) => ({ value: ty, label: ty })),
-                  ]}
-                />
-              </div>
-            </div>
           )}
           <table className="results-table results-table--metadata-list" lang={locale}>
             <colgroup>

@@ -163,6 +163,7 @@ export const en = {
     lang_tabs_aria: 'Description language',
     desc_lang_tr_hint:
       'TR shows Turkish translations when available. If you only see English, run AI describe with translation enabled (BI_TRANSLATION_MODEL) or edit text with TR selected.',
+    desc_lang_hint_aria: 'Help: description language (TR)',
     bulk_ai_btn: 'AI metadata generator',
     already_running: 'A metadata describe job is already running for overlapping schema(s).',
     already_running_schemas: 'Running for: {{schemas}}',

@@ -165,6 +165,7 @@ export const tr: Dictionary = {
     lang_tabs_aria: 'Açıklama dili',
     desc_lang_tr_hint:
       'TR, kayıtlı Türkçe çevirileri gösterir. Yalnızca İngilizce görüyorsanız çeviri katmanını açıp (BI_TRANSLATION_MODEL) AI describe çalıştırın veya TR seçiliyken metni düzenleyin.',
+    desc_lang_hint_aria: 'Yardım: açıklama dili (TR)',
     bulk_ai_btn: 'AI Metadata üretici',
     already_running: 'Çakışan şema(lar) için metadata açıklama işi zaten çalışıyor.',
     already_running_schemas: 'Çalışan şemalar: {{schemas}}',
