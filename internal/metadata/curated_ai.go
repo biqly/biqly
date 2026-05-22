@@ -160,8 +160,8 @@ type ModelSuccessRateRow struct {
 // ListModelSuccessRates returns per-model aggregates for the last N days (days is a decimal string, e.g. "30").
 func (r *Repository) ListModelSuccessRates(ctx context.Context, days string) ([]ModelSuccessRateRow, error) {
 	q := `
-		SELECT 
-			COALESCE(h.model_id, 'unknown') AS model_id,
+		SELECT
+			COALESCE(h.model_id::text, 'unknown') AS model_id,
 			COUNT(*) AS total_queries,
 			COUNT(*) FILTER (WHERE h.confidence_score >= 0.7 AND (h.warnings IS NULL OR jsonb_array_length(h.warnings) = 0)) AS success_count,
 			COUNT(*) FILTER (WHERE h.confidence_score < 0.7 OR (h.warnings IS NOT NULL AND jsonb_array_length(h.warnings) > 0)) AS failure_count,
@@ -171,7 +171,7 @@ func (r *Repository) ListModelSuccessRates(ctx context.Context, days string) ([]
 			COUNT(*) FILTER (WHERE h.user_rating = 'negative') AS negative_count
 		FROM ai_query_history h
 		WHERE h.created_at >= NOW() - ($1 || ' days')::INTERVAL
-		GROUP BY COALESCE(h.model_id, 'unknown')
+		GROUP BY COALESCE(h.model_id::text, 'unknown')
 		ORDER BY total_queries DESC
 	`
 	return platformdb.QuerySliceErr(ctx, r.db, "list model success rates", q, []any{days}, scanModelSuccessRateRow)
