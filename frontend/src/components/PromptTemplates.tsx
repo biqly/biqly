@@ -155,13 +155,48 @@ export default function PromptTemplates() {
           </label>
         </div>
 
-        <p className="card-subtitle" style={{ marginTop: '0.75rem' }}>
-          {t('prompt_templates.meta_updated', { date: updatedLabel })}
-          {' · '}
-          {t('prompt_templates.meta_chars', { count: draft.length })}
-          {' · '}
-          {t('prompt_templates.meta_version', { version: currentRow?.version ?? '-' })}
-        </p>
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: '0.5rem',
+          marginTop: '0.75rem',
+          marginBottom: '1rem',
+        }}>
+          <span style={{
+            fontSize: '0.72rem',
+            fontWeight: 500,
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid var(--border)',
+            borderRadius: '4px',
+            padding: '0.15rem 0.5rem',
+            color: 'var(--text-secondary)'
+          }}>
+            {t('prompt_templates.meta_updated', { date: updatedLabel })}
+          </span>
+          <span style={{
+            fontSize: '0.72rem',
+            fontWeight: 500,
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid var(--border)',
+            borderRadius: '4px',
+            padding: '0.15rem 0.5rem',
+            color: 'var(--text-secondary)'
+          }}>
+            {t('prompt_templates.meta_chars', { count: draft.length })}
+          </span>
+          <span style={{
+            fontSize: '0.72rem',
+            fontWeight: 500,
+            background: 'rgba(99, 102, 241, 0.08)',
+            border: '1px solid rgba(99, 102, 241, 0.15)',
+            borderRadius: '4px',
+            padding: '0.15rem 0.5rem',
+            color: 'var(--accent)'
+          }}>
+            {t('prompt_templates.meta_version', { version: currentRow?.version ?? '-' })}
+          </span>
+        </div>
 
         <textarea
           className="input"
@@ -194,10 +229,10 @@ export default function PromptTemplates() {
         </div>
 
         {versionHistory.length > 0 && (
-          <div style={{ marginTop: '1rem' }}>
+          <div style={{ marginTop: '1.5rem' }}>
             <h3 style={{ fontSize: '0.95rem', marginBottom: '0.5rem' }}>{t('prompt_templates.version_history')}</h3>
             <div className="table-wrap">
-              <table className="data-table">
+              <table className="results-table">
                 <thead>
                   <tr>
                     <th>{t('prompt_templates.col_version')}</th>

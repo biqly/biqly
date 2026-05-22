@@ -1110,7 +1110,9 @@ export default function AIQuery() {
     return () => window.clearInterval(id)
   }, [aiBusy])
 
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const chatFeedRef = useRef<HTMLDivElement>(null)
+  const prevConvIdRef = useRef<string | undefined>(undefined)
+  const prevMsgCountRef = useRef<number>(0)
 
   useEffect(() => {
     get<Datasource[]>('/api/datasources').then((data) => {
@@ -1152,7 +1154,20 @@ export default function AIQuery() {
   }, [datasourceId])
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const currentId = activeConversation?.id
+    const currentCount = activeConversation?.messages.length ?? 0
+
+    if (chatFeedRef.current) {
+      const isSameConv = prevConvIdRef.current === currentId
+      const behavior = isSameConv && currentCount > prevMsgCountRef.current ? 'smooth' : 'auto'
+      chatFeedRef.current.scrollTo({
+        top: chatFeedRef.current.scrollHeight,
+        behavior,
+      })
+    }
+
+    prevConvIdRef.current = currentId
+    prevMsgCountRef.current = currentCount
   }, [activeConversation?.messages.length, activeConversationId])
 
   const tableLabel = (table: TableOption) => table.label || `${table.schema_name}.${table.table_name}`
@@ -1421,7 +1436,7 @@ export default function AIQuery() {
         </header>
 
         {/* Chat Feed */}
-        <div className="chat-feed">
+        <div ref={chatFeedRef} className="chat-feed">
           {activeConversation && activeConversation.messages.length > 0 ? (() => {
             const conv = activeConversation
             return conv.messages.map((message, index) => {
@@ -1462,11 +1477,10 @@ export default function AIQuery() {
             })
           })() : (
             <div className="chat-empty-state">
-              <h3>✨ Biqly Chat Workspace</h3>
+              <h3>✨ ABI Chat Workspace</h3>
               <p>{t('ai_query.subtitle')}</p>
             </div>
           )}
-          <div ref={messagesEndRef} />
         </div>
 
         {/* Unified Chat Input Area */}

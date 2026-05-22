@@ -462,7 +462,7 @@ export default function Evaluation() {
       {activeTab === 'history' && selectedRun && (
         <>
           <div style={{ marginBottom: '0.5rem' }}>
-            <button className="btn btn-sm btn-ghost" onClick={() => setSelectedRun(null)}>{t('evaluation.back')}</button>
+            <button className="btn-back" onClick={() => setSelectedRun(null)}>{t('evaluation.back')}</button>
           </div>
           <div className="kpi-row">
             <KPICard label={t('evaluation.detail_kpi_total')} value={selectedRun.summary.total_cases} color="var(--accent)" />

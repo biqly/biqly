@@ -93,7 +93,7 @@ export default function TimeGrains() {
           <h2>{t('time_grains.title') || 'Time Grains'}</h2>
           <button
             type="button"
-            className="btn btn-ghost btn-sm"
+            className="btn-back"
             onClick={() => window.location.assign('/settings')}
           >
             ← {t('time_grains.back_to_settings') || 'Back to Settings'}

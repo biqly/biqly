@@ -329,7 +329,7 @@ export default function SavedQuestions() {
   return (
     <div className="page-stack">
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div className="card-header-row card-header-row--spaced">
           <h2>{t('saved_questions.title')}</h2>
           <button type="button" className="btn btn-primary btn-sm" onClick={openAdd}>
             {t('saved_questions.new')}
@@ -342,9 +342,9 @@ export default function SavedQuestions() {
         </p>
 
         {/* Filters Top Bar */}
-        <div className="query-controls" style={{ marginTop: '1rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          <div className="form-group" style={{ minWidth: 200 }}>
-            <label htmlFor="library-datasource">{t('saved_questions.label_select_datasource')}</label>
+        <div className="form-row" style={{ marginTop: '1.25rem', flexWrap: 'wrap' }}>
+          <div className="form-field" style={{ minWidth: '14rem' }}>
+            <label htmlFor="library-datasource" className="form-label">{t('saved_questions.label_select_datasource')}</label>
             <Select
               id="library-datasource"
               value={datasourceId}
@@ -352,8 +352,8 @@ export default function SavedQuestions() {
               options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
             />
           </div>
-          <div className="form-group" style={{ minWidth: 200 }}>
-            <label htmlFor="library-model">{t('saved_questions.label_select_model')}</label>
+          <div className="form-field" style={{ minWidth: '14rem' }}>
+            <label htmlFor="library-model" className="form-label">{t('saved_questions.label_select_model')}</label>
             <Select
               id="library-model"
               value={semanticModelId}
@@ -364,8 +364,8 @@ export default function SavedQuestions() {
               ]}
             />
           </div>
-          <div className="form-group" style={{ flexGrow: 1, minWidth: 250 }}>
-            <label htmlFor="library-search">&nbsp;</label>
+          <div className="form-field" style={{ flexGrow: 1, minWidth: '16rem' }}>
+            <label htmlFor="library-search" className="form-label">{t('common.search')}</label>
             <input
               id="library-search"
               value={search}
@@ -379,15 +379,18 @@ export default function SavedQuestions() {
 
       {apiError && <ErrorAlert error={apiError} />}
 
-      <div className="saved-question-list">
-        {/* Left Column: Questions List */}
-        <div className="card" style={{ position: 'relative' }}>
+      {filtered.length === 0 ? (
+        <div className="card" style={{ position: 'relative', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <LoadingOverlay loading={apiLoading} />
-          {filtered.length === 0 ? (
-            <EmptyState
-              description={search.trim() ? t('saved_questions.no_matches') : t('saved_questions.empty')}
-            />
-          ) : (
+          <EmptyState
+            description={search.trim() ? t('saved_questions.no_matches') : t('saved_questions.empty')}
+          />
+        </div>
+      ) : (
+        <div className="saved-question-list">
+          {/* Left Column: Questions List */}
+          <div className="card" style={{ position: 'relative' }}>
+            <LoadingOverlay loading={apiLoading} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {filtered.map((q) => {
                 const checked = q.is_few_shot
@@ -428,106 +431,106 @@ export default function SavedQuestions() {
                 )
               })}
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* Right Column: Details & Run pane */}
-        <div className="card" style={{ position: 'relative' }}>
-          {selectedQuestion ? (
-            <div>
-              <h2>{selectedQuestion.name}</h2>
-              {selectedQuestion.description && (
-                <p className="saved-question-description" style={{ marginTop: '0.5rem' }}>
-                  {selectedQuestion.description}
+          {/* Right Column: Details & Run pane */}
+          <div className="card" style={{ position: 'relative' }}>
+            {selectedQuestion ? (
+              <div>
+                <h2>{selectedQuestion.name}</h2>
+                {selectedQuestion.description && (
+                  <p className="saved-question-description" style={{ marginTop: '0.5rem' }}>
+                    {selectedQuestion.description}
+                  </p>
+                )}
+
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', margin: '1rem 0' }}>
+                  {selectedQuestion.model_id && (
+                    <span className="tag-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <strong>{t('saved_questions.label_select_model')}:</strong>
+                      <code>{semanticModels.find((m) => m.id === selectedQuestion.model_id)?.label || selectedQuestion.model_id}</code>
+                    </span>
+                  )}
+                  <span className="tag-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <strong>{t('saved_questions.label_dialect')}:</strong>
+                    <code>{selectedQuestion.dialect}</code>
+                  </span>
+                  {selectedQuestion.locale && (
+                    <span className="tag-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <strong>{t('saved_questions.label_locale')}:</strong>
+                      <code>{selectedQuestion.locale}</code>
+                    </span>
+                  )}
+                </div>
+
+                <h3 style={{ marginTop: '1.5rem', marginBottom: '0.5rem' }}>{t('saved_questions.label_question')}</h3>
+                <p style={{ background: 'var(--bg-card-raised)', padding: '0.75rem 1rem', borderRadius: '0.35rem', fontStyle: 'italic' }}>
+                  {selectedQuestion.question}
                 </p>
-              )}
 
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', margin: '1rem 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                {selectedQuestion.model_id && (
-                  <div>
-                    <strong>{t('saved_questions.label_select_model')}: </strong>
-                    <code>{semanticModels.find((m) => m.id === selectedQuestion.model_id)?.label || selectedQuestion.model_id}</code>
+                <h3 style={{ marginTop: '1.5rem', marginBottom: '0.5rem' }}>{t('saved_questions.logical_query_heading')}</h3>
+                <pre className="sql-preview" style={{ maxHeight: '250px', overflowY: 'auto' }}>
+                  {JSON.stringify(selectedQuestion.logical_query, null, 2)}
+                </pre>
+
+                <div className="saved-question-actions">
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => runQuery(selectedQuestion.logical_query)}
+                    disabled={runLoading}
+                    aria-label={t('saved_questions.aria_run_query')}
+                  >
+                    {t('saved_questions.run_query')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => openEdit(selectedQuestion)}
+                    aria-label={t('saved_questions.aria_edit_query')}
+                  >
+                    {t('saved_questions.edit_query')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    onClick={() => handleDelete(selectedQuestion.id)}
+                    aria-label={t('saved_questions.aria_delete_query')}
+                  >
+                    {t('saved_questions.delete_query')}
+                  </button>
+                </div>
+
+                {/* Inline query execution results */}
+                {runLoading && (
+                  <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 100 }}>
+                    <LoadingOverlay loading={true} />
                   </div>
                 )}
-                <div>
-                  <strong>{t('saved_questions.label_dialect')}: </strong>
-                  <code>{selectedQuestion.dialect}</code>
-                </div>
-                {selectedQuestion.locale && (
-                  <div>
-                    <strong>{t('saved_questions.label_locale')}: </strong>
-                    <code>{selectedQuestion.locale}</code>
+
+                {runError && (
+                  <div style={{ marginTop: '1.5rem' }}>
+                    <ErrorAlert error={runError} />
+                  </div>
+                )}
+
+                {runResult && runResult.columns && runResult.rows && (
+                  <div className="results-section" style={{ marginTop: '1.5rem' }}>
+                    <ResultTable
+                      columns={runResult.columns}
+                      rows={runResult.rows}
+                      rowCount={runResult.rows.length}
+                      durationMs={runResult.stats?.duration_ms}
+                    />
                   </div>
                 )}
               </div>
-
-              <h3 style={{ marginTop: '1.5rem', marginBottom: '0.5rem' }}>{t('saved_questions.label_question')}</h3>
-              <p style={{ background: 'var(--bg-card-raised)', padding: '0.75rem 1rem', borderRadius: '0.35rem', fontStyle: 'italic' }}>
-                {selectedQuestion.question}
-              </p>
-
-              <h3 style={{ marginTop: '1.5rem', marginBottom: '0.5rem' }}>{t('saved_questions.logical_query_heading')}</h3>
-              <pre className="sql-preview" style={{ maxHeight: '250px', overflowY: 'auto' }}>
-                {JSON.stringify(selectedQuestion.logical_query, null, 2)}
-              </pre>
-
-              <div className="saved-question-actions">
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => runQuery(selectedQuestion.logical_query)}
-                  disabled={runLoading}
-                  aria-label={t('saved_questions.aria_run_query')}
-                >
-                  {t('saved_questions.run_query')}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn--neutral"
-                  onClick={() => openEdit(selectedQuestion)}
-                  aria-label={t('saved_questions.aria_edit_query')}
-                >
-                  {t('saved_questions.edit_query')}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn--destructive"
-                  onClick={() => handleDelete(selectedQuestion.id)}
-                  aria-label={t('saved_questions.aria_delete_query')}
-                >
-                  {t('saved_questions.delete_query')}
-                </button>
-              </div>
-
-              {/* Inline query execution results */}
-              {runLoading && (
-                <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 100 }}>
-                  <LoadingOverlay loading={true} />
-                </div>
-              )}
-
-              {runError && (
-                <div style={{ marginTop: '1.5rem' }}>
-                  <ErrorAlert error={runError} />
-                </div>
-              )}
-
-              {runResult && runResult.columns && runResult.rows && (
-                <div className="results-section" style={{ marginTop: '1.5rem' }}>
-                  <ResultTable
-                    columns={runResult.columns}
-                    rows={runResult.rows}
-                    rowCount={runResult.rows.length}
-                    durationMs={runResult.stats?.duration_ms}
-                  />
-                </div>
-              )}
-            </div>
-          ) : (
-            <EmptyState description={t('saved_questions.empty')} />
-          )}
+            ) : (
+              <EmptyState description={t('saved_questions.select_hint')} />
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* New Question Modal */}
       <Modal
