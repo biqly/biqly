@@ -242,7 +242,7 @@ func integrationCatalogFixture(encryptedDSN string) integrationCatalog {
 			{ID: "c1", DatasourceID: integrationDSID, SchemaName: "public", TableName: "orders", ColumnName: "id", DataType: "integer"},
 		},
 		relations: []metadata.Relation{{ID: "r1", DatasourceID: integrationDSID, FromSchema: "public", FromTable: "orders", FromColumn: "customer_id", ToSchema: "public", ToTable: "customers", ToColumn: "id"}},
-		fewShot:   []metadata.FewShotCuratedRow{{ID: "fs1", DatasourceID: integrationDSID, ModelID: integrationModel, Question: "orders by country"}},
+		fewShot:   []metadata.FewShotCuratedRow{{ID: "fs1", DatasourceID: integrationDSID, ModelID: integrationModel, Question: "orders by country", Name: "orders by country", IsFewShot: true}},
 		glossary:  []metadata.BusinessGlossaryRow{{ID: "g1", DatasourceID: integrationDSID, Term: "revenue", MapsToType: "metric", MapsToName: "order_count"}},
 	}
 }

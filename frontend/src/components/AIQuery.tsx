@@ -732,6 +732,25 @@ function AssistantMessageCard({
     setFeedbackText('')
   }
 
+  const handleSaveToLibrary = () => {
+    if (!result.logical_query) return
+    const lqStr = JSON.stringify(result.logical_query)
+    const dsId = datasourceId
+    const modelId = result.logical_query.model_id || ''
+    const q = userQuestion
+
+    const params = new URLSearchParams()
+    params.set('prefill', '1')
+    params.set('question', q)
+    params.set('logical_query', lqStr)
+    params.set('datasource_id', dsId)
+    params.set('model_id', String(modelId))
+
+    const path = `/saved?${params.toString()}`
+    window.history.pushState(null, '', path)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }
+
   const chartData = result.result?.rows?.map((row) => {
     const obj: { name: string; value?: number } = { name: String(row[0]) }
     if (row[1] !== undefined) obj.value = Number(row[1]) || 0
@@ -973,6 +992,17 @@ function AssistantMessageCard({
           className={`feedback-btn ${userFeedback === 'negative' ? 'feedback-negative' : ''}`}
           onClick={() => submitFeedback('negative')}
         >👎</button>
+        {result.logical_query && (
+          <button
+            type="button"
+            className="btn btn-sm btn-ghost"
+            style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+            onClick={handleSaveToLibrary}
+            title={t('saved_questions.new')}
+          >
+            💾 {t('saved_questions.new')}
+          </button>
+        )}
       </div>
       {showFeedbackForm && (
         <div className="feedback-form">

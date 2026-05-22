@@ -20,6 +20,9 @@ type createFewShotExampleRequest struct {
 	Tags         []string        `json:"tags"`
 	Dialect      string          `json:"dialect"`
 	Locale       string          `json:"locale,omitempty"`
+	Name         string          `json:"name"`
+	Description  string          `json:"description"`
+	IsFewShot    *bool           `json:"is_few_shot"`
 }
 
 type updateFewShotExampleRequest struct {
@@ -28,6 +31,9 @@ type updateFewShotExampleRequest struct {
 	Tags         []string        `json:"tags"`
 	Dialect      string          `json:"dialect"`
 	Locale       string          `json:"locale,omitempty"`
+	Name         string          `json:"name"`
+	Description  string          `json:"description"`
+	IsFewShot    *bool           `json:"is_few_shot"`
 }
 
 type submitAIFeedbackRequest struct {
@@ -75,6 +81,14 @@ func (h *AIExamplesHandler) CreateExample(w http.ResponseWriter, r *http.Request
 	if input.Dialect == "" {
 		input.Dialect = "postgresql"
 	}
+	name := input.Name
+	if name == "" {
+		name = input.Question
+	}
+	isFewShot := true
+	if input.IsFewShot != nil {
+		isFewShot = *input.IsFewShot
+	}
 
 	id, err := h.deps.MetaRepo.InsertFewShotCurated(r.Context(), metadata.FewShotCuratedInsert{
 		DatasourceID: input.DatasourceID,
@@ -84,6 +98,9 @@ func (h *AIExamplesHandler) CreateExample(w http.ResponseWriter, r *http.Request
 		Tags:         input.Tags,
 		Dialect:      input.Dialect,
 		Locale:       input.Locale,
+		Name:         name,
+		Description:  input.Description,
+		IsFewShot:    isFewShot,
 	})
 	if err != nil {
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to create example", err)
@@ -101,6 +118,9 @@ func (h *AIExamplesHandler) CreateExample(w http.ResponseWriter, r *http.Request
 		Locale:       input.Locale,
 		CreatedAt:    now,
 		UpdatedAt:    now,
+		Name:         name,
+		Description:  input.Description,
+		IsFewShot:    isFewShot,
 	}
 	writeJSON(w, http.StatusCreated, example)
 }
@@ -140,12 +160,23 @@ func (h *AIExamplesHandler) UpdateExample(w http.ResponseWriter, r *http.Request
 	if input.Dialect == "" {
 		input.Dialect = "postgresql"
 	}
+	name := input.Name
+	if name == "" {
+		name = input.Question
+	}
+	isFewShot := true
+	if input.IsFewShot != nil {
+		isFewShot = *input.IsFewShot
+	}
 	if err := h.deps.MetaRepo.UpdateFewShotCurated(r.Context(), id, metadata.FewShotCuratedUpdate{
 		Question:     input.Question,
 		LogicalQuery: input.LogicalQuery,
 		Tags:         input.Tags,
 		Dialect:      input.Dialect,
 		Locale:       input.Locale,
+		Name:         name,
+		Description:  input.Description,
+		IsFewShot:    isFewShot,
 	}); err != nil {
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to update example", err)
 		return

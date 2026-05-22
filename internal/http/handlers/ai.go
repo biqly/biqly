@@ -867,14 +867,72 @@ func (h *AIHandler) loadSampleData(ctx context.Context, db *sql.DB, d dialect.Di
 // the frontend can override which exemplars hit the prompt without breaking
 // the simpler Query/Preview paths.
 func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *semantic.SemanticModel, exampleIDs []string, includePastQueries bool) []ai.FewShotExample {
-	// Explicit IDs are not yet wired through to the example store; fall back
-	// to the default loader plus the past-queries opt-in. The explicit-IDs
-	// branch can be plumbed without changing call sites.
-	_ = exampleIDs
-	if !includePastQueries && len(exampleIDs) == 0 {
+	if model == nil {
 		return nil
 	}
-	return h.loadFewShotExamples(ctx, model)
+	var modelID *string
+	if model.ID != "" {
+		id := model.ID
+		modelID = &id
+	}
+
+	var curated []metadata.FewShotCuratedRow
+	var err error
+
+	if h.deps.CatalogClient != nil {
+		curated, err = h.deps.CatalogClient.ListFewShot(ctx, model.DatasourceID, stringValue(modelID))
+	} else {
+		curated, err = h.deps.MetaRepo.ListFewShotCurated(ctx, model.DatasourceID, stringValue(modelID))
+	}
+
+	if err != nil {
+		slog.WarnContext(ctx, "load curated few-shot examples failed", "error", err)
+	}
+
+	idMap := make(map[string]bool)
+	for _, id := range exampleIDs {
+		idMap[id] = true
+	}
+
+	out := make([]ai.FewShotExample, 0, fewShotLimit)
+	for _, r := range curated {
+		matches := false
+		if len(exampleIDs) > 0 {
+			matches = idMap[r.ID]
+		} else {
+			matches = r.IsFewShot
+		}
+
+		if matches {
+			out = append(out, ai.FewShotExample{
+				Question:     r.Question,
+				LogicalQuery: string(r.LogicalQuery),
+				Locale:       r.Locale,
+			})
+			if len(out) >= fewShotLimit {
+				break
+			}
+		}
+	}
+
+	if includePastQueries {
+		remaining := fewShotLimit - len(out)
+		if remaining > 0 {
+			historyRows, err := h.deps.MetaRepo.ListSuccessfulAIQueries(ctx, model.DatasourceID, modelID, remaining)
+			if err != nil {
+				slog.WarnContext(ctx, "load history few-shot examples failed", "error", err)
+			} else {
+				for _, r := range historyRows {
+					out = append(out, ai.FewShotExample{
+						Question:     r.Question,
+						LogicalQuery: string(r.LogicalQuery),
+					})
+				}
+			}
+		}
+	}
+
+	return out
 }
 
 // datasourceDialectName returns the driver type for prompt dialect examples.
@@ -942,30 +1000,49 @@ func (h *AIHandler) loadFewShotExamples(ctx context.Context, model *semantic.Sem
 		id := model.ID
 		modelID = &id
 	}
+
+	var curated []metadata.FewShotCuratedRow
+	var err error
+
 	if h.deps.CatalogClient != nil {
-		rows, err := h.deps.CatalogClient.ListFewShot(ctx, model.DatasourceID, stringValue(modelID))
-		if err != nil {
-			slog.WarnContext(ctx, "load curated few-shot examples failed", "error", err)
-			return nil
-		}
-		out := make([]ai.FewShotExample, 0, len(rows))
-		for _, r := range rows {
-			out = append(out, ai.FewShotExample{Question: r.Question, LogicalQuery: string(r.LogicalQuery)})
+		curated, err = h.deps.CatalogClient.ListFewShot(ctx, model.DatasourceID, stringValue(modelID))
+	} else {
+		curated, err = h.deps.MetaRepo.ListFewShotCurated(ctx, model.DatasourceID, stringValue(modelID))
+	}
+
+	if err != nil {
+		slog.WarnContext(ctx, "load curated few-shot examples failed", "error", err)
+	}
+
+	out := make([]ai.FewShotExample, 0, fewShotLimit)
+	for _, r := range curated {
+		if r.IsFewShot {
+			out = append(out, ai.FewShotExample{
+				Question:     r.Question,
+				LogicalQuery: string(r.LogicalQuery),
+				Locale:       r.Locale,
+			})
 			if len(out) >= fewShotLimit {
 				break
 			}
 		}
-		return out
 	}
-	rows, err := h.deps.MetaRepo.ListSuccessfulAIQueries(ctx, model.DatasourceID, modelID, fewShotLimit)
-	if err != nil {
-		slog.WarnContext(ctx, "load few-shot examples failed", "error", err)
-		return nil
+
+	remaining := fewShotLimit - len(out)
+	if remaining > 0 {
+		historyRows, err := h.deps.MetaRepo.ListSuccessfulAIQueries(ctx, model.DatasourceID, modelID, remaining)
+		if err != nil {
+			slog.WarnContext(ctx, "load history few-shot examples failed", "error", err)
+		} else {
+			for _, r := range historyRows {
+				out = append(out, ai.FewShotExample{
+					Question:     r.Question,
+					LogicalQuery: string(r.LogicalQuery),
+				})
+			}
+		}
 	}
-	out := make([]ai.FewShotExample, 0, len(rows))
-	for _, r := range rows {
-		out = append(out, ai.FewShotExample{Question: r.Question, LogicalQuery: string(r.LogicalQuery)})
-	}
+
 	return out
 }
 
