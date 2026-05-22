@@ -402,22 +402,24 @@ function Collapsible({ title, children, defaultOpen = false }: { title: string; 
 }
 
 function embeddingSummary(response: EmbedMetadataResponse, t: TFunction): string {
-  const counts = (response.results ?? []).reduce(
-    (acc, item) => {
-      if (item.skipped) return acc
-      const kind = item.kind ?? 'table'
-      if (kind === 'column') acc.columns += 1
-      else acc.tables += 1
-      return acc
-    },
-    { tables: 0, columns: 0 },
-  )
-  const details = counts.tables || counts.columns
-    ? t('ai_query.embedding_details', { tables: counts.tables, columns: counts.columns })
-    : ''
+  const tableKeys = new Set<string>()
+  const columnKeys = new Set<string>()
+  for (const item of response.results ?? []) {
+    if (item.skipped) continue
+    const kind = item.kind ?? 'table'
+    if (kind === 'column') columnKeys.add(`${item.schema}.${item.table}.${item.column ?? ''}`)
+    else tableKeys.add(`${item.schema}.${item.table}`)
+  }
+  const tables = tableKeys.size
+  const columns = columnKeys.size
+  const vectors = response.embedded
+  const unique = tables + columns
+  const locales = unique > 0 ? Math.max(1, Math.round(vectors / unique)) : 1
   return t('ai_query.embedding_summary', {
-    embedded: response.embedded,
-    details,
+    tables,
+    columns,
+    vectors,
+    locales,
     model: response.model,
   })
 }
@@ -1358,18 +1360,15 @@ export default function AIQuery() {
             </div>
             <div className="form-group routing-toggle">
               <label>{t('ai_query.table_routing_label')}</label>
-              <div className="toggle-group">
-                <button type="button" className={`toggle-btn ${autoTableRouting ? 'active' : ''}`} onClick={() => setAutoTableRouting(true)}>{t('ai_query.table_routing_auto')}</button>
-                <button type="button" className={`toggle-btn ${!autoTableRouting ? 'active' : ''}`} onClick={() => setAutoTableRouting(false)}>{t('ai_query.table_routing_manual')}</button>
-              </div>
-            </div>
-            {aiRuntime?.embeddings_enabled === true && (
-              <div className="form-group ai-settings-group" style={{ alignItems: 'flex-start' }}>
-                <label style={{ visibility: 'hidden' }}>&nbsp;</label>
-                <div style={{ display: 'inline-flex', flexDirection: 'column', gap: '0.25rem' }}>
+              <div className="routing-toggle-row">
+                <div className="toggle-group">
+                  <button type="button" className={`toggle-btn ${autoTableRouting ? 'active' : ''}`} onClick={() => setAutoTableRouting(true)}>{t('ai_query.table_routing_auto')}</button>
+                  <button type="button" className={`toggle-btn ${!autoTableRouting ? 'active' : ''}`} onClick={() => setAutoTableRouting(false)}>{t('ai_query.table_routing_manual')}</button>
+                </div>
+                {aiRuntime?.embeddings_enabled === true && (
                   <button
                     type="button"
-                    className="btn btn-sm"
+                    className="btn btn-sm routing-embed-btn"
                     onClick={refreshMetadataEmbeddings}
                     disabled={!datasourceId || embeddingLoading}
                     title={
@@ -1386,12 +1385,16 @@ export default function AIQuery() {
                         ? t('ai_query.embed_refresh_model')
                         : t('ai_query.embed_refresh')}
                   </button>
-                  {embeddingStatus && <span className="ai-embedding-status" style={{ fontSize: '0.75rem' }}>{embeddingStatus}</span>}
-                  {embeddingError && <span className="ai-embedding-error" style={{ fontSize: '0.75rem' }}>{embeddingError}</span>}
-                  {aiRuntimeErr && <span className="error" style={{ fontSize: '0.75rem' }}>{aiRuntimeErr}</span>}
-                </div>
+                )}
               </div>
-            )}
+              {aiRuntime?.embeddings_enabled === true && (embeddingStatus || embeddingError || aiRuntimeErr) && (
+                <div className="routing-embed-status">
+                  {embeddingStatus && <span className="ai-embedding-status">{embeddingStatus}</span>}
+                  {embeddingError && <span className="ai-embedding-error">{embeddingError}</span>}
+                  {aiRuntimeErr && <span className="error">{aiRuntimeErr}</span>}
+                </div>
+              )}
+            </div>
           </div>
 
           {!autoTableRouting && (

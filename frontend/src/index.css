@@ -2954,6 +2954,25 @@ input[type='checkbox']:disabled {
 
 .routing-toggle label { display: block; margin-bottom: 0.3rem; }
 
+.routing-toggle-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.routing-toggle-row .toggle-group { flex: 1 1 auto; min-width: 12rem; }
+
+.routing-embed-btn { white-space: nowrap; flex: 0 0 auto; }
+
+.routing-embed-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+}
+
 .toggle-group {
   display: flex;
   border: 1px solid var(--border);
