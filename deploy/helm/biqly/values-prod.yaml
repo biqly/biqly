@@ -80,7 +80,7 @@ ai:
     BI_AI_QUERY_PROVIDER: openai
     BI_AI_QUERY_BASE_URL: http://100.118.9.4:11434/v1
     BI_AI_QUERY_MODEL: qwen2.5-coder:7b-instruct-q5_K_M
-    BI_AI_EMBEDDING_MODEL: embeddinggemma:300m
+    BI_AI_EMBEDDING_MODEL: qwen3-embedding:4b
     BI_AI_EMBEDDING_BASE_URL: http://100.118.9.4:11434/v1
     BI_AI_TRANSLATION_MODEL: translategemma:4b
     BI_AI_TRANSLATION_BASE_URL: http://100.118.9.4:11434/v1
