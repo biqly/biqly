@@ -628,9 +628,9 @@ func computeConfidence(validationErrCount, retries int) float64 {
 func normalizeLogicalQueryContext(lq *query.LogicalQuery, model *semantic.SemanticModel) {
 	lq.EnsureVersion()
 	lq.DatasourceID = model.DatasourceID
-	lq.ModelID = model.Name
+	lq.ModelID = model.ID
 	if lq.ModelID == "" {
-		lq.ModelID = model.ID
+		lq.ModelID = model.Name
 	}
 	if model != nil && len(model.Dimensions) > 0 {
 		names := make([]string, 0, len(model.Dimensions))

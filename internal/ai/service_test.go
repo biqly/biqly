@@ -35,8 +35,8 @@ func TestParseAndValidateNormalizesLogicalQueryContext(t *testing.T) {
 	if got.DatasourceID != model.DatasourceID {
 		t.Errorf("parseAndValidate(%s).DatasourceID = %q, want %q", raw, got.DatasourceID, model.DatasourceID)
 	}
-	if got.ModelID != model.Name {
-		t.Errorf("parseAndValidate(%s).ModelID = %q, want %q", raw, got.ModelID, model.Name)
+	if got.ModelID != model.ID {
+		t.Errorf("parseAndValidate(%s).ModelID = %q, want %q", raw, got.ModelID, model.ID)
 	}
 }
 
