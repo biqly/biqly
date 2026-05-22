@@ -40,6 +40,36 @@ func TestKnownPromptTemplateNamesIncludesRetryAndClarification(t *testing.T) {
 	}
 }
 
+func TestTurkishEditablePromptDefaultsAreLocalized(t *testing.T) {
+	tests := []struct {
+		name      string
+		mustHave  string
+		mustAvoid string
+	}{
+		{name: "clarification", mustHave: "Kullanıcı Sorusu", mustAvoid: "User Question"},
+		{name: "retry", mustHave: "Önceki Deneme", mustAvoid: "Previous Attempt"},
+		{name: "output_format", mustHave: "Çıktı Formatı", mustAvoid: "Output Format"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tr := promptTemplateFromEmbed(i18n.LocaleTR, tc.name)
+			en := promptTemplateFromEmbed(i18n.LocaleEN, tc.name)
+			if tr == "" {
+				t.Fatalf("missing Turkish template for %s", tc.name)
+			}
+			if tr == en {
+				t.Fatalf("Turkish template %s must not be identical to English default", tc.name)
+			}
+			if !strings.Contains(tr, tc.mustHave) {
+				t.Fatalf("Turkish template %s does not contain %q: %q", tc.name, tc.mustHave, tr)
+			}
+			if strings.Contains(tr, tc.mustAvoid) {
+				t.Fatalf("Turkish template %s still contains English marker %q: %q", tc.name, tc.mustAvoid, tr)
+			}
+		})
+	}
+}
+
 func TestBuildRetryUsesEditableTemplate(t *testing.T) {
 	withPromptStore(t, testPromptStore{templates: map[string]PromptTemplateSnapshot{
 		"retry\x00tr": {

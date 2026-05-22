@@ -1,8 +1,8 @@
-## Output Format
-Either (A) JSON only, or (B) optional `## Reasoning` (Planning Steps 1–8, concise) then the JSON object on the following lines.
-The JSON must match this structure:
+## Çıktı Formatı
+Ya (A) yalnızca JSON döndür ya da (B) isteğe bağlı `## Reasoning` bölümü (Planning Steps 1-8, kısa) ve hemen ardından JSON nesnesini yaz.
+JSON şu yapıyla uyumlu olmalıdır:
 {"select": [{"type": "dimension|metric", "name": "..."}], "filters": [{"field": "...", "operator": "...", "value": ...}], "group_by": [{"field": "...", "time_grain": "day|week|month|quarter|year"}], "order_by": [{"field": "...", "direction": "asc|desc"}], "limit": 100}
 
-## Example — multi-metric grouping
-Question: "orders per customer name and the most recent order date"
+## Örnek - çok metrikli gruplama
+Soru: "müşteri adına göre sipariş sayısı ve en son sipariş tarihi"
 {"select":[{"type":"dimension","name":"name"},{"type":"metric","name":"row_count"},{"type":"metric","name":"max_order_date"}],"group_by":[{"field":"name"}],"order_by":[{"field":"row_count","direction":"desc"}],"limit":100}

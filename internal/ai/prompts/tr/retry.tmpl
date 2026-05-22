@@ -1,11 +1,11 @@
 {{.OriginalPrompt}}
 
-## Previous Attempt (incorrect)
-Your previous response was:
+## Önceki Deneme (hatalı)
+Önceki yanıtın:
 {{.LastResponse}}
 
-## Why It Failed
+## Neden Başarısız Oldu
 {{.ValidationError}}
 
-## Required Action
-Re-run the **Planning Steps** from the original prompt, then re-emit a corrected LogicalQuery JSON object using dimensions, metrics, and operators that exist in the semantic model above. Do not repeat the previous mistake. Optional `## Reasoning` prefix allowed; final output must include valid JSON - no markdown fences.
+## Gerekli Aksiyon
+Orijinal prompttaki **Planning Steps** bölümünü yeniden uygula, ardından yukarıdaki semantik modelde bulunan boyutları, metrikleri ve operatörleri kullanarak düzeltilmiş bir LogicalQuery JSON nesnesi üret. Önceki hatayı tekrarlama. İsteğe bağlı `## Reasoning` öneki kullanılabilir; final çıktı geçerli JSON içermeli - markdown kod bloğu kullanma.
