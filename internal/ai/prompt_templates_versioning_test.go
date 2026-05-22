@@ -46,6 +46,7 @@ func TestTurkishEditablePromptDefaultsAreLocalized(t *testing.T) {
 		mustHave  string
 		mustAvoid string
 	}{
+		{name: "system_rules", mustHave: "Bir Business Intelligence sorgu motorusun", mustAvoid: "Convert the user's natural language question"},
 		{name: "clarification", mustHave: "Kullanıcı Sorusu", mustAvoid: "User Question"},
 		{name: "retry", mustHave: "Önceki Deneme", mustAvoid: "Previous Attempt"},
 		{name: "output_format", mustHave: "Çıktı Formatı", mustAvoid: "Output Format"},

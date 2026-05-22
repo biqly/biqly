@@ -195,11 +195,11 @@ func TestPromptBuildFiltersFewShotByLocale(t *testing.T) {
 func TestPromptBuildLoadsLocaleSpecificTemplate(t *testing.T) {
 	pb := &PromptBuilder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x", BaseSchema: "public", BaseTable: "t"}
-	// Both en and tr templates currently share content; verify the loader produces
-	// non-empty output for tr and that the template is wired (presence of the
-	// stable rules header proves the bundle was read for the chosen locale).
+	// Verify the loader produces non-empty output for tr and that the locale-specific
+	// template is wired (presence of the stable Turkish rules header proves the
+	// bundle was read for the chosen locale).
 	got := pb.Build(context.Background(), "q", model, 0, i18n.Locale("tr"), "", nil, nil, nil, nil, nil)
-	if !strings.Contains(got, "Business Intelligence query engine") {
+	if !strings.Contains(got, "Bir Business Intelligence sorgu motorusun") {
 		t.Errorf("expected tr-locale prompt to include the embedded rules header")
 	}
 }
