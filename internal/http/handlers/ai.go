@@ -896,11 +896,9 @@ func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *seman
 
 	out := make([]ai.FewShotExample, 0, fewShotLimit)
 	for _, r := range curated {
-		matches := false
+		matches := r.IsFewShot
 		if len(exampleIDs) > 0 {
 			matches = idMap[r.ID]
-		} else {
-			matches = r.IsFewShot
 		}
 
 		if matches {
