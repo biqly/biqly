@@ -2,14 +2,15 @@ package dialect
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
 // BaseDialect provides shared Dialect method implementations. Embed in concrete dialect types
 // and implement Name, QuoteIdentSegment, Placeholder, DateTrunc, CalendarPart, and ILike.
 type BaseDialect struct {
-	ExplainDisabled  bool
-	ClickHouseAggs   bool
+	ExplainDisabled bool
+	ClickHouseAggs  bool
 }
 
 // CastType returns the upper-cased SQL type name.
@@ -51,4 +52,18 @@ func CalendarPartLookup(d Dialect, part, column string, yearFmt, quarterFmt, mon
 	default:
 		return d.DateTrunc(part, column)
 	}
+}
+
+// DefaultOrderBy returns an empty string by default.
+func (b BaseDialect) DefaultOrderBy() string {
+	return ""
+}
+
+// SelectWithLimit formats a standard SELECT with limit query.
+func (b BaseDialect) SelectWithLimit(columns []string, table string, limit int) string {
+	var limitStr string
+	if limit > 0 {
+		limitStr = " LIMIT " + strconv.Itoa(limit)
+	}
+	return "SELECT " + strings.Join(columns, ", ") + " FROM " + table + limitStr
 }

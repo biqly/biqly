@@ -40,4 +40,10 @@ type Dialect interface {
 	// returning rows (e.g. "EXPLAIN <sql>"). Returning "" indicates the dialect
 	// does not support a single-statement dry-run; callers should skip the check.
 	ExplainSQL(sql string) string
+
+	// DefaultOrderBy returns the default ORDER BY clause part when pagination is used but no sorting is defined.
+	DefaultOrderBy() string
+
+	// SelectWithLimit generates a SELECT query for sample projection.
+	SelectWithLimit(columns []string, table string, limit int) string
 }

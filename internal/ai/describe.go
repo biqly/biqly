@@ -375,7 +375,8 @@ func buildDescribePrompt(schema, table string, cols []metadata.Column, sample []
 		if c.Description != nil && *c.Description != "" {
 			line += fmt.Sprintf(" — current: %q", *c.Description)
 		}
-		sb.WriteString(line + "\n")
+		sb.WriteString(line)
+		sb.WriteString("\n")
 	}
 
 	sb.WriteString("\n### Sample Rows (JSON, compact; cell strings may be truncated)\n")

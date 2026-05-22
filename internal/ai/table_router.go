@@ -106,12 +106,16 @@ type TableRouter struct {
 	embeddingReader EmbeddingReader
 	embeddingWeight float64
 	limits          RoutingLimits
+	timeGrains      TimeGrainStore
 }
 
 // NewTableRouter creates a metadata-backed table router with no embeddings.
 // Equivalent to NewTableRouterWithEmbeddings(reader, nil, nil, 0).
 func NewTableRouter(reader MetadataReader) *TableRouter {
-	return &TableRouter{reader: reader}
+	return &TableRouter{
+		reader:     reader,
+		timeGrains: NewStaticTimeGrainStore(),
+	}
 }
 
 // NewTableRouterWithEmbeddings creates a router that, when an Embedder and
@@ -125,7 +129,13 @@ func NewTableRouterWithEmbeddings(reader MetadataReader, embedder Embedder, embe
 		embeddingReader: embeddingReader,
 		embeddingWeight: weight,
 		limits:          DefaultRoutingLimits(),
+		timeGrains:      NewStaticTimeGrainStore(),
 	}
+}
+
+// SetTimeGrainStore configures the database-backed time grain store.
+func (r *TableRouter) SetTimeGrainStore(store TimeGrainStore) {
+	r.timeGrains = store
 }
 
 // SetRoutingLimits overrides auto-model caps (zero fields use defaults).
@@ -316,7 +326,17 @@ func (r *TableRouter) Route(
 
 	limits := r.limits.withDefaults()
 	columnsForModel := rankColumnsForSemanticModel(connected, columnsByTable, relations, question, embedSignals.columnScores, limits.MaxColumnsPerTable)
-	model := buildSemanticModel(datasourceID, connected, columnsForModel, relations, limits)
+	var timeGrains []metadata.TimeGrain
+	if r.timeGrains != nil {
+		var err error
+		timeGrains, err = r.timeGrains.List(ctx)
+		if err != nil {
+			timeGrains = DefaultTimeGrains
+		}
+	} else {
+		timeGrains = DefaultTimeGrains
+	}
+	model := buildSemanticModel(datasourceID, connected, columnsForModel, relations, limits, timeGrains)
 	if !result.Manual {
 		pruneAutoSemanticModel(model, question, limits, embedSignals.columnScores)
 	}
@@ -911,6 +931,7 @@ func buildSemanticModel(
 	columnsByTable map[string][]metadata.Column,
 	relations []metadata.Relation,
 	limits RoutingLimits,
+	timeGrains []metadata.TimeGrain,
 ) *semantic.SemanticModel {
 	limits = limits.withDefaults()
 	base := selected[0].table
@@ -927,7 +948,7 @@ func buildSemanticModel(
 		IsActive:     true,
 	}
 
-	model.Dimensions = buildDimensions(selected, columnsByTable, limits)
+	model.Dimensions = buildDimensions(selected, columnsByTable, limits, timeGrains)
 	model.Metrics = buildMetrics(selected, columnsByTable, limits)
 	model.Joins = buildJoins(selected, relations)
 	return model
@@ -963,7 +984,7 @@ func relationColumnsForSelectedTables(relations []metadata.Relation, selectedKey
 	return out
 }
 
-func buildDimensions(selected []tableBundle, columnsByTable map[string][]metadata.Column, limits RoutingLimits) []semantic.Dimension {
+func buildDimensions(selected []tableBundle, columnsByTable map[string][]metadata.Column, limits RoutingLimits, timeGrains []metadata.TimeGrain) []semantic.Dimension {
 	limits = limits.withDefaults()
 	maxDims := limits.MaxDimensions
 	maxDateGrains := limits.MaxDateGrainExtras
@@ -999,30 +1020,19 @@ func buildDimensions(selected []tableBundle, columnsByTable map[string][]metadat
 			continue
 		}
 		hasTime := hasTimeComponent(p.col.DataType)
-		grains := []struct {
-			part, suffix string
-			requiresTime bool
-			syns         []string
-		}{
-			{"year", "_year", false, []string{"year", "years", "yearly", "annual", "yıl", "yil", "yıllık", "yillik", "per year", "by year"}},
-			{"quarter", "_quarter", false, []string{"quarter", "quarters", "qtr", "çeyrek", "ceyrek", "çeyreklik", "ceyreklik"}},
-			{"month", "_month", false, []string{"month", "months", "monthly", "ay", "aylık", "aylik", "per month", "by month"}},
-			{"day", "_day", false, []string{"day", "days", "daily", "gün", "gun", "günlük", "gunluk", "per day", "by day", "günü", "gunu"}},
-			{"hour", "_hour", true, []string{"hour", "hours", "hourly", "saat", "saatlik", "saatte", "saatli", "per hour", "by hour"}},
-		}
-		for _, g := range grains {
-			if g.requiresTime && !hasTime {
+		for _, g := range timeGrains {
+			if g.RequiresTime && !hasTime {
 				continue
 			}
 			if len(dimensions) >= maxDims || dateGrainAdded >= maxDateGrains {
 				break
 			}
 			dimensions = append(dimensions, semantic.Dimension{
-				Name:        name + g.suffix,
+				Name:        name + g.Suffix,
 				ColumnRef:   colRef,
 				Type:        string(semantic.DimensionTypeDate),
-				TimeGrain:   g.part,
-				Synonyms:    g.syns,
+				TimeGrain:   g.Grain,
+				Synonyms:    g.Synonyms,
 				Description: p.col.Description,
 				IsActive:    true,
 			})

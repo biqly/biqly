@@ -107,6 +107,12 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		return nil, fmt.Errorf("seed prompt templates: %w", err)
 	}
 
+	timeGrainsStore := ai.NewDBTimeGrainStore(metaRepo)
+	if err := ai.SeedTimeGrains(ctx, metaRepo); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("seed time grains: %w", err)
+	}
+
 	var catalogHTTPClient *catalogclient.Client
 	if cfg.Services.CatalogURL != "" {
 		catalogHTTPClient = catalogclient.New(
@@ -147,5 +153,6 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		Embedder:      embedder,
 		AIEmbedMeta:   embedMeta,
 		Jobs:          cfg.Jobs,
+		TimeGrains:    timeGrainsStore,
 	}, nil
 }

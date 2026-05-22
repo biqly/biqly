@@ -62,3 +62,67 @@ func TestSQLServerLimitOffsetIncludesOffsetForLimitOnly(t *testing.T) {
 		t.Fatalf("LimitOffset(100, 0) = %q, want %q", got, want)
 	}
 }
+
+func TestDefaultOrderBy(t *testing.T) {
+	tests := []struct {
+		name    string
+		dialect Dialect
+		want    string
+	}{
+		{name: "postgres", dialect: PostgresDialect{}, want: ""},
+		{name: "mysql", dialect: MySQLDialect{}, want: ""},
+		{name: "sqlserver", dialect: SQLServerDialect{}, want: "(SELECT NULL)"},
+		{name: "clickhouse", dialect: ClickHouseDialect{}, want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.dialect.DefaultOrderBy()
+			if got != tt.want {
+				t.Errorf("DefaultOrderBy() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSelectWithLimit(t *testing.T) {
+	cols := []string{"id", "name"}
+	table := "users"
+	limit := 5
+
+	tests := []struct {
+		name    string
+		dialect Dialect
+		want    string
+	}{
+		{
+			name:    "postgres",
+			dialect: PostgresDialect{},
+			want:    "SELECT id, name FROM users LIMIT 5",
+		},
+		{
+			name:    "mysql",
+			dialect: MySQLDialect{},
+			want:    "SELECT id, name FROM users LIMIT 5",
+		},
+		{
+			name:    "sqlserver",
+			dialect: SQLServerDialect{},
+			want:    "SELECT TOP (5) id, name FROM users",
+		},
+		{
+			name:    "clickhouse",
+			dialect: ClickHouseDialect{},
+			want:    "SELECT id, name FROM users LIMIT 5",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.dialect.SelectWithLimit(cols, table, limit)
+			if got != tt.want {
+				t.Errorf("SelectWithLimit() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

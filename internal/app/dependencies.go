@@ -54,6 +54,7 @@ type Dependencies struct {
 	// nil (the table router falls back to keyword scoring).
 	Embedder    ai.Embedder
 	AIEmbedMeta *ai.EmbedMetadataService
+	TimeGrains   ai.TimeGrainStore
 	Jobs         config.JobsConfig
 	AIJobQueue   queue.AIJobPublisher
 	AIJobService AIJobRunner
@@ -180,6 +181,11 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		return nil, fmt.Errorf("seed prompt templates: %w", err)
 	}
 
+	timeGrainsStore := ai.NewDBTimeGrainStore(metaRepo)
+	if err := ai.SeedTimeGrains(ctx, metaRepo); err != nil {
+		return nil, fmt.Errorf("seed time grains: %w", err)
+	}
+
 	return &Dependencies{
 		Config:        cfg,
 		MetadataDB:    db,
@@ -197,6 +203,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		AuditLogger:   audit.NewLogger(slog.Default()),
 		Embedder:      embedder,
 		AIEmbedMeta:   embedMeta,
+		TimeGrains:    timeGrainsStore,
 	}, nil
 }
 

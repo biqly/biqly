@@ -116,4 +116,8 @@ func registerAIAPIRoutes(r chi.Router, deps *app.Dependencies) {
 	r.Put("/ai/prompt-templates/{name}/{locale}", promptTemplatesHandler.UpdatePromptTemplate)
 	r.Post("/ai/prompt-templates/restore", promptTemplatesHandler.RestorePromptTemplate)
 	r.Post("/ai/prompt-templates/reseed", promptTemplatesHandler.ReseedPromptTemplates)
+
+	timeGrainsHandler := handlers.NewAITimeGrainsHandler(deps)
+	r.Get("/ai/settings/time-grains", timeGrainsHandler.ListTimeGrains)
+	r.Put("/ai/settings/time-grains/{grain}", timeGrainsHandler.UpdateTimeGrain)
 }

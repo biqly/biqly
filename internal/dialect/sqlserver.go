@@ -74,5 +74,19 @@ func (d SQLServerDialect) ExplainSQL(_ string) string {
 	return ""
 }
 
+// DefaultOrderBy returns "(SELECT NULL)" for SQL Server.
+func (d SQLServerDialect) DefaultOrderBy() string {
+	return "(SELECT NULL)"
+}
+
+// SelectWithLimit formats a SQL Server SELECT TOP (n) query.
+func (d SQLServerDialect) SelectWithLimit(columns []string, table string, limit int) string {
+	var topStr string
+	if limit > 0 {
+		topStr = "TOP (" + strconv.Itoa(limit) + ") "
+	}
+	return "SELECT " + topStr + strings.Join(columns, ", ") + " FROM " + table
+}
+
 // Compile-time check
 var _ Dialect = SQLServerDialect{}

@@ -17,6 +17,7 @@ const PromptTemplates = lazy(() => import('./components/PromptTemplates'))
 const Evaluation = lazy(() => import('./components/Evaluation'))
 const Dashboard = lazy(() => import('./components/Dashboard'))
 const Settings = lazy(() => import('./components/Settings'))
+const TimeGrains = lazy(() => import('./components/TimeGrains'))
 
 type RouteSectionKey = 'data' | 'query' | 'ai' | 'analytics' | 'preferences'
 
@@ -38,6 +39,7 @@ interface AppRouteDef {
   descriptionKey: TranslationKey
   icon: ReactNode
   component: LazyExoticComponent<ComponentType>
+  hidden?: boolean
 }
 
 interface AppRoute extends AppRouteDef {
@@ -251,6 +253,16 @@ const routeDefs: AppRouteDef[] = [
     icon: IconSettings,
     component: Settings,
   },
+  {
+    path: '/time-grains',
+    sectionKey: 'preferences',
+    labelKey: 'app.nav.time_grains',
+    eyebrowKey: 'app.nav.time_grains_eyebrow',
+    descriptionKey: 'app.nav.time_grains_desc',
+    icon: IconSettings,
+    component: TimeGrains,
+    hidden: true,
+  },
 ]
 
 const DEFAULT_PATH = routeDefs[0]!.path
@@ -277,6 +289,7 @@ function App() {
   const sidebarSections = useMemo(() => {
     const buckets = new Map<RouteSectionKey, AppRoute[]>()
     for (const route of routes) {
+      if (route.hidden) continue
       const prev = buckets.get(route.sectionKey) ?? []
       prev.push(route)
       buckets.set(route.sectionKey, prev)

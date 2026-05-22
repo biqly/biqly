@@ -62,6 +62,7 @@ func NewAIHandler(deps *app.Dependencies) *AIHandler {
 		deps.Config.AI.EmbeddingWeight,
 	)
 	router.SetMetadataTranslator(deps.MetaRepo)
+	router.SetTimeGrainStore(deps.TimeGrains)
 	router.SetRoutingLimits(ai.RoutingLimitsFromConfig(
 		deps.Config.AI.RouteMaxDimensions,
 		deps.Config.AI.RouteMaxMetrics,

@@ -4,8 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/biqly/biqly/internal/dialect"
 	"github.com/biqly/biqly/internal/metadata"
@@ -65,22 +63,5 @@ func buildTableSampleSQL(d dialect.Dialect, cols []metadata.Column, schema, tabl
 	if schema != "" {
 		from = d.QuoteIdentSegment(schema) + "." + d.QuoteIdentSegment(table)
 	}
-	// Identifiers were validated against validIdent above; LimitOffset emits an
-	// integer literal. We avoid fmt.Sprintf with a "SELECT %s..." template so
-	// static analyzers that pattern-match string-formatted SQL stay quiet.
-	var qb strings.Builder
-	qb.WriteString("SELECT ")
-	if d.Name() == "sqlserver" {
-		qb.WriteString("TOP (")
-		qb.WriteString(strconv.Itoa(limit))
-		qb.WriteString(") ")
-	}
-	qb.WriteString(strings.Join(colIdents, ", "))
-	qb.WriteString(" FROM ")
-	qb.WriteString(from)
-	if d.Name() != "sqlserver" {
-		qb.WriteString(" ")
-		qb.WriteString(d.LimitOffset(limit, 0))
-	}
-	return qb.String(), nil
+	return d.SelectWithLimit(colIdents, from, limit), nil
 }
