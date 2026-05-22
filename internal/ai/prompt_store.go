@@ -81,7 +81,16 @@ func SeedPromptTemplatesFromEmbed(ctx context.Context, repo promptTemplateRepo) 
 					return err
 				}
 				if existing != "" {
-					continue
+					// If the existing database template matches the default English fallback,
+					// but a locale-specific translation is now available in the embed,
+					// we should update it to the new locale-specific translation.
+					enFallback := promptTemplateFromEmbed(i18n.DefaultLocale, name)
+					locSpecific := promptTemplateFromEmbed(loc, name)
+					if loc != i18n.DefaultLocale && existing == enFallback && locSpecific != enFallback {
+						// Proceed to seed the locale-specific template
+					} else {
+						continue
+					}
 				}
 			}
 			body := promptTemplateFromEmbed(loc, name)

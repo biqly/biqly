@@ -121,3 +121,63 @@ func TestPromptTemplateBundleVersionsReturnsActiveVersions(t *testing.T) {
 		t.Fatalf("unexpected version bundle: %#v", got)
 	}
 }
+
+type mockPromptTemplateRepo struct {
+	count   int
+	data    map[string]string
+	upserts []struct {
+		name    string
+		locale  i18n.Locale
+		content string
+	}
+}
+
+func (m *mockPromptTemplateRepo) CountPromptTemplates(ctx context.Context) (int, error) {
+	return m.count, nil
+}
+
+func (m *mockPromptTemplateRepo) GetPromptTemplate(ctx context.Context, name string, loc i18n.Locale) (string, error) {
+	return m.data[name+"\x00"+string(loc)], nil
+}
+
+func (m *mockPromptTemplateRepo) UpsertPromptTemplate(ctx context.Context, name string, loc i18n.Locale, content string) error {
+	m.upserts = append(m.upserts, struct {
+		name    string
+		locale  i18n.Locale
+		content string
+	}{name, loc, content})
+	return nil
+}
+
+func TestSeedPromptTemplatesUpdatesEnglishFallback(t *testing.T) {
+	enRules := promptTemplateFromEmbed(i18n.LocaleEN, "system_rules")
+	trRules := promptTemplateFromEmbed(i18n.LocaleTR, "system_rules")
+	if enRules == "" || trRules == "" || enRules == trRules {
+		t.Fatalf("precondition failed: embed templates must exist and differ")
+	}
+
+	repo := &mockPromptTemplateRepo{
+		count: 5,
+		data: map[string]string{
+			"system_rules\x00tr": enRules,
+		},
+	}
+
+	err := SeedPromptTemplatesFromEmbed(context.Background(), repo)
+	if err != nil {
+		t.Fatalf("unexpected seed error: %v", err)
+	}
+
+	var foundTRSystemRules bool
+	for _, u := range repo.upserts {
+		if u.name == "system_rules" && u.locale == i18n.LocaleTR {
+			foundTRSystemRules = true
+			if u.content != trRules {
+				t.Fatalf("expected Turkish system rules, got: %s", u.content)
+			}
+		}
+	}
+	if !foundTRSystemRules {
+		t.Fatalf("expected system_rules/tr to be updated/upserted")
+	}
+}
