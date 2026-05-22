@@ -5,7 +5,7 @@ import type { Locale, TranslationKey } from '../i18n'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { Select } from './ui/Select'
 
-const TEMPLATE_NAMES = ['system_rules', 'output_format', 'retry', 'clarification'] as const
+const TEMPLATE_NAMES = ['system_rules', 'output_format', 'retry', 'clarification', 'prompt_layout'] as const
 type TemplateName = (typeof TEMPLATE_NAMES)[number]
 type EditLocale = Locale
 
@@ -24,6 +24,7 @@ const nameLabelKeys: Record<TemplateName, TranslationKey> = {
   output_format: 'prompt_templates.name_output_format',
   retry: 'prompt_templates.name_retry',
   clarification: 'prompt_templates.name_clarification',
+  prompt_layout: 'prompt_templates.name_prompt_layout',
 }
 
 export default function PromptTemplates() {

@@ -19,6 +19,37 @@ const (
 	maxSynonymsPerLine       = 6
 )
 
+const defaultLayout = `{{.SystemRules}}
+
+## Current Date/Time: {{.CurrentDateTime}}
+
+## Semantic Model: {{.ModelName}}
+{{if .ModelLabel}}Label: {{.ModelLabel}}
+{{end}}{{if .ModelDescription}}Description: {{.ModelDescription}}
+{{end}}Base table: {{.BaseTable}}
+{{if .ModelSynonyms}}Model synonyms: {{.ModelSynonyms}}
+{{end}}
+## Available Dimensions
+{{.Dimensions}}
+{{.Note}}
+## Available Metrics
+{{.Metrics}}
+
+{{if .Joins}}## Available Joins
+{{.Joins}}
+{{end}}
+## Supported Filter Operators
+{{.FilterOperators}}
+{{.Glossary}}{{.DialectGuide}}{{.FailureExamples}}{{.PlanningSteps}}
+## User Question
+{{.Question}}
+
+{{.OutputFormat}}
+{{.SampleData}}
+{{.Examples}}
+{{.PriorTurns}}`
+
+
 var promptBuilderPool = sync.Pool{
 	New: func() any { return new(bytes.Buffer) },
 }
@@ -68,34 +99,23 @@ func (b *PromptBuilder) Build(ctx context.Context, question string, model *seman
 		deniedSet[strings.ToLower(f)] = true
 	}
 
-	sb := promptBuilderPool.Get().(*bytes.Buffer)
-	sb.Reset()
-	defer promptBuilderPool.Put(sb)
-
-	write := func(s string) {
-		sb.WriteString(s)
-	}
-
 	rules := promptTemplate(ctx, locale, "system_rules")
-	write(rules)
-	write("\n")
 
-	fmt.Fprintf(sb, "## Current Date/Time: %s\n\n", time.Now().Format("2006-01-02 15:04:05 UTC"))
-
-	fmt.Fprintf(sb, "## Semantic Model: %s\n", model.Name)
+	headBuf := new(bytes.Buffer)
+	fmt.Fprintf(headBuf, "## Current Date/Time: %s\n\n", time.Now().Format("2006-01-02 15:04:05 UTC"))
+	fmt.Fprintf(headBuf, "## Semantic Model: %s\n", model.Name)
 	if model.Label != nil {
-		fmt.Fprintf(sb, "Label: %s\n", *model.Label)
+		fmt.Fprintf(headBuf, "Label: %s\n", *model.Label)
 	}
 	if model.Description != nil {
-		fmt.Fprintf(sb, "Description: %s\n", *model.Description)
+		fmt.Fprintf(headBuf, "Description: %s\n", *model.Description)
 	}
-	fmt.Fprintf(sb, "Base table: %s.%s\n\n", model.BaseSchema, model.BaseTable)
-
+	fmt.Fprintf(headBuf, "Base table: %s.%s\n\n", model.BaseSchema, model.BaseTable)
 	if len(model.Synonyms) > 0 {
-		fmt.Fprintf(sb, "Model synonyms: %s\n\n", strings.Join(model.Synonyms, ", "))
+		fmt.Fprintf(headBuf, "Model synonyms: %s\n\n", strings.Join(model.Synonyms, ", "))
 	}
 
-	headRunes := utf8.RuneCount(sb.Bytes())
+	headRunes := utf8.RuneCountInString(rules) + utf8.RuneCount(headBuf.Bytes())
 	remaining := maxPromptRunes - headRunes - promptStaticReserveRunes
 	if remaining < 16000 {
 		remaining = 16000
@@ -117,20 +137,21 @@ func (b *PromptBuilder) Build(ctx context.Context, question string, model *seman
 		}
 	}
 
-	write("## Available Dimensions\n")
-	omittedDims := b.writeDimensions(sb, allowedDims, remaining/2)
-	write("\n")
+	dimBuf := new(bytes.Buffer)
+	omittedDims := b.writeDimensions(dimBuf, allowedDims, remaining/2)
+	dimensionsStr := dimBuf.String()
 
-	write("## Available Metrics\n")
-	metricsBudget := maxPromptRunes - utf8.RuneCount(sb.Bytes()) - promptStaticReserveRunes/2
+	metricsBudget := maxPromptRunes - (headRunes + utf8.RuneCount(dimBuf.Bytes())) - promptStaticReserveRunes/2
 	if metricsBudget < 4000 {
 		metricsBudget = 4000
 	}
-	omittedMetrics := b.writeMetrics(sb, allowedMetrics, metricsBudget)
-	write("\n")
+	metricBuf := new(bytes.Buffer)
+	omittedMetrics := b.writeMetrics(metricBuf, allowedMetrics, metricsBudget)
+	metricsStr := metricBuf.String()
 
+	var noteStr string
 	if omittedDims > 0 || omittedMetrics > 0 {
-		fmt.Fprintf(sb, "## Note\nSome catalog entries were omitted to fit the model context window (%d dimensions, %d metrics skipped). Narrow **Tables** scope in the UI or define a smaller semantic model if a field is missing.\n\n",
+		noteStr = fmt.Sprintf("## Note\nSome catalog entries were omitted to fit the model context window (%d dimensions, %d metrics skipped). Narrow **Tables** scope in the UI or define a smaller semantic model if a field is missing.\n\n",
 			omittedDims, omittedMetrics)
 	}
 
@@ -142,36 +163,91 @@ func (b *PromptBuilder) Build(ctx context.Context, question string, model *seman
 		}
 	}
 
+	var joinsStr string
 	if len(allowedJoins) > 0 {
-		write("## Available Joins\n")
+		joinBuf := new(bytes.Buffer)
 		for _, j := range allowedJoins {
-			fmt.Fprintf(sb, "- %s: %s.%s → %s.%s (%s, %s)\n",
+			fmt.Fprintf(joinBuf, "- %s: %s.%s → %s.%s (%s, %s)\n",
 				j.Name, j.FromTable, j.FromColumn, j.ToTable, j.ToColumn, j.JoinType, j.Relationship)
 		}
-		write("\n")
+		joinsStr = joinBuf.String()
 	}
 
-	write("## Supported Filter Operators\n")
-	write("eq, neq, gt, gte, lt, lte, in, not_in, contains, starts_with, ends_with, between, is_null, is_not_null\n\n")
+	filterOpsStr := "eq, neq, gt, gte, lt, lte, in, not_in, contains, starts_with, ends_with, between, is_null, is_not_null\n\n"
 
-	b.writeBusinessGlossary(sb, glossary)
+	glossaryBuf := new(bytes.Buffer)
+	b.writeBusinessGlossary(glossaryBuf, glossary)
+	glossaryStr := glossaryBuf.String()
 
-	b.writeDialectCompilationGuide(sb, targetDialect)
-	b.writeFailureExamples(sb)
-	b.writePlanningSteps(sb)
+	dialectBuf := new(bytes.Buffer)
+	b.writeDialectCompilationGuide(dialectBuf, targetDialect)
+	dialectStr := dialectBuf.String()
 
-	write("## User Question\n")
-	write(question)
-	write("\n\n")
+	failureBuf := new(bytes.Buffer)
+	b.writeFailureExamples(failureBuf)
+	failureStr := failureBuf.String()
+
+	planningBuf := new(bytes.Buffer)
+	b.writePlanningSteps(planningBuf)
+	planningStr := planningBuf.String()
 
 	outputFmt := promptTemplate(ctx, locale, "output_format")
-	write(outputFmt)
 
-	b.writeSampleData(sb, samples)
-	b.writeFewShotExamples(sb, examples, locale)
-	b.writePriorTurns(sb, priorTurns)
+	sampleBuf := new(bytes.Buffer)
+	b.writeSampleData(sampleBuf, samples)
+	sampleStr := sampleBuf.String()
 
-	return sb.String()
+	exampleBuf := new(bytes.Buffer)
+	b.writeFewShotExamples(exampleBuf, examples, locale)
+	exampleStr := exampleBuf.String()
+
+	priorBuf := new(bytes.Buffer)
+	b.writePriorTurns(priorBuf, priorTurns)
+	priorStr := priorBuf.String()
+
+	var labelStr string
+	if model.Label != nil {
+		labelStr = *model.Label
+	}
+	var descStr string
+	if model.Description != nil {
+		descStr = *model.Description
+	}
+	var modelSynonymsStr string
+	if len(model.Synonyms) > 0 {
+		modelSynonymsStr = strings.Join(model.Synonyms, ", ")
+	}
+
+	data := map[string]any{
+		"SystemRules":      rules,
+		"CurrentDateTime":  time.Now().Format("2006-01-02 15:04:05 UTC"),
+		"ModelName":        model.Name,
+		"ModelLabel":       labelStr,
+		"ModelDescription": descStr,
+		"BaseTable":        fmt.Sprintf("%s.%s", model.BaseSchema, model.BaseTable),
+		"ModelSynonyms":    modelSynonymsStr,
+		"Dimensions":       dimensionsStr,
+		"Metrics":          metricsStr,
+		"Note":             noteStr,
+		"Joins":            joinsStr,
+		"FilterOperators":  filterOpsStr,
+		"Glossary":         glossaryStr,
+		"DialectGuide":     dialectStr,
+		"FailureExamples":  failureStr,
+		"PlanningSteps":    planningStr,
+		"Question":         question,
+		"OutputFormat":     outputFmt,
+		"SampleData":       sampleStr,
+		"Examples":         exampleStr,
+		"PriorTurns":       priorStr,
+	}
+
+	layoutTmpl := promptTemplate(ctx, locale, "prompt_layout")
+	if layoutTmpl == "" {
+		layoutTmpl = defaultLayout
+	}
+
+	return renderPromptTemplate(layoutTmpl, data)
 }
 
 // writePriorTurns appends recent turns from the active conversation so the

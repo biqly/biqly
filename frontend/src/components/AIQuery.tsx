@@ -27,6 +27,8 @@ import type {
   SelectField,
   PromptStats,
   TokenUsage,
+  Conversation,
+  ConversationMessage,
 } from '../types/ai'
 import type { Datasource } from '../types/metadata'
 import { useLocale, useT } from '../i18n'
@@ -482,6 +484,540 @@ interface TableOption {
   label?: string
 }
 
+function SidebarConversationItem({
+  conv,
+  isActive,
+  onSelect,
+  onRename,
+  onDelete,
+  t,
+}: {
+  conv: Conversation
+  isActive: boolean
+  onSelect: () => void
+  onRename: (id: string, newTitle: string) => void
+  onDelete: (id: string) => void
+  t: any
+}) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState(conv.title ?? '')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (isEditing) {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    }
+  }, [isEditing])
+
+  const handleStartEdit = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditTitle(conv.title ?? '')
+    setIsEditing(true)
+  }
+
+  const handleSave = () => {
+    setIsEditing(false)
+    const trimmed = editTitle.trim()
+    if (trimmed && trimmed !== conv.title) {
+      onRename(conv.id, trimmed)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSave()
+    } else if (e.key === 'Escape') {
+      setIsEditing(false)
+    }
+  }
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const confirmMsg = t('ai_query.delete_conv_confirm') || 'Are you sure you want to delete this conversation?'
+    if (window.confirm(confirmMsg)) {
+      onDelete(conv.id)
+    }
+  }
+
+  return (
+    <div
+      className={`conversation-item ${isActive ? 'active' : ''}`}
+      onClick={onSelect}
+    >
+      {isEditing ? (
+        <input
+          ref={inputRef}
+          value={editTitle}
+          onChange={(e) => setEditTitle(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={handleKeyDown}
+          onClick={(e) => e.stopPropagation()}
+          className="conv-edit-input"
+          placeholder={t('ai_query.rename_placeholder') || 'Enter title...'}
+        />
+      ) : (
+        <div className="conv-item-content">
+          <span className="conv-title" onDoubleClick={handleStartEdit}>
+            {conv.title || t('ai_query.conv_current')}
+          </span>
+          <span className="conv-time">
+            {t('ai_query.conv_messages', { count: conv.messages.length })}
+          </span>
+        </div>
+      )}
+      {!isEditing && (
+        <div className="conv-actions">
+          <button
+            type="button"
+            className="btn-conv-action edit-btn"
+            onClick={handleStartEdit}
+            title={t('ai_query.rename_btn') || 'Rename'}
+          >
+            ✏️
+          </button>
+          <button
+            type="button"
+            className="btn-conv-action delete-btn"
+            onClick={handleDelete}
+            title={t('ai_query.delete_btn') || 'Delete'}
+          >
+            🗑️
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AssistantMessageCard({
+  message,
+  messageIndex,
+  conversationId,
+  datasourceId,
+  aiRuntime,
+  userQuestion,
+  get,
+  postData,
+  updateMessageResponse,
+  t,
+  localeNumberTag,
+  localeTag,
+  onSelectClarification,
+  onSkipClarification,
+  onFilterByValue,
+  onCellDrillDown,
+}: {
+  message: ConversationMessage
+  messageIndex: number
+  conversationId: string
+  datasourceId: string
+  aiRuntime: AIRuntimeSettings | null
+  userQuestion: string
+  get: <T>(url: string) => Promise<T | null>
+  postData: <T>(url: string, body: any, options?: any) => Promise<T | null>
+  updateMessageResponse: (conversationId: string, messageIndex: number, aiResponse: AIQueryResponse) => void
+  t: any
+  localeNumberTag: any
+  localeTag: string
+  onSelectClarification: (option: string) => void
+  onSkipClarification: () => void
+  onFilterByValue: (column: string, value: string) => void
+  onCellDrillDown: (column: string, value: string) => void
+}) {
+  const result = message.ai_response
+  if (!result) return null
+
+  const [chartType, setChartType] = useState<'bar' | 'line' | 'pie' | 'table'>('table')
+  const [tableView, setTableView] = useState<'flat' | 'pivot'>('flat')
+  const [userFeedback, setUserFeedback] = useState<'positive' | 'negative' | null>(null)
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false)
+  const [feedbackCategories, setFeedbackCategories] = useState<FeedbackCatKey[]>([])
+  const [feedbackText, setFeedbackText] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [sampleModalOpen, setSampleModalOpen] = useState(false)
+  const [sampleModalTable, setSampleModalTable] = useState('')
+
+  const pivotTable = useMemo(() => {
+    const hint = result.result?.pivot_hint
+    const cols = result.result?.columns
+    const rows = result.result?.rows
+    if (!hint || !cols || !rows) return null
+    return buildPivotTable(cols, rows, hint)
+  }, [result.result?.pivot_hint, result.result?.columns, result.result?.rows])
+
+  useEffect(() => {
+    if (pivotTable) setTableView('pivot')
+    else setTableView('flat')
+  }, [pivotTable, result.logical_query?.model_id])
+
+  useEffect(() => {
+    const raw = result.visualization_hint?.chart_type ?? result.result?.chart_suggestions?.[0]
+    if (!raw) return
+    const mapped = raw === 'number' ? 'table' : raw
+    if (mapped === 'bar' || mapped === 'line' || mapped === 'pie' || mapped === 'table') {
+      setChartType(mapped)
+    }
+  }, [result.visualization_hint?.chart_type, result.result?.chart_suggestions])
+
+  const handleUseCandidate = (i: number) => {
+    const c = result.candidates?.[i]
+    if (c) {
+      updateMessageResponse(conversationId, messageIndex, {
+        ...result,
+        logical_query: c.logical_query,
+        confidence: c.confidence,
+      })
+    }
+  }
+
+  const runQuery = async () => {
+    if (!result.logical_query) return
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await postData<any>('/api/query/run', result.logical_query, { timeout: AI_QUERY_TIMEOUT_MS })
+      if (res) {
+        const updated = {
+          ...result,
+          result: res,
+        }
+        if (res.chart_suggestions && res.chart_suggestions.length > 0) {
+          const raw = res.chart_suggestions[0]
+          const mapped = raw === 'number' ? 'table' : raw
+          if (mapped === 'bar' || mapped === 'line' || mapped === 'pie' || mapped === 'table') {
+            setChartType(mapped)
+          }
+        }
+        updateMessageResponse(conversationId, messageIndex, updated)
+      } else {
+        setError('Failed to execute query')
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Execution failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSampleData = (tableName: string) => {
+    setSampleModalTable(tableName)
+    setSampleModalOpen(true)
+  }
+
+  const submitFeedback = async (rating: 'positive' | 'negative') => {
+    setUserFeedback(rating)
+    if (rating === 'positive') {
+      try {
+        await postData('/api/ai/feedback', { question: userQuestion, datasource_id: datasourceId, rating: 'positive' })
+      } catch { /* noop */ }
+    } else {
+      setShowFeedbackForm(true)
+    }
+  }
+
+  const submitNegativeFeedback = async () => {
+    try {
+      await postData('/api/ai/feedback', {
+        question: userQuestion,
+        datasource_id: datasourceId,
+        rating: 'negative',
+        categories: feedbackCategories.map((k) => t(k)),
+        text: feedbackText,
+      })
+    } catch { /* noop */ }
+    setShowFeedbackForm(false)
+    setFeedbackCategories([])
+    setFeedbackText('')
+  }
+
+  const chartData = result.result?.rows?.map((row) => {
+    const obj: { name: string; value?: number } = { name: String(row[0]) }
+    if (row[1] !== undefined) obj.value = Number(row[1]) || 0
+    return obj
+  }) ?? []
+
+  return (
+    <div className="assistant-card">
+      {result.confidence !== undefined && <ConfidenceBar value={result.confidence} breakdown={result.confidence_breakdown} />}
+      <CostBadge latencyMs={result.latency_ms} tokenUsage={result.token_usage} costUsd={result.cost_usd} />
+      <PromptStatsPanel stats={result.prompt_stats} tokenUsage={result.token_usage} />
+
+      {result.model_used && (
+        <div className="model-used-badge" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+          {t('ai_query.model_used')} <code translate="no">{result.model_used}</code>
+          {aiRuntime?.query_model_override && aiRuntime.query_model && result.model_used !== aiRuntime.query_model && (
+            <span> ({t('ai_query.configured')} <code translate="no">{aiRuntime.query_model}</code>)</span>
+          )}
+          {!aiRuntime?.query_model_override && aiRuntime?.llm_model && result.model_used !== aiRuntime.llm_model && (
+            <span> ({t('ai_query.configured')} <code translate="no">{aiRuntime.llm_model}</code>)</span>
+          )}
+        </div>
+      )}
+
+      {result.retry_count !== undefined && result.retry_count > 0 && (
+        <div className="retry-badge">{t('ai_query.retry_badge', { n: result.retry_count })}</div>
+      )}
+
+      {result.needs_clarification && (result.clarification_options?.length || result.clarification?.options?.length) ? (
+        <ClarificationCard
+          question={result.clarification?.question ?? result.clarification_question ?? t('ai_query.clarify_default')}
+          options={result.clarification_options ?? result.clarification?.options?.map((o) => o.label) ?? []}
+          clarification={result.clarification}
+          onSelect={onSelectClarification}
+          onSkip={onSkipClarification}
+        />
+      ) : null}
+
+      {result.candidates && result.candidates.length > 1 && !result.needs_clarification && (
+        <CandidateComparisonPanel candidates={result.candidates} onUse={handleUseCandidate} />
+      )}
+
+      {result.table_routing && (
+        <Collapsible title={t('ai_query.collapsible_routing')} defaultOpen>
+          <TableRoutingViz routing={result.table_routing} />
+          {(result.table_routing.selected_tables?.length ?? 0) > 0 && (
+            <button
+              type="button"
+              className="btn btn-sm btn-sample"
+              onClick={() => {
+                const firstSel = result.table_routing?.selected_tables?.[0]
+                if (firstSel) handleSampleData(firstSel)
+              }}
+            >
+              {t('ai_query.sample_preview_btn')}
+            </button>
+          )}
+        </Collapsible>
+      )}
+
+      {result.validation_result && (
+        <Collapsible
+          title={result.validation_result.plan_ok ? t('ai_query.plan_ok_title') : t('ai_query.plan_warn_title')}
+          defaultOpen={!result.validation_result.plan_ok}
+        >
+          {result.validation_result.explain_output && <pre className="sql-preview explain-output">{result.validation_result.explain_output}</pre>}
+          <p className={`plan-status ${result.validation_result.plan_ok ? 'plan-ok' : 'plan-warn'}`}>
+            {result.validation_result.plan_ok ? t('ai_query.plan_ok_body') : t('ai_query.plan_warn_body')}
+          </p>
+        </Collapsible>
+      )}
+
+      {(result.logical_query?.select?.filter((s): s is SelectField & { type: 'window' } => s.type === 'window') ?? []).length > 0 && (
+        <div style={{ marginBottom: '0.5rem' }}>
+          {(result.logical_query?.select ?? []).filter((s): s is SelectField & { type: 'window' } => s.type === 'window').map((s, i) => (
+            <span key={i} className="wf-badge">{t('ai_query.window_fn_badge', { name: s.window?.aggregation || s.name })}</span>
+          ))}
+        </div>
+      )}
+
+      {result.logical_query && (
+        <Collapsible title={t('ai_query.collapsible_lq')} defaultOpen>
+          <LogicalQueryMetaBadges lq={result.logical_query} />
+          <pre className="sql-preview">{JSON.stringify(result.logical_query, null, 2)}</pre>
+        </Collapsible>
+      )}
+
+      {result.sql && (
+        <Collapsible title={t('ai_query.collapsible_sql')} defaultOpen>
+          <pre className="sql-preview">{result.sql}</pre>
+        </Collapsible>
+      )}
+
+      {result.prompt && (
+        <Collapsible title={t('ai_query.collapsible_prompt')}>
+          <pre className="sql-preview prompt-preview">{result.prompt}</pre>
+          {result.token_usage && (
+            <p className="token-info">
+              {t('ai_query.token_line', {
+                prompt: result.token_usage.prompt.toLocaleString(localeTag),
+                completion: result.token_usage.completion.toLocaleString(localeTag),
+                total: result.token_usage.total.toLocaleString(localeTag),
+              })}
+            </p>
+          )}
+          {result.token_usage && result.token_usage.prompt > 30000 && (
+            <p className="prompt-warning">
+              {t('ai_query.prompt_large_warning', { k: (result.token_usage.prompt / 1000).toFixed(1) })}
+            </p>
+          )}
+        </Collapsible>
+      )}
+
+      {result.warnings && result.warnings.length > 0 && (
+        <section className="warning-panel" aria-live="polite">
+          <div>
+            <strong>{t('ai_query.warnings_title')}</strong>
+            <p>{t(warningBodyKey(result))}</p>
+          </div>
+          <ul>
+            {result.warnings.map((w, i) => <li key={i}>{w}</li>)}
+          </ul>
+        </section>
+      )}
+
+      {result.retry_count !== undefined && result.retry_count >= 3 && !result.sql && (
+        <div className="error-recovery">
+          <p>{t('ai_query.recovery_failed', { n: result.retry_count })}</p>
+        </div>
+      )}
+
+      {!result.result && result.sql && (
+        <div className="btn-run-query-container">
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={loading}
+            onClick={runQuery}
+          >
+            {loading ? t('ai_query.loading_executing') : t('ai_query.btn_run_query')}
+          </button>
+        </div>
+      )}
+      {error && <ErrorAlert error={error} />}
+
+      {result.result?.columns && result.result.rows && (
+        <div className="results-section">
+          <div className="results-header">
+            <h3>{t('ai_query.results_title', { rows: result.result.stats?.row_count ?? 0 })}</h3>
+            {result.visualization_hint && (
+              <span className="viz-hint" title={result.visualization_hint.reason}>
+                💡 {result.visualization_hint.chart_type}
+              </span>
+            )}
+            {result.result.pivot_hint && (
+              <span className="viz-hint" title={result.result.pivot_hint.reason ?? ''}>
+                ↕ {result.result.pivot_hint.row_field} × {result.result.pivot_hint.column_field}
+              </span>
+            )}
+            {(result.result.anomalies?.length ?? 0) > 0 && (
+              <span className="viz-hint" title={t('ai_query.anomalies_title')}>
+                {t('ai_query.anomalies_badge', { count: result.result.anomalies!.length })}
+              </span>
+            )}
+            {pivotTable && (
+              <div className="chart-toggle">
+                <button
+                  type="button"
+                  className={tableView === 'flat' ? 'active' : ''}
+                  onClick={() => setTableView('flat')}
+                >
+                  {t('ai_query.pivot_flat')}
+                </button>
+                <button
+                  type="button"
+                  className={tableView === 'pivot' ? 'active' : ''}
+                  onClick={() => setTableView('pivot')}
+                >
+                  {t('ai_query.pivot_pivot')}
+                </button>
+              </div>
+            )}
+            <ChartTypeSelector
+              value={chartType}
+              onChange={setChartType}
+              options={['bar', 'line', 'pie', 'table'] as const}
+              ariaLabel={t('ai_query.chart_type_aria')}
+              labels={{
+                bar: t('ai_query.chart_bar'),
+                line: t('ai_query.chart_line'),
+                pie: t('ai_query.chart_pie'),
+                table: t('ai_query.chart_table'),
+              }}
+            />
+          </div>
+
+          {chartType !== 'table' && chartData.length > 0 && (
+            <ChartContainer data={chartData} type={chartType} />
+          )}
+
+          {chartType === 'table' && (() => {
+            const flat = {
+              columns: result.result.columns,
+              rows: result.result.rows,
+            }
+            const view =
+              tableView === 'pivot' && pivotTable
+                ? pivotTable
+                : flat
+            return (
+              <ResultTable
+                columns={view.columns}
+                rows={view.rows}
+                rowCount={view.rows.length}
+                durationMs={result.result.stats?.duration_ms}
+                question={userQuestion}
+                anomalies={tableView === 'flat' ? result.result.anomalies : undefined}
+                onFilterByValue={tableView === 'flat' ? onFilterByValue : undefined}
+                onCellClick={
+                  tableView === 'flat'
+                    ? (colName, value) => onCellDrillDown(colName, String(value))
+                    : undefined
+                }
+              />
+            )
+          })()}
+        </div>
+      )}
+
+      <div className="feedback-row">
+        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginRight: '0.5rem' }}>{t('ai_query.feedback_helpful')}</span>
+        <button
+          type="button"
+          className={`feedback-btn ${userFeedback === 'positive' ? 'feedback-active' : ''}`}
+          onClick={() => submitFeedback('positive')}
+        >👍</button>
+        <button
+          type="button"
+          className={`feedback-btn ${userFeedback === 'negative' ? 'feedback-negative' : ''}`}
+          onClick={() => submitFeedback('negative')}
+        >👎</button>
+      </div>
+      {showFeedbackForm && (
+        <div className="feedback-form">
+          <p style={{ fontSize: '0.8rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>{t('ai_query.feedback_what_wrong')}</p>
+          <div className="feedback-categories">
+            {FEEDBACK_CAT_KEYS.map((cat) => (
+              <button
+                type="button"
+                key={cat}
+                className={`feedback-cat-btn ${feedbackCategories.includes(cat) ? 'feedback-active' : ''}`}
+                onClick={() =>
+                  setFeedbackCategories((prev) =>
+                    prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
+                  )
+                }
+              >
+                {t(cat)}
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={feedbackText}
+            onChange={(e) => setFeedbackText(e.target.value)}
+            placeholder={t('ai_query.feedback_placeholder')}
+            rows={2}
+            style={{ width: '100%', fontSize: '0.8rem', resize: 'vertical' }}
+          />
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem' }}>
+            <button type="button" className="btn btn-sm btn-primary" onClick={submitNegativeFeedback}>{t('ai_query.feedback_submit')}</button>
+            <button
+              type="button"
+              className="btn btn-sm btn-ghost"
+              onClick={() => { setShowFeedbackForm(false); setFeedbackCategories([]); setFeedbackText('') }}
+            >
+              {t('ai_query.feedback_cancel')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <SampleDataModal open={sampleModalOpen} onClose={() => setSampleModalOpen(false)} tableName={sampleModalTable} datasourceId={datasourceId} get={get} />
+    </div>
+  )
+}
+
 export default function AIQuery() {
   const t = useT()
   const [locale] = useLocale()
@@ -489,7 +1025,17 @@ export default function AIQuery() {
   const { runJob } = useAIJobs()
   const { get, postData, loading, error, abort } = useApi()
   const { postData: postEmbedData, loading: embeddingLoading, error: embeddingError } = useApi()
-  const { activeConversation, addMessage, createConversation, setActiveConversationId } = useConversation()
+  const {
+    conversations,
+    activeConversation,
+    activeConversationId,
+    setActiveConversationId,
+    createConversation,
+    addMessage,
+    deleteConversation,
+    renameConversation,
+    updateMessageResponse,
+  } = useConversation()
 
   // Datasource / table state
   const [datasources, setDatasources] = useState<Datasource[]>([])
@@ -506,32 +1052,18 @@ export default function AIQuery() {
 
   // Query state
   const [question, setQuestion] = useState('')
-  const [result, setResult] = useState<AIQueryResponse | null>(null)
   const [aiRuntime, setAiRuntime] = useState<AIRuntimeSettings | null>(null)
   const [aiRuntimeErr, setAiRuntimeErr] = useState<string | null>(null)
   const [embeddingStatus, setEmbeddingStatus] = useState<string | null>(null)
-  const [chartType, setChartType] = useState<'bar' | 'line' | 'pie' | 'table'>('table')
-  const [tableView, setTableView] = useState<'flat' | 'pivot'>('flat')
-
-  // Sample data modal
-  const [sampleModalOpen, setSampleModalOpen] = useState(false)
-  const [sampleModalTable, setSampleModalTable] = useState('')
-
-  // Feedback state
-  const [userFeedback, setUserFeedback] = useState<'positive' | 'negative' | null>(null)
-  const [showFeedbackForm, setShowFeedbackForm] = useState(false)
-  const [feedbackCategories, setFeedbackCategories] = useState<FeedbackCatKey[]>([])
-  const [feedbackText, setFeedbackText] = useState('')
 
   // Include past queries toggle
   const [includePastQueries, setIncludePastQueries] = useState(false)
 
   /** Which primary action is in flight — avoids both buttons showing the same loading text */
   const [queryAction, setQueryAction] = useState<'preview' | 'execute' | null>(null)
-  const [followUpBusy, setFollowUpBusy] = useState(false)
   const [jobError, setJobError] = useState<string | null>(null)
   const [aiElapsedMs, setAiElapsedMs] = useState(0)
-  const aiBusy = queryAction !== null || followUpBusy
+  const aiBusy = queryAction !== null
 
   useEffect(() => {
     if (!aiBusy) {
@@ -545,9 +1077,6 @@ export default function AIQuery() {
     }, 200)
     return () => window.clearInterval(id)
   }, [aiBusy])
-
-  // Cell drill-down
-  const [drillDownTarget, setDrillDownTarget] = useState<string | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -590,7 +1119,9 @@ export default function AIQuery() {
     ).then((data) => setSemanticModels(data ?? []))
   }, [datasourceId])
 
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [activeConversation?.messages.length])
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [activeConversation?.messages.length, activeConversationId])
 
   const tableLabel = (table: TableOption) => table.label || `${table.schema_name}.${table.table_name}`
 
@@ -665,12 +1196,6 @@ export default function AIQuery() {
   })
 
   const applyAIResponse = (q: string, res: AIQueryResponse) => {
-    setResult(res)
-    setChartType('table')
-    setUserFeedback(null)
-    setShowFeedbackForm(false)
-    setFeedbackCategories([])
-    setFeedbackText('')
     if (res.needs_clarification) {
       addMessage({ role: 'user', content: q })
       addMessage({ role: 'assistant', content: res.clarification_question ?? t('ai_query.clarify_default'), ai_response: res })
@@ -684,7 +1209,7 @@ export default function AIQuery() {
   }
 
   const sendQuery = async (q: string, execute: boolean) => {
-    setQuestion(q)
+    if (!q.trim()) return
     setQueryAction(execute ? 'execute' : 'preview')
     setJobError(null)
     try {
@@ -698,90 +1223,34 @@ export default function AIQuery() {
         const res = await postData<AIQueryResponse>(endpoint, body, { timeout: AI_QUERY_TIMEOUT_MS })
         if (!res) return
         applyAIResponse(q, res)
+        setQuestion('')
         return
       }
       if (!outcome) return
       setJobError(null)
       applyAIResponse(q, outcome)
+      setQuestion('')
     } finally {
       setQueryAction(null)
     }
   }
 
-  const handleClarificationSelect = (opt: string) => sendQuery(`${question} (${opt})`, true)
+  const handleClarificationSelect = (opt: string) => sendQuery(opt, true)
   const handleClarificationSkip = () => sendQuery(question, true)
 
-  const handleFilterByValue = (column: string, value: string) =>
-    setQuestion((prev) => `${prev} ${t('ai_query.filter_by_value', { column, value })}`)
-
-  const handleSampleData = (tableName: string) => { setSampleModalTable(tableName); setSampleModalOpen(true) }
-
-  const submitFeedback = async (rating: 'positive' | 'negative') => {
-    setUserFeedback(rating)
-    if (rating === 'positive') {
-      try { await postData('/api/ai/feedback', { question, datasource_id: datasourceId, rating: 'positive' }) } catch { /* noop */ }
-    } else {
-      setShowFeedbackForm(true)
-    }
+  const handleFilterByValue = (column: string, value: string) => {
+    setQuestion((prev) => {
+      const filterText = t('ai_query.filter_by_value', { column, value })
+      return prev ? `${prev} ${filterText}` : filterText
+    })
   }
 
-  const submitNegativeFeedback = async () => {
-    try {
-      await postData('/api/ai/feedback', {
-        question,
-        datasource_id: datasourceId,
-        rating: 'negative',
-        categories: feedbackCategories.map((k) => t(k)),
-        text: feedbackText,
-      })
-    } catch { /* noop */ }
-    setShowFeedbackForm(false)
-    setFeedbackCategories([])
-    setFeedbackText('')
-  }
-
-  const handleCellDrillDown = (column: string, value: string) => {
-    sendQuery(t('ai_query.drill_down_prompt', { column, value }), true)
-  }
-
-  const chartData = result?.result?.rows?.map((row) => {
-    const obj: { name: string; value?: number } = { name: String(row[0]) }
-    if (row[1] !== undefined) obj.value = Number(row[1]) || 0
-    return obj
-  }) ?? []
-
-  const pivotTable = useMemo(() => {
-    const hint = result?.result?.pivot_hint
-    const cols = result?.result?.columns
-    const rows = result?.result?.rows
-    if (!hint || !cols || !rows) return null
-    return buildPivotTable(cols, rows, hint)
-  }, [result?.result?.pivot_hint, result?.result?.columns, result?.result?.rows])
-
-  useEffect(() => {
-    if (pivotTable) setTableView('pivot')
-    else setTableView('flat')
-  }, [pivotTable, result?.logical_query?.model_id])
-
-  useEffect(() => {
-    const raw = result?.visualization_hint?.chart_type ?? result?.result?.chart_suggestions?.[0]
-    if (!raw) return
-    const mapped = raw === 'number' ? 'table' : raw
-    if (mapped === 'bar' || mapped === 'line' || mapped === 'pie' || mapped === 'table') {
-      setChartType(mapped)
-    }
-  }, [result?.visualization_hint?.chart_type, result?.result?.chart_suggestions])
-
-  const loadingLabel = loading && (queryAction !== null || followUpBusy)
-    ? result?.retry_count
-      ? t('ai_query.loading_retry', { n: result.retry_count + 1 })
-      : result?.candidates_count
-        ? t('ai_query.loading_candidates')
-        : t('ai_query.loading_thinking')
+  const loadingLabel = loading && queryAction !== null
+    ? t('ai_query.loading_thinking')
     : ''
 
   const previewButtonLabel = loading && queryAction === 'preview' ? loadingLabel : t('ai_query.preview_btn')
-  const executeButtonLabel = loading && (queryAction === 'execute' || followUpBusy) ? loadingLabel : t('ai_query.execute_btn')
+  const executeButtonLabel = loading && queryAction === 'execute' ? loadingLabel : t('ai_query.execute_btn')
 
   return (
     <div className="ai-query-layout">
@@ -789,37 +1258,27 @@ export default function AIQuery() {
       <aside className="conversation-sidebar">
         <div className="sidebar-header">
           <h3>{t('ai_query.conv_title')}</h3>
-          <button className="btn btn-sm" onClick={() => { createConversation(); setResult(null); setQuestion('') }}>{t('ai_query.conv_new')}</button>
+          <button className="btn btn-sm" onClick={() => { createConversation(); setQuestion('') }}>{t('ai_query.conv_new')}</button>
         </div>
-        {activeConversation && (
-          <>
-            <button className="conversation-item active" onClick={() => setActiveConversationId(activeConversation.id)}>
-              <span className="conv-title">{activeConversation.title ?? t('ai_query.conv_current')}</span>
-              <span className="conv-time">{t('ai_query.conv_messages', { count: activeConversation.messages.length })}</span>
-            </button>
-            <div className="conv-messages-list">
-              {activeConversation.messages.slice(-10).map((m, i) => (
-                <div key={i} className={`conv-msg conv-${m.role}`}>
-                  <span>{m.role === 'user' ? '→' : '←'} {m.content.slice(0, 45)}{m.content.length > 45 ? '…' : ''}</span>
-                </div>
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
-          </>
-        )}
+        <div className="conversations-list">
+          {conversations.map((c) => (
+            <SidebarConversationItem
+              key={c.id}
+              conv={c}
+              isActive={c.id === activeConversationId}
+              onSelect={() => setActiveConversationId(c.id)}
+              onRename={renameConversation}
+              onDelete={deleteConversation}
+              t={t}
+            />
+          ))}
+        </div>
       </aside>
 
       {/* ─── Main Content ─────────────────────────────────────── */}
       <div className="ai-query-main">
-        {/* Input Card */}
-        <div className="card">
-          <div className="card-header-row">
-            <h2>{t('ai_query.natural_language_title')}</h2>
-            {activeConversation && activeConversation.messages.length > 0 && (
-              <div className="context-badge">{t('ai_query.context_badge', { count: activeConversation.messages.length })}</div>
-            )}
-          </div>
-          <p className="card-subtitle">{t('ai_query.subtitle')}</p>
+        {/* Persistent Configuration Header */}
+        <header className="query-config-header">
           <ModelBadgeRow
             primaryLabel={t('ai_query.model_badge_query')}
             primaryModel={
@@ -834,7 +1293,7 @@ export default function AIQuery() {
             }
             embeddingModel={aiRuntime?.embeddings_enabled ? aiRuntime?.embedding_model : undefined}
             translationModel={aiRuntime?.translation_enabled ? aiRuntime?.translation_model : undefined}
-            style={{ marginBottom: '0.5rem' }}
+            style={{ marginBottom: '0.25rem' }}
           />
 
           <div className="query-controls">
@@ -926,351 +1385,123 @@ export default function AIQuery() {
               </select>
             </div>
           )}
+        </header>
 
+        {/* Chat Feed */}
+        <div className="chat-feed">
+          {activeConversation && activeConversation.messages.length > 0 ? (() => {
+            const conv = activeConversation
+            return conv.messages.map((message, index) => {
+              if (message.role === 'user') {
+                return (
+                  <div key={index} className="chat-bubble user-bubble">
+                    <div className="bubble-content">{message.content}</div>
+                    <span className="bubble-time">
+                      {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                )
+              } else {
+                const userQuestion = index > 0 ? conv.messages[index - 1]?.content ?? '' : ''
+                return (
+                  <div key={index} className="chat-bubble assistant-bubble">
+                    <AssistantMessageCard
+                      message={message}
+                      messageIndex={index}
+                      conversationId={conv.id}
+                      datasourceId={datasourceId}
+                      aiRuntime={aiRuntime}
+                      userQuestion={userQuestion}
+                      get={get}
+                      postData={postData}
+                      updateMessageResponse={updateMessageResponse}
+                      t={t}
+                      localeNumberTag={localeNumberTag}
+                      localeTag={localeTag}
+                      onSelectClarification={handleClarificationSelect}
+                      onSkipClarification={handleClarificationSkip}
+                      onFilterByValue={handleFilterByValue}
+                      onCellDrillDown={(col, val) => sendQuery(t('ai_query.drill_down_prompt', { column: col, value: val }), true)}
+                    />
+                  </div>
+                )
+              }
+            })
+          })() : (
+            <div className="chat-empty-state">
+              <h3>✨ Biqly Chat Workspace</h3>
+              <p>{t('ai_query.subtitle')}</p>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Unified Chat Input Area */}
+        <footer className="chat-input-area">
           <div className="form-group">
-            <label htmlFor="ai-question">{t('ai_query.question_label')}</label>
-            <textarea id="ai-question" value={question} onChange={(e) => setQuestion(e.target.value)}
-              onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendQuery(question, true) } }}
-              placeholder={t('ai_query.placeholder')} rows={3} autoComplete="off" />
+            <textarea
+              id="ai-question"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault()
+                  sendQuery(question, true)
+                }
+              }}
+              placeholder={t('ai_query.placeholder')}
+              rows={2}
+              autoComplete="off"
+            />
             {activeConversation && activeConversation.messages.length > 0 && (
               <div className="past-queries-toggle">
-                <input type="checkbox" id="include-past" checked={includePastQueries} onChange={(e) => setIncludePastQueries(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  id="include-past"
+                  checked={includePastQueries}
+                  onChange={(e) => setIncludePastQueries(e.target.checked)}
+                />
                 <label htmlFor="include-past">{t('ai_query.include_past_checkbox')}</label>
               </div>
             )}
           </div>
 
           <div className="button-row">
-            <button className="btn" onClick={() => sendQuery(question, false)} disabled={loading || !question || !datasourceId}>{previewButtonLabel}</button>
-            <button className="btn btn-primary" onClick={() => sendQuery(question, true)} disabled={loading || !question || !datasourceId}>{executeButtonLabel}</button>
-            {loading && (queryAction !== null || followUpBusy) && <button className="btn btn-ghost" onClick={abort}>{t('ai_query.cancel')}</button>}
+            <button
+              className="btn"
+              onClick={() => sendQuery(question, false)}
+              disabled={loading || !question || !datasourceId}
+            >
+              {previewButtonLabel}
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => sendQuery(question, true)}
+              disabled={loading || !question || !datasourceId}
+            >
+              {executeButtonLabel}
+            </button>
+            {loading && queryAction !== null && (
+              <button className="btn btn-ghost" onClick={abort}>
+                {t('ai_query.cancel')}
+              </button>
+            )}
           </div>
+
           {aiBusy && (
             <div className="ai-wait-meta" role="status" aria-live="polite">
-              <span className="ai-wait-meta-time">{t('ai_query.elapsed_label')} {formatAiWaitElapsed(aiElapsedMs, t)}</span>
+              <span className="ai-wait-meta-time">
+                {t('ai_query.elapsed_label')} {formatAiWaitElapsed(aiElapsedMs, t)}
+              </span>
               <span className="ai-wait-meta-hint">
                 {t('ai_query.wait_hint', { minutes: Math.round(AI_QUERY_TIMEOUT_MS / 60_000) })}
               </span>
             </div>
           )}
+
           <ErrorAlert error={error ?? jobError} className="error--top-gap" />
-        </div>
-
-        {/* ─── Result Card ──────────────────────────────────────── */}
-        {result && (
-          <div className="card result-card">
-            {result.confidence !== undefined && <ConfidenceBar value={result.confidence} breakdown={result.confidence_breakdown} />}
-            <CostBadge latencyMs={result.latency_ms} tokenUsage={result.token_usage} costUsd={result.cost_usd} />
-            <PromptStatsPanel stats={result.prompt_stats} tokenUsage={result.token_usage} />
-
-            {result.model_used && (
-              <div className="model-used-badge" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-                {t('ai_query.model_used')} <code translate="no">{result.model_used}</code>
-                {aiRuntime?.query_model_override && aiRuntime.query_model && result.model_used !== aiRuntime.query_model && (
-                  <span> ({t('ai_query.configured')} <code translate="no">{aiRuntime.query_model}</code>)</span>
-                )}
-                {!aiRuntime?.query_model_override && aiRuntime?.llm_model && result.model_used !== aiRuntime.llm_model && (
-                  <span> ({t('ai_query.configured')} <code translate="no">{aiRuntime.llm_model}</code>)</span>
-                )}
-              </div>
-            )}
-
-            {result.retry_count !== undefined && result.retry_count > 0 && (
-              <div className="retry-badge">{t('ai_query.retry_badge', { n: result.retry_count })}</div>
-            )}
-
-            {result.needs_clarification && (result.clarification_options?.length || result.clarification?.options?.length) ? (
-              <ClarificationCard
-                question={result.clarification?.question ?? result.clarification_question ?? t('ai_query.clarify_default')}
-                options={result.clarification_options ?? result.clarification?.options?.map((o) => o.label) ?? []}
-                clarification={result.clarification}
-                onSelect={handleClarificationSelect}
-                onSkip={handleClarificationSkip}
-              />
-            ) : null}
-
-            {result.candidates && result.candidates.length > 1 && !result.needs_clarification && (
-              <CandidateComparisonPanel candidates={result.candidates} onUse={(i: number) => {
-                const c = result.candidates?.[i]
-                if (c) setResult({ ...result, logical_query: c.logical_query, confidence: c.confidence })
-              }} />
-            )}
-
-            {result.table_routing && (
-              <Collapsible title={t('ai_query.collapsible_routing')} defaultOpen>
-                <TableRoutingViz routing={result.table_routing} />
-                {(result.table_routing.selected_tables?.length ?? 0) > 0 && (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-sample"
-                    onClick={() => {
-                      const firstSel = result.table_routing?.selected_tables?.[0]
-                      if (firstSel) handleSampleData(firstSel)
-                    }}
-                  >
-                    {t('ai_query.sample_preview_btn')}
-                  </button>
-                )}
-              </Collapsible>
-            )}
-
-            {result.validation_result && (
-              <Collapsible
-                title={result.validation_result.plan_ok ? t('ai_query.plan_ok_title') : t('ai_query.plan_warn_title')}
-                defaultOpen={!result.validation_result.plan_ok}
-              >
-                {result.validation_result.explain_output && <pre className="sql-preview explain-output">{result.validation_result.explain_output}</pre>}
-                <p className={`plan-status ${result.validation_result.plan_ok ? 'plan-ok' : 'plan-warn'}`}>
-                  {result.validation_result.plan_ok ? t('ai_query.plan_ok_body') : t('ai_query.plan_warn_body')}
-                </p>
-              </Collapsible>
-            )}
-
-            {(result.logical_query?.select?.filter((s): s is SelectField & { type: 'window' } => s.type === 'window') ?? []).length > 0 && (
-              <div style={{ marginBottom: '0.5rem' }}>
-                {(result.logical_query?.select ?? []).filter((s): s is SelectField & { type: 'window' } => s.type === 'window').map((s, i) => (
-                  <span key={i} className="wf-badge">{t('ai_query.window_fn_badge', { name: s.window?.aggregation || s.name })}</span>
-                ))}
-              </div>
-            )}
-
-            {result.logical_query && (
-              <Collapsible title={t('ai_query.collapsible_lq')} defaultOpen>
-                <LogicalQueryMetaBadges lq={result.logical_query} />
-                <pre className="sql-preview">{JSON.stringify(result.logical_query, null, 2)}</pre>
-              </Collapsible>
-            )}
-
-            {result.sql && (
-              <Collapsible title={t('ai_query.collapsible_sql')} defaultOpen>
-                <pre className="sql-preview">{result.sql}</pre>
-              </Collapsible>
-            )}
-
-            {result.prompt && (
-              <Collapsible title={t('ai_query.collapsible_prompt')}>
-                <pre className="sql-preview prompt-preview">{result.prompt}</pre>
-                {result.token_usage && (
-                  <p className="token-info">
-                    {t('ai_query.token_line', {
-                      prompt: result.token_usage.prompt.toLocaleString(localeTag),
-                      completion: result.token_usage.completion.toLocaleString(localeTag),
-                      total: result.token_usage.total.toLocaleString(localeTag),
-                    })}
-                  </p>
-                )}
-                {result.token_usage && result.token_usage.prompt > 30000 && (
-                  <p className="prompt-warning">
-                    {t('ai_query.prompt_large_warning', { k: (result.token_usage.prompt / 1000).toFixed(1) })}
-                  </p>
-                )}
-              </Collapsible>
-            )}
-
-            {result.warnings && result.warnings.length > 0 && (
-              <section className="warning-panel" aria-live="polite">
-                <div>
-                  <strong>{t('ai_query.warnings_title')}</strong>
-                  <p>{t(warningBodyKey(result))}</p>
-                </div>
-                <ul>
-                  {result.warnings.map((w, i) => <li key={i}>{w}</li>)}
-                </ul>
-              </section>
-            )}
-
-            {result.retry_count !== undefined && result.retry_count >= 3 && !result.sql && (
-              <div className="error-recovery">
-                <p>{t('ai_query.recovery_failed', { n: result.retry_count })}</p>
-                <div className="recovery-options">
-                  <button type="button" onClick={() => document.getElementById('ai-question')?.focus()}>{t('ai_query.recovery_rewrite')}</button>
-                  <a className="btn" href="/query-builder">{t('ai_query.recovery_query_builder')}</a>
-                </div>
-              </div>
-            )}
-
-            {/* Results */}
-            {result.result?.columns && result.result.rows && (
-              <div className="results-section">
-                <div className="results-header">
-                  <h3>{t('ai_query.results_title', { rows: result.result.stats?.row_count ?? 0 })}</h3>
-                  {result.visualization_hint && (
-                    <span className="viz-hint" title={result.visualization_hint.reason}>
-                      💡 {result.visualization_hint.chart_type}
-                    </span>
-                  )}
-                  {result.result.pivot_hint && (
-                    <span className="viz-hint" title={result.result.pivot_hint.reason ?? ''}>
-                      ↕ {result.result.pivot_hint.row_field} × {result.result.pivot_hint.column_field}
-                    </span>
-                  )}
-                  {(result.result.anomalies?.length ?? 0) > 0 && (
-                    <span className="viz-hint" title={t('ai_query.anomalies_title')}>
-                      {t('ai_query.anomalies_badge', { count: result.result.anomalies!.length })}
-                    </span>
-                  )}
-                  {pivotTable && (
-                    <div className="chart-toggle">
-                      <button
-                        type="button"
-                        className={tableView === 'flat' ? 'active' : ''}
-                        onClick={() => setTableView('flat')}
-                      >
-                        {t('ai_query.pivot_flat')}
-                      </button>
-                      <button
-                        type="button"
-                        className={tableView === 'pivot' ? 'active' : ''}
-                        onClick={() => setTableView('pivot')}
-                      >
-                        {t('ai_query.pivot_pivot')}
-                      </button>
-                    </div>
-                  )}
-                  <ChartTypeSelector
-                    value={chartType}
-                    onChange={setChartType}
-                    options={['bar', 'line', 'pie', 'table'] as const}
-                    ariaLabel={t('ai_query.chart_type_aria')}
-                    labels={{
-                      bar: t('ai_query.chart_bar'),
-                      line: t('ai_query.chart_line'),
-                      pie: t('ai_query.chart_pie'),
-                      table: t('ai_query.chart_table'),
-                    }}
-                  />
-                </div>
-
-                {chartType !== 'table' && chartData.length > 0 && (
-                  <ChartContainer data={chartData} type={chartType} />
-                )}
-
-                {chartType === 'table' && (() => {
-                  const flat = {
-                    columns: result.result.columns,
-                    rows: result.result.rows,
-                  }
-                  const view =
-                    tableView === 'pivot' && pivotTable
-                      ? pivotTable
-                      : flat
-                  return (
-                    <ResultTable
-                      columns={view.columns}
-                      rows={view.rows}
-                      rowCount={view.rows.length}
-                      durationMs={result.result.stats?.duration_ms}
-                      question={question}
-                      anomalies={tableView === 'flat' ? result.result.anomalies : undefined}
-                      onFilterByValue={tableView === 'flat' ? handleFilterByValue : undefined}
-                      onCellClick={
-                        tableView === 'flat'
-                          ? (colName, value) => handleCellDrillDown(colName, String(value))
-                          : undefined
-                      }
-                    />
-                  )
-                })()}
-              </div>
-            )}
-
-            {/* Feedback */}
-            <div className="feedback-row">
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginRight: '0.5rem' }}>{t('ai_query.feedback_helpful')}</span>
-              <button
-                type="button"
-                className={`feedback-btn ${userFeedback === 'positive' ? 'feedback-active' : ''}`}
-                onClick={() => submitFeedback('positive')}
-              >👍</button>
-              <button
-                type="button"
-                className={`feedback-btn ${userFeedback === 'negative' ? 'feedback-negative' : ''}`}
-                onClick={() => submitFeedback('negative')}
-              >👎</button>
-            </div>
-            {showFeedbackForm && (
-              <div className="feedback-form">
-                <p style={{ fontSize: '0.8rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>{t('ai_query.feedback_what_wrong')}</p>
-                <div className="feedback-categories">
-                  {FEEDBACK_CAT_KEYS.map((cat) => (
-                    <button
-                      type="button"
-                      key={cat}
-                      className={`feedback-cat-btn ${feedbackCategories.includes(cat) ? 'feedback-active' : ''}`}
-                      onClick={() =>
-                        setFeedbackCategories((prev) =>
-                          prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
-                        )
-                      }
-                    >
-                      {t(cat)}
-                    </button>
-                  ))}
-                </div>
-                <textarea
-                  value={feedbackText}
-                  onChange={(e) => setFeedbackText(e.target.value)}
-                  placeholder={t('ai_query.feedback_placeholder')}
-                  rows={2}
-                  style={{ width: '100%', fontSize: '0.8rem', resize: 'vertical' }}
-                />
-                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem' }}>
-                  <button type="button" className="btn btn-sm btn-primary" onClick={submitNegativeFeedback}>{t('ai_query.feedback_submit')}</button>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-ghost"
-                    onClick={() => { setShowFeedbackForm(false); setFeedbackCategories([]); setFeedbackText('') }}
-                  >
-                    {t('ai_query.feedback_cancel')}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Follow-up input (when conversation active) */}
-        {activeConversation && activeConversation.messages.length > 0 && (
-          <div className="follow-up-bar">
-            <input
-              placeholder={t('ai_query.follow_up_placeholder')}
-              onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
-                if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                  handleFollowUp(e.currentTarget.value.trim())
-                  e.currentTarget.value = ''
-                }
-              }}
-            />
-          </div>
-        )}
+        </footer>
       </div>
-
-      <SampleDataModal open={sampleModalOpen} onClose={() => setSampleModalOpen(false)} tableName={sampleModalTable} datasourceId={datasourceId} get={get} />
     </div>
   )
-
-  async function handleFollowUp(followUp: string) {
-    if (!activeConversation) createConversation()
-    setFollowUpBusy(true)
-    setJobError(null)
-    try {
-      const body = { ...requestBody(), question: followUp, conversation_id: activeConversation?.id }
-      const outcome = await runJob('run', body, {
-        onError: (message) => setJobError(message),
-      })
-      let res: AIQueryResponse | null = outcome === 'fallback' ? null : outcome
-      if (outcome === 'fallback') {
-        res = await postData<AIQueryResponse>('/api/ai/query/run', body, { timeout: AI_QUERY_TIMEOUT_MS })
-      }
-      if (!res) return
-      setResult(res)
-      addMessage({ role: 'user', content: followUp })
-      const summary = res.sql
-        ? t('ai_query.assistant_sql_preview', { snippet: res.sql.slice(0, 120) })
-        : t('ai_query.assistant_executed')
-      addMessage({ role: 'assistant', content: summary, ai_response: res })
-    } finally {
-      setFollowUpBusy(false)
-    }
-  }
 }

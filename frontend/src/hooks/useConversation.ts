@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import type { Conversation, ConversationMessage } from '../types/ai'
+import type { Conversation, ConversationMessage, AIQueryResponse } from '../types/ai'
 
 const STORAGE_KEY = 'biqly_conversations'
 
@@ -115,6 +115,23 @@ export function useConversation() {
     persist(updated)
   }, [activeConversationId, conversations, persist])
 
+  const updateMessageResponse = useCallback(
+    (conversationId: string, messageIndex: number, aiResponse: AIQueryResponse) => {
+      setConversations((prev) => {
+        const updated = prev.map((c) => {
+          if (c.id !== conversationId) return c
+          const newMessages = c.messages.map((m, idx) =>
+            idx === messageIndex ? { ...m, ai_response: aiResponse } : m
+          )
+          return { ...c, messages: newMessages, updated_at: new Date().toISOString() }
+        })
+        saveConversations(updated)
+        return updated
+      })
+    },
+    []
+  )
+
   return {
     conversations,
     activeConversation,
@@ -125,5 +142,6 @@ export function useConversation() {
     deleteConversation,
     renameConversation,
     clearConversation,
+    updateMessageResponse,
   }
 }

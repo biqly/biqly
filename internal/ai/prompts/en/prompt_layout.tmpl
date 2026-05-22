@@ -1,0 +1,29 @@
+{{.SystemRules}}
+
+## Current Date/Time: {{.CurrentDateTime}}
+
+## Semantic Model: {{.ModelName}}
+{{if .ModelLabel}}Label: {{.ModelLabel}}
+{{end}}{{if .ModelDescription}}Description: {{.ModelDescription}}
+{{end}}Base table: {{.BaseTable}}
+{{if .ModelSynonyms}}Model synonyms: {{.ModelSynonyms}}
+{{end}}
+## Available Dimensions
+{{.Dimensions}}
+{{.Note}}
+## Available Metrics
+{{.Metrics}}
+
+{{if .Joins}}## Available Joins
+{{.Joins}}
+{{end}}
+## Supported Filter Operators
+{{.FilterOperators}}
+{{.Glossary}}{{.DialectGuide}}{{.FailureExamples}}{{.PlanningSteps}}
+## User Question
+{{.Question}}
+
+{{.OutputFormat}}
+{{.SampleData}}
+{{.Examples}}
+{{.PriorTurns}}

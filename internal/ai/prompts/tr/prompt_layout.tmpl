@@ -1,0 +1,29 @@
+{{.SystemRules}}
+
+## Güncel Tarih/Saat: {{.CurrentDateTime}}
+
+## Semantik Model: {{.ModelName}}
+{{if .ModelLabel}}Etiket: {{.ModelLabel}}
+{{end}}{{if .ModelDescription}}Açıklama: {{.ModelDescription}}
+{{end}}Temel tablo: {{.BaseTable}}
+{{if .ModelSynonyms}}Model eşanlamlıları: {{.ModelSynonyms}}
+{{end}}
+## Kullanılabilir Boyutlar (Dimensions)
+{{.Dimensions}}
+{{.Note}}
+## Kullanılabilir Metrikler (Metrics)
+{{.Metrics}}
+
+{{if .Joins}}## Kullanılabilir İlişkiler (Joins)
+{{.Joins}}
+{{end}}
+## Desteklenen Filtre Operatörleri
+{{.FilterOperators}}
+{{.Glossary}}{{.DialectGuide}}{{.FailureExamples}}{{.PlanningSteps}}
+## Kullanıcı Sorusu
+{{.Question}}
+
+{{.OutputFormat}}
+{{.SampleData}}
+{{.Examples}}
+{{.PriorTurns}}

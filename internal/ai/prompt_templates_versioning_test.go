@@ -33,7 +33,7 @@ func withPromptStore(t *testing.T, store PromptTemplateStore) {
 
 func TestKnownPromptTemplateNamesIncludesRetryAndClarification(t *testing.T) {
 	got := strings.Join(KnownPromptTemplateNames(), ",")
-	for _, name := range []string{"system_rules", "output_format", "retry", "clarification"} {
+	for _, name := range []string{"system_rules", "output_format", "retry", "clarification", "prompt_layout"} {
 		if !strings.Contains(got, name) {
 			t.Fatalf("expected %s in editable prompt template names, got %q", name, got)
 		}
@@ -50,6 +50,7 @@ func TestTurkishEditablePromptDefaultsAreLocalized(t *testing.T) {
 		{name: "clarification", mustHave: "Kullanıcı Sorusu", mustAvoid: "User Question"},
 		{name: "retry", mustHave: "Önceki Deneme", mustAvoid: "Previous Attempt"},
 		{name: "output_format", mustHave: "Çıktı Formatı", mustAvoid: "Output Format"},
+		{name: "prompt_layout", mustHave: "Semantik Model", mustAvoid: "Semantic Model"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -112,10 +113,11 @@ func TestPromptTemplateBundleVersionsReturnsActiveVersions(t *testing.T) {
 		"output_format\x00tr": {Name: "output_format", Locale: i18n.LocaleTR, Version: 5},
 		"retry\x00tr":         {Name: "retry", Locale: i18n.LocaleTR, Version: 8},
 		"clarification\x00tr": {Name: "clarification", Locale: i18n.LocaleTR, Version: 13},
+		"prompt_layout\x00tr": {Name: "prompt_layout", Locale: i18n.LocaleTR, Version: 14},
 	}})
 
 	got := PromptTemplateBundleVersions(context.Background(), i18n.LocaleTR)
-	if got["system_rules"] != 2 || got["output_format"] != 5 || got["retry"] != 8 || got["clarification"] != 13 {
+	if got["system_rules"] != 2 || got["output_format"] != 5 || got["retry"] != 8 || got["clarification"] != 13 || got["prompt_layout"] != 14 {
 		t.Fatalf("unexpected version bundle: %#v", got)
 	}
 }

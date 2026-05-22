@@ -542,12 +542,20 @@ func logicalQueryFingerprint(lq *query.LogicalQuery) string {
 // surface to the user. Failures are swallowed: clarification is best-effort
 // and must never mask the underlying validation/parse error to the caller.
 func (s *Service) tryGenerateClarification(ctx context.Context, question string, model *semantic.SemanticModel, failureReason string) string {
-	prompt := s.promptBuilder.BuildClarification(ctx, PromptLocaleForQuestion(question, i18n.FromContext(ctx)), question, model, failureReason)
+	loc := PromptLocaleForQuestion(question, i18n.FromContext(ctx))
+	prompt := s.promptBuilder.BuildClarification(ctx, loc, question, model, failureReason)
 	gen, err := s.client.Generate(ctx, prompt)
-	if err != nil {
-		return ""
+	var content string
+	if err == nil {
+		content = strings.TrimSpace(gen.Content)
 	}
-	return strings.TrimSpace(gen.Content)
+	if content == "" {
+		if loc == i18n.LocaleTR {
+			return "Ne istediğinizi tam olarak anlayamadım, lütfen sorunuzu biraz daha detaylandırabilir misiniz?"
+		}
+		return "I couldn't quite understand what you wanted. Could you please provide more details or clarify your question?"
+	}
+	return content
 }
 
 // failureMessageFor renders a concise, LLM-readable description of why the
