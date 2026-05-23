@@ -4,10 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	// math/rand/v2 is appropriate here: jitter is for de-synchronizing retry
-	// storms across replicas, not a security boundary. crypto/rand would be
-	// ~50× slower with no benefit.
-	//nolint:gosec // G404: non-security PRNG usage (retry jitter)
 	"math/rand/v2"
 	"net"
 	"net/http"
@@ -48,7 +44,7 @@ func execRetry[T any](ctx context.Context, op func() (T, error, bool)) (T, error
 func jitteredBackoff(attempt int) time.Duration {
 	base := time.Duration(250*(1<<uint(attempt-1))) * time.Millisecond
 	// factor ∈ [0.75, 1.25)
-	factor := 0.75 + rand.Float64()*0.5
+	factor := 0.75 + rand.Float64()*0.5 //nolint:gosec // G404: retry backoff jitter only
 	return time.Duration(float64(base) * factor)
 }
 
