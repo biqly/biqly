@@ -86,49 +86,22 @@ type AIJobsHTTPHandler interface {
 	DescribeBatchConflict(http.ResponseWriter, *http.Request)
 }
 
-// NewDependencies wires up all dependencies.
+// NewDependencies wires up all dependencies. The constructor is composed
+// from smaller setup helpers (one per subsystem) so each can be reasoned
+// about in isolation and replaced in tests if needed.
 func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, error) {
-	// Connect to metadata database. Uses the platform/db helper so pool
-	// limits and connection lifetimes are configured in one place.
-	lims := datasource.DefaultPoolLimits()
-	db, err := platformdb.NewPool(ctx, platformdb.Config{
-		DSN:             cfg.Metadata.DSN,
-		MaxOpenConns:    lims.MaxOpen,
-		MaxIdleConns:    lims.MaxIdle,
-		ConnMaxLifetime: datasource.DefaultConnMaxLifetime,
-		ConnMaxIdleTime: datasource.DefaultConnMaxIdleTime,
-	})
+	db, err := openMetadataDB(ctx, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("open metadata db: %w", err)
+		return nil, err
 	}
 
-	// Setup driver registry
-	reg := datasource.NewRegistry()
-	reg.Register(postgres.NewDriver())
-	reg.Register(mysql.NewDriver())
-	reg.Register(sqlserver.NewDriver())
-	reg.Register(clickhouse.NewDriver())
+	reg := newDriverRegistry()
 
-	// Setup repositories
 	metaRepo := metadata.NewRepository(db)
 	semanticRepo := semantic.NewRepository(db)
 
-	// Encryption for sensitive fields (DSNs, etc.). Falls back to nil if
-	// BI_ENCRYPTION_KEY is not set — datasource handler tolerates nil and
-	// stores plaintext with a warning.
-	var encryptor *security.Encryption
-	enc, err := security.NewEncryption()
-	if err != nil {
-		slog.Warn("encryption disabled; DSNs will be stored in plaintext", "detail", err)
-	} else {
-		encryptor = enc
-		// Migrate any existing plaintext DSNs to encrypted format on startup.
-		if migrateErr := migratePlaintextDSNs(ctx, db, encryptor); migrateErr != nil {
-			slog.Warn("failed to migrate existing plaintext DSNs to encrypted format", "error", migrateErr)
-		}
-	}
+	encryptor := setupEncryption(ctx, db)
 
-	// Setup query components
 	validator := query.NewValidator(cfg.Query.MaxRows)
 	executor := query.NewExecutor(cfg.Query.MaxRows, cfg.QueryTimeout())
 	poolCache := datasource.NewPoolCache()
@@ -143,54 +116,9 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		Pools:       poolCache,
 	})
 
-	// AI provider (OpenAI / Anthropic / OpenAI-compatible) + metadata describe
-	// service. Failing here is fatal so misconfigured deployments stop early
-	// instead of crashing on first request.
-	aiClient, err := ai.NewProvider(cfg.AI)
+	aiBits, err := setupAI(ctx, cfg, db, metaRepo, reg, encryptor)
 	if err != nil {
-		return nil, fmt.Errorf("ai provider: %w", err)
-	}
-	// Dedicated provider for NL→LogicalQuery when BI_AI_QUERY_* overrides are
-	// set; otherwise reuse the base client. Fatal on misconfiguration so
-	// startup fails fast.
-	aiQueryClient := aiClient
-	if cfg.AI.HasQueryOverride() {
-		queryClient, err := ai.NewProvider(cfg.AI.EffectiveQueryConfig())
-		if err != nil {
-			return nil, fmt.Errorf("ai query provider: %w", err)
-		}
-		aiQueryClient = queryClient
-		slog.Info("AI query provider overridden",
-			"model", cfg.AI.EffectiveQueryConfig().Model,
-			"base_url", cfg.AI.EffectiveQueryConfig().BaseURL,
-			"describe_model", cfg.AI.Model)
-	}
-	translator := ai.NewTranslationServiceFromConfig(cfg.AI)
-	describer := ai.NewDescribeService(aiClient, metaRepo, reg, translator, 10, cfg.AI.DescribeMaxCellRunes, cfg.AI.DescribeMaxSampleRows, encryptor).WithModel(cfg.AI.Model)
-
-	// Embeddings are optional: BI_AI_EMBEDDING_MODEL plus resolvable URL and API key.
-	var embedder ai.Embedder
-	var embedMeta *ai.EmbedMetadataService
-	if cfg.AI.EmbeddingsConfigured() {
-		embedder = ai.NewOpenAIEmbedder(cfg.AI)
-		embedMeta = ai.NewEmbedMetadataService(embedder, metaRepo)
-	}
-
-	// Eval repository for persistent golden test results and regression reports.
-	evalRepo := ai.NewEvalRepository(db)
-
-	if err := ai.InitRouting(cfg.AI.RoutingLexiconPath, cfg.AI.RoutingWeightsPath); err != nil {
-		return nil, fmt.Errorf("routing config: %w", err)
-	}
-
-	ai.SetPromptTemplateStore(ai.NewDBPromptTemplateStore(metaRepo))
-	if err := ai.SeedPromptTemplatesFromEmbed(ctx, metaRepo); err != nil {
-		return nil, fmt.Errorf("seed prompt templates: %w", err)
-	}
-
-	timeGrainsStore := ai.NewDBTimeGrainStore(metaRepo)
-	if err := ai.SeedTimeGrains(ctx, metaRepo); err != nil {
-		return nil, fmt.Errorf("seed time grains: %w", err)
+		return nil, err
 	}
 
 	return &Dependencies{
@@ -202,16 +130,138 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		Validator:     validator,
 		Executor:      executor,
 		QueryService:  queryService,
-		AIClient:      aiClient,
-		AIQueryClient: aiQueryClient,
-		AIDescriber:   describer,
+		AIClient:      aiBits.client,
+		AIQueryClient: aiBits.queryClient,
+		AIDescriber:   aiBits.describer,
 		Encryptor:     encryptor,
-		EvalRepo:      evalRepo,
+		EvalRepo:      aiBits.evalRepo,
 		AuditLogger:   audit.NewLogger(slog.Default()),
-		Embedder:      embedder,
-		AIEmbedMeta:   embedMeta,
-		TimeGrains:    timeGrainsStore,
+		Embedder:      aiBits.embedder,
+		AIEmbedMeta:   aiBits.embedMeta,
+		TimeGrains:    aiBits.timeGrains,
 		PoolCache:     poolCache,
+	}, nil
+}
+
+// openMetadataDB constructs the metadata Postgres pool with the project's
+// standard pool limits and connection lifetimes.
+func openMetadataDB(ctx context.Context, cfg *config.Config) (*sql.DB, error) {
+	lims := datasource.DefaultPoolLimits()
+	db, err := platformdb.NewPool(ctx, platformdb.Config{
+		DSN:             cfg.Metadata.DSN,
+		MaxOpenConns:    lims.MaxOpen,
+		MaxIdleConns:    lims.MaxIdle,
+		ConnMaxLifetime: datasource.DefaultConnMaxLifetime,
+		ConnMaxIdleTime: datasource.DefaultConnMaxIdleTime,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("open metadata db: %w", err)
+	}
+	return db, nil
+}
+
+// newDriverRegistry returns a registry populated with every datasource
+// driver the engine knows how to talk to. Adding a backend is a one-line
+// change here.
+func newDriverRegistry() *datasource.Registry {
+	reg := datasource.NewRegistry()
+	reg.Register(postgres.NewDriver())
+	reg.Register(mysql.NewDriver())
+	reg.Register(sqlserver.NewDriver())
+	reg.Register(clickhouse.NewDriver())
+	return reg
+}
+
+// setupEncryption tries to load the BI_ENCRYPTION_KEY-backed Encryption
+// helper and migrates any plaintext DSNs to ciphertext. Returns nil on
+// missing key — datasource handlers tolerate nil and warn at write time.
+func setupEncryption(ctx context.Context, db *sql.DB) *security.Encryption {
+	enc, err := security.NewEncryption()
+	if err != nil {
+		slog.Warn("encryption disabled; DSNs will be stored in plaintext", "detail", err)
+		return nil
+	}
+	if migrateErr := migratePlaintextDSNs(ctx, db, enc); migrateErr != nil {
+		slog.Warn("failed to migrate existing plaintext DSNs to encrypted format", "error", migrateErr)
+	}
+	return enc
+}
+
+// aiBundle groups every AI-related dependency returned by setupAI so the
+// main constructor stays readable.
+type aiBundle struct {
+	client      ai.Provider
+	queryClient ai.Provider
+	describer   *ai.DescribeService
+	embedder    ai.Embedder
+	embedMeta   *ai.EmbedMetadataService
+	evalRepo    *ai.EvalRepository
+	timeGrains  ai.TimeGrainStore
+}
+
+// setupAI wires the LLM provider, optional override provider for NL→query,
+// embeddings, descriptor, eval repo, routing, prompt templates, and time
+// grain seeds. Failing setup is fatal so misconfigured deployments fail at
+// startup, not on the first request.
+func setupAI(
+	ctx context.Context,
+	cfg *config.Config,
+	db *sql.DB,
+	metaRepo *metadata.Repository,
+	reg *datasource.Registry,
+	encryptor *security.Encryption,
+) (aiBundle, error) {
+	client, err := ai.NewProvider(cfg.AI)
+	if err != nil {
+		return aiBundle{}, fmt.Errorf("ai provider: %w", err)
+	}
+	queryClient := client
+	if cfg.AI.HasQueryOverride() {
+		qc, qerr := ai.NewProvider(cfg.AI.EffectiveQueryConfig())
+		if qerr != nil {
+			return aiBundle{}, fmt.Errorf("ai query provider: %w", qerr)
+		}
+		queryClient = qc
+		slog.Info("AI query provider overridden",
+			"model", cfg.AI.EffectiveQueryConfig().Model,
+			"base_url", cfg.AI.EffectiveQueryConfig().BaseURL,
+			"describe_model", cfg.AI.Model)
+	}
+
+	translator := ai.NewTranslationServiceFromConfig(cfg.AI)
+	describer := ai.NewDescribeService(client, metaRepo, reg, translator, 10, cfg.AI.DescribeMaxCellRunes, cfg.AI.DescribeMaxSampleRows, encryptor).WithModel(cfg.AI.Model)
+
+	var embedder ai.Embedder
+	var embedMeta *ai.EmbedMetadataService
+	if cfg.AI.EmbeddingsConfigured() {
+		embedder = ai.NewOpenAIEmbedder(cfg.AI)
+		embedMeta = ai.NewEmbedMetadataService(embedder, metaRepo)
+	}
+
+	evalRepo := ai.NewEvalRepository(db)
+
+	if err := ai.InitRouting(cfg.AI.RoutingLexiconPath, cfg.AI.RoutingWeightsPath); err != nil {
+		return aiBundle{}, fmt.Errorf("routing config: %w", err)
+	}
+
+	ai.SetPromptTemplateStore(ai.NewDBPromptTemplateStore(metaRepo))
+	if err := ai.SeedPromptTemplatesFromEmbed(ctx, metaRepo); err != nil {
+		return aiBundle{}, fmt.Errorf("seed prompt templates: %w", err)
+	}
+
+	timeGrains := ai.NewDBTimeGrainStore(metaRepo)
+	if err := ai.SeedTimeGrains(ctx, metaRepo); err != nil {
+		return aiBundle{}, fmt.Errorf("seed time grains: %w", err)
+	}
+
+	return aiBundle{
+		client:      client,
+		queryClient: queryClient,
+		describer:   describer,
+		embedder:    embedder,
+		embedMeta:   embedMeta,
+		evalRepo:    evalRepo,
+		timeGrains:  timeGrains,
 	}, nil
 }
 

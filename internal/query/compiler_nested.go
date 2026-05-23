@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/biqly/biqly/internal/security"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
@@ -27,7 +28,7 @@ func (c *Compiler) compileSubqueryBody(
 	args *[]any,
 ) (string, error) {
 	inner := logicalQueryFromBody(body)
-	cq, err := c.compileStatement(context.Background(), inner, model, c.buildFrom(model), "", args)
+	cq, err := c.compileStatement(context.Background(), inner, model, c.buildFrom(model), "", args, nil)
 	if err != nil {
 		return "", err
 	}
@@ -72,6 +73,11 @@ func (c *Compiler) resolveFromClause(lq LogicalQuery, model *semantic.SemanticMo
 }
 
 // compileStatement assembles SELECT..FROM..[joins]..WHERE.. with bind args appended to args.
+//
+// rowFilters are mandatory row-level security predicates that must be ANDed
+// into the WHERE clause. They are appended last so their placeholders take
+// the highest indices, and they share the same WHERE block as user filters
+// (no regex injection on assembled SQL).
 func (c *Compiler) compileStatement(
 	ctx context.Context,
 	lq LogicalQuery,
@@ -79,6 +85,7 @@ func (c *Compiler) compileStatement(
 	fromClause string,
 	withPrefix string,
 	args *[]any,
+	rowFilters []security.RowFilter,
 ) (*CompiledQuery, error) {
 	_ = ctx
 	lq.EnsureGroupBySelected()
@@ -132,6 +139,14 @@ func (c *Compiler) compileStatement(
 	}
 	*args = append(*args, havingArgs...)
 
+	// Row-level security predicates: built once we know how many bind args
+	// preceded them so the placeholders take indices after user filters.
+	// Empty rowFilters → no-op.
+	rowFilterPreds, err := c.buildRowFilterPreds(rowFilters, model, args)
+	if err != nil {
+		return nil, fmt.Errorf("build row filters: %w", err)
+	}
+
 	orderByClause, err := c.buildOrderBy(lq.OrderBy, dimMap, metricMap, resolver)
 	if err != nil {
 		return nil, fmt.Errorf("build order by: %w", err)
@@ -150,9 +165,17 @@ func (c *Compiler) compileStatement(
 		sql.WriteString(" ")
 		sql.WriteString(jc)
 	}
-	if whereClause != "" {
+	if whereClause != "" || len(rowFilterPreds) > 0 {
 		sql.WriteString(" WHERE ")
-		sql.WriteString(whereClause)
+		if whereClause != "" {
+			sql.WriteString(whereClause)
+			if len(rowFilterPreds) > 0 {
+				sql.WriteString(" AND ")
+			}
+		}
+		if len(rowFilterPreds) > 0 {
+			sql.WriteString(strings.Join(rowFilterPreds, " AND "))
+		}
 	}
 	if groupByClause != "" {
 		sql.WriteString(" GROUP BY ")

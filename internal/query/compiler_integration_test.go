@@ -242,6 +242,70 @@ func TestCompiler_PermissionInjection(t *testing.T) {
 	}
 }
 
+// TestCompiler_PermissionInjectionDoesNotMatchCTEWhere ensures the row-filter
+// merge happens at the outer WHERE clause, not in a WHERE that lives inside a
+// CTE body. The earlier regex-based injection would have appended " AND ..."
+// inside the CTE's WHERE, producing invalid SQL.
+func TestCompiler_PermissionInjectionDoesNotMatchCTEWhere(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "orders",
+		BaseSchema: "public",
+		BaseTable:  "orders",
+		Dimensions: []semantic.Dimension{
+			{Name: "tenant_id", ColumnRef: "orders.tenant_id", Type: "text"},
+			{Name: "status", ColumnRef: "orders.status", Type: "text"},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "count", Expression: "orders.id", Aggregation: "count"},
+		},
+	}
+
+	lq := LogicalQuery{
+		ModelID: "orders",
+		CTEs: []CTE{{
+			Name:    "vip_customers",
+			Select:  []SelectItem{{Type: "dimension", Name: "tenant_id"}},
+			Filters: []Filter{{Field: "status", Operator: "eq", Value: "vip"}},
+		}},
+		Select:  []SelectItem{{Type: "metric", Name: "count"}},
+		Filters: []Filter{{Field: "status", Operator: "eq", Value: "open"}},
+		Limit:   100,
+	}
+
+	rowFilters := []security.RowFilter{
+		{Field: "tenant_id", Operator: "eq", Value: "tenant_123"},
+	}
+
+	compiler := NewCompiler(dialect.PostgresDialect{})
+	cq, err := compiler.CompileWithPermissions(context.Background(), lq, model, rowFilters)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Locate the FIRST top-level WHERE that comes AFTER the closing paren of
+	// the CTE body; the row-filter predicate must appear after that point.
+	cteEnd := indexOfStr(cq.SQL, ") ")
+	if cteEnd < 0 {
+		t.Fatalf("expected CTE body close in SQL: %s", cq.SQL)
+	}
+	tenantPos := indexOfStr(cq.SQL, "tenant_id\" = $")
+	if tenantPos < 0 {
+		t.Fatalf("expected tenant_id row filter in SQL: %s", cq.SQL)
+	}
+	if tenantPos < cteEnd {
+		t.Fatalf("row filter leaked into CTE body. SQL: %s", cq.SQL)
+	}
+}
+
+func indexOfStr(s, sub string) int {
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return i
+		}
+	}
+	return -1
+}
+
 // TestCompiler_LimitOffset verifies LIMIT/OFFSET generation.
 func TestCompiler_LimitOffset(t *testing.T) {
 	model := &semantic.SemanticModel{

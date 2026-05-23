@@ -38,8 +38,8 @@
 
 - [x] `http/router.go:30` — Global `AIRequestTimeout` (~630s) applied to all routes including `/health` and `/ready`. Non-AI routes should have shorter timeout.
 - [x] `app/dependencies.go:255-260` — `Close()` only closes metadata DB. AI provider HTTP clients, embedder, datasource pools never closed.
-- [ ] `app/dependencies.go` — `NewDependencies` is a monolithic 200-line constructor. Hard to test without real Postgres. Accept interfaces for key deps.
-- [ ] `compiler.go:74-119` — `CompileWithPermissions` does regex surgery on assembled SQL to inject WHERE. Can match WHERE inside CTEs. Inject filters during compilation instead.
+- [x] `app/dependencies.go` — `NewDependencies` is a monolithic 200-line constructor. Hard to test without real Postgres. Accept interfaces for key deps.
+- [x] `compiler.go:74-119` — `CompileWithPermissions` does regex surgery on assembled SQL to inject WHERE. Can match WHERE inside CTEs. Inject filters during compilation instead.
 - [x] `calendar_grain_filter.go:194` — `dateTruncCompareExpr` hardcodes `::timestamptz` PostgreSQL cast. Breaks for MySQL, SQL Server, ClickHouse.
 
 ## Security (Non-Critical)

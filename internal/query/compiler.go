@@ -12,14 +12,12 @@ import (
 	"github.com/biqly/biqly/internal/semantic"
 )
 
-var (
-	reWhere   = regexp.MustCompile(`(?i)\sWHERE\s`)
-	reGroupBy = regexp.MustCompile(`(?i)\sGROUP BY\s`)
-	reOrderBy = regexp.MustCompile(`(?i)\sORDER BY\s`)
-	reLimit   = regexp.MustCompile(`(?i)\sLIMIT\s`)
-	reOffset  = regexp.MustCompile(`(?i)\sOFFSET\s`)
-	reBracket = regexp.MustCompile(`\[([^\]]+)\]`)
-)
+// reBracket matches square-bracketed identifiers in SQL Server style.
+// The previous reWhere/reGroupBy/reOrderBy/reLimit/reOffset regexes were
+// used by an earlier CompileWithPermissions implementation that performed
+// regex surgery on the assembled SQL — they were removed once filters were
+// merged into the WHERE clause at compile time.
+var reBracket = regexp.MustCompile(`\[([^\]]+)\]`)
 
 // Compiler compiles a LogicalQuery into dialect-specific SQL.
 type Compiler struct {
@@ -42,84 +40,55 @@ func (c *Compiler) Compile(ctx context.Context, lq LogicalQuery, model *semantic
 	if err != nil {
 		return nil, err
 	}
-	return c.compileStatement(ctx, lq, model, fromClause, withPrefix, &args)
+	return c.compileStatement(ctx, lq, model, fromClause, withPrefix, &args, nil)
 }
 
-// CompileWithPermissions compiles a LogicalQuery with row-level security filters injected.
+// CompileWithPermissions compiles a LogicalQuery with row-level security
+// filters merged into the WHERE clause at assembly time. This replaces an
+// earlier implementation that injected the filters via regex surgery on the
+// finished SQL — that approach could match the wrong WHERE keyword (e.g.
+// one inside a CTE) and produce dangerous SQL.
 func (c *Compiler) CompileWithPermissions(
 	ctx context.Context,
 	lq LogicalQuery,
 	model *semantic.SemanticModel,
 	rowFilters []security.RowFilter,
 ) (*CompiledQuery, error) {
-	// Build dimension map for field resolution
-	dimMap := make(map[string]string)
+	if len(rowFilters) == 0 {
+		return c.Compile(ctx, lq, model)
+	}
+	args := make([]any, 0, 8)
+	withPrefix, err := c.buildWithClause(lq.CTEs, model, &args)
+	if err != nil {
+		return nil, err
+	}
+	fromClause, err := c.resolveFromClause(lq, model, &args)
+	if err != nil {
+		return nil, err
+	}
+	return c.compileStatement(ctx, lq, model, fromClause, withPrefix, &args, rowFilters)
+}
+
+// buildRowFilterPreds turns the policy row filters into SQL predicate
+// fragments, appending their bind args to args. Returns nil when no filters
+// apply (model has no matching dimension/metric).
+func (c *Compiler) buildRowFilterPreds(filters []security.RowFilter, model *semantic.SemanticModel, args *[]any) ([]string, error) {
+	if len(filters) == 0 {
+		return nil, nil
+	}
+	dimMap := make(map[string]string, len(model.Dimensions)+len(model.Metrics))
 	for _, d := range model.Dimensions {
 		dimMap[d.Name] = d.ColumnRef
 	}
 	for _, m := range model.Metrics {
 		dimMap[m.Name] = m.Expression
 	}
-
-	// If no row filters, compile normally
-	if len(rowFilters) == 0 {
-		return c.Compile(ctx, lq, model)
-	}
-
-	// Compile normally first
-	cq, err := c.Compile(ctx, lq, model)
+	preds, extraArgs, err := security.BuildRowFilterPredicates(c.dialect, dimMap, filters, len(*args), true)
 	if err != nil {
 		return nil, err
 	}
-
-	// Check if original SQL has WHERE clause
-	whereLoc := reWhere.FindStringIndex(cq.SQL)
-	hasWhere := whereLoc != nil
-
-	filterParts, filterArgs, err := security.BuildRowFilterPredicates(
-		c.dialect, dimMap, rowFilters, len(cq.Args), true,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(filterParts) == 0 {
-		return cq, nil
-	}
-
-	rowFilterSQL := strings.Join(filterParts, " AND ")
-
-	if hasWhere {
-		// Find where the WHERE clause content ends (before GROUP BY/ORDER BY/LIMIT)
-		whereEnd := whereLoc[1]
-		// Find the end of WHERE content (start of next clause)
-		contentEnd := len(cq.SQL)
-
-		for _, re := range []*regexp.Regexp{reGroupBy, reOrderBy, reLimit, reOffset} {
-			if loc := re.FindStringIndex(cq.SQL); loc != nil && loc[0] > whereEnd && loc[0] < contentEnd {
-				contentEnd = loc[0]
-			}
-		}
-		// Insert row filter between existing WHERE content and next clause
-		existingWhereContent := cq.SQL[whereEnd:contentEnd]
-		afterContent := cq.SQL[contentEnd:]
-		cq.SQL = cq.SQL[:whereEnd] + existingWhereContent + " AND " + rowFilterSQL + afterContent
-		cq.Args = append(cq.Args, filterArgs...)
-	} else {
-		// Insert WHERE before GROUP BY / ORDER BY / LIMIT / OFFSET
-		injectPoint := len(cq.SQL)
-		for _, re := range []*regexp.Regexp{reGroupBy, reOrderBy, reLimit, reOffset} {
-			if loc := re.FindStringIndex(cq.SQL); loc != nil && loc[0] < injectPoint {
-				injectPoint = loc[0]
-			}
-		}
-
-		whereClause := " WHERE " + rowFilterSQL + " "
-		cq.SQL = cq.SQL[:injectPoint] + whereClause + cq.SQL[injectPoint:]
-		cq.Args = append(cq.Args, filterArgs...)
-	}
-
-	return cq, nil
+	*args = append(*args, extraArgs...)
+	return preds, nil
 }
 
 func addTableFromColumnRef(tables map[string]struct{}, colRef string, resolver *SchemaResolver) {
