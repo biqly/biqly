@@ -43,17 +43,31 @@ export interface Relation {
 }
 
 export interface DescribeResult {
-  schema_name: string
-  table_name: string
+  schema: string
+  table: string
   description: string
-  columns: {
-    column_name: string
-    description: string
-  }[]
-  sample_size: number
+  columns: { name: string; description: string }[]
+  applied: boolean
+  sample_rows: number
+  model?: string
   translation_applied?: boolean
   translation_model?: string
   translation_error?: string
+}
+
+export interface DescribeBatchEntryResult {
+  schema: string
+  table: string
+  status: 'ok' | 'error' | 'skipped'
+  message?: string
+  result?: DescribeResult
+}
+
+export interface DescribeBatchResult {
+  entries: DescribeBatchEntryResult[]
+  ok: number
+  error: number
+  skipped: number
 }
 
 export interface BulkDescribeEntry {

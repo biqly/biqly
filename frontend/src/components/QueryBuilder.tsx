@@ -166,12 +166,14 @@ function dimOptionsForGroupRow(
 }
 
 interface FilterRow {
+  id: string
   field: string
   operator: string
   value: string
 }
 
 interface SelectItem {
+  id: string
   type: 'dimension' | 'metric'
   name: string
 }
@@ -193,6 +195,11 @@ interface CTERow {
   name: string
   query: string
 }
+
+const newRowId = () =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `row-${Date.now()}-${Math.random().toString(36).slice(2)}`
 
 interface QueryBuilderResult {
   columns?: { name: string; type?: string }[]
@@ -346,26 +353,32 @@ export default function QueryBuilder() {
     }
   }
 
-  const addSelectItem = () => selectItemsState.add({ type: 'dimension', name: '' })
+  const addSelectItem = () => selectItemsState.add({ id: newRowId(), type: 'dimension', name: '' })
   const addMetricSelectItem = (metricName = '') => {
     if (metricName && selectedMetricNames.has(metricName)) return
-    selectItemsState.add({ type: 'metric', name: metricName })
+    selectItemsState.add({ id: newRowId(), type: 'metric', name: metricName })
   }
   const updateSelectItem = (i: number, field: keyof SelectItem, value: string) => {
     const existing = selectItems[i]
     if (!existing) return
     if (field === 'type' && value !== existing.type) {
-      selectItemsState.update(i, { type: value as 'dimension' | 'metric', name: '' })
+      selectItemsState.update(i, { ...existing, type: value as 'dimension' | 'metric', name: '' })
     } else {
       selectItemsState.update(i, { ...existing, [field]: value })
     }
   }
   const removeSelectItem = (i: number) => selectItemsState.remove(i)
 
-  const addFilter = () => filterState.add({ field: '', operator: 'eq', value: '' })
+  const addFilter = () => filterState.add({ id: newRowId(), field: '', operator: 'eq', value: '' })
   const updateFilter = (i: number, field: keyof FilterRow, value: string) => {
     const existing = filters[i]
-    filterState.update(i, { field: existing?.field ?? '', operator: existing?.operator ?? 'eq', value: existing?.value ?? '', [field]: value })
+    filterState.update(i, {
+      id: existing?.id ?? newRowId(),
+      field: existing?.field ?? '',
+      operator: existing?.operator ?? 'eq',
+      value: existing?.value ?? '',
+      [field]: value,
+    })
   }
   const removeFilter = (i: number) => filterState.remove(i)
 
@@ -419,7 +432,7 @@ export default function QueryBuilder() {
       offset: mode === 'advanced' ? parseInt(String(offset)) || 0 : undefined,
       ...(mode === 'advanced' ? {
         select: [
-          ...selectItems.filter((s) => s.name),
+          ...selectItems.filter((s) => s.name).map(({ type, name }) => ({ type, name })),
           ...windowFunctions.filter((w) => w.field).map((w) => ({
             type: 'window' as const,
             name: w.field,
@@ -432,7 +445,7 @@ export default function QueryBuilder() {
           })),
         ],
       } : {
-        select: selectItems.filter((s) => s.name),
+        select: selectItems.filter((s) => s.name).map(({ type, name }) => ({ type, name })),
       }),
       ctes: mode === 'advanced'
         ? ctes
@@ -560,9 +573,9 @@ export default function QueryBuilder() {
 
 
         <div className="form-group">
-          <label>{t('query_builder.select_fields_label')}</label>
+          <span className="form-label">{t('query_builder.select_fields_label')}</span>
           {selectItems.map((item, i) => (
-            <div key={i} className="query-builder-row">
+            <div key={item.id} className="query-builder-row">
               <Select
                 value={item.type}
                 onChange={(v) => updateSelectItem(i, 'type', v)}
@@ -591,9 +604,9 @@ export default function QueryBuilder() {
         </div>
 
         <div className="form-group">
-          <label>{t('query_builder.filters_label')}</label>
+          <span className="form-label">{t('query_builder.filters_label')}</span>
           {filters.map((f, i) => (
-            <div key={i} className="query-builder-row query-builder-row--filter">
+            <div key={f.id} className="query-builder-row query-builder-row--filter">
               <Select
                 value={f.field}
                 onChange={(v) => updateFilter(i, 'field', v)}

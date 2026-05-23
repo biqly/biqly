@@ -81,6 +81,13 @@ export function ResultTable({
     e.preventDefault()
     setContextMenu({ x: e.clientX, y: e.clientY, colName, value: String(value ?? '') })
   }
+  const handleCellKeyDown = (e: KeyboardEvent<HTMLElement>, colName: string, value: string) => {
+    if (!onFilterByValue) return
+    if (e.key !== 'ContextMenu' && !(e.shiftKey && e.key === 'F10')) return
+    e.preventDefault()
+    const rect = e.currentTarget.getBoundingClientRect()
+    setContextMenu({ x: rect.left, y: rect.bottom, colName, value: String(value ?? '') })
+  }
 
   // Close context menu on outside click or Escape
   const handleGlobalClick = () => closeContextMenu()
@@ -112,7 +119,7 @@ export function ResultTable({
                 closeContextMenu()
               }}
             >
-              Filtre: {contextMenu.colName} = "{contextMenu.value}"
+              {t('result_table.filter_by_value', { column: contextMenu.colName, value: contextMenu.value })}
             </button>
             <button
               className="context-menu-item"
@@ -121,7 +128,7 @@ export function ResultTable({
                 closeContextMenu()
               }}
             >
-              Değeri kopyala
+              {t('result_table.copy_value')}
             </button>
           </div>
         </>
@@ -144,7 +151,11 @@ export function ResultTable({
                     key={col.name}
                     className="sortable"
                     aria-sort={ariaSort}
-                    title={`Sıralamak için tıklayın${isActive ? ` (${sortDir === 'asc' ? 'artan' : sortDir === 'desc' ? 'azalan' : ''})` : ''}`}
+                    title={t('result_table.sort_hint', {
+                      direction: isActive && sortDir
+                        ? t(sortDir === 'asc' ? 'result_table.sort_asc' : 'result_table.sort_desc')
+                        : '',
+                    })}
                   >
                     <button
                       type="button"
@@ -173,6 +184,8 @@ export function ResultTable({
                       className={isAnomaly ? 'results-cell--anomaly' : undefined}
                       title={isAnomaly ? anomalyTitle : undefined}
                       onContextMenu={(e) => handleContextMenu(e, colName, String(cell))}
+                      onKeyDown={(e) => handleCellKeyDown(e, colName, String(cell))}
+                      tabIndex={onFilterByValue ? 0 : undefined}
                     >
                       <span
                         className={onCellClick ? 'cell-drillable' : ''}
@@ -192,12 +205,15 @@ export function ResultTable({
 
       <div className="result-footer">
         <span>
-          {rowCount} satır
+          {t('result_table.row_count', { count: rowCount })}
           {durationMs !== undefined ? ` · ${durationMs} ms` : ''}
         </span>
         {sortDir && (
           <span>
-            Sıralama: {columns[sortColIdx!]?.name} ({sortDir === 'asc' ? 'artan' : 'azalan'})
+            {t('result_table.sorting', {
+              column: columns[sortColIdx!]?.name ?? '',
+              direction: sortDir === 'asc' ? t('result_table.sort_asc') : t('result_table.sort_desc'),
+            })}
           </span>
         )}
       </div>

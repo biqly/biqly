@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useT } from '../../i18n'
 
 interface LoadingOverlayProps {
   loading: boolean
@@ -7,7 +8,9 @@ interface LoadingOverlayProps {
   className?: string
 }
 
-export function LoadingOverlay({ loading, label = 'Yükleniyor…', children, className }: LoadingOverlayProps) {
+export function LoadingOverlay({ loading, label, children, className }: LoadingOverlayProps) {
+  const t = useT()
+  const displayLabel = label ?? t('common.loading')
   if (!loading) return children ? <>{children}</> : null
   if (children) {
     return (
@@ -15,14 +18,14 @@ export function LoadingOverlay({ loading, label = 'Yükleniyor…', children, cl
         {children}
         <div className="loading-overlay" role="status" aria-live="polite">
           <span className="loading-overlay-spinner" aria-hidden="true" />
-          <span className="loading-overlay-label">{label}</span>
+          <span className="loading-overlay-label">{displayLabel}</span>
         </div>
       </div>
     )
   }
   return (
     <p className={`loading-text${className ? ` ${className}` : ''}`} role="status" aria-live="polite">
-      {label}
+      {displayLabel}
     </p>
   )
 }

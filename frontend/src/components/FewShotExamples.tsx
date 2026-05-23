@@ -206,7 +206,7 @@ export default function FewShotExamples() {
       return
     }
     if (!formDatasourceId) {
-      setFormError('Datasource is required')
+      setFormError(t('few_shot.err_datasource_required'))
       return
     }
 
@@ -580,4 +580,3 @@ export default function FewShotExamples() {
     </div>
   )
 }
-

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useT } from '../../i18n'
 
 export interface SelectOption<T extends string = string> {
   value: T
@@ -43,6 +44,7 @@ export function Select<T extends string = string>({
   className,
   size = 'md',
 }: SelectProps<T>) {
+  const t = useT()
   const reactId = useId()
   const baseId = id ?? `sel-${reactId}`
 
@@ -236,7 +238,7 @@ export function Select<T extends string = string>({
           >
             {options.length === 0 && (
               <li className="ui-select-empty" role="option" aria-disabled="true">
-                Seçenek yok
+                {t('common.no_options')}
               </li>
             )}
             {options.map((opt, idx) => {

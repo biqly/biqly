@@ -695,10 +695,10 @@ function AssistantMessageCard({
         }
         updateMessageResponse(conversationId, messageIndex, updated)
       } else {
-        setError('Failed to execute query')
+        setError(t('ai_query.err_execute_query'))
       }
     } catch (err: any) {
-      setError(err?.message || 'Execution failed')
+      setError(err?.message || t('ai_query.err_execution_failed'))
     } finally {
       setLoading(false)
     }
@@ -984,11 +984,13 @@ function AssistantMessageCard({
         <button
           type="button"
           className={`feedback-btn ${userFeedback === 'positive' ? 'feedback-active' : ''}`}
+          aria-label={t('ai_query.feedback_positive_aria')}
           onClick={() => submitFeedback('positive')}
         >👍</button>
         <button
           type="button"
           className={`feedback-btn ${userFeedback === 'negative' ? 'feedback-negative' : ''}`}
+          aria-label={t('ai_query.feedback_negative_aria')}
           onClick={() => submitFeedback('negative')}
         >👎</button>
         {result.logical_query && (
@@ -1113,22 +1115,28 @@ export default function AIQuery() {
   const prevMsgCountRef = useRef<number>(0)
 
   useEffect(() => {
+    let cancelled = false
     get<Datasource[]>('/api/datasources').then((data) => {
-      if (!data) return
+      if (!data || cancelled) return
       setDatasources(data)
       setDatasourceId((prev) => {
         if (prev && data.some((d) => d.id === prev)) return prev
         return data[0]?.id ?? ''
       })
     })
-  }, [])
+    return () => {
+      cancelled = true
+    }
+  }, [get])
 
   useEffect(() => {
     setDsParam(datasourceId)
   }, [datasourceId, setDsParam])
 
   useEffect(() => {
+    let cancelled = false
     get<AIRuntimeSettings>('/api/ai/settings').then((data) => {
+      if (cancelled) return
       if (data) {
         setAiRuntime(data)
         setAiRuntimeErr(null)
@@ -1137,6 +1145,9 @@ export default function AIQuery() {
         setAiRuntimeErr(t('ai_query.err_settings_load'))
       }
     })
+    return () => {
+      cancelled = true
+    }
   }, [get, t])
 
   useEffect(() => {
@@ -1145,11 +1156,19 @@ export default function AIQuery() {
     setSemanticModels([])
     setSemanticModelId('')
     if (!datasourceId) return
-    get<TableOption[]>(`/api/datasources/${datasourceId}/tables`).then((data) => setTables(data || []))
+    let cancelled = false
+    get<TableOption[]>(`/api/datasources/${datasourceId}/tables`).then((data) => {
+      if (!cancelled) setTables(data || [])
+    })
     get<{ id: string; name: string; label?: string | null; status: string }[]>(
       `/api/semantic/models?datasource_id=${encodeURIComponent(datasourceId)}`,
-    ).then((data) => setSemanticModels(data ?? []))
-  }, [datasourceId])
+    ).then((data) => {
+      if (!cancelled) setSemanticModels(data ?? [])
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [datasourceId, get])
 
   useEffect(() => {
     const currentId = activeConversation?.id
@@ -1191,7 +1210,7 @@ export default function AIQuery() {
   const allowedLabels = useMemo(() => new Set(tablesInTypeScope.map((t) => tableLabel(t))), [tablesInTypeScope])
   useEffect(() => { setSelectedTables((prev) => prev.filter((s) => allowedLabels.has(s))) }, [allowedLabels])
 
-  const recentPriorTurns = () => {
+  const recentPriorTurns = useMemo(() => {
     if (!activeConversation) return undefined
     const MAX = 5
     const turns: PriorTurn[] = []
@@ -1208,7 +1227,7 @@ export default function AIQuery() {
       })
     }
     return turns.slice(-MAX)
-  }
+  }, [activeConversation])
 
   const selectedDatasourceName = useMemo(
     () => datasources.find((ds) => ds.id === datasourceId)?.name,
@@ -1266,7 +1285,7 @@ export default function AIQuery() {
     include_base_tables: includeBaseTables,
     include_views: includeViews,
     conversation_id: activeConversation?.id,
-    prior_turns: includePastQueries ? recentPriorTurns() : undefined,
+    prior_turns: includePastQueries ? recentPriorTurns : undefined,
   })
 
   const applyAIResponse = (q: string, res: AIQueryResponse) => {

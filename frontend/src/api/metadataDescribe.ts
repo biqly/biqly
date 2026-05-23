@@ -1,33 +1,8 @@
 import { getLocale } from '../i18n'
+import type { DescribeBatchResult, DescribeResult } from '../types/metadata'
 import { plainTextFromHTML } from '../utils/plainText'
 
-export interface DescribeResult {
-  schema: string
-  table: string
-  description: string
-  columns: { name: string; description: string }[]
-  applied: boolean
-  sample_rows: number
-  model?: string
-  translation_applied?: boolean
-  translation_model?: string
-  translation_error?: string
-}
-
-export interface DescribeBatchEntryResult {
-  schema: string
-  table: string
-  status: 'ok' | 'error' | 'skipped'
-  message?: string
-  result?: DescribeResult
-}
-
-export interface DescribeBatchResult {
-  entries: DescribeBatchEntryResult[]
-  ok: number
-  error: number
-  skipped: number
-}
+export type { DescribeBatchResult, DescribeResult } from '../types/metadata'
 
 const AI_METADATA_DESCRIBE_TIMEOUT_MS = 600_000
 

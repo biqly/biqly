@@ -10,8 +10,8 @@ import {
 } from 'react'
 import type { AIJob, AIJobKind, AIJobListResponse, AIQueryResponse, DescribeBatchJobProgress } from '../types/ai'
 import type { DescribeBatchConflictBody } from '../api/describeBatchConflict'
-import type { DescribeBatchResult, DescribeResult } from '../api/metadataDescribe'
 import { runMetadataDescribeDirect } from '../api/metadataDescribe'
+import type { DescribeBatchResult, DescribeResult } from '../types/metadata'
 import type { BulkEntry } from '../components/metadata/bulkProgress'
 import { getLocale } from '../i18n'
 import { getAIClientSessionId } from '../utils/aiSession'
@@ -44,6 +44,9 @@ export type TrackedAIJob = AIJob & {
 type JobCallbacks<TResult = unknown> = {
   onComplete?: (result: TResult) => void
   onError?: (message: string) => void
+}
+type StoredJobCallbacks = JobCallbacks<unknown> & {
+  onDismiss?: () => void
 }
 
 export type BulkDescribeSummary = { ok: number; error: number; skipped: number }
@@ -137,6 +140,14 @@ export function jobQuestionPreview(kind: AIJobKind, req: unknown): string {
   return `${q.slice(0, 77)}…`
 }
 
+export function trackedJobFromAIJob(job: AIJob): TrackedAIJob {
+  const questionPreview =
+    job.request_json && typeof job.request_json === 'object'
+      ? jobQuestionPreview(job.kind, job.request_json)
+      : undefined
+  return { ...job, questionPreview }
+}
+
 function parseResult<TResult>(job: AIJob): TResult | null {
   if (!job.result_json) return null
   if (typeof job.result_json === 'object') return job.result_json as TResult
@@ -151,7 +162,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   const [bulkEntries, setBulkEntries] = useState<BulkEntry[]>([])
   const [bulkRunning, setBulkRunning] = useState(false)
   const [bulkSummary, setBulkSummary] = useState<BulkDescribeSummary | null>(null)
-  const callbacksRef = useRef<Map<string, JobCallbacks<unknown>>>(new Map())
+  const callbacksRef = useRef<Map<string, StoredJobCallbacks>>(new Map())
   const pollTimers = useRef<Map<string, number>>(new Map())
   const bulkCancelRef = useRef(false)
   const bulkBatchJobIdRef = useRef<string | null>(null)
@@ -235,11 +246,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
         stopPolling(jobId)
         return
       }
-      const preview =
-        data.request_json && typeof data.request_json === 'object'
-          ? jobQuestionPreview(data.kind, data.request_json)
-          : undefined
-      upsertJob({ ...data, questionPreview: preview })
+      upsertJob(trackedJobFromAIJob(data))
       if (bulkBatchJobIdRef.current === data.id && data.kind === 'describe_batch') {
         setBulkEntries((prev) => {
           const next = applyBulkProgressFromJob(data, prev)
@@ -275,11 +282,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     if (status === 404 || !data?.jobs?.length) return
     for (const job of data.jobs) {
       if (!isValidJobId(job.id)) continue
-      const preview =
-        job.request_json && typeof job.request_json === 'object'
-          ? jobQuestionPreview(job.kind, job.request_json)
-          : undefined
-      upsertJob({ ...job, questionPreview: preview })
+      upsertJob(trackedJobFromAIJob(job))
       startPolling(job.id)
     }
     setMinimized(false)
@@ -329,6 +332,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
             callbacks?.onError?.(message)
             resolve(null)
           },
+          onDismiss: () => resolve(null),
         })
       })
     },
@@ -342,6 +346,8 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       window.clearInterval(timer)
       pollTimers.current.delete(id)
     }
+    const callbacks = callbacksRef.current.get(id)
+    callbacks?.onDismiss?.()
     callbacksRef.current.delete(id)
   }, [])
 
@@ -352,11 +358,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       })
       if (status === 404 || status === 405) return false
       if (data) {
-        const preview =
-          data.request_json && typeof data.request_json === 'object'
-            ? jobQuestionPreview(data.kind, data.request_json)
-            : undefined
-        upsertJob({ ...data, questionPreview: preview })
+        upsertJob(trackedJobFromAIJob(data))
         finishJob(data)
       } else {
         await pollJob(id)

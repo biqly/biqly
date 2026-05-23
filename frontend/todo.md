@@ -10,7 +10,7 @@
 - [x] `components/ResultTable.tsx:61-75` — `sortedRows` her render'da sıralama yapıyor (10K satıra kadar). `useMemo` ile memoize et.
 - [x] `components/AIQuery.tsx:756` — `chartData` her render'da yeniden hesaplanıyor. `useMemo` ekle.
 - [x] `components/QueryBuilder.tsx:459` — `chartData` her render'da hesaplanıyor. `useMemo` ekle.
-- [ ] `components/AIQuery.tsx:1197-1214` — `recentPriorTurns()` her render'da tüm mesajları geziyor. `useMemo` ile memoize et.
+- [x] `components/AIQuery.tsx:1197-1214` — `recentPriorTurns()` her render'da tüm mesajları geziyor. `useMemo` ile memoize et.
 - [ ] `hooks/useAIJobs.tsx:265` — Her job için ayrı `setInterval` (1200ms). Eşzamanlı job'lar çoğaldığında request flooding olabilir. Tek bir polling döngüsüne birleştir.
 - [ ] `index.css` — 6029 satırlık tek dosya, initial render'ı blockluyor. Route bazlı CSS splitting veya lazy-load düşün.
 
@@ -19,30 +19,30 @@
 - [ ] **Tip tanımları** — `SemanticModelSummary`, `SemanticDimension`, `SemanticMetric`, `SemanticJoin`, `SemanticModelDetail`, `ColumnRow`, `TableRow` Modeling.tsx, QueryBuilder.tsx, Metadata.tsx ve FewShotExamples.tsx'te tekrar tanımlı. `types/semantic.ts`'e taşı.
 - [ ] **Chart data mapping** — `rows.map(row => ({ name: String(row[0]), value: Number(row[1]) }))` AIQuery.tsx:756, QueryBuilder.tsx:459 ve Dashboard.tsx:61'de tekrarlı. `utils/chartData.ts`'teki `rowsToChartData`'yı kullan.
 - [x] **HTML tag stripping** — `/<[^>]*>/g` regex'i `api/metadataDescribe.ts:34` ve `hooks/useApi.ts:28`'de tekrar. Ortak utility'e taşı.
-- [ ] **Question preview** — `hooks/useAIJobs.tsx` içinde 3 yerde benzer question preview kodu (238-241, 278-281, 354-359). Tek bir fonksiyona çıkar.
+- [x] **Question preview** — `hooks/useAIJobs.tsx` içinde 3 yerde benzer question preview kodu (238-241, 278-281, 354-359). Tek bir fonksiyona çıkar.
 - [ ] **SavedQuestions new/edit modal** — 128 satır neredeyse birebir tekrar (536-664 ve 667-795). Ortak form component'ine çıkar.
-- [ ] **DescribeResult tipi** — `api/metadataDescribe.ts:3-14` ve `types/metadata.ts:47-59`'da tekrar tanımlı. Tek yerden export et.
+- [x] **DescribeResult tipi** — `api/metadataDescribe.ts:3-14` ve `types/metadata.ts:47-59`'da tekrar tanımlı. Tek yerden export et.
 - [ ] **useApi method wrapper'lar** — `useAdminApi.ts` içinde get/postData/putData/patchData/deleteData tekrar wrap edilmiş. Generic wrapper ile sadeleştir.
 - [ ] **Proxy handler'lar** — `http/ai_proxy.go` ve `http/query_proxy.go` backend'de tekrar (backend todo'sunda var).
 
 ## i18n / Hard-coded Strings
 
-- [ ] `ResultTable.tsx:115` — "Filtre:" hard-coded Türkçe
-- [ ] `ResultTable.tsx:125` — "Değeri kopyala" hard-coded Türkçe
-- [ ] `ResultTable.tsx:195,200` — "satır" ve "Sıralama:" hard-coded Türkçe
-- [ ] `LoadingOverlay.tsx:10` — "Yükleniyor..." hard-coded Türkçe
-- [ ] `Select.tsx:239` — "Seçenek yok" hard-coded Türkçe
-- [ ] `AIQuery.tsx:696,700` — "Failed to execute query" ve "Execution failed" hard-coded İngilizce
+- [x] `ResultTable.tsx:115` — "Filtre:" hard-coded Türkçe
+- [x] `ResultTable.tsx:125` — "Değeri kopyala" hard-coded Türkçe
+- [x] `ResultTable.tsx:195,200` — "satır" ve "Sıralama:" hard-coded Türkçe
+- [x] `LoadingOverlay.tsx:10` — "Yükleniyor..." hard-coded Türkçe
+- [x] `Select.tsx:239` — "Seçenek yok" hard-coded Türkçe
+- [x] `AIQuery.tsx:696,700` — "Failed to execute query" ve "Execution failed" hard-coded İngilizce
 - [ ] `AIQuery.tsx:1518` — "ABI Chat Workspace" hard-coded
-- [ ] `FewShotExamples.tsx:209` — "Datasource is required" hard-coded İngilizce
+- [x] `FewShotExamples.tsx:209` — "Datasource is required" hard-coded İngilizce
 
 ## Accessibility
 
-- [ ] `AIQuery.tsx:988-996` — Feedback thumbs-up/down butonlarında `aria-label` yok.
-- [ ] `ResultTable.tsx:108-127` — Context menu sadece right-click ile açılıyor, klavye erişimi yok.
+- [x] `AIQuery.tsx:988-996` — Feedback thumbs-up/down butonlarında `aria-label` yok.
+- [x] `ResultTable.tsx:108-127` — Context menu sadece right-click ile açılıyor, klavye erişimi yok.
 - [ ] `Modeling.tsx` — Canvas drag-and-drop sadece mouse ile çalışıyor, klavye navigasyonu yok.
 - [ ] `Modeling.tsx:1834-1908` — Modal'lar `Modal.tsx` component'ini kullanmıyor, focus trap eksik.
-- [ ] `QueryBuilder.tsx:567` — `<label>` elementi `htmlFor` ile bağlanmamış.
+- [x] `QueryBuilder.tsx:567` — `<label>` elementi `htmlFor` ile bağlanmamış.
 - [ ] `window.confirm()` kullanımı — Datasources.tsx:212, AIQuery.tsx:539, SavedQuestions.tsx:319, PromptTemplates.tsx:285,298. UI thread'i blocklar ve erişilebilir değil. Özel confirm dialog'u ile değiştir.
 
 ## Architecture / Design
@@ -50,11 +50,11 @@
 - [ ] `AIQuery.tsx` — 1592 satır, 25+ useState. God component. Sorun sorumluluklarını alt component'lere böl: chat panel, routing panel, candidate viewer, feedback section.
 - [ ] `Modeling.tsx` — 2738 satır, ~30 useState. Canvas engine, form management ve API logic aynı component'te. En azından canvas renderer ve form modallarını ayır.
 - [ ] `Metadata.tsx` — 1089 satır. Inline editing, AI describe, bulk describe ayrı component'lerde olmalı.
-- [ ] `hooks/useAIJobs.tsx:321-333` — Promise-based callback pattern. `dismissJob` çağrılırsa promise hiç resolve olmaz (memory leak). Cleanup ekle.
+- [x] `hooks/useAIJobs.tsx:321-333` — Promise-based callback pattern. `dismissJob` çağrılırsa promise hiç resolve olmaz (memory leak). Cleanup ekle.
 - [ ] `hooks/useAIJobs.tsx:95-111` — `fetchJSON` JSON parse hatasında sessizce `null` dönüyor. API bug'larını maskeler.
-- [ ] `components/AIQuery.tsx:1119-1155` — useEffect içinde API çağrıları cancellation token olmadan yapılıyor. QueryBuilder.tsx'deki `let cancelled = false` pattern'ini uygula.
+- [x] `components/AIQuery.tsx:1119-1155` — useEffect içinde API çağrıları cancellation token olmadan yapılıyor. QueryBuilder.tsx'deki `let cancelled = false` pattern'ini uygula.
 - [ ] `components/Modeling.tsx:380-388` — useEffect dependency `tables.length` ve `columns.length` içeriyor. Veri yüklenirken gereksiz re-fetch tetikleniyor.
-- [ ] `components/QueryBuilder.tsx:567-592` — List rendering'de index key (`key={i}`) kullanılıyor. Eleman silindiğinde React reconciliation sorunları çıkar. Unique key kullan.
+- [x] `components/QueryBuilder.tsx:567-592` — List rendering'de index key (`key={i}`) kullanılıyor. Eleman silindiğinde React reconciliation sorunları çıkar. Unique key kullan.
 
 ## Navigation / Router
 
@@ -71,7 +71,7 @@
 - [ ] `AIQuery.tsx` — Ana feature, sıfır test. En azından: send query flow, conversation management, candidate selection testleri ekle.
 - [ ] `Modeling.tsx` — Canvas drag-and-drop, join creation, model publish flow testleri eksik.
 - [ ] `QueryBuilder.tsx` — LogicalQuery building logic, filter/having/groupBy ekleme çıkarma testleri eksik.
-- [ ] `hooks/useAIJobs.tsx` — Job lifecycle, polling, cancellation, conflict detection testleri eksik.
+- [x] `hooks/useAIJobs.tsx` — Job lifecycle, polling, cancellation, conflict detection testleri eksik.
 - [ ] `hooks/useApi.ts` — Error parsing, timeout, abort handling testleri eksik.
 - [x] `utils/resultCellFormat.ts` — Identifier detection, calendar detection, fractional display testleri eksik.
 - [ ] `hooks/useConversation.ts` — localStorage persistence, quota fallback testleri eksik.
