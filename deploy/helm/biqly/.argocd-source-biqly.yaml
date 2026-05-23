@@ -1,20 +1,20 @@
 helm:
   parameters:
   - name: ai.image.tag
-    value: sha-31fb5125e9f7d07b5beffaa16f0c447a10e209c1
+    value: sha-e24df66c498a8c87d4d4364a4f51cd8a4d4af4ca
     forcestring: true
   - name: catalog.image.tag
-    value: sha-31fb5125e9f7d07b5beffaa16f0c447a10e209c1
+    value: sha-e24df66c498a8c87d4d4364a4f51cd8a4d4af4ca
     forcestring: true
   - name: frontend.image.tag
-    value: sha-31fb5125e9f7d07b5beffaa16f0c447a10e209c1
+    value: sha-e24df66c498a8c87d4d4364a4f51cd8a4d4af4ca
     forcestring: true
   - name: global.migrate.image.tag
-    value: sha-aa8f89de27dbfbce73cad0f631cb0d211543382e
+    value: sha-e24df66c498a8c87d4d4364a4f51cd8a4d4af4ca
     forcestring: true
   - name: image.name
     value: ghcr.io/biqly/migrate
     forcestring: true
   - name: query.image.tag
-    value: sha-31fb5125e9f7d07b5beffaa16f0c447a10e209c1
+    value: sha-e24df66c498a8c87d4d4364a4f51cd8a4d4af4ca
     forcestring: true
