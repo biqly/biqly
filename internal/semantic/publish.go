@@ -356,14 +356,105 @@ func validateCalculatedExpression(expr string, columnSet datasourceColumnSet, de
 		}
 	}
 
-	// Check for disallowed patterns (subqueries, etc.)
-	upper := strings.ToUpper(expr)
-	if strings.Contains(upper, "SELECT") || strings.Contains(upper, "INSERT") ||
-		strings.Contains(upper, "UPDATE") || strings.Contains(upper, "DELETE") {
-		return fmt.Errorf("calculated expressions must not contain DML statements")
+	// Check for disallowed patterns (subqueries, DML). Use word-boundary
+	// matching on a copy that has had string literals and comments stripped
+	// so that legitimate column names like `select_count` or string content
+	// `'delete me'` cannot mask or false-trigger the guard.
+	if kw, ok := containsDMLKeyword(expr); ok {
+		return fmt.Errorf("calculated expressions must not contain DML/DDL keyword: %s", kw)
 	}
 
 	return nil
+}
+
+// dmlKeywordPatterns gates calculated expressions to a SELECT-fragment-only
+// world. Compiled once at package init.
+var dmlKeywordPatterns = func() []*regexp.Regexp {
+	keywords := []string{
+		"SELECT", "INSERT", "UPDATE", "DELETE", "DROP", "ALTER",
+		"TRUNCATE", "CREATE", "GRANT", "REVOKE", "MERGE", "CALL",
+		"EXEC", "EXECUTE",
+	}
+	out := make([]*regexp.Regexp, len(keywords))
+	for i, kw := range keywords {
+		out[i] = regexp.MustCompile(`(?i)\b` + kw + `\b`)
+	}
+	return out
+}()
+
+func containsDMLKeyword(expr string) (string, bool) {
+	cleaned := stripCalcExprLiteralsAndComments(expr)
+	for _, re := range dmlKeywordPatterns {
+		if loc := re.FindStringIndex(cleaned); loc != nil {
+			return cleaned[loc[0]:loc[1]], true
+		}
+	}
+	return "", false
+}
+
+// stripCalcExprLiteralsAndComments removes single-quoted strings, double-quoted
+// identifiers, line comments (--), and block comments (/* */) from a SQL
+// fragment so the remainder can be scanned for DML keywords without false
+// positives from values or comment text.
+func stripCalcExprLiteralsAndComments(sql string) string {
+	var out strings.Builder
+	out.Grow(len(sql))
+	i := 0
+	n := len(sql)
+	for i < n {
+		c := sql[i]
+		if c == '-' && i+1 < n && sql[i+1] == '-' {
+			for i < n && sql[i] != '\n' {
+				i++
+			}
+			continue
+		}
+		if c == '/' && i+1 < n && sql[i+1] == '*' {
+			i += 2
+			for i+1 < n && !(sql[i] == '*' && sql[i+1] == '/') {
+				i++
+			}
+			if i+1 < n {
+				i += 2
+			} else {
+				i = n
+			}
+			continue
+		}
+		if c == '\'' {
+			i++
+			for i < n {
+				if sql[i] == '\'' {
+					if i+1 < n && sql[i+1] == '\'' {
+						i += 2
+						continue
+					}
+					i++
+					break
+				}
+				i++
+			}
+			continue
+		}
+		if c == '"' {
+			i++
+			for i < n {
+				if sql[i] == '"' {
+					if i+1 < n && sql[i+1] == '"' {
+						i += 2
+						continue
+					}
+					i++
+					break
+				}
+				i++
+			}
+			continue
+		}
+		out.WriteByte(c)
+		i++
+	}
+	return out.String()
 }
 
 // isSQLLiteral returns true if s looks like a SQL literal (number, string, NULL, etc.).

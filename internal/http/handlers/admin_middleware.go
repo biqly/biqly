@@ -1,20 +1,24 @@
 package handlers
 
 import (
+	"crypto/subtle"
 	"net/http"
 	"strings"
 )
 
-// AdminKeyMiddleware rejects requests when BI_ADMIN_API_KEY is unset or the key does not match.
+// AdminKeyMiddleware rejects requests when BI_ADMIN_API_KEY is unset or the
+// key does not match. Comparison is constant-time. The Authorization header
+// MUST use the Bearer scheme — an earlier version accepted raw tokens.
 func AdminKeyMiddleware(adminKey string) func(http.Handler) http.Handler {
+	expected := []byte(strings.TrimSpace(adminKey))
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if adminKey == "" {
-				writeError(w, http.StatusForbidden, "eval endpoints require BI_ADMIN_API_KEY to be configured")
+			if len(expected) == 0 {
+				writeError(w, http.StatusForbidden, "admin endpoints require BI_ADMIN_API_KEY to be configured")
 				return
 			}
 			token := adminKeyFromRequest(r)
-			if token == "" || token != adminKey {
+			if len(token) == 0 || subtle.ConstantTimeCompare(token, expected) != 1 {
 				writeError(w, http.StatusUnauthorized, "invalid or missing admin API key")
 				return
 			}
@@ -23,13 +27,14 @@ func AdminKeyMiddleware(adminKey string) func(http.Handler) http.Handler {
 	}
 }
 
-func adminKeyFromRequest(r *http.Request) string {
+func adminKeyFromRequest(r *http.Request) []byte {
 	if k := strings.TrimSpace(r.Header.Get("X-Admin-Key")); k != "" {
-		return k
+		return []byte(k)
 	}
 	authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
-	if strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
-		return strings.TrimSpace(authHeader[7:])
+	const prefix = "bearer "
+	if len(authHeader) > len(prefix) && strings.EqualFold(authHeader[:len(prefix)], prefix) {
+		return []byte(strings.TrimSpace(authHeader[len(prefix):]))
 	}
-	return authHeader
+	return nil
 }

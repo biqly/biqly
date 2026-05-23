@@ -37,7 +37,7 @@ func TestAdminKeyFromRequest(t *testing.T) {
 			t.Parallel()
 			r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/ai/eval/run", nil)
 			r.Header = tt.header
-			if got := adminKeyFromRequest(r); got != tt.want {
+			if got := string(adminKeyFromRequest(r)); got != tt.want {
 				t.Fatalf("adminKeyFromRequest() = %q, want %q", got, tt.want)
 			}
 		})

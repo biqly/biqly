@@ -36,9 +36,13 @@ func internalTokenFromRequest(r *http.Request) string {
 	if token := strings.TrimSpace(r.Header.Get("X-Internal-Token")); token != "" {
 		return token
 	}
+	// Authorization MUST use the Bearer scheme. Earlier versions of this
+	// middleware accepted the raw header as a fallback, which let a client
+	// send the token unprefixed and bypass the scheme check.
 	authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
-	if strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
-		return strings.TrimSpace(authHeader[7:])
+	const prefix = "bearer "
+	if len(authHeader) > len(prefix) && strings.EqualFold(authHeader[:len(prefix)], prefix) {
+		return strings.TrimSpace(authHeader[len(prefix):])
 	}
-	return authHeader
+	return ""
 }

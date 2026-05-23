@@ -83,6 +83,11 @@ type SecurityConfig struct {
 	// Clients must send either `X-API-Key: <key>` or `Authorization: Bearer <key>`.
 	// When empty the API is left unauthenticated and a warning is logged at startup.
 	APIKey string
+	// MetricsAPIKey, when set, gates the /metrics endpoint with the same
+	// scheme as APIKey. Scrapers (Prometheus, Datadog Agent) must send the
+	// shared secret. Empty leaves /metrics public — preserved as default
+	// for in-cluster Prometheus that already has NetworkPolicy isolation.
+	MetricsAPIKey string
 }
 
 // ServicesConfig holds upstream service URLs used when the monolith runs as a BFF.
@@ -147,6 +152,13 @@ type AIConfig struct {
 	// are present; 30 (default) makes a perfect match comparable to a fully
 	// matched table-name token.
 	EmbeddingWeight float64
+	// EmbeddingDenySchemas lists schema names whose tables MUST NOT be
+	// embedded — table/column identifiers will not be sent to an external
+	// embedding API. Use for schemas holding regulated data.
+	EmbeddingDenySchemas []string
+	// EmbeddingDenyTables lists "schema.table" pairs to exclude from
+	// embedding even when the schema is otherwise allowed.
+	EmbeddingDenyTables []string
 
 	// Query* fields let the NL-to-LogicalQuery path use a different model
 	// (typically a smarter one) without disturbing describe / metadata work,
@@ -204,6 +216,7 @@ func Load() (*Config, error) {
 			AdminAPIKey:      getEnv("BI_ADMIN_API_KEY", ""),
 			InternalAPIToken: getEnv("BI_INTERNAL_API_TOKEN", ""),
 			APIKey:           getEnv("BI_API_KEY", ""),
+			MetricsAPIKey:    getEnv("BI_METRICS_API_KEY", ""),
 		},
 		Services: ServicesConfig{
 			CatalogURL: strings.TrimRight(getEnv("BI_CATALOG_SERVICE_URL", ""), "/"),
@@ -243,6 +256,8 @@ func Load() (*Config, error) {
 				getEnvAsInt("BI_AI_HTTP_TIMEOUT_SECONDS", 600),
 			),
 			EmbeddingWeight:         getEnvAsFloat("BI_AI_EMBEDDING_WEIGHT", 30.0),
+			EmbeddingDenySchemas:    splitCSV(getEnv("BI_AI_EMBEDDING_DENY_SCHEMAS", "")),
+			EmbeddingDenyTables:     splitCSV(getEnv("BI_AI_EMBEDDING_DENY_TABLES", "")),
 			QueryProvider:           getEnv("BI_AI_QUERY_PROVIDER", ""),
 			QueryModel:              getEnv("BI_AI_QUERY_MODEL", ""),
 			QueryBaseURL:            getEnv("BI_AI_QUERY_BASE_URL", ""),

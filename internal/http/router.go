@@ -64,8 +64,10 @@ func Router(deps *app.Dependencies) http.Handler {
 		"ai":      deps.Config.Services.AIURL,
 	}))
 
-	// Metrics
-	r.Get("/metrics", MetricsHandler)
+	// Metrics — optionally gated by BI_METRICS_API_KEY. The handler is
+	// wrapped through the same APIKeyAuth middleware as /api/*, so scrapers
+	// authenticate via `X-API-Key` or `Authorization: Bearer`.
+	r.With(bimw.APIKeyAuth(deps.Config.Security.MetricsAPIKey)).Get("/metrics", MetricsHandler)
 
 	// API routes
 	if deps.Config.Security.APIKey == "" {

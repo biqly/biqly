@@ -28,12 +28,12 @@ func (h *MetadataHandler) ListTables(w http.ResponseWriter, r *http.Request) {
 
 	tables, err := h.deps.MetaRepo.ListTables(r.Context(), datasourceID, schemaName)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list tables")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to list tables", err)
 		return
 	}
 	loc := i18n.FromContext(r.Context())
 	if err := h.deps.MetaRepo.ApplyTableTranslations(r.Context(), tables, loc); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to apply table translations")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to apply table translations", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, tables)
@@ -50,12 +50,12 @@ func (h *MetadataHandler) ListColumns(w http.ResponseWriter, r *http.Request) {
 
 	cols, err := h.deps.MetaRepo.ListColumns(r.Context(), datasourceID, schemaName, tableName)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list columns")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to list columns", err)
 		return
 	}
 	loc := i18n.FromContext(r.Context())
 	if err := h.deps.MetaRepo.ApplyColumnTranslations(r.Context(), cols, loc); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to apply column translations")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to apply column translations", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, cols)
@@ -71,7 +71,7 @@ func (h *MetadataHandler) SearchColumns(w http.ResponseWriter, r *http.Request) 
 	}
 	cols, err := h.deps.MetaRepo.SearchColumns(r.Context(), datasourceID, q)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to search columns")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to search columns", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, cols)
@@ -87,7 +87,7 @@ func (h *MetadataHandler) SearchTables(w http.ResponseWriter, r *http.Request) {
 	}
 	tables, err := h.deps.MetaRepo.SearchTables(r.Context(), datasourceID, q)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to search tables")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to search tables", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, tables)
@@ -112,7 +112,7 @@ func (h *MetadataHandler) UpdateTableDescription(w http.ResponseWriter, r *http.
 
 	if req.Description != nil || req.Label != nil {
 		if err := h.deps.MetaRepo.UpdateTableDescriptionAndLabel(r.Context(), id, req.Description, req.Label); err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to update table description")
+			writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to update table description", err)
 			return
 		}
 	}
@@ -138,7 +138,7 @@ func (h *MetadataHandler) UpdateColumnDescription(w http.ResponseWriter, r *http
 	}
 
 	if err := h.deps.MetaRepo.UpdateColumnDescription(r.Context(), id, req.Description); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update column description")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to update column description", err)
 		return
 	}
 
@@ -178,14 +178,14 @@ func (h *MetadataHandler) putTranslations(w http.ResponseWriter, r *http.Request
 				Value:      value,
 			})
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "failed to upsert translation")
+				writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to upsert translation", err)
 				return
 			}
 		}
 	}
 	rows, err := h.deps.MetaRepo.ListEntityTranslations(r.Context(), entityType, id)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list translations")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to list translations", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, rows)

@@ -32,8 +32,10 @@ func New(cfg Config) *slog.Logger {
 
 // NewWithFile creates a logger that writes to both stdout and a file.
 func NewWithFile(cfg Config, filepath string) (*slog.Logger, io.Closer, error) {
+	// 0600: logs may contain DSN fragments, query SQL with literal values,
+	// and other operational data that should never be world-readable.
 	//nolint:gosec // G304: filepath is provided by application config, not user input
-	f, err := os.OpenFile(filepath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	f, err := os.OpenFile(filepath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return nil, nil, err
 	}

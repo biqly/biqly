@@ -3,12 +3,25 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/biqly/biqly/internal/app"
 )
+
+// readinessHTTPClient talks to upstream /health endpoints. Configured to
+// refuse redirects entirely — a probe of an internal service should never
+// be silently forwarded somewhere else (SSRF surface). Total wall-clock is
+// bounded by the request context (~2s) so a hung upstream cannot stall the
+// readiness handler.
+var readinessHTTPClient = &http.Client{
+	Timeout: 2 * time.Second,
+	CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+		return http.ErrUseLastResponse
+	},
+}
 
 type readinessResponse struct {
 	Status string                    `json:"status"`
@@ -59,7 +72,7 @@ func readinessDBCheck(ctx context.Context, deps *app.Dependencies) readinessChec
 		return readinessCheck{Status: "ok"}
 	}
 	if err := deps.MetadataDB.PingContext(ctx); err != nil {
-		return readinessCheck{Status: "error", Error: err.Error()}
+		return readinessCheck{Status: "error", Error: redactReadinessError(err)}
 	}
 	return readinessCheck{Status: "ok"}
 }
@@ -67,15 +80,30 @@ func readinessDBCheck(ctx context.Context, deps *app.Dependencies) readinessChec
 func readinessHTTPCheck(ctx context.Context, baseURL string) readinessCheck {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(baseURL, "/")+"/health", nil)
 	if err != nil {
-		return readinessCheck{Status: "error", Error: err.Error()}
+		return readinessCheck{Status: "error", Error: "invalid upstream URL"}
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := readinessHTTPClient.Do(req)
 	if err != nil {
-		return readinessCheck{Status: "error", Error: err.Error()}
+		return readinessCheck{Status: "error", Error: redactReadinessError(err)}
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return readinessCheck{Status: "error", Error: resp.Status}
 	}
 	return readinessCheck{Status: "ok"}
+}
+
+// redactReadinessError returns a coarse error category for the readiness
+// JSON response. The full error text contains hostnames, ports, and TLS
+// chain details that should not leak to anonymous /ready callers — they
+// live in slog/stderr instead.
+func redactReadinessError(err error) string {
+	switch {
+	case err == nil:
+		return ""
+	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
+		return "timeout"
+	default:
+		return "unavailable"
+	}
 }

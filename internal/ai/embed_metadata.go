@@ -23,13 +23,66 @@ type MetadataWriter interface {
 // EmbedMetadataService computes table and column embeddings from datasource
 // metadata, then persists them for use by the vector-aware table router.
 type EmbedMetadataService struct {
-	embedder Embedder
-	writer   MetadataWriter
+	embedder     Embedder
+	writer       MetadataWriter
+	denySchemas  map[string]struct{}
+	denyTables   map[string]struct{} // key: "schema.table"
 }
 
 // NewEmbedMetadataService wires the embedder and metadata repository.
 func NewEmbedMetadataService(embedder Embedder, writer MetadataWriter) *EmbedMetadataService {
 	return &EmbedMetadataService{embedder: embedder, writer: writer}
+}
+
+// WithDeniedSchemas excludes every table in the listed schemas from being
+// sent to the external embedding API. Use for schemas that contain regulated
+// data (PII, financial records) that must not leave the cluster even as
+// column/table identifier strings.
+func (s *EmbedMetadataService) WithDeniedSchemas(schemas []string) *EmbedMetadataService {
+	if len(schemas) == 0 {
+		return s
+	}
+	if s.denySchemas == nil {
+		s.denySchemas = make(map[string]struct{}, len(schemas))
+	}
+	for _, name := range schemas {
+		name = strings.ToLower(strings.TrimSpace(name))
+		if name != "" {
+			s.denySchemas[name] = struct{}{}
+		}
+	}
+	return s
+}
+
+// WithDeniedTables excludes specific "schema.table" pairs from embedding.
+// Schemas use WithDeniedSchemas; this is the finer-grained per-table opt-out.
+func (s *EmbedMetadataService) WithDeniedTables(tables []string) *EmbedMetadataService {
+	if len(tables) == 0 {
+		return s
+	}
+	if s.denyTables == nil {
+		s.denyTables = make(map[string]struct{}, len(tables))
+	}
+	for _, name := range tables {
+		name = strings.ToLower(strings.TrimSpace(name))
+		if name != "" {
+			s.denyTables[name] = struct{}{}
+		}
+	}
+	return s
+}
+
+// isDeniedTable reports whether the given (schema, table) pair has been
+// opted out of embedding by config (denied schema or denied table).
+func (s *EmbedMetadataService) isDeniedTable(schema, table string) bool {
+	sLower := strings.ToLower(strings.TrimSpace(schema))
+	if _, ok := s.denySchemas[sLower]; ok {
+		return true
+	}
+	if _, ok := s.denyTables[sLower+"."+strings.ToLower(strings.TrimSpace(table))]; ok {
+		return true
+	}
+	return false
 }
 
 const metadataEmbeddingBatchSize = 96
@@ -81,6 +134,22 @@ func (s *EmbedMetadataService) embedForFilter(ctx context.Context, datasourceID 
 		filteredCols := make([]metadata.Column, 0, len(cols))
 		for _, c := range cols {
 			if allowed[c.SchemaName+"."+c.TableName] {
+				filteredCols = append(filteredCols, c)
+			}
+		}
+		cols = filteredCols
+	}
+	if len(s.denySchemas) > 0 || len(s.denyTables) > 0 {
+		filteredTables := make([]metadata.Table, 0, len(tables))
+		for _, t := range tables {
+			if !s.isDeniedTable(t.SchemaName, t.TableName) {
+				filteredTables = append(filteredTables, t)
+			}
+		}
+		tables = filteredTables
+		filteredCols := make([]metadata.Column, 0, len(cols))
+		for _, c := range cols {
+			if !s.isDeniedTable(c.SchemaName, c.TableName) {
 				filteredCols = append(filteredCols, c)
 			}
 		}

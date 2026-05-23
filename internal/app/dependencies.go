@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/audit"
@@ -146,6 +147,9 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 // openMetadataDB constructs the metadata Postgres pool with the project's
 // standard pool limits and connection lifetimes.
 func openMetadataDB(ctx context.Context, cfg *config.Config) (*sql.DB, error) {
+	if strings.Contains(strings.ToLower(cfg.Metadata.DSN), "sslmode=disable") {
+		slog.Warn("metadata DSN has sslmode=disable — set sslmode=require (or higher) for production deployments")
+	}
 	lims := datasource.DefaultPoolLimits()
 	db, err := platformdb.NewPool(ctx, platformdb.Config{
 		DSN:             cfg.Metadata.DSN,
@@ -235,7 +239,9 @@ func setupAI(
 	var embedMeta *ai.EmbedMetadataService
 	if cfg.AI.EmbeddingsConfigured() {
 		embedder = ai.NewOpenAIEmbedder(cfg.AI)
-		embedMeta = ai.NewEmbedMetadataService(embedder, metaRepo)
+		embedMeta = ai.NewEmbedMetadataService(embedder, metaRepo).
+			WithDeniedSchemas(cfg.AI.EmbeddingDenySchemas).
+			WithDeniedTables(cfg.AI.EmbeddingDenyTables)
 	}
 
 	evalRepo := ai.NewEvalRepository(db)

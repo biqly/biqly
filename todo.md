@@ -44,22 +44,23 @@
 
 ## Security (Non-Critical)
 
-- [ ] `http/metrics.go` — `/metrics` endpoint has no auth. Exposes operational data (query volumes, error rates).
-- [ ] `handlers/helpers.go:78` — `decodeJSON` has no request body size limit. Client can send arbitrarily large payloads.
-- [ ] `readiness.go:62` — Internal error details (hostnames, ports) exposed in readiness JSON response.
-- [ ] `readiness.go:72` — `http.DefaultClient` with no redirect limit on upstream health checks. SSRF risk.
-- [ ] `embed_metadata.go:222-264` — All table/column metadata sent to external embedding API without opt-out for sensitive schemas.
-- [ ] `logger/logger.go:36` — Log file permissions `0644` (world-readable). Logs may contain sensitive metadata.
-- [ ] `config.go:181` — Default DSN with `sslmode=disable`. Should not ship to production.
-- [ ] `handlers/internal_auth_middleware.go:43` — Falls back to raw `Authorization` header without `Bearer` prefix.
-- [ ] `semantic/publish.go:326-329` — Calculated expression DML detection uses string matching, easily bypassable. Needs AST-based validation.
-- [ ] `http/handlers/ai_jobs.go:203-237` — `AdminListStale` / `AdminCancelAllStale` have no admin auth. Any client can cancel all jobs.
+- [x] `http/metrics.go` — `/metrics` endpoint has no auth. Exposes operational data (query volumes, error rates).
+- [x] `handlers/helpers.go:78` — `decodeJSON` has no request body size limit. Client can send arbitrarily large payloads.
+- [x] `readiness.go:62` — Internal error details (hostnames, ports) exposed in readiness JSON response.
+- [x] `readiness.go:72` — `http.DefaultClient` with no redirect limit on upstream health checks. SSRF risk.
+- [x] `embed_metadata.go:222-264` — All table/column metadata sent to external embedding API without opt-out for sensitive schemas.
+- [x] `logger/logger.go:36` — Log file permissions `0644` (world-readable). Logs may contain sensitive metadata.
+- [x] `config.go:181` — Default DSN with `sslmode=disable`. Should not ship to production.
+- [x] `handlers/internal_auth_middleware.go:43` — Falls back to raw `Authorization` header without `Bearer` prefix.
+- [x] `semantic/publish.go:326-329` — Calculated expression DML detection uses string matching, easily bypassable. Needs AST-based validation.
+- [x] `http/handlers/ai_jobs.go:203-237` — `AdminListStale` / `AdminCancelAllStale` have no admin auth. Any client can cancel all jobs.  <!-- AdminKeyMiddleware was wired; now constant-time + Bearer-prefix-required -->
+
 
 ## Refactoring
 
-- [ ] `http/ai_proxy.go` + `http/query_proxy.go` — 95% identical code. Extract `newUpstreamProxy(prefix, targetURL, serviceName)` factory.
-- [ ] `http/handlers/metadata.go` — All error paths use `writeError` (no logging). Should use `writeInternalError` for 500+ errors.
-- [ ] `http/handlers/query.go:104` — History listing failure uses `writeError` with no logging. Use `writeInternalError`.
+- [x] `http/ai_proxy.go` + `http/query_proxy.go` — 95% identical code. Extract `newUpstreamProxy(prefix, targetURL, serviceName)` factory.  <!-- catalog_proxy.go also collapsed to the factory -->
+- [x] `http/handlers/metadata.go` — All error paths use `writeError` (no logging). Should use `writeInternalError` for 500+ errors.
+- [x] `http/handlers/query.go:104` — History listing failure uses `writeError` with no logging. Use `writeInternalError`.
 - [ ] `ai/table_router.go` — `tokenSet(question)` recomputed in multiple functions. Compute once and pass as parameter.
 - [ ] `ai/table_router.go:644-817` — `appendEntityResolverTables` is 173 lines with nested BFS. Consider extraction into sub-functions.
 
