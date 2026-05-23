@@ -463,6 +463,7 @@ export const tr: Dictionary = {
     kind_query: 'Sorgu',
     kind_describe: 'Metadata açıklama',
     kind_describe_batch: 'Toplu metadata açıklama',
+    kind_embed_metadata: 'Embedding yenileme',
     scope_schemas: 'şemalar: {{schemas}}',
     queue_current: 'Şu an: {{table}}',
     queue_next: 'Sırada: {{tables}}',
@@ -482,6 +483,9 @@ export const tr: Dictionary = {
     phase_compiling: 'SQL derleme',
     phase_executing: 'Çalıştırma',
     phase_applying: 'Uygulama',
+    phase_fetching: 'Tablolar alınıyor',
+    phase_embedding: 'Embedding hesaplanıyor',
+    phase_completing: 'Embedding kaydediliyor',
   },
   query_builder: {
     title: 'Sorgu Oluşturucu',

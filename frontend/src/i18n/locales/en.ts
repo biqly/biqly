@@ -462,6 +462,7 @@ export const en = {
     kind_query: 'Query',
     kind_describe: 'Metadata describe',
     kind_describe_batch: 'Bulk metadata describe',
+    kind_embed_metadata: 'Embedding refresh',
     scope_schemas: 'schemas: {{schemas}}',
     queue_current: 'Current: {{table}}',
     queue_next: 'Up next: {{tables}}',
@@ -481,6 +482,9 @@ export const en = {
     phase_compiling: 'Compiling SQL',
     phase_executing: 'Executing',
     phase_applying: 'Applying',
+    phase_fetching: 'Fetching tables',
+    phase_embedding: 'Computing embeddings',
+    phase_completing: 'Saving embeddings',
   },
   query_builder: {
     title: 'Query Builder',

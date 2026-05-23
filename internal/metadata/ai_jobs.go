@@ -285,7 +285,7 @@ func (r *Repository) TryMarkAIJobRunning(ctx context.Context, id string) (bool, 
 		UPDATE ai_jobs
 		SET status = $2, phase = 'routing', phase_message = '', progress_pct = 5,
 		    started_at = COALESCE(started_at, NOW()), updated_at = NOW()
-		WHERE id = $1 AND status IN ($3, $4)`, id, AIJobStatusRunning, AIJobStatusPending, AIJobStatusQueued)
+		WHERE id = $1 AND status IN ($3, $4, $2)`, id, AIJobStatusRunning, AIJobStatusPending, AIJobStatusQueued)
 	if err != nil {
 		return false, fmt.Errorf("mark ai job running: %w", err)
 	}

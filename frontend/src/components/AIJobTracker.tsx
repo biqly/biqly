@@ -14,10 +14,14 @@ const PIPELINE_PHASES = [
 
 const DESCRIBE_PHASES = ['queued', 'sampling', 'generating', 'applying'] as const
 
-type PipelinePhase = (typeof PIPELINE_PHASES)[number] | (typeof DESCRIBE_PHASES)[number]
+const EMBED_PHASES = ['queued', 'fetching', 'embedding', 'completing'] as const
+
+type PipelinePhase = (typeof PIPELINE_PHASES)[number] | (typeof DESCRIBE_PHASES)[number] | (typeof EMBED_PHASES)[number]
 
 function phasesForJob(job: TrackedAIJob): readonly PipelinePhase[] {
-  return job.kind === 'describe' || job.kind === 'describe_batch' ? DESCRIBE_PHASES : PIPELINE_PHASES
+  if (job.kind === 'describe' || job.kind === 'describe_batch') return DESCRIBE_PHASES
+  if (job.kind === 'embed_metadata') return EMBED_PHASES
+  return PIPELINE_PHASES
 }
 
 function phaseIndex(phases: readonly PipelinePhase[], phase: string): number {
@@ -102,6 +106,8 @@ function JobCard({
       ? t('ai_jobs.kind_describe_batch')
       : job.kind === 'describe'
       ? t('ai_jobs.kind_describe')
+      : job.kind === 'embed_metadata'
+      ? t('ai_jobs.kind_embed_metadata')
       : job.kind === 'run'
       ? t('ai_jobs.kind_run')
       : job.kind === 'preview'
