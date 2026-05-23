@@ -938,6 +938,7 @@ export const tr: Dictionary = {
     pick_schema: 'Şema Seçin',
     pick_table: 'Tablo Seçin',
     pick_column: 'Kolon Seçin',
+    metric_intellisense_hint: 'Otomatik tamamlama için [ veya harf yazmaya başlayın',
     tab_short_tables: 'Tablolar',
     tab_short_rel: 'İlişki',
     tab_short_dim: 'Kırılım',

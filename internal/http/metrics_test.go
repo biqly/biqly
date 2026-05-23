@@ -11,7 +11,7 @@ import (
 func TestMetricsHandlerIncludesCatalogMetrics(t *testing.T) {
 	old := globalMetrics
 	t.Cleanup(func() { globalMetrics = old })
-	globalMetrics = &Metrics{QueryDurationBuckets: make(map[string]int64)}
+	globalMetrics = &Metrics{}
 	globalMetrics.RecordCatalogDBQuery(1500, true)
 	globalMetrics.RecordCatalogDBQuery(500, false)
 	globalMetrics.RecordModelPublish(250, true)

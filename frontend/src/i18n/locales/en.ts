@@ -936,6 +936,7 @@ export const en = {
     pick_schema: 'Select Schema',
     pick_table: 'Select Table',
     pick_column: 'Select Column',
+    metric_intellisense_hint: 'Type [ or a letter for autocomplete',
     tab_short_tables: 'Tables',
     tab_short_rel: 'Joins',
     tab_short_dim: 'Dims',

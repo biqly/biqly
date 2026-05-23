@@ -5,12 +5,22 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"time"
 )
 
 const (
 	defaultMaxOpenConns    = 25
 	defaultMaxIdleConns    = 5
 	clickhouseMaxOpenConns = 10
+
+	// DefaultConnMaxLifetime caps how long any connection lives before being
+	// recycled. Prevents stale TCP sessions and forces pool refresh across
+	// upstream DB restarts / DNS changes. Exported so the metadata DB pool
+	// can share the same default.
+	DefaultConnMaxLifetime = 30 * time.Minute
+	// DefaultConnMaxIdleTime closes connections that have been idle too long
+	// so the pool shrinks during quiet periods.
+	DefaultConnMaxIdleTime = 10 * time.Minute
 )
 
 // PoolLimits configures sql.DB pool sizes for a datasource driver.
@@ -43,7 +53,9 @@ func Ping(ctx context.Context, driverName, dsn string) error {
 	return db.PingContext(ctx)
 }
 
-// OpenPool opens a pooled *sql.DB and applies MaxOpen/MaxIdle. ctx is reserved for future checks.
+// OpenPool opens a pooled *sql.DB and applies MaxOpen/MaxIdle plus the
+// package-default ConnMaxLifetime/ConnMaxIdleTime. ctx is reserved for future
+// checks.
 func OpenPool(ctx context.Context, driverName, dsn string, limits PoolLimits) (*sql.DB, error) {
 	_ = ctx
 	db, err := sql.Open(driverName, dsn)
@@ -52,5 +64,7 @@ func OpenPool(ctx context.Context, driverName, dsn string, limits PoolLimits) (*
 	}
 	db.SetMaxOpenConns(limits.MaxOpen)
 	db.SetMaxIdleConns(limits.MaxIdle)
+	db.SetConnMaxLifetime(DefaultConnMaxLifetime)
+	db.SetConnMaxIdleTime(DefaultConnMaxIdleTime)
 	return db, nil
 }

@@ -45,6 +45,9 @@ type QueryServiceDeps struct {
 	Logger      *slog.Logger
 	// Encryptor decrypts datasource DSNs when stored encrypted; nil means plaintext only.
 	Encryptor *security.Encryption
+	// Pools caches *sql.DB handles across query executions. When nil the
+	// service falls back to opening a fresh pool per query (legacy behavior).
+	Pools *datasource.PoolCache
 }
 
 type QueryService struct {
@@ -56,6 +59,7 @@ type QueryService struct {
 	history     HistoryRecorder
 	logger      *slog.Logger
 	encryptor   *security.Encryption
+	pools       *datasource.PoolCache
 }
 
 type CompileResult struct {
@@ -81,7 +85,27 @@ func NewQueryService(deps QueryServiceDeps) *QueryService {
 		history:     deps.History,
 		logger:      deps.Logger,
 		encryptor:   deps.Encryptor,
+		pools:       deps.Pools,
 	}
+}
+
+// openPool returns a *sql.DB to use for executing compiled. When a PoolCache
+// is configured the handle is cached and owned by the cache (do NOT close it
+// after use). Otherwise a fresh pool is opened and the returned cleanup func
+// closes it.
+func (s *QueryService) openPool(ctx context.Context, driver datasource.Driver, datasourceID, dsn string) (*sql.DB, func(), error) {
+	if s.pools != nil {
+		db, err := s.pools.Get(ctx, driver, datasourceID, dsn)
+		if err != nil {
+			return nil, nil, err
+		}
+		return db, func() {}, nil
+	}
+	db, err := driver.Open(ctx, dsn)
+	if err != nil {
+		return nil, nil, err
+	}
+	return db, func() { _ = db.Close() }, nil
 }
 
 func (s *QueryService) Compile(ctx context.Context, lq query.LogicalQuery) (*CompileResult, *ServiceError) {
@@ -127,11 +151,11 @@ func (s *QueryService) Run(ctx context.Context, lq query.LogicalQuery) (*RunResu
 	if err != nil {
 		return nil, ToServiceError(fmt.Errorf("%w: %w", ErrLoadDatasource, err))
 	}
-	db, err := compiled.Driver.Open(ctx, dsn)
+	db, cleanup, err := s.openPool(ctx, compiled.Driver, compiled.Datasource.ID, dsn)
 	if err != nil {
 		return nil, ToServiceError(fmt.Errorf("%w: %w", ErrConnection, err))
 	}
-	defer func() { _ = db.Close() }()
+	defer cleanup()
 
 	result, err := s.executor.Execute(ctx, db, compiled.Compiled)
 	if err != nil {

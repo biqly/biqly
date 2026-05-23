@@ -2066,6 +2066,203 @@ function AddMetricModal({ model, includedTables, columns, onClose, onCreated, po
     return keys
   }, [model])
 
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [suggestionIndex, setSuggestionIndex] = useState(0)
+  const [queryStartIdx, setQueryStartIdx] = useState(-1)
+
+  const funcCandidates = useMemo(() => [
+    'sum(',
+    'avg(',
+    'count(',
+    'count_distinct(',
+    'min(',
+    'max(',
+    'case',
+    'when',
+    'then',
+    'else',
+    'end'
+  ], [])
+
+  const fieldCandidates = useMemo(() => {
+    const list: string[] = []
+    if (model.dimensions) {
+      model.dimensions.filter(d => d.is_active).forEach(d => {
+        list.push(`[${d.name}]`)
+      })
+    }
+    if (model.metrics) {
+      model.metrics.filter(m => m.is_active).forEach(m => {
+        list.push(`[${m.name}]`)
+      })
+    }
+    columns.forEach(c => {
+      if (modelTableKeys.has(`${c.schema_name}.${c.table_name}`)) {
+        list.push(`[${c.table_name}.${c.column_name}]`)
+      }
+    })
+    return Array.from(new Set(list)).sort()
+  }, [model, columns, modelTableKeys])
+
+  const checkSuggestions = useCallback((val: string, cursorIndex: number) => {
+    const lastOpen = val.lastIndexOf('[', cursorIndex - 1)
+    let isInside = false
+    if (lastOpen !== -1) {
+      const textBetween = val.substring(lastOpen, cursorIndex)
+      if (!textBetween.includes(']')) {
+        isInside = true
+      }
+    }
+
+    if (isInside) {
+      const query = val.substring(lastOpen, cursorIndex).toLowerCase()
+      setQueryStartIdx(lastOpen)
+      const filtered = fieldCandidates.filter((cand) => cand.toLowerCase().includes(query))
+      if (filtered.length > 0) {
+        setSuggestions(filtered)
+        setSuggestionIndex(0)
+        setShowSuggestions(true)
+      } else {
+        setShowSuggestions(false)
+      }
+    } else {
+      const wordMatch = val.substring(0, cursorIndex).match(/[a-zA-Z_]+$/)
+      if (wordMatch) {
+        const word = wordMatch[0].toLowerCase()
+        const wordStart = cursorIndex - wordMatch[0].length
+        setQueryStartIdx(wordStart)
+        const filtered = funcCandidates.filter((f) => f.toLowerCase().startsWith(word))
+        if (filtered.length > 0) {
+          setSuggestions(filtered)
+          setSuggestionIndex(0)
+          setShowSuggestions(true)
+        } else {
+          setShowSuggestions(false)
+        }
+      } else {
+        setShowSuggestions(false)
+      }
+    }
+  }, [fieldCandidates, funcCandidates])
+
+  const insertSuggestion = useCallback((suggestion: string) => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+    const start = queryStartIdx
+    const end = textarea.selectionEnd
+    const text = textarea.value
+    const newValue = text.substring(0, start) + suggestion + text.substring(end)
+    setExpression(newValue)
+    setShowSuggestions(false)
+    setTimeout(() => {
+      textarea.focus()
+      const newCursorPos = start + suggestion.length
+      textarea.setSelectionRange(newCursorPos, newCursorPos)
+    }, 0)
+  }, [queryStartIdx])
+
+  const highlightExpression = (expr: string) => {
+    if (!expr) return null
+    const regex = /(\[[^\]]*\]|\bcase\b|\bwhen\b|\bthen\b|\belse\b|\bend\b|\bsum\b|\bavg\b|\bcount\b|\bcount_distinct\b|\bmin\b|\bmax\b)/gi
+    const parts = expr.split(regex)
+    return parts.map((part, idx) => {
+      const partLower = part.toLowerCase()
+      if (part.startsWith('[') && part.endsWith(']')) {
+        const inner = part.slice(1, -1)
+        return (
+          <span key={idx} style={{ fontWeight: 'bold' }}>
+            <span style={{ color: 'rgba(255, 255, 255, 0.35)' }}>[</span>
+            <span style={{ color: 'var(--accent)' }}>{inner}</span>
+            <span style={{ color: 'rgba(255, 255, 255, 0.35)' }}>]</span>
+          </span>
+        )
+      }
+      if (['case', 'when', 'then', 'else', 'end'].includes(partLower)) {
+        return (
+          <span key={idx} style={{ color: '#fbbf24', fontWeight: 'bold' }}>
+            {part}
+          </span>
+        )
+      }
+      if (['sum', 'avg', 'count', 'count_distinct', 'min', 'max'].includes(partLower)) {
+        return (
+          <span key={idx} style={{ color: '#60a5fa', fontWeight: 'bold' }}>
+            {part}
+          </span>
+        )
+      }
+      return <span key={idx}>{part}</span>
+    })
+  }
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value
+    setExpression(val)
+    checkSuggestions(val, e.target.selectionStart)
+  }
+
+  const handleTextareaSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    const target = e.target as HTMLTextAreaElement
+    checkSuggestions(target.value, target.selectionStart)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!showSuggestions) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSuggestionIndex((prev) => (prev + 1) % suggestions.length)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSuggestionIndex((prev) => (prev - 1 + suggestions.length) % suggestions.length)
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault()
+      const selected = suggestions[suggestionIndex]
+      if (selected && queryStartIdx !== -1) {
+        insertSuggestion(selected)
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      setShowSuggestions(false)
+    }
+  }
+
+  const handleTextareaScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
+    const textarea = e.currentTarget
+    const underlay = textarea.parentElement?.querySelector('.expression-editor-underlay') as HTMLElement
+    if (underlay) {
+      underlay.scrollTop = textarea.scrollTop
+      underlay.scrollLeft = textarea.scrollLeft
+    }
+  }
+
+  useEffect(() => {
+    const textarea = textareaRef.current
+    if (textarea) {
+      const underlay = textarea.parentElement?.querySelector('.expression-editor-underlay') as HTMLElement
+      if (underlay) {
+        underlay.scrollTop = textarea.scrollTop
+        underlay.scrollLeft = textarea.scrollLeft
+      }
+    }
+  }, [expression])
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick)
+    }
+  }, [])
+
+
   // Simple Mode lists
   const availableSchemas = useMemo(() => {
     const schemas = new Set<string>()
@@ -2315,26 +2512,71 @@ function AddMetricModal({ model, includedTables, columns, onClose, onCreated, po
             <>
               <div className="form-group">
                 <label htmlFor="metric-expression">{t('modeling.metric_expression_label')}</label>
-                <textarea
-                  id="metric-expression"
-                  value={expression}
-                  onChange={(e) => setExpression(e.target.value)}
-                  disabled={saving}
-                  placeholder="sum([orders.total_amount]) / sum([orders.quantity])"
-                  autoComplete="off"
-                  rows={3}
-                  style={{
-                    width: '100%',
-                    fontFamily: 'monospace',
-                    fontSize: '0.85rem',
-                    padding: '0.5rem',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border)',
-                    background: 'var(--bg-body)',
-                    color: 'var(--text-primary)',
-                    resize: 'vertical',
-                  }}
-                />
+                <div ref={containerRef} className="expression-editor-container">
+                  <pre className="expression-editor-underlay">{highlightExpression(expression)}</pre>
+                  <textarea
+                    ref={textareaRef}
+                    id="metric-expression"
+                    className="expression-editor-textarea"
+                    value={expression}
+                    onChange={handleTextareaChange}
+                    onSelect={handleTextareaSelect}
+                    onKeyDown={handleKeyDown}
+                    onScroll={handleTextareaScroll}
+                    placeholder="sum([orders.total_amount]) / sum([orders.quantity])"
+                    autoComplete="off"
+                    rows={3}
+                    spellCheck={false}
+                    disabled={saving}
+                  />
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div
+                      className="autocomplete-dropdown"
+                      style={{
+                        position: 'absolute',
+                        bottom: 'auto',
+                        top: '100%',
+                        left: '0',
+                        background: 'var(--bg-card-raised)',
+                        border: '1px solid var(--border-strong)',
+                        borderRadius: '0.5rem',
+                        boxShadow: 'var(--shadow-lg, 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3))',
+                        zIndex: 10,
+                        maxHeight: '150px',
+                        overflowY: 'auto',
+                        width: '320px',
+                        padding: '0.25rem',
+                        backdropFilter: 'blur(12px)',
+                        WebkitBackdropFilter: 'blur(12px)',
+                        marginTop: '0.25rem',
+                      }}
+                    >
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', padding: '0.25rem 0.4rem', borderBottom: '1px solid var(--border)', marginBottom: '0.25rem' }}>
+                        {t('modeling.metric_intellisense_hint')}
+                      </div>
+                      {suggestions.map((s, idx) => {
+                        const isSelected = idx === suggestionIndex
+                        return (
+                          <div
+                            key={s}
+                            style={{
+                              padding: '0.35rem 0.5rem',
+                              borderRadius: '0.3rem',
+                              cursor: 'pointer',
+                              fontSize: '0.78rem',
+                              fontFamily: 'var(--font-mono, monospace)',
+                              color: isSelected ? '#ffffff' : 'var(--text-primary)',
+                              background: isSelected ? 'var(--accent)' : 'transparent',
+                            }}
+                            onClick={() => insertSuggestion(s)}
+                          >
+                            {s}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="metric-helper-grid">

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/biqly/biqly/internal/config"
@@ -436,33 +437,59 @@ func (s *Service) tryMultiCandidate(
 	}
 
 	type candidate struct {
+		idx      int
 		lq       *query.LogicalQuery
 		gen      GenerationResult
 		warnings []string
+		fp       string
 	}
+
+	// Run all N candidate generations concurrently. Each call talks to an
+	// LLM API which is typically several hundred ms — running them serially
+	// multiplied total latency by N. Errors and validation failures are
+	// best-effort and do not cancel siblings.
+	results := make([]*candidate, n)
+	var wg sync.WaitGroup
+	wg.Add(n)
+	for i := 0; i < n; i++ {
+		idx := i
+		go func() {
+			defer wg.Done()
+			temp := s.baseTemperature + 0.2*float64(idx)
+			if temp > 1 {
+				temp = 1
+			}
+			gen, err := s.client.GenerateAt(ctx, prompt, temp)
+			if err != nil {
+				return
+			}
+			lq, warnings, validationErrCount, parseErr := s.parseAndValidate(gen.Content, model)
+			if parseErr != nil || validationErrCount > 0 || lq == nil {
+				return
+			}
+			if options.sqlValidator != nil {
+				if err := options.sqlValidator(ctx, lq); err != nil {
+					return
+				}
+			}
+			results[idx] = &candidate{
+				idx:      idx,
+				lq:       lq,
+				gen:      gen,
+				warnings: warnings,
+				fp:       logicalQueryFingerprint(lq),
+			}
+		}()
+	}
+	wg.Wait()
+
 	groups := make(map[string][]candidate)
 	successCount := 0
-
-	for i := 0; i < n; i++ {
-		temp := s.baseTemperature + 0.2*float64(i)
-		if temp > 1 {
-			temp = 1
-		}
-		gen, err := s.client.GenerateAt(ctx, prompt, temp)
-		if err != nil {
+	for _, c := range results {
+		if c == nil {
 			continue
 		}
-		lq, warnings, validationErrCount, parseErr := s.parseAndValidate(gen.Content, model)
-		if parseErr != nil || validationErrCount > 0 || lq == nil {
-			continue
-		}
-		if options.sqlValidator != nil {
-			if err := options.sqlValidator(ctx, lq); err != nil {
-				continue
-			}
-		}
-		fp := logicalQueryFingerprint(lq)
-		groups[fp] = append(groups[fp], candidate{lq: lq, gen: gen, warnings: warnings})
+		groups[c.fp] = append(groups[c.fp], *c)
 		successCount++
 	}
 

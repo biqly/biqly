@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 )
@@ -313,27 +314,54 @@ func (r *Repository) UpdateJoin(ctx context.Context, j *Join) error {
 }
 
 // GetFullModel retrieves a model with its dimensions, metrics, and joins.
+//
+// Dimensions, metrics, and joins are fetched concurrently because they are
+// independent queries against separate tables; serializing them dominated
+// /api/ai/query latency on cold cache. The model header is still fetched
+// first so we can short-circuit on a missing id without launching three
+// extra queries.
 func (r *Repository) GetFullModel(ctx context.Context, id string) (*SemanticModel, error) {
 	model, err := r.GetModel(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get full model: %w", err)
 	}
 
-	model.Dimensions, err = r.GetDimensions(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("get dimensions: %w", err)
+	var (
+		dims    []Dimension
+		mets    []Metric
+		joins   []Join
+		dimErr  error
+		metErr  error
+		joinErr error
+	)
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go func() {
+		defer wg.Done()
+		dims, dimErr = r.GetDimensions(ctx, id)
+	}()
+	go func() {
+		defer wg.Done()
+		mets, metErr = r.GetMetrics(ctx, id)
+	}()
+	go func() {
+		defer wg.Done()
+		joins, joinErr = r.GetJoins(ctx, id)
+	}()
+	wg.Wait()
+
+	switch {
+	case dimErr != nil:
+		return nil, fmt.Errorf("get dimensions: %w", dimErr)
+	case metErr != nil:
+		return nil, fmt.Errorf("get metrics: %w", metErr)
+	case joinErr != nil:
+		return nil, fmt.Errorf("get joins: %w", joinErr)
 	}
 
-	model.Metrics, err = r.GetMetrics(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("get metrics: %w", err)
-	}
-
-	model.Joins, err = r.GetJoins(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("get joins: %w", err)
-	}
-
+	model.Dimensions = dims
+	model.Metrics = mets
+	model.Joins = joins
 	return model, nil
 }
 

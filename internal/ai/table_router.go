@@ -8,6 +8,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -226,17 +227,39 @@ func (r *TableRouter) Route(
 		return nil, nil, ErrTypeScopeEmpty
 	}
 
-	tables, err := r.reader.ListTables(ctx, datasourceID, "")
-	if err != nil {
-		return nil, nil, fmt.Errorf("list tables: %w", err)
-	}
-	columns, err := r.reader.ListColumns(ctx, datasourceID, "", "")
-	if err != nil {
-		return nil, nil, fmt.Errorf("list columns: %w", err)
-	}
-	relations, err := r.reader.ListRelations(ctx, datasourceID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("list relations: %w", err)
+	// Tables, columns, and relations come from three independent metadata DB
+	// queries. Running them concurrently roughly cuts cold-cache table-router
+	// latency by 3x — the actual DB roundtrips dominate this stage.
+	var (
+		tables    []metadata.Table
+		columns   []metadata.Column
+		relations []metadata.Relation
+		tablesErr error
+		colsErr   error
+		relErr    error
+	)
+	var listWG sync.WaitGroup
+	listWG.Add(3)
+	go func() {
+		defer listWG.Done()
+		tables, tablesErr = r.reader.ListTables(ctx, datasourceID, "")
+	}()
+	go func() {
+		defer listWG.Done()
+		columns, colsErr = r.reader.ListColumns(ctx, datasourceID, "", "")
+	}()
+	go func() {
+		defer listWG.Done()
+		relations, relErr = r.reader.ListRelations(ctx, datasourceID)
+	}()
+	listWG.Wait()
+	switch {
+	case tablesErr != nil:
+		return nil, nil, fmt.Errorf("list tables: %w", tablesErr)
+	case colsErr != nil:
+		return nil, nil, fmt.Errorf("list columns: %w", colsErr)
+	case relErr != nil:
+		return nil, nil, fmt.Errorf("list relations: %w", relErr)
 	}
 
 	if err := validateManualScopeAgainstTypeScope(indexTables(tables), tableScope, includeBaseTables, includeViews); err != nil {
@@ -1789,18 +1812,24 @@ func dimensionType(dataType string) string {
 	}
 }
 
+// numericTypeMarkers holds substrings that, when present in a column's
+// SQL type, mean the column is numeric. Package-level so the slice is not
+// re-allocated on every isNumericType call (this is a hot path inside the
+// table router for every column of every routed table).
+var numericTypeMarkers = [...]string{
+	"int",
+	"numeric",
+	"decimal",
+	"double",
+	"float",
+	"real",
+	"money",
+	"number",
+}
+
 func isNumericType(dataType string) bool {
 	t := strings.ToLower(dataType)
-	for _, marker := range []string{
-		"int",
-		"numeric",
-		"decimal",
-		"double",
-		"float",
-		"real",
-		"money",
-		"number",
-	} {
+	for _, marker := range numericTypeMarkers {
 		if strings.Contains(t, marker) {
 			return true
 		}

@@ -4,6 +4,7 @@ package app
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -59,6 +60,9 @@ type Dependencies struct {
 	AIJobQueue   queue.AIJobPublisher
 	AIJobService AIJobRunner
 	AIJobsHTTP   AIJobsHTTPHandler
+	// PoolCache holds *sql.DB pools for external datasources. Closed during
+	// Dependencies.Close().
+	PoolCache *datasource.PoolCache
 }
 
 // AIJobRunner processes queued NL→query jobs (implemented by handlers.AIJobService).
@@ -96,6 +100,8 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 	lims := datasource.DefaultPoolLimits()
 	db.SetMaxOpenConns(lims.MaxOpen)
 	db.SetMaxIdleConns(lims.MaxIdle)
+	db.SetConnMaxLifetime(datasource.DefaultConnMaxLifetime)
+	db.SetConnMaxIdleTime(datasource.DefaultConnMaxIdleTime)
 
 	// Setup driver registry
 	reg := datasource.NewRegistry()
@@ -126,6 +132,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 	// Setup query components
 	validator := query.NewValidator(cfg.Query.MaxRows)
 	executor := query.NewExecutor(cfg.Query.MaxRows, cfg.QueryTimeout())
+	poolCache := datasource.NewPoolCache()
 	queryService := core.NewQueryService(core.QueryServiceDeps{
 		Models:      semanticRepo,
 		Datasources: metaRepo,
@@ -134,6 +141,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		Executor:    executor,
 		History:     metaRepo,
 		Encryptor:   encryptor,
+		Pools:       poolCache,
 	})
 
 	// AI provider (OpenAI / Anthropic / OpenAI-compatible) + metadata describe
@@ -204,6 +212,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		Embedder:      embedder,
 		AIEmbedMeta:   embedMeta,
 		TimeGrains:    timeGrainsStore,
+		PoolCache:     poolCache,
 	}, nil
 }
 
@@ -253,8 +262,19 @@ func migratePlaintextDSNs(ctx context.Context, db *sql.DB, enc *security.Encrypt
 
 // Close cleans up resources.
 func (d *Dependencies) Close() error {
-	if d.MetadataDB != nil {
-		return d.MetadataDB.Close()
+	var errs []error
+	if d.PoolCache != nil {
+		if err := d.PoolCache.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("close datasource pool cache: %w", err))
+		}
 	}
-	return nil
+	if d.MetadataDB != nil {
+		if err := d.MetadataDB.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("close metadata db: %w", err))
+		}
+	}
+	if len(errs) == 0 {
+		return nil
+	}
+	return errors.Join(errs...)
 }

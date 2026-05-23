@@ -13,15 +13,15 @@
 
 ## Performance - Should Fix Soon
 
-- [ ] `core/query_service.go:130-134` — New `*sql.DB` pool opened and closed per query execution. Implement pool cache keyed by datasource ID.
-- [ ] `http/metrics.go:16,203-205` — Single global `sync.Mutex` for all metrics, held during Prometheus serialization. Replace with `atomic.Int64` counters.
-- [ ] `http/metrics.go:214` — `runtime.ReadMemStats` forces STW GC pause on every `/metrics` scrape. Remove forced GC.
-- [ ] `ai/service.go:446-467` — Multi-candidate LLM generation runs N requests serially. Use `errgroup` for parallelism.
-- [ ] `ai/prompt.go:250` — Go `text/template` parsed from scratch on every prompt build. Parse once and cache.
-- [ ] `semantic/repository.go:316-338` — `GetFullModel` executes 4 sequential queries (hot path). Use JOINs or `errgroup`.
-- [ ] `ai/table_router.go:229-240` — `ListTables`, `ListColumns`, `ListRelations` called sequentially. Run concurrently with `errgroup`.
-- [ ] `ai/prompt.go:104-206` — 11 `bytes.Buffer` allocations per `Build` call. Use existing `promptBuilderPool` or single buffer.
-- [ ] `ai/table_router.go:1805-1808` — `isNumericType` allocates fresh slice per call. Use package-level map.
+- [x] `core/query_service.go:130-134` — New `*sql.DB` pool opened and closed per query execution. Implement pool cache keyed by datasource ID.
+- [x] `http/metrics.go:16,203-205` — Single global `sync.Mutex` for all metrics, held during Prometheus serialization. Replace with `atomic.Int64` counters.
+- [x] `http/metrics.go:214` — `runtime.ReadMemStats` forces STW GC pause on every `/metrics` scrape. Remove forced GC.
+- [x] `ai/service.go:446-467` — Multi-candidate LLM generation runs N requests serially. Use `errgroup` for parallelism.
+- [x] `ai/prompt.go:250` — Go `text/template` parsed from scratch on every prompt build. Parse once and cache.
+- [x] `semantic/repository.go:316-338` — `GetFullModel` executes 4 sequential queries (hot path). Use JOINs or `errgroup`.
+- [x] `ai/table_router.go:229-240` — `ListTables`, `ListColumns`, `ListRelations` called sequentially. Run concurrently with `errgroup`.
+- [x] `ai/prompt.go:104-206` — 11 `bytes.Buffer` allocations per `Build` call. Use existing `promptBuilderPool` or single buffer.
+- [x] `ai/table_router.go:1805-1808` — `isNumericType` allocates fresh slice per call. Use package-level map.
 
 ## Database
 

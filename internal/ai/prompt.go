@@ -54,6 +54,19 @@ var promptBuilderPool = sync.Pool{
 	New: func() any { return new(bytes.Buffer) },
 }
 
+// withPooledBuffer borrows a *bytes.Buffer from promptBuilderPool, runs fn to
+// fill it, copies its contents to a string, returns the buffer to the pool,
+// and yields the string to the caller. Used by Build to avoid eleven fresh
+// bytes.Buffer allocations per prompt.
+func withPooledBuffer(fn func(*bytes.Buffer)) string {
+	buf, _ := promptBuilderPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	fn(buf)
+	out := buf.String()
+	promptBuilderPool.Put(buf)
+	return out
+}
+
 // PromptBuilder constructs the AI prompt with semantic context.
 type PromptBuilder struct{}
 
@@ -137,17 +150,19 @@ func (b *PromptBuilder) Build(ctx context.Context, question string, model *seman
 		}
 	}
 
-	dimBuf := new(bytes.Buffer)
-	omittedDims := b.writeDimensions(dimBuf, allowedDims, remaining/2)
-	dimensionsStr := dimBuf.String()
+	var omittedDims int
+	dimensionsStr := withPooledBuffer(func(buf *bytes.Buffer) {
+		omittedDims = b.writeDimensions(buf, allowedDims, remaining/2)
+	})
 
-	metricsBudget := maxPromptRunes - (headRunes + utf8.RuneCount(dimBuf.Bytes())) - promptStaticReserveRunes/2
+	metricsBudget := maxPromptRunes - (headRunes + utf8.RuneCountInString(dimensionsStr)) - promptStaticReserveRunes/2
 	if metricsBudget < 4000 {
 		metricsBudget = 4000
 	}
-	metricBuf := new(bytes.Buffer)
-	omittedMetrics := b.writeMetrics(metricBuf, allowedMetrics, metricsBudget)
-	metricsStr := metricBuf.String()
+	var omittedMetrics int
+	metricsStr := withPooledBuffer(func(buf *bytes.Buffer) {
+		omittedMetrics = b.writeMetrics(buf, allowedMetrics, metricsBudget)
+	})
 
 	var noteStr string
 	if omittedDims > 0 || omittedMetrics > 0 {
@@ -165,45 +180,26 @@ func (b *PromptBuilder) Build(ctx context.Context, question string, model *seman
 
 	var joinsStr string
 	if len(allowedJoins) > 0 {
-		joinBuf := new(bytes.Buffer)
-		for _, j := range allowedJoins {
-			fmt.Fprintf(joinBuf, "- %s: %s.%s → %s.%s (%s, %s)\n",
-				j.Name, j.FromTable, j.FromColumn, j.ToTable, j.ToColumn, j.JoinType, j.Relationship)
-		}
-		joinsStr = joinBuf.String()
+		joinsStr = withPooledBuffer(func(buf *bytes.Buffer) {
+			for _, j := range allowedJoins {
+				fmt.Fprintf(buf, "- %s: %s.%s → %s.%s (%s, %s)\n",
+					j.Name, j.FromTable, j.FromColumn, j.ToTable, j.ToColumn, j.JoinType, j.Relationship)
+			}
+		})
 	}
 
 	filterOpsStr := "eq, neq, gt, gte, lt, lte, in, not_in, contains, starts_with, ends_with, between, is_null, is_not_null\n\n"
 
-	glossaryBuf := new(bytes.Buffer)
-	b.writeBusinessGlossary(glossaryBuf, glossary)
-	glossaryStr := glossaryBuf.String()
-
-	dialectBuf := new(bytes.Buffer)
-	b.writeDialectCompilationGuide(dialectBuf, targetDialect)
-	dialectStr := dialectBuf.String()
-
-	failureBuf := new(bytes.Buffer)
-	b.writeFailureExamples(failureBuf)
-	failureStr := failureBuf.String()
-
-	planningBuf := new(bytes.Buffer)
-	b.writePlanningSteps(planningBuf)
-	planningStr := planningBuf.String()
+	glossaryStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeBusinessGlossary(buf, glossary) })
+	dialectStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeDialectCompilationGuide(buf, targetDialect) })
+	failureStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeFailureExamples(buf) })
+	planningStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writePlanningSteps(buf) })
 
 	outputFmt := promptTemplate(ctx, locale, "output_format")
 
-	sampleBuf := new(bytes.Buffer)
-	b.writeSampleData(sampleBuf, samples)
-	sampleStr := sampleBuf.String()
-
-	exampleBuf := new(bytes.Buffer)
-	b.writeFewShotExamples(exampleBuf, examples, locale)
-	exampleStr := exampleBuf.String()
-
-	priorBuf := new(bytes.Buffer)
-	b.writePriorTurns(priorBuf, priorTurns)
-	priorStr := priorBuf.String()
+	sampleStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeSampleData(buf, samples) })
+	exampleStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeFewShotExamples(buf, examples, locale) })
+	priorStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writePriorTurns(buf, priorTurns) })
 
 	var labelStr string
 	if model.Label != nil {
