@@ -22,7 +22,7 @@
 - [x] **Question preview** — `hooks/useAIJobs.tsx` içinde 3 yerde benzer question preview kodu (238-241, 278-281, 354-359). Tek bir fonksiyona çıkar.
 - [ ] **SavedQuestions new/edit modal** — 128 satır neredeyse birebir tekrar (536-664 ve 667-795). Ortak form component'ine çıkar.
 - [x] **DescribeResult tipi** — `api/metadataDescribe.ts:3-14` ve `types/metadata.ts:47-59`'da tekrar tanımlı. Tek yerden export et.
-- [ ] **useApi method wrapper'lar** — `useAdminApi.ts` içinde get/postData/putData/patchData/deleteData tekrar wrap edilmiş. Generic wrapper ile sadeleştir.
+- [x] **useApi method wrapper'lar** — `useAdminApi.ts` içinde get/postData/putData/patchData/deleteData tekrar wrap edilmiş. Generic wrapper ile sadeleştir.
 - [ ] **Proxy handler'lar** — `http/ai_proxy.go` ve `http/query_proxy.go` backend'de tekrar (backend todo'sunda var).
 
 ## i18n / Hard-coded Strings
@@ -33,7 +33,7 @@
 - [x] `LoadingOverlay.tsx:10` — "Yükleniyor..." hard-coded Türkçe
 - [x] `Select.tsx:239` — "Seçenek yok" hard-coded Türkçe
 - [x] `AIQuery.tsx:696,700` — "Failed to execute query" ve "Execution failed" hard-coded İngilizce
-- [ ] `AIQuery.tsx:1518` — "ABI Chat Workspace" hard-coded
+- [x] `AIQuery.tsx:1518` — "ABI Chat Workspace" hard-coded
 - [x] `FewShotExamples.tsx:209` — "Datasource is required" hard-coded İngilizce
 
 ## Accessibility
@@ -51,7 +51,7 @@
 - [ ] `Modeling.tsx` — 2738 satır, ~30 useState. Canvas engine, form management ve API logic aynı component'te. En azından canvas renderer ve form modallarını ayır.
 - [ ] `Metadata.tsx` — 1089 satır. Inline editing, AI describe, bulk describe ayrı component'lerde olmalı.
 - [x] `hooks/useAIJobs.tsx:321-333` — Promise-based callback pattern. `dismissJob` çağrılırsa promise hiç resolve olmaz (memory leak). Cleanup ekle.
-- [ ] `hooks/useAIJobs.tsx:95-111` — `fetchJSON` JSON parse hatasında sessizce `null` dönüyor. API bug'larını maskeler.
+- [x] `hooks/useAIJobs.tsx:95-111` — `fetchJSON` JSON parse hatasında sessizce `null` dönüyor. API bug'larını maskeler.
 - [x] `components/AIQuery.tsx:1119-1155` — useEffect içinde API çağrıları cancellation token olmadan yapılıyor. QueryBuilder.tsx'deki `let cancelled = false` pattern'ini uygula.
 - [ ] `components/Modeling.tsx:380-388` — useEffect dependency `tables.length` ve `columns.length` içeriyor. Veri yüklenirken gereksiz re-fetch tetikleniyor.
 - [x] `components/QueryBuilder.tsx:567-592` — List rendering'de index key (`key={i}`) kullanılıyor. Eleman silindiğinde React reconciliation sorunları çıkar. Unique key kullan.
@@ -63,7 +63,7 @@
 
 ## Theming
 
-- [ ] `utils/chartConfig.ts:3-8` — Hard-coded dark tema renkleri (`#94a3b8`, `#475569`, `#1e293b`). CSS custom properties kullanarak tema değişimine uyumlu hale getir.
+- [x] `utils/chartConfig.ts:3-8` — Hard-coded dark tema renkleri (`#94a3b8`, `#475569`, `#1e293b`). CSS custom properties kullanarak tema değişimine uyumlu hale getir.
 - [ ] `index.css` — 6029 satırlık monolitik CSS. Route bazlı splitting düşün.
 
 ## Testing
@@ -72,11 +72,11 @@
 - [ ] `Modeling.tsx` — Canvas drag-and-drop, join creation, model publish flow testleri eksik.
 - [ ] `QueryBuilder.tsx` — LogicalQuery building logic, filter/having/groupBy ekleme çıkarma testleri eksik.
 - [x] `hooks/useAIJobs.tsx` — Job lifecycle, polling, cancellation, conflict detection testleri eksik.
-- [ ] `hooks/useApi.ts` — Error parsing, timeout, abort handling testleri eksik.
+- [x] `hooks/useApi.ts` — Error parsing, timeout, abort handling testleri eksik.
 - [x] `utils/resultCellFormat.ts` — Identifier detection, calendar detection, fractional display testleri eksik.
-- [ ] `hooks/useConversation.ts` — localStorage persistence, quota fallback testleri eksik.
+- [x] `hooks/useConversation.ts` — localStorage persistence, quota fallback testleri eksik.
 - [ ] `components/ResultTable.tsx` — Sorting, context menu, cell formatting testleri eksik.
-- [ ] Mevcut test coverage: sadece 2 dosya (`chartData.test.ts`, `formatters.test.ts`). Vitest konfigürasyonu mevcut ama kullanılmıyor.
+- [x] Mevcut test coverage: sadece 2 dosya (`chartData.test.ts`, `formatters.test.ts`). Vitest konfigürasyonu mevcut ama kullanılmıyor.
 
 ## Quick Wins (< 1 Saat)
 
@@ -86,7 +86,7 @@
 - [x] `AIQuery.tsx:756` + `QueryBuilder.tsx:459` — chartData'ya `useMemo` ekle
 - [x] `Settings.tsx` + `TimeGrains.tsx` — `window.location.assign` → `navigate()` değiştir
 - [x] `api/metadataDescribe.ts:34` + `hooks/useApi.ts:28` — HTML stripping regex'ini ortak utility'e taşı
-- [ ] `types/semantic.ts` — Duplike tip tanımlarını buraya taşı, diğer dosyalardan import et
+- [x] `types/semantic.ts` — Duplike tip tanımlarını buraya taşı, diğer dosyalardan import et
 
 ## Bigger Refactors (Planlama Gerekli)
 
@@ -96,4 +96,4 @@
 - [ ] `hooks/useAIJobs.tsx` (679 satır) — Promise-based callback pattern'ini iyileştir. Dangling promise leak'ini düzelt
 - [ ] `index.css` (6029 satır) — CSS splitting: her route/page için ayrı CSS dosyası, lazy-load
 - [ ] `window.confirm()` — Tüm kullanımları özel ConfirmDialog component'i ile değiştir
-- [ ] Test altyapısı — Vitest konfigürasyonu mevcut. En azından hooks ve utils için unit test'ler yazılmalı
+- [x] Test altyapısı — Vitest konfigürasyonu mevcut. En azından hooks ve utils için unit test'ler yazılmalı

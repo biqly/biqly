@@ -2,22 +2,32 @@ import { useCallback, useState } from 'react'
 import type { Conversation, ConversationMessage, AIQueryResponse } from '../types/ai'
 
 const STORAGE_KEY = 'biqly_conversations'
+type ConversationStorage = Pick<Storage, 'getItem' | 'setItem'>
 
-function loadConversations(): Conversation[] {
+function defaultConversationStorage(): ConversationStorage | null {
+  return typeof localStorage === 'undefined' ? null : localStorage
+}
+
+export function loadConversations(storage: ConversationStorage | null = defaultConversationStorage()): Conversation[] {
+  if (!storage) return []
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = storage.getItem(STORAGE_KEY)
     return raw ? JSON.parse(raw) : []
   } catch {
     return []
   }
 }
 
-function saveConversations(conversations: Conversation[]) {
+export function saveConversations(
+  conversations: Conversation[],
+  storage: ConversationStorage | null = defaultConversationStorage(),
+) {
+  if (!storage) return
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations))
+    storage.setItem(STORAGE_KEY, JSON.stringify(conversations))
   } catch {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations.slice(-20)))
+      storage.setItem(STORAGE_KEY, JSON.stringify(conversations.slice(-20)))
     } catch {
       // Ignore storage quota/private-mode failures; in-memory state still updates.
     }

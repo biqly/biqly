@@ -95,7 +95,9 @@ type AIJobsContextValue = {
 
 const AIJobsContext = createContext<AIJobsContextValue | null>(null)
 
-async function fetchJSON<T>(url: string, init?: RequestInit): Promise<{ data: T | null; status: number }> {
+export type FetchJSONResult<T> = { data: T | null; status: number; error: string | null }
+
+export async function fetchJSON<T>(url: string, init?: RequestInit): Promise<FetchJSONResult<T>> {
   const res = await fetch(url, {
     ...init,
     headers: {
@@ -105,11 +107,11 @@ async function fetchJSON<T>(url: string, init?: RequestInit): Promise<{ data: T 
     },
   })
   const text = await res.text()
-  if (!text) return { data: null, status: res.status }
+  if (!text) return { data: null, status: res.status, error: null }
   try {
-    return { data: JSON.parse(text) as T, status: res.status }
+    return { data: JSON.parse(text) as T, status: res.status, error: null }
   } catch {
-    return { data: null, status: res.status }
+    return { data: null, status: res.status, error: `Invalid JSON response from ${url}` }
   }
 }
 
@@ -245,7 +247,14 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
         stopPolling(jobId)
         return
       }
-      const { data, status } = await fetchJSON<AIJob>(`/api/ai/jobs/${encodeURIComponent(jobId)}`)
+      const { data, status, error } = await fetchJSON<AIJob>(`/api/ai/jobs/${encodeURIComponent(jobId)}`)
+      if (error) {
+        stopPolling(jobId)
+        callbacksRef.current.get(jobId)?.onError?.(error)
+        callbacksRef.current.delete(jobId)
+        setMinimized(false)
+        return
+      }
       if (status === 404 || !data) {
         stopPolling(jobId)
         return
@@ -293,9 +302,10 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   )
 
   const resumeActiveJobs = useCallback(async () => {
-    const { data, status } = await fetchJSON<{ jobs: AIJob[] }>(
+    const { data, status, error } = await fetchJSON<{ jobs: AIJob[] }>(
       `/api/ai/jobs?client_session_id=${encodeURIComponent(sessionId)}&active=true`,
     )
+    if (error) return
     if (status === 404 || !data?.jobs?.length) return
     for (const job of data.jobs) {
       if (!isValidJobId(job.id)) continue
@@ -324,10 +334,14 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
         kind,
         request,
       }
-      const { data, status } = await fetchJSON<AIJob>('/api/ai/jobs', {
+      const { data, status, error } = await fetchJSON<AIJob>('/api/ai/jobs', {
         method: 'POST',
         body: JSON.stringify(body),
       })
+      if (error) {
+        callbacks?.onError?.(error)
+        return null
+      }
       if (status === 404 || status === 405) {
         return 'fallback'
       }
@@ -366,9 +380,10 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
 
   const cancelJob = useCallback(
     async (id: string) => {
-      const { data, status } = await fetchJSON<AIJob>(`/api/ai/jobs/${encodeURIComponent(id)}`, {
+      const { data, status, error } = await fetchJSON<AIJob>(`/api/ai/jobs/${encodeURIComponent(id)}`, {
         method: 'DELETE',
       })
+      if (error) return false
       if (status === 404 || status === 405) return false
       if (data) {
         upsertJob(trackedJobFromAIJob(data))
@@ -384,10 +399,11 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   runJobRef.current = runJob
 
   const cancelAllActiveJobs = useCallback(async () => {
-    const { data, status } = await fetchJSON<{ cancelled: number }>('/api/ai/jobs/cancel-active', {
+    const { data, status, error } = await fetchJSON<{ cancelled: number }>('/api/ai/jobs/cancel-active', {
       method: 'POST',
       body: JSON.stringify({ client_session_id: sessionId }),
     })
+    if (error) return 0
     if (status === 404 || status === 405 || !data) return 0
     const activeIds = jobs.filter(jobIsActive).map((j) => j.id)
     for (const id of activeIds) {
@@ -398,9 +414,10 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
 
   const listStaleJobs = useCallback(
     async (olderMinutes = 15) => {
-      const { data, status } = await fetchJSON<AIJobListResponse>(
+      const { data, status, error } = await fetchJSON<AIJobListResponse>(
         `/api/ai/jobs/stale?client_session_id=${encodeURIComponent(sessionId)}&older_minutes=${olderMinutes}`,
       )
+      if (error) return []
       if (status === 404 || status === 405 || !data?.jobs) return []
       return data.jobs
     },
@@ -409,10 +426,11 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
 
   const cancelJobIds = useCallback(async (ids: string[]) => {
     if (!ids.length) return 0
-    const { data, status } = await fetchJSON<{ cancelled: number }>('/api/ai/jobs/cancel-batch', {
+    const { data, status, error } = await fetchJSON<{ cancelled: number }>('/api/ai/jobs/cancel-batch', {
       method: 'POST',
       body: JSON.stringify({ ids }),
     })
+    if (error) return 0
     if (status === 404 || status === 405 || !data) return 0
     for (const id of ids) {
       await pollJob(id)
@@ -577,7 +595,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
           skip_existing: skipExisting,
         }
 
-        const { data: enqueued, status } = await fetchJSON<AIJob | DescribeBatchConflictBody>(
+        const { data: enqueued, status, error } = await fetchJSON<AIJob | DescribeBatchConflictBody>(
           '/api/ai/jobs',
           {
             method: 'POST',
@@ -588,6 +606,19 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
             }),
           },
         )
+        if (error) {
+          setBulkEntries((prev) => {
+            const next = prev.map((entry) =>
+              entry.status === 'running' ? { ...entry, status: 'error' as const, error } : entry,
+            )
+            bulkEntriesRef.current = next
+            return next
+          })
+          setBulkRunning(false)
+          bulkBatchJobIdRef.current = null
+          opts.onFinished?.()
+          return
+        }
 
         if (status === 409 && enqueued && typeof enqueued === 'object' && 'error' in enqueued) {
           const conflict = enqueued as DescribeBatchConflictBody

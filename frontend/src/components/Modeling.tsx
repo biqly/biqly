@@ -1207,6 +1207,12 @@ export default function Modeling() {
   const inactiveMetrics = allMetrics.filter((m) => m.is_active === false)
 
   const baseKey = model ? tableKey(model.base_schema, model.base_table) : null
+  const baseSwapCandidates = useMemo(() => {
+    if (!model) return []
+    return tableCards.filter(
+      (tbl) => !(tbl.schema_name === model.base_schema && tbl.table_name === model.base_table),
+    )
+  }, [tableCards, model])
   const usedTableCount = useMemo(() => {
     if (!model) return 0
     return includedTables.filter((tbl) => {
@@ -1835,9 +1841,7 @@ export default function Modeling() {
       )}
       {baseSwapOpen && model && (
         <BaseSwapModal
-          model={model}
-          includedTables={includedTables}
-          tableImpact={tableImpact}
+          candidateTables={baseSwapCandidates}
           onCancel={() => setBaseSwapOpen(false)}
           onSubmit={swapBaseAndRemoveOld}
           saving={savingBaseSwap}
@@ -1864,25 +1868,15 @@ export default function Modeling() {
 }
 
 interface BaseSwapModalProps {
-  model: SemanticModelDetail
-  includedTables: TableRow[]
-  tableImpact: (schema: string, table: string) => { joins: number; dims: number; metrics: number }
+  candidateTables: TableRow[]
   onCancel: () => void
   onSubmit: (schema: string, table: string) => Promise<void>
   saving: boolean
   t: ReturnType<typeof useT>
 }
 
-function BaseSwapModal({ model, includedTables, tableImpact, onCancel, onSubmit, saving, t }: BaseSwapModalProps) {
-  const candidates = includedTables.filter((tbl) => {
-    if (tbl.schema_name === model.base_schema && tbl.table_name === model.base_table) return false
-    const impact = tableImpact(tbl.schema_name, tbl.table_name)
-    return impact.joins > 0 || impact.dims > 0 || impact.metrics > 0
-  })
-  const fallback = includedTables.filter((tbl) =>
-    !(tbl.schema_name === model.base_schema && tbl.table_name === model.base_table),
-  )
-  const options = candidates.length > 0 ? candidates : fallback
+function BaseSwapModal({ candidateTables, onCancel, onSubmit, saving, t }: BaseSwapModalProps) {
+  const options = candidateTables
   const [picked, setPicked] = useState<string>(() =>
     options[0] ? `${options[0].schema_name}.${options[0].table_name}` : '',
   )

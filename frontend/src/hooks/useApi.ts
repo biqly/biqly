@@ -3,9 +3,10 @@ import { resolveAdminApiKey } from '../utils/env'
 import { getLocale } from '../i18n'
 import { plainTextFromHTML } from '../utils/plainText'
 
-type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+type BodyMethod = 'postData' | 'putData' | 'patchData'
 
-interface RequestOptions {
+export interface RequestOptions {
   timeout?: number
   signal?: AbortSignal
   headers?: Record<string, string>
@@ -32,15 +33,19 @@ function responseError(status: number, data: unknown): string {
   return `HTTP ${status}`
 }
 
-async function request<T>(
+export async function request<T>(
   method: Method,
   url: string,
   body?: unknown,
   options?: RequestOptions,
 ): Promise<{ data: T | null; error: string | null }> {
   const controller = new AbortController()
+  let didTimeout = false
   const timeoutId = setTimeout(
-    () => controller.abort(),
+    () => {
+      didTimeout = true
+      controller.abort()
+    },
     options?.timeout ?? 30_000,
   )
 
@@ -49,6 +54,7 @@ async function request<T>(
         const merged = new AbortController()
         options?.signal?.addEventListener('abort', () => merged.abort())
         controller.signal.addEventListener('abort', () => merged.abort())
+        if (options.signal.aborted || controller.signal.aborted) merged.abort()
         return merged.signal
       })())
     : controller.signal
@@ -76,9 +82,12 @@ async function request<T>(
     return { data: data as T, error: null }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Network error'
+    const aborted = err instanceof DOMException && err.name === 'AbortError'
     return {
       data: null,
-      error: message.includes('aborted') ? 'Request timed out' : message,
+      error: aborted || message.includes('aborted')
+        ? didTimeout ? 'Request timed out' : 'Request aborted'
+        : message,
     }
   } finally {
     clearTimeout(timeoutId)
@@ -157,6 +166,10 @@ function withHeaders(options: RequestOptions | undefined, headers: Record<string
   return { ...options, headers: { ...headers, ...options?.headers } }
 }
 
+function withAdminHeaders(options?: RequestOptions): RequestOptions {
+  return withHeaders(options, adminAuthHeaders())
+}
+
 /**
  * useAdminApi is a convenience wrapper that automatically attaches the
  * BI_ADMIN_API_KEY as a Bearer token in the Authorization header.
@@ -167,29 +180,30 @@ export function useAdminApi() {
 
   const configured = resolveAdminApiKey().length > 0
 
+  const bodyRequest = useCallback(
+    <T = unknown>(method: BodyMethod, url: string, body: unknown, options?: RequestOptions) =>
+      api[method]<T>(url, body, withAdminHeaders(options)),
+    [api],
+  )
+
   const get = useCallback(
-    <T = unknown>(url: string, options?: RequestOptions) =>
-      api.get<T>(url, withHeaders(options, adminAuthHeaders())),
+    <T = unknown>(url: string, options?: RequestOptions) => api.get<T>(url, withAdminHeaders(options)),
     [api],
   )
   const postData = useCallback(
-    <T = unknown>(url: string, body: unknown, options?: RequestOptions) =>
-      api.postData<T>(url, body, withHeaders(options, adminAuthHeaders())),
-    [api],
+    <T = unknown>(url: string, body: unknown, options?: RequestOptions) => bodyRequest<T>('postData', url, body, options),
+    [bodyRequest],
   )
   const putData = useCallback(
-    <T = unknown>(url: string, body: unknown, options?: RequestOptions) =>
-      api.putData<T>(url, body, withHeaders(options, adminAuthHeaders())),
-    [api],
+    <T = unknown>(url: string, body: unknown, options?: RequestOptions) => bodyRequest<T>('putData', url, body, options),
+    [bodyRequest],
   )
   const patchData = useCallback(
-    <T = unknown>(url: string, body: unknown, options?: RequestOptions) =>
-      api.patchData<T>(url, body, withHeaders(options, adminAuthHeaders())),
-    [api],
+    <T = unknown>(url: string, body: unknown, options?: RequestOptions) => bodyRequest<T>('patchData', url, body, options),
+    [bodyRequest],
   )
   const deleteData = useCallback(
-    <T = unknown>(url: string, options?: RequestOptions) =>
-      api.deleteData<T>(url, withHeaders(options, adminAuthHeaders())),
+    <T = unknown>(url: string, options?: RequestOptions) => api.deleteData<T>(url, withAdminHeaders(options)),
     [api],
   )
 

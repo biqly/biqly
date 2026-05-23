@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AIJob } from '../types/ai'
-import { jobQuestionPreview, trackedJobFromAIJob } from './useAIJobs'
+import { fetchJSON, jobQuestionPreview, trackedJobFromAIJob } from './useAIJobs'
 
 function job(overrides: Partial<AIJob>): AIJob {
   return {
@@ -38,5 +38,23 @@ describe('trackedJobFromAIJob', () => {
     expect(trackedJobFromAIJob(job({ request_json: { question: 'total revenue' } })).questionPreview).toBe(
       'total revenue',
     )
+  })
+})
+
+describe('fetchJSON', () => {
+  it('returns a visible error for invalid JSON responses', async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = (() =>
+      Promise.resolve(new Response('<html>nope</html>', { status: 200 }))) as typeof fetch
+
+    try {
+      expect(await fetchJSON('/api/test')).toEqual({
+        data: null,
+        status: 200,
+        error: 'Invalid JSON response from /api/test',
+      })
+    } finally {
+      globalThis.fetch = originalFetch
+    }
   })
 })

@@ -1,9 +1,9 @@
 import type { CSSProperties } from 'react'
 
-export const chartAxisStroke = '#94a3b8'
-export const chartGridStroke = '#475569'
+export const chartAxisStroke = 'var(--text-muted)'
+export const chartGridStroke = 'var(--border-strong)'
 export const chartTooltipStyle: CSSProperties = {
-  background: '#1e293b',
-  border: '1px solid #475569',
+  background: 'var(--bg-card)',
+  border: '1px solid var(--border-strong)',
 }
 export const smallChartTick = { fontSize: 11 } as const
