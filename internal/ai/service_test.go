@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/biqly/biqly/internal/config"
@@ -117,13 +118,12 @@ func TestParseAndValidateOrdersTimeSeriesGroupBy(t *testing.T) {
 // emits successive responses from `replies`, cycling on the last one.
 func stubLLMServer(t *testing.T, replies []string) *httptest.Server {
 	t.Helper()
-	idx := 0
+	var call atomic.Int32
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		reply := replies[len(replies)-1]
-		if idx < len(replies) {
-			reply = replies[idx]
+		if i := int(call.Add(1)) - 1; i < len(replies) {
+			reply = replies[i]
 		}
-		idx++
 		body := map[string]any{
 			"choices": []map[string]any{
 				{"message": map[string]string{"content": reply}},
