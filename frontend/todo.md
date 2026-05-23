@@ -68,7 +68,7 @@
 
 ## Testing
 
-- [ ] `AIQuery.tsx` — Ana feature, sıfır test. En azından: send query flow, conversation management, candidate selection testleri ekle.
+- [x] `AIQuery.tsx` — Ana feature, sıfır test. En azından: send query flow, conversation management, candidate selection testleri ekle.
 - [ ] `Modeling.tsx` — Canvas drag-and-drop, join creation, model publish flow testleri eksik.
 - [ ] `QueryBuilder.tsx` — LogicalQuery building logic, filter/having/groupBy ekleme çıkarma testleri eksik.
 - [x] `hooks/useAIJobs.tsx` — Job lifecycle, polling, cancellation, conflict detection testleri eksik.
@@ -90,7 +90,7 @@
 
 ## Bigger Refactors (Planlama Gerekli)
 
-- [ ] `AIQuery.tsx` (1592 satır) — Alt component'lere böl: ChatPanel, RoutingPanel, CandidateViewer, FeedbackSection, AssistantMessageCard
+- [x] `AIQuery.tsx` (1592 satır) — Alt component'lere böl: ChatPanel, RoutingPanel, CandidateViewer, FeedbackSection, AssistantMessageCard
 - [ ] `Modeling.tsx` (2738 satır) — Canvas engine, form management ve API logic ayır. AddMetricModal (700 satır) ayrı dosya olmalı.
 - [ ] `Metadata.tsx` (1089 satır) — Inline editing, AI describe, bulk describe ayrı component'ler olmalı
 - [ ] `hooks/useAIJobs.tsx` (679 satır) — Promise-based callback pattern'ini iyileştir. Dangling promise leak'ini düzelt
