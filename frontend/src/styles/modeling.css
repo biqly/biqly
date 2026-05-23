@@ -1,0 +1,148 @@
+/* Custom metric modal and helper styling */
+.modal-card--metric {
+  width: min(100%, 46rem);
+  transition: width 0.2s ease;
+}
+
+.metric-helper-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+
+.metric-helper-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 16rem;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card-raised);
+  padding: 0.5rem;
+}
+
+.metric-helper-pane h4 {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.25rem;
+}
+
+.metric-helper-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.15rem;
+}
+
+.metric-helper-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 500;
+  background: var(--bg-body);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 0.25rem 0.4rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.metric-helper-badge:hover {
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+.metric-helper-table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.74rem;
+  font-weight: 600;
+  background: var(--bg-body);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+  margin-top: 0.25rem;
+}
+
+.metric-helper-table-header:hover {
+  background: var(--border);
+}
+
+.metric-helper-table-columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.4rem 0.25rem 0.4rem 0.5rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-left: 2px solid var(--accent);
+  border-radius: 0 4px 4px 0;
+  margin-top: 0.15rem;
+}
+
+/* Custom Expression Editor Autocomplete & Highlight styling */
+.expression-editor-container {
+  position: relative;
+  width: 100%;
+}
+
+.expression-editor-underlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0.5rem;
+  border: 1px solid transparent;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow: hidden;
+  color: var(--text-primary);
+  pointer-events: none;
+  background: transparent;
+  text-align: left;
+}
+
+.expression-editor-textarea {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  background: transparent !important;
+  color: transparent !important;
+  caret-color: var(--text-primary);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+  resize: vertical;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.expression-editor-textarea:focus-visible {
+  border-color: var(--control-focus-border);
+  box-shadow: 0 0 0 1px var(--bg-primary), 0 0 0 3px var(--control-focus-ring);
+  outline: none;
+}
+
+
+

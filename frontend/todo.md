@@ -12,7 +12,7 @@
 - [x] `components/QueryBuilder.tsx:459` — `chartData` her render'da hesaplanıyor. `useMemo` ekle.
 - [x] `components/AIQuery.tsx:1197-1214` — `recentPriorTurns()` her render'da tüm mesajları geziyor. `useMemo` ile memoize et.
 - [x] `hooks/useAIJobs.tsx:265` — Her job için ayrı `setInterval` (1200ms). Eşzamanlı job'lar çoğaldığında request flooding olabilir. Tek bir polling döngüsüne birleştir.
-- [ ] `index.css` — 6029 satırlık tek dosya, initial render'ı blockluyor. Route bazlı CSS splitting veya lazy-load düşün.
+- [x] `index.css` — Route bazlı CSS splitting yapıldı: AIQuery/Evaluation/QueryBuilder/Modeling kendi CSS chunk'larına taşındı (`src/styles/`). Initial CSS ~127KB → ~68KB.
 
 ## Code Duplication / Refactoring
 
@@ -64,7 +64,7 @@
 ## Theming
 
 - [x] `utils/chartConfig.ts:3-8` — Hard-coded dark tema renkleri (`#94a3b8`, `#475569`, `#1e293b`). CSS custom properties kullanarak tema değişimine uyumlu hale getir.
-- [ ] `index.css` — 6029 satırlık monolitik CSS. Route bazlı splitting düşün.
+- [x] `index.css` — Route bazlı splitting yapıldı; bkz. Performance bölümü.
 
 ## Testing
 
@@ -94,6 +94,6 @@
 - [ ] `Modeling.tsx` (2738 satır) — Canvas engine, form management ve API logic ayır. AddMetricModal (700 satır) ayrı dosya olmalı.
 - [ ] `Metadata.tsx` (1089 satır) — Inline editing, AI describe, bulk describe ayrı component'ler olmalı
 - [ ] `hooks/useAIJobs.tsx` (679 satır) — Promise-based callback pattern'ini iyileştir. Dangling promise leak'ini düzelt
-- [ ] `index.css` (6029 satır) — CSS splitting: her route/page için ayrı CSS dosyası, lazy-load
+- [x] `index.css` — Route bazlı CSS splitting tamamlandı (`src/styles/`). 4 ana route kendi CSS chunk'ında.
 - [ ] `window.confirm()` — Tüm kullanımları özel ConfirmDialog component'i ile değiştir
 - [x] Test altyapısı — Vitest konfigürasyonu mevcut. En azından hooks ve utils için unit test'ler yazılmalı

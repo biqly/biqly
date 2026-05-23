@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import '../styles/aiQuery.css'
 import { useApi } from '../hooks/useApi'
 import { useAIJobs } from '../hooks/useAIJobs'
 import { useConversation } from '../hooks/useConversation'

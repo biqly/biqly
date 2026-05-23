@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import '../styles/queryBuilder.css'
 import { useT, type TranslationKey } from '../i18n'
 import { useApi } from '../hooks/useApi'
 import { useArrayState } from '../hooks/useArrayState'
