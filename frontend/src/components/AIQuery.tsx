@@ -1087,6 +1087,7 @@ export default function AIQuery() {
   const [aiRuntime, setAiRuntime] = useState<AIRuntimeSettings | null>(null)
   const [aiRuntimeErr, setAiRuntimeErr] = useState<string | null>(null)
   const [embeddingStatus, setEmbeddingStatus] = useState<string | null>(null)
+  const [embeddingRunning, setEmbeddingRunning] = useState(false)
 
   // Include past queries toggle
   const [includePastQueries, setIncludePastQueries] = useState(false)
@@ -1218,17 +1219,46 @@ export default function AIQuery() {
   )
 
   const refreshMetadataEmbeddings = async () => {
-    if (!datasourceId || embeddingLoading) return
+    if (!datasourceId || embeddingRunning || embeddingLoading) return
     setEmbeddingStatus(null)
-    const body: { datasource_id: string; model_id?: string } = { datasource_id: datasourceId }
-    if (semanticModelId) body.model_id = semanticModelId
-    const res = await postEmbedData<EmbedMetadataResponse>(
-      '/api/ai/metadata/embed',
-      body,
-      { timeout: AI_METADATA_EMBED_TIMEOUT_MS },
-    )
-    if (!res) return
-    setEmbeddingStatus(embeddingSummary(res, t))
+    setEmbeddingRunning(true)
+
+    const request = {
+      datasource_id: datasourceId,
+      model_id: semanticModelId || undefined,
+    }
+
+    try {
+      const outcome = await runJob<typeof request, EmbedMetadataResponse>(
+        'embed_metadata',
+        request,
+        {
+          onComplete: (res) => {
+            setEmbeddingRunning(false)
+            setEmbeddingStatus(embeddingSummary(res, t))
+          },
+          onError: (err) => {
+            setEmbeddingRunning(false)
+            setEmbeddingStatus(err || 'Failed to refresh embeddings')
+          },
+        }
+      )
+
+      if (outcome === 'fallback') {
+        const res = await postEmbedData<EmbedMetadataResponse>(
+          '/api/ai/metadata/embed',
+          request,
+          { timeout: AI_METADATA_EMBED_TIMEOUT_MS },
+        )
+        setEmbeddingRunning(false)
+        if (res) {
+          setEmbeddingStatus(embeddingSummary(res, t))
+        }
+      }
+    } catch (err) {
+      setEmbeddingRunning(false)
+      setEmbeddingStatus(err instanceof Error ? err.message : 'Error refreshing embeddings')
+    }
   }
 
   const requestBody = (q = question): AIQueryRequest => ({
@@ -1393,7 +1423,7 @@ export default function AIQuery() {
                     type="button"
                     className="btn btn-sm routing-embed-btn"
                     onClick={refreshMetadataEmbeddings}
-                    disabled={!datasourceId || embeddingLoading}
+                    disabled={!datasourceId || embeddingLoading || embeddingRunning}
                     title={
                       datasourceId
                         ? semanticModelId
@@ -1402,7 +1432,7 @@ export default function AIQuery() {
                         : t('ai_query.embed_title_none')
                     }
                   >
-                    {embeddingLoading
+                    {embeddingLoading || embeddingRunning
                       ? t('ai_query.embed_refreshing')
                       : semanticModelId
                         ? t('ai_query.embed_refresh_model')

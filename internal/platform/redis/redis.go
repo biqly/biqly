@@ -43,15 +43,27 @@ func NewCacheDisabled() *Cache {
 }
 
 // Key generates a cache key from the logical query.
+//
+// JSON encoding is used instead of fmt's %+v because Go's print formatter
+// renders maps with non-deterministic key order — two equivalent queries
+// could hash to different keys, breaking the cache. encoding/json sorts
+// map keys, so the same LogicalQuery produces the same fingerprint every
+// run.
 func (c *Cache) Key(datasourceID, modelID string, lq query.LogicalQuery, userScope string) string {
 	data := struct {
-		DatasourceID string               `json:"d"`
-		ModelID      string               `json:"m"`
-		Query        query.LogicalQuery   `json:"q"`
-		UserScope    string               `json:"u"`
+		DatasourceID string             `json:"d"`
+		ModelID      string             `json:"m"`
+		Query        query.LogicalQuery `json:"q"`
+		UserScope    string             `json:"u"`
 	}{datasourceID, modelID, lq, userScope}
 
-	hash := sha256.Sum256([]byte(fmt.Sprintf("%+v", data)))
+	encoded, err := json.Marshal(data)
+	if err != nil {
+		// JSON encoding of these shapes does not fail; fall back so cache
+		// behaves like a miss rather than a panic.
+		encoded = fmt.Appendf(nil, "%+v", data)
+	}
+	hash := sha256.Sum256(encoded)
 	return fmt.Sprintf("bi:query:%x", hash)
 }
 

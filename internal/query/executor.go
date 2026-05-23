@@ -76,8 +76,10 @@ func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (
 		valPtrs[i] = &vals[i]
 	}
 
+	truncated := false
 	for rows.Next() {
 		if e.maxRows > 0 && count >= e.maxRows {
+			truncated = true
 			break
 		}
 
@@ -104,6 +106,7 @@ func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (
 		Stats: Stats{
 			DurationMs: duration,
 			RowCount:   len(resultRows),
+			Truncated:  truncated,
 		},
 	}, nil
 }

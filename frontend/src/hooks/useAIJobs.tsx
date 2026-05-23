@@ -129,6 +129,9 @@ export function jobQuestionPreview(kind: AIJobKind, req: unknown): string {
       return `${tables.length} tables`
     }
   }
+  if (kind === 'embed_metadata') {
+    return 'Embedding refresh'
+  }
   const q = asString(record.question)
   if (q.length <= 80) return q
   return `${q.slice(0, 77)}…`

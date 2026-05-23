@@ -124,6 +124,14 @@ func validateAIJobRequest(kind string, raw json.RawMessage) error {
 		if len(req.Tables) > 200 {
 			return fmt.Errorf("at most 200 tables per batch")
 		}
+	case "embed_metadata":
+		var req embedMetadataRequest
+		if err := json.Unmarshal(raw, &req); err != nil {
+			return fmt.Errorf("invalid request payload")
+		}
+		if req.DatasourceID == "" {
+			return fmt.Errorf(core.MsgDatasourceIDRequired)
+		}
 	default:
 		return fmt.Errorf("invalid kind")
 	}
@@ -235,6 +243,16 @@ func (s *AIJobService) processJob(ctx context.Context, job *metadata.AIJob, repo
 			return nil, err
 		}
 		return encodeDescribeBatchJobResult(result)
+	case "embed_metadata":
+		var req embedMetadataRequest
+		if err := json.Unmarshal(job.RequestJSON, &req); err != nil {
+			return nil, fmt.Errorf("invalid request payload")
+		}
+		result, err := s.ai.executeEmbedMetadataJob(ctx, req, report)
+		if err != nil {
+			return nil, err
+		}
+		return encodeEmbedMetadataJobResult(result)
 	default:
 		return nil, fmt.Errorf("unknown job kind %q", job.Kind)
 	}
@@ -251,4 +269,11 @@ func (s *AIJobService) StartConsumer(ctx context.Context, group string) error {
 	return consumer.Subscribe(ctx, group, func(cctx context.Context, jobID string) error {
 		return s.Process(cctx, jobID)
 	})
+}
+
+func encodeEmbedMetadataJobResult(result *embedMetadataResponse) (json.RawMessage, error) {
+	if result == nil {
+		return nil, nil
+	}
+	return json.Marshal(result)
 }

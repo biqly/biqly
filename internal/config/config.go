@@ -3,6 +3,7 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
@@ -495,6 +496,9 @@ func getEnvAsInt(key string, defaultVal int) int {
 	}
 	val, err := strconv.Atoi(valStr)
 	if err != nil {
+		slog.Warn("ignoring invalid int env var; using default",
+			"key", key, "value", valStr, "default", defaultVal, "error", err,
+		)
 		return defaultVal
 	}
 	return val
@@ -507,6 +511,9 @@ func getEnvAsFloat(key string, defaultVal float64) float64 {
 	}
 	val, err := strconv.ParseFloat(valStr, 64)
 	if err != nil {
+		slog.Warn("ignoring invalid float env var; using default",
+			"key", key, "value", valStr, "default", defaultVal, "error", err,
+		)
 		return defaultVal
 	}
 	return val

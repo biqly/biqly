@@ -403,3 +403,64 @@ func (h *AIHandler) executeMetadataDescribeBatchJob(
 	}
 	return out, nil
 }
+
+func (h *AIHandler) executeEmbedMetadataJob(
+	ctx context.Context,
+	req embedMetadataRequest,
+	report AIJobProgressFunc,
+) (*embedMetadataResponse, error) {
+	if report != nil {
+		report(AIJobProgress{Phase: "fetching", Message: "fetching tables for embedding", Progress: 10, Status: metadata.AIJobStatusRunning})
+	}
+
+	if h.deps.AIEmbedMeta == nil || h.deps.Embedder == nil {
+		return nil, fmt.Errorf("embeddings are not configured")
+	}
+
+	var (
+		results []ai.EmbedTableResult
+		err     error
+	)
+	if req.ModelID != "" {
+		model, ferr := h.deps.SemanticRepo.GetFullModel(ctx, req.ModelID)
+		if ferr != nil {
+			return nil, fmt.Errorf("semantic model not found: %w", ferr)
+		}
+		allowed := tablesForModel(model)
+		if report != nil {
+			report(AIJobProgress{Phase: "embedding", Message: fmt.Sprintf("computing embeddings for %d tables", len(allowed)), Progress: 30, Status: metadata.AIJobStatusRunning})
+		}
+		results, err = h.deps.AIEmbedMeta.EmbedForTables(ctx, req.DatasourceID, allowed)
+	} else {
+		if report != nil {
+			report(AIJobProgress{Phase: "embedding", Message: "computing embeddings for all tables in datasource", Progress: 30, Status: metadata.AIJobStatusRunning})
+		}
+		results, err = h.deps.AIEmbedMeta.EmbedAllForDatasource(ctx, req.DatasourceID)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if report != nil {
+		report(AIJobProgress{Phase: "completing", Message: "saving vector embeddings", Progress: 90, Status: metadata.AIJobStatusRunning})
+	}
+
+	embedded, skipped := 0, 0
+	for _, r := range results {
+		if r.Skipped {
+			skipped++
+		} else {
+			embedded++
+		}
+	}
+
+	return &embedMetadataResponse{
+		DatasourceID: req.DatasourceID,
+		ModelID:      req.ModelID,
+		Model:        h.deps.Embedder.Model(),
+		Embedded:     embedded,
+		Skipped:      skipped,
+		Results:      results,
+	}, nil
+}

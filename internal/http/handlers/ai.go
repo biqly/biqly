@@ -19,6 +19,7 @@ import (
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
+	"github.com/google/uuid"
 )
 
 type aiQueryPhase int
@@ -400,8 +401,9 @@ func (h *AIHandler) executeMetadataDescribe(ctx context.Context, req ai.Describe
 }
 
 type embedMetadataRequest struct {
-	DatasourceID string `json:"datasource_id"`
-	ModelID      string `json:"model_id,omitempty"`
+	DatasourceID    string `json:"datasource_id"`
+	ModelID         string `json:"model_id,omitempty"`
+	ClientSessionID string `json:"client_session_id,omitempty"`
 }
 
 type embedMetadataResponse struct {
@@ -430,6 +432,40 @@ func (h *AIHandler) EmbedMetadata(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
+
+	if req.ClientSessionID != "" {
+		b, err := json.Marshal(req)
+		if err != nil {
+			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to marshal job request", err)
+			return
+		}
+		job := &metadata.AIJob{
+			ID:              uuid.NewString(),
+			ClientSessionID: req.ClientSessionID,
+			Kind:            "embed_metadata",
+			Status:          metadata.AIJobStatusQueued,
+			Phase:           "queued",
+			PhaseMessage:    "waiting in queue",
+			ProgressPct:     0,
+			DatasourceID:    &req.DatasourceID,
+			ScopeSchemas:    []string{},
+			RequestJSON:     b,
+		}
+		if err := h.deps.MetaRepo.CreateAIJob(ctx, job); err != nil {
+			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to create job", err)
+			return
+		}
+		if h.deps.AIJobQueue != nil {
+			if err := h.deps.AIJobQueue.Publish(ctx, job.ID); err != nil {
+				_ = h.deps.MetaRepo.FailAIJob(ctx, job.ID, err.Error())
+				writeInternalError(ctx, w, http.StatusInternalServerError, "failed to publish job to queue", err)
+				return
+			}
+		}
+		writeJSON(w, http.StatusAccepted, job)
+		return
+	}
+
 	var (
 		results []ai.EmbedTableResult
 		err     error

@@ -82,6 +82,10 @@ const (
 type Stats struct {
 	DurationMs int64 `json:"duration_ms"`
 	RowCount   int   `json:"row_count"`
+	// Truncated reports whether the underlying SQL produced more rows than
+	// the configured max-rows cap. Clients can use this to surface "showing
+	// first N rows" rather than silently presenting a partial result set.
+	Truncated bool `json:"truncated,omitempty"`
 }
 
 // CompiledQuery holds the SQL generated from a LogicalQuery.

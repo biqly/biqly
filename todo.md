@@ -76,15 +76,16 @@
 - [ ] Test: Cache key determinism for `redis.Key` with map-containing structs
 - [x] Test: Permission nil-safety (nil policy should deny access after fix)
 - [x] Test: `dateTruncCompareExpr` with MySQL/SQLServer/ClickHouse dialects
-- [ ] Test: Admin job endpoints reject unauthenticated requests (after auth added)
+- [x] Test: Admin job endpoints reject unauthenticated requests (after auth added)
 - [ ] Test: Connection pool open/close overhead vs cached pool (benchmark)
 
 ## Optional / Future
 
-- [ ] `config.go:88-167` — `AIConfig` has ~80 fields. Extract sub-configs (`AIEmbeddingConfig`, `AITranslationConfig`, `AIRoutingConfig`).
-- [ ] `config.go:444-453` — `getEnvAsInt` / `getEnvAsFloat` silently swallow parse errors. Log warning on failure.
-- [ ] `ai/retry_helpers.go:22` — No jitter in exponential backoff. Retry storms possible under load.
-- [ ] `platform/redis/redis.go:54` — `fmt.Sprintf("%+v", data)` for cache key is fragile with maps (non-deterministic ordering).
-- [ ] `query/executor.go:80-82` — Row limit truncation is silent. Add `Truncated bool` to result so caller can distinguish.
-- [ ] `core/query_service.go:93-94` vs `104-105` — `RepairMisnamedCalendarGrainDimensions` and `EnsureGroupBySelected` called twice on `Compile -> CompileWithContext` path.
-- [ ] Log rotation for file-based logging (`platform/logger/logger.go:36`).
+- [ ] `config.go:88-167` — `AIConfig` has ~80 fields. Extract sub-configs (`AIEmbeddingConfig`, `AITranslationConfig`, `AIRoutingConfig`).  <!-- defer: large structural change, blast radius across many call sites -->
+- [x] `config.go:444-453` — `getEnvAsInt` / `getEnvAsFloat` silently swallow parse errors. Log warning on failure.
+- [x] `ai/retry_helpers.go:22` — No jitter in exponential backoff. Retry storms possible under load.
+- [x] `platform/redis/redis.go:54` — `fmt.Sprintf("%+v", data)` for cache key is fragile with maps (non-deterministic ordering).
+- [x] `query/executor.go:80-82` — Row limit truncation is silent. Add `Truncated bool` to result so caller can distinguish.
+- [x] `core/query_service.go:93-94` vs `104-105` — `RepairMisnamedCalendarGrainDimensions` and `EnsureGroupBySelected` called twice on `Compile -> CompileWithContext` path.
+- [ ] Log rotation for file-based logging (`platform/logger/logger.go:36`).  <!-- defer: belongs in deployment (logrotate / k8s sidecar) rather than the Go binary -->
+

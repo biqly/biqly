@@ -4,6 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	// math/rand/v2 is appropriate here: jitter is for de-synchronizing retry
+	// storms across replicas, not a security boundary. crypto/rand would be
+	// ~50× slower with no benefit.
+	//nolint:gosec // G404: non-security PRNG usage (retry jitter)
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"syscall"
@@ -12,14 +17,16 @@ import (
 
 const llmHTTPMaxAttempts = 4
 
-// execRetry runs op with exponential backoff (up to llmHTTPMaxAttempts). op returns
-// retry=true for transient HTTP/network failures.
+// execRetry runs op with exponential backoff (up to llmHTTPMaxAttempts). op
+// returns retry=true for transient HTTP/network failures. Backoff is
+// 250ms × 2^(attempt-1) with ±25% uniform jitter so simultaneously failing
+// callers do not synchronize a retry storm against the upstream.
 func execRetry[T any](ctx context.Context, op func() (T, error, bool)) (T, error) {
 	var zero T
 	var lastErr error
 	for attempt := range llmHTTPMaxAttempts {
 		if attempt > 0 {
-			delay := time.Duration(250*(1<<uint(attempt-1))) * time.Millisecond
+			delay := jitteredBackoff(attempt)
 			if err := sleepCtx(ctx, delay); err != nil {
 				return zero, err
 			}
@@ -34,6 +41,15 @@ func execRetry[T any](ctx context.Context, op func() (T, error, bool)) (T, error
 		}
 	}
 	return zero, fmt.Errorf("send request: %w", lastErr)
+}
+
+// jitteredBackoff returns the per-attempt delay: 250ms × 2^(attempt-1)
+// multiplied by a uniform random factor in [0.75, 1.25].
+func jitteredBackoff(attempt int) time.Duration {
+	base := time.Duration(250*(1<<uint(attempt-1))) * time.Millisecond
+	// factor ∈ [0.75, 1.25)
+	factor := 0.75 + rand.Float64()*0.5
+	return time.Duration(float64(base) * factor)
 }
 
 func execLLMHTTPRetry(ctx context.Context, op func() (GenerationResult, error, bool)) (GenerationResult, error) {

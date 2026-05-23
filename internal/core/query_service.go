@@ -114,8 +114,9 @@ func (s *QueryService) Compile(ctx context.Context, lq query.LogicalQuery) (*Com
 	if se != nil {
 		return nil, se
 	}
-	query.RepairMisnamedCalendarGrainDimensions(&loaded.LogicalQuery, dimensionNames(loaded.Model))
-	loaded.LogicalQuery.EnsureGroupBySelected()
+	// Repair + EnsureGroupBySelected used to run here AND inside
+	// CompileWithContext, which double-walked the LogicalQuery for every
+	// /api/query/run. CompileWithContext is the single normalization point.
 	compiled, se := s.CompileWithContext(ctx, loaded.LogicalQuery, loaded.Model, loaded.Driver)
 	if se != nil {
 		return nil, se
