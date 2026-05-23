@@ -1,0 +1,15 @@
+export const CARD_WIDTH = 280
+export const HEADER_HEIGHT = 61.8
+export const ROW_HEIGHT = 25.8
+export const CARD_PAD_Y = 5.6
+export const COL_LIMIT = 10
+export const GRID_X = 340
+export const GRID_Y = 72
+export const ORIGIN_X = 40
+export const ORIGIN_Y = 40
+export const MIN_SCALE = 0.3
+export const MAX_SCALE = 2.5
+export const ZOOM_STEPS = [0.3, 0.4, 0.5, 0.6, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5]
+export const LAYOUT_COLS = 4
+export const KEYBOARD_MOVE_STEP = 8
+export const KEYBOARD_MOVE_STEP_SHIFT = 40

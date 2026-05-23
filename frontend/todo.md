@@ -48,12 +48,12 @@
 ## Architecture / Design
 
 - [ ] `AIQuery.tsx` — 1592 satır, 25+ useState. God component. Sorun sorumluluklarını alt component'lere böl: chat panel, routing panel, candidate viewer, feedback section.
-- [ ] `Modeling.tsx` — 2738 satır, ~30 useState. Canvas engine, form management ve API logic aynı component'te. En azından canvas renderer ve form modallarını ayır.
+- [x] `Modeling.tsx` — 2738 satır, ~30 useState. Canvas engine, form management ve API logic aynı component'te. En azından canvas renderer ve form modallarını ayır.
 - [ ] `Metadata.tsx` — 1089 satır. Inline editing, AI describe, bulk describe ayrı component'lerde olmalı.
 - [x] `hooks/useAIJobs.tsx:321-333` — Promise-based callback pattern. `dismissJob` çağrılırsa promise hiç resolve olmaz (memory leak). Cleanup ekle.
 - [x] `hooks/useAIJobs.tsx:95-111` — `fetchJSON` JSON parse hatasında sessizce `null` dönüyor. API bug'larını maskeler.
 - [x] `components/AIQuery.tsx:1119-1155` — useEffect içinde API çağrıları cancellation token olmadan yapılıyor. QueryBuilder.tsx'deki `let cancelled = false` pattern'ini uygula.
-- [ ] `components/Modeling.tsx:380-388` — useEffect dependency `tables.length` ve `columns.length` içeriyor. Veri yüklenirken gereksiz re-fetch tetikleniyor.
+- [x] `components/Modeling.tsx:380-388` — useEffect dependency `tables.length` ve `columns.length` içeriyor. Veri yüklenirken gereksiz re-fetch tetikleniyor.
 - [x] `components/QueryBuilder.tsx:567-592` — List rendering'de index key (`key={i}`) kullanılıyor. Eleman silindiğinde React reconciliation sorunları çıkar. Unique key kullan.
 
 ## Navigation / Router
@@ -69,7 +69,7 @@
 ## Testing
 
 - [x] `AIQuery.tsx` — Ana feature, sıfır test. En azından: send query flow, conversation management, candidate selection testleri ekle.
-- [ ] `Modeling.tsx` — Canvas drag-and-drop, join creation, model publish flow testleri eksik.
+- [x] `Modeling.tsx` — Canvas drag-and-drop, join creation, model publish flow testleri eksik.
 - [ ] `QueryBuilder.tsx` — LogicalQuery building logic, filter/having/groupBy ekleme çıkarma testleri eksik.
 - [x] `hooks/useAIJobs.tsx` — Job lifecycle, polling, cancellation, conflict detection testleri eksik.
 - [x] `hooks/useApi.ts` — Error parsing, timeout, abort handling testleri eksik.
@@ -91,7 +91,7 @@
 ## Bigger Refactors (Planlama Gerekli)
 
 - [x] `AIQuery.tsx` (1592 satır) — Alt component'lere böl: ChatPanel, RoutingPanel, CandidateViewer, FeedbackSection, AssistantMessageCard
-- [ ] `Modeling.tsx` (2738 satır) — Canvas engine, form management ve API logic ayır. AddMetricModal (700 satır) ayrı dosya olmalı.
+- [x] `Modeling.tsx` (2738 satır) — Canvas engine, form management ve API logic ayır. AddMetricModal (700 satır) ayrı dosya olmalı.
 - [ ] `Metadata.tsx` (1089 satır) — Inline editing, AI describe, bulk describe ayrı component'ler olmalı
 - [ ] `hooks/useAIJobs.tsx` (679 satır) — Promise-based callback pattern'ini iyileştir. Dangling promise leak'ini düzelt
 - [x] `index.css` — Route bazlı CSS splitting tamamlandı (`src/styles/`). 4 ana route kendi CSS chunk'ında.
