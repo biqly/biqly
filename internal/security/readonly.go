@@ -52,9 +52,9 @@ func (c *ReadOnlyChecker) Check(sql string) error {
 	}
 
 	upper := strings.ToUpper(cleanedTrim)
-	if !(strings.HasPrefix(upper, "SELECT") ||
-		strings.HasPrefix(upper, "WITH") ||
-		strings.HasPrefix(upper, "EXPLAIN")) {
+	if !strings.HasPrefix(upper, "SELECT") &&
+		!strings.HasPrefix(upper, "WITH") &&
+		!strings.HasPrefix(upper, "EXPLAIN") {
 		head := cleanedTrim
 		if len(head) > 50 {
 			head = head[:50]
@@ -105,7 +105,7 @@ func stripSQLLiteralsAndComments(sql string) string {
 
 		if c == '/' && i+1 < n && sql[i+1] == '*' {
 			i += 2
-			for i+1 < n && !(sql[i] == '*' && sql[i+1] == '/') {
+			for i+1 < n && (sql[i] != '*' || sql[i+1] != '/') {
 				i++
 			}
 			if i+1 < n {

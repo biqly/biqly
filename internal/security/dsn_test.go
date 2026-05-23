@@ -32,7 +32,7 @@ func TestConnectionDSN_plaintextWithEncryptor(t *testing.T) {
 }
 
 func TestRedactDSN_HidesURLPassword(t *testing.T) {
-	in := "postgres://alice:s3cret@db.example:5432/app?sslmode=require"
+	in := "postgres://alice:s3cret@db.example:5432/app?sslmode=require" //nolint:gosec // test fixture DSN, not a real credential
 	got := security.RedactDSN(in)
 	if got == in {
 		t.Fatalf("expected DSN to be redacted, got %q", got)

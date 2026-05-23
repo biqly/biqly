@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,7 +15,7 @@ func okHandler() http.Handler {
 
 func TestAPIKeyAuth_NoKeyMeansNoOp(t *testing.T) {
 	h := APIKeyAuth("")(okHandler())
-	req := httptest.NewRequest(http.MethodGet, "/api/x", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/x", nil)
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
@@ -24,7 +25,7 @@ func TestAPIKeyAuth_NoKeyMeansNoOp(t *testing.T) {
 
 func TestAPIKeyAuth_MissingCredentialRejected(t *testing.T) {
 	h := APIKeyAuth("s3cret")(okHandler())
-	req := httptest.NewRequest(http.MethodGet, "/api/x", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/x", nil)
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	if w.Code != http.StatusUnauthorized {
@@ -34,7 +35,7 @@ func TestAPIKeyAuth_MissingCredentialRejected(t *testing.T) {
 
 func TestAPIKeyAuth_AcceptsXAPIKey(t *testing.T) {
 	h := APIKeyAuth("s3cret")(okHandler())
-	req := httptest.NewRequest(http.MethodGet, "/api/x", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/x", nil)
 	req.Header.Set("X-API-Key", "s3cret")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
@@ -45,7 +46,7 @@ func TestAPIKeyAuth_AcceptsXAPIKey(t *testing.T) {
 
 func TestAPIKeyAuth_AcceptsBearer(t *testing.T) {
 	h := APIKeyAuth("s3cret")(okHandler())
-	req := httptest.NewRequest(http.MethodGet, "/api/x", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/x", nil)
 	req.Header.Set("Authorization", "Bearer s3cret")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
@@ -56,7 +57,7 @@ func TestAPIKeyAuth_AcceptsBearer(t *testing.T) {
 
 func TestAPIKeyAuth_RejectsWrongKey(t *testing.T) {
 	h := APIKeyAuth("s3cret")(okHandler())
-	req := httptest.NewRequest(http.MethodGet, "/api/x", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/x", nil)
 	req.Header.Set("X-API-Key", "nope")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
@@ -67,7 +68,7 @@ func TestAPIKeyAuth_RejectsWrongKey(t *testing.T) {
 
 func TestAPIKeyAuth_BypassPathSkipsAuth(t *testing.T) {
 	h := APIKeyAuth("s3cret", "/health", "/ready")(okHandler())
-	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
