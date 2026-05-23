@@ -5,6 +5,28 @@ import (
 	"testing"
 )
 
+func TestDateTruncPlaceholderPerDialect(t *testing.T) {
+	tests := []struct {
+		name    string
+		dialect Dialect
+		want    string
+	}{
+		{"postgres", PostgresDialect{}, "DATE_TRUNC('quarter', $1::timestamptz)"},
+		{"mysql", MySQLDialect{}, "DATE_TRUNC('quarter', CAST(? AS TIMESTAMP))"},
+		{"sqlserver", SQLServerDialect{}, "DATE_TRUNC('quarter', CAST(@p1 AS TIMESTAMP))"},
+		{"clickhouse", ClickHouseDialect{}, "DATE_TRUNC('quarter', CAST(? AS TIMESTAMP))"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ph := tt.dialect.Placeholder(1)
+			got := tt.dialect.DateTruncPlaceholder("quarter", ph)
+			if got != tt.want {
+				t.Errorf("DateTruncPlaceholder(quarter, %q) = %q, want %q", ph, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestCalendarPartYearIntegerSQL(t *testing.T) {
 	col := "sales.salesorderheader.orderdate"
 	tests := []struct {

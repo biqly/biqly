@@ -190,8 +190,7 @@ func (c *Compiler) dateTruncCompareExpr(part, columnRef, op string, argIndex int
 		return "", fmt.Errorf("date_trunc compare: unsupported part %q", part)
 	}
 	lhs := c.dialect.DateTrunc(part, columnRef)
-	ph := c.dialect.Placeholder(argIndex)
-	rhs := fmt.Sprintf("DATE_TRUNC('%s', %s::timestamptz)", part, ph)
+	rhs := c.dialect.DateTruncPlaceholder(part, c.dialect.Placeholder(argIndex))
 	cmp := sqlComparator(op)
 	return fmt.Sprintf("%s %s %s", lhs, cmp, rhs), nil
 }

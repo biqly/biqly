@@ -45,6 +45,11 @@ func NewClient(cfg config.AIConfig) *Client {
 	return c
 }
 
+// Close closes idle HTTP keepalive connections held by the provider.
+func (c *Client) Close() error {
+	return c.base.http.Close()
+}
+
 type openAIRequest struct {
 	Model       string          `json:"model"`
 	Messages    []openAIMessage `json:"messages"`

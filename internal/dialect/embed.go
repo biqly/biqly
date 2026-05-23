@@ -18,6 +18,13 @@ func (b BaseDialect) CastType(sqlType string) string {
 	return CastTypeUpper(sqlType)
 }
 
+// DateTruncPlaceholder casts the placeholder to a timestamp via standard SQL
+// `CAST(... AS TIMESTAMP)` and wraps it in `DATE_TRUNC('part', ...)`. Dialects
+// without DATE_TRUNC or with a different timestamp keyword override this.
+func (b BaseDialect) DateTruncPlaceholder(part, placeholder string) string {
+	return fmt.Sprintf("DATE_TRUNC('%s', CAST(%s AS TIMESTAMP))", part, placeholder)
+}
+
 // LimitOffset generates a standard LIMIT/OFFSET clause.
 func (b BaseDialect) LimitOffset(limit, offset int) string {
 	return StandardLimitOffset(limit, offset)

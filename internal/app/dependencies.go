@@ -259,14 +259,37 @@ func migratePlaintextDSNs(ctx context.Context, db *sql.DB, enc *security.Encrypt
 	return nil
 }
 
-// Close cleans up resources.
+// Close cleans up resources in the reverse order they were acquired:
+// in-flight datasource pools first, then HTTP-client-backed AI components,
+// finally the metadata DB. Any individual error is collected and returned
+// joined so callers see every failure instead of just the first.
 func (d *Dependencies) Close() error {
 	var errs []error
+
 	if d.PoolCache != nil {
 		if err := d.PoolCache.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close datasource pool cache: %w", err))
 		}
 	}
+
+	// AI providers and the embedder hold http.Client instances; closing them
+	// drains idle keepalive sockets so the process exits cleanly. Providers
+	// implement an optional `Close() error` — anything else is left alone.
+	closeIfPossible := func(label string, v any) {
+		closer, ok := v.(interface{ Close() error })
+		if !ok || closer == nil {
+			return
+		}
+		if err := closer.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("close %s: %w", label, err))
+		}
+	}
+	closeIfPossible("ai client", d.AIClient)
+	if d.AIQueryClient != nil && d.AIQueryClient != d.AIClient {
+		closeIfPossible("ai query client", d.AIQueryClient)
+	}
+	closeIfPossible("embedder", d.Embedder)
+
 	if d.MetadataDB != nil {
 		if err := d.MetadataDB.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close metadata db: %w", err))

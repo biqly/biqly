@@ -37,6 +37,12 @@ func (d PostgresDialect) DateTrunc(part, column string) string {
 	return fmt.Sprintf("DATE_TRUNC('%s', %s)", part, d.QuoteIdent(column))
 }
 
+// DateTruncPlaceholder casts the placeholder to timestamptz (PostgreSQL's
+// preferred timestamp-with-tz type) before truncating.
+func (d PostgresDialect) DateTruncPlaceholder(part, placeholder string) string {
+	return fmt.Sprintf("DATE_TRUNC('%s', %s::timestamptz)", part, placeholder)
+}
+
 // CalendarPart returns CAST(EXTRACT(...)) AS INTEGER for scalar year/quarter/month buckets.
 func (d PostgresDialect) CalendarPart(part, column string) string {
 	return CalendarPartLookup(d, part, column,

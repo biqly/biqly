@@ -36,11 +36,11 @@
 
 ## Architecture
 
-- [ ] `http/router.go:30` — Global `AIRequestTimeout` (~630s) applied to all routes including `/health` and `/ready`. Non-AI routes should have shorter timeout.
-- [ ] `app/dependencies.go:255-260` — `Close()` only closes metadata DB. AI provider HTTP clients, embedder, datasource pools never closed.
+- [x] `http/router.go:30` — Global `AIRequestTimeout` (~630s) applied to all routes including `/health` and `/ready`. Non-AI routes should have shorter timeout.
+- [x] `app/dependencies.go:255-260` — `Close()` only closes metadata DB. AI provider HTTP clients, embedder, datasource pools never closed.
 - [ ] `app/dependencies.go` — `NewDependencies` is a monolithic 200-line constructor. Hard to test without real Postgres. Accept interfaces for key deps.
 - [ ] `compiler.go:74-119` — `CompileWithPermissions` does regex surgery on assembled SQL to inject WHERE. Can match WHERE inside CTEs. Inject filters during compilation instead.
-- [ ] `calendar_grain_filter.go:194` — `dateTruncCompareExpr` hardcodes `::timestamptz` PostgreSQL cast. Breaks for MySQL, SQL Server, ClickHouse.
+- [x] `calendar_grain_filter.go:194` — `dateTruncCompareExpr` hardcodes `::timestamptz` PostgreSQL cast. Breaks for MySQL, SQL Server, ClickHouse.
 
 ## Security (Non-Critical)
 
@@ -74,7 +74,7 @@
 - [ ] Test: Template parsing overhead with cached vs uncached (benchmark)
 - [ ] Test: Cache key determinism for `redis.Key` with map-containing structs
 - [x] Test: Permission nil-safety (nil policy should deny access after fix)
-- [ ] Test: `dateTruncCompareExpr` with MySQL/SQLServer/ClickHouse dialects
+- [x] Test: `dateTruncCompareExpr` with MySQL/SQLServer/ClickHouse dialects
 - [ ] Test: Admin job endpoints reject unauthenticated requests (after auth added)
 - [ ] Test: Connection pool open/close overhead vs cached pool (benchmark)
 

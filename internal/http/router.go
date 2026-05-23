@@ -3,6 +3,7 @@ package http
 import (
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/http/handlers"
@@ -11,6 +12,11 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 )
+
+// shortAPITimeout caps non-AI /api/* requests (CRUD, metadata, history list).
+// Long-running AI generation lives under /api/ai/* with the dedicated AI
+// timeout applied below.
+const shortAPITimeout = 30 * time.Second
 
 // healthCheckBody is the static JSON payload served by the /health endpoint;
 // kept at package scope so the byte slice is allocated once at init.
@@ -27,8 +33,6 @@ func Router(deps *app.Dependencies) http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	// AI NL→SQL and catalog embedding can be slow with local models.
-	r.Use(middleware.Timeout(deps.Config.AI.AIRequestTimeout()))
 
 	// Resolve user locale from Accept-Language / X-Locale / ?lang= and store on context.
 	r.Use(bimw.Locale)
@@ -69,28 +73,39 @@ func Router(deps *app.Dependencies) http.Handler {
 	}
 	r.Route("/api", func(r chi.Router) {
 		r.Use(bimw.APIKeyAuth(deps.Config.Security.APIKey))
-		if deps.Config.Services.CatalogURL != "" {
-			registerCatalogProxyRoutes(r, deps.Config.Services.CatalogURL)
-		} else {
-			r.Group(func(r chi.Router) {
-				r.Use(CatalogMetricsMiddleware(GetMetrics()))
-				registerCatalogAPIRoutes(r, deps)
-			})
-		}
 
-		// Query routes
-		if deps.Config.Services.QueryURL != "" {
-			registerQueryProxyRoutes(r, deps.Config.Services.QueryURL)
-		} else {
-			registerQueryAPIRoutes(r, deps)
-		}
+		// Default API timeout for CRUD / metadata / history endpoints. AI
+		// sub-routes opt into the longer AIRequestTimeout below; query exec
+		// routes manage their own context timeout in the executor layer.
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.Timeout(shortAPITimeout))
+			if deps.Config.Services.CatalogURL != "" {
+				registerCatalogProxyRoutes(r, deps.Config.Services.CatalogURL)
+			} else {
+				r.Group(func(r chi.Router) {
+					r.Use(CatalogMetricsMiddleware(GetMetrics()))
+					registerCatalogAPIRoutes(r, deps)
+				})
+			}
 
-		// AI routes
-		if deps.Config.Services.AIURL != "" {
-			registerAIProxyRoutes(r, deps.Config.Services.AIURL)
-		} else {
-			registerAIAPIRoutes(r, deps)
-		}
+			if deps.Config.Services.QueryURL != "" {
+				registerQueryProxyRoutes(r, deps.Config.Services.QueryURL)
+			} else {
+				registerQueryAPIRoutes(r, deps)
+			}
+		})
+
+		// AI NL→SQL and catalog embedding can be slow with local models — they
+		// need their own timeout budget. Routes are mounted in a separate
+		// chi.Group so the short timeout above does not apply to them.
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.Timeout(deps.Config.AI.AIRequestTimeout()))
+			if deps.Config.Services.AIURL != "" {
+				registerAIProxyRoutes(r, deps.Config.Services.AIURL)
+			} else {
+				registerAIAPIRoutes(r, deps)
+			}
+		})
 	})
 
 	// Internal API routes (Phase 1 of microservice decomposition).

@@ -48,6 +48,11 @@ func NewAnthropicProvider(cfg config.AIConfig) *AnthropicProvider {
 	}
 }
 
+// Close closes idle HTTP keepalive connections held by the provider.
+func (a *AnthropicProvider) Close() error {
+	return a.base.http.Close()
+}
+
 type anthropicMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`

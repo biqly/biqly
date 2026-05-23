@@ -45,6 +45,11 @@ func NewOpenAIEmbedder(cfg config.AIConfig) *OpenAIEmbedder {
 // Model returns the embedding model identifier (e.g. text-embedding-3-small).
 func (e *OpenAIEmbedder) Model() string { return e.base.model }
 
+// Close closes idle HTTP keepalive connections held by the embedder.
+func (e *OpenAIEmbedder) Close() error {
+	return e.base.http.Close()
+}
+
 type openAIEmbeddingRequest struct {
 	Input []string `json:"input"`
 	Model string   `json:"model"`

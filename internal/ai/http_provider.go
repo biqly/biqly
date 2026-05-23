@@ -34,3 +34,13 @@ func (p httpProvider) bearerAuthHeaders() map[string]string {
 	}
 	return map[string]string{"Authorization": "Bearer " + p.apiKey}
 }
+
+// Close drains the provider's HTTP client by closing idle keepalive
+// connections. Used during graceful shutdown so the process exits without
+// dangling sockets. Safe to call multiple times.
+func (p httpProvider) Close() error {
+	if p.client != nil {
+		p.client.CloseIdleConnections()
+	}
+	return nil
+}

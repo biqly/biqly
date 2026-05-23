@@ -23,6 +23,11 @@ type Dialect interface {
 	// DateTrunc returns the date truncation expression for the given date part and column.
 	DateTrunc(part, column string) string
 
+	// DateTruncPlaceholder returns a date-truncation expression where the
+	// truncated value comes from a bind placeholder (e.g. "$1"). Dialects
+	// own the timestamp cast so callers don't hardcode `::timestamptz`.
+	DateTruncPlaceholder(part, placeholder string) string
+
 	// CalendarPart returns an integer grouping expression for calendar parts supported by time-grain
 	// dimensions: year (e.g. 2024), quarter (1–4), month (1–12). part is lower-case: year, quarter, month.
 	CalendarPart(part, column string) string
