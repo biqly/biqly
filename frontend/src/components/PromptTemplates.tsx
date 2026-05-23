@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useApi } from '../hooks/useApi'
 import { DEFAULT_LOCALE, LOCALE_OPTIONS, SUPPORTED_LOCALES, useT } from '../i18n'
 import type { Locale, TranslationKey } from '../i18n'
@@ -27,6 +27,36 @@ const nameLabelKeys: Record<TemplateName, TranslationKey> = {
   prompt_layout: 'prompt_templates.name_prompt_layout',
 }
 
+const TEMPLATE_PARAMS: Record<TemplateName, string[]> = {
+  system_rules: [],
+  output_format: [],
+  clarification: ['{{.Question}}', '{{.FailureReason}}', '{{.ModelName}}', '{{.Dimensions}}', '{{.Metrics}}'],
+  retry: ['{{.OriginalPrompt}}', '{{.LastResponse}}', '{{.ValidationError}}', '{{.ValidationErrors}}'],
+  prompt_layout: [
+    '{{.SystemRules}}',
+    '{{.CurrentDateTime}}',
+    '{{.ModelName}}',
+    '{{.ModelLabel}}',
+    '{{.ModelDescription}}',
+    '{{.BaseTable}}',
+    '{{.ModelSynonyms}}',
+    '{{.Dimensions}}',
+    '{{.Metrics}}',
+    '{{.Note}}',
+    '{{.Joins}}',
+    '{{.FilterOperators}}',
+    '{{.Glossary}}',
+    '{{.DialectGuide}}',
+    '{{.FailureExamples}}',
+    '{{.PlanningSteps}}',
+    '{{.Question}}',
+    '{{.OutputFormat}}',
+    '{{.SampleData}}',
+    '{{.Examples}}',
+    '{{.PriorTurns}}'
+  ]
+}
+
 export default function PromptTemplates() {
   const t = useT()
   const { get, putData, postData, loading, error } = useApi()
@@ -37,6 +67,107 @@ export default function PromptTemplates() {
   const [dirty, setDirty] = useState(false)
   const [saveOk, setSaveOk] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [suggestionIndex, setSuggestionIndex] = useState(0)
+  const [queryStartIdx, setQueryStartIdx] = useState(-1)
+
+  const insertParameter = useCallback((param: string, customStart?: number) => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    const start = customStart !== undefined ? customStart : textarea.selectionStart
+    const end = textarea.selectionEnd
+    const text = textarea.value
+
+    const newValue = text.substring(0, start) + param + text.substring(end)
+    setDraft(newValue)
+    setDirty(true)
+    setSaveOk(null)
+    setShowSuggestions(false)
+
+    setTimeout(() => {
+      textarea.focus()
+      const newCursorPos = start + param.length
+      textarea.setSelectionRange(newCursorPos, newCursorPos)
+    }, 0)
+  }, [setDraft, setDirty, setSaveOk])
+
+  const checkSuggestions = useCallback((val: string, cursorIndex: number) => {
+    const activeParams = TEMPLATE_PARAMS[selectedName] || []
+    if (activeParams.length === 0) {
+      setShowSuggestions(false)
+      return
+    }
+
+    const lastOpen = val.lastIndexOf('{{', cursorIndex - 1)
+    if (lastOpen === -1 || lastOpen < cursorIndex - 30) {
+      setShowSuggestions(false)
+      return
+    }
+
+    const textBetween = val.substring(lastOpen, cursorIndex)
+    if (textBetween.includes('}}')) {
+      setShowSuggestions(false)
+      return
+    }
+
+    const query = textBetween
+    setQueryStartIdx(lastOpen)
+
+    const filtered = activeParams.filter((p) => {
+      const paramLower = p.toLowerCase()
+      const queryLower = query.toLowerCase()
+      return (
+        paramLower.includes(queryLower) ||
+        p.replace(/[{}.]/g, '').toLowerCase().includes(query.replace(/[{}.]/g, '').toLowerCase())
+      )
+    })
+
+    if (filtered.length > 0) {
+      setSuggestions(filtered)
+      setSuggestionIndex(0)
+      setShowSuggestions(true)
+    } else {
+      setShowSuggestions(false)
+    }
+  }, [selectedName])
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value
+    setDraft(val)
+    setDirty(true)
+    setSaveOk(null)
+    checkSuggestions(val, e.target.selectionStart)
+  }
+
+  const handleTextareaSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    const target = e.target as HTMLTextAreaElement
+    checkSuggestions(target.value, target.selectionStart)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!showSuggestions) return
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSuggestionIndex((prev) => (prev + 1) % suggestions.length)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSuggestionIndex((prev) => (prev - 1 + suggestions.length) % suggestions.length)
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault()
+      const selected = suggestions[suggestionIndex]
+      if (selected && queryStartIdx !== -1) {
+        insertParameter(selected, queryStartIdx)
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      setShowSuggestions(false)
+    }
+  }
 
   const load = useCallback(async () => {
     const data = await get<PromptTemplateRow[]>('/api/ai/prompt-templates')
@@ -198,18 +329,96 @@ export default function PromptTemplates() {
           </span>
         </div>
 
-        <textarea
-          className="input"
-          rows={22}
-          style={{ width: '100%', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.85rem' }}
-          value={draft}
-          onChange={(e) => {
-            setDraft(e.target.value)
-            setDirty(true)
-            setSaveOk(null)
-          }}
-          spellCheck={false}
-        />
+        {/* Clickable parameter pills */}
+        {TEMPLATE_PARAMS[selectedName]?.length > 0 && (
+          <div style={{ marginBottom: '0.75rem' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginRight: '0.5rem' }}>
+              {t('prompt_templates.available_params')}:
+            </span>
+            <div style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '0.35rem', verticalAlign: 'middle' }}>
+              {TEMPLATE_PARAMS[selectedName].map((param) => (
+                <button
+                  key={param}
+                  type="button"
+                  className="btn btn-sm"
+                  style={{
+                    padding: '0.1rem 0.4rem',
+                    minHeight: 'auto',
+                    fontSize: '0.72rem',
+                    fontFamily: 'var(--font-mono, monospace)',
+                    borderRadius: '4px',
+                    borderColor: 'rgba(99, 102, 241, 0.2)',
+                    background: 'rgba(99, 102, 241, 0.03)',
+                    color: 'var(--accent)',
+                  }}
+                  onClick={() => insertParameter(param)}
+                >
+                  {param}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{ position: 'relative' }}>
+          <textarea
+            ref={textareaRef}
+            className="input"
+            rows={22}
+            style={{ width: '100%', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.85rem' }}
+            value={draft}
+            onChange={handleTextareaChange}
+            onSelect={handleTextareaSelect}
+            onKeyDown={handleKeyDown}
+            spellCheck={false}
+          />
+          {showSuggestions && suggestions.length > 0 && (
+            <div
+              className="autocomplete-dropdown"
+              style={{
+                position: 'absolute',
+                bottom: '1.25rem',
+                left: '1.25rem',
+                background: 'var(--bg-card-raised)',
+                border: '1px solid var(--border-strong)',
+                borderRadius: '0.5rem',
+                boxShadow: 'var(--shadow-lg, 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3))',
+                zIndex: 10,
+                maxHeight: '150px',
+                overflowY: 'auto',
+                width: '260px',
+                padding: '0.25rem',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+              }}
+            >
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', padding: '0.25rem 0.4rem', borderBottom: '1px solid var(--border)', marginBottom: '0.25rem' }}>
+                {t('prompt_templates.intellisense_hint')}
+              </div>
+              {suggestions.map((s, idx) => {
+                const isSelected = idx === suggestionIndex
+                return (
+                  <div
+                    key={s}
+                    style={{
+                      padding: '0.35rem 0.5rem',
+                      borderRadius: '0.3rem',
+                      cursor: 'pointer',
+                      fontSize: '0.78rem',
+                      fontFamily: 'var(--font-mono, monospace)',
+                      color: isSelected ? '#ffffff' : 'var(--text-primary)',
+                      background: isSelected ? 'var(--accent)' : 'transparent',
+                    }}
+                    onClick={() => insertParameter(s, queryStartIdx)}
+                    onMouseEnter={() => setSuggestionIndex(idx)}
+                  >
+                    {s}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
 
         <div className="form-row" style={{ marginTop: '1rem', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button

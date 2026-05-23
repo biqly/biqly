@@ -1303,9 +1303,17 @@ export default function AIQuery() {
     <div className="ai-query-layout">
       {/* ─── Conversation Sidebar ─────────────────────────────── */}
       <aside className="conversation-sidebar">
-        <div className="sidebar-header">
-          <h3>{t('ai_query.conv_title')}</h3>
-          <button className="btn btn-sm" onClick={() => { createConversation(); setQuestion('') }}>{t('ai_query.conv_new')}</button>
+        <div className="sidebar-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '0.75rem' }}>
+          <h3 style={{ textAlign: 'center', width: '100%', margin: 0 }}>
+            {t('ai_query.conv_title')}
+          </h3>
+          <button
+            className="btn btn-primary btn-sm"
+            style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+            onClick={() => { createConversation(); setQuestion('') }}
+          >
+            {t('ai_query.conv_new')}
+          </button>
         </div>
         <div className="conversations-list">
           {conversations.map((c) => (

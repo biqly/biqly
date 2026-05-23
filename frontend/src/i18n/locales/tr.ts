@@ -653,6 +653,8 @@ export const tr: Dictionary = {
     err_empty: 'İçerik boş olamaz.',
     confirm_restore: 'Bu şablon sunucudaki gömülü varsayılanla değiştirilsin mi?',
     confirm_reseed: 'TÜM prompt şablonları (TR + EN) gömülü varsayılanlarla değiştirilsin mi? Diğer bölümlerdeki kaydedilmemiş değişiklikler silinir.',
+    available_params: 'Kullanılabilir Parametreler',
+    intellisense_hint: 'Otomatik tamamlama için {{ yazın',
   },
   few_shot: {
     title: 'Few-shot örnekleri',

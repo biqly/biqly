@@ -652,6 +652,8 @@ export const en = {
     err_empty: 'Content cannot be empty.',
     confirm_restore: 'Replace this template with the embedded default from the server build?',
     confirm_reseed: 'Replace ALL prompt templates (EN + TR) with embedded defaults? Unsaved edits in other sections will be lost.',
+    available_params: 'Available Parameters',
+    intellisense_hint: 'Type {{ to open autocomplete',
   },
   few_shot: {
     title: 'Few-shot examples',
