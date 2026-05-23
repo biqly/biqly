@@ -16,5 +16,5 @@ helm:
     value: ghcr.io/biqly/migrate
     forcestring: true
   - name: query.image.tag
-    value: sha-d1c5632d833b20aa430d5f823e9ded730b63c580
+    value: sha-57e8bad0e5abc4fb8b7e0562514919f4ec0a2333
     forcestring: true
