@@ -199,6 +199,7 @@ jobs:
           platforms: linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            VITE_BI_ADMIN_API_KEY=${{ secrets.BI_ADMIN_API_KEY }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          secrets: |
+            GIT_AUTH_TOKEN=${{ github.token }}
           provenance: false
