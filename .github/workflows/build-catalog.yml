@@ -30,8 +30,13 @@ jobs:
   image:
     name: Build catalog image
     runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          token: ${{ github.token }}
 
       - uses: docker/setup-qemu-action@v4
 
