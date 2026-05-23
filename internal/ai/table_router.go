@@ -325,8 +325,11 @@ func (r *TableRouter) Route(
 
 	tblIdx := indexTables(tables)
 	if len(selected) > 0 && !result.Manual && len(nonEmptyScope(tableScope)) == 0 {
-		selected = appendEntityResolverTables(selected, columnsByTable, relations, tblIdx, tokenSet(question), maxExpandedAutoTables, nameResolverMaxHops)
-		selected = appendQuestionEntityTables(selected, tables, relations, tblIdx, tokenSet(question), maxExpandedAutoTables, nameResolverMaxHops)
+		// tokenSet(question) was previously recomputed by each helper.
+		// Compute once per request and thread the result through.
+		questionTokens := tokenSet(question)
+		selected = appendEntityResolverTables(selected, columnsByTable, relations, tblIdx, questionTokens, maxExpandedAutoTables, nameResolverMaxHops)
+		selected = appendQuestionEntityTables(selected, tables, relations, tblIdx, questionTokens, maxExpandedAutoTables, nameResolverMaxHops)
 		beforeBridge := bundleKeySet(selected)
 		selected = expandSelectedWithJoinBridges(selected, relations, tblIdx, maxExpandedAutoTables)
 		result.ensureDebug().BridgeTables = addedBundleLabels(beforeBridge, selected)
@@ -477,7 +480,18 @@ func selectAutomaticTables(
 	question string,
 	embedBoost map[string]float64,
 ) ([]tableBundle, *TableRoutingResult, error) {
-	tokens := tokenSet(question)
+	return selectAutomaticTablesWithTokens(tables, columnsByTable, tokenSet(question), embedBoost)
+}
+
+// selectAutomaticTablesWithTokens is the same logic as selectAutomaticTables
+// but accepts pre-computed question tokens so callers that already have them
+// (e.g. the outer routing loop) don't re-tokenize the same question twice.
+func selectAutomaticTablesWithTokens(
+	tables []metadata.Table,
+	columnsByTable map[string][]metadata.Column,
+	tokens map[string]bool,
+	embedBoost map[string]float64,
+) ([]tableBundle, *TableRoutingResult, error) {
 	bundles := make([]tableBundle, 0, len(tables))
 	for _, table := range tables {
 		key := tableKey(table.SchemaName, table.TableName)
@@ -660,10 +674,21 @@ func appendQuestionEntityTables(
 	return selected
 }
 
-// appendEntityResolverTables ensures questions like "<entity> name" can be answered
-// by pulling in the entity table itself plus any downstream display-name table
-// reached through FK chains, even when those tables didn't score in the initial
-// top picks (or are views without FK metadata to begin with).
+// appendEntityResolverTables ensures questions like "<entity> name" can be
+// answered by pulling in the entity table itself plus any downstream
+// display-name table reached through FK chains, even when those tables didn't
+// score in the initial top picks (or are views without FK metadata to begin
+// with). Workflow:
+//
+//  1. Filter the question tokens to entity-like tokens (drop "name", "id"…).
+//  2. BFS from the current selection to find entity-token-matching tables
+//     within maxHops (entityCandidate.hops).
+//  3. Pass 1 — add each entity table itself plus any FK bridges on the path.
+//  4. Pass 2 — for each entity in the set that lacks a display-name column,
+//     walk further hops to find a display-name-bearing partner table.
+//
+// The three phases live in their own functions below so each stage can be
+// reasoned about in isolation.
 func appendEntityResolverTables(
 	selected []tableBundle,
 	columnsByTable map[string][]metadata.Column,
@@ -675,14 +700,7 @@ func appendEntityResolverTables(
 	if !wantsReadableLabelsQuestion(tokens) {
 		return selected
 	}
-
-	entityTokens := make(map[string]bool)
-	for tok := range tokens {
-		if isNameLikeToken(tok) {
-			continue
-		}
-		entityTokens[tok] = true
-	}
+	entityTokens := entityTokensFromQuestion(tokens)
 	if len(entityTokens) == 0 {
 		return selected
 	}
@@ -691,53 +709,63 @@ func appendEntityResolverTables(
 	for _, b := range selected {
 		selectedKeys[tableKey(b.table.SchemaName, b.table.TableName)] = struct{}{}
 	}
-
 	adj := relationAdjacency(relations)
 
-	addPathTo := func(targetKey string) {
-		from := make(map[string]struct{}, len(selectedKeys))
-		for k := range selectedKeys {
-			from[k] = struct{}{}
+	entityCands := findEntityCandidates(idx, adj, selectedKeys, entityTokens, maxHops)
+
+	// Pass 1: include each entity table and the FK bridges on its path.
+	for _, c := range entityCands {
+		if len(selected) >= maxN {
+			break
 		}
-		path := shortestPathFromSet(adj, from, targetKey)
-		if path == nil {
-			return
-		}
-		for i := 1; i < len(path); i++ {
-			if len(selected) >= maxN {
-				return
-			}
-			pkey := path[i]
-			if _, ok := selectedKeys[pkey]; ok {
-				continue
-			}
-			t, ok := idx.byFullName[pkey]
-			if !ok {
-				continue
-			}
-			w := activeRoutingWeights()
-			score := w.ResolverPathBridgeScore
-			if pkey == targetKey {
-				score = w.ResolverPathTargetScore
-			}
-			selected = append(selected, tableBundle{table: t, score: score})
-			selectedKeys[pkey] = struct{}{}
-		}
+		selected, selectedKeys = addPathToTarget(selected, selectedKeys, idx, adj, c.key, maxN)
 	}
 
-	type cand struct {
-		key  string
-		hops int
-	}
+	// Pass 2: for each entity in the set lacking a display-name column, walk
+	// further to find a display-name-bearing partner.
+	selected, _ = addDisplayPartners(selected, selectedKeys, columnsByTable, idx, adj, entityTokens, entityCands, maxN, maxHops)
+	return selected
+}
 
-	// BFS once to enumerate candidate tables matching entity tokens within maxHops.
+// entityTokensFromQuestion drops "name"-like tokens ("name", "names",
+// "fullname", "label") so what remains identifies the entity ("customer",
+// "product") rather than the field being requested.
+func entityTokensFromQuestion(tokens map[string]bool) map[string]bool {
+	out := make(map[string]bool, len(tokens))
+	for tok := range tokens {
+		if isNameLikeToken(tok) {
+			continue
+		}
+		out[tok] = true
+	}
+	return out
+}
+
+// entityCandidate names a table the BFS reached that matches an entity token,
+// along with how many FK hops away it was — closer wins ties downstream.
+type entityCandidate struct {
+	key  string
+	hops int
+}
+
+// findEntityCandidates BFS-walks the FK graph from every currently selected
+// table up to maxHops, recording tables whose names (or singular forms) match
+// an entity token. The result is sorted by hops so the closest hits are
+// considered first.
+func findEntityCandidates(
+	idx tableIndex,
+	adj map[string][]string,
+	selectedKeys map[string]struct{},
+	entityTokens map[string]bool,
+	maxHops int,
+) []entityCandidate {
 	visited := make(map[string]int, len(selectedKeys))
 	queue := make([]string, 0, len(selectedKeys))
 	for k := range selectedKeys {
 		visited[k] = 0
 		queue = append(queue, k)
 	}
-	var entityCands []cand
+	var cands []entityCandidate
 	for len(queue) > 0 {
 		cur := queue[0]
 		queue = queue[1:]
@@ -760,24 +788,70 @@ func appendEntityResolverTables(
 			}
 			tname := strings.ToLower(t.TableName)
 			if entityTokens[tname] || entityTokens[singularize(tname)] {
-				entityCands = append(entityCands, cand{nb, d + 1})
+				cands = append(cands, entityCandidate{key: nb, hops: d + 1})
 			}
 		}
 	}
-	sort.SliceStable(entityCands, func(i, j int) bool { return entityCands[i].hops < entityCands[j].hops })
+	sort.SliceStable(cands, func(i, j int) bool { return cands[i].hops < cands[j].hops })
+	return cands
+}
 
-	// Pass 1: include entity tables themselves (and bridges on the path).
-	for _, c := range entityCands {
-		if len(selected) >= maxN {
-			break
-		}
-		addPathTo(c.key)
+// addPathToTarget extends selected with every table on the shortest FK path
+// from the existing selection set to targetKey, including the target itself.
+// Already-selected tables are skipped. selectedKeys is updated in place so
+// repeated calls share work.
+func addPathToTarget(
+	selected []tableBundle,
+	selectedKeys map[string]struct{},
+	idx tableIndex,
+	adj map[string][]string,
+	targetKey string,
+	maxN int,
+) ([]tableBundle, map[string]struct{}) {
+	from := make(map[string]struct{}, len(selectedKeys))
+	for k := range selectedKeys {
+		from[k] = struct{}{}
 	}
+	path := shortestPathFromSet(adj, from, targetKey)
+	if path == nil {
+		return selected, selectedKeys
+	}
+	w := activeRoutingWeights()
+	for i := 1; i < len(path); i++ {
+		if len(selected) >= maxN {
+			return selected, selectedKeys
+		}
+		pkey := path[i]
+		if _, ok := selectedKeys[pkey]; ok {
+			continue
+		}
+		t, ok := idx.byFullName[pkey]
+		if !ok {
+			continue
+		}
+		score := w.ResolverPathBridgeScore
+		if pkey == targetKey {
+			score = w.ResolverPathTargetScore
+		}
+		selected = append(selected, tableBundle{table: t, score: score})
+		selectedKeys[pkey] = struct{}{}
+	}
+	return selected, selectedKeys
+}
 
-	// Pass 2: for each entity-matching table in the connected set (whether it
-	// was already there from initial scoring or just added in pass 1) that has
-	// no display-name column of its own, walk one or two more FK hops to find a
-	// display-bearing partner (e.g. customer → person.firstname/lastname).
+// addDisplayPartners finds, for each entity table in the current set lacking a
+// display-name column, the closest FK-reachable table that DOES have one, and
+// adds the path to selected. Avoids running display lookup twice per entity.
+func addDisplayPartners(
+	selected []tableBundle,
+	selectedKeys map[string]struct{},
+	columnsByTable map[string][]metadata.Column,
+	idx tableIndex,
+	adj map[string][]string,
+	entityTokens map[string]bool,
+	entityCands []entityCandidate,
+	maxN, maxHops int,
+) ([]tableBundle, map[string]struct{}) {
 	entityKeys := make([]string, 0, len(entityCands)+len(selected))
 	for _, b := range selected {
 		bk := tableKey(b.table.SchemaName, b.table.TableName)
@@ -789,6 +863,7 @@ func appendEntityResolverTables(
 	for _, c := range entityCands {
 		entityKeys = append(entityKeys, c.key)
 	}
+
 	visitedEntity := make(map[string]bool, len(entityKeys))
 	for _, ek := range entityKeys {
 		if len(selected) >= maxN {
@@ -801,42 +876,52 @@ func appendEntityResolverTables(
 		if _, ok := selectedKeys[ek]; !ok {
 			continue
 		}
-		c := cand{key: ek}
-		if hasDisplayNameInColumns(columnsByTable[c.key]) {
+		if hasDisplayNameInColumns(columnsByTable[ek]) {
 			continue
 		}
-		eVisited := map[string]int{c.key: 0}
-		eQueue := []string{c.key}
-		bestKey := ""
-		bestHops := -1
-		for len(eQueue) > 0 {
-			cur := eQueue[0]
-			eQueue = eQueue[1:]
-			d := eVisited[cur]
-			if d >= maxHops {
-				continue
-			}
-			for _, nb := range adj[cur] {
-				if _, seen := eVisited[nb]; seen {
-					continue
-				}
-				eVisited[nb] = d + 1
-				eQueue = append(eQueue, nb)
-				if !hasDisplayNameInColumns(columnsByTable[nb]) {
-					continue
-				}
-				if bestHops < 0 || d+1 < bestHops {
-					bestKey = nb
-					bestHops = d + 1
-				}
-			}
-		}
-		if bestKey != "" {
-			addPathTo(bestKey)
+		if bestKey := nearestDisplayPartner(ek, adj, columnsByTable, maxHops); bestKey != "" {
+			selected, selectedKeys = addPathToTarget(selected, selectedKeys, idx, adj, bestKey, maxN)
 		}
 	}
+	return selected, selectedKeys
+}
 
-	return selected
+// nearestDisplayPartner walks the FK graph outward from startKey and returns
+// the first table whose columns include a display-name column. Empty string
+// when no such partner exists within maxHops.
+func nearestDisplayPartner(
+	startKey string,
+	adj map[string][]string,
+	columnsByTable map[string][]metadata.Column,
+	maxHops int,
+) string {
+	eVisited := map[string]int{startKey: 0}
+	eQueue := []string{startKey}
+	bestKey := ""
+	bestHops := -1
+	for len(eQueue) > 0 {
+		cur := eQueue[0]
+		eQueue = eQueue[1:]
+		d := eVisited[cur]
+		if d >= maxHops {
+			continue
+		}
+		for _, nb := range adj[cur] {
+			if _, seen := eVisited[nb]; seen {
+				continue
+			}
+			eVisited[nb] = d + 1
+			eQueue = append(eQueue, nb)
+			if !hasDisplayNameInColumns(columnsByTable[nb]) {
+				continue
+			}
+			if bestHops < 0 || d+1 < bestHops {
+				bestKey = nb
+				bestHops = d + 1
+			}
+		}
+	}
+	return bestKey
 }
 
 func hasDisplayNameInColumns(cols []metadata.Column) bool {

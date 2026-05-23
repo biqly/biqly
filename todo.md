@@ -61,8 +61,8 @@
 - [x] `http/ai_proxy.go` + `http/query_proxy.go` — 95% identical code. Extract `newUpstreamProxy(prefix, targetURL, serviceName)` factory.  <!-- catalog_proxy.go also collapsed to the factory -->
 - [x] `http/handlers/metadata.go` — All error paths use `writeError` (no logging). Should use `writeInternalError` for 500+ errors.
 - [x] `http/handlers/query.go:104` — History listing failure uses `writeError` with no logging. Use `writeInternalError`.
-- [ ] `ai/table_router.go` — `tokenSet(question)` recomputed in multiple functions. Compute once and pass as parameter.
-- [ ] `ai/table_router.go:644-817` — `appendEntityResolverTables` is 173 lines with nested BFS. Consider extraction into sub-functions.
+- [x] `ai/table_router.go` — `tokenSet(question)` recomputed in multiple functions. Compute once and pass as parameter.
+- [x] `ai/table_router.go:644-817` — `appendEntityResolverTables` is 173 lines with nested BFS. Consider extraction into sub-functions.
 
 ## Testing
 
