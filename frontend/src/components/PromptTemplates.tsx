@@ -57,6 +57,40 @@ const TEMPLATE_PARAMS: Record<TemplateName, string[]> = {
   ]
 }
 
+function highlightContent(text: string) {
+  if (!text) return null
+  const parts = text.split(/(\{\{.*?\}\})/g)
+  return parts.map((part, idx) => {
+    if (part.startsWith('{{') && part.endsWith('}}')) {
+      const inner = part.slice(2, -2) // get inner part
+
+      // Parse keywords if any
+      let keyword = ''
+      let rest = inner
+      if (inner.startsWith('if ')) {
+        keyword = 'if '
+        rest = inner.substring(3)
+      } else if (inner.startsWith('else')) {
+        keyword = 'else'
+        rest = inner.substring(4)
+      } else if (inner.startsWith('end')) {
+        keyword = 'end'
+        rest = inner.substring(3)
+      }
+
+      return (
+        <span key={idx} style={{ fontWeight: 'bold' }}>
+          <span style={{ color: 'rgba(255, 255, 255, 0.35)' }}>{"{{"}</span>
+          {keyword && <span style={{ color: '#f43f5e', fontWeight: 'bold' }}>{keyword}</span>}
+          <span style={{ color: 'var(--accent)', fontWeight: 'bold' }}>{rest}</span>
+          <span style={{ color: 'rgba(255, 255, 255, 0.35)' }}>{"}}"}</span>
+        </span>
+      )
+    }
+    return <span key={idx}>{part}</span>
+  })
+}
+
 export default function PromptTemplates() {
   const t = useT()
   const { get, putData, postData, loading, error } = useApi()
@@ -169,6 +203,26 @@ export default function PromptTemplates() {
     }
   }
 
+  const handleTextareaScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
+    const textarea = e.currentTarget
+    const underlay = textarea.parentElement?.querySelector('.prompt-editor-underlay') as HTMLElement
+    if (underlay) {
+      underlay.scrollTop = textarea.scrollTop
+      underlay.scrollLeft = textarea.scrollLeft
+    }
+  }
+
+  useEffect(() => {
+    const textarea = textareaRef.current
+    if (textarea) {
+      const underlay = textarea.parentElement?.querySelector('.prompt-editor-underlay') as HTMLElement
+      if (underlay) {
+        underlay.scrollTop = textarea.scrollTop
+        underlay.scrollLeft = textarea.scrollLeft
+      }
+    }
+  }, [draft])
+
   const load = useCallback(async () => {
     const data = await get<PromptTemplateRow[]>('/api/ai/prompt-templates')
     if (data) setRows(data)
@@ -274,6 +328,7 @@ export default function PromptTemplates() {
               value={editLocale}
               options={localeOptions}
               onChange={(v) => setEditLocale(v as EditLocale)}
+              size="sm"
             />
           </label>
           <label className="form-field" style={{ minWidth: '14rem', flex: 1 }}>
@@ -282,6 +337,7 @@ export default function PromptTemplates() {
               value={selectedName}
               options={templateOptions}
               onChange={(v) => setSelectedName(v as TemplateName)}
+              size="sm"
             />
           </label>
         </div>
@@ -331,25 +387,36 @@ export default function PromptTemplates() {
 
         {/* Clickable parameter pills */}
         {TEMPLATE_PARAMS[selectedName]?.length > 0 && (
-          <div style={{ marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginRight: '0.5rem' }}>
-              {t('prompt_templates.available_params')}:
-            </span>
-            <div style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '0.35rem', verticalAlign: 'middle' }}>
+          <div style={{
+            marginBottom: '1rem',
+            padding: '0.75rem',
+            background: 'rgba(255, 255, 255, 0.015)',
+            border: '1px solid var(--border)',
+            borderRadius: '0.5rem',
+          }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+              {t('prompt_templates.available_params')}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
               {TEMPLATE_PARAMS[selectedName].map((param) => (
                 <button
                   key={param}
                   type="button"
                   className="btn btn-sm"
                   style={{
-                    padding: '0.1rem 0.4rem',
-                    minHeight: 'auto',
+                    width: 'auto',
+                    marginTop: 0,
+                    padding: '0.15rem 0.5rem',
+                    minHeight: '1.5rem',
                     fontSize: '0.72rem',
                     fontFamily: 'var(--font-mono, monospace)',
                     borderRadius: '4px',
                     borderColor: 'rgba(99, 102, 241, 0.2)',
                     background: 'rgba(99, 102, 241, 0.03)',
                     color: 'var(--accent)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                   onClick={() => insertParameter(param)}
                 >
@@ -360,16 +427,17 @@ export default function PromptTemplates() {
           </div>
         )}
 
-        <div style={{ position: 'relative' }}>
+        <div className="prompt-editor-container">
+          <pre className="prompt-editor-underlay">{highlightContent(draft)}</pre>
           <textarea
             ref={textareaRef}
-            className="input"
+            className="prompt-editor-textarea"
             rows={22}
-            style={{ width: '100%', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.85rem' }}
             value={draft}
             onChange={handleTextareaChange}
             onSelect={handleTextareaSelect}
             onKeyDown={handleKeyDown}
+            onScroll={handleTextareaScroll}
             spellCheck={false}
           />
           {showSuggestions && suggestions.length > 0 && (
@@ -423,7 +491,7 @@ export default function PromptTemplates() {
         <div className="form-row" style={{ marginTop: '1rem', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button
             type="button"
-            className="btn btn-primary"
+            className="btn btn-primary btn-sm"
             disabled={loading || !dirty}
             onClick={() => void handleSave()}
           >
