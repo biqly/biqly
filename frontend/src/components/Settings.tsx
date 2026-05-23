@@ -2,8 +2,15 @@ import { useT } from '../i18n'
 import { LanguageSwitcher } from './ui/LanguageSwitcher'
 import { ThemeToggle } from './ui/ThemeToggle'
 
-export default function Settings() {
+interface SettingsProps {
+  navigate?: (path: string) => void
+}
+
+export default function Settings({ navigate }: SettingsProps) {
   const t = useT()
+  const goTo = (path: string) => {
+    navigate?.(path)
+  }
 
   return (
     <div className="page-stack">
@@ -27,7 +34,7 @@ export default function Settings() {
         <h2>{t('settings.prompt_templates_section')}</h2>
         <p className="card-subtitle">{t('settings.prompt_templates_hint')}</p>
         <div className="settings-control-row">
-          <button type="button" className="btn btn-primary" onClick={() => window.location.assign('/prompt-templates')}>
+          <button type="button" className="btn btn-primary" onClick={() => goTo('/prompt-templates')}>
             {t('settings.prompt_templates_open')}
           </button>
         </div>
@@ -37,7 +44,7 @@ export default function Settings() {
         <h2>{t('settings.time_grains_section')}</h2>
         <p className="card-subtitle">{t('settings.time_grains_hint')}</p>
         <div className="settings-control-row">
-          <button type="button" className="btn btn-primary" onClick={() => window.location.assign('/time-grains')}>
+          <button type="button" className="btn btn-primary" onClick={() => goTo('/time-grains')}>
             {t('settings.time_grains_open')}
           </button>
         </div>

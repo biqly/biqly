@@ -12,7 +12,11 @@ interface TimeGrain {
   updated_at?: string
 }
 
-export default function TimeGrains() {
+interface TimeGrainsProps {
+  navigate?: (path: string) => void
+}
+
+export default function TimeGrains({ navigate }: TimeGrainsProps) {
   const t = useT()
   const { get, putData, loading, error } = useApi()
   const [grains, setGrains] = useState<TimeGrain[]>([])
@@ -94,7 +98,7 @@ export default function TimeGrains() {
           <button
             type="button"
             className="btn-back"
-            onClick={() => window.location.assign('/settings')}
+            onClick={() => navigate?.('/settings')}
           >
             ← {t('time_grains.back_to_settings') || 'Back to Settings'}
           </button>

@@ -6,6 +6,7 @@ import { useQueryParam } from '../hooks/useQueryParam'
 import { formatResultCell } from '../utils/resultCellFormat'
 import { buildPivotTable } from '../utils/pivotTable'
 import { localeNumberTag } from '../utils/formatters'
+import { rowsToChartData } from '../utils/chartData'
 import { ResultTable } from './ResultTable'
 import { ChartContainer } from './ui/ChartContainer'
 import { ChartTypeSelector } from './ui/ChartTypeSelector'
@@ -753,11 +754,7 @@ function AssistantMessageCard({
     window.dispatchEvent(new PopStateEvent('popstate'))
   }
 
-  const chartData = result.result?.rows?.map((row) => {
-    const obj: { name: string; value?: number } = { name: String(row[0]) }
-    if (row[1] !== undefined) obj.value = Number(row[1]) || 0
-    return obj
-  }) ?? []
+  const chartData = useMemo(() => rowsToChartData(result.result?.rows), [result.result?.rows])
 
   return (
     <div className="assistant-card">

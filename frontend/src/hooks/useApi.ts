@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { resolveAdminApiKey } from '../utils/env'
 import { getLocale } from '../i18n'
+import { plainTextFromHTML } from '../utils/plainText'
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
@@ -25,7 +26,7 @@ function responseError(status: number, data: unknown): string {
     if (typeof err === 'string' && err.trim()) return err
   }
   if (typeof data === 'string') {
-    const plain = data.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+    const plain = plainTextFromHTML(data)
     return plain ? `HTTP ${status}: ${plain}` : `HTTP ${status}`
   }
   return `HTTP ${status}`

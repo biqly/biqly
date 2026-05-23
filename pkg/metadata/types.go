@@ -21,7 +21,7 @@ type Datasource struct {
 	Name         string     `json:"name" db:"name"`
 	Type         string     `json:"type" db:"type"`
 	DSNEncrypted string     `json:"-" db:"dsn_encrypted"`
-	Config       string     `json:"config" db:"config"`
+	Config       string     `json:"-" db:"config"`
 	IsActive     bool       `json:"is_active" db:"is_active"`
 	LastSyncAt   *time.Time `json:"last_sync_at" db:"last_sync_at"`
 	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
@@ -34,7 +34,7 @@ type Datasource struct {
 	PasswordEncrypted string          `json:"-" db:"password_encrypted"`
 	DatabaseName      *string         `json:"database_name,omitempty"`
 	SSLMode           *string         `json:"ssl_mode,omitempty"`
-	ConnectionParams  json.RawMessage `json:"connection_params,omitempty"`
+	ConnectionParams  json.RawMessage `json:"-"`
 	DSNMode           string          `json:"dsn_mode,omitempty"`
 }
 

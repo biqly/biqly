@@ -20,6 +20,10 @@ const Settings = lazy(() => import('./components/Settings'))
 const TimeGrains = lazy(() => import('./components/TimeGrains'))
 
 type RouteSectionKey = 'data' | 'query' | 'ai' | 'analytics' | 'preferences'
+type NavigateFn = (path: string) => void
+type RouteComponentProps = {
+  navigate?: NavigateFn
+}
 
 const ROUTE_SECTION_ORDER: RouteSectionKey[] = ['data', 'query', 'ai', 'preferences']
 
@@ -38,7 +42,7 @@ interface AppRouteDef {
   eyebrowKey: TranslationKey
   descriptionKey: TranslationKey
   icon: ReactNode
-  component: LazyExoticComponent<ComponentType>
+  component: LazyExoticComponent<ComponentType<RouteComponentProps>>
   hidden?: boolean
 }
 
@@ -423,7 +427,7 @@ function App() {
                 </section>
               }
             >
-              <ActiveComponent />
+              <ActiveComponent navigate={navigate} />
             </Suspense>
           </ErrorBoundary>
         ) : (

@@ -1,4 +1,5 @@
 import { getLocale } from '../i18n'
+import { plainTextFromHTML } from '../utils/plainText'
 
 export interface DescribeResult {
   schema: string
@@ -30,10 +31,6 @@ export interface DescribeBatchResult {
 
 const AI_METADATA_DESCRIBE_TIMEOUT_MS = 600_000
 
-function plainTextFromResponse(text: string): string {
-  return text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-}
-
 async function readDescribeResponse(res: Response): Promise<{ data: DescribeResult | null; error: string | null }> {
   const text = await res.text()
   if (!text) {
@@ -43,7 +40,7 @@ async function readDescribeResponse(res: Response): Promise<{ data: DescribeResu
   const contentType = res.headers.get('content-type') ?? ''
   const looksJSON = contentType.includes('application/json') || /^[\s[{]/.test(text)
   if (!looksJSON) {
-    const message = plainTextFromResponse(text)
+    const message = plainTextFromHTML(text)
     return { data: null, error: message ? `HTTP ${res.status}: ${message}` : `HTTP ${res.status}` }
   }
 
@@ -52,7 +49,7 @@ async function readDescribeResponse(res: Response): Promise<{ data: DescribeResu
     if (!res.ok) return { data: null, error: data.error || `HTTP ${res.status}` }
     return { data, error: null }
   } catch {
-    const message = plainTextFromResponse(text)
+    const message = plainTextFromHTML(text)
     return { data: null, error: message ? `HTTP ${res.status}: ${message}` : `HTTP ${res.status}: invalid JSON response` }
   }
 }

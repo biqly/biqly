@@ -10,16 +10,8 @@ declare global {
   }
 }
 
-function optionalString(value: unknown): string {
-  return typeof value === 'string' ? value : ''
-}
-
 export function resolveAdminApiKey(): string {
-  const runtime = typeof window !== 'undefined' ? window.__BIQLY_ENV__?.adminApiKey : ''
-  if (runtime) {
-    return runtime
-  }
-  return optionalString(import.meta.env.VITE_BI_ADMIN_API_KEY)
+  return typeof window !== 'undefined' ? window.__BIQLY_ENV__?.adminApiKey ?? '' : ''
 }
 
 export const frontendEnv: FrontendEnv = {

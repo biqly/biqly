@@ -58,7 +58,7 @@ export function ResultTable({
     [rows],
   )
 
-  const sortedRows = (() => {
+  const sortedRows = useMemo(() => {
     if (sortColIdx === null || sortDir === null) return indexedRows
     const dir = sortDir === 'asc' ? 1 : -1
     return [...indexedRows].sort((a, b) => {
@@ -72,7 +72,7 @@ export function ResultTable({
       if (!isNaN(an) && !isNaN(bn)) return (an - bn) * dir
       return String(av).localeCompare(String(bv)) * dir
     })
-  })()
+  }, [indexedRows, sortColIdx, sortDir])
 
   const closeContextMenu = () => setContextMenu(null)
 

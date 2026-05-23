@@ -5,6 +5,7 @@ import { useArrayState } from '../hooks/useArrayState'
 import { useQueryParam } from '../hooks/useQueryParam'
 import type { Datasource } from '../types/metadata'
 import { formatResultCell } from '../utils/resultCellFormat'
+import { rowsToChartData } from '../utils/chartData'
 import { ChartContainer } from './ui/ChartContainer'
 import { ChartTypeSelector } from './ui/ChartTypeSelector'
 import { ErrorAlert } from './ui/ErrorAlert'
@@ -456,11 +457,7 @@ export default function QueryBuilder() {
     }
   }
 
-  const chartData = result?.rows?.map((row) => {
-    const obj: { name: string; value?: number } = { name: String(row[0]) }
-    if (row[1] !== undefined) obj.value = Number(row[1]) || 0
-    return obj
-  }) || []
+  const chartData = useMemo(() => rowsToChartData(result?.rows), [result?.rows])
 
   return (
     <div className="page-stack">
