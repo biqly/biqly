@@ -1,7 +1,7 @@
 helm:
   parameters:
   - name: ai.image.tag
-    value: sha-cb925f26b4a4ae3142279856de6a12d1565c431d
+    value: sha-91e453a185fb4eb09a10aa31360cfb08f1b47092
     forcestring: true
   - name: catalog.image.tag
     value: sha-91e453a185fb4eb09a10aa31360cfb08f1b47092
