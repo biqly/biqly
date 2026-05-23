@@ -42,14 +42,14 @@ func (r *Repository) CreateModel(ctx context.Context, m *SemanticModel) error {
 
 // GetModel retrieves a model by ID.
 func (r *Repository) GetModel(ctx context.Context, id string) (*SemanticModel, error) {
-	query := modelSelectSQL() + ` WHERE id::text = $1` //nolint:gosec // static SELECT fragment plus parameterized WHERE clause
+	query := modelSelectSQL() + ` WHERE id = $1::uuid` //nolint:gosec // static SELECT fragment plus parameterized WHERE clause
 	row := r.db.QueryRowContext(ctx, query, id)
 	return r.scanModel(row)
 }
 
 // GetModelByName retrieves a model by datasource ID and name.
 func (r *Repository) GetModelByName(ctx context.Context, datasourceID, name string) (*SemanticModel, error) {
-	query := modelSelectSQL() + ` WHERE datasource_id::text = $1 AND name = $2` //nolint:gosec // static SELECT fragment plus parameterized WHERE clause
+	query := modelSelectSQL() + ` WHERE datasource_id = $1::uuid AND name = $2` //nolint:gosec // static SELECT fragment plus parameterized WHERE clause
 	row := r.db.QueryRowContext(ctx, query, datasourceID, name)
 	return r.scanModel(row)
 }
@@ -59,7 +59,7 @@ func (r *Repository) ListModels(ctx context.Context, datasourceID string) ([]Sem
 	query := modelSelectSQL()
 	var args []any
 	if datasourceID != "" {
-		query += " WHERE datasource_id::text = $1"
+		query += " WHERE datasource_id = $1::uuid"
 		args = append(args, datasourceID)
 	}
 	query += " ORDER BY created_at DESC"
@@ -90,7 +90,7 @@ func (r *Repository) UpdateModel(ctx context.Context, m *SemanticModel) error {
 		UPDATE semantic_models
 		SET name = $2, label = $3, description = $4, base_schema = $5, base_table = $6, synonyms = $7, excluded_schemas = $8, is_active = $9,
 		    status = 'draft', draft_updated_at = now(), updated_at = now()
-		WHERE id::text = $1
+		WHERE id = $1::uuid
 	`
 	_, err := r.db.ExecContext(ctx, query, m.ID, m.Name, m.Label, m.Description, m.BaseSchema, m.BaseTable, m.Synonyms, m.ExcludedSchemas, m.IsActive)
 	if err != nil {
@@ -101,7 +101,7 @@ func (r *Repository) UpdateModel(ctx context.Context, m *SemanticModel) error {
 
 // DeleteModel removes a semantic model.
 func (r *Repository) DeleteModel(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM semantic_models WHERE id::text = $1`, id)
+	_, err := r.db.ExecContext(ctx, `DELETE FROM semantic_models WHERE id = $1::uuid`, id)
 	if err != nil {
 		return fmt.Errorf("delete model: %w", err)
 	}
@@ -167,7 +167,7 @@ func (r *Repository) BulkInsertModelChildren(ctx context.Context, modelID string
 		}
 		_ = stmt.Close()
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE semantic_models SET status = 'draft', draft_updated_at = now(), updated_at = now() WHERE id::text = $1`, modelID); err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE semantic_models SET status = 'draft', draft_updated_at = now(), updated_at = now() WHERE id = $1::uuid`, modelID); err != nil {
 		return fmt.Errorf("mark model draft: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -193,20 +193,20 @@ func (r *Repository) CreateDimension(ctx context.Context, d *Dimension) error {
 
 // GetDimensions returns all active dimensions for a model.
 func (r *Repository) GetDimensions(ctx context.Context, modelID string) ([]Dimension, error) {
-	query := `SELECT id::text, model_id::text, name, label, column_ref, type, time_grain, synonyms, description, is_active, created_at FROM semantic_dimensions WHERE model_id::text = $1 AND is_active = true ORDER BY name`
+	query := `SELECT id::text, model_id::text, name, label, column_ref, type, time_grain, synonyms, description, is_active, created_at FROM semantic_dimensions WHERE model_id = $1::uuid AND is_active = true ORDER BY name`
 	return platformdb.QuerySliceErr(ctx, r.db, "get dimensions", query, []any{modelID}, scanDimension)
 }
 
 // ListAllDimensions returns every dimension (active and inactive) for a model
 // so the modeling UI can show soft-deleted items in a "Pasif" section.
 func (r *Repository) ListAllDimensions(ctx context.Context, modelID string) ([]Dimension, error) {
-	query := `SELECT id::text, model_id::text, name, label, column_ref, type, time_grain, synonyms, description, is_active, created_at FROM semantic_dimensions WHERE model_id::text = $1 ORDER BY is_active DESC, name`
+	query := `SELECT id::text, model_id::text, name, label, column_ref, type, time_grain, synonyms, description, is_active, created_at FROM semantic_dimensions WHERE model_id = $1::uuid ORDER BY is_active DESC, name`
 	return platformdb.QuerySliceErr(ctx, r.db, "list all dimensions", query, []any{modelID}, scanDimension)
 }
 
 // DeleteDimension soft-deletes a dimension by setting is_active = false.
 func (r *Repository) DeleteDimension(ctx context.Context, modelID, dimensionID string) error {
-	_, err := r.db.ExecContext(ctx, `UPDATE semantic_dimensions SET is_active = false WHERE id::text = $1 AND model_id::text = $2`, dimensionID, modelID)
+	_, err := r.db.ExecContext(ctx, `UPDATE semantic_dimensions SET is_active = false WHERE id = $1::uuid AND model_id = $2::uuid`, dimensionID, modelID)
 	if err != nil {
 		return fmt.Errorf("delete dimension: %w", err)
 	}
@@ -215,7 +215,7 @@ func (r *Repository) DeleteDimension(ctx context.Context, modelID, dimensionID s
 
 // UpdateDimension updates an existing dimension.
 func (r *Repository) UpdateDimension(ctx context.Context, d *Dimension) error {
-	query := `UPDATE semantic_dimensions SET name = $2, label = $3, column_ref = $4, type = $5, time_grain = $6, synonyms = $7, description = $8, is_active = $9 WHERE id::text = $1 AND model_id::text = $10`
+	query := `UPDATE semantic_dimensions SET name = $2, label = $3, column_ref = $4, type = $5, time_grain = $6, synonyms = $7, description = $8, is_active = $9 WHERE id = $1::uuid AND model_id = $10::uuid`
 	_, err := r.db.ExecContext(ctx, query, d.ID, d.Name, d.Label, d.ColumnRef, d.Type, platformdb.NullIfEmpty(d.TimeGrain), d.Synonyms, d.Description, d.IsActive, d.ModelID)
 	if err != nil {
 		return fmt.Errorf("update dimension: %w", err)
@@ -239,19 +239,19 @@ func (r *Repository) CreateMetric(ctx context.Context, m *Metric) error {
 
 // GetMetrics returns all active metrics for a model.
 func (r *Repository) GetMetrics(ctx context.Context, modelID string) ([]Metric, error) {
-	query := `SELECT id::text, model_id::text, name, label, expression, aggregation, format, synonyms, description, is_active, created_at FROM semantic_metrics WHERE model_id::text = $1 AND is_active = true ORDER BY name`
+	query := `SELECT id::text, model_id::text, name, label, expression, aggregation, format, synonyms, description, is_active, created_at FROM semantic_metrics WHERE model_id = $1::uuid AND is_active = true ORDER BY name`
 	return platformdb.QuerySliceErr(ctx, r.db, "get metrics", query, []any{modelID}, scanMetric)
 }
 
 // ListAllMetrics returns every metric (active and inactive) for a model.
 func (r *Repository) ListAllMetrics(ctx context.Context, modelID string) ([]Metric, error) {
-	query := `SELECT id::text, model_id::text, name, label, expression, aggregation, format, synonyms, description, is_active, created_at FROM semantic_metrics WHERE model_id::text = $1 ORDER BY is_active DESC, name`
+	query := `SELECT id::text, model_id::text, name, label, expression, aggregation, format, synonyms, description, is_active, created_at FROM semantic_metrics WHERE model_id = $1::uuid ORDER BY is_active DESC, name`
 	return platformdb.QuerySliceErr(ctx, r.db, "list all metrics", query, []any{modelID}, scanMetric)
 }
 
 // DeleteMetric soft-deletes a metric by setting is_active = false.
 func (r *Repository) DeleteMetric(ctx context.Context, modelID, metricID string) error {
-	_, err := r.db.ExecContext(ctx, `UPDATE semantic_metrics SET is_active = false WHERE id::text = $1 AND model_id::text = $2`, metricID, modelID)
+	_, err := r.db.ExecContext(ctx, `UPDATE semantic_metrics SET is_active = false WHERE id = $1::uuid AND model_id = $2::uuid`, metricID, modelID)
 	if err != nil {
 		return fmt.Errorf("delete metric: %w", err)
 	}
@@ -260,7 +260,7 @@ func (r *Repository) DeleteMetric(ctx context.Context, modelID, metricID string)
 
 // UpdateMetric updates an existing metric.
 func (r *Repository) UpdateMetric(ctx context.Context, m *Metric) error {
-	query := `UPDATE semantic_metrics SET name = $2, label = $3, expression = $4, aggregation = $5, format = $6, synonyms = $7, description = $8, is_active = $9 WHERE id::text = $1 AND model_id::text = $10`
+	query := `UPDATE semantic_metrics SET name = $2, label = $3, expression = $4, aggregation = $5, format = $6, synonyms = $7, description = $8, is_active = $9 WHERE id = $1::uuid AND model_id = $10::uuid`
 	_, err := r.db.ExecContext(ctx, query, m.ID, m.Name, m.Label, m.Expression, m.Aggregation, m.Format, m.Synonyms, m.Description, m.IsActive, m.ModelID)
 	if err != nil {
 		return fmt.Errorf("update metric: %w", err)
@@ -284,19 +284,19 @@ func (r *Repository) CreateJoin(ctx context.Context, j *Join) error {
 
 // GetJoins returns all active joins for a model.
 func (r *Repository) GetJoins(ctx context.Context, modelID string) ([]Join, error) {
-	query := `SELECT id::text, model_id::text, name, from_schema, from_table, from_column, to_schema, to_table, to_column, join_type, relationship, is_active, created_at FROM semantic_joins WHERE model_id::text = $1 AND is_active = true ORDER BY name`
+	query := `SELECT id::text, model_id::text, name, from_schema, from_table, from_column, to_schema, to_table, to_column, join_type, relationship, is_active, created_at FROM semantic_joins WHERE model_id = $1::uuid AND is_active = true ORDER BY name`
 	return platformdb.QuerySliceErr(ctx, r.db, "get joins", query, []any{modelID}, scanJoin)
 }
 
 // ListAllJoins returns every join (active and inactive) for a model.
 func (r *Repository) ListAllJoins(ctx context.Context, modelID string) ([]Join, error) {
-	query := `SELECT id::text, model_id::text, name, from_schema, from_table, from_column, to_schema, to_table, to_column, join_type, relationship, is_active, created_at FROM semantic_joins WHERE model_id::text = $1 ORDER BY is_active DESC, name`
+	query := `SELECT id::text, model_id::text, name, from_schema, from_table, from_column, to_schema, to_table, to_column, join_type, relationship, is_active, created_at FROM semantic_joins WHERE model_id = $1::uuid ORDER BY is_active DESC, name`
 	return platformdb.QuerySliceErr(ctx, r.db, "list all joins", query, []any{modelID}, scanJoin)
 }
 
 // DeleteJoin soft-deletes a join by setting is_active = false.
 func (r *Repository) DeleteJoin(ctx context.Context, modelID, joinID string) error {
-	_, err := r.db.ExecContext(ctx, `UPDATE semantic_joins SET is_active = false WHERE id::text = $1 AND model_id::text = $2`, joinID, modelID)
+	_, err := r.db.ExecContext(ctx, `UPDATE semantic_joins SET is_active = false WHERE id = $1::uuid AND model_id = $2::uuid`, joinID, modelID)
 	if err != nil {
 		return fmt.Errorf("delete join: %w", err)
 	}
@@ -305,7 +305,7 @@ func (r *Repository) DeleteJoin(ctx context.Context, modelID, joinID string) err
 
 // UpdateJoin updates an existing join.
 func (r *Repository) UpdateJoin(ctx context.Context, j *Join) error {
-	query := `UPDATE semantic_joins SET name = $2, from_schema = $3, from_table = $4, from_column = $5, to_schema = $6, to_table = $7, to_column = $8, join_type = $9, relationship = $10, is_active = $11 WHERE id::text = $1 AND model_id::text = $12`
+	query := `UPDATE semantic_joins SET name = $2, from_schema = $3, from_table = $4, from_column = $5, to_schema = $6, to_table = $7, to_column = $8, join_type = $9, relationship = $10, is_active = $11 WHERE id = $1::uuid AND model_id = $12::uuid`
 	_, err := r.db.ExecContext(ctx, query, j.ID, j.Name, j.FromSchema, j.FromTable, j.FromColumn, j.ToSchema, j.ToTable, j.ToColumn, j.JoinType, j.Relationship, j.IsActive, j.ModelID)
 	if err != nil {
 		return fmt.Errorf("update join: %w", err)
@@ -515,7 +515,7 @@ func (r *Repository) commitPublishedVersionTx(
 		    published_at = now(),
 		    published_by = NULLIF($3, ''),
 		    updated_at = now()
-		WHERE id::text = $1
+		WHERE id = $1::uuid
 	`, modelID, version, publishedBy); err != nil {
 		return fmt.Errorf("update model: %w", err)
 	}
@@ -531,7 +531,7 @@ func (r *Repository) MarkModelDraft(ctx context.Context, id string) error {
 		SET status = 'draft',
 		    draft_updated_at = now(),
 		    updated_at = now()
-		WHERE id::text = $1
+		WHERE id = $1::uuid
 	`, id)
 	if err != nil {
 		return fmt.Errorf("mark model draft: %w", err)
@@ -543,7 +543,7 @@ func (r *Repository) latestPublishedSnapshot(ctx context.Context, modelID string
 	row := r.db.QueryRowContext(ctx, `
 		SELECT context
 		FROM semantic_context_snapshots
-		WHERE model_id::text = $1
+		WHERE model_id = $1::uuid
 		ORDER BY version DESC
 		LIMIT 1
 	`, modelID)
@@ -558,7 +558,7 @@ func (r *Repository) snapshotByVersion(ctx context.Context, modelID string, vers
 	row := r.db.QueryRowContext(ctx, `
 		SELECT context
 		FROM semantic_context_snapshots
-		WHERE model_id::text = $1 AND version = $2
+		WHERE model_id = $1::uuid AND version = $2
 	`, modelID, version)
 	var raw []byte
 	if err := row.Scan(&raw); err != nil {

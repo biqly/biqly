@@ -290,6 +290,37 @@ func (r *Repository) UpdateTableLabel(ctx context.Context, id string, label *str
 	return nil
 }
 
+// UpdateTableDescriptionAndLabel writes description and/or label in a single
+// SQL statement so partial updates do not leak between the two columns.
+// nil fields are left untouched.
+func (r *Repository) UpdateTableDescriptionAndLabel(ctx context.Context, id string, description, label *string) error {
+	if description == nil && label == nil {
+		return nil
+	}
+	const q = `
+		UPDATE tables
+		SET description = CASE WHEN $2::boolean THEN $3 ELSE description END,
+		    label       = CASE WHEN $4::boolean THEN $5 ELSE label END,
+		    updated_at  = now()
+		WHERE id = $1`
+	_, err := r.db.ExecContext(ctx, q,
+		id,
+		description != nil, derefStringOrEmpty(description),
+		label != nil, derefStringOrEmpty(label),
+	)
+	if err != nil {
+		return fmt.Errorf("update table description+label: %w", err)
+	}
+	return nil
+}
+
+func derefStringOrEmpty(p *string) any {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
 // TableEmbedding pairs a tableKey ("schema.table") with its stored embedding.
 // Tables that have never been embedded are excluded from ListTableEmbeddings.
 type TableEmbedding struct {
@@ -388,7 +419,7 @@ func (r *Repository) ListPermissionPolicies(ctx context.Context, datasourceID st
 	return platformdb.QuerySliceErr(ctx, r.db, "list permission policies", `
 		SELECT denied_fields, row_filters
 		FROM permissions
-		WHERE datasource_id::text = $1
+		WHERE datasource_id = $1::uuid
 	`, []any{datasourceID}, scanPermissionPolicy)
 }
 

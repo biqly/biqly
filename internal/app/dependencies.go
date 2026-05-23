@@ -19,6 +19,7 @@ import (
 	"github.com/biqly/biqly/internal/datasource/postgres"
 	"github.com/biqly/biqly/internal/datasource/sqlserver"
 	"github.com/biqly/biqly/internal/metadata"
+	platformdb "github.com/biqly/biqly/internal/platform/db"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/security"
 	"github.com/biqly/biqly/internal/semantic"
@@ -87,21 +88,19 @@ type AIJobsHTTPHandler interface {
 
 // NewDependencies wires up all dependencies.
 func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, error) {
-	// Connect to metadata database
-	db, err := sql.Open("pgx", cfg.Metadata.DSN)
+	// Connect to metadata database. Uses the platform/db helper so pool
+	// limits and connection lifetimes are configured in one place.
+	lims := datasource.DefaultPoolLimits()
+	db, err := platformdb.NewPool(ctx, platformdb.Config{
+		DSN:             cfg.Metadata.DSN,
+		MaxOpenConns:    lims.MaxOpen,
+		MaxIdleConns:    lims.MaxIdle,
+		ConnMaxLifetime: datasource.DefaultConnMaxLifetime,
+		ConnMaxIdleTime: datasource.DefaultConnMaxIdleTime,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("open metadata db: %w", err)
 	}
-
-	if pingErr := db.PingContext(ctx); pingErr != nil {
-		return nil, fmt.Errorf("ping metadata db: %w", pingErr)
-	}
-
-	lims := datasource.DefaultPoolLimits()
-	db.SetMaxOpenConns(lims.MaxOpen)
-	db.SetMaxIdleConns(lims.MaxIdle)
-	db.SetConnMaxLifetime(datasource.DefaultConnMaxLifetime)
-	db.SetConnMaxIdleTime(datasource.DefaultConnMaxIdleTime)
 
 	// Setup driver registry
 	reg := datasource.NewRegistry()

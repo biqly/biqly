@@ -145,28 +145,17 @@ func expandColumnEmbeddings(schemaName, tableName, columnName string, modelN *st
 	}}, nil
 }
 
+// upsertEntityEmbedding loads the current embedding payload for an entity,
+// merges in the new locale-specific vector, and writes it back. Wrapped in a
+// transaction with SELECT ... FOR UPDATE so concurrent calls targeting the
+// same row don't lose locales via a lost-update race (two readers see the
+// same baseline, each merges in its own locale, the second write overwrites
+// the first).
 func (r *Repository) upsertEntityEmbedding(ctx context.Context, table string, entityID, modelName string, embedding []float32) error {
-	var selectQ string
+	var selectQ, updateQ string
 	switch table {
 	case "tables":
-		selectQ = `SELECT embedding, embedding_model FROM tables WHERE id = $1`
-	case "columns":
-		selectQ = `SELECT embedding, embedding_model FROM columns WHERE id = $1`
-	default:
-		return fmt.Errorf("upsert embedding: unknown table %q", table)
-	}
-	var existing []byte
-	var existingModel sql.NullString
-	if err := r.db.QueryRowContext(ctx, selectQ, entityID).Scan(&existing, &existingModel); err != nil {
-		return fmt.Errorf("load %s embedding: %w", table, err)
-	}
-	payload, displayModel, err := mergeEmbeddingPayload(existing, nullStringPtr(existingModel), modelName, embedding)
-	if err != nil {
-		return err
-	}
-	var updateQ string
-	switch table {
-	case "tables":
+		selectQ = `SELECT embedding, embedding_model FROM tables WHERE id = $1 FOR UPDATE`
 		updateQ = `
 			UPDATE tables
 			SET embedding = $2::jsonb,
@@ -174,15 +163,37 @@ func (r *Repository) upsertEntityEmbedding(ctx context.Context, table string, en
 			    embedding_updated_at = now()
 			WHERE id = $1`
 	case "columns":
+		selectQ = `SELECT embedding, embedding_model FROM columns WHERE id = $1 FOR UPDATE`
 		updateQ = `
 			UPDATE columns
 			SET embedding = $2::jsonb,
 			    embedding_model = $3,
 			    embedding_updated_at = now()
 			WHERE id = $1`
+	default:
+		return fmt.Errorf("upsert embedding: unknown table %q", table)
 	}
-	if _, err := r.db.ExecContext(ctx, updateQ, entityID, payload, displayModel); err != nil {
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin embedding tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var existing []byte
+	var existingModel sql.NullString
+	if err := tx.QueryRowContext(ctx, selectQ, entityID).Scan(&existing, &existingModel); err != nil {
+		return fmt.Errorf("load %s embedding: %w", table, err)
+	}
+	payload, displayModel, err := mergeEmbeddingPayload(existing, nullStringPtr(existingModel), modelName, embedding)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, updateQ, entityID, payload, displayModel); err != nil {
 		return fmt.Errorf("upsert %s embedding: %w", table, err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit embedding tx: %w", err)
 	}
 	return nil
 }

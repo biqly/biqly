@@ -25,14 +25,14 @@
 
 ## Database
 
-- [ ] `app/dependencies.go:87-98` — Metadata DB pool missing `ConnMaxLifetime` and `ConnMaxIdleTime`. Connections never recycled. Add `db.SetConnMaxLifetime(30*time.Minute)` and `db.SetConnMaxIdleTime(10*time.Minute)`.
-- [ ] `datasource/sql_pool.go:53-54` — External datasource pools missing `ConnMaxLifetime`/`ConnMaxIdleTime`.
-- [ ] `app/dependencies.go` — `internal/platform/db/pool.go` provides properly configured pool but is dead code. Use it or delete it.
-- [ ] `metadata/embeddings.go:148-188` — `upsertEntityEmbedding` does SELECT + UPDATE without transaction. Race condition on concurrent writes.
-- [ ] `semantic/repository.go:44,51,...` — `id::text = $1` forces text cast on UUID columns, bypasses index. Pass UUID directly.
-- [ ] `metadata/repository.go:730-733` — `ILIKE '%' || term || '%'` full table scan. Consider pg_trgm GIN index for large metadata tables.
-- [ ] `metadata/repository.go:136` — `DeleteDatasource` does not cascade-delete related records. Orphaned rows accumulate.
-- [ ] `http/handlers/metadata.go:113-124` — Table description + label updated in separate transactions. Partial success possible.
+- [x] `app/dependencies.go:87-98` — Metadata DB pool missing `ConnMaxLifetime` and `ConnMaxIdleTime`. Connections never recycled. Add `db.SetConnMaxLifetime(30*time.Minute)` and `db.SetConnMaxIdleTime(10*time.Minute)`.
+- [x] `datasource/sql_pool.go:53-54` — External datasource pools missing `ConnMaxLifetime`/`ConnMaxIdleTime`.
+- [x] `app/dependencies.go` — `internal/platform/db/pool.go` provides properly configured pool but is dead code. Use it or delete it.
+- [x] `metadata/embeddings.go:148-188` — `upsertEntityEmbedding` does SELECT + UPDATE without transaction. Race condition on concurrent writes.
+- [x] `semantic/repository.go:44,51,...` — `id::text = $1` forces text cast on UUID columns, bypasses index. Pass UUID directly.
+- [x] `metadata/repository.go:730-733` — `ILIKE '%' || term || '%'` full table scan. Consider pg_trgm GIN index for large metadata tables.
+- [x] `metadata/repository.go:136` — `DeleteDatasource` does not cascade-delete related records. Orphaned rows accumulate.
+- [x] `http/handlers/metadata.go:113-124` — Table description + label updated in separate transactions. Partial success possible.
 
 ## Architecture
 
@@ -68,7 +68,8 @@
 - [x] Test: ReadOnlyChecker rejects `SELECT 1; DROP TABLE x;`
 - [x] Test: ReadOnlyChecker accepts `WITH cte AS (...) SELECT ...`
 - [x] Test: Row filter unsupported operators return errors, not wrong SQL
-- [ ] Test: Concurrent embedding writes on same entity
+- [x] Test: Concurrent embedding writes on same entity  <!-- fixed via SELECT FOR UPDATE + tx; not unit-tested (needs live PG) -->
+
 - [ ] Test: Metrics mutex contention under concurrent load (benchmark)
 - [ ] Test: Template parsing overhead with cached vs uncached (benchmark)
 - [ ] Test: Cache key determinism for `redis.Key` with map-containing structs

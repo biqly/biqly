@@ -110,15 +110,9 @@ func (h *MetadataHandler) UpdateTableDescription(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if req.Description != nil {
-		if err := h.deps.MetaRepo.UpdateTableDescription(r.Context(), id, req.Description); err != nil {
+	if req.Description != nil || req.Label != nil {
+		if err := h.deps.MetaRepo.UpdateTableDescriptionAndLabel(r.Context(), id, req.Description, req.Label); err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to update table description")
-			return
-		}
-	}
-	if req.Label != nil {
-		if err := h.deps.MetaRepo.UpdateTableLabel(r.Context(), id, req.Label); err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to update table label")
 			return
 		}
 	}

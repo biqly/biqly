@@ -341,7 +341,10 @@ func (h *DatasourceHandler) Update(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, ds)
 }
 
-// Delete removes a datasource by ID.
+// Delete removes a datasource by ID. Cascade FKs (migration 027a) make the
+// DELETE clean up dependent rows; we additionally drop any cached *sql.DB
+// pool so the next operation against a recreated datasource (same ID) does
+// not serve a stale connection.
 func (h *DatasourceHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, ok := requireURLParam(w, r, "id")
 	if !ok {
@@ -352,6 +355,10 @@ func (h *DatasourceHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if err := h.deps.MetaRepo.DeleteDatasource(ctx, id); err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to delete datasource", err)
 		return
+	}
+
+	if h.deps.PoolCache != nil {
+		h.deps.PoolCache.Invalidate(id)
 	}
 
 	w.WriteHeader(http.StatusNoContent)
