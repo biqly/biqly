@@ -23,7 +23,7 @@
 - [x] **SavedQuestions new/edit modal** — 128 satır neredeyse birebir tekrar (536-664 ve 667-795). Ortak form component'ine çıkar.
 - [x] **DescribeResult tipi** — `api/metadataDescribe.ts:3-14` ve `types/metadata.ts:47-59`'da tekrar tanımlı. Tek yerden export et.
 - [x] **useApi method wrapper'lar** — `useAdminApi.ts` içinde get/postData/putData/patchData/deleteData tekrar wrap edilmiş. Generic wrapper ile sadeleştir.
-- [ ] **Proxy handler'lar** — `http/ai_proxy.go` ve `http/query_proxy.go` backend'de tekrar (backend todo'sunda var).
+- [x] **Proxy handler'lar** — `http/ai_proxy.go`, `query_proxy.go`, `catalog_proxy.go` tek `proxy_routes.go`'ya birleşti (table-driven `upstreamProxySpec`); upstream factory zaten paylaşımlıydı.
 
 ## i18n / Hard-coded Strings
 
