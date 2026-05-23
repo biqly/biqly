@@ -26,8 +26,209 @@ interface SavedQuestion {
   updated_at?: string
 }
 
+interface SavedQuestionSemanticModel {
+  id: string
+  name: string
+  label?: string | null
+  status: string
+}
+
 const DIALECTS = ['postgresql', 'mysql', 'sqlserver', 'clickhouse']
 const LOCALES = ['', 'en', 'tr']
+
+interface SavedQuestionFormModalProps {
+  mode: 'new' | 'edit'
+  open: boolean
+  title: string
+  formError: string | null
+  datasources: Datasource[]
+  semanticModels: SavedQuestionSemanticModel[]
+  datasourceId: string
+  modelId: string
+  name: string
+  description: string
+  question: string
+  logicalQuery: string
+  tags: string
+  dialect: string
+  locale: string
+  isFewShot: boolean
+  onDatasourceChange: (value: string) => void
+  onModelChange: (value: string) => void
+  onNameChange: (value: string) => void
+  onDescriptionChange: (value: string) => void
+  onQuestionChange: (value: string) => void
+  onLogicalQueryChange: (value: string) => void
+  onTagsChange: (value: string) => void
+  onDialectChange: (value: string) => void
+  onLocaleChange: (value: string) => void
+  onIsFewShotChange: (value: boolean) => void
+  onClose: () => void
+  onSave: () => void
+  t: ReturnType<typeof useT>
+}
+
+function SavedQuestionFormModal({
+  mode,
+  open,
+  title,
+  formError,
+  datasources,
+  semanticModels,
+  datasourceId,
+  modelId,
+  name,
+  description,
+  question,
+  logicalQuery,
+  tags,
+  dialect,
+  locale,
+  isFewShot,
+  onDatasourceChange,
+  onModelChange,
+  onNameChange,
+  onDescriptionChange,
+  onQuestionChange,
+  onLogicalQueryChange,
+  onTagsChange,
+  onDialectChange,
+  onLocaleChange,
+  onIsFewShotChange,
+  onClose,
+  onSave,
+  t,
+}: SavedQuestionFormModalProps) {
+  const id = (field: string) => `${mode}-${field}`
+
+  return (
+    <Modal open={open} title={title} onClose={onClose}>
+      <div className="form-stack">
+        {formError && <ErrorAlert error={formError} />}
+
+        <div className="form-group">
+          <label htmlFor={id('ds')}>{t('saved_questions.label_select_datasource')}</label>
+          <Select
+            id={id('ds')}
+            value={datasourceId}
+            onChange={onDatasourceChange}
+            options={datasources.map((d) => ({ value: d.id, label: d.name }))}
+          />
+        </div>
+
+        <div className="form-group">
+          <label htmlFor={id('model')}>{t('saved_questions.label_select_model')}</label>
+          <Select
+            id={id('model')}
+            value={modelId}
+            onChange={onModelChange}
+            options={[
+              { value: '', label: t('saved_questions.label_all_models') },
+              ...semanticModels.map((m) => ({ value: m.id, label: m.label || m.name })),
+            ]}
+          />
+        </div>
+
+        <div className="form-group">
+          <label htmlFor={id('name')}>{t('saved_questions.label_name')}</label>
+          <input
+            id={id('name')}
+            value={name}
+            onChange={(e) => onNameChange(e.target.value)}
+            placeholder="e.g. Sales by region"
+            autoComplete="off"
+          />
+        </div>
+
+        <div className="form-group">
+          <label htmlFor={id('desc')}>{t('saved_questions.label_description')}</label>
+          <textarea
+            id={id('desc')}
+            value={description}
+            onChange={(e) => onDescriptionChange(e.target.value)}
+            placeholder="e.g. Shows regional breakdown for orders"
+            rows={2}
+          />
+        </div>
+
+        <div className="form-group">
+          <label htmlFor={id('question')}>{t('saved_questions.label_question')}</label>
+          <textarea
+            id={id('question')}
+            value={question}
+            onChange={(e) => onQuestionChange(e.target.value)}
+            placeholder="e.g. ne kadar sipariş aldık ülkelere göre?"
+            rows={2}
+          />
+        </div>
+
+        <div className="form-group">
+          <label htmlFor={id('lq')}>{t('saved_questions.label_logical_query')}</label>
+          <textarea
+            id={id('lq')}
+            value={logicalQuery}
+            onChange={(e) => onLogicalQueryChange(e.target.value)}
+            placeholder='{ "select": ... }'
+            rows={6}
+            style={{ fontFamily: 'monospace' }}
+          />
+        </div>
+
+        <div className="form-group">
+          <label htmlFor={id('tags')}>{t('saved_questions.label_tags')}</label>
+          <input
+            id={id('tags')}
+            value={tags}
+            onChange={(e) => onTagsChange(e.target.value)}
+            placeholder="sales, region"
+            autoComplete="off"
+          />
+        </div>
+
+        <div className="form-group">
+          <label htmlFor={id('dialect')}>{t('saved_questions.label_dialect')}</label>
+          <Select
+            id={id('dialect')}
+            value={dialect}
+            onChange={onDialectChange}
+            options={DIALECTS.map((d) => ({ value: d, label: d }))}
+          />
+        </div>
+
+        <div className="form-group">
+          <label htmlFor={id('locale')}>{t('saved_questions.label_locale')}</label>
+          <Select
+            id={id('locale')}
+            value={locale}
+            onChange={onLocaleChange}
+            options={LOCALES.map((l) => ({ value: l, label: l || 'Default' }))}
+          />
+        </div>
+
+        <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
+          <input
+            type="checkbox"
+            id={id('is-few-shot')}
+            checked={isFewShot}
+            onChange={(e) => onIsFewShotChange(e.target.checked)}
+          />
+          <label htmlFor={id('is-few-shot')} style={{ margin: 0, cursor: 'pointer' }}>
+            {t('saved_questions.label_is_few_shot')}
+          </label>
+        </div>
+
+        <div className="modal-actions" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+          <button type="button" className="btn btn--neutral" onClick={onClose}>
+            {t('saved_questions.btn_cancel')}
+          </button>
+          <button type="button" className="btn btn-primary" onClick={onSave}>
+            {t('saved_questions.btn_save')}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
 
 export default function SavedQuestions() {
   const t = useT()
@@ -36,7 +237,7 @@ export default function SavedQuestions() {
   // Selectors State
   const [datasources, setDatasources] = useState<Datasource[]>([])
   const [datasourceId, setDatasourceId] = useState('')
-  const [semanticModels, setSemanticModels] = useState<{ id: string; name: string; label?: string | null; status: string }[]>([])
+  const [semanticModels, setSemanticModels] = useState<SavedQuestionSemanticModel[]>([])
   const [semanticModelId, setSemanticModelId] = useState('')
 
   // Questions List State
@@ -532,267 +733,69 @@ export default function SavedQuestions() {
         </div>
       )}
 
-      {/* New Question Modal */}
-      <Modal
+      <SavedQuestionFormModal
+        mode="new"
         open={isNewModalOpen}
         title={t('saved_questions.modal_title_new')}
+        formError={formError}
+        datasources={datasources}
+        semanticModels={semanticModels}
+        datasourceId={formDatasourceId}
+        modelId={formModelId}
+        name={formName}
+        description={formDescription}
+        question={formQuestion}
+        logicalQuery={formLq}
+        tags={formTags}
+        dialect={formDialect}
+        locale={formLocale}
+        isFewShot={formIsFewShot}
+        onDatasourceChange={setFormDatasourceId}
+        onModelChange={setFormModelId}
+        onNameChange={setFormName}
+        onDescriptionChange={setFormDescription}
+        onQuestionChange={setFormQuestion}
+        onLogicalQueryChange={setFormLq}
+        onTagsChange={setFormTags}
+        onDialectChange={setFormDialect}
+        onLocaleChange={setFormLocale}
+        onIsFewShotChange={setFormIsFewShot}
         onClose={() => setIsNewModalOpen(false)}
-      >
-        <div className="form-stack">
-          {formError && <ErrorAlert error={formError} />}
+        onSave={() => handleSave(false)}
+        t={t}
+      />
 
-          <div className="form-group">
-            <label htmlFor="new-ds">{t('saved_questions.label_select_datasource')}</label>
-            <Select
-              id="new-ds"
-              value={formDatasourceId}
-              onChange={setFormDatasourceId}
-              options={datasources.map((d) => ({ value: d.id, label: d.name }))}
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="new-model">{t('saved_questions.label_select_model')}</label>
-            <Select
-              id="new-model"
-              value={formModelId}
-              onChange={setFormModelId}
-              options={[
-                { value: '', label: t('saved_questions.label_all_models') },
-                ...semanticModels.map((m) => ({ value: m.id, label: m.label || m.name }))
-              ]}
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="new-name">{t('saved_questions.label_name')}</label>
-            <input
-              id="new-name"
-              value={formName}
-              onChange={(e) => setFormName(e.target.value)}
-              placeholder="e.g. Sales by region"
-              autoComplete="off"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="new-desc">{t('saved_questions.label_description')}</label>
-            <textarea
-              id="new-desc"
-              value={formDescription}
-              onChange={(e) => setFormDescription(e.target.value)}
-              placeholder="e.g. Shows regional breakdown for orders"
-              rows={2}
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="new-question">{t('saved_questions.label_question')}</label>
-            <textarea
-              id="new-question"
-              value={formQuestion}
-              onChange={(e) => setFormQuestion(e.target.value)}
-              placeholder="e.g. ne kadar sipariş aldık ülkelere göre?"
-              rows={2}
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="new-lq">{t('saved_questions.label_logical_query')}</label>
-            <textarea
-              id="new-lq"
-              value={formLq}
-              onChange={(e) => setFormLq(e.target.value)}
-              placeholder='{ "select": ... }'
-              rows={6}
-              style={{ fontFamily: 'monospace' }}
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="new-tags">{t('saved_questions.label_tags')}</label>
-            <input
-              id="new-tags"
-              value={formTags}
-              onChange={(e) => setFormTags(e.target.value)}
-              placeholder="sales, region"
-              autoComplete="off"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="new-dialect">{t('saved_questions.label_dialect')}</label>
-            <Select
-              id="new-dialect"
-              value={formDialect}
-              onChange={setFormDialect}
-              options={DIALECTS.map((d) => ({ value: d, label: d }))}
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="new-locale">{t('saved_questions.label_locale')}</label>
-            <Select
-              id="new-locale"
-              value={formLocale}
-              onChange={setFormLocale}
-              options={LOCALES.map((l) => ({ value: l, label: l || 'Default' }))}
-            />
-          </div>
-
-          <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
-            <input
-              type="checkbox"
-              id="new-is-few-shot"
-              checked={formIsFewShot}
-              onChange={(e) => setFormIsFewShot(e.target.checked)}
-            />
-            <label htmlFor="new-is-few-shot" style={{ margin: 0, cursor: 'pointer' }}>
-              {t('saved_questions.label_is_few_shot')}
-            </label>
-          </div>
-
-          <div className="modal-actions" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-            <button type="button" className="btn btn--neutral" onClick={() => setIsNewModalOpen(false)}>
-              {t('saved_questions.btn_cancel')}
-            </button>
-            <button type="button" className="btn btn-primary" onClick={() => handleSave(false)}>
-              {t('saved_questions.btn_save')}
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Edit Question Modal */}
-      <Modal
+      <SavedQuestionFormModal
+        mode="edit"
         open={isEditModalOpen}
         title={t('saved_questions.modal_title_edit')}
+        formError={formError}
+        datasources={datasources}
+        semanticModels={semanticModels}
+        datasourceId={formDatasourceId}
+        modelId={formModelId}
+        name={formName}
+        description={formDescription}
+        question={formQuestion}
+        logicalQuery={formLq}
+        tags={formTags}
+        dialect={formDialect}
+        locale={formLocale}
+        isFewShot={formIsFewShot}
+        onDatasourceChange={setFormDatasourceId}
+        onModelChange={setFormModelId}
+        onNameChange={setFormName}
+        onDescriptionChange={setFormDescription}
+        onQuestionChange={setFormQuestion}
+        onLogicalQueryChange={setFormLq}
+        onTagsChange={setFormTags}
+        onDialectChange={setFormDialect}
+        onLocaleChange={setFormLocale}
+        onIsFewShotChange={setFormIsFewShot}
         onClose={() => setIsEditModalOpen(false)}
-      >
-        <div className="form-stack">
-          {formError && <ErrorAlert error={formError} />}
-
-          <div className="form-group">
-            <label htmlFor="edit-ds">{t('saved_questions.label_select_datasource')}</label>
-            <Select
-              id="edit-ds"
-              value={formDatasourceId}
-              onChange={setFormDatasourceId}
-              options={datasources.map((d) => ({ value: d.id, label: d.name }))}
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="edit-model">{t('saved_questions.label_select_model')}</label>
-            <Select
-              id="edit-model"
-              value={formModelId}
-              onChange={setFormModelId}
-              options={[
-                { value: '', label: t('saved_questions.label_all_models') },
-                ...semanticModels.map((m) => ({ value: m.id, label: m.label || m.name }))
-              ]}
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="edit-name">{t('saved_questions.label_name')}</label>
-            <input
-              id="edit-name"
-              value={formName}
-              onChange={(e) => setFormName(e.target.value)}
-              placeholder="e.g. Sales by region"
-              autoComplete="off"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="edit-desc">{t('saved_questions.label_description')}</label>
-            <textarea
-              id="edit-desc"
-              value={formDescription}
-              onChange={(e) => setFormDescription(e.target.value)}
-              placeholder="e.g. Shows regional breakdown for orders"
-              rows={2}
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="edit-question">{t('saved_questions.label_question')}</label>
-            <textarea
-              id="edit-question"
-              value={formQuestion}
-              onChange={(e) => setFormQuestion(e.target.value)}
-              placeholder="e.g. ne kadar sipariş aldık ülkelere göre?"
-              rows={2}
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="edit-lq">{t('saved_questions.label_logical_query')}</label>
-            <textarea
-              id="edit-lq"
-              value={formLq}
-              onChange={(e) => setFormLq(e.target.value)}
-              placeholder='{ "select": ... }'
-              rows={6}
-              style={{ fontFamily: 'monospace' }}
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="edit-tags">{t('saved_questions.label_tags')}</label>
-            <input
-              id="edit-tags"
-              value={formTags}
-              onChange={(e) => setFormTags(e.target.value)}
-              placeholder="sales, region"
-              autoComplete="off"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="edit-dialect">{t('saved_questions.label_dialect')}</label>
-            <Select
-              id="edit-dialect"
-              value={formDialect}
-              onChange={setFormDialect}
-              options={DIALECTS.map((d) => ({ value: d, label: d }))}
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="edit-locale">{t('saved_questions.label_locale')}</label>
-            <Select
-              id="edit-locale"
-              value={formLocale}
-              onChange={setFormLocale}
-              options={LOCALES.map((l) => ({ value: l, label: l || 'Default' }))}
-            />
-          </div>
-
-          <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
-            <input
-              type="checkbox"
-              id="edit-is-few-shot"
-              checked={formIsFewShot}
-              onChange={(e) => setFormIsFewShot(e.target.checked)}
-            />
-            <label htmlFor="edit-is-few-shot" style={{ margin: 0, cursor: 'pointer' }}>
-              {t('saved_questions.label_is_few_shot')}
-            </label>
-          </div>
-
-          <div className="modal-actions" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-            <button type="button" className="btn btn--neutral" onClick={() => setIsEditModalOpen(false)}>
-              {t('saved_questions.btn_cancel')}
-            </button>
-            <button type="button" className="btn btn-primary" onClick={() => handleSave(true)}>
-              {t('saved_questions.btn_save')}
-            </button>
-          </div>
-        </div>
-      </Modal>
+        onSave={() => handleSave(true)}
+        t={t}
+      />
     </div>
   )
 }

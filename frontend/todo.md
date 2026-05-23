@@ -20,7 +20,7 @@
 - [x] **Chart data mapping** — `rows.map(row => ({ name: String(row[0]), value: Number(row[1]) }))` AIQuery.tsx:756, QueryBuilder.tsx:459 ve Dashboard.tsx:61'de tekrarlı. `utils/chartData.ts`'teki `rowsToChartData`'yı kullan.
 - [x] **HTML tag stripping** — `/<[^>]*>/g` regex'i `api/metadataDescribe.ts:34` ve `hooks/useApi.ts:28`'de tekrar. Ortak utility'e taşı.
 - [x] **Question preview** — `hooks/useAIJobs.tsx` içinde 3 yerde benzer question preview kodu (238-241, 278-281, 354-359). Tek bir fonksiyona çıkar.
-- [ ] **SavedQuestions new/edit modal** — 128 satır neredeyse birebir tekrar (536-664 ve 667-795). Ortak form component'ine çıkar.
+- [x] **SavedQuestions new/edit modal** — 128 satır neredeyse birebir tekrar (536-664 ve 667-795). Ortak form component'ine çıkar.
 - [x] **DescribeResult tipi** — `api/metadataDescribe.ts:3-14` ve `types/metadata.ts:47-59`'da tekrar tanımlı. Tek yerden export et.
 - [x] **useApi method wrapper'lar** — `useAdminApi.ts` içinde get/postData/putData/patchData/deleteData tekrar wrap edilmiş. Generic wrapper ile sadeleştir.
 - [ ] **Proxy handler'lar** — `http/ai_proxy.go` ve `http/query_proxy.go` backend'de tekrar (backend todo'sunda var).
