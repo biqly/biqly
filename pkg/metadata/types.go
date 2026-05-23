@@ -20,7 +20,7 @@ type Datasource struct {
 	ID           string     `json:"id" db:"id"`
 	Name         string     `json:"name" db:"name"`
 	Type         string     `json:"type" db:"type"`
-	DSNEncrypted string     `json:"-" db:"dsn_encrypted"`
+	DSNEncrypted string     `json:"dsn_encrypted,omitempty" db:"dsn_encrypted"`
 	Config       string     `json:"-" db:"config"`
 	IsActive     bool       `json:"is_active" db:"is_active"`
 	LastSyncAt   *time.Time `json:"last_sync_at" db:"last_sync_at"`
@@ -31,10 +31,10 @@ type Datasource struct {
 	Port     *int    `json:"port,omitempty"`
 	Username *string `json:"username,omitempty"`
 
-	PasswordEncrypted string          `json:"-" db:"password_encrypted"`
+	PasswordEncrypted string          `json:"password_encrypted,omitempty" db:"password_encrypted"`
 	DatabaseName      *string         `json:"database_name,omitempty"`
 	SSLMode           *string         `json:"ssl_mode,omitempty"`
-	ConnectionParams  json.RawMessage `json:"-"`
+	ConnectionParams  json.RawMessage `json:"connection_params,omitempty"`
 	DSNMode           string          `json:"dsn_mode,omitempty"`
 }
 
