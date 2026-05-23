@@ -2336,16 +2336,24 @@ input[type='checkbox']:disabled {
 }
 
 .modeling-dialog-subtitle,
-.modeling-dialog-copy {
+.modeling-dialog-copy,
+.modal-subtitle {
   margin: 0;
   color: var(--text-secondary);
   font-size: 0.86rem;
   line-height: 1.45;
 }
 
-.modeling-dialog-subtitle {
+.modeling-dialog-subtitle,
+.modal-subtitle {
   margin-top: 0.2rem;
   overflow-wrap: anywhere;
+}
+
+.modal-title-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .modal-body .form-group {
@@ -2364,6 +2372,20 @@ input[type='checkbox']:disabled {
 .modal-actions .btn {
   width: auto;
   margin-top: 0;
+}
+
+.confirm-dialog__message {
+  margin: 0 0 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.confirm-dialog__actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.75rem;
 }
 
 .modal-card--modeling .modal-body {
@@ -3262,6 +3284,11 @@ body.modeling-grabbing * {
 
 .modeling-table-card header:active {
   cursor: grabbing;
+}
+
+.modeling-table-card header:focus-visible {
+  outline: 2px solid var(--control-focus-border, #5b8eff);
+  outline-offset: 2px;
 }
 
 .modeling-table-card header span {

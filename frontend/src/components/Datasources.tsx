@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useApi } from '../hooks/useApi'
+import { useConfirm } from '../hooks/useConfirm'
 import {
   DRIVER_IDS,
   driverDefaultPort,
@@ -61,6 +62,7 @@ function connectionSummary(ds: Datasource): { line1: string; line2?: string } {
 export default function Datasources() {
   const t = useT()
   const { get, postData, putData, deleteData, loading, error } = useApi()
+  const { confirm, dialog: confirmDialog } = useConfirm()
   const [items, setItems] = useState<Datasource[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -209,7 +211,12 @@ export default function Datasources() {
   }
 
   const del = async (id: string) => {
-    if (!confirm(t('datasources.delete_confirm'))) return
+    const ok = await confirm({
+      title: t('datasources.delete_confirm'),
+      message: t('datasources.delete_confirm'),
+      variant: 'danger',
+    })
+    if (!ok) return
     await deleteData(`/api/datasources/${id}`)
     load()
   }
@@ -256,6 +263,7 @@ export default function Datasources() {
 
   return (
     <div className="page-stack">
+        {confirmDialog}
         <div className="card">
           <div className="card-header-row">
             <h2>{t('datasources.panel_title')}</h2>

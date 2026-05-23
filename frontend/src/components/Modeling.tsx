@@ -15,6 +15,7 @@ import type {
   TableRow,
 } from '../types/semantic'
 import { ErrorAlert } from './ui/ErrorAlert'
+import { Modal } from './ui/Modal'
 import { Select } from './ui/Select'
 
 interface SuggestedJoin {
@@ -676,6 +677,39 @@ export default function Modeling() {
       window.addEventListener('mouseup', onUp)
     },
     [positions],
+  )
+
+  const onCardKeyDown = useCallback(
+    (key: string) => (event: React.KeyboardEvent) => {
+      let dx = 0
+      let dy = 0
+      switch (event.key) {
+        case 'ArrowLeft':
+          dx = -1
+          break
+        case 'ArrowRight':
+          dx = 1
+          break
+        case 'ArrowUp':
+          dy = -1
+          break
+        case 'ArrowDown':
+          dy = 1
+          break
+        default:
+          return
+      }
+      event.preventDefault()
+      const step = event.shiftKey ? 40 : 8
+      setPositions((prev) => {
+        const cur = prev[key] ?? { x: 0, y: 0 }
+        return {
+          ...prev,
+          [key]: { x: Math.max(0, cur.x + dx * step), y: Math.max(0, cur.y + dy * step) },
+        }
+      })
+    },
+    [],
   )
 
   const onCanvasMouseDown = useCallback(
@@ -1658,7 +1692,13 @@ export default function Modeling() {
                   key={key}
                   style={{ left: pos.x, top: pos.y, width: CARD_WIDTH, height: layout.height }}
                 >
-                  <header onMouseDown={onCardDragStart(key)}>
+                  <header
+                    role="button"
+                    tabIndex={0}
+                    aria-label={t('modeling.table_card_aria', { name: `${table.schema_name}.${table.table_name}` })}
+                    onMouseDown={onCardDragStart(key)}
+                    onKeyDown={onCardKeyDown(key)}
+                  >
                     <span>{table.schema_name}</span>
                     <strong>{table.table_name}</strong>
                   </header>
@@ -1766,79 +1806,60 @@ export default function Modeling() {
         </aside>
       </section>
       {renameTarget && (
-        <div className="modal-backdrop" onClick={closeRename}>
+        <Modal
+          open
+          onClose={closeRename}
+          className="modal-card--modeling"
+          labelledBy="modeling-rename-title"
+          title={renameTarget.title}
+          subtitle={renameTarget.subtitle}
+        >
           <form
-            className="modal-card modal-card--modeling"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="modeling-rename-title"
-            onClick={(event) => event.stopPropagation()}
             onSubmit={(event) => {
               event.preventDefault()
               void submitRename()
             }}
           >
-            <header className="modal-header">
-              <div>
-                <h2 id="modeling-rename-title">{renameTarget.title}</h2>
-                <p className="modeling-dialog-subtitle">{renameTarget.subtitle}</p>
-              </div>
-              <button className="modal-close" type="button" onClick={closeRename} aria-label={t('common.close')}>
-                ×
-              </button>
-            </header>
-            <div className="modal-body">
-              <div className="form-group">
-                <label htmlFor="modeling-rename-value">{t('modeling.display_name_label')}</label>
-                <input
-                  id="modeling-rename-value"
-                  autoFocus
-                  value={renameValue}
-                  onChange={(event) => setRenameValue(event.target.value)}
-                  placeholder={renameTarget.current}
-                  disabled={savingRename}
-                />
-              </div>
+            <div className="form-group">
+              <label htmlFor="modeling-rename-value">{t('modeling.display_name_label')}</label>
+              <input
+                id="modeling-rename-value"
+                autoFocus
+                value={renameValue}
+                onChange={(event) => setRenameValue(event.target.value)}
+                placeholder={renameTarget.current}
+                disabled={savingRename}
+              />
             </div>
             <div className="modal-actions">
-                <button className="btn btn-secondary" type="button" onClick={closeRename} disabled={savingRename}>
-                  {t('common.cancel')}
-                </button>
-                <button className="btn btn-primary" type="submit" disabled={savingRename || !renameValue.trim()}>
-                  {savingRename ? t('common.saving') : t('common.update')}
-                </button>
-              </div>
+              <button className="btn btn-secondary" type="button" onClick={closeRename} disabled={savingRename}>
+                {t('common.cancel')}
+              </button>
+              <button className="btn btn-primary" type="submit" disabled={savingRename || !renameValue.trim()}>
+                {savingRename ? t('common.saving') : t('common.update')}
+              </button>
+            </div>
           </form>
-        </div>
+        </Modal>
       )}
       {confirmTarget && (
-        <div className="modal-backdrop" onClick={closeConfirm}>
-          <div
-            className="modal-card modal-card--modeling"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="modeling-confirm-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="modal-header">
-              <h2 id="modeling-confirm-title">{confirmTarget.title}</h2>
-              <button className="modal-close" type="button" onClick={closeConfirm} aria-label={t('common.close')}>
-                ×
-              </button>
-            </header>
-            <div className="modal-body">
-              <p className="modeling-dialog-copy">{confirmTarget.body}</p>
-              <div className="modal-actions">
-                <button className="btn btn-secondary" type="button" onClick={closeConfirm} disabled={savingConfirm}>
-                  {t('common.cancel')}
-                </button>
-                <button className="btn btn-danger" type="button" onClick={() => void submitConfirm()} disabled={savingConfirm}>
-                  {savingConfirm ? t('common.saving') : confirmTarget.action}
-                </button>
-              </div>
-            </div>
+        <Modal
+          open
+          onClose={closeConfirm}
+          className="modal-card--modeling"
+          labelledBy="modeling-confirm-title"
+          title={confirmTarget.title}
+        >
+          <p className="modeling-dialog-copy">{confirmTarget.body}</p>
+          <div className="modal-actions">
+            <button className="btn btn-secondary" type="button" onClick={closeConfirm} disabled={savingConfirm}>
+              {t('common.cancel')}
+            </button>
+            <button className="btn btn-danger" type="button" onClick={() => void submitConfirm()} disabled={savingConfirm}>
+              {savingConfirm ? t('common.saving') : confirmTarget.action}
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
       {baseSwapOpen && model && (
         <BaseSwapModal
@@ -1883,58 +1904,49 @@ function BaseSwapModal({ candidateTables, onCancel, onSubmit, saving, t }: BaseS
   )
 
   return (
-    <div className="modal-backdrop" onClick={saving ? undefined : onCancel}>
-      <div
-        className="modal-card modal-card--modeling"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modeling-base-swap-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header className="modal-header">
-          <div>
-            <h2 id="modeling-base-swap-title">{t('modeling.change_base_title')}</h2>
-            <p className="modeling-dialog-subtitle">{t('modeling.pick_new_base')}</p>
-          </div>
-          <button className="modal-close" type="button" onClick={onCancel} aria-label={t('common.close')} disabled={saving}>×</button>
-        </header>
-        <div className="modal-body">
-          {options.length === 0 ? (
-            <p className="modeling-empty">{t('modeling.no_alternative_base')}</p>
-          ) : (
-            <div className="form-group">
-              <select value={picked} onChange={(e) => setPicked(e.target.value)} disabled={saving} size={Math.min(8, Math.max(3, options.length))} style={{ width: '100%' }}>
-                {options.map((tbl) => {
-                  const key = `${tbl.schema_name}.${tbl.table_name}`
-                  return (
-                    <option key={tbl.id} value={key}>
-                      {tbl.label || tbl.table_name} — {tbl.schema_name}.{tbl.table_name}
-                    </option>
-                  )
-                })}
-              </select>
-            </div>
-          )}
-          <div className="modal-actions">
-            <button className="btn btn-secondary" type="button" onClick={onCancel} disabled={saving}>{t('common.cancel')}</button>
-            <button
-              className="btn btn-danger"
-              type="button"
-              disabled={saving || !picked}
-              onClick={() => {
-                const parts = picked.split('.')
-                const schema = parts[0] ?? ''
-                const table = parts.slice(1).join('.')
-                if (!schema || !table) return
-                void onSubmit(schema, table)
-              }}
-            >
-              {saving ? t('common.saving') : t('modeling.remove_table_action')}
-            </button>
-          </div>
+    <Modal
+      open
+      onClose={saving ? () => undefined : onCancel}
+      closeOnBackdrop={!saving}
+      className="modal-card--modeling"
+      labelledBy="modeling-base-swap-title"
+      title={t('modeling.change_base_title')}
+      subtitle={t('modeling.pick_new_base')}
+    >
+      {options.length === 0 ? (
+        <p className="modeling-empty">{t('modeling.no_alternative_base')}</p>
+      ) : (
+        <div className="form-group">
+          <select value={picked} onChange={(e) => setPicked(e.target.value)} disabled={saving} size={Math.min(8, Math.max(3, options.length))} style={{ width: '100%' }}>
+            {options.map((tbl) => {
+              const key = `${tbl.schema_name}.${tbl.table_name}`
+              return (
+                <option key={tbl.id} value={key}>
+                  {tbl.label || tbl.table_name} — {tbl.schema_name}.{tbl.table_name}
+                </option>
+              )
+            })}
+          </select>
         </div>
+      )}
+      <div className="modal-actions">
+        <button className="btn btn-secondary" type="button" onClick={onCancel} disabled={saving}>{t('common.cancel')}</button>
+        <button
+          className="btn btn-danger"
+          type="button"
+          disabled={saving || !picked}
+          onClick={() => {
+            const parts = picked.split('.')
+            const schema = parts[0] ?? ''
+            const table = parts.slice(1).join('.')
+            if (!schema || !table) return
+            void onSubmit(schema, table)
+          }}
+        >
+          {saving ? t('common.saving') : t('modeling.remove_table_action')}
+        </button>
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -2322,20 +2334,17 @@ function AddMetricModal({ model, includedTables, columns, onClose, onCreated, po
   const customOps = ['+', '-', '*', '/', '(', ')']
 
   return (
-    <div className="modal-backdrop" onClick={saving ? undefined : onClose}>
-      <form
-        className={`modal-card ${mode === 'custom' ? 'modal-card--metric' : 'modal-card--modeling'}`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modeling-add-metric-title"
-        onClick={(event) => event.stopPropagation()}
-        onSubmit={(event) => { event.preventDefault(); void submit() }}
+    <Modal
+      open
+      onClose={onClose}
+      closeOnBackdrop={!saving}
+      className={mode === 'custom' ? 'modal-card--metric' : 'modal-card--modeling'}
+      labelledBy="modeling-add-metric-title"
+      title={t('modeling.add_metric_title')}
       >
-        <header className="modal-header">
-          <h2 id="modeling-add-metric-title">{t('modeling.add_metric_title')}</h2>
-          <button className="modal-close" type="button" onClick={onClose} aria-label={t('common.close')} disabled={saving}>×</button>
-        </header>
-        <div className="modal-body">
+        <form
+          onSubmit={(event) => { event.preventDefault(); void submit() }}
+        >
           <div className="modal-form-row">
             <div className="form-group">
               <label htmlFor="metric-name">{t('modeling.metric_name_label')}</label>
@@ -2641,8 +2650,7 @@ function AddMetricModal({ model, includedTables, columns, onClose, onCreated, po
               autoComplete="off"
             />
           </div>
-        </div>
-        <div className="modal-actions">
+          <div className="modal-actions">
           <button className="btn btn-secondary" type="button" onClick={onClose} disabled={saving}>
             {t('common.cancel')}
           </button>
@@ -2655,6 +2663,6 @@ function AddMetricModal({ model, includedTables, columns, onClose, onCreated, po
           </button>
         </div>
       </form>
-    </div>
+    </Modal>
   )
 }

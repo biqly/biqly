@@ -3,6 +3,7 @@ import '../styles/aiQuery.css'
 import { useApi } from '../hooks/useApi'
 import { useAIJobs } from '../hooks/useAIJobs'
 import { useConversation } from '../hooks/useConversation'
+import { useConfirm } from '../hooks/useConfirm'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { formatResultCell } from '../utils/resultCellFormat'
 import { buildPivotTable } from '../utils/pivotTable'
@@ -506,6 +507,7 @@ function SidebarConversationItem({
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(conv.title ?? '')
   const inputRef = useRef<HTMLInputElement>(null)
+  const { confirm, dialog: confirmDialog } = useConfirm()
 
   useEffect(() => {
     if (isEditing) {
@@ -536,10 +538,13 @@ function SidebarConversationItem({
     }
   }
 
-  const handleDelete = (e: React.MouseEvent) => {
+  const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation()
-    const confirmMsg = t('ai_query.delete_conv_confirm') || 'Are you sure you want to delete this conversation?'
-    if (window.confirm(confirmMsg)) {
+    const ok = await confirm({
+      title: t('ai_query.delete_conv_confirm'),
+      variant: 'danger',
+    })
+    if (ok) {
       onDelete(conv.id)
     }
   }
@@ -549,6 +554,7 @@ function SidebarConversationItem({
       className={`conversation-item ${isActive ? 'active' : ''}`}
       onClick={onSelect}
     >
+      {confirmDialog}
       {isEditing ? (
         <input
           ref={inputRef}

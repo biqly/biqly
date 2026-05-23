@@ -9,6 +9,7 @@ import { Modal } from './ui/Modal'
 import { Select } from './ui/Select'
 import { ResultTable } from './ResultTable'
 import { useApi } from '../hooks/useApi'
+import { useConfirm } from '../hooks/useConfirm'
 
 interface SavedQuestion {
   id: string
@@ -233,6 +234,7 @@ function SavedQuestionFormModal({
 export default function SavedQuestions() {
   const t = useT()
   const { get, postData, putData, deleteData, loading: apiLoading, error: apiError } = useApi()
+  const { confirm, dialog: confirmDialog } = useConfirm()
 
   // Selectors State
   const [datasources, setDatasources] = useState<Datasource[]>([])
@@ -517,7 +519,11 @@ export default function SavedQuestions() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm(t('saved_questions.confirm_delete'))) return
+    const ok = await confirm({
+      title: t('saved_questions.confirm_delete'),
+      variant: 'danger',
+    })
+    if (!ok) return
     const res = await deleteData(`/api/ai/examples/${id}`)
     if (res || apiError === null) {
       setSelectedQuestion(null)
@@ -529,6 +535,7 @@ export default function SavedQuestions() {
 
   return (
     <div className="page-stack">
+      {confirmDialog}
       <div className="card">
         <div className="card-header-row card-header-row--spaced">
           <h2>{t('saved_questions.title')}</h2>

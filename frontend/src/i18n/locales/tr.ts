@@ -46,6 +46,8 @@ export const tr: Dictionary = {
     error_boundary_fallback_message: 'Bu modül yüklenirken hata aldı.',
     error_boundary_retry: 'Tekrar dene',
     modal_close_aria: 'Modalı kapat',
+    confirm_ok: 'Onayla',
+    confirm_cancel: 'İptal',
     inline_edit_save_hint: 'Kaydetmek için Cmd/Ctrl+Enter veya dışarı tıklayın. İptal: Escape.',
   },
   app: {
@@ -872,6 +874,7 @@ export const tr: Dictionary = {
     fit_view: 'Sığdır',
     reset_view: 'Sıfırla',
     more_columns: 'kolon daha',
+    table_card_aria: '{{name}} tablo kartı. Ok tuşları ile taşı, Shift+Ok büyük adım.',
     relationship_editor_aria: 'İlişki editörü',
     manual_relationship: 'Manuel ilişki',
     manual_title: 'FK yoksa bağlantı kur',

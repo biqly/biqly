@@ -44,6 +44,8 @@ export const en = {
     error_boundary_fallback_message: 'This module failed to load.',
     error_boundary_retry: 'Try again',
     modal_close_aria: 'Close dialog',
+    confirm_ok: 'Confirm',
+    confirm_cancel: 'Cancel',
     inline_edit_save_hint: 'Save with Cmd/Ctrl+Enter or click outside. Cancel: Escape.',
   },
   app: {
@@ -870,6 +872,7 @@ export const en = {
     fit_view: 'Fit view',
     reset_view: 'Reset view',
     more_columns: 'more columns',
+    table_card_aria: '{{name}} table card. Arrow keys move it, Shift+Arrow for larger step.',
     relationship_editor_aria: 'Relationship editor',
     manual_relationship: 'Manual relationship',
     manual_title: 'Connect tables without FK',

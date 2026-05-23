@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useApi } from '../hooks/useApi'
+import { useConfirm } from '../hooks/useConfirm'
 import { DEFAULT_LOCALE, LOCALE_OPTIONS, SUPPORTED_LOCALES, useT } from '../i18n'
 import type { Locale, TranslationKey } from '../i18n'
 import { ErrorAlert } from './ui/ErrorAlert'
@@ -94,6 +95,7 @@ function highlightContent(text: string) {
 export default function PromptTemplates() {
   const t = useT()
   const { get, putData, postData, loading, error } = useApi()
+  const { confirm, dialog: confirmDialog } = useConfirm()
   const [rows, setRows] = useState<PromptTemplateRow[]>([])
   const [editLocale, setEditLocale] = useState<EditLocale>(DEFAULT_LOCALE)
   const [selectedName, setSelectedName] = useState<TemplateName>('system_rules')
@@ -282,24 +284,32 @@ export default function PromptTemplates() {
   }
 
   const handleRestore = async () => {
-    if (!window.confirm(t('prompt_templates.confirm_restore'))) return
+    const ok = await confirm({
+      title: t('prompt_templates.confirm_restore'),
+      variant: 'warning',
+    })
+    if (!ok) return
     setActionError(null)
     setSaveOk(null)
-    const ok = await postData('/api/ai/prompt-templates/restore', {
+    const res = await postData('/api/ai/prompt-templates/restore', {
       name: selectedName,
       locale: editLocale,
     })
-    if (!ok) return
+    if (!res) return
     setSaveOk(t('prompt_templates.restored'))
     await load()
   }
 
   const handleReseed = async () => {
-    if (!window.confirm(t('prompt_templates.confirm_reseed'))) return
+    const ok = await confirm({
+      title: t('prompt_templates.confirm_reseed'),
+      variant: 'danger',
+    })
+    if (!ok) return
     setActionError(null)
     setSaveOk(null)
-    const ok = await postData('/api/ai/prompt-templates/reseed', {})
-    if (!ok) return
+    const res = await postData('/api/ai/prompt-templates/reseed', {})
+    if (!res) return
     setSaveOk(t('prompt_templates.reseeded'))
     await load()
   }
@@ -311,6 +321,7 @@ export default function PromptTemplates() {
 
   return (
     <div className="page-stack">
+      {confirmDialog}
       {error && <ErrorAlert error={error} />}
       {actionError && <ErrorAlert error={actionError} />}
       {saveOk && <p className="card-subtitle">{saveOk}</p>}

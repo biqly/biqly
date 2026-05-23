@@ -5,6 +5,7 @@ import { useT } from '../../i18n'
 interface ModalProps {
   open: boolean
   title: ReactNode
+  subtitle?: ReactNode
   children: ReactNode
   onClose: () => void
   labelledBy?: string
@@ -25,6 +26,7 @@ const FOCUSABLE_SELECTOR = [
 export function Modal({
   open,
   title,
+  subtitle,
   children,
   onClose,
   labelledBy = 'modal-title',
@@ -95,7 +97,10 @@ export function Modal({
         tabIndex={-1}
       >
         <header className="modal-header">
-          <h3 id={labelledBy}>{title}</h3>
+          <div className="modal-title-group">
+            <h3 id={labelledBy}>{title}</h3>
+            {subtitle && <p className="modal-subtitle">{subtitle}</p>}
+          </div>
           <button type="button" className="modal-close" aria-label={t('common.modal_close_aria')} onClick={onClose}>
             ×
           </button>

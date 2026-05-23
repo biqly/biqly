@@ -40,10 +40,10 @@
 
 - [x] `AIQuery.tsx:988-996` — Feedback thumbs-up/down butonlarında `aria-label` yok.
 - [x] `ResultTable.tsx:108-127` — Context menu sadece right-click ile açılıyor, klavye erişimi yok.
-- [ ] `Modeling.tsx` — Canvas drag-and-drop sadece mouse ile çalışıyor, klavye navigasyonu yok.
-- [ ] `Modeling.tsx:1834-1908` — Modal'lar `Modal.tsx` component'ini kullanmıyor, focus trap eksik.
+- [x] `Modeling.tsx` — Canvas drag-and-drop sadece mouse ile çalışıyor, klavye navigasyonu yok.
+- [x] `Modeling.tsx:1834-1908` — Modal'lar `Modal.tsx` component'ini kullanmıyor, focus trap eksik.
 - [x] `QueryBuilder.tsx:567` — `<label>` elementi `htmlFor` ile bağlanmamış.
-- [ ] `window.confirm()` kullanımı — Datasources.tsx:212, AIQuery.tsx:539, SavedQuestions.tsx:319, PromptTemplates.tsx:285,298. UI thread'i blocklar ve erişilebilir değil. Özel confirm dialog'u ile değiştir.
+- [x] `window.confirm()` kullanımı — Datasources.tsx:212, AIQuery.tsx:539, SavedQuestions.tsx:319, PromptTemplates.tsx:285,298. UI thread'i blocklar ve erişilebilir değil. Özel confirm dialog'u ile değiştir.
 
 ## Architecture / Design
 
