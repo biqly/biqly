@@ -1,13 +1,13 @@
 helm:
   parameters:
   - name: ai.image.tag
-    value: sha-9f9e952a757db604b9ff45f114da520b19f2d488
+    value: sha-7c117f2f365470093fcacb6163b099d587e1608e
     forcestring: true
   - name: catalog.image.tag
     value: sha-7c117f2f365470093fcacb6163b099d587e1608e
     forcestring: true
   - name: frontend.image.tag
-    value: sha-9f9e952a757db604b9ff45f114da520b19f2d488
+    value: sha-7c117f2f365470093fcacb6163b099d587e1608e
     forcestring: true
   - name: global.migrate.image.tag
     value: sha-7c117f2f365470093fcacb6163b099d587e1608e
