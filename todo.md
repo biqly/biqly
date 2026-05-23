@@ -71,13 +71,13 @@
 - [x] Test: Row filter unsupported operators return errors, not wrong SQL
 - [x] Test: Concurrent embedding writes on same entity  <!-- fixed via SELECT FOR UPDATE + tx; not unit-tested (needs live PG) -->
 
-- [ ] Test: Metrics mutex contention under concurrent load (benchmark)
-- [ ] Test: Template parsing overhead with cached vs uncached (benchmark)
-- [ ] Test: Cache key determinism for `redis.Key` with map-containing structs
+- [x] Test: Metrics mutex contention under concurrent load (benchmark)
+- [x] Test: Template parsing overhead with cached vs uncached (benchmark)
+- [x] Test: Cache key determinism for `redis.Key` with map-containing structs
 - [x] Test: Permission nil-safety (nil policy should deny access after fix)
 - [x] Test: `dateTruncCompareExpr` with MySQL/SQLServer/ClickHouse dialects
 - [x] Test: Admin job endpoints reject unauthenticated requests (after auth added)
-- [ ] Test: Connection pool open/close overhead vs cached pool (benchmark)
+- [x] Test: Connection pool open/close overhead vs cached pool (benchmark)
 
 ## Optional / Future
 
