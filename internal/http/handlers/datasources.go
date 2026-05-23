@@ -271,6 +271,7 @@ func writeDatasourcePayloadError(ctx context.Context, w http.ResponseWriter, sta
 func maskDatasourceSecrets(ds *metadata.Datasource) {
 	ds.DSNEncrypted = ""
 	ds.PasswordEncrypted = ""
+	ds.ConnectionParams = nil
 }
 
 // List returns all configured datasources.
