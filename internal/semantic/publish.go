@@ -14,6 +14,8 @@ const (
 	ModelStatusPublished = "published"
 )
 
+var reBracket = regexp.MustCompile(`\[([^\]]+)\]`)
+
 // CatalogReader supplies datasource metadata needed to validate a semantic
 // context before it is published to query runtime.
 type CatalogReader interface {
@@ -126,9 +128,41 @@ func ValidateContext(ctx context.Context, model SemanticModel, catalog CatalogRe
 	}
 
 	for _, metric := range model.Metrics {
-		for _, ref := range columnRefsInExpression(metric.Expression) {
-			if !columnSet.has(model.BaseSchema, ref) {
-				addError("%s: %s", errmsg.MetricExpressionUnknownColumn, ref)
+		fnLower := strings.ToLower(strings.TrimSpace(metric.Aggregation))
+		if fnLower == "custom" || strings.Contains(metric.Expression, "[") {
+			matches := reBracket.FindAllStringSubmatch(metric.Expression, -1)
+			for _, match := range matches {
+				token := strings.TrimSpace(match[1])
+				isDimOrMetric := false
+				for _, d := range model.Dimensions {
+					if strings.EqualFold(d.Name, token) {
+						isDimOrMetric = true
+						break
+					}
+				}
+				for _, m := range model.Metrics {
+					if strings.EqualFold(m.Name, token) {
+						isDimOrMetric = true
+						break
+					}
+				}
+				if isDimOrMetric {
+					continue
+				}
+
+				ref := token
+				if !strings.Contains(token, ".") {
+					ref = model.BaseTable + "." + token
+				}
+				if !columnSet.has(model.BaseSchema, ref) {
+					addError("%s: %s", errmsg.MetricExpressionUnknownColumn, token)
+				}
+			}
+		} else {
+			for _, ref := range columnRefsInExpression(metric.Expression) {
+				if !columnSet.has(model.BaseSchema, ref) {
+					addError("%s: %s", errmsg.MetricExpressionUnknownColumn, ref)
+				}
 			}
 		}
 	}

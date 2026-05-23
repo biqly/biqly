@@ -14,6 +14,7 @@ import (
 	"github.com/biqly/biqly/internal/config"
 	httprouter "github.com/biqly/biqly/internal/http"
 	"github.com/biqly/biqly/internal/platform/logger"
+	"github.com/biqly/biqly/internal/security"
 )
 
 func main() {
@@ -43,7 +44,7 @@ func main() {
 	}()
 
 	slog.Info("dependencies initialized",
-		"metadata_db", cfg.Metadata.DSN,
+		"metadata_db", security.RedactDSN(cfg.Metadata.DSN),
 	)
 
 	// Setup router

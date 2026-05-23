@@ -31,6 +31,53 @@ func TestConnectionDSN_plaintextWithEncryptor(t *testing.T) {
 	}
 }
 
+func TestRedactDSN_HidesURLPassword(t *testing.T) {
+	in := "postgres://alice:s3cret@db.example:5432/app?sslmode=require"
+	got := security.RedactDSN(in)
+	if got == in {
+		t.Fatalf("expected DSN to be redacted, got %q", got)
+	}
+	if containsStr(got, "s3cret") {
+		t.Fatalf("password leaked in redacted DSN: %q", got)
+	}
+	if !containsStr(got, "alice") {
+		t.Fatalf("expected username retained, got %q", got)
+	}
+}
+
+func TestRedactDSN_HandlesNoCreds(t *testing.T) {
+	in := "postgres://db.example:5432/app"
+	if security.RedactDSN(in) != in {
+		t.Fatalf("DSN without creds should be unchanged")
+	}
+}
+
+func TestRedactDSN_KVStyle(t *testing.T) {
+	in := "host=db.example user=alice password=hunter2 sslmode=disable"
+	got := security.RedactDSN(in)
+	if containsStr(got, "hunter2") {
+		t.Fatalf("kv-style password leaked: %q", got)
+	}
+	if !containsStr(got, "password=") {
+		t.Fatalf("kv-style password marker missing: %q", got)
+	}
+}
+
+func TestRedactDSN_Empty(t *testing.T) {
+	if got := security.RedactDSN(""); got != "" {
+		t.Fatalf("empty DSN should remain empty, got %q", got)
+	}
+}
+
+func containsStr(s, sub string) bool {
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
+}
+
 func TestConnectionDSN_roundTrip(t *testing.T) {
 	enc, err := security.NewEncryptionWithKey(make([]byte, 32))
 	if err != nil {

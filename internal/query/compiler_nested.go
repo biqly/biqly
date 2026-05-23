@@ -126,7 +126,7 @@ func (c *Compiler) compileStatement(
 		return nil, fmt.Errorf("build group by: %w", err)
 	}
 
-	havingClause, havingArgs, err := c.buildHaving(lq.Having, metricMap, resolver, len(*args))
+	havingClause, havingArgs, err := c.buildHaving(lq.Having, dimMap, metricMap, model, resolver, len(*args))
 	if err != nil {
 		return nil, fmt.Errorf("build having: %w", err)
 	}

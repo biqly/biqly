@@ -1,6 +1,7 @@
 package http
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/biqly/biqly/internal/app"
@@ -32,11 +33,17 @@ func Router(deps *app.Dependencies) http.Handler {
 	// Resolve user locale from Accept-Language / X-Locale / ?lang= and store on context.
 	r.Use(bimw.Locale)
 
-	// CORS
+	// CORS — restrict to explicitly configured origins. Empty list = no
+	// cross-origin requests; the legacy {"https://*", "http://*"} wildcard
+	// was removed because it combined poorly with AllowCredentials=true.
+	corsOrigins := deps.Config.HTTP.CORSAllowedOrigins
+	if len(corsOrigins) == 0 {
+		slog.Warn("CORS allowed origins is empty — cross-origin requests will be blocked. Set BI_CORS_ALLOWED_ORIGINS (comma-separated) to allow specific frontend domains.")
+	}
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"https://*", "http://*"},
+		AllowedOrigins:   corsOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Accept-Language", "Authorization", "Content-Type", "X-CSRF-Token", "X-Locale"},
+		AllowedHeaders:   []string{"Accept", "Accept-Language", "Authorization", "Content-Type", "X-API-Key", "X-CSRF-Token", "X-Locale"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
 		MaxAge:           300,
@@ -57,7 +64,11 @@ func Router(deps *app.Dependencies) http.Handler {
 	r.Get("/metrics", MetricsHandler)
 
 	// API routes
+	if deps.Config.Security.APIKey == "" {
+		slog.Warn("BI_API_KEY is empty — /api/* routes are unauthenticated. Set BI_API_KEY in production.")
+	}
 	r.Route("/api", func(r chi.Router) {
+		r.Use(bimw.APIKeyAuth(deps.Config.Security.APIKey))
 		if deps.Config.Services.CatalogURL != "" {
 			registerCatalogProxyRoutes(r, deps.Config.Services.CatalogURL)
 		} else {

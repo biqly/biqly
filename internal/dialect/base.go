@@ -40,11 +40,15 @@ func CastTypeUpper(sqlType string) string {
 
 // AggregateStandardSQL formats COUNT/SUM/AVG/MIN/MAX in the conventional SQL style (PostgreSQL family).
 func AggregateStandardSQL(d Dialect, fn, column string) string {
-	if strings.ToLower(fn) == "count" && column == "*" {
+	fnLower := strings.ToLower(strings.TrimSpace(fn))
+	if fnLower == "custom" || fnLower == "none" || fnLower == "" {
+		return column
+	}
+	if fnLower == "count" && column == "*" {
 		return "COUNT(*)"
 	}
 	quotedCol := d.QuoteIdent(column)
-	switch strings.ToLower(fn) {
+	switch fnLower {
 	case "count":
 		return fmt.Sprintf("COUNT(%s)", quotedCol)
 	case "count_distinct":
@@ -64,11 +68,15 @@ func AggregateStandardSQL(d Dialect, fn, column string) string {
 
 // AggregateClickHouseSQL formats aggregates using ClickHouse-native spellings where they differ.
 func AggregateClickHouseSQL(d Dialect, fn, column string) string {
-	if strings.ToLower(fn) == "count" && column == "*" {
+	fnLower := strings.ToLower(strings.TrimSpace(fn))
+	if fnLower == "custom" || fnLower == "none" || fnLower == "" {
+		return column
+	}
+	if fnLower == "count" && column == "*" {
 		return "count()"
 	}
 	quotedCol := d.QuoteIdent(column)
-	switch strings.ToLower(fn) {
+	switch fnLower {
 	case "count":
 		return fmt.Sprintf("count(%s)", quotedCol)
 	case "count_distinct":

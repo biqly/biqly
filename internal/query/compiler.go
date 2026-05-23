@@ -18,6 +18,7 @@ var (
 	reOrderBy = regexp.MustCompile(`(?i)\sORDER BY\s`)
 	reLimit   = regexp.MustCompile(`(?i)\sLIMIT\s`)
 	reOffset  = regexp.MustCompile(`(?i)\sOFFSET\s`)
+	reBracket = regexp.MustCompile(`\[([^\]]+)\]`)
 )
 
 // Compiler compiles a LogicalQuery into dialect-specific SQL.
@@ -309,19 +310,81 @@ func (c *Compiler) dimensionSQL(dim semantic.Dimension, resolver *SchemaResolver
 	}
 }
 
-func (c *Compiler) metricExpressionRef(expr string, resolver *SchemaResolver) string {
+func (c *Compiler) resolveBracketExpressions(
+	expr string,
+	resolver *SchemaResolver,
+	dimMap map[string]semantic.Dimension,
+	metricMap map[string]semantic.Metric,
+	model *semantic.SemanticModel,
+) string {
 	if expr == "*" {
 		return expr
 	}
-	if _, ok := resolver.ParseColumnRef(expr); ok {
-		return resolver.PhysicalColumnRef(expr)
+	if !strings.Contains(expr, "[") {
+		if _, ok := resolver.ParseColumnRef(expr); ok {
+			return resolver.PhysicalColumnRef(expr)
+		}
+		return expr
 	}
-	return expr
+
+	return reBracket.ReplaceAllStringFunc(expr, func(match string) string {
+		token := match[1 : len(match)-1]
+		return c.resolveCustomToken(token, resolver, dimMap, metricMap, model)
+	})
 }
 
-func (c *Compiler) qualifyMetricExpression(expr string, resolver *SchemaResolver) string {
+func (c *Compiler) resolveCustomToken(
+	token string,
+	resolver *SchemaResolver,
+	dimMap map[string]semantic.Dimension,
+	metricMap map[string]semantic.Metric,
+	model *semantic.SemanticModel,
+) string {
+	token = strings.TrimSpace(token)
+	for name, dim := range dimMap {
+		if strings.EqualFold(name, token) {
+			return c.dimensionSQL(dim, resolver)
+		}
+	}
+	for name, m := range metricMap {
+		if strings.EqualFold(name, token) {
+			return c.dialect.Aggregate(m.Aggregation, c.metricExpressionRef(m.Expression, resolver, dimMap, metricMap, model))
+		}
+	}
+	if strings.Contains(token, ".") {
+		return resolver.QualifyColumn(c.dialect, token)
+	}
+	if model != nil && model.BaseTable != "" {
+		return resolver.QualifyColumn(c.dialect, model.BaseTable+"."+token)
+	}
+	return c.dialect.QuoteIdent(token)
+}
+
+func (c *Compiler) metricExpressionRef(
+	expr string,
+	resolver *SchemaResolver,
+	dimMap map[string]semantic.Dimension,
+	metricMap map[string]semantic.Metric,
+	model *semantic.SemanticModel,
+) string {
 	if expr == "*" {
 		return expr
+	}
+	return c.resolveBracketExpressions(expr, resolver, dimMap, metricMap, model)
+}
+
+func (c *Compiler) qualifyMetricExpression(
+	expr string,
+	resolver *SchemaResolver,
+	dimMap map[string]semantic.Dimension,
+	metricMap map[string]semantic.Metric,
+	model *semantic.SemanticModel,
+) string {
+	if expr == "*" {
+		return expr
+	}
+	if strings.Contains(expr, "[") {
+		return c.resolveBracketExpressions(expr, resolver, dimMap, metricMap, model)
 	}
 	if _, ok := resolver.ParseColumnRef(expr); ok {
 		return c.dialect.QuoteIdent(resolver.PhysicalColumnRef(expr))
@@ -350,7 +413,7 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]semantic.Di
 			if !ok {
 				return nil, validationErr("select", errmsg.UnknownMetricMsg(item.Name))
 			}
-			agg := c.dialect.Aggregate(metric.Aggregation, c.metricExpressionRef(metric.Expression, resolver))
+			agg := c.dialect.Aggregate(metric.Aggregation, c.metricExpressionRef(metric.Expression, resolver, dimMap, metricMap, model))
 			alias := item.Alias
 			if alias == "" {
 				alias = metric.Name
@@ -358,7 +421,7 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]semantic.Di
 			parts = append(parts, agg+" AS "+c.dialect.QuoteIdent(alias))
 
 		case SelectTypeWindow:
-			windowSQL, err := c.buildWindowExpr(item, dimMap, metricMap, resolver)
+			windowSQL, err := c.buildWindowExpr(item, dimMap, metricMap, model, resolver)
 			if err != nil {
 				return nil, err
 			}
@@ -397,6 +460,7 @@ func (c *Compiler) buildWindowExpr(
 	item SelectItem,
 	dimMap map[string]semantic.Dimension,
 	metricMap map[string]semantic.Metric,
+	model *semantic.SemanticModel,
 	resolver *SchemaResolver,
 ) (string, error) {
 	if item.Window == nil {
@@ -421,7 +485,7 @@ func (c *Compiler) buildWindowExpr(
 		}
 	}
 	if expr != "" && expr != "*" {
-		expr = c.metricExpressionRef(expr, resolver)
+		expr = c.metricExpressionRef(expr, resolver, dimMap, metricMap, model)
 	}
 	if agg == "" {
 		return "", fmt.Errorf("window select item %q missing aggregation", item.Name)
@@ -441,21 +505,18 @@ func (c *Compiler) buildWindowExpr(
 		}
 		head = fmt.Sprintf("NTILE(%s)", bucket)
 	default:
-		if expr == "" {
-			return "", fmt.Errorf("window aggregation %q requires expression", agg)
-		}
 		head = c.dialect.Aggregate(agg, expr)
 	}
 
 	var clauses []string
 	if len(w.PartitionBy) > 0 {
 		var cols []string
-		for _, name := range w.PartitionBy {
-			dim, ok := dimMap[name]
-			if !ok {
-				return "", fmt.Errorf("unknown partition_by dimension: %s", name)
+		for _, p := range w.PartitionBy {
+			if dim, ok := dimMap[p]; ok {
+				cols = append(cols, c.dimensionSQL(dim, resolver))
+			} else {
+				return "", fmt.Errorf("unknown window partition_by dimension: %s", p)
 			}
-			cols = append(cols, c.dimensionSQL(dim, resolver))
 		}
 		clauses = append(clauses, "PARTITION BY "+strings.Join(cols, ", "))
 	}
@@ -470,7 +531,7 @@ func (c *Compiler) buildWindowExpr(
 			if dim, ok := dimMap[ob.Field]; ok {
 				ref = c.dimensionSQL(dim, resolver)
 			} else if metric, ok := metricMap[ob.Field]; ok {
-				ref = c.dialect.Aggregate(metric.Aggregation, c.metricExpressionRef(metric.Expression, resolver))
+				ref = c.dialect.Aggregate(metric.Aggregation, c.metricExpressionRef(metric.Expression, resolver, dimMap, metricMap, model))
 			} else {
 				return "", fmt.Errorf("unknown window order_by field: %s", ob.Field)
 			}
@@ -484,10 +545,6 @@ func (c *Compiler) buildWindowExpr(
 		}
 		clauses = append(clauses, frame)
 	}
-
-	if len(clauses) == 0 {
-		return head + " OVER ()", nil
-	}
 	return head + " OVER (" + strings.Join(clauses, " ") + ")", nil
 }
 
@@ -496,7 +553,9 @@ func (c *Compiler) buildWindowExpr(
 // SUM("orders"."total_amount") > $1. Placeholder indices start at startArg+1.
 func (c *Compiler) buildHaving(
 	filters []Filter,
+	dimMap map[string]semantic.Dimension,
 	metricMap map[string]semantic.Metric,
+	model *semantic.SemanticModel,
 	resolver *SchemaResolver,
 	startArg int,
 ) (string, []any, error) {
@@ -515,7 +574,7 @@ func (c *Compiler) buildHaving(
 		if !ok {
 			return "", nil, fmt.Errorf("unknown having field (must be a metric): %s", f.Field)
 		}
-		aggSQL := c.dialect.Aggregate(metric.Aggregation, c.metricExpressionRef(metric.Expression, resolver))
+		aggSQL := c.dialect.Aggregate(metric.Aggregation, c.metricExpressionRef(metric.Expression, resolver, dimMap, metricMap, model))
 		switch f.Operator {
 		case OpEq, OpNeq, OpGt, OpGte, OpLt, OpLte:
 			args = append(args, f.Value)
@@ -647,7 +706,7 @@ func (c *Compiler) buildWhere(filters []Filter, dimMap map[string]semantic.Dimen
 			continue
 		}
 
-		colSQL, err := c.resolveFilterLHS(f.Field, dimMap, metricMap, resolver)
+		colSQL, err := c.resolveFilterLHS(f.Field, dimMap, metricMap, model, resolver)
 		if err != nil {
 			return "", err
 		}
@@ -664,12 +723,12 @@ func (c *Compiler) buildWhere(filters []Filter, dimMap map[string]semantic.Dimen
 }
 
 // resolveFilterLHS returns SQL for the left-hand side of a filter (quoted column, metric expression, or date_trunc).
-func (c *Compiler) resolveFilterLHS(field string, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric, resolver *SchemaResolver) (string, error) {
+func (c *Compiler) resolveFilterLHS(field string, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric, model *semantic.SemanticModel, resolver *SchemaResolver) (string, error) {
 	if dim, ok := dimMap[field]; ok {
 		return c.dimensionSQL(dim, resolver), nil
 	}
 	if metric, ok := metricMap[field]; ok {
-		return c.qualifyMetricExpression(metric.Expression, resolver), nil
+		return c.qualifyMetricExpression(metric.Expression, resolver, dimMap, metricMap, model), nil
 	}
 	return "", validationErr("filters", errmsg.UnknownFieldMsg(field))
 }

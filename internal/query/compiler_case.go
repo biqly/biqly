@@ -81,7 +81,7 @@ func (c *Compiler) buildPredicate(
 	}
 	var parts []string
 	for _, f := range filters {
-		colSQL, err := c.resolveFilterLHS(f.Field, dimMap, metricMap, resolver)
+		colSQL, err := c.resolveFilterLHS(f.Field, dimMap, metricMap, model, resolver)
 		if err != nil {
 			return "", err
 		}

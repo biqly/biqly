@@ -40,6 +40,10 @@ type JobsConfig struct {
 type HTTPConfig struct {
 	Host string
 	Port int
+	// CORSAllowedOrigins is the explicit set of origins allowed by CORS.
+	// Empty means "no cross-origin requests" — the legacy wildcard
+	// {"https://*", "http://*"} is no longer the default.
+	CORSAllowedOrigins []string
 }
 
 // LoggingConfig holds structured logger configuration.
@@ -75,6 +79,10 @@ type SecurityConfig struct {
 	AdminAPIKey   string
 	// InternalAPIToken protects /internal/* peer-service endpoints.
 	InternalAPIToken string
+	// APIKey, when set, gates all /api/* routes via the APIKeyAuth middleware.
+	// Clients must send either `X-API-Key: <key>` or `Authorization: Bearer <key>`.
+	// When empty the API is left unauthenticated and a warning is logged at startup.
+	APIKey string
 }
 
 // ServicesConfig holds upstream service URLs used when the monolith runs as a BFF.
@@ -170,8 +178,9 @@ type AIConfig struct {
 func Load() (*Config, error) {
 	cfg := &Config{
 		HTTP: HTTPConfig{
-			Host: getEnv("BI_HTTP_HOST", "0.0.0.0"),
-			Port: getEnvAsInt("BI_HTTP_PORT", 8888),
+			Host:               getEnv("BI_HTTP_HOST", "0.0.0.0"),
+			Port:               getEnvAsInt("BI_HTTP_PORT", 8888),
+			CORSAllowedOrigins: splitCSV(getEnv("BI_CORS_ALLOWED_ORIGINS", "")),
 		},
 		Logging: LoggingConfig{
 			Level:  strings.ToLower(strings.TrimSpace(getEnv("BI_LOG_LEVEL", "info"))),
@@ -194,6 +203,7 @@ func Load() (*Config, error) {
 			EncryptionKey:    getEnv("BI_ENCRYPTION_KEY", "change-this-to-a-secure-32-byte-key!!"),
 			AdminAPIKey:      getEnv("BI_ADMIN_API_KEY", ""),
 			InternalAPIToken: getEnv("BI_INTERNAL_API_TOKEN", ""),
+			APIKey:           getEnv("BI_API_KEY", ""),
 		},
 		Services: ServicesConfig{
 			CatalogURL: strings.TrimRight(getEnv("BI_CATALOG_SERVICE_URL", ""), "/"),
@@ -439,6 +449,28 @@ func getEnv(key, defaultVal string) string {
 		return val
 	}
 	return defaultVal
+}
+
+// splitCSV parses a comma-separated string into a slice of trimmed,
+// non-empty values. Returns nil for an empty input so callers can
+// distinguish "unset" from "set to empty list".
+func splitCSV(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func getEnvAsInt(key string, defaultVal int) int {

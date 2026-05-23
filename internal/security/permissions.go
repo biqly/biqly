@@ -18,6 +18,13 @@ type (
 )
 
 // PermissionManager enforces access control.
+//
+// Policy semantics are FAIL-CLOSED:
+//   - A nil *PermissionPolicy denies all access. Callers that legitimately
+//     need unrestricted access (admin tooling, internal jobs) must construct
+//     an explicit policy or use SystemPolicy() below.
+//   - An empty AllowedModels list still means "no restriction" — once a
+//     policy exists, it is presumed to have been intentionally constructed.
 type PermissionManager struct{}
 
 // NewPermissionManager creates a new permission manager.
@@ -25,25 +32,39 @@ func NewPermissionManager() *PermissionManager {
 	return &PermissionManager{}
 }
 
+// SystemPolicy returns a permissive policy intended for trusted internal
+// callers (admin endpoints, background workers). Use it explicitly rather
+// than passing nil so the call site is auditable.
+func SystemPolicy() *PermissionPolicy {
+	return &PermissionPolicy{UserID: "system"}
+}
+
 // CheckModelAccess verifies the user can access the given model.
+//
+// Returns an error when policy is nil (fail-closed) or when an explicit
+// AllowedModels list is set and does not contain modelName.
 func (pm *PermissionManager) CheckModelAccess(policy *PermissionPolicy, modelName string) error {
 	if policy == nil {
-		return nil
+		return fmt.Errorf("no permission policy supplied for model %s", modelName)
 	}
 	if len(policy.AllowedModels) == 0 {
-		return nil // No restrictions
+		return nil // empty list inside an explicit policy = no restriction
 	}
-
 	if !slices.Contains(policy.AllowedModels, modelName) {
 		return fmt.Errorf("user %s does not have access to model %s", policy.UserID, modelName)
 	}
-
 	return nil
 }
 
 // FieldIsDenied reports whether qualifiedField or plainField is listed in policy.DeniedFields.
+//
+// A nil policy is treated as fail-closed: every field is considered denied.
+// Callers wanting to skip the check entirely should pass SystemPolicy().
 func FieldIsDenied(policy *PermissionPolicy, qualifiedField, plainField string) bool {
-	if policy == nil || len(policy.DeniedFields) == 0 {
+	if policy == nil {
+		return true
+	}
+	if len(policy.DeniedFields) == 0 {
 		return false
 	}
 	return slices.Contains(policy.DeniedFields, qualifiedField) || slices.Contains(policy.DeniedFields, plainField)
@@ -66,6 +87,7 @@ func (pm *PermissionManager) FilterAllowedFields(modelName string, allowedFields
 }
 
 // GetRowFilters returns the mandatory row filters for a user.
+// A nil policy returns nil — the executor must not run without a policy.
 func (pm *PermissionManager) GetRowFilters(policy *PermissionPolicy) []RowFilter {
 	if policy == nil {
 		return nil
@@ -74,9 +96,10 @@ func (pm *PermissionManager) GetRowFilters(policy *PermissionPolicy) []RowFilter
 }
 
 // HasFieldAccess checks if a user can access a specific field.
+// Fail-closed: nil policy denies.
 func (pm *PermissionManager) HasFieldAccess(policy *PermissionPolicy, modelName, fieldName string) bool {
 	if policy == nil {
-		return true
+		return false
 	}
 	return !FieldIsDenied(policy, modelName+"."+fieldName, fieldName)
 }

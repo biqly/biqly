@@ -976,3 +976,59 @@ func TestCompiler_CTEWithFromCTE(t *testing.T) {
 		t.Errorf("expected FROM cte name, got: %s", cq.SQL)
 	}
 }
+
+func TestCompiler_CustomExpression(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "orders",
+		BaseSchema: "public",
+		BaseTable:  "orders",
+		Dimensions: []semantic.Dimension{
+			{Name: "country", ColumnRef: "customers.country", Type: "text"},
+			{Name: "tax", ColumnRef: "orders.tax_amount", Type: "number"},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "order_count", Expression: "orders.id", Aggregation: "count"},
+			{Name: "sum_tax", Expression: "orders.tax_amount", Aggregation: "sum"},
+			{Name: "custom_ratio", Expression: "sum([orders.tax_amount]) / [order_count]", Aggregation: "custom"},
+			{Name: "conditional_sum", Expression: "sum(case when [country] = 'US' then [tax] else 0 end)", Aggregation: "custom"},
+		},
+		Joins: []semantic.Join{
+			{
+				Name:         "orders_customers",
+				FromTable:    "orders",
+				FromColumn:   "customer_id",
+				ToTable:      "customers",
+				ToColumn:     "id",
+				JoinType:     "LEFT",
+				Relationship: "many_to_one",
+			},
+		},
+	}
+
+	lq := LogicalQuery{
+		DatasourceID: "ds1",
+		ModelID:      "orders",
+		Select: []SelectItem{
+			{Type: "dimension", Name: "country"},
+			{Type: "metric", Name: "custom_ratio"},
+			{Type: "metric", Name: "conditional_sum"},
+		},
+		GroupBy: []GroupBy{
+			{Field: "country"},
+		},
+		Limit: 100,
+	}
+
+	compiler := NewCompiler(dialect.PostgresDialect{})
+	cq, err := compiler.Compile(context.Background(), lq, model)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expectedSQL := `SELECT "customers"."country" AS "country", sum("orders"."tax_amount") / COUNT("orders"."id") AS "custom_ratio", sum(case when "customers"."country" = 'US' then "orders"."tax_amount" else 0 end) AS "conditional_sum" FROM "public"."orders" LEFT JOIN "public"."customers" ON "public"."orders"."customer_id" = "public"."customers"."id" GROUP BY "customers"."country" LIMIT 100`
+
+	if cq.SQL != expectedSQL {
+		t.Errorf("SQL mismatch.\nGot:\n%s\n\nExpected:\n%s", cq.SQL, expectedSQL)
+	}
+}
+

@@ -2,14 +2,14 @@
 
 ## Critical - Must Fix Before Production
 
-- [ ] `security/readonly.go:52` — ReadOnlyChecker semicolon bypass: `SELECT 1; DROP TABLE x;` passes validation. Count statement fragments instead of suffix check.
-- [ ] `security/row_injection.go:58-60` — Unsupported row filter operators silently fall back to `eq`. A `neq` filter becomes `column = value`, exposing restricted rows. Return error for unknown operators.
-- [ ] `security/readonly.go:41` — CTE queries (`WITH ... SELECT`) rejected because they don't start with `SELECT`. Allow `WITH` and `EXPLAIN` prefixes.
-- [ ] `security/readonly.go:15-19` — Missing dangerous functions: `xp_cmdshell`, `OPENROWSET`, `BULK INSERT`, `pg_read_file`, `LOAD_FILE`, `dblink`, `lo_import`.
-- [ ] `http/router.go` — No authentication middleware on `/api/*` routes. All endpoints are unauthenticated.
-- [ ] `http/router.go:36-43` — CORS `AllowedOrigins: ["https://*", "http://*"]` with `AllowCredentials: true`. Restrict to known frontend domains.
-- [ ] `cmd/api/main.go:46` — DSN with credentials logged in plaintext. Redact or hash before logging.
-- [ ] `security/permissions.go:30-31` — Nil policy grants full access. Fail closed instead of default-open.
+- [x] `security/readonly.go:52` — ReadOnlyChecker semicolon bypass: `SELECT 1; DROP TABLE x;` passes validation. Count statement fragments instead of suffix check.
+- [x] `security/row_injection.go:58-60` — Unsupported row filter operators silently fall back to `eq`. A `neq` filter becomes `column = value`, exposing restricted rows. Return error for unknown operators.
+- [x] `security/readonly.go:41` — CTE queries (`WITH ... SELECT`) rejected because they don't start with `SELECT`. Allow `WITH` and `EXPLAIN` prefixes.
+- [x] `security/readonly.go:15-19` — Missing dangerous functions: `xp_cmdshell`, `OPENROWSET`, `BULK INSERT`, `pg_read_file`, `LOAD_FILE`, `dblink`, `lo_import`.
+- [x] `http/router.go` — No authentication middleware on `/api/*` routes. All endpoints are unauthenticated.
+- [x] `http/router.go:36-43` — CORS `AllowedOrigins: ["https://*", "http://*"]` with `AllowCredentials: true`. Restrict to known frontend domains.
+- [x] `cmd/api/main.go:46` — DSN with credentials logged in plaintext. Redact or hash before logging.
+- [x] `security/permissions.go:30-31` — Nil policy grants full access. Fail closed instead of default-open.
 
 ## Performance - Should Fix Soon
 
@@ -65,14 +65,14 @@
 
 ## Testing
 
-- [ ] Test: ReadOnlyChecker rejects `SELECT 1; DROP TABLE x;`
-- [ ] Test: ReadOnlyChecker accepts `WITH cte AS (...) SELECT ...`
-- [ ] Test: Row filter unsupported operators return errors, not wrong SQL
+- [x] Test: ReadOnlyChecker rejects `SELECT 1; DROP TABLE x;`
+- [x] Test: ReadOnlyChecker accepts `WITH cte AS (...) SELECT ...`
+- [x] Test: Row filter unsupported operators return errors, not wrong SQL
 - [ ] Test: Concurrent embedding writes on same entity
 - [ ] Test: Metrics mutex contention under concurrent load (benchmark)
 - [ ] Test: Template parsing overhead with cached vs uncached (benchmark)
 - [ ] Test: Cache key determinism for `redis.Key` with map-containing structs
-- [ ] Test: Permission nil-safety (nil policy should deny access after fix)
+- [x] Test: Permission nil-safety (nil policy should deny access after fix)
 - [ ] Test: `dateTruncCompareExpr` with MySQL/SQLServer/ClickHouse dialects
 - [ ] Test: Admin job endpoints reject unauthenticated requests (after auth added)
 - [ ] Test: Connection pool open/close overhead vs cached pool (benchmark)

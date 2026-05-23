@@ -147,3 +147,32 @@ func validPublishCatalog() fakeSemanticCatalog {
 		},
 	}
 }
+
+func TestValidateContextCustomExpressions(t *testing.T) {
+	model := validPublishModel()
+	
+	// Add a valid custom expression
+	model.Metrics = append(model.Metrics, semantic.Metric{
+		Name:        "tax_ratio",
+		Expression:  "sum([total_amount]) / [revenue]",
+		Aggregation: "custom",
+		IsActive:    true,
+	})
+	
+	// Add an invalid custom expression (references non-existent column/dimension)
+	model.Metrics = append(model.Metrics, semantic.Metric{
+		Name:        "bad_ratio",
+		Expression:  "sum([missing_col]) / [revenue]",
+		Aggregation: "custom",
+		IsActive:    true,
+	})
+
+	result := semantic.ValidateContext(context.Background(), model, validPublishCatalog())
+	if result.Valid {
+		t.Fatal("ValidateContext() should be invalid because of bad_ratio")
+	}
+	if !result.HasError("metric expression references unknown column: missing_col") {
+		t.Fatalf("expected missing_col validation error, got %v", result.Errors)
+	}
+}
+

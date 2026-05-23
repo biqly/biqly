@@ -1629,9 +1629,8 @@ export default function Modeling() {
 
             {activeTab === 'metrics' && (
               <div className="modeling-join-list">
-                <div className="modeling-section-header">
-                  <h3>{t('modeling.metrics_tab')}</h3>
-                  <button className="btn btn-sm btn-primary" type="button" onClick={() => setAddMetricOpen(true)} disabled={!model}>
+                <div className="modeling-section-header" style={{ justifyContent: 'center' }}>
+                  <button className="btn btn-sm btn-primary" type="button" onClick={() => setAddMetricOpen(true)} disabled={!model} style={{ width: '100%' }}>
                     {t('modeling.add_metric_btn')}
                   </button>
                 </div>
@@ -1920,7 +1919,9 @@ export default function Modeling() {
       )}
       {addMetricOpen && model && (
         <AddMetricModal
-          modelId={model.id}
+          model={model}
+          includedTables={includedTables}
+          columns={columns}
           onClose={() => setAddMetricOpen(false)}
           onCreated={async () => {
             setAddMetricOpen(false)
@@ -2025,30 +2026,161 @@ const METRIC_AGGREGATION_OPTIONS = [
 ] as const
 
 interface AddMetricModalProps {
-  modelId: string
+  model: SemanticModelDetail
+  includedTables: TableRow[]
+  columns: ColumnRow[]
   onClose: () => void
   onCreated: () => void | Promise<void>
   postData: (url: string, body: unknown) => Promise<unknown>
   t: ReturnType<typeof useT>
 }
 
-function AddMetricModal({ modelId, onClose, onCreated, postData, t }: AddMetricModalProps) {
+function AddMetricModal({ model, includedTables, columns, onClose, onCreated, postData, t }: AddMetricModalProps) {
   const [name, setName] = useState('')
   const [label, setLabel] = useState('')
-  const [expression, setExpression] = useState('')
-  const [aggregation, setAggregation] = useState<'count' | 'sum' | 'avg' | 'min' | 'max' | 'count_distinct'>('sum')
-  const [format, setFormat] = useState('')
+  const [mode, setMode] = useState<'simple' | 'custom'>('simple')
   const [saving, setSaving] = useState(false)
 
+  // Simple Mode state
+  const [selectedSchema, setSelectedSchema] = useState(model.base_schema)
+  const [selectedTable, setSelectedTable] = useState(model.base_table)
+  const [selectedColumn, setSelectedColumn] = useState('')
+  const [selectedAggregation, setSelectedAggregation] = useState<'count' | 'sum' | 'avg' | 'min' | 'max' | 'count_distinct'>('sum')
+  const [format, setFormat] = useState('')
+
+  // Custom Mode state
+  const [expression, setExpression] = useState('')
+
+  // Get active tables in model
+  const modelTableKeys = useMemo(() => {
+    const keys = new Set<string>()
+    if (model) {
+      keys.add(`${model.base_schema}.${model.base_table}`)
+      ;(model.joins ?? []).forEach((j) => {
+        if (j.is_active !== false) {
+          keys.add(`${j.from_schema || model.base_schema}.${j.from_table}`)
+          keys.add(`${j.to_schema || model.base_schema}.${j.to_table}`)
+        }
+      })
+    }
+    return keys
+  }, [model])
+
+  // Simple Mode lists
+  const availableSchemas = useMemo(() => {
+    const schemas = new Set<string>()
+    modelTableKeys.forEach((key) => {
+      const parts = key.split('.')
+      if (parts.length >= 2 && parts[0]) {
+        schemas.add(parts[0])
+      }
+    })
+    return Array.from(schemas).sort()
+  }, [modelTableKeys])
+
+  const availableTables = useMemo(() => {
+    return includedTables.filter((t) => {
+      return t.schema_name === selectedSchema && modelTableKeys.has(`${t.schema_name}.${t.table_name}`)
+    })
+  }, [includedTables, selectedSchema, modelTableKeys])
+
+  const availableColumns = useMemo(() => {
+    return columns.filter((c) => {
+      return c.schema_name === selectedSchema && c.table_name === selectedTable
+    })
+  }, [columns, selectedSchema, selectedTable])
+
+  // Select first table/column when schema/table changes
+  useEffect(() => {
+    if (availableTables.length > 0) {
+      const found = availableTables.find((t) => t.table_name === selectedTable)
+      if (!found && availableTables[0]) {
+        setSelectedTable(availableTables[0].table_name)
+      }
+    } else {
+      setSelectedTable('')
+    }
+  }, [selectedSchema, availableTables, selectedTable])
+
+  useEffect(() => {
+    if (availableColumns.length > 0) {
+      const found = availableColumns.find((c) => c.column_name === selectedColumn)
+      if (!found && availableColumns[0]) {
+        setSelectedColumn(availableColumns[0].column_name)
+      }
+    } else {
+      setSelectedColumn('')
+    }
+  }, [selectedTable, availableColumns, selectedColumn])
+
+  // Sync Simple selection to Custom mode if they toggle tabs
+  const handleModeChange = (newMode: 'simple' | 'custom') => {
+    if (newMode === 'custom' && mode === 'simple' && selectedColumn) {
+      const ref = selectedSchema === model.base_schema
+        ? `${selectedTable}.${selectedColumn}`
+        : `${selectedSchema}.${selectedTable}.${selectedColumn}`
+      setExpression(`${selectedAggregation}([${ref}])`)
+    }
+    setMode(newMode)
+  }
+
+  // Custom Mode Table Expand/Collapse state
+  const [expandedTable, setExpandedTable] = useState<string | null>(model.base_table)
+
+  // Insertion logic
+  const insertTextAtCursor = (text: string) => {
+    const textarea = document.getElementById('metric-expression') as HTMLTextAreaElement
+    if (!textarea) {
+      setExpression((prev) => prev + text)
+      return
+    }
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const prevValue = textarea.value
+    const newValue = prevValue.substring(0, start) + text + prevValue.substring(end)
+    setExpression(newValue)
+    
+    let caretPos = start + text.length
+    if (text.endsWith('()')) {
+      caretPos = start + text.length - 1
+    } else if (text.includes('[field]')) {
+      caretPos = start + text.indexOf('[field]')
+    } else if (text.includes('[amount]')) {
+      caretPos = start + text.indexOf('[amount]')
+    }
+    
+    setTimeout(() => {
+      textarea.focus()
+      textarea.selectionStart = textarea.selectionEnd = caretPos
+    }, 0)
+  }
+
   const submit = async () => {
-    if (!name.trim() || !expression.trim()) return
+    if (!name.trim()) return
+
+    let finalExpr = ''
+    let finalAgg = ''
+
+    if (mode === 'simple') {
+      if (!selectedColumn) return
+      const ref = selectedSchema === model.base_schema
+        ? `${selectedTable}.${selectedColumn}`
+        : `${selectedSchema}.${selectedTable}.${selectedColumn}`
+      finalExpr = ref
+      finalAgg = selectedAggregation
+    } else {
+      if (!expression.trim()) return
+      finalExpr = expression.trim()
+      finalAgg = 'custom'
+    }
+
     setSaving(true)
     try {
-      await postData(`/api/semantic/models/${modelId}/metrics`, {
+      await postData(`/api/semantic/models/${model.id}/metrics`, {
         name: name.trim(),
         label: label.trim() || undefined,
-        expression: expression.trim(),
-        aggregation,
+        expression: finalExpr,
+        aggregation: finalAgg,
         format: format.trim() || undefined,
       })
       await onCreated()
@@ -2057,10 +2189,23 @@ function AddMetricModal({ modelId, onClose, onCreated, postData, t }: AddMetricM
     }
   }
 
+  const customFuncs = [
+    { label: 'sum(...)', value: 'sum()' },
+    { label: 'avg(...)', value: 'avg()' },
+    { label: 'count(...)', value: 'count()' },
+    { label: 'count_distinct(...)', value: 'count_distinct()' },
+    { label: 'min(...)', value: 'min()' },
+    { label: 'max(...)', value: 'max()' },
+    { label: 'SumIf (Koşullu Toplam)', value: 'sum(case when [field] = \'değer\' then [amount] else 0 end)' },
+    { label: 'CountIf (Koşullu Sayım)', value: 'count(case when [field] = \'değer\' then 1 else null end)' },
+  ]
+
+  const customOps = ['+', '-', '*', '/', '(', ')']
+
   return (
     <div className="modal-backdrop" onClick={saving ? undefined : onClose}>
       <form
-        className="modal-card modal-card--modeling"
+        className={`modal-card ${mode === 'custom' ? 'modal-card--metric' : 'modal-card--modeling'}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modeling-add-metric-title"
@@ -2095,47 +2240,253 @@ function AddMetricModal({ modelId, onClose, onCreated, postData, t }: AddMetricM
               />
             </div>
           </div>
-          <div className="form-group">
-            <label htmlFor="metric-expression">{t('modeling.metric_expression_label')}</label>
-            <input
-              id="metric-expression"
-              value={expression}
-              onChange={(e) => setExpression(e.target.value)}
+
+          <div className="modeling-tabs" style={{ marginBottom: '0.25rem' }}>
+            <button
+              type="button"
+              className={`modeling-tab ${mode === 'simple' ? 'modeling-tab--active' : ''}`}
+              onClick={() => handleModeChange('simple')}
               disabled={saving}
-              placeholder="orders.total_amount"
+            >
+              {t('modeling.simple_metric')}
+            </button>
+            <button
+              type="button"
+              className={`modeling-tab ${mode === 'custom' ? 'modeling-tab--active' : ''}`}
+              onClick={() => handleModeChange('custom')}
+              disabled={saving}
+            >
+              {t('modeling.custom_expression')}
+            </button>
+          </div>
+
+          {mode === 'simple' ? (
+            <>
+              <div className="modal-form-row">
+                <div className="form-group">
+                  <label htmlFor="metric-schema">{t('modeling.pick_schema')}</label>
+                  <Select
+                    id="metric-schema"
+                    name="schema"
+                    value={selectedSchema}
+                    onChange={(val) => setSelectedSchema(val)}
+                    disabled={saving}
+                    options={availableSchemas.map((s) => ({ value: s, label: s }))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="metric-table">{t('modeling.pick_table')}</label>
+                  <Select
+                    id="metric-table"
+                    name="table"
+                    value={selectedTable}
+                    onChange={(val) => setSelectedTable(val)}
+                    disabled={saving}
+                    options={availableTables.map((tbl) => ({ value: tbl.table_name, label: tbl.label || tbl.table_name }))}
+                  />
+                </div>
+              </div>
+              <div className="modal-form-row">
+                <div className="form-group">
+                  <label htmlFor="metric-column">{t('modeling.pick_column')}</label>
+                  <Select
+                    id="metric-column"
+                    name="column"
+                    value={selectedColumn}
+                    onChange={(val) => setSelectedColumn(val)}
+                    disabled={saving}
+                    options={availableColumns.map((col) => ({ value: col.column_name, label: `${col.column_name} (${col.data_type})` }))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="metric-aggregation">{t('modeling.metric_aggregation_label')}</label>
+                  <Select
+                    id="metric-aggregation"
+                    name="aggregation"
+                    value={selectedAggregation}
+                    onChange={(value) => setSelectedAggregation(value as typeof selectedAggregation)}
+                    disabled={saving}
+                    options={[...METRIC_AGGREGATION_OPTIONS]}
+                  />
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="form-group">
+                <label htmlFor="metric-expression">{t('modeling.metric_expression_label')}</label>
+                <textarea
+                  id="metric-expression"
+                  value={expression}
+                  onChange={(e) => setExpression(e.target.value)}
+                  disabled={saving}
+                  placeholder="sum([orders.total_amount]) / sum([orders.quantity])"
+                  autoComplete="off"
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    fontFamily: 'monospace',
+                    fontSize: '0.85rem',
+                    padding: '0.5rem',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg-body)',
+                    color: 'var(--text-primary)',
+                    resize: 'vertical',
+                  }}
+                />
+              </div>
+
+              <div className="metric-helper-grid">
+                <div className="metric-helper-pane">
+                  <h4>{t('modeling.helper_fields')}</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {(model.dimensions ?? []).length > 0 && (
+                      <div>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.2rem' }}>
+                          {t('modeling.tab_short_dim')}
+                        </div>
+                        <div className="metric-helper-list">
+                          {(model.dimensions ?? []).filter(d => d.is_active).map((d) => (
+                            <button
+                              key={d.id}
+                              type="button"
+                              className="metric-helper-badge"
+                              onClick={() => insertTextAtCursor(`[${d.name}]`)}
+                              title={d.column_ref}
+                            >
+                              {d.label || d.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {(model.metrics ?? []).length > 0 && (
+                      <div>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.2rem' }}>
+                          {t('modeling.tab_short_metric')}
+                        </div>
+                        <div className="metric-helper-list">
+                          {(model.metrics ?? []).filter(m => m.is_active).map((m) => (
+                            <button
+                              key={m.id}
+                              type="button"
+                              className="metric-helper-badge"
+                              onClick={() => insertTextAtCursor(`[${m.name}]`)}
+                              title={`${m.aggregation}(${m.expression})`}
+                            >
+                              {m.label || m.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.2rem' }}>
+                        {t('modeling.tab_short_tables')}
+                      </div>
+                      {Array.from(modelTableKeys).map((tableKey) => {
+                        const parts = tableKey.split('.')
+                        const schemaName = parts[0]
+                        const tableName = parts[1]
+                        const tbl = includedTables.find((t) => t.schema_name === schemaName && t.table_name === tableName)
+                        const tableLabel = tbl?.label || tableName
+                        const isExpanded = expandedTable === tableKey
+                        
+                        const tableCols = columns.filter((c) => c.schema_name === schemaName && c.table_name === tableName)
+
+                        return (
+                          <div key={tableKey} style={{ marginBottom: '0.2rem' }}>
+                            <div
+                              className="metric-helper-table-header"
+                              onClick={() => setExpandedTable(isExpanded ? null : tableKey)}
+                            >
+                              <span>{tableLabel}</span>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                                {isExpanded ? '▼' : '▶'}
+                              </span>
+                            </div>
+                            {isExpanded && (
+                              <div className="metric-helper-table-columns">
+                                {tableCols.map((c) => (
+                                  <button
+                                    key={c.id}
+                                    type="button"
+                                    className="metric-helper-badge"
+                                    onClick={() => {
+                                      insertTextAtCursor(`[${tableName}.${c.column_name}]`)
+                                    }}
+                                    title={`${c.column_name} (${c.data_type})`}
+                                  >
+                                    {c.column_name}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="metric-helper-pane">
+                  <h4>{t('modeling.helper_funcs')}</h4>
+                  <div className="metric-helper-list" style={{ flexDirection: 'column', gap: '0.35rem', alignItems: 'stretch' }}>
+                    {customFuncs.map((f, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className="metric-helper-badge"
+                        style={{ justifyContent: 'flex-start', textAlign: 'left' }}
+                        onClick={() => insertTextAtCursor(f.value)}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <h4 style={{ marginTop: '0.5rem' }}>{t('modeling.helper_ops')}</h4>
+                  <div className="metric-helper-list">
+                    {customOps.map((op, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className="metric-helper-badge"
+                        onClick={() => insertTextAtCursor(op)}
+                      >
+                        {op}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className="form-group">
+            <label htmlFor="metric-format">{t('modeling.metric_format_label')}</label>
+            <input
+              id="metric-format"
+              value={format}
+              onChange={(e) => setFormat(e.target.value)}
+              disabled={saving}
+              placeholder="$#,##0.00"
               autoComplete="off"
             />
-          </div>
-          <div className="modal-form-row">
-            <div className="form-group">
-              <label htmlFor="metric-aggregation">{t('modeling.metric_aggregation_label')}</label>
-              <Select
-                id="metric-aggregation"
-                name="aggregation"
-                value={aggregation}
-                onChange={(value) => setAggregation(value as typeof aggregation)}
-                disabled={saving}
-                options={[...METRIC_AGGREGATION_OPTIONS]}
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="metric-format">{t('modeling.metric_format_label')}</label>
-              <input
-                id="metric-format"
-                value={format}
-                onChange={(e) => setFormat(e.target.value)}
-                disabled={saving}
-                placeholder="$#,##0.00"
-                autoComplete="off"
-              />
-            </div>
           </div>
         </div>
         <div className="modal-actions">
           <button className="btn btn-secondary" type="button" onClick={onClose} disabled={saving}>
             {t('common.cancel')}
           </button>
-          <button className="btn btn-primary" type="submit" disabled={saving || !name.trim() || !expression.trim()}>
+          <button
+            className="btn btn-primary"
+            type="submit"
+            disabled={saving || !name.trim() || (mode === 'simple' ? !selectedColumn : !expression.trim())}
+          >
             {saving ? t('common.saving') : t('common.create')}
           </button>
         </div>

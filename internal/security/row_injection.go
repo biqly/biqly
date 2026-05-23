@@ -19,6 +19,9 @@ func NewPermissionInjector() *PermissionInjector {
 // BuildRowFilterPredicates builds SQL predicate fragments and bind values for row filters.
 // initialArgCount is the number of bind parameters already present (so new placeholders are numbered after them).
 // If omitUnknownFields is true, filters referencing a missing dimMap key are skipped; otherwise an error is returned.
+//
+// Unsupported operators are rejected — they MUST NOT fall back to equality, since
+// a silent fallback (e.g. "neq" → "=") would expose restricted rows.
 func BuildRowFilterPredicates(
 	d dialect.Dialect,
 	dimMap map[string]string,
@@ -40,24 +43,50 @@ func BuildRowFilterPredicates(
 			return nil, nil, errmsg.RowFilterUnknownField(rf.Field)
 		}
 		quoted := d.QuoteIdent(colRef)
-		switch rf.Operator {
-		case "eq":
+		op := strings.ToLower(strings.TrimSpace(rf.Operator))
+		switch op {
+		case "", "eq":
 			extraArgs = append(extraArgs, rf.Value)
 			preds = append(preds, fmt.Sprintf("%s = %s", quoted, ph()))
-		case "in":
+		case "neq":
+			extraArgs = append(extraArgs, rf.Value)
+			preds = append(preds, fmt.Sprintf("%s <> %s", quoted, ph()))
+		case "gt":
+			extraArgs = append(extraArgs, rf.Value)
+			preds = append(preds, fmt.Sprintf("%s > %s", quoted, ph()))
+		case "gte":
+			extraArgs = append(extraArgs, rf.Value)
+			preds = append(preds, fmt.Sprintf("%s >= %s", quoted, ph()))
+		case "lt":
+			extraArgs = append(extraArgs, rf.Value)
+			preds = append(preds, fmt.Sprintf("%s < %s", quoted, ph()))
+		case "lte":
+			extraArgs = append(extraArgs, rf.Value)
+			preds = append(preds, fmt.Sprintf("%s <= %s", quoted, ph()))
+		case "in", "not_in":
 			vals, ok := rf.Value.([]any)
 			if !ok {
-				return nil, nil, fmt.Errorf("row filter 'in' expects array")
+				return nil, nil, fmt.Errorf("row filter %q expects array value for field %q", op, rf.Field)
+			}
+			if len(vals) == 0 {
+				return nil, nil, fmt.Errorf("row filter %q requires at least one value for field %q", op, rf.Field)
 			}
 			placeholders := make([]string, len(vals))
 			for i, v := range vals {
 				extraArgs = append(extraArgs, v)
 				placeholders[i] = ph()
 			}
-			preds = append(preds, fmt.Sprintf("%s IN (%s)", quoted, strings.Join(placeholders, ", ")))
+			keyword := "IN"
+			if op == "not_in" {
+				keyword = "NOT IN"
+			}
+			preds = append(preds, fmt.Sprintf("%s %s (%s)", quoted, keyword, strings.Join(placeholders, ", ")))
+		case "is_null":
+			preds = append(preds, fmt.Sprintf("%s IS NULL", quoted))
+		case "is_not_null":
+			preds = append(preds, fmt.Sprintf("%s IS NOT NULL", quoted))
 		default:
-			extraArgs = append(extraArgs, rf.Value)
-			preds = append(preds, fmt.Sprintf("%s = %s", quoted, ph()))
+			return nil, nil, fmt.Errorf("row filter operator %q is not supported for field %q", rf.Operator, rf.Field)
 		}
 	}
 	return preds, extraArgs, nil
@@ -95,7 +124,7 @@ func (pi *PermissionInjector) CheckFieldAccess(
 	filterFields []string,
 ) error {
 	if policy == nil {
-		return nil
+		return fmt.Errorf("no permission policy supplied for model %s", modelName)
 	}
 	uid := policy.UserID
 	for _, field := range selectFields {
@@ -124,9 +153,15 @@ func joinStr(parts []string, sep string) string {
 		return ""
 	}
 	var result strings.Builder
+	total := len(parts[0])
+	for i := 1; i < len(parts); i++ {
+		total += len(sep) + len(parts[i])
+	}
+	result.Grow(total)
 	result.WriteString(parts[0])
 	for i := 1; i < len(parts); i++ {
-		result.WriteString(sep + parts[i])
+		result.WriteString(sep)
+		result.WriteString(parts[i])
 	}
 	return result.String()
 }
