@@ -277,6 +277,7 @@ export const tr: Dictionary = {
   },
   ai_query: {
     title: 'AI Sorgu',
+    workspace_title: 'ABI Sohbet Çalışma Alanı',
     natural_language_title: 'Doğal dil sorgusu',
     subtitle:
       'Doğal dilde bir soru sorun. AI bir LogicalQuery oluşturur, backend bunu SQL’e derler.',

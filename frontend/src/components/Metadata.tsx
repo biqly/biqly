@@ -7,6 +7,7 @@ import { useQueryParam } from '../hooks/useQueryParam'
 import { FALLBACK_LOCALE, LOCALE_OPTIONS, SUPPORTED_LOCALES, useLocale, useT } from '../i18n'
 import type { Locale, TranslationKey } from '../i18n'
 import type { Datasource } from '../types/metadata'
+import type { ColumnRow, TableRow } from '../types/semantic'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { InlineEdit } from './ui/InlineEdit'
 import { Select } from './ui/Select'
@@ -19,29 +20,6 @@ import {
   objectTypeLabel,
   sortBulkEntriesForDisplay,
 } from './metadata/bulkProgress'
-
-interface TableRow {
-  id: string
-  schema_name: string
-  table_name: string
-  table_type: string
-  description: string | null
-}
-
-interface ColumnRow {
-  id: string
-  schema_name: string
-  table_name: string
-  column_name: string
-  data_type: string
-  nullable: boolean
-  description: string | null
-  is_primary_key: boolean
-  is_foreign_key: boolean
-  referenced_schema?: string | null
-  referenced_table: string | null
-  referenced_column: string | null
-}
 
 type TFunction = (key: TranslationKey, params?: Record<string, string | number>) => string
 

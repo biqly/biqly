@@ -5,6 +5,7 @@ import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { Select } from './ui/Select'
 import type { Datasource } from '../types/metadata'
+import type { SemanticModelDetail } from '../types/semantic'
 
 interface FewShotExample {
   id: string
@@ -15,41 +16,6 @@ interface FewShotExample {
   tags: string[]
   dialect: string
   created_at?: string
-}
-
-interface SemanticDimension {
-  id: string
-  name: string
-  label?: string | null
-  column_ref: string
-  type: string
-  synonyms?: string[]
-  description?: string | null
-  is_active: boolean
-}
-
-interface SemanticMetric {
-  id: string
-  name: string
-  label?: string | null
-  expression: string
-  aggregation: string
-  format?: string | null
-  synonyms?: string[]
-  description?: string | null
-  is_active: boolean
-}
-
-interface SemanticModelDetail {
-  id: string
-  datasource_id: string
-  name: string
-  label?: string | null
-  base_schema: string
-  base_table: string
-  status: string
-  dimensions?: SemanticDimension[]
-  metrics?: SemanticMetric[]
 }
 
 const DIALECTS = ['postgresql', 'mysql', 'bigquery', 'snowflake', 'duckdb']

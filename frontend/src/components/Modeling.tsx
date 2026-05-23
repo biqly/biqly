@@ -3,91 +3,18 @@ import { useApi } from '../hooks/useApi'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { useT, type TranslationKey } from '../i18n'
 import type { Datasource } from '../types/metadata'
+import type {
+  ColumnRow,
+  GenerateSemanticModelResponse,
+  SemanticDimension,
+  SemanticJoin,
+  SemanticMetric,
+  SemanticModelDetail,
+  SemanticModelSummary,
+  TableRow,
+} from '../types/semantic'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { Select } from './ui/Select'
-
-interface TableRow {
-  id: string
-  schema_name: string
-  table_name: string
-  table_type: string
-  description: string | null
-  label: string | null
-}
-
-interface ColumnRow {
-  id: string
-  schema_name: string
-  table_name: string
-  column_name: string
-  data_type: string
-  nullable: boolean
-  description: string | null
-  is_primary_key: boolean
-  is_foreign_key: boolean
-  referenced_schema?: string | null
-  referenced_table: string | null
-  referenced_column: string | null
-}
-
-interface SemanticModelSummary {
-  id: string
-  datasource_id: string
-  name: string
-  label?: string | null
-  base_schema: string
-  base_table: string
-  status: string
-  excluded_schemas?: string[]
-}
-
-interface SemanticDimension {
-  id: string
-  name: string
-  label?: string | null
-  column_ref: string
-  type: string
-  synonyms?: string[]
-  description?: string | null
-  is_active: boolean
-}
-
-interface SemanticMetric {
-  id: string
-  name: string
-  label?: string | null
-  expression: string
-  aggregation: string
-  format?: string | null
-  synonyms?: string[]
-  description?: string | null
-  is_active: boolean
-}
-
-interface SemanticJoin {
-  id: string
-  name: string
-  from_schema?: string
-  from_table: string
-  from_column: string
-  to_schema?: string
-  to_table: string
-  to_column: string
-  join_type: string
-  relationship: string
-  is_active?: boolean
-}
-
-interface SemanticModelDetail extends SemanticModelSummary {
-  dimensions?: SemanticDimension[]
-  metrics?: SemanticMetric[]
-  joins?: SemanticJoin[]
-}
-
-interface GenerateSemanticModelResponse {
-  model: SemanticModelDetail
-  published: boolean
-}
 
 interface SuggestedJoin {
   from_schema: string

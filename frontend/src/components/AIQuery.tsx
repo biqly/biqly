@@ -1531,7 +1531,7 @@ export default function AIQuery() {
             })
           })() : (
             <div className="chat-empty-state">
-              <h3>✨ ABI Chat Workspace</h3>
+              <h3>✨ {t('ai_query.workspace_title')}</h3>
               <p>{t('ai_query.subtitle')}</p>
             </div>
           )}

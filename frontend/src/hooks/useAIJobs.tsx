@@ -163,7 +163,8 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   const [bulkRunning, setBulkRunning] = useState(false)
   const [bulkSummary, setBulkSummary] = useState<BulkDescribeSummary | null>(null)
   const callbacksRef = useRef<Map<string, StoredJobCallbacks>>(new Map())
-  const pollTimers = useRef<Map<string, number>>(new Map())
+  const pollingIdsRef = useRef<Set<string>>(new Set())
+  const pollLoopRef = useRef<number | null>(null)
   const bulkCancelRef = useRef(false)
   const bulkBatchJobIdRef = useRef<string | null>(null)
   const bulkEntriesRef = useRef<BulkEntry[]>([])
@@ -209,14 +210,25 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  const stopPollLoop = useCallback(() => {
+    if (pollLoopRef.current != null) {
+      window.clearInterval(pollLoopRef.current)
+      pollLoopRef.current = null
+    }
+  }, [])
+
+  const stopPolling = useCallback(
+    (jobId: string) => {
+      pollingIdsRef.current.delete(jobId)
+      if (pollingIdsRef.current.size === 0) stopPollLoop()
+    },
+    [stopPollLoop],
+  )
+
   const finishJob = useCallback((job: AIJob) => {
+    stopPolling(job.id)
     const cbs = callbacksRef.current.get(job.id)
     callbacksRef.current.delete(job.id)
-    const timer = pollTimers.current.get(job.id)
-    if (timer != null) {
-      window.clearInterval(timer)
-      pollTimers.current.delete(job.id)
-    }
     if (job.status === 'succeeded') {
       const result = parseResult<unknown>(job)
       if (result) cbs?.onComplete?.(result)
@@ -225,15 +237,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     } else if (job.status === 'cancelled') {
       cbs?.onError?.(job.phase_message || 'Job cancelled')
     }
-  }, [])
-
-  const stopPolling = useCallback((jobId: string) => {
-    const timer = pollTimers.current.get(jobId)
-    if (timer != null) {
-      window.clearInterval(timer)
-      pollTimers.current.delete(jobId)
-    }
-  }, [])
+  }, [stopPolling])
 
   const pollJob = useCallback(
     async (jobId: string) => {
@@ -264,15 +268,28 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     [applyBulkProgressFromJob, finishJob, stopPolling, upsertJob],
   )
 
+  const runPollLoop = useCallback(async () => {
+    const ids = [...pollingIdsRef.current]
+    if (ids.length === 0) return
+    await Promise.all(ids.map((id) => pollJob(id)))
+  }, [pollJob])
+
+  const ensurePollLoop = useCallback(() => {
+    if (pollLoopRef.current != null) return
+    pollLoopRef.current = window.setInterval(() => {
+      void runPollLoop()
+    }, POLL_MS)
+  }, [runPollLoop])
+
   const startPolling = useCallback(
     (jobId: string) => {
       if (!isValidJobId(jobId)) return
-      if (pollTimers.current.has(jobId)) return
+      if (pollingIdsRef.current.has(jobId)) return
+      pollingIdsRef.current.add(jobId)
       void pollJob(jobId)
-      const id = window.setInterval(() => void pollJob(jobId), POLL_MS)
-      pollTimers.current.set(jobId, id)
+      ensurePollLoop()
     },
-    [pollJob],
+    [ensurePollLoop, pollJob],
   )
 
   const resumeActiveJobs = useCallback(async () => {
@@ -291,10 +308,10 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void resumeActiveJobs()
     return () => {
-      for (const id of pollTimers.current.values()) window.clearInterval(id)
-      pollTimers.current.clear()
+      pollingIdsRef.current.clear()
+      stopPollLoop()
     }
-  }, [resumeActiveJobs])
+  }, [resumeActiveJobs, stopPollLoop])
 
   const runJob = useCallback(
     async <TRequest extends object, TResult = AIQueryResponse>(
@@ -341,15 +358,11 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
 
   const dismissJob = useCallback((id: string) => {
     setJobs((prev) => prev.filter((j) => j.id !== id))
-    const timer = pollTimers.current.get(id)
-    if (timer != null) {
-      window.clearInterval(timer)
-      pollTimers.current.delete(id)
-    }
+    stopPolling(id)
     const callbacks = callbacksRef.current.get(id)
     callbacks?.onDismiss?.()
     callbacksRef.current.delete(id)
-  }, [])
+  }, [stopPolling])
 
   const cancelJob = useCallback(
     async (id: string) => {

@@ -11,13 +11,13 @@
 - [x] `components/AIQuery.tsx:756` — `chartData` her render'da yeniden hesaplanıyor. `useMemo` ekle.
 - [x] `components/QueryBuilder.tsx:459` — `chartData` her render'da hesaplanıyor. `useMemo` ekle.
 - [x] `components/AIQuery.tsx:1197-1214` — `recentPriorTurns()` her render'da tüm mesajları geziyor. `useMemo` ile memoize et.
-- [ ] `hooks/useAIJobs.tsx:265` — Her job için ayrı `setInterval` (1200ms). Eşzamanlı job'lar çoğaldığında request flooding olabilir. Tek bir polling döngüsüne birleştir.
+- [x] `hooks/useAIJobs.tsx:265` — Her job için ayrı `setInterval` (1200ms). Eşzamanlı job'lar çoğaldığında request flooding olabilir. Tek bir polling döngüsüne birleştir.
 - [ ] `index.css` — 6029 satırlık tek dosya, initial render'ı blockluyor. Route bazlı CSS splitting veya lazy-load düşün.
 
 ## Code Duplication / Refactoring
 
-- [ ] **Tip tanımları** — `SemanticModelSummary`, `SemanticDimension`, `SemanticMetric`, `SemanticJoin`, `SemanticModelDetail`, `ColumnRow`, `TableRow` Modeling.tsx, QueryBuilder.tsx, Metadata.tsx ve FewShotExamples.tsx'te tekrar tanımlı. `types/semantic.ts`'e taşı.
-- [ ] **Chart data mapping** — `rows.map(row => ({ name: String(row[0]), value: Number(row[1]) }))` AIQuery.tsx:756, QueryBuilder.tsx:459 ve Dashboard.tsx:61'de tekrarlı. `utils/chartData.ts`'teki `rowsToChartData`'yı kullan.
+- [x] **Tip tanımları** — `SemanticModelSummary`, `SemanticDimension`, `SemanticMetric`, `SemanticJoin`, `SemanticModelDetail`, `ColumnRow`, `TableRow` Modeling.tsx, QueryBuilder.tsx, Metadata.tsx ve FewShotExamples.tsx'te tekrar tanımlı. `types/semantic.ts`'e taşı.
+- [x] **Chart data mapping** — `rows.map(row => ({ name: String(row[0]), value: Number(row[1]) }))` AIQuery.tsx:756, QueryBuilder.tsx:459 ve Dashboard.tsx:61'de tekrarlı. `utils/chartData.ts`'teki `rowsToChartData`'yı kullan.
 - [x] **HTML tag stripping** — `/<[^>]*>/g` regex'i `api/metadataDescribe.ts:34` ve `hooks/useApi.ts:28`'de tekrar. Ortak utility'e taşı.
 - [x] **Question preview** — `hooks/useAIJobs.tsx` içinde 3 yerde benzer question preview kodu (238-241, 278-281, 354-359). Tek bir fonksiyona çıkar.
 - [ ] **SavedQuestions new/edit modal** — 128 satır neredeyse birebir tekrar (536-664 ve 667-795). Ortak form component'ine çıkar.

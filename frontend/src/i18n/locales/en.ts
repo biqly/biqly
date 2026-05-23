@@ -276,6 +276,7 @@ export const en = {
   },
   ai_query: {
     title: 'AI Query',
+    workspace_title: 'ABI Chat Workspace',
     natural_language_title: 'Natural language query',
     subtitle:
       'Ask a question in natural language. The AI builds a LogicalQuery and the backend compiles it to SQL.',

@@ -11,67 +11,15 @@ import { ChartTypeSelector } from './ui/ChartTypeSelector'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { Select } from './ui/Select'
 import type { CTE, LogicalQuery } from '../types/ai'
-
-interface SemanticModelSummary {
-  id: string
-  datasource_id: string
-  name: string
-  label?: string | null
-  status: string
-  base_schema: string
-  base_table: string
-}
-
-interface SemanticDimension {
-  id: string
-  name: string
-  label?: string | null
-  type: string
-}
-
-interface SemanticMetric {
-  id: string
-  name: string
-  label?: string | null
-  aggregation: string
-}
-
-
-interface SemanticJoin {
-  id?: string
-  name: string
-  from_schema?: string
-  from_table: string
-  from_column: string
-  to_schema?: string
-  to_table: string
-  to_column: string
-  join_type?: string
-  relationship?: string
-}
-
-interface SemanticModelDetail {
-  id: string
-  name: string
-  status: string
-  base_schema?: string
-  base_table?: string
-  dimensions?: SemanticDimension[]
-  metrics?: SemanticMetric[]
-  joins?: SemanticJoin[]
-}
-
-interface GenerateSemanticModelResponse {
-  model: SemanticModelDetail & SemanticModelSummary
-  warnings?: string[]
-  validation?: {
-    valid: boolean
-    errors?: string[]
-    warnings?: string[]
-    estimated_prompt_size?: number
-  }
-  published: boolean
-}
+import type {
+  GenerateSemanticModelResponse,
+  SemanticDimension,
+  SemanticJoin,
+  SemanticMetric,
+  SemanticModelDetail,
+  SemanticModelSummary,
+} from '../types/semantic'
+import { modelListHint, modelListLabel } from '../types/semantic'
 
 function joinEdgeLabel(j: SemanticJoin, baseSchema?: string): string {
   const fromS = j.from_schema?.trim() || baseSchema || ''
@@ -87,16 +35,6 @@ function isCrossSchemaJoin(j: SemanticJoin, baseSchema?: string): boolean {
   const toS = j.to_schema?.trim() || baseSchema || ''
   if (!fromS || !toS) return false
   return fromS !== toS
-}
-
-function modelListLabel(m: SemanticModelSummary): string {
-  if (m.label && m.label.trim()) return `${m.name} (${m.label})`
-  return m.name
-}
-
-function modelListHint(m: SemanticModelSummary): string {
-  const bits = [m.status, `${m.base_schema}.${m.base_table}`]
-  return bits.join(' · ')
 }
 
 function dimFieldOptions(dims: SemanticDimension[]) {
