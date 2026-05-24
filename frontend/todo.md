@@ -49,7 +49,7 @@
 
 - [ ] `AIQuery.tsx` — 1592 satır, 25+ useState. God component. Sorun sorumluluklarını alt component'lere böl: chat panel, routing panel, candidate viewer, feedback section.
 - [x] `Modeling.tsx` — 2738 satır, ~30 useState. Canvas engine, form management ve API logic aynı component'te. En azından canvas renderer ve form modallarını ayır.
-- [ ] `Metadata.tsx` — 1089 satır. Inline editing, AI describe, bulk describe ayrı component'lerde olmalı.
+- [x] `Metadata.tsx` — 1089 satır. Inline editing, AI describe, bulk describe ayrı component'lerde olmalı.
 - [x] `hooks/useAIJobs.tsx:321-333` — Promise-based callback pattern. `dismissJob` çağrılırsa promise hiç resolve olmaz (memory leak). Cleanup ekle.
 - [x] `hooks/useAIJobs.tsx:95-111` — `fetchJSON` JSON parse hatasında sessizce `null` dönüyor. API bug'larını maskeler.
 - [x] `components/AIQuery.tsx:1119-1155` — useEffect içinde API çağrıları cancellation token olmadan yapılıyor. QueryBuilder.tsx'deki `let cancelled = false` pattern'ini uygula.
@@ -92,7 +92,7 @@
 
 - [x] `AIQuery.tsx` (1592 satır) — Alt component'lere böl: ChatPanel, RoutingPanel, CandidateViewer, FeedbackSection, AssistantMessageCard
 - [x] `Modeling.tsx` (2738 satır) — Canvas engine, form management ve API logic ayır. AddMetricModal (700 satır) ayrı dosya olmalı.
-- [ ] `Metadata.tsx` (1089 satır) — Inline editing, AI describe, bulk describe ayrı component'ler olmalı
+- [x] `Metadata.tsx` (1089 satır) — Inline editing, AI describe, bulk describe ayrı component'ler olmalı
 - [ ] `hooks/useAIJobs.tsx` (679 satır) — Promise-based callback pattern'ini iyileştir. Dangling promise leak'ini düzelt
 - [x] `index.css` — Route bazlı CSS splitting tamamlandı (`src/styles/`). 4 ana route kendi CSS chunk'ında.
 - [ ] `window.confirm()` — Tüm kullanımları özel ConfirmDialog component'i ile değiştir
