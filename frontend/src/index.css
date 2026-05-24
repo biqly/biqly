@@ -4101,3 +4101,207 @@ body.modeling-grabbing * {
   outline: none;
 }
 
+/* ─── Table Browser Section ───────────────────────────────────── */
+
+.card--table-browser {
+  padding: 1.25rem 1.4rem 1.6rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: var(--shadow);
+  position: relative;
+}
+
+.table-browser-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.table-browser-selectors {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+.table-browser-selectors select {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  font-size: 0.85rem;
+}
+
+.table-browser-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.table-browser-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.table-browser-info-icon {
+  color: var(--text-muted);
+  cursor: help;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  border: 1px solid var(--border);
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  justify-content: center;
+  font-weight: bold;
+}
+
+/* Row Number Badge */
+.row-number-badge {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.08);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+/* Filter popover positioning & card */
+.table-browser-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+  position: relative;
+}
+
+.filter-popover {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  z-index: 100;
+  background: var(--bg-card-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: 0.6rem;
+  padding: 0.85rem 1rem;
+  box-shadow: var(--shadow);
+  width: 16rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  animation: popoverFadeIn 0.15s ease-out;
+}
+
+@keyframes popoverFadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.filter-popover-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.45rem;
+}
+
+.filter-popover-back {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0 0.2rem;
+  line-height: 1;
+}
+
+.filter-popover-back:hover {
+  color: var(--text-primary);
+}
+
+.filter-popover-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.filter-popover-row label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.filter-popover-btn {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  color: white;
+  border: 1px solid var(--accent-strong);
+  padding: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+  border-radius: 0.35rem;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+}
+
+.filter-popover-btn:hover {
+  background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent-strong) 100%);
+  border-color: var(--accent-hover);
+}
+
+/* Clickable Table Column Headers */
+.results-table th.th-clickable {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 150ms ease, color 150ms ease;
+  position: relative;
+  padding-right: 1.5rem !important;
+}
+
+.results-table th.th-clickable:hover {
+  background-color: var(--border-strong) !important;
+  color: var(--text-primary);
+}
+
+.results-table th.th-clickable .th-chevron {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.results-table th.th-clickable:hover .th-chevron {
+  opacity: 1;
+  color: var(--text-primary);
+}
+
+

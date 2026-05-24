@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useApi } from '../hooks/useApi'
 import { useT } from '../i18n'
@@ -6,16 +6,14 @@ import { chartAxisStroke, chartGridStroke, chartTooltipStyle } from '../utils/ch
 import { getRateColor } from '../utils/formatters'
 import { KPICard } from './ui/KPICard'
 import { ChartContainer } from './ui/ChartContainer'
+import { Select } from './ui/Select'
+import { ErrorAlert } from './ui/ErrorAlert'
+import { formatResultCell } from '../utils/resultCellFormat'
+import { buildQueryPayload } from './queryBuilder/logicalQuery'
 import type { ModelStats } from '../types/ai'
-
-export default function Dashboard() {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      <AIUsageSection />
-      <ModelSuccessRates />
-    </div>
-  )
-}
+import type { Datasource } from '../types/metadata'
+import type { SemanticModelDetail, SemanticModelSummary } from '../types/semantic'
+import { modelListLabel, modelListHint } from '../types/semantic'
 
 interface AIUsageSummary {
   total_queries: number
@@ -36,6 +34,376 @@ interface DayUsage {
   avg_latency_ms: number
   total_cost: number
   total_tokens: number
+}
+
+interface QueryBuilderResult {
+  columns?: { name: string; type?: string }[]
+  rows?: unknown[][]
+  stats?: {
+    row_count?: number
+    duration_ms?: number
+  }
+}
+
+interface TableBrowserFilter {
+  id: string
+  field: string
+  operator: string
+  value: string
+}
+
+export default function Dashboard() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      <TableBrowserSection />
+      <AIUsageSection />
+      <ModelSuccessRates />
+    </div>
+  )
+}
+
+function TableBrowserSection() {
+  const t = useT()
+  const { get, postData, loading, error } = useApi()
+
+  const [datasources, setDatasources] = useState<Datasource[]>([])
+  const [datasourceId, setDatasourceId] = useState('')
+  const [models, setModels] = useState<SemanticModelSummary[]>([])
+  const [modelId, setModelId] = useState('')
+  const [modelDetail, setModelDetail] = useState<SemanticModelDetail | null>(null)
+  
+  const [filters, setFilters] = useState<TableBrowserFilter[]>([])
+  const [result, setResult] = useState<QueryBuilderResult | null>(null)
+
+  // Filter Popover Overlay state
+  const [popoverOpen, setPopoverOpen] = useState(false)
+  const [popoverField, setPopoverField] = useState('')
+  const [popoverOperator, setPopoverOperator] = useState('contains')
+  const [popoverValue, setPopoverValue] = useState('')
+  const [editingFilterId, setEditingFilterId] = useState<string | null>(null)
+
+  // Fetch datasources
+  useEffect(() => {
+    get<Datasource[]>('/api/datasources').then((data) => {
+      if (data && data.length > 0) {
+        setDatasources(data)
+        const first = data[0]
+        if (first) setDatasourceId(first.id)
+      }
+    })
+  }, [])
+
+  // Fetch models when datasource changes
+  useEffect(() => {
+    if (!datasourceId) {
+      setModels([])
+      setModelId('')
+      setModelDetail(null)
+      setResult(null)
+      return
+    }
+    get<SemanticModelSummary[]>(`/api/semantic/models?datasource_id=${encodeURIComponent(datasourceId)}`).then((data) => {
+      if (data) {
+        setModels(data)
+        const published = data.filter((m) => m.status === 'published')
+        const firstPub = published[0]
+        const firstData = data[0]
+        if (firstPub) {
+          setModelId(firstPub.id)
+        } else if (firstData) {
+          setModelId(firstData.id)
+        } else {
+          setModelId('')
+          setModelDetail(null)
+          setResult(null)
+        }
+      }
+    })
+  }, [datasourceId])
+
+  // Fetch model details when model changes
+  useEffect(() => {
+    if (!modelId) {
+      setModelDetail(null)
+      setResult(null)
+      return
+    }
+    get<SemanticModelDetail>(`/api/semantic/models/${encodeURIComponent(modelId)}`).then((d) => {
+      if (d) {
+        setModelDetail(d)
+        setFilters([]) // reset filters when model changes
+      }
+    })
+  }, [modelId])
+
+  const dimensions = useMemo(() => modelDetail?.dimensions ?? [], [modelDetail])
+
+  // Query raw table data based on current model and filters
+  const runBrowseQuery = useCallback(async () => {
+    if (!datasourceId || !modelId || !modelDetail || dimensions.length === 0) return
+
+    // select all dimensions to display raw columns
+    const selectItems = dimensions.map((d) => ({
+      id: d.id,
+      type: 'dimension' as const,
+      name: d.name,
+    }))
+
+    const payload = buildQueryPayload({
+      datasourceId,
+      modelId,
+      mode: 'simple',
+      selectItems,
+      filters: filters.map((f) => ({
+        id: f.id,
+        field: f.field,
+        operator: f.operator,
+        value: f.value,
+      })),
+      groupBy: [],
+      having: [],
+      orderBy: '',
+      orderDir: 'asc',
+      limit: 100,
+      offset: 0,
+      windowFunctions: [],
+      ctes: [],
+    })
+
+    const res = await postData<QueryBuilderResult>('/api/query/run', payload)
+    if (res) {
+      setResult(res)
+    }
+  }, [datasourceId, modelId, modelDetail, dimensions, filters])
+
+  // Re-run query whenever model detail or filters change
+  useEffect(() => {
+    void runBrowseQuery()
+  }, [modelDetail, filters, runBrowseQuery])
+
+  // Handles adding/updating filters from popover
+  const handleSaveFilter = () => {
+    if (!popoverField || !popoverValue.trim()) return
+
+    if (editingFilterId) {
+      setFilters((prev) =>
+        prev.map((f) =>
+          f.id === editingFilterId
+            ? { ...f, field: popoverField, operator: popoverOperator, value: popoverValue }
+            : f,
+        ),
+      )
+    } else {
+      setFilters((prev) => [
+        ...prev,
+        {
+          id: Math.random().toString(36).substr(2, 9),
+          field: popoverField,
+          operator: popoverOperator,
+          value: popoverValue,
+        },
+      ])
+    }
+    setPopoverOpen(false)
+    setEditingFilterId(null)
+    setPopoverValue('')
+  }
+
+  const handleOpenAddFilter = (defaultField = '') => {
+    setEditingFilterId(null)
+    setPopoverField(defaultField || (dimensions[0]?.name ?? ''))
+    setPopoverOperator('contains')
+    setPopoverValue('')
+    setPopoverOpen(true)
+  }
+
+  const handleOpenEditFilter = (filter: TableBrowserFilter) => {
+    setEditingFilterId(filter.id)
+    setPopoverField(filter.field)
+    setPopoverOperator(filter.operator)
+    setPopoverValue(filter.value)
+    setPopoverOpen(true)
+  }
+
+  const handleRemoveFilter = (id: string) => {
+    setFilters((prev) => prev.filter((f) => f.id !== id))
+  }
+
+  const getDimensionLabel = (name: string) => {
+    const dim = dimensions.find((d) => d.name === name)
+    return dim ? (dim.label || dim.name) : name
+  }
+
+  const filterFieldOpts = useMemo(() => {
+    return dimensions.map((d) => ({
+      value: d.name,
+      label: d.label || d.name,
+    }))
+  }, [dimensions])
+
+  return (
+    <div className="card card--table-browser">
+      <div className="table-browser-header">
+        <h3 style={{ margin: 0 }}>Table Browser</h3>
+        <div className="table-browser-selectors">
+          <Select
+            value={datasourceId}
+            onChange={setDatasourceId}
+            options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
+            size="sm"
+          />
+          {datasourceId && models.length > 0 && (
+            <>
+              <span className="separator">/</span>
+              <Select
+                value={modelId}
+                onChange={setModelId}
+                options={models.map((m) => ({
+                  value: m.id,
+                  label: modelListLabel(m),
+                  hint: modelListHint(m),
+                }))}
+                size="sm"
+              />
+            </>
+          )}
+        </div>
+      </div>
+
+      {modelDetail ? (
+        <>
+          <div className="table-browser-title-row">
+            <span className="table-browser-title">
+              {modelDetail.base_table}
+              <span className="table-browser-info-icon" title={modelDetail.description || 'No description'}>i</span>
+            </span>
+          </div>
+
+          <div className="table-browser-filter-bar">
+            {filters.map((f) => (
+              <span
+                key={f.id}
+                className="notebook-tag notebook-tag--purple"
+                style={{ cursor: 'pointer' }}
+                onClick={() => handleOpenEditFilter(f)}
+              >
+                {getDimensionLabel(f.field)} {f.operator === 'eq' ? '=' : f.operator} "{f.value}"
+                <button
+                  type="button"
+                  className="notebook-tag-close"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleRemoveFilter(f.id)
+                  }}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            <button
+              type="button"
+              className="notebook-add-btn"
+              onClick={() => handleOpenAddFilter()}
+              title="Add Filter"
+            >
+              +
+            </button>
+
+            {/* Filter Popover */}
+            {popoverOpen && (
+              <div className="filter-popover">
+                <div className="filter-popover-header">
+                  <button type="button" className="filter-popover-back" onClick={() => setPopoverOpen(false)}>‹</button>
+                  <span>Filter by {getDimensionLabel(popoverField)}</span>
+                </div>
+                <div className="filter-popover-row">
+                  <label>Column</label>
+                  <Select
+                    value={popoverField}
+                    onChange={setPopoverField}
+                    options={filterFieldOpts}
+                    size="sm"
+                  />
+                </div>
+                <div className="filter-popover-row">
+                  <label>Operator</label>
+                  <Select
+                    value={popoverOperator}
+                    onChange={setPopoverOperator}
+                    options={[
+                      { value: 'eq', label: '=' },
+                      { value: 'neq', label: '!=' },
+                      { value: 'contains', label: 'contains' },
+                      { value: 'gt', label: '>' },
+                      { value: 'lt', label: '<' },
+                      { value: 'gte', label: '>=' },
+                      { value: 'lte', label: '<=' },
+                    ]}
+                    size="sm"
+                  />
+                </div>
+                <div className="filter-popover-row">
+                  <label>Value</label>
+                  <input
+                    type="text"
+                    value={popoverValue}
+                    onChange={(e) => setPopoverValue(e.target.value)}
+                    placeholder="Enter value..."
+                    style={{ fontSize: '0.76rem', padding: '0.2rem 0.5rem', width: '100%' }}
+                  />
+                </div>
+                <button type="button" className="filter-popover-btn" onClick={handleSaveFilter}>
+                  {editingFilterId ? 'Update filter' : 'Add filter'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          <ErrorAlert error={error} />
+
+          {loading && <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Loading data...</div>}
+
+          {!loading && result && result.columns && result.rows && (
+            <div style={{ overflowX: 'auto', maxHeight: '400px', overflowY: 'auto' }}>
+              <table className="results-table">
+                <thead>
+                  <tr>
+                    <th scope="col" style={{ width: '3rem' }}></th>
+                    {result.columns.map((col) => (
+                      <th
+                        key={col.name}
+                        scope="col"
+                        className="th-clickable"
+                        onClick={() => handleOpenAddFilter(col.name)}
+                        title={`Click to filter by ${col.name}`}
+                      >
+                        {getDimensionLabel(col.name)}
+                        <span className="th-chevron">▼</span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.rows.map((row, i) => (
+                    <tr key={i}>
+                      <td>
+                        <span className="row-number-badge">{i + 1}</span>
+                      </td>
+                      {row.map((cell, j) => (
+                        <td key={j}>{formatResultCell(cell, result.columns?.[j]?.name ?? '', {})}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      ) : (
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Select a semantic model to browse tables.</p>
+      )}
+    </div>
+  )
 }
 
 function AIUsageSection() {

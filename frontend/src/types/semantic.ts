@@ -27,6 +27,7 @@ export interface SemanticModelSummary {
   datasource_id: string
   name: string
   label?: string | null
+  description?: string | null
   base_schema: string
   base_table: string
   status: string
