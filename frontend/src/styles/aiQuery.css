@@ -470,39 +470,6 @@
   margin-bottom: 1rem;
 }
 
-.metadata-lang-tabs {
-  display: inline-flex;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg-card-raised);
-  padding: 2px;
-  gap: 2px;
-}
-
-.metadata-lang-tab {
-  appearance: none;
-  -webkit-appearance: none;
-  border: 0;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  padding: 0.22rem 0.65rem;
-  border-radius: 999px;
-  cursor: pointer;
-  line-height: 1;
-}
-
-.metadata-lang-tab:hover {
-  color: var(--text-primary);
-}
-
-.metadata-lang-tab--active {
-  background: var(--bg-card);
-  color: var(--text-primary);
-  box-shadow: inset 0 0 0 1px var(--border-strong, var(--border));
-}
 
 .context-badge {
   font-size: 0.72rem;

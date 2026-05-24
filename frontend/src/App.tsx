@@ -404,7 +404,11 @@ function App() {
           </div>
           <div className="sidebar-footer__api">
             <span className="status-dot" aria-hidden="true" />
-            <span>{t('common.local_api')}</span>
+            <span>
+              {typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+                ? t('common.local_api')
+                : `API · ${typeof window !== 'undefined' ? window.location.host : ''}/api`}
+            </span>
           </div>
         </div>
       </aside>

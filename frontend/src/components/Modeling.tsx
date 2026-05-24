@@ -816,10 +816,10 @@ export default function Modeling() {
   const baseKey = model ? tableKey(model.base_schema, model.base_table) : null
   const baseSwapCandidates = useMemo(() => {
     if (!model) return []
-    return tableCards.filter(
+    return includedTables.filter(
       (tbl) => !(tbl.schema_name === model.base_schema && tbl.table_name === model.base_table),
     )
-  }, [tableCards, model])
+  }, [includedTables, model])
   const usedTableCount = useMemo(() => {
     if (!model) return 0
     return includedTables.filter((tbl) => {

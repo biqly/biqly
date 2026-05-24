@@ -70,7 +70,7 @@
 
 - [x] `AIQuery.tsx` — Ana feature, sıfır test. En azından: send query flow, conversation management, candidate selection testleri ekle.
 - [x] `Modeling.tsx` — Canvas drag-and-drop, join creation, model publish flow testleri eksik.
-- [ ] `QueryBuilder.tsx` — LogicalQuery building logic, filter/having/groupBy ekleme çıkarma testleri eksik.
+- [x] `QueryBuilder.tsx` — LogicalQuery building logic, filter/having/groupBy ekleme çıkarma testleri eksik.
 - [x] `hooks/useAIJobs.tsx` — Job lifecycle, polling, cancellation, conflict detection testleri eksik.
 - [x] `hooks/useApi.ts` — Error parsing, timeout, abort handling testleri eksik.
 - [x] `utils/resultCellFormat.ts` — Identifier detection, calendar detection, fractional display testleri eksik.

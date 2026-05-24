@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import '../styles/queryBuilder.css'
-import { useT, type TranslationKey } from '../i18n'
+import { useT } from '../i18n'
 import { useApi } from '../hooks/useApi'
 import { useArrayState } from '../hooks/useArrayState'
 import { useQueryParam } from '../hooks/useQueryParam'
@@ -11,134 +11,37 @@ import { ChartContainer } from './ui/ChartContainer'
 import { ChartTypeSelector } from './ui/ChartTypeSelector'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { Select } from './ui/Select'
-import type { CTE, LogicalQuery } from '../types/ai'
 import type {
   GenerateSemanticModelResponse,
-  SemanticDimension,
-  SemanticJoin,
-  SemanticMetric,
   SemanticModelDetail,
   SemanticModelSummary,
 } from '../types/semantic'
 import { modelListHint, modelListLabel } from '../types/semantic'
-
-function joinEdgeLabel(j: SemanticJoin, baseSchema?: string): string {
-  const fromS = j.from_schema?.trim() || baseSchema || ''
-  const toS = j.to_schema?.trim() || baseSchema || ''
-  const from = fromS ? `${fromS}.${j.from_table}.${j.from_column}` : `${j.from_table}.${j.from_column}`
-  const to = toS ? `${toS}.${j.to_table}.${j.to_column}` : `${j.to_table}.${j.to_column}`
-  const jt = j.join_type ? ` ${j.join_type}` : ''
-  return `${from} → ${to}${jt}`
-}
-
-function isCrossSchemaJoin(j: SemanticJoin, baseSchema?: string): boolean {
-  const fromS = j.from_schema?.trim() || baseSchema || ''
-  const toS = j.to_schema?.trim() || baseSchema || ''
-  if (!fromS || !toS) return false
-  return fromS !== toS
-}
-
-function dimFieldOptions(dims: SemanticDimension[]) {
-  return dims.map((d) => ({
-    value: d.name,
-    label: d.label && d.label.trim() ? `${d.name} (${d.label})` : d.name,
-    hint: d.type,
-  }))
-}
-
-function metricFieldOptions(metrics: SemanticMetric[]) {
-  return metrics.map((m) => ({
-    value: m.name,
-    label: m.label && m.label.trim() ? `${m.name} (${m.label})` : m.name,
-    hint: m.aggregation,
-  }))
-}
-
-function metricDisplayName(metric: SemanticMetric) {
-  return metric.label && metric.label.trim() ? metric.label : metric.name
-}
-
-function aggregationDisplayName(aggregation: string) {
-  return aggregation.replace(/_/g, ' ').toUpperCase()
-}
-
-type Translate = (key: TranslationKey, params?: Record<string, string | number>) => string
-
-function orderByFieldOptions(dims: SemanticDimension[], metrics: SemanticMetric[], t: Translate) {
-  const out: { value: string; label: string; hint: string }[] = []
-  for (const d of dims) {
-    out.push({
-      value: d.name,
-      label: d.label && d.label.trim() ? `${d.name} (${d.label})` : d.name,
-      hint: t('query_builder.order_hint_dimension', { detail: d.type }),
-    })
-  }
-  for (const m of metrics) {
-    out.push({
-      value: m.name,
-      label: m.label && m.label.trim() ? `${m.name} (${m.label})` : m.name,
-      hint: t('query_builder.order_hint_metric', { detail: m.aggregation }),
-    })
-  }
-  return out
-}
-
-function filterFieldOptions(dims: SemanticDimension[], metrics: SemanticMetric[], t: Translate) {
-  return orderByFieldOptions(dims, metrics, t)
-}
-
-function dimOptionsForGroupRow(
-  dimensions: SemanticDimension[],
-  groupBy: string[],
-  rowIndex: number,
-): { value: string; label: string; hint: string }[] {
-  const chosenElsewhere = new Set(
-    groupBy.filter((g, j) => j !== rowIndex && g !== '').map((g) => g),
-  )
-  return dimensions
-    .filter((d) => !chosenElsewhere.has(d.name) || d.name === groupBy[rowIndex])
-    .map((d) => ({
-      value: d.name,
-      label: d.label && d.label.trim() ? `${d.name} (${d.label})` : d.name,
-      hint: d.type,
-    }))
-}
-
-interface FilterRow {
-  id: string
-  field: string
-  operator: string
-  value: string
-}
-
-interface SelectItem {
-  id: string
-  type: 'dimension' | 'metric'
-  name: string
-}
-
-interface HavingRow {
-  field: string
-  operator: string
-  value: string
-}
-
-interface WindowFuncRow {
-  func: string
-  field: string
-  partition_by: string
-  order_by: string
-}
-
-interface CTERow {
-  name: string
-  query: string
-}
-
-const newRowId = () =>
-  typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID()
-    : `row-${Date.now()}-${Math.random().toString(36).slice(2)}`
+import {
+  addFilterRow,
+  addGroupByRow as appendGroupByRow,
+  addHavingRow,
+  patchFilterRow,
+  patchHavingRow,
+  removeFilterRow,
+  removeGroupByRow as dropGroupByRow,
+  removeHavingRow,
+  updateGroupByRow as patchGroupByRow,
+} from './queryBuilder/rowState'
+import { buildQueryPayload } from './queryBuilder/logicalQuery'
+import type { CTERow, FilterRow, HavingRow, SelectItem, WindowFuncRow } from './queryBuilder/types'
+import { newRowId, WINDOW_FUNC_OPTIONS } from './queryBuilder/types'
+import {
+  aggregationDisplayName,
+  dimOptionsForGroupRow,
+  dimFieldOptions,
+  filterFieldOptions,
+  isCrossSchemaJoin,
+  joinEdgeLabel,
+  metricDisplayName,
+  metricFieldOptions,
+  orderByFieldOptions,
+} from './queryBuilder/utils'
 
 interface QueryBuilderResult {
   columns?: { name: string; type?: string }[]
@@ -151,22 +54,6 @@ interface QueryBuilderResult {
 
 interface QueryExplainResponse {
   compiled_sql?: string
-}
-
-const WINDOW_FUNC_OPTIONS = ['ROW_NUMBER', 'RANK', 'DENSE_RANK', 'LAG', 'LEAD', 'SUM', 'AVG', 'COUNT']
-
-function parseCTEBody(raw: string): Omit<CTE, 'name'> {
-  const trimmed = raw.trim()
-  if (!trimmed) {
-    return {}
-  }
-  try {
-    const parsed = JSON.parse(trimmed) as Partial<CTE>
-    const { name: _name, ...body } = parsed
-    return body
-  } catch {
-    return {}
-  }
 }
 
 export default function QueryBuilder() {
@@ -239,8 +126,8 @@ export default function QueryBuilder() {
   const filterState = useArrayState<FilterRow>([])
   const groupByState = useArrayState<string>([])
   const { items: selectItems, setItems: setSelectItems } = selectItemsState
-  const { items: filters } = filterState
-  const { items: groupBy } = groupByState
+  const { items: filters, setItems: setFilters } = filterState
+  const { items: groupBy, setItems: setGroupBy } = groupByState
   const [orderBy, setOrderBy] = useState<string>('')
   const [orderDir, setOrderDir] = useState('asc')
   const [limit, setLimit] = useState(100)
@@ -249,7 +136,7 @@ export default function QueryBuilder() {
   const havingState = useArrayState<HavingRow>([])
   const windowFunctionState = useArrayState<WindowFuncRow>([])
   const cteState = useArrayState<CTERow>([])
-  const { items: having } = havingState
+  const { items: having, setItems: setHaving } = havingState
   const { items: windowFunctions } = windowFunctionState
   const { items: ctes } = cteState
   const [result, setResult] = useState<QueryBuilderResult | null>(null)
@@ -308,30 +195,29 @@ export default function QueryBuilder() {
   }
   const removeSelectItem = (i: number) => selectItemsState.remove(i)
 
-  const addFilter = () => filterState.add({ id: newRowId(), field: '', operator: 'eq', value: '' })
+  const addFilter = () => setFilters((prev) => addFilterRow(prev))
   const updateFilter = (i: number, field: keyof FilterRow, value: string) => {
-    const existing = filters[i]
-    filterState.update(i, {
-      id: existing?.id ?? newRowId(),
-      field: existing?.field ?? '',
-      operator: existing?.operator ?? 'eq',
-      value: existing?.value ?? '',
-      [field]: value,
+    setFilters((prev) => {
+      const next = [...prev]
+      next[i] = patchFilterRow(prev[i], field, value)
+      return next
     })
   }
-  const removeFilter = (i: number) => filterState.remove(i)
+  const removeFilter = (i: number) => setFilters((prev) => removeFilterRow(prev, i))
 
-  const addGroupByRow = () => groupByState.add('')
-  const updateGroupByRow = (i: number, value: string) => groupByState.update(i, value)
-  const removeGroupByRow = (i: number) => groupByState.remove(i)
+  const addGroupByRow = () => setGroupBy((prev) => appendGroupByRow(prev))
+  const updateGroupByRow = (i: number, value: string) => setGroupBy((prev) => patchGroupByRow(prev, i, value))
+  const removeGroupByRow = (i: number) => setGroupBy((prev) => dropGroupByRow(prev, i))
 
-  // HAVING helpers (advanced mode)
-  const addHaving = () => havingState.add({ field: '', operator: 'gt', value: '' })
+  const addHaving = () => setHaving((prev) => addHavingRow(prev))
   const updateHaving = (i: number, field: keyof HavingRow, value: string) => {
-    const existing = having[i]
-    havingState.update(i, { field: existing?.field ?? '', operator: existing?.operator ?? 'gt', value: existing?.value ?? '', [field]: value })
+    setHaving((prev) => {
+      const next = [...prev]
+      next[i] = patchHavingRow(prev[i], field, value)
+      return next
+    })
   }
-  const removeHaving = (i: number) => havingState.remove(i)
+  const removeHaving = (i: number) => setHaving((prev) => removeHavingRow(prev, i))
 
   // Window function helpers
   const addWindowFunc = () => windowFunctionState.add({ func: 'ROW_NUMBER', field: '', partition_by: '', order_by: '' })
@@ -350,53 +236,22 @@ export default function QueryBuilder() {
   const removeCTE = (i: number) => cteState.remove(i)
 
   const runQuery = async () => {
-    const payload = {
-      datasource_id: datasourceId,
-      model_id: modelId,
-      filters: filters.filter((f) => f.field && f.value).map((f) => ({
-        field: f.field,
-        operator: f.operator,
-        value: f.value,
-      })),
-      group_by: groupBy.filter(Boolean).map((g) => ({ field: g })),
-      having: mode === 'advanced'
-        ? having.filter((h) => h.field && h.value).map((h) => ({
-            field: h.field,
-            operator: h.operator,
-            value: h.value,
-          }))
-        : undefined,
-      order_by: orderBy ? [{ field: orderBy, direction: orderDir }] : [],
-      limit: parseInt(String(limit)) || 100,
-      offset: mode === 'advanced' ? parseInt(String(offset)) || 0 : undefined,
-      ...(mode === 'advanced' ? {
-        select: [
-          ...selectItems.filter((s) => s.name).map(({ type, name }) => ({ type, name })),
-          ...windowFunctions.filter((w) => w.field).map((w) => ({
-            type: 'window' as const,
-            name: w.field,
-            window: {
-              aggregation: (w.func || 'row_number').toLowerCase(),
-              expression: w.field,
-              partition_by: w.partition_by ? w.partition_by.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
-              order_by: w.order_by ? [{ field: w.order_by, direction: 'asc' as const }] : undefined,
-            },
-          })),
-        ],
-      } : {
-        select: selectItems.filter((s) => s.name).map(({ type, name }) => ({ type, name })),
-      }),
-      ctes: mode === 'advanced'
-        ? ctes
-            .filter((c) => c.name)
-            .map((c): CTE => ({
-              name: c.name,
-              ...parseCTEBody(c.query),
-            }))
-        : undefined,
-    }
+    const payload = buildQueryPayload({
+      datasourceId,
+      modelId,
+      mode,
+      selectItems,
+      filters,
+      groupBy,
+      having,
+      orderBy,
+      orderDir,
+      limit,
+      offset,
+      windowFunctions,
+      ctes,
+    })
 
-    // First get SQL preview
     const explainRes = await postData<QueryExplainResponse>('/api/query/explain', payload)
     if (explainRes?.compiled_sql) {
       setSql(explainRes.compiled_sql)
