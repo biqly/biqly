@@ -75,7 +75,7 @@
 - [x] `hooks/useApi.ts` — Error parsing, timeout, abort handling testleri eksik.
 - [x] `utils/resultCellFormat.ts` — Identifier detection, calendar detection, fractional display testleri eksik.
 - [x] `hooks/useConversation.ts` — localStorage persistence, quota fallback testleri eksik.
-- [ ] `components/ResultTable.tsx` — Sorting, context menu, cell formatting testleri eksik.
+- [x] `components/ResultTable.tsx` — Sorting, context menu, cell formatting testleri eksik.
 - [x] Mevcut test coverage: sadece 2 dosya (`chartData.test.ts`, `formatters.test.ts`). Vitest konfigürasyonu mevcut ama kullanılmıyor.
 
 ## Quick Wins (< 1 Saat)
