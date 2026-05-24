@@ -36,9 +36,6 @@ import {
   dimOptionsForGroupRow,
   dimFieldOptions,
   filterFieldOptions,
-  isCrossSchemaJoin,
-  joinEdgeLabel,
-  metricDisplayName,
   metricFieldOptions,
   orderByFieldOptions,
 } from './queryBuilder/utils'
@@ -143,19 +140,20 @@ export default function QueryBuilder() {
   const [sql, setSql] = useState('')
   const [chartType, setChartType] = useState<'bar' | 'line' | 'pie'>('bar')
 
+  // Notebook Summarize Step Toggle State
+  const [isSummarized, setIsSummarized] = useState(false)
+
   const dimensions = useMemo(() => modelDetail?.dimensions ?? [], [modelDetail])
   const metrics = useMemo(() => modelDetail?.metrics ?? [], [modelDetail])
   const filterFieldOpts = useMemo(() => filterFieldOptions(dimensions, metrics, t), [dimensions, metrics, t])
+  
   const orderByOpts = useMemo(() => {
     const fields = orderByFieldOptions(dimensions, metrics, t)
     if (fields.length === 0) return []
     return [{ value: '', label: t('query_builder.order_none'), hint: '' }, ...fields]
   }, [dimensions, metrics, t])
+  
   const metricOptsHaving = useMemo(() => metricFieldOptions(metrics), [metrics])
-  const selectedMetricNames = useMemo(
-    () => new Set(selectItems.filter((item) => item.type === 'metric' && item.name).map((item) => item.name)),
-    [selectItems],
-  )
 
   const createSemanticModel = async () => {
     if (!datasourceId || generatingModel) return
@@ -179,9 +177,51 @@ export default function QueryBuilder() {
     }
   }
 
+  const toggleSummarize = () => {
+    setIsSummarized((prev) => {
+      const next = !prev
+      if (next) {
+        // Transitioning to summarized mode:
+        // Find dimensions and metrics in selectItems
+        const rawDims = selectItems.filter((item) => item.type === 'dimension' && item.name).map((item) => item.name)
+        
+        if (rawDims.length > 0) {
+          setGroupBy(rawDims)
+        } else {
+          const firstDim = dimensions[0]?.name
+          setGroupBy(firstDim ? [firstDim] : [])
+        }
+        
+        const rawMetrics = selectItems.filter((item) => item.type === 'metric')
+        if (rawMetrics.length > 0) {
+          setSelectItems(rawMetrics)
+        } else {
+          const firstMetric = metrics[0]?.name
+          setSelectItems(firstMetric ? [{ id: newRowId(), type: 'metric', name: firstMetric }] : [])
+        }
+      } else {
+        // Transitioning to raw mode:
+        // Move groupBy dimensions and metrics back to selectItems
+        const nextSelectItems: SelectItem[] = []
+        for (const name of groupBy) {
+          if (name) nextSelectItems.push({ id: newRowId(), type: 'dimension', name })
+        }
+        for (const item of selectItems) {
+          if (item.type === 'metric') nextSelectItems.push(item)
+        }
+        if (nextSelectItems.length === 0) {
+          const firstDim = dimensions[0]?.name
+          if (firstDim) nextSelectItems.push({ id: newRowId(), type: 'dimension', name: firstDim })
+        }
+        setSelectItems(nextSelectItems)
+        setGroupBy([])
+      }
+      return next
+    })
+  }
+
   const addSelectItem = () => selectItemsState.add({ id: newRowId(), type: 'dimension', name: '' })
   const addMetricSelectItem = (metricName = '') => {
-    if (metricName && selectedMetricNames.has(metricName)) return
     selectItemsState.add({ id: newRowId(), type: 'metric', name: metricName })
   }
   const updateSelectItem = (i: number, field: keyof SelectItem, value: string) => {
@@ -219,7 +259,6 @@ export default function QueryBuilder() {
   }
   const removeHaving = (i: number) => setHaving((prev) => removeHavingRow(prev, i))
 
-  // Window function helpers
   const addWindowFunc = () => windowFunctionState.add({ func: 'ROW_NUMBER', field: '', partition_by: '', order_by: '' })
   const updateWindowFunc = (i: number, field: keyof WindowFuncRow, value: string) => {
     const existing = windowFunctions[i]
@@ -227,7 +266,6 @@ export default function QueryBuilder() {
   }
   const removeWindowFunc = (i: number) => windowFunctionState.remove(i)
 
-  // CTE helpers
   const addCTE = () => cteState.add({ name: '', query: '' })
   const updateCTE = (i: number, field: keyof CTERow, value: string) => {
     const existing = ctes[i]
@@ -236,11 +274,22 @@ export default function QueryBuilder() {
   const removeCTE = (i: number) => cteState.remove(i)
 
   const runQuery = async () => {
+    const querySelectItems = isSummarized
+      ? [
+          ...groupBy.filter(Boolean).map((g) => ({
+            id: newRowId(),
+            type: 'dimension' as const,
+            name: g,
+          })),
+          ...selectItems.filter((item) => item.type === 'metric'),
+        ]
+      : selectItems
+
     const payload = buildQueryPayload({
       datasourceId,
       modelId,
       mode,
-      selectItems,
+      selectItems: querySelectItems,
       filters,
       groupBy,
       having,
@@ -257,7 +306,6 @@ export default function QueryBuilder() {
       setSql(explainRes.compiled_sql)
     }
 
-    // Then execute
     const res = await postData<QueryBuilderResult>('/api/query/run', payload)
     if (res) {
       setResult(res)
@@ -269,280 +317,367 @@ export default function QueryBuilder() {
   return (
     <div className="page-stack">
       <div className="card card--query-builder">
-        <div className="card-header-row card-header-row--spaced">
-          <h2>{t('query_builder.setup_title')}</h2>
+        {/* Header Breadcrumbs and Mode selector */}
+        <div className="query-builder-header">
+          <div className="query-builder-breadcrumbs">
+            <span>Query Builder</span>
+            <span className="separator">/</span>
+            <Select
+              value={datasourceId}
+              onChange={setDatasourceId}
+              placeholder={t('query_builder.placeholder_pick_datasource')}
+              options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
+              size="sm"
+            />
+            {datasourceId && models.length > 0 && (
+              <>
+                <span className="separator">/</span>
+                <Select
+                  value={modelId}
+                  onChange={setModelId}
+                  placeholder={t('query_builder.placeholder_pick_model')}
+                  disabled={models.length === 0}
+                  options={models.map((m) => ({
+                    value: m.id,
+                    label: modelListLabel(m),
+                    hint: modelListHint(m),
+                  }))}
+                  size="sm"
+                />
+              </>
+            )}
+          </div>
           <div className="toggle-group">
             <button type="button" className={`toggle-btn ${mode === 'simple' ? 'active' : ''}`} onClick={() => setMode('simple')}>{t('query_builder.mode_simple')}</button>
             <button type="button" className={`toggle-btn ${mode === 'advanced' ? 'active' : ''}`} onClick={() => setMode('advanced')}>{t('query_builder.mode_advanced')}</button>
           </div>
         </div>
-        <div className="query-builder-inline-2">
-          <div className="form-group" style={{ flex: 1 }}>
-            <label htmlFor="query-datasource">{t('query_builder.datasource_label')}</label>
-            <Select
-              id="query-datasource"
-              name="datasource"
-              value={datasourceId}
-              onChange={setDatasourceId}
-              placeholder={t('query_builder.placeholder_pick_datasource')}
-              header={t('query_builder.header_datasources')}
-              options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
-            />
+
+        {/* Semantic Model Warning/Setup */}
+        {modelId && models.find((m) => m.id === modelId)?.status !== 'published' ? (
+          <p className="hint-text" style={{ marginBottom: '1rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            {t('query_builder.draft_model_warning')}
+          </p>
+        ) : null}
+
+        {datasourceId && models.length === 0 ? (
+          <div className="semantic-model-setup" style={{ marginBottom: '1rem' }}>
+            <div>
+              <strong>{t('query_builder.model_setup_title')}</strong>
+              <p>{t('query_builder.model_setup_body')}</p>
+            </div>
+            <button type="button" className="btn btn-sm" onClick={createSemanticModel} disabled={generatingModel}>
+              {generatingModel ? t('query_builder.model_setup_generating') : t('query_builder.model_setup_create')}
+            </button>
           </div>
-          <div className="form-group" style={{ flex: 1 }}>
-            <label htmlFor="query-model">{t('query_builder.semantic_model_label')}</label>
-            <Select
-              id="query-model"
-              name="model_id"
-              value={modelId}
-              onChange={setModelId}
-              placeholder={models.length ? t('query_builder.placeholder_pick_model') : t('query_builder.no_models_for_ds')}
-              header={t('query_builder.header_semantic_models')}
-              disabled={models.length === 0}
-              options={models.map((m) => ({
-                value: m.id,
-                label: modelListLabel(m),
-                hint: modelListHint(m),
-              }))}
-            />
-            {modelId && models.find((m) => m.id === modelId)?.status !== 'published' ? (
-              <p className="hint-text" style={{ marginTop: '0.35rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                {t('query_builder.draft_model_warning')}
+        ) : null}
+
+        {generatedModel ? (
+          <div className={generatedModel.validation?.valid === false ? 'semantic-model-setup semantic-model-setup--error' : 'semantic-model-setup semantic-model-setup--success'} style={{ marginBottom: '1rem' }}>
+            <div>
+              <strong>
+                {generatedModel.published
+                  ? t('query_builder.model_setup_created_published')
+                  : t('query_builder.model_setup_created_draft')}
+              </strong>
+              <p>
+                {t('query_builder.model_setup_summary', {
+                  dimensions: generatedModel.model.dimensions?.length ?? 0,
+                  metrics: generatedModel.model.metrics?.length ?? 0,
+                  joins: generatedModel.model.joins?.length ?? 0,
+                })}
               </p>
-            ) : null}
-            {datasourceId && models.length === 0 ? (
-              <div className="semantic-model-setup">
-                <div>
-                  <strong>{t('query_builder.model_setup_title')}</strong>
-                  <p>{t('query_builder.model_setup_body')}</p>
+              {generatedModel.validation?.errors?.length ? (
+                <ul>
+                  {generatedModel.validation.errors.map((msg) => <li key={msg}>{msg}</li>)}
+                </ul>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {/* Notebook Steps Stack */}
+        {modelDetail && (
+          <div className="query-builder-notebook">
+            {/* Step 1: Data */}
+            <div className="notebook-step">
+              <div className="notebook-step-label notebook-step-label--data">Data</div>
+              <div className="notebook-step-card notebook-step-card--data">
+                <span className="notebook-tag notebook-tag--blue">
+                  {modelDetail.base_table}
+                </span>
+              </div>
+            </div>
+
+            {/* Step 2: Joins (Read-only display of relationships defined on semantic layer) */}
+            {modelDetail.joins && modelDetail.joins.length > 0 && (
+              <div className="notebook-step">
+                <div className="notebook-step-label notebook-step-label--join">Join data</div>
+                <div className="notebook-step-card notebook-step-card--join">
+                  {modelDetail.joins.map((j, index) => (
+                    <div key={j.id || index} className="notebook-join-flow">
+                      <span className="notebook-tag notebook-tag--blue">{modelDetail.base_table}</span>
+                      <span className="notebook-join-icon">⟝⟞</span>
+                      <span className="notebook-tag notebook-tag--blue">{j.to_table}</span>
+                      <span className="notebook-join-on">
+                        on {modelDetail.base_table}.{j.from_column} = {j.to_table}.{j.to_column}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-                <button type="button" className="btn btn-sm" onClick={createSemanticModel} disabled={generatingModel}>
-                  {generatingModel ? t('query_builder.model_setup_generating') : t('query_builder.model_setup_create')}
+              </div>
+            )}
+
+            {/* Step 3: Filter (Toggled if filters list is not empty) */}
+            {filters.length > 0 && (
+              <div className="notebook-step">
+                <div className="notebook-step-label notebook-step-label--filter">Filter</div>
+                <div className="notebook-step-card notebook-step-card--filter">
+                  {filters.map((f, i) => (
+                    <div key={f.id} className="notebook-tag notebook-tag--purple" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <Select
+                        value={f.field}
+                        onChange={(v) => updateFilter(i, 'field', v)}
+                        placeholder={t('query_builder.pick_field_placeholder')}
+                        disabled={filterFieldOpts.length === 0}
+                        options={filterFieldOpts}
+                        size="sm"
+                      />
+                      <Select
+                        value={f.operator}
+                        onChange={(v) => updateFilter(i, 'operator', v)}
+                        options={[
+                          { value: 'eq', label: '=' },
+                          { value: 'neq', label: '!=' },
+                          { value: 'gt', label: '>' },
+                          { value: 'gte', label: '>=' },
+                          { value: 'lt', label: '<' },
+                          { value: 'lte', label: '<=' },
+                          { value: 'contains', label: t('query_builder.op_contains') },
+                          { value: 'in', label: t('query_builder.op_in') },
+                          { value: 'between', label: t('query_builder.op_between') },
+                        ]}
+                        size="sm"
+                      />
+                      <input
+                        value={f.value}
+                        onChange={(e) => updateFilter(i, 'value', e.target.value)}
+                        placeholder={t('query_builder.value_placeholder')}
+                        autoComplete="off"
+                        style={{ width: '7rem' }}
+                      />
+                      <button
+                        type="button"
+                        className="notebook-tag-close"
+                        onClick={() => removeFilter(i)}
+                        aria-label="Remove Filter"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  <button type="button" className="notebook-add-btn" onClick={addFilter}>+</button>
+                  <button
+                    type="button"
+                    className="notebook-step-close"
+                    onClick={() => setFilters([])}
+                    title={t('common.cancel')}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 4: Fields (Shown if NOT summarized) */}
+            {!isSummarized && (
+              <div className="notebook-step">
+                <div className="notebook-step-label notebook-step-label--fields">Fields</div>
+                <div className="notebook-step-card notebook-step-card--fields">
+                  {selectItems.map((item, i) => (
+                    <div key={item.id} className="notebook-tag notebook-tag--blue" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <Select
+                        value={item.type}
+                        onChange={(v) => updateSelectItem(i, 'type', v)}
+                        options={[
+                          { value: 'dimension', label: t('query_builder.dimension') },
+                          { value: 'metric', label: t('query_builder.metric') },
+                        ]}
+                        size="sm"
+                      />
+                      <Select
+                        value={item.name}
+                        onChange={(v) => updateSelectItem(i, 'name', v)}
+                        placeholder={t('query_builder.pick_field_placeholder')}
+                        disabled={item.type === 'dimension' ? dimensions.length === 0 : metrics.length === 0}
+                        options={item.type === 'dimension' ? dimFieldOptions(dimensions) : metricFieldOptions(metrics)}
+                        size="sm"
+                      />
+                      <button
+                        type="button"
+                        className="notebook-tag-close"
+                        onClick={() => removeSelectItem(i)}
+                        aria-label="Remove Field"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  <button type="button" className="notebook-add-btn" onClick={addSelectItem}>+</button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 5: Summarize (Aggregations and Group by columns) */}
+            {isSummarized && (
+              <div className="notebook-step">
+                <div className="notebook-step-label notebook-step-label--summarize">Summarize</div>
+                <div className="notebook-step-card notebook-step-card--summarize">
+                  <div className="notebook-summarize-split">
+                    {/* Aggregations */}
+                    <div className="notebook-summarize-section">
+                      {selectItems.filter((item) => item.type === 'metric').map((item) => {
+                        const i = selectItems.indexOf(item)
+                        return (
+                          <div key={item.id} className="notebook-tag notebook-tag--green" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <Select
+                              value={item.name}
+                              onChange={(v) => updateSelectItem(i, 'name', v)}
+                              placeholder={t('query_builder.pick_field_placeholder')}
+                              options={metricFieldOptions(metrics)}
+                              size="sm"
+                            />
+                            <button
+                              type="button"
+                              className="notebook-tag-close"
+                              onClick={() => removeSelectItem(i)}
+                              aria-label="Remove Aggregation"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        )
+                      })}
+                      <button type="button" className="notebook-add-btn" onClick={() => addMetricSelectItem('')}>+</button>
+                    </div>
+
+                    <div className="notebook-summarize-divider">by</div>
+
+                    {/* Group by dimensions */}
+                    <div className="notebook-summarize-section">
+                      {groupBy.map((g, i) => (
+                        <div key={i} className="notebook-tag notebook-tag--blue" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <Select
+                            value={g}
+                            onChange={(v) => updateGroupByRow(i, v)}
+                            placeholder={t('query_builder.pick_dimension_placeholder')}
+                            options={dimOptionsForGroupRow(dimensions, groupBy, i)}
+                            size="sm"
+                          />
+                          <button
+                            type="button"
+                            className="notebook-tag-close"
+                            onClick={() => removeGroupByRow(i)}
+                            aria-label="Remove Grouping"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                      <button type="button" className="notebook-add-btn" onClick={addGroupByRow}>+</button>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="notebook-step-close"
+                    onClick={() => {
+                      setIsSummarized(false)
+                      setGroupBy([])
+                      setSelectItems([])
+                    }}
+                    title={t('common.cancel')}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 6: Sort (If orderBy is active) */}
+            {orderBy && (
+              <div className="notebook-step">
+                <div className="notebook-step-label notebook-step-label--sort">Sort</div>
+                <div className="notebook-step-card notebook-step-card--sort">
+                  <div className="notebook-tag notebook-tag--purple" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <Select
+                      value={orderBy}
+                      onChange={setOrderBy}
+                      placeholder={t('query_builder.pick_field_placeholder')}
+                      options={orderByOpts}
+                      size="sm"
+                    />
+                    <Select
+                      value={orderDir}
+                      onChange={setOrderDir}
+                      options={[
+                        { value: 'asc', label: 'ASC' },
+                        { value: 'desc', label: 'DESC' },
+                      ]}
+                      size="sm"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="notebook-step-close"
+                    onClick={() => setOrderBy('')}
+                    title={t('common.cancel')}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 7: Limit */}
+            <div className="notebook-step">
+              <div className="notebook-step-label notebook-step-label--limit">Row limit</div>
+              <div className="notebook-step-card notebook-step-card--limit">
+                <input
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  value={limit}
+                  onChange={(e) => setLimit(Number(e.target.value))}
+                  style={{ width: '6rem' }}
+                />
+                <button
+                  type="button"
+                  className="notebook-step-close"
+                  onClick={() => setLimit(100)}
+                  title={t('common.cancel')}
+                >
+                  ×
                 </button>
               </div>
-            ) : null}
-            {generatedModel ? (
-              <div className={generatedModel.validation?.valid === false ? 'semantic-model-setup semantic-model-setup--error' : 'semantic-model-setup semantic-model-setup--success'}>
-                <div>
-                  <strong>
-                    {generatedModel.published
-                      ? t('query_builder.model_setup_created_published')
-                      : t('query_builder.model_setup_created_draft')}
-                  </strong>
-                  <p>
-                    {t('query_builder.model_setup_summary', {
-                      dimensions: generatedModel.model.dimensions?.length ?? 0,
-                      metrics: generatedModel.model.metrics?.length ?? 0,
-                      joins: generatedModel.model.joins?.length ?? 0,
-                    })}
-                  </p>
-                  {generatedModel.validation?.errors?.length ? (
-                    <ul>
-                      {generatedModel.validation.errors.map((msg) => <li key={msg}>{msg}</li>)}
-                    </ul>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        {(modelDetail?.joins?.length ?? 0) > 0 && (
-          <details className="semantic-joins-panel">
-            <summary>{t('query_builder.join_definitions', { count: modelDetail!.joins!.length })}</summary>
-            <ul className="semantic-joins-list">
-              {modelDetail!.joins!.map((j) => {
-                const cross = isCrossSchemaJoin(j, modelDetail?.base_schema)
-                return (
-                  <li key={j.id ?? j.name} className={cross ? 'semantic-join--cross-schema' : undefined}>
-                    <code>{joinEdgeLabel(j, modelDetail?.base_schema)}</code>
-                    {j.relationship ? <span className="semantic-join-rel">{j.relationship}</span> : null}
-                    {cross ? <span className="semantic-join-badge">{t('query_builder.cross_schema')}</span> : null}
-                  </li>
-                )
-              })}
-            </ul>
-          </details>
-        )}
-
-
-        <div className="form-group">
-          <span className="form-label">{t('query_builder.select_fields_label')}</span>
-          {selectItems.map((item, i) => (
-            <div key={item.id} className="query-builder-row">
-              <Select
-                value={item.type}
-                onChange={(v) => updateSelectItem(i, 'type', v)}
-                ariaLabel={t('query_builder.field_type_aria', { n: i + 1 })}
-                options={[
-                  { value: 'dimension', label: t('query_builder.dimension') },
-                  { value: 'metric', label: t('query_builder.metric') },
-                ]}
-              />
-              <Select
-                value={item.name}
-                onChange={(v) => updateSelectItem(i, 'name', v)}
-                ariaLabel={t('query_builder.field_name_aria', { n: i + 1 })}
-                placeholder={t('query_builder.pick_field_placeholder')}
-                header={item.type === 'dimension' ? t('query_builder.dimensions_header') : t('query_builder.metrics_header')}
-                disabled={
-                  !modelId
-                  || (item.type === 'dimension' ? dimensions.length === 0 : metrics.length === 0)
-                }
-                options={item.type === 'dimension' ? dimFieldOptions(dimensions) : metricFieldOptions(metrics)}
-              />
-              <button type="button" className="remove-btn remove-btn--compact" onClick={() => removeSelectItem(i)} aria-label={t('query_builder.remove_field_aria', { n: i + 1 })}>×</button>
             </div>
-          ))}
-          <button type="button" className="add-btn" onClick={addSelectItem}>{t('query_builder.add_field')}</button>
-        </div>
 
-        <div className="form-group">
-          <span className="form-label">{t('query_builder.filters_label')}</span>
-          {filters.map((f, i) => (
-            <div key={f.id} className="query-builder-row query-builder-row--filter">
-              <Select
-                value={f.field}
-                onChange={(v) => updateFilter(i, 'field', v)}
-                ariaLabel={t('query_builder.filter_field_aria', { n: i + 1 })}
-                placeholder={t('query_builder.pick_field_placeholder')}
-                header={t('query_builder.dim_or_metric_header')}
-                disabled={!modelId || filterFieldOpts.length === 0}
-                options={filterFieldOpts}
-              />
-              <Select
-                value={f.operator}
-                onChange={(v) => updateFilter(i, 'operator', v)}
-                ariaLabel={t('query_builder.filter_operator_aria', { n: i + 1 })}
-                options={[
-                  { value: 'eq', label: '=' },
-                  { value: 'neq', label: '!=' },
-                  { value: 'gt', label: '>' },
-                  { value: 'gte', label: '>=' },
-                  { value: 'lt', label: '<' },
-                  { value: 'lte', label: '<=' },
-                  { value: 'contains', label: t('query_builder.op_contains') },
-                  { value: 'in', label: t('query_builder.op_in') },
-                  { value: 'between', label: t('query_builder.op_between') },
-                ]}
-              />
-              <input value={f.value} onChange={(e) => updateFilter(i, 'value', e.target.value)} placeholder={t('query_builder.value_placeholder')} aria-label={t('query_builder.filter_value_aria', { n: i + 1 })} autoComplete="off" />
-              <button type="button" className="remove-btn remove-btn--compact" onClick={() => removeFilter(i)} aria-label={t('query_builder.remove_filter_aria', { n: i + 1 })}>×</button>
-            </div>
-          ))}
-          <button type="button" className="add-btn" onClick={addFilter}>{t('query_builder.add_filter')}</button>
-        </div>
-
-        <div className="form-group">
-          <label>{t('query_builder.group_by_label')}</label>
-          <p style={{ margin: '0 0 0.4rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            {t('query_builder.group_by_hint')}
-          </p>
-          {groupBy.map((g, i) => (
-            <div key={i} className="query-builder-row query-builder-row--group">
-              <Select
-                value={g}
-                onChange={(v) => updateGroupByRow(i, v)}
-                ariaLabel={t('query_builder.group_row_aria', { n: i + 1 })}
-                placeholder={t('query_builder.pick_dimension_placeholder')}
-                header={t('query_builder.dimensions_header')}
-                disabled={!modelId || dimensions.length === 0}
-                options={dimOptionsForGroupRow(dimensions, groupBy, i)}
-              />
-              <button type="button" className="remove-btn remove-btn--compact" onClick={() => removeGroupByRow(i)} aria-label={t('query_builder.remove_group_aria', { n: i + 1 })}>×</button>
-            </div>
-          ))}
-          <button type="button" className="add-btn" onClick={addGroupByRow}>{t('query_builder.add_group_row')}</button>
-        </div>
-
-        <div className="form-group query-builder-aggregations">
-          <label>{t('query_builder.aggregations_label')}</label>
-          <p className="query-builder-section-hint">{t('query_builder.aggregations_hint')}</p>
-          {metrics.length === 0 ? (
-            <p className="query-builder-empty-note">{t('query_builder.aggregations_empty')}</p>
-          ) : (
-            <div className="query-builder-aggregation-grid">
-              {metrics.map((metric) => {
-                const selected = selectedMetricNames.has(metric.name)
-                return (
-                  <button
-                    key={metric.id}
-                    type="button"
-                    className={`query-builder-aggregation-chip ${selected ? 'query-builder-aggregation-chip--selected' : ''}`}
-                    onClick={() => addMetricSelectItem(metric.name)}
-                    disabled={selected}
-                    aria-label={t('query_builder.add_aggregation_aria', { name: metricDisplayName(metric), aggregation: aggregationDisplayName(metric.aggregation) })}
-                  >
-                    <span>{aggregationDisplayName(metric.aggregation)}</span>
-                    <strong>{metricDisplayName(metric)}</strong>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        <div className="query-builder-inline-2">
-          <div className="form-group" style={{ flex: 1 }}>
-            <label htmlFor="query-order-by">{t('query_builder.order_by_label')}</label>
-            <Select
-              id="query-order-by"
-              name="order_by"
-              value={orderBy}
-              onChange={setOrderBy}
-              placeholder={t('query_builder.pick_field_placeholder')}
-              header={t('query_builder.dim_or_metric_header')}
-              disabled={!modelId || orderByOpts.length === 0}
-              options={orderByOpts}
-            />
-          </div>
-          <div className="form-group" style={{ flex: 1 }}>
-            <label htmlFor="query-order-direction">{t('query_builder.order_direction_label')}</label>
-            <Select
-              id="query-order-direction"
-              name="order_direction"
-              value={orderDir}
-              onChange={setOrderDir}
-              options={[
-                { value: 'asc', label: 'ASC' },
-                { value: 'desc', label: 'DESC' },
-              ]}
-            />
-          </div>
-          <div className="form-group" style={{ flex: 1 }}>
-            <label htmlFor="query-limit">{t('query_builder.limit_label')}</label>
-            <input id="query-limit" name="limit" type="number" min={1} inputMode="numeric" value={limit} onChange={(e) => setLimit(Number(e.target.value))} />
-          </div>
-          {mode === 'advanced' && (
-            <div className="form-group" style={{ flex: 1 }}>
-              <label htmlFor="query-offset">{t('query_builder.offset_label')}</label>
-              <input id="query-offset" name="offset" type="number" min={0} inputMode="numeric" value={offset} onChange={(e) => setOffset(Number(e.target.value))} />
-            </div>
-          )}
-        </div>
-
-        {/* ─── Advanced Mode Sections ─────────────────────────── */}
-        {mode === 'advanced' && (
-          <div className="query-builder-advanced">
-            <details className="query-builder-panel">
-              <summary>{t('query_builder.having_panel')}</summary>
-              <div className="query-builder-panel__body">
-                <div className="form-group query-builder-panel__fields">
+            {/* Advanced Step: Having (Advanced Mode only) */}
+            {mode === 'advanced' && having.length > 0 && (
+              <div className="notebook-step">
+                <div className="notebook-step-label notebook-step-label--advanced">Having</div>
+                <div className="notebook-step-card notebook-step-card--advanced">
                   {having.map((h, i) => (
-                    <div key={i} className="query-builder-row query-builder-row--filter">
+                    <div key={i} className="notebook-tag notebook-tag--purple" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                       <Select
                         value={h.field}
                         onChange={(v) => updateHaving(i, 'field', v)}
-                        ariaLabel={t('query_builder.having_field_aria', { n: i + 1 })}
                         placeholder={t('query_builder.pick_metric_having')}
-                        header={t('query_builder.metrics_post_header')}
-                        disabled={!modelId || metricOptsHaving.length === 0}
                         options={metricOptsHaving}
+                        size="sm"
                       />
                       <Select
                         value={h.operator}
                         onChange={(v) => updateHaving(i, 'operator', v)}
-                        ariaLabel={t('query_builder.having_operator_aria', { n: i + 1 })}
                         options={[
                           { value: 'gt', label: '>' },
                           { value: 'gte', label: '>=' },
@@ -551,74 +686,196 @@ export default function QueryBuilder() {
                           { value: 'eq', label: '=' },
                           { value: 'neq', label: '!=' },
                         ]}
+                        size="sm"
                       />
-                      <input value={h.value} onChange={(e) => updateHaving(i, 'value', e.target.value)} placeholder={t('query_builder.value_placeholder')} aria-label={t('query_builder.having_value_aria', { n: i + 1 })} autoComplete="off" />
-                      <button type="button" className="remove-btn remove-btn--compact" onClick={() => removeHaving(i)} aria-label={t('query_builder.remove_having_aria', { n: i + 1 })}>×</button>
+                      <input
+                        value={h.value}
+                        onChange={(e) => updateHaving(i, 'value', e.target.value)}
+                        placeholder={t('query_builder.value_placeholder')}
+                        autoComplete="off"
+                        style={{ width: '6rem' }}
+                      />
+                      <button
+                        type="button"
+                        className="notebook-tag-close"
+                        onClick={() => removeHaving(i)}
+                        aria-label="Remove Having Constraint"
+                      >
+                        ×
+                      </button>
                     </div>
                   ))}
-                  <button type="button" className="add-btn" onClick={addHaving}>{t('query_builder.add_having')}</button>
+                  <button type="button" className="notebook-add-btn" onClick={addHaving}>+</button>
+                  <button
+                    type="button"
+                    className="notebook-step-close"
+                    onClick={() => setHaving([])}
+                    title={t('common.cancel')}
+                  >
+                    ×
+                  </button>
                 </div>
               </div>
-            </details>
+            )}
 
-            <details className="query-builder-panel">
-              <summary>{t('query_builder.window_panel')}</summary>
-              <div className="query-builder-panel__body">
-                <div className="form-group query-builder-panel__fields">
+            {/* Advanced Step: Window function (Advanced Mode only) */}
+            {mode === 'advanced' && windowFunctions.length > 0 && (
+              <div className="notebook-step">
+                <div className="notebook-step-label notebook-step-label--advanced">Window Func</div>
+                <div className="notebook-step-card notebook-step-card--advanced">
                   {windowFunctions.map((w, i) => (
-                    <div key={i} className="query-builder-row query-builder-row--wide">
+                    <div key={i} className="notebook-tag notebook-tag--purple" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                       <Select
                         value={w.func}
                         onChange={(v) => updateWindowFunc(i, 'func', v)}
-                        ariaLabel={t('query_builder.window_type_aria', { n: i + 1 })}
                         options={WINDOW_FUNC_OPTIONS.map((opt) => ({ value: opt, label: opt }))}
+                        size="sm"
                       />
-                      <input value={w.field} onChange={(e) => updateWindowFunc(i, 'field', e.target.value)} placeholder={t('query_builder.window_field_placeholder')} aria-label={t('query_builder.window_field_aria', { n: i + 1 })} autoComplete="off" />
-                      <input value={w.partition_by} onChange={(e) => updateWindowFunc(i, 'partition_by', e.target.value)} placeholder={t('query_builder.window_partition_placeholder')} aria-label={t('query_builder.window_partition_aria', { n: i + 1 })} autoComplete="off" />
-                      <input value={w.order_by} onChange={(e) => updateWindowFunc(i, 'order_by', e.target.value)} placeholder={t('query_builder.window_order_placeholder')} aria-label={t('query_builder.window_order_aria', { n: i + 1 })} autoComplete="off" />
-                      <button type="button" className="remove-btn remove-btn--compact" onClick={() => removeWindowFunc(i)} aria-label={t('query_builder.remove_window_aria', { n: i + 1 })}>×</button>
+                      <input value={w.field} onChange={(e) => updateWindowFunc(i, 'field', e.target.value)} placeholder="field" style={{ width: '6rem' }} />
+                      <input value={w.partition_by} onChange={(e) => updateWindowFunc(i, 'partition_by', e.target.value)} placeholder="partition" style={{ width: '6rem' }} />
+                      <input value={w.order_by} onChange={(e) => updateWindowFunc(i, 'order_by', e.target.value)} placeholder="order" style={{ width: '6rem' }} />
+                      <button
+                        type="button"
+                        className="notebook-tag-close"
+                        onClick={() => removeWindowFunc(i)}
+                        aria-label="Remove Window Function"
+                      >
+                        ×
+                      </button>
                     </div>
                   ))}
-                  <button type="button" className="add-btn" onClick={addWindowFunc}>{t('query_builder.add_window')}</button>
+                  <button type="button" className="notebook-add-btn" onClick={addWindowFunc}>+</button>
+                  <button
+                    type="button"
+                    className="notebook-step-close"
+                    onClick={() => windowFunctionState.setItems([])}
+                    title={t('common.cancel')}
+                  >
+                    ×
+                  </button>
                 </div>
               </div>
-            </details>
+            )}
 
-            <details className="query-builder-panel">
-              <summary>{t('query_builder.cte_panel')}</summary>
-              <div className="query-builder-panel__body">
-                <div className="form-group query-builder-panel__fields">
+            {/* Advanced Step: CTEs (Advanced Mode only) */}
+            {mode === 'advanced' && ctes.length > 0 && (
+              <div className="notebook-step">
+                <div className="notebook-step-label notebook-step-label--advanced">CTEs</div>
+                <div className="notebook-step-card notebook-step-card--advanced">
                   {ctes.map((c, i) => (
-                    <div key={i} className="query-builder-cte-card">
-                      <div className="query-builder-row query-builder-row--cte-head">
-                        <input value={c.name} onChange={(e) => updateCTE(i, 'name', e.target.value)} placeholder={t('query_builder.cte_name_placeholder')} aria-label={t('query_builder.cte_name_aria', { n: i + 1 })} autoComplete="off" />
-                        <button type="button" className="remove-btn remove-btn--compact" onClick={() => removeCTE(i)} aria-label={t('query_builder.remove_cte_aria', { n: i + 1 })}>×</button>
+                    <div key={i} className="notebook-tag notebook-tag--purple" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'flex-start' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', width: '100%' }}>
+                        <input value={c.name} onChange={(e) => updateCTE(i, 'name', e.target.value)} placeholder="CTE Name" style={{ width: '8rem' }} />
+                        <button
+                          type="button"
+                          className="notebook-tag-close"
+                          onClick={() => removeCTE(i)}
+                          aria-label="Remove CTE"
+                        >
+                          ×
+                        </button>
                       </div>
                       <textarea
-                        className="query-builder-cte-textarea"
                         value={c.query}
                         onChange={(e) => updateCTE(i, 'query', e.target.value)}
-                        placeholder={t('query_builder.cte_json_placeholder')}
-                        rows={3}
+                        placeholder="CTE query JSON"
+                        rows={2}
+                        style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-strong)', color: 'var(--text-primary)', borderRadius: '0.25rem', width: '12rem', padding: '0.25rem', fontSize: '0.74rem' }}
                       />
                     </div>
                   ))}
-                  <button type="button" className="add-btn" onClick={addCTE}>{t('query_builder.add_cte')}</button>
+                  <button type="button" className="notebook-add-btn" onClick={addCTE}>+</button>
+                  <button
+                    type="button"
+                    className="notebook-step-close"
+                    onClick={() => cteState.setItems([])}
+                    title={t('common.cancel')}
+                  >
+                    ×
+                  </button>
                 </div>
               </div>
-            </details>
+            )}
           </div>
         )}
 
-        <div className="query-builder-footer">
-          <button type="button" className="btn btn-sm" onClick={runQuery} disabled={loading}>
-            {loading ? t('query_builder.running') : t('query_builder.run_query_btn')}
-          </button>
-        </div>
+        {/* Notebook Bottom Action Toolbar */}
+        {modelDetail && (
+          <div className="notebook-toolbar">
+            <button
+              type="button"
+              className={`toolbar-btn toolbar-btn--filter ${filters.length > 0 ? 'active' : ''}`}
+              onClick={addFilter}
+            >
+              + Filter
+            </button>
+            <button
+              type="button"
+              className={`toolbar-btn toolbar-btn--summarize ${isSummarized ? 'active' : ''}`}
+              onClick={toggleSummarize}
+            >
+              + Summarize
+            </button>
+            <button
+              type="button"
+              className={`toolbar-btn toolbar-btn--sort ${orderBy ? 'active' : ''}`}
+              onClick={() => {
+                if (!orderBy) {
+                  const firstOpt = orderByOpts.find((o) => o.value)
+                  if (firstOpt) setOrderBy(firstOpt.value)
+                }
+              }}
+            >
+              + Sort
+            </button>
+            <button
+              type="button"
+              className="toolbar-btn toolbar-btn--limit"
+              onClick={() => {}}
+            >
+              Limit ({limit})
+            </button>
+            {mode === 'advanced' && (
+              <>
+                <button
+                  type="button"
+                  className={`toolbar-btn toolbar-btn--advanced ${having.length > 0 ? 'active' : ''}`}
+                  onClick={addHaving}
+                >
+                  + Having
+                </button>
+                <button
+                  type="button"
+                  className={`toolbar-btn toolbar-btn--advanced ${windowFunctions.length > 0 ? 'active' : ''}`}
+                  onClick={addWindowFunc}
+                >
+                  + Window Func
+                </button>
+                <button
+                  type="button"
+                  className={`toolbar-btn toolbar-btn--advanced ${ctes.length > 0 ? 'active' : ''}`}
+                  onClick={addCTE}
+                >
+                  + CTE
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Footer Actions */}
+        {modelDetail && (
+          <div className="visualize-btn-container">
+            <button type="button" className="visualize-btn" onClick={runQuery} disabled={loading}>
+              {loading ? t('query_builder.running') : 'Visualize'}
+            </button>
+          </div>
+        )}
 
         <ErrorAlert error={error} />
       </div>
 
+      {/* SQL Preview */}
       {sql && (
         <div className="card">
           <h2>{t('query_builder.generated_sql')}</h2>
@@ -626,6 +883,7 @@ export default function QueryBuilder() {
         </div>
       )}
 
+      {/* Query Results */}
       {result && (
         <div className="card">
           {chartData.length > 0 ? (
