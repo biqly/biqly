@@ -47,7 +47,7 @@
 
 ## Architecture / Design
 
-- [ ] `AIQuery.tsx` — 1592 satır, 25+ useState. God component. Sorun sorumluluklarını alt component'lere böl: chat panel, routing panel, candidate viewer, feedback section.
+- [x] `AIQuery.tsx` — 1592 satır, 25+ useState. God component. Sorun sorumluluklarını alt component'lere böl: chat panel, routing panel, candidate viewer, feedback section.
 - [x] `Modeling.tsx` — 2738 satır, ~30 useState. Canvas engine, form management ve API logic aynı component'te. En azından canvas renderer ve form modallarını ayır.
 - [x] `Metadata.tsx` — 1089 satır. Inline editing, AI describe, bulk describe ayrı component'lerde olmalı.
 - [x] `hooks/useAIJobs.tsx:321-333` — Promise-based callback pattern. `dismissJob` çağrılırsa promise hiç resolve olmaz (memory leak). Cleanup ekle.
@@ -95,5 +95,5 @@
 - [x] `Metadata.tsx` (1089 satır) — Inline editing, AI describe, bulk describe ayrı component'ler olmalı
 - [x] `hooks/useAIJobs.tsx` (679 satır) — Promise-based callback pattern'ini iyileştir. Dangling promise leak'ini düzelt
 - [x] `index.css` — Route bazlı CSS splitting tamamlandı (`src/styles/`). 4 ana route kendi CSS chunk'ında.
-- [ ] `window.confirm()` — Tüm kullanımları özel ConfirmDialog component'i ile değiştir
+- [x] `window.confirm()` — Tüm kullanımları özel ConfirmDialog component'i ile değiştir
 - [x] Test altyapısı — Vitest konfigürasyonu mevcut. En azından hooks ve utils için unit test'ler yazılmalı

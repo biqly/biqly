@@ -27,14 +27,6 @@ export type RenameTarget =
   | { kind: 'dimension'; current: string; dimension: SemanticDimension; title: string; subtitle: string }
   | { kind: 'metric'; current: string; metric: SemanticMetric; title: string; subtitle: string }
 
-export type ConfirmTarget =
-  | { kind: 'model'; modelId: string; title: string; body: string; action: string }
-  | { kind: 'schema'; schemaName: string; title: string; body: string; action: string }
-  | { kind: 'join'; joinId: string; title: string; body: string; action: string }
-  | { kind: 'dimension'; dimId: string; title: string; body: string; action: string }
-  | { kind: 'metric'; metricId: string; title: string; body: string; action: string }
-  | { kind: 'table'; schema: string; table: string; title: string; body: string; action: string }
-
 export interface Pt {
   x: number
   y: number

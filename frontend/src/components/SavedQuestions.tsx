@@ -234,7 +234,7 @@ function SavedQuestionFormModal({
 export default function SavedQuestions() {
   const t = useT()
   const { get, postData, putData, deleteData, loading: apiLoading, error: apiError } = useApi()
-  const { confirm, dialog: confirmDialog } = useConfirm()
+  const confirm = useConfirm()
 
   // Selectors State
   const [datasources, setDatasources] = useState<Datasource[]>([])
@@ -535,7 +535,6 @@ export default function SavedQuestions() {
 
   return (
     <div className="page-stack">
-      {confirmDialog}
       <div className="card">
         <div className="card-header-row card-header-row--spaced">
           <h2>{t('saved_questions.title')}</h2>

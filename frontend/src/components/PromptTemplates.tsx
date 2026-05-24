@@ -95,7 +95,7 @@ function highlightContent(text: string) {
 export default function PromptTemplates() {
   const t = useT()
   const { get, putData, postData, loading, error } = useApi()
-  const { confirm, dialog: confirmDialog } = useConfirm()
+  const confirm = useConfirm()
   const [rows, setRows] = useState<PromptTemplateRow[]>([])
   const [editLocale, setEditLocale] = useState<EditLocale>(DEFAULT_LOCALE)
   const [selectedName, setSelectedName] = useState<TemplateName>('system_rules')
@@ -321,7 +321,6 @@ export default function PromptTemplates() {
 
   return (
     <div className="page-stack">
-      {confirmDialog}
       {error && <ErrorAlert error={error} />}
       {actionError && <ErrorAlert error={actionError} />}
       {saveOk && <p className="card-subtitle">{saveOk}</p>}

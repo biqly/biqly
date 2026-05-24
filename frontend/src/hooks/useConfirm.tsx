@@ -1,8 +1,14 @@
-import { useCallback, useRef, useState } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
-import type { ReactNode } from 'react'
 
-interface ConfirmOptions {
+export interface ConfirmOptions {
   title: ReactNode
   message?: ReactNode
   confirmLabel?: string
@@ -10,12 +16,16 @@ interface ConfirmOptions {
   variant?: 'danger' | 'warning' | 'default'
 }
 
+type ConfirmFn = (options: ConfirmOptions) => Promise<boolean>
+
 interface PendingConfirm {
   options: ConfirmOptions
   resolve: (value: boolean) => void
 }
 
-export function useConfirm() {
+const ConfirmContext = createContext<ConfirmFn | null>(null)
+
+function useConfirmState() {
   const [pending, setPending] = useState<PendingConfirm | null>(null)
   const resolveRef = useRef<((value: boolean) => void) | null>(null)
 
@@ -26,17 +36,14 @@ export function useConfirm() {
     })
   }, [])
 
-  const handleConfirm = useCallback(() => {
-    resolveRef.current?.(true)
+  const settle = useCallback((value: boolean) => {
+    resolveRef.current?.(value)
     resolveRef.current = null
     setPending(null)
   }, [])
 
-  const handleCancel = useCallback(() => {
-    resolveRef.current?.(false)
-    resolveRef.current = null
-    setPending(null)
-  }, [])
+  const handleConfirm = useCallback(() => settle(true), [settle])
+  const handleCancel = useCallback(() => settle(false), [settle])
 
   const dialog = pending ? (
     <ConfirmDialog
@@ -52,4 +59,22 @@ export function useConfirm() {
   ) : null
 
   return { confirm, dialog }
+}
+
+export function ConfirmProvider({ children }: { children: ReactNode }) {
+  const { confirm, dialog } = useConfirmState()
+  return (
+    <ConfirmContext.Provider value={confirm}>
+      {children}
+      {dialog}
+    </ConfirmContext.Provider>
+  )
+}
+
+export function useConfirm(): ConfirmFn {
+  const confirm = useContext(ConfirmContext)
+  if (!confirm) {
+    throw new Error('useConfirm must be used within ConfirmProvider')
+  }
+  return confirm
 }

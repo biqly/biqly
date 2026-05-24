@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import '../styles/modeling.css'
+import { useConfirm } from '../hooks/useConfirm'
 import { useApi } from '../hooks/useApi'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { useT } from '../i18n'
@@ -18,7 +19,7 @@ import { AddMetricModal } from './modeling/AddMetricModal'
 import { BaseSwapModal } from './modeling/BaseSwapModal'
 import { ModelingCanvas } from './modeling/ModelingCanvas'
 import { useModelingCanvas } from './modeling/useModelingCanvas'
-import type { ConfirmTarget, JoinForm, RenameTarget, SuggestedJoin, Tab } from './modeling/types'
+import type { JoinForm, RenameTarget, SuggestedJoin, Tab } from './modeling/types'
 import { publishModelRequest, suggestedJoinToPayload } from './modeling/types'
 import {
   buildJoinPayload,
@@ -38,6 +39,7 @@ import { Select } from './ui/Select'
 
 export default function Modeling() {
   const t = useT()
+  const confirm = useConfirm()
   const { get, postData, putData, patchData, deleteData, loading, error } = useApi()
   const [dsParam, setDsParam] = useQueryParam('ds')
   const [modelParam, setModelParam] = useQueryParam('model')
@@ -61,8 +63,6 @@ export default function Modeling() {
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [savingRename, setSavingRename] = useState(false)
-  const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget | null>(null)
-  const [savingConfirm, setSavingConfirm] = useState(false)
 
   const prevDsRef = useRef(datasourceId)
 
@@ -347,7 +347,7 @@ export default function Modeling() {
   )
 
   const requestTableRemoval = useCallback(
-    (schema: string, table: string) => {
+    async (schema: string, table: string) => {
       if (!model) return
       const isBase = schema === model.base_schema && table === model.base_table
       if (isBase) {
@@ -359,21 +359,25 @@ export default function Modeling() {
         toggleTableVisibility(schema, table, false)
         return
       }
-      setConfirmTarget({
-        kind: 'table',
-        schema,
-        table,
+      const ok = await confirm({
         title: t('modeling.remove_table_title'),
-        body: t('modeling.remove_table_body', {
+        message: t('modeling.remove_table_body', {
           table,
           joins: impact.joins,
           dims: impact.dims,
           metrics: impact.metrics,
         }),
-        action: t('modeling.remove_table_action'),
+        variant: 'warning',
+        confirmLabel: t('modeling.remove_table_action'),
       })
+      if (!ok) return
+      setMessage(null)
+      await postData(`/api/semantic/models/${model.id}/tables/remove`, { schema, table })
+      await refreshModels(model.id)
+      await loadSuggestedJoins()
+      setMessage(t('modeling.table_removed'))
     },
-    [model, tableImpact, toggleTableVisibility, t],
+    [confirm, model, tableImpact, toggleTableVisibility, postData, t],
   )
 
   const canvas = useModelingCanvas(modelId, tableCards, columns, model)
@@ -460,13 +464,22 @@ export default function Modeling() {
   const removeModel = async () => {
     if (!model) return
     const name = model.label || model.name
-    setConfirmTarget({
-      kind: 'model',
-      modelId: model.id,
+    const ok = await confirm({
       title: t('modeling.confirm_delete_model_title'),
-      body: t('modeling.confirm_delete_model_body', { name }),
-      action: t('common.delete'),
+      message: t('modeling.confirm_delete_model_body', { name }),
+      variant: 'danger',
+      confirmLabel: t('common.delete'),
     })
+    if (!ok) return
+    setMessage(null)
+    await deleteData(`/api/semantic/models/${model.id}`)
+    const list = await get<SemanticModelSummary[]>(`/api/semantic/models?datasource_id=${encodeURIComponent(datasourceId)}`)
+    const next = list ?? []
+    setModels(next)
+    const nextId = next[0]?.id ?? ''
+    setModelId(nextId)
+    if (!nextId) setModel(null)
+    setMessage(t('modeling.model_deleted'))
   }
 
   const renameModel = async () => {
@@ -522,42 +535,58 @@ export default function Modeling() {
   }
 
   const deleteJoin = async (joinId: string) => {
+    if (!model) return
     const join = joins.find((item) => item.id === joinId)
-    setConfirmTarget({
-      kind: 'join',
-      joinId,
+    const ok = await confirm({
       title: t('modeling.delete_join_title'),
-      body: join
+      message: join
         ? t('modeling.delete_join_body_named', { name: join.name })
         : t('modeling.delete_join_body_generic'),
-      action: t('common.delete'),
+      variant: 'danger',
+      confirmLabel: t('common.delete'),
     })
+    if (!ok) return
+    setMessage(null)
+    await deleteData(`/api/semantic/models/${model.id}/joins/${joinId}`)
+    await refreshModels(model.id)
+    await loadSuggestedJoins()
+    setMessage(t('modeling.relationship_deleted'))
   }
 
   const deleteDimension = async (dimId: string) => {
+    if (!model) return
     const dim = dims.find((item) => item.id === dimId)
-    setConfirmTarget({
-      kind: 'dimension',
-      dimId,
+    const ok = await confirm({
       title: t('modeling.confirm_delete_dimension_title'),
-      body: dim
+      message: dim
         ? t('modeling.confirm_delete_dimension_body_named', { name: dim.label || dim.name })
         : t('modeling.confirm_delete_dimension_body_generic'),
-      action: t('common.delete'),
+      variant: 'danger',
+      confirmLabel: t('common.delete'),
     })
+    if (!ok) return
+    setMessage(null)
+    await deleteData(`/api/semantic/models/${model.id}/dimensions/${dimId}`)
+    await refreshModels(model.id)
+    setMessage(t('modeling.dimension_deleted'))
   }
 
   const deleteMetric = async (metricId: string) => {
+    if (!model) return
     const metric = metrics.find((item) => item.id === metricId)
-    setConfirmTarget({
-      kind: 'metric',
-      metricId,
+    const ok = await confirm({
       title: t('modeling.confirm_delete_metric_title'),
-      body: metric
+      message: metric
         ? t('modeling.confirm_delete_metric_body_named', { name: metric.label || metric.name })
         : t('modeling.confirm_delete_metric_body_generic'),
-      action: t('common.delete'),
+      variant: 'danger',
+      confirmLabel: t('common.delete'),
     })
+    if (!ok) return
+    setMessage(null)
+    await deleteData(`/api/semantic/models/${model.id}/metrics/${metricId}`)
+    await refreshModels(model.id)
+    setMessage(t('modeling.metric_deleted'))
   }
 
   const reactivateJoin = async (join: SemanticJoin) => {
@@ -643,24 +672,29 @@ export default function Modeling() {
     setMessage(t('modeling.schema_filter_updated'))
   }
 
-  const requestSchemaToggle = (schemaName: string, isExcluded: boolean) => {
+  const requestSchemaToggle = async (schemaName: string, isExcluded: boolean) => {
     if (isExcluded) {
       void toggleSchemaExcluded(schemaName)
       return
     }
     const impact = schemaImpact(schemaName)
-    setConfirmTarget({
-      kind: 'schema',
-      schemaName,
+    const ok = await confirm({
       title: t('modeling.exclude_schema_title'),
-      body: t('modeling.exclude_schema_body', {
+      message: t('modeling.exclude_schema_body', {
         schema: schemaName,
         joins: impact.joins,
         dims: impact.dims,
         metrics: impact.metrics,
       }),
-      action: t('modeling.exclude_schema_action'),
+      variant: 'warning',
+      confirmLabel: t('modeling.exclude_schema_action'),
     })
+    if (!ok || !model) return
+    setMessage(null)
+    await postData(`/api/semantic/models/${model.id}/schemas/remove`, { schema: schemaName })
+    await refreshModels(model.id)
+    await loadSuggestedJoins()
+    setMessage(t('modeling.schema_excluded'))
   }
 
   const submitRename = async () => {
@@ -718,60 +752,6 @@ export default function Modeling() {
       setRenameValue('')
     } finally {
       setSavingRename(false)
-    }
-  }
-
-  const closeConfirm = () => {
-    if (savingConfirm) return
-    setConfirmTarget(null)
-  }
-
-  const submitConfirm = async () => {
-    if (!confirmTarget || savingConfirm) return
-    setSavingConfirm(true)
-    setMessage(null)
-    try {
-      if (confirmTarget.kind === 'model') {
-        await deleteData(`/api/semantic/models/${confirmTarget.modelId}`)
-        const list = await get<SemanticModelSummary[]>(`/api/semantic/models?datasource_id=${encodeURIComponent(datasourceId)}`)
-        const next = list ?? []
-        setModels(next)
-        const nextId = next[0]?.id ?? ''
-        setModelId(nextId)
-        if (!nextId) setModel(null)
-        setMessage(t('modeling.model_deleted'))
-      } else if (confirmTarget.kind === 'schema' && model) {
-        await postData(`/api/semantic/models/${model.id}/schemas/remove`, {
-          schema: confirmTarget.schemaName,
-        })
-        await refreshModels(model.id)
-        await loadSuggestedJoins()
-        setMessage(t('modeling.schema_excluded'))
-      } else if (model && confirmTarget.kind === 'join') {
-        await deleteData(`/api/semantic/models/${model.id}/joins/${confirmTarget.joinId}`)
-        await refreshModels(model.id)
-        await loadSuggestedJoins()
-        setMessage(t('modeling.relationship_deleted'))
-      } else if (model && confirmTarget.kind === 'dimension') {
-        await deleteData(`/api/semantic/models/${model.id}/dimensions/${confirmTarget.dimId}`)
-        await refreshModels(model.id)
-        setMessage(t('modeling.dimension_deleted'))
-      } else if (model && confirmTarget.kind === 'metric') {
-        await deleteData(`/api/semantic/models/${model.id}/metrics/${confirmTarget.metricId}`)
-        await refreshModels(model.id)
-        setMessage(t('modeling.metric_deleted'))
-      } else if (model && confirmTarget.kind === 'table') {
-        await postData(`/api/semantic/models/${model.id}/tables/remove`, {
-          schema: confirmTarget.schema,
-          table: confirmTarget.table,
-        })
-        await refreshModels(model.id)
-        await loadSuggestedJoins()
-        setMessage(t('modeling.table_removed'))
-      }
-      setConfirmTarget(null)
-    } finally {
-      setSavingConfirm(false)
     }
   }
 
@@ -1296,25 +1276,6 @@ export default function Modeling() {
               </button>
             </div>
           </form>
-        </Modal>
-      )}
-      {confirmTarget && (
-        <Modal
-          open
-          onClose={closeConfirm}
-          className="modal-card--modeling"
-          labelledBy="modeling-confirm-title"
-          title={confirmTarget.title}
-        >
-          <p className="modeling-dialog-copy">{confirmTarget.body}</p>
-          <div className="modal-actions">
-            <button className="btn btn-secondary" type="button" onClick={closeConfirm} disabled={savingConfirm}>
-              {t('common.cancel')}
-            </button>
-            <button className="btn btn-danger" type="button" onClick={() => void submitConfirm()} disabled={savingConfirm}>
-              {savingConfirm ? t('common.saving') : confirmTarget.action}
-            </button>
-          </div>
         </Modal>
       )}
       {baseSwapOpen && model && (

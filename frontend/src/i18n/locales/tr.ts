@@ -680,6 +680,7 @@ export const tr: Dictionary = {
     col_dialect: 'Diyalekt',
     col_tags: 'Etiketler',
     col_actions: 'İşlemler',
+    confirm_delete: 'Bu few-shot örneğini silmek istediğinizden emin misiniz?',
     form_add_title: 'Few-shot örneği ekle',
     form_edit_title: 'Örneği düzenle',
     label_nl_question: 'Doğal dil sorusu',

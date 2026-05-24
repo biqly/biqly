@@ -679,6 +679,7 @@ export const en = {
     col_dialect: 'Dialect',
     col_tags: 'Tags',
     col_actions: 'Actions',
+    confirm_delete: 'Are you sure you want to delete this few-shot example?',
     form_add_title: 'Add few-shot example',
     form_edit_title: 'Edit example',
     label_nl_question: 'Natural-language question',

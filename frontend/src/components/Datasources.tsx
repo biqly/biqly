@@ -62,7 +62,7 @@ function connectionSummary(ds: Datasource): { line1: string; line2?: string } {
 export default function Datasources() {
   const t = useT()
   const { get, postData, putData, deleteData, loading, error } = useApi()
-  const { confirm, dialog: confirmDialog } = useConfirm()
+  const confirm = useConfirm()
   const [items, setItems] = useState<Datasource[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -263,7 +263,6 @@ export default function Datasources() {
 
   return (
     <div className="page-stack">
-        {confirmDialog}
         <div className="card">
           <div className="card-header-row">
             <h2>{t('datasources.panel_title')}</h2>

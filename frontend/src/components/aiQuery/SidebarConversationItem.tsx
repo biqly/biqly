@@ -22,7 +22,7 @@ export function SidebarConversationItem({
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(conv.title ?? '')
   const inputRef = useRef<HTMLInputElement>(null)
-  const { confirm, dialog: confirmDialog } = useConfirm()
+  const confirm = useConfirm()
 
   useEffect(() => {
     if (isEditing) {
@@ -69,7 +69,6 @@ export function SidebarConversationItem({
       className={`conversation-item ${isActive ? 'active' : ''}`}
       onClick={onSelect}
     >
-      {confirmDialog}
       {isEditing ? (
         <input
           ref={inputRef}

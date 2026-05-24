@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
+import { useConfirm } from '../hooks/useConfirm'
 import { useApi } from '../hooks/useApi'
 import { useT } from '../i18n'
 import { EmptyState } from './ui/EmptyState'
@@ -22,6 +23,7 @@ const DIALECTS = ['postgresql', 'mysql', 'bigquery', 'snowflake', 'duckdb']
 
 export default function FewShotExamples() {
   const t = useT()
+  const confirm = useConfirm()
   const { get, postData, putData, deleteData, loading, error } = useApi()
   const [examples, setExamples] = useState<FewShotExample[]>([])
 
@@ -219,6 +221,11 @@ export default function FewShotExamples() {
   }
 
   const handleDelete = async (id: string) => {
+    const ok = await confirm({
+      title: t('few_shot.confirm_delete'),
+      variant: 'danger',
+    })
+    if (!ok) return
     if (apiReady) {
       await deleteData(`/api/ai/examples/${id}`)
     }
