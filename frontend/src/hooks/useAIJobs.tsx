@@ -15,6 +15,7 @@ import type { DescribeBatchResult, DescribeResult } from '../types/metadata'
 import type { BulkEntry } from '../components/metadata/bulkProgress'
 import { getLocale } from '../i18n'
 import { getAIClientSessionId } from '../utils/aiSession'
+import { createJobWaiter, type JobCallbacks, type JobWaiterHandle } from './jobWaiter'
 
 const POLL_MS = 1200
 const TERMINAL = new Set(['succeeded', 'failed', 'cancelled'])
@@ -41,13 +42,7 @@ export type TrackedAIJob = AIJob & {
   questionPreview?: string
 }
 
-type JobCallbacks<TResult = unknown> = {
-  onComplete?: (result: TResult) => void
-  onError?: (message: string) => void
-}
-type StoredJobCallbacks = JobCallbacks<unknown> & {
-  onDismiss?: () => void
-}
+export type { JobCallbacks } from './jobWaiter'
 
 export type BulkDescribeSummary = { ok: number; error: number; skipped: number }
 
@@ -164,7 +159,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   const [bulkEntries, setBulkEntries] = useState<BulkEntry[]>([])
   const [bulkRunning, setBulkRunning] = useState(false)
   const [bulkSummary, setBulkSummary] = useState<BulkDescribeSummary | null>(null)
-  const callbacksRef = useRef<Map<string, StoredJobCallbacks>>(new Map())
+  const callbacksRef = useRef<Map<string, JobWaiterHandle>>(new Map())
   const pollingIdsRef = useRef<Set<string>>(new Set())
   const pollLoopRef = useRef<number | null>(null)
   const bulkCancelRef = useRef(false)
@@ -229,15 +224,20 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
 
   const finishJob = useCallback((job: AIJob) => {
     stopPolling(job.id)
-    const cbs = callbacksRef.current.get(job.id)
+    const waiter = callbacksRef.current.get(job.id)
+    if (!waiter) return
     callbacksRef.current.delete(job.id)
     if (job.status === 'succeeded') {
       const result = parseResult<unknown>(job)
-      if (result) cbs?.onComplete?.(result)
+      if (result != null) {
+        waiter.settleComplete(result)
+      } else {
+        waiter.settleError('Job succeeded without result')
+      }
     } else if (job.status === 'failed') {
-      cbs?.onError?.(job.error_message || 'Job failed')
+      waiter.settleError(job.error_message || 'Job failed')
     } else if (job.status === 'cancelled') {
-      cbs?.onError?.(job.phase_message || 'Job cancelled')
+      waiter.settleError(job.phase_message || 'Job cancelled')
     }
   }, [stopPolling])
 
@@ -250,13 +250,21 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       const { data, status, error } = await fetchJSON<AIJob>(`/api/ai/jobs/${encodeURIComponent(jobId)}`)
       if (error) {
         stopPolling(jobId)
-        callbacksRef.current.get(jobId)?.onError?.(error)
-        callbacksRef.current.delete(jobId)
+        const waiter = callbacksRef.current.get(jobId)
+        if (waiter) {
+          callbacksRef.current.delete(jobId)
+          waiter.settleError(error)
+        }
         setMinimized(false)
         return
       }
       if (status === 404 || !data) {
         stopPolling(jobId)
+        const waiter = callbacksRef.current.get(jobId)
+        if (waiter) {
+          callbacksRef.current.delete(jobId)
+          waiter.settleDismiss()
+        }
         return
       }
       upsertJob(trackedJobFromAIJob(data))
@@ -320,6 +328,10 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     return () => {
       pollingIdsRef.current.clear()
       stopPollLoop()
+      for (const waiter of callbacksRef.current.values()) {
+        waiter.settleDismiss()
+      }
+      callbacksRef.current.clear()
     }
   }, [resumeActiveJobs, stopPollLoop])
 
@@ -353,18 +365,8 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       setMinimized(false)
       startPolling(data.id)
       return new Promise<TResult | null>((resolve) => {
-        callbacksRef.current.set(data.id, {
-          onComplete: (result) => {
-            const typed = result as TResult
-            callbacks?.onComplete?.(typed)
-            resolve(typed)
-          },
-          onError: (message) => {
-            callbacks?.onError?.(message)
-            resolve(null)
-          },
-          onDismiss: () => resolve(null),
-        })
+        const waiter = createJobWaiter<TResult>(resolve, callbacks)
+        callbacksRef.current.set(data.id, waiter)
       })
     },
     [sessionId, startPolling, upsertJob],
@@ -373,9 +375,11 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   const dismissJob = useCallback((id: string) => {
     setJobs((prev) => prev.filter((j) => j.id !== id))
     stopPolling(id)
-    const callbacks = callbacksRef.current.get(id)
-    callbacks?.onDismiss?.()
-    callbacksRef.current.delete(id)
+    const waiter = callbacksRef.current.get(id)
+    if (waiter) {
+      callbacksRef.current.delete(id)
+      waiter.settleDismiss()
+    }
   }, [stopPolling])
 
   const cancelJob = useCallback(
@@ -609,7 +613,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
         if (error) {
           setBulkEntries((prev) => {
             const next = prev.map((entry) =>
-              entry.status === 'running' ? { ...entry, status: 'error' as const, error } : entry,
+              entry.status === 'running' ? { ...entry, status: 'error' as const, message: error } : entry,
             )
             bulkEntriesRef.current = next
             return next
@@ -643,10 +647,8 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
           startPolling(job.id)
 
           const batchResult = await new Promise<DescribeBatchResult | null>((resolve) => {
-            callbacksRef.current.set(job.id, {
-              onComplete: (result) => resolve(result as DescribeBatchResult),
-              onError: () => resolve(null),
-            })
+            const waiter = createJobWaiter<DescribeBatchResult>(resolve)
+            callbacksRef.current.set(job.id, waiter)
           })
           bulkBatchJobIdRef.current = null
 

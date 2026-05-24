@@ -93,7 +93,7 @@
 - [x] `AIQuery.tsx` (1592 satır) — Alt component'lere böl: ChatPanel, RoutingPanel, CandidateViewer, FeedbackSection, AssistantMessageCard
 - [x] `Modeling.tsx` (2738 satır) — Canvas engine, form management ve API logic ayır. AddMetricModal (700 satır) ayrı dosya olmalı.
 - [x] `Metadata.tsx` (1089 satır) — Inline editing, AI describe, bulk describe ayrı component'ler olmalı
-- [ ] `hooks/useAIJobs.tsx` (679 satır) — Promise-based callback pattern'ini iyileştir. Dangling promise leak'ini düzelt
+- [x] `hooks/useAIJobs.tsx` (679 satır) — Promise-based callback pattern'ini iyileştir. Dangling promise leak'ini düzelt
 - [x] `index.css` — Route bazlı CSS splitting tamamlandı (`src/styles/`). 4 ana route kendi CSS chunk'ında.
 - [ ] `window.confirm()` — Tüm kullanımları özel ConfirmDialog component'i ile değiştir
 - [x] Test altyapısı — Vitest konfigürasyonu mevcut. En azından hooks ve utils için unit test'ler yazılmalı
