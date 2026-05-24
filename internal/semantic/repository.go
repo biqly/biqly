@@ -372,9 +372,10 @@ func (r *Repository) GetPublishedFullModel(ctx context.Context, id string) (*Sem
 	}
 	published, err := r.latestPublishedSnapshot(ctx, model.ID)
 	if err == nil {
-		return published, nil
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
+		if len(published.Dimensions) > 0 {
+			return published, nil
+		}
+	} else if !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("latest published snapshot: %w", err)
 	}
 	if model.Status == ModelStatusDraft {

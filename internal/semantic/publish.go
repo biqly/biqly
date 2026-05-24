@@ -94,6 +94,9 @@ func ValidateContext(ctx context.Context, model SemanticModel, catalog CatalogRe
 	if strings.TrimSpace(model.BaseTable) == "" {
 		addError("base table is required")
 	}
+	if len(model.Dimensions) == 0 {
+		addError("model has no active dimensions; AI cannot generate queries without at least one dimension")
+	}
 
 	columns, err := catalog.ListSemanticColumns(ctx, model.DatasourceID)
 	if err != nil {
