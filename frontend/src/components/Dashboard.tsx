@@ -50,6 +50,7 @@ interface TableBrowserFilter {
   field: string
   operator: string
   value: string
+  caseSensitive?: boolean
 }
 
 export default function Dashboard() {
@@ -79,7 +80,9 @@ function TableBrowserSection() {
   const [popoverOpen, setPopoverOpen] = useState(false)
   const [popoverField, setPopoverField] = useState('')
   const [popoverOperator, setPopoverOperator] = useState('contains')
-  const [popoverValue, setPopoverValue] = useState('')
+  const [popoverChips, setPopoverChips] = useState<string[]>([])
+  const [chipInputText, setChipInputText] = useState('')
+  const [popoverCaseSensitive, setPopoverCaseSensitive] = useState(false)
   const [editingFilterId, setEditingFilterId] = useState<string | null>(null)
 
   // Fetch datasources
@@ -159,6 +162,7 @@ function TableBrowserSection() {
         field: f.field,
         operator: f.operator,
         value: f.value,
+        caseSensitive: f.caseSensitive,
       })),
       groupBy: [],
       having: [],
@@ -181,15 +185,43 @@ function TableBrowserSection() {
     void runBrowseQuery()
   }, [modelDetail, filters, runBrowseQuery])
 
+  const handleAddChip = (text: string) => {
+    const clean = text.trim()
+    if (clean && !popoverChips.includes(clean)) {
+      setPopoverChips((prev) => [...prev, clean])
+    }
+    setChipInputText('')
+  }
+
+  const handleRemoveChip = (index: number) => {
+    setPopoverChips((prev) => prev.filter((_, i) => i !== index))
+  }
+
   // Handles adding/updating filters from popover
   const handleSaveFilter = () => {
-    if (!popoverField || !popoverValue.trim()) return
+    if (!popoverField) return
+
+    let finalChips = [...popoverChips]
+    const textVal = chipInputText.trim()
+    if (textVal && !finalChips.includes(textVal)) {
+      finalChips.push(textVal)
+    }
+
+    if (finalChips.length === 0) return
+
+    const finalValue = finalChips.length > 1 ? JSON.stringify(finalChips) : (finalChips[0] || '')
 
     if (editingFilterId) {
       setFilters((prev) =>
         prev.map((f) =>
           f.id === editingFilterId
-            ? { ...f, field: popoverField, operator: popoverOperator, value: popoverValue }
+            ? {
+                ...f,
+                field: popoverField,
+                operator: popoverOperator,
+                value: finalValue,
+                caseSensitive: popoverCaseSensitive,
+              }
             : f,
         ),
       )
@@ -200,20 +232,25 @@ function TableBrowserSection() {
           id: Math.random().toString(36).substr(2, 9),
           field: popoverField,
           operator: popoverOperator,
-          value: popoverValue,
+          value: finalValue,
+          caseSensitive: popoverCaseSensitive,
         },
       ])
     }
     setPopoverOpen(false)
     setEditingFilterId(null)
-    setPopoverValue('')
+    setPopoverChips([])
+    setChipInputText('')
+    setPopoverCaseSensitive(false)
   }
 
   const handleOpenAddFilter = (defaultField = '') => {
     setEditingFilterId(null)
     setPopoverField(defaultField || (dimensions[0]?.name ?? ''))
     setPopoverOperator('contains')
-    setPopoverValue('')
+    setPopoverChips([])
+    setChipInputText('')
+    setPopoverCaseSensitive(false)
     setPopoverOpen(true)
   }
 
@@ -221,7 +258,20 @@ function TableBrowserSection() {
     setEditingFilterId(filter.id)
     setPopoverField(filter.field)
     setPopoverOperator(filter.operator)
-    setPopoverValue(filter.value)
+    setPopoverCaseSensitive(!!filter.caseSensitive)
+
+    let chips: string[] = []
+    if (filter.value.startsWith('[') && filter.value.endsWith(']')) {
+      try {
+        chips = JSON.parse(filter.value)
+      } catch (e) {
+        chips = [filter.value]
+      }
+    } else if (filter.value) {
+      chips = [filter.value]
+    }
+    setPopoverChips(chips)
+    setChipInputText('')
     setPopoverOpen(true)
   }
 
@@ -232,6 +282,38 @@ function TableBrowserSection() {
   const getDimensionLabel = (name: string) => {
     const dim = dimensions.find((d) => d.name === name)
     return dim ? (dim.label || dim.name) : name
+  }
+
+  const formatFilterValue = (operator: string, value: string) => {
+    let raw = value
+    if (value.startsWith('[') && value.endsWith(']')) {
+      try {
+        const arr = JSON.parse(value) as string[]
+        if (arr.length > 1) {
+          return arr.map(item => `"${item}"`).join(' or ')
+        } else if (arr.length === 1 && arr[0]) {
+          raw = arr[0]
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    return `"${raw}"`
+  }
+
+  const getOperatorLabel = (op: string) => {
+    switch (op) {
+      case 'eq': return 'is'
+      case 'neq': return 'is not'
+      case 'contains': return 'contains'
+      case 'starts_with': return 'starts with'
+      case 'ends_with': return 'ends with'
+      case 'gt': return '>'
+      case 'lt': return '<'
+      case 'gte': return '>='
+      case 'lte': return '<='
+      default: return op
+    }
   }
 
   const filterFieldOpts = useMemo(() => {
@@ -287,7 +369,7 @@ function TableBrowserSection() {
                 style={{ cursor: 'pointer' }}
                 onClick={() => handleOpenEditFilter(f)}
               >
-                {getDimensionLabel(f.field)} {f.operator === 'eq' ? '=' : f.operator} "{f.value}"
+                {getDimensionLabel(f.field)} {getOperatorLabel(f.operator)} {formatFilterValue(f.operator, f.value)}
                 <button
                   type="button"
                   className="notebook-tag-close"
@@ -311,29 +393,21 @@ function TableBrowserSection() {
 
             {/* Filter Popover */}
             {popoverOpen && (
-              <div className="filter-popover">
-                <div className="filter-popover-header">
-                  <button type="button" className="filter-popover-back" onClick={() => setPopoverOpen(false)}>‹</button>
-                  <span>Filter by {getDimensionLabel(popoverField)}</span>
-                </div>
-                <div className="filter-popover-row">
-                  <label>Column</label>
-                  <Select
-                    value={popoverField}
-                    onChange={setPopoverField}
-                    options={filterFieldOpts}
-                    size="sm"
-                  />
-                </div>
-                <div className="filter-popover-row">
-                  <label>Operator</label>
+              <div className="filter-popover" style={{ width: '18rem' }}>
+                <div className="filter-popover-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 'none', paddingBottom: '0.2rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <button type="button" className="filter-popover-back" onClick={() => setPopoverOpen(false)}>‹</button>
+                    <span style={{ fontSize: '0.86rem', fontWeight: 700 }}>{getDimensionLabel(popoverField)}</span>
+                  </div>
                   <Select
                     value={popoverOperator}
                     onChange={setPopoverOperator}
                     options={[
-                      { value: 'eq', label: '=' },
-                      { value: 'neq', label: '!=' },
                       { value: 'contains', label: 'contains' },
+                      { value: 'starts_with', label: 'starts with' },
+                      { value: 'ends_with', label: 'ends with' },
+                      { value: 'eq', label: 'is' },
+                      { value: 'neq', label: 'is not' },
                       { value: 'gt', label: '>' },
                       { value: 'lt', label: '<' },
                       { value: 'gte', label: '>=' },
@@ -342,19 +416,75 @@ function TableBrowserSection() {
                     size="sm"
                   />
                 </div>
+
+                {!editingFilterId && (
+                  <div className="filter-popover-row" style={{ marginTop: '0.1rem' }}>
+                    <label>Column</label>
+                    <Select
+                      value={popoverField}
+                      onChange={setPopoverField}
+                      options={filterFieldOpts}
+                      size="sm"
+                    />
+                  </div>
+                )}
+
                 <div className="filter-popover-row">
                   <label>Value</label>
-                  <input
-                    type="text"
-                    value={popoverValue}
-                    onChange={(e) => setPopoverValue(e.target.value)}
-                    placeholder="Enter value..."
-                    style={{ fontSize: '0.76rem', padding: '0.2rem 0.5rem', width: '100%' }}
-                  />
+                  <div className="chip-input-container" onClick={() => document.getElementById('chip-input-el')?.focus()}>
+                    {popoverChips.map((chip, idx) => (
+                      <span key={idx} className="chip-tag">
+                        {chip}
+                        <button
+                          type="button"
+                          className="chip-tag-close"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleRemoveChip(idx)
+                          }}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    <input
+                      id="chip-input-el"
+                      type="text"
+                      value={chipInputText}
+                      onChange={(e) => setChipInputText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ',') {
+                          e.preventDefault()
+                          handleAddChip(chipInputText)
+                        } else if (e.key === 'Backspace' && !chipInputText && popoverChips.length > 0) {
+                          handleRemoveChip(popoverChips.length - 1)
+                        }
+                      }}
+                      placeholder={popoverChips.length === 0 ? "Enter value..." : ""}
+                      className="chip-input-field"
+                    />
+                  </div>
                 </div>
-                <button type="button" className="filter-popover-btn" onClick={handleSaveFilter}>
-                  {editingFilterId ? 'Update filter' : 'Add filter'}
-                </button>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.2rem' }}>
+                  <div className="filter-popover-checkbox-row">
+                    <input
+                      type="checkbox"
+                      id="case-sensitive-cb"
+                      checked={popoverCaseSensitive}
+                      onChange={(e) => setPopoverCaseSensitive(e.target.checked)}
+                    />
+                    <label htmlFor="case-sensitive-cb">Case sensitive</label>
+                  </div>
+                  <button
+                    type="button"
+                    className="filter-popover-btn"
+                    style={{ width: 'auto', padding: '0.35rem 0.85rem' }}
+                    onClick={handleSaveFilter}
+                  >
+                    {editingFilterId ? 'Update filter' : 'Add filter'}
+                  </button>
+                </div>
               </div>
             )}
           </div>

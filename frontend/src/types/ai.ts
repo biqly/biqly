@@ -308,6 +308,7 @@ export interface FilterClause {
   field: string
   operator: string
   value: unknown
+  case_sensitive?: boolean
   subquery?: SubqueryFilter
 }
 

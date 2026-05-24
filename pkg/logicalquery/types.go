@@ -109,9 +109,10 @@ type WindowSpec struct {
 
 // Filter represents a WHERE condition.
 type Filter struct {
-	Field    string `json:"field"`
-	Operator string `json:"operator"`
-	Value    any    `json:"value"`
+	Field         string          `json:"field"`
+	Operator      string          `json:"operator"`
+	Value         any             `json:"value"`
+	CaseSensitive bool            `json:"case_sensitive,omitempty"`
 	// Subquery is used with operator in/not_in instead of Value: the outer Field
 	// is compared to the single column projected by the nested query.
 	Subquery *SubqueryFilter `json:"subquery,omitempty"`

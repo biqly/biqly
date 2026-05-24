@@ -4275,6 +4275,91 @@ body.modeling-grabbing * {
   border-color: var(--accent-hover);
 }
 
+/* Chip Input for Metabase Table Search */
+.chip-input-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  padding: 0.25rem 0.4rem;
+  background: var(--bg-card);
+  min-height: 2.1rem;
+  cursor: text;
+}
+
+.chip-input-container:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.chip-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--accent-light, rgba(80, 158, 227, 0.15));
+  color: var(--text-primary);
+  border: 1px solid var(--accent-border, rgba(80, 158, 227, 0.3));
+  border-radius: 0.25rem;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 550;
+  line-height: 1.2;
+}
+
+.chip-tag-close {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chip-tag-close:hover {
+  color: var(--text-primary);
+}
+
+.chip-input-field {
+  flex: 1;
+  min-width: 4rem;
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-size: 0.76rem !important;
+  color: var(--text-primary) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.filter-popover-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.15rem;
+  margin-bottom: 0.15rem;
+}
+
+.filter-popover-checkbox-row label {
+  font-size: 0.74rem;
+  font-weight: 550;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.filter-popover-checkbox-row input[type="checkbox"] {
+  width: 0.85rem;
+  height: 0.85rem;
+  cursor: pointer;
+}
+
 /* Clickable Table Column Headers */
 .results-table th.th-clickable {
   cursor: pointer;

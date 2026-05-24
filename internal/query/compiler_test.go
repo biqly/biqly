@@ -1032,3 +1032,90 @@ func TestCompiler_CustomExpression(t *testing.T) {
 	}
 }
 
+func TestCompiler_MetabaseTableSearch(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "products",
+		BaseSchema: "public",
+		BaseTable:  "products",
+		Dimensions: []semantic.Dimension{
+			{Name: "title", ColumnRef: "products.title", Type: "text"},
+		},
+	}
+
+	tests := []struct {
+		name          string
+		dialect       dialect.Dialect
+		filter        Filter
+		wantSQLPart   string
+		wantArgs      []any
+	}{
+		{
+			name:    "postgres contains case-insensitive single",
+			dialect: dialect.PostgresDialect{},
+			filter:  Filter{Field: "title", Operator: OpContains, Value: "Marble"},
+			wantSQLPart: `"products"."title" ILIKE $1`,
+			wantArgs:    []any{"%Marble%"},
+		},
+		{
+			name:    "postgres contains case-sensitive single",
+			dialect: dialect.PostgresDialect{},
+			filter:  Filter{Field: "title", Operator: OpContains, Value: "Marble", CaseSensitive: true},
+			wantSQLPart: `"products"."title" LIKE $1`,
+			wantArgs:    []any{"%Marble%"},
+		},
+		{
+			name:    "postgres contains case-insensitive multi",
+			dialect: dialect.PostgresDialect{},
+			filter:  Filter{Field: "title", Operator: OpContains, Value: []any{"Marble", "Watch"}},
+			wantSQLPart: `("products"."title" ILIKE $1 OR "products"."title" ILIKE $2)`,
+			wantArgs:    []any{"%Marble%", "%Watch%"},
+		},
+		{
+			name:    "mysql contains case-sensitive multi",
+			dialect: dialect.MySQLDialect{},
+			filter:  Filter{Field: "title", Operator: OpContains, Value: []any{"Marble", "Watch"}, CaseSensitive: true},
+			wantSQLPart: "(`products`.`title` LIKE BINARY ? OR `products`.`title` LIKE BINARY ?)",
+			wantArgs:    []any{"%Marble%", "%Watch%"},
+		},
+		{
+			name:    "sqlserver contains case-sensitive single",
+			dialect: dialect.SQLServerDialect{},
+			filter:  Filter{Field: "title", Operator: OpContains, Value: "Marble", CaseSensitive: true},
+			wantSQLPart: `[products].[title] LIKE @p1 COLLATE Latin1_General_CS_AS`,
+			wantArgs:    []any{"%Marble%"},
+		},
+		{
+			name:    "postgres neq multi",
+			dialect: dialect.PostgresDialect{},
+			filter:  Filter{Field: "title", Operator: OpNeq, Value: []any{"Marble", "Watch"}},
+			wantSQLPart: `("products"."title" != $1 AND "products"."title" != $2)`,
+			wantArgs:    []any{"Marble", "Watch"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lq := LogicalQuery{
+				Select:  []SelectItem{{Type: SelectTypeDimension, Name: "title"}},
+				Filters: []Filter{tt.filter},
+				Limit:   100,
+			}
+			cq, err := NewCompiler(tt.dialect).Compile(context.Background(), lq, model)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !strings.Contains(cq.SQL, tt.wantSQLPart) {
+				t.Errorf("expected SQL part %q, got: %s", tt.wantSQLPart, cq.SQL)
+			}
+			if len(cq.Args) != len(tt.wantArgs) {
+				t.Fatalf("args len mismatch: got %d, want %d", len(cq.Args), len(tt.wantArgs))
+			}
+			for i, arg := range cq.Args {
+				if arg != tt.wantArgs[i] {
+					t.Errorf("arg at %d mismatch: got %v, want %v", i, arg, tt.wantArgs[i])
+				}
+			}
+		})
+	}
+}
+

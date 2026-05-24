@@ -3,6 +3,7 @@ export interface FilterRow {
   field: string
   operator: string
   value: string
+  caseSensitive?: boolean
 }
 
 export interface SelectItem {

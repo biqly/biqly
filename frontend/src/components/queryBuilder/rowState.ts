@@ -24,7 +24,7 @@ export function defaultHavingRow(): HavingRow {
 export function patchFilterRow(
   existing: FilterRow | undefined,
   field: keyof FilterRow,
-  value: string,
+  value: any,
   id = newRowId(),
 ): FilterRow {
   return {
@@ -32,6 +32,7 @@ export function patchFilterRow(
     field: existing?.field ?? '',
     operator: existing?.operator ?? 'eq',
     value: existing?.value ?? '',
+    caseSensitive: existing?.caseSensitive,
     [field]: value,
   }
 }

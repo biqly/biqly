@@ -702,13 +702,113 @@ func (c *Compiler) resolveFilterLHS(field string, dimMap map[string]semantic.Dim
 	return "", validationErr("filters", errmsg.UnknownFieldMsg(field))
 }
 
+func sliceOfStrings(val any) ([]string, bool) {
+	if val == nil {
+		return nil, false
+	}
+	switch v := val.(type) {
+	case []string:
+		return v, true
+	case []any:
+		res := make([]string, 0, len(v))
+		for _, item := range v {
+			if item != nil {
+				res = append(res, fmt.Sprint(item))
+			}
+		}
+		return res, true
+	default:
+		return nil, false
+	}
+}
+
+func (c *Compiler) likeExpression(lhsSQL, placeholder string, caseSensitive bool) string {
+	if caseSensitive {
+		switch c.dialect.Name() {
+		case "mysql":
+			return fmt.Sprintf("%s LIKE BINARY %s", lhsSQL, placeholder)
+		case "sqlserver":
+			return fmt.Sprintf("%s LIKE %s COLLATE Latin1_General_CS_AS", lhsSQL, placeholder)
+		default:
+			return fmt.Sprintf("%s LIKE %s", lhsSQL, placeholder)
+		}
+	}
+	return c.dialect.ILike(lhsSQL, placeholder)
+}
+
 func (c *Compiler) buildFilterPart(f Filter, lhsSQL string, model *semantic.SemanticModel, args *[]any) (string, []any, error) {
+	vals, isSlice := sliceOfStrings(f.Value)
+
 	switch f.Operator {
 	case OpEq:
+		if isSlice {
+			if len(vals) == 0 {
+				return "1=1", nil, nil
+			}
+			parts := make([]string, 0, len(vals))
+			for _, valStr := range vals {
+				*args = append(*args, valStr)
+				var part string
+				if f.CaseSensitive {
+					switch c.dialect.Name() {
+					case "mysql":
+						part = fmt.Sprintf("%s = BINARY %s", lhsSQL, c.dialect.Placeholder(len(*args)))
+					case "sqlserver":
+						part = fmt.Sprintf("%s = %s COLLATE Latin1_General_CS_AS", lhsSQL, c.dialect.Placeholder(len(*args)))
+					default:
+						part = lhsSQL + " = " + c.dialect.Placeholder(len(*args))
+					}
+				} else {
+					part = lhsSQL + " = " + c.dialect.Placeholder(len(*args))
+				}
+				parts = append(parts, part)
+			}
+			return "(" + strings.Join(parts, " OR ") + ")", nil, nil
+		}
 		*args = append(*args, f.Value)
+		if f.CaseSensitive {
+			switch c.dialect.Name() {
+			case "mysql":
+				return fmt.Sprintf("%s = BINARY %s", lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
+			case "sqlserver":
+				return fmt.Sprintf("%s = %s COLLATE Latin1_General_CS_AS", lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
+			}
+		}
 		return lhsSQL + " = " + c.dialect.Placeholder(len(*args)), nil, nil
 	case OpNeq:
+		if isSlice {
+			if len(vals) == 0 {
+				return "1=1", nil, nil
+			}
+			parts := make([]string, 0, len(vals))
+			for _, valStr := range vals {
+				*args = append(*args, valStr)
+				var part string
+				if f.CaseSensitive {
+					switch c.dialect.Name() {
+					case "mysql":
+						part = fmt.Sprintf("%s != BINARY %s", lhsSQL, c.dialect.Placeholder(len(*args)))
+					case "sqlserver":
+						part = fmt.Sprintf("%s != %s COLLATE Latin1_General_CS_AS", lhsSQL, c.dialect.Placeholder(len(*args)))
+					default:
+						part = lhsSQL + " != " + c.dialect.Placeholder(len(*args))
+					}
+				} else {
+					part = lhsSQL + " != " + c.dialect.Placeholder(len(*args))
+				}
+				parts = append(parts, part)
+			}
+			return "(" + strings.Join(parts, " AND ") + ")", nil, nil
+		}
 		*args = append(*args, f.Value)
+		if f.CaseSensitive {
+			switch c.dialect.Name() {
+			case "mysql":
+				return fmt.Sprintf("%s != BINARY %s", lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
+			case "sqlserver":
+				return fmt.Sprintf("%s != %s COLLATE Latin1_General_CS_AS", lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
+			}
+		}
 		return lhsSQL + " != " + c.dialect.Placeholder(len(*args)), nil, nil
 	case OpGt:
 		*args = append(*args, f.Value)
@@ -733,6 +833,17 @@ func (c *Compiler) buildFilterPart(f Filter, lhsSQL string, model *semantic.Sema
 		}
 		return c.buildNotInFilter(lhsSQL, f.Value, args)
 	case OpContains:
+		if isSlice {
+			if len(vals) == 0 {
+				return "1=1", nil, nil
+			}
+			parts := make([]string, 0, len(vals))
+			for _, valStr := range vals {
+				*args = append(*args, "%"+valStr+"%")
+				parts = append(parts, c.likeExpression(lhsSQL, c.dialect.Placeholder(len(*args)), f.CaseSensitive))
+			}
+			return "(" + strings.Join(parts, " OR ") + ")", nil, nil
+		}
 		var valStr string
 		if str, ok := f.Value.(string); ok {
 			valStr = str
@@ -740,8 +851,19 @@ func (c *Compiler) buildFilterPart(f Filter, lhsSQL string, model *semantic.Sema
 			valStr = fmt.Sprint(f.Value)
 		}
 		*args = append(*args, "%"+valStr+"%")
-		return c.dialect.ILike(lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
+		return c.likeExpression(lhsSQL, c.dialect.Placeholder(len(*args)), f.CaseSensitive), nil, nil
 	case OpStartsWith:
+		if isSlice {
+			if len(vals) == 0 {
+				return "1=1", nil, nil
+			}
+			parts := make([]string, 0, len(vals))
+			for _, valStr := range vals {
+				*args = append(*args, valStr+"%")
+				parts = append(parts, c.likeExpression(lhsSQL, c.dialect.Placeholder(len(*args)), f.CaseSensitive))
+			}
+			return "(" + strings.Join(parts, " OR ") + ")", nil, nil
+		}
 		var valStr string
 		if str, ok := f.Value.(string); ok {
 			valStr = str
@@ -749,8 +871,19 @@ func (c *Compiler) buildFilterPart(f Filter, lhsSQL string, model *semantic.Sema
 			valStr = fmt.Sprint(f.Value)
 		}
 		*args = append(*args, valStr+"%")
-		return c.dialect.ILike(lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
+		return c.likeExpression(lhsSQL, c.dialect.Placeholder(len(*args)), f.CaseSensitive), nil, nil
 	case OpEndsWith:
+		if isSlice {
+			if len(vals) == 0 {
+				return "1=1", nil, nil
+			}
+			parts := make([]string, 0, len(vals))
+			for _, valStr := range vals {
+				*args = append(*args, "%"+valStr)
+				parts = append(parts, c.likeExpression(lhsSQL, c.dialect.Placeholder(len(*args)), f.CaseSensitive))
+			}
+			return "(" + strings.Join(parts, " OR ") + ")", nil, nil
+		}
 		var valStr string
 		if str, ok := f.Value.(string); ok {
 			valStr = str
@@ -758,7 +891,7 @@ func (c *Compiler) buildFilterPart(f Filter, lhsSQL string, model *semantic.Sema
 			valStr = fmt.Sprint(f.Value)
 		}
 		*args = append(*args, "%"+valStr)
-		return c.dialect.ILike(lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
+		return c.likeExpression(lhsSQL, c.dialect.Placeholder(len(*args)), f.CaseSensitive), nil, nil
 	case OpBetween:
 		return c.buildBetweenFilter(lhsSQL, f.Value, args)
 	case OpIsNull:

@@ -26,11 +26,22 @@ export function buildQueryPayload(state: QueryBuilderFormState) {
     model_id: modelId,
     filters: filters
       .filter((f) => f.field && f.value)
-      .map((f) => ({
-        field: f.field,
-        operator: f.operator,
-        value: f.value,
-      })),
+      .map((f) => {
+        let parsedValue: unknown = f.value
+        if (typeof f.value === 'string' && f.value.startsWith('[') && f.value.endsWith(']')) {
+          try {
+            parsedValue = JSON.parse(f.value)
+          } catch (e) {
+            // fallback to raw value if invalid JSON
+          }
+        }
+        return {
+          field: f.field,
+          operator: f.operator,
+          value: parsedValue,
+          case_sensitive: f.caseSensitive,
+        }
+      }),
     group_by: groupBy.filter(Boolean).map((g) => ({ field: g })),
     having:
       mode === 'advanced'
