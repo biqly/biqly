@@ -4389,4 +4389,141 @@ body.modeling-grabbing * {
   color: var(--text-primary);
 }
 
+/* Tabbed Layout for Dashboard (AI Analytics) */
+.analytics-tabs-container {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.35rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+  width: fit-content;
+  margin-bottom: 0.5rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.analytics-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 0.6rem;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+}
+
+.analytics-tab-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-primary-hover);
+}
+
+.analytics-tab-btn.active {
+  color: white;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+}
+
+.analytics-tab-btn .tab-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  stroke-width: 2;
+}
+
+/* Premium Metabase-style Table Browser Overhauls */
+.table-browser-add-filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  border: 1.5px dashed var(--accent);
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.85rem;
+  border-radius: 2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  outline: none;
+  line-height: 1;
+}
+
+.table-browser-add-filter-btn:hover {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: var(--accent-strong);
+  color: var(--accent-strong);
+}
+
+.table-browser-filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(168, 85, 247, 0.1) !important;
+  color: #c084fc !important;
+  border: 1px solid rgba(168, 85, 247, 0.2) !important;
+  padding: 0.3rem 0.75rem !important;
+  border-radius: 2rem !important;
+  font-size: 0.78rem !important;
+  font-weight: 550 !important;
+  transition: all 0.2s !important;
+}
+
+.table-browser-filter-tag:hover {
+  background: rgba(168, 85, 247, 0.16) !important;
+  border-color: rgba(168, 85, 247, 0.45) !important;
+}
+
+.table-browser-filter-tag-close {
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-size: 1rem !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: rgba(168, 85, 247, 0.6) !important;
+  transition: color 0.15s !important;
+  line-height: 1 !important;
+}
+
+.table-browser-filter-tag-close:hover {
+  color: #c084fc !important;
+}
+
+.row-index-number {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 500;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.results-table th.th-clickable {
+  cursor: pointer;
+  background: var(--bg-card-raised) !important;
+  padding: 0.65rem 0.85rem !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: var(--text-secondary) !important;
+  border-bottom: 2px solid var(--border) !important;
+  transition: all 0.2s !important;
+  user-select: none !important;
+}
+
+.results-table th.th-clickable:hover {
+  background: var(--bg-primary-hover) !important;
+  color: var(--text-primary) !important;
+}
+
 

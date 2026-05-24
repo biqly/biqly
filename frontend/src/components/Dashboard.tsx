@@ -54,11 +54,47 @@ interface TableBrowserFilter {
 }
 
 export default function Dashboard() {
+  const [activeTab, setActiveTab] = useState<'table' | 'analytics'>('table')
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      <TableBrowserSection />
-      <AIUsageSection />
-      <ModelSuccessRates />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div className="analytics-tabs-container">
+        <button
+          type="button"
+          className={`analytics-tab-btn ${activeTab === 'table' ? 'active' : ''}`}
+          onClick={() => setActiveTab('table')}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="tab-icon">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <path d="M3 9h18" />
+            <path d="M9 21V9" />
+          </svg>
+          Table Browser
+        </button>
+        <button
+          type="button"
+          className={`analytics-tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
+          onClick={() => setActiveTab('analytics')}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="tab-icon">
+            <line x1="18" y1="20" x2="18" y2="10" />
+            <line x1="12" y1="20" x2="12" y2="4" />
+            <line x1="6" y1="20" x2="6" y2="14" />
+          </svg>
+          AI Analytics
+        </button>
+      </div>
+
+      <div className="analytics-tab-content">
+        {activeTab === 'table' ? (
+          <TableBrowserSection />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            <AIUsageSection />
+            <ModelSuccessRates />
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -365,18 +401,19 @@ function TableBrowserSection() {
             {filters.map((f) => (
               <span
                 key={f.id}
-                className="notebook-tag notebook-tag--purple"
+                className="table-browser-filter-tag"
                 style={{ cursor: 'pointer' }}
                 onClick={() => handleOpenEditFilter(f)}
               >
                 {getDimensionLabel(f.field)} {getOperatorLabel(f.operator)} {formatFilterValue(f.operator, f.value)}
                 <button
                   type="button"
-                  className="notebook-tag-close"
+                  className="table-browser-filter-tag-close"
                   onClick={(e) => {
                     e.stopPropagation()
                     handleRemoveFilter(f.id)
                   }}
+                  aria-label="Remove Filter"
                 >
                   ×
                 </button>
@@ -384,11 +421,15 @@ function TableBrowserSection() {
             ))}
             <button
               type="button"
-              className="notebook-add-btn"
+              className="table-browser-add-filter-btn"
               onClick={() => handleOpenAddFilter()}
               title="Add Filter"
             >
-              +
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '0.85rem', height: '0.85rem' }}>
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Filter
             </button>
 
             {/* Filter Popover */}
@@ -517,7 +558,7 @@ function TableBrowserSection() {
                   {result.rows.map((row, i) => (
                     <tr key={i}>
                       <td>
-                        <span className="row-number-badge">{i + 1}</span>
+                        <span className="row-index-number">{i + 1}</span>
                       </td>
                       {row.map((cell, j) => (
                         <td key={j}>{formatResultCell(cell, result.columns?.[j]?.name ?? '', {})}</td>

@@ -107,6 +107,23 @@ export function formatResultCell(
 ): string {
   if (value === null || value === undefined) return ''
 
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})$/.test(value)) {
+    const d = new Date(value)
+    if (!isNaN(d.getTime())) {
+      const hasTime = !value.endsWith('T00:00:00Z') && !value.endsWith('T00:00:00') && !value.includes('T00:00:00.000')
+      try {
+        return new Intl.DateTimeFormat(undefined, {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          ...(hasTime ? { hour: '2-digit', minute: '2-digit' } : {})
+        }).format(d)
+      } catch (e) {
+        // ignore and fallback
+      }
+    }
+  }
+
   const n = parseNumeric(value)
   if (n === null) return String(value)
 
