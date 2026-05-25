@@ -37,6 +37,16 @@ spec:
           manifestTargets:
             helm:
               tag: frontend.image.tag
+        - alias: auth
+          imageName: ghcr.io/biqly/biqly-auth:sha-38de6ea19634422920df5b7f49e8fad6b49ed3bf
+          manifestTargets:
+            helm:
+              tag: auth.image.tag
+        - alias: auth-migrate
+          imageName: ghcr.io/biqly/biqly-auth:sha-38de6ea19634422920df5b7f49e8fad6b49ed3bf
+          manifestTargets:
+            helm:
+              tag: auth.migrate.image.tag
         - alias: migrate
           imageName: ghcr.io/biqly/migrate:sha-91a9ff58d06ca78fdf3cf136c42c65c1e8b349a6
           manifestTargets:

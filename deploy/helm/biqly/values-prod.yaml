@@ -45,11 +45,11 @@ auth:
   replicaCount: 1
   image:
     repository: biqly-auth
-    tag: sha-f3d645a241955467e7c38ef566424de07281cefc
+    tag: sha-38de6ea19634422920df5b7f49e8fad6b49ed3bf
   migrate:
     image:
       repository: biqly-auth
-      tag: sha-f3d645a241955467e7c38ef566424de07281cefc
+      tag: sha-38de6ea19634422920df5b7f49e8fad6b49ed3bf
   autoscaling:
     minReplicas: 1
     maxReplicas: 2

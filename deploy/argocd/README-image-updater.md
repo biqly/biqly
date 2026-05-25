@@ -65,6 +65,8 @@ kubectl -n argocd logs deploy/argocd-image-updater --tail=50
 
 Successful write-back updates `deploy/helm/biqly/.argocd-source-biqly.yaml` (not `values-prod.yaml` — helmvalues alias mapping failed for multi-image apps).
 
+Tracked images: **ai**, **query**, **catalog**, **frontend**, **auth** (`auth.image.tag` + `auth.migrate.image.tag` on `ghcr.io/biqly/biqly-auth`), **migrate** (metadata DB job).
+
 ## CI noise / feedback loop
 
 Image Updater commits only touch `deploy/**`. Without `paths-ignore`, each bump re-runs **CI** (which also pushes new `sha-*` frontend/api images), and `forceUpdate: true` makes Updater commit again → endless workflows.
