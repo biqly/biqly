@@ -482,15 +482,16 @@
 
 .card-subtitle {
   color: var(--text-secondary);
-  font-size: 0.85rem;
-  margin-bottom: 1rem;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  margin: 0 0 1.25rem;
 }
 
 .query-controls {
   display: grid;
-  grid-template-columns: minmax(15rem, 1fr) minmax(14rem, 1fr);
+  grid-template-columns: minmax(11rem, 1fr) minmax(11rem, 1fr) minmax(16rem, 1.35fr);
   gap: 1rem;
-  align-items: flex-start;
+  align-items: flex-end;
 }
 
 .query-controls .form-group { min-width: 0; }
@@ -601,6 +602,16 @@
   }
 }
 
+@media (max-width: 960px) {
+  .query-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .query-controls .routing-toggle {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 720px) {
   .query-controls,
   .ai-embedding-actions {
@@ -612,14 +623,22 @@
 
 .routing-toggle-row {
   display: flex;
-  gap: 0.5rem;
-  align-items: stretch;
-  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+  flex-wrap: nowrap;
+  width: 100%;
 }
 
-.routing-toggle-row .toggle-group { flex: 1 1 auto; min-width: 12rem; }
+.routing-toggle-row .toggle-group {
+  flex: 0 0 auto;
+  min-width: 0;
+}
 
-.routing-embed-btn { white-space: nowrap; flex: 0 0 auto; }
+.routing-embed-btn {
+  white-space: nowrap;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
 
 .routing-embed-status {
   display: flex;
@@ -627,43 +646,6 @@
   gap: 0.25rem;
   margin-top: 0.45rem;
   font-size: 0.74rem;
-}
-
-.toggle-group {
-  display: flex;
-  border: 1px solid var(--border-strong);
-  border-radius: 0.5rem;
-  padding: 0.2rem;
-  background: var(--bg-card-raised);
-  gap: 0.2rem;
-}
-
-.toggle-btn {
-  flex: 1;
-  padding: 0.4rem 0.85rem;
-  background: transparent;
-  border: none;
-  border-radius: 0.35rem;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 0.78rem;
-  font-weight: 600;
-  transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.toggle-btn.active {
-  background: var(--bg-card);
-  color: var(--text-primary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 0 0 1px var(--border-strong);
-}
-
-.toggle-btn:hover:not(.active) {
-  color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.02);
-}
-[data-theme='light'] .toggle-btn:hover:not(.active) {
-  background: rgba(0, 0, 0, 0.02);
 }
 
 .button-row {

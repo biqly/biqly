@@ -319,9 +319,7 @@ export default function QueryBuilder() {
       <div className="card card--query-builder">
         {/* Header Breadcrumbs and Mode selector */}
         <div className="query-builder-header">
-          <div className="query-builder-breadcrumbs">
-            <span>Query Builder</span>
-            <span className="separator">/</span>
+          <div className="query-builder-pickers">
             <Select
               value={datasourceId}
               onChange={setDatasourceId}
@@ -330,24 +328,21 @@ export default function QueryBuilder() {
               size="sm"
             />
             {datasourceId && models.length > 0 && (
-              <>
-                <span className="separator">/</span>
-                <Select
-                  value={modelId}
-                  onChange={setModelId}
-                  placeholder={t('query_builder.placeholder_pick_model')}
-                  disabled={models.length === 0}
-                  options={models.map((m) => ({
-                    value: m.id,
-                    label: modelListLabel(m),
-                    hint: modelListHint(m),
-                  }))}
-                  size="sm"
-                />
-              </>
+              <Select
+                value={modelId}
+                onChange={setModelId}
+                placeholder={t('query_builder.placeholder_pick_model')}
+                disabled={models.length === 0}
+                options={models.map((m) => ({
+                  value: m.id,
+                  label: modelListLabel(m),
+                  hint: modelListHint(m),
+                }))}
+                size="sm"
+              />
             )}
           </div>
-          <div className="toggle-group">
+          <div className="toggle-group query-builder-mode-toggle" role="group" aria-label={t('query_builder.mode_toggle_aria')}>
             <button type="button" className={`toggle-btn ${mode === 'simple' ? 'active' : ''}`} onClick={() => setMode('simple')}>{t('query_builder.mode_simple')}</button>
             <button type="button" className={`toggle-btn ${mode === 'advanced' ? 'active' : ''}`} onClick={() => setMode('advanced')}>{t('query_builder.mode_advanced')}</button>
           </div>

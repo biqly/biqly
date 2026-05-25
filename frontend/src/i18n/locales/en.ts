@@ -507,6 +507,7 @@ export const en = {
     setup_title: 'Query setup',
     mode_simple: 'Simple',
     mode_advanced: 'Advanced',
+    mode_toggle_aria: 'Query mode',
     datasource_label: 'Datasource',
     semantic_model_label: 'Semantic model',
     placeholder_pick_datasource: '— choose —',
@@ -640,7 +641,7 @@ export const en = {
   prompt_templates: {
     title: 'Prompt templates',
     manage_hint:
-      'Static sections injected into every NL→LogicalQuery prompt. The backend picks the template locale from the user question and supported locale registry. Changes apply immediately after save (no redeploy).',
+      'Per-locale NL→LogicalQuery prompt sections in the database; changes apply immediately after save.',
     label_locale: 'Edit locale',
     label_section: 'Section',
     name_system_rules: 'System rules',
@@ -810,6 +811,9 @@ export const en = {
     loading: 'Loading data...',
     loading_page: 'Loading page…',
     select_model: 'Select a semantic model to browse tables.',
+    label_select_table: 'Table',
+    drag_column: 'Drag to reorder column',
+    no_columns_for_table: 'No dimensions are defined for this table in the selected model.',
     no_description: 'No description',
     filter_by_column: 'Click to filter by {{column}}',
     op_eq: 'is',

@@ -536,17 +536,26 @@ export default function SavedQuestions() {
   return (
     <div className="page-stack">
       <div className="card">
-        <div className="card-header-row card-header-row--spaced">
-          <h2>{t('saved_questions.title')}</h2>
-          <button type="button" className="btn btn-primary btn-sm" onClick={openAdd}>
-            {t('saved_questions.new')}
-          </button>
+        <div className="card-intro">
+          <div className="card-header-row card-header-row--spaced">
+            <h2>{t('saved_questions.title')}</h2>
+            <button type="button" className="btn btn-primary btn-sm" onClick={openAdd}>
+              {t('saved_questions.new')}
+            </button>
+          </div>
+          <p
+            className="card-lead saved-question-intro card-lead--single-line"
+            title={
+              fewShotCount > 0
+                ? t('saved_questions.intro_fewshot_active', { count: fewShotCount })
+                : t('saved_questions.intro_fewshot_none')
+            }
+          >
+            {fewShotCount > 0
+              ? t('saved_questions.intro_fewshot_active', { count: fewShotCount })
+              : t('saved_questions.intro_fewshot_none')}
+          </p>
         </div>
-        <p className="saved-question-intro">
-          {fewShotCount > 0
-            ? t('saved_questions.intro_fewshot_active', { count: fewShotCount })
-            : t('saved_questions.intro_fewshot_none')}
-        </p>
 
         {/* Filters Top Bar */}
         <div className="form-row" style={{ marginTop: '1.25rem', flexWrap: 'wrap' }}>

@@ -12,35 +12,46 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 1rem;
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--border);
 }
 
-.query-builder-breadcrumbs {
+.query-builder-pickers {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  flex-wrap: wrap;
+  gap: 0.65rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
 }
 
-.query-builder-breadcrumbs select {
-  background: transparent;
-  border: none;
-  color: var(--text-primary);
-  font-weight: 600;
-  cursor: pointer;
-  outline: none;
-  font-size: 0.85rem;
+.query-builder-pickers .ui-select {
+  flex: 0 1 auto;
+  min-width: 9rem;
+  max-width: 16rem;
 }
 
-.query-builder-breadcrumbs .separator {
-  color: var(--text-muted);
-  opacity: 0.5;
+.query-builder-mode-toggle {
+  flex-shrink: 0;
+}
+
+@media (max-width: 720px) {
+  .query-builder-header {
+    flex-wrap: wrap;
+  }
+
+  .query-builder-pickers {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .query-builder-pickers .ui-select {
+    flex: 1 1 12rem;
+    max-width: none;
+  }
 }
 
 /* ─── Notebook Step Stack ────────────────────────────────────────── */

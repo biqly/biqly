@@ -319,13 +319,17 @@ export default function FewShotExamples() {
       )}
 
       <div className="card">
-        <div className="card-header-row">
-          <h2>{t('few_shot.title')}</h2>
-          <button type="button" className="btn btn-sm btn-primary" onClick={openAdd}>
-            {t('few_shot.new')}
-          </button>
+        <div className="card-intro">
+          <div className="card-header-row">
+            <h2>{t('few_shot.title')}</h2>
+            <button type="button" className="btn btn-sm btn-primary" onClick={openAdd}>
+              {t('few_shot.new')}
+            </button>
+          </div>
+          <p className="card-lead card-lead--single-line" title={t('few_shot.manage_hint')}>
+            {t('few_shot.manage_hint')}
+          </p>
         </div>
-        <p className="card-subtitle">{t('few_shot.manage_hint')}</p>
 
         {/* Filters */}
         <div className="form-row" style={{ gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '1.25rem' }}>

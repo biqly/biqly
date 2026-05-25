@@ -101,7 +101,7 @@ export function RoutingPanel({
         <div className="form-group routing-toggle">
           <label>{t('ai_query.table_routing_label')}</label>
           <div className="routing-toggle-row">
-            <div className="toggle-group">
+            <div className="toggle-group" role="group" aria-label={t('ai_query.table_routing_label')}>
               <button type="button" className={`toggle-btn ${autoTableRouting ? 'active' : ''}`} onClick={() => setAutoTableRouting(true)}>{t('ai_query.table_routing_auto')}</button>
               <button type="button" className={`toggle-btn ${!autoTableRouting ? 'active' : ''}`} onClick={() => setAutoTableRouting(false)}>{t('ai_query.table_routing_manual')}</button>
             </div>

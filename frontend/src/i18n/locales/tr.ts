@@ -508,6 +508,7 @@ export const tr: Dictionary = {
     setup_title: 'Sorgu kurulumu',
     mode_simple: 'Basit',
     mode_advanced: 'Gelişmiş',
+    mode_toggle_aria: 'Sorgu modu',
     datasource_label: 'Veri kaynağı',
     semantic_model_label: 'Anlamsal model',
     placeholder_pick_datasource: '— seçin —',
@@ -641,7 +642,7 @@ export const tr: Dictionary = {
   prompt_templates: {
     title: 'Prompt şablonları',
     manage_hint:
-      'Her NL→LogicalQuery istemine eklenen statik bölümler. Backend şablon dilini kullanıcı sorusundan ve desteklenen dil kaydından seçer. Kayıttan sonra yeniden deploy gerekmez.',
+      'Veritabanındaki locale bazlı NL→LogicalQuery istem bölümleri; kayıttan sonra anında uygulanır.',
     label_locale: 'Düzenleme dili',
     label_section: 'Bölüm',
     name_system_rules: 'Sistem kuralları',
@@ -812,6 +813,9 @@ export const tr: Dictionary = {
     loading: 'Veri yükleniyor...',
     loading_page: 'Sayfa yükleniyor…',
     select_model: 'Tabloları görmek için bir semantik model seçin.',
+    label_select_table: 'Tablo',
+    drag_column: 'Sütunu yeniden sıralamak için sürükleyin',
+    no_columns_for_table: 'Seçilen modelde bu tablo için tanımlı boyut yok.',
     no_description: 'Açıklama yok',
     filter_by_column: '{{column}} sütununa göre filtrelemek için tıklayın',
     op_eq: 'eşittir',

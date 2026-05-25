@@ -93,20 +93,28 @@ export default function TimeGrains({ navigate }: TimeGrainsProps) {
   return (
     <div className="page-stack">
       <div className="card">
-        <div className="card-header-row">
-          <h2>{t('time_grains.title') || 'Time Grains'}</h2>
-          <button
-            type="button"
-            className="btn-back"
-            onClick={() => navigate?.('/settings')}
+        <div className="card-intro">
+          <div className="card-header-row">
+            <h2>{t('time_grains.title') || 'Time Grains'}</h2>
+            <button
+              type="button"
+              className="btn-back"
+              onClick={() => navigate?.('/settings')}
+            >
+              ← {t('time_grains.back_to_settings') || 'Back to Settings'}
+            </button>
+          </div>
+          <p
+            className="card-lead card-lead--single-line"
+            title={
+              t('time_grains.subtitle') ||
+              'Customize how the AI recognizes and handles time/date query grains (e.g., daily, monthly, yearly).'
+            }
           >
-            ← {t('time_grains.back_to_settings') || 'Back to Settings'}
-          </button>
+            {t('time_grains.subtitle') ||
+              'Customize how the AI recognizes and handles time/date query grains (e.g., daily, monthly, yearly).'}
+          </p>
         </div>
-        <p className="card-subtitle">
-          {t('time_grains.subtitle') ||
-            'Customize how the AI recognizes and handles time/date query grains (e.g., daily, monthly, yearly).'}
-        </p>
 
         {error && <ErrorAlert error={error} />}
 

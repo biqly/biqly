@@ -351,6 +351,61 @@
   width: 100%;
 }
 
+.table-browser-grid thead th.table-browser-th {
+  cursor: pointer;
+  background: var(--bg-card-raised) !important;
+  padding: 0.4rem 0.55rem !important;
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  color: var(--text-secondary) !important;
+  border-bottom: 2px solid var(--border) !important;
+  transition: background-color 0.15s ease, color 0.15s ease !important;
+  user-select: none !important;
+  white-space: nowrap !important;
+  line-height: 1.15 !important;
+  vertical-align: middle !important;
+  max-width: none !important;
+  height: auto !important;
+}
+
+.table-browser-th-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  max-width: 100%;
+}
+
+.table-browser-th-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-browser-th-grip {
+  flex-shrink: 0;
+  width: 0.45rem;
+  color: var(--text-muted);
+  opacity: 0.55;
+  font-size: 0.62rem;
+  line-height: 1;
+  cursor: grab;
+  letter-spacing: -0.12em;
+}
+
+.table-browser-th-grip:active {
+  cursor: grabbing;
+}
+
+.table-browser-grid thead th.table-browser-th.is-dragging {
+  opacity: 0.45;
+}
+
+.table-browser-grid thead th.table-browser-th.is-drop-target {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
 .results-table th.th-clickable {
   cursor: pointer;
   background: var(--bg-card-raised) !important;
@@ -556,13 +611,20 @@
   cursor: not-allowed;
 }
 
-.table-browser-page-size-label {
+.table-browser-page-size {
   display: inline-flex;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.table-browser-page-size-label {
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .table-browser-page-btn {

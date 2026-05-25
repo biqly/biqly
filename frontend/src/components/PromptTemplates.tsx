@@ -326,10 +326,17 @@ export default function PromptTemplates() {
       {saveOk && <p className="card-subtitle">{saveOk}</p>}
 
       <div className="card">
-        <div className="card-header-row">
-          <h2>{t('prompt_templates.title')}</h2>
+        <div className="card-intro">
+          <div className="card-header-row">
+            <h2>{t('prompt_templates.title')}</h2>
+          </div>
+          <p
+            className="card-lead card-lead--single-line"
+            title={t('prompt_templates.manage_hint')}
+          >
+            {t('prompt_templates.manage_hint')}
+          </p>
         </div>
-        <p className="card-subtitle">{t('prompt_templates.manage_hint')}</p>
 
         <div className="form-row" style={{ gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <label className="form-field" style={{ minWidth: '10rem' }}>

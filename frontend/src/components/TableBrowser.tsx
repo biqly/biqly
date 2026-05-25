@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type DragEvent } from 'react'
 import '../styles/tableBrowser.css'
 import { useApi } from '../hooks/useApi'
 import { useLocale, useT } from '../i18n'
@@ -10,7 +10,13 @@ import { LoadingOverlay } from './ui/LoadingOverlay'
 import { Modal } from './ui/Modal'
 import { Select } from './ui/Select'
 import type { Datasource } from '../types/metadata'
-import type { SemanticMetric, SemanticModelDetail, SemanticModelSummary } from '../types/semantic'
+import { splitTableKey, tableKey } from './modeling/utils'
+import type {
+  SemanticDimension,
+  SemanticMetric,
+  SemanticModelDetail,
+  SemanticModelSummary,
+} from '../types/semantic'
 import { modelListLabel, modelListHint } from '../types/semantic'
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100] as const
@@ -72,6 +78,46 @@ interface DetailRowState {
   row: unknown[]
 }
 
+function columnRefMatchesTable(
+  ref: string | undefined | null,
+  schema: string,
+  table: string,
+  baseSchema: string,
+) {
+  if (!ref) return false
+  const r = ref.trim()
+  if (!r) return false
+  if (r.startsWith(`${schema}.${table}.`)) return true
+  if (schema === baseSchema && r.startsWith(`${table}.`)) return true
+  return false
+}
+
+function collectModelTables(model: SemanticModelDetail): { value: string; label: string }[] {
+  const seen = new Set<string>()
+  const out: { value: string; label: string }[] = []
+  const add = (schema: string, table: string) => {
+    const key = tableKey(schema, table)
+    if (seen.has(key)) return
+    seen.add(key)
+    out.push({ value: key, label: key })
+  }
+  add(model.base_schema, model.base_table)
+  for (const j of model.joins ?? []) {
+    if (j.is_active === false) continue
+    add(j.from_schema ?? model.base_schema, j.from_table)
+    add(j.to_schema ?? model.base_schema, j.to_table)
+  }
+  return out.sort((a, b) => a.label.localeCompare(b.label))
+}
+
+function reorderColumnNames(order: string[], source: string, target: string): string[] {
+  const next = order.filter((n) => n !== source)
+  const idx = next.indexOf(target)
+  if (idx === -1) next.push(source)
+  else next.splice(idx, 0, source)
+  return next
+}
+
 export default function TableBrowser() {
   const t = useT()
   const [locale] = useLocale()
@@ -84,6 +130,10 @@ export default function TableBrowser() {
   const [models, setModels] = useState<SemanticModelSummary[]>([])
   const [modelId, setModelId] = useState('')
   const [modelDetail, setModelDetail] = useState<SemanticModelDetail | null>(null)
+  const [selectedTableKey, setSelectedTableKey] = useState('')
+  const [columnOrder, setColumnOrder] = useState<string[]>([])
+  const [dragColumn, setDragColumn] = useState<string | null>(null)
+  const [dropTargetColumn, setDropTargetColumn] = useState<string | null>(null)
 
   const [filters, setFilters] = useState<TableBrowserFilter[]>([])
   const [result, setResult] = useState<QueryBuilderResult | null>(null)
@@ -155,6 +205,7 @@ export default function TableBrowser() {
     get<SemanticModelDetail>(`/api/semantic/models/${encodeURIComponent(modelId)}`).then((d) => {
       if (d) {
         setModelDetail(d)
+        setSelectedTableKey(tableKey(d.base_schema, d.base_table))
         setFilters([])
         setPage(0)
         setDetailRow(null)
@@ -167,7 +218,46 @@ export default function TableBrowser() {
     setDetailRow(null)
   }, [filters])
 
-  const dimensions = useMemo(() => modelDetail?.dimensions ?? [], [modelDetail])
+  const tableOptions = useMemo(() => {
+    if (!modelDetail) return []
+    return collectModelTables(modelDetail)
+  }, [modelDetail])
+
+  const activeDimensions = useMemo(() => {
+    if (!modelDetail || !selectedTableKey) return []
+    const { schema, table } = splitTableKey(selectedTableKey)
+    return (modelDetail.dimensions ?? []).filter(
+      (d) =>
+        d.is_active !== false &&
+        columnRefMatchesTable(d.column_ref, schema, table, modelDetail.base_schema),
+    )
+  }, [modelDetail, selectedTableKey])
+
+  const dimensionNamesKey = useMemo(
+    () => activeDimensions.map((d) => d.name).sort().join('\0'),
+    [activeDimensions],
+  )
+
+  useEffect(() => {
+    const names = activeDimensions.map((d) => d.name).sort((a, b) => a.localeCompare(b))
+    setColumnOrder(names)
+    setPage(0)
+    setDetailRow(null)
+    setFilters((prev) => prev.filter((f) => names.includes(f.field)))
+  }, [modelId, selectedTableKey, dimensionNamesKey])
+
+  const orderedDimensions = useMemo(() => {
+    const byName = new Map(activeDimensions.map((d) => [d.name, d]))
+    const ordered: SemanticDimension[] = []
+    for (const name of columnOrder) {
+      const d = byName.get(name)
+      if (d) ordered.push(d)
+    }
+    for (const d of activeDimensions) {
+      if (!columnOrder.includes(d.name)) ordered.push(d)
+    }
+    return ordered
+  }, [activeDimensions, columnOrder])
 
   const filterPayload = useMemo(
     () =>
@@ -182,7 +272,7 @@ export default function TableBrowser() {
   )
 
   const queryBase = useMemo(() => {
-    if (!datasourceId || !modelId || !modelDetail || dimensions.length === 0) return null
+    if (!datasourceId || !modelId || !modelDetail || orderedDimensions.length === 0) return null
     return {
       datasourceId,
       modelId,
@@ -194,13 +284,30 @@ export default function TableBrowser() {
       orderDir: 'asc' as const,
       windowFunctions: [],
       ctes: [],
-      selectItems: dimensions.map((d) => ({
+      selectItems: orderedDimensions.map((d) => ({
         id: d.id,
         type: 'dimension' as const,
         name: d.name,
       })),
     }
-  }, [datasourceId, modelId, modelDetail, dimensions, filterPayload])
+  }, [datasourceId, modelId, modelDetail, orderedDimensions, filterPayload])
+
+  const displayColumnNames = useMemo(() => {
+    const fromResult = result?.columns?.map((c) => c.name) ?? []
+    if (fromResult.length === 0) return columnOrder
+    const inResult = new Set(fromResult)
+    const ordered = columnOrder.filter((n) => inResult.has(n))
+    for (const n of fromResult) {
+      if (!ordered.includes(n)) ordered.push(n)
+    }
+    return ordered.length > 0 ? ordered : fromResult
+  }, [result?.columns, columnOrder])
+
+  const columnIndexByName = useMemo(() => {
+    const m = new Map<string, number>()
+    result?.columns?.forEach((c, i) => m.set(c.name, i))
+    return m
+  }, [result?.columns])
 
   const runCountQuery = useCallback(async () => {
     if (!queryBase) {
@@ -332,9 +439,36 @@ export default function TableBrowser() {
     setPopoverCaseSensitive(false)
   }
 
+  const handleColumnDragStart = (colName: string) => (e: DragEvent) => {
+    setDragColumn(colName)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', colName)
+  }
+
+  const handleColumnDragOver = (colName: string) => (e: DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (dragColumn && dragColumn !== colName) setDropTargetColumn(colName)
+  }
+
+  const handleColumnDrop = (colName: string) => (e: DragEvent) => {
+    e.preventDefault()
+    const source = e.dataTransfer.getData('text/plain') || dragColumn
+    if (source && source !== colName) {
+      setColumnOrder((prev) => reorderColumnNames(prev.length ? prev : displayColumnNames, source, colName))
+    }
+    setDragColumn(null)
+    setDropTargetColumn(null)
+  }
+
+  const handleColumnDragEnd = () => {
+    setDragColumn(null)
+    setDropTargetColumn(null)
+  }
+
   const handleOpenAddFilter = (defaultField = '') => {
     setEditingFilterId(null)
-    setPopoverField(defaultField || (dimensions[0]?.name ?? ''))
+    setPopoverField(defaultField || (activeDimensions[0]?.name ?? ''))
     setPopoverOperator('contains')
     setPopoverChips([])
     setChipInputText('')
@@ -368,7 +502,7 @@ export default function TableBrowser() {
   }
 
   const getDimensionLabel = (name: string) => {
-    const dim = dimensions.find((d) => d.name === name)
+    const dim = activeDimensions.find((d) => d.name === name)
     return dim ? (dim.label || dim.name) : name
   }
 
@@ -431,11 +565,11 @@ export default function TableBrowser() {
   )
 
   const filterFieldOpts = useMemo(() => {
-    return dimensions.map((d) => ({
+    return activeDimensions.map((d) => ({
       value: d.name,
       label: d.label || d.name,
     }))
-  }, [dimensions])
+  }, [activeDimensions])
 
   const pageSizeOptions = useMemo(
     () =>
@@ -491,22 +625,28 @@ export default function TableBrowser() {
             }))}
           />
         </div>
+        {modelDetail && tableOptions.length > 0 && (
+          <div className="table-browser-toolbar-field">
+            <label htmlFor="table-browser-table" className="table-browser-toolbar-label">
+              {t('table_browser.label_select_table')}
+            </label>
+            <Select
+              id="table-browser-table"
+              value={selectedTableKey}
+              onChange={setSelectedTableKey}
+              options={tableOptions}
+            />
+          </div>
+        )}
       </div>
 
       {modelDetail ? (
+        activeDimensions.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+            {t('table_browser.no_columns_for_table')}
+          </p>
+        ) : (
         <>
-          <div className="table-browser-title-row">
-            <span className="table-browser-title">
-              {modelDetail.base_table}
-              <span
-                className="table-browser-info-icon"
-                title={modelDetail.description || t('table_browser.no_description')}
-              >
-                i
-              </span>
-            </span>
-          </div>
-
           <div className="table-browser-filter-bar">
             {filters.map((f) => (
               <span
@@ -639,16 +779,31 @@ export default function TableBrowser() {
                       <thead>
                         <tr>
                           <th scope="col" className="table-browser-col-index"></th>
-                          {result.columns.map((col) => (
+                          {displayColumnNames.map((colName) => (
                             <th
-                              key={col.name}
+                              key={colName}
                               scope="col"
-                              className="th-clickable"
-                              onClick={() => !fetching && handleOpenAddFilter(col.name)}
-                              title={t('table_browser.filter_by_column', { column: col.name })}
+                              draggable={!fetching}
+                              className={`table-browser-th th-clickable${dragColumn === colName ? ' is-dragging' : ''}${dropTargetColumn === colName ? ' is-drop-target' : ''}`}
+                              onDragStart={handleColumnDragStart(colName)}
+                              onDragOver={handleColumnDragOver(colName)}
+                              onDrop={handleColumnDrop(colName)}
+                              onDragEnd={handleColumnDragEnd}
+                              onClick={() => !fetching && handleOpenAddFilter(colName)}
+                              title={t('table_browser.filter_by_column', { column: colName })}
                             >
-                              {getDimensionLabel(col.name)}
-                              <span className="th-chevron">▼</span>
+                              <span className="table-browser-th-inner">
+                                <span
+                                  className="table-browser-th-grip"
+                                  aria-hidden="true"
+                                  title={t('table_browser.drag_column')}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  ⋮⋮
+                                </span>
+                                <span className="table-browser-th-label">{getDimensionLabel(colName)}</span>
+                                <span className="th-chevron">▼</span>
+                              </span>
                             </th>
                           ))}
                         </tr>
@@ -669,11 +824,12 @@ export default function TableBrowser() {
                             <td className="table-browser-col-index">
                               <span className="row-index-number">{page * pageSize + i + 1}</span>
                             </td>
-                            {row.map((cell, j) => {
-                              const colName = result.columns?.[j]?.name ?? ''
+                            {displayColumnNames.map((colName) => {
+                              const j = columnIndexByName.get(colName)
+                              const cell = j != null ? row[j] : null
                               const display = formatResultCell(cell, colName, {})
                               return (
-                                <td key={j} title={display}>
+                                <td key={colName} title={display}>
                                   {display}
                                 </td>
                               )
@@ -690,8 +846,10 @@ export default function TableBrowser() {
                 <div className={`table-browser-pagination${fetching ? ' is-loading' : ''}`}>
                   <span className="table-browser-range">{rangeLabel}</span>
                   <div className="table-browser-pagination-controls">
-                    <label className="table-browser-page-size-label">
-                      {t('table_browser.rows_per_page')}
+                    <div className="table-browser-page-size">
+                      <span className="table-browser-page-size-label">
+                        {t('table_browser.rows_per_page')}
+                      </span>
                       <Select
                         value={String(pageSize)}
                         onChange={(v) => {
@@ -701,7 +859,7 @@ export default function TableBrowser() {
                         options={pageSizeOptions}
                         size="sm"
                       />
-                    </label>
+                    </div>
                     <nav className="table-browser-page-nav" aria-label={t('table_browser.pagination_nav')}>
                       <button
                         type="button"
@@ -778,6 +936,7 @@ export default function TableBrowser() {
             </>
           )}
         </>
+        )
       ) : (
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{t('table_browser.select_model')}</p>
       )}
@@ -789,15 +948,15 @@ export default function TableBrowser() {
             ? t('table_browser.row_detail_title', { n: formatInt(detailRow.displayIndex) })
             : t('table_browser.row_detail')
         }
-        subtitle={modelDetail?.base_table}
+        subtitle={selectedTableKey || modelDetail?.base_table}
         onClose={() => setDetailRow(null)}
         bodyClassName="table-browser-detail-modal-body"
       >
         {detailRow && result?.columns && (
           <div className="table-browser-detail-grid" role="region" aria-label={t('table_browser.row_detail')}>
-            {result.columns.map((col, j) => {
-              const colName = col.name
-              const display = formatResultCell(detailRow.row[j], colName, {})
+            {displayColumnNames.map((colName) => {
+              const j = columnIndexByName.get(colName)
+              const display = formatResultCell(j != null ? detailRow.row[j] : null, colName, {})
               return (
                 <div key={colName} className="table-browser-detail-item">
                   <span className="table-browser-detail-label">{getDimensionLabel(colName)}</span>
