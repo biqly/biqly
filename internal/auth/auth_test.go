@@ -94,26 +94,30 @@ func TestValidators(t *testing.T) {
 	assert.Error(t, ValidatePassword("lowercaseonly1!"))
 }
 
-func TestIntegrationAuthFlow(t *testing.T) {
+func openTestDBPool(t *testing.T) *sql.DB {
+	t.Helper()
 	dsn := os.Getenv("BI_AUTH_DB_DSN")
 	if dsn == "" {
 		//nolint:gosec
 		dsn = "postgres://bi_user:bi_password@localhost:5432/bi_auth?sslmode=disable"
 	}
-
 	dbPool, err := sql.Open("pgx", dsn)
 	if err != nil {
-		t.Skip("skipping integration tests; DB not available:", err)
-		return
+		t.Skip("skipping database tests; DB not available:", err)
 	}
-	defer func() { _ = dbPool.Close() }()
+	t.Cleanup(func() { _ = dbPool.Close() })
 
-	ctx := context.Background()
-
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
 	if err := dbPool.PingContext(ctx); err != nil {
-		t.Skip("skipping integration tests; ping failed:", err)
-		return
+		t.Skip("skipping database tests; ping failed:", err)
 	}
+	return dbPool
+}
+
+func TestIntegrationAuthFlow(t *testing.T) {
+	dbPool := openTestDBPool(t)
+	ctx := context.Background()
 
 	// Clear test tables to keep tests clean and repeatable
 	_, _ = dbPool.ExecContext(ctx, "DELETE FROM sessions")
@@ -206,24 +210,8 @@ func TestIntegrationAuthFlow(t *testing.T) {
 }
 
 func TestOAuthFlow(t *testing.T) {
-	dsn := os.Getenv("BI_AUTH_DB_DSN")
-	if dsn == "" {
-		//nolint:gosec
-		dsn = "postgres://bi_user:bi_password@localhost:5432/bi_auth?sslmode=disable"
-	}
-
-	dbPool, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Skip("skipping database tests; DB not available:", err)
-		return
-	}
-	defer func() { _ = dbPool.Close() }()
-
+	dbPool := openTestDBPool(t)
 	ctx := context.Background()
-	if err := dbPool.PingContext(ctx); err != nil {
-		t.Skip("skipping database tests; ping failed:", err)
-		return
-	}
 
 	// Clean tables
 	_, _ = dbPool.ExecContext(ctx, "DELETE FROM sessions")
@@ -283,24 +271,8 @@ func TestOAuthFlow(t *testing.T) {
 }
 
 func TestWebAuthnFlow(t *testing.T) {
-	dsn := os.Getenv("BI_AUTH_DB_DSN")
-	if dsn == "" {
-		//nolint:gosec
-		dsn = "postgres://bi_user:bi_password@localhost:5432/bi_auth?sslmode=disable"
-	}
-
-	dbPool, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Skip("skipping database tests; DB not available:", err)
-		return
-	}
-	defer func() { _ = dbPool.Close() }()
-
+	dbPool := openTestDBPool(t)
 	ctx := context.Background()
-	if err := dbPool.PingContext(ctx); err != nil {
-		t.Skip("skipping database tests; ping failed:", err)
-		return
-	}
 
 	_, _ = dbPool.ExecContext(ctx, "DELETE FROM sessions")
 	_, _ = dbPool.ExecContext(ctx, "DELETE FROM passkeys")
@@ -412,17 +384,7 @@ func TestBruteForceLockout(t *testing.T) {
 	email := "brute@example.com"
 	rClient.Del(ctx, "login_failures:"+email)
 
-	dsn := os.Getenv("BI_AUTH_DB_DSN")
-	if dsn == "" {
-		//nolint:gosec
-		dsn = "postgres://bi_user:bi_password@localhost:5432/bi_auth?sslmode=disable"
-	}
-	dbPool, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Skip("skipping database tests; DB not available:", err)
-		return
-	}
-	defer func() { _ = dbPool.Close() }()
+	dbPool := openTestDBPool(t)
 
 	_, _ = dbPool.ExecContext(ctx, "DELETE FROM sessions")
 	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users")
@@ -542,18 +504,7 @@ func TestCSRF(t *testing.T) {
 }
 
 func TestEmailVerificationAndReset(t *testing.T) {
-	dsn := os.Getenv("BI_AUTH_DB_DSN")
-	if dsn == "" {
-		//nolint:gosec
-		dsn = "postgres://bi_user:bi_password@localhost:5432/bi_auth?sslmode=disable"
-	}
-	dbPool, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Skip("skipping database tests; DB not available:", err)
-		return
-	}
-	defer func() { _ = dbPool.Close() }()
-
+	dbPool := openTestDBPool(t)
 	ctx := context.Background()
 
 	_, _ = dbPool.ExecContext(ctx, "DELETE FROM email_verification_tokens")
