@@ -1307,16 +1307,16 @@ r.Route("/api", func(r chi.Router) {
 - [x] CSRF koruması (SameSite cookie + token)
 - [ ] Input sanitizasyonu (XSS önleme)
 - [ ] SQL injection önleme (parameterized queries — zaten pgx)
-- [ ] CORS katı yapılandırma
-- [ ] Security headers (HSTS, X-Frame-Options, CSP)
+- [x] CORS katı yapılandırma — auth servisi `BI_AUTH_CORS_ALLOWED_ORIGINS` (empty = block-all), monolit ile aynı pattern
+- [x] Security headers (HSTS, X-Frame-Options, CSP) — `bimw.SecurityHeaders` middleware monolit + auth servise uygulandı
 - [x] Audit logging tüm auth olayları
 - [x] OAuth token şifreli saklama
 - [x] WebAuthn challenge zaman aşımı
-- [ ] Timing attack önleme (sabit süre response)
+- [x] Timing attack önleme (sabit süre response) — `VerifyDummyPassword` + IsActive check sırası bcrypt sonrası
 - [x] Account enumeration önleme (generic hata mesajları)
 - [x] Token ailesi koruması (refresh token rotation aile takibi)
-- [ ] JWT issuer/audience doğrulama
-- [ ] JWT ID (jti) ile token takibi
+- [x] JWT issuer/audience doğrulama — `BI_AUTH_JWT_ISSUER` / `BI_AUTH_JWT_AUDIENCE`, monolit middleware fetch via `/internal/auth/public-key`
+- [x] JWT ID (jti) ile token takibi — her token'a rastgele 128-bit jti, revocation list için altyapı
 - [ ] E-posta değişikliği çift doğrulama + bekleme süresi
 - [ ] Parola geçmişi kontrolü (son 5 parola)
 - [ ] Recovery kodları (2FA için 10 adet tek kullanımlık)

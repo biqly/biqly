@@ -16,6 +16,11 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+const (
+	DefaultJWTIssuer   = "biqly-auth"
+	DefaultJWTAudience = "biqly-api"
+)
+
 type JWTClaims struct {
 	Email                 string   `json:"email"`
 	Roles                 []string `json:"roles"`
@@ -28,9 +33,20 @@ type JWTManager struct {
 	privateKey *rsa.PrivateKey
 	publicKey  *rsa.PublicKey
 	accessTTL  time.Duration
+	issuer     string
+	audience   string
 }
 
 func NewJWTManager(privatePath, publicPath string, accessTTL time.Duration) (*JWTManager, error) {
+	issuer := os.Getenv("BI_AUTH_JWT_ISSUER")
+	if issuer == "" {
+		issuer = DefaultJWTIssuer
+	}
+	audience := os.Getenv("BI_AUTH_JWT_AUDIENCE")
+	if audience == "" {
+		audience = DefaultJWTAudience
+	}
+
 	if privateKeyPEM := os.Getenv("BI_AUTH_JWT_PRIVATE_KEY"); privateKeyPEM != "" {
 		privKey, err := parseRSAPrivateKeyFromConfig(privateKeyPEM)
 		if err != nil {
@@ -40,6 +56,8 @@ func NewJWTManager(privatePath, publicPath string, accessTTL time.Duration) (*JW
 			privateKey: privKey,
 			publicKey:  &privKey.PublicKey,
 			accessTTL:  accessTTL,
+			issuer:     issuer,
+			audience:   audience,
 		}, nil
 	}
 
@@ -70,6 +88,8 @@ func NewJWTManager(privatePath, publicPath string, accessTTL time.Duration) (*JW
 			privateKey: privKey,
 			publicKey:  pubKey,
 			accessTTL:  accessTTL,
+			issuer:     issuer,
+			audience:   audience,
 		}, nil
 	}
 
@@ -83,8 +103,13 @@ func NewJWTManager(privatePath, publicPath string, accessTTL time.Duration) (*JW
 		privateKey: privKey,
 		publicKey:  &privKey.PublicKey,
 		accessTTL:  accessTTL,
+		issuer:     issuer,
+		audience:   audience,
 	}, nil
 }
+
+func (m *JWTManager) Issuer() string   { return m.issuer }
+func (m *JWTManager) Audience() string { return m.audience }
 
 func parseRSAPrivateKeyFromConfig(value string) (*rsa.PrivateKey, error) {
 	keyPEM := strings.TrimSpace(value)
@@ -122,13 +147,20 @@ func parseRSAPrivateKeyFromConfig(value string) (*rsa.PrivateKey, error) {
 
 func (m *JWTManager) GenerateToken(userID, email string, roles []string, workspaceID string, datasources []string) (string, error) {
 	now := time.Now()
+	jti, err := generateJTI()
+	if err != nil {
+		return "", fmt.Errorf("generate jti: %w", err)
+	}
 	claims := JWTClaims{
 		Email:                 email,
 		Roles:                 roles,
 		WorkspaceID:           workspaceID,
 		AccessibleDatasources: datasources,
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        jti,
 			Subject:   userID,
+			Issuer:    m.issuer,
+			Audience:  jwt.ClaimStrings{m.audience},
 			ExpiresAt: jwt.NewNumericDate(now.Add(m.accessTTL)),
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
@@ -140,7 +172,13 @@ func (m *JWTManager) GenerateToken(userID, email string, roles []string, workspa
 }
 
 func (m *JWTManager) ValidateToken(tokenStr string) (*JWTClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenStr, &JWTClaims{}, func(t *jwt.Token) (any, error) {
+	parser := jwt.NewParser(
+		jwt.WithIssuer(m.issuer),
+		jwt.WithAudience(m.audience),
+		jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name}),
+	)
+
+	token, err := parser.ParseWithClaims(tokenStr, &JWTClaims{}, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
@@ -156,6 +194,14 @@ func (m *JWTManager) ValidateToken(tokenStr string) (*JWTClaims, error) {
 	}
 
 	return claims, nil
+}
+
+func generateJTI() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
 func (m *JWTManager) GetPublicKeyPEM() (string, error) {

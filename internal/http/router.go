@@ -33,6 +33,11 @@ func Router(deps *app.Dependencies) http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(bimw.SecurityHeaders(bimw.SecurityHeadersConfig{
+		HSTSEnabled:           deps.Config.HTTP.HSTSEnabled,
+		HSTSIncludeSubdomains: true,
+		ContentSecurityPolicy: "default-src 'self'; frame-ancestors 'none'",
+	}))
 
 	// Resolve user locale from Accept-Language / X-Locale / ?lang= and store on context.
 	r.Use(bimw.Locale)

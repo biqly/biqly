@@ -589,7 +589,11 @@ func (h *RBACHandler) handleInternalPublicKey(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"public_key": pem})
+	writeJSON(w, http.StatusOK, map[string]string{
+		"public_key": pem,
+		"issuer":     h.jwtMgr.Issuer(),
+		"audience":   h.jwtMgr.Audience(),
+	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, data any) {

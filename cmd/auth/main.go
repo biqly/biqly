@@ -15,9 +15,11 @@ import (
 	"time"
 
 	biqauth "github.com/biqly/biqly/internal/auth"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/security"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
@@ -151,6 +153,24 @@ func newRouter(state *appState, authHandler *biqauth.AuthHandler, rbacHandler *b
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
 
+	httpsOnly := len(cfg.WebAuthnOrigins) > 0 && strings.HasPrefix(cfg.WebAuthnOrigins[0], "https")
+	r.Use(bimw.SecurityHeaders(bimw.SecurityHeadersConfig{
+		HSTSEnabled:           httpsOnly,
+		HSTSIncludeSubdomains: true,
+		ContentSecurityPolicy: "default-src 'self'; frame-ancestors 'none'",
+	}))
+
+	if len(cfg.CORSAllowedOrigins) == 0 {
+		slog.Warn("auth CORS allowed origins is empty — cross-origin requests will be blocked. Set BI_AUTH_CORS_ALLOWED_ORIGINS to allow specific frontend origins.")
+	}
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   cfg.CORSAllowedOrigins,
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Accept-Language", "Authorization", "Content-Type", "X-CSRF-Token"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
+
 	if limiter != nil {
 		r.Use(limiter.Limit(cfg.RateLimitPerMin, time.Minute, "general"))
 	}
@@ -159,16 +179,14 @@ func newRouter(state *appState, authHandler *biqauth.AuthHandler, rbacHandler *b
 	r.Get("/ready", state.handleReady)
 	r.Handle("/metrics", promhttp.Handler())
 
-	secure := len(cfg.WebAuthnOrigins) > 0 && strings.HasPrefix(cfg.WebAuthnOrigins[0], "https")
-
 	r.Route("/api/auth", func(r chi.Router) {
-		r.Use(biqauth.CSRF(secure))
+		r.Use(biqauth.CSRF(httpsOnly))
 		authHandler.RegisterAuthRoutes(r)
 		rbacHandler.RegisterAuthRoutes(r, authHandler.AuthMiddleware())
 	})
 
 	r.Route("/auth", func(r chi.Router) {
-		r.Use(biqauth.CSRF(secure))
+		r.Use(biqauth.CSRF(httpsOnly))
 		authHandler.RegisterAuthRoutes(r)
 		rbacHandler.RegisterAuthRoutes(r, authHandler.AuthMiddleware())
 	})

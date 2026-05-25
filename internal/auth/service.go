@@ -117,6 +117,9 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 
 	user, err := s.userRepo.GetUserByEmail(ctx, req.Email)
 	if errors.Is(err, ErrUserNotFound) {
+		// Burn the same amount of CPU as a real bcrypt verify so the response
+		// time does not reveal whether the email exists.
+		VerifyDummyPassword(req.Password)
 		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
 		s.recordLoginFailure(ctx, req.Email)
 		return nil, ErrInvalidCredentials
@@ -124,12 +127,20 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 		return nil, err
 	}
 
+	// Compute password verification regardless of IsActive / hash presence so
+	// inactive or oauth-only accounts spend the same wall-clock time as
+	// password-backed accounts.
+	passwordOK := user.PasswordHash != nil && VerifyPassword(req.Password, *user.PasswordHash)
+	if user.PasswordHash == nil {
+		VerifyDummyPassword(req.Password)
+	}
+
 	if !user.IsActive {
 		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
 		return nil, ErrInactiveUser
 	}
 
-	if user.PasswordHash == nil || !VerifyPassword(req.Password, *user.PasswordHash) {
+	if !passwordOK {
 		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
 		s.recordLoginFailure(ctx, req.Email)
 		return nil, ErrInvalidCredentials

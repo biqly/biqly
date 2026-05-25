@@ -42,6 +42,8 @@ type PublicKeyProvider struct {
 
 	mu        sync.RWMutex
 	publicKey *rsa.PublicKey
+	issuer    string
+	audience  string
 	fetchedAt time.Time
 	ttl       time.Duration
 }
@@ -55,12 +57,27 @@ func NewPublicKeyProvider(authServiceURL, internalToken string) *PublicKeyProvid
 	}
 }
 
+// jwtConfig groups the public key with the expected issuer/audience.
+type jwtConfig struct {
+	key      *rsa.PublicKey
+	issuer   string
+	audience string
+}
+
 func (p *PublicKeyProvider) Get(ctx context.Context) (*rsa.PublicKey, error) {
+	cfg, err := p.getConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return cfg.key, nil
+}
+
+func (p *PublicKeyProvider) getConfig(ctx context.Context) (*jwtConfig, error) {
 	p.mu.RLock()
 	if p.publicKey != nil && time.Since(p.fetchedAt) < p.ttl {
-		key := p.publicKey
+		cfg := &jwtConfig{key: p.publicKey, issuer: p.issuer, audience: p.audience}
 		p.mu.RUnlock()
-		return key, nil
+		return cfg, nil
 	}
 	p.mu.RUnlock()
 
@@ -68,7 +85,7 @@ func (p *PublicKeyProvider) Get(ctx context.Context) (*rsa.PublicKey, error) {
 	defer p.mu.Unlock()
 
 	if p.publicKey != nil && time.Since(p.fetchedAt) < p.ttl {
-		return p.publicKey, nil
+		return &jwtConfig{key: p.publicKey, issuer: p.issuer, audience: p.audience}, nil
 	}
 
 	url := p.authServiceURL + "/internal/auth/public-key"
@@ -90,6 +107,8 @@ func (p *PublicKeyProvider) Get(ctx context.Context) (*rsa.PublicKey, error) {
 
 	var body struct {
 		PublicKey string `json:"public_key"`
+		Issuer    string `json:"issuer"`
+		Audience  string `json:"audience"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return nil, fmt.Errorf("decode public-key response: %w", err)
@@ -101,8 +120,10 @@ func (p *PublicKeyProvider) Get(ctx context.Context) (*rsa.PublicKey, error) {
 	}
 
 	p.publicKey = key
+	p.issuer = body.Issuer
+	p.audience = body.Audience
 	p.fetchedAt = time.Now()
-	return key, nil
+	return &jwtConfig{key: key, issuer: body.Issuer, audience: body.Audience}, nil
 }
 
 // JWTAuth verifies the Bearer JWT against the auth service's public key.
@@ -123,18 +144,29 @@ func JWTAuth(provider *PublicKeyProvider, bypassPaths ...string) func(http.Handl
 				return
 			}
 
-			pubKey, err := provider.Get(r.Context())
+			cfg, err := provider.getConfig(r.Context())
 			if err != nil {
 				writeAuthError(w, http.StatusServiceUnavailable, "auth key unavailable")
 				return
 			}
 
+			parserOpts := []jwt.ParserOption{
+				jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name}),
+			}
+			if cfg.issuer != "" {
+				parserOpts = append(parserOpts, jwt.WithIssuer(cfg.issuer))
+			}
+			if cfg.audience != "" {
+				parserOpts = append(parserOpts, jwt.WithAudience(cfg.audience))
+			}
+			parser := jwt.NewParser(parserOpts...)
+
 			claims := &JWTClaims{}
-			tok, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (any, error) {
+			tok, err := parser.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (any, error) {
 				if _, ok := t.Method.(*jwt.SigningMethodRSA); !ok {
 					return nil, errors.New("unexpected signing method")
 				}
-				return pubKey, nil
+				return cfg.key, nil
 			})
 			if err != nil || !tok.Valid {
 				writeAuthError(w, http.StatusUnauthorized, "invalid token")

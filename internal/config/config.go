@@ -59,6 +59,10 @@ type HTTPConfig struct {
 	// Empty means "no cross-origin requests" — the legacy wildcard
 	// {"https://*", "http://*"} is no longer the default.
 	CORSAllowedOrigins []string
+	// HSTSEnabled toggles Strict-Transport-Security. Enable only when the
+	// service is reachable exclusively over HTTPS (e.g. behind a TLS-terminating
+	// gateway in production).
+	HSTSEnabled bool
 }
 
 // LoggingConfig holds structured logger configuration.
@@ -208,6 +212,7 @@ func Load() (*Config, error) {
 			Host:               getEnv("BI_HTTP_HOST", "0.0.0.0"),
 			Port:               getEnvAsInt("BI_HTTP_PORT", 8888),
 			CORSAllowedOrigins: splitCSV(getEnv("BI_CORS_ALLOWED_ORIGINS", "")),
+			HSTSEnabled:        getEnvAsBool("BI_HSTS_ENABLED", false),
 		},
 		Logging: LoggingConfig{
 			Level:  strings.ToLower(strings.TrimSpace(getEnv("BI_LOG_LEVEL", "info"))),

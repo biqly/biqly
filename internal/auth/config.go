@@ -15,9 +15,12 @@ type Config struct {
 	JWTPublicKeyPath   string
 	JWTAccessTTL       time.Duration
 	JWTRefreshTTL      time.Duration
+	JWTIssuer          string
+	JWTAudience        string
 	InternalToken      string
 	EncryptionKey      string
 	RateLimitPerMin    int
+	CORSAllowedOrigins []string
 	GitHubClientID     string
 	GitHubClientSecret string
 	GitHubRedirectURL  string
@@ -111,6 +114,24 @@ func LoadConfig() (*Config, error) {
 		}
 	}
 
+	issuer := os.Getenv("BI_AUTH_JWT_ISSUER")
+	if issuer == "" {
+		issuer = DefaultJWTIssuer
+	}
+	audience := os.Getenv("BI_AUTH_JWT_AUDIENCE")
+	if audience == "" {
+		audience = DefaultJWTAudience
+	}
+
+	var corsOrigins []string
+	if v := strings.TrimSpace(os.Getenv("BI_AUTH_CORS_ALLOWED_ORIGINS")); v != "" {
+		for o := range strings.SplitSeq(v, ",") {
+			if trimmed := strings.TrimSpace(o); trimmed != "" {
+				corsOrigins = append(corsOrigins, trimmed)
+			}
+		}
+	}
+
 	cfg := &Config{
 		Port:               port,
 		DBDSN:              dbDSN,
@@ -119,9 +140,12 @@ func LoadConfig() (*Config, error) {
 		JWTPublicKeyPath:   os.Getenv("BI_AUTH_JWT_PUBLIC_KEY_PATH"),
 		JWTAccessTTL:       accessTTL,
 		JWTRefreshTTL:      refreshTTL,
+		JWTIssuer:          issuer,
+		JWTAudience:        audience,
 		InternalToken:      os.Getenv("BI_AUTH_INTERNAL_TOKEN"),
 		EncryptionKey:      os.Getenv("BI_AUTH_ENCRYPTION_KEY"),
 		RateLimitPerMin:    rateLimit,
+		CORSAllowedOrigins: corsOrigins,
 		GitHubClientID:     os.Getenv("BI_AUTH_GITHUB_CLIENT_ID"),
 		GitHubClientSecret: os.Getenv("BI_AUTH_GITHUB_CLIENT_SECRET"),
 		GitHubRedirectURL:  githubRedirect,

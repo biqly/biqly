@@ -62,6 +62,55 @@ func TestJWTManager(t *testing.T) {
 	assert.Contains(t, pubPEM, "RSA PUBLIC KEY")
 }
 
+func TestJWTManagerSetsIssuerAudienceJTI(t *testing.T) {
+	t.Setenv("BI_AUTH_JWT_ISSUER", "test-issuer")
+	t.Setenv("BI_AUTH_JWT_AUDIENCE", "test-audience")
+
+	mgr, err := NewJWTManager("", "", 10*time.Minute)
+	require.NoError(t, err)
+	assert.Equal(t, "test-issuer", mgr.Issuer())
+	assert.Equal(t, "test-audience", mgr.Audience())
+
+	token, err := mgr.GenerateToken("u-1", "u1@example.com", nil, "", nil)
+	require.NoError(t, err)
+
+	first, err := mgr.ValidateToken(token)
+	require.NoError(t, err)
+	assert.Equal(t, "test-issuer", first.Issuer)
+	require.Len(t, first.Audience, 1)
+	assert.Equal(t, "test-audience", first.Audience[0])
+	assert.NotEmpty(t, first.ID, "jti must be populated")
+
+	// jti must change between tokens to enable revocation lists.
+	token2, err := mgr.GenerateToken("u-1", "u1@example.com", nil, "", nil)
+	require.NoError(t, err)
+	second, err := mgr.ValidateToken(token2)
+	require.NoError(t, err)
+	assert.NotEqual(t, first.ID, second.ID)
+}
+
+func TestJWTManagerRejectsWrongAudience(t *testing.T) {
+	t.Setenv("BI_AUTH_JWT_ISSUER", "real-issuer")
+	t.Setenv("BI_AUTH_JWT_AUDIENCE", "real-aud")
+	mgrReal, err := NewJWTManager("", "", 10*time.Minute)
+	require.NoError(t, err)
+
+	token, err := mgrReal.GenerateToken("u-1", "u1@example.com", nil, "", nil)
+	require.NoError(t, err)
+
+	// Validator configured for a different audience must reject.
+	t.Setenv("BI_AUTH_JWT_AUDIENCE", "other-aud")
+	mgrOther := *mgrReal
+	mgrOther.audience = "other-aud"
+	_, err = mgrOther.ValidateToken(token)
+	require.Error(t, err)
+
+	mgrOther.audience = "real-aud"
+	mgrOther.issuer = "wrong-issuer"
+	_, err = mgrOther.ValidateToken(token)
+	require.Error(t, err)
+}
+
 func TestJWTManagerUsesBase64PKCS8PrivateKeyEnv(t *testing.T) {
 	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
@@ -81,6 +130,20 @@ func TestJWTManagerUsesBase64PKCS8PrivateKeyEnv(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "user-123", claims.Subject)
 	assert.Equal(t, "test@example.com", claims.Email)
+}
+
+func TestDummyBcryptHashSeeded(t *testing.T) {
+	// dummyBcryptHash must be initialized at package init so timing-attack
+	// mitigation has CPU work to spend on missing accounts.
+	assert.NotEmpty(t, dummyBcryptHash)
+	// Verify it cannot be matched by a guessable password — keeps the dummy
+	// hash from accidentally accepting any input.
+	assert.False(t, VerifyPassword("password", dummyBcryptHash))
+	assert.False(t, VerifyPassword("", dummyBcryptHash))
+
+	// VerifyDummyPassword must not panic for arbitrary input.
+	VerifyDummyPassword("anything")
+	VerifyDummyPassword("")
 }
 
 func TestValidators(t *testing.T) {
