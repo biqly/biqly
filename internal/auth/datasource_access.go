@@ -201,24 +201,32 @@ func (s *DatasourceAccessService) queryAccessibleDatasourceIDs(ctx context.Conte
 
 // CheckAccess verifies the user has at least the required level for datasource.
 // super_admin bypass applies.
-func (s *DatasourceAccessService) CheckAccess(ctx context.Context, userID, datasourceID, requiredLevel string) error {
+func (s *DatasourceAccessService) CheckAccess(ctx context.Context, userID, datasourceID, requiredLevel string) (err error) {
+	defer func() {
+		if err == nil {
+			MetricDatasourceAccessChecks.WithLabelValues("allowed").Inc()
+		} else {
+			MetricDatasourceAccessChecks.WithLabelValues("denied").Inc()
+		}
+	}()
+
 	if !isValidLevel(requiredLevel) {
 		return fmt.Errorf("invalid required level: %s", requiredLevel)
 	}
 
 	if s.rbac != nil {
-		isSuper, err := s.rbac.IsSuperAdmin(ctx, userID)
-		if err == nil && isSuper {
+		isSuper, errSuper := s.rbac.IsSuperAdmin(ctx, userID)
+		if errSuper == nil && isSuper {
 			return nil
 		}
 	}
 
 	var directLevel sql.NullString
-	err := s.db.QueryRowContext(ctx, `
+	errDirect := s.db.QueryRowContext(ctx, `
 		SELECT access_level FROM datasource_access WHERE user_id = $1 AND datasource_id = $2
 	`, userID, datasourceID).Scan(&directLevel)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("check direct access: %w", err)
+	if errDirect != nil && !errors.Is(errDirect, sql.ErrNoRows) {
+		return fmt.Errorf("check direct access: %w", errDirect)
 	}
 
 	if directLevel.Valid && levelSatisfies(directLevel.String, requiredLevel) {
@@ -226,7 +234,7 @@ func (s *DatasourceAccessService) CheckAccess(ctx context.Context, userID, datas
 	}
 
 	var workspaceLevel sql.NullString
-	err = s.db.QueryRowContext(ctx, `
+	errWorkspace := s.db.QueryRowContext(ctx, `
 		SELECT wd.access_level
 		FROM workspace_datasources wd
 		JOIN workspace_members wm ON wd.workspace_id = wm.workspace_id
@@ -236,8 +244,8 @@ func (s *DatasourceAccessService) CheckAccess(ctx context.Context, userID, datas
 		END DESC
 		LIMIT 1
 	`, userID, datasourceID).Scan(&workspaceLevel)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("check workspace access: %w", err)
+	if errWorkspace != nil && !errors.Is(errWorkspace, sql.ErrNoRows) {
+		return fmt.Errorf("check workspace access: %w", errWorkspace)
 	}
 
 	if workspaceLevel.Valid && levelSatisfies(workspaceLevel.String, requiredLevel) {

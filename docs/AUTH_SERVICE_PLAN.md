@@ -1130,11 +1130,11 @@ r.Route("/api", func(r chi.Router) {
 
 ### Aşama 7: DevOps ve Dokümantasyon (v0.7)
 
-- [ ] Docker Compose auth service entegrasyonu
+- [x] Docker Compose auth service entegrasyonu
 - [x] Health check ve readiness probe
-- [ ] Prometheus metrikleri
-- [ ] API dokümantasyonu (OpenAPI / Swagger)
-- [ ] Deployment runbook
+- [x] Prometheus metrikleri
+- [x] API dokümantasyonu (OpenAPI / Swagger)
+- [x] Deployment runbook
 
 ---
 

@@ -110,12 +110,14 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 		lockKey := fmt.Sprintf("login_failures:%s", req.Email)
 		val, err := s.redisClient.Get(ctx, lockKey).Int()
 		if err == nil && val >= 5 {
+			MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
 			return nil, ErrAccountLocked
 		}
 	}
 
 	user, err := s.userRepo.GetUserByEmail(ctx, req.Email)
 	if errors.Is(err, ErrUserNotFound) {
+		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
 		s.recordLoginFailure(ctx, req.Email)
 		return nil, ErrInvalidCredentials
 	} else if err != nil {
@@ -123,10 +125,12 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 	}
 
 	if !user.IsActive {
+		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
 		return nil, ErrInactiveUser
 	}
 
 	if user.PasswordHash == nil || !VerifyPassword(req.Password, *user.PasswordHash) {
+		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
 		s.recordLoginFailure(ctx, req.Email)
 		return nil, ErrInvalidCredentials
 	}
@@ -158,6 +162,8 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 
 	_ = s.userRepo.UpdateLastLogin(ctx, user.ID)
 
+	MetricLoginAttempts.WithLabelValues("password", "success").Inc()
+
 	return &TokenResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
@@ -171,6 +177,7 @@ func (s *AuthService) Refresh(ctx context.Context, req RefreshRequest, userAgent
 	// Rotate session
 	newRefreshToken, err := s.sessionMgr.RotateSession(ctx, req.RefreshToken, s.config.JWTRefreshTTL, userAgent, ipAddress)
 	if err != nil {
+		MetricTokenRefreshes.WithLabelValues("failed").Inc()
 		return nil, err
 	}
 
@@ -178,32 +185,40 @@ func (s *AuthService) Refresh(ctx context.Context, req RefreshRequest, userAgent
 	var userID string
 	err = s.sessionMgr.db.QueryRowContext(ctx, "SELECT user_id FROM sessions WHERE refresh_token = $1", newRefreshToken).Scan(&userID)
 	if err != nil {
+		MetricTokenRefreshes.WithLabelValues("failed").Inc()
 		return nil, fmt.Errorf("query session user: %w", err)
 	}
 
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
+		MetricTokenRefreshes.WithLabelValues("failed").Inc()
 		return nil, err
 	}
 
 	if !user.IsActive {
+		MetricTokenRefreshes.WithLabelValues("failed").Inc()
 		return nil, ErrInactiveUser
 	}
 
 	roles, err := s.rbacRepo.GetUserRoles(ctx, user.ID)
 	if err != nil {
+		MetricTokenRefreshes.WithLabelValues("failed").Inc()
 		return nil, err
 	}
 
 	workspaceID, err := s.userRepo.GetPersonalWorkspaceID(ctx, user.ID)
 	if err != nil {
+		MetricTokenRefreshes.WithLabelValues("failed").Inc()
 		return nil, err
 	}
 
 	accessToken, err := s.jwtMgr.GenerateToken(user.ID, user.Email, roles, workspaceID, nil)
 	if err != nil {
+		MetricTokenRefreshes.WithLabelValues("failed").Inc()
 		return nil, fmt.Errorf("generate access token: %w", err)
 	}
+
+	MetricTokenRefreshes.WithLabelValues("success").Inc()
 
 	return &TokenResponse{
 		AccessToken:  accessToken,
@@ -244,43 +259,53 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, provider string,
 	if errors.Is(err, ErrOAuthAccountNotFound) {
 		user, err = s.userRepo.CreateUserWithOAuth(ctx, userInfo.Email, userInfo.Name, provider, userInfo.Sub, token)
 		if err != nil {
+			MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()
 			return nil, err
 		}
 	} else if err != nil {
+		MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()
 		return nil, err
 	} else {
 		user, err = s.userRepo.GetUserByID(ctx, userID)
 		if err != nil {
+			MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()
 			return nil, err
 		}
 		_ = s.userRepo.LinkOAuthAccount(ctx, userID, provider, userInfo.Sub, token)
 	}
 
 	if !user.IsActive {
+		MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()
 		return nil, ErrInactiveUser
 	}
 
 	roles, err := s.rbacRepo.GetUserRoles(ctx, user.ID)
 	if err != nil {
+		MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()
 		return nil, err
 	}
 
 	workspaceID, err := s.userRepo.GetPersonalWorkspaceID(ctx, user.ID)
 	if err != nil {
+		MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()
 		return nil, err
 	}
 
 	accessToken, err := s.jwtMgr.GenerateToken(user.ID, user.Email, roles, workspaceID, nil)
 	if err != nil {
+		MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()
 		return nil, fmt.Errorf("generate access token: %w", err)
 	}
 
 	refreshToken, err := s.sessionMgr.CreateSession(ctx, user.ID, userAgent, ipAddress, s.config.JWTRefreshTTL)
 	if err != nil {
+		MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()
 		return nil, fmt.Errorf("create session: %w", err)
 	}
 
 	_ = s.userRepo.UpdateLastLogin(ctx, user.ID)
+
+	MetricLoginAttempts.WithLabelValues(provider, "success").Inc()
 
 	return &TokenResponse{
 		AccessToken:  accessToken,

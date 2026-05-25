@@ -19,6 +19,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -156,7 +157,7 @@ func newRouter(state *appState, authHandler *biqauth.AuthHandler, rbacHandler *b
 
 	r.Get("/health", state.handleHealth)
 	r.Get("/ready", state.handleReady)
-	r.Get("/metrics", state.handleMetrics)
+	r.Handle("/metrics", promhttp.Handler())
 
 	secure := len(cfg.WebAuthnOrigins) > 0 && strings.HasPrefix(cfg.WebAuthnOrigins[0], "https")
 
@@ -208,11 +209,6 @@ func (s *appState) handleReady(w http.ResponseWriter, r *http.Request) {
 		"uptime":  time.Since(s.startedAt).Round(time.Second).String(),
 		"service": s.serviceName,
 	})
-}
-
-func (s *appState) handleMetrics(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "text/plain")
-	_, _ = fmt.Fprint(w, "# HELP auth_up Service readiness\n# TYPE auth_up gauge\nauth_up 1\n")
 }
 
 func writeJSON(w http.ResponseWriter, status int, data any) {

@@ -163,6 +163,9 @@ services:
       BI_QUERY_TIMEOUT_SECONDS: 30
       BI_QUERY_MAX_ROWS: 10000
       BI_QUERY_MAX_RUNTIME_SECONDS: 60
+      BI_AUTH_ENABLED: "true"
+      BI_AUTH_SERVICE_URL: http://auth:8889
+      BI_AUTH_INTERNAL_TOKEN: dev-internal-token
     ports:
       - "8888:8888"
     depends_on:
@@ -172,6 +175,64 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+      auth:
+        condition: service_healthy
+
+  auth-db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: bi_auth
+      POSTGRES_USER: bi_auth_user
+      POSTGRES_PASSWORD: bi_auth_password
+    ports:
+      - "5434:5432"
+    volumes:
+      - auth_data:/var/lib/postgresql
+      - ./migrations/auth:/migrations:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bi_auth_user -d bi_auth"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  auth-migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.auth-migrate
+    environment:
+      BI_AUTH_DB_DSN: postgres://bi_auth_user:bi_auth_password@auth-db:5432/bi_auth?sslmode=disable
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    restart: "no"
+
+  auth:
+    build:
+      context: .
+      dockerfile: Dockerfile.auth
+    environment:
+      BI_AUTH_PORT: 8889
+      BI_AUTH_DB_DSN: postgres://bi_auth_user:bi_auth_password@auth-db:5432/bi_auth?sslmode=disable
+      BI_AUTH_REDIS_DSN: redis://redis:6379
+      BI_AUTH_INTERNAL_TOKEN: dev-internal-token
+      BI_AUTH_RATE_LIMIT_PER_MINUTE: 60
+      BI_AUTH_WEBAUTHN_RP_ID: localhost
+      BI_AUTH_WEBAUTHN_RP_NAME: Biqly
+      BI_AUTH_WEBAUTHN_RP_ORIGINS: http://localhost:5173,http://localhost:3333
+    ports:
+      - "8889:8889"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8889/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   frontend:
     build:
@@ -190,3 +251,4 @@ volumes:
   test_data:
   sqlserver_data:
   sqlserver_2022_data:
+  auth_data:

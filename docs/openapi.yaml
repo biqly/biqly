@@ -1,0 +1,1203 @@
+openapi: 3.0.3
+info:
+  title: Biqly Auth Service API
+  description: Standalone authentication, authorization (RBAC), and session management service for the Biqly Business Intelligence platform.
+  version: 0.7.0
+servers:
+  - url: http://localhost:8889
+    description: Local Auth Service
+paths:
+  # --- Public Auth Endpoints ---
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Invalid request or email already exists
+
+  /auth/login:
+    post:
+      summary: Authenticate user with email and password
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Successful authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Invalid credentials or account locked/inactive
+
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Tokens refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Invalid or expired refresh token
+
+  /auth/logout:
+    post:
+      summary: Invalidate current refresh token/session
+      tags:
+        - Authentication
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Logged out successfully
+
+  /auth/forgot-password:
+    post:
+      summary: Send password reset link
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Password reset email sent
+
+  /auth/reset-password:
+    post:
+      summary: Reset password with validation token
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - new_password
+              properties:
+                token:
+                  type: string
+                new_password:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: Password reset successfully
+
+  /auth/verify-email:
+    get:
+      summary: Verify email address
+      tags:
+        - Authentication
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Email verified successfully
+
+  /auth/resend-verification:
+    post:
+      summary: Resend email verification link
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Verification email resent
+
+  # --- OAuth Endpoints ---
+  /auth/oauth/{provider}:
+    get:
+      summary: Initiate OAuth login flow
+      tags:
+        - OAuth
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [google, github]
+      responses:
+        '302':
+          description: Redirects to OAuth provider login screen
+
+  /auth/oauth/{provider}/callback:
+    get:
+      summary: Callback endpoint for OAuth authentication
+      tags:
+        - OAuth
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [google, github]
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OAuth login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+
+  # --- Passkey / WebAuthn ---
+  /auth/passkey/login-begin:
+    post:
+      summary: Start WebAuthn passkey login flow
+      tags:
+        - WebAuthn
+      responses:
+        '200':
+          description: Passkey login options payload (PublicKeyCredentialRequestOptions)
+
+  /auth/passkey/login-finish:
+    post:
+      summary: Complete WebAuthn passkey login
+      tags:
+        - WebAuthn
+      responses:
+        '200':
+          description: Successful authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+
+  # --- Protected Profile & Passkeys ---
+  /auth/me:
+    get:
+      summary: Get current authenticated user profile
+      tags:
+        - Profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+
+  /auth/passkey/register-begin:
+    post:
+      summary: Start passkey registration for the current user
+      tags:
+        - WebAuthn
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Passkey registration options (PublicKeyCredentialCreationOptions)
+
+  /auth/passkey/register-finish:
+    post:
+      summary: Complete passkey registration
+      tags:
+        - WebAuthn
+      security:
+        - BearerAuth: []
+      responses:
+        '201':
+          description: Passkey registered successfully
+
+  /auth/me/passkeys:
+    get:
+      summary: List current user's registered passkeys
+      tags:
+        - WebAuthn
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of passkeys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PasskeyInfo'
+
+  /auth/me/passkeys/{id}:
+    delete:
+      summary: Delete a registered passkey
+      tags:
+        - WebAuthn
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Passkey deleted successfully
+
+  # --- Workspace Management ---
+  /auth/workspaces:
+    get:
+      summary: List workspaces user is member of
+      tags:
+        - Workspaces
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Array of workspaces
+    post:
+      summary: Create a new workspace
+      tags:
+        - Workspaces
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '201':
+          description: Workspace created successfully
+
+  /auth/workspaces/{id}:
+    get:
+      summary: Get workspace details
+      tags:
+        - Workspaces
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Workspace details
+    put:
+      summary: Update workspace details
+      tags:
+        - Workspaces
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Workspace updated
+    delete:
+      summary: Delete a workspace
+      tags:
+        - Workspaces
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Workspace deleted
+
+  # --- Workspace Members ---
+  /auth/workspaces/{id}/members:
+    get:
+      summary: List members of a workspace
+      tags:
+        - Workspaces
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Workspace members list
+    post:
+      summary: Add a member to a workspace
+      tags:
+        - Workspaces
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - role_id
+              properties:
+                user_id:
+                  type: string
+                role_id:
+                  type: string
+      responses:
+        '201':
+          description: Member added successfully
+
+  /auth/workspaces/{id}/members/{userId}:
+    put:
+      summary: Update a workspace member's role
+      tags:
+        - Workspaces
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role_id
+              properties:
+                role_id:
+                  type: string
+      responses:
+        '204':
+          description: Role updated successfully
+    delete:
+      summary: Remove a member from a workspace
+      tags:
+        - Workspaces
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Member removed successfully
+
+  # --- Workspace Datasources ---
+  /auth/workspaces/{id}/datasources:
+    get:
+      summary: List datasources attached to a workspace
+      tags:
+        - Workspaces
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Workspace datasources list
+    post:
+      summary: Attach a datasource to workspace
+      tags:
+        - Workspaces
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - datasource_id
+              properties:
+                datasource_id:
+                  type: string
+                access_level:
+                  type: string
+                  enum: [read, write, admin]
+                  default: read
+      responses:
+        '201':
+          description: Datasource attached successfully
+
+  /auth/workspaces/{id}/datasources/{dsId}:
+    delete:
+      summary: Detach a datasource from workspace
+      tags:
+        - Workspaces
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: dsId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Datasource detached
+
+  # --- Datasource Access Checks & Sharing ---
+  /auth/me/datasources:
+    get:
+      summary: List user's accessible datasources
+      tags:
+        - RBAC
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Accessible datasource list
+
+  /auth/me/datasources/{id}/check:
+    get:
+      summary: Check if user has specific access level on datasource
+      tags:
+        - RBAC
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: level
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [read, write, admin]
+            default: read
+      responses:
+        '200':
+          description: Access evaluation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  allowed:
+                    type: boolean
+                  reason:
+                    type: string
+
+  /auth/shares:
+    post:
+      summary: Share a resource (semantic model, workspace)
+      tags:
+        - Sharing
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - resource_type
+                - resource_id
+                - target_user_id
+                - permission
+              properties:
+                resource_type:
+                  type: string
+                resource_id:
+                  type: string
+                target_user_id:
+                  type: string
+                permission:
+                  type: string
+      responses:
+        '201':
+          description: Share created successfully
+    get:
+      summary: List shared resources
+      tags:
+        - Sharing
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: resource_type
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: mode
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [owned, shared]
+      responses:
+        '200':
+          description: List of shares
+
+  /auth/shares/{id}:
+    delete:
+      summary: Revoke a resource share
+      tags:
+        - Sharing
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Share revoked
+
+  # --- Admin Endpoints ---
+  /auth/admin/datasource-access:
+    get:
+      summary: Admin - List all datasource access configurations
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of all accesses
+    post:
+      summary: Admin - Grant direct datasource access override
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - datasource_id
+                - access_level
+              properties:
+                user_id:
+                  type: string
+                datasource_id:
+                  type: string
+                access_level:
+                  type: string
+                  enum: [read, write, admin]
+      responses:
+        '201':
+          description: Access override created
+
+  /auth/admin/datasource-access/{id}:
+    put:
+      summary: Admin - Update access override level
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - access_level
+              properties:
+                access_level:
+                  type: string
+                  enum: [read, write, admin]
+      responses:
+        '204':
+          description: Access level updated
+    delete:
+      summary: Admin - Revoke access override
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Access override revoked
+
+  /auth/admin/roles:
+    get:
+      summary: Admin - List all platform roles
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of roles
+
+  /auth/admin/permissions:
+    get:
+      summary: Admin - List all platform permissions
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of permissions
+
+  /auth/admin/users/{id}/roles:
+    post:
+      summary: Admin - Assign role to a user
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role_id
+              properties:
+                role_id:
+                  type: string
+                scope_type:
+                  type: string
+                scope_id:
+                  type: string
+      responses:
+        '201':
+          description: Role assigned successfully
+
+  /auth/admin/users/{id}/roles/{roleId}:
+    delete:
+      summary: Admin - Remove role from a user
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Role removed successfully
+
+  /auth/admin/audit-log:
+    get:
+      summary: Admin - Query security & access audit logs
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: action
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Matching audit logs
+
+  # --- Internal Services API ---
+  /internal/auth/verify:
+    post:
+      summary: Internal - Validate access token and parse claims
+      tags:
+        - Internal
+      security:
+        - InternalTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+      responses:
+        '200':
+          description: Valid token claims
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Invalid token
+
+  /internal/auth/user/{id}/permissions:
+    get:
+      summary: Internal - List all permissions granted to user
+      tags:
+        - Internal
+      security:
+        - InternalTokenAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User permissions
+
+  /internal/auth/check-permission:
+    post:
+      summary: Internal - Evaluate explicit permission check
+      tags:
+        - Internal
+      security:
+        - InternalTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - permission
+              properties:
+                user_id:
+                  type: string
+                permission:
+                  type: string
+                scope_type:
+                  type: string
+                scope_id:
+                  type: string
+                workspace_id:
+                  type: string
+      responses:
+        '200':
+          description: Check evaluation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  allowed:
+                    type: boolean
+
+  /internal/auth/user/{id}/datasources:
+    get:
+      summary: Internal - List accessible datasource IDs for user
+      tags:
+        - Internal
+      security:
+        - InternalTokenAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Accessible datasources
+
+  /internal/auth/check-datasource-access:
+    post:
+      summary: Internal - Check user access level to a datasource
+      tags:
+        - Internal
+      security:
+        - InternalTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - datasource_id
+              properties:
+                user_id:
+                  type: string
+                datasource_id:
+                  type: string
+                level:
+                  type: string
+                  enum: [read, write, admin]
+      responses:
+        '200':
+          description: Check result
+
+  /internal/auth/user/{id}/workspaces:
+    get:
+      summary: Internal - List workspaces for user
+      tags:
+        - Internal
+      security:
+        - InternalTokenAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Workspace membership list
+
+  /internal/auth/invalidate-cache:
+    post:
+      summary: Internal - Invalidate security cache for user
+      tags:
+        - Internal
+      security:
+        - InternalTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+              properties:
+                user_id:
+                  type: string
+      responses:
+        '204':
+          description: Cache invalidated
+
+  /internal/auth/public-key:
+    get:
+      summary: Internal - Retrieve current RSA public key in PEM format
+      tags:
+        - Internal
+      security:
+        - InternalTokenAuth: []
+      responses:
+        '200':
+          description: RSA public key PEM
+
+  # --- DevOps/Health Metrics ---
+  /health:
+    get:
+      summary: Health check endpoint
+      tags:
+        - DevOps
+      responses:
+        '200':
+          description: Service is healthy
+  /ready:
+    get:
+      summary: Readiness check (database and redis ping)
+      tags:
+        - DevOps
+      responses:
+        '200':
+          description: Service dependencies are ready
+  /metrics:
+    get:
+      summary: Prometheus metrics endpoint
+      tags:
+        - DevOps
+      responses:
+        '200':
+          description: Prometheus metrics in text exposition format
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    InternalTokenAuth:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - display_name
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 8
+        display_name:
+          type: string
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    RefreshRequest:
+      type: object
+      required:
+        - refresh_token
+      properties:
+        refresh_token:
+          type: string
+
+    TokenResponse:
+      type: object
+      required:
+        - access_token
+        - refresh_token
+        - user_id
+        - email
+        - roles
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        user_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        roles:
+          type: array
+          items:
+            type: string
+
+    UserResponse:
+      type: object
+      required:
+        - id
+        - email
+        - is_active
+        - email_verified
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+          nullable: true
+        display_name:
+          type: string
+          nullable: true
+        avatar_url:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        email_verified:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PasskeyInfo:
+      type: object
+      required:
+        - id
+        - name
+        - created_at
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
