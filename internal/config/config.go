@@ -22,6 +22,20 @@ type Config struct {
 	AI       AIConfig
 	NATS     NATSConfig
 	Jobs     JobsConfig
+	Auth     AuthConfig
+}
+
+// AuthConfig wires the monolith to the standalone auth service.
+//
+// When Enabled is false, all /api/* routes fall back to the legacy
+// APIKeyAuth middleware. When Enabled is true, /api/* routes verify a JWT
+// against the auth service's public key, and routes can additionally enforce
+// permission and datasource-access checks via the bimw.RequirePermission /
+// bimw.RequireDatasourceAccess middleware.
+type AuthConfig struct {
+	Enabled       bool
+	ServiceURL    string
+	InternalToken string
 }
 
 // NATSConfig holds NATS JetStream settings for async AI jobs.
@@ -280,6 +294,11 @@ func Load() (*Config, error) {
 		},
 		Jobs: JobsConfig{
 			Enabled: getEnvAsBool("BI_AI_JOBS_ENABLED", true),
+		},
+		Auth: AuthConfig{
+			Enabled:       getEnvAsBool("BI_AUTH_ENABLED", false),
+			ServiceURL:    strings.TrimRight(getEnv("BI_AUTH_SERVICE_URL", ""), "/"),
+			InternalToken: getEnv("BI_AUTH_INTERNAL_TOKEN", ""),
 		},
 	}
 

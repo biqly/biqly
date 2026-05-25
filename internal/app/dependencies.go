@@ -85,6 +85,7 @@ type AIJobsHTTPHandler interface {
 	AdminListStale(http.ResponseWriter, *http.Request)
 	AdminCancelAllStale(http.ResponseWriter, *http.Request)
 	DescribeBatchConflict(http.ResponseWriter, *http.Request)
+	QueueStatus(http.ResponseWriter, *http.Request)
 }
 
 // NewDependencies wires up all dependencies. The constructor is composed

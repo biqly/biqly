@@ -70,11 +70,10 @@ func Router(deps *app.Dependencies) http.Handler {
 	r.With(bimw.APIKeyAuth(deps.Config.Security.MetricsAPIKey)).Get("/metrics", MetricsHandler)
 
 	// API routes
-	if deps.Config.Security.APIKey == "" {
-		slog.Warn("BI_API_KEY is empty — /api/* routes are unauthenticated. Set BI_API_KEY in production.")
-	}
+	authMW := buildAPIAuthMiddleware(deps)
+
 	r.Route("/api", func(r chi.Router) {
-		r.Use(bimw.APIKeyAuth(deps.Config.Security.APIKey))
+		r.Use(authMW)
 
 		// Default API timeout for CRUD / metadata / history endpoints. AI
 		// sub-routes opt into the longer AIRequestTimeout below; query exec

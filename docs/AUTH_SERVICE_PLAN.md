@@ -1080,12 +1080,14 @@ r.Route("/api", func(r chi.Router) {
 - [x] JWTAuth middleware (monolit)
 - [x] RequirePermission middleware (monolit)
 - [x] RequireDatasourceAccess middleware (monolit)
-- [ ] İzin bazlı route koruması router.go'da
-- [ ] Datasource erişim bazlı route koruması router.go'da
+- [x] Auth feature-flag (`BI_AUTH_ENABLED`) ile JWT/APIKey arasında geçiş
+- [ ] İzin bazlı route koruması router.go'da (middleware hazır)
+- [ ] Datasource erişim bazlı route koruması router.go'da (middleware hazır)
 - [x] Permission cache (in-memory, 5dk TTL)
 - [x] Datasource access cache (in-memory + Redis SET, 5dk TTL)
-- [ ] AI history user_id filtreleme + alan maskeleme
-- [ ] query_history + ai_query_history tablolarına user_id ekleme
+- [x] AI history user_id filtreleme + alan maskeleme helper (`FilterAIHistoryForUser`, `MaskAIHistoryRow`)
+- [x] query_history + ai_query_history tablolarında user_id mevcut, ai_jobs için 030 migration
+- [x] AI kuyruk durum endpoint'i: GET /api/ai/jobs/queue/status (toplam + kendi pozisyonu)
 - [ ] Admin paneli frontend (kullanıcı listesi, rol atama)
 - [ ] Denetim günlüğü UI
 
@@ -1343,7 +1345,11 @@ r.Route("/api", func(r chi.Router) {
 - [ ] ArgoCD: auth migrate job PreSync hook
 - [ ] Auth DB migrasyon Job template
 - [ ] NetworkPolicy: auth service ingress/egress
-- [ ] HTTPRoute: gateway routing `/auth` prefix
+- [ ] HTTPRoute: gateway routing `/auth` + `/api/auth` prefix
+- [ ] Cloudflared ConfigMap: `^/api/auth` ve `^/auth` route'ları `abi.il1.nl` bloğuna ekleme
+- [ ] Cloudflared rollout restart: ConfigMap değişikliği sonrası pod restart
+- [ ] Cloudflared route doğrulama: curl test `https://abi.il1.nl/auth/signin`
+- [ ] Cloudflare Zero Trust Access Policy (opsiyonel): `/auth/admin/*` için ek koruma
 - [ ] Secret template: JWT private key, OAuth secrets, SMTP
 - [ ] JWT public key Secret (catalog/query/ai chart'larına mount)
 - [ ] HPA: auth service autoscaling
@@ -2026,6 +2032,13 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: biqly
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+        - podSelector:
+            matchLabels:
+              app: cloudflared
       ports:
         - protocol: TCP
           port: {{ .Values.service.port }}
@@ -2067,6 +2080,146 @@ spec:
         - path:
             type: PathPrefix
             value: /auth
+      backendRefs:
+        - name: {{ include "auth.fullname" . }}
+          port: {{ .Values.service.port }}
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/auth
+      backendRefs:
+        - name: {{ include "auth.fullname" . }}
+          port: {{ .Values.service.port }}
+```
+
+> **Not**: Mevcut Biqly altyapısında cloudflared, Cilium Gateway HTTPRoute'larını bypass ederek
+> doğrudan ClusterIP service'lere route ediyor (cilium-envoy DS upstream connect sorunu nedeniyle).
+> Bu nedenle Gateway HTTPRoute tanımlanmış olsa bile cloudflared ConfigMap'ine de eklenmesi **zorunlu**.
+> Aşağıdaki bölüm 19.6.1'e bakınız.
+
+### 19.6.1 Cloudflared Tunnel Route — `abi.il1.nl`
+
+Mevcut cloudflared ConfigMap (`kube-system/cloudflared-config`) doğrudan ClusterIP service'lere
+route yapıyor. Auth service'in aşağıdaki ingress kuralları `abi.il1.nl` bloğuna, **frontend catch-all'dan
+önce** eklenmesi gerekiyor.
+
+**Mevcut `abi.il1.nl` route'ları (özet):**
+
+```yaml
+# Mevcut — cloudflared ConfigMap'deki abi.il1.nl bloğu
+- hostname: "abi.il1.nl"
+  path: "^/api/datasources"        → biqly-catalog:8080
+- hostname: "abi.il1.nl"
+  path: "^/api/metadata"           → biqly-catalog:8080
+- hostname: "abi.il1.nl"
+  path: "^/api/semantic"           → biqly-catalog:8080
+- hostname: "abi.il1.nl"
+  path: "^/api/query"              → biqly-query:8081
+- hostname: "abi.il1.nl"
+  path: "^/api/ai"                 → biqly-ai:8082
+- hostname: "abi.il1.nl"
+  path: "^/health"                 → biqly-catalog:8080
+- hostname: "abi.il1.nl"
+  path: "^/ready"                  → biqly-catalog:8080
+- hostname: "abi.il1.nl"
+  path: "^/metrics"                → biqly-catalog:8080
+- hostname: "abi.il1.nl"           → biqly-frontend:8080  # catch-all
+```
+
+**Eklenecek auth route'ları** (`/api/ai` ile `/health` arasına, frontend catch-all'dan önce):
+
+```yaml
+# ── Auth Service ──────────────────────────────────────────────
+# /api/auth altındaki tüm auth API endpoint'leri (register, login, OAuth, passkey, RBAC admin)
+- hostname: "abi.il1.nl"
+  path: "^/api/auth"
+  service: http://biqly-auth.biqly.svc.cluster.local:8889
+# /auth altındaki public auth sayfaları (signin, signup, forgot-password, vb.)
+- hostname: "abi.il1.nl"
+  path: "^/auth"
+  service: http://biqly-auth.biqly.svc.cluster.local:8889
+```
+
+**Tam güncellenmiş `abi.il1.nl` bloğu:**
+
+```yaml
+# abi.il1.nl (biqly) — path-based fan-out
+- hostname: "abi.il1.nl"
+  path: "^/api/datasources"
+  service: http://biqly-catalog.biqly.svc.cluster.local:8080
+- hostname: "abi.il1.nl"
+  path: "^/api/metadata"
+  service: http://biqly-catalog.biqly.svc.cluster.local:8080
+- hostname: "abi.il1.nl"
+  path: "^/api/semantic"
+  service: http://biqly-catalog.biqly.svc.cluster.local:8080
+- hostname: "abi.il1.nl"
+  path: "^/api/query"
+  service: http://biqly-query.biqly.svc.cluster.local:8081
+- hostname: "abi.il1.nl"
+  path: "^/api/ai"
+  service: http://biqly-ai.biqly.svc.cluster.local:8082
+# Auth Service — API endpoints + public auth pages
+- hostname: "abi.il1.nl"
+  path: "^/api/auth"
+  service: http://biqly-auth.biqly.svc.cluster.local:8889
+- hostname: "abi.il1.nl"
+  path: "^/auth"
+  service: http://biqly-auth.biqly.svc.cluster.local:8889
+- hostname: "abi.il1.nl"
+  path: "^/health"
+  service: http://biqly-catalog.biqly.svc.cluster.local:8080
+- hostname: "abi.il1.nl"
+  path: "^/ready"
+  service: http://biqly-catalog.biqly.svc.cluster.local:8080
+- hostname: "abi.il1.nl"
+  path: "^/metrics"
+  service: http://biqly-catalog.biqly.svc.cluster.local:8080
+- hostname: "abi.il1.nl"
+  service: http://biqly-frontend.biqly.svc.cluster.local:8080
+```
+
+**Uygulama adımları:**
+
+1. ConfigMap'i güncelle:
+   ```bash
+   kubectl edit configmap cloudflared-config -n kube-system
+   ```
+   `abi.il1.nl` bloğuna yukarıdaki iki auth kuralını ekle (`^/api/ai` ile `^/health` arasına).
+
+2. Cloudflared pod'unu restart et (ConfigMap değişikliği otomatik pickup yapmaz):
+   ```bash
+   kubectl rollout restart deployment cloudflared -n kube-system
+   ```
+
+3. Doğrulama:
+   ```bash
+   curl -sS https://abi.il1.nl/auth/signin | head -5
+   curl -sS -X POST https://abi.il1.nl/api/auth/login -d '{}' -H 'Content-Type: application/json' | head -5
+   ```
+
+4. DNS kontrolü: Cloudflare Zero Trust Dashboard → Tunnels → `prag-tunnel` → Public Hostname tab'ında
+   `abi.il1.nl` altında yeni path'lerin görünmediğini doğrula (path-based routing ConfigMap'de
+   yönetildiği için Dashboard'da görünmesine gerek yok).
+
+> **Önemli**: `/api/auth` path'i `/api/ai` ile çakışmaz çünkü regex eşleşmesi `^/api/auth`
+> sadece `/api/auth` ile başlayan yolları yakalar. Cloudflared'in path matching'i regex-based
+> ve ilk eşleşmeyi kullanır, bu yüzden sıralama önemli: daha spesifik path'ler önce gelmeli.
+> `/auth` path'i frontend catch-all'dan (`/`) önce tanımlandığından `/auth/signin`,
+> `/auth/signup` gibi SPA route'ları auth service'e gider.
+
+### 19.6.2 Cloudflare Zero Trust — Access Policy (Opsiyonel)
+
+Auth endpoint'leri (`/auth/register`, `/auth/login`) doğası gereği public olmalıdır.
+Ancak admin endpoint'leri (`/auth/admin/*`) için Cloudflare Access ile ek koruma eklenebilir:
+
+- [ ] Cloudflare Access Application: `abi.il1.nl/auth/admin` path'i için
+- [ ] Access Policy: Sadece belirli e-posta domain'leri veya IP'ler
+- [ ] Bu auth service'in kendi RBAC kontrolünün **yanı sıra** ekstra bir katman
+- [ ] Bypass: `/auth/register`, `/auth/login`, `/auth/oauth/*`, `/auth/passkey/*`, `/auth/refresh`
+
+Bu opsiyonel — auth service'in kendi JWT + RBAC kontrolü yeterlidir, ancak Zero Trust
+Dashboard'dan ek network-level koruma mümkündür.
       backendRefs:
         - name: {{ include "auth.fullname" . }}
           port: {{ .Values.service.port }}
@@ -2355,3 +2508,4 @@ env:
 | 2026-05-25 | BI-specific eklentiler: datasource erişim kontrolü, workspace modeli, AI sorgu izolasyonu, kaynak paylaşım, veri izolasyon politikası, 5 BI rolü, kuyruk görünürlük matrisi |
 | 2026-05-25 | Best practice eklemeleri: 2FA/MFA, token security, account security, audit/compliance, email, observability, password policy, frontend security, DR/HA, backward compat, migration |
 | 2026-05-25 | Kubernetes/Helm entegrasyonu: auth sub-chart, NetworkPolicy, HTTPRoute, migrate-job, PrometheusRule, Dockerfile, Docker Compose, ArgoCD hooks |
+| 2026-05-25 | Cloudflared Zero Trust tunnel: `abi.il1.nl` → auth service route'ları (`^/api/auth`, `^/auth`), ConfigMap güncelleme, cloudflared NetworkPolicy ingress, Zero Trust Access Policy (opsiyonel) |

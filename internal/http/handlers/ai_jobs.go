@@ -125,6 +125,19 @@ func (h *AIJobsHandler) List(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"jobs": jobs})
 }
 
+// QueueStatus returns the AI queue snapshot — pending count plus the caller's
+// position. Designed for all authenticated users: leaks only their own
+// position and the global count, never other users' details.
+func (h *AIJobsHandler) QueueStatus(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.URL.Query().Get("client_session_id")
+	status, err := h.svc.repo.GetAIQueueStatus(r.Context(), sessionID)
+	if err != nil {
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "queue status failed", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, status)
+}
+
 func staleJobOlderThan(r *http.Request) time.Duration {
 	mins := 15
 	if v := r.URL.Query().Get("older_minutes"); v != "" {

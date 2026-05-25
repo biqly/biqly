@@ -280,6 +280,64 @@ func (r *Repository) CancelActiveAIJobsBySession(ctx context.Context, sessionID 
 	return int(n), nil
 }
 
+type AIQueueStatus struct {
+	TotalPending int    `json:"total_pending"`
+	MyPosition   *int   `json:"my_position,omitempty"`
+	MyJobID      string `json:"my_job_id,omitempty"`
+	MyJobStatus  string `json:"my_job_status"`
+}
+
+// GetAIQueueStatus returns the global pending count plus the caller's position
+// in the queue. Position is 1-based; nil means the caller has no job in queue.
+func (r *Repository) GetAIQueueStatus(ctx context.Context, sessionID string) (*AIQueueStatus, error) {
+	status := &AIQueueStatus{MyJobStatus: "idle"}
+
+	err := r.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM ai_jobs WHERE status IN ($1, $2)
+	`, AIJobStatusPending, AIJobStatusQueued).Scan(&status.TotalPending)
+	if err != nil {
+		return nil, fmt.Errorf("count pending: %w", err)
+	}
+
+	if sessionID == "" {
+		return status, nil
+	}
+
+	var myJobID string
+	var myStatus string
+	var myCreated time.Time
+	err = r.db.QueryRowContext(ctx, `
+		SELECT id, status, created_at FROM ai_jobs
+		WHERE client_session_id = $1
+		  AND status IN ($2, $3, $4)
+		ORDER BY created_at ASC
+		LIMIT 1
+	`, sessionID, AIJobStatusPending, AIJobStatusQueued, AIJobStatusRunning).Scan(&myJobID, &myStatus, &myCreated)
+	if errors.Is(err, sql.ErrNoRows) {
+		return status, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get my job: %w", err)
+	}
+
+	status.MyJobID = myJobID
+	status.MyJobStatus = myStatus
+
+	if myStatus == AIJobStatusPending || myStatus == AIJobStatusQueued {
+		var position int
+		err = r.db.QueryRowContext(ctx, `
+			SELECT COUNT(*) + 1 FROM ai_jobs
+			WHERE status IN ($1, $2)
+			  AND created_at < $3
+		`, AIJobStatusPending, AIJobStatusQueued, myCreated).Scan(&position)
+		if err == nil {
+			status.MyPosition = &position
+		}
+	}
+
+	return status, nil
+}
+
 func (r *Repository) TryMarkAIJobRunning(ctx context.Context, id string) (bool, error) {
 	res, err := r.db.ExecContext(ctx, `
 		UPDATE ai_jobs
