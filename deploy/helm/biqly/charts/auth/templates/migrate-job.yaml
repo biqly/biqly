@@ -7,30 +7,64 @@ metadata:
     {{- include "auth.labels" . | nindent 4 }}
   annotations:
     argocd.argoproj.io/hook: PreSync
-    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+    argocd.argoproj.io/sync-wave: "-9"
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    helm.sh/hook-weight: "-9"
 spec:
   backoffLimit: {{ .Values.migrate.backoffLimit }}
   template:
     metadata:
       labels:
         {{- include "auth.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
     spec:
       restartPolicy: Never
       serviceAccountName: {{ include "auth.serviceAccountName" . }}
       automountServiceAccountToken: {{ .Values.global.serviceAccount.automountServiceAccountToken }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: migrate
-          image: {{ include "auth.image" . }}
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["./auth", "migrate", "up"]
+          image: {{ include "auth.migrateImage" . }}
+          imagePullPolicy: {{ .Values.migrate.image.pullPolicy }}
+          command: ["/auth-migrate"]
+          args:
+            - -dir
+            - /migrations/auth
+            - up
           env:
             - name: BI_AUTH_DB_DSN
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.global.secretNames.authDB }}
                   key: BI_AUTH_DB_DSN
-      {{- with .Values.global.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
 {{- end }}

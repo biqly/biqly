@@ -39,6 +39,17 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end -}}
 {{- end -}}
 
+{{- define "auth.migrateImage" -}}
+{{- $registry := trimSuffix "/" .Values.global.biqlyImageRegistry -}}
+{{- $repo := default .Values.image.repository .Values.migrate.image.repository -}}
+{{- $tag := default .Values.image.tag .Values.migrate.image.tag -}}
+{{- if $registry -}}
+{{- printf "%s/%s:%s" $registry $repo $tag -}}
+{{- else -}}
+{{- printf "%s:%s" $repo $tag -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "auth.configChecksum" -}}
 {{- include (print $.Template.BasePath "/configmap.yaml") . | sha256sum -}}
 {{- end -}}
