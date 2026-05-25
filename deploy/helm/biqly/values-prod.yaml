@@ -44,7 +44,12 @@ auth:
   enabled: true
   replicaCount: 1
   image:
-    tag: latest
+    repository: biqly-auth
+    tag: sha-f3d645a241955467e7c38ef566424de07281cefc
+  migrate:
+    image:
+      repository: biqly-auth
+      tag: sha-f3d645a241955467e7c38ef566424de07281cefc
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
