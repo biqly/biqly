@@ -78,6 +78,66 @@ interface DetailRowState {
   row: unknown[]
 }
 
+const PREFERRED_TITLE_COLUMN_PATTERNS = [
+  /^(title|name|label|subject|headline|heading|display_name)$/,
+  /^(text|body|content|message|description|caption|summary)$/,
+  /(_|^)(title|name|label|subject)$/,
+  /(_|^)(text|body|content|message|description)$/,
+]
+
+const ID_COLUMN_PATTERNS = [/^(id|uuid|pk)$/, /(_|^)id$/]
+
+function singularize(name: string): string {
+  const n = name.toLowerCase()
+  if (n.endsWith('ies')) return `${n.slice(0, -3)}y`
+  if (n.endsWith('s') && !n.endsWith('ss')) return n.slice(0, -1)
+  return n
+}
+
+function buildRowModalTitle(
+  row: unknown[],
+  columns: string[],
+  fallback: string,
+  tableKeyValue?: string | null,
+): string {
+  const stringValues: Array<{ name: string; value: string }> = []
+  for (let i = 0; i < columns.length; i++) {
+    const v = row[i]
+    if (v == null) continue
+    const s = typeof v === 'string' ? v : typeof v === 'number' ? String(v) : ''
+    const trimmed = s.trim()
+    if (!trimmed) continue
+    const colName = columns[i]
+    if (!colName) continue
+    stringValues.push({ name: colName.toLowerCase(), value: trimmed })
+  }
+  if (stringValues.length === 0) return fallback
+
+  const truncate = (s: string) => (s.length > 80 ? `${s.slice(0, 77).trimEnd()}…` : s)
+
+  for (const pattern of PREFERRED_TITLE_COLUMN_PATTERNS) {
+    const hit = stringValues.find((c) => pattern.test(c.name))
+    if (hit) return truncate(hit.value)
+  }
+
+  // Prefer the table's own PK column (e.g. order_id for orders) over foreign keys.
+  if (tableKeyValue) {
+    const lastSegment = tableKeyValue.split('.').pop() ?? tableKeyValue
+    const singular = singularize(lastSegment)
+    const pkHit = stringValues.find(
+      (c) => c.name === `${singular}_id` || c.name === `${lastSegment.toLowerCase()}_id` || c.name === 'id',
+    )
+    if (pkHit) return truncate(`${pkHit.name} ${pkHit.value}`)
+  }
+
+  // Fall back to first id-like column.
+  for (const pattern of ID_COLUMN_PATTERNS) {
+    const hit = stringValues.find((c) => pattern.test(c.name))
+    if (hit) return truncate(`${hit.name} ${hit.value}`)
+  }
+  return fallback
+}
+
 function columnRefMatchesTable(
   ref: string | undefined | null,
   schema: string,
@@ -944,8 +1004,13 @@ export default function TableBrowser() {
       <Modal
         open={detailRow != null && result?.columns != null}
         title={
-          detailRow
-            ? t('table_browser.row_detail_title', { n: formatInt(detailRow.displayIndex) })
+          detailRow && result?.columns
+            ? buildRowModalTitle(
+                detailRow.row,
+                result.columns.map((c) => c.name),
+                t('table_browser.row_detail_title', { n: formatInt(detailRow.displayIndex) }),
+                selectedTableKey ?? modelDetail?.base_table,
+              )
             : t('table_browser.row_detail')
         }
         subtitle={selectedTableKey || modelDetail?.base_table}
