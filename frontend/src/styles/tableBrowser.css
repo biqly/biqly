@@ -1,3 +1,42 @@
+.validation-error-banner__row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.validation-error-banner__title {
+  font-weight: 600;
+}
+
+.validation-error-banner__actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.validation-error-banner__list {
+  margin: 0.6rem 0 0 0;
+  padding: 0.4rem 0.75rem;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.25rem 0.75rem;
+  max-height: 12rem;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 0.5rem;
+  font-size: 0.82rem;
+}
+
+.validation-error-banner__list code {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  color: var(--text-secondary);
+  background: transparent;
+  padding: 0;
+}
+
 .card--table-browser {
   padding: 1.25rem 1.4rem 1.6rem;
   background: var(--bg-card);
@@ -617,6 +656,18 @@
   align-items: center;
   gap: 0.45rem;
   flex-shrink: 0;
+}
+
+.table-browser-page-size .ui-select-trigger--sm {
+  min-height: 2rem;
+  height: 2rem;
+  padding: 0 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.table-browser-page-size .ui-select-trigger--sm .ui-select-value {
+  line-height: 1;
 }
 
 .table-browser-page-size-label {

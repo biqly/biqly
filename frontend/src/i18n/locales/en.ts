@@ -849,6 +849,10 @@ export const en = {
     range_unknown_total: 'Rows {{start}}–{{end}}',
     row_detail: 'Row details',
     row_detail_title: 'Row {{n}}',
+    validation_error_summary: 'Validation failed: {{count}} fields not in this model.',
+    validation_error_show: 'Show details',
+    validation_error_hide: 'Hide details',
+    validation_error_open_modeling: 'Open Modeling →',
   },
   dashboard: {
     title: 'AI Analytics',

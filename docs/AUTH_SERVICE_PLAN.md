@@ -1,0 +1,2283 @@
+# Biqly Auth Service — Planlama Dokümanı
+
+> **Durum**: Planlama Aşaması  
+> **Son Güncelleme**: 2026-05-25  
+> **Sorumlu**: Barış Doğu  
+
+---
+
+## 1. Genel Bakış
+
+Biqly'ye bağımsız bir **Auth Service** mikroservisi eklenmesi planlanmaktadır. Bu servis; kullanıcı kimlik doğrulama, yetkilendirme (RBAC), OAuth2 / OIDC tabanlı sosyal giriş, Apple Passkey (WebAuthn) desteği ve merkezi oturum yönetiminden sorumlu olacaktır.
+
+Mevcut Biqly monoliti (`cmd/api`) API-Key tabanlı basit bir yetkilendirme kullanmaktadır. Auth Service devreye girdikten sonra monolit'in `bimw.APIKeyAuth` middleware'i JWT doğrulama ile değiştirilecek, roller ve izinler merkezi olarak yönetilecektir.
+
+---
+
+## 2. Mimari
+
+```
+                    ┌─────────────────────┐
+                    │   Biqly Frontend    │
+                    │  React 19 + Vite 6  │
+                    └──────┬──────────────┘
+                           │
+                    ┌──────▼──────────────┐
+                    │   API Gateway /     │
+                    │   Biqly Monolith    │  ← JWT verification middleware
+                    │   (cmd/api)         │
+                    └──────┬──────────────┘
+                           │ gRPC / Internal HTTP
+                    ┌──────▼──────────────┐
+                    │   Auth Service      │  ← Yeni mikroservis
+                    │   (cmd/auth)        │
+                    └──┬───┬───┬──────────┘
+                       │   │   │
+          ┌────────────┘   │   └───────────────┐
+          ▼                ▼                   ▼
+   ┌─────────────┐  ┌─────────────┐    ┌──────────────┐
+   │  PostgreSQL  │  │    Redis    │    │  OAuth2      │
+   │  (auth DB)   │  │  (sessions) │    │  Providers   │
+   └─────────────┘  └─────────────┘    └──────────────┘
+                                            │
+                              ┌──────────────┼──────────────┐
+                              ▼              ▼              ▼
+                        ┌─────────┐   ┌─────────┐   ┌──────────┐
+                        │ GitHub  │   │ Google  │   │  Apple   │
+                        │ OAuth2  │   │ OAuth2  │   │ Passkey  │
+                        └─────────┘   └─────────┘   │ WebAuthn │
+                                                     └──────────┘
+```
+
+---
+
+## 3. Teknoloji Seçimleri
+
+| Katman | Teknoloji | Açıklama |
+|---|---|---|
+| Dil | Go 1.26 | Ana proje ile tutarlılık |
+| HTTP | `go-chi/chi/v5` | Ana proje ile aynı router |
+| DB | PostgreSQL | `pgx/v5`, ayrı `bi_auth` veritabanı |
+| Cache | Redis | Oturum ve token blacklist |
+| Migrasyon | `golang-migrate/migrate/v4` | Ana projeyle aynı araç |
+| JWT | `golang-jwt/jwt/v5` | RS256 imzalama |
+| Şifre Hash | `golang.org/x/crypto/bcrypt` | bcrypt, cost=12 |
+| WebAuthn | `go-webauthn/webauthn` | Apple Passkey / FIDO2 |
+| OAuth2 | `golang.org/x/oauth2` | GitHub ve Google |
+| gRPC | İsteğe bağlı, başlangıçta internal HTTP | Monolit ile iletişim |
+| Frontend | React 19 + TypeScript | Mevcut frontend entegrasyonu |
+
+---
+
+## 4. Veritabanı Şeması
+
+### 4.1 `users`
+
+```sql
+CREATE TABLE users (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email         TEXT    NOT NULL UNIQUE,
+    username      TEXT    UNIQUE,
+    display_name  TEXT,
+    avatar_url    TEXT,
+    password_hash TEXT,               -- NULL for OAuth-only users
+    is_active     BOOLEAN NOT NULL DEFAULT TRUE,
+    email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_login_at TIMESTAMPTZ
+);
+```
+
+### 4.2 `oauth_accounts`
+
+```sql
+CREATE TABLE oauth_accounts (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider     TEXT NOT NULL,        -- 'github', 'google', 'apple'
+    provider_uid TEXT NOT NULL,        -- provider-specific user ID
+    access_token  TEXT,
+    refresh_token TEXT,
+    token_expires_at TIMESTAMPTZ,
+    scope        TEXT,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(provider, provider_uid)
+);
+```
+
+### 4.3 `passkeys` (WebAuthn)
+
+```sql
+CREATE TABLE passkeys (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    credential_id   BYTEA NOT NULL UNIQUE,
+    public_key      BYTEA NOT NULL,
+    attestation_type TEXT NOT NULL,
+    transport       TEXT[],
+    sign_count      BIGINT NOT NULL DEFAULT 0,
+    name            TEXT,              -- user-given name e.g. "iPhone 15"
+    aaguid          UUID,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_used_at    TIMESTAMPTZ
+);
+```
+
+### 4.4 `webauthn_challenges`
+
+```sql
+CREATE TABLE webauthn_challenges (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    challenge  BYTEA NOT NULL,
+    user_id    UUID,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL
+);
+```
+
+### 4.5 `roles`
+
+```sql
+CREATE TABLE roles (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        TEXT NOT NULL UNIQUE,  -- 'admin', 'editor', 'viewer', 'data_engineer'
+    description TEXT,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+### 4.6 `permissions`
+
+```sql
+CREATE TABLE permissions (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        TEXT NOT NULL UNIQUE,  -- 'datasource:read', 'query:execute', 'model:publish'
+    description TEXT,
+    resource    TEXT NOT NULL,         -- 'datasource', 'query', 'model', 'ai', 'admin'
+    action      TEXT NOT NULL,         -- 'read', 'write', 'delete', 'execute', 'publish'
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+### 4.7 `role_permissions`
+
+```sql
+CREATE TABLE role_permissions (
+    role_id       UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    permission_id UUID NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
+    PRIMARY KEY (role_id, permission_id)
+);
+```
+
+### 4.8 `user_roles`
+
+```sql
+CREATE TABLE user_roles (
+    user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role_id    UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    scope_type TEXT,                   -- 'global', 'datasource', 'model'
+    scope_id   UUID,                   -- NULL for global scope
+    granted_by UUID REFERENCES users(id),
+    granted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, role_id, COALESCE(scope_type, ''), COALESCE(scope_id, '00000000-0000-0000-0000-000000000000'))
+);
+```
+
+### 4.9 `sessions`
+
+```sql
+CREATE TABLE sessions (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    refresh_token TEXT NOT NULL UNIQUE,
+    user_agent   TEXT,
+    ip_address   INET,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at   TIMESTAMPTZ NOT NULL,
+    revoked_at   TIMESTAMPTZ
+);
+```
+
+### 4.10 `audit_log`
+
+```sql
+CREATE TABLE audit_log (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    UUID REFERENCES users(id),
+    action     TEXT NOT NULL,          -- 'login', 'logout', 'role.assign', 'permission.check'
+    resource   TEXT,
+    resource_id TEXT,
+    metadata   JSONB,
+    ip_address INET,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+### 4.11 `email_verification_tokens`
+
+```sql
+CREATE TABLE email_verification_tokens (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token      TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at    TIMESTAMPTZ
+);
+```
+
+### 4.12 `password_reset_tokens`
+
+```sql
+CREATE TABLE password_reset_tokens (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token      TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at    TIMESTAMPTZ
+);
+```
+
+### 4.13 `datasource_access` (Datasource Erişim Kontrolü)
+
+```sql
+CREATE TABLE datasource_access (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    datasource_id UUID NOT NULL,           -- bi_metadata.datasources.id referansı
+    access_level  TEXT NOT NULL DEFAULT 'read',  -- 'read', 'write', 'admin'
+    granted_by    UUID REFERENCES users(id),
+    granted_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(user_id, datasource_id)
+);
+```
+
+> **Not**: `datasource_id` fiziksel FK ile `bi_metadata` DB'sine bağlanmaz — cross-database
+> referans UUID üzerinden uygulama seviyesinde çözülür. Bu, mikroservis bağımsızlığını korur.
+
+### 4.14 `workspaces` (Çalışma Alanı / Organizasyon)
+
+```sql
+CREATE TABLE workspaces (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        TEXT NOT NULL,
+    slug        TEXT NOT NULL UNIQUE,
+    description TEXT,
+    is_personal BOOLEAN NOT NULL DEFAULT FALSE, -- kişisel workspace
+    created_by  UUID NOT NULL REFERENCES users(id),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+### 4.15 `workspace_members`
+
+```sql
+CREATE TABLE workspace_members (
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role_id      UUID NOT NULL REFERENCES roles(id),
+    joined_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    invited_by   UUID REFERENCES users(id),
+    PRIMARY KEY (workspace_id, user_id)
+);
+```
+
+### 4.16 `workspace_datasources` (Workspace → Datasource Erişim)
+
+```sql
+CREATE TABLE workspace_datasources (
+    workspace_id  UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    datasource_id UUID NOT NULL,            -- bi_metadata.datasources.id
+    access_level  TEXT NOT NULL DEFAULT 'read',
+    attached_by   UUID REFERENCES users(id),
+    attached_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (workspace_id, datasource_id)
+);
+```
+
+### 4.17 `resource_shares` (Kaynak Paylaşım)
+
+```sql
+CREATE TABLE resource_shares (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    resource_type TEXT NOT NULL,             -- 'query', 'dashboard', 'model'
+    resource_id   UUID NOT NULL,             -- ilgili tablodaki kayıt ID
+    owner_id      UUID NOT NULL REFERENCES users(id),
+    shared_with   UUID REFERENCES users(id), -- NULL = workspace-wide
+    workspace_id  UUID REFERENCES workspaces(id),
+    permission    TEXT NOT NULL DEFAULT 'view', -- 'view', 'execute', 'edit'
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(resource_type, resource_id, COALESCE(shared_with, '00000000-0000-0000-0000-000000000000'), COALESCE(workspace_id, '00000000-0000-0000-0000-000000000000'))
+);
+```
+
+> **Tasarım Notu**: Workspace modeli, ileride multi-tenant organizasyon desteğine
+> temel oluşturur. Kişisel workspace (is_personal=true) her kullanıcıya otomatik
+> oluşturulur. Ekip workspace'leri datasource, model ve sorguları gruplar.
+
+---
+
+## 5. Auth Service Proje Yapısı
+
+```
+cmd/auth/main.go                # Auth service entry point (port 8889)
+internal/
+├── auth/
+│   ├── service.go              # Core auth orchestrator
+│   ├── handler.go              # HTTP handlers (sign up, sign in, OAuth callbacks)
+│   ├── repository.go           # PostgreSQL user/session CRUD
+│   ├── jwt.go                  # JWT issue / verify / refresh
+│   ├── password.go             # bcrypt hashing + validation
+│   ├── oauth.go                # OAuth2 provider abstraction
+│   ├── oauth_github.go         # GitHub OAuth2 flow
+│   ├── oauth_google.go         # Google OAuth2 flow
+│   ├── webauthn.go             # WebAuthn / Passkey registration & auth
+│   ├── session.go              # Session management (Redis-backed)
+│   ├── rbac.go                 # Role & permission evaluation engine
+│   ├── rbac_repository.go      # Role/permission DB operations
+│   ├── datasource_access.go    # Datasource erişim kontrolü
+│   ├── workspace.go            # Workspace CRUD ve üye yönetimi
+│   ├── sharing.go              # Kaynak paylaşım yönetimi
+│   ├── validator.go            # Input validation (email, password strength)
+│   ├── email.go                # Email verification sender (SMTP)
+│   └── types.go                # Request/response types
+├── config/
+│   └── config.go               # Auth-specific env config
+└── platform/
+    └── db.go                   # Auth DB connection pool
+```
+
+---
+
+## 6. API Endpoints
+
+### 6.1 Auth (Public)
+
+| Method | Path | Açıklama |
+|---|---|---|
+| `POST` | `/auth/register` | E-posta + şifre ile kayıt |
+| `POST` | `/auth/login` | E-posta + şifre ile giriş |
+| `POST` | `/auth/refresh` | Access token yenileme |
+| `POST` | `/auth/logout` | Oturum sonlandırma |
+| `POST` | `/auth/forgot-password` | Şifre sıfırlama bağlantısı |
+| `POST` | `/auth/reset-password` | Yeni şifre belirleme |
+| `GET`  | `/auth/verify-email?token=...` | E-posta doğrulama |
+| `POST` | `/auth/resend-verification` | Doğrulama e-postası tekrar gönder |
+
+### 6.2 OAuth2 (Public)
+
+| Method | Path | Açıklama |
+|---|---|---|
+| `GET`  | `/auth/oauth/github` | GitHub OAuth2 redirect |
+| `GET`  | `/auth/oauth/github/callback` | GitHub callback |
+| `GET`  | `/auth/oauth/google` | Google OAuth2 redirect |
+| `GET`  | `/auth/oauth/google/callback` | Google callback |
+
+### 6.3 Passkey / WebAuthn (Public)
+
+| Method | Path | Açıklama |
+|---|---|---|
+| `POST` | `/auth/passkey/register-begin` | Registration challenge başlat |
+| `POST` | `/auth/passkey/register-finish` | Credential kaydet |
+| `POST` | `/auth/passkey/login-begin` | Authentication challenge başlat |
+| `POST` | `/auth/passkey/login-finish` | Credential doğrula ve giriş |
+
+### 6.4 Kullanıcı (Authenticated)
+
+| Method | Path | Açıklama |
+|---|---|---|
+| `GET`  | `/auth/me` | Aktif kullanıcı profili |
+| `PUT`  | `/auth/me` | Profil güncelleme |
+| `PUT`  | `/auth/me/password` | Şifre değiştirme |
+| `GET`  | `/auth/me/passkeys` | Kayıtlı passkey listesi |
+| `DELETE`| `/auth/me/passkeys/{id}` | Passkey sil |
+| `GET`  | `/auth/me/sessions` | Aktif oturumlar |
+| `DELETE`| `/auth/me/sessions/{id}` | Belirli oturumu sonlandır |
+
+### 6.5 Datasource Erişim (Admin / Self-Service)
+
+| Method | Path | Açıklama |
+|---|---|---|
+| `GET`  | `/auth/admin/datasource-access` | Tüm datasource erişim kayıtları |
+| `POST` | `/auth/admin/datasource-access` | Kullanıcıya datasource erişimi ver |
+| `PUT`  | `/auth/admin/datasource-access/{id}` | Erişim seviyesi güncelle |
+| `DELETE`| `/auth/admin/datasource-access/{id}` | Erişimi kaldır |
+| `GET`  | `/auth/me/datasources` | Kullanıcının erişebildiği datasource'lar |
+| `GET`  | `/auth/me/datasources/{id}/check` | Belirli datasource'a erişimi var mı? |
+
+### 6.6 Workspace (Authenticated)
+
+| Method | Path | Açıklama |
+|---|---|---|
+| `GET`  | `/auth/workspaces` | Kullanıcının workspace'leri |
+| `POST` | `/auth/workspaces` | Yeni workspace oluştur |
+| `GET`  | `/auth/workspaces/{id}` | Workspace detayı |
+| `PUT`  | `/auth/workspaces/{id}` | Workspace güncelle |
+| `DELETE`| `/auth/workspaces/{id}` | Workspace sil (sadece owner) |
+| `GET`  | `/auth/workspaces/{id}/members` | Workspace üyeleri |
+| `POST` | `/auth/workspaces/{id}/members` | Workspace'e üye ekle |
+| `PUT`  | `/auth/workspaces/{id}/members/{userId}` | Üye rolünü güncelle |
+| `DELETE`| `/auth/workspaces/{id}/members/{userId}` | Üyeyi kaldır |
+| `GET`  | `/auth/workspaces/{id}/datasources` | Workspace'e bağlı datasource'lar |
+| `POST` | `/auth/workspaces/{id}/datasources` | Workspace'e datasource bağla |
+| `DELETE`| `/auth/workspaces/{id}/datasources/{dsId}` | Datasource'u kaldır |
+
+### 6.7 Kaynak Paylaşım (Authenticated)
+
+| Method | Path | Açıklama |
+|---|---|---|
+| `POST` | `/auth/shares` | Kaynak paylaş (sorgu, dashboard, model) |
+| `GET`  | `/auth/shares?resource_type=query` | Paylaşılan kaynaklar |
+| `DELETE`| `/auth/shares/{id}` | Paylaşımı kaldır |
+
+### 6.8 RBAC Admin (Admin Only)
+
+| Method | Path | Açıklama |
+|---|---|---|
+| `GET`  | `/auth/admin/users` | Kullanıcı listesi |
+| `GET`  | `/auth/admin/users/{id}` | Kullanıcı detayı |
+| `PUT`  | `/auth/admin/users/{id}/status` | Kullanıcı aktif/pasif |
+| `POST` | `/auth/admin/users/{id}/roles` | Rol ata |
+| `DELETE`| `/auth/admin/users/{id}/roles/{roleId}` | Rol kaldır |
+| `GET`  | `/auth/admin/roles` | Rol listesi |
+| `POST` | `/auth/admin/roles` | Yeni rol oluştur |
+| `PUT`  | `/auth/admin/roles/{id}` | Rol güncelle |
+| `DELETE`| `/auth/admin/roles/{id}` | Rol sil |
+| `GET`  | `/auth/admin/permissions` | İzin listesi |
+| `POST` | `/auth/admin/permissions` | Yeni izin oluştur |
+| `GET`  | `/auth/admin/audit-log` | Denetim günlüğü |
+
+### 6.9 Internal (Peer Service)
+
+| Method | Path | Açıklama |
+|---|---|---|
+| `POST` | `/internal/auth/verify` | JWT doğrulama (monolit tarafından çağrılır) |
+| `POST` | `/internal/auth/check-permission` | İzin sorgulama |
+| `GET`  | `/internal/auth/user/{id}/permissions` | Kullanıcı izin listesi |
+| `GET`  | `/internal/auth/user/{id}/datasources` | Kullanıcının erişebildiği datasource ID'leri |
+| `POST` | `/internal/auth/check-datasource-access` | Datasource erişim kontrolü (user_id + datasource_id + level) |
+| `GET`  | `/internal/auth/user/{id}/workspaces` | Kullanıcının workspace'leri |
+| `POST` | `/internal/auth/invalidate-cache` | Permission/datasource cache invalidate |
+
+---
+
+## 7. JWT Stratejisi
+
+```
+Access Token:
+  - RS256 imzalı
+  - 15 dakika geçerlilik
+  - Payload: {
+      sub: user_id,
+      email,
+      roles[],
+      workspace_id,           -- aktif workspace
+      accessible_datasources[], -- erişilen datasource ID'leri (kısa liste için)
+      scope,
+      iat, exp
+    }
+  - HTTP-only cookie + Authorization header seçenekli
+  - accessible_datasources: uzun liste için JWT'ye konmaz,
+    bunun yerine Redis cache + /internal/auth/check-datasource-access kullanılır
+
+Refresh Token:
+  - Opaque (rastgele, DB'de saklanır)
+  - 7 gün geçerlilik
+  - HttpOnly, Secure, SameSite=Strict cookie
+  - Tek kullanımlık (rotation)
+
+Token Blacklist:
+  - Redis SET üzerinde revoked JWT ID'ler
+  - Access token süresi kısa olduğundan genellikle gerekmez
+  - Logout ve şifre değişikliğinde refresh token revokesi yeterli
+
+Datasource Erişim Cache:
+  - Redis SET "user:{id}:datasources" → {ds_uuid_1, ds_uuid_2, ...}
+  - TTL: 5 dakika (datasource_access değişikliğinde invalidate)
+  - Auth service internal endpoint üzerinden monolit'e sunulur
+```
+
+---
+
+## 8. Rol ve İzin Matrisi
+
+### 8.1 Varsayılan Roller (BI Uygulama Kurgusu)
+
+Biqly bir BI platformu olarak rolleri iş fonksiyonlarına göre tanımlar:
+
+| Rol | Tip | Açıklama | Kapsam |
+|---|---|---|---|
+| `super_admin` | Platform | Tüm sistem yönetimi, kullanıcı yönetimi, tüm datasource'lara tam erişim, audit log, deployment ayarları | Global |
+| `admin` | Organizasyon | Kullanıcı yönetimi, datasource yönetimi, rol atama, tüm modeller ve sorgular | Workspace |
+| `developer` | Teknik | Datasource ekleme, semantic model tasarımı, AI prompt yönetimi, eval süiti, raw SQL erişimi | Workspace |
+| `analyst` | İş | Sorgu çalıştırma, dashboard oluşturma, kaydedilmiş sorgular, AI NL→SQL kullanımı | Workspace |
+| `viewer` | Salt okunur | Dashboard ve kaydedilmiş sorgu görüntüleme, sonuç dışa aktarma | Workspace |
+
+**Rol hiyerarşisi** (yukarıdan aşağıya miras, ileride aktif edilecek):
+```
+super_admin → admin → developer → analyst → viewer
+```
+
+**BI-specific kurgu detayları:**
+
+- `super_admin`: Platform sahibi. Tüm workspace'leri görebilir. Datasource credential'larını yönetir. Kullanıcıları aktif/pasif yapar. Sistem ayarlarını değiştirir. Başka bir kullanıcının sorgusunun detayını (SQL, prompt, result) görebilir.
+- `admin`: Organizasyon/workspace yöneticisi. Ekip üyelerini davet eder, datasource erişim yetkisi dağıtır. Developer'ın oluşturduğu modelleri yayınlar. AI sorgu kuyruğunu ve detayları görebilir.
+- `developer`: Semantic layer mimarı. Datasource bağlantılarını kurar, model tanımlar, join'leri tasarlar. Prompt template ve few-shot example yönetir. Eval süitini çalıştırır. Analyst'ın çalıştırdığı sorguları göremez (sadece kuyruk durumu).
+- `analyst`: Günlük BI kullanıcısı. NL→SQL ile sorgu çalıştırır, dashboard oluşturur, sonuçları export eder. Sadece erişimi olan datasource'larda sorgu çalıştırabilir. Başkasının sorgusunu göremez, kuyrukta olduğunu görebilir.
+- `viewer`: Rapor tüketici. Dashboard ve kaydedilmiş sorgu sonuçlarını sadece görüntüler. Hiçbir veri kaynağına doğrudan sorgu gönderemez.
+
+### 8.2 İzinler
+
+```go
+// Resource:Action format
+// ── Datasource ──
+"datasource:create"           // Yeni datasource ekleme
+"datasource:read"             // Datasource listesi ve detay
+"datasource:update"           // Datasource güncelleme
+"datasource:delete"           // Datasource silme
+"datasource:grant_access"     // Başkasına datasource erişimi verme
+
+// ── Query ──
+"query:execute"               // Sorgu çalıştırma (sadece erişilen datasource'larda)
+"query:compile"               // SQL derleme (çalıştırmadan)
+"query:share"                 // Sorgu sonuçlarını paylaşma
+
+// ── Model ──
+"model:create"                // Semantic model oluşturma
+"model:read"                  // Model görüntüleme
+"model:update"                // Model düzenleme
+"model:delete"                // Model silme
+"model:publish"               // Model yayınlama
+
+// ── AI ──
+"ai:query"                    // AI NL→SQL sorgusu
+"ai:eval"                     // Eval süiti çalıştırma
+"ai:settings"                 // AI ayarlarını değiştirme
+"ai:queue:view_status"        // Kuyruk durumu görme (sadece count/status, detay yok)
+"ai:queue:view_details"       // Başkasının sorgu detayını görme (admin+)
+
+// ── Admin ──
+"admin:users"                 // Kullanıcı yönetimi
+"admin:roles"                 // Rol yönetimi
+"admin:audit"                 // Denetim günlüğü erişimi
+"admin:settings"              // Sistem ayarları
+"admin:workspaces"            // Workspace yönetimi
+
+// ── Workspace ──
+"workspace:create"            // Yeni workspace oluşturma
+"workspace:invite"            // Workspace'e üye davet etme
+"workspace:manage_datasources"// Workspace'e datasource ekleme/çıkarma
+```
+
+### 8.3 Scope (Kapsam) Stratejisi
+
+```
+Global scope:      Kullanıcıya tüm kaynaklarda geçerli rol (super_admin, admin)
+Workspace scope:   Belirli bir workspace'de geçerli rol
+Resource scope:    Belirli bir datasource veya model üzerinde rol
+  Örnek: user_x → analyst (workspace:uuid_1) + developer (workspace:uuid_2)
+         user_y → viewer (global) + analyst (datasource:uuid_sales üzerinde)
+```
+
+### 8.4 Datasource Erişim Kontrolü
+
+Datasource erişimi **iki katmanlı** kontrol ile yönetilir:
+
+**Katman 1 — Workspace üyeliği:**
+Kullanıcı, workspace'in bir üyesi olmalıdır. Workspace'e bağlı olmayan datasource'lara erişemez.
+
+**Katman 2 — Datasource access level:**
+Workspace üyeliği yeterli değildir; kullanıcıya doğrudan veya workspace üzerinden datasource erişimi verilmelidir.
+
+```
+Erişim kontrol akışı:
+  1. Kullanıcı JWT'den authenticate edildi
+  2. İstenen datasource_id için:
+     a. Kullanıcının super_admin rolü var mı? → Tam erişim
+     b. datasource_access tablosunda user_id + datasource_id kaydı var mı?
+     c. Kullanıcının workspace'lerinden birine bu datasource bağlı mı?
+     d. Hiçbiri → 403 Forbidden
+  3. Erişim seviyesine göre:
+     read   → Sorgu çalıştırabilir, sonuç görebilir
+     write  → + Model oluşturabilir, düzenleyebilir
+     admin  → + Başkalarına erişim verebilir, datasource ayarlarını değiştirebilir
+```
+
+**Monolit uygulaması:**
+```go
+// internal/http/middleware/datasource_access.go
+func RequireDatasourceAccess(level string) func(http.Handler) http.Handler {
+    // 1. URL path'den veya body'den datasource_id çıkar
+    // 2. Auth service'e /internal/auth/check-datasource-access çağır
+    // 3. Cache: Redis SET "user:{id}:datasources" (TTL: 5dk)
+    // 4. Erişim yok → 403
+    // 5. Erişim seviyesi yetersiz → 403
+}
+```
+
+### 8.5 Veri İzolasyon Politikası
+
+#### AI Sorgu Kuyruğu Görünürlük Matrisi
+
+| Bilgi | super_admin | admin | developer | analyst | viewer |
+|---|---|---|---|---|---|
+| Kuyrukta kaç sorgu var | Evet | Evet (workspace) | Hayır | Hayır | Hayır |
+| Kuyruk durumu (pending/running/done) | Evet | Evet (workspace) | Kendi sorguları | Kendi sorguları | Hayır |
+| Başkasının sorgu metni (NL) | Evet | Evet (workspace) | Hayır | Hayır | Hayır |
+| Başkasının üretilen SQL | Evet | Evet (workspace) | Hayır | Hayır | Hayır |
+| Başkasının sorgu sonucu | Evet | Evet (workspace) | Hayır | Hayır | Hayır |
+| Başkasının AI prompt'u | Evet | Evet (workspace) | Hayır | Hayır | Hayır |
+| Kendi sorgusunun tüm detayı | Evet | Evet | Evet | Evet | Hayır |
+| Kuyruk pozisyonu (sıra bekleme) | Evet | Evet | Kendi sorgusu | Kendi sorgusu | Hayır |
+
+**Uygulama:**
+```go
+// internal/http/handlers/ai.go — sorgu listesi filtresi
+func filterAIHistoryForUser(ctx context.Context, rows []AIHistoryRow, userID string, permissions []string) []AIHistoryRow {
+    hasViewDetails := containsPermission(permissions, "ai:queue:view_details")
+    if hasViewDetails {
+        return rows // admin/super_admin her şeyi görebilir
+    }
+    // Sadece kendi sorgularını döndür
+    return slices.DeleteFunc(rows, func(r AIHistoryRow) bool {
+        return r.UserID != userID
+    })
+}
+```
+
+**Kuyruk durum endpoint'i (sınırlı bilgi):**
+```go
+// GET /api/ai/queue/status
+// Her authenticated kullanıcı erişebilir
+// Sadece toplam sayı ve kendi pozisyonunu döndürür
+type QueueStatusResponse struct {
+    TotalPending    int  `json:"total_pending"`     // toplam bekleyen (sayı sadece)
+    MyPosition      *int `json:"my_position"`       // kendi sıra pozisyonu (nil=queueda yok)
+    MyJobStatus     string `json:"my_job_status"`  // "idle" | "queued" | "running" | "completed"
+}
+```
+
+#### Genel Veri İzolasyon Kuralları
+
+1. **Sorgu geçmişi**: Kullanıcı sadece kendi sorgularını görebilir (`query_history` tablosunda `user_id` filtresi). Admin ve super_admin tüm sorguları görebilir.
+2. **AI geçmişi**: Aynı kural. `ai_query_history` tablosunda `user_id` filtresi. Admin+ workspace kapsamında tüm geçmişi görebilir.
+3. **Semantic modeller**: Workspace'e bağlı modeller, workspace üyeleri tarafından görülebilir. Publish edilmemiş modeller sadece sahibi ve admin tarafından görülebilir.
+4. **Datasource credential'ları**: Sadece super_admin ve datasource admin erişim seviyesine sahip kullanıcılar DSN/şifre görebilir. Diğerleri sadece datasource adı ve durumu görür.
+5. **AI prompt içeriği**: Prompt builder'ın ürettiği prompt (semantic context, sample data, few-shot examples) sadece sorguyu çalıştıran kullanıcı ve admin tarafından görülebilir.
+6. **Eval sonuçları**: Sadece developer ve admin rolleri eval süitini çalıştırabilir ve sonuçları görebilir.
+7. **Kullanıcı e-posta/ad**: Workspace üyeleri birbirlerinin display_name ve avatar'ını görebilir. E-posta adresleri sadece admin tarafından görülebilir.
+
+---
+
+## 9. Frontend Ekranları
+
+### 9.1 Sayfa Yapısı
+
+```
+/auth/signin           → Giriş sayfası
+/auth/signup           → Kayıt sayfası
+/auth/forgot-password  → Şifre sıfırlama talebi
+/auth/reset-password   → Yeni şifre belirleme
+/auth/verify-email     → E-posta doğrulama sonucu
+/auth/error            → Auth hata sayfası
+```
+
+### 9.2 Sign In Ekranı
+
+```
+┌──────────────────────────────────────────────┐
+│                                              │
+│              📊 Biqly                        │
+│                                              │
+│        ┌──────────────────────────┐          │
+│        │       Sign In            │          │
+│        │                          │          │
+│        │  [  E-posta Adresi    ]  │          │
+│        │  [  Şifre             ]  │          │
+│        │                          │          │
+│        │  [✓] Beni hatırla        │          │
+│        │  Şifremi unuttum →       │          │
+│        │                          │          │
+│        │  [      Sign In      ]   │          │
+│        │                          │
+│        │  ───── veya ─────        │
+│        │                          │
+│        │  [  GitHub ile devam ]   │
+│        │  [  Google ile devam ]   │
+│        │  [  Apple Passkey   ]    │ ← FIDO2 icon
+│        │                          │
+│        │  Hesabın yok mu? Sign Up │
+│        └──────────────────────────┘          │
+│                                              │
+└──────────────────────────────────────────────┘
+```
+
+**UI/UX Detayları:**
+- Merkezi, temiz, minimal tasarım
+- E-posta alanı otomatik tamamlama
+- Şifre göster/gizle toggle ikonu
+- Form validasyonu gerçek zamanlı (e-posta formatı, şifre minimum uzunluk)
+- OAuth butonları provider logosu + renk ile (GitHub: siyah, Google: renkli)
+- Passkey butonu Face ID / parmak izi ikonu ile
+- Loading state'ler buton üzerinde spinner
+- Hata mesajları inline, alanın altında kırmızı
+- Responsive: mobilde tam genişlik kart
+
+### 9.3 Sign Up Ekranı
+
+```
+┌──────────────────────────────────────────────┐
+│                                              │
+│              📊 Biqly                        │
+│                                              │
+│        ┌──────────────────────────┐          │
+│        │       Sign Up            │          │
+│        │                          │          │
+│        │  [  Ad Soyad          ]  │          │
+│        │  [  E-posta Adresi    ]  │          │
+│        │  [  Şifre             ]  │          │
+│        │  [  Şifre (tekrar)   ]  │          │
+│        │                          │          │
+│        │  [✓] Kullanım şartları  │          │
+│        │                          │          │
+│        │  [      Sign Up      ]   │          │
+│        │                          │
+│        │  ───── veya ─────        │
+│        │                          │
+│        │  [  GitHub ile kaydol ]  │
+│        │  [  Google ile kaydol ]  │
+│        │                          │
+│        │  Zaten hesabın var? Sign In│
+│        └──────────────────────────┘          │
+│                                              │
+└──────────────────────────────────────────────┘
+```
+
+**UI/UX Detayları:**
+- Şifre güçlülük göstergesi (zayıf / orta / güçlü çubuk)
+- Gerçek zamanlı şifre eşleşme kontrolü
+- Şifre gereksinimleri: minimum 8 karakter, 1 büyük harf, 1 rakam, 1 özel karakter
+- E-posta tekrar kontrolü (var olan hesap uyarısı)
+- Kayıt sonrası e-posta doğrulama sayfasına yönlendirme
+- Kullanım şartları linki modal veya yeni sekmede açılır
+- OAuth ile kaydolmadaPasskey seçeneği gösterilmez (sonradan eklenebilir)
+
+### 9.4 Forgot Password Ekranı
+
+```
+┌──────────────────────────────────────────────┐
+│                                              │
+│              📊 Biqly                        │
+│                                              │
+│        ┌──────────────────────────┐          │
+│        │    Şifremi Unuttum       │          │
+│        │                          │          │
+│        │  E-posta adresinizi      │          │
+│        │  girin, size bir         │          │
+│        │  sıfırlama bağlantısı    │          │
+│        │  gönderelim.             │          │
+│        │                          │          │
+│        │  [  E-posta Adresi    ]  │          │
+│        │                          │          │
+│        │  [   Gönder          ]   │          │
+│        │                          │          │
+│        │  ← Giriş sayfasına dön   │          │
+│        └──────────────────────────┘          │
+│                                              │
+└──────────────────────────────────────────────┘
+```
+
+### 9.5 Mevcut Uygulama Entegrasyonu
+
+- Mevcut `App.tsx` sidebar navigasyonuna **Auth guard** eklenir
+- Korumalı route'lar: `/` altındaki tüm sayfalar (auth hariç)
+- Sidebar'a kullanıcı avatarı ve profil dropdown'u eklenir
+- Admin rolü olan kullanıcılar sidebar'da "Yönetim" bölümü görür
+- Mevcut `bimw.APIKeyAuth` → `bimw.JWTAuth` middleware'e geçiş
+
+---
+
+## 10. Monolit Entegrasyonu
+
+### 10.1 Yeni Middleware
+
+```go
+// internal/http/middleware/jwt.go
+func JWTAuth(authServiceURL string) func(http.Handler) http.Handler {
+    // 1. Authorization header'dan JWT al
+    // 2. RS256 public key ile doğrula
+    // 3. Expiry kontrol
+    // 4. Claims'den user_id, roles çıkar → context'e set et
+    // 5. Başarısız → 401 Unauthorized
+}
+```
+
+### 10.2 İzin Kontrolü
+
+```go
+// internal/http/middleware/permission.go
+func RequirePermission(permission string) func(http.Handler) http.Handler {
+    // 1. Context'ten user_id al
+    // 2. Auth service'e /internal/auth/check-permission çağır
+    // 3. Cache sonuç Redis'te (TTL: 5dk)
+    // 4. İzin yok → 403 Forbidden
+}
+```
+
+### 10.2.1 Datasource Erişim Kontrolü
+
+```go
+// internal/http/middleware/datasource_access.go
+func RequireDatasourceAccess(requiredLevel string) func(http.Handler) http.Handler {
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            // 1. Context'ten user_id al
+            // 2. URL path'den veya request body'den datasource_id çıkar
+            // 3. super_admin bypass → direkt devam
+            // 4. Redis cache: "user:{id}:datasources" SET'inde var mı?
+            //    Yoksa auth service /internal/auth/user/{id}/datasources çağır, cache'e yaz
+            // 5. datasource_access tablosunda level kontrol et
+            // 6. requiredLevel "read" ise → read, write, admin geçerli
+            // 7. requiredLevel "write" ise → write, admin geçerli
+            // 8. requiredLevel "admin" ise → sadece admin geçerli
+            // 9. Erişim yok → 403 Forbidden
+            next.ServeHTTP(w, r)
+        })
+    }
+}
+```
+
+### 10.2.2 AI Sorgu Kuyruğu Erişim Kontrolü
+
+```go
+// internal/http/handlers/ai.go — uygulama örneği
+
+// AI sorgu detayı görüntüleme
+func (h *AIHandler) GetAIHistory(w http.ResponseWriter, r *http.Request) {
+    userID := ctxUserID(r)
+    permissions := ctxPermissions(r)
+    hasViewDetails := slices.Contains(permissions, "ai:queue:view_details")
+
+    rows, err := h.repo.ListAIHistory(r.Context(), filter)
+
+    if !hasViewDetails {
+        rows = slices.DeleteFunc(rows, func(row AIHistoryRow) bool {
+            return row.UserID != userID
+        })
+    }
+
+    // Detay alanlarını maskele (admin olmayanlar için)
+    if !hasViewDetails {
+        for i := range rows {
+            rows[i].Prompt = ""
+            rows[i].GeneratedSQL = ""
+            rows[i].RawResult = nil
+        }
+    }
+}
+
+// AI kuyruk durumu — her authenticated kullanıcı
+func (h *AIHandler) GetQueueStatus(w http.ResponseWriter, r *http.Request) {
+    userID := ctxUserID(r)
+
+    pendingCount := h.queue.PendingCount()       // toplam sayı
+    myPosition := h.queue.Position(userID)        // kendi sıra pozisyonu
+    myStatus := h.queue.JobStatus(userID)         // kendi durumu
+
+    json.NewEncoder(w).Encode(QueueStatusResponse{
+        TotalPending: pendingCount,
+        MyPosition:   myPosition,
+        MyJobStatus:  myStatus,
+    })
+}
+```
+
+### 10.3 Router Değişiklikleri
+
+```go
+// internal/http/router.go — değişiklik planı
+r.Route("/api", func(r chi.Router) {
+    // ESKI: r.Use(bimw.APIKeyAuth(deps.Config.Security.APIKey))
+    // YENI: r.Use(bimw.JWTAuth(deps.Config.Auth.ServiceURL))
+
+    // ── Datasource erişimli route'lar ──
+    r.Route("/datasources", func(r chi.Router) {
+        r.Use(bimw.RequirePermission("datasource:read"))
+        r.Get("/", listDatasources)              // sadece erişilenleri listeler
+
+        r.Group(func(r chi.Router) {
+            r.Use(bimw.RequirePermission("datasource:create"))
+            r.Post("/", createDatasource)
+        })
+
+        r.Route("/{datasourceID}", func(r chi.Router) {
+            // Her istekte datasource erişim kontrolü
+            r.Use(bimw.RequireDatasourceAccess("read"))
+
+            r.Get("/", getDatasource)
+            r.Get("/tables", listTables)
+            r.Get("/columns", listColumns)
+
+            r.Group(func(r chi.Router) {
+                r.Use(bimw.RequireDatasourceAccess("write"))
+                r.Put("/", updateDatasource)
+                r.Post("/sync-metadata", syncMetadata)
+            })
+
+            r.Group(func(r chi.Router) {
+                r.Use(bimw.RequireDatasourceAccess("admin"))
+                r.Delete("/", deleteDatasource)
+                r.Post("/grant-access", grantAccess)
+            })
+        })
+    })
+
+    // ── Query route'ları ──
+    r.Route("/query", func(r chi.Router) {
+        r.Use(bimw.RequirePermission("query:execute"))
+        r.With(bimw.RequireDatasourceAccess("read")).Post("/run", runQuery)
+        r.With(bimw.RequireDatasourceAccess("read")).Post("/compile", compileQuery)
+    })
+
+    // ── AI route'ları ──
+    r.Route("/ai", func(r chi.Router) {
+        r.With(bimw.RequirePermission("ai:query")).Post("/query", aiQuery)
+        r.With(bimw.RequirePermission("ai:query")).Post("/query/run", aiQueryRun)
+
+        // Kuyruk durumu — herkes görebilir
+        r.Get("/queue/status", getQueueStatus)
+
+        // AI geçmişi — admin detay görebilir, diğerleri sadece kendi sorguları
+        r.Get("/history", getAIHistory)
+
+        // Admin-only AI route'ları
+        r.Group(func(r chi.Router) {
+            r.Use(bimw.RequirePermission("ai:eval"))
+            r.Post("/eval/run", runEval)
+        })
+    })
+})
+```
+
+---
+
+## 11. Güvenlik Önlemleri
+
+### 11.1 Genel
+
+- [ ] Tüm şifreler `bcrypt` ile hash'lenecek (cost=12)
+- [ ] JWT RS256 ile imzalanacak (asimetrik, public key paylaşımı kolay)
+- [ ] Refresh token HTTP-only, Secure, SameSite=Strict cookie
+- [ ] CSRF koruması: SameSite cookie + double-submit pattern
+- [ ] Rate limiting: login denemesi başına IP (10/dk), global (100/dk)
+- [ ] Brute-force koruması: 5 başarısız deneme sonra hesap kilidi (15dk)
+- [ ] Şifre sıfırlama token'i tek kullanımlık, 1 saat geçerli
+- [ ] E-posta doğrulama olmadan sınırlı erişim (salt okunur)
+- [ ] GDPR: hesap silme ve veri dışa aktarma endpoint'leri
+
+### 11.2 Veri İzolasyonu ve Erişim Kontrolü
+
+- [ ] Datasource erişim kontrolü: her query execution'da datasource_access doğrulama
+- [ ] super_admin bypass: tüm erişim kontrollerini atlar
+- [ ] AI sorgu geçmişi: user_id filtresi zorunlu, admin+ muaf
+- [ ] AI sorgu detayı maskeleme: prompt/SQL/result alanları admin olmayanlara boş
+- [ ] Datasource credential'ları: sadece super_admin ve datasource admin görebilir
+- [ ] Datasource listesi: kullanıcının erişmediği datasource'lar hiç döndürülmez
+- [ ] Kuyruk durumu: toplam sayı ve kendi pozisyonu dışında bilgi sızdırmaz
+- [ ] Workspace izolasyonu: workspace üyesi olmayan workspace verilerine erişemez
+- [ ] Kaynak paylaşım: sadece explicit share ile erişim, default kapalı
+- [ ] Monolit → Auth service internal iletişimi: mutual TLS veya internal token
+- [ ] Datasource erişim cache invalidate: erişim değişikliğinde anında invalidate
+
+### 11.3 OAuth2
+
+- [ ] State parametresi CSRF koruması için zorunlu
+- [ ] PKCE (Proof Key for Code Exchange) akışı
+- [ ] Access token'lar DB'de şifreli saklanacak (AES-256)
+- [ ] Minimum scope talebi: e-posta ve profil bilgisi
+- [ ] Token revokesi: kullanıcı hesap silindiğinde provider'a bildirim
+
+### 11.3 WebAuthn / Passkey
+
+- [ ] Challenge tek kullanımlık ve zaman sınırlı (60 saniye)
+- [ ] Attestation doğrulama: none, direct veya indirect destek
+- [ ] Credential ID benzersizliği DB seviyesinde UNIQUE constraint
+- [ ] Sign count kontrolü (replay koruması)
+- [ ] AAGUID filtreleme (trusted authenticator listesi)
+- [ ] User verification: "required" konfigürasyonu
+
+---
+
+## 12. Konfigürasyon
+
+### Auth Service Ortam Değişkenleri
+
+| Değişken | Varsayılan | Açıklama |
+|---|---|---|
+| `BI_AUTH_PORT` | 8889 | Auth service HTTP port |
+| `BI_AUTH_DB_DSN` | — | Auth PostgreSQL bağlantı |
+| `BI_AUTH_REDIS_DSN` | — | Redis bağlantı (session cache) |
+| `BI_AUTH_JWT_PRIVATE_KEY_PATH` | — | RS256 private key dosya yolu |
+| `BI_AUTH_JWT_PUBLIC_KEY_PATH` | — | RS256 public key dosya yolu |
+| `BI_AUTH_JWT_ACCESS_TTL` | 15m | Access token süresi |
+| `BI_AUTH_JWT_REFRESH_TTL` | 168h | Refresh token süresi (7 gün) |
+| `BI_AUTH_GITHUB_CLIENT_ID` | — | GitHub OAuth2 Client ID |
+| `BI_AUTH_GITHUB_CLIENT_SECRET` | — | GitHub OAuth2 Client Secret |
+| `BI_AUTH_GOOGLE_CLIENT_ID` | — | Google OAuth2 Client ID |
+| `BI_AUTH_GOOGLE_CLIENT_SECRET` | — | Google OAuth2 Client Secret |
+| `BI_AUTH_WEBAUTHN_RP_ID` | localhost | WebAuthn Relying Party ID |
+| `BI_AUTH_WEBAUTHN_RP_NAME` | Biqly | WebAuthn Relying Party adı |
+| `BI_AUTH_WEBAUTHN_RP_ORIGINS` | http://localhost:5173 | WebAuthn allowed origins |
+| `BI_AUTH_SMTP_HOST` | — | E-posta SMTP host |
+| `BI_AUTH_SMTP_PORT` | 587 | E-posta SMTP port |
+| `BI_AUTH_SMTP_USER` | — | SMTP kullanıcı |
+| `BI_AUTH_SMTP_PASS` | — | SMTP şifre |
+| `BI_AUTH_SMTP_FROM` | — | Gönderen adresi |
+| `BI_AUTH_ENCRYPTION_KEY` | — | OAuth token şifreleme AES anahtarı |
+| `BI_AUTH_INTERNAL_TOKEN` | — | Peer-service doğrulama token'ı |
+| `BI_AUTH_RATE_LIMIT_PER_MINUTE` | 60 | Rate limit (dakika/IP) |
+| `BI_AUTH_CORS_ALLOWED_ORIGINS` | — | CORS izinli origin'ler |
+
+---
+
+## 13. Migration Planı
+
+### Aşama 1: Auth Service Temel (v0.1)
+- [ ] Auth service skeleton (`cmd/auth/main.go`)
+- [ ] `bi_auth` veritabanı oluşturma ve migrasyonlar
+- [ ] User CRUD (repository)
+- [ ] Register + Login (e-posta + şifre)
+- [ ] JWT issue/verify (RS256)
+- [ ] Refresh token rotation
+- [ ] Temel RBAC tabloları ve seed data
+
+### Aşama 2: OAuth2 Entegrasyonu (v0.2)
+- [ ] GitHub OAuth2 flow (redirect + callback)
+- [ ] Google OAuth2 flow (redirect + callback)
+- [ ] OAuth account linking (var olan hesaba bağlama)
+- [ ] Otomatik hesap oluşturma (ilk OAuth girişi)
+
+### Aşama 3: Passkey / WebAuthn (v0.3)
+- [ ] WebAuthn sunucu tarafı implementasyonu
+- [ ] Registration begin/finish endpoint'leri
+- [ ] Authentication begin/finish endpoint'leri
+- [ ] Çoklu passkey yönetimi (kayıt listesi, silme)
+
+### Aşama 4: Frontend Auth Sayfaları (v0.4)
+- [ ] Sign In sayfası
+- [ ] Sign Up sayfası
+- [ ] Forgot/Reset Password sayfaları
+- [ ] E-posta doğrulama sayfası
+- [ ] OAuth butonları ve yönlendirme
+- [ ] Passkey butonu ve akışı
+- [ ] Auth context provider (React Context)
+- [ ] Korumalı route wrapper (AuthGuard)
+- [ ] Profil dropdown ve kullanıcı avatarı
+
+### Aşama 5: RBAC ve Monolit Entegrasyonu (v0.5)
+- [ ] JWTAuth middleware (monolit)
+- [ ] RequirePermission middleware (monolit)
+- [ ] RequireDatasourceAccess middleware (monolit)
+- [ ] İzin bazlı route koruması router.go'da
+- [ ] Datasource erişim bazlı route koruması router.go'da
+- [ ] Permission cache (Redis, 5dk TTL)
+- [ ] Datasource access cache (Redis, 5dk TTL)
+- [ ] AI history user_id filtreleme + alan maskeleme
+- [ ] query_history + ai_query_history tablolarına user_id ekleme
+- [ ] Admin paneli frontend (kullanıcı listesi, rol atama)
+- [ ] Denetim günlüğü UI
+
+### Aşama 5.5: Datasource Erişim ve Workspace (v0.5.5)
+- [ ] datasource_access tablosu ve CRUD
+- [ ] Workspace modeli (kişisel + ekip)
+- [ ] Workspace üye yönetimi
+- [ ] Workspace → datasource bağlama
+- [ ] Datasource erişim seviyesi kontrolü (read/write/admin)
+- [ ] Datasource erişim cache (Redis SET)
+- [ ] Frontend: workspace seçici, datasource erişim badge'leri
+- [ ] Frontend: admin datasource erişim matrisi
+- [ ] AI sorgu izolasyonu: kullanıcı sadece kendi sorgularını görebilir
+- [ ] Kuyruk durum endpoint'i (toplam sayı + kendi pozisyonu)
+- [ ] Kaynak paylaşım modeli ve endpoint'leri
+
+### Aşama 6: Güvenlik ve Test (v0.6)
+- [ ] Rate limiting middleware
+- [ ] Brute-force koruması
+- [ ] CSRF koruması
+- [ ] E-posta gönderim altyapısı
+- [ ] Entegrasyon testleri (OAuth mock)
+- [ ] WebAuthn test süiti
+- [ ] Penetrasyon testi kontrol listesi
+- [ ] Load test (kBin auth endpoint'leri)
+
+### Aşama 7: DevOps ve Dokümantasyon (v0.7)
+- [ ] Docker Compose auth service entegrasyonu
+- [ ] Health check ve readiness probe
+- [ ] Prometheus metrikleri
+- [ ] API dokümantasyonu (OpenAPI / Swagger)
+- [ ] Deployment runbook
+
+---
+
+## 14. Detaylı Uygulama Checklist
+
+### Backend — Auth Service Core
+
+- [ ] `cmd/auth/main.go` — HTTP server, chi router, graceful shutdown
+- [ ] `internal/auth/config.go` — Auth-specific configuration struct
+- [ ] `internal/auth/types.go` — Request/response DTO'lar
+- [ ] `internal/auth/repository.go` — Users, sessions, tokens CRUD
+- [ ] `internal/auth/password.go` — bcrypt hash ve verify
+- [ ] `internal/auth/jwt.go` — RS256 JWT issue, verify, refresh
+- [ ] `internal/auth/session.go` — Redis-backed session yönetimi
+- [ ] `internal/auth/validator.go` — E-posta, şifre, kullanıcı adı validasyonu
+- [ ] `internal/auth/service.go` — Core orchestrator (register, login, logout)
+- [ ] `internal/auth/handler.go` — HTTP handler'lar
+- [ ] `migrations/auth/` — 12 migration dosyası (section 4'teki şema)
+
+### Backend — OAuth2
+
+- [ ] `internal/auth/oauth.go` — Provider interface ve factory
+- [ ] `internal/auth/oauth_github.go` — GitHub OAuth2 akışı
+- [ ] `internal/auth/oauth_google.go` — Google OAuth2 akışı
+- [ ] State parametresi üretim ve doğrulama
+- [ ] PKCE akışı implementasyonu
+- [ ] OAuth token şifreli saklama (AES-256)
+- [ ] Account linking: var olan kullanıcıya OAuth bağlama
+- [ ] Account unlinking: OAuth hesabı kaldırma
+
+### Backend — WebAuthn / Passkey
+
+- [ ] `internal/auth/webauthn.go` — WebAuthn servis katmanı
+- [ ] Challenge üretim ve doğrulama
+- [ ] Credential kayıt (registration ceremony)
+- [ ] Credential doğrulama (authentication ceremony)
+- [ ] Sign count kontrolü (replay protection)
+- [ ] Passkey CRUD endpoint'leri
+- [ ] Transport bilgisi saklama (platform, cross-platform)
+
+### Backend — RBAC
+
+- [ ] `internal/auth/rbac.go` — İzin değerlendirme motoru
+- [ ] `internal/auth/rbac_repository.go` — Role/permission DB operasyonları
+- [ ] Global scope izin kontrolü
+- [ ] Workspace scope izin kontrolü
+- [ ] Resource scope izin kontrolü
+- [ ] Rol hiyerarşisi (gelecek: role inheritance)
+- [ ] Seed data: 5 varsayılan rol (super_admin, admin, developer, analyst, viewer) + 23 izin
+- [ ] super_admin bypass: tüm izin kontrollerini otomatik geç
+
+### Backend — Datasource Erişim Kontrolü
+
+- [ ] `internal/auth/datasource_access.go` — Datasource erişim servis katmanı
+- [ ] datasource_access CRUD (grant, revoke, update level)
+- [ ] Kullanıcının erişebildiği datasource ID listesi sorgulama
+- [ ] Datasource erişim seviyesi kontrolü (read/write/admin)
+- [ ] Workspace → datasource ilişkisi üzerinden erişim çözümleme
+- [ ] Redis cache: `user:{id}:datasources` SET (TTL: 5dk)
+- [ ] Cache invalidate: datasource_access değişikliğinde
+- [ ] Auth service internal endpoint: `/internal/auth/check-datasource-access`
+
+### Backend — Workspace Yönetimi
+
+- [ ] `internal/auth/workspace.go` — Workspace servis katmanı
+- [ ] Workspace CRUD (create, read, update, delete)
+- [ ] Kişisel workspace otomatik oluşturma (kullanıcı kaydında)
+- [ ] Workspace üye yönetimi (invite, remove, role update)
+- [ ] Workspace → datasource bağlama
+- [ ] Workspace izolasyonu: kullanıcı sadece üye olduğu workspace'leri görebilir
+- [ ] Workspace context switching (aktif workspace değiştirme)
+
+### Backend — Kaynak Paylaşım
+
+- [ ] `internal/auth/sharing.go` — Paylaşım servis katmanı
+- [ ] Kaynak paylaşım CRUD (sorgu, dashboard, model)
+- [ ] Kullanıcıya özel paylaşım vs workspace geneli paylaşım
+- [ ] Paylaşım izni seviyeleri: view, execute, edit
+- [ ] Paylaşılan kaynakları listeleme (filtre: resource_type)
+
+### Backend — AI Kuyruk İzolasyonu
+
+- [ ] AI history sorgulama: user_id filtresi (admin olmayanlar için)
+- [ ] AI sorgu detayı maskeleme: prompt, SQL, result alanları
+- [ ] Kuyruk durum endpoint'i: toplam sayı + kendi pozisyonu
+- [ ] `ai:queue:view_status` izni ile kuyruk durumu görme
+- [ ] `ai:queue:view_details` izni ile başkasının sorgu detayını görme
+- [ ] query_history tablosuna `user_id` kolonu ekleme
+- [ ] ai_query_history tablosuna `user_id` kolonu ekleme
+- [ ] Datasource erişimine dayalı AI sorgu kısıtlama (sadece erişilen DS'larda sorgu)
+
+### Backend — Monolit Entegrasyonu
+
+- [ ] `internal/http/middleware/jwt.go` — JWT doğrulama middleware
+- [ ] `internal/http/middleware/permission.go` — İzin kontrol middleware
+- [ ] `internal/http/middleware/datasource_access.go` — Datasource erişim middleware
+- [ ] `internal/http/router.go` güncelleme — APIKeyAuth → JWTAuth
+- [ ] Permission bazlı route gruplama
+- [ ] Datasource erişim bazlı route gruplama
+- [ ] AI history handler güncelleme: user_id filtreleme + alan maskeleme
+- [ ] User context propagation (user_id → audit log, query_history, ai_history)
+- [ ] Auth service health check dependency (/ready endpoint'ine ekleme)
+- [ ] Datasource list endpoint: sadece kullanıcının erişebildiği datasource'ları döndür
+
+### Frontend — Auth Sayfaları
+
+- [ ] `src/api/auth.ts` — Auth API client fonksiyonları
+- [ ] `src/types/auth.ts` — Auth TypeScript type tanımları
+- [ ] `src/hooks/useAuth.ts` — Auth context hook
+- [ ] `src/components/auth/AuthProvider.tsx` — React Context provider
+- [ ] `src/components/auth/AuthGuard.tsx` — Korumalı route wrapper
+- [ ] `src/components/auth/SignInPage.tsx` — Giriş sayfası
+- [ ] `src/components/auth/SignUpPage.tsx` — Kayıt sayfası
+- [ ] `src/components/auth/ForgotPasswordPage.tsx` — Şifre sıfırlama talebi
+- [ ] `src/components/auth/ResetPasswordPage.tsx` — Yeni şifre belirleme
+- [ ] `src/components/auth/VerifyEmailPage.tsx` — E-posta doğrulama sonucu
+- [ ] `src/components/auth/OAuthCallback.tsx` — OAuth callback handler
+- [ ] `src/components/auth/PasskeyButton.tsx` — Passkey giriş butonu
+- [ ] `src/components/auth/PasswordStrength.tsx` — Şifre güçlülük göstergesi
+- [ ] `src/components/auth/AuthError.tsx` — Hata mesajı bileşeni
+- [ ] Sidebar kullanıcı profil dropdown'u
+- [ ] Token storage stratejisi (access: memory, refresh: HttpOnly cookie)
+- [ ] Auto-refresh: access token süresi dolmadan otomatik yenileme
+
+### Frontend — Admin Paneli
+
+- [ ] `src/components/admin/UserListPage.tsx` — Kullanıcı listesi
+- [ ] `src/components/admin/UserDetailPage.tsx` — Kullanıcı detayı ve rol atama
+- [ ] `src/components/admin/RoleManagerPage.tsx` — Rol yönetimi
+- [ ] `src/components/admin/PermissionMatrix.tsx` — İzin matrisi UI
+- [ ] `src/components/admin/AuditLogPage.tsx` — Denetim günlüğü
+- [ ] `src/components/admin/DatasourceAccessPage.tsx` — Datasource erişim yönetimi
+- [ ] `src/components/admin/WorkspacePage.tsx` — Workspace yönetimi
+
+### Frontend — Datasource Erişim UI
+
+- [ ] Datasource listesi: sadece erişilen datasource'ları göster
+- [ ] Datasource kartında erişim seviyesi badge'i (read/write/admin)
+- [ ] Erişim olmayan datasource "Locked" durumu ile göster
+- [ ] Admin: datasource erişim verme/kaldırma arayüzü
+- [ ] Admin: kullanıcı bazlı datasource erişim matrisi
+
+### Frontend — Workspace UI
+
+- [ ] Workspace seçici (sidebar üstünde dropdown)
+- [ ] Workspace ayarları sayfası
+- [ ] Workspace üye listesi ve davet
+- [ ] Workspace datasource bağlama arayüzü
+- [ ] Kişisel workspace vs ekip workspace ayrımı
+
+### Frontend — AI Kuyruk UI
+
+- [ ] AI sorgu geçmişi: sadece kullanıcıya ait sorguları listele
+- [ ] Admin: tüm sorguları görme toggle'ı
+- [ ] Kuyruk durum göstergesi (toplam bekleyen, kendi pozisyonu)
+- [ ] Başkasının sorgusunu görme durumunda detay butonu (admin+)
+- [ ] Kuyruk pozisyon göstergesi (queue animasyonu)
+
+### Frontend — Veri İzolasyon UI
+
+- [ ] Datasource erişimi olmayan sayfalarda "Erişim İste" butonu
+- [ ] Paylaşım UI: sorgu/dashboard paylaş butonu
+- [ ] Paylaşılan kaynaklar listesi
+- [ ] Workspace bazlı filtreleme (sorgular, modeller, datasource'lar)
+
+### Güvenlik
+
+- [ ] Rate limiting middleware (IP bazlı)
+- [ ] Brute-force koruması (başarısız giriş takibi)
+- [ ] CSRF koruması (SameSite cookie + token)
+- [ ] Input sanitizasyonu (XSS önleme)
+- [ ] SQL injection önleme (parameterized queries — zaten pgx)
+- [ ] CORS katı yapılandırma
+- [ ] Security headers (HSTS, X-Frame-Options, CSP)
+- [ ] Audit logging tüm auth olayları
+- [ ] OAuth token şifreli saklama
+- [ ] WebAuthn challenge zaman aşımı
+
+### Test
+
+- [ ] Unit testler: password hashing, JWT issue/verify, RBAC engine
+- [ ] Integration testler: register → login → refresh → logout akışı
+- [ ] OAuth2 mock testleri
+- [ ] WebAuthn ceremony testleri
+- [ ] Permission middleware testleri
+- [ ] Rate limiting testleri
+- [ ] E2E testler: frontend sign up → sign in → sign out
+- [ ] Load test: JWT verification throughput
+
+### DevOps
+
+- [ ] `docker-compose.yml` auth service ekleme
+- [ ] `Dockerfile` auth service
+- [ ] Health check endpoint (`/health`, `/ready`)
+- [ ] Prometheus metrikleri (login_count, token_issued, auth_errors)
+- [ ] Log yapılandırması (slog, structured)
+- [ ] Secret management (JWT keys, OAuth secrets)
+- [ ] Migration CI pipeline
+
+### Dokümantasyon
+
+- [ ] OpenAPI / Swagger spec
+- [ ] Auth flow diyagramları
+- [ ] RBAC model açıklaması
+- [ ] Deployment runbook
+- [ ] Troubleshooting guide
+
+---
+
+## 15. AI Prompt (Skill ile Kullanım)
+
+Aşağıdaki prompt, Biqly Auth Service implementasyonu için AI asistanına verilecektir. `auth-service-implementation` skill'i yüklenerek detaylı uygulama talimatları alınır.
+
+```
+Biqly Auth Service implementasyonu yapıyorum. Go 1.26 + chi/v5 + pgx/v5 + Redis stack.
+
+Yüklenmesi gereken skill: auth-service-implementation
+
+Görev: Biqly projesine bağımsız bir Auth mikroservisi ekle.
+Konum: cmd/auth/main.go ve internal/auth/ altında.
+
+Gereksinimler:
+1. E-posta + şifre ile kayıt ve giriş (bcrypt cost=12)
+2. RS256 JWT (access: 15dk, refresh: 7 gün, rotation)
+3. OAuth2: GitHub ve Google (PKCE + state parametresi)
+4. WebAuthn / Apple Passkey (go-webauthn/webauthn)
+5. RBAC: 5 varsayılan rol (super_admin, admin, developer, analyst, viewer), 23 izin
+6. Scope: global + workspace + resource bazlı izin
+7. Datasource erişim kontrolü: kullanıcı sadece erişimi olan datasource'ları görebilir
+8. Workspace modeli: kişisel + ekip workspace'leri, datasource workspace'e bağlanır
+9. AI sorgu izolasyonu: kullanıcı sadece kendi sorgularını görebilir,
+   kuyruk durumunu (toplam sayı, kendi pozisyonu) görebilir,
+   admin+ başkasının sorgu detaylarını görebilir
+10. Kaynak paylaşım: sorgu/dashboard/model paylaşma (view/execute/edit)
+11. Rate limiting: IP bazlı (10/dk login, 60/dk genel)
+12. Brute-force: 5 başarısız deneme → 15dk hesap kilidi
+13. Audit logging: tüm auth + datasource erişim olayları
+14. Mevcut monolit entegrasyonu: JWTAuth + RequirePermission +
+    RequireDatasourceAccess middleware
+
+Veritabanı: Ayrı bi_auth DB, 17 tablo (users, oauth_accounts, passkeys,
+webauthn_challenges, roles, permissions, role_permissions, user_roles,
+sessions, audit_log, email_verification_tokens, password_reset_tokens,
+datasource_access, workspaces, workspace_members,
+workspace_datasources, resource_shares)
+
+Frontend: React 19, sign in/sign up sayfaları, OAuth butonları,
+Passkey butonu, şifre güçlülük göstergesi, AuthProvider context,
+workspace seçici, datasource erişim badge'leri, AI kuyruk durum göstergesi,
+kayınak paylaşım butonu.
+
+İlgili AGENTS.md: /Users/baris.dogu/src/biqly/biqly/AGENTS.md
+Plan dokümanı: /Users/baris.dogu/src/biqly/biqly/docs/AUTH_SERVICE_PLAN.md
+
+Lütfen plan dokümanındaki checklist'teki sırayla ilerle.
+Her adımda lint (golangci-lint v2 strict) ve test çalıştır.
+Yorum ekleme, Go convention'larına uy.
+```
+
+### Skill Dosyası: `.opencode/skills/auth-service-implementation/SKILL.md`
+
+```markdown
+# Auth Service Implementation Skill
+
+## Purpose
+
+Use this skill when implementing Biqly's Auth Service — a standalone Go
+microservice responsible for user authentication, authorization (RBAC),
+OAuth2 social login, Apple Passkey (WebAuthn), session management,
+datasource-level access control, workspace management, and data isolation.
+
+Trigger: user mentions "auth service", "authentication", "RBAC", "OAuth",
+"passkey", "WebAuthn", "sign in", "sign up", "login", "JWT",
+"datasource access", "workspace", "data isolation", "AI queue visibility",
+or references the AUTH_SERVICE_PLAN.md document.
+
+## Project Context
+
+- Go 1.26, chi/v5 router, pgx/v5 for PostgreSQL
+- Separate auth database: bi_auth
+- Redis for session cache, permission cache, datasource access cache
+- RS256 JWT with HTTP-only refresh token cookies
+- Module path: github.com/biqly/biqly
+- BI platform: users query datasources via AI NL→SQL pipeline
+
+## Key Files
+
+- Plan: docs/AUTH_SERVICE_PLAN.md
+- Entry: cmd/auth/main.go
+- Core: internal/auth/
+- Migrations: migrations/auth/
+- Frontend auth: frontend/src/components/auth/
+- Monolit middleware: internal/http/middleware/jwt.go, permission.go, datasource_access.go
+
+## BI-Specific Authorization Model
+
+### Roles (5)
+- super_admin: platform owner, sees everything, bypasses all checks
+- admin: organization manager, workspace-level control
+- developer: semantic layer architect, datasource+model management
+- analyst: daily BI user, NL→SQL queries, dashboards
+- viewer: report consumer, read-only
+
+### Datasource Access
+- Users can only see/query datasources they have access to
+- Access levels: read (query), write (model), admin (grant others)
+- Workspace-scoped: datasource attached to workspace, user member of workspace
+- Direct grants: datasource_access table for user-specific overrides
+- Cache in Redis: user:{id}:datasources SET, 5min TTL
+
+### AI Query Isolation
+- Users see only their own AI query history (prompt, SQL, results)
+- All authenticated users can see queue STATUS (count, their position)
+- Only admin+ with ai:queue:view_details can see others' query details
+- query_history and ai_query_history tables get user_id column
+- Datasource access enforced: can only run AI queries on accessible datasources
+
+### Workspace Model
+- Every user gets a personal workspace on registration
+- Team workspaces group datasources, models, queries
+- Workspace members have roles within workspace scope
+- Workspace context switch changes visible resources
+
+## Implementation Order
+
+Follow the checklist in AUTH_SERVICE_PLAN.md Section 14.
+Each phase must pass: make lint && make test
+
+## Patterns
+
+- Repository pattern for DB access (see internal/metadata/repository.go)
+- Functional options for service configuration (see internal/ai/service.go)
+- Chi middleware chain for route protection (see internal/http/router.go)
+- Parameterized queries always (pgx)
+- Context timeout for all DB operations
+- slog for structured logging
+- No comments unless explicitly asked
+- Data isolation: filter by user_id at repository level, not handler level
+- Datasource scoping: always join through datasource_access or workspace membership
+
+## Database
+
+- Migrations in migrations/auth/ numbered sequentially (001_create_users.up.sql)
+- Seed data: 5 roles + 23 permissions in a dedicated migration
+- All timestamps: TIMESTAMPTZ
+- UUID primary keys: gen_random_uuid()
+- Cross-database references (datasource_id) via application-level resolution
+
+## Security Checklist
+
+Before marking any auth task complete, verify:
+- No secrets in code or logs
+- Parameterized queries (never concatenate)
+- bcrypt cost >= 12
+- JWT RS256 (never HS256)
+- Rate limiting on all public endpoints
+- Input validation before processing
+- Audit log for every auth + datasource access event
+- Data isolation: user can never see another user's query details (unless admin+)
+- Datasource access: every query execution validates datasource_access
+- No sensitive fields (DSN, prompt text, SQL) in responses to non-admin users
+```
+
+---
+
+## 16. Frontend Bileşen Diyagramı
+
+```
+App.tsx
+├── AuthProvider (React Context)
+│   ├── token state (access in memory, refresh in HttpOnly cookie)
+│   ├── login() / logout() / register()
+│   ├── refreshToken() — auto-refresh before expiry
+│   ├── user state + permissions list
+│   ├── accessibleDatasources[] — erişilen datasource ID'leri
+│   └── activeWorkspace — aktif workspace
+│
+├── WorkspaceSelector (sidebar üstü)
+│   ├── Kişisel workspace
+│   ├── Ekip workspace'leri
+│   └── Workspace ayarları (admin)
+│
+├── Routes
+│   ├── /auth/signin → SignInPage
+│   ├── /auth/signup → SignUpPage
+│   ├── /auth/forgot-password → ForgotPasswordPage
+│   ├── /auth/reset-password → ResetPasswordPage
+│   ├── /auth/verify-email → VerifyEmailPage
+│   ├── /auth/oauth/callback → OAuthCallback
+│   │
+│   ├── / (protected) → AuthGuard wrapper
+│   │   ├── Dashboard
+│   │   │   └── DatasourceAccessBadge (locked/unlocked göstergesi)
+│   │   ├── Datasources
+│   │   │   └── Sadece erişilen datasource'lar listelenir
+│   │   │   └── "Erişim İste" butonu (locked datasource'lar için)
+│   │   ├── Modeling
+│   │   ├── QueryBuilder
+│   │   ├── AIQuery
+│   │   │   ├── Kuyruk durum göstergesi (QueueStatusIndicator)
+│   │   │   ├── AI geçmişi (sadece kullanıcıya ait sorgular)
+│   │   │   └── Admin: tüm sorguları görme toggle'ı
+│   │   ├── Evaluation
+│   │   ├── Settings
+│   │   └── Admin (admin role only)
+│   │       ├── UserListPage
+│   │       ├── RoleManagerPage
+│   │       ├── DatasourceAccessPage (kullanıcı→datasource erişim matrisi)
+│   │       ├── WorkspacePage
+│   │       └── AuditLogPage
+│   │
+│   └── * → 404
+│
+└── Sidebar (updated)
+    ├── Workspace seçici dropdown
+    ├── Datasource'lar (sadece erişilenler)
+    ├── User avatar + dropdown
+    │   ├── Profile
+    │   ├── Passkeys
+    │   ├── Active sessions
+    │   └── Sign out
+    └── Admin section (conditional)
+```
+
+---
+
+## 17. Dosya ve Dizin Özeti
+
+```
+biqly/
+├── cmd/auth/main.go                         # Auth service entry
+├── internal/auth/
+│   ├── service.go                           # Orchestrator
+│   ├── handler.go                           # HTTP handlers
+│   ├── repository.go                        # User/session CRUD
+│   ├── jwt.go                               # JWT issue/verify
+│   ├── password.go                          # bcrypt
+│   ├── oauth.go                             # Provider interface
+│   ├── oauth_github.go                      # GitHub
+│   ├── oauth_google.go                      # Google
+│   ├── webauthn.go                          # Passkey
+│   ├── session.go                           # Redis sessions
+│   ├── rbac.go                              # Permission engine
+│   ├── rbac_repository.go                   # Role/permission CRUD
+│   ├── datasource_access.go                 # Datasource erişim kontrolü
+│   ├── workspace.go                         # Workspace yönetimi
+│   ├── sharing.go                           # Kaynak paylaşım
+│   ├── validator.go                         # Input validation
+│   ├── email.go                             # SMTP
+│   └── types.go                             # DTOs
+├── internal/http/middleware/
+│   ├── jwt.go                               # JWT verification (monolit)
+│   ├── permission.go                        # Permission check (monolit)
+│   └── datasource_access.go                 # Datasource erişim (monolit)
+├── migrations/auth/
+│   ├── 001_create_users.up.sql
+│   ├── 002_create_oauth_accounts.up.sql
+│   ├── 003_create_passkeys.up.sql
+│   ├── 004_create_webauthn_challenges.up.sql
+│   ├── 005_create_roles.up.sql
+│   ├── 006_create_permissions.up.sql
+│   ├── 007_create_role_permissions.up.sql
+│   ├── 008_create_user_roles.up.sql
+│   ├── 009_create_sessions.up.sql
+│   ├── 010_create_audit_log.up.sql
+│   ├── 011_create_email_verification_tokens.up.sql
+│   ├── 012_create_password_reset_tokens.up.sql
+│   ├── 013_create_datasource_access.up.sql
+│   ├── 014_create_workspaces.up.sql
+│   ├── 015_create_workspace_members.up.sql
+│   ├── 016_create_workspace_datasources.up.sql
+│   ├── 017_create_resource_shares.up.sql
+│   └── 018_seed_roles_permissions.up.sql
+├── frontend/src/
+│   ├── api/auth.ts                          # Auth API client
+│   ├── types/auth.ts                        # Auth types
+│   ├── hooks/useAuth.ts                     # Auth hook
+│   └── components/auth/
+│       ├── AuthProvider.tsx
+│       ├── AuthGuard.tsx
+│       ├── SignInPage.tsx
+│       ├── SignUpPage.tsx
+│       ├── ForgotPasswordPage.tsx
+│       ├── ResetPasswordPage.tsx
+│       ├── VerifyEmailPage.tsx
+│       ├── OAuthCallback.tsx
+│       ├── PasskeyButton.tsx
+│       ├── PasswordStrength.tsx
+│       ├── AuthError.tsx
+│       ├── WorkspaceSelector.tsx
+│       ├── DatasourceAccessBadge.tsx
+│       ├── QueueStatusIndicator.tsx
+│       ├── ShareButton.tsx
+│       └── admin/
+│           ├── UserListPage.tsx
+│           ├── UserDetailPage.tsx
+│           ├── RoleManagerPage.tsx
+│           ├── PermissionMatrix.tsx
+│           ├── AuditLogPage.tsx
+│           ├── DatasourceAccessPage.tsx
+│           └── WorkspacePage.tsx
+└── .opencode/skills/auth-service-implementation/
+    └── SKILL.md
+```
+
+---
+
+## 18. Eksik Best Practice Eklemeleri
+
+Aşağıdaki maddeler, bir prodüksiyon auth servisinde bulunması gereken ancak planlama sırasında
+atılabilecek güvenlik, operasyonel ve uyumluluk gereksinimleridir.
+
+### 18.1 Account Security
+
+- [ ] **E-posta değişikliği**: Mevcut + yeni e-postaya doğrulama, 24 saat bekleme süresi, geri alma bağlantısı
+- [ ] **Hesap dondurma (freeze)**: Kullanıcı kendi hesabını geçici dondurabilmeli (anonimize değil, reversible)
+- [ ] **Hesap silme (GDPR Art. 17)**: Soft delete → 30 gün bekleme → kalıcı silme job'u. Audit log tutulur ama PII temizlenir
+- [ ] **Parola geçmişi**: Son 5 parolanın tekrar kullanımını engelle (bcrypt hash'leri sakla)
+- [ ] **Parola yaşlandırma**: Opsiyonel, 90 gün (enterprise müşteriler için konfigüre edilebilir)
+- [ ] **Şüpheli giriş algılama**: Yeni cihaz / yeni ülke / imkansız seyahat → e-posta doğrulama + optional 2FA
+- [ ] **Oturum eşzamanlılık kontrolü**: Maksimum aktif oturum sayısı (default: 5), en eski otomatik sonlandırma
+- [ ] **Admin force-logout**: Admin herhangi bir kullanıcının tüm oturumlarını sonlandırabilmeli
+- [ ] **Login bildirimi**: Yeni cihazdan giriş yapıldığında e-posta bildirimi (IP, user-agent, konum)
+- [ ] **Account lockout notification**: Hesap kilitlendiğinde kullanıcıya e-posta + unlock bağlantısı
+
+### 18.2 Two-Factor Authentication (2FA / MFA)
+
+- [ ] TOTP (Time-based OTP) desteği: Google Authenticator, Authy uyumlu
+- [ ] Recovery kodları: 10 adet tek kullanımlık kod, güvenli yerde saklama uyarısı
+- [ ] 2FA zorunlu kılma: Admin, workspace bazında "2FA required" politikası
+- [ ] 2FA bypass kodları: Support için tek kullanımlık admin bypass kodları
+- [ ] WebAuthn ikinci faktör olarak: Passkey zaten birinci faktör, TOTP ile birlikte ikinci faktör seçeneği
+- [ ] DB tablosu: `user_mfa` (user_id, method, secret_encrypted, verified_at, enabled)
+
+### 18.3 Token & Session Security
+
+- [ ] **Token ailesi koruması**: Refresh token rotation'da aile takibi, çalınan token ile yenileme denemesinde tüm aileyi revoke et
+- [ ] **Device fingerprint**: Oturum açılırken user-agent + ekran çözünürlüğü + timezone hash'ini kaydet, anomali algıla
+- [ ] **Concurrent session limit**: Konfigüre edilebilir maksimum oturum (default: 5)
+- [ ] **Absolute session timeout**: Refresh token maksimum ömrü (default: 30 gün, rotation olsa bile)
+- [ ] **Idle timeout**: Kullanıcı X dakika aktif değilse (default: 4 saat) access token yenilemeyi durdur
+- [ ] **JWT ID (jti)**: Her access token'a benzersiz ID, revokasyon ihtiyacı için Redis'te takip
+- [ ] **Issuer/Audience doğrulama**: JWT iss = auth service URL, aud = biqly-monolith. Token mix-up önleme
+
+### 18.4 API Security
+
+- [ ] **Request signing**: OAuth callback'lerde ek güvenlik olarak request body imzalama
+- [ ] **CORS strict mode**: Auth endpoint'leri için ayrı CORS politikası (monolit'ten farklı)
+- [ ] **Security headers**: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin`
+- [ ] **Content Security Policy**: Auth sayfaları için strict CSP (inline script yok, nonce-based)
+- [ ] **HSTS preload**: Auth service domain'i HSTS preload listesinde
+- [ ] **Input sanitizasyon**: E-posta normalization (RFC 5321 + Gmail dot trick engelleme), Unicode normalization
+- [ ] **Response header leak önleme**: Auth hatalarında internal detail döndürme ("user exists" → generic "invalid credentials")
+- [ ] **Timing attack önleme**: User-exists sorgularında sabit süre response (bcrypt verify her zaman çalışır)
+- [ ] **Account enumeration önleme**: Login, register, forgot-password endpoint'lerinde aynı hata mesajı
+
+### 18.5 Audit & Compliance
+
+- [ ] **Structured audit log**: Her auth olayı JSON formatında (who, what, when, where, result)
+- [ ] **PII masking in logs**: E-posta, IP kısmen maskeli (`b***@gmail.com`, `192.168.***.***`)
+- [ ] **Audit log immutability**: Append-only, silme/değiştirme yok (DB trigger veya uygulama seviyesinde)
+- [ ] **Audit log retention**: 1 yıl varsayılan, konfigüre edilebilir
+- [ ] **Export**: Admin audit log CSV/JSON export
+- [ ] **GDPR compliance**: Kullanıcı veri dışa aktarma endpoint'i (`GET /auth/me/export`)
+- [ ] **SOC 2 hazır**: Audit trail, access log, encryption at rest/transit, incident response runbook
+- [ ] **Separation of duties**: super_admin kendi rolünü değiştiremez, audit log'u silemez
+
+### 18.6 Email & Communication
+
+- [ ] **E-posta template sistemi**: HTML + plain text multipart, lokalize (tr/en)
+- [ ] **E-posta kuyruğu**: Başarısız gönderimler için retry (en fazla 3, exponential backoff)
+- [ ] **E-postaEngelleme listesi**: Bounce + spam şikayeti tracking, bounce alan adını engelle
+- [ ] **Unsubscribe**: Pazarlama e-postaları için (transactional emailler muaf)
+- [ ] **Rate limit e-posta**: Aynı e-posta adresine günde max 10 e-posta
+- [ ] **Magic link**: E-posta ile şifresiz giriş seçeneği (Passkey alternatifi)
+
+### 18.7 Observability
+
+- [ ] **Prometheus metrikleri**: `auth_login_total{method,status}`, `auth_token_issued_total`,
+      `auth_permission_check_duration_seconds`, `auth_datasource_access_check_total{result}`,
+      `auth_active_sessions_gauge`, `auth_failed_login_total{reason}`
+- [ ] **Health check**: `/health` (DB + Redis ping), `/ready` (migration durumu)
+- [ ] **Structured logging**: `slog` JSON formatında, request ID propagation
+- [ ] **Distributed tracing**: OpenTelemetry span'ları (login, token issue, permission check, datasource access check)
+- [ ] **Alert rules**: 5dk içinde >50 failed login (IP bazlı), token issue rate anomaly, service down
+- [ ] **Grafana dashboard**: Auth service metrikleri (login rate, active users, permission cache hit rate)
+
+### 18.8 Password Policy (Konfigüre Edilebilir)
+
+- [ ] Minimum uzunluk (default: 8)
+- [ ] Maksimum uzunluk (default: 128, bcrypt limit)
+- [ ] En az 1 büyük harf
+- [ ] En az 1 küçük harf
+- [ ] En az 1 rakam
+- [ ] En az 1 özel karakter
+- [ ] Sözlük kelime kontrolü (top 10k yaygın parola)
+- [ ] Kullanıcı adı/e-posta içeremez
+- [ ] Zxcvbn benzeri güçlülük skorlama (frontend + backend)
+
+### 18.9 Frontend Best Practices
+
+- [ ] **CSRF token**: SPA için double-submit cookie pattern veya per-request CSRF token
+- [ ] **XSS önleme**: React default escaping + DOMPurify ile zengin metin sanitizasyonu
+- [ ] **Subresource Integrity (SRI)**: CDN'den yüklenen kaynaklar için integrity hash
+- [ ] **Secure cookie handling**: Frontend JS erişemez (HttpOnly), sadece BFF proxy ile
+- [ ] **Token in memory only**: Access token localStorage/cookie değil, sadece JS memory'de
+- [ ] **Silent refresh**: Access token süresi dolmadan 30 sn önce arka planda refresh
+- [ ] **Loginrate UI**: Başarısız girişlerde artan gecikme (1s, 2s, 4s...) — client-side rate limit UX
+- [ ] **Password paste engeli yok**: Şifre yöneticileri desteklenmeli, paste engellenmemeli
+- [ ] **Autofill desteği**: `autocomplete="current-password"`, `autocomplete="new-password"` attribute'ları
+- [ ] **Keyboard navigation**: Tab order, Enter ile submit, Escape ile modal kapatma
+- [ ] **Focus management**: Login sonrası ana içeriğe focus, hata durumunda ilk hatalı alana focus
+- [ ] **Screen reader desteği**: ARIA labels, error announcement (`aria-live="assertive"`)
+- [ ] **OAuth state geçişi**: OAuth redirect sonrası spinner/loading, başarısız olursa hata sayfası
+- [ ] **Remember me**: "Beni hatırla" → refresh token TTL 30 gün (default 7 gün)
+- [ ] **Session expiry UX**: Token süresi dolduğunda modal ile "Oturumunuz sona erdi" → login'e yönlendirme
+
+### 18.10 Migration & Backward Compatibility
+
+- [ ] **Mevcut API key geçişi**: Auth service aktif olduğunda mevcut `BI_API_KEY` ile gelen istekler
+      geçici olarak (30 gün) hem API key hem JWT ile kabul edilmeli. Sonra API key kapatılmalı.
+- [ ] **Migration script**: Mevcut `query_history` ve `ai_query_history` tablolarına `user_id`
+      kolonu ekleme (NULL allowed → sonra backfill)
+- [ ] **Backfill job**: Eski kayıtlar için `user_id = 'system'` olarak işaretleme
+- [ ] **Feature flag**: `BI_AUTH_ENABLED=true/false` — auth service olmadan de eski modda çalışabilmeli
+- [ ] **Zero-downtime migration**: DB değişiklikleri backward compatible olmalı (kolon ekleme, yoksa tablo oluşturma)
+
+### 18.11 Disaster Recovery & High Availability
+
+- [ ] **Auth DB replication**: Streaming replication ile read replica (en az 1)
+- [ ] **Redis Sentinel/Cluster**: Session ve cache için HA
+- [ ] **JWT public key rotation**: Key ID (kid) ile birden fazla public key desteği, rolling rotation
+- [ ] **Backup**: Auth DB günlük yedek, Point-in-Time Recovery (PITR) desteği
+- [ ] **Graceful degradation**: Auth service down olduğunda monolit son doğrulanan JWT'yi
+     短 süreli (1-2dk) cache'ten kabul etmeli (circuit breaker pattern)
+- [ ] **Rate limit kurtarma**: Redis down olduğunda in-memory rate limit fallback
+
+---
+
+## 19. Kubernetes / Helm Chart Entegrasyonu
+
+Mevcut Biqly altyapısı: umbrella Helm chart (`deploy/helm/biqly/`) altında 4 sub-chart
+(catalog, query, ai, frontend), ArgoCD GitOps, HTTPRoute gateway, HPA, PDB,
+NetworkPolicy, Prometheus observability. Auth service bu yapıya entegre edilecek.
+
+### 19.1 Yeni Helm Sub-Chart: `auth`
+
+```
+deploy/helm/biqly/charts/auth/
+├── Chart.yaml
+├── templates/
+│   ├── _helpers.tpl
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   ├── httproute.yaml
+│   ├── secret.yaml
+│   ├── configmap.yaml
+│   ├── hpa.yaml
+│   ├── pdb.yaml
+│   ├── networkpolicy.yaml
+│   ├── serviceaccount.yaml
+│   ├── migrate-job.yaml          # auth DB migrasyonu
+│   └── prometheusrule.yaml
+└── values.yaml
+```
+
+### 19.2 `charts/auth/Chart.yaml`
+
+```yaml
+apiVersion: v2
+name: auth
+description: Biqly Auth Service — authentication, authorization, RBAC, OAuth2, WebAuthn
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+```
+
+### 19.3 `charts/auth/values.yaml`
+
+```yaml
+global:
+  biqlyImageRegistry: ghcr.io/biqly
+  imagePullSecrets: []
+  registrySecret:
+    create: false
+    name: ghcr-registry
+  serviceAccount:
+    name: biqly
+    automountServiceAccountToken: false
+  secretNames:
+    authConfig: biqly-auth-config
+    authSecret: biqly-auth-secrets
+    authDB: biqly-auth-db
+  gateway:
+    enabled: true
+    parentRef:
+      name: lan-gw
+      namespace: gateway
+      sectionName: https
+    hostnames:
+      - abi.il1.nl
+  secrets:
+    BI_AUTH_DB_DSN: ""
+    BI_AUTH_ENCRYPTION_KEY: ""
+    BI_AUTH_INTERNAL_TOKEN: ""
+    BI_AUTH_JWT_PRIVATE_KEY: ""
+    BI_AUTH_GITHUB_CLIENT_SECRET: ""
+    BI_AUTH_GOOGLE_CLIENT_SECRET: ""
+    BI_AUTH_SMTP_PASS: ""
+
+replicaCount: 2
+image:
+  repository: auth
+  tag: latest
+  pullPolicy: IfNotPresent
+service:
+  port: 8889
+config:
+  BI_AUTH_PORT: "8889"
+  BI_AUTH_REDIS_DSN: "redis://biqly-dragonfly:6379"
+  BI_AUTH_JWT_ACCESS_TTL: "15m"
+  BI_AUTH_JWT_REFRESH_TTL: "168h"
+  BI_AUTH_WEBAUTHN_RP_ID: "abi.il1.nl"
+  BI_AUTH_WEBAUTHN_RP_NAME: "Biqly"
+  BI_AUTH_WEBAUTHN_RP_ORIGINS: "https://abi.il1.nl"
+  BI_AUTH_RATE_LIMIT_PER_MINUTE: "60"
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 60
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+route:
+  enabled: true
+  pathPrefixes:
+    - /auth
+    - /api/auth
+migrate:
+  enabled: true
+  image:
+    repository: auth-migrate
+    tag: latest
+    pullPolicy: IfNotPresent
+  backoffLimit: 3
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: biqly
+      ports:
+        - port: 8889
+  egress:
+    db:
+      enabled: true
+      cidrs: []
+      ports:
+        - 5432
+    redis:
+      enabled: true
+      cidrs: []
+      ports:
+        - 6379
+    oauth:
+      enabled: true
+      fqdnNames:
+        - github.com
+        - accounts.google.com
+      fqdnPorts:
+        - 443
+    smtp:
+      enabled: true
+      fqdnNames: []
+      cidrs: []
+      fqdnPorts:
+        - 587
+```
+
+### 19.4 Parent Chart Güncellemesi
+
+`deploy/helm/biqly/Chart.yaml` — ekleme:
+
+```yaml
+dependencies:
+  # ... mevcut bağımlılıklar ...
+  - name: auth
+    version: 0.1.0
+    repository: file://charts/auth
+```
+
+`deploy/helm/biqly/values.yaml` — auth bölümü ekleme:
+
+```yaml
+auth:
+  enabled: true
+
+global:
+  secretNames:
+    # ... mevcut ...
+    authConfig: biqly-auth-config
+    authSecret: biqly-auth-secrets
+    authDB: biqly-auth-db
+  secrets:
+    # ... mevcut ...
+    BI_AUTH_DB_DSN: ""
+    BI_AUTH_ENCRYPTION_KEY: ""
+    BI_AUTH_INTERNAL_TOKEN: ""
+    BI_AUTH_JWT_PRIVATE_KEY: ""
+    BI_AUTH_GITHUB_CLIENT_SECRET: ""
+    BI_AUTH_GOOGLE_CLIENT_SECRET: ""
+    BI_AUTH_SMTP_PASS: ""
+```
+
+### 19.5 NetworkPolicy — Auth Service
+
+```yaml
+# deploy/helm/biqly/charts/auth/templates/networkpolicy.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "auth.fullname" . }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "auth.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: biqly
+      ports:
+        - protocol: TCP
+          port: {{ .Values.service.port }}
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: biqly-dragonfly
+      ports:
+        - protocol: TCP
+          port: 6379
+    - to: []  # OAuth providers + SMTP (DNS resolved)
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 587
+```
+
+### 19.6 HTTPRoute — Gateway Entegrasyonu
+
+```yaml
+# deploy/helm/biqly/charts/auth/templates/httproute.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "auth.fullname" . }}
+spec:
+  parentRefs:
+    - name: {{ .Values.global.gateway.parentRef.name }}
+      namespace: {{ .Values.global.gateway.parentRef.namespace }}
+      sectionName: {{ .Values.global.gateway.parentRef.sectionName }}
+  hostnames:
+    {{- range .Values.global.gateway.hostnames }}
+    - {{ . }}
+    {{- end }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /auth
+      backendRefs:
+        - name: {{ include "auth.fullname" . }}
+          port: {{ .Values.service.port }}
+      filters:
+        - type: ResponseHeaderModifier
+          responseHeaderModifier:
+            add:
+              - X-Auth-Service: "biqly-auth"
+```
+
+### 19.7 Secret — JWT Key Yönetimi
+
+```yaml
+# deploy/helm/biqly/charts/auth/templates/secret.yaml
+{{- if .Values.global.secrets.createSecrets }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "auth.fullname" . }}-secret
+type: Opaque
+stringData:
+  BI_AUTH_DB_DSN: {{ required "global.secrets.BI_AUTH_DB_DSN is required" .Values.global.secrets.BI_AUTH_DB_DSN | quote }}
+  BI_AUTH_ENCRYPTION_KEY: {{ required "global.secrets.BI_AUTH_ENCRYPTION_KEY is required" .Values.global.secrets.BI_AUTH_ENCRYPTION_KEY | quote }}
+  BI_AUTH_INTERNAL_TOKEN: {{ required "global.secrets.BI_AUTH_INTERNAL_TOKEN is required" .Values.global.secrets.BI_AUTH_INTERNAL_TOKEN | quote }}
+  BI_AUTH_JWT_PRIVATE_KEY: {{ required "BI_AUTH_JWT_PRIVATE_KEY" .Values.global.secrets.BI_AUTH_JWT_PRIVATE_KEY | quote }}
+  {{- with .Values.global.secrets.BI_AUTH_GITHUB_CLIENT_SECRET }}
+  BI_AUTH_GITHUB_CLIENT_SECRET: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.global.secrets.BI_AUTH_GOOGLE_CLIENT_SECRET }}
+  BI_AUTH_GOOGLE_CLIENT_SECRET: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.global.secrets.BI_AUTH_SMTP_PASS }}
+  BI_AUTH_SMTP_PASS: {{ . | quote }}
+  {{- end }}
+{{- end }}
+```
+
+> **Prodüksiyon Notu**: Gerçek deployment'ta secret'ler Helm values üzerinden değil,
+> External Secrets Operator (ESO) + Vault veya AWS Secrets Manager ile inject edilmeli.
+> `createSecrets: false` ile dağıtım, ESO ile yönetim önerilen yol.
+
+### 19.8 Auth DB Migrasyon Job
+
+```yaml
+# deploy/helm/biqly/charts/auth/templates/migrate-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "auth.fullname" . }}-migrate
+  labels:
+    {{- include "auth.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  backoffLimit: {{ .Values.migrate.backoffLimit }}
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: "{{ .Values.global.biqlyImageRegistry }}/{{ .Values.migrate.image.repository }}:{{ .Values.migrate.image.tag }}"
+          command: ["./auth-migrate", "up"]
+          envFrom:
+            - secretRef:
+                name: {{ include "auth.fullname" . }}-secret
+```
+
+### 19.9 ArgoCD Application Güncelleme
+
+Auth service ArgoCD tarafından otomatik deploy edilecek. Mevcut `deploy/argocd/application.yaml`
+değişmez — auth sub-chart umbrella chart'un parçası olarak yönetilir.
+
+Ekstra: Auth DB için ayrı PostgreSQL instance veya aynı cluster'da ayrı database.
+`values-prod.yaml`'da `BI_AUTH_DB_DSN` ayrı bir PostgreSQL point edebilir.
+
+### 19.10 Catalog/Query/AI Chart'larına Auth Dependency Ekleme
+
+Catalog, query ve AI sub-chart'larının deployment'larına auth service health check dependency
+eklenmeli:
+
+```yaml
+# deploy/helm/biqly/charts/catalog/templates/deployment.yaml — ekleme
+# (auth service readiness'a bağlı)
+{{- if .Values.auth.enabled }}
+initContainers:
+  - name: wait-for-auth
+    image: busybox:1.36
+    command: ['sh', '-c', 'until nc -z biqly-auth 8889; do echo waiting for auth; sleep 2; done']
+{{- end }}
+```
+
+### 19.11 Prometheus Rules
+
+```yaml
+# deploy/helm/biqly/charts/auth/templates/prometheusrule.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "auth.fullname" . }}-rules
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: auth.rules
+      rules:
+        - alert: AuthHighFailedLogins
+          expr: rate(auth_failed_login_total[5m]) > 10
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High failed login rate"
+            description: "{{ $value }} failed logins per second in the last 5 minutes"
+        - alert: AuthServiceDown
+          expr: up{job="biqly-auth"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Auth service is down"
+        - alert: AuthTokenIssueHighLatency
+          expr: histogram_quantile(0.99, rate(auth_token_issue_duration_seconds_bucket[5m])) > 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Token issue latency above 1s at p99"
+        - alert: AuthDatasourceAccessCacheMissHigh
+          expr: rate(auth_datasource_access_check_total{result="miss"}[5m]) / rate(auth_datasource_access_check_total[5m]) > 0.5
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Datasource access cache miss rate above 50%"
+```
+
+### 19.12 Docker Compose Entegrasyonu
+
+`docker-compose.yml`'e eklenecek servisler:
+
+```yaml
+# docker-compose.yml — ekleme
+auth-db:
+  image: postgres:18-alpine
+  environment:
+    POSTGRES_DB: bi_auth
+    POSTGRES_USER: bi_auth_user
+    POSTGRES_PASSWORD: bi_auth_password
+  ports:
+    - "5434:5432"
+  volumes:
+    - auth_data:/var/lib/postgresql
+    - ./migrations/auth:/migrations:ro
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U bi_auth_user -d bi_auth"]
+    interval: 5s
+    timeout: 3s
+    retries: 5
+
+auth-migrate:
+  build:
+    context: .
+    dockerfile: Dockerfile.auth-migrate
+  environment:
+    BI_AUTH_DB_DSN: postgres://bi_auth_user:bi_auth_password@auth-db:5432/bi_auth?sslmode=disable
+  depends_on:
+    auth-db:
+      condition: service_healthy
+  restart: "no"
+
+auth:
+  build:
+    context: .
+    dockerfile: Dockerfile.auth
+  environment:
+    BI_AUTH_PORT: 8889
+    BI_AUTH_DB_DSN: postgres://bi_auth_user:bi_auth_password@auth-db:5432/bi_auth?sslmode=disable
+    BI_AUTH_REDIS_DSN: redis://redis:6379
+    BI_AUTH_INTERNAL_TOKEN: dev-internal-token
+  ports:
+    - "8889:8889"
+  depends_on:
+    auth-db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    auth-migrate:
+      condition: service_completed_successfully
+
+# Mevcut api servisine auth dependency ekleme
+# api.environment'a ekle:
+#   BI_AUTH_SERVICE_URL: http://auth:8889
+# api.depends_on'a ekle:
+#   auth:
+#     condition: service_healthy
+```
+
+### 19.13 Dockerfile
+
+```dockerfile
+# Dockerfile.auth
+FROM golang:1.26-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /auth ./cmd/auth/
+
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=builder /auth /auth
+EXPOSE 8889
+ENTRYPOINT ["/auth"]
+```
+
+```dockerfile
+# Dockerfile.auth-migrate
+FROM golang:1.26-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /auth-migrate ./cmd/auth-migrate/
+
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=builder /auth-migrate /auth-migrate
+ENTRYPOINT ["/auth-migrate"]
+```
+
+### 19.14 Mevcut Chart'lara Auth Context Ekleme
+
+Catalog, Query ve AI sub-chart'larının deployment template'lerine JWT public key
+mount edilmesi gerekir:
+
+```yaml
+# charts/catalog/templates/deployment.yaml — volume ekleme
+volumes:
+  - name: jwt-public-key
+    secret:
+      secretName: biqly-auth-jwt-public-key
+      optional: false
+
+# containers[0].volumeMounts'a ekleme
+volumeMounts:
+  - name: jwt-public-key
+    mountPath: /secrets/jwt
+    readOnly: true
+
+# env ekleme
+env:
+  - name: BI_AUTH_JWT_PUBLIC_KEY_PATH
+    value: /secrets/jwt/public.pem
+  - name: BI_AUTH_SERVICE_URL
+    value: "http://biqly-auth:8889"
+```
+
+---
+
+## 20. Referanslar
+
+- [OWASP Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)
+- [OWASP Authorization Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html)
+- [WebAuthn Spec (W3C)](https://www.w3.org/TR/webauthn-3/)
+- [Apple Passkey Documentation](https://developer.apple.com/passkeys/)
+- [Go WebAuthn Library](https://github.com/go-webauthn/webauthn)
+- [OAuth 2.0 PKCE (RFC 7636)](https://datatracker.ietf.org/doc/html/rfc7636)
+- [JWT Best Practices (RFC 8725)](https://datatracker.ietf.org/doc/html/rfc8725)
+- [RBAC Model (NIST)](https://csrc.nist.gov/projects/role-based-access-control)
+- [ABAC vs RBAC for BI Platforms](https://www.permify.co/post/abac-vs-rbac)
+- [Multi-Tenant Data Isolation Patterns](https://docs.microsoft.com/en-us/azure/architecture/guide/multitenant/considerations/data-architecture)
+
+---
+
+## 19. Değişiklik Günlüğü
+
+| Tarih | Değişiklik |
+|---|---|
+| 2026-05-25 | İlk oluşturma: auth service plan, OAuth2, Passkey, RBAC, frontend |
+| 2026-05-25 | BI-specific eklentiler: datasource erişim kontrolü, workspace modeli, AI sorgu izolasyonu, kaynak paylaşım, veri izolasyon politikası, 5 BI rolü (super_admin/admin/developer/analyst/viewer), kuyruk görünürlük matrisi |

@@ -87,6 +87,67 @@ const PREFERRED_TITLE_COLUMN_PATTERNS = [
 
 const ID_COLUMN_PATTERNS = [/^(id|uuid|pk)$/, /(_|^)id$/]
 
+type TFn = ReturnType<typeof useT>
+
+const VALIDATION_FIELD_REGEX = /unknown (?:dimension|metric|field): ([\w.]+)/g
+
+function ValidationErrorBanner({
+  error,
+  t,
+  onOpenModeling,
+}: {
+  error: string | null | undefined
+  t: TFn
+  onOpenModeling: () => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  if (!error) return null
+
+  const isValidation = /validation failed/i.test(error)
+  if (!isValidation) {
+    return <ErrorAlert error={error} />
+  }
+
+  const matches = Array.from(error.matchAll(VALIDATION_FIELD_REGEX))
+  const fields = Array.from(new Set(matches.map((m) => m[1]).filter(Boolean))) as string[]
+  const count = fields.length
+
+  return (
+    <div className="error validation-error-banner" role="alert">
+      <div className="validation-error-banner__row">
+        <span className="validation-error-banner__title">
+          ⚠ {t('table_browser.validation_error_summary', { count: String(count) })}
+        </span>
+        <div className="validation-error-banner__actions">
+          {count > 0 && (
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => setExpanded((v) => !v)}
+            >
+              {expanded
+                ? t('table_browser.validation_error_hide')
+                : t('table_browser.validation_error_show')}
+            </button>
+          )}
+          <button type="button" className="btn btn-sm btn-primary" onClick={onOpenModeling}>
+            {t('table_browser.validation_error_open_modeling')}
+          </button>
+        </div>
+      </div>
+      {expanded && count > 0 && (
+        <ul className="validation-error-banner__list">
+          {fields.map((f) => (
+            <li key={f}>
+              <code>{f}</code>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function singularize(name: string): string {
   const n = name.toLowerCase()
   if (n.endsWith('ies')) return `${n.slice(0, -3)}y`
@@ -819,7 +880,20 @@ export default function TableBrowser() {
             )}
           </div>
 
-          <ErrorAlert error={error} />
+          <ValidationErrorBanner
+            error={error}
+            t={t}
+            onOpenModeling={() => {
+              const modelId = modelDetail?.id
+              const dsId = datasourceId
+              const params = new URLSearchParams()
+              if (dsId) params.set('ds', dsId)
+              if (modelId) params.set('model', modelId)
+              const qs = params.toString()
+              window.history.pushState(null, '', qs ? `/modeling?${qs}` : '/modeling')
+              window.dispatchEvent(new PopStateEvent('popstate'))
+            }}
+          />
 
           {showTablePanel && (
             <>

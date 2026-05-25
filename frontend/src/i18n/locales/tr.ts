@@ -851,6 +851,10 @@ export const tr: Dictionary = {
     range_unknown_total: 'Satır {{start}}–{{end}}',
     row_detail: 'Satır detayı',
     row_detail_title: 'Satır {{n}}',
+    validation_error_summary: 'Doğrulama başarısız: {{count}} alan bu modelde yok.',
+    validation_error_show: 'Detayları göster',
+    validation_error_hide: 'Detayları gizle',
+    validation_error_open_modeling: 'Modeling\'i aç →',
   },
   dashboard: {
     title: 'AI Analiz',

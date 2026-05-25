@@ -98,7 +98,8 @@ export function Select<T extends string = string>({
     const placement: 'down' | 'up' = spaceBelow < 220 && spaceAbove > spaceBelow ? 'up' : 'down'
     const maxHeight = Math.max(160, Math.min(desired, placement === 'down' ? spaceBelow : spaceAbove))
     const top = placement === 'down' ? rect.bottom + 6 : Math.max(8, rect.top - 6 - maxHeight)
-    setPopover({ left: rect.left, top, width: rect.width, maxHeight, placement })
+    const width = Math.max(rect.width, 120)
+    setPopover({ left: rect.left, top, width, maxHeight, placement })
   }, [])
 
   useLayoutEffect(() => {
