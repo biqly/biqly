@@ -213,6 +213,14 @@ func (h *AuthHandler) handleGetUserPermissions(w http.ResponseWriter, r *http.Re
 	h.respondJSON(w, http.StatusOK, map[string]any{"permissions": perms})
 }
 
+func (h *AuthHandler) AuthMiddleware() func(http.Handler) http.Handler {
+	return h.authMiddleware
+}
+
+func (h *AuthHandler) InternalTokenMiddleware() func(http.Handler) http.Handler {
+	return h.internalTokenMiddleware
+}
+
 func (h *AuthHandler) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")

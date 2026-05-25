@@ -1077,13 +1077,13 @@ r.Route("/api", func(r chi.Router) {
 - [x] Profil dropdown ve kullanıcı avatarı
 
 ### Aşama 5: RBAC ve Monolit Entegrasyonu (v0.5)
-- [ ] JWTAuth middleware (monolit)
-- [ ] RequirePermission middleware (monolit)
-- [ ] RequireDatasourceAccess middleware (monolit)
+- [x] JWTAuth middleware (monolit)
+- [x] RequirePermission middleware (monolit)
+- [x] RequireDatasourceAccess middleware (monolit)
 - [ ] İzin bazlı route koruması router.go'da
 - [ ] Datasource erişim bazlı route koruması router.go'da
-- [ ] Permission cache (Redis, 5dk TTL)
-- [ ] Datasource access cache (Redis, 5dk TTL)
+- [x] Permission cache (in-memory, 5dk TTL)
+- [x] Datasource access cache (in-memory + Redis SET, 5dk TTL)
 - [ ] AI history user_id filtreleme + alan maskeleme
 - [ ] query_history + ai_query_history tablolarına user_id ekleme
 - [ ] Admin paneli frontend (kullanıcı listesi, rol atama)
@@ -1160,43 +1160,43 @@ r.Route("/api", func(r chi.Router) {
 
 ### Backend — RBAC
 
-- [ ] `internal/auth/rbac.go` — İzin değerlendirme motoru
+- [x] `internal/auth/rbac.go` — İzin değerlendirme motoru
 - [x] `internal/auth/rbac_repository.go` — Role/permission DB operasyonları
-- [ ] Global scope izin kontrolü
-- [ ] Workspace scope izin kontrolü
+- [x] Global scope izin kontrolü
+- [x] Workspace scope izin kontrolü
 - [ ] Resource scope izin kontrolü
 - [ ] Rol hiyerarşisi (gelecek: role inheritance)
 - [x] Seed data: 5 varsayılan rol (super_admin, admin, developer, analyst, viewer) + 23 izin
-- [ ] super_admin bypass: tüm izin kontrollerini otomatik geç
+- [x] super_admin bypass: tüm izin kontrollerini otomatik geç
 
 ### Backend — Datasource Erişim Kontrolü
 
-- [ ] `internal/auth/datasource_access.go` — Datasource erişim servis katmanı
-- [ ] datasource_access CRUD (grant, revoke, update level)
-- [ ] Kullanıcının erişebildiği datasource ID listesi sorgulama
-- [ ] Datasource erişim seviyesi kontrolü (read/write/admin)
-- [ ] Workspace → datasource ilişkisi üzerinden erişim çözümleme
-- [ ] Redis cache: `user:{id}:datasources` SET (TTL: 5dk)
-- [ ] Cache invalidate: datasource_access değişikliğinde
-- [ ] Auth service internal endpoint: `/internal/auth/check-datasource-access`
+- [x] `internal/auth/datasource_access.go` — Datasource erişim servis katmanı
+- [x] datasource_access CRUD (grant, revoke, update level)
+- [x] Kullanıcının erişebildiği datasource ID listesi sorgulama
+- [x] Datasource erişim seviyesi kontrolü (read/write/admin)
+- [x] Workspace → datasource ilişkisi üzerinden erişim çözümleme
+- [x] Redis cache: `user:{id}:datasources` SET (TTL: 5dk)
+- [x] Cache invalidate: datasource_access değişikliğinde
+- [x] Auth service internal endpoint: `/internal/auth/check-datasource-access`
 
 ### Backend — Workspace Yönetimi
 
-- [ ] `internal/auth/workspace.go` — Workspace servis katmanı
-- [ ] Workspace CRUD (create, read, update, delete)
-- [ ] Kişisel workspace otomatik oluşturma (kullanıcı kaydında)
-- [ ] Workspace üye yönetimi (invite, remove, role update)
-- [ ] Workspace → datasource bağlama
-- [ ] Workspace izolasyonu: kullanıcı sadece üye olduğu workspace'leri görebilir
+- [x] `internal/auth/workspace.go` — Workspace servis katmanı
+- [x] Workspace CRUD (create, read, update, delete)
+- [x] Kişisel workspace otomatik oluşturma (kullanıcı kaydında)
+- [x] Workspace üye yönetimi (invite, remove, role update)
+- [x] Workspace → datasource bağlama
+- [x] Workspace izolasyonu: kullanıcı sadece üye olduğu workspace'leri görebilir
 - [ ] Workspace context switching (aktif workspace değiştirme)
 
 ### Backend — Kaynak Paylaşım
 
-- [ ] `internal/auth/sharing.go` — Paylaşım servis katmanı
-- [ ] Kaynak paylaşım CRUD (sorgu, dashboard, model)
-- [ ] Kullanıcıya özel paylaşım vs workspace geneli paylaşım
-- [ ] Paylaşım izni seviyeleri: view, execute, edit
-- [ ] Paylaşılan kaynakları listeleme (filtre: resource_type)
+- [x] `internal/auth/sharing.go` — Paylaşım servis katmanı
+- [x] Kaynak paylaşım CRUD (sorgu, dashboard, model)
+- [x] Kullanıcıya özel paylaşım vs workspace geneli paylaşım
+- [x] Paylaşım izni seviyeleri: view, execute, edit
+- [x] Paylaşılan kaynakları listeleme (filtre: resource_type)
 
 ### Backend — AI Kuyruk İzolasyonu
 
@@ -1211,9 +1211,9 @@ r.Route("/api", func(r chi.Router) {
 
 ### Backend — Monolit Entegrasyonu
 
-- [ ] `internal/http/middleware/jwt.go` — JWT doğrulama middleware
-- [ ] `internal/http/middleware/permission.go` — İzin kontrol middleware
-- [ ] `internal/http/middleware/datasource_access.go` — Datasource erişim middleware
+- [x] `internal/http/middleware/jwt.go` — JWT doğrulama middleware
+- [x] `internal/http/middleware/permission.go` — İzin kontrol middleware (+ Datasource erişim)
+- [x] PublicKeyProvider: Auth service'den JWT public key fetch ve cache
 - [ ] `internal/http/router.go` güncelleme — APIKeyAuth → JWTAuth
 - [ ] Permission bazlı route gruplama
 - [ ] Datasource erişim bazlı route gruplama

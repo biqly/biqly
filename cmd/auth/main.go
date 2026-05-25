@@ -14,6 +14,7 @@ import (
 	"github.com/biqly/biqly/internal/platform/db"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -48,11 +49,36 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Initialize Redis client (used for datasource access cache)
+	var redisClient *redis.Client
+	if cfg.RedisDSN != "" {
+		opts, parseErr := redis.ParseURL(cfg.RedisDSN)
+		if parseErr != nil {
+			slog.Warn("parse redis DSN", "error", parseErr)
+		} else {
+			redisClient = redis.NewClient(opts)
+			if err := redisClient.Ping(ctx).Err(); err != nil {
+				slog.Warn("redis ping failed; cache disabled", "error", err)
+				redisClient = nil
+			}
+		}
+	}
+	defer func() {
+		if redisClient != nil {
+			_ = redisClient.Close()
+		}
+	}()
+
 	// Initialize Repositories and Services
 	userRepo := auth.NewUserRepository(dbPool)
 	rbacRepo := auth.NewRBACRepository(dbPool)
 	sessionMgr := auth.NewSessionManager(dbPool)
 	authService := auth.NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, cfg)
+
+	rbacService := auth.NewRBACService(rbacRepo)
+	dsAccessService := auth.NewDatasourceAccessService(dbPool, redisClient, rbacService)
+	workspaceService := auth.NewWorkspaceService(dbPool, dsAccessService)
+	sharingService := auth.NewSharingService(dbPool)
 
 	webAuthnService, err := auth.NewWebAuthnService(cfg, userRepo)
 	if err != nil {
@@ -70,6 +96,9 @@ func main() {
 	// Register Routes
 	handler := auth.NewAuthHandler(authService, webAuthnService, jwtMgr, cfg)
 	handler.RegisterRoutes(r)
+
+	rbacHandler := auth.NewRBACHandler(rbacService, rbacRepo, dsAccessService, workspaceService, sharingService, jwtMgr, cfg)
+	rbacHandler.RegisterRoutes(r, handler.AuthMiddleware(), handler.InternalTokenMiddleware())
 
 	// HTTP Server Config
 	srv := &http.Server{
