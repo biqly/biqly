@@ -19,14 +19,19 @@ var (
 )
 
 type AuthService struct {
-	userRepo    *UserRepository
-	rbacRepo    *RBACRepository
-	sessionMgr  *SessionManager
-	jwtMgr      *JWTManager
-	config      *Config
-	redisClient *redis.Client
-	emailSender EmailSender
+	userRepo     *UserRepository
+	rbacRepo     *RBACRepository
+	sessionMgr   *SessionManager
+	jwtMgr       *JWTManager
+	config       *Config
+	redisClient  *redis.Client
+	emailSender  EmailSender
+	workspaceSvc *WorkspaceService
 }
+
+// SetWorkspaceService wires the workspace service after construction to avoid
+// a constructor-arg ripple through tests; required for active-workspace switching.
+func (s *AuthService) SetWorkspaceService(ws *WorkspaceService) { s.workspaceSvc = ws }
 
 func NewAuthService(
 	userRepo *UserRepository,
@@ -71,7 +76,7 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest, userAge
 		return nil, err
 	}
 
-	workspaceID, err := s.userRepo.GetPersonalWorkspaceID(ctx, user.ID)
+	workspaceID, err := s.userRepo.GetActiveOrPersonalWorkspaceID(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +161,7 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 		return nil, err
 	}
 
-	workspaceID, err := s.userRepo.GetPersonalWorkspaceID(ctx, user.ID)
+	workspaceID, err := s.userRepo.GetActiveOrPersonalWorkspaceID(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +222,7 @@ func (s *AuthService) Refresh(ctx context.Context, req RefreshRequest, userAgent
 		return nil, err
 	}
 
-	workspaceID, err := s.userRepo.GetPersonalWorkspaceID(ctx, user.ID)
+	workspaceID, err := s.userRepo.GetActiveOrPersonalWorkspaceID(ctx, user.ID)
 	if err != nil {
 		MetricTokenRefreshes.WithLabelValues("failed").Inc()
 		return nil, err
@@ -250,16 +255,65 @@ func (s *AuthService) GetMe(ctx context.Context, userID string) (*UserResponse, 
 		return nil, err
 	}
 
+	activeWS, _ := s.userRepo.GetActiveOrPersonalWorkspaceID(ctx, userID)
+
 	return &UserResponse{
-		ID:            user.ID,
-		Email:         user.Email,
-		Username:      user.Username,
-		DisplayName:   user.DisplayName,
-		AvatarURL:     user.AvatarURL,
-		IsActive:      user.IsActive,
-		EmailVerified: user.EmailVerified,
-		CreatedAt:     user.CreatedAt,
-		UpdatedAt:     user.UpdatedAt,
+		ID:                user.ID,
+		Email:             user.Email,
+		Username:          user.Username,
+		DisplayName:       user.DisplayName,
+		AvatarURL:         user.AvatarURL,
+		IsActive:          user.IsActive,
+		EmailVerified:     user.EmailVerified,
+		ActiveWorkspaceID: activeWS,
+		CreatedAt:         user.CreatedAt,
+		UpdatedAt:         user.UpdatedAt,
+	}, nil
+}
+
+// SetActiveWorkspace switches the user's active workspace and re-issues an
+// access token with the new workspace_id claim. The refresh token continues
+// to be valid — only the access token needs to be swapped client-side.
+//
+// Rejects switching to a workspace the user is not a member of (ErrNotWorkspaceOwner
+// returned as a generic membership error to avoid leaking workspace existence).
+func (s *AuthService) SetActiveWorkspace(ctx context.Context, userID, workspaceID string) (*SetActiveWorkspaceResponse, error) {
+	if workspaceID == "" {
+		return nil, errors.New("workspace_id is required")
+	}
+	if s.workspaceSvc == nil {
+		return nil, errors.New("workspace service not configured")
+	}
+
+	isMember, err := s.workspaceSvc.IsMember(ctx, workspaceID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("check workspace membership: %w", err)
+	}
+	if !isMember {
+		return nil, ErrNotWorkspaceOwner
+	}
+
+	if err := s.userRepo.SetActiveWorkspaceID(ctx, userID, workspaceID); err != nil {
+		return nil, fmt.Errorf("set active workspace: %w", err)
+	}
+
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	roles, err := s.rbacRepo.GetUserRoles(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	accessToken, err := s.jwtMgr.GenerateToken(user.ID, user.Email, roles, workspaceID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("generate access token: %w", err)
+	}
+
+	return &SetActiveWorkspaceResponse{
+		AccessToken:       accessToken,
+		ActiveWorkspaceID: workspaceID,
 	}, nil
 }
 
@@ -296,7 +350,7 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, provider string,
 		return nil, err
 	}
 
-	workspaceID, err := s.userRepo.GetPersonalWorkspaceID(ctx, user.ID)
+	workspaceID, err := s.userRepo.GetActiveOrPersonalWorkspaceID(ctx, user.ID)
 	if err != nil {
 		MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()
 		return nil, err
@@ -337,7 +391,7 @@ func (s *AuthService) CreateTokenResponseForUser(ctx context.Context, user *User
 		return nil, err
 	}
 
-	workspaceID, err := s.userRepo.GetPersonalWorkspaceID(ctx, user.ID)
+	workspaceID, err := s.userRepo.GetActiveOrPersonalWorkspaceID(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}

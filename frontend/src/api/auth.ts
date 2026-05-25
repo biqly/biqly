@@ -1,4 +1,4 @@
-import type { AuthUser, PasskeyInfo, TokenResponse } from '../types/auth'
+import type { AuthUser, PasskeyInfo, SetActiveWorkspaceResponse, TokenResponse } from '../types/auth'
 import { csrfFetch } from './csrf'
 
 const AUTH_API_BASE = '/api/auth'
@@ -69,6 +69,18 @@ export async function apiGetMe(accessToken: string): Promise<AuthUser> {
     },
   })
   return handleResponse<AuthUser>(res)
+}
+
+export async function apiSetActiveWorkspace(accessToken: string, workspaceID: string): Promise<SetActiveWorkspaceResponse> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/me/active-workspace`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ workspace_id: workspaceID }),
+  })
+  return handleResponse<SetActiveWorkspaceResponse>(res)
 }
 
 export async function apiPasskeyRegisterBegin(accessToken: string): Promise<any> {

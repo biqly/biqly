@@ -6,8 +6,14 @@ export interface AuthUser {
   avatarUrl?: string
   isActive: boolean
   emailVerified: boolean
+  active_workspace_id?: string
   createdAt: string
   updatedAt: string
+}
+
+export interface SetActiveWorkspaceResponse {
+  access_token: string
+  active_workspace_id: string
 }
 
 export interface TokenResponse {

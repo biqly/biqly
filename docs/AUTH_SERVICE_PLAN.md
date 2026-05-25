@@ -1205,7 +1205,7 @@ r.Route("/api", func(r chi.Router) {
 - [x] Workspace üye yönetimi (invite, remove, role update)
 - [x] Workspace → datasource bağlama
 - [x] Workspace izolasyonu: kullanıcı sadece üye olduğu workspace'leri görebilir
-- [ ] Workspace context switching (aktif workspace değiştirme)
+- [x] Workspace context switching (aktif workspace değiştirme) — `users.active_workspace_id` (migration 019), `POST /auth/me/active-workspace` body `{workspace_id}` üyelik doğrular ve yeni access token döner; `GetActiveOrPersonalWorkspaceID` tüm token üretim noktalarında (register/login/refresh/oauth/passkey) aktif workspace'i claim'e koyar; frontend `WorkspaceSelector` `useAuth().setActiveWorkspace` ile sunucuya yansıtıyor; `GetMe` `active_workspace_id` döndürüyor
 
 ### Backend — Kaynak Paylaşım
 
@@ -1236,7 +1236,7 @@ r.Route("/api", func(r chi.Router) {
 - [x] Datasource erişim bazlı route gruplama
 - [x] AI history handler güncelleme: user_id filtreleme + alan maskeleme
 - [x] User context propagation (user_id → audit log, query_history, ai_history)
-- [ ] Auth service health check dependency (/ready endpoint'ine ekleme)
+- [x] Auth service health check dependency (/ready endpoint'ine ekleme) — `router.go:71-73` `BI_AUTH_ENABLED` ile `readyUpstreams["auth"]` set ediliyor; `ReadinessHandler` `/health` probe yapıp 503 dönüyor
 - [x] Datasource list endpoint: sadece kullanıcının erişebildiği datasource'ları döndür (`handlers/datasources.go:287-310`, super_admin bypass)
 
 ### Frontend — Auth Sayfaları

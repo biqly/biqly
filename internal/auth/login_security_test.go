@@ -111,8 +111,8 @@ func TestAccountEnumeration_LoginResponsesIdentical(t *testing.T) {
 
 	for _, c := range cases {
 		h := newEnumHandler(t, c.err)
-		body, _ := json.Marshal(LoginRequest{Email: "a@b.com", Password: "x"})
-		req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewReader(body))
+		body := []byte(`{"email":"a@b.com","password":"x"}`)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/auth/login", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, req)
@@ -129,8 +129,8 @@ func TestAccountEnumeration_LoginResponsesIdentical(t *testing.T) {
 
 	// Lockout is intentionally distinct.
 	hLocked := newEnumHandler(t, ErrAccountLocked)
-	body, _ := json.Marshal(LoginRequest{Email: "a@b.com", Password: "x"})
-	req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewReader(body))
+	body := []byte(`{"email":"a@b.com","password":"x"}`)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/auth/login", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	hLocked.ServeHTTP(w, req)
@@ -146,6 +146,3 @@ func TestErrInvalidCredentialsMessage(t *testing.T) {
 	// login response — see TestAccountEnumeration_LoginResponsesIdentical.
 	assert.NotEqual(t, ErrInvalidCredentials.Error(), ErrInactiveUser.Error())
 }
-
-// _ ensures context import is used even if future edits drop usages.
-var _ = context.Background

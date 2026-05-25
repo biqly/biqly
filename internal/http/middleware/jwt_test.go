@@ -37,7 +37,7 @@ func x509MarshalPKIX(t *testing.T, pub *rsa.PublicKey) []byte {
 	return b
 }
 
-func newKeyServer(t *testing.T, pubPEM, issuer, audience string) *httptest.Server {
+func newKeyServer(t *testing.T, pubPEM, audience string) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/internal/auth/public-key", func(w http.ResponseWriter, r *http.Request) {
@@ -47,7 +47,7 @@ func newKeyServer(t *testing.T, pubPEM, issuer, audience string) *httptest.Serve
 		}
 		_ = json.NewEncoder(w).Encode(map[string]string{
 			"public_key": pubPEM,
-			"issuer":     issuer,
+			"issuer":     "biqly-auth",
 			"audience":   audience,
 		})
 	})
@@ -66,14 +66,14 @@ func signToken(t *testing.T, priv *rsa.PrivateKey, claims JWTClaims) string {
 
 func TestJWTAuth_MissingTokenRejected(t *testing.T) {
 	priv, pub := newSigningKey(t)
-	srv := newKeyServer(t, pub, "biqly-auth", "biqly")
+	srv := newKeyServer(t, pub, "biqly")
 	defer srv.Close()
 	_ = priv
 
 	provider := NewPublicKeyProvider(srv.URL, "tok")
 	mw := JWTAuth(provider)
 
-	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
 	w := httptest.NewRecorder()
 	mw(okHandler()).ServeHTTP(w, req)
 	if w.Code != http.StatusUnauthorized {
@@ -83,7 +83,7 @@ func TestJWTAuth_MissingTokenRejected(t *testing.T) {
 
 func TestJWTAuth_BypassPaths(t *testing.T) {
 	priv, pub := newSigningKey(t)
-	srv := newKeyServer(t, pub, "biqly-auth", "biqly")
+	srv := newKeyServer(t, pub, "biqly")
 	defer srv.Close()
 	_ = priv
 
@@ -91,7 +91,7 @@ func TestJWTAuth_BypassPaths(t *testing.T) {
 	mw := JWTAuth(provider, "/health", "/ready")
 
 	for _, p := range []string{"/health", "/ready", "/health/sub"} {
-		req := httptest.NewRequest(http.MethodGet, p, nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, p, nil)
 		w := httptest.NewRecorder()
 		mw(okHandler()).ServeHTTP(w, req)
 		if w.Code != http.StatusOK {
@@ -102,7 +102,7 @@ func TestJWTAuth_BypassPaths(t *testing.T) {
 
 func TestJWTAuth_ValidTokenPopulatesContext(t *testing.T) {
 	priv, pub := newSigningKey(t)
-	srv := newKeyServer(t, pub, "biqly-auth", "biqly-monolith")
+	srv := newKeyServer(t, pub, "biqly-monolith")
 	defer srv.Close()
 
 	tokenStr := signToken(t, priv, JWTClaims{
@@ -133,7 +133,7 @@ func TestJWTAuth_ValidTokenPopulatesContext(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
 	req.Header.Set("Authorization", "Bearer "+tokenStr)
 	w := httptest.NewRecorder()
 	mw(handler).ServeHTTP(w, req)
@@ -158,7 +158,7 @@ func TestJWTAuth_ValidTokenPopulatesContext(t *testing.T) {
 
 func TestJWTAuth_ExpiredTokenRejected(t *testing.T) {
 	priv, pub := newSigningKey(t)
-	srv := newKeyServer(t, pub, "biqly-auth", "biqly-monolith")
+	srv := newKeyServer(t, pub, "biqly-monolith")
 	defer srv.Close()
 
 	tokenStr := signToken(t, priv, JWTClaims{
@@ -173,7 +173,7 @@ func TestJWTAuth_ExpiredTokenRejected(t *testing.T) {
 	provider := NewPublicKeyProvider(srv.URL, "tok")
 	mw := JWTAuth(provider)
 
-	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
 	req.Header.Set("Authorization", "Bearer "+tokenStr)
 	w := httptest.NewRecorder()
 	mw(okHandler()).ServeHTTP(w, req)
@@ -184,7 +184,7 @@ func TestJWTAuth_ExpiredTokenRejected(t *testing.T) {
 
 func TestJWTAuth_WrongIssuerRejected(t *testing.T) {
 	priv, pub := newSigningKey(t)
-	srv := newKeyServer(t, pub, "biqly-auth", "biqly-monolith")
+	srv := newKeyServer(t, pub, "biqly-monolith")
 	defer srv.Close()
 
 	tokenStr := signToken(t, priv, JWTClaims{
@@ -199,7 +199,7 @@ func TestJWTAuth_WrongIssuerRejected(t *testing.T) {
 	provider := NewPublicKeyProvider(srv.URL, "tok")
 	mw := JWTAuth(provider)
 
-	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
 	req.Header.Set("Authorization", "Bearer "+tokenStr)
 	w := httptest.NewRecorder()
 	mw(okHandler()).ServeHTTP(w, req)
@@ -210,7 +210,7 @@ func TestJWTAuth_WrongIssuerRejected(t *testing.T) {
 
 func TestJWTAuth_WrongAudienceRejected(t *testing.T) {
 	priv, pub := newSigningKey(t)
-	srv := newKeyServer(t, pub, "biqly-auth", "biqly-monolith")
+	srv := newKeyServer(t, pub, "biqly-monolith")
 	defer srv.Close()
 
 	tokenStr := signToken(t, priv, JWTClaims{
@@ -225,7 +225,7 @@ func TestJWTAuth_WrongAudienceRejected(t *testing.T) {
 	provider := NewPublicKeyProvider(srv.URL, "tok")
 	mw := JWTAuth(provider)
 
-	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
 	req.Header.Set("Authorization", "Bearer "+tokenStr)
 	w := httptest.NewRecorder()
 	mw(okHandler()).ServeHTTP(w, req)
@@ -236,7 +236,7 @@ func TestJWTAuth_WrongAudienceRejected(t *testing.T) {
 
 func TestJWTAuth_HS256TokenRejected(t *testing.T) {
 	_, pub := newSigningKey(t)
-	srv := newKeyServer(t, pub, "biqly-auth", "biqly-monolith")
+	srv := newKeyServer(t, pub, "biqly-monolith")
 	defer srv.Close()
 
 	hmacKey := make([]byte, 32)
@@ -254,7 +254,7 @@ func TestJWTAuth_HS256TokenRejected(t *testing.T) {
 	provider := NewPublicKeyProvider(srv.URL, "tok")
 	mw := JWTAuth(provider)
 
-	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
 	req.Header.Set("Authorization", "Bearer "+s)
 	w := httptest.NewRecorder()
 	mw(okHandler()).ServeHTTP(w, req)
@@ -271,7 +271,7 @@ func TestJWTAuth_KeyFetchFailureReturns503(t *testing.T) {
 	provider := NewPublicKeyProvider(closedSrv.URL, "tok")
 	mw := JWTAuth(provider)
 
-	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
 	req.Header.Set("Authorization", "Bearer something")
 	w := httptest.NewRecorder()
 	mw(okHandler()).ServeHTTP(w, req)
@@ -290,7 +290,7 @@ func TestExtractBearer(t *testing.T) {
 		"Bearer ":        "",
 	}
 	for header, want := range cases {
-		req := httptest.NewRequest(http.MethodGet, "/x", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
 		if header != "" {
 			req.Header.Set("Authorization", header)
 		}

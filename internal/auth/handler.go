@@ -71,6 +71,7 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
 		r.Use(h.authMiddleware)
 		r.Get("/me", h.handleMe)
+		r.Post("/me/active-workspace", h.handleSetActiveWorkspace)
 		r.Post("/passkey/register-begin", h.handlePasskeyRegisterBegin)
 		r.Post("/passkey/register-finish", h.handlePasskeyRegisterFinish)
 		r.Get("/me/passkeys", h.handleMePasskeys)
@@ -178,6 +179,32 @@ func (h *AuthHandler) handleMe(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.service.GetMe(r.Context(), userID)
 	if err != nil {
 		h.respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, resp)
+}
+
+func (h *AuthHandler) handleSetActiveWorkspace(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(userIDKey).(string)
+	if !ok || userID == "" {
+		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req SetActiveWorkspaceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	resp, err := h.service.SetActiveWorkspace(r.Context(), userID, req.WorkspaceID)
+	if err != nil {
+		if errors.Is(err, ErrNotWorkspaceOwner) {
+			h.respondError(w, http.StatusForbidden, "not a member of workspace")
+			return
+		}
+		h.respondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 

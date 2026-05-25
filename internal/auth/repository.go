@@ -272,6 +272,33 @@ func (r *UserRepository) GetPersonalWorkspaceID(ctx context.Context, userID stri
 	return id, err
 }
 
+// GetActiveOrPersonalWorkspaceID returns the user's active workspace if still a
+// valid membership, otherwise falls back to the personal workspace. The active
+// pointer is treated as a hint: if the workspace was deleted or the user lost
+// access, we silently degrade to personal so token issuance never fails.
+func (r *UserRepository) GetActiveOrPersonalWorkspaceID(ctx context.Context, userID string) (string, error) {
+	var active sql.NullString
+	if err := r.db.QueryRowContext(ctx, "SELECT active_workspace_id FROM users WHERE id = $1", userID).Scan(&active); err != nil {
+		return "", err
+	}
+	if active.Valid && active.String != "" {
+		var ok bool
+		if err := r.db.QueryRowContext(ctx,
+			"SELECT EXISTS(SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2)",
+			active.String, userID).Scan(&ok); err == nil && ok {
+			return active.String, nil
+		}
+	}
+	return r.GetPersonalWorkspaceID(ctx, userID)
+}
+
+func (r *UserRepository) SetActiveWorkspaceID(ctx context.Context, userID, workspaceID string) error {
+	_, err := r.db.ExecContext(ctx,
+		"UPDATE users SET active_workspace_id = $1, updated_at = NOW() WHERE id = $2",
+		workspaceID, userID)
+	return err
+}
+
 func (r *UserRepository) encryptToken(token string) (string, error) {
 	if token == "" {
 		return "", nil

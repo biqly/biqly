@@ -88,6 +88,7 @@ func main() {
 	rbacSvc := biqauth.NewRBACService(rbacRepo)
 	dsAccessSvc := biqauth.NewDatasourceAccessService(db, redisClient, rbacSvc)
 	workspaceSvc := biqauth.NewWorkspaceService(db, dsAccessSvc)
+	authSvc.SetWorkspaceService(workspaceSvc)
 	sharingSvc := biqauth.NewSharingService(db)
 	auditSvc := biqauth.NewAuditService(db)
 

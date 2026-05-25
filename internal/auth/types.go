@@ -26,15 +26,25 @@ type TokenResponse struct {
 }
 
 type UserResponse struct {
-	ID            string    `json:"id"`
-	Email         string    `json:"email"`
-	Username      *string   `json:"username,omitempty"`
-	DisplayName   *string   `json:"display_name,omitempty"`
-	AvatarURL     *string   `json:"avatar_url,omitempty"`
-	IsActive      bool      `json:"is_active"`
-	EmailVerified bool      `json:"email_verified"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID                string    `json:"id"`
+	Email             string    `json:"email"`
+	Username          *string   `json:"username,omitempty"`
+	DisplayName       *string   `json:"display_name,omitempty"`
+	AvatarURL         *string   `json:"avatar_url,omitempty"`
+	IsActive          bool      `json:"is_active"`
+	EmailVerified     bool      `json:"email_verified"`
+	ActiveWorkspaceID string    `json:"active_workspace_id,omitempty"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
+}
+
+type SetActiveWorkspaceRequest struct {
+	WorkspaceID string `json:"workspace_id"`
+}
+
+type SetActiveWorkspaceResponse struct {
+	AccessToken       string `json:"access_token"`
+	ActiveWorkspaceID string `json:"active_workspace_id"`
 }
 
 type User struct {

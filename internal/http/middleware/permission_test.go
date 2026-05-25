@@ -60,15 +60,15 @@ func newAuthStub() *authStub {
 
 func (s *authStub) Close() { s.server.Close() }
 
-func ctxWithUser(userID string, roles []string) context.Context {
-	ctx := context.WithValue(context.Background(), UserIDKey, userID)
+func ctxWithUser(roles []string) context.Context {
+	ctx := context.WithValue(context.Background(), UserIDKey, "u1")
 	ctx = context.WithValue(ctx, UserRolesKey, roles)
 	return ctx
 }
 
 func TestRequirePermission_NilClientPassThrough(t *testing.T) {
 	mw := RequirePermission(nil, "query:execute")
-	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
 	w := httptest.NewRecorder()
 	mw(okHandler()).ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
@@ -82,8 +82,8 @@ func TestRequirePermission_SuperAdminBypass(t *testing.T) {
 	client := NewAuthClient(stub.server.URL, "tok")
 	mw := RequirePermission(client, "query:execute")
 
-	req := httptest.NewRequest(http.MethodGet, "/x", nil)
-	req = req.WithContext(ctxWithUser("u1", []string{RoleSuperAdmin}))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+	req = req.WithContext(ctxWithUser([]string{RoleSuperAdmin}))
 	w := httptest.NewRecorder()
 	mw(okHandler()).ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
@@ -100,7 +100,7 @@ func TestRequirePermission_NoUserUnauthorized(t *testing.T) {
 	client := NewAuthClient(stub.server.URL, "tok")
 	mw := RequirePermission(client, "query:execute")
 
-	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
 	w := httptest.NewRecorder()
 	mw(okHandler()).ServeHTTP(w, req)
 	if w.Code != http.StatusUnauthorized {
@@ -117,8 +117,8 @@ func TestRequirePermission_AllowedAndCached(t *testing.T) {
 	mw := RequirePermission(client, "query:execute")
 
 	for range 3 {
-		req := httptest.NewRequest(http.MethodGet, "/x", nil)
-		req = req.WithContext(ctxWithUser("u1", []string{"analyst"}))
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+		req = req.WithContext(ctxWithUser([]string{"analyst"}))
 		w := httptest.NewRecorder()
 		mw(okHandler()).ServeHTTP(w, req)
 		if w.Code != http.StatusOK {
@@ -138,8 +138,8 @@ func TestRequirePermission_Denied(t *testing.T) {
 	client := NewAuthClient(stub.server.URL, "tok")
 	mw := RequirePermission(client, "model:publish")
 
-	req := httptest.NewRequest(http.MethodGet, "/x", nil)
-	req = req.WithContext(ctxWithUser("u1", []string{"viewer"}))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+	req = req.WithContext(ctxWithUser([]string{"viewer"}))
 	w := httptest.NewRecorder()
 	mw(okHandler()).ServeHTTP(w, req)
 	if w.Code != http.StatusForbidden {
@@ -158,8 +158,8 @@ func TestRequirePermission_UpstreamError(t *testing.T) {
 	client := NewAuthClient(stub.server.URL, "tok")
 	mw := RequirePermission(client, "query:execute")
 
-	req := httptest.NewRequest(http.MethodGet, "/x", nil)
-	req = req.WithContext(ctxWithUser("u1", []string{"analyst"}))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+	req = req.WithContext(ctxWithUser([]string{"analyst"}))
 	w := httptest.NewRecorder()
 	mw(okHandler()).ServeHTTP(w, req)
 	if w.Code != http.StatusServiceUnavailable {
@@ -173,8 +173,8 @@ func TestRequirePermission_PropagatesWorkspaceScope(t *testing.T) {
 	client := NewAuthClient(stub.server.URL, "tok")
 	mw := RequirePermission(client, "query:execute")
 
-	req := httptest.NewRequest(http.MethodGet, "/x", nil)
-	ctx := ctxWithUser("u1", []string{"analyst"})
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+	ctx := ctxWithUser([]string{"analyst"})
 	ctx = context.WithValue(ctx, WorkspaceIDKey, "ws-42")
 	req = req.WithContext(ctx)
 	w := httptest.NewRecorder()
@@ -191,7 +191,7 @@ func TestRequirePermission_PropagatesWorkspaceScope(t *testing.T) {
 
 func TestRequireDatasourceAccess_NilClientPassThrough(t *testing.T) {
 	mw := RequireDatasourceAccess(nil, "read")
-	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
 	w := httptest.NewRecorder()
 	mw(okHandler()).ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
@@ -207,8 +207,8 @@ func TestRequireDatasourceAccess_SuperAdminBypass(t *testing.T) {
 	r := chi.NewRouter()
 	r.With(RequireDatasourceAccess(client, "read")).Get("/ds/{datasourceID}", okHandler().ServeHTTP)
 
-	req := httptest.NewRequest(http.MethodGet, "/ds/abc", nil)
-	req = req.WithContext(ctxWithUser("u1", []string{RoleSuperAdmin}))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/ds/abc", nil)
+	req = req.WithContext(ctxWithUser([]string{RoleSuperAdmin}))
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
@@ -227,7 +227,7 @@ func TestRequireDatasourceAccess_NoUser(t *testing.T) {
 	r := chi.NewRouter()
 	r.With(RequireDatasourceAccess(client, "read")).Get("/ds/{datasourceID}", okHandler().ServeHTTP)
 
-	req := httptest.NewRequest(http.MethodGet, "/ds/abc", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/ds/abc", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusUnauthorized {
@@ -241,8 +241,8 @@ func TestRequireDatasourceAccess_MissingDatasourceID(t *testing.T) {
 	client := NewAuthClient(stub.server.URL, "tok")
 	mw := RequireDatasourceAccess(client, "read")
 
-	req := httptest.NewRequest(http.MethodGet, "/x", nil)
-	req = req.WithContext(ctxWithUser("u1", []string{"analyst"}))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+	req = req.WithContext(ctxWithUser([]string{"analyst"}))
 	w := httptest.NewRecorder()
 	mw(okHandler()).ServeHTTP(w, req)
 	if w.Code != http.StatusBadRequest {
@@ -258,8 +258,8 @@ func TestRequireDatasourceAccess_FromURLParam(t *testing.T) {
 	r := chi.NewRouter()
 	r.With(RequireDatasourceAccess(client, "read")).Get("/ds/{datasourceID}", okHandler().ServeHTTP)
 
-	req := httptest.NewRequest(http.MethodGet, "/ds/ds-1", nil)
-	req = req.WithContext(ctxWithUser("u1", []string{"analyst"}))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/ds/ds-1", nil)
+	req = req.WithContext(ctxWithUser([]string{"analyst"}))
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
@@ -280,8 +280,8 @@ func TestRequireDatasourceAccess_FromQueryString(t *testing.T) {
 	client := NewAuthClient(stub.server.URL, "tok")
 	mw := RequireDatasourceAccess(client, "write")
 
-	req := httptest.NewRequest(http.MethodGet, "/x?datasource_id=qs-1", nil)
-	req = req.WithContext(ctxWithUser("u1", []string{"developer"}))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x?datasource_id=qs-1", nil)
+	req = req.WithContext(ctxWithUser([]string{"developer"}))
 	w := httptest.NewRecorder()
 	mw(okHandler()).ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
@@ -320,9 +320,9 @@ func TestRequireDatasourceAccess_FromJSONBodyAndRestores(t *testing.T) {
 
 	body := payload{DatasourceID: "body-1", Question: "merhaba"}
 	buf, _ := json.Marshal(body)
-	req := httptest.NewRequest(http.MethodPost, "/api/ai/query", bytes.NewReader(buf))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/ai/query", bytes.NewReader(buf))
 	req.Header.Set("Content-Type", "application/json")
-	req = req.WithContext(ctxWithUser("u1", []string{"analyst"}))
+	req = req.WithContext(ctxWithUser([]string{"analyst"}))
 	w := httptest.NewRecorder()
 	wrapped.ServeHTTP(w, req)
 
@@ -348,8 +348,8 @@ func TestRequireDatasourceAccess_Denied(t *testing.T) {
 	client := NewAuthClient(stub.server.URL, "tok")
 	mw := RequireDatasourceAccess(client, "read")
 
-	req := httptest.NewRequest(http.MethodGet, "/x?datasource_id=ds-1", nil)
-	req = req.WithContext(ctxWithUser("u1", []string{"analyst"}))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x?datasource_id=ds-1", nil)
+	req = req.WithContext(ctxWithUser([]string{"analyst"}))
 	w := httptest.NewRecorder()
 	mw(okHandler()).ServeHTTP(w, req)
 	if w.Code != http.StatusForbidden {
@@ -365,8 +365,8 @@ func TestRequireDatasourceAccess_UpstreamError(t *testing.T) {
 	client := NewAuthClient(stub.server.URL, "tok")
 	mw := RequireDatasourceAccess(client, "read")
 
-	req := httptest.NewRequest(http.MethodGet, "/x?datasource_id=ds-1", nil)
-	req = req.WithContext(ctxWithUser("u1", []string{"analyst"}))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x?datasource_id=ds-1", nil)
+	req = req.WithContext(ctxWithUser([]string{"analyst"}))
 	w := httptest.NewRecorder()
 	mw(okHandler()).ServeHTTP(w, req)
 	if w.Code != http.StatusServiceUnavailable {
@@ -381,8 +381,8 @@ func TestRequireDatasourceAccess_CachedAcrossCalls(t *testing.T) {
 	mw := RequireDatasourceAccess(client, "read")
 
 	for range 4 {
-		req := httptest.NewRequest(http.MethodGet, "/x?datasource_id=same-ds", nil)
-		req = req.WithContext(ctxWithUser("u1", []string{"analyst"}))
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x?datasource_id=same-ds", nil)
+		req = req.WithContext(ctxWithUser([]string{"analyst"}))
 		w := httptest.NewRecorder()
 		mw(okHandler()).ServeHTTP(w, req)
 		if w.Code != http.StatusOK {

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { apiGetMe, apiLogin, apiLogout, apiRefresh, apiRegister } from '../../api/auth'
+import { apiGetMe, apiLogin, apiLogout, apiRefresh, apiRegister, apiSetActiveWorkspace } from '../../api/auth'
 import type { AuthUser } from '../../types/auth'
 
 interface AuthContextType {
@@ -12,6 +12,7 @@ interface AuthContextType {
   register: (email: string, password: string, displayName: string) => Promise<void>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
+  setActiveWorkspace: (workspaceID: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -78,6 +79,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const setActiveWorkspace = async (workspaceID: string) => {
+    if (!accessToken) throw new Error('not authenticated')
+    const resp = await apiSetActiveWorkspace(accessToken, workspaceID)
+    setAccessToken(resp.access_token)
+    setUser((prev) => (prev ? { ...prev, active_workspace_id: resp.active_workspace_id } : prev))
+  }
+
   useEffect(() => {
     const initAuth = async () => {
       const refToken = localStorage.getItem('biqly_refresh_token')
@@ -135,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         refreshUser,
+        setActiveWorkspace,
       }}
     >
       {children}
