@@ -1,0 +1,74 @@
+name: Build Auth Image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - cmd/auth/**
+      - cmd/auth-migrate/**
+      - internal/auth/**
+      - migrations/auth/**
+      - go.mod
+      - go.sum
+      - Dockerfile.auth
+      - .github/workflows/build-auth.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - cmd/auth/**
+      - cmd/auth-migrate/**
+      - internal/auth/**
+      - migrations/auth/**
+      - go.mod
+      - go.sum
+      - Dockerfile.auth
+      - .github/workflows/build-auth.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    name: Build auth image
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ github.token }}
+
+      - uses: docker/setup-qemu-action@v4
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/biqly/auth
+          tags: |
+            type=sha,format=long,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.auth
+          push: ${{ github.event_name != 'pull_request' }}
+          platforms: linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: false
