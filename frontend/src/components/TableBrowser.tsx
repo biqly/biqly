@@ -1,10 +1,13 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import '../styles/tableBrowser.css'
 import { useApi } from '../hooks/useApi'
-import { useT } from '../i18n'
+import { useLocale, useT } from '../i18n'
 import { formatResultCell } from '../utils/resultCellFormat'
+import { localeNumberTag } from '../utils/formatters'
 import { buildQueryPayload } from './queryBuilder/logicalQuery'
 import { ErrorAlert } from './ui/ErrorAlert'
+import { LoadingOverlay } from './ui/LoadingOverlay'
+import { Modal } from './ui/Modal'
 import { Select } from './ui/Select'
 import type { Datasource } from '../types/metadata'
 import type { SemanticMetric, SemanticModelDetail, SemanticModelSummary } from '../types/semantic'
@@ -45,8 +48,35 @@ function parseCountValue(rows: unknown[][] | undefined): number | null {
   return Number.isFinite(n) ? Math.trunc(n) : null
 }
 
+type PageToken = number | 'gap'
+
+function buildPageList(currentPage: number, totalPages: number): PageToken[] {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i)
+  }
+  const pages = new Set<number>([0, totalPages - 1, currentPage])
+  if (currentPage > 0) pages.add(currentPage - 1)
+  if (currentPage < totalPages - 1) pages.add(currentPage + 1)
+  const sorted = [...pages].sort((a, b) => a - b)
+  const out: PageToken[] = []
+  for (let i = 0; i < sorted.length; i++) {
+    const p = sorted[i]!
+    if (i > 0 && p - sorted[i - 1]! > 1) out.push('gap')
+    out.push(p)
+  }
+  return out
+}
+
+interface DetailRowState {
+  displayIndex: number
+  row: unknown[]
+}
+
 export default function TableBrowser() {
   const t = useT()
+  const [locale] = useLocale()
+  const localeTag = localeNumberTag(locale)
+  const formatInt = useCallback((n: number) => n.toLocaleString(localeTag), [localeTag])
   const { get, postData, error } = useApi()
 
   const [datasources, setDatasources] = useState<Datasource[]>([])
@@ -61,7 +91,7 @@ export default function TableBrowser() {
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE)
   const [fetching, setFetching] = useState(false)
-  const [expandedRow, setExpandedRow] = useState<number | null>(null)
+  const [detailRow, setDetailRow] = useState<DetailRowState | null>(null)
 
   const [popoverOpen, setPopoverOpen] = useState(false)
   const [popoverField, setPopoverField] = useState('')
@@ -117,21 +147,24 @@ export default function TableBrowser() {
     if (!modelId) {
       setModelDetail(null)
       setResult(null)
+      setTotalRows(null)
       return
     }
+    setResult(null)
+    setTotalRows(null)
     get<SemanticModelDetail>(`/api/semantic/models/${encodeURIComponent(modelId)}`).then((d) => {
       if (d) {
         setModelDetail(d)
         setFilters([])
         setPage(0)
-        setExpandedRow(null)
+        setDetailRow(null)
       }
     })
   }, [modelId])
 
   useEffect(() => {
     setPage(0)
-    setExpandedRow(null)
+    setDetailRow(null)
   }, [filters])
 
   const dimensions = useMemo(() => modelDetail?.dimensions ?? [], [modelDetail])
@@ -148,19 +181,9 @@ export default function TableBrowser() {
     [filters],
   )
 
-  const runBrowseQuery = useCallback(async () => {
-    if (!datasourceId || !modelId || !modelDetail || dimensions.length === 0) return
-
-    setFetching(true)
-    const offset = page * pageSize
-
-    const selectItems = dimensions.map((d) => ({
-      id: d.id,
-      type: 'dimension' as const,
-      name: d.name,
-    }))
-
-    const baseState = {
+  const queryBase = useMemo(() => {
+    if (!datasourceId || !modelId || !modelDetail || dimensions.length === 0) return null
+    return {
       datasourceId,
       modelId,
       mode: 'simple' as const,
@@ -171,64 +194,85 @@ export default function TableBrowser() {
       orderDir: 'asc' as const,
       windowFunctions: [],
       ctes: [],
+      selectItems: dimensions.map((d) => ({
+        id: d.id,
+        type: 'dimension' as const,
+        name: d.name,
+      })),
     }
+  }, [datasourceId, modelId, modelDetail, dimensions, filterPayload])
 
-    const countPromise =
-      countMetricName != null
-        ? postData<QueryBuilderResult>(
-            '/api/query/run',
-            buildQueryPayload({
-              ...baseState,
-              selectItems: [{ id: 'count', type: 'metric', name: countMetricName }],
-              limit: 1,
-              offset: 0,
-            }),
-          )
-        : Promise.resolve(null)
-
-    const dataPromise = postData<QueryBuilderResult>(
+  const runCountQuery = useCallback(async () => {
+    if (!queryBase) {
+      setTotalRows(null)
+      return
+    }
+    if (!countMetricName) {
+      setTotalRows(null)
+      return
+    }
+    const countRes = await postData<QueryBuilderResult>(
       '/api/query/run',
       buildQueryPayload({
-        ...baseState,
-        selectItems,
-        limit: pageSize,
-        offset,
+        ...queryBase,
+        selectItems: [{ id: 'count', type: 'metric', name: countMetricName }],
+        limit: 1,
+        offset: 0,
       }),
     )
-
-    const [countRes, dataRes] = await Promise.all([countPromise, dataPromise])
     if (countRes) {
       setTotalRows(parseCountValue(countRes.rows))
-    } else {
-      setTotalRows(null)
     }
+  }, [queryBase, countMetricName, postData])
+
+  const runDataQuery = useCallback(async () => {
+    if (!queryBase) return
+
+    setFetching(true)
+    const dataRes = await postData<QueryBuilderResult>(
+      '/api/query/run',
+      buildQueryPayload({
+        ...queryBase,
+        limit: pageSize,
+        offset: page * pageSize,
+      }),
+    )
     if (dataRes) {
       setResult(dataRes)
     }
     setFetching(false)
-  }, [
-    datasourceId,
-    modelId,
-    modelDetail,
-    dimensions,
-    filterPayload,
-    page,
-    pageSize,
-    countMetricName,
-    postData,
-  ])
+  }, [queryBase, page, pageSize, postData])
 
   useEffect(() => {
-    void runBrowseQuery()
-  }, [runBrowseQuery])
+    void runCountQuery()
+  }, [runCountQuery])
+
+  useEffect(() => {
+    void runDataQuery()
+  }, [runDataQuery])
 
   const rowCount = result?.rows?.length ?? 0
   const rangeStart = rowCount > 0 ? page * pageSize + 1 : 0
   const rangeEnd = page * pageSize + rowCount
+  const totalPages =
+    totalRows != null && totalRows > 0 ? Math.ceil(totalRows / pageSize) : totalRows === 0 ? 0 : null
+  const lastPageIndex = totalPages != null && totalPages > 0 ? totalPages - 1 : null
   const hasNext =
-    totalRows != null
-      ? rangeEnd < totalRows
-      : rowCount === pageSize
+    lastPageIndex != null ? page < lastPageIndex : rowCount === pageSize
+
+  const pageList = useMemo(() => {
+    if (totalPages == null || totalPages <= 1) return null
+    return buildPageList(page, totalPages)
+  }, [page, totalPages])
+
+  const goToPage = useCallback((next: number) => {
+    setPage(next)
+    setDetailRow(null)
+  }, [])
+
+  const hasTableData = Boolean(result?.columns?.length)
+  const showInitialPlaceholder = fetching && !hasTableData
+  const showTablePanel = hasTableData || showInitialPlaceholder
 
   const handleAddChip = (text: string) => {
     const clean = text.trim()
@@ -406,35 +450,46 @@ export default function TableBrowser() {
     rowCount === 0
       ? t('table_browser.range_empty')
       : totalRows != null
-        ? t('table_browser.range_of_total', { start: rangeStart, end: rangeEnd, total: totalRows })
-        : t('table_browser.range_unknown_total', { start: rangeStart, end: rangeEnd })
+        ? t('table_browser.range_of_total', {
+            start: formatInt(rangeStart),
+            end: formatInt(rangeEnd),
+            total: formatInt(totalRows),
+          })
+        : t('table_browser.range_unknown_total', {
+            start: formatInt(rangeStart),
+            end: formatInt(rangeEnd),
+          })
 
   return (
     <div className="card card--table-browser">
-      <div className="table-browser-header">
-        <h3 style={{ margin: 0 }}>{t('table_browser.title')}</h3>
-        <div className="table-browser-selectors">
+      <div className="table-browser-toolbar">
+        <div className="table-browser-toolbar-field">
+          <label htmlFor="table-browser-datasource" className="table-browser-toolbar-label">
+            {t('saved_questions.label_select_datasource')}
+          </label>
           <Select
+            id="table-browser-datasource"
             value={datasourceId}
             onChange={setDatasourceId}
             options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
-            size="sm"
           />
-          {datasourceId && models.length > 0 && (
-            <>
-              <span className="separator">/</span>
-              <Select
-                value={modelId}
-                onChange={setModelId}
-                options={models.map((m) => ({
-                  value: m.id,
-                  label: modelListLabel(m),
-                  hint: modelListHint(m),
-                }))}
-                size="sm"
-              />
-            </>
-          )}
+        </div>
+        <div className="table-browser-toolbar-field">
+          <label htmlFor="table-browser-model" className="table-browser-toolbar-label">
+            {t('saved_questions.label_select_model')}
+          </label>
+          <Select
+            id="table-browser-model"
+            value={modelId}
+            onChange={setModelId}
+            disabled={!datasourceId || models.length === 0}
+            placeholder={t('query_builder.placeholder_pick_model')}
+            options={models.map((m) => ({
+              value: m.id,
+              label: modelListLabel(m),
+              hint: modelListHint(m),
+            }))}
+          />
         </div>
       </div>
 
@@ -566,38 +621,50 @@ export default function TableBrowser() {
 
           <ErrorAlert error={error} />
 
-          {fetching && <div className="table-browser-loading">{t('table_browser.loading')}</div>}
-
-          {!fetching && result && result.columns && result.rows && (
+          {showTablePanel && (
             <>
-              <div className="table-browser-table-wrap">
-                <table className="results-table table-browser-grid">
-                  <thead>
-                    <tr>
-                      <th scope="col" className="table-browser-col-index"></th>
-                      {result.columns.map((col) => (
-                        <th
-                          key={col.name}
-                          scope="col"
-                          className="th-clickable"
-                          onClick={() => handleOpenAddFilter(col.name)}
-                          title={t('table_browser.filter_by_column', { column: col.name })}
-                        >
-                          {getDimensionLabel(col.name)}
-                          <span className="th-chevron">▼</span>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.rows.map((row, i) => {
-                      const isExpanded = expandedRow === i
-                      return (
-                        <Fragment key={i}>
+              {showInitialPlaceholder ? (
+                <div className="table-browser-table-placeholder" role="status" aria-live="polite" aria-busy="true">
+                  <span className="loading-overlay-spinner" aria-hidden="true" />
+                  <span>{t('table_browser.loading')}</span>
+                </div>
+              ) : result?.columns ? (
+                <LoadingOverlay
+                  loading={fetching}
+                  label={t('table_browser.loading_page')}
+                  className="table-browser-table-overlay"
+                >
+                  <div className={`table-browser-table-wrap${fetching ? ' is-blurred' : ''}`}>
+                    <table className="results-table table-browser-grid">
+                      <thead>
+                        <tr>
+                          <th scope="col" className="table-browser-col-index"></th>
+                          {result.columns.map((col) => (
+                            <th
+                              key={col.name}
+                              scope="col"
+                              className="th-clickable"
+                              onClick={() => !fetching && handleOpenAddFilter(col.name)}
+                              title={t('table_browser.filter_by_column', { column: col.name })}
+                            >
+                              {getDimensionLabel(col.name)}
+                              <span className="th-chevron">▼</span>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(result.rows ?? []).map((row, i) => (
                           <tr
-                            className={`table-browser-data-row${isExpanded ? ' is-expanded' : ''}`}
-                            onClick={() => setExpandedRow(isExpanded ? null : i)}
-                            aria-expanded={isExpanded}
+                            key={i}
+                            className={`table-browser-data-row${fetching ? ' is-disabled' : ''}`}
+                            onClick={() => {
+                              if (fetching) return
+                              setDetailRow({
+                                displayIndex: page * pageSize + i + 1,
+                                row,
+                              })
+                            }}
                           >
                             <td className="table-browser-col-index">
                               <span className="row-index-number">{page * pageSize + i + 1}</span>
@@ -612,80 +679,135 @@ export default function TableBrowser() {
                               )
                             })}
                           </tr>
-                          {isExpanded && (
-                            <tr key={`detail-${i}`} className="table-browser-detail-row">
-                              <td colSpan={(result.columns?.length ?? 0) + 1}>
-                                <div className="table-browser-detail-grid" role="region" aria-label={t('table_browser.row_detail')}>
-                                  {result.columns?.map((col, j) => {
-                                    const colName = col.name
-                                    const display = formatResultCell(row[j], colName, {})
-                                    return (
-                                      <div key={colName} className="table-browser-detail-item">
-                                        <span className="table-browser-detail-label">{getDimensionLabel(colName)}</span>
-                                        <span className="table-browser-detail-value">{display}</span>
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </Fragment>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </LoadingOverlay>
+              ) : null}
 
-              <div className="table-browser-pagination">
-                <span className="table-browser-range">{rangeLabel}</span>
-                <div className="table-browser-pagination-controls">
-                  <label className="table-browser-page-size-label">
-                    {t('table_browser.rows_per_page')}
-                    <Select
-                      value={String(pageSize)}
-                      onChange={(v) => {
-                        setPageSize(Number(v))
-                        setPage(0)
-                        setExpandedRow(null)
-                      }}
-                      options={pageSizeOptions}
-                      size="sm"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    className="table-browser-page-btn"
-                    disabled={page === 0 || fetching}
-                    onClick={() => {
-                      setPage((p) => Math.max(0, p - 1))
-                      setExpandedRow(null)
-                    }}
-                  >
-                    {t('table_browser.prev_page')}
-                  </button>
-                  <span className="table-browser-page-num">
-                    {t('table_browser.page_number', { page: page + 1 })}
-                  </span>
-                  <button
-                    type="button"
-                    className="table-browser-page-btn"
-                    disabled={!hasNext || fetching}
-                    onClick={() => {
-                      setPage((p) => p + 1)
-                      setExpandedRow(null)
-                    }}
-                  >
-                    {t('table_browser.next_page')}
-                  </button>
+              {hasTableData && (
+                <div className={`table-browser-pagination${fetching ? ' is-loading' : ''}`}>
+                  <span className="table-browser-range">{rangeLabel}</span>
+                  <div className="table-browser-pagination-controls">
+                    <label className="table-browser-page-size-label">
+                      {t('table_browser.rows_per_page')}
+                      <Select
+                        value={String(pageSize)}
+                        onChange={(v) => {
+                          setPageSize(Number(v))
+                          goToPage(0)
+                        }}
+                        options={pageSizeOptions}
+                        size="sm"
+                      />
+                    </label>
+                    <nav className="table-browser-page-nav" aria-label={t('table_browser.pagination_nav')}>
+                      <button
+                        type="button"
+                        className="table-browser-page-btn table-browser-page-btn--icon"
+                        disabled={page === 0 || fetching}
+                        onClick={() => goToPage(0)}
+                        title={t('table_browser.first_page')}
+                        aria-label={t('table_browser.first_page')}
+                      >
+                        «
+                      </button>
+                      <button
+                        type="button"
+                        className="table-browser-page-btn table-browser-page-btn--icon"
+                        disabled={page === 0 || fetching}
+                        onClick={() => goToPage(page - 1)}
+                        title={t('table_browser.prev_page')}
+                        aria-label={t('table_browser.prev_page')}
+                      >
+                        ‹
+                      </button>
+                      {pageList ? (
+                        <div className="table-browser-page-list" role="list">
+                          {pageList.map((token, idx) =>
+                            token === 'gap' ? (
+                              <span key={`gap-${idx}`} className="table-browser-page-gap" aria-hidden="true">
+                                …
+                              </span>
+                            ) : (
+                              <button
+                                key={token}
+                                type="button"
+                                role="listitem"
+                                className={`table-browser-page-num-btn${token === page ? ' is-active' : ''}`}
+                                disabled={fetching || token === page}
+                                onClick={() => goToPage(token)}
+                                aria-label={t('table_browser.go_to_page', { page: token + 1 })}
+                                aria-current={token === page ? 'page' : undefined}
+                              >
+                                {formatInt(token + 1)}
+                              </button>
+                            ),
+                          )}
+                        </div>
+                      ) : (
+                        <span className="table-browser-page-num">
+                          {t('table_browser.page_number', { page: formatInt(page + 1) })}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        className="table-browser-page-btn table-browser-page-btn--icon"
+                        disabled={!hasNext || fetching}
+                        onClick={() => goToPage(page + 1)}
+                        title={t('table_browser.next_page')}
+                        aria-label={t('table_browser.next_page')}
+                      >
+                        ›
+                      </button>
+                      <button
+                        type="button"
+                        className="table-browser-page-btn table-browser-page-btn--icon"
+                        disabled={lastPageIndex == null || page >= lastPageIndex || fetching}
+                        onClick={() => lastPageIndex != null && goToPage(lastPageIndex)}
+                        title={t('table_browser.last_page')}
+                        aria-label={t('table_browser.last_page')}
+                      >
+                        »
+                      </button>
+                    </nav>
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           )}
         </>
       ) : (
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{t('table_browser.select_model')}</p>
       )}
+
+      <Modal
+        open={detailRow != null && result?.columns != null}
+        title={
+          detailRow
+            ? t('table_browser.row_detail_title', { n: formatInt(detailRow.displayIndex) })
+            : t('table_browser.row_detail')
+        }
+        subtitle={modelDetail?.base_table}
+        onClose={() => setDetailRow(null)}
+        bodyClassName="table-browser-detail-modal-body"
+      >
+        {detailRow && result?.columns && (
+          <div className="table-browser-detail-grid" role="region" aria-label={t('table_browser.row_detail')}>
+            {result.columns.map((col, j) => {
+              const colName = col.name
+              const display = formatResultCell(detailRow.row[j], colName, {})
+              return (
+                <div key={colName} className="table-browser-detail-item">
+                  <span className="table-browser-detail-label">{getDimensionLabel(colName)}</span>
+                  <span className="table-browser-detail-value">{display}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
