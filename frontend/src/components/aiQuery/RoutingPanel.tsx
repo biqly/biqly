@@ -120,7 +120,7 @@ export function RoutingPanel({
                 }
               >
                 {embeddingLoading || embeddingRunning
-                  ? t('ai_query.embed_refreshing')
+                  ? t('ai_query.embed_refreshing_short')
                   : semanticModelId
                     ? t('ai_query.embed_refresh_model')
                     : t('ai_query.embed_refresh')}

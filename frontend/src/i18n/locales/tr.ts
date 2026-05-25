@@ -305,6 +305,7 @@ export const tr: Dictionary = {
     embed_refresh: "Embedding'leri yenile",
     embed_refresh_model: "Embedding'leri yenile (model)",
     embed_refreshing: "Embedding'ler yenileniyor…",
+    embed_refreshing_short: 'Yenileniyor...',
     embed_title_model: "Semantic modele özel embedding güncellemesi: {{name}}",
     embed_title_ds: "Seçilen veri kaynağı ({{name}}) için embedding'leri yenile",
     embed_title_none: 'Önce bir veri kaynağı seçin',

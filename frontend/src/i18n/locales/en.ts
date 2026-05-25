@@ -304,6 +304,7 @@ export const en = {
     embed_refresh: 'Refresh embeddings',
     embed_refresh_model: 'Refresh embeddings (model)',
     embed_refreshing: 'Refreshing embeddings…',
+    embed_refreshing_short: 'Refreshing...',
     embed_title_ds: 'Refresh embeddings for the selected datasource ({{name}})',
     embed_title_model: 'Refresh embeddings scoped to semantic model: {{name}}',
     embed_title_none: 'Select a datasource first',

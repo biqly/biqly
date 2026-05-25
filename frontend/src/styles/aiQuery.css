@@ -602,7 +602,7 @@
   }
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1240px) {
   .query-controls {
     grid-template-columns: 1fr 1fr;
   }
@@ -619,7 +619,7 @@
   }
 }
 
-.routing-toggle label { display: block; margin-bottom: 0.3rem; }
+.routing-toggle label { display: block; margin-bottom: 0.45rem; }
 
 .routing-toggle-row {
   display: flex;
@@ -632,12 +632,33 @@
 .routing-toggle-row .toggle-group {
   flex: 0 0 auto;
   min-width: 0;
+  height: 2.1rem;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem;
+}
+
+.routing-toggle-row .toggle-btn {
+  height: 100%;
+  padding: 0 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .routing-embed-btn {
   white-space: nowrap;
   flex: 0 0 auto;
   margin-left: auto;
+  margin-top: 0;
+  height: 2.1rem;
+  min-height: 2.1rem;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .routing-embed-status {
