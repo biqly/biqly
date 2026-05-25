@@ -1066,15 +1066,15 @@ r.Route("/api", func(r chi.Router) {
 - [x] Çoklu passkey yönetimi (kayıt listesi, silme)
 
 ### Aşama 4: Frontend Auth Sayfaları (v0.4)
-- [ ] Sign In sayfası
-- [ ] Sign Up sayfası
-- [ ] Forgot/Reset Password sayfaları
-- [ ] E-posta doğrulama sayfası
-- [ ] OAuth butonları ve yönlendirme
-- [ ] Passkey butonu ve akışı
-- [ ] Auth context provider (React Context)
-- [ ] Korumalı route wrapper (AuthGuard)
-- [ ] Profil dropdown ve kullanıcı avatarı
+- [x] Sign In sayfası
+- [x] Sign Up sayfası
+- [x] Forgot/Reset Password sayfaları
+- [x] E-posta doğrulama sayfası
+- [x] OAuth butonları ve yönlendirme
+- [x] Passkey butonu ve akışı
+- [x] Auth context provider (React Context)
+- [x] Korumalı route wrapper (AuthGuard)
+- [x] Profil dropdown ve kullanıcı avatarı
 
 ### Aşama 5: RBAC ve Monolit Entegrasyonu (v0.5)
 - [ ] JWTAuth middleware (monolit)
@@ -1224,23 +1224,23 @@ r.Route("/api", func(r chi.Router) {
 
 ### Frontend — Auth Sayfaları
 
-- [ ] `src/api/auth.ts` — Auth API client fonksiyonları
-- [ ] `src/types/auth.ts` — Auth TypeScript type tanımları
-- [ ] `src/hooks/useAuth.ts` — Auth context hook
-- [ ] `src/components/auth/AuthProvider.tsx` — React Context provider
-- [ ] `src/components/auth/AuthGuard.tsx` — Korumalı route wrapper
-- [ ] `src/components/auth/SignInPage.tsx` — Giriş sayfası
-- [ ] `src/components/auth/SignUpPage.tsx` — Kayıt sayfası
-- [ ] `src/components/auth/ForgotPasswordPage.tsx` — Şifre sıfırlama talebi
-- [ ] `src/components/auth/ResetPasswordPage.tsx` — Yeni şifre belirleme
-- [ ] `src/components/auth/VerifyEmailPage.tsx` — E-posta doğrulama sonucu
-- [ ] `src/components/auth/OAuthCallback.tsx` — OAuth callback handler
-- [ ] `src/components/auth/PasskeyButton.tsx` — Passkey giriş butonu
-- [ ] `src/components/auth/PasswordStrength.tsx` — Şifre güçlülük göstergesi
-- [ ] `src/components/auth/AuthError.tsx` — Hata mesajı bileşeni
-- [ ] Sidebar kullanıcı profil dropdown'u
-- [ ] Token storage stratejisi (access: memory, refresh: HttpOnly cookie)
-- [ ] Auto-refresh: access token süresi dolmadan otomatik yenileme
+- [x] `src/api/auth.ts` — Auth API client fonksiyonları
+- [x] `src/types/auth.ts` — Auth TypeScript type tanımları
+- [x] `src/hooks/useAuth.ts` — Auth context hook
+- [x] `src/components/auth/AuthProvider.tsx` — React Context provider
+- [x] `src/components/auth/AuthGuard.tsx` — Korumalı route wrapper
+- [x] `src/components/auth/SignInPage.tsx` — Giriş sayfası
+- [x] `src/components/auth/SignUpPage.tsx` — Kayıt sayfası
+- [x] `src/components/auth/ForgotPasswordPage.tsx` — Şifre sıfırlama talebi
+- [x] `src/components/auth/ResetPasswordPage.tsx` — Yeni şifre belirleme
+- [x] `src/components/auth/VerifyEmailPage.tsx` — E-posta doğrulama sonucu
+- [x] `src/components/auth/OAuthCallback.tsx` — OAuth callback handler
+- [x] `src/components/auth/PasskeyButton.tsx` — Passkey giriş butonu
+- [x] `src/components/auth/PasswordStrength.tsx` — Şifre güçlülük göstergesi
+- [x] `src/components/auth/AuthError.tsx` — Hata mesajı bileşeni
+- [x] Sidebar kullanıcı profil dropdown'u
+- [x] Token storage stratejisi (access: memory, refresh: HttpOnly cookie)
+- [x] Auto-refresh: access token süresi dolmadan otomatik yenileme
 
 ### Frontend — Admin Paneli
 

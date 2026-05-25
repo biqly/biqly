@@ -19,6 +19,16 @@ const Evaluation = lazy(() => import('./components/Evaluation'))
 const Dashboard = lazy(() => import('./components/Dashboard'))
 const Settings = lazy(() => import('./components/Settings'))
 const TimeGrains = lazy(() => import('./components/TimeGrains'))
+const SignInPage = lazy(() => import('./components/auth/SignInPage'))
+const SignUpPage = lazy(() => import('./components/auth/SignUpPage'))
+const ForgotPasswordPage = lazy(() => import('./components/auth/ForgotPasswordPage'))
+const ResetPasswordPage = lazy(() => import('./components/auth/ResetPasswordPage'))
+const VerifyEmailPage = lazy(() => import('./components/auth/VerifyEmailPage'))
+const OAuthCallback = lazy(() => import('./components/auth/OAuthCallback'))
+
+import { AuthGuard, globalNavigate } from './components/auth/AuthGuard'
+import { useAuth } from './components/auth/AuthProvider'
+
 
 type RouteSectionKey = 'data' | 'query' | 'ai' | 'analytics' | 'preferences'
 type NavigateFn = (path: string) => void
@@ -298,6 +308,25 @@ const initialPath = () => {
 
 function App() {
   const t = useT()
+  const { user, logout } = useAuth()
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false)
+
+  const getInitials = (name?: string, email?: string) => {
+    if (name) {
+      const parts = name.split(' ')
+      const first = parts[0]
+      const second = parts[1]
+      if (first && second && first[0] && second[0]) {
+        return (first[0] + second[0]).toUpperCase()
+      }
+      return name.slice(0, 2).toUpperCase()
+    }
+    if (email) {
+      return email.slice(0, 2).toUpperCase()
+    }
+    return 'U'
+  }
+
   const routes: AppRoute[] = useMemo(
     () =>
       routeDefs.map((def) => ({
@@ -389,8 +418,33 @@ function App() {
     setMobileNavOpen(false)
   }
 
+  const isAuthPath = activePath.startsWith('/auth/')
+
+  if (isAuthPath) {
+    let AuthComponent = null
+    if (activePath === '/auth/signin') AuthComponent = <SignInPage />
+    else if (activePath === '/auth/signup') AuthComponent = <SignUpPage />
+    else if (activePath === '/auth/forgot-password') AuthComponent = <ForgotPasswordPage />
+    else if (activePath === '/auth/reset-password') AuthComponent = <ResetPasswordPage />
+    else if (activePath === '/auth/verify-email') AuthComponent = <VerifyEmailPage />
+    else if (activePath === '/auth/callback') AuthComponent = <OAuthCallback />
+
+    return (
+      <Suspense fallback={
+        <div className="auth-page">
+          <div className="auth-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+            <div className="spinner" style={{ width: '32px', height: '32px', borderTopColor: '#6366f1' }}></div>
+          </div>
+        </div>
+      }>
+        {AuthComponent}
+      </Suspense>
+    )
+  }
+
   return (
-    <div className={`app-shell${mobileNavOpen ? ' app-shell--nav-open' : ''}`}>
+    <AuthGuard>
+      <div className={`app-shell${mobileNavOpen ? ' app-shell--nav-open' : ''}`}>
       <a className="skip-link" href="#main-content">
         {t('common.skip_to_content')}
       </a>
@@ -449,6 +503,34 @@ function App() {
         </div>
 
         <div className="sidebar-footer">
+          {user && (
+            <div className="sidebar-user" onClick={() => setUserDropdownOpen(!userDropdownOpen)}>
+              <div className="user-avatar">
+                {user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : getInitials(user.displayName, user.email)}
+              </div>
+              <div className="user-details">
+                <span className="user-name">{user.displayName || user.email}</span>
+                <span className="user-role">{user.displayName ? user.email : 'User'}</span>
+              </div>
+              
+              {userDropdownOpen && (
+                <div className="user-dropdown">
+                  <button
+                    type="button"
+                    className="dropdown-item dropdown-item--danger"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      logout()
+                      setUserDropdownOpen(false)
+                      globalNavigate('/auth/signin')
+                    }}
+                  >
+                    🚪 {t('auth.logout')}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           <div className="header-controls">
             <LanguageSwitcher />
             <ThemeToggle />
@@ -496,6 +578,7 @@ function App() {
         )}
       </main>
     </div>
+    </AuthGuard>
   )
 }
 

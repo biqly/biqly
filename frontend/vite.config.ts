@@ -16,6 +16,10 @@ export default defineConfig({
         timeout: 650_000,
         proxyTimeout: 650_000,
       },
+      '/auth': {
+        target: 'http://localhost:8889',
+        changeOrigin: true,
+      },
     },
   },
 })
