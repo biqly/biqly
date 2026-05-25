@@ -69,16 +69,23 @@ export function driverStructuredDefaults(id: string): { port: string; ssl_mode: 
   const portStr = port > 0 ? String(port) : ''
   switch (d) {
     case 'postgres':
-      return { port: portStr, ssl_mode: 'disable' }
+      return { port: portStr, ssl_mode: 'require' }
     case 'mysql':
-      return { port: portStr, ssl_mode: 'false' }
+      return { port: portStr, ssl_mode: 'true' }
     case 'sqlserver':
-      return { port: portStr, ssl_mode: 'disable' }
+      return { port: portStr, ssl_mode: 'require' }
     case 'clickhouse':
-      return { port: portStr, ssl_mode: 'false' }
+      return { port: portStr, ssl_mode: 'true' }
     default:
       return { port: '', ssl_mode: '' }
   }
+}
+
+const SSL_INSECURE_VALUES = new Set(['disable', 'disabled', 'off', 'false', '0', 'no'])
+
+export function isInsecureSslMode(value: string | null | undefined): boolean {
+  if (!value) return false
+  return SSL_INSECURE_VALUES.has(value.trim().toLowerCase())
 }
 
 export function driverDsnPlaceholder(id: string): string {

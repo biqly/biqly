@@ -141,6 +141,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		AIEmbedMeta:   aiBits.embedMeta,
 		TimeGrains:    aiBits.timeGrains,
 		PoolCache:     poolCache,
+		Jobs:          cfg.Jobs,
 	}, nil
 }
 

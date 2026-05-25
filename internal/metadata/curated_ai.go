@@ -163,8 +163,8 @@ func (r *Repository) ListModelSuccessRates(ctx context.Context, days string) ([]
 		SELECT
 			COALESCE(h.model_id::text, 'unknown') AS model_id,
 			COUNT(*) AS total_queries,
-			COUNT(*) FILTER (WHERE h.confidence_score >= 0.7 AND (h.warnings IS NULL OR jsonb_array_length(h.warnings) = 0)) AS success_count,
-			COUNT(*) FILTER (WHERE h.confidence_score < 0.7 OR (h.warnings IS NOT NULL AND jsonb_array_length(h.warnings) > 0)) AS failure_count,
+			COUNT(*) FILTER (WHERE h.confidence_score >= 0.7 AND (h.warnings IS NULL OR cardinality(h.warnings) = 0)) AS success_count,
+			COUNT(*) FILTER (WHERE h.confidence_score < 0.7 OR (h.warnings IS NOT NULL AND cardinality(h.warnings) > 0)) AS failure_count,
 			COALESCE(AVG(h.confidence_score), 0) AS avg_confidence,
 			COALESCE(AVG(h.latency_ms), 0) AS avg_latency_ms,
 			COUNT(*) FILTER (WHERE h.user_rating = 'positive') AS positive_count,

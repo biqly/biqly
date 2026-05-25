@@ -8,6 +8,7 @@ import {
   driverLabelKey,
   driverLogoUrl,
   driverStructuredDefaults,
+  isInsecureSslMode,
 } from '../dbDrivers'
 import { useT } from '../i18n'
 import type { Datasource } from '../types/metadata'
@@ -407,6 +408,11 @@ export default function Datasources() {
                   <small style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
                     {t('common.optional')}
                   </small>
+                  {isInsecureSslMode(structured.ssl_mode) && (
+                    <small style={{ color: 'var(--warning)', fontSize: '0.75rem', display: 'block', marginTop: '0.25rem' }}>
+                      ⚠ {t('datasources.ssl_insecure_warning')}
+                    </small>
+                  )}
                 </div>
               </>
             )}
@@ -453,7 +459,17 @@ export default function Datasources() {
                 <td>
                   <div>{ds.name}</div>
                   <small style={{ color: 'var(--text-secondary)' }}>{modeHint}</small>
-                  <small style={{ display: 'block', color: 'var(--text-secondary)', opacity: 0.85 }}>{ds.id}</small>
+                  <button
+                    type="button"
+                    title={ds.id}
+                    aria-label={t('datasources.copy_id_aria', { id: ds.id })}
+                    className="datasource-id-pill"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(ds.id).catch(() => {})
+                    }}
+                  >
+                    <span aria-hidden="true">id · {ds.id.slice(0, 8)}…</span>
+                  </button>
                 </td>
                 <td>
                   <div className={`driver-cell driver-cell--${ds.type}`}>

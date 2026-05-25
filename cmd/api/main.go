@@ -13,7 +13,9 @@ import (
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/config"
 	httprouter "github.com/biqly/biqly/internal/http"
+	"github.com/biqly/biqly/internal/http/handlers"
 	"github.com/biqly/biqly/internal/platform/logger"
+	"github.com/biqly/biqly/internal/queue"
 	"github.com/biqly/biqly/internal/security"
 )
 
@@ -46,6 +48,28 @@ func main() {
 	slog.Info("dependencies initialized",
 		"metadata_db", security.RedactDSN(cfg.Metadata.DSN),
 	)
+
+	if deps.Jobs.Enabled {
+		pub, qerr := app.NewAIJobQueue(cfg)
+		if qerr != nil {
+			slog.Error("failed to create ai job queue", "error", qerr)
+			os.Exit(1)
+		}
+		deps.AIJobQueue = pub
+		aiHandler := handlers.NewAIHandler(deps)
+		jobSvc := handlers.NewAIJobService(deps.MetaRepo, pub, aiHandler)
+		deps.AIJobService = jobSvc
+		deps.AIJobsHTTP = handlers.NewAIJobsHandler(jobSvc)
+		if _, ok := pub.(queue.AIJobConsumer); ok {
+			consumerCtx := context.Background()
+			go func() {
+				if err := jobSvc.StartConsumer(consumerCtx, cfg.NATS.ConsumerGroup); err != nil {
+					slog.Error("ai job consumer stopped", "error", err)
+				}
+			}()
+			slog.Info("ai job consumer started", "nats_url", cfg.NATS.URL)
+		}
+	}
 
 	// Setup router
 	router := httprouter.Router(deps)

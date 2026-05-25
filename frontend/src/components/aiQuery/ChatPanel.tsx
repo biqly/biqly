@@ -105,6 +105,24 @@ export function ChatPanel({
           <div className="chat-empty-state">
             <h3>✨ {t('ai_query.workspace_title')}</h3>
             <p>{t('ai_query.subtitle')}</p>
+            <div className="chat-empty-state__suggestions" role="list" aria-label={t('ai_query.suggestions_aria')}>
+              {[
+                t('ai_query.suggestion_1'),
+                t('ai_query.suggestion_2'),
+                t('ai_query.suggestion_3'),
+                t('ai_query.suggestion_4'),
+              ].map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  role="listitem"
+                  className="chat-empty-state__chip"
+                  onClick={() => setQuestion(s)}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>

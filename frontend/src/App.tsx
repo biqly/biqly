@@ -328,6 +328,7 @@ function App() {
   const findRoute = (pathname: string) => routes.find((route) => route.path === pathname)
 
   const [activePath, setActivePath] = useState(initialPath)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const activeRoute = findRoute(activePath)
   const ActiveComponent = activeRoute?.component
 
@@ -336,6 +337,19 @@ function App() {
       window.history.replaceState(null, '', DEFAULT_PATH)
     }
   }, [])
+
+  useEffect(() => {
+    if (!mobileNavOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileNavOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    document.body.classList.add('app-shell--nav-open')
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.classList.remove('app-shell--nav-open')
+    }
+  }, [mobileNavOpen])
 
   useEffect(() => {
     const handlePopState = () => setActivePath(initialPath())
@@ -372,15 +386,34 @@ function App() {
 
     event.preventDefault()
     navigate(path)
+    setMobileNavOpen(false)
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${mobileNavOpen ? ' app-shell--nav-open' : ''}`}>
       <a className="skip-link" href="#main-content">
         {t('common.skip_to_content')}
       </a>
 
-      <aside className="sidebar" aria-label={t('common.primary_nav')}>
+      <button
+        type="button"
+        className="mobile-nav-toggle"
+        aria-label={mobileNavOpen ? t('common.close_menu') : t('common.open_menu')}
+        aria-expanded={mobileNavOpen}
+        aria-controls="primary-sidebar"
+        onClick={() => setMobileNavOpen((v) => !v)}
+      >
+        <span aria-hidden="true">{mobileNavOpen ? '✕' : '☰'}</span>
+      </button>
+
+      <div
+        className="mobile-nav-backdrop"
+        hidden={!mobileNavOpen}
+        onClick={() => setMobileNavOpen(false)}
+        aria-hidden="true"
+      />
+
+      <aside id="primary-sidebar" className="sidebar" aria-label={t('common.primary_nav')}>
         <a className="brand" href={DEFAULT_PATH} onClick={(event) => handleNavClick(event, DEFAULT_PATH)}>
           <span className="brand-mark" aria-hidden="true">
             <img src={abiLogo} alt="" width={34} height={34} />

@@ -298,7 +298,19 @@ export default function Evaluation() {
       </div>
 
       {!adminApi.configured && (
-        <ErrorAlert error={t('evaluation.admin_key_missing_ui')} />
+        <ErrorAlert error={t('evaluation.admin_key_missing_ui')}>
+          {' '}
+          <a
+            href="/settings"
+            onClick={(e) => {
+              e.preventDefault()
+              window.history.pushState(null, '', '/settings')
+              window.dispatchEvent(new PopStateEvent('popstate'))
+            }}
+          >
+            {t('evaluation.admin_key_open_settings')}
+          </a>
+        </ErrorAlert>
       )}
 
       {/* ─── TAB: Run Evaluation ─────────────────────────────── */}
