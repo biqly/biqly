@@ -1045,25 +1045,25 @@ r.Route("/api", func(r chi.Router) {
 ## 13. Migration Planı
 
 ### Aşama 1: Auth Service Temel (v0.1)
-- [ ] Auth service skeleton (`cmd/auth/main.go`)
-- [ ] `bi_auth` veritabanı oluşturma ve migrasyonlar
-- [ ] User CRUD (repository)
-- [ ] Register + Login (e-posta + şifre)
-- [ ] JWT issue/verify (RS256)
-- [ ] Refresh token rotation
-- [ ] Temel RBAC tabloları ve seed data
+- [x] Auth service skeleton (`cmd/auth/main.go`)
+- [x] `bi_auth` veritabanı oluşturma ve migrasyonlar
+- [x] User CRUD (repository)
+- [x] Register + Login (e-posta + şifre)
+- [x] JWT issue/verify (RS256)
+- [x] Refresh token rotation
+- [x] Temel RBAC tabloları ve seed data
 
 ### Aşama 2: OAuth2 Entegrasyonu (v0.2)
-- [ ] GitHub OAuth2 flow (redirect + callback)
-- [ ] Google OAuth2 flow (redirect + callback)
-- [ ] OAuth account linking (var olan hesaba bağlama)
-- [ ] Otomatik hesap oluşturma (ilk OAuth girişi)
+- [x] GitHub OAuth2 flow (redirect + callback)
+- [x] Google OAuth2 flow (redirect + callback)
+- [x] OAuth account linking (var olan hesaba bağlama)
+- [x] Otomatik hesap oluşturma (ilk OAuth girişi)
 
 ### Aşama 3: Passkey / WebAuthn (v0.3)
-- [ ] WebAuthn sunucu tarafı implementasyonu
-- [ ] Registration begin/finish endpoint'leri
-- [ ] Authentication begin/finish endpoint'leri
-- [ ] Çoklu passkey yönetimi (kayıt listesi, silme)
+- [x] WebAuthn sunucu tarafı implementasyonu
+- [x] Registration begin/finish endpoint'leri
+- [x] Authentication begin/finish endpoint'leri
+- [x] Çoklu passkey yönetimi (kayıt listesi, silme)
 
 ### Aşama 4: Frontend Auth Sayfaları (v0.4)
 - [ ] Sign In sayfası
@@ -1125,48 +1125,48 @@ r.Route("/api", func(r chi.Router) {
 
 ### Backend — Auth Service Core
 
-- [ ] `cmd/auth/main.go` — HTTP server, chi router, graceful shutdown
-- [ ] `internal/auth/config.go` — Auth-specific configuration struct
-- [ ] `internal/auth/types.go` — Request/response DTO'lar
-- [ ] `internal/auth/repository.go` — Users, sessions, tokens CRUD
-- [ ] `internal/auth/password.go` — bcrypt hash ve verify
-- [ ] `internal/auth/jwt.go` — RS256 JWT issue, verify, refresh
-- [ ] `internal/auth/session.go` — Redis-backed session yönetimi
-- [ ] `internal/auth/validator.go` — E-posta, şifre, kullanıcı adı validasyonu
-- [ ] `internal/auth/service.go` — Core orchestrator (register, login, logout)
-- [ ] `internal/auth/handler.go` — HTTP handler'lar
-- [ ] `migrations/auth/` — 12 migration dosyası (section 4'teki şema)
+- [x] `cmd/auth/main.go` — HTTP server, chi router, graceful shutdown
+- [x] `internal/auth/config.go` — Auth-specific configuration struct
+- [x] `internal/auth/types.go` — Request/response DTO'lar
+- [x] `internal/auth/repository.go` — Users, sessions, tokens CRUD
+- [x] `internal/auth/password.go` — bcrypt hash ve verify
+- [x] `internal/auth/jwt.go` — RS256 JWT issue, verify, refresh
+- [x] `internal/auth/session.go` — Redis-backed session yönetimi
+- [x] `internal/auth/validator.go` — E-posta, şifre, kullanıcı adı validasyonu
+- [x] `internal/auth/service.go` — Core orchestrator (register, login, logout)
+- [x] `internal/auth/handler.go` — HTTP handler'lar
+- [x] `migrations/auth/` — 12 migration dosyası (section 4'teki şema)
 
 ### Backend — OAuth2
 
-- [ ] `internal/auth/oauth.go` — Provider interface ve factory
-- [ ] `internal/auth/oauth_github.go` — GitHub OAuth2 akışı
-- [ ] `internal/auth/oauth_google.go` — Google OAuth2 akışı
-- [ ] State parametresi üretim ve doğrulama
-- [ ] PKCE akışı implementasyonu
-- [ ] OAuth token şifreli saklama (AES-256)
-- [ ] Account linking: var olan kullanıcıya OAuth bağlama
-- [ ] Account unlinking: OAuth hesabı kaldırma
+- [x] `internal/auth/oauth.go` — Provider interface ve factory
+- [x] `internal/auth/oauth_github.go` — GitHub OAuth2 akışı
+- [x] `internal/auth/oauth_google.go` — Google OAuth2 akışı
+- [x] State parametresi üretim ve doğrulama
+- [x] PKCE akışı implementasyonu
+- [x] OAuth token şifreli saklama (AES-256)
+- [x] Account linking: var olan kullanıcıya OAuth bağlama
+- [x] Account unlinking: OAuth hesabı kaldırma
 
 ### Backend — WebAuthn / Passkey
 
-- [ ] `internal/auth/webauthn.go` — WebAuthn servis katmanı
-- [ ] Challenge üretim ve doğrulama
-- [ ] Credential kayıt (registration ceremony)
-- [ ] Credential doğrulama (authentication ceremony)
-- [ ] Sign count kontrolü (replay protection)
-- [ ] Passkey CRUD endpoint'leri
-- [ ] Transport bilgisi saklama (platform, cross-platform)
+- [x] `internal/auth/webauthn.go` — WebAuthn servis katmanı
+- [x] Challenge üretim ve doğrulama
+- [x] Credential kayıt (registration ceremony)
+- [x] Credential doğrulama (authentication ceremony)
+- [x] Sign count kontrolü (replay protection)
+- [x] Passkey CRUD endpoint'leri
+- [x] Transport bilgisi saklama (platform, cross-platform)
 
 ### Backend — RBAC
 
 - [ ] `internal/auth/rbac.go` — İzin değerlendirme motoru
-- [ ] `internal/auth/rbac_repository.go` — Role/permission DB operasyonları
+- [x] `internal/auth/rbac_repository.go` — Role/permission DB operasyonları
 - [ ] Global scope izin kontrolü
 - [ ] Workspace scope izin kontrolü
 - [ ] Resource scope izin kontrolü
 - [ ] Rol hiyerarşisi (gelecek: role inheritance)
-- [ ] Seed data: 5 varsayılan rol (super_admin, admin, developer, analyst, viewer) + 23 izin
+- [x] Seed data: 5 varsayılan rol (super_admin, admin, developer, analyst, viewer) + 23 izin
 - [ ] super_admin bypass: tüm izin kontrollerini otomatik geç
 
 ### Backend — Datasource Erişim Kontrolü
@@ -1295,27 +1295,68 @@ r.Route("/api", func(r chi.Router) {
 - [ ] Audit logging tüm auth olayları
 - [ ] OAuth token şifreli saklama
 - [ ] WebAuthn challenge zaman aşımı
+- [ ] Timing attack önleme (sabit süre response)
+- [ ] Account enumeration önleme (generic hata mesajları)
+- [ ] Token ailesi koruması (refresh token rotation aile takibi)
+- [ ] JWT issuer/audience doğrulama
+- [ ] JWT ID (jti) ile token takibi
+- [ ] E-posta değişikliği çift doğrulama + bekleme süresi
+- [ ] Parola geçmişi kontrolü (son 5 parola)
+- [ ] Recovery kodları (2FA için 10 adet tek kullanımlık)
+
+### 2FA / MFA
+
+- [ ] `user_mfa` tablosu (method, secret_encrypted, verified_at, enabled)
+- [ ] TOTP implementasyonu (RFC 6238)
+- [ ] QR code üretimi (TOTP secret enrollment)
+- [ ] Recovery kod üretimi ve doğrulama
+- [ ] 2FA zorunlu kılma politikası (workspace bazında)
+- [ ] Admin bypass kodları
+- [ ] 2FA enrollment ve verification endpoint'leri
 
 ### Test
 
-- [ ] Unit testler: password hashing, JWT issue/verify, RBAC engine
-- [ ] Integration testler: register → login → refresh → logout akışı
-- [ ] OAuth2 mock testleri
+- [x] Unit testler: password hashing, JWT issue/verify, RBAC engine
+- [x] Integration testler: register → login → refresh → logout akışı
+- [x] OAuth2 mock testleri
 - [ ] WebAuthn ceremony testleri
 - [ ] Permission middleware testleri
+- [ ] Datasource access middleware testleri
+- [ ] AI history user_id filtreleme testleri
 - [ ] Rate limiting testleri
+- [ ] Timing attack testleri (response süre karşılaştırma)
+- [ ] Account enumeration testleri
+- [x] Token family protection testleri
 - [ ] E2E testler: frontend sign up → sign in → sign out
 - [ ] Load test: JWT verification throughput
+- [ ] Chaos test: auth service down → monolit graceful degradation
 
 ### DevOps
 
-- [ ] `docker-compose.yml` auth service ekleme
-- [ ] `Dockerfile` auth service
+- [ ] `docker-compose.yml` auth service + auth-db entegrasyonu
+- [ ] `Dockerfile.auth` multi-stage build (distroless)
+- [ ] `Dockerfile.auth-migrate` migration job image
+- [ ] Helm sub-chart: `deploy/helm/biqly/charts/auth/`
+- [ ] Parent chart `Chart.yaml` auth dependency ekleme
+- [ ] `values.yaml` auth bölümü
+- [ ] `values-prod.yaml` auth production values
+- [ ] ArgoCD: auth migrate job PreSync hook
+- [ ] Auth DB migrasyon Job template
+- [ ] NetworkPolicy: auth service ingress/egress
+- [ ] HTTPRoute: gateway routing `/auth` prefix
+- [ ] Secret template: JWT private key, OAuth secrets, SMTP
+- [ ] JWT public key Secret (catalog/query/ai chart'larına mount)
+- [ ] HPA: auth service autoscaling
+- [ ] PDB: auth service pod disruption budget
+- [ ] PrometheusRule: auth alert'leri
+- [ ] Catalog/query/ai deployment'lara auth init container
+- [ ] External Secrets Operator entegrasyonu (opsiyonel)
 - [ ] Health check endpoint (`/health`, `/ready`)
-- [ ] Prometheus metrikleri (login_count, token_issued, auth_errors)
-- [ ] Log yapılandırması (slog, structured)
+- [ ] Prometheus metrikleri (login_count, token_issued, auth_errors, datasource_access_check)
+- [ ] Log yapılandırması (slog, structured, PII masking)
 - [ ] Secret management (JWT keys, OAuth secrets)
 - [ ] Migration CI pipeline
+- [ ] Feature flag: `BI_AUTH_ENABLED` ile backward compatible geçiş
 
 ### Dokümantasyon
 
@@ -1621,6 +1662,30 @@ biqly/
 │           └── WorkspacePage.tsx
 └── .opencode/skills/auth-service-implementation/
     └── SKILL.md
+├── deploy/
+│   ├── helm/biqly/
+│   │   ├── Chart.yaml                       # auth dependency ekleme
+│   │   ├── values.yaml                      # auth bölümü ekleme
+│   │   ├── values-prod.yaml                 # auth production values
+│   │   └── charts/auth/
+│   │       ├── Chart.yaml
+│   │       ├── values.yaml
+│   │       └── templates/
+│   │           ├── _helpers.tpl
+│   │           ├── deployment.yaml
+│   │           ├── service.yaml
+│   │           ├── httproute.yaml
+│   │           ├── secret.yaml
+│   │           ├── configmap.yaml
+│   │           ├── hpa.yaml
+│   │           ├── pdb.yaml
+│   │           ├── networkpolicy.yaml
+│   │           ├── migrate-job.yaml
+│   │           └── prometheusrule.yaml
+│   └── argocd/
+│       └── application.yaml                 # mevcut, değişiklik yok
+├── Dockerfile.auth
+├── Dockerfile.auth-migrate
 ```
 
 ---
@@ -2264,20 +2329,29 @@ env:
 
 - [OWASP Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)
 - [OWASP Authorization Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html)
+- [OWASP Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)
+- [NIST SP 800-63B Digital Identity Guidelines](https://pages.nist.gov/800-63-3/sp800-63b.html)
 - [WebAuthn Spec (W3C)](https://www.w3.org/TR/webauthn-3/)
 - [Apple Passkey Documentation](https://developer.apple.com/passkeys/)
 - [Go WebAuthn Library](https://github.com/go-webauthn/webauthn)
 - [OAuth 2.0 PKCE (RFC 7636)](https://datatracker.ietf.org/doc/html/rfc7636)
+- [OAuth 2.0 Security Best Current Practice](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-security-topics)
 - [JWT Best Practices (RFC 8725)](https://datatracker.ietf.org/doc/html/rfc8725)
 - [RBAC Model (NIST)](https://csrc.nist.gov/projects/role-based-access-control)
 - [ABAC vs RBAC for BI Platforms](https://www.permify.co/post/abac-vs-rbac)
 - [Multi-Tenant Data Isolation Patterns](https://docs.microsoft.com/en-us/azure/architecture/guide/multitenant/considerations/data-architecture)
+- [TOTP: Time-Based One-Time Password (RFC 6238)](https://datatracker.ietf.org/doc/html/rfc6238)
+- [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/)
+- [ArgoCD GitOps](https://argo-cd.readthedocs.io/)
+- [External Secrets Operator](https://external-secrets.io/)
 
 ---
 
-## 19. Değişiklik Günlüğü
+## 21. Değişiklik Günlüğü
 
 | Tarih | Değişiklik |
 |---|---|
 | 2026-05-25 | İlk oluşturma: auth service plan, OAuth2, Passkey, RBAC, frontend |
-| 2026-05-25 | BI-specific eklentiler: datasource erişim kontrolü, workspace modeli, AI sorgu izolasyonu, kaynak paylaşım, veri izolasyon politikası, 5 BI rolü (super_admin/admin/developer/analyst/viewer), kuyruk görünürlük matrisi |
+| 2026-05-25 | BI-specific eklentiler: datasource erişim kontrolü, workspace modeli, AI sorgu izolasyonu, kaynak paylaşım, veri izolasyon politikası, 5 BI rolü, kuyruk görünürlük matrisi |
+| 2026-05-25 | Best practice eklemeleri: 2FA/MFA, token security, account security, audit/compliance, email, observability, password policy, frontend security, DR/HA, backward compat, migration |
+| 2026-05-25 | Kubernetes/Helm entegrasyonu: auth sub-chart, NetworkPolicy, HTTPRoute, migrate-job, PrometheusRule, Dockerfile, Docker Compose, ArgoCD hooks |
