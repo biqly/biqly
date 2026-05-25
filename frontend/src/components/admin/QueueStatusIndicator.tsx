@@ -45,6 +45,7 @@ export function QueueStatusIndicator({ clientSessionID, pollMs = 3000 }: Props) 
 
   return (
     <div
+      className={`queue-status ${status.my_job_status === 'running' || status.my_job_status === 'queued' || status.my_job_status === 'pending' ? 'queue-status--active' : ''}`}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -58,6 +59,7 @@ export function QueueStatusIndicator({ clientSessionID, pollMs = 3000 }: Props) 
       title={status.my_job_id ? `Job: ${status.my_job_id}` : t('admin.queue.not_queued')}
     >
       <span
+        className="queue-status__dot"
         style={{
           width: 8,
           height: 8,

@@ -94,3 +94,43 @@ export interface UserRoleInfo {
   scope_type: string
   scope_id: string
 }
+
+export interface WorkspaceDatasource {
+  workspace_id: string
+  datasource_id: string
+  access_level: string
+  attached_by?: string
+  attached_at: string
+}
+
+export interface AIHistoryEntry {
+  id: string
+  datasource_id: string
+  model_id?: string
+  user_id?: string
+  question: string
+  prompt_context?: unknown
+  ai_response?: unknown
+  logical_query?: unknown
+  confidence_score?: number
+  warnings?: string[]
+  outcome_status: string
+  retry_count: number
+  needs_clarification: boolean
+  model_used?: string
+  token_count?: number
+  cost_usd?: number
+  latency_ms?: number
+  created_at: string
+}
+
+export interface ResourceShare {
+  id: string
+  resource_type: string
+  resource_id: string
+  owner_id: string
+  shared_with?: string
+  workspace_id?: string
+  permission: 'view' | 'execute' | 'edit'
+  created_at: string
+}

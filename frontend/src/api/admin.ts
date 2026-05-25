@@ -4,10 +4,13 @@ import type {
   Role,
   Workspace,
   WorkspaceMember,
+  WorkspaceDatasource,
   AIQueueStatus,
+  AIHistoryEntry,
   AuditLogEntry,
   AuthUser,
   UserRoleInfo,
+  ResourceShare,
 } from '../types/auth'
 import { csrfFetch } from './csrf'
 
@@ -222,6 +225,158 @@ export async function updateUserActiveStatus(token: string, id: string, isActive
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
     body: JSON.stringify({ is_active: isActive }),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+}
+
+export async function requestDatasourceAccess(token: string, datasourceID: string): Promise<{ success: boolean }> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/me/datasources/${datasourceID}/request-access`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  })
+  return handle<{ success: boolean }>(res)
+}
+
+// === Workspace detail & update ===
+
+export async function getWorkspace(token: string, id: string): Promise<Workspace> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/workspaces/${id}`, { headers: authHeaders(token) })
+  return handle<Workspace>(res)
+}
+
+export async function updateWorkspace(
+  token: string,
+  id: string,
+  name: string,
+  description?: string,
+): Promise<void> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/workspaces/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    body: JSON.stringify({ name, description }),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+}
+
+// === Workspace member management ===
+
+export async function removeWorkspaceMember(
+  token: string,
+  workspaceID: string,
+  userID: string,
+): Promise<void> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/workspaces/${workspaceID}/members/${userID}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+}
+
+export async function updateWorkspaceMemberRole(
+  token: string,
+  workspaceID: string,
+  userID: string,
+  roleID: string,
+): Promise<void> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/workspaces/${workspaceID}/members/${userID}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    body: JSON.stringify({ role_id: roleID }),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+}
+
+// === Workspace datasources ===
+
+export async function listWorkspaceDatasources(
+  token: string,
+  workspaceID: string,
+): Promise<WorkspaceDatasource[]> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/workspaces/${workspaceID}/datasources`, { headers: authHeaders(token) })
+  return handle<WorkspaceDatasource[]>(res)
+}
+
+export async function attachWorkspaceDatasource(
+  token: string,
+  workspaceID: string,
+  datasourceID: string,
+): Promise<void> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/workspaces/${workspaceID}/datasources`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    body: JSON.stringify({ datasource_id: datasourceID }),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+}
+
+export async function detachWorkspaceDatasource(
+  token: string,
+  workspaceID: string,
+  datasourceID: string,
+): Promise<void> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/workspaces/${workspaceID}/datasources/${datasourceID}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+}
+
+// === AI history ===
+
+export async function listAIHistory(
+  token: string,
+  opts: { limit?: number; showAll?: boolean } = {},
+): Promise<AIHistoryEntry[]> {
+  const params = new URLSearchParams()
+  if (opts.limit) params.set('limit', String(opts.limit))
+  if (opts.showAll) params.set('show_all', 'true')
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  const res = await fetch(`/api/ai/history${suffix}`, { headers: authHeaders(token) })
+  const data = await handle<{ entries: AIHistoryEntry[] }>(res)
+  return data.entries || []
+}
+
+export async function getAIHistoryDetail(token: string, id: string): Promise<AIHistoryEntry> {
+  const res = await fetch(`/api/ai/history/detail?id=${encodeURIComponent(id)}`, { headers: authHeaders(token) })
+  return handle<AIHistoryEntry>(res)
+}
+
+// === Sharing ===
+
+export async function listShares(
+  token: string,
+  resourceType?: string,
+): Promise<ResourceShare[]> {
+  const params = new URLSearchParams()
+  if (resourceType) params.set('resource_type', resourceType)
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  const res = await csrfFetch(`${AUTH_API_BASE}/shares${suffix}`, { headers: authHeaders(token) })
+  return handle<ResourceShare[]>(res)
+}
+
+export async function createShare(
+  token: string,
+  resourceType: string,
+  resourceID: string,
+  permission: 'view' | 'execute' | 'edit',
+  sharedWith?: string,
+  workspaceID?: string,
+): Promise<ResourceShare> {
+  const body: Record<string, unknown> = { resource_type: resourceType, resource_id: resourceID, permission }
+  if (sharedWith) body.shared_with = sharedWith
+  if (workspaceID) body.workspace_id = workspaceID
+  const res = await csrfFetch(`${AUTH_API_BASE}/shares`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    body: JSON.stringify(body),
+  })
+  return handle<ResourceShare>(res)
+}
+
+export async function deleteShare(token: string, shareID: string): Promise<void> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/shares/${shareID}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
 }

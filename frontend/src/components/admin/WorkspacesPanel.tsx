@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { createWorkspace, deleteWorkspace, listWorkspaces } from '../../api/admin'
 import { useT } from '../../i18n'
 import type { Workspace } from '../../types/auth'
+import { WorkspaceSettingsPage } from '../workspaces/WorkspaceSettingsPage'
 
 export function WorkspacesPanel({ token }: { token: string }) {
   const t = useT()
@@ -10,6 +11,7 @@ export function WorkspacesPanel({ token }: { token: string }) {
   const [error, setError] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
+  const [selectedWS, setSelectedWS] = useState<string | null>(null)
 
   async function reload() {
     setLoading(true)
@@ -50,6 +52,16 @@ export function WorkspacesPanel({ token }: { token: string }) {
     }
   }
 
+  if (selectedWS) {
+    return (
+      <WorkspaceSettingsPage
+        token={token}
+        workspaceID={selectedWS}
+        onBack={() => { setSelectedWS(null); reload() }}
+      />
+    )
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <h2 style={{ marginTop: 0 }}>{t('admin.workspaces.title')}</h2>
@@ -80,9 +92,14 @@ export function WorkspacesPanel({ token }: { token: string }) {
               {w.description && <div style={{ fontSize: 12, color: '#6b7280' }}>{w.description}</div>}
               <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: 'monospace' }}>{w.slug}</div>
             </div>
-            {!w.is_personal && (
-              <button onClick={() => onDelete(w.id, w.name)} style={btnSecondary}>{t('common.delete')}</button>
-            )}
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={() => setSelectedWS(w.id)} style={btnSettings}>
+                {t('admin.workspaces.settings')}
+              </button>
+              {!w.is_personal && (
+                <button onClick={() => onDelete(w.id, w.name)} style={btnSecondary}>{t('common.delete')}</button>
+              )}
+            </div>
           </li>
         ))}
       </ul>
@@ -92,3 +109,4 @@ export function WorkspacesPanel({ token }: { token: string }) {
 
 const inputStyle: React.CSSProperties = { padding: 8, border: '1px solid #d1d5db', borderRadius: 4, minWidth: 200 }
 const btnSecondary: React.CSSProperties = { padding: '4px 10px', background: 'transparent', border: '1px solid #d1d5db', borderRadius: 4, cursor: 'pointer' }
+const btnSettings: React.CSSProperties = { padding: '4px 10px', background: 'transparent', border: '1px solid #4f46e5', color: '#4f46e5', borderRadius: 4, cursor: 'pointer' }

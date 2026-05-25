@@ -11,6 +11,7 @@ import { ChartContainer } from './ui/ChartContainer'
 import { ChartTypeSelector } from './ui/ChartTypeSelector'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { Select } from './ui/Select'
+import { LockedState } from './ui/LockedState'
 import type {
   GenerateSemanticModelResponse,
   SemanticModelDetail,
@@ -57,6 +58,7 @@ export default function QueryBuilder() {
   const t = useT()
   const { get, postData, loading, error } = useApi()
   const [datasources, setDatasources] = useState<Datasource[]>([])
+  const [loadedDatasources, setLoadedDatasources] = useState(false)
   const [dsParam, setDsParam] = useQueryParam('ds')
   const [datasourceId, setDatasourceId] = useState(dsParam)
   const [modelId, setModelId] = useState('')
@@ -70,11 +72,18 @@ export default function QueryBuilder() {
       if (!data) return
       setDatasources(data)
       setDatasourceId((prev) => {
-        if (prev && data.some((d) => d.id === prev)) return prev
+        if (prev) return prev
         return data[0]?.id ?? ''
       })
+      setLoadedDatasources(true)
     })
   }, [])
+
+  const isLocked = useMemo(() => {
+    if (!loadedDatasources) return false
+    if (!datasourceId) return false
+    return !datasources.some((d) => d.id === datasourceId)
+  }, [loadedDatasources, datasourceId, datasources])
 
   useEffect(() => {
     setDsParam(datasourceId)
@@ -348,12 +357,19 @@ export default function QueryBuilder() {
           </div>
         </div>
 
-        {/* Semantic Model Warning/Setup */}
-        {modelId && models.find((m) => m.id === modelId)?.status !== 'published' ? (
-          <p className="hint-text" style={{ marginBottom: '1rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            {t('query_builder.draft_model_warning')}
-          </p>
-        ) : null}
+        {isLocked ? (
+          <LockedState
+            datasourceId={datasourceId}
+            datasourceName={datasources.find((d) => d.id === datasourceId)?.name || dsParam}
+          />
+        ) : (
+          <>
+            {/* Semantic Model Warning/Setup */}
+            {modelId && models.find((m) => m.id === modelId)?.status !== 'published' ? (
+              <p className="hint-text" style={{ marginBottom: '1rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                {t('query_builder.draft_model_warning')}
+              </p>
+            ) : null}
 
         {datasourceId && models.length === 0 ? (
           <div className="semantic-model-setup" style={{ marginBottom: '1rem' }}>
@@ -868,6 +884,8 @@ export default function QueryBuilder() {
         )}
 
         <ErrorAlert error={error} />
+          </>
+        )}
       </div>
 
       {/* SQL Preview */}

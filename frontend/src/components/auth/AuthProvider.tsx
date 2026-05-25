@@ -5,6 +5,7 @@ import type { AuthUser } from '../../types/auth'
 interface AuthContextType {
   user: AuthUser | null
   accessToken: string | null
+  roles: string[]
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   loginWithTokens: (accessToken: string, refreshToken: string) => Promise<void>
@@ -18,16 +19,19 @@ const AuthContext = createContext<AuthContextType | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(null)
+  const [roles, setRoles] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
 
   const clearAuth = () => {
     setUser(null)
     setAccessToken(null)
+    setRoles([])
     localStorage.removeItem('biqly_refresh_token')
   }
 
-  const handleAuthSuccess = async (accToken: string, refToken: string) => {
+  const handleAuthSuccess = async (accToken: string, refToken: string, nextRoles: string[] = []) => {
     setAccessToken(accToken)
+    setRoles(nextRoles)
     localStorage.setItem('biqly_refresh_token', refToken)
     try {
       const profile = await apiGetMe(accToken)
@@ -40,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const resp = await apiLogin(email, password)
-    await handleAuthSuccess(resp.access_token, resp.refresh_token)
+    await handleAuthSuccess(resp.access_token, resp.refresh_token, resp.roles)
   }
 
   const loginWithTokens = async (accToken: string, refToken: string) => {
@@ -49,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (email: string, password: string, displayName: string) => {
     const resp = await apiRegister(email, password, displayName)
-    await handleAuthSuccess(resp.access_token, resp.refresh_token)
+    await handleAuthSuccess(resp.access_token, resp.refresh_token, resp.roles)
   }
 
   const logout = async () => {
@@ -84,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         const resp = await apiRefresh(refToken)
-        await handleAuthSuccess(resp.access_token, resp.refresh_token)
+        await handleAuthSuccess(resp.access_token, resp.refresh_token, resp.roles)
       } catch {
         clearAuth()
       } finally {
@@ -109,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const resp = await apiRefresh(refToken)
         setAccessToken(resp.access_token)
+        setRoles(resp.roles)
         localStorage.setItem('biqly_refresh_token', resp.refresh_token)
       } catch {
         clearAuth()
@@ -123,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         accessToken,
+        roles,
         loading,
         login,
         loginWithTokens,

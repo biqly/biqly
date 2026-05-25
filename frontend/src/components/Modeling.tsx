@@ -36,6 +36,8 @@ import {
 import { ErrorAlert } from './ui/ErrorAlert'
 import { Modal } from './ui/Modal'
 import { Select } from './ui/Select'
+import { LockedState } from './ui/LockedState'
+import { ShareButton } from './sharing/ShareButton'
 
 export default function Modeling() {
   const t = useT()
@@ -44,6 +46,7 @@ export default function Modeling() {
   const [dsParam, setDsParam] = useQueryParam('ds')
   const [modelParam, setModelParam] = useQueryParam('model')
   const [datasources, setDatasources] = useState<Datasource[]>([])
+  const [loadedDatasources, setLoadedDatasources] = useState(false)
   const [datasourceId, setDatasourceId] = useState(dsParam)
   const [tables, setTables] = useState<TableRow[]>([])
   const [columns, setColumns] = useState<ColumnRow[]>([])
@@ -70,9 +73,16 @@ export default function Modeling() {
     get<Datasource[]>('/api/datasources').then((data) => {
       if (!data) return
       setDatasources(data)
-      setDatasourceId((prev) => (prev && data.some((d) => d.id === prev) ? prev : (data[0]?.id ?? '')))
+      setDatasourceId((prev) => (prev ? prev : (data[0]?.id ?? '')))
+      setLoadedDatasources(true)
     })
   }, [])
+
+  const isLocked = useMemo(() => {
+    if (!loadedDatasources) return false
+    if (!datasourceId) return false
+    return !datasources.some((d) => d.id === datasourceId)
+  }, [loadedDatasources, datasourceId, datasources])
 
   useEffect(() => {
     setDsParam(datasourceId)
@@ -84,6 +94,9 @@ export default function Modeling() {
 
   useEffect(() => {
     if (!datasourceId) return
+    if (loadedDatasources && !datasources.some((d) => d.id === datasourceId)) {
+      return
+    }
     const dsChanged = Boolean(prevDsRef.current && prevDsRef.current !== datasourceId)
     prevDsRef.current = datasourceId
 
@@ -104,7 +117,7 @@ export default function Modeling() {
         return published?.id ?? next[0]?.id ?? ''
       })
     })
-  }, [datasourceId])
+  }, [datasourceId, loadedDatasources, datasources])
 
   useEffect(() => {
     if (!modelId) {
@@ -876,13 +889,23 @@ export default function Modeling() {
               {t('common.delete')}
             </button>
           )}
+          {model && (
+            <ShareButton resourceType="model" resourceID={model.id} />
+          )}
         </div>
       </section>
 
-      {error && <ErrorAlert error={error} />}
-      {message && <div className="semantic-model-setup semantic-model-setup--success">{message}</div>}
+      {isLocked ? (
+        <LockedState
+          datasourceId={datasourceId}
+          datasourceName={datasources.find((d) => d.id === datasourceId)?.name || dsParam}
+        />
+      ) : (
+        <>
+          {error && <ErrorAlert error={error} />}
+          {message && <div className="semantic-model-setup semantic-model-setup--success">{message}</div>}
 
-      <section
+          <section
         className={`modeling-shell ${paletteOpen ? '' : 'modeling-shell--palette-closed'} ${editorOpen ? '' : 'modeling-shell--editor-closed'}`}
       >
         <aside className={`modeling-palette ${paletteOpen ? '' : 'modeling-side--collapsed'}`} aria-label={t('modeling.model_summary_aria')}>
@@ -1241,6 +1264,8 @@ export default function Modeling() {
           </div>
         </aside>
       </section>
+        </>
+      )}
       {renameTarget && (
         <Modal
           open

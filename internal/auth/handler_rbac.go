@@ -71,6 +71,7 @@ func (h *RBACHandler) RegisterAuthRoutes(r chi.Router, authMW func(http.Handler)
 
 		r.Get("/me/datasources", h.handleListMyDatasources)
 		r.Get("/me/datasources/{id}/check", h.handleCheckMyDatasource)
+		r.Post("/me/datasources/{id}/request-access", h.handleRequestAccess)
 
 		r.Post("/shares", h.handleCreateShare)
 		r.Get("/shares", h.handleListShares)
@@ -289,6 +290,19 @@ func (h *RBACHandler) handleCheckMyDatasource(w http.ResponseWriter, r *http.Req
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"allowed": true})
+}
+
+func (h *RBACHandler) handleRequestAccess(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(userIDKey).(string)
+	dsID := chi.URLParam(r, "id")
+	action := "datasource.request_access"
+	resType := "datasource"
+	err := h.audit.Log(r.Context(), &userID, action, &resType, &dsID, nil, nil)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
 // === Sharing ===

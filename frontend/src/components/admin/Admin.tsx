@@ -6,9 +6,11 @@ import { WorkspacesPanel } from './WorkspacesPanel'
 import { AuditLogPanel } from './AuditLogPanel'
 import { UserListPage } from './UserListPage'
 import { UserDetailPage } from './UserDetailPage'
+import { AIHistoryPanel } from '../ai/AIHistoryPanel'
+import { SharedResourcesList } from '../sharing/SharedResourcesList'
 import { useT } from '../../i18n'
 
-type AdminTab = 'users' | 'roles' | 'datasource_access' | 'workspaces' | 'audit_log'
+type AdminTab = 'users' | 'roles' | 'datasource_access' | 'workspaces' | 'ai_history' | 'sharing' | 'audit_log'
 
 export default function Admin() {
   const t = useT()
@@ -28,11 +30,13 @@ export default function Admin() {
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
       <h1 style={{ margin: 0 }}>{t('admin.title')}</h1>
-      <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--border-color, #e5e7eb)' }}>
+      <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--border-color, #e5e7eb)', flexWrap: 'wrap' }}>
         <TabButton active={tab === 'users'} onClick={() => handleTabChange('users')}>{t('admin.tabs.users')}</TabButton>
         <TabButton active={tab === 'roles'} onClick={() => handleTabChange('roles')}>{t('admin.tabs.roles')}</TabButton>
         <TabButton active={tab === 'datasource_access'} onClick={() => handleTabChange('datasource_access')}>{t('admin.tabs.datasource_access')}</TabButton>
         <TabButton active={tab === 'workspaces'} onClick={() => handleTabChange('workspaces')}>{t('admin.tabs.workspaces')}</TabButton>
+        <TabButton active={tab === 'ai_history'} onClick={() => handleTabChange('ai_history')}>{t('admin.ai_history.title')}</TabButton>
+        <TabButton active={tab === 'sharing'} onClick={() => handleTabChange('sharing')}>{t('admin.sharing.title')}</TabButton>
         <TabButton active={tab === 'audit_log'} onClick={() => handleTabChange('audit_log')}>{t('admin.tabs.audit_log')}</TabButton>
       </div>
 
@@ -47,6 +51,8 @@ export default function Admin() {
         {tab === 'roles' && <RolesPanel token={accessToken} />}
         {tab === 'datasource_access' && <DatasourceAccessPanel token={accessToken} />}
         {tab === 'workspaces' && <WorkspacesPanel token={accessToken} />}
+        {tab === 'ai_history' && <AIHistoryPanel />}
+        {tab === 'sharing' && <SharedResourcesList />}
         {tab === 'audit_log' && <AuditLogPanel token={accessToken} />}
       </div>
     </div>

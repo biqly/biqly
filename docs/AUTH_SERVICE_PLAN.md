@@ -1273,31 +1273,31 @@ r.Route("/api", func(r chi.Router) {
 
 - [x] Datasource listesi: sadece erişilen datasource'ları göster
 - [x] Datasource kartında erişim badge'i
-- [ ] Erişim olmayan datasource "Locked" durumu ile göster
+- [x] Erişim olmayan datasource "Locked" durumu ile göster
 - [x] Admin: datasource erişim verme/kaldırma arayüzü
 - [x] Admin: kullanıcı bazlı datasource erişim matrisi
 
 ### Frontend — Workspace UI
 
 - [x] Workspace seçici (sidebar üstünde dropdown)
-- [ ] Workspace ayarları sayfası
-- [ ] Workspace üye listesi ve davet
-- [ ] Workspace datasource bağlama arayüzü
-- [ ] Kişisel workspace vs ekip workspace ayrımı
+- [x] Workspace ayarları sayfası
+- [x] Workspace üye listesi ve davet
+- [x] Workspace datasource bağlama arayüzü
+- [x] Kişisel workspace vs ekip workspace ayrımı
 
 ### Frontend — AI Kuyruk UI
 
-- [ ] AI sorgu geçmişi: sadece kullanıcıya ait sorguları listele
-- [ ] Admin: tüm sorguları görme toggle'ı
+- [x] AI sorgu geçmişi: sadece kullanıcıya ait sorguları listele
+- [x] Admin: tüm sorguları görme toggle'ı
 - [x] Kuyruk durum göstergesi (toplam bekleyen, kendi pozisyonu)
-- [ ] Başkasının sorgusunu görme durumunda detay butonu (admin+)
-- [ ] Kuyruk pozisyon göstergesi (queue animasyonu)
+- [x] Başkasının sorgusunu görme durumunda detay butonu (admin+)
+- [x] Kuyruk pozisyon göstergesi (queue animasyonu)
 
 ### Frontend — Veri İzolasyon UI
 
-- [ ] Datasource erişimi olmayan sayfalarda "Erişim İste" butonu
-- [ ] Paylaşım UI: sorgu/dashboard paylaş butonu
-- [ ] Paylaşılan kaynaklar listesi
+- [x] Datasource erişimi olmayan sayfalarda "Erişim İste" butonu
+- [x] Paylaşım UI: sorgu/dashboard paylaş butonu
+- [x] Paylaşılan kaynaklar listesi
 - [ ] Workspace bazlı filtreleme (sorgular, modeller, datasource'lar)
 
 ### Güvenlik
