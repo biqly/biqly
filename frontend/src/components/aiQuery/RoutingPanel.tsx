@@ -49,24 +49,57 @@ export function RoutingPanel({
     })
   })()
 
+  const embedButtonLabel =
+    embeddingLoading || embeddingRunning
+      ? t('ai_query.embed_refreshing_short')
+      : semanticModelId
+        ? t('ai_query.embed_refresh_model')
+        : t('ai_query.embed_refresh')
+
   return (
     <header className="query-config-header">
-      <ModelBadgeRow
-        primaryLabel={t('ai_query.model_badge_query')}
-        primaryModel={
-          aiRuntime?.query_model_override ? aiRuntime?.query_model : aiRuntime?.llm_model
-        }
-        primaryNote={
-          aiRuntime?.query_model_override
-            ? undefined
-            : aiRuntime
-              ? t('ai_query.model_badge_legacy')
-              : undefined
-        }
-        embeddingModel={aiRuntime?.embeddings_enabled ? aiRuntime?.embedding_model : undefined}
-        translationModel={aiRuntime?.translation_enabled ? aiRuntime?.translation_model : undefined}
-        style={{ marginBottom: '0.25rem' }}
-      />
+      <div className="query-config-top">
+        <ModelBadgeRow
+          primaryLabel={t('ai_query.model_badge_query')}
+          primaryModel={
+            aiRuntime?.query_model_override ? aiRuntime?.query_model : aiRuntime?.llm_model
+          }
+          primaryNote={
+            aiRuntime?.query_model_override
+              ? undefined
+              : aiRuntime
+                ? t('ai_query.model_badge_legacy')
+                : undefined
+          }
+          embeddingModel={aiRuntime?.embeddings_enabled ? aiRuntime?.embedding_model : undefined}
+          translationModel={aiRuntime?.translation_enabled ? aiRuntime?.translation_model : undefined}
+          className="query-config-badges"
+        />
+        {aiRuntime?.embeddings_enabled === true && (
+          <button
+            type="button"
+            className="btn btn-sm query-config-embed-btn"
+            onClick={onRefreshEmbeddings}
+            disabled={!datasourceId || embeddingLoading || embeddingRunning}
+            title={
+              datasourceId
+                ? semanticModelId
+                  ? t('ai_query.embed_title_model', { name: semanticModelName })
+                  : t('ai_query.embed_title_ds', { name: selectedDatasourceName ?? '' })
+                : t('ai_query.embed_title_none')
+            }
+          >
+            {embedButtonLabel}
+          </button>
+        )}
+      </div>
+      {aiRuntime?.embeddings_enabled === true && (embeddingStatus || embeddingError || aiRuntimeErr) && (
+        <div className="query-config-embed-status">
+          {embeddingStatus && <span className="ai-embedding-status">{embeddingStatus}</span>}
+          {embeddingError && <span className="ai-embedding-error">{embeddingError}</span>}
+          {aiRuntimeErr && <span className="error">{aiRuntimeErr}</span>}
+        </div>
+      )}
 
       <div className="query-controls">
         <div className="form-group">
@@ -99,41 +132,13 @@ export function RoutingPanel({
           />
         </div>
         <div className="form-group routing-toggle">
-          <label>{t('ai_query.table_routing_label')}</label>
+          <span className="form-label">{t('ai_query.table_routing_label')}</span>
           <div className="routing-toggle-row">
             <div className="toggle-group" role="group" aria-label={t('ai_query.table_routing_label')}>
               <button type="button" className={`toggle-btn ${autoTableRouting ? 'active' : ''}`} onClick={() => setAutoTableRouting(true)}>{t('ai_query.table_routing_auto')}</button>
               <button type="button" className={`toggle-btn ${!autoTableRouting ? 'active' : ''}`} onClick={() => setAutoTableRouting(false)}>{t('ai_query.table_routing_manual')}</button>
             </div>
-            {aiRuntime?.embeddings_enabled === true && (
-              <button
-                type="button"
-                className="btn btn-sm routing-embed-btn"
-                onClick={onRefreshEmbeddings}
-                disabled={!datasourceId || embeddingLoading || embeddingRunning}
-                title={
-                  datasourceId
-                    ? semanticModelId
-                      ? t('ai_query.embed_title_model', { name: semanticModelName })
-                      : t('ai_query.embed_title_ds', { name: selectedDatasourceName ?? '' })
-                    : t('ai_query.embed_title_none')
-                }
-              >
-                {embeddingLoading || embeddingRunning
-                  ? t('ai_query.embed_refreshing_short')
-                  : semanticModelId
-                    ? t('ai_query.embed_refresh_model')
-                    : t('ai_query.embed_refresh')}
-              </button>
-            )}
           </div>
-          {aiRuntime?.embeddings_enabled === true && (embeddingStatus || embeddingError || aiRuntimeErr) && (
-            <div className="routing-embed-status">
-              {embeddingStatus && <span className="ai-embedding-status">{embeddingStatus}</span>}
-              {embeddingError && <span className="ai-embedding-error">{embeddingError}</span>}
-              {aiRuntimeErr && <span className="error">{aiRuntimeErr}</span>}
-            </div>
-          )}
         </div>
       </div>
 

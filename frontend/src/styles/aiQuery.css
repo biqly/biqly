@@ -518,9 +518,47 @@
   margin: 0 0 1.25rem;
 }
 
+.query-config-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.query-config-top {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.query-config-top .query-config-badges {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
+  padding: 0;
+}
+
+.query-config-embed-btn {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: min(100%, 14rem);
+  margin-top: 0;
+  white-space: nowrap;
+}
+
+.query-config-embed-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.74rem;
+  min-width: 0;
+}
+
 .query-controls {
   display: grid;
-  grid-template-columns: minmax(11rem, 1fr) minmax(11rem, 1fr) minmax(16rem, 1.35fr);
+  grid-template-columns: minmax(11rem, 1fr) minmax(11rem, 1fr) max-content;
   gap: 1rem;
   align-items: flex-end;
 }
@@ -633,7 +671,7 @@
   }
 }
 
-@media (max-width: 1240px) {
+@media (max-width: 1340px) {
   .query-controls {
     grid-template-columns: 1fr 1fr;
   }
@@ -644,20 +682,37 @@
 }
 
 @media (max-width: 720px) {
+  .query-config-top {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .query-config-embed-btn {
+    max-width: 100%;
+  }
+
   .query-controls,
   .ai-embedding-actions {
     grid-template-columns: 1fr;
   }
 }
 
-.routing-toggle label { display: block; margin-bottom: 0.45rem; }
+.routing-toggle label,
+.routing-toggle .form-label {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: var(--text-secondary);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
 
 .routing-toggle-row {
-  display: flex;
+  display: inline-flex;
   gap: 0.65rem;
   align-items: center;
   flex-wrap: nowrap;
-  width: 100%;
+  max-width: 100%;
 }
 
 .routing-toggle-row .toggle-group {
@@ -677,27 +732,6 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-}
-
-.routing-embed-btn {
-  white-space: nowrap;
-  flex: 0 0 auto;
-  margin-left: auto;
-  margin-top: 0;
-  height: 2.1rem;
-  min-height: 2.1rem;
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.routing-embed-status {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin-top: 0.45rem;
-  font-size: 0.74rem;
 }
 
 .button-row {
