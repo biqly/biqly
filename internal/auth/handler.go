@@ -115,7 +115,13 @@ func (h *AuthHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	ua := r.UserAgent()
 	resp, err := h.service.Login(r.Context(), req, &ua, &ip)
 	if errors.Is(err, ErrInvalidCredentials) || errors.Is(err, ErrInactiveUser) {
-		h.respondError(w, http.StatusUnauthorized, err.Error())
+		// Return identical message for both to prevent account enumeration:
+		// an attacker probing emails must not be able to distinguish
+		// "wrong password" from "inactive account" from "no such user".
+		h.respondError(w, http.StatusUnauthorized, ErrInvalidCredentials.Error())
+		return
+	} else if errors.Is(err, ErrAccountLocked) {
+		h.respondError(w, http.StatusTooManyRequests, err.Error())
 		return
 	} else if err != nil {
 		h.respondError(w, http.StatusInternalServerError, err.Error())

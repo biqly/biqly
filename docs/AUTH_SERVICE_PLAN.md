@@ -1337,12 +1337,12 @@ r.Route("/api", func(r chi.Router) {
 - [x] Integration testler: register → login → refresh → logout akışı
 - [x] OAuth2 mock testleri
 - [x] WebAuthn ceremony testleri
-- [ ] Permission middleware testleri
-- [ ] Datasource access middleware testleri
-- [ ] AI history user_id filtreleme testleri
+- [x] Permission middleware testleri (`internal/http/middleware/permission_test.go`, `jwt_test.go`)
+- [x] Datasource access middleware testleri (URL/query/body discovery + cache + super_admin bypass)
+- [x] AI history user_id filtreleme testleri (`internal/http/handlers/history_filter_test.go`)
 - [x] Rate limiting testleri
-- [ ] Timing attack testleri (response süre karşılaştırma)
-- [ ] Account enumeration testleri
+- [x] Timing attack testleri (response süre karşılaştırma, `login_security_test.go`)
+- [x] Account enumeration testleri (login handler generic-message invariant)
 - [x] Token family protection testleri
 - [ ] E2E testler: frontend sign up → sign in → sign out
 - [ ] Load test: JWT verification throughput
@@ -2527,3 +2527,4 @@ env:
 | 2026-05-25 | Best practice eklemeleri: 2FA/MFA, token security, account security, audit/compliance, email, observability, password policy, frontend security, DR/HA, backward compat, migration |
 | 2026-05-25 | Kubernetes/Helm entegrasyonu: auth sub-chart, NetworkPolicy, HTTPRoute, migrate-job, PrometheusRule, Dockerfile, Docker Compose, ArgoCD hooks |
 | 2026-05-25 | Cloudflared Zero Trust tunnel: `abi.il1.nl` → auth service route'ları (`^/api/auth`, `^/auth`), ConfigMap güncelleme, cloudflared NetworkPolicy ingress, Zero Trust Access Policy (opsiyonel) |
+| 2026-05-26 | Aşama 6 testleri: middleware (`jwt`, `permission`, `datasource_access`) + AI history filter + timing parity + account enumeration invariant; login handler `ErrInactiveUser` artık jenerik mesaj döner, `ErrAccountLocked` 429 ile ayrılır |
