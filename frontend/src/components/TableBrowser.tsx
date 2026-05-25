@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import '../styles/tableBrowser.css'
 import { useApi } from '../hooks/useApi'
 import { useT } from '../i18n'
@@ -7,8 +7,11 @@ import { buildQueryPayload } from './queryBuilder/logicalQuery'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { Select } from './ui/Select'
 import type { Datasource } from '../types/metadata'
-import type { SemanticModelDetail, SemanticModelSummary } from '../types/semantic'
+import type { SemanticMetric, SemanticModelDetail, SemanticModelSummary } from '../types/semantic'
 import { modelListLabel, modelListHint } from '../types/semantic'
+
+const PAGE_SIZE_OPTIONS = [25, 50, 100] as const
+const DEFAULT_PAGE_SIZE = 50
 
 interface QueryBuilderResult {
   columns?: { name: string; type?: string }[]
@@ -27,9 +30,24 @@ interface TableBrowserFilter {
   caseSensitive?: boolean
 }
 
+function resolveCountMetric(metrics: SemanticMetric[] | undefined): string | null {
+  if (!metrics?.length) return null
+  const byName = metrics.find((m) => m.name === 'row_count' || m.name === 'count')
+  if (byName) return byName.name
+  const countAgg = metrics.find((m) => m.aggregation === 'count')
+  return countAgg?.name ?? null
+}
+
+function parseCountValue(rows: unknown[][] | undefined): number | null {
+  if (!rows?.length) return null
+  const cell = rows[0]?.[0]
+  const n = typeof cell === 'number' ? cell : Number(cell)
+  return Number.isFinite(n) ? Math.trunc(n) : null
+}
+
 export default function TableBrowser() {
   const t = useT()
-  const { get, postData, loading, error } = useApi()
+  const { get, postData, error } = useApi()
 
   const [datasources, setDatasources] = useState<Datasource[]>([])
   const [datasourceId, setDatasourceId] = useState('')
@@ -39,6 +57,11 @@ export default function TableBrowser() {
 
   const [filters, setFilters] = useState<TableBrowserFilter[]>([])
   const [result, setResult] = useState<QueryBuilderResult | null>(null)
+  const [totalRows, setTotalRows] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE)
+  const [fetching, setFetching] = useState(false)
+  const [expandedRow, setExpandedRow] = useState<number | null>(null)
 
   const [popoverOpen, setPopoverOpen] = useState(false)
   const [popoverField, setPopoverField] = useState('')
@@ -47,6 +70,11 @@ export default function TableBrowser() {
   const [chipInputText, setChipInputText] = useState('')
   const [popoverCaseSensitive, setPopoverCaseSensitive] = useState(false)
   const [editingFilterId, setEditingFilterId] = useState<string | null>(null)
+
+  const countMetricName = useMemo(
+    () => resolveCountMetric(modelDetail?.metrics),
+    [modelDetail?.metrics],
+  )
 
   useEffect(() => {
     get<Datasource[]>('/api/datasources').then((data) => {
@@ -95,14 +123,36 @@ export default function TableBrowser() {
       if (d) {
         setModelDetail(d)
         setFilters([])
+        setPage(0)
+        setExpandedRow(null)
       }
     })
   }, [modelId])
 
+  useEffect(() => {
+    setPage(0)
+    setExpandedRow(null)
+  }, [filters])
+
   const dimensions = useMemo(() => modelDetail?.dimensions ?? [], [modelDetail])
+
+  const filterPayload = useMemo(
+    () =>
+      filters.map((f) => ({
+        id: f.id,
+        field: f.field,
+        operator: f.operator,
+        value: f.value,
+        caseSensitive: f.caseSensitive,
+      })),
+    [filters],
+  )
 
   const runBrowseQuery = useCallback(async () => {
     if (!datasourceId || !modelId || !modelDetail || dimensions.length === 0) return
+
+    setFetching(true)
+    const offset = page * pageSize
 
     const selectItems = dimensions.map((d) => ({
       id: d.id,
@@ -110,37 +160,75 @@ export default function TableBrowser() {
       name: d.name,
     }))
 
-    const payload = buildQueryPayload({
+    const baseState = {
       datasourceId,
       modelId,
-      mode: 'simple',
-      selectItems,
-      filters: filters.map((f) => ({
-        id: f.id,
-        field: f.field,
-        operator: f.operator,
-        value: f.value,
-        caseSensitive: f.caseSensitive,
-      })),
-      groupBy: [],
+      mode: 'simple' as const,
+      filters: filterPayload,
+      groupBy: [] as string[],
       having: [],
       orderBy: '',
-      orderDir: 'asc',
-      limit: 100,
-      offset: 0,
+      orderDir: 'asc' as const,
       windowFunctions: [],
       ctes: [],
-    })
-
-    const res = await postData<QueryBuilderResult>('/api/query/run', payload)
-    if (res) {
-      setResult(res)
     }
-  }, [datasourceId, modelId, modelDetail, dimensions, filters])
+
+    const countPromise =
+      countMetricName != null
+        ? postData<QueryBuilderResult>(
+            '/api/query/run',
+            buildQueryPayload({
+              ...baseState,
+              selectItems: [{ id: 'count', type: 'metric', name: countMetricName }],
+              limit: 1,
+              offset: 0,
+            }),
+          )
+        : Promise.resolve(null)
+
+    const dataPromise = postData<QueryBuilderResult>(
+      '/api/query/run',
+      buildQueryPayload({
+        ...baseState,
+        selectItems,
+        limit: pageSize,
+        offset,
+      }),
+    )
+
+    const [countRes, dataRes] = await Promise.all([countPromise, dataPromise])
+    if (countRes) {
+      setTotalRows(parseCountValue(countRes.rows))
+    } else {
+      setTotalRows(null)
+    }
+    if (dataRes) {
+      setResult(dataRes)
+    }
+    setFetching(false)
+  }, [
+    datasourceId,
+    modelId,
+    modelDetail,
+    dimensions,
+    filterPayload,
+    page,
+    pageSize,
+    countMetricName,
+    postData,
+  ])
 
   useEffect(() => {
     void runBrowseQuery()
-  }, [modelDetail, filters, runBrowseQuery])
+  }, [runBrowseQuery])
+
+  const rowCount = result?.rows?.length ?? 0
+  const rangeStart = rowCount > 0 ? page * pageSize + 1 : 0
+  const rangeEnd = page * pageSize + rowCount
+  const hasNext =
+    totalRows != null
+      ? rangeEnd < totalRows
+      : rowCount === pageSize
 
   const handleAddChip = (text: string) => {
     const clean = text.trim()
@@ -305,6 +393,22 @@ export default function TableBrowser() {
     }))
   }, [dimensions])
 
+  const pageSizeOptions = useMemo(
+    () =>
+      PAGE_SIZE_OPTIONS.map((n) => ({
+        value: String(n),
+        label: String(n),
+      })),
+    [],
+  )
+
+  const rangeLabel =
+    rowCount === 0
+      ? t('table_browser.range_empty')
+      : totalRows != null
+        ? t('table_browser.range_of_total', { start: rangeStart, end: rangeEnd, total: totalRows })
+        : t('table_browser.range_unknown_total', { start: rangeStart, end: rangeEnd })
+
   return (
     <div className="card card--table-browser">
       <div className="table-browser-header">
@@ -462,42 +566,121 @@ export default function TableBrowser() {
 
           <ErrorAlert error={error} />
 
-          {loading && <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{t('table_browser.loading')}</div>}
+          {fetching && <div className="table-browser-loading">{t('table_browser.loading')}</div>}
 
-          {!loading && result && result.columns && result.rows && (
-            <div style={{ overflowX: 'auto', maxHeight: '400px', overflowY: 'auto' }}>
-              <table className="results-table">
-                <thead>
-                  <tr>
-                    <th scope="col" style={{ width: '3rem' }}></th>
-                    {result.columns.map((col) => (
-                      <th
-                        key={col.name}
-                        scope="col"
-                        className="th-clickable"
-                        onClick={() => handleOpenAddFilter(col.name)}
-                        title={t('table_browser.filter_by_column', { column: col.name })}
-                      >
-                        {getDimensionLabel(col.name)}
-                        <span className="th-chevron">▼</span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.rows.map((row, i) => (
-                    <tr key={i}>
-                      <td>
-                        <span className="row-index-number">{i + 1}</span>
-                      </td>
-                      {row.map((cell, j) => (
-                        <td key={j}>{formatResultCell(cell, result.columns?.[j]?.name ?? '', {})}</td>
+          {!fetching && result && result.columns && result.rows && (
+            <>
+              <div className="table-browser-table-wrap">
+                <table className="results-table table-browser-grid">
+                  <thead>
+                    <tr>
+                      <th scope="col" className="table-browser-col-index"></th>
+                      {result.columns.map((col) => (
+                        <th
+                          key={col.name}
+                          scope="col"
+                          className="th-clickable"
+                          onClick={() => handleOpenAddFilter(col.name)}
+                          title={t('table_browser.filter_by_column', { column: col.name })}
+                        >
+                          {getDimensionLabel(col.name)}
+                          <span className="th-chevron">▼</span>
+                        </th>
                       ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {result.rows.map((row, i) => {
+                      const isExpanded = expandedRow === i
+                      return (
+                        <Fragment key={i}>
+                          <tr
+                            className={`table-browser-data-row${isExpanded ? ' is-expanded' : ''}`}
+                            onClick={() => setExpandedRow(isExpanded ? null : i)}
+                            aria-expanded={isExpanded}
+                          >
+                            <td className="table-browser-col-index">
+                              <span className="row-index-number">{page * pageSize + i + 1}</span>
+                            </td>
+                            {row.map((cell, j) => {
+                              const colName = result.columns?.[j]?.name ?? ''
+                              const display = formatResultCell(cell, colName, {})
+                              return (
+                                <td key={j} title={display}>
+                                  {display}
+                                </td>
+                              )
+                            })}
+                          </tr>
+                          {isExpanded && (
+                            <tr key={`detail-${i}`} className="table-browser-detail-row">
+                              <td colSpan={(result.columns?.length ?? 0) + 1}>
+                                <div className="table-browser-detail-grid" role="region" aria-label={t('table_browser.row_detail')}>
+                                  {result.columns?.map((col, j) => {
+                                    const colName = col.name
+                                    const display = formatResultCell(row[j], colName, {})
+                                    return (
+                                      <div key={colName} className="table-browser-detail-item">
+                                        <span className="table-browser-detail-label">{getDimensionLabel(colName)}</span>
+                                        <span className="table-browser-detail-value">{display}</span>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="table-browser-pagination">
+                <span className="table-browser-range">{rangeLabel}</span>
+                <div className="table-browser-pagination-controls">
+                  <label className="table-browser-page-size-label">
+                    {t('table_browser.rows_per_page')}
+                    <Select
+                      value={String(pageSize)}
+                      onChange={(v) => {
+                        setPageSize(Number(v))
+                        setPage(0)
+                        setExpandedRow(null)
+                      }}
+                      options={pageSizeOptions}
+                      size="sm"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="table-browser-page-btn"
+                    disabled={page === 0 || fetching}
+                    onClick={() => {
+                      setPage((p) => Math.max(0, p - 1))
+                      setExpandedRow(null)
+                    }}
+                  >
+                    {t('table_browser.prev_page')}
+                  </button>
+                  <span className="table-browser-page-num">
+                    {t('table_browser.page_number', { page: page + 1 })}
+                  </span>
+                  <button
+                    type="button"
+                    className="table-browser-page-btn"
+                    disabled={!hasNext || fetching}
+                    onClick={() => {
+                      setPage((p) => p + 1)
+                      setExpandedRow(null)
+                    }}
+                  >
+                    {t('table_browser.next_page')}
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </>
       ) : (

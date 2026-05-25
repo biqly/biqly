@@ -55,7 +55,10 @@ export function buildQueryPayload(state: QueryBuilderFormState) {
         : undefined,
     order_by: orderBy ? [{ field: orderBy, direction: orderDir }] : [],
     limit: parseInt(String(limit)) || 100,
-    offset: mode === 'advanced' ? parseInt(String(offset)) || 0 : undefined,
+    offset: (() => {
+      const n = Math.max(0, parseInt(String(offset)) || 0)
+      return n > 0 || mode === 'advanced' ? n : undefined
+    })(),
     ...(mode === 'advanced'
       ? {
           select: [
