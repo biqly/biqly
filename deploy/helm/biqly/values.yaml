@@ -293,7 +293,6 @@ auth:
   route:
     enabled: true
     pathPrefixes:
-      - /auth
       - /api/auth
 
 frontend:

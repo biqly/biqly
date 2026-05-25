@@ -72,12 +72,12 @@ func LoadConfig() (*Config, error) {
 
 	githubRedirect := os.Getenv("BI_AUTH_GITHUB_REDIRECT_URL")
 	if githubRedirect == "" {
-		githubRedirect = "http://localhost:8889/auth/oauth/github/callback"
+		githubRedirect = "http://localhost:8889/api/auth/oauth/github/callback"
 	}
 
 	googleRedirect := os.Getenv("BI_AUTH_GOOGLE_REDIRECT_URL")
 	if googleRedirect == "" {
-		googleRedirect = "http://localhost:8889/auth/oauth/google/callback"
+		googleRedirect = "http://localhost:8889/api/auth/oauth/google/callback"
 	}
 
 	rpID := os.Getenv("BI_AUTH_WEBAUTHN_RP_ID")

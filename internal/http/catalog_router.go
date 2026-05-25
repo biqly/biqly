@@ -42,7 +42,7 @@ func CatalogRouter(deps *app.Dependencies) http.Handler {
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(CatalogMetricsMiddleware(GetMetrics()))
-		registerCatalogAPIRoutes(r, deps)
+		registerCatalogAPIRoutes(r, deps, nil)
 	})
 
 	r.Route("/internal", func(r chi.Router) {
@@ -55,16 +55,16 @@ func CatalogRouter(deps *app.Dependencies) http.Handler {
 	return r
 }
 
-func registerCatalogAPIRoutes(r chi.Router, deps *app.Dependencies) {
+func registerCatalogAPIRoutes(r chi.Router, deps *app.Dependencies, authClient *bimw.AuthClient) {
 	dsHandler := handlers.NewDatasourceHandler(deps)
 	r.Post("/datasources", dsHandler.Create)
 	r.Get("/datasources", dsHandler.List)
 	r.Post("/datasources/test-connection", dsHandler.TestDraft)
-	r.Get("/datasources/{id}", dsHandler.Get)
-	r.Put("/datasources/{id}", dsHandler.Update)
-	r.Delete("/datasources/{id}", dsHandler.Delete)
-	r.Post("/datasources/{id}/test", dsHandler.Test)
-	r.Post("/datasources/{id}/sync-metadata", dsHandler.SyncMetadata)
+	r.With(bimw.RequireDatasourceAccess(authClient, "read")).Get("/datasources/{id}", dsHandler.Get)
+	r.With(bimw.RequireDatasourceAccess(authClient, "write")).Put("/datasources/{id}", dsHandler.Update)
+	r.With(bimw.RequireDatasourceAccess(authClient, "admin")).Delete("/datasources/{id}", dsHandler.Delete)
+	r.With(bimw.RequireDatasourceAccess(authClient, "read")).Post("/datasources/{id}/test", dsHandler.Test)
+	r.With(bimw.RequireDatasourceAccess(authClient, "write")).Post("/datasources/{id}/sync-metadata", dsHandler.SyncMetadata)
 
 	semHandler := handlers.NewSemanticHandler(deps)
 	semHandler.SetCatalogMetricsRecorder(GetMetrics())

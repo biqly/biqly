@@ -1078,7 +1078,7 @@ export const tr: Dictionary = {
     err_suffix_required: 'Sonek zorunludur',
   },
   auth: {
-    title_signin: 'Biqly\'ye Giriş Yap',
+    title_signin: 'ABI\'ye Giriş Yap',
     title_signup: 'Hesabınızı Oluşturun',
     title_forgot: 'Şifremi Unuttum',
     title_reset: 'Şifreyi Sıfırla',

@@ -1076,7 +1076,7 @@ export const en = {
     err_suffix_required: 'Suffix is required',
   },
   auth: {
-    title_signin: 'Sign In to Biqly',
+    title_signin: 'Sign In to ABI',
     title_signup: 'Create Your Account',
     title_forgot: 'Forgot Password',
     title_reset: 'Reset Password',

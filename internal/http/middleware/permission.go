@@ -170,7 +170,14 @@ func (c *AuthClient) postBool(ctx context.Context, path string, body []byte) (bo
 
 // RequirePermission checks if the user has the given permission.
 // super_admin role bypasses the check.
+//
+// When client is nil (auth feature flag disabled), the middleware is a
+// pass-through. This lets routers wire permission checks unconditionally and
+// rely on the BI_AUTH_ENABLED flag to gate enforcement.
 func RequirePermission(client *AuthClient, permission string) func(http.Handler) http.Handler {
+	if client == nil {
+		return passThrough
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if HasRole(r.Context(), RoleSuperAdmin) {
@@ -200,10 +207,18 @@ func RequirePermission(client *AuthClient, permission string) func(http.Handler)
 	}
 }
 
+// passThrough returns a no-op middleware. Used when permission checks are
+// disabled (auth feature flag off) so callers can wire middleware
+// unconditionally.
+func passThrough(next http.Handler) http.Handler { return next }
+
 // RequireDatasourceAccess checks if the user has the given access level on the
 // datasource identified by URL param `datasourceID` (or `id`) or "datasource_id"
-// in JSON body. super_admin bypasses.
+// in JSON body. super_admin bypasses. Returns a pass-through when client is nil.
 func RequireDatasourceAccess(client *AuthClient, requiredLevel string) func(http.Handler) http.Handler {
+	if client == nil {
+		return passThrough
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if HasRole(r.Context(), RoleSuperAdmin) {

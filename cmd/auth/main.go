@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,116 +10,79 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
+	biqauth "github.com/biqly/biqly/internal/auth"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/redis/go-redis/v9"
 )
 
-type config struct {
-	Port          string
-	RedisDSN      string
-	InternalToken string
+type appState struct {
+	db          *sql.DB
+	redis       *redis.Client
+	startedAt   time.Time
+	serviceName string
 }
-
-func loadConfig() config {
-	return config{
-		Port:          envOrDefault("BI_AUTH_PORT", "8889"),
-		RedisDSN:      envOrDefault("BI_AUTH_REDIS_DSN", ""),
-		InternalToken: envOrDefault("BI_AUTH_INTERNAL_TOKEN", ""),
-	}
-}
-
-func envOrDefault(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return def
-}
-
-var startupTime = time.Now().UTC()
 
 func main() {
-	cfg := loadConfig()
-
-	r := chi.NewRouter()
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(30 * time.Second))
-
-	r.Get("/health", healthHandler)
-	r.Get("/ready", readyHandler)
-	r.Get("/metrics", metricsHandler)
-
-	r.Route("/auth", func(r chi.Router) {
-		r.Post("/register", placeholderHandler("register"))
-		r.Post("/login", placeholderHandler("login"))
-		r.Post("/refresh", placeholderHandler("refresh"))
-		r.Post("/logout", placeholderHandler("logout"))
-		r.Post("/forgot-password", placeholderHandler("forgot-password"))
-		r.Post("/reset-password", placeholderHandler("reset-password"))
-		r.Get("/verify-email", placeholderHandler("verify-email"))
-		r.Post("/resend-verification", placeholderHandler("resend-verification"))
-
-		r.Route("/oauth", func(r chi.Router) {
-			r.Get("/github", placeholderHandler("oauth-github"))
-			r.Get("/github/callback", placeholderHandler("oauth-github-callback"))
-			r.Get("/google", placeholderHandler("oauth-google"))
-			r.Get("/google/callback", placeholderHandler("oauth-google-callback"))
-		})
-
-		r.Route("/passkey", func(r chi.Router) {
-			r.Post("/register-begin", placeholderHandler("passkey-register-begin"))
-			r.Post("/register-finish", placeholderHandler("passkey-register-finish"))
-			r.Post("/login-begin", placeholderHandler("passkey-login-begin"))
-			r.Post("/login-finish", placeholderHandler("passkey-login-finish"))
-		})
-
-		r.Route("/me", func(r chi.Router) {
-			r.Get("/", placeholderHandler("me"))
-			r.Put("/", placeholderHandler("me-update"))
-			r.Put("/password", placeholderHandler("me-password"))
-			r.Get("/passkeys", placeholderHandler("me-passkeys"))
-			r.Get("/sessions", placeholderHandler("me-sessions"))
-		})
-
-		r.Route("/admin", func(r chi.Router) {
-			r.Use(internalTokenMiddleware(cfg.InternalToken))
-			r.Get("/users", placeholderHandler("admin-users"))
-			r.Get("/roles", placeholderHandler("admin-roles"))
-			r.Get("/permissions", placeholderHandler("admin-permissions"))
-			r.Get("/audit-log", placeholderHandler("admin-audit"))
-			r.Get("/datasource-access", placeholderHandler("admin-datasource-access"))
-		})
-
-		r.Route("/workspaces", func(r chi.Router) {
-			r.Get("/", placeholderHandler("workspaces-list"))
-			r.Post("/", placeholderHandler("workspaces-create"))
-			r.Route("/{id}", func(r chi.Router) {
-				r.Get("/", placeholderHandler("workspace-get"))
-				r.Get("/members", placeholderHandler("workspace-members"))
-				r.Get("/datasources", placeholderHandler("workspace-datasources"))
-			})
-		})
-
-		r.Get("/shares", placeholderHandler("shares-list"))
-		r.Post("/shares", placeholderHandler("shares-create"))
-
-		r.Get("/me/datasources", placeholderHandler("me-datasources"))
-	})
-
-	if os.Getenv("BI_AUTH_SUBCOMMAND") == "migrate" {
-		slog.Info("migrate subcommand not yet implemented")
-		os.Exit(0)
+	cfg, err := biqauth.LoadConfig()
+	if err != nil {
+		slog.Error("load config", "err", err)
+		os.Exit(1)
 	}
 
-	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%s", cfg.Port),
-		Handler:      r,
+	db, err := sql.Open("pgx", cfg.DBDSN)
+	if err != nil {
+		slog.Error("open database", "err", err)
+		os.Exit(1)
+	}
+	defer func() { _ = db.Close() }()
+	configureDB(db)
+
+	redisClient, err := newRedisClient(cfg.RedisDSN)
+	if err != nil {
+		slog.Error("configure redis", "err", err)
+		os.Exit(1)
+	}
+	defer func() { _ = redisClient.Close() }()
+
+	jwtMgr, err := biqauth.NewJWTManager(cfg.JWTPrivateKeyPath, cfg.JWTPublicKeyPath, cfg.JWTAccessTTL)
+	if err != nil {
+		slog.Error("initialize jwt manager", "err", err)
+		os.Exit(1)
+	}
+
+	userRepo := biqauth.NewUserRepository(db)
+	rbacRepo := biqauth.NewRBACRepository(db)
+	sessionMgr := biqauth.NewSessionManager(db)
+	authSvc := biqauth.NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, cfg)
+	webAuthnSvc, err := biqauth.NewWebAuthnService(cfg, userRepo)
+	if err != nil {
+		slog.Error("initialize webauthn", "err", err)
+		os.Exit(1)
+	}
+	rbacSvc := biqauth.NewRBACService(rbacRepo)
+	dsAccessSvc := biqauth.NewDatasourceAccessService(db, redisClient, rbacSvc)
+	workspaceSvc := biqauth.NewWorkspaceService(db, dsAccessSvc)
+	sharingSvc := biqauth.NewSharingService(db)
+	auditSvc := biqauth.NewAuditService(db)
+
+	authHandler := biqauth.NewAuthHandler(authSvc, webAuthnSvc, jwtMgr, cfg)
+	rbacHandler := biqauth.NewRBACHandler(rbacSvc, rbacRepo, dsAccessSvc, workspaceSvc, sharingSvc, auditSvc, jwtMgr, cfg)
+
+	state := &appState{
+		db:          db,
+		redis:       redisClient,
+		startedAt:   time.Now().UTC(),
+		serviceName: "auth",
+	}
+	router := newRouter(state, authHandler, rbacHandler)
+	server := &http.Server{
+		Addr:         cfg.HTTPAddr(),
+		Handler:      router,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -128,8 +92,8 @@ func main() {
 	defer stop()
 
 	go func() {
-		slog.Info("auth service starting", "port", cfg.Port)
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		slog.Info("auth service starting", "addr", cfg.HTTPAddr())
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("listen error", "err", err)
 			os.Exit(1)
 		}
@@ -140,57 +104,91 @@ func main() {
 	slog.Info("shutting down")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := srv.Shutdown(shutdownCtx); err != nil {
+	if err := server.Shutdown(shutdownCtx); err != nil {
 		slog.Error("shutdown error", "err", err)
 	}
 }
 
-func healthHandler(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+func configureDB(db *sql.DB) {
+	db.SetMaxOpenConns(20)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(30 * time.Minute)
 }
 
-func readyHandler(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{
-		"status":    "ok",
-		"uptime":    time.Since(startupTime).Round(time.Second).String(),
-		"service":   "auth",
+func newRedisClient(dsn string) (*redis.Client, error) {
+	opts, err := redis.ParseURL(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("parse redis dsn: %w", err)
+	}
+	return redis.NewClient(opts), nil
+}
+
+func newRouter(state *appState, authHandler *biqauth.AuthHandler, rbacHandler *biqauth.RBACHandler) http.Handler {
+	r := chi.NewRouter()
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.Timeout(30 * time.Second))
+
+	r.Get("/health", state.handleHealth)
+	r.Get("/ready", state.handleReady)
+	r.Get("/metrics", state.handleMetrics)
+
+	mountAuthRoutes(r, "/api/auth", authHandler, rbacHandler)
+	mountAuthRoutes(r, "/auth", authHandler, rbacHandler)
+	r.Route("/internal/auth", func(r chi.Router) {
+		authHandler.RegisterInternalRoutes(r)
+		rbacHandler.RegisterInternalRoutes(r, authHandler.InternalTokenMiddleware())
+	})
+
+	return r
+}
+
+func mountAuthRoutes(r chi.Router, pattern string, authHandler *biqauth.AuthHandler, rbacHandler *biqauth.RBACHandler) {
+	r.Route(pattern, func(r chi.Router) {
+		authHandler.RegisterAuthRoutes(r)
+		rbacHandler.RegisterAuthRoutes(r, authHandler.AuthMiddleware())
 	})
 }
 
-func metricsHandler(w http.ResponseWriter, _ *http.Request) {
+func (s *appState) handleHealth(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (s *appState) handleReady(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	if err := s.db.PingContext(ctx); err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
+			"status": "unavailable",
+			"error":  "database unavailable",
+		})
+		return
+	}
+	if err := s.redis.Ping(ctx).Err(); err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
+			"status": "unavailable",
+			"error":  "redis unavailable",
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status":  "ok",
+		"uptime":  time.Since(s.startedAt).Round(time.Second).String(),
+		"service": s.serviceName,
+	})
+}
+
+func (s *appState) handleMetrics(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
-	fmt.Fprintf(w, "# HELP auth_up Service readiness\n# TYPE auth_up gauge\nauth_up 1\n")
+	fmt.Fprint(w, "# HELP auth_up Service readiness\n# TYPE auth_up gauge\nauth_up 1\n")
 }
 
-func placeholderHandler(name string) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotImplemented)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error":   "not_implemented",
-			"message": fmt.Sprintf("%s endpoint is not yet implemented", name),
-		})
-	}
-}
-
-func internalTokenMiddleware(token string) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if token == "" {
-				next.ServeHTTP(w, r)
-				return
-			}
-			auth := r.Header.Get("Authorization")
-			if strings.TrimPrefix(auth, "Bearer ") != token &&
-				r.Header.Get("X-Internal-Token") != token {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusUnauthorized)
-				json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
+func writeJSON(w http.ResponseWriter, status int, data any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(data)
 }

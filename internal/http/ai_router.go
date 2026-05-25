@@ -76,6 +76,8 @@ func registerAIAPIRoutes(r chi.Router, deps *app.Dependencies) {
 		r.Get("/ai/jobs/{id}", deps.AIJobsHTTP.Get)
 		r.Delete("/ai/jobs/{id}", deps.AIJobsHTTP.Cancel)
 	}
+	r.Get("/ai/history", aiHandler.AIHistory)
+	r.Get("/ai/history/detail", aiHandler.AIHistoryDetail)
 	r.Post("/ai/query", aiHandler.Query)
 	r.Post("/ai/query/preview", aiHandler.Preview)
 	r.Post("/ai/query/run", aiHandler.Run)

@@ -640,6 +640,116 @@ func (r *Repository) CreateAIQueryHistory(ctx context.Context, entry *AIQueryHis
 	return nil
 }
 
+// ListAIQueryHistory returns recent AI query history entries (newest first).
+// userID filters to a single user when non-empty; passing "" returns all rows
+// (caller must enforce admin permission before calling).
+func (r *Repository) ListAIQueryHistory(ctx context.Context, userID string, limit int) ([]AIQueryHistoryEntry, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	const baseQuery = `SELECT id, datasource_id, model_id, user_id, question, prompt_context,
+		       ai_response, logical_query, confidence_score, warnings, outcome_status,
+		       retry_count, needs_clarification, model_used, token_count, cost_usd,
+		       latency_ms, created_at FROM ai_query_history`
+	const filteredQuery = baseQuery + ` WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`
+	const allQuery = baseQuery + ` ORDER BY created_at DESC LIMIT $1`
+
+	var (
+		rows *sql.Rows
+		err  error
+	)
+	if userID != "" {
+		rows, err = r.db.QueryContext(ctx, filteredQuery, userID, limit)
+	} else {
+		rows, err = r.db.QueryContext(ctx, allQuery, limit)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("query AI history: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var list []AIQueryHistoryEntry
+	for rows.Next() {
+		entry, err := scanAIHistoryEntry(rows)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, entry)
+	}
+	return list, rows.Err()
+}
+
+func scanAIHistoryEntry(s platformdb.Scanner) (AIQueryHistoryEntry, error) {
+	var entry AIQueryHistoryEntry
+	var modelID, userID, outcome, modelUsed sql.NullString
+	var promptCtx, aiResp, logicalQ []byte
+	var confidence, cost sql.NullFloat64
+	var warnings pq.StringArray
+	var retryCount sql.NullInt64
+	var needsClarification sql.NullBool
+	var tokenCount, latencyMs sql.NullInt64
+
+	if err := s.Scan(
+		&entry.ID, &entry.DatasourceID, &modelID, &userID, &entry.Question,
+		&promptCtx, &aiResp, &logicalQ, &confidence, &warnings, &outcome,
+		&retryCount, &needsClarification, &modelUsed, &tokenCount, &cost, &latencyMs,
+		&entry.CreatedAt,
+	); err != nil {
+		return entry, fmt.Errorf("scan AI history row: %w", err)
+	}
+
+	if modelID.Valid {
+		s := modelID.String
+		entry.ModelID = &s
+	}
+	if userID.Valid {
+		s := userID.String
+		entry.UserID = &s
+	}
+	if outcome.Valid {
+		entry.OutcomeStatus = outcome.String
+	}
+	if modelUsed.Valid {
+		s := modelUsed.String
+		entry.ModelUsed = &s
+	}
+	if confidence.Valid {
+		v := confidence.Float64
+		entry.ConfidenceScore = &v
+	}
+	if cost.Valid {
+		v := cost.Float64
+		entry.CostUSD = &v
+	}
+	if retryCount.Valid {
+		entry.RetryCount = int(retryCount.Int64)
+	}
+	if needsClarification.Valid {
+		entry.NeedsClarification = needsClarification.Bool
+	}
+	if tokenCount.Valid {
+		v := int(tokenCount.Int64)
+		entry.TokenCount = &v
+	}
+	if latencyMs.Valid {
+		v := int(latencyMs.Int64)
+		entry.LatencyMs = &v
+	}
+	if len(promptCtx) > 0 {
+		_ = json.Unmarshal(promptCtx, &entry.PromptContext)
+	}
+	if len(aiResp) > 0 {
+		_ = json.Unmarshal(aiResp, &entry.AIResponse)
+	}
+	if len(logicalQ) > 0 {
+		_ = json.Unmarshal(logicalQ, &entry.LogicalQuery)
+	}
+	entry.Warnings = []string(warnings)
+
+	return entry, nil
+}
+
 func scanTable(s platformdb.Scanner) (Table, error) {
 	var t Table
 	if err := s.Scan(&t.ID, &t.DatasourceID, &t.SchemaID, &t.SchemaName, &t.TableName, &t.TableType, &t.RowEstimate, &t.Description, &t.Label, &t.CreatedAt, &t.UpdatedAt); err != nil {

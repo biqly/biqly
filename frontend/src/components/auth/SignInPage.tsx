@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import abiLogo from '../../assets/abi-logo.png'
 import { apiPasskeyLoginBegin, apiPasskeyLoginFinish } from '../../api/auth'
 import { useT } from '../../i18n'
 import { base64urlToBuffer, bufferToBase64url } from '../../utils/webauthn'
@@ -84,7 +85,7 @@ export default function SignInPage() {
   }
 
   const handleOAuth = (provider: string) => {
-    window.location.href = `/auth/oauth/${provider}`
+    window.location.href = `/api/auth/oauth/${provider}`
   }
 
   return (
@@ -92,7 +93,7 @@ export default function SignInPage() {
       <div className="auth-card">
         <div className="auth-header">
           <div className="auth-logo">
-            📊
+            <img src={abiLogo} alt="" width={34} height={34} />
           </div>
           <h1 className="auth-title">{t('auth.title_signin')}</h1>
           <p className="auth-subtitle">

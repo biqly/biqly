@@ -4,20 +4,22 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
 type JWTClaims struct {
-	Email                  string   `json:"email"`
-	Roles                  []string `json:"roles"`
-	WorkspaceID            string   `json:"workspace_id,omitempty"`
+	Email                 string   `json:"email"`
+	Roles                 []string `json:"roles"`
+	WorkspaceID           string   `json:"workspace_id,omitempty"`
 	AccessibleDatasources []string `json:"accessible_datasources,omitempty"`
 	jwt.RegisteredClaims
 }
@@ -29,25 +31,39 @@ type JWTManager struct {
 }
 
 func NewJWTManager(privatePath, publicPath string, accessTTL time.Duration) (*JWTManager, error) {
-	if privatePath != "" && publicPath != "" {
+	if privateKeyPEM := os.Getenv("BI_AUTH_JWT_PRIVATE_KEY"); privateKeyPEM != "" {
+		privKey, err := parseRSAPrivateKeyFromConfig(privateKeyPEM)
+		if err != nil {
+			return nil, fmt.Errorf("parse jwt private key env: %w", err)
+		}
+		return &JWTManager{
+			privateKey: privKey,
+			publicKey:  &privKey.PublicKey,
+			accessTTL:  accessTTL,
+		}, nil
+	}
+
+	if privatePath != "" {
 		//nolint:gosec
 		privBytes, err := os.ReadFile(privatePath)
 		if err != nil {
 			return nil, fmt.Errorf("read private key: %w", err)
 		}
-		//nolint:gosec
-		pubBytes, err := os.ReadFile(publicPath)
-		if err != nil {
-			return nil, fmt.Errorf("read public key: %w", err)
-		}
-
-		privKey, err := jwt.ParseRSAPrivateKeyFromPEM(privBytes)
+		privKey, err := parseRSAPrivateKeyFromConfig(string(privBytes))
 		if err != nil {
 			return nil, fmt.Errorf("parse private key: %w", err)
 		}
-		pubKey, err := jwt.ParseRSAPublicKeyFromPEM(pubBytes)
-		if err != nil {
-			return nil, fmt.Errorf("parse public key: %w", err)
+		pubKey := &privKey.PublicKey
+		if publicPath != "" {
+			//nolint:gosec
+			pubBytes, err := os.ReadFile(publicPath)
+			if err != nil {
+				return nil, fmt.Errorf("read public key: %w", err)
+			}
+			pubKey, err = jwt.ParseRSAPublicKeyFromPEM(pubBytes)
+			if err != nil {
+				return nil, fmt.Errorf("parse public key: %w", err)
+			}
 		}
 
 		return &JWTManager{
@@ -70,12 +86,46 @@ func NewJWTManager(privatePath, publicPath string, accessTTL time.Duration) (*JW
 	}, nil
 }
 
+func parseRSAPrivateKeyFromConfig(value string) (*rsa.PrivateKey, error) {
+	keyPEM := strings.TrimSpace(value)
+	if !strings.HasPrefix(keyPEM, "-----BEGIN") {
+		decoded, err := base64.StdEncoding.DecodeString(keyPEM)
+		if err != nil {
+			return nil, fmt.Errorf("decode base64 pem: %w", err)
+		}
+		keyPEM = strings.TrimSpace(string(decoded))
+	}
+
+	if !strings.HasPrefix(keyPEM, "-----BEGIN") {
+		return nil, errors.New("jwt private key is not PEM encoded")
+	}
+
+	privKey, err := jwt.ParseRSAPrivateKeyFromPEM([]byte(keyPEM))
+	if err == nil {
+		return privKey, nil
+	}
+
+	block, _ := pem.Decode([]byte(keyPEM))
+	if block == nil {
+		return nil, errors.New("decode private key pem")
+	}
+	parsedKey, parseErr := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if parseErr != nil {
+		return nil, fmt.Errorf("parse pkcs8 private key: %w", parseErr)
+	}
+	rsaKey, ok := parsedKey.(*rsa.PrivateKey)
+	if !ok {
+		return nil, errors.New("private key is not RSA")
+	}
+	return rsaKey, nil
+}
+
 func (m *JWTManager) GenerateToken(userID, email string, roles []string, workspaceID string, datasources []string) (string, error) {
 	now := time.Now()
 	claims := JWTClaims{
-		Email:                  email,
-		Roles:                  roles,
-		WorkspaceID:            workspaceID,
+		Email:                 email,
+		Roles:                 roles,
+		WorkspaceID:           workspaceID,
 		AccessibleDatasources: datasources,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID,

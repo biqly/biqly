@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import abiLogo from '../../assets/abi-logo.png'
 import { useT } from '../../i18n'
 import { useAuth } from './AuthProvider'
 import { globalNavigate } from './AuthGuard'
@@ -79,7 +80,7 @@ export default function SignUpPage() {
       <div className="auth-card">
         <div className="auth-header">
           <div className="auth-logo">
-            📊
+            <img src={abiLogo} alt="" width={34} height={34} />
           </div>
           <h1 className="auth-title">{t('auth.title_signup')}</h1>
           <p className="auth-subtitle">

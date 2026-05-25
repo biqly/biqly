@@ -25,7 +25,9 @@ spec:
     - to:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: biqly-dragonfly
+              app.kubernetes.io/name: postgresql
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/component: primary
       ports:
         {{- range .Values.networkPolicy.egress.db.ports }}
         - protocol: TCP

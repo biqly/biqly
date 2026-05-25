@@ -19,6 +19,7 @@ const Evaluation = lazy(() => import('./components/Evaluation'))
 const Dashboard = lazy(() => import('./components/Dashboard'))
 const Settings = lazy(() => import('./components/Settings'))
 const TimeGrains = lazy(() => import('./components/TimeGrains'))
+const Admin = lazy(() => import('./components/admin/Admin'))
 const SignInPage = lazy(() => import('./components/auth/SignInPage'))
 const SignUpPage = lazy(() => import('./components/auth/SignUpPage'))
 const ForgotPasswordPage = lazy(() => import('./components/auth/ForgotPasswordPage'))
@@ -293,6 +294,16 @@ const routeDefs: AppRouteDef[] = [
     descriptionKey: 'app.nav.time_grains_desc',
     icon: IconSettings,
     component: TimeGrains,
+    hidden: true,
+  },
+  {
+    path: '/admin',
+    sectionKey: 'preferences',
+    labelKey: 'app.nav.settings',
+    eyebrowKey: 'app.nav.settings_eyebrow',
+    descriptionKey: 'app.nav.settings_desc',
+    icon: IconSettings,
+    component: Admin,
     hidden: true,
   },
 ]

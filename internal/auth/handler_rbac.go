@@ -2,7 +2,9 @@ package auth
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -13,6 +15,7 @@ type RBACHandler struct {
 	dsAccess *DatasourceAccessService
 	ws       *WorkspaceService
 	sharing  *SharingService
+	audit    *AuditService
 	jwtMgr   *JWTManager
 	cfg      *Config
 }
@@ -23,6 +26,7 @@ func NewRBACHandler(
 	dsAccess *DatasourceAccessService,
 	ws *WorkspaceService,
 	sharing *SharingService,
+	audit *AuditService,
 	jwtMgr *JWTManager,
 	cfg *Config,
 ) *RBACHandler {
@@ -32,53 +36,61 @@ func NewRBACHandler(
 		dsAccess: dsAccess,
 		ws:       ws,
 		sharing:  sharing,
+		audit:    audit,
 		jwtMgr:   jwtMgr,
 		cfg:      cfg,
 	}
 }
 
 func (h *RBACHandler) RegisterRoutes(r chi.Router, authMW func(http.Handler) http.Handler, internalMW func(http.Handler) http.Handler) {
-	r.Route("/auth", func(r chi.Router) {
-		r.Group(func(r chi.Router) {
-			r.Use(authMW)
+	r.Route("/auth", func(r chi.Router) { h.RegisterAuthRoutes(r, authMW) })
+	r.Route("/internal/auth", func(r chi.Router) { h.RegisterInternalRoutes(r, internalMW) })
+}
 
-			r.Get("/workspaces", h.handleListWorkspaces)
-			r.Post("/workspaces", h.handleCreateWorkspace)
-			r.Get("/workspaces/{id}", h.handleGetWorkspace)
-			r.Put("/workspaces/{id}", h.handleUpdateWorkspace)
-			r.Delete("/workspaces/{id}", h.handleDeleteWorkspace)
+func (h *RBACHandler) RegisterAuthRoutes(r chi.Router, authMW func(http.Handler) http.Handler) {
+	r.Group(func(r chi.Router) {
+		r.Use(authMW)
 
-			r.Get("/workspaces/{id}/members", h.handleListMembers)
-			r.Post("/workspaces/{id}/members", h.handleAddMember)
-			r.Put("/workspaces/{id}/members/{userId}", h.handleUpdateMemberRole)
-			r.Delete("/workspaces/{id}/members/{userId}", h.handleRemoveMember)
+		r.Get("/workspaces", h.handleListWorkspaces)
+		r.Post("/workspaces", h.handleCreateWorkspace)
+		r.Get("/workspaces/{id}", h.handleGetWorkspace)
+		r.Put("/workspaces/{id}", h.handleUpdateWorkspace)
+		r.Delete("/workspaces/{id}", h.handleDeleteWorkspace)
 
-			r.Get("/workspaces/{id}/datasources", h.handleListWorkspaceDatasources)
-			r.Post("/workspaces/{id}/datasources", h.handleAttachDatasource)
-			r.Delete("/workspaces/{id}/datasources/{dsId}", h.handleDetachDatasource)
+		r.Get("/workspaces/{id}/members", h.handleListMembers)
+		r.Post("/workspaces/{id}/members", h.handleAddMember)
+		r.Put("/workspaces/{id}/members/{userId}", h.handleUpdateMemberRole)
+		r.Delete("/workspaces/{id}/members/{userId}", h.handleRemoveMember)
 
-			r.Get("/me/datasources", h.handleListMyDatasources)
-			r.Get("/me/datasources/{id}/check", h.handleCheckMyDatasource)
+		r.Get("/workspaces/{id}/datasources", h.handleListWorkspaceDatasources)
+		r.Post("/workspaces/{id}/datasources", h.handleAttachDatasource)
+		r.Delete("/workspaces/{id}/datasources/{dsId}", h.handleDetachDatasource)
 
-			r.Post("/shares", h.handleCreateShare)
-			r.Get("/shares", h.handleListShares)
-			r.Delete("/shares/{id}", h.handleRevokeShare)
+		r.Get("/me/datasources", h.handleListMyDatasources)
+		r.Get("/me/datasources/{id}/check", h.handleCheckMyDatasource)
 
-			r.Route("/admin", func(r chi.Router) {
-				r.Get("/datasource-access", h.handleAdminListAccess)
-				r.Post("/datasource-access", h.handleAdminGrantAccess)
-				r.Put("/datasource-access/{id}", h.handleAdminUpdateAccess)
-				r.Delete("/datasource-access/{id}", h.handleAdminRevokeAccess)
+		r.Post("/shares", h.handleCreateShare)
+		r.Get("/shares", h.handleListShares)
+		r.Delete("/shares/{id}", h.handleRevokeShare)
 
-				r.Get("/roles", h.handleAdminListRoles)
-				r.Get("/permissions", h.handleAdminListPermissions)
-				r.Post("/users/{id}/roles", h.handleAdminAssignRole)
-				r.Delete("/users/{id}/roles/{roleId}", h.handleAdminRemoveRole)
-			})
+		r.Route("/admin", func(r chi.Router) {
+			r.Get("/datasource-access", h.handleAdminListAccess)
+			r.Post("/datasource-access", h.handleAdminGrantAccess)
+			r.Put("/datasource-access/{id}", h.handleAdminUpdateAccess)
+			r.Delete("/datasource-access/{id}", h.handleAdminRevokeAccess)
+
+			r.Get("/roles", h.handleAdminListRoles)
+			r.Get("/permissions", h.handleAdminListPermissions)
+			r.Post("/users/{id}/roles", h.handleAdminAssignRole)
+			r.Delete("/users/{id}/roles/{roleId}", h.handleAdminRemoveRole)
+
+			r.Get("/audit-log", h.handleAdminListAuditLog)
 		})
 	})
+}
 
-	r.Route("/internal/auth", func(r chi.Router) {
+func (h *RBACHandler) RegisterInternalRoutes(r chi.Router, internalMW func(http.Handler) http.Handler) {
+	r.Group(func(r chi.Router) {
 		r.Use(internalMW)
 		r.Post("/check-permission", h.handleInternalCheckPermission)
 		r.Get("/user/{id}/datasources", h.handleInternalUserDatasources)
@@ -416,6 +428,41 @@ func (h *RBACHandler) handleAdminAssignRole(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
+}
+
+func (h *RBACHandler) handleAdminListAuditLog(w http.ResponseWriter, r *http.Request) {
+	limit := 100
+	if v := r.URL.Query().Get("limit"); v != "" {
+		// Best-effort parsing; defaults to 100 on error.
+		if n, err := parsePositiveInt(v); err == nil {
+			limit = n
+		}
+	}
+	filter := AuditFilter{
+		UserID: r.URL.Query().Get("user_id"),
+		Action: r.URL.Query().Get("action"),
+		Limit:  limit,
+	}
+	entries, err := h.audit.List(r.Context(), filter)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"entries": entries})
+}
+
+func parsePositiveInt(s string) (int, error) {
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, err
+	}
+	if n <= 0 {
+		return 0, errors.New("non-positive")
+	}
+	if n > 100000 {
+		return 0, errors.New("value too large")
+	}
+	return n, nil
 }
 
 func (h *RBACHandler) handleAdminRemoveRole(w http.ResponseWriter, r *http.Request) {

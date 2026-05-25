@@ -1082,7 +1082,7 @@ r.Route("/api", func(r chi.Router) {
 - [x] RequireDatasourceAccess middleware (monolit)
 - [x] Auth feature-flag (`BI_AUTH_ENABLED`) ile JWT/APIKey arasında geçiş
 - [x] İzin bazlı route koruması router.go'da (query:execute, ai:query)
-- [ ] Datasource erişim middleware uygulaması (catalog router'a entegrasyon gelecek)
+- [x] Datasource erişim middleware uygulaması (catalog router'a entegrasyon gelecek)
 - [x] Permission cache (in-memory, 5dk TTL)
 - [x] Datasource access cache (in-memory + Redis SET, 5dk TTL)
 - [x] AI history user_id filtreleme + alan maskeleme helper (`FilterAIHistoryForUser`, `MaskAIHistoryRow`)
@@ -1094,17 +1094,17 @@ r.Route("/api", func(r chi.Router) {
 - [ ] Denetim günlüğü UI
 
 ### Aşama 5.5: Datasource Erişim ve Workspace (v0.5.5)
-- [ ] datasource_access tablosu ve CRUD
-- [ ] Workspace modeli (kişisel + ekip)
-- [ ] Workspace üye yönetimi
-- [ ] Workspace → datasource bağlama
-- [ ] Datasource erişim seviyesi kontrolü (read/write/admin)
-- [ ] Datasource erişim cache (Redis SET)
+- [x] datasource_access tablosu ve CRUD
+- [x] Workspace modeli (kişisel + ekip)
+- [x] Workspace üye yönetimi
+- [x] Workspace → datasource bağlama
+- [x] Datasource erişim seviyesi kontrolü (read/write/admin)
+- [x] Datasource erişim cache (Redis SET)
 - [ ] Frontend: workspace seçici, datasource erişim badge'leri
-- [ ] Frontend: admin datasource erişim matrisi
-- [ ] AI sorgu izolasyonu: kullanıcı sadece kendi sorgularını görebilir
-- [ ] Kuyruk durum endpoint'i (toplam sayı + kendi pozisyonu)
-- [ ] Kaynak paylaşım modeli ve endpoint'leri
+- [x] Frontend: admin datasource erişim matrisi
+- [x] AI sorgu izolasyonu: kullanıcı sadece kendi sorgularını görebilir
+- [x] Kuyruk durum endpoint'i (toplam sayı + kendi pozisyonu)
+- [x] Kaynak paylaşım modeli ve endpoint'leri
 
 ### Aşama 6: Güvenlik ve Test (v0.6)
 - [ ] Rate limiting middleware
@@ -1118,7 +1118,7 @@ r.Route("/api", func(r chi.Router) {
 
 ### Aşama 7: DevOps ve Dokümantasyon (v0.7)
 - [ ] Docker Compose auth service entegrasyonu
-- [ ] Health check ve readiness probe
+- [x] Health check ve readiness probe
 - [ ] Prometheus metrikleri
 - [ ] API dokümantasyonu (OpenAPI / Swagger)
 - [ ] Deployment runbook
@@ -1204,13 +1204,13 @@ r.Route("/api", func(r chi.Router) {
 
 ### Backend — AI Kuyruk İzolasyonu
 
-- [ ] AI history sorgulama: user_id filtresi (admin olmayanlar için)
-- [ ] AI sorgu detayı maskeleme: prompt, SQL, result alanları
-- [ ] Kuyruk durum endpoint'i: toplam sayı + kendi pozisyonu
-- [ ] `ai:queue:view_status` izni ile kuyruk durumu görme
-- [ ] `ai:queue:view_details` izni ile başkasının sorgu detayını görme
-- [ ] query_history tablosuna `user_id` kolonu ekleme
-- [ ] ai_query_history tablosuna `user_id` kolonu ekleme
+- [x] AI history sorgulama: user_id filtresi (admin olmayanlar için)
+- [x] AI sorgu detayı maskeleme: prompt, SQL, result alanları
+- [x] Kuyruk durum endpoint'i: toplam sayı + kendi pozisyonu
+- [x] `ai:queue:view_status` izni ile kuyruk durumu görme
+- [x] `ai:queue:view_details` izni ile başkasının sorgu detayını görme
+- [x] query_history tablosuna `user_id` kolonu ekleme
+- [x] ai_query_history tablosuna `user_id` kolonu ekleme
 - [ ] Datasource erişimine dayalı AI sorgu kısıtlama (sadece erişilen DS'larda sorgu)
 
 ### Backend — Monolit Entegrasyonu
@@ -1218,11 +1218,11 @@ r.Route("/api", func(r chi.Router) {
 - [x] `internal/http/middleware/jwt.go` — JWT doğrulama middleware
 - [x] `internal/http/middleware/permission.go` — İzin kontrol middleware (+ Datasource erişim)
 - [x] PublicKeyProvider: Auth service'den JWT public key fetch ve cache
-- [ ] `internal/http/router.go` güncelleme — APIKeyAuth → JWTAuth
-- [ ] Permission bazlı route gruplama
-- [ ] Datasource erişim bazlı route gruplama
-- [ ] AI history handler güncelleme: user_id filtreleme + alan maskeleme
-- [ ] User context propagation (user_id → audit log, query_history, ai_history)
+- [x] `internal/http/router.go` güncelleme — APIKeyAuth → JWTAuth
+- [x] Permission bazlı route gruplama
+- [x] Datasource erişim bazlı route gruplama
+- [x] AI history handler güncelleme: user_id filtreleme + alan maskeleme
+- [x] User context propagation (user_id → audit log, query_history, ai_history)
 - [ ] Auth service health check dependency (/ready endpoint'ine ekleme)
 - [ ] Datasource list endpoint: sadece kullanıcının erişebildiği datasource'ları döndür
 
@@ -1250,19 +1250,19 @@ r.Route("/api", func(r chi.Router) {
 
 - [ ] `src/components/admin/UserListPage.tsx` — Kullanıcı listesi
 - [ ] `src/components/admin/UserDetailPage.tsx` — Kullanıcı detayı ve rol atama
-- [ ] `src/components/admin/RoleManagerPage.tsx` — Rol yönetimi
-- [ ] `src/components/admin/PermissionMatrix.tsx` — İzin matrisi UI
+- [x] `src/components/admin/RoleManagerPage.tsx` — Rol yönetimi
+- [x] `src/components/admin/PermissionMatrix.tsx` — İzin matrisi UI
 - [ ] `src/components/admin/AuditLogPage.tsx` — Denetim günlüğü
-- [ ] `src/components/admin/DatasourceAccessPage.tsx` — Datasource erişim yönetimi
-- [ ] `src/components/admin/WorkspacePage.tsx` — Workspace yönetimi
+- [x] `src/components/admin/DatasourceAccessPage.tsx` — Datasource erişim yönetimi
+- [x] `src/components/admin/WorkspacePage.tsx` — Workspace yönetimi
 
 ### Frontend — Datasource Erişim UI
 
 - [ ] Datasource listesi: sadece erişilen datasource'ları göster
 - [ ] Datasource kartında erişim seviyesi badge'i (read/write/admin)
 - [ ] Erişim olmayan datasource "Locked" durumu ile göster
-- [ ] Admin: datasource erişim verme/kaldırma arayüzü
-- [ ] Admin: kullanıcı bazlı datasource erişim matrisi
+- [x] Admin: datasource erişim verme/kaldırma arayüzü
+- [x] Admin: kullanıcı bazlı datasource erişim matrisi
 
 ### Frontend — Workspace UI
 
@@ -1276,7 +1276,7 @@ r.Route("/api", func(r chi.Router) {
 
 - [ ] AI sorgu geçmişi: sadece kullanıcıya ait sorguları listele
 - [ ] Admin: tüm sorguları görme toggle'ı
-- [ ] Kuyruk durum göstergesi (toplam bekleyen, kendi pozisyonu)
+- [x] Kuyruk durum göstergesi (toplam bekleyen, kendi pozisyonu)
 - [ ] Başkasının sorgusunu görme durumunda detay butonu (admin+)
 - [ ] Kuyruk pozisyon göstergesi (queue animasyonu)
 
@@ -1338,33 +1338,33 @@ r.Route("/api", func(r chi.Router) {
 ### DevOps
 
 - [ ] `docker-compose.yml` auth service + auth-db entegrasyonu
-- [ ] `Dockerfile.auth` multi-stage build (distroless)
-- [ ] `Dockerfile.auth-migrate` migration job image
-- [ ] Helm sub-chart: `deploy/helm/biqly/charts/auth/`
-- [ ] Parent chart `Chart.yaml` auth dependency ekleme
-- [ ] `values.yaml` auth bölümü
-- [ ] `values-prod.yaml` auth production values
-- [ ] ArgoCD: auth migrate job PreSync hook
-- [ ] Auth DB migrasyon Job template
-- [ ] NetworkPolicy: auth service ingress/egress
-- [ ] HTTPRoute: gateway routing `/auth` + `/api/auth` prefix
-- [ ] Cloudflared ConfigMap: `^/api/auth` ve `^/auth` route'ları `abi.il1.nl` bloğuna ekleme
+- [x] `Dockerfile.auth` multi-stage build (distroless)
+- [x] `Dockerfile.auth` içinde auth-migrate migration job image
+- [x] Helm sub-chart: `deploy/helm/biqly/charts/auth/`
+- [x] Parent chart `Chart.yaml` auth dependency ekleme
+- [x] `values.yaml` auth bölümü
+- [x] `values-prod.yaml` auth production values
+- [x] ArgoCD: auth migrate job PreSync hook
+- [x] Auth DB migrasyon Job template
+- [x] NetworkPolicy: auth service ingress/egress
+- [x] HTTPRoute: gateway routing `/api/auth` prefix (`/auth` frontend SPA route'u)
+- [x] Cloudflared ConfigMap: `^/api/auth` ve `^/auth` route'ları `abi.il1.nl` bloğuna ekleme
 - [ ] Cloudflared rollout restart: ConfigMap değişikliği sonrası pod restart
 - [ ] Cloudflared route doğrulama: curl test `https://abi.il1.nl/auth/signin`
 - [ ] Cloudflare Zero Trust Access Policy (opsiyonel): `/auth/admin/*` için ek koruma
-- [ ] Secret template: JWT private key, OAuth secrets, SMTP
+- [x] Secret template: JWT private key, OAuth secrets, SMTP
 - [ ] JWT public key Secret (catalog/query/ai chart'larına mount)
-- [ ] HPA: auth service autoscaling
-- [ ] PDB: auth service pod disruption budget
+- [x] HPA: auth service autoscaling
+- [x] PDB: auth service pod disruption budget
 - [ ] PrometheusRule: auth alert'leri
 - [ ] Catalog/query/ai deployment'lara auth init container
 - [ ] External Secrets Operator entegrasyonu (opsiyonel)
-- [ ] Health check endpoint (`/health`, `/ready`)
+- [x] Health check endpoint (`/health`, `/ready`)
 - [ ] Prometheus metrikleri (login_count, token_issued, auth_errors, datasource_access_check)
 - [ ] Log yapılandırması (slog, structured, PII masking)
-- [ ] Secret management (JWT keys, OAuth secrets)
+- [x] Secret management (JWT keys, OAuth secrets)
 - [ ] Migration CI pipeline
-- [ ] Feature flag: `BI_AUTH_ENABLED` ile backward compatible geçiş
+- [x] Feature flag: `BI_AUTH_ENABLED` ile backward compatible geçiş
 
 ### Dokümantasyon
 

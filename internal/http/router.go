@@ -71,6 +71,7 @@ func Router(deps *app.Dependencies) http.Handler {
 
 	// API routes
 	authMW := buildAPIAuthMiddleware(deps)
+	authClient := NewAuthClient(deps)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(authMW)
@@ -85,14 +86,16 @@ func Router(deps *app.Dependencies) http.Handler {
 			} else {
 				r.Group(func(r chi.Router) {
 					r.Use(CatalogMetricsMiddleware(GetMetrics()))
-					registerCatalogAPIRoutes(r, deps)
+					registerCatalogAPIRoutes(r, deps, authClient)
 				})
 			}
 
 			if deps.Config.Services.QueryURL != "" {
 				registerQueryProxyRoutes(r, deps.Config.Services.QueryURL)
 			} else {
-				registerQueryAPIRoutes(r, deps)
+				r.With(bimw.RequirePermission(authClient, "query:execute")).Group(func(r chi.Router) {
+					registerQueryAPIRoutes(r, deps)
+				})
 			}
 		})
 
@@ -104,7 +107,9 @@ func Router(deps *app.Dependencies) http.Handler {
 			if deps.Config.Services.AIURL != "" {
 				registerAIProxyRoutes(r, deps.Config.Services.AIURL)
 			} else {
-				registerAIAPIRoutes(r, deps)
+				r.With(bimw.RequirePermission(authClient, "ai:query")).Group(func(r chi.Router) {
+					registerAIAPIRoutes(r, deps)
+				})
 			}
 		})
 	})

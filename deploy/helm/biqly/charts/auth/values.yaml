@@ -48,6 +48,8 @@ config:
   BI_AUTH_WEBAUTHN_RP_ID: "abi.il1.nl"
   BI_AUTH_WEBAUTHN_RP_NAME: "Biqly"
   BI_AUTH_WEBAUTHN_RP_ORIGINS: "https://abi.il1.nl"
+  BI_AUTH_GITHUB_REDIRECT_URL: "https://abi.il1.nl/api/auth/oauth/github/callback"
+  BI_AUTH_GOOGLE_REDIRECT_URL: "https://abi.il1.nl/api/auth/oauth/google/callback"
   BI_AUTH_RATE_LIMIT_PER_MINUTE: "60"
 resources:
   requests:
@@ -67,7 +69,6 @@ podDisruptionBudget:
 route:
   enabled: true
   pathPrefixes:
-    - /auth
     - /api/auth
 migrate:
   enabled: true

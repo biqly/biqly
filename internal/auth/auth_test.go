@@ -2,8 +2,12 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"database/sql"
 	"encoding/base64"
+	"encoding/pem"
 	"os"
 	"testing"
 	"time"
@@ -52,6 +56,27 @@ func TestJWTManager(t *testing.T) {
 	pubPEM, err := mgr.GetPublicKeyPEM()
 	require.NoError(t, err)
 	assert.Contains(t, pubPEM, "RSA PUBLIC KEY")
+}
+
+func TestJWTManagerUsesBase64PKCS8PrivateKeyEnv(t *testing.T) {
+	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	der, err := x509.MarshalPKCS8PrivateKey(privKey)
+	require.NoError(t, err)
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})
+	t.Setenv("BI_AUTH_JWT_PRIVATE_KEY", base64.StdEncoding.EncodeToString(keyPEM))
+
+	mgr, err := NewJWTManager("", "", 10*time.Minute)
+	require.NoError(t, err)
+
+	token, err := mgr.GenerateToken("user-123", "test@example.com", []string{"analyst"}, "workspace-1", nil)
+	require.NoError(t, err)
+
+	claims, err := mgr.ValidateToken(token)
+	require.NoError(t, err)
+	assert.Equal(t, "user-123", claims.Subject)
+	assert.Equal(t, "test@example.com", claims.Email)
 }
 
 func TestValidators(t *testing.T) {

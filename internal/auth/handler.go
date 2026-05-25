@@ -40,29 +40,38 @@ func NewAuthHandler(service *AuthService, webAuthn *WebAuthnService, jwtMgr *JWT
 }
 
 func (h *AuthHandler) RegisterRoutes(r chi.Router) {
-	r.Route("/auth", func(r chi.Router) {
-		r.Post("/register", h.handleRegister)
-		r.Post("/login", h.handleLogin)
-		r.Post("/refresh", h.handleRefresh)
-		r.Post("/logout", h.handleLogout)
+	r.Route("/auth", h.RegisterAuthRoutes)
+	r.Route("/internal/auth", h.RegisterInternalRoutes)
+}
 
-		r.Get("/oauth/{provider}", h.handleOAuthRedirect)
-		r.Get("/oauth/{provider}/callback", h.handleOAuthCallback)
+func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
+	r.Post("/register", h.handleRegister)
+	r.Post("/login", h.handleLogin)
+	r.Post("/refresh", h.handleRefresh)
+	r.Post("/logout", h.handleLogout)
+	r.Post("/forgot-password", h.handleNotImplemented("forgot-password"))
+	r.Post("/reset-password", h.handleNotImplemented("reset-password"))
+	r.Get("/verify-email", h.handleNotImplemented("verify-email"))
+	r.Post("/resend-verification", h.handleNotImplemented("resend-verification"))
 
-		r.Post("/passkey/login-begin", h.handlePasskeyLoginBegin)
-		r.Post("/passkey/login-finish", h.handlePasskeyLoginFinish)
+	r.Get("/oauth/{provider}", h.handleOAuthRedirect)
+	r.Get("/oauth/{provider}/callback", h.handleOAuthCallback)
 
-		r.Group(func(r chi.Router) {
-			r.Use(h.authMiddleware)
-			r.Get("/me", h.handleMe)
-			r.Post("/passkey/register-begin", h.handlePasskeyRegisterBegin)
-			r.Post("/passkey/register-finish", h.handlePasskeyRegisterFinish)
-			r.Get("/me/passkeys", h.handleMePasskeys)
-			r.Delete("/me/passkeys/{id}", h.handleDeletePasskey)
-		})
+	r.Post("/passkey/login-begin", h.handlePasskeyLoginBegin)
+	r.Post("/passkey/login-finish", h.handlePasskeyLoginFinish)
+
+	r.Group(func(r chi.Router) {
+		r.Use(h.authMiddleware)
+		r.Get("/me", h.handleMe)
+		r.Post("/passkey/register-begin", h.handlePasskeyRegisterBegin)
+		r.Post("/passkey/register-finish", h.handlePasskeyRegisterFinish)
+		r.Get("/me/passkeys", h.handleMePasskeys)
+		r.Delete("/me/passkeys/{id}", h.handleDeletePasskey)
 	})
+}
 
-	r.Route("/internal/auth", func(r chi.Router) {
+func (h *AuthHandler) RegisterInternalRoutes(r chi.Router) {
+	r.Group(func(r chi.Router) {
 		r.Use(h.internalTokenMiddleware)
 		r.Post("/verify", h.handleVerify)
 		r.Get("/user/{id}/permissions", h.handleGetUserPermissions)
@@ -169,7 +178,7 @@ type VerifyResponse struct {
 	UserID                string   `json:"user_id"`
 	Email                 string   `json:"email"`
 	Roles                 []string `json:"roles"`
-	WorkspaceID            string   `json:"workspace_id"`
+	WorkspaceID           string   `json:"workspace_id"`
 	AccessibleDatasources []string `json:"accessible_datasources"`
 }
 
@@ -190,7 +199,7 @@ func (h *AuthHandler) handleVerify(w http.ResponseWriter, r *http.Request) {
 		UserID:                claims.Subject,
 		Email:                 claims.Email,
 		Roles:                 claims.Roles,
-		WorkspaceID:            claims.WorkspaceID,
+		WorkspaceID:           claims.WorkspaceID,
 		AccessibleDatasources: claims.AccessibleDatasources,
 	}
 
@@ -280,6 +289,15 @@ func (h *AuthHandler) respondJSON(w http.ResponseWriter, status int, data any) {
 
 func (h *AuthHandler) respondError(w http.ResponseWriter, status int, message string) {
 	h.respondJSON(w, status, map[string]string{"error": message})
+}
+
+func (h *AuthHandler) handleNotImplemented(name string) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		h.respondJSON(w, http.StatusNotImplemented, map[string]string{
+			"error":   "not_implemented",
+			"message": name + " endpoint is not yet implemented",
+		})
+	}
 }
 
 func (h *AuthHandler) handleOAuthRedirect(w http.ResponseWriter, r *http.Request) {
