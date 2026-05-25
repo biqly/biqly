@@ -184,7 +184,7 @@ func (s *appState) handleReady(w http.ResponseWriter, r *http.Request) {
 
 func (s *appState) handleMetrics(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
-	fmt.Fprint(w, "# HELP auth_up Service readiness\n# TYPE auth_up gauge\nauth_up 1\n")
+	_, _ = fmt.Fprint(w, "# HELP auth_up Service readiness\n# TYPE auth_up gauge\nauth_up 1\n")
 }
 
 func writeJSON(w http.ResponseWriter, status int, data any) {
