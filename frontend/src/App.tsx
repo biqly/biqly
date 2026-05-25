@@ -12,6 +12,7 @@ const Modeling = lazy(() => import('./components/Modeling'))
 const QueryBuilder = lazy(() => import('./components/QueryBuilder'))
 const AIQuery = lazy(() => import('./components/AIQuery'))
 const SavedQuestions = lazy(() => import('./components/SavedQuestions'))
+const TableBrowser = lazy(() => import('./components/TableBrowser'))
 const FewShotExamples = lazy(() => import('./components/FewShotExamples'))
 const PromptTemplates = lazy(() => import('./components/PromptTemplates'))
 const Evaluation = lazy(() => import('./components/Evaluation'))
@@ -109,6 +110,14 @@ const IconAIQuery = (
 const IconSaved = (
   <svg {...iconProps}>
     <path d="M6 4.5h12a1 1 0 0 1 1 1v15l-7-4-7 4v-15a1 1 0 0 1 1-1z" />
+  </svg>
+)
+
+const IconTableBrowser = (
+  <svg {...iconProps}>
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="M3 9h18" />
+    <path d="M9 21V9" />
   </svg>
 )
 
@@ -211,6 +220,15 @@ const routeDefs: AppRouteDef[] = [
     descriptionKey: 'app.nav.saved_questions_desc',
     icon: IconSaved,
     component: SavedQuestions,
+  },
+  {
+    path: '/table-browser',
+    sectionKey: 'query',
+    labelKey: 'app.nav.table_browser',
+    eyebrowKey: 'app.nav.table_browser_eyebrow',
+    descriptionKey: 'app.nav.table_browser_desc',
+    icon: IconTableBrowser,
+    component: TableBrowser,
   },
   {
     path: '/few-shot-examples',
