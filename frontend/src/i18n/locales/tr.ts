@@ -117,6 +117,8 @@ export const tr: Dictionary = {
     delete: 'Sil',
     registered: 'Kayıtlı',
     registered_count: 'Kayıtlı ({{count}})',
+    hidden_by_access_policy: '{{count}} veri kaynağı erişim politikasına göre gizlendi.',
+    hidden_by_access_policy_plural: '{{count}} veri kaynağı erişim politikasına göre gizlendi.',
     empty: 'Henüz veri kaynağı yok. Yukarıdan ekleyin.',
     last_sync: 'Son eşitleme',
     never: 'Hiç',

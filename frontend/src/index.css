@@ -359,6 +359,39 @@ a {
   box-shadow: 0 0 8px var(--success);
 }
 
+.workspace-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0 0 1rem;
+}
+
+.workspace-selector__label {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.workspace-selector select {
+  width: 100%;
+  min-height: 2.25rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  padding: 0.45rem 0.55rem;
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.workspace-selector select:focus {
+  border-color: var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  outline-offset: 1px;
+}
+
 .page-stack {
   display: flex;
   flex-direction: column;
@@ -2342,6 +2375,33 @@ input[type='checkbox']:disabled {
   outline-offset: 2px;
 }
 
+.datasource-access-note {
+  margin: -0.4rem 0 0.8rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.datasource-access-badge {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.16rem 0.42rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.datasource-access-badge--allowed {
+  border-color: color-mix(in srgb, var(--success) 28%, var(--border));
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  color: var(--success);
+}
+
+.datasource-access-badge--unknown {
+  color: var(--text-secondary);
+}
+
 .mobile-nav-toggle {
   display: none;
   position: fixed;
@@ -4283,5 +4343,3 @@ body.modeling-grabbing * {
   box-shadow: 0 0 0 1px var(--bg-primary), 0 0 0 3px var(--control-focus-ring);
   outline: none;
 }
-
-

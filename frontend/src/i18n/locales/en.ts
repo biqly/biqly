@@ -115,6 +115,8 @@ export const en = {
     delete: 'Delete',
     registered: 'Registered',
     registered_count: 'Registered ({{count}})',
+    hidden_by_access_policy: '{{count}} datasource hidden by access policy.',
+    hidden_by_access_policy_plural: '{{count}} datasources hidden by access policy.',
     empty: 'No datasources yet. Add one above.',
     last_sync: 'Last sync',
     never: 'Never',

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { getMyDatasources } from '../api/admin'
 import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
 import {
@@ -12,6 +13,8 @@ import {
 } from '../dbDrivers'
 import { useT } from '../i18n'
 import type { Datasource } from '../types/metadata'
+import { useAuth } from './auth/AuthProvider'
+import { buildDatasourceAccessView } from './datasources/accessView'
 import { DriverTileGrid } from './DriverTileGrid'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
@@ -63,8 +66,10 @@ function connectionSummary(ds: Datasource): { line1: string; line2?: string } {
 export default function Datasources() {
   const t = useT()
   const { get, postData, putData, deleteData, loading, error } = useApi()
+  const { accessToken } = useAuth()
   const confirm = useConfirm()
   const [items, setItems] = useState<Datasource[]>([])
+  const [accessibleDatasourceIDs, setAccessibleDatasourceIDs] = useState<string[] | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [connMode, setConnMode] = useState<ConnectionMode>('structured')
@@ -82,13 +87,18 @@ export default function Datasources() {
   }
 
   const load = async () => {
-    const data = await get<Datasource[]>('/api/datasources')
+    const options = authRequestOptions(accessToken)
+    const [data, accessibleIDs] = await Promise.all([
+      get<Datasource[]>('/api/datasources', options),
+      accessToken ? getMyDatasources(accessToken).catch(() => null) : Promise.resolve(null),
+    ])
     if (data) setItems(data)
+    setAccessibleDatasourceIDs(accessibleIDs)
   }
 
   useEffect(() => {
     load()
-  }, [])
+  }, [accessToken])
 
   const driverConnHints = driverStructuredDefaults(form.type)
   const defaultPortHint = driverDefaultPort(form.type)
@@ -164,8 +174,8 @@ export default function Datasources() {
     if (!payload) return
 
     const saved = editingId
-      ? await putData(`/api/datasources/${editingId}`, payload)
-      : await postData('/api/datasources', payload)
+      ? await putData(`/api/datasources/${editingId}`, payload, authRequestOptions(accessToken))
+      : await postData('/api/datasources', payload, authRequestOptions(accessToken))
     if (saved) {
       resetForm()
       setShowForm(false)
@@ -180,6 +190,7 @@ export default function Datasources() {
     const res = await postData<{ success: boolean; latency_ms?: number; error?: string }>(
       '/api/datasources/test-connection',
       payload,
+      authRequestOptions(accessToken),
     )
     if (res?.success) {
       setDraftTestResult(t('datasources.test_success', { ms: res.latency_ms ?? 0 }))
@@ -218,13 +229,17 @@ export default function Datasources() {
       variant: 'danger',
     })
     if (!ok) return
-    await deleteData(`/api/datasources/${id}`)
+    await deleteData(`/api/datasources/${id}`, authRequestOptions(accessToken))
     load()
   }
 
   const test = async (id: string) => {
     setTestResult({ ...testResult, [id]: t('datasources.testing') })
-    const res = await postData<{ success: boolean; latency_ms?: number; error?: string }>(`/api/datasources/${id}/test`, {})
+    const res = await postData<{ success: boolean; latency_ms?: number; error?: string }>(
+      `/api/datasources/${id}/test`,
+      {},
+      authRequestOptions(accessToken),
+    )
     if (res?.success) {
       setTestResult({
         ...testResult,
@@ -243,6 +258,7 @@ export default function Datasources() {
     const res = await postData<{ schemas: number; tables: number; columns: number; relations: number }>(
       `/api/datasources/${id}/sync-metadata`,
       {},
+      authRequestOptions(accessToken),
     )
     if (res) {
       setSyncResult({
@@ -261,6 +277,7 @@ export default function Datasources() {
       ? editingId !== null || form.dsn.trim() !== ''
       : structured.host.trim() !== '' &&
         (structured.port.trim() === '' || (!Number.isNaN(parseInt(structured.port, 10)) && parseInt(structured.port, 10) > 0)))
+  const datasourceRows = buildDatasourceAccessView(items, accessibleDatasourceIDs)
 
   return (
     <div className="page-stack">
@@ -434,8 +451,18 @@ export default function Datasources() {
       </div>
 
       <div className="card">
-        <h2>{t('datasources.registered_count', { count: items.length })}</h2>
-        {items.length === 0 && !loading && (
+        <h2>{t('datasources.registered_count', { count: datasourceRows.length })}</h2>
+        {accessibleDatasourceIDs !== null && datasourceRows.length < items.length && (
+          <p className="datasource-access-note">
+            {t(
+              items.length - datasourceRows.length === 1
+                ? 'datasources.hidden_by_access_policy'
+                : 'datasources.hidden_by_access_policy_plural',
+              { count: items.length - datasourceRows.length },
+            )}
+          </p>
+        )}
+        {datasourceRows.length === 0 && !loading && (
           <EmptyState description={t('datasources.empty')} className="ui-empty-state--inline" />
         )}
         <table className="results-table">
@@ -448,7 +475,7 @@ export default function Datasources() {
             </tr>
           </thead>
           <tbody>
-            {items.map((ds) => {
+            {datasourceRows.map(({ datasource: ds, access }) => {
               const hint = connectionSummary(ds)
               const logoSrc = driverLogoUrl(ds.type)
               const modeHint =
@@ -470,6 +497,9 @@ export default function Datasources() {
                   >
                     <span aria-hidden="true">id · {ds.id.slice(0, 8)}…</span>
                   </button>
+                  <span className={`datasource-access-badge datasource-access-badge--${access}`}>
+                    {access === 'allowed' ? 'erişim var' : 'erişim doğrulanıyor'}
+                  </span>
                 </td>
                 <td>
                   <div className={`driver-cell driver-cell--${ds.type}`}>
@@ -518,4 +548,8 @@ export default function Datasources() {
       </div>
     </div>
   )
+}
+
+function authRequestOptions(accessToken: string | null) {
+  return accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : undefined
 }

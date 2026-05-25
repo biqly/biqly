@@ -29,6 +29,7 @@ const OAuthCallback = lazy(() => import('./components/auth/OAuthCallback'))
 
 import { AuthGuard, globalNavigate } from './components/auth/AuthGuard'
 import { useAuth } from './components/auth/AuthProvider'
+import { WorkspaceSelector } from './components/workspaces/WorkspaceSelector'
 
 
 type RouteSectionKey = 'data' | 'query' | 'ai' | 'analytics' | 'preferences'
@@ -319,7 +320,7 @@ const initialPath = () => {
 
 function App() {
   const t = useT()
-  const { user, logout } = useAuth()
+  const { user, accessToken, logout } = useAuth()
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
 
   const getInitials = (name?: string, email?: string) => {
@@ -490,6 +491,7 @@ function App() {
         </a>
 
         <div className="sidebar-nav-scroll" role="presentation">
+          {accessToken && <WorkspaceSelector token={accessToken} />}
           {sidebarSections.map((section) => (
             <section key={section.sectionKey} className="nav-section" aria-labelledby={`nav-heading-${section.sectionKey}`}>
               <div className="nav-section-label" id={`nav-heading-${section.sectionKey}`}>

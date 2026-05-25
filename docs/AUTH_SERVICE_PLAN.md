@@ -1111,7 +1111,7 @@ r.Route("/api", func(r chi.Router) {
 - [x] Workspace → datasource bağlama
 - [x] Datasource erişim seviyesi kontrolü (read/write/admin)
 - [x] Datasource erişim cache (Redis SET)
-- [ ] Frontend: workspace seçici, datasource erişim badge'leri
+- [x] Frontend: workspace seçici, datasource erişim badge'leri
 - [x] Frontend: admin datasource erişim matrisi
 - [x] AI sorgu izolasyonu: kullanıcı sadece kendi sorgularını görebilir
 - [x] Kuyruk durum endpoint'i (toplam sayı + kendi pozisyonu)
@@ -1271,15 +1271,15 @@ r.Route("/api", func(r chi.Router) {
 
 ### Frontend — Datasource Erişim UI
 
-- [ ] Datasource listesi: sadece erişilen datasource'ları göster
-- [ ] Datasource kartında erişim seviyesi badge'i (read/write/admin)
+- [x] Datasource listesi: sadece erişilen datasource'ları göster
+- [x] Datasource kartında erişim badge'i
 - [ ] Erişim olmayan datasource "Locked" durumu ile göster
 - [x] Admin: datasource erişim verme/kaldırma arayüzü
 - [x] Admin: kullanıcı bazlı datasource erişim matrisi
 
 ### Frontend — Workspace UI
 
-- [ ] Workspace seçici (sidebar üstünde dropdown)
+- [x] Workspace seçici (sidebar üstünde dropdown)
 - [ ] Workspace ayarları sayfası
 - [ ] Workspace üye listesi ve davet
 - [ ] Workspace datasource bağlama arayüzü
