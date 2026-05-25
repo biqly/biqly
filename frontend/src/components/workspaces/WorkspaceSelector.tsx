@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { listWorkspaces } from '../../api/admin'
+import { useT } from '../../i18n'
 import type { Workspace } from '../../types/auth'
 import { resolveActiveWorkspace } from './workspaceSelection'
 
 const storageKey = 'biqly_active_workspace_id'
 
 export function WorkspaceSelector({ token }: { token: string }) {
+  const t = useT()
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [activeID, setActiveID] = useState<string | null>(() => localStorage.getItem(storageKey))
   const [loading, setLoading] = useState(true)
@@ -38,18 +40,18 @@ export function WorkspaceSelector({ token }: { token: string }) {
 
   return (
     <label className="workspace-selector">
-      <span className="workspace-selector__label">Workspace</span>
+      <span className="workspace-selector__label">{t('admin.workspaces.selector_label')}</span>
       <select
         value={active?.id ?? ''}
         onChange={(e) => {
           setActiveID(e.target.value)
           localStorage.setItem(storageKey, e.target.value)
         }}
-        aria-label="Workspace"
+        aria-label={t('admin.workspaces.selector_label')}
       >
         {workspaces.map((workspace) => (
           <option key={workspace.id} value={workspace.id}>
-            {workspace.name}{workspace.is_personal ? ' (kişisel)' : ''}
+            {workspace.name}{workspace.is_personal ? ` ${t('admin.workspaces.personal_suffix')}` : ''}
           </option>
         ))}
       </select>

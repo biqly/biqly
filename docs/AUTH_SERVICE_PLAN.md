@@ -1261,8 +1261,8 @@ r.Route("/api", func(r chi.Router) {
 
 ### Frontend — Admin Paneli
 
-- [ ] `src/components/admin/UserListPage.tsx` — Kullanıcı listesi
-- [ ] `src/components/admin/UserDetailPage.tsx` — Kullanıcı detayı ve rol atama
+- [x] `src/components/admin/UserListPage.tsx` — Kullanıcı listesi
+- [x] `src/components/admin/UserDetailPage.tsx` — Kullanıcı detayı ve rol atama
 - [x] `src/components/admin/RoleManagerPage.tsx` — Rol yönetimi
 - [x] `src/components/admin/PermissionMatrix.tsx` — İzin matrisi UI
 - [x] `src/components/admin/AuditLogPanel.tsx` — Denetim günlüğü

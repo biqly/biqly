@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { listPermissions, listRoles } from '../../api/admin'
+import { useT } from '../../i18n'
 import type { Permission, Role } from '../../types/auth'
 
 export function RolesPanel({ token }: { token: string }) {
+  const t = useT()
   const [roles, setRoles] = useState<Role[]>([])
   const [perms, setPerms] = useState<Permission[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -28,13 +30,13 @@ export function RolesPanel({ token }: { token: string }) {
     }
   }, [token])
 
-  if (loading) return <div>Yükleniyor…</div>
-  if (error) return <div style={{ color: 'crimson' }}>Hata: {error}</div>
+  if (loading) return <div>{t('common.loading')}</div>
+  if (error) return <div style={{ color: 'crimson' }}>{t('common.error')}: {error}</div>
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 24 }}>
       <section>
-        <h2 style={{ marginTop: 0 }}>Roller ({roles.length})</h2>
+        <h2 style={{ marginTop: 0 }}>{t('admin.roles.title', { count: roles.length })}</h2>
         <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
           {roles.map((r) => (
             <li key={r.id} style={{ padding: 8, border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 6 }}>
@@ -45,13 +47,13 @@ export function RolesPanel({ token }: { token: string }) {
         </ul>
       </section>
       <section>
-        <h2 style={{ marginTop: 0 }}>İzinler ({perms.length})</h2>
+        <h2 style={{ marginTop: 0 }}>{t('admin.roles.permissions_title', { count: perms.length })}</h2>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
           <thead>
             <tr style={{ textAlign: 'left' }}>
               <th style={{ borderBottom: '1px solid #e5e7eb', padding: 6 }}>Resource</th>
               <th style={{ borderBottom: '1px solid #e5e7eb', padding: 6 }}>Action</th>
-              <th style={{ borderBottom: '1px solid #e5e7eb', padding: 6 }}>İsim</th>
+              <th style={{ borderBottom: '1px solid #e5e7eb', padding: 6 }}>{t('admin.roles.name')}</th>
             </tr>
           </thead>
           <tbody>

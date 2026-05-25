@@ -6,6 +6,8 @@ import type {
   WorkspaceMember,
   AIQueueStatus,
   AuditLogEntry,
+  AuthUser,
+  UserRoleInfo,
 } from '../types/auth'
 import { csrfFetch } from './csrf'
 
@@ -196,4 +198,30 @@ export async function getAIQueueStatus(token: string, clientSessionID?: string):
     : '/api/ai/jobs/queue/status'
   const res = await fetch(url, { headers: authHeaders(token) })
   return handle<AIQueueStatus>(res)
+}
+
+// === User management admin ===
+
+export async function listUsers(token: string): Promise<AuthUser[]> {
+  const res = await fetch(`${AUTH_API_BASE}/admin/users`, { headers: authHeaders(token) })
+  return handle<AuthUser[]>(res)
+}
+
+export async function getUserDetail(token: string, id: string): Promise<AuthUser> {
+  const res = await fetch(`${AUTH_API_BASE}/admin/users/${id}`, { headers: authHeaders(token) })
+  return handle<AuthUser>(res)
+}
+
+export async function getUserRoles(token: string, id: string): Promise<UserRoleInfo[]> {
+  const res = await fetch(`${AUTH_API_BASE}/admin/users/${id}/roles`, { headers: authHeaders(token) })
+  return handle<UserRoleInfo[]>(res)
+}
+
+export async function updateUserActiveStatus(token: string, id: string, isActive: boolean): Promise<void> {
+  const res = await fetch(`${AUTH_API_BASE}/admin/users/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    body: JSON.stringify({ is_active: isActive }),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
 }

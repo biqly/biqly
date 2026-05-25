@@ -12,6 +12,7 @@ import (
 type RBACHandler struct {
 	rbac     *RBACService
 	rbacRepo *RBACRepository
+	userRepo *UserRepository
 	dsAccess *DatasourceAccessService
 	ws       *WorkspaceService
 	sharing  *SharingService
@@ -23,6 +24,7 @@ type RBACHandler struct {
 func NewRBACHandler(
 	rbac *RBACService,
 	rbacRepo *RBACRepository,
+	userRepo *UserRepository,
 	dsAccess *DatasourceAccessService,
 	ws *WorkspaceService,
 	sharing *SharingService,
@@ -33,6 +35,7 @@ func NewRBACHandler(
 	return &RBACHandler{
 		rbac:     rbac,
 		rbacRepo: rbacRepo,
+		userRepo: userRepo,
 		dsAccess: dsAccess,
 		ws:       ws,
 		sharing:  sharing,
@@ -83,6 +86,11 @@ func (h *RBACHandler) RegisterAuthRoutes(r chi.Router, authMW func(http.Handler)
 			r.Get("/permissions", h.handleAdminListPermissions)
 			r.Post("/users/{id}/roles", h.handleAdminAssignRole)
 			r.Delete("/users/{id}/roles/{roleId}", h.handleAdminRemoveRole)
+
+			r.Get("/users", h.handleAdminListUsers)
+			r.Get("/users/{id}", h.handleAdminGetUser)
+			r.Get("/users/{id}/roles", h.handleAdminGetUserRoles)
+			r.Put("/users/{id}", h.handleAdminUpdateUser)
 
 			r.Get("/audit-log", h.handleAdminListAuditLog)
 		})
@@ -578,4 +586,77 @@ func writeJSON(w http.ResponseWriter, status int, data any) {
 
 func writeError(w http.ResponseWriter, status int, err error) {
 	writeJSON(w, status, map[string]string{"error": err.Error()})
+}
+
+func (h *RBACHandler) handleAdminListUsers(w http.ResponseWriter, r *http.Request) {
+	users, err := h.userRepo.ListUsers(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	resp := make([]UserResponse, len(users))
+	for i, u := range users {
+		resp[i] = UserResponse{
+			ID:            u.ID,
+			Email:         u.Email,
+			Username:      u.Username,
+			DisplayName:   u.DisplayName,
+			AvatarURL:     u.AvatarURL,
+			IsActive:      u.IsActive,
+			EmailVerified: u.EmailVerified,
+			CreatedAt:     u.CreatedAt,
+			UpdatedAt:     u.UpdatedAt,
+		}
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (h *RBACHandler) handleAdminGetUser(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	u, err := h.userRepo.GetUserByID(r.Context(), id)
+	if errors.Is(err, ErrUserNotFound) {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "user not found"})
+		return
+	} else if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	resp := UserResponse{
+		ID:            u.ID,
+		Email:         u.Email,
+		Username:      u.Username,
+		DisplayName:   u.DisplayName,
+		AvatarURL:     u.AvatarURL,
+		IsActive:      u.IsActive,
+		EmailVerified: u.EmailVerified,
+		CreatedAt:     u.CreatedAt,
+		UpdatedAt:     u.UpdatedAt,
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (h *RBACHandler) handleAdminGetUserRoles(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	roles, err := h.rbacRepo.GetUserRolesWithScope(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, roles)
+}
+
+func (h *RBACHandler) handleAdminUpdateUser(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var req struct {
+		IsActive bool `json:"is_active"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := h.userRepo.UpdateUserActiveStatus(r.Context(), id, req.IsActive); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

@@ -197,3 +197,30 @@ func (r *RBACRepository) GetUserWorkspaceRole(ctx context.Context, userID, works
 	}
 	return roleName, nil
 }
+
+func (r *RBACRepository) GetUserRolesWithScope(ctx context.Context, userID string) ([]UserRoleInfo, error) {
+	query := `
+		SELECT ur.role_id, r.name, ur.scope_type, ur.scope_id
+		FROM user_roles ur
+		JOIN roles r ON ur.role_id = r.id
+		WHERE ur.user_id = $1
+	`
+	rows, err := r.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("query user roles with scope: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var roles []UserRoleInfo
+	for rows.Next() {
+		var role UserRoleInfo
+		if err := rows.Scan(&role.RoleID, &role.RoleName, &role.ScopeType, &role.ScopeID); err != nil {
+			return nil, err
+		}
+		roles = append(roles, role)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return roles, nil
+}

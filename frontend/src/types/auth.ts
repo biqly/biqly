@@ -87,3 +87,10 @@ export interface AIQueueStatus {
   my_job_id?: string
   my_job_status: string
 }
+
+export interface UserRoleInfo {
+  role_id: string
+  role_name: string
+  scope_type: string
+  scope_id: string
+}

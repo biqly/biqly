@@ -498,7 +498,7 @@ export default function Datasources() {
                     <span aria-hidden="true">id · {ds.id.slice(0, 8)}…</span>
                   </button>
                   <span className={`datasource-access-badge datasource-access-badge--${access}`}>
-                    {access === 'allowed' ? 'erişim var' : 'erişim doğrulanıyor'}
+                    {access === 'allowed' ? t('datasources.access_allowed') : t('datasources.access_unknown')}
                   </span>
                 </td>
                 <td>

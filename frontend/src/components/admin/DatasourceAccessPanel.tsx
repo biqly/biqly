@@ -5,9 +5,12 @@ import {
   revokeDatasourceAccess,
   updateDatasourceAccess,
 } from '../../api/admin'
+import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import type { DatasourceAccess } from '../../types/auth'
 
 export function DatasourceAccessPanel({ token }: { token: string }) {
+  const t = useT()
+  const [locale] = useLocale()
   const [rows, setRows] = useState<DatasourceAccess[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -47,7 +50,7 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
   }
 
   async function onRevoke(uid: string, dsid: string) {
-    if (!confirm('Erişimi kaldırmak istediğinden emin misin?')) return
+    if (!confirm(t('admin.datasource_access.confirm_revoke'))) return
     try {
       await revokeDatasourceAccess(token, uid, dsid)
       reload()
@@ -67,11 +70,11 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <h2 style={{ marginTop: 0 }}>Datasource Erişim Matrisi</h2>
+      <h2 style={{ marginTop: 0 }}>{t('admin.datasource_access.title')}</h2>
 
       <form onSubmit={onGrant} style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 12, color: '#6b7280' }}>Kullanıcı UUID</span>
+          <span style={{ fontSize: 12, color: '#6b7280' }}>{t('admin.fields.user_uuid')}</span>
           <input value={userID} onChange={(e) => setUserID(e.target.value)} style={inputStyle} />
         </label>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -79,7 +82,7 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
           <input value={datasourceID} onChange={(e) => setDatasourceID(e.target.value)} style={inputStyle} />
         </label>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 12, color: '#6b7280' }}>Seviye</span>
+          <span style={{ fontSize: 12, color: '#6b7280' }}>{t('admin.datasource_access.level')}</span>
           <select value={level} onChange={(e) => setLevel(e.target.value as 'read' | 'write' | 'admin')} style={inputStyle}>
             <option value="read">read</option>
             <option value="write">write</option>
@@ -87,20 +90,20 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
           </select>
         </label>
         <button type="submit" style={{ padding: '8px 14px', background: '#4f46e5', color: 'white', border: 0, borderRadius: 4, cursor: 'pointer' }}>
-          Erişim Ver
+          {t('admin.datasource_access.grant')}
         </button>
       </form>
 
-      {loading && <div>Yükleniyor…</div>}
-      {error && <div style={{ color: 'crimson' }}>Hata: {error}</div>}
+      {loading && <div>{t('common.loading')}</div>}
+      {error && <div style={{ color: 'crimson' }}>{t('common.error')}: {error}</div>}
 
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
         <thead>
           <tr style={{ textAlign: 'left' }}>
-            <th style={th}>Kullanıcı</th>
+            <th style={th}>{t('admin.fields.user')}</th>
             <th style={th}>Datasource</th>
-            <th style={th}>Seviye</th>
-            <th style={th}>Verildi</th>
+            <th style={th}>{t('admin.datasource_access.level')}</th>
+            <th style={th}>{t('admin.datasource_access.granted_at')}</th>
             <th style={th}></th>
           </tr>
         </thead>
@@ -116,9 +119,9 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
                   <option value="admin">admin</option>
                 </select>
               </td>
-              <td style={td}>{new Date(r.granted_at).toLocaleString()}</td>
+              <td style={td}>{new Date(r.granted_at).toLocaleString(localeLanguageTag(locale))}</td>
               <td style={td}>
-                <button onClick={() => onRevoke(r.user_id, r.datasource_id)} style={btnSecondary}>Kaldır</button>
+                <button onClick={() => onRevoke(r.user_id, r.datasource_id)} style={btnSecondary}>{t('common.delete')}</button>
               </td>
             </tr>
           ))}

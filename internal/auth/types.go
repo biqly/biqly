@@ -84,3 +84,10 @@ type PasskeyInfo struct {
 	CreatedAt  time.Time  `json:"created_at"`
 	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
 }
+
+type UserRoleInfo struct {
+	RoleID    string `json:"role_id"`
+	RoleName  string `json:"role_name"`
+	ScopeType string `json:"scope_type"`
+	ScopeID   string `json:"scope_id"`
+}

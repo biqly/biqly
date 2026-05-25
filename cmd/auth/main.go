@@ -91,7 +91,7 @@ func main() {
 
 	limiter := biqauth.NewRateLimiter(redisClient)
 	authHandler := biqauth.NewAuthHandler(authSvc, webAuthnSvc, jwtMgr, cfg, limiter)
-	rbacHandler := biqauth.NewRBACHandler(rbacSvc, rbacRepo, dsAccessSvc, workspaceSvc, sharingSvc, auditSvc, jwtMgr, cfg)
+	rbacHandler := biqauth.NewRBACHandler(rbacSvc, rbacRepo, userRepo, dsAccessSvc, workspaceSvc, sharingSvc, auditSvc, jwtMgr, cfg)
 
 	state := &appState{
 		db:          db,

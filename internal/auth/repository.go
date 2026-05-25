@@ -207,9 +207,62 @@ func (r *UserRepository) GetUserByID(ctx context.Context, id string) (*User, err
 	return &user, nil
 }
 
+func (r *UserRepository) ListUsers(ctx context.Context) ([]User, error) {
+	query := `
+		SELECT id, email, username, display_name, avatar_url, password_hash, is_active, email_verified, created_at, updated_at, last_login_at
+		FROM users
+		ORDER BY created_at DESC
+	`
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var users []User
+	for rows.Next() {
+		var user User
+		var usernameNull, displayNameNull, avatarURLNull, passwordHashNull sql.NullString
+		var lastLoginNull sql.NullTime
+
+		err := rows.Scan(
+			&user.ID, &user.Email, &usernameNull, &displayNameNull, &avatarURLNull, &passwordHashNull,
+			&user.IsActive, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt, &lastLoginNull,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if usernameNull.Valid {
+			user.Username = &usernameNull.String
+		}
+		if displayNameNull.Valid {
+			user.DisplayName = &displayNameNull.String
+		}
+		if avatarURLNull.Valid {
+			user.AvatarURL = &avatarURLNull.String
+		}
+		if passwordHashNull.Valid {
+			user.PasswordHash = &passwordHashNull.String
+		}
+		if lastLoginNull.Valid {
+			user.LastLoginAt = &lastLoginNull.Time
+		}
+
+		users = append(users, user)
+	}
+	return users, rows.Err()
+}
+
 func (r *UserRepository) UpdateLastLogin(ctx context.Context, userID string) error {
 	query := `UPDATE users SET last_login_at = NOW() WHERE id = $1`
 	_, err := r.db.ExecContext(ctx, query, userID)
+	return err
+}
+
+func (r *UserRepository) UpdateUserActiveStatus(ctx context.Context, userID string, isActive bool) error {
+	query := `UPDATE users SET is_active = $1, updated_at = NOW() WHERE id = $2`
+	_, err := r.db.ExecContext(ctx, query, isActive, userID)
 	return err
 }
 

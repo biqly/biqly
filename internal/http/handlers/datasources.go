@@ -11,6 +11,7 @@ import (
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/datasource"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/security"
 	"github.com/google/uuid"
@@ -281,6 +282,32 @@ func (h *DatasourceHandler) List(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list datasources", err)
 		return
+	}
+
+	if h.deps.Config.Auth.Enabled {
+		userID := bimw.UserID(ctx)
+		if userID != "" && !bimw.HasRole(ctx, bimw.RoleSuperAdmin) {
+			authClient := bimw.NewAuthClient(h.deps.Config.Auth.ServiceURL, h.deps.Config.Auth.InternalToken)
+			allowedIDs, err := authClient.ListUserDatasources(ctx, userID)
+			if err != nil {
+				slog.ErrorContext(ctx, "failed to fetch user accessible datasources from auth service", "userID", userID, "error", err)
+				writeInternalError(ctx, w, http.StatusInternalServerError, "failed to verify datasource access", err)
+				return
+			}
+
+			allowedSet := make(map[string]struct{}, len(allowedIDs))
+			for _, id := range allowedIDs {
+				allowedSet[id] = struct{}{}
+			}
+
+			filtered := make([]metadata.Datasource, 0, len(datasources))
+			for _, ds := range datasources {
+				if _, ok := allowedSet[ds.ID]; ok {
+					filtered = append(filtered, ds)
+				}
+			}
+			datasources = filtered
+		}
 	}
 
 	// Mask DSN in response

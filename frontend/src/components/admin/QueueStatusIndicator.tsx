@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getAIQueueStatus } from '../../api/admin'
+import { useT } from '../../i18n'
 import { useAuth } from '../auth/AuthProvider'
 import type { AIQueueStatus } from '../../types/auth'
 
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function QueueStatusIndicator({ clientSessionID, pollMs = 3000 }: Props) {
+  const t = useT()
   const { accessToken } = useAuth()
   const [status, setStatus] = useState<AIQueueStatus | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -53,7 +55,7 @@ export function QueueStatusIndicator({ clientSessionID, pollMs = 3000 }: Props) 
         fontSize: 12,
         color: 'var(--text-secondary, #4b5563)',
       }}
-      title={status.my_job_id ? `Job: ${status.my_job_id}` : 'Kuyruktasınız değil'}
+      title={status.my_job_id ? `Job: ${status.my_job_id}` : t('admin.queue.not_queued')}
     >
       <span
         style={{
@@ -69,16 +71,16 @@ export function QueueStatusIndicator({ clientSessionID, pollMs = 3000 }: Props) 
         }}
       />
       <span>
-        Kuyruk: <strong>{status.total_pending}</strong>
+        {t('admin.queue.queue')}: <strong>{status.total_pending}</strong>
         {status.my_position && (
           <>
             {' · '}
-            Sıranız: <strong>#{status.my_position}</strong>
+            {t('admin.queue.position')}: <strong>#{status.my_position}</strong>
           </>
         )}
         {status.my_job_status === 'running' && (
           <>
-            {' · '}Çalışıyor
+            {' · '}{t('admin.queue.running')}
           </>
         )}
       </span>

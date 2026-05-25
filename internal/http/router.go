@@ -58,11 +58,15 @@ func Router(deps *app.Dependencies) http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(healthCheckBody)
 	})
-	r.Get("/ready", ReadinessHandler(deps, map[string]string{
+	readyUpstreams := map[string]string{
 		"catalog": deps.Config.Services.CatalogURL,
 		"query":   deps.Config.Services.QueryURL,
 		"ai":      deps.Config.Services.AIURL,
-	}))
+	}
+	if deps.Config.Auth.Enabled {
+		readyUpstreams["auth"] = deps.Config.Auth.ServiceURL
+	}
+	r.Get("/ready", ReadinessHandler(deps, readyUpstreams))
 
 	// Metrics — optionally gated by BI_METRICS_API_KEY. The handler is
 	// wrapped through the same APIKeyAuth middleware as /api/*, so scrapers
