@@ -40,6 +40,15 @@ global:
     image:
       tag: sha-91a9ff58d06ca78fdf3cf136c42c65c1e8b349a6
 
+auth:
+  enabled: true
+  replicaCount: 1
+  image:
+    tag: latest
+  autoscaling:
+    minReplicas: 1
+    maxReplicas: 2
+
 frontend:
   replicaCount: 1
   image:

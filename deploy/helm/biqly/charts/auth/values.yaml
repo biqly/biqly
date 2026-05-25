@@ -1,0 +1,112 @@
+global:
+  biqlyImageRegistry: ghcr.io/biqly
+  imagePullSecrets: []
+  registrySecret:
+    create: false
+    name: ghcr-registry
+  serviceAccount:
+    name: biqly
+    automountServiceAccountToken: false
+  secretNames:
+    authConfig: biqly-auth-config
+    authSecret: biqly-auth-secrets
+    authDB: biqly-auth-db
+  gateway:
+    enabled: true
+    parentRef:
+      name: lan-gw
+      namespace: gateway
+      sectionName: https
+    httpParentRef:
+      name: lan-gw
+      namespace: gateway
+      sectionName: http
+    hostnames:
+      - abi.il1.nl
+  secrets:
+    createSecrets: true
+    BI_AUTH_DB_DSN: ""
+    BI_AUTH_ENCRYPTION_KEY: ""
+    BI_AUTH_INTERNAL_TOKEN: ""
+    BI_AUTH_JWT_PRIVATE_KEY: ""
+    BI_AUTH_GITHUB_CLIENT_SECRET: ""
+    BI_AUTH_GOOGLE_CLIENT_SECRET: ""
+    BI_AUTH_SMTP_PASS: ""
+
+replicaCount: 1
+image:
+  repository: auth
+  tag: latest
+  pullPolicy: IfNotPresent
+service:
+  port: 8889
+config:
+  BI_AUTH_PORT: "8889"
+  BI_AUTH_REDIS_DSN: "redis://biqly-dragonfly:6379"
+  BI_AUTH_JWT_ACCESS_TTL: "15m"
+  BI_AUTH_JWT_REFRESH_TTL: "168h"
+  BI_AUTH_WEBAUTHN_RP_ID: "abi.il1.nl"
+  BI_AUTH_WEBAUTHN_RP_NAME: "Biqly"
+  BI_AUTH_WEBAUTHN_RP_ORIGINS: "https://abi.il1.nl"
+  BI_AUTH_RATE_LIMIT_PER_MINUTE: "60"
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 60
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+route:
+  enabled: true
+  pathPrefixes:
+    - /auth
+    - /api/auth
+migrate:
+  enabled: true
+  image:
+    repository: auth
+    tag: latest
+    pullPolicy: IfNotPresent
+  backoffLimit: 3
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: biqly
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+        - podSelector:
+            matchLabels:
+              app: cloudflared
+  egress:
+    db:
+      enabled: true
+      ports:
+        - 5432
+    redis:
+      enabled: true
+      ports:
+        - 6379
+    oauth:
+      enabled: true
+      fqdnNames:
+        - github.com
+        - accounts.google.com
+      ports:
+        - 443
+    smtp:
+      enabled: true
+      ports:
+        - 587

@@ -2,132 +2,195 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
-	"github.com/biqly/biqly/internal/auth"
-	"github.com/biqly/biqly/internal/platform/db"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/redis/go-redis/v9"
 )
 
+type config struct {
+	Port          string
+	RedisDSN      string
+	InternalToken string
+}
+
+func loadConfig() config {
+	return config{
+		Port:          envOrDefault("BI_AUTH_PORT", "8889"),
+		RedisDSN:      envOrDefault("BI_AUTH_REDIS_DSN", ""),
+		InternalToken: envOrDefault("BI_AUTH_INTERNAL_TOKEN", ""),
+	}
+}
+
+func envOrDefault(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
+
+var startupTime = time.Now().UTC()
+
 func main() {
-	slog.Info("starting auth service...")
+	cfg := loadConfig()
 
-	cfg, err := auth.LoadConfig()
-	if err != nil {
-		slog.Error("load config", "error", err)
-		os.Exit(1)
-	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
-	// Initialize Database Pool using existing platform package
-	dbPool, err := db.NewPool(ctx, db.DefaultConfig(cfg.DBDSN))
-	if err != nil {
-		slog.Error("initialize database connection pool", "error", err)
-		os.Exit(1)
-	}
-	defer func() {
-		if err := db.Close(dbPool); err != nil {
-			slog.Warn("close database connection pool", "error", err)
-		}
-	}()
-	slog.Info("connected to metadata DB", "dsn", cfg.DBDSN)
-
-	// Initialize JWT Manager
-	jwtMgr, err := auth.NewJWTManager(cfg.JWTPrivateKeyPath, cfg.JWTPublicKeyPath, cfg.JWTAccessTTL)
-	if err != nil {
-		slog.Error("initialize JWT manager", "error", err)
-		os.Exit(1)
-	}
-
-	// Initialize Redis client (used for datasource access cache)
-	var redisClient *redis.Client
-	if cfg.RedisDSN != "" {
-		opts, parseErr := redis.ParseURL(cfg.RedisDSN)
-		if parseErr != nil {
-			slog.Warn("parse redis DSN", "error", parseErr)
-		} else {
-			redisClient = redis.NewClient(opts)
-			if err := redisClient.Ping(ctx).Err(); err != nil {
-				slog.Warn("redis ping failed; cache disabled", "error", err)
-				redisClient = nil
-			}
-		}
-	}
-	defer func() {
-		if redisClient != nil {
-			_ = redisClient.Close()
-		}
-	}()
-
-	// Initialize Repositories and Services
-	userRepo := auth.NewUserRepository(dbPool)
-	rbacRepo := auth.NewRBACRepository(dbPool)
-	sessionMgr := auth.NewSessionManager(dbPool)
-	authService := auth.NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, cfg)
-
-	rbacService := auth.NewRBACService(rbacRepo)
-	dsAccessService := auth.NewDatasourceAccessService(dbPool, redisClient, rbacService)
-	workspaceService := auth.NewWorkspaceService(dbPool, dsAccessService)
-	sharingService := auth.NewSharingService(dbPool)
-
-	webAuthnService, err := auth.NewWebAuthnService(cfg, userRepo)
-	if err != nil {
-		slog.Error("initialize WebAuthn service", "error", err)
-		os.Exit(1)
-	}
-
-	// Initialize Chi Router
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(middleware.Timeout(30 * time.Second))
 
-	// Register Routes
-	handler := auth.NewAuthHandler(authService, webAuthnService, jwtMgr, cfg)
-	handler.RegisterRoutes(r)
+	r.Get("/health", healthHandler)
+	r.Get("/ready", readyHandler)
+	r.Get("/metrics", metricsHandler)
 
-	rbacHandler := auth.NewRBACHandler(rbacService, rbacRepo, dsAccessService, workspaceService, sharingService, jwtMgr, cfg)
-	rbacHandler.RegisterRoutes(r, handler.AuthMiddleware(), handler.InternalTokenMiddleware())
+	r.Route("/auth", func(r chi.Router) {
+		r.Post("/register", placeholderHandler("register"))
+		r.Post("/login", placeholderHandler("login"))
+		r.Post("/refresh", placeholderHandler("refresh"))
+		r.Post("/logout", placeholderHandler("logout"))
+		r.Post("/forgot-password", placeholderHandler("forgot-password"))
+		r.Post("/reset-password", placeholderHandler("reset-password"))
+		r.Get("/verify-email", placeholderHandler("verify-email"))
+		r.Post("/resend-verification", placeholderHandler("resend-verification"))
 
-	// HTTP Server Config
+		r.Route("/oauth", func(r chi.Router) {
+			r.Get("/github", placeholderHandler("oauth-github"))
+			r.Get("/github/callback", placeholderHandler("oauth-github-callback"))
+			r.Get("/google", placeholderHandler("oauth-google"))
+			r.Get("/google/callback", placeholderHandler("oauth-google-callback"))
+		})
+
+		r.Route("/passkey", func(r chi.Router) {
+			r.Post("/register-begin", placeholderHandler("passkey-register-begin"))
+			r.Post("/register-finish", placeholderHandler("passkey-register-finish"))
+			r.Post("/login-begin", placeholderHandler("passkey-login-begin"))
+			r.Post("/login-finish", placeholderHandler("passkey-login-finish"))
+		})
+
+		r.Route("/me", func(r chi.Router) {
+			r.Get("/", placeholderHandler("me"))
+			r.Put("/", placeholderHandler("me-update"))
+			r.Put("/password", placeholderHandler("me-password"))
+			r.Get("/passkeys", placeholderHandler("me-passkeys"))
+			r.Get("/sessions", placeholderHandler("me-sessions"))
+		})
+
+		r.Route("/admin", func(r chi.Router) {
+			r.Use(internalTokenMiddleware(cfg.InternalToken))
+			r.Get("/users", placeholderHandler("admin-users"))
+			r.Get("/roles", placeholderHandler("admin-roles"))
+			r.Get("/permissions", placeholderHandler("admin-permissions"))
+			r.Get("/audit-log", placeholderHandler("admin-audit"))
+			r.Get("/datasource-access", placeholderHandler("admin-datasource-access"))
+		})
+
+		r.Route("/workspaces", func(r chi.Router) {
+			r.Get("/", placeholderHandler("workspaces-list"))
+			r.Post("/", placeholderHandler("workspaces-create"))
+			r.Route("/{id}", func(r chi.Router) {
+				r.Get("/", placeholderHandler("workspace-get"))
+				r.Get("/members", placeholderHandler("workspace-members"))
+				r.Get("/datasources", placeholderHandler("workspace-datasources"))
+			})
+		})
+
+		r.Get("/shares", placeholderHandler("shares-list"))
+		r.Post("/shares", placeholderHandler("shares-create"))
+
+		r.Get("/me/datasources", placeholderHandler("me-datasources"))
+	})
+
+	if os.Getenv("BI_AUTH_SUBCOMMAND") == "migrate" {
+		slog.Info("migrate subcommand not yet implemented")
+		os.Exit(0)
+	}
+
 	srv := &http.Server{
-		Addr:         cfg.HTTPAddr(),
+		Addr:         fmt.Sprintf(":%s", cfg.Port),
 		Handler:      r,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Start server in background
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	go func() {
-		slog.Info("HTTP server listening", "addr", cfg.HTTPAddr())
+		slog.Info("auth service starting", "port", cfg.Port)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			slog.Error("HTTP server failure", "error", err)
+			slog.Error("listen error", "err", err)
 			os.Exit(1)
 		}
 	}()
 
-	// Wait for shutdown signal
 	<-ctx.Done()
-	slog.Info("shutting down HTTP server...")
 
-	// Graceful shutdown with timeout
+	slog.Info("shutting down")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		slog.Error("HTTP server graceful shutdown failed", "error", err)
+		slog.Error("shutdown error", "err", err)
 	}
-	slog.Info("auth service stopped.")
+}
+
+func healthHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+func readyHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"status":    "ok",
+		"uptime":    time.Since(startupTime).Round(time.Second).String(),
+		"service":   "auth",
+	})
+}
+
+func metricsHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
+	fmt.Fprintf(w, "# HELP auth_up Service readiness\n# TYPE auth_up gauge\nauth_up 1\n")
+}
+
+func placeholderHandler(name string) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotImplemented)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error":   "not_implemented",
+			"message": fmt.Sprintf("%s endpoint is not yet implemented", name),
+		})
+	}
+}
+
+func internalTokenMiddleware(token string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if token == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			auth := r.Header.Get("Authorization")
+			if strings.TrimPrefix(auth, "Bearer ") != token &&
+				r.Header.Get("X-Internal-Token") != token {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }

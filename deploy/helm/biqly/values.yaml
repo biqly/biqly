@@ -266,6 +266,36 @@ query:
     pathPrefixes:
       - /api/query
 
+auth:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: auth
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8889
+  config:
+    BI_AUTH_PORT: "8889"
+    BI_AUTH_REDIS_DSN: "redis://biqly-dragonfly:6379"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 60
+  route:
+    enabled: true
+    pathPrefixes:
+      - /auth
+      - /api/auth
+
 frontend:
   enabled: true
   replicaCount: 1

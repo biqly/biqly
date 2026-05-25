@@ -1081,14 +1081,16 @@ r.Route("/api", func(r chi.Router) {
 - [x] RequirePermission middleware (monolit)
 - [x] RequireDatasourceAccess middleware (monolit)
 - [x] Auth feature-flag (`BI_AUTH_ENABLED`) ile JWT/APIKey arasında geçiş
-- [ ] İzin bazlı route koruması router.go'da (middleware hazır)
-- [ ] Datasource erişim bazlı route koruması router.go'da (middleware hazır)
+- [x] İzin bazlı route koruması router.go'da (query:execute, ai:query)
+- [ ] Datasource erişim middleware uygulaması (catalog router'a entegrasyon gelecek)
 - [x] Permission cache (in-memory, 5dk TTL)
 - [x] Datasource access cache (in-memory + Redis SET, 5dk TTL)
 - [x] AI history user_id filtreleme + alan maskeleme helper (`FilterAIHistoryForUser`, `MaskAIHistoryRow`)
+- [x] AI history endpoint: GET /api/ai/history (kullanıcı filtreli)
 - [x] query_history + ai_query_history tablolarında user_id mevcut, ai_jobs için 030 migration
 - [x] AI kuyruk durum endpoint'i: GET /api/ai/jobs/queue/status (toplam + kendi pozisyonu)
-- [ ] Admin paneli frontend (kullanıcı listesi, rol atama)
+- [x] Admin paneli frontend: roller/izinler, datasource erişim matrisi, workspace yönetimi
+- [x] QueueStatusIndicator frontend bileşeni (3s polling)
 - [ ] Denetim günlüğü UI
 
 ### Aşama 5.5: Datasource Erişim ve Workspace (v0.5.5)

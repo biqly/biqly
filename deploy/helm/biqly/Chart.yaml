@@ -18,6 +18,10 @@ dependencies:
   - name: ai
     version: 0.1.0
     repository: file://charts/ai
+  - name: auth
+    version: 0.1.0
+    repository: file://charts/auth
+    condition: auth.enabled
   - name: frontend
     version: 0.1.0
     repository: file://charts/frontend
