@@ -7,6 +7,7 @@ import type {
   AIQueueStatus,
   AuditLogEntry,
 } from '../types/auth'
+import { csrfFetch } from './csrf'
 
 const AUTH_API_BASE = '/api/auth'
 
@@ -33,12 +34,12 @@ function authHeaders(token: string) {
 // === RBAC admin ===
 
 export async function listRoles(token: string): Promise<Role[]> {
-  const res = await fetch(`${AUTH_API_BASE}/admin/roles`, { headers: authHeaders(token) })
+  const res = await csrfFetch(`${AUTH_API_BASE}/admin/roles`, { headers: authHeaders(token) })
   return handle<Role[]>(res)
 }
 
 export async function listPermissions(token: string): Promise<Permission[]> {
-  const res = await fetch(`${AUTH_API_BASE}/admin/permissions`, { headers: authHeaders(token) })
+  const res = await csrfFetch(`${AUTH_API_BASE}/admin/permissions`, { headers: authHeaders(token) })
   return handle<Permission[]>(res)
 }
 
@@ -49,7 +50,7 @@ export async function assignRole(
   scopeType?: string,
   scopeID?: string,
 ): Promise<void> {
-  const res = await fetch(`${AUTH_API_BASE}/admin/users/${userID}/roles`, {
+  const res = await csrfFetch(`${AUTH_API_BASE}/admin/users/${userID}/roles`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
     body: JSON.stringify({ role_id: roleID, scope_type: scopeType, scope_id: scopeID }),
@@ -58,7 +59,7 @@ export async function assignRole(
 }
 
 export async function removeRole(token: string, userID: string, roleID: string): Promise<void> {
-  const res = await fetch(`${AUTH_API_BASE}/admin/users/${userID}/roles/${roleID}`, {
+  const res = await csrfFetch(`${AUTH_API_BASE}/admin/users/${userID}/roles/${roleID}`, {
     method: 'DELETE',
     headers: authHeaders(token),
   })
@@ -79,7 +80,7 @@ export async function listAuditLog(token: string, filters: AuditLogFilters = {})
   if (filters.action) params.set('action', filters.action)
   if (filters.limit) params.set('limit', String(filters.limit))
   const suffix = params.toString() ? `?${params.toString()}` : ''
-  const res = await fetch(`${AUTH_API_BASE}/admin/audit-log${suffix}`, { headers: authHeaders(token) })
+  const res = await csrfFetch(`${AUTH_API_BASE}/admin/audit-log${suffix}`, { headers: authHeaders(token) })
   const data = await handle<{ entries: AuditLogEntry[] }>(res)
   return data.entries || []
 }
@@ -87,7 +88,7 @@ export async function listAuditLog(token: string, filters: AuditLogFilters = {})
 // === Datasource access ===
 
 export async function listDatasourceAccess(token: string): Promise<DatasourceAccess[]> {
-  const res = await fetch(`${AUTH_API_BASE}/admin/datasource-access`, { headers: authHeaders(token) })
+  const res = await csrfFetch(`${AUTH_API_BASE}/admin/datasource-access`, { headers: authHeaders(token) })
   return handle<DatasourceAccess[]>(res)
 }
 
@@ -97,7 +98,7 @@ export async function grantDatasourceAccess(
   datasourceID: string,
   level: 'read' | 'write' | 'admin',
 ): Promise<DatasourceAccess> {
-  const res = await fetch(`${AUTH_API_BASE}/admin/datasource-access`, {
+  const res = await csrfFetch(`${AUTH_API_BASE}/admin/datasource-access`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
     body: JSON.stringify({ user_id: userID, datasource_id: datasourceID, access_level: level }),
@@ -110,7 +111,7 @@ export async function updateDatasourceAccess(
   id: string,
   level: 'read' | 'write' | 'admin',
 ): Promise<void> {
-  const res = await fetch(`${AUTH_API_BASE}/admin/datasource-access/${id}`, {
+  const res = await csrfFetch(`${AUTH_API_BASE}/admin/datasource-access/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
     body: JSON.stringify({ access_level: level }),
@@ -123,7 +124,7 @@ export async function revokeDatasourceAccess(
   userID: string,
   datasourceID: string,
 ): Promise<void> {
-  const res = await fetch(`${AUTH_API_BASE}/admin/datasource-access`, {
+  const res = await csrfFetch(`${AUTH_API_BASE}/admin/datasource-access`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
     body: JSON.stringify({ user_id: userID, datasource_id: datasourceID }),
@@ -132,7 +133,7 @@ export async function revokeDatasourceAccess(
 }
 
 export async function getMyDatasources(token: string): Promise<string[]> {
-  const res = await fetch(`${AUTH_API_BASE}/me/datasources`, { headers: authHeaders(token) })
+  const res = await csrfFetch(`${AUTH_API_BASE}/me/datasources`, { headers: authHeaders(token) })
   const data = await handle<{ datasource_ids: string[] }>(res)
   return data.datasource_ids || []
 }
@@ -140,7 +141,7 @@ export async function getMyDatasources(token: string): Promise<string[]> {
 // === Workspaces ===
 
 export async function listWorkspaces(token: string): Promise<Workspace[]> {
-  const res = await fetch(`${AUTH_API_BASE}/workspaces`, { headers: authHeaders(token) })
+  const res = await csrfFetch(`${AUTH_API_BASE}/workspaces`, { headers: authHeaders(token) })
   return handle<Workspace[]>(res)
 }
 
@@ -149,7 +150,7 @@ export async function createWorkspace(
   name: string,
   description?: string,
 ): Promise<Workspace> {
-  const res = await fetch(`${AUTH_API_BASE}/workspaces`, {
+  const res = await csrfFetch(`${AUTH_API_BASE}/workspaces`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
     body: JSON.stringify({ name, description }),
@@ -158,7 +159,7 @@ export async function createWorkspace(
 }
 
 export async function deleteWorkspace(token: string, id: string): Promise<void> {
-  const res = await fetch(`${AUTH_API_BASE}/workspaces/${id}`, {
+  const res = await csrfFetch(`${AUTH_API_BASE}/workspaces/${id}`, {
     method: 'DELETE',
     headers: authHeaders(token),
   })
@@ -169,7 +170,7 @@ export async function listWorkspaceMembers(
   token: string,
   workspaceID: string,
 ): Promise<WorkspaceMember[]> {
-  const res = await fetch(`${AUTH_API_BASE}/workspaces/${workspaceID}/members`, { headers: authHeaders(token) })
+  const res = await csrfFetch(`${AUTH_API_BASE}/workspaces/${workspaceID}/members`, { headers: authHeaders(token) })
   return handle<WorkspaceMember[]>(res)
 }
 
@@ -179,7 +180,7 @@ export async function addWorkspaceMember(
   userID: string,
   roleID: string,
 ): Promise<void> {
-  const res = await fetch(`${AUTH_API_BASE}/workspaces/${workspaceID}/members`, {
+  const res = await csrfFetch(`${AUTH_API_BASE}/workspaces/${workspaceID}/members`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
     body: JSON.stringify({ user_id: userID, role_id: roleID }),

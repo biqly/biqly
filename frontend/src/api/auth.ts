@@ -1,4 +1,5 @@
 import type { AuthUser, PasskeyInfo, TokenResponse } from '../types/auth'
+import { csrfFetch } from './csrf'
 
 const AUTH_API_BASE = '/api/auth'
 
@@ -22,7 +23,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
 }
 
 export async function apiRegister(email: string, password: string, displayName: string): Promise<TokenResponse> {
-  const res = await fetch(`${AUTH_API_BASE}/register`, {
+  const res = await csrfFetch(`${AUTH_API_BASE}/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password, display_name: displayName }),
@@ -31,7 +32,7 @@ export async function apiRegister(email: string, password: string, displayName: 
 }
 
 export async function apiLogin(email: string, password: string): Promise<TokenResponse> {
-  const res = await fetch(`${AUTH_API_BASE}/login`, {
+  const res = await csrfFetch(`${AUTH_API_BASE}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -40,7 +41,7 @@ export async function apiLogin(email: string, password: string): Promise<TokenRe
 }
 
 export async function apiRefresh(refreshToken: string): Promise<TokenResponse> {
-  const res = await fetch(`${AUTH_API_BASE}/refresh`, {
+  const res = await csrfFetch(`${AUTH_API_BASE}/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refresh_token: refreshToken }),
@@ -49,7 +50,7 @@ export async function apiRefresh(refreshToken: string): Promise<TokenResponse> {
 }
 
 export async function apiLogout(refreshToken: string): Promise<void> {
-  const res = await fetch(`${AUTH_API_BASE}/logout`, {
+  const res = await csrfFetch(`${AUTH_API_BASE}/logout`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refresh_token: refreshToken }),
@@ -61,7 +62,7 @@ export async function apiLogout(refreshToken: string): Promise<void> {
 }
 
 export async function apiGetMe(accessToken: string): Promise<AuthUser> {
-  const res = await fetch(`${AUTH_API_BASE}/me`, {
+  const res = await csrfFetch(`${AUTH_API_BASE}/me`, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -71,7 +72,7 @@ export async function apiGetMe(accessToken: string): Promise<AuthUser> {
 }
 
 export async function apiPasskeyRegisterBegin(accessToken: string): Promise<any> {
-  const res = await fetch(`${AUTH_API_BASE}/passkey/register-begin`, {
+  const res = await csrfFetch(`${AUTH_API_BASE}/passkey/register-begin`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -89,7 +90,7 @@ export async function apiPasskeyRegisterFinish(
   if (name) {
     url += `?name=${encodeURIComponent(name)}`
   }
-  const res = await fetch(url, {
+  const res = await csrfFetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -101,7 +102,7 @@ export async function apiPasskeyRegisterFinish(
 }
 
 export async function apiPasskeyLoginBegin(email: string): Promise<any> {
-  const res = await fetch(`${AUTH_API_BASE}/passkey/login-begin`, {
+  const res = await csrfFetch(`${AUTH_API_BASE}/passkey/login-begin`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
@@ -110,7 +111,7 @@ export async function apiPasskeyLoginBegin(email: string): Promise<any> {
 }
 
 export async function apiPasskeyLoginFinish(credential: any): Promise<TokenResponse> {
-  const res = await fetch(`${AUTH_API_BASE}/passkey/login-finish`, {
+  const res = await csrfFetch(`${AUTH_API_BASE}/passkey/login-finish`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(credential),
@@ -119,7 +120,7 @@ export async function apiPasskeyLoginFinish(credential: any): Promise<TokenRespo
 }
 
 export async function apiGetPasskeys(accessToken: string): Promise<PasskeyInfo[]> {
-  const res = await fetch(`${AUTH_API_BASE}/me/passkeys`, {
+  const res = await csrfFetch(`${AUTH_API_BASE}/me/passkeys`, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -129,7 +130,7 @@ export async function apiGetPasskeys(accessToken: string): Promise<PasskeyInfo[]
 }
 
 export async function apiDeletePasskey(accessToken: string, id: string): Promise<void> {
-  const res = await fetch(`${AUTH_API_BASE}/me/passkeys/${id}`, {
+  const res = await csrfFetch(`${AUTH_API_BASE}/me/passkeys/${id}`, {
     method: 'DELETE',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -142,7 +143,7 @@ export async function apiDeletePasskey(accessToken: string, id: string): Promise
 }
 
 export async function apiForgotPassword(email: string): Promise<{ message: string }> {
-  const res = await fetch(`${AUTH_API_BASE}/forgot-password`, {
+  const res = await csrfFetch(`${AUTH_API_BASE}/forgot-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
@@ -151,7 +152,7 @@ export async function apiForgotPassword(email: string): Promise<{ message: strin
 }
 
 export async function apiResetPassword(token: string, password: string): Promise<{ message: string }> {
-  const res = await fetch(`${AUTH_API_BASE}/reset-password`, {
+  const res = await csrfFetch(`${AUTH_API_BASE}/reset-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, password }),
@@ -160,7 +161,7 @@ export async function apiResetPassword(token: string, password: string): Promise
 }
 
 export async function apiVerifyEmail(token: string): Promise<{ message: string }> {
-  const res = await fetch(`${AUTH_API_BASE}/verify-email?token=${encodeURIComponent(token)}`, {
+  const res = await csrfFetch(`${AUTH_API_BASE}/verify-email?token=${encodeURIComponent(token)}`, {
     method: 'GET',
   })
   return handleResponse<{ message: string }>(res)
