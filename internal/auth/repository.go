@@ -659,3 +659,139 @@ func (r *UserRepository) GetUserByEmailOrUsername(ctx context.Context, loginStr 
 
 	return &user, nil
 }
+
+func (r *UserRepository) CreateEmailVerificationToken(ctx context.Context, userID, token string, expiresAt time.Time) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	_, err = tx.ExecContext(ctx, "DELETE FROM email_verification_tokens WHERE user_id = $1", userID)
+	if err != nil {
+		return err
+	}
+
+	query := `
+		INSERT INTO email_verification_tokens (user_id, token, expires_at)
+		VALUES ($1, $2, $3)
+	`
+	_, err = tx.ExecContext(ctx, query, userID, token, expiresAt)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (r *UserRepository) VerifyEmailToken(ctx context.Context, token string) (string, error) {
+	var userID string
+	var expiresAt time.Time
+	var usedAt sql.NullTime
+
+	query := `
+		SELECT user_id, expires_at, used_at
+		FROM email_verification_tokens
+		WHERE token = $1
+	`
+	err := r.db.QueryRowContext(ctx, query, token).Scan(&userID, &expiresAt, &usedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", errors.New("invalid verification token")
+	} else if err != nil {
+		return "", err
+	}
+
+	if usedAt.Valid {
+		return "", errors.New("verification token already used")
+	}
+
+	if time.Now().After(expiresAt) {
+		return "", errors.New("verification token expired")
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	_, err = tx.ExecContext(ctx, "UPDATE email_verification_tokens SET used_at = NOW() WHERE token = $1", token)
+	if err != nil {
+		return "", err
+	}
+
+	_, err = tx.ExecContext(ctx, "UPDATE users SET email_verified = TRUE WHERE id = $1", userID)
+	if err != nil {
+		return "", err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return "", err
+	}
+
+	return userID, nil
+}
+
+func (r *UserRepository) CreatePasswordResetToken(ctx context.Context, userID, token string, expiresAt time.Time) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	_, err = tx.ExecContext(ctx, "DELETE FROM password_reset_tokens WHERE user_id = $1", userID)
+	if err != nil {
+		return err
+	}
+
+	query := `
+		INSERT INTO password_reset_tokens (user_id, token, expires_at)
+		VALUES ($1, $2, $3)
+	`
+	_, err = tx.ExecContext(ctx, query, userID, token, expiresAt)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (r *UserRepository) VerifyPasswordResetToken(ctx context.Context, token string) (string, error) {
+	var userID string
+	var expiresAt time.Time
+	var usedAt sql.NullTime
+
+	query := `
+		SELECT user_id, expires_at, used_at
+		FROM password_reset_tokens
+		WHERE token = $1
+	`
+	err := r.db.QueryRowContext(ctx, query, token).Scan(&userID, &expiresAt, &usedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", errors.New("invalid password reset token")
+	} else if err != nil {
+		return "", err
+	}
+
+	if usedAt.Valid {
+		return "", errors.New("password reset token already used")
+	}
+
+	if time.Now().After(expiresAt) {
+		return "", errors.New("password reset token expired")
+	}
+
+	return userID, nil
+}
+
+func (r *UserRepository) UpdateUserPassword(ctx context.Context, userID, newPasswordHash string) error {
+	query := `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`
+	_, err := r.db.ExecContext(ctx, query, newPasswordHash, userID)
+	return err
+}
+
+func (r *UserRepository) MarkPasswordResetTokenUsed(ctx context.Context, token string) error {
+	query := `UPDATE password_reset_tokens SET used_at = NOW() WHERE token = $1`
+	_, err := r.db.ExecContext(ctx, query, token)
+	return err
+}

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -67,7 +68,15 @@ func main() {
 	userRepo := biqauth.NewUserRepository(db, tokenEnc)
 	rbacRepo := biqauth.NewRBACRepository(db)
 	sessionMgr := biqauth.NewSessionManager(db)
-	authSvc := biqauth.NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, cfg)
+
+	var emailSender biqauth.EmailSender
+	if cfg.SMTPHost != "" {
+		emailSender = biqauth.NewSMTPEmailSender(cfg)
+	} else {
+		emailSender = biqauth.NewMockEmailSender()
+	}
+
+	authSvc := biqauth.NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, cfg, redisClient, emailSender)
 	webAuthnSvc, err := biqauth.NewWebAuthnService(cfg, userRepo)
 	if err != nil {
 		slog.Error("initialize webauthn", "err", err)
@@ -79,7 +88,8 @@ func main() {
 	sharingSvc := biqauth.NewSharingService(db)
 	auditSvc := biqauth.NewAuditService(db)
 
-	authHandler := biqauth.NewAuthHandler(authSvc, webAuthnSvc, jwtMgr, cfg)
+	limiter := biqauth.NewRateLimiter(redisClient)
+	authHandler := biqauth.NewAuthHandler(authSvc, webAuthnSvc, jwtMgr, cfg, limiter)
 	rbacHandler := biqauth.NewRBACHandler(rbacSvc, rbacRepo, dsAccessSvc, workspaceSvc, sharingSvc, auditSvc, jwtMgr, cfg)
 
 	state := &appState{
@@ -88,7 +98,7 @@ func main() {
 		startedAt:   time.Now().UTC(),
 		serviceName: "auth",
 	}
-	router := newRouter(state, authHandler, rbacHandler)
+	router := newRouter(state, authHandler, rbacHandler, limiter, cfg)
 	server := &http.Server{
 		Addr:         cfg.HTTPAddr(),
 		Handler:      router,
@@ -132,7 +142,7 @@ func newRedisClient(dsn string) (*redis.Client, error) {
 	return redis.NewClient(opts), nil
 }
 
-func newRouter(state *appState, authHandler *biqauth.AuthHandler, rbacHandler *biqauth.RBACHandler) http.Handler {
+func newRouter(state *appState, authHandler *biqauth.AuthHandler, rbacHandler *biqauth.RBACHandler, limiter *biqauth.RateLimiter, cfg *biqauth.Config) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -140,25 +150,34 @@ func newRouter(state *appState, authHandler *biqauth.AuthHandler, rbacHandler *b
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
 
+	if limiter != nil {
+		r.Use(limiter.Limit(cfg.RateLimitPerMin, time.Minute, "general"))
+	}
+
 	r.Get("/health", state.handleHealth)
 	r.Get("/ready", state.handleReady)
 	r.Get("/metrics", state.handleMetrics)
 
-	mountAuthRoutes(r, "/api/auth", authHandler, rbacHandler)
-	mountAuthRoutes(r, "/auth", authHandler, rbacHandler)
+	secure := len(cfg.WebAuthnOrigins) > 0 && strings.HasPrefix(cfg.WebAuthnOrigins[0], "https")
+
+	r.Route("/api/auth", func(r chi.Router) {
+		r.Use(biqauth.CSRF(secure))
+		authHandler.RegisterAuthRoutes(r)
+		rbacHandler.RegisterAuthRoutes(r, authHandler.AuthMiddleware())
+	})
+
+	r.Route("/auth", func(r chi.Router) {
+		r.Use(biqauth.CSRF(secure))
+		authHandler.RegisterAuthRoutes(r)
+		rbacHandler.RegisterAuthRoutes(r, authHandler.AuthMiddleware())
+	})
+
 	r.Route("/internal/auth", func(r chi.Router) {
 		authHandler.RegisterInternalRoutes(r)
 		rbacHandler.RegisterInternalRoutes(r, authHandler.InternalTokenMiddleware())
 	})
 
 	return r
-}
-
-func mountAuthRoutes(r chi.Router, pattern string, authHandler *biqauth.AuthHandler, rbacHandler *biqauth.RBACHandler) {
-	r.Route(pattern, func(r chi.Router) {
-		authHandler.RegisterAuthRoutes(r)
-		rbacHandler.RegisterAuthRoutes(r, authHandler.AuthMiddleware())
-	})
 }
 
 func (s *appState) handleHealth(w http.ResponseWriter, _ *http.Request) {

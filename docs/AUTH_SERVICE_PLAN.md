@@ -1119,12 +1119,12 @@ r.Route("/api", func(r chi.Router) {
 
 ### Aşama 6: Güvenlik ve Test (v0.6)
 
-- [ ] Rate limiting middleware
-- [ ] Brute-force koruması
-- [ ] CSRF koruması
-- [ ] E-posta gönderim altyapısı
-- [ ] Entegrasyon testleri (OAuth mock)
-- [ ] WebAuthn test süiti
+- [x] Rate limiting middleware
+- [x] Brute-force koruması
+- [x] CSRF koruması
+- [x] E-posta gönderim altyapısı
+- [x] Entegrasyon testleri (OAuth mock)
+- [x] WebAuthn test süiti
 - [ ] Penetrasyon testi kontrol listesi
 - [ ] Load test (kBin auth endpoint'leri)
 
@@ -1302,19 +1302,19 @@ r.Route("/api", func(r chi.Router) {
 
 ### Güvenlik
 
-- [ ] Rate limiting middleware (IP bazlı)
-- [ ] Brute-force koruması (başarısız giriş takibi)
-- [ ] CSRF koruması (SameSite cookie + token)
+- [x] Rate limiting middleware (IP bazlı)
+- [x] Brute-force koruması (başarısız giriş takibi)
+- [x] CSRF koruması (SameSite cookie + token)
 - [ ] Input sanitizasyonu (XSS önleme)
 - [ ] SQL injection önleme (parameterized queries — zaten pgx)
 - [ ] CORS katı yapılandırma
 - [ ] Security headers (HSTS, X-Frame-Options, CSP)
-- [ ] Audit logging tüm auth olayları
-- [ ] OAuth token şifreli saklama
-- [ ] WebAuthn challenge zaman aşımı
+- [x] Audit logging tüm auth olayları
+- [x] OAuth token şifreli saklama
+- [x] WebAuthn challenge zaman aşımı
 - [ ] Timing attack önleme (sabit süre response)
-- [ ] Account enumeration önleme (generic hata mesajları)
-- [ ] Token ailesi koruması (refresh token rotation aile takibi)
+- [x] Account enumeration önleme (generic hata mesajları)
+- [x] Token ailesi koruması (refresh token rotation aile takibi)
 - [ ] JWT issuer/audience doğrulama
 - [ ] JWT ID (jti) ile token takibi
 - [ ] E-posta değişikliği çift doğrulama + bekleme süresi
@@ -1336,11 +1336,11 @@ r.Route("/api", func(r chi.Router) {
 - [x] Unit testler: password hashing, JWT issue/verify, RBAC engine
 - [x] Integration testler: register → login → refresh → logout akışı
 - [x] OAuth2 mock testleri
-- [ ] WebAuthn ceremony testleri
+- [x] WebAuthn ceremony testleri
 - [ ] Permission middleware testleri
 - [ ] Datasource access middleware testleri
 - [ ] AI history user_id filtreleme testleri
-- [ ] Rate limiting testleri
+- [x] Rate limiting testleri
 - [ ] Timing attack testleri (response süre karşılaştırma)
 - [ ] Account enumeration testleri
 - [x] Token family protection testleri

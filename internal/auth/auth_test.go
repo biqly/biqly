@@ -8,6 +8,9 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/pem"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
@@ -15,6 +18,7 @@ import (
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
@@ -129,7 +133,7 @@ func TestIntegrationAuthFlow(t *testing.T) {
 	userRepo := NewUserRepository(dbPool, nil)
 	rbacRepo := NewRBACRepository(dbPool)
 	sessionMgr := NewSessionManager(dbPool)
-	service := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, config)
+	service := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, config, nil, nil)
 
 	// 1. Register User
 	email := "test_auth@example.com"
@@ -240,7 +244,7 @@ func TestOAuthFlow(t *testing.T) {
 	userRepo := NewUserRepository(dbPool, nil)
 	rbacRepo := NewRBACRepository(dbPool)
 	sessionMgr := NewSessionManager(dbPool)
-	service := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, config)
+	service := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, config, nil, nil)
 
 	// 1. Initial login/register via mock OAuth
 	userInfo := &OAuthUserInfo{
@@ -385,4 +389,232 @@ func TestWebAuthnFlow(t *testing.T) {
 	userPasskeys2, err := waService.GetUserPasskeys(ctx, user.ID)
 	require.NoError(t, err)
 	assert.Len(t, userPasskeys2, 0)
+}
+
+func TestBruteForceLockout(t *testing.T) {
+	redisDSN := os.Getenv("BI_AUTH_REDIS_DSN")
+	if redisDSN == "" {
+		redisDSN = "redis://localhost:6379"
+	}
+	opts, err := redis.ParseURL(redisDSN)
+	if err != nil {
+		t.Skip("skipping redis-dependent test: invalid redis URL:", err)
+		return
+	}
+	rClient := redis.NewClient(opts)
+	ctx := context.Background()
+	if err := rClient.Ping(ctx).Err(); err != nil {
+		t.Skip("skipping redis-dependent test: redis not available:", err)
+		return
+	}
+	defer func() { _ = rClient.Close() }()
+
+	email := "brute@example.com"
+	rClient.Del(ctx, "login_failures:"+email)
+
+	dsn := os.Getenv("BI_AUTH_DB_DSN")
+	if dsn == "" {
+		//nolint:gosec
+		dsn = "postgres://bi_user:bi_password@localhost:5432/bi_auth?sslmode=disable"
+	}
+	dbPool, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Skip("skipping database tests; DB not available:", err)
+		return
+	}
+	defer func() { _ = dbPool.Close() }()
+
+	_, _ = dbPool.ExecContext(ctx, "DELETE FROM sessions")
+	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users")
+
+	config := &Config{
+		JWTAccessTTL:  5 * time.Minute,
+		JWTRefreshTTL: 24 * time.Hour,
+	}
+	jwtMgr, err := NewJWTManager("", "", config.JWTAccessTTL)
+	require.NoError(t, err)
+
+	userRepo := NewUserRepository(dbPool, nil)
+	rbacRepo := NewRBACRepository(dbPool)
+	sessionMgr := NewSessionManager(dbPool)
+	service := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, config, rClient, nil)
+
+	_, err = userRepo.CreateUser(ctx, email, "SomeHash", "Brute User")
+	require.NoError(t, err)
+
+	ua := "Test"
+	ip := "127.0.0.1"
+	for i := 0; i < 5; i++ {
+		_, err := service.Login(ctx, LoginRequest{Email: email, Password: "wrong-password"}, &ua, &ip)
+		assert.ErrorIs(t, err, ErrInvalidCredentials)
+	}
+
+	_, err = service.Login(ctx, LoginRequest{Email: email, Password: "wrong-password"}, &ua, &ip)
+	assert.ErrorIs(t, err, ErrAccountLocked)
+
+	rClient.Del(ctx, "login_failures:"+email)
+}
+
+func TestRateLimiting(t *testing.T) {
+	redisDSN := os.Getenv("BI_AUTH_REDIS_DSN")
+	if redisDSN == "" {
+		redisDSN = "redis://localhost:6379"
+	}
+	opts, err := redis.ParseURL(redisDSN)
+	if err != nil {
+		t.Skip("skipping redis-dependent test: invalid redis URL:", err)
+		return
+	}
+	rClient := redis.NewClient(opts)
+	ctx := context.Background()
+	if err := rClient.Ping(ctx).Err(); err != nil {
+		t.Skip("skipping redis-dependent test: redis not available:", err)
+		return
+	}
+	defer func() { _ = rClient.Close() }()
+
+	ip := "127.0.0.1"
+	bucket := time.Now().Unix() / 60
+	key := fmt.Sprintf("ratelimit:test:%s:%d", ip, bucket)
+	rClient.Del(ctx, key)
+
+	limiter := NewRateLimiter(rClient)
+	handler := limiter.Limit(2, 1*time.Minute, "test")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "/", nil)
+	req.RemoteAddr = ip + ":1234"
+	rr1 := httptest.NewRecorder()
+	handler.ServeHTTP(rr1, req)
+	assert.Equal(t, http.StatusOK, rr1.Code)
+
+	rr2 := httptest.NewRecorder()
+	handler.ServeHTTP(rr2, req)
+	assert.Equal(t, http.StatusOK, rr2.Code)
+
+	rr3 := httptest.NewRecorder()
+	handler.ServeHTTP(rr3, req)
+	assert.Equal(t, http.StatusTooManyRequests, rr3.Code)
+
+	rClient.Del(ctx, key)
+}
+
+func TestCSRF(t *testing.T) {
+	ctx := context.Background()
+	handler := CSRF(false)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	reqGET, _ := http.NewRequestWithContext(ctx, http.MethodGet, "/", nil)
+	rrGET := httptest.NewRecorder()
+	handler.ServeHTTP(rrGET, reqGET)
+	assert.Equal(t, http.StatusOK, rrGET.Code)
+
+	cookies := rrGET.Result().Cookies()
+	var csrfCookie *http.Cookie
+	for _, c := range cookies {
+		if c.Name == "csrf_token" {
+			csrfCookie = c
+			break
+		}
+	}
+	require.NotNil(t, csrfCookie)
+	assert.NotEmpty(t, csrfCookie.Value)
+
+	reqPOSTNoCookie, _ := http.NewRequestWithContext(ctx, http.MethodPost, "/", nil)
+	rrPOSTNoCookie := httptest.NewRecorder()
+	handler.ServeHTTP(rrPOSTNoCookie, reqPOSTNoCookie)
+	assert.Equal(t, http.StatusForbidden, rrPOSTNoCookie.Code)
+
+	reqPOSTNoHeader, _ := http.NewRequestWithContext(ctx, http.MethodPost, "/", nil)
+	reqPOSTNoHeader.AddCookie(csrfCookie)
+	rrPOSTNoHeader := httptest.NewRecorder()
+	handler.ServeHTTP(rrPOSTNoHeader, reqPOSTNoHeader)
+	assert.Equal(t, http.StatusForbidden, rrPOSTNoHeader.Code)
+
+	reqPOSTSuccess, _ := http.NewRequestWithContext(ctx, http.MethodPost, "/", nil)
+	reqPOSTSuccess.AddCookie(csrfCookie)
+	reqPOSTSuccess.Header.Set("X-CSRF-Token", csrfCookie.Value)
+	rrPOSTSuccess := httptest.NewRecorder()
+	handler.ServeHTTP(rrPOSTSuccess, reqPOSTSuccess)
+	assert.Equal(t, http.StatusOK, rrPOSTSuccess.Code)
+}
+
+func TestEmailVerificationAndReset(t *testing.T) {
+	dsn := os.Getenv("BI_AUTH_DB_DSN")
+	if dsn == "" {
+		//nolint:gosec
+		dsn = "postgres://bi_user:bi_password@localhost:5432/bi_auth?sslmode=disable"
+	}
+	dbPool, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Skip("skipping database tests; DB not available:", err)
+		return
+	}
+	defer func() { _ = dbPool.Close() }()
+
+	ctx := context.Background()
+
+	_, _ = dbPool.ExecContext(ctx, "DELETE FROM email_verification_tokens")
+	_, _ = dbPool.ExecContext(ctx, "DELETE FROM password_reset_tokens")
+	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users")
+
+	config := &Config{
+		JWTAccessTTL:  5 * time.Minute,
+		JWTRefreshTTL: 24 * time.Hour,
+	}
+	jwtMgr, err := NewJWTManager("", "", config.JWTAccessTTL)
+	require.NoError(t, err)
+
+	userRepo := NewUserRepository(dbPool, nil)
+	rbacRepo := NewRBACRepository(dbPool)
+	sessionMgr := NewSessionManager(dbPool)
+	mockSender := NewMockEmailSender()
+
+	service := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, config, nil, mockSender)
+
+	email := "verify@example.com"
+	reg, err := service.Register(ctx, RegisterRequest{
+		Email:       email,
+		Password:    "SecurePass1!",
+		DisplayName: "Verify User",
+	}, nil, nil)
+	require.NoError(t, err)
+
+	require.Contains(t, mockSender.SentEmails, email)
+	assert.Len(t, mockSender.SentEmails[email], 1)
+	assert.Contains(t, mockSender.SentEmails[email][0], "Verification token:")
+
+	msg := mockSender.SentEmails[email][0]
+	token := msg[len("Verification token: "):]
+
+	u, err := userRepo.GetUserByID(ctx, reg.UserID)
+	require.NoError(t, err)
+	assert.False(t, u.EmailVerified)
+
+	err = service.VerifyEmail(ctx, token)
+	require.NoError(t, err)
+
+	u, err = userRepo.GetUserByID(ctx, reg.UserID)
+	require.NoError(t, err)
+	assert.True(t, u.EmailVerified)
+
+	err = service.ForgotPassword(ctx, email)
+	require.NoError(t, err)
+	assert.Len(t, mockSender.SentEmails[email], 2)
+	assert.Contains(t, mockSender.SentEmails[email][1], "Reset token:")
+
+	resetMsg := mockSender.SentEmails[email][1]
+	resetToken := resetMsg[len("Reset token: "):]
+
+	err = service.ResetPassword(ctx, resetToken, "NewSecurePass2!")
+	require.NoError(t, err)
+
+	loginResp, err := service.Login(ctx, LoginRequest{
+		Email:    email,
+		Password: "NewSecurePass2!",
+	}, nil, nil)
+	require.NoError(t, err)
+	assert.Equal(t, reg.UserID, loginResp.UserID)
 }

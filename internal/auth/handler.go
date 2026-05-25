@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-webauthn/webauthn/webauthn"
@@ -28,14 +29,16 @@ type AuthHandler struct {
 	webAuthn *WebAuthnService
 	jwtMgr   *JWTManager
 	config   *Config
+	limiter  *RateLimiter
 }
 
-func NewAuthHandler(service *AuthService, webAuthn *WebAuthnService, jwtMgr *JWTManager, config *Config) *AuthHandler {
+func NewAuthHandler(service *AuthService, webAuthn *WebAuthnService, jwtMgr *JWTManager, config *Config, limiter *RateLimiter) *AuthHandler {
 	return &AuthHandler{
 		service:  service,
 		webAuthn: webAuthn,
 		jwtMgr:   jwtMgr,
 		config:   config,
+		limiter:  limiter,
 	}
 }
 
@@ -45,14 +48,19 @@ func (h *AuthHandler) RegisterRoutes(r chi.Router) {
 }
 
 func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
+	r.Group(func(r chi.Router) {
+		if h.limiter != nil {
+			r.Use(h.limiter.Limit(10, time.Minute, "login"))
+		}
+		r.Post("/login", h.handleLogin)
+	})
 	r.Post("/register", h.handleRegister)
-	r.Post("/login", h.handleLogin)
 	r.Post("/refresh", h.handleRefresh)
 	r.Post("/logout", h.handleLogout)
-	r.Post("/forgot-password", h.handleNotImplemented("forgot-password"))
-	r.Post("/reset-password", h.handleNotImplemented("reset-password"))
-	r.Get("/verify-email", h.handleNotImplemented("verify-email"))
-	r.Post("/resend-verification", h.handleNotImplemented("resend-verification"))
+	r.Post("/forgot-password", h.handleForgotPassword)
+	r.Post("/reset-password", h.handleResetPassword)
+	r.Get("/verify-email", h.handleVerifyEmail)
+	r.Post("/resend-verification", h.handleResendVerification)
 
 	r.Get("/oauth/{provider}", h.handleOAuthRedirect)
 	r.Get("/oauth/{provider}/callback", h.handleOAuthCallback)
@@ -289,15 +297,6 @@ func (h *AuthHandler) respondJSON(w http.ResponseWriter, status int, data any) {
 
 func (h *AuthHandler) respondError(w http.ResponseWriter, status int, message string) {
 	h.respondJSON(w, status, map[string]string{"error": message})
-}
-
-func (h *AuthHandler) handleNotImplemented(name string) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		h.respondJSON(w, http.StatusNotImplemented, map[string]string{
-			"error":   "not_implemented",
-			"message": name + " endpoint is not yet implemented",
-		})
-	}
 }
 
 func (h *AuthHandler) handleOAuthRedirect(w http.ResponseWriter, r *http.Request) {
@@ -606,4 +605,81 @@ func (h *AuthHandler) handleDeletePasskey(w http.ResponseWriter, r *http.Request
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+type ForgotPasswordRequest struct {
+	Email string `json:"email"`
+}
+
+type ResetPasswordRequest struct {
+	Token    string `json:"token"`
+	Password string `json:"password"`
+}
+
+type ResendVerificationRequest struct {
+	Email string `json:"email"`
+}
+
+func (h *AuthHandler) handleForgotPassword(w http.ResponseWriter, r *http.Request) {
+	var req ForgotPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	err := h.service.ForgotPassword(r.Context(), req.Email)
+	if err != nil {
+		h.respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]string{"message": "If the email exists, a password reset link has been sent."})
+}
+
+func (h *AuthHandler) handleResetPassword(w http.ResponseWriter, r *http.Request) {
+	var req ResetPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	err := h.service.ResetPassword(r.Context(), req.Token, req.Password)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]string{"message": "Password reset successful."})
+}
+
+func (h *AuthHandler) handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		h.respondError(w, http.StatusBadRequest, "token is required")
+		return
+	}
+
+	err := h.service.VerifyEmail(r.Context(), token)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]string{"message": "Email verified successfully."})
+}
+
+func (h *AuthHandler) handleResendVerification(w http.ResponseWriter, r *http.Request) {
+	var req ResendVerificationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	err := h.service.ResendVerificationEmail(r.Context(), req.Email)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]string{"message": "If the email is not verified, a new verification link has been sent."})
 }

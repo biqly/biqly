@@ -27,6 +27,11 @@ type Config struct {
 	WebAuthnRPID       string
 	WebAuthnRPName     string
 	WebAuthnOrigins    []string
+	SMTPHost           string
+	SMTPPort           int
+	SMTPUser           string
+	SMTPPass           string
+	SMTPFrom           string
 }
 
 func LoadConfig() (*Config, error) {
@@ -98,6 +103,14 @@ func LoadConfig() (*Config, error) {
 		origins = []string{"http://localhost:5173", "http://localhost:3333"}
 	}
 
+	smtpPortStr := os.Getenv("BI_AUTH_SMTP_PORT")
+	smtpPort := 587
+	if smtpPortStr != "" {
+		if p, err := strconv.Atoi(smtpPortStr); err == nil {
+			smtpPort = p
+		}
+	}
+
 	cfg := &Config{
 		Port:               port,
 		DBDSN:              dbDSN,
@@ -118,6 +131,11 @@ func LoadConfig() (*Config, error) {
 		WebAuthnRPID:       rpID,
 		WebAuthnRPName:     rpName,
 		WebAuthnOrigins:    origins,
+		SMTPHost:           os.Getenv("BI_AUTH_SMTP_HOST"),
+		SMTPPort:           smtpPort,
+		SMTPUser:           os.Getenv("BI_AUTH_SMTP_USER"),
+		SMTPPass:           os.Getenv("BI_AUTH_SMTP_PASS"),
+		SMTPFrom:           os.Getenv("BI_AUTH_SMTP_FROM"),
 	}
 
 	if cfg.InternalToken == "" {
