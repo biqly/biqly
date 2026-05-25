@@ -126,7 +126,7 @@ func TestIntegrationAuthFlow(t *testing.T) {
 	jwtMgr, err := NewJWTManager("", "", config.JWTAccessTTL)
 	require.NoError(t, err)
 
-	userRepo := NewUserRepository(dbPool)
+	userRepo := NewUserRepository(dbPool, nil)
 	rbacRepo := NewRBACRepository(dbPool)
 	sessionMgr := NewSessionManager(dbPool)
 	service := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, config)
@@ -237,7 +237,7 @@ func TestOAuthFlow(t *testing.T) {
 	jwtMgr, err := NewJWTManager("", "", config.JWTAccessTTL)
 	require.NoError(t, err)
 
-	userRepo := NewUserRepository(dbPool)
+	userRepo := NewUserRepository(dbPool, nil)
 	rbacRepo := NewRBACRepository(dbPool)
 	sessionMgr := NewSessionManager(dbPool)
 	service := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, config)
@@ -312,7 +312,7 @@ func TestWebAuthnFlow(t *testing.T) {
 		WebAuthnOrigins: []string{"http://localhost:5173"},
 	}
 
-	userRepo := NewUserRepository(dbPool)
+	userRepo := NewUserRepository(dbPool, nil)
 	waService, err := NewWebAuthnService(config, userRepo)
 	require.NoError(t, err)
 

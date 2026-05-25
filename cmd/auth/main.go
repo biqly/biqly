@@ -14,6 +14,7 @@ import (
 	"time"
 
 	biqauth "github.com/biqly/biqly/internal/auth"
+	"github.com/biqly/biqly/internal/security"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -55,7 +56,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	userRepo := biqauth.NewUserRepository(db)
+	var tokenEnc *security.Encryption
+	if cfg.EncryptionKey != "" {
+		tokenEnc, err = security.NewEncryptionFromBase64(cfg.EncryptionKey)
+		if err != nil {
+			slog.Error("initialize oauth token encryption", "err", err)
+			os.Exit(1)
+		}
+	}
+	userRepo := biqauth.NewUserRepository(db, tokenEnc)
 	rbacRepo := biqauth.NewRBACRepository(db)
 	sessionMgr := biqauth.NewSessionManager(db)
 	authSvc := biqauth.NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, cfg)

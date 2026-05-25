@@ -16,7 +16,7 @@ Mevcut Biqly monoliti (`cmd/api`) API-Key tabanlı basit bir yetkilendirme kulla
 
 ## 2. Mimari
 
-```
+```text
                     ┌─────────────────────┐
                     │   Biqly Frontend    │
                     │  React 19 + Vite 6  │
@@ -36,17 +36,16 @@ Mevcut Biqly monoliti (`cmd/api`) API-Key tabanlı basit bir yetkilendirme kulla
           ┌────────────┘   │   └───────────────┐
           ▼                ▼                   ▼
    ┌─────────────┐  ┌─────────────┐    ┌──────────────┐
-   │  PostgreSQL  │  │    Redis    │    │  OAuth2      │
-   │  (auth DB)   │  │  (sessions) │    │  Providers   │
+   │  PostgreSQL │  │    Redis    │    │  OAuth2      │
+   │  (auth DB)  │  │  (sessions) │    │  Providers   │
    └─────────────┘  └─────────────┘    └──────────────┘
-                                            │
+                                             │
                               ┌──────────────┼──────────────┐
                               ▼              ▼              ▼
                         ┌─────────┐   ┌─────────┐   ┌──────────┐
                         │ GitHub  │   │ Google  │   │  Apple   │
                         │ OAuth2  │   │ OAuth2  │   │ Passkey  │
-                        └─────────┘   └─────────┘   │ WebAuthn │
-                                                     └──────────┘
+                        └─────────┘   └─────────┘   └──────────┘
 ```
 
 ---
@@ -54,7 +53,7 @@ Mevcut Biqly monoliti (`cmd/api`) API-Key tabanlı basit bir yetkilendirme kulla
 ## 3. Teknoloji Seçimleri
 
 | Katman | Teknoloji | Açıklama |
-|---|---|---|
+| --- | --- | --- |
 | Dil | Go 1.26 | Ana proje ile tutarlılık |
 | HTTP | `go-chi/chi/v5` | Ana proje ile aynı router |
 | DB | PostgreSQL | `pgx/v5`, ayrı `bi_auth` veritabanı |
@@ -321,7 +320,7 @@ CREATE TABLE resource_shares (
 
 ## 5. Auth Service Proje Yapısı
 
-```
+```text
 cmd/auth/main.go                # Auth service entry point (port 8889)
 internal/
 ├── auth/
@@ -356,29 +355,29 @@ internal/
 ### 6.1 Auth (Public)
 
 | Method | Path | Açıklama |
-|---|---|---|
+| --- | --- | --- |
 | `POST` | `/auth/register` | E-posta + şifre ile kayıt |
 | `POST` | `/auth/login` | E-posta + şifre ile giriş |
 | `POST` | `/auth/refresh` | Access token yenileme |
 | `POST` | `/auth/logout` | Oturum sonlandırma |
 | `POST` | `/auth/forgot-password` | Şifre sıfırlama bağlantısı |
 | `POST` | `/auth/reset-password` | Yeni şifre belirleme |
-| `GET`  | `/auth/verify-email?token=...` | E-posta doğrulama |
+| `GET` | `/auth/verify-email?token=...` | E-posta doğrulama |
 | `POST` | `/auth/resend-verification` | Doğrulama e-postası tekrar gönder |
 
 ### 6.2 OAuth2 (Public)
 
 | Method | Path | Açıklama |
-|---|---|---|
-| `GET`  | `/auth/oauth/github` | GitHub OAuth2 redirect |
-| `GET`  | `/auth/oauth/github/callback` | GitHub callback |
-| `GET`  | `/auth/oauth/google` | Google OAuth2 redirect |
-| `GET`  | `/auth/oauth/google/callback` | Google callback |
+| --- | --- | --- |
+| `GET` | `/auth/oauth/github` | GitHub OAuth2 redirect |
+| `GET` | `/auth/oauth/github/callback` | GitHub callback |
+| `GET` | `/auth/oauth/google` | Google OAuth2 redirect |
+| `GET` | `/auth/oauth/google/callback` | Google callback |
 
 ### 6.3 Passkey / WebAuthn (Public)
 
 | Method | Path | Açıklama |
-|---|---|---|
+| --- | --- | --- |
 | `POST` | `/auth/passkey/register-begin` | Registration challenge başlat |
 | `POST` | `/auth/passkey/register-finish` | Credential kaydet |
 | `POST` | `/auth/passkey/login-begin` | Authentication challenge başlat |
@@ -387,85 +386,85 @@ internal/
 ### 6.4 Kullanıcı (Authenticated)
 
 | Method | Path | Açıklama |
-|---|---|---|
-| `GET`  | `/auth/me` | Aktif kullanıcı profili |
-| `PUT`  | `/auth/me` | Profil güncelleme |
-| `PUT`  | `/auth/me/password` | Şifre değiştirme |
-| `GET`  | `/auth/me/passkeys` | Kayıtlı passkey listesi |
-| `DELETE`| `/auth/me/passkeys/{id}` | Passkey sil |
-| `GET`  | `/auth/me/sessions` | Aktif oturumlar |
-| `DELETE`| `/auth/me/sessions/{id}` | Belirli oturumu sonlandır |
+| --- | --- | --- |
+| `GET` | `/auth/me` | Aktif kullanıcı profili |
+| `PUT` | `/auth/me` | Profil güncelleme |
+| `PUT` | `/auth/me/password` | Şifre değiştirme |
+| `GET` | `/auth/me/passkeys` | Kayıtlı passkey listesi |
+| `DELETE` | `/auth/me/passkeys/{id}` | Passkey sil |
+| `GET` | `/auth/me/sessions` | Aktif oturumlar |
+| `DELETE` | `/auth/me/sessions/{id}` | Belirli oturumu sonlandır |
 
 ### 6.5 Datasource Erişim (Admin / Self-Service)
 
 | Method | Path | Açıklama |
-|---|---|---|
-| `GET`  | `/auth/admin/datasource-access` | Tüm datasource erişim kayıtları |
+| --- | --- | --- |
+| `GET` | `/auth/admin/datasource-access` | Tüm datasource erişim kayıtları |
 | `POST` | `/auth/admin/datasource-access` | Kullanıcıya datasource erişimi ver |
-| `PUT`  | `/auth/admin/datasource-access/{id}` | Erişim seviyesi güncelle |
-| `DELETE`| `/auth/admin/datasource-access/{id}` | Erişimi kaldır |
-| `GET`  | `/auth/me/datasources` | Kullanıcının erişebildiği datasource'lar |
-| `GET`  | `/auth/me/datasources/{id}/check` | Belirli datasource'a erişimi var mı? |
+| `PUT` | `/auth/admin/datasource-access/{id}` | Erişim seviyesi güncelle |
+| `DELETE` | `/auth/admin/datasource-access/{id}` | Erişimi kaldır |
+| `GET` | `/auth/me/datasources` | Kullanıcının erişebildiği datasource'lar |
+| `GET` | `/auth/me/datasources/{id}/check` | Belirli datasource'a erişimi var mı? |
 
 ### 6.6 Workspace (Authenticated)
 
 | Method | Path | Açıklama |
-|---|---|---|
-| `GET`  | `/auth/workspaces` | Kullanıcının workspace'leri |
+| --- | --- | --- |
+| `GET` | `/auth/workspaces` | Kullanıcının workspace'leri |
 | `POST` | `/auth/workspaces` | Yeni workspace oluştur |
-| `GET`  | `/auth/workspaces/{id}` | Workspace detayı |
-| `PUT`  | `/auth/workspaces/{id}` | Workspace güncelle |
-| `DELETE`| `/auth/workspaces/{id}` | Workspace sil (sadece owner) |
-| `GET`  | `/auth/workspaces/{id}/members` | Workspace üyeleri |
+| `GET` | `/auth/workspaces/{id}` | Workspace detayı |
+| `PUT` | `/auth/workspaces/{id}` | Workspace güncelle |
+| `DELETE` | `/auth/workspaces/{id}` | Workspace sil (sadece owner) |
+| `GET` | `/auth/workspaces/{id}/members` | Workspace üyeleri |
 | `POST` | `/auth/workspaces/{id}/members` | Workspace'e üye ekle |
-| `PUT`  | `/auth/workspaces/{id}/members/{userId}` | Üye rolünü güncelle |
-| `DELETE`| `/auth/workspaces/{id}/members/{userId}` | Üyeyi kaldır |
-| `GET`  | `/auth/workspaces/{id}/datasources` | Workspace'e bağlı datasource'lar |
+| `PUT` | `/auth/workspaces/{id}/members/{userId}` | Üye rolünü güncelle |
+| `DELETE` | `/auth/workspaces/{id}/members/{userId}` | Üyeyi kaldır |
+| `GET` | `/auth/workspaces/{id}/datasources` | Workspace'e bağlı datasource'lar |
 | `POST` | `/auth/workspaces/{id}/datasources` | Workspace'e datasource bağla |
-| `DELETE`| `/auth/workspaces/{id}/datasources/{dsId}` | Datasource'u kaldır |
+| `DELETE` | `/auth/workspaces/{id}/datasources/{dsId}` | Datasource'u kaldır |
 
 ### 6.7 Kaynak Paylaşım (Authenticated)
 
 | Method | Path | Açıklama |
-|---|---|---|
+| --- | --- | --- |
 | `POST` | `/auth/shares` | Kaynak paylaş (sorgu, dashboard, model) |
-| `GET`  | `/auth/shares?resource_type=query` | Paylaşılan kaynaklar |
-| `DELETE`| `/auth/shares/{id}` | Paylaşımı kaldır |
+| `GET` | `/auth/shares?resource_type=query` | Paylaşılan kaynaklar |
+| `DELETE` | `/auth/shares/{id}` | Paylaşımı kaldır |
 
 ### 6.8 RBAC Admin (Admin Only)
 
 | Method | Path | Açıklama |
-|---|---|---|
-| `GET`  | `/auth/admin/users` | Kullanıcı listesi |
-| `GET`  | `/auth/admin/users/{id}` | Kullanıcı detayı |
-| `PUT`  | `/auth/admin/users/{id}/status` | Kullanıcı aktif/pasif |
+| --- | --- | --- |
+| `GET` | `/auth/admin/users` | Kullanıcı listesi |
+| `GET` | `/auth/admin/users/{id}` | Kullanıcı detayı |
+| `PUT` | `/auth/admin/users/{id}/status` | Kullanıcı aktif/pasif |
 | `POST` | `/auth/admin/users/{id}/roles` | Rol ata |
-| `DELETE`| `/auth/admin/users/{id}/roles/{roleId}` | Rol kaldır |
-| `GET`  | `/auth/admin/roles` | Rol listesi |
+| `DELETE` | `/auth/admin/users/{id}/roles/{roleId}` | Rol kaldır |
+| `GET` | `/auth/admin/roles` | Rol listesi |
 | `POST` | `/auth/admin/roles` | Yeni rol oluştur |
-| `PUT`  | `/auth/admin/roles/{id}` | Rol güncelle |
-| `DELETE`| `/auth/admin/roles/{id}` | Rol sil |
-| `GET`  | `/auth/admin/permissions` | İzin listesi |
+| `PUT` | `/auth/admin/roles/{id}` | Rol güncelle |
+| `DELETE` | `/auth/admin/roles/{id}` | Rol sil |
+| `GET` | `/auth/admin/permissions` | İzin listesi |
 | `POST` | `/auth/admin/permissions` | Yeni izin oluştur |
-| `GET`  | `/auth/admin/audit-log` | Denetim günlüğü |
+| `GET` | `/auth/admin/audit-log` | Denetim günlüğü |
 
 ### 6.9 Internal (Peer Service)
 
 | Method | Path | Açıklama |
-|---|---|---|
+| --- | --- | --- |
 | `POST` | `/internal/auth/verify` | JWT doğrulama (monolit tarafından çağrılır) |
 | `POST` | `/internal/auth/check-permission` | İzin sorgulama |
-| `GET`  | `/internal/auth/user/{id}/permissions` | Kullanıcı izin listesi |
-| `GET`  | `/internal/auth/user/{id}/datasources` | Kullanıcının erişebildiği datasource ID'leri |
+| `GET` | `/internal/auth/user/{id}/permissions` | Kullanıcı izin listesi |
+| `GET` | `/internal/auth/user/{id}/datasources` | Kullanıcının erişebildiği datasource ID'leri |
 | `POST` | `/internal/auth/check-datasource-access` | Datasource erişim kontrolü (user_id + datasource_id + level) |
-| `GET`  | `/internal/auth/user/{id}/workspaces` | Kullanıcının workspace'leri |
+| `GET` | `/internal/auth/user/{id}/workspaces` | Kullanıcının workspace'leri |
 | `POST` | `/internal/auth/invalidate-cache` | Permission/datasource cache invalidate |
 
 ---
 
 ## 7. JWT Stratejisi
 
-```
+```text
 Access Token:
   - RS256 imzalı
   - 15 dakika geçerlilik
@@ -508,7 +507,7 @@ Datasource Erişim Cache:
 Biqly bir BI platformu olarak rolleri iş fonksiyonlarına göre tanımlar:
 
 | Rol | Tip | Açıklama | Kapsam |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `super_admin` | Platform | Tüm sistem yönetimi, kullanıcı yönetimi, tüm datasource'lara tam erişim, audit log, deployment ayarları | Global |
 | `admin` | Organizasyon | Kullanıcı yönetimi, datasource yönetimi, rol atama, tüm modeller ve sorgular | Workspace |
 | `developer` | Teknik | Datasource ekleme, semantic model tasarımı, AI prompt yönetimi, eval süiti, raw SQL erişimi | Workspace |
@@ -516,7 +515,8 @@ Biqly bir BI platformu olarak rolleri iş fonksiyonlarına göre tanımlar:
 | `viewer` | Salt okunur | Dashboard ve kaydedilmiş sorgu görüntüleme, sonuç dışa aktarma | Workspace |
 
 **Rol hiyerarşisi** (yukarıdan aşağıya miras, ileride aktif edilecek):
-```
+
+```text
 super_admin → admin → developer → analyst → viewer
 ```
 
@@ -573,7 +573,7 @@ super_admin → admin → developer → analyst → viewer
 
 ### 8.3 Scope (Kapsam) Stratejisi
 
-```
+```text
 Global scope:      Kullanıcıya tüm kaynaklarda geçerli rol (super_admin, admin)
 Workspace scope:   Belirli bir workspace'de geçerli rol
 Resource scope:    Belirli bir datasource veya model üzerinde rol
@@ -591,7 +591,7 @@ Kullanıcı, workspace'in bir üyesi olmalıdır. Workspace'e bağlı olmayan da
 **Katman 2 — Datasource access level:**
 Workspace üyeliği yeterli değildir; kullanıcıya doğrudan veya workspace üzerinden datasource erişimi verilmelidir.
 
-```
+```text
 Erişim kontrol akışı:
   1. Kullanıcı JWT'den authenticate edildi
   2. İstenen datasource_id için:
@@ -606,6 +606,7 @@ Erişim kontrol akışı:
 ```
 
 **Monolit uygulaması:**
+
 ```go
 // internal/http/middleware/datasource_access.go
 func RequireDatasourceAccess(level string) func(http.Handler) http.Handler {
@@ -622,7 +623,7 @@ func RequireDatasourceAccess(level string) func(http.Handler) http.Handler {
 #### AI Sorgu Kuyruğu Görünürlük Matrisi
 
 | Bilgi | super_admin | admin | developer | analyst | viewer |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | Kuyrukta kaç sorgu var | Evet | Evet (workspace) | Hayır | Hayır | Hayır |
 | Kuyruk durumu (pending/running/done) | Evet | Evet (workspace) | Kendi sorguları | Kendi sorguları | Hayır |
 | Başkasının sorgu metni (NL) | Evet | Evet (workspace) | Hayır | Hayır | Hayır |
@@ -633,6 +634,7 @@ func RequireDatasourceAccess(level string) func(http.Handler) http.Handler {
 | Kuyruk pozisyonu (sıra bekleme) | Evet | Evet | Kendi sorgusu | Kendi sorgusu | Hayır |
 
 **Uygulama:**
+
 ```go
 // internal/http/handlers/ai.go — sorgu listesi filtresi
 func filterAIHistoryForUser(ctx context.Context, rows []AIHistoryRow, userID string, permissions []string) []AIHistoryRow {
@@ -648,6 +650,7 @@ func filterAIHistoryForUser(ctx context.Context, rows []AIHistoryRow, userID str
 ```
 
 **Kuyruk durum endpoint'i (sınırlı bilgi):**
+
 ```go
 // GET /api/ai/queue/status
 // Her authenticated kullanıcı erişebilir
@@ -675,7 +678,7 @@ type QueueStatusResponse struct {
 
 ### 9.1 Sayfa Yapısı
 
-```
+```text
 /auth/signin           → Giriş sayfası
 /auth/signup           → Kayıt sayfası
 /auth/forgot-password  → Şifre sıfırlama talebi
@@ -686,35 +689,36 @@ type QueueStatusResponse struct {
 
 ### 9.2 Sign In Ekranı
 
-```
-┌──────────────────────────────────────────────┐
-│                                              │
-│              📊 Biqly                        │
-│                                              │
-│        ┌──────────────────────────┐          │
-│        │       Sign In            │          │
-│        │                          │          │
-│        │  [  E-posta Adresi    ]  │          │
-│        │  [  Şifre             ]  │          │
-│        │                          │          │
-│        │  [✓] Beni hatırla        │          │
-│        │  Şifremi unuttum →       │          │
-│        │                          │          │
-│        │  [      Sign In      ]   │          │
-│        │                          │
-│        │  ───── veya ─────        │
-│        │                          │
-│        │  [  GitHub ile devam ]   │
-│        │  [  Google ile devam ]   │
+```text
+┌────────────────────────────────────────────┐
+│                                            │
+│              📊 Biqly                      │
+│                                            │
+│        ┌──────────────────────────┐        │
+│        │       Sign In            │        │
+│        │                          │        │
+│        │  [  E-posta Adresi    ]  │        │
+│        │  [  Şifre             ]  │        │
+│        │                          │        │
+│        │  [✓] Beni hatırla        │        │
+│        │  Şifremi unuttum →       │        │
+│        │                          │        │
+│        │  [      Sign In      ]   │        │
+│        │                          │        │
+│        │  ───── veya ─────        │        │
+│        │                          │        │
+│        │  [  GitHub ile devam ]   │        │
+│        │  [  Google ile devam ]   │        │
 │        │  [  Apple Passkey   ]    │ ← FIDO2 icon
-│        │                          │
-│        │  Hesabın yok mu? Sign Up │
-│        └──────────────────────────┘          │
-│                                              │
-└──────────────────────────────────────────────┘
+│        │                          │        │
+│        │  Hesabın yok mu? Sign Up │        │
+│        └──────────────────────────┘        │
+│                                            │
+└────────────────────────────────────────────┘
 ```
 
 **UI/UX Detayları:**
+
 - Merkezi, temiz, minimal tasarım
 - E-posta alanı otomatik tamamlama
 - Şifre göster/gizle toggle ikonu
@@ -727,35 +731,36 @@ type QueueStatusResponse struct {
 
 ### 9.3 Sign Up Ekranı
 
-```
-┌──────────────────────────────────────────────┐
-│                                              │
-│              📊 Biqly                        │
-│                                              │
-│        ┌──────────────────────────┐          │
-│        │       Sign Up            │          │
-│        │                          │          │
-│        │  [  Ad Soyad          ]  │          │
-│        │  [  E-posta Adresi    ]  │          │
-│        │  [  Şifre             ]  │          │
-│        │  [  Şifre (tekrar)   ]  │          │
-│        │                          │          │
-│        │  [✓] Kullanım şartları  │          │
-│        │                          │          │
-│        │  [      Sign Up      ]   │          │
-│        │                          │
-│        │  ───── veya ─────        │
-│        │                          │
-│        │  [  GitHub ile kaydol ]  │
-│        │  [  Google ile kaydol ]  │
-│        │                          │
-│        │  Zaten hesabın var? Sign In│
-│        └──────────────────────────┘          │
-│                                              │
-└──────────────────────────────────────────────┘
+```text
+┌────────────────────────────────────────────────┐
+│                                                │
+│              📊 Biqly                          │
+│                                                │
+│        ┌──────────────────────────────┐        │
+│        │       Sign Up                │        │
+│        │                              │        │
+│        │  [  Ad Soyad          ]      │        │
+│        │  [  E-posta Adresi    ]      │        │
+│        │  [  Şifre             ]      │        │
+│        │  [  Şifre (tekrar)    ]      │        │
+│        │                              │        │
+│        │  [✓] Kullanım şartları       │        │
+│        │                              │        │
+│        │  [      Sign Up       ]      │        │
+│        │                              │        │
+│        │  ───── veya ─────            │        │
+│        │                              │        │
+│        │  [  GitHub ile kaydol ]      │        │
+│        │  [  Google ile kaydol ]      │        │
+│        │                              │        │
+│        │  Zaten hesabın var? Sign In  │        │
+│        └──────────────────────────────┘        │
+│                                                │
+└────────────────────────────────────────────────┘
 ```
 
 **UI/UX Detayları:**
+
 - Şifre güçlülük göstergesi (zayıf / orta / güçlü çubuk)
 - Gerçek zamanlı şifre eşleşme kontrolü
 - Şifre gereksinimleri: minimum 8 karakter, 1 büyük harf, 1 rakam, 1 özel karakter
@@ -766,7 +771,7 @@ type QueueStatusResponse struct {
 
 ### 9.4 Forgot Password Ekranı
 
-```
+```text
 ┌──────────────────────────────────────────────┐
 │                                              │
 │              📊 Biqly                        │
@@ -1015,7 +1020,7 @@ r.Route("/api", func(r chi.Router) {
 ### Auth Service Ortam Değişkenleri
 
 | Değişken | Varsayılan | Açıklama |
-|---|---|---|
+| --- | --- | --- |
 | `BI_AUTH_PORT` | 8889 | Auth service HTTP port |
 | `BI_AUTH_DB_DSN` | — | Auth PostgreSQL bağlantı |
 | `BI_AUTH_REDIS_DSN` | — | Redis bağlantı (session cache) |
@@ -1029,7 +1034,7 @@ r.Route("/api", func(r chi.Router) {
 | `BI_AUTH_GOOGLE_CLIENT_SECRET` | — | Google OAuth2 Client Secret |
 | `BI_AUTH_WEBAUTHN_RP_ID` | localhost | WebAuthn Relying Party ID |
 | `BI_AUTH_WEBAUTHN_RP_NAME` | Biqly | WebAuthn Relying Party adı |
-| `BI_AUTH_WEBAUTHN_RP_ORIGINS` | http://localhost:5173 | WebAuthn allowed origins |
+| `BI_AUTH_WEBAUTHN_RP_ORIGINS` | <http://localhost:5173> | WebAuthn allowed origins |
 | `BI_AUTH_SMTP_HOST` | — | E-posta SMTP host |
 | `BI_AUTH_SMTP_PORT` | 587 | E-posta SMTP port |
 | `BI_AUTH_SMTP_USER` | — | SMTP kullanıcı |
@@ -1045,6 +1050,7 @@ r.Route("/api", func(r chi.Router) {
 ## 13. Migration Planı
 
 ### Aşama 1: Auth Service Temel (v0.1)
+
 - [x] Auth service skeleton (`cmd/auth/main.go`)
 - [x] `bi_auth` veritabanı oluşturma ve migrasyonlar
 - [x] User CRUD (repository)
@@ -1054,18 +1060,21 @@ r.Route("/api", func(r chi.Router) {
 - [x] Temel RBAC tabloları ve seed data
 
 ### Aşama 2: OAuth2 Entegrasyonu (v0.2)
+
 - [x] GitHub OAuth2 flow (redirect + callback)
 - [x] Google OAuth2 flow (redirect + callback)
 - [x] OAuth account linking (var olan hesaba bağlama)
 - [x] Otomatik hesap oluşturma (ilk OAuth girişi)
 
 ### Aşama 3: Passkey / WebAuthn (v0.3)
+
 - [x] WebAuthn sunucu tarafı implementasyonu
 - [x] Registration begin/finish endpoint'leri
 - [x] Authentication begin/finish endpoint'leri
 - [x] Çoklu passkey yönetimi (kayıt listesi, silme)
 
 ### Aşama 4: Frontend Auth Sayfaları (v0.4)
+
 - [x] Sign In sayfası
 - [x] Sign Up sayfası
 - [x] Forgot/Reset Password sayfaları
@@ -1077,6 +1086,7 @@ r.Route("/api", func(r chi.Router) {
 - [x] Profil dropdown ve kullanıcı avatarı
 
 ### Aşama 5: RBAC ve Monolit Entegrasyonu (v0.5)
+
 - [x] JWTAuth middleware (monolit)
 - [x] RequirePermission middleware (monolit)
 - [x] RequireDatasourceAccess middleware (monolit)
@@ -1091,9 +1101,10 @@ r.Route("/api", func(r chi.Router) {
 - [x] AI kuyruk durum endpoint'i: GET /api/ai/jobs/queue/status (toplam + kendi pozisyonu)
 - [x] Admin paneli frontend: roller/izinler, datasource erişim matrisi, workspace yönetimi
 - [x] QueueStatusIndicator frontend bileşeni (3s polling)
-- [ ] Denetim günlüğü UI
+- [x] Denetim günlüğü UI
 
 ### Aşama 5.5: Datasource Erişim ve Workspace (v0.5.5)
+
 - [x] datasource_access tablosu ve CRUD
 - [x] Workspace modeli (kişisel + ekip)
 - [x] Workspace üye yönetimi
@@ -1107,6 +1118,7 @@ r.Route("/api", func(r chi.Router) {
 - [x] Kaynak paylaşım modeli ve endpoint'leri
 
 ### Aşama 6: Güvenlik ve Test (v0.6)
+
 - [ ] Rate limiting middleware
 - [ ] Brute-force koruması
 - [ ] CSRF koruması
@@ -1117,6 +1129,7 @@ r.Route("/api", func(r chi.Router) {
 - [ ] Load test (kBin auth endpoint'leri)
 
 ### Aşama 7: DevOps ve Dokümantasyon (v0.7)
+
 - [ ] Docker Compose auth service entegrasyonu
 - [x] Health check ve readiness probe
 - [ ] Prometheus metrikleri
@@ -1252,7 +1265,7 @@ r.Route("/api", func(r chi.Router) {
 - [ ] `src/components/admin/UserDetailPage.tsx` — Kullanıcı detayı ve rol atama
 - [x] `src/components/admin/RoleManagerPage.tsx` — Rol yönetimi
 - [x] `src/components/admin/PermissionMatrix.tsx` — İzin matrisi UI
-- [ ] `src/components/admin/AuditLogPage.tsx` — Denetim günlüğü
+- [x] `src/components/admin/AuditLogPanel.tsx` — Denetim günlüğü
 - [x] `src/components/admin/DatasourceAccessPage.tsx` — Datasource erişim yönetimi
 - [x] `src/components/admin/WorkspacePage.tsx` — Workspace yönetimi
 
@@ -1380,7 +1393,7 @@ r.Route("/api", func(r chi.Router) {
 
 Aşağıdaki prompt, Biqly Auth Service implementasyonu için AI asistanına verilecektir. `auth-service-implementation` skill'i yüklenerek detaylı uygulama talimatları alınır.
 
-```
+```text
 Biqly Auth Service implementasyonu yapıyorum. Go 1.26 + chi/v5 + pgx/v5 + Redis stack.
 
 Yüklenmesi gereken skill: auth-service-implementation
@@ -1534,7 +1547,7 @@ Before marking any auth task complete, verify:
 
 ## 16. Frontend Bileşen Diyagramı
 
-```
+```text
 App.tsx
 ├── AuthProvider (React Context)
 │   ├── token state (access in memory, refresh in HttpOnly cookie)
@@ -1595,7 +1608,7 @@ App.tsx
 
 ## 17. Dosya ve Dizin Özeti
 
-```
+```text
 biqly/
 ├── cmd/auth/main.go                         # Auth service entry
 ├── internal/auth/
@@ -1838,7 +1851,7 @@ NetworkPolicy, Prometheus observability. Auth service bu yapıya entegre edilece
 
 ### 19.1 Yeni Helm Sub-Chart: `auth`
 
-```
+```text
 deploy/helm/biqly/charts/auth/
 ├── Chart.yaml
 ├── templates/
@@ -2184,17 +2197,21 @@ route yapıyor. Auth service'in aşağıdaki ingress kuralları `abi.il1.nl` blo
 **Uygulama adımları:**
 
 1. ConfigMap'i güncelle:
+
    ```bash
    kubectl edit configmap cloudflared-config -n kube-system
    ```
+
    `abi.il1.nl` bloğuna yukarıdaki iki auth kuralını ekle (`^/api/ai` ile `^/health` arasına).
 
 2. Cloudflared pod'unu restart et (ConfigMap değişikliği otomatik pickup yapmaz):
+
    ```bash
    kubectl rollout restart deployment cloudflared -n kube-system
    ```
 
 3. Doğrulama:
+
    ```bash
    curl -sS https://abi.il1.nl/auth/signin | head -5
    curl -sS -X POST https://abi.il1.nl/api/auth/login -d '{}' -H 'Content-Type: application/json' | head -5
@@ -2230,7 +2247,6 @@ Dashboard'dan ek network-level koruma mümkündür.
           responseHeaderModifier:
             add:
               - X-Auth-Service: "biqly-auth"
-```
 
 ### 19.7 Secret — JWT Key Yönetimi
 
@@ -2505,7 +2521,7 @@ env:
 ## 21. Değişiklik Günlüğü
 
 | Tarih | Değişiklik |
-|---|---|
+| --- | --- |
 | 2026-05-25 | İlk oluşturma: auth service plan, OAuth2, Passkey, RBAC, frontend |
 | 2026-05-25 | BI-specific eklentiler: datasource erişim kontrolü, workspace modeli, AI sorgu izolasyonu, kaynak paylaşım, veri izolasyon politikası, 5 BI rolü, kuyruk görünürlük matrisi |
 | 2026-05-25 | Best practice eklemeleri: 2FA/MFA, token security, account security, audit/compliance, email, observability, password policy, frontend security, DR/HA, backward compat, migration |

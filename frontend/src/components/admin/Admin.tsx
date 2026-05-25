@@ -3,8 +3,9 @@ import { useAuth } from '../auth/AuthProvider'
 import { RolesPanel } from './RolesPanel'
 import { DatasourceAccessPanel } from './DatasourceAccessPanel'
 import { WorkspacesPanel } from './WorkspacesPanel'
+import { AuditLogPanel } from './AuditLogPanel'
 
-type AdminTab = 'roles' | 'datasource_access' | 'workspaces'
+type AdminTab = 'roles' | 'datasource_access' | 'workspaces' | 'audit_log'
 
 export default function Admin() {
   const { accessToken } = useAuth()
@@ -21,12 +22,14 @@ export default function Admin() {
         <TabButton active={tab === 'roles'} onClick={() => setTab('roles')}>Roller & İzinler</TabButton>
         <TabButton active={tab === 'datasource_access'} onClick={() => setTab('datasource_access')}>Datasource Erişimi</TabButton>
         <TabButton active={tab === 'workspaces'} onClick={() => setTab('workspaces')}>Workspace'ler</TabButton>
+        <TabButton active={tab === 'audit_log'} onClick={() => setTab('audit_log')}>Denetim Günlüğü</TabButton>
       </div>
 
       <div>
         {tab === 'roles' && <RolesPanel token={accessToken} />}
         {tab === 'datasource_access' && <DatasourceAccessPanel token={accessToken} />}
         {tab === 'workspaces' && <WorkspacesPanel token={accessToken} />}
+        {tab === 'audit_log' && <AuditLogPanel token={accessToken} />}
       </div>
     </div>
   )

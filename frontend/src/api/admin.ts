@@ -5,6 +5,7 @@ import type {
   Workspace,
   WorkspaceMember,
   AIQueueStatus,
+  AuditLogEntry,
 } from '../types/auth'
 
 const AUTH_API_BASE = '/api/auth'
@@ -62,6 +63,25 @@ export async function removeRole(token: string, userID: string, roleID: string):
     headers: authHeaders(token),
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
+}
+
+// === Audit log ===
+
+export interface AuditLogFilters {
+  userID?: string
+  action?: string
+  limit?: number
+}
+
+export async function listAuditLog(token: string, filters: AuditLogFilters = {}): Promise<AuditLogEntry[]> {
+  const params = new URLSearchParams()
+  if (filters.userID) params.set('user_id', filters.userID)
+  if (filters.action) params.set('action', filters.action)
+  if (filters.limit) params.set('limit', String(filters.limit))
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  const res = await fetch(`${AUTH_API_BASE}/admin/audit-log${suffix}`, { headers: authHeaders(token) })
+  const data = await handle<{ entries: AuditLogEntry[] }>(res)
+  return data.entries || []
 }
 
 // === Datasource access ===

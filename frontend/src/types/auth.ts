@@ -70,6 +70,17 @@ export interface DatasourceAccess {
   granted_at: string
 }
 
+export interface AuditLogEntry {
+  id: string
+  user_id?: string
+  action: string
+  resource?: string
+  resource_id?: string
+  metadata?: unknown
+  ip_address?: string
+  created_at: string
+}
+
 export interface AIQueueStatus {
   total_pending: number
   my_position?: number

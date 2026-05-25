@@ -22,11 +22,12 @@ var (
 )
 
 type UserRepository struct {
-	db *sql.DB
+	db  *sql.DB
+	enc *security.Encryption
 }
 
-func NewUserRepository(db *sql.DB) *UserRepository {
-	return &UserRepository{db: db}
+func NewUserRepository(db *sql.DB, enc *security.Encryption) *UserRepository {
+	return &UserRepository{db: db, enc: enc}
 }
 
 func (r *UserRepository) CreateUser(ctx context.Context, email, passwordHash, displayName string) (*User, error) {
@@ -222,12 +223,10 @@ func (r *UserRepository) encryptToken(token string) (string, error) {
 	if token == "" {
 		return "", nil
 	}
-	enc, err := security.NewEncryption()
-	if err != nil {
-		//nolint:nilerr
+	if r.enc == nil {
 		return token, nil
 	}
-	return enc.Encrypt(token)
+	return r.enc.Encrypt(token)
 }
 
 func (r *UserRepository) GetOAuthAccount(ctx context.Context, provider, providerUID string) (string, error) {

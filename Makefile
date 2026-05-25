@@ -5,6 +5,16 @@ GO_FILES=$(shell find . -name '*.go' -not -path './vendor/*')
 HELM_CHART=deploy/helm/biqly
 HELM_TEST_METADATA_DSN?=postgres://biqly:biqly@postgres:5432/bi_metadata?sslmode=disable
 HELM_TEST_ENCRYPTION_KEY?=0123456789abcdef0123456789abcdef
+# base64(32-byte test key) — satisfies auth chart required() and AES-256 decode
+HELM_TEST_AUTH_ENCRYPTION_KEY?=MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=
+HELM_TEST_AUTH_INTERNAL_TOKEN?=helm-test-internal-token
+HELM_TEST_AUTH_JWT_PRIVATE_KEY?=helm-test-jwt-private-key
+HELM_TEST_AUTH_DB_DSN?=postgres://biqly:biqly@postgres:5432/bi_auth?sslmode=disable
+HELM_AUTH_SECRET_SET=\
+	--set global.secrets.BI_AUTH_ENCRYPTION_KEY='$(HELM_TEST_AUTH_ENCRYPTION_KEY)' \
+	--set global.secrets.BI_AUTH_INTERNAL_TOKEN='$(HELM_TEST_AUTH_INTERNAL_TOKEN)' \
+	--set global.secrets.BI_AUTH_JWT_PRIVATE_KEY='$(HELM_TEST_AUTH_JWT_PRIVATE_KEY)' \
+	--set global.secrets.BI_AUTH_DB_DSN='$(HELM_TEST_AUTH_DB_DSN)'
 
 build:
 	@go build -o bin/$(BINARY_NAME) ./cmd/api/
@@ -46,12 +56,14 @@ helm-deps:
 helm-lint: helm-deps
 	@helm lint $(HELM_CHART) \
 		--set global.secrets.BI_METADATA_DB_DSN='$(HELM_TEST_METADATA_DSN)' \
-		--set global.secrets.BI_ENCRYPTION_KEY='$(HELM_TEST_ENCRYPTION_KEY)'
+		--set global.secrets.BI_ENCRYPTION_KEY='$(HELM_TEST_ENCRYPTION_KEY)' \
+		$(HELM_AUTH_SECRET_SET)
 
 helm-template: helm-deps
 	@helm template biqly $(HELM_CHART) \
 		--set global.secrets.BI_METADATA_DB_DSN='$(HELM_TEST_METADATA_DSN)' \
-		--set global.secrets.BI_ENCRYPTION_KEY='$(HELM_TEST_ENCRYPTION_KEY)' >/tmp/biqly-helm-template.yaml
+		--set global.secrets.BI_ENCRYPTION_KEY='$(HELM_TEST_ENCRYPTION_KEY)' \
+		$(HELM_AUTH_SECRET_SET) >/tmp/biqly-helm-template.yaml
 
 clean:
 	@rm -rf bin/ coverage.out

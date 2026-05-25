@@ -18,22 +18,18 @@ type Encryption struct {
 	aead  cipher.AEAD
 }
 
-// NewEncryption creates an Encryption instance using BI_ENCRYPTION_KEY env var.
-// The key must be a 32-byte (256-bit) base64-encoded string.
-func NewEncryption() (*Encryption, error) {
-	keyB64 := os.Getenv("BI_ENCRYPTION_KEY")
-	if keyB64 == "" {
-		return nil, errors.New("BI_ENCRYPTION_KEY environment variable is not set")
-	}
-
+func decodeEncryptionKeyB64(keyB64 string) ([]byte, error) {
 	key, err := base64.StdEncoding.DecodeString(keyB64)
 	if err != nil {
-		return nil, fmt.Errorf("invalid BI_ENCRYPTION_KEY: must be base64 encoded: %w", err)
+		return nil, fmt.Errorf("must be base64 encoded: %w", err)
 	}
 	if len(key) != 32 {
-		return nil, fmt.Errorf("invalid BI_ENCRYPTION_KEY: decoded key must be 32 bytes, got %d", len(key))
+		return nil, fmt.Errorf("decoded key must be 32 bytes, got %d", len(key))
 	}
+	return key, nil
+}
 
+func newEncryptionFromKeyBytes(key []byte) (*Encryption, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cipher: %w", err)
@@ -42,8 +38,29 @@ func NewEncryption() (*Encryption, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GCM: %w", err)
 	}
-
 	return &Encryption{key: key, block: block, aead: aead}, nil
+}
+
+// NewEncryption creates an Encryption instance using BI_ENCRYPTION_KEY env var.
+// The key must be a 32-byte (256-bit) base64-encoded string.
+func NewEncryption() (*Encryption, error) {
+	keyB64 := os.Getenv("BI_ENCRYPTION_KEY")
+	if keyB64 == "" {
+		return nil, errors.New("BI_ENCRYPTION_KEY environment variable is not set")
+	}
+	return NewEncryptionFromBase64(keyB64)
+}
+
+// NewEncryptionFromBase64 creates an Encryption instance from a base64-encoded 32-byte key.
+func NewEncryptionFromBase64(keyB64 string) (*Encryption, error) {
+	if keyB64 == "" {
+		return nil, errors.New("encryption key is empty")
+	}
+	key, err := decodeEncryptionKeyB64(keyB64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid encryption key: %w", err)
+	}
+	return newEncryptionFromKeyBytes(key)
 }
 
 // NewEncryptionWithKey creates an Encryption instance with the provided key bytes.
@@ -52,15 +69,7 @@ func NewEncryptionWithKey(key []byte) (*Encryption, error) {
 	if len(key) != 32 {
 		return nil, fmt.Errorf("invalid key: must be 32 bytes, got %d", len(key))
 	}
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create cipher: %w", err)
-	}
-	aead, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create GCM: %w", err)
-	}
-	return &Encryption{key: key, block: block, aead: aead}, nil
+	return newEncryptionFromKeyBytes(key)
 }
 
 // Encrypt encrypts plaintext and returns base64-encoded ciphertext.

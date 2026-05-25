@@ -28,6 +28,16 @@ redis_dsn="${redis_dsn//localhost/biqly-dragonfly}"
 redis_dsn="${redis_dsn//127.0.0.1/biqly-dragonfly}"
 
 internal_token="${BI_INTERNAL_API_TOKEN:-${BI_ADMIN_API_KEY:-}}"
+auth_internal_token="${BI_AUTH_INTERNAL_TOKEN:-$internal_token}"
+auth_encryption_key="${BI_AUTH_ENCRYPTION_KEY:-${BI_ENCRYPTION_KEY:-}}"
+auth_pg_user="${BI_AUTH_PG_USER:-${BI_PG_USER:-biqly}}"
+auth_pg_db="${BI_AUTH_PG_DB:-bi_auth}"
+auth_dsn="${BI_AUTH_DB_DSN:-postgres://${auth_pg_user}:${pg_pass}@biqly-postgresql:5432/${auth_pg_db}?sslmode=disable}"
+
+if [[ -z "$auth_encryption_key" ]]; then
+  echo "set BI_AUTH_ENCRYPTION_KEY or BI_ENCRYPTION_KEY in $ENV_FILE (see scripts/generate-auth-secrets.sh)" >&2
+  exit 1
+fi
 
 kubectl -n "$NS" create secret generic biqly-db \
   --from-literal="BI_METADATA_DB_DSN=$dsn" \
@@ -47,6 +57,30 @@ kubectl -n "$NS" create secret generic biqly-ai-secrets \
 
 kubectl -n "$NS" create secret generic biqly-embedding-secrets \
   --from-literal="BI_AI_EMBEDDING_API_KEY=${BI_AI_EMBEDDING_API_KEY:-}" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+auth_secret_args=(
+  --from-literal="BI_AUTH_ENCRYPTION_KEY=$auth_encryption_key"
+  --from-literal="BI_AUTH_INTERNAL_TOKEN=$auth_internal_token"
+)
+if [[ -n "${BI_AUTH_JWT_PRIVATE_KEY_PATH:-}" && -f "$BI_AUTH_JWT_PRIVATE_KEY_PATH" ]]; then
+  auth_secret_args+=(--from-file="BI_AUTH_JWT_PRIVATE_KEY=$BI_AUTH_JWT_PRIVATE_KEY_PATH")
+elif [[ -n "${BI_AUTH_JWT_PRIVATE_KEY:-}" ]]; then
+  auth_secret_args+=(--from-literal="BI_AUTH_JWT_PRIVATE_KEY=$BI_AUTH_JWT_PRIVATE_KEY")
+else
+  echo "set BI_AUTH_JWT_PRIVATE_KEY (PEM) or BI_AUTH_JWT_PRIVATE_KEY_PATH in $ENV_FILE" >&2
+  exit 1
+fi
+[[ -n "${BI_AUTH_GITHUB_CLIENT_SECRET:-}" ]] && auth_secret_args+=(--from-literal="BI_AUTH_GITHUB_CLIENT_SECRET=$BI_AUTH_GITHUB_CLIENT_SECRET")
+[[ -n "${BI_AUTH_GOOGLE_CLIENT_SECRET:-}" ]] && auth_secret_args+=(--from-literal="BI_AUTH_GOOGLE_CLIENT_SECRET=$BI_AUTH_GOOGLE_CLIENT_SECRET")
+[[ -n "${BI_AUTH_SMTP_PASS:-}" ]] && auth_secret_args+=(--from-literal="BI_AUTH_SMTP_PASS=$BI_AUTH_SMTP_PASS")
+
+kubectl -n "$NS" create secret generic biqly-auth-secrets \
+  "${auth_secret_args[@]}" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl -n "$NS" create secret generic biqly-auth-db \
+  --from-literal="BI_AUTH_DB_DSN=$auth_dsn" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl -n "$NS" create configmap biqly-config \
@@ -122,6 +156,10 @@ kubectl -n "$NS" create configmap biqly-query-config \
   --from-literal="BI_REDIS_DSN=$redis_dsn" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-kubectl -n "$NS" rollout restart deployment/biqly-ai deployment/biqly-catalog deployment/biqly-query
+rollout_targets=(deployment/biqly-ai deployment/biqly-catalog deployment/biqly-query)
+if kubectl -n "$NS" get deployment biqly-auth >/dev/null 2>&1; then
+  rollout_targets+=(deployment/biqly-auth)
+fi
+kubectl -n "$NS" rollout restart "${rollout_targets[@]}"
 
 echo "synced $ENV_FILE -> namespace/$NS (secrets + configmaps, workloads restarted)"
