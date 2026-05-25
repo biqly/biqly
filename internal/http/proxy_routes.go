@@ -1,6 +1,10 @@
 package http
 
-import "github.com/go-chi/chi/v5"
+import (
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+)
 
 // upstreamProxySpec describes a reverse proxy mount: which upstream URL it
 // forwards to, the env var that supplied it (for misconfiguration logging),
@@ -41,13 +45,6 @@ var queryProxyPaths = []string{
 	"/query/*",
 }
 
-// aiProxyPaths are the routes proxied to the AI service when
-// BI_AI_SERVICE_URL is set.
-var aiProxyPaths = []string{
-	"/ai",
-	"/ai/*",
-}
-
 func registerCatalogProxyRoutes(r chi.Router, catalogURL string) {
 	registerUpstreamProxy(r, upstreamProxySpec{
 		targetURL:    catalogURL,
@@ -66,12 +63,33 @@ func registerQueryProxyRoutes(r chi.Router, queryURL string) {
 	})
 }
 
-func registerAIProxyRoutes(r chi.Router, aiURL string) {
-	registerUpstreamProxy(r, upstreamProxySpec{
-		targetURL:    aiURL,
-		envVarName:   "BI_AI_SERVICE_URL",
-		serviceLabel: "AI service",
-		paths:        aiProxyPaths,
-	})
+// aiProxyDatasourceGuardedPaths are AI routes that accept a datasource_id and
+// must be gated by RequireDatasourceAccess before being forwarded to the AI
+// service. Other AI routes (history, examples, glossary, settings…) are
+// proxied without the per-datasource check.
+var aiProxyDatasourceGuardedPaths = []string{
+	"/ai/query",
+	"/ai/query/preview",
+	"/ai/query/run",
+	"/ai/metadata/describe",
+	"/ai/metadata/embed",
+	"/ai/jobs",
+}
+
+// registerAIProxyRoutesWithDatasourceGuard mounts the AI reverse proxy but
+// wraps the datasource-consuming POST endpoints with dsAccess first. Remaining
+// /ai/* paths fall through to the wildcard proxy without the extra check.
+func registerAIProxyRoutesWithDatasourceGuard(r chi.Router, aiURL string, dsAccess func(http.Handler) http.Handler) {
+	proxy, ok := newUpstreamProxy(aiURL, "BI_AI_SERVICE_URL", "AI service")
+	if !ok {
+		return
+	}
+	for _, p := range aiProxyDatasourceGuardedPaths {
+		r.With(dsAccess).Method(http.MethodPost, p, proxy)
+	}
+	// Catch-all for the remaining /ai routes (history, examples, glossary,
+	// settings, GET on /ai/jobs/*, etc.).
+	r.Handle("/ai", proxy)
+	r.Handle("/ai/*", proxy)
 }
 

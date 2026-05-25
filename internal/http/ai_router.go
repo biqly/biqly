@@ -44,7 +44,10 @@ func AIRouter(deps *app.Dependencies) http.Handler {
 	r.Get("/metrics", MetricsHandler)
 
 	r.Route("/api", func(r chi.Router) {
-		registerAIAPIRoutes(r, deps)
+		// AI microservice trusts the network: JWT verification, permission, and
+		// datasource access checks all happen at the monolith proxy. Pass a nil
+		// AuthClient so the per-route middlewares degrade to pass-through.
+		registerAIAPIRoutes(r, deps, nil)
 	})
 
 	r.Route("/internal", func(r chi.Router) {
@@ -62,11 +65,17 @@ func aiServiceRequestTimeout(deps *app.Dependencies) time.Duration {
 	return deps.Config.AI.AIRequestTimeout()
 }
 
-func registerAIAPIRoutes(r chi.Router, deps *app.Dependencies) {
+// registerAIAPIRoutes mounts the AI API routes. When authClient is non-nil,
+// datasource-consuming routes (query/preview/run, describe, embed, job submit)
+// are wrapped with RequireDatasourceAccess("read") so users cannot target
+// datasources they have not been granted. Pass nil from the AI microservice,
+// which is fronted by the monolith proxy that enforces the same checks.
+func registerAIAPIRoutes(r chi.Router, deps *app.Dependencies, authClient *bimw.AuthClient) {
 	aiHandler := handlers.NewAIHandler(deps)
 	aiHandler.SetAIMetricsRecorder(GetMetrics())
+	dsAccess := bimw.RequireDatasourceAccess(authClient, "read")
 	if deps.Jobs.Enabled && deps.AIJobsHTTP != nil {
-		r.Post("/ai/jobs", deps.AIJobsHTTP.Create)
+		r.With(dsAccess).Post("/ai/jobs", deps.AIJobsHTTP.Create)
 		r.Get("/ai/jobs/describe-batch/conflict", deps.AIJobsHTTP.DescribeBatchConflict)
 		r.Get("/ai/jobs", deps.AIJobsHTTP.List)
 		r.Get("/ai/jobs/queue/status", deps.AIJobsHTTP.QueueStatus)
@@ -78,11 +87,11 @@ func registerAIAPIRoutes(r chi.Router, deps *app.Dependencies) {
 	}
 	r.Get("/ai/history", aiHandler.AIHistory)
 	r.Get("/ai/history/detail", aiHandler.AIHistoryDetail)
-	r.Post("/ai/query", aiHandler.Query)
-	r.Post("/ai/query/preview", aiHandler.Preview)
-	r.Post("/ai/query/run", aiHandler.Run)
-	r.Post("/ai/metadata/describe", aiHandler.Describe)
-	r.Post("/ai/metadata/embed", aiHandler.EmbedMetadata)
+	r.With(dsAccess).Post("/ai/query", aiHandler.Query)
+	r.With(dsAccess).Post("/ai/query/preview", aiHandler.Preview)
+	r.With(dsAccess).Post("/ai/query/run", aiHandler.Run)
+	r.With(dsAccess).Post("/ai/metadata/describe", aiHandler.Describe)
+	r.With(dsAccess).Post("/ai/metadata/embed", aiHandler.EmbedMetadata)
 	r.Get("/ai/settings", aiHandler.RuntimeSettings)
 	r.Group(func(r chi.Router) {
 		r.Use(handlers.AdminKeyMiddleware(deps.Config.Security.AdminAPIKey))

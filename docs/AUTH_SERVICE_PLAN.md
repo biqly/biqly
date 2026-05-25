@@ -1224,7 +1224,7 @@ r.Route("/api", func(r chi.Router) {
 - [x] `ai:queue:view_details` izni ile başkasının sorgu detayını görme
 - [x] query_history tablosuna `user_id` kolonu ekleme
 - [x] ai_query_history tablosuna `user_id` kolonu ekleme
-- [ ] Datasource erişimine dayalı AI sorgu kısıtlama (sadece erişilen DS'larda sorgu)
+- [x] Datasource erişimine dayalı AI sorgu kısıtlama (sadece erişilen DS'larda sorgu) — `RequireDatasourceAccess` middleware AI proxy + in-process query/preview/run/describe/embed/jobs rotalarına uygulandı, JSON body'den `datasource_id` okuma desteği
 
 ### Backend — Monolit Entegrasyonu
 
@@ -1237,7 +1237,7 @@ r.Route("/api", func(r chi.Router) {
 - [x] AI history handler güncelleme: user_id filtreleme + alan maskeleme
 - [x] User context propagation (user_id → audit log, query_history, ai_history)
 - [ ] Auth service health check dependency (/ready endpoint'ine ekleme)
-- [ ] Datasource list endpoint: sadece kullanıcının erişebildiği datasource'ları döndür
+- [x] Datasource list endpoint: sadece kullanıcının erişebildiği datasource'ları döndür (`handlers/datasources.go:287-310`, super_admin bypass)
 
 ### Frontend — Auth Sayfaları
 

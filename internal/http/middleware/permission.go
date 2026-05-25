@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -12,6 +13,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 )
+
+// maxDatasourceProbeBodyBytes caps how much of a JSON body the middleware will
+// buffer to extract `datasource_id`. AI/query payloads stay well under this; we
+// just need enough to read the first top-level field reliably.
+const maxDatasourceProbeBodyBytes = 1 << 20 // 1 MiB
 
 const RoleSuperAdmin = "super_admin"
 
@@ -213,8 +219,9 @@ func RequirePermission(client *AuthClient, permission string) func(http.Handler)
 func passThrough(next http.Handler) http.Handler { return next }
 
 // RequireDatasourceAccess checks if the user has the given access level on the
-// datasource identified by URL param `datasourceID` (or `id`) or "datasource_id"
-// in JSON body. super_admin bypasses. Returns a pass-through when client is nil.
+// datasource identified by URL param `datasourceID` (or `id`), `datasource_id`
+// query string, or a top-level `datasource_id` field in the JSON request body.
+// super_admin bypasses. Returns a pass-through when client is nil.
 func RequireDatasourceAccess(client *AuthClient, requiredLevel string) func(http.Handler) http.Handler {
 	if client == nil {
 		return passThrough
@@ -260,5 +267,40 @@ func extractDatasourceID(r *http.Request) string {
 	if id := chi.URLParam(r, "id"); id != "" {
 		return id
 	}
-	return r.URL.Query().Get("datasource_id")
+	if id := r.URL.Query().Get("datasource_id"); id != "" {
+		return id
+	}
+	return extractDatasourceIDFromBody(r)
+}
+
+// extractDatasourceIDFromBody peeks at a JSON request body for a top-level
+// `datasource_id` field and restores the body so the downstream handler can
+// still decode it. Returns empty string for non-JSON, non-write methods, or
+// when the field is absent.
+func extractDatasourceIDFromBody(r *http.Request) string {
+	if r.Body == nil {
+		return ""
+	}
+	switch r.Method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch:
+	default:
+		return ""
+	}
+	if ct := r.Header.Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+		return ""
+	}
+	buf, err := io.ReadAll(io.LimitReader(r.Body, maxDatasourceProbeBodyBytes))
+	if err != nil {
+		return ""
+	}
+	// Always restore the body — even when we found nothing — so the handler
+	// can still decode it.
+	r.Body = io.NopCloser(bytes.NewReader(buf))
+	var probe struct {
+		DatasourceID string `json:"datasource_id"`
+	}
+	if err := json.Unmarshal(buf, &probe); err != nil {
+		return ""
+	}
+	return probe.DatasourceID
 }

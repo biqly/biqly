@@ -106,14 +106,20 @@ func Router(deps *app.Dependencies) http.Handler {
 		// AI NL→SQL and catalog embedding can be slow with local models — they
 		// need their own timeout budget. Routes are mounted in a separate
 		// chi.Group so the short timeout above does not apply to them.
+		//
+		// Authorization is enforced here at the monolith edge in BOTH proxy and
+		// in-process modes: ai:query permission, plus a datasource-access check
+		// on the routes that carry a datasource_id (query/preview/run, metadata
+		// describe/embed, job submit). The downstream AI service trusts the
+		// network and does no JWT verification of its own.
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Timeout(deps.Config.AI.AIRequestTimeout()))
+			r.Use(bimw.RequirePermission(authClient, "ai:query"))
+			dsAccess := bimw.RequireDatasourceAccess(authClient, "read")
 			if deps.Config.Services.AIURL != "" {
-				registerAIProxyRoutes(r, deps.Config.Services.AIURL)
+				registerAIProxyRoutesWithDatasourceGuard(r, deps.Config.Services.AIURL, dsAccess)
 			} else {
-				r.With(bimw.RequirePermission(authClient, "ai:query")).Group(func(r chi.Router) {
-					registerAIAPIRoutes(r, deps)
-				})
+				registerAIAPIRoutes(r, deps, authClient)
 			}
 		})
 	})
