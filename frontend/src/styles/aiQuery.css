@@ -67,6 +67,7 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
+  flex-shrink: 0;
   text-align: left;
   background: var(--bg-card-raised);
   border: 1px solid var(--border);
