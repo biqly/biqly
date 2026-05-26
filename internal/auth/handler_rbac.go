@@ -1,10 +1,12 @@
 package auth
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -437,6 +439,12 @@ func (h *RBACHandler) handleAdminListPermissions(w http.ResponseWriter, r *http.
 
 func (h *RBACHandler) handleAdminAssignRole(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "id")
+	caller, _ := r.Context().Value(userIDKey).(string)
+	if err := h.rbacRepo.EnforceSelfModificationGuard(r.Context(), caller, userID, "role.assign"); err != nil {
+		h.auditSoD(r, caller, "role.assign")
+		writeError(w, http.StatusForbidden, err)
+		return
+	}
 	var req struct {
 		RoleID    string  `json:"role_id"`
 		ScopeType *string `json:"scope_type,omitempty"`
@@ -450,28 +458,105 @@ func (h *RBACHandler) handleAdminAssignRole(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
+	if h.audit != nil {
+		resType := "user_role"
+		_ = h.audit.Log(r.Context(), &caller, AuditRoleAssigned, &resType, &userID,
+			map[string]any{"role_id": req.RoleID}, nil)
+	}
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (h *RBACHandler) handleAdminListAuditLog(w http.ResponseWriter, r *http.Request) {
-	limit := 100
-	if v := r.URL.Query().Get("limit"); v != "" {
-		// Best-effort parsing; defaults to 100 on error.
-		if n, err := parsePositiveInt(v); err == nil {
-			limit = n
-		}
+func (h *RBACHandler) auditSoD(r *http.Request, caller, action string) {
+	if h.audit == nil {
+		return
 	}
-	filter := AuditFilter{
-		UserID: r.URL.Query().Get("user_id"),
-		Action: r.URL.Query().Get("action"),
-		Limit:  limit,
+	resType := "user"
+	_ = h.audit.Log(r.Context(), &caller, AuditAdminBlockSod, &resType, &caller,
+		map[string]any{"blocked_action": action}, nil)
+}
+
+func (h *RBACHandler) handleAdminListAuditLog(w http.ResponseWriter, r *http.Request) {
+	filter, err := auditFilterFromQuery(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
 	}
 	entries, err := h.audit.List(r.Context(), filter)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"entries": entries})
+
+	caller, _ := r.Context().Value(userIDKey).(string)
+	exportAction := AuditAuditExport
+	resType := "audit_log"
+	_ = h.audit.Log(r.Context(), &caller, exportAction, &resType, nil,
+		map[string]any{"format": "json", "count": len(entries)}, nil)
+
+	switch r.URL.Query().Get("format") {
+	case "csv":
+		writeAuditCSV(w, entries)
+	default:
+		writeJSON(w, http.StatusOK, map[string]any{"entries": entries})
+	}
+}
+
+func auditFilterFromQuery(r *http.Request) (AuditFilter, error) {
+	q := r.URL.Query()
+	limit := 100
+	if v := q.Get("limit"); v != "" {
+		if n, err := parsePositiveInt(v); err == nil {
+			limit = n
+		}
+	}
+	filter := AuditFilter{
+		UserID: q.Get("user_id"),
+		Action: q.Get("action"),
+		Limit:  limit,
+	}
+	if v := q.Get("from"); v != "" {
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			return filter, errors.New("from must be RFC3339")
+		}
+		filter.From = &t
+	}
+	if v := q.Get("to"); v != "" {
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			return filter, errors.New("to must be RFC3339")
+		}
+		filter.To = &t
+	}
+	return filter, nil
+}
+
+func writeAuditCSV(w http.ResponseWriter, entries []AuditEntry) {
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", "attachment; filename=audit_log.csv")
+	cw := csv.NewWriter(w)
+	defer cw.Flush()
+	_ = cw.Write([]string{"id", "created_at", "user_id", "action", "resource", "resource_id", "ip_address", "metadata"})
+	for _, e := range entries {
+		row := []string{
+			e.ID,
+			e.CreatedAt.UTC().Format(time.RFC3339Nano),
+			strOrEmpty(e.UserID),
+			e.Action,
+			strOrEmpty(e.Resource),
+			strOrEmpty(e.ResourceID),
+			strOrEmpty(e.IPAddress),
+			string(e.Metadata),
+		}
+		_ = cw.Write(row)
+	}
+}
+
+func strOrEmpty(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
 }
 
 func parsePositiveInt(s string) (int, error) {
@@ -489,9 +574,22 @@ func parsePositiveInt(s string) (int, error) {
 }
 
 func (h *RBACHandler) handleAdminRemoveRole(w http.ResponseWriter, r *http.Request) {
-	if err := h.rbacRepo.RemoveRole(r.Context(), chi.URLParam(r, "id"), chi.URLParam(r, "roleId")); err != nil {
+	userID := chi.URLParam(r, "id")
+	roleID := chi.URLParam(r, "roleId")
+	caller, _ := r.Context().Value(userIDKey).(string)
+	if err := h.rbacRepo.EnforceSelfModificationGuard(r.Context(), caller, userID, "role.remove"); err != nil {
+		h.auditSoD(r, caller, "role.remove")
+		writeError(w, http.StatusForbidden, err)
+		return
+	}
+	if err := h.rbacRepo.RemoveRole(r.Context(), userID, roleID); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
+	}
+	if h.audit != nil {
+		resType := "user_role"
+		_ = h.audit.Log(r.Context(), &caller, AuditRoleRemoved, &resType, &userID,
+			map[string]any{"role_id": roleID}, nil)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -679,12 +777,20 @@ func (h *RBACHandler) handleAdminGetUserRoles(w http.ResponseWriter, r *http.Req
 
 func (h *RBACHandler) handleAdminUpdateUser(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	caller, _ := r.Context().Value(userIDKey).(string)
 	var req struct {
 		IsActive bool `json:"is_active"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
+	}
+	if !req.IsActive {
+		if err := h.rbacRepo.EnforceSelfModificationGuard(r.Context(), caller, id, "user.deactivate"); err != nil {
+			h.auditSoD(r, caller, "user.deactivate")
+			writeError(w, http.StatusForbidden, err)
+			return
+		}
 	}
 	if err := h.userRepo.UpdateUserActiveStatus(r.Context(), id, req.IsActive); err != nil {
 		writeError(w, http.StatusInternalServerError, err)

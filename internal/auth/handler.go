@@ -31,7 +31,12 @@ type AuthHandler struct {
 	config   *Config
 	limiter  *RateLimiter
 	mfa      *MFAService
+	gdpr     *GDPRExporter
+	audit    *AuditService
 }
+
+func (h *AuthHandler) SetGDPRExporter(g *GDPRExporter) { h.gdpr = g }
+func (h *AuthHandler) SetAuditService(a *AuditService) { h.audit = a }
 
 func NewAuthHandler(service *AuthService, webAuthn *WebAuthnService, jwtMgr *JWTManager, config *Config, limiter *RateLimiter) *AuthHandler {
 	return &AuthHandler{
@@ -79,6 +84,7 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
 		r.Use(h.authMiddleware)
 		r.Get("/me", h.handleMe)
+		r.Get("/me/export", h.handleMeExport)
 		r.Post("/me/active-workspace", h.handleSetActiveWorkspace)
 		r.Post("/passkey/register-begin", h.handlePasskeyRegisterBegin)
 		r.Post("/passkey/register-finish", h.handlePasskeyRegisterFinish)

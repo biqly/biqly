@@ -1762,14 +1762,14 @@ atılabilecek güvenlik, operasyonel ve uyumluluk gereksinimleridir.
 
 ### 18.5 Audit & Compliance
 
-- [ ] **Structured audit log**: Her auth olayı JSON formatında (who, what, when, where, result)
-- [ ] **PII masking in logs**: E-posta, IP kısmen maskeli (`b***@gmail.com`, `192.168.***.***`)
-- [ ] **Audit log immutability**: Append-only, silme/değiştirme yok (DB trigger veya uygulama seviyesinde)
-- [ ] **Audit log retention**: 1 yıl varsayılan, konfigüre edilebilir
-- [ ] **Export**: Admin audit log CSV/JSON export
-- [ ] **GDPR compliance**: Kullanıcı veri dışa aktarma endpoint'i (`GET /auth/me/export`)
+- [x] **Structured audit log**: typed event constants (`audit_events.go`), slog JSON emit paralel olarak `AuditService.Log` içinde (`audit.go:emitStructured`)
+- [x] **PII masking in logs**: `MaskEmail`/`MaskIP`/`MaskToken` (`audit_mask.go`), slog meta auto-mask via `maskAuditMetadata`
+- [x] **Audit log immutability**: migration `021a_audit_log_append_only` trigger UPDATE/DELETE bloklar, retention için `audit_log_created_at_idx`
+- [ ] **Audit log retention**: 1 yıl varsayılan, konfigüre edilebilir (retention job için altyapı hazır, scheduler gerekiyor)
+- [x] **Export**: `GET /auth/admin/audit-log?format=csv` admin CSV export, date range (`from`/`to`) + action/user_id filtreleri (`handler_rbac.go:writeAuditCSV`)
+- [x] **GDPR compliance**: `GET /auth/me/export` JSON dump (user, workspaces, passkeys (no key material), oauth (no secrets), sessions (token hint), datasource_access, shares, audit) — `gdpr_export.go`, `handler_export.go`
 - [ ] **SOC 2 hazır**: Audit trail, access log, encryption at rest/transit, incident response runbook
-- [ ] **Separation of duties**: super_admin kendi rolünü değiştiremez, audit log'u silemez
+- [x] **Separation of duties**: `RBACRepository.EnforceSelfModificationGuard` super_admin'in kendi rolünü değiştirmesini/kendini deaktif etmesini bloklar (`sod.go`); audit_log UPDATE/DELETE DB trigger ile yasak. Engellenen attempt'ler `AuditAdminBlockSod` olarak loglanır
 
 ### 18.6 Email & Communication
 
@@ -2529,3 +2529,4 @@ env:
 | 2026-05-25 | Cloudflared Zero Trust tunnel: `abi.il1.nl` → auth service route'ları (`^/api/auth`, `^/auth`), ConfigMap güncelleme, cloudflared NetworkPolicy ingress, Zero Trust Access Policy (opsiyonel) |
 | 2026-05-26 | Aşama 6 testleri: middleware (`jwt`, `permission`, `datasource_access`) + AI history filter + timing parity + account enumeration invariant; login handler `ErrInactiveUser` artık jenerik mesaj döner, `ErrAccountLocked` 429 ile ayrılır |
 | 2026-05-26 | Workspace bazlı filtreleme: `/internal/auth/workspaces/{id}/datasources` endpoint, `AuthClient.ListWorkspaceDatasources` (5dk TTL cache + invalidate), `bimw.WorkspaceDatasourceFilter` helper; datasources/semantic models/query history/AI history list+detail endpoint'leri aktif workspace'in datasource'larına intersect ile filtreleniyor (super_admin bypass + auth disabled fallback) |
+| 2026-05-26 | 18.5 Audit & Compliance: typed event taxonomy (`audit_events.go`) + slog JSON emit; `MaskEmail/MaskIP/MaskToken` + auto-masked metadata; migration 021 audit_log append-only trigger (UPDATE/DELETE blocked); admin CSV/JSON export with date range; `GET /auth/me/export` GDPR data dump; `EnforceSelfModificationGuard` super_admin self-mutation blocked; new tests: `audit_mask_test`, `audit_integration_test` (DB-gated) |
