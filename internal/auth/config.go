@@ -44,6 +44,10 @@ type Config struct {
 	PasswordPolicy     PasswordPolicy
 	HSTSPreload        bool
 	HSTSMaxAgeSeconds  int
+	EmailDefaultLocale string
+	EmailDailyLimit    int
+	EmailQueueSize     int
+	EmailRetries       int
 }
 
 func LoadConfig() (*Config, error) {
@@ -84,6 +88,10 @@ func LoadConfig() (*Config, error) {
 		PasswordPolicy:     passwordPolicyFromEnv(),
 		HSTSPreload:        boolEnv("BI_AUTH_HSTS_PRELOAD", false),
 		HSTSMaxAgeSeconds:  nonNegativeIntEnv("BI_AUTH_HSTS_MAX_AGE_SECONDS", 63072000),
+		EmailDefaultLocale: stringEnv("BI_AUTH_EMAIL_DEFAULT_LOCALE", "en"),
+		EmailDailyLimit:    nonNegativeIntEnv("BI_AUTH_EMAIL_DAILY_LIMIT", 10),
+		EmailQueueSize:     positiveIntEnv("BI_AUTH_EMAIL_QUEUE_SIZE", 256),
+		EmailRetries:       nonNegativeIntEnv("BI_AUTH_EMAIL_RETRIES", 3),
 	}
 
 	if cfg.InternalToken == "" {

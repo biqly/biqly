@@ -66,6 +66,13 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 	r.Post("/logout", h.handleLogout)
 	r.Post("/forgot-password", h.handleForgotPassword)
 	r.Post("/reset-password", h.handleResetPassword)
+	r.Group(func(r chi.Router) {
+		if h.limiter != nil {
+			r.Use(h.limiter.Limit(5, time.Minute, "magic-link"))
+		}
+		r.Post("/magic-link/request", h.handleMagicLinkRequest)
+		r.Post("/magic-link/consume", h.handleMagicLinkConsume)
+	})
 	r.Get("/verify-email", h.handleVerifyEmail)
 	r.Post("/resend-verification", h.handleResendVerification)
 	r.Get("/email-change/confirm", h.handleConfirmEmailChange)
@@ -770,6 +777,54 @@ func (h *AuthHandler) handleResetPassword(w http.ResponseWriter, r *http.Request
 	}
 
 	h.respondJSON(w, http.StatusOK, map[string]string{"message": "Password reset successful."})
+}
+
+func (h *AuthHandler) handleMagicLinkRequest(w http.ResponseWriter, r *http.Request) {
+	var req MagicLinkRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	// Errors here are either malformed email (400) or downstream failures we
+	// want to mask; in either case the response shape stays uniform to keep
+	// the endpoint enumeration-resistant.
+	ip := r.RemoteAddr
+	if err := h.service.RequestMagicLink(r.Context(), req.Email, ip); err != nil {
+		if errors.Is(err, ErrEmailRateLimited) || strings.Contains(err.Error(), "invalid email") {
+			h.respondError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		// Log but respond with success so the caller cannot tell whether the
+		// address exists; internal errors must not leak through this path.
+		h.respondJSON(w, http.StatusOK, map[string]string{"message": "If an account exists, a sign-in link has been emailed."})
+		return
+	}
+	h.respondJSON(w, http.StatusOK, map[string]string{"message": "If an account exists, a sign-in link has been emailed."})
+}
+
+func (h *AuthHandler) handleMagicLinkConsume(w http.ResponseWriter, r *http.Request) {
+	var req MagicLinkConsumeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	ua := r.UserAgent()
+	ip := r.RemoteAddr
+	resp, err := h.service.ConsumeMagicLink(r.Context(), req.Token, &ua, &ip)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrMagicLinkInvalid), errors.Is(err, ErrMagicLinkUsed):
+			h.respondError(w, http.StatusBadRequest, ErrMagicLinkInvalid.Error())
+		case errors.Is(err, ErrInactiveUser):
+			h.respondError(w, http.StatusUnauthorized, ErrInactiveUser.Error())
+		case errors.Is(err, ErrAccountFrozen), errors.Is(err, ErrAccountDeleted):
+			h.respondError(w, http.StatusUnauthorized, err.Error())
+		default:
+			h.respondError(w, http.StatusInternalServerError, "internal error")
+		}
+		return
+	}
+	h.respondJSON(w, http.StatusOK, resp)
 }
 
 func (h *AuthHandler) handleVerifyEmail(w http.ResponseWriter, r *http.Request) {

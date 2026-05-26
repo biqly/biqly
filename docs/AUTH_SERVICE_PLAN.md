@@ -1773,12 +1773,12 @@ atılabilecek güvenlik, operasyonel ve uyumluluk gereksinimleridir.
 
 ### 18.6 Email & Communication
 
-- [ ] **E-posta template sistemi**: HTML + plain text multipart, lokalize (tr/en)
-- [ ] **E-posta kuyruğu**: Başarısız gönderimler için retry (en fazla 3, exponential backoff)
-- [ ] **E-postaEngelleme listesi**: Bounce + spam şikayeti tracking, bounce alan adını engelle
-- [ ] **Unsubscribe**: Pazarlama e-postaları için (transactional emailler muaf)
-- [ ] **Rate limit e-posta**: Aynı e-posta adresine günde max 10 e-posta
-- [ ] **Magic link**: E-posta ile şifresiz giriş seçeneği (Passkey alternatifi)
+- [x] **E-posta template sistemi**: `email_templates.go` builtin registry (8 transactional template × tr/en); HTML body `html/template` (auto-escape XSS), text body / subject literal placeholder substituter (`renderPlain` `{{.Field}}` + `{{if .Field}}/{{else}}/{{end}}` conditional, text/template kullanılmıyor); `email_mime.go` RFC 2045 multipart/alternative builder + quoted-printable encoding, MIME-Version/Date/List-Unsubscribe/Auto-Submitted headers; `BI_AUTH_EMAIL_DEFAULT_LOCALE` (default `en`)
+- [x] **E-posta kuyruğu**: `SMTPEmailSender.queue` bounded channel + dedicated worker goroutine; `BI_AUTH_EMAIL_QUEUE_SIZE` (default 256), `BI_AUTH_EMAIL_RETRIES` (default 3); failures retry with 1s/4s/16s exponential backoff; queue-full → synchronous fallback; `Close()` graceful drain
+- [x] **Engelleme listesi (bounce/spam)**: `email_block_list` migration 028a (email PK, reason, blocked_at, created_by + DESC idx), `EmailBlockListRepo` (sql + memory impl), `IsBlocked` check pre-send; `ErrEmailBlocked` surfaced to caller
+- [x] **Unsubscribe**: Transactional-only system → `List-Unsubscribe: <mailto:from?subject=unsubscribe>` + `Auto-Submitted: auto-generated` her e-postada (RFC 8058 compliant header); pazarlama e-postası yok
+- [x] **Rate limit e-posta**: Redis `email_count:{normalized_email}:{yyyymmdd}` INCR + 26h TTL; `BI_AUTH_EMAIL_DAILY_LIMIT` (default 10); aşıldığında `ErrEmailRateLimited`; redis down → fail-open (warning log)
+- [x] **Magic link**: Migration 029a `magic_link_tokens` (token_hash PK SHA-256, email, user_id, expires_at, consumed_at, ip_address); `magiclink.go` repo (Issue/Consume atomic FOR UPDATE/PurgeExpired); `RequestMagicLink`/`ConsumeMagicLink` service (10dk TTL, single-use); `POST /auth/magic-link/request` + `/auth/magic-link/consume` (5/dk endpoint rate limit, 60s per-email cooldown via Redis SetNX); user-not-found/inactive sessiz; ConsumeMagicLink frozen/deleted/inactive account state kontrolleri ile `issueSession(method="magic_link")`
 
 ### 18.7 Observability
 

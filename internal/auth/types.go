@@ -22,6 +22,14 @@ type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+type MagicLinkRequest struct {
+	Email string `json:"email"`
+}
+
+type MagicLinkConsumeRequest struct {
+	Token string `json:"token"`
+}
+
 type TokenResponse struct {
 	AccessToken     string   `json:"access_token,omitempty"`
 	RefreshToken    string   `json:"refresh_token,omitempty"`

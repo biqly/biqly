@@ -73,9 +73,10 @@ func main() {
 	sessionMgr := biqauth.NewSessionManager(db)
 	sessionMgr.SetLifecycleTTLs(cfg.SessionAbsoluteTTL, cfg.SessionIdleTTL)
 
+	emailBlockList := biqauth.NewEmailBlockListRepo(db)
 	var emailSender biqauth.EmailSender
 	if cfg.SMTPHost != "" {
-		emailSender = biqauth.NewSMTPEmailSender(cfg)
+		emailSender = biqauth.MustSMTPEmailSender(cfg, emailBlockList, redisClient)
 	} else {
 		emailSender = biqauth.NewMockEmailSender()
 	}
@@ -96,6 +97,9 @@ func main() {
 	mfaRepo := biqauth.NewMFARepository(db, tokenEnc)
 	mfaSvc := biqauth.NewMFAService(mfaRepo, userRepo, cfg.JWTIssuer)
 	authSvc.SetMFAService(mfaSvc)
+
+	magicLinkRepo := biqauth.NewMagicLinkRepository(db)
+	authSvc.SetMagicLinkRepository(magicLinkRepo)
 
 	limiter := biqauth.NewRateLimiter(redisClient)
 	authHandler := biqauth.NewAuthHandler(authSvc, webAuthnSvc, jwtMgr, cfg, limiter)
