@@ -22,46 +22,6 @@ var (
 	ErrOAuthExchangeUnavailable = errors.New("oauth callback exchange unavailable")
 )
 
-type oauthCallbackPayload struct {
-	AccessToken     string   `json:"access_token"`
-	RefreshToken    string   `json:"refresh_token"`
-	UserID          string   `json:"user_id"`
-	Email           string   `json:"email"`
-	Roles           []string `json:"roles,omitempty"`
-	MFARequired     bool     `json:"mfa_required,omitempty"`
-	MFAToken        string   `json:"mfa_token,omitempty"`
-	PasswordExpired bool     `json:"password_expired,omitempty"`
-}
-
-func oauthCallbackPayloadFromResponse(resp *TokenResponse) oauthCallbackPayload {
-	if resp == nil {
-		return oauthCallbackPayload{}
-	}
-	return oauthCallbackPayload{
-		AccessToken:     resp.AccessToken,
-		RefreshToken:    resp.RefreshToken,
-		UserID:          resp.UserID,
-		Email:           resp.Email,
-		Roles:           resp.Roles,
-		MFARequired:     resp.MFARequired,
-		MFAToken:        resp.MFAToken,
-		PasswordExpired: resp.PasswordExpired,
-	}
-}
-
-func (p oauthCallbackPayload) toTokenResponse() *TokenResponse {
-	return &TokenResponse{
-		AccessToken:     p.AccessToken,
-		RefreshToken:    p.RefreshToken,
-		UserID:          p.UserID,
-		Email:           p.Email,
-		Roles:           p.Roles,
-		MFARequired:     p.MFARequired,
-		MFAToken:        p.MFAToken,
-		PasswordExpired: p.PasswordExpired,
-	}
-}
-
 func generateOAuthCallbackCode() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
@@ -77,13 +37,17 @@ func (s *AuthService) IssueOAuthCallbackCode(ctx context.Context, resp *TokenRes
 	if resp == nil {
 		return "", errors.New("token response required")
 	}
+	if resp.AccessToken == "" || resp.RefreshToken == "" {
+		return "", errors.New("token response missing tokens")
+	}
 
 	code, err := generateOAuthCallbackCode()
 	if err != nil {
 		return "", err
 	}
 
-	payload, err := json.Marshal(oauthCallbackPayloadFromResponse(resp))
+	//nolint:gosec // G117: ephemeral single-use OAuth payload in Redis (90s TTL), not logged.
+	payload, err := json.Marshal(resp)
 	if err != nil {
 		return "", err
 	}
@@ -112,12 +76,12 @@ func (s *AuthService) RedeemOAuthCallbackCode(ctx context.Context, code string) 
 		return nil, fmt.Errorf("redeem oauth callback code: %w", err)
 	}
 
-	var payload oauthCallbackPayload
-	if err := json.Unmarshal(raw, &payload); err != nil {
+	var resp TokenResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
 		return nil, fmt.Errorf("decode oauth callback payload: %w", err)
 	}
-	if payload.AccessToken == "" || payload.RefreshToken == "" {
+	if resp.AccessToken == "" || resp.RefreshToken == "" {
 		return nil, ErrInvalidOAuthCallbackCode
 	}
-	return payload.toTokenResponse(), nil
+	return &resp, nil
 }

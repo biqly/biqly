@@ -468,7 +468,6 @@ func (h *AuthHandler) handleOAuthCallback(w http.ResponseWriter, r *http.Request
 	q := callbackURL.Query()
 	q.Set("code", code)
 	callbackURL.RawQuery = q.Encode()
-	//nolint:gosec
 	http.Redirect(w, r, callbackURL.String(), http.StatusTemporaryRedirect)
 }
 
