@@ -16,11 +16,23 @@ func NewRBACRepository(db *sql.DB) *RBACRepository {
 
 func (r *RBACRepository) GetUserRoles(ctx context.Context, userID string) ([]string, error) {
 	query := `
-		SELECT DISTINCT r.name
-		FROM user_roles ur
-		JOIN roles r ON ur.role_id = r.id
-		WHERE ur.user_id = $1
-		  AND ur.scope_type = 'global'
+		WITH RECURSIVE effective_roles AS (
+			SELECT r.id, r.name
+			FROM user_roles ur
+			JOIN roles r ON ur.role_id = r.id
+			WHERE ur.user_id = $1
+			  AND ur.scope_type = 'global'
+
+			UNION
+
+			SELECT child.id, child.name
+			FROM effective_roles er
+			JOIN role_inheritance ri ON ri.parent_role_id = er.id
+			JOIN roles child ON child.id = ri.child_role_id
+		)
+		SELECT DISTINCT name
+		FROM effective_roles
+		ORDER BY name
 	`
 	rows, err := r.db.QueryContext(ctx, query, userID)
 	if err != nil {
@@ -45,12 +57,24 @@ func (r *RBACRepository) GetUserRoles(ctx context.Context, userID string) ([]str
 
 func (r *RBACRepository) GetUserPermissions(ctx context.Context, userID string) ([]string, error) {
 	query := `
+		WITH RECURSIVE effective_roles AS (
+			SELECT r.id
+			FROM user_roles ur
+			JOIN roles r ON ur.role_id = r.id
+			WHERE ur.user_id = $1
+			  AND ur.scope_type = 'global'
+
+			UNION
+
+			SELECT ri.child_role_id
+			FROM effective_roles er
+			JOIN role_inheritance ri ON ri.parent_role_id = er.id
+		)
 		SELECT DISTINCT p.name
-		FROM user_roles ur
-		JOIN role_permissions rp ON ur.role_id = rp.role_id
+		FROM effective_roles er
+		JOIN role_permissions rp ON er.id = rp.role_id
 		JOIN permissions p ON rp.permission_id = p.id
-		WHERE ur.user_id = $1
-		  AND ur.scope_type = 'global'
+		ORDER BY p.name
 	`
 	rows, err := r.db.QueryContext(ctx, query, userID)
 	if err != nil {
@@ -75,13 +99,25 @@ func (r *RBACRepository) GetUserPermissions(ctx context.Context, userID string) 
 
 func (r *RBACRepository) GetUserScopedPermissions(ctx context.Context, userID string, scopeType ScopeType, scopeID string) ([]string, error) {
 	query := `
+		WITH RECURSIVE effective_roles AS (
+			SELECT r.id
+			FROM user_roles ur
+			JOIN roles r ON ur.role_id = r.id
+			WHERE ur.user_id = $1
+			  AND ur.scope_type = $2
+			  AND ur.scope_id = $3
+
+			UNION
+
+			SELECT ri.child_role_id
+			FROM effective_roles er
+			JOIN role_inheritance ri ON ri.parent_role_id = er.id
+		)
 		SELECT DISTINCT p.name
-		FROM user_roles ur
-		JOIN role_permissions rp ON ur.role_id = rp.role_id
+		FROM effective_roles er
+		JOIN role_permissions rp ON er.id = rp.role_id
 		JOIN permissions p ON rp.permission_id = p.id
-		WHERE ur.user_id = $1
-		  AND ur.scope_type = $2
-		  AND ur.scope_id = $3
+		ORDER BY p.name
 	`
 	rows, err := r.db.QueryContext(ctx, query, userID, string(scopeType), scopeID)
 	if err != nil {
@@ -106,11 +142,23 @@ func (r *RBACRepository) GetUserScopedPermissions(ctx context.Context, userID st
 
 func (r *RBACRepository) GetUserWorkspacePermissions(ctx context.Context, userID, workspaceID string) ([]string, error) {
 	query := `
+		WITH RECURSIVE effective_roles AS (
+			SELECT r.id
+			FROM workspace_members wm
+			JOIN roles r ON wm.role_id = r.id
+			WHERE wm.workspace_id = $1 AND wm.user_id = $2
+
+			UNION
+
+			SELECT ri.child_role_id
+			FROM effective_roles er
+			JOIN role_inheritance ri ON ri.parent_role_id = er.id
+		)
 		SELECT DISTINCT p.name
-		FROM workspace_members wm
-		JOIN role_permissions rp ON wm.role_id = rp.role_id
+		FROM effective_roles er
+		JOIN role_permissions rp ON er.id = rp.role_id
 		JOIN permissions p ON rp.permission_id = p.id
-		WHERE wm.workspace_id = $1 AND wm.user_id = $2
+		ORDER BY p.name
 	`
 	rows, err := r.db.QueryContext(ctx, query, workspaceID, userID)
 	if err != nil {

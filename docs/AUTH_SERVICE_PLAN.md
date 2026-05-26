@@ -1182,7 +1182,7 @@ r.Route("/api", func(r chi.Router) {
 - [x] Global scope izin kontrolü
 - [x] Workspace scope izin kontrolü
 - [x] Resource scope izin kontrolü
-- [ ] Rol hiyerarşisi (gelecek: role inheritance)
+- [x] Rol hiyerarşisi — `role_inheritance` migration (`025a`) + recursive CTE ile global/scoped/workspace izin çözümleme (`super_admin → admin → developer → analyst → viewer`)
 - [x] Seed data: 5 varsayılan rol (super_admin, admin, developer, analyst, viewer) + 23 izin
 - [x] super_admin bypass: tüm izin kontrollerini otomatik geç
 

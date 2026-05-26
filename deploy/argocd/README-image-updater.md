@@ -67,6 +67,21 @@ Successful write-back updates `deploy/helm/biqly/.argocd-source-biqly.yaml` (not
 
 Tracked images: **ai**, **query**, **catalog**, **frontend**, **auth** (`auth.image.tag` + `auth.migrate.image.tag` on `ghcr.io/biqly/biqly-auth`), **migrate** (metadata DB job).
 
+### GitHub Actions vs Image Updater
+
+| Component | Role |
+|-----------|------|
+| `.github/workflows/build-*.yml` | Builds and pushes `ghcr.io/biqly/*:sha-<commit>` to GHCR |
+| Argo CD Image Updater (cluster) | Polls GHCR, commits helm parameter overrides to `.argocd-source-biqly.yaml` |
+
+The workflow runner does **not** edit `.argocd-source-biqly.yaml`. If auth tags are missing there, either the cluster `ImageUpdater` CR is stale (re-apply `deploy/argocd/image-updater.yaml`) or no new `biqly-auth` image was published yet (`build-auth.yml` only runs when auth paths change).
+
+### Expected `.argocd-source-biqly.yaml` shape
+
+Only `*.image.tag` (and `global.migrate.image.tag`) parameters — **no** `image.name`. A stray `image.name: ghcr.io/biqly/migrate` entry is invalid (Helm uses `global.migrate.image.repository` + `global.migrate.image.tag` in `templates/migrate-job.yaml`). Remove it if Image Updater reintroduces it; use `imageName: ghcr.io/biqly/migrate` without `:tag` in the CR so the updater does not split repository into `image.name`.
+
+Until Image Updater runs, `values-prod.yaml` still pins `auth.image.tag` manually.
+
 ## CI noise / feedback loop
 
 Image Updater commits only touch `deploy/**`. Without `paths-ignore`, each bump re-runs **CI** (which also pushes new `sha-*` frontend/api images), and `forceUpdate: true` makes Updater commit again → endless workflows.

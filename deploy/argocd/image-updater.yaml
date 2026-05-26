@@ -18,37 +18,37 @@ spec:
     - namePattern: biqly
       images:
         - alias: ai
-          imageName: ghcr.io/biqly/ai:sha-91a9ff58d06ca78fdf3cf136c42c65c1e8b349a6
+          imageName: ghcr.io/biqly/ai
           manifestTargets:
             helm:
               tag: ai.image.tag
         - alias: query
-          imageName: ghcr.io/biqly/query:sha-91a9ff58d06ca78fdf3cf136c42c65c1e8b349a6
+          imageName: ghcr.io/biqly/query
           manifestTargets:
             helm:
               tag: query.image.tag
         - alias: catalog
-          imageName: ghcr.io/biqly/catalog:sha-91a9ff58d06ca78fdf3cf136c42c65c1e8b349a6
+          imageName: ghcr.io/biqly/catalog
           manifestTargets:
             helm:
               tag: catalog.image.tag
         - alias: frontend
-          imageName: ghcr.io/biqly/biqly-frontend:sha-56b921c7800edf2ee5c29a91dfad5f764bdd9d87
+          imageName: ghcr.io/biqly/biqly-frontend
           manifestTargets:
             helm:
               tag: frontend.image.tag
         - alias: auth
-          imageName: ghcr.io/biqly/biqly-auth:sha-38de6ea19634422920df5b7f49e8fad6b49ed3bf
+          imageName: ghcr.io/biqly/biqly-auth
           manifestTargets:
             helm:
               tag: auth.image.tag
         - alias: auth-migrate
-          imageName: ghcr.io/biqly/biqly-auth:sha-38de6ea19634422920df5b7f49e8fad6b49ed3bf
+          imageName: ghcr.io/biqly/biqly-auth
           manifestTargets:
             helm:
               tag: auth.migrate.image.tag
         - alias: migrate
-          imageName: ghcr.io/biqly/migrate:sha-91a9ff58d06ca78fdf3cf136c42c65c1e8b349a6
+          imageName: ghcr.io/biqly/migrate
           manifestTargets:
             helm:
               tag: global.migrate.image.tag

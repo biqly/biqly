@@ -6,6 +6,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -117,8 +118,99 @@ func TestRBACServiceChecksResourceScopedRole(t *testing.T) {
 	assert.False(t, allowed)
 }
 
+func TestRoleInheritanceMigrationDefinesDefaultHierarchy(t *testing.T) {
+	up, err := os.ReadFile("../../migrations/auth/025a_create_role_inheritance.up.sql")
+	if err != nil {
+		t.Fatalf("ReadFile(025a_create_role_inheritance.up.sql) error = %v, want nil", err)
+	}
+
+	sql := string(up)
+	for _, fragment := range []string{
+		"role_inheritance",
+		"parent_role_id",
+		"child_role_id",
+		"'super_admin', 'admin'",
+		"'admin', 'developer'",
+		"'developer', 'analyst'",
+		"'analyst', 'viewer'",
+		"CHECK (parent_role_id <> child_role_id)",
+	} {
+		if !strings.Contains(sql, fragment) {
+			t.Errorf("role inheritance migration contains %q = false, want true", fragment)
+		}
+	}
+}
+
+func TestRBACServiceInheritsGlobalRolePermissions(t *testing.T) {
+	dbPool := openTestDBPool(t)
+	ctx := context.Background()
+
+	var tableName sql.NullString
+	if err := dbPool.QueryRowContext(ctx, `SELECT to_regclass('public.role_inheritance')::text`).Scan(&tableName); err != nil {
+		t.Fatalf("QueryRowContext(to_regclass(role_inheritance)) error = %v, want nil", err)
+	}
+	if !tableName.Valid {
+		t.Skip("skipping role inheritance test; migration 025 is not applied")
+	}
+
+	const email = "rbac_role_inheritance@example.com"
+	_, _ = dbPool.ExecContext(ctx, "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE email = $1)", email)
+	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email = $1", email)
+
+	var userID string
+	if err := dbPool.QueryRowContext(ctx,
+		`INSERT INTO users (email, display_name, password_hash, email_verified)
+		 VALUES ($1, 'RBAC Role Inheritance', 'hash', TRUE)
+		 RETURNING id`,
+		email,
+	).Scan(&userID); err != nil {
+		t.Fatalf("QueryRowContext(insert user %q) error = %v, want nil", email, err)
+	}
+
+	var adminRoleID string
+	if err := dbPool.QueryRowContext(ctx, `SELECT id FROM roles WHERE name = 'admin'`).Scan(&adminRoleID); err != nil {
+		t.Fatalf("QueryRowContext(select admin role) error = %v, want nil", err)
+	}
+
+	rbacRepo := NewRBACRepository(dbPool)
+	if err := rbacRepo.AssignRole(ctx, userID, adminRoleID, nil, nil); err != nil {
+		t.Fatalf("AssignRole(%q, admin) error = %v, want nil", userID, err)
+	}
+
+	rbacSvc := NewRBACService(rbacRepo)
+	allowed, err := rbacSvc.Check(ctx, PermissionCheck{
+		UserID:     userID,
+		Permission: "datasource:create",
+	})
+	if err != nil {
+		t.Fatalf("Check(%q, datasource:create) error = %v, want nil", userID, err)
+	}
+	if !allowed {
+		t.Errorf("Check(%q, datasource:create) = false, want true", userID)
+	}
+
+	roles, err := rbacRepo.GetUserRoles(ctx, userID)
+	if err != nil {
+		t.Fatalf("GetUserRoles(%q) error = %v, want nil", userID, err)
+	}
+	for _, role := range []string{"admin", "developer", "analyst", "viewer"} {
+		if !slicesContainString(roles, role) {
+			t.Errorf("GetUserRoles(%q) contains %q = false, want true; roles = %v", userID, role, roles)
+		}
+	}
+}
+
 func ptrString(v string) *string {
 	return &v
+}
+
+func slicesContainString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 type rbacScopeDriver struct{}
