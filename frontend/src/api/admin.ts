@@ -354,7 +354,8 @@ export async function listShares(
   if (resourceType) params.set('resource_type', resourceType)
   const suffix = params.toString() ? `?${params.toString()}` : ''
   const res = await csrfFetch(`${AUTH_API_BASE}/shares${suffix}`, { headers: authHeaders(token) })
-  return handle<ResourceShare[]>(res)
+  const data = await handle<ResourceShare[] | null>(res)
+  return data || []
 }
 
 export async function createShare(

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { listUsers } from '../../api/admin'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import type { AuthUser } from '../../types/auth'
+import { Pagination } from '../ui/Pagination'
 
 interface UserListPageProps {
   token: string
@@ -16,6 +17,8 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
   useEffect(() => {
     let cancelled = false
@@ -39,6 +42,10 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     }
   }, [token])
 
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, statusFilter])
+
   const filteredUsers = users.filter((u) => {
     const matchesSearch =
       u.email.toLowerCase().includes(search.toLowerCase()) ||
@@ -52,6 +59,9 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
 
     return matchesSearch && matchesStatus
   })
+
+  const totalPages = Math.ceil(filteredUsers.length / pageSize)
+  const displayedUsers = filteredUsers.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   if (loading) return <div style={textMuted}>{t('admin.users.loading')}</div>
   if (error) return <div style={errStyle}>{t('common.error')}: {error}</div>
@@ -95,14 +105,14 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
             </tr>
           </thead>
           <tbody>
-            {filteredUsers.length === 0 ? (
+            {displayedUsers.length === 0 ? (
               <tr>
                 <td colSpan={6} style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>
                   {t('admin.users.empty')}
                 </td>
               </tr>
             ) : (
-              filteredUsers.map((u) => (
+              displayedUsers.map((u) => (
                 <tr key={u.id} style={trStyle}>
                   <td style={tdStyle}>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -132,6 +142,13 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
             )}
           </tbody>
         </table>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={filteredUsers.length}
+          itemsPerPage={pageSize}
+        />
       </div>
     </div>
   )
