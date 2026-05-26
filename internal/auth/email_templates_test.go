@@ -14,7 +14,7 @@ func TestEmailTemplateRegistryEnglishFallback(t *testing.T) {
 
 	subject, text, html, err := reg.Render("verification", "fr", map[string]any{"URL": "https://example.com/verify?token=xyz"})
 	require.NoError(t, err)
-	assert.Equal(t, "Verify your Biqly account", subject, "missing locale must fall back to default")
+	assert.Equal(t, "Verify your ABI account", subject, "missing locale must fall back to default")
 	assert.Contains(t, text, "https://example.com/verify?token=xyz")
 	assert.Contains(t, html, `href="https://example.com/verify?token=xyz"`)
 }
@@ -82,3 +82,27 @@ func TestBuildMultipartMessage(t *testing.T) {
 	// Multipart epilogue terminates the message.
 	assert.True(t, strings.HasSuffix(strings.TrimRight(s, "\r\n"), "--"))
 }
+
+func TestBuildMultipartMessageWithLogo(t *testing.T) {
+	headers := map[string]string{
+		"From":    "noreply@example.com",
+		"To":      "user@example.com",
+		"Subject": "Test Logo",
+	}
+	msg, err := buildMultipartMessage(headers, "plain body", `<p>html body with <img src="cid:abi-logo" /></p>`)
+	require.NoError(t, err)
+
+	s := string(msg)
+	assert.Contains(t, s, "MIME-Version: 1.0")
+	assert.Contains(t, s, "multipart/related;")
+	assert.Contains(t, s, "type=\"multipart/alternative\"")
+	assert.Contains(t, s, "Content-Type: multipart/alternative;")
+	assert.Contains(t, s, "Content-Type: text/plain")
+	assert.Contains(t, s, "Content-Type: text/html")
+	assert.Contains(t, s, "Content-Type: image/png; name=\"abi-logo.png\"")
+	assert.Contains(t, s, "Content-ID: <abi-logo>")
+	assert.Contains(t, s, "Content-Disposition: inline; filename=\"abi-logo.png\"")
+	assert.Contains(t, s, "plain body")
+	assert.Contains(t, s, "html body with")
+}
+

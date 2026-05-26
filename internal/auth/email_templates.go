@@ -189,18 +189,18 @@ func (r *emailTemplateRegistry) Render(name, locale string, data map[string]any)
 var builtinEmailTemplates = map[string]map[string]*emailTemplate{
 	"verification": {
 		"en": {
-			Subject: "Verify your Biqly account",
-			Text:    "Please verify your account by clicking the following link:\n{{.URL}}\n\nThis link will expire in 24 hours.\n\nIf you did not create a Biqly account, you can ignore this email.\n",
+			Subject: "Verify your ABI account",
+			Text:    "Please verify your account by clicking the following link:\n{{.URL}}\n\nThis link will expire in 24 hours.\n\nIf you did not create an ABI account, you can ignore this email.\n",
 			HTML: `<p>Please verify your account by clicking the button below:</p>
 <div class="button-container">
   <a href="{{.URL}}" class="button" style="color: #ffffff;">Verify Account</a>
 </div>
 <p style="font-size: 13px; color: #64748b; margin-top: 24px;">This link will expire in 24 hours. If the button doesn't work, copy and paste this URL into your browser:</p>
 <p style="font-size: 13px; color: #64748b; word-break: break-all;"><a href="{{.URL}}" style="color: #4f46e5;">{{.URL}}</a></p>
-<p style="font-size: 13px; color: #64748b; margin-top: 16px;">If you did not create a Biqly account, you can safely ignore this email.</p>`,
+<p style="font-size: 13px; color: #64748b; margin-top: 16px;">If you did not create an ABI account, you can safely ignore this email.</p>`,
 		},
 		"tr": {
-			Subject: "Biqly hesabınızı doğrulayın",
+			Subject: "ABI hesabınızı doğrulayın",
 			Text:    "Hesabınızı doğrulamak için aşağıdaki bağlantıya tıklayın:\n{{.URL}}\n\nBu bağlantı 24 saat içinde sona erecektir.\n\nBu hesabı siz oluşturmadıysanız bu e-postayı görmezden gelebilirsiniz.\n",
 			HTML: `<p>Hesabınızı doğrulamak için aşağıdaki butona tıklayın:</p>
 <div class="button-container">
@@ -213,7 +213,7 @@ var builtinEmailTemplates = map[string]map[string]*emailTemplate{
 	},
 	"password_reset": {
 		"en": {
-			Subject: "Reset your Biqly password",
+			Subject: "Reset your ABI password",
 			Text:    "You requested to reset your password. Click the link below to set a new password:\n{{.URL}}\n\nThis link will expire in 1 hour.\n",
 			HTML: `<p>You requested to reset your password. Click the button below to set a new password:</p>
 <div class="button-container">
@@ -224,7 +224,7 @@ var builtinEmailTemplates = map[string]map[string]*emailTemplate{
 <p style="font-size: 13px; color: #64748b; margin-top: 16px;">If you did not request this change, you can safely ignore this email.</p>`,
 		},
 		"tr": {
-			Subject: "Biqly parolanızı sıfırlayın",
+			Subject: "ABI parolanızı sıfırlayın",
 			Text:    "Parolanızı sıfırlamak istediniz. Yeni bir parola belirlemek için aşağıdaki bağlantıya tıklayın:\n{{.URL}}\n\nBu bağlantı 1 saat içinde sona erecektir.\n",
 			HTML: `<p>Parolanızı sıfırlamak istediniz. Yeni bir parola belirlemek için aşağıdaki butona tıklayın:</p>
 <div class="button-container">
@@ -237,9 +237,9 @@ var builtinEmailTemplates = map[string]map[string]*emailTemplate{
 	},
 	"email_change": {
 		"en": {
-			Subject: "Confirm your Biqly email change",
-			Text:    "{{if .NewEmail}}Confirm this as your new Biqly email address:{{else}}Confirm this email change by clicking the following link:{{end}}\n{{.URL}}\n\nThis link will expire in 48 hours.\n",
-			HTML: `<p>{{if .NewEmail}}Confirm this as your new Biqly email address by clicking the button below:{{else}}Confirm this email change by clicking the button below:{{end}}</p>
+			Subject: "Confirm your ABI email change",
+			Text:    "{{if .NewEmail}}Confirm this as your new ABI email address:{{else}}Confirm this email change by clicking the following link:{{end}}\n{{.URL}}\n\nThis link will expire in 48 hours.\n",
+			HTML: `<p>{{if .NewEmail}}Confirm this as your new ABI email address by clicking the button below:{{else}}Confirm this email change by clicking the button below:{{end}}</p>
 <div class="button-container">
   <a href="{{.URL}}" class="button" style="color: #ffffff;">Confirm Email Change</a>
 </div>
@@ -247,9 +247,9 @@ var builtinEmailTemplates = map[string]map[string]*emailTemplate{
 <p style="font-size: 13px; color: #64748b; word-break: break-all;"><a href="{{.URL}}" style="color: #4f46e5;">{{.URL}}</a></p>`,
 		},
 		"tr": {
-			Subject: "Biqly e-posta değişikliğinizi onaylayın",
-			Text:    "{{if .NewEmail}}Bu adresin yeni Biqly e-posta adresiniz olduğunu onaylayın:{{else}}E-posta değişikliğini onaylamak için aşağıdaki bağlantıya tıklayın:{{end}}\n{{.URL}}\n\nBu bağlantı 48 saat içinde sona erecektir.\n",
-			HTML: `<p>{{if .NewEmail}}Aşağıdaki butona tıklayarak bunun yeni Biqly e-posta adresiniz olduğunu onaylayın:{{else}}E-posta değişikliğini onaylamak için aşağıdaki butona tıklayın:{{end}}</p>
+			Subject: "ABI e-posta değişikliğinizi onaylayın",
+			Text:    "{{if .NewEmail}}Bu adresin yeni ABI e-posta adresiniz olduğunu onaylayın:{{else}}E-posta değişikliğini onaylamak için aşağıdaki bağlantıya tıklayın:{{end}}\n{{.URL}}\n\nBu bağlantı 48 saat içinde sona erecektir.\n",
+			HTML: `<p>{{if .NewEmail}}Aşağıdaki butona tıklayarak bunun yeni ABI e-posta adresiniz olduğunu onaylayın:{{else}}E-posta değişikliğini onaylamak için aşağıdaki butona tıklayın:{{end}}</p>
 <div class="button-container">
   <a href="{{.URL}}" class="button" style="color: #ffffff;">E-postayı Onayla</a>
 </div>
@@ -259,7 +259,7 @@ var builtinEmailTemplates = map[string]map[string]*emailTemplate{
 	},
 	"account_unlock": {
 		"en": {
-			Subject: "Your Biqly account is locked",
+			Subject: "Your ABI account is locked",
 			Text:    "Your account was locked due to multiple failed sign-in attempts.\n\nIf this was you, click below to unlock and reset your password:\n{{.URL}}\n\nThis link expires in 1 hour. If you didn't try to sign in, please change your password immediately.\n",
 			HTML: `<p>Your account was locked due to multiple failed sign-in attempts.</p>
 <p>If this was you, click the button below to unlock your account and reset your password:</p>
@@ -271,7 +271,7 @@ var builtinEmailTemplates = map[string]map[string]*emailTemplate{
 <p style="color: #ef4444; font-weight: 500; font-size: 14px; margin-top: 20px;">If you did not try to sign in, please change your password immediately to protect your account.</p>`,
 		},
 		"tr": {
-			Subject: "Biqly hesabınız kilitlendi",
+			Subject: "ABI hesabınız kilitlendi",
 			Text:    "Birden fazla başarısız giriş denemesi nedeniyle hesabınız kilitlendi.\n\nBu sizdiyseniz aşağıya tıklayarak hesabı açın ve parolanızı sıfırlayın:\n{{.URL}}\n\nBu bağlantı 1 saat içinde sona erecektir. Bu sizden değilse parolanızı hemen değiştirin.\n",
 			HTML: `<p>Birden fazla başarısız giriş denemesi nedeniyle hesabınız kilitlendi.</p>
 <p>Bu sizdiyseniz, aşağıdaki butona tıklayarak hesabı açın ve parolanızı sıfırlayın:</p>
@@ -285,9 +285,9 @@ var builtinEmailTemplates = map[string]map[string]*emailTemplate{
 	},
 	"new_device": {
 		"en": {
-			Subject: "New sign-in to your Biqly account",
-			Text:    "We detected a sign-in to your Biqly account from a new device.\n\nTime:       {{.OccurredAt}}\nIP address: {{.IPAddress}}\nDevice:     {{.UserAgent}}\n\nIf this wasn't you, change your password and revoke active sessions from the security page:\n{{.SecurityURL}}\n",
-			HTML: `<p>We detected a sign-in to your Biqly account from a new device.</p>
+			Subject: "New sign-in to your ABI account",
+			Text:    "We detected a sign-in to your ABI account from a new device.\n\nTime:       {{.OccurredAt}}\nIP address: {{.IPAddress}}\nDevice:     {{.UserAgent}}\n\nIf this wasn't you, change your password and revoke active sessions from the security page:\n{{.SecurityURL}}\n",
+			HTML: `<p>We detected a sign-in to your ABI account from a new device.</p>
 <div class="details-box">
   <ul class="details-list">
     <li><strong>Time:</strong> {{.OccurredAt}}</li>
@@ -302,9 +302,9 @@ var builtinEmailTemplates = map[string]map[string]*emailTemplate{
 </div>`,
 		},
 		"tr": {
-			Subject: "Biqly hesabınıza yeni cihazdan giriş yapıldı",
-			Text:    "Biqly hesabınıza yeni bir cihazdan giriş yapıldığını tespit ettik.\n\nZaman:      {{.OccurredAt}}\nIP adresi:  {{.IPAddress}}\nCihaz:      {{.UserAgent}}\n\nBu giriş size ait değilse parolanızı değiştirin ve güvenlik sayfasından aktif oturumları sonlandırın:\n{{.SecurityURL}}\n",
-			HTML: `<p>Biqly hesabınıza yeni bir cihazdan giriş yapıldığını tespit ettik.</p>
+			Subject: "ABI hesabınıza yeni cihazdan giriş yapıldı",
+			Text:    "ABI hesabınıza yeni bir cihazdan giriş yapıldığını tespit ettik.\n\nZaman:      {{.OccurredAt}}\nIP adresi:  {{.IPAddress}}\nCihaz:      {{.UserAgent}}\n\nBu giriş size ait değilse parolanızı değiştirin ve güvenlik sayfasından aktif oturumları sonlandırın:\n{{.SecurityURL}}\n",
+			HTML: `<p>ABI hesabınıza yeni bir cihazdan giriş yapıldığını tespit ettik.</p>
 <div class="details-box">
   <ul class="details-list">
     <li><strong>Zaman:</strong> {{.OccurredAt}}</li>
@@ -321,18 +321,18 @@ var builtinEmailTemplates = map[string]map[string]*emailTemplate{
 	},
 	"deletion_scheduled": {
 		"en": {
-			Subject: "Your Biqly account is scheduled for deletion",
-			Text:    "Your Biqly account has been scheduled for deletion. All personal data will be permanently removed on {{.PurgeAt}} (UTC).\n\nTo cancel deletion before that date, sign in and restore your account from {{.AccountURL}}.\n",
-			HTML: `<p>Your Biqly account has been scheduled for deletion. All personal data and settings will be permanently removed on <strong>{{.PurgeAt}}</strong> (UTC).</p>
+			Subject: "Your ABI account is scheduled for deletion",
+			Text:    "Your ABI account has been scheduled for deletion. All personal data will be permanently removed on {{.PurgeAt}} (UTC).\n\nTo cancel deletion before that date, sign in and restore your account from {{.AccountURL}}.\n",
+			HTML: `<p>Your ABI account has been scheduled for deletion. All personal data and settings will be permanently removed on <strong>{{.PurgeAt}}</strong> (UTC).</p>
 <p>To cancel the deletion before that date, please sign in and restore your account:</p>
 <div class="button-container">
   <a href="{{.AccountURL}}" class="button" style="color: #ffffff;">Restore Account</a>
 </div>`,
 		},
 		"tr": {
-			Subject: "Biqly hesabınız silinmek üzere planlandı",
-			Text:    "Biqly hesabınız silinmek üzere planlandı. Tüm kişisel verileriniz {{.PurgeAt}} (UTC) tarihinde kalıcı olarak silinecektir.\n\nBu tarihten önce silmeyi iptal etmek için giriş yapın ve hesabınızı şu sayfadan geri yükleyin: {{.AccountURL}}\n",
-			HTML: `<p>Biqly hesabınız silinmek üzere planlandı. Tüm kişisel verileriniz ve ayarlarınız <strong>{{.PurgeAt}}</strong> (UTC) tarihinde kalıcı olarak silinecektir.</p>
+			Subject: "ABI hesabınız silinmek üzere planlandı",
+			Text:    "ABI hesabınız silinmek üzere planlandı. Tüm kişisel verileriniz {{.PurgeAt}} (UTC) tarihinde kalıcı olarak silinecektir.\n\nBu tarihten önce silmeyi iptal etmek için giriş yapın ve hesabınızı şu sayfadan geri yükleyin: {{.AccountURL}}\n",
+			HTML: `<p>ABI hesabınız silinmek üzere planlandı. Tüm kişisel verileriniz ve ayarlarınız <strong>{{.PurgeAt}}</strong> (UTC) tarihinde kalıcı olarak silinecektir.</p>
 <p>Bu tarihten önce silme işlemini iptal etmek için lütfen giriş yapın ve hesabınızı geri yükleyin:</p>
 <div class="button-container">
   <a href="{{.AccountURL}}" class="button" style="color: #ffffff;">Hesabı Geri Yükle</a>
@@ -341,9 +341,9 @@ var builtinEmailTemplates = map[string]map[string]*emailTemplate{
 	},
 	"duplicate_registration": {
 		"en": {
-			Subject: "Sign-up attempt on existing Biqly account",
-			Text:    "Someone tried to register a new Biqly account using this email address, but an account already exists.\n\nIf this was you, you can sign in at {{.SignInURL}} or reset your password at {{.ForgotURL}}.\n\nIf you did not attempt this, you can safely ignore this email.\n",
-			HTML: `<p>Someone tried to register a new Biqly account using this email address, but an account with this address already exists.</p>
+			Subject: "Sign-up attempt on existing ABI account",
+			Text:    "Someone tried to register a new ABI account using this email address, but an account already exists.\n\nIf this was you, you can sign in at {{.SignInURL}} or reset your password at {{.ForgotURL}}.\n\nIf you did not attempt this, you can safely ignore this email.\n",
+			HTML: `<p>Someone tried to register a new ABI account using this email address, but an account with this address already exists.</p>
 <p>If this was you, you can sign in to your existing account or reset your password if you forgot it:</p>
 <div class="button-container" style="margin: 20px 0;">
   <a href="{{.SignInURL}}" class="button" style="color: #ffffff; margin-right: 12px;">Sign In</a>
@@ -352,9 +352,9 @@ var builtinEmailTemplates = map[string]map[string]*emailTemplate{
 <p style="font-size: 13px; color: #64748b; margin-top: 16px;">If you did not attempt this, you can safely ignore this email.</p>`,
 		},
 		"tr": {
-			Subject: "Mevcut Biqly hesabınıza kayıt denemesi",
-			Text:    "Birisi bu e-posta adresiyle yeni bir Biqly hesabı oluşturmaya çalıştı, ancak zaten bir hesap mevcut.\n\nBu sizdiyseniz {{.SignInURL}} adresinden giriş yapabilir veya {{.ForgotURL}} adresinden parolanızı sıfırlayabilirsiniz.\n\nBu deneme size ait değilse bu e-postayı görmezden gelebilirsiniz.\n",
-			HTML: `<p>Birisi bu e-posta adresiyle yeni bir Biqly hesabı oluşturmaya çalıştı, ancak bu adrese kayıtlı mevcut bir hesap zaten var.</p>
+			Subject: "Mevcut ABI hesabınıza kayıt denemesi",
+			Text:    "Birisi bu e-posta adresiyle yeni bir ABI hesabı oluşturmaya çalıştı, ancak zaten bir hesap mevcut.\n\nBu sizdiyseniz {{.SignInURL}} adresinden giriş yapabilir veya {{.ForgotURL}} adresinden parolanızı sıfırlayabilirsiniz.\n\nBu deneme size ait değilse bu e-postayı görmezden gelebilirsiniz.\n",
+			HTML: `<p>Birisi bu e-posta adresiyle yeni bir ABI hesabı oluşturmaya çalıştı, ancak bu adrese kayıtlı mevcut bir hesap zaten var.</p>
 <p>Bu sizdiyseniz, mevcut hesabınıza giriş yapabilir veya şifrenizi unuttuysanız sıfırlayabilirsiniz:</p>
 <div class="button-container" style="margin: 20px 0;">
   <a href="{{.SignInURL}}" class="button" style="color: #ffffff; margin-right: 12px;">Giriş Yap</a>
@@ -365,22 +365,22 @@ var builtinEmailTemplates = map[string]map[string]*emailTemplate{
 	},
 	"magic_link": {
 		"en": {
-			Subject: "Your Biqly sign-in link",
-			Text:    "Click the link below to sign in to Biqly:\n{{.URL}}\n\nThis link can be used once and expires in 10 minutes.\n\nIf you did not request this link, you can safely ignore this email.\n",
-			HTML: `<p>Click the button below to sign in to your Biqly account:</p>
+			Subject: "Your ABI sign-in link",
+			Text:    "Click the link below to sign in to ABI:\n{{.URL}}\n\nThis link can be used once and expires in 10 minutes.\n\nIf you did not request this link, you can safely ignore this email.\n",
+			HTML: `<p>Click the button below to sign in to your ABI account:</p>
 <div class="button-container">
-  <a href="{{.URL}}" class="button" style="color: #ffffff;">Sign In to Biqly</a>
+  <a href="{{.URL}}" class="button" style="color: #ffffff;">Sign In to ABI</a>
 </div>
 <p style="font-size: 13px; color: #64748b; margin-top: 24px;">This link can be used only once and will expire in 10 minutes. If the button doesn't work, copy and paste this URL into your browser:</p>
 <p style="font-size: 13px; color: #64748b; word-break: break-all;"><a href="{{.URL}}" style="color: #4f46e5;">{{.URL}}</a></p>
 <p style="font-size: 13px; color: #64748b; margin-top: 16px;">If you did not request this link, you can safely ignore this email.</p>`,
 		},
 		"tr": {
-			Subject: "Biqly giriş bağlantınız",
-			Text:    "Biqly'a giriş yapmak için aşağıdaki bağlantıya tıklayın:\n{{.URL}}\n\nBu bağlantı bir kez kullanılabilir ve 10 dakika içinde sona erer.\n\nBu bağlantıyı siz istemediyseniz bu e-postayı görmezden gelebilirsiniz.\n",
-			HTML: `<p>Biqly'a giriş yapmak için aşağıdaki butona tıklayın:</p>
+			Subject: "ABI giriş bağlantınız",
+			Text:    "ABI'a giriş yapmak için aşağıdaki bağlantıya tıklayın:\n{{.URL}}\n\nBu bağlantı bir kez kullanılabilir ve 10 dakika içinde sona erer.\n\nBu bağlantıyı siz istemediyseniz bu e-postayı görmezden gelebilirsiniz.\n",
+			HTML: `<p>ABI'a giriş yapmak için aşağıdaki butona tıklayın:</p>
 <div class="button-container">
-  <a href="{{.URL}}" class="button" style="color: #ffffff;">Biqly'a Giriş Yap</a>
+  <a href="{{.URL}}" class="button" style="color: #ffffff;">ABI'a Giriş Yap</a>
 </div>
 <p style="font-size: 13px; color: #64748b; margin-top: 24px;">Bu bağlantı yalnızca bir kez kullanılabilir ve 10 dakika içinde sona erer. Eğer buton çalışmazsa aşağıdaki bağlantıyı kopyalayıp tarayıcınıza yapıştırın:</p>
 <p style="font-size: 13px; color: #64748b; word-break: break-all;"><a href="{{.URL}}" style="color: #4f46e5;">{{.URL}}</a></p>
@@ -392,9 +392,9 @@ var builtinEmailTemplates = map[string]map[string]*emailTemplate{
 // wrapHTML embeds a template's HTML body into a responsive, premium card layout.
 // It also provides BCP-47 localized footers for Turkish and English environments.
 func wrapHTML(bodyHTML, subject, locale string) string {
-	footerText := "This is an automated email, please do not reply. To secure your Biqly account, never share these links with anyone."
+	footerText := "This is an automated email, please do not reply. To secure your ABI account, never share these links with anyone."
 	if strings.HasPrefix(strings.ToLower(locale), "tr") {
-		footerText = "Bu otomatik bir e-postadır, lütfen yanıtlamayın. Biqly hesabınızın güvenliğini sağlamak için bu bağlantıları kimseyle paylaşmayın."
+		footerText = "Bu otomatik bir e-postadır, lütfen yanıtlamayın. ABI hesabınızın güvenliğini sağlamak için bu bağlantıları kimseyle paylaşmayın."
 	}
 
 	return fmt.Sprintf(`<!DOCTYPE html>
@@ -530,7 +530,7 @@ func wrapHTML(bodyHTML, subject, locale string) string {
 <div class="wrapper">
   <div class="container">
     <div class="header">
-      <span class="logo">Biqly<span class="logo-dot">.</span></span>
+      <img src="cid:abi-logo" alt="ABI" style="display: block; height: 32px; max-height: 32px; border: 0;" />
     </div>
     <div class="content">
       <h2>%s</h2>
