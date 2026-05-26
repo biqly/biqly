@@ -157,12 +157,13 @@ func (h *RBACHandler) handleUpdateWorkspace(w http.ResponseWriter, r *http.Reque
 	var req struct {
 		Name        string `json:"name"`
 		Description string `json:"description"`
+		MFARequired *bool  `json:"mfa_required"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	ws, err := h.ws.Update(r.Context(), chi.URLParam(r, "id"), userID, req.Name, req.Description)
+	ws, err := h.ws.Update(r.Context(), chi.URLParam(r, "id"), userID, req.Name, req.Description, req.MFARequired)
 	if err != nil {
 		writeError(w, http.StatusForbidden, err)
 		return

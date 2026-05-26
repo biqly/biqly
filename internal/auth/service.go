@@ -16,6 +16,7 @@ var (
 	ErrInvalidCredentials = errors.New("invalid email or password")
 	ErrInactiveUser       = errors.New("user account is deactivated")
 	ErrAccountLocked      = errors.New("too many failed login attempts; account is temporarily locked for 15 minutes")
+	ErrMFARequired        = errors.New("mfa required for active workspace")
 )
 
 type AuthService struct {
@@ -161,6 +162,11 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 		_ = s.redisClient.Del(ctx, lockKey).Err()
 	}
 
+	workspaceMFARequired, err := s.activeWorkspaceRequiresMFA(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+
 	if s.mfaSvc != nil {
 		enabled, err := s.mfaSvc.IsEnabled(ctx, user.ID)
 		if err != nil {
@@ -175,8 +181,27 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 			return &TokenResponse{MFARequired: true, MFAToken: challenge}, nil
 		}
 	}
+	if workspaceMFARequired {
+		MetricLoginAttempts.WithLabelValues("password", "mfa_required").Inc()
+		return nil, ErrMFARequired
+	}
 
 	return s.issueSession(ctx, user, userAgent, ipAddress, "password")
+}
+
+func (s *AuthService) activeWorkspaceRequiresMFA(ctx context.Context, userID string) (bool, error) {
+	if s.workspaceSvc == nil {
+		return false, nil
+	}
+	workspaceID, err := s.userRepo.GetActiveOrPersonalWorkspaceID(ctx, userID)
+	if err != nil {
+		return false, fmt.Errorf("get active workspace: %w", err)
+	}
+	required, err := s.workspaceSvc.IsMFARequired(ctx, workspaceID)
+	if err != nil {
+		return false, fmt.Errorf("check workspace mfa policy: %w", err)
+	}
+	return required, nil
 }
 
 func (s *AuthService) issueSession(ctx context.Context, user *User, userAgent, ipAddress *string, method string) (*TokenResponse, error) {

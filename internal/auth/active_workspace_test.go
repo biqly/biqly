@@ -93,6 +93,17 @@ func TestSetActiveWorkspace(t *testing.T) {
 		assert.Equal(t, teamWS.ID, claims.WorkspaceID, "active workspace should persist across logins")
 	})
 
+	t.Run("workspace mfa policy blocks password-only login without enrollment", func(t *testing.T) {
+		require.NoError(t, wsSvc.SetMFARequired(ctx, teamWS.ID, aliceResp.UserID, true))
+
+		loginResp, err := svc.Login(ctx, LoginRequest{
+			Email:    "alice@example.com",
+			Password: "SecurePass123!",
+		}, &ua, &ip)
+		require.ErrorIs(t, err, ErrMFARequired)
+		assert.Nil(t, loginResp)
+	})
+
 	t.Run("GetMe reports active workspace", func(t *testing.T) {
 		me, err := svc.GetMe(ctx, aliceResp.UserID)
 		require.NoError(t, err)

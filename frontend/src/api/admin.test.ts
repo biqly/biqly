@@ -34,7 +34,7 @@ describe('admin API', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/auth/admin/audit-log?user_id=user-1&action=login&limit=25',
-      { headers: { Authorization: 'Bearer token-1' } },
+      { credentials: 'same-origin', headers: { Authorization: 'Bearer token-1' } },
     )
     expect(entries).toEqual([
       {

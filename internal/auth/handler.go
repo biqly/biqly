@@ -143,6 +143,9 @@ func (h *AuthHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	} else if errors.Is(err, ErrAccountLocked) {
 		h.respondError(w, http.StatusTooManyRequests, err.Error())
 		return
+	} else if errors.Is(err, ErrMFARequired) {
+		h.respondError(w, http.StatusForbidden, err.Error())
+		return
 	} else if err != nil {
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return

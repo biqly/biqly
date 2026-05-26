@@ -53,6 +53,7 @@ export interface Workspace {
   slug: string
   description?: string
   is_personal: boolean
+  mfa_required: boolean
   created_by: string
   created_at: string
   updated_at: string

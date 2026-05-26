@@ -32,6 +32,7 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
 
   const [editName, setEditName] = useState('')
   const [editDesc, setEditDesc] = useState('')
+  const [editMFARequired, setEditMFARequired] = useState(false)
 
   const [inviteUserID, setInviteUserID] = useState('')
   const [inviteRoleID, setInviteRoleID] = useState('')
@@ -53,6 +54,7 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
       setRoles(r)
       setEditName(ws.name)
       setEditDesc(ws.description || '')
+      setEditMFARequired(ws.mfa_required)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -71,7 +73,7 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
     e.preventDefault()
     if (isPersonal) return
     try {
-      await updateWorkspace(token, workspaceID, editName, editDesc || undefined)
+      await updateWorkspace(token, workspaceID, editName, editDesc || undefined, editMFARequired)
       setSuccess(t('admin.workspaces.save_success'))
       setTimeout(() => setSuccess(null), 3000)
       load()
@@ -166,6 +168,14 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
             <label className="ws-settings__field">
               <span>{t('admin.workspaces.description')}</span>
               <input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} />
+            </label>
+            <label className="ws-settings__check">
+              <input
+                type="checkbox"
+                checked={editMFARequired}
+                onChange={(e) => setEditMFARequired(e.target.checked)}
+              />
+              <span>{t('admin.workspaces.mfa_required')}</span>
             </label>
             <button type="submit" className="ws-settings__btn-primary">{t('common.save')}</button>
           </form>

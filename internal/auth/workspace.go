@@ -20,6 +20,7 @@ type Workspace struct {
 	Slug        string    `json:"slug"`
 	Description *string   `json:"description,omitempty"`
 	IsPersonal  bool      `json:"is_personal"`
+	MFARequired bool      `json:"mfa_required"`
 	CreatedBy   string    `json:"created_by"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
@@ -42,8 +43,8 @@ type WorkspaceDatasource struct {
 }
 
 type WorkspaceService struct {
-	db      *sql.DB
-	dsAcc   *DatasourceAccessService
+	db    *sql.DB
+	dsAcc *DatasourceAccessService
 }
 
 func NewWorkspaceService(db *sql.DB, dsAcc *DatasourceAccessService) *WorkspaceService {
@@ -65,9 +66,9 @@ func (s *WorkspaceService) Create(ctx context.Context, name, description, create
 	err := s.db.QueryRowContext(ctx, `
 		INSERT INTO workspaces (name, slug, description, is_personal, created_by)
 		VALUES ($1, $2, $3, FALSE, $4)
-		RETURNING id, name, slug, description, is_personal, created_by, created_at, updated_at
+		RETURNING id, name, slug, description, is_personal, mfa_required, created_by, created_at, updated_at
 	`, name, slug, desc, createdBy).Scan(
-		&ws.ID, &ws.Name, &ws.Slug, &desc, &ws.IsPersonal,
+		&ws.ID, &ws.Name, &ws.Slug, &desc, &ws.IsPersonal, &ws.MFARequired,
 		&ws.CreatedBy, &ws.CreatedAt, &ws.UpdatedAt,
 	)
 	if err != nil {
@@ -97,9 +98,9 @@ func (s *WorkspaceService) Get(ctx context.Context, id string) (*Workspace, erro
 	var ws Workspace
 	var desc sql.NullString
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id, name, slug, description, is_personal, created_by, created_at, updated_at
+		SELECT id, name, slug, description, is_personal, mfa_required, created_by, created_at, updated_at
 		FROM workspaces WHERE id = $1
-	`, id).Scan(&ws.ID, &ws.Name, &ws.Slug, &desc, &ws.IsPersonal, &ws.CreatedBy, &ws.CreatedAt, &ws.UpdatedAt)
+	`, id).Scan(&ws.ID, &ws.Name, &ws.Slug, &desc, &ws.IsPersonal, &ws.MFARequired, &ws.CreatedBy, &ws.CreatedAt, &ws.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrWorkspaceNotFound
 	}
@@ -114,7 +115,7 @@ func (s *WorkspaceService) Get(ctx context.Context, id string) (*Workspace, erro
 
 func (s *WorkspaceService) ListForUser(ctx context.Context, userID string) ([]Workspace, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT w.id, w.name, w.slug, w.description, w.is_personal, w.created_by, w.created_at, w.updated_at
+		SELECT w.id, w.name, w.slug, w.description, w.is_personal, w.mfa_required, w.created_by, w.created_at, w.updated_at
 		FROM workspaces w
 		JOIN workspace_members wm ON w.id = wm.workspace_id
 		WHERE wm.user_id = $1
@@ -129,7 +130,7 @@ func (s *WorkspaceService) ListForUser(ctx context.Context, userID string) ([]Wo
 	for rows.Next() {
 		var ws Workspace
 		var desc sql.NullString
-		if err := rows.Scan(&ws.ID, &ws.Name, &ws.Slug, &desc, &ws.IsPersonal, &ws.CreatedBy, &ws.CreatedAt, &ws.UpdatedAt); err != nil {
+		if err := rows.Scan(&ws.ID, &ws.Name, &ws.Slug, &desc, &ws.IsPersonal, &ws.MFARequired, &ws.CreatedBy, &ws.CreatedAt, &ws.UpdatedAt); err != nil {
 			return nil, err
 		}
 		if desc.Valid {
@@ -140,7 +141,7 @@ func (s *WorkspaceService) ListForUser(ctx context.Context, userID string) ([]Wo
 	return list, rows.Err()
 }
 
-func (s *WorkspaceService) Update(ctx context.Context, id, callerID, name, description string) (*Workspace, error) {
+func (s *WorkspaceService) Update(ctx context.Context, id, callerID, name, description string, mfaRequired *bool) (*Workspace, error) {
 	if err := s.requireOwner(ctx, id, callerID); err != nil {
 		return nil, err
 	}
@@ -156,6 +157,11 @@ func (s *WorkspaceService) Update(ctx context.Context, id, callerID, name, descr
 	`, name, desc, id)
 	if err != nil {
 		return nil, fmt.Errorf("update workspace: %w", err)
+	}
+	if mfaRequired != nil {
+		if err := s.SetMFARequired(ctx, id, callerID, *mfaRequired); err != nil {
+			return nil, err
+		}
 	}
 	return s.Get(ctx, id)
 }
@@ -262,6 +268,28 @@ func (s *WorkspaceService) IsMember(ctx context.Context, workspaceID, userID str
 		`SELECT EXISTS(SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2)`,
 		workspaceID, userID).Scan(&exists)
 	return exists, err
+}
+
+func (s *WorkspaceService) IsMFARequired(ctx context.Context, workspaceID string) (bool, error) {
+	var required bool
+	err := s.db.QueryRowContext(ctx,
+		`SELECT mfa_required FROM workspaces WHERE id = $1`,
+		workspaceID).Scan(&required)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, ErrWorkspaceNotFound
+	}
+	return required, err
+}
+
+func (s *WorkspaceService) SetMFARequired(ctx context.Context, workspaceID, callerID string, required bool) error {
+	if err := s.requireOwnerOrAdmin(ctx, workspaceID, callerID); err != nil {
+		return err
+	}
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE workspaces SET mfa_required = $1, updated_at = NOW()
+		WHERE id = $2
+	`, required, workspaceID)
+	return err
 }
 
 func (s *WorkspaceService) ListDatasources(ctx context.Context, workspaceID string) ([]WorkspaceDatasource, error) {
