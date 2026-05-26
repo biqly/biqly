@@ -71,7 +71,9 @@ else
   echo "set BI_AUTH_JWT_PRIVATE_KEY (PEM) or BI_AUTH_JWT_PRIVATE_KEY_PATH in $ENV_FILE" >&2
   exit 1
 fi
+[[ -n "${BI_AUTH_GITHUB_CLIENT_ID:-}" ]] && auth_secret_args+=(--from-literal="BI_AUTH_GITHUB_CLIENT_ID=$BI_AUTH_GITHUB_CLIENT_ID")
 [[ -n "${BI_AUTH_GITHUB_CLIENT_SECRET:-}" ]] && auth_secret_args+=(--from-literal="BI_AUTH_GITHUB_CLIENT_SECRET=$BI_AUTH_GITHUB_CLIENT_SECRET")
+[[ -n "${BI_AUTH_GOOGLE_CLIENT_ID:-}" ]] && auth_secret_args+=(--from-literal="BI_AUTH_GOOGLE_CLIENT_ID=$BI_AUTH_GOOGLE_CLIENT_ID")
 [[ -n "${BI_AUTH_GOOGLE_CLIENT_SECRET:-}" ]] && auth_secret_args+=(--from-literal="BI_AUTH_GOOGLE_CLIENT_SECRET=$BI_AUTH_GOOGLE_CLIENT_SECRET")
 [[ -n "${BI_AUTH_SMTP_USER:-}" ]] && auth_secret_args+=(--from-literal="BI_AUTH_SMTP_USER=$BI_AUTH_SMTP_USER")
 [[ -n "${BI_AUTH_SMTP_PASS:-}" ]] && auth_secret_args+=(--from-literal="BI_AUTH_SMTP_PASS=$BI_AUTH_SMTP_PASS")
