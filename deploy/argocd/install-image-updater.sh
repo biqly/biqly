@@ -59,5 +59,6 @@ fi
 
 echo "==> Status"
 kubectl -n "$NS" get pods -l app.kubernetes.io/name=argocd-image-updater
+kubectl -n "$NS" logs deploy/argocd-image-updater-controller --tail=20 2>/dev/null || true
 kubectl -n "$NS" get imageupdater biqly -o wide 2>/dev/null || true
 echo "done."

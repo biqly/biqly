@@ -60,8 +60,10 @@ When `main` is protected (direct push blocked), set `ARGOCD_IMAGE_UPDATER_USE_PR
 
 ```bash
 kubectl -n argocd get pods -l app.kubernetes.io/name=argocd-image-updater
-kubectl -n argocd logs deploy/argocd-image-updater --tail=50
+kubectl -n argocd logs deploy/argocd-image-updater-controller --tail=80
 ```
+
+Helm release name is still `argocd-image-updater`; the Deployment is `argocd-image-updater-controller` (controller-based chart ≥ v1).
 
 Successful write-back updates `deploy/helm/biqly/.argocd-source-biqly.yaml` (not `values-prod.yaml` — helmvalues alias mapping failed for multi-image apps).
 
