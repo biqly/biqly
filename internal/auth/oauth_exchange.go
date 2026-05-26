@@ -13,8 +13,14 @@ import (
 )
 
 const (
-	oauthCallbackKeyPrefix = "oauth_callback:"
-	oauthCallbackCodeTTL   = 90 * time.Second
+	oauthCallbackKeyPrefix     = "oauth_callback:"
+	oauthCallbackUsedKeyPrefix = "oauth_callback_used:"
+	oauthCallbackCodeTTL       = 90 * time.Second
+	// Allow a short replay window so that retries or simultaneous mounts
+	// (e.g. StrictMode, slow networks) get the same tokens back instead of a
+	// hard 400 that bounces the user to the sign-in page. The single-use
+	// guarantee still holds beyond this grace period.
+	oauthCallbackGraceTTL = 5 * time.Second
 )
 
 var (
@@ -68,12 +74,25 @@ func (s *AuthService) RedeemOAuthCallbackCode(ctx context.Context, code string) 
 	}
 
 	key := oauthCallbackKeyPrefix + code
+	usedKey := oauthCallbackUsedKeyPrefix + code
+
 	raw, err := s.redisClient.GetDel(ctx, key).Bytes()
 	if err != nil {
-		if errors.Is(err, redis.Nil) {
-			return nil, ErrInvalidOAuthCallbackCode
+		if !errors.Is(err, redis.Nil) {
+			return nil, fmt.Errorf("redeem oauth callback code: %w", err)
 		}
-		return nil, fmt.Errorf("redeem oauth callback code: %w", err)
+		// Single-use already consumed; tolerate retries within the grace TTL.
+		raw, err = s.redisClient.Get(ctx, usedKey).Bytes()
+		if err != nil {
+			if errors.Is(err, redis.Nil) {
+				return nil, ErrInvalidOAuthCallbackCode
+			}
+			return nil, fmt.Errorf("read oauth callback grace cache: %w", err)
+		}
+	} else {
+		// Backup the response for the grace window so concurrent or rapid
+		// retries from the same browser get identical tokens.
+		_ = s.redisClient.Set(ctx, usedKey, raw, oauthCallbackGraceTTL).Err()
 	}
 
 	var resp TokenResponse

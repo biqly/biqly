@@ -52,8 +52,21 @@ func TestOAuthCallbackCodeIssueAndRedeem(t *testing.T) {
 		t.Fatalf("redeemed tokens mismatch: %+v", got)
 	}
 
+	// Within the grace window the same code yields the same tokens so that
+	// concurrent retries (e.g. StrictMode double-mount, network races) do not
+	// bounce the user back to sign-in.
+	regot, err := svc.RedeemOAuthCallbackCode(ctx, code)
+	if err != nil {
+		t.Fatalf("grace redeem error = %v, want success within grace window", err)
+	}
+	if regot.AccessToken != resp.AccessToken || regot.RefreshToken != resp.RefreshToken {
+		t.Fatalf("grace redeem token mismatch: %+v", regot)
+	}
+
+	// After the grace TTL elapses the code is gone for good.
+	_ = rdb.Del(ctx, oauthCallbackUsedKeyPrefix+code).Err()
 	_, err = svc.RedeemOAuthCallbackCode(ctx, code)
 	if !errors.Is(err, ErrInvalidOAuthCallbackCode) {
-		t.Fatalf("second redeem error = %v, want ErrInvalidOAuthCallbackCode", err)
+		t.Fatalf("post-grace redeem error = %v, want ErrInvalidOAuthCallbackCode", err)
 	}
 }

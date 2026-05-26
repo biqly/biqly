@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import abiLogo from '../../assets/abi-logo.png'
 import { apiOAuthExchange } from '../../api/auth'
 import { useT } from '../../i18n'
@@ -9,8 +9,15 @@ export default function OAuthCallback() {
   const t = useT()
   const { loginWithTokens } = useAuth()
   const [error, setError] = useState<string | null>(null)
+  // React 18 StrictMode mounts effects twice in dev; guard against double
+  // redemption of the single-use OAuth callback code. Without this the second
+  // call gets 400 and would redirect the just-signed-in user back to signin.
+  const startedRef = useRef(false)
 
   useEffect(() => {
+    if (startedRef.current) return
+    startedRef.current = true
+
     const handleCallback = async () => {
       const params = new URLSearchParams(window.location.search)
       const code = params.get('code')
@@ -23,6 +30,10 @@ export default function OAuthCallback() {
         return
       }
 
+      // Strip the code from the URL before the network call so that, even if
+      // the component is force-remounted, the second mount cannot reuse it.
+      window.history.replaceState(null, '', '/auth/callback')
+
       try {
         const resp = await apiOAuthExchange(code)
         if (resp.mfa_required && resp.mfa_token) {
@@ -30,7 +41,6 @@ export default function OAuthCallback() {
           return
         }
         await loginWithTokens(resp.access_token, resp.refresh_token, resp.roles ?? [])
-        window.history.replaceState(null, '', '/auth/callback')
         globalNavigate('/datasources')
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : t('auth.oauth_failed')
