@@ -16,6 +16,7 @@ type EmailSender interface {
 	SendAccountUnlock(ctx context.Context, email, token string) error
 	SendNewDeviceLogin(ctx context.Context, email string, info DeviceLoginInfo) error
 	SendAccountDeletionScheduled(ctx context.Context, email string, purgeAt time.Time) error
+	SendDuplicateRegistrationNotice(ctx context.Context, email string) error
 }
 
 type DeviceLoginInfo struct {
@@ -79,6 +80,16 @@ func (s *SMTPEmailSender) SendNewDeviceLogin(ctx context.Context, email string, 
 		info.IPAddress,
 		info.UserAgent,
 		s.frontendURL("/auth/security"),
+	)
+	return s.send(email, subject, body)
+}
+
+func (s *SMTPEmailSender) SendDuplicateRegistrationNotice(ctx context.Context, email string) error {
+	subject := "Sign-up attempt on existing Biqly account"
+	body := fmt.Sprintf(
+		"Someone tried to register a new Biqly account using this email address, but an account already exists.\n\nIf this was you, you can sign in at %s or reset your password at %s.\n\nIf you did not attempt this, you can safely ignore this email.",
+		s.frontendURL("/auth/signin"),
+		s.frontendURL("/auth/forgot-password"),
 	)
 	return s.send(email, subject, body)
 }
@@ -153,6 +164,12 @@ func (m *MockEmailSender) SendAccountUnlock(ctx context.Context, email, token st
 func (m *MockEmailSender) SendNewDeviceLogin(ctx context.Context, email string, info DeviceLoginInfo) error {
 	m.SentEmails[email] = append(m.SentEmails[email], fmt.Sprintf("New device: %s @ %s", info.UserAgent, info.IPAddress))
 	slog.Info("MOCK EMAIL SENT: New device login", "to", email, "ip", info.IPAddress, "ua", info.UserAgent)
+	return nil
+}
+
+func (m *MockEmailSender) SendDuplicateRegistrationNotice(ctx context.Context, email string) error {
+	m.SentEmails[email] = append(m.SentEmails[email], "Duplicate registration attempt")
+	slog.Info("MOCK EMAIL SENT: Duplicate registration", "to", email)
 	return nil
 }
 

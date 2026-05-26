@@ -167,6 +167,8 @@ func newRouter(state *appState, authHandler *biqauth.AuthHandler, rbacHandler *b
 	r.Use(bimw.SecurityHeaders(bimw.SecurityHeadersConfig{
 		HSTSEnabled:           httpsOnly,
 		HSTSIncludeSubdomains: true,
+		HSTSPreload:           httpsOnly && cfg.HSTSPreload,
+		HSTSMaxAgeSeconds:     cfg.HSTSMaxAgeSeconds,
 		ContentSecurityPolicy: "default-src 'self'; frame-ancestors 'none'",
 	}))
 

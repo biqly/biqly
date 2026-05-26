@@ -6,6 +6,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 func ValidateEmail(email string) error {
@@ -13,11 +15,17 @@ func ValidateEmail(email string) error {
 	return err
 }
 
+// NormalizeEmail trims, NFKC-normalizes, lowercases, and canonicalizes
+// well-known provider variants so the same logical address always maps to
+// the same row. Gmail and Googlemail addresses have dots and +tag suffixes
+// stripped from the local part and the domain unified to gmail.com; this
+// prevents trivial duplicate-account creation via dot/tag tricks.
 func NormalizeEmail(email string) (string, error) {
 	email = strings.TrimSpace(email)
 	if email == "" {
 		return "", errors.New("email is required")
 	}
+	email = norm.NFKC.String(email)
 	addr, err := mail.ParseAddress(email)
 	if err != nil {
 		return "", errors.New("invalid email address format")
@@ -28,7 +36,25 @@ func NormalizeEmail(email string) (string, error) {
 	if containsUnsupportedText(email) {
 		return "", errors.New("invalid email address format")
 	}
-	return strings.ToLower(email), nil
+	lowered := strings.ToLower(email)
+	at := strings.LastIndex(lowered, "@")
+	if at <= 0 || at == len(lowered)-1 {
+		return "", errors.New("invalid email address format")
+	}
+	local, domain := lowered[:at], lowered[at+1:]
+	if domain == "googlemail.com" {
+		domain = "gmail.com"
+	}
+	if domain == "gmail.com" {
+		if plus := strings.IndexByte(local, '+'); plus >= 0 {
+			local = local[:plus]
+		}
+		local = strings.ReplaceAll(local, ".", "")
+		if local == "" {
+			return "", errors.New("invalid email address format")
+		}
+	}
+	return local + "@" + domain, nil
 }
 
 func ValidateDisplayName(displayName string) error {

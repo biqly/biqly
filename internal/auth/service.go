@@ -83,7 +83,14 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest, userAge
 	}
 
 	user, err := s.userRepo.CreateUser(ctx, email, hash, displayName)
-	if err != nil {
+	if errors.Is(err, ErrUserAlreadyExists) {
+		// Silently notify the existing owner and return a generic response
+		// so the API cannot be used to enumerate registered emails.
+		if s.emailSender != nil {
+			_ = s.emailSender.SendDuplicateRegistrationNotice(ctx, email)
+		}
+		return &TokenResponse{VerificationPending: true}, nil
+	} else if err != nil {
 		return nil, err
 	}
 
@@ -118,11 +125,12 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest, userAge
 	}
 
 	return &TokenResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		UserID:       user.ID,
-		Email:        user.Email,
-		Roles:        roles,
+		AccessToken:         accessToken,
+		RefreshToken:        refreshToken,
+		UserID:              user.ID,
+		Email:               user.Email,
+		Roles:               roles,
+		VerificationPending: true,
 	}, nil
 }
 

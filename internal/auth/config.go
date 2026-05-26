@@ -42,6 +42,8 @@ type Config struct {
 	SessionAbsoluteTTL time.Duration
 	SessionIdleTTL     time.Duration
 	PasswordPolicy     PasswordPolicy
+	HSTSPreload        bool
+	HSTSMaxAgeSeconds  int
 }
 
 func LoadConfig() (*Config, error) {
@@ -80,6 +82,8 @@ func LoadConfig() (*Config, error) {
 		SessionAbsoluteTTL: positiveDurationEnv("BI_AUTH_SESSION_ABSOLUTE_TTL", 30*24*time.Hour),
 		SessionIdleTTL:     positiveDurationEnv("BI_AUTH_SESSION_IDLE_TTL", 4*time.Hour),
 		PasswordPolicy:     passwordPolicyFromEnv(),
+		HSTSPreload:        boolEnv("BI_AUTH_HSTS_PRELOAD", false),
+		HSTSMaxAgeSeconds:  nonNegativeIntEnv("BI_AUTH_HSTS_MAX_AGE_SECONDS", 63072000),
 	}
 
 	if cfg.InternalToken == "" {

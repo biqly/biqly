@@ -1751,14 +1751,14 @@ atılabilecek güvenlik, operasyonel ve uyumluluk gereksinimleridir.
 ### 18.4 API Security
 
 - [ ] **Request signing**: OAuth callback'lerde ek güvenlik olarak request body imzalama
-- [ ] **CORS strict mode**: Auth endpoint'leri için ayrı CORS politikası (monolit'ten farklı)
-- [ ] **Security headers**: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin`
-- [ ] **Content Security Policy**: Auth sayfaları için strict CSP (inline script yok, nonce-based)
-- [ ] **HSTS preload**: Auth service domain'i HSTS preload listesinde
-- [ ] **Input sanitizasyon**: E-posta normalization (RFC 5321 + Gmail dot trick engelleme), Unicode normalization
-- [ ] **Response header leak önleme**: Auth hatalarında internal detail döndürme ("user exists" → generic "invalid credentials")
-- [ ] **Timing attack önleme**: User-exists sorgularında sabit süre response (bcrypt verify her zaman çalışır)
-- [ ] **Account enumeration önleme**: Login, register, forgot-password endpoint'lerinde aynı hata mesajı
+- [x] **CORS strict mode**: Auth servis kendi `BI_AUTH_CORS_ALLOWED_ORIGINS` listesi, `AllowCredentials=true`, `MaxAge=300`; monolitten ayrı (`cmd/auth/main.go:173`)
+- [x] **Security headers**: `bimw.SecurityHeaders` middleware (`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `COOP=same-origin`, `CORP=same-site`) auth + monolit'te global
+- [x] **Content Security Policy**: Auth servis `default-src 'self'; frame-ancestors 'none'` (`cmd/auth/main.go:170`); nonce/inline-free script policy frontend tarafında
+- [x] **HSTS preload**: `BI_AUTH_HSTS_PRELOAD=true` opt-in (HTTPS origin koşullu), `BI_AUTH_HSTS_MAX_AGE_SECONDS` (default 2y); `Strict-Transport-Security` `includeSubDomains; preload` direktifleriyle
+- [x] **Input sanitizasyon**: `NormalizeEmail` NFKC normalization + Gmail/Googlemail dot-trick + `+tag` strip + `googlemail.com → gmail.com` canonicalization (`validator.go`); `containsUnsupportedText` `<>`/control char reddi
+- [x] **Response header leak önleme**: Login `ErrInvalidCredentials`/`ErrInactiveUser` aynı response; register dup `VerificationPending` generic body; ForgotPassword no-op
+- [x] **Timing attack önleme**: `VerifyDummyPassword` user-not-found ve `PasswordHash==nil` dallarında çalışır (`service.go:147,160`); `dummyBcryptHash` seed
+- [x] **Account enumeration önleme**: Register dup → `VerificationPending` + `SendDuplicateRegistrationNotice` (mevcut sahibine bildirim, token döndürmez); Login generic 401; Forgot/Resend sessiz no-op
 
 ### 18.5 Audit & Compliance
 

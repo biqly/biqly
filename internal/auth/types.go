@@ -31,6 +31,11 @@ type TokenResponse struct {
 	MFARequired     bool     `json:"mfa_required,omitempty"`
 	MFAToken        string   `json:"mfa_token,omitempty"`
 	PasswordExpired bool     `json:"password_expired,omitempty"`
+	// VerificationPending is set when registration succeeded silently —
+	// either a real new account was created (response carries tokens) or
+	// the email was already in use (response carries no tokens). Clients
+	// must not infer account existence from this flag alone.
+	VerificationPending bool `json:"verification_pending,omitempty"`
 }
 
 type MFALoginRequest struct {

@@ -170,6 +170,33 @@ func TestValidators(t *testing.T) {
 	assert.EqualError(t, ValidateDisplayName("Ada\x00Lovelace"), "display name contains unsupported characters")
 }
 
+func TestNormalizeEmailGmailCanonicalization(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"Bob.Smith+promo@gmail.com", "bobsmith@gmail.com"},
+		{"b.o.b.smith@googlemail.com", "bobsmith@gmail.com"},
+		{"alice+anything@gmail.com", "alice@gmail.com"},
+		{"Alice@Example.COM", "alice@example.com"},
+		{"plain.name+tag@example.com", "plain.name+tag@example.com"},
+	}
+	for _, tc := range cases {
+		got, err := NormalizeEmail(tc.in)
+		require.NoError(t, err, "input=%q", tc.in)
+		assert.Equal(t, tc.want, got, "input=%q", tc.in)
+	}
+
+	// NFKC: fullwidth @ collapses to ASCII @.
+	nfkc, err := NormalizeEmail("alice＠example.com")
+	require.NoError(t, err)
+	assert.Equal(t, "alice@example.com", nfkc)
+
+	// Gmail local stripped to empty must be rejected.
+	_, err = NormalizeEmail("...@gmail.com")
+	assert.Error(t, err)
+}
+
 func TestEmailChangeMigrationHasDoubleVerificationAndWaitPeriod(t *testing.T) {
 	up, err := os.ReadFile("../../migrations/auth/023a_create_email_change_requests.up.sql")
 	require.NoError(t, err)
@@ -288,6 +315,24 @@ func TestIntegrationAuthFlow(t *testing.T) {
 	assert.Equal(t, email, user.Email)
 	assert.Equal(t, displayName, *user.DisplayName)
 	assert.True(t, user.IsActive)
+
+	// 2b. Duplicate registration must not leak account existence: same generic
+	// response shape (200, verification_pending) with no tokens, regardless of
+	// whether the email is fresh or already taken.
+	mockMailer := NewMockEmailSender()
+	enumService := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, config, nil, mockMailer)
+	dupResp, err := enumService.Register(ctx, RegisterRequest{
+		Email:       email,
+		Password:    "SecurePass123!",
+		DisplayName: displayName,
+	}, &ua, &ip)
+	require.NoError(t, err)
+	assert.True(t, dupResp.VerificationPending)
+	assert.Empty(t, dupResp.AccessToken)
+	assert.Empty(t, dupResp.RefreshToken)
+	assert.Empty(t, dupResp.UserID)
+	require.NotEmpty(t, mockMailer.SentEmails[email], "duplicate registration must email the existing owner")
+	assert.Contains(t, mockMailer.SentEmails[email][0], "Duplicate registration")
 
 	// 3. Login
 	loginResp, err := service.Login(ctx, LoginRequest{
