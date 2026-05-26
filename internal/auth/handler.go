@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -443,11 +444,23 @@ func (h *AuthHandler) handleOAuthCallback(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	frontendCallback := "http://localhost:3333/auth/callback"
-	redirectURL := fmt.Sprintf("%s?access_token=%s&refresh_token=%s&user_id=%s&email=%s",
-		frontendCallback, resp.AccessToken, resp.RefreshToken, resp.UserID, resp.Email)
+	frontendBase := strings.TrimRight(h.config.FrontendBaseURL, "/")
+	if frontendBase == "" {
+		frontendBase = "http://localhost:3333"
+	}
+	callbackURL, err := url.Parse(frontendBase + "/auth/callback")
+	if err != nil {
+		h.respondError(w, http.StatusInternalServerError, "invalid frontend callback URL")
+		return
+	}
+	q := callbackURL.Query()
+	q.Set("access_token", resp.AccessToken)
+	q.Set("refresh_token", resp.RefreshToken)
+	q.Set("user_id", resp.UserID)
+	q.Set("email", resp.Email)
+	callbackURL.RawQuery = q.Encode()
 	//nolint:gosec
-	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+	http.Redirect(w, r, callbackURL.String(), http.StatusTemporaryRedirect)
 }
 
 func (h *AuthHandler) generateState() (string, error) {
