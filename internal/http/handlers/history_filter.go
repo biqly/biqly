@@ -1,9 +1,14 @@
 package handlers
 
 import (
+	"context"
+	"log/slog"
 	"slices"
 
+	"github.com/biqly/biqly/internal/app"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	pkgmetadata "github.com/biqly/biqly/pkg/metadata"
+	pkgquery "github.com/biqly/biqly/pkg/query"
 )
 
 const (
@@ -36,6 +41,79 @@ func FilterAIHistoryForUser(rows []pkgmetadata.AIQueryHistoryEntry, userID strin
 	result := rows[:0]
 	for _, row := range rows {
 		if row.UserID != nil && *row.UserID == userID {
+			result = append(result, row)
+		}
+	}
+	return result
+}
+
+// resolveWorkspaceDatasourceFilter returns the set of datasource IDs the
+// caller may see for the active workspace, or nil when no workspace filter
+// should be applied (auth disabled, no JWT context, super_admin, or no active
+// workspace). An error returned from the auth service is logged and treated
+// as fail-closed: an empty map is returned so the listing is hidden rather
+// than leaking unfiltered rows.
+func resolveWorkspaceDatasourceFilter(ctx context.Context, deps *app.Dependencies) (map[string]struct{}, bool) {
+	if !deps.Config.Auth.Enabled {
+		return nil, false
+	}
+	userID := bimw.UserID(ctx)
+	if userID == "" || bimw.HasRole(ctx, bimw.RoleSuperAdmin) {
+		return nil, false
+	}
+	wsID := bimw.WorkspaceID(ctx)
+	if wsID == "" {
+		return nil, false
+	}
+
+	client := bimw.NewAuthClient(deps.Config.Auth.ServiceURL, deps.Config.Auth.InternalToken)
+	allowed, err := client.ListUserDatasources(ctx, userID)
+	if err != nil {
+		slog.ErrorContext(ctx, "history: failed to list user datasources", "user_id", userID, "err", err)
+		return map[string]struct{}{}, true
+	}
+	wsIDs, err := client.ListWorkspaceDatasources(ctx, wsID)
+	if err != nil {
+		slog.ErrorContext(ctx, "history: failed to list workspace datasources", "workspace_id", wsID, "err", err)
+		return map[string]struct{}{}, true
+	}
+	wsSet := make(map[string]struct{}, len(wsIDs))
+	for _, id := range wsIDs {
+		wsSet[id] = struct{}{}
+	}
+	result := make(map[string]struct{}, len(allowed))
+	for _, id := range allowed {
+		if _, ok := wsSet[id]; ok {
+			result[id] = struct{}{}
+		}
+	}
+	return result, true
+}
+
+// FilterAIHistoryByDatasources drops rows whose datasource is not in the
+// allowed set. Pass nil to disable filtering.
+func FilterAIHistoryByDatasources(rows []pkgmetadata.AIQueryHistoryEntry, allowed map[string]struct{}) []pkgmetadata.AIQueryHistoryEntry {
+	if allowed == nil {
+		return rows
+	}
+	result := rows[:0]
+	for _, row := range rows {
+		if _, ok := allowed[row.DatasourceID]; ok {
+			result = append(result, row)
+		}
+	}
+	return result
+}
+
+// FilterQueryHistoryByDatasources drops rows whose datasource is not in the
+// allowed set. Pass nil to disable filtering.
+func FilterQueryHistoryByDatasources(rows []pkgquery.HistoryEntry, allowed map[string]struct{}) []pkgquery.HistoryEntry {
+	if allowed == nil {
+		return rows
+	}
+	result := rows[:0]
+	for _, row := range rows {
+		if _, ok := allowed[row.DatasourceID]; ok {
 			result = append(result, row)
 		}
 	}

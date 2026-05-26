@@ -415,3 +415,51 @@ func TestAuthClient_ListUserDatasources(t *testing.T) {
 		t.Fatalf("unexpected list: %+v", got)
 	}
 }
+
+func TestAuthClient_ListWorkspaceDatasources_Caches(t *testing.T) {
+	var calls int
+	mux := http.NewServeMux()
+	mux.HandleFunc("/internal/auth/workspaces/ws1/datasources", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Internal-Token") != "tok" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		calls++
+		_ = json.NewEncoder(w).Encode(map[string][]string{"datasource_ids": {"d1", "d2"}})
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	client := NewAuthClient(srv.URL, "tok")
+	for i := range 3 {
+		got, err := client.ListWorkspaceDatasources(context.Background(), "ws1")
+		if err != nil {
+			t.Fatalf("call %d: %v", i, err)
+		}
+		if len(got) != 2 || got[0] != "d1" {
+			t.Fatalf("call %d: unexpected list %+v", i, got)
+		}
+	}
+	if calls != 1 {
+		t.Fatalf("expected 1 upstream call (cached), got %d", calls)
+	}
+
+	client.InvalidateWorkspaceDatasourceCache("ws1")
+	if _, err := client.ListWorkspaceDatasources(context.Background(), "ws1"); err != nil {
+		t.Fatalf("post-invalidate: %v", err)
+	}
+	if calls != 2 {
+		t.Fatalf("expected refetch after invalidation, got %d total calls", calls)
+	}
+}
+
+func TestAuthClient_ListWorkspaceDatasources_EmptyWorkspace(t *testing.T) {
+	client := NewAuthClient("http://unused", "tok")
+	got, err := client.ListWorkspaceDatasources(context.Background(), "")
+	if err != nil {
+		t.Fatalf("empty workspace: %v", err)
+	}
+	if got != nil {
+		t.Fatalf("expected nil for empty workspace, got %+v", got)
+	}
+}

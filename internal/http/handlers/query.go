@@ -97,17 +97,22 @@ func (h *QueryHandler) Explain(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// History returns query history.
+// History returns query history. When auth is enabled and the caller is not
+// super_admin, results are scoped to the active workspace's datasources.
 func (h *QueryHandler) History(w http.ResponseWriter, r *http.Request) {
 	entries, err := h.deps.MetaRepo.ListQueryHistory(r.Context(), h.deps.Config.Query.HistoryListLimit)
 	if err != nil {
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to list query history", err)
 		return
 	}
+	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps); applied {
+		entries = FilterQueryHistoryByDatasources(entries, wsFilter)
+	}
 	writeJSON(w, http.StatusOK, entries)
 }
 
-// GetHistory returns a single history entry.
+// GetHistory returns a single history entry. Scoped to the active workspace
+// when auth is enabled and the caller is not super_admin.
 func (h *QueryHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
 	id, ok := requireURLParam(w, r, "id")
 	if !ok {
@@ -117,6 +122,12 @@ func (h *QueryHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeEntityNotFound(w, "query history")
 		return
+	}
+	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps); applied {
+		if _, ok := wsFilter[entry.DatasourceID]; !ok {
+			writeEntityNotFound(w, "query history")
+			return
+		}
 	}
 	writeJSON(w, http.StatusOK, entry)
 }

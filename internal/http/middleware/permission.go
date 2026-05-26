@@ -33,6 +33,9 @@ type AuthClient struct {
 	dsMu    sync.RWMutex
 	dsCache map[string]dsEntry
 
+	wsDSMu    sync.RWMutex
+	wsDSCache map[string]wsDSEntry
+
 	cacheTTL time.Duration
 }
 
@@ -46,6 +49,11 @@ type dsEntry struct {
 	at      time.Time
 }
 
+type wsDSEntry struct {
+	ids []string
+	at  time.Time
+}
+
 func NewAuthClient(baseURL, internalToken string) *AuthClient {
 	return &AuthClient{
 		baseURL:       strings.TrimRight(baseURL, "/"),
@@ -53,6 +61,7 @@ func NewAuthClient(baseURL, internalToken string) *AuthClient {
 		httpClient:    &http.Client{Timeout: 5 * time.Second},
 		permCache:     make(map[string]permEntry),
 		dsCache:       make(map[string]dsEntry),
+		wsDSCache:     make(map[string]wsDSEntry),
 		cacheTTL:      5 * time.Minute,
 	}
 }
@@ -121,8 +130,45 @@ func (c *AuthClient) CheckDatasourceAccess(ctx context.Context, userID, datasour
 }
 
 func (c *AuthClient) ListUserDatasources(ctx context.Context, userID string) ([]string, error) {
-	url := fmt.Sprintf("%s/internal/auth/user/%s/datasources", c.baseURL, userID)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	return c.fetchDatasourceIDs(ctx, fmt.Sprintf("/internal/auth/user/%s/datasources", userID))
+}
+
+// ListWorkspaceDatasources returns the datasource IDs attached to a workspace.
+// Cached in-memory per workspace ID with the same TTL as other auth checks.
+func (c *AuthClient) ListWorkspaceDatasources(ctx context.Context, workspaceID string) ([]string, error) {
+	if workspaceID == "" {
+		return nil, nil
+	}
+
+	c.wsDSMu.RLock()
+	if e, ok := c.wsDSCache[workspaceID]; ok && time.Since(e.at) < c.cacheTTL {
+		ids := append([]string(nil), e.ids...)
+		c.wsDSMu.RUnlock()
+		return ids, nil
+	}
+	c.wsDSMu.RUnlock()
+
+	ids, err := c.fetchDatasourceIDs(ctx, fmt.Sprintf("/internal/auth/workspaces/%s/datasources", workspaceID))
+	if err != nil {
+		return nil, err
+	}
+
+	c.wsDSMu.Lock()
+	c.wsDSCache[workspaceID] = wsDSEntry{ids: append([]string(nil), ids...), at: time.Now()}
+	c.wsDSMu.Unlock()
+	return ids, nil
+}
+
+// InvalidateWorkspaceDatasourceCache drops the cached datasource list for the
+// given workspace. Called when workspace_datasources changes propagate.
+func (c *AuthClient) InvalidateWorkspaceDatasourceCache(workspaceID string) {
+	c.wsDSMu.Lock()
+	delete(c.wsDSCache, workspaceID)
+	c.wsDSMu.Unlock()
+}
+
+func (c *AuthClient) fetchDatasourceIDs(ctx context.Context, path string) ([]string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -300,6 +300,24 @@ func (h *DatasourceHandler) List(w http.ResponseWriter, r *http.Request) {
 				allowedSet[id] = struct{}{}
 			}
 
+			if wsID := bimw.WorkspaceID(ctx); wsID != "" {
+				wsIDs, err := authClient.ListWorkspaceDatasources(ctx, wsID)
+				if err != nil {
+					slog.ErrorContext(ctx, "failed to fetch workspace datasources from auth service", "workspaceID", wsID, "error", err)
+					writeInternalError(ctx, w, http.StatusInternalServerError, "failed to scope datasources to workspace", err)
+					return
+				}
+				wsSet := make(map[string]struct{}, len(wsIDs))
+				for _, id := range wsIDs {
+					wsSet[id] = struct{}{}
+				}
+				for id := range allowedSet {
+					if _, ok := wsSet[id]; !ok {
+						delete(allowedSet, id)
+					}
+				}
+			}
+
 			filtered := make([]metadata.Datasource, 0, len(datasources))
 			for _, ds := range datasources {
 				if _, ok := allowedSet[ds.ID]; ok {

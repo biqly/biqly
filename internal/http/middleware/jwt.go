@@ -230,3 +230,32 @@ func Permissions(ctx context.Context) []string {
 func HasRole(ctx context.Context, role string) bool {
 	return slices.Contains(UserRoles(ctx), role)
 }
+
+// WorkspaceDatasourceFilter resolves the active workspace's attached datasource
+// IDs for the request context. Returns (ids, applied).
+//
+//   - applied=false → no filter should be applied: caller is super_admin, auth
+//     is disabled (client nil), or there is no active workspace.
+//   - applied=true  → only datasource IDs in ids are visible. An empty ids
+//     slice means the workspace has no datasources and the listing should be
+//     empty.
+//
+// Errors from the auth service propagate so handlers can decide between
+// failing closed and serving unfiltered.
+func WorkspaceDatasourceFilter(ctx context.Context, client *AuthClient) ([]string, bool, error) {
+	if client == nil {
+		return nil, false, nil
+	}
+	if HasRole(ctx, RoleSuperAdmin) {
+		return nil, false, nil
+	}
+	wsID := WorkspaceID(ctx)
+	if wsID == "" {
+		return nil, false, nil
+	}
+	ids, err := client.ListWorkspaceDatasources(ctx, wsID)
+	if err != nil {
+		return nil, false, err
+	}
+	return ids, true, nil
+}

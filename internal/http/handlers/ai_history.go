@@ -40,6 +40,9 @@ func (h *AIHandler) AIHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps); applied {
+		rows = FilterAIHistoryByDatasources(rows, wsFilter)
+	}
 	filtered := FilterAIHistoryForUser(rows, userID, perms)
 	writeJSON(w, http.StatusOK, map[string]any{"entries": filtered})
 }
@@ -57,6 +60,8 @@ func (h *AIHandler) AIHistoryDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	wsFilter, wsApplied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps)
+
 	id := r.URL.Query().Get("id")
 	for _, row := range rows {
 		if row.ID != id {
@@ -65,6 +70,12 @@ func (h *AIHandler) AIHistoryDetail(w http.ResponseWriter, r *http.Request) {
 		if !hasViewDetails && userID != "" && (row.UserID == nil || *row.UserID != userID) {
 			writeError(w, http.StatusForbidden, "not owner of this entry")
 			return
+		}
+		if wsApplied {
+			if _, ok := wsFilter[row.DatasourceID]; !ok {
+				writeError(w, http.StatusNotFound, "entry not found")
+				return
+			}
 		}
 		writeJSON(w, http.StatusOK, row)
 		return

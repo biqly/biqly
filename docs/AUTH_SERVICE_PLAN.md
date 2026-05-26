@@ -1298,7 +1298,7 @@ r.Route("/api", func(r chi.Router) {
 - [x] Datasource erişimi olmayan sayfalarda "Erişim İste" butonu
 - [x] Paylaşım UI: sorgu/dashboard paylaş butonu
 - [x] Paylaşılan kaynaklar listesi
-- [ ] Workspace bazlı filtreleme (sorgular, modeller, datasource'lar)
+- [x] Workspace bazlı filtreleme (sorgular, modeller, datasource'lar) — `/internal/auth/workspaces/{id}/datasources` (auth servisi), `AuthClient.ListWorkspaceDatasources` cache'li (5dk TTL) + `bimw.WorkspaceDatasourceFilter` helper'ı; datasources/semantic/query/AI history list + detail endpoint'leri intersect ile filtreleniyor; super_admin bypass + auth disabled fallback korunuyor
 
 ### Güvenlik
 
@@ -2528,3 +2528,4 @@ env:
 | 2026-05-25 | Kubernetes/Helm entegrasyonu: auth sub-chart, NetworkPolicy, HTTPRoute, migrate-job, PrometheusRule, Dockerfile, Docker Compose, ArgoCD hooks |
 | 2026-05-25 | Cloudflared Zero Trust tunnel: `abi.il1.nl` → auth service route'ları (`^/api/auth`, `^/auth`), ConfigMap güncelleme, cloudflared NetworkPolicy ingress, Zero Trust Access Policy (opsiyonel) |
 | 2026-05-26 | Aşama 6 testleri: middleware (`jwt`, `permission`, `datasource_access`) + AI history filter + timing parity + account enumeration invariant; login handler `ErrInactiveUser` artık jenerik mesaj döner, `ErrAccountLocked` 429 ile ayrılır |
+| 2026-05-26 | Workspace bazlı filtreleme: `/internal/auth/workspaces/{id}/datasources` endpoint, `AuthClient.ListWorkspaceDatasources` (5dk TTL cache + invalidate), `bimw.WorkspaceDatasourceFilter` helper; datasources/semantic models/query history/AI history list+detail endpoint'leri aktif workspace'in datasource'larına intersect ile filtreleniyor (super_admin bypass + auth disabled fallback) |

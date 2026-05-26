@@ -105,6 +105,7 @@ func (h *RBACHandler) RegisterInternalRoutes(r chi.Router, internalMW func(http.
 		r.Get("/user/{id}/datasources", h.handleInternalUserDatasources)
 		r.Post("/check-datasource-access", h.handleInternalCheckDSAccess)
 		r.Get("/user/{id}/workspaces", h.handleInternalUserWorkspaces)
+		r.Get("/workspaces/{id}/datasources", h.handleInternalWorkspaceDatasources)
 		r.Post("/invalidate-cache", h.handleInternalInvalidateCache)
 		r.Get("/public-key", h.handleInternalPublicKey)
 	})
@@ -568,6 +569,19 @@ func (h *RBACHandler) handleInternalUserWorkspaces(w http.ResponseWriter, r *htt
 		return
 	}
 	writeJSON(w, http.StatusOK, list)
+}
+
+func (h *RBACHandler) handleInternalWorkspaceDatasources(w http.ResponseWriter, r *http.Request) {
+	list, err := h.ws.ListDatasources(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	ids := make([]string, 0, len(list))
+	for _, wd := range list {
+		ids = append(ids, wd.DatasourceID)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"datasource_ids": ids})
 }
 
 func (h *RBACHandler) handleInternalInvalidateCache(w http.ResponseWriter, r *http.Request) {

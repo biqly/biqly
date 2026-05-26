@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	pkgmetadata "github.com/biqly/biqly/pkg/metadata"
+	pkgquery "github.com/biqly/biqly/pkg/query"
 )
 
 func ptrString(s string) *string { return &s }
@@ -59,6 +60,49 @@ func TestFilterAIHistory_PreservesOriginalOrder(t *testing.T) {
 	got := FilterAIHistoryForUser(rows, "alice", []string{})
 	if len(got) != 2 || got[0].ID != "1" || got[1].ID != "3" {
 		t.Fatalf("order not preserved: %+v", got)
+	}
+}
+
+func TestFilterAIHistoryByDatasources_NilPassThrough(t *testing.T) {
+	rows := []pkgmetadata.AIQueryHistoryEntry{{ID: "1", DatasourceID: "a"}, {ID: "2", DatasourceID: "b"}}
+	got := FilterAIHistoryByDatasources(rows, nil)
+	if len(got) != 2 {
+		t.Fatalf("nil filter must pass through, got %d", len(got))
+	}
+}
+
+func TestFilterAIHistoryByDatasources_KeepsAllowedOnly(t *testing.T) {
+	rows := []pkgmetadata.AIQueryHistoryEntry{
+		{ID: "1", DatasourceID: "a"},
+		{ID: "2", DatasourceID: "b"},
+		{ID: "3", DatasourceID: "c"},
+	}
+	got := FilterAIHistoryByDatasources(rows, map[string]struct{}{"a": {}, "c": {}})
+	if len(got) != 2 || got[0].ID != "1" || got[1].ID != "3" {
+		t.Fatalf("unexpected filtered rows: %+v", got)
+	}
+}
+
+func TestFilterAIHistoryByDatasources_EmptyFilterDropsAll(t *testing.T) {
+	rows := []pkgmetadata.AIQueryHistoryEntry{{ID: "1", DatasourceID: "a"}}
+	got := FilterAIHistoryByDatasources(rows, map[string]struct{}{})
+	if len(got) != 0 {
+		t.Fatalf("empty filter must drop all, got %d", len(got))
+	}
+}
+
+func TestFilterQueryHistoryByDatasources(t *testing.T) {
+	rows := []pkgquery.HistoryEntry{
+		{ID: "1", DatasourceID: "a"},
+		{ID: "2", DatasourceID: "b"},
+	}
+	got := FilterQueryHistoryByDatasources(rows, map[string]struct{}{"b": {}})
+	if len(got) != 1 || got[0].ID != "2" {
+		t.Fatalf("unexpected filtered rows: %+v", got)
+	}
+
+	if pass := FilterQueryHistoryByDatasources(rows, nil); len(pass) != 2 {
+		t.Fatalf("nil filter must pass through, got %d", len(pass))
 	}
 }
 
