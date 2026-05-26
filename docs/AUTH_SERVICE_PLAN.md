@@ -1181,7 +1181,7 @@ r.Route("/api", func(r chi.Router) {
 - [x] `internal/auth/rbac_repository.go` — Role/permission DB operasyonları
 - [x] Global scope izin kontrolü
 - [x] Workspace scope izin kontrolü
-- [ ] Resource scope izin kontrolü
+- [x] Resource scope izin kontrolü
 - [ ] Rol hiyerarşisi (gelecek: role inheritance)
 - [x] Seed data: 5 varsayılan rol (super_admin, admin, developer, analyst, viewer) + 23 izin
 - [x] super_admin bypass: tüm izin kontrollerini otomatik geç
