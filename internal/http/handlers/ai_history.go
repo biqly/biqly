@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	bimw "github.com/biqly/biqly/internal/http/middleware"
+	pkgmetadata "github.com/biqly/biqly/pkg/metadata"
 )
 
 // AIHistory returns the AI query history list, filtered by user when the
@@ -19,16 +20,9 @@ func (h *AIHandler) AIHistory(w http.ResponseWriter, r *http.Request) {
 	perms := bimw.Permissions(r.Context())
 	hasViewDetails := slices.Contains(perms, PermissionAIViewDetails)
 
-	limit := 50
-	if v := r.URL.Query().Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 500 {
-			limit = n
-		}
-	}
+	// Fetch a larger window to support server-side pagination of filtered rows
+	limit := 1000
 
-	// Admin path: pass empty userID to fetch all rows. Legacy mode (no userID
-	// in context) also falls through here for backward compat — the API key
-	// already gates access.
 	repoFilterUser := userID
 	if hasViewDetails || userID == "" {
 		repoFilterUser = ""
@@ -44,7 +38,39 @@ func (h *AIHandler) AIHistory(w http.ResponseWriter, r *http.Request) {
 		rows = FilterAIHistoryByDatasources(rows, wsFilter)
 	}
 	filtered := FilterAIHistoryForUser(rows, userID, perms)
-	writeJSON(w, http.StatusOK, map[string]any{"entries": filtered})
+
+	total := len(filtered)
+	q := r.URL.Query()
+	page := 1
+	if v := q.Get("page"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			page = n
+		}
+	}
+	pageSize := 10
+	if v := q.Get("page_size"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			pageSize = n
+		}
+	}
+
+	start := (page - 1) * pageSize
+	end := start + pageSize
+
+	var paginated []pkgmetadata.AIQueryHistoryEntry
+	if start < total {
+		if end > total {
+			end = total
+		}
+		paginated = filtered[start:end]
+	} else {
+		paginated = []pkgmetadata.AIQueryHistoryEntry{}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"entries": paginated,
+		"total":   total,
+	})
 }
 
 // AIHistoryDetail returns a single entry. Non-admin users can only see their

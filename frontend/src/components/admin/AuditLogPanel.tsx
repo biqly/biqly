@@ -1,8 +1,48 @@
 import { useEffect, useMemo, useState } from 'react'
-import { listAuditLog } from '../../api/admin'
+import { listAuditLog, listUsers, listWorkspaces } from '../../api/admin'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
-import type { AuditLogEntry } from '../../types/auth'
+import type { AuditLogEntry, AuthUser, Workspace } from '../../types/auth'
+import type { Datasource } from '../../types/metadata'
 import { Pagination } from '../ui/Pagination'
+
+const COMMON_ACTIONS = [
+  'login.success',
+  'login.failed',
+  'login.locked',
+  'login.mfa_required',
+  'logout',
+  'user.register',
+  'password.reset',
+  'password.change',
+  'email.verified',
+  'session.refresh',
+  'session.revoked',
+  'oauth.login',
+  'mfa.enrolled',
+  'mfa.verified',
+  'mfa.disabled',
+  'role.assigned',
+  'role.removed',
+  'datasource.grant',
+  'datasource.revoke',
+  'datasource.update_level',
+  'datasource.request_access',
+  'share.create',
+  'share.revoke',
+  'audit.export',
+  'user.data_export',
+  'admin.blocked_self_change',
+  'account.frozen',
+  'account.unfrozen',
+  'account.soft_deleted',
+  'account.restored',
+  'account.purged',
+  'account.unlocked',
+  'login.new_device',
+  'session.evicted',
+  'admin.force_logout',
+  'password.expired'
+].sort()
 
 export function AuditLogPanel({ token }: { token: string }) {
   const t = useT()
@@ -10,25 +50,36 @@ export function AuditLogPanel({ token }: { token: string }) {
   const [entries, setEntries] = useState<AuditLogEntry[]>([])
   const [userID, setUserID] = useState('')
   const [action, setAction] = useState('')
-  const [limit, setLimit] = useState(100)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Lookups for friendly name mapping
+  const [users, setUsers] = useState<AuthUser[]>([])
+  const [datasources, setDatasources] = useState<Datasource[]>([])
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
-  const pageSize = 10
-  const totalPages = Math.ceil(entries.length / pageSize)
-  const displayedEntries = entries.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const [pageSize, setPageSize] = useState(100)
+  const [totalItems, setTotalItems] = useState(0)
+  const totalPages = Math.ceil(totalItems / pageSize)
+  const displayedEntries = entries
 
-  const actions = useMemo(() => {
-    return Array.from(new Set(entries.map((entry) => entry.action))).sort()
-  }, [entries])
+  const userMap = useMemo(() => new Map(users.map((u) => [u.id, u.email])), [users])
+  const dsMap = useMemo(() => new Map(datasources.map((d) => [d.id, d.name])), [datasources])
+  const wsMap = useMemo(() => new Map(workspaces.map((w) => [w.id, w.name])), [workspaces])
 
-  async function reload(nextFilters = { userID, action, limit }) {
+  async function reload(nextFilters = { userID, action, page: currentPage, pageSize }) {
     setLoading(true)
     try {
-      const rows = await listAuditLog(token, nextFilters)
-      setEntries(rows)
+      const res = await listAuditLog(token, {
+        userID: nextFilters.userID,
+        action: nextFilters.action,
+        page: nextFilters.page,
+        pageSize: nextFilters.pageSize,
+      })
+      setEntries(res.entries || [])
+      setTotalItems(res.total || 0)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -37,17 +88,43 @@ export function AuditLogPanel({ token }: { token: string }) {
     }
   }
 
+  // Load lookup metadata
   useEffect(() => {
-    reload({ userID: '', action: '', limit })
+    let cancelled = false
+    async function loadLookups() {
+      try {
+        const uRes = await listUsers(token)
+        if (!cancelled) setUsers(uRes.users || [])
+
+        const dsRes = await fetch('/api/datasources', { headers: { Authorization: `Bearer ${token}` } })
+        if (dsRes.ok && !cancelled) {
+          const dsData = await dsRes.json()
+          setDatasources(dsData || [])
+        }
+
+        const wsRes = await listWorkspaces(token)
+        if (!cancelled) setWorkspaces(wsRes.workspaces || [])
+      } catch (e) {
+        console.error('Failed to load lookups in AuditLogPanel', e)
+      }
+    }
+    loadLookups()
+    return () => {
+      cancelled = true
+    }
   }, [token])
 
   useEffect(() => {
-    setCurrentPage(1)
-  }, [entries.length])
+    reload({ userID, action, page: currentPage, pageSize })
+  }, [token, currentPage])
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault()
-    reload()
+    if (currentPage !== 1) {
+      setCurrentPage(1)
+    } else {
+      reload({ userID, action, page: 1, pageSize })
+    }
   }
 
   return (
@@ -59,26 +136,42 @@ export function AuditLogPanel({ token }: { token: string }) {
             {t('admin.audit.description')}
           </p>
         </div>
-        <div style={{ color: 'var(--text-secondary, #a1a1aa)', fontSize: 13 }}>{t('admin.audit.count', { count: entries.length })}</div>
+        <div style={{ color: 'var(--text-secondary, #a1a1aa)', fontSize: 13 }}>{t('admin.audit.count', { count: totalItems })}</div>
       </div>
 
       <form onSubmit={onSubmit} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
         <label style={labelStyle}>
-          <span style={labelTextStyle}>{t('admin.fields.user_uuid')}</span>
-          <input value={userID} onChange={(e) => setUserID(e.target.value)} placeholder={t('admin.filters.all')} style={inputStyle} />
+          <span style={labelTextStyle}>{t('admin.fields.user')}</span>
+          <select value={userID} onChange={(e) => setUserID(e.target.value)} style={selectStyle}>
+            <option value="">{t('admin.filters.all')}</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.email} {u.displayName ? `(${u.displayName})` : ''}
+              </option>
+            ))}
+          </select>
         </label>
         <label style={labelStyle}>
           <span style={labelTextStyle}>{t('admin.audit.action')}</span>
-          <input list="audit-actions" value={action} onChange={(e) => setAction(e.target.value)} placeholder={t('admin.filters.all')} style={inputStyle} />
-          <datalist id="audit-actions">
-            {actions.map((value) => (
-              <option key={value} value={value} />
+          <select value={action} onChange={(e) => setAction(e.target.value)} style={selectStyle}>
+            <option value="">{t('admin.filters.all')}</option>
+            {COMMON_ACTIONS.map((act) => (
+              <option key={act} value={act}>{act}</option>
             ))}
-          </datalist>
+          </select>
         </label>
         <label style={labelStyle}>
           <span style={labelTextStyle}>{t('admin.audit.limit')}</span>
-          <select value={limit} onChange={(e) => setLimit(Number(e.target.value))} style={selectStyle}>
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              const nextSize = Number(e.target.value)
+              setPageSize(nextSize)
+              setCurrentPage(1)
+              reload({ userID, action, page: 1, pageSize: nextSize })
+            }}
+            style={selectStyle}
+          >
             <option value={25}>25</option>
             <option value={50}>50</option>
             <option value={100}>100</option>
@@ -92,8 +185,9 @@ export function AuditLogPanel({ token }: { token: string }) {
           onClick={() => {
             setUserID('')
             setAction('')
-            setLimit(100)
-            reload({ userID: '', action: '', limit: 100 })
+            setPageSize(100)
+            setCurrentPage(1)
+            reload({ userID: '', action: '', page: 1, pageSize: 100 })
           }}
           style={secondaryButtonStyle}
         >
@@ -124,8 +218,8 @@ export function AuditLogPanel({ token }: { token: string }) {
                   <tr key={entry.id} style={trStyle}>
                     <td style={monoTd}>{formatDate(entry.created_at, localeLanguageTag(locale))}</td>
                     <td style={tdStyle}><span style={actionBadgeStyle}>{entry.action}</span></td>
-                    <td style={monoTd}>{entry.user_id || t('admin.audit.system_user')}</td>
-                    <td style={monoTd}>{formatResource(entry)}</td>
+                    <td style={monoTd}>{entry.user_id ? (userMap.get(entry.user_id) || entry.user_id) : t('admin.audit.system_user')}</td>
+                    <td style={monoTd}>{formatResource(entry, dsMap, wsMap)}</td>
                     <td style={monoTd}>{entry.ip_address || '-'}</td>
                     <td style={metadataTd}>{formatMetadata(entry.metadata)}</td>
                   </tr>
@@ -137,7 +231,7 @@ export function AuditLogPanel({ token }: { token: string }) {
             currentPage={currentPage}
             totalPages={totalPages}
             onPageChange={setCurrentPage}
-            totalItems={entries.length}
+            totalItems={totalItems}
             itemsPerPage={pageSize}
           />
         </div>
@@ -152,8 +246,14 @@ function formatDate(value: string, languageTag: string) {
   return date.toLocaleString(languageTag)
 }
 
-function formatResource(entry: AuditLogEntry) {
+function formatResource(entry: AuditLogEntry, dsMap: Map<string, string>, wsMap: Map<string, string>) {
   if (!entry.resource && !entry.resource_id) return '-'
+  if (entry.resource === 'datasource' && entry.resource_id && dsMap.has(entry.resource_id)) {
+    return `datasource:${dsMap.get(entry.resource_id)}`
+  }
+  if (entry.resource === 'workspace' && entry.resource_id && wsMap.has(entry.resource_id)) {
+    return `workspace:${wsMap.get(entry.resource_id)}`
+  }
   if (!entry.resource_id) return entry.resource
   if (!entry.resource) return entry.resource_id
   return `${entry.resource}:${entry.resource_id}`

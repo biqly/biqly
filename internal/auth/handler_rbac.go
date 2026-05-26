@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -122,7 +123,11 @@ func (h *RBACHandler) handleListWorkspaces(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, list)
+	paginated, total := paginateSlice(r, list)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"workspaces": paginated,
+		"total":      total,
+	})
 }
 
 func (h *RBACHandler) handleCreateWorkspace(w http.ResponseWriter, r *http.Request) {
@@ -330,21 +335,24 @@ func (h *RBACHandler) handleListShares(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(userIDKey).(string)
 	resourceType := r.URL.Query().Get("resource_type")
 	mode := r.URL.Query().Get("mode")
+
+	var list []ResourceShare
+	var err error
 	if mode == "owned" {
-		list, err := h.sharing.ListOwned(r.Context(), userID, resourceType, r.URL.Query().Get("resource_id"))
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, list)
-		return
+		list, err = h.sharing.ListOwned(r.Context(), userID, resourceType, r.URL.Query().Get("resource_id"))
+	} else {
+		list, err = h.sharing.ListShared(r.Context(), userID, resourceType)
 	}
-	list, err := h.sharing.ListShared(r.Context(), userID, resourceType)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, list)
+
+	paginated, total := paginateSlice(r, list)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"shares": paginated,
+		"total":  total,
+	})
 }
 
 func (h *RBACHandler) handleRevokeShare(w http.ResponseWriter, r *http.Request) {
@@ -364,7 +372,11 @@ func (h *RBACHandler) handleAdminListAccess(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, list)
+	paginated, total := paginateSlice(r, list)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"access": paginated,
+		"total":  total,
+	})
 }
 
 func (h *RBACHandler) handleAdminGrantAccess(w http.ResponseWriter, r *http.Request) {
@@ -426,7 +438,11 @@ func (h *RBACHandler) handleAdminListRoles(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, roles)
+	paginated, total := paginateSlice(r, roles)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"roles": paginated,
+		"total": total,
+	})
 }
 
 func (h *RBACHandler) handleAdminListPermissions(w http.ResponseWriter, r *http.Request) {
@@ -435,7 +451,11 @@ func (h *RBACHandler) handleAdminListPermissions(w http.ResponseWriter, r *http.
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, perms)
+	paginated, total := paginateSlice(r, perms)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"permissions": paginated,
+		"total":       total,
+	})
 }
 
 func (h *RBACHandler) handleAdminAssignRole(w http.ResponseWriter, r *http.Request) {
@@ -487,6 +507,11 @@ func (h *RBACHandler) handleAdminListAuditLog(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
+	total, err := h.audit.Count(r.Context(), filter)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
 
 	caller, _ := r.Context().Value(userIDKey).(string)
 	exportAction := AuditAuditExport
@@ -496,24 +521,46 @@ func (h *RBACHandler) handleAdminListAuditLog(w http.ResponseWriter, r *http.Req
 
 	switch r.URL.Query().Get("format") {
 	case "csv":
-		writeAuditCSV(w, entries)
+		allFilter := filter
+		allFilter.Limit = 10000
+		allFilter.Offset = 0
+		allEntries, err := h.audit.List(r.Context(), allFilter)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeAuditCSV(w, allEntries)
 	default:
-		writeJSON(w, http.StatusOK, map[string]any{"entries": entries})
+		writeJSON(w, http.StatusOK, map[string]any{"entries": entries, "total": total})
 	}
 }
 
 func auditFilterFromQuery(r *http.Request) (AuditFilter, error) {
 	q := r.URL.Query()
-	limit := 100
-	if v := q.Get("limit"); v != "" {
-		if n, err := parsePositiveInt(v); err == nil {
-			limit = n
+
+	page := 1
+	if v := q.Get("page"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			page = n
 		}
 	}
+
+	pageSize := 10
+	if v := q.Get("page_size"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			pageSize = n
+		}
+	} else if v := q.Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			pageSize = n
+		}
+	}
+
 	filter := AuditFilter{
 		UserID: q.Get("user_id"),
 		Action: q.Get("action"),
-		Limit:  limit,
+		Limit:  pageSize,
+		Offset: (page - 1) * pageSize,
 	}
 	if v := q.Get("from"); v != "" {
 		t, err := time.Parse(time.RFC3339, v)
@@ -725,21 +772,47 @@ func (h *RBACHandler) handleAdminListUsers(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	resp := make([]UserResponse, len(users))
-	for i, u := range users {
-		resp[i] = UserResponse{
-			ID:            u.ID,
-			Email:         u.Email,
-			Username:      u.Username,
-			DisplayName:   u.DisplayName,
-			AvatarURL:     u.AvatarURL,
-			IsActive:      u.IsActive,
-			EmailVerified: u.EmailVerified,
-			CreatedAt:     u.CreatedAt,
-			UpdatedAt:     u.UpdatedAt,
+
+	search := strings.ToLower(r.URL.Query().Get("search"))
+	status := r.URL.Query().Get("status")
+
+	var filtered []UserResponse
+	for _, u := range users {
+		matchesSearch := true
+		if search != "" {
+			emailMatch := strings.Contains(strings.ToLower(u.Email), search)
+			usernameMatch := u.Username != nil && strings.Contains(strings.ToLower(*u.Username), search)
+			displayNameMatch := u.DisplayName != nil && strings.Contains(strings.ToLower(*u.DisplayName), search)
+			matchesSearch = emailMatch || usernameMatch || displayNameMatch
+		}
+
+		matchesStatus := true
+		if status == "active" {
+			matchesStatus = u.IsActive
+		} else if status == "inactive" {
+			matchesStatus = !u.IsActive
+		}
+
+		if matchesSearch && matchesStatus {
+			filtered = append(filtered, UserResponse{
+				ID:            u.ID,
+				Email:         u.Email,
+				Username:      u.Username,
+				DisplayName:   u.DisplayName,
+				AvatarURL:     u.AvatarURL,
+				IsActive:      u.IsActive,
+				EmailVerified: u.EmailVerified,
+				CreatedAt:     u.CreatedAt,
+				UpdatedAt:     u.UpdatedAt,
+			})
 		}
 	}
-	writeJSON(w, http.StatusOK, resp)
+
+	paginated, total := paginateSlice(r, filtered)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"users": paginated,
+		"total": total,
+	})
 }
 
 func (h *RBACHandler) handleAdminGetUser(w http.ResponseWriter, r *http.Request) {
@@ -798,4 +871,37 @@ func (h *RBACHandler) handleAdminUpdateUser(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func paginateSlice[T any](r *http.Request, items []T) (paginated []T, total int) {
+	total = len(items)
+	q := r.URL.Query()
+	pageStr := q.Get("page")
+	pageSizeStr := q.Get("page_size")
+
+	if pageStr == "" && pageSizeStr == "" {
+		return items, total
+	}
+
+	page := 1
+	if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+		page = p
+	}
+
+	pageSize := 10
+	if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 {
+		pageSize = ps
+	}
+
+	start := (page - 1) * pageSize
+	end := start + pageSize
+
+	if start > total {
+		return []T{}, total
+	}
+	if end > total {
+		end = total
+	}
+
+	return items[start:end], total
 }

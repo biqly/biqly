@@ -28,6 +28,7 @@ type AuditFilter struct {
 	From   *time.Time
 	To     *time.Time
 	Limit  int
+	Offset int
 }
 
 type AuditService struct {
@@ -126,6 +127,40 @@ func maskAuditMetadata(metadata any) any {
 	return m
 }
 
+func (s *AuditService) Count(ctx context.Context, filter AuditFilter) (int, error) {
+	var parts []string
+	args := []any{}
+	idx := 1
+	if filter.UserID != "" {
+		parts = append(parts, fmt.Sprintf("user_id = $%d", idx))
+		args = append(args, filter.UserID)
+		idx++
+	}
+	if filter.Action != "" {
+		parts = append(parts, fmt.Sprintf("action = $%d", idx))
+		args = append(args, filter.Action)
+		idx++
+	}
+	if filter.From != nil {
+		parts = append(parts, fmt.Sprintf("created_at >= $%d", idx))
+		args = append(args, *filter.From)
+		idx++
+	}
+	if filter.To != nil {
+		parts = append(parts, fmt.Sprintf("created_at < $%d", idx))
+		args = append(args, *filter.To)
+		idx++
+	}
+	where := ""
+	if len(parts) > 0 {
+		where = " WHERE " + strings.Join(parts, " AND ")
+	}
+	q := fmt.Sprintf("SELECT COUNT(*) FROM audit_log%s", where)
+	var count int
+	err := s.db.QueryRowContext(ctx, q, args...).Scan(&count)
+	return count, err
+}
+
 func (s *AuditService) List(ctx context.Context, filter AuditFilter) ([]AuditEntry, error) {
 	limit := filter.Limit
 	if limit <= 0 {
@@ -133,6 +168,10 @@ func (s *AuditService) List(ctx context.Context, filter AuditFilter) ([]AuditEnt
 	}
 	if limit > 1000 {
 		limit = 1000
+	}
+	offset := filter.Offset
+	if offset < 0 {
+		offset = 0
 	}
 
 	var parts []string
@@ -163,9 +202,14 @@ func (s *AuditService) List(ctx context.Context, filter AuditFilter) ([]AuditEnt
 		where = " WHERE " + strings.Join(parts, " AND ")
 	}
 	args = append(args, limit)
+	offsetPlaceholder := ""
+	if offset > 0 {
+		args = append(args, offset)
+		offsetPlaceholder = fmt.Sprintf(" OFFSET $%d", idx+1)
+	}
 	q := fmt.Sprintf(
 		`SELECT id, user_id, action, resource, resource_id, metadata, ip_address::text, created_at
-		FROM audit_log%s ORDER BY created_at DESC LIMIT $%d`, where, idx)
+		FROM audit_log%s ORDER BY created_at DESC LIMIT $%d%s`, where, idx, offsetPlaceholder)
 
 	rows, err := s.db.QueryContext(ctx, q, args...)
 	if err != nil {

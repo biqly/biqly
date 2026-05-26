@@ -39,14 +39,22 @@ function authHeaders(token: string) {
 
 // === RBAC admin ===
 
-export async function listRoles(token: string): Promise<Role[]> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/admin/roles`, { headers: authHeaders(token) })
-  return handle<Role[]>(res)
+export async function listRoles(token: string, page?: number, pageSize?: number): Promise<{ roles: Role[]; total: number }> {
+  const params = new URLSearchParams()
+  if (page) params.set('page', String(page))
+  if (pageSize) params.set('page_size', String(pageSize))
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  const res = await csrfFetch(`${AUTH_API_BASE}/admin/roles${suffix}`, { headers: authHeaders(token) })
+  return handle<{ roles: Role[]; total: number }>(res)
 }
 
-export async function listPermissions(token: string): Promise<Permission[]> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/admin/permissions`, { headers: authHeaders(token) })
-  return handle<Permission[]>(res)
+export async function listPermissions(token: string, page?: number, pageSize?: number): Promise<{ permissions: Permission[]; total: number }> {
+  const params = new URLSearchParams()
+  if (page) params.set('page', String(page))
+  if (pageSize) params.set('page_size', String(pageSize))
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  const res = await csrfFetch(`${AUTH_API_BASE}/admin/permissions${suffix}`, { headers: authHeaders(token) })
+  return handle<{ permissions: Permission[]; total: number }>(res)
 }
 
 export async function assignRole(
@@ -78,24 +86,32 @@ export interface AuditLogFilters {
   userID?: string
   action?: string
   limit?: number
+  page?: number
+  pageSize?: number
 }
 
-export async function listAuditLog(token: string, filters: AuditLogFilters = {}): Promise<AuditLogEntry[]> {
+export async function listAuditLog(token: string, filters: AuditLogFilters = {}): Promise<{ entries: AuditLogEntry[]; total: number }> {
   const params = new URLSearchParams()
   if (filters.userID) params.set('user_id', filters.userID)
   if (filters.action) params.set('action', filters.action)
   if (filters.limit) params.set('limit', String(filters.limit))
+  if (filters.page) params.set('page', String(filters.page))
+  if (filters.pageSize) params.set('page_size', String(filters.pageSize))
   const suffix = params.toString() ? `?${params.toString()}` : ''
   const res = await csrfFetch(`${AUTH_API_BASE}/admin/audit-log${suffix}`, { headers: authHeaders(token) })
-  const data = await handle<{ entries: AuditLogEntry[] }>(res)
-  return data.entries || []
+  const data = await handle<{ entries: AuditLogEntry[]; total: number }>(res)
+  return data || { entries: [], total: 0 }
 }
 
 // === Datasource access ===
 
-export async function listDatasourceAccess(token: string): Promise<DatasourceAccess[]> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/admin/datasource-access`, { headers: authHeaders(token) })
-  return handle<DatasourceAccess[]>(res)
+export async function listDatasourceAccess(token: string, page?: number, pageSize?: number): Promise<{ access: DatasourceAccess[]; total: number }> {
+  const params = new URLSearchParams()
+  if (page) params.set('page', String(page))
+  if (pageSize) params.set('page_size', String(pageSize))
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  const res = await csrfFetch(`${AUTH_API_BASE}/admin/datasource-access${suffix}`, { headers: authHeaders(token) })
+  return handle<{ access: DatasourceAccess[]; total: number }>(res)
 }
 
 export async function grantDatasourceAccess(
@@ -146,9 +162,13 @@ export async function getMyDatasources(token: string): Promise<string[]> {
 
 // === Workspaces ===
 
-export async function listWorkspaces(token: string): Promise<Workspace[]> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/workspaces`, { headers: authHeaders(token) })
-  return handle<Workspace[]>(res)
+export async function listWorkspaces(token: string, page?: number, pageSize?: number): Promise<{ workspaces: Workspace[]; total: number }> {
+  const params = new URLSearchParams()
+  if (page) params.set('page', String(page))
+  if (pageSize) params.set('page_size', String(pageSize))
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  const res = await csrfFetch(`${AUTH_API_BASE}/workspaces${suffix}`, { headers: authHeaders(token) })
+  return handle<{ workspaces: Workspace[]; total: number }>(res)
 }
 
 export async function createWorkspace(
@@ -206,10 +226,19 @@ export async function getAIQueueStatus(token: string, clientSessionID?: string):
 
 // === User management admin ===
 
-export async function listUsers(token: string): Promise<AuthUser[]> {
-  const res = await fetch(`${AUTH_API_BASE}/admin/users`, { headers: authHeaders(token) })
-  const users = await handle<any[]>(res)
-  return users.map(normalizeAuthUser)
+export async function listUsers(token: string, filters: { page?: number; pageSize?: number; search?: string; status?: string } = {}): Promise<{ users: AuthUser[]; total: number }> {
+  const params = new URLSearchParams()
+  if (filters.page) params.set('page', String(filters.page))
+  if (filters.pageSize) params.set('page_size', String(filters.pageSize))
+  if (filters.search) params.set('search', filters.search)
+  if (filters.status) params.set('status', filters.status)
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  const res = await fetch(`${AUTH_API_BASE}/admin/users${suffix}`, { headers: authHeaders(token) })
+  const data = await handle<{ users: any[]; total: number }>(res)
+  return {
+    users: (data.users || []).map(normalizeAuthUser),
+    total: data.total || 0,
+  }
 }
 
 export async function getUserDetail(token: string, id: string): Promise<AuthUser> {
@@ -328,15 +357,16 @@ export async function detachWorkspaceDatasource(
 
 export async function listAIHistory(
   token: string,
-  opts: { limit?: number; showAll?: boolean } = {},
-): Promise<AIHistoryEntry[]> {
+  opts: { page?: number; pageSize?: number; limit?: number; showAll?: boolean } = {},
+): Promise<{ entries: AIHistoryEntry[]; total: number }> {
   const params = new URLSearchParams()
+  if (opts.page) params.set('page', String(opts.page))
+  if (opts.pageSize) params.set('page_size', String(opts.pageSize))
   if (opts.limit) params.set('limit', String(opts.limit))
   if (opts.showAll) params.set('show_all', 'true')
   const suffix = params.toString() ? `?${params.toString()}` : ''
   const res = await fetch(`/api/ai/history${suffix}`, { headers: authHeaders(token) })
-  const data = await handle<{ entries: AIHistoryEntry[] }>(res)
-  return data.entries || []
+  return handle<{ entries: AIHistoryEntry[]; total: number }>(res)
 }
 
 export async function getAIHistoryDetail(token: string, id: string): Promise<AIHistoryEntry> {
@@ -348,14 +378,16 @@ export async function getAIHistoryDetail(token: string, id: string): Promise<AIH
 
 export async function listShares(
   token: string,
-  resourceType?: string,
-): Promise<ResourceShare[]> {
+  opts: { page?: number; pageSize?: number; resourceType?: string } = {},
+): Promise<{ shares: ResourceShare[]; total: number }> {
   const params = new URLSearchParams()
-  if (resourceType) params.set('resource_type', resourceType)
+  if (opts.page) params.set('page', String(opts.page))
+  if (opts.pageSize) params.set('page_size', String(opts.pageSize))
+  if (opts.resourceType) params.set('resource_type', opts.resourceType)
   const suffix = params.toString() ? `?${params.toString()}` : ''
   const res = await csrfFetch(`${AUTH_API_BASE}/shares${suffix}`, { headers: authHeaders(token) })
-  const data = await handle<ResourceShare[] | null>(res)
-  return data || []
+  const data = await handle<{ shares: ResourceShare[]; total: number } | null>(res)
+  return data || { shares: [], total: 0 }
 }
 
 export async function createShare(

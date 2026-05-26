@@ -4,9 +4,11 @@ import {
   listDatasourceAccess,
   revokeDatasourceAccess,
   updateDatasourceAccess,
+  listUsers,
 } from '../../api/admin'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
-import type { DatasourceAccess } from '../../types/auth'
+import type { DatasourceAccess, AuthUser } from '../../types/auth'
+import type { Datasource } from '../../types/metadata'
 import { Pagination } from '../ui/Pagination'
 
 export function DatasourceAccessPanel({ token }: { token: string }) {
@@ -20,17 +22,22 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
   const [datasourceID, setDatasourceID] = useState('')
   const [level, setLevel] = useState<'read' | 'write' | 'admin'>('read')
 
+  // Lookups for friendly name mapping
+  const [users, setUsers] = useState<AuthUser[]>([])
+  const [datasources, setDatasources] = useState<Datasource[]>([])
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
-  const totalPages = Math.ceil(rows.length / pageSize)
-  const displayedRows = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const [totalItems, setTotalItems] = useState(0)
+  const totalPages = Math.ceil(totalItems / pageSize)
 
   async function reload() {
     setLoading(true)
     try {
-      const r = await listDatasourceAccess(token)
-      setRows(r)
+      const res = await listDatasourceAccess(token, currentPage, pageSize)
+      setRows(res.access)
+      setTotalItems(res.total)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -39,13 +46,32 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
     }
   }
 
+  // Load lookup metadata
   useEffect(() => {
-    reload()
+    let cancelled = false
+    async function loadLookups() {
+      try {
+        const uRes = await listUsers(token)
+        if (!cancelled) setUsers(uRes.users)
+
+        const dsRes = await fetch('/api/datasources', { headers: { Authorization: `Bearer ${token}` } })
+        if (dsRes.ok && !cancelled) {
+          const dsData = await dsRes.json()
+          setDatasources(dsData)
+        }
+      } catch (e) {
+        console.error('Failed to load lookups in DatasourceAccessPanel', e)
+      }
+    }
+    loadLookups()
+    return () => {
+      cancelled = true
+    }
   }, [token])
 
   useEffect(() => {
-    setCurrentPage(1)
-  }, [rows.length])
+    reload()
+  }, [token, currentPage])
 
   async function onGrant(e: React.FormEvent) {
     e.preventDefault()
@@ -54,6 +80,7 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
       await grantDatasourceAccess(token, userID, datasourceID, level)
       setUserID('')
       setDatasourceID('')
+      setCurrentPage(1)
       reload()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -64,6 +91,7 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
     if (!confirm(t('admin.datasource_access.confirm_revoke'))) return
     try {
       await revokeDatasourceAccess(token, uid, dsid)
+      setCurrentPage(1)
       reload()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -85,12 +113,22 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
 
       <form onSubmit={onGrant} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 12, color: 'var(--text-secondary, #a1a1aa)' }}>{t('admin.fields.user_uuid')}</span>
-          <input value={userID} onChange={(e) => setUserID(e.target.value)} style={inputStyle} required />
+          <span style={{ fontSize: 12, color: 'var(--text-secondary, #a1a1aa)' }}>{t('admin.fields.user')}</span>
+          <select value={userID} onChange={(e) => setUserID(e.target.value)} style={selectStyle} required>
+            <option value="">{t('evaluation.placeholder_select')}</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>{u.email}</option>
+            ))}
+          </select>
         </label>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 12, color: 'var(--text-secondary, #a1a1aa)' }}>Datasource UUID</span>
-          <input value={datasourceID} onChange={(e) => setDatasourceID(e.target.value)} style={inputStyle} required />
+          <span style={{ fontSize: 12, color: 'var(--text-secondary, #a1a1aa)' }}>Datasource</span>
+          <select value={datasourceID} onChange={(e) => setDatasourceID(e.target.value)} style={selectStyle} required>
+            <option value="">{t('evaluation.placeholder_select')}</option>
+            {datasources.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
         </label>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span style={{ fontSize: 12, color: 'var(--text-secondary, #a1a1aa)' }}>{t('admin.datasource_access.level')}</span>
@@ -120,34 +158,38 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
             </tr>
           </thead>
           <tbody>
-            {displayedRows.length === 0 ? (
+            {rows.length === 0 ? (
               <tr>
                 <td colSpan={5} style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>
                   —
                 </td>
               </tr>
             ) : (
-              displayedRows.map((r) => (
-                <tr key={r.id} style={trStyle}>
-                  <td style={tdStyle}>{r.user_id}</td>
-                  <td style={tdStyle}>{r.datasource_id}</td>
-                  <td style={tdStyle}>
-                    <select
-                      value={r.access_level}
-                      onChange={(e) => onChangeLevel(r.id, e.target.value as 'read' | 'write' | 'admin')}
-                      style={{ ...selectStyleSmall, ...getLevelStyle(r.access_level) }}
-                    >
-                      <option value="read" style={{ background: 'var(--bg-card)', color: 'var(--success)' }}>read</option>
-                      <option value="write" style={{ background: 'var(--bg-card)', color: 'var(--warning)' }}>write</option>
-                      <option value="admin" style={{ background: 'var(--bg-card)', color: 'var(--error)' }}>admin</option>
-                    </select>
-                  </td>
-                  <td style={tdStyle}>{new Date(r.granted_at).toLocaleString(localeLanguageTag(locale))}</td>
-                  <td style={{ ...tdStyle, textAlign: 'right' }}>
-                    <button onClick={() => onRevoke(r.user_id, r.datasource_id)} style={btnSecondary}>{t('common.delete')}</button>
-                  </td>
-                </tr>
-              ))
+              rows.map((r) => {
+                const userObj = users.find((u) => u.id === r.user_id)
+                const dsObj = datasources.find((d) => d.id === r.datasource_id)
+                return (
+                  <tr key={r.id} style={trStyle}>
+                    <td style={tdStyle}>{userObj ? userObj.email : r.user_id}</td>
+                    <td style={tdStyle}>{dsObj ? dsObj.name : r.datasource_id}</td>
+                    <td style={tdStyle}>
+                      <select
+                        value={r.access_level}
+                        onChange={(e) => onChangeLevel(r.id, e.target.value as 'read' | 'write' | 'admin')}
+                        style={{ ...selectStyleSmall, ...getLevelStyle(r.access_level) }}
+                      >
+                        <option value="read" style={{ background: 'var(--bg-card)', color: 'var(--success)' }}>read</option>
+                        <option value="write" style={{ background: 'var(--bg-card)', color: 'var(--warning)' }}>write</option>
+                        <option value="admin" style={{ background: 'var(--bg-card)', color: 'var(--error)' }}>admin</option>
+                      </select>
+                    </td>
+                    <td style={tdStyle}>{new Date(r.granted_at).toLocaleString(localeLanguageTag(locale))}</td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>
+                      <button onClick={() => onRevoke(r.user_id, r.datasource_id)} style={btnSecondary}>{t('common.delete')}</button>
+                    </td>
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>
@@ -155,7 +197,7 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
           currentPage={currentPage}
           totalPages={totalPages}
           onPageChange={setCurrentPage}
-          totalItems={rows.length}
+          totalItems={totalItems}
           itemsPerPage={pageSize}
         />
       </div>
@@ -178,7 +220,7 @@ const selectStyle: React.CSSProperties = {
   border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
   borderRadius: 6,
   fontSize: 14,
-  minWidth: 120,
+  minWidth: 240,
   background: 'var(--input-bg, #fff)',
   color: 'var(--text-primary, #111)',
 }
@@ -267,5 +309,3 @@ function getLevelStyle(lvl: string): React.CSSProperties {
       return { background: 'rgba(16, 185, 129, 0.12)', color: 'var(--success, #10b981)', fontWeight: 600 }
   }
 }
-
-

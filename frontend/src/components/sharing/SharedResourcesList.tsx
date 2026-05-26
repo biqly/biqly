@@ -20,22 +20,28 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
-  const totalPages = Math.ceil(items.length / pageSize)
-  const displayedItems = items.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const [totalItems, setTotalItems] = useState(0)
+  const totalPages = Math.ceil(totalItems / pageSize)
+  const displayedItems = items
 
   const load = useCallback(async () => {
     if (!accessToken) return
     setLoading(true)
     try {
-      const data = await listShares(accessToken, resourceType)
-      setItems(data || [])
+      const res = await listShares(accessToken, {
+        page: currentPage,
+        pageSize,
+        resourceType,
+      })
+      setItems(res.shares || [])
+      setTotalItems(res.total || 0)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setLoading(false)
     }
-  }, [accessToken, resourceType, refreshKey])
+  }, [accessToken, resourceType, refreshKey, currentPage])
 
   useEffect(() => {
     load()
@@ -43,7 +49,7 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [items.length])
+  }, [resourceType])
 
   async function onRevoke(id: string) {
     if (!accessToken || !confirm(t('admin.sharing.confirm_revoke'))) return
@@ -64,9 +70,9 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
     }
   }
 
-  if (loading) return <div className="shared-list__loading">{t('common.loading')}</div>
+  if (loading && items.length === 0) return <div className="shared-list__loading">{t('common.loading')}</div>
   if (error) return <div className="shared-list__error">{error}</div>
-  if (items.length === 0) return <p className="shared-list__empty">{t('admin.sharing.empty')}</p>
+  if (!loading && items.length === 0) return <p className="shared-list__empty">{t('admin.sharing.empty')}</p>
 
   return (
     <div className="shared-list">
@@ -113,7 +119,7 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
           currentPage={currentPage}
           totalPages={totalPages}
           onPageChange={setCurrentPage}
-          totalItems={items.length}
+          totalItems={totalItems}
           itemsPerPage={pageSize}
         />
       </div>

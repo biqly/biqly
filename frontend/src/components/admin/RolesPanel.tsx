@@ -14,23 +14,27 @@ export function RolesPanel({ token }: { token: string }) {
   // Roles Pagination
   const [rolesPage, setRolesPage] = useState(1)
   const rolesPageSize = 10
-  const totalRolesPages = Math.ceil(roles.length / rolesPageSize)
-  const displayedRoles = roles.slice((rolesPage - 1) * rolesPageSize, rolesPage * rolesPageSize)
+  const [totalRoles, setTotalRoles] = useState(0)
 
   // Permissions Pagination
   const [permsPage, setPermsPage] = useState(1)
   const permsPageSize = 10
-  const totalPermsPages = Math.ceil(perms.length / permsPageSize)
-  const displayedPerms = perms.slice((permsPage - 1) * permsPageSize, permsPage * permsPageSize)
+  const [totalPerms, setTotalPerms] = useState(0)
 
   useEffect(() => {
     let cancelled = false
     async function load() {
       try {
-        const [r, p] = await Promise.all([listRoles(token), listPermissions(token)])
+        setLoading(true)
+        const [rRes, pRes] = await Promise.all([
+          listRoles(token, rolesPage, rolesPageSize),
+          listPermissions(token, permsPage, permsPageSize),
+        ])
         if (cancelled) return
-        setRoles(r)
-        setPerms(p)
+        setRoles(rRes.roles)
+        setTotalRoles(rRes.total)
+        setPerms(pRes.permissions)
+        setTotalPerms(pRes.total)
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e))
       } finally {
@@ -41,15 +45,21 @@ export function RolesPanel({ token }: { token: string }) {
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [token, rolesPage, permsPage])
 
-  if (loading) return <div style={textMuted}>{t('common.loading')}</div>
+  const totalRolesPages = Math.ceil(totalRoles / rolesPageSize)
+  const displayedRoles = roles
+
+  const totalPermsPages = Math.ceil(totalPerms / permsPageSize)
+  const displayedPerms = perms
+
+  if (loading && roles.length === 0 && perms.length === 0) return <div style={textMuted}>{t('common.loading')}</div>
   if (error) return <div style={errStyle}>{t('common.error')}: {error}</div>
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 24, alignItems: 'start' }}>
       <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.roles.title', { count: roles.length })}</h2>
+        <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.roles.title', { count: totalRoles })}</h2>
         <div style={containerStyle}>
           <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column' }}>
             {displayedRoles.length === 0 ? (
@@ -79,14 +89,14 @@ export function RolesPanel({ token }: { token: string }) {
             currentPage={rolesPage}
             totalPages={totalRolesPages}
             onPageChange={setRolesPage}
-            totalItems={roles.length}
+            totalItems={totalRoles}
             itemsPerPage={rolesPageSize}
           />
         </div>
       </section>
 
       <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.roles.permissions_title', { count: perms.length })}</h2>
+        <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.roles.permissions_title', { count: totalPerms })}</h2>
         <div style={containerStyle}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
@@ -118,7 +128,7 @@ export function RolesPanel({ token }: { token: string }) {
             currentPage={permsPage}
             totalPages={totalPermsPages}
             onPageChange={setPermsPage}
-            totalItems={perms.length}
+            totalItems={totalPerms}
             itemsPerPage={permsPageSize}
           />
         </div>

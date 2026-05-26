@@ -42,7 +42,7 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [ws, m, ds, r] = await Promise.all([
+      const [ws, m, ds, rRes] = await Promise.all([
         getWorkspace(token, workspaceID),
         listWorkspaceMembers(token, workspaceID),
         listWorkspaceDatasources(token, workspaceID),
@@ -51,7 +51,7 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
       setWorkspace(ws)
       setMembers(m)
       setDatasources(ds)
-      setRoles(r)
+      setRoles(rRes.roles)
       setEditName(ws.name)
       setEditDesc(ws.description || '')
       setEditMFARequired(ws.mfa_required)

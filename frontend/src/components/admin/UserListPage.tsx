@@ -19,15 +19,22 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
+  const [totalItems, setTotalItems] = useState(0)
 
   useEffect(() => {
     let cancelled = false
     async function load() {
       try {
         setLoading(true)
-        const u = await listUsers(token)
+        const res = await listUsers(token, {
+          page: currentPage,
+          pageSize,
+          search,
+          status: statusFilter,
+        })
         if (!cancelled) {
-          setUsers(u)
+          setUsers(res.users)
+          setTotalItems(res.total)
           setError(null)
         }
       } catch (e) {
@@ -40,37 +47,23 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [token, currentPage, search, statusFilter])
 
   useEffect(() => {
     setCurrentPage(1)
   }, [search, statusFilter])
 
-  const filteredUsers = users.filter((u) => {
-    const matchesSearch =
-      u.email.toLowerCase().includes(search.toLowerCase()) ||
-      (u.displayName && u.displayName.toLowerCase().includes(search.toLowerCase())) ||
-      (u.username && u.username.toLowerCase().includes(search.toLowerCase()))
+  const totalPages = Math.ceil(totalItems / pageSize)
+  const displayedUsers = users
 
-    const matchesStatus =
-      statusFilter === 'all' ||
-      (statusFilter === 'active' && u.isActive) ||
-      (statusFilter === 'inactive' && !u.isActive)
-
-    return matchesSearch && matchesStatus
-  })
-
-  const totalPages = Math.ceil(filteredUsers.length / pageSize)
-  const displayedUsers = filteredUsers.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-
-  if (loading) return <div style={textMuted}>{t('admin.users.loading')}</div>
+  if (loading && users.length === 0) return <div style={textMuted}>{t('admin.users.loading')}</div>
   if (error) return <div style={errStyle}>{t('common.error')}: {error}</div>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0, fontSize: 20 }}>{t('admin.users.title')}</h2>
-        <span style={countBadge}>{t('admin.users.count', { count: filteredUsers.length })}</span>
+        <span style={countBadge}>{t('admin.users.count', { count: totalItems })}</span>
       </div>
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -146,7 +139,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
           currentPage={currentPage}
           totalPages={totalPages}
           onPageChange={setCurrentPage}
-          totalItems={filteredUsers.length}
+          totalItems={totalItems}
           itemsPerPage={pageSize}
         />
       </div>

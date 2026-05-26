@@ -4,26 +4,31 @@ import { useT } from '../../i18n'
 import type { Workspace } from '../../types/auth'
 import { WorkspaceSettingsPage } from '../workspaces/WorkspaceSettingsPage'
 import { Pagination } from '../ui/Pagination'
+import { useQueryParam } from '../../hooks/useQueryParam'
 
 export function WorkspacesPanel({ token }: { token: string }) {
   const t = useT()
   const [items, setItems] = useState<Workspace[]>([])
+  const [totalItems, setTotalItems] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
-  const [selectedWS, setSelectedWS] = useState<string | null>(null)
+  const [selectedWSParam, setSelectedWSParam] = useQueryParam('workspaceId')
+  const selectedWS = selectedWSParam || null
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
-  const totalPages = Math.ceil(items.length / pageSize)
-  const displayedItems = items.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const totalPages = Math.ceil(totalItems / pageSize)
+  const displayedItems = items
 
   async function reload() {
     setLoading(true)
     try {
-      setItems(await listWorkspaces(token))
+      const res = await listWorkspaces(token, currentPage, pageSize)
+      setItems(res.workspaces || [])
+      setTotalItems(res.total || 0)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -34,11 +39,7 @@ export function WorkspacesPanel({ token }: { token: string }) {
 
   useEffect(() => {
     reload()
-  }, [token])
-
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [items.length])
+  }, [token, currentPage])
 
   async function onCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -47,7 +48,11 @@ export function WorkspacesPanel({ token }: { token: string }) {
       await createWorkspace(token, newName.trim(), newDesc.trim() || undefined)
       setNewName('')
       setNewDesc('')
-      reload()
+      if (currentPage !== 1) {
+        setCurrentPage(1)
+      } else {
+        reload()
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -68,7 +73,7 @@ export function WorkspacesPanel({ token }: { token: string }) {
       <WorkspaceSettingsPage
         token={token}
         workspaceID={selectedWS}
-        onBack={() => { setSelectedWS(null); reload() }}
+        onBack={() => { setSelectedWSParam(''); reload() }}
       />
     )
   }
@@ -129,7 +134,7 @@ export function WorkspacesPanel({ token }: { token: string }) {
                   <div style={{ fontSize: 11, color: 'var(--text-muted, #8a8a92)', fontFamily: 'var(--font-mono, monospace)' }}>{w.slug}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={() => setSelectedWS(w.id)} style={btnSettings}>
+                  <button onClick={() => setSelectedWSParam(w.id)} style={btnSettings}>
                     {t('admin.workspaces.settings')}
                   </button>
                   {!w.is_personal && (
@@ -144,7 +149,7 @@ export function WorkspacesPanel({ token }: { token: string }) {
           currentPage={currentPage}
           totalPages={totalPages}
           onPageChange={setCurrentPage}
-          totalItems={items.length}
+          totalItems={totalItems}
           itemsPerPage={pageSize}
         />
       </div>

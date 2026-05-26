@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { RolesPanel } from './RolesPanel'
 import { DatasourceAccessPanel } from './DatasourceAccessPanel'
@@ -9,22 +8,26 @@ import { UserDetailPage } from './UserDetailPage'
 import { AIHistoryPanel } from '../ai/AIHistoryPanel'
 import { SharedResourcesList } from '../sharing/SharedResourcesList'
 import { useT } from '../../i18n'
+import { useQueryParam } from '../../hooks/useQueryParam'
 
 type AdminTab = 'users' | 'roles' | 'datasource_access' | 'workspaces' | 'ai_history' | 'sharing' | 'audit_log'
 
 export default function Admin() {
   const t = useT()
   const { accessToken } = useAuth()
-  const [tab, setTab] = useState<AdminTab>('users')
-  const [selectedUserID, setSelectedUserID] = useState<string | null>(null)
+  const [tabParam, setTabParam] = useQueryParam('tab')
+  const [userIdParam, setUserIdParam] = useQueryParam('userId')
+
+  const tab = (tabParam as AdminTab) || 'users'
+  const selectedUserID = userIdParam || null
 
   if (!accessToken) {
     return <div style={{ padding: 24 }}>{t('admin.auth_pending')}</div>
   }
 
   const handleTabChange = (newTab: AdminTab) => {
-    setTab(newTab)
-    setSelectedUserID(null) // reset selection when switching tabs
+    setTabParam(newTab)
+    setUserIdParam('') // reset selection when switching tabs
   }
 
   return (
@@ -54,9 +57,9 @@ export default function Admin() {
       <div>
         {tab === 'users' && (
           selectedUserID ? (
-            <UserDetailPage token={accessToken} userID={selectedUserID} onBack={() => setSelectedUserID(null)} />
+            <UserDetailPage token={accessToken} userID={selectedUserID} onBack={() => setUserIdParam('')} />
           ) : (
-            <UserListPage token={accessToken} onSelectUser={(id) => setSelectedUserID(id)} />
+            <UserListPage token={accessToken} onSelectUser={(id) => setUserIdParam(id)} />
           )
         )}
         {tab === 'roles' && <RolesPanel token={accessToken} />}

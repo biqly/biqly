@@ -28,10 +28,10 @@ export function WorkspaceSelector({ token }: { token: string }) {
     let cancelled = false
     async function load() {
       try {
-        const rows = await listWorkspaces(token)
+        const res = await listWorkspaces(token)
         if (cancelled) return
-        setWorkspaces(rows)
-        const active = resolveActiveWorkspace(rows, activeID)
+        setWorkspaces(res.workspaces)
+        const active = resolveActiveWorkspace(res.workspaces, activeID)
         setActiveID(active?.id ?? null)
         if (active) localStorage.setItem(storageKey, active.id)
       } catch {

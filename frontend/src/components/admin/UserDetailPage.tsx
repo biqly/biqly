@@ -33,16 +33,16 @@ export function UserDetailPage({ token, userID, onBack }: UserDetailPageProps) {
   async function loadData() {
     try {
       setLoading(true)
-      const [u, ur, ar] = await Promise.all([
+      const [u, ur, arRes] = await Promise.all([
         getUserDetail(token, userID),
         getUserRoles(token, userID),
         listRoles(token),
       ])
       setUser(u)
       setUserRoles(ur)
-      setAvailableRoles(ar)
-      if (ar.length > 0 && ar[0]) {
-        setSelectedRoleID(ar[0].id)
+      setAvailableRoles(arRes.roles)
+      if (arRes.roles.length > 0 && arRes.roles[0]) {
+        setSelectedRoleID(arRes.roles[0].id)
       }
       setError(null)
     } catch (e) {

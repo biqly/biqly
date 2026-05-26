@@ -5,6 +5,7 @@ import { useT } from '../../i18n'
 import type { AIHistoryEntry } from '../../types/auth'
 import { ShareButton } from '../sharing/ShareButton'
 import { Pagination } from '../ui/Pagination'
+import { useQueryParam } from '../../hooks/useQueryParam'
 
 export function AIHistoryPanel() {
   const t = useT()
@@ -13,15 +14,17 @@ export function AIHistoryPanel() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
-  const [expandedID, setExpandedID] = useState<string | null>(null)
+  const [historyIdParam, setHistoryIdParam] = useQueryParam('historyId')
+  const expandedID = historyIdParam || null
   const [detail, setDetail] = useState<AIHistoryEntry | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
-  const totalPages = Math.ceil(entries.length / pageSize)
-  const displayedEntries = entries.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const [totalItems, setTotalItems] = useState(0)
+  const totalPages = Math.ceil(totalItems / pageSize)
+  const displayedEntries = entries
 
   const isAdmin = roles.some((r) => r === 'super_admin' || r === 'admin')
 
@@ -29,16 +32,20 @@ export function AIHistoryPanel() {
     if (!accessToken) return
     setLoading(true)
     try {
-      // Fetch up to 500 recent queries to allow robust pagination
-      const rows = await listAIHistory(accessToken, { limit: 500, showAll: isAdmin && showAll })
-      setEntries(rows)
+      const res = await listAIHistory(accessToken, {
+        page: currentPage,
+        pageSize,
+        showAll: isAdmin && showAll
+      })
+      setEntries(res.entries || [])
+      setTotalItems(res.total || 0)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setLoading(false)
     }
-  }, [accessToken, showAll, isAdmin])
+  }, [accessToken, currentPage, showAll, isAdmin])
 
   useEffect(() => {
     load()
@@ -46,23 +53,35 @@ export function AIHistoryPanel() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [showAll, entries.length])
+  }, [showAll])
 
-  async function toggleDetail(id: string) {
-    if (expandedID === id) {
-      setExpandedID(null)
+  useEffect(() => {
+    if (!expandedID || !accessToken) {
       setDetail(null)
       return
     }
-    setExpandedID(id)
+    let cancelled = false
     setDetailLoading(true)
-    try {
-      const d = await getAIHistoryDetail(accessToken!, id)
-      setDetail(d)
-    } catch {
-      setDetail(null)
-    } finally {
-      setDetailLoading(false)
+    getAIHistoryDetail(accessToken, expandedID)
+      .then((d) => {
+        if (!cancelled) setDetail(d)
+      })
+      .catch(() => {
+        if (!cancelled) setDetail(null)
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [expandedID, accessToken])
+
+  function toggleDetail(id: string) {
+    if (expandedID === id) {
+      setHistoryIdParam('')
+    } else {
+      setHistoryIdParam(id)
     }
   }
 
@@ -187,7 +206,7 @@ export function AIHistoryPanel() {
             currentPage={currentPage}
             totalPages={totalPages}
             onPageChange={setCurrentPage}
-            totalItems={entries.length}
+            totalItems={totalItems}
             itemsPerPage={pageSize}
           />
         </div>
