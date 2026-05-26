@@ -41,6 +41,7 @@ type Config struct {
 	GDPRPurgeAfterDays int
 	SessionAbsoluteTTL time.Duration
 	SessionIdleTTL     time.Duration
+	PasswordPolicy     PasswordPolicy
 }
 
 func LoadConfig() (*Config, error) {
@@ -178,6 +179,35 @@ func LoadConfig() (*Config, error) {
 		}
 	}
 
+	pw := DefaultPasswordPolicy()
+	if v := os.Getenv("BI_AUTH_PASSWORD_MIN_LEN"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			pw.MinLength = n
+		}
+	}
+	if v := os.Getenv("BI_AUTH_PASSWORD_MAX_LEN"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			pw.MaxLength = n
+		}
+	}
+	if v := os.Getenv("BI_AUTH_PASSWORD_REQUIRE_UPPER"); v != "" {
+		pw.RequireUpper = parseBoolEnv(v, pw.RequireUpper)
+	}
+	if v := os.Getenv("BI_AUTH_PASSWORD_REQUIRE_LOWER"); v != "" {
+		pw.RequireLower = parseBoolEnv(v, pw.RequireLower)
+	}
+	if v := os.Getenv("BI_AUTH_PASSWORD_REQUIRE_DIGIT"); v != "" {
+		pw.RequireDigit = parseBoolEnv(v, pw.RequireDigit)
+	}
+	if v := os.Getenv("BI_AUTH_PASSWORD_REQUIRE_SPECIAL"); v != "" {
+		pw.RequireSpecial = parseBoolEnv(v, pw.RequireSpecial)
+	}
+	if v := os.Getenv("BI_AUTH_PASSWORD_MIN_SCORE"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 && n <= 4 {
+			pw.MinScore = n
+		}
+	}
+
 	cfg := &Config{
 		Port:               port,
 		DBDSN:              dbDSN,
@@ -212,6 +242,7 @@ func LoadConfig() (*Config, error) {
 		GDPRPurgeAfterDays: purgeDays,
 		SessionAbsoluteTTL: absoluteTTL,
 		SessionIdleTTL:     idleTTL,
+		PasswordPolicy:     pw,
 	}
 
 	if cfg.InternalToken == "" {

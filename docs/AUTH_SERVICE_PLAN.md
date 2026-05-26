@@ -1793,15 +1793,15 @@ atılabilecek güvenlik, operasyonel ve uyumluluk gereksinimleridir.
 
 ### 18.8 Password Policy (Konfigüre Edilebilir)
 
-- [ ] Minimum uzunluk (default: 8)
-- [ ] Maksimum uzunluk (default: 128, bcrypt limit)
-- [ ] En az 1 büyük harf
-- [ ] En az 1 küçük harf
-- [ ] En az 1 rakam
-- [ ] En az 1 özel karakter
-- [ ] Sözlük kelime kontrolü (top 10k yaygın parola)
-- [ ] Kullanıcı adı/e-posta içeremez
-- [ ] Zxcvbn benzeri güçlülük skorlama (frontend + backend)
+- [x] Minimum uzunluk (default: 8) — `BI_AUTH_PASSWORD_MIN_LEN`
+- [x] Maksimum uzunluk (default: 128, bcrypt limit) — `BI_AUTH_PASSWORD_MAX_LEN`
+- [x] En az 1 büyük harf — `BI_AUTH_PASSWORD_REQUIRE_UPPER`
+- [x] En az 1 küçük harf — `BI_AUTH_PASSWORD_REQUIRE_LOWER`
+- [x] En az 1 rakam — `BI_AUTH_PASSWORD_REQUIRE_DIGIT`
+- [x] En az 1 özel karakter — `BI_AUTH_PASSWORD_REQUIRE_SPECIAL`
+- [x] Sözlük kelime kontrolü — `password_common.txt` embed (~200 yaygın parola); `IsCommonPassword` literal + trailing-non-letter strip + leetspeak normalizasyonu (`p@ssw0rd → password`)
+- [x] Kullanıcı adı/e-posta içeremez — `PasswordPolicy.Validate(pw, identityFields...)` 4+ karakter token'ları içeren parolaları reddeder (register `email+displayName`, reset email+display+username)
+- [x] Zxcvbn benzeri güçlülük skorlama — `PasswordScore` 0–4 ölçeği (uzunluk + sınıf çeşitliliği − tekrar/sequence/common penalty); `MinScore` config (`BI_AUTH_PASSWORD_MIN_SCORE`, default 2); `GET /auth/password-policy` frontend için canlı policy yayını
 
 ### 18.9 Frontend Best Practices
 

@@ -12,6 +12,7 @@ import type {
   UserRoleInfo,
   ResourceShare,
 } from '../types/auth'
+import { normalizeAuthUser } from './auth'
 import { csrfFetch } from './csrf'
 
 const AUTH_API_BASE = '/api/auth'
@@ -207,12 +208,13 @@ export async function getAIQueueStatus(token: string, clientSessionID?: string):
 
 export async function listUsers(token: string): Promise<AuthUser[]> {
   const res = await fetch(`${AUTH_API_BASE}/admin/users`, { headers: authHeaders(token) })
-  return handle<AuthUser[]>(res)
+  const users = await handle<any[]>(res)
+  return users.map(normalizeAuthUser)
 }
 
 export async function getUserDetail(token: string, id: string): Promise<AuthUser> {
   const res = await fetch(`${AUTH_API_BASE}/admin/users/${id}`, { headers: authHeaders(token) })
-  return handle<AuthUser>(res)
+  return normalizeAuthUser(await handle<any>(res))
 }
 
 export async function getUserRoles(token: string, id: string): Promise<UserRoleInfo[]> {

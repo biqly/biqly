@@ -73,7 +73,7 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest, userAge
 	if err != nil {
 		return nil, err
 	}
-	if err := ValidatePassword(req.Password); err != nil {
+	if err := s.config.PasswordPolicy.Validate(req.Password, email, displayName); err != nil {
 		return nil, err
 	}
 
@@ -682,12 +682,25 @@ func (s *AuthService) ForgotPassword(ctx context.Context, email string) error {
 }
 
 func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword string) error {
-	if err := ValidatePassword(newPassword); err != nil {
+	userID, err := s.userRepo.VerifyPasswordResetToken(ctx, token)
+	if err != nil {
 		return err
 	}
 
-	userID, err := s.userRepo.VerifyPasswordResetToken(ctx, token)
+	// Pull the user's identity fields so the policy can reject passwords
+	// that embed the email or display name (e.g. "alice.smith2024!").
+	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
+		return err
+	}
+	identity := []string{user.Email}
+	if user.DisplayName != nil {
+		identity = append(identity, *user.DisplayName)
+	}
+	if user.Username != nil {
+		identity = append(identity, *user.Username)
+	}
+	if err := s.config.PasswordPolicy.Validate(newPassword, identity...); err != nil {
 		return err
 	}
 	reused, err := s.userRepo.PasswordWasUsed(ctx, userID, newPassword, PasswordHistoryLimit)

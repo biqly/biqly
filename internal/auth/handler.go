@@ -83,6 +83,8 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 	r.Post("/passkey/login-begin", h.handlePasskeyLoginBegin)
 	r.Post("/passkey/login-finish", h.handlePasskeyLoginFinish)
 
+	r.Get("/password-policy", h.handlePasswordPolicy)
+
 	h.RegisterAccountPublicRoutes(r)
 
 	r.Group(func(r chi.Router) {

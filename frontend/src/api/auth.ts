@@ -22,6 +22,21 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return data as T
 }
 
+export function normalizeAuthUser(raw: any): AuthUser {
+  return {
+    id: raw.id,
+    email: raw.email,
+    username: raw.username,
+    displayName: raw.displayName ?? raw.display_name,
+    avatarUrl: raw.avatarUrl ?? raw.avatar_url,
+    isActive: raw.isActive ?? raw.is_active,
+    emailVerified: raw.emailVerified ?? raw.email_verified,
+    active_workspace_id: raw.active_workspace_id,
+    createdAt: raw.createdAt ?? raw.created_at,
+    updatedAt: raw.updatedAt ?? raw.updated_at,
+  }
+}
+
 export async function apiRegister(email: string, password: string, displayName: string): Promise<TokenResponse> {
   const res = await csrfFetch(`${AUTH_API_BASE}/register`, {
     method: 'POST',
@@ -77,7 +92,7 @@ export async function apiGetMe(accessToken: string): Promise<AuthUser> {
       'Authorization': `Bearer ${accessToken}`,
     },
   })
-  return handleResponse<AuthUser>(res)
+  return normalizeAuthUser(await handleResponse<any>(res))
 }
 
 export async function apiSetActiveWorkspace(accessToken: string, workspaceID: string): Promise<SetActiveWorkspaceResponse> {

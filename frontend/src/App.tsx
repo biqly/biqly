@@ -300,9 +300,9 @@ const routeDefs: AppRouteDef[] = [
   {
     path: '/admin',
     sectionKey: 'preferences',
-    labelKey: 'app.nav.settings',
-    eyebrowKey: 'app.nav.settings_eyebrow',
-    descriptionKey: 'app.nav.settings_desc',
+    labelKey: 'app.nav.admin',
+    eyebrowKey: 'app.nav.admin_eyebrow',
+    descriptionKey: 'app.nav.admin_desc',
     icon: IconSettings,
     component: Admin,
     hidden: true,
@@ -320,8 +320,18 @@ const initialPath = () => {
 
 function App() {
   const t = useT()
-  const { user, accessToken, logout } = useAuth()
+  const { user, accessToken, logout, roles } = useAuth()
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
+  const isAdmin = roles.some((role) => role === 'super_admin' || role === 'admin')
+  const roleLabel = roles.includes('super_admin')
+    ? 'Super Admin'
+    : roles.includes('admin')
+      ? 'Admin'
+      : roles.includes('developer')
+        ? 'Developer'
+        : roles.includes('analyst')
+          ? 'Analyst'
+          : 'User'
 
   const getInitials = (name?: string, email?: string) => {
     if (name) {
@@ -352,7 +362,7 @@ function App() {
   const sidebarSections = useMemo(() => {
     const buckets = new Map<RouteSectionKey, AppRoute[]>()
     for (const route of routes) {
-      if (route.hidden) continue
+      if (route.hidden && !(route.path === '/admin' && isAdmin)) continue
       const prev = buckets.get(route.sectionKey) ?? []
       prev.push(route)
       buckets.set(route.sectionKey, prev)
@@ -365,7 +375,7 @@ function App() {
       }
     }
     return out
-  }, [routes, t])
+  }, [routes, t, isAdmin])
   const findRoute = (pathname: string) => routes.find((route) => route.path === pathname)
 
   const [activePath, setActivePath] = useState(initialPath)
@@ -523,7 +533,7 @@ function App() {
               </div>
               <div className="user-details">
                 <span className="user-name">{user.displayName || user.email}</span>
-                <span className="user-role">{user.displayName ? user.email : 'User'}</span>
+                <span className="user-role">{roleLabel}</span>
               </div>
               
               {userDropdownOpen && (
