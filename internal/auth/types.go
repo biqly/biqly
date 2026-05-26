@@ -2,6 +2,11 @@ package auth
 
 import "time"
 
+const (
+	EmailChangeWaitPeriod = 24 * time.Hour
+	EmailChangeTokenTTL   = 48 * time.Hour
+)
+
 type RegisterRequest struct {
 	Email       string `json:"email"`
 	Password    string `json:"password"`
@@ -70,6 +75,10 @@ type SetActiveWorkspaceResponse struct {
 	ActiveWorkspaceID string `json:"active_workspace_id"`
 }
 
+type RequestEmailChangeRequest struct {
+	NewEmail string `json:"new_email"`
+}
+
 type User struct {
 	ID            string
 	Email         string
@@ -90,9 +99,24 @@ type Session struct {
 	RefreshToken string
 	UserAgent    *string
 	IPAddress    *string
-	CreatedAt     time.Time
+	CreatedAt    time.Time
 	ExpiresAt    time.Time
 	RevokedAt    *time.Time
+}
+
+type EmailChangeRequest struct {
+	ID                  string
+	UserID              string
+	OldEmail            string
+	NewEmail            string
+	OldEmailToken       string
+	NewEmailToken       string
+	OldEmailConfirmedAt *time.Time
+	NewEmailConfirmedAt *time.Time
+	RequestedAt         time.Time
+	NotBefore           time.Time
+	ExpiresAt           time.Time
+	CompletedAt         *time.Time
 }
 
 type Role struct {

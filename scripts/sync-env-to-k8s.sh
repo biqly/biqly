@@ -73,6 +73,7 @@ else
 fi
 [[ -n "${BI_AUTH_GITHUB_CLIENT_SECRET:-}" ]] && auth_secret_args+=(--from-literal="BI_AUTH_GITHUB_CLIENT_SECRET=$BI_AUTH_GITHUB_CLIENT_SECRET")
 [[ -n "${BI_AUTH_GOOGLE_CLIENT_SECRET:-}" ]] && auth_secret_args+=(--from-literal="BI_AUTH_GOOGLE_CLIENT_SECRET=$BI_AUTH_GOOGLE_CLIENT_SECRET")
+[[ -n "${BI_AUTH_SMTP_USER:-}" ]] && auth_secret_args+=(--from-literal="BI_AUTH_SMTP_USER=$BI_AUTH_SMTP_USER")
 [[ -n "${BI_AUTH_SMTP_PASS:-}" ]] && auth_secret_args+=(--from-literal="BI_AUTH_SMTP_PASS=$BI_AUTH_SMTP_PASS")
 
 kubectl -n "$NS" create secret generic biqly-auth-secrets \
@@ -156,10 +157,16 @@ kubectl -n "$NS" create configmap biqly-query-config \
   --from-literal="BI_REDIS_DSN=$redis_dsn" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-rollout_targets=(deployment/biqly-ai deployment/biqly-catalog deployment/biqly-query)
-if kubectl -n "$NS" get deployment biqly-auth >/dev/null 2>&1; then
-  rollout_targets+=(deployment/biqly-auth)
+if [[ "${BI_SYNC_SMTP_FROM_ZLITTER:-1}" == "1" ]] && [[ -x "$ROOT/scripts/sync-smtp-from-zlitter.sh" ]]; then
+  ZLITTER_NAMESPACE="${ZLITTER_NAMESPACE:-zlitter}" \
+  BI_K8S_NAMESPACE="$NS" \
+  "$ROOT/scripts/sync-smtp-from-zlitter.sh"
+else
+  rollout_targets=(deployment/biqly-ai deployment/biqly-catalog deployment/biqly-query)
+  if kubectl -n "$NS" get deployment biqly-auth >/dev/null 2>&1; then
+    rollout_targets+=(deployment/biqly-auth)
+  fi
+  kubectl -n "$NS" rollout restart "${rollout_targets[@]}"
 fi
-kubectl -n "$NS" rollout restart "${rollout_targets[@]}"
 
 echo "synced $ENV_FILE -> namespace/$NS (secrets + configmaps, workloads restarted)"

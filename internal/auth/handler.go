@@ -67,6 +67,8 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 	r.Post("/reset-password", h.handleResetPassword)
 	r.Get("/verify-email", h.handleVerifyEmail)
 	r.Post("/resend-verification", h.handleResendVerification)
+	r.Get("/email-change/confirm", h.handleConfirmEmailChange)
+	r.Post("/email-change/confirm", h.handleConfirmEmailChange)
 
 	r.Get("/oauth/{provider}", h.handleOAuthRedirect)
 	r.Get("/oauth/{provider}/callback", h.handleOAuthCallback)
@@ -86,6 +88,7 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 		r.Get("/me", h.handleMe)
 		r.Get("/me/export", h.handleMeExport)
 		r.Post("/me/active-workspace", h.handleSetActiveWorkspace)
+		r.Post("/me/email-change/request", h.handleRequestEmailChange)
 		r.Post("/passkey/register-begin", h.handlePasskeyRegisterBegin)
 		r.Post("/passkey/register-finish", h.handlePasskeyRegisterFinish)
 		r.Get("/me/passkeys", h.handleMePasskeys)
@@ -675,6 +678,10 @@ type ResendVerificationRequest struct {
 	Email string `json:"email"`
 }
 
+type ConfirmEmailChangeRequest struct {
+	Token string `json:"token"`
+}
+
 func (h *AuthHandler) handleForgotPassword(w http.ResponseWriter, r *http.Request) {
 	var req ForgotPasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -737,4 +744,64 @@ func (h *AuthHandler) handleResendVerification(w http.ResponseWriter, r *http.Re
 	}
 
 	h.respondJSON(w, http.StatusOK, map[string]string{"message": "If the email is not verified, a new verification link has been sent."})
+}
+
+func (h *AuthHandler) handleRequestEmailChange(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(userIDKey).(string)
+	if !ok || userID == "" {
+		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req RequestEmailChangeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	change, err := h.service.RequestEmailChange(r.Context(), userID, req.NewEmail)
+	if errors.Is(err, ErrUserAlreadyExists) {
+		h.respondError(w, http.StatusConflict, err.Error())
+		return
+	} else if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	h.respondJSON(w, http.StatusAccepted, map[string]string{
+		"status":     "pending_confirmation",
+		"new_email":  change.NewEmail,
+		"not_before": change.NotBefore.Format(time.RFC3339),
+		"expires_at": change.ExpiresAt.Format(time.RFC3339),
+	})
+}
+
+func (h *AuthHandler) handleConfirmEmailChange(w http.ResponseWriter, r *http.Request) {
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		var req ConfirmEmailChangeRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			h.respondError(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+		token = req.Token
+	}
+
+	change, err := h.service.ConfirmEmailChange(r.Context(), token)
+	if errors.Is(err, ErrEmailChangePending) {
+		h.respondJSON(w, http.StatusAccepted, map[string]string{
+			"status":     "pending_confirmation",
+			"new_email":  change.NewEmail,
+			"not_before": change.NotBefore.Format(time.RFC3339),
+		})
+		return
+	} else if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]string{
+		"status":    "completed",
+		"new_email": change.NewEmail,
+	})
 }

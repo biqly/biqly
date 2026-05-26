@@ -1305,8 +1305,8 @@ r.Route("/api", func(r chi.Router) {
 - [x] Rate limiting middleware (IP bazlı)
 - [x] Brute-force koruması (başarısız giriş takibi)
 - [x] CSRF koruması (SameSite cookie + token)
-- [ ] Input sanitizasyonu (XSS önleme)
-- [ ] SQL injection önleme (parameterized queries — zaten pgx)
+- [x] Input sanitizasyonu (XSS önleme) — auth girişlerinde strict email addr-spec normalization + display name plain-text kontrolü (`internal/auth/validator.go`); register/login/OAuth/forgot/resend akışları normalize edilmiş değer kullanıyor
+- [x] SQL injection önleme (parameterized queries — zaten pgx) — auth/middleware SQL taramasında dinamik SQL concat/fmt.Sprintf yok; kullanıcı girdileri `$1..$n` placeholder'larıyla geçiliyor
 - [x] CORS katı yapılandırma — auth servisi `BI_AUTH_CORS_ALLOWED_ORIGINS` (empty = block-all), monolit ile aynı pattern
 - [x] Security headers (HSTS, X-Frame-Options, CSP) — `bimw.SecurityHeaders` middleware monolit + auth servise uygulandı
 - [x] Audit logging tüm auth olayları
@@ -1317,9 +1317,9 @@ r.Route("/api", func(r chi.Router) {
 - [x] Token ailesi koruması (refresh token rotation aile takibi)
 - [x] JWT issuer/audience doğrulama — `BI_AUTH_JWT_ISSUER` / `BI_AUTH_JWT_AUDIENCE`, monolit middleware fetch via `/internal/auth/public-key`
 - [x] JWT ID (jti) ile token takibi — her token'a rastgele 128-bit jti, revocation list için altyapı
-- [ ] E-posta değişikliği çift doğrulama + bekleme süresi
-- [ ] Parola geçmişi kontrolü (son 5 parola)
-- [ ] Recovery kodları (2FA için 10 adet tek kullanımlık)
+- [x] E-posta değişikliği çift doğrulama + bekleme süresi — `email_change_requests` migration (`023a`), eski+yeni e-posta token'ları, 24s `not_before`, `/auth/me/email-change/request` + `/auth/email-change/confirm` akışı
+- [x] Parola geçmişi kontrolü (son 5 parola) — `password_history` migration (`024a`), kayıt/reset sırasında hash geçmişi tutuluyor; reset flow son 5 bcrypt hash'e karşı tekrar kullanımı reddediyor (`ErrPasswordReused`)
+- [x] Recovery kodları (2FA için 10 adet tek kullanımlık) — `MFAService` 10 adet recovery code üretir, bcrypt hash olarak saklar, `ConsumeRecoveryCode` ile tek kullanımlık tüketir; regenerate endpoint mevcut
 
 ### 2FA / MFA
 
