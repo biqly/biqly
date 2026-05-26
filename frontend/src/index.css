@@ -25,6 +25,9 @@
   --warning: #f59e0b;
   --border: rgba(255, 255, 255, 0.06);
   --border-strong: rgba(255, 255, 255, 0.12);
+  --border-color: var(--border);
+  --input-bg: var(--bg-primary);
+  --bg-thead: var(--table-header-bg);
   --shadow: 0 16px 48px -12px rgba(0, 0, 0, 0.5);
   --shadow-sm: 0 4px 12px -2px rgba(0, 0, 0, 0.3);
   /* Data tables: header band + zebra rows (project-wide .results-table) */
@@ -69,6 +72,9 @@
   --warning: #d97706;
   --border: rgba(15, 23, 42, 0.06);
   --border-strong: rgba(15, 23, 42, 0.12);
+  --border-color: var(--border);
+  --input-bg: #ffffff;
+  --bg-thead: var(--table-header-bg);
   --shadow: 0 16px 48px -12px rgba(15, 23, 42, 0.08);
   --shadow-sm: 0 4px 12px -2px rgba(15, 23, 42, 0.04);
   --table-header-bg: #f1f5f9;
@@ -4472,13 +4478,9 @@ body.modeling-grabbing * {
 
 .ws-settings__section {
   padding: 16px;
-  border: 1px solid var(--border-color, #e5e7eb);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--card-bg, #fff);
-}
-[data-theme="dark"] .ws-settings__section {
-  background: rgba(255,255,255,.03);
-  border-color: rgba(255,255,255,.08);
+  background: var(--bg-card);
 }
 
 .ws-settings__section h3 {
@@ -4744,9 +4746,9 @@ body.modeling-grabbing * {
   font-size: 11px;
   font-weight: 600;
 }
-.ai-history__status--success { background: rgba(16,185,129,.12); color: #059669; }
-.ai-history__status--error   { background: rgba(239,68,68,.10);  color: #dc2626; }
-.ai-history__status--clarification { background: rgba(245,158,11,.12); color: #d97706; }
+.ai-history__status--success { background: rgba(16,185,129,.12); color: var(--success, #059669); }
+.ai-history__status--error   { background: rgba(239,68,68,.10);  color: var(--error, #dc2626); }
+.ai-history__status--clarification { background: rgba(245,158,11,.12); color: var(--warning, #d97706); }
 
 .ai-history__mono {
   font-family: var(--font-mono, monospace);
@@ -4864,16 +4866,13 @@ body.modeling-grabbing * {
 }
 
 .share-modal {
-  background: var(--card-bg, #fff);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 12px;
   width: 100%;
   max-width: 420px;
-  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  box-shadow: var(--shadow, 0 20px 60px rgba(0,0,0,.2));
   animation: slideUp 200ms ease-out;
-}
-[data-theme="dark"] .share-modal {
-  background: #1a1a2e;
-  border: 1px solid rgba(255,255,255,.08);
 }
 
 .share-modal__header {
@@ -5048,9 +5047,9 @@ body.modeling-grabbing * {
   font-size: 11px;
   font-weight: 600;
 }
-.shared-list__perm--view    { background: rgba(107,114,128,.1); color: #6b7280; }
-.shared-list__perm--execute { background: rgba(245,158,11,.12); color: #d97706; }
-.shared-list__perm--edit    { background: rgba(16,185,129,.12); color: #059669; }
+.shared-list__perm--view    { background: rgba(107,114,128,.1); color: var(--text-secondary, #6b7280); }
+.shared-list__perm--execute { background: rgba(245,158,11,.12); color: var(--warning, #d97706); }
+.shared-list__perm--edit    { background: rgba(16,185,129,.12); color: var(--success, #059669); }
 
 .shared-list__revoke {
   padding: 3px 10px;

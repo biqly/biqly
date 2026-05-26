@@ -29,8 +29,7 @@ export default function Admin() {
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <h1 style={{ margin: 0 }}>{t('admin.title')}</h1>
-      <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--border-color, #e5e7eb)', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))', flexWrap: 'wrap' }}>
         <TabButton active={tab === 'users'} onClick={() => handleTabChange('users')}>{t('admin.tabs.users')}</TabButton>
         <TabButton active={tab === 'roles'} onClick={() => handleTabChange('roles')}>{t('admin.tabs.roles')}</TabButton>
         <TabButton active={tab === 'datasource_access'} onClick={() => handleTabChange('datasource_access')}>{t('admin.tabs.datasource_access')}</TabButton>

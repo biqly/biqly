@@ -139,10 +139,10 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
 
 const tableContainer: React.CSSProperties = {
   background: 'var(--bg-card, #ffffff)',
-  border: '1px solid var(--border-color, #e5e7eb)',
+  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
   borderRadius: 8,
   overflow: 'hidden',
-  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+  boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05))',
 }
 
 const tableStyle: React.CSSProperties = {
@@ -153,18 +153,18 @@ const tableStyle: React.CSSProperties = {
 }
 
 const theadRow: React.CSSProperties = {
-  background: 'var(--bg-thead, #f9fafb)',
-  borderBottom: '1px solid var(--border-color, #e5e7eb)',
+  background: 'var(--table-header-bg, #f9fafb)',
+  borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
 }
 
 const thStyle: React.CSSProperties = {
   padding: '12px 16px',
   fontWeight: 600,
-  color: 'var(--text-secondary, #4b5563)',
+  color: 'var(--table-header-fg, #4b5563)',
 }
 
 const trStyle: React.CSSProperties = {
-  borderBottom: '1px solid var(--border-color, #f3f4f6)',
+  borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
 }
 
 const tdStyle: React.CSSProperties = {
@@ -179,7 +179,9 @@ const subtext: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   padding: '8px 12px',
-  border: '1px solid var(--border-color, #d1d5db)',
+  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
+  background: 'var(--input-bg, #fff)',
+  color: 'var(--text-primary, #111)',
   borderRadius: 6,
   fontSize: 14,
   width: '100%',
@@ -188,10 +190,11 @@ const inputStyle: React.CSSProperties = {
 
 const selectStyle: React.CSSProperties = {
   padding: '8px 12px',
-  border: '1px solid var(--border-color, #d1d5db)',
+  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
   borderRadius: 6,
   fontSize: 14,
-  background: 'var(--bg-card, #ffffff)',
+  background: 'var(--input-bg, #fff)',
+  color: 'var(--text-primary, #111)',
 }
 
 const btnPrimary: React.CSSProperties = {
@@ -208,8 +211,8 @@ const btnPrimary: React.CSSProperties = {
 const badgeActive: React.CSSProperties = {
   padding: '2px 8px',
   borderRadius: 9999,
-  background: '#ecfdf5',
-  color: '#065f46',
+  background: 'rgba(16, 185, 129, 0.12)',
+  color: 'var(--success, #10b981)',
   fontSize: 12,
   fontWeight: 500,
 }
@@ -217,8 +220,8 @@ const badgeActive: React.CSSProperties = {
 const badgeInactive: React.CSSProperties = {
   padding: '2px 8px',
   borderRadius: 9999,
-  background: '#fef2f2',
-  color: '#991b1b',
+  background: 'rgba(239, 68, 68, 0.12)',
+  color: 'var(--error, #ef4444)',
   fontSize: 12,
   fontWeight: 500,
 }
@@ -226,8 +229,8 @@ const badgeInactive: React.CSSProperties = {
 const badgeVerified: React.CSSProperties = {
   padding: '2px 8px',
   borderRadius: 9999,
-  background: '#eff6ff',
-  color: '#1e40af',
+  background: 'var(--accent-glow, rgba(99, 102, 241, 0.15))',
+  color: 'var(--accent, #6366f1)',
   fontSize: 12,
   fontWeight: 500,
 }
@@ -235,19 +238,19 @@ const badgeVerified: React.CSSProperties = {
 const badgeUnverified: React.CSSProperties = {
   padding: '2px 8px',
   borderRadius: 9999,
-  background: '#fffbp8',
-  color: '#854d0e',
-  backgroundColor: '#fef9c3',
+  background: 'rgba(245, 158, 11, 0.14)',
+  color: 'var(--warning, #f59e0b)',
   fontSize: 12,
   fontWeight: 500,
 }
 
 const countBadge: React.CSSProperties = {
   fontSize: 12,
-  background: '#f3f4f6',
+  background: 'var(--bg-card-raised, rgba(255, 255, 255, 0.08))',
+  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
   padding: '4px 8px',
   borderRadius: 12,
-  color: '#4b5563',
+  color: 'var(--text-secondary, #a1a1aa)',
   fontWeight: 600,
 }
 
