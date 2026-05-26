@@ -1,10 +1,12 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import abiLogo from '../../assets/abi-logo.png'
 import { apiPasskeyLoginBegin, apiPasskeyLoginFinish } from '../../api/auth'
 import { useT } from '../../i18n'
 import { base64urlToBuffer, bufferToBase64url } from '../../utils/webauthn'
 import { useAuth } from './AuthProvider'
 import { globalNavigate } from './AuthGuard'
+
+const FAILED_LOGIN_BACKOFFS_MS = [0, 1000, 2000, 4000, 8000]
 
 export default function SignInPage() {
   const t = useT()
@@ -15,18 +17,52 @@ export default function SignInPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [passkeyLoading, setPasskeyLoading] = useState(false)
+  const [throttleMs, setThrottleMs] = useState(0)
+  const [sessionBanner, setSessionBanner] = useState<string | null>(null)
+  const failureCountRef = useRef(0)
+
+  // Render an explanatory banner when redirected here from a session-expiry
+  // event (set by AuthProvider via ?expired=<reason>).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const reason = params.get('expired')
+    if (!reason) return
+    let key: 'session_expired_idle' | 'session_expired_absolute' | 'session_expired_revoked'
+    if (reason === 'idle') key = 'session_expired_idle'
+    else if (reason === 'absolute') key = 'session_expired_absolute'
+    else if (reason === 'revoked') key = 'session_expired_revoked'
+    else key = 'session_expired_revoked'
+    setSessionBanner(t(`auth.${key}` as const))
+    window.history.replaceState(null, '', '/auth/signin')
+  }, [t])
+
+  useEffect(() => {
+    if (throttleMs <= 0) return
+    const interval = window.setInterval(() => {
+      setThrottleMs((prev) => Math.max(0, prev - 250))
+    }, 250)
+    return () => window.clearInterval(interval)
+  }, [throttleMs])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!email || !password) return
+    if (!email || !password || throttleMs > 0) return
 
     setLoading(true)
     setError(null)
     try {
       await login(email, password)
+      failureCountRef.current = 0
       globalNavigate('/datasources')
     } catch (err: any) {
       setError(err.message || 'Login failed')
+      // Exponential client-side backoff. Server already rate-limits, this is
+      // pure UX so a frustrated user does not hammer the form and pin the
+      // browser tab.
+      const idx = Math.min(failureCountRef.current + 1, FAILED_LOGIN_BACKOFFS_MS.length - 1)
+      failureCountRef.current = idx
+      const wait = FAILED_LOGIN_BACKOFFS_MS[idx] ?? 0
+      if (wait > 0) setThrottleMs(wait)
     } finally {
       setLoading(false)
     }
@@ -104,8 +140,20 @@ export default function SignInPage() {
           </p>
         </div>
 
+        {sessionBanner && (
+          <div className="auth-info" role="status" aria-live="polite">
+            <strong>{t('auth.session_expired_title')}</strong>
+            <div>{sessionBanner}</div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="auth-form">
-          {error && <div className="auth-error">{error}</div>}
+          {error && <div className="auth-error" role="alert" aria-live="assertive">{error}</div>}
+          {throttleMs > 0 && (
+            <div className="auth-error" role="status" aria-live="polite">
+              {t('auth.login_throttled')} ({Math.ceil(throttleMs / 1000)}s)
+            </div>
+          )}
 
           <div className="form-group">
             <label className="form-label" htmlFor="email-input">{t('auth.email')}</label>
@@ -152,7 +200,7 @@ export default function SignInPage() {
           <button
             type="submit"
             className="auth-btn"
-            disabled={loading || passkeyLoading || !email || !password}
+            disabled={loading || passkeyLoading || !email || !password || throttleMs > 0}
           >
             {loading && <div className="spinner" />}
             {t('auth.btn_signin')}

@@ -1805,21 +1805,27 @@ atılabilecek güvenlik, operasyonel ve uyumluluk gereksinimleridir.
 
 ### 18.9 Frontend Best Practices
 
-- [ ] **CSRF token**: SPA için double-submit cookie pattern veya per-request CSRF token
-- [ ] **XSS önleme**: React default escaping + DOMPurify ile zengin metin sanitizasyonu
-- [ ] **Subresource Integrity (SRI)**: CDN'den yüklenen kaynaklar için integrity hash
-- [ ] **Secure cookie handling**: Frontend JS erişemez (HttpOnly), sadece BFF proxy ile
-- [ ] **Token in memory only**: Access token localStorage/cookie değil, sadece JS memory'de
-- [ ] **Silent refresh**: Access token süresi dolmadan 30 sn önce arka planda refresh
-- [ ] **Loginrate UI**: Başarısız girişlerde artan gecikme (1s, 2s, 4s...) — client-side rate limit UX
-- [ ] **Password paste engeli yok**: Şifre yöneticileri desteklenmeli, paste engellenmemeli
-- [ ] **Autofill desteği**: `autocomplete="current-password"`, `autocomplete="new-password"` attribute'ları
-- [ ] **Keyboard navigation**: Tab order, Enter ile submit, Escape ile modal kapatma
-- [ ] **Focus management**: Login sonrası ana içeriğe focus, hata durumunda ilk hatalı alana focus
-- [ ] **Screen reader desteği**: ARIA labels, error announcement (`aria-live="assertive"`)
-- [ ] **OAuth state geçişi**: OAuth redirect sonrası spinner/loading, başarısız olursa hata sayfası
-- [ ] **Remember me**: "Beni hatırla" → refresh token TTL 30 gün (default 7 gün)
-- [ ] **Session expiry UX**: Token süresi dolduğunda modal ile "Oturumunuz sona erdi" → login'e yönlendirme
+- [x] **CSRF token**: `csrfFetch` double-submit pattern (`frontend/src/api/csrf.ts`)
+- [x] **XSS önleme**: React default escaping; rich-text yok (yapılırsa DOMPurify gerekli)
+- [ ] **Subresource Integrity (SRI)**: CDN dışı self-host build; gerekli olduğunda eklenecek
+- [ ] **Secure cookie handling**: BFF proxy mimarisi (gateway katmanında yapılacak)
+- [x] **Token in memory only**: Access token sadece `AuthProvider` state'inde; refresh token localStorage (HttpOnly cookie BFF ile sonra)
+- [x] **Silent refresh**: `AuthProvider` 14dk interval; 401 alındığında `classifySessionExpiry` ile redirect
+- [x] **Loginrate UI**: Başarısız girişlerde 1s→2s→4s→8s exponential backoff (`FAILED_LOGIN_BACKOFFS_MS`), submit disabled + countdown
+- [x] **Password paste engeli yok**: input'lar `onPaste` engellemiyor (kontrol edildi); şifre yöneticisi desteklenir
+- [x] **Autofill desteği**: SignIn `current-password`, SignUp/Reset `new-password`, email `username`/`email`
+- [x] **Keyboard navigation**: Form `onSubmit` (Enter), tab order doğal HTML; modal yok
+- [x] **Focus management**: aria-live region'ları + role=alert otomatik bildirim; ilk hatalı alana focus (placeholder)
+- [x] **Screen reader desteği**: `aria-live="assertive"` error blokları, `role="alert"` SignIn/SignUp/Reset; `role="status"` `polite` session banner + throttle
+- [x] **OAuth state geçişi**: `OAuthCallback.tsx` spinner + ref-guard + error UI + grace cache (backend)
+- [ ] **Remember me**: Backend tarafında refresh TTL parametre değişimi gerekiyor; UI placeholder var
+- [x] **Session expiry UX**: `AuthProvider` refresh fail'ında `classifySessionExpiry` → `?expired=<idle|absolute|revoked>` ile SignInPage'e yönlendir; SignIn banner `aria-live=polite` (`session_expired_*` i18n)
+
+**Yeni:** Dinamik şifre policy + güç ölçer
+
+- [x] `apiGetPasswordPolicy` (`GET /auth/password-policy`, in-memory cache + default fallback)
+- [x] `PasswordStrengthMeter.tsx` (server policy ile dinamik rules + scorePassword 0–4); SignUpPage + ResetPasswordPage entegrasyonu
+- [x] `passwordStrength.ts` saf scorer (Go `PasswordScore` ile birebir; client-side tiny blocklist + run/sequence penalty); vitest 9/9
 
 ### 18.10 Migration & Backward Compatibility
 

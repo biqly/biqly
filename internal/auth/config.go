@@ -45,204 +45,41 @@ type Config struct {
 }
 
 func LoadConfig() (*Config, error) {
-	portStr := os.Getenv("BI_AUTH_PORT")
-	port := 8889
-	if portStr != "" {
-		if p, err := strconv.Atoi(portStr); err == nil {
-			port = p
-		}
-	}
-
-	dbDSN := os.Getenv("BI_AUTH_DB_DSN")
-	if dbDSN == "" {
-		//nolint:gosec
-		dbDSN = "postgres://bi_auth_user:bi_auth_password@localhost:5434/bi_auth?sslmode=disable"
-	}
-
-	redisDSN := os.Getenv("BI_AUTH_REDIS_DSN")
-	if redisDSN == "" {
-		redisDSN = "redis://localhost:6379"
-	}
-
-	accessTTL := 15 * time.Minute
-	if ttlStr := os.Getenv("BI_AUTH_JWT_ACCESS_TTL"); ttlStr != "" {
-		if d, err := time.ParseDuration(ttlStr); err == nil {
-			accessTTL = d
-		}
-	}
-
-	refreshTTL := 7 * 24 * time.Hour
-	if ttlStr := os.Getenv("BI_AUTH_JWT_REFRESH_TTL"); ttlStr != "" {
-		if d, err := time.ParseDuration(ttlStr); err == nil {
-			refreshTTL = d
-		}
-	}
-
-	rateLimit := 60
-	if rStr := os.Getenv("BI_AUTH_RATE_LIMIT_PER_MINUTE"); rStr != "" {
-		if r, err := strconv.Atoi(rStr); err == nil {
-			rateLimit = r
-		}
-	}
-
-	githubRedirect := os.Getenv("BI_AUTH_GITHUB_REDIRECT_URL")
-	if githubRedirect == "" {
-		githubRedirect = "http://localhost:8889/api/auth/oauth/github/callback"
-	}
-
-	googleRedirect := os.Getenv("BI_AUTH_GOOGLE_REDIRECT_URL")
-	if googleRedirect == "" {
-		googleRedirect = "http://localhost:8889/api/auth/oauth/google/callback"
-	}
-
-	rpID := os.Getenv("BI_AUTH_WEBAUTHN_RP_ID")
-	if rpID == "" {
-		rpID = "localhost"
-	}
-
-	rpName := os.Getenv("BI_AUTH_WEBAUTHN_RP_NAME")
-	if rpName == "" {
-		rpName = "Biqly"
-	}
-
-	originsStr := os.Getenv("BI_AUTH_WEBAUTHN_RP_ORIGINS")
-	var origins []string
-	if originsStr != "" {
-		origins = strings.Split(originsStr, ",")
-	} else {
-		origins = []string{"http://localhost:5173", "http://localhost:3333"}
-	}
-
-	smtpPortStr := os.Getenv("BI_AUTH_SMTP_PORT")
-	smtpPort := 587
-	if smtpPortStr != "" {
-		if p, err := strconv.Atoi(smtpPortStr); err == nil {
-			smtpPort = p
-		}
-	}
-
-	issuer := os.Getenv("BI_AUTH_JWT_ISSUER")
-	if issuer == "" {
-		issuer = DefaultJWTIssuer
-	}
-	audience := os.Getenv("BI_AUTH_JWT_AUDIENCE")
-	if audience == "" {
-		audience = DefaultJWTAudience
-	}
-
-	var corsOrigins []string
-	if v := strings.TrimSpace(os.Getenv("BI_AUTH_CORS_ALLOWED_ORIGINS")); v != "" {
-		for o := range strings.SplitSeq(v, ",") {
-			if trimmed := strings.TrimSpace(o); trimmed != "" {
-				corsOrigins = append(corsOrigins, trimmed)
-			}
-		}
-	}
-
-	maxSessions := 5
-	if v := os.Getenv("BI_AUTH_MAX_SESSIONS"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			maxSessions = n
-		}
-	}
-
-	passwordMaxAge := 0
-	if v := os.Getenv("BI_AUTH_PASSWORD_MAX_AGE_DAYS"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
-			passwordMaxAge = n
-		}
-	}
-
-	purgeDays := 30
-	if v := os.Getenv("BI_AUTH_GDPR_PURGE_AFTER_DAYS"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			purgeDays = n
-		}
-	}
-
-	frontendBase := os.Getenv("BI_AUTH_FRONTEND_BASE_URL")
-	if frontendBase == "" {
-		frontendBase = "http://localhost:3333"
-	}
-
-	absoluteTTL := 30 * 24 * time.Hour
-	if v := os.Getenv("BI_AUTH_SESSION_ABSOLUTE_TTL"); v != "" {
-		if d, err := time.ParseDuration(v); err == nil && d > 0 {
-			absoluteTTL = d
-		}
-	}
-
-	idleTTL := 4 * time.Hour
-	if v := os.Getenv("BI_AUTH_SESSION_IDLE_TTL"); v != "" {
-		if d, err := time.ParseDuration(v); err == nil && d > 0 {
-			idleTTL = d
-		}
-	}
-
-	pw := DefaultPasswordPolicy()
-	if v := os.Getenv("BI_AUTH_PASSWORD_MIN_LEN"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			pw.MinLength = n
-		}
-	}
-	if v := os.Getenv("BI_AUTH_PASSWORD_MAX_LEN"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			pw.MaxLength = n
-		}
-	}
-	if v := os.Getenv("BI_AUTH_PASSWORD_REQUIRE_UPPER"); v != "" {
-		pw.RequireUpper = parseBoolEnv(v, pw.RequireUpper)
-	}
-	if v := os.Getenv("BI_AUTH_PASSWORD_REQUIRE_LOWER"); v != "" {
-		pw.RequireLower = parseBoolEnv(v, pw.RequireLower)
-	}
-	if v := os.Getenv("BI_AUTH_PASSWORD_REQUIRE_DIGIT"); v != "" {
-		pw.RequireDigit = parseBoolEnv(v, pw.RequireDigit)
-	}
-	if v := os.Getenv("BI_AUTH_PASSWORD_REQUIRE_SPECIAL"); v != "" {
-		pw.RequireSpecial = parseBoolEnv(v, pw.RequireSpecial)
-	}
-	if v := os.Getenv("BI_AUTH_PASSWORD_MIN_SCORE"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 0 && n <= 4 {
-			pw.MinScore = n
-		}
-	}
-
 	cfg := &Config{
-		Port:               port,
-		DBDSN:              dbDSN,
-		RedisDSN:           redisDSN,
+		Port:               intEnv("BI_AUTH_PORT", 8889),
+		DBDSN:              stringEnv("BI_AUTH_DB_DSN", "postgres://bi_auth_user:bi_auth_password@localhost:5434/bi_auth?sslmode=disable"),
+		RedisDSN:           stringEnv("BI_AUTH_REDIS_DSN", "redis://localhost:6379"),
 		JWTPrivateKeyPath:  os.Getenv("BI_AUTH_JWT_PRIVATE_KEY_PATH"),
 		JWTPublicKeyPath:   os.Getenv("BI_AUTH_JWT_PUBLIC_KEY_PATH"),
-		JWTAccessTTL:       accessTTL,
-		JWTRefreshTTL:      refreshTTL,
-		JWTIssuer:          issuer,
-		JWTAudience:        audience,
+		JWTAccessTTL:       durationEnv("BI_AUTH_JWT_ACCESS_TTL", 15*time.Minute),
+		JWTRefreshTTL:      durationEnv("BI_AUTH_JWT_REFRESH_TTL", 7*24*time.Hour),
+		JWTIssuer:          stringEnv("BI_AUTH_JWT_ISSUER", DefaultJWTIssuer),
+		JWTAudience:        stringEnv("BI_AUTH_JWT_AUDIENCE", DefaultJWTAudience),
 		InternalToken:      os.Getenv("BI_AUTH_INTERNAL_TOKEN"),
 		EncryptionKey:      os.Getenv("BI_AUTH_ENCRYPTION_KEY"),
-		RateLimitPerMin:    rateLimit,
-		CORSAllowedOrigins: corsOrigins,
+		RateLimitPerMin:    intEnv("BI_AUTH_RATE_LIMIT_PER_MINUTE", 60),
+		CORSAllowedOrigins: splitEnv("BI_AUTH_CORS_ALLOWED_ORIGINS"),
 		GitHubClientID:     os.Getenv("BI_AUTH_GITHUB_CLIENT_ID"),
 		GitHubClientSecret: os.Getenv("BI_AUTH_GITHUB_CLIENT_SECRET"),
-		GitHubRedirectURL:  githubRedirect,
+		GitHubRedirectURL:  stringEnv("BI_AUTH_GITHUB_REDIRECT_URL", "http://localhost:8889/api/auth/oauth/github/callback"),
 		GoogleClientID:     os.Getenv("BI_AUTH_GOOGLE_CLIENT_ID"),
 		GoogleClientSecret: os.Getenv("BI_AUTH_GOOGLE_CLIENT_SECRET"),
-		GoogleRedirectURL:  googleRedirect,
-		WebAuthnRPID:       rpID,
-		WebAuthnRPName:     rpName,
-		WebAuthnOrigins:    origins,
+		GoogleRedirectURL:  stringEnv("BI_AUTH_GOOGLE_REDIRECT_URL", "http://localhost:8889/api/auth/oauth/google/callback"),
+		WebAuthnRPID:       stringEnv("BI_AUTH_WEBAUTHN_RP_ID", "localhost"),
+		WebAuthnRPName:     stringEnv("BI_AUTH_WEBAUTHN_RP_NAME", "Biqly"),
+		WebAuthnOrigins:    splitEnvDefault("BI_AUTH_WEBAUTHN_RP_ORIGINS", []string{"http://localhost:5173", "http://localhost:3333"}),
 		SMTPHost:           os.Getenv("BI_AUTH_SMTP_HOST"),
-		SMTPPort:           smtpPort,
+		SMTPPort:           intEnv("BI_AUTH_SMTP_PORT", 587),
 		SMTPUser:           os.Getenv("BI_AUTH_SMTP_USER"),
 		SMTPPass:           os.Getenv("BI_AUTH_SMTP_PASS"),
 		SMTPFrom:           os.Getenv("BI_AUTH_SMTP_FROM"),
-		FrontendBaseURL:    frontendBase,
-		MaxActiveSessions:  maxSessions,
-		PasswordMaxAgeDays: passwordMaxAge,
-		GDPRPurgeAfterDays: purgeDays,
-		SessionAbsoluteTTL: absoluteTTL,
-		SessionIdleTTL:     idleTTL,
-		PasswordPolicy:     pw,
+		FrontendBaseURL:    stringEnv("BI_AUTH_FRONTEND_BASE_URL", "http://localhost:3333"),
+		MaxActiveSessions:  positiveIntEnv("BI_AUTH_MAX_SESSIONS", 5),
+		PasswordMaxAgeDays: nonNegativeIntEnv("BI_AUTH_PASSWORD_MAX_AGE_DAYS", 0),
+		GDPRPurgeAfterDays: positiveIntEnv("BI_AUTH_GDPR_PURGE_AFTER_DAYS", 30),
+		SessionAbsoluteTTL: positiveDurationEnv("BI_AUTH_SESSION_ABSOLUTE_TTL", 30*24*time.Hour),
+		SessionIdleTTL:     positiveDurationEnv("BI_AUTH_SESSION_IDLE_TTL", 4*time.Hour),
+		PasswordPolicy:     passwordPolicyFromEnv(),
 	}
 
 	if cfg.InternalToken == "" {
@@ -254,4 +91,101 @@ func LoadConfig() (*Config, error) {
 
 func (c *Config) HTTPAddr() string {
 	return ":" + strconv.Itoa(c.Port)
+}
+
+func stringEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+func intEnv(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if n, err := strconv.Atoi(value); err == nil {
+			return n
+		}
+	}
+	return defaultValue
+}
+
+func positiveIntEnv(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if n, err := strconv.Atoi(value); err == nil && n > 0 {
+			return n
+		}
+	}
+	return defaultValue
+}
+
+func nonNegativeIntEnv(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if n, err := strconv.Atoi(value); err == nil && n >= 0 {
+			return n
+		}
+	}
+	return defaultValue
+}
+
+func durationEnv(key string, defaultValue time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if d, err := time.ParseDuration(value); err == nil {
+			return d
+		}
+	}
+	return defaultValue
+}
+
+func positiveDurationEnv(key string, defaultValue time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if d, err := time.ParseDuration(value); err == nil && d > 0 {
+			return d
+		}
+	}
+	return defaultValue
+}
+
+func splitEnv(key string) []string {
+	var values []string
+	for value := range strings.SplitSeq(strings.TrimSpace(os.Getenv(key)), ",") {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			values = append(values, trimmed)
+		}
+	}
+	return values
+}
+
+func splitEnvDefault(key string, defaultValue []string) []string {
+	if strings.TrimSpace(os.Getenv(key)) == "" {
+		return defaultValue
+	}
+	return splitEnv(key)
+}
+
+func passwordPolicyFromEnv() PasswordPolicy {
+	pw := DefaultPasswordPolicy()
+	pw.MinLength = positiveIntEnv("BI_AUTH_PASSWORD_MIN_LEN", pw.MinLength)
+	pw.MaxLength = positiveIntEnv("BI_AUTH_PASSWORD_MAX_LEN", pw.MaxLength)
+	pw.RequireUpper = boolEnv("BI_AUTH_PASSWORD_REQUIRE_UPPER", pw.RequireUpper)
+	pw.RequireLower = boolEnv("BI_AUTH_PASSWORD_REQUIRE_LOWER", pw.RequireLower)
+	pw.RequireDigit = boolEnv("BI_AUTH_PASSWORD_REQUIRE_DIGIT", pw.RequireDigit)
+	pw.RequireSpecial = boolEnv("BI_AUTH_PASSWORD_REQUIRE_SPECIAL", pw.RequireSpecial)
+	pw.MinScore = passwordScoreEnv("BI_AUTH_PASSWORD_MIN_SCORE", pw.MinScore)
+	return pw
+}
+
+func boolEnv(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		return parseBoolEnv(value, defaultValue)
+	}
+	return defaultValue
+}
+
+func passwordScoreEnv(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if n, err := strconv.Atoi(value); err == nil && n >= 0 && n <= 4 {
+			return n
+		}
+	}
+	return defaultValue
 }

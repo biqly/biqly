@@ -1,8 +1,9 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import abiLogo from '../../assets/abi-logo.png'
 import { apiResetPassword } from '../../api/auth'
 import { useT } from '../../i18n'
 import { globalNavigate } from './AuthGuard'
+import PasswordStrengthMeter from './PasswordStrengthMeter'
 
 export default function ResetPasswordPage() {
   const t = useT()
@@ -12,6 +13,11 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [passwordValid, setPasswordValid] = useState(false)
+
+  const handleValidity = useCallback((info: { valid: boolean }) => {
+    setPasswordValid(info.valid)
+  }, [])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -23,33 +29,6 @@ export default function ResetPasswordPage() {
     }
   }, [])
 
-  const isLengthValid = password.length >= 8
-  const isUppercaseValid = /[A-Z]/.test(password)
-  const isDigitValid = /[0-9]/.test(password)
-  const isSpecialValid = /[^A-Za-z0-9]/.test(password)
-
-  const rulesMet = [isLengthValid, isUppercaseValid, isDigitValid, isSpecialValid].filter(Boolean).length
-
-  let strengthClass = ''
-  let strengthLabel = ''
-  let strengthLevel = 0
-
-  if (password.length > 0) {
-    if (rulesMet <= 2) {
-      strengthClass = 'strength-bar--weak'
-      strengthLabel = t('auth.strength_weak')
-      strengthLevel = 1
-    } else if (rulesMet === 3) {
-      strengthClass = 'strength-bar--medium'
-      strengthLabel = t('auth.strength_medium')
-      strengthLevel = 2
-    } else if (rulesMet === 4) {
-      strengthClass = 'strength-bar--strong'
-      strengthLabel = t('auth.strength_strong')
-      strengthLevel = 3
-    }
-  }
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!token || !password || !confirmPassword) return
@@ -59,7 +38,7 @@ export default function ResetPasswordPage() {
       return
     }
 
-    if (rulesMet < 4) {
+    if (!passwordValid) {
       setError('Password does not meet all security requirements')
       return
     }
@@ -102,7 +81,7 @@ export default function ResetPasswordPage() {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="auth-form">
-            {error && <div className="auth-error">{error}</div>}
+            {error && <div className="auth-error" role="alert" aria-live="assertive">{error}</div>}
 
             <div className="form-group">
               <label className="form-label" htmlFor="password-input">{t('auth.password')}</label>
@@ -117,37 +96,7 @@ export default function ResetPasswordPage() {
                 autoComplete="new-password"
               />
 
-              {password.length > 0 && (
-                <div className="password-strength">
-                  <div className="strength-label-row">
-                    <span>{t('auth.strength_label')}</span>
-                    <span>{strengthLabel}</span>
-                  </div>
-                  <div className="strength-bars">
-                    <div className={`strength-bar ${strengthLevel >= 1 ? strengthClass : ''}`} />
-                    <div className={`strength-bar ${strengthLevel >= 2 ? strengthClass : ''}`} />
-                    <div className={`strength-bar ${strengthLevel >= 3 ? strengthClass : ''}`} />
-                  </div>
-                  <ul className="password-rules">
-                    <li className={`rule-item ${isLengthValid ? 'valid' : ''}`}>
-                      <span className="rule-bullet" />
-                      {t('auth.rule_length')}
-                    </li>
-                    <li className={`rule-item ${isUppercaseValid ? 'valid' : ''}`}>
-                      <span className="rule-bullet" />
-                      {t('auth.rule_uppercase')}
-                    </li>
-                    <li className={`rule-item ${isDigitValid ? 'valid' : ''}`}>
-                      <span className="rule-bullet" />
-                      {t('auth.rule_digit')}
-                    </li>
-                    <li className={`rule-item ${isSpecialValid ? 'valid' : ''}`}>
-                      <span className="rule-bullet" />
-                      {t('auth.rule_special')}
-                    </li>
-                  </ul>
-                </div>
-              )}
+              <PasswordStrengthMeter password={password} onValidityChange={handleValidity} />
             </div>
 
             <div className="form-group">

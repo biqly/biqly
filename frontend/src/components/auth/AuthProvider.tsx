@@ -1,6 +1,18 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { apiGetMe, apiLogin, apiLogout, apiRefresh, apiRegister, apiSetActiveWorkspace } from '../../api/auth'
 import type { AuthUser } from '../../types/auth'
+import { globalNavigate } from './AuthGuard'
+
+// classifySessionExpiry inspects the server-returned error message and maps it
+// to one of the i18n reasons so the signin page can show the right banner.
+function classifySessionExpiry(err: unknown): string {
+  if (!(err instanceof Error)) return 'unknown'
+  const msg = err.message.toLowerCase()
+  if (msg.includes('idle')) return 'idle'
+  if (msg.includes('absolute') || msg.includes('maximum lifetime')) return 'absolute'
+  if (msg.includes('revoked')) return 'revoked'
+  return 'unknown'
+}
 
 interface AuthContextType {
   user: AuthUser | null
@@ -123,8 +135,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAccessToken(resp.access_token)
         setRoles(resp.roles)
         localStorage.setItem('biqly_refresh_token', resp.refresh_token)
-      } catch {
+      } catch (err: unknown) {
+        // Refresh failed — classify the server-side reason so the next sign-in
+        // screen can render an explanatory banner (idle/absolute/revoked) and
+        // not just bounce the user to a blank login form.
+        const reason = classifySessionExpiry(err)
+        sessionStorage.setItem('biqly_session_expired_reason', reason)
         clearAuth()
+        if (window.location.pathname !== '/auth/signin') {
+          globalNavigate('/auth/signin?expired=' + reason)
+        }
       }
     }, 14 * 60 * 1000)
 

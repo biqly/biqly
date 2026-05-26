@@ -1,7 +1,42 @@
-import type { AuthUser, PasskeyInfo, SetActiveWorkspaceResponse, TokenResponse } from '../types/auth'
+import type { AuthUser, PasskeyInfo, PasswordPolicy, SetActiveWorkspaceResponse, TokenResponse } from '../types/auth'
 import { csrfFetch } from './csrf'
 
 const AUTH_API_BASE = '/api/auth'
+
+const DEFAULT_PASSWORD_POLICY: PasswordPolicy = {
+  min_length: 8,
+  max_length: 128,
+  require_upper: true,
+  require_lower: true,
+  require_digit: true,
+  require_special: true,
+  min_score: 2,
+}
+
+let cachedPolicy: PasswordPolicy | null = null
+let inflightPolicy: Promise<PasswordPolicy> | null = null
+
+export async function apiGetPasswordPolicy(): Promise<PasswordPolicy> {
+  if (cachedPolicy) return cachedPolicy
+  if (inflightPolicy) return inflightPolicy
+  inflightPolicy = (async () => {
+    try {
+      const res = await csrfFetch(`${AUTH_API_BASE}/password-policy`, { method: 'GET' })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = (await res.json()) as PasswordPolicy
+      cachedPolicy = { ...DEFAULT_PASSWORD_POLICY, ...data }
+      return cachedPolicy
+    } catch {
+      // Network or backend unavailable — fall back to defaults so the SPA
+      // still enforces the historic rules client-side.
+      cachedPolicy = DEFAULT_PASSWORD_POLICY
+      return cachedPolicy
+    } finally {
+      inflightPolicy = null
+    }
+  })()
+  return inflightPolicy
+}
 
 async function handleResponse<T>(res: Response): Promise<T> {
   const text = await res.text()

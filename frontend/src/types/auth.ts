@@ -16,6 +16,16 @@ export interface SetActiveWorkspaceResponse {
   active_workspace_id: string
 }
 
+export interface PasswordPolicy {
+  min_length: number
+  max_length: number
+  require_upper: boolean
+  require_lower: boolean
+  require_digit: boolean
+  require_special: boolean
+  min_score: number
+}
+
 export interface TokenResponse {
   access_token: string
   refresh_token: string
