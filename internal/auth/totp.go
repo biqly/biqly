@@ -3,7 +3,7 @@ package auth
 import (
 	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha1"
+	"crypto/sha1" //nolint:gosec // G505: RFC 6238 TOTP uses HMAC-SHA1 for authenticator compatibility.
 	"crypto/subtle"
 	"encoding/base32"
 	"encoding/binary"
@@ -66,15 +66,41 @@ func generateTOTPCode(secret string, counter uint64) (string, error) {
 	return fmt.Sprintf("%0*d", totpDigits, binCode%mod), nil
 }
 
+func totpCounter(now time.Time) (uint64, bool) {
+	unix := now.Unix()
+	if unix < 0 {
+		return 0, false
+	}
+	return uint64(unix) / totpPeriod, true
+}
+
+func totpCounterWithSkew(counter uint64, skew int64) (uint64, bool) {
+	if skew < 0 {
+		neg := uint64(-skew)
+		if counter < neg {
+			return 0, false
+		}
+		return counter - neg, true
+	}
+	return counter + uint64(skew), true
+}
+
 // VerifyTOTP checks code against secret with a ±totpSkewSteps window around now.
 func VerifyTOTP(secret, code string, now time.Time) bool {
 	code = strings.TrimSpace(code)
 	if len(code) != totpDigits {
 		return false
 	}
-	counter := uint64(now.Unix() / totpPeriod)
+	counter, ok := totpCounter(now)
+	if !ok {
+		return false
+	}
 	for skew := -int64(totpSkewSteps); skew <= int64(totpSkewSteps); skew++ {
-		generated, err := generateTOTPCode(secret, counter+uint64(skew))
+		step, ok := totpCounterWithSkew(counter, skew)
+		if !ok {
+			continue
+		}
+		generated, err := generateTOTPCode(secret, step)
 		if err != nil {
 			return false
 		}
