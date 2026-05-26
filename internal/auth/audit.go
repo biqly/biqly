@@ -149,7 +149,6 @@ func (s *AuditService) Count(ctx context.Context, filter AuditFilter) (int, erro
 	if filter.To != nil {
 		parts = append(parts, fmt.Sprintf("created_at < $%d", idx))
 		args = append(args, *filter.To)
-		idx++
 	}
 	where := ""
 	if len(parts) > 0 {

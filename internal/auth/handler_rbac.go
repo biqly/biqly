@@ -540,18 +540,18 @@ func auditFilterFromQuery(r *http.Request) (AuditFilter, error) {
 
 	page := 1
 	if v := q.Get("page"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+		if n, err := parsePositiveInt(v); err == nil {
 			page = n
 		}
 	}
 
 	pageSize := 10
 	if v := q.Get("page_size"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+		if n, err := parsePositiveInt(v); err == nil {
 			pageSize = n
 		}
 	} else if v := q.Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+		if n, err := parsePositiveInt(v); err == nil {
 			pageSize = n
 		}
 	}
@@ -787,9 +787,10 @@ func (h *RBACHandler) handleAdminListUsers(w http.ResponseWriter, r *http.Reques
 		}
 
 		matchesStatus := true
-		if status == "active" {
+		switch status {
+		case "active":
 			matchesStatus = u.IsActive
-		} else if status == "inactive" {
+		case "inactive":
 			matchesStatus = !u.IsActive
 		}
 
@@ -884,13 +885,17 @@ func paginateSlice[T any](r *http.Request, items []T) (paginated []T, total int)
 	}
 
 	page := 1
-	if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
-		page = p
+	if pageStr != "" {
+		if p, err := parsePositiveInt(pageStr); err == nil {
+			page = p
+		}
 	}
 
 	pageSize := 10
-	if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 {
-		pageSize = ps
+	if pageSizeStr != "" {
+		if ps, err := parsePositiveInt(pageSizeStr); err == nil {
+			pageSize = ps
+		}
 	}
 
 	start := (page - 1) * pageSize
