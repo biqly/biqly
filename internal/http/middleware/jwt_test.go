@@ -308,7 +308,7 @@ func TestRequireVerifiedEmail(t *testing.T) {
 	mw := RequireVerifiedEmail()
 
 	// 1. GET passes through regardless of verification state.
-	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
 	w := httptest.NewRecorder()
 	mw(allowed).ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), EmailVerifiedKey, false)))
 	if w.Code != http.StatusOK {
@@ -316,7 +316,7 @@ func TestRequireVerifiedEmail(t *testing.T) {
 	}
 
 	// 2. POST with unverified email returns 403 email_verification_required.
-	req = httptest.NewRequest(http.MethodPost, "/x", nil)
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/x", nil)
 	w = httptest.NewRecorder()
 	mw(allowed).ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), EmailVerifiedKey, false)))
 	if w.Code != http.StatusForbidden {
@@ -327,7 +327,7 @@ func TestRequireVerifiedEmail(t *testing.T) {
 	}
 
 	// 3. POST with verified email passes through.
-	req = httptest.NewRequest(http.MethodPost, "/x", nil)
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/x", nil)
 	w = httptest.NewRecorder()
 	mw(allowed).ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), EmailVerifiedKey, true)))
 	if w.Code != http.StatusOK {
