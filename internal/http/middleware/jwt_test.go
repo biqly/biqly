@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -297,5 +298,39 @@ func TestExtractBearer(t *testing.T) {
 		if got := extractBearer(req); got != want {
 			t.Errorf("extractBearer(%q) = %q, want %q", header, got, want)
 		}
+	}
+}
+
+func TestRequireVerifiedEmail(t *testing.T) {
+	allowed := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	mw := RequireVerifiedEmail()
+
+	// 1. GET passes through regardless of verification state.
+	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	w := httptest.NewRecorder()
+	mw(allowed).ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), EmailVerifiedKey, false)))
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET should bypass verification gate, got %d", w.Code)
+	}
+
+	// 2. POST with unverified email returns 403 email_verification_required.
+	req = httptest.NewRequest(http.MethodPost, "/x", nil)
+	w = httptest.NewRecorder()
+	mw(allowed).ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), EmailVerifiedKey, false)))
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("POST unverified should be 403, got %d", w.Code)
+	}
+	if got := w.Body.String(); !strings.Contains(got, "email_verification_required") {
+		t.Fatalf("expected error code in body, got %q", got)
+	}
+
+	// 3. POST with verified email passes through.
+	req = httptest.NewRequest(http.MethodPost, "/x", nil)
+	w = httptest.NewRecorder()
+	mw(allowed).ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), EmailVerifiedKey, true)))
+	if w.Code != http.StatusOK {
+		t.Fatalf("POST verified should be 200, got %d", w.Code)
 	}
 }

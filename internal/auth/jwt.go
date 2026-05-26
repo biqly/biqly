@@ -28,6 +28,10 @@ type JWTClaims struct {
 	Roles                 []string `json:"roles"`
 	WorkspaceID           string   `json:"workspace_id,omitempty"`
 	AccessibleDatasources []string `json:"accessible_datasources,omitempty"`
+	// EmailVerified mirrors users.email_verified at token issue time.
+	// Downstream middleware uses it to gate write endpoints for accounts
+	// that have signed up but not yet confirmed ownership of the address.
+	EmailVerified bool `json:"email_verified,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -148,6 +152,14 @@ func parseRSAPrivateKeyFromConfig(value string) (*rsa.PrivateKey, error) {
 }
 
 func (m *JWTManager) GenerateToken(userID, email string, roles []string, workspaceID string, datasources []string) (string, error) {
+	return m.GenerateTokenWithVerification(userID, email, false, roles, workspaceID, datasources)
+}
+
+// GenerateTokenWithVerification mints an access token while preserving the
+// users.email_verified flag in a dedicated claim. Callers with access to the
+// User record should prefer this entry point so write-gating middleware can
+// trust the JWT instead of re-querying the auth DB on every request.
+func (m *JWTManager) GenerateTokenWithVerification(userID, email string, emailVerified bool, roles []string, workspaceID string, datasources []string) (string, error) {
 	now := time.Now()
 	jti, err := generateJTI()
 	if err != nil {
@@ -158,6 +170,7 @@ func (m *JWTManager) GenerateToken(userID, email string, roles []string, workspa
 		Roles:                 roles,
 		WorkspaceID:           workspaceID,
 		AccessibleDatasources: datasources,
+		EmailVerified:         emailVerified,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        jti,
 			Subject:   userID,

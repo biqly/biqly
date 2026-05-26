@@ -45,13 +45,31 @@ func (u *WebAuthnUser) WebAuthnCredentials() []webauthn.Credential {
 type WebAuthnService struct {
 	webAuthn *webauthn.WebAuthn
 	repo     *UserRepository
+	ttl      time.Duration
 }
 
 func NewWebAuthnService(cfg *Config, repo *UserRepository) (*WebAuthnService, error) {
+	timeout := webauthn.TimeoutConfig{
+		Enforce:    true,
+		Timeout:    cfg.WebAuthnChallengeTTL,
+		TimeoutUVD: cfg.WebAuthnChallengeTTL,
+	}
 	w, err := webauthn.New(&webauthn.Config{
 		RPID:          cfg.WebAuthnRPID,
 		RPDisplayName: cfg.WebAuthnRPName,
 		RPOrigins:     cfg.WebAuthnOrigins,
+		// User Verification = required forces a local gesture (PIN, biometric)
+		// so a stolen credential cannot be replayed without the user. ResidentKey
+		// preferred enables discoverable credentials where the authenticator
+		// supports it; UV=required is the load-bearing constraint here.
+		AuthenticatorSelection: protocol.AuthenticatorSelection{
+			ResidentKey:      protocol.ResidentKeyRequirementPreferred,
+			UserVerification: protocol.VerificationRequired,
+		},
+		Timeouts: webauthn.TimeoutsConfig{
+			Login:        timeout,
+			Registration: timeout,
+		},
 	})
 	if err != nil {
 		return nil, err
@@ -59,6 +77,7 @@ func NewWebAuthnService(cfg *Config, repo *UserRepository) (*WebAuthnService, er
 	return &WebAuthnService{
 		webAuthn: w,
 		repo:     repo,
+		ttl:      cfg.WebAuthnChallengeTTL,
 	}, nil
 }
 
@@ -88,7 +107,7 @@ func (s *WebAuthnService) BeginRegistration(ctx context.Context, user *User) (*p
 
 	expiresAt := session.Expires
 	if expiresAt.IsZero() {
-		expiresAt = time.Now().Add(5 * time.Minute)
+		expiresAt = time.Now().Add(s.ttl)
 	}
 	err = s.repo.SaveWebAuthnChallenge(ctx, challengeBytes, &user.ID, expiresAt)
 	if err != nil {
@@ -176,7 +195,7 @@ func (s *WebAuthnService) BeginLogin(ctx context.Context, emailOrUsername string
 
 	expiresAt := session.Expires
 	if expiresAt.IsZero() {
-		expiresAt = time.Now().Add(5 * time.Minute)
+		expiresAt = time.Now().Add(s.ttl)
 	}
 	err = s.repo.SaveWebAuthnChallenge(ctx, challengeBytes, &user.ID, expiresAt)
 	if err != nil {

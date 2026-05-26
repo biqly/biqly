@@ -970,48 +970,50 @@ r.Route("/api", func(r chi.Router) {
 
 ## 11. Güvenlik Önlemleri
 
+> Audit 2026-05-26: aşağıdaki maddeler kod tabanı taranarak doğrulandı; her madde için kanıt dosya:satır verilmiştir.
+
 ### 11.1 Genel
 
-- [ ] Tüm şifreler `bcrypt` ile hash'lenecek (cost=12)
-- [ ] JWT RS256 ile imzalanacak (asimetrik, public key paylaşımı kolay)
-- [ ] Refresh token HTTP-only, Secure, SameSite=Strict cookie
-- [ ] CSRF koruması: SameSite cookie + double-submit pattern
-- [ ] Rate limiting: login denemesi başına IP (10/dk), global (100/dk)
-- [ ] Brute-force koruması: 5 başarısız deneme sonra hesap kilidi (15dk)
-- [ ] Şifre sıfırlama token'i tek kullanımlık, 1 saat geçerli
-- [ ] E-posta doğrulama olmadan sınırlı erişim (salt okunur)
-- [ ] GDPR: hesap silme ve veri dışa aktarma endpoint'leri
+- [x] Tüm şifreler `bcrypt` ile hash'lenecek (cost=12) — `password.go:18,25` cost=12
+- [x] JWT RS256 ile imzalanacak — `jwt.go` `SigningMethodRS256`; `ValidateToken` `WithValidMethods([RS256])` zorunlu
+- [~] Refresh token HTTP-only, Secure, SameSite=Strict cookie — refresh token JSON response'da (SPA bearer modeli); HttpOnly cookie BFF gateway katmanında planlandı (§18.9). CSRF cookie SameSite=Lax (OAuth redirect uyumu için Strict değil)
+- [x] CSRF koruması: SameSite cookie + double-submit pattern — `csrf.go` double-submit; Secure flag HTTPS koşullu
+- [x] Rate limiting: login IP başına 10/dk (`handler.go:60`), genel limit `cmd/auth/main.go` `RateLimitPerMin` (default 60/dk)
+- [x] Brute-force koruması: 5 başarısız → 15dk kilit — `service.go` `login_failures` Redis sayacı + `recordLoginFailure` 15m TTL; `ErrAccountLocked`
+- [x] Şifre sıfırlama token'i tek kullanımlık (`MarkPasswordResetTokenUsed`), 1 saat TTL (`ForgotPassword`)
+- [x] E-posta doğrulama olmadan sınırlı erişim (salt okunur) — JWT `email_verified` claim (`jwt.go`); `RequireVerifiedEmail` middleware GET/HEAD/OPTIONS hariç write isteklerini 403 `email_verification_required` ile bloklar (`internal/http/middleware/jwt.go`); monolit write rotalarına opt-in mount
+- [x] GDPR: hesap silme (`handler_account.go` soft-delete + purge) ve veri dışa aktarma (`handler_export.go`/`gdpr_export.go`)
 
 ### 11.2 Veri İzolasyonu ve Erişim Kontrolü
 
-- [ ] Datasource erişim kontrolü: her query execution'da datasource_access doğrulama
-- [ ] super_admin bypass: tüm erişim kontrollerini atlar
-- [ ] AI sorgu geçmişi: user_id filtresi zorunlu, admin+ muaf
-- [ ] AI sorgu detayı maskeleme: prompt/SQL/result alanları admin olmayanlara boş
-- [ ] Datasource credential'ları: sadece super_admin ve datasource admin görebilir
-- [ ] Datasource listesi: kullanıcının erişmediği datasource'lar hiç döndürülmez
-- [ ] Kuyruk durumu: toplam sayı ve kendi pozisyonu dışında bilgi sızdırmaz
-- [ ] Workspace izolasyonu: workspace üyesi olmayan workspace verilerine erişemez
-- [ ] Kaynak paylaşım: sadece explicit share ile erişim, default kapalı
-- [ ] Monolit → Auth service internal iletişimi: mutual TLS veya internal token
-- [ ] Datasource erişim cache invalidate: erişim değişikliğinde anında invalidate
+- [x] Datasource erişim kontrolü: `RequireDatasourceAccess` AI/query rotalarına mount (`ai_router.go`, `permission.go`)
+- [x] super_admin bypass: `permission.go` `HasRole(RoleSuperAdmin)` tüm datasource/permission kontrollerini atlar
+- [x] AI sorgu geçmişi user_id filtresi: `FilterAIHistoryForUser` (`history_filter.go`); admin+ `ai:queue:view_details` ile muaf
+- [x] AI sorgu detayı maskeleme: `MaskAIHistoryRow` prompt/SQL/result alanlarını siler
+- [x] Datasource credential'ları: `maskDatasourceSecrets` DSN/password/connection params'ı response'tan çıkarır (`datasources.go:272`)
+- [x] Datasource listesi: workspace+user erişim intersection filtresi (`datasources.go:291-319`)
+- [x] Kuyruk durumu: `ai_jobs.go:131` sadece toplam + kendi pozisyonu döner
+- [x] Workspace izolasyonu: `workspace.go` `IsMember` kontrolü
+- [x] Kaynak paylaşım: `sharing.go` explicit `shared_with`/`workspace_id` zorunlu, default-deny
+- [x] Monolit → Auth internal: `X-Internal-Token` header (`permission.go:175,202`, `BI_AUTH_INTERNAL_TOKEN`)
+- [x] Datasource erişim cache invalidate: `datasource_access.go` Grant/Revoke → `InvalidateCache` (Redis Del)
 
 ### 11.3 OAuth2
 
-- [ ] State parametresi CSRF koruması için zorunlu
-- [ ] PKCE (Proof Key for Code Exchange) akışı
-- [ ] Access token'lar DB'de şifreli saklanacak (AES-256)
-- [ ] Minimum scope talebi: e-posta ve profil bilgisi
-- [ ] Token revokesi: kullanıcı hesap silindiğinde provider'a bildirim
+- [x] State parametresi CSRF koruması: crypto/rand state, HttpOnly cookie, callback doğrulama (`handler.go:398-427`)
+- [ ] PKCE (Proof Key for Code Exchange) akışı — **ertelendi**: mevcut confidential server-side flow client secret ile korunuyor; SPA/public client eklenirse S256 PKCE wrap edilecek
+- [x] Access token'lar AES-256-GCM şifreli (`repository.go:305` `encryptToken` → `encryption.go` AES-GCM random nonce)
+- [x] Minimum scope: GitHub `read:user,user:email`; Google `userinfo.profile,userinfo.email` (`oauth_github.go:25`, `oauth_google.go:24`)
+- [ ] Token revokesi: hesap silindiğinde provider'a bildirim — **ertelendi**: `DeleteAccount` session'ları revoke ediyor ancak GitHub/Google revoke endpoint'i çağrılmıyor (token TTL ile doğal expire)
 
 ### 11.3 WebAuthn / Passkey
 
-- [ ] Challenge tek kullanımlık ve zaman sınırlı (60 saniye)
-- [ ] Attestation doğrulama: none, direct veya indirect destek
-- [ ] Credential ID benzersizliği DB seviyesinde UNIQUE constraint
-- [ ] Sign count kontrolü (replay koruması)
-- [ ] AAGUID filtreleme (trusted authenticator listesi)
-- [ ] User verification: "required" konfigürasyonu
+- [x] Challenge tek kullanımlık + zaman sınırlı: `repository.go:535` first-read delete; `BI_AUTH_WEBAUTHN_CHALLENGE_TTL` (default 60s), library `Timeouts.Enforce=true` server-side enforcement
+- [~] Attestation doğrulama: go-webauthn default (none/direct/indirect library tarafından doğrulanır); explicit ConveyancePreference config eklenebilir
+- [x] Credential ID benzersizliği: `003a_create_passkeys.up.sql:4` `credential_id UNIQUE`
+- [x] Sign count kontrolü (replay): `webauthn.go:226` `UpdatePasskeySignCount`; go-webauthn library sign-count regression bloklar
+- [ ] AAGUID filtreleme (trusted authenticator listesi) — **ertelendi**: AAGUID saklanıyor (`passkeys.aaguid`) ancak whitelist enforcement yok; operatör config gerektiriyor
+- [x] User verification "required": `webauthn.go` `AuthenticatorSelection{UserVerification: VerificationRequired, ResidentKey: Preferred}`
 
 ---
 

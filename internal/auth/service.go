@@ -110,7 +110,7 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest, userAge
 		return nil, err
 	}
 
-	accessToken, err := s.jwtMgr.GenerateToken(user.ID, user.Email, roles, workspaceID, nil)
+	accessToken, err := s.jwtMgr.GenerateTokenWithVerification(user.ID, user.Email, user.EmailVerified, roles, workspaceID, nil)
 	if err != nil {
 		return nil, fmt.Errorf("generate access token: %w", err)
 	}
@@ -256,7 +256,7 @@ func (s *AuthService) issueSession(ctx context.Context, user *User, userAgent, i
 		return nil, err
 	}
 
-	accessToken, err := s.jwtMgr.GenerateToken(user.ID, user.Email, roles, workspaceID, nil)
+	accessToken, err := s.jwtMgr.GenerateTokenWithVerification(user.ID, user.Email, user.EmailVerified, roles, workspaceID, nil)
 	if err != nil {
 		return nil, fmt.Errorf("generate access token: %w", err)
 	}
@@ -380,7 +380,7 @@ func (s *AuthService) Refresh(ctx context.Context, req RefreshRequest, userAgent
 		return nil, err
 	}
 
-	accessToken, err := s.jwtMgr.GenerateToken(user.ID, user.Email, roles, workspaceID, nil)
+	accessToken, err := s.jwtMgr.GenerateTokenWithVerification(user.ID, user.Email, user.EmailVerified, roles, workspaceID, nil)
 	if err != nil {
 		MetricTokenRefreshes.WithLabelValues("failed").Inc()
 		return nil, fmt.Errorf("generate access token: %w", err)
@@ -458,7 +458,7 @@ func (s *AuthService) SetActiveWorkspace(ctx context.Context, userID, workspaceI
 		return nil, err
 	}
 
-	accessToken, err := s.jwtMgr.GenerateToken(user.ID, user.Email, roles, workspaceID, nil)
+	accessToken, err := s.jwtMgr.GenerateTokenWithVerification(user.ID, user.Email, user.EmailVerified, roles, workspaceID, nil)
 	if err != nil {
 		return nil, fmt.Errorf("generate access token: %w", err)
 	}
@@ -585,7 +585,7 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, provider string,
 		return nil, err
 	}
 
-	accessToken, err := s.jwtMgr.GenerateToken(user.ID, user.Email, roles, workspaceID, nil)
+	accessToken, err := s.jwtMgr.GenerateTokenWithVerification(user.ID, user.Email, user.EmailVerified, roles, workspaceID, nil)
 	if err != nil {
 		MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()
 		return nil, fmt.Errorf("generate access token: %w", err)
@@ -625,7 +625,7 @@ func (s *AuthService) CreateTokenResponseForUser(ctx context.Context, user *User
 		return nil, err
 	}
 
-	accessToken, err := s.jwtMgr.GenerateToken(user.ID, user.Email, roles, workspaceID, nil)
+	accessToken, err := s.jwtMgr.GenerateTokenWithVerification(user.ID, user.Email, user.EmailVerified, roles, workspaceID, nil)
 	if err != nil {
 		return nil, fmt.Errorf("generate access token: %w", err)
 	}

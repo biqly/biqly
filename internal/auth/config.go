@@ -8,90 +8,92 @@ import (
 )
 
 type Config struct {
-	Port               int
-	DBDSN              string
-	RedisDSN           string
-	JWTPrivateKeyPath  string
-	JWTPublicKeyPath   string
-	JWTAccessTTL       time.Duration
-	JWTRefreshTTL      time.Duration
-	JWTIssuer          string
-	JWTAudience        string
-	InternalToken      string
-	EncryptionKey      string
-	RateLimitPerMin    int
-	CORSAllowedOrigins []string
-	GitHubClientID     string
-	GitHubClientSecret string
-	GitHubRedirectURL  string
-	GoogleClientID     string
-	GoogleClientSecret string
-	GoogleRedirectURL  string
-	WebAuthnRPID       string
-	WebAuthnRPName     string
-	WebAuthnOrigins    []string
-	SMTPHost           string
-	SMTPPort           int
-	SMTPUser           string
-	SMTPPass           string
-	SMTPFrom           string
-	FrontendBaseURL    string
-	MaxActiveSessions  int
-	PasswordMaxAgeDays int
-	GDPRPurgeAfterDays int
-	SessionAbsoluteTTL time.Duration
-	SessionIdleTTL     time.Duration
-	PasswordPolicy     PasswordPolicy
-	HSTSPreload        bool
-	HSTSMaxAgeSeconds  int
-	EmailDefaultLocale string
-	EmailDailyLimit    int
-	EmailQueueSize     int
-	EmailRetries       int
+	Port                 int
+	DBDSN                string
+	RedisDSN             string
+	JWTPrivateKeyPath    string
+	JWTPublicKeyPath     string
+	JWTAccessTTL         time.Duration
+	JWTRefreshTTL        time.Duration
+	JWTIssuer            string
+	JWTAudience          string
+	InternalToken        string
+	EncryptionKey        string
+	RateLimitPerMin      int
+	CORSAllowedOrigins   []string
+	GitHubClientID       string
+	GitHubClientSecret   string
+	GitHubRedirectURL    string
+	GoogleClientID       string
+	GoogleClientSecret   string
+	GoogleRedirectURL    string
+	WebAuthnRPID         string
+	WebAuthnRPName       string
+	WebAuthnOrigins      []string
+	SMTPHost             string
+	SMTPPort             int
+	SMTPUser             string
+	SMTPPass             string
+	SMTPFrom             string
+	FrontendBaseURL      string
+	MaxActiveSessions    int
+	PasswordMaxAgeDays   int
+	GDPRPurgeAfterDays   int
+	SessionAbsoluteTTL   time.Duration
+	SessionIdleTTL       time.Duration
+	PasswordPolicy       PasswordPolicy
+	HSTSPreload          bool
+	HSTSMaxAgeSeconds    int
+	EmailDefaultLocale   string
+	EmailDailyLimit      int
+	EmailQueueSize       int
+	EmailRetries         int
+	WebAuthnChallengeTTL time.Duration
 }
 
 func LoadConfig() (*Config, error) {
 	cfg := &Config{
-		Port:               intEnv("BI_AUTH_PORT", 8889),
-		DBDSN:              stringEnv("BI_AUTH_DB_DSN", "postgres://bi_auth_user:bi_auth_password@localhost:5434/bi_auth?sslmode=disable"),
-		RedisDSN:           stringEnv("BI_AUTH_REDIS_DSN", "redis://localhost:6379"),
-		JWTPrivateKeyPath:  os.Getenv("BI_AUTH_JWT_PRIVATE_KEY_PATH"),
-		JWTPublicKeyPath:   os.Getenv("BI_AUTH_JWT_PUBLIC_KEY_PATH"),
-		JWTAccessTTL:       durationEnv("BI_AUTH_JWT_ACCESS_TTL", 15*time.Minute),
-		JWTRefreshTTL:      durationEnv("BI_AUTH_JWT_REFRESH_TTL", 7*24*time.Hour),
-		JWTIssuer:          stringEnv("BI_AUTH_JWT_ISSUER", DefaultJWTIssuer),
-		JWTAudience:        stringEnv("BI_AUTH_JWT_AUDIENCE", DefaultJWTAudience),
-		InternalToken:      os.Getenv("BI_AUTH_INTERNAL_TOKEN"),
-		EncryptionKey:      os.Getenv("BI_AUTH_ENCRYPTION_KEY"),
-		RateLimitPerMin:    intEnv("BI_AUTH_RATE_LIMIT_PER_MINUTE", 60),
-		CORSAllowedOrigins: splitEnv("BI_AUTH_CORS_ALLOWED_ORIGINS"),
-		GitHubClientID:     os.Getenv("BI_AUTH_GITHUB_CLIENT_ID"),
-		GitHubClientSecret: os.Getenv("BI_AUTH_GITHUB_CLIENT_SECRET"),
-		GitHubRedirectURL:  stringEnv("BI_AUTH_GITHUB_REDIRECT_URL", "http://localhost:8889/api/auth/oauth/github/callback"),
-		GoogleClientID:     os.Getenv("BI_AUTH_GOOGLE_CLIENT_ID"),
-		GoogleClientSecret: os.Getenv("BI_AUTH_GOOGLE_CLIENT_SECRET"),
-		GoogleRedirectURL:  stringEnv("BI_AUTH_GOOGLE_REDIRECT_URL", "http://localhost:8889/api/auth/oauth/google/callback"),
-		WebAuthnRPID:       stringEnv("BI_AUTH_WEBAUTHN_RP_ID", "localhost"),
-		WebAuthnRPName:     stringEnv("BI_AUTH_WEBAUTHN_RP_NAME", "Biqly"),
-		WebAuthnOrigins:    splitEnvDefault("BI_AUTH_WEBAUTHN_RP_ORIGINS", []string{"http://localhost:5173", "http://localhost:3333"}),
-		SMTPHost:           os.Getenv("BI_AUTH_SMTP_HOST"),
-		SMTPPort:           intEnv("BI_AUTH_SMTP_PORT", 587),
-		SMTPUser:           os.Getenv("BI_AUTH_SMTP_USER"),
-		SMTPPass:           os.Getenv("BI_AUTH_SMTP_PASS"),
-		SMTPFrom:           os.Getenv("BI_AUTH_SMTP_FROM"),
-		FrontendBaseURL:    stringEnv("BI_AUTH_FRONTEND_BASE_URL", "http://localhost:3333"),
-		MaxActiveSessions:  positiveIntEnv("BI_AUTH_MAX_SESSIONS", 5),
-		PasswordMaxAgeDays: nonNegativeIntEnv("BI_AUTH_PASSWORD_MAX_AGE_DAYS", 0),
-		GDPRPurgeAfterDays: positiveIntEnv("BI_AUTH_GDPR_PURGE_AFTER_DAYS", 30),
-		SessionAbsoluteTTL: positiveDurationEnv("BI_AUTH_SESSION_ABSOLUTE_TTL", 30*24*time.Hour),
-		SessionIdleTTL:     positiveDurationEnv("BI_AUTH_SESSION_IDLE_TTL", 4*time.Hour),
-		PasswordPolicy:     passwordPolicyFromEnv(),
-		HSTSPreload:        boolEnv("BI_AUTH_HSTS_PRELOAD", false),
-		HSTSMaxAgeSeconds:  nonNegativeIntEnv("BI_AUTH_HSTS_MAX_AGE_SECONDS", 63072000),
-		EmailDefaultLocale: stringEnv("BI_AUTH_EMAIL_DEFAULT_LOCALE", "en"),
-		EmailDailyLimit:    nonNegativeIntEnv("BI_AUTH_EMAIL_DAILY_LIMIT", 10),
-		EmailQueueSize:     positiveIntEnv("BI_AUTH_EMAIL_QUEUE_SIZE", 256),
-		EmailRetries:       nonNegativeIntEnv("BI_AUTH_EMAIL_RETRIES", 3),
+		Port:                 intEnv("BI_AUTH_PORT", 8889),
+		DBDSN:                stringEnv("BI_AUTH_DB_DSN", "postgres://bi_auth_user:bi_auth_password@localhost:5434/bi_auth?sslmode=disable"),
+		RedisDSN:             stringEnv("BI_AUTH_REDIS_DSN", "redis://localhost:6379"),
+		JWTPrivateKeyPath:    os.Getenv("BI_AUTH_JWT_PRIVATE_KEY_PATH"),
+		JWTPublicKeyPath:     os.Getenv("BI_AUTH_JWT_PUBLIC_KEY_PATH"),
+		JWTAccessTTL:         durationEnv("BI_AUTH_JWT_ACCESS_TTL", 15*time.Minute),
+		JWTRefreshTTL:        durationEnv("BI_AUTH_JWT_REFRESH_TTL", 7*24*time.Hour),
+		JWTIssuer:            stringEnv("BI_AUTH_JWT_ISSUER", DefaultJWTIssuer),
+		JWTAudience:          stringEnv("BI_AUTH_JWT_AUDIENCE", DefaultJWTAudience),
+		InternalToken:        os.Getenv("BI_AUTH_INTERNAL_TOKEN"),
+		EncryptionKey:        os.Getenv("BI_AUTH_ENCRYPTION_KEY"),
+		RateLimitPerMin:      intEnv("BI_AUTH_RATE_LIMIT_PER_MINUTE", 60),
+		CORSAllowedOrigins:   splitEnv("BI_AUTH_CORS_ALLOWED_ORIGINS"),
+		GitHubClientID:       os.Getenv("BI_AUTH_GITHUB_CLIENT_ID"),
+		GitHubClientSecret:   os.Getenv("BI_AUTH_GITHUB_CLIENT_SECRET"),
+		GitHubRedirectURL:    stringEnv("BI_AUTH_GITHUB_REDIRECT_URL", "http://localhost:8889/api/auth/oauth/github/callback"),
+		GoogleClientID:       os.Getenv("BI_AUTH_GOOGLE_CLIENT_ID"),
+		GoogleClientSecret:   os.Getenv("BI_AUTH_GOOGLE_CLIENT_SECRET"),
+		GoogleRedirectURL:    stringEnv("BI_AUTH_GOOGLE_REDIRECT_URL", "http://localhost:8889/api/auth/oauth/google/callback"),
+		WebAuthnRPID:         stringEnv("BI_AUTH_WEBAUTHN_RP_ID", "localhost"),
+		WebAuthnRPName:       stringEnv("BI_AUTH_WEBAUTHN_RP_NAME", "Biqly"),
+		WebAuthnOrigins:      splitEnvDefault("BI_AUTH_WEBAUTHN_RP_ORIGINS", []string{"http://localhost:5173", "http://localhost:3333"}),
+		SMTPHost:             os.Getenv("BI_AUTH_SMTP_HOST"),
+		SMTPPort:             intEnv("BI_AUTH_SMTP_PORT", 587),
+		SMTPUser:             os.Getenv("BI_AUTH_SMTP_USER"),
+		SMTPPass:             os.Getenv("BI_AUTH_SMTP_PASS"),
+		SMTPFrom:             os.Getenv("BI_AUTH_SMTP_FROM"),
+		FrontendBaseURL:      stringEnv("BI_AUTH_FRONTEND_BASE_URL", "http://localhost:3333"),
+		MaxActiveSessions:    positiveIntEnv("BI_AUTH_MAX_SESSIONS", 5),
+		PasswordMaxAgeDays:   nonNegativeIntEnv("BI_AUTH_PASSWORD_MAX_AGE_DAYS", 0),
+		GDPRPurgeAfterDays:   positiveIntEnv("BI_AUTH_GDPR_PURGE_AFTER_DAYS", 30),
+		SessionAbsoluteTTL:   positiveDurationEnv("BI_AUTH_SESSION_ABSOLUTE_TTL", 30*24*time.Hour),
+		SessionIdleTTL:       positiveDurationEnv("BI_AUTH_SESSION_IDLE_TTL", 4*time.Hour),
+		PasswordPolicy:       passwordPolicyFromEnv(),
+		HSTSPreload:          boolEnv("BI_AUTH_HSTS_PRELOAD", false),
+		HSTSMaxAgeSeconds:    nonNegativeIntEnv("BI_AUTH_HSTS_MAX_AGE_SECONDS", 63072000),
+		EmailDefaultLocale:   stringEnv("BI_AUTH_EMAIL_DEFAULT_LOCALE", "en"),
+		EmailDailyLimit:      nonNegativeIntEnv("BI_AUTH_EMAIL_DAILY_LIMIT", 10),
+		EmailQueueSize:       positiveIntEnv("BI_AUTH_EMAIL_QUEUE_SIZE", 256),
+		EmailRetries:         nonNegativeIntEnv("BI_AUTH_EMAIL_RETRIES", 3),
+		WebAuthnChallengeTTL: positiveDurationEnv("BI_AUTH_WEBAUTHN_CHALLENGE_TTL", 60*time.Second),
 	}
 
 	if cfg.InternalToken == "" {

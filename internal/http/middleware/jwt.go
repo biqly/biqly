@@ -18,12 +18,13 @@ import (
 type ctxKey string
 
 const (
-	UserIDKey         ctxKey = "auth.user_id"
-	UserEmailKey      ctxKey = "auth.email"
-	UserRolesKey      ctxKey = "auth.roles"
-	WorkspaceIDKey    ctxKey = "auth.workspace_id"
-	AccessibleDSKey   ctxKey = "auth.accessible_datasources"
-	PermissionsKey    ctxKey = "auth.permissions"
+	UserIDKey        ctxKey = "auth.user_id"
+	UserEmailKey     ctxKey = "auth.email"
+	UserRolesKey     ctxKey = "auth.roles"
+	WorkspaceIDKey   ctxKey = "auth.workspace_id"
+	AccessibleDSKey  ctxKey = "auth.accessible_datasources"
+	PermissionsKey   ctxKey = "auth.permissions"
+	EmailVerifiedKey ctxKey = "auth.email_verified"
 )
 
 type JWTClaims struct {
@@ -31,6 +32,7 @@ type JWTClaims struct {
 	Roles                 []string `json:"roles"`
 	WorkspaceID           string   `json:"workspace_id,omitempty"`
 	AccessibleDatasources []string `json:"accessible_datasources,omitempty"`
+	EmailVerified         bool     `json:"email_verified,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -179,6 +181,7 @@ func JWTAuth(provider *PublicKeyProvider, bypassPaths ...string) func(http.Handl
 			ctx = context.WithValue(ctx, UserRolesKey, claims.Roles)
 			ctx = context.WithValue(ctx, WorkspaceIDKey, claims.WorkspaceID)
 			ctx = context.WithValue(ctx, AccessibleDSKey, claims.AccessibleDatasources)
+			ctx = context.WithValue(ctx, EmailVerifiedKey, claims.EmailVerified)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
@@ -229,6 +232,43 @@ func Permissions(ctx context.Context) []string {
 
 func HasRole(ctx context.Context, role string) bool {
 	return slices.Contains(UserRoles(ctx), role)
+}
+
+// EmailVerified reports whether the JWT was issued for a user whose email
+// ownership has been confirmed. Callers should treat this as the source of
+// truth for the request lifetime; users.email_verified flips can take up to
+// one access-token TTL to propagate.
+func EmailVerified(ctx context.Context) bool {
+	v, _ := ctx.Value(EmailVerifiedKey).(bool)
+	return v
+}
+
+// RequireVerifiedEmail blocks the request when the JWT lacks the
+// email_verified claim. Apply after JWTAuth on write routes (POST/PUT/PATCH/DELETE)
+// to enforce a read-only experience for unverified accounts. The 403 response
+// uses a stable error code so the frontend can prompt the user to verify.
+func RequireVerifiedEmail() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// GET/HEAD/OPTIONS are read-only and allowed even pre-verification
+			// so the user can still browse the app before confirming.
+			switch r.Method {
+			case http.MethodGet, http.MethodHead, http.MethodOptions:
+				next.ServeHTTP(w, r)
+				return
+			}
+			if !EmailVerified(r.Context()) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusForbidden)
+				_ = json.NewEncoder(w).Encode(map[string]string{
+					"error": "email_verification_required",
+					"hint":  "Confirm your email address to enable write actions.",
+				})
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // WorkspaceDatasourceFilter resolves the active workspace's attached datasource
