@@ -48,8 +48,8 @@ func (r *UserRepository) CreateUser(ctx context.Context, email, passwordHash, di
 
 	var user User
 	query := `
-		INSERT INTO users (email, password_hash, display_name)
-		VALUES ($1, $2, $3)
+		INSERT INTO users (email, password_hash, display_name, password_changed_at)
+		VALUES ($1, $2, $3, NOW())
 		RETURNING id, email, username, display_name, avatar_url, is_active, email_verified, created_at, updated_at
 	`
 	var usernameNull, displayNameNull, avatarURLNull sql.NullString
@@ -874,7 +874,7 @@ func (r *UserRepository) UpdateUserPassword(ctx context.Context, userID, newPass
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	query := `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`
+	query := `UPDATE users SET password_hash = $1, password_changed_at = NOW(), updated_at = NOW() WHERE id = $2`
 	_, err = tx.ExecContext(ctx, query, newPasswordHash, userID)
 	if err != nil {
 		return err

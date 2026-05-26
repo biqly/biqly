@@ -192,12 +192,14 @@ func newRouter(state *appState, authHandler *biqauth.AuthHandler, rbacHandler *b
 		r.Use(biqauth.CSRF(httpsOnly))
 		authHandler.RegisterAuthRoutes(r)
 		rbacHandler.RegisterAuthRoutes(r, authHandler.AuthMiddleware())
+		authHandler.RegisterAccountAdminRoutes(r, authHandler.AuthMiddleware())
 	})
 
 	r.Route("/auth", func(r chi.Router) {
 		r.Use(biqauth.CSRF(httpsOnly))
 		authHandler.RegisterAuthRoutes(r)
 		rbacHandler.RegisterAuthRoutes(r, authHandler.AuthMiddleware())
+		authHandler.RegisterAccountAdminRoutes(r, authHandler.AuthMiddleware())
 	})
 
 	r.Route("/internal/auth", func(r chi.Router) {

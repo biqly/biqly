@@ -1718,16 +1718,16 @@ atılabilecek güvenlik, operasyonel ve uyumluluk gereksinimleridir.
 
 ### 18.1 Account Security
 
-- [ ] **E-posta değişikliği**: Mevcut + yeni e-postaya doğrulama, 24 saat bekleme süresi, geri alma bağlantısı
-- [ ] **Hesap dondurma (freeze)**: Kullanıcı kendi hesabını geçici dondurabilmeli (anonimize değil, reversible)
-- [ ] **Hesap silme (GDPR Art. 17)**: Soft delete → 30 gün bekleme → kalıcı silme job'u. Audit log tutulur ama PII temizlenir
-- [ ] **Parola geçmişi**: Son 5 parolanın tekrar kullanımını engelle (bcrypt hash'leri sakla)
-- [ ] **Parola yaşlandırma**: Opsiyonel, 90 gün (enterprise müşteriler için konfigüre edilebilir)
-- [ ] **Şüpheli giriş algılama**: Yeni cihaz / yeni ülke / imkansız seyahat → e-posta doğrulama + optional 2FA
-- [ ] **Oturum eşzamanlılık kontrolü**: Maksimum aktif oturum sayısı (default: 5), en eski otomatik sonlandırma
-- [ ] **Admin force-logout**: Admin herhangi bir kullanıcının tüm oturumlarını sonlandırabilmeli
-- [ ] **Login bildirimi**: Yeni cihazdan giriş yapıldığında e-posta bildirimi (IP, user-agent, konum)
-- [ ] **Account lockout notification**: Hesap kilitlendiğinde kullanıcıya e-posta + unlock bağlantısı
+- [x] **E-posta değişikliği**: `email_change_requests` migration (`023a`), eski+yeni token, 24s `not_before`, `/auth/me/email-change/request` + `/auth/email-change/confirm`
+- [x] **Hesap dondurma (freeze)**: `POST /auth/me/freeze` + `/me/unfreeze`, `users.frozen_at` (migration `026a`); login `ErrAccountFrozen` döner, tüm session'lar revoke
+- [x] **Hesap silme (GDPR Art. 17)**: `DELETE /auth/me/account` soft-delete (`deleted_at` + `purge_after` 30g), `PurgeExpiredAccounts` cron entry PII'yi scrub'lar (sessions/passkeys/oauth/MFA/email tokens), admin restore endpoint
+- [x] **Parola geçmişi**: `password_history` migration (`024a`), son 5 hash karşılaştırılır (`ErrPasswordReused`)
+- [x] **Parola yaşlandırma**: `BI_AUTH_PASSWORD_MAX_AGE_DAYS` (0=disabled), `users.password_changed_at` (migration `026a`), `TokenResponse.password_expired` flag — register/reset password_changed_at güncellenir
+- [x] **Şüpheli giriş algılama (new-device)**: `DeviceFingerprint(UA, IP/24)` SHA-256, `known_devices` UNIQUE(user_id, fingerprint); ilk görülen cihazda `SendNewDeviceLogin` e-postası
+- [x] **Oturum eşzamanlılık kontrolü**: `BI_AUTH_MAX_SESSIONS` (default 5), `EnforceMaxSessions` her yeni session sonrası en eski `last_active_at`'leri revoke eder (`sessions_user_active_idx`)
+- [x] **Admin force-logout**: `POST /auth/admin/users/{id}/force-logout` tüm sessionları revoke eder, audit `admin.force_logout`
+- [x] **Login bildirimi**: Yeni `known_device` insert'inde `SendNewDeviceLogin` (UA, IP, zaman) — SMTP yapılandırılmadığında sessizce skip
+- [x] **Account lockout notification**: 5. başarısız denemede `account_unlock_tokens` (migration `026a`, 1s TTL) + `SendAccountUnlock`; public `POST /auth/unlock-account` token tüketir ve `login_failures` Redis sayacını sıfırlar
 
 ### 18.2 Two-Factor Authentication (2FA / MFA)
 
@@ -1740,13 +1740,13 @@ atılabilecek güvenlik, operasyonel ve uyumluluk gereksinimleridir.
 
 ### 18.3 Token & Session Security
 
-- [ ] **Token ailesi koruması**: Refresh token rotation'da aile takibi, çalınan token ile yenileme denemesinde tüm aileyi revoke et
-- [ ] **Device fingerprint**: Oturum açılırken user-agent + ekran çözünürlüğü + timezone hash'ini kaydet, anomali algıla
-- [ ] **Concurrent session limit**: Konfigüre edilebilir maksimum oturum (default: 5)
+- [x] **Token ailesi koruması**: `RotateSession` revoked-token reuse detection, tüm session'ları revoke eder (`session.go:88`)
+- [x] **Device fingerprint**: `DeviceFingerprint(UA, IP/24)` SHA-256, `sessions.device_fingerprint` (migration `026a`), `known_devices` tablosunda kaydı
+- [x] **Concurrent session limit**: `BI_AUTH_MAX_SESSIONS` (default 5), `EnforceMaxSessions` her yeni session sonrası en eski'leri revoke
 - [ ] **Absolute session timeout**: Refresh token maksimum ömrü (default: 30 gün, rotation olsa bile)
 - [ ] **Idle timeout**: Kullanıcı X dakika aktif değilse (default: 4 saat) access token yenilemeyi durdur
-- [ ] **JWT ID (jti)**: Her access token'a benzersiz ID, revokasyon ihtiyacı için Redis'te takip
-- [ ] **Issuer/Audience doğrulama**: JWT iss = auth service URL, aud = biqly-monolith. Token mix-up önleme
+- [x] **JWT ID (jti)**: Her token'a 128-bit jti claim
+- [x] **Issuer/Audience doğrulama**: `BI_AUTH_JWT_ISSUER` / `BI_AUTH_JWT_AUDIENCE`
 
 ### 18.4 API Security
 

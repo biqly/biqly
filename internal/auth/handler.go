@@ -76,6 +76,8 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 	r.Post("/passkey/login-begin", h.handlePasskeyLoginBegin)
 	r.Post("/passkey/login-finish", h.handlePasskeyLoginFinish)
 
+	h.RegisterAccountPublicRoutes(r)
+
 	r.Group(func(r chi.Router) {
 		if h.limiter != nil {
 			r.Use(h.limiter.Limit(10, time.Minute, "mfa-login"))
@@ -98,6 +100,7 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 		r.Post("/mfa/verify", h.handleMFAVerify)
 		r.Post("/mfa/disable", h.handleMFADisable)
 		r.Post("/mfa/recovery/regenerate", h.handleMFARegenerateRecovery)
+		h.RegisterAccountSelfRoutes(r)
 	})
 }
 
@@ -147,6 +150,9 @@ func (h *AuthHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		h.respondError(w, http.StatusTooManyRequests, err.Error())
 		return
 	} else if errors.Is(err, ErrMFARequired) {
+		h.respondError(w, http.StatusForbidden, err.Error())
+		return
+	} else if errors.Is(err, ErrAccountFrozen) || errors.Is(err, ErrAccountDeleted) {
 		h.respondError(w, http.StatusForbidden, err.Error())
 		return
 	} else if err != nil {

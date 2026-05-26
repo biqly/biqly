@@ -29,6 +29,17 @@ const (
 	AuditAuditExport   = "audit.export"
 	AuditGDPRDataDump  = "user.data_export"
 	AuditAdminBlockSod = "admin.blocked_self_change"
+
+	AuditAccountFrozen      = "account.frozen"
+	AuditAccountUnfrozen    = "account.unfrozen"
+	AuditAccountSoftDeleted = "account.soft_deleted"
+	AuditAccountRestored    = "account.restored"
+	AuditAccountPurged      = "account.purged"
+	AuditAccountUnlocked    = "account.unlocked"
+	AuditLoginNewDevice     = "login.new_device"
+	AuditSessionEvicted     = "session.evicted"
+	AuditAdminForceLogout   = "admin.force_logout"
+	AuditPasswordExpired    = "password.expired"
 )
 
 type AuditResult string

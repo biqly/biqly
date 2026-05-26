@@ -23,13 +23,14 @@ type RefreshRequest struct {
 }
 
 type TokenResponse struct {
-	AccessToken  string   `json:"access_token,omitempty"`
-	RefreshToken string   `json:"refresh_token,omitempty"`
-	UserID       string   `json:"user_id,omitempty"`
-	Email        string   `json:"email,omitempty"`
-	Roles        []string `json:"roles,omitempty"`
-	MFARequired  bool     `json:"mfa_required,omitempty"`
-	MFAToken     string   `json:"mfa_token,omitempty"`
+	AccessToken     string   `json:"access_token,omitempty"`
+	RefreshToken    string   `json:"refresh_token,omitempty"`
+	UserID          string   `json:"user_id,omitempty"`
+	Email           string   `json:"email,omitempty"`
+	Roles           []string `json:"roles,omitempty"`
+	MFARequired     bool     `json:"mfa_required,omitempty"`
+	MFAToken        string   `json:"mfa_token,omitempty"`
+	PasswordExpired bool     `json:"password_expired,omitempty"`
 }
 
 type MFALoginRequest struct {
@@ -80,28 +81,52 @@ type RequestEmailChangeRequest struct {
 }
 
 type User struct {
-	ID            string
-	Email         string
-	Username      *string
-	DisplayName   *string
-	AvatarURL     *string
-	PasswordHash  *string
-	IsActive      bool
-	EmailVerified bool
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	LastLoginAt   *time.Time
+	ID                string
+	Email             string
+	Username          *string
+	DisplayName       *string
+	AvatarURL         *string
+	PasswordHash      *string
+	IsActive          bool
+	EmailVerified     bool
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	LastLoginAt       *time.Time
+	FrozenAt          *time.Time
+	DeletedAt         *time.Time
+	PurgeAfter        *time.Time
+	PasswordChangedAt *time.Time
 }
 
 type Session struct {
-	ID           string
-	UserID       string
-	RefreshToken string
-	UserAgent    *string
-	IPAddress    *string
-	CreatedAt    time.Time
-	ExpiresAt    time.Time
-	RevokedAt    *time.Time
+	ID                string
+	UserID            string
+	RefreshToken      string
+	UserAgent         *string
+	IPAddress         *string
+	DeviceFingerprint *string
+	CreatedAt         time.Time
+	ExpiresAt         time.Time
+	LastActiveAt      time.Time
+	RevokedAt         *time.Time
+}
+
+type ActiveSessionInfo struct {
+	ID           string     `json:"id"`
+	UserAgent    *string    `json:"user_agent,omitempty"`
+	IPAddress    *string    `json:"ip_address,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+	LastActiveAt time.Time  `json:"last_active_at"`
+	ExpiresAt    time.Time  `json:"expires_at"`
+	Current      bool       `json:"current,omitempty"`
+}
+
+type DeleteAccountRequest struct {
+	Password string `json:"password,omitempty"`
+}
+
+type UnlockAccountRequest struct {
+	Token string `json:"token"`
 }
 
 type EmailChangeRequest struct {

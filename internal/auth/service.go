@@ -146,7 +146,7 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 		// time does not reveal whether the email exists.
 		VerifyDummyPassword(req.Password)
 		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
-		s.recordLoginFailure(ctx, email)
+		s.recordLoginFailure(ctx, email, nil)
 		return nil, ErrInvalidCredentials
 	} else if err != nil {
 		return nil, err
@@ -167,8 +167,21 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 
 	if !passwordOK {
 		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
-		s.recordLoginFailure(ctx, email)
+		s.recordLoginFailure(ctx, email, user)
 		return nil, ErrInvalidCredentials
+	}
+
+	state, err := s.userRepo.GetAccountState(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	if state.IsDeleted() {
+		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
+		return nil, ErrAccountDeleted
+	}
+	if state.IsFrozen() {
+		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
+		return nil, ErrAccountFrozen
 	}
 
 	if s.redisClient != nil {
@@ -234,7 +247,17 @@ func (s *AuthService) issueSession(ctx context.Context, user *User, userAgent, i
 		return nil, fmt.Errorf("generate access token: %w", err)
 	}
 
-	refreshToken, err := s.sessionMgr.CreateSession(ctx, user.ID, userAgent, ipAddress, s.config.JWTRefreshTTL)
+	ua := ""
+	if userAgent != nil {
+		ua = *userAgent
+	}
+	ip := ""
+	if ipAddress != nil {
+		ip = *ipAddress
+	}
+	fingerprint := DeviceFingerprint(ua, ip)
+
+	refreshToken, err := s.sessionMgr.CreateSessionWithFingerprint(ctx, user.ID, userAgent, ipAddress, fingerprint, s.config.JWTRefreshTTL)
 	if err != nil {
 		return nil, fmt.Errorf("create session: %w", err)
 	}
@@ -242,13 +265,43 @@ func (s *AuthService) issueSession(ctx context.Context, user *User, userAgent, i
 	_ = s.userRepo.UpdateLastLogin(ctx, user.ID)
 	MetricLoginAttempts.WithLabelValues(method, "success").Inc()
 
+	if max := s.config.MaxActiveSessions; max > 0 {
+		_, _ = s.sessionMgr.EnforceMaxSessions(ctx, user.ID, max)
+	}
+
+	if isNew, err := s.userRepo.RecordKnownDevice(ctx, user.ID, fingerprint, userAgent, ipAddress); err == nil && isNew && s.emailSender != nil {
+		_ = s.emailSender.SendNewDeviceLogin(ctx, user.Email, DeviceLoginInfo{
+			UserAgent:  ua,
+			IPAddress:  ip,
+			OccurredAt: time.Now(),
+		})
+	}
+
+	passwordExpired := s.isPasswordExpired(user.ID)
+
 	return &TokenResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		UserID:       user.ID,
-		Email:        user.Email,
-		Roles:        roles,
+		AccessToken:     accessToken,
+		RefreshToken:    refreshToken,
+		UserID:          user.ID,
+		Email:           user.Email,
+		Roles:           roles,
+		PasswordExpired: passwordExpired,
 	}, nil
+}
+
+// isPasswordExpired reports whether the user's password is older than the
+// configured BI_AUTH_PASSWORD_MAX_AGE_DAYS (0 = disabled). Errors during the
+// lookup are treated as "not expired" so they cannot lock the user out.
+func (s *AuthService) isPasswordExpired(userID string) bool {
+	days := s.config.PasswordMaxAgeDays
+	if days <= 0 {
+		return false
+	}
+	state, err := s.userRepo.GetAccountState(context.Background(), userID)
+	if err != nil || state.PasswordChangedAt == nil {
+		return false
+	}
+	return time.Since(*state.PasswordChangedAt) > time.Duration(days)*24*time.Hour
 }
 
 // CompleteMFALogin redeems a challenge token + TOTP/recovery code for a full session.
@@ -577,11 +630,24 @@ func (s *AuthService) CreateTokenResponseForUser(ctx context.Context, user *User
 	}, nil
 }
 
-func (s *AuthService) recordLoginFailure(ctx context.Context, email string) {
-	if s.redisClient != nil {
-		lockKey := fmt.Sprintf("login_failures:%s", email)
-		_ = s.redisClient.Incr(ctx, lockKey).Err()
-		_ = s.redisClient.Expire(ctx, lockKey, 15*time.Minute).Err()
+func (s *AuthService) recordLoginFailure(ctx context.Context, email string, user *User) {
+	if s.redisClient == nil {
+		return
+	}
+	lockKey := fmt.Sprintf("login_failures:%s", email)
+	count, err := s.redisClient.Incr(ctx, lockKey).Result()
+	if err != nil {
+		return
+	}
+	_ = s.redisClient.Expire(ctx, lockKey, 15*time.Minute).Err()
+
+	// On the threshold transition (5th consecutive failure), send a one-time
+	// unlock email so the user can prove ownership and bypass the lockout.
+	if count == 5 && user != nil && s.emailSender != nil {
+		token, terr := s.userRepo.CreateUnlockToken(ctx, user.ID, time.Hour)
+		if terr == nil {
+			_ = s.emailSender.SendAccountUnlock(ctx, user.Email, token)
+		}
 	}
 }
 
@@ -692,4 +758,81 @@ func (s *AuthService) generateSecureToken() (string, error) {
 		return "", err
 	}
 	return base64.URLEncoding.EncodeToString(b), nil
+}
+
+func (s *AuthService) FreezeAccount(ctx context.Context, userID string) error {
+	if err := s.userRepo.FreezeAccount(ctx, userID); err != nil {
+		return err
+	}
+	_ = s.sessionMgr.RevokeAllUserSessions(ctx, userID)
+	return nil
+}
+
+func (s *AuthService) UnfreezeAccount(ctx context.Context, userID string) error {
+	return s.userRepo.UnfreezeAccount(ctx, userID)
+}
+
+// DeleteAccount soft-deletes the user, revokes all sessions, schedules purge.
+// If password is provided (non-empty), it must match — used for self-service.
+func (s *AuthService) DeleteAccount(ctx context.Context, userID, password string) (time.Time, error) {
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return time.Time{}, err
+	}
+	if password != "" {
+		if user.PasswordHash == nil || !VerifyPassword(password, *user.PasswordHash) {
+			return time.Time{}, ErrInvalidCredentials
+		}
+	}
+	purgeAt, err := s.userRepo.SoftDeleteAccount(ctx, userID, s.config.GDPRPurgeAfterDays)
+	if err != nil {
+		return time.Time{}, err
+	}
+	_ = s.sessionMgr.RevokeAllUserSessions(ctx, userID)
+	if s.emailSender != nil {
+		_ = s.emailSender.SendAccountDeletionScheduled(ctx, user.Email, purgeAt)
+	}
+	return purgeAt, nil
+}
+
+func (s *AuthService) RestoreAccount(ctx context.Context, userID string) error {
+	return s.userRepo.RestoreAccount(ctx, userID)
+}
+
+// UnlockAccount consumes an unlock token and clears the rate-limit counter for
+// the associated user, restoring login ability.
+func (s *AuthService) UnlockAccount(ctx context.Context, token string) (string, error) {
+	userID, err := s.userRepo.ConsumeUnlockToken(ctx, token)
+	if err != nil {
+		return "", err
+	}
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return "", err
+	}
+	if s.redisClient != nil {
+		_ = s.redisClient.Del(ctx, fmt.Sprintf("login_failures:%s", user.Email)).Err()
+	}
+	return userID, nil
+}
+
+// AdminForceLogout revokes every active session for the target user.
+func (s *AuthService) AdminForceLogout(ctx context.Context, targetUserID string) error {
+	return s.sessionMgr.RevokeAllUserSessions(ctx, targetUserID)
+}
+
+// ListActiveSessions returns active sessions for the user.
+func (s *AuthService) ListActiveSessions(ctx context.Context, userID string) ([]ActiveSessionInfo, error) {
+	return s.sessionMgr.ListActiveSessions(ctx, userID)
+}
+
+// RevokeSession revokes a specific session owned by the user.
+func (s *AuthService) RevokeSession(ctx context.Context, userID, sessionID string) error {
+	return s.sessionMgr.RevokeSessionByID(ctx, userID, sessionID)
+}
+
+// PurgeExpiredAccounts is the cron entry point that scrubs PII for accounts
+// whose purge_after has elapsed.
+func (s *AuthService) PurgeExpiredAccounts(ctx context.Context) ([]string, error) {
+	return s.userRepo.PurgeExpiredAccounts(ctx, time.Now())
 }

@@ -34,23 +34,124 @@ func (m *SessionManager) generateOpaqueToken() (string, error) {
 }
 
 func (m *SessionManager) CreateSession(ctx context.Context, userID string, userAgent, ipAddress *string, ttl time.Duration) (string, error) {
+	return m.CreateSessionWithFingerprint(ctx, userID, userAgent, ipAddress, "", ttl)
+}
+
+func (m *SessionManager) CreateSessionWithFingerprint(ctx context.Context, userID string, userAgent, ipAddress *string, fingerprint string, ttl time.Duration) (string, error) {
 	token, err := m.generateOpaqueToken()
 	if err != nil {
 		return "", fmt.Errorf("generate session token: %w", err)
 	}
 
 	expiresAt := time.Now().Add(ttl)
+	var fp *string
+	if fingerprint != "" {
+		fp = &fingerprint
+	}
 
 	query := `
-		INSERT INTO sessions (user_id, refresh_token, user_agent, ip_address, expires_at)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO sessions (user_id, refresh_token, user_agent, ip_address, device_fingerprint, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
 	`
-	_, err = m.db.ExecContext(ctx, query, userID, token, userAgent, ipAddress, expiresAt)
+	_, err = m.db.ExecContext(ctx, query, userID, token, userAgent, ipAddress, fp, expiresAt)
 	if err != nil {
 		return "", fmt.Errorf("insert session: %w", err)
 	}
 
 	return token, nil
+}
+
+// EnforceMaxSessions revokes the oldest active sessions (by last_active_at)
+// until the active-session count is at most max. Returns the IDs of the
+// sessions that were evicted. Returns no-op when max <= 0.
+func (m *SessionManager) EnforceMaxSessions(ctx context.Context, userID string, max int) ([]string, error) {
+	if max <= 0 {
+		return nil, nil
+	}
+	rows, err := m.db.QueryContext(ctx, `
+		WITH ordered AS (
+			SELECT id, ROW_NUMBER() OVER (ORDER BY last_active_at DESC, created_at DESC) AS rn
+			FROM sessions
+			WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > NOW()
+		)
+		UPDATE sessions SET revoked_at = NOW()
+		WHERE id IN (SELECT id FROM ordered WHERE rn > $2)
+		RETURNING id
+	`, userID, max)
+	if err != nil {
+		return nil, fmt.Errorf("evict sessions: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var evicted []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		evicted = append(evicted, id)
+	}
+	return evicted, rows.Err()
+}
+
+// TouchSession bumps last_active_at on the active session matching the refresh
+// token. Best-effort: errors are not fatal.
+func (m *SessionManager) TouchSession(ctx context.Context, refreshToken string) error {
+	_, err := m.db.ExecContext(ctx,
+		`UPDATE sessions SET last_active_at = NOW() WHERE refresh_token = $1 AND revoked_at IS NULL`,
+		refreshToken,
+	)
+	return err
+}
+
+// ListActiveSessions returns active (non-revoked, non-expired) sessions for a user.
+func (m *SessionManager) ListActiveSessions(ctx context.Context, userID string) ([]ActiveSessionInfo, error) {
+	rows, err := m.db.QueryContext(ctx, `
+		SELECT id, user_agent, ip_address::text, created_at, last_active_at, expires_at
+		FROM sessions
+		WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > NOW()
+		ORDER BY last_active_at DESC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []ActiveSessionInfo
+	for rows.Next() {
+		var info ActiveSessionInfo
+		var ua, ip sql.NullString
+		if err := rows.Scan(&info.ID, &ua, &ip, &info.CreatedAt, &info.LastActiveAt, &info.ExpiresAt); err != nil {
+			return nil, err
+		}
+		if ua.Valid {
+			s := ua.String
+			info.UserAgent = &s
+		}
+		if ip.Valid {
+			s := ip.String
+			info.IPAddress = &s
+		}
+		out = append(out, info)
+	}
+	return out, rows.Err()
+}
+
+// RevokeSessionByID revokes a specific session row, scoped to a user (for the
+// user's own session-management UI).
+func (m *SessionManager) RevokeSessionByID(ctx context.Context, userID, sessionID string) error {
+	res, err := m.db.ExecContext(ctx,
+		`UPDATE sessions SET revoked_at = NOW() WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL`,
+		sessionID, userID,
+	)
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return ErrSessionNotFound
+	}
+	return nil
 }
 
 func (m *SessionManager) RotateSession(ctx context.Context, oldToken string, ttl time.Duration, userAgent, ipAddress *string) (string, error) {

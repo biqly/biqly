@@ -35,6 +35,10 @@ type Config struct {
 	SMTPUser           string
 	SMTPPass           string
 	SMTPFrom           string
+	FrontendBaseURL    string
+	MaxActiveSessions  int
+	PasswordMaxAgeDays int
+	GDPRPurgeAfterDays int
 }
 
 func LoadConfig() (*Config, error) {
@@ -132,6 +136,32 @@ func LoadConfig() (*Config, error) {
 		}
 	}
 
+	maxSessions := 5
+	if v := os.Getenv("BI_AUTH_MAX_SESSIONS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			maxSessions = n
+		}
+	}
+
+	passwordMaxAge := 0
+	if v := os.Getenv("BI_AUTH_PASSWORD_MAX_AGE_DAYS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			passwordMaxAge = n
+		}
+	}
+
+	purgeDays := 30
+	if v := os.Getenv("BI_AUTH_GDPR_PURGE_AFTER_DAYS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			purgeDays = n
+		}
+	}
+
+	frontendBase := os.Getenv("BI_AUTH_FRONTEND_BASE_URL")
+	if frontendBase == "" {
+		frontendBase = "http://localhost:3333"
+	}
+
 	cfg := &Config{
 		Port:               port,
 		DBDSN:              dbDSN,
@@ -160,6 +190,10 @@ func LoadConfig() (*Config, error) {
 		SMTPUser:           os.Getenv("BI_AUTH_SMTP_USER"),
 		SMTPPass:           os.Getenv("BI_AUTH_SMTP_PASS"),
 		SMTPFrom:           os.Getenv("BI_AUTH_SMTP_FROM"),
+		FrontendBaseURL:    frontendBase,
+		MaxActiveSessions:  maxSessions,
+		PasswordMaxAgeDays: passwordMaxAge,
+		GDPRPurgeAfterDays: purgeDays,
 	}
 
 	if cfg.InternalToken == "" {
