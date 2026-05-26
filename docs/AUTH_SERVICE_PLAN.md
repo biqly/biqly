@@ -1323,13 +1323,13 @@ r.Route("/api", func(r chi.Router) {
 
 ### 2FA / MFA
 
-- [ ] `user_mfa` tablosu (method, secret_encrypted, verified_at, enabled)
-- [ ] TOTP implementasyonu (RFC 6238)
-- [ ] QR code üretimi (TOTP secret enrollment)
-- [ ] Recovery kod üretimi ve doğrulama
+- [x] `user_mfa` tablosu (method, secret_encrypted, verified_at, enabled) — migration `020a_create_user_mfa.up.sql`
+- [x] TOTP implementasyonu (RFC 6238) — `internal/auth/totp.go`, ±1 step (30s) skew, constant-time compare
+- [x] QR code üretimi (TOTP secret enrollment) — `BuildOTPAuthURL` ile `otpauth://` URI, frontend QR encode eder
+- [x] Recovery kod üretimi ve doğrulama — 10 adet base32, bcrypt hash, tek kullanımlık (`array_remove`), `RegenerateRecoveryCodes`
 - [ ] 2FA zorunlu kılma politikası (workspace bazında)
 - [ ] Admin bypass kodları
-- [ ] 2FA enrollment ve verification endpoint'leri
+- [x] 2FA enrollment ve verification endpoint'leri — `/auth/mfa/{status,enroll,verify,disable,recovery/regenerate}` + `/auth/mfa/login` (challenge token redeem); login flow `mfa_required` + `mfa_token` döndürür, `CompleteMFALogin` ile session tamamlanır
 
 ### Test
 
@@ -1731,12 +1731,12 @@ atılabilecek güvenlik, operasyonel ve uyumluluk gereksinimleridir.
 
 ### 18.2 Two-Factor Authentication (2FA / MFA)
 
-- [ ] TOTP (Time-based OTP) desteği: Google Authenticator, Authy uyumlu
-- [ ] Recovery kodları: 10 adet tek kullanımlık kod, güvenli yerde saklama uyarısı
+- [x] TOTP (Time-based OTP) desteği: Google Authenticator, Authy uyumlu — `internal/auth/totp.go`
+- [x] Recovery kodları: 10 adet tek kullanımlık kod, güvenli yerde saklama uyarısı — bcrypt hash, `array_remove` ile consume
 - [ ] 2FA zorunlu kılma: Admin, workspace bazında "2FA required" politikası
 - [ ] 2FA bypass kodları: Support için tek kullanımlık admin bypass kodları
 - [ ] WebAuthn ikinci faktör olarak: Passkey zaten birinci faktör, TOTP ile birlikte ikinci faktör seçeneği
-- [ ] DB tablosu: `user_mfa` (user_id, method, secret_encrypted, verified_at, enabled)
+- [x] DB tablosu: `user_mfa` (user_id, method, secret_encrypted, recovery_codes, verified_at, enabled) — migration `020a`
 
 ### 18.3 Token & Session Security
 

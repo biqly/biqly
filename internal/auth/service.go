@@ -27,11 +27,16 @@ type AuthService struct {
 	redisClient  *redis.Client
 	emailSender  EmailSender
 	workspaceSvc *WorkspaceService
+	mfaSvc       *MFAService
 }
 
 // SetWorkspaceService wires the workspace service after construction to avoid
 // a constructor-arg ripple through tests; required for active-workspace switching.
 func (s *AuthService) SetWorkspaceService(ws *WorkspaceService) { s.workspaceSvc = ws }
+
+// SetMFAService wires the MFA service after construction. Optional; if unset
+// MFA checks are skipped and login proceeds with single factor.
+func (s *AuthService) SetMFAService(m *MFAService) { s.mfaSvc = m }
 
 func NewAuthService(
 	userRepo *UserRepository,
@@ -156,6 +161,25 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 		_ = s.redisClient.Del(ctx, lockKey).Err()
 	}
 
+	if s.mfaSvc != nil {
+		enabled, err := s.mfaSvc.IsEnabled(ctx, user.ID)
+		if err != nil {
+			return nil, fmt.Errorf("check mfa: %w", err)
+		}
+		if enabled {
+			challenge, err := s.jwtMgr.GenerateMFAChallenge(user.ID)
+			if err != nil {
+				return nil, fmt.Errorf("generate mfa challenge: %w", err)
+			}
+			MetricLoginAttempts.WithLabelValues("password", "mfa_required").Inc()
+			return &TokenResponse{MFARequired: true, MFAToken: challenge}, nil
+		}
+	}
+
+	return s.issueSession(ctx, user, userAgent, ipAddress, "password")
+}
+
+func (s *AuthService) issueSession(ctx context.Context, user *User, userAgent, ipAddress *string, method string) (*TokenResponse, error) {
 	roles, err := s.rbacRepo.GetUserRoles(ctx, user.ID)
 	if err != nil {
 		return nil, err
@@ -177,8 +201,7 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 	}
 
 	_ = s.userRepo.UpdateLastLogin(ctx, user.ID)
-
-	MetricLoginAttempts.WithLabelValues("password", "success").Inc()
+	MetricLoginAttempts.WithLabelValues(method, "success").Inc()
 
 	return &TokenResponse{
 		AccessToken:  accessToken,
@@ -187,6 +210,29 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 		Email:        user.Email,
 		Roles:        roles,
 	}, nil
+}
+
+// CompleteMFALogin redeems a challenge token + TOTP/recovery code for a full session.
+func (s *AuthService) CompleteMFALogin(ctx context.Context, req MFALoginRequest, userAgent, ipAddress *string) (*TokenResponse, error) {
+	if s.mfaSvc == nil {
+		return nil, ErrMFANotEnabled
+	}
+	userID, err := s.jwtMgr.ValidateMFAChallenge(req.MFAToken)
+	if err != nil {
+		return nil, ErrInvalidCredentials
+	}
+	if err := s.mfaSvc.VerifyCode(ctx, userID, req.Code); err != nil {
+		MetricLoginAttempts.WithLabelValues("mfa", "failed").Inc()
+		return nil, err
+	}
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !user.IsActive {
+		return nil, ErrInactiveUser
+	}
+	return s.issueSession(ctx, user, userAgent, ipAddress, "mfa")
 }
 
 func (s *AuthService) Refresh(ctx context.Context, req RefreshRequest, userAgent, ipAddress *string) (*TokenResponse, error) {

@@ -30,6 +30,7 @@ type AuthHandler struct {
 	jwtMgr   *JWTManager
 	config   *Config
 	limiter  *RateLimiter
+	mfa      *MFAService
 }
 
 func NewAuthHandler(service *AuthService, webAuthn *WebAuthnService, jwtMgr *JWTManager, config *Config, limiter *RateLimiter) *AuthHandler {
@@ -69,6 +70,13 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 	r.Post("/passkey/login-finish", h.handlePasskeyLoginFinish)
 
 	r.Group(func(r chi.Router) {
+		if h.limiter != nil {
+			r.Use(h.limiter.Limit(10, time.Minute, "mfa-login"))
+		}
+		r.Post("/mfa/login", h.handleMFALogin)
+	})
+
+	r.Group(func(r chi.Router) {
 		r.Use(h.authMiddleware)
 		r.Get("/me", h.handleMe)
 		r.Post("/me/active-workspace", h.handleSetActiveWorkspace)
@@ -76,6 +84,11 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 		r.Post("/passkey/register-finish", h.handlePasskeyRegisterFinish)
 		r.Get("/me/passkeys", h.handleMePasskeys)
 		r.Delete("/me/passkeys/{id}", h.handleDeletePasskey)
+		r.Get("/mfa/status", h.handleMFAStatus)
+		r.Post("/mfa/enroll", h.handleMFAEnroll)
+		r.Post("/mfa/verify", h.handleMFAVerify)
+		r.Post("/mfa/disable", h.handleMFADisable)
+		r.Post("/mfa/recovery/regenerate", h.handleMFARegenerateRecovery)
 	})
 }
 

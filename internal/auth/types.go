@@ -18,11 +18,34 @@ type RefreshRequest struct {
 }
 
 type TokenResponse struct {
-	AccessToken  string   `json:"access_token"`
-	RefreshToken string   `json:"refresh_token"`
-	UserID       string   `json:"user_id"`
-	Email        string   `json:"email"`
-	Roles        []string `json:"roles"`
+	AccessToken  string   `json:"access_token,omitempty"`
+	RefreshToken string   `json:"refresh_token,omitempty"`
+	UserID       string   `json:"user_id,omitempty"`
+	Email        string   `json:"email,omitempty"`
+	Roles        []string `json:"roles,omitempty"`
+	MFARequired  bool     `json:"mfa_required,omitempty"`
+	MFAToken     string   `json:"mfa_token,omitempty"`
+}
+
+type MFALoginRequest struct {
+	MFAToken string `json:"mfa_token"`
+	Code     string `json:"code"`
+}
+
+type MFAEnrollResponse struct {
+	Secret        string   `json:"secret"`
+	OTPAuthURL    string   `json:"otpauth_url"`
+	RecoveryCodes []string `json:"recovery_codes"`
+}
+
+type MFAVerifyRequest struct {
+	Code string `json:"code"`
+}
+
+type MFAStatusResponse struct {
+	Enabled    bool       `json:"enabled"`
+	Method     string     `json:"method,omitempty"`
+	VerifiedAt *time.Time `json:"verified_at,omitempty"`
 }
 
 type UserResponse struct {
