@@ -1170,6 +1170,7 @@ export const en = {
       selector_label: 'Workspace',
       name: 'Name',
       description: 'Description',
+      mfa_required: 'Require 2FA',
       personal_suffix: '(personal)',
       confirm_delete: 'Are you sure you want to delete "{{name}}" workspace?',
       settings: 'Settings',

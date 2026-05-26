@@ -20,6 +20,7 @@ func (r *RBACRepository) GetUserRoles(ctx context.Context, userID string) ([]str
 		FROM user_roles ur
 		JOIN roles r ON ur.role_id = r.id
 		WHERE ur.user_id = $1
+		  AND ur.scope_type = 'global'
 	`
 	rows, err := r.db.QueryContext(ctx, query, userID)
 	if err != nil {
@@ -49,10 +50,42 @@ func (r *RBACRepository) GetUserPermissions(ctx context.Context, userID string) 
 		JOIN role_permissions rp ON ur.role_id = rp.role_id
 		JOIN permissions p ON rp.permission_id = p.id
 		WHERE ur.user_id = $1
+		  AND ur.scope_type = 'global'
 	`
 	rows, err := r.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("query user permissions: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var perms []string
+	for rows.Next() {
+		var perm string
+		if err := rows.Scan(&perm); err != nil {
+			return nil, err
+		}
+		perms = append(perms, perm)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return perms, nil
+}
+
+func (r *RBACRepository) GetUserScopedPermissions(ctx context.Context, userID string, scopeType ScopeType, scopeID string) ([]string, error) {
+	query := `
+		SELECT DISTINCT p.name
+		FROM user_roles ur
+		JOIN role_permissions rp ON ur.role_id = rp.role_id
+		JOIN permissions p ON rp.permission_id = p.id
+		WHERE ur.user_id = $1
+		  AND ur.scope_type = $2
+		  AND ur.scope_id = $3
+	`
+	rows, err := r.db.QueryContext(ctx, query, userID, string(scopeType), scopeID)
+	if err != nil {
+		return nil, fmt.Errorf("query scoped permissions: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 

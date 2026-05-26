@@ -4,7 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log/slog"
+	"strings"
 	"time"
 )
 
@@ -22,15 +25,22 @@ type AuditEntry struct {
 type AuditFilter struct {
 	UserID string
 	Action string
+	From   *time.Time
+	To     *time.Time
 	Limit  int
 }
 
 type AuditService struct {
-	db *sql.DB
+	db     *sql.DB
+	logger *slog.Logger
 }
 
 func NewAuditService(db *sql.DB) *AuditService {
-	return &AuditService{db: db}
+	return &AuditService{db: db, logger: slog.Default().With("subsystem", "audit")}
+}
+
+func (s *AuditService) WithLogger(l *slog.Logger) *AuditService {
+	return &AuditService{db: s.db, logger: l.With("subsystem", "audit")}
 }
 
 func (s *AuditService) Log(ctx context.Context, userID *string, action string, resource, resourceID *string, metadata any, ipAddress *string) error {
@@ -50,7 +60,70 @@ func (s *AuditService) Log(ctx context.Context, userID *string, action string, r
 	if err != nil {
 		return fmt.Errorf("insert audit log: %w", err)
 	}
+	s.emitStructured(ctx, userID, action, resource, resourceID, ipAddress, metadata, AuditResultSuccess)
 	return nil
+}
+
+func (s *AuditService) LogResult(ctx context.Context, userID *string, action string, resource, resourceID *string, metadata any, ipAddress *string, result AuditResult) error {
+	if err := s.Log(ctx, userID, action, resource, resourceID, metadata, ipAddress); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *AuditService) emitStructured(_ context.Context, userID *string, action string, resource, resourceID, ipAddress *string, metadata any, result AuditResult) {
+	if s.logger == nil {
+		return
+	}
+	attrs := []slog.Attr{
+		slog.String("event", action),
+		slog.String("result", string(result)),
+	}
+	if userID != nil {
+		attrs = append(attrs, slog.String("user_id", *userID))
+	}
+	if resource != nil {
+		attrs = append(attrs, slog.String("resource", *resource))
+	}
+	if resourceID != nil {
+		attrs = append(attrs, slog.String("resource_id", *resourceID))
+	}
+	if ipAddress != nil {
+		attrs = append(attrs, slog.String("ip", MaskIP(*ipAddress)))
+	}
+	if metadata != nil {
+		masked := maskAuditMetadata(metadata)
+		if masked != nil {
+			attrs = append(attrs, slog.Any("metadata", masked))
+		}
+	}
+	s.logger.LogAttrs(context.Background(), slog.LevelInfo, "audit", attrs...)
+}
+
+func maskAuditMetadata(metadata any) any {
+	bs, err := json.Marshal(metadata)
+	if err != nil {
+		return nil
+	}
+	var m map[string]any
+	if err := json.Unmarshal(bs, &m); err != nil {
+		return nil
+	}
+	for k, v := range m {
+		s, ok := v.(string)
+		if !ok {
+			continue
+		}
+		switch k {
+		case "email", "old_email", "new_email":
+			m[k] = MaskEmail(s)
+		case "ip", "ip_address", "remote_addr":
+			m[k] = MaskIP(s)
+		case "token", "refresh_token", "access_token", "recovery_code":
+			m[k] = MaskToken(s)
+		}
+	}
+	return m
 }
 
 func (s *AuditService) List(ctx context.Context, filter AuditFilter) ([]AuditEntry, error) {
@@ -62,29 +135,39 @@ func (s *AuditService) List(ctx context.Context, filter AuditFilter) ([]AuditEnt
 		limit = 1000
 	}
 
-	const queryAll = `SELECT id, user_id, action, resource, resource_id, metadata, ip_address::text, created_at
-		FROM audit_log ORDER BY created_at DESC LIMIT $1`
-	const queryByUser = `SELECT id, user_id, action, resource, resource_id, metadata, ip_address::text, created_at
-		FROM audit_log WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`
-	const queryByAction = `SELECT id, user_id, action, resource, resource_id, metadata, ip_address::text, created_at
-		FROM audit_log WHERE action = $1 ORDER BY created_at DESC LIMIT $2`
-	const queryByUserAction = `SELECT id, user_id, action, resource, resource_id, metadata, ip_address::text, created_at
-		FROM audit_log WHERE user_id = $1 AND action = $2 ORDER BY created_at DESC LIMIT $3`
-
-	var (
-		rows *sql.Rows
-		err  error
-	)
-	switch {
-	case filter.UserID != "" && filter.Action != "":
-		rows, err = s.db.QueryContext(ctx, queryByUserAction, filter.UserID, filter.Action, limit)
-	case filter.UserID != "":
-		rows, err = s.db.QueryContext(ctx, queryByUser, filter.UserID, limit)
-	case filter.Action != "":
-		rows, err = s.db.QueryContext(ctx, queryByAction, filter.Action, limit)
-	default:
-		rows, err = s.db.QueryContext(ctx, queryAll, limit)
+	var parts []string
+	args := []any{}
+	idx := 1
+	if filter.UserID != "" {
+		parts = append(parts, fmt.Sprintf("user_id = $%d", idx))
+		args = append(args, filter.UserID)
+		idx++
 	}
+	if filter.Action != "" {
+		parts = append(parts, fmt.Sprintf("action = $%d", idx))
+		args = append(args, filter.Action)
+		idx++
+	}
+	if filter.From != nil {
+		parts = append(parts, fmt.Sprintf("created_at >= $%d", idx))
+		args = append(args, *filter.From)
+		idx++
+	}
+	if filter.To != nil {
+		parts = append(parts, fmt.Sprintf("created_at < $%d", idx))
+		args = append(args, *filter.To)
+		idx++
+	}
+	where := ""
+	if len(parts) > 0 {
+		where = " WHERE " + strings.Join(parts, " AND ")
+	}
+	args = append(args, limit)
+	q := fmt.Sprintf(
+		`SELECT id, user_id, action, resource, resource_id, metadata, ip_address::text, created_at
+		FROM audit_log%s ORDER BY created_at DESC LIMIT $%d`, where, idx)
+
+	rows, err := s.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query audit log: %w", err)
 	}
@@ -121,3 +204,5 @@ func (s *AuditService) List(ctx context.Context, filter AuditFilter) ([]AuditEnt
 	}
 	return entries, rows.Err()
 }
+
+var ErrAuditImmutable = errors.New("audit_log is append-only")

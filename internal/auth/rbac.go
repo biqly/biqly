@@ -65,6 +65,16 @@ func (s *RBACService) Check(ctx context.Context, check PermissionCheck) (bool, e
 		return true, nil
 	}
 
+	if check.ScopeType != "" && check.ScopeType != ScopeGlobal && check.ScopeID != "" {
+		scopedPerms, err := s.repo.GetUserScopedPermissions(ctx, check.UserID, check.ScopeType, check.ScopeID)
+		if err != nil {
+			return false, err
+		}
+		if slices.Contains(scopedPerms, check.Permission) {
+			return true, nil
+		}
+	}
+
 	if check.ScopeType == ScopeWorkspace && check.ScopeID != "" {
 		wsPerms, err := s.repo.GetUserWorkspacePermissions(ctx, check.UserID, check.ScopeID)
 		if err != nil {
@@ -127,6 +137,13 @@ func (s *RBACService) GetEffectivePermissions(ctx context.Context, userID, works
 		merged[p] = struct{}{}
 	}
 	for _, p := range wsPerms {
+		merged[p] = struct{}{}
+	}
+	scopedPerms, err := s.repo.GetUserScopedPermissions(ctx, userID, ScopeWorkspace, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range scopedPerms {
 		merged[p] = struct{}{}
 	}
 

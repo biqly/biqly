@@ -249,11 +249,12 @@ export async function updateWorkspace(
   id: string,
   name: string,
   description?: string,
+  mfaRequired?: boolean,
 ): Promise<void> {
   const res = await csrfFetch(`${AUTH_API_BASE}/workspaces/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
-    body: JSON.stringify({ name, description }),
+    body: JSON.stringify({ name, description, mfa_required: mfaRequired }),
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
 }

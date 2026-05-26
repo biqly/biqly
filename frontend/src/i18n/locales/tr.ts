@@ -1172,6 +1172,7 @@ export const tr: Dictionary = {
       selector_label: 'Workspace',
       name: 'İsim',
       description: 'Açıklama',
+      mfa_required: '2FA zorunlu',
       personal_suffix: '(kişisel)',
       confirm_delete: '"{{name}}" workspace\'ini silmek istediğinden emin misin?',
       settings: 'Ayarlar',

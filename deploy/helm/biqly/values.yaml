@@ -275,9 +275,14 @@ auth:
     pullPolicy: IfNotPresent
   service:
     port: 8889
+  smtp:
+    enabled: true
   config:
     BI_AUTH_PORT: "8889"
     BI_AUTH_REDIS_DSN: "redis://biqly-dragonfly:6379"
+    BI_AUTH_SMTP_HOST: smtp.mail.me.com
+    BI_AUTH_SMTP_PORT: "587"
+    BI_AUTH_SMTP_FROM: no-reply@il1.nl
   resources:
     requests:
       cpu: 100m

@@ -2,6 +2,11 @@ package auth
 
 import "time"
 
+const (
+	EmailChangeWaitPeriod = 24 * time.Hour
+	EmailChangeTokenTTL   = 48 * time.Hour
+)
+
 type RegisterRequest struct {
 	Email       string `json:"email"`
 	Password    string `json:"password"`
@@ -18,11 +23,34 @@ type RefreshRequest struct {
 }
 
 type TokenResponse struct {
-	AccessToken  string   `json:"access_token"`
-	RefreshToken string   `json:"refresh_token"`
-	UserID       string   `json:"user_id"`
-	Email        string   `json:"email"`
-	Roles        []string `json:"roles"`
+	AccessToken  string   `json:"access_token,omitempty"`
+	RefreshToken string   `json:"refresh_token,omitempty"`
+	UserID       string   `json:"user_id,omitempty"`
+	Email        string   `json:"email,omitempty"`
+	Roles        []string `json:"roles,omitempty"`
+	MFARequired  bool     `json:"mfa_required,omitempty"`
+	MFAToken     string   `json:"mfa_token,omitempty"`
+}
+
+type MFALoginRequest struct {
+	MFAToken string `json:"mfa_token"`
+	Code     string `json:"code"`
+}
+
+type MFAEnrollResponse struct {
+	Secret        string   `json:"secret"`
+	OTPAuthURL    string   `json:"otpauth_url"`
+	RecoveryCodes []string `json:"recovery_codes"`
+}
+
+type MFAVerifyRequest struct {
+	Code string `json:"code"`
+}
+
+type MFAStatusResponse struct {
+	Enabled    bool       `json:"enabled"`
+	Method     string     `json:"method,omitempty"`
+	VerifiedAt *time.Time `json:"verified_at,omitempty"`
 }
 
 type UserResponse struct {
@@ -47,6 +75,10 @@ type SetActiveWorkspaceResponse struct {
 	ActiveWorkspaceID string `json:"active_workspace_id"`
 }
 
+type RequestEmailChangeRequest struct {
+	NewEmail string `json:"new_email"`
+}
+
 type User struct {
 	ID            string
 	Email         string
@@ -67,9 +99,24 @@ type Session struct {
 	RefreshToken string
 	UserAgent    *string
 	IPAddress    *string
-	CreatedAt     time.Time
+	CreatedAt    time.Time
 	ExpiresAt    time.Time
 	RevokedAt    *time.Time
+}
+
+type EmailChangeRequest struct {
+	ID                  string
+	UserID              string
+	OldEmail            string
+	NewEmail            string
+	OldEmailToken       string
+	NewEmailToken       string
+	OldEmailConfirmedAt *time.Time
+	NewEmailConfirmedAt *time.Time
+	RequestedAt         time.Time
+	NotBefore           time.Time
+	ExpiresAt           time.Time
+	CompletedAt         *time.Time
 }
 
 type Role struct {

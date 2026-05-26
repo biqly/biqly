@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -150,11 +151,74 @@ func TestValidators(t *testing.T) {
 	assert.NoError(t, ValidateEmail("test@example.com"))
 	assert.Error(t, ValidateEmail("invalid-email"))
 	assert.Error(t, ValidateEmail(""))
+	assert.Error(t, ValidateEmail(`Evil <test@example.com>`))
+	assert.Error(t, ValidateEmail("<script>@example.com"))
 
 	assert.NoError(t, ValidatePassword("StrongPass1!"))
 	assert.Error(t, ValidatePassword("short"))
 	assert.Error(t, ValidatePassword("NoSpecialOrDigit"))
 	assert.Error(t, ValidatePassword("lowercaseonly1!"))
+
+	email, err := NormalizeEmail("  TEST@Example.COM  ")
+	require.NoError(t, err)
+	assert.Equal(t, "test@example.com", email)
+
+	displayName, err := SanitizeDisplayName("  Ada Lovelace  ")
+	require.NoError(t, err)
+	assert.Equal(t, "Ada Lovelace", displayName)
+	assert.EqualError(t, ValidateDisplayName(`<img src=x onerror=alert(1)>`), "display name contains unsupported characters")
+	assert.EqualError(t, ValidateDisplayName("Ada\x00Lovelace"), "display name contains unsupported characters")
+}
+
+func TestEmailChangeMigrationHasDoubleVerificationAndWaitPeriod(t *testing.T) {
+	up, err := os.ReadFile("../../migrations/auth/023a_create_email_change_requests.up.sql")
+	require.NoError(t, err)
+
+	sql := string(up)
+	for _, fragment := range []string{
+		"old_email_token",
+		"new_email_token",
+		"old_email_confirmed_at",
+		"new_email_confirmed_at",
+		"not_before",
+		"completed_at",
+		"new_email",
+	} {
+		assert.Contains(t, sql, fragment)
+	}
+	assert.True(t, strings.Contains(sql, "UNIQUE (old_email_token)") || strings.Contains(sql, "old_email_token TEXT NOT NULL UNIQUE"))
+	assert.True(t, strings.Contains(sql, "UNIQUE (new_email_token)") || strings.Contains(sql, "new_email_token TEXT NOT NULL UNIQUE"))
+}
+
+func TestEmailChangeContract(t *testing.T) {
+	assert.Equal(t, 24*time.Hour, EmailChangeWaitPeriod)
+	assert.Equal(t, 48*time.Hour, EmailChangeTokenTTL)
+
+	req := EmailChangeRequest{
+		UserID:   "user-1",
+		OldEmail: "old@example.com",
+		NewEmail: "new@example.com",
+	}
+	assert.Equal(t, "user-1", req.UserID)
+	assert.Equal(t, "new@example.com", req.NewEmail)
+}
+
+func TestPasswordHistoryMigrationAndContract(t *testing.T) {
+	up, err := os.ReadFile("../../migrations/auth/024a_create_password_history.up.sql")
+	require.NoError(t, err)
+
+	sql := string(up)
+	for _, fragment := range []string{
+		"password_history",
+		"user_id",
+		"password_hash",
+		"created_at",
+		"idx_password_history_user_created",
+	} {
+		assert.Contains(t, sql, fragment)
+	}
+	assert.Equal(t, 5, PasswordHistoryLimit)
+	assert.ErrorIs(t, ErrPasswordReused, ErrPasswordReused)
 }
 
 func openTestDBPool(t *testing.T) *sql.DB {

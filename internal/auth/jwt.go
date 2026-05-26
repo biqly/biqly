@@ -19,6 +19,8 @@ import (
 const (
 	DefaultJWTIssuer   = "biqly-auth"
 	DefaultJWTAudience = "biqly-api"
+	MFAChallengeAudience = "biqly-mfa"
+	mfaChallengeTTL      = 5 * time.Minute
 )
 
 type JWTClaims struct {
@@ -194,6 +196,53 @@ func (m *JWTManager) ValidateToken(tokenStr string) (*JWTClaims, error) {
 	}
 
 	return claims, nil
+}
+
+// GenerateMFAChallenge issues a short-lived token that carries the user ID
+// after first-factor (password) success but before MFA verification.
+// Audience is set to MFAChallengeAudience so the regular ValidateToken cannot
+// accept it for protected resources.
+func (m *JWTManager) GenerateMFAChallenge(userID string) (string, error) {
+	now := time.Now()
+	jti, err := generateJTI()
+	if err != nil {
+		return "", err
+	}
+	claims := jwt.RegisteredClaims{
+		ID:        jti,
+		Subject:   userID,
+		Issuer:    m.issuer,
+		Audience:  jwt.ClaimStrings{MFAChallengeAudience},
+		ExpiresAt: jwt.NewNumericDate(now.Add(mfaChallengeTTL)),
+		IssuedAt:  jwt.NewNumericDate(now),
+		NotBefore: jwt.NewNumericDate(now),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	return token.SignedString(m.privateKey)
+}
+
+// ValidateMFAChallenge returns the subject user ID if the token is a valid
+// (unexpired, correctly-audienced) MFA challenge token.
+func (m *JWTManager) ValidateMFAChallenge(tokenStr string) (string, error) {
+	parser := jwt.NewParser(
+		jwt.WithIssuer(m.issuer),
+		jwt.WithAudience(MFAChallengeAudience),
+		jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name}),
+	)
+	var claims jwt.RegisteredClaims
+	token, err := parser.ParseWithClaims(tokenStr, &claims, func(t *jwt.Token) (any, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
+		return m.publicKey, nil
+	})
+	if err != nil {
+		return "", err
+	}
+	if !token.Valid || claims.Subject == "" {
+		return "", errors.New("invalid mfa challenge")
+	}
+	return claims.Subject, nil
 }
 
 func generateJTI() (string, error) {

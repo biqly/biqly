@@ -10,6 +10,7 @@ import (
 type EmailSender interface {
 	SendEmailVerification(ctx context.Context, email, token string) error
 	SendPasswordReset(ctx context.Context, email, token string) error
+	SendEmailChangeConfirmation(ctx context.Context, email, token string, newEmail bool) error
 }
 
 type SMTPEmailSender struct {
@@ -31,6 +32,16 @@ func (s *SMTPEmailSender) SendPasswordReset(ctx context.Context, email, token st
 	resetURL := fmt.Sprintf("http://localhost:3333/auth/reset-password?token=%s", token)
 	subject := "Reset your Biqly password"
 	body := fmt.Sprintf("You requested to reset your password. Click the link below to set a new password:\n%s\n\nThis link will expire in 1 hour.", resetURL)
+	return s.send(email, subject, body)
+}
+
+func (s *SMTPEmailSender) SendEmailChangeConfirmation(ctx context.Context, email, token string, newEmail bool) error {
+	confirmURL := fmt.Sprintf("http://localhost:3333/auth/email-change/confirm?token=%s", token)
+	subject := "Confirm your Biqly email change"
+	body := fmt.Sprintf("Confirm this email change by clicking the following link:\n%s\n\nThis link will expire in 48 hours.", confirmURL)
+	if newEmail {
+		body = fmt.Sprintf("Confirm this as your new Biqly email address:\n%s\n\nThis link will expire in 48 hours.", confirmURL)
+	}
 	return s.send(email, subject, body)
 }
 
@@ -72,5 +83,15 @@ func (m *MockEmailSender) SendPasswordReset(ctx context.Context, email, token st
 	msg := fmt.Sprintf("Reset token: %s", token)
 	m.SentEmails[email] = append(m.SentEmails[email], msg)
 	slog.Info("MOCK EMAIL SENT: Password reset email", "to", email, "token", token)
+	return nil
+}
+
+func (m *MockEmailSender) SendEmailChangeConfirmation(ctx context.Context, email, token string, newEmail bool) error {
+	msg := fmt.Sprintf("Email change token: %s", token)
+	if newEmail {
+		msg = fmt.Sprintf("New email change token: %s", token)
+	}
+	m.SentEmails[email] = append(m.SentEmails[email], msg)
+	slog.Info("MOCK EMAIL SENT: Email change confirmation", "to", email, "token", token, "new_email", newEmail)
 	return nil
 }

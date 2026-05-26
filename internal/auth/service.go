@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -16,7 +17,12 @@ var (
 	ErrInvalidCredentials = errors.New("invalid email or password")
 	ErrInactiveUser       = errors.New("user account is deactivated")
 	ErrAccountLocked      = errors.New("too many failed login attempts; account is temporarily locked for 15 minutes")
+	ErrMFARequired        = errors.New("mfa required for active workspace")
+	ErrEmailChangePending = errors.New("email change confirmation pending")
+	ErrPasswordReused     = errors.New("password was recently used")
 )
+
+const PasswordHistoryLimit = 5
 
 type AuthService struct {
 	userRepo     *UserRepository
@@ -27,11 +33,16 @@ type AuthService struct {
 	redisClient  *redis.Client
 	emailSender  EmailSender
 	workspaceSvc *WorkspaceService
+	mfaSvc       *MFAService
 }
 
 // SetWorkspaceService wires the workspace service after construction to avoid
 // a constructor-arg ripple through tests; required for active-workspace switching.
 func (s *AuthService) SetWorkspaceService(ws *WorkspaceService) { s.workspaceSvc = ws }
+
+// SetMFAService wires the MFA service after construction. Optional; if unset
+// MFA checks are skipped and login proceeds with single factor.
+func (s *AuthService) SetMFAService(m *MFAService) { s.mfaSvc = m }
 
 func NewAuthService(
 	userRepo *UserRepository,
@@ -54,7 +65,12 @@ func NewAuthService(
 }
 
 func (s *AuthService) Register(ctx context.Context, req RegisterRequest, userAgent, ipAddress *string) (*TokenResponse, error) {
-	if err := ValidateEmail(req.Email); err != nil {
+	email, err := NormalizeEmail(req.Email)
+	if err != nil {
+		return nil, err
+	}
+	displayName, err := SanitizeDisplayName(req.DisplayName)
+	if err != nil {
 		return nil, err
 	}
 	if err := ValidatePassword(req.Password); err != nil {
@@ -66,7 +82,7 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest, userAge
 		return nil, fmt.Errorf("hash password: %w", err)
 	}
 
-	user, err := s.userRepo.CreateUser(ctx, req.Email, hash, req.DisplayName)
+	user, err := s.userRepo.CreateUser(ctx, email, hash, displayName)
 	if err != nil {
 		return nil, err
 	}
@@ -111,8 +127,12 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest, userAge
 }
 
 func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ipAddress *string) (*TokenResponse, error) {
+	email, emailErr := NormalizeEmail(req.Email)
+	if emailErr != nil {
+		email = strings.TrimSpace(strings.ToLower(req.Email))
+	}
 	if s.redisClient != nil {
-		lockKey := fmt.Sprintf("login_failures:%s", req.Email)
+		lockKey := fmt.Sprintf("login_failures:%s", email)
 		val, err := s.redisClient.Get(ctx, lockKey).Int()
 		if err == nil && val >= 5 {
 			MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
@@ -120,13 +140,13 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 		}
 	}
 
-	user, err := s.userRepo.GetUserByEmail(ctx, req.Email)
+	user, err := s.userRepo.GetUserByEmail(ctx, email)
 	if errors.Is(err, ErrUserNotFound) {
 		// Burn the same amount of CPU as a real bcrypt verify so the response
 		// time does not reveal whether the email exists.
 		VerifyDummyPassword(req.Password)
 		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
-		s.recordLoginFailure(ctx, req.Email)
+		s.recordLoginFailure(ctx, email)
 		return nil, ErrInvalidCredentials
 	} else if err != nil {
 		return nil, err
@@ -147,15 +167,58 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 
 	if !passwordOK {
 		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
-		s.recordLoginFailure(ctx, req.Email)
+		s.recordLoginFailure(ctx, email)
 		return nil, ErrInvalidCredentials
 	}
 
 	if s.redisClient != nil {
-		lockKey := fmt.Sprintf("login_failures:%s", req.Email)
+		lockKey := fmt.Sprintf("login_failures:%s", email)
 		_ = s.redisClient.Del(ctx, lockKey).Err()
 	}
 
+	workspaceMFARequired, err := s.activeWorkspaceRequiresMFA(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.mfaSvc != nil {
+		enabled, err := s.mfaSvc.IsEnabled(ctx, user.ID)
+		if err != nil {
+			return nil, fmt.Errorf("check mfa: %w", err)
+		}
+		if enabled {
+			challenge, err := s.jwtMgr.GenerateMFAChallenge(user.ID)
+			if err != nil {
+				return nil, fmt.Errorf("generate mfa challenge: %w", err)
+			}
+			MetricLoginAttempts.WithLabelValues("password", "mfa_required").Inc()
+			return &TokenResponse{MFARequired: true, MFAToken: challenge}, nil
+		}
+	}
+	if workspaceMFARequired {
+		MetricLoginAttempts.WithLabelValues("password", "mfa_required").Inc()
+		return nil, ErrMFARequired
+	}
+
+	return s.issueSession(ctx, user, userAgent, ipAddress, "password")
+}
+
+func (s *AuthService) activeWorkspaceRequiresMFA(ctx context.Context, userID string) (bool, error) {
+	if s.workspaceSvc == nil {
+		return false, nil
+	}
+	workspaceID, err := s.userRepo.GetActiveOrPersonalWorkspaceID(ctx, userID)
+	if err != nil {
+		return false, fmt.Errorf("get active workspace: %w", err)
+	}
+	required, err := s.workspaceSvc.IsMFARequired(ctx, workspaceID)
+	if err != nil {
+		return false, fmt.Errorf("check workspace mfa policy: %w", err)
+	}
+	return required, nil
+}
+
+func (s *AuthService) issueSession(ctx context.Context, user *User, userAgent, ipAddress *string, method string) (*TokenResponse, error) {
 	roles, err := s.rbacRepo.GetUserRoles(ctx, user.ID)
 	if err != nil {
 		return nil, err
@@ -177,8 +240,7 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 	}
 
 	_ = s.userRepo.UpdateLastLogin(ctx, user.ID)
-
-	MetricLoginAttempts.WithLabelValues("password", "success").Inc()
+	MetricLoginAttempts.WithLabelValues(method, "success").Inc()
 
 	return &TokenResponse{
 		AccessToken:  accessToken,
@@ -187,6 +249,29 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 		Email:        user.Email,
 		Roles:        roles,
 	}, nil
+}
+
+// CompleteMFALogin redeems a challenge token + TOTP/recovery code for a full session.
+func (s *AuthService) CompleteMFALogin(ctx context.Context, req MFALoginRequest, userAgent, ipAddress *string) (*TokenResponse, error) {
+	if s.mfaSvc == nil {
+		return nil, ErrMFANotEnabled
+	}
+	userID, err := s.jwtMgr.ValidateMFAChallenge(req.MFAToken)
+	if err != nil {
+		return nil, ErrInvalidCredentials
+	}
+	if err := s.mfaSvc.VerifyCode(ctx, userID, req.Code); err != nil {
+		MetricLoginAttempts.WithLabelValues("mfa", "failed").Inc()
+		return nil, err
+	}
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !user.IsActive {
+		return nil, ErrInactiveUser
+	}
+	return s.issueSession(ctx, user, userAgent, ipAddress, "mfa")
 }
 
 func (s *AuthService) Refresh(ctx context.Context, req RefreshRequest, userAgent, ipAddress *string) (*TokenResponse, error) {
@@ -317,12 +402,89 @@ func (s *AuthService) SetActiveWorkspace(ctx context.Context, userID, workspaceI
 	}, nil
 }
 
+func (s *AuthService) RequestEmailChange(ctx context.Context, userID, newEmail string) (*EmailChangeRequest, error) {
+	normalizedEmail, err := NormalizeEmail(newEmail)
+	if err != nil {
+		return nil, err
+	}
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if strings.EqualFold(user.Email, normalizedEmail) {
+		return nil, errors.New("new email must be different")
+	}
+	if _, err := s.userRepo.GetUserByEmail(ctx, normalizedEmail); err == nil {
+		return nil, ErrUserAlreadyExists
+	} else if !errors.Is(err, ErrUserNotFound) {
+		return nil, err
+	}
+
+	oldToken, err := s.generateSecureToken()
+	if err != nil {
+		return nil, err
+	}
+	newToken, err := s.generateSecureToken()
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now()
+	req, err := s.userRepo.CreateEmailChangeRequest(
+		ctx,
+		user.ID,
+		user.Email,
+		normalizedEmail,
+		oldToken,
+		newToken,
+		now.Add(EmailChangeWaitPeriod),
+		now.Add(EmailChangeTokenTTL),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.emailSender != nil {
+		if err := s.emailSender.SendEmailChangeConfirmation(ctx, user.Email, oldToken, false); err != nil {
+			return nil, err
+		}
+		if err := s.emailSender.SendEmailChangeConfirmation(ctx, normalizedEmail, newToken, true); err != nil {
+			return nil, err
+		}
+	}
+	return req, nil
+}
+
+func (s *AuthService) ConfirmEmailChange(ctx context.Context, token string) (*EmailChangeRequest, error) {
+	if strings.TrimSpace(token) == "" {
+		return nil, errors.New("token is required")
+	}
+	req, err := s.userRepo.ConfirmEmailChangeToken(ctx, token, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	if req.CompletedAt == nil {
+		return req, ErrEmailChangePending
+	}
+	return req, nil
+}
+
 func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, provider string, token *oauth2.Token, userInfo *OAuthUserInfo, userAgent, ipAddress *string) (*TokenResponse, error) {
+	email, err := NormalizeEmail(userInfo.Email)
+	if err != nil {
+		MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()
+		return nil, err
+	}
+	displayName, err := SanitizeDisplayName(userInfo.Name)
+	if err != nil {
+		MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()
+		return nil, err
+	}
+
 	userID, err := s.userRepo.GetOAuthAccount(ctx, provider, userInfo.Sub)
 	var user *User
 
 	if errors.Is(err, ErrOAuthAccountNotFound) {
-		user, err = s.userRepo.CreateUserWithOAuth(ctx, userInfo.Email, userInfo.Name, provider, userInfo.Sub, token)
+		user, err = s.userRepo.CreateUserWithOAuth(ctx, email, displayName, provider, userInfo.Sub, token)
 		if err != nil {
 			MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()
 			return nil, err
@@ -424,7 +586,11 @@ func (s *AuthService) recordLoginFailure(ctx context.Context, email string) {
 }
 
 func (s *AuthService) ForgotPassword(ctx context.Context, email string) error {
-	user, err := s.userRepo.GetUserByEmail(ctx, email)
+	normalizedEmail, err := NormalizeEmail(email)
+	if err != nil {
+		return err
+	}
+	user, err := s.userRepo.GetUserByEmail(ctx, normalizedEmail)
 	if errors.Is(err, ErrUserNotFound) {
 		return nil
 	} else if err != nil {
@@ -443,7 +609,7 @@ func (s *AuthService) ForgotPassword(ctx context.Context, email string) error {
 	}
 
 	if s.emailSender != nil {
-		return s.emailSender.SendPasswordReset(ctx, email, token)
+		return s.emailSender.SendPasswordReset(ctx, normalizedEmail, token)
 	}
 
 	return nil
@@ -457,6 +623,13 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword stri
 	userID, err := s.userRepo.VerifyPasswordResetToken(ctx, token)
 	if err != nil {
 		return err
+	}
+	reused, err := s.userRepo.PasswordWasUsed(ctx, userID, newPassword, PasswordHistoryLimit)
+	if err != nil {
+		return err
+	}
+	if reused {
+		return ErrPasswordReused
 	}
 
 	hash, err := HashPassword(newPassword)
@@ -479,7 +652,11 @@ func (s *AuthService) VerifyEmail(ctx context.Context, token string) error {
 }
 
 func (s *AuthService) ResendVerificationEmail(ctx context.Context, email string) error {
-	user, err := s.userRepo.GetUserByEmail(ctx, email)
+	normalizedEmail, err := NormalizeEmail(email)
+	if err != nil {
+		return err
+	}
+	user, err := s.userRepo.GetUserByEmail(ctx, normalizedEmail)
 	if errors.Is(err, ErrUserNotFound) {
 		return nil
 	} else if err != nil {
@@ -502,7 +679,7 @@ func (s *AuthService) ResendVerificationEmail(ctx context.Context, email string)
 	}
 
 	if s.emailSender != nil {
-		return s.emailSender.SendEmailVerification(ctx, email, token)
+		return s.emailSender.SendEmailVerification(ctx, normalizedEmail, token)
 	}
 
 	return nil

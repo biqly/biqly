@@ -1181,7 +1181,7 @@ r.Route("/api", func(r chi.Router) {
 - [x] `internal/auth/rbac_repository.go` — Role/permission DB operasyonları
 - [x] Global scope izin kontrolü
 - [x] Workspace scope izin kontrolü
-- [ ] Resource scope izin kontrolü
+- [x] Resource scope izin kontrolü
 - [ ] Rol hiyerarşisi (gelecek: role inheritance)
 - [x] Seed data: 5 varsayılan rol (super_admin, admin, developer, analyst, viewer) + 23 izin
 - [x] super_admin bypass: tüm izin kontrollerini otomatik geç
@@ -1305,8 +1305,8 @@ r.Route("/api", func(r chi.Router) {
 - [x] Rate limiting middleware (IP bazlı)
 - [x] Brute-force koruması (başarısız giriş takibi)
 - [x] CSRF koruması (SameSite cookie + token)
-- [ ] Input sanitizasyonu (XSS önleme)
-- [ ] SQL injection önleme (parameterized queries — zaten pgx)
+- [x] Input sanitizasyonu (XSS önleme) — auth girişlerinde strict email addr-spec normalization + display name plain-text kontrolü (`internal/auth/validator.go`); register/login/OAuth/forgot/resend akışları normalize edilmiş değer kullanıyor
+- [x] SQL injection önleme (parameterized queries — zaten pgx) — auth/middleware SQL taramasında dinamik SQL concat/fmt.Sprintf yok; kullanıcı girdileri `$1..$n` placeholder'larıyla geçiliyor
 - [x] CORS katı yapılandırma — auth servisi `BI_AUTH_CORS_ALLOWED_ORIGINS` (empty = block-all), monolit ile aynı pattern
 - [x] Security headers (HSTS, X-Frame-Options, CSP) — `bimw.SecurityHeaders` middleware monolit + auth servise uygulandı
 - [x] Audit logging tüm auth olayları
@@ -1317,19 +1317,19 @@ r.Route("/api", func(r chi.Router) {
 - [x] Token ailesi koruması (refresh token rotation aile takibi)
 - [x] JWT issuer/audience doğrulama — `BI_AUTH_JWT_ISSUER` / `BI_AUTH_JWT_AUDIENCE`, monolit middleware fetch via `/internal/auth/public-key`
 - [x] JWT ID (jti) ile token takibi — her token'a rastgele 128-bit jti, revocation list için altyapı
-- [ ] E-posta değişikliği çift doğrulama + bekleme süresi
-- [ ] Parola geçmişi kontrolü (son 5 parola)
-- [ ] Recovery kodları (2FA için 10 adet tek kullanımlık)
+- [x] E-posta değişikliği çift doğrulama + bekleme süresi — `email_change_requests` migration (`023a`), eski+yeni e-posta token'ları, 24s `not_before`, `/auth/me/email-change/request` + `/auth/email-change/confirm` akışı
+- [x] Parola geçmişi kontrolü (son 5 parola) — `password_history` migration (`024a`), kayıt/reset sırasında hash geçmişi tutuluyor; reset flow son 5 bcrypt hash'e karşı tekrar kullanımı reddediyor (`ErrPasswordReused`)
+- [x] Recovery kodları (2FA için 10 adet tek kullanımlık) — `MFAService` 10 adet recovery code üretir, bcrypt hash olarak saklar, `ConsumeRecoveryCode` ile tek kullanımlık tüketir; regenerate endpoint mevcut
 
 ### 2FA / MFA
 
-- [ ] `user_mfa` tablosu (method, secret_encrypted, verified_at, enabled)
-- [ ] TOTP implementasyonu (RFC 6238)
-- [ ] QR code üretimi (TOTP secret enrollment)
-- [ ] Recovery kod üretimi ve doğrulama
-- [ ] 2FA zorunlu kılma politikası (workspace bazında)
+- [x] `user_mfa` tablosu (method, secret_encrypted, verified_at, enabled) — migration `020a_create_user_mfa.up.sql`
+- [x] TOTP implementasyonu (RFC 6238) — `internal/auth/totp.go`, ±1 step (30s) skew, constant-time compare
+- [x] QR code üretimi (TOTP secret enrollment) — `BuildOTPAuthURL` ile `otpauth://` URI, frontend QR encode eder
+- [x] Recovery kod üretimi ve doğrulama — 10 adet base32, bcrypt hash, tek kullanımlık (`array_remove`), `RegenerateRecoveryCodes`
+- [x] 2FA zorunlu kılma politikası (workspace bazında) — `workspaces.mfa_required` migration (`022a`), workspace API/ayarlar toggle'ı, login sırasında aktif workspace policy enforcement (`ErrMFARequired`)
 - [ ] Admin bypass kodları
-- [ ] 2FA enrollment ve verification endpoint'leri
+- [x] 2FA enrollment ve verification endpoint'leri — `/auth/mfa/{status,enroll,verify,disable,recovery/regenerate}` + `/auth/mfa/login` (challenge token redeem); login flow `mfa_required` + `mfa_token` döndürür, `CompleteMFALogin` ile session tamamlanır
 
 ### Test
 
@@ -1731,12 +1731,12 @@ atılabilecek güvenlik, operasyonel ve uyumluluk gereksinimleridir.
 
 ### 18.2 Two-Factor Authentication (2FA / MFA)
 
-- [ ] TOTP (Time-based OTP) desteği: Google Authenticator, Authy uyumlu
-- [ ] Recovery kodları: 10 adet tek kullanımlık kod, güvenli yerde saklama uyarısı
+- [x] TOTP (Time-based OTP) desteği: Google Authenticator, Authy uyumlu — `internal/auth/totp.go`
+- [x] Recovery kodları: 10 adet tek kullanımlık kod, güvenli yerde saklama uyarısı — bcrypt hash, `array_remove` ile consume
 - [ ] 2FA zorunlu kılma: Admin, workspace bazında "2FA required" politikası
 - [ ] 2FA bypass kodları: Support için tek kullanımlık admin bypass kodları
 - [ ] WebAuthn ikinci faktör olarak: Passkey zaten birinci faktör, TOTP ile birlikte ikinci faktör seçeneği
-- [ ] DB tablosu: `user_mfa` (user_id, method, secret_encrypted, verified_at, enabled)
+- [x] DB tablosu: `user_mfa` (user_id, method, secret_encrypted, recovery_codes, verified_at, enabled) — migration `020a`
 
 ### 18.3 Token & Session Security
 
@@ -1762,14 +1762,14 @@ atılabilecek güvenlik, operasyonel ve uyumluluk gereksinimleridir.
 
 ### 18.5 Audit & Compliance
 
-- [ ] **Structured audit log**: Her auth olayı JSON formatında (who, what, when, where, result)
-- [ ] **PII masking in logs**: E-posta, IP kısmen maskeli (`b***@gmail.com`, `192.168.***.***`)
-- [ ] **Audit log immutability**: Append-only, silme/değiştirme yok (DB trigger veya uygulama seviyesinde)
-- [ ] **Audit log retention**: 1 yıl varsayılan, konfigüre edilebilir
-- [ ] **Export**: Admin audit log CSV/JSON export
-- [ ] **GDPR compliance**: Kullanıcı veri dışa aktarma endpoint'i (`GET /auth/me/export`)
+- [x] **Structured audit log**: typed event constants (`audit_events.go`), slog JSON emit paralel olarak `AuditService.Log` içinde (`audit.go:emitStructured`)
+- [x] **PII masking in logs**: `MaskEmail`/`MaskIP`/`MaskToken` (`audit_mask.go`), slog meta auto-mask via `maskAuditMetadata`
+- [x] **Audit log immutability**: migration `021a_audit_log_append_only` trigger UPDATE/DELETE bloklar, retention için `audit_log_created_at_idx`
+- [ ] **Audit log retention**: 1 yıl varsayılan, konfigüre edilebilir (retention job için altyapı hazır, scheduler gerekiyor)
+- [x] **Export**: `GET /auth/admin/audit-log?format=csv` admin CSV export, date range (`from`/`to`) + action/user_id filtreleri (`handler_rbac.go:writeAuditCSV`)
+- [x] **GDPR compliance**: `GET /auth/me/export` JSON dump (user, workspaces, passkeys (no key material), oauth (no secrets), sessions (token hint), datasource_access, shares, audit) — `gdpr_export.go`, `handler_export.go`
 - [ ] **SOC 2 hazır**: Audit trail, access log, encryption at rest/transit, incident response runbook
-- [ ] **Separation of duties**: super_admin kendi rolünü değiştiremez, audit log'u silemez
+- [x] **Separation of duties**: `RBACRepository.EnforceSelfModificationGuard` super_admin'in kendi rolünü değiştirmesini/kendini deaktif etmesini bloklar (`sod.go`); audit_log UPDATE/DELETE DB trigger ile yasak. Engellenen attempt'ler `AuditAdminBlockSod` olarak loglanır
 
 ### 18.6 Email & Communication
 
@@ -2529,3 +2529,4 @@ env:
 | 2026-05-25 | Cloudflared Zero Trust tunnel: `abi.il1.nl` → auth service route'ları (`^/api/auth`, `^/auth`), ConfigMap güncelleme, cloudflared NetworkPolicy ingress, Zero Trust Access Policy (opsiyonel) |
 | 2026-05-26 | Aşama 6 testleri: middleware (`jwt`, `permission`, `datasource_access`) + AI history filter + timing parity + account enumeration invariant; login handler `ErrInactiveUser` artık jenerik mesaj döner, `ErrAccountLocked` 429 ile ayrılır |
 | 2026-05-26 | Workspace bazlı filtreleme: `/internal/auth/workspaces/{id}/datasources` endpoint, `AuthClient.ListWorkspaceDatasources` (5dk TTL cache + invalidate), `bimw.WorkspaceDatasourceFilter` helper; datasources/semantic models/query history/AI history list+detail endpoint'leri aktif workspace'in datasource'larına intersect ile filtreleniyor (super_admin bypass + auth disabled fallback) |
+| 2026-05-26 | 18.5 Audit & Compliance: typed event taxonomy (`audit_events.go`) + slog JSON emit; `MaskEmail/MaskIP/MaskToken` + auto-masked metadata; migration 021 audit_log append-only trigger (UPDATE/DELETE blocked); admin CSV/JSON export with date range; `GET /auth/me/export` GDPR data dump; `EnforceSelfModificationGuard` super_admin self-mutation blocked; new tests: `audit_mask_test`, `audit_integration_test` (DB-gated) |

@@ -4549,6 +4549,22 @@ body.modeling-grabbing * {
   color: var(--text-primary, #111);
 }
 
+.ws-settings__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  font-size: 13px;
+  color: var(--text-primary, #111);
+  white-space: nowrap;
+}
+
+.ws-settings__check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
 .ws-settings__btn-primary {
   padding: 7px 16px;
   background: var(--accent, #4f46e5);
