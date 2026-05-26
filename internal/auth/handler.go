@@ -180,7 +180,8 @@ func (h *AuthHandler) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	ip := r.RemoteAddr
 	ua := r.UserAgent()
 	resp, err := h.service.Refresh(r.Context(), req, &ua, &ip)
-	if errors.Is(err, ErrSessionNotFound) || errors.Is(err, ErrSessionExpired) || errors.Is(err, ErrSessionRevoked) {
+	if errors.Is(err, ErrSessionNotFound) || errors.Is(err, ErrSessionExpired) || errors.Is(err, ErrSessionRevoked) ||
+		errors.Is(err, ErrSessionAbsoluteExpired) || errors.Is(err, ErrSessionIdleExpired) {
 		h.respondError(w, http.StatusUnauthorized, err.Error())
 		return
 	} else if err != nil {

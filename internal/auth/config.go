@@ -39,6 +39,8 @@ type Config struct {
 	MaxActiveSessions  int
 	PasswordMaxAgeDays int
 	GDPRPurgeAfterDays int
+	SessionAbsoluteTTL time.Duration
+	SessionIdleTTL     time.Duration
 }
 
 func LoadConfig() (*Config, error) {
@@ -162,6 +164,20 @@ func LoadConfig() (*Config, error) {
 		frontendBase = "http://localhost:3333"
 	}
 
+	absoluteTTL := 30 * 24 * time.Hour
+	if v := os.Getenv("BI_AUTH_SESSION_ABSOLUTE_TTL"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			absoluteTTL = d
+		}
+	}
+
+	idleTTL := 4 * time.Hour
+	if v := os.Getenv("BI_AUTH_SESSION_IDLE_TTL"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			idleTTL = d
+		}
+	}
+
 	cfg := &Config{
 		Port:               port,
 		DBDSN:              dbDSN,
@@ -194,6 +210,8 @@ func LoadConfig() (*Config, error) {
 		MaxActiveSessions:  maxSessions,
 		PasswordMaxAgeDays: passwordMaxAge,
 		GDPRPurgeAfterDays: purgeDays,
+		SessionAbsoluteTTL: absoluteTTL,
+		SessionIdleTTL:     idleTTL,
 	}
 
 	if cfg.InternalToken == "" {

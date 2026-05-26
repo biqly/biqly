@@ -71,6 +71,7 @@ func main() {
 	userRepo := biqauth.NewUserRepository(db, tokenEnc)
 	rbacRepo := biqauth.NewRBACRepository(db)
 	sessionMgr := biqauth.NewSessionManager(db)
+	sessionMgr.SetLifecycleTTLs(cfg.SessionAbsoluteTTL, cfg.SessionIdleTTL)
 
 	var emailSender biqauth.EmailSender
 	if cfg.SMTPHost != "" {

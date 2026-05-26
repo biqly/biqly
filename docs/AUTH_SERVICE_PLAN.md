@@ -1743,8 +1743,8 @@ atılabilecek güvenlik, operasyonel ve uyumluluk gereksinimleridir.
 - [x] **Token ailesi koruması**: `RotateSession` revoked-token reuse detection, tüm session'ları revoke eder (`session.go:88`)
 - [x] **Device fingerprint**: `DeviceFingerprint(UA, IP/24)` SHA-256, `sessions.device_fingerprint` (migration `026a`), `known_devices` tablosunda kaydı
 - [x] **Concurrent session limit**: `BI_AUTH_MAX_SESSIONS` (default 5), `EnforceMaxSessions` her yeni session sonrası en eski'leri revoke
-- [ ] **Absolute session timeout**: Refresh token maksimum ömrü (default: 30 gün, rotation olsa bile)
-- [ ] **Idle timeout**: Kullanıcı X dakika aktif değilse (default: 4 saat) access token yenilemeyi durdur
+- [x] **Absolute session timeout**: `sessions.absolute_expires_at` (migration `027a`), `BI_AUTH_SESSION_ABSOLUTE_TTL` (default 30g); `RotateSession` orijinal `absolute_expires_at`'i koruyor (rotation uzatmıyor), expires_at absolute'a clamp ediliyor; `ErrSessionAbsoluteExpired` 401 döner
+- [x] **Idle timeout**: `BI_AUTH_SESSION_IDLE_TTL` (default 4s); `RotateSession` `last_active_at` ile karşılaştırır; aşıldıysa session revoke + `ErrSessionIdleExpired` 401
 - [x] **JWT ID (jti)**: Her token'a 128-bit jti claim
 - [x] **Issuer/Audience doğrulama**: `BI_AUTH_JWT_ISSUER` / `BI_AUTH_JWT_AUDIENCE`
 

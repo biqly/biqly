@@ -11,17 +11,30 @@ import (
 )
 
 var (
-	ErrSessionNotFound = errors.New("session not found")
-	ErrSessionExpired  = errors.New("session expired")
-	ErrSessionRevoked  = errors.New("session revoked")
+	ErrSessionNotFound         = errors.New("session not found")
+	ErrSessionExpired          = errors.New("session expired")
+	ErrSessionRevoked          = errors.New("session revoked")
+	ErrSessionAbsoluteExpired  = errors.New("session absolute lifetime exceeded; please sign in again")
+	ErrSessionIdleExpired      = errors.New("session idle for too long; please sign in again")
 )
 
 type SessionManager struct {
-	db *sql.DB
+	db          *sql.DB
+	absoluteTTL time.Duration
+	idleTTL     time.Duration
 }
 
 func NewSessionManager(db *sql.DB) *SessionManager {
 	return &SessionManager{db: db}
+}
+
+// SetLifecycleTTLs configures the absolute and idle session windows. absolute
+// is the wall-clock max age of an authentication, preserved across refresh
+// rotations; idle is the maximum gap between last_active_at and now during a
+// rotation. A non-positive value disables the corresponding check.
+func (m *SessionManager) SetLifecycleTTLs(absolute, idle time.Duration) {
+	m.absoluteTTL = absolute
+	m.idleTTL = idle
 }
 
 func (m *SessionManager) generateOpaqueToken() (string, error) {
@@ -38,22 +51,37 @@ func (m *SessionManager) CreateSession(ctx context.Context, userID string, userA
 }
 
 func (m *SessionManager) CreateSessionWithFingerprint(ctx context.Context, userID string, userAgent, ipAddress *string, fingerprint string, ttl time.Duration) (string, error) {
+	now := time.Now()
+	absoluteAt := now.Add(m.absoluteTTLOrDefault(ttl))
+	return m.createSession(ctx, userID, userAgent, ipAddress, fingerprint, now.Add(ttl), absoluteAt)
+}
+
+// absoluteTTLOrDefault returns the configured absolute TTL, falling back to
+// the per-rotation refresh-token TTL when nothing was wired (zero-value
+// SessionManager from older callers).
+func (m *SessionManager) absoluteTTLOrDefault(fallback time.Duration) time.Duration {
+	if m.absoluteTTL > 0 {
+		return m.absoluteTTL
+	}
+	return fallback
+}
+
+func (m *SessionManager) createSession(ctx context.Context, userID string, userAgent, ipAddress *string, fingerprint string, expiresAt, absoluteExpiresAt time.Time) (string, error) {
 	token, err := m.generateOpaqueToken()
 	if err != nil {
 		return "", fmt.Errorf("generate session token: %w", err)
 	}
 
-	expiresAt := time.Now().Add(ttl)
 	var fp *string
 	if fingerprint != "" {
 		fp = &fingerprint
 	}
 
 	query := `
-		INSERT INTO sessions (user_id, refresh_token, user_agent, ip_address, device_fingerprint, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO sessions (user_id, refresh_token, user_agent, ip_address, device_fingerprint, expires_at, absolute_expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
-	_, err = m.db.ExecContext(ctx, query, userID, token, userAgent, ipAddress, fp, expiresAt)
+	_, err = m.db.ExecContext(ctx, query, userID, token, userAgent, ipAddress, fp, expiresAt, absoluteExpiresAt)
 	if err != nil {
 		return "", fmt.Errorf("insert session: %w", err)
 	}
@@ -155,18 +183,19 @@ func (m *SessionManager) RevokeSessionByID(ctx context.Context, userID, sessionI
 }
 
 func (m *SessionManager) RotateSession(ctx context.Context, oldToken string, ttl time.Duration, userAgent, ipAddress *string) (string, error) {
-	var session Session
+	var sessionID, userID string
 	var userAgentNull, ipAddressNull sql.NullString
 	var revokedAtNull sql.NullTime
+	var createdAt, expiresAt, lastActiveAt, absoluteExpiresAt time.Time
 
 	queryGet := `
-		SELECT id, user_id, refresh_token, user_agent, ip_address, created_at, expires_at, revoked_at
+		SELECT id, user_id, user_agent, ip_address, created_at, expires_at, last_active_at, absolute_expires_at, revoked_at
 		FROM sessions
 		WHERE refresh_token = $1
 	`
 	err := m.db.QueryRowContext(ctx, queryGet, oldToken).Scan(
-		&session.ID, &session.UserID, &session.RefreshToken, &userAgentNull, &ipAddressNull,
-		&session.CreatedAt, &session.ExpiresAt, &revokedAtNull,
+		&sessionID, &userID, &userAgentNull, &ipAddressNull,
+		&createdAt, &expiresAt, &lastActiveAt, &absoluteExpiresAt, &revokedAtNull,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", ErrSessionNotFound
@@ -174,36 +203,38 @@ func (m *SessionManager) RotateSession(ctx context.Context, oldToken string, ttl
 		return "", err
 	}
 
-	if userAgentNull.Valid {
-		session.UserAgent = &userAgentNull.String
-	}
-	if ipAddressNull.Valid {
-		session.IPAddress = &ipAddressNull.String
-	}
+	// Token family protection: refresh of a revoked token signals theft; burn
+	// the entire family so the attacker cannot ride along.
 	if revokedAtNull.Valid {
-		session.RevokedAt = &revokedAtNull.Time
-	}
-
-	// Token Family Protection: If the token is already revoked, it means it's a reuse!
-	// Revoke all sessions for this user to mitigate session hijacking.
-	if session.RevokedAt != nil {
-		_ = m.RevokeAllUserSessions(ctx, session.UserID)
+		_ = m.RevokeAllUserSessions(ctx, userID)
 		return "", ErrSessionRevoked
 	}
 
-	if time.Now().After(session.ExpiresAt) {
+	now := time.Now()
+	if now.After(expiresAt) {
 		return "", ErrSessionExpired
 	}
+	if now.After(absoluteExpiresAt) {
+		_ = m.RevokeSession(ctx, oldToken)
+		return "", ErrSessionAbsoluteExpired
+	}
+	if m.idleTTL > 0 && now.Sub(lastActiveAt) > m.idleTTL {
+		_ = m.RevokeSession(ctx, oldToken)
+		return "", ErrSessionIdleExpired
+	}
 
-	// Revoke old token
-	queryRevoke := `UPDATE sessions SET revoked_at = NOW() WHERE id = $1`
-	_, err = m.db.ExecContext(ctx, queryRevoke, session.ID)
-	if err != nil {
+	// Revoke old token, then mint a new one that carries forward the original
+	// absolute_expires_at — refresh rotation must not extend an authentication.
+	if _, err := m.db.ExecContext(ctx, `UPDATE sessions SET revoked_at = NOW() WHERE id = $1`, sessionID); err != nil {
 		return "", fmt.Errorf("revoke old session: %w", err)
 	}
 
-	// Create new token/session
-	newToken, err := m.CreateSession(ctx, session.UserID, userAgent, ipAddress, ttl)
+	rotatedExpiresAt := now.Add(ttl)
+	if rotatedExpiresAt.After(absoluteExpiresAt) {
+		rotatedExpiresAt = absoluteExpiresAt
+	}
+
+	newToken, err := m.createSession(ctx, userID, userAgent, ipAddress, "", rotatedExpiresAt, absoluteExpiresAt)
 	if err != nil {
 		return "", fmt.Errorf("create rotated session: %w", err)
 	}
