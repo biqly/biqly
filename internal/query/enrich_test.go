@@ -150,11 +150,8 @@ func TestSuggestPivotTwoDimensions(t *testing.T) {
 		{Name: "revenue", SemanticType: SemanticTypeMetric, Format: FormatNumber},
 	}
 	hint := suggestPivot(cols)
-	if hint == nil {
-		t.Fatal("expected pivot hint")
-	}
-	if hint.RowField != "region" || hint.ColumnField != "product" {
-		t.Errorf("pivot fields = %+v", hint)
+	if hint == nil || hint.RowField != "region" || hint.ColumnField != "product" {
+		t.Fatalf("pivot fields = %+v", hint)
 	}
 }
 

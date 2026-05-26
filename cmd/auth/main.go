@@ -76,7 +76,12 @@ func main() {
 	emailBlockList := biqauth.NewEmailBlockListRepo(db)
 	var emailSender biqauth.EmailSender
 	if cfg.SMTPHost != "" {
-		emailSender = biqauth.MustSMTPEmailSender(cfg, emailBlockList, redisClient)
+		smtpSender, err := biqauth.NewSMTPEmailSender(cfg, emailBlockList, redisClient)
+		if err != nil {
+			slog.Error("initialize smtp email sender", "err", err)
+			os.Exit(1)
+		}
+		emailSender = smtpSender
 	} else {
 		emailSender = biqauth.NewMockEmailSender()
 	}

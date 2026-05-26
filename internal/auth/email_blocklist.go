@@ -42,10 +42,7 @@ func (r *sqlEmailBlockListRepo) IsBlocked(ctx context.Context, email string) (bo
 	}
 	normalized, err := NormalizeEmail(email)
 	if err != nil {
-		// Malformed addresses are never sendable but should not error the
-		// caller; treat as not-blocked so the calling validator surfaces the
-		// real "invalid email" error.
-		return false, nil
+		return false, err
 	}
 	var exists bool
 	err = r.db.QueryRowContext(ctx,
@@ -101,7 +98,7 @@ func (r *sqlEmailBlockListRepo) List(ctx context.Context, limit, offset int) ([]
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []BlockedEmail
 	for rows.Next() {
 		var b BlockedEmail
@@ -126,7 +123,7 @@ func NewMemoryEmailBlockListRepo() EmailBlockListRepo {
 func (r *memoryEmailBlockListRepo) IsBlocked(_ context.Context, email string) (bool, error) {
 	normalized, err := NormalizeEmail(email)
 	if err != nil {
-		return false, nil
+		return false, err
 	}
 	_, ok := r.entries[normalized]
 	return ok, nil

@@ -53,10 +53,9 @@ type SMTPEmailSender struct {
 }
 
 type emailJob struct {
-	to       string
-	headers  map[string]string
-	body     []byte
-	attempts int
+	to      string
+	headers map[string]string
+	body    []byte
 }
 
 // NewSMTPEmailSender constructs a sender wired to the config's SMTP settings
@@ -82,17 +81,6 @@ func NewSMTPEmailSender(cfg *Config, blocks EmailBlockListRepo, rdb *redis.Clien
 		go s.runWorker()
 	}
 	return s, nil
-}
-
-// MustSMTPEmailSender mirrors NewSMTPEmailSender but panics on configuration
-// errors. It is intended for bootstrap code (main.go) where a template
-// compile failure indicates a programming bug, not a runtime error.
-func MustSMTPEmailSender(cfg *Config, blocks EmailBlockListRepo, rdb *redis.Client) *SMTPEmailSender {
-	s, err := NewSMTPEmailSender(cfg, blocks, rdb)
-	if err != nil {
-		panic(err)
-	}
-	return s
 }
 
 // Close drains in-flight queued mail and stops the worker. Safe to call
