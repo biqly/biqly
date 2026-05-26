@@ -22,6 +22,9 @@ export interface TokenResponse {
   user_id: string
   email: string
   roles: string[]
+  mfa_required?: boolean
+  mfa_token?: string
+  password_expired?: boolean
 }
 
 export interface PasskeyInfo {

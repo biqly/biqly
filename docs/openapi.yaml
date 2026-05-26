@@ -203,12 +203,36 @@ paths:
           schema:
             type: string
       responses:
+        '302':
+          description: Redirects to frontend /auth/callback?code=... (one-time exchange code, 90s TTL)
+
+  /auth/oauth/exchange:
+    post:
+      summary: Exchange OAuth callback code for tokens
+      description: >
+        Redeems the one-time code from the frontend callback URL. Code is single-use
+        and stored in Redis; tokens are never placed in the browser URL.
+      tags:
+        - OAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+      responses:
         '200':
-          description: OAuth login successful
+          description: Tokens issued
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Invalid or expired code
 
   # --- Passkey / WebAuthn ---
   /auth/passkey/login-begin:

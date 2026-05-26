@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import abiLogo from '../../assets/abi-logo.png'
+import { apiOAuthExchange } from '../../api/auth'
 import { useT } from '../../i18n'
 import { useAuth } from './AuthProvider'
 import { globalNavigate } from './AuthGuard'
@@ -12,10 +13,9 @@ export default function OAuthCallback() {
   useEffect(() => {
     const handleCallback = async () => {
       const params = new URLSearchParams(window.location.search)
-      const accessToken = params.get('access_token')
-      const refreshToken = params.get('refresh_token')
+      const code = params.get('code')
 
-      if (!accessToken || !refreshToken) {
+      if (!code) {
         setError(t('auth.oauth_failed'))
         setTimeout(() => {
           globalNavigate('/auth/signin')
@@ -24,17 +24,24 @@ export default function OAuthCallback() {
       }
 
       try {
-        await loginWithTokens(accessToken, refreshToken)
+        const resp = await apiOAuthExchange(code)
+        if (resp.mfa_required && resp.mfa_token) {
+          globalNavigate(`/auth/signin?mfa_token=${encodeURIComponent(resp.mfa_token)}`)
+          return
+        }
+        await loginWithTokens(resp.access_token, resp.refresh_token, resp.roles ?? [])
+        window.history.replaceState(null, '', '/auth/callback')
         globalNavigate('/datasources')
-      } catch (err: any) {
-        setError(err.message || t('auth.oauth_failed'))
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : t('auth.oauth_failed')
+        setError(message)
         setTimeout(() => {
           globalNavigate('/auth/signin')
         }, 3000)
       }
     }
 
-    handleCallback()
+    void handleCallback()
   }, [loginWithTokens, t])
 
   return (

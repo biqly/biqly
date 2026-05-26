@@ -40,6 +40,15 @@ export async function apiLogin(email: string, password: string): Promise<TokenRe
   return handleResponse<TokenResponse>(res)
 }
 
+export async function apiOAuthExchange(code: string): Promise<TokenResponse> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/oauth/exchange`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  })
+  return handleResponse<TokenResponse>(res)
+}
+
 export async function apiRefresh(refreshToken: string): Promise<TokenResponse> {
   const res = await csrfFetch(`${AUTH_API_BASE}/refresh`, {
     method: 'POST',

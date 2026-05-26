@@ -73,6 +73,12 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 
 	r.Get("/oauth/{provider}", h.handleOAuthRedirect)
 	r.Get("/oauth/{provider}/callback", h.handleOAuthCallback)
+	r.Group(func(r chi.Router) {
+		if h.limiter != nil {
+			r.Use(h.limiter.Limit(20, time.Minute, "oauth-exchange"))
+		}
+		r.Post("/oauth/exchange", h.handleOAuthExchange)
+	})
 
 	r.Post("/passkey/login-begin", h.handlePasskeyLoginBegin)
 	r.Post("/passkey/login-finish", h.handlePasskeyLoginFinish)
@@ -444,6 +450,12 @@ func (h *AuthHandler) handleOAuthCallback(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	code, err := h.service.IssueOAuthCallbackCode(r.Context(), resp)
+	if err != nil {
+		h.respondError(w, http.StatusServiceUnavailable, "oauth callback exchange unavailable")
+		return
+	}
+
 	frontendBase := strings.TrimRight(h.config.FrontendBaseURL, "/")
 	if frontendBase == "" {
 		frontendBase = "http://localhost:3333"
@@ -454,13 +466,38 @@ func (h *AuthHandler) handleOAuthCallback(w http.ResponseWriter, r *http.Request
 		return
 	}
 	q := callbackURL.Query()
-	q.Set("access_token", resp.AccessToken)
-	q.Set("refresh_token", resp.RefreshToken)
-	q.Set("user_id", resp.UserID)
-	q.Set("email", resp.Email)
+	q.Set("code", code)
 	callbackURL.RawQuery = q.Encode()
 	//nolint:gosec
 	http.Redirect(w, r, callbackURL.String(), http.StatusTemporaryRedirect)
+}
+
+type OAuthExchangeRequest struct {
+	Code string `json:"code"`
+}
+
+func (h *AuthHandler) handleOAuthExchange(w http.ResponseWriter, r *http.Request) {
+	var req OAuthExchangeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Code == "" {
+		h.respondError(w, http.StatusBadRequest, "code is required")
+		return
+	}
+
+	resp, err := h.service.RedeemOAuthCallbackCode(r.Context(), req.Code)
+	if err != nil {
+		if errors.Is(err, ErrInvalidOAuthCallbackCode) {
+			h.respondError(w, http.StatusBadRequest, "invalid or expired code")
+			return
+		}
+		if errors.Is(err, ErrOAuthExchangeUnavailable) {
+			h.respondError(w, http.StatusServiceUnavailable, err.Error())
+			return
+		}
+		h.respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, resp)
 }
 
 func (h *AuthHandler) generateState() (string, error) {
