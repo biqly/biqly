@@ -68,14 +68,12 @@ spec:
                   name: {{ .Values.global.secretNames.authSecret }}
                   key: BI_AUTH_JWT_PRIVATE_KEY
                   optional: false
-            {{- with .Values.global.secrets.BI_AUTH_GITHUB_CLIENT_SECRET }}
             - name: BI_AUTH_GITHUB_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ $.Values.global.secretNames.authSecret }}
                   key: BI_AUTH_GITHUB_CLIENT_SECRET
                   optional: true
-            {{- end }}
             {{- with .Values.global.secrets.BI_AUTH_GOOGLE_CLIENT_SECRET }}
             - name: BI_AUTH_GOOGLE_CLIENT_SECRET
               valueFrom:
