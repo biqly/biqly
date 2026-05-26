@@ -4,10 +4,10 @@ helm:
     value: sha-413fd9fc5028a71b35c5f05e9d2e4fe02f05fa34
     forcestring: true
   - name: auth.image.tag
-    value: sha-413fd9fc5028a71b35c5f05e9d2e4fe02f05fa34
+    value: sha-62653e62f32cdbc3b19bf0849003400adc67805e
     forcestring: true
   - name: auth.migrate.image.tag
-    value: sha-413fd9fc5028a71b35c5f05e9d2e4fe02f05fa34
+    value: sha-62653e62f32cdbc3b19bf0849003400adc67805e
     forcestring: true
   - name: catalog.image.tag
     value: sha-413fd9fc5028a71b35c5f05e9d2e4fe02f05fa34
