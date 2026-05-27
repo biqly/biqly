@@ -5,6 +5,7 @@ bin/
 *.out
 coverage.out
 *.exe
+semgrep.sarif
 
 # Env / secrets
 .env

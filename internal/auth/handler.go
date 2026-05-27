@@ -412,6 +412,7 @@ func (h *AuthHandler) handleOAuthRedirect(w http.ResponseWriter, r *http.Request
 
 	secureCookie := h.secureCookie(r)
 	// nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
+	//nolint:gosec // G124: false positive as Secure is set dynamically based on HTTPS
 	stateCookie := &http.Cookie{
 		Name:     "oauth_state_" + providerName,
 		Value:    state,
@@ -447,6 +448,7 @@ func (h *AuthHandler) handleOAuthCallback(w http.ResponseWriter, r *http.Request
 	// Clear the state cookie
 	secureCookie := h.secureCookie(r)
 	// nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
+	//nolint:gosec // G124: false positive as Secure is set dynamically based on HTTPS
 	clearCookie := &http.Cookie{
 		Name:     "oauth_state_" + providerName,
 		Value:    "",
@@ -568,6 +570,7 @@ func (h *AuthHandler) handlePasskeyRegisterBegin(w http.ResponseWriter, r *http.
 	sessionB64 := base64.StdEncoding.EncodeToString(sessionJSON)
 	secureCookie := h.secureCookie(r)
 	// nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
+	//nolint:gosec // G124: false positive as Secure is set dynamically based on HTTPS
 	http.SetCookie(w, &http.Cookie{
 		Name:     "webauthn_register_session",
 		Value:    sessionB64,
@@ -622,6 +625,7 @@ func (h *AuthHandler) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http
 
 	secureCookie := h.secureCookie(r)
 	// nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
+	//nolint:gosec // G124: false positive as Secure is set dynamically based on HTTPS
 	http.SetCookie(w, &http.Cookie{
 		Name:     "webauthn_register_session",
 		Value:    "",
@@ -657,6 +661,7 @@ func (h *AuthHandler) handlePasskeyLoginBegin(w http.ResponseWriter, r *http.Req
 	sessionB64 := base64.StdEncoding.EncodeToString(sessionJSON)
 	secureCookie := h.secureCookie(r)
 	// nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
+	//nolint:gosec // G124: false positive as Secure is set dynamically based on HTTPS
 	http.SetCookie(w, &http.Cookie{
 		Name:     "webauthn_login_session",
 		Value:    sessionB64,
@@ -697,6 +702,7 @@ func (h *AuthHandler) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Re
 
 	secureCookie := h.secureCookie(r)
 	// nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
+	//nolint:gosec // G124: false positive as Secure is set dynamically based on HTTPS
 	http.SetCookie(w, &http.Cookie{
 		Name:     "webauthn_login_session",
 		Value:    "",

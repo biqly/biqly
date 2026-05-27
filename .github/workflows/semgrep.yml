@@ -45,6 +45,7 @@ jobs:
             --config p/typescript \
             --config p/javascript \
             --config p/owasp-top-ten \
+            --error \
             --sarif \
             --output semgrep.sarif
 
