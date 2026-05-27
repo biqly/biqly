@@ -49,8 +49,7 @@ jobs:
             --output semgrep.sarif
 
       - name: Fail on active Semgrep findings
-        run: |
-          node -e 'const fs=require("fs"); const sarif=JSON.parse(fs.readFileSync("semgrep.sarif","utf8")); const results=(sarif.runs||[]).flatMap(r=>r.results||[]); const active=results.filter(r=>!(r.suppressions&&r.suppressions.length)); if (active.length) { for (const r of active) { const loc=r.locations&&r.locations[0]&&r.locations[0].physicalLocation; console.error(`${r.ruleId} ${loc&&loc.artifactLocation&&loc.artifactLocation.uri}:${loc&&loc.region&&loc.region.startLine}`); } process.exit(1); } console.log(`No active Semgrep findings (${results.length} suppressed).`);'
+        run: python3 scripts/check-semgrep-sarif.py semgrep.sarif
 
       # Upload results to GitHub Security tab (runs if Semgrep completes, continues on error if GHAS is disabled)
       - name: Upload SARIF file

@@ -70,7 +70,7 @@ lint:
 
 semgrep-scan:
 	@semgrep scan $(foreach config,$(SEMGREP_CONFIGS),--config $(config)) --sarif --output $(SEMGREP_SARIF)
-	@node -e 'const fs=require("fs"); const sarif=JSON.parse(fs.readFileSync(process.env.SEMGREP_SARIF || "$(SEMGREP_SARIF)","utf8")); const results=(sarif.runs||[]).flatMap(r=>r.results||[]); const active=results.filter(r=>!(r.suppressions&&r.suppressions.length)); if (active.length) { for (const r of active) { const loc=r.locations&&r.locations[0]&&r.locations[0].physicalLocation; const uri=loc&&loc.artifactLocation&&loc.artifactLocation.uri; const line=loc&&loc.region&&loc.region.startLine; console.error(r.ruleId+" "+uri+":"+line); } process.exit(1); } console.log("No active Semgrep findings ("+results.length+" suppressed).");'
+	@python3 scripts/check-semgrep-sarif.py $(SEMGREP_SARIF)
 
 helm-deps:
 	@helm repo add bitnami https://charts.bitnami.com/bitnami --force-update >/dev/null
