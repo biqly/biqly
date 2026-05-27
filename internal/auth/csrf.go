@@ -46,6 +46,7 @@ func setCSRFCookie(w http.ResponseWriter, secure bool) {
 	token := base64.URLEncoding.EncodeToString(tokenBytes)
 
 	// nosemgrep: go.lang.security.audit.net.cookie-missing-httponly.cookie-missing-httponly,go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
+	//nolint:gosec // G124: CSRF cookie needs HttpOnly=false for React access and Secure is set dynamically
 	http.SetCookie(w, &http.Cookie{
 		Name:     "csrf_token",
 		Value:    token,
