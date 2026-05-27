@@ -333,4 +333,83 @@ export async function apiResendInvitation(accessToken: string, id: string): Prom
   return handleResponse<{ message: string }>(res)
 }
 
+export async function apiMFAStatus(accessToken: string): Promise<{
+  enabled: boolean
+  method?: string
+  verified_at?: string
+}> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/mfa/status`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+    },
+  })
+  return handleResponse<{ enabled: boolean; method?: string; verified_at?: string }>(res)
+}
+
+export async function apiMFAEnroll(accessToken: string): Promise<{
+  secret: string
+  otpauth_url: string
+  recovery_codes: string[]
+}> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/mfa/enroll`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+    },
+  })
+  return handleResponse<{ secret: string; otpauth_url: string; recovery_codes: string[] }>(res)
+}
+
+export async function apiMFAVerify(accessToken: string, code: string): Promise<void> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/mfa/verify`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ code }),
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(text || `HTTP ${res.status}`)
+  }
+}
+
+export async function apiMFADisable(accessToken: string, code: string): Promise<void> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/mfa/disable`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ code }),
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(text || `HTTP ${res.status}`)
+  }
+}
+
+export async function apiMFALogin(mfaToken: string, code: string): Promise<TokenResponse> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/mfa/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mfa_token: mfaToken, code }),
+  })
+  return handleResponse<TokenResponse>(res)
+}
+
+export async function apiMFARegenerateRecovery(accessToken: string, code: string): Promise<{ recovery_codes: string[] }> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/mfa/recovery/regenerate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ code }),
+  })
+  return handleResponse<{ recovery_codes: string[] }>(res)
+}
+
 

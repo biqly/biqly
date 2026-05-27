@@ -7,7 +7,13 @@ import {
   apiPasskeyRegisterBegin,
   apiPasskeyRegisterFinish,
   apiPasskeyRename,
+  apiMFAStatus,
+  apiMFAEnroll,
+  apiMFAVerify,
+  apiMFADisable,
+  apiMFARegenerateRecovery,
 } from '../api/auth'
+import QRCode from 'qrcode'
 import { base64urlToBuffer, bufferToBase64url } from '../utils/webauthn'
 import type { PasskeyInfo } from '../types/auth'
 import { ConfirmDialog } from './ui/ConfirmDialog'
@@ -43,6 +49,22 @@ export default function Settings({ navigate }: SettingsProps) {
   const [renamingName, setRenamingName] = useState('')
   const [renaming, setRenaming] = useState(false)
 
+  // Multi-Factor Authentication (MFA) States
+  const [mfaStatus, setMfaStatus] = useState<{ enabled: boolean; method?: string; verified_at?: string } | null>(null)
+  const [mfaEnrollData, setMfaEnrollData] = useState<{ secret: string; otpauth_url: string; recovery_codes: string[] } | null>(null)
+  const [mfaQrCode, setMfaQrCode] = useState('')
+  const [mfaEnrollOpen, setMfaEnrollOpen] = useState(false)
+  const [mfaVerifyCode, setMfaVerifyCode] = useState('')
+  const [mfaVerifying, setMfaVerifying] = useState(false)
+  const [mfaShowRecovery, setMfaShowRecovery] = useState(false)
+  const [mfaDisableOpen, setMfaDisableOpen] = useState(false)
+  const [mfaDisableCode, setMfaDisableCode] = useState('')
+  const [mfaDisabling, setMfaDisabling] = useState(false)
+  const [mfaRegenOpen, setMfaRegenOpen] = useState(false)
+  const [mfaRegenCode, setMfaRegenCode] = useState('')
+  const [mfaRegening, setMfaRegening] = useState(false)
+  const [mfaNewRecoveryCodes, setMfaNewRecoveryCodes] = useState<string[] | null>(null)
+
   const goTo = (path: string) => {
     navigate?.(path)
   }
@@ -61,8 +83,19 @@ export default function Settings({ navigate }: SettingsProps) {
     }
   }
 
+  const fetchMFAStatus = async () => {
+    if (!accessToken) return
+    try {
+      const status = await apiMFAStatus(accessToken)
+      setMfaStatus(status)
+    } catch (err: any) {
+      console.error('Failed to load MFA status', err)
+    }
+  }
+
   useEffect(() => {
     fetchPasskeys()
+    fetchMFAStatus()
   }, [accessToken])
 
   const handleDeleteConfirm = async () => {
@@ -182,6 +215,82 @@ export default function Settings({ navigate }: SettingsProps) {
       setError(err.message || 'Failed to rename passkey')
     } finally {
       setRenaming(false)
+    }
+  }
+
+  const handleMFAEnrollStart = async () => {
+    if (!accessToken) return
+    setError(null)
+    setSuccessMessage(null)
+    setMfaNewRecoveryCodes(null)
+    try {
+      const enroll = await apiMFAEnroll(accessToken)
+      setMfaEnrollData(enroll)
+      setMfaVerifyCode('')
+      setMfaShowRecovery(false)
+      
+      const qrDataUrl = await QRCode.toDataURL(enroll.otpauth_url)
+      setMfaQrCode(qrDataUrl)
+      
+      setMfaEnrollOpen(true)
+    } catch (err: any) {
+      setError(err.message || 'MFA enrollment failed')
+    }
+  }
+
+  const handleMFAVerifySubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!accessToken || !mfaVerifyCode.trim() || mfaVerifying) return
+    setMfaVerifying(true)
+    setError(null)
+    try {
+      await apiMFAVerify(accessToken, mfaVerifyCode.trim())
+      setSuccessMessage(t('mfa.success_enabled'))
+      setMfaShowRecovery(true)
+      await fetchMFAStatus()
+    } catch (err: any) {
+      setError(err.message || 'MFA verification failed')
+    } finally {
+      setMfaVerifying(false)
+    }
+  }
+
+  const handleMFADisableSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!accessToken || !mfaDisableCode.trim() || mfaDisabling) return
+    setMfaDisabling(true)
+    setError(null)
+    setSuccessMessage(null)
+    try {
+      await apiMFADisable(accessToken, mfaDisableCode.trim())
+      setSuccessMessage(t('mfa.success_disabled'))
+      setMfaDisableOpen(false)
+      setMfaDisableCode('')
+      setMfaNewRecoveryCodes(null)
+      await fetchMFAStatus()
+    } catch (err: any) {
+      setError(err.message || 'Failed to disable MFA')
+    } finally {
+      setMfaDisabling(false)
+    }
+  }
+
+  const handleMFARegenSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!accessToken || !mfaRegenCode.trim() || mfaRegening) return
+    setMfaRegening(true)
+    setError(null)
+    setSuccessMessage(null)
+    try {
+      const resp = await apiMFARegenerateRecovery(accessToken, mfaRegenCode.trim())
+      setMfaNewRecoveryCodes(resp.recovery_codes)
+      setSuccessMessage(t('mfa.success_regenerate'))
+      setMfaRegenOpen(false)
+      setMfaRegenCode('')
+    } catch (err: any) {
+      setError(err.message || 'Failed to regenerate recovery codes')
+    } finally {
+      setMfaRegening(false)
     }
   }
 
@@ -336,6 +445,125 @@ export default function Settings({ navigate }: SettingsProps) {
         )}
       </section>
 
+      {/* Multi-Factor Authentication (2FA) Section */}
+      <section className="card card--elevated settings-prefs-card">
+        <div className="card-intro card-intro--compact" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h2>{t('mfa.title')}</h2>
+            <p className="card-lead card-lead--single-line" style={{ marginTop: '0.25rem' }} title={t('mfa.subtitle')}>
+              {t('mfa.subtitle')}
+            </p>
+          </div>
+          {mfaStatus && (
+            <span
+              className={`badge ${mfaStatus.enabled ? 'badge-success' : 'badge-neutral'}`}
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                padding: '0.25rem 0.5rem',
+                borderRadius: '0.25rem',
+                backgroundColor: mfaStatus.enabled ? 'rgba(46, 213, 115, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                color: mfaStatus.enabled ? '#2ed573' : 'var(--text-secondary)',
+                border: `1px solid ${mfaStatus.enabled ? 'rgba(46, 213, 115, 0.2)' : 'rgba(255, 255, 255, 0.1)'}`,
+              }}
+            >
+              {mfaStatus.enabled ? t('mfa.status_enabled') : t('mfa.status_disabled')}
+            </span>
+          )}
+        </div>
+
+        <div className="settings-control-row" style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            {mfaStatus?.enabled ? (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-danger-outline"
+                  onClick={() => {
+                    setMfaDisableCode('')
+                    setError(null)
+                    setSuccessMessage(null)
+                    setMfaDisableOpen(true)
+                  }}
+                >
+                  🔒 {t('mfa.disable_btn')}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setMfaRegenCode('')
+                    setError(null)
+                    setSuccessMessage(null)
+                    setMfaRegenOpen(true)
+                  }}
+                >
+                  🔄 {t('mfa.regenerate_recovery_btn')}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleMFAEnrollStart}
+              >
+                🔒 {t('mfa.enable_btn')}
+              </button>
+            )}
+          </div>
+
+          {/* Newly generated/regenerated recovery codes display */}
+          {mfaNewRecoveryCodes && (
+            <div
+              className="recovery-codes-box"
+              style={{
+                marginTop: '1rem',
+                padding: '1rem',
+                backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid var(--border)',
+                borderRadius: '0.5rem',
+              }}
+            >
+              <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text)' }}>
+                {t('mfa.recovery_title')}
+              </h4>
+              <p style={{ margin: '0.25rem 0 1rem 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                {t('mfa.recovery_desc')}
+              </p>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: '0.5rem',
+                  fontFamily: 'monospace',
+                  fontSize: '0.9rem',
+                  color: 'var(--accent)',
+                  backgroundColor: 'rgba(0,0,0,0.2)',
+                  padding: '0.75rem',
+                  borderRadius: '0.25rem',
+                  textAlign: 'center',
+                }}
+              >
+                {mfaNewRecoveryCodes.map((code, idx) => (
+                  <div key={idx}>{code}</div>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="btn btn-sm btn-secondary"
+                style={{ marginTop: '0.75rem', width: 'auto' }}
+                onClick={() => {
+                  navigator.clipboard.writeText(mfaNewRecoveryCodes.join('\n'))
+                  alert(t('mfa.recovery_copied'))
+                }}
+              >
+                📋 {t('common.copy')}
+              </button>
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         open={deleteTarget !== null}
@@ -441,6 +669,238 @@ export default function Settings({ navigate }: SettingsProps) {
               ) : (
                 t('passkeys.modal_submit')
               )}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* 2FA Enrollment Modal */}
+      <Modal
+        open={mfaEnrollOpen}
+        title={t('mfa.modal_enroll_title')}
+        subtitle={t('mfa.modal_enroll_desc')}
+        onClose={() => setMfaEnrollOpen(false)}
+      >
+        <div className="page-stack" style={{ gap: '1.5rem' }}>
+          {!mfaShowRecovery ? (
+            <form onSubmit={handleMFAVerifySubmit} className="page-stack" style={{ gap: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <h4 style={{ margin: 0 }}>{t('mfa.step_scan')}</h4>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  {t('mfa.step_scan_desc')}
+                </p>
+              </div>
+
+              {mfaQrCode && (
+                <div style={{ display: 'flex', justifyContent: 'center', margin: '0.5rem 0', padding: '0.5rem', backgroundColor: '#fff', borderRadius: '0.5rem', width: 'fit-content', alignSelf: 'center' }}>
+                  <img src={mfaQrCode} alt="2FA QR Code" style={{ display: 'block', width: '180px', height: '180px' }} />
+                </div>
+              )}
+
+              {mfaEnrollData && (
+                <div style={{ fontSize: '0.85rem', backgroundColor: 'rgba(255,255,255,0.02)', padding: '0.75rem', borderRadius: '0.25rem', border: '1px dashed var(--border)' }}>
+                  <strong>{t('mfa.step_manual')}</strong>
+                  <div style={{ fontFamily: 'monospace', fontSize: '1rem', color: 'var(--accent)', marginTop: '0.25rem', letterSpacing: '1px' }}>
+                    {mfaEnrollData.secret}
+                  </div>
+                </div>
+              )}
+
+              <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <h4 style={{ margin: 0 }}>{t('mfa.step_verify')}</h4>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  {t('mfa.step_verify_desc')}
+                </p>
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label htmlFor="mfa-verify-input">{t('mfa.label_code')}</label>
+                <input
+                  id="mfa-verify-input"
+                  type="text"
+                  pattern="[0-9]*"
+                  inputMode="numeric"
+                  maxLength={6}
+                  required
+                  value={mfaVerifyCode}
+                  onChange={(e) => setMfaVerifyCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder={t('mfa.placeholder_code')}
+                  disabled={mfaVerifying}
+                  autoFocus
+                  style={{ letterSpacing: '4px', textAlign: 'center', fontSize: '1.25rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ width: 'auto', margin: 0 }}
+                  onClick={() => setMfaEnrollOpen(false)}
+                  disabled={mfaVerifying}
+                >
+                  {t('common.confirm_cancel')}
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ width: 'auto', margin: 0 }}
+                  disabled={mfaVerifying || mfaVerifyCode.length !== 6}
+                >
+                  {mfaVerifying ? '...' : t('mfa.verify_btn')}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="page-stack" style={{ gap: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <h4 style={{ margin: 0, color: 'var(--success)' }}>✔ {t('mfa.success_enabled')}</h4>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  {t('mfa.recovery_desc')}
+                </p>
+              </div>
+
+              {mfaEnrollData && (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '0.5rem',
+                    fontFamily: 'monospace',
+                    fontSize: '0.95rem',
+                    color: 'var(--accent)',
+                    backgroundColor: 'rgba(0,0,0,0.2)',
+                    padding: '1rem',
+                    borderRadius: '0.25rem',
+                    textAlign: 'center',
+                    border: '1px solid var(--border)',
+                  }}
+                >
+                  {mfaEnrollData.recovery_codes.map((code, idx) => (
+                    <div key={idx}>{code}</div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ width: 'auto', margin: 0 }}
+                  onClick={() => {
+                    if (mfaEnrollData) {
+                      navigator.clipboard.writeText(mfaEnrollData.recovery_codes.join('\n'))
+                      alert(t('mfa.recovery_copied'))
+                    }
+                  }}
+                >
+                  📋 {t('common.copy')}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ width: 'auto', margin: 0 }}
+                  onClick={() => setMfaEnrollOpen(false)}
+                >
+                  {t('common.confirm_ok')}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* 2FA Disable Modal */}
+      <Modal
+        open={mfaDisableOpen}
+        title={t('mfa.disable_title')}
+        subtitle={t('mfa.disable_desc')}
+        onClose={() => setMfaDisableOpen(false)}
+      >
+        <form onSubmit={handleMFADisableSubmit} className="page-stack" style={{ gap: '1rem' }}>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label htmlFor="mfa-disable-input">{t('mfa.label_code')}</label>
+            <input
+              id="mfa-disable-input"
+              type="text"
+              pattern="[0-9]*"
+              inputMode="numeric"
+              maxLength={6}
+              required
+              value={mfaDisableCode}
+              onChange={(e) => setMfaDisableCode(e.target.value.replace(/\D/g, ''))}
+              placeholder={t('mfa.placeholder_code')}
+              disabled={mfaDisabling}
+              autoFocus
+              style={{ letterSpacing: '4px', textAlign: 'center', fontSize: '1.25rem' }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ width: 'auto', margin: 0 }}
+              onClick={() => setMfaDisableOpen(false)}
+              disabled={mfaDisabling}
+            >
+              {t('common.confirm_cancel')}
+            </button>
+            <button
+              type="submit"
+              className="btn btn-danger"
+              style={{ width: 'auto', margin: 0 }}
+              disabled={mfaDisabling || mfaDisableCode.length !== 6}
+            >
+              {mfaDisabling ? '...' : t('mfa.disable_submit')}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* 2FA Regenerate Recovery Modal */}
+      <Modal
+        open={mfaRegenOpen}
+        title={t('mfa.regenerate_recovery_btn')}
+        subtitle={t('mfa.disable_desc')}
+        onClose={() => setMfaRegenOpen(false)}
+      >
+        <form onSubmit={handleMFARegenSubmit} className="page-stack" style={{ gap: '1rem' }}>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label htmlFor="mfa-regen-input">{t('mfa.label_code')}</label>
+            <input
+              id="mfa-regen-input"
+              type="text"
+              pattern="[0-9]*"
+              inputMode="numeric"
+              maxLength={6}
+              required
+              value={mfaRegenCode}
+              onChange={(e) => setMfaRegenCode(e.target.value.replace(/\D/g, ''))}
+              placeholder={t('mfa.placeholder_code')}
+              disabled={mfaRegening}
+              autoFocus
+              style={{ letterSpacing: '4px', textAlign: 'center', fontSize: '1.25rem' }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ width: 'auto', margin: 0 }}
+              onClick={() => setMfaRegenOpen(false)}
+              disabled={mfaRegening}
+            >
+              {t('common.confirm_cancel')}
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ width: 'auto', margin: 0 }}
+              disabled={mfaRegening || mfaRegenCode.length !== 6}
+            >
+              {mfaRegening ? '...' : t('mfa.regenerate_recovery_btn')}
             </button>
           </div>
         </form>

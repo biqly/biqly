@@ -19,7 +19,7 @@ interface AuthContextType {
   accessToken: string | null
   roles: string[]
   loading: boolean
-  login: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string) => Promise<{ mfaRequired?: boolean; mfaToken?: string } | void>
   loginWithTokens: (accessToken: string, refreshToken: string, roles?: string[]) => Promise<void>
   register: (email: string, password: string, displayName: string) => Promise<void>
   logout: () => Promise<void>
@@ -57,6 +57,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const resp = await apiLogin(email, password)
+    if (resp.mfa_required) {
+      return { mfaRequired: true, mfaToken: resp.mfa_token }
+    }
     await handleAuthSuccess(resp.access_token, resp.refresh_token, resp.roles)
   }
 
