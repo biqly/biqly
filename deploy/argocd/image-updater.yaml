@@ -47,6 +47,16 @@ spec:
           manifestTargets:
             helm:
               tag: auth.migrate.image.tag
+        - alias: mail
+          imageName: ghcr.io/biqly/biqly-mail
+          manifestTargets:
+            helm:
+              tag: mail.image.tag
+        - alias: mail-migrate
+          imageName: ghcr.io/biqly/biqly-mail
+          manifestTargets:
+            helm:
+              tag: mail.migrate.image.tag
         - alias: migrate
           imageName: ghcr.io/biqly/migrate
           manifestTargets:
