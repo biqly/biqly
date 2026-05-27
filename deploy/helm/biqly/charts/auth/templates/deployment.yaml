@@ -62,6 +62,12 @@ spec:
                   name: {{ .Values.global.secretNames.authSecret }}
                   key: BI_AUTH_INTERNAL_TOKEN
                   optional: false
+            - name: BI_AUTH_MAIL_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.secretNames.mailSecret }}
+                  key: BI_MAIL_INTERNAL_TOKEN
+                  optional: true
             - name: BI_AUTH_JWT_PRIVATE_KEY
               valueFrom:
                 secretKeyRef:
@@ -92,20 +98,6 @@ spec:
                   name: {{ $.Values.global.secretNames.authSecret }}
                   key: BI_AUTH_GOOGLE_CLIENT_SECRET
                   optional: true
-            {{- if .Values.smtp.enabled }}
-            - name: BI_AUTH_SMTP_USER
-              valueFrom:
-                secretKeyRef:
-                  name: {{ $.Values.global.secretNames.authSecret }}
-                  key: BI_AUTH_SMTP_USER
-                  optional: false
-            - name: BI_AUTH_SMTP_PASS
-              valueFrom:
-                secretKeyRef:
-                  name: {{ $.Values.global.secretNames.authSecret }}
-                  key: BI_AUTH_SMTP_PASS
-                  optional: false
-            {{- end }}
           livenessProbe:
             httpGet:
               path: /health

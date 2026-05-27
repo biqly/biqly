@@ -43,12 +43,6 @@ global:
 auth:
   enabled: true
   replicaCount: 1
-  smtp:
-    enabled: true
-  config:
-    BI_AUTH_SMTP_HOST: smtp.mail.me.com
-    BI_AUTH_SMTP_PORT: "587"
-    BI_AUTH_SMTP_FROM: no-reply@il1.nl
   image:
     repository: biqly-auth
     tag: sha-38de6ea19634422920df5b7f49e8fad6b49ed3bf
@@ -59,6 +53,26 @@ auth:
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
+
+# NOTE: enable once the biqly-mail image is built/pushed by CI and the ArgoCD
+# Application image-updater list tracks ghcr.io/biqly/biqly-mail. Until then,
+# keep disabled so prod sync does not fail pulling a non-existent image.
+mail:
+  enabled: false
+  replicaCount: 1
+  smtp:
+    enabled: true
+  config:
+    BI_MAIL_SMTP_HOST: smtp.mail.me.com
+    BI_MAIL_SMTP_PORT: "587"
+    BI_MAIL_SMTP_FROM: no-reply@il1.nl
+  image:
+    repository: biqly-mail
+    tag: latest
+  migrate:
+    image:
+      repository: biqly-mail
+      tag: latest
 
 frontend:
   replicaCount: 1

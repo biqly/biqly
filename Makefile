@@ -1,4 +1,4 @@
-.PHONY: build build-catalog build-query build-ai run run-catalog run-query run-ai test eval-regression lint helm-deps helm-lint helm-template clean migrate-up migrate-down docker-up docker-down seed-adventureworks
+.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai test eval-regression lint helm-deps helm-lint helm-template clean migrate-up migrate-down docker-up docker-down seed-adventureworks
 
 BINARY_NAME=biqly
 GO_FILES=$(shell find . -name '*.go' -not -path './vendor/*')
@@ -15,6 +15,11 @@ HELM_AUTH_SECRET_SET=\
 	--set global.secrets.BI_AUTH_INTERNAL_TOKEN='$(HELM_TEST_AUTH_INTERNAL_TOKEN)' \
 	--set global.secrets.BI_AUTH_JWT_PRIVATE_KEY='$(HELM_TEST_AUTH_JWT_PRIVATE_KEY)' \
 	--set global.secrets.BI_AUTH_DB_DSN='$(HELM_TEST_AUTH_DB_DSN)'
+HELM_TEST_MAIL_INTERNAL_TOKEN?=helm-test-internal-token
+HELM_TEST_MAIL_DB_DSN?=postgres://biqly:biqly@postgres:5432/bi_mail?sslmode=disable
+HELM_MAIL_SECRET_SET=\
+	--set global.secrets.BI_MAIL_INTERNAL_TOKEN='$(HELM_TEST_MAIL_INTERNAL_TOKEN)' \
+	--set global.secrets.BI_MAIL_DB_DSN='$(HELM_TEST_MAIL_DB_DSN)'
 
 build:
 	@go build -o bin/$(BINARY_NAME) ./cmd/api/
@@ -27,6 +32,12 @@ build-query:
 
 build-ai:
 	@go build -o bin/biqly-ai ./services/ai/cmd/
+
+build-mail:
+	@go build -o bin/mail ./cmd/mail/
+
+build-mail-migrate:
+	@go build -o bin/mail-migrate ./cmd/mail-migrate/
 
 run: build
 	@./bin/$(BINARY_NAME)
@@ -57,13 +68,13 @@ helm-lint: helm-deps
 	@helm lint $(HELM_CHART) \
 		--set global.secrets.BI_METADATA_DB_DSN='$(HELM_TEST_METADATA_DSN)' \
 		--set global.secrets.BI_ENCRYPTION_KEY='$(HELM_TEST_ENCRYPTION_KEY)' \
-		$(HELM_AUTH_SECRET_SET)
+		$(HELM_AUTH_SECRET_SET) $(HELM_MAIL_SECRET_SET)
 
 helm-template: helm-deps
 	@helm template biqly $(HELM_CHART) \
 		--set global.secrets.BI_METADATA_DB_DSN='$(HELM_TEST_METADATA_DSN)' \
 		--set global.secrets.BI_ENCRYPTION_KEY='$(HELM_TEST_ENCRYPTION_KEY)' \
-		$(HELM_AUTH_SECRET_SET) >/tmp/biqly-helm-template.yaml
+		$(HELM_AUTH_SECRET_SET) $(HELM_MAIL_SECRET_SET) >/tmp/biqly-helm-template.yaml
 
 clean:
 	@rm -rf bin/ coverage.out

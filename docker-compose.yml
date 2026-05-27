@@ -219,6 +219,8 @@ services:
       BI_AUTH_WEBAUTHN_RP_ID: localhost
       BI_AUTH_WEBAUTHN_RP_NAME: Biqly
       BI_AUTH_WEBAUTHN_RP_ORIGINS: http://localhost:5173,http://localhost:3333
+      BI_AUTH_MAIL_SERVICE_URL: http://mail:8890
+      BI_AUTH_MAIL_INTERNAL_TOKEN: dev-internal-token
     ports:
       - "8889:8889"
     depends_on:
@@ -228,11 +230,63 @@ services:
         condition: service_healthy
       auth-migrate:
         condition: service_completed_successfully
+      mail:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:8889/health"]
       interval: 5s
       timeout: 3s
       retries: 5
+
+  mail-db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: bi_mail
+      POSTGRES_USER: bi_mail_user
+      POSTGRES_PASSWORD: bi_mail_password
+    ports:
+      - "5435:5432"
+    volumes:
+      - mail_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bi_mail_user -d bi_mail"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  mail-migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.mail
+    entrypoint: ["/mail-migrate"]
+    command: ["-dir", "/migrations/mail", "up"]
+    environment:
+      BI_MAIL_DB_DSN: postgres://bi_mail_user:bi_mail_password@mail-db:5432/bi_mail?sslmode=disable
+    depends_on:
+      mail-db:
+        condition: service_healthy
+    restart: "no"
+
+  mail:
+    build:
+      context: .
+      dockerfile: Dockerfile.mail
+    environment:
+      BI_MAIL_PORT: 8890
+      BI_MAIL_DB_DSN: postgres://bi_mail_user:bi_mail_password@mail-db:5432/bi_mail?sslmode=disable
+      BI_MAIL_REDIS_DSN: redis://redis:6379
+      BI_MAIL_INTERNAL_TOKEN: dev-internal-token
+      BI_MAIL_FRONTEND_BASE_URL: http://localhost:3333
+      BI_MAIL_EMAIL_DEFAULT_LOCALE: en
+    ports:
+      - "8890:8890"
+    depends_on:
+      mail-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mail-migrate:
+        condition: service_completed_successfully
 
   frontend:
     build:
@@ -252,3 +306,4 @@ volumes:
   sqlserver_data:
   sqlserver_2022_data:
   auth_data:
+  mail_data:

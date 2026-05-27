@@ -22,6 +22,10 @@ dependencies:
     version: 0.1.0
     repository: file://charts/auth
     condition: auth.enabled
+  - name: mail
+    version: 0.1.0
+    repository: file://charts/mail
+    condition: mail.enabled
   - name: frontend
     version: 0.1.0
     repository: file://charts/frontend

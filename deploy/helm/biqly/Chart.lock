@@ -14,8 +14,11 @@ dependencies:
 - name: auth
   repository: file://charts/auth
   version: 0.1.0
+- name: mail
+  repository: file://charts/mail
+  version: 0.1.0
 - name: frontend
   repository: file://charts/frontend
   version: 0.1.0
-digest: sha256:a4c10cd253298f9c2ab053a21fbe88096dec5190fd41e0d0c68bae1a70aa9ee1
-generated: "2026-05-25T17:17:36.459383+03:00"
+digest: sha256:2f2e392c4c7d7cb325b4056928852c6e78703b9267b5727c42c97f7862d84412
+generated: "2026-05-27T16:12:17.830635+03:00"

@@ -138,6 +138,8 @@ global:
     security: biqly-security
     ai: biqly-ai-secrets
     embedding: biqly-embedding-secrets
+    mailSecret: biqly-mail-secrets
+    mailDB: biqly-mail-db
   config:
     BI_LOG_LEVEL: info
     BI_LOG_FORMAT: json
@@ -275,14 +277,10 @@ auth:
     pullPolicy: IfNotPresent
   service:
     port: 8889
-  smtp:
-    enabled: true
   config:
     BI_AUTH_PORT: "8889"
     BI_AUTH_REDIS_DSN: "redis://biqly-dragonfly:6379"
-    BI_AUTH_SMTP_HOST: smtp.mail.me.com
-    BI_AUTH_SMTP_PORT: "587"
-    BI_AUTH_SMTP_FROM: no-reply@il1.nl
+    BI_AUTH_MAIL_SERVICE_URL: "http://biqly-mail:8890"
   resources:
     requests:
       cpu: 100m
@@ -299,6 +297,41 @@ auth:
     enabled: true
     pathPrefixes:
       - /api/auth
+
+mail:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: mail
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8890
+  smtp:
+    enabled: true
+  config:
+    BI_MAIL_PORT: "8890"
+    BI_MAIL_REDIS_DSN: "redis://biqly-dragonfly:6379"
+    BI_MAIL_FRONTEND_BASE_URL: "https://abi.il1.nl"
+    BI_MAIL_EMAIL_DEFAULT_LOCALE: "en"
+    BI_MAIL_EMAIL_DAILY_LIMIT: "10"
+    BI_MAIL_EMAIL_QUEUE_SIZE: "256"
+    BI_MAIL_EMAIL_RETRIES: "3"
+    BI_MAIL_SMTP_HOST: smtp.mail.me.com
+    BI_MAIL_SMTP_PORT: "587"
+    BI_MAIL_SMTP_FROM: no-reply@il1.nl
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
 
 frontend:
   enabled: true

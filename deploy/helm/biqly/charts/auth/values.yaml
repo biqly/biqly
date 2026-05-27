@@ -33,11 +33,6 @@ global:
     BI_AUTH_GITHUB_CLIENT_SECRET: ""
     BI_AUTH_GOOGLE_CLIENT_ID: ""
     BI_AUTH_GOOGLE_CLIENT_SECRET: ""
-    BI_AUTH_SMTP_PASS: ""
-    BI_AUTH_SMTP_USER: ""
-
-smtp:
-  enabled: true
 
 replicaCount: 1
 image:
@@ -58,9 +53,7 @@ config:
   BI_AUTH_GITHUB_REDIRECT_URL: "https://abi.il1.nl/api/auth/oauth/github/callback"
   BI_AUTH_GOOGLE_REDIRECT_URL: "https://abi.il1.nl/api/auth/oauth/google/callback"
   BI_AUTH_RATE_LIMIT_PER_MINUTE: "60"
-  BI_AUTH_SMTP_HOST: ""
-  BI_AUTH_SMTP_PORT: "587"
-  BI_AUTH_SMTP_FROM: ""
+  BI_AUTH_MAIL_SERVICE_URL: "http://biqly-mail:8890"
 resources:
   requests:
     cpu: 100m
@@ -117,7 +110,7 @@ networkPolicy:
         - accounts.google.com
       ports:
         - 443
-    smtp:
+    mail:
       enabled: true
       ports:
-        - 587
+        - 8890

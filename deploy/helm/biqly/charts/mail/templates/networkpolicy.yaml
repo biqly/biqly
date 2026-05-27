@@ -2,13 +2,13 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "auth.fullname" . }}
+  name: {{ include "mail.fullname" . }}
   labels:
-    {{- include "auth.labels" . | nindent 4 }}
+    {{- include "mail.labels" . | nindent 4 }}
 spec:
   podSelector:
     matchLabels:
-      {{- include "auth.selectorLabels" . | nindent 6 }}
+      {{- include "mail.selectorLabels" . | nindent 6 }}
   policyTypes:
     - Ingress
     - Egress
@@ -45,22 +45,10 @@ spec:
           port: {{ . }}
         {{- end }}
     {{- end }}
-    {{- if .Values.networkPolicy.egress.oauth.enabled }}
+    {{- if .Values.networkPolicy.egress.smtp.enabled }}
     - to: []
       ports:
-        {{- range .Values.networkPolicy.egress.oauth.ports }}
-        - protocol: TCP
-          port: {{ . }}
-        {{- end }}
-    {{- end }}
-    {{- if .Values.networkPolicy.egress.mail.enabled }}
-    - to:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/component: mail
-              app.kubernetes.io/part-of: biqly
-      ports:
-        {{- range .Values.networkPolicy.egress.mail.ports }}
+        {{- range .Values.networkPolicy.egress.smtp.ports }}
         - protocol: TCP
           port: {{ . }}
         {{- end }}
