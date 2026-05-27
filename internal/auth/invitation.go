@@ -67,7 +67,7 @@ func (s *AuthService) InviteUser(ctx context.Context, actorUserID, email, roleNa
 	// 4. Retrieve Role ID by roleName
 	var roleID string
 	err = s.userRepo.db.QueryRowContext(ctx, "SELECT id FROM roles WHERE name = $1", roleName).Scan(&roleID)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return ErrRoleNotFound
 	} else if err != nil {
 		return fmt.Errorf("get role: %w", err)
@@ -124,7 +124,7 @@ func (s *AuthService) GetInvitation(ctx context.Context, token string) (*Invitat
 		&invite.ID, &invite.Email, &tokenNull, &invite.RoleID, &invite.RoleName,
 		&invite.InvitedBy, &invite.CreatedAt, &invite.ExpiresAt, &claimedAtNull,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrInvitationNotFound
 	} else if err != nil {
 		return nil, fmt.Errorf("get invitation: %w", err)
