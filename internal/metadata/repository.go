@@ -103,14 +103,14 @@ func (r *Repository) UpdateDatasource(ctx context.Context, ds *Datasource) error
 
 // GetDatasource retrieves a datasource by ID.
 func (r *Repository) GetDatasource(ctx context.Context, id string) (*Datasource, error) {
-	query := `SELECT ` + datasourceSelectColumns + ` FROM datasources WHERE id = $1`
+	query := `SELECT ` + datasourceSelectColumns + ` FROM datasources WHERE id = $1` // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query
 	row := r.db.QueryRowContext(ctx, query, id)
 	return r.scanDatasource(row)
 }
 
 // GetDatasourceByName retrieves a datasource by name.
 func (r *Repository) GetDatasourceByName(ctx context.Context, name string) (*Datasource, error) {
-	query := `SELECT ` + datasourceSelectColumns + ` FROM datasources WHERE name = $1`
+	query := `SELECT ` + datasourceSelectColumns + ` FROM datasources WHERE name = $1` // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query
 	row := r.db.QueryRowContext(ctx, query, name)
 	return r.scanDatasource(row)
 }
@@ -264,7 +264,7 @@ func (r *Repository) ListTables(ctx context.Context, datasourceID, schemaName st
 
 // GetTable returns a single table by ID.
 func (r *Repository) GetTable(ctx context.Context, id string) (*Table, error) {
-	query := `SELECT ` + tableSelectColumns + ` FROM tables WHERE id = $1`
+	query := `SELECT ` + tableSelectColumns + ` FROM tables WHERE id = $1` // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query
 	t, err := scanTable(r.db.QueryRowContext(ctx, query, id))
 	if err != nil {
 		return nil, err
@@ -407,7 +407,7 @@ func (r *Repository) ListColumns(ctx context.Context, datasourceID, schemaName, 
 
 // GetColumn returns a single column by ID.
 func (r *Repository) GetColumn(ctx context.Context, id string) (*Column, error) {
-	query := `SELECT ` + columnSelectColumns + ` FROM columns WHERE id = $1`
+	query := `SELECT ` + columnSelectColumns + ` FROM columns WHERE id = $1` // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query
 	c, err := scanColumn(r.db.QueryRowContext(ctx, query, id))
 	if err != nil {
 		return nil, err

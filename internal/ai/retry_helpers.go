@@ -2,9 +2,10 @@ package ai
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
-	"math/rand/v2"
+	"math/big"
 	"net"
 	"net/http"
 	"syscall"
@@ -44,8 +45,16 @@ func execRetry[T any](ctx context.Context, op func() (T, error, bool)) (T, error
 func jitteredBackoff(attempt int) time.Duration {
 	base := time.Duration(250*(1<<uint(attempt-1))) * time.Millisecond
 	// factor ∈ [0.75, 1.25)
-	factor := 0.75 + rand.Float64()*0.5 //nolint:gosec // G404: retry backoff jitter only
+	factor := 0.75 + cryptoRandomUnitFloat()*0.5
 	return time.Duration(float64(base) * factor)
+}
+
+func cryptoRandomUnitFloat() float64 {
+	n, err := rand.Int(rand.Reader, big.NewInt(1_000_000))
+	if err != nil {
+		return 0.5
+	}
+	return float64(n.Int64()) / 1_000_000
 }
 
 func execLLMHTTPRetry(ctx context.Context, op func() (GenerationResult, error, bool)) (GenerationResult, error) {

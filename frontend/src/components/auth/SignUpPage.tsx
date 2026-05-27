@@ -214,7 +214,10 @@ export default function SignUpPage() {
           <button
             type="button"
             className="btn btn-primary"
-            onClick={() => setTermsOpen(false)}
+            onClick={() => {
+              setAgree(true)
+              setTermsOpen(false)
+            }}
             style={{ width: 'auto' }}
           >
             {t('common.confirm_ok') || 'OK'}
@@ -233,7 +236,10 @@ export default function SignUpPage() {
           <button
             type="button"
             className="btn btn-primary"
-            onClick={() => setPrivacyOpen(false)}
+            onClick={() => {
+              setAgree(true)
+              setPrivacyOpen(false)
+            }}
             style={{ width: 'auto' }}
           >
             {t('common.confirm_ok') || 'OK'}

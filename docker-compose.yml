@@ -58,8 +58,6 @@ services:
   # SQL Server on Linux for local Biqly testing (port 1433).
   # Default image: Azure SQL Edge — SQL Server engine, native on linux/arm64 and linux/amd64 (incl. Apple Silicon).
   # Full SQL Server 2022 on x86_64 Linux only: docker compose --profile sqlserver-2022 up -d test-sqlserver-2022 sqlserver-init-2022
-  # Biqly DSN (empty DB): sqlserver://test_user:Test_password123!@localhost:1433?database=test_data&encrypt=disable
-  # BikeStores sample: sqlserver://test_user:Test_password123!@localhost:1433?database=BikeStores&encrypt=disable
   test-sqlserver:
     image: mcr.microsoft.com/azure-sql-edge:latest
     environment:
@@ -92,9 +90,7 @@ services:
         condition: service_healthy
     volumes:
       - ./scripts/init-sqlserver-db.sql:/init.sql:ro
-      - ./scripts/load-sqlserver-sample.sh:/load-sample.sh:ro
-      - ./scripts/sql-server-sample-database:/sample:ro
-    entrypoint: ["/bin/bash", "/load-sample.sh"]
+    entrypoint: ["/bin/bash", "-lc", "/opt/mssql-tools/bin/sqlcmd -S \"$SQL_HOST\" -U sa -P \"$MSSQL_SA_PASSWORD\" -C -i /init.sql"]
     restart: "no"
 
   # Optional: Microsoft SQL Server 2022 (linux/amd64 only — Linux CI/VMs, not Apple Silicon).
@@ -133,9 +129,7 @@ services:
         condition: service_healthy
     volumes:
       - ./scripts/init-sqlserver-db.sql:/init.sql:ro
-      - ./scripts/load-sqlserver-sample.sh:/load-sample.sh:ro
-      - ./scripts/sql-server-sample-database:/sample:ro
-    entrypoint: ["/bin/bash", "/load-sample.sh"]
+    entrypoint: ["/bin/bash", "-lc", "/opt/mssql-tools/bin/sqlcmd -S \"$SQL_HOST\" -U sa -P \"$MSSQL_SA_PASSWORD\" -C -i /init.sql"]
     restart: "no"
 
   migrate:

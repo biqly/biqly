@@ -314,23 +314,23 @@
   flex: 1;
   height: 4px;
   border-radius: 2px;
-  background: var(--border-color, #e5e7eb);
+  background-color: var(--border-color, #e5e7eb);
   transition: background-color 0.25s ease;
 }
 
 [data-theme="dark"] .strength-bar {
-  background: rgba(255, 255, 255, 0.08);
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
-.strength-bar--weak {
+.strength-bar.strength-bar--weak {
   background-color: #ef4444;
 }
 
-.strength-bar--medium {
+.strength-bar.strength-bar--medium {
   background-color: #f59e0b;
 }
 
-.strength-bar--strong {
+.strength-bar.strength-bar--strong {
   background-color: #10b981;
 }
 

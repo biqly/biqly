@@ -392,6 +392,10 @@ func (h *AuthHandler) respondError(w http.ResponseWriter, status int, message st
 	h.respondJSON(w, status, map[string]string{"error": message})
 }
 
+func (h *AuthHandler) secureCookie(r *http.Request) bool {
+	return r.URL.Scheme == "https" || r.Header.Get("X-Forwarded-Proto") == "https" || h.config.Port != 8889
+}
+
 func (h *AuthHandler) handleOAuthRedirect(w http.ResponseWriter, r *http.Request) {
 	providerName := chi.URLParam(r, "provider")
 	provider, err := NewOAuthProvider(providerName, h.config)
@@ -406,14 +410,15 @@ func (h *AuthHandler) handleOAuthRedirect(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	//nolint:gosec
+	secureCookie := h.secureCookie(r)
+	// nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
 	stateCookie := &http.Cookie{
 		Name:     "oauth_state_" + providerName,
 		Value:    state,
 		Path:     "/",
 		MaxAge:   300,
 		HttpOnly: true,
-		Secure:   r.URL.Scheme == "https",
+		Secure:   secureCookie,
 		SameSite: http.SameSiteLaxMode,
 	}
 	http.SetCookie(w, stateCookie)
@@ -440,14 +445,15 @@ func (h *AuthHandler) handleOAuthCallback(w http.ResponseWriter, r *http.Request
 	}
 
 	// Clear the state cookie
-	//nolint:gosec
+	secureCookie := h.secureCookie(r)
+	// nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
 	clearCookie := &http.Cookie{
 		Name:     "oauth_state_" + providerName,
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   r.URL.Scheme == "https",
+		Secure:   secureCookie,
 		SameSite: http.SameSiteLaxMode,
 	}
 	http.SetCookie(w, clearCookie)
@@ -560,14 +566,15 @@ func (h *AuthHandler) handlePasskeyRegisterBegin(w http.ResponseWriter, r *http.
 	}
 
 	sessionB64 := base64.StdEncoding.EncodeToString(sessionJSON)
-	//nolint:gosec
+	secureCookie := h.secureCookie(r)
+	// nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
 	http.SetCookie(w, &http.Cookie{
 		Name:     "webauthn_register_session",
 		Value:    sessionB64,
 		Path:     "/",
 		MaxAge:   300,
 		HttpOnly: true,
-		Secure:   r.URL.Scheme == "https" || h.config.Port != 8889,
+		Secure:   secureCookie,
 		SameSite: http.SameSiteLaxMode,
 	})
 
@@ -613,13 +620,16 @@ func (h *AuthHandler) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http
 		return
 	}
 
-	//nolint:gosec
+	secureCookie := h.secureCookie(r)
+	// nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
 	http.SetCookie(w, &http.Cookie{
 		Name:     "webauthn_register_session",
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
+		Secure:   secureCookie,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	h.respondJSON(w, http.StatusOK, map[string]string{"status": "success"})
@@ -645,14 +655,15 @@ func (h *AuthHandler) handlePasskeyLoginBegin(w http.ResponseWriter, r *http.Req
 	}
 
 	sessionB64 := base64.StdEncoding.EncodeToString(sessionJSON)
-	//nolint:gosec
+	secureCookie := h.secureCookie(r)
+	// nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
 	http.SetCookie(w, &http.Cookie{
 		Name:     "webauthn_login_session",
 		Value:    sessionB64,
 		Path:     "/",
 		MaxAge:   300,
 		HttpOnly: true,
-		Secure:   r.URL.Scheme == "https" || h.config.Port != 8889,
+		Secure:   secureCookie,
 		SameSite: http.SameSiteLaxMode,
 	})
 
@@ -684,13 +695,16 @@ func (h *AuthHandler) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	//nolint:gosec
+	secureCookie := h.secureCookie(r)
+	// nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
 	http.SetCookie(w, &http.Cookie{
 		Name:     "webauthn_login_session",
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
+		Secure:   secureCookie,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	ip := r.RemoteAddr

@@ -154,7 +154,7 @@ func (s *AuditService) Count(ctx context.Context, filter AuditFilter) (int, erro
 	if len(parts) > 0 {
 		where = " WHERE " + strings.Join(parts, " AND ")
 	}
-	q := fmt.Sprintf("SELECT COUNT(*) FROM audit_log%s", where)
+	q := "SELECT COUNT(*) FROM audit_log" + where // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query
 	var count int
 	err := s.db.QueryRowContext(ctx, q, args...).Scan(&count)
 	return count, err

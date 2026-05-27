@@ -42,14 +42,14 @@ func (r *Repository) CreateModel(ctx context.Context, m *SemanticModel) error {
 
 // GetModel retrieves a model by ID.
 func (r *Repository) GetModel(ctx context.Context, id string) (*SemanticModel, error) {
-	query := modelSelectSQL() + ` WHERE id = $1::uuid` //nolint:gosec // static SELECT fragment plus parameterized WHERE clause
+	query := modelSelectSQL() + ` WHERE id = $1::uuid` //nolint:gosec // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query
 	row := r.db.QueryRowContext(ctx, query, id)
 	return r.scanModel(row)
 }
 
 // GetModelByName retrieves a model by datasource ID and name.
 func (r *Repository) GetModelByName(ctx context.Context, datasourceID, name string) (*SemanticModel, error) {
-	query := modelSelectSQL() + ` WHERE datasource_id = $1::uuid AND name = $2` //nolint:gosec // static SELECT fragment plus parameterized WHERE clause
+	query := modelSelectSQL() + ` WHERE datasource_id = $1::uuid AND name = $2` //nolint:gosec // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query
 	row := r.db.QueryRowContext(ctx, query, datasourceID, name)
 	return r.scanModel(row)
 }

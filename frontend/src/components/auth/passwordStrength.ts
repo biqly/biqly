@@ -100,8 +100,7 @@ export function rulesFor(password: string, policy: PasswordPolicy, labels: RuleL
 
 // Bucketed score → level (1..3) maps onto the existing 3-segment strength bar.
 export function scoreToLevel(score: number): { level: 0 | 1 | 2 | 3; cssClass: string } {
-  if (score <= 0) return { level: 0, cssClass: '' }
-  if (score === 1) return { level: 1, cssClass: 'strength-bar--weak' }
+  if (score <= 1) return { level: 1, cssClass: 'strength-bar--weak' }
   if (score === 2) return { level: 2, cssClass: 'strength-bar--medium' }
   if (score === 3) return { level: 3, cssClass: 'strength-bar--medium' }
   return { level: 3, cssClass: 'strength-bar--strong' }

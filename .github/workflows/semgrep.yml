@@ -43,7 +43,7 @@ jobs:
             p/typescript
             p/javascript
             p/owasp-top-ten
-          generateSarif: "true"
+          args: --sarif --output semgrep.sarif
 
       # Upload results to GitHub Security tab (runs if Semgrep completes, continues on error if GHAS is disabled)
       - name: Upload SARIF file

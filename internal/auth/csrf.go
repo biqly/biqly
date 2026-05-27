@@ -45,7 +45,7 @@ func setCSRFCookie(w http.ResponseWriter, secure bool) {
 	_, _ = rand.Read(tokenBytes)
 	token := base64.URLEncoding.EncodeToString(tokenBytes)
 
-	//nolint:gosec
+	// nosemgrep: go.lang.security.audit.net.cookie-missing-httponly.cookie-missing-httponly,go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
 	http.SetCookie(w, &http.Cookie{
 		Name:     "csrf_token",
 		Value:    token,

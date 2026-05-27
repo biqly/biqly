@@ -1,8 +1,16 @@
-.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai test eval-regression lint helm-deps helm-lint helm-template clean migrate-up migrate-down docker-up docker-down seed-adventureworks
+.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai test eval-regression lint semgrep-scan helm-deps helm-lint helm-template clean migrate-up migrate-down docker-up docker-down seed-adventureworks
 
 BINARY_NAME=biqly
 GO_FILES=$(shell find . -name '*.go' -not -path './vendor/*')
 HELM_CHART=deploy/helm/biqly
+SEMGREP_SARIF?=semgrep.sarif
+SEMGREP_CONFIGS=\
+	p/security-audit \
+	p/golang \
+	p/react \
+	p/typescript \
+	p/javascript \
+	p/owasp-top-ten
 HELM_TEST_METADATA_DSN?=postgres://biqly:biqly@postgres:5432/bi_metadata?sslmode=disable
 HELM_TEST_ENCRYPTION_KEY?=0123456789abcdef0123456789abcdef
 # base64(32-byte test key) — satisfies auth chart required() and AES-256 decode
@@ -59,6 +67,9 @@ eval-regression:
 
 lint:
 	@golangci-lint run ./...
+
+semgrep-scan:
+	@semgrep scan $(foreach config,$(SEMGREP_CONFIGS),--config $(config)) --error --sarif --output $(SEMGREP_SARIF)
 
 helm-deps:
 	@helm repo add bitnami https://charts.bitnami.com/bitnami --force-update >/dev/null
