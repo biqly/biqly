@@ -54,11 +54,12 @@ auth:
     minReplicas: 1
     maxReplicas: 2
 
-# NOTE: enable once the biqly-mail image is built/pushed by CI and the ArgoCD
-# Application image-updater list tracks ghcr.io/biqly/biqly-mail. Until then,
-# keep disabled so prod sync does not fail pulling a non-existent image.
+# biqly-mail image is now published by CI (ghcr.io/biqly/biqly-mail). Prod
+# requires the bi_mail database and the BI_MAIL_DB_DSN / BI_MAIL_INTERNAL_TOKEN
+# secret values to be provisioned, and (optionally) the ArgoCD image-updater
+# list extended to track biqly-mail for sha-pinned tags instead of latest.
 mail:
-  enabled: false
+  enabled: true
   replicaCount: 1
   smtp:
     enabled: true
