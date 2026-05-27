@@ -13,7 +13,7 @@ helm:
     value: sha-917065ca8a8c3012af33bb394d147d98cbe2428a
     forcestring: true
   - name: frontend.image.tag
-    value: sha-917065ca8a8c3012af33bb394d147d98cbe2428a
+    value: sha-108ad7a598b6da7f6b4d40549f7864715379f719
     forcestring: true
   - name: global.migrate.image.tag
     value: sha-62653e62f32cdbc3b19bf0849003400adc67805e
