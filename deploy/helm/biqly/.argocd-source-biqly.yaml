@@ -22,10 +22,10 @@ helm:
     value: ghcr.io/biqly/migrate
     forcestring: true
   - name: mail.image.tag
-    value: sha-917065ca8a8c3012af33bb394d147d98cbe2428a
+    value: sha-e536947dbf60d5053e332302251cb558918223c3
     forcestring: true
   - name: mail.migrate.image.tag
-    value: sha-917065ca8a8c3012af33bb394d147d98cbe2428a
+    value: sha-e536947dbf60d5053e332302251cb558918223c3
     forcestring: true
   - name: query.image.tag
     value: sha-0909e3e31999a313569e1c14e0305e452f64ec1c
