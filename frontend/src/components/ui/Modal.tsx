@@ -41,8 +41,21 @@ export function Modal({
     if (!open) return
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const dialog = dialogRef.current
-    const focusable = dialog?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
-    focusable?.focus()
+    
+    // Prioritize [autoFocus] or elements in .modal-body over the close button in the header
+    const autoFocusEl = dialog?.querySelector<HTMLElement>('[autofocus], [autoFocus]')
+    if (autoFocusEl) {
+      autoFocusEl.focus()
+    } else {
+      const bodySelector = FOCUSABLE_SELECTOR.split(',').map(s => `.modal-body ${s.trim()}`).join(',')
+      const bodyFocusable = dialog?.querySelector<HTMLElement>(bodySelector)
+      if (bodyFocusable) {
+        bodyFocusable.focus()
+      } else {
+        const focusable = dialog?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
+        focusable?.focus()
+      }
+    }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {

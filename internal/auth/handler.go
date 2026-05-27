@@ -117,6 +117,7 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 		r.Post("/passkey/register-finish", h.handlePasskeyRegisterFinish)
 		r.Get("/me/passkeys", h.handleMePasskeys)
 		r.Delete("/me/passkeys/{id}", h.handleDeletePasskey)
+		r.Patch("/me/passkeys/{id}", h.handleUpdatePasskey)
 		r.Get("/mfa/status", h.handleMFAStatus)
 		r.Post("/mfa/enroll", h.handleMFAEnroll)
 		r.Post("/mfa/verify", h.handleMFAVerify)
@@ -733,6 +734,41 @@ func (h *AuthHandler) handleDeletePasskey(w http.ResponseWriter, r *http.Request
 	}
 
 	err := h.webAuthn.DeletePasskey(r.Context(), userID, passkeyID)
+	if err != nil {
+		h.respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *AuthHandler) handleUpdatePasskey(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(userIDKey).(string)
+	if !ok || userID == "" {
+		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	passkeyID := chi.URLParam(r, "id")
+	if passkeyID == "" {
+		h.respondError(w, http.StatusBadRequest, "passkey id is required")
+		return
+	}
+
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Name == "" {
+		h.respondError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+
+	err := h.webAuthn.UpdatePasskeyName(r.Context(), userID, passkeyID, req.Name)
 	if err != nil {
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return

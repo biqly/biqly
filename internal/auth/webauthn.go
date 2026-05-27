@@ -1,9 +1,12 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"time"
 
@@ -162,6 +165,38 @@ func (s *WebAuthnService) FinishRegistration(ctx context.Context, user *User, se
 }
 
 func (s *WebAuthnService) BeginLogin(ctx context.Context, emailOrUsername string) (*protocol.CredentialAssertion, *webauthn.SessionData, error) {
+	if emailOrUsername == "" {
+		// Discoverable credentials flow: no user specified
+		waUser := &WebAuthnUser{
+			User:        &User{ID: "discoverable"},
+			Credentials: []webauthn.Credential{},
+		}
+		assertion, session, err := s.webAuthn.BeginLogin(waUser)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		challengeBytes, err := base64.RawURLEncoding.DecodeString(session.Challenge)
+		if err != nil {
+			challengeBytes, err = base64.URLEncoding.DecodeString(session.Challenge)
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+
+		expiresAt := session.Expires
+		if expiresAt.IsZero() {
+			expiresAt = time.Now().Add(s.ttl)
+		}
+		// Save challenge with nil user ID
+		err = s.repo.SaveWebAuthnChallenge(ctx, challengeBytes, nil, expiresAt)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		return assertion, session, nil
+	}
+
 	user, err := s.repo.GetUserByEmailOrUsername(ctx, emailOrUsername)
 	if err != nil {
 		return nil, nil, err
@@ -218,8 +253,35 @@ func (s *WebAuthnService) FinishLogin(ctx context.Context, session *webauthn.Ses
 	if err != nil {
 		return nil, err
 	}
+
+	// Read and restore request body to inspect incoming credential ID and backup flags
+	var bodyBytes []byte
+	if request.Body != nil {
+		bodyBytes, _ = io.ReadAll(request.Body)
+		request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+	}
+
 	if uid == nil {
-		return nil, errors.New("invalid or expired login challenge")
+		// Discoverable credential login: we must find user ID from the credential ID
+		// which is inside the request payload.
+		var reqPayload struct {
+			RawID string `json:"rawId"`
+		}
+		if err := json.Unmarshal(bodyBytes, &reqPayload); err != nil || reqPayload.RawID == "" {
+			return nil, errors.New("invalid or expired login challenge")
+		}
+		credID, err := base64.RawURLEncoding.DecodeString(reqPayload.RawID)
+		if err != nil {
+			credID, err = base64.URLEncoding.DecodeString(reqPayload.RawID)
+			if err != nil {
+				return nil, errors.New("invalid credential format")
+			}
+		}
+		discoveredUID, err := s.repo.GetUserIDByCredentialID(ctx, credID)
+		if err != nil {
+			return nil, errors.New("no user found for passkey")
+		}
+		uid = &discoveredUID
 	}
 
 	user, err := s.repo.GetUserByID(ctx, *uid)
@@ -230,6 +292,31 @@ func (s *WebAuthnService) FinishLogin(ctx context.Context, session *webauthn.Ses
 	creds, err := s.repo.GetPasskeysByUserID(ctx, user.ID)
 	if err != nil {
 		return nil, err
+	}
+
+	var backupEligible, backupState bool
+	if len(bodyBytes) > 0 {
+		var reqPayload struct {
+			Response struct {
+				AuthenticatorData string `json:"authenticatorData"`
+			} `json:"response"`
+		}
+		if err := json.Unmarshal(bodyBytes, &reqPayload); err == nil && reqPayload.Response.AuthenticatorData != "" {
+			authData, err := base64.RawURLEncoding.DecodeString(reqPayload.Response.AuthenticatorData)
+			if err != nil {
+				authData, err = base64.URLEncoding.DecodeString(reqPayload.Response.AuthenticatorData)
+			}
+			if err == nil && len(authData) > 32 {
+				flagsByte := authData[32]
+				backupEligible = (flagsByte & 0x40) != 0
+				backupState = (flagsByte & 0x80) != 0
+			}
+		}
+	}
+
+	for i := range creds {
+		creds[i].Flags.BackupEligible = backupEligible
+		creds[i].Flags.BackupState = backupState
 	}
 
 	waUser := &WebAuthnUser{
@@ -261,4 +348,8 @@ func (s *WebAuthnService) GetUserPasskeys(ctx context.Context, userID string) ([
 
 func (s *WebAuthnService) DeletePasskey(ctx context.Context, userID string, passkeyID string) error {
 	return s.repo.DeletePasskey(ctx, userID, passkeyID)
+}
+
+func (s *WebAuthnService) UpdatePasskeyName(ctx context.Context, userID string, passkeyID string, name string) error {
+	return s.repo.UpdatePasskeyName(ctx, userID, passkeyID, name)
 }

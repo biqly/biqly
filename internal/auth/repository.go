@@ -655,6 +655,26 @@ func (r *UserRepository) UpdatePasskeySignCount(ctx context.Context, credentialI
 	return err
 }
 
+func (r *UserRepository) UpdatePasskeyName(ctx context.Context, userID string, passkeyID string, name string) error {
+	query := `
+		UPDATE passkeys
+		SET name = $1
+		WHERE user_id = $2 AND id = $3
+	`
+	_, err := r.db.ExecContext(ctx, query, name, userID, passkeyID)
+	return err
+}
+
+func (r *UserRepository) GetUserIDByCredentialID(ctx context.Context, credentialID []byte) (string, error) {
+	var userID string
+	err := r.db.QueryRowContext(ctx, "SELECT user_id FROM passkeys WHERE credential_id = $1", credentialID).Scan(&userID)
+	if err != nil {
+		return "", err
+	}
+	return userID, nil
+}
+
+
 func (r *UserRepository) DeletePasskey(ctx context.Context, userID string, passkeyID string) error {
 	query := `
 		DELETE FROM passkeys

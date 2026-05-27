@@ -213,6 +213,25 @@ export async function apiDeletePasskey(accessToken: string, id: string): Promise
   }
 }
 
+export async function apiPasskeyRename(
+  accessToken: string,
+  id: string,
+  name: string
+): Promise<void> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/me/passkeys/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ name }),
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(text || `HTTP ${res.status}`)
+  }
+}
+
 export async function apiForgotPassword(email: string): Promise<{ message: string }> {
   const res = await csrfFetch(`${AUTH_API_BASE}/forgot-password`, {
     method: 'POST',

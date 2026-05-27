@@ -6,6 +6,7 @@ import {
   apiDeletePasskey,
   apiPasskeyRegisterBegin,
   apiPasskeyRegisterFinish,
+  apiPasskeyRename,
 } from '../api/auth'
 import { base64urlToBuffer, bufferToBase64url } from '../utils/webauthn'
 import type { PasskeyInfo } from '../types/auth'
@@ -36,6 +37,11 @@ export default function Settings({ navigate }: SettingsProps) {
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [newPasskeyName, setNewPasskeyName] = useState('')
   const [registering, setRegistering] = useState(false)
+
+  // Renaming States
+  const [renameTarget, setRenameTarget] = useState<PasskeyInfo | null>(null)
+  const [renamingName, setRenamingName] = useState('')
+  const [renaming, setRenaming] = useState(false)
 
   const goTo = (path: string) => {
     navigate?.(path)
@@ -157,6 +163,25 @@ export default function Settings({ navigate }: SettingsProps) {
       }
     } finally {
       setRegistering(false)
+    }
+  }
+
+  const handleRenameSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!renameTarget || !renamingName.trim() || renaming || !accessToken) return
+
+    setRenaming(true)
+    setError(null)
+    setSuccessMessage(null)
+    try {
+      await apiPasskeyRename(accessToken, renameTarget.id, renamingName.trim())
+      setSuccessMessage(t('passkeys.success_rename'))
+      setRenameTarget(null)
+      await fetchPasskeys()
+    } catch (err: any) {
+      setError(err.message || 'Failed to rename passkey')
+    } finally {
+      setRenaming(false)
     }
   }
 
@@ -282,7 +307,18 @@ export default function Settings({ navigate }: SettingsProps) {
                         ? new Date(pk.last_used_at).toLocaleString(localeLanguageTag(locale))
                         : t('passkeys.never_used')}
                     </td>
-                    <td className="actions" style={{ textAlign: 'right' }}>
+                    <td className="actions" style={{ textAlign: 'right', display: 'flex', gap: '0.25rem', justifyContent: 'flex-end' }}>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-secondary"
+                        style={{ margin: 0, padding: '0.2rem 0.5rem', minHeight: 'auto', width: 'auto', display: 'inline-flex' }}
+                        onClick={() => {
+                          setRenameTarget(pk)
+                          setRenamingName(pk.name)
+                        }}
+                      >
+                        ✏️
+                      </button>
                       <button
                         type="button"
                         className="btn btn-sm btn-danger-outline"
@@ -348,6 +384,56 @@ export default function Settings({ navigate }: SettingsProps) {
               disabled={registering || !newPasskeyName.trim()}
             >
               {registering ? (
+                <>
+                  <div className="spinner" style={{ width: '12px', height: '12px', borderTopColor: '#fff', margin: 0 }}></div>
+                  {t('passkeys.modal_submit')}...
+                </>
+              ) : (
+                t('passkeys.modal_submit')
+              )}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Rename Passkey Modal */}
+      <Modal
+        open={renameTarget !== null}
+        title={t('passkeys.rename_title')}
+        subtitle={t('passkeys.rename_desc')}
+        onClose={() => setRenameTarget(null)}
+      >
+        <form onSubmit={handleRenameSubmit} className="page-stack" style={{ gap: '1rem' }}>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label htmlFor="rename-passkey-name">{t('passkeys.modal_label_name')}</label>
+            <input
+              id="rename-passkey-name"
+              type="text"
+              required
+              value={renamingName}
+              onChange={(e) => setRenamingName(e.target.value)}
+              placeholder={t('passkeys.modal_placeholder_name')}
+              disabled={renaming}
+              autoFocus
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ width: 'auto', margin: 0 }}
+              onClick={() => setRenameTarget(null)}
+              disabled={renaming}
+            >
+              {t('common.confirm_cancel')}
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ width: 'auto', margin: 0, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              disabled={renaming || !renamingName.trim()}
+            >
+              {renaming ? (
                 <>
                   <div className="spinner" style={{ width: '12px', height: '12px', borderTopColor: '#fff', margin: 0 }}></div>
                   {t('passkeys.modal_submit')}...

@@ -78,11 +78,6 @@ export default function SignInPage() {
   }
 
   const handlePasskeyLogin = async () => {
-    if (!email) {
-      setError('Please enter your email to login with passkey')
-      return
-    }
-
     setPasskeyLoading(true)
     setError(null)
     try {
