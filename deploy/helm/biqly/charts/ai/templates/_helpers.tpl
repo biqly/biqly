@@ -32,10 +32,10 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 
 {{- define "ai.image" -}}
 {{- $registry := trimSuffix "/" .Values.global.biqlyImageRegistry -}}
-{{- if $registry -}}
-{{- printf "%s/%s:%s" $registry .Values.image.repository .Values.image.tag -}}
-{{- else -}}
+{{- if or (contains "/" .Values.image.repository) (not $registry) -}}
 {{- printf "%s:%s" .Values.image.repository .Values.image.tag -}}
+{{- else -}}
+{{- printf "%s/%s:%s" $registry .Values.image.repository .Values.image.tag -}}
 {{- end -}}
 {{- end -}}
 

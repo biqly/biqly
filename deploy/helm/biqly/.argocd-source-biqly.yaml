@@ -18,9 +18,6 @@ helm:
   - name: global.migrate.image.tag
     value: sha-3e7d76537a106557bed958a600695ddc3f7a3bf1
     forcestring: true
-  - name: image.name
-    value: ghcr.io/biqly/migrate
-    forcestring: true
   - name: mail.image.tag
     value: sha-3e7d76537a106557bed958a600695ddc3f7a3bf1
     forcestring: true

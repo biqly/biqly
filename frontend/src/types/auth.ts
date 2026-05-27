@@ -154,3 +154,15 @@ export interface ResourceShare {
   permission: 'view' | 'execute' | 'edit'
   created_at: string
 }
+
+export interface Invitation {
+  id: string
+  email: string
+  role_id: string
+  role_name: string
+  invited_by: string
+  created_at: string
+  expires_at: string
+  claimed_at?: string
+}
+

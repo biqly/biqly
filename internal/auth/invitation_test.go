@@ -113,3 +113,91 @@ func TestInvitationFlow(t *testing.T) {
 	_, err = service.GetInvitation(ctx, token)
 	assert.ErrorIs(t, err, ErrInvitationClaimed)
 }
+
+func TestInvitationManagement(t *testing.T) {
+	dbPool := openTestDBPool(t)
+	ctx := context.Background()
+
+	// Clear test tables to keep tests clean and repeatable
+	_, _ = dbPool.ExecContext(ctx, "DELETE FROM user_invitations")
+	_, _ = dbPool.ExecContext(ctx, "DELETE FROM sessions")
+	_, _ = dbPool.ExecContext(ctx, "DELETE FROM workspace_members")
+	_, _ = dbPool.ExecContext(ctx, "DELETE FROM workspaces")
+	_, _ = dbPool.ExecContext(ctx, "DELETE FROM user_roles")
+	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users")
+
+	config := &Config{
+		JWTAccessTTL:  5 * time.Minute,
+		JWTRefreshTTL: 24 * time.Hour,
+	}
+
+	jwtMgr, err := NewJWTManager("", "", config.JWTAccessTTL)
+	require.NoError(t, err)
+
+	userRepo := NewUserRepository(dbPool, nil)
+	rbacRepo := NewRBACRepository(dbPool)
+	sessionMgr := NewSessionManager(dbPool)
+	mockMailer := mail.NewMockEmailSender()
+	service := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, config, nil, mockMailer)
+
+	// Create users
+	normalUser, err := userRepo.CreateUser(ctx, "normal@example.com", "SecurePass123!", "Normal User")
+	require.NoError(t, err)
+
+	superUser, err := userRepo.CreateUser(ctx, "super@example.com", "SecurePass123!", "Super User")
+	require.NoError(t, err)
+
+	var superRoleID string
+	err = dbPool.QueryRowContext(ctx, "SELECT id FROM roles WHERE name = 'super_admin'").Scan(&superRoleID)
+	require.NoError(t, err)
+
+	_, err = dbPool.ExecContext(ctx, "INSERT INTO user_roles (user_id, role_id, scope_type, scope_id) VALUES ($1, $2, 'global', '00000000-0000-0000-0000-000000000000')", superUser.ID, superRoleID)
+	require.NoError(t, err)
+
+	// 1. Create a couple of invitations
+	err = service.InviteUser(ctx, superUser.ID, "invite1@example.com", "viewer")
+	require.NoError(t, err)
+
+	err = service.InviteUser(ctx, superUser.ID, "invite2@example.com", "analyst")
+	require.NoError(t, err)
+
+	// 2. Normal user tries to list invitations — must fail
+	_, err = service.ListInvitations(ctx, normalUser.ID)
+	assert.ErrorIs(t, err, ErrNotSuperAdmin)
+
+	// 3. Super admin lists invitations — must succeed
+	invites, err := service.ListInvitations(ctx, superUser.ID)
+	require.NoError(t, err)
+	require.Len(t, invites, 2)
+	assert.Equal(t, "invite2@example.com", invites[0].Email)
+	assert.Equal(t, "analyst", invites[0].RoleName)
+	assert.Equal(t, "invite1@example.com", invites[1].Email)
+	assert.Equal(t, "viewer", invites[1].RoleName)
+
+	invitationID := invites[0].ID
+
+	// 4. Resend invitation by super admin — must succeed and update token
+	oldToken := invites[0].Token
+	err = service.ResendInvitation(ctx, superUser.ID, invitationID)
+	require.NoError(t, err)
+
+	// Fetch updated list and check token changed
+	invitesUpdated, err := service.ListInvitations(ctx, superUser.ID)
+	require.NoError(t, err)
+	assert.NotEqual(t, oldToken, invitesUpdated[0].Token)
+
+	// 5. Revoke invitation by normal user — must fail
+	err = service.RevokeInvitation(ctx, normalUser.ID, invitationID)
+	assert.ErrorIs(t, err, ErrNotSuperAdmin)
+
+	// 6. Revoke invitation by super admin — must succeed
+	err = service.RevokeInvitation(ctx, superUser.ID, invitationID)
+	require.NoError(t, err)
+
+	// Verify count is now 1
+	invitesFinal, err := service.ListInvitations(ctx, superUser.ID)
+	require.NoError(t, err)
+	assert.Len(t, invitesFinal, 1)
+	assert.Equal(t, "invite1@example.com", invitesFinal[0].Email)
+}
+

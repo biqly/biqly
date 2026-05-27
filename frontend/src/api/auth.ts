@@ -1,4 +1,4 @@
-import type { AuthUser, PasskeyInfo, PasswordPolicy, SetActiveWorkspaceResponse, TokenResponse } from '../types/auth'
+import type { AuthUser, PasskeyInfo, PasswordPolicy, SetActiveWorkspaceResponse, TokenResponse, Invitation } from '../types/auth'
 import { csrfFetch } from './csrf'
 
 const AUTH_API_BASE = '/api/auth'
@@ -274,4 +274,44 @@ export async function apiClaimInvitation(token: string, password: string, displa
   })
   return handleResponse<TokenResponse>(res)
 }
+
+export async function apiListInvitations(
+  accessToken: string,
+  params: { page: number; pageSize: number; search?: string; status?: string }
+): Promise<{ invitations: Invitation[]; total: number }> {
+  const query = new URLSearchParams({
+    page: String(params.page),
+    pageSize: String(params.pageSize),
+    search: params.search || '',
+    status: params.status || 'all',
+  })
+  const res = await csrfFetch(`${AUTH_API_BASE}/admin/invitations?${query.toString()}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+    },
+  })
+  return handleResponse<{ invitations: Invitation[]; total: number }>(res)
+}
+
+export async function apiRevokeInvitation(accessToken: string, id: string): Promise<{ message: string }> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/admin/invitations/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+    },
+  })
+  return handleResponse<{ message: string }>(res)
+}
+
+export async function apiResendInvitation(accessToken: string, id: string): Promise<{ message: string }> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/admin/invitations/${encodeURIComponent(id)}/resend`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+    },
+  })
+  return handleResponse<{ message: string }>(res)
+}
+
 

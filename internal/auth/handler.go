@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -122,6 +123,9 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 		r.Post("/mfa/disable", h.handleMFADisable)
 		r.Post("/mfa/recovery/regenerate", h.handleMFARegenerateRecovery)
 		r.Post("/admin/invitations", h.handleAdminInviteUser)
+		r.Get("/admin/invitations", h.handleAdminListInvitations)
+		r.Delete("/admin/invitations/{id}", h.handleAdminRevokeInvitation)
+		r.Post("/admin/invitations/{id}/resend", h.handleAdminResendInvitation)
 		h.RegisterAccountSelfRoutes(r)
 	})
 }
@@ -1012,4 +1016,139 @@ func (h *AuthHandler) handleClaimInvitation(w http.ResponseWriter, r *http.Reque
 
 	h.respondJSON(w, http.StatusOK, resp)
 }
+
+func (h *AuthHandler) handleAdminListInvitations(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(userIDKey).(string)
+	if !ok || userID == "" {
+		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	invites, err := h.service.ListInvitations(r.Context(), userID)
+	if errors.Is(err, ErrNotSuperAdmin) {
+		h.respondError(w, http.StatusForbidden, err.Error())
+		return
+	} else if err != nil {
+		h.respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	search := strings.ToLower(r.URL.Query().Get("search"))
+	status := r.URL.Query().Get("status")
+
+	var filtered []*Invitation
+	for _, inv := range invites {
+		matchesSearch := true
+		if search != "" {
+			emailMatch := strings.Contains(strings.ToLower(inv.Email), search)
+			roleMatch := strings.Contains(strings.ToLower(inv.RoleName), search)
+			matchesSearch = emailMatch || roleMatch
+		}
+
+		matchesStatus := true
+		if status != "" && status != "all" {
+			isClaimed := inv.ClaimedAt != nil
+			isExpired := !isClaimed && time.Now().After(inv.ExpiresAt)
+			isPending := !isClaimed && !isExpired
+
+			switch status {
+			case "claimed":
+				matchesStatus = isClaimed
+			case "expired":
+				matchesStatus = isExpired
+			case "pending":
+				matchesStatus = isPending
+			}
+		}
+
+		if matchesSearch && matchesStatus {
+			filtered = append(filtered, inv)
+		}
+	}
+
+	total := len(filtered)
+	pageStr := r.URL.Query().Get("page")
+	pageSizeStr := r.URL.Query().Get("pageSize")
+	page := 1
+	pageSize := 10
+	if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+		page = p
+	}
+	if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 {
+		pageSize = ps
+	}
+	start := (page - 1) * pageSize
+	var paginated []*Invitation
+	if start < total {
+		end := start + pageSize
+		if end > total {
+			end = total
+		}
+		paginated = filtered[start:end]
+	} else {
+		paginated = []*Invitation{}
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]any{
+		"invitations": paginated,
+		"total":       total,
+	})
+}
+
+func (h *AuthHandler) handleAdminRevokeInvitation(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(userIDKey).(string)
+	if !ok || userID == "" {
+		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		h.respondError(w, http.StatusBadRequest, "id is required")
+		return
+	}
+
+	err := h.service.RevokeInvitation(r.Context(), userID, id)
+	if errors.Is(err, ErrNotSuperAdmin) {
+		h.respondError(w, http.StatusForbidden, err.Error())
+		return
+	} else if errors.Is(err, ErrInvitationNotFound) {
+		h.respondError(w, http.StatusNotFound, err.Error())
+		return
+	} else if err != nil {
+		h.respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]string{"message": "invitation revoked successfully"})
+}
+
+func (h *AuthHandler) handleAdminResendInvitation(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(userIDKey).(string)
+	if !ok || userID == "" {
+		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		h.respondError(w, http.StatusBadRequest, "id is required")
+		return
+	}
+
+	err := h.service.ResendInvitation(r.Context(), userID, id)
+	if errors.Is(err, ErrNotSuperAdmin) {
+		h.respondError(w, http.StatusForbidden, err.Error())
+		return
+	} else if errors.Is(err, ErrInvitationNotFound) {
+		h.respondError(w, http.StatusNotFound, err.Error())
+		return
+	} else if err != nil {
+		h.respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]string{"message": "invitation resent successfully"})
+}
+
 

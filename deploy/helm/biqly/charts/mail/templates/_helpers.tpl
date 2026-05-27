@@ -32,10 +32,10 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 
 {{- define "mail.image" -}}
 {{- $registry := trimSuffix "/" .Values.global.biqlyImageRegistry -}}
-{{- if $registry -}}
-{{- printf "%s/%s:%s" $registry .Values.image.repository .Values.image.tag -}}
-{{- else -}}
+{{- if or (contains "/" .Values.image.repository) (not $registry) -}}
 {{- printf "%s:%s" .Values.image.repository .Values.image.tag -}}
+{{- else -}}
+{{- printf "%s/%s:%s" $registry .Values.image.repository .Values.image.tag -}}
 {{- end -}}
 {{- end -}}
 
@@ -43,10 +43,10 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- $registry := trimSuffix "/" .Values.global.biqlyImageRegistry -}}
 {{- $repo := default .Values.image.repository .Values.migrate.image.repository -}}
 {{- $tag := default .Values.image.tag .Values.migrate.image.tag -}}
-{{- if $registry -}}
-{{- printf "%s/%s:%s" $registry $repo $tag -}}
-{{- else -}}
+{{- if or (contains "/" $repo) (not $registry) -}}
 {{- printf "%s:%s" $repo $tag -}}
+{{- else -}}
+{{- printf "%s/%s:%s" $registry $repo $tag -}}
 {{- end -}}
 {{- end -}}
 

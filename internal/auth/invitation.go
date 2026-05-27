@@ -298,3 +298,133 @@ func (s *AuthService) IsSuperAdmin(ctx context.Context, userID string) (bool, er
 	}
 	return slices.Contains(roles, RoleSuperAdmin), nil
 }
+
+// ListInvitations lists all user invitations.
+func (s *AuthService) ListInvitations(ctx context.Context, actorUserID string) ([]*Invitation, error) {
+	isSuper, err := s.IsSuperAdmin(ctx, actorUserID)
+	if err != nil {
+		return nil, fmt.Errorf("check super admin: %w", err)
+	}
+	if !isSuper {
+		return nil, ErrNotSuperAdmin
+	}
+
+	query := `
+		SELECT ui.id, ui.email, ui.token, ui.role_id, r.name as role_name, ui.invited_by, ui.created_at, ui.expires_at, ui.claimed_at
+		FROM user_invitations ui
+		JOIN roles r ON ui.role_id = r.id
+		ORDER BY ui.created_at DESC
+	`
+	rows, err := s.userRepo.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("query invitations: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var invites []*Invitation
+	for rows.Next() {
+		var invite Invitation
+		var claimedAtNull sql.NullTime
+		var tokenNull sql.NullString
+		err := rows.Scan(
+			&invite.ID, &invite.Email, &tokenNull, &invite.RoleID, &invite.RoleName,
+			&invite.InvitedBy, &invite.CreatedAt, &invite.ExpiresAt, &claimedAtNull,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scan invitation: %w", err)
+		}
+		if tokenNull.Valid {
+			invite.Token = &tokenNull.String
+		}
+		if claimedAtNull.Valid {
+			invite.ClaimedAt = &claimedAtNull.Time
+		}
+		invites = append(invites, &invite)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate invitations: %w", err)
+	}
+	return invites, nil
+}
+
+// RevokeInvitation deletes an invitation, rendering its token invalid.
+func (s *AuthService) RevokeInvitation(ctx context.Context, actorUserID, invitationID string) error {
+	isSuper, err := s.IsSuperAdmin(ctx, actorUserID)
+	if err != nil {
+		return fmt.Errorf("check super admin: %w", err)
+	}
+	if !isSuper {
+		return ErrNotSuperAdmin
+	}
+
+	query := `DELETE FROM user_invitations WHERE id = $1`
+	res, err := s.userRepo.db.ExecContext(ctx, query, invitationID)
+	if err != nil {
+		return fmt.Errorf("delete invitation: %w", err)
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrInvitationNotFound
+	}
+	return nil
+}
+
+// ResendInvitation updates an invitation with a fresh token and expiration, and triggers email delivery.
+func (s *AuthService) ResendInvitation(ctx context.Context, actorUserID, invitationID string) error {
+	isSuper, err := s.IsSuperAdmin(ctx, actorUserID)
+	if err != nil {
+		return fmt.Errorf("check super admin: %w", err)
+	}
+	if !isSuper {
+		return ErrNotSuperAdmin
+	}
+
+	// Fetch invitation details to retrieve email and role name
+	query := `
+		SELECT ui.email, r.name as role_name
+		FROM user_invitations ui
+		JOIN roles r ON ui.role_id = r.id
+		WHERE ui.id = $1
+	`
+	var email, roleName string
+	err = s.userRepo.db.QueryRowContext(ctx, query, invitationID).Scan(&email, &roleName)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrInvitationNotFound
+	} else if err != nil {
+		return fmt.Errorf("get invitation for resend: %w", err)
+	}
+
+	// Generate secure token
+	token, err := s.generateSecureToken()
+	if err != nil {
+		return fmt.Errorf("generate secure token: %w", err)
+	}
+
+	expiresAt := time.Now().Add(48 * time.Hour)
+
+	// Update invitation token, expiration and set claimed_at to null
+	updateQuery := `
+		UPDATE user_invitations
+		SET token = $1, expires_at = $2, claimed_at = NULL, created_at = NOW(), invited_by = $3
+		WHERE id = $4
+	`
+	_, err = s.userRepo.db.ExecContext(ctx, updateQuery, token, expiresAt, actorUserID, invitationID)
+	if err != nil {
+		return fmt.Errorf("update invitation token: %w", err)
+	}
+
+	// Send Invitation Email
+	if s.emailSender != nil {
+		err = s.emailSender.SendInvitation(ctx, email, token, roleName, expiresAt)
+		if err != nil {
+			return fmt.Errorf("send invitation email: %w", err)
+		}
+	}
+
+	return nil
+}
+
