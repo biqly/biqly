@@ -19,13 +19,13 @@ helm:
     value: sha-917065ca8a8c3012af33bb394d147d98cbe2428a
     forcestring: true
   - name: image.name
-    value: ghcr.io/biqly/biqly-auth
+    value: ghcr.io/biqly/biqly-mail
     forcestring: true
   - name: mail.image.tag
-    value: sha-54071644471653be977071fd8a36e57e92ee1080
+    value: sha-3e7d76537a106557bed958a600695ddc3f7a3bf1
     forcestring: true
   - name: mail.migrate.image.tag
-    value: sha-54071644471653be977071fd8a36e57e92ee1080
+    value: sha-3e7d76537a106557bed958a600695ddc3f7a3bf1
     forcestring: true
   - name: query.image.tag
     value: sha-7103b8dfe73b981ebfc4b0a6f855cd425640af1b
