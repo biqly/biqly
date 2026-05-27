@@ -86,7 +86,15 @@ func TestInvitationFlow(t *testing.T) {
 	assert.Equal(t, inviteEmail, invite.Email)
 	assert.Equal(t, "developer", invite.RoleName)
 
-	// 6. Claim invitation — must succeed, create user, mark email verified, and log in
+	// 6. Re-inviting a pending email must not invalidate links already sent.
+	err = service.InviteUser(ctx, superUser.ID, inviteEmail, "developer")
+	require.NoError(t, err)
+	reinvited, err := service.GetInvitation(ctx, token)
+	require.NoError(t, err)
+	assert.Equal(t, inviteEmail, reinvited.Email)
+	assert.Equal(t, "developer", reinvited.RoleName)
+
+	// 7. Claim invitation — must succeed, create user, mark email verified, and log in
 	claimUA := "Invite-Claim-Agent"
 	claimIP := "192.168.1.1"
 	claimResp, err := service.ClaimInvitation(ctx, token, "NewSecPass1!", "Invited User", claimUA, claimIP)
@@ -109,7 +117,7 @@ func TestInvitationFlow(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, roles, "developer")
 
-	// 7. Trying to get the invitation again must fail with ErrInvitationClaimed
+	// 8. Trying to get the invitation again must fail with ErrInvitationClaimed
 	_, err = service.GetInvitation(ctx, token)
 	assert.ErrorIs(t, err, ErrInvitationClaimed)
 }
@@ -176,15 +184,21 @@ func TestInvitationManagement(t *testing.T) {
 
 	invitationID := invites[0].ID
 
-	// 4. Resend invitation by super admin — must succeed and update token
+	// 4. Resend invitation by super admin — must succeed without invalidating emailed links
 	oldToken := invites[0].Token
+	require.NotNil(t, oldToken)
 	err = service.ResendInvitation(ctx, superUser.ID, invitationID)
 	require.NoError(t, err)
 
-	// Fetch updated list and check token changed
+	// Fetch updated list and check the token is preserved
 	invitesUpdated, err := service.ListInvitations(ctx, superUser.ID)
 	require.NoError(t, err)
-	assert.NotEqual(t, oldToken, invitesUpdated[0].Token)
+	require.NotNil(t, invitesUpdated[0].Token)
+	assert.Equal(t, *oldToken, *invitesUpdated[0].Token)
+
+	resentInvite, err := service.GetInvitation(ctx, *oldToken)
+	require.NoError(t, err)
+	assert.Equal(t, "invite2@example.com", resentInvite.Email)
 
 	// 5. Revoke invitation by normal user — must fail
 	err = service.RevokeInvitation(ctx, normalUser.ID, invitationID)
@@ -201,3 +215,8 @@ func TestInvitationManagement(t *testing.T) {
 	assert.Equal(t, "invite1@example.com", invitesFinal[0].Email)
 }
 
+func TestInvitationRouteTokenDecoding(t *testing.T) {
+	token, err := decodeInvitationRouteToken("iY7nsYpBr9xdk5_Pn5xSwiVbo-iGTcM53WtyK8A1iHY%3D")
+	require.NoError(t, err)
+	assert.Equal(t, "iY7nsYpBr9xdk5_Pn5xSwiVbo-iGTcM53WtyK8A1iHY=", token)
+}

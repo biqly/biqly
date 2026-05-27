@@ -958,7 +958,11 @@ func (h *AuthHandler) handleAdminInviteUser(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *AuthHandler) handleGetInvitation(w http.ResponseWriter, r *http.Request) {
-	token := chi.URLParam(r, "token")
+	token, err := decodeInvitationRouteToken(chi.URLParam(r, "token"))
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid token")
+		return
+	}
 	if token == "" {
 		h.respondError(w, http.StatusBadRequest, "token is required")
 		return
@@ -987,7 +991,11 @@ func (h *AuthHandler) handleGetInvitation(w http.ResponseWriter, r *http.Request
 }
 
 func (h *AuthHandler) handleClaimInvitation(w http.ResponseWriter, r *http.Request) {
-	token := chi.URLParam(r, "token")
+	token, err := decodeInvitationRouteToken(chi.URLParam(r, "token"))
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid token")
+		return
+	}
 	if token == "" {
 		h.respondError(w, http.StatusBadRequest, "token is required")
 		return
@@ -1015,6 +1023,13 @@ func (h *AuthHandler) handleClaimInvitation(w http.ResponseWriter, r *http.Reque
 	}
 
 	h.respondJSON(w, http.StatusOK, resp)
+}
+
+func decodeInvitationRouteToken(raw string) (string, error) {
+	if raw == "" {
+		return "", nil
+	}
+	return url.PathUnescape(raw)
 }
 
 func (h *AuthHandler) handleAdminListInvitations(w http.ResponseWriter, r *http.Request) {
@@ -1150,5 +1165,3 @@ func (h *AuthHandler) handleAdminResendInvitation(w http.ResponseWriter, r *http
 
 	h.respondJSON(w, http.StatusOK, map[string]string{"message": "invitation resent successfully"})
 }
-
-

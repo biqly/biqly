@@ -5,6 +5,7 @@ import type { AuthUser, Invitation } from '../../types/auth'
 import { Pagination } from '../ui/Pagination'
 import { useAuth } from '../auth/AuthProvider'
 import { apiInviteUser, apiListInvitations, apiRevokeInvitation, apiResendInvitation } from '../../api/auth'
+import { useQueryParam } from '../../hooks/useQueryParam'
 
 interface UserListPageProps {
   token: string
@@ -33,7 +34,11 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   const [inviteError, setInviteError] = useState<string | null>(null)
 
   // Invitation tab states
-  const [subTab, setSubTab] = useState<'active' | 'invitations'>('active')
+  const [subTabParam, setSubTabParam] = useQueryParam('subTab')
+  const subTab = subTabParam === 'invitations' ? 'invitations' : 'active'
+  const setSubTab = (val: 'active' | 'invitations') => {
+    setSubTabParam(val === 'active' ? '' : val)
+  }
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [inviteSearch, setInviteSearch] = useState('')
   const [inviteStatusFilter, setInviteStatusFilter] = useState<'all' | 'pending' | 'claimed' | 'expired'>('all')

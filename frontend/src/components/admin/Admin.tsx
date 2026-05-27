@@ -17,6 +17,7 @@ export default function Admin() {
   const { accessToken } = useAuth()
   const [tabParam, setTabParam] = useQueryParam('tab')
   const [userIdParam, setUserIdParam] = useQueryParam('userId')
+  const [, setSubTabParam] = useQueryParam('subTab')
 
   const tab = (tabParam as AdminTab) || 'users'
   const selectedUserID = userIdParam || null
@@ -28,6 +29,7 @@ export default function Admin() {
   const handleTabChange = (newTab: AdminTab) => {
     setTabParam(newTab)
     setUserIdParam('') // reset selection when switching tabs
+    setSubTabParam('') // reset sub tab selection when switching main tabs
   }
 
   return (

@@ -310,9 +310,10 @@ func (s *AuthService) ListInvitations(ctx context.Context, actorUserID string) (
 	}
 
 	query := `
-		SELECT ui.id, ui.email, ui.token, ui.role_id, r.name as role_name, ui.invited_by, ui.created_at, ui.expires_at, ui.claimed_at
+		SELECT ui.id, ui.email, ui.token, ui.role_id, r.name as role_name, COALESCE(u.display_name, u.email, ui.invited_by) as invited_by, ui.created_at, ui.expires_at, ui.claimed_at
 		FROM user_invitations ui
 		JOIN roles r ON ui.role_id = r.id
+		LEFT JOIN users u ON ui.invited_by = u.id
 		ORDER BY ui.created_at DESC
 	`
 	rows, err := s.userRepo.db.QueryContext(ctx, query)
