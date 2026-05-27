@@ -67,3 +67,9 @@ func (m *MockEmailSender) SendMagicLink(_ context.Context, email, token string) 
 	m.record(email, "magic_link", "Magic link token: "+token)
 	return nil
 }
+
+func (m *MockEmailSender) SendInvitation(_ context.Context, email, token, roleName string, expiresAt time.Time) error {
+	m.record(email, "invitation", fmt.Sprintf("Invitation token: %s, role: %s, expires: %s", token, roleName, expiresAt.Format(time.RFC3339)))
+	return nil
+}
+

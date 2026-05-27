@@ -3,6 +3,8 @@ import { listUsers } from '../../api/admin'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import type { AuthUser } from '../../types/auth'
 import { Pagination } from '../ui/Pagination'
+import { useAuth } from '../auth/AuthProvider'
+import { apiInviteUser } from '../../api/auth'
 
 interface UserListPageProps {
   token: string
@@ -20,6 +22,15 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
   const [totalItems, setTotalItems] = useState(0)
+
+  const { roles } = useAuth()
+  const isSuperAdmin = roles.includes('super_admin')
+  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole] = useState('viewer')
+  const [inviteLoading, setInviteLoading] = useState(false)
+  const [inviteSuccess, setInviteSuccess] = useState(false)
+  const [inviteError, setInviteError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -63,7 +74,24 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0, fontSize: 20 }}>{t('admin.users.title')}</h2>
-        <span style={countBadge}>{t('admin.users.count', { count: totalItems })}</span>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <span style={countBadge}>{t('admin.users.count', { count: totalItems })}</span>
+          {isSuperAdmin && (
+            <button
+              type="button"
+              style={btnSuccess}
+              onClick={() => {
+                setShowInviteModal(true)
+                setInviteEmail('')
+                setInviteRole('viewer')
+                setInviteSuccess(false)
+                setInviteError(null)
+              }}
+            >
+              {t('auth.btn_invite_user')}
+            </button>
+          )}
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -143,6 +171,133 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
           itemsPerPage={pageSize}
         />
       </div>
+
+      {showInviteModal && (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowInviteModal(false) }}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+        >
+          <section
+            className="modal-card"
+            role="dialog"
+            aria-modal="true"
+            style={{
+              background: 'var(--bg-card, #ffffff)',
+              border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
+              borderRadius: 8,
+              width: '100%',
+              maxWidth: 400,
+              padding: 24,
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+            }}
+          >
+            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h2 style={{ margin: 0, fontSize: 18 }}>{t('auth.invite_user_modal_title')}</h2>
+              <button
+                type="button"
+                onClick={() => setShowInviteModal(false)}
+                style={{ border: 0, background: 'transparent', fontSize: 20, cursor: 'pointer', color: 'var(--text-secondary)' }}
+              >
+                ×
+              </button>
+            </header>
+
+            {inviteSuccess ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={successBox}>
+                  {t('auth.invite_user_success', { email: inviteEmail })}
+                </div>
+                <button type="button" style={btnPrimary} onClick={() => setShowInviteModal(false)}>
+                  {t('common.close')}
+                </button>
+              </div>
+            ) : (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault()
+                  setInviteLoading(true)
+                  setInviteError(null)
+                  try {
+                    await apiInviteUser(token, inviteEmail, inviteRole)
+                    setInviteSuccess(true)
+                  } catch (err: any) {
+                    setInviteError(err.message || 'Invitation failed')
+                  } finally {
+                    setInviteLoading(false)
+                  }
+                }}
+                style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
+              >
+                {inviteError && <div style={errStyleBox}>{t('auth.invite_user_failed', { error: inviteError })}</div>}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 13, fontWeight: 500 }} htmlFor="invite-email-input">
+                    {t('auth.invite_user_email')}
+                  </label>
+                  <input
+                    id="invite-email-input"
+                    type="email"
+                    required
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    style={inputStyleWide}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 13, fontWeight: 500 }} htmlFor="invite-role-input">
+                    {t('auth.invite_user_role')}
+                  </label>
+                  <select
+                    id="invite-role-input"
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value)}
+                    style={selectStyleWide}
+                  >
+                    <option value="viewer">Viewer</option>
+                    <option value="analyst">Analyst</option>
+                    <option value="developer">Developer</option>
+                    <option value="admin">Admin</option>
+                    <option value="super_admin">Super Admin</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 8 }}>
+                  <button
+                    type="button"
+                    style={btnGhost}
+                    onClick={() => setShowInviteModal(false)}
+                    disabled={inviteLoading}
+                  >
+                    {t('common.cancel')}
+                  </button>
+                  <button
+                    type="submit"
+                    style={btnPrimary}
+                    disabled={inviteLoading || !inviteEmail}
+                  >
+                    {inviteLoading && <span className="spinner" style={{ marginRight: 6, display: 'inline-block', width: 12, height: 12 }} />}
+                    {t('auth.btn_invite_user')}
+                  </button>
+                </div>
+              </form>
+            )}
+          </section>
+        </div>
+      )}
     </div>
   )
 }
@@ -275,3 +430,63 @@ const errStyle: React.CSSProperties = {
   padding: 16,
   fontWeight: 600,
 }
+
+const btnSuccess: React.CSSProperties = {
+  padding: '6px 12px',
+  background: '#10b981',
+  color: 'white',
+  border: 0,
+  borderRadius: 4,
+  cursor: 'pointer',
+  fontSize: 13,
+  fontWeight: 500,
+}
+
+const btnGhost: React.CSSProperties = {
+  padding: '6px 12px',
+  background: 'transparent',
+  color: 'var(--text-primary, #111)',
+  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
+  borderRadius: 4,
+  cursor: 'pointer',
+  fontSize: 13,
+  fontWeight: 500,
+}
+
+const inputStyleWide: React.CSSProperties = {
+  padding: '8px 12px',
+  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
+  background: 'var(--input-bg, #fff)',
+  color: 'var(--text-primary, #111)',
+  borderRadius: 6,
+  fontSize: 14,
+  width: '100%',
+  boxSizing: 'border-box',
+}
+
+const selectStyleWide: React.CSSProperties = {
+  padding: '8px 12px',
+  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
+  background: 'var(--input-bg, #fff)',
+  color: 'var(--text-primary, #111)',
+  borderRadius: 6,
+  fontSize: 14,
+  width: '100%',
+}
+
+const successBox: React.CSSProperties = {
+  padding: '12px',
+  background: 'rgba(16, 185, 129, 0.12)',
+  color: '#10b981',
+  borderRadius: 6,
+  fontSize: 14,
+}
+
+const errStyleBox: React.CSSProperties = {
+  padding: '12px',
+  background: 'rgba(239, 68, 68, 0.12)',
+  color: '#ef4444',
+  borderRadius: 6,
+  fontSize: 14,
+}
+

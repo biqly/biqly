@@ -1319,6 +1319,17 @@ export const en = {
     passkey_name_placeholder: 'Passkey name (e.g. MacBook Pro)',
     passkey_register_dialog: 'Add Passkey',
     passkey_prompt_desc: 'Passkeys allow secure, passwordless authentication using Face ID, Touch ID, or PIN.',
+    title_invite: 'Setup Your Account',
+    invite_setup_desc: 'You have been invited to ABI as a {role}. Set up your account credentials to join.',
+    invite_setup_success: 'Account setup successful! Signing in...',
+    invite_invalid_token: 'Invalid or expired invitation link. Please request a new invite from your administrator.',
+    btn_setup_account: 'Complete Setup',
+    btn_invite_user: 'Invite User',
+    invite_user_modal_title: 'Invite New User',
+    invite_user_email: 'Email address',
+    invite_user_role: 'Assign role',
+    invite_user_success: 'Invitation sent successfully to {email}',
+    invite_user_failed: 'Failed to send invitation: {error}',
   },
 } as const
 

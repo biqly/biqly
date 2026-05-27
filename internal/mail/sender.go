@@ -15,4 +15,5 @@ type EmailSender interface {
 	SendAccountDeletionScheduled(ctx context.Context, email string, purgeAt time.Time) error
 	SendDuplicateRegistrationNotice(ctx context.Context, email string) error
 	SendMagicLink(ctx context.Context, email, token string) error
+	SendInvitation(ctx context.Context, email, token, roleName string, expiresAt time.Time) error
 }

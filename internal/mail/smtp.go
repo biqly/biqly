@@ -151,6 +151,12 @@ func (s *SMTPEmailSender) buildTemplateData(template string, data map[string]any
 		}, nil
 	case "magic_link":
 		return map[string]any{"URL": s.frontendURL(fmt.Sprintf("/auth/magic-link?token=%s", str("token")))}, nil
+	case "invitation":
+		return map[string]any{
+			"URL":       s.frontendURL(fmt.Sprintf("/auth/claim-invite?token=%s", str("token"))),
+			"RoleName":  str("role_name"),
+			"ExpiresAt": displayTime("expires_at"),
+		}, nil
 	default:
 		return nil, fmt.Errorf("%w: %q", ErrUnknownTemplate, template)
 	}

@@ -237,3 +237,41 @@ export async function apiVerifyEmail(token: string): Promise<{ message: string }
   })
   return handleResponse<{ message: string }>(res)
 }
+
+export async function apiInviteUser(accessToken: string, email: string, roleName: string): Promise<{ message: string }> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/admin/invitations`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email, role_name: roleName }),
+  })
+  return handleResponse<{ message: string }>(res)
+}
+
+export async function apiGetInvitation(token: string): Promise<{
+  id: string
+  email: string
+  role_id: string
+  role_name: string
+  invited_by: string
+  expires_at: string
+}> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/invitations/${encodeURIComponent(token)}`, {
+    method: 'GET',
+  })
+  return handleResponse<any>(res)
+}
+
+export async function apiClaimInvitation(token: string, password: string, displayName: string): Promise<TokenResponse> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/invitations/${encodeURIComponent(token)}/claim`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ password, display_name: displayName }),
+  })
+  return handleResponse<TokenResponse>(res)
+}
+

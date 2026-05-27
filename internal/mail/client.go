@@ -103,3 +103,12 @@ func (c *APIClient) SendDuplicateRegistrationNotice(ctx context.Context, email s
 func (c *APIClient) SendMagicLink(ctx context.Context, email, token string) error {
 	return c.send(ctx, "magic_link", email, map[string]any{"token": token})
 }
+
+func (c *APIClient) SendInvitation(ctx context.Context, email, token, roleName string, expiresAt time.Time) error {
+	return c.send(ctx, "invitation", email, map[string]any{
+		"token":      token,
+		"role_name":  roleName,
+		"expires_at": expiresAt.UTC().Format(time.RFC3339),
+	})
+}
+

@@ -26,6 +26,7 @@ const ForgotPasswordPage = lazy(() => import('./components/auth/ForgotPasswordPa
 const ResetPasswordPage = lazy(() => import('./components/auth/ResetPasswordPage'))
 const VerifyEmailPage = lazy(() => import('./components/auth/VerifyEmailPage'))
 const OAuthCallback = lazy(() => import('./components/auth/OAuthCallback'))
+const ClaimInvitePage = lazy(() => import('./components/auth/ClaimInvitePage'))
 
 import { AuthGuard, globalNavigate } from './components/auth/AuthGuard'
 import { useAuth } from './components/auth/AuthProvider'
@@ -421,6 +422,8 @@ function App() {
       document.title = `${t('auth.title_reset')} · ABI`
     } else if (activePath === '/auth/verify-email') {
       document.title = `${t('auth.title_verify')} · ABI`
+    } else if (activePath === '/auth/claim-invite') {
+      document.title = `${t('auth.title_invite')} · ABI`
     } else if (activePath.startsWith('/auth/')) {
       document.title = 'ABI'
     } else {
@@ -465,6 +468,7 @@ function App() {
     else if (activePath === '/auth/forgot-password') AuthComponent = <ForgotPasswordPage />
     else if (activePath === '/auth/reset-password') AuthComponent = <ResetPasswordPage />
     else if (activePath === '/auth/verify-email') AuthComponent = <VerifyEmailPage />
+    else if (activePath === '/auth/claim-invite') AuthComponent = <ClaimInvitePage />
     else if (activePath === '/auth/callback') AuthComponent = <OAuthCallback />
 
     return (

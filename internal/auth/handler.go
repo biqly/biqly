@@ -80,6 +80,9 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 	r.Get("/email-change/confirm", h.handleConfirmEmailChange)
 	r.Post("/email-change/confirm", h.handleConfirmEmailChange)
 
+	r.Get("/invitations/{token}", h.handleGetInvitation)
+	r.Post("/invitations/{token}/claim", h.handleClaimInvitation)
+
 	r.Get("/oauth/{provider}", h.handleOAuthRedirect)
 	r.Get("/oauth/{provider}/callback", h.handleOAuthCallback)
 	r.Group(func(r chi.Router) {
@@ -118,6 +121,7 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 		r.Post("/mfa/verify", h.handleMFAVerify)
 		r.Post("/mfa/disable", h.handleMFADisable)
 		r.Post("/mfa/recovery/regenerate", h.handleMFARegenerateRecovery)
+		r.Post("/admin/invitations", h.handleAdminInviteUser)
 		h.RegisterAccountSelfRoutes(r)
 	})
 }
@@ -920,3 +924,92 @@ func (h *AuthHandler) handleConfirmEmailChange(w http.ResponseWriter, r *http.Re
 		"new_email": change.NewEmail,
 	})
 }
+
+func (h *AuthHandler) handleAdminInviteUser(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(userIDKey).(string)
+	if !ok || userID == "" {
+		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req InviteUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	err := h.service.InviteUser(r.Context(), userID, req.Email, req.RoleName)
+	if errors.Is(err, ErrNotSuperAdmin) {
+		h.respondError(w, http.StatusForbidden, err.Error())
+		return
+	} else if errors.Is(err, ErrRoleNotFound) {
+		h.respondError(w, http.StatusNotFound, err.Error())
+		return
+	} else if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]string{"message": "user invited successfully"})
+}
+
+func (h *AuthHandler) handleGetInvitation(w http.ResponseWriter, r *http.Request) {
+	token := chi.URLParam(r, "token")
+	if token == "" {
+		h.respondError(w, http.StatusBadRequest, "token is required")
+		return
+	}
+
+	invite, err := h.service.GetInvitation(r.Context(), token)
+	if errors.Is(err, ErrInvitationNotFound) {
+		h.respondError(w, http.StatusNotFound, err.Error())
+		return
+	} else if errors.Is(err, ErrInvitationExpired) || errors.Is(err, ErrInvitationClaimed) {
+		h.respondError(w, http.StatusGone, err.Error())
+		return
+	} else if err != nil {
+		h.respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]any{
+		"id":         invite.ID,
+		"email":      invite.Email,
+		"role_id":    invite.RoleID,
+		"role_name":  invite.RoleName,
+		"invited_by": invite.InvitedBy,
+		"expires_at": invite.ExpiresAt,
+	})
+}
+
+func (h *AuthHandler) handleClaimInvitation(w http.ResponseWriter, r *http.Request) {
+	token := chi.URLParam(r, "token")
+	if token == "" {
+		h.respondError(w, http.StatusBadRequest, "token is required")
+		return
+	}
+
+	var req ClaimInvitationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	ip := r.RemoteAddr
+	ua := r.UserAgent()
+
+	resp, err := h.service.ClaimInvitation(r.Context(), token, req.Password, req.DisplayName, ua, ip)
+	if errors.Is(err, ErrInvitationNotFound) {
+		h.respondError(w, http.StatusNotFound, err.Error())
+		return
+	} else if errors.Is(err, ErrInvitationExpired) || errors.Is(err, ErrInvitationClaimed) {
+		h.respondError(w, http.StatusGone, err.Error())
+		return
+	} else if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, resp)
+}
+

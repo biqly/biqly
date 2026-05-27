@@ -387,6 +387,30 @@ var builtinEmailTemplates = map[string]map[string]*emailTemplate{
 <p style="font-size: 13px; color: #64748b; margin-top: 16px;">Bu bağlantıyı siz istemediyseniz bu e-postayı güvenle yok sayabilirsiniz.</p>`,
 		},
 	},
+	"invitation": {
+		"en": {
+			Subject: "You are invited to join ABI",
+			Text:    "You have been invited to join ABI with the role of {{.RoleName}}.\nTo accept this invitation and set up your account, click the link below:\n{{.URL}}\n\nThis invitation will expire on {{.ExpiresAt}}.\n",
+			HTML: `<p>You have been invited to join ABI with the role of <strong>{{.RoleName}}</strong>.</p>
+<p>To accept this invitation and set up your account, click the button below:</p>
+<div class="button-container">
+  <a href="{{.URL}}" class="button" style="color: #ffffff;">Set Up Account</a>
+</div>
+<p style="font-size: 13px; color: #64748b; margin-top: 24px;">This link will expire on {{.ExpiresAt}}. If the button doesn't work, copy and paste this URL into your browser:</p>
+<p style="font-size: 13px; color: #64748b; word-break: break-all;"><a href="{{.URL}}" style="color: #4f46e5;">{{.URL}}</a></p>`,
+		},
+		"tr": {
+			Subject: "ABI'a davet edildiniz",
+			Text:    "ABI'a {{.RoleName}} rolüyle katılmaya davet edildiniz.\nBu daveti kabul etmek ve hesabınızı kurmak için aşağıdaki bağlantıya tıklayın:\n{{.URL}}\n\nBu davet {{.ExpiresAt}} tarihine kadar geçerlidir.\n",
+			HTML: `<p>ABI'a <strong>{{.RoleName}}</strong> rolüyle katılmaya davet edildiniz.</p>
+<p>Bu daveti kabul etmek ve hesabınızı kurmak için aşağıdaki butona tıklayın:</p>
+<div class="button-container">
+  <a href="{{.URL}}" class="button" style="color: #ffffff;">Hesabımı Kur</a>
+</div>
+<p style="font-size: 13px; color: #64748b; margin-top: 24px;">Bu davet {{.ExpiresAt}} tarihine kadar geçerlidir. Eğer buton çalışmazsa aşağıdaki bağlantıyı kopyalayıp tarayıcınıza yapıştırın:</p>
+<p style="font-size: 13px; color: #64748b; word-break: break-all;"><a href="{{.URL}}" style="color: #4f46e5;">{{.URL}}</a></p>`,
+		},
+	},
 }
 
 // wrapHTML embeds a template's HTML body into a responsive, premium card layout.
