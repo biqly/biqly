@@ -172,11 +172,11 @@ export async function apiPasskeyRegisterFinish(
   return handleResponse<{ status: string }>(res)
 }
 
-export async function apiPasskeyLoginBegin(email: string): Promise<any> {
+export async function apiPasskeyLoginBegin(email?: string): Promise<any> {
   const res = await csrfFetch(`${AUTH_API_BASE}/passkey/login-begin`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify(email ? { email } : {}),
   })
   return handleResponse<any>(res)
 }
@@ -411,5 +411,4 @@ export async function apiMFARegenerateRecovery(accessToken: string, code: string
   })
   return handleResponse<{ recovery_codes: string[] }>(res)
 }
-
 

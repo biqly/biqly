@@ -1,12 +1,20 @@
 import { useCallback, useState, type SubmitEvent } from 'react'
 import abiLogo from '../../assets/abi-logo.png'
-import { useT } from '../../i18n'
+import { useT, useLocale } from '../../i18n'
 import { useAuth } from './AuthProvider'
 import { globalNavigate } from './AuthGuard'
 import PasswordStrengthMeter from './PasswordStrengthMeter'
+import { Modal } from '../ui/Modal'
+import {
+  TermsOfUseEN,
+  TermsOfUseTR,
+  PrivacyPolicyEN,
+  PrivacyPolicyTR
+} from './PolicyContent'
 
 export default function SignUpPage() {
   const t = useT()
+  const [locale] = useLocale()
   const { register } = useAuth()
 
   const [displayName, setDisplayName] = useState('')
@@ -17,6 +25,8 @@ export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [passwordValid, setPasswordValid] = useState(false)
+  const [termsOpen, setTermsOpen] = useState(false)
+  const [privacyOpen, setPrivacyOpen] = useState(false)
 
   const handleValidity = useCallback((info: { valid: boolean }) => {
     setPasswordValid(info.valid)
@@ -27,17 +37,17 @@ export default function SignUpPage() {
     if (!displayName || !email || !password || !confirmPassword) return
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match')
+      setError(t('auth.passwords_dont_match'))
       return
     }
 
     if (!passwordValid) {
-      setError('Password does not meet all security requirements')
+      setError(t('auth.password_requirements_failed'))
       return
     }
 
     if (!agree) {
-      setError('You must agree to the Terms of Use')
+      setError(t('auth.terms_error'))
       return
     }
 
@@ -132,14 +142,53 @@ export default function SignUpPage() {
           </div>
 
           <div className="form-row">
-            <label className="form-checkbox-label">
+            <label className="form-checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={agree}
                 onChange={(e) => setAgree(e.target.checked)}
                 disabled={loading}
+                style={{ cursor: 'pointer' }}
               />
-              I agree to the Terms of Use & Privacy Policy
+              <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                {t('auth.agree_to')}{' '}
+                <button
+                  type="button"
+                  onClick={() => setTermsOpen(true)}
+                  style={{
+                    background: 'transparent',
+                    border: 0,
+                    padding: 0,
+                    color: 'var(--accent)',
+                    textDecoration: 'underline',
+                    cursor: 'pointer',
+                    fontSize: 'inherit',
+                    fontFamily: 'inherit',
+                    display: 'inline',
+                  }}
+                >
+                  {t('auth.terms_of_use')}
+                </button>{' '}
+                {t('auth.and')}{' '}
+                <button
+                  type="button"
+                  onClick={() => setPrivacyOpen(true)}
+                  style={{
+                    background: 'transparent',
+                    border: 0,
+                    padding: 0,
+                    color: 'var(--accent)',
+                    textDecoration: 'underline',
+                    cursor: 'pointer',
+                    fontSize: 'inherit',
+                    fontFamily: 'inherit',
+                    display: 'inline',
+                  }}
+                >
+                  {t('auth.privacy_policy')}
+                </button>
+                {t('auth.agree_suffix') && ` ${t('auth.agree_suffix')}`}
+              </span>
             </label>
           </div>
 
@@ -153,6 +202,44 @@ export default function SignUpPage() {
           </button>
         </form>
       </div>
+
+      {/* Terms of Use Modal */}
+      <Modal
+        open={termsOpen}
+        title={t('auth.terms_of_use')}
+        onClose={() => setTermsOpen(false)}
+      >
+        {locale?.startsWith('tr') ? <TermsOfUseTR /> : <TermsOfUseEN />}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setTermsOpen(false)}
+            style={{ width: 'auto' }}
+          >
+            {t('common.confirm_ok') || 'OK'}
+          </button>
+        </div>
+      </Modal>
+
+      {/* Privacy Policy Modal */}
+      <Modal
+        open={privacyOpen}
+        title={t('auth.privacy_policy')}
+        onClose={() => setPrivacyOpen(false)}
+      >
+        {locale?.startsWith('tr') ? <PrivacyPolicyTR /> : <PrivacyPolicyEN />}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setPrivacyOpen(false)}
+            style={{ width: 'auto' }}
+          >
+            {t('common.confirm_ok') || 'OK'}
+          </button>
+        </div>
+      </Modal>
     </div>
   )
 }

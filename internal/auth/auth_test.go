@@ -529,12 +529,31 @@ func TestWebAuthnFlow(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint32(45), creds2[0].Authenticator.SignCount)
 
+	assertionDiscoverable, sessionDiscoverable, err := waService.BeginLogin(ctx, "")
+	require.NoError(t, err)
+	assert.NotEmpty(t, assertionDiscoverable.Response.Challenge)
+	assert.Empty(t, assertionDiscoverable.Response.AllowedCredentials)
+	assert.Empty(t, sessionDiscoverable.UserID)
+
 	err = waService.DeletePasskey(ctx, user.ID, userPasskeys[0].ID)
 	require.NoError(t, err)
 
 	userPasskeys2, err := waService.GetUserPasskeys(ctx, user.ID)
 	require.NoError(t, err)
 	assert.Len(t, userPasskeys2, 0)
+}
+
+func TestAssertionBackupFlags(t *testing.T) {
+	authenticatorData := make([]byte, 37)
+	authenticatorData[32] = byte(protocol.FlagUserPresent | protocol.FlagUserVerified | protocol.FlagBackupEligible | protocol.FlagBackupState)
+
+	body := []byte(fmt.Sprintf(`{"response":{"authenticatorData":"%s"}}`, base64.RawURLEncoding.EncodeToString(authenticatorData)))
+
+	backupEligible, backupState, ok := assertionBackupFlags(body)
+
+	require.True(t, ok)
+	assert.True(t, backupEligible)
+	assert.True(t, backupState)
 }
 
 func TestBruteForceLockout(t *testing.T) {

@@ -121,7 +121,7 @@ export default function SignInPage() {
     setPasskeyLoading(true)
     setError(null)
     try {
-      const beginResp = await apiPasskeyLoginBegin(email)
+      const beginResp = await apiPasskeyLoginBegin()
       const publicKeyOptions = beginResp.publicKey
 
       const options: CredentialRequestOptions = {

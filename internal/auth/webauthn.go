@@ -166,12 +166,7 @@ func (s *WebAuthnService) FinishRegistration(ctx context.Context, user *User, se
 
 func (s *WebAuthnService) BeginLogin(ctx context.Context, emailOrUsername string) (*protocol.CredentialAssertion, *webauthn.SessionData, error) {
 	if emailOrUsername == "" {
-		// Discoverable credentials flow: no user specified
-		waUser := &WebAuthnUser{
-			User:        &User{ID: "discoverable"},
-			Credentials: []webauthn.Credential{},
-		}
-		assertion, session, err := s.webAuthn.BeginLogin(waUser)
+		assertion, session, err := s.webAuthn.BeginDiscoverableLogin()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -188,7 +183,6 @@ func (s *WebAuthnService) BeginLogin(ctx context.Context, emailOrUsername string
 		if expiresAt.IsZero() {
 			expiresAt = time.Now().Add(s.ttl)
 		}
-		// Save challenge with nil user ID
 		err = s.repo.SaveWebAuthnChallenge(ctx, challengeBytes, nil, expiresAt)
 		if err != nil {
 			return nil, nil, err
@@ -262,26 +256,50 @@ func (s *WebAuthnService) FinishLogin(ctx context.Context, session *webauthn.Ses
 	}
 
 	if uid == nil {
-		// Discoverable credential login: we must find user ID from the credential ID
-		// which is inside the request payload.
-		var reqPayload struct {
-			RawID string `json:"rawId"`
-		}
-		if err := json.Unmarshal(bodyBytes, &reqPayload); err != nil || reqPayload.RawID == "" {
-			return nil, errors.New("invalid or expired login challenge")
-		}
-		credID, err := base64.RawURLEncoding.DecodeString(reqPayload.RawID)
-		if err != nil {
-			credID, err = base64.URLEncoding.DecodeString(reqPayload.RawID)
+		handler := func(rawID, _ []byte) (webauthn.User, error) {
+			discoveredUID, err := s.repo.GetUserIDByCredentialID(ctx, rawID)
 			if err != nil {
-				return nil, errors.New("invalid credential format")
+				return nil, errors.New("no user found for passkey")
 			}
+
+			user, err := s.repo.GetUserByID(ctx, discoveredUID)
+			if err != nil {
+				return nil, err
+			}
+
+			creds, err := s.repo.GetPasskeysByUserID(ctx, user.ID)
+			if err != nil {
+				return nil, err
+			}
+			applyAssertionBackupFlags(creds, bodyBytes)
+
+			return &WebAuthnUser{
+				User:        user,
+				Credentials: creds,
+			}, nil
 		}
-		discoveredUID, err := s.repo.GetUserIDByCredentialID(ctx, credID)
+
+		waUser, cred, err := s.webAuthn.FinishPasskeyLogin(handler, *session, request)
 		if err != nil {
-			return nil, errors.New("no user found for passkey")
+			return nil, err
 		}
-		uid = &discoveredUID
+
+		user, ok := waUser.(*WebAuthnUser)
+		if !ok {
+			return nil, errors.New("invalid passkey user")
+		}
+
+		err = s.repo.UpdatePasskeySignCount(ctx, cred.ID, cred.Authenticator.SignCount)
+		if err != nil {
+			return nil, err
+		}
+
+		err = s.repo.UpdateLastLogin(ctx, user.User.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		return user.User, nil
 	}
 
 	user, err := s.repo.GetUserByID(ctx, *uid)
@@ -294,30 +312,7 @@ func (s *WebAuthnService) FinishLogin(ctx context.Context, session *webauthn.Ses
 		return nil, err
 	}
 
-	var backupEligible, backupState bool
-	if len(bodyBytes) > 0 {
-		var reqPayload struct {
-			Response struct {
-				AuthenticatorData string `json:"authenticatorData"`
-			} `json:"response"`
-		}
-		if err := json.Unmarshal(bodyBytes, &reqPayload); err == nil && reqPayload.Response.AuthenticatorData != "" {
-			authData, err := base64.RawURLEncoding.DecodeString(reqPayload.Response.AuthenticatorData)
-			if err != nil {
-				authData, err = base64.URLEncoding.DecodeString(reqPayload.Response.AuthenticatorData)
-			}
-			if err == nil && len(authData) > 32 {
-				flagsByte := authData[32]
-				backupEligible = (flagsByte & 0x40) != 0
-				backupState = (flagsByte & 0x80) != 0
-			}
-		}
-	}
-
-	for i := range creds {
-		creds[i].Flags.BackupEligible = backupEligible
-		creds[i].Flags.BackupState = backupState
-	}
+	applyAssertionBackupFlags(creds, bodyBytes)
 
 	waUser := &WebAuthnUser{
 		User:        user,
@@ -340,6 +335,39 @@ func (s *WebAuthnService) FinishLogin(ctx context.Context, session *webauthn.Ses
 	}
 
 	return user, nil
+}
+
+func applyAssertionBackupFlags(creds []webauthn.Credential, bodyBytes []byte) {
+	backupEligible, backupState, ok := assertionBackupFlags(bodyBytes)
+	if !ok {
+		return
+	}
+
+	for i := range creds {
+		creds[i].Flags.BackupEligible = backupEligible
+		creds[i].Flags.BackupState = backupState
+	}
+}
+
+func assertionBackupFlags(bodyBytes []byte) (backupEligible bool, backupState bool, ok bool) {
+	if len(bodyBytes) > 0 {
+		var reqPayload struct {
+			Response struct {
+				AuthenticatorData string `json:"authenticatorData"`
+			} `json:"response"`
+		}
+		if err := json.Unmarshal(bodyBytes, &reqPayload); err == nil && reqPayload.Response.AuthenticatorData != "" {
+			authData, err := base64.RawURLEncoding.DecodeString(reqPayload.Response.AuthenticatorData)
+			if err != nil {
+				authData, err = base64.URLEncoding.DecodeString(reqPayload.Response.AuthenticatorData)
+			}
+			if err == nil && len(authData) > 32 {
+				flags := protocol.AuthenticatorFlags(authData[32])
+				return flags.HasBackupEligible(), flags.HasBackupState(), true
+			}
+		}
+	}
+	return false, false, false
 }
 
 func (s *WebAuthnService) GetUserPasskeys(ctx context.Context, userID string) ([]PasskeyInfo, error) {

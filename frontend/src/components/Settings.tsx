@@ -416,26 +416,28 @@ export default function Settings({ navigate }: SettingsProps) {
                         ? new Date(pk.last_used_at).toLocaleString(localeLanguageTag(locale))
                         : t('passkeys.never_used')}
                     </td>
-                    <td className="actions" style={{ textAlign: 'right', display: 'flex', gap: '0.25rem', justifyContent: 'flex-end' }}>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-secondary"
-                        style={{ margin: 0, padding: '0.2rem 0.5rem', minHeight: 'auto', width: 'auto', display: 'inline-flex' }}
-                        onClick={() => {
-                          setRenameTarget(pk)
-                          setRenamingName(pk.name)
-                        }}
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-danger-outline"
-                        style={{ margin: 0, padding: '0.2rem 0.5rem', minHeight: 'auto', width: 'auto', display: 'inline-flex' }}
-                        onClick={() => setDeleteTarget(pk)}
-                      >
-                        🗑️
-                      </button>
+                    <td className="actions">
+                      <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-secondary"
+                          style={{ margin: 0, padding: '0.2rem 0.5rem', minHeight: 'auto', width: 'auto', display: 'inline-flex' }}
+                          onClick={() => {
+                            setRenameTarget(pk)
+                            setRenamingName(pk.name)
+                          }}
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-danger-outline"
+                          style={{ margin: 0, padding: '0.2rem 0.5rem', minHeight: 'auto', width: 'auto', display: 'inline-flex' }}
+                          onClick={() => setDeleteTarget(pk)}
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -447,38 +449,15 @@ export default function Settings({ navigate }: SettingsProps) {
 
       {/* Multi-Factor Authentication (2FA) Section */}
       <section className="card card--elevated settings-prefs-card">
-        <div className="card-intro card-intro--compact" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
+        <div className="card-intro card-intro--compact">
+          <div className="card-header-row card-header-row--spaced">
             <h2>{t('mfa.title')}</h2>
-            <p className="card-lead card-lead--single-line" style={{ marginTop: '0.25rem' }} title={t('mfa.subtitle')}>
-              {t('mfa.subtitle')}
-            </p>
-          </div>
-          {mfaStatus && (
-            <span
-              className={`badge ${mfaStatus.enabled ? 'badge-success' : 'badge-neutral'}`}
-              style={{
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                padding: '0.25rem 0.5rem',
-                borderRadius: '0.25rem',
-                backgroundColor: mfaStatus.enabled ? 'rgba(46, 213, 115, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-                color: mfaStatus.enabled ? '#2ed573' : 'var(--text-secondary)',
-                border: `1px solid ${mfaStatus.enabled ? 'rgba(46, 213, 115, 0.2)' : 'rgba(255, 255, 255, 0.1)'}`,
-              }}
-            >
-              {mfaStatus.enabled ? t('mfa.status_enabled') : t('mfa.status_disabled')}
-            </span>
-          )}
-        </div>
-
-        <div className="settings-control-row" style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            {mfaStatus?.enabled ? (
-              <>
+            {mfaStatus && (
+              mfaStatus.enabled ? (
                 <button
                   type="button"
-                  className="btn btn-danger-outline"
+                  className="btn btn-danger-outline btn-sm"
+                  style={{ width: 'auto', margin: 0 }}
                   onClick={() => {
                     setMfaDisableCode('')
                     setError(null)
@@ -486,82 +465,146 @@ export default function Settings({ navigate }: SettingsProps) {
                     setMfaDisableOpen(true)
                   }}
                 >
-                  🔒 {t('mfa.disable_btn')}
+                  🔓 {t('mfa.disable_btn')}
                 </button>
+              ) : (
                 <button
                   type="button"
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setMfaRegenCode('')
-                    setError(null)
-                    setSuccessMessage(null)
-                    setMfaRegenOpen(true)
-                  }}
+                  className="btn btn-primary btn-sm"
+                  style={{ width: 'auto', margin: 0 }}
+                  onClick={handleMFAEnrollStart}
                 >
-                  🔄 {t('mfa.regenerate_recovery_btn')}
+                  🔒 {t('mfa.enable_btn')}
                 </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={handleMFAEnrollStart}
-              >
-                🔒 {t('mfa.enable_btn')}
-              </button>
+              )
             )}
           </div>
-
-          {/* Newly generated/regenerated recovery codes display */}
-          {mfaNewRecoveryCodes && (
-            <div
-              className="recovery-codes-box"
-              style={{
-                marginTop: '1rem',
-                padding: '1rem',
-                backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                border: '1px solid var(--border)',
-                borderRadius: '0.5rem',
-              }}
-            >
-              <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text)' }}>
-                {t('mfa.recovery_title')}
-              </h4>
-              <p style={{ margin: '0.25rem 0 1rem 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                {t('mfa.recovery_desc')}
-              </p>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(2, 1fr)',
-                  gap: '0.5rem',
-                  fontFamily: 'monospace',
-                  fontSize: '0.9rem',
-                  color: 'var(--accent)',
-                  backgroundColor: 'rgba(0,0,0,0.2)',
-                  padding: '0.75rem',
-                  borderRadius: '0.25rem',
-                  textAlign: 'center',
-                }}
-              >
-                {mfaNewRecoveryCodes.map((code, idx) => (
-                  <div key={idx}>{code}</div>
-                ))}
-              </div>
-              <button
-                type="button"
-                className="btn btn-sm btn-secondary"
-                style={{ marginTop: '0.75rem', width: 'auto' }}
-                onClick={() => {
-                  navigator.clipboard.writeText(mfaNewRecoveryCodes.join('\n'))
-                  alert(t('mfa.recovery_copied'))
-                }}
-              >
-                📋 {t('common.copy')}
-              </button>
-            </div>
-          )}
+          <p className="card-lead" style={{ margin: '0.5rem 0 1.25rem' }}>
+            {t('mfa.subtitle')}
+          </p>
         </div>
+
+        {!mfaStatus ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '2.5rem' }}>
+            <div className="spinner" style={{ width: '24px', height: '24px', borderTopColor: 'var(--accent)' }}></div>
+          </div>
+        ) : !mfaStatus.enabled ? (
+          <EmptyState
+            title={t('mfa.empty_title')}
+            description={t('mfa.empty_desc')}
+          />
+        ) : (
+          <>
+            <div className="results-table-scroll" style={{ border: '1px solid var(--border)', borderRadius: '0.5rem', overflow: 'hidden' }}>
+              <table className="results-table" style={{ margin: 0 }}>
+                <thead>
+                  <tr>
+                    <th>{t('mfa.col_method')}</th>
+                    <th>{t('mfa.col_status')}</th>
+                    <th>{t('mfa.col_enabled_at')}</th>
+                    <th className="actions" style={{ width: '80px', textAlign: 'right' }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={{ fontWeight: 600 }}>
+                      <span style={{ marginRight: '6px' }}>📱</span> {t('mfa.method_totp')}
+                    </td>
+                    <td>
+                      <span
+                        className="badge badge-success"
+                        style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          padding: '0.25rem 0.5rem',
+                          borderRadius: '0.25rem',
+                          backgroundColor: 'rgba(46, 213, 115, 0.15)',
+                          color: '#2ed573',
+                          border: '1px solid rgba(46, 213, 115, 0.2)',
+                        }}
+                      >
+                        {t('mfa.status_active')}
+                      </span>
+                    </td>
+                    <td>
+                      {mfaStatus.verified_at
+                        ? new Date(mfaStatus.verified_at).toLocaleString(localeLanguageTag(locale))
+                        : '-'}
+                    </td>
+                    <td className="actions">
+                      <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-secondary"
+                          style={{ margin: 0, padding: '0.2rem 0.5rem', minHeight: 'auto', width: 'auto', display: 'inline-flex' }}
+                          title={t('mfa.regenerate_recovery_btn')}
+                          onClick={() => {
+                            setMfaRegenCode('')
+                            setError(null)
+                            setSuccessMessage(null)
+                            setMfaRegenOpen(true)
+                          }}
+                        >
+                          🔄
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Newly generated/regenerated recovery codes display */}
+            {mfaNewRecoveryCodes && (
+              <div
+                className="recovery-codes-box"
+                style={{
+                  marginTop: '1.25rem',
+                  padding: '1rem',
+                  backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '0.5rem',
+                }}
+              >
+                <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text)' }}>
+                  {t('mfa.recovery_title')}
+                </h4>
+                <p style={{ margin: '0.25rem 0 1rem 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  {t('mfa.recovery_desc')}
+                </p>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '0.5rem',
+                    fontFamily: 'monospace',
+                    fontSize: '0.9rem',
+                    color: 'var(--accent)',
+                    backgroundColor: 'rgba(0,0,0,0.2)',
+                    padding: '0.75rem',
+                    borderRadius: '0.25rem',
+                    textAlign: 'center',
+                }}
+                >
+                  {mfaNewRecoveryCodes.map((code, idx) => (
+                    <div key={idx}>{code}</div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-secondary"
+                  style={{ marginTop: '0.75rem', width: 'auto' }}
+                  onClick={() => {
+                    navigator.clipboard.writeText(mfaNewRecoveryCodes.join('\n'))
+                    alert(t('mfa.recovery_copied'))
+                  }}
+                >
+                  📋 {t('common.copy')}
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </section>
 
       {/* Delete Confirmation Dialog */}
