@@ -44,6 +44,9 @@ const COMMON_ACTIONS = [
   'password.expired'
 ].sort()
 
+export const DEFAULT_AUDIT_PAGE_SIZE = 10
+export const AUDIT_PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 250]
+
 export function AuditLogPanel({ token }: { token: string }) {
   const t = useT()
   const [locale] = useLocale()
@@ -60,7 +63,7 @@ export function AuditLogPanel({ token }: { token: string }) {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(100)
+  const [pageSize, setPageSize] = useState(DEFAULT_AUDIT_PAGE_SIZE)
   const [totalItems, setTotalItems] = useState(0)
   const totalPages = Math.ceil(totalItems / pageSize)
   const displayedEntries = entries
@@ -161,7 +164,7 @@ export function AuditLogPanel({ token }: { token: string }) {
           </select>
         </label>
         <label style={labelStyle}>
-          <span style={labelTextStyle}>{t('admin.audit.limit')}</span>
+          <span style={labelTextStyle}>{t('admin.audit.page_size')}</span>
           <select
             value={pageSize}
             onChange={(e) => {
@@ -172,11 +175,9 @@ export function AuditLogPanel({ token }: { token: string }) {
             }}
             style={selectStyle}
           >
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-            <option value={250}>250</option>
-            <option value={500}>500</option>
+            {AUDIT_PAGE_SIZE_OPTIONS.map((size) => (
+              <option key={size} value={size}>{size}</option>
+            ))}
           </select>
         </label>
         <button type="submit" style={primaryButtonStyle}>{t('admin.filters.apply')}</button>
@@ -185,9 +186,9 @@ export function AuditLogPanel({ token }: { token: string }) {
           onClick={() => {
             setUserID('')
             setAction('')
-            setPageSize(100)
+            setPageSize(DEFAULT_AUDIT_PAGE_SIZE)
             setCurrentPage(1)
-            reload({ userID: '', action: '', page: 1, pageSize: 100 })
+            reload({ userID: '', action: '', page: 1, pageSize: DEFAULT_AUDIT_PAGE_SIZE })
           }}
           style={secondaryButtonStyle}
         >
@@ -357,4 +358,3 @@ const errStyle: React.CSSProperties = {
   padding: 16,
   fontWeight: 600,
 }
-

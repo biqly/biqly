@@ -1213,6 +1213,7 @@ export const tr: Dictionary = {
       count: '{{count}} kayıt',
       action: 'Aksiyon',
       limit: 'Limit',
+      page_size: 'Sayfa boyutu',
       empty: 'Denetim kaydı bulunamadı.',
       time: 'Zaman',
       resource: 'Kaynak',

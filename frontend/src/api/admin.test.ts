@@ -26,27 +26,31 @@ describe('admin API', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const entries = await listAuditLog('token-1', {
+    const result = await listAuditLog('token-1', {
       userID: 'user-1',
       action: 'login',
-      limit: 25,
+      page: 2,
+      pageSize: 10,
     })
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/auth/admin/audit-log?user_id=user-1&action=login&limit=25',
+      '/api/auth/admin/audit-log?user_id=user-1&action=login&page=2&page_size=10',
       { credentials: 'same-origin', headers: { Authorization: 'Bearer token-1' } },
     )
-    expect(entries).toEqual([
-      {
-        id: 'audit-1',
-        user_id: 'user-1',
-        action: 'login',
-        resource: 'session',
-        resource_id: 'session-1',
-        metadata: { method: 'password' },
-        ip_address: '192.0.2.1',
-        created_at: '2026-05-25T10:00:00Z',
-      },
-    ])
+    expect(result).toEqual({
+      entries: [
+        {
+          id: 'audit-1',
+          user_id: 'user-1',
+          action: 'login',
+          resource: 'session',
+          resource_id: 'session-1',
+          metadata: { method: 'password' },
+          ip_address: '192.0.2.1',
+          created_at: '2026-05-25T10:00:00Z',
+        },
+      ],
+      total: 0,
+    })
   })
 })

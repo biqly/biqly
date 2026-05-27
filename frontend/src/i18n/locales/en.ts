@@ -1211,6 +1211,7 @@ export const en = {
       count: '{{count}} records',
       action: 'Action',
       limit: 'Limit',
+      page_size: 'Page size',
       empty: 'No audit records found.',
       time: 'Time',
       resource: 'Resource',

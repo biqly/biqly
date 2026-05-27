@@ -99,8 +99,8 @@ export async function listAuditLog(token: string, filters: AuditLogFilters = {})
   if (filters.pageSize) params.set('page_size', String(filters.pageSize))
   const suffix = params.toString() ? `?${params.toString()}` : ''
   const res = await csrfFetch(`${AUTH_API_BASE}/admin/audit-log${suffix}`, { headers: authHeaders(token) })
-  const data = await handle<{ entries: AuditLogEntry[]; total: number }>(res)
-  return data || { entries: [], total: 0 }
+  const data = await handle<{ entries?: AuditLogEntry[]; total?: number }>(res)
+  return { entries: data?.entries || [], total: data?.total || 0 }
 }
 
 // === Datasource access ===
