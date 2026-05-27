@@ -1,32 +1,32 @@
 helm:
   parameters:
-    - name: ai.image.tag
-      value: sha-0909e3e31999a313569e1c14e0305e452f64ec1c
-      forcestring: true
-    - name: auth.image.tag
-      value: sha-0909e3e31999a313569e1c14e0305e452f64ec1c
-      forcestring: true
-    - name: auth.migrate.image.tag
-      value: sha-0909e3e31999a313569e1c14e0305e452f64ec1c
-      forcestring: true
-    - name: catalog.image.tag
-      value: sha-0909e3e31999a313569e1c14e0305e452f64ec1c
-      forcestring: true
-    - name: frontend.image.tag
-      value: sha-0909e3e31999a313569e1c14e0305e452f64ec1c
-      forcestring: true
-    - name: global.migrate.image.tag
-      value: sha-917065ca8a8c3012af33bb394d147d98cbe2428a
-      forcestring: true
-    - name: image.name
-      value: ghcr.io/biqly/migrate
-      forcestring: true
-    - name: mail.image.tag
-      value: sha-54071644471653be977071fd8a36e57e92ee1080
-      forcestring: true
-    - name: mail.migrate.image.tag
-      value: sha-54071644471653be977071fd8a36e57e92ee1080
-      forcestring: true
-    - name: query.image.tag
-      value: sha-0909e3e31999a313569e1c14e0305e452f64ec1c
-      forcestring: true
+  - name: ai.image.tag
+    value: sha-0909e3e31999a313569e1c14e0305e452f64ec1c
+    forcestring: true
+  - name: auth.image.tag
+    value: sha-0909e3e31999a313569e1c14e0305e452f64ec1c
+    forcestring: true
+  - name: auth.migrate.image.tag
+    value: sha-0909e3e31999a313569e1c14e0305e452f64ec1c
+    forcestring: true
+  - name: catalog.image.tag
+    value: sha-0909e3e31999a313569e1c14e0305e452f64ec1c
+    forcestring: true
+  - name: frontend.image.tag
+    value: sha-0909e3e31999a313569e1c14e0305e452f64ec1c
+    forcestring: true
+  - name: global.migrate.image.tag
+    value: sha-917065ca8a8c3012af33bb394d147d98cbe2428a
+    forcestring: true
+  - name: image.name
+    value: ghcr.io/biqly/migrate
+    forcestring: true
+  - name: mail.image.tag
+    value: sha-54071644471653be977071fd8a36e57e92ee1080
+    forcestring: true
+  - name: mail.migrate.image.tag
+    value: sha-54071644471653be977071fd8a36e57e92ee1080
+    forcestring: true
+  - name: query.image.tag
+    value: sha-0909e3e31999a313569e1c14e0305e452f64ec1c
+    forcestring: true
