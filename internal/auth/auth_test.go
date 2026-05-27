@@ -23,6 +23,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
+
+	"github.com/biqly/biqly/internal/mail"
 )
 
 func TestPasswordHashing(t *testing.T) {
@@ -319,7 +321,7 @@ func TestIntegrationAuthFlow(t *testing.T) {
 	// 2b. Duplicate registration must not leak account existence: same generic
 	// response shape (200, verification_pending) with no tokens, regardless of
 	// whether the email is fresh or already taken.
-	mockMailer := NewMockEmailSender()
+	mockMailer := mail.NewMockEmailSender()
 	enumService := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, config, nil, mockMailer)
 	dupResp, err := enumService.Register(ctx, RegisterRequest{
 		Email:       email,
@@ -693,7 +695,7 @@ func TestEmailVerificationAndReset(t *testing.T) {
 	userRepo := NewUserRepository(dbPool, nil)
 	rbacRepo := NewRBACRepository(dbPool)
 	sessionMgr := NewSessionManager(dbPool)
-	mockSender := NewMockEmailSender()
+	mockSender := mail.NewMockEmailSender()
 
 	service := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, config, nil, mockSender)
 

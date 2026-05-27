@@ -16,6 +16,7 @@ import (
 
 	biqauth "github.com/biqly/biqly/internal/auth"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
+	"github.com/biqly/biqly/internal/mail"
 	"github.com/biqly/biqly/internal/security"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -73,17 +74,11 @@ func main() {
 	sessionMgr := biqauth.NewSessionManager(db)
 	sessionMgr.SetLifecycleTTLs(cfg.SessionAbsoluteTTL, cfg.SessionIdleTTL)
 
-	emailBlockList := biqauth.NewEmailBlockListRepo(db)
-	var emailSender biqauth.EmailSender
-	if cfg.SMTPHost != "" {
-		smtpSender, err := biqauth.NewSMTPEmailSender(cfg, emailBlockList, redisClient)
-		if err != nil {
-			slog.Error("initialize smtp email sender", "err", err)
-			os.Exit(1)
-		}
-		emailSender = smtpSender
+	var emailSender mail.EmailSender
+	if cfg.MailServiceURL != "" {
+		emailSender = mail.NewAPIClient(cfg.MailServiceURL, cfg.MailInternalToken, nil)
 	} else {
-		emailSender = biqauth.NewMockEmailSender()
+		emailSender = mail.NewMockEmailSender()
 	}
 
 	authSvc := biqauth.NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, cfg, redisClient, emailSender)

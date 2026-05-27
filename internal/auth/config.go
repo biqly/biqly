@@ -30,12 +30,9 @@ type Config struct {
 	WebAuthnRPID         string
 	WebAuthnRPName       string
 	WebAuthnOrigins      []string
-	SMTPHost             string
-	SMTPPort             int
-	SMTPUser             string
-	SMTPPass             string
-	SMTPFrom             string
 	FrontendBaseURL      string
+	MailServiceURL       string
+	MailInternalToken    string
 	MaxActiveSessions    int
 	PasswordMaxAgeDays   int
 	GDPRPurgeAfterDays   int
@@ -44,10 +41,6 @@ type Config struct {
 	PasswordPolicy       PasswordPolicy
 	HSTSPreload          bool
 	HSTSMaxAgeSeconds    int
-	EmailDefaultLocale   string
-	EmailDailyLimit      int
-	EmailQueueSize       int
-	EmailRetries         int
 	WebAuthnChallengeTTL time.Duration
 }
 
@@ -75,12 +68,9 @@ func LoadConfig() (*Config, error) {
 		WebAuthnRPID:         stringEnv("BI_AUTH_WEBAUTHN_RP_ID", "localhost"),
 		WebAuthnRPName:       stringEnv("BI_AUTH_WEBAUTHN_RP_NAME", "Biqly"),
 		WebAuthnOrigins:      splitEnvDefault("BI_AUTH_WEBAUTHN_RP_ORIGINS", []string{"http://localhost:5173", "http://localhost:3333"}),
-		SMTPHost:             os.Getenv("BI_AUTH_SMTP_HOST"),
-		SMTPPort:             intEnv("BI_AUTH_SMTP_PORT", 587),
-		SMTPUser:             os.Getenv("BI_AUTH_SMTP_USER"),
-		SMTPPass:             os.Getenv("BI_AUTH_SMTP_PASS"),
-		SMTPFrom:             os.Getenv("BI_AUTH_SMTP_FROM"),
 		FrontendBaseURL:      stringEnv("BI_AUTH_FRONTEND_BASE_URL", "http://localhost:3333"),
+		MailServiceURL:       stringEnv("BI_AUTH_MAIL_SERVICE_URL", "http://localhost:8890"),
+		MailInternalToken:    os.Getenv("BI_AUTH_MAIL_INTERNAL_TOKEN"),
 		MaxActiveSessions:    positiveIntEnv("BI_AUTH_MAX_SESSIONS", 5),
 		PasswordMaxAgeDays:   nonNegativeIntEnv("BI_AUTH_PASSWORD_MAX_AGE_DAYS", 0),
 		GDPRPurgeAfterDays:   positiveIntEnv("BI_AUTH_GDPR_PURGE_AFTER_DAYS", 30),
@@ -89,10 +79,6 @@ func LoadConfig() (*Config, error) {
 		PasswordPolicy:       passwordPolicyFromEnv(),
 		HSTSPreload:          boolEnv("BI_AUTH_HSTS_PRELOAD", false),
 		HSTSMaxAgeSeconds:    nonNegativeIntEnv("BI_AUTH_HSTS_MAX_AGE_SECONDS", 63072000),
-		EmailDefaultLocale:   stringEnv("BI_AUTH_EMAIL_DEFAULT_LOCALE", "en"),
-		EmailDailyLimit:      nonNegativeIntEnv("BI_AUTH_EMAIL_DAILY_LIMIT", 10),
-		EmailQueueSize:       positiveIntEnv("BI_AUTH_EMAIL_QUEUE_SIZE", 256),
-		EmailRetries:         nonNegativeIntEnv("BI_AUTH_EMAIL_RETRIES", 3),
 		WebAuthnChallengeTTL: positiveDurationEnv("BI_AUTH_WEBAUTHN_CHALLENGE_TTL", 60*time.Second),
 	}
 

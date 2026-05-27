@@ -4,25 +4,12 @@ import (
 	"fmt"
 	"net"
 	"strings"
+
+	"github.com/biqly/biqly/internal/emailaddr"
 )
 
 func MaskEmail(email string) string {
-	if email == "" {
-		return ""
-	}
-	at := strings.LastIndex(email, "@")
-	if at <= 0 || at == len(email)-1 {
-		return "***"
-	}
-	local, domain := email[:at], email[at+1:]
-	switch {
-	case len(local) <= 1:
-		return "*@" + domain
-	case len(local) == 2:
-		return local[:1] + "*@" + domain
-	default:
-		return local[:1] + strings.Repeat("*", len(local)-2) + local[len(local)-1:] + "@" + domain
-	}
+	return emailaddr.Mask(email)
 }
 
 func MaskIP(addr string) string {

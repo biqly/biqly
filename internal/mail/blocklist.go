@@ -1,10 +1,12 @@
-package auth
+package mail
 
 import (
 	"context"
 	"database/sql"
 	"errors"
 	"time"
+
+	"github.com/biqly/biqly/internal/emailaddr"
 )
 
 // EmailBlockListRepo persists addresses that must not receive any
@@ -40,7 +42,7 @@ func (r *sqlEmailBlockListRepo) IsBlocked(ctx context.Context, email string) (bo
 	if email == "" {
 		return false, nil
 	}
-	normalized, err := NormalizeEmail(email)
+	normalized, err := emailaddr.Normalize(email)
 	if err != nil {
 		return false, err
 	}
@@ -56,7 +58,7 @@ func (r *sqlEmailBlockListRepo) IsBlocked(ctx context.Context, email string) (bo
 }
 
 func (r *sqlEmailBlockListRepo) Block(ctx context.Context, email, reason, createdBy string) error {
-	normalized, err := NormalizeEmail(email)
+	normalized, err := emailaddr.Normalize(email)
 	if err != nil {
 		return err
 	}
@@ -76,7 +78,7 @@ func (r *sqlEmailBlockListRepo) Block(ctx context.Context, email, reason, create
 }
 
 func (r *sqlEmailBlockListRepo) Unblock(ctx context.Context, email string) error {
-	normalized, err := NormalizeEmail(email)
+	normalized, err := emailaddr.Normalize(email)
 	if err != nil {
 		return err
 	}
@@ -121,7 +123,7 @@ func NewMemoryEmailBlockListRepo() EmailBlockListRepo {
 }
 
 func (r *memoryEmailBlockListRepo) IsBlocked(_ context.Context, email string) (bool, error) {
-	normalized, err := NormalizeEmail(email)
+	normalized, err := emailaddr.Normalize(email)
 	if err != nil {
 		return false, err
 	}
@@ -130,7 +132,7 @@ func (r *memoryEmailBlockListRepo) IsBlocked(_ context.Context, email string) (b
 }
 
 func (r *memoryEmailBlockListRepo) Block(_ context.Context, email, reason, createdBy string) error {
-	normalized, err := NormalizeEmail(email)
+	normalized, err := emailaddr.Normalize(email)
 	if err != nil {
 		return err
 	}
@@ -142,7 +144,7 @@ func (r *memoryEmailBlockListRepo) Block(_ context.Context, email, reason, creat
 }
 
 func (r *memoryEmailBlockListRepo) Unblock(_ context.Context, email string) error {
-	normalized, err := NormalizeEmail(email)
+	normalized, err := emailaddr.Normalize(email)
 	if err != nil {
 		return err
 	}

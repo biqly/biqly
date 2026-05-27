@@ -14,6 +14,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-webauthn/webauthn/webauthn"
+
+	"github.com/biqly/biqly/internal/mail"
 )
 
 type contextKey string
@@ -790,7 +792,7 @@ func (h *AuthHandler) handleMagicLinkRequest(w http.ResponseWriter, r *http.Requ
 	// the endpoint enumeration-resistant.
 	ip := r.RemoteAddr
 	if err := h.service.RequestMagicLink(r.Context(), req.Email, ip); err != nil {
-		if errors.Is(err, ErrEmailRateLimited) || strings.Contains(err.Error(), "invalid email") {
+		if errors.Is(err, mail.ErrEmailRateLimited) || strings.Contains(err.Error(), "invalid email") {
 			h.respondError(w, http.StatusBadRequest, err.Error())
 			return
 		}

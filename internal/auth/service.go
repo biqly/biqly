@@ -11,6 +11,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/oauth2"
+
+	"github.com/biqly/biqly/internal/mail"
 )
 
 var (
@@ -31,7 +33,7 @@ type AuthService struct {
 	jwtMgr       *JWTManager
 	config       *Config
 	redisClient  *redis.Client
-	emailSender  EmailSender
+	emailSender  mail.EmailSender
 	workspaceSvc *WorkspaceService
 	mfaSvc       *MFAService
 	magicLinks   *MagicLinkRepository
@@ -57,7 +59,7 @@ func NewAuthService(
 	jwtMgr *JWTManager,
 	config *Config,
 	redisClient *redis.Client,
-	emailSender EmailSender,
+	emailSender mail.EmailSender,
 ) *AuthService {
 	return &AuthService{
 		userRepo:    userRepo,
@@ -284,7 +286,7 @@ func (s *AuthService) issueSession(ctx context.Context, user *User, userAgent, i
 	}
 
 	if isNew, err := s.userRepo.RecordKnownDevice(ctx, user.ID, fingerprint, userAgent, ipAddress); err == nil && isNew && s.emailSender != nil {
-		_ = s.emailSender.SendNewDeviceLogin(ctx, user.Email, DeviceLoginInfo{
+		_ = s.emailSender.SendNewDeviceLogin(ctx, user.Email, mail.DeviceLoginInfo{
 			UserAgent:  ua,
 			IPAddress:  ip,
 			OccurredAt: time.Now(),
