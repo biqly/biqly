@@ -67,6 +67,7 @@ mail:
     BI_MAIL_SMTP_HOST: smtp.mail.me.com
     BI_MAIL_SMTP_PORT: "587"
     BI_MAIL_SMTP_FROM: no-reply@il1.nl
+    BI_MAIL_SMTP_SENDER_NAME: "ABI"
   image:
     repository: biqly-mail
     tag: latest
