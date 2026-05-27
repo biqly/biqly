@@ -16,9 +16,10 @@ import (
 )
 
 var (
-	ErrUserNotFound         = errors.New("user not found")
-	ErrUserAlreadyExists    = errors.New("user already exists")
-	ErrOAuthAccountNotFound = errors.New("oauth account not found")
+	ErrUserNotFound          = errors.New("user not found")
+	ErrUserAlreadyExists     = errors.New("user already exists")
+	ErrOAuthAccountNotFound  = errors.New("oauth account not found")
+	ErrEmailAlreadyVerified  = errors.New("email is already verified")
 )
 
 type UserRepository struct {

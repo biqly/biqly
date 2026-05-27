@@ -50,8 +50,11 @@ func TestSeparationOfDutiesBlocksSelfSuperAdminChange(t *testing.T) {
 	rbacRepo := NewRBACRepository(dbPool)
 	require.NoError(t, rbacRepo.AssignRole(ctx, userID, saRoleID, nil, nil))
 
+	err := rbacRepo.EnforceSelfModificationGuard(ctx, userID, userID, "user.deactivate")
+	assert.ErrorIs(t, err, ErrCannotDeactivateSelf)
+
 	// Self-modification by a super_admin must be denied.
-	err := rbacRepo.EnforceSelfModificationGuard(ctx, userID, userID, "role.remove")
+	err = rbacRepo.EnforceSelfModificationGuard(ctx, userID, userID, "role.remove")
 	assert.ErrorIs(t, err, ErrSeparationOfDuties)
 
 	// Acting on another user must be allowed.

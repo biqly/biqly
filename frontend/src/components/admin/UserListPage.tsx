@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { listUsers } from '../../api/admin'
+import { listUsers, resendUserVerification } from '../../api/admin'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import type { AuthUser, Invitation } from '../../types/auth'
 import { Pagination } from '../ui/Pagination'
@@ -48,6 +48,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   const [inviteTotalItems, setInviteTotalItems] = useState(0)
 
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
+  const [verificationLoadingId, setVerificationLoadingId] = useState<string | null>(null)
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const loadInvitations = async () => {
@@ -125,6 +126,21 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
       setActionMessage({ type: 'error', text: e.message || 'Resend failed' })
     } finally {
       setActionLoadingId(null)
+    }
+  }
+
+  const handleResendVerification = async (id: string) => {
+    if (!window.confirm(t('admin.users.resend_verification_confirm'))) return
+    setVerificationLoadingId(id)
+    setActionMessage(null)
+    try {
+      await resendUserVerification(token, id)
+      setActionMessage({ type: 'success', text: t('admin.users.resend_verification_success') })
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Resend failed'
+      setActionMessage({ type: 'error', text: message })
+    } finally {
+      setVerificationLoadingId(null)
     }
   }
 
@@ -224,6 +240,17 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
           </div>
 
           <div style={tableContainer}>
+            {actionMessage && (
+              <div
+                style={actionMessage.type === 'success' ? successBox : errStyleBox}
+                onClick={() => setActionMessage(null)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setActionMessage(null) }}
+              >
+                {actionMessage.text}
+              </div>
+            )}
             <table style={tableStyle}>
               <thead>
                 <tr style={theadRow}>
@@ -258,9 +285,21 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
                         </span>
                       </td>
                       <td style={tdStyle}>
-                        <span style={u.emailVerified ? badgeVerified : badgeUnverified}>
-                          {u.emailVerified ? t('admin.users.email_verified') : t('admin.users.email_unverified')}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
+                          <span style={u.emailVerified ? badgeVerified : badgeUnverified}>
+                            {u.emailVerified ? t('admin.users.email_verified') : t('admin.users.email_unverified')}
+                          </span>
+                          {!u.emailVerified && (
+                            <button
+                              type="button"
+                              onClick={() => handleResendVerification(u.id)}
+                              disabled={verificationLoadingId === u.id}
+                              style={btnSecondary}
+                            >
+                              {verificationLoadingId === u.id ? '...' : t('admin.users.resend_verification')}
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td style={tdStyle}>{new Date(u.createdAt).toLocaleDateString(localeLanguageTag(locale))}</td>
                       <td style={{ ...tdStyle, textAlign: 'right' }}>

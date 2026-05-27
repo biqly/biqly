@@ -260,6 +260,14 @@ export async function updateUserActiveStatus(token: string, id: string, isActive
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
 }
 
+export async function resendUserVerification(token: string, userId: string): Promise<{ message: string }> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/admin/users/${encodeURIComponent(userId)}/resend-verification`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  })
+  return handle<{ message: string }>(res)
+}
+
 export async function requestDatasourceAccess(token: string, datasourceID: string): Promise<{ success: boolean }> {
   const res = await csrfFetch(`${AUTH_API_BASE}/me/datasources/${datasourceID}/request-access`, {
     method: 'POST',

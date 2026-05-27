@@ -6,9 +6,11 @@ import {
   assignRole,
   removeRole,
   updateUserActiveStatus,
+  resendUserVerification,
 } from '../../api/admin'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import type { AuthUser, UserRoleInfo, Role } from '../../types/auth'
+import { useAuth } from '../auth/AuthProvider'
 
 interface UserDetailPageProps {
   token: string
@@ -19,7 +21,10 @@ interface UserDetailPageProps {
 export function UserDetailPage({ token, userID, onBack }: UserDetailPageProps) {
   const t = useT()
   const [locale] = useLocale()
+  const { user: currentUser } = useAuth()
   const [user, setUser] = useState<AuthUser | null>(null)
+  const [verificationSending, setVerificationSending] = useState(false)
+  const [verificationMessage, setVerificationMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [userRoles, setUserRoles] = useState<UserRoleInfo[]>([])
   const [availableRoles, setAvailableRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(true)
@@ -56,8 +61,31 @@ export function UserDetailPage({ token, userID, onBack }: UserDetailPageProps) {
     loadData()
   }, [token, userID])
 
+  const isSelf = currentUser?.id === userID
+
+  async function handleResendVerification() {
+    if (!window.confirm(t('admin.user_detail.resend_verification_confirm'))) return
+    setVerificationSending(true)
+    setVerificationMessage(null)
+    try {
+      await resendUserVerification(token, userID)
+      setVerificationMessage({ type: 'success', text: t('admin.user_detail.resend_verification_success') })
+    } catch (e) {
+      setVerificationMessage({
+        type: 'error',
+        text: e instanceof Error ? e.message : t('common.error'),
+      })
+    } finally {
+      setVerificationSending(false)
+    }
+  }
+
   async function handleToggleActive() {
     if (!user) return
+    if (isSelf && user.isActive) {
+      setError(t('admin.user_detail.cannot_suspend_self'))
+      return
+    }
     const nextState = !user.isActive
     if (!confirm(t(nextState ? 'admin.user_detail.confirm_activate' : 'admin.user_detail.confirm_deactivate'))) return
     try {
@@ -120,14 +148,16 @@ export function UserDetailPage({ token, userID, onBack }: UserDetailPageProps) {
             <span style={{ fontSize: 14, color: '#4b5563', fontWeight: 500 }}>{user.email}</span>
             <span style={{ fontSize: 12, color: '#9ca3af', fontFamily: 'monospace' }}>UUID: {user.id}</span>
           </div>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <button
-              onClick={handleToggleActive}
-              style={user.isActive ? btnDeactivate : btnActivate}
-            >
-              {user.isActive ? t('admin.user_detail.suspend_account') : t('admin.user_detail.activate_account')}
-            </button>
-          </div>
+          {!(isSelf && user.isActive) && (
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <button
+                onClick={handleToggleActive}
+                style={user.isActive ? btnDeactivate : btnActivate}
+              >
+                {user.isActive ? t('admin.user_detail.suspend_account') : t('admin.user_detail.activate_account')}
+              </button>
+            </div>
+          )}
         </div>
 
         <div style={grid}>
@@ -139,9 +169,26 @@ export function UserDetailPage({ token, userID, onBack }: UserDetailPageProps) {
           </div>
           <div style={gridItem}>
             <span style={label}>{t('admin.user_detail.email_verification')}</span>
-            <span style={user.emailVerified ? badgeVerified : badgeUnverified}>
-              {user.emailVerified ? t('admin.user_detail.email_approved') : t('admin.user_detail.email_pending')}
-            </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+              <span style={user.emailVerified ? badgeVerified : badgeUnverified}>
+                {user.emailVerified ? t('admin.user_detail.email_approved') : t('admin.user_detail.email_pending')}
+              </span>
+              {!user.emailVerified && (
+                <button
+                  type="button"
+                  onClick={handleResendVerification}
+                  disabled={verificationSending}
+                  style={btnResendVerification}
+                >
+                  {verificationSending ? '...' : t('admin.user_detail.resend_verification')}
+                </button>
+              )}
+              {verificationMessage && (
+                <span style={verificationMessage.type === 'success' ? verificationSuccessText : verificationErrorText}>
+                  {verificationMessage.text}
+                </span>
+              )}
+            </div>
           </div>
           <div style={gridItem}>
             <span style={label}>{t('admin.user_detail.created_at')}</span>
@@ -469,4 +516,27 @@ const errStyle: React.CSSProperties = {
   color: 'crimson',
   padding: 16,
   fontWeight: 600,
+}
+
+const btnResendVerification: React.CSSProperties = {
+  padding: '6px 12px',
+  background: 'var(--bg-card-raised, rgba(255, 255, 255, 0.05))',
+  color: 'var(--text-primary, #111827)',
+  border: '1px solid var(--border-color, #d1d5db)',
+  borderRadius: 6,
+  cursor: 'pointer',
+  fontSize: 13,
+  fontWeight: 500,
+}
+
+const verificationSuccessText: React.CSSProperties = {
+  fontSize: 13,
+  color: '#10b981',
+  fontWeight: 500,
+}
+
+const verificationErrorText: React.CSSProperties = {
+  fontSize: 13,
+  color: '#ef4444',
+  fontWeight: 500,
 }

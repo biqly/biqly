@@ -18,7 +18,7 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false)
   const [passkeyLoading, setPasskeyLoading] = useState(false)
   const [throttleMs, setThrottleMs] = useState(0)
-  const [sessionBanner, setSessionBanner] = useState<string | null>(null)
+  const [sessionBanner, setSessionBanner] = useState<{ title: string; body: string } | null>(null)
   const failureCountRef = useRef(0)
 
   // Render an explanatory banner when redirected here from a session-expiry
@@ -27,12 +27,21 @@ export default function SignInPage() {
     const params = new URLSearchParams(window.location.search)
     const reason = params.get('expired')
     if (!reason) return
-    let key: 'session_expired_idle' | 'session_expired_absolute' | 'session_expired_revoked'
-    if (reason === 'idle') key = 'session_expired_idle'
-    else if (reason === 'absolute') key = 'session_expired_absolute'
-    else if (reason === 'revoked') key = 'session_expired_revoked'
-    else key = 'session_expired_revoked'
-    setSessionBanner(t(`auth.${key}` as const))
+
+    const titleKey = reason === 'idle' ? 'session_expired_title_idle'
+      : reason === 'absolute' ? 'session_expired_title_absolute'
+      : reason === 'revoked' ? 'session_expired_title_revoked'
+      : 'session_expired_title_generic'
+
+    const bodyKey = reason === 'idle' ? 'session_expired_idle'
+      : reason === 'absolute' ? 'session_expired_absolute'
+      : reason === 'revoked' ? 'session_expired_revoked'
+      : 'session_expired_generic'
+
+    setSessionBanner({
+      title: t(`auth.${titleKey}` as const),
+      body: t(`auth.${bodyKey}` as const),
+    })
     window.history.replaceState(null, '', '/auth/signin')
   }, [t])
 
@@ -142,8 +151,8 @@ export default function SignInPage() {
 
         {sessionBanner && (
           <div className="auth-info" role="status" aria-live="polite">
-            <strong>{t('auth.session_expired_title')}</strong>
-            <div>{sessionBanner}</div>
+            <strong>{sessionBanner.title}</strong>
+            <div>{sessionBanner.body}</div>
           </div>
         )}
 

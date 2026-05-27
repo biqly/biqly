@@ -746,6 +746,14 @@ func (s *AuthService) VerifyEmail(ctx context.Context, token string) error {
 	return err
 }
 
+func (s *AuthService) AdminResendUserVerification(ctx context.Context, targetUserID string) error {
+	user, err := s.userRepo.GetUserByID(ctx, targetUserID)
+	if err != nil {
+		return err
+	}
+	return s.ResendVerificationEmail(ctx, user.Email)
+}
+
 func (s *AuthService) ResendVerificationEmail(ctx context.Context, email string) error {
 	normalizedEmail, err := NormalizeEmail(email)
 	if err != nil {
@@ -759,7 +767,7 @@ func (s *AuthService) ResendVerificationEmail(ctx context.Context, email string)
 	}
 
 	if user.EmailVerified {
-		return errors.New("email is already verified")
+		return ErrEmailAlreadyVerified
 	}
 
 	token, err := s.generateSecureToken()

@@ -126,6 +126,7 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 		r.Get("/admin/invitations", h.handleAdminListInvitations)
 		r.Delete("/admin/invitations/{id}", h.handleAdminRevokeInvitation)
 		r.Post("/admin/invitations/{id}/resend", h.handleAdminResendInvitation)
+		r.Post("/admin/users/{id}/resend-verification", h.handleAdminResendUserVerification)
 		h.RegisterAccountSelfRoutes(r)
 	})
 }
@@ -1164,4 +1165,34 @@ func (h *AuthHandler) handleAdminResendInvitation(w http.ResponseWriter, r *http
 	}
 
 	h.respondJSON(w, http.StatusOK, map[string]string{"message": "invitation resent successfully"})
+}
+
+func (h *AuthHandler) handleAdminResendUserVerification(w http.ResponseWriter, r *http.Request) {
+	_, ok := r.Context().Value(userIDKey).(string)
+	if !ok {
+		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		h.respondError(w, http.StatusBadRequest, "id is required")
+		return
+	}
+
+	err := h.service.AdminResendUserVerification(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			h.respondError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		if errors.Is(err, ErrEmailAlreadyVerified) {
+			h.respondError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		h.respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]string{"message": "verification email sent"})
 }
