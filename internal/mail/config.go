@@ -16,6 +16,7 @@ type Config struct {
 	SMTPUser           string
 	SMTPPass           string
 	SMTPFrom           string
+	SMTPSenderName     string
 	FrontendBaseURL    string
 	EmailDefaultLocale string
 	EmailDailyLimit    int
@@ -39,6 +40,7 @@ func NewConfigFromEnv() *Config {
 		SMTPUser:           os.Getenv("BI_MAIL_SMTP_USER"),
 		SMTPPass:           os.Getenv("BI_MAIL_SMTP_PASS"),
 		SMTPFrom:           os.Getenv("BI_MAIL_SMTP_FROM"),
+		SMTPSenderName:     stringEnv("BI_MAIL_SMTP_SENDER_NAME", "ABI"),
 		FrontendBaseURL:    stringEnv("BI_MAIL_FRONTEND_BASE_URL", "http://localhost:3333"),
 		EmailDefaultLocale: stringEnv("BI_MAIL_EMAIL_DEFAULT_LOCALE", "en"),
 		EmailDailyLimit:    nonNegativeIntEnv("BI_MAIL_EMAIL_DAILY_LIMIT", 10),

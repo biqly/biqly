@@ -409,8 +409,24 @@ function App() {
   }, [])
 
   useEffect(() => {
-    document.title = activeRoute ? `${activeRoute.label} · ABI` : `${t('common.page_not_found')} · ABI`
-  }, [activeRoute, t])
+    if (activeRoute) {
+      document.title = `${activeRoute.label} · ABI`
+    } else if (activePath === '/auth/signin') {
+      document.title = t('auth.title_signin')
+    } else if (activePath === '/auth/signup') {
+      document.title = `${t('auth.title_signup')} · ABI`
+    } else if (activePath === '/auth/forgot-password') {
+      document.title = `${t('auth.title_forgot')} · ABI`
+    } else if (activePath === '/auth/reset-password') {
+      document.title = `${t('auth.title_reset')} · ABI`
+    } else if (activePath === '/auth/verify-email') {
+      document.title = `${t('auth.title_verify')} · ABI`
+    } else if (activePath.startsWith('/auth/')) {
+      document.title = 'ABI'
+    } else {
+      document.title = `${t('common.page_not_found')} · ABI`
+    }
+  }, [activeRoute, activePath, t])
 
   const navigate = (path: string) => {
     if (path === window.location.pathname) return

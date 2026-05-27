@@ -239,16 +239,34 @@ func DeviceFingerprint(userAgent, ipAddress string) string {
 }
 
 func (r *UserRepository) RecordKnownDevice(ctx context.Context, userID, fingerprint string, ua, ip *string) (isNew bool, err error) {
-	res, execErr := r.db.ExecContext(ctx, `
+	var exists bool
+	err = r.db.QueryRowContext(ctx, `
+		SELECT EXISTS(SELECT 1 FROM known_devices WHERE user_id = $1 AND fingerprint = $2)
+	`, userID, fingerprint).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("check known device: %w", err)
+	}
+
+	if exists {
+		_, err = r.db.ExecContext(ctx, `
+			UPDATE known_devices SET last_seen_at = NOW() WHERE user_id = $1 AND fingerprint = $2
+		`, userID, fingerprint)
+		if err != nil {
+			return false, fmt.Errorf("update known device: %w", err)
+		}
+		return false, nil
+	}
+
+	_, err = r.db.ExecContext(ctx, `
 		INSERT INTO known_devices (user_id, fingerprint, user_agent, ip_address)
 		VALUES ($1, $2, $3, $4::inet)
 		ON CONFLICT (user_id, fingerprint) DO UPDATE SET last_seen_at = NOW()
 	`, userID, fingerprint, ua, ip)
-	if execErr != nil {
-		return false, fmt.Errorf("upsert known device: %w", execErr)
+	if err != nil {
+		return false, fmt.Errorf("insert known device: %w", err)
 	}
-	rows, _ := res.RowsAffected()
-	return rows == 1, nil
+
+	return true, nil
 }
 
 func (r *UserRepository) CreateUnlockToken(ctx context.Context, userID string, ttl time.Duration) (string, error) {

@@ -181,8 +181,12 @@ func (s *SMTPEmailSender) sendTemplate(ctx context.Context, to, name string, dat
 	if err != nil {
 		return err
 	}
+	from := s.config.SMTPFrom
+	if !strings.Contains(from, "<") && s.config.SMTPSenderName != "" {
+		from = fmt.Sprintf("%s <%s>", s.config.SMTPSenderName, from)
+	}
 	headers := map[string]string{
-		"From":             s.config.SMTPFrom,
+		"From":             from,
 		"To":               normalized,
 		"Subject":          subject,
 		"Auto-Submitted":   "auto-generated",
