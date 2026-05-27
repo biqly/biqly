@@ -19,7 +19,7 @@ export function ShareButton({ resourceType, resourceID, onShared }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!accessToken || !targetID.trim()) return
     setLoading(true)

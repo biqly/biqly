@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type SubmitEvent } from 'react'
 import abiLogo from '../../assets/abi-logo.png'
 import { apiForgotPassword } from '../../api/auth'
 import { useT } from '../../i18n'
@@ -11,7 +11,7 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!email) return
 

@@ -121,7 +121,7 @@ export function AuditLogPanel({ token }: { token: string }) {
     reload({ userID, action, page: currentPage, pageSize })
   }, [token, currentPage])
 
-  function onSubmit(e: React.FormEvent) {
+  function onSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     if (currentPage !== 1) {
       setCurrentPage(1)

@@ -41,7 +41,7 @@ export function WorkspacesPanel({ token }: { token: string }) {
     reload()
   }, [token, currentPage])
 
-  async function onCreate(e: React.FormEvent) {
+  async function onCreate(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!newName.trim()) return
     try {

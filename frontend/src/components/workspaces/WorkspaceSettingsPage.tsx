@@ -69,7 +69,7 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
 
   const isPersonal = workspace?.is_personal ?? false
 
-  async function onSave(e: React.FormEvent) {
+  async function onSave(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     if (isPersonal) return
     try {
@@ -82,7 +82,7 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
     }
   }
 
-  async function onInviteMember(e: React.FormEvent) {
+  async function onInviteMember(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!inviteUserID.trim() || !inviteRoleID) return
     try {
@@ -114,7 +114,7 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
     }
   }
 
-  async function onAttachDS(e: React.FormEvent) {
+  async function onAttachDS(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!attachDsID.trim()) return
     try {

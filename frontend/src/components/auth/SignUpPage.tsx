@@ -1,4 +1,4 @@
-import { useCallback, useState, type FormEvent } from 'react'
+import { useCallback, useState, type SubmitEvent } from 'react'
 import abiLogo from '../../assets/abi-logo.png'
 import { useT } from '../../i18n'
 import { useAuth } from './AuthProvider'
@@ -22,7 +22,7 @@ export default function SignUpPage() {
     setPasswordValid(info.valid)
   }, [])
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!displayName || !email || !password || !confirmPassword) return
 

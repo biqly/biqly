@@ -96,7 +96,7 @@ export function UserDetailPage({ token, userID, onBack }: UserDetailPageProps) {
     }
   }
 
-  async function handleAssignRole(e: React.FormEvent) {
+  async function handleAssignRole(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!selectedRoleID) return
     try {

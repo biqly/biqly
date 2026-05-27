@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type SubmitEvent } from 'react'
 import abiLogo from '../../assets/abi-logo.png'
 import { apiPasskeyLoginBegin, apiPasskeyLoginFinish } from '../../api/auth'
 import { useT } from '../../i18n'
@@ -53,7 +53,7 @@ export default function SignInPage() {
     return () => window.clearInterval(interval)
   }, [throttleMs])
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!email || !password || throttleMs > 0) return
 

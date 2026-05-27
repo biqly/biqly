@@ -73,7 +73,7 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
     reload()
   }, [token, currentPage])
 
-  async function onGrant(e: React.FormEvent) {
+  async function onGrant(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!userID || !datasourceID) return
     try {
