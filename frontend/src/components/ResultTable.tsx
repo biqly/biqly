@@ -1,6 +1,7 @@
 import { useMemo, useState, type MouseEvent, type KeyboardEvent } from 'react'
 import { useT } from '../i18n'
 import { formatResultCell } from '../utils/resultCellFormat'
+import '../styles/table-results.css'
 import type { ResultAnomaly } from '../types/ai'
 import { buildAnomalyCellSet, isAnomalyCell } from './resultTable/anomalies'
 import {

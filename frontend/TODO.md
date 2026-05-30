@@ -503,13 +503,13 @@ BI araclari kompleks. Onboarding flow:
 
 ### Faz 4: CSS Refactoring (1 hafta)
 
-- [ ] `index.css` (107KB) → domain dosyalarina bolunmeli:
+- [x] `index.css` (107KB) → domain dosyalarina bolunmeli:
   - `sidebar.css`, `modal.css`, `table-results.css`, `ai-jobs.css`, `workspace.css`, `sharing.css`, `bulk-describe.css`
-- [ ] `tableBrowser.css` → 59 `!important` duzeltilmeli (selector specificity ile cozulmeli)
-- [ ] Duplicate CSS kurallari kaldirilmali (feedback-*, card-header-row, form-group, past-queries-toggle)
-- [ ] Z-index scale: `--z-content: 1-5`, `--z-nav: 40-60`, `--z-popover: 100`, `--z-modal: 1000`, `--z-select: 1100`
-- [ ] Hardcoded renkler → CSS variable ile degistirilmeli
-- [ ] Monospace font: 6 farkli font-family stack → tek `--font-mono` variable
+- [x] `tableBrowser.css` → 59 `!important` duzeltilmeli (selector specificity ile cozulmeli)
+- [x] Duplicate CSS kurallari kaldirilmali (feedback-*, card-header-row, form-group, past-queries-toggle)
+- [x] Z-index scale: `--z-content: 1-5`, `--z-nav: 40-60`, `--z-popover: 100`, `--z-modal: 1000`, `--z-select: 1100`
+- [x] Hardcoded renkler → CSS variable ile degistirilmeli
+- [x] Monospace font: 6 farkli font-family stack → tek `--font-mono` variable
 
 ### Faz 5: Router (1 hafta)
 

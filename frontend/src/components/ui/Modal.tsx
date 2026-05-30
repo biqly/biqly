@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import clsx from 'clsx'
 import { useT } from '../../i18n'
+import '../../styles/modal.css'
 
 interface ModalProps {
   open: boolean

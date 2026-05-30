@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { jobQuestionPreview, useAIJobs, type TrackedAIJob } from '../hooks/useAIJobs'
 import type { AIJobKind } from '../types/ai'
 import { useT, type TranslationKey } from '../i18n'
+import '../styles/ai-jobs.css'
 
 const PIPELINE_PHASES = [
   'queued',

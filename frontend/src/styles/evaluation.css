@@ -96,7 +96,7 @@
 }
 
 .eval-tc-id {
-  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-family: var(--font-mono, monospace);
   font-size: 0.8rem;
   color: var(--text-secondary);
   white-space: nowrap;
@@ -176,7 +176,7 @@
 
 .diff-pre {
   margin: 0;
-  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-family: var(--font-mono, monospace);
   font-size: 0.7rem;
   line-height: 1.5;
   color: var(--text-secondary);

@@ -12,6 +12,7 @@ import {
   sortBulkEntriesForDisplay,
   type BulkEntry,
 } from './bulkProgress'
+import '../../styles/bulk-describe.css'
 
 export interface MetadataBulkDescribeModalProps {
   open: boolean

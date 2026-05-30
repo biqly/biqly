@@ -31,6 +31,7 @@ const ClaimInvitePage = lazy(() => import('./components/auth/ClaimInvitePage'))
 import { AuthGuard, globalNavigate } from './components/auth/AuthGuard'
 import { useAuth } from './components/auth/AuthProvider'
 import { WorkspaceSelector } from './components/workspaces/WorkspaceSelector'
+import './styles/sidebar.css'
 
 
 type RouteSectionKey = 'data' | 'query' | 'ai' | 'analytics' | 'preferences'

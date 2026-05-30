@@ -5,6 +5,7 @@ import { useT } from '../../i18n'
 import type { ResourceShare } from '../../types/auth'
 import { Pagination } from '../ui/Pagination'
 import { useConfirm } from '../../hooks/useConfirm'
+import '../../styles/sharing.css'
 
 interface Props {
   resourceType?: string

@@ -410,7 +410,7 @@
   border: 1px solid var(--border);
   border-radius: 0.6rem;
   padding: 0.85rem 1rem;
-  font-family: 'Fira Code', 'Courier New', Courier, monospace;
+  font-family: var(--font-mono, monospace);
   font-size: 0.78rem;
   line-height: 1.5;
   color: #38bdf8;

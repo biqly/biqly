@@ -486,16 +486,7 @@
 }
 
 .card-header-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.65rem 1rem;
   margin-bottom: 0.25rem;
-}
-
-.card-header-row h2 {
-  margin: 0;
 }
 
 .card-header-row--spaced {
@@ -1055,7 +1046,7 @@
 }
 
 .candidate-json {
-  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-family: var(--font-mono, monospace);
   font-size: 0.7rem;
   max-height: 150px;
   overflow: auto;
@@ -1182,7 +1173,7 @@
 
 .routing-table-name {
   min-width: 0;
-  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-family: var(--font-mono, monospace);
   font-size: 0.74rem;
   color: var(--text-primary);
   overflow: hidden;
@@ -1342,7 +1333,7 @@
 .explain-output {
   max-height: 220px;
   overflow: auto;
-  font-family: 'SF Mono', monospace;
+  font-family: var(--font-mono, monospace);
 }
 
 .plan-status {

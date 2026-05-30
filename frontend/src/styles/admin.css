@@ -433,7 +433,7 @@
 .admin-subtext {
   font-size: 11px;
   color: #9ca3af;
-  font-family: monospace;
+  font-family: var(--font-mono, monospace);
 }
 .admin-text-muted {
   color: var(--text-secondary, #8a8a92);

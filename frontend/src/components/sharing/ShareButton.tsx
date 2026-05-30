@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createShare } from '../../api/admin'
 import { useAuth } from '../auth/AuthProvider'
 import { useT } from '../../i18n'
+import '../../styles/sharing.css'
 
 interface Props {
   resourceType: string

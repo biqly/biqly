@@ -14,6 +14,7 @@ import {
 import { useT } from '../../i18n'
 import type { Workspace, WorkspaceMember, WorkspaceDatasource, Role } from '../../types/auth'
 import { useConfirm } from '../../hooks/useConfirm'
+import '../../styles/workspace.css'
 
 interface Props {
   token: string

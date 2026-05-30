@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { useT } from '../../i18n'
 import type { Workspace } from '../../types/auth'
 import { resolveActiveWorkspace } from './workspaceSelection'
+import '../../styles/workspace.css'
 
 const storageKey = 'biqly_active_workspace_id'
 
