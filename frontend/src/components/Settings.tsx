@@ -15,9 +15,12 @@ import QRCode from 'qrcode'
 import type { PasskeyInfo } from '../types/auth'
 import { ConfirmDialog } from './ui/ConfirmDialog'
 import { Modal } from './ui/Modal'
-import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { usePasskeyRegistration } from '../hooks/usePasskeyRegistration'
+import { MFASection, type MFAStatus } from './settings/MFASection'
+import { OTPCodeInput } from './settings/OTPCodeInput'
+import { PasskeyTable } from './settings/PasskeyTable'
+import { RecoveryCodesDisplay } from './settings/RecoveryCodesDisplay'
 
 interface SettingsProps {
   navigate?: (path: string) => void
@@ -47,7 +50,7 @@ export default function Settings({ navigate }: SettingsProps) {
   const [renaming, setRenaming] = useState(false)
 
   // Multi-Factor Authentication (MFA) States
-  const [mfaStatus, setMfaStatus] = useState<{ enabled: boolean; method?: string; verified_at?: string } | null>(null)
+  const [mfaStatus, setMfaStatus] = useState<MFAStatus | null>(null)
   const [mfaEnrollData, setMfaEnrollData] = useState<{ secret: string; otpauth_url: string; recovery_codes: string[] } | null>(null)
   const [mfaQrCode, setMfaQrCode] = useState('')
   const [mfaEnrollOpen, setMfaEnrollOpen] = useState(false)
@@ -244,6 +247,20 @@ export default function Settings({ navigate }: SettingsProps) {
     }
   }
 
+  const openMFADisableModal = () => {
+    setMfaDisableCode('')
+    setError(null)
+    setSuccessMessage(null)
+    setMfaDisableOpen(true)
+  }
+
+  const openMFARegenModal = () => {
+    setMfaRegenCode('')
+    setError(null)
+    setSuccessMessage(null)
+    setMfaRegenOpen(true)
+  }
+
   return (
     <div className="page-stack">
       <section className="card card--elevated settings-prefs-card">
@@ -311,195 +328,27 @@ export default function Settings({ navigate }: SettingsProps) {
           </div>
         )}
 
-        {loading ? (
-          <div className="admin-center-container">
-            <div className="spinner" style={{ width: '24px', height: '24px', borderTopColor: 'var(--accent)' }}></div>
-          </div>
-        ) : passkeys.length === 0 ? (
-          <EmptyState
-            title={t('passkeys.empty_title')}
-            description={t('passkeys.empty_desc')}
-          />
-        ) : (
-          <div className="results-table-scroll border-border overflow-hidden">
-            <table className="results-table" style={{ margin: 0 }}>
-              <thead>
-                <tr>
-                  <th>{t('passkeys.col_name')}</th>
-                  <th>{t('passkeys.col_created')}</th>
-                  <th>{t('passkeys.col_last_used')}</th>
-                  <th className="actions" style={{ width: '80px', textAlign: 'right' }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {passkeys.map((pk) => (
-                  <tr key={pk.id}>
-                    <td style={{ fontWeight: 600 }}>
-                      <span style={{ marginRight: '6px' }}>🔑</span> {pk.name}
-                    </td>
-                    <td>{new Date(pk.created_at).toLocaleString(localeLanguageTag(locale))}</td>
-                    <td>
-                      {pk.last_used_at
-                        ? new Date(pk.last_used_at).toLocaleString(localeLanguageTag(locale))
-                        : t('passkeys.never_used')}
-                    </td>
-                    <td className="actions">
-                      <div className="flex-gap-center-end">
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-secondary btn-icon-only"
-                          onClick={() => {
-                            setRenameTarget(pk)
-                            setRenamingName(pk.name)
-                          }}
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-danger-outline btn-icon-only"
-                          onClick={() => setDeleteTarget(pk)}
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <PasskeyTable
+          passkeys={passkeys}
+          loading={loading}
+          locale={locale}
+          onRename={(passkey) => {
+            setRenameTarget(passkey)
+            setRenamingName(passkey.name)
+          }}
+          onDelete={setDeleteTarget}
+        />
       </section>
 
 
       {/* Multi-Factor Authentication (2FA) Section */}
-      <section className="card card--elevated settings-prefs-card">
-        <div className="card-intro card-intro--compact">
-          <div className="card-header-row card-header-row--spaced">
-            <h2>{t('mfa.title')}</h2>
-            {mfaStatus && (
-              mfaStatus.enabled ? (
-                <button
-                  type="button"
-                  className="btn btn-danger-outline btn-sm"
-                  style={{ width: 'auto', margin: 0 }}
-                  onClick={() => {
-                    setMfaDisableCode('')
-                    setError(null)
-                    setSuccessMessage(null)
-                    setMfaDisableOpen(true)
-                  }}
-                >
-                  🔓 {t('mfa.disable_btn')}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm btn-auto-width"
-                  onClick={handleMFAEnrollStart}
-                >
-                  🔒 {t('mfa.enable_btn')}
-                </button>
-              )
-            )}
-          </div>
-          <p className="card-lead card-lead-margin">
-            {t('mfa.subtitle')}
-          </p>
-        </div>
-
-        {!mfaStatus ? (
-          <div className="admin-center-container">
-            <div className="spinner" style={{ width: '24px', height: '24px', borderTopColor: 'var(--accent)' }}></div>
-          </div>
-        ) : !mfaStatus.enabled ? (
-          <EmptyState
-            title={t('mfa.empty_title')}
-            description={t('mfa.empty_desc')}
-          />
-        ) : (
-          <>
-            <div className="results-table-scroll border-border overflow-hidden">
-              <table className="results-table" style={{ margin: 0 }}>
-                <thead>
-                  <tr>
-                    <th>{t('mfa.col_method')}</th>
-                    <th>{t('mfa.col_status')}</th>
-                    <th>{t('mfa.col_enabled_at')}</th>
-                    <th className="actions" style={{ width: '80px', textAlign: 'right' }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td style={{ fontWeight: 600 }}>
-                      <span style={{ marginRight: '6px' }}>📱</span> {t('mfa.method_totp')}
-                    </td>
-                    <td>
-                      <span
-                        className="badge badge-success admin-badge-active"
-                        style={{ fontSize: '0.75rem' }}
-                      >
-                        {t('mfa.status_active')}
-                      </span>
-                    </td>
-                    <td>
-                      {mfaStatus.verified_at
-                        ? new Date(mfaStatus.verified_at).toLocaleString(localeLanguageTag(locale))
-                        : '-'}
-                    </td>
-                    <td className="actions">
-                      <div className="flex-gap-center-end">
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-secondary btn-icon-only"
-                          title={t('mfa.regenerate_recovery_btn')}
-                          onClick={() => {
-                            setMfaRegenCode('')
-                            setError(null)
-                            setSuccessMessage(null)
-                            setMfaRegenOpen(true)
-                          }}
-                        >
-                          🔄
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* Newly generated/regenerated recovery codes display */}
-            {mfaNewRecoveryCodes && (
-              <div className="recovery-codes-box border-border overflow-hidden card-lead-margin" style={{ padding: '1rem', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
-                <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text)' }}>
-                  {t('mfa.recovery_title')}
-                </h4>
-                <p style={{ margin: '0.25rem 0 1rem 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  {t('mfa.recovery_desc')}
-                </p>
-                <div className="recovery-codes-grid">
-                  {mfaNewRecoveryCodes.map((code, idx) => (
-                    <div key={idx}>{code}</div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-secondary"
-                  style={{ marginTop: '0.75rem', width: 'auto' }}
-                  onClick={() => {
-                    navigator.clipboard.writeText(mfaNewRecoveryCodes.join('\n'))
-                    alert(t('mfa.recovery_copied'))
-                  }}
-                >
-                  📋 {t('common.copy')}
-                </button>
-              </div>
-            )}
-          </>
-        )}
-      </section>
+      <MFASection
+        status={mfaStatus}
+        recoveryCodes={mfaNewRecoveryCodes}
+        onEnable={handleMFAEnrollStart}
+        onDisable={openMFADisableModal}
+        onRegenerate={openMFARegenModal}
+      />
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
@@ -650,23 +499,13 @@ export default function Settings({ navigate }: SettingsProps) {
                 </p>
               </div>
 
-              <div className="form-group" style={{ margin: 0 }}>
-                <label htmlFor="mfa-verify-input">{t('mfa.label_code')}</label>
-                <input
-                  id="mfa-verify-input"
-                  type="text"
-                  pattern="[0-9]*"
-                  inputMode="numeric"
-                  maxLength={6}
-                  required
-                  value={mfaVerifyCode}
-                  onChange={(e) => setMfaVerifyCode(e.target.value.replace(/\D/g, ''))}
-                  placeholder={t('mfa.placeholder_code')}
-                  disabled={mfaVerifying}
-                  autoFocus
-                  className="mfa-otp-input"
-                />
-              </div>
+              <OTPCodeInput
+                id="mfa-verify-input"
+                value={mfaVerifyCode}
+                onChange={setMfaVerifyCode}
+                disabled={mfaVerifying}
+                autoFocus
+              />
 
               <div className="flex-gap-center-end" style={{ marginTop: '0.5rem' }}>
                 <button
@@ -687,44 +526,13 @@ export default function Settings({ navigate }: SettingsProps) {
               </div>
             </form>
           ) : (
-            <div className="page-stack" style={{ gap: '1rem' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <h4 style={{ margin: 0, color: 'var(--success)' }}>✔ {t('mfa.success_enabled')}</h4>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  {t('mfa.recovery_desc')}
-                </p>
-              </div>
-
-              {mfaEnrollData && (
-                <div className="recovery-codes-grid border-border" style={{ padding: '1rem' }}>
-                  {mfaEnrollData.recovery_codes.map((code, idx) => (
-                    <div key={idx}>{code}</div>
-                  ))}
-                </div>
-              )}
-
-              <div className="flex-gap-center-end" style={{ marginTop: '0.5rem' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-auto-width"
-                  onClick={() => {
-                    if (mfaEnrollData) {
-                      navigator.clipboard.writeText(mfaEnrollData.recovery_codes.join('\n'))
-                      alert(t('mfa.recovery_copied'))
-                    }
-                  }}
-                >
-                  📋 {t('common.copy')}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-auto-width"
-                  onClick={() => setMfaEnrollOpen(false)}
-                >
-                  {t('common.confirm_ok')}
-                </button>
-              </div>
-            </div>
+            mfaEnrollData && (
+              <RecoveryCodesDisplay
+                codes={mfaEnrollData.recovery_codes}
+                variant="confirmation"
+                onDone={() => setMfaEnrollOpen(false)}
+              />
+            )
           )}
         </div>
       </Modal>
@@ -737,23 +545,13 @@ export default function Settings({ navigate }: SettingsProps) {
         onClose={() => setMfaDisableOpen(false)}
       >
         <form onSubmit={handleMFADisableSubmit} className="page-stack" style={{ gap: '1rem' }}>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label htmlFor="mfa-disable-input">{t('mfa.label_code')}</label>
-            <input
-              id="mfa-disable-input"
-              type="text"
-              pattern="[0-9]*"
-              inputMode="numeric"
-              maxLength={6}
-              required
-              value={mfaDisableCode}
-              onChange={(e) => setMfaDisableCode(e.target.value.replace(/\D/g, ''))}
-              placeholder={t('mfa.placeholder_code')}
-              disabled={mfaDisabling}
-              autoFocus
-              className="mfa-otp-input"
-            />
-          </div>
+          <OTPCodeInput
+            id="mfa-disable-input"
+            value={mfaDisableCode}
+            onChange={setMfaDisableCode}
+            disabled={mfaDisabling}
+            autoFocus
+          />
           <div className="flex-gap-center-end" style={{ marginTop: '0.5rem' }}>
             <button
               type="button"
@@ -782,23 +580,13 @@ export default function Settings({ navigate }: SettingsProps) {
         onClose={() => setMfaRegenOpen(false)}
       >
         <form onSubmit={handleMFARegenSubmit} className="page-stack" style={{ gap: '1rem' }}>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label htmlFor="mfa-regen-input">{t('mfa.label_code')}</label>
-            <input
-              id="mfa-regen-input"
-              type="text"
-              pattern="[0-9]*"
-              inputMode="numeric"
-              maxLength={6}
-              required
-              value={mfaRegenCode}
-              onChange={(e) => setMfaRegenCode(e.target.value.replace(/\D/g, ''))}
-              placeholder={t('mfa.placeholder_code')}
-              disabled={mfaRegening}
-              autoFocus
-              className="mfa-otp-input"
-            />
-          </div>
+          <OTPCodeInput
+            id="mfa-regen-input"
+            value={mfaRegenCode}
+            onChange={setMfaRegenCode}
+            disabled={mfaRegening}
+            autoFocus
+          />
           <div className="flex-gap-center-end" style={{ marginTop: '0.5rem' }}>
             <button
               type="button"
@@ -823,4 +611,3 @@ export default function Settings({ navigate }: SettingsProps) {
     </div>
   )
 }
-

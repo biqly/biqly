@@ -475,12 +475,12 @@ BI araclari kompleks. Onboarding flow:
   - `useEntityActions.ts` hook (delete/reactivate/rename pattern)
   - Ana dosya 841 satira indi; kalan kod model lifecycle, schema ve canvas orkestrasyonu
 
-- [ ] **Settings.tsx (955 satir) → 5 dosya:**
+- [x] **Settings.tsx (826 satir) → 5 dosya:**
   - `PasskeyTable.tsx`
   - `MFASection.tsx`
   - `RecoveryCodesDisplay.tsx`
   - `OTPCodeInput.tsx`
-  - Ana dosya ~200 satira iner
+  - Ana dosya 613 satira indi; API cagirilari ve modal orkestrasyonu parent'ta kaldi
 
 - [ ] **QueryBuilder.tsx (950 satir) → 3 dosya:**
   - `NotebookStep.tsx` (wrapper component, 8 kez tekrarlanan patern)
