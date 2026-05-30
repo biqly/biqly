@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -388,7 +389,15 @@ func (h *AuthHandler) respondJSON(w http.ResponseWriter, status int, data any) {
 	_ = json.NewEncoder(w).Encode(data)
 }
 
+// respondError writes a JSON error. For server-side failures (5xx) the
+// detailed message is sent to logs/telemetry only and the client receives a
+// generic, user-friendly message so internal details never leak. Client
+// errors (4xx) keep their message, which is intentional validation feedback.
 func (h *AuthHandler) respondError(w http.ResponseWriter, status int, message string) {
+	if status >= http.StatusInternalServerError {
+		slog.Error("auth handler error", "detail", message, "status", status)
+		message = "internal server error"
+	}
 	h.respondJSON(w, status, map[string]string{"error": message})
 }
 

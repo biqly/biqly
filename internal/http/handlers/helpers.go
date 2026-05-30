@@ -10,6 +10,8 @@ import (
 	"reflect"
 
 	"github.com/biqly/biqly/internal/core"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
+	"github.com/biqly/biqly/pkg/common/requestid"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -45,9 +47,19 @@ func writeError(w http.ResponseWriter, status int, message string) {
 	}
 }
 
-func writeInternalError(ctx context.Context, w http.ResponseWriter, status int, publicMsg string, err error) {
+func writeInternalError(ctx context.Context, w http.ResponseWriter, status int, publicMsg string, err error, args ...any) {
 	if err != nil {
-		slog.ErrorContext(ctx, publicMsg, "error", err)
+		allArgs := append([]any{"error", err}, args...)
+		if reqID := requestid.FromContext(ctx); reqID != "" {
+			allArgs = append(allArgs, "request_id", reqID)
+		}
+		if userID := bimw.UserID(ctx); userID != "" {
+			allArgs = append(allArgs, "user_id", userID)
+		}
+		if wsID := bimw.WorkspaceID(ctx); wsID != "" {
+			allArgs = append(allArgs, "workspace_id", wsID)
+		}
+		slog.ErrorContext(ctx, publicMsg, allArgs...)
 	}
 	writeError(w, status, publicMsg)
 }
@@ -58,19 +70,29 @@ func writeEntityNotFound(w http.ResponseWriter, entity string) {
 	writeError(w, http.StatusNotFound, entity+" not found")
 }
 
-func writeServiceError(ctx context.Context, w http.ResponseWriter, se *core.ServiceError) {
+func writeServiceError(ctx context.Context, w http.ResponseWriter, se *core.ServiceError, args ...any) {
 	if se == nil {
 		writeError(w, http.StatusInternalServerError, "query failed")
 		return
 	}
 	if se.Status >= http.StatusInternalServerError {
-		slog.ErrorContext(ctx, se.Message, "error", core.LogCause(se))
+		allArgs := append([]any{"error", core.LogCause(se)}, args...)
+		if reqID := requestid.FromContext(ctx); reqID != "" {
+			allArgs = append(allArgs, "request_id", reqID)
+		}
+		if userID := bimw.UserID(ctx); userID != "" {
+			allArgs = append(allArgs, "user_id", userID)
+		}
+		if wsID := bimw.WorkspaceID(ctx); wsID != "" {
+			allArgs = append(allArgs, "workspace_id", wsID)
+		}
+		slog.ErrorContext(ctx, se.Message, allArgs...)
 	}
 	writeError(w, se.Status, se.Message)
 }
 
-func writeCoreServiceError(ctx context.Context, w http.ResponseWriter, err error) {
-	writeServiceError(ctx, w, core.MapQueryServiceError(err))
+func writeCoreServiceError(ctx context.Context, w http.ResponseWriter, err error, args ...any) {
+	writeServiceError(ctx, w, core.MapQueryServiceError(err), args...)
 }
 
 // maxJSONRequestBytes caps the size of incoming JSON bodies. Keeps a buggy

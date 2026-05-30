@@ -17,6 +17,7 @@ type MFAEnrollment struct {
 	Method         string
 	Secret         string
 	RecoveryCodes  []string
+	BypassCodes    []string
 	Enabled        bool
 	VerifiedAt     *time.Time
 	LastUsedAt     *time.Time
@@ -54,12 +55,13 @@ func (r *MFARepository) Upsert(ctx context.Context, userID, method, secret strin
 		return err
 	}
 	query := `
-		INSERT INTO user_mfa (user_id, method, secret_encrypted, recovery_codes, enabled, verified_at, updated_at)
-		VALUES ($1, $2, $3, $4, FALSE, NULL, NOW())
+		INSERT INTO user_mfa (user_id, method, secret_encrypted, recovery_codes, bypass_codes, enabled, verified_at, updated_at)
+		VALUES ($1, $2, $3, $4, '{}', FALSE, NULL, NOW())
 		ON CONFLICT (user_id) DO UPDATE SET
 			method = EXCLUDED.method,
 			secret_encrypted = EXCLUDED.secret_encrypted,
 			recovery_codes = EXCLUDED.recovery_codes,
+			bypass_codes = '{}',
 			enabled = FALSE,
 			verified_at = NULL,
 			updated_at = NOW()
@@ -71,13 +73,14 @@ func (r *MFARepository) Upsert(ctx context.Context, userID, method, secret strin
 func (r *MFARepository) Get(ctx context.Context, userID string) (*MFAEnrollment, error) {
 	var enc []byte
 	var codes pq.StringArray
+	var bypassCodes pq.StringArray
 	var enrol MFAEnrollment
 	var verifiedAt, lastUsedAt sql.NullTime
 	err := r.db.QueryRowContext(ctx, `
-		SELECT user_id, method, secret_encrypted, recovery_codes, enabled, verified_at, last_used_at, created_at, updated_at
+		SELECT user_id, method, secret_encrypted, recovery_codes, bypass_codes, enabled, verified_at, last_used_at, created_at, updated_at
 		FROM user_mfa WHERE user_id = $1
 	`, userID).Scan(
-		&enrol.UserID, &enrol.Method, &enc, &codes, &enrol.Enabled,
+		&enrol.UserID, &enrol.Method, &enc, &codes, &bypassCodes, &enrol.Enabled,
 		&verifiedAt, &lastUsedAt, &enrol.CreatedAt, &enrol.UpdatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -91,6 +94,7 @@ func (r *MFARepository) Get(ctx context.Context, userID string) (*MFAEnrollment,
 	}
 	enrol.Secret = secret
 	enrol.RecoveryCodes = []string(codes)
+	enrol.BypassCodes = []string(bypassCodes)
 	if verifiedAt.Valid {
 		t := verifiedAt.Time
 		enrol.VerifiedAt = &t
@@ -139,4 +143,24 @@ func (r *MFARepository) ReplaceRecoveryCodes(ctx context.Context, userID string,
 		`UPDATE user_mfa SET recovery_codes = $2, updated_at = NOW() WHERE user_id = $1`,
 		userID, pq.Array(hashes))
 	return err
+}
+
+func (r *MFARepository) AddBypassCode(ctx context.Context, userID, hash string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE user_mfa SET bypass_codes = array_append(bypass_codes, $2), updated_at = NOW()
+		WHERE user_id = $1
+	`, userID, hash)
+	return err
+}
+
+func (r *MFARepository) ConsumeBypassCode(ctx context.Context, userID, hash string) (bool, error) {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE user_mfa SET bypass_codes = array_remove(bypass_codes, $2), updated_at = NOW()
+		WHERE user_id = $1 AND $2 = ANY(bypass_codes)
+	`, userID, hash)
+	if err != nil {
+		return false, err
+	}
+	rows, _ := res.RowsAffected()
+	return rows > 0, nil
 }

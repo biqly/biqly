@@ -17,6 +17,7 @@ const (
 	AuditMFAEnrolled = "mfa.enrolled"
 	AuditMFAVerified = "mfa.verified"
 	AuditMFADisabled = "mfa.disabled"
+	AuditMFABypassGenerated = "mfa.bypass_code_generated"
 
 	AuditRoleAssigned  = "role.assigned"
 	AuditRoleRemoved   = "role.removed"

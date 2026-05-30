@@ -199,7 +199,7 @@ func (h *MetadataHandler) GetTableTranslations(w http.ResponseWriter, r *http.Re
 	}
 	rows, err := h.deps.MetaRepo.ListEntityTranslations(r.Context(), metadata.EntityTypeTable, id)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list table translations")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to list table translations", err, "entity_id", id)
 		return
 	}
 	writeJSON(w, http.StatusOK, rows)
@@ -218,7 +218,7 @@ func (h *MetadataHandler) GetColumnTranslations(w http.ResponseWriter, r *http.R
 	}
 	rows, err := h.deps.MetaRepo.ListEntityTranslations(r.Context(), metadata.EntityTypeColumn, id)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list column translations")
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to list column translations", err, "entity_id", id)
 		return
 	}
 	writeJSON(w, http.StatusOK, rows)

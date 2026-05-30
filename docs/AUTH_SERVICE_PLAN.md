@@ -1330,7 +1330,7 @@ r.Route("/api", func(r chi.Router) {
 - [x] QR code üretimi (TOTP secret enrollment) — `BuildOTPAuthURL` ile `otpauth://` URI, frontend QR encode eder
 - [x] Recovery kod üretimi ve doğrulama — 10 adet base32, bcrypt hash, tek kullanımlık (`array_remove`), `RegenerateRecoveryCodes`
 - [x] 2FA zorunlu kılma politikası (workspace bazında) — `workspaces.mfa_required` migration (`022a`), workspace API/ayarlar toggle'ı, login sırasında aktif workspace policy enforcement (`ErrMFARequired`)
-- [ ] Admin bypass kodları
+- [x] Admin bypass kodları
 - [x] 2FA enrollment ve verification endpoint'leri — `/auth/mfa/{status,enroll,verify,disable,recovery/regenerate}` + `/auth/mfa/login` (challenge token redeem); login flow `mfa_required` + `mfa_token` döndürür, `CompleteMFALogin` ile session tamamlanır
 
 ### Test

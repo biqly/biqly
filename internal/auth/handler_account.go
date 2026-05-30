@@ -32,6 +32,7 @@ func (h *AuthHandler) RegisterAccountAdminRoutes(r chi.Router, authMW func(http.
 		r.Use(authMW)
 		r.Post("/admin/users/{id}/force-logout", h.handleAdminForceLogout)
 		r.Post("/admin/users/{id}/restore", h.handleAdminRestoreAccount)
+		r.Post("/admin/users/{id}/mfa/bypass", h.handleAdminGenerateMFABypass)
 	})
 }
 
@@ -186,6 +187,40 @@ func (h *AuthHandler) handleAdminRestoreAccount(w http.ResponseWriter, r *http.R
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *AuthHandler) handleAdminGenerateMFABypass(w http.ResponseWriter, r *http.Request) {
+	actor, ok := r.Context().Value(userIDKey).(string)
+	if !ok || actor == "" {
+		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	targetID := chi.URLParam(r, "id")
+	if targetID == "" {
+		h.respondError(w, http.StatusBadRequest, "user id required")
+		return
+	}
+
+	bypassCode, err := h.service.GenerateMFABypassCode(r.Context(), actor, targetID)
+	if err != nil {
+		if errors.Is(err, ErrSuperAdminRequired) {
+			h.respondError(w, http.StatusForbidden, err.Error())
+			return
+		}
+		if errors.Is(err, ErrUserNotFound) {
+			h.respondError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		if errors.Is(err, ErrMFANotEnabled) {
+			h.respondError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		h.respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.auditLog(r, &actor, AuditMFABypassGenerated, ptrStr("user"), &targetID, nil)
+	h.respondJSON(w, http.StatusOK, map[string]string{"bypass_code": bypassCode})
+}
+
 func (h *AuthHandler) auditLog(r *http.Request, userID *string, action string, resource, resourceID *string, metadata any) {
 	if h.audit == nil {
 		return
@@ -195,3 +230,4 @@ func (h *AuthHandler) auditLog(r *http.Request, userID *string, action string, r
 }
 
 func ptrStr(s string) *string { return &s }
+

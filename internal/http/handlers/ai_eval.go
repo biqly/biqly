@@ -228,7 +228,13 @@ func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	send := func(line string) {
+		// SSE stream (text/event-stream), not HTML: EventSource delivers payloads
+		// to JS as strings and never renders them as markup. CR/LF are stripped to
+		// keep SSE framing intact, and the global SecurityHeaders middleware sets
+		// X-Content-Type-Options: nosniff so the response cannot be MIME-sniffed as
+		// HTML. The XSS rule therefore does not apply here.
 		safe := strings.ReplaceAll(strings.ReplaceAll(line, "\r", " "), "\n", " ")
+		// nosemgrep: go.lang.security.audit.xss.no-fprintf-to-responsewriter.no-fprintf-to-responsewriter
 		if _, err := fmt.Fprintf(w, "data: %s\n\n", safe); err != nil {
 			slog.ErrorContext(ctx, "eval stream write", "error", err)
 			return
@@ -334,7 +340,7 @@ func (h *AIHandler) EvalListRuns(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	runs, err := h.deps.EvalRepo.ListRuns(ctx, h.deps.Config.Query.EvalRunsListLimit)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list eval runs")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list eval runs", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, runs)
@@ -360,7 +366,7 @@ func (h *AIHandler) EvalGetRun(w http.ResponseWriter, r *http.Request) {
 
 	results, err := h.deps.EvalRepo.GetRunResults(ctx, runID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get eval results")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get eval results", err, "run_id", runID)
 		return
 	}
 
@@ -409,7 +415,7 @@ func (h *AIHandler) EvalRegression(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	report, err := h.deps.EvalRepo.GenerateRegressionReport(ctx, baselineRunID, currentRunID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to generate regression report")
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to generate regression report", err, "baseline_run_id", baselineRunID, "current_run_id", currentRunID)
 		return
 	}
 

@@ -22,6 +22,7 @@ var (
 	ErrMFARequired        = errors.New("mfa required for active workspace")
 	ErrEmailChangePending = errors.New("email change confirmation pending")
 	ErrPasswordReused     = errors.New("password was recently used")
+	ErrSuperAdminRequired = errors.New("super admin privilege required")
 )
 
 const PasswordHistoryLimit = 5
@@ -954,3 +955,26 @@ func (s *AuthService) ConsumeMagicLink(ctx context.Context, plain string, userAg
 	}
 	return s.issueSession(ctx, user, userAgent, ipAddress, "magic_link")
 }
+
+func (s *AuthService) GenerateMFABypassCode(ctx context.Context, actorUserID, targetUserID string) (string, error) {
+	isSuper, err := s.IsSuperAdmin(ctx, actorUserID)
+	if err != nil {
+		return "", err
+	}
+	if !isSuper {
+		return "", ErrSuperAdminRequired
+	}
+
+	if s.mfaSvc == nil {
+		return "", ErrMFANotEnabled
+	}
+
+	// Verify target user exists
+	_, err = s.userRepo.GetUserByID(ctx, targetUserID)
+	if err != nil {
+		return "", err
+	}
+
+	return s.mfaSvc.GenerateBypassCode(ctx, targetUserID)
+}
+

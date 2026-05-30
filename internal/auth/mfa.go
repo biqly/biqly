@@ -81,8 +81,8 @@ func (s *MFAService) Verify(ctx context.Context, userID, code string) error {
 	return s.repo.MarkUsed(ctx, userID)
 }
 
-// VerifyCode validates either a TOTP code or a recovery code on an enabled
-// enrollment. Recovery codes are single-use.
+// VerifyCode validates either a TOTP code, a recovery code, or a bypass code on an enabled
+// enrollment. Recovery codes and bypass codes are single-use.
 func (s *MFAService) VerifyCode(ctx context.Context, userID, code string) error {
 	enrol, err := s.repo.Get(ctx, userID)
 	if err != nil {
@@ -107,8 +107,51 @@ func (s *MFAService) VerifyCode(ctx context.Context, userID, code string) error 
 			}
 		}
 	}
+
+	// Check bypass codes
+	normalizedCode := strings.ToUpper(strings.TrimSpace(code))
+	for _, h := range enrol.BypassCodes {
+		if bcrypt.CompareHashAndPassword([]byte(h), []byte(normalizedCode)) == nil {
+			ok, err := s.repo.ConsumeBypassCode(ctx, userID, h)
+			if err != nil {
+				return err
+			}
+			if ok {
+				return s.repo.MarkUsed(ctx, userID)
+			}
+		}
+	}
+
 	return ErrMFACodeInvalid
 }
+
+func (s *MFAService) GenerateBypassCode(ctx context.Context, userID string) (string, error) {
+	enrol, err := s.repo.Get(ctx, userID)
+	if err != nil {
+		return "", err
+	}
+	if !enrol.Enabled {
+		return "", ErrMFANotEnabled
+	}
+
+	raw := make([]byte, 5)
+	if _, err := rand.Read(raw); err != nil {
+		return "", err
+	}
+	code := strings.TrimRight(base32.StdEncoding.EncodeToString(raw), "=")
+	bypassCode := "BYPASS-" + code
+
+	h, err := bcrypt.GenerateFromPassword([]byte(bypassCode), bcrypt.DefaultCost)
+	if err != nil {
+		return "", fmt.Errorf("hash bypass code: %w", err)
+	}
+
+	if err := s.repo.AddBypassCode(ctx, userID, string(h)); err != nil {
+		return "", err
+	}
+	return bypassCode, nil
+}
+
 
 func (s *MFAService) Disable(ctx context.Context, userID string) error {
 	return s.repo.Disable(ctx, userID)

@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-)
+
+	"log/slog"
+	"github.com/biqly/biqly/pkg/common/requestid")
 
 type RBACHandler struct {
 	rbac     *RBACService
@@ -120,7 +122,7 @@ func (h *RBACHandler) handleListWorkspaces(w http.ResponseWriter, r *http.Reques
 	userID := r.Context().Value(userIDKey).(string)
 	list, err := h.ws.ListForUser(r.Context(), userID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	paginated, total := paginateSlice(r, list)
@@ -137,12 +139,12 @@ func (h *RBACHandler) handleCreateWorkspace(w http.ResponseWriter, r *http.Reque
 		Description string `json:"description"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	ws, err := h.ws.Create(r.Context(), req.Name, req.Description, userID)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, ws)
@@ -151,7 +153,7 @@ func (h *RBACHandler) handleCreateWorkspace(w http.ResponseWriter, r *http.Reque
 func (h *RBACHandler) handleGetWorkspace(w http.ResponseWriter, r *http.Request) {
 	ws, err := h.ws.Get(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
-		writeError(w, http.StatusNotFound, err)
+		writeError(w, r, http.StatusNotFound, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, ws)
@@ -165,12 +167,12 @@ func (h *RBACHandler) handleUpdateWorkspace(w http.ResponseWriter, r *http.Reque
 		MFARequired *bool  `json:"mfa_required"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	ws, err := h.ws.Update(r.Context(), chi.URLParam(r, "id"), userID, req.Name, req.Description, req.MFARequired)
 	if err != nil {
-		writeError(w, http.StatusForbidden, err)
+		writeError(w, r, http.StatusForbidden, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, ws)
@@ -179,7 +181,7 @@ func (h *RBACHandler) handleUpdateWorkspace(w http.ResponseWriter, r *http.Reque
 func (h *RBACHandler) handleDeleteWorkspace(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(userIDKey).(string)
 	if err := h.ws.Delete(r.Context(), chi.URLParam(r, "id"), userID); err != nil {
-		writeError(w, http.StatusForbidden, err)
+		writeError(w, r, http.StatusForbidden, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -188,7 +190,7 @@ func (h *RBACHandler) handleDeleteWorkspace(w http.ResponseWriter, r *http.Reque
 func (h *RBACHandler) handleListMembers(w http.ResponseWriter, r *http.Request) {
 	list, err := h.ws.ListMembers(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, list)
@@ -201,11 +203,11 @@ func (h *RBACHandler) handleAddMember(w http.ResponseWriter, r *http.Request) {
 		RoleID string `json:"role_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if err := h.ws.AddMember(r.Context(), chi.URLParam(r, "id"), req.UserID, req.RoleID, userID); err != nil {
-		writeError(w, http.StatusForbidden, err)
+		writeError(w, r, http.StatusForbidden, err)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -217,11 +219,11 @@ func (h *RBACHandler) handleUpdateMemberRole(w http.ResponseWriter, r *http.Requ
 		RoleID string `json:"role_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if err := h.ws.UpdateMemberRole(r.Context(), chi.URLParam(r, "id"), chi.URLParam(r, "userId"), req.RoleID, userID); err != nil {
-		writeError(w, http.StatusForbidden, err)
+		writeError(w, r, http.StatusForbidden, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -230,7 +232,7 @@ func (h *RBACHandler) handleUpdateMemberRole(w http.ResponseWriter, r *http.Requ
 func (h *RBACHandler) handleRemoveMember(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(userIDKey).(string)
 	if err := h.ws.RemoveMember(r.Context(), chi.URLParam(r, "id"), chi.URLParam(r, "userId"), userID); err != nil {
-		writeError(w, http.StatusForbidden, err)
+		writeError(w, r, http.StatusForbidden, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -239,7 +241,7 @@ func (h *RBACHandler) handleRemoveMember(w http.ResponseWriter, r *http.Request)
 func (h *RBACHandler) handleListWorkspaceDatasources(w http.ResponseWriter, r *http.Request) {
 	list, err := h.ws.ListDatasources(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, list)
@@ -252,14 +254,14 @@ func (h *RBACHandler) handleAttachDatasource(w http.ResponseWriter, r *http.Requ
 		AccessLevel  string `json:"access_level"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if req.AccessLevel == "" {
 		req.AccessLevel = "read"
 	}
 	if err := h.ws.AttachDatasource(r.Context(), chi.URLParam(r, "id"), req.DatasourceID, req.AccessLevel, userID); err != nil {
-		writeError(w, http.StatusForbidden, err)
+		writeError(w, r, http.StatusForbidden, err)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -268,7 +270,7 @@ func (h *RBACHandler) handleAttachDatasource(w http.ResponseWriter, r *http.Requ
 func (h *RBACHandler) handleDetachDatasource(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(userIDKey).(string)
 	if err := h.ws.DetachDatasource(r.Context(), chi.URLParam(r, "id"), chi.URLParam(r, "dsId"), userID); err != nil {
-		writeError(w, http.StatusForbidden, err)
+		writeError(w, r, http.StatusForbidden, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -280,7 +282,7 @@ func (h *RBACHandler) handleListMyDatasources(w http.ResponseWriter, r *http.Req
 	userID := r.Context().Value(userIDKey).(string)
 	ids, err := h.dsAccess.ListAccessibleDatasourceIDs(r.Context(), userID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"datasource_ids": ids})
@@ -308,7 +310,7 @@ func (h *RBACHandler) handleRequestAccess(w http.ResponseWriter, r *http.Request
 	resType := "datasource"
 	err := h.audit.Log(r.Context(), &userID, action, &resType, &dsID, nil, nil)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
@@ -320,12 +322,12 @@ func (h *RBACHandler) handleCreateShare(w http.ResponseWriter, r *http.Request) 
 	userID := r.Context().Value(userIDKey).(string)
 	var req ShareRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	share, err := h.sharing.Share(r.Context(), userID, req)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, share)
@@ -344,7 +346,7 @@ func (h *RBACHandler) handleListShares(w http.ResponseWriter, r *http.Request) {
 		list, err = h.sharing.ListShared(r.Context(), userID, resourceType)
 	}
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -358,7 +360,7 @@ func (h *RBACHandler) handleListShares(w http.ResponseWriter, r *http.Request) {
 func (h *RBACHandler) handleRevokeShare(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(userIDKey).(string)
 	if err := h.sharing.Revoke(r.Context(), chi.URLParam(r, "id"), userID); err != nil {
-		writeError(w, http.StatusForbidden, err)
+		writeError(w, r, http.StatusForbidden, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -369,7 +371,7 @@ func (h *RBACHandler) handleRevokeShare(w http.ResponseWriter, r *http.Request) 
 func (h *RBACHandler) handleAdminListAccess(w http.ResponseWriter, r *http.Request) {
 	list, err := h.dsAccess.ListAll(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	paginated, total := paginateSlice(r, list)
@@ -387,7 +389,7 @@ func (h *RBACHandler) handleAdminGrantAccess(w http.ResponseWriter, r *http.Requ
 		AccessLevel  string `json:"access_level"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if req.AccessLevel == "" {
@@ -395,7 +397,7 @@ func (h *RBACHandler) handleAdminGrantAccess(w http.ResponseWriter, r *http.Requ
 	}
 	access, err := h.dsAccess.Grant(r.Context(), req.UserID, req.DatasourceID, req.AccessLevel, caller)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, access)
@@ -406,11 +408,11 @@ func (h *RBACHandler) handleAdminUpdateAccess(w http.ResponseWriter, r *http.Req
 		AccessLevel string `json:"access_level"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if err := h.dsAccess.UpdateLevel(r.Context(), chi.URLParam(r, "id"), req.AccessLevel); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -422,11 +424,11 @@ func (h *RBACHandler) handleAdminRevokeAccess(w http.ResponseWriter, r *http.Req
 		DatasourceID string `json:"datasource_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if err := h.dsAccess.Revoke(r.Context(), req.UserID, req.DatasourceID); err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -435,7 +437,7 @@ func (h *RBACHandler) handleAdminRevokeAccess(w http.ResponseWriter, r *http.Req
 func (h *RBACHandler) handleAdminListRoles(w http.ResponseWriter, r *http.Request) {
 	roles, err := h.rbacRepo.ListRoles(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	paginated, total := paginateSlice(r, roles)
@@ -448,7 +450,7 @@ func (h *RBACHandler) handleAdminListRoles(w http.ResponseWriter, r *http.Reques
 func (h *RBACHandler) handleAdminListPermissions(w http.ResponseWriter, r *http.Request) {
 	perms, err := h.rbacRepo.ListPermissions(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	paginated, total := paginateSlice(r, perms)
@@ -463,7 +465,7 @@ func (h *RBACHandler) handleAdminAssignRole(w http.ResponseWriter, r *http.Reque
 	caller, _ := r.Context().Value(userIDKey).(string)
 	if err := h.rbacRepo.EnforceSelfModificationGuard(r.Context(), caller, userID, "role.assign"); err != nil {
 		h.auditSoD(r, caller, "role.assign")
-		writeError(w, http.StatusForbidden, err)
+		writeError(w, r, http.StatusForbidden, err)
 		return
 	}
 	var req struct {
@@ -472,11 +474,11 @@ func (h *RBACHandler) handleAdminAssignRole(w http.ResponseWriter, r *http.Reque
 		ScopeID   *string `json:"scope_id,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if err := h.rbacRepo.AssignRole(r.Context(), userID, req.RoleID, req.ScopeType, req.ScopeID); err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	if h.audit != nil {
@@ -499,17 +501,17 @@ func (h *RBACHandler) auditSoD(r *http.Request, caller, action string) {
 func (h *RBACHandler) handleAdminListAuditLog(w http.ResponseWriter, r *http.Request) {
 	filter, err := auditFilterFromQuery(r)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	entries, err := h.audit.List(r.Context(), filter)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	total, err := h.audit.Count(r.Context(), filter)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -526,7 +528,7 @@ func (h *RBACHandler) handleAdminListAuditLog(w http.ResponseWriter, r *http.Req
 		allFilter.Offset = 0
 		allEntries, err := h.audit.List(r.Context(), allFilter)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err)
+			writeError(w, r, http.StatusInternalServerError, err)
 			return
 		}
 		writeAuditCSV(w, allEntries)
@@ -627,11 +629,11 @@ func (h *RBACHandler) handleAdminRemoveRole(w http.ResponseWriter, r *http.Reque
 	caller, _ := r.Context().Value(userIDKey).(string)
 	if err := h.rbacRepo.EnforceSelfModificationGuard(r.Context(), caller, userID, "role.remove"); err != nil {
 		h.auditSoD(r, caller, "role.remove")
-		writeError(w, http.StatusForbidden, err)
+		writeError(w, r, http.StatusForbidden, err)
 		return
 	}
 	if err := h.rbacRepo.RemoveRole(r.Context(), userID, roleID); err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	if h.audit != nil {
@@ -655,7 +657,7 @@ type CheckPermissionRequest struct {
 func (h *RBACHandler) handleInternalCheckPermission(w http.ResponseWriter, r *http.Request) {
 	var req CheckPermissionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	scopeID := req.ScopeID
@@ -669,7 +671,7 @@ func (h *RBACHandler) handleInternalCheckPermission(w http.ResponseWriter, r *ht
 		ScopeID:    scopeID,
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"allowed": allowed})
@@ -679,7 +681,7 @@ func (h *RBACHandler) handleInternalUserDatasources(w http.ResponseWriter, r *ht
 	userID := chi.URLParam(r, "id")
 	ids, err := h.dsAccess.ListAccessibleDatasourceIDs(r.Context(), userID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"datasource_ids": ids})
@@ -694,7 +696,7 @@ type CheckDSAccessRequest struct {
 func (h *RBACHandler) handleInternalCheckDSAccess(w http.ResponseWriter, r *http.Request) {
 	var req CheckDSAccessRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if req.Level == "" {
@@ -711,7 +713,7 @@ func (h *RBACHandler) handleInternalCheckDSAccess(w http.ResponseWriter, r *http
 func (h *RBACHandler) handleInternalUserWorkspaces(w http.ResponseWriter, r *http.Request) {
 	list, err := h.ws.ListForUser(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, list)
@@ -720,7 +722,7 @@ func (h *RBACHandler) handleInternalUserWorkspaces(w http.ResponseWriter, r *htt
 func (h *RBACHandler) handleInternalWorkspaceDatasources(w http.ResponseWriter, r *http.Request) {
 	list, err := h.ws.ListDatasources(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	ids := make([]string, 0, len(list))
@@ -736,7 +738,7 @@ func (h *RBACHandler) handleInternalInvalidateCache(w http.ResponseWriter, r *ht
 		Scope  string `json:"scope"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	_ = h.dsAccess.InvalidateCache(r.Context(), req.UserID)
@@ -746,7 +748,7 @@ func (h *RBACHandler) handleInternalInvalidateCache(w http.ResponseWriter, r *ht
 func (h *RBACHandler) handleInternalPublicKey(w http.ResponseWriter, r *http.Request) {
 	pem, err := h.jwtMgr.GetPublicKeyPEM()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{
@@ -762,14 +764,31 @@ func writeJSON(w http.ResponseWriter, status int, data any) {
 	_ = json.NewEncoder(w).Encode(data)
 }
 
-func writeError(w http.ResponseWriter, status int, err error) {
-	writeJSON(w, status, map[string]string{"error": err.Error()})
+func writeError(w http.ResponseWriter, r *http.Request, status int, err error) {
+	if status >= http.StatusInternalServerError {
+		ctx := r.Context()
+		var userID string
+		if uVal := ctx.Value(userIDKey); uVal != nil {
+			userID, _ = uVal.(string)
+		}
+		allArgs := []any{"error", err}
+		if reqID := requestid.FromContext(ctx); reqID != "" {
+			allArgs = append(allArgs, "request_id", reqID)
+		}
+		if userID != "" {
+			allArgs = append(allArgs, "user_id", userID)
+		}
+		slog.ErrorContext(ctx, "rbac handler internal error", allArgs...)
+		writeJSON(w, status, map[string]string{"error": "internal server error"})
+	} else {
+		writeJSON(w, status, map[string]string{"error": err.Error()})
+	}
 }
 
 func (h *RBACHandler) handleAdminListUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := h.userRepo.ListUsers(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -823,7 +842,7 @@ func (h *RBACHandler) handleAdminGetUser(w http.ResponseWriter, r *http.Request)
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "user not found"})
 		return
 	} else if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	resp := UserResponse{
@@ -844,7 +863,7 @@ func (h *RBACHandler) handleAdminGetUserRoles(w http.ResponseWriter, r *http.Req
 	id := chi.URLParam(r, "id")
 	roles, err := h.rbacRepo.GetUserRolesWithScope(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, roles)
@@ -857,18 +876,18 @@ func (h *RBACHandler) handleAdminUpdateUser(w http.ResponseWriter, r *http.Reque
 		IsActive bool `json:"is_active"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if !req.IsActive {
 		if err := h.rbacRepo.EnforceSelfModificationGuard(r.Context(), caller, id, "user.deactivate"); err != nil {
 			h.auditSoD(r, caller, "user.deactivate")
-			writeError(w, http.StatusForbidden, err)
+			writeError(w, r, http.StatusForbidden, err)
 			return
 		}
 	}
 	if err := h.userRepo.UpdateUserActiveStatus(r.Context(), id, req.IsActive); err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

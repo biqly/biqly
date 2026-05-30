@@ -234,7 +234,11 @@ func (h *AIHandler) processAndObserve(w http.ResponseWriter, r *http.Request, ph
 
 	resp, err := h.processAIQuestion(ctx, req, model, routing, processOpts...)
 	if err != nil {
-		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to process question", err)
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to process question", err,
+			"question", req.Question,
+			"model_id", req.ModelID,
+			"datasource_id", req.DatasourceID,
+		)
 		return
 	}
 
@@ -284,7 +288,10 @@ func (h *AIHandler) finishAIPreview(ctx context.Context, w http.ResponseWriter, 
 
 	cq, se := h.deps.QueryService.CompileWithContext(ctx, *resp.LogicalQuery, model, resolved.Driver)
 	if se != nil {
-		slog.ErrorContext(ctx, "AI preview compilation failed", "error", core.LogCause(se))
+		slog.ErrorContext(ctx, "AI preview compilation failed", "error", core.LogCause(se),
+			"model_id", model.ID,
+			"datasource_id", model.DatasourceID,
+		)
 		resp.Warnings = append(resp.Warnings, "compilation failed")
 	} else {
 		resp.SQL = cq.SQL
@@ -309,7 +316,10 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, mode
 	cq, se := h.deps.QueryService.CompileWithContext(ctx, *resp.LogicalQuery, model, driver)
 	if se != nil {
 		persistQueryHistory(ctx, h.deps.MetaRepo, *resp.LogicalQuery, model, nil, nil, queryStatusFailed, core.ErrAsError(se))
-		writeServiceError(ctx, w, se)
+		writeServiceError(ctx, w, se,
+			"model_id", model.ID,
+			"datasource_id", model.DatasourceID,
+		)
 		return
 	}
 
@@ -319,7 +329,12 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, mode
 	result, err := h.deps.Executor.Execute(ctx, db, cq)
 	if err != nil {
 		persistQueryHistory(ctx, h.deps.MetaRepo, *resp.LogicalQuery, model, cq, nil, queryStatusFailed, err)
-		writeInternalError(ctx, w, http.StatusInternalServerError, "execution failed", err)
+		writeInternalError(ctx, w, http.StatusInternalServerError, "execution failed", err,
+			"sql", cq.SQL,
+			"args", fmt.Sprintf("%v", cq.Args),
+			"model_id", model.ID,
+			"datasource_id", model.DatasourceID,
+		)
 		return
 	}
 
