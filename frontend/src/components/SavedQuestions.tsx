@@ -457,6 +457,18 @@ export default function SavedQuestions() {
                       />
                       <span>{t('saved_questions.fewshot_badge')}</span>
                     </label>
+                    <button
+                      type="button"
+                      className={`saved-question-fav${q.is_favorite ? ' is-active' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleFavorite(q)
+                      }}
+                      aria-label={q.is_favorite ? t('saved_questions.favorite_remove') : t('saved_questions.favorite_add')}
+                      title={q.is_favorite ? t('saved_questions.favorite_remove') : t('saved_questions.favorite_add')}
+                    >
+                      {q.is_favorite ? '★' : '☆'}
+                    </button>
                   </div>
                 )
               })}

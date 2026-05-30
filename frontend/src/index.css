@@ -1665,6 +1665,29 @@ input[type='checkbox']:disabled {
   position: relative;
 }
 
+.saved-question-fav {
+  position: absolute;
+  bottom: 0.6rem;
+  right: 0.6rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.2rem 0.3rem;
+  border-radius: 0.35rem;
+}
+
+.saved-question-fav:hover {
+  background: var(--bg-card);
+  color: var(--warning);
+}
+
+.saved-question-fav.is-active {
+  color: var(--warning);
+}
+
 .saved-question-tags {
   display: flex;
   gap: 0.25rem;

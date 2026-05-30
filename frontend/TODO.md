@@ -549,7 +549,7 @@ BI araclari kompleks. Onboarding flow:
 - [ ] Query Builder'da progressive disclosure (acordion veya wizard modu)
 - [x] Data export (CSV/Excel) ozelligi
 - [x] Empty state tasarimini iyilestir
-- [ ] Ana sayfa redesign: recent queries + favorites + quick actions
+- [x] Ana sayfa redesign: recent queries + favorites + quick actions
 - [x] Responsive table duzeltmeleri
 
 ---
