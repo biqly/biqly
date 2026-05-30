@@ -9,6 +9,7 @@ export const en = {
     cancel: 'Cancel',
     edit: 'Edit',
     close: 'Close',
+    notifications: 'Notifications',
     delete: 'Delete',
     add: 'Add',
     actions: 'Actions',
@@ -51,6 +52,18 @@ export const en = {
     confirm_cancel: 'Cancel',
     copy: 'Copy',
     inline_edit_save_hint: 'Save with Cmd/Ctrl+Enter or click outside. Cancel: Escape.',
+  },
+  command_palette: {
+    title: 'Command palette',
+    placeholder: 'Search pages and actions…',
+    empty: 'No results',
+  },
+  shortcuts: {
+    title: 'Keyboard shortcuts',
+    show_help: 'Show keyboard shortcuts',
+    open_command_palette: 'Open command palette',
+    group_general: 'General',
+    group_navigation: 'Navigation',
   },
   app: {
     title: 'ABI',

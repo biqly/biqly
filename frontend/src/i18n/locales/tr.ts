@@ -11,6 +11,7 @@ export const tr: Dictionary = {
     cancel: 'İptal',
     edit: 'Düzenle',
     close: 'Kapat',
+    notifications: 'Bildirimler',
     delete: 'Sil',
     add: 'Ekle',
     actions: 'İşlemler',
@@ -53,6 +54,18 @@ export const tr: Dictionary = {
     confirm_cancel: 'İptal',
     copy: 'Kopyala',
     inline_edit_save_hint: 'Kaydetmek için Cmd/Ctrl+Enter veya dışarı tıklayın. İptal: Escape.',
+  },
+  command_palette: {
+    title: 'Komut paleti',
+    placeholder: 'Sayfa ve işlemlerde ara…',
+    empty: 'Sonuç yok',
+  },
+  shortcuts: {
+    title: 'Klavye kısayolları',
+    show_help: 'Klavye kısayollarını göster',
+    open_command_palette: 'Komut paletini aç',
+    group_general: 'Genel',
+    group_navigation: 'Gezinme',
   },
   app: {
     title: 'ABI',

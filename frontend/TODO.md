@@ -541,9 +541,9 @@ BI araclari kompleks. Onboarding flow:
 
 ### Faz 8: UX Iyilestirmeleri (2-3 hafta)
 
-- [ ] Toast/notification sistemi olustur
-- [ ] Command Palette (Cmd+K) ekle
-- [ ] Keyboard shortcuts sistemi kur
+- [x] Toast/notification sistemi olustur
+- [x] Command Palette (Cmd+K) ekle
+- [x] Keyboard shortcuts sistemi kur
 - [ ] Loading skeleton'lari ekle
 - [ ] Breadcrumb navigasyonu ekle
 - [ ] Query Builder'da progressive disclosure (acordion veya wizard modu)

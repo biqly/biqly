@@ -1,0 +1,140 @@
+.toast-viewport {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  z-index: var(--z-toast, 1100);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: min(100%, 22rem);
+  max-width: calc(100vw - 2rem);
+  pointer-events: none;
+}
+
+.toast {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: 0.65rem;
+  border: 1px solid var(--border-strong);
+  border-left: 3px solid var(--accent);
+  border-radius: 0.6rem;
+  background: var(--bg-card);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4);
+  color: var(--text-primary);
+  padding: 0.75rem 0.85rem;
+  pointer-events: auto;
+  animation: toast-in 180ms ease;
+}
+
+.toast--success {
+  border-left-color: var(--success);
+}
+
+.toast--error {
+  border-left-color: var(--error);
+}
+
+.toast--warning {
+  border-left-color: var(--warning);
+}
+
+.toast--info {
+  border-left-color: var(--accent);
+}
+
+.toast__icon {
+  display: inline-grid;
+  width: 1.4rem;
+  height: 1.4rem;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+}
+
+.toast--success .toast__icon {
+  background: var(--success);
+}
+
+.toast--error .toast__icon {
+  background: var(--error);
+}
+
+.toast--warning .toast__icon {
+  background: var(--warning);
+}
+
+.toast--info .toast__icon {
+  background: var(--accent);
+}
+
+.toast__body {
+  min-width: 0;
+}
+
+.toast__title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.toast__message {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.toast__title + .toast__message {
+  color: var(--text-secondary);
+}
+
+.toast__close {
+  display: inline-grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  border: none;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.toast__close:hover {
+  background: var(--bg-card-raised);
+  color: var(--text-primary);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .toast-viewport {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    width: auto;
+  }
+}

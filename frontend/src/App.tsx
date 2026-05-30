@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useState, type ComponentType, type LazyExoticComponent, type MouseEvent, type ReactNode } from 'react'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { CommandPalette, type CommandItem } from './components/ui/CommandPalette'
 import { EmptyState } from './components/ui/EmptyState'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { LanguageSwitcher } from './components/ui/LanguageSwitcher'
@@ -386,6 +387,21 @@ function App() {
     return out
   }, [routes, t, isAdmin])
 
+  const commandItems = useMemo<CommandItem[]>(
+    () =>
+      sidebarSections.flatMap((section) =>
+        section.routes.map((route) => ({
+          id: route.path,
+          label: route.label,
+          group: section.heading,
+          keywords: `${route.eyebrow} ${route.description} ${route.path}`,
+          icon: route.icon,
+          perform: () => navigate(route.path),
+        })),
+      ),
+    [sidebarSections, navigate],
+  )
+
   const activePath = location.pathname
   const activeRoute = useMemo(() => {
     return routes.find((route) => {
@@ -468,6 +484,7 @@ function App() {
         element={
           <AuthGuard>
             <div className={`app-shell${mobileNavOpen ? ' app-shell--nav-open' : ''}`}>
+              <CommandPalette items={commandItems} />
               <a className="skip-link" href="#main-content">
                 {t('common.skip_to_content')}
               </a>

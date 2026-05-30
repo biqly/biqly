@@ -6,6 +6,8 @@ import AIJobTracker from './components/AIJobTracker'
 import { AuthProvider } from './components/auth/AuthProvider'
 import { AIJobsProvider } from './hooks/useAIJobs'
 import { ConfirmProvider } from './hooks/useConfirm'
+import { ShortcutsProvider } from './hooks/useKeyboardShortcuts'
+import { ToastProvider } from './hooks/useToast'
 import { I18nProvider } from './i18n'
 import { ThemeProvider } from './theme'
 import './index.css'
@@ -15,14 +17,18 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <I18nProvider>
       <ThemeProvider>
         <ConfirmProvider>
-          <AIJobsProvider>
-            <BrowserRouter>
-              <AuthProvider>
-                <App />
-                <AIJobTracker />
-              </AuthProvider>
-            </BrowserRouter>
-          </AIJobsProvider>
+          <ToastProvider>
+            <ShortcutsProvider>
+              <AIJobsProvider>
+                <BrowserRouter>
+                  <AuthProvider>
+                    <App />
+                    <AIJobTracker />
+                  </AuthProvider>
+                </BrowserRouter>
+              </AIJobsProvider>
+            </ShortcutsProvider>
+          </ToastProvider>
         </ConfirmProvider>
       </ThemeProvider>
     </I18nProvider>
