@@ -1784,11 +1784,9 @@ atılabilecek güvenlik, operasyonel ve uyumluluk gereksinimleridir.
 
 ### 18.7 Observability
 
-- [ ] **Prometheus metrikleri**: `auth_login_total{method,status}`, `auth_token_issued_total`,
-      `auth_permission_check_duration_seconds`, `auth_datasource_access_check_total{result}`,
-      `auth_active_sessions_gauge`, `auth_failed_login_total{reason}`
-- [ ] **Health check**: `/health` (DB + Redis ping), `/ready` (migration durumu)
-- [ ] **Structured logging**: `slog` JSON formatında, request ID propagation
+- [x] **Prometheus metrikleri** (`metrics.go` + `cmd/auth/main.go`): `auth_login_attempts_total{method,status}`, `auth_token_issued_total{method}` (`issueSession`), `auth_permission_check_duration_seconds{result}` histogram (`handleInternalCheckPermission`), `auth_datasource_access_checks_total{result}`, `auth_active_sessions` GaugeFunc (scrape-time `sessions` count), `auth_failed_login_total{reason}` (reason: account_locked/user_not_found/inactive/bad_password/account_deleted/account_frozen/mfa_invalid); `/metrics` promhttp
+- [x] **Health check** (`cmd/auth/main.go`): `/health` (liveness), `/ready` DB + Redis ping + `schema_migrations.dirty` kontrolü (dirty → 503 `migrations dirty`)
+- [x] **Structured logging**: `slog` JSON handler (`logger.New`, `BI_AUTH_LOG_LEVEL`/`BI_AUTH_LOG_FORMAT`); `propagateRequestID` middleware chi request ID'sini `requestid` context'ine köprüler → hata helper'ları (`requestid.FromContext`) her log satırına `request_id` ekler
 - [ ] **Distributed tracing**: OpenTelemetry span'ları (login, token issue, permission check, datasource access check)
 - [ ] **Alert rules**: 5dk içinde >50 failed login (IP bazlı), token issue rate anomaly, service down
 - [ ] **Grafana dashboard**: Auth service metrikleri (login rate, active users, permission cache hit rate)

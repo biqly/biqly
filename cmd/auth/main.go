@@ -17,11 +17,14 @@ import (
 	biqauth "github.com/biqly/biqly/internal/auth"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/mail"
+	"github.com/biqly/biqly/internal/platform/logger"
 	"github.com/biqly/biqly/internal/security"
+	"github.com/biqly/biqly/pkg/common/requestid"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 )
@@ -40,6 +43,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Structured JSON logging (defaults: info level, JSON format) so auth logs
+	// are machine-parseable and correlatable by request_id in aggregation.
+	slog.SetDefault(logger.New(logger.Config{
+		Level: logger.LevelFromString(os.Getenv("BI_AUTH_LOG_LEVEL")),
+		JSON:  logger.JSONFromString(os.Getenv("BI_AUTH_LOG_FORMAT")),
+	}))
+
 	db, err := sql.Open("pgx", cfg.DBDSN)
 	if err != nil {
 		slog.Error("open database", "err", err)
@@ -47,6 +57,7 @@ func main() {
 	}
 	defer func() { _ = db.Close() }()
 	configureDB(db)
+	registerSessionGauge(db)
 
 	redisClient, err := newRedisClient(cfg.RedisDSN)
 	if err != nil {
@@ -151,6 +162,32 @@ func configureDB(db *sql.DB) {
 	db.SetConnMaxLifetime(30 * time.Minute)
 }
 
+// registerSessionGauge exposes auth_active_sessions, the count of live
+// (non-revoked, non-expired) sessions. It is a GaugeFunc so the value is
+// computed from the source of truth on each scrape rather than tracked via
+// inc/dec across every create/revoke path, which would drift.
+func registerSessionGauge(db *sql.DB) {
+	prometheus.MustRegister(prometheus.NewGaugeFunc(
+		prometheus.GaugeOpts{
+			Name: "auth_active_sessions",
+			Help: "Number of active (non-revoked, non-expired) sessions",
+		},
+		func() float64 {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			var n float64
+			err := db.QueryRowContext(ctx,
+				`SELECT count(*) FROM sessions WHERE revoked_at IS NULL AND expires_at > NOW()`,
+			).Scan(&n)
+			if err != nil {
+				slog.Warn("active sessions gauge query failed", "err", err)
+				return 0
+			}
+			return n
+		},
+	))
+}
+
 func newRedisClient(dsn string) (*redis.Client, error) {
 	opts, err := redis.ParseURL(dsn)
 	if err != nil {
@@ -159,9 +196,22 @@ func newRedisClient(dsn string) (*redis.Client, error) {
 	return redis.NewClient(opts), nil
 }
 
+// propagateRequestID copies chi's request ID into the shared requestid context
+// key so handlers and error helpers (requestid.FromContext) attach request_id
+// to every structured log line for that request.
+func propagateRequestID(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if id := middleware.GetReqID(r.Context()); id != "" {
+			r = r.WithContext(requestid.WithRequestID(r.Context(), id))
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func newRouter(state *appState, authHandler *biqauth.AuthHandler, rbacHandler *biqauth.RBACHandler, limiter *biqauth.RateLimiter, cfg *biqauth.Config) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
+	r.Use(propagateRequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
@@ -236,6 +286,19 @@ func (s *appState) handleReady(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
 			"status": "unavailable",
 			"error":  "redis unavailable",
+		})
+		return
+	}
+
+	// Migration status: a dirty schema_migrations row means a migration failed
+	// midway and the schema is in an inconsistent state — not safe to serve.
+	// A missing table / no row (fresh DB or external migrator) is not treated
+	// as a failure here; we only act on a definitive dirty=true reading.
+	var dirty bool
+	if err := s.db.QueryRowContext(ctx, `SELECT dirty FROM schema_migrations LIMIT 1`).Scan(&dirty); err == nil && dirty {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
+			"status": "unavailable",
+			"error":  "migrations dirty",
 		})
 		return
 	}

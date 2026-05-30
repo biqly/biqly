@@ -153,6 +153,7 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 		val, err := s.redisClient.Get(ctx, lockKey).Int()
 		if err == nil && val >= 5 {
 			MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
+			MetricFailedLogins.WithLabelValues(LoginFailAccountLocked).Inc()
 			return nil, ErrAccountLocked
 		}
 	}
@@ -163,6 +164,7 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 		// time does not reveal whether the email exists.
 		VerifyDummyPassword(req.Password)
 		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
+		MetricFailedLogins.WithLabelValues(LoginFailUserNotFound).Inc()
 		s.recordLoginFailure(ctx, email, nil)
 		return nil, ErrInvalidCredentials
 	} else if err != nil {
@@ -179,11 +181,13 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 
 	if !user.IsActive {
 		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
+		MetricFailedLogins.WithLabelValues(LoginFailInactive).Inc()
 		return nil, ErrInactiveUser
 	}
 
 	if !passwordOK {
 		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
+		MetricFailedLogins.WithLabelValues(LoginFailBadPassword).Inc()
 		s.recordLoginFailure(ctx, email, user)
 		return nil, ErrInvalidCredentials
 	}
@@ -194,10 +198,12 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 	}
 	if state.IsDeleted() {
 		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
+		MetricFailedLogins.WithLabelValues(LoginFailAccountDeleted).Inc()
 		return nil, ErrAccountDeleted
 	}
 	if state.IsFrozen() {
 		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
+		MetricFailedLogins.WithLabelValues(LoginFailAccountFrozen).Inc()
 		return nil, ErrAccountFrozen
 	}
 
@@ -281,6 +287,7 @@ func (s *AuthService) issueSession(ctx context.Context, user *User, userAgent, i
 
 	_ = s.userRepo.UpdateLastLogin(ctx, user.ID)
 	MetricLoginAttempts.WithLabelValues(method, "success").Inc()
+	MetricTokensIssued.WithLabelValues(method).Inc()
 
 	if max := s.config.MaxActiveSessions; max > 0 {
 		_, _ = s.sessionMgr.EnforceMaxSessions(ctx, user.ID, max)
@@ -332,6 +339,7 @@ func (s *AuthService) CompleteMFALogin(ctx context.Context, req MFALoginRequest,
 	}
 	if err := s.mfaSvc.VerifyCode(ctx, userID, req.Code); err != nil {
 		MetricLoginAttempts.WithLabelValues("mfa", "failed").Inc()
+		MetricFailedLogins.WithLabelValues(LoginFailMFAInvalid).Inc()
 		return nil, err
 	}
 	user, err := s.userRepo.GetUserByID(ctx, userID)

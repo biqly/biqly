@@ -655,6 +655,7 @@ type CheckPermissionRequest struct {
 }
 
 func (h *RBACHandler) handleInternalCheckPermission(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	var req CheckPermissionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, r, http.StatusBadRequest, err)
@@ -671,9 +672,15 @@ func (h *RBACHandler) handleInternalCheckPermission(w http.ResponseWriter, r *ht
 		ScopeID:    scopeID,
 	})
 	if err != nil {
+		MetricPermissionCheckDuration.WithLabelValues("error").Observe(time.Since(start).Seconds())
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	result := "denied"
+	if allowed {
+		result = "allowed"
+	}
+	MetricPermissionCheckDuration.WithLabelValues(result).Observe(time.Since(start).Seconds())
 	writeJSON(w, http.StatusOK, map[string]bool{"allowed": allowed})
 }
 
