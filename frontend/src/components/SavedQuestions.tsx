@@ -1,237 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { LogicalQuery } from '../types/ai'
 import type { Datasource } from '../types/metadata'
 import { useT } from '../i18n'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingOverlay } from './ui/LoadingOverlay'
-import { Modal } from './ui/Modal'
 import { Select } from './ui/Select'
-import { ResultTable } from './ResultTable'
 import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
 import { useDatasources } from '../hooks/useDatasources'
 import { useSemanticModels } from '../hooks/useSemanticModels'
-
-interface SavedQuestion {
-  id: string
-  name: string
-  description: string
-  datasource_id: string
-  model_id?: string
-  question: string
-  logical_query: Record<string, unknown>
-  tags: string[]
-  dialect: string
-  locale?: string
-  is_few_shot: boolean
-  created_at?: string
-  updated_at?: string
-}
-
-interface SavedQuestionSemanticModel {
-  id: string
-  name: string
-  label?: string | null
-  status: string
-}
-
-const DIALECTS = ['postgresql', 'mysql', 'sqlserver', 'clickhouse']
-const LOCALES = ['', 'en', 'tr']
-
-interface SavedQuestionFormModalProps {
-  mode: 'new' | 'edit'
-  open: boolean
-  title: string
-  formError: string | null
-  datasources: Datasource[]
-  semanticModels: SavedQuestionSemanticModel[]
-  datasourceId: string
-  modelId: string
-  name: string
-  description: string
-  question: string
-  logicalQuery: string
-  tags: string
-  dialect: string
-  locale: string
-  isFewShot: boolean
-  onDatasourceChange: (value: string) => void
-  onModelChange: (value: string) => void
-  onNameChange: (value: string) => void
-  onDescriptionChange: (value: string) => void
-  onQuestionChange: (value: string) => void
-  onLogicalQueryChange: (value: string) => void
-  onTagsChange: (value: string) => void
-  onDialectChange: (value: string) => void
-  onLocaleChange: (value: string) => void
-  onIsFewShotChange: (value: boolean) => void
-  onClose: () => void
-  onSave: () => void
-  t: ReturnType<typeof useT>
-}
-
-function SavedQuestionFormModal({
-  mode,
-  open,
-  title,
-  formError,
-  datasources,
-  semanticModels,
-  datasourceId,
-  modelId,
-  name,
-  description,
-  question,
-  logicalQuery,
-  tags,
-  dialect,
-  locale,
-  isFewShot,
-  onDatasourceChange,
-  onModelChange,
-  onNameChange,
-  onDescriptionChange,
-  onQuestionChange,
-  onLogicalQueryChange,
-  onTagsChange,
-  onDialectChange,
-  onLocaleChange,
-  onIsFewShotChange,
-  onClose,
-  onSave,
-  t,
-}: SavedQuestionFormModalProps) {
-  const id = (field: string) => `${mode}-${field}`
-
-  return (
-    <Modal open={open} title={title} onClose={onClose}>
-      <div className="form-stack">
-        {formError && <ErrorAlert error={formError} />}
-
-        <div className="form-group">
-          <label htmlFor={id('ds')}>{t('saved_questions.label_select_datasource')}</label>
-          <Select
-            id={id('ds')}
-            value={datasourceId}
-            onChange={onDatasourceChange}
-            options={datasources.map((d) => ({ value: d.id, label: d.name }))}
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor={id('model')}>{t('saved_questions.label_select_model')}</label>
-          <Select
-            id={id('model')}
-            value={modelId}
-            onChange={onModelChange}
-            options={[
-              { value: '', label: t('saved_questions.label_all_models') },
-              ...semanticModels.map((m) => ({ value: m.id, label: m.label || m.name })),
-            ]}
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor={id('name')}>{t('saved_questions.label_name')}</label>
-          <input
-            id={id('name')}
-            value={name}
-            onChange={(e) => onNameChange(e.target.value)}
-            placeholder="e.g. Sales by region"
-            autoComplete="off"
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor={id('desc')}>{t('saved_questions.label_description')}</label>
-          <textarea
-            id={id('desc')}
-            value={description}
-            onChange={(e) => onDescriptionChange(e.target.value)}
-            placeholder="e.g. Shows regional breakdown for orders"
-            rows={2}
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor={id('question')}>{t('saved_questions.label_question')}</label>
-          <textarea
-            id={id('question')}
-            value={question}
-            onChange={(e) => onQuestionChange(e.target.value)}
-            placeholder="e.g. ne kadar sipariş aldık ülkelere göre?"
-            rows={2}
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor={id('lq')}>{t('saved_questions.label_logical_query')}</label>
-          <textarea
-            id={id('lq')}
-            value={logicalQuery}
-            onChange={(e) => onLogicalQueryChange(e.target.value)}
-            placeholder='{ "select": ... }'
-            rows={6}
-            style={{ fontFamily: 'monospace' }}
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor={id('tags')}>{t('saved_questions.label_tags')}</label>
-          <input
-            id={id('tags')}
-            value={tags}
-            onChange={(e) => onTagsChange(e.target.value)}
-            placeholder="sales, region"
-            autoComplete="off"
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor={id('dialect')}>{t('saved_questions.label_dialect')}</label>
-          <Select
-            id={id('dialect')}
-            value={dialect}
-            onChange={onDialectChange}
-            options={DIALECTS.map((d) => ({ value: d, label: d }))}
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor={id('locale')}>{t('saved_questions.label_locale')}</label>
-          <Select
-            id={id('locale')}
-            value={locale}
-            onChange={onLocaleChange}
-            options={LOCALES.map((l) => ({ value: l, label: l || 'Default' }))}
-          />
-        </div>
-
-        <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
-          <input
-            type="checkbox"
-            id={id('is-few-shot')}
-            checked={isFewShot}
-            onChange={(e) => onIsFewShotChange(e.target.checked)}
-          />
-          <label htmlFor={id('is-few-shot')} style={{ margin: 0, cursor: 'pointer' }}>
-            {t('saved_questions.label_is_few_shot')}
-          </label>
-        </div>
-
-        <div className="modal-actions" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-          <button type="button" className="btn btn--neutral" onClick={onClose}>
-            {t('saved_questions.btn_cancel')}
-          </button>
-          <button type="button" className="btn btn-primary" onClick={onSave}>
-            {t('saved_questions.btn_save')}
-          </button>
-        </div>
-      </div>
-    </Modal>
-  )
-}
+import type { SavedQuestion, SavedQuestionSemanticModel, SavedQuestionFormState } from './savedQuestions/types'
+import { SavedQuestionFormModal } from './savedQuestions/SavedQuestionFormModal'
+import { QuestionDetailPane } from './savedQuestions/QuestionDetailPane'
 
 export default function SavedQuestions() {
   const t = useT()
@@ -241,7 +21,7 @@ export default function SavedQuestions() {
   // Selectors State
   const { datasources } = useDatasources()
   const [datasourceId, setDatasourceId] = useState('')
-  const { models: semanticModels, setModels: setSemanticModels } = useSemanticModels(datasourceId)
+  const { models: semanticModels } = useSemanticModels(datasourceId)
   const [semanticModelId, setSemanticModelId] = useState('')
 
   // Questions List State
@@ -255,16 +35,22 @@ export default function SavedQuestions() {
   const [formError, setFormError] = useState<string | null>(null)
 
   // Form Fields State
-  const [formDatasourceId, setFormDatasourceId] = useState('')
-  const [formModelId, setFormModelId] = useState('')
-  const [formName, setFormName] = useState('')
-  const [formDescription, setFormDescription] = useState('')
-  const [formQuestion, setFormQuestion] = useState('')
-  const [formLq, setFormLq] = useState('')
-  const [formTags, setFormTags] = useState('')
-  const [formDialect, setFormDialect] = useState('postgresql')
-  const [formLocale, setFormLocale] = useState('')
-  const [formIsFewShot, setFormIsFewShot] = useState(true)
+  const [form, setForm] = useState<SavedQuestionFormState>({
+    datasourceId: '',
+    modelId: '',
+    name: '',
+    description: '',
+    question: '',
+    logicalQuery: '',
+    tags: '',
+    dialect: 'postgresql',
+    locale: '',
+    isFewShot: true,
+  })
+
+  const handleFormChange = (patch: Partial<SavedQuestionFormState>) => {
+    setForm((prev) => ({ ...prev, ...patch }))
+  }
 
   // Inline execution state
   const [runLoading, setRunLoading] = useState(false)
@@ -308,6 +94,7 @@ export default function SavedQuestions() {
       fetchQuestions(datasourceId, semanticModelId)
       setRunResult(null)
       setRunError(null)
+      setRunLoading(false)
     }
   }, [datasourceId, semanticModelId, fetchQuestions])
 
@@ -328,16 +115,18 @@ export default function SavedQuestions() {
         }
       }
 
-      setFormName(prefQuestion)
-      setFormQuestion(prefQuestion)
-      setFormLq(prefLq)
-      setFormDescription('')
-      setFormTags('')
-      setFormDialect('postgresql')
-      setFormLocale('')
-      setFormIsFewShot(true)
-      setFormDatasourceId(prefDs)
-      setFormModelId(prefModel)
+      setForm({
+        name: prefQuestion,
+        question: prefQuestion,
+        logicalQuery: prefLq,
+        description: '',
+        tags: '',
+        dialect: 'postgresql',
+        locale: '',
+        isFewShot: true,
+        datasourceId: prefDs,
+        modelId: prefModel,
+      })
 
       setIsNewModalOpen(true)
       window.history.replaceState(null, '', window.location.pathname)
@@ -419,61 +208,65 @@ export default function SavedQuestions() {
   }
 
   const openAdd = () => {
-    setFormName('')
-    setFormDescription('')
-    setFormQuestion('')
-    setFormLq('')
-    setFormTags('')
-    setFormDialect('postgresql')
-    setFormLocale('')
-    setFormIsFewShot(true)
-    setFormDatasourceId(datasourceId)
-    setFormModelId(semanticModelId)
+    setForm({
+      datasourceId,
+      modelId: semanticModelId,
+      name: '',
+      description: '',
+      question: '',
+      logicalQuery: '',
+      tags: '',
+      dialect: 'postgresql',
+      locale: '',
+      isFewShot: true,
+    })
     setFormError(null)
     setIsNewModalOpen(true)
   }
 
   const openEdit = (q: SavedQuestion) => {
-    setFormName(q.name)
-    setFormDescription(q.description)
-    setFormQuestion(q.question)
-    setFormLq(JSON.stringify(q.logical_query, null, 2))
-    setFormTags(q.tags.join(', '))
-    setFormDialect(q.dialect)
-    setFormLocale(q.locale || '')
-    setFormIsFewShot(q.is_few_shot)
-    setFormDatasourceId(q.datasource_id)
-    setFormModelId(q.model_id || '')
+    setForm({
+      datasourceId: q.datasource_id,
+      modelId: q.model_id || '',
+      name: q.name,
+      description: q.description,
+      question: q.question,
+      logicalQuery: JSON.stringify(q.logical_query, null, 2),
+      tags: q.tags.join(', '),
+      dialect: q.dialect,
+      locale: q.locale || '',
+      isFewShot: q.is_few_shot,
+    })
     setFormError(null)
     setIsEditModalOpen(true)
   }
 
   const handleSave = async (isEdit: boolean) => {
     setFormError(null)
-    if (!formName.trim() || !formQuestion.trim() || !formLq.trim()) {
+    if (!form.name.trim() || !form.question.trim() || !form.logicalQuery.trim()) {
       setFormError(t('saved_questions.err_fields_required'))
       return
     }
 
     let parsedLq: Record<string, unknown>
     try {
-      parsedLq = JSON.parse(formLq)
+      parsedLq = JSON.parse(form.logicalQuery)
     } catch {
       setFormError(t('saved_questions.validation_error_json'))
       return
     }
 
     const payload = {
-      datasource_id: formDatasourceId,
-      model_id: formModelId || undefined,
-      question: formQuestion,
+      datasource_id: form.datasourceId,
+      model_id: form.modelId || undefined,
+      question: form.question,
       logical_query: parsedLq,
-      tags: formTags.split(',').map((t) => t.trim()).filter(Boolean),
-      dialect: formDialect,
-      locale: formLocale || undefined,
-      name: formName,
-      description: formDescription,
-      is_few_shot: formIsFewShot,
+      tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean),
+      dialect: form.dialect,
+      locale: form.locale || undefined,
+      name: form.name,
+      description: form.description,
+      is_few_shot: form.isFewShot,
     }
 
     if (isEdit && selectedQuestion) {
@@ -483,16 +276,16 @@ export default function SavedQuestions() {
         setIsEditModalOpen(false)
         setSelectedQuestion({
           ...selectedQuestion,
-          name: formName,
-          description: formDescription,
-          question: formQuestion,
+          name: form.name,
+          description: form.description,
+          question: form.question,
           logical_query: parsedLq,
           tags: payload.tags,
-          dialect: formDialect,
-          locale: formLocale,
-          is_few_shot: formIsFewShot,
-          datasource_id: formDatasourceId,
-          model_id: formModelId,
+          dialect: form.dialect,
+          locale: form.locale,
+          is_few_shot: form.isFewShot,
+          datasource_id: form.datasourceId,
+          model_id: form.modelId,
         })
       }
     } else {
@@ -639,99 +432,17 @@ export default function SavedQuestions() {
 
           {/* Right Column: Details & Run pane */}
           <div className="card" style={{ position: 'relative' }}>
-            {selectedQuestion ? (
-              <div>
-                <h2>{selectedQuestion.name}</h2>
-                {selectedQuestion.description && (
-                  <p className="saved-question-description" style={{ marginTop: '0.5rem' }}>
-                    {selectedQuestion.description}
-                  </p>
-                )}
-
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', margin: '1rem 0' }}>
-                  {selectedQuestion.model_id && (
-                    <span className="tag-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <strong>{t('saved_questions.label_select_model')}:</strong>
-                      <code>{semanticModels.find((m) => m.id === selectedQuestion.model_id)?.label || selectedQuestion.model_id}</code>
-                    </span>
-                  )}
-                  <span className="tag-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <strong>{t('saved_questions.label_dialect')}:</strong>
-                    <code>{selectedQuestion.dialect}</code>
-                  </span>
-                  {selectedQuestion.locale && (
-                    <span className="tag-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <strong>{t('saved_questions.label_locale')}:</strong>
-                      <code>{selectedQuestion.locale}</code>
-                    </span>
-                  )}
-                </div>
-
-                <h3 style={{ marginTop: '1.5rem', marginBottom: '0.5rem' }}>{t('saved_questions.label_question')}</h3>
-                <p style={{ background: 'var(--bg-card-raised)', padding: '0.75rem 1rem', borderRadius: '0.35rem', fontStyle: 'italic' }}>
-                  {selectedQuestion.question}
-                </p>
-
-                <h3 style={{ marginTop: '1.5rem', marginBottom: '0.5rem' }}>{t('saved_questions.logical_query_heading')}</h3>
-                <pre className="sql-preview" style={{ maxHeight: '250px', overflowY: 'auto' }}>
-                  {JSON.stringify(selectedQuestion.logical_query, null, 2)}
-                </pre>
-
-                <div className="saved-question-actions">
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => runQuery(selectedQuestion.logical_query)}
-                    disabled={runLoading}
-                    aria-label={t('saved_questions.aria_run_query')}
-                  >
-                    {t('saved_questions.run_query')}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn"
-                    onClick={() => openEdit(selectedQuestion)}
-                    aria-label={t('saved_questions.aria_edit_query')}
-                  >
-                    {t('saved_questions.edit_query')}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-danger"
-                    onClick={() => handleDelete(selectedQuestion.id)}
-                    aria-label={t('saved_questions.aria_delete_query')}
-                  >
-                    {t('saved_questions.delete_query')}
-                  </button>
-                </div>
-
-                {/* Inline query execution results */}
-                {runLoading && (
-                  <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 100 }}>
-                    <LoadingOverlay loading={true} />
-                  </div>
-                )}
-
-                {runError && (
-                  <div style={{ marginTop: '1.5rem' }}>
-                    <ErrorAlert error={runError} />
-                  </div>
-                )}
-
-                {runResult && runResult.columns && runResult.rows && (
-                  <div className="results-section" style={{ marginTop: '1.5rem' }}>
-                    <ResultTable
-                      columns={runResult.columns}
-                      rows={runResult.rows}
-                      rowCount={runResult.rows.length}
-                      durationMs={runResult.stats?.duration_ms}
-                    />
-                  </div>
-                )}
-              </div>
-            ) : (
-              <EmptyState description={t('saved_questions.select_hint')} />
-            )}
+            <QuestionDetailPane
+              selectedQuestion={selectedQuestion}
+              semanticModels={semanticModels}
+              runLoading={runLoading}
+              runError={runError}
+              runResult={runResult}
+              onRun={runQuery}
+              onOpenEdit={openEdit}
+              onDelete={handleDelete}
+              t={t}
+            />
           </div>
         </div>
       )}
@@ -743,26 +454,8 @@ export default function SavedQuestions() {
         formError={formError}
         datasources={datasources}
         semanticModels={semanticModels}
-        datasourceId={formDatasourceId}
-        modelId={formModelId}
-        name={formName}
-        description={formDescription}
-        question={formQuestion}
-        logicalQuery={formLq}
-        tags={formTags}
-        dialect={formDialect}
-        locale={formLocale}
-        isFewShot={formIsFewShot}
-        onDatasourceChange={setFormDatasourceId}
-        onModelChange={setFormModelId}
-        onNameChange={setFormName}
-        onDescriptionChange={setFormDescription}
-        onQuestionChange={setFormQuestion}
-        onLogicalQueryChange={setFormLq}
-        onTagsChange={setFormTags}
-        onDialectChange={setFormDialect}
-        onLocaleChange={setFormLocale}
-        onIsFewShotChange={setFormIsFewShot}
+        form={form}
+        onChange={handleFormChange}
         onClose={() => setIsNewModalOpen(false)}
         onSave={() => handleSave(false)}
         t={t}
@@ -775,26 +468,8 @@ export default function SavedQuestions() {
         formError={formError}
         datasources={datasources}
         semanticModels={semanticModels}
-        datasourceId={formDatasourceId}
-        modelId={formModelId}
-        name={formName}
-        description={formDescription}
-        question={formQuestion}
-        logicalQuery={formLq}
-        tags={formTags}
-        dialect={formDialect}
-        locale={formLocale}
-        isFewShot={formIsFewShot}
-        onDatasourceChange={setFormDatasourceId}
-        onModelChange={setFormModelId}
-        onNameChange={setFormName}
-        onDescriptionChange={setFormDescription}
-        onQuestionChange={setFormQuestion}
-        onLogicalQueryChange={setFormLq}
-        onTagsChange={setFormTags}
-        onDialectChange={setFormDialect}
-        onLocaleChange={setFormLocale}
-        onIsFewShotChange={setFormIsFewShot}
+        form={form}
+        onChange={handleFormChange}
         onClose={() => setIsEditModalOpen(false)}
         onSave={() => handleSave(true)}
         t={t}

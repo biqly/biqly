@@ -482,22 +482,22 @@ BI araclari kompleks. Onboarding flow:
   - `OTPCodeInput.tsx`
   - Ana dosya 613 satira indi; API cagirilari ve modal orkestrasyonu parent'ta kaldi
 
-- [ ] **QueryBuilder.tsx (950 satir) → 3 dosya:**
+- [x] **QueryBuilder.tsx (950 satir) → 3 dosya:**
   - `NotebookStep.tsx` (wrapper component, 8 kez tekrarlanan patern)
   - `FilterStep.tsx`, `SummarizeStep.tsx`, `SortStep.tsx`, vs.
   - Ana dosya ~300 satira iner
 
-- [ ] **Evaluation.tsx (667 satir) → 3 dosya:**
+- [x] **Evaluation.tsx (667 satir) → 3 dosya:**
   - `EvalRunTab.tsx`
   - `EvalHistoryTab.tsx`
   - `EvalRegressionTab.tsx`
 
-- [ ] **UserListPage.tsx (845 satir) → 3 dosya:**
+- [x] **UserListPage.tsx (845 satir) → 3 dosya:**
   - `ActiveUsersTab.tsx`
   - `InvitationsTab.tsx`
   - `InviteUserModal.tsx`
 
-- [ ] **SavedQuestions.tsx (816 satir) → 2 dosya:**
+- [x] **SavedQuestions.tsx (816 satir) → 2 dosya:**
   - `QuestionDetailPane.tsx`
   - `SavedQuestionFormModal.tsx` (zaten kismen cikarilmis ama 28 prop → reduce)
 

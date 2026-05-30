@@ -34,15 +34,23 @@ import {
 } from './queryBuilder/rowState'
 import { buildQueryPayload } from './queryBuilder/logicalQuery'
 import type { CTERow, FilterRow, HavingRow, SelectItem, WindowFuncRow } from './queryBuilder/types'
-import { newRowId, WINDOW_FUNC_OPTIONS } from './queryBuilder/types'
+import { newRowId } from './queryBuilder/types'
 import {
-  aggregationDisplayName,
   dimOptionsForGroupRow,
   dimFieldOptions,
   filterFieldOptions,
   metricFieldOptions,
   orderByFieldOptions,
 } from './queryBuilder/utils'
+import { NotebookStep } from './queryBuilder/NotebookStep'
+import { FilterStep } from './queryBuilder/FilterStep'
+import { FieldsStep } from './queryBuilder/FieldsStep'
+import { SummarizeStep } from './queryBuilder/SummarizeStep'
+import { SortStep } from './queryBuilder/SortStep'
+import { HavingStep } from './queryBuilder/HavingStep'
+import { WindowFuncStep } from './queryBuilder/WindowFuncStep'
+import { CteStep } from './queryBuilder/CteStep'
+
 
 interface QueryBuilderResult {
   columns?: { name: string; type?: string }[]
@@ -384,401 +392,139 @@ export default function QueryBuilder() {
         {modelDetail && (
           <div className="query-builder-notebook">
             {/* Step 1: Data */}
-            <div className="notebook-step">
-              <div className="notebook-step-label notebook-step-label--data">Data</div>
-              <div className="notebook-step-card notebook-step-card--data">
-                <span className="notebook-tag notebook-tag--blue">
-                  {modelDetail.base_table}
-                </span>
-              </div>
-            </div>
+            <NotebookStep label="Data" themeClass="data">
+              <span className="notebook-tag notebook-tag--blue">
+                {modelDetail.base_table}
+              </span>
+            </NotebookStep>
 
             {/* Step 2: Joins (Read-only display of relationships defined on semantic layer) */}
             {modelDetail.joins && modelDetail.joins.length > 0 && (
-              <div className="notebook-step">
-                <div className="notebook-step-label notebook-step-label--join">Join data</div>
-                <div className="notebook-step-card notebook-step-card--join">
-                  {modelDetail.joins.map((j, index) => (
-                    <div key={j.id || index} className="notebook-join-flow">
-                      <span className="notebook-tag notebook-tag--blue">{modelDetail.base_table}</span>
-                      <span className="notebook-join-icon">⟝⟞</span>
-                      <span className="notebook-tag notebook-tag--blue">{j.to_table}</span>
-                      <span className="notebook-join-on">
-                        on {modelDetail.base_table}.{j.from_column} = {j.to_table}.{j.to_column}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <NotebookStep label="Join data" themeClass="join">
+                {modelDetail.joins.map((j, index) => (
+                  <div key={j.id || index} className="notebook-join-flow">
+                    <span className="notebook-tag notebook-tag--blue">{modelDetail.base_table}</span>
+                    <span className="notebook-join-icon">⟝⟞</span>
+                    <span className="notebook-tag notebook-tag--blue">{j.to_table}</span>
+                    <span className="notebook-join-on">
+                      on {modelDetail.base_table}.{j.from_column} = {j.to_table}.{j.to_column}
+                    </span>
+                  </div>
+                ))}
+              </NotebookStep>
             )}
 
             {/* Step 3: Filter (Toggled if filters list is not empty) */}
-            {filters.length > 0 && (
-              <div className="notebook-step">
-                <div className="notebook-step-label notebook-step-label--filter">Filter</div>
-                <div className="notebook-step-card notebook-step-card--filter">
-                  {filters.map((f, i) => (
-                    <div key={f.id} className="notebook-tag notebook-tag--purple" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <Select
-                        value={f.field}
-                        onChange={(v) => updateFilter(i, 'field', v)}
-                        placeholder={t('query_builder.pick_field_placeholder')}
-                        disabled={filterFieldOpts.length === 0}
-                        options={filterFieldOpts}
-                        size="sm"
-                      />
-                      <Select
-                        value={f.operator}
-                        onChange={(v) => updateFilter(i, 'operator', v)}
-                        options={[
-                          { value: 'eq', label: '=' },
-                          { value: 'neq', label: '!=' },
-                          { value: 'gt', label: '>' },
-                          { value: 'gte', label: '>=' },
-                          { value: 'lt', label: '<' },
-                          { value: 'lte', label: '<=' },
-                          { value: 'contains', label: t('query_builder.op_contains') },
-                          { value: 'in', label: t('query_builder.op_in') },
-                          { value: 'between', label: t('query_builder.op_between') },
-                        ]}
-                        size="sm"
-                      />
-                      <input
-                        value={f.value}
-                        onChange={(e) => updateFilter(i, 'value', e.target.value)}
-                        placeholder={t('query_builder.value_placeholder')}
-                        autoComplete="off"
-                        style={{ width: '7rem' }}
-                      />
-                      <button
-                        type="button"
-                        className="notebook-tag-close"
-                        onClick={() => removeFilter(i)}
-                        aria-label="Remove Filter"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                  <button type="button" className="notebook-add-btn" onClick={addFilter}>+</button>
-                  <button
-                    type="button"
-                    className="notebook-step-close"
-                    onClick={() => setFilters([])}
-                    title={t('common.cancel')}
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-            )}
+            <FilterStep
+              filters={filters}
+              filterFieldOpts={filterFieldOpts}
+              updateFilter={updateFilter}
+              removeFilter={removeFilter}
+              addFilter={addFilter}
+              onClear={() => setFilters([])}
+              t={t}
+            />
 
             {/* Step 4: Fields (Shown if NOT summarized) */}
             {!isSummarized && (
-              <div className="notebook-step">
-                <div className="notebook-step-label notebook-step-label--fields">Fields</div>
-                <div className="notebook-step-card notebook-step-card--fields">
-                  {selectItems.map((item, i) => (
-                    <div key={item.id} className="notebook-tag notebook-tag--blue" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <Select
-                        value={item.type}
-                        onChange={(v) => updateSelectItem(i, 'type', v)}
-                        options={[
-                          { value: 'dimension', label: t('query_builder.dimension') },
-                          { value: 'metric', label: t('query_builder.metric') },
-                        ]}
-                        size="sm"
-                      />
-                      <Select
-                        value={item.name}
-                        onChange={(v) => updateSelectItem(i, 'name', v)}
-                        placeholder={t('query_builder.pick_field_placeholder')}
-                        disabled={item.type === 'dimension' ? dimensions.length === 0 : metrics.length === 0}
-                        options={item.type === 'dimension' ? dimFieldOptions(dimensions) : metricFieldOptions(metrics)}
-                        size="sm"
-                      />
-                      <button
-                        type="button"
-                        className="notebook-tag-close"
-                        onClick={() => removeSelectItem(i)}
-                        aria-label="Remove Field"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                  <button type="button" className="notebook-add-btn" onClick={addSelectItem}>+</button>
-                </div>
-              </div>
+              <FieldsStep
+                selectItems={selectItems}
+                dimensions={dimensions}
+                metrics={metrics}
+                updateSelectItem={updateSelectItem}
+                removeSelectItem={removeSelectItem}
+                addSelectItem={addSelectItem}
+                dimFieldOptions={dimFieldOptions}
+                metricFieldOptions={metricFieldOptions}
+                t={t}
+              />
             )}
 
             {/* Step 5: Summarize (Aggregations and Group by columns) */}
-            {isSummarized && (
-              <div className="notebook-step">
-                <div className="notebook-step-label notebook-step-label--summarize">Summarize</div>
-                <div className="notebook-step-card notebook-step-card--summarize">
-                  <div className="notebook-summarize-split">
-                    {/* Aggregations */}
-                    <div className="notebook-summarize-section">
-                      {selectItems.filter((item) => item.type === 'metric').map((item) => {
-                        const i = selectItems.indexOf(item)
-                        return (
-                          <div key={item.id} className="notebook-tag notebook-tag--green" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                            <Select
-                              value={item.name}
-                              onChange={(v) => updateSelectItem(i, 'name', v)}
-                              placeholder={t('query_builder.pick_field_placeholder')}
-                              options={metricFieldOptions(metrics)}
-                              size="sm"
-                            />
-                            <button
-                              type="button"
-                              className="notebook-tag-close"
-                              onClick={() => removeSelectItem(i)}
-                              aria-label="Remove Aggregation"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        )
-                      })}
-                      <button type="button" className="notebook-add-btn" onClick={() => addMetricSelectItem('')}>+</button>
-                    </div>
-
-                    <div className="notebook-summarize-divider">by</div>
-
-                    {/* Group by dimensions */}
-                    <div className="notebook-summarize-section">
-                      {groupBy.map((g, i) => (
-                        <div key={i} className="notebook-tag notebook-tag--blue" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                          <Select
-                            value={g}
-                            onChange={(v) => updateGroupByRow(i, v)}
-                            placeholder={t('query_builder.pick_dimension_placeholder')}
-                            options={dimOptionsForGroupRow(dimensions, groupBy, i)}
-                            size="sm"
-                          />
-                          <button
-                            type="button"
-                            className="notebook-tag-close"
-                            onClick={() => removeGroupByRow(i)}
-                            aria-label="Remove Grouping"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                      <button type="button" className="notebook-add-btn" onClick={addGroupByRow}>+</button>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="notebook-step-close"
-                    onClick={() => {
-                      setIsSummarized(false)
-                      setGroupBy([])
-                      setSelectItems([])
-                    }}
-                    title={t('common.cancel')}
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-            )}
+            <SummarizeStep
+              selectItems={selectItems}
+              groupBy={groupBy}
+              dimensions={dimensions}
+              metrics={metrics}
+              updateSelectItem={updateSelectItem}
+              removeSelectItem={removeSelectItem}
+              addMetricSelectItem={addMetricSelectItem}
+              updateGroupByRow={updateGroupByRow}
+              removeGroupByRow={removeGroupByRow}
+              addGroupByRow={addGroupByRow}
+              onClear={() => {
+                setIsSummarized(false)
+                setGroupBy([])
+                setSelectItems([])
+              }}
+              metricFieldOptions={metricFieldOptions}
+              dimOptionsForGroupRow={dimOptionsForGroupRow}
+              t={t}
+            />
 
             {/* Step 6: Sort (If orderBy is active) */}
-            {orderBy && (
-              <div className="notebook-step">
-                <div className="notebook-step-label notebook-step-label--sort">Sort</div>
-                <div className="notebook-step-card notebook-step-card--sort">
-                  <div className="notebook-tag notebook-tag--purple" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    <Select
-                      value={orderBy}
-                      onChange={setOrderBy}
-                      placeholder={t('query_builder.pick_field_placeholder')}
-                      options={orderByOpts}
-                      size="sm"
-                    />
-                    <Select
-                      value={orderDir}
-                      onChange={setOrderDir}
-                      options={[
-                        { value: 'asc', label: 'ASC' },
-                        { value: 'desc', label: 'DESC' },
-                      ]}
-                      size="sm"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    className="notebook-step-close"
-                    onClick={() => setOrderBy('')}
-                    title={t('common.cancel')}
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-            )}
+            <SortStep
+              orderBy={orderBy}
+              orderDir={orderDir}
+              orderByOpts={orderByOpts}
+              setOrderBy={setOrderBy}
+              setOrderDir={setOrderDir}
+              onClear={() => setOrderBy('')}
+              t={t}
+            />
 
             {/* Step 7: Limit */}
-            <div className="notebook-step">
-              <div className="notebook-step-label notebook-step-label--limit">Row limit</div>
-              <div className="notebook-step-card notebook-step-card--limit">
-                <input
-                  type="number"
-                  min={1}
-                  inputMode="numeric"
-                  value={limit}
-                  onChange={(e) => setLimit(Number(e.target.value))}
-                  style={{ width: '6rem' }}
-                />
-                <button
-                  type="button"
-                  className="notebook-step-close"
-                  onClick={() => setLimit(100)}
-                  title={t('common.cancel')}
-                >
-                  ×
-                </button>
-              </div>
-            </div>
+            <NotebookStep
+              label="Row limit"
+              themeClass="limit"
+              onClose={() => setLimit(100)}
+              closeTitle={t('common.cancel')}
+            >
+              <input
+                type="number"
+                min={1}
+                inputMode="numeric"
+                value={limit}
+                onChange={(e) => setLimit(Number(e.target.value))}
+                style={{ width: '6rem' }}
+              />
+            </NotebookStep>
 
             {/* Advanced Step: Having (Advanced Mode only) */}
-            {mode === 'advanced' && having.length > 0 && (
-              <div className="notebook-step">
-                <div className="notebook-step-label notebook-step-label--advanced">Having</div>
-                <div className="notebook-step-card notebook-step-card--advanced">
-                  {having.map((h, i) => (
-                    <div key={i} className="notebook-tag notebook-tag--purple" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <Select
-                        value={h.field}
-                        onChange={(v) => updateHaving(i, 'field', v)}
-                        placeholder={t('query_builder.pick_metric_having')}
-                        options={metricOptsHaving}
-                        size="sm"
-                      />
-                      <Select
-                        value={h.operator}
-                        onChange={(v) => updateHaving(i, 'operator', v)}
-                        options={[
-                          { value: 'gt', label: '>' },
-                          { value: 'gte', label: '>=' },
-                          { value: 'lt', label: '<' },
-                          { value: 'lte', label: '<=' },
-                          { value: 'eq', label: '=' },
-                          { value: 'neq', label: '!=' },
-                        ]}
-                        size="sm"
-                      />
-                      <input
-                        value={h.value}
-                        onChange={(e) => updateHaving(i, 'value', e.target.value)}
-                        placeholder={t('query_builder.value_placeholder')}
-                        autoComplete="off"
-                        style={{ width: '6rem' }}
-                      />
-                      <button
-                        type="button"
-                        className="notebook-tag-close"
-                        onClick={() => removeHaving(i)}
-                        aria-label="Remove Having Constraint"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                  <button type="button" className="notebook-add-btn" onClick={addHaving}>+</button>
-                  <button
-                    type="button"
-                    className="notebook-step-close"
-                    onClick={() => setHaving([])}
-                    title={t('common.cancel')}
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
+            {mode === 'advanced' && (
+              <HavingStep
+                having={having}
+                metricOptsHaving={metricOptsHaving}
+                updateHaving={updateHaving}
+                removeHaving={removeHaving}
+                addHaving={addHaving}
+                onClear={() => setHaving([])}
+                t={t}
+              />
             )}
 
             {/* Advanced Step: Window function (Advanced Mode only) */}
-            {mode === 'advanced' && windowFunctions.length > 0 && (
-              <div className="notebook-step">
-                <div className="notebook-step-label notebook-step-label--advanced">Window Func</div>
-                <div className="notebook-step-card notebook-step-card--advanced">
-                  {windowFunctions.map((w, i) => (
-                    <div key={i} className="notebook-tag notebook-tag--purple" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <Select
-                        value={w.func}
-                        onChange={(v) => updateWindowFunc(i, 'func', v)}
-                        options={WINDOW_FUNC_OPTIONS.map((opt) => ({ value: opt, label: opt }))}
-                        size="sm"
-                      />
-                      <input value={w.field} onChange={(e) => updateWindowFunc(i, 'field', e.target.value)} placeholder="field" style={{ width: '6rem' }} />
-                      <input value={w.partition_by} onChange={(e) => updateWindowFunc(i, 'partition_by', e.target.value)} placeholder="partition" style={{ width: '6rem' }} />
-                      <input value={w.order_by} onChange={(e) => updateWindowFunc(i, 'order_by', e.target.value)} placeholder="order" style={{ width: '6rem' }} />
-                      <button
-                        type="button"
-                        className="notebook-tag-close"
-                        onClick={() => removeWindowFunc(i)}
-                        aria-label="Remove Window Function"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                  <button type="button" className="notebook-add-btn" onClick={addWindowFunc}>+</button>
-                  <button
-                    type="button"
-                    className="notebook-step-close"
-                    onClick={() => windowFunctionState.setItems([])}
-                    title={t('common.cancel')}
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
+            {mode === 'advanced' && (
+              <WindowFuncStep
+                windowFunctions={windowFunctions}
+                updateWindowFunc={updateWindowFunc}
+                removeWindowFunc={removeWindowFunc}
+                addWindowFunc={addWindowFunc}
+                onClear={() => windowFunctionState.setItems([])}
+                t={t}
+              />
             )}
 
             {/* Advanced Step: CTEs (Advanced Mode only) */}
-            {mode === 'advanced' && ctes.length > 0 && (
-              <div className="notebook-step">
-                <div className="notebook-step-label notebook-step-label--advanced">CTEs</div>
-                <div className="notebook-step-card notebook-step-card--advanced">
-                  {ctes.map((c, i) => (
-                    <div key={i} className="notebook-tag notebook-tag--purple" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'flex-start' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', width: '100%' }}>
-                        <input value={c.name} onChange={(e) => updateCTE(i, 'name', e.target.value)} placeholder="CTE Name" style={{ width: '8rem' }} />
-                        <button
-                          type="button"
-                          className="notebook-tag-close"
-                          onClick={() => removeCTE(i)}
-                          aria-label="Remove CTE"
-                        >
-                          ×
-                        </button>
-                      </div>
-                      <textarea
-                        value={c.query}
-                        onChange={(e) => updateCTE(i, 'query', e.target.value)}
-                        placeholder="CTE query JSON"
-                        rows={2}
-                        style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-strong)', color: 'var(--text-primary)', borderRadius: '0.25rem', width: '12rem', padding: '0.25rem', fontSize: '0.74rem' }}
-                      />
-                    </div>
-                  ))}
-                  <button type="button" className="notebook-add-btn" onClick={addCTE}>+</button>
-                  <button
-                    type="button"
-                    className="notebook-step-close"
-                    onClick={() => cteState.setItems([])}
-                    title={t('common.cancel')}
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
+            {mode === 'advanced' && (
+              <CteStep
+                ctes={ctes}
+                updateCTE={updateCTE}
+                removeCTE={removeCTE}
+                addCTE={addCTE}
+                onClear={() => cteState.setItems([])}
+                t={t}
+              />
             )}
           </div>
         )}
