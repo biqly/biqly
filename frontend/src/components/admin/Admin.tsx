@@ -12,6 +12,44 @@ import { useQueryParam } from '../../hooks/useQueryParam'
 
 type AdminTab = 'users' | 'roles' | 'datasource_access' | 'workspaces' | 'ai_history' | 'sharing' | 'audit_log'
 
+const pendingStyle: React.CSSProperties = { padding: 24 }
+const layoutStyle: React.CSSProperties = { padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }
+const tabBarStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  background: 'var(--bg-card-raised, rgba(255, 255, 255, 0.04))',
+  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
+  borderRadius: '8px',
+  padding: '4px',
+  gap: '4px',
+  width: 'fit-content',
+  flexWrap: 'wrap',
+}
+const tabBtnBase: React.CSSProperties = {
+  padding: '6px 12px',
+  border: '1px solid',
+  borderRadius: '6px',
+  fontSize: '13px',
+  cursor: 'pointer',
+  transition: 'all 150ms cubic-bezier(0.4, 0, 0.2, 1)',
+}
+const tabBtnActive: React.CSSProperties = {
+  ...tabBtnBase,
+  background: 'var(--bg-card, #18181b)',
+  borderColor: 'var(--border-strong, rgba(255, 255, 255, 0.12))',
+  color: 'var(--text-primary, #f4f4f5)',
+  fontWeight: 600,
+  boxShadow: 'var(--shadow-sm, 0 4px 12px -2px rgba(0, 0, 0, 0.3))',
+}
+const tabBtnInactive: React.CSSProperties = {
+  ...tabBtnBase,
+  background: 'transparent',
+  borderColor: 'transparent',
+  color: 'var(--text-secondary, #a1a1aa)',
+  fontWeight: 500,
+  boxShadow: 'none',
+}
+
 export default function Admin() {
   const t = useT()
   const { accessToken } = useAuth()
@@ -23,7 +61,7 @@ export default function Admin() {
   const selectedUserID = userIdParam || null
 
   if (!accessToken) {
-    return <div style={{ padding: 24 }}>{t('admin.auth_pending')}</div>
+    return <div style={pendingStyle}>{t('admin.auth_pending')}</div>
   }
 
   const handleTabChange = (newTab: AdminTab) => {
@@ -33,20 +71,8 @@ export default function Admin() {
   }
 
   return (
-    <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          background: 'var(--bg-card-raised, rgba(255, 255, 255, 0.04))',
-          border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-          borderRadius: '8px',
-          padding: '4px',
-          gap: '4px',
-          width: 'fit-content',
-          flexWrap: 'wrap',
-        }}
-      >
+    <div style={layoutStyle}>
+      <div style={tabBarStyle}>
         <TabButton active={tab === 'users'} onClick={() => handleTabChange('users')}>{t('admin.tabs.users')}</TabButton>
         <TabButton active={tab === 'roles'} onClick={() => handleTabChange('roles')}>{t('admin.tabs.roles')}</TabButton>
         <TabButton active={tab === 'datasource_access'} onClick={() => handleTabChange('datasource_access')}>{t('admin.tabs.datasource_access')}</TabButton>
@@ -79,19 +105,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
   return (
     <button
       onClick={onClick}
-      style={{
-        padding: '6px 12px',
-        background: active ? 'var(--bg-card, #18181b)' : 'transparent',
-        border: '1px solid',
-        borderColor: active ? 'var(--border-strong, rgba(255, 255, 255, 0.12))' : 'transparent',
-        color: active ? 'var(--text-primary, #f4f4f5)' : 'var(--text-secondary, #a1a1aa)',
-        fontWeight: active ? 600 : 500,
-        borderRadius: '6px',
-        fontSize: '13px',
-        cursor: 'pointer',
-        boxShadow: active ? 'var(--shadow-sm, 0 4px 12px -2px rgba(0, 0, 0, 0.3))' : 'none',
-        transition: 'all 150ms cubic-bezier(0.4, 0, 0.2, 1)',
-      }}
+      style={active ? tabBtnActive : tabBtnInactive}
     >
       {children}
     </button>

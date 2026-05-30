@@ -1,17 +1,15 @@
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
+import { Bar } from 'recharts/es6/cartesian/Bar'
+import { BarChart } from 'recharts/es6/chart/BarChart'
+import { CartesianGrid } from 'recharts/es6/cartesian/CartesianGrid'
+import { Cell } from 'recharts/es6/component/Cell'
+import { Line } from 'recharts/es6/cartesian/Line'
+import { LineChart } from 'recharts/es6/chart/LineChart'
+import { Pie } from 'recharts/es6/polar/Pie'
+import { PieChart } from 'recharts/es6/chart/PieChart'
+import { ResponsiveContainer } from 'recharts/es6/component/ResponsiveContainer'
+import { Tooltip } from 'recharts/es6/component/Tooltip'
+import { XAxis } from 'recharts/es6/cartesian/XAxis'
+import { YAxis } from 'recharts/es6/cartesian/YAxis'
 import clsx from 'clsx'
 import { chartAxisStroke, chartGridStroke, chartTooltipStyle } from '../../utils/chartConfig'
 import { chartColor } from '../../utils/constants'

@@ -149,6 +149,8 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   const bulkBatchJobIdRef = useRef<string | null>(null)
   const bulkEntriesRef = useRef<BulkEntry[]>([])
   const runJobRef = useRef<AIJobsContextValue['runJob'] | null>(null)
+  const isMountedRef = useRef(true)
+  const bulkRunIdRef = useRef(0)
 
   const applyBulkProgressFromJob = useCallback((job: AIJob, queue: BulkEntry[]): BulkEntry[] => {
     const progress = job.progress_json as DescribeBatchJobProgress | null | undefined
@@ -307,8 +309,10 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   }, [sessionId, startPolling, upsertJob])
 
   useEffect(() => {
+    isMountedRef.current = true
     void resumeActiveJobs()
     return () => {
+      isMountedRef.current = false
       pollingIdsRef.current.clear()
       stopPollLoop()
       for (const waiter of callbacksRef.current.values()) {
@@ -450,6 +454,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       if (!datasourceId || targets.length === 0) return
 
       bulkCancelRef.current = false
+      const runId = ++bulkRunIdRef.current
       setBulkRunning(true)
       setBulkSummary(null)
       setMinimized(false)
@@ -569,6 +574,8 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
         setBulkSummary({ ok, error: errCount, skipped })
       }
 
+      const isStale = () => !isMountedRef.current || bulkRunIdRef.current !== runId
+
       void (async () => {
         bulkBatchJobIdRef.current = null
         const batchRequest = {
@@ -593,6 +600,8 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
             }),
           },
         )
+        if (isStale()) return
+
         if (error) {
           setBulkEntries((prev) => {
             const next = prev.map((entry) =>
@@ -635,8 +644,8 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
           })
           bulkBatchJobIdRef.current = null
 
-          if (bulkCancelRef.current) {
-            setBulkRunning(false)
+          if (isStale() || bulkCancelRef.current) {
+            if (isMountedRef.current) setBulkRunning(false)
             onFinished?.()
             return
           }
@@ -647,10 +656,11 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
             await runSequential()
           }
         } else {
+          if (isStale()) return
           await runSequential()
         }
 
-        setBulkRunning(false)
+        if (!isStale()) setBulkRunning(false)
         onFinished?.()
       })()
     },

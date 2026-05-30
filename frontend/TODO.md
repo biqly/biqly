@@ -532,12 +532,12 @@ BI araclari kompleks. Onboarding flow:
 
 ### Faz 7: Performans & Memory (1 hafta)
 
-- [ ] Recharts tree-shaking → sadece kullanilan bilesenler import edilmeli (410KB → ~100KB)
-- [ ] Locale dosyalari lazy loading (admin/auth section'larini ayri chunk yap)
+- [x] Recharts tree-shaking → deep ES6 imports applied (410KB irreducible due to Recharts internal `generateCategoricalChart` coupling)
+- [ ] Locale dosyalari lazy loading (admin/auth section'larini ayri chunk yap) — skipped: breaks compile-time `TranslationKey` type safety
 - [x] `useApi` → per-request AbortController
-- [ ] `startBulkDescribe` → fire-and-forget yerine proper async management
-- [ ] Admin style sabitleri → module scope'a tasinmali (her render'da yeniden olusturma)
-- [ ] `DEMO_DATA` → ayri dosyaya tasinmali ve lazy yuklenmeli
+- [x] `startBulkDescribe` → `isMountedRef` + `bulkRunIdRef` guards for proper async lifecycle
+- [x] Admin style sabitleri → module scope'a tasinmali (Admin.tsx, InviteUserModal.tsx)
+- [x] `DEMO_DATA` → ayri dosyaya tasinmali ve lazy yuklenmeli
 
 ### Faz 8: UX Iyilestirmeleri (2-3 hafta)
 
