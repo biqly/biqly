@@ -73,6 +73,56 @@ func (h *AIHandler) AIHistory(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// recentQueryItem is a lightweight projection of an AI query history row for
+// the home page "recent queries" widget — it omits heavy/sensitive fields.
+type recentQueryItem struct {
+	ID              string   `json:"id"`
+	Question        string   `json:"question"`
+	DatasourceID    string   `json:"datasource_id"`
+	OutcomeStatus   string   `json:"outcome_status"`
+	ConfidenceScore *float64 `json:"confidence_score,omitempty"`
+	CreatedAt       string   `json:"created_at"`
+}
+
+// QueryHistory returns the current user's most recent AI queries (lightweight).
+// Always user-scoped: it never returns other users' rows regardless of role.
+func (h *AIHandler) QueryHistory(w http.ResponseWriter, r *http.Request) {
+	userID := bimw.UserID(r.Context())
+	if userID == "" {
+		writeJSON(w, http.StatusOK, map[string]any{"entries": []recentQueryItem{}})
+		return
+	}
+
+	limit := 10
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 50 {
+			limit = n
+		}
+	}
+
+	rows, err := h.deps.MetaRepo.ListAIQueryHistory(r.Context(), userID, limit)
+	if err != nil {
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "list AI history failed", err)
+		return
+	}
+	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps); applied {
+		rows = FilterAIHistoryByDatasources(rows, wsFilter)
+	}
+
+	items := make([]recentQueryItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, recentQueryItem{
+			ID:              row.ID,
+			Question:        row.Question,
+			DatasourceID:    row.DatasourceID,
+			OutcomeStatus:   row.OutcomeStatus,
+			ConfidenceScore: row.ConfidenceScore,
+			CreatedAt:       row.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"entries": items})
+}
+
 // AIHistoryDetail returns a single entry. Non-admin users can only see their
 // own entries; otherwise sensitive fields are stripped.
 func (h *AIHandler) AIHistoryDetail(w http.ResponseWriter, r *http.Request) {

@@ -595,10 +595,19 @@
 
 .btn-icon-only {
   margin: 0 !important;
-  padding: 0.2rem 0.5rem !important;
-  min-height: auto !important;
-  width: auto !important;
+  padding: 0 !important;
   display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  aspect-ratio: 1 / 1 !important;
+  width: 2.25rem !important;
+  height: 2.25rem !important;
+  min-height: auto !important;
+}
+
+.btn-sm.btn-icon-only {
+  width: 1.85rem !important;
+  height: 1.85rem !important;
 }
 
 

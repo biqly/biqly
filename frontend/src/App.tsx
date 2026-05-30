@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useState, type ComponentType, type LazyExoticComponent, type MouseEvent, type ReactNode } from 'react'
-import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import { Breadcrumbs, type Crumb } from './components/ui/Breadcrumbs'
 import { CommandPalette, type CommandItem } from './components/ui/CommandPalette'
 import { EmptyState } from './components/ui/EmptyState'
@@ -9,6 +9,7 @@ import { ThemeToggle } from './components/ui/ThemeToggle'
 import abiLogo from './assets/abi-logo.png'
 import { useT, type TranslationKey } from './i18n'
 
+const Home = lazy(() => import('./components/Home'))
 const Datasources = lazy(() => import('./components/Datasources'))
 const Metadata = lazy(() => import('./components/Metadata'))
 const Modeling = lazy(() => import('./components/Modeling'))
@@ -79,6 +80,14 @@ const iconProps = {
   strokeLinejoin: 'round' as const,
   'aria-hidden': true,
 }
+
+const IconHome = (
+  <svg {...iconProps}>
+    <path d="M4 11.5 12 4l8 7.5" />
+    <path d="M6 10v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" />
+    <path d="M10 20v-5h4v5" />
+  </svg>
+)
 
 const IconDatasources = (
   <svg {...iconProps}>
@@ -184,6 +193,16 @@ const IconSettings = (
 )
 
 const routeDefs: AppRouteDef[] = [
+  {
+    path: '/',
+    sectionKey: 'data',
+    labelKey: 'app.nav.home',
+    eyebrowKey: 'app.nav.home_eyebrow',
+    descriptionKey: 'app.nav.home_desc',
+    icon: IconHome,
+    component: Home,
+    hidden: true,
+  },
   {
     path: '/datasources',
     sectionKey: 'data',
@@ -388,20 +407,31 @@ function App() {
     return out
   }, [routes, t, isAdmin])
 
-  const commandItems = useMemo<CommandItem[]>(
-    () =>
-      sidebarSections.flatMap((section) =>
-        section.routes.map((route) => ({
-          id: route.path,
-          label: route.label,
-          group: section.heading,
-          keywords: `${route.eyebrow} ${route.description} ${route.path}`,
-          icon: route.icon,
-          perform: () => navigate(route.path),
-        })),
-      ),
-    [sidebarSections, navigate],
-  )
+  const homeRoute = useMemo(() => routes.find((r) => r.path === '/'), [routes])
+
+  const commandItems = useMemo<CommandItem[]>(() => {
+    const sectionItems = sidebarSections.flatMap((section) =>
+      section.routes.map((route) => ({
+        id: route.path,
+        label: route.label,
+        group: section.heading,
+        keywords: `${route.eyebrow} ${route.description} ${route.path}`,
+        icon: route.icon,
+        perform: () => navigate(route.path),
+      })),
+    )
+    if (homeRoute) {
+      sectionItems.unshift({
+        id: homeRoute.path,
+        label: homeRoute.label,
+        group: homeRoute.eyebrow,
+        keywords: `${homeRoute.eyebrow} ${homeRoute.description} ${homeRoute.path}`,
+        icon: homeRoute.icon,
+        perform: () => navigate(homeRoute.path),
+      })
+    }
+    return sectionItems
+  }, [sidebarSections, homeRoute, navigate])
 
   const activePath = location.pathname
   const activeRoute = useMemo(() => {
@@ -608,8 +638,6 @@ function App() {
                 </header>
 
                 <Routes>
-                  <Route path="/" element={<Navigate to="/datasources" replace />} />
-                  
                   {routeDefs.map((route) => {
                     const Component = route.component
                     return (

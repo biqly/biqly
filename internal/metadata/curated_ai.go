@@ -26,6 +26,7 @@ type FewShotCuratedRow struct {
 	Name         string          `json:"name"`
 	Description  string          `json:"description"`
 	IsFewShot    bool            `json:"is_few_shot"`
+	IsFavorite   bool            `json:"is_favorite"`
 }
 
 // FewShotCuratedInsert is input for creating a curated few-shot example.
@@ -40,6 +41,7 @@ type FewShotCuratedInsert struct {
 	Name         string
 	Description  string
 	IsFewShot    bool
+	IsFavorite   bool
 }
 
 // FewShotCuratedUpdate is input for updating a curated few-shot example.
@@ -52,13 +54,16 @@ type FewShotCuratedUpdate struct {
 	Name         string
 	Description  string
 	IsFewShot    bool
+	IsFavorite   bool
 }
+
+const fewShotCuratedSelectCols = `SELECT id::text, datasource_id::text, COALESCE(model_id::text,''), question, logical_query,
+		COALESCE(tags,'{}'), COALESCE(dialect,'postgresql'), COALESCE(locale,''), COALESCE(created_by,''),
+		created_at, updated_at, COALESCE(name, question), COALESCE(description, ''), is_few_shot, is_favorite`
 
 // ListFewShotCurated returns few-shot examples, optionally filtered by datasource and model.
 func (r *Repository) ListFewShotCurated(ctx context.Context, datasourceID, modelID string) ([]FewShotCuratedRow, error) {
-	q := `SELECT id::text, datasource_id::text, COALESCE(model_id::text,''), question, logical_query,
-		COALESCE(tags,'{}'), COALESCE(dialect,'postgresql'), COALESCE(locale,''), COALESCE(created_by,''),
-		created_at, updated_at, COALESCE(name, question), COALESCE(description, ''), is_few_shot FROM few_shot_examples`
+	q := fewShotCuratedSelectCols + ` FROM few_shot_examples`
 	args := []any{}
 	argPos := 1
 	if datasourceID != "" {
@@ -75,11 +80,20 @@ func (r *Repository) ListFewShotCurated(ctx context.Context, datasourceID, model
 	return platformdb.QuerySliceErr(ctx, r.db, "list few-shot curated", q, args, scanFewShotCuratedRow)
 }
 
+// ListFavoriteExamples returns favorited few-shot examples across datasources, newest first.
+func (r *Repository) ListFavoriteExamples(ctx context.Context, limit int) ([]FewShotCuratedRow, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	q := fewShotCuratedSelectCols + ` FROM few_shot_examples WHERE is_favorite ORDER BY created_at DESC LIMIT $1`
+	return platformdb.QuerySliceErr(ctx, r.db, "list favorite examples", q, []any{limit}, scanFewShotCuratedRow)
+}
+
 func scanFewShotCuratedRow(s platformdb.Scanner) (FewShotCuratedRow, error) {
 	var e FewShotCuratedRow
 	var mid, createdBy, locale string
 	var tags pq.StringArray
-	if err := s.Scan(&e.ID, &e.DatasourceID, &mid, &e.Question, &e.LogicalQuery, &tags, &e.Dialect, &locale, &createdBy, &e.CreatedAt, &e.UpdatedAt, &e.Name, &e.Description, &e.IsFewShot); err != nil {
+	if err := s.Scan(&e.ID, &e.DatasourceID, &mid, &e.Question, &e.LogicalQuery, &tags, &e.Dialect, &locale, &createdBy, &e.CreatedAt, &e.UpdatedAt, &e.Name, &e.Description, &e.IsFewShot, &e.IsFavorite); err != nil {
 		return e, fmt.Errorf("scan few-shot curated: %w", err)
 	}
 	e.ModelID = mid
@@ -93,9 +107,9 @@ func scanFewShotCuratedRow(s platformdb.Scanner) (FewShotCuratedRow, error) {
 func (r *Repository) InsertFewShotCurated(ctx context.Context, in FewShotCuratedInsert) (string, error) {
 	var id string
 	err := r.db.QueryRowContext(ctx,
-		`INSERT INTO few_shot_examples (datasource_id, model_id, question, logical_query, tags, dialect, locale, name, description, is_few_shot)
-		 VALUES ($1::uuid, NULLIF($2,'')::uuid, $3, $4, $5::text[], $6, NULLIF($7,''), $8, $9, $10) RETURNING id::text`,
-		in.DatasourceID, in.ModelID, in.Question, in.LogicalQuery, pq.Array(in.Tags), in.Dialect, in.Locale, in.Name, in.Description, in.IsFewShot,
+		`INSERT INTO few_shot_examples (datasource_id, model_id, question, logical_query, tags, dialect, locale, name, description, is_few_shot, is_favorite)
+		 VALUES ($1::uuid, NULLIF($2,'')::uuid, $3, $4, $5::text[], $6, NULLIF($7,''), $8, $9, $10, $11) RETURNING id::text`,
+		in.DatasourceID, in.ModelID, in.Question, in.LogicalQuery, pq.Array(in.Tags), in.Dialect, in.Locale, in.Name, in.Description, in.IsFewShot, in.IsFavorite,
 	).Scan(&id)
 	if err != nil {
 		return "", err
@@ -119,8 +133,8 @@ func (r *Repository) DeleteFewShotCurated(ctx context.Context, id string) (bool,
 // UpdateFewShotCurated updates a row by id.
 func (r *Repository) UpdateFewShotCurated(ctx context.Context, id string, in FewShotCuratedUpdate) error {
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE few_shot_examples SET question = $1, logical_query = $2, tags = $3::text[], dialect = $4, locale = NULLIF($5,''), name = $6, description = $7, is_few_shot = $8, updated_at = NOW() WHERE id = $9::uuid`,
-		in.Question, in.LogicalQuery, pq.Array(in.Tags), in.Dialect, in.Locale, in.Name, in.Description, in.IsFewShot, id,
+		`UPDATE few_shot_examples SET question = $1, logical_query = $2, tags = $3::text[], dialect = $4, locale = NULLIF($5,''), name = $6, description = $7, is_few_shot = $8, is_favorite = $9, updated_at = NOW() WHERE id = $10::uuid`,
+		in.Question, in.LogicalQuery, pq.Array(in.Tags), in.Dialect, in.Locale, in.Name, in.Description, in.IsFewShot, in.IsFavorite, id,
 	)
 	return err
 }

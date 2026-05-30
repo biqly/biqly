@@ -390,7 +390,7 @@ export default function Settings() {
             </button>
             <button
               type="submit"
-              className="btn btn-primary btn-icon-only"
+              className="btn btn-primary btn-auto-width"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               disabled={registering || !newPasskeyName.trim()}
             >
@@ -439,7 +439,7 @@ export default function Settings() {
             </button>
             <button
               type="submit"
-              className="btn btn-primary btn-icon-only"
+              className="btn btn-primary btn-auto-width"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               disabled={renaming || !renamingName.trim()}
             >

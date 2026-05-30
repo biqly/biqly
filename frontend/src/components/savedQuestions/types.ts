@@ -10,6 +10,7 @@ export interface SavedQuestion {
   dialect: string
   locale?: string
   is_few_shot: boolean
+  is_favorite?: boolean
   created_at?: string
   updated_at?: string
 }

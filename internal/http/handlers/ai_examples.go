@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/biqly/biqly/internal/app"
@@ -23,6 +24,7 @@ type createFewShotExampleRequest struct {
 	Name         string          `json:"name"`
 	Description  string          `json:"description"`
 	IsFewShot    *bool           `json:"is_few_shot"`
+	IsFavorite   *bool           `json:"is_favorite"`
 }
 
 type updateFewShotExampleRequest struct {
@@ -34,6 +36,7 @@ type updateFewShotExampleRequest struct {
 	Name         string          `json:"name"`
 	Description  string          `json:"description"`
 	IsFewShot    *bool           `json:"is_few_shot"`
+	IsFavorite   *bool           `json:"is_favorite"`
 }
 
 type submitAIFeedbackRequest struct {
@@ -68,6 +71,23 @@ func (h *AIExamplesHandler) ListExamples(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, examples)
 }
 
+// ListFavorites returns favorited few-shot examples across datasources, newest first.
+func (h *AIExamplesHandler) ListFavorites(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	limit := 10
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 100 {
+			limit = n
+		}
+	}
+	examples, err := h.deps.MetaRepo.ListFavoriteExamples(ctx, limit)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list favorites", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, examples)
+}
+
 // CreateExample creates a new few-shot example.
 func (h *AIExamplesHandler) CreateExample(w http.ResponseWriter, r *http.Request) {
 	input, ok := decodeJSON[createFewShotExampleRequest](w, r)
@@ -89,6 +109,7 @@ func (h *AIExamplesHandler) CreateExample(w http.ResponseWriter, r *http.Request
 	if input.IsFewShot != nil {
 		isFewShot = *input.IsFewShot
 	}
+	isFavorite := input.IsFavorite != nil && *input.IsFavorite
 
 	id, err := h.deps.MetaRepo.InsertFewShotCurated(r.Context(), metadata.FewShotCuratedInsert{
 		DatasourceID: input.DatasourceID,
@@ -101,6 +122,7 @@ func (h *AIExamplesHandler) CreateExample(w http.ResponseWriter, r *http.Request
 		Name:         name,
 		Description:  input.Description,
 		IsFewShot:    isFewShot,
+		IsFavorite:   isFavorite,
 	})
 	if err != nil {
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to create example", err)
@@ -121,6 +143,7 @@ func (h *AIExamplesHandler) CreateExample(w http.ResponseWriter, r *http.Request
 		Name:         name,
 		Description:  input.Description,
 		IsFewShot:    isFewShot,
+		IsFavorite:   isFavorite,
 	}
 	writeJSON(w, http.StatusCreated, example)
 }
@@ -168,6 +191,7 @@ func (h *AIExamplesHandler) UpdateExample(w http.ResponseWriter, r *http.Request
 	if input.IsFewShot != nil {
 		isFewShot = *input.IsFewShot
 	}
+	isFavorite := input.IsFavorite != nil && *input.IsFavorite
 	if err := h.deps.MetaRepo.UpdateFewShotCurated(r.Context(), id, metadata.FewShotCuratedUpdate{
 		Question:     input.Question,
 		LogicalQuery: input.LogicalQuery,
@@ -177,6 +201,7 @@ func (h *AIExamplesHandler) UpdateExample(w http.ResponseWriter, r *http.Request
 		Name:         name,
 		Description:  input.Description,
 		IsFewShot:    isFewShot,
+		IsFavorite:   isFavorite,
 	}); err != nil {
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to update example", err)
 		return

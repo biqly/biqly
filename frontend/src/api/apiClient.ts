@@ -125,11 +125,14 @@ export async function apiFetch<T>(
     method,
     body: body ? JSON.stringify(body) : undefined,
   }
-  const { data, error } = await fetchJSON<T>(url, init)
+  const { data, status, error } = await fetchJSON<T>(url, init)
   if (error) {
     throw new Error(error)
   }
   if (data === null) {
+    if (status >= 200 && status < 300) {
+      return null as T
+    }
     throw new Error(`Expected response data from ${url}`)
   }
   return data

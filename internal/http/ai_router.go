@@ -87,6 +87,7 @@ func registerAIAPIRoutes(r chi.Router, deps *app.Dependencies, authClient *bimw.
 	}
 	r.Get("/ai/history", aiHandler.AIHistory)
 	r.Get("/ai/history/detail", aiHandler.AIHistoryDetail)
+	r.Get("/ai/query/history", aiHandler.QueryHistory)
 	r.With(dsAccess).Post("/ai/query", aiHandler.Query)
 	r.With(dsAccess).Post("/ai/query/preview", aiHandler.Preview)
 	r.With(dsAccess).Post("/ai/query/run", aiHandler.Run)

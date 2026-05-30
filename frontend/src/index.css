@@ -2985,17 +2985,13 @@ body.modeling-grabbing * {
 
 .btn-secondary {
   border: 1px solid var(--border);
-  border-radius: 8px;
   background: var(--bg-card-raised);
   color: var(--text-primary);
-  font-weight: 700;
-  padding: 0.6rem 1rem;
-  cursor: pointer;
-  transition: background 0.15s;
 }
 
 .btn-secondary:hover {
   background: color-mix(in srgb, var(--accent) 10%, var(--bg-card-raised));
+  border-color: var(--border-strong);
 }
 
 @media (max-width: 760px) {
