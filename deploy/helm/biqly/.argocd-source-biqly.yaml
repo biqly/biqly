@@ -10,13 +10,13 @@ helm:
     value: ghcr.io/biqly/biqly-auth
     forcestring: true
   - name: auth.image.tag
-    value: sha-5bf9a608348d58af564d206c49737df186a3a211
+    value: sha-93e320975189215b27ff1e04b29eeca1e3dea5d3
     forcestring: true
   - name: auth.migrate.image.repository
     value: ghcr.io/biqly/biqly-auth
     forcestring: true
   - name: auth.migrate.image.tag
-    value: sha-5bf9a608348d58af564d206c49737df186a3a211
+    value: sha-93e320975189215b27ff1e04b29eeca1e3dea5d3
     forcestring: true
   - name: catalog.image.repository
     value: ghcr.io/biqly/catalog
