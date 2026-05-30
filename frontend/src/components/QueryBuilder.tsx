@@ -643,24 +643,26 @@ export default function QueryBuilder() {
           )}
 
           {result.columns && result.rows && (
-            <table className="results-table">
-              <thead>
-                <tr>
-                  {result.columns.map((col) => (
-                    <th key={col.name}>{col.name}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {result.rows.map((row, i) => (
-                  <tr key={i}>
-                    {row.map((cell, j) => (
-                      <td key={j}>{formatResultCell(cell, result.columns?.[j]?.name ?? '', {})}</td>
+            <div className="results-table-scroll">
+              <table className="results-table">
+                <thead>
+                  <tr>
+                    {result.columns.map((col) => (
+                      <th key={col.name}>{col.name}</th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {result.rows.map((row, i) => (
+                    <tr key={i}>
+                      {row.map((cell, j) => (
+                        <td key={j}>{formatResultCell(cell, result.columns?.[j]?.name ?? '', {})}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}

@@ -545,12 +545,12 @@ BI araclari kompleks. Onboarding flow:
 - [x] Command Palette (Cmd+K) ekle
 - [x] Keyboard shortcuts sistemi kur
 - [x] Loading skeleton'lari ekle
-- [ ] Breadcrumb navigasyonu ekle
+- [x] Breadcrumb navigasyonu ekle
 - [ ] Query Builder'da progressive disclosure (acordion veya wizard modu)
 - [x] Data export (CSV/Excel) ozelligi
-- [ ] Empty state tasarimini iyilestir
+- [x] Empty state tasarimini iyilestir
 - [ ] Ana sayfa redesign: recent queries + favorites + quick actions
-- [ ] Responsive table duzeltmeleri
+- [x] Responsive table duzeltmeleri
 
 ---
 

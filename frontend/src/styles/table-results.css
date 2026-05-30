@@ -7,11 +7,12 @@
 
 .results-table-scroll .results-table {
   margin-top: 0;
+  /* Keep columns readable inside the horizontal-scroll container. */
+  min-width: 42rem;
 }
 
 .results-table {
   width: 100%;
-  min-width: 42rem;
   margin-top: 1rem;
   border-collapse: collapse;
   font-size: 0.9rem;
@@ -89,4 +90,26 @@
   margin: 0 0 0 auto;
   padding: 0.3rem 0.75rem;
   font-size: 0.78rem;
+}
+
+/* Hint that a scroll container can be panned horizontally on touch devices. */
+.results-table-scroll {
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+@media (max-width: 720px) {
+  .results-table {
+    font-size: 0.82rem;
+  }
+
+  .results-table th,
+  .results-table td {
+    padding: 0.55rem 0.6rem;
+  }
+
+  .result-footer {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
 }

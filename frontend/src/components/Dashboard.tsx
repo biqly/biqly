@@ -150,6 +150,7 @@ function ModelSuccessRates() {
   return (
     <div>
       <h2 style={{ marginBottom: '1rem' }}>{t('dashboard.model_rates_heading')}</h2>
+      <div className="results-table-scroll">
       <table className="results-table">
         <thead>
           <tr>
@@ -187,6 +188,7 @@ function ModelSuccessRates() {
           ))}
         </tbody>
       </table>
+      </div>
 
       <div className="card" style={{ marginTop: '1rem' }}>
         <h3>{t('dashboard.chart_success_compare')}</h3>

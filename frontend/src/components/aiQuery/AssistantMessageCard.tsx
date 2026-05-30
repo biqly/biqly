@@ -33,14 +33,16 @@ function SampleDataModal({ open, onClose, tableName, datasourceId, get }: { open
     <Modal open={open} title={t('ai_query.sample_modal_title', { table: tableName })} onClose={onClose} labelledBy="sample-data-title">
       <LoadingOverlay loading={loading} />
       {sample?.columns && sample?.rows && (
-        <table className="results-table">
-          <thead><tr>{sample.columns.map((c) => <th key={c.name}>{c.name}</th>)}</tr></thead>
-          <tbody>
-            {sample.rows.map((row, i) => (
-              <tr key={i}>{row.map((cell, j) => <td key={j}>{formatResultCell(cell, sample.columns[j]?.name ?? '', {})}</td>)}</tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="results-table-scroll">
+          <table className="results-table">
+            <thead><tr>{sample.columns.map((c) => <th key={c.name}>{c.name}</th>)}</tr></thead>
+            <tbody>
+              {sample.rows.map((row, i) => (
+                <tr key={i}>{row.map((cell, j) => <td key={j}>{formatResultCell(cell, sample.columns[j]?.name ?? '', {})}</td>)}</tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </Modal>
   )

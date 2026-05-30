@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useState, type ComponentType, type LazyExoticComponent, type MouseEvent, type ReactNode } from 'react'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Breadcrumbs, type Crumb } from './components/ui/Breadcrumbs'
 import { CommandPalette, type CommandItem } from './components/ui/CommandPalette'
 import { EmptyState } from './components/ui/EmptyState'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
@@ -411,6 +412,15 @@ function App() {
     })
   }, [routes, activePath])
 
+  const breadcrumbs = useMemo<Crumb[]>(() => {
+    if (!activeRoute) return []
+    const section = sidebarSections.find((s) => s.routes.some((r) => r.path === activeRoute.path))
+    const crumbs: Crumb[] = []
+    if (section) crumbs.push({ label: section.heading })
+    crumbs.push({ label: activeRoute.label })
+    return crumbs
+  }, [activeRoute, sidebarSections])
+
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   useEffect(() => {
@@ -589,6 +599,7 @@ function App() {
 
               <main id="main-content" className="main" tabIndex={-1}>
                 <header className="page-header">
+                  <Breadcrumbs items={breadcrumbs} ariaLabel={t('common.primary_nav')} />
                   <p>{activeRoute?.eyebrow ?? t('common.not_found_eyebrow')}</p>
                   <div>
                     <h1>{activeRoute?.label ?? t('common.page_not_found')}</h1>
