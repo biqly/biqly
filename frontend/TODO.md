@@ -469,11 +469,11 @@ BI araclari kompleks. Onboarding flow:
 
 ### Faz 3: God Component Parcalama (2 hafta)
 
-- [ ] **Modeling.tsx (1,332 satir) → 4 dosya:**
+- [x] **Modeling.tsx (1,332 satir) → 4 dosya:**
   - `ModelingPalette.tsx` (~270 satir)
   - `JoinEditor.tsx` (~75 satir)
   - `useEntityActions.ts` hook (delete/reactivate/rename pattern)
-  - Ana dosya ~600 satira iner
+  - Ana dosya 841 satira indi; kalan kod model lifecycle, schema ve canvas orkestrasyonu
 
 - [ ] **Settings.tsx (955 satir) → 5 dosya:**
   - `PasskeyTable.tsx`

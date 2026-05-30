@@ -8,18 +8,20 @@ import type { Datasource } from '../types/metadata'
 import type {
   ColumnRow,
   GenerateSemanticModelResponse,
-  SemanticDimension,
   SemanticJoin,
-  SemanticMetric,
   SemanticModelDetail,
   SemanticModelSummary,
   TableRow,
 } from '../types/semantic'
 import { AddMetricModal } from './modeling/AddMetricModal'
 import { BaseSwapModal } from './modeling/BaseSwapModal'
+import { activeEntities, inactiveEntities } from './modeling/entityActions'
+import { JoinEditor } from './modeling/JoinEditor'
 import { ModelingCanvas } from './modeling/ModelingCanvas'
+import { ModelingPalette } from './modeling/ModelingPalette'
+import { useEntityActions } from './modeling/useEntityActions'
 import { useModelingCanvas } from './modeling/useModelingCanvas'
-import type { JoinForm, RenameTarget, SuggestedJoin, Tab } from './modeling/types'
+import type { JoinForm, SuggestedJoin, Tab } from './modeling/types'
 import { publishModelRequest, suggestedJoinToPayload } from './modeling/types'
 import { useDatasources } from '../hooks/useDatasources'
 import { useSemanticModels } from '../hooks/useSemanticModels'
@@ -32,7 +34,6 @@ import {
   defaultJoinForm,
   findColumn,
   columnsAreJoinCompatible,
-  formatDataType,
   patchJoinForm,
   tableKey,
   columnRefMatchesTable,
@@ -67,10 +68,6 @@ export default function Modeling() {
   const [highlightJoinId, setHighlightJoinId] = useState<string | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(true)
   const [editorOpen, setEditorOpen] = useState(true)
-  const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null)
-  const [renameValue, setRenameValue] = useState('')
-  const [savingRename, setSavingRename] = useState(false)
-
   const prevDsRef = useRef(datasourceId)
 
   useEffect(() => {
@@ -403,10 +400,6 @@ export default function Modeling() {
     () => findColumn(columns, joinForm.fromTable, joinForm.fromColumn),
     [columns, joinForm.fromTable, joinForm.fromColumn],
   )
-  const selectedToColumn = useMemo(
-    () => findColumn(columns, joinForm.toTable, joinForm.toColumn),
-    [columns, joinForm.toTable, joinForm.toColumn],
-  )
   const toColumns = useMemo(
     () => (selectedFromColumn ? allToColumns.filter((column) => columnsAreJoinCompatible(selectedFromColumn, column)) : allToColumns),
     [allToColumns, selectedFromColumn],
@@ -451,18 +444,6 @@ export default function Modeling() {
     }
   }
 
-  const openRename = (target: RenameTarget) => {
-    setRenameTarget(target)
-    setRenameValue(target.current)
-    setMessage(null)
-  }
-
-  const closeRename = () => {
-    if (savingRename) return
-    setRenameTarget(null)
-    setRenameValue('')
-  }
-
   const removeModel = async () => {
     if (!model) return
     const name = model.label || model.name
@@ -482,17 +463,6 @@ export default function Modeling() {
     setModelId(nextId)
     if (!nextId) setModel(null)
     setMessage(t('modeling.model_deleted'))
-  }
-
-  const renameModel = async () => {
-    if (!model) return
-    const current = model.label || model.name
-    openRename({
-      kind: 'model',
-      current,
-      title: t('modeling.rename_model_title'),
-      subtitle: model.name,
-    })
   }
 
   const publishModel = async () => {
@@ -536,129 +506,6 @@ export default function Modeling() {
     }
   }
 
-  const deleteJoin = async (joinId: string) => {
-    if (!model) return
-    const join = joins.find((item) => item.id === joinId)
-    const ok = await confirm({
-      title: t('modeling.delete_join_title'),
-      message: join
-        ? t('modeling.delete_join_body_named', { name: join.name })
-        : t('modeling.delete_join_body_generic'),
-      variant: 'danger',
-      confirmLabel: t('common.delete'),
-    })
-    if (!ok) return
-    setMessage(null)
-    await deleteData(`/api/semantic/models/${model.id}/joins/${joinId}`)
-    await refreshModels(model.id)
-    await loadSuggestedJoins()
-    setMessage(t('modeling.relationship_deleted'))
-  }
-
-  const deleteDimension = async (dimId: string) => {
-    if (!model) return
-    const dim = dims.find((item) => item.id === dimId)
-    const ok = await confirm({
-      title: t('modeling.confirm_delete_dimension_title'),
-      message: dim
-        ? t('modeling.confirm_delete_dimension_body_named', { name: dim.label || dim.name })
-        : t('modeling.confirm_delete_dimension_body_generic'),
-      variant: 'danger',
-      confirmLabel: t('common.delete'),
-    })
-    if (!ok) return
-    setMessage(null)
-    await deleteData(`/api/semantic/models/${model.id}/dimensions/${dimId}`)
-    await refreshModels(model.id)
-    setMessage(t('modeling.dimension_deleted'))
-  }
-
-  const deleteMetric = async (metricId: string) => {
-    if (!model) return
-    const metric = metrics.find((item) => item.id === metricId)
-    const ok = await confirm({
-      title: t('modeling.confirm_delete_metric_title'),
-      message: metric
-        ? t('modeling.confirm_delete_metric_body_named', { name: metric.label || metric.name })
-        : t('modeling.confirm_delete_metric_body_generic'),
-      variant: 'danger',
-      confirmLabel: t('common.delete'),
-    })
-    if (!ok) return
-    setMessage(null)
-    await deleteData(`/api/semantic/models/${model.id}/metrics/${metricId}`)
-    await refreshModels(model.id)
-    setMessage(t('modeling.metric_deleted'))
-  }
-
-  const reactivateJoin = async (join: SemanticJoin) => {
-    if (!model) return
-    await putData(`/api/semantic/models/${model.id}/joins/${join.id}`, {
-      name: join.name,
-      from_schema: join.from_schema ?? '',
-      from_table: join.from_table,
-      from_column: join.from_column,
-      to_schema: join.to_schema ?? '',
-      to_table: join.to_table,
-      to_column: join.to_column,
-      join_type: join.join_type,
-      relationship: join.relationship,
-      is_active: true,
-    })
-    await refreshModels(model.id)
-    setMessage(t('modeling.reactivate_relationship'))
-  }
-
-  const reactivateDimension = async (dim: SemanticDimension) => {
-    if (!model) return
-    await putData(`/api/semantic/models/${model.id}/dimensions/${dim.id}`, {
-      name: dim.name,
-      label: dim.label ?? '',
-      column_ref: dim.column_ref,
-      type: dim.type,
-      synonyms: dim.synonyms ?? [],
-      description: dim.description ?? '',
-      is_active: true,
-    })
-    await refreshModels(model.id)
-    setMessage(t('modeling.reactivate_dimension'))
-  }
-
-  const renameTable = async (tbl: TableRow) => {
-    const current = tbl.label || tbl.table_name
-    openRename({
-      kind: 'table',
-      current,
-      table: tbl,
-      title: t('modeling.rename_table_title'),
-      subtitle: `${tbl.schema_name}.${tbl.table_name}`,
-    })
-  }
-
-  const renameDimension = async (dim: SemanticDimension) => {
-    if (!model) return
-    const current = dim.label || dim.name
-    openRename({
-      kind: 'dimension',
-      current,
-      dimension: dim,
-      title: t('modeling.rename_dimension_title'),
-      subtitle: dim.column_ref,
-    })
-  }
-
-  const renameMetric = async (metric: SemanticMetric) => {
-    if (!model) return
-    const current = metric.label || metric.name
-    openRename({
-      kind: 'metric',
-      current,
-      metric,
-      title: t('modeling.rename_metric_title'),
-      subtitle: `${metric.aggregation}(${metric.expression})`,
-    })
-  }
-
   const toggleSchemaExcluded = async (schemaName: string) => {
     if (!model) return
     const current = new Set((model as SemanticModelSummary).excluded_schemas ?? [])
@@ -699,80 +546,6 @@ export default function Modeling() {
     setMessage(t('modeling.schema_excluded'))
   }
 
-  const submitRename = async () => {
-    if (!renameTarget || savingRename) return
-    const trimmed = renameValue.trim()
-    if (!trimmed || trimmed === renameTarget.current) {
-      closeRename()
-      return
-    }
-    setSavingRename(true)
-    try {
-      if (renameTarget.kind === 'table') {
-        const updated = await patchData<TableRow>(`/api/metadata/tables/${renameTarget.table.id}`, { label: trimmed })
-        if (updated) {
-          setTables((prev) => prev.map((p) => (p.id === renameTarget.table.id ? updated : p)))
-          setMessage(t('modeling.table_label_updated'))
-        }
-      } else if (renameTarget.kind === 'model' && model) {
-        await putData(`/api/semantic/models/${model.id}`, {
-          label: trimmed,
-          base_schema: model.base_schema,
-          base_table: model.base_table,
-        })
-        await refreshModels(model.id)
-        setMessage(t('modeling.model_renamed'))
-      } else if (renameTarget.kind === 'dimension' && model) {
-        const dim = renameTarget.dimension
-        await putData(`/api/semantic/models/${model.id}/dimensions/${dim.id}`, {
-          name: dim.name,
-          label: trimmed,
-          column_ref: dim.column_ref,
-          type: dim.type,
-          synonyms: dim.synonyms ?? [],
-          description: dim.description ?? '',
-          is_active: dim.is_active,
-        })
-        await refreshModels(model.id)
-        setMessage(t('modeling.dimension_label_updated'))
-      } else if (renameTarget.kind === 'metric' && model) {
-        const metric = renameTarget.metric
-        await putData(`/api/semantic/models/${model.id}/metrics/${metric.id}`, {
-          name: metric.name,
-          label: trimmed,
-          expression: metric.expression,
-          aggregation: metric.aggregation,
-          format: metric.format ?? '',
-          synonyms: metric.synonyms ?? [],
-          description: metric.description ?? '',
-          is_active: metric.is_active,
-        })
-        await refreshModels(model.id)
-        setMessage(t('modeling.metric_label_updated'))
-      }
-      setRenameTarget(null)
-      setRenameValue('')
-    } finally {
-      setSavingRename(false)
-    }
-  }
-
-  const reactivateMetric = async (metric: SemanticMetric) => {
-    if (!model) return
-    await putData(`/api/semantic/models/${model.id}/metrics/${metric.id}`, {
-      name: metric.name,
-      label: metric.label ?? '',
-      expression: metric.expression,
-      aggregation: metric.aggregation,
-      format: metric.format ?? '',
-      synonyms: metric.synonyms ?? [],
-      description: metric.description ?? '',
-      is_active: true,
-    })
-    await refreshModels(model.id)
-    setMessage(t('modeling.reactivate_metric'))
-  }
-
   const loadSuggestedJoins = async () => {
     if (!modelId) return
     const data = await get<SuggestedJoin[]>(`/api/semantic/models/${modelId}/suggested-joins`)
@@ -786,14 +559,46 @@ export default function Modeling() {
   }))
 
   const allJoins = model?.joins ?? []
-  const joins = allJoins.filter((j) => j.is_active !== false)
-  const inactiveJoins = allJoins.filter((j) => j.is_active === false)
+  const joins = activeEntities(allJoins)
+  const inactiveJoins = inactiveEntities(allJoins)
   const allDims = model?.dimensions ?? []
-  const dims = allDims.filter((d) => d.is_active !== false)
-  const inactiveDims = allDims.filter((d) => d.is_active === false)
+  const dims = activeEntities(allDims)
+  const inactiveDims = inactiveEntities(allDims)
   const allMetrics = model?.metrics ?? []
-  const metrics = allMetrics.filter((m) => m.is_active !== false)
-  const inactiveMetrics = allMetrics.filter((m) => m.is_active === false)
+  const metrics = activeEntities(allMetrics)
+  const inactiveMetrics = inactiveEntities(allMetrics)
+  const {
+    renameTarget,
+    renameValue,
+    savingRename,
+    setRenameValue,
+    closeRename,
+    renameModel,
+    renameTable,
+    renameDimension,
+    renameMetric,
+    deleteJoin,
+    deleteDimension,
+    deleteMetric,
+    reactivateJoin,
+    reactivateDimension,
+    reactivateMetric,
+    submitRename,
+  } = useEntityActions({
+    model,
+    joins,
+    dims,
+    metrics,
+    confirm,
+    deleteData,
+    putData,
+    patchData,
+    refreshModels,
+    loadSuggestedJoins,
+    setTables,
+    setMessage,
+    t,
+  })
 
   const baseKey = model ? tableKey(model.base_schema, model.base_table) : null
   const baseSwapCandidates = useMemo(() => {
@@ -897,273 +702,45 @@ export default function Modeling() {
           <section
         className={`modeling-shell ${paletteOpen ? '' : 'modeling-shell--palette-closed'} ${editorOpen ? '' : 'modeling-shell--editor-closed'}`}
       >
-        <aside className={`modeling-palette ${paletteOpen ? '' : 'modeling-side--collapsed'}`} aria-label={t('modeling.model_summary_aria')}>
-          <button
-            type="button"
-            className="modeling-side-toggle modeling-side-toggle--left"
-            onClick={() => setPaletteOpen((v) => !v)}
-            title={paletteOpen ? t('modeling.collapse_panel') : t('modeling.expand_panel')}
-          >
-            {paletteOpen ? '‹' : '›'}
-          </button>
-          <div className="modeling-side-body">
-          <div>
-            <span className="modeling-kicker">{t('modeling.semantic_layer')}</span>
-            <h2>{model?.label || model?.name || t('modeling.no_model_selected')}</h2>
-            <p>{t('modeling.semantic_description')}</p>
-          </div>
-          <div className="modeling-stat-grid">
-            <div>
-              <strong>{usedTableCount}</strong>
-              <span>{t('modeling.tab_short_tables')}</span>
-            </div>
-            <div>
-              <strong>{joins.length}</strong>
-              <span>{t('modeling.tab_short_rel')}</span>
-            </div>
-            <div>
-              <strong>{dims.length}</strong>
-              <span>{t('modeling.tab_short_dim')}</span>
-            </div>
-            <div>
-              <strong>{metrics.length}</strong>
-              <span>{t('modeling.tab_short_metric')}</span>
-            </div>
-          </div>
-
-          <div className="modeling-tabs">
-            <button className={`modeling-tab ${activeTab === 'tables' ? 'modeling-tab--active' : ''}`} onClick={() => setActiveTab('tables')} title={t('modeling.tables_tab')}>
-              {t('modeling.tab_short_tables')}
-            </button>
-            <button className={`modeling-tab ${activeTab === 'joins' ? 'modeling-tab--active' : ''}`} onClick={() => setActiveTab('joins')} title={t('modeling.joins_tab')}>
-              {t('modeling.tab_short_rel')}
-            </button>
-            <button className={`modeling-tab ${activeTab === 'dimensions' ? 'modeling-tab--active' : ''}`} onClick={() => setActiveTab('dimensions')} title={t('modeling.dimensions_tab')}>
-              {t('modeling.tab_short_dim')}
-            </button>
-            <button className={`modeling-tab ${activeTab === 'metrics' ? 'modeling-tab--active' : ''}`} onClick={() => setActiveTab('metrics')} title={t('modeling.metrics_tab')}>
-              {t('modeling.tab_short_metric')}
-            </button>
-          </div>
-
-          <div className="modeling-tab-content">
-            {activeTab === 'tables' && (
-              <div className="modeling-join-list">
-                <h3>{t('modeling.schemas_heading')}</h3>
-                {Array.from(new Set(tables.map((tbl) => tbl.schema_name))).sort().map((schemaName) => {
-                  const isExcluded = excludedSchemas.has(schemaName)
-                  return (
-                    <div className={`modeling-join-pill ${isExcluded ? '' : 'modeling-join-pill--active'}`} key={`schema-${schemaName}`}>
-                      <div className="modeling-join-pill-header">
-                        <strong>{schemaName}</strong>
-                        <button
-                          className={isExcluded ? 'modeling-add-btn' : 'modeling-delete-btn'}
-                          onClick={() => requestSchemaToggle(schemaName, isExcluded)}
-                          title={isExcluded ? t('modeling.include_schema_again_title') : t('modeling.exclude_schema_title_short')}
-                        >
-                          {isExcluded ? '+' : '×'}
-                        </button>
-                      </div>
-                      <span className="modeling-join-meta">
-                        {isExcluded ? t('modeling.schema_excluded_status') : t('modeling.schema_included_status')}
-                      </span>
-                    </div>
-                  )
-                })}
-
-                <h3>{t('modeling.datasource_tables_heading')}</h3>
-                {tables.length === 0 ? (
-                  <p className="modeling-empty">{t('modeling.no_tables_sync')}</p>
-                ) : (
-                  includedTables
-                    .map((tbl) => {
-                      const key = tableKey(tbl.schema_name, tbl.table_name)
-                      const isOnCanvas = tableCards.some((tc) => tableKey(tc.schema_name, tc.table_name) === key)
-                      const isBase = model ? key === tableKey(model.base_schema, model.base_table) : false
-                      const impact = model ? tableImpact(tbl.schema_name, tbl.table_name) : { joins: 0, dims: 0, metrics: 0 }
-                      const inModel = isBase || impact.joins > 0 || impact.dims > 0 || impact.metrics > 0
-                      return (
-                        <div className={`modeling-join-pill ${isOnCanvas ? 'modeling-join-pill--active' : ''}`} key={tbl.id}>
-                          <div className="modeling-join-pill-header">
-                            <strong>
-                              {tbl.label || tbl.table_name}
-                              {isBase && <span className="modeling-base-badge" title={t('modeling.base_table_label')}> ★</span>}
-                            </strong>
-                            <span className="modeling-pill-actions">
-                              <button className="modeling-rename-btn" onClick={() => renameTable(tbl)} title={t('modeling.edit_display_name_title')}>✎</button>
-                              {!isBase && inModel && (
-                                <button
-                                  className="modeling-rename-btn"
-                                  onClick={() => requestMakeBase(tbl.schema_name, tbl.table_name)}
-                                  title={t('modeling.make_base_title')}
-                                >★</button>
-                              )}
-                              {isOnCanvas && !isBase && (
-                                <button
-                                  className="modeling-delete-btn"
-                                  onClick={() => requestTableRemoval(tbl.schema_name, tbl.table_name)}
-                                  title={inModel ? t('modeling.remove_from_model_title') : t('modeling.hide_from_canvas_title')}
-                                >×</button>
-                              )}
-                              {!isOnCanvas && (
-                                <button
-                                  className="modeling-add-btn"
-                                  onClick={() => toggleTableVisibility(tbl.schema_name, tbl.table_name, true)}
-                                  title={t('modeling.show_on_canvas_title')}
-                                >+</button>
-                              )}
-                              {isBase && (
-                                <button
-                                  className="modeling-delete-btn"
-                                  onClick={() => setBaseSwapOpen(true)}
-                                  title={t('modeling.change_base_title')}
-                                >×</button>
-                              )}
-                            </span>
-                          </div>
-                          <span className="modeling-join-meta">{tbl.schema_name}.{tbl.table_name}</span>
-                          <span className="modeling-join-meta">{isOnCanvas ? t('modeling.on_canvas') : t('modeling.not_visible')}</span>
-                        </div>
-                      )
-                    })
-                )}
-              </div>
-            )}
-            {activeTab === 'joins' && (
-              <div className="modeling-join-list">
-                <h3>{t('modeling.active_relationships')}</h3>
-                {joins.length === 0 ? (
-                  <p className="modeling-empty">{t('modeling.no_relationships')}</p>
-                ) : (
-                  joins.map((join) => {
-                    const isActive = highlightJoinId === join.id
-                    return (
-                      <div
-                        className={`modeling-join-pill ${isActive ? 'modeling-join-pill--active' : ''}`}
-                        key={join.id}
-                        onMouseEnter={() => setHighlightJoinId(join.id)}
-                        onMouseLeave={() => setHighlightJoinId(null)}
-                      >
-                        <div className="modeling-join-pill-header">
-                          <strong>{join.name}</strong>
-                          <button className="modeling-delete-btn" onClick={() => deleteJoin(join.id)} title={t('modeling.delete_relationship_title')}>×</button>
-                        </div>
-                        <span>{join.from_table}.{join.from_column} → {join.to_table}.{join.to_column}</span>
-                        <span className="modeling-join-meta">{join.join_type} · {join.relationship}</span>
-                      </div>
-                    )
-                  })
-                )}
-                {suggestedJoins.length > 0 && (
-                  <>
-                    <h3>{t('modeling.suggested_fk_relationships')}</h3>
-                    {suggestedJoins.map((s, idx) => (
-                      <div className="modeling-join-pill modeling-join-pill--suggested" key={idx}>
-                        <div className="modeling-join-pill-header">
-                          <strong>{s.from_table}.{s.from_column} → {s.to_table}.{s.to_column}</strong>
-                          <button className="modeling-add-btn" onClick={() => addSuggestedJoin(s)} title={t('common.add')}>+</button>
-                        </div>
-                      </div>
-                    ))}
-                  </>
-                )}
-                {inactiveJoins.length > 0 && (
-                  <>
-                    <h3>{t('modeling.inactive_joins_heading')}</h3>
-                    {inactiveJoins.map((join) => (
-                      <div className="modeling-join-pill modeling-join-pill--suggested" key={join.id}>
-                        <div className="modeling-join-pill-header">
-                          <strong>{join.name}</strong>
-                          <button className="modeling-add-btn" onClick={() => reactivateJoin(join)} title={t('modeling.reactivate_title')}>+</button>
-                        </div>
-                        <span>{join.from_table}.{join.from_column} → {join.to_table}.{join.to_column}</span>
-                      </div>
-                    ))}
-                  </>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'dimensions' && (
-              <div className="modeling-join-list">
-                <h3>{t('modeling.dimensions_tab')}</h3>
-                {dims.length === 0 ? (
-                  <p className="modeling-empty">{t('modeling.no_dimensions')}</p>
-                ) : (
-                  dims.map((dim) => (
-                    <div className="modeling-join-pill" key={dim.id}>
-                      <div className="modeling-join-pill-header">
-                        <strong>{dim.label || dim.name}</strong>
-                        <span className="modeling-pill-actions">
-                          <button className="modeling-rename-btn" onClick={() => renameDimension(dim)} title={t('modeling.edit_display_name_title')}>✎</button>
-                          <button className="modeling-delete-btn" onClick={() => deleteDimension(dim.id)} title={t('modeling.delete_dimension_title')}>×</button>
-                        </span>
-                      </div>
-                      <span>{dim.column_ref}</span>
-                      <span className="modeling-join-meta">{dim.type}</span>
-                    </div>
-                  ))
-                )}
-                {inactiveDims.length > 0 && (
-                  <>
-                    <h3>{t('modeling.inactive_dimensions_heading')}</h3>
-                    {inactiveDims.map((dim) => (
-                      <div className="modeling-join-pill modeling-join-pill--suggested" key={dim.id}>
-                        <div className="modeling-join-pill-header">
-                          <strong>{dim.label || dim.name}</strong>
-                          <button className="modeling-add-btn" onClick={() => reactivateDimension(dim)} title={t('modeling.reactivate_title')}>+</button>
-                        </div>
-                        <span>{dim.column_ref}</span>
-                      </div>
-                    ))}
-                  </>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'metrics' && (
-              <div className="modeling-join-list">
-                <div className="modeling-section-header" style={{ justifyContent: 'center' }}>
-                  <button className="btn btn-sm btn-primary" type="button" onClick={() => setAddMetricOpen(true)} disabled={!model} style={{ width: '100%' }}>
-                    {t('modeling.add_metric_btn')}
-                  </button>
-                </div>
-                {metrics.length === 0 ? (
-                  <p className="modeling-empty">{t('modeling.no_metrics')}</p>
-                ) : (
-                  metrics.map((metric) => (
-                    <div className="modeling-join-pill" key={metric.id}>
-                      <div className="modeling-join-pill-header">
-                        <strong>{metric.label || metric.name}</strong>
-                        <span className="modeling-pill-actions">
-                          <button className="modeling-rename-btn" onClick={() => renameMetric(metric)} title={t('modeling.edit_display_name_title')}>✎</button>
-                          <button className="modeling-delete-btn" onClick={() => deleteMetric(metric.id)} title={t('modeling.delete_metric_title')}>×</button>
-                        </span>
-                      </div>
-                      <span>{metric.expression}</span>
-                      <span className="modeling-join-meta">{metric.aggregation}</span>
-                    </div>
-                  ))
-                )}
-                {inactiveMetrics.length > 0 && (
-                  <>
-                    <h3>{t('modeling.inactive_metrics_heading')}</h3>
-                    {inactiveMetrics.map((metric) => (
-                      <div className="modeling-join-pill modeling-join-pill--suggested" key={metric.id}>
-                        <div className="modeling-join-pill-header">
-                          <strong>{metric.label || metric.name}</strong>
-                          <button className="modeling-add-btn" onClick={() => reactivateMetric(metric)} title={t('modeling.reactivate_title')}>+</button>
-                        </div>
-                        <span>{metric.expression}</span>
-                      </div>
-                    ))}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-          </div>
-        </aside>
+        <ModelingPalette
+          open={paletteOpen}
+          onToggle={() => setPaletteOpen((value) => !value)}
+          model={model}
+          usedTableCount={usedTableCount}
+          joins={joins}
+          inactiveJoins={inactiveJoins}
+          dims={dims}
+          inactiveDims={inactiveDims}
+          metrics={metrics}
+          inactiveMetrics={inactiveMetrics}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          tables={tables}
+          includedTables={includedTables}
+          excludedSchemas={excludedSchemas}
+          tableCards={tableCards}
+          tableImpact={tableImpact}
+          suggestedJoins={suggestedJoins}
+          highlightJoinId={highlightJoinId}
+          onHighlightJoin={setHighlightJoinId}
+          onSchemaToggle={requestSchemaToggle}
+          onRenameTable={renameTable}
+          onMakeBase={requestMakeBase}
+          onRemoveTable={requestTableRemoval}
+          onToggleTableVisibility={toggleTableVisibility}
+          onOpenBaseSwap={() => setBaseSwapOpen(true)}
+          onDeleteJoin={deleteJoin}
+          onAddSuggestedJoin={addSuggestedJoin}
+          onReactivateJoin={reactivateJoin}
+          onRenameDimension={renameDimension}
+          onDeleteDimension={deleteDimension}
+          onReactivateDimension={reactivateDimension}
+          onOpenAddMetric={() => setAddMetricOpen(true)}
+          onRenameMetric={renameMetric}
+          onDeleteMetric={deleteMetric}
+          onReactivateMetric={reactivateMetric}
+          t={t}
+        />
 
         <ModelingCanvas
           canvas={canvas}
@@ -1176,82 +753,25 @@ export default function Modeling() {
           highlightedJoinColumns={highlightedJoinColumns}
           t={t}
         />
-        <aside className={`modeling-editor ${editorOpen ? '' : 'modeling-side--collapsed'}`} aria-label={t('modeling.relationship_editor_aria')}>
-          <button
-            type="button"
-            className="modeling-side-toggle modeling-side-toggle--right"
-            onClick={() => setEditorOpen((v) => !v)}
-            title={editorOpen ? t('modeling.collapse_panel') : t('modeling.expand_panel')}
-          >
-            {editorOpen ? '›' : '‹'}
-          </button>
-          <div className="modeling-side-body">
-          <div>
-            <span className="modeling-kicker">{t('modeling.manual_relationship')}</span>
-            <h2>{t('modeling.manual_title')}</h2>
-            <p>{t('modeling.manual_desc')}</p>
-          </div>
-          <div className="form-group">
-            <label>{t('modeling.source_table')}</label>
-            <Select name="fromTable" value={joinForm.fromTable} onChange={(value) => updateJoinForm({ fromTable: value })} placeholder={t('modeling.table_placeholder')} header={t('modeling.source_table')} options={tableOptions} />
-          </div>
-          <div className="form-group">
-            <label>{t('modeling.source_column')}</label>
-            <Select
-              name="fromColumn"
-              value={fromColumnValue}
-              onChange={(value) => updateJoinForm({ fromColumn: value })}
-              placeholder={fromColumns.length === 0 ? t('modeling.no_columns') : t('modeling.column_placeholder')}
-              header={t('modeling.source_column')}
-              options={fromColumnOptions}
-              disabled={!joinForm.fromTable || fromColumns.length === 0}
-            />
-          </div>
-          <div className="form-group">
-            <label>{t('modeling.target_table')}</label>
-            <Select name="toTable" value={joinForm.toTable} onChange={(value) => updateJoinForm({ toTable: value })} placeholder={t('modeling.table_placeholder')} header={t('modeling.target_table')} options={tableOptions} />
-          </div>
-          <div className="form-group">
-            <label>{t('modeling.target_column')}</label>
-            <Select
-              name="toColumn"
-              value={toColumnValue}
-              onChange={(value) => updateJoinForm({ toColumn: value })}
-              placeholder={toColumns.length === 0 ? t('modeling.no_compatible_columns') : t('modeling.column_placeholder')}
-              header={t('modeling.target_column')}
-              options={toColumnOptions}
-              disabled={!joinForm.toTable || toColumns.length === 0}
-            />
-            {selectedFromColumn && (
-              <small className="modeling-type-hint">
-                {t('modeling.compatible_columns_hint', { type: formatDataType(t, selectedFromColumn.data_type) })}
-              </small>
-            )}
-          </div>
-          <div className="modeling-editor-grid">
-            <div className="form-group">
-              <label>{t('modeling.join_type_label')}</label>
-              <select value={joinForm.joinType} onChange={(event) => updateJoinForm({ joinType: event.target.value as JoinForm['joinType'] })}>
-                <option value="LEFT">LEFT</option>
-                <option value="INNER">INNER</option>
-                <option value="RIGHT">RIGHT</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>{t('modeling.cardinality')}</label>
-              <select value={joinForm.relationship} onChange={(event) => updateJoinForm({ relationship: event.target.value as JoinForm['relationship'] })}>
-                <option value="many_to_one">many_to_one</option>
-                <option value="one_to_many">one_to_many</option>
-                <option value="one_to_one">one_to_one</option>
-                <option value="many_to_many">many_to_many</option>
-              </select>
-            </div>
-          </div>
-          <button className="btn btn-primary" type="button" onClick={saveJoin} disabled={!canSaveJoin || savingJoin || loading}>
-            {savingJoin ? t('common.saving') : t('modeling.add_relationship')}
-          </button>
-          </div>
-        </aside>
+        <JoinEditor
+          open={editorOpen}
+          onToggle={() => setEditorOpen((value) => !value)}
+          joinForm={joinForm}
+          onChange={updateJoinForm}
+          tableOptions={tableOptions}
+          fromColumns={fromColumns}
+          toColumns={toColumns}
+          fromColumnOptions={fromColumnOptions}
+          toColumnOptions={toColumnOptions}
+          fromColumnValue={fromColumnValue}
+          toColumnValue={toColumnValue}
+          selectedFromColumn={selectedFromColumn}
+          canSave={canSaveJoin}
+          saving={savingJoin}
+          loading={loading}
+          onSave={saveJoin}
+          t={t}
+        />
       </section>
         </>
       )}
