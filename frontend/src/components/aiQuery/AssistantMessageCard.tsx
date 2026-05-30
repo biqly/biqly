@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useT } from '../../i18n'
 import { formatResultCell } from '../../utils/resultCellFormat'
 import { buildPivotTable } from '../../utils/pivotTable'
@@ -11,7 +12,7 @@ import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Modal } from '../ui/Modal'
 import { Collapsible, ConfidenceBar, CostBadge, PromptStatsPanel, LogicalQueryMetaBadges, CandidateComparisonPanel, ClarificationCard, TableRoutingViz, warningBodyKey } from './routingViz'
 import { FeedbackSection } from './FeedbackSection'
-import type { AssistantMessageCardProps, SampleData } from './types'
+import type { AssistantMessageCardProps, SampleData, FeedbackCatKey } from './types'
 import { AI_QUERY_TIMEOUT_MS } from './types'
 
 function SampleDataModal({ open, onClose, tableName, datasourceId, get }: { open: boolean; onClose: () => void; tableName: string; datasourceId: string; get: <T>(url: string) => Promise<T | null> }) {
@@ -63,6 +64,7 @@ export function AssistantMessageCard({
   onFilterByValue,
   onCellDrillDown,
 }: AssistantMessageCardProps) {
+  const navigate = useNavigate()
   const result = message.ai_response
   if (!result) return null
 
@@ -128,8 +130,8 @@ export function AssistantMessageCard({
       } else {
         setError(t('ai_query.err_execute_query'))
       }
-    } catch (err: any) {
-      setError(err?.message || t('ai_query.err_execution_failed'))
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t('ai_query.err_execution_failed'))
     } finally {
       setLoading(false)
     }
@@ -146,7 +148,7 @@ export function AssistantMessageCard({
     } catch { /* noop */ }
   }
 
-  const submitNegativeFeedback = async (categories: string[], text: string) => {
+  const submitNegativeFeedback = async (categories: FeedbackCatKey[], text: string) => {
     try {
       await postData('/api/ai/feedback', {
         question: userQuestion,
@@ -173,8 +175,7 @@ export function AssistantMessageCard({
     params.set('model_id', String(modelId))
 
     const path = `/saved?${params.toString()}`
-    window.history.pushState(null, '', path)
-    window.dispatchEvent(new PopStateEvent('popstate'))
+    navigate(path)
   }
 
   const chartData = useMemo(() => rowsToChartData(result.result?.rows), [result.result?.rows])

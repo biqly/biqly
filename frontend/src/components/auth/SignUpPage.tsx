@@ -2,7 +2,7 @@ import { useCallback, useState, type SubmitEvent } from 'react'
 import abiLogo from '../../assets/abi-logo.png'
 import { useT, useLocale } from '../../i18n'
 import { useAuth } from './AuthProvider'
-import { globalNavigate } from './AuthGuard'
+import { useNavigate } from 'react-router-dom'
 import PasswordStrengthMeter from './PasswordStrengthMeter'
 import { Modal } from '../ui/Modal'
 import {
@@ -13,6 +13,7 @@ import {
 } from './PolicyContent'
 
 export default function SignUpPage() {
+  const navigate = useNavigate()
   const t = useT()
   const [locale] = useLocale()
   const { register } = useAuth()
@@ -56,9 +57,9 @@ export default function SignUpPage() {
 
     try {
       await register(email, password, displayName)
-      globalNavigate('/datasources')
-    } catch (err: any) {
-      setError(err.message || 'Registration failed')
+      navigate('/datasources')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Registration failed')
     } finally {
       setLoading(false)
     }
@@ -74,7 +75,7 @@ export default function SignUpPage() {
           <h1 className="auth-title">{t('auth.title_signup')}</h1>
           <p className="auth-subtitle">
             {t('auth.already_account')}{' '}
-            <a href="/auth/signin" onClick={(e) => { e.preventDefault(); globalNavigate('/auth/signin'); }}>
+            <a href="/auth/signin" onClick={(e) => { e.preventDefault(); navigate('/auth/signin'); }}>
               {t('auth.btn_signin')}
             </a>
           </p>

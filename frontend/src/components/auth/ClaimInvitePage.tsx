@@ -3,10 +3,11 @@ import abiLogo from '../../assets/abi-logo.png'
 import { apiGetInvitation, apiClaimInvitation } from '../../api/auth'
 import { useT } from '../../i18n'
 import { useAuth } from './AuthProvider'
-import { globalNavigate } from './AuthGuard'
+import { useNavigate } from 'react-router-dom'
 import PasswordStrengthMeter from './PasswordStrengthMeter'
 
 export default function ClaimInvitePage() {
+  const navigate = useNavigate()
   const t = useT()
   const { loginWithTokens } = useAuth()
   const [token, setToken] = useState('')
@@ -41,8 +42,8 @@ export default function ClaimInvitePage() {
         const invite = await apiGetInvitation(tok)
         setEmail(invite.email)
         setRoleName(invite.role_name)
-      } catch (err: any) {
-        setError(err.message || t('auth.invite_invalid_token'))
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : t('auth.invite_invalid_token'))
       } finally {
         setVerifying(false)
       }
@@ -74,13 +75,13 @@ export default function ClaimInvitePage() {
       setTimeout(async () => {
         try {
           await loginWithTokens(resp.access_token, resp.refresh_token, resp.roles)
-          globalNavigate('/')
+          navigate('/')
         } catch {
-          globalNavigate('/auth/signin')
+          navigate('/auth/signin')
         }
       }, 2000)
-    } catch (err: any) {
-      setError(err.message || 'Failed to complete account setup')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to complete account setup')
       setLoading(false)
     }
   }
@@ -117,7 +118,7 @@ export default function ClaimInvitePage() {
             <button
               type="button"
               className="auth-btn"
-              onClick={() => globalNavigate('/auth/signin')}
+              onClick={() => navigate('/auth/signin')}
             >
               {t('auth.back_to_login')}
             </button>

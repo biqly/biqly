@@ -1,12 +1,14 @@
 import React, { useState } from 'react'
 import { apiInviteUser } from '../../../api/auth'
 
+import type { TranslationKey } from '../../../i18n'
+
 interface InviteUserModalProps {
   open: boolean
   onClose: () => void
   token: string
   onSuccess: () => void
-  t: any
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string
 }
 
 export function InviteUserModal({
@@ -32,8 +34,8 @@ export function InviteUserModal({
       await apiInviteUser(token, inviteEmail, inviteRole)
       setInviteSuccess(true)
       onSuccess()
-    } catch (err: any) {
-      setInviteError(err.message || 'Invitation failed')
+    } catch (err: unknown) {
+      setInviteError(err instanceof Error ? err.message : 'Invitation failed')
     } finally {
       setInviteLoading(false)
     }

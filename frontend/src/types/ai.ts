@@ -304,9 +304,25 @@ export interface WindowSpec {
   frame?: string
 }
 
+export type FilterOperator =
+  | 'eq'
+  | 'neq'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte'
+  | 'in'
+  | 'not_in'
+  | 'contains'
+  | 'starts_with'
+  | 'ends_with'
+  | 'between'
+  | 'is_null'
+  | 'is_not_null'
+
 export interface FilterClause {
   field: string
-  operator: string
+  operator: FilterOperator
   value: unknown
   case_sensitive?: boolean
   subquery?: SubqueryFilter

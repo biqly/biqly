@@ -3,9 +3,10 @@ import abiLogo from '../../assets/abi-logo.png'
 import { apiOAuthExchange } from '../../api/auth'
 import { useT } from '../../i18n'
 import { useAuth } from './AuthProvider'
-import { globalNavigate } from './AuthGuard'
+import { useNavigate } from 'react-router-dom'
 
 export default function OAuthCallback() {
+  const navigate = useNavigate()
   const t = useT()
   const { loginWithTokens } = useAuth()
   const [error, setError] = useState<string | null>(null)
@@ -25,7 +26,7 @@ export default function OAuthCallback() {
       if (!code) {
         setError(t('auth.oauth_failed'))
         setTimeout(() => {
-          globalNavigate('/auth/signin')
+          navigate('/auth/signin')
         }, 3000)
         return
       }
@@ -37,16 +38,16 @@ export default function OAuthCallback() {
       try {
         const resp = await apiOAuthExchange(code)
         if (resp.mfa_required && resp.mfa_token) {
-          globalNavigate(`/auth/signin?mfa_token=${encodeURIComponent(resp.mfa_token)}`)
+          navigate(`/auth/signin?mfa_token=${encodeURIComponent(resp.mfa_token)}`)
           return
         }
         await loginWithTokens(resp.access_token, resp.refresh_token, resp.roles ?? [])
-        globalNavigate('/datasources')
+        navigate('/datasources')
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : t('auth.oauth_failed')
         setError(message)
         setTimeout(() => {
-          globalNavigate('/auth/signin')
+          navigate('/auth/signin')
         }, 3000)
       }
     }
@@ -72,7 +73,7 @@ export default function OAuthCallback() {
             <button
               type="button"
               className="auth-btn"
-              onClick={() => globalNavigate('/auth/signin')}
+              onClick={() => navigate('/auth/signin')}
             >
               {t('auth.back_to_login')}
             </button>

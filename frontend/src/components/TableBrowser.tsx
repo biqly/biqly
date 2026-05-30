@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type DragEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import '../styles/tableBrowser.css'
 import { useApi } from '../hooks/useApi'
 import { useLocale, useT } from '../i18n'
@@ -231,6 +232,7 @@ function reorderColumnNames(order: string[], source: string, target: string): st
 }
 
 export default function TableBrowser() {
+  const navigate = useNavigate()
   const t = useT()
   const [locale] = useLocale()
   const localeTag = localeNumberTag(locale)
@@ -862,8 +864,7 @@ export default function TableBrowser() {
               if (dsId) params.set('ds', dsId)
               if (modelId) params.set('model', modelId)
               const qs = params.toString()
-              window.history.pushState(null, '', qs ? `/modeling?${qs}` : '/modeling')
-              window.dispatchEvent(new PopStateEvent('popstate'))
+              navigate(qs ? `/modeling?${qs}` : '/modeling')
             }}
           />
 

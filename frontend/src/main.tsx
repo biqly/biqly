@@ -1,5 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import AIJobTracker from './components/AIJobTracker'
 import { AuthProvider } from './components/auth/AuthProvider'
@@ -15,10 +16,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <ThemeProvider>
         <ConfirmProvider>
           <AIJobsProvider>
-            <AuthProvider>
-              <App />
-              <AIJobTracker />
-            </AuthProvider>
+            <BrowserRouter>
+              <AuthProvider>
+                <App />
+                <AIJobTracker />
+              </AuthProvider>
+            </BrowserRouter>
           </AIJobsProvider>
         </ConfirmProvider>
       </ThemeProvider>

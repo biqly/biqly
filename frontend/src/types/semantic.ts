@@ -1,7 +1,7 @@
-export interface TableRow {
+import type { Table } from './metadata'
+
+export interface TableRow extends Omit<Table, 'columns' | 'table_type' | 'description' | 'label'> {
   id: string
-  schema_name: string
-  table_name: string
   table_type: string
   description: string | null
   label?: string | null
@@ -66,8 +66,8 @@ export interface SemanticJoin {
   to_schema?: string
   to_table: string
   to_column: string
-  join_type: string
-  relationship: string
+  join_type: 'LEFT' | 'INNER' | 'RIGHT'
+  relationship: 'many_to_one' | 'one_to_many' | 'one_to_one' | 'many_to_many'
   is_active?: boolean
 }
 

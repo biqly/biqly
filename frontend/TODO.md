@@ -513,22 +513,22 @@ BI araclari kompleks. Onboarding flow:
 
 ### Faz 5: Router (1 hafta)
 
-- [ ] `react-router-dom` entegrasyonu
+- [x] `react-router-dom` entegrasyonu
 - [x] Lazy loading route'lar
-- [ ] `useNavigate()` hook ile prop drilling bitirmeli
-- [ ] Auth route'lari tek yerde tanimlanmali (su an 3 yerde)
-- [ ] Route params destegi (`/model/:id`)
+- [x] `useNavigate()` hook ile prop drilling bitirmeli
+- [x] Auth route'lari tek yerde tanimlanmali (su an 3 yerde)
+- [x] Route params destegi (`/model/:id`)
 - [x] Query string parsing
 
 ### Faz 6: Tip Guvenligi (1 hafta)
 
-- [ ] 22 adet `catch (err: any)` → `catch (err: unknown)`
-- [ ] `aiQuery/types.ts` → 8 `any` prop tipi duzeltilmeli
-- [ ] `FilterClause.operator` → union type (14 operator)
-- [ ] `SemanticJoin.relationship` → union type
-- [ ] `SemanticJoin.join_type` → `'LEFT' | 'INNER' | 'RIGHT'`
-- [ ] `Relation.relation_type` → backend ile uyumlu (underscore format)
-- [ ] Table/TableRow/TableOption → `Pick`/`Omit` ile turetilmeli
+- [x] 22 adet `catch (err: any)` → `catch (err: unknown)`
+- [x] `aiQuery/types.ts` → 8 `any` prop tipi duzeltilmeli
+- [x] `FilterClause.operator` → union type (14 operator)
+- [x] `SemanticJoin.relationship` → union type
+- [x] `SemanticJoin.join_type` → `'LEFT' | 'INNER' | 'RIGHT'`
+- [x] `Relation.relation_type` → backend ile uyumlu (underscore format)
+- [x] Table/TableRow/TableOption → `Pick`/`Omit` ile turetilmeli
 
 ### Faz 7: Performans & Memory (1 hafta)
 

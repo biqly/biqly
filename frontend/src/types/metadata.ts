@@ -39,7 +39,7 @@ export interface Relation {
   from_column: string
   to_table: string
   to_column: string
-  relation_type: 'one-to-many' | 'many-to-one' | 'one-to-one' | 'many-to-many'
+  relation_type: 'one_to_many' | 'many_to_one' | 'one_to_one' | 'many_to_many'
 }
 
 export interface DescribeResult {

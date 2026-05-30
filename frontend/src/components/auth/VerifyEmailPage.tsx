@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react'
 import abiLogo from '../../assets/abi-logo.png'
 import { apiVerifyEmail } from '../../api/auth'
 import { useT } from '../../i18n'
-import { globalNavigate } from './AuthGuard'
+import { useNavigate } from 'react-router-dom'
 
 export default function VerifyEmailPage() {
+  const navigate = useNavigate()
   const t = useT()
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying')
   const [error, setError] = useState<string | null>(null)
@@ -24,11 +25,11 @@ export default function VerifyEmailPage() {
         await apiVerifyEmail(token)
         setStatus('success')
         setTimeout(() => {
-          globalNavigate('/auth/signin')
+          navigate('/auth/signin')
         }, 3000)
-      } catch (err: any) {
+      } catch (err: unknown) {
         setStatus('error')
-        setError(err.message || t('auth.verify_failed'))
+        setError(err instanceof Error ? err.message : t('auth.verify_failed'))
       }
     }
 
@@ -66,7 +67,7 @@ export default function VerifyEmailPage() {
             <button
               type="button"
               className="auth-btn"
-              onClick={() => globalNavigate('/auth/signin')}
+              onClick={() => navigate('/auth/signin')}
             >
               {t('auth.back_to_login')}
             </button>

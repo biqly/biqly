@@ -1,10 +1,17 @@
 import { useEffect, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from './AuthProvider'
 
+let navigateRef: ((path: string) => void) | null = null
+
 export function globalNavigate(path: string) {
-  if (path === window.location.pathname) return
-  window.history.pushState(null, '', path)
-  window.dispatchEvent(new PopStateEvent('popstate'))
+  if (navigateRef) {
+    navigateRef(path)
+  } else {
+    if (path === window.location.pathname) return
+    window.history.pushState(null, '', path)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }
 }
 
 interface AuthGuardProps {
@@ -13,12 +20,20 @@ interface AuthGuardProps {
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const { user, loading } = useAuth()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    navigateRef = navigate
+    return () => {
+      navigateRef = null
+    }
+  }, [navigate])
 
   useEffect(() => {
     if (!loading && !user) {
-      globalNavigate('/auth/signin')
+      navigate('/auth/signin')
     }
-  }, [user, loading])
+  }, [user, loading, navigate])
 
   if (loading) {
     return (

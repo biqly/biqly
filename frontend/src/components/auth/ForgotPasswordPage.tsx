@@ -2,9 +2,10 @@ import { useState, type SubmitEvent } from 'react'
 import abiLogo from '../../assets/abi-logo.png'
 import { apiForgotPassword } from '../../api/auth'
 import { useT } from '../../i18n'
-import { globalNavigate } from './AuthGuard'
+import { useNavigate } from 'react-router-dom'
 
 export default function ForgotPasswordPage() {
+  const navigate = useNavigate()
   const t = useT()
   const [email, setEmail] = useState('')
   const [success, setSuccess] = useState(false)
@@ -22,8 +23,8 @@ export default function ForgotPasswordPage() {
     try {
       await apiForgotPassword(email)
       setSuccess(true)
-    } catch (err: any) {
-      setError(err.message || 'Failed to send reset link')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to send reset link')
     } finally {
       setLoading(false)
     }
@@ -38,7 +39,7 @@ export default function ForgotPasswordPage() {
           </div>
           <h1 className="auth-title">{t('auth.title_forgot')}</h1>
           <p className="auth-subtitle">
-            <a href="/auth/signin" onClick={(e) => { e.preventDefault(); globalNavigate('/auth/signin'); }}>
+            <a href="/auth/signin" onClick={(e) => { e.preventDefault(); navigate('/auth/signin'); }}>
               {t('auth.back_to_login')}
             </a>
           </p>

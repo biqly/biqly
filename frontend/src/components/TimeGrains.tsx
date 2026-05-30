@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import { useT } from '../i18n'
 import { ErrorAlert } from './ui/ErrorAlert'
@@ -12,11 +13,8 @@ interface TimeGrain {
   updated_at?: string
 }
 
-interface TimeGrainsProps {
-  navigate?: (path: string) => void
-}
-
-export default function TimeGrains({ navigate }: TimeGrainsProps) {
+export default function TimeGrains() {
+  const navigate = useNavigate()
   const t = useT()
   const { get, putData, loading, error } = useApi()
   const [grains, setGrains] = useState<TimeGrain[]>([])
@@ -99,7 +97,7 @@ export default function TimeGrains({ navigate }: TimeGrainsProps) {
             <button
               type="button"
               className="btn-back"
-              onClick={() => navigate?.('/settings')}
+              onClick={() => navigate('/settings')}
             >
               ← {t('time_grains.back_to_settings') || 'Back to Settings'}
             </button>

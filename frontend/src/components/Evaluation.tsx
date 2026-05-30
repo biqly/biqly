@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import '../styles/evaluation.css'
 import { useAdminApi } from '../hooks/useApi'
 import { useQueryParam } from '../hooks/useQueryParam'
@@ -96,6 +97,7 @@ const DEMO_DATA: EvalRunResponse = {
 // ─── Main Component ────────────────────────────────────────────────
 
 export default function Evaluation() {
+  const navigate = useNavigate()
   const t = useT()
   const { locale } = useI18n()
   const localeTag = localeLanguageTag(locale)
@@ -241,8 +243,7 @@ export default function Evaluation() {
             href="/settings"
             onClick={(e) => {
               e.preventDefault()
-              window.history.pushState(null, '', '/settings')
-              window.dispatchEvent(new PopStateEvent('popstate'))
+              navigate('/settings')
             }}
           >
             {t('evaluation.admin_key_open_settings')}

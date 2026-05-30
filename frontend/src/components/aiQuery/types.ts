@@ -1,14 +1,9 @@
-import type { TranslationKey } from '../../i18n'
-import type { AIRuntimeSettings, AIQueryResponse, ConversationMessage } from '../../types/ai'
-import type { Datasource } from '../../types/metadata'
+import type { TranslationKey, Locale } from '../../i18n'
+import type { AIRuntimeSettings, AIQueryResponse, ConversationMessage, Conversation } from '../../types/ai'
+import type { Datasource, Table } from '../../types/metadata'
+import type { RequestOptions } from '../../api/apiClient'
 
-export interface TableOption {
-  schema_name: string
-  table_name: string
-  table_type?: string
-  description?: string | null
-  label?: string
-}
+export type TableOption = Omit<Table, 'columns'>
 
 export interface SampleColumn {
   name: string
@@ -42,10 +37,10 @@ export interface AssistantMessageCardProps {
   aiRuntime: AIRuntimeSettings | null
   userQuestion: string
   get: <T>(url: string) => Promise<T | null>
-  postData: <T>(url: string, body: any, options?: any) => Promise<T | null>
+  postData: <T>(url: string, body: unknown, options?: RequestOptions) => Promise<T | null>
   updateMessageResponse: (conversationId: string, messageIndex: number, aiResponse: AIQueryResponse) => void
-  t: any
-  localeNumberTag: any
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string
+  localeNumberTag: (locale: Locale) => string
   localeTag: string
   onSelectClarification: (option: string) => void
   onSkipClarification: () => void
@@ -54,7 +49,7 @@ export interface AssistantMessageCardProps {
 }
 
 export interface RoutingPanelProps {
-  t: any
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string
   aiRuntime: AIRuntimeSettings | null
   aiRuntimeErr: string | null
   datasources: Datasource[]
@@ -84,10 +79,10 @@ export interface RoutingPanelProps {
 }
 
 export interface ChatPanelProps {
-  t: any
-  localeNumberTag: any
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string
+  localeNumberTag: (locale: Locale) => string
   localeTag: string
-  activeConversation: any
+  activeConversation: Conversation | null | undefined
   activeConversationId: string | null | undefined
   datasourceId: string
   aiRuntime: AIRuntimeSettings | null
@@ -103,6 +98,6 @@ export interface ChatPanelProps {
   onSendQuery: (q: string, execute: boolean) => void
   onAbort: () => void
   get: <T>(url: string) => Promise<T | null>
-  postData: <T>(url: string, body: any, options?: any) => Promise<T | null>
+  postData: <T>(url: string, body: unknown, options?: RequestOptions) => Promise<T | null>
   updateMessageResponse: (conversationId: string, messageIndex: number, aiResponse: AIQueryResponse) => void
 }

@@ -2,10 +2,11 @@ import { useCallback, useEffect, useState, type SubmitEvent } from 'react'
 import abiLogo from '../../assets/abi-logo.png'
 import { apiResetPassword } from '../../api/auth'
 import { useT } from '../../i18n'
-import { globalNavigate } from './AuthGuard'
+import { useNavigate } from 'react-router-dom'
 import PasswordStrengthMeter from './PasswordStrengthMeter'
 
 export default function ResetPasswordPage() {
+  const navigate = useNavigate()
   const t = useT()
   const [token, setToken] = useState('')
   const [password, setPassword] = useState('')
@@ -51,10 +52,10 @@ export default function ResetPasswordPage() {
       await apiResetPassword(token, password)
       setSuccess(true)
       setTimeout(() => {
-        globalNavigate('/auth/signin')
+        navigate('/auth/signin')
       }, 3000)
-    } catch (err: any) {
-      setError(err.message || t('auth.reset_failed'))
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t('auth.reset_failed'))
     } finally {
       setLoading(false)
     }
@@ -69,7 +70,7 @@ export default function ResetPasswordPage() {
           </div>
           <h1 className="auth-title">{t('auth.title_reset')}</h1>
           <p className="auth-subtitle">
-            <a href="/auth/signin" onClick={(e) => { e.preventDefault(); globalNavigate('/auth/signin'); }}>
+            <a href="/auth/signin" onClick={(e) => { e.preventDefault(); navigate('/auth/signin'); }}>
               {t('auth.back_to_login')}
             </a>
           </p>

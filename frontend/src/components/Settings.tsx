@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useT, useLocale, localeLanguageTag } from '../i18n'
 import { useAuth } from './auth/AuthProvider'
 import {
@@ -22,11 +23,8 @@ import { OTPCodeInput } from './settings/OTPCodeInput'
 import { PasskeyTable } from './settings/PasskeyTable'
 import { RecoveryCodesDisplay } from './settings/RecoveryCodesDisplay'
 
-interface SettingsProps {
-  navigate?: (path: string) => void
-}
-
-export default function Settings({ navigate }: SettingsProps) {
+export default function Settings() {
+  const navigate = useNavigate()
   const t = useT()
   const [locale] = useLocale()
   const { accessToken } = useAuth()
@@ -78,7 +76,7 @@ export default function Settings({ navigate }: SettingsProps) {
   }, [registrationError])
 
   const goTo = (path: string) => {
-    navigate?.(path)
+    navigate(path)
   }
 
   const fetchPasskeys = async () => {
@@ -88,8 +86,8 @@ export default function Settings({ navigate }: SettingsProps) {
     try {
       const data = await apiGetPasskeys(accessToken)
       setPasskeys(data || [])
-    } catch (err: any) {
-      setError(err.message || 'Failed to load passkeys')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load passkeys')
     } finally {
       setLoading(false)
     }
@@ -100,7 +98,7 @@ export default function Settings({ navigate }: SettingsProps) {
     try {
       const status = await apiMFAStatus(accessToken)
       setMfaStatus(status)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load MFA status', err)
     }
   }
@@ -120,8 +118,8 @@ export default function Settings({ navigate }: SettingsProps) {
       setSuccessMessage(t('passkeys.success_delete'))
       setDeleteTarget(null)
       await fetchPasskeys()
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete passkey')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to delete passkey')
     } finally {
       setDeleting(false)
     }
@@ -164,8 +162,8 @@ export default function Settings({ navigate }: SettingsProps) {
       setSuccessMessage(t('passkeys.success_rename'))
       setRenameTarget(null)
       await fetchPasskeys()
-    } catch (err: any) {
-      setError(err.message || 'Failed to rename passkey')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to rename passkey')
     } finally {
       setRenaming(false)
     }
@@ -186,8 +184,8 @@ export default function Settings({ navigate }: SettingsProps) {
       setMfaQrCode(qrDataUrl)
       
       setMfaEnrollOpen(true)
-    } catch (err: any) {
-      setError(err.message || 'MFA enrollment failed')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'MFA enrollment failed')
     }
   }
 
@@ -201,8 +199,8 @@ export default function Settings({ navigate }: SettingsProps) {
       setSuccessMessage(t('mfa.success_enabled'))
       setMfaShowRecovery(true)
       await fetchMFAStatus()
-    } catch (err: any) {
-      setError(err.message || 'MFA verification failed')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'MFA verification failed')
     } finally {
       setMfaVerifying(false)
     }
@@ -221,8 +219,8 @@ export default function Settings({ navigate }: SettingsProps) {
       setMfaDisableCode('')
       setMfaNewRecoveryCodes(null)
       await fetchMFAStatus()
-    } catch (err: any) {
-      setError(err.message || 'Failed to disable MFA')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to disable MFA')
     } finally {
       setMfaDisabling(false)
     }
@@ -240,8 +238,8 @@ export default function Settings({ navigate }: SettingsProps) {
       setSuccessMessage(t('mfa.success_regenerate'))
       setMfaRegenOpen(false)
       setMfaRegenCode('')
-    } catch (err: any) {
-      setError(err.message || 'Failed to regenerate recovery codes')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to regenerate recovery codes')
     } finally {
       setMfaRegening(false)
     }

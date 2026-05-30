@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useState, type ComponentType, type LazyExoticComponent, type MouseEvent, type ReactNode } from 'react'
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { EmptyState } from './components/ui/EmptyState'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { LanguageSwitcher } from './components/ui/LanguageSwitcher'
@@ -28,7 +29,7 @@ const VerifyEmailPage = lazy(() => import('./components/auth/VerifyEmailPage'))
 const OAuthCallback = lazy(() => import('./components/auth/OAuthCallback'))
 const ClaimInvitePage = lazy(() => import('./components/auth/ClaimInvitePage'))
 
-import { AuthGuard, globalNavigate } from './components/auth/AuthGuard'
+import { AuthGuard } from './components/auth/AuthGuard'
 import { useAuth } from './components/auth/AuthProvider'
 import { WorkspaceSelector } from './components/workspaces/WorkspaceSelector'
 import './styles/sidebar.css'
@@ -313,15 +314,21 @@ const routeDefs: AppRouteDef[] = [
 
 const DEFAULT_PATH = routeDefs[0]!.path
 
-const initialPath = () => {
-  const { pathname } = window.location
-  if (pathname === '/') return DEFAULT_PATH
-  const def = routeDefs.find((r) => r.path === pathname)
-  return def?.path ?? pathname
+const AuthLoading = () => {
+  const t = useT()
+  return (
+    <div className="auth-page">
+      <div className="auth-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+        <div className="spinner" style={{ width: '32px', height: '32px', borderTopColor: '#6366f1' }}></div>
+      </div>
+    </div>
+  )
 }
 
 function App() {
   const t = useT()
+  const location = useLocation()
+  const navigate = useNavigate()
   const { user, accessToken, logout, roles } = useAuth()
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
   const isAdmin = roles.some((role) => role === 'super_admin' || role === 'admin')
@@ -378,18 +385,17 @@ function App() {
     }
     return out
   }, [routes, t, isAdmin])
-  const findRoute = (pathname: string) => routes.find((route) => route.path === pathname)
 
-  const [activePath, setActivePath] = useState(initialPath)
+  const activePath = location.pathname
+  const activeRoute = useMemo(() => {
+    return routes.find((route) => {
+      if (route.path === activePath) return true
+      if (route.path === '/modeling' && (activePath.startsWith('/modeling/') || activePath.startsWith('/model/'))) return true
+      return false
+    })
+  }, [routes, activePath])
+
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
-  const activeRoute = findRoute(activePath)
-  const ActiveComponent = activeRoute?.component
-
-  useEffect(() => {
-    if (window.location.pathname === '/') {
-      window.history.replaceState(null, '', DEFAULT_PATH)
-    }
-  }, [])
 
   useEffect(() => {
     if (!mobileNavOpen) return
@@ -403,12 +409,6 @@ function App() {
       document.body.classList.remove('app-shell--nav-open')
     }
   }, [mobileNavOpen])
-
-  useEffect(() => {
-    const handlePopState = () => setActivePath(initialPath())
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
-  }, [])
 
   useEffect(() => {
     if (activeRoute) {
@@ -432,13 +432,6 @@ function App() {
     }
   }, [activeRoute, activePath, t])
 
-  const navigate = (path: string) => {
-    if (path === window.location.pathname) return
-    window.history.pushState(null, '', path)
-    setActivePath(path)
-    window.scrollTo({ top: 0, behavior: 'auto' })
-  }
-
   const handleNavClick = (event: MouseEvent<HTMLAnchorElement>, path: string) => {
     if (
       event.defaultPrevented ||
@@ -460,169 +453,210 @@ function App() {
     setMobileNavOpen(false)
   }
 
-  const isAuthPath = activePath.startsWith('/auth/')
-
-  if (isAuthPath) {
-    let AuthComponent = null
-    if (activePath === '/auth/signin') AuthComponent = <SignInPage />
-    else if (activePath === '/auth/signup') AuthComponent = <SignUpPage />
-    else if (activePath === '/auth/forgot-password') AuthComponent = <ForgotPasswordPage />
-    else if (activePath === '/auth/reset-password') AuthComponent = <ResetPasswordPage />
-    else if (activePath === '/auth/verify-email') AuthComponent = <VerifyEmailPage />
-    else if (activePath === '/auth/claim-invite') AuthComponent = <ClaimInvitePage />
-    else if (activePath === '/auth/callback') AuthComponent = <OAuthCallback />
-
-    return (
-      <Suspense fallback={
-        <div className="auth-page">
-          <div className="auth-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-            <div className="spinner" style={{ width: '32px', height: '32px', borderTopColor: '#6366f1' }}></div>
-          </div>
-        </div>
-      }>
-        {AuthComponent}
-      </Suspense>
-    )
-  }
-
   return (
-    <AuthGuard>
-      <div className={`app-shell${mobileNavOpen ? ' app-shell--nav-open' : ''}`}>
-      <a className="skip-link" href="#main-content">
-        {t('common.skip_to_content')}
-      </a>
+    <Routes>
+      <Route path="/auth/signin" element={<Suspense fallback={<AuthLoading />}><SignInPage /></Suspense>} />
+      <Route path="/auth/signup" element={<Suspense fallback={<AuthLoading />}><SignUpPage /></Suspense>} />
+      <Route path="/auth/forgot-password" element={<Suspense fallback={<AuthLoading />}><ForgotPasswordPage /></Suspense>} />
+      <Route path="/auth/reset-password" element={<Suspense fallback={<AuthLoading />}><ResetPasswordPage /></Suspense>} />
+      <Route path="/auth/verify-email" element={<Suspense fallback={<AuthLoading />}><VerifyEmailPage /></Suspense>} />
+      <Route path="/auth/claim-invite" element={<Suspense fallback={<AuthLoading />}><ClaimInvitePage /></Suspense>} />
+      <Route path="/auth/callback" element={<Suspense fallback={<AuthLoading />}><OAuthCallback /></Suspense>} />
 
-      <button
-        type="button"
-        className="mobile-nav-toggle"
-        aria-label={mobileNavOpen ? t('common.close_menu') : t('common.open_menu')}
-        aria-expanded={mobileNavOpen}
-        aria-controls="primary-sidebar"
-        onClick={() => setMobileNavOpen((v) => !v)}
-      >
-        <span aria-hidden="true">{mobileNavOpen ? '✕' : '☰'}</span>
-      </button>
-
-      <div
-        className="mobile-nav-backdrop"
-        hidden={!mobileNavOpen}
-        onClick={() => setMobileNavOpen(false)}
-        aria-hidden="true"
-      />
-
-      <aside id="primary-sidebar" className="sidebar" aria-label={t('common.primary_nav')}>
-        <a className="brand" href={DEFAULT_PATH} onClick={(event) => handleNavClick(event, DEFAULT_PATH)}>
-          <span className="brand-mark" aria-hidden="true">
-            <img src={abiLogo} alt="" width={34} height={34} />
-          </span>
-          <span className="brand-text">
-            <strong>ABI</strong>
-            <small>{t('common.brand_subtitle')}</small>
-          </span>
-        </a>
-
-        <div className="sidebar-nav-scroll" role="presentation">
-          {accessToken && <WorkspaceSelector token={accessToken} />}
-          {sidebarSections.map((section) => (
-            <section key={section.sectionKey} className="nav-section" aria-labelledby={`nav-heading-${section.sectionKey}`}>
-              <div className="nav-section-label" id={`nav-heading-${section.sectionKey}`}>
-                {section.heading}
-              </div>
-              <div className="nav-section-links">
-                {section.routes.map((route) => (
-                  <a
-                    key={route.path}
-                    className="nav-link"
-                    href={route.path}
-                    aria-current={activeRoute?.path === route.path ? 'page' : undefined}
-                    onClick={(event) => handleNavClick(event, route.path)}
-                  >
-                    <span className="nav-icon" aria-hidden="true">{route.icon}</span>
-                    <span className="nav-label">{route.label}</span>
-                  </a>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-
-        <div className="sidebar-footer">
-          {user && (
-            <div className="sidebar-user" onClick={() => setUserDropdownOpen(!userDropdownOpen)}>
-              <div className="user-avatar">
-                {user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : getInitials(user.displayName, user.email)}
-              </div>
-              <div className="user-details">
-                <span className="user-name">{user.displayName || user.email}</span>
-                <span className="user-role">{roleLabel}</span>
-              </div>
-              
-              {userDropdownOpen && (
-                <div className="user-dropdown">
-                  <button
-                    type="button"
-                    className="dropdown-item dropdown-item--danger"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      logout()
-                      setUserDropdownOpen(false)
-                      globalNavigate('/auth/signin')
-                    }}
-                  >
-                    🚪 {t('auth.logout')}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-          <div className="header-controls">
-            <LanguageSwitcher />
-            <ThemeToggle />
-          </div>
-          <div className="sidebar-footer__api">
-            <span className="status-dot" aria-hidden="true" />
-            <span>
-              {typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-                ? t('common.local_api')
-                : `API · ${typeof window !== 'undefined' ? window.location.host : ''}/api`}
-            </span>
-          </div>
-        </div>
-      </aside>
-
-      <main id="main-content" className="main" tabIndex={-1}>
-        <header className="page-header">
-          <p>{activeRoute?.eyebrow ?? t('common.not_found_eyebrow')}</p>
-          <div>
-            <h1>{activeRoute?.label ?? t('common.page_not_found')}</h1>
-            <span>{activeRoute?.description ?? t('common.not_found_desc')}</span>
-          </div>
-        </header>
-
-        {ActiveComponent ? (
-          <ErrorBoundary key={activeRoute.path}>
-            <Suspense
-              fallback={
-                <section className="card card--elevated">
-                  <EmptyState description={t('common.module_loading')} />
-                </section>
-              }
-            >
-              <ActiveComponent navigate={navigate} />
-            </Suspense>
-          </ErrorBoundary>
-        ) : (
-          <section className="card card--elevated">
-            <EmptyState title={t('common.module_not_found')} description={t('common.module_not_found_desc')}>
-              <a className="btn" href={DEFAULT_PATH} onClick={(event) => handleNavClick(event, DEFAULT_PATH)}>
-                {t('common.go_to_datasources')}
+      <Route
+        path="*"
+        element={
+          <AuthGuard>
+            <div className={`app-shell${mobileNavOpen ? ' app-shell--nav-open' : ''}`}>
+              <a className="skip-link" href="#main-content">
+                {t('common.skip_to_content')}
               </a>
-            </EmptyState>
-          </section>
-        )}
-      </main>
-    </div>
-    </AuthGuard>
+
+              <button
+                type="button"
+                className="mobile-nav-toggle"
+                aria-label={mobileNavOpen ? t('common.close_menu') : t('common.open_menu')}
+                aria-expanded={mobileNavOpen}
+                aria-controls="primary-sidebar"
+                onClick={() => setMobileNavOpen((v) => !v)}
+              >
+                <span aria-hidden="true">{mobileNavOpen ? '✕' : '☰'}</span>
+              </button>
+
+              <div
+                className="mobile-nav-backdrop"
+                hidden={!mobileNavOpen}
+                onClick={() => setMobileNavOpen(false)}
+                aria-hidden="true"
+              />
+
+              <aside id="primary-sidebar" className="sidebar" aria-label={t('common.primary_nav')}>
+                <a className="brand" href={DEFAULT_PATH} onClick={(event) => handleNavClick(event, DEFAULT_PATH)}>
+                  <span className="brand-mark" aria-hidden="true">
+                    <img src={abiLogo} alt="" width={34} height={34} />
+                  </span>
+                  <span className="brand-text">
+                    <strong>ABI</strong>
+                    <small>{t('common.brand_subtitle')}</small>
+                  </span>
+                </a>
+
+                <div className="sidebar-nav-scroll" role="presentation">
+                  {accessToken && <WorkspaceSelector token={accessToken} />}
+                  {sidebarSections.map((section) => (
+                    <section key={section.sectionKey} className="nav-section" aria-labelledby={`nav-heading-${section.sectionKey}`}>
+                      <div className="nav-section-label" id={`nav-heading-${section.sectionKey}`}>
+                        {section.heading}
+                      </div>
+                      <div className="nav-section-links">
+                        {section.routes.map((route) => (
+                          <a
+                            key={route.path}
+                            className="nav-link"
+                            href={route.path}
+                            aria-current={activeRoute?.path === route.path ? 'page' : undefined}
+                            onClick={(event) => handleNavClick(event, route.path)}
+                          >
+                            <span className="nav-icon" aria-hidden="true">{route.icon}</span>
+                            <span className="nav-label">{route.label}</span>
+                          </a>
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+
+                <div className="sidebar-footer">
+                  {user && (
+                    <div className="sidebar-user" onClick={() => setUserDropdownOpen(!userDropdownOpen)}>
+                      <div className="user-avatar">
+                        {user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : getInitials(user.displayName, user.email)}
+                      </div>
+                      <div className="user-details">
+                        <span className="user-name">{user.displayName || user.email}</span>
+                        <span className="user-role">{roleLabel}</span>
+                      </div>
+                      
+                      {userDropdownOpen && (
+                        <div className="user-dropdown">
+                          <button
+                            type="button"
+                            className="dropdown-item dropdown-item--danger"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              logout()
+                              setUserDropdownOpen(false)
+                              navigate('/auth/signin')
+                            }}
+                          >
+                            🚪 {t('auth.logout')}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className="header-controls">
+                    <LanguageSwitcher />
+                    <ThemeToggle />
+                  </div>
+                  <div className="sidebar-footer__api">
+                    <span className="status-dot" aria-hidden="true" />
+                    <span>
+                      {typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+                        ? t('common.local_api')
+                        : `API · ${typeof window !== 'undefined' ? window.location.host : ''}/api`}
+                    </span>
+                  </div>
+                </div>
+              </aside>
+
+              <main id="main-content" className="main" tabIndex={-1}>
+                <header className="page-header">
+                  <p>{activeRoute?.eyebrow ?? t('common.not_found_eyebrow')}</p>
+                  <div>
+                    <h1>{activeRoute?.label ?? t('common.page_not_found')}</h1>
+                    <span>{activeRoute?.description ?? t('common.not_found_desc')}</span>
+                  </div>
+                </header>
+
+                <Routes>
+                  <Route path="/" element={<Navigate to="/datasources" replace />} />
+                  
+                  {routeDefs.map((route) => {
+                    const Component = route.component
+                    return (
+                      <Route
+                        key={route.path}
+                        path={route.path}
+                        element={
+                          <ErrorBoundary key={route.path}>
+                            <Suspense
+                              fallback={
+                                <section className="card card--elevated">
+                                  <EmptyState description={t('common.module_loading')} />
+                                </section>
+                              }
+                            >
+                              <Component />
+                            </Suspense>
+                          </ErrorBoundary>
+                        }
+                      />
+                    )
+                  })}
+                  
+                  <Route
+                    path="/modeling/:modelId"
+                    element={
+                      <ErrorBoundary key="modeling-route-param">
+                        <Suspense
+                          fallback={
+                            <section className="card card--elevated">
+                              <EmptyState description={t('common.module_loading')} />
+                            </section>
+                          }
+                        >
+                          <Modeling />
+                        </Suspense>
+                      </ErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="/model/:modelId"
+                    element={
+                      <ErrorBoundary key="model-route-param">
+                        <Suspense
+                          fallback={
+                            <section className="card card--elevated">
+                              <EmptyState description={t('common.module_loading')} />
+                            </section>
+                          }
+                        >
+                          <Modeling />
+                        </Suspense>
+                      </ErrorBoundary>
+                    }
+                  />
+
+                  <Route
+                    path="*"
+                    element={
+                      <section className="card card--elevated">
+                        <EmptyState title={t('common.module_not_found')} description={t('common.module_not_found_desc')}>
+                          <a className="btn" href={DEFAULT_PATH} onClick={(event) => handleNavClick(event, DEFAULT_PATH)}>
+                            {t('common.go_to_datasources')}
+                          </a>
+                        </EmptyState>
+                      </section>
+                    }
+                  />
+                </Routes>
+              </main>
+            </div>
+          </AuthGuard>
+        }
+      />
+    </Routes>
   )
 }
 

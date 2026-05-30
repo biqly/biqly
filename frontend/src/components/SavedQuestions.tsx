@@ -200,8 +200,8 @@ export default function SavedQuestions() {
       } else {
         setRunError('Failed to run query')
       }
-    } catch (err: any) {
-      setRunError(err?.message || 'Execution failed')
+    } catch (err: unknown) {
+      setRunError(err instanceof Error ? err.message : 'Execution failed')
     } finally {
       setRunLoading(false)
     }

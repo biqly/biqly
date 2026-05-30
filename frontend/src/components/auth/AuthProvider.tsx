@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { apiGetMe, apiLogin, apiLogout, apiRefresh, apiRegister, apiSetActiveWorkspace } from '../../api/auth'
 import type { AuthUser } from '../../types/auth'
-import { globalNavigate } from './AuthGuard'
 
 // classifySessionExpiry inspects the server-returned error message and maps it
 // to one of the i18n reasons so the signin page can show the right banner.
@@ -30,6 +30,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const navigate = useNavigate()
   const [user, setUser] = useState<AuthUser | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(null)
   const [roles, setRoles] = useState<string[]>([])
@@ -146,13 +147,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sessionStorage.setItem('biqly_session_expired_reason', reason)
         clearAuth()
         if (window.location.pathname !== '/auth/signin') {
-          globalNavigate('/auth/signin?expired=' + reason)
+          navigate('/auth/signin?expired=' + reason)
         }
       }
     }, 14 * 60 * 1000)
 
     return () => window.clearInterval(interval)
-  }, [accessToken])
+  }, [accessToken, navigate])
 
   return (
     <AuthContext.Provider

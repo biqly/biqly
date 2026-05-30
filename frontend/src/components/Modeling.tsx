@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import '../styles/modeling.css'
 import { useConfirm } from '../hooks/useConfirm'
 import { useApi } from '../hooks/useApi'
@@ -45,6 +46,7 @@ import { LockedState } from './ui/LockedState'
 import { ShareButton } from './sharing/ShareButton'
 
 export default function Modeling() {
+  const { modelId: routeModelId } = useParams<{ modelId: string }>()
   const t = useT()
   const confirm = useConfirm()
   const { get, postData, putData, patchData, deleteData, loading, error } = useApi()
@@ -56,7 +58,14 @@ export default function Modeling() {
   const [tables, setTables] = useState<TableRow[]>([])
   const [columns, setColumns] = useState<ColumnRow[]>([])
   const { models, setModels } = useSemanticModels(datasourceId)
-  const [modelId, setModelId] = useState(modelParam)
+  const [modelId, setModelId] = useState(routeModelId || modelParam)
+
+  useEffect(() => {
+    if (routeModelId) {
+      setModelId(routeModelId)
+    }
+  }, [routeModelId])
+
   const { model, setModel } = useModelDetail(modelId, { includeInactive: true })
   const [joinForm, setJoinForm] = useState<JoinForm>(() => defaultJoinForm([], [], null))
   const [creatingModel, setCreatingModel] = useState(false)

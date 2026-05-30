@@ -29,8 +29,8 @@ export function LockedState({ datasourceId, datasourceName }: LockedStateProps) 
       } else {
         setError(t('datasources.request_failed', { error: t('common.unknown_error') }))
       }
-    } catch (err: any) {
-      setError(t('datasources.request_failed', { error: err.message || err }))
+    } catch (err: unknown) {
+      setError(t('datasources.request_failed', { error: err instanceof Error ? err.message : String(err) }))
     } finally {
       setRequesting(false)
     }

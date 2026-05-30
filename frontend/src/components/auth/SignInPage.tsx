@@ -3,12 +3,13 @@ import abiLogo from '../../assets/abi-logo.png'
 import { apiPasskeyLoginBegin, apiPasskeyLoginFinish, apiMFALogin } from '../../api/auth'
 import { useT } from '../../i18n'
 import { base64urlToBuffer, bufferToBase64url } from '../../utils/webauthn'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from './AuthProvider'
-import { globalNavigate } from './AuthGuard'
 
 const FAILED_LOGIN_BACKOFFS_MS = [0, 1000, 2000, 4000, 8000]
 
 export default function SignInPage() {
+  const navigate = useNavigate()
   const t = useT()
   const { login, loginWithTokens } = useAuth()
 
@@ -85,9 +86,9 @@ export default function SignInPage() {
         return
       }
       failureCountRef.current = 0
-      globalNavigate('/datasources')
-    } catch (err: any) {
-      setError(err.message || 'Login failed')
+      navigate('/datasources')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Login failed')
       // Exponential client-side backoff. Server already rate-limits, this is
       // pure UX so a frustrated user does not hammer the form and pin the
       // browser tab.
@@ -109,9 +110,9 @@ export default function SignInPage() {
     try {
       const resp = await apiMFALogin(mfaToken, mfaCode.trim())
       await loginWithTokens(resp.access_token, resp.refresh_token, resp.roles)
-      globalNavigate('/datasources')
-    } catch (err: any) {
-      setError(err.message || '2FA Verification failed')
+      navigate('/datasources')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '2FA Verification failed')
     } finally {
       setMfaLoading(false)
     }
@@ -156,9 +157,9 @@ export default function SignInPage() {
 
       const finishResp = await apiPasskeyLoginFinish(credentialJson)
       await loginWithTokens(finishResp.access_token, finishResp.refresh_token, finishResp.roles)
-      globalNavigate('/datasources')
-    } catch (err: any) {
-      setError(err.message || 'Passkey login failed')
+      navigate('/datasources')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Passkey login failed')
     } finally {
       setPasskeyLoading(false)
     }
@@ -178,7 +179,7 @@ export default function SignInPage() {
           <h1 className="auth-title">{t('auth.title_signin')}</h1>
           <p className="auth-subtitle">
             {t('auth.no_account')}{' '}
-            <a href="/auth/signup" onClick={(e) => { e.preventDefault(); globalNavigate('/auth/signup'); }}>
+            <a href="/auth/signup" onClick={(e) => { e.preventDefault(); navigate('/auth/signup'); }}>
               {t('auth.btn_signup')}
             </a>
           </p>
@@ -291,7 +292,7 @@ export default function SignInPage() {
                 <a
                   href="/auth/forgot-password"
                   className="form-link"
-                  onClick={(e) => { e.preventDefault(); globalNavigate('/auth/forgot-password'); }}
+                  onClick={(e) => { e.preventDefault(); navigate('/auth/forgot-password'); }}
                 >
                   {t('auth.forgot_password')}
                 </a>
