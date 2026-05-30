@@ -13,6 +13,12 @@
   padding-top: 0.75rem;
 }
 
+@media (max-width: 680px) {
+  .metric-helper-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .metric-helper-pane {
   display: flex;
   flex-direction: column;

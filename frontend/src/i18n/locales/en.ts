@@ -666,6 +666,8 @@ export const en = {
     fewshot_use_title: 'Use as AI few-shot example',
     fewshot_badge: 'AI example',
     fewshot_aria: 'Mark {{name}} as an AI few-shot example',
+    favorite_add: 'Add to favorites',
+    favorite_remove: 'Remove from favorites',
     logical_query_heading: 'Logical query',
     run_query: 'Run query',
     edit_query: 'Edit',

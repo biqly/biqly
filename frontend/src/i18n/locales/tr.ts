@@ -667,6 +667,8 @@ export const tr: Dictionary = {
     fewshot_use_title: 'AI few-shot örneği olarak kullan',
     fewshot_badge: 'AI örneği',
     fewshot_aria: '{{name}} sorusunu AI few-shot örneği olarak işaretle',
+    favorite_add: 'Favorilere ekle',
+    favorite_remove: 'Favorilerden çıkar',
     logical_query_heading: 'Mantıksal Sorgu',
     run_query: 'Sorguyu çalıştır',
     edit_query: 'Düzenle',

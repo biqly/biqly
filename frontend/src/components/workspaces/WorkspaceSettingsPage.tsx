@@ -199,39 +199,41 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
         {members.length === 0 ? (
           <p className="ws-settings__empty">{t('admin.workspaces.members_empty')}</p>
         ) : (
-          <table className="ws-settings__table">
-            <thead>
-              <tr>
-                <th>{t('admin.workspaces.invite_user')}</th>
-                <th>{t('admin.workspaces.role')}</th>
-                <th>{t('admin.workspaces.joined_at')}</th>
-                <th>{t('common.actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {members.map((m) => (
-                <tr key={m.user_id}>
-                  <td className="ws-settings__mono">{m.user_id.slice(0, 8)}…</td>
-                  <td>
-                    <select
-                      value={m.role_id}
-                      onChange={(e) => onChangeRole(m.user_id, e.target.value)}
-                    >
-                      {roles.map((r) => (
-                        <option key={r.id} value={r.id}>{r.name}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>{new Date(m.joined_at).toLocaleDateString()}</td>
-                  <td>
-                    <button onClick={() => onRemoveMember(m.user_id)} className="ws-settings__btn-danger">
-                      {t('common.delete')}
-                    </button>
-                  </td>
+          <div className="ws-settings__table-container">
+            <table className="ws-settings__table">
+              <thead>
+                <tr>
+                  <th>{t('admin.workspaces.invite_user')}</th>
+                  <th>{t('admin.workspaces.role')}</th>
+                  <th>{t('admin.workspaces.joined_at')}</th>
+                  <th>{t('common.actions')}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {members.map((m) => (
+                  <tr key={m.user_id}>
+                    <td className="ws-settings__mono">{m.user_id.slice(0, 8)}…</td>
+                    <td>
+                      <select
+                        value={m.role_id}
+                        onChange={(e) => onChangeRole(m.user_id, e.target.value)}
+                      >
+                        {roles.map((r) => (
+                          <option key={r.id} value={r.id}>{r.name}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>{new Date(m.joined_at).toLocaleDateString()}</td>
+                    <td>
+                      <button onClick={() => onRemoveMember(m.user_id)} className="ws-settings__btn-danger">
+                        {t('common.delete')}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         <form onSubmit={onInviteMember} className="ws-settings__inline-form">
@@ -259,28 +261,30 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
         {datasources.length === 0 ? (
           <p className="ws-settings__empty">{t('admin.workspaces.datasources_empty')}</p>
         ) : (
-          <table className="ws-settings__table">
-            <thead>
-              <tr>
-                <th>{t('admin.workspaces.datasource_id')}</th>
-                <th>{t('admin.datasource_access.level')}</th>
-                <th>{t('common.actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {datasources.map((d) => (
-                <tr key={d.datasource_id}>
-                  <td className="ws-settings__mono">{d.datasource_id.slice(0, 8)}…</td>
-                  <td><span className="ws-settings__level-badge">{d.access_level}</span></td>
-                  <td>
-                    <button onClick={() => onDetachDS(d.datasource_id)} className="ws-settings__btn-danger">
-                      {t('common.delete')}
-                    </button>
-                  </td>
+          <div className="ws-settings__table-container">
+            <table className="ws-settings__table">
+              <thead>
+                <tr>
+                  <th>{t('admin.workspaces.datasource_id')}</th>
+                  <th>{t('admin.datasource_access.level')}</th>
+                  <th>{t('common.actions')}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {datasources.map((d) => (
+                  <tr key={d.datasource_id}>
+                    <td className="ws-settings__mono">{d.datasource_id.slice(0, 8)}…</td>
+                    <td><span className="ws-settings__level-badge">{d.access_level}</span></td>
+                    <td>
+                      <button onClick={() => onDetachDS(d.datasource_id)} className="ws-settings__btn-danger">
+                        {t('common.delete')}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         <form onSubmit={onAttachDS} className="ws-settings__inline-form">

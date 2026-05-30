@@ -560,6 +560,19 @@ function App() {
 
                 <div className="sidebar-nav-scroll" role="presentation">
                   {accessToken && <WorkspaceSelector token={accessToken} />}
+                  {homeRoute && (
+                    <div className="nav-section-links nav-section-links--home">
+                      <a
+                        className="nav-link"
+                        href={homeRoute.path}
+                        aria-current={activeRoute?.path === homeRoute.path ? 'page' : undefined}
+                        onClick={(event) => handleNavClick(event, homeRoute.path)}
+                      >
+                        <span className="nav-icon" aria-hidden="true">{homeRoute.icon}</span>
+                        <span className="nav-label">{homeRoute.label}</span>
+                      </a>
+                    </div>
+                  )}
                   {sidebarSections.map((section) => (
                     <section key={section.sectionKey} className="nav-section" aria-labelledby={`nav-heading-${section.sectionKey}`}>
                       <div className="nav-section-label" id={`nav-heading-${section.sectionKey}`}>

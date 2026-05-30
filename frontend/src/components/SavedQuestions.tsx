@@ -175,6 +175,7 @@ export default function SavedQuestions() {
         name: q.name,
         description: q.description,
         is_few_shot: updatedIsFewShot,
+        is_favorite: q.is_favorite ?? false,
       }
       await putData(`/api/ai/examples/${q.id}`, payload)
     } catch {
@@ -184,6 +185,37 @@ export default function SavedQuestions() {
       )
       if (selectedQuestion?.id === q.id) {
         setSelectedQuestion((prev) => prev ? { ...prev, is_few_shot: q.is_few_shot } : null)
+      }
+    }
+  }
+
+  // Toggle is_favorite state immediately (optimistic), reverting on failure.
+  const toggleFavorite = async (q: SavedQuestion) => {
+    const updated = !q.is_favorite
+    setQuestions((prev) =>
+      prev.map((item) => (item.id === q.id ? { ...item, is_favorite: updated } : item))
+    )
+    if (selectedQuestion?.id === q.id) {
+      setSelectedQuestion((prev) => (prev ? { ...prev, is_favorite: updated } : null))
+    }
+    try {
+      await putData(`/api/ai/examples/${q.id}`, {
+        question: q.question,
+        logical_query: q.logical_query,
+        tags: q.tags,
+        dialect: q.dialect,
+        locale: q.locale || '',
+        name: q.name,
+        description: q.description,
+        is_few_shot: q.is_few_shot,
+        is_favorite: updated,
+      })
+    } catch {
+      setQuestions((prev) =>
+        prev.map((item) => (item.id === q.id ? { ...item, is_favorite: q.is_favorite } : item))
+      )
+      if (selectedQuestion?.id === q.id) {
+        setSelectedQuestion((prev) => (prev ? { ...prev, is_favorite: q.is_favorite } : null))
       }
     }
   }
@@ -267,6 +299,7 @@ export default function SavedQuestions() {
       name: form.name,
       description: form.description,
       is_few_shot: form.isFewShot,
+      is_favorite: isEdit ? (selectedQuestion?.is_favorite ?? false) : false,
     }
 
     if (isEdit && selectedQuestion) {

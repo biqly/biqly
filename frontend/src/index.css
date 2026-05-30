@@ -1875,7 +1875,8 @@ input[type='checkbox']:disabled {
   }
 
   .card {
-    border-radius: 0.95rem;
+    padding: 1rem;
+    border-radius: 0.65rem;
   }
 }
 

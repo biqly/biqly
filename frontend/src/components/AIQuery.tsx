@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import '../styles/aiQuery.css'
 import { useApi } from '../hooks/useApi'
 import { useAIJobs } from '../hooks/useAIJobs'
@@ -42,6 +43,7 @@ export default function AIQuery() {
     updateMessageResponse,
   } = useConversation()
 
+  const location = useLocation()
   const { datasources } = useDatasources()
   const [tables, setTables] = useState<TableOption[]>([])
   const [dsParam, setDsParam] = useQueryParam('ds')
@@ -53,7 +55,9 @@ export default function AIQuery() {
   const [includeBaseTables, setIncludeBaseTables] = useState(true)
   const [includeViews, setIncludeViews] = useState(true)
   const [autoTableRouting, setAutoTableRouting] = useState(true)
-  const [question, setQuestion] = useState('')
+  const [question, setQuestion] = useState(
+    () => (location.state as { question?: string } | null)?.question ?? '',
+  )
   const [aiRuntime, setAiRuntime] = useState<AIRuntimeSettings | null>(null)
   const [aiRuntimeErr, setAiRuntimeErr] = useState<string | null>(null)
   const [embeddingStatus, setEmbeddingStatus] = useState<string | null>(null)

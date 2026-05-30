@@ -387,6 +387,8 @@
   border: 1px solid var(--border-color, var(--border, rgba(255, 255, 255, 0.06)));
   border-radius: 8px;
   overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05));
 }
 .admin-table {
@@ -608,6 +610,21 @@
 .btn-sm.btn-icon-only {
   width: 1.85rem !important;
   height: 1.85rem !important;
+}
+
+@media (max-width: 680px) {
+  .admin-table {
+    min-width: 38rem;
+  }
+  .admin-card {
+    padding: 1rem;
+  }
+  .admin-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-top: 1rem;
+    padding-top: 1rem;
+  }
 }
 
 
