@@ -17,7 +17,7 @@ const (
 	AuditMFAEnrolled = "mfa.enrolled"
 	AuditMFAVerified = "mfa.verified"
 	AuditMFADisabled = "mfa.disabled"
-	AuditMFABypassGenerated = "mfa.bypass_code_generated"
+	AuditMFABypassGenerated = "mfa.bypass_code_generated" //nolint:gosec
 
 	AuditRoleAssigned  = "role.assigned"
 	AuditRoleRemoved   = "role.removed"

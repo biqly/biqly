@@ -7,6 +7,7 @@ import {
   removeRole,
   updateUserActiveStatus,
   resendUserVerification,
+  generateMFABypassCode,
 } from '../../api/admin'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import type { AuthUser, UserRoleInfo, Role } from '../../types/auth'
@@ -21,7 +22,7 @@ interface UserDetailPageProps {
 export function UserDetailPage({ token, userID, onBack }: UserDetailPageProps) {
   const t = useT()
   const [locale] = useLocale()
-  const { user: currentUser } = useAuth()
+  const { user: currentUser, roles: currentUserRoles } = useAuth()
   const [user, setUser] = useState<AuthUser | null>(null)
   const [verificationSending, setVerificationSending] = useState(false)
   const [verificationMessage, setVerificationMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -34,6 +35,11 @@ export function UserDetailPage({ token, userID, onBack }: UserDetailPageProps) {
   const [selectedRoleID, setSelectedRoleID] = useState('')
   const [scopeType, setScopeType] = useState('global')
   const [scopeID, setScopeID] = useState('')
+
+  // MFA bypass code (super_admin support flow)
+  const [bypassCode, setBypassCode] = useState<string | null>(null)
+  const [bypassGenerating, setBypassGenerating] = useState(false)
+  const [bypassError, setBypassError] = useState<string | null>(null)
 
   async function loadData() {
     try {
@@ -62,6 +68,22 @@ export function UserDetailPage({ token, userID, onBack }: UserDetailPageProps) {
   }, [token, userID])
 
   const isSelf = currentUser?.id === userID
+  const isSuperAdmin = currentUserRoles?.includes('super_admin') ?? false
+
+  async function handleGenerateBypassCode() {
+    if (!window.confirm(t('admin.user_detail.mfa_generate_bypass_confirm'))) return
+    setBypassGenerating(true)
+    setBypassError(null)
+    setBypassCode(null)
+    try {
+      const resp = await generateMFABypassCode(token, userID)
+      setBypassCode(resp.bypass_code)
+    } catch (e) {
+      setBypassError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBypassGenerating(false)
+    }
+  }
 
   async function handleResendVerification() {
     if (!window.confirm(t('admin.user_detail.resend_verification_confirm'))) return
@@ -200,6 +222,45 @@ export function UserDetailPage({ token, userID, onBack }: UserDetailPageProps) {
           </div>
         </div>
       </div>
+
+      {/* 2FA Support — super_admin only, single-use bypass code */}
+      {isSuperAdmin && (
+        <div style={card}>
+          <h3 style={{ marginTop: 0, marginBottom: 8 }}>{t('admin.user_detail.mfa_support_title')}</h3>
+          <p style={{ ...textMuted, padding: 0, marginTop: 0, marginBottom: 16 }}>
+            {t('admin.user_detail.mfa_support_desc')}
+          </p>
+          <button
+            type="button"
+            onClick={handleGenerateBypassCode}
+            disabled={bypassGenerating}
+            style={btnResendVerification}
+          >
+            {bypassGenerating ? '...' : t('admin.user_detail.mfa_generate_bypass')}
+          </button>
+          {bypassError && (
+            <div style={{ ...verificationErrorText, marginTop: 12 }}>{bypassError}</div>
+          )}
+          {bypassCode && (
+            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <span style={label}>{t('admin.user_detail.mfa_bypass_generated')}</span>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <code style={bypassCodeBox}>{bypassCode}</code>
+                <button
+                  type="button"
+                  style={btnSecondary}
+                  onClick={() => {
+                    navigator.clipboard.writeText(bypassCode)
+                    alert(t('admin.user_detail.mfa_bypass_copied'))
+                  }}
+                >
+                  {t('admin.user_detail.copy')}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* User Roles lists and Assign role form */}
       <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 24, alignItems: 'start' }}>
@@ -516,6 +577,19 @@ const errStyle: React.CSSProperties = {
   color: 'crimson',
   padding: 16,
   fontWeight: 600,
+}
+
+const bypassCodeBox: React.CSSProperties = {
+  padding: '8px 12px',
+  background: 'var(--bg-thead, #f9fafb)',
+  border: '1px solid var(--border-color, #d1d5db)',
+  borderRadius: 6,
+  fontFamily: 'monospace',
+  fontSize: 16,
+  fontWeight: 700,
+  letterSpacing: '0.05em',
+  color: 'var(--text-primary, #111827)',
+  userSelect: 'all',
 }
 
 const btnResendVerification: React.CSSProperties = {

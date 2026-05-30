@@ -1735,8 +1735,8 @@ atılabilecek güvenlik, operasyonel ve uyumluluk gereksinimleridir.
 
 - [x] TOTP (Time-based OTP) desteği: Google Authenticator, Authy uyumlu — `internal/auth/totp.go`
 - [x] Recovery kodları: 10 adet tek kullanımlık kod, güvenli yerde saklama uyarısı — bcrypt hash, `array_remove` ile consume
-- [ ] 2FA zorunlu kılma: Admin, workspace bazında "2FA required" politikası
-- [ ] 2FA bypass kodları: Support için tek kullanımlık admin bypass kodları
+- [x] 2FA zorunlu kılma: Admin, workspace bazında "2FA required" politikası — backend: `workspace.go` `IsMFARequired`/`SetMFARequired` + `workspaces.mfa_required` kolonu, login akışında `service.go` `activeWorkspaceRequiresMFA` → `ErrMFARequired` (`handler.go:181`); frontend: `WorkspaceSettingsPage.tsx` `mfa_required` toggle + `admin.ts` `updateWorkspace`
+- [x] 2FA bypass kodları: Support için tek kullanımlık admin bypass kodları — backend: migration `032a_add_mfa_bypass_codes` (`user_mfa.bypass_codes`), `mfa.go` `GenerateBypassCode`/`VerifyCode` (bcrypt, single-use `ConsumeBypassCode`), `service.go` `GenerateMFABypassCode` (super_admin guard), `POST /admin/users/{id}/mfa/bypass` (`handler_account.go`), audit `AuditMFABypassGenerated`; frontend: `admin.ts` `generateMFABypassCode` + `UserDetailPage.tsx` super_admin "2FA Support" kartı (tek seferlik kod gösterimi + kopyala)
 - [ ] WebAuthn ikinci faktör olarak: Passkey zaten birinci faktör, TOTP ile birlikte ikinci faktör seçeneği
 - [x] DB tablosu: `user_mfa` (user_id, method, secret_encrypted, recovery_codes, verified_at, enabled) — migration `020a`
 

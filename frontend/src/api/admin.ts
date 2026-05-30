@@ -268,6 +268,17 @@ export async function resendUserVerification(token: string, userId: string): Pro
   return handle<{ message: string }>(res)
 }
 
+// generateMFABypassCode issues a single-use MFA bypass code for a user. The
+// backend restricts this to super_admin (support recovery flow). The code is
+// returned once and never stored in cleartext.
+export async function generateMFABypassCode(token: string, userId: string): Promise<{ bypass_code: string }> {
+  const res = await csrfFetch(`${AUTH_API_BASE}/admin/users/${encodeURIComponent(userId)}/mfa/bypass`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  })
+  return handle<{ bypass_code: string }>(res)
+}
+
 export async function requestDatasourceAccess(token: string, datasourceID: string): Promise<{ success: boolean }> {
   const res = await csrfFetch(`${AUTH_API_BASE}/me/datasources/${datasourceID}/request-access`, {
     method: 'POST',

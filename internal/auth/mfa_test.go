@@ -182,16 +182,14 @@ func TestAdminGenerateMFABypassHandler(t *testing.T) {
 	handler.RegisterAccountAdminRoutes(router, authMW)
 
 	// Case 1: Call as normal actor -> Should return 403 Forbidden
-	req := httptest.NewRequest(http.MethodPost, "/admin/users/"+targetUserID+"/mfa/bypass", nil)
-	req = req.WithContext(context.WithValue(req.Context(), userIDKey, normalActorID))
+	req := httptest.NewRequestWithContext(context.WithValue(ctx, userIDKey, normalActorID), http.MethodPost, "/admin/users/"+targetUserID+"/mfa/bypass", nil)
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 
 	// Case 2: Call as super admin -> Should return 200 OK with bypass code
-	req = httptest.NewRequest(http.MethodPost, "/admin/users/"+targetUserID+"/mfa/bypass", nil)
-	req = req.WithContext(context.WithValue(req.Context(), userIDKey, superActorID))
+	req = httptest.NewRequestWithContext(context.WithValue(ctx, userIDKey, superActorID), http.MethodPost, "/admin/users/"+targetUserID+"/mfa/bypass", nil)
 	rr = httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 
