@@ -544,10 +544,10 @@ BI araclari kompleks. Onboarding flow:
 - [x] Toast/notification sistemi olustur
 - [x] Command Palette (Cmd+K) ekle
 - [x] Keyboard shortcuts sistemi kur
-- [ ] Loading skeleton'lari ekle
+- [x] Loading skeleton'lari ekle
 - [ ] Breadcrumb navigasyonu ekle
 - [ ] Query Builder'da progressive disclosure (acordion veya wizard modu)
-- [ ] Data export (CSV/Excel) ozelligi
+- [x] Data export (CSV/Excel) ozelligi
 - [ ] Empty state tasarimini iyilestir
 - [ ] Ana sayfa redesign: recent queries + favorites + quick actions
 - [ ] Responsive table duzeltmeleri

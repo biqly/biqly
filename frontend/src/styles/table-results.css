@@ -83,3 +83,10 @@
   text-align: right;
   width: 1%;
 }
+
+.result-export-btn.btn {
+  width: auto;
+  margin: 0 0 0 auto;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.78rem;
+}

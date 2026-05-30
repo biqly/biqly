@@ -750,6 +750,9 @@ export const tr: Dictionary = {
     sort_hint: 'Sıralamak için tıklayın {{direction}}',
     sort_asc: 'artan',
     sort_desc: 'azalan',
+    export_csv: 'CSV indir',
+    export_success: '{{count}} satır CSV olarak indirildi',
+    export_empty: 'İndirilecek veri yok',
   },
   evaluation: {
     title: 'Değerlendirme',

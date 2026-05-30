@@ -12,6 +12,7 @@ import { chartAxisStroke, chartGridStroke, chartTooltipStyle } from '../utils/ch
 import { getRateColor } from '../utils/formatters'
 import { KPICard } from './ui/KPICard'
 import { ChartContainer } from './ui/ChartContainer'
+import { Skeleton } from './ui/Skeleton'
 import type { ModelStats } from '../types/ai'
 
 interface AIUsageSummary {
@@ -44,6 +45,30 @@ export default function Dashboard() {
   )
 }
 
+function AIUsageSkeleton({ heading }: { heading: string }) {
+  return (
+    <div>
+      <h2 style={{ marginBottom: '1rem' }}>{heading}</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+        {Array.from({ length: 6 }, (_, i) => (
+          <div key={i} className="card" style={{ display: 'grid', gap: '0.6rem' }}>
+            <Skeleton height="0.7rem" width="55%" />
+            <Skeleton height="1.6rem" width="70%" />
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem' }}>
+        {Array.from({ length: 2 }, (_, i) => (
+          <div key={i} className="card" style={{ display: 'grid', gap: '0.8rem' }}>
+            <Skeleton height="1rem" width="40%" />
+            <Skeleton height={250} radius="0.5rem" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function AIUsageSection() {
   const t = useT()
   const { get } = useApi()
@@ -61,7 +86,7 @@ function AIUsageSection() {
     })
   }, [])
 
-  if (loading) return null
+  if (loading) return <AIUsageSkeleton heading={t('dashboard.ai_usage_last_30')} />
   if (!summary) return null
 
   const trendData = daily.map((d) => ({

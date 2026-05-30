@@ -1,5 +1,7 @@
 import { useMemo, useState, type MouseEvent, type KeyboardEvent } from 'react'
 import { useT } from '../i18n'
+import { useToast } from '../hooks/useToast'
+import { downloadCsv } from '../utils/exportCsv'
 import { formatResultCell } from '../utils/resultCellFormat'
 import '../styles/table-results.css'
 import type { ResultAnomaly } from '../types/ai'
@@ -40,6 +42,7 @@ export function ResultTable({
   onCellClick,
 }: ResultTableProps) {
   const t = useT()
+  const toast = useToast()
   const anomalyCells = useMemo(() => buildAnomalyCellSet(anomalies), [anomalies])
   const [sortColIdx, setSortColIdx] = useState<number | null>(null)
   const [sortDir, setSortDir] = useState<SortDirection>(null)
@@ -62,6 +65,16 @@ export function ResultTable({
     () => sortIndexedRows(indexedRows, sortColIdx, sortDir),
     [indexedRows, sortColIdx, sortDir],
   )
+
+  const handleExport = () => {
+    const exportRows = sortedRows.map(({ row }) => row)
+    if (exportRows.length === 0) {
+      toast.warning(t('result_table.export_empty'))
+      return
+    }
+    downloadCsv(columns, exportRows, question ? `biqly-${question}` : 'biqly-export')
+    toast.success(t('result_table.export_success', { count: exportRows.length }))
+  }
 
   const closeContextMenu = () => setContextMenu(null)
 
@@ -200,6 +213,14 @@ export function ResultTable({
             })}
           </span>
         )}
+        <button
+          type="button"
+          className="btn btn-secondary result-export-btn"
+          onClick={handleExport}
+          disabled={rows.length === 0}
+        >
+          {t('result_table.export_csv')}
+        </button>
       </div>
     </div>
   )

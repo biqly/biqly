@@ -749,6 +749,9 @@ export const en = {
     sort_hint: 'Click to sort {{direction}}',
     sort_asc: 'ascending',
     sort_desc: 'descending',
+    export_csv: 'Export CSV',
+    export_success: 'Exported {{count}} rows to CSV',
+    export_empty: 'Nothing to export',
   },
   evaluation: {
     title: 'Evaluation',
