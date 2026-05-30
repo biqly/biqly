@@ -514,11 +514,11 @@ BI araclari kompleks. Onboarding flow:
 ### Faz 5: Router (1 hafta)
 
 - [ ] `react-router-dom` entegrasyonu
-- [ ] Lazy loading route'lar
+- [x] Lazy loading route'lar
 - [ ] `useNavigate()` hook ile prop drilling bitirmeli
 - [ ] Auth route'lari tek yerde tanimlanmali (su an 3 yerde)
 - [ ] Route params destegi (`/model/:id`)
-- [ ] Query string parsing
+- [x] Query string parsing
 
 ### Faz 6: Tip Guvenligi (1 hafta)
 
@@ -534,7 +534,7 @@ BI araclari kompleks. Onboarding flow:
 
 - [ ] Recharts tree-shaking → sadece kullanilan bilesenler import edilmeli (410KB → ~100KB)
 - [ ] Locale dosyalari lazy loading (admin/auth section'larini ayri chunk yap)
-- [ ] `useApi` → per-request AbortController
+- [x] `useApi` → per-request AbortController
 - [ ] `startBulkDescribe` → fire-and-forget yerine proper async management
 - [ ] Admin style sabitleri → module scope'a tasinmali (her render'da yeniden olusturma)
 - [ ] `DEMO_DATA` → ayri dosyaya tasinmali ve lazy yuklenmeli

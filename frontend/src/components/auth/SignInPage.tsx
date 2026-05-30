@@ -155,7 +155,7 @@ export default function SignInPage() {
       }
 
       const finishResp = await apiPasskeyLoginFinish(credentialJson)
-      await loginWithTokens(finishResp.access_token, finishResp.refresh_token)
+      await loginWithTokens(finishResp.access_token, finishResp.refresh_token, finishResp.roles)
       globalNavigate('/datasources')
     } catch (err: any) {
       setError(err.message || 'Passkey login failed')
