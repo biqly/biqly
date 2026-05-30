@@ -5,9 +5,11 @@ import type { Workspace } from '../../types/auth'
 import { WorkspaceSettingsPage } from '../workspaces/WorkspaceSettingsPage'
 import { Pagination } from '../ui/Pagination'
 import { useQueryParam } from '../../hooks/useQueryParam'
+import { useConfirm } from '../../hooks/useConfirm'
 
 export function WorkspacesPanel({ token }: { token: string }) {
   const t = useT()
+  const confirm = useConfirm()
   const [items, setItems] = useState<Workspace[]>([])
   const [totalItems, setTotalItems] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -59,7 +61,11 @@ export function WorkspacesPanel({ token }: { token: string }) {
   }
 
   async function onDelete(id: string, name: string) {
-    if (!confirm(t('admin.workspaces.confirm_delete', { name }))) return
+    const ok = await confirm({
+      title: t('admin.workspaces.confirm_delete', { name }),
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       await deleteWorkspace(token, id)
       reload()

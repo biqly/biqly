@@ -10,6 +10,8 @@ import { Select } from './ui/Select'
 import { ResultTable } from './ResultTable'
 import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
+import { useDatasources } from '../hooks/useDatasources'
+import { useSemanticModels } from '../hooks/useSemanticModels'
 
 interface SavedQuestion {
   id: string
@@ -237,9 +239,9 @@ export default function SavedQuestions() {
   const confirm = useConfirm()
 
   // Selectors State
-  const [datasources, setDatasources] = useState<Datasource[]>([])
+  const { datasources } = useDatasources()
   const [datasourceId, setDatasourceId] = useState('')
-  const [semanticModels, setSemanticModels] = useState<SavedQuestionSemanticModel[]>([])
+  const { models: semanticModels, setModels: setSemanticModels } = useSemanticModels(datasourceId)
   const [semanticModelId, setSemanticModelId] = useState('')
 
   // Questions List State
@@ -283,36 +285,22 @@ export default function SavedQuestions() {
     }
   }, [get])
 
-  // Load Datasources
+  // Set default datasourceId
   useEffect(() => {
-    get<Datasource[]>('/api/datasources').then((data) => {
-      if (data && data.length > 0) {
-        setDatasources(data)
-        const first = data[0]
-        if (first) {
-          setDatasourceId((prev) => prev || first.id)
-        }
-      }
-    })
-  }, [get])
+    if (datasources.length > 0 && !datasourceId) {
+      setDatasourceId(datasources[0]!.id)
+    }
+  }, [datasources, datasourceId])
 
-  // Load Semantic Models for active datasource
+  // Set default semanticModelId when semanticModels change
   useEffect(() => {
-    if (!datasourceId) return
-    get<{ id: string; name: string; label?: string | null; status: string }[]>(
-      `/api/semantic/models?datasource_id=${encodeURIComponent(datasourceId)}`
-    ).then((data) => {
-      if (data) {
-        setSemanticModels(data)
-        setSemanticModelId((prev) => {
-          if (prev && data.some((m) => m.id === prev)) {
-            return prev
-          }
-          return ''
-        })
+    setSemanticModelId((prev) => {
+      if (prev && semanticModels.some((m) => m.id === prev)) {
+        return prev
       }
+      return ''
     })
-  }, [datasourceId, get])
+  }, [semanticModels])
 
   // Reload questions when selected DS or Model changes
   useEffect(() => {

@@ -1,37 +1,9 @@
 import { useState, useCallback, useRef } from 'react'
+import { apiFetch, RequestOptions } from '../api/apiClient'
 import { resolveAdminApiKey } from '../utils/env'
-import { getLocale } from '../i18n'
-import { plainTextFromHTML } from '../utils/plainText'
 
 export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 type BodyMethod = 'postData' | 'putData' | 'patchData'
-
-export interface RequestOptions {
-  timeout?: number
-  signal?: AbortSignal
-  headers?: Record<string, string>
-}
-
-function parseResponseBody(text: string): unknown {
-  if (!text) return null
-  try {
-    return JSON.parse(text)
-  } catch {
-    return text
-  }
-}
-
-function responseError(status: number, data: unknown): string {
-  if (data && typeof data === 'object' && 'error' in data) {
-    const err = (data as { error?: unknown }).error
-    if (typeof err === 'string' && err.trim()) return err
-  }
-  if (typeof data === 'string') {
-    const plain = plainTextFromHTML(data)
-    return plain ? `HTTP ${status}: ${plain}` : `HTTP ${status}`
-  }
-  return `HTTP ${status}`
-}
 
 export async function request<T>(
   method: Method,
@@ -39,58 +11,11 @@ export async function request<T>(
   body?: unknown,
   options?: RequestOptions,
 ): Promise<{ data: T | null; error: string | null }> {
-  const controller = new AbortController()
-  let didTimeout = false
-  const timeoutId = setTimeout(
-    () => {
-      didTimeout = true
-      controller.abort()
-    },
-    options?.timeout ?? 30_000,
-  )
-
-  const signal = options?.signal
-    ? ((() => {
-        const merged = new AbortController()
-        options?.signal?.addEventListener('abort', () => merged.abort())
-        controller.signal.addEventListener('abort', () => merged.abort())
-        if (options.signal.aborted || controller.signal.aborted) merged.abort()
-        return merged.signal
-      })())
-    : controller.signal
-
   try {
-    const headers: Record<string, string> = body ? { 'Content-Type': 'application/json' } : {}
-    headers['X-Locale'] = getLocale()
-    if (options?.headers) {
-      Object.assign(headers, options.headers)
-    }
-    const res = await fetch(url, {
-      method,
-      headers: Object.keys(headers).length > 0 ? headers : undefined,
-      body: body ? JSON.stringify(body) : undefined,
-      signal,
-    })
-    const text = await res.text()
-    const data = parseResponseBody(text)
-    if (!res.ok) {
-      return { data: null, error: responseError(res.status, data) }
-    }
-    if (typeof data === 'string') {
-      return { data: null, error: `Expected JSON response from ${url}` }
-    }
-    return { data: data as T, error: null }
+    const data = await apiFetch<T>(method, url, body, options)
+    return { data, error: null }
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Network error'
-    const aborted = err instanceof DOMException && err.name === 'AbortError'
-    return {
-      data: null,
-      error: aborted || message.includes('aborted')
-        ? didTimeout ? 'Request timed out' : 'Request aborted'
-        : message,
-    }
-  } finally {
-    clearTimeout(timeoutId)
+    return { data: null, error: err instanceof Error ? err.message : 'Unknown error' }
   }
 }
 
@@ -157,17 +82,8 @@ export function useApi() {
   return { get, postData, putData, patchData, deleteData, loading, error, abort }
 }
 
-export function adminAuthHeaders(): Record<string, string> {
-  const adminKey = resolveAdminApiKey()
-  return adminKey ? { Authorization: `Bearer ${adminKey}` } : {}
-}
-
-function withHeaders(options: RequestOptions | undefined, headers: Record<string, string>): RequestOptions {
-  return { ...options, headers: { ...headers, ...options?.headers } }
-}
-
 function withAdminHeaders(options?: RequestOptions): RequestOptions {
-  return withHeaders(options, adminAuthHeaders())
+  return { ...options, useAdminKey: true }
 }
 
 /**
@@ -177,8 +93,6 @@ function withAdminHeaders(options?: RequestOptions): RequestOptions {
  */
 export function useAdminApi() {
   const api = useApi()
-
-  const configured = resolveAdminApiKey().length > 0
 
   const bodyRequest = useCallback(
     <T = unknown>(method: BodyMethod, url: string, body: unknown, options?: RequestOptions) =>
@@ -206,6 +120,8 @@ export function useAdminApi() {
     <T = unknown>(url: string, options?: RequestOptions) => api.deleteData<T>(url, withAdminHeaders(options)),
     [api],
   )
+
+  const configured = resolveAdminApiKey().length > 0
 
   return { ...api, get, postData, putData, patchData, deleteData, configured }
 }

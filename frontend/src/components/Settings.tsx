@@ -4,8 +4,6 @@ import { useAuth } from './auth/AuthProvider'
 import {
   apiGetPasskeys,
   apiDeletePasskey,
-  apiPasskeyRegisterBegin,
-  apiPasskeyRegisterFinish,
   apiPasskeyRename,
   apiMFAStatus,
   apiMFAEnroll,
@@ -14,12 +12,12 @@ import {
   apiMFARegenerateRecovery,
 } from '../api/auth'
 import QRCode from 'qrcode'
-import { base64urlToBuffer, bufferToBase64url } from '../utils/webauthn'
 import type { PasskeyInfo } from '../types/auth'
 import { ConfirmDialog } from './ui/ConfirmDialog'
 import { Modal } from './ui/Modal'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
+import { usePasskeyRegistration } from '../hooks/usePasskeyRegistration'
 
 interface SettingsProps {
   navigate?: (path: string) => void
@@ -42,7 +40,6 @@ export default function Settings({ navigate }: SettingsProps) {
   // Registration States
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [newPasskeyName, setNewPasskeyName] = useState('')
-  const [registering, setRegistering] = useState(false)
 
   // Renaming States
   const [renameTarget, setRenameTarget] = useState<PasskeyInfo | null>(null)
@@ -64,6 +61,18 @@ export default function Settings({ navigate }: SettingsProps) {
   const [mfaRegenCode, setMfaRegenCode] = useState('')
   const [mfaRegening, setMfaRegening] = useState(false)
   const [mfaNewRecoveryCodes, setMfaNewRecoveryCodes] = useState<string[] | null>(null)
+  const {
+    registering,
+    error: registrationError,
+    setError: setRegistrationError,
+    registerPasskey,
+  } = usePasskeyRegistration(accessToken || '')
+
+  useEffect(() => {
+    if (registrationError) {
+      setError(registrationError)
+    }
+  }, [registrationError])
 
   const goTo = (path: string) => {
     navigate?.(path)
@@ -119,6 +128,7 @@ export default function Settings({ navigate }: SettingsProps) {
     const defaultName = t('passkeys.title') + ' ' + new Date().toLocaleDateString(localeLanguageTag(locale))
     setNewPasskeyName(defaultName)
     setError(null)
+    setRegistrationError(null)
     setSuccessMessage(null)
     setAddModalOpen(true)
   }
@@ -127,75 +137,15 @@ export default function Settings({ navigate }: SettingsProps) {
     e.preventDefault()
     if (!accessToken) return
 
-    const isSupported = window.PublicKeyCredential &&
-      typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function'
-
-    if (!isSupported) {
-      setError(t('passkeys.error_not_supported'))
-      setAddModalOpen(false)
-      return
-    }
-
-    setRegistering(true)
     setError(null)
+    setRegistrationError(null)
     setSuccessMessage(null)
 
-    try {
-      // 1. Begin Registration on Backend
-      const beginResp = await apiPasskeyRegisterBegin(accessToken)
-      const publicKeyOptions = beginResp.publicKey || beginResp
-
-      if (!publicKeyOptions) {
-        throw new Error('Invalid options from server')
-      }
-
-      // Convert challenge, user id, and excluded credentials IDs to ArrayBuffer
-      const options: CredentialCreationOptions = {
-        publicKey: {
-          ...publicKeyOptions,
-          challenge: base64urlToBuffer(publicKeyOptions.challenge),
-          user: {
-            ...publicKeyOptions.user,
-            id: base64urlToBuffer(publicKeyOptions.user.id),
-          },
-          excludeCredentials: publicKeyOptions.excludeCredentials?.map((cred: any) => ({
-            ...cred,
-            id: base64urlToBuffer(cred.id),
-          })),
-        },
-      }
-
-      // 2. Trigger browser's WebAuthn prompt
-      const credential = await navigator.credentials.create(options)
-      if (!credential) {
-        throw new Error('No credential returned by browser')
-      }
-
-      // 3. Serialize response back to base64url
-      const attestation = credential as PublicKeyCredential
-      const response = attestation.response as AuthenticatorAttestationResponse
-      const credentialJson = {
-        id: attestation.id,
-        rawId: bufferToBase64url(attestation.rawId),
-        type: attestation.type,
-        response: {
-          clientDataJSON: bufferToBase64url(response.clientDataJSON),
-          attestationObject: bufferToBase64url(response.attestationObject),
-          transports: response.getTransports ? response.getTransports() : [],
-        },
-      }
-
-      // 4. Finish registration on Backend
-      await apiPasskeyRegisterFinish(accessToken, credentialJson, newPasskeyName.trim())
+    const ok = await registerPasskey(newPasskeyName)
+    if (ok) {
       setSuccessMessage(t('passkeys.success_register'))
       setAddModalOpen(false)
       await fetchPasskeys()
-    } catch (err: any) {
-      if (err.name !== 'NotAllowedError') {
-        setError(err.message || 'Passkey registration failed')
-      }
-    } finally {
-      setRegistering(false)
     }
   }
 
@@ -331,52 +281,29 @@ export default function Settings({ navigate }: SettingsProps) {
             <h2>{t('passkeys.title')}</h2>
             <button
               type="button"
-              className="btn btn-primary btn-sm"
-              style={{ width: 'auto', margin: 0 }}
+              className="btn btn-primary btn-sm btn-auto-width"
               onClick={openAddModal}
             >
               🔒 {t('passkeys.add_btn')}
             </button>
           </div>
-          <p className="card-lead" style={{ margin: '0.5rem 0 1.25rem' }}>
+          <p className="card-lead card-lead-margin">
             {t('passkeys.subtitle')}
           </p>
         </div>
 
         {error && (
-          <div style={{ marginBottom: '1.25rem' }}>
+          <div className="card-lead-margin">
             <ErrorAlert error={error} />
           </div>
         )}
 
         {successMessage && (
-          <div
-            style={{
-              marginBottom: '1.25rem',
-              border: '1px solid var(--success)',
-              background: 'color-mix(in srgb, var(--success) 12%, transparent)',
-              padding: '0.75rem 1rem',
-              borderRadius: '0.5rem',
-              color: 'var(--success)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              fontSize: '0.82rem',
-              fontWeight: 500,
-            }}
-          >
+          <div className="admin-alert-success">
             <div>🎉 {successMessage}</div>
             <button
               type="button"
-              style={{
-                background: 'transparent',
-                border: 0,
-                color: 'inherit',
-                cursor: 'pointer',
-                fontSize: '1.2rem',
-                padding: '0 0.25rem',
-                lineHeight: 1,
-              }}
+              className="admin-alert-close-btn"
               onClick={() => setSuccessMessage(null)}
             >
               ×
@@ -385,7 +312,7 @@ export default function Settings({ navigate }: SettingsProps) {
         )}
 
         {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '2.5rem' }}>
+          <div className="admin-center-container">
             <div className="spinner" style={{ width: '24px', height: '24px', borderTopColor: 'var(--accent)' }}></div>
           </div>
         ) : passkeys.length === 0 ? (
@@ -394,7 +321,7 @@ export default function Settings({ navigate }: SettingsProps) {
             description={t('passkeys.empty_desc')}
           />
         ) : (
-          <div className="results-table-scroll" style={{ border: '1px solid var(--border)', borderRadius: '0.5rem', overflow: 'hidden' }}>
+          <div className="results-table-scroll border-border overflow-hidden">
             <table className="results-table" style={{ margin: 0 }}>
               <thead>
                 <tr>
@@ -417,11 +344,10 @@ export default function Settings({ navigate }: SettingsProps) {
                         : t('passkeys.never_used')}
                     </td>
                     <td className="actions">
-                      <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                      <div className="flex-gap-center-end">
                         <button
                           type="button"
-                          className="btn btn-sm btn-secondary"
-                          style={{ margin: 0, padding: '0.2rem 0.5rem', minHeight: 'auto', width: 'auto', display: 'inline-flex' }}
+                          className="btn btn-sm btn-secondary btn-icon-only"
                           onClick={() => {
                             setRenameTarget(pk)
                             setRenamingName(pk.name)
@@ -431,8 +357,7 @@ export default function Settings({ navigate }: SettingsProps) {
                         </button>
                         <button
                           type="button"
-                          className="btn btn-sm btn-danger-outline"
-                          style={{ margin: 0, padding: '0.2rem 0.5rem', minHeight: 'auto', width: 'auto', display: 'inline-flex' }}
+                          className="btn btn-sm btn-danger-outline btn-icon-only"
                           onClick={() => setDeleteTarget(pk)}
                         >
                           🗑️
@@ -446,6 +371,7 @@ export default function Settings({ navigate }: SettingsProps) {
           </div>
         )}
       </section>
+
 
       {/* Multi-Factor Authentication (2FA) Section */}
       <section className="card card--elevated settings-prefs-card">
@@ -470,8 +396,7 @@ export default function Settings({ navigate }: SettingsProps) {
               ) : (
                 <button
                   type="button"
-                  className="btn btn-primary btn-sm"
-                  style={{ width: 'auto', margin: 0 }}
+                  className="btn btn-primary btn-sm btn-auto-width"
                   onClick={handleMFAEnrollStart}
                 >
                   🔒 {t('mfa.enable_btn')}
@@ -479,13 +404,13 @@ export default function Settings({ navigate }: SettingsProps) {
               )
             )}
           </div>
-          <p className="card-lead" style={{ margin: '0.5rem 0 1.25rem' }}>
+          <p className="card-lead card-lead-margin">
             {t('mfa.subtitle')}
           </p>
         </div>
 
         {!mfaStatus ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '2.5rem' }}>
+          <div className="admin-center-container">
             <div className="spinner" style={{ width: '24px', height: '24px', borderTopColor: 'var(--accent)' }}></div>
           </div>
         ) : !mfaStatus.enabled ? (
@@ -495,7 +420,7 @@ export default function Settings({ navigate }: SettingsProps) {
           />
         ) : (
           <>
-            <div className="results-table-scroll" style={{ border: '1px solid var(--border)', borderRadius: '0.5rem', overflow: 'hidden' }}>
+            <div className="results-table-scroll border-border overflow-hidden">
               <table className="results-table" style={{ margin: 0 }}>
                 <thead>
                   <tr>
@@ -512,16 +437,8 @@ export default function Settings({ navigate }: SettingsProps) {
                     </td>
                     <td>
                       <span
-                        className="badge badge-success"
-                        style={{
-                          fontSize: '0.75rem',
-                          fontWeight: 600,
-                          padding: '0.25rem 0.5rem',
-                          borderRadius: '0.25rem',
-                          backgroundColor: 'rgba(46, 213, 115, 0.15)',
-                          color: '#2ed573',
-                          border: '1px solid rgba(46, 213, 115, 0.2)',
-                        }}
+                        className="badge badge-success admin-badge-active"
+                        style={{ fontSize: '0.75rem' }}
                       >
                         {t('mfa.status_active')}
                       </span>
@@ -532,11 +449,10 @@ export default function Settings({ navigate }: SettingsProps) {
                         : '-'}
                     </td>
                     <td className="actions">
-                      <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                      <div className="flex-gap-center-end">
                         <button
                           type="button"
-                          className="btn btn-sm btn-secondary"
-                          style={{ margin: 0, padding: '0.2rem 0.5rem', minHeight: 'auto', width: 'auto', display: 'inline-flex' }}
+                          className="btn btn-sm btn-secondary btn-icon-only"
                           title={t('mfa.regenerate_recovery_btn')}
                           onClick={() => {
                             setMfaRegenCode('')
@@ -556,36 +472,14 @@ export default function Settings({ navigate }: SettingsProps) {
 
             {/* Newly generated/regenerated recovery codes display */}
             {mfaNewRecoveryCodes && (
-              <div
-                className="recovery-codes-box"
-                style={{
-                  marginTop: '1.25rem',
-                  padding: '1rem',
-                  backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '0.5rem',
-                }}
-              >
+              <div className="recovery-codes-box border-border overflow-hidden card-lead-margin" style={{ padding: '1rem', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
                 <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text)' }}>
                   {t('mfa.recovery_title')}
                 </h4>
                 <p style={{ margin: '0.25rem 0 1rem 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                   {t('mfa.recovery_desc')}
                 </p>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(2, 1fr)',
-                    gap: '0.5rem',
-                    fontFamily: 'monospace',
-                    fontSize: '0.9rem',
-                    color: 'var(--accent)',
-                    backgroundColor: 'rgba(0,0,0,0.2)',
-                    padding: '0.75rem',
-                    borderRadius: '0.25rem',
-                    textAlign: 'center',
-                }}
-                >
+                <div className="recovery-codes-grid">
                   {mfaNewRecoveryCodes.map((code, idx) => (
                     <div key={idx}>{code}</div>
                   ))}
@@ -638,11 +532,10 @@ export default function Settings({ navigate }: SettingsProps) {
               autoFocus
             />
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+          <div className="flex-gap-center-end" style={{ marginTop: '0.5rem' }}>
             <button
               type="button"
-              className="btn btn-secondary"
-              style={{ width: 'auto', margin: 0 }}
+              className="btn btn-secondary btn-auto-width"
               onClick={() => setAddModalOpen(false)}
               disabled={registering}
             >
@@ -650,8 +543,8 @@ export default function Settings({ navigate }: SettingsProps) {
             </button>
             <button
               type="submit"
-              className="btn btn-primary"
-              style={{ width: 'auto', margin: 0, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              className="btn btn-primary btn-icon-only"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               disabled={registering || !newPasskeyName.trim()}
             >
               {registering ? (
@@ -688,11 +581,10 @@ export default function Settings({ navigate }: SettingsProps) {
               autoFocus
             />
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+          <div className="flex-gap-center-end" style={{ marginTop: '0.5rem' }}>
             <button
               type="button"
-              className="btn btn-secondary"
-              style={{ width: 'auto', margin: 0 }}
+              className="btn btn-secondary btn-auto-width"
               onClick={() => setRenameTarget(null)}
               disabled={renaming}
             >
@@ -700,8 +592,8 @@ export default function Settings({ navigate }: SettingsProps) {
             </button>
             <button
               type="submit"
-              className="btn btn-primary"
-              style={{ width: 'auto', margin: 0, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              className="btn btn-primary btn-icon-only"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               disabled={renaming || !renamingName.trim()}
             >
               {renaming ? (
@@ -735,7 +627,7 @@ export default function Settings({ navigate }: SettingsProps) {
               </div>
 
               {mfaQrCode && (
-                <div style={{ display: 'flex', justifyContent: 'center', margin: '0.5rem 0', padding: '0.5rem', backgroundColor: '#fff', borderRadius: '0.5rem', width: 'fit-content', alignSelf: 'center' }}>
+                <div className="mfa-qr-container">
                   <img src={mfaQrCode} alt="2FA QR Code" style={{ display: 'block', width: '180px', height: '180px' }} />
                 </div>
               )}
@@ -772,15 +664,14 @@ export default function Settings({ navigate }: SettingsProps) {
                   placeholder={t('mfa.placeholder_code')}
                   disabled={mfaVerifying}
                   autoFocus
-                  style={{ letterSpacing: '4px', textAlign: 'center', fontSize: '1.25rem' }}
+                  className="mfa-otp-input"
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+              <div className="flex-gap-center-end" style={{ marginTop: '0.5rem' }}>
                 <button
                   type="button"
-                  className="btn btn-secondary"
-                  style={{ width: 'auto', margin: 0 }}
+                  className="btn btn-secondary btn-auto-width"
                   onClick={() => setMfaEnrollOpen(false)}
                   disabled={mfaVerifying}
                 >
@@ -788,8 +679,7 @@ export default function Settings({ navigate }: SettingsProps) {
                 </button>
                 <button
                   type="submit"
-                  className="btn btn-primary"
-                  style={{ width: 'auto', margin: 0 }}
+                  className="btn btn-primary btn-auto-width"
                   disabled={mfaVerifying || mfaVerifyCode.length !== 6}
                 >
                   {mfaVerifying ? '...' : t('mfa.verify_btn')}
@@ -806,32 +696,17 @@ export default function Settings({ navigate }: SettingsProps) {
               </div>
 
               {mfaEnrollData && (
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(2, 1fr)',
-                    gap: '0.5rem',
-                    fontFamily: 'monospace',
-                    fontSize: '0.95rem',
-                    color: 'var(--accent)',
-                    backgroundColor: 'rgba(0,0,0,0.2)',
-                    padding: '1rem',
-                    borderRadius: '0.25rem',
-                    textAlign: 'center',
-                    border: '1px solid var(--border)',
-                  }}
-                >
+                <div className="recovery-codes-grid border-border" style={{ padding: '1rem' }}>
                   {mfaEnrollData.recovery_codes.map((code, idx) => (
                     <div key={idx}>{code}</div>
                   ))}
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+              <div className="flex-gap-center-end" style={{ marginTop: '0.5rem' }}>
                 <button
                   type="button"
-                  className="btn btn-secondary"
-                  style={{ width: 'auto', margin: 0 }}
+                  className="btn btn-secondary btn-auto-width"
                   onClick={() => {
                     if (mfaEnrollData) {
                       navigator.clipboard.writeText(mfaEnrollData.recovery_codes.join('\n'))
@@ -843,8 +718,7 @@ export default function Settings({ navigate }: SettingsProps) {
                 </button>
                 <button
                   type="button"
-                  className="btn btn-primary"
-                  style={{ width: 'auto', margin: 0 }}
+                  className="btn btn-primary btn-auto-width"
                   onClick={() => setMfaEnrollOpen(false)}
                 >
                   {t('common.confirm_ok')}
@@ -877,14 +751,13 @@ export default function Settings({ navigate }: SettingsProps) {
               placeholder={t('mfa.placeholder_code')}
               disabled={mfaDisabling}
               autoFocus
-              style={{ letterSpacing: '4px', textAlign: 'center', fontSize: '1.25rem' }}
+              className="mfa-otp-input"
             />
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+          <div className="flex-gap-center-end" style={{ marginTop: '0.5rem' }}>
             <button
               type="button"
-              className="btn btn-secondary"
-              style={{ width: 'auto', margin: 0 }}
+              className="btn btn-secondary btn-auto-width"
               onClick={() => setMfaDisableOpen(false)}
               disabled={mfaDisabling}
             >
@@ -892,8 +765,7 @@ export default function Settings({ navigate }: SettingsProps) {
             </button>
             <button
               type="submit"
-              className="btn btn-danger"
-              style={{ width: 'auto', margin: 0 }}
+              className="btn btn-danger btn-auto-width"
               disabled={mfaDisabling || mfaDisableCode.length !== 6}
             >
               {mfaDisabling ? '...' : t('mfa.disable_submit')}
@@ -924,14 +796,13 @@ export default function Settings({ navigate }: SettingsProps) {
               placeholder={t('mfa.placeholder_code')}
               disabled={mfaRegening}
               autoFocus
-              style={{ letterSpacing: '4px', textAlign: 'center', fontSize: '1.25rem' }}
+              className="mfa-otp-input"
             />
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+          <div className="flex-gap-center-end" style={{ marginTop: '0.5rem' }}>
             <button
               type="button"
-              className="btn btn-secondary"
-              style={{ width: 'auto', margin: 0 }}
+              className="btn btn-secondary btn-auto-width"
               onClick={() => setMfaRegenOpen(false)}
               disabled={mfaRegening}
             >
@@ -939,8 +810,7 @@ export default function Settings({ navigate }: SettingsProps) {
             </button>
             <button
               type="submit"
-              className="btn btn-primary"
-              style={{ width: 'auto', margin: 0 }}
+              className="btn btn-primary btn-auto-width"
               disabled={mfaRegening || mfaRegenCode.length !== 6}
             >
               {mfaRegening ? '...' : t('mfa.regenerate_recovery_btn')}
@@ -953,3 +823,4 @@ export default function Settings({ navigate }: SettingsProps) {
     </div>
   )
 }
+

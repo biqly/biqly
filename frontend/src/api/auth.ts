@@ -1,5 +1,5 @@
 import type { AuthUser, PasskeyInfo, PasswordPolicy, SetActiveWorkspaceResponse, TokenResponse, Invitation } from '../types/auth'
-import { csrfFetch } from './csrf'
+import { apiFetch } from './apiClient'
 
 const AUTH_API_BASE = '/api/auth'
 
@@ -21,9 +21,7 @@ export async function apiGetPasswordPolicy(): Promise<PasswordPolicy> {
   if (inflightPolicy) return inflightPolicy
   inflightPolicy = (async () => {
     try {
-      const res = await csrfFetch(`${AUTH_API_BASE}/password-policy`, { method: 'GET' })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = (await res.json()) as PasswordPolicy
+      const data = await apiFetch<PasswordPolicy>('GET', `${AUTH_API_BASE}/password-policy`)
       cachedPolicy = { ...DEFAULT_PASSWORD_POLICY, ...data }
       return cachedPolicy
     } catch {
@@ -36,25 +34,6 @@ export async function apiGetPasswordPolicy(): Promise<PasswordPolicy> {
     }
   })()
   return inflightPolicy
-}
-
-async function handleResponse<T>(res: Response): Promise<T> {
-  const text = await res.text()
-  let data: any
-  if (text) {
-    try {
-      data = JSON.parse(text)
-    } catch {
-      data = { error: text }
-    }
-  }
-
-  if (!res.ok) {
-    const msg = data?.error || data?.message || `HTTP ${res.status}`
-    throw new Error(msg)
-  }
-
-  return data as T
 }
 
 export function normalizeAuthUser(raw: any): AuthUser {
@@ -73,83 +52,36 @@ export function normalizeAuthUser(raw: any): AuthUser {
 }
 
 export async function apiRegister(email: string, password: string, displayName: string): Promise<TokenResponse> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, display_name: displayName }),
-  })
-  return handleResponse<TokenResponse>(res)
+  return apiFetch<TokenResponse>('POST', `${AUTH_API_BASE}/register`, { email, password, display_name: displayName })
 }
 
 export async function apiLogin(email: string, password: string): Promise<TokenResponse> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  })
-  return handleResponse<TokenResponse>(res)
+  return apiFetch<TokenResponse>('POST', `${AUTH_API_BASE}/login`, { email, password })
 }
 
 export async function apiOAuthExchange(code: string): Promise<TokenResponse> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/oauth/exchange`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code }),
-  })
-  return handleResponse<TokenResponse>(res)
+  return apiFetch<TokenResponse>('POST', `${AUTH_API_BASE}/oauth/exchange`, { code })
 }
 
 export async function apiRefresh(refreshToken: string): Promise<TokenResponse> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  })
-  return handleResponse<TokenResponse>(res)
+  return apiFetch<TokenResponse>('POST', `${AUTH_API_BASE}/refresh`, { refresh_token: refreshToken })
 }
 
 export async function apiLogout(refreshToken: string): Promise<void> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/logout`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  })
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(text || `HTTP ${res.status}`)
-  }
+  await apiFetch<void>('POST', `${AUTH_API_BASE}/logout`, { refresh_token: refreshToken })
 }
 
 export async function apiGetMe(accessToken: string): Promise<AuthUser> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/me`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-    },
-  })
-  return normalizeAuthUser(await handleResponse<any>(res))
+  const data = await apiFetch<any>('GET', `${AUTH_API_BASE}/me`, undefined, { token: accessToken })
+  return normalizeAuthUser(data)
 }
 
 export async function apiSetActiveWorkspace(accessToken: string, workspaceID: string): Promise<SetActiveWorkspaceResponse> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/me/active-workspace`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ workspace_id: workspaceID }),
-  })
-  return handleResponse<SetActiveWorkspaceResponse>(res)
+  return apiFetch<SetActiveWorkspaceResponse>('POST', `${AUTH_API_BASE}/me/active-workspace`, { workspace_id: workspaceID }, { token: accessToken })
 }
 
 export async function apiPasskeyRegisterBegin(accessToken: string): Promise<any> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/passkey/register-begin`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-    },
-  })
-  return handleResponse<any>(res)
+  return apiFetch<any>('POST', `${AUTH_API_BASE}/passkey/register-begin`, undefined, { token: accessToken })
 }
 
 export async function apiPasskeyRegisterFinish(
@@ -161,56 +93,23 @@ export async function apiPasskeyRegisterFinish(
   if (name) {
     url += `?name=${encodeURIComponent(name)}`
   }
-  const res = await csrfFetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify(credential),
-  })
-  return handleResponse<{ status: string }>(res)
+  return apiFetch<{ status: string }>('POST', url, credential, { token: accessToken })
 }
 
 export async function apiPasskeyLoginBegin(email?: string): Promise<any> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/passkey/login-begin`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(email ? { email } : {}),
-  })
-  return handleResponse<any>(res)
+  return apiFetch<any>('POST', `${AUTH_API_BASE}/passkey/login-begin`, email ? { email } : {})
 }
 
 export async function apiPasskeyLoginFinish(credential: any): Promise<TokenResponse> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/passkey/login-finish`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(credential),
-  })
-  return handleResponse<TokenResponse>(res)
+  return apiFetch<TokenResponse>('POST', `${AUTH_API_BASE}/passkey/login-finish`, credential)
 }
 
 export async function apiGetPasskeys(accessToken: string): Promise<PasskeyInfo[]> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/me/passkeys`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-    },
-  })
-  return handleResponse<PasskeyInfo[]>(res)
+  return apiFetch<PasskeyInfo[]>('GET', `${AUTH_API_BASE}/me/passkeys`, undefined, { token: accessToken })
 }
 
 export async function apiDeletePasskey(accessToken: string, id: string): Promise<void> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/me/passkeys/${id}`, {
-    method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-    },
-  })
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(text || `HTTP ${res.status}`)
-  }
+  await apiFetch<void>('DELETE', `${AUTH_API_BASE}/me/passkeys/${id}`, undefined, { token: accessToken })
 }
 
 export async function apiPasskeyRename(
@@ -218,55 +117,23 @@ export async function apiPasskeyRename(
   id: string,
   name: string
 ): Promise<void> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/me/passkeys/${id}`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({ name }),
-  })
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(text || `HTTP ${res.status}`)
-  }
+  await apiFetch<void>('PATCH', `${AUTH_API_BASE}/me/passkeys/${id}`, { name }, { token: accessToken })
 }
 
 export async function apiForgotPassword(email: string): Promise<{ message: string }> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/forgot-password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email }),
-  })
-  return handleResponse<{ message: string }>(res)
+  return apiFetch<{ message: string }>('POST', `${AUTH_API_BASE}/forgot-password`, { email })
 }
 
 export async function apiResetPassword(token: string, password: string): Promise<{ message: string }> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/reset-password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, password }),
-  })
-  return handleResponse<{ message: string }>(res)
+  return apiFetch<{ message: string }>('POST', `${AUTH_API_BASE}/reset-password`, { token, password })
 }
 
 export async function apiVerifyEmail(token: string): Promise<{ message: string }> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/verify-email?token=${encodeURIComponent(token)}`, {
-    method: 'GET',
-  })
-  return handleResponse<{ message: string }>(res)
+  return apiFetch<{ message: string }>('GET', `${AUTH_API_BASE}/verify-email?token=${encodeURIComponent(token)}`)
 }
 
 export async function apiInviteUser(accessToken: string, email: string, roleName: string): Promise<{ message: string }> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/admin/invitations`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ email, role_name: roleName }),
-  })
-  return handleResponse<{ message: string }>(res)
+  return apiFetch<{ message: string }>('POST', `${AUTH_API_BASE}/admin/invitations`, { email, role_name: roleName }, { token: accessToken })
 }
 
 export async function apiGetInvitation(token: string): Promise<{
@@ -277,21 +144,11 @@ export async function apiGetInvitation(token: string): Promise<{
   invited_by: string
   expires_at: string
 }> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/invitations/${encodeURIComponent(token)}`, {
-    method: 'GET',
-  })
-  return handleResponse<any>(res)
+  return apiFetch<any>('GET', `${AUTH_API_BASE}/invitations/${encodeURIComponent(token)}`)
 }
 
 export async function apiClaimInvitation(token: string, password: string, displayName: string): Promise<TokenResponse> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/invitations/${encodeURIComponent(token)}/claim`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ password, display_name: displayName }),
-  })
-  return handleResponse<TokenResponse>(res)
+  return apiFetch<TokenResponse>('POST', `${AUTH_API_BASE}/invitations/${encodeURIComponent(token)}/claim`, { password, display_name: displayName })
 }
 
 export async function apiListInvitations(
@@ -304,33 +161,15 @@ export async function apiListInvitations(
     search: params.search || '',
     status: params.status || 'all',
   })
-  const res = await csrfFetch(`${AUTH_API_BASE}/admin/invitations?${query.toString()}`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-    },
-  })
-  return handleResponse<{ invitations: Invitation[]; total: number }>(res)
+  return apiFetch<{ invitations: Invitation[]; total: number }>('GET', `${AUTH_API_BASE}/admin/invitations?${query.toString()}`, undefined, { token: accessToken })
 }
 
 export async function apiRevokeInvitation(accessToken: string, id: string): Promise<{ message: string }> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/admin/invitations/${encodeURIComponent(id)}`, {
-    method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-    },
-  })
-  return handleResponse<{ message: string }>(res)
+  return apiFetch<{ message: string }>('DELETE', `${AUTH_API_BASE}/admin/invitations/${encodeURIComponent(id)}`, undefined, { token: accessToken })
 }
 
 export async function apiResendInvitation(accessToken: string, id: string): Promise<{ message: string }> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/admin/invitations/${encodeURIComponent(id)}/resend`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-    },
-  })
-  return handleResponse<{ message: string }>(res)
+  return apiFetch<{ message: string }>('POST', `${AUTH_API_BASE}/admin/invitations/${encodeURIComponent(id)}/resend`, undefined, { token: accessToken })
 }
 
 export async function apiMFAStatus(accessToken: string): Promise<{
@@ -338,13 +177,7 @@ export async function apiMFAStatus(accessToken: string): Promise<{
   method?: string
   verified_at?: string
 }> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/mfa/status`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-    },
-  })
-  return handleResponse<{ enabled: boolean; method?: string; verified_at?: string }>(res)
+  return apiFetch<{ enabled: boolean; method?: string; verified_at?: string }>('GET', `${AUTH_API_BASE}/mfa/status`, undefined, { token: accessToken })
 }
 
 export async function apiMFAEnroll(accessToken: string): Promise<{
@@ -352,63 +185,21 @@ export async function apiMFAEnroll(accessToken: string): Promise<{
   otpauth_url: string
   recovery_codes: string[]
 }> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/mfa/enroll`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-    },
-  })
-  return handleResponse<{ secret: string; otpauth_url: string; recovery_codes: string[] }>(res)
+  return apiFetch<{ secret: string; otpauth_url: string; recovery_codes: string[] }>('POST', `${AUTH_API_BASE}/mfa/enroll`, undefined, { token: accessToken })
 }
 
 export async function apiMFAVerify(accessToken: string, code: string): Promise<void> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/mfa/verify`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({ code }),
-  })
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(text || `HTTP ${res.status}`)
-  }
+  await apiFetch<void>('POST', `${AUTH_API_BASE}/mfa/verify`, { code }, { token: accessToken })
 }
 
 export async function apiMFADisable(accessToken: string, code: string): Promise<void> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/mfa/disable`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({ code }),
-  })
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(text || `HTTP ${res.status}`)
-  }
+  await apiFetch<void>('POST', `${AUTH_API_BASE}/mfa/disable`, { code }, { token: accessToken })
 }
 
 export async function apiMFALogin(mfaToken: string, code: string): Promise<TokenResponse> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/mfa/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mfa_token: mfaToken, code }),
-  })
-  return handleResponse<TokenResponse>(res)
+  return apiFetch<TokenResponse>('POST', `${AUTH_API_BASE}/mfa/login`, { mfa_token: mfaToken, code })
 }
 
 export async function apiMFARegenerateRecovery(accessToken: string, code: string): Promise<{ recovery_codes: string[] }> {
-  const res = await csrfFetch(`${AUTH_API_BASE}/mfa/recovery/regenerate`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({ code }),
-  })
-  return handleResponse<{ recovery_codes: string[] }>(res)
+  return apiFetch<{ recovery_codes: string[] }>('POST', `${AUTH_API_BASE}/mfa/recovery/regenerate`, { code }, { token: accessToken })
 }
-

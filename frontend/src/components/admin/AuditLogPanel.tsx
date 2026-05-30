@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { listAuditLog, listUsers, listWorkspaces } from '../../api/admin'
+import { listAuditLog } from '../../api/admin'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
-import type { AuditLogEntry, AuthUser, Workspace } from '../../types/auth'
-import type { Datasource } from '../../types/metadata'
+import type { AuditLogEntry } from '../../types/auth'
 import { Pagination } from '../ui/Pagination'
+import { useAdminLookups } from '../../hooks/useAdminLookups'
 
 const COMMON_ACTIONS = [
   'login.success',
@@ -56,10 +56,8 @@ export function AuditLogPanel({ token }: { token: string }) {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Lookups for friendly name mapping
-  const [users, setUsers] = useState<AuthUser[]>([])
-  const [datasources, setDatasources] = useState<Datasource[]>([])
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+  // Lookups for friendly name mapping using custom hook
+  const { users, datasources, workspaces } = useAdminLookups(token)
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
@@ -91,32 +89,6 @@ export function AuditLogPanel({ token }: { token: string }) {
     }
   }
 
-  // Load lookup metadata
-  useEffect(() => {
-    let cancelled = false
-    async function loadLookups() {
-      try {
-        const uRes = await listUsers(token)
-        if (!cancelled) setUsers(uRes.users || [])
-
-        const dsRes = await fetch('/api/datasources', { headers: { Authorization: `Bearer ${token}` } })
-        if (dsRes.ok && !cancelled) {
-          const dsData = await dsRes.json()
-          setDatasources(dsData || [])
-        }
-
-        const wsRes = await listWorkspaces(token)
-        if (!cancelled) setWorkspaces(wsRes.workspaces || [])
-      } catch (e) {
-        console.error('Failed to load lookups in AuditLogPanel', e)
-      }
-    }
-    loadLookups()
-    return () => {
-      cancelled = true
-    }
-  }, [token])
-
   useEffect(() => {
     reload({ userID, action, page: currentPage, pageSize })
   }, [token, currentPage])
@@ -131,8 +103,8 @@ export function AuditLogPanel({ token }: { token: string }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start' }}>
+    <div className="page-stack">
+      <div className="card-header-row" style={{ alignItems: 'flex-start' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 18 }}>{t('admin.audit.title')}</h2>
           <p style={{ margin: '4px 0 0', color: 'var(--text-secondary, #a1a1aa)', fontSize: 13 }}>
@@ -143,9 +115,9 @@ export function AuditLogPanel({ token }: { token: string }) {
       </div>
 
       <form onSubmit={onSubmit} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-        <label style={labelStyle}>
-          <span style={labelTextStyle}>{t('admin.fields.user')}</span>
-          <select value={userID} onChange={(e) => setUserID(e.target.value)} style={selectStyle}>
+        <label className="admin-form-label" style={{ gap: 4 }}>
+          <span className="admin-label-text">{t('admin.fields.user')}</span>
+          <select value={userID} onChange={(e) => setUserID(e.target.value)} className="admin-select" style={{ minWidth: 220 }}>
             <option value="">{t('admin.filters.all')}</option>
             {users.map((u) => (
               <option key={u.id} value={u.id}>
@@ -154,17 +126,17 @@ export function AuditLogPanel({ token }: { token: string }) {
             ))}
           </select>
         </label>
-        <label style={labelStyle}>
-          <span style={labelTextStyle}>{t('admin.audit.action')}</span>
-          <select value={action} onChange={(e) => setAction(e.target.value)} style={selectStyle}>
+        <label className="admin-form-label" style={{ gap: 4 }}>
+          <span className="admin-label-text">{t('admin.audit.action')}</span>
+          <select value={action} onChange={(e) => setAction(e.target.value)} className="admin-select" style={{ minWidth: 120 }}>
             <option value="">{t('admin.filters.all')}</option>
             {COMMON_ACTIONS.map((act) => (
               <option key={act} value={act}>{act}</option>
             ))}
           </select>
         </label>
-        <label style={labelStyle}>
-          <span style={labelTextStyle}>{t('admin.audit.page_size')}</span>
+        <label className="admin-form-label" style={{ gap: 4 }}>
+          <span className="admin-label-text">{t('admin.audit.page_size')}</span>
           <select
             value={pageSize}
             onChange={(e) => {
@@ -173,14 +145,15 @@ export function AuditLogPanel({ token }: { token: string }) {
               setCurrentPage(1)
               reload({ userID, action, page: 1, pageSize: nextSize })
             }}
-            style={selectStyle}
+            className="admin-select"
+            style={{ minWidth: 120 }}
           >
             {AUDIT_PAGE_SIZE_OPTIONS.map((size) => (
               <option key={size} value={size}>{size}</option>
             ))}
           </select>
         </label>
-        <button type="submit" style={primaryButtonStyle}>{t('admin.filters.apply')}</button>
+        <button type="submit" className="admin-btn-primary">{t('admin.filters.apply')}</button>
         <button
           type="button"
           onClick={() => {
@@ -190,39 +163,39 @@ export function AuditLogPanel({ token }: { token: string }) {
             setCurrentPage(1)
             reload({ userID: '', action: '', page: 1, pageSize: DEFAULT_AUDIT_PAGE_SIZE })
           }}
-          style={secondaryButtonStyle}
+          className="admin-btn-secondary"
         >
           {t('admin.filters.reset')}
         </button>
       </form>
 
-      {loading && <div style={textMuted}>{t('common.loading')}</div>}
-      {error && <div style={errStyle}>{t('common.error')}: {error}</div>}
-      {!loading && !error && entries.length === 0 && <div style={textMuted}>{t('admin.audit.empty')}</div>}
+      {loading && <div className="admin-text-muted">{t('common.loading')}</div>}
+      {error && <div className="admin-err-text">{t('common.error')}: {error}</div>}
+      {!loading && !error && entries.length === 0 && <div className="admin-text-muted">{t('admin.audit.empty')}</div>}
 
       {entries.length > 0 && (
-        <div style={containerStyle}>
+        <div className="admin-table-container">
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 980 }}>
+            <table className="admin-table" style={{ fontSize: 13, minWidth: 980 }}>
               <thead>
-                <tr style={theadRow}>
-                  <th style={thStyle}>{t('admin.audit.time')}</th>
-                  <th style={thStyle}>{t('admin.audit.action')}</th>
-                  <th style={thStyle}>{t('admin.fields.user')}</th>
-                  <th style={thStyle}>{t('admin.audit.resource')}</th>
-                  <th style={thStyle}>IP</th>
-                  <th style={thStyle}>Metadata</th>
+                <tr className="admin-thead-row">
+                  <th className="admin-th">{t('admin.audit.time')}</th>
+                  <th className="admin-th">{t('admin.audit.action')}</th>
+                  <th className="admin-th">{t('admin.fields.user')}</th>
+                  <th className="admin-th">{t('admin.audit.resource')}</th>
+                  <th className="admin-th">IP</th>
+                  <th className="admin-th">Metadata</th>
                 </tr>
               </thead>
               <tbody>
                 {displayedEntries.map((entry) => (
-                  <tr key={entry.id} style={trStyle}>
-                    <td style={monoTd}>{formatDate(entry.created_at, localeLanguageTag(locale))}</td>
-                    <td style={tdStyle}><span style={actionBadgeStyle}>{entry.action}</span></td>
-                    <td style={monoTd}>{entry.user_id ? (userMap.get(entry.user_id) || entry.user_id) : t('admin.audit.system_user')}</td>
-                    <td style={monoTd}>{formatResource(entry, dsMap, wsMap)}</td>
-                    <td style={monoTd}>{entry.ip_address || '-'}</td>
-                    <td style={metadataTd}>{formatMetadata(entry.metadata)}</td>
+                  <tr key={entry.id} className="admin-tr">
+                    <td className="admin-td-mono">{formatDate(entry.created_at, localeLanguageTag(locale))}</td>
+                    <td className="admin-td"><span className="admin-badge-action">{entry.action}</span></td>
+                    <td className="admin-td-mono">{entry.user_id ? (userMap.get(entry.user_id) || entry.user_id) : t('admin.audit.system_user')}</td>
+                    <td className="admin-td-mono">{formatResource(entry, dsMap, wsMap)}</td>
+                    <td className="admin-td-mono">{entry.ip_address || '-'}</td>
+                    <td className="admin-td-metadata">{formatMetadata(entry.metadata)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -266,95 +239,3 @@ function formatMetadata(value: unknown) {
   return JSON.stringify(value)
 }
 
-const labelStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4 }
-const labelTextStyle: React.CSSProperties = { fontSize: 12, color: 'var(--text-secondary, #a1a1aa)' }
-const inputStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 6,
-  minWidth: 220,
-  background: 'var(--input-bg, #fff)',
-  color: 'var(--text-primary, #111)',
-  fontSize: 14,
-}
-const selectStyle: React.CSSProperties = {
-  ...inputStyle,
-  minWidth: 120,
-}
-const primaryButtonStyle: React.CSSProperties = {
-  padding: '8px 16px',
-  background: 'var(--accent, #4f46e5)',
-  color: 'white',
-  border: 0,
-  borderRadius: 6,
-  cursor: 'pointer',
-  fontSize: 13,
-  fontWeight: 500,
-}
-const secondaryButtonStyle: React.CSSProperties = {
-  padding: '8px 16px',
-  background: 'transparent',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  color: 'var(--text-secondary, #a1a1aa)',
-  borderRadius: 6,
-  cursor: 'pointer',
-  fontSize: 13,
-}
-const containerStyle: React.CSSProperties = {
-  background: 'var(--bg-card, #ffffff)',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 8,
-  overflow: 'hidden',
-  boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05))',
-}
-const theadRow: React.CSSProperties = {
-  background: 'var(--table-header-bg, #f9fafb)',
-  borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  textAlign: 'left',
-}
-const thStyle: React.CSSProperties = {
-  padding: '12px 16px',
-  fontWeight: 600,
-  color: 'var(--table-header-fg, #4b5563)',
-}
-const trStyle: React.CSSProperties = {
-  borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-}
-const tdStyle: React.CSSProperties = {
-  padding: '12px 16px',
-  verticalAlign: 'top',
-  color: 'var(--text-primary, #f4f4f5)',
-}
-const monoTd: React.CSSProperties = {
-  ...tdStyle,
-  fontFamily: 'var(--font-mono, monospace)',
-  fontSize: 12,
-}
-const metadataTd: React.CSSProperties = {
-  ...monoTd,
-  maxWidth: 360,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-}
-const actionBadgeStyle: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  background: 'var(--accent-glow, rgba(99, 102, 241, 0.15))',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  color: 'var(--accent, #6366f1)',
-  borderRadius: 4,
-  padding: '2px 6px',
-  fontFamily: 'var(--font-mono, monospace)',
-  fontSize: 12,
-}
-const textMuted: React.CSSProperties = {
-  color: 'var(--text-secondary, #8a8a92)',
-  fontSize: 14,
-  padding: 16,
-}
-const errStyle: React.CSSProperties = {
-  color: 'var(--error, crimson)',
-  padding: 16,
-  fontWeight: 600,
-}

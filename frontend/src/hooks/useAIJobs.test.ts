@@ -51,7 +51,7 @@ describe('fetchJSON', () => {
       expect(await fetchJSON('/api/test')).toEqual({
         data: null,
         status: 200,
-        error: 'Invalid JSON response from /api/test',
+        error: 'Expected JSON response from /api/test',
       })
     } finally {
       globalThis.fetch = originalFetch

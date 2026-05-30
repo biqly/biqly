@@ -21,6 +21,9 @@ import { ModelingCanvas } from './modeling/ModelingCanvas'
 import { useModelingCanvas } from './modeling/useModelingCanvas'
 import type { JoinForm, RenameTarget, SuggestedJoin, Tab } from './modeling/types'
 import { publishModelRequest, suggestedJoinToPayload } from './modeling/types'
+import { useDatasources } from '../hooks/useDatasources'
+import { useSemanticModels } from '../hooks/useSemanticModels'
+import { useModelDetail } from '../hooks/useModelDetail'
 import {
   buildJoinPayload,
   canSaveJoinForm,
@@ -32,6 +35,7 @@ import {
   formatDataType,
   patchJoinForm,
   tableKey,
+  columnRefMatchesTable,
 } from './modeling/utils'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { Modal } from './ui/Modal'
@@ -45,14 +49,14 @@ export default function Modeling() {
   const { get, postData, putData, patchData, deleteData, loading, error } = useApi()
   const [dsParam, setDsParam] = useQueryParam('ds')
   const [modelParam, setModelParam] = useQueryParam('model')
-  const [datasources, setDatasources] = useState<Datasource[]>([])
-  const [loadedDatasources, setLoadedDatasources] = useState(false)
+  const { datasources, loading: dsLoading } = useDatasources()
+  const loadedDatasources = !dsLoading
   const [datasourceId, setDatasourceId] = useState(dsParam)
   const [tables, setTables] = useState<TableRow[]>([])
   const [columns, setColumns] = useState<ColumnRow[]>([])
-  const [models, setModels] = useState<SemanticModelSummary[]>([])
+  const { models, setModels } = useSemanticModels(datasourceId)
   const [modelId, setModelId] = useState(modelParam)
-  const [model, setModel] = useState<SemanticModelDetail | null>(null)
+  const { model, setModel } = useModelDetail(modelId, { includeInactive: true })
   const [joinForm, setJoinForm] = useState<JoinForm>(() => defaultJoinForm([], [], null))
   const [creatingModel, setCreatingModel] = useState(false)
   const [savingJoin, setSavingJoin] = useState(false)
@@ -70,13 +74,10 @@ export default function Modeling() {
   const prevDsRef = useRef(datasourceId)
 
   useEffect(() => {
-    get<Datasource[]>('/api/datasources').then((data) => {
-      if (!data) return
-      setDatasources(data)
-      setDatasourceId((prev) => (prev ? prev : (data[0]?.id ?? '')))
-      setLoadedDatasources(true)
-    })
-  }, [])
+    if (datasources.length > 0 && !datasourceId) {
+      setDatasourceId(datasources[0]!.id)
+    }
+  }, [datasources, datasourceId])
 
   const isLocked = useMemo(() => {
     if (!loadedDatasources) return false
@@ -108,26 +109,25 @@ export default function Modeling() {
 
     get<TableRow[]>(`/api/datasources/${datasourceId}/tables`).then((data) => setTables(data ?? []))
     get<ColumnRow[]>(`/api/datasources/${datasourceId}/columns`).then((data) => setColumns(data ?? []))
-    get<SemanticModelSummary[]>(`/api/semantic/models?datasource_id=${encodeURIComponent(datasourceId)}`).then((data) => {
-      const next = data ?? []
-      setModels(next)
-      setModelId((prev) => {
-        if (prev && next.some((m) => m.id === prev)) return prev
-        const published = next.find((m) => m.status === 'published')
-        return published?.id ?? next[0]?.id ?? ''
-      })
-    })
   }, [datasourceId, loadedDatasources, datasources])
 
   useEffect(() => {
+    if (models.length > 0) {
+      setModelId((prev) => {
+        if (prev && models.some((m) => m.id === prev)) return prev
+        const published = models.find((m) => m.status === 'published')
+        return published?.id ?? models[0]?.id ?? ''
+      })
+    } else {
+      setModelId('')
+    }
+  }, [models])
+
+  useEffect(() => {
     if (!modelId) {
-      setModel(null)
+      setSuggestedJoins([])
       return
     }
-    get<SemanticModelDetail>(`/api/semantic/models/${modelId}?include_inactive=true`).then((data) => {
-      if (!data) return
-      setModel(data)
-    })
     get<SuggestedJoin[]>(`/api/semantic/models/${modelId}/suggested-joins`).then((data) => {
       setSuggestedJoins(data ?? [])
     })
@@ -219,18 +219,7 @@ export default function Modeling() {
   const [savingBaseSwap, setSavingBaseSwap] = useState(false)
   const [addMetricOpen, setAddMetricOpen] = useState(false)
 
-  const columnRefMatchesTable = useCallback(
-    (ref: string | undefined | null, schema: string, table: string) => {
-      if (!ref) return false
-      const r = ref.trim()
-      if (!r) return false
-      const base = model?.base_schema ?? ''
-      if (r.startsWith(`${schema}.${table}.`)) return true
-      if (schema === base && r.startsWith(`${table}.`)) return true
-      return false
-    },
-    [model],
-  )
+
 
   const expressionRefsTable = useCallback(
     (expr: string | undefined | null, schema: string, table: string) => {
@@ -254,11 +243,11 @@ export default function Modeling() {
         const ts = j.to_schema || base
         return (fs === schema && j.from_table === table) || (ts === schema && j.to_table === table)
       }).length
-      const dims = (model.dimensions ?? []).filter((d) => d.is_active !== false && columnRefMatchesTable(d.column_ref, schema, table)).length
+      const dims = (model.dimensions ?? []).filter((d) => d.is_active !== false && columnRefMatchesTable(d.column_ref, schema, table, model.base_schema)).length
       const metrics = (model.metrics ?? []).filter((m) => m.is_active !== false && expressionRefsTable(m.expression, schema, table)).length
       return { joins, dims, metrics }
     },
-    [model, columnRefMatchesTable, expressionRefsTable],
+    [model, expressionRefsTable],
   )
 
   const columnRefMatchesSchema = useCallback(

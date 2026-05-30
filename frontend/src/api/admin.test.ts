@@ -35,8 +35,14 @@ describe('admin API', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/auth/admin/audit-log?user_id=user-1&action=login&page=2&page_size=10',
-      { credentials: 'same-origin', headers: { Authorization: 'Bearer token-1' } },
+      expect.objectContaining({
+        credentials: 'same-origin',
+        method: 'GET',
+        headers: expect.any(Headers),
+      }),
     )
+    const headers = fetchMock.mock.calls[0]![1]!.headers as Headers
+    expect(headers.get('Authorization')).toBe('Bearer token-1')
     expect(result).toEqual({
       entries: [
         {

@@ -6,6 +6,7 @@ import { Pagination } from '../ui/Pagination'
 import { useAuth } from '../auth/AuthProvider'
 import { apiInviteUser, apiListInvitations, apiRevokeInvitation, apiResendInvitation } from '../../api/auth'
 import { useQueryParam } from '../../hooks/useQueryParam'
+import { useConfirm } from '../../hooks/useConfirm'
 
 interface UserListPageProps {
   token: string
@@ -15,6 +16,7 @@ interface UserListPageProps {
 export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   const t = useT()
   const [locale] = useLocale()
+  const confirm = useConfirm()
   const [users, setUsers] = useState<AuthUser[]>([])
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
@@ -115,7 +117,11 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   }, [inviteSearch, inviteStatusFilter])
 
   const handleResend = async (id: string) => {
-    if (!window.confirm(t('auth.invite_resend_confirm'))) return
+    const ok = await confirm({
+      title: t('auth.invite_resend_confirm'),
+      variant: 'default',
+    })
+    if (!ok) return
     setActionLoadingId(id)
     setActionMessage(null)
     try {
@@ -130,7 +136,11 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   }
 
   const handleResendVerification = async (id: string) => {
-    if (!window.confirm(t('admin.users.resend_verification_confirm'))) return
+    const ok = await confirm({
+      title: t('admin.users.resend_verification_confirm'),
+      variant: 'default',
+    })
+    if (!ok) return
     setVerificationLoadingId(id)
     setActionMessage(null)
     try {
@@ -145,7 +155,11 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   }
 
   const handleRevoke = async (id: string) => {
-    if (!window.confirm(t('auth.invite_revoke_confirm'))) return
+    const ok = await confirm({
+      title: t('auth.invite_revoke_confirm'),
+      variant: 'danger',
+    })
+    if (!ok) return
     setActionLoadingId(id)
     setActionMessage(null)
     try {
@@ -159,6 +173,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     }
   }
 
+
   const getInviteStatus = (inv: Invitation): 'claimed' | 'expired' | 'pending' => {
     if (inv.claimed_at) return 'claimed'
     const isExpired = new Date(inv.expires_at).getTime() < Date.now()
@@ -168,15 +183,15 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   const totalPages = Math.ceil(totalItems / pageSize)
   const displayedUsers = users
 
-  if (loading && users.length === 0) return <div style={textMuted}>{t('admin.users.loading')}</div>
-  if (error) return <div style={errStyle}>{t('common.error')}: {error}</div>
+  if (loading && users.length === 0) return <div className="admin-text-muted">{t('admin.users.loading')}</div>
+  if (error) return <div className="admin-err-text">{t('common.error')}: {error}</div>
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="page-stack">
+      <div className="card-header-row">
         <h2 style={{ margin: 0, fontSize: 20 }}>{t('admin.users.title')}</h2>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span style={countBadge}>
+          <span className="admin-count-badge">
             {subTab === 'active'
               ? t('admin.users.count', { count: totalItems })
               : t('admin.users.count', { count: inviteTotalItems })}
@@ -184,7 +199,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
           {isSuperAdmin && (
             <button
               type="button"
-              style={btnSuccess}
+              className="admin-btn-success"
               onClick={() => {
                 setShowInviteModal(true)
                 setInviteEmail('')
@@ -200,18 +215,18 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
       </div>
 
       {isSuperAdmin && (
-        <div style={tabContainer}>
+        <div className="admin-tab-container">
           <button
             type="button"
             onClick={() => setSubTab('active')}
-            style={tabButton(subTab === 'active')}
+            className={`admin-tab-button ${subTab === 'active' ? 'active' : ''}`}
           >
             {t('auth.active_users_tab')}
           </button>
           <button
             type="button"
             onClick={() => setSubTab('invitations')}
-            style={tabButton(subTab === 'invitations')}
+            className={`admin-tab-button ${subTab === 'invitations' ? 'active' : ''}`}
           >
             {t('auth.invitations_tab')}
           </button>
@@ -226,12 +241,13 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
               placeholder={t('admin.users.search_placeholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={inputStyle}
+              className="admin-input"
+              style={{ maxWidth: 320 }}
             />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
-              style={selectStyle}
+              className="admin-select"
             >
               <option value="all">{t('admin.users.status_all')}</option>
               <option value="active">{t('admin.users.status_active')}</option>
@@ -239,10 +255,10 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
             </select>
           </div>
 
-          <div style={tableContainer}>
+          <div className="admin-table-container">
             {actionMessage && (
               <div
-                style={actionMessage.type === 'success' ? successBox : errStyleBox}
+                className={actionMessage.type === 'success' ? 'admin-success-box' : 'admin-err-box'}
                 onClick={() => setActionMessage(null)}
                 role="button"
                 tabIndex={0}
@@ -251,42 +267,42 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
                 {actionMessage.text}
               </div>
             )}
-            <table style={tableStyle}>
+            <table className="admin-table">
               <thead>
-                <tr style={theadRow}>
-                  <th style={thStyle}>{t('admin.users.col_user')}</th>
-                  <th style={thStyle}>{t('admin.users.col_name')}</th>
-                  <th style={thStyle}>{t('admin.users.col_status')}</th>
-                  <th style={thStyle}>{t('admin.users.col_email_verification')}</th>
-                  <th style={thStyle}>{t('admin.users.col_created_at')}</th>
-                  <th style={thStyle}></th>
+                <tr className="admin-thead-row">
+                  <th className="admin-th">{t('admin.users.col_user')}</th>
+                  <th className="admin-th">{t('admin.users.col_name')}</th>
+                  <th className="admin-th">{t('admin.users.col_status')}</th>
+                  <th className="admin-th">{t('admin.users.col_email_verification')}</th>
+                  <th className="admin-th">{t('admin.users.col_created_at')}</th>
+                  <th className="admin-th"></th>
                 </tr>
               </thead>
               <tbody>
                 {displayedUsers.length === 0 ? (
-                  <tr>
+                  <tr className="admin-tr">
                     <td colSpan={6} style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>
                       {t('admin.users.empty')}
                     </td>
                   </tr>
                 ) : (
                   displayedUsers.map((u) => (
-                    <tr key={u.id} style={trStyle}>
-                      <td style={tdStyle}>
+                    <tr key={u.id} className="admin-tr">
+                      <td className="admin-td">
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                           <span style={{ fontWeight: 600 }}>{u.email}</span>
-                          {u.username && <span style={subtext}>{u.username}</span>}
+                          {u.username && <span className="admin-subtext">{u.username}</span>}
                         </div>
                       </td>
-                      <td style={tdStyle}>{u.displayName || t('common.em_dash')}</td>
-                      <td style={tdStyle}>
-                        <span style={u.isActive ? badgeActive : badgeInactive}>
+                      <td className="admin-td">{u.displayName || t('common.em_dash')}</td>
+                      <td className="admin-td">
+                        <span className={u.isActive ? 'admin-badge-active' : 'admin-badge-inactive'}>
                           {u.isActive ? t('admin.users.status_active') : t('admin.users.status_inactive')}
                         </span>
                       </td>
-                      <td style={tdStyle}>
+                      <td className="admin-td">
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
-                          <span style={u.emailVerified ? badgeVerified : badgeUnverified}>
+                          <span className={u.emailVerified ? 'admin-badge-verified' : 'admin-badge-unverified'}>
                             {u.emailVerified ? t('admin.users.email_verified') : t('admin.users.email_unverified')}
                           </span>
                           {!u.emailVerified && (
@@ -294,16 +310,16 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
                               type="button"
                               onClick={() => handleResendVerification(u.id)}
                               disabled={verificationLoadingId === u.id}
-                              style={btnSecondary}
+                              className="admin-btn-secondary"
                             >
                               {verificationLoadingId === u.id ? '...' : t('admin.users.resend_verification')}
                             </button>
                           )}
                         </div>
                       </td>
-                      <td style={tdStyle}>{new Date(u.createdAt).toLocaleDateString(localeLanguageTag(locale))}</td>
-                      <td style={{ ...tdStyle, textAlign: 'right' }}>
-                        <button onClick={() => onSelectUser(u.id)} style={btnPrimary}>
+                      <td className="admin-td">{new Date(u.createdAt).toLocaleDateString(localeLanguageTag(locale))}</td>
+                      <td className="admin-td" style={{ textAlign: 'right' }}>
+                        <button onClick={() => onSelectUser(u.id)} className="admin-btn-primary">
                           {t('admin.users.manage')}
                         </button>
                       </td>
@@ -329,12 +345,13 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
               placeholder={t('admin.users.search_placeholder')}
               value={inviteSearch}
               onChange={(e) => setInviteSearch(e.target.value)}
-              style={inputStyle}
+              className="admin-input"
+              style={{ maxWidth: 320 }}
             />
             <select
               value={inviteStatusFilter}
               onChange={(e) => setInviteStatusFilter(e.target.value as any)}
-              style={selectStyle}
+              className="admin-select"
             >
               <option value="all">{t('auth.invite_status_all')}</option>
               <option value="pending">{t('auth.invite_status_pending')}</option>
@@ -343,10 +360,10 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
             </select>
           </div>
 
-          <div style={tableContainer}>
+          <div className="admin-table-container">
             {actionMessage && (
               <div
-                style={actionMessage.type === 'success' ? successBox : errStyleBox}
+                className={actionMessage.type === 'success' ? 'admin-success-box' : 'admin-err-box'}
                 onClick={() => setActionMessage(null)}
                 role="button"
                 tabIndex={0}
@@ -356,26 +373,26 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
               </div>
             )}
             {invitesLoading && invitations.length === 0 ? (
-              <div style={textMuted}>{t('auth.invite_list_loading')}</div>
+              <div className="admin-text-muted">{t('auth.invite_list_loading')}</div>
             ) : invitesError ? (
-              <div style={errStyle}>{t('common.error')}: {invitesError}</div>
+              <div className="admin-err-text">{t('common.error')}: {invitesError}</div>
             ) : (
               <>
-                <table style={tableStyle}>
+                <table className="admin-table">
                   <thead>
-                    <tr style={theadRow}>
-                      <th style={thStyle}>{t('auth.invite_col_email')}</th>
-                      <th style={thStyle}>{t('auth.invite_col_role')}</th>
-                      <th style={thStyle}>{t('auth.invite_col_invited_by')}</th>
-                      <th style={thStyle}>{t('auth.invite_col_sent_at')}</th>
-                      <th style={thStyle}>{t('auth.invite_col_expires_at')}</th>
-                      <th style={thStyle}>{t('auth.invite_col_status')}</th>
-                      <th style={thStyle}></th>
+                    <tr className="admin-thead-row">
+                      <th className="admin-th">{t('auth.invite_col_email')}</th>
+                      <th className="admin-th">{t('auth.invite_col_role')}</th>
+                      <th className="admin-th">{t('auth.invite_col_invited_by')}</th>
+                      <th className="admin-th">{t('auth.invite_col_sent_at')}</th>
+                      <th className="admin-th">{t('auth.invite_col_expires_at')}</th>
+                      <th className="admin-th">{t('auth.invite_col_status')}</th>
+                      <th className="admin-th"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {invitations.length === 0 ? (
-                      <tr>
+                      <tr className="admin-tr">
                         <td colSpan={7} style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>
                           {t('auth.invite_list_empty')}
                         </td>
@@ -385,16 +402,16 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
                         const status = getInviteStatus(inv)
                         const isPendingOrExpired = status === 'pending' || status === 'expired'
                         return (
-                          <tr key={inv.id} style={trStyle}>
-                            <td style={tdStyle}>
+                          <tr key={inv.id} className="admin-tr">
+                            <td className="admin-td">
                               <span style={{ fontWeight: 600 }}>{inv.email}</span>
                             </td>
-                            <td style={tdStyle}>{inv.role_name}</td>
-                            <td style={tdStyle}>{inv.invited_by}</td>
-                            <td style={tdStyle}>{new Date(inv.created_at).toLocaleDateString(localeLanguageTag(locale))}</td>
-                            <td style={tdStyle}>{new Date(inv.expires_at).toLocaleDateString(localeLanguageTag(locale))}</td>
-                            <td style={tdStyle}>
-                              <span style={status === 'claimed' ? badgeClaimed : status === 'expired' ? badgeExpired : badgePending}>
+                            <td className="admin-td">{inv.role_name}</td>
+                            <td className="admin-td">{inv.invited_by}</td>
+                            <td className="admin-td">{new Date(inv.created_at).toLocaleDateString(localeLanguageTag(locale))}</td>
+                            <td className="admin-td">{new Date(inv.expires_at).toLocaleDateString(localeLanguageTag(locale))}</td>
+                            <td className="admin-td">
+                              <span className={status === 'claimed' ? 'admin-badge-claimed' : status === 'expired' ? 'admin-badge-expired' : 'admin-badge-pending'}>
                                 {status === 'claimed'
                                   ? t('auth.invite_status_claimed')
                                   : status === 'expired'
@@ -402,20 +419,20 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
                                   : t('auth.invite_status_pending')}
                               </span>
                             </td>
-                            <td style={{ ...tdStyle, textAlign: 'right' }}>
+                            <td className="admin-td" style={{ textAlign: 'right' }}>
                               {isPendingOrExpired && (
                                 <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                                   <button
                                     onClick={() => handleResend(inv.id)}
                                     disabled={actionLoadingId === inv.id}
-                                    style={btnSecondary}
+                                    className="admin-btn-secondary"
                                   >
                                     {actionLoadingId === inv.id ? '...' : t('auth.btn_resend')}
                                   </button>
                                   <button
                                     onClick={() => handleRevoke(inv.id)}
                                     disabled={actionLoadingId === inv.id}
-                                    style={btnDanger}
+                                    className="admin-btn-danger"
                                   >
                                     {actionLoadingId === inv.id ? '...' : t('auth.btn_revoke')}
                                   </button>
@@ -485,13 +502,13 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
             </header>
 
             {inviteSuccess ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={successBox}>
+              <div className="page-stack" style={{ gap: 16 }}>
+                <div className="admin-success-box">
                   {t('auth.invite_user_success', { email: inviteEmail })}
                 </div>
                 <button
                   type="button"
-                  style={btnPrimary}
+                  className="admin-btn-primary"
                   onClick={() => {
                     setShowInviteModal(false)
                     if (subTab === 'invitations') {
@@ -518,11 +535,12 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
                     setInviteLoading(false)
                   }
                 }}
-                style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
+                className="page-stack"
+                style={{ gap: 16 }}
               >
-                {inviteError && <div style={errStyleBox}>{t('auth.invite_user_failed', { error: inviteError })}</div>}
+                {inviteError && <div className="admin-err-box">{t('auth.invite_user_failed', { error: inviteError })}</div>}
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div className="page-stack" style={{ gap: 6 }}>
                   <label style={{ fontSize: 13, fontWeight: 500 }} htmlFor="invite-email-input">
                     {t('auth.invite_user_email')}
                   </label>
@@ -532,11 +550,11 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
                     required
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
-                    style={inputStyleWide}
+                    className="admin-input-wide"
                   />
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div className="page-stack" style={{ gap: 6 }}>
                   <label style={{ fontSize: 13, fontWeight: 500 }} htmlFor="invite-role-input">
                     {t('auth.invite_user_role')}
                   </label>
@@ -544,7 +562,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
                     id="invite-role-input"
                     value={inviteRole}
                     onChange={(e) => setInviteRole(e.target.value)}
-                    style={selectStyleWide}
+                    className="admin-select-wide"
                   >
                     <option value="viewer">Viewer</option>
                     <option value="analyst">Analyst</option>
@@ -557,7 +575,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 8 }}>
                   <button
                     type="button"
-                    style={btnGhost}
+                    className="admin-btn-ghost"
                     onClick={() => setShowInviteModal(false)}
                     disabled={inviteLoading}
                   >
@@ -565,7 +583,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
                   </button>
                   <button
                     type="submit"
-                    style={btnPrimary}
+                    className="admin-btn-primary"
                     disabled={inviteLoading || !inviteEmail}
                   >
                     {inviteLoading && <span className="spinner" style={{ marginRight: 6, display: 'inline-block', width: 12, height: 12 }} />}
@@ -579,267 +597,5 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
       )}
     </div>
   )
-}
-
-const tableContainer: React.CSSProperties = {
-  background: 'var(--bg-card, #ffffff)',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 8,
-  overflow: 'hidden',
-  boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05))',
-}
-
-const tableStyle: React.CSSProperties = {
-  width: '100%',
-  borderCollapse: 'collapse',
-  fontSize: 14,
-  textAlign: 'left',
-}
-
-const theadRow: React.CSSProperties = {
-  background: 'var(--table-header-bg, #f9fafb)',
-  borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-}
-
-const thStyle: React.CSSProperties = {
-  padding: '12px 16px',
-  fontWeight: 600,
-  color: 'var(--table-header-fg, #4b5563)',
-}
-
-const trStyle: React.CSSProperties = {
-  borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-}
-
-const tdStyle: React.CSSProperties = {
-  padding: '12px 16px',
-}
-
-const subtext: React.CSSProperties = {
-  fontSize: 11,
-  color: '#9ca3af',
-  fontFamily: 'monospace',
-}
-
-const inputStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  background: 'var(--input-bg, #fff)',
-  color: 'var(--text-primary, #111)',
-  borderRadius: 6,
-  fontSize: 14,
-  width: '100%',
-  maxWidth: 320,
-}
-
-const selectStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 6,
-  fontSize: 14,
-  background: 'var(--input-bg, #fff)',
-  color: 'var(--text-primary, #111)',
-}
-
-const btnPrimary: React.CSSProperties = {
-  padding: '6px 12px',
-  background: 'var(--accent, #4f46e5)',
-  color: 'white',
-  border: 0,
-  borderRadius: 4,
-  cursor: 'pointer',
-  fontSize: 13,
-  fontWeight: 500,
-}
-
-const badgeActive: React.CSSProperties = {
-  padding: '2px 8px',
-  borderRadius: 9999,
-  background: 'rgba(16, 185, 129, 0.12)',
-  color: 'var(--success, #10b981)',
-  fontSize: 12,
-  fontWeight: 500,
-}
-
-const badgeInactive: React.CSSProperties = {
-  padding: '2px 8px',
-  borderRadius: 9999,
-  background: 'rgba(239, 68, 68, 0.12)',
-  color: 'var(--error, #ef4444)',
-  fontSize: 12,
-  fontWeight: 500,
-}
-
-const badgeVerified: React.CSSProperties = {
-  padding: '2px 8px',
-  borderRadius: 9999,
-  background: 'var(--accent-glow, rgba(99, 102, 241, 0.15))',
-  color: 'var(--accent, #6366f1)',
-  fontSize: 12,
-  fontWeight: 500,
-}
-
-const badgeUnverified: React.CSSProperties = {
-  padding: '2px 8px',
-  borderRadius: 9999,
-  background: 'rgba(245, 158, 11, 0.14)',
-  color: 'var(--warning, #f59e0b)',
-  fontSize: 12,
-  fontWeight: 500,
-}
-
-const countBadge: React.CSSProperties = {
-  fontSize: 12,
-  background: 'var(--bg-card-raised, rgba(255, 255, 255, 0.08))',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  padding: '4px 8px',
-  borderRadius: 12,
-  color: 'var(--text-secondary, #a1a1aa)',
-  fontWeight: 600,
-}
-
-const textMuted: React.CSSProperties = {
-  color: '#6b7280',
-  fontSize: 14,
-  padding: 16,
-}
-
-const errStyle: React.CSSProperties = {
-  color: 'crimson',
-  padding: 16,
-  fontWeight: 600,
-}
-
-const btnSuccess: React.CSSProperties = {
-  padding: '6px 12px',
-  background: '#10b981',
-  color: 'white',
-  border: 0,
-  borderRadius: 4,
-  cursor: 'pointer',
-  fontSize: 13,
-  fontWeight: 500,
-}
-
-const btnGhost: React.CSSProperties = {
-  padding: '6px 12px',
-  background: 'transparent',
-  color: 'var(--text-primary, #111)',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 4,
-  cursor: 'pointer',
-  fontSize: 13,
-  fontWeight: 500,
-}
-
-const inputStyleWide: React.CSSProperties = {
-  padding: '8px 12px',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  background: 'var(--input-bg, #fff)',
-  color: 'var(--text-primary, #111)',
-  borderRadius: 6,
-  fontSize: 14,
-  width: '100%',
-  boxSizing: 'border-box',
-}
-
-const selectStyleWide: React.CSSProperties = {
-  padding: '8px 12px',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  background: 'var(--input-bg, #fff)',
-  color: 'var(--text-primary, #111)',
-  borderRadius: 6,
-  fontSize: 14,
-  width: '100%',
-}
-
-const successBox: React.CSSProperties = {
-  padding: '12px',
-  background: 'rgba(16, 185, 129, 0.12)',
-  color: '#10b981',
-  borderRadius: 6,
-  fontSize: 14,
-}
-
-const errStyleBox: React.CSSProperties = {
-  padding: '12px',
-  background: 'rgba(239, 68, 68, 0.12)',
-  color: '#ef4444',
-  borderRadius: 6,
-  fontSize: 14,
-}
-
-const tabContainer: React.CSSProperties = {
-  display: 'flex',
-  borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  marginBottom: 8,
-  gap: 16,
-}
-
-const tabButton = (active: boolean): React.CSSProperties => ({
-  padding: '8px 16px 12px 16px',
-  background: 'transparent',
-  border: 0,
-  borderBottom: active ? '2px solid var(--accent, #4f46e5)' : '2px solid transparent',
-  color: active ? 'var(--text-primary, #111)' : 'var(--text-secondary, #6b7280)',
-  cursor: 'pointer',
-  fontSize: 14,
-  fontWeight: active ? 600 : 500,
-  outline: 'none',
-  transition: 'all 0.2s',
-})
-
-const badgeClaimed: React.CSSProperties = {
-  padding: '2px 8px',
-  borderRadius: 9999,
-  background: 'rgba(16, 185, 129, 0.12)',
-  color: 'var(--success, #10b981)',
-  fontSize: 12,
-  fontWeight: 500,
-  display: 'inline-block',
-}
-
-const badgePending: React.CSSProperties = {
-  padding: '2px 8px',
-  borderRadius: 9999,
-  background: 'rgba(245, 158, 11, 0.14)',
-  color: 'var(--warning, #f59e0b)',
-  fontSize: 12,
-  fontWeight: 500,
-  display: 'inline-block',
-}
-
-const badgeExpired: React.CSSProperties = {
-  padding: '2px 8px',
-  borderRadius: 9999,
-  background: 'rgba(239, 68, 68, 0.12)',
-  color: 'var(--error, #ef4444)',
-  fontSize: 12,
-  fontWeight: 500,
-  display: 'inline-block',
-}
-
-const btnDanger: React.CSSProperties = {
-  padding: '4px 10px',
-  background: 'rgba(239, 68, 68, 0.1)',
-  color: '#ef4444',
-  border: '1px solid rgba(239, 68, 68, 0.2)',
-  borderRadius: 4,
-  cursor: 'pointer',
-  fontSize: 12,
-  fontWeight: 500,
-  transition: 'all 0.2s',
-}
-
-const btnSecondary: React.CSSProperties = {
-  padding: '4px 10px',
-  background: 'var(--bg-card-raised, rgba(255, 255, 255, 0.05))',
-  color: 'var(--text-primary, #111)',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 4,
-  cursor: 'pointer',
-  fontSize: 12,
-  fontWeight: 500,
-  transition: 'all 0.2s',
 }
 

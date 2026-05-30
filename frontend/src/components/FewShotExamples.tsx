@@ -7,6 +7,9 @@ import { ErrorAlert } from './ui/ErrorAlert'
 import { Select } from './ui/Select'
 import type { Datasource } from '../types/metadata'
 import type { SemanticModelDetail } from '../types/semantic'
+import { useDatasources } from '../hooks/useDatasources'
+import { useSemanticModels } from '../hooks/useSemanticModels'
+import { useModelDetail } from '../hooks/useModelDetail'
 
 interface FewShotExample {
   id: string
@@ -28,8 +31,8 @@ export default function FewShotExamples() {
   const [examples, setExamples] = useState<FewShotExample[]>([])
 
   // Filtering & Metadata States
-  const [datasources, setDatasources] = useState<Datasource[]>([])
-  const [allModels, setAllModels] = useState<{ id: string; name: string; label?: string | null; datasource_id: string }[]>([])
+  const { datasources } = useDatasources()
+  const { models: allModels } = useSemanticModels(null, { all: true })
   const [selectedDatasourceId, setSelectedDatasourceId] = useState('')
   const [selectedModelId, setSelectedModelId] = useState('')
 
@@ -46,21 +49,11 @@ export default function FewShotExamples() {
   const [apiReady, setApiReady] = useState(true)
 
   // Sidebar States & Refs
-  const [activeModelDetail, setActiveModelDetail] = useState<SemanticModelDetail | null>(null)
+  const { model: activeModelDetail, setModel: setActiveModelDetail } = useModelDetail(formModelId, { includeInactive: true })
   const [sidebarSearch, setSidebarSearch] = useState('')
   const questionRef = useRef<HTMLTextAreaElement | null>(null)
   const lqRef = useRef<HTMLTextAreaElement | null>(null)
   const [lastFocusedInput, setLastFocusedInput] = useState<'question' | 'lq'>('lq')
-
-  // Load Metadata
-  useEffect(() => {
-    get<Datasource[]>('/api/datasources').then((data) => {
-      if (data) setDatasources(data)
-    })
-    get<{ id: string; name: string; label?: string | null; datasource_id: string }[]>('/api/semantic/models').then((data) => {
-      if (data) setAllModels(data)
-    })
-  }, [get])
 
   // Load & Filter Examples
   useEffect(() => {
@@ -100,17 +93,6 @@ export default function FewShotExamples() {
       }
     })
   }, [selectedDatasourceId, selectedModelId, get])
-
-  // Load Form Model Detail
-  useEffect(() => {
-    if (!formModelId) {
-      setActiveModelDetail(null)
-      return
-    }
-    get<SemanticModelDetail>(`/api/semantic/models/${formModelId}?include_inactive=true`).then((data) => {
-      setActiveModelDetail(data ?? null)
-    })
-  }, [formModelId, get])
 
   const persist = (updated: FewShotExample[]) => {
     setExamples(updated)

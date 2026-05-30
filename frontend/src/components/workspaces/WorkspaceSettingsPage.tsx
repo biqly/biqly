@@ -13,6 +13,7 @@ import {
 } from '../../api/admin'
 import { useT } from '../../i18n'
 import type { Workspace, WorkspaceMember, WorkspaceDatasource, Role } from '../../types/auth'
+import { useConfirm } from '../../hooks/useConfirm'
 
 interface Props {
   token: string
@@ -22,6 +23,7 @@ interface Props {
 
 export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
   const t = useT()
+  const confirm = useConfirm()
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [members, setMembers] = useState<WorkspaceMember[]>([])
   const [datasources, setDatasources] = useState<WorkspaceDatasource[]>([])
@@ -96,7 +98,11 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
   }
 
   async function onRemoveMember(userID: string) {
-    if (!confirm(t('admin.workspaces.confirm_remove_member'))) return
+    const ok = await confirm({
+      title: t('admin.workspaces.confirm_remove_member'),
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       await removeWorkspaceMember(token, workspaceID, userID)
       load()
@@ -127,7 +133,11 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
   }
 
   async function onDetachDS(dsID: string) {
-    if (!confirm(t('admin.workspaces.confirm_detach'))) return
+    const ok = await confirm({
+      title: t('admin.workspaces.confirm_detach'),
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       await detachWorkspaceDatasource(token, workspaceID, dsID)
       load()

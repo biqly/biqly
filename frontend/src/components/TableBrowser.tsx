@@ -10,7 +10,10 @@ import { LoadingOverlay } from './ui/LoadingOverlay'
 import { Modal } from './ui/Modal'
 import { Select } from './ui/Select'
 import type { Datasource } from '../types/metadata'
-import { splitTableKey, tableKey } from './modeling/utils'
+import { splitTableKey, tableKey, columnRefMatchesTable } from './modeling/utils'
+import { useDatasources } from '../hooks/useDatasources'
+import { useSemanticModels } from '../hooks/useSemanticModels'
+import { useModelDetail } from '../hooks/useModelDetail'
 import type {
   SemanticDimension,
   SemanticMetric,
@@ -199,19 +202,7 @@ function buildRowModalTitle(
   return fallback
 }
 
-function columnRefMatchesTable(
-  ref: string | undefined | null,
-  schema: string,
-  table: string,
-  baseSchema: string,
-) {
-  if (!ref) return false
-  const r = ref.trim()
-  if (!r) return false
-  if (r.startsWith(`${schema}.${table}.`)) return true
-  if (schema === baseSchema && r.startsWith(`${table}.`)) return true
-  return false
-}
+
 
 function collectModelTables(model: SemanticModelDetail): { value: string; label: string }[] {
   const seen = new Set<string>()
@@ -246,11 +237,11 @@ export default function TableBrowser() {
   const formatInt = useCallback((n: number) => n.toLocaleString(localeTag), [localeTag])
   const { get, postData, error } = useApi()
 
-  const [datasources, setDatasources] = useState<Datasource[]>([])
+  const { datasources } = useDatasources()
   const [datasourceId, setDatasourceId] = useState('')
-  const [models, setModels] = useState<SemanticModelSummary[]>([])
+  const { models } = useSemanticModels(datasourceId)
   const [modelId, setModelId] = useState('')
-  const [modelDetail, setModelDetail] = useState<SemanticModelDetail | null>(null)
+  const { model: modelDetail, setModel: setModelDetail } = useModelDetail(modelId)
   const [selectedTableKey, setSelectedTableKey] = useState('')
   const [columnOrder, setColumnOrder] = useState<string[]>([])
   const [dragColumn, setDragColumn] = useState<string | null>(null)
@@ -277,62 +268,43 @@ export default function TableBrowser() {
     [modelDetail?.metrics],
   )
 
+  // Set default datasourceId
   useEffect(() => {
-    get<Datasource[]>('/api/datasources').then((data) => {
-      if (data && data.length > 0) {
-        setDatasources(data)
-        const first = data[0]
-        if (first) setDatasourceId(first.id)
-      }
-    })
-  }, [])
+    if (datasources.length > 0 && !datasourceId) {
+      setDatasourceId(datasources[0]!.id)
+    }
+  }, [datasources, datasourceId])
 
+  // Set default modelId when models change
   useEffect(() => {
-    if (!datasourceId) {
-      setModels([])
+    if (models.length > 0) {
+      const published = models.filter((m) => m.status === 'published')
+      const firstPub = published[0]
+      const firstData = models[0]
+      if (firstPub) {
+        setModelId(firstPub.id)
+      } else if (firstData) {
+        setModelId(firstData.id)
+      }
+    } else {
       setModelId('')
-      setModelDetail(null)
       setResult(null)
-      return
     }
-    get<SemanticModelSummary[]>(`/api/semantic/models?datasource_id=${encodeURIComponent(datasourceId)}`).then((data) => {
-      if (data) {
-        setModels(data)
-        const published = data.filter((m) => m.status === 'published')
-        const firstPub = published[0]
-        const firstData = data[0]
-        if (firstPub) {
-          setModelId(firstPub.id)
-        } else if (firstData) {
-          setModelId(firstData.id)
-        } else {
-          setModelId('')
-          setModelDetail(null)
-          setResult(null)
-        }
-      }
-    })
-  }, [datasourceId])
+  }, [models])
 
   useEffect(() => {
-    if (!modelId) {
-      setModelDetail(null)
-      setResult(null)
-      setTotalRows(null)
-      return
-    }
     setResult(null)
     setTotalRows(null)
-    get<SemanticModelDetail>(`/api/semantic/models/${encodeURIComponent(modelId)}`).then((d) => {
-      if (d) {
-        setModelDetail(d)
-        setSelectedTableKey(tableKey(d.base_schema, d.base_table))
-        setFilters([])
-        setPage(0)
-        setDetailRow(null)
-      }
-    })
   }, [modelId])
+
+  useEffect(() => {
+    if (modelDetail) {
+      setSelectedTableKey(tableKey(modelDetail.base_schema, modelDetail.base_table))
+      setFilters([])
+      setPage(0)
+      setDetailRow(null)
+    }
+  }, [modelDetail])
 
   useEffect(() => {
     setPage(0)

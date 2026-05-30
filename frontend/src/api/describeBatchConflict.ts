@@ -1,5 +1,5 @@
 import type { AIJob } from '../types/ai'
-import { getLocale } from '../i18n'
+import { apiFetch } from './apiClient'
 
 export type DescribeBatchConflictResult = {
   conflict: boolean
@@ -19,11 +19,11 @@ export async function fetchDescribeBatchConflict(
   for (const s of schemas) {
     params.append('schemas', s)
   }
-  const res = await fetch(`/api/ai/jobs/describe-batch/conflict?${params}`, {
-    headers: { 'X-Locale': getLocale() },
-  })
-  if (!res.ok) return null
-  return (await res.json()) as DescribeBatchConflictResult
+  try {
+    return await apiFetch<DescribeBatchConflictResult>('GET', `/api/ai/jobs/describe-batch/conflict?${params}`)
+  } catch {
+    return null
+  }
 }
 
 export type DescribeBatchConflictBody = {

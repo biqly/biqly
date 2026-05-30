@@ -20,6 +20,8 @@ import { ChatPanel } from './aiQuery/ChatPanel'
 import { embeddingSummary } from './aiQuery/routingViz'
 import type { TableOption } from './aiQuery/types'
 import { AI_QUERY_TIMEOUT_MS, AI_METADATA_EMBED_TIMEOUT_MS } from './aiQuery/types'
+import { useDatasources } from '../hooks/useDatasources'
+import { useSemanticModels } from '../hooks/useSemanticModels'
 
 export default function AIQuery() {
   const t = useT()
@@ -40,11 +42,11 @@ export default function AIQuery() {
     updateMessageResponse,
   } = useConversation()
 
-  const [datasources, setDatasources] = useState<Datasource[]>([])
+  const { datasources } = useDatasources()
   const [tables, setTables] = useState<TableOption[]>([])
   const [dsParam, setDsParam] = useQueryParam('ds')
   const [datasourceId, setDatasourceId] = useState(dsParam)
-  const [semanticModels, setSemanticModels] = useState<{ id: string; name: string; label?: string | null; status: string }[]>([])
+  const { models: semanticModels } = useSemanticModels(datasourceId)
   const [semanticModelId, setSemanticModelId] = useState<string>('')
   const [selectedTables, setSelectedTables] = useState<string[]>([])
   const [tableSearch, setTableSearch] = useState('')
@@ -77,19 +79,13 @@ export default function AIQuery() {
   }, [aiBusy])
 
   useEffect(() => {
-    let cancelled = false
-    get<Datasource[]>('/api/datasources').then((data) => {
-      if (!data || cancelled) return
-      setDatasources(data)
+    if (datasources.length > 0) {
       setDatasourceId((prev) => {
-        if (prev && data.some((d) => d.id === prev)) return prev
-        return data[0]?.id ?? ''
+        if (prev && datasources.some((d) => d.id === prev)) return prev
+        return datasources[0]?.id ?? ''
       })
-    })
-    return () => {
-      cancelled = true
     }
-  }, [get])
+  }, [datasources])
 
   useEffect(() => {
     setDsParam(datasourceId)
@@ -115,17 +111,11 @@ export default function AIQuery() {
   useEffect(() => {
     setSelectedTables([]); setTableSearch(''); setIncludeBaseTables(true); setIncludeViews(true); setTables([])
     setEmbeddingStatus(null)
-    setSemanticModels([])
     setSemanticModelId('')
     if (!datasourceId) return
     let cancelled = false
     get<TableOption[]>(`/api/datasources/${datasourceId}/tables`).then((data) => {
       if (!cancelled) setTables(data || [])
-    })
-    get<{ id: string; name: string; label?: string | null; status: string }[]>(
-      `/api/semantic/models?datasource_id=${encodeURIComponent(datasourceId)}`,
-    ).then((data) => {
-      if (!cancelled) setSemanticModels(data ?? [])
     })
     return () => {
       cancelled = true

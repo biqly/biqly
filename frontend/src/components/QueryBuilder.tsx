@@ -4,6 +4,9 @@ import { useT } from '../i18n'
 import { useApi } from '../hooks/useApi'
 import { useArrayState } from '../hooks/useArrayState'
 import { useQueryParam } from '../hooks/useQueryParam'
+import { useDatasources } from '../hooks/useDatasources'
+import { useSemanticModels } from '../hooks/useSemanticModels'
+import { useModelDetail } from '../hooks/useModelDetail'
 import type { Datasource } from '../types/metadata'
 import { formatResultCell } from '../utils/resultCellFormat'
 import { rowsToChartData } from '../utils/chartData'
@@ -57,27 +60,15 @@ interface QueryExplainResponse {
 export default function QueryBuilder() {
   const t = useT()
   const { get, postData, loading, error } = useApi()
-  const [datasources, setDatasources] = useState<Datasource[]>([])
-  const [loadedDatasources, setLoadedDatasources] = useState(false)
   const [dsParam, setDsParam] = useQueryParam('ds')
+  const { datasources, loading: dsLoading } = useDatasources()
+  const loadedDatasources = !dsLoading
   const [datasourceId, setDatasourceId] = useState(dsParam)
   const [modelId, setModelId] = useState('')
-  const [models, setModels] = useState<SemanticModelSummary[]>([])
-  const [modelDetail, setModelDetail] = useState<SemanticModelDetail | null>(null)
+  const { models, setModels } = useSemanticModels(datasourceId)
+  const { model: modelDetail, setModel: setModelDetail } = useModelDetail(modelId)
   const [generatingModel, setGeneratingModel] = useState(false)
   const [generatedModel, setGeneratedModel] = useState<GenerateSemanticModelResponse | null>(null)
-
-  useEffect(() => {
-    get<Datasource[]>('/api/datasources').then((data) => {
-      if (!data) return
-      setDatasources(data)
-      setDatasourceId((prev) => {
-        if (prev) return prev
-        return data[0]?.id ?? ''
-      })
-      setLoadedDatasources(true)
-    })
-  }, [])
 
   const isLocked = useMemo(() => {
     if (!loadedDatasources) return false
@@ -89,44 +80,26 @@ export default function QueryBuilder() {
     setDsParam(datasourceId)
   }, [datasourceId, setDsParam])
 
+  // Set default datasourceId
   useEffect(() => {
-    if (!datasourceId) {
-      setModels([])
-      setGeneratedModel(null)
-      return
+    if (datasources.length > 0 && !datasourceId) {
+      setDatasourceId(datasources[0]!.id)
     }
-    let cancelled = false
-    void get<SemanticModelSummary[]>(
-      `/api/semantic/models?datasource_id=${encodeURIComponent(datasourceId)}`,
-    ).then((data) => {
-      if (!data || cancelled) return
-      setModels(data)
-      setGeneratedModel(null)
-      setModelId((prev) => {
-        if (prev && data.some((m) => m.id === prev)) return prev
-        const published = data.filter((m) => m.status === 'published')
-        if (published.length > 0) return published[0]!.id
-        return data[0]?.id ?? ''
-      })
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [datasourceId])
+  }, [datasources, datasourceId])
 
+  // Set default modelId
   useEffect(() => {
-    if (!modelId) {
-      setModelDetail(null)
-      return
+    if (models.length > 0) {
+      setModelId((prev) => {
+        if (prev && models.some((m) => m.id === prev)) return prev
+        const published = models.filter((m) => m.status === 'published')
+        if (published.length > 0) return published[0]!.id
+        return models[0]?.id ?? ''
+      })
+    } else {
+      setModelId('')
     }
-    let cancelled = false
-    void get<SemanticModelDetail>(`/api/semantic/models/${encodeURIComponent(modelId)}`).then((d) => {
-      if (!cancelled) setModelDetail(d ?? null)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [modelId])
+  }, [models])
 
   const selectItemsState = useArrayState<SelectItem>([])
   const filterState = useArrayState<FilterRow>([])

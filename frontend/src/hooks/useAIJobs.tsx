@@ -16,6 +16,9 @@ import type { BulkEntry } from '../components/metadata/bulkProgress'
 import { getLocale } from '../i18n'
 import { getAIClientSessionId } from '../utils/aiSession'
 import { createJobWaiter, type JobCallbacks, type JobWaiterHandle } from './jobWaiter'
+import { fetchJSON, type FetchJSONResult } from '../api/apiClient'
+export { fetchJSON }
+export type { FetchJSONResult }
 
 const POLL_MS = 1200
 const TERMINAL = new Set(['succeeded', 'failed', 'cancelled'])
@@ -89,26 +92,6 @@ type AIJobsContextValue = {
 }
 
 const AIJobsContext = createContext<AIJobsContextValue | null>(null)
-
-export type FetchJSONResult<T> = { data: T | null; status: number; error: string | null }
-
-export async function fetchJSON<T>(url: string, init?: RequestInit): Promise<FetchJSONResult<T>> {
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Locale': getLocale(),
-      ...(init?.headers ?? {}),
-    },
-  })
-  const text = await res.text()
-  if (!text) return { data: null, status: res.status, error: null }
-  try {
-    return { data: JSON.parse(text) as T, status: res.status, error: null }
-  } catch {
-    return { data: null, status: res.status, error: `Invalid JSON response from ${url}` }
-  }
-}
 
 function asString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''

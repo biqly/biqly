@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { useT } from '../../i18n'
 import type { ResourceShare } from '../../types/auth'
 import { Pagination } from '../ui/Pagination'
+import { useConfirm } from '../../hooks/useConfirm'
 
 interface Props {
   resourceType?: string
@@ -12,6 +13,7 @@ interface Props {
 
 export function SharedResourcesList({ resourceType, refreshKey }: Props) {
   const t = useT()
+  const confirm = useConfirm()
   const { accessToken } = useAuth()
   const [items, setItems] = useState<ResourceShare[]>([])
   const [loading, setLoading] = useState(true)
@@ -52,7 +54,12 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
   }, [resourceType])
 
   async function onRevoke(id: string) {
-    if (!accessToken || !confirm(t('admin.sharing.confirm_revoke'))) return
+    if (!accessToken) return
+    const ok = await confirm({
+      title: t('admin.sharing.confirm_revoke'),
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       await deleteShare(accessToken, id)
       load()

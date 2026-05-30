@@ -163,3 +163,17 @@ export function patchJoinForm(
   }
   return next
 }
+
+export function columnRefMatchesTable(
+  ref: string | undefined | null,
+  schema: string,
+  table: string,
+  baseSchema: string,
+) {
+  if (!ref) return false
+  const r = ref.trim()
+  if (!r) return false
+  if (r.startsWith(`${schema}.${table}.`)) return true
+  if (schema === baseSchema && r.startsWith(`${table}.`)) return true
+  return false
+}
