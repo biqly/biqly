@@ -35,15 +35,15 @@ func (p *Planner) Plan(lq *LogicalQuery, model *semantic.SemanticModel) (*PlanRe
 	requiredJoins := make([]string, 0, len(model.Joins))
 
 	// Build dimension map
-	dimMap := make(map[string]semantic.Dimension, len(model.Dimensions))
-	for _, d := range model.Dimensions {
-		dimMap[d.Name] = d
+	dimMap := make(map[string]*semantic.Dimension, len(model.Dimensions))
+	for i := range model.Dimensions {
+		dimMap[model.Dimensions[i].Name] = &model.Dimensions[i]
 	}
 
 	// Build metric map
-	metricMap := make(map[string]semantic.Metric, len(model.Metrics))
-	for _, m := range model.Metrics {
-		metricMap[m.Name] = m
+	metricMap := make(map[string]*semantic.Metric, len(model.Metrics))
+	for i := range model.Metrics {
+		metricMap[model.Metrics[i].Name] = &model.Metrics[i]
 	}
 
 	// Determine which tables are needed

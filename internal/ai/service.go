@@ -2,10 +2,10 @@ package ai
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -459,14 +459,42 @@ func (s *Service) tryMultiCandidate(
 			if temp > 1 {
 				temp = 1
 			}
-			gen, err := s.client.GenerateAt(ctx, prompt, temp)
-			if err != nil {
+
+			type genResult struct {
+				gen GenerationResult
+				err error
+			}
+			ch := make(chan genResult, 1)
+			go func() {
+				g, err := s.client.GenerateAt(ctx, prompt, temp)
+				ch <- genResult{g, err}
+			}()
+
+			var res genResult
+			select {
+			case <-ctx.Done():
+				return
+			case res = <-ch:
+			}
+
+			if res.err != nil {
 				return
 			}
+			gen := res.gen
+
+			if ctx.Err() != nil {
+				return
+			}
+
 			lq, warnings, validationErrCount, parseErr := s.parseAndValidate(gen.Content, model)
 			if parseErr != nil || validationErrCount > 0 || lq == nil {
 				return
 			}
+
+			if ctx.Err() != nil {
+				return
+			}
+
 			if options.sqlValidator != nil {
 				if err := options.sqlValidator(ctx, lq); err != nil {
 					return
@@ -543,26 +571,113 @@ func logicalQueryFingerprint(lq *query.LogicalQuery) string {
 	if lq == nil {
 		return ""
 	}
-	type fp struct {
-		Select  []query.SelectItem `json:"select"`
-		Filters []query.Filter     `json:"filters"`
-		GroupBy []query.GroupBy    `json:"group_by"`
-		OrderBy []query.OrderBy    `json:"order_by"`
-		Limit   int                `json:"limit"`
-		Offset  int                `json:"offset"`
+	var sb strings.Builder
+	sb.Grow(512)
+
+	sb.WriteString("select:[")
+	for i, item := range lq.Select {
+		if i > 0 {
+			sb.WriteByte(',')
+		}
+		sb.WriteString(item.Type)
+		sb.WriteByte(':')
+		sb.WriteString(item.Name)
+		if item.Alias != "" {
+			sb.WriteString(" as ")
+			sb.WriteString(item.Alias)
+		}
+		if item.Window != nil {
+			sb.WriteString(" over(")
+			sb.WriteString(item.Window.Aggregation)
+			sb.WriteByte(':')
+			sb.WriteString(item.Window.Expression)
+			sb.WriteByte(':')
+			sb.WriteString(item.Window.Metric)
+			sb.WriteString(" partition_by:[")
+			sb.WriteString(strings.Join(item.Window.PartitionBy, ","))
+			sb.WriteString("] order_by:[")
+			for j, ob := range item.Window.OrderBy {
+				if j > 0 {
+					sb.WriteByte(',')
+				}
+				sb.WriteString(ob.Field)
+				sb.WriteByte(':')
+				sb.WriteString(ob.Direction)
+			}
+			sb.WriteString("] frame:")
+			sb.WriteString(item.Window.Frame)
+			sb.WriteByte(')')
+		}
 	}
-	out, err := json.Marshal(fp{
-		Select:  lq.Select,
-		Filters: lq.Filters,
-		GroupBy: lq.GroupBy,
-		OrderBy: lq.OrderBy,
-		Limit:   lq.Limit,
-		Offset:  lq.Offset,
-	})
-	if err != nil {
-		return ""
+	sb.WriteString("] filters:[")
+	for i, f := range lq.Filters {
+		if i > 0 {
+			sb.WriteByte(',')
+		}
+		sb.WriteString(f.Field)
+		sb.WriteByte(':')
+		sb.WriteString(f.Operator)
+		sb.WriteByte(':')
+		sb.WriteString(formatFingerprintValue(f.Value))
 	}
-	return string(out)
+	sb.WriteString("] group_by:[")
+	for i, gb := range lq.GroupBy {
+		if i > 0 {
+			sb.WriteByte(',')
+		}
+		sb.WriteString(gb.Field)
+		sb.WriteByte(':')
+		sb.WriteString(gb.TimeGrain)
+	}
+	sb.WriteString("] order_by:[")
+	for i, ob := range lq.OrderBy {
+		if i > 0 {
+			sb.WriteByte(',')
+		}
+		sb.WriteString(ob.Field)
+		sb.WriteByte(':')
+		sb.WriteString(ob.Direction)
+	}
+	sb.WriteString("] limit:")
+	sb.WriteString(strconv.Itoa(lq.Limit))
+	sb.WriteString(" offset:")
+	sb.WriteString(strconv.Itoa(lq.Offset))
+
+	return sb.String()
+}
+
+func formatFingerprintValue(val any) string {
+	if val == nil {
+		return "null"
+	}
+	switch v := val.(type) {
+	case string:
+		return v
+	case int:
+		return strconv.Itoa(v)
+	case int64:
+		return strconv.FormatInt(v, 10)
+	case bool:
+		if v {
+			return "true"
+		}
+		return "false"
+	case []any:
+		var sb strings.Builder
+		sb.WriteByte('[')
+		for i, item := range v {
+			if i > 0 {
+				sb.WriteByte(',')
+			}
+			sb.WriteString(formatFingerprintValue(item))
+		}
+		sb.WriteByte(']')
+		return sb.String()
+	case []string:
+		return strings.Join(v, ",")
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 // tryGenerateClarification asks the LLM for one short clarifying question to

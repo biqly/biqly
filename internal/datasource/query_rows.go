@@ -13,7 +13,7 @@ func QueryAll[T any](ctx context.Context, db *sql.DB, query string, args []any, 
 		return nil, err
 	}
 	defer func() { _ = rows.Close() }()
-	var out []T
+	out := make([]T, 0, 64)
 	for rows.Next() {
 		v, err := scan(rows)
 		if err != nil {

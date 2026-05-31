@@ -107,10 +107,9 @@ func filterTouchesField(filters []Filter, field string) bool {
 // no *_year filter is present — "April 2026" cannot be represented by month
 // integer alone.
 func validateCalendarGrainYearCoverage(lq *LogicalQuery, model *semantic.SemanticModel) *ValidationError {
-	dimByName := make(map[string]semantic.Dimension, len(model.Dimensions))
+	dimByName := make(map[string]*semantic.Dimension, len(model.Dimensions))
 	for i := range model.Dimensions {
-		d := model.Dimensions[i]
-		dimByName[d.Name] = d
+		dimByName[model.Dimensions[i].Name] = &model.Dimensions[i]
 	}
 	for _, f := range lq.Filters {
 		dim, ok := dimByName[f.Field]
@@ -161,7 +160,7 @@ func validateCalendarGrainYearCoverage(lq *LogicalQuery, model *semantic.Semanti
 
 // monthGrainFilterUsesDateTrunc reports whether we should compare
 // DATE_TRUNC('month', col) to a timestamptz parameter instead of EXTRACT(MONTH).
-func monthGrainFilterUsesDateTrunc(dim semantic.Dimension, f Filter) bool {
+func monthGrainFilterUsesDateTrunc(dim *semantic.Dimension, f Filter) bool {
 	if strings.ToLower(strings.TrimSpace(dim.TimeGrain)) != TimeGrainMonth {
 		return false
 	}
@@ -173,7 +172,7 @@ func monthGrainFilterUsesDateTrunc(dim semantic.Dimension, f Filter) bool {
 }
 
 // quarterGrainFilterUsesDateTrunc is the quarter analogue of monthGrainFilterUsesDateTrunc.
-func quarterGrainFilterUsesDateTrunc(dim semantic.Dimension, f Filter) bool {
+func quarterGrainFilterUsesDateTrunc(dim *semantic.Dimension, f Filter) bool {
 	if strings.ToLower(strings.TrimSpace(dim.TimeGrain)) != TimeGrainQuarter {
 		return false
 	}

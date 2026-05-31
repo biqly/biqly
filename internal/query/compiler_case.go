@@ -9,8 +9,8 @@ import (
 
 func (c *Compiler) buildCaseExpr(
 	item SelectItem,
-	dimMap map[string]semantic.Dimension,
-	metricMap map[string]semantic.Metric,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
 	model *semantic.SemanticModel,
 	resolver *SchemaResolver,
 	args *[]any,
@@ -47,7 +47,7 @@ func (c *Compiler) buildCaseExpr(
 
 func (c *Compiler) buildCaseThen(
 	then CaseThen,
-	dimMap map[string]semantic.Dimension,
+	dimMap map[string]*semantic.Dimension,
 	resolver *SchemaResolver,
 	args *[]any,
 ) (string, error) {
@@ -70,8 +70,8 @@ func (c *Compiler) buildCaseThen(
 
 func (c *Compiler) buildPredicate(
 	filters []Filter,
-	dimMap map[string]semantic.Dimension,
-	metricMap map[string]semantic.Metric,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
 	model *semantic.SemanticModel,
 	resolver *SchemaResolver,
 	args *[]any,

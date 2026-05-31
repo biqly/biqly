@@ -21,13 +21,13 @@ func EnrichResult(result *Result, lq *LogicalQuery, model *semantic.SemanticMode
 		return
 	}
 
-	dimByName := make(map[string]semantic.Dimension, len(model.Dimensions))
-	for _, d := range model.Dimensions {
-		dimByName[d.Name] = d
+	dimByName := make(map[string]*semantic.Dimension, len(model.Dimensions))
+	for i := range model.Dimensions {
+		dimByName[model.Dimensions[i].Name] = &model.Dimensions[i]
 	}
-	metricByName := make(map[string]semantic.Metric, len(model.Metrics))
-	for _, m := range model.Metrics {
-		metricByName[m.Name] = m
+	metricByName := make(map[string]*semantic.Metric, len(model.Metrics))
+	for i := range model.Metrics {
+		metricByName[model.Metrics[i].Name] = &model.Metrics[i]
 	}
 
 	timeGrainBySelect := make(map[string]string, len(lq.GroupBy))

@@ -218,7 +218,7 @@ func (h *AuthHandler) clearSessionCookie(w, r, name string)
 
 ---
 
-### [ ] 2.2 [MEDIUM] Slice Pre-Allocation Eksiklikleri
+### [x] 2.2 [MEDIUM] Slice Pre-Allocation Eksiklikleri
 
 | Dosya | Satir | Sorun | Cozum |
 | --- | --- | --- | --- |
@@ -232,7 +232,7 @@ func (h *AuthHandler) clearSessionCookie(w, r, name string)
 
 ---
 
-### [ ] 2.3 [MEDIUM] Map Size Hint Eksiklikleri
+### [x] 2.3 [MEDIUM] Map Size Hint Eksiklikleri
 
 | Dosya | Satir | Sorun | Cozum |
 | --- | --- | --- | --- |
@@ -244,7 +244,7 @@ func (h *AuthHandler) clearSessionCookie(w, r, name string)
 
 ---
 
-### [ ] 2.4 [MEDIUM] Dimension/Metric Map'lerde Value Copy
+### [x] 2.4 [MEDIUM] Dimension/Metric Map'lerde Value Copy
 
 **Dosya:** `internal/query/compiler_nested.go:93-113`
 
@@ -261,7 +261,7 @@ Her lookup ~150-180 byte struct kopyaliyor. 20-50 dimension, 10-30 metric ile ~1
 
 ---
 
-### [ ] 2.5 [LOW] JSON Fingerprint icin Gereksiz Marshal
+### [x] 2.5 [LOW] JSON Fingerprint icin Gereksiz Marshal
 
 **Dosya:** `internal/ai/service.go:542-565`
 
@@ -271,7 +271,7 @@ Her lookup ~150-180 byte struct kopyaliyor. 20-50 dimension, 10-30 metric ile ~1
 
 ---
 
-### [ ] 2.6 [LOW] activePromptStore Senkronizasyon Eksikligi
+### [x] 2.6 [LOW] activePromptStore Senkronizasyon Eksikligi
 
 **Dosya:** `internal/ai/prompt_store.go:58`
 
@@ -281,7 +281,7 @@ Her lookup ~150-180 byte struct kopyaliyor. 20-50 dimension, 10-30 metric ile ~1
 
 ---
 
-### [ ] 2.7 [LOW] Multi-Candidate Goroutine'ler Context Cancel'a Duyarsiz
+### [x] 2.7 [LOW] Multi-Candidate Goroutine'ler Context Cancel'a Duyarsiz
 
 **Dosya:** `internal/ai/service.go:451-484`
 

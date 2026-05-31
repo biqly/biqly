@@ -118,11 +118,11 @@ func addTableFromColumnRef(tables map[string]struct{}, colRef string, resolver *
 func tablesReferencedInLogicalQuery(
 	lq *LogicalQuery,
 	model *semantic.SemanticModel,
-	dimMap map[string]semantic.Dimension,
-	metricMap map[string]semantic.Metric,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
 	resolver *SchemaResolver,
 ) map[string]struct{} {
-	tables := make(map[string]struct{})
+	tables := make(map[string]struct{}, len(lq.Select)+len(lq.Filters)+1)
 	tables[TableKey(model.BaseSchema, model.BaseTable)] = struct{}{}
 
 	for _, item := range lq.Select {
@@ -207,8 +207,8 @@ type joinNeighbor struct {
 func (c *Compiler) determineJoins(
 	lq *LogicalQuery,
 	model *semantic.SemanticModel,
-	dimMap map[string]semantic.Dimension,
-	metricMap map[string]semantic.Metric,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
 	resolver *SchemaResolver,
 ) []string {
 	neededTables := tablesReferencedInLogicalQuery(lq, model, dimMap, metricMap, resolver)
@@ -279,7 +279,7 @@ func (c *Compiler) determineJoins(
 	return out
 }
 
-func (c *Compiler) dimensionSQL(dim semantic.Dimension, resolver *SchemaResolver) string {
+func (c *Compiler) dimensionSQL(dim *semantic.Dimension, resolver *SchemaResolver) string {
 	// If a calculated expression is defined, use it directly.
 	if strings.TrimSpace(dim.CalculatedExpression) != "" {
 		return dim.CalculatedExpression
@@ -300,8 +300,8 @@ func (c *Compiler) dimensionSQL(dim semantic.Dimension, resolver *SchemaResolver
 func (c *Compiler) resolveBracketExpressions(
 	expr string,
 	resolver *SchemaResolver,
-	dimMap map[string]semantic.Dimension,
-	metricMap map[string]semantic.Metric,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
 	model *semantic.SemanticModel,
 ) string {
 	if expr == "*" {
@@ -323,8 +323,8 @@ func (c *Compiler) resolveBracketExpressions(
 func (c *Compiler) resolveCustomToken(
 	token string,
 	resolver *SchemaResolver,
-	dimMap map[string]semantic.Dimension,
-	metricMap map[string]semantic.Metric,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
 	model *semantic.SemanticModel,
 ) string {
 	token = strings.TrimSpace(token)
@@ -350,8 +350,8 @@ func (c *Compiler) resolveCustomToken(
 func (c *Compiler) metricExpressionRef(
 	expr string,
 	resolver *SchemaResolver,
-	dimMap map[string]semantic.Dimension,
-	metricMap map[string]semantic.Metric,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
 	model *semantic.SemanticModel,
 ) string {
 	if expr == "*" {
@@ -363,8 +363,8 @@ func (c *Compiler) metricExpressionRef(
 func (c *Compiler) qualifyMetricExpression(
 	expr string,
 	resolver *SchemaResolver,
-	dimMap map[string]semantic.Dimension,
-	metricMap map[string]semantic.Metric,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
 	model *semantic.SemanticModel,
 ) string {
 	if expr == "*" {
@@ -379,7 +379,7 @@ func (c *Compiler) qualifyMetricExpression(
 	return c.dialect.QuoteIdent(expr)
 }
 
-func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric, model *semantic.SemanticModel, resolver *SchemaResolver, args *[]any) ([]string, error) {
+func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]*semantic.Dimension, metricMap map[string]*semantic.Metric, model *semantic.SemanticModel, resolver *SchemaResolver, args *[]any) ([]string, error) {
 	parts := make([]string, 0, len(items))
 	for _, item := range items {
 		switch item.Type {
@@ -445,8 +445,8 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]semantic.Di
 // Ranking functions (row_number, rank, dense_rank, ntile) ignore Expression.
 func (c *Compiler) buildWindowExpr(
 	item SelectItem,
-	dimMap map[string]semantic.Dimension,
-	metricMap map[string]semantic.Metric,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
 	model *semantic.SemanticModel,
 	resolver *SchemaResolver,
 ) (string, error) {
@@ -540,8 +540,8 @@ func (c *Compiler) buildWindowExpr(
 // SUM("orders"."total_amount") > $1. Placeholder indices start at startArg+1.
 func (c *Compiler) buildHaving(
 	filters []Filter,
-	dimMap map[string]semantic.Dimension,
-	metricMap map[string]semantic.Metric,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
 	model *semantic.SemanticModel,
 	resolver *SchemaResolver,
 	startArg int,
@@ -658,7 +658,7 @@ func (c *Compiler) buildJoins(joinNames []string, joinMap map[string]semantic.Jo
 	return clauses
 }
 
-func (c *Compiler) buildWhere(filters []Filter, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric, model *semantic.SemanticModel, resolver *SchemaResolver, args *[]any) (string, error) {
+func (c *Compiler) buildWhere(filters []Filter, dimMap map[string]*semantic.Dimension, metricMap map[string]*semantic.Metric, model *semantic.SemanticModel, resolver *SchemaResolver, args *[]any) (string, error) {
 	if len(filters) == 0 {
 		return "", nil
 	}
@@ -710,7 +710,7 @@ func (c *Compiler) buildWhere(filters []Filter, dimMap map[string]semantic.Dimen
 }
 
 // resolveFilterLHS returns SQL for the left-hand side of a filter (quoted column, metric expression, or date_trunc).
-func (c *Compiler) resolveFilterLHS(field string, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric, model *semantic.SemanticModel, resolver *SchemaResolver) (string, error) {
+func (c *Compiler) resolveFilterLHS(field string, dimMap map[string]*semantic.Dimension, metricMap map[string]*semantic.Metric, model *semantic.SemanticModel, resolver *SchemaResolver) (string, error) {
 	if dim, ok := dimMap[field]; ok {
 		return c.dimensionSQL(dim, resolver), nil
 	}
@@ -958,7 +958,7 @@ func (c *Compiler) buildBetweenFilter(lhsSQL string, value any, args *[]any) (st
 	return lhsSQL + " BETWEEN " + p1 + " AND " + p2, nil, nil
 }
 
-func (c *Compiler) buildGroupBy(groupBy []GroupBy, dimMap map[string]semantic.Dimension, resolver *SchemaResolver) (string, error) {
+func (c *Compiler) buildGroupBy(groupBy []GroupBy, dimMap map[string]*semantic.Dimension, resolver *SchemaResolver) (string, error) {
 	if len(groupBy) == 0 {
 		return "", nil
 	}
@@ -974,7 +974,7 @@ func (c *Compiler) buildGroupBy(groupBy []GroupBy, dimMap map[string]semantic.Di
 	return strings.Join(parts, ", "), nil
 }
 
-func (c *Compiler) buildOrderBy(orderBy []OrderBy, dimMap map[string]semantic.Dimension, metricMap map[string]semantic.Metric, resolver *SchemaResolver) (string, error) {
+func (c *Compiler) buildOrderBy(orderBy []OrderBy, dimMap map[string]*semantic.Dimension, metricMap map[string]*semantic.Metric, resolver *SchemaResolver) (string, error) {
 	if len(orderBy) == 0 {
 		return "", nil
 	}

@@ -4,13 +4,17 @@ import (
 	"database/sql"
 )
 
-func scanSQLRowsToMaps(rows *sql.Rows) ([]map[string]any, error) {
+func scanSQLRowsToMaps(rows *sql.Rows, limit int) ([]map[string]any, error) {
 	colNames, err := rows.Columns()
 	if err != nil {
 		return nil, err
 	}
 
-	var out []map[string]any
+	capacity := limit
+	if capacity <= 0 {
+		capacity = 64
+	}
+	out := make([]map[string]any, 0, capacity)
 	for rows.Next() {
 		holders := make([]any, len(colNames))
 		ptrs := make([]any, len(colNames))

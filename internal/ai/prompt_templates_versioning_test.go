@@ -26,7 +26,7 @@ func (s testPromptStore) Snapshot(_ context.Context, loc i18n.Locale, name strin
 
 func withPromptStore(t *testing.T, store PromptTemplateStore) {
 	t.Helper()
-	prev := activePromptStore
+	prev := getActivePromptStore()
 	SetPromptTemplateStore(store)
 	t.Cleanup(func() { SetPromptTemplateStore(prev) })
 }

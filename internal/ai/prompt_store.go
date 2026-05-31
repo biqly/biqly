@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/biqly/biqly/internal/i18n"
 )
@@ -55,12 +56,24 @@ type promptTemplateVersionRepo interface {
 	GetPromptTemplateVersion(ctx context.Context, name string, loc i18n.Locale) (string, int, error)
 }
 
-var activePromptStore PromptTemplateStore = embedPromptStore{}
+type promptStoreWrapper struct {
+	store PromptTemplateStore
+}
+
+var activePromptStore atomic.Value
+
+func init() {
+	activePromptStore.Store(promptStoreWrapper{store: embedPromptStore{}})
+}
+
+func getActivePromptStore() PromptTemplateStore {
+	return activePromptStore.Load().(promptStoreWrapper).store
+}
 
 // SetPromptTemplateStore switches template resolution to the database (with
 // embedded-file fallback). Call once at app startup after migrations.
 func SetPromptTemplateStore(store PromptTemplateStore) {
-	activePromptStore = store
+	activePromptStore.Store(promptStoreWrapper{store: store})
 }
 
 // SeedPromptTemplatesFromEmbed copies embedded defaults into the DB when the
@@ -178,11 +191,11 @@ func PromptLocaleForQuestion(question string, uiLocale i18n.Locale) i18n.Locale 
 }
 
 func promptTemplate(ctx context.Context, loc i18n.Locale, name string) string {
-	return activePromptStore.Template(ctx, loc, name)
+	return getActivePromptStore().Template(ctx, loc, name)
 }
 
 func promptTemplateSnapshot(ctx context.Context, loc i18n.Locale, name string) PromptTemplateSnapshot {
-	return activePromptStore.Snapshot(ctx, loc, name)
+	return getActivePromptStore().Snapshot(ctx, loc, name)
 }
 
 // PromptTemplateBundleVersions reports active versions for the editable prompt bundle.
@@ -201,7 +214,7 @@ func KnownPromptTemplateNames() []string {
 
 // InvalidatePromptTemplateCache drops cached text after an admin edit.
 func InvalidatePromptTemplateCache(name string, loc i18n.Locale) {
-	if s, ok := activePromptStore.(*dbPromptStore); ok {
+	if s, ok := getActivePromptStore().(*dbPromptStore); ok {
 		s.invalidate(name, loc)
 	}
 }
@@ -235,7 +248,7 @@ func ReseedAllPromptTemplatesFromEmbed(ctx context.Context, repo promptTemplateR
 			return err
 		}
 	}
-	if s, ok := activePromptStore.(*dbPromptStore); ok {
+	if s, ok := getActivePromptStore().(*dbPromptStore); ok {
 		s.mu.Lock()
 		s.cache = make(map[string]PromptTemplateSnapshot)
 		s.mu.Unlock()

@@ -38,7 +38,7 @@ func FetchTableSample(ctx context.Context, db *sql.DB, d dialect.Dialect, cols [
 	}
 	defer func() { _ = rows.Close() }()
 
-	out, err := scanSQLRowsToMaps(rows)
+	out, err := scanSQLRowsToMaps(rows, limit)
 	if err != nil {
 		return nil, err
 	}

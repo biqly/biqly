@@ -90,9 +90,10 @@ func (c *Compiler) compileStatement(
 	_ = ctx
 	lq.EnsureGroupBySelected()
 
-	dimMap := make(map[string]semantic.Dimension)
+	dimMap := make(map[string]*semantic.Dimension, len(model.Dimensions))
 	for _, d := range model.Dimensions {
-		dimMap[d.Name] = d
+		dCopy := d
+		dimMap[d.Name] = &dCopy
 	}
 	for _, gb := range lq.GroupBy {
 		if gb.TimeGrain == "" {
@@ -100,12 +101,12 @@ func (c *Compiler) compileStatement(
 		}
 		if dim, ok := dimMap[gb.Field]; ok {
 			dim.TimeGrain = gb.TimeGrain
-			dimMap[gb.Field] = dim
 		}
 	}
-	metricMap := make(map[string]semantic.Metric)
+	metricMap := make(map[string]*semantic.Metric, len(model.Metrics))
 	for _, m := range model.Metrics {
-		metricMap[m.Name] = m
+		mCopy := m
+		metricMap[m.Name] = &mCopy
 	}
 	joinMap := make(map[string]semantic.Join)
 	for _, j := range model.Joins {

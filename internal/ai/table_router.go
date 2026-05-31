@@ -50,7 +50,12 @@ func columnPriority(c metadata.Column) int {
 
 // sortedBundleColumns returns columns across selected tables in a stable, business-relevant order.
 func sortedBundleColumns(selected []tableBundle, columnsByTable map[string][]metadata.Column) []bundleColumn {
-	var out []bundleColumn
+	totalCols := 0
+	for _, bundle := range selected {
+		key := tableKey(bundle.table.SchemaName, bundle.table.TableName)
+		totalCols += len(columnsByTable[key])
+	}
+	out := make([]bundleColumn, 0, totalCols)
 	for _, bundle := range selected {
 		key := tableKey(bundle.table.SchemaName, bundle.table.TableName)
 		for _, col := range columnsByTable[key] {
@@ -275,7 +280,7 @@ func (r *TableRouter) Route(
 		}, nil
 	}
 
-	columnsByTable := groupColumnsByTable(columns)
+	columnsByTable := groupColumnsByTable(columns, len(tables))
 
 	questionLocale := DetectQuestionLocale(question)
 	questionLocaleProfile, _ := i18n.LocaleProfileFor(questionLocale)
@@ -286,7 +291,7 @@ func (r *TableRouter) Route(
 		if err := r.translator.ApplyColumnTranslations(ctx, columns, questionLocale); err != nil {
 			return nil, nil, fmt.Errorf("apply column translations: %w", err)
 		}
-		columnsByTable = groupColumnsByTable(columns)
+		columnsByTable = groupColumnsByTable(columns, len(tables))
 	}
 
 	// Hybrid boost from precomputed embeddings, when configured. Skipped
@@ -1308,7 +1313,7 @@ func buildJoins(selected []tableBundle, relations []metadata.Relation) []semanti
 	}
 
 	seen := make(map[string]bool)
-	var joins []semantic.Join
+	joins := make([]semantic.Join, 0, len(relations))
 	for _, rel := range relations {
 		fromKey := tableKey(rel.FromSchema, rel.FromTable)
 		toKey := tableKey(rel.ToSchema, rel.ToTable)
@@ -1350,13 +1355,15 @@ func connectSelectedTables(selected []tableBundle, relations []metadata.Relation
 		return selected, nil
 	}
 
-	connected := []tableBundle{selected[0]}
-	remaining := append([]tableBundle(nil), selected[1:]...)
-	var joinPaths []string
+	connected := make([]tableBundle, 1, len(selected))
+	connected[0] = selected[0]
+	remaining := make([]tableBundle, 0, len(selected)-1)
+	remaining = append(remaining, selected[1:]...)
+	joinPaths := make([]string, 0, len(selected)-1)
 
 	for len(remaining) > 0 {
 		added := false
-		var still []tableBundle
+		still := make([]tableBundle, 0, len(remaining))
 		for _, cand := range remaining {
 			attached := false
 			for _, exist := range connected {
@@ -1382,7 +1389,7 @@ func connectSelectedTables(selected []tableBundle, relations []metadata.Relation
 
 // relationAdjacency builds an undirected graph of tables linked by metadata FKs.
 func relationAdjacency(relations []metadata.Relation) map[string][]string {
-	adj := make(map[string][]string)
+	adj := make(map[string][]string, len(relations)*2)
 	link := func(a, b string) {
 		adj[a] = append(adj[a], b)
 		adj[b] = append(adj[b], a)
@@ -1586,8 +1593,8 @@ func resolveTableRef(idx tableIndex, ref string) (metadata.Table, error) {
 	return metadata.Table{}, fmt.Errorf("table %q not found", ref)
 }
 
-func groupColumnsByTable(columns []metadata.Column) map[string][]metadata.Column {
-	grouped := make(map[string][]metadata.Column)
+func groupColumnsByTable(columns []metadata.Column, tableCount int) map[string][]metadata.Column {
+	grouped := make(map[string][]metadata.Column, tableCount)
 	for _, col := range columns {
 		key := tableKey(col.SchemaName, col.TableName)
 		grouped[key] = append(grouped[key], col)
@@ -1596,7 +1603,11 @@ func groupColumnsByTable(columns []metadata.Column) map[string][]metadata.Column
 }
 
 func columnNameCounts(selected []tableBundle, columnsByTable map[string][]metadata.Column) map[string]int {
-	counts := make(map[string]int)
+	totalCols := 0
+	for _, bundle := range selected {
+		totalCols += len(columnsByTable[tableKey(bundle.table.SchemaName, bundle.table.TableName)])
+	}
+	counts := make(map[string]int, totalCols)
 	for _, bundle := range selected {
 		for _, col := range columnsByTable[tableKey(bundle.table.SchemaName, bundle.table.TableName)] {
 			counts[col.ColumnName]++
@@ -1824,8 +1835,9 @@ func weightedTokenScore(questionTokens map[string]bool, text string, weight floa
 
 func tokenSet(text string) map[string]bool {
 	normalized := normalizeText(text)
-	tokens := make(map[string]bool)
-	for _, token := range strings.Fields(normalized) {
+	fields := strings.Fields(normalized)
+	tokens := make(map[string]bool, len(fields))
+	for _, token := range fields {
 		for _, expanded := range expandToken(token) {
 			tokens[expanded] = true
 		}
