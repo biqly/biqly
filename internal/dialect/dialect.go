@@ -1,8 +1,8 @@
 // Package dialect defines SQL dialect interfaces for different database engines.
 package dialect
 
-// Dialect defines database-specific SQL generation behavior.
-type Dialect interface {
+// CoreDialect defines the database-specific SQL generation behavior used by the query compiler.
+type CoreDialect interface {
 	// Name returns the dialect name (e.g. "postgres", "mysql").
 	Name() string
 
@@ -45,10 +45,19 @@ type Dialect interface {
 	// returning rows (e.g. "EXPLAIN <sql>"). Returning "" indicates the dialect
 	// does not support a single-statement dry-run; callers should skip the check.
 	ExplainSQL(sql string) string
+}
 
+// SampleDialect defines the database-specific query generation used by the data sampler.
+type SampleDialect interface {
 	// DefaultOrderBy returns the default ORDER BY clause part when pagination is used but no sorting is defined.
 	DefaultOrderBy() string
 
 	// SelectWithLimit generates a SELECT query for sample projection.
 	SelectWithLimit(columns []string, table string, limit int) string
+}
+
+// Dialect defines database-specific SQL generation behavior by composing CoreDialect and SampleDialect.
+type Dialect interface {
+	CoreDialect
+	SampleDialect
 }

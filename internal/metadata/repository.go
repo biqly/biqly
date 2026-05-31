@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	platformdb "github.com/biqly/biqly/internal/platform/db"
-	"github.com/biqly/biqly/internal/query"
+	pkgquery "github.com/biqly/biqly/pkg/query"
 	"github.com/lib/pq"
 )
 
@@ -460,7 +460,7 @@ func (r *Repository) ListRelations(ctx context.Context, datasourceID string) ([]
 // History operations
 
 // CreateQueryHistory stores a structured query execution history entry.
-func (r *Repository) CreateQueryHistory(ctx context.Context, entry *query.HistoryEntry) error {
+func (r *Repository) CreateQueryHistory(ctx context.Context, entry *pkgquery.HistoryEntry) error {
 	logicalQueryJSON, err := json.Marshal(entry.LogicalQuery)
 	if err != nil {
 		return fmt.Errorf("marshal logical query: %w", err)
@@ -496,7 +496,7 @@ func (r *Repository) CreateQueryHistory(ctx context.Context, entry *query.Histor
 }
 
 // ListQueryHistory returns recent query history entries (newest first), capped at limit.
-func (r *Repository) ListQueryHistory(ctx context.Context, limit int) ([]query.HistoryEntry, error) {
+func (r *Repository) ListQueryHistory(ctx context.Context, limit int) ([]pkgquery.HistoryEntry, error) {
 	if limit <= 0 {
 		limit = 100
 	}
@@ -511,7 +511,7 @@ func (r *Repository) ListQueryHistory(ctx context.Context, limit int) ([]query.H
 }
 
 // GetQueryHistory returns one query history entry by ID.
-func (r *Repository) GetQueryHistory(ctx context.Context, id string) (*query.HistoryEntry, error) {
+func (r *Repository) GetQueryHistory(ctx context.Context, id string) (*pkgquery.HistoryEntry, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, datasource_id, model_id, user_id, logical_query, compiled_sql,
 			sql_args, status, row_count, duration_ms, error_message,
@@ -789,8 +789,8 @@ func scanPermissionPolicy(s platformdb.Scanner) (PermissionPolicyRecord, error) 
 	return policy, nil
 }
 
-func scanQueryHistoryEntry(s platformdb.Scanner) (query.HistoryEntry, error) {
-	var entry query.HistoryEntry
+func scanQueryHistoryEntry(s platformdb.Scanner) (pkgquery.HistoryEntry, error) {
+	var entry pkgquery.HistoryEntry
 	var modelID, userID, compiledSQL, sqlArgs, errorMessage, fingerprint sql.NullString
 	var rowCount, durationMs sql.NullInt64
 	var logicalQueryRaw []byte

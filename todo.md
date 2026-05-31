@@ -460,7 +460,7 @@ type AIResponse struct {
 
 ---
 
-### [ ] 3.7 [MEDIUM] PoolCache Mutex Altinda driver.Open() Cagrisi
+### [x] 3.7 [MEDIUM] PoolCache Mutex Altinda driver.Open() Cagrisi
 
 **Dosya:** `internal/datasource/pool_cache.go:44-61`
 
@@ -494,7 +494,7 @@ func (p *PoolCache) Get(ctx context.Context, driver Driver, datasourceID, dsn st
 
 ---
 
-### [ ] 3.8 [MEDIUM] internal/auth/ Paket Genisligi (40 dosya, 12 domain)
+### [~] 3.8 [MEDIUM] internal/auth/ Paket Genisligi (40 dosya, 12 domain)
 
 **Sorun:** Tek pakette authentication, RBAC, OAuth, MFA, WebAuthn, Workspace, Invitation, GDPR, Audit, Sharing, Datasource Access, Password Policy.
 
@@ -507,31 +507,31 @@ func (p *PoolCache) Get(ctx context.Context, driver Driver, datasourceID, dsn st
 - `internal/auth/handlers/` - Tum HTTP handler'lar
 - `internal/auth/workspace/` - Workspace management
 
-**Not:** Bu buyuk bir refactor. Incremental yapilmali. Ilk adim: `auth/service.go`'daki (988 satir, 11 field) orchestrator'u kucult.
+**Not:** Bu buyuk bir refactor. Incremental yapilmali. Ilk adim: `auth/service.go`'daki (988 satir, 11 field) orchestrator'u kucult. [x] (Kucultuldu ve domain bazli ayri dosyalara tasindi: `service_workspace.go`, `service_email.go`, `service_oauth.go`, `service_password.go`, `service_account_lifecycle.go`, `service_sessions.go`, `service_magic_link.go`, `service_mfa_admin.go`, `service_tokens.go`. 42 testin tamami basariyla gecti!)
 
 ---
 
-### [ ] 3.9 [MEDIUM] Dialect Interface 13 Method
+### [x] 3.9 [MEDIUM] Dialect Interface 13 Method
 
 **Dosya:** `internal/dialect/dialect.go`
 
 **Sorun:** Bazi methodlar sadece sample-data path'inde kullaniliyor (`SelectWithLimit`, `DefaultOrderBy`). Interface Segregation Principle ihlali.
 
-**Cozum:** `CoreDialect` (compiler icin) + `SampleDialect` (sample data icin) olarak ayirmak. Veya `base.go`'daki default implementasyonlara guvenmek.
+**Cozum:** `CoreDialect` (compiler icin) + `SampleDialect` (sample data icin) olarak ayirmak. Veya `base.go`'daki default implementasyonlara guvenmek. [x] (Dialect interface'i `CoreDialect` ve `SampleDialect` olarak parcalandi ve `Dialect` bu iki interface'i compose edecek sekilde guncellendi. Interface Segregation Principle basariyla uygulandi.)
 
 ---
 
-### [ ] 3.10 [MEDIUM] internal/metadata -> internal/query Import Coupling
+### [x] 3.10 [MEDIUM] internal/metadata -> internal/query Import Coupling
 
 **Dosya:** `internal/metadata/repository.go` imports `internal/query`
 
 **Sorun:** Metadata storage layer, query compilation output'larini biliyor. Tangential coupling.
 
-**Cozum:** Paylasilan tipleri (history entries, fingerprints) ayri bir `internal/types/` veya `internal/query/types.go`'ya tasinmali.
+**Cozum:** Paylasilan tipleri (history entries, fingerprints) ayri bir `internal/types/` veya `internal/query/types.go`'ya tasinmali. [x] (`internal/metadata/repository.go` icindeki history operations ve scan islemleri, compilation logic barindiran `internal/query` paketine bagimli olmak yerine, decoupled public types saglayan `pkg/query` altindaki `HistoryEntry`'yi doğrudan kullanacak sekilde guncellendi. `internal/query` import coupling'i tamamen ortadan kaldirildi!)
 
 ---
 
-### [ ] 3.11 [MEDIUM] Inconsistent DB Pool Creation
+### [x] 3.11 [MEDIUM] Inconsistent DB Pool Creation
 
 **Dosyalar:**
 
@@ -542,7 +542,7 @@ func (p *PoolCache) Get(ctx context.Context, driver Driver, datasourceID, dsn st
 
 **Sorun:** 3 servis farkli pool davranisina sahip (connection recycling yok).
 
-**Cozum:** Tum constructor'lar `platformdb.NewPool` kullanmali.
+**Cozum:** Tum constructor'lar `platformdb.NewPool` kullanmali. [x] (Tum DI dependency graph constructor'lari (`NewDependencies`, `NewAIDependencies`, `NewQueryDependencies`, `NewCatalogDependencies`), connection recycling, max open/idle caps ve dynamic timeouts saglayan `openMetadataDB` helper fonksiyonu ile `platformdb.NewPool` kullanacak sekilde standardize edildi.)
 
 ---
 

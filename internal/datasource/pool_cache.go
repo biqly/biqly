@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+
+	"golang.org/x/sync/singleflight"
 )
 
 // PoolCache reuses *sql.DB pools across query executions so we don't pay the
@@ -19,8 +21,9 @@ import (
 // Callers MUST NOT call Close() on pools returned by Get — the cache owns
 // the lifecycle and closes them in PoolCache.Close.
 type PoolCache struct {
-	mu    sync.Mutex
+	mu    sync.RWMutex
 	pools map[string]*sql.DB
+	sf    singleflight.Group
 }
 
 // NewPoolCache constructs an empty cache.
@@ -42,23 +45,27 @@ func (p *PoolCache) Get(ctx context.Context, driver Driver, datasourceID, dsn st
 	}
 	key := poolKey(datasourceID, dsn)
 
-	p.mu.Lock()
+	p.mu.RLock()
 	if db, ok := p.pools[key]; ok {
-		p.mu.Unlock()
+		p.mu.RUnlock()
 		return db, nil
 	}
-	// Hold the lock while opening so concurrent requests for the same key
-	// share a single open call. driver.Open is itself a sql.Open which is
-	// non-blocking; the first real network round-trip only happens when a
-	// query is run, so we don't starve unrelated callers in practice.
-	db, err := driver.Open(ctx, dsn)
-	if err != nil {
+	p.mu.RUnlock()
+
+	result, err, _ := p.sf.Do(key, func() (any, error) {
+		db, err := driver.Open(ctx, dsn)
+		if err != nil {
+			return nil, err
+		}
+		p.mu.Lock()
+		p.pools[key] = db
 		p.mu.Unlock()
+		return db, nil
+	})
+	if err != nil {
 		return nil, err
 	}
-	p.pools[key] = db
-	p.mu.Unlock()
-	return db, nil
+	return result.(*sql.DB), nil
 }
 
 // Invalidate removes and closes all cached pools whose key prefix matches
