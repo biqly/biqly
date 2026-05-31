@@ -1,4 +1,4 @@
-package auth
+package mfa
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/biqly/biqly/internal/auth"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -28,11 +29,11 @@ type MFAEnrollResult struct {
 
 type MFAService struct {
 	repo     *MFARepository
-	userRepo *UserRepository
+	userRepo *auth.UserRepository
 	issuer   string
 }
 
-func NewMFAService(repo *MFARepository, userRepo *UserRepository, issuer string) *MFAService {
+func NewMFAService(repo *MFARepository, userRepo *auth.UserRepository, issuer string) *MFAService {
 	if issuer == "" {
 		issuer = "Biqly"
 	}
@@ -151,7 +152,6 @@ func (s *MFAService) GenerateBypassCode(ctx context.Context, userID string) (str
 	}
 	return bypassCode, nil
 }
-
 
 func (s *MFAService) Disable(ctx context.Context, userID string) error {
 	return s.repo.Disable(ctx, userID)

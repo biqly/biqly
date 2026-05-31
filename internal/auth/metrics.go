@@ -22,14 +22,6 @@ var (
 		[]string{"status"},
 	)
 
-	MetricDatasourceAccessChecks = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "auth_datasource_access_checks_total",
-			Help: "Total number of datasource access checks",
-		},
-		[]string{"result"},
-	)
-
 	// MetricFailedLogins breaks failed logins down by reason so alerts can
 	// distinguish brute-force (bad_password) from enumeration probes
 	// (user_not_found) and account-state rejections.

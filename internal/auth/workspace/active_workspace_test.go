@@ -1,10 +1,15 @@
-package auth
+package workspace
 
 import (
 	"context"
+	"database/sql"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/biqly/biqly/internal/auth"
+	"github.com/biqly/biqly/internal/auth/rbac"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -19,31 +24,31 @@ func TestSetActiveWorkspace(t *testing.T) {
 	_, _ = dbPool.ExecContext(ctx, "DELETE FROM user_roles")
 	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users")
 
-	cfg := &Config{JWTAccessTTL: 5 * time.Minute, JWTRefreshTTL: 24 * time.Hour}
-	jwtMgr, err := NewJWTManager("", "", cfg.JWTAccessTTL)
+	cfg := &auth.Config{JWTAccessTTL: 5 * time.Minute, JWTRefreshTTL: 24 * time.Hour}
+	jwtMgr, err := auth.NewJWTManager("", "", cfg.JWTAccessTTL)
 	require.NoError(t, err)
 
-	userRepo := NewUserRepository(dbPool, nil)
-	rbacRepo := NewRBACRepository(dbPool)
-	sessionMgr := NewSessionManager(dbPool)
-	rbacSvc := NewRBACService(rbacRepo)
-	dsAcc := NewDatasourceAccessService(dbPool, nil, rbacSvc)
+	userRepo := auth.NewUserRepository(dbPool, nil)
+	rbacRepo := rbac.NewRBACRepository(dbPool)
+	sessionMgr := auth.NewSessionManager(dbPool)
+	rbacSvc := rbac.NewRBACService(rbacRepo)
+	dsAcc := rbac.NewDatasourceAccessService(dbPool, nil, rbacSvc)
 	wsSvc := NewWorkspaceService(dbPool, dsAcc)
 
-	svc := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, cfg, nil, nil)
+	svc := auth.NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, cfg, nil, nil)
 	svc.SetWorkspaceService(wsSvc)
 
 	ua, ip := "Go-Test-Agent", "127.0.0.1"
 
 	// Register two users: alice (will switch), bob (alice not member of bob's ws)
-	aliceResp, err := svc.Register(ctx, RegisterRequest{
+	aliceResp, err := svc.Register(ctx, auth.RegisterRequest{
 		Email:       "alice@example.com",
 		Password:    "SecurePass123!",
 		DisplayName: "Alice",
 	}, &ua, &ip)
 	require.NoError(t, err)
 
-	bobResp, err := svc.Register(ctx, RegisterRequest{
+	bobResp, err := svc.Register(ctx, auth.RegisterRequest{
 		Email:       "bob@example.com",
 		Password:    "SecurePass123!",
 		DisplayName: "Bob",
@@ -82,7 +87,7 @@ func TestSetActiveWorkspace(t *testing.T) {
 
 	t.Run("persisted across subsequent token issuance", func(t *testing.T) {
 		// Re-login: new access token should now carry the team workspace
-		loginResp, err := svc.Login(ctx, LoginRequest{
+		loginResp, err := svc.Login(ctx, auth.LoginRequest{
 			Email:    "alice@example.com",
 			Password: "SecurePass123!",
 		}, &ua, &ip)
@@ -96,11 +101,11 @@ func TestSetActiveWorkspace(t *testing.T) {
 	t.Run("workspace mfa policy blocks password-only login without enrollment", func(t *testing.T) {
 		require.NoError(t, wsSvc.SetMFARequired(ctx, teamWS.ID, aliceResp.UserID, true))
 
-		loginResp, err := svc.Login(ctx, LoginRequest{
+		loginResp, err := svc.Login(ctx, auth.LoginRequest{
 			Email:    "alice@example.com",
 			Password: "SecurePass123!",
 		}, &ua, &ip)
-		require.ErrorIs(t, err, ErrMFARequired)
+		require.ErrorIs(t, err, auth.ErrMFARequired)
 		assert.Nil(t, loginResp)
 	})
 
@@ -122,4 +127,25 @@ func TestSetActiveWorkspace(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, alicePersonal, got)
 	})
+}
+
+func openTestDBPool(t *testing.T) *sql.DB {
+	t.Helper()
+	dsn := os.Getenv("BI_AUTH_DB_DSN")
+	if dsn == "" {
+		//nolint:gosec // local test default DSN only
+		dsn = "postgres://bi_user:bi_password@localhost:5432/bi_auth?sslmode=disable"
+	}
+	dbPool, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Skip("skipping database tests; DB not available:", err)
+	}
+	t.Cleanup(func() { _ = dbPool.Close() })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := dbPool.PingContext(ctx); err != nil {
+		t.Skip("skipping database tests; ping failed:", err)
+	}
+	return dbPool
 }

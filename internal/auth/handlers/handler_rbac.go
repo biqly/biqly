@@ -1,4 +1,4 @@
-package auth
+package handlers
 
 import (
 	"encoding/csv"
@@ -13,34 +13,38 @@ import (
 
 	"log/slog"
 
+	"github.com/biqly/biqly/internal/auth"
+	"github.com/biqly/biqly/internal/auth/rbac"
+	"github.com/biqly/biqly/internal/auth/workspace"
 	"github.com/biqly/biqly/internal/http/response"
-	"github.com/biqly/biqly/pkg/common/requestid")
+	"github.com/biqly/biqly/pkg/common/requestid"
+)
 
 type RBACHandler struct {
-	rbac     *RBACService
-	rbacRepo *RBACRepository
-	userRepo *UserRepository
-	dsAccess *DatasourceAccessService
-	ws       *WorkspaceService
-	sharing  *SharingService
-	audit    *AuditService
-	jwtMgr   *JWTManager
-	cfg      *Config
+	rbac     *rbac.RBACService
+	rbacRepo *rbac.RBACRepository
+	userRepo *auth.UserRepository
+	dsAccess *rbac.DatasourceAccessService
+	ws       *workspace.WorkspaceService
+	sharing  *workspace.SharingService
+	audit    *auth.AuditService
+	jwtMgr   *auth.JWTManager
+	cfg      *auth.Config
 }
 
 func NewRBACHandler(
-	rbac *RBACService,
-	rbacRepo *RBACRepository,
-	userRepo *UserRepository,
-	dsAccess *DatasourceAccessService,
-	ws *WorkspaceService,
-	sharing *SharingService,
-	audit *AuditService,
-	jwtMgr *JWTManager,
-	cfg *Config,
+	rbacSvc *rbac.RBACService,
+	rbacRepo *rbac.RBACRepository,
+	userRepo *auth.UserRepository,
+	dsAccess *rbac.DatasourceAccessService,
+	ws *workspace.WorkspaceService,
+	sharing *workspace.SharingService,
+	audit *auth.AuditService,
+	jwtMgr *auth.JWTManager,
+	cfg *auth.Config,
 ) *RBACHandler {
 	return &RBACHandler{
-		rbac:     rbac,
+		rbac:     rbacSvc,
 		rbacRepo: rbacRepo,
 		userRepo: userRepo,
 		dsAccess: dsAccess,
@@ -322,7 +326,7 @@ func (h *RBACHandler) handleRequestAccess(w http.ResponseWriter, r *http.Request
 
 func (h *RBACHandler) handleCreateShare(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(userIDKey).(string)
-	var req ShareRequest
+	var req workspace.ShareRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, r, http.StatusBadRequest, err)
 		return
@@ -340,7 +344,7 @@ func (h *RBACHandler) handleListShares(w http.ResponseWriter, r *http.Request) {
 	resourceType := r.URL.Query().Get("resource_type")
 	mode := r.URL.Query().Get("mode")
 
-	var list []ResourceShare
+	var list []workspace.ResourceShare
 	var err error
 	if mode == "owned" {
 		list, err = h.sharing.ListOwned(r.Context(), userID, resourceType, r.URL.Query().Get("resource_id"))
@@ -485,7 +489,7 @@ func (h *RBACHandler) handleAdminAssignRole(w http.ResponseWriter, r *http.Reque
 	}
 	if h.audit != nil {
 		resType := "user_role"
-		_ = h.audit.Log(r.Context(), &caller, AuditRoleAssigned, &resType, &userID,
+		_ = h.audit.Log(r.Context(), &caller, auth.AuditRoleAssigned, &resType, &userID,
 			map[string]any{"role_id": req.RoleID}, nil)
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -496,7 +500,7 @@ func (h *RBACHandler) auditSoD(r *http.Request, caller, action string) {
 		return
 	}
 	resType := "user"
-	_ = h.audit.Log(r.Context(), &caller, AuditAdminBlockSod, &resType, &caller,
+	_ = h.audit.Log(r.Context(), &caller, auth.AuditAdminBlockSod, &resType, &caller,
 		map[string]any{"blocked_action": action}, nil)
 }
 
@@ -518,7 +522,7 @@ func (h *RBACHandler) handleAdminListAuditLog(w http.ResponseWriter, r *http.Req
 	}
 
 	caller, _ := r.Context().Value(userIDKey).(string)
-	exportAction := AuditAuditExport
+	exportAction := auth.AuditAuditExport
 	resType := "audit_log"
 	_ = h.audit.Log(r.Context(), &caller, exportAction, &resType, nil,
 		map[string]any{"format": "json", "count": len(entries)}, nil)
@@ -539,7 +543,7 @@ func (h *RBACHandler) handleAdminListAuditLog(w http.ResponseWriter, r *http.Req
 	}
 }
 
-func auditFilterFromQuery(r *http.Request) (AuditFilter, error) {
+func auditFilterFromQuery(r *http.Request) (auth.AuditFilter, error) {
 	q := r.URL.Query()
 
 	page := 1
@@ -560,7 +564,7 @@ func auditFilterFromQuery(r *http.Request) (AuditFilter, error) {
 		}
 	}
 
-	filter := AuditFilter{
+	filter := auth.AuditFilter{
 		UserID: q.Get("user_id"),
 		Action: q.Get("action"),
 		Limit:  pageSize,
@@ -583,7 +587,7 @@ func auditFilterFromQuery(r *http.Request) (AuditFilter, error) {
 	return filter, nil
 }
 
-func writeAuditCSV(w http.ResponseWriter, entries []AuditEntry) {
+func writeAuditCSV(w http.ResponseWriter, entries []auth.AuditEntry) {
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", "attachment; filename=audit_log.csv")
 	cw := csv.NewWriter(w)
@@ -640,7 +644,7 @@ func (h *RBACHandler) handleAdminRemoveRole(w http.ResponseWriter, r *http.Reque
 	}
 	if h.audit != nil {
 		resType := "user_role"
-		_ = h.audit.Log(r.Context(), &caller, AuditRoleRemoved, &resType, &userID,
+		_ = h.audit.Log(r.Context(), &caller, auth.AuditRoleRemoved, &resType, &userID,
 			map[string]any{"role_id": roleID}, nil)
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -667,14 +671,14 @@ func (h *RBACHandler) handleInternalCheckPermission(w http.ResponseWriter, r *ht
 	if scopeID == "" {
 		scopeID = req.WorkspaceID
 	}
-	allowed, err := h.rbac.Check(r.Context(), PermissionCheck{
+	allowed, err := h.rbac.Check(r.Context(), rbac.PermissionCheck{
 		UserID:     req.UserID,
 		Permission: req.Permission,
-		ScopeType:  ScopeType(req.ScopeType),
+		ScopeType:  rbac.ScopeType(req.ScopeType),
 		ScopeID:    scopeID,
 	})
 	if err != nil {
-		MetricPermissionCheckDuration.WithLabelValues("error").Observe(time.Since(start).Seconds())
+		auth.MetricPermissionCheckDuration.WithLabelValues("error").Observe(time.Since(start).Seconds())
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
@@ -682,7 +686,7 @@ func (h *RBACHandler) handleInternalCheckPermission(w http.ResponseWriter, r *ht
 	if allowed {
 		result = "allowed"
 	}
-	MetricPermissionCheckDuration.WithLabelValues(result).Observe(time.Since(start).Seconds())
+	auth.MetricPermissionCheckDuration.WithLabelValues(result).Observe(time.Since(start).Seconds())
 	writeJSON(w, http.StatusOK, map[string]bool{"allowed": allowed})
 }
 
@@ -802,7 +806,7 @@ func (h *RBACHandler) handleAdminListUsers(w http.ResponseWriter, r *http.Reques
 	search := strings.ToLower(r.URL.Query().Get("search"))
 	status := r.URL.Query().Get("status")
 
-	var filtered []UserResponse
+	var filtered []auth.UserResponse
 	for _, u := range users {
 		matchesSearch := true
 		if search != "" {
@@ -821,7 +825,7 @@ func (h *RBACHandler) handleAdminListUsers(w http.ResponseWriter, r *http.Reques
 		}
 
 		if matchesSearch && matchesStatus {
-			filtered = append(filtered, UserResponse{
+			filtered = append(filtered, auth.UserResponse{
 				ID:            u.ID,
 				Email:         u.Email,
 				Username:      u.Username,
@@ -845,14 +849,14 @@ func (h *RBACHandler) handleAdminListUsers(w http.ResponseWriter, r *http.Reques
 func (h *RBACHandler) handleAdminGetUser(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	u, err := h.userRepo.GetUserByID(r.Context(), id)
-	if errors.Is(err, ErrUserNotFound) {
+	if errors.Is(err, auth.ErrUserNotFound) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "user not found"})
 		return
 	} else if err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	resp := UserResponse{
+	resp := auth.UserResponse{
 		ID:            u.ID,
 		Email:         u.Email,
 		Username:      u.Username,

@@ -1,4 +1,4 @@
-package auth
+package handlers
 
 import (
 	"encoding/json"
@@ -19,7 +19,15 @@ type PasswordPolicyResponse struct {
 
 func (h *AuthHandler) handlePasswordPolicy(w http.ResponseWriter, r *http.Request) {
 	policy := h.config.PasswordPolicy
-	resp := PasswordPolicyResponse(policy)
+	resp := PasswordPolicyResponse{
+		MinLength:      policy.MinLength,
+		MaxLength:      policy.MaxLength,
+		RequireUpper:   policy.RequireUpper,
+		RequireLower:   policy.RequireLower,
+		RequireDigit:   policy.RequireDigit,
+		RequireSpecial: policy.RequireSpecial,
+		MinScore:       policy.MinScore,
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "public, max-age=300")
 	_ = json.NewEncoder(w).Encode(resp)

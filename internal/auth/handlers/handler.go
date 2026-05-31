@@ -1,4 +1,4 @@
-package auth
+package handlers
 
 import (
 	"context"
@@ -17,6 +17,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-webauthn/webauthn/webauthn"
 
+	"github.com/biqly/biqly/internal/auth"
+	"github.com/biqly/biqly/internal/auth/mfa"
+	"github.com/biqly/biqly/internal/auth/oauth"
 	"github.com/biqly/biqly/internal/http/response"
 	"github.com/biqly/biqly/internal/mail"
 )
@@ -31,20 +34,20 @@ const (
 )
 
 type AuthHandler struct {
-	service  *AuthService
-	webAuthn *WebAuthnService
-	jwtMgr   *JWTManager
-	config   *Config
-	limiter  *RateLimiter
-	mfa      *MFAService
+	service  *auth.AuthService
+	webAuthn *mfa.WebAuthnService
+	jwtMgr   *auth.JWTManager
+	config   *auth.Config
+	limiter  *auth.RateLimiter
+	mfa      *mfa.MFAService
 	gdpr     *GDPRExporter
-	audit    *AuditService
+	audit    *auth.AuditService
 }
 
-func (h *AuthHandler) SetGDPRExporter(g *GDPRExporter) { h.gdpr = g }
-func (h *AuthHandler) SetAuditService(a *AuditService) { h.audit = a }
+func (h *AuthHandler) SetGDPRExporter(g *GDPRExporter)      { h.gdpr = g }
+func (h *AuthHandler) SetAuditService(a *auth.AuditService) { h.audit = a }
 
-func NewAuthHandler(service *AuthService, webAuthn *WebAuthnService, jwtMgr *JWTManager, config *Config, limiter *RateLimiter) *AuthHandler {
+func NewAuthHandler(service *auth.AuthService, webAuthn *mfa.WebAuthnService, jwtMgr *auth.JWTManager, config *auth.Config, limiter *auth.RateLimiter) *AuthHandler {
 	return &AuthHandler{
 		service:  service,
 		webAuthn: webAuthn,
@@ -143,7 +146,7 @@ func (h *AuthHandler) RegisterInternalRoutes(r chi.Router) {
 }
 
 func (h *AuthHandler) handleRegister(w http.ResponseWriter, r *http.Request) {
-	var req RegisterRequest
+	var req auth.RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -161,7 +164,7 @@ func (h *AuthHandler) handleRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
-	var req LoginRequest
+	var req auth.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -170,19 +173,19 @@ func (h *AuthHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	ip := r.RemoteAddr
 	ua := r.UserAgent()
 	resp, err := h.service.Login(r.Context(), req, &ua, &ip)
-	if errors.Is(err, ErrInvalidCredentials) || errors.Is(err, ErrInactiveUser) {
+	if errors.Is(err, auth.ErrInvalidCredentials) || errors.Is(err, auth.ErrInactiveUser) {
 		// Return identical message for both to prevent account enumeration:
 		// an attacker probing emails must not be able to distinguish
 		// "wrong password" from "inactive account" from "no such user".
-		h.respondError(w, http.StatusUnauthorized, ErrInvalidCredentials.Error())
+		h.respondError(w, http.StatusUnauthorized, auth.ErrInvalidCredentials.Error())
 		return
-	} else if errors.Is(err, ErrAccountLocked) {
+	} else if errors.Is(err, auth.ErrAccountLocked) {
 		h.respondError(w, http.StatusTooManyRequests, err.Error())
 		return
-	} else if errors.Is(err, ErrMFARequired) {
+	} else if errors.Is(err, auth.ErrMFARequired) {
 		h.respondError(w, http.StatusForbidden, err.Error())
 		return
-	} else if errors.Is(err, ErrAccountFrozen) || errors.Is(err, ErrAccountDeleted) {
+	} else if errors.Is(err, auth.ErrAccountFrozen) || errors.Is(err, auth.ErrAccountDeleted) {
 		h.respondError(w, http.StatusForbidden, err.Error())
 		return
 	} else if err != nil {
@@ -194,7 +197,7 @@ func (h *AuthHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) handleRefresh(w http.ResponseWriter, r *http.Request) {
-	var req RefreshRequest
+	var req auth.RefreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -203,8 +206,8 @@ func (h *AuthHandler) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	ip := r.RemoteAddr
 	ua := r.UserAgent()
 	resp, err := h.service.Refresh(r.Context(), req, &ua, &ip)
-	if errors.Is(err, ErrSessionNotFound) || errors.Is(err, ErrSessionExpired) || errors.Is(err, ErrSessionRevoked) ||
-		errors.Is(err, ErrSessionAbsoluteExpired) || errors.Is(err, ErrSessionIdleExpired) {
+	if errors.Is(err, auth.ErrSessionNotFound) || errors.Is(err, auth.ErrSessionExpired) || errors.Is(err, auth.ErrSessionRevoked) ||
+		errors.Is(err, auth.ErrSessionAbsoluteExpired) || errors.Is(err, auth.ErrSessionIdleExpired) {
 		h.respondError(w, http.StatusUnauthorized, err.Error())
 		return
 	} else if err != nil {
@@ -216,7 +219,7 @@ func (h *AuthHandler) handleRefresh(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) handleLogout(w http.ResponseWriter, r *http.Request) {
-	var req RefreshRequest
+	var req auth.RefreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -254,7 +257,7 @@ func (h *AuthHandler) handleSetActiveWorkspace(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var req SetActiveWorkspaceRequest
+	var req auth.SetActiveWorkspaceRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -262,7 +265,7 @@ func (h *AuthHandler) handleSetActiveWorkspace(w http.ResponseWriter, r *http.Re
 
 	resp, err := h.service.SetActiveWorkspace(r.Context(), userID, req.WorkspaceID)
 	if err != nil {
-		if errors.Is(err, ErrNotWorkspaceOwner) {
+		if errors.Is(err, auth.ErrNotWorkspaceOwner) {
 			h.respondError(w, http.StatusForbidden, "not a member of workspace")
 			return
 		}
@@ -316,7 +319,7 @@ func (h *AuthHandler) handleGetUserPermissions(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	perms, err := h.service.rbacRepo.GetUserPermissions(r.Context(), userID)
+	perms, err := h.service.RBACRepo().GetUserPermissions(r.Context(), userID)
 	if err != nil {
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -424,7 +427,7 @@ func (h *AuthHandler) clearSessionCookie(w http.ResponseWriter, r *http.Request,
 
 func (h *AuthHandler) handleOAuthRedirect(w http.ResponseWriter, r *http.Request) {
 	providerName := chi.URLParam(r, "provider")
-	provider, err := NewOAuthProvider(providerName, h.config)
+	provider, err := oauth.NewOAuthProvider(providerName, h.config)
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, err.Error())
 		return
@@ -439,12 +442,18 @@ func (h *AuthHandler) handleOAuthRedirect(w http.ResponseWriter, r *http.Request
 	h.setSessionCookie(w, r, "oauth_state_"+providerName, state, 300)
 
 	authURL := provider.GetAuthURL(state)
+	if err := oauth.ValidateAuthURL(providerName, authURL); err != nil {
+		slog.Error("invalid oauth auth url", "provider", providerName, "error", err)
+		h.respondError(w, http.StatusInternalServerError, "invalid oauth redirect")
+		return
+	}
+	//nolint:gosec // authURL host validated against provider allowlist
 	http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
 }
 
 func (h *AuthHandler) handleOAuthCallback(w http.ResponseWriter, r *http.Request) {
 	providerName := chi.URLParam(r, "provider")
-	provider, err := NewOAuthProvider(providerName, h.config)
+	provider, err := oauth.NewOAuthProvider(providerName, h.config)
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, err.Error())
 		return
@@ -516,11 +525,11 @@ func (h *AuthHandler) handleOAuthExchange(w http.ResponseWriter, r *http.Request
 
 	resp, err := h.service.RedeemOAuthCallbackCode(r.Context(), req.Code)
 	if err != nil {
-		if errors.Is(err, ErrInvalidOAuthCallbackCode) {
+		if errors.Is(err, auth.ErrInvalidOAuthCallbackCode) {
 			h.respondError(w, http.StatusBadRequest, "invalid or expired code")
 			return
 		}
-		if errors.Is(err, ErrOAuthExchangeUnavailable) {
+		if errors.Is(err, auth.ErrOAuthExchangeUnavailable) {
 			h.respondError(w, http.StatusServiceUnavailable, err.Error())
 			return
 		}
@@ -551,7 +560,7 @@ func (h *AuthHandler) handlePasskeyRegisterBegin(w http.ResponseWriter, r *http.
 		return
 	}
 
-	user, err := h.service.userRepo.GetUserByID(r.Context(), userID)
+	user, err := h.service.UserRepo().GetUserByID(r.Context(), userID)
 	if err != nil {
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -602,7 +611,7 @@ func (h *AuthHandler) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http
 
 	name := r.URL.Query().Get("name")
 
-	user, err := h.service.userRepo.GetUserByID(r.Context(), userID)
+	user, err := h.service.UserRepo().GetUserByID(r.Context(), userID)
 	if err != nil {
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -805,7 +814,7 @@ func (h *AuthHandler) handleResetPassword(w http.ResponseWriter, r *http.Request
 }
 
 func (h *AuthHandler) handleMagicLinkRequest(w http.ResponseWriter, r *http.Request) {
-	var req MagicLinkRequest
+	var req auth.MagicLinkRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -828,7 +837,7 @@ func (h *AuthHandler) handleMagicLinkRequest(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *AuthHandler) handleMagicLinkConsume(w http.ResponseWriter, r *http.Request) {
-	var req MagicLinkConsumeRequest
+	var req auth.MagicLinkConsumeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -838,11 +847,11 @@ func (h *AuthHandler) handleMagicLinkConsume(w http.ResponseWriter, r *http.Requ
 	resp, err := h.service.ConsumeMagicLink(r.Context(), req.Token, &ua, &ip)
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrMagicLinkInvalid), errors.Is(err, ErrMagicLinkUsed):
-			h.respondError(w, http.StatusBadRequest, ErrMagicLinkInvalid.Error())
-		case errors.Is(err, ErrInactiveUser):
-			h.respondError(w, http.StatusUnauthorized, ErrInactiveUser.Error())
-		case errors.Is(err, ErrAccountFrozen), errors.Is(err, ErrAccountDeleted):
+		case errors.Is(err, auth.ErrMagicLinkInvalid), errors.Is(err, auth.ErrMagicLinkUsed):
+			h.respondError(w, http.StatusBadRequest, auth.ErrMagicLinkInvalid.Error())
+		case errors.Is(err, auth.ErrInactiveUser):
+			h.respondError(w, http.StatusUnauthorized, auth.ErrInactiveUser.Error())
+		case errors.Is(err, auth.ErrAccountFrozen), errors.Is(err, auth.ErrAccountDeleted):
 			h.respondError(w, http.StatusUnauthorized, err.Error())
 		default:
 			h.respondError(w, http.StatusInternalServerError, "internal error")
@@ -891,14 +900,14 @@ func (h *AuthHandler) handleRequestEmailChange(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var req RequestEmailChangeRequest
+	var req auth.RequestEmailChangeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	change, err := h.service.RequestEmailChange(r.Context(), userID, req.NewEmail)
-	if errors.Is(err, ErrUserAlreadyExists) {
+	if errors.Is(err, auth.ErrUserAlreadyExists) {
 		h.respondError(w, http.StatusConflict, err.Error())
 		return
 	} else if err != nil {
@@ -926,7 +935,7 @@ func (h *AuthHandler) handleConfirmEmailChange(w http.ResponseWriter, r *http.Re
 	}
 
 	change, err := h.service.ConfirmEmailChange(r.Context(), token)
-	if errors.Is(err, ErrEmailChangePending) {
+	if errors.Is(err, auth.ErrEmailChangePending) {
 		h.respondJSON(w, http.StatusAccepted, map[string]string{
 			"status":     "pending_confirmation",
 			"new_email":  change.NewEmail,
@@ -951,17 +960,17 @@ func (h *AuthHandler) handleAdminInviteUser(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var req InviteUserRequest
+	var req auth.InviteUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	err := h.service.InviteUser(r.Context(), userID, req.Email, req.RoleName)
-	if errors.Is(err, ErrNotSuperAdmin) {
+	if errors.Is(err, auth.ErrNotSuperAdmin) {
 		h.respondError(w, http.StatusForbidden, err.Error())
 		return
-	} else if errors.Is(err, ErrRoleNotFound) {
+	} else if errors.Is(err, auth.ErrRoleNotFound) {
 		h.respondError(w, http.StatusNotFound, err.Error())
 		return
 	} else if err != nil {
@@ -984,10 +993,10 @@ func (h *AuthHandler) handleGetInvitation(w http.ResponseWriter, r *http.Request
 	}
 
 	invite, err := h.service.GetInvitation(r.Context(), token)
-	if errors.Is(err, ErrInvitationNotFound) {
+	if errors.Is(err, auth.ErrInvitationNotFound) {
 		h.respondError(w, http.StatusNotFound, err.Error())
 		return
-	} else if errors.Is(err, ErrInvitationExpired) || errors.Is(err, ErrInvitationClaimed) {
+	} else if errors.Is(err, auth.ErrInvitationExpired) || errors.Is(err, auth.ErrInvitationClaimed) {
 		h.respondError(w, http.StatusGone, err.Error())
 		return
 	} else if err != nil {
@@ -1016,7 +1025,7 @@ func (h *AuthHandler) handleClaimInvitation(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var req ClaimInvitationRequest
+	var req auth.ClaimInvitationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -1026,10 +1035,10 @@ func (h *AuthHandler) handleClaimInvitation(w http.ResponseWriter, r *http.Reque
 	ua := r.UserAgent()
 
 	resp, err := h.service.ClaimInvitation(r.Context(), token, req.Password, req.DisplayName, ua, ip)
-	if errors.Is(err, ErrInvitationNotFound) {
+	if errors.Is(err, auth.ErrInvitationNotFound) {
 		h.respondError(w, http.StatusNotFound, err.Error())
 		return
-	} else if errors.Is(err, ErrInvitationExpired) || errors.Is(err, ErrInvitationClaimed) {
+	} else if errors.Is(err, auth.ErrInvitationExpired) || errors.Is(err, auth.ErrInvitationClaimed) {
 		h.respondError(w, http.StatusGone, err.Error())
 		return
 	} else if err != nil {
@@ -1055,7 +1064,7 @@ func (h *AuthHandler) handleAdminListInvitations(w http.ResponseWriter, r *http.
 	}
 
 	invites, err := h.service.ListInvitations(r.Context(), userID)
-	if errors.Is(err, ErrNotSuperAdmin) {
+	if errors.Is(err, auth.ErrNotSuperAdmin) {
 		h.respondError(w, http.StatusForbidden, err.Error())
 		return
 	} else if err != nil {
@@ -1066,7 +1075,7 @@ func (h *AuthHandler) handleAdminListInvitations(w http.ResponseWriter, r *http.
 	search := strings.ToLower(r.URL.Query().Get("search"))
 	status := r.URL.Query().Get("status")
 
-	var filtered []*Invitation
+	var filtered []*auth.Invitation
 	for _, inv := range invites {
 		matchesSearch := true
 		if search != "" {
@@ -1108,7 +1117,7 @@ func (h *AuthHandler) handleAdminListInvitations(w http.ResponseWriter, r *http.
 		pageSize = ps
 	}
 	start := (page - 1) * pageSize
-	var paginated []*Invitation
+	var paginated []*auth.Invitation
 	if start < total {
 		end := start + pageSize
 		if end > total {
@@ -1116,7 +1125,7 @@ func (h *AuthHandler) handleAdminListInvitations(w http.ResponseWriter, r *http.
 		}
 		paginated = filtered[start:end]
 	} else {
-		paginated = []*Invitation{}
+		paginated = []*auth.Invitation{}
 	}
 
 	h.respondJSON(w, http.StatusOK, map[string]any{
@@ -1139,10 +1148,10 @@ func (h *AuthHandler) handleAdminRevokeInvitation(w http.ResponseWriter, r *http
 	}
 
 	err := h.service.RevokeInvitation(r.Context(), userID, id)
-	if errors.Is(err, ErrNotSuperAdmin) {
+	if errors.Is(err, auth.ErrNotSuperAdmin) {
 		h.respondError(w, http.StatusForbidden, err.Error())
 		return
-	} else if errors.Is(err, ErrInvitationNotFound) {
+	} else if errors.Is(err, auth.ErrInvitationNotFound) {
 		h.respondError(w, http.StatusNotFound, err.Error())
 		return
 	} else if err != nil {
@@ -1167,10 +1176,10 @@ func (h *AuthHandler) handleAdminResendInvitation(w http.ResponseWriter, r *http
 	}
 
 	err := h.service.ResendInvitation(r.Context(), userID, id)
-	if errors.Is(err, ErrNotSuperAdmin) {
+	if errors.Is(err, auth.ErrNotSuperAdmin) {
 		h.respondError(w, http.StatusForbidden, err.Error())
 		return
-	} else if errors.Is(err, ErrInvitationNotFound) {
+	} else if errors.Is(err, auth.ErrInvitationNotFound) {
 		h.respondError(w, http.StatusNotFound, err.Error())
 		return
 	} else if err != nil {
@@ -1196,11 +1205,11 @@ func (h *AuthHandler) handleAdminResendUserVerification(w http.ResponseWriter, r
 
 	err := h.service.AdminResendUserVerification(r.Context(), id)
 	if err != nil {
-		if errors.Is(err, ErrUserNotFound) {
+		if errors.Is(err, auth.ErrUserNotFound) {
 			h.respondError(w, http.StatusNotFound, err.Error())
 			return
 		}
-		if errors.Is(err, ErrEmailAlreadyVerified) {
+		if errors.Is(err, auth.ErrEmailAlreadyVerified) {
 			h.respondError(w, http.StatusBadRequest, err.Error())
 			return
 		}

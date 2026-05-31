@@ -1,4 +1,4 @@
-package auth
+package rbac
 
 import (
 	"context"
@@ -10,7 +10,9 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -119,7 +121,7 @@ func TestRBACServiceChecksResourceScopedRole(t *testing.T) {
 }
 
 func TestRoleInheritanceMigrationDefinesDefaultHierarchy(t *testing.T) {
-	up, err := os.ReadFile("../../migrations/auth/025a_create_role_inheritance.up.sql")
+	up, err := os.ReadFile("../../../migrations/auth/025a_create_role_inheritance.up.sql")
 	if err != nil {
 		t.Fatalf("ReadFile(025a_create_role_inheritance.up.sql) error = %v, want nil", err)
 	}
@@ -267,4 +269,25 @@ func (r *rbacScopeRows) Next(dest []driver.Value) error {
 	dest[0] = r.values[r.pos]
 	r.pos++
 	return nil
+}
+
+func openTestDBPool(t *testing.T) *sql.DB {
+	t.Helper()
+	dsn := os.Getenv("BI_AUTH_DB_DSN")
+	if dsn == "" {
+		//nolint:gosec // local test default DSN only
+		dsn = "postgres://bi_user:bi_password@localhost:5432/bi_auth?sslmode=disable"
+	}
+	dbPool, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Skip("skipping database tests; DB not available:", err)
+	}
+	t.Cleanup(func() { _ = dbPool.Close() })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := dbPool.PingContext(ctx); err != nil {
+		t.Skip("skipping database tests; ping failed:", err)
+	}
+	return dbPool
 }

@@ -1,6 +1,10 @@
 package auth
 
-import "time"
+import (
+	"time"
+
+	"github.com/biqly/biqly/internal/auth/rbac"
+)
 
 const (
 	EmailChangeWaitPeriod = 24 * time.Hour
@@ -125,13 +129,13 @@ type Session struct {
 }
 
 type ActiveSessionInfo struct {
-	ID           string     `json:"id"`
-	UserAgent    *string    `json:"user_agent,omitempty"`
-	IPAddress    *string    `json:"ip_address,omitempty"`
-	CreatedAt    time.Time  `json:"created_at"`
-	LastActiveAt time.Time  `json:"last_active_at"`
-	ExpiresAt    time.Time  `json:"expires_at"`
-	Current      bool       `json:"current,omitempty"`
+	ID           string    `json:"id"`
+	UserAgent    *string   `json:"user_agent,omitempty"`
+	IPAddress    *string   `json:"ip_address,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+	LastActiveAt time.Time `json:"last_active_at"`
+	ExpiresAt    time.Time `json:"expires_at"`
+	Current      bool      `json:"current,omitempty"`
 }
 
 type DeleteAccountRequest struct {
@@ -157,21 +161,18 @@ type EmailChangeRequest struct {
 	CompletedAt         *time.Time
 }
 
-type Role struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Description *string   `json:"description,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
-}
+type Role = rbac.Role
 
-type Permission struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Description *string   `json:"description,omitempty"`
-	Resource    string    `json:"resource"`
-	Action      string    `json:"action"`
-	CreatedAt   time.Time `json:"created_at"`
-}
+type Permission = rbac.Permission
+
+type ScopeType = rbac.ScopeType
+
+const (
+	ScopeGlobal     = rbac.ScopeGlobal
+	ScopeWorkspace  = rbac.ScopeWorkspace
+	ScopeDatasource = rbac.ScopeDatasource
+	ScopeModel      = rbac.ScopeModel
+)
 
 type PasskeyInfo struct {
 	ID         string     `json:"id"`
@@ -180,9 +181,11 @@ type PasskeyInfo struct {
 	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
 }
 
-type UserRoleInfo struct {
-	RoleID    string `json:"role_id"`
-	RoleName  string `json:"role_name"`
-	ScopeType string `json:"scope_type"`
-	ScopeID   string `json:"scope_id"`
+type UserRoleInfo = rbac.UserRoleInfo
+
+type OAuthUserInfo struct {
+	Sub       string
+	Email     string
+	Name      string
+	AvatarURL string
 }

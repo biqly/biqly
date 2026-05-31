@@ -1,9 +1,10 @@
-package auth
+package rbac
 
 import (
 	"context"
 	"fmt"
 	"slices"
+	"time"
 )
 
 const RoleSuperAdmin = "super_admin"
@@ -16,6 +17,29 @@ const (
 	ScopeDatasource ScopeType = "datasource"
 	ScopeModel      ScopeType = "model"
 )
+
+type UserRoleInfo struct {
+	RoleID    string    `json:"role_id"`
+	RoleName  string    `json:"role_name"`
+	ScopeType ScopeType `json:"scope_type"`
+	ScopeID   string    `json:"scope_id"`
+}
+
+type Role struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Description *string   `json:"description,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+type Permission struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Description *string   `json:"description,omitempty"`
+	Resource    string    `json:"resource"`
+	Action      string    `json:"action"`
+	CreatedAt   time.Time `json:"created_at"`
+}
 
 type PermissionCheck struct {
 	UserID     string

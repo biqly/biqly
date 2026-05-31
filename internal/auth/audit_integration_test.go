@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/biqly/biqly/internal/auth/rbac"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -44,18 +45,18 @@ func TestSeparationOfDutiesBlocksSelfSuperAdminChange(t *testing.T) {
 
 	var saRoleID string
 	require.NoError(t, dbPool.QueryRowContext(ctx,
-		`SELECT id FROM roles WHERE name = $1`, RoleSuperAdmin,
+		`SELECT id FROM roles WHERE name = $1`, rbac.RoleSuperAdmin,
 	).Scan(&saRoleID))
 
-	rbacRepo := NewRBACRepository(dbPool)
+	rbacRepo := rbac.NewRBACRepository(dbPool)
 	require.NoError(t, rbacRepo.AssignRole(ctx, userID, saRoleID, nil, nil))
 
 	err := rbacRepo.EnforceSelfModificationGuard(ctx, userID, userID, "user.deactivate")
-	assert.ErrorIs(t, err, ErrCannotDeactivateSelf)
+	assert.ErrorIs(t, err, rbac.ErrCannotDeactivateSelf)
 
 	// Self-modification by a super_admin must be denied.
 	err = rbacRepo.EnforceSelfModificationGuard(ctx, userID, userID, "role.remove")
-	assert.ErrorIs(t, err, ErrSeparationOfDuties)
+	assert.ErrorIs(t, err, rbac.ErrSeparationOfDuties)
 
 	// Acting on another user must be allowed.
 	err = rbacRepo.EnforceSelfModificationGuard(ctx, userID, "other-user-id", "role.remove")

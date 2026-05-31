@@ -8,6 +8,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/biqly/biqly/internal/auth/rbac"
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 )
 
@@ -287,7 +288,7 @@ func (s *AuthService) IsSuperAdmin(ctx context.Context, userID string) (bool, er
 	if err != nil {
 		return false, err
 	}
-	return slices.Contains(roles, RoleSuperAdmin), nil
+	return slices.Contains(roles, rbac.RoleSuperAdmin), nil
 }
 
 // ListInvitations lists all user invitations.
@@ -419,4 +420,3 @@ func (s *AuthService) ResendInvitation(ctx context.Context, actorUserID, invitat
 
 	return nil
 }
-

@@ -16,14 +16,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-webauthn/webauthn/protocol"
-	"github.com/go-webauthn/webauthn/webauthn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 
+	"github.com/biqly/biqly/internal/auth/rbac"
 	"github.com/biqly/biqly/internal/mail"
 )
 
@@ -250,7 +249,7 @@ func TestPasswordHistoryMigrationAndContract(t *testing.T) {
 	assert.ErrorIs(t, ErrPasswordReused, ErrPasswordReused)
 }
 
-func openTestDBPool(t *testing.T) *sql.DB {
+func OpenTestDBPool(t *testing.T) *sql.DB {
 	t.Helper()
 	dsn := os.Getenv("BI_AUTH_DB_DSN")
 	if dsn == "" {
@@ -269,6 +268,10 @@ func openTestDBPool(t *testing.T) *sql.DB {
 		t.Skip("skipping database tests; ping failed:", err)
 	}
 	return dbPool
+}
+
+func openTestDBPool(t *testing.T) *sql.DB {
+	return OpenTestDBPool(t)
 }
 
 func TestIntegrationAuthFlow(t *testing.T) {
@@ -291,7 +294,7 @@ func TestIntegrationAuthFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	userRepo := NewUserRepository(dbPool, nil)
-	rbacRepo := NewRBACRepository(dbPool)
+	rbacRepo := rbac.NewRBACRepository(dbPool)
 	sessionMgr := NewSessionManager(dbPool)
 	service := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, config, nil, nil)
 
@@ -404,7 +407,7 @@ func TestOAuthFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	userRepo := NewUserRepository(dbPool, nil)
-	rbacRepo := NewRBACRepository(dbPool)
+	rbacRepo := rbac.NewRBACRepository(dbPool)
 	sessionMgr := NewSessionManager(dbPool)
 	service := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, config, nil, nil)
 
@@ -444,118 +447,6 @@ func TestOAuthFlow(t *testing.T) {
 	assert.NotEqual(t, resp.RefreshToken, resp2.RefreshToken)
 }
 
-func TestWebAuthnFlow(t *testing.T) {
-	dbPool := openTestDBPool(t)
-	ctx := context.Background()
-
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM sessions")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM passkeys")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM webauthn_challenges")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM workspace_members")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM workspaces")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM user_roles")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users")
-
-	config := &Config{
-		WebAuthnRPID:    "localhost",
-		WebAuthnRPName:  "Biqly Test",
-		WebAuthnOrigins: []string{"http://localhost:5173"},
-	}
-
-	userRepo := NewUserRepository(dbPool, nil)
-	waService, err := NewWebAuthnService(config, userRepo)
-	require.NoError(t, err)
-
-	user, err := userRepo.CreateUser(ctx, "webauthn@example.com", "SomePassword1!", "WebAuthn User")
-	require.NoError(t, err)
-
-	creation, session, err := waService.BeginRegistration(ctx, user)
-	require.NoError(t, err)
-	assert.NotEmpty(t, creation.Response.Challenge)
-	assert.NotEmpty(t, session.Challenge)
-
-	challengeBytes, err := base64.RawURLEncoding.DecodeString(session.Challenge)
-	if err != nil {
-		challengeBytes, err = base64.URLEncoding.DecodeString(session.Challenge)
-		require.NoError(t, err)
-	}
-
-	uid, err := userRepo.GetWebAuthnChallenge(ctx, challengeBytes)
-	require.NoError(t, err)
-	require.NotNil(t, uid)
-	assert.Equal(t, user.ID, *uid)
-
-	uid2, err := userRepo.GetWebAuthnChallenge(ctx, challengeBytes)
-	require.NoError(t, err)
-	assert.Nil(t, uid2)
-
-	mockCred := &webauthn.Credential{
-		ID:              []byte("mock-credential-id"),
-		PublicKey:       []byte("mock-public-key"),
-		AttestationType: "none",
-		Transport:       []protocol.AuthenticatorTransport{protocol.USB, protocol.Internal},
-		Authenticator: webauthn.Authenticator{
-			AAGUID:    []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
-			SignCount: 42,
-		},
-	}
-
-	err = userRepo.SavePasskey(ctx, user.ID, mockCred, "My Key")
-	require.NoError(t, err)
-
-	creds, err := userRepo.GetPasskeysByUserID(ctx, user.ID)
-	require.NoError(t, err)
-	require.Len(t, creds, 1)
-	assert.Equal(t, mockCred.ID, creds[0].ID)
-	assert.Equal(t, mockCred.PublicKey, creds[0].PublicKey)
-	assert.Equal(t, mockCred.AttestationType, creds[0].AttestationType)
-	assert.Equal(t, mockCred.Authenticator.SignCount, creds[0].Authenticator.SignCount)
-
-	userPasskeys, err := waService.GetUserPasskeys(ctx, user.ID)
-	require.NoError(t, err)
-	require.Len(t, userPasskeys, 1)
-	assert.Equal(t, "My Key", userPasskeys[0].Name)
-	assert.NotEmpty(t, userPasskeys[0].ID)
-
-	assertion, sessionLogin, err := waService.BeginLogin(ctx, user.Email)
-	require.NoError(t, err)
-	assert.NotEmpty(t, assertion.Response.Challenge)
-	assert.NotEmpty(t, sessionLogin.Challenge)
-
-	err = userRepo.UpdatePasskeySignCount(ctx, mockCred.ID, 45)
-	require.NoError(t, err)
-
-	creds2, err := userRepo.GetPasskeysByUserID(ctx, user.ID)
-	require.NoError(t, err)
-	assert.Equal(t, uint32(45), creds2[0].Authenticator.SignCount)
-
-	assertionDiscoverable, sessionDiscoverable, err := waService.BeginLogin(ctx, "")
-	require.NoError(t, err)
-	assert.NotEmpty(t, assertionDiscoverable.Response.Challenge)
-	assert.Empty(t, assertionDiscoverable.Response.AllowedCredentials)
-	assert.Empty(t, sessionDiscoverable.UserID)
-
-	err = waService.DeletePasskey(ctx, user.ID, userPasskeys[0].ID)
-	require.NoError(t, err)
-
-	userPasskeys2, err := waService.GetUserPasskeys(ctx, user.ID)
-	require.NoError(t, err)
-	assert.Len(t, userPasskeys2, 0)
-}
-
-func TestAssertionBackupFlags(t *testing.T) {
-	authenticatorData := make([]byte, 37)
-	authenticatorData[32] = byte(protocol.FlagUserPresent | protocol.FlagUserVerified | protocol.FlagBackupEligible | protocol.FlagBackupState)
-
-	body := []byte(fmt.Sprintf(`{"response":{"authenticatorData":"%s"}}`, base64.RawURLEncoding.EncodeToString(authenticatorData)))
-
-	backupEligible, backupState, ok := assertionBackupFlags(body)
-
-	require.True(t, ok)
-	assert.True(t, backupEligible)
-	assert.True(t, backupState)
-}
-
 func TestBruteForceLockout(t *testing.T) {
 	redisDSN := os.Getenv("BI_AUTH_REDIS_DSN")
 	if redisDSN == "" {
@@ -590,7 +481,7 @@ func TestBruteForceLockout(t *testing.T) {
 	require.NoError(t, err)
 
 	userRepo := NewUserRepository(dbPool, nil)
-	rbacRepo := NewRBACRepository(dbPool)
+	rbacRepo := rbac.NewRBACRepository(dbPool)
 	sessionMgr := NewSessionManager(dbPool)
 	service := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, config, rClient, nil)
 
@@ -712,7 +603,7 @@ func TestEmailVerificationAndReset(t *testing.T) {
 	require.NoError(t, err)
 
 	userRepo := NewUserRepository(dbPool, nil)
-	rbacRepo := NewRBACRepository(dbPool)
+	rbacRepo := rbac.NewRBACRepository(dbPool)
 	sessionMgr := NewSessionManager(dbPool)
 	mockSender := mail.NewMockEmailSender()
 

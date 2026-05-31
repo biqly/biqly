@@ -2,12 +2,14 @@ package auth
 
 import (
 	"context"
+	"net/url"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/biqly/biqly/internal/auth/rbac"
 	"github.com/biqly/biqly/internal/mail"
 )
 
@@ -32,7 +34,7 @@ func TestInvitationFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	userRepo := NewUserRepository(dbPool, nil)
-	rbacRepo := NewRBACRepository(dbPool)
+	rbacRepo := rbac.NewRBACRepository(dbPool)
 	sessionMgr := NewSessionManager(dbPool)
 	mockMailer := mail.NewMockEmailSender()
 	service := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, config, nil, mockMailer)
@@ -143,7 +145,7 @@ func TestInvitationManagement(t *testing.T) {
 	require.NoError(t, err)
 
 	userRepo := NewUserRepository(dbPool, nil)
-	rbacRepo := NewRBACRepository(dbPool)
+	rbacRepo := rbac.NewRBACRepository(dbPool)
 	sessionMgr := NewSessionManager(dbPool)
 	mockMailer := mail.NewMockEmailSender()
 	service := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, config, nil, mockMailer)
@@ -216,7 +218,7 @@ func TestInvitationManagement(t *testing.T) {
 }
 
 func TestInvitationRouteTokenDecoding(t *testing.T) {
-	token, err := decodeInvitationRouteToken("iY7nsYpBr9xdk5_Pn5xSwiVbo-iGTcM53WtyK8A1iHY%3D")
+	token, err := url.PathUnescape("iY7nsYpBr9xdk5_Pn5xSwiVbo-iGTcM53WtyK8A1iHY%3D")
 	require.NoError(t, err)
 	assert.Equal(t, "iY7nsYpBr9xdk5_Pn5xSwiVbo-iGTcM53WtyK8A1iHY=", token)
 }

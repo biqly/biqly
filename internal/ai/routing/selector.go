@@ -234,7 +234,7 @@ type tableIndex struct {
 func indexTables(tables []metadata.Table) tableIndex {
 	idx := tableIndex{
 		byFullName: make(map[string]metadata.Table, len(tables)),
-		byName:     make(map[string][]metadata.Table),
+		byName:     make(map[string][]metadata.Table, len(tables)),
 	}
 	for _, table := range tables {
 		fullName := tableKey(table.SchemaName, table.TableName)

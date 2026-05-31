@@ -1,27 +1,21 @@
-package auth
+package oauth
 
 import (
 	"context"
 	"errors"
 	"fmt"
 
+	"github.com/biqly/biqly/internal/auth"
 	"golang.org/x/oauth2"
 )
-
-type OAuthUserInfo struct {
-	Sub       string
-	Email     string
-	Name      string
-	AvatarURL string
-}
 
 type OAuthProvider interface {
 	GetAuthURL(state string) string
 	ExchangeCode(ctx context.Context, code string) (*oauth2.Token, error)
-	GetUserInfo(ctx context.Context, token *oauth2.Token) (*OAuthUserInfo, error)
+	GetUserInfo(ctx context.Context, token *oauth2.Token) (*auth.OAuthUserInfo, error)
 }
 
-func NewOAuthProvider(name string, cfg *Config) (OAuthProvider, error) {
+func NewOAuthProvider(name string, cfg *auth.Config) (OAuthProvider, error) {
 	switch name {
 	case "github":
 		if cfg.GitHubClientID == "" || cfg.GitHubClientSecret == "" {

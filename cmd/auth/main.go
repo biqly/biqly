@@ -15,6 +15,10 @@ import (
 	"time"
 
 	biqauth "github.com/biqly/biqly/internal/auth"
+	"github.com/biqly/biqly/internal/auth/handlers"
+	"github.com/biqly/biqly/internal/auth/mfa"
+	"github.com/biqly/biqly/internal/auth/rbac"
+	"github.com/biqly/biqly/internal/auth/workspace"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/mail"
 	"github.com/biqly/biqly/internal/platform/logger"
@@ -81,7 +85,7 @@ func main() {
 		}
 	}
 	userRepo := biqauth.NewUserRepository(db, tokenEnc)
-	rbacRepo := biqauth.NewRBACRepository(db)
+	rbacRepo := rbac.NewRBACRepository(db)
 	sessionMgr := biqauth.NewSessionManager(db)
 	sessionMgr.SetLifecycleTTLs(cfg.SessionAbsoluteTTL, cfg.SessionIdleTTL)
 
@@ -93,32 +97,32 @@ func main() {
 	}
 
 	authSvc := biqauth.NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, cfg, redisClient, emailSender)
-	webAuthnSvc, err := biqauth.NewWebAuthnService(cfg, userRepo)
+	webAuthnSvc, err := mfa.NewWebAuthnService(cfg, userRepo)
 	if err != nil {
 		slog.Error("initialize webauthn", "err", err)
 		os.Exit(1)
 	}
-	rbacSvc := biqauth.NewRBACService(rbacRepo)
-	dsAccessSvc := biqauth.NewDatasourceAccessService(db, redisClient, rbacSvc)
-	workspaceSvc := biqauth.NewWorkspaceService(db, dsAccessSvc)
+	rbacSvc := rbac.NewRBACService(rbacRepo)
+	dsAccessSvc := rbac.NewDatasourceAccessService(db, redisClient, rbacSvc)
+	workspaceSvc := workspace.NewWorkspaceService(db, dsAccessSvc)
 	authSvc.SetWorkspaceService(workspaceSvc)
-	sharingSvc := biqauth.NewSharingService(db)
+	sharingSvc := workspace.NewSharingService(db)
 	auditSvc := biqauth.NewAuditService(db)
 
-	mfaRepo := biqauth.NewMFARepository(db, tokenEnc)
-	mfaSvc := biqauth.NewMFAService(mfaRepo, userRepo, cfg.JWTIssuer)
+	mfaRepo := mfa.NewMFARepository(db, tokenEnc)
+	mfaSvc := mfa.NewMFAService(mfaRepo, userRepo, cfg.JWTIssuer)
 	authSvc.SetMFAService(mfaSvc)
 
 	magicLinkRepo := biqauth.NewMagicLinkRepository(db)
 	authSvc.SetMagicLinkRepository(magicLinkRepo)
 
 	limiter := biqauth.NewRateLimiter(redisClient)
-	authHandler := biqauth.NewAuthHandler(authSvc, webAuthnSvc, jwtMgr, cfg, limiter)
+	authHandler := handlers.NewAuthHandler(authSvc, webAuthnSvc, jwtMgr, cfg, limiter)
 	authHandler.SetMFA(mfaSvc)
-	gdprExporter := biqauth.NewGDPRExporter(db, userRepo, workspaceSvc, dsAccessSvc, sharingSvc, auditSvc, webAuthnSvc)
+	gdprExporter := handlers.NewGDPRExporter(db, userRepo, workspaceSvc, dsAccessSvc, sharingSvc, auditSvc, webAuthnSvc)
 	authHandler.SetGDPRExporter(gdprExporter)
 	authHandler.SetAuditService(auditSvc)
-	rbacHandler := biqauth.NewRBACHandler(rbacSvc, rbacRepo, userRepo, dsAccessSvc, workspaceSvc, sharingSvc, auditSvc, jwtMgr, cfg)
+	rbacHandler := handlers.NewRBACHandler(rbacSvc, rbacRepo, userRepo, dsAccessSvc, workspaceSvc, sharingSvc, auditSvc, jwtMgr, cfg)
 
 	state := &appState{
 		db:          db,
@@ -208,7 +212,7 @@ func propagateRequestID(next http.Handler) http.Handler {
 	})
 }
 
-func newRouter(state *appState, authHandler *biqauth.AuthHandler, rbacHandler *biqauth.RBACHandler, limiter *biqauth.RateLimiter, cfg *biqauth.Config) http.Handler {
+func newRouter(state *appState, authHandler *handlers.AuthHandler, rbacHandler *handlers.RBACHandler, limiter *biqauth.RateLimiter, cfg *biqauth.Config) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(propagateRequestID)

@@ -1,4 +1,4 @@
-package auth
+package workspace
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/biqly/biqly/internal/auth/rbac"
 )
 
 var (
@@ -44,10 +46,10 @@ type WorkspaceDatasource struct {
 
 type WorkspaceService struct {
 	db    *sql.DB
-	dsAcc *DatasourceAccessService
+	dsAcc *rbac.DatasourceAccessService
 }
 
-func NewWorkspaceService(db *sql.DB, dsAcc *DatasourceAccessService) *WorkspaceService {
+func NewWorkspaceService(db *sql.DB, dsAcc *rbac.DatasourceAccessService) *WorkspaceService {
 	return &WorkspaceService{db: db, dsAcc: dsAcc}
 }
 
@@ -317,7 +319,7 @@ func (s *WorkspaceService) AttachDatasource(ctx context.Context, workspaceID, da
 	if err := s.requireOwnerOrAdmin(ctx, workspaceID, callerID); err != nil {
 		return err
 	}
-	if !isValidLevel(level) {
+	if !rbac.IsValidLevel(level) {
 		return fmt.Errorf("invalid access level: %s", level)
 	}
 

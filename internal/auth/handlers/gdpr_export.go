@@ -1,22 +1,27 @@
-package auth
+package handlers
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
 	"time"
+
+	"github.com/biqly/biqly/internal/auth"
+	"github.com/biqly/biqly/internal/auth/mfa"
+	"github.com/biqly/biqly/internal/auth/rbac"
+	"github.com/biqly/biqly/internal/auth/workspace"
 )
 
 type GDPRExport struct {
-	GeneratedAt        time.Time            `json:"generated_at"`
-	User               User                 `json:"user"`
-	Workspaces         []Workspace          `json:"workspaces"`
-	Passkeys           []PasskeyInfo        `json:"passkeys"`
-	OAuthAccounts      []GDPROAuthAccount   `json:"oauth_accounts"`
-	Sessions           []GDPRSessionRecord  `json:"sessions"`
-	DatasourceAccesses []DatasourceAccess   `json:"datasource_accesses"`
-	Shares             []ResourceShare      `json:"shares"`
-	AuditEntries       []AuditEntry         `json:"audit_entries"`
+	GeneratedAt        time.Time                 `json:"generated_at"`
+	User               auth.User                 `json:"user"`
+	Workspaces         []workspace.Workspace     `json:"workspaces"`
+	Passkeys           []auth.PasskeyInfo        `json:"passkeys"`
+	OAuthAccounts      []GDPROAuthAccount        `json:"oauth_accounts"`
+	Sessions           []GDPRSessionRecord       `json:"sessions"`
+	DatasourceAccesses []rbac.DatasourceAccess   `json:"datasource_accesses"`
+	Shares             []workspace.ResourceShare `json:"shares"`
+	AuditEntries       []auth.AuditEntry         `json:"audit_entries"`
 }
 
 type GDPROAuthAccount struct {
@@ -28,33 +33,33 @@ type GDPROAuthAccount struct {
 }
 
 type GDPRSessionRecord struct {
-	ID         string     `json:"id"`
-	UserAgent  *string    `json:"user_agent,omitempty"`
-	IPAddress  *string    `json:"ip_address,omitempty"`
-	CreatedAt  time.Time  `json:"created_at"`
-	ExpiresAt  time.Time  `json:"expires_at"`
-	RevokedAt  *time.Time `json:"revoked_at,omitempty"`
-	TokenHint  string     `json:"refresh_token_hint"`
+	ID        string     `json:"id"`
+	UserAgent *string    `json:"user_agent,omitempty"`
+	IPAddress *string    `json:"ip_address,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+	ExpiresAt time.Time  `json:"expires_at"`
+	RevokedAt *time.Time `json:"revoked_at,omitempty"`
+	TokenHint string     `json:"refresh_token_hint"`
 }
 
 type GDPRExporter struct {
 	db       *sql.DB
-	userRepo *UserRepository
-	ws       *WorkspaceService
-	dsAccess *DatasourceAccessService
-	sharing  *SharingService
-	audit    *AuditService
-	webAuthn *WebAuthnService
+	userRepo *auth.UserRepository
+	ws       *workspace.WorkspaceService
+	dsAccess *rbac.DatasourceAccessService
+	sharing  *workspace.SharingService
+	audit    *auth.AuditService
+	webAuthn *mfa.WebAuthnService
 }
 
 func NewGDPRExporter(
 	db *sql.DB,
-	userRepo *UserRepository,
-	ws *WorkspaceService,
-	dsAccess *DatasourceAccessService,
-	sharing *SharingService,
-	audit *AuditService,
-	webAuthn *WebAuthnService,
+	userRepo *auth.UserRepository,
+	ws *workspace.WorkspaceService,
+	dsAccess *rbac.DatasourceAccessService,
+	sharing *workspace.SharingService,
+	audit *auth.AuditService,
+	webAuthn *mfa.WebAuthnService,
 ) *GDPRExporter {
 	return &GDPRExporter{
 		db:       db,
@@ -112,7 +117,7 @@ func (e *GDPRExporter) Export(ctx context.Context, userID string) (*GDPRExport, 
 	}
 
 	if e.audit != nil {
-		if entries, err := e.audit.List(ctx, AuditFilter{UserID: userID, Limit: 1000}); err == nil {
+		if entries, err := e.audit.List(ctx, auth.AuditFilter{UserID: userID, Limit: 1000}); err == nil {
 			out.AuditEntries = entries
 		}
 	}
@@ -168,7 +173,7 @@ func (e *GDPRExporter) querySessions(ctx context.Context, userID string) ([]GDPR
 		if err := rows.Scan(&s.ID, &refresh, &ua, &ip, &s.CreatedAt, &s.ExpiresAt, &revoked); err != nil {
 			return nil, err
 		}
-		s.TokenHint = MaskToken(refresh)
+		s.TokenHint = auth.MaskToken(refresh)
 		if ua.Valid {
 			v := ua.String
 			s.UserAgent = &v

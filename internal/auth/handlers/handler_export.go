@@ -1,8 +1,10 @@
-package auth
+package handlers
 
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/biqly/biqly/internal/auth"
 )
 
 func (h *AuthHandler) handleMeExport(w http.ResponseWriter, r *http.Request) {
@@ -23,7 +25,7 @@ func (h *AuthHandler) handleMeExport(w http.ResponseWriter, r *http.Request) {
 
 	if h.audit != nil {
 		resType := "user"
-		_ = h.audit.Log(r.Context(), &userID, AuditGDPRDataDump, &resType, &userID,
+		_ = h.audit.Log(r.Context(), &userID, auth.AuditGDPRDataDump, &resType, &userID,
 			map[string]any{"sessions": len(data.Sessions), "audit_entries": len(data.AuditEntries)}, nil)
 	}
 

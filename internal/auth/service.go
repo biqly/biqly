@@ -9,6 +9,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
+	"github.com/biqly/biqly/internal/auth/rbac"
 	"github.com/biqly/biqly/internal/mail"
 )
 
@@ -20,21 +21,44 @@ var (
 	ErrEmailChangePending = errors.New("email change confirmation pending")
 	ErrPasswordReused     = errors.New("password was recently used")
 	ErrSuperAdminRequired = errors.New("super admin privilege required")
+	ErrMFANotEnabled      = errors.New("mfa not enabled")
+	ErrNotWorkspaceOwner  = errors.New("not workspace owner")
 )
 
 const PasswordHistoryLimit = 5
 
+// WorkspaceService defines the workspace operations needed by AuthService.
+type WorkspaceService interface {
+	IsMFARequired(ctx context.Context, workspaceID string) (bool, error)
+	IsMember(ctx context.Context, workspaceID, userID string) (bool, error)
+}
+
+// MFAService defines the multi-factor authentication operations needed by AuthService.
+type MFAService interface {
+	IsEnabled(ctx context.Context, userID string) (bool, error)
+	VerifyCode(ctx context.Context, userID, code string) error
+	GenerateBypassCode(ctx context.Context, userID string) (string, error)
+}
+
 type AuthService struct {
 	userRepo     *UserRepository
-	rbacRepo     *RBACRepository
+	rbacRepo     *rbac.RBACRepository
 	sessionMgr   *SessionManager
 	jwtMgr       *JWTManager
 	config       *Config
 	redisClient  *redis.Client
 	emailSender  mail.EmailSender
-	workspaceSvc *WorkspaceService
-	mfaSvc       *MFAService
+	workspaceSvc WorkspaceService
+	mfaSvc       MFAService
 	magicLinks   *MagicLinkRepository
+}
+
+func (s *AuthService) UserRepo() *UserRepository {
+	return s.userRepo
+}
+
+func (s *AuthService) RBACRepo() *rbac.RBACRepository {
+	return s.rbacRepo
 }
 
 // SetMagicLinkRepository wires the magic-link repository post-construction.
@@ -44,15 +68,15 @@ func (s *AuthService) SetMagicLinkRepository(r *MagicLinkRepository) { s.magicLi
 
 // SetWorkspaceService wires the workspace service after construction to avoid
 // a constructor-arg ripple through tests; required for active-workspace switching.
-func (s *AuthService) SetWorkspaceService(ws *WorkspaceService) { s.workspaceSvc = ws }
+func (s *AuthService) SetWorkspaceService(ws WorkspaceService) { s.workspaceSvc = ws }
 
 // SetMFAService wires the MFA service after construction. Optional; if unset
 // MFA checks are skipped and login proceeds with single factor.
-func (s *AuthService) SetMFAService(m *MFAService) { s.mfaSvc = m }
+func (s *AuthService) SetMFAService(m MFAService) { s.mfaSvc = m }
 
 func NewAuthService(
 	userRepo *UserRepository,
-	rbacRepo *RBACRepository,
+	rbacRepo *rbac.RBACRepository,
 	sessionMgr *SessionManager,
 	jwtMgr *JWTManager,
 	config *Config,

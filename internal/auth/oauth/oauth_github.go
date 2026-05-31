@@ -1,4 +1,4 @@
-package auth
+package oauth
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/biqly/biqly/internal/auth"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
 )
@@ -35,7 +36,7 @@ func (p *GitHubProvider) ExchangeCode(ctx context.Context, code string) (*oauth2
 	return p.oauthCfg.Exchange(ctx, code)
 }
 
-func (p *GitHubProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (*OAuthUserInfo, error) {
+func (p *GitHubProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (*auth.OAuthUserInfo, error) {
 	client := p.oauthCfg.Client(ctx, token)
 
 	// Fetch primary user profile
@@ -107,7 +108,7 @@ func (p *GitHubProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (
 		name = rawProfile.Login
 	}
 
-	return &OAuthUserInfo{
+	return &auth.OAuthUserInfo{
 		Sub:       strconv.FormatInt(rawProfile.ID, 10),
 		Email:     email,
 		Name:      name,

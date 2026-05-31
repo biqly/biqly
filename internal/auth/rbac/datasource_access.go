@@ -1,4 +1,4 @@
-package auth
+package rbac
 
 import (
 	"context"
@@ -31,10 +31,10 @@ type DatasourceAccess struct {
 }
 
 type DatasourceAccessService struct {
-	db          *sql.DB
-	redis       *redis.Client
-	rbac        *RBACService
-	cacheTTL    time.Duration
+	db       *sql.DB
+	redis    *redis.Client
+	rbac     *RBACService
+	cacheTTL time.Duration
 }
 
 func NewDatasourceAccessService(db *sql.DB, redisClient *redis.Client, rbac *RBACService) *DatasourceAccessService {
@@ -51,7 +51,7 @@ func (s *DatasourceAccessService) cacheKey(userID string) string {
 }
 
 func (s *DatasourceAccessService) Grant(ctx context.Context, userID, datasourceID, level string, grantedBy string) (*DatasourceAccess, error) {
-	if !isValidLevel(level) {
+	if !IsValidLevel(level) {
 		return nil, fmt.Errorf("invalid access level: %s", level)
 	}
 
@@ -93,7 +93,7 @@ func (s *DatasourceAccessService) Revoke(ctx context.Context, userID, datasource
 }
 
 func (s *DatasourceAccessService) UpdateLevel(ctx context.Context, accessID, level string) error {
-	if !isValidLevel(level) {
+	if !IsValidLevel(level) {
 		return fmt.Errorf("invalid access level: %s", level)
 	}
 	var userID string
@@ -210,7 +210,7 @@ func (s *DatasourceAccessService) CheckAccess(ctx context.Context, userID, datas
 		}
 	}()
 
-	if !isValidLevel(requiredLevel) {
+	if !IsValidLevel(requiredLevel) {
 		return fmt.Errorf("invalid required level: %s", requiredLevel)
 	}
 
@@ -301,7 +301,7 @@ func (s *DatasourceAccessService) setCached(ctx context.Context, userID string, 
 	return err
 }
 
-func isValidLevel(level string) bool {
+func IsValidLevel(level string) bool {
 	switch strings.ToLower(level) {
 	case "read", "write", "admin":
 		return true

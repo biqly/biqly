@@ -55,11 +55,15 @@ func (d *Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasourc
 	return datasource.QueryAll(ctx, db, query, nil, func(rows *sql.Rows) (datasource.ColumnInfo, error) {
 		var c datasource.ColumnInfo
 		var nullable int
-		err := rows.Scan(&c.SchemaName, &c.TableName, &c.ColumnName, &c.DataType, &nullable, &c.OrdinalPosition, &c.CharMaxLength, &c.NumericPrecision, &c.NumericScale, &c.ColumnDefault)
+		var columnDefault sql.NullString
+		err := rows.Scan(&c.SchemaName, &c.TableName, &c.ColumnName, &c.DataType, &nullable, &c.OrdinalPosition, &c.CharMaxLength, &c.NumericPrecision, &c.NumericScale, &columnDefault)
 		if err != nil {
 			return c, err
 		}
 		c.Nullable = nullable == 1
+		if columnDefault.Valid {
+			c.ColumnDefault = columnDefault.String
+		}
 		return c, nil
 	})
 }

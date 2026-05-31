@@ -1,4 +1,4 @@
-package auth
+package oauth
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/biqly/biqly/internal/auth"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
@@ -37,7 +38,7 @@ func (p *GoogleProvider) ExchangeCode(ctx context.Context, code string) (*oauth2
 	return p.oauthCfg.Exchange(ctx, code)
 }
 
-func (p *GoogleProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (*OAuthUserInfo, error) {
+func (p *GoogleProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (*auth.OAuthUserInfo, error) {
 	client := p.oauthCfg.Client(ctx, token)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.googleapis.com/oauth2/v3/userinfo", nil)
@@ -69,7 +70,7 @@ func (p *GoogleProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (
 		return nil, fmt.Errorf("could not retrieve email address from google account")
 	}
 
-	return &OAuthUserInfo{
+	return &auth.OAuthUserInfo{
 		Sub:       rawProfile.Sub,
 		Email:     rawProfile.Email,
 		Name:      rawProfile.Name,

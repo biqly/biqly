@@ -1,4 +1,4 @@
-package auth
+package mfa
 
 import (
 	"bytes"
@@ -10,12 +10,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/biqly/biqly/internal/auth"
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 )
 
 type WebAuthnUser struct {
-	User        *User
+	User        *auth.User
 	Credentials []webauthn.Credential
 }
 
@@ -47,11 +48,11 @@ func (u *WebAuthnUser) WebAuthnCredentials() []webauthn.Credential {
 
 type WebAuthnService struct {
 	webAuthn *webauthn.WebAuthn
-	repo     *UserRepository
+	repo     *auth.UserRepository
 	ttl      time.Duration
 }
 
-func NewWebAuthnService(cfg *Config, repo *UserRepository) (*WebAuthnService, error) {
+func NewWebAuthnService(cfg *auth.Config, repo *auth.UserRepository) (*WebAuthnService, error) {
 	timeout := webauthn.TimeoutConfig{
 		Enforce:    true,
 		Timeout:    cfg.WebAuthnChallengeTTL,
@@ -84,7 +85,7 @@ func NewWebAuthnService(cfg *Config, repo *UserRepository) (*WebAuthnService, er
 	}, nil
 }
 
-func (s *WebAuthnService) BeginRegistration(ctx context.Context, user *User) (*protocol.CredentialCreation, *webauthn.SessionData, error) {
+func (s *WebAuthnService) BeginRegistration(ctx context.Context, user *auth.User) (*protocol.CredentialCreation, *webauthn.SessionData, error) {
 	creds, err := s.repo.GetPasskeysByUserID(ctx, user.ID)
 	if err != nil {
 		return nil, nil, err
@@ -120,7 +121,7 @@ func (s *WebAuthnService) BeginRegistration(ctx context.Context, user *User) (*p
 	return creation, session, nil
 }
 
-func (s *WebAuthnService) FinishRegistration(ctx context.Context, user *User, session *webauthn.SessionData, request *http.Request, name string) (*webauthn.Credential, error) {
+func (s *WebAuthnService) FinishRegistration(ctx context.Context, user *auth.User, session *webauthn.SessionData, request *http.Request, name string) (*webauthn.Credential, error) {
 	challengeBytes, err := base64.RawURLEncoding.DecodeString(session.Challenge)
 	if err != nil {
 		challengeBytes, err = base64.URLEncoding.DecodeString(session.Challenge)
@@ -234,7 +235,7 @@ func (s *WebAuthnService) BeginLogin(ctx context.Context, emailOrUsername string
 	return assertion, session, nil
 }
 
-func (s *WebAuthnService) FinishLogin(ctx context.Context, session *webauthn.SessionData, request *http.Request) (*User, error) {
+func (s *WebAuthnService) FinishLogin(ctx context.Context, session *webauthn.SessionData, request *http.Request) (*auth.User, error) {
 	challengeBytes, err := base64.RawURLEncoding.DecodeString(session.Challenge)
 	if err != nil {
 		challengeBytes, err = base64.URLEncoding.DecodeString(session.Challenge)
@@ -338,7 +339,7 @@ func (s *WebAuthnService) FinishLogin(ctx context.Context, session *webauthn.Ses
 }
 
 func applyAssertionBackupFlags(creds []webauthn.Credential, bodyBytes []byte) {
-	backupEligible, backupState, ok := assertionBackupFlags(bodyBytes)
+	backupEligible, backupState, ok := AssertionBackupFlags(bodyBytes)
 	if !ok {
 		return
 	}
@@ -349,7 +350,7 @@ func applyAssertionBackupFlags(creds []webauthn.Credential, bodyBytes []byte) {
 	}
 }
 
-func assertionBackupFlags(bodyBytes []byte) (backupEligible bool, backupState bool, ok bool) {
+func AssertionBackupFlags(bodyBytes []byte) (backupEligible bool, backupState bool, ok bool) {
 	if len(bodyBytes) > 0 {
 		var reqPayload struct {
 			Response struct {
@@ -370,7 +371,7 @@ func assertionBackupFlags(bodyBytes []byte) (backupEligible bool, backupState bo
 	return false, false, false
 }
 
-func (s *WebAuthnService) GetUserPasskeys(ctx context.Context, userID string) ([]PasskeyInfo, error) {
+func (s *WebAuthnService) GetUserPasskeys(ctx context.Context, userID string) ([]auth.PasskeyInfo, error) {
 	return s.repo.GetUserPasskeys(ctx, userID)
 }
 
