@@ -1,4 +1,4 @@
-package ai
+package eval
 
 import (
 	"context"
@@ -24,6 +24,21 @@ const EvalModeAll = EvalModeLogical | EvalModeExecution | EvalModeJudge
 // ResultExecutor runs a LogicalQuery and returns tabular results.
 type ResultExecutor interface {
 	Execute(ctx context.Context, model *semantic.SemanticModel, lq *query.LogicalQuery) (*query.Result, error)
+}
+
+// QuestionProcessor generates a LogicalQuery and the eval metadata needed to
+// score one natural-language question.
+type QuestionProcessor interface {
+	EvaluateQuestion(ctx context.Context, question string, model *semantic.SemanticModel) (*QuestionResult, error)
+}
+
+// QuestionResult is the eval-owned projection of an AI generation response.
+type QuestionResult struct {
+	LogicalQuery                *query.LogicalQuery
+	Confidence                  float64
+	TokenUsage                  *providerpkg.TokenUsage
+	PromptTemplateVersions      map[string]int
+	PromptTemplateBundleVersion int
 }
 
 // EvalSuiteOptions configures a golden / benchmark eval run.
@@ -83,7 +98,7 @@ type EvalSuiteResult struct {
 }
 
 // RunGoldenSuite runs each case through the AI service and optional checks.
-func RunGoldenSuite(ctx context.Context, svc *Service, opts EvalSuiteOptions) *EvalSuiteResult {
+func RunGoldenSuite(ctx context.Context, processor QuestionProcessor, opts EvalSuiteOptions) *EvalSuiteResult {
 	cases := opts.Cases
 	if len(cases) == 0 {
 		cases = DefaultGoldenCases()
@@ -103,7 +118,7 @@ func RunGoldenSuite(ctx context.Context, svc *Service, opts EvalSuiteOptions) *E
 		cr := EvalCaseResult{Case: c}
 		start := time.Now()
 
-		resp, err := svc.ProcessQuestion(ctx, c.Question, c.Model)
+		resp, err := processor.EvaluateQuestion(ctx, c.Question, c.Model)
 		cr.LatencyMs = time.Since(start).Milliseconds()
 		if err != nil {
 			cr.Err = err

@@ -1,4 +1,4 @@
-package ai
+package eval
 
 import (
 	"github.com/biqly/biqly/internal/query"

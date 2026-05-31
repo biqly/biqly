@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/biqly/biqly/internal/ai/jsonextract"
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
@@ -30,7 +31,7 @@ func NewSchemaValidatorWith(validator *query.Validator) *SchemaValidator {
 }
 
 func parseLogicalQueryFromRaw(raw string) (query.LogicalQuery, error) {
-	cleaned := TrimToJSONObject(raw)
+	cleaned := jsonextract.TrimToJSONObject(raw)
 	if cleaned == "" {
 		return query.LogicalQuery{}, fmt.Errorf("empty AI response")
 	}

@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	evalpkg "github.com/biqly/biqly/internal/ai/eval"
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/config"
@@ -76,6 +77,22 @@ func NewServiceWithProvider(cfg config.AIConfig, validator *query.Validator, pro
 // LLMProvider returns the configured generation backend (for eval judge, etc.).
 func (s *Service) LLMProvider() providerpkg.Provider {
 	return s.client
+}
+
+// EvaluateQuestion adapts Service to the eval package without making eval
+// depend on the root AI orchestration package.
+func (s *Service) EvaluateQuestion(ctx context.Context, question string, model *semantic.SemanticModel) (*evalpkg.QuestionResult, error) {
+	resp, err := s.ProcessQuestion(ctx, question, model)
+	if err != nil {
+		return nil, err
+	}
+	return &evalpkg.QuestionResult{
+		LogicalQuery:                resp.LogicalQuery,
+		Confidence:                  resp.Confidence,
+		TokenUsage:                  resp.TokenUsage,
+		PromptTemplateVersions:      resp.PromptTemplateVersions,
+		PromptTemplateBundleVersion: resp.PromptTemplateBundleVersion,
+	}, nil
 }
 
 // SQLValidator dry-runs a compiled LogicalQuery against the live datasource

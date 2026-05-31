@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/biqly/biqly/internal/ai"
+	evalpkg "github.com/biqly/biqly/internal/ai/eval"
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/metadata"
@@ -44,7 +44,7 @@ func NewCatalogDependencies(ctx context.Context, cfg *config.Config) (*Dependenc
 		MetaRepo:     metaRepo,
 		SemanticRepo: semanticRepo,
 		Encryptor:    encryptor,
-		EvalRepo:     ai.NewEvalRepository(db),
+		EvalRepo:     evalpkg.NewEvalRepository(db),
 		AuditLogger:  audit.NewLogger(slog.Default()),
 	}, nil
 }

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/biqly/biqly/internal/ai"
+	evalpkg "github.com/biqly/biqly/internal/ai/eval"
 	"github.com/biqly/biqly/internal/ai/prompt"
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/ai/routing"
@@ -133,7 +134,7 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		AIQueryClient: aiQueryClient,
 		AIDescriber:   describer,
 		Encryptor:     encryptor,
-		EvalRepo:      ai.NewEvalRepository(db),
+		EvalRepo:      evalpkg.NewEvalRepository(db),
 		AuditLogger:   audit.NewLogger(slog.Default()),
 		Embedder:      embedder,
 		AIEmbedMeta:   embedMeta,

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/biqly/biqly/internal/ai"
+	evalpkg "github.com/biqly/biqly/internal/ai/eval"
 	"github.com/biqly/biqly/internal/ai/prompt"
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/ai/routing"
@@ -53,7 +54,7 @@ type Dependencies struct {
 	AIQueryClient providerpkg.Provider
 	AIDescriber   *ai.DescribeService
 	Encryptor     *security.Encryption
-	EvalRepo      *ai.EvalRepository
+	EvalRepo      *evalpkg.EvalRepository
 	AuditLogger   *audit.Logger
 	// Embedder is the embeddings provider used for vector-based table
 	// retrieval. nil when no API key is configured — callers MUST tolerate
@@ -204,7 +205,7 @@ type aiBundle struct {
 	describer   *ai.DescribeService
 	embedder    ai.Embedder
 	embedMeta   *ai.EmbedMetadataService
-	evalRepo    *ai.EvalRepository
+	evalRepo    *evalpkg.EvalRepository
 	timeGrains  routing.TimeGrainStore
 }
 
@@ -249,7 +250,7 @@ func setupAI(
 			WithDeniedTables(cfg.AI.EmbeddingDenyTables)
 	}
 
-	evalRepo := ai.NewEvalRepository(db)
+	evalRepo := evalpkg.NewEvalRepository(db)
 
 	if err := routing.InitRouting(cfg.AI.RoutingLexiconPath, cfg.AI.RoutingWeightsPath); err != nil {
 		return aiBundle{}, fmt.Errorf("routing config: %w", err)

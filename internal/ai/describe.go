@@ -9,6 +9,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/biqly/biqly/internal/ai/jsonextract"
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/core"
 	"github.com/biqly/biqly/internal/datasource"
@@ -393,7 +394,7 @@ func buildDescribePrompt(schema, table string, cols []metadata.Column, sample []
 }
 
 func parseDescribeResponse(raw string) (string, []ColumnDescription, error) {
-	cleaned := TrimToJSONObject(raw)
+	cleaned := jsonextract.TrimToJSONObject(raw)
 
 	var payload struct {
 		TableDescription string              `json:"table_description"`

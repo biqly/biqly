@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	evalpkg "github.com/biqly/biqly/internal/ai/eval"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/query"
 )
@@ -25,7 +26,7 @@ func TestLogicalQueryEqualBaseline(t *testing.T) {
 		GroupBy: []query.GroupBy{{Field: "country"}},
 		Limit:   100,
 	}
-	if ok, reason := LogicalQueryEqual(&a, &b); !ok {
+	if ok, reason := evalpkg.LogicalQueryEqual(&a, &b); !ok {
 		t.Errorf("expected equivalence with reordered selects, got mismatch: %s", reason)
 	}
 
@@ -35,7 +36,7 @@ func TestLogicalQueryEqualBaseline(t *testing.T) {
 		GroupBy: []query.GroupBy{{Field: "country"}},
 		Limit:   100,
 	}
-	if ok, _ := LogicalQueryEqual(&a, &c); ok {
+	if ok, _ := evalpkg.LogicalQueryEqual(&a, &c); ok {
 		t.Errorf("expected mismatch on different metric, got equivalence")
 	}
 
@@ -52,7 +53,7 @@ func TestLogicalQueryEqualBaseline(t *testing.T) {
 		OrderBy: []query.OrderBy{{Field: "row_count", Direction: "asc"}},
 		Limit:   100,
 	}
-	if ok, _ := LogicalQueryEqual(&d, &e); ok {
+	if ok, _ := evalpkg.LogicalQueryEqual(&d, &e); ok {
 		t.Errorf("expected mismatch on order_by direction, got equivalence")
 	}
 
@@ -66,7 +67,7 @@ func TestLogicalQueryEqualBaseline(t *testing.T) {
 		Filters: []query.Filter{{Field: "status", Operator: "eq", Value: "pending"}},
 		Limit:   100,
 	}
-	if ok, _ := LogicalQueryEqual(&f1, &f2); ok {
+	if ok, _ := evalpkg.LogicalQueryEqual(&f1, &f2); ok {
 		t.Errorf("expected mismatch on filter value, got equivalence")
 	}
 }
@@ -75,7 +76,7 @@ func TestLogicalQueryEqualBaseline(t *testing.T) {
 // pass schema + semantic validation, otherwise the dataset itself is broken.
 func TestGoldenSeedSelfConsistent(t *testing.T) {
 	sv := NewSchemaValidatorWith(query.NewValidator(1000))
-	for _, c := range DefaultGoldenCases() {
+	for _, c := range evalpkg.DefaultGoldenCases() {
 		raw, err := marshalLogicalQuery(c.Expected)
 		if err != nil {
 			t.Errorf("[%s] marshal expected: %v", c.ID, err)
@@ -108,7 +109,7 @@ func TestGoldenEvalAgainstLiveLLM(t *testing.T) {
 	}
 	svc := NewService(cfg, query.NewValidator(1000))
 
-	cases := DefaultGoldenCases()
+	cases := evalpkg.DefaultGoldenCases()
 	pass := 0
 	for _, c := range cases {
 		resp, err := svc.ProcessQuestion(context.Background(), c.Question, c.Model)
@@ -116,7 +117,7 @@ func TestGoldenEvalAgainstLiveLLM(t *testing.T) {
 			t.Errorf("[%s] error: %v", c.ID, err)
 			continue
 		}
-		ok, reason := LogicalQueryEqual(resp.LogicalQuery, &c.Expected)
+		ok, reason := evalpkg.LogicalQueryEqual(resp.LogicalQuery, &c.Expected)
 		if !ok {
 			t.Errorf("[%s] mismatch: %s; got=%+v", c.ID, reason, resp.LogicalQuery)
 			continue

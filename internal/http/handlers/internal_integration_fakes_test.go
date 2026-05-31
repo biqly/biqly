@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/biqly/biqly/internal/ai"
+	ai "github.com/biqly/biqly/internal/ai/eval"
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/core"
 	"github.com/biqly/biqly/internal/datasource"

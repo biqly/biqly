@@ -1,4 +1,4 @@
-package ai
+package eval
 
 import (
 	"context"
@@ -219,4 +219,3 @@ func memoryResultColumns(selectItems []query.SelectItem, model *semantic.Semanti
 	_ = model
 	return cols, nil
 }
-

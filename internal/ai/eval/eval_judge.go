@@ -1,4 +1,4 @@
-package ai
+package eval
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/biqly/biqly/internal/ai/jsonextract"
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
@@ -76,7 +77,7 @@ Respond with JSON only:
 	if err != nil {
 		return false, "", err
 	}
-	cleaned := CleanAIResponseForJSON(gen.Content)
+	cleaned := jsonextract.CleanAIResponseForJSON(gen.Content)
 	var v judgeVerdict
 	if err := json.Unmarshal([]byte(cleaned), &v); err != nil {
 		return false, "", fmt.Errorf("parse judge response: %w", err)

@@ -1,4 +1,4 @@
-package ai
+package jsonextract
 
 import (
 	"encoding/json"

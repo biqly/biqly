@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/biqly/biqly/internal/ai/jsonextract"
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/config"
 )
@@ -102,7 +103,7 @@ func (s *TranslationService) TranslateDescribeResult(ctx context.Context, result
 	}
 
 	var translated describeTranslationPayload
-	if err := json.Unmarshal([]byte(TrimToJSONObject(gen.Content)), &translated); err != nil {
+	if err := json.Unmarshal([]byte(jsonextract.TrimToJSONObject(gen.Content)), &translated); err != nil {
 		return fmt.Errorf("parse translated metadata descriptions: %w", err)
 	}
 	if err := validateDescribeTranslation(payload, translated); err != nil {

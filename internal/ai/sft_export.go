@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	evalpkg "github.com/biqly/biqly/internal/ai/eval"
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
@@ -210,7 +211,7 @@ func (e *SFTExporter) collectItems(ctx context.Context, opts SFTExportOptions) (
 	}
 
 	if opts.IncludeGolden {
-		for _, c := range DefaultGoldenCases() {
+		for _, c := range evalpkg.DefaultGoldenCases() {
 			lqBytes, err := json.Marshal(c.Expected)
 			if err != nil {
 				skipped++

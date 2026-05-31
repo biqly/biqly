@@ -3,7 +3,7 @@ package internalapi
 import (
 	"time"
 
-	"github.com/biqly/biqly/internal/ai"
+	ai "github.com/biqly/biqly/internal/ai/eval"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/query"
 )

@@ -303,7 +303,7 @@ Her lookup ~150-180 byte struct kopyaliyor. 20-50 dimension, 10-30 metric ile ~1
 
 ## 3. Mimari ve Tasarim
 
-### [ ] 3.1 [HIGH] internal/ai/ Mega-Paket (51 dosya, ~14,000+ satir)
+### [x] 3.1 [HIGH] internal/ai/ Mega-Paket (51 dosya, ~14,000+ satir)
 
 **Sorun:** Tek pakette 8 farkli sorumluluk:
 
@@ -625,10 +625,10 @@ func (p *PoolCache) Get(ctx context.Context, driver Driver, datasourceID, dsn st
 
 | # | Gorev | Mevcut | Hedef | Efor |
 | --- | --- | --- | --- | --- |
-| [ ] 3.1 | Table routing'i ayri pakete tasi | `ai/table_router.go` (1,945 satir) | `ai/routing/` (5-6 dosya) | 2 gun |
-| [ ] 3.2 | Evaluation framework'u ayri pakete tasi | `ai/eval_*.go` (8 dosya) | `ai/eval/` | 1 gun |
-| [ ] 3.3 | Prompt subsystem'i ayri pakete tasi | `ai/prompt_*.go` (7 dosya) | `ai/prompt/` | 1 gun |
-| [ ] 3.4 | Provider abstraction ayri pakete tasi | `ai/*provider*.go` (7 dosya) | `ai/provider/` | 1 gun |
+| [x] 3.1 | Table routing'i ayri pakete tasi | `ai/table_router.go` (1,945 satir) | `ai/routing/` (5-6 dosya) | 2 gun |
+| [x] 3.2 | Evaluation framework'u ayri pakete tasi | `ai/eval_*.go` (8 dosya) | `ai/eval/` | 1 gun |
+| [x] 3.3 | Prompt subsystem'i ayri pakete tasi | `ai/prompt_*.go` (7 dosya) | `ai/prompt/` | 1 gun |
+| [x] 3.4 | Provider abstraction ayri pakete tasi | `ai/*provider*.go` (7 dosya) | `ai/provider/` | 1 gun |
 | [ ] 3.5 | `Dependencies` struct'i narrow deps'e parcala | `app/dependencies.go` (23 alan) | Kucuk interface'ler | 3 gun |
 
 ### Faz 4: Uzun Vadeli (1 ay+)
