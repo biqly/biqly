@@ -33,55 +33,46 @@ func NewUserRepository(db *sql.DB, enc *security.Encryption) *UserRepository {
 }
 
 func (r *UserRepository) CreateUser(ctx context.Context, email, passwordHash, displayName string) (*User, error) {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	var exists bool
-	err = tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", email).Scan(&exists)
-	if err != nil {
-		return nil, fmt.Errorf("check user existence: %w", err)
-	}
-	if exists {
-		return nil, ErrUserAlreadyExists
-	}
-
 	var user User
-	query := `
-		INSERT INTO users (email, password_hash, display_name, password_changed_at)
-		VALUES ($1, $2, $3, NOW())
-		RETURNING id, email, username, display_name, avatar_url, is_active, email_verified, created_at, updated_at
-	`
-	var usernameNull, displayNameNull, avatarURLNull sql.NullString
-	err = tx.QueryRowContext(ctx, query, email, passwordHash, displayName).Scan(
-		&user.ID, &user.Email, &usernameNull, &displayNameNull, &avatarURLNull,
-		&user.IsActive, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
-	)
+	err := platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		var exists bool
+		if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", email).Scan(&exists); err != nil {
+			return fmt.Errorf("check user existence: %w", err)
+		}
+		if exists {
+			return ErrUserAlreadyExists
+		}
+
+		query := `
+			INSERT INTO users (email, password_hash, display_name, password_changed_at)
+			VALUES ($1, $2, $3, NOW())
+			RETURNING id, email, username, display_name, avatar_url, is_active, email_verified, created_at, updated_at
+		`
+		var usernameNull, displayNameNull, avatarURLNull sql.NullString
+		if err := tx.QueryRowContext(ctx, query, email, passwordHash, displayName).Scan(
+			&user.ID, &user.Email, &usernameNull, &displayNameNull, &avatarURLNull,
+			&user.IsActive, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
+		); err != nil {
+			return fmt.Errorf("insert user: %w", err)
+		}
+		if err := insertPasswordHistory(ctx, tx, user.ID, passwordHash); err != nil {
+			return fmt.Errorf("insert password history: %w", err)
+		}
+
+		if usernameNull.Valid {
+			user.Username = &usernameNull.String
+		}
+		if displayNameNull.Valid {
+			user.DisplayName = &displayNameNull.String
+		}
+		if avatarURLNull.Valid {
+			user.AvatarURL = &avatarURLNull.String
+		}
+
+		// Automatically create a personal workspace for the user and assign roles.
+		return bootstrapUserWorkspace(ctx, tx, user.ID, displayName, email)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("insert user: %w", err)
-	}
-	if err := insertPasswordHistory(ctx, tx, user.ID, passwordHash); err != nil {
-		return nil, fmt.Errorf("insert password history: %w", err)
-	}
-
-	if usernameNull.Valid {
-		user.Username = &usernameNull.String
-	}
-	if displayNameNull.Valid {
-		user.DisplayName = &displayNameNull.String
-	}
-	if avatarURLNull.Valid {
-		user.AvatarURL = &avatarURLNull.String
-	}
-
-	// Automatically create a personal workspace for the user and assign roles.
-	if err := bootstrapUserWorkspace(ctx, tx, user.ID, displayName, email); err != nil {
-		return nil, err
-	}
-
-	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 
@@ -322,91 +313,83 @@ func (r *UserRepository) LinkOAuthAccount(ctx context.Context, userID, provider,
 }
 
 func (r *UserRepository) CreateUserWithOAuth(ctx context.Context, email, displayName, provider, providerUID string, token *oauth2.Token) (*User, error) {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	var exists bool
-	err = tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", email).Scan(&exists)
-	if err != nil {
-		return nil, fmt.Errorf("check user existence: %w", err)
-	}
-
 	var user User
-	var userID string
-	var usernameNull, displayNameNull, avatarURLNull sql.NullString
-
-	if exists {
-		queryUser := `SELECT id, email, username, display_name, avatar_url, is_active, email_verified, created_at, updated_at FROM users WHERE email = $1`
-		err = tx.QueryRowContext(ctx, queryUser, email).Scan(
-			&user.ID, &user.Email, &usernameNull, &displayNameNull, &avatarURLNull,
-			&user.IsActive, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("get existing user: %w", err)
+	err := platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		var exists bool
+		if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", email).Scan(&exists); err != nil {
+			return fmt.Errorf("check user existence: %w", err)
 		}
-		userID = user.ID
-	} else {
-		queryInsert := `
-			INSERT INTO users (email, password_hash, display_name, email_verified)
-			VALUES ($1, NULL, $2, TRUE)
-			RETURNING id, email, username, display_name, avatar_url, is_active, email_verified, created_at, updated_at
+
+		var userID string
+		var usernameNull, displayNameNull, avatarURLNull sql.NullString
+
+		if exists {
+			queryUser := `SELECT id, email, username, display_name, avatar_url, is_active, email_verified, created_at, updated_at FROM users WHERE email = $1`
+			if err := tx.QueryRowContext(ctx, queryUser, email).Scan(
+				&user.ID, &user.Email, &usernameNull, &displayNameNull, &avatarURLNull,
+				&user.IsActive, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
+			); err != nil {
+				return fmt.Errorf("get existing user: %w", err)
+			}
+			userID = user.ID
+		} else {
+			queryInsert := `
+				INSERT INTO users (email, password_hash, display_name, email_verified)
+				VALUES ($1, NULL, $2, TRUE)
+				RETURNING id, email, username, display_name, avatar_url, is_active, email_verified, created_at, updated_at
+			`
+			if err := tx.QueryRowContext(ctx, queryInsert, email, displayName).Scan(
+				&user.ID, &user.Email, &usernameNull, &displayNameNull, &avatarURLNull,
+				&user.IsActive, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
+			); err != nil {
+				return fmt.Errorf("insert user: %w", err)
+			}
+			userID = user.ID
+
+			if err := bootstrapUserWorkspace(ctx, tx, userID, displayName, email); err != nil {
+				return err
+			}
+		}
+
+		if usernameNull.Valid {
+			user.Username = &usernameNull.String
+		}
+		if displayNameNull.Valid {
+			user.DisplayName = &displayNameNull.String
+		}
+		if avatarURLNull.Valid {
+			user.AvatarURL = &avatarURLNull.String
+		}
+
+		encAccess, err := r.encryptToken(token.AccessToken)
+		if err != nil {
+			return err
+		}
+		encRefresh, err := r.encryptToken(token.RefreshToken)
+		if err != nil {
+			return err
+		}
+
+		var expiresAt *time.Time
+		if !token.Expiry.IsZero() {
+			expiresAt = &token.Expiry
+		}
+
+		oauthQuery := `
+			INSERT INTO oauth_accounts (user_id, provider, provider_uid, access_token, refresh_token, token_expires_at)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			ON CONFLICT (provider, provider_uid) DO UPDATE
+			SET access_token = EXCLUDED.access_token,
+			    refresh_token = EXCLUDED.refresh_token,
+			    token_expires_at = EXCLUDED.token_expires_at,
+			    updated_at = NOW()
 		`
-		err = tx.QueryRowContext(ctx, queryInsert, email, displayName).Scan(
-			&user.ID, &user.Email, &usernameNull, &displayNameNull, &avatarURLNull,
-			&user.IsActive, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("insert user: %w", err)
+		if _, err := tx.ExecContext(ctx, oauthQuery, userID, provider, providerUID, encAccess, encRefresh, expiresAt); err != nil {
+			return fmt.Errorf("link oauth account: %w", err)
 		}
-		userID = user.ID
-
-		if err := bootstrapUserWorkspace(ctx, tx, userID, displayName, email); err != nil {
-			return nil, err
-		}
-	}
-
-	if usernameNull.Valid {
-		user.Username = &usernameNull.String
-	}
-	if displayNameNull.Valid {
-		user.DisplayName = &displayNameNull.String
-	}
-	if avatarURLNull.Valid {
-		user.AvatarURL = &avatarURLNull.String
-	}
-
-	encAccess, err := r.encryptToken(token.AccessToken)
+		return nil
+	})
 	if err != nil {
-		return nil, err
-	}
-	encRefresh, err := r.encryptToken(token.RefreshToken)
-	if err != nil {
-		return nil, err
-	}
-
-	var expiresAt *time.Time
-	if !token.Expiry.IsZero() {
-		expiresAt = &token.Expiry
-	}
-
-	oauthQuery := `
-		INSERT INTO oauth_accounts (user_id, provider, provider_uid, access_token, refresh_token, token_expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		ON CONFLICT (provider, provider_uid) DO UPDATE
-		SET access_token = EXCLUDED.access_token,
-		    refresh_token = EXCLUDED.refresh_token,
-		    token_expires_at = EXCLUDED.token_expires_at,
-		    updated_at = NOW()
-	`
-	_, err = tx.ExecContext(ctx, oauthQuery, userID, provider, providerUID, encAccess, encRefresh, expiresAt)
-	if err != nil {
-		return nil, fmt.Errorf("link oauth account: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 
@@ -435,39 +418,34 @@ func (r *UserRepository) SaveWebAuthnChallenge(ctx context.Context, challenge []
 func (r *UserRepository) GetWebAuthnChallenge(ctx context.Context, challenge []byte) (*string, error) {
 	var userID sql.NullString
 	var expiresAt time.Time
+	found := false
 
-	tx, err := r.db.BeginTx(ctx, nil)
+	err := platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		querySelect := `
+			SELECT user_id, expires_at
+			FROM webauthn_challenges
+			WHERE challenge = $1
+		`
+		err := tx.QueryRowContext(ctx, querySelect, challenge).Scan(&userID, &expiresAt)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		found = true
+
+		queryDelete := `
+			DELETE FROM webauthn_challenges
+			WHERE challenge = $1
+		`
+		_, err = tx.ExecContext(ctx, queryDelete, challenge)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = tx.Rollback() }()
 
-	querySelect := `
-		SELECT user_id, expires_at
-		FROM webauthn_challenges
-		WHERE challenge = $1
-	`
-	err = tx.QueryRowContext(ctx, querySelect, challenge).Scan(&userID, &expiresAt)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	} else if err != nil {
-		return nil, err
-	}
-
-	queryDelete := `
-		DELETE FROM webauthn_challenges
-		WHERE challenge = $1
-	`
-	_, err = tx.ExecContext(ctx, queryDelete, challenge)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
-
-	if time.Now().After(expiresAt) {
+	if !found || time.Now().After(expiresAt) {
 		return nil, nil
 	}
 
@@ -666,27 +644,18 @@ func (r *UserRepository) GetUserByEmailOrUsername(ctx context.Context, loginStr 
 }
 
 func (r *UserRepository) CreateEmailVerificationToken(ctx context.Context, userID, token string, expiresAt time.Time) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
+	return platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, "DELETE FROM email_verification_tokens WHERE user_id = $1", userID); err != nil {
+			return err
+		}
 
-	_, err = tx.ExecContext(ctx, "DELETE FROM email_verification_tokens WHERE user_id = $1", userID)
-	if err != nil {
+		query := `
+			INSERT INTO email_verification_tokens (user_id, token, expires_at)
+			VALUES ($1, $2, $3)
+		`
+		_, err := tx.ExecContext(ctx, query, userID, token, expiresAt)
 		return err
-	}
-
-	query := `
-		INSERT INTO email_verification_tokens (user_id, token, expires_at)
-		VALUES ($1, $2, $3)
-	`
-	_, err = tx.ExecContext(ctx, query, userID, token, expiresAt)
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit()
+	})
 }
 
 func (r *UserRepository) VerifyEmailToken(ctx context.Context, token string) (string, error) {
@@ -714,23 +683,14 @@ func (r *UserRepository) VerifyEmailToken(ctx context.Context, token string) (st
 		return "", errors.New("verification token expired")
 	}
 
-	tx, err := r.db.BeginTx(ctx, nil)
+	err = platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, "UPDATE email_verification_tokens SET used_at = NOW() WHERE token = $1", token); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, "UPDATE users SET email_verified = TRUE WHERE id = $1", userID)
+		return err
+	})
 	if err != nil {
-		return "", err
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	_, err = tx.ExecContext(ctx, "UPDATE email_verification_tokens SET used_at = NOW() WHERE token = $1", token)
-	if err != nil {
-		return "", err
-	}
-
-	_, err = tx.ExecContext(ctx, "UPDATE users SET email_verified = TRUE WHERE id = $1", userID)
-	if err != nil {
-		return "", err
-	}
-
-	if err := tx.Commit(); err != nil {
 		return "", err
 	}
 
@@ -738,27 +698,18 @@ func (r *UserRepository) VerifyEmailToken(ctx context.Context, token string) (st
 }
 
 func (r *UserRepository) CreatePasswordResetToken(ctx context.Context, userID, token string, expiresAt time.Time) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
+	return platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, "DELETE FROM password_reset_tokens WHERE user_id = $1", userID); err != nil {
+			return err
+		}
 
-	_, err = tx.ExecContext(ctx, "DELETE FROM password_reset_tokens WHERE user_id = $1", userID)
-	if err != nil {
+		query := `
+			INSERT INTO password_reset_tokens (user_id, token, expires_at)
+			VALUES ($1, $2, $3)
+		`
+		_, err := tx.ExecContext(ctx, query, userID, token, expiresAt)
 		return err
-	}
-
-	query := `
-		INSERT INTO password_reset_tokens (user_id, token, expires_at)
-		VALUES ($1, $2, $3)
-	`
-	_, err = tx.ExecContext(ctx, query, userID, token, expiresAt)
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit()
+	})
 }
 
 func (r *UserRepository) VerifyPasswordResetToken(ctx context.Context, token string) (string, error) {
@@ -790,21 +741,13 @@ func (r *UserRepository) VerifyPasswordResetToken(ctx context.Context, token str
 }
 
 func (r *UserRepository) UpdateUserPassword(ctx context.Context, userID, newPasswordHash string) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	query := `UPDATE users SET password_hash = $1, password_changed_at = NOW(), updated_at = NOW() WHERE id = $2`
-	_, err = tx.ExecContext(ctx, query, newPasswordHash, userID)
-	if err != nil {
-		return err
-	}
-	if err := insertPasswordHistory(ctx, tx, userID, newPasswordHash); err != nil {
-		return err
-	}
-	return tx.Commit()
+	return platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		query := `UPDATE users SET password_hash = $1, password_changed_at = NOW(), updated_at = NOW() WHERE id = $2`
+		if _, err := tx.ExecContext(ctx, query, newPasswordHash, userID); err != nil {
+			return err
+		}
+		return insertPasswordHistory(ctx, tx, userID, newPasswordHash)
+	})
 }
 
 func (r *UserRepository) MarkPasswordResetTokenUsed(ctx context.Context, token string) error {
@@ -818,100 +761,88 @@ func (r *UserRepository) CreateEmailChangeRequest(
 	userID, oldEmail, newEmail, oldToken, newToken string,
 	notBefore, expiresAt time.Time,
 ) (*EmailChangeRequest, error) {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = tx.Rollback() }()
+	var req *EmailChangeRequest
+	err := platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, "DELETE FROM email_change_requests WHERE user_id = $1 AND completed_at IS NULL", userID); err != nil {
+			return err
+		}
 
-	_, err = tx.ExecContext(ctx, "DELETE FROM email_change_requests WHERE user_id = $1 AND completed_at IS NULL", userID)
+		query := `
+			INSERT INTO email_change_requests (
+				user_id, old_email, new_email, old_email_token, new_email_token, not_before, expires_at
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			RETURNING id, user_id, old_email, new_email, old_email_token, new_email_token,
+			          old_email_confirmed_at, new_email_confirmed_at, requested_at,
+			          not_before, expires_at, completed_at
+		`
+		var err error
+		req, err = scanEmailChangeRequest(tx.QueryRowContext(ctx, query, userID, oldEmail, newEmail, oldToken, newToken, notBefore, expiresAt))
+		return err
+	})
 	if err != nil {
-		return nil, err
-	}
-
-	query := `
-		INSERT INTO email_change_requests (
-			user_id, old_email, new_email, old_email_token, new_email_token, not_before, expires_at
-		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		RETURNING id, user_id, old_email, new_email, old_email_token, new_email_token,
-		          old_email_confirmed_at, new_email_confirmed_at, requested_at,
-		          not_before, expires_at, completed_at
-	`
-	req, err := scanEmailChangeRequest(tx.QueryRowContext(ctx, query, userID, oldEmail, newEmail, oldToken, newToken, notBefore, expiresAt))
-	if err != nil {
-		return nil, err
-	}
-
-	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return req, nil
 }
 
 func (r *UserRepository) ConfirmEmailChangeToken(ctx context.Context, token string, now time.Time) (*EmailChangeRequest, error) {
-	tx, err := r.db.BeginTx(ctx, nil)
+	var req *EmailChangeRequest
+	err := platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		query := `
+			SELECT id, user_id, old_email, new_email, old_email_token, new_email_token,
+			       old_email_confirmed_at, new_email_confirmed_at, requested_at,
+			       not_before, expires_at, completed_at
+			FROM email_change_requests
+			WHERE old_email_token = $1 OR new_email_token = $1
+			FOR UPDATE
+		`
+		var err error
+		req, err = scanEmailChangeRequest(tx.QueryRowContext(ctx, query, token))
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("invalid email change token")
+		} else if err != nil {
+			return err
+		}
+
+		if req.CompletedAt != nil {
+			return errors.New("email change already completed")
+		}
+		if now.After(req.ExpiresAt) {
+			return errors.New("email change token expired")
+		}
+
+		switch token {
+		case req.OldEmailToken:
+			if _, err := tx.ExecContext(ctx, "UPDATE email_change_requests SET old_email_confirmed_at = COALESCE(old_email_confirmed_at, $1) WHERE id = $2", now, req.ID); err != nil {
+				return err
+			}
+			if req.OldEmailConfirmedAt == nil {
+				req.OldEmailConfirmedAt = &now
+			}
+		case req.NewEmailToken:
+			if _, err := tx.ExecContext(ctx, "UPDATE email_change_requests SET new_email_confirmed_at = COALESCE(new_email_confirmed_at, $1) WHERE id = $2", now, req.ID); err != nil {
+				return err
+			}
+			if req.NewEmailConfirmedAt == nil {
+				req.NewEmailConfirmedAt = &now
+			}
+		default:
+			return errors.New("invalid email change token")
+		}
+
+		if req.OldEmailConfirmedAt != nil && req.NewEmailConfirmedAt != nil && !now.Before(req.NotBefore) {
+			if _, err := tx.ExecContext(ctx, "UPDATE users SET email = $1, email_verified = TRUE, updated_at = NOW() WHERE id = $2", req.NewEmail, req.UserID); err != nil {
+				return err
+			}
+			if _, err := tx.ExecContext(ctx, "UPDATE email_change_requests SET completed_at = $1 WHERE id = $2", now, req.ID); err != nil {
+				return err
+			}
+			req.CompletedAt = &now
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	query := `
-		SELECT id, user_id, old_email, new_email, old_email_token, new_email_token,
-		       old_email_confirmed_at, new_email_confirmed_at, requested_at,
-		       not_before, expires_at, completed_at
-		FROM email_change_requests
-		WHERE old_email_token = $1 OR new_email_token = $1
-		FOR UPDATE
-	`
-	req, err := scanEmailChangeRequest(tx.QueryRowContext(ctx, query, token))
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.New("invalid email change token")
-	} else if err != nil {
-		return nil, err
-	}
-
-	if req.CompletedAt != nil {
-		return nil, errors.New("email change already completed")
-	}
-	if now.After(req.ExpiresAt) {
-		return nil, errors.New("email change token expired")
-	}
-
-	switch token {
-	case req.OldEmailToken:
-		_, err = tx.ExecContext(ctx, "UPDATE email_change_requests SET old_email_confirmed_at = COALESCE(old_email_confirmed_at, $1) WHERE id = $2", now, req.ID)
-		if err != nil {
-			return nil, err
-		}
-		if req.OldEmailConfirmedAt == nil {
-			req.OldEmailConfirmedAt = &now
-		}
-	case req.NewEmailToken:
-		_, err = tx.ExecContext(ctx, "UPDATE email_change_requests SET new_email_confirmed_at = COALESCE(new_email_confirmed_at, $1) WHERE id = $2", now, req.ID)
-		if err != nil {
-			return nil, err
-		}
-		if req.NewEmailConfirmedAt == nil {
-			req.NewEmailConfirmedAt = &now
-		}
-	default:
-		return nil, errors.New("invalid email change token")
-	}
-
-	if req.OldEmailConfirmedAt != nil && req.NewEmailConfirmedAt != nil && !now.Before(req.NotBefore) {
-		_, err = tx.ExecContext(ctx, "UPDATE users SET email = $1, email_verified = TRUE, updated_at = NOW() WHERE id = $2", req.NewEmail, req.UserID)
-		if err != nil {
-			return nil, err
-		}
-		_, err = tx.ExecContext(ctx, "UPDATE email_change_requests SET completed_at = $1 WHERE id = $2", now, req.ID)
-		if err != nil {
-			return nil, err
-		}
-		req.CompletedAt = &now
-	}
-
-	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return req, nil

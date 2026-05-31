@@ -115,66 +115,54 @@ func (r *Repository) BulkInsertModelChildren(ctx context.Context, modelID string
 	if len(dims) == 0 && len(mets) == 0 && len(joins) == 0 {
 		return nil
 	}
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
-	}
-	committed := false
-	defer func() {
-		if !committed {
-			_ = tx.Rollback()
-		}
-	}()
-	if len(dims) > 0 {
-		stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_dimensions (id, model_id, name, label, column_ref, type, time_grain, synonyms, description, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`)
-		if err != nil {
-			return fmt.Errorf("prepare dimensions: %w", err)
-		}
-		for i := range dims {
-			d := &dims[i]
-			if _, err := stmt.ExecContext(ctx, d.ID, d.ModelID, d.Name, d.Label, d.ColumnRef, d.Type, platformdb.NullIfEmpty(d.TimeGrain), d.Synonyms, d.Description, d.IsActive); err != nil {
-				_ = stmt.Close()
-				return fmt.Errorf("insert dimension %q: %w", d.Name, err)
+	return platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		if len(dims) > 0 {
+			stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_dimensions (id, model_id, name, label, column_ref, type, time_grain, synonyms, description, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`)
+			if err != nil {
+				return fmt.Errorf("prepare dimensions: %w", err)
 			}
-		}
-		_ = stmt.Close()
-	}
-	if len(mets) > 0 {
-		stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_metrics (id, model_id, name, label, expression, aggregation, format, synonyms, description, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`)
-		if err != nil {
-			return fmt.Errorf("prepare metrics: %w", err)
-		}
-		for i := range mets {
-			m := &mets[i]
-			if _, err := stmt.ExecContext(ctx, m.ID, m.ModelID, m.Name, m.Label, m.Expression, m.Aggregation, m.Format, m.Synonyms, m.Description, m.IsActive); err != nil {
-				_ = stmt.Close()
-				return fmt.Errorf("insert metric %q: %w", m.Name, err)
+			for i := range dims {
+				d := &dims[i]
+				if _, err := stmt.ExecContext(ctx, d.ID, d.ModelID, d.Name, d.Label, d.ColumnRef, d.Type, platformdb.NullIfEmpty(d.TimeGrain), d.Synonyms, d.Description, d.IsActive); err != nil {
+					_ = stmt.Close()
+					return fmt.Errorf("insert dimension %q: %w", d.Name, err)
+				}
 			}
+			_ = stmt.Close()
 		}
-		_ = stmt.Close()
-	}
-	if len(joins) > 0 {
-		stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_joins (id, model_id, name, from_schema, from_table, from_column, to_schema, to_table, to_column, join_type, relationship, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`)
-		if err != nil {
-			return fmt.Errorf("prepare joins: %w", err)
-		}
-		for i := range joins {
-			j := &joins[i]
-			if _, err := stmt.ExecContext(ctx, j.ID, j.ModelID, j.Name, j.FromSchema, j.FromTable, j.FromColumn, j.ToSchema, j.ToTable, j.ToColumn, j.JoinType, j.Relationship, j.IsActive); err != nil {
-				_ = stmt.Close()
-				return fmt.Errorf("insert join %q: %w", j.Name, err)
+		if len(mets) > 0 {
+			stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_metrics (id, model_id, name, label, expression, aggregation, format, synonyms, description, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`)
+			if err != nil {
+				return fmt.Errorf("prepare metrics: %w", err)
 			}
+			for i := range mets {
+				m := &mets[i]
+				if _, err := stmt.ExecContext(ctx, m.ID, m.ModelID, m.Name, m.Label, m.Expression, m.Aggregation, m.Format, m.Synonyms, m.Description, m.IsActive); err != nil {
+					_ = stmt.Close()
+					return fmt.Errorf("insert metric %q: %w", m.Name, err)
+				}
+			}
+			_ = stmt.Close()
 		}
-		_ = stmt.Close()
-	}
-	if _, err := tx.ExecContext(ctx, `UPDATE semantic_models SET status = 'draft', draft_updated_at = now(), updated_at = now() WHERE id = $1::uuid`, modelID); err != nil {
-		return fmt.Errorf("mark model draft: %w", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit: %w", err)
-	}
-	committed = true
-	return nil
+		if len(joins) > 0 {
+			stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_joins (id, model_id, name, from_schema, from_table, from_column, to_schema, to_table, to_column, join_type, relationship, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`)
+			if err != nil {
+				return fmt.Errorf("prepare joins: %w", err)
+			}
+			for i := range joins {
+				j := &joins[i]
+				if _, err := stmt.ExecContext(ctx, j.ID, j.ModelID, j.Name, j.FromSchema, j.FromTable, j.FromColumn, j.ToSchema, j.ToTable, j.ToColumn, j.JoinType, j.Relationship, j.IsActive); err != nil {
+					_ = stmt.Close()
+					return fmt.Errorf("insert join %q: %w", j.Name, err)
+				}
+			}
+			_ = stmt.Close()
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE semantic_models SET status = 'draft', draft_updated_at = now(), updated_at = now() WHERE id = $1::uuid`, modelID); err != nil {
+			return fmt.Errorf("mark model draft: %w", err)
+		}
+		return nil
+	})
 }
 
 // Dimension operations
@@ -425,12 +413,6 @@ func (r *Repository) PublishModel(ctx context.Context, id, publishedBy string, c
 		model.PublishedBy = &publishedBy
 	}
 
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("publish model begin tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
 	payload, err := json.Marshal(model)
 	if err != nil {
 		return nil, fmt.Errorf("publish model marshal context: %w", err)
@@ -439,7 +421,9 @@ func (r *Repository) PublishModel(ctx context.Context, id, publishedBy string, c
 	if err != nil {
 		return nil, fmt.Errorf("publish model marshal validation: %w", err)
 	}
-	if err := r.commitPublishedVersionTx(ctx, tx, model.ID, nextVersion, payload, validationPayload, publishedBy); err != nil {
+	if err := platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		return r.writePublishedVersionTx(ctx, tx, model.ID, nextVersion, payload, validationPayload, publishedBy)
+	}); err != nil {
 		return nil, fmt.Errorf("publish model: %w", err)
 	}
 	published, err := r.GetPublishedFullModel(ctx, model.ID)
@@ -480,12 +464,9 @@ func (r *Repository) RollbackModel(ctx context.Context, id string, targetVersion
 		return nil, fmt.Errorf("rollback model marshal validation: %w", err)
 	}
 
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("rollback model begin tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-	if err := r.commitPublishedVersionTx(ctx, tx, current.ID, nextVersion, payload, validationPayload, publishedBy); err != nil {
+	if err := platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		return r.writePublishedVersionTx(ctx, tx, current.ID, nextVersion, payload, validationPayload, publishedBy)
+	}); err != nil {
 		return nil, fmt.Errorf("rollback model: %w", err)
 	}
 	published, err := r.GetPublishedFullModel(ctx, current.ID)
@@ -495,7 +476,7 @@ func (r *Repository) RollbackModel(ctx context.Context, id string, targetVersion
 	return &PublishResult{Model: published, Validation: validation, Version: nextVersion}, nil
 }
 
-func (r *Repository) commitPublishedVersionTx(
+func (r *Repository) writePublishedVersionTx(
 	ctx context.Context,
 	tx *sql.Tx,
 	modelID string,
@@ -519,9 +500,6 @@ func (r *Repository) commitPublishedVersionTx(
 		WHERE id = $1::uuid
 	`, modelID, version, publishedBy); err != nil {
 		return fmt.Errorf("update model: %w", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit: %w", err)
 	}
 	return nil
 }

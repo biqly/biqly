@@ -85,12 +85,12 @@ func (r *EvalRepository) SaveRunResults(ctx context.Context, runID, provider, mo
 		return nil
 	}
 
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
+	return platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		return r.saveRunResultsTx(ctx, tx, runID, provider, model, contextVersion, contextUpdatedAt, results)
+	})
+}
 
+func (r *EvalRepository) saveRunResultsTx(ctx context.Context, tx *sql.Tx, runID, provider, model string, contextVersion int, contextUpdatedAt time.Time, results []EvalResultWithMetrics) error {
 	for _, res := range results {
 		gotLQ := ""
 		if res.Got != nil {
@@ -172,7 +172,7 @@ func (r *EvalRepository) SaveRunResults(ctx context.Context, runID, provider, mo
 		return fmt.Errorf("insert eval run summary: %w", err)
 	}
 
-	return tx.Commit()
+	return nil
 }
 
 // GetRunResults returns all results for a given run.

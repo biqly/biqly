@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"slices"
 	"time"
+
+	platformdb "github.com/biqly/biqly/internal/platform/db"
 )
 
 var (
@@ -173,96 +175,85 @@ func (s *AuthService) ClaimInvitation(ctx context.Context, token, password, disp
 	}
 
 	// 4. Run database transaction to create user and claim invite
-	tx, err := s.userRepo.db.BeginTx(ctx, nil)
+	var user User
+	var workspaceID string
+	err = platformdb.RunInTx(ctx, s.userRepo.db, func(tx *sql.Tx) error {
+		// Double check user doesn't already exist (race condition)
+		var exists bool
+		if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", invite.Email).Scan(&exists); err != nil {
+			return fmt.Errorf("check user existence: %w", err)
+		}
+		if exists {
+			return errors.New("user already exists with this email")
+		}
+
+		// Insert User (pre-verified)
+		userInsertQuery := `
+			INSERT INTO users (email, password_hash, display_name, password_changed_at, email_verified)
+			VALUES ($1, $2, $3, NOW(), TRUE)
+			RETURNING id, email, username, display_name, avatar_url, is_active, email_verified, created_at, updated_at
+		`
+		var usernameNull, displayNameNull, avatarURLNull sql.NullString
+		if err := tx.QueryRowContext(ctx, userInsertQuery, invite.Email, hash, sanitizedDisplayName).Scan(
+			&user.ID, &user.Email, &usernameNull, &displayNameNull, &avatarURLNull,
+			&user.IsActive, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
+		); err != nil {
+			return fmt.Errorf("insert user: %w", err)
+		}
+
+		if err := insertPasswordHistory(ctx, tx, user.ID, hash); err != nil {
+			return fmt.Errorf("insert password history: %w", err)
+		}
+
+		// Create personal workspace
+		workspaceQuery := `
+			INSERT INTO workspaces (name, slug, is_personal, created_by)
+			VALUES ($1, $2, TRUE, $3)
+			RETURNING id
+		`
+		workspaceSlug := fmt.Sprintf("%s-personal", user.ID)
+		workspaceName := fmt.Sprintf("%s's Workspace", sanitizedDisplayName)
+
+		if err := tx.QueryRowContext(ctx, workspaceQuery, workspaceName, workspaceSlug, user.ID).Scan(&workspaceID); err != nil {
+			return fmt.Errorf("create personal workspace: %w", err)
+		}
+
+		// Assign the global role preconfigured in the invitation
+		userRoleQuery := `
+			INSERT INTO user_roles (user_id, role_id, scope_type, scope_id)
+			VALUES ($1, $2, 'global', '00000000-0000-0000-0000-000000000000')
+		`
+		if _, err := tx.ExecContext(ctx, userRoleQuery, user.ID, invite.RoleID); err != nil {
+			return fmt.Errorf("assign role: %w", err)
+		}
+
+		// Add user as admin to their personal workspace
+		var adminRoleID string
+		if err := tx.QueryRowContext(ctx, "SELECT id FROM roles WHERE name = 'admin'").Scan(&adminRoleID); err != nil {
+			return fmt.Errorf("get admin role: %w", err)
+		}
+
+		workspaceMemberQuery := `
+			INSERT INTO workspace_members (workspace_id, user_id, role_id)
+			VALUES ($1, $2, $3)
+		`
+		if _, err := tx.ExecContext(ctx, workspaceMemberQuery, workspaceID, user.ID, adminRoleID); err != nil {
+			return fmt.Errorf("add member to workspace: %w", err)
+		}
+
+		// Update invitation as claimed and clear token
+		claimQuery := `
+			UPDATE user_invitations
+			SET claimed_at = NOW(), token = NULL
+			WHERE id = $1
+		`
+		if _, err := tx.ExecContext(ctx, claimQuery, invite.ID); err != nil {
+			return fmt.Errorf("mark invitation claimed: %w", err)
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, err
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	// Double check user doesn't already exist (race condition)
-	var exists bool
-	err = tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", invite.Email).Scan(&exists)
-	if err != nil {
-		return nil, fmt.Errorf("check user existence: %w", err)
-	}
-	if exists {
-		return nil, errors.New("user already exists with this email")
-	}
-
-	// Insert User (pre-verified)
-	var user User
-	userInsertQuery := `
-		INSERT INTO users (email, password_hash, display_name, password_changed_at, email_verified)
-		VALUES ($1, $2, $3, NOW(), TRUE)
-		RETURNING id, email, username, display_name, avatar_url, is_active, email_verified, created_at, updated_at
-	`
-	var usernameNull, displayNameNull, avatarURLNull sql.NullString
-	err = tx.QueryRowContext(ctx, userInsertQuery, invite.Email, hash, sanitizedDisplayName).Scan(
-		&user.ID, &user.Email, &usernameNull, &displayNameNull, &avatarURLNull,
-		&user.IsActive, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("insert user: %w", err)
-	}
-
-	if err := insertPasswordHistory(ctx, tx, user.ID, hash); err != nil {
-		return nil, fmt.Errorf("insert password history: %w", err)
-	}
-
-	// Create personal workspace
-	workspaceQuery := `
-		INSERT INTO workspaces (name, slug, is_personal, created_by)
-		VALUES ($1, $2, TRUE, $3)
-		RETURNING id
-	`
-	workspaceSlug := fmt.Sprintf("%s-personal", user.ID)
-	workspaceName := fmt.Sprintf("%s's Workspace", sanitizedDisplayName)
-
-	var workspaceID string
-	err = tx.QueryRowContext(ctx, workspaceQuery, workspaceName, workspaceSlug, user.ID).Scan(&workspaceID)
-	if err != nil {
-		return nil, fmt.Errorf("create personal workspace: %w", err)
-	}
-
-	// Assign the global role preconfigured in the invitation
-	userRoleQuery := `
-		INSERT INTO user_roles (user_id, role_id, scope_type, scope_id)
-		VALUES ($1, $2, 'global', '00000000-0000-0000-0000-000000000000')
-	`
-	_, err = tx.ExecContext(ctx, userRoleQuery, user.ID, invite.RoleID)
-	if err != nil {
-		return nil, fmt.Errorf("assign role: %w", err)
-	}
-
-	// Add user as admin to their personal workspace
-	var adminRoleID string
-	err = tx.QueryRowContext(ctx, "SELECT id FROM roles WHERE name = 'admin'").Scan(&adminRoleID)
-	if err != nil {
-		return nil, fmt.Errorf("get admin role: %w", err)
-	}
-
-	workspaceMemberQuery := `
-		INSERT INTO workspace_members (workspace_id, user_id, role_id)
-		VALUES ($1, $2, $3)
-	`
-	_, err = tx.ExecContext(ctx, workspaceMemberQuery, workspaceID, user.ID, adminRoleID)
-	if err != nil {
-		return nil, fmt.Errorf("add member to workspace: %w", err)
-	}
-
-	// Update invitation as claimed and clear token
-	claimQuery := `
-		UPDATE user_invitations
-		SET claimed_at = NOW(), token = NULL
-		WHERE id = $1
-	`
-	_, err = tx.ExecContext(ctx, claimQuery, invite.ID)
-	if err != nil {
-		return nil, fmt.Errorf("mark invitation claimed: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("commit transaction: %w", err)
 	}
 
 	// 5. Generate active session

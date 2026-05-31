@@ -174,28 +174,21 @@ func (r *Repository) upsertEntityEmbedding(ctx context.Context, table string, en
 		return fmt.Errorf("upsert embedding: unknown table %q", table)
 	}
 
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin embedding tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	var existing []byte
-	var existingModel sql.NullString
-	if err := tx.QueryRowContext(ctx, selectQ, entityID).Scan(&existing, &existingModel); err != nil {
-		return fmt.Errorf("load %s embedding: %w", table, err)
-	}
-	payload, displayModel, err := mergeEmbeddingPayload(existing, nullStringPtr(existingModel), modelName, embedding)
-	if err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, updateQ, entityID, payload, displayModel); err != nil {
-		return fmt.Errorf("upsert %s embedding: %w", table, err)
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit embedding tx: %w", err)
-	}
-	return nil
+	return platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		var existing []byte
+		var existingModel sql.NullString
+		if err := tx.QueryRowContext(ctx, selectQ, entityID).Scan(&existing, &existingModel); err != nil {
+			return fmt.Errorf("load %s embedding: %w", table, err)
+		}
+		payload, displayModel, err := mergeEmbeddingPayload(existing, nullStringPtr(existingModel), modelName, embedding)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, updateQ, entityID, payload, displayModel); err != nil {
+			return fmt.Errorf("upsert %s embedding: %w", table, err)
+		}
+		return nil
+	})
 }
 
 func nullStringPtr(ns sql.NullString) *string {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/biqly/biqly/internal/i18n"
+	platformdb "github.com/biqly/biqly/internal/platform/db"
 )
 
 // PromptTemplate is one named prompt section for a locale.
@@ -63,38 +64,33 @@ func (r *Repository) UpsertPromptTemplate(ctx context.Context, name string, loc 
 	if loc == "" {
 		loc = i18n.DefaultLocale
 	}
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin prompt template version tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	var nextVersion int
-	if err := tx.QueryRowContext(ctx, `
-		SELECT COALESCE(MAX(version), 0) + 1
-		FROM ai_prompt_templates
-		WHERE name = $1 AND locale = $2`,
-		name, string(loc),
-	).Scan(&nextVersion); err != nil {
-		return fmt.Errorf("next prompt template version: %w", err)
-	}
-	if _, err := tx.ExecContext(ctx, `
-		UPDATE ai_prompt_templates
-		SET is_active = FALSE, updated_at = now()
-		WHERE name = $1 AND locale = $2 AND is_active = TRUE`,
-		name, string(loc),
-	); err != nil {
-		return fmt.Errorf("deactivate prompt template versions: %w", err)
-	}
-	_, err = tx.ExecContext(ctx, `
-		INSERT INTO ai_prompt_templates (name, locale, version, content, is_active, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, TRUE, now(), now())`,
-		name, string(loc), nextVersion, content,
-	)
-	if err != nil {
-		return fmt.Errorf("upsert prompt template: %w", err)
-	}
-	return tx.Commit()
+	return platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		var nextVersion int
+		if err := tx.QueryRowContext(ctx, `
+			SELECT COALESCE(MAX(version), 0) + 1
+			FROM ai_prompt_templates
+			WHERE name = $1 AND locale = $2`,
+			name, string(loc),
+		).Scan(&nextVersion); err != nil {
+			return fmt.Errorf("next prompt template version: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE ai_prompt_templates
+			SET is_active = FALSE, updated_at = now()
+			WHERE name = $1 AND locale = $2 AND is_active = TRUE`,
+			name, string(loc),
+		); err != nil {
+			return fmt.Errorf("deactivate prompt template versions: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO ai_prompt_templates (name, locale, version, content, is_active, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, TRUE, now(), now())`,
+			name, string(loc), nextVersion, content,
+		); err != nil {
+			return fmt.Errorf("upsert prompt template: %w", err)
+		}
+		return nil
+	})
 }
 
 // ListPromptTemplates returns all rows including inactive versions.

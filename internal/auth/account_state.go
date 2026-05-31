@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	platformdb "github.com/biqly/biqly/internal/platform/db"
 )
 
 var (
@@ -157,14 +159,9 @@ func (r *UserRepository) PurgeExpiredAccounts(ctx context.Context, now time.Time
 }
 
 func (r *UserRepository) purgeUser(ctx context.Context, userID string) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	stubEmail := fmt.Sprintf("purged-%s@example.invalid", userID)
-	if _, err := tx.ExecContext(ctx, `UPDATE users SET
+	return platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		stubEmail := fmt.Sprintf("purged-%s@example.invalid", userID)
+		if _, err := tx.ExecContext(ctx, `UPDATE users SET
 		email = $2,
 		username = NULL,
 		display_name = NULL,
@@ -206,9 +203,10 @@ func (r *UserRepository) purgeUser(ctx context.Context, userID string) error {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM user_mfa              WHERE user_id = $1`, userID); err != nil {
-		return err
-	}
-	return tx.Commit()
+			return err
+		}
+		return nil
+	})
 }
 
 // MarkPasswordChanged updates the password_changed_at timestamp; called from

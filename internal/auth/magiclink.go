@@ -10,6 +10,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	platformdb "github.com/biqly/biqly/internal/platform/db"
 )
 
 const (
@@ -64,40 +66,35 @@ func (r *MagicLinkRepository) Issue(ctx context.Context, plaintext, email, userI
 // (or error if the token is unknown, expired, or already consumed).
 func (r *MagicLinkRepository) Consume(ctx context.Context, plaintext string) (string, error) {
 	hash := hashMagicLink(plaintext)
-	tx, err := r.db.BeginTx(ctx, nil)
+	var userID sql.NullString
+	err := platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		var (
+			expiresAt  time.Time
+			consumedAt sql.NullTime
+		)
+		err := tx.QueryRowContext(ctx,
+			`SELECT user_id, expires_at, consumed_at FROM magic_link_tokens WHERE token_hash = $1 FOR UPDATE`,
+			hash,
+		).Scan(&userID, &expiresAt, &consumedAt)
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrMagicLinkInvalid
+		}
+		if err != nil {
+			return err
+		}
+		if consumedAt.Valid {
+			return ErrMagicLinkUsed
+		}
+		if time.Now().After(expiresAt) {
+			return ErrMagicLinkInvalid
+		}
+		if !userID.Valid || userID.String == "" {
+			return ErrMagicLinkInvalid
+		}
+		_, err = tx.ExecContext(ctx, `UPDATE magic_link_tokens SET consumed_at = NOW() WHERE token_hash = $1`, hash)
+		return err
+	})
 	if err != nil {
-		return "", err
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	var (
-		userID     sql.NullString
-		expiresAt  time.Time
-		consumedAt sql.NullTime
-	)
-	err = tx.QueryRowContext(ctx,
-		`SELECT user_id, expires_at, consumed_at FROM magic_link_tokens WHERE token_hash = $1 FOR UPDATE`,
-		hash,
-	).Scan(&userID, &expiresAt, &consumedAt)
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", ErrMagicLinkInvalid
-	}
-	if err != nil {
-		return "", err
-	}
-	if consumedAt.Valid {
-		return "", ErrMagicLinkUsed
-	}
-	if time.Now().After(expiresAt) {
-		return "", ErrMagicLinkInvalid
-	}
-	if !userID.Valid || userID.String == "" {
-		return "", ErrMagicLinkInvalid
-	}
-	if _, err := tx.ExecContext(ctx, `UPDATE magic_link_tokens SET consumed_at = NOW() WHERE token_hash = $1`, hash); err != nil {
-		return "", err
-	}
-	if err := tx.Commit(); err != nil {
 		return "", err
 	}
 	return userID.String, nil
