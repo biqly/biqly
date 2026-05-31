@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from './AuthProvider'
+import { LoadingScreen } from '../ui/LoadingScreen'
 
 let navigateRef: ((path: string) => void) | null = null
 
@@ -38,9 +39,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
   if (loading) {
     return (
       <div className="auth-page">
-        <div className="auth-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-          <div className="spinner" style={{ width: '32px', height: '32px', borderTopColor: '#6366f1' }}></div>
-          <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Loading session…</span>
+        <div className="auth-card">
+          <LoadingScreen minHeight="auto" label="Loading session…" />
         </div>
       </div>
     )

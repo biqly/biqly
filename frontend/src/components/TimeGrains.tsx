@@ -4,6 +4,7 @@ import { useApi } from '../hooks/useApi'
 import { useT } from '../i18n'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingOverlay } from './ui/LoadingOverlay'
+import { LoadingScreen } from './ui/LoadingScreen'
 
 interface TimeGrain {
   grain: string
@@ -19,6 +20,7 @@ export default function TimeGrains() {
   const t = useT()
   const { get, putData, loading, error } = useApi()
   const [grains, setGrains] = useState<TimeGrain[]>([])
+  const [initLoading, setInitLoading] = useState(true)
   const [editingGrain, setEditingGrain] = useState<TimeGrain | null>(null)
   const [formSuffix, setFormSuffix] = useState('')
   const [formRequiresTime, setFormRequiresTime] = useState(false)
@@ -31,6 +33,9 @@ export default function TimeGrains() {
       if (data) {
         setGrains(data)
       }
+      setInitLoading(false)
+    }).catch(() => {
+      setInitLoading(false)
     })
   }
 
@@ -87,6 +92,10 @@ export default function TimeGrains() {
     } else {
       setFormError(t('time_grains.error_save') || 'Failed to save time grain.')
     }
+  }
+
+  if (initLoading && grains.length === 0) {
+    return <LoadingScreen minHeight="300px" />
   }
 
   return (

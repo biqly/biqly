@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	platformdb "github.com/biqly/biqly/internal/platform/db"
 	"github.com/biqly/biqly/internal/security"
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
@@ -133,23 +134,18 @@ func (r *UserRepository) CreateUser(ctx context.Context, email, passwordHash, di
 	return &user, nil
 }
 
-func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*User, error) {
+// scanUser scans a full user row (11 columns) into a *User, converting
+// nullable SQL columns into pointer fields. Callers map sql.ErrNoRows to
+// ErrUserNotFound as appropriate.
+func scanUser(s platformdb.Scanner) (*User, error) {
 	var user User
 	var usernameNull, displayNameNull, avatarURLNull, passwordHashNull sql.NullString
 	var lastLoginNull sql.NullTime
 
-	query := `
-		SELECT id, email, username, display_name, avatar_url, password_hash, is_active, email_verified, created_at, updated_at, last_login_at
-		FROM users
-		WHERE email = $1
-	`
-	err := r.db.QueryRowContext(ctx, query, email).Scan(
+	if err := s.Scan(
 		&user.ID, &user.Email, &usernameNull, &displayNameNull, &avatarURLNull, &passwordHashNull,
 		&user.IsActive, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt, &lastLoginNull,
-	)
-	if err == sql.ErrNoRows {
-		return nil, ErrUserNotFound
-	} else if err != nil {
+	); err != nil {
 		return nil, err
 	}
 
@@ -172,43 +168,34 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*Use
 	return &user, nil
 }
 
-func (r *UserRepository) GetUserByID(ctx context.Context, id string) (*User, error) {
-	var user User
-	var usernameNull, displayNameNull, avatarURLNull, passwordHashNull sql.NullString
-	var lastLoginNull sql.NullTime
-
+func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*User, error) {
 	query := `
 		SELECT id, email, username, display_name, avatar_url, password_hash, is_active, email_verified, created_at, updated_at, last_login_at
 		FROM users
-		WHERE id = $1
+		WHERE email = $1
 	`
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&user.ID, &user.Email, &usernameNull, &displayNameNull, &avatarURLNull, &passwordHashNull,
-		&user.IsActive, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt, &lastLoginNull,
-	)
+	user, err := scanUser(r.db.QueryRowContext(ctx, query, email))
 	if err == sql.ErrNoRows {
 		return nil, ErrUserNotFound
 	} else if err != nil {
 		return nil, err
 	}
+	return user, nil
+}
 
-	if usernameNull.Valid {
-		user.Username = &usernameNull.String
+func (r *UserRepository) GetUserByID(ctx context.Context, id string) (*User, error) {
+	query := `
+		SELECT id, email, username, display_name, avatar_url, password_hash, is_active, email_verified, created_at, updated_at, last_login_at
+		FROM users
+		WHERE id = $1
+	`
+	user, err := scanUser(r.db.QueryRowContext(ctx, query, id))
+	if err == sql.ErrNoRows {
+		return nil, ErrUserNotFound
+	} else if err != nil {
+		return nil, err
 	}
-	if displayNameNull.Valid {
-		user.DisplayName = &displayNameNull.String
-	}
-	if avatarURLNull.Valid {
-		user.AvatarURL = &avatarURLNull.String
-	}
-	if passwordHashNull.Valid {
-		user.PasswordHash = &passwordHashNull.String
-	}
-	if lastLoginNull.Valid {
-		user.LastLoginAt = &lastLoginNull.Time
-	}
-
-	return &user, nil
+	return user, nil
 }
 
 func (r *UserRepository) ListUsers(ctx context.Context) ([]User, error) {
@@ -225,35 +212,11 @@ func (r *UserRepository) ListUsers(ctx context.Context) ([]User, error) {
 
 	var users []User
 	for rows.Next() {
-		var user User
-		var usernameNull, displayNameNull, avatarURLNull, passwordHashNull sql.NullString
-		var lastLoginNull sql.NullTime
-
-		err := rows.Scan(
-			&user.ID, &user.Email, &usernameNull, &displayNameNull, &avatarURLNull, &passwordHashNull,
-			&user.IsActive, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt, &lastLoginNull,
-		)
+		user, err := scanUser(rows)
 		if err != nil {
 			return nil, err
 		}
-
-		if usernameNull.Valid {
-			user.Username = &usernameNull.String
-		}
-		if displayNameNull.Valid {
-			user.DisplayName = &displayNameNull.String
-		}
-		if avatarURLNull.Valid {
-			user.AvatarURL = &avatarURLNull.String
-		}
-		if passwordHashNull.Valid {
-			user.PasswordHash = &passwordHashNull.String
-		}
-		if lastLoginNull.Valid {
-			user.LastLoginAt = &lastLoginNull.Time
-		}
-
-		users = append(users, user)
+		users = append(users, *user)
 	}
 	return users, rows.Err()
 }
@@ -726,42 +689,18 @@ func (r *UserRepository) GetUserPasskeys(ctx context.Context, userID string) ([]
 }
 
 func (r *UserRepository) GetUserByEmailOrUsername(ctx context.Context, loginStr string) (*User, error) {
-	var user User
-	var usernameNull, displayNameNull, avatarURLNull, passwordHashNull sql.NullString
-	var lastLoginNull sql.NullTime
-
 	query := `
 		SELECT id, email, username, display_name, avatar_url, password_hash, is_active, email_verified, created_at, updated_at, last_login_at
 		FROM users
 		WHERE email = $1 OR username = $1
 	`
-	err := r.db.QueryRowContext(ctx, query, loginStr).Scan(
-		&user.ID, &user.Email, &usernameNull, &displayNameNull, &avatarURLNull, &passwordHashNull,
-		&user.IsActive, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt, &lastLoginNull,
-	)
+	user, err := scanUser(r.db.QueryRowContext(ctx, query, loginStr))
 	if err == sql.ErrNoRows {
 		return nil, ErrUserNotFound
 	} else if err != nil {
 		return nil, err
 	}
-
-	if usernameNull.Valid {
-		user.Username = &usernameNull.String
-	}
-	if displayNameNull.Valid {
-		user.DisplayName = &displayNameNull.String
-	}
-	if avatarURLNull.Valid {
-		user.AvatarURL = &avatarURLNull.String
-	}
-	if passwordHashNull.Valid {
-		user.PasswordHash = &passwordHashNull.String
-	}
-	if lastLoginNull.Valid {
-		user.LastLoginAt = &lastLoginNull.Time
-	}
-
-	return &user, nil
+	return user, nil
 }
 
 func (r *UserRepository) CreateEmailVerificationToken(ctx context.Context, userID, token string, expiresAt time.Time) error {

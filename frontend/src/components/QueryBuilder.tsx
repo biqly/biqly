@@ -7,18 +7,16 @@ import { useQueryParam } from '../hooks/useQueryParam'
 import { useDatasources } from '../hooks/useDatasources'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useModelDetail } from '../hooks/useModelDetail'
-import type { Datasource } from '../types/metadata'
 import { formatResultCell } from '../utils/resultCellFormat'
 import { rowsToChartData } from '../utils/chartData'
 import { ChartContainer } from './ui/ChartContainer'
 import { ChartTypeSelector } from './ui/ChartTypeSelector'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { Select } from './ui/Select'
+import { LoadingScreen } from './ui/LoadingScreen'
 import { LockedState } from './ui/LockedState'
 import type {
   GenerateSemanticModelResponse,
-  SemanticModelDetail,
-  SemanticModelSummary,
 } from '../types/semantic'
 import { modelListHint, modelListLabel } from '../types/semantic'
 import {
@@ -136,13 +134,13 @@ export default function QueryBuilder() {
   const dimensions = useMemo(() => modelDetail?.dimensions ?? [], [modelDetail])
   const metrics = useMemo(() => modelDetail?.metrics ?? [], [modelDetail])
   const filterFieldOpts = useMemo(() => filterFieldOptions(dimensions, metrics, t), [dimensions, metrics, t])
-  
+
   const orderByOpts = useMemo(() => {
     const fields = orderByFieldOptions(dimensions, metrics, t)
     if (fields.length === 0) return []
     return [{ value: '', label: t('query_builder.order_none'), hint: '' }, ...fields]
   }, [dimensions, metrics, t])
-  
+
   const metricOptsHaving = useMemo(() => metricFieldOptions(metrics), [metrics])
 
   const createSemanticModel = async () => {
@@ -174,14 +172,14 @@ export default function QueryBuilder() {
         // Transitioning to summarized mode:
         // Find dimensions and metrics in selectItems
         const rawDims = selectItems.filter((item) => item.type === 'dimension' && item.name).map((item) => item.name)
-        
+
         if (rawDims.length > 0) {
           setGroupBy(rawDims)
         } else {
           const firstDim = dimensions[0]?.name
           setGroupBy(firstDim ? [firstDim] : [])
         }
-        
+
         const rawMetrics = selectItems.filter((item) => item.type === 'metric')
         if (rawMetrics.length > 0) {
           setSelectItems(rawMetrics)
@@ -266,13 +264,13 @@ export default function QueryBuilder() {
   const runQuery = async () => {
     const querySelectItems = isSummarized
       ? [
-          ...groupBy.filter(Boolean).map((g) => ({
-            id: newRowId(),
-            type: 'dimension' as const,
-            name: g,
-          })),
-          ...selectItems.filter((item) => item.type === 'metric'),
-        ]
+        ...groupBy.filter(Boolean).map((g) => ({
+          id: newRowId(),
+          type: 'dimension' as const,
+          name: g,
+        })),
+        ...selectItems.filter((item) => item.type === 'metric'),
+      ]
       : selectItems
 
     const payload = buildQueryPayload({
@@ -305,11 +303,7 @@ export default function QueryBuilder() {
   const chartData = useMemo(() => rowsToChartData(result?.rows), [result?.rows])
 
   if (dsLoading || (modelId && !modelDetail)) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
-        <div className="spinner" style={{ width: '42px', height: '42px', borderTopColor: 'var(--accent, #6366f1)' }} />
-      </div>
-    )
+    return <LoadingScreen minHeight="300px" />
   }
 
   return (
@@ -360,257 +354,257 @@ export default function QueryBuilder() {
               </p>
             ) : null}
 
-        {datasourceId && models.length === 0 ? (
-          <div className="semantic-model-setup" style={{ marginBottom: '1rem' }}>
-            <div>
-              <strong>{t('query_builder.model_setup_title')}</strong>
-              <p>{t('query_builder.model_setup_body')}</p>
-            </div>
-            <button type="button" className="btn btn-sm" onClick={createSemanticModel} disabled={generatingModel}>
-              {generatingModel ? t('query_builder.model_setup_generating') : t('query_builder.model_setup_create')}
-            </button>
-          </div>
-        ) : null}
+            {datasourceId && models.length === 0 ? (
+              <div className="semantic-model-setup" style={{ marginBottom: '1rem' }}>
+                <div>
+                  <strong>{t('query_builder.model_setup_title')}</strong>
+                  <p>{t('query_builder.model_setup_body')}</p>
+                </div>
+                <button type="button" className="btn btn-sm" onClick={createSemanticModel} disabled={generatingModel}>
+                  {generatingModel ? t('query_builder.model_setup_generating') : t('query_builder.model_setup_create')}
+                </button>
+              </div>
+            ) : null}
 
-        {generatedModel ? (
-          <div className={generatedModel.validation?.valid === false ? 'semantic-model-setup semantic-model-setup--error' : 'semantic-model-setup semantic-model-setup--success'} style={{ marginBottom: '1rem' }}>
-            <div>
-              <strong>
-                {generatedModel.published
-                  ? t('query_builder.model_setup_created_published')
-                  : t('query_builder.model_setup_created_draft')}
-              </strong>
-              <p>
-                {t('query_builder.model_setup_summary', {
-                  dimensions: generatedModel.model.dimensions?.length ?? 0,
-                  metrics: generatedModel.model.metrics?.length ?? 0,
-                  joins: generatedModel.model.joins?.length ?? 0,
-                })}
-              </p>
-              {generatedModel.validation?.errors?.length ? (
-                <ul>
-                  {generatedModel.validation.errors.map((msg) => <li key={msg}>{msg}</li>)}
-                </ul>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
+            {generatedModel ? (
+              <div className={generatedModel.validation?.valid === false ? 'semantic-model-setup semantic-model-setup--error' : 'semantic-model-setup semantic-model-setup--success'} style={{ marginBottom: '1rem' }}>
+                <div>
+                  <strong>
+                    {generatedModel.published
+                      ? t('query_builder.model_setup_created_published')
+                      : t('query_builder.model_setup_created_draft')}
+                  </strong>
+                  <p>
+                    {t('query_builder.model_setup_summary', {
+                      dimensions: generatedModel.model.dimensions?.length ?? 0,
+                      metrics: generatedModel.model.metrics?.length ?? 0,
+                      joins: generatedModel.model.joins?.length ?? 0,
+                    })}
+                  </p>
+                  {generatedModel.validation?.errors?.length ? (
+                    <ul>
+                      {generatedModel.validation.errors.map((msg) => <li key={msg}>{msg}</li>)}
+                    </ul>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
 
-        {/* Notebook Steps Stack */}
-        {modelDetail && (
-          <div className="query-builder-notebook">
-            {/* Step 1: Data */}
-            <NotebookStep label="Data" themeClass="data">
-              <span className="notebook-tag notebook-tag--blue">
-                {modelDetail.base_table}
-              </span>
-            </NotebookStep>
+            {/* Notebook Steps Stack */}
+            {modelDetail && (
+              <div className="query-builder-notebook">
+                {/* Step 1: Data */}
+                <NotebookStep label="Data" themeClass="data">
+                  <span className="notebook-tag notebook-tag--blue">
+                    {modelDetail.base_table}
+                  </span>
+                </NotebookStep>
 
-            {/* Step 2: Joins (Read-only display of relationships defined on semantic layer) */}
-            {modelDetail.joins && modelDetail.joins.length > 0 && (
-              <NotebookStep label="Join data" themeClass="join">
-                {modelDetail.joins.map((j, index) => (
-                  <div key={j.id || index} className="notebook-join-flow">
-                    <span className="notebook-tag notebook-tag--blue">{modelDetail.base_table}</span>
-                    <span className="notebook-join-icon">⟝⟞</span>
-                    <span className="notebook-tag notebook-tag--blue">{j.to_table}</span>
-                    <span className="notebook-join-on">
-                      on {modelDetail.base_table}.{j.from_column} = {j.to_table}.{j.to_column}
-                    </span>
-                  </div>
-                ))}
-              </NotebookStep>
+                {/* Step 2: Joins (Read-only display of relationships defined on semantic layer) */}
+                {modelDetail.joins && modelDetail.joins.length > 0 && (
+                  <NotebookStep label="Join data" themeClass="join">
+                    {modelDetail.joins.map((j, index) => (
+                      <div key={j.id || index} className="notebook-join-flow">
+                        <span className="notebook-tag notebook-tag--blue">{modelDetail.base_table}</span>
+                        <span className="notebook-join-icon">⟝⟞</span>
+                        <span className="notebook-tag notebook-tag--blue">{j.to_table}</span>
+                        <span className="notebook-join-on">
+                          on {modelDetail.base_table}.{j.from_column} = {j.to_table}.{j.to_column}
+                        </span>
+                      </div>
+                    ))}
+                  </NotebookStep>
+                )}
+
+                {/* Step 3: Filter (Toggled if filters list is not empty) */}
+                <FilterStep
+                  filters={filters}
+                  filterFieldOpts={filterFieldOpts}
+                  updateFilter={updateFilter}
+                  removeFilter={removeFilter}
+                  addFilter={addFilter}
+                  onClear={() => setFilters([])}
+                  t={t}
+                />
+
+                {/* Step 4: Fields (Shown if NOT summarized) */}
+                {!isSummarized && (
+                  <FieldsStep
+                    selectItems={selectItems}
+                    dimensions={dimensions}
+                    metrics={metrics}
+                    updateSelectItem={updateSelectItem}
+                    removeSelectItem={removeSelectItem}
+                    addSelectItem={addSelectItem}
+                    dimFieldOptions={dimFieldOptions}
+                    metricFieldOptions={metricFieldOptions}
+                    t={t}
+                  />
+                )}
+
+                {/* Step 5: Summarize (Aggregations and Group by columns) */}
+                <SummarizeStep
+                  selectItems={selectItems}
+                  groupBy={groupBy}
+                  dimensions={dimensions}
+                  metrics={metrics}
+                  updateSelectItem={updateSelectItem}
+                  removeSelectItem={removeSelectItem}
+                  addMetricSelectItem={addMetricSelectItem}
+                  updateGroupByRow={updateGroupByRow}
+                  removeGroupByRow={removeGroupByRow}
+                  addGroupByRow={addGroupByRow}
+                  onClear={() => {
+                    setIsSummarized(false)
+                    setGroupBy([])
+                    setSelectItems([])
+                  }}
+                  metricFieldOptions={metricFieldOptions}
+                  dimOptionsForGroupRow={dimOptionsForGroupRow}
+                  t={t}
+                />
+
+                {/* Step 6: Sort (If orderBy is active) */}
+                <SortStep
+                  orderBy={orderBy}
+                  orderDir={orderDir}
+                  orderByOpts={orderByOpts}
+                  setOrderBy={setOrderBy}
+                  setOrderDir={setOrderDir}
+                  onClear={() => setOrderBy('')}
+                  t={t}
+                />
+
+                {/* Step 7: Limit */}
+                <NotebookStep
+                  label="Row limit"
+                  themeClass="limit"
+                  onClose={() => setLimit(100)}
+                  closeTitle={t('common.cancel')}
+                >
+                  <input
+                    type="number"
+                    min={1}
+                    inputMode="numeric"
+                    value={limit}
+                    onChange={(e) => setLimit(Number(e.target.value))}
+                    style={{ width: '6rem' }}
+                  />
+                </NotebookStep>
+
+                {/* Advanced Step: Having (Advanced Mode only) */}
+                {mode === 'advanced' && (
+                  <HavingStep
+                    having={having}
+                    metricOptsHaving={metricOptsHaving}
+                    updateHaving={updateHaving}
+                    removeHaving={removeHaving}
+                    addHaving={addHaving}
+                    onClear={() => setHaving([])}
+                    t={t}
+                  />
+                )}
+
+                {/* Advanced Step: Window function (Advanced Mode only) */}
+                {mode === 'advanced' && (
+                  <WindowFuncStep
+                    windowFunctions={windowFunctions}
+                    updateWindowFunc={updateWindowFunc}
+                    removeWindowFunc={removeWindowFunc}
+                    addWindowFunc={addWindowFunc}
+                    onClear={() => windowFunctionState.setItems([])}
+                    t={t}
+                  />
+                )}
+
+                {/* Advanced Step: CTEs (Advanced Mode only) */}
+                {mode === 'advanced' && (
+                  <CteStep
+                    ctes={ctes}
+                    updateCTE={updateCTE}
+                    removeCTE={removeCTE}
+                    addCTE={addCTE}
+                    onClear={() => cteState.setItems([])}
+                    t={t}
+                  />
+                )}
+              </div>
             )}
 
-            {/* Step 3: Filter (Toggled if filters list is not empty) */}
-            <FilterStep
-              filters={filters}
-              filterFieldOpts={filterFieldOpts}
-              updateFilter={updateFilter}
-              removeFilter={removeFilter}
-              addFilter={addFilter}
-              onClear={() => setFilters([])}
-              t={t}
-            />
-
-            {/* Step 4: Fields (Shown if NOT summarized) */}
-            {!isSummarized && (
-              <FieldsStep
-                selectItems={selectItems}
-                dimensions={dimensions}
-                metrics={metrics}
-                updateSelectItem={updateSelectItem}
-                removeSelectItem={removeSelectItem}
-                addSelectItem={addSelectItem}
-                dimFieldOptions={dimFieldOptions}
-                metricFieldOptions={metricFieldOptions}
-                t={t}
-              />
-            )}
-
-            {/* Step 5: Summarize (Aggregations and Group by columns) */}
-            <SummarizeStep
-              selectItems={selectItems}
-              groupBy={groupBy}
-              dimensions={dimensions}
-              metrics={metrics}
-              updateSelectItem={updateSelectItem}
-              removeSelectItem={removeSelectItem}
-              addMetricSelectItem={addMetricSelectItem}
-              updateGroupByRow={updateGroupByRow}
-              removeGroupByRow={removeGroupByRow}
-              addGroupByRow={addGroupByRow}
-              onClear={() => {
-                setIsSummarized(false)
-                setGroupBy([])
-                setSelectItems([])
-              }}
-              metricFieldOptions={metricFieldOptions}
-              dimOptionsForGroupRow={dimOptionsForGroupRow}
-              t={t}
-            />
-
-            {/* Step 6: Sort (If orderBy is active) */}
-            <SortStep
-              orderBy={orderBy}
-              orderDir={orderDir}
-              orderByOpts={orderByOpts}
-              setOrderBy={setOrderBy}
-              setOrderDir={setOrderDir}
-              onClear={() => setOrderBy('')}
-              t={t}
-            />
-
-            {/* Step 7: Limit */}
-            <NotebookStep
-              label="Row limit"
-              themeClass="limit"
-              onClose={() => setLimit(100)}
-              closeTitle={t('common.cancel')}
-            >
-              <input
-                type="number"
-                min={1}
-                inputMode="numeric"
-                value={limit}
-                onChange={(e) => setLimit(Number(e.target.value))}
-                style={{ width: '6rem' }}
-              />
-            </NotebookStep>
-
-            {/* Advanced Step: Having (Advanced Mode only) */}
-            {mode === 'advanced' && (
-              <HavingStep
-                having={having}
-                metricOptsHaving={metricOptsHaving}
-                updateHaving={updateHaving}
-                removeHaving={removeHaving}
-                addHaving={addHaving}
-                onClear={() => setHaving([])}
-                t={t}
-              />
-            )}
-
-            {/* Advanced Step: Window function (Advanced Mode only) */}
-            {mode === 'advanced' && (
-              <WindowFuncStep
-                windowFunctions={windowFunctions}
-                updateWindowFunc={updateWindowFunc}
-                removeWindowFunc={removeWindowFunc}
-                addWindowFunc={addWindowFunc}
-                onClear={() => windowFunctionState.setItems([])}
-                t={t}
-              />
-            )}
-
-            {/* Advanced Step: CTEs (Advanced Mode only) */}
-            {mode === 'advanced' && (
-              <CteStep
-                ctes={ctes}
-                updateCTE={updateCTE}
-                removeCTE={removeCTE}
-                addCTE={addCTE}
-                onClear={() => cteState.setItems([])}
-                t={t}
-              />
-            )}
-          </div>
-        )}
-
-        {/* Notebook Bottom Action Toolbar */}
-        {modelDetail && (
-          <div className="notebook-toolbar">
-            <button
-              type="button"
-              className={`toolbar-btn toolbar-btn--filter ${filters.length > 0 ? 'active' : ''}`}
-              onClick={addFilter}
-            >
-              + Filter
-            </button>
-            <button
-              type="button"
-              className={`toolbar-btn toolbar-btn--summarize ${isSummarized ? 'active' : ''}`}
-              onClick={toggleSummarize}
-            >
-              + Summarize
-            </button>
-            <button
-              type="button"
-              className={`toolbar-btn toolbar-btn--sort ${orderBy ? 'active' : ''}`}
-              onClick={() => {
-                if (!orderBy) {
-                  const firstOpt = orderByOpts.find((o) => o.value)
-                  if (firstOpt) setOrderBy(firstOpt.value)
-                }
-              }}
-            >
-              + Sort
-            </button>
-            <button
-              type="button"
-              className="toolbar-btn toolbar-btn--limit"
-              onClick={() => {}}
-            >
-              Limit ({limit})
-            </button>
-            {mode === 'advanced' && (
-              <>
+            {/* Notebook Bottom Action Toolbar */}
+            {modelDetail && (
+              <div className="notebook-toolbar">
                 <button
                   type="button"
-                  className={`toolbar-btn toolbar-btn--advanced ${having.length > 0 ? 'active' : ''}`}
-                  onClick={addHaving}
+                  className={`toolbar-btn toolbar-btn--filter ${filters.length > 0 ? 'active' : ''}`}
+                  onClick={addFilter}
                 >
-                  + Having
+                  + Filter
                 </button>
                 <button
                   type="button"
-                  className={`toolbar-btn toolbar-btn--advanced ${windowFunctions.length > 0 ? 'active' : ''}`}
-                  onClick={addWindowFunc}
+                  className={`toolbar-btn toolbar-btn--summarize ${isSummarized ? 'active' : ''}`}
+                  onClick={toggleSummarize}
                 >
-                  + Window Func
+                  + Summarize
                 </button>
                 <button
                   type="button"
-                  className={`toolbar-btn toolbar-btn--advanced ${ctes.length > 0 ? 'active' : ''}`}
-                  onClick={addCTE}
+                  className={`toolbar-btn toolbar-btn--sort ${orderBy ? 'active' : ''}`}
+                  onClick={() => {
+                    if (!orderBy) {
+                      const firstOpt = orderByOpts.find((o) => o.value)
+                      if (firstOpt) setOrderBy(firstOpt.value)
+                    }
+                  }}
                 >
-                  + CTE
+                  + Sort
                 </button>
-              </>
+                <button
+                  type="button"
+                  className="toolbar-btn toolbar-btn--limit"
+                  onClick={() => { }}
+                >
+                  Limit ({limit})
+                </button>
+                {mode === 'advanced' && (
+                  <>
+                    <button
+                      type="button"
+                      className={`toolbar-btn toolbar-btn--advanced ${having.length > 0 ? 'active' : ''}`}
+                      onClick={addHaving}
+                    >
+                      + Having
+                    </button>
+                    <button
+                      type="button"
+                      className={`toolbar-btn toolbar-btn--advanced ${windowFunctions.length > 0 ? 'active' : ''}`}
+                      onClick={addWindowFunc}
+                    >
+                      + Window Func
+                    </button>
+                    <button
+                      type="button"
+                      className={`toolbar-btn toolbar-btn--advanced ${ctes.length > 0 ? 'active' : ''}`}
+                      onClick={addCTE}
+                    >
+                      + CTE
+                    </button>
+                  </>
+                )}
+              </div>
             )}
-          </div>
-        )}
 
-        {/* Footer Actions */}
-        {modelDetail && (
-          <div className="visualize-btn-container">
-            <button type="button" className="visualize-btn" onClick={runQuery} disabled={loading}>
-              {loading ? t('query_builder.running') : 'Visualize'}
-            </button>
-          </div>
-        )}
+            {/* Footer Actions */}
+            {modelDetail && (
+              <div className="visualize-btn-container">
+                <button type="button" className="visualize-btn" onClick={runQuery} disabled={loading}>
+                  {loading ? t('query_builder.running') : 'Visualize'}
+                </button>
+              </div>
+            )}
 
-        <ErrorAlert error={error} />
+            <ErrorAlert error={error} />
           </>
         )}
       </div>

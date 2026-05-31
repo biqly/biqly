@@ -19,7 +19,7 @@
 
 ## 1. Kod Tekrari ve Karisiklik
 
-### [ ] 1.1 [HIGH] Auth Repository - User Scan Pattern 4x Tekrar Eden (~80 satir)
+### [x] 1.1 [HIGH] Auth Repository - User Scan Pattern 4x Tekrar Eden (~80 satir)
 
 **Dosyalar:**
 
@@ -592,7 +592,7 @@ func (p *PoolCache) Get(ctx context.Context, driver Driver, datasourceID, dsn st
 
 | # | Gorev | Dosya | Etki | Efor |
 | --- | --- | --- | --- | --- |
-| [ ] 1.1 | `scanUser` helper cikar | `auth/repository.go` | 75 satir azalma | 30 dk |
+| [x] 1.1 | `scanUser` helper cikar | `auth/repository.go` | 75 satir azalma | 30 dk |
 | [ ] 1.2 | `bootstrapUserWorkspace` helper cikar | `auth/repository.go` | 50 satir azalma | 30 dk |
 | [ ] 1.3 | `resolveUserDatasourceSet` helper cikar | `http/handlers/` | 40 satir azalma | 45 dk |
 | [ ] 1.4 | `RunInTx` helper ekle | `platform/db/` | 45 satir azalma | 30 dk |

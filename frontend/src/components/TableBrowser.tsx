@@ -10,7 +10,7 @@ import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingOverlay } from './ui/LoadingOverlay'
 import { Modal } from './ui/Modal'
 import { Select } from './ui/Select'
-import type { Datasource } from '../types/metadata'
+import { LoadingScreen } from './ui/LoadingScreen'
 import { splitTableKey, tableKey, columnRefMatchesTable } from './modeling/utils'
 import { useDatasources } from '../hooks/useDatasources'
 import { useSemanticModels } from '../hooks/useSemanticModels'
@@ -690,11 +690,7 @@ export default function TableBrowser() {
           })
 
   if (dsLoading || (modelId && !modelDetail && modelLoading)) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
-        <div className="spinner" style={{ width: '42px', height: '42px', borderTopColor: 'var(--accent, #6366f1)' }} />
-      </div>
-    )
+    return <LoadingScreen minHeight="300px" />
   }
 
   return (

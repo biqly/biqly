@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Datasource } from '../types/metadata'
 import { useT } from '../i18n'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingOverlay } from './ui/LoadingOverlay'
 import { Select } from './ui/Select'
+import { LoadingScreen } from './ui/LoadingScreen'
 import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
 import { useDatasources } from '../hooks/useDatasources'
 import { useSemanticModels } from '../hooks/useSemanticModels'
-import type { SavedQuestion, SavedQuestionSemanticModel, SavedQuestionFormState } from './savedQuestions/types'
+import type { SavedQuestion, SavedQuestionFormState } from './savedQuestions/types'
 import { SavedQuestionFormModal } from './savedQuestions/SavedQuestionFormModal'
 import { QuestionDetailPane } from './savedQuestions/QuestionDetailPane'
 
@@ -355,11 +355,7 @@ export default function SavedQuestions() {
   const fewShotCount = useMemo(() => questions.filter((q) => q.is_few_shot).length, [questions])
 
   if (initLoading && questions.length === 0) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
-        <div className="spinner" style={{ width: '42px', height: '42px', borderTopColor: 'var(--accent, #6366f1)' }} />
-      </div>
-    )
+    return <LoadingScreen minHeight="300px" />
   }
 
   return (

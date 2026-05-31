@@ -5,6 +5,7 @@ import { useAdminApi } from '../hooks/useApi'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { localeLanguageTag, useI18n, useT } from '../i18n'
 import { ErrorAlert } from './ui/ErrorAlert'
+import { LoadingScreen } from './ui/LoadingScreen'
 import type { EvalRunSummary, EvalRunDetail, RegressionReport } from '../types/ai'
 import type { EvalRunResponse } from './evaluation/demoData'
 
@@ -171,13 +172,7 @@ export default function Evaluation() {
         </ErrorAlert>
       )}
 
-      <Suspense
-        fallback={
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3rem', minHeight: '200px' }}>
-            <div className="spinner" style={{ width: '32px', height: '32px', borderTopColor: 'var(--accent, #6366f1)' }} />
-          </div>
-        }
-      >
+      <Suspense fallback={<LoadingScreen minHeight="200px" />}>
         {/* ─── TAB: Run Evaluation ─────────────────────────────── */}
         {activeTab === 'run' && (
           <EvalRunTab

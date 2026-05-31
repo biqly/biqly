@@ -41,6 +41,7 @@ export const admin: AdminDictionary = {
     manage: 'Yönet',
   },
   user_detail: {
+    title: 'Kullanıcı Detayı',
     loading: 'Kullanıcı detayları yükleniyor…',
     not_found: 'Kullanıcı bulunamadı.',
     back_to_list: 'Listeye Geri Dön',

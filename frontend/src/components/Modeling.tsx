@@ -5,7 +5,6 @@ import { useConfirm } from '../hooks/useConfirm'
 import { useApi } from '../hooks/useApi'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { useT } from '../i18n'
-import type { Datasource } from '../types/metadata'
 import type {
   ColumnRow,
   GenerateSemanticModelResponse,
@@ -16,6 +15,7 @@ import type {
 } from '../types/semantic'
 import { AddMetricModal } from './modeling/AddMetricModal'
 import { BaseSwapModal } from './modeling/BaseSwapModal'
+import { LoadingScreen } from './ui/LoadingScreen'
 import { activeEntities, inactiveEntities } from './modeling/entityActions'
 import { JoinEditor } from './modeling/JoinEditor'
 import { ModelingCanvas } from './modeling/ModelingCanvas'
@@ -647,11 +647,7 @@ export default function Modeling() {
   }, [highlightJoinId, joins, model])
 
   if (dsLoading || (modelId && !model)) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
-        <div className="spinner" style={{ width: '42px', height: '42px', borderTopColor: 'var(--accent, #6366f1)' }} />
-      </div>
-    )
+    return <LoadingScreen minHeight="300px" />
   }
 
   return (

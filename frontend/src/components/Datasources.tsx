@@ -18,6 +18,7 @@ import { buildDatasourceAccessView } from './datasources/accessView'
 import { DriverTileGrid } from './DriverTileGrid'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
+import { LoadingScreen } from './ui/LoadingScreen'
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
@@ -286,11 +287,7 @@ export default function Datasources() {
   const datasourceRows = buildDatasourceAccessView(items, accessibleDatasourceIDs)
 
   if (initLoading && items.length === 0) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
-        <div className="spinner" style={{ width: '42px', height: '42px', borderTopColor: 'var(--accent, #6366f1)' }} />
-      </div>
-    )
+    return <LoadingScreen minHeight="300px" />
   }
 
   return (

@@ -9,6 +9,7 @@ import type { Datasource } from '../types/metadata'
 import type { ColumnRow, TableRow } from '../types/semantic'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { Select } from './ui/Select'
+import { LoadingScreen } from './ui/LoadingScreen'
 import type { AIRuntimeSettings } from '../types/ai'
 import { MetadataBulkDescribeModal } from './metadata/MetadataBulkDescribeModal'
 import { MetadataColumnPanel } from './metadata/MetadataColumnPanel'
@@ -216,11 +217,7 @@ export default function Metadata() {
     runJob<typeof request, DescribeResult>('describe', request, { onError })
 
   if (initLoading && datasources.length === 0) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
-        <div className="spinner" style={{ width: '42px', height: '42px', borderTopColor: 'var(--accent, #6366f1)' }} />
-      </div>
-    )
+    return <LoadingScreen minHeight="300px" />
   }
 
   return (
@@ -318,9 +315,7 @@ export default function Metadata() {
             </div>
           </div>
           {tablesLoading && tables.length === 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3rem' }}>
-              <div className="spinner" style={{ width: '32px', height: '32px', borderTopColor: 'var(--accent, #6366f1)' }} />
-            </div>
+            <LoadingScreen minHeight="150px" />
           ) : tables.length === 0 && !loading ? (
             <p className="metadata-empty-hint">
               {t('metadata.no_tables_before')}

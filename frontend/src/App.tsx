@@ -8,6 +8,7 @@ import { LanguageSwitcher } from './components/ui/LanguageSwitcher'
 import { ThemeToggle } from './components/ui/ThemeToggle'
 import abiLogo from './assets/abi-logo.png'
 import { useT, LocaleSection, type TranslationKey } from './i18n'
+import { LoadingScreen } from './components/ui/LoadingScreen'
 
 const Home = lazy(() => import('./components/Home'))
 const Datasources = lazy(() => import('./components/Datasources'))
@@ -336,11 +337,10 @@ const routeDefs: AppRouteDef[] = [
 const DEFAULT_PATH = routeDefs[0]!.path
 
 const AuthLoading = () => {
-  const t = useT()
   return (
     <div className="auth-page">
-      <div className="auth-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-        <div className="spinner" style={{ width: '32px', height: '32px', borderTopColor: '#6366f1' }}></div>
+      <div className="auth-card">
+        <LoadingScreen minHeight="auto" />
       </div>
     </div>
   )
@@ -447,9 +447,57 @@ function App() {
     const section = sidebarSections.find((s) => s.routes.some((r) => r.path === activeRoute.path))
     const crumbs: Crumb[] = []
     if (section) crumbs.push({ label: section.heading })
-    crumbs.push({ label: activeRoute.label })
+    
+    crumbs.push({
+      label: activeRoute.label,
+      onClick: () => navigate(activeRoute.path),
+    })
+
+    if (activeRoute.path === '/admin') {
+      const searchParams = new URLSearchParams(location.search)
+      const tabParam = searchParams.get('tab') || 'users'
+      const userIdParam = searchParams.get('userId')
+
+      let tabLabel = ''
+      if (tabParam === 'users') tabLabel = t('admin.tabs.users')
+      else if (tabParam === 'roles') tabLabel = t('admin.tabs.roles')
+      else if (tabParam === 'datasource_access') tabLabel = t('admin.tabs.datasource_access')
+      else if (tabParam === 'workspaces') tabLabel = t('admin.tabs.workspaces')
+      else if (tabParam === 'ai_history') tabLabel = t('admin.ai_history.title')
+      else if (tabParam === 'sharing') tabLabel = t('admin.sharing.title')
+      else if (tabParam === 'audit_log') tabLabel = t('admin.tabs.audit_log')
+
+      if (tabLabel) {
+        crumbs.push({
+          label: tabLabel,
+          onClick: () => navigate(`/admin?tab=${tabParam}`),
+        })
+      }
+
+      if (tabParam === 'users' && userIdParam) {
+        crumbs.push({
+          label: t('admin.user_detail.title') || 'User Detail',
+        })
+      }
+    } else if (activeRoute.path === '/evaluation') {
+      const searchParams = new URLSearchParams(location.search)
+      const tabParam = searchParams.get('tab') || 'run'
+
+      let tabLabel = ''
+      if (tabParam === 'run') tabLabel = t('evaluation.tab_run')
+      else if (tabParam === 'history') tabLabel = t('evaluation.tab_history')
+      else if (tabParam === 'regression') tabLabel = t('evaluation.tab_regression')
+
+      if (tabLabel) {
+        crumbs.push({
+          label: tabLabel,
+          onClick: () => navigate(`/evaluation?tab=${tabParam}`),
+        })
+      }
+    }
+
     return crumbs
-  }, [activeRoute, sidebarSections])
+  }, [activeRoute, sidebarSections, location.search, navigate, t])
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
@@ -652,14 +700,7 @@ function App() {
                   </div>
                 </header>
 
-                <Suspense
-                  fallback={
-                    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, height: '100%', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-                      <div className="spinner" style={{ width: '42px', height: '42px', borderTopColor: 'var(--accent, #6366f1)' }} />
-                      <span style={{ marginTop: 12, color: 'var(--text-secondary, #a1a1aa)', fontSize: 14 }}>{t('common.loading')}</span>
-                    </div>
-                  }
-                >
+                <Suspense fallback={<LoadingScreen />}>
                   <Routes>
                     {routeDefs.map((route) => {
                       const Component = route.component

@@ -39,6 +39,7 @@ export const admin = {
     manage: 'Manage',
   },
   user_detail: {
+    title: 'User Detail',
     loading: 'Loading user details…',
     not_found: 'User not found.',
     back_to_list: 'Back to List',

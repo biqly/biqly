@@ -5,8 +5,7 @@ import { useT } from '../i18n'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { Select } from './ui/Select'
-import type { Datasource } from '../types/metadata'
-import type { SemanticModelDetail } from '../types/semantic'
+import { LoadingScreen } from './ui/LoadingScreen'
 import { useDatasources } from '../hooks/useDatasources'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useModelDetail } from '../hooks/useModelDetail'
@@ -300,11 +299,7 @@ export default function FewShotExamples() {
   }
 
   if (initLoading && examples.length === 0) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
-        <div className="spinner" style={{ width: '42px', height: '42px', borderTopColor: 'var(--accent, #6366f1)' }} />
-      </div>
-    )
+    return <LoadingScreen minHeight="300px" />
   }
 
   return (

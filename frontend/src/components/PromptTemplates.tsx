@@ -5,6 +5,7 @@ import { DEFAULT_LOCALE, LOCALE_OPTIONS, SUPPORTED_LOCALES, useT } from '../i18n
 import type { Locale, TranslationKey } from '../i18n'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { Select } from './ui/Select'
+import { LoadingScreen } from './ui/LoadingScreen'
 
 const TEMPLATE_NAMES = ['system_rules', 'output_format', 'retry', 'clarification', 'prompt_layout'] as const
 type TemplateName = (typeof TEMPLATE_NAMES)[number]
@@ -326,11 +327,7 @@ export default function PromptTemplates() {
       : '—'
 
   if (initLoading && rows.length === 0) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
-        <div className="spinner" style={{ width: '42px', height: '42px', borderTopColor: 'var(--accent, #6366f1)' }} />
-      </div>
-    )
+    return <LoadingScreen minHeight="300px" />
   }
 
   return (

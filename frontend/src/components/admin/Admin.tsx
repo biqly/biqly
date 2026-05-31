@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { useT } from '../../i18n'
 import { useQueryParam } from '../../hooks/useQueryParam'
+import { LoadingScreen } from '../ui/LoadingScreen'
 
 const RolesPanel = lazy(() => import('./RolesPanel').then(m => ({ default: m.RolesPanel })))
 const DatasourceAccessPanel = lazy(() => import('./DatasourceAccessPanel').then(m => ({ default: m.DatasourceAccessPanel })))
@@ -85,13 +86,7 @@ export default function Admin() {
       </div>
 
       <div style={{ position: 'relative', minHeight: '200px' }}>
-        <Suspense
-          fallback={
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3rem', minHeight: '200px' }}>
-              <div className="spinner" style={{ width: '32px', height: '32px', borderTopColor: 'var(--accent, #6366f1)' }} />
-            </div>
-          }
-        >
+        <Suspense fallback={<LoadingScreen minHeight="200px" />}>
           {tab === 'users' && (
             selectedUserID ? (
               <UserDetailPage token={accessToken} userID={selectedUserID} onBack={() => setUserIdParam('')} />
