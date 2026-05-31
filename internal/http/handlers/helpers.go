@@ -7,61 +7,36 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"reflect"
 
 	"github.com/biqly/biqly/internal/core"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
+	"github.com/biqly/biqly/internal/http/response"
 	"github.com/biqly/biqly/pkg/common/requestid"
 	"github.com/go-chi/chi/v5"
 )
 
-// Response is a generic JSON response.
-type Response struct {
-	Error   string `json:"error,omitempty"`
-	Message string `json:"message,omitempty"`
-	Data    any    `json:"data,omitempty"`
-}
-
-// writeJSON writes a JSON response.
+// writeJSON writes a JSON response. Thin wrapper over the shared response
+// package so the wire format and nil-slice normalization stay consistent
+// across handler packages.
 func writeJSON(w http.ResponseWriter, status int, data any) {
-	if data != nil {
-		v := reflect.ValueOf(data)
-		if v.Kind() == reflect.Slice && v.IsNil() {
-			data = reflect.MakeSlice(v.Type(), 0, 0).Interface()
-		}
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		slog.Error("failed to encode response", "error", err)
-	}
+	response.WriteJSON(w, status, data)
 }
 
 // writeError writes a JSON error response.
 func writeError(w http.ResponseWriter, status int, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	resp := Response{Error: message}
-	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		slog.Error("failed to encode error response", "error", err)
-	}
+	response.WriteError(w, status, message)
 }
 
 func writeInternalError(ctx context.Context, w http.ResponseWriter, status int, publicMsg string, err error, args ...any) {
-	if err != nil {
-		allArgs := append([]any{"error", err}, args...)
-		if reqID := requestid.FromContext(ctx); reqID != "" {
-			allArgs = append(allArgs, "request_id", reqID)
-		}
-		if userID := bimw.UserID(ctx); userID != "" {
-			allArgs = append(allArgs, "user_id", userID)
-		}
-		if wsID := bimw.WorkspaceID(ctx); wsID != "" {
-			allArgs = append(allArgs, "workspace_id", wsID)
-		}
-		slog.ErrorContext(ctx, publicMsg, allArgs...)
+	// request_id is attached by response.WriteInternalError; add the
+	// middleware-derived identity fields specific to this handler package.
+	if userID := bimw.UserID(ctx); userID != "" {
+		args = append(args, "user_id", userID)
 	}
-	writeError(w, status, publicMsg)
+	if wsID := bimw.WorkspaceID(ctx); wsID != "" {
+		args = append(args, "workspace_id", wsID)
+	}
+	response.WriteInternalError(ctx, w, status, publicMsg, err, args...)
 }
 
 // writeEntityNotFound writes a standardized 404 response of the form

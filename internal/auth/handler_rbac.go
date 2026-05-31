@@ -12,6 +12,8 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"log/slog"
+
+	"github.com/biqly/biqly/internal/http/response"
 	"github.com/biqly/biqly/pkg/common/requestid")
 
 type RBACHandler struct {
@@ -766,9 +768,7 @@ func (h *RBACHandler) handleInternalPublicKey(w http.ResponseWriter, r *http.Req
 }
 
 func writeJSON(w http.ResponseWriter, status int, data any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(data)
+	response.WriteJSON(w, status, data)
 }
 
 func writeError(w http.ResponseWriter, r *http.Request, status int, err error) {
@@ -786,9 +786,9 @@ func writeError(w http.ResponseWriter, r *http.Request, status int, err error) {
 			allArgs = append(allArgs, "user_id", userID)
 		}
 		slog.ErrorContext(ctx, "rbac handler internal error", allArgs...)
-		writeJSON(w, status, map[string]string{"error": "internal server error"})
+		response.WriteError(w, status, "internal server error")
 	} else {
-		writeJSON(w, status, map[string]string{"error": err.Error()})
+		response.WriteError(w, status, err.Error())
 	}
 }
 

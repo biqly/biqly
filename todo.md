@@ -73,7 +73,7 @@ if avatarURLNull.Valid { user.AvatarURL = &avatarURLNull.String }
 
 ---
 
-### [ ] 1.4 [MEDIUM] Uc Ayri JSON Response Helper Seti (~60 satir)
+### [x] 1.4 [MEDIUM] Uc Ayri JSON Response Helper Seti (~60 satir)
 
 **Dosyalar:**
 
@@ -608,7 +608,7 @@ func (p *PoolCache) Get(ctx context.Context, driver Driver, datasourceID, dsn st
 
 | # | Gorev | Dosya | Etki | Efor |
 | --- | --- | --- | --- | --- |
-| [ ] 2.1 | Shared HTTP response helpers | `http/response/` | 60 satir, tutarli API | 3 saat |
+| [x] 2.1 | Shared HTTP response helpers | `http/response/` | 60 satir, tutarli API | 3 saat |
 | [ ] 2.2 | `PromptBuilder.Build()` -> PromptConfig struct | `ai/prompt.go` | 11 param -> 4 | 2 saat |
 | [ ] 2.3 | `LogicalQuery` -> pointer gecisi | `query/compiler*.go` | 3-5x copy azalmasi | 2 saat |
 | [ ] 2.4 | `buildFilterPart()` map-based dispatch | `query/compiler.go` | 167 satirlik method parcalanmasi | 3 saat |

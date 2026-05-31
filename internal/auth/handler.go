@@ -17,6 +17,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-webauthn/webauthn/webauthn"
 
+	"github.com/biqly/biqly/internal/http/response"
 	"github.com/biqly/biqly/internal/mail"
 )
 
@@ -384,9 +385,7 @@ func (h *AuthHandler) internalTokenMiddleware(next http.Handler) http.Handler {
 }
 
 func (h *AuthHandler) respondJSON(w http.ResponseWriter, status int, data any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(data)
+	response.WriteJSON(w, status, data)
 }
 
 // respondError writes a JSON error. For server-side failures (5xx) the
@@ -398,7 +397,7 @@ func (h *AuthHandler) respondError(w http.ResponseWriter, status int, message st
 		slog.Error("auth handler error", "detail", message, "status", status)
 		message = "internal server error"
 	}
-	h.respondJSON(w, status, map[string]string{"error": message})
+	response.WriteError(w, status, message)
 }
 
 func (h *AuthHandler) secureCookie(r *http.Request) bool {
