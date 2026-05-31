@@ -52,7 +52,7 @@ func NewAIHandler(deps *app.AIDeps) *AIHandler {
 	if provider == nil {
 		provider = deps.AIClient
 	}
-	svc := ai.NewServiceWithProvider(queryCfg, deps.Validator, provider)
+	svc := ai.NewServiceWithProvider(queryCfg, deps.Validator, provider).WithCache(deps.ResponseCache)
 	metadataReader := routing.MetadataReader(deps.MetaRepo)
 	var embeddingReader routing.EmbeddingReader = deps.MetaRepo
 	if deps.CatalogClient != nil {

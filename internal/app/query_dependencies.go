@@ -60,6 +60,6 @@ func NewQueryDependencies(ctx context.Context, cfg *config.Config) (*Dependencie
 		Executor:     executor,
 		QueryService: queryService,
 		Encryptor:    encryptor,
-		AuditLogger:  audit.NewLogger(slog.Default()),
+		AuditLogger:  audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(db, slog.Default())),
 	}, nil
 }

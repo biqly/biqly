@@ -209,6 +209,8 @@ type AIConfig struct {
 	RouteMaxDateGrainExtras int
 	// RouteSlimNumericMetrics when true emits only sum_/max_ per numeric column (not avg_/min_).
 	RouteSlimNumericMetrics bool
+	// ResponseCacheTTLSeconds sets the time-to-live for cached AI query responses.
+	ResponseCacheTTLSeconds int
 }
 
 // Load reads configuration from environment variables.
@@ -297,6 +299,7 @@ func Load() (*Config, error) {
 			RouteMaxColumnsPerTable: getEnvAsInt("BI_AI_ROUTE_MAX_COLUMNS_PER_TABLE", 0),
 			RouteMaxDateGrainExtras: getEnvAsInt("BI_AI_ROUTE_MAX_DATE_GRAIN_EXTRAS", 0),
 			RouteSlimNumericMetrics: getEnvAsBool("BI_AI_ROUTE_SLIM_NUMERIC_METRICS", true),
+			ResponseCacheTTLSeconds: getEnvAsInt("BI_AI_RESPONSE_CACHE_TTL", 3600),
 		},
 		NATS: NATSConfig{
 			URL:           getEnv("BI_NATS_URL", ""),

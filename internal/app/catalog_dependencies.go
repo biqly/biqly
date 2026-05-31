@@ -32,6 +32,6 @@ func NewCatalogDependencies(ctx context.Context, cfg *config.Config) (*Dependenc
 		SemanticRepo: semanticRepo,
 		Encryptor:    encryptor,
 		EvalRepo:     evalpkg.NewEvalRepository(db),
-		AuditLogger:  audit.NewLogger(slog.Default()),
+		AuditLogger:  audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(db, slog.Default())),
 	}, nil
 }

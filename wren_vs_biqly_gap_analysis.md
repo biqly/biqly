@@ -225,11 +225,11 @@ Bu bölüm Wren dokümanından Biqly Go backend'ine doğrudan uygulanacak somut 
 
 **Uygulanacak:**
 
-- [ ] `internal/query/expression_parser.go` oluştur — basit expression AST parser:
+- [x] `internal/query/expression_parser.go` oluştur — basit expression AST parser:
   - İzin verilen token tipleri: identifier, number, string, arithmetic operator, parens, function call
   - Yasaklı: subquery, semicolon, comment, DML/DDL keyword
-- [ ] `ValidateContext()` içinde `calculated_expression` alanlarını AST parser'dan geçir
-- [ ] AST parser testleri: `expression_parser_test.go`
+- [x] `ValidateContext()` içinde `calculated_expression` alanlarını AST parser'dan geçir
+- [x] AST parser testleri: `expression_parser_test.go`
   - Geçerli: `[total_amount] - [discount]`, `COALESCE([amount], 0)`
   - Geçersiz: `1; DROP TABLE`, `(SELECT * FROM users)`, `exec xp_cmdshell`
 
@@ -269,7 +269,7 @@ Bu bölüm Wren dokümanından Biqly Go backend'ine doğrudan uygulanacak somut 
 
 **Uygulanacak:**
 
-- [ ] `internal/ai/response_cache.go` oluştur:
+- [x] `internal/ai/response_cache.go` oluştur:
 
   ```go
   type ResponseCache interface {
@@ -278,12 +278,12 @@ Bu bölüm Wren dokümanından Biqly Go backend'ine doğrudan uygulanacak somut 
   }
   ```
 
-- [ ] Redis-backed implementasyon: question hash → AIResponse cache
+- [x] Redis-backed implementasyon: question hash → AIResponse cache
   - TTL: configurable (`BI_AI_RESPONSE_CACHE_TTL`, default 1h)
   - Cache key: SHA-256(question + model_id + denied_fields_hash)
   - Sadece high-confidence (>= 0.85) response'ları cache'le
-- [ ] `ProcessQuestion()` içinde cache lookup ekle (LLM call öncesi)
-- [ ] Cache invalidation: model publish edildiğinde ilgili cache'leri temizle
+- [x] `ProcessQuestion()` içinde cache lookup ekle (LLM call öncesi)
+- [x] Cache invalidation: model publish edildiğinde ilgili cache'leri temizle
 
 **Dosyalar:** `internal/ai/response_cache.go` (yeni), `internal/ai/service.go` (güncelle)
 
@@ -312,8 +312,8 @@ Bu bölüm Wren dokümanından Biqly Go backend'ine doğrudan uygulanacak somut 
   CREATE INDEX idx_audit_events_created ON audit_events(created_at DESC);
   ```
 
-- [ ] `audit.Logger`'a DB writer ekle (async channel-based batch write)
-- [ ] `audit.go`'da `Log()` metodu hem slog hem DB'ye yazsın
+- [x] `audit.Logger`'a DB writer ekle (async channel-based batch write)
+- [x] `audit.go`'da `Log()` metodu hem slog hem DB'ye yazsın
 
 **Dosyalar:** `migrations/` (yeni), `internal/audit/audit.go` (güncelle), `internal/audit/db_writer.go` (yeni)
 
@@ -514,7 +514,7 @@ Wren dokümanında önerilen ama Biqly'nin bilerek uygulamadığı şeyler:
 **Kalan:**
 
 - [ ] Enum mapping mekanizması (B1)
-- [ ] Metric expression AST validation (B6) — DML guard mevcut ama AST parser yok
+- [x] Metric expression AST validation (B6) — DML guard mevcut ama AST parser yok
 
 ### Faz 2 — Retrieval Layer (✅ Tamamlandı)
 

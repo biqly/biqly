@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/biqly/biqly/internal/semantic"
+	_ "github.com/biqly/biqly/internal/query"
 )
 
 type fakeSemanticCatalog struct {
@@ -175,4 +176,36 @@ func TestValidateContextCustomExpressions(t *testing.T) {
 		t.Fatalf("expected missing_col validation error, got %v", result.Errors)
 	}
 }
+
+func TestValidateContextCalculatedExpressionsAST(t *testing.T) {
+	model := validPublishModel()
+
+	// 1. Valid calculated expression
+	model.Dimensions = append(model.Dimensions, semantic.Dimension{
+		Name:                 "net_amount",
+		CalculatedExpression: "orders.total_amount - 10",
+		Type:                 "number",
+		IsActive:             true,
+	})
+
+	result := semantic.ValidateContext(context.Background(), model, validPublishCatalog())
+	if !result.Valid {
+		t.Fatalf("expected valid context, got errors: %v", result.Errors)
+	}
+
+	// 2. Invalid calculated expression (semicolon/DML injection)
+	model2 := validPublishModel()
+	model2.Dimensions = append(model2.Dimensions, semantic.Dimension{
+		Name:                 "malicious",
+		CalculatedExpression: "1; DROP TABLE orders",
+		Type:                 "number",
+		IsActive:             true,
+	})
+
+	result2 := semantic.ValidateContext(context.Background(), model2, validPublishCatalog())
+	if result2.Valid {
+		t.Fatal("expected invalid context due to malicious calculated expression")
+	}
+}
+
 

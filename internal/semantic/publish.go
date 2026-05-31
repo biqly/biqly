@@ -14,6 +14,12 @@ const (
 	ModelStatusPublished = "published"
 )
 
+// CalculatedExpressionValidator is registered by internal/query to validate calculated expressions.
+var CalculatedExpressionValidator func(expr string) error
+
+// OnModelPublish is registered by external packages to perform actions (like cache invalidation) on model publish/rollback.
+var OnModelPublish func(ctx context.Context, modelID string)
+
 var reBracket = regexp.MustCompile(`\[([^\]]+)\]`)
 
 // CatalogReader supplies datasource metadata needed to validate a semantic
@@ -345,6 +351,12 @@ func validateCalculatedExpression(expr string, columnSet datasourceColumnSet, de
 	expr = strings.TrimSpace(expr)
 	if expr == "" {
 		return fmt.Errorf("calculated expression is empty")
+	}
+
+	if CalculatedExpressionValidator != nil {
+		if err := CalculatedExpressionValidator(expr); err != nil {
+			return err
+		}
 	}
 
 	// Extract column references (table.column or bare column patterns)

@@ -32,6 +32,7 @@ import (
 	"github.com/biqly/biqly/pkg/catalogclient"
 	"github.com/biqly/biqly/pkg/queryclient"
 	_ "github.com/jackc/pgx/v5/stdlib" // PostgreSQL driver registration
+	"github.com/redis/go-redis/v9"
 )
 
 // Dependencies holds all application dependencies.
@@ -65,6 +66,7 @@ type Dependencies struct {
 	// AIProviderStore is the DB-backed AI provider/model registry. Always
 	// non-nil; it falls back to the env config when no DB rows are configured.
 	AIProviderStore *ai.ProviderStore
+	ResponseCache   ai.ResponseCache
 	Jobs            config.JobsConfig
 	AIJobQueue      queue.AIJobPublisher
 	AIJobService    AIJobRunner
@@ -120,6 +122,7 @@ type AIDeps struct {
 	AIEmbedMeta     *ai.EmbedMetadataService
 	TimeGrains      routing.TimeGrainStore
 	AIProviderStore *ai.ProviderStore
+	ResponseCache   ai.ResponseCache
 	Jobs            config.JobsConfig
 	AIJobQueue      queue.AIJobPublisher
 	AIJobService    AIJobRunner
@@ -149,6 +152,7 @@ func (d *Dependencies) AIDeps() *AIDeps {
 		AIEmbedMeta:     d.AIEmbedMeta,
 		TimeGrains:      d.TimeGrains,
 		AIProviderStore: d.AIProviderStore,
+		ResponseCache:   d.ResponseCache,
 		Jobs:            d.Jobs,
 		AIJobQueue:      d.AIJobQueue,
 		AIJobService:    d.AIJobService,
@@ -249,11 +253,12 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		AIDescriber:     aiBits.describer,
 		Encryptor:       encryptor,
 		EvalRepo:        aiBits.evalRepo,
-		AuditLogger:     audit.NewLogger(slog.Default()),
+		AuditLogger:     audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(db, slog.Default())),
 		Embedder:        aiBits.embedder,
 		AIEmbedMeta:     aiBits.embedMeta,
 		TimeGrains:      aiBits.timeGrains,
 		AIProviderStore: aiBits.providerStore,
+		ResponseCache:   aiBits.responseCache,
 		PoolCache:       poolCache,
 		Jobs:            cfg.Jobs,
 	}, nil
@@ -302,6 +307,7 @@ type aiBundle struct {
 	evalRepo      *evalpkg.EvalRepository
 	timeGrains    routing.TimeGrainStore
 	providerStore *ai.ProviderStore
+	responseCache ai.ResponseCache
 }
 
 // provideProviderStore builds the DB-backed AI provider/model store. When
@@ -398,6 +404,22 @@ func setupAI(
 		return aiBundle{}, fmt.Errorf("seed time grains: %w", err)
 	}
 
+	var responseCache ai.ResponseCache
+	if cfg.Redis.DSN != "" {
+		opt, err := redis.ParseURL(cfg.Redis.DSN)
+		if err == nil {
+			redisClient := redis.NewClient(opt)
+			if pingErr := redisClient.Ping(ctx).Err(); pingErr == nil {
+				responseCache = ai.NewRedisResponseCache(redisClient)
+				slog.Info("LLM Response Cache initialized with Redis", "dsn", cfg.Redis.DSN)
+			} else {
+				slog.Warn("LLM Response Cache Redis ping failed; cache disabled", "error", pingErr)
+			}
+		} else {
+			slog.Warn("LLM Response Cache Redis DSN parse failed; cache disabled", "error", err)
+		}
+	}
+
 	return aiBundle{
 		client:        client,
 		queryClient:   queryClient,
@@ -407,6 +429,7 @@ func setupAI(
 		evalRepo:      evalRepo,
 		timeGrains:    timeGrains,
 		providerStore: providerStore,
+		responseCache: responseCache,
 	}, nil
 }
 
@@ -460,6 +483,18 @@ func migratePlaintextDSNs(ctx context.Context, db *sql.DB, enc *security.Encrypt
 // joined so callers see every failure instead of just the first.
 func (d *Dependencies) Close() error {
 	var errs []error
+
+	if d.AuditLogger != nil {
+		if err := d.AuditLogger.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("close audit logger: %w", err))
+		}
+	}
+
+	if d.ResponseCache != nil {
+		if err := d.ResponseCache.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("close response cache: %w", err))
+		}
+	}
 
 	if d.PoolCache != nil {
 		if err := d.PoolCache.Close(); err != nil {

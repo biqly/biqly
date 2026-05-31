@@ -30,6 +30,13 @@ type Service struct {
 	maxRetries          int
 	multiCandidateCount int
 	baseTemperature     float64
+	cache               ResponseCache
+}
+
+// WithCache configures a cache for AI query responses.
+func (s *Service) WithCache(cache ResponseCache) *Service {
+	s.cache = cache
+	return s
 }
 
 func newService(cfg config.AIConfig, validator *query.Validator, provider providerpkg.Provider) *Service {
@@ -211,6 +218,15 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 	filterSess := FilterSessionFromPriorTurns(options.priorTurns)
 	followIntent := ClassifyFollowUpIntent(question, filterSess)
 
+	var cacheKey string
+	if s.cache != nil && model != nil {
+		cacheKey = GenerateCacheKey(question, model.ID, options.deniedFields)
+		if cachedResp, err := s.cache.Get(ctx, cacheKey); err == nil && cachedResp != nil {
+			slog.InfoContext(ctx, "LLM Response Cache hit", "question", question, "key", cacheKey)
+			return cachedResp, nil
+		}
+	}
+
 	basePrompt, baseStats := s.buildPrompt(ctx, question, model, 0, options, filterSess, followIntent)
 
 	// Self-consistency: when configured, draw N candidates with stepped temperatures
@@ -218,6 +234,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 	// the standard retry loop which handles single-shot generation + correction.
 	if s.multiCandidateCount > 1 {
 		if resp, ok := s.tryMultiCandidate(ctx, question, basePrompt, model, options, baseStats, filterSess, followIntent); ok {
+			s.cacheResponse(ctx, cacheKey, resp)
 			return resp, nil
 		}
 	}
@@ -277,6 +294,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 					PromptTemplateBundleVersion: bundleVersion,
 				},
 			}
+			s.cacheResponse(ctx, cacheKey, resp)
 			return resp, nil
 		}
 
@@ -780,6 +798,22 @@ func failureMessageFor(parseErr, sqlErr error, warnings []string) string {
 		return "previous output was rejected"
 	}
 	return strings.Join(warnings, "; ")
+}
+
+func (s *Service) cacheResponse(ctx context.Context, key string, resp *AIResponse) {
+	if s.cache == nil || key == "" || resp == nil || resp.Result == nil {
+		return
+	}
+	if resp.Result.Confidence < 0.85 {
+		return
+	}
+	ttl := time.Duration(s.aiCfg.ResponseCacheTTLSeconds) * time.Second
+	if ttl <= 0 {
+		ttl = 1 * time.Hour
+	}
+	if err := s.cache.Put(ctx, key, resp, ttl); err != nil {
+		slog.WarnContext(ctx, "failed to put response in cache", "error", err)
+	}
 }
 
 func (s *Service) parseAndValidate(raw string, model *semantic.SemanticModel) (*query.LogicalQuery, []string, int, error) {
