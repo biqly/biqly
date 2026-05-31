@@ -18,7 +18,7 @@ type Driver struct {
 // NewDriver creates a new MySQL driver.
 func NewDriver() *Driver {
 	return &Driver{
-		BaseDriver: datasource.NewBaseDriver("mysql", "mysql", dialect.MySQLDialect{}, datasource.DefaultPoolLimits()),
+		BaseDriver: datasource.NewBaseDriver("mysql", "mysql", dialect.MySQL, datasource.DefaultPoolLimits()),
 	}
 }
 

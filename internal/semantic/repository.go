@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 
 	platformdb "github.com/biqly/biqly/internal/platform/db"
@@ -563,7 +562,7 @@ func modelSelectSQL() string {
 func scanDimension(s platformdb.Scanner) (Dimension, error) {
 	var d Dimension
 	var timeGrain sql.NullString
-	if err := s.Scan(&d.ID, &d.ModelID, &d.Name, &d.Label, &d.ColumnRef, &d.Type, &timeGrain, &nullStringArray{s: &d.Synonyms}, &d.Description, &d.IsActive, &d.CreatedAt); err != nil {
+	if err := s.Scan(&d.ID, &d.ModelID, &d.Name, &d.Label, &d.ColumnRef, &d.Type, &timeGrain, &platformdb.NullStringArray{S: &d.Synonyms}, &d.Description, &d.IsActive, &d.CreatedAt); err != nil {
 		return d, fmt.Errorf("scan dimension: %w", err)
 	}
 	if timeGrain.Valid {
@@ -574,7 +573,7 @@ func scanDimension(s platformdb.Scanner) (Dimension, error) {
 
 func scanMetric(s platformdb.Scanner) (Metric, error) {
 	var m Metric
-	if err := s.Scan(&m.ID, &m.ModelID, &m.Name, &m.Label, &m.Expression, &m.Aggregation, &m.Format, &nullStringArray{s: &m.Synonyms}, &m.Description, &m.IsActive, &m.CreatedAt); err != nil {
+	if err := s.Scan(&m.ID, &m.ModelID, &m.Name, &m.Label, &m.Expression, &m.Aggregation, &m.Format, &platformdb.NullStringArray{S: &m.Synonyms}, &m.Description, &m.IsActive, &m.CreatedAt); err != nil {
 		return m, fmt.Errorf("scan metric: %w", err)
 	}
 	return m, nil
@@ -598,8 +597,8 @@ func (r *Repository) scanModel(s platformdb.Scanner) (*SemanticModel, error) {
 		&m.Description,
 		&m.BaseSchema,
 		&m.BaseTable,
-		&nullStringArray{s: &m.Synonyms},
-		&nullStringArray{s: &m.ExcludedSchemas},
+		&platformdb.NullStringArray{S: &m.Synonyms},
+		&platformdb.NullStringArray{S: &m.ExcludedSchemas},
 		&m.IsActive,
 		&m.Status,
 		&m.Version,
@@ -614,39 +613,4 @@ func (r *Repository) scanModel(s platformdb.Scanner) (*SemanticModel, error) {
 		return nil, fmt.Errorf("scan model: %w", err)
 	}
 	return m, nil
-}
-
-// nullStringArray helps scan PostgreSQL arrays into Go slices
-type nullStringArray struct {
-	s *[]string
-}
-
-func (n *nullStringArray) Scan(src any) error {
-	if src == nil {
-		*n.s = []string{}
-		return nil
-	}
-	switch v := src.(type) {
-	case string:
-		*n.s = parseStringArray(v)
-	case []byte:
-		*n.s = parseStringArray(string(v))
-	default:
-		*n.s = []string{}
-	}
-	return nil
-}
-
-func parseStringArray(s string) []string {
-	// Simple PostgreSQL array parser for strings: {"a","b","c"}
-	s = strings.TrimPrefix(s, "{")
-	s = strings.TrimSuffix(s, "}")
-	if s == "" {
-		return []string{}
-	}
-	parts := strings.Split(s, ",")
-	for i, p := range parts {
-		parts[i] = strings.Trim(p, "\"")
-	}
-	return parts
 }

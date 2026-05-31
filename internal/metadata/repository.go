@@ -40,8 +40,8 @@ func (r *Repository) CreateDatasource(ctx context.Context, ds *Datasource) error
 	}
 	_, err := r.db.ExecContext(ctx, query,
 		ds.ID, ds.Name, ds.Type, ds.DSNEncrypted, ds.Config, ds.IsActive,
-		platformdb.NullIfEmptyPtr(ds.Host), nullableInt(ds.Port), platformdb.NullIfEmptyPtr(ds.Username),
-		nullableEncrypted(ds.PasswordEncrypted),
+		platformdb.NullIfEmptyPtr(ds.Host), platformdb.NullIfNilIntPtr(ds.Port), platformdb.NullIfEmptyPtr(ds.Username),
+		platformdb.NullIfEmpty(ds.PasswordEncrypted),
 		platformdb.NullIfEmptyPtr(ds.DatabaseName), platformdb.NullIfEmptyPtr(ds.SSLMode),
 		cp, mode,
 	)
@@ -88,8 +88,8 @@ func (r *Repository) UpdateDatasource(ctx context.Context, ds *Datasource) error
 	}
 	res, err := r.db.ExecContext(ctx, query,
 		ds.ID, ds.Name, ds.Type, ds.DSNEncrypted, ds.Config, ds.IsActive,
-		platformdb.NullIfEmptyPtr(ds.Host), nullableInt(ds.Port), platformdb.NullIfEmptyPtr(ds.Username),
-		nullableEncrypted(ds.PasswordEncrypted), platformdb.NullIfEmptyPtr(ds.DatabaseName), platformdb.NullIfEmptyPtr(ds.SSLMode),
+		platformdb.NullIfEmptyPtr(ds.Host), platformdb.NullIfNilIntPtr(ds.Port), platformdb.NullIfEmptyPtr(ds.Username),
+		platformdb.NullIfEmpty(ds.PasswordEncrypted), platformdb.NullIfEmptyPtr(ds.DatabaseName), platformdb.NullIfEmptyPtr(ds.SSLMode),
 		cp, mode,
 	)
 	if err != nil {
@@ -163,29 +163,14 @@ func (r *Repository) scanDatasource(s platformdb.Scanner) (*Datasource, error) {
 	if err != nil {
 		return nil, fmt.Errorf("scan datasource: %w", err)
 	}
-	if host.Valid {
-		v := host.String
-		ds.Host = &v
-	}
-	if port.Valid {
-		p := int(port.Int64)
-		ds.Port = &p
-	}
-	if username.Valid {
-		v := username.String
-		ds.Username = &v
-	}
+	ds.Host = platformdb.StringPtrFromNull(host)
+	ds.Port = platformdb.IntPtrFromNull(port)
+	ds.Username = platformdb.StringPtrFromNull(username)
 	if passEnc.Valid {
 		ds.PasswordEncrypted = passEnc.String
 	}
-	if dbName.Valid {
-		v := dbName.String
-		ds.DatabaseName = &v
-	}
-	if sslMode.Valid {
-		v := sslMode.String
-		ds.SSLMode = &v
-	}
+	ds.DatabaseName = platformdb.StringPtrFromNull(dbName)
+	ds.SSLMode = platformdb.StringPtrFromNull(sslMode)
 	if len(cp) > 0 {
 		ds.ConnectionParams = append(json.RawMessage(nil), cp...)
 	} else {
@@ -883,18 +868,4 @@ func (r *Repository) SearchTables(ctx context.Context, datasourceID, searchTerm 
 		ORDER BY schema_name, table_name
 	`
 	return platformdb.QuerySliceErr(ctx, r.db, "search tables", query, []any{datasourceID, "%" + searchTerm + "%"}, scanTable)
-}
-
-func nullableInt(p *int) any {
-	if p == nil {
-		return nil
-	}
-	return *p
-}
-
-func nullableEncrypted(s string) any {
-	if strings.TrimSpace(s) == "" {
-		return nil
-	}
-	return s
 }

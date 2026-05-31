@@ -11,19 +11,18 @@ type ClickHouseDialect struct {
 	BaseDialect
 }
 
+// ClickHouse is the default global instance of ClickHouseDialect.
+var ClickHouse = ClickHouseDialect{
+	BaseDialect: BaseDialect{
+		QuoteLeft:      "`",
+		QuoteRight:     "`",
+		ClickHouseAggs: true,
+	},
+}
+
 // Name returns the dialect name.
 func (d ClickHouseDialect) Name() string {
 	return "clickhouse"
-}
-
-// QuoteIdentSegment quotes one identifier segment; backticks inside are doubled.
-func (d ClickHouseDialect) QuoteIdentSegment(identifier string) string {
-	return "`" + strings.ReplaceAll(identifier, "`", "``") + "`"
-}
-
-// QuoteIdent quotes a qualified name by splitting on '.' .
-func (d ClickHouseDialect) QuoteIdent(identifier string) string {
-	return QuoteIdentQualified(d, identifier)
 }
 
 // Placeholder returns the parameter placeholder for the given index.
@@ -59,11 +58,6 @@ func titleCase(s string) string {
 // column must be a SQL expression (e.g. already-quoted identifiers).
 func (d ClickHouseDialect) ILike(column, placeholder string) string {
 	return fmt.Sprintf("lower(%s) LIKE lower(%s)", column, placeholder)
-}
-
-// Aggregate formats an aggregation function call.
-func (d ClickHouseDialect) Aggregate(fn, column string) string {
-	return AggregateClickHouseSQL(d, fn, column)
 }
 
 // Compile-time check

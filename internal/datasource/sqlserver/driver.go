@@ -18,7 +18,7 @@ type Driver struct {
 // NewDriver creates a new SQL Server driver.
 func NewDriver() *Driver {
 	return &Driver{
-		BaseDriver: datasource.NewBaseDriver("sqlserver", "sqlserver", dialect.SQLServerDialect{}, datasource.DefaultPoolLimits()),
+		BaseDriver: datasource.NewBaseDriver("sqlserver", "sqlserver", dialect.SQLServer, datasource.DefaultPoolLimits()),
 	}
 }
 

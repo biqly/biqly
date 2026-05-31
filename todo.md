@@ -132,7 +132,7 @@ return tx.Commit()
 
 ---
 
-### [ ] 1.7 [MEDIUM] Nullable SQL Helper'leri 3 Pakette Daginik (~30 satir)
+### [x] 1.7 [MEDIUM] Nullable SQL Helper'leri 3 Pakette Daginik (~30 satir)
 
 **Dosyalar:**
 
@@ -146,7 +146,7 @@ return tx.Commit()
 
 ---
 
-### [ ] 1.8 [MEDIUM] DI Constructor'larinda 16x Ayni Driver Registration
+### [x] 1.8 [MEDIUM] DI Constructor'larinda 16x Ayni Driver Registration
 
 **Dosyalar:**
 
@@ -161,7 +161,7 @@ return tx.Commit()
 
 ---
 
-### [ ] 1.9 [LOW] Dialect Aggregate() ve QuoteIdent() Boilerplate
+### [x] 1.9 [LOW] Dialect Aggregate() ve QuoteIdent() Boilerplate
 
 **Dosyalar:**
 
@@ -598,12 +598,12 @@ func (p *PoolCache) Get(ctx context.Context, driver Driver, datasourceID, dsn st
 | [x] 1.2 | `bootstrapUserWorkspace` helper cikar | `auth/repository.go` | 50 satir azalma | 30 dk |
 | [x] 1.3 | `resolveUserDatasourceSet` helper cikar | `http/handlers/` | 40 satir azalma | 45 dk |
 | [x] 1.4 | `RunInTx` helper ekle | `platform/db/` | 45 satir azalma | 30 dk |
-| [ ] 1.5 | Nullable helper'leri `platform/db/`'de birlestir | `platform/db/` | 30 satir azalma | 1 saat |
+| [x] 1.5 | Nullable helper'leri `platform/db/`'de birlestir | `platform/db/` | 30 satir azalma | 1 saat |
 | [x] 1.6 | Token scoring duplication'i kaldir | `handlers/ai.go` | ~40 satir, dogruluk artisi | 1 saat |
 | [ ] 1.7 | Slice pre-allocation (query_rows, row_scan) | `datasource/`, `ai/` | Memory allocation azalmasi | 30 dk |
 | [ ] 1.8 | Map size hints ekle | `ai/table_router.go` | Rehash azalmasi | 30 dk |
-| [ ] 1.9 | `registerDefaultDrivers` + `openMetadataDB` helper | `app/*_dependencies.go` | 60+ satir azalma | 45 dk |
-| [ ] 1.10 | Pool config standardizasyonu | `app/*_dependencies.go` | Tutarli pool davranisi | 30 dk |
+| [x] 1.9 | `registerDefaultDrivers` + `openMetadataDB` helper | `app/*_dependencies.go` | 60+ satir azalma | 45 dk |
+| [x] 1.10 | Pool config standardizasyonu | `app/*_dependencies.go` | Tutarli pool davranisi | 30 dk |
 | [ ] 1.11 | `activePromptStore` senkronizasyonu | `ai/prompt_store.go` | Race condition onleme | 15 dk |
 
 ### Faz 2: Orta Vadeli Refactoring (1 hafta)
@@ -617,7 +617,7 @@ func (p *PoolCache) Get(ctx context.Context, driver Driver, datasourceID, dsn st
 | [ ] 2.5 | `Response` struct parcalama | `ai/schema.go` | 7 kaygi ayrimi | 3 saat |
 | [ ] 2.6 | PoolCache singleflight | `datasource/pool_cache.go` | Lock contention azalmasi | 2 saat |
 | [ ] 2.7 | WebAuthn cookie helper | `auth/handler.go` | 35 satir azalma | 1 saat |
-| [ ] 2.8 | Dialect boilerplate temizligi | `dialect/*.go` | 24 satir azalma | 1 saat |
+| [x] 2.8 | Dialect boilerplate temizligi | `dialect/*.go` | 24 satir azalma | 1 saat |
 | [ ] 2.9 | Multi-candidate context cancellation | `ai/service.go` | API credit tasarrufu | 1 saat |
 | [ ] 2.10 | `metadata -> query` coupling azaltma | `metadata/repository.go` | Modularity | 2 saat |
 

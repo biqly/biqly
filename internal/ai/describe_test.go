@@ -47,7 +47,7 @@ func TestBuildDescribePromptRequestsEnglishDescriptions(t *testing.T) {
 }
 
 func TestBuildTableSampleSQLUsesTopForSQLServer(t *testing.T) {
-	got, err := buildTableSampleSQL(dialect.SQLServerDialect{}, []metadata.Column{
+	got, err := buildTableSampleSQL(dialect.SQLServer, []metadata.Column{
 		{ColumnName: "brand_id"},
 		{ColumnName: "brand_name"},
 	}, "production", "brands", 10)

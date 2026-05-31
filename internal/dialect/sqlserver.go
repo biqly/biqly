@@ -12,19 +12,18 @@ type SQLServerDialect struct {
 	BaseDialect
 }
 
+// SQLServer is the default global instance of SQLServerDialect.
+var SQLServer = SQLServerDialect{
+	BaseDialect: BaseDialect{
+		QuoteLeft:       "[",
+		QuoteRight:      "]",
+		ExplainDisabled: true,
+	},
+}
+
 // Name returns the dialect name.
 func (d SQLServerDialect) Name() string {
 	return "sqlserver"
-}
-
-// QuoteIdentSegment quotes one identifier segment; ']' is escaped per T-SQL rules.
-func (d SQLServerDialect) QuoteIdentSegment(identifier string) string {
-	return "[" + strings.ReplaceAll(identifier, "]", "]]") + "]"
-}
-
-// QuoteIdent quotes a qualified name by splitting on '.' .
-func (d SQLServerDialect) QuoteIdent(identifier string) string {
-	return QuoteIdentQualified(d, identifier)
 }
 
 // Placeholder returns the parameter placeholder for the given index.
@@ -60,11 +59,6 @@ func (d SQLServerDialect) CalendarPart(part, column string) string {
 // column must be a SQL expression (e.g. already-quoted identifiers).
 func (d SQLServerDialect) ILike(column, placeholder string) string {
 	return fmt.Sprintf("%s LIKE %s", column, placeholder)
-}
-
-// Aggregate formats an aggregation function call.
-func (d SQLServerDialect) Aggregate(fn, column string) string {
-	return d.BaseDialect.Aggregate(d, fn, column)
 }
 
 // ExplainSQL returns "" because SQL Server has no single-statement EXPLAIN form

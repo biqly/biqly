@@ -19,7 +19,7 @@ type Driver struct {
 // NewDriver creates a new PostgreSQL driver.
 func NewDriver() *Driver {
 	return &Driver{
-		BaseDriver: datasource.NewBaseDriver("postgres", "pgx", dialect.PostgresDialect{}, datasource.DefaultPoolLimits()),
+		BaseDriver: datasource.NewBaseDriver("postgres", "pgx", dialect.Postgres, datasource.DefaultPoolLimits()),
 	}
 }
 

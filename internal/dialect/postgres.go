@@ -4,7 +4,6 @@ package dialect
 import (
 	"fmt"
 	"strconv"
-	"strings"
 )
 
 // PostgresDialect implements the Dialect interface for PostgreSQL.
@@ -12,19 +11,17 @@ type PostgresDialect struct {
 	BaseDialect
 }
 
+// Postgres is the default global instance of PostgresDialect.
+var Postgres = PostgresDialect{
+	BaseDialect: BaseDialect{
+		QuoteLeft:  "\"",
+		QuoteRight: "\"",
+	},
+}
+
 // Name returns the dialect name.
 func (d PostgresDialect) Name() string {
 	return "postgres"
-}
-
-// QuoteIdentSegment quotes one identifier segment; dots are literal (column names like Emp.StartDate).
-func (d PostgresDialect) QuoteIdentSegment(identifier string) string {
-	return "\"" + strings.ReplaceAll(identifier, "\"", "\"\"") + "\""
-}
-
-// QuoteIdent quotes a qualified name by splitting on '.' (schema.table or a.b.c).
-func (d PostgresDialect) QuoteIdent(identifier string) string {
-	return QuoteIdentQualified(d, identifier)
 }
 
 // Placeholder returns the parameter placeholder for the given index.
@@ -56,11 +53,6 @@ func (d PostgresDialect) CalendarPart(part, column string) string {
 // column must be a SQL expression (e.g. already-quoted "schema"."col").
 func (d PostgresDialect) ILike(column, placeholder string) string {
 	return fmt.Sprintf("%s ILIKE %s", column, placeholder)
-}
-
-// Aggregate formats an aggregation function call.
-func (d PostgresDialect) Aggregate(fn, column string) string {
-	return d.BaseDialect.Aggregate(d, fn, column)
 }
 
 var _ Dialect = PostgresDialect{}

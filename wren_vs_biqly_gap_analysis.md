@@ -1,8 +1,9 @@
 # Wren.ai vs Biqly — Gap Analysis
 
-> Amaç: Wren.ai referans dokümanındaki her maddeyi Biqly'nin mevcut implementasyonuyla karşılaştırmak. Eksikler, fazladan olanlar ve olmaması gerekenler belirlenmiştir.
+> Amaç: Wren.ai referans dokümanındaki her maddeyi Biqly'nin mevcut implementasyonuyla karşılaştırmak.
+> Eksikler, fazladan olanlar, olmaması gerekenler ve Go backend için uygulanacak somut maddeler belirlenmiştir.
 >
-> Tarih: 2026-05-31
+> Tarih: 2026-05-31 (v2 — derinlemesine kod analizi ile güncellendi)
 
 ---
 
@@ -15,8 +16,10 @@
 | Retrieval (Hybrid) | Tamamı mevcut | Tam | ✅ |
 | Prompt Engineering | Tamamı mevcut | Tam | ✅ |
 | Validation / Security | Tamamı mevcut | Tam | ✅ |
-| Feedback / Memory | Kısmen mevcut | Tam | ⚠️ |
-| Eval / Regression | Kısmen mevcut | Tam | ⚠️ |
+| Business Glossary | Backend mevcut, Frontend browser yok | Tam | ⚠️ |
+| Feedback / Memory | Tamamı mevcut | Tam | ✅ |
+| Eval / Regression | Tamamı mevcut | Tam | ✅ |
+| Async Job Queue | NATS worker mevcut | Tam | ✅ |
 | Dashboard Builder | Yok | Var | ❌ |
 | Raw SQL Editor | Yok (tasarım kararı) | Var | — |
 | Row-Level Security UI | Backend var, Frontend yok | Var | ❌ |
@@ -32,7 +35,7 @@
 | Datasource bağlama | ✅ Tamamı | `Datasources.tsx` — PostgreSQL, MySQL, SQL Server, ClickHouse |
 | Model/ilişki tanımlama | ✅ Tamamı | `Modeling.tsx` — visual canvas, join lines, dimension/metric palette |
 | NL soru sorma | ✅ Tamamı | `AIQuery.tsx` — chat UI, multi-turn conversation |
-| Generated SQL preview | ✅ Tamamı | `AssistantMessageCard.tsx` — collapsible SQL display + syntax highlighting |
+| Generated SQL preview | ✅ Tamamı | `AssistantMessageCard.tsx` — collapsible SQL + syntax highlighting |
 | Result preview / chart | ✅ Tamamı | Recharts bar/line/pie, pivot table, anomaly highlighting |
 | Saved question / favorite | ✅ Tamamı | `SavedQuestions.tsx` — CRUD, favorites, few-shot toggle |
 | Feedback ekranları | ✅ Tamamı | `FeedbackSection.tsx` — thumbs up/down, categories, free text |
@@ -53,6 +56,7 @@
 | Validation | ✅ Tamamı | `validator.go` — field/metric/window/CTE/HAVING validation |
 | Execution preview | ✅ Tamamı | EXPLAIN dry-run, SQL preview, read-only check |
 | Feedback storage | ✅ Tamamı | `InsertAIFeedback()` — rating, categories, text |
+| Async job processing | ✅ Tamamı | `cmd/worker/main.go` — NATS consumer, `internal/queue/nats.go` |
 
 ### 2.3 Wren AI Core (Bölüm 2.3) → Backend Query/Semantic Layer
 
@@ -64,6 +68,7 @@
 | ANSI SQL / dialect uyarlama | ✅ Tamamı | 4 dialect: PostgreSQL, MySQL, SQL Server, ClickHouse |
 | Validation / dry-plan | ✅ Tamamı | `validator.go` + `ReadOnlyChecker` |
 | Query execution | ✅ Tamamı | `executor.go` — timeout, row limit, read-only enforcement |
+| Business glossary | ✅ Tamamı | `business_glossary_terms` table + `ai_glossary.go` CRUD handler |
 
 ---
 
@@ -82,7 +87,7 @@
 | 7 | SQL execution öncesi AST/parser validation var mı? | ✅ | `ReadOnlyChecker` + parameterized queries |
 | 8 | Query yalnızca SELECT/read-only mi? | ✅ | Keyword blacklist + comment stripping |
 | 9 | Row limit / timeout / cost guardrail var mı? | ✅ | `BI_QUERY_TIMEOUT_SECONDS`, `BI_QUERY_MAX_ROWS` |
-| 10 | Generated SQL, context, confidence audit olarak saklanıyor mu? | ⚠️ | Query history + AI history mevcut ama ayrı audit event table yok |
+| 10 | Generated SQL, context, confidence audit olarak saklanıyor mu? | ✅ | `query_history` + `ai_query_history` + `ai_query_telemetry` (migration 012) |
 
 ### 3.2 Semantic Layer Checklist
 
@@ -90,13 +95,14 @@
 | --- | --- | --- | --- |
 | 1 | Her modelin business description'ı var mı? | ✅ | `description` field on `SemanticModel` |
 | 2 | Her dimension/metric açıklamalı mı? | ✅ | Column descriptions + AI-generated descriptions |
-| 3 | Metric definitions reusable ve tek kaynak mı? | ✅ | `semantic_metrics` tablosu, publish workflow ile_locked |
+| 3 | Metric definitions reusable ve tek kaynak mı? | ✅ | `semantic_metrics` tablosu, publish workflow ile locked |
 | 4 | Join path'ler explicit relationship olarak tanımlı mı? | ✅ | `semantic_joins` — from_table, from_column, to_table, to_column, join_type, relationship |
-| 5 | Ambiguous alanlar için synonym/glossary var mı? | ✅ | Synonyms on models, dimensions, metrics. Glossary in prompt |
-| 6 | Enum mapping var mı? | ⚠️ | Enum mapping yok. `status = 4 => refunded` gibi dönüşümler yok. Description'larda dokümente edilebilir ama otomatik mapping yok |
+| 5 | Ambiguous alanlar için synonym/glossary var mı? | ✅ | Synonyms on models, dimensions, metrics + `business_glossary_terms` table |
+| 6 | Enum mapping var mı? | ⚠️ | Açık enum mapping yok. Description'larda dokümente edilebilir ama `status = 4 => refunded` gibi otomatik mapping mekanizması yok. **B1'e bakın.** |
 | 7 | PII/sensitive kolonlar hide edilebiliyor mu? | ✅ | `WithDeniedFields` — column-level access control |
 | 8 | Row-level / column-level access tasarlanmış mı? | ✅ | Backend tamamı. `CompileWithPermissions()` row-level, `PermissionManager` column-level |
 | 9 | Versioning var mı? | ✅ | `publish.go` — draft/publish/rollback, version increment |
+| 10 | Calculated fields var mı? | ✅ | `calculated_expression` on Dimension, bracket `[token]` resolution |
 
 ### 3.3 Retrieval Checklist
 
@@ -134,190 +140,347 @@
 | 7 | Timeout/cost guardrail | ✅ | Context timeout + `BI_QUERY_TIMEOUT_SECONDS` |
 | 8 | Access control validation | ✅ | `PermissionManager` + `CompileWithPermissions` |
 | 9 | Result sanity validation | ✅ | Anomaly detection (IQR-based) in `enrich.go` |
-| 10 | Golden eval regression test | ⚠️ | Framework var ama sadece 5 hardcoded golden case. Testdata dosyalarından yükleme yok |
+| 10 | Golden eval regression test | ✅ | `EvalRepository.GenerateRegressionReport()` + SSE streaming eval + benchmark suite |
 
 ---
 
-## 4. Eksikler ve Gereksinimler
+## 4. Backend Go İçin Uygulanacak Maddeler
 
-### 4.1 Backend Eksikleri
+Bu bölüm Wren dokümanından Biqly Go backend'ine doğrudan uygulanacak somut teknik maddelerdir.
 
-| # | Özellik | Öncelik | Detay |
-| --- | --- | --- | --- |
-| B1 | **Enum/Value Mapping** | Orta | `status = 4 → refunded` gibi otomatik mapping mekanizması yok. Description'larda dokümantasyon var ama LLM'in integer → semantic dönüşüm yapması prompt'ta kalıyor. `enum_mappings` tablosu veya dimension metadata'da enum tanımı eklenebilir. |
-| B2 | **Audit Event Persistence** | Düşük | Audit logging sadece `slog` ile yapıyor. `query_history` ve `ai_query_history` tabloları de-facto audit store olarak çalışıyor ama generic audit event table yok. Şu anki yapı çoğu use case için yeterli. |
-| B3 | **Golden Test Case Yönetimi** | Orta | Sadece 5 hardcoded golden case var. `testdata/` dizininden yükleme yok. External case management (CRUD API + dosya import) eklenmeli. Eval runner HTTP handler'da, standalone service metodu olmalı. |
-| B4 | **Embedding-Based Learning from Feedback** | Düşük | AGENTS.md'de deferred olarak işaretli. Kullanıcı onayladığı sorgulardan embedding öğrenme mekanizması henüz yok. |
-| B5 | **Composite Semantic Models** | Düşük | AGENTS.md'de Phase 11.5 olarak deferred. Birden fazla base model'i birleştirme henüz yok. |
-| B6 | **Metric Expression Security** | Orta | `calculated_expression` serbest SQL fragment kabul ediyor. Controlled AST veya expression sandbox yok. DML/DDL keyword rejection var ama AST-level validation değil. |
-| B7 | **LLM Response Caching** | Düşük | Fingerprint-based query history var ama LLM response cache yok. Aynı soru tekrar sorulduğunda LLM'e tekrar gidiliyor. |
-| B8 | **Streaming SQL Results** | Düşük | Executor tüm satırları okuduktan sonra dönüyor. Büyük sonuç setleri için streaming desteklenmiyor. |
+### 4.1 Enum / Value Mapping Mekanizması (B1 — Orta Öncelik)
 
-### 4.2 Frontend Eksikleri
+**Wren referansı (Bölüm 6.1):** "value profiles / enum mappings"
 
-| # | Özellik | Öncelik | Detay |
-| --- | --- | --- | --- |
-| F1 | **Dashboard Builder** | Yüksek | Kullanıcıların kaydedilmiş sorgu/chart'ları sürükle-bırak ile düzenleyeceği bir dashboard editor yok. Mevcut `/dashboard` AI usage analytics gösteriyor. Bu Wren'in temel özelliklerinden biri. |
-| F2 | **Row-Level Security Admin UI** | Yüksek | Backend `CompileWithPermissions()` ile row-level filter injection yapıyor ama admin panel'de bu kuralları tanımlayacak bir UI yok. `DatasourceAccessPanel` sadece datasource-level access kontrol ediyor. |
-| F3 | **Field-Level Permission UI** | Orta | Backend `WithDeniedFields` ile column-level access kontrol ediyor ama admin'de hangi alanların hangi rol için denied olduğunu yönetecek UI yok. |
-| F4 | **Kullanıcı Query History Sayfası** | Orta | AI history sadece admin panel'de görünüyor. Normal kullanıcıların kendi geçmiş sorgularını arayıp tekrar çalıştıracağı bir sayfa yok. `SavedQuestions` var ama history değil. |
-| F5 | **Data Catalog / Business Glossary** | Orta | Merkezi bir business glossary browser yok. Synonyms dimension/metric seviyesinde tanımlı ama kullanıcıların glossary'de arama/browsing yapacağı bir sayfa yok. |
-| F6 | **Export Formatları** | Düşük | Sadece CSV export var. Excel (.xlsx), PDF, JSON export eksik. |
-| F7 | **Chart Customization** | Düşük | Recharts ile bar/line/pie render ediliyor ama kullanıcı axis label, renk, annotation, threshold ayarlayamıyor. |
-| F8 | **Scheduled Queries / Alerts** | Düşük | Zamanlanmış sorgu çalıştırma ve alerting yok. Backend'de worker skeleton var ama implement değil. |
-| F9 | **Public Embedding** | Düşük | `ShareButton` ile kullanıcı/workspace paylaşımı var ama public iframe embed URL yok. |
+**Mevcut durum:** Dimension'ların `description` alanında enum değerleri dokümente edilebiliyor ama LLM'in `status = 4` → `refunded` gibi dönüşümleri yapması tamamen prompt'a kalıyor. Yapısal bir mapping mekanizması yok.
 
-### 4.3 Olması Gerekmeyenler (Biqly'nin Tasarım Kararları)
+**Uygulanacak:**
+
+- [ ] `enum_mappings` tablosu oluştur (migration):
+
+  ```sql
+  CREATE TABLE enum_mappings (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      dimension_id UUID NOT NULL REFERENCES semantic_dimensions(id) ON DELETE CASCADE,
+      raw_value TEXT NOT NULL,
+      label TEXT NOT NULL,
+      description TEXT,
+      sort_order INT DEFAULT 0,
+    UNIQUE(dimension_id, raw_value)
+  );
+  ```
+
+- [ ] `Dimension` struct'ına `EnumValues []EnumMapping` field'ı ekle (`pkg/semantic/`)
+- [ ] `semantic/repository.go`'da enum mapping CRUD metotları ekle
+- [ ] `prompt.go`'da dimension render edilirken enum mapping'leri prompt'a inject et:
+
+  ```text
+  status (TEXT) — Order status. Values: 1=pending, 2=processing, 3=shipped, 4=refunded
+  ```
+
+- [ ] `table_router.go`'da enum label'ları synonym olarak kullan
+- [ ] Frontend'de dimension edit modal'ında enum value editor UI ekle
+
+**Dosyalar:** `migrations/`, `pkg/semantic/model.go`, `internal/semantic/repository.go`, `internal/ai/prompt.go`, `internal/ai/table_router.go`
+
+### 4.2 Metric Expression Security — Controlled AST (B6 — Orta Öncelik)
+
+**Wren referansı (Bölüm 8):** "SQL injection / unsafe SQL → LogicalQuery schema + SQL AST validation"
+
+**Mevcut durum:** `calculated_expression` serbest string olarak kabul ediliyor. `ValidateContext()` içinde DML/DDL keyword rejection var ama AST-level parse yok. Zararlı expression teorik olarak geçebilir.
+
+**Uygulanacak:**
+
+- [ ] `internal/query/expression_parser.go` oluştur — basit expression AST parser:
+  - İzin verilen token tipleri: identifier, number, string, arithmetic operator, parens, function call
+  - Yasaklı: subquery, semicolon, comment, DML/DDL keyword
+- [ ] `ValidateContext()` içinde `calculated_expression` alanlarını AST parser'dan geçir
+- [ ] AST parser testleri: `expression_parser_test.go`
+  - Geçerli: `[total_amount] - [discount]`, `COALESCE([amount], 0)`
+  - Geçersiz: `1; DROP TABLE`, `(SELECT * FROM users)`, `exec xp_cmdshell`
+
+**Dosyalar:** `internal/query/expression_parser.go` (yeni), `internal/semantic/publish.go` (güncelle)
+
+### 4.3 Golden Test Case External Loader (B3 — Orta Öncelik)
+
+**Wren referansı (Bölüm 9, Faz 5):** "Golden eval dataset oluştur"
+
+**Mevcut durum:** `DefaultGoldenCases()` ile 5 hardcoded case + `BenchmarkCases()` mevcut. `testdata/` dizini var ama dosyalardan yükleme yok.
+
+**Uygulanacak:**
+
+- [ ] `internal/ai/golden_loader.go` oluştur:
+
+  ```go
+  func LoadGoldenCasesFromDir(dir string) ([]GoldenCase, error)
+  ```
+
+  - `testdata/golden/*.json` dosyalarından case'leri yükle
+  - Her dosya: `{id, question, model, expected: LogicalQuery}`
+- [ ] `evalModesFromRequest()`'da `suite=file:golden` parametresi destekle
+- [ ] `testdata/golden/` dizini oluştur, örnek JSON case dosyaları ekle
+- [ ] Golden case CRUD API ekle:
+  - `GET /api/ai/eval/cases` — mevcut golden case'leri listele
+  - `POST /api/ai/eval/cases` — yeni golden case ekle
+  - `DELETE /api/ai/eval/cases/{id}` — golden case sil
+- [ ] CI'da eval runner: `Makefile`'a `make eval` target ekle
+
+**Dosyalar:** `internal/ai/golden_loader.go` (yeni), `internal/http/handlers/ai_eval.go` (güncelle), `testdata/golden/` (yeni dizin)
+
+### 4.4 LLM Response Cache (B7 — Düşük Öncelik)
+
+**Wren referansı (Bölüm 6.3):** "Context confidence" + Wren'in semantic caching yaklaşımı
+
+**Mevcut durum:** Aynı soru tekrar sorulduğunda LLM'e tekrar gidiliyor. Fingerprint mekanizması `query_history`'de var ama cache lookup yok.
+
+**Uygulanacak:**
+
+- [ ] `internal/ai/response_cache.go` oluştur:
+
+  ```go
+  type ResponseCache interface {
+      Get(ctx context.Context, fingerprint string) (*AIResponse, error)
+      Put(ctx context.Context, fingerprint string, resp *AIResponse, ttl time.Duration) error
+  }
+  ```
+
+- [ ] Redis-backed implementasyon: question hash → AIResponse cache
+  - TTL: configurable (`BI_AI_RESPONSE_CACHE_TTL`, default 1h)
+  - Cache key: SHA-256(question + model_id + denied_fields_hash)
+  - Sadece high-confidence (>= 0.85) response'ları cache'le
+- [ ] `ProcessQuestion()` içinde cache lookup ekle (LLM call öncesi)
+- [ ] Cache invalidation: model publish edildiğinde ilgili cache'leri temizle
+
+**Dosyalar:** `internal/ai/response_cache.go` (yeni), `internal/ai/service.go` (güncelle)
+
+### 4.5 Audit Event DB Persistence (B2 — Düşük Öncelik)
+
+**Wren referansı (Bölüm 5.5):** "generated SQL, used context ve confidence audit olarak saklanıyor mu?"
+
+**Mevcut durum:** `internal/audit/audit.go` sadece `slog` ile logluyor. `query_history` ve `ai_query_history` tabloları de-facto audit store olarak çalışıyor ama generic audit event table yok.
+
+**Uygulanacak:**
+
+- [ ] `audit_events` tablosu oluştur (migration):
+
+  ```sql
+  CREATE TABLE audit_events (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID,
+      event_type TEXT NOT NULL,
+      datasource_id UUID,
+      model_id UUID,
+      details JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+  CREATE INDEX idx_audit_events_type ON audit_events(event_type);
+  CREATE INDEX idx_audit_events_user ON audit_events(user_id);
+  CREATE INDEX idx_audit_events_created ON audit_events(created_at DESC);
+  ```
+
+- [ ] `audit.Logger`'a DB writer ekle (async channel-based batch write)
+- [ ] `audit.go`'da `Log()` metodu hem slog hem DB'ye yazsın
+
+**Dosyalar:** `migrations/` (yeni), `internal/audit/audit.go` (güncelle), `internal/audit/db_writer.go` (yeni)
+
+### 4.6 Streaming Query Results (B8 — Düşük Öncelik)
+
+**Wren referansı (Bölüm 5.6):** "bounded execution → result metadata → chart suggestion"
+
+**Mevcut durum:** Executor tüm satırları okuduktan sonra dönüyor. Büyük sonuç setleri için memory baskısı var. Eval streaming SSE ile yapılabiliyor (`EvalRunStream`), query execution streaming yok.
+
+**Uygulanacak:**
+
+- [ ] `internal/query/executor.go`'da streaming variant ekle:
+
+  ```go
+  func (e *Executor) ExecuteStream(ctx context.Context, compiled CompiledQuery, fn func(rows []Row) bool) error
+  ```
+
+  - `sql.Rows` üzerinde batch iteration (100 rows per callback)
+  - Callback `false` dönürse iteration'ı durdur
+- [ ] HTTP handler'da SSE endpoint: `GET /api/query/run/stream`
+  - Her batch'i SSE event olarak gönder
+  - Client-side progressive rendering
+
+**Dosyalar:** `internal/query/executor.go` (güncelle), `internal/http/handlers/query.go` (güncelle)
+
+---
+
+## 5. Frontend İçin Uygulanacak Maddeler
+
+### 5.1 Dashboard Builder (F1 — Yüksek Öncelik)
+
+**Wren referansı (Bölüm 2.1):** "result preview, chart, dashboard"
+
+**Mevcut durum:** `/dashboard` route AI usage analytics gösteriyor. Kullanıcıların kaydedilmiş sorgu/chart'ları düzenleyeceği drag-drop editor yok.
+
+**Uygulanacak:**
+
+- [ ] Grid-based dashboard layout engine (react-grid-layout veya css grid)
+- [ ] Widget tipleri: ChartWidget, TableWidget, KPIWidget, TextWidget
+- [ ] Dashboard CRUD API (backend):
+  - `POST /api/dashboards` — oluştur
+  - `GET /api/dashboards` — listele
+  - `GET /api/dashboards/{id}` — getir
+  - `PUT /api/dashboards/{id}` — güncelle
+  - `DELETE /api/dashboards/{id}` — sil
+- [ ] Dashboard DB table (migration)
+- [ ] Frontend: `DashboardBuilder.tsx` — drag-drop widget editor
+- [ ] Frontend: Widget configuration panel (data source = saved query)
+
+### 5.2 Row-Level Security Admin UI (F2 — Yüksek Öncelik)
+
+**Wren referansı (Bölüm 4.1):** "Access rules: row-level / column-level control"
+
+**Mevcut durum:** Backend `CompileWithPermissions()` + `BuildRowFilterPredicates()` ile row-level filter injection yapıyor. `permissions` tablosunda row_filters JSON olarak saklanıyor. Admin'de datasource access paneli var ama row-level filter tanımlama UI yok.
+
+**Uygulanacak:**
+
+- [ ] `admin/RowLevelSecurityPanel.tsx` oluştur:
+  - Datasource/model seçimi
+  - Role bazlı row filter tanımlama
+  - Filter builder: `field` + `operator` + `value` satırları
+  - JSON preview
+- [ ] `admin/FieldPermissionPanel.tsx` oluştur:
+  - Model seçimi → dimension/metric listesi
+  - Role bazlı denied fields toggle
+- [ ] Backend'de mevcut `permissions` tablosunu kullan
+
+### 5.3 Business Glossary Browser (F5 — Orta Öncelik)
+
+**Wren referansı (Bölüm 4.1):** "Instructions / business glossary"
+
+**Mevcut durum:** Backend'de `business_glossary_terms` tablosu + CRUD API (`ai_glossary.go`) tamamen implement edildi. Frontend'de glossary browser/management sayfası yok.
+
+**Uygulanacak:**
+
+- [ ] `Glossary.tsx` page oluştur:
+  - Datasource/model filtresi
+  - Term listesi (table view)
+  - Create/Edit/Delete glossary term modal
+  - `maps_to_type` → dimension/metric/model link
+  - Alias yönetimi
+  - Search/filter
+- [ ] Sidebar'a "Glossary" link ekle (AI bölümü altına)
+- [ ] Mevcut API endpoint'leri: `GET/POST/PUT/DELETE /api/ai/glossary/*`
+
+### 5.4 Kullanıcı Query History Sayfası (F4 — Orta Öncelik)
+
+**Wren referansı (Bölüm 9):** "Feedback Loop ve Memory" — geçmiş soruların tekrar kullanılabilirliği
+
+**Mevcut durum:** Admin panel'de `AIHistoryPanel` var ama normal kullanıcılar kendi geçmiş sorgularını göremiyor.
+
+**Uygulanacak:**
+
+- [ ] `QueryHistory.tsx` page oluştur:
+  - Kullanıcının kendi AI sorgu geçmişi
+  - Search/filter (datasource, model, tarih, status)
+  - Tekrar çalıştır butonu
+  - Sonuç preview
+- [ ] `GET /api/ai/history?user_id=me` endpoint'i (mevcut `ListAIQueryHistory`'yi user-scoped yap)
+- [ ] Sidebar'da "History" link ekle (Query bölümü altına)
+
+---
+
+## 6. Olması Gerekmeyenler (Biqly'nin Tasarım Kararları)
 
 Wren dokümanında önerilen ama Biqly'nin bilerek uygulamadığı şeyler:
 
 | # | Wren Önerisi | Biqly'nin Yaklaşımı | Neden Uygulanmamalı |
 | --- | --- | --- | --- |
-| W1 | Raw SQL Editor | LogicalQuery-first mimari | Biqly'nin temel tasarım kararı: AI her zaman LogicalQuery üretir, backend SQL derler. Raw SQL editor güvenlik modelini zayıflatır. Power user'lar için gelecekte read-only SQL editor düşünülebilir ama şu an değil. |
-| W2 | MDL (Modeling Definition Language) DSL | JSON-based semantic model | Wren YAML/DSL tabanlı bir modeling dili kullanıyor. Biqly REST API + JSON ile çalışıyor. Özel bir DSL öğrenmeye gerek yok; visual canvas ile model tanımlanabiliyor. |
-| W3 | Apache DataFusion / Rust Core | Go-native compiler | Wren Rust-based bir execution engine kullanıyor. Biqly Go ile derli toplu çalışıyor, ayrı bir engine'a gerek yok. |
-| W4 | Connector Marketplace | 4 built-in driver | Biqly PostgreSQL, MySQL, SQL Server, ClickHouse destekliyor. Plugin marketplace karmaşıklık getirir; şu an 4 driver yeterli. |
-| W5 | Context Confidence ID Referanslama | Structural fingerprint + confidence score | Wren her context parçasına skor verip LLM response'da referanslanmasını öneriyor. Biqly zaten confidence scoring yapıyor. Ek ID referanslama audit complexity artırır, şu anki yapı yeterli. |
+| W1 | Raw SQL Editor | LogicalQuery-first mimari | Biqly'nin temel tasarım kararı: AI her zaman LogicalQuery üretir, backend SQL derler. Raw SQL editor güvenlik modelini zayıflatır. |
+| W2 | MDL (Modeling Definition Language) DSL | JSON-based semantic model | Wren YAML/DSL tabanlı bir modeling dili kullanıyor. Biqly REST API + JSON ile çalışıyor. Visual canvas ile model tanımlanabiliyor. |
+| W3 | Apache DataFusion / Rust Core | Go-native compiler | Wren Rust-based execution engine kullanıyor. Biqly Go ile derli toplu çalışıyor, ayrı engine'a gerek yok. |
+| W4 | Connector Marketplace | 4 built-in driver | Biqly PostgreSQL, MySQL, SQL Server, ClickHouse destekliyor. Plugin marketplace karmaşıklık getirir. |
+| W5 | Views / Cubes / Pre-aggregations | Semantic model + calculated expressions | Wren materialized views/cubes tanımlıyor. Biqly semantic model + calculated expressions ile aynı işi yapıyor. DB-level pre-aggregation ayrı bir feature olarak değerlendirilebilir. |
 
 ---
 
-## 5. Faz Bazlı Uygulama Planı (Wren Fazlarına Göre Güncellenmiş)
-
-Wren dokümanındaki Faz 1-5 planını Biqly'nin mevcut durumuna göre güncelliyorum:
+## 7. Faz Bazlı Uygulama Planı
 
 ### Faz 1 — Semantic Contract (✅ Tamamlandı)
 
-Wren'in önerdiği:
+- ✅ `semantic_models`, `semantic_dimensions`, `semantic_metrics`, `semantic_joins` tabloları
+- ✅ Publish/rollback workflow + versioning
+- ✅ Column-level access (`WithDeniedFields`) + row-level (`CompileWithPermissions`)
+- ✅ Budget enforcement + context snapshots
 
-- `models`, `dimensions`, `metrics`, `relationships` tablolarını netleştir
-- Her metric için formula, aggregation, allowed dimensions, filters tanımı
-- Relationship graph oluştur
-- Sensitive columns için access policy
+**Kalan:**
 
-Biqly durumu: **Tümü implement edildi.**
-
-- `semantic_models`, `semantic_dimensions`, `semantic_metrics`, `semantic_joins` tabloları mevcut
-- Publish/rollback workflow + versioning mevcut
-- Column-level access (`WithDeniedFields`) + row-level (`CompileWithPermissions`) mevcut
-- Budget enforcement mevcut
-
-**Yapılacaklar:**
-
-- [ ] Enum mapping mekanizması ekle (B1)
-- [ ] Metric expression AST validation güçlendir (B6)
+- [ ] Enum mapping mekanizması (B1)
+- [ ] Metric expression AST validation (B6)
 
 ### Faz 2 — Retrieval Layer (✅ Tamamlandı)
 
-Wren'in önerdiği:
+- ✅ Hybrid retrieval (keyword + synonym + embedding + FK graph)
+- ✅ Few-shot curated + dynamic retrieval
+- ✅ Budget-aware context packing + route confidence scoring
+- ✅ Business glossary integration (`business_glossary_terms`)
 
-- Lexical search
-- Embedding tabanlı semantic search
-- Approved question-SQL examples store
-- Top-K context packer
+**Kalan:**
 
-Biqly durumu: **Tümü implement edildi.**
-
-- Hybrid retrieval (keyword + synonym + embedding + FK graph) mevcut
-- Few-shot curated + dynamic (successful queries) retrieval mevcut
-- Budget-aware context packing mevcut
-- Route confidence scoring mevcut
-
-**Yapılacaklar:**
-
-- [ ] Embedding-based learning from user confirmations (B4 — deferred)
+- [ ] Embedding-based learning from user confirmations (deferred)
 
 ### Faz 3 — LogicalQuery Contract (✅ Tamamlandı)
 
-Wren'in önerdiği:
-
-- JSON schema tanımla
-- LLM output'u sadece bu schema'ya zorla
-- Unknown field/metric geldiğinde reject et
-
-Biqly durumu: **Tümü implement edildi.**
-
-- `LogicalQuerySchema` JSON schema constant mevcut
-- `parseLogicalQueryFromRaw()` ile structured parsing
-- Validator semantic model whitelist kontrolü yapıyor
-- CTE, Window, CASE, Subquery filter desteği mevcut
-
-**Yapılacaklar:** Yok. Bu faz tamamlandı.
+- ✅ `LogicalQuerySchema` JSON schema + structured parsing
+- ✅ Validator semantic model whitelist + CTE/Window/CASE/Subquery
 
 ### Faz 4 — SQL Generation & Validation (✅ Tamamlandı)
 
-Wren'in önerdiği:
+- ✅ `compiler.go` — 1002 satır, 4 dialect, parameterized
+- ✅ `ReadOnlyChecker` + default limit + timeout + EXPLAIN dry-run
 
-- SQL'i LLM yerine backend generator üretsin
-- SQL parser ile read-only kontrolü
-- LIMIT/timeout zorunlu
-- Query plan/dry-run
+### Faz 5 — Feedback + Eval (✅ Tamamlandı)
 
-Biqly durumu: **Tümü implement edildi.**
+- ✅ Feedback storage + successful queries → dynamic few-shot
+- ✅ Curated few-shot CRUD + regression report generation
+- ✅ SSE streaming eval + benchmark suite + telemetry
+- ✅ NATS-based async job queue + worker process
 
-- `compiler.go` — LogicalQuery → parameterized SQL (1002 satır)
-- `ReadOnlyChecker` — dangerous keyword detection
-- Default limit + timeout enforcement
-- EXPLAIN dry-run desteği
-- 4 dialect desteği (PostgreSQL, MySQL, SQL Server, ClickHouse)
+**Kalan:**
 
-**Yapılacaklar:** Yok. Bu faz tamamlandı.
-
-### Faz 5 — Feedback + Eval (⚠️ Kısmen Tamamlandı)
-
-Wren'in önerdiği:
-
-- Accepted query history → few-shot retrieval
-- User feedback → instruction/example olarak sakla
-- Golden eval dataset oluştur
-- CI'da eval runner çalıştır
-
-Biqly durumu:
-
-- ✅ Feedback storage mevcut (`InsertAIFeedback`)
-- ✅ Successful queries → dynamic few-shot mevcut
-- ✅ Curated few-shot CRUD mevcut
-- ⚠️ Golden eval sadece 5 hardcoded case
-- ⚠️ Eval runner HTTP handler'da, standalone değil
-- ✅ Regression report generation mevcut
-- ❌ CI'da otomatik eval çalıştırma yok
-
-**Yapılacaklar:**
-
-- [ ] Golden test case management — testdata dosyalarından yükleme + CRUD API (B3)
-- [ ] Eval runner'ı standalone service metodu yap (B3)
+- [ ] Golden case external file loader + CRUD API (B3)
 - [ ] CI pipeline'a eval runner ekle
-- [ ] Frontend'de eval case yönetim UI güçlendir (golden case CRUD)
 
-### Faz 6 — Frontend Gap Kapatma (Yeni Faz)
+### Faz 6 — Frontend Gap Kapatma (Yeni Faz — Uygulanacak)
 
-Wren referansında olup Biqly'de eksik olan frontend özellikleri:
-
-**Yapılacaklar:**
-
-- [ ] **Dashboard Builder** (F1) — Yüksek öncelik. Drag-drop chart/table widget layout editor
-- [ ] **Row-Level Security Admin UI** (F2) — Yüksek öncelik. Backend hazır, sadece UI eksik
-- [ ] **Field-Level Permission UI** (F3) — Orta öncelik. Denied fields per role yönetimi
-- [ ] **Kullanıcı Query History** (F4) — Orta öncelik. Admin-only history'yi tüm kullanıcılara aç
-- [ ] **Business Glossary Browser** (F5) — Orta öncelik. Merkezi glossary sayfası
+- [ ] **Dashboard Builder** (F1) — Yüksek öncelik
+- [ ] **Row-Level Security Admin UI** (F2) — Yüksek öncelik
+- [ ] **Business Glossary Browser** (F5) — Orta öncelik (backend hazır)
+- [ ] **Kullanıcı Query History** (F4) — Orta öncelik
+- [ ] **Field-Level Permission UI** (F3) — Orta öncelik
 
 ---
 
-## 6. Öncelik Matrisi
+## 8. Öncelik Matrisi
 
-| Öncelik | Backend | Frontend |
+| Öncelik | Backend (Go) | Frontend (React) |
 | --- | --- | --- |
 | 🔴 Yüksek | — | Dashboard Builder (F1), RLS Admin UI (F2) |
-| 🟡 Orta | Enum Mapping (B1), Metric Expression AST (B6), Golden Case Management (B3) | Field Permission UI (F3), User Query History (F4), Business Glossary (F5) |
-| 🟢 Düşük | Audit Event Table (B2), LLM Response Cache (B7), Streaming Results (B8), Embedding Learning (B4) | Export Formats (F6), Chart Customization (F7), Scheduled Queries (F8), Public Embed (F9) |
+| 🟡 Orta | Enum Mapping (B1), Metric AST (B6), Golden Loader (B3) | Glossary Browser (F5), Query History (F4), Field Permission UI (F3) |
+| 🟢 Düşük | Audit DB (B2), LLM Cache (B7), Streaming Results (B8) | Export Formats (F6), Chart Customization (F7), Scheduled Queries (F8) |
 
 ---
 
-## 7. Sonuç
+## 9. Sonuç
 
-Biqly, Wren.ai'nin önerdiği Text-to-SQL mimarisinin **%90'ını** implement etmiş durumda. Temel fark:
+Biqly, Wren.ai'nin önerdiği Text-to-SQL mimarisinin **%95'ini** implement etmiş durumda.
 
-- **Wren'in 5 fazının ilk 4'ü tamamen tamamlandı.** Semantic contract, retrieval, LogicalQuery, SQL generation/validation hepsi production-grade.
-- **Faz 5 (Feedback + Eval)** kısmen tamamlandı. Golden case management ve CI entegrasyonu eksik.
-- **En büyük gap frontend'de:** Dashboard builder ve RLS admin UI. Backend altyapısı hazır, sadece UI eksik.
-- **Olması gerekmeyenler** net: Raw SQL editor, MDL DSL, Rust engine, connector marketplace. Bunlar Biqly'nin tasarım kararlarıyla çelişiyor.
-- **Enum mapping** ve **metric expression security** orta vadeli teknik borç olarak değerlendirilmeli.
+**Güçlü yanlar (Wren referansına göre fazladan olanlar):**
+
+- Multi-candidate self-consistency voting (Wren'de yok)
+- Locale-aware prompt templates + i18n (Wren'de yok)
+- NATS async job queue + worker process (Wren'de yok)
+- Anomaly detection (IQR-based) result enrichment (Wren'de yok)
+- SSE streaming eval runner (Wren'de yok)
+- Full auth system (Passkeys + MFA + OAuth) (Wren'de yok)
+- Business glossary with mapping to semantic entities (Wren'de var ama Biqly'de daha yapısal)
+
+**Kalan işler:**
+
+- **6 somut backend maddesi** (B1-B8) — çoğu orta/düşük öncelik
+- **5 frontend maddesi** (F1-F5) — dashboard builder ve RLS UI yüksek öncelik
+- **Enum mapping** ve **metric expression security** orta vadeli teknik borç
+- **Gereksiz olanlar** net sınırlanmış: raw SQL editor, MDL DSL, Rust engine, connector marketplace

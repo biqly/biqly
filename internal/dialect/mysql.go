@@ -11,19 +11,17 @@ type MySQLDialect struct {
 	BaseDialect
 }
 
+// MySQL is the default global instance of MySQLDialect.
+var MySQL = MySQLDialect{
+	BaseDialect: BaseDialect{
+		QuoteLeft:  "`",
+		QuoteRight: "`",
+	},
+}
+
 // Name returns the dialect name.
 func (d MySQLDialect) Name() string {
 	return "mysql"
-}
-
-// QuoteIdentSegment quotes one identifier segment; backticks inside are doubled.
-func (d MySQLDialect) QuoteIdentSegment(identifier string) string {
-	return "`" + strings.ReplaceAll(identifier, "`", "``") + "`"
-}
-
-// QuoteIdent quotes a qualified name by splitting on '.' .
-func (d MySQLDialect) QuoteIdent(identifier string) string {
-	return QuoteIdentQualified(d, identifier)
 }
 
 // Placeholder returns the parameter placeholder for the given index.
@@ -60,11 +58,6 @@ func (d MySQLDialect) CalendarPart(part, column string) string {
 // column must be a SQL expression (e.g. already-quoted identifiers).
 func (d MySQLDialect) ILike(column, placeholder string) string {
 	return fmt.Sprintf("LOWER(%s) LIKE LOWER(%s)", column, placeholder)
-}
-
-// Aggregate formats an aggregation function call.
-func (d MySQLDialect) Aggregate(fn, column string) string {
-	return d.BaseDialect.Aggregate(d, fn, column)
 }
 
 var _ Dialect = MySQLDialect{}

@@ -9,8 +9,28 @@ import (
 // BaseDialect provides shared Dialect method implementations. Embed in concrete dialect types
 // and implement Name, QuoteIdentSegment, Placeholder, DateTrunc, CalendarPart, and ILike.
 type BaseDialect struct {
+	QuoteLeft       string
+	QuoteRight      string
 	ExplainDisabled bool
 	ClickHouseAggs  bool
+}
+
+// QuoteIdentSegment quotes one identifier segment; the right quote character is escaped by doubling it.
+func (b BaseDialect) QuoteIdentSegment(identifier string) string {
+	left := b.QuoteLeft
+	right := b.QuoteRight
+	if left == "" {
+		left = "\""
+	}
+	if right == "" {
+		right = "\""
+	}
+	return left + strings.ReplaceAll(identifier, right, right+right) + right
+}
+
+// QuoteIdent quotes a qualified name by splitting on '.' (schema.table or a.b.c).
+func (b BaseDialect) QuoteIdent(identifier string) string {
+	return QuoteIdentQualified(b, identifier)
 }
 
 // CastType returns the upper-cased SQL type name.
@@ -39,11 +59,11 @@ func (b BaseDialect) ExplainSQL(sql string) string {
 }
 
 // Aggregate formats an aggregation call using the dialect's conventions.
-func (b BaseDialect) Aggregate(d Dialect, fn, column string) string {
+func (b BaseDialect) Aggregate(fn, column string) string {
 	if b.ClickHouseAggs {
-		return AggregateClickHouseSQL(d, fn, column)
+		return AggregateClickHouseSQL(b, fn, column)
 	}
-	return AggregateStandardSQL(d, fn, column)
+	return AggregateStandardSQL(b, fn, column)
 }
 
 // CalendarPartLookup maps year/quarter/month to dialect-specific expressions.

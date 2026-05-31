@@ -19,7 +19,7 @@ type Driver struct {
 // NewDriver creates a new ClickHouse driver.
 func NewDriver() *Driver {
 	return &Driver{
-		BaseDriver: datasource.NewBaseDriver("clickhouse", "clickhouse", dialect.ClickHouseDialect{}, datasource.ClickHousePoolLimits()),
+		BaseDriver: datasource.NewBaseDriver("clickhouse", "clickhouse", dialect.ClickHouse, datasource.ClickHousePoolLimits()),
 	}
 }
 

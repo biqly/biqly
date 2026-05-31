@@ -39,7 +39,7 @@ func CastTypeUpper(sqlType string) string {
 }
 
 // AggregateStandardSQL formats COUNT/SUM/AVG/MIN/MAX in the conventional SQL style (PostgreSQL family).
-func AggregateStandardSQL(d Dialect, fn, column string) string {
+func AggregateStandardSQL(d interface{ QuoteIdent(string) string }, fn, column string) string {
 	fnLower := strings.ToLower(strings.TrimSpace(fn))
 	if fnLower == "custom" || fnLower == "none" || fnLower == "" {
 		return column
@@ -67,7 +67,7 @@ func AggregateStandardSQL(d Dialect, fn, column string) string {
 }
 
 // AggregateClickHouseSQL formats aggregates using ClickHouse-native spellings where they differ.
-func AggregateClickHouseSQL(d Dialect, fn, column string) string {
+func AggregateClickHouseSQL(d interface{ QuoteIdent(string) string }, fn, column string) string {
 	fnLower := strings.ToLower(strings.TrimSpace(fn))
 	if fnLower == "custom" || fnLower == "none" || fnLower == "" {
 		return column

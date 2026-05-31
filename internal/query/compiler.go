@@ -26,6 +26,24 @@ type Compiler struct {
 
 // NewCompiler creates a new SQL compiler for the given dialect.
 func NewCompiler(d dialect.Dialect) *Compiler {
+	switch concrete := d.(type) {
+	case dialect.PostgresDialect:
+		if concrete.QuoteLeft == "" {
+			d = dialect.Postgres
+		}
+	case dialect.MySQLDialect:
+		if concrete.QuoteLeft == "" {
+			d = dialect.MySQL
+		}
+	case dialect.SQLServerDialect:
+		if concrete.QuoteLeft == "" {
+			d = dialect.SQLServer
+		}
+	case dialect.ClickHouseDialect:
+		if concrete.QuoteLeft == "" {
+			d = dialect.ClickHouse
+		}
+	}
 	return &Compiler{dialect: d}
 }
 

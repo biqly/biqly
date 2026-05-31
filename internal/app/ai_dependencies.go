@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 
@@ -10,11 +9,6 @@ import (
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/core"
-	"github.com/biqly/biqly/internal/datasource"
-	"github.com/biqly/biqly/internal/datasource/clickhouse"
-	"github.com/biqly/biqly/internal/datasource/mysql"
-	"github.com/biqly/biqly/internal/datasource/postgres"
-	"github.com/biqly/biqly/internal/datasource/sqlserver"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/security"
@@ -25,24 +19,12 @@ import (
 
 // NewAIDependencies wires the standalone AI Service dependency graph.
 func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, error) {
-	db, err := sql.Open("pgx", cfg.Metadata.DSN)
+	db, err := openMetadataDB(ctx, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("open metadata db: %w", err)
-	}
-	if pingErr := db.PingContext(ctx); pingErr != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("ping metadata db: %w", pingErr)
+		return nil, err
 	}
 
-	lims := datasource.DefaultPoolLimits()
-	db.SetMaxOpenConns(lims.MaxOpen)
-	db.SetMaxIdleConns(lims.MaxIdle)
-
-	reg := datasource.NewRegistry()
-	reg.Register(postgres.NewDriver())
-	reg.Register(mysql.NewDriver())
-	reg.Register(sqlserver.NewDriver())
-	reg.Register(clickhouse.NewDriver())
+	reg := newDriverRegistry()
 
 	metaRepo := metadata.NewRepository(db)
 	semanticRepo := semantic.NewRepository(db)

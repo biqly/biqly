@@ -59,15 +59,9 @@ func (r *UserRepository) CreateUser(ctx context.Context, email, passwordHash, di
 			return fmt.Errorf("insert password history: %w", err)
 		}
 
-		if usernameNull.Valid {
-			user.Username = &usernameNull.String
-		}
-		if displayNameNull.Valid {
-			user.DisplayName = &displayNameNull.String
-		}
-		if avatarURLNull.Valid {
-			user.AvatarURL = &avatarURLNull.String
-		}
+		user.Username = platformdb.StringPtrFromNull(usernameNull)
+		user.DisplayName = platformdb.StringPtrFromNull(displayNameNull)
+		user.AvatarURL = platformdb.StringPtrFromNull(avatarURLNull)
 
 		// Automatically create a personal workspace for the user and assign roles.
 		return bootstrapUserWorkspace(ctx, tx, user.ID, displayName, email)
@@ -145,21 +139,11 @@ func scanUser(s platformdb.Scanner) (*User, error) {
 		return nil, err
 	}
 
-	if usernameNull.Valid {
-		user.Username = &usernameNull.String
-	}
-	if displayNameNull.Valid {
-		user.DisplayName = &displayNameNull.String
-	}
-	if avatarURLNull.Valid {
-		user.AvatarURL = &avatarURLNull.String
-	}
-	if passwordHashNull.Valid {
-		user.PasswordHash = &passwordHashNull.String
-	}
-	if lastLoginNull.Valid {
-		user.LastLoginAt = &lastLoginNull.Time
-	}
+	user.Username = platformdb.StringPtrFromNull(usernameNull)
+	user.DisplayName = platformdb.StringPtrFromNull(displayNameNull)
+	user.AvatarURL = platformdb.StringPtrFromNull(avatarURLNull)
+	user.PasswordHash = platformdb.StringPtrFromNull(passwordHashNull)
+	user.LastLoginAt = platformdb.TimePtrFromNull(lastLoginNull)
 
 	return &user, nil
 }
@@ -351,15 +335,9 @@ func (r *UserRepository) CreateUserWithOAuth(ctx context.Context, email, display
 			}
 		}
 
-		if usernameNull.Valid {
-			user.Username = &usernameNull.String
-		}
-		if displayNameNull.Valid {
-			user.DisplayName = &displayNameNull.String
-		}
-		if avatarURLNull.Valid {
-			user.AvatarURL = &avatarURLNull.String
-		}
+		user.Username = platformdb.StringPtrFromNull(usernameNull)
+		user.DisplayName = platformdb.StringPtrFromNull(displayNameNull)
+		user.AvatarURL = platformdb.StringPtrFromNull(avatarURLNull)
 
 		encAccess, err := r.encryptToken(token.AccessToken)
 		if err != nil {
@@ -449,12 +427,7 @@ func (r *UserRepository) GetWebAuthnChallenge(ctx context.Context, challenge []b
 		return nil, nil
 	}
 
-	var res *string
-	if userID.Valid {
-		s := userID.String
-		res = &s
-	}
-	return res, nil
+	return platformdb.StringPtrFromNull(userID), nil
 }
 
 func (r *UserRepository) GetPasskeysByUserID(ctx context.Context, userID string) ([]webauthn.Credential, error) {
@@ -614,9 +587,7 @@ func (r *UserRepository) GetUserPasskeys(ctx context.Context, userID string) ([]
 		if nameNull.Valid {
 			p.Name = nameNull.String
 		}
-		if lastUsedNull.Valid {
-			p.LastUsedAt = &lastUsedNull.Time
-		}
+		p.LastUsedAt = platformdb.TimePtrFromNull(lastUsedNull)
 
 		passkeys = append(passkeys, p)
 	}
@@ -872,15 +843,9 @@ func scanEmailChangeRequest(s scanner) (*EmailChangeRequest, error) {
 	if err != nil {
 		return nil, err
 	}
-	if oldConfirmed.Valid {
-		req.OldEmailConfirmedAt = &oldConfirmed.Time
-	}
-	if newConfirmed.Valid {
-		req.NewEmailConfirmedAt = &newConfirmed.Time
-	}
-	if completed.Valid {
-		req.CompletedAt = &completed.Time
-	}
+	req.OldEmailConfirmedAt = platformdb.TimePtrFromNull(oldConfirmed)
+	req.NewEmailConfirmedAt = platformdb.TimePtrFromNull(newConfirmed)
+	req.CompletedAt = platformdb.TimePtrFromNull(completed)
 	return &req, nil
 }
 

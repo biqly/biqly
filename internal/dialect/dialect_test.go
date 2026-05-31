@@ -11,10 +11,10 @@ func TestDateTruncPlaceholderPerDialect(t *testing.T) {
 		dialect Dialect
 		want    string
 	}{
-		{"postgres", PostgresDialect{}, "DATE_TRUNC('quarter', $1::timestamptz)"},
-		{"mysql", MySQLDialect{}, "DATE_TRUNC('quarter', CAST(? AS TIMESTAMP))"},
-		{"sqlserver", SQLServerDialect{}, "DATE_TRUNC('quarter', CAST(@p1 AS TIMESTAMP))"},
-		{"clickhouse", ClickHouseDialect{}, "DATE_TRUNC('quarter', CAST(? AS TIMESTAMP))"},
+		{"postgres", Postgres, "DATE_TRUNC('quarter', $1::timestamptz)"},
+		{"mysql", MySQL, "DATE_TRUNC('quarter', CAST(? AS TIMESTAMP))"},
+		{"sqlserver", SQLServer, "DATE_TRUNC('quarter', CAST(@p1 AS TIMESTAMP))"},
+		{"clickhouse", ClickHouse, "DATE_TRUNC('quarter', CAST(? AS TIMESTAMP))"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -36,12 +36,12 @@ func TestCalendarPartYearIntegerSQL(t *testing.T) {
 	}{
 		{
 			name:    "postgres",
-			dialect: PostgresDialect{},
+			dialect: Postgres,
 			contain: []string{"EXTRACT(YEAR FROM", "AS INTEGER)", `"salesorderheader"."orderdate"`},
 		},
-		{name: "mysql", dialect: MySQLDialect{}, contain: []string{"YEAR(", "`salesorderheader`.`orderdate`"}},
-		{name: "sqlserver", dialect: SQLServerDialect{}, contain: []string{"YEAR(", "[salesorderheader].[orderdate]"}},
-		{name: "clickhouse", dialect: ClickHouseDialect{}, contain: []string{"toYear(", "`salesorderheader`.`orderdate`"}},
+		{name: "mysql", dialect: MySQL, contain: []string{"YEAR(", "`salesorderheader`.`orderdate`"}},
+		{name: "sqlserver", dialect: SQLServer, contain: []string{"YEAR(", "[salesorderheader].[orderdate]"}},
+		{name: "clickhouse", dialect: ClickHouse, contain: []string{"toYear(", "`salesorderheader`.`orderdate`"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -61,10 +61,10 @@ func TestAggregateCountStar(t *testing.T) {
 		dialect Dialect
 		want    string
 	}{
-		{name: "postgres", dialect: PostgresDialect{}, want: "COUNT(*)"},
-		{name: "mysql", dialect: MySQLDialect{}, want: "COUNT(*)"},
-		{name: "sqlserver", dialect: SQLServerDialect{}, want: "COUNT(*)"},
-		{name: "clickhouse", dialect: ClickHouseDialect{}, want: "count()"},
+		{name: "postgres", dialect: Postgres, want: "COUNT(*)"},
+		{name: "mysql", dialect: MySQL, want: "COUNT(*)"},
+		{name: "sqlserver", dialect: SQLServer, want: "COUNT(*)"},
+		{name: "clickhouse", dialect: ClickHouse, want: "count()"},
 	}
 
 	for _, tt := range tests {
@@ -78,7 +78,7 @@ func TestAggregateCountStar(t *testing.T) {
 }
 
 func TestSQLServerLimitOffsetIncludesOffsetForLimitOnly(t *testing.T) {
-	got := SQLServerDialect{}.LimitOffset(100, 0)
+	got := SQLServer.LimitOffset(100, 0)
 	want := "OFFSET 0 ROWS FETCH NEXT 100 ROWS ONLY"
 	if got != want {
 		t.Fatalf("LimitOffset(100, 0) = %q, want %q", got, want)
@@ -91,10 +91,10 @@ func TestDefaultOrderBy(t *testing.T) {
 		dialect Dialect
 		want    string
 	}{
-		{name: "postgres", dialect: PostgresDialect{}, want: ""},
-		{name: "mysql", dialect: MySQLDialect{}, want: ""},
-		{name: "sqlserver", dialect: SQLServerDialect{}, want: "(SELECT NULL)"},
-		{name: "clickhouse", dialect: ClickHouseDialect{}, want: ""},
+		{name: "postgres", dialect: Postgres, want: ""},
+		{name: "mysql", dialect: MySQL, want: ""},
+		{name: "sqlserver", dialect: SQLServer, want: "(SELECT NULL)"},
+		{name: "clickhouse", dialect: ClickHouse, want: ""},
 	}
 
 	for _, tt := range tests {
@@ -119,22 +119,22 @@ func TestSelectWithLimit(t *testing.T) {
 	}{
 		{
 			name:    "postgres",
-			dialect: PostgresDialect{},
+			dialect: Postgres,
 			want:    "SELECT id, name FROM users LIMIT 5",
 		},
 		{
 			name:    "mysql",
-			dialect: MySQLDialect{},
+			dialect: MySQL,
 			want:    "SELECT id, name FROM users LIMIT 5",
 		},
 		{
 			name:    "sqlserver",
-			dialect: SQLServerDialect{},
+			dialect: SQLServer,
 			want:    "SELECT TOP (5) id, name FROM users",
 		},
 		{
 			name:    "clickhouse",
-			dialect: ClickHouseDialect{},
+			dialect: ClickHouse,
 			want:    "SELECT id, name FROM users LIMIT 5",
 		},
 	}
