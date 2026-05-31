@@ -4,31 +4,31 @@ helm:
     value: ghcr.io/biqly/ai
     forcestring: true
   - name: ai.image.tag
-    value: sha-0ca69bc205479091a12c459fc4074d0738b6367c
+    value: sha-a83ef9f93eea0638c24c69ee668235ef5ec956f9
     forcestring: true
   - name: auth.image.repository
     value: ghcr.io/biqly/biqly-auth
     forcestring: true
   - name: auth.image.tag
-    value: sha-f817bd45950cd29d58767373895589487fc6328e
+    value: sha-a83ef9f93eea0638c24c69ee668235ef5ec956f9
     forcestring: true
   - name: auth.migrate.image.repository
     value: ghcr.io/biqly/biqly-auth
     forcestring: true
   - name: auth.migrate.image.tag
-    value: sha-f817bd45950cd29d58767373895589487fc6328e
+    value: sha-a83ef9f93eea0638c24c69ee668235ef5ec956f9
     forcestring: true
   - name: catalog.image.repository
     value: ghcr.io/biqly/catalog
     forcestring: true
   - name: catalog.image.tag
-    value: sha-0ca69bc205479091a12c459fc4074d0738b6367c
+    value: sha-a83ef9f93eea0638c24c69ee668235ef5ec956f9
     forcestring: true
   - name: frontend.image.repository
     value: ghcr.io/biqly/biqly-frontend
     forcestring: true
   - name: frontend.image.tag
-    value: sha-0ca69bc205479091a12c459fc4074d0738b6367c
+    value: sha-a83ef9f93eea0638c24c69ee668235ef5ec956f9
     forcestring: true
   - name: global.migrate.image.repository
     value: ghcr.io/biqly/migrate
@@ -40,17 +40,17 @@ helm:
     value: ghcr.io/biqly/biqly-mail
     forcestring: true
   - name: mail.image.tag
-    value: sha-3e7d76537a106557bed958a600695ddc3f7a3bf1
+    value: sha-a83ef9f93eea0638c24c69ee668235ef5ec956f9
     forcestring: true
   - name: mail.migrate.image.repository
     value: ghcr.io/biqly/biqly-mail
     forcestring: true
   - name: mail.migrate.image.tag
-    value: sha-3e7d76537a106557bed958a600695ddc3f7a3bf1
+    value: sha-a83ef9f93eea0638c24c69ee668235ef5ec956f9
     forcestring: true
   - name: query.image.repository
     value: ghcr.io/biqly/query
     forcestring: true
   - name: query.image.tag
-    value: sha-0ca69bc205479091a12c459fc4074d0738b6367c
+    value: sha-a83ef9f93eea0638c24c69ee668235ef5ec956f9
     forcestring: true
