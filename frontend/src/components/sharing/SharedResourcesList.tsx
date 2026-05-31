@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { useT } from '../../i18n'
 import type { ResourceShare } from '../../types/auth'
 import { Pagination } from '../ui/Pagination'
+import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { useConfirm } from '../../hooks/useConfirm'
 import '../../styles/sharing.css'
 
@@ -78,58 +79,68 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
     }
   }
 
-  if (loading && items.length === 0) return <div className="shared-list__loading">{t('common.loading')}</div>
-  if (error) return <div className="shared-list__error">{error}</div>
-  if (!loading && items.length === 0) return <p className="shared-list__empty">{t('admin.sharing.empty')}</p>
-
   return (
     <div className="shared-list">
+      {error && <div className="shared-list__error">{error}</div>}
+
       <div style={containerStyle}>
-        <table className="shared-list__table">
-          <thead>
-            <tr>
-              <th>{t('admin.sharing.resource_type')}</th>
-              <th>{t('admin.sharing.resource_id')}</th>
-              <th>{t('admin.sharing.shared_with')}</th>
-              <th>{t('admin.sharing.permission')}</th>
-              <th>{t('admin.sharing.created_at')}</th>
-              <th>{t('common.actions')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {displayedItems.map((share) => (
-              <tr key={share.id}>
-                <td><span className="shared-list__type-badge">{share.resource_type}</span></td>
-                <td className="shared-list__mono">{share.resource_id.slice(0, 8)}…</td>
-                <td>
-                  {share.shared_with
-                    ? <span className="shared-list__mono">{share.shared_with.slice(0, 8)}…</span>
-                    : share.workspace_id
-                      ? <span className="shared-list__workspace">WS: {share.workspace_id.slice(0, 8)}…</span>
-                      : '—'}
-                </td>
-                <td>
-                  <span className={`shared-list__perm shared-list__perm--${share.permission}`}>
-                    {permissionBadge(share.permission)}
-                  </span>
-                </td>
-                <td>{new Date(share.created_at).toLocaleDateString()}</td>
-                <td>
-                  <button onClick={() => onRevoke(share.id)} className="shared-list__revoke">
-                    {t('common.delete')}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-          totalItems={totalItems}
-          itemsPerPage={pageSize}
-        />
+        <LoadingOverlay loading={loading}>
+          <div style={{ minHeight: displayedItems.length === 0 && loading ? 120 : 'auto', display: 'flex', flexDirection: 'column' }}>
+            {displayedItems.length === 0 ? (
+              <p className="shared-list__empty" style={{ margin: 0, padding: '48px 24px', textAlign: 'center' }}>
+                {loading ? '' : t('admin.sharing.empty')}
+              </p>
+            ) : (
+              <table className="shared-list__table">
+                <thead>
+                  <tr>
+                    <th>{t('admin.sharing.resource_type')}</th>
+                    <th>{t('admin.sharing.resource_id')}</th>
+                    <th>{t('admin.sharing.shared_with')}</th>
+                    <th>{t('admin.sharing.permission')}</th>
+                    <th>{t('admin.sharing.created_at')}</th>
+                    <th>{t('common.actions')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayedItems.map((share) => (
+                    <tr key={share.id}>
+                      <td><span className="shared-list__type-badge">{share.resource_type}</span></td>
+                      <td className="shared-list__mono">{share.resource_id.slice(0, 8)}…</td>
+                      <td>
+                        {share.shared_with
+                          ? <span className="shared-list__mono">{share.shared_with.slice(0, 8)}…</span>
+                          : share.workspace_id
+                            ? <span className="shared-list__workspace">WS: {share.workspace_id.slice(0, 8)}…</span>
+                            : '—'}
+                      </td>
+                      <td>
+                        <span className={`shared-list__perm shared-list__perm--${share.permission}`}>
+                          {permissionBadge(share.permission)}
+                        </span>
+                      </td>
+                      <td>{new Date(share.created_at).toLocaleDateString()}</td>
+                      <td>
+                        <button onClick={() => onRevoke(share.id)} className="shared-list__revoke">
+                          {t('common.delete')}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </LoadingOverlay>
+        {displayedItems.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={totalItems}
+            itemsPerPage={pageSize}
+          />
+        )}
       </div>
     </div>
   )

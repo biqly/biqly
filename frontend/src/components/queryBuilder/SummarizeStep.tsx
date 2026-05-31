@@ -41,6 +41,10 @@ export function SummarizeStep({
       themeClass="summarize"
       onClose={onClear}
       closeTitle={t('common.cancel')}
+      collapsible
+      summary={t('query_builder.step_summary_count', {
+        count: groupBy.length + selectItems.filter((i) => i.type === 'metric').length,
+      })}
     >
       <div className="notebook-summarize-split">
         {/* Aggregations */}

@@ -546,7 +546,7 @@ BI araclari kompleks. Onboarding flow:
 - [x] Keyboard shortcuts sistemi kur
 - [x] Loading skeleton'lari ekle
 - [x] Breadcrumb navigasyonu ekle
-- [ ] Query Builder'da progressive disclosure (acordion veya wizard modu)
+- [x] Query Builder'da progressive disclosure (acordion veya wizard modu)
 - [x] Data export (CSV/Excel) ozelligi
 - [x] Empty state tasarimini iyilestir
 - [x] Ana sayfa redesign: recent queries + favorites + quick actions

@@ -96,6 +96,45 @@
   }
 }
 
+.notebook-step-label--toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.3rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+@media (max-width: 768px) {
+  .notebook-step-label--toggle {
+    justify-content: flex-start;
+  }
+}
+
+.notebook-step-chevron {
+  font-size: 0.65rem;
+  opacity: 0.7;
+}
+
+.notebook-step-summary-card {
+  flex: 1;
+  text-align: left;
+  border: 1px dashed var(--border);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.82rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.notebook-step-summary-card:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
 .notebook-step-label--data { color: #818cf8; }
 .notebook-step-label--join { color: #38bdf8; }
 .notebook-step-label--filter { color: #c084fc; }

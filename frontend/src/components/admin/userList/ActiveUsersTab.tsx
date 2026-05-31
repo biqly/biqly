@@ -2,6 +2,7 @@ import React from 'react'
 import type { AuthUser } from '../../../types/auth'
 import { localeLanguageTag } from '../../../i18n'
 import { Pagination } from '../../ui/Pagination'
+import { LoadingOverlay } from '../../ui/LoadingOverlay'
 
 interface ActiveUsersTabProps {
   search: string
@@ -21,6 +22,7 @@ interface ActiveUsersTabProps {
   pageSize: number
   locale: 'en' | 'tr'
   t: any
+  loading?: boolean
 }
 
 export function ActiveUsersTab({
@@ -41,6 +43,7 @@ export function ActiveUsersTab({
   pageSize,
   locale,
   t,
+  loading = false,
 }: ActiveUsersTabProps) {
   return (
     <>
@@ -78,69 +81,73 @@ export function ActiveUsersTab({
             {actionMessage.text}
           </div>
         )}
-        <table className="admin-table">
-          <thead>
-            <tr className="admin-thead-row">
-              <th className="admin-th">{t('admin.users.col_user')}</th>
-              <th className="admin-th">{t('admin.users.col_name')}</th>
-              <th className="admin-th">{t('admin.users.col_status')}</th>
-              <th className="admin-th">{t('admin.users.col_email_verification')}</th>
-              <th className="admin-th">{t('admin.users.col_created_at')}</th>
-              <th className="admin-th"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {displayedUsers.length === 0 ? (
-              <tr className="admin-tr">
-                <td colSpan={6} style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>
-                  {t('admin.users.empty')}
-                </td>
-              </tr>
-            ) : (
-              displayedUsers.map((u) => (
-                <tr key={u.id} className="admin-tr">
-                  <td className="admin-td">
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span style={{ fontWeight: 600 }}>{u.email}</span>
-                      {u.username && <span className="admin-subtext">{u.username}</span>}
-                    </div>
-                  </td>
-                  <td className="admin-td">{u.displayName || t('common.em_dash')}</td>
-                  <td className="admin-td">
-                    <span className={u.isActive ? 'admin-badge-active' : 'admin-badge-inactive'}>
-                      {u.isActive ? t('admin.users.status_active') : t('admin.users.status_inactive')}
-                    </span>
-                  </td>
-                  <td className="admin-td">
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
-                      <span className={u.emailVerified ? 'admin-badge-verified' : 'admin-badge-unverified'}>
-                        {u.emailVerified ? t('admin.users.email_verified') : t('admin.users.email_unverified')}
-                      </span>
-                      {!u.emailVerified && (
-                        <button
-                          type="button"
-                          onClick={() => handleResendVerification(u.id)}
-                          disabled={verificationLoadingId === u.id}
-                          className="admin-btn-secondary"
-                        >
-                          {verificationLoadingId === u.id ? '...' : t('admin.users.resend_verification')}
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                  <td className="admin-td">
-                    {new Date(u.createdAt).toLocaleDateString(localeLanguageTag(locale))}
-                  </td>
-                  <td className="admin-td" style={{ textAlign: 'right' }}>
-                    <button onClick={() => onSelectUser(u.id)} className="admin-btn-primary">
-                      {t('admin.users.manage')}
-                    </button>
-                  </td>
+        <LoadingOverlay loading={loading}>
+          <div style={{ minHeight: displayedUsers.length === 0 && loading ? 120 : 'auto', display: 'flex', flexDirection: 'column' }}>
+            <table className="admin-table">
+              <thead>
+                <tr className="admin-thead-row">
+                  <th className="admin-th">{t('admin.users.col_user')}</th>
+                  <th className="admin-th">{t('admin.users.col_name')}</th>
+                  <th className="admin-th">{t('admin.users.col_status')}</th>
+                  <th className="admin-th">{t('admin.users.col_email_verification')}</th>
+                  <th className="admin-th">{t('admin.users.col_created_at')}</th>
+                  <th className="admin-th"></th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {displayedUsers.length === 0 ? (
+                  <tr className="admin-tr">
+                    <td colSpan={6} style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>
+                      {loading ? '' : t('admin.users.empty')}
+                    </td>
+                  </tr>
+                ) : (
+                  displayedUsers.map((u) => (
+                    <tr key={u.id} className="admin-tr">
+                      <td className="admin-td">
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontWeight: 600 }}>{u.email}</span>
+                          {u.username && <span className="admin-subtext">{u.username}</span>}
+                        </div>
+                      </td>
+                      <td className="admin-td">{u.displayName || t('common.em_dash')}</td>
+                      <td className="admin-td">
+                        <span className={u.isActive ? 'admin-badge-active' : 'admin-badge-inactive'}>
+                          {u.isActive ? t('admin.users.status_active') : t('admin.users.status_inactive')}
+                        </span>
+                      </td>
+                      <td className="admin-td">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
+                          <span className={u.emailVerified ? 'admin-badge-verified' : 'admin-badge-unverified'}>
+                            {u.emailVerified ? t('admin.users.email_verified') : t('admin.users.email_unverified')}
+                          </span>
+                          {!u.emailVerified && (
+                            <button
+                              type="button"
+                              onClick={() => handleResendVerification(u.id)}
+                              disabled={verificationLoadingId === u.id}
+                              className="admin-btn-secondary"
+                            >
+                              {verificationLoadingId === u.id ? '...' : t('admin.users.resend_verification')}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td className="admin-td">
+                        {new Date(u.createdAt).toLocaleDateString(localeLanguageTag(locale))}
+                      </td>
+                      <td className="admin-td" style={{ textAlign: 'right' }}>
+                        <button onClick={() => onSelectUser(u.id)} className="admin-btn-primary">
+                          {t('admin.users.manage')}
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </LoadingOverlay>
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}

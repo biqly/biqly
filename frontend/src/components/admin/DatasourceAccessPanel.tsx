@@ -8,6 +8,7 @@ import {
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import type { DatasourceAccess } from '../../types/auth'
 import { Pagination } from '../ui/Pagination'
+import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { useConfirm } from '../../hooks/useConfirm'
 import { useAdminLookups } from '../../hooks/useAdminLookups'
 
@@ -125,56 +126,59 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
         </button>
       </form>
 
-      {loading && <div className="admin-text-muted">{t('common.loading')}</div>}
       {error && <div className="admin-err-text">{t('common.error')}: {error}</div>}
 
       <div className="admin-table-container">
-        <table className="admin-table">
-          <thead>
-            <tr className="admin-thead-row">
-              <th className="admin-th">{t('admin.fields.user')}</th>
-              <th className="admin-th">Datasource</th>
-              <th className="admin-th">{t('admin.datasource_access.level')}</th>
-              <th className="admin-th">{t('admin.datasource_access.granted_at')}</th>
-              <th className="admin-th"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr className="admin-tr">
-                <td colSpan={5} style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>
-                  —
-                </td>
-              </tr>
-            ) : (
-              rows.map((r) => {
-                const userObj = users.find((u) => u.id === r.user_id)
-                const dsObj = datasources.find((d) => d.id === r.datasource_id)
-                return (
-                  <tr key={r.id} className="admin-tr">
-                    <td className="admin-td-mono">{userObj ? userObj.email : r.user_id}</td>
-                    <td className="admin-td-mono">{dsObj ? dsObj.name : r.datasource_id}</td>
-                    <td className="admin-td">
-                      <select
-                        value={r.access_level}
-                        onChange={(e) => onChangeLevel(r.id, e.target.value as 'read' | 'write' | 'admin')}
-                        className={`admin-select-small admin-level-${r.access_level}`}
-                      >
-                        <option value="read" style={{ background: 'var(--bg-card)', color: 'var(--success)' }}>read</option>
-                        <option value="write" style={{ background: 'var(--bg-card)', color: 'var(--warning)' }}>write</option>
-                        <option value="admin" style={{ background: 'var(--bg-card)', color: 'var(--error)' }}>admin</option>
-                      </select>
-                    </td>
-                    <td className="admin-td">{new Date(r.granted_at).toLocaleString(localeLanguageTag(locale))}</td>
-                    <td className="admin-td" style={{ textAlign: 'right' }}>
-                      <button onClick={() => onRevoke(r.user_id, r.datasource_id)} className="admin-btn-secondary">{t('common.delete')}</button>
+        <LoadingOverlay loading={loading}>
+          <div style={{ minHeight: rows.length === 0 && loading ? 120 : 'auto', display: 'flex', flexDirection: 'column' }}>
+            <table className="admin-table">
+              <thead>
+                <tr className="admin-thead-row">
+                  <th className="admin-th">{t('admin.fields.user')}</th>
+                  <th className="admin-th">Datasource</th>
+                  <th className="admin-th">{t('admin.datasource_access.level')}</th>
+                  <th className="admin-th">{t('admin.datasource_access.granted_at')}</th>
+                  <th className="admin-th"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 ? (
+                  <tr className="admin-tr">
+                    <td colSpan={5} style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>
+                      {loading ? '' : '—'}
                     </td>
                   </tr>
-                )
-              })
-            )}
-          </tbody>
-        </table>
+                ) : (
+                  rows.map((r) => {
+                    const userObj = users.find((u) => u.id === r.user_id)
+                    const dsObj = datasources.find((d) => d.id === r.datasource_id)
+                    return (
+                      <tr key={r.id} className="admin-tr">
+                        <td className="admin-td-mono">{userObj ? userObj.email : r.user_id}</td>
+                        <td className="admin-td-mono">{dsObj ? dsObj.name : r.datasource_id}</td>
+                        <td className="admin-td">
+                          <select
+                            value={r.access_level}
+                            onChange={(e) => onChangeLevel(r.id, e.target.value as 'read' | 'write' | 'admin')}
+                            className={`admin-select-small admin-level-${r.access_level}`}
+                          >
+                            <option value="read" style={{ background: 'var(--bg-card)', color: 'var(--success)' }}>read</option>
+                            <option value="write" style={{ background: 'var(--bg-card)', color: 'var(--warning)' }}>write</option>
+                            <option value="admin" style={{ background: 'var(--bg-card)', color: 'var(--error)' }}>admin</option>
+                          </select>
+                        </td>
+                        <td className="admin-td">{new Date(r.granted_at).toLocaleString(localeLanguageTag(locale))}</td>
+                        <td className="admin-td" style={{ textAlign: 'right' }}>
+                          <button onClick={() => onRevoke(r.user_id, r.datasource_id)} className="admin-btn-secondary">{t('common.delete')}</button>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </LoadingOverlay>
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}

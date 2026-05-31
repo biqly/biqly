@@ -2,6 +2,7 @@ import React from 'react'
 import type { Invitation } from '../../../types/auth'
 import { localeLanguageTag } from '../../../i18n'
 import { Pagination } from '../../ui/Pagination'
+import { LoadingOverlay } from '../../ui/LoadingOverlay'
 
 interface InvitationsTabProps {
   inviteSearch: string
@@ -87,101 +88,105 @@ export function InvitationsTab({
             {actionMessage.text}
           </div>
         )}
-        {invitesLoading && invitations.length === 0 ? (
-          <div className="admin-text-muted">{t('auth.invite_list_loading')}</div>
-        ) : invitesError ? (
+        {invitesError ? (
           <div className="admin-err-text">
             {t('common.error')}: {invitesError}
           </div>
         ) : (
-          <>
-            <table className="admin-table">
-              <thead>
-                <tr className="admin-thead-row">
-                  <th className="admin-th">{t('auth.invite_col_email')}</th>
-                  <th className="admin-th">{t('auth.invite_col_role')}</th>
-                  <th className="admin-th">{t('auth.invite_col_invited_by')}</th>
-                  <th className="admin-th">{t('auth.invite_col_sent_at')}</th>
-                  <th className="admin-th">{t('auth.invite_col_expires_at')}</th>
-                  <th className="admin-th">{t('auth.invite_col_status')}</th>
-                  <th className="admin-th"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {invitations.length === 0 ? (
-                  <tr className="admin-tr">
-                    <td colSpan={7} style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>
-                      {t('auth.invite_list_empty')}
-                    </td>
+          <LoadingOverlay loading={invitesLoading}>
+            <div style={{ minHeight: invitations.length === 0 && invitesLoading ? 120 : 'auto', display: 'flex', flexDirection: 'column' }}>
+              <table className="admin-table">
+                <thead>
+                  <tr className="admin-thead-row">
+                    <th className="admin-th">{t('auth.invite_col_email')}</th>
+                    <th className="admin-th">{t('auth.invite_col_role')}</th>
+                    <th className="admin-th">{t('auth.invite_col_invited_by')}</th>
+                    <th className="admin-th">{t('auth.invite_col_sent_at')}</th>
+                    <th className="admin-th">{t('auth.invite_col_expires_at')}</th>
+                    <th className="admin-th">{t('auth.invite_col_status')}</th>
+                    <th className="admin-th"></th>
                   </tr>
-                ) : (
-                  invitations.map((inv) => {
-                    const status = getInviteStatus(inv)
-                    const isPendingOrExpired = status === 'pending' || status === 'expired'
-                    return (
-                      <tr key={inv.id} className="admin-tr">
-                        <td className="admin-td">
-                          <span style={{ fontWeight: 600 }}>{inv.email}</span>
-                        </td>
-                        <td className="admin-td">{inv.role_name}</td>
-                        <td className="admin-td">{inv.invited_by}</td>
-                        <td className="admin-td">
-                          {new Date(inv.created_at).toLocaleDateString(localeLanguageTag(locale))}
-                        </td>
-                        <td className="admin-td">
-                          {new Date(inv.expires_at).toLocaleDateString(localeLanguageTag(locale))}
-                        </td>
-                        <td className="admin-td">
-                          <span
-                            className={
-                              status === 'claimed'
-                                ? 'admin-badge-claimed'
+                </thead>
+                <tbody>
+                  {invitations.length === 0 ? (
+                    <tr className="admin-tr">
+                      <td colSpan={7} style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>
+                        {invitesLoading ? '' : t('auth.invite_list_empty')}
+                      </td>
+                    </tr>
+                  ) : (
+                    invitations.map((inv) => {
+                      const status = getInviteStatus(inv)
+                      const isPendingOrExpired = status === 'pending' || status === 'expired'
+                      return (
+                        <tr key={inv.id} className="admin-tr">
+                          <td className="admin-td">
+                            <span style={{ fontWeight: 600 }}>{inv.email}</span>
+                          </td>
+                          <td className="admin-td">{inv.role_name}</td>
+                          <td className="admin-td">{inv.invited_by}</td>
+                          <td className="admin-td">
+                            {new Date(inv.created_at).toLocaleDateString(localeLanguageTag(locale))}
+                          </td>
+                          <td className="admin-td">
+                            {new Date(inv.expires_at).toLocaleDateString(localeLanguageTag(locale))}
+                          </td>
+                          <td className="admin-td">
+                            <span
+                              className={
+                                status === 'claimed'
+                                  ? 'admin-badge-claimed'
+                                  : status === 'expired'
+                                  ? 'admin-badge-expired'
+                                  : 'admin-badge-pending'
+                              }
+                            >
+                              {status === 'claimed'
+                                ? t('auth.invite_status_claimed')
                                 : status === 'expired'
-                                ? 'admin-badge-expired'
-                                : 'admin-badge-pending'
-                            }
-                          >
-                            {status === 'claimed'
-                              ? t('auth.invite_status_claimed')
-                              : status === 'expired'
-                              ? t('auth.invite_status_expired')
-                              : t('auth.invite_status_pending')}
-                          </span>
-                        </td>
-                        <td className="admin-td" style={{ textAlign: 'right' }}>
-                          {isPendingOrExpired && (
-                            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                              <button
-                                onClick={() => handleResend(inv.id)}
-                                disabled={actionLoadingId === inv.id}
-                                className="admin-btn-secondary"
-                              >
-                                {actionLoadingId === inv.id ? '...' : t('auth.btn_resend')}
-                              </button>
-                              <button
-                                onClick={() => handleRevoke(inv.id)}
-                                disabled={actionLoadingId === inv.id}
-                                className="admin-btn-danger"
-                              >
-                                {actionLoadingId === inv.id ? '...' : t('auth.btn_revoke')}
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-            <Pagination
-              currentPage={inviteCurrentPage}
-              totalPages={Math.ceil(inviteTotalItems / pageSize)}
-              onPageChange={setInviteCurrentPage}
-              totalItems={inviteTotalItems}
-              itemsPerPage={pageSize}
-            />
-          </>
+                                ? t('auth.invite_status_expired')
+                                : t('auth.invite_status_pending')}
+                            </span>
+                          </td>
+                          <td className="admin-td" style={{ textAlign: 'right' }}>
+                            {isPendingOrExpired && (
+                              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleResend(inv.id)}
+                                  disabled={actionLoadingId === inv.id}
+                                  className="admin-btn-secondary"
+                                >
+                                  {actionLoadingId === inv.id ? '...' : t('auth.btn_resend')}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRevoke(inv.id)}
+                                  disabled={actionLoadingId === inv.id}
+                                  className="admin-btn-danger"
+                                >
+                                  {actionLoadingId === inv.id ? '...' : t('auth.btn_revoke')}
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </LoadingOverlay>
+        )}
+        {!invitesError && (
+          <Pagination
+            currentPage={inviteCurrentPage}
+            totalPages={Math.ceil(inviteTotalItems / pageSize)}
+            onPageChange={setInviteCurrentPage}
+            totalItems={inviteTotalItems}
+            itemsPerPage={pageSize}
+          />
         )}
       </div>
     </>

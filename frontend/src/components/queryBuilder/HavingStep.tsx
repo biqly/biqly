@@ -29,6 +29,9 @@ export function HavingStep({
       themeClass="advanced"
       onClose={onClear}
       closeTitle={t('common.cancel')}
+      collapsible
+      defaultCollapsed
+      summary={t('query_builder.step_summary_count', { count: having.length })}
     >
       {having.map((h, i) => (
         <div

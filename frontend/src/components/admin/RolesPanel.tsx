@@ -3,6 +3,7 @@ import { listPermissions, listRoles } from '../../api/admin'
 import { useT } from '../../i18n'
 import type { Permission, Role } from '../../types/auth'
 import { Pagination } from '../ui/Pagination'
+import { LoadingOverlay } from '../ui/LoadingOverlay'
 
 export function RolesPanel({ token }: { token: string }) {
   const t = useT()
@@ -48,91 +49,99 @@ export function RolesPanel({ token }: { token: string }) {
   }, [token, rolesPage, permsPage])
 
   const totalRolesPages = Math.ceil(totalRoles / rolesPageSize)
-  const displayedRoles = roles
-
   const totalPermsPages = Math.ceil(totalPerms / permsPageSize)
   const displayedPerms = perms
-
-  if (loading && roles.length === 0 && perms.length === 0) return <div style={textMuted}>{t('common.loading')}</div>
-  if (error) return <div style={errStyle}>{t('common.error')}: {error}</div>
+  const displayedRoles = roles
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 24, alignItems: 'start' }}>
-      <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.roles.title', { count: totalRoles })}</h2>
-        <div style={containerStyle}>
-          <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column' }}>
-            {displayedRoles.length === 0 ? (
-              <li style={{ padding: 16, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
-                —
-              </li>
-            ) : (
-              displayedRoles.map((r, i) => (
-                <li
-                  key={r.id}
-                  style={{
-                    padding: '12px 16px',
-                    borderBottom: i === displayedRoles.length - 1 && totalRolesPages <= 1 ? 'none' : '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-                  }}
-                >
-                  <strong style={{ fontSize: 14, color: 'var(--text-primary, #f4f4f5)' }}>{r.name}</strong>
-                  {r.description && (
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary, #a1a1aa)', marginTop: 4 }}>
-                      {r.description}
-                    </div>
-                  )}
-                </li>
-              ))
-            )}
-          </ul>
-          <Pagination
-            currentPage={rolesPage}
-            totalPages={totalRolesPages}
-            onPageChange={setRolesPage}
-            totalItems={totalRoles}
-            itemsPerPage={rolesPageSize}
-          />
-        </div>
-      </section>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {error && <div style={errStyle}>{t('common.error')}: {error}</div>}
 
-      <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.roles.permissions_title', { count: totalPerms })}</h2>
-        <div style={containerStyle}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr style={theadRow}>
-                <th style={thStyle}>Resource</th>
-                <th style={thStyle}>Action</th>
-                <th style={thStyle}>{t('admin.roles.name')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayedPerms.length === 0 ? (
-                <tr>
-                  <td colSpan={3} style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>
-                    —
-                  </td>
-                </tr>
-              ) : (
-                displayedPerms.map((p) => (
-                  <tr key={p.id} style={trRow}>
-                    <td style={tdStyle}>{resourceBadge(p.resource)}</td>
-                    <td style={tdStyle}>{actionBadge(p.action)}</td>
-                    <td style={{ ...tdStyle, fontFamily: 'var(--font-mono, monospace)', fontSize: 12 }}>{p.name}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-          <Pagination
-            currentPage={permsPage}
-            totalPages={totalPermsPages}
-            onPageChange={setPermsPage}
-            totalItems={totalPerms}
-            itemsPerPage={permsPageSize}
-          />
-        </div>
-      </section>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 24, alignItems: 'start' }}>
+        <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.roles.title', { count: totalRoles })}</h2>
+          <div style={containerStyle}>
+            <LoadingOverlay loading={loading}>
+              <div style={{ minHeight: displayedRoles.length === 0 && loading ? 120 : 'auto', display: 'flex', flexDirection: 'column' }}>
+                <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column' }}>
+                  {displayedRoles.length === 0 ? (
+                    <li style={{ padding: 16, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
+                      {loading ? '' : '—'}
+                    </li>
+                  ) : (
+                    displayedRoles.map((r, i) => (
+                      <li
+                        key={r.id}
+                        style={{
+                          padding: '12px 16px',
+                          borderBottom: i === displayedRoles.length - 1 && totalRolesPages <= 1 ? 'none' : '1px solid var(--border, rgba(255, 255, 255, 0.06))',
+                        }}
+                      >
+                        <strong style={{ fontSize: 14, color: 'var(--text-primary, #f4f4f5)' }}>{r.name}</strong>
+                        {r.description && (
+                          <div style={{ fontSize: 12, color: 'var(--text-secondary, #a1a1aa)', marginTop: 4 }}>
+                            {r.description}
+                          </div>
+                        )}
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            </LoadingOverlay>
+            <Pagination
+              currentPage={rolesPage}
+              totalPages={totalRolesPages}
+              onPageChange={setRolesPage}
+              totalItems={totalRoles}
+              itemsPerPage={rolesPageSize}
+            />
+          </div>
+        </section>
+
+        <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.roles.permissions_title', { count: totalPerms })}</h2>
+          <div style={containerStyle}>
+            <LoadingOverlay loading={loading}>
+              <div style={{ minHeight: displayedPerms.length === 0 && loading ? 120 : 'auto', display: 'flex', flexDirection: 'column' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+                  <thead>
+                    <tr style={theadRow}>
+                      <th style={thStyle}>Resource</th>
+                      <th style={thStyle}>Action</th>
+                      <th style={thStyle}>{t('admin.roles.name')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayedPerms.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>
+                          {loading ? '' : '—'}
+                        </td>
+                      </tr>
+                    ) : (
+                      displayedPerms.map((p) => (
+                        <tr key={p.id} style={trRow}>
+                          <td style={tdStyle}>{resourceBadge(p.resource)}</td>
+                          <td style={tdStyle}>{actionBadge(p.action)}</td>
+                          <td style={{ ...tdStyle, fontFamily: 'var(--font-mono, monospace)', fontSize: 12 }}>{p.name}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </LoadingOverlay>
+            <Pagination
+              currentPage={permsPage}
+              totalPages={totalPermsPages}
+              onPageChange={setPermsPage}
+              totalItems={totalPerms}
+              itemsPerPage={permsPageSize}
+            />
+          </div>
+        </section>
+      </div>
     </div>
   )
 }

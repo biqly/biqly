@@ -173,9 +173,6 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   const totalPages = Math.ceil(totalItems / pageSize)
   const displayedUsers = users
 
-  if (loading && users.length === 0) return <div className="admin-text-muted">{t('admin.users.loading')}</div>
-  if (error) return <div className="admin-err-text">{t('common.error')}: {error}</div>
-
   return (
     <div className="page-stack">
       <div className="card-header-row">
@@ -217,6 +214,8 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
         </div>
       )}
 
+      {error && <div className="admin-err-text">{t('common.error')}: {error}</div>}
+
       {subTab === 'active' ? (
         <ActiveUsersTab
           search={search}
@@ -236,6 +235,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
           pageSize={pageSize}
           locale={locale}
           t={t}
+          loading={loading}
         />
       ) : (
         <InvitationsTab

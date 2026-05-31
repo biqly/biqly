@@ -29,6 +29,8 @@ export function FilterStep({
       themeClass="filter"
       onClose={onClear}
       closeTitle={t('common.cancel')}
+      collapsible
+      summary={t('query_builder.step_summary_count', { count: filters.length })}
     >
       {filters.map((f, i) => (
         <div

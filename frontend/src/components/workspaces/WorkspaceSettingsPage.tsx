@@ -14,6 +14,7 @@ import {
 import { useT } from '../../i18n'
 import type { Workspace, WorkspaceMember, WorkspaceDatasource, Role } from '../../types/auth'
 import { useConfirm } from '../../hooks/useConfirm'
+import { LoadingOverlay } from '../ui/LoadingOverlay'
 import '../../styles/workspace.css'
 
 interface Props {
@@ -147,51 +148,66 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
     }
   }
 
-  if (loading) return <div style={{ padding: 24 }}>{t('common.loading')}</div>
-  if (!workspace) return <div style={{ padding: 24 }}>{t('common.error')}</div>
+  if (!workspace && loading) {
+    return (
+      <div className="ws-settings" style={{ minHeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+        <LoadingOverlay loading={true} />
+      </div>
+    )
+  }
+
+  if (!workspace) {
+    return (
+      <div className="ws-settings">
+        <button onClick={onBack} className="ws-settings__back">{t('admin.workspaces.back')}</button>
+        <div style={{ padding: 24, textAlign: 'center', color: 'var(--red-text, #f87171)' }}>{t('common.error')}</div>
+      </div>
+    )
+  }
 
   return (
-    <div className="ws-settings">
-      <button onClick={onBack} className="ws-settings__back">{t('admin.workspaces.back')}</button>
+    <div className="ws-settings" style={{ position: 'relative' }}>
+      <LoadingOverlay loading={loading}>
+        <button onClick={onBack} className="ws-settings__back">{t('admin.workspaces.back')}</button>
 
-      <h2 className="ws-settings__title">{t('admin.workspaces.settings_title')}</h2>
+        <h2 className="ws-settings__title">{t('admin.workspaces.settings_title')}</h2>
 
-      {error && <div className="ws-settings__error">{error}</div>}
-      {success && <div className="ws-settings__success">{success}</div>}
+        {error && <div className="ws-settings__error">{error}</div>}
+        {success && <div className="ws-settings__success">{success}</div>}
 
-      {/* ── Info / Edit Form ── */}
-      <section className="ws-settings__section">
-        <div className="ws-settings__info-row">
-          <span className="ws-settings__badge" data-type={isPersonal ? 'personal' : 'team'}>
-            {isPersonal ? t('admin.workspaces.type_personal') : t('admin.workspaces.type_team')}
-          </span>
-          <span className="ws-settings__slug">{workspace.slug}</span>
-        </div>
+        {/* ── Info / Edit Form ── */}
+        <section className="ws-settings__section">
+          <div className="ws-settings__info-row">
+            <span className="ws-settings__badge" data-type={isPersonal ? 'personal' : 'team'}>
+              {isPersonal ? t('admin.workspaces.type_personal') : t('admin.workspaces.type_team')}
+            </span>
+            <span className="ws-settings__slug">{workspace.slug}</span>
+          </div>
 
-        {isPersonal ? (
-          <p className="ws-settings__readonly-note">{t('admin.workspaces.personal_readonly')}</p>
-        ) : (
-          <form onSubmit={onSave} className="ws-settings__form">
-            <label className="ws-settings__field">
-              <span>{t('admin.workspaces.name')}</span>
-              <input value={editName} onChange={(e) => setEditName(e.target.value)} required />
-            </label>
-            <label className="ws-settings__field">
-              <span>{t('admin.workspaces.description')}</span>
-              <input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} />
-            </label>
-            <label className="ws-settings__check">
-              <input
-                type="checkbox"
-                checked={editMFARequired}
-                onChange={(e) => setEditMFARequired(e.target.checked)}
-              />
-              <span>{t('admin.workspaces.mfa_required')}</span>
-            </label>
-            <button type="submit" className="ws-settings__btn-primary">{t('common.save')}</button>
-          </form>
-        )}
-      </section>
+          {isPersonal ? (
+            <p className="ws-settings__readonly-note">{t('admin.workspaces.personal_readonly')}</p>
+          ) : (
+            <form onSubmit={onSave} className="ws-settings__form">
+              <label className="ws-settings__field">
+                <span>{t('admin.workspaces.name')}</span>
+                <input value={editName} onChange={(e) => setEditName(e.target.value)} required />
+              </label>
+              <label className="ws-settings__field">
+                <span>{t('admin.workspaces.description')}</span>
+                <input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} />
+              </label>
+              <label className="ws-settings__check">
+                <input
+                  type="checkbox"
+                  checked={editMFARequired}
+                  onChange={(e) => setEditMFARequired(e.target.checked)}
+                />
+                <span>{t('admin.workspaces.mfa_required')}</span>
+              </label>
+              <button type="submit" className="ws-settings__btn-primary">{t('common.save')}</button>
+            </form>
+          )}
+        </section>
 
       {/* ── Members ── */}
       <section className="ws-settings__section">
@@ -299,6 +315,7 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
           </button>
         </form>
       </section>
+      </LoadingOverlay>
     </div>
   )
 }

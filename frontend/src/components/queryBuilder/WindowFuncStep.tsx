@@ -28,6 +28,9 @@ export function WindowFuncStep({
       themeClass="advanced"
       onClose={onClear}
       closeTitle={t('common.cancel')}
+      collapsible
+      defaultCollapsed
+      summary={t('query_builder.step_summary_count', { count: windowFunctions.length })}
     >
       {windowFunctions.map((w, i) => (
         <div

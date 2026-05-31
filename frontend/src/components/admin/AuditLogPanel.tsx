@@ -3,6 +3,7 @@ import { listAuditLog } from '../../api/admin'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import type { AuditLogEntry } from '../../types/auth'
 import { Pagination } from '../ui/Pagination'
+import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { useAdminLookups } from '../../hooks/useAdminLookups'
 
 const COMMON_ACTIONS = [
@@ -169,38 +170,45 @@ export function AuditLogPanel({ token }: { token: string }) {
         </button>
       </form>
 
-      {loading && <div className="admin-text-muted">{t('common.loading')}</div>}
       {error && <div className="admin-err-text">{t('common.error')}: {error}</div>}
-      {!loading && !error && entries.length === 0 && <div className="admin-text-muted">{t('admin.audit.empty')}</div>}
 
-      {entries.length > 0 && (
-        <div className="admin-table-container">
-          <div style={{ overflowX: 'auto' }}>
-            <table className="admin-table" style={{ fontSize: 13, minWidth: 980 }}>
-              <thead>
-                <tr className="admin-thead-row">
-                  <th className="admin-th">{t('admin.audit.time')}</th>
-                  <th className="admin-th">{t('admin.audit.action')}</th>
-                  <th className="admin-th">{t('admin.fields.user')}</th>
-                  <th className="admin-th">{t('admin.audit.resource')}</th>
-                  <th className="admin-th">IP</th>
-                  <th className="admin-th">Metadata</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayedEntries.map((entry) => (
-                  <tr key={entry.id} className="admin-tr">
-                    <td className="admin-td-mono">{formatDate(entry.created_at, localeLanguageTag(locale))}</td>
-                    <td className="admin-td"><span className="admin-badge-action">{entry.action}</span></td>
-                    <td className="admin-td-mono">{entry.user_id ? (userMap.get(entry.user_id) || entry.user_id) : t('admin.audit.system_user')}</td>
-                    <td className="admin-td-mono">{formatResource(entry, dsMap, wsMap)}</td>
-                    <td className="admin-td-mono">{entry.ip_address || '-'}</td>
-                    <td className="admin-td-metadata">{formatMetadata(entry.metadata)}</td>
+      <div className="admin-table-container">
+        <LoadingOverlay loading={loading} label={t('common.loading')}>
+          <div style={{ overflowX: 'auto', minHeight: entries.length === 0 && loading ? 120 : 'auto', display: 'flex', flexDirection: 'column' }}>
+            {entries.length === 0 ? (
+              <div className="admin-text-muted" style={{ padding: 48, textAlign: 'center', width: '100%', border: 0 }}>
+                {loading ? '' : t('admin.audit.empty')}
+              </div>
+            ) : (
+              <table className="admin-table" style={{ fontSize: 13, minWidth: 980 }}>
+                <thead>
+                  <tr className="admin-thead-row">
+                    <th className="admin-th">{t('admin.audit.time')}</th>
+                    <th className="admin-th">{t('admin.audit.action')}</th>
+                    <th className="admin-th">{t('admin.fields.user')}</th>
+                    <th className="admin-th">{t('admin.audit.resource')}</th>
+                    <th className="admin-th">IP</th>
+                    <th className="admin-th">Metadata</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {displayedEntries.map((entry) => (
+                    <tr key={entry.id} className="admin-tr">
+                      <td className="admin-td-mono">{formatDate(entry.created_at, localeLanguageTag(locale))}</td>
+                      <td className="admin-td"><span className="admin-badge-action">{entry.action}</span></td>
+                      <td className="admin-td-mono">{entry.user_id ? (userMap.get(entry.user_id) || entry.user_id) : t('admin.audit.system_user')}</td>
+                      <td className="admin-td-mono">{formatResource(entry, dsMap, wsMap)}</td>
+                      <td className="admin-td-mono">{entry.ip_address || '-'}</td>
+                      <td className="admin-td-metadata">{formatMetadata(entry.metadata)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
+        </LoadingOverlay>
+
+        {entries.length > 0 && (
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
@@ -208,8 +216,8 @@ export function AuditLogPanel({ token }: { token: string }) {
             totalItems={totalItems}
             itemsPerPage={pageSize}
           />
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

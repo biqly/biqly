@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import { useT } from '../i18n'
 import { ErrorAlert } from './ui/ErrorAlert'
+import { LoadingOverlay } from './ui/LoadingOverlay'
 
 interface TimeGrain {
   grain: string
@@ -116,94 +117,98 @@ export default function TimeGrains() {
 
         {error && <ErrorAlert error={error} />}
 
-        {grains.length > 0 ? (
-          <table className="results-table">
-            <thead>
-              <tr>
-                <th>{t('time_grains.col_grain') || 'Time Grain'}</th>
-                <th>{t('time_grains.col_suffix') || 'Suffix'}</th>
-                <th>{t('time_grains.col_requires_time') || 'Requires Time Column'}</th>
-                <th>{t('time_grains.col_synonyms') || 'Synonyms'}</th>
-                <th className="actions">{t('common.actions') || 'Actions'}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {grains.map((tg) => (
-                <tr key={tg.grain}>
-                  <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{tg.grain}</td>
-                  <td>
-                    <code style={{ fontSize: '0.78rem', color: 'var(--accent)' }}>{tg.suffix}</code>
-                  </td>
-                  <td>
-                    {tg.requires_time ? (
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          padding: '0.15rem 0.5rem',
-                          background: 'rgba(16,185,129,0.1)',
-                          color: 'var(--success)',
-                          borderRadius: '999px',
-                          fontSize: '0.72rem',
-                          fontWeight: 500,
-                        }}
-                      >
-                        {t('common.yes') || 'Yes'}
-                      </span>
-                    ) : (
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          padding: '0.15rem 0.5rem',
-                          background: 'rgba(255,255,255,0.04)',
-                          color: 'var(--text-muted)',
-                          borderRadius: '999px',
-                          fontSize: '0.72rem',
-                        }}
-                      >
-                        {t('common.no') || 'No'}
-                      </span>
-                    )}
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                      {tg.synonyms.map((syn) => (
-                        <span
-                          key={syn}
-                          style={{
-                            display: 'inline-block',
-                            padding: '0.15rem 0.5rem',
-                            background: 'rgba(99,102,241,0.08)',
-                            borderRadius: '0.3rem',
-                            fontSize: '0.72rem',
-                            color: 'var(--accent)',
-                            border: '1px solid rgba(99,102,241,0.15)',
-                          }}
+        <LoadingOverlay loading={loading}>
+          <div style={{ minHeight: grains.length === 0 && loading ? 120 : 'auto' }}>
+            {grains.length > 0 ? (
+              <table className="results-table">
+                <thead>
+                  <tr>
+                    <th>{t('time_grains.col_grain') || 'Time Grain'}</th>
+                    <th>{t('time_grains.col_suffix') || 'Suffix'}</th>
+                    <th>{t('time_grains.col_requires_time') || 'Requires Time Column'}</th>
+                    <th>{t('time_grains.col_synonyms') || 'Synonyms'}</th>
+                    <th className="actions">{t('common.actions') || 'Actions'}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {grains.map((tg) => (
+                    <tr key={tg.grain}>
+                      <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{tg.grain}</td>
+                      <td>
+                        <code style={{ fontSize: '0.78rem', color: 'var(--accent)' }}>{tg.suffix}</code>
+                      </td>
+                      <td>
+                        {tg.requires_time ? (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              padding: '0.15rem 0.5rem',
+                              background: 'rgba(16,185,129,0.1)',
+                              color: 'var(--success)',
+                              borderRadius: '999px',
+                              fontSize: '0.72rem',
+                              fontWeight: 500,
+                            }}
+                          >
+                            {t('common.yes') || 'Yes'}
+                          </span>
+                        ) : (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              padding: '0.15rem 0.5rem',
+                              background: 'rgba(255,255,255,0.04)',
+                              color: 'var(--text-muted)',
+                              borderRadius: '999px',
+                              fontSize: '0.72rem',
+                            }}
+                          >
+                            {t('common.no') || 'No'}
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                          {tg.synonyms.map((syn) => (
+                            <span
+                              key={syn}
+                              style={{
+                                display: 'inline-block',
+                                padding: '0.15rem 0.5rem',
+                                background: 'rgba(99,102,241,0.08)',
+                                borderRadius: '0.3rem',
+                                fontSize: '0.72rem',
+                                color: 'var(--accent)',
+                                border: '1px solid rgba(99,102,241,0.15)',
+                              }}
+                            >
+                              {syn}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="actions">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-ghost"
+                          onClick={() => startEdit(tg)}
                         >
-                          {syn}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="actions">
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-ghost"
-                      onClick={() => startEdit(tg)}
-                    >
-                      {t('common.edit') || 'Edit'}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-            {t('common.loading') || 'Loading…'}
+                          {t('common.edit') || 'Edit'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                {loading ? '' : (t('common.no_data') || 'No data found')}
+              </div>
+            )}
           </div>
-        )}
+        </LoadingOverlay>
       </div>
 
       {successMessage && (
