@@ -1,4 +1,4 @@
-package ai
+package provider
 
 import (
 	"context"
@@ -83,12 +83,12 @@ func TestTokenUsageFromGenerationPrefersAPI(t *testing.T) {
 		Content: "x",
 		Usage:   &TokenUsage{Prompt: 10, Completion: 5, Total: 15},
 	}
-	got := tokenUsageFromGeneration(stats, api)
+	got := TokenUsageFromGeneration(stats, api)
 	if got.Prompt != 10 || got.Completion != 5 || got.Total != 15 {
 		t.Fatalf("got %+v", got)
 	}
 
-	est := tokenUsageFromGeneration(stats, GenerationResult{Content: "abcdabcd"})
+	est := TokenUsageFromGeneration(stats, GenerationResult{Content: "abcdabcd"})
 	if est.Prompt != 999 || est.Completion != 2 || est.Total != 1001 {
 		t.Fatalf("estimate fallback = %+v", est)
 	}

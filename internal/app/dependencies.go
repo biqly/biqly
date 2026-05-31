@@ -12,6 +12,7 @@ import (
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/ai/prompt"
+	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/config"
@@ -24,11 +25,11 @@ import (
 	"github.com/biqly/biqly/internal/metadata"
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 	"github.com/biqly/biqly/internal/query"
+	"github.com/biqly/biqly/internal/queue"
 	"github.com/biqly/biqly/internal/security"
 	"github.com/biqly/biqly/internal/semantic"
 	"github.com/biqly/biqly/pkg/catalogclient"
 	"github.com/biqly/biqly/pkg/queryclient"
-	"github.com/biqly/biqly/internal/queue"
 	_ "github.com/jackc/pgx/v5/stdlib" // PostgreSQL driver registration
 )
 
@@ -44,12 +45,12 @@ type Dependencies struct {
 	QueryService  *core.QueryService
 	CatalogClient *catalogclient.Client
 	QueryClient   *queryclient.Client
-	AIClient      ai.Provider
+	AIClient      providerpkg.Provider
 	// AIQueryClient powers the NL→LogicalQuery path. Aliases AIClient when no
 	// BI_AI_QUERY_* overrides are set; otherwise points at a separate provider
 	// (typically a smarter model) so describe/metadata work can keep using the
 	// cheaper local model on AIClient.
-	AIQueryClient ai.Provider
+	AIQueryClient providerpkg.Provider
 	AIDescriber   *ai.DescribeService
 	Encryptor     *security.Encryption
 	EvalRepo      *ai.EvalRepository
@@ -57,8 +58,8 @@ type Dependencies struct {
 	// Embedder is the embeddings provider used for vector-based table
 	// retrieval. nil when no API key is configured — callers MUST tolerate
 	// nil (the table router falls back to keyword scoring).
-	Embedder    ai.Embedder
-	AIEmbedMeta *ai.EmbedMetadataService
+	Embedder     ai.Embedder
+	AIEmbedMeta  *ai.EmbedMetadataService
 	TimeGrains   routing.TimeGrainStore
 	Jobs         config.JobsConfig
 	AIJobQueue   queue.AIJobPublisher
@@ -198,8 +199,8 @@ func setupEncryption(ctx context.Context, db *sql.DB) *security.Encryption {
 // aiBundle groups every AI-related dependency returned by setupAI so the
 // main constructor stays readable.
 type aiBundle struct {
-	client      ai.Provider
-	queryClient ai.Provider
+	client      providerpkg.Provider
+	queryClient providerpkg.Provider
 	describer   *ai.DescribeService
 	embedder    ai.Embedder
 	embedMeta   *ai.EmbedMetadataService
@@ -219,13 +220,13 @@ func setupAI(
 	reg *datasource.Registry,
 	encryptor *security.Encryption,
 ) (aiBundle, error) {
-	client, err := ai.NewProvider(cfg.AI)
+	client, err := providerpkg.NewProvider(cfg.AI)
 	if err != nil {
 		return aiBundle{}, fmt.Errorf("ai provider: %w", err)
 	}
 	queryClient := client
 	if cfg.AI.HasQueryOverride() {
-		qc, qerr := ai.NewProvider(cfg.AI.EffectiveQueryConfig())
+		qc, qerr := providerpkg.NewProvider(cfg.AI.EffectiveQueryConfig())
 		if qerr != nil {
 			return aiBundle{}, fmt.Errorf("ai query provider: %w", qerr)
 		}
@@ -242,7 +243,7 @@ func setupAI(
 	var embedder ai.Embedder
 	var embedMeta *ai.EmbedMetadataService
 	if cfg.AI.EmbeddingsConfigured() {
-		embedder = ai.NewOpenAIEmbedder(cfg.AI)
+		embedder = providerpkg.NewOpenAIEmbedder(cfg.AI)
 		embedMeta = ai.NewEmbedMetadataService(embedder, metaRepo).
 			WithDeniedSchemas(cfg.AI.EmbeddingDenySchemas).
 			WithDeniedTables(cfg.AI.EmbeddingDenyTables)

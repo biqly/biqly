@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -17,7 +18,7 @@ type judgeVerdict struct {
 
 // JudgeLogicalQuery asks an LLM whether the generated LogicalQuery correctly
 // answers the question relative to the expected reference query.
-func JudgeLogicalQuery(ctx context.Context, provider Provider, question string, model *semantic.SemanticModel, expected, got *query.LogicalQuery) (bool, string, error) {
+func JudgeLogicalQuery(ctx context.Context, provider providerpkg.Provider, question string, model *semantic.SemanticModel, expected, got *query.LogicalQuery) (bool, string, error) {
 	if provider == nil {
 		return false, "", fmt.Errorf("judge provider is nil")
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -30,7 +31,7 @@ type EvalSuiteOptions struct {
 	Cases    []GoldenCase
 	Modes    EvalMode
 	Executor ResultExecutor
-	Judge    Provider
+	Judge    providerpkg.Provider
 }
 
 // EvalCaseResult is the outcome for one eval case.

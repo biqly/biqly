@@ -7,6 +7,7 @@ import (
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/ai/prompt"
+	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/config"
@@ -51,14 +52,14 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		Encryptor:   encryptor,
 	})
 
-	aiClient, err := ai.NewProvider(cfg.AI)
+	aiClient, err := providerpkg.NewProvider(cfg.AI)
 	if err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("ai provider: %w", err)
 	}
 	aiQueryClient := aiClient
 	if cfg.AI.HasQueryOverride() {
-		queryClient, err := ai.NewProvider(cfg.AI.EffectiveQueryConfig())
+		queryClient, err := providerpkg.NewProvider(cfg.AI.EffectiveQueryConfig())
 		if err != nil {
 			_ = db.Close()
 			return nil, fmt.Errorf("ai query provider: %w", err)
@@ -76,7 +77,7 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 	var embedder ai.Embedder
 	var embedMeta *ai.EmbedMetadataService
 	if cfg.AI.EmbeddingsConfigured() {
-		embedder = ai.NewOpenAIEmbedder(cfg.AI)
+		embedder = providerpkg.NewOpenAIEmbedder(cfg.AI)
 		embedMeta = ai.NewEmbedMetadataService(embedder, metaRepo)
 	}
 

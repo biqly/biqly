@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/config"
 )
 
@@ -16,7 +17,7 @@ const (
 
 // TranslationService normalizes AI-generated metadata descriptions into a target language.
 type TranslationService struct {
-	provider       Provider
+	provider       providerpkg.Provider
 	model          string
 	targetLanguage string
 	targetCode     string
@@ -40,7 +41,7 @@ func NewTranslationServiceFromConfig(cfg config.AIConfig) *TranslationService {
 		HTTPTimeoutSeconds: int(cfg.TranslationHTTPTimeout().Seconds()),
 	}
 	return NewTranslationService(
-		NewClient(translationCfg),
+		providerpkg.NewClient(translationCfg),
 		translationCfg.Model,
 		cfg.TranslationTargetLanguage,
 		cfg.TranslationTargetCode,
@@ -48,7 +49,7 @@ func NewTranslationServiceFromConfig(cfg config.AIConfig) *TranslationService {
 }
 
 // NewTranslationService wires a translation provider. Tests pass a fake provider here.
-func NewTranslationService(provider Provider, model, targetLanguage, targetCode string) *TranslationService {
+func NewTranslationService(provider providerpkg.Provider, model, targetLanguage, targetCode string) *TranslationService {
 	targetLanguage = strings.TrimSpace(targetLanguage)
 	if targetLanguage == "" {
 		targetLanguage = defaultTranslationTargetLanguage

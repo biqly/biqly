@@ -2,6 +2,7 @@ package ai
 
 import (
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
+	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/query"
 )
@@ -45,7 +46,7 @@ type Response struct {
 	// Model / cost tracking
 	ModelUsed   string       `json:"model_used,omitempty"`
 	PromptStats *promptpkg.PromptStats `json:"prompt_stats,omitempty"`
-	TokenUsage  *TokenUsage  `json:"token_usage,omitempty"`
+	TokenUsage  *providerpkg.TokenUsage  `json:"token_usage,omitempty"`
 	CostUSD     float64      `json:"cost_usd,omitempty"`
 	LatencyMs   int          `json:"latency_ms,omitempty"`
 	// Prompt template traceability for prompt-version A/B comparison and evals.
@@ -142,13 +143,6 @@ type CandidateEntry struct {
 type ValidationExplainResult struct {
 	ExplainOutput string `json:"explain_output,omitempty"`
 	PlanOK        bool   `json:"plan_ok"`
-}
-
-// TokenUsage tracks LLM token consumption.
-type TokenUsage struct {
-	Prompt     int `json:"prompt"`
-	Completion int `json:"completion"`
-	Total      int `json:"total"`
 }
 
 // VisualizationHint suggests a chart type for the result data.

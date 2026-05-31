@@ -1,5 +1,5 @@
-// Package ai provides AI-powered schema description and prompt building.
-package ai
+// Package provider implements LLM provider abstractions (OpenAI-compatible, Anthropic).
+package provider
 
 import (
 	"context"

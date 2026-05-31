@@ -11,6 +11,7 @@ import (
 	"time"
 
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
+	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/query"
@@ -19,7 +20,7 @@ import (
 
 // Service orchestrates the AI text-to-query flow.
 type Service struct {
-	client              Provider
+	client              providerpkg.Provider
 	promptBuilder       *promptpkg.PromptBuilder
 	validator           *query.Validator
 	aiCfg               config.AIConfig
@@ -30,7 +31,7 @@ type Service struct {
 	baseTemperature     float64
 }
 
-func newService(cfg config.AIConfig, validator *query.Validator, provider Provider) *Service {
+func newService(cfg config.AIConfig, validator *query.Validator, provider providerpkg.Provider) *Service {
 	maxR := cfg.MaxPromptInputRunes
 	if maxR <= 0 {
 		maxR = 80000
@@ -59,21 +60,21 @@ func NewService(cfg config.AIConfig, validator *query.Validator) *Service {
 	// Fall back to the OpenAI client on unknown providers so test setups that
 	// pass minimal configs (no Provider field) keep working. Production code
 	// should call NewServiceWithProvider for explicit error handling.
-	provider, err := NewProvider(cfg)
+	provider, err := providerpkg.NewProvider(cfg)
 	if err != nil {
-		provider = NewClient(cfg)
+		provider = providerpkg.NewClient(cfg)
 	}
 	return newService(cfg, validator, provider)
 }
 
 // NewServiceWithProvider wires a service around an explicitly-supplied Provider.
 // Use this in production wiring where unknown-provider should be a fatal error.
-func NewServiceWithProvider(cfg config.AIConfig, validator *query.Validator, provider Provider) *Service {
+func NewServiceWithProvider(cfg config.AIConfig, validator *query.Validator, provider providerpkg.Provider) *Service {
 	return newService(cfg, validator, provider)
 }
 
 // LLMProvider returns the configured generation backend (for eval judge, etc.).
-func (s *Service) LLMProvider() Provider {
+func (s *Service) LLMProvider() providerpkg.Provider {
 	return s.client
 }
 
@@ -190,7 +191,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		prompt             = basePrompt
 		promptStats        = baseStats
 		lastRaw            string
-		lastGen            GenerationResult
+		lastGen            providerpkg.GenerationResult
 		retryWarnings      []string
 		lq                 *query.LogicalQuery
 		warnings           []string
@@ -232,7 +233,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 				RawResponse:                 gen.Content,
 				RetryCount:                  retries,
 				PromptStats:                 &promptStats,
-				TokenUsage:                  tokenUsageFromGeneration(promptStats, gen),
+				TokenUsage:                  providerpkg.TokenUsageFromGeneration(promptStats, gen),
 				PromptTemplateLocale:        templateLocale,
 				PromptTemplateVersions:      templateVersions,
 				PromptTemplateBundleVersion: bundleVersion,
@@ -329,7 +330,7 @@ type clarificationInputs struct {
 	RawResponse                 string
 	RetryCount                  int
 	PromptStats                 promptpkg.PromptStats
-	Gen                         GenerationResult
+	Gen                         providerpkg.GenerationResult
 	Clarification               string
 	FailureReason               string
 	Source                      string
@@ -348,7 +349,7 @@ func newClarificationResponse(in clarificationInputs) *AIResponse {
 		RawResponse:                 in.RawResponse,
 		RetryCount:                  in.RetryCount,
 		PromptStats:                 &stats,
-		TokenUsage:                  tokenUsageFromGeneration(stats, in.Gen),
+		TokenUsage:                  providerpkg.TokenUsageFromGeneration(stats, in.Gen),
 		NeedsClarification:          in.Clarification != "",
 		ClarificationQuestion:       in.Clarification,
 		Clarification:               buildClarification(in.Clarification, in.FailureReason, in.Source),
@@ -413,15 +414,6 @@ func (s *Service) buildPrompt(
 	return prompt, stats
 }
 
-func tokenUsageEstimate(stats promptpkg.PromptStats, completion string) *TokenUsage {
-	promptTok := stats.EstPromptTokens
-	completionTok := promptpkg.EstimateTokens(completion)
-	if promptTok == 0 && completionTok == 0 {
-		return nil
-	}
-	return newTokenUsage(promptTok, completionTok, 0)
-}
-
 // buildClarification wraps a free-text clarification question into the
 // structured Clarification envelope. Returns nil when there is nothing to ask.
 // Options are populated by callers that have discrete candidates (router,
@@ -462,7 +454,7 @@ func (s *Service) tryMultiCandidate(
 	type candidate struct {
 		idx      int
 		lq       *query.LogicalQuery
-		gen      GenerationResult
+		gen      providerpkg.GenerationResult
 		warnings []string
 		fp       string
 	}
@@ -484,7 +476,7 @@ func (s *Service) tryMultiCandidate(
 			}
 
 			type genResult struct {
-				gen GenerationResult
+				gen providerpkg.GenerationResult
 				err error
 			}
 			ch := make(chan genResult, 1)
@@ -580,7 +572,7 @@ func (s *Service) tryMultiCandidate(
 		Prompt:                      prompt,
 		RawResponse:                 winner.gen.Content,
 		PromptStats:                 &stats,
-		TokenUsage:                  tokenUsageFromGeneration(stats, winner.gen),
+		TokenUsage:                  providerpkg.TokenUsageFromGeneration(stats, winner.gen),
 		PromptTemplateLocale:        templateLocale,
 		PromptTemplateVersions:      templateVersions,
 		PromptTemplateBundleVersion: bundleVersion,

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
+	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 )
 
 // goldenStubProvider returns canonical LogicalQuery JSON for golden case IDs.
@@ -14,12 +16,12 @@ type goldenStubProvider struct {
 
 // NewGoldenStubProvider builds a stub that always returns the expected
 // LogicalQuery for each DefaultGoldenCases question.
-func NewGoldenStubProvider() Provider {
+func NewGoldenStubProvider() providerpkg.Provider {
 	return NewGoldenStubProviderForCases(DefaultGoldenCases())
 }
 
 // NewGoldenStubProviderForCases maps each case question to its expected JSON.
-func NewGoldenStubProviderForCases(cases []GoldenCase) Provider {
+func NewGoldenStubProviderForCases(cases []GoldenCase) providerpkg.Provider {
 	byQ := make(map[string]string, len(cases))
 	for _, c := range cases {
 		b, err := json.Marshal(c.Expected)
@@ -31,15 +33,15 @@ func NewGoldenStubProviderForCases(cases []GoldenCase) Provider {
 	return &goldenStubProvider{byQuestion: byQ}
 }
 
-func (p *goldenStubProvider) Generate(_ context.Context, prompt string) (GenerationResult, error) {
+func (p *goldenStubProvider) Generate(_ context.Context, prompt string) (providerpkg.GenerationResult, error) {
 	content, err := p.lookup(prompt)
 	if err != nil {
-		return GenerationResult{}, err
+		return providerpkg.GenerationResult{}, err
 	}
-	return GenerationResult{Content: content}, nil
+	return providerpkg.GenerationResult{Content: content}, nil
 }
 
-func (p *goldenStubProvider) GenerateAt(ctx context.Context, prompt string, _ float64) (GenerationResult, error) {
+func (p *goldenStubProvider) GenerateAt(ctx context.Context, prompt string, _ float64) (providerpkg.GenerationResult, error) {
 	return p.Generate(ctx, prompt)
 }
 
