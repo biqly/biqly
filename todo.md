@@ -64,8 +64,8 @@ if avatarURLNull.Valid { user.AvatarURL = &avatarURLNull.String }
 
 **Dosyalar:**
 
-- `internal/ai/table_router.go:1799-1839` (`weightedTokenScore`, `tokenSet`, `turkishLowerReplacer`)
-- `internal/http/handlers/ai.go:806-847` (`weightedHandlerTokenScore`, `handlerTokenSet`, `handlerTurkishReplacer`)
+- `internal/ai/routing/scorer.go:50-108` (`weightedTokenScore`, `tokenSet`, `turkishLowerReplacer`)
+- `internal/http/handlers/ai.go:646-698` (`routing.TokenSet`, `routing.WeightedTokenScore` kullanimi)
 
 **Sorun:** Handler versiyonu `expandToken` synonym lookup icermiyor, `strings.FieldsSeq` kullaniyor (`strings.Fields` yerine). Iki implementasyon zamanla sessizce birbirinden uzaklasacak. Bu bir BI uygulamasinda routing dogrulugunu dogrudan etkiler.
 
@@ -224,9 +224,9 @@ func (h *AuthHandler) clearSessionCookie(w, r, name string)
 | --- | --- | --- | --- |
 | `internal/datasource/query_rows.go` | 16 | `var out []T` - her query'de cagriliyor | `make([]T, 0, 64)` veya caller hint |
 | `internal/ai/row_scan.go` | 13 | `var out []map[string]any` - `limit` biliniyor | `make([]map[string]any, 0, limit)` |
-| `internal/ai/table_router.go` | 53 | `sortedBundleColumns` - butun kolonlar | column count ile pre-allocate |
-| `internal/ai/table_router.go` | 1301 | `buildJoins` - `len(relations)` upper bound | `make([]semantic.Join, 0, len(relations))` |
-| `internal/ai/table_router.go` | 1349-1359 | `connectSelectedTables` 3 slice | `len(selected)` ile pre-allocate |
+| `internal/ai/routing/model_builder.go` | 32 | `sortedBundleColumns` - butun kolonlar | column count ile pre-allocate |
+| `internal/ai/routing/join_builder.go` | 10 | `buildJoins` - `len(relations)` upper bound | `make([]semantic.Join, 0, len(relations))` |
+| `internal/ai/routing/join_builder.go` | 57 | `connectSelectedTables` 3 slice | `len(selected)` ile pre-allocate |
 
 **Oncelik:** `query_rows.go` ve `row_scan.go` en sicak yollar (her introspection ve sample-data cagrisi).
 
@@ -236,10 +236,10 @@ func (h *AuthHandler) clearSessionCookie(w, r, name string)
 
 | Dosya | Satir | Sorun | Cozum |
 | --- | --- | --- | --- |
-| `internal/ai/table_router.go` | 1385 | `relationAdjacency` map | `make(map[string][]string, len(relations)*2)` |
-| `internal/ai/table_router.go` | 1589 | `groupColumnsByTable` map | `make(map[string][]metadata.Column, tableCount)` |
-| `internal/ai/table_router.go` | 1810 | `tokenSet` map | `len(strings.Fields(...))` ile hint |
-| `internal/ai/table_router.go` | 1598 | `columnNameCounts` map | `len(columns)` ile hint |
+| `internal/ai/routing/join_builder.go` | 95 | `relationAdjacency` map | `make(map[string][]string, len(relations)*2)` |
+| `internal/ai/routing/selector.go` | 282 | `groupColumnsByTable` map | `make(map[string][]metadata.Column, tableCount)` |
+| `internal/ai/routing/scorer.go` | 61 | `tokenSet` map | `len(strings.Fields(...))` ile hint |
+| `internal/ai/routing/selector.go` | 291 | `columnNameCounts` map | `len(columns)` ile hint |
 | `internal/query/compiler.go` | 107 | `tablesReferenced` map | `len(lq.Select)+len(lq.Filters)+1` ile hint |
 
 ---
@@ -327,9 +327,9 @@ Her lookup ~150-180 byte struct kopyaliyor. 20-50 dimension, 10-30 metric ile ~1
 
 ---
 
-### [ ] 3.2 [HIGH] table_router.go God File (1,945 satir)
+### [x] 3.2 [HIGH] table_router.go God File (1,945 satir)
 
-**Dosya:** `internal/ai/table_router.go`
+**Dosya:** `internal/ai/routing/table_router.go` (kaldirildi)
 
 **Sorun:** Tek dosyada 45+ fonksiyon, en buyukleri:
 
@@ -346,6 +346,8 @@ Her lookup ~150-180 byte struct kopyaliyor. 20-50 dimension, 10-30 metric ile ~1
 - `routing/model_builder.go` - otomatik semantic model olusturma
 - `routing/entity_resolver.go` - FK graph traversal, entity resolution
 - `routing/join_builder.go` - join path discovery
+
+**Sonuc:** God file kaldirildi. En buyuk yeni dosya `routing/selector.go` (499 satir).
 
 ---
 
@@ -601,7 +603,7 @@ func (p *PoolCache) Get(ctx context.Context, driver Driver, datasourceID, dsn st
 | [x] 1.5 | Nullable helper'leri `platform/db/`'de birlestir | `platform/db/` | 30 satir azalma | 1 saat |
 | [x] 1.6 | Token scoring duplication'i kaldir | `handlers/ai.go` | ~40 satir, dogruluk artisi | 1 saat |
 | [ ] 1.7 | Slice pre-allocation (query_rows, row_scan) | `datasource/`, `ai/` | Memory allocation azalmasi | 30 dk |
-| [ ] 1.8 | Map size hints ekle | `ai/table_router.go` | Rehash azalmasi | 30 dk |
+| [ ] 1.8 | Map size hints ekle | `ai/routing/*.go` | Rehash azalmasi | 30 dk |
 | [x] 1.9 | `registerDefaultDrivers` + `openMetadataDB` helper | `app/*_dependencies.go` | 60+ satir azalma | 45 dk |
 | [x] 1.10 | Pool config standardizasyonu | `app/*_dependencies.go` | Tutarli pool davranisi | 30 dk |
 | [ ] 1.11 | `activePromptStore` senkronizasyonu | `ai/prompt_store.go` | Race condition onleme | 15 dk |
