@@ -393,7 +393,7 @@ API Key göster/gizle toggle. Test butonu ile bağlantı doğrulama.
 - [x] `internal/ai/service.go` — ProviderStore entegrasyonu (`PurposeProvider` ile provider katmanında hot-reload; service.go değişikliği gerekmedi)
 - [x] describe / embedding / translation resolve (`ChatConfigForPurpose` + `EffectiveConfig` ile wiring'de)
 - [x] `internal/http/handlers/ai_providers.go` — CRUD + test endpoint
-- [ ] `internal/http/handlers/ai_providers_test.go` — Handler testler (DB/mocks gerektiriyor; ertelendi)
+- [x] `internal/http/handlers/ai_providers_test.go` — Handler testler (`providerStoreAPI` interface + fake store; 13 case)
 - [x] `internal/http/ai_router.go` — Route kayıtları (admin-gated)
 - [x] Env → DB seed logic (`ProviderStore.SeedFromEnv`, startup'ta idempotent)
 
@@ -405,8 +405,8 @@ API Key göster/gizle toggle. Test butonu ile bağlantı doğrulama.
 - [x] Purpose bazlı aktif model görünümü (panel içinde `Active Models by Purpose`)
 - [x] `api/aiProviders.ts` — Provider/model API katmanı (hook yerine typed API modülü)
 - [x] Admin paneline "AI Providers" tab ekle (`Admin.tsx`)
-- [ ] `/ai-query` routing panel güncelleme (aktif model göster) — ertelendi (opsiyonel polish)
-- [ ] `/settings` sayfasına AI config link — ertelendi (opsiyonel polish)
+- [x] `/ai-query` routing panel güncelleme — `RoutingPanel.tsx` DB-managed aktif modeli (query/embedding/translation) badge'lerde gösterir; `/ai/settings` `db_managed` + `active_models` döner
+- [x] `/settings` sayfasına AI config link — `Settings.tsx` "AI providers & models" bölümü `/admin?tab=ai_providers`'a yönlendirir
 
 ---
 

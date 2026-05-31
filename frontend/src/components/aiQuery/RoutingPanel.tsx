@@ -1,4 +1,3 @@
-import { useT } from '../../i18n'
 import { Select } from '../ui/Select'
 import { ModelBadgeRow } from '../ui/ModelBadgeRow'
 import type { RoutingPanelProps } from './types'
@@ -56,23 +55,41 @@ export function RoutingPanel({
         ? t('ai_query.embed_refresh_model')
         : t('ai_query.embed_refresh')
 
+  // When provider/model selection is DB-managed, the active model per purpose
+  // is authoritative; otherwise fall back to the env-backed fields.
+  const dbManaged = aiRuntime?.db_managed === true
+  const activeFor = (purpose: 'query' | 'embedding' | 'translation') =>
+    aiRuntime?.active_models?.find((m) => m.purpose === purpose)
+  const activeQuery = activeFor('query')
+  const activeEmbedding = activeFor('embedding')
+  const activeTranslation = activeFor('translation')
+
+  const queryModel = dbManaged && activeQuery
+    ? activeQuery.display_name
+    : aiRuntime?.query_model_override ? aiRuntime?.query_model : aiRuntime?.llm_model
+  const queryNote = dbManaged
+    ? activeQuery?.provider_name
+    : aiRuntime?.query_model_override
+      ? undefined
+      : aiRuntime
+        ? t('ai_query.model_badge_legacy')
+        : undefined
+  const embeddingBadge = dbManaged
+    ? activeEmbedding?.display_name
+    : aiRuntime?.embeddings_enabled ? aiRuntime?.embedding_model : undefined
+  const translationBadge = dbManaged
+    ? activeTranslation?.display_name
+    : aiRuntime?.translation_enabled ? aiRuntime?.translation_model : undefined
+
   return (
     <header className="query-config-header">
       <div className="query-config-top">
         <ModelBadgeRow
           primaryLabel={t('ai_query.model_badge_query')}
-          primaryModel={
-            aiRuntime?.query_model_override ? aiRuntime?.query_model : aiRuntime?.llm_model
-          }
-          primaryNote={
-            aiRuntime?.query_model_override
-              ? undefined
-              : aiRuntime
-                ? t('ai_query.model_badge_legacy')
-                : undefined
-          }
-          embeddingModel={aiRuntime?.embeddings_enabled ? aiRuntime?.embedding_model : undefined}
-          translationModel={aiRuntime?.translation_enabled ? aiRuntime?.translation_model : undefined}
+          primaryModel={queryModel}
+          primaryNote={queryNote}
+          embeddingModel={embeddingBadge}
+          translationModel={translationBadge}
           className="query-config-badges"
         />
         {aiRuntime?.embeddings_enabled === true && (

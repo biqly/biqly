@@ -50,6 +50,21 @@ type aiRuntimeSettingsResponse struct {
 	EffectiveMaxPromptRunes  int `json:"effective_max_prompt_runes,omitempty"`
 	ContextWindowTokens      int `json:"context_window_tokens,omitempty"`
 	ContextWindowSource      string `json:"context_window_source,omitempty"`
+
+	// DBManaged reports whether provider/model selection is sourced from the
+	// ai_providers / ai_models tables (admin-managed) rather than env vars.
+	// ActiveModels lists the current default model per purpose when DB-managed.
+	DBManaged    bool                 `json:"db_managed"`
+	ActiveModels []activeModelSummary `json:"active_models,omitempty"`
+}
+
+// activeModelSummary is the non-secret view of a default model per purpose.
+type activeModelSummary struct {
+	Purpose      string `json:"purpose"`
+	ModelID      string `json:"model_id"`
+	DisplayName  string `json:"display_name"`
+	ProviderName string `json:"provider_name"`
+	ProviderType string `json:"provider_type"`
 }
 
 func effectiveAIBaseURL(cfg config.AIConfig) string {
@@ -135,6 +150,21 @@ func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 		out.TranslationAPIKeyDedicated = strings.TrimSpace(cfg.TranslationAPIKey) != ""
 		out.TranslationTargetLanguage = cfg.TranslationTargetLanguage
 		out.TranslationTargetCode = cfg.TranslationTargetCode
+	}
+	out.DBManaged = cfg.DBManaged
+	if cfg.DBManaged && h.deps.AIProviderStore != nil {
+		if rows, err := h.deps.AIProviderStore.ActiveModels(r.Context()); err == nil {
+			out.ActiveModels = make([]activeModelSummary, 0, len(rows))
+			for _, m := range rows {
+				out.ActiveModels = append(out.ActiveModels, activeModelSummary{
+					Purpose:      m.Purpose,
+					ModelID:      m.ModelID,
+					DisplayName:  m.DisplayName,
+					ProviderName: m.ProviderName,
+					ProviderType: m.ProviderType,
+				})
+			}
+		}
 	}
 	writeJSON(w, http.StatusOK, out)
 }

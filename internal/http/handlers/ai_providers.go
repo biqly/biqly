@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -9,17 +10,41 @@ import (
 	"github.com/biqly/biqly/internal/app"
 )
 
+// providerStoreAPI is the subset of *ai.ProviderStore the handler depends on.
+// Declaring it here (consumer-side) keeps the handler unit-testable with a fake.
+type providerStoreAPI interface {
+	ListProviders(ctx context.Context) ([]ai.ProviderRow, error)
+	GetProvider(ctx context.Context, id string) (ai.ProviderRow, error)
+	CreateProvider(ctx context.Context, in ai.CreateProviderInput) (string, error)
+	UpdateProvider(ctx context.Context, id string, in ai.UpdateProviderInput) error
+	DeleteProvider(ctx context.Context, id string) error
+	TestConnection(ctx context.Context, providerID, modelID string) (ai.ConnectionTestResult, error)
+	ListModels(ctx context.Context, providerID, purpose string) ([]ai.ModelRow, error)
+	ActiveModels(ctx context.Context) ([]ai.ModelRow, error)
+	CreateModel(ctx context.Context, in ai.CreateModelInput) (string, error)
+	UpdateModel(ctx context.Context, id string, in ai.UpdateModelInput) error
+	DeleteModel(ctx context.Context, id string) error
+	SetDefaultModel(ctx context.Context, id string) error
+	RefreshCache(ctx context.Context) error
+}
+
 // AIProvidersHandler serves the admin CRUD API for AI providers and models.
 // All routes are admin-gated at the router; mutations refresh the in-memory
 // provider cache so model changes take effect without a restart.
 type AIProvidersHandler struct {
 	deps  *app.AIDeps
-	store *ai.ProviderStore
+	store providerStoreAPI
 }
 
 // NewAIProvidersHandler builds the handler from AI dependencies.
 func NewAIProvidersHandler(deps *app.AIDeps) *AIProvidersHandler {
-	return &AIProvidersHandler{deps: deps, store: deps.AIProviderStore}
+	h := &AIProvidersHandler{deps: deps}
+	// Keep store as a nil interface (not a typed-nil) when unconfigured so the
+	// ready() guard works and never dereferences a nil pointer.
+	if deps.AIProviderStore != nil {
+		h.store = deps.AIProviderStore
+	}
+	return h
 }
 
 func (h *AIProvidersHandler) refresh(r *http.Request) {

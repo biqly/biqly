@@ -1112,6 +1112,9 @@ export const core = {
     time_grains_section: 'Time grains',
     time_grains_hint: 'Manage the date/time grain synonyms and suffixes that route user queries to database operations.',
     time_grains_open: 'Open time grains editor',
+    ai_config_section: 'AI providers & models',
+    ai_config_hint: 'Manage AI providers and the model used for each task (query, describe, embedding, translation, judge). Changes apply without a restart.',
+    ai_config_open: 'Manage AI providers',
     persist_hint:
       'Language and theme are available in the sidebar — saved per browser.',
   },

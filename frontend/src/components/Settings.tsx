@@ -289,6 +289,20 @@ export default function Settings() {
         </div>
       </section>
 
+      <section className="card card--elevated settings-prefs-card">
+        <div className="card-intro card-intro--compact">
+          <h2>{t('settings.ai_config_section')}</h2>
+          <p className="card-lead card-lead--single-line" title={t('settings.ai_config_hint')}>
+            {t('settings.ai_config_hint')}
+          </p>
+        </div>
+        <div className="settings-control-row">
+          <button type="button" className="btn btn-primary" onClick={() => goTo('/admin?tab=ai_providers')}>
+            {t('settings.ai_config_open')}
+          </button>
+        </div>
+      </section>
+
       {/* Security & Passkey Management Section */}
       <section className="card card--elevated settings-prefs-card">
         <div className="card-intro card-intro--compact">

@@ -1114,6 +1114,9 @@ export const core: CoreDictionary = {
     time_grains_section: 'Zaman kırılımları',
     time_grains_hint: 'Kullanıcı sorgularını veritabanı işlemlerine yönlendiren tarih/zaman kırılımı eş anlamlılarını ve soneklerini yönetin.',
     time_grains_open: 'Zaman kırılımları editörünü aç',
+    ai_config_section: 'AI sağlayıcılar & modeller',
+    ai_config_hint: 'AI sağlayıcılarını ve her görev (sorgu, açıklama, embedding, çeviri, değerlendirici) için kullanılan modeli yönetin. Değişiklikler yeniden başlatmadan uygulanır.',
+    ai_config_open: 'AI sağlayıcılarını yönet',
     persist_hint:
       'Dil ve tema yan menüden erişilebilir — tarayıcı başına saklanır.',
   },

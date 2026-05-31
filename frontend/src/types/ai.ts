@@ -34,6 +34,18 @@ export interface AIRuntimeSettings {
   translation_api_key_dedicated?: boolean
   translation_target_language?: string
   translation_target_code?: string
+  /** True when provider/model selection is managed in the DB (admin panel). */
+  db_managed?: boolean
+  /** Current default model per purpose when db_managed is true. */
+  active_models?: ActiveModelSummary[]
+}
+
+export interface ActiveModelSummary {
+  purpose: 'query' | 'describe' | 'embedding' | 'translation' | 'judge'
+  model_id: string
+  display_name: string
+  provider_name: string
+  provider_type: string
 }
 
 export interface EmbedMetadataResult {
