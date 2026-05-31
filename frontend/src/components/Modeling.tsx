@@ -646,6 +646,14 @@ export default function Modeling() {
     }
   }, [highlightJoinId, joins, model])
 
+  if (dsLoading || (modelId && !model)) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
+        <div className="spinner" style={{ width: '42px', height: '42px', borderTopColor: 'var(--accent, #6366f1)' }} />
+      </div>
+    )
+  }
+
   return (
     <div className="modeling-page">
       <section className="modeling-toolbar">

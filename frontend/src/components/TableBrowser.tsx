@@ -239,11 +239,11 @@ export default function TableBrowser() {
   const formatInt = useCallback((n: number) => n.toLocaleString(localeTag), [localeTag])
   const { get, postData, error } = useApi()
 
-  const { datasources } = useDatasources()
+  const { datasources, loading: dsLoading } = useDatasources()
   const [datasourceId, setDatasourceId] = useState('')
   const { models } = useSemanticModels(datasourceId)
   const [modelId, setModelId] = useState('')
-  const { model: modelDetail, setModel: setModelDetail } = useModelDetail(modelId)
+  const { model: modelDetail, setModel: setModelDetail, loading: modelLoading } = useModelDetail(modelId)
   const [selectedTableKey, setSelectedTableKey] = useState('')
   const [columnOrder, setColumnOrder] = useState<string[]>([])
   const [dragColumn, setDragColumn] = useState<string | null>(null)
@@ -688,6 +688,14 @@ export default function TableBrowser() {
             start: formatInt(rangeStart),
             end: formatInt(rangeEnd),
           })
+
+  if (dsLoading || (modelId && !modelDetail && modelLoading)) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
+        <div className="spinner" style={{ width: '42px', height: '42px', borderTopColor: 'var(--accent, #6366f1)' }} />
+      </div>
+    )
+  }
 
   return (
     <div className="card card--table-browser">

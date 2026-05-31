@@ -56,6 +56,8 @@ export default function FewShotExamples() {
   const [lastFocusedInput, setLastFocusedInput] = useState<'question' | 'lq'>('lq')
 
   // Load & Filter Examples
+  const [initLoading, setInitLoading] = useState(true)
+
   useEffect(() => {
     let url = '/api/ai/examples'
     const queryParts: string[] = []
@@ -69,6 +71,7 @@ export default function FewShotExamples() {
       url += `?${queryParts.join('&')}`
     }
 
+    setInitLoading(true)
     get<FewShotExample[]>(url).then((data) => {
       if (data) {
         setExamples(data)
@@ -91,6 +94,8 @@ export default function FewShotExamples() {
         } catch { /* empty */ }
         setApiReady(false)
       }
+    }).finally(() => {
+      setInitLoading(false)
     })
   }, [selectedDatasourceId, selectedModelId, get])
 
@@ -292,6 +297,14 @@ export default function FewShotExamples() {
     if (!modelId) return t('few_shot.option_raw_tables')
     const m = allModels.find((model) => model.id === modelId)
     return m ? (m.label || m.name) : modelId
+  }
+
+  if (initLoading && examples.length === 0) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
+        <div className="spinner" style={{ width: '42px', height: '42px', borderTopColor: 'var(--accent, #6366f1)' }} />
+      </div>
+    )
   }
 
   return (

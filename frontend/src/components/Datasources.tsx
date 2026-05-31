@@ -68,6 +68,7 @@ export default function Datasources() {
   const { get, postData, putData, deleteData, loading, error } = useApi()
   const { accessToken } = useAuth()
   const confirm = useConfirm()
+  const [initLoading, setInitLoading] = useState(true)
   const [items, setItems] = useState<Datasource[]>([])
   const [accessibleDatasourceIDs, setAccessibleDatasourceIDs] = useState<string[] | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -87,13 +88,18 @@ export default function Datasources() {
   }
 
   const load = async () => {
-    const options = authRequestOptions(accessToken)
-    const [data, accessibleIDs] = await Promise.all([
-      get<Datasource[]>('/api/datasources', options),
-      accessToken ? getMyDatasources(accessToken).catch(() => null) : Promise.resolve(null),
-    ])
-    if (data) setItems(data)
-    setAccessibleDatasourceIDs(accessibleIDs)
+    setInitLoading(true)
+    try {
+      const options = authRequestOptions(accessToken)
+      const [data, accessibleIDs] = await Promise.all([
+        get<Datasource[]>('/api/datasources', options),
+        accessToken ? getMyDatasources(accessToken).catch(() => null) : Promise.resolve(null),
+      ])
+      if (data) setItems(data)
+      setAccessibleDatasourceIDs(accessibleIDs)
+    } finally {
+      setInitLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -278,6 +284,14 @@ export default function Datasources() {
       : structured.host.trim() !== '' &&
         (structured.port.trim() === '' || (!Number.isNaN(parseInt(structured.port, 10)) && parseInt(structured.port, 10) > 0)))
   const datasourceRows = buildDatasourceAccessView(items, accessibleDatasourceIDs)
+
+  if (initLoading && items.length === 0) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
+        <div className="spinner" style={{ width: '42px', height: '42px', borderTopColor: 'var(--accent, #6366f1)' }} />
+      </div>
+    )
+  }
 
   return (
     <div className="page-stack">

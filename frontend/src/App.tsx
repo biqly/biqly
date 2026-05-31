@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useState, type ComponentType, type LazyExoticComponent, type MouseEvent, type ReactNode } from 'react'
-import { Routes, Route, useLocation, useNavigate } from 'react-router-dom'
+import { Routes, Route, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Breadcrumbs, type Crumb } from './components/ui/Breadcrumbs'
 import { CommandPalette, type CommandItem } from './components/ui/CommandPalette'
 import { EmptyState } from './components/ui/EmptyState'
@@ -7,7 +7,7 @@ import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { LanguageSwitcher } from './components/ui/LanguageSwitcher'
 import { ThemeToggle } from './components/ui/ThemeToggle'
 import abiLogo from './assets/abi-logo.png'
-import { useT, type TranslationKey } from './i18n'
+import { useT, LocaleSection, type TranslationKey } from './i18n'
 
 const Home = lazy(() => import('./components/Home'))
 const Datasources = lazy(() => import('./components/Datasources'))
@@ -511,13 +511,15 @@ function App() {
 
   return (
     <Routes>
-      <Route path="/auth/signin" element={<Suspense fallback={<AuthLoading />}><SignInPage /></Suspense>} />
-      <Route path="/auth/signup" element={<Suspense fallback={<AuthLoading />}><SignUpPage /></Suspense>} />
-      <Route path="/auth/forgot-password" element={<Suspense fallback={<AuthLoading />}><ForgotPasswordPage /></Suspense>} />
-      <Route path="/auth/reset-password" element={<Suspense fallback={<AuthLoading />}><ResetPasswordPage /></Suspense>} />
-      <Route path="/auth/verify-email" element={<Suspense fallback={<AuthLoading />}><VerifyEmailPage /></Suspense>} />
-      <Route path="/auth/claim-invite" element={<Suspense fallback={<AuthLoading />}><ClaimInvitePage /></Suspense>} />
-      <Route path="/auth/callback" element={<Suspense fallback={<AuthLoading />}><OAuthCallback /></Suspense>} />
+      <Route element={<LocaleSection name="auth" fallback={<AuthLoading />}><Outlet /></LocaleSection>}>
+        <Route path="/auth/signin" element={<Suspense fallback={<AuthLoading />}><SignInPage /></Suspense>} />
+        <Route path="/auth/signup" element={<Suspense fallback={<AuthLoading />}><SignUpPage /></Suspense>} />
+        <Route path="/auth/forgot-password" element={<Suspense fallback={<AuthLoading />}><ForgotPasswordPage /></Suspense>} />
+        <Route path="/auth/reset-password" element={<Suspense fallback={<AuthLoading />}><ResetPasswordPage /></Suspense>} />
+        <Route path="/auth/verify-email" element={<Suspense fallback={<AuthLoading />}><VerifyEmailPage /></Suspense>} />
+        <Route path="/auth/claim-invite" element={<Suspense fallback={<AuthLoading />}><ClaimInvitePage /></Suspense>} />
+        <Route path="/auth/callback" element={<Suspense fallback={<AuthLoading />}><OAuthCallback /></Suspense>} />
+      </Route>
 
       <Route
         path="*"
@@ -650,76 +652,70 @@ function App() {
                   </div>
                 </header>
 
-                <Routes>
-                  {routeDefs.map((route) => {
-                    const Component = route.component
-                    return (
-                      <Route
-                        key={route.path}
-                        path={route.path}
-                        element={
-                          <ErrorBoundary key={route.path}>
-                            <Suspense
-                              fallback={
-                                <section className="card card--elevated">
-                                  <EmptyState description={t('common.module_loading')} />
-                                </section>
-                              }
-                            >
-                              <Component />
-                            </Suspense>
-                          </ErrorBoundary>
-                        }
-                      />
-                    )
-                  })}
-                  
-                  <Route
-                    path="/modeling/:modelId"
-                    element={
-                      <ErrorBoundary key="modeling-route-param">
-                        <Suspense
-                          fallback={
-                            <section className="card card--elevated">
-                              <EmptyState description={t('common.module_loading')} />
-                            </section>
+                <Suspense
+                  fallback={
+                    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, height: '100%', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+                      <div className="spinner" style={{ width: '42px', height: '42px', borderTopColor: 'var(--accent, #6366f1)' }} />
+                      <span style={{ marginTop: 12, color: 'var(--text-secondary, #a1a1aa)', fontSize: 14 }}>{t('common.loading')}</span>
+                    </div>
+                  }
+                >
+                  <Routes>
+                    {routeDefs.map((route) => {
+                      const Component = route.component
+                      return (
+                        <Route
+                          key={route.path}
+                          path={route.path}
+                          element={
+                            <ErrorBoundary key={route.path}>
+                              {route.path === '/admin' ? (
+                                <LocaleSection
+                                  name="admin"
+                                  fallback={<EmptyState description={t('common.module_loading')} />}
+                                >
+                                  <Component />
+                                </LocaleSection>
+                              ) : (
+                                <Component />
+                              )}
+                            </ErrorBoundary>
                           }
-                        >
+                        />
+                      )
+                    })}
+                    
+                    <Route
+                      path="/modeling/:modelId"
+                      element={
+                        <ErrorBoundary key="modeling-route-param">
                           <Modeling />
-                        </Suspense>
-                      </ErrorBoundary>
-                    }
-                  />
-                  <Route
-                    path="/model/:modelId"
-                    element={
-                      <ErrorBoundary key="model-route-param">
-                        <Suspense
-                          fallback={
-                            <section className="card card--elevated">
-                              <EmptyState description={t('common.module_loading')} />
-                            </section>
-                          }
-                        >
+                        </ErrorBoundary>
+                      }
+                    />
+                    <Route
+                      path="/model/:modelId"
+                      element={
+                        <ErrorBoundary key="model-route-param">
                           <Modeling />
-                        </Suspense>
-                      </ErrorBoundary>
-                    }
-                  />
+                        </ErrorBoundary>
+                      }
+                    />
 
-                  <Route
-                    path="*"
-                    element={
-                      <section className="card card--elevated">
-                        <EmptyState title={t('common.module_not_found')} description={t('common.module_not_found_desc')}>
-                          <a className="btn" href={DEFAULT_PATH} onClick={(event) => handleNavClick(event, DEFAULT_PATH)}>
-                            {t('common.go_to_datasources')}
-                          </a>
-                        </EmptyState>
-                      </section>
-                    }
-                  />
-                </Routes>
+                    <Route
+                      path="*"
+                      element={
+                        <section className="card card--elevated">
+                          <EmptyState title={t('common.module_not_found')} description={t('common.module_not_found_desc')}>
+                            <a className="btn" href={DEFAULT_PATH} onClick={(event) => handleNavClick(event, DEFAULT_PATH)}>
+                              {t('common.go_to_datasources')}
+                            </a>
+                          </EmptyState>
+                        </section>
+                      }
+                    />
+                  </Routes>
+                </Suspense>
               </main>
             </div>
           </AuthGuard>

@@ -1,14 +1,16 @@
+import { lazy, Suspense } from 'react'
 import { useAuth } from '../auth/AuthProvider'
-import { RolesPanel } from './RolesPanel'
-import { DatasourceAccessPanel } from './DatasourceAccessPanel'
-import { WorkspacesPanel } from './WorkspacesPanel'
-import { AuditLogPanel } from './AuditLogPanel'
-import { UserListPage } from './UserListPage'
-import { UserDetailPage } from './UserDetailPage'
-import { AIHistoryPanel } from '../ai/AIHistoryPanel'
-import { SharedResourcesList } from '../sharing/SharedResourcesList'
 import { useT } from '../../i18n'
 import { useQueryParam } from '../../hooks/useQueryParam'
+
+const RolesPanel = lazy(() => import('./RolesPanel').then(m => ({ default: m.RolesPanel })))
+const DatasourceAccessPanel = lazy(() => import('./DatasourceAccessPanel').then(m => ({ default: m.DatasourceAccessPanel })))
+const WorkspacesPanel = lazy(() => import('./WorkspacesPanel').then(m => ({ default: m.WorkspacesPanel })))
+const AuditLogPanel = lazy(() => import('./AuditLogPanel').then(m => ({ default: m.AuditLogPanel })))
+const UserListPage = lazy(() => import('./UserListPage').then(m => ({ default: m.UserListPage })))
+const UserDetailPage = lazy(() => import('./UserDetailPage').then(m => ({ default: m.UserDetailPage })))
+const AIHistoryPanel = lazy(() => import('../ai/AIHistoryPanel').then(m => ({ default: m.AIHistoryPanel })))
+const SharedResourcesList = lazy(() => import('../sharing/SharedResourcesList').then(m => ({ default: m.SharedResourcesList })))
 
 type AdminTab = 'users' | 'roles' | 'datasource_access' | 'workspaces' | 'ai_history' | 'sharing' | 'audit_log'
 
@@ -82,20 +84,28 @@ export default function Admin() {
         <TabButton active={tab === 'audit_log'} onClick={() => handleTabChange('audit_log')}>{t('admin.tabs.audit_log')}</TabButton>
       </div>
 
-      <div>
-        {tab === 'users' && (
-          selectedUserID ? (
-            <UserDetailPage token={accessToken} userID={selectedUserID} onBack={() => setUserIdParam('')} />
-          ) : (
-            <UserListPage token={accessToken} onSelectUser={(id) => setUserIdParam(id)} />
-          )
-        )}
-        {tab === 'roles' && <RolesPanel token={accessToken} />}
-        {tab === 'datasource_access' && <DatasourceAccessPanel token={accessToken} />}
-        {tab === 'workspaces' && <WorkspacesPanel token={accessToken} />}
-        {tab === 'ai_history' && <AIHistoryPanel />}
-        {tab === 'sharing' && <SharedResourcesList />}
-        {tab === 'audit_log' && <AuditLogPanel token={accessToken} />}
+      <div style={{ position: 'relative', minHeight: '200px' }}>
+        <Suspense
+          fallback={
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3rem', minHeight: '200px' }}>
+              <div className="spinner" style={{ width: '32px', height: '32px', borderTopColor: 'var(--accent, #6366f1)' }} />
+            </div>
+          }
+        >
+          {tab === 'users' && (
+            selectedUserID ? (
+              <UserDetailPage token={accessToken} userID={selectedUserID} onBack={() => setUserIdParam('')} />
+            ) : (
+              <UserListPage token={accessToken} onSelectUser={(id) => setUserIdParam(id)} />
+            )
+          )}
+          {tab === 'roles' && <RolesPanel token={accessToken} />}
+          {tab === 'datasource_access' && <DatasourceAccessPanel token={accessToken} />}
+          {tab === 'workspaces' && <WorkspacesPanel token={accessToken} />}
+          {tab === 'ai_history' && <AIHistoryPanel />}
+          {tab === 'sharing' && <SharedResourcesList />}
+          {tab === 'audit_log' && <AuditLogPanel token={accessToken} />}
+        </Suspense>
       </div>
     </div>
   )

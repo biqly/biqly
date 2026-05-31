@@ -1,4 +1,6 @@
-export const auth = {
+import type { AuthDictionary } from '../dictionary'
+
+export const auth: AuthDictionary = {
   title_signin: 'ABI\'ye Giriş Yap',
   title_signup: 'Hesabınızı Oluşturun',
   title_forgot: 'Şifremi Unuttum',

@@ -37,10 +37,35 @@ interface DayUsage {
 }
 
 export default function Dashboard() {
+  const t = useT()
+  const { get } = useApi()
+  const [summary, setSummary] = useState<AIUsageSummary | null>(null)
+  const [daily, setDaily] = useState<DayUsage[]>([])
+  const [models, setModels] = useState<ModelStats[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      get<{ summary: AIUsageSummary; daily: DayUsage[] }>('/api/ai/usage').then((data) => {
+        if (data) {
+          setSummary(data.summary)
+          setDaily(data.daily.slice(0, 10).reverse())
+        }
+      }),
+      get<ModelStats[]>('/api/ai/stats/models').then((data) => {
+        if (data) setModels(data)
+      })
+    ]).finally(() => {
+      setLoading(false)
+    })
+  }, [])
+
+  if (loading) return <AIUsageSkeleton heading={t('dashboard.ai_usage_last_30')} />
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      <AIUsageSection />
-      <ModelSuccessRates />
+      {summary && <AIUsageSection summary={summary} daily={daily} />}
+      {models.length > 0 && <ModelSuccessRates models={models} />}
     </div>
   )
 }
@@ -69,25 +94,8 @@ function AIUsageSkeleton({ heading }: { heading: string }) {
   )
 }
 
-function AIUsageSection() {
+function AIUsageSection({ summary, daily }: { summary: AIUsageSummary; daily: DayUsage[] }) {
   const t = useT()
-  const { get } = useApi()
-  const [summary, setSummary] = useState<AIUsageSummary | null>(null)
-  const [daily, setDaily] = useState<DayUsage[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    get<{ summary: AIUsageSummary; daily: DayUsage[] }>('/api/ai/usage').then((data) => {
-      if (data) {
-        setSummary(data.summary)
-        setDaily(data.daily.slice(0, 10).reverse())
-      }
-      setLoading(false)
-    })
-  }, [])
-
-  if (loading) return <AIUsageSkeleton heading={t('dashboard.ai_usage_last_30')} />
-  if (!summary) return null
 
   const trendData = daily.map((d) => ({
     name: d.date.slice(5),
@@ -131,20 +139,8 @@ function AIUsageSection() {
   )
 }
 
-function ModelSuccessRates() {
+function ModelSuccessRates({ models }: { models: ModelStats[] }) {
   const t = useT()
-  const { get } = useApi()
-  const [models, setModels] = useState<ModelStats[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    get<ModelStats[]>('/api/ai/stats/models').then((data) => {
-      if (data) setModels(data)
-      setLoading(false)
-    })
-  }, [])
-
-  if (loading) return null
   if (models.length === 0) return null
 
   return (

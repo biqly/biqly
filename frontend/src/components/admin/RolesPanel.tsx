@@ -10,7 +10,8 @@ export function RolesPanel({ token }: { token: string }) {
   const [roles, setRoles] = useState<Role[]>([])
   const [perms, setPerms] = useState<Permission[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loadingRoles, setLoadingRoles] = useState(true)
+  const [loadingPerms, setLoadingPerms] = useState(true)
 
   // Roles Pagination
   const [rolesPage, setRolesPage] = useState(1)
@@ -22,31 +23,49 @@ export function RolesPanel({ token }: { token: string }) {
   const permsPageSize = 10
   const [totalPerms, setTotalPerms] = useState(0)
 
+  // Fetch Roles
   useEffect(() => {
     let cancelled = false
     async function load() {
       try {
-        setLoading(true)
-        const [rRes, pRes] = await Promise.all([
-          listRoles(token, rolesPage, rolesPageSize),
-          listPermissions(token, permsPage, permsPageSize),
-        ])
+        setLoadingRoles(true)
+        const res = await listRoles(token, rolesPage, rolesPageSize)
         if (cancelled) return
-        setRoles(rRes.roles)
-        setTotalRoles(rRes.total)
-        setPerms(pRes.permissions)
-        setTotalPerms(pRes.total)
+        setRoles(res.roles)
+        setTotalRoles(res.total)
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e))
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setLoadingRoles(false)
       }
     }
     load()
     return () => {
       cancelled = true
     }
-  }, [token, rolesPage, permsPage])
+  }, [token, rolesPage])
+
+  // Fetch Permissions
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        setLoadingPerms(true)
+        const res = await listPermissions(token, permsPage, permsPageSize)
+        if (cancelled) return
+        setPerms(res.permissions)
+        setTotalPerms(res.total)
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : String(e))
+      } finally {
+        if (!cancelled) setLoadingPerms(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [token, permsPage])
 
   const totalRolesPages = Math.ceil(totalRoles / rolesPageSize)
   const totalPermsPages = Math.ceil(totalPerms / permsPageSize)
@@ -61,12 +80,12 @@ export function RolesPanel({ token }: { token: string }) {
         <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.roles.title', { count: totalRoles })}</h2>
           <div style={containerStyle}>
-            <LoadingOverlay loading={loading}>
-              <div style={{ minHeight: displayedRoles.length === 0 && loading ? 120 : 'auto', display: 'flex', flexDirection: 'column' }}>
+            <LoadingOverlay loading={loadingRoles}>
+              <div style={{ minHeight: displayedRoles.length === 0 && loadingRoles ? 120 : 'auto', display: 'flex', flexDirection: 'column' }}>
                 <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column' }}>
                   {displayedRoles.length === 0 ? (
                     <li style={{ padding: 16, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
-                      {loading ? '' : '—'}
+                      {loadingRoles ? '' : '—'}
                     </li>
                   ) : (
                     displayedRoles.map((r, i) => (
@@ -102,8 +121,8 @@ export function RolesPanel({ token }: { token: string }) {
         <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.roles.permissions_title', { count: totalPerms })}</h2>
           <div style={containerStyle}>
-            <LoadingOverlay loading={loading}>
-              <div style={{ minHeight: displayedPerms.length === 0 && loading ? 120 : 'auto', display: 'flex', flexDirection: 'column' }}>
+            <LoadingOverlay loading={loadingPerms}>
+              <div style={{ minHeight: displayedPerms.length === 0 && loadingPerms ? 120 : 'auto', display: 'flex', flexDirection: 'column' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                   <thead>
                     <tr style={theadRow}>
@@ -116,7 +135,7 @@ export function RolesPanel({ token }: { token: string }) {
                     {displayedPerms.length === 0 ? (
                       <tr>
                         <td colSpan={3} style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>
-                          {loading ? '' : '—'}
+                          {loadingPerms ? '' : '—'}
                         </td>
                       </tr>
                     ) : (

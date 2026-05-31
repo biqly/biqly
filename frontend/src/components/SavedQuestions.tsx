@@ -24,6 +24,8 @@ export default function SavedQuestions() {
   const { models: semanticModels } = useSemanticModels(datasourceId)
   const [semanticModelId, setSemanticModelId] = useState('')
 
+  const [initLoading, setInitLoading] = useState(true)
+
   // Questions List State
   const [questions, setQuestions] = useState<SavedQuestion[]>([])
   const [search, setSearch] = useState('')
@@ -64,10 +66,15 @@ export default function SavedQuestions() {
   // Fetch Saved Questions
   const fetchQuestions = useCallback(async (dsId: string, mId: string) => {
     if (!dsId) return
-    const url = `/api/ai/examples?datasource_id=${encodeURIComponent(dsId)}${mId ? `&model_id=${encodeURIComponent(mId)}` : ''}`
-    const data = await get<SavedQuestion[]>(url)
-    if (data) {
-      setQuestions(data)
+    setInitLoading(true)
+    try {
+      const url = `/api/ai/examples?datasource_id=${encodeURIComponent(dsId)}${mId ? `&model_id=${encodeURIComponent(mId)}` : ''}`
+      const data = await get<SavedQuestion[]>(url)
+      if (data) {
+        setQuestions(data)
+      }
+    } finally {
+      setInitLoading(false)
     }
   }, [get])
 
@@ -346,6 +353,14 @@ export default function SavedQuestions() {
   }
 
   const fewShotCount = useMemo(() => questions.filter((q) => q.is_few_shot).length, [questions])
+
+  if (initLoading && questions.length === 0) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
+        <div className="spinner" style={{ width: '42px', height: '42px', borderTopColor: 'var(--accent, #6366f1)' }} />
+      </div>
+    )
+  }
 
   return (
     <div className="page-stack">

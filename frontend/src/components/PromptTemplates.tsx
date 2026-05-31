@@ -96,6 +96,7 @@ export default function PromptTemplates() {
   const t = useT()
   const { get, putData, postData, loading, error } = useApi()
   const confirm = useConfirm()
+  const [initLoading, setInitLoading] = useState(true)
   const [rows, setRows] = useState<PromptTemplateRow[]>([])
   const [editLocale, setEditLocale] = useState<EditLocale>(DEFAULT_LOCALE)
   const [selectedName, setSelectedName] = useState<TemplateName>('system_rules')
@@ -226,8 +227,13 @@ export default function PromptTemplates() {
   }, [draft])
 
   const load = useCallback(async () => {
-    const data = await get<PromptTemplateRow[]>('/api/ai/prompt-templates')
-    if (data) setRows(data)
+    setInitLoading(true)
+    try {
+      const data = await get<PromptTemplateRow[]>('/api/ai/prompt-templates')
+      if (data) setRows(data)
+    } finally {
+      setInitLoading(false)
+    }
   }, [get])
 
   useEffect(() => {
@@ -318,6 +324,14 @@ export default function PromptTemplates() {
     currentRow?.updated_at != null
       ? new Date(currentRow.updated_at).toLocaleString()
       : '—'
+
+  if (initLoading && rows.length === 0) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
+        <div className="spinner" style={{ width: '42px', height: '42px', borderTopColor: 'var(--accent, #6366f1)' }} />
+      </div>
+    )
+  }
 
   return (
     <div className="page-stack">

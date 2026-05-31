@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../styles/evaluation.css'
 import { useAdminApi } from '../hooks/useApi'
@@ -7,9 +7,10 @@ import { localeLanguageTag, useI18n, useT } from '../i18n'
 import { ErrorAlert } from './ui/ErrorAlert'
 import type { EvalRunSummary, EvalRunDetail, RegressionReport } from '../types/ai'
 import type { EvalRunResponse } from './evaluation/demoData'
-import { EvalRunTab } from './evaluation/EvalRunTab'
-import { EvalHistoryTab } from './evaluation/EvalHistoryTab'
-import { EvalRegressionTab } from './evaluation/EvalRegressionTab'
+
+const EvalRunTab = lazy(() => import('./evaluation/EvalRunTab').then(m => ({ default: m.EvalRunTab })))
+const EvalHistoryTab = lazy(() => import('./evaluation/EvalHistoryTab').then(m => ({ default: m.EvalHistoryTab })))
+const EvalRegressionTab = lazy(() => import('./evaluation/EvalRegressionTab').then(m => ({ default: m.EvalRegressionTab })))
 
 // DEMO_DATA is lazy-loaded from ./evaluation/demoData.ts
 
@@ -170,48 +171,56 @@ export default function Evaluation() {
         </ErrorAlert>
       )}
 
-      {/* ─── TAB: Run Evaluation ─────────────────────────────── */}
-      {activeTab === 'run' && (
-        <EvalRunTab
-          running={running}
-          runEvaluation={runEvaluation}
-          showDemo={showDemo}
-          runError={runError}
-          activeData={activeData}
-          pieData={pieData}
-          trendData={trendData}
-          t={t}
-        />
-      )}
+      <Suspense
+        fallback={
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3rem', minHeight: '200px' }}>
+            <div className="spinner" style={{ width: '32px', height: '32px', borderTopColor: 'var(--accent, #6366f1)' }} />
+          </div>
+        }
+      >
+        {/* ─── TAB: Run Evaluation ─────────────────────────────── */}
+        {activeTab === 'run' && (
+          <EvalRunTab
+            running={running}
+            runEvaluation={runEvaluation}
+            showDemo={showDemo}
+            runError={runError}
+            activeData={activeData}
+            pieData={pieData}
+            trendData={trendData}
+            t={t}
+          />
+        )}
 
-      {/* ─── TAB: History ────────────────────────────────────── */}
-      {activeTab === 'history' && (
-        <EvalHistoryTab
-          runHistory={runHistory}
-          selectedRun={selectedRun}
-          setSelectedRun={setSelectedRun}
-          loadRunDetail={loadRunDetail}
-          localeTag={localeTag}
-          t={t}
-        />
-      )}
+        {/* ─── TAB: History ────────────────────────────────────── */}
+        {activeTab === 'history' && (
+          <EvalHistoryTab
+            runHistory={runHistory}
+            selectedRun={selectedRun}
+            setSelectedRun={setSelectedRun}
+            loadRunDetail={loadRunDetail}
+            localeTag={localeTag}
+            t={t}
+          />
+        )}
 
-      {/* ─── TAB: Regression ─────────────────────────────────── */}
-      {activeTab === 'regression' && (
-        <EvalRegressionTab
-          runHistory={runHistory}
-          baselineId={baselineId}
-          currentId={currentId}
-          setBaselineId={setBaselineId}
-          setCurrentId={setCurrentId}
-          regression={regression}
-          regressionLoading={regressionLoading}
-          runRegression={runRegression}
-          configured={adminApi.configured}
-          localeTag={localeTag}
-          t={t}
-        />
-      )}
+        {/* ─── TAB: Regression ─────────────────────────────────── */}
+        {activeTab === 'regression' && (
+          <EvalRegressionTab
+            runHistory={runHistory}
+            baselineId={baselineId}
+            currentId={currentId}
+            setBaselineId={setBaselineId}
+            setCurrentId={setCurrentId}
+            regression={regression}
+            regressionLoading={regressionLoading}
+            runRegression={runRegression}
+            configured={adminApi.configured}
+            localeTag={localeTag}
+            t={t}
+          />
+        )}
+      </Suspense>
     </div>
   )
 }

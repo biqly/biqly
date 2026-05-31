@@ -44,17 +44,25 @@ export default function Metadata() {
   const [tableFilterType, setTableFilterType] = useState(typeParam)
   const [aiRuntime, setAiRuntime] = useState<AIRuntimeSettings | null>(null)
 
+  const [initLoading, setInitLoading] = useState(true)
+  const [tablesLoading, setTablesLoading] = useState(false)
+
   useEffect(() => {
-    get<Datasource[]>('/api/datasources').then((data) => {
-      if (!data) return
-      setDatasources(data)
-      setDatasourceId((prev) => {
-        if (prev && data.some((d) => d.id === prev)) return prev
-        return data[0]?.id ?? ''
+    setInitLoading(true)
+    Promise.all([
+      get<Datasource[]>('/api/datasources').then((data) => {
+        if (!data) return
+        setDatasources(data)
+        setDatasourceId((prev) => {
+          if (prev && data.some((d) => d.id === prev)) return prev
+          return data[0]?.id ?? ''
+        })
+      }),
+      get<AIRuntimeSettings>('/api/ai/settings').then((data) => {
+        if (data) setAiRuntime(data)
       })
-    })
-    get<AIRuntimeSettings>('/api/ai/settings').then((data) => {
-      if (data) setAiRuntime(data)
+    ]).finally(() => {
+      setInitLoading(false)
     })
   }, [])
 
@@ -72,9 +80,10 @@ export default function Metadata() {
 
   useEffect(() => {
     if (!datasourceId) return
-    get<TableRow[]>(`/api/datasources/${datasourceId}/tables`, descriptionLocaleOpts).then((data) =>
-      setTables(data || []),
-    )
+    setTablesLoading(true)
+    get<TableRow[]>(`/api/datasources/${datasourceId}/tables`, descriptionLocaleOpts)
+      .then((data) => setTables(data || []))
+      .finally(() => setTablesLoading(false))
     setOpenTableId(null)
     setColumns([])
     if (prevDsRef.current && prevDsRef.current !== datasourceId) {
@@ -206,6 +215,14 @@ export default function Metadata() {
   ) =>
     runJob<typeof request, DescribeResult>('describe', request, { onError })
 
+  if (initLoading && datasources.length === 0) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
+        <div className="spinner" style={{ width: '42px', height: '42px', borderTopColor: 'var(--accent, #6366f1)' }} />
+      </div>
+    )
+  }
+
   return (
     <div className="page-stack">
       <div className="card">
@@ -300,101 +317,108 @@ export default function Metadata() {
               )}
             </div>
           </div>
-          {tables.length === 0 && !loading && (
+          {tablesLoading && tables.length === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3rem' }}>
+              <div className="spinner" style={{ width: '32px', height: '32px', borderTopColor: 'var(--accent, #6366f1)' }} />
+            </div>
+          ) : tables.length === 0 && !loading ? (
             <p className="metadata-empty-hint">
               {t('metadata.no_tables_before')}
               <strong>{t('datasources.sync')}</strong>
               {t('metadata.no_tables_after')}
             </p>
-          )}
-          <table className="results-table results-table--metadata-list" lang={locale}>
-            <colgroup>
-              <col className="metadata-cw-name" />
-              <col className="metadata-cw-type" />
-              <col className="metadata-cw-desc" />
-              <col className="metadata-cw-actions" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th>{t('metadata.col_table_name')}</th>
-                <th className="metadata-col-type">{t('metadata.col_object_type')}</th>
-                <th>{t('metadata.col_table_desc')}</th>
-                <th className="actions">{t('metadata.col_actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTables.length === 0 && tables.length > 0 && (
+          ) : null}
+
+          {(!tablesLoading || tables.length > 0) && tables.length > 0 && (
+            <table className="results-table results-table--metadata-list" lang={locale}>
+              <colgroup>
+                <col className="metadata-cw-name" />
+                <col className="metadata-cw-type" />
+                <col className="metadata-cw-desc" />
+                <col className="metadata-cw-actions" />
+              </colgroup>
+              <thead>
                 <tr>
-                  <td colSpan={4} style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', padding: '0.75rem' }}>
-                    {t('metadata.filter_no_match')}
-                  </td>
+                  <th>{t('metadata.col_table_name')}</th>
+                  <th className="metadata-col-type">{t('metadata.col_object_type')}</th>
+                  <th>{t('metadata.col_table_desc')}</th>
+                  <th className="actions">{t('metadata.col_actions')}</th>
                 </tr>
-              )}
-              {filteredTables.map((tab) => (
-                <Fragment key={tab.id}>
-                  <tr className={openTableId === tab.id ? 'metadata-table-row metadata-table-row--expanded' : 'metadata-table-row'}>
-                    <td>
-                      <button
-                        type="button"
-                        className="icon-btn"
-                        aria-expanded={openTableId === tab.id}
-                        aria-label={
-                          openTableId === tab.id
-                            ? t('metadata.aria_table_collapse', { name: `${tab.schema_name}.${tab.table_name}` })
-                            : t('metadata.aria_table_expand', { name: `${tab.schema_name}.${tab.table_name}` })
-                        }
-                        onClick={() => void toggleTable(tab)}
-                      >
-                        <span className="chevron">{openTableId === tab.id ? '▼' : '▶'}</span>
-                        {tab.schema_name}.{tab.table_name}
-                      </button>
-                    </td>
-                    <td className="metadata-col-type">{tab.table_type}</td>
-                    <MetadataDescriptionCell
-                      kind="table"
-                      entityId={tab.id}
-                      description={tab.description}
-                      editing={editing}
-                      placeholder={t('metadata.placeholder_double_click')}
-                      onStartEdit={() => {
-                        skipBlurSaveRef.current = false
-                        setEditing({ kind: 'table', id: tab.id, value: tab.description ?? '' })
-                      }}
-                      onChange={(value) => setEditing({ kind: 'table', id: tab.id, value })}
-                      onSave={() => void saveDescription()}
-                      onCancel={() => {
-                        skipBlurSaveRef.current = true
-                        setEditing(null)
-                      }}
-                    />
-                    <td className="actions">
-                      <button type="button" className="btn btn-sm" onClick={() => setDescribeOpen(tab)}>
-                        {t('metadata.btn_ai_describe')}
-                      </button>
+              </thead>
+              <tbody>
+                {filteredTables.length === 0 && tables.length > 0 && (
+                  <tr>
+                    <td colSpan={4} style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', padding: '0.75rem' }}>
+                      {t('metadata.filter_no_match')}
                     </td>
                   </tr>
-                  {openTableId === tab.id && columns.length > 0 && (
-                    <MetadataColumnPanel
-                      table={tab}
-                      columns={columns}
-                      locale={locale}
-                      editing={editing}
-                      onStartEdit={(c) => {
-                        skipBlurSaveRef.current = false
-                        setEditing({ kind: 'column', id: c.id, value: c.description ?? '' })
-                      }}
-                      onEditChange={(columnId, value) => setEditing({ kind: 'column', id: columnId, value })}
-                      onSave={() => void saveDescription()}
-                      onCancelEdit={() => {
-                        skipBlurSaveRef.current = true
-                        setEditing(null)
-                      }}
-                    />
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
+                )}
+                {filteredTables.map((tab) => (
+                  <Fragment key={tab.id}>
+                    <tr className={openTableId === tab.id ? 'metadata-table-row metadata-table-row--expanded' : 'metadata-table-row'}>
+                      <td>
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          aria-expanded={openTableId === tab.id}
+                          aria-label={
+                            openTableId === tab.id
+                              ? t('metadata.aria_table_collapse', { name: `${tab.schema_name}.${tab.table_name}` })
+                              : t('metadata.aria_table_expand', { name: `${tab.schema_name}.${tab.table_name}` })
+                          }
+                          onClick={() => void toggleTable(tab)}
+                        >
+                          <span className="chevron">{openTableId === tab.id ? '▼' : '▶'}</span>
+                          {tab.schema_name}.{tab.table_name}
+                        </button>
+                      </td>
+                      <td className="metadata-col-type">{tab.table_type}</td>
+                      <MetadataDescriptionCell
+                        kind="table"
+                        entityId={tab.id}
+                        description={tab.description}
+                        editing={editing}
+                        placeholder={t('metadata.placeholder_double_click')}
+                        onStartEdit={() => {
+                          skipBlurSaveRef.current = false
+                          setEditing({ kind: 'table', id: tab.id, value: tab.description ?? '' })
+                        }}
+                        onChange={(value) => setEditing({ kind: 'table', id: tab.id, value })}
+                        onSave={() => void saveDescription()}
+                        onCancel={() => {
+                          skipBlurSaveRef.current = true
+                          setEditing(null)
+                        }}
+                      />
+                      <td className="actions">
+                        <button type="button" className="btn btn-sm" onClick={() => setDescribeOpen(tab)}>
+                          {t('metadata.btn_ai_describe')}
+                        </button>
+                      </td>
+                    </tr>
+                    {openTableId === tab.id && columns.length > 0 && (
+                      <MetadataColumnPanel
+                        table={tab}
+                        columns={columns}
+                        locale={locale}
+                        editing={editing}
+                        onStartEdit={(c) => {
+                          skipBlurSaveRef.current = false
+                          setEditing({ kind: 'column', id: c.id, value: c.description ?? '' })
+                        }}
+                        onEditChange={(columnId, value) => setEditing({ kind: 'column', id: columnId, value })}
+                        onSave={() => void saveDescription()}
+                        onCancelEdit={() => {
+                          skipBlurSaveRef.current = true
+                          setEditing(null)
+                        }}
+                      />
+                    )}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
 

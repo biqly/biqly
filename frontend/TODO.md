@@ -533,7 +533,7 @@ BI araclari kompleks. Onboarding flow:
 ### Faz 7: Performans & Memory (1 hafta)
 
 - [x] Recharts tree-shaking → deep ES6 imports applied (410KB irreducible due to Recharts internal `generateCategoricalChart` coupling)
-- [ ] Locale dosyalari lazy loading (admin/auth section'larini ayri chunk yap) — skipped: breaks compile-time `TranslationKey` type safety
+- [x] Locale dosyalari lazy loading (admin/auth section'larini ayri chunk yap) — type safety preserved via type-only imports in `locales/dictionary.ts`; admin/auth load from separate chunks on demand
 - [x] `useApi` → per-request AbortController
 - [x] `startBulkDescribe` → `isMountedRef` + `bulkRunIdRef` guards for proper async lifecycle
 - [x] Admin style sabitleri → module scope'a tasinmali (Admin.tsx, InviteUserModal.tsx)

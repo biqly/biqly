@@ -1,4 +1,6 @@
-export const core = {
+import type { CoreDictionary } from '../dictionary'
+
+export const core: CoreDictionary = {
   common: {
     loading: 'Yükleniyor…',
     no_options: 'Seçenek yok',
@@ -9,6 +11,7 @@ export const core = {
     cancel: 'İptal',
     edit: 'Düzenle',
     close: 'Kapat',
+    notifications: 'Bildirimler',
     delete: 'Sil',
     add: 'Ekle',
     actions: 'İşlemler',
@@ -26,6 +29,7 @@ export const core = {
     none: 'Yok',
     optional: 'opsiyonel',
     required: 'gerekli',
+    no_data: 'Veri bulunamadı',
     em_dash: '—',
     model_badge_translate: 'Çeviri',
     model_badge_embedding: 'Embedding',
@@ -52,9 +56,38 @@ export const core = {
     copy: 'Kopyala',
     inline_edit_save_hint: 'Kaydetmek için Cmd/Ctrl+Enter veya dışarı tıklayın. İptal: Escape.',
   },
+  command_palette: {
+    title: 'Komut paleti',
+    placeholder: 'Sayfa ve işlemlerde ara…',
+    empty: 'Sonuç yok',
+  },
+  shortcuts: {
+    title: 'Klavye kısayolları',
+    show_help: 'Klavye kısayollarını göster',
+    open_command_palette: 'Komut paletini aç',
+    group_general: 'Genel',
+    group_navigation: 'Gezinme',
+  },
+  home: {
+    quick_actions: 'Hızlı işlemler',
+    recent_queries: 'Son sorgular',
+    favorites: 'Favoriler',
+    recent_empty_title: 'Henüz son sorgu yok',
+    recent_empty_desc: 'AI Sorgu ekranında bir soru sorun, burada görünsün.',
+    recent_empty_cta: 'Soru sor',
+    favorites_empty_title: 'Henüz favori yok',
+    favorites_empty_desc: 'Hızlı erişim için kayıtlı bir soruyu yıldızlayın.',
+    favorites_empty_cta: 'Kayıtlı soruları görüntüle',
+    unfavorite: 'Favorilerden çıkar',
+    unfavorited_toast: 'Favorilerden çıkarıldı',
+    open_aria: 'Aç',
+  },
   app: {
     title: 'ABI',
     nav: {
+      home: 'Ana Sayfa',
+      home_eyebrow: 'Genel Bakış',
+      home_desc: 'Kaldığınız yerden devam edin, son soruları yeniden çalıştırın ve favorilerinizi açın.',
       datasources: 'Veri Kaynakları',
       datasources_eyebrow: 'Bağlantılar',
       datasources_desc: 'Veritabanı bağlayın, erişimi test edin ve metadata eşitleyin.',
@@ -531,6 +564,7 @@ export const core = {
     mode_simple: 'Basit',
     mode_advanced: 'Gelişmiş',
     mode_toggle_aria: 'Sorgu modu',
+    step_summary_count: '{{count}} tanımlı',
     datasource_label: 'Veri kaynağı',
     semantic_model_label: 'Anlamsal model',
     placeholder_pick_datasource: '— seçin —',
@@ -635,6 +669,8 @@ export const core = {
     fewshot_use_title: 'AI few-shot örneği olarak kullan',
     fewshot_badge: 'AI örneği',
     fewshot_aria: '{{name}} sorusunu AI few-shot örneği olarak işaretle',
+    favorite_add: 'Favorilere ekle',
+    favorite_remove: 'Favorilerden çıkar',
     logical_query_heading: 'Mantıksal Sorgu',
     run_query: 'Sorguyu çalıştır',
     edit_query: 'Düzenle',
@@ -735,6 +771,9 @@ export const core = {
     sort_hint: 'Sıralamak için tıklayın {{direction}}',
     sort_asc: 'artan',
     sort_desc: 'azalan',
+    export_csv: 'CSV indir',
+    export_success: '{{count}} satır CSV olarak indirildi',
+    export_empty: 'İndirilecek veri yok',
   },
   evaluation: {
     title: 'Değerlendirme',

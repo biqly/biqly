@@ -304,6 +304,14 @@ export default function QueryBuilder() {
 
   const chartData = useMemo(() => rowsToChartData(result?.rows), [result?.rows])
 
+  if (dsLoading || (modelId && !modelDetail)) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
+        <div className="spinner" style={{ width: '42px', height: '42px', borderTopColor: 'var(--accent, #6366f1)' }} />
+      </div>
+    )
+  }
+
   return (
     <div className="page-stack">
       <div className="card card--query-builder">

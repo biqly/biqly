@@ -1,16 +1,22 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { en, type Dictionary } from './locales/en'
-import { tr } from './locales/tr'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
+import { core as enCore } from './locales/en/core'
+import { core as trCore } from './locales/tr/core'
+import type { Dictionary, LocaleSectionName } from './locales/dictionary'
+
+export type { Dictionary } from './locales/dictionary'
 
 const STORAGE_KEY = 'biqly_locale'
 
-const dictionaries = {
-  en,
-  tr,
-} satisfies Record<string, Dictionary>
-
-export type Locale = keyof typeof dictionaries
-export const SUPPORTED_LOCALES = Object.keys(dictionaries) as Locale[]
+export type Locale = 'en' | 'tr'
+export const SUPPORTED_LOCALES: Locale[] = ['en', 'tr']
 export const DEFAULT_LOCALE: Locale = 'tr'
 export const FALLBACK_LOCALE: Locale = 'en'
 export const LOCALE_OPTIONS: Record<Locale, { label: string; short: string; languageTag: string }> = {
@@ -31,6 +37,62 @@ type LeafKeys<T, Prefix extends string = ''> = {
 }[keyof T & string]
 
 export type TranslationKey = LeafKeys<Dictionary>
+
+// --- Runtime dictionary registry ---------------------------------------------
+// Core text ships in the main bundle; `admin`/`auth` sections are loaded from
+// their own chunks on demand and merged in here. Lookups fall back gracefully
+// (to the fallback locale, then to the key) until a section has loaded.
+
+type PartialDict = Record<string, unknown>
+
+const dictionaries: Record<Locale, PartialDict> = {
+  en: { ...enCore },
+  tr: { ...trCore },
+}
+
+const sectionLoaders: Record<Locale, Record<LocaleSectionName, () => Promise<PartialDict>>> = {
+  en: {
+    admin: () => import('./locales/en/admin').then((m) => ({ admin: m.admin })),
+    auth: () => import('./locales/en/auth').then((m) => ({ auth: m.auth })),
+  },
+  tr: {
+    admin: () => import('./locales/tr/admin').then((m) => ({ admin: m.admin })),
+    auth: () => import('./locales/tr/auth').then((m) => ({ auth: m.auth })),
+  },
+}
+
+const loadedSections = new Set<string>()
+const inFlight = new Map<string, Promise<void>>()
+const listeners = new Set<() => void>()
+
+function notify() {
+  listeners.forEach((l) => l())
+}
+
+/** Load (once) a lazy locale section and merge it into the active registry. */
+export function loadLocaleSection(locale: Locale, section: LocaleSectionName): Promise<void> {
+  const key = `${locale}:${section}`
+  if (loadedSections.has(key)) return Promise.resolve()
+  const existing = inFlight.get(key)
+  if (existing) return existing
+  const p = sectionLoaders[locale][section]()
+    .then((mod) => {
+      dictionaries[locale] = { ...dictionaries[locale], ...mod }
+      loadedSections.add(key)
+      inFlight.delete(key)
+      notify()
+    })
+    .catch((err) => {
+      inFlight.delete(key)
+      throw err
+    })
+  inFlight.set(key, p)
+  return p
+}
+
+function sectionReady(locale: Locale, section: LocaleSectionName): boolean {
+  return loadedSections.has(`${locale}:${section}`)
+}
 
 function readLocaleFromStorage(): Locale | null {
   if (typeof window === 'undefined') return null
@@ -82,7 +144,7 @@ export function getLocale(): Locale {
   return currentLocale
 }
 
-function lookup(dict: Dictionary, key: string): string | undefined {
+function lookup(dict: PartialDict, key: string): string | undefined {
   const parts = key.split('.')
   let cur: unknown = dict
   for (const p of parts) {
@@ -124,10 +186,20 @@ const I18nContext = createContext<I18nContextValue | null>(null)
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(currentLocale)
+  // Bumped whenever a lazy locale section finishes loading, so `t` consumers re-render.
+  const [version, setVersion] = useState(0)
 
   useEffect(() => {
     applyLocaleSideEffects(locale)
   }, [locale])
+
+  useEffect(() => {
+    const listener = () => setVersion((v) => v + 1)
+    listeners.add(listener)
+    return () => {
+      listeners.delete(listener)
+    }
+  }, [])
 
   const setLocale = useCallback((loc: Locale) => {
     setLocaleState(loc)
@@ -135,7 +207,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const t = useCallback(
     (key: TranslationKey, params?: Record<string, string | number>) => translate(locale, key, params),
-    [locale],
+    // version participates so consumers update when admin/auth chunks land.
+    [locale, version],
   )
 
   const value = useMemo<I18nContextValue>(() => ({
@@ -163,4 +236,45 @@ export function useT() {
 export function useLocale() {
   const { locale, setLocale } = useI18n()
   return [locale, setLocale] as const
+}
+
+/**
+ * Ensure a lazy locale section is loaded for the active locale (and the
+ * fallback locale, so missing keys still resolve). Returns true once ready.
+ */
+export function useLocaleSection(section: LocaleSectionName): boolean {
+  const { locale } = useI18n()
+  const [ready, setReady] = useState(
+    () => sectionReady(locale, section) && sectionReady(FALLBACK_LOCALE, section),
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    setReady(sectionReady(locale, section) && sectionReady(FALLBACK_LOCALE, section))
+    Promise.all([
+      loadLocaleSection(locale, section),
+      loadLocaleSection(FALLBACK_LOCALE, section),
+    ]).then(() => {
+      if (!cancelled) setReady(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [locale, section])
+
+  return ready
+}
+
+/** Gates children until the named lazy locale section has loaded. */
+export function LocaleSection({
+  name,
+  children,
+  fallback = null,
+}: {
+  name: LocaleSectionName
+  children: ReactNode
+  fallback?: ReactNode
+}) {
+  const ready = useLocaleSection(name)
+  return <>{ready ? children : fallback}</>
 }

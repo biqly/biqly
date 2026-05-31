@@ -1,4 +1,6 @@
-export const admin = {
+import type { AdminDictionary } from '../dictionary'
+
+export const admin: AdminDictionary = {
   title: 'Yönetim',
   auth_pending: 'Yetkilendirme bekleniyor…',
   tabs: {
