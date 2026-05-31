@@ -22,7 +22,7 @@ func TestAIHandlerUsesCatalogClientForCatalogReadsAndHistory(t *testing.T) {
 	upstream := httptest.NewServer(catalogClientTestHandler(t, calls))
 	defer upstream.Close()
 
-	handler := &AIHandler{deps: &app.Dependencies{CatalogClient: catalogclient.New(upstream.URL)}}
+	handler := &AIHandler{deps: (&app.Dependencies{CatalogClient: catalogclient.New(upstream.URL)}).AIDeps()}
 	ctx := context.Background()
 
 	models, err := handler.listSemanticModels(ctx, integrationDSID)
@@ -42,7 +42,7 @@ func TestAIHandlerUsesCatalogClientForCatalogReadsAndHistory(t *testing.T) {
 	}
 
 	lq := integrationLogicalQuery()
-	handler.recordAIHistory(ctx, aiQueryRequest{DatasourceID: integrationDSID, Question: "orders by country"}, model, nil, &ai.Response{LogicalQuery: &lq})
+	handler.recordAIHistory(ctx, aiQueryRequest{DatasourceID: integrationDSID, Question: "orders by country"}, model, nil, &ai.Response{Result: &ai.AIResult{LogicalQuery: &lq}})
 
 	for _, key := range []string{
 		"GET /internal/models",

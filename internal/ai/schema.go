@@ -18,44 +18,50 @@ type Request struct {
 // AIRequest is a deprecated alias for Request.
 type AIRequest = Request
 
+type AIResult struct {
+	LogicalQuery      *query.LogicalQuery `json:"logical_query,omitempty"`
+	SQL               string              `json:"sql,omitempty"`
+	Args              []any               `json:"args,omitempty"`
+	Warnings          []string            `json:"warnings,omitempty"`
+	Result            *query.QueryResult  `json:"result,omitempty"`
+	Confidence        float64             `json:"confidence"`
+	VisualizationHint *VisualizationHint  `json:"visualization_hint,omitempty"`
+}
+
+type AIMetadata struct {
+	ModelUsed                   string                      `json:"model_used,omitempty"`
+	PromptStats                 *promptpkg.PromptStats      `json:"prompt_stats,omitempty"`
+	TokenUsage                  *providerpkg.TokenUsage     `json:"token_usage,omitempty"`
+	CostUSD                     float64                     `json:"cost_usd,omitempty"`
+	LatencyMs                   int                         `json:"latency_ms,omitempty"`
+	RetryCount                  int                         `json:"retry_count,omitempty"`
+	TableRouting                *routing.TableRoutingResult `json:"table_routing,omitempty"`
+	ValidationResult            *ValidationExplainResult    `json:"validation_result,omitempty"`
+	Prompt                      string                      `json:"-"`
+	RawResponse                 string                      `json:"-"`
+	PromptTemplateLocale        string                      `json:"prompt_template_locale,omitempty"`
+	PromptTemplateVersions      map[string]int              `json:"prompt_template_versions,omitempty"`
+	PromptTemplateBundleVersion int                         `json:"prompt_template_bundle_version,omitempty"`
+	Candidates                  []CandidateEntry            `json:"candidates,omitempty"`
+	CandidatesCount             int                         `json:"candidates_count,omitempty"`
+}
+
+type ClarificationResponse struct {
+	NeedsClarification    bool           `json:"needs_clarification,omitempty"`
+	ClarificationQuestion string         `json:"clarification_question,omitempty"`
+	ClarificationOptions  []string       `json:"clarification_options,omitempty"`
+	Clarification         *Clarification `json:"clarification,omitempty"`
+}
+
 // Response is the output from the AI query endpoint.
 type Response struct {
-	LogicalQuery          *query.LogicalQuery `json:"logical_query,omitempty"`
-	SQL                   string              `json:"sql,omitempty"`
-	Args                  []any               `json:"args,omitempty"`
-	Warnings              []string            `json:"warnings,omitempty"`
-	Result                *query.QueryResult  `json:"result,omitempty"`
-	Confidence            float64             `json:"confidence"`
-	TableRouting          *routing.TableRoutingResult `json:"table_routing,omitempty"`
-	NeedsClarification    bool                `json:"needs_clarification,omitempty"`
-	ClarificationQuestion string              `json:"clarification_question,omitempty"`
-	ClarificationOptions  []string            `json:"clarification_options,omitempty"`
-	// Clarification is the structured form of a needs-clarification response.
-	// Populated alongside ClarificationQuestion/ClarificationOptions when the
-	// router or validator cannot proceed without user input. Frontend can
-	// render the options as selectable chips.
-	Clarification *Clarification `json:"clarification,omitempty"`
-	Prompt        string         `json:"-"`
-	RawResponse   string         `json:"-"`
-	// Multi-candidate generation
-	Candidates      []CandidateEntry `json:"candidates,omitempty"`
-	CandidatesCount int              `json:"candidates_count,omitempty"`
-	// Retry / validation
-	RetryCount       int                      `json:"retry_count,omitempty"`
-	ValidationResult *ValidationExplainResult `json:"validation_result,omitempty"`
-	// Model / cost tracking
-	ModelUsed   string       `json:"model_used,omitempty"`
-	PromptStats *promptpkg.PromptStats `json:"prompt_stats,omitempty"`
-	TokenUsage  *providerpkg.TokenUsage  `json:"token_usage,omitempty"`
-	CostUSD     float64      `json:"cost_usd,omitempty"`
-	LatencyMs   int          `json:"latency_ms,omitempty"`
-	// Prompt template traceability for prompt-version A/B comparison and evals.
-	PromptTemplateLocale        string         `json:"prompt_template_locale,omitempty"`
-	PromptTemplateVersions      map[string]int `json:"prompt_template_versions,omitempty"`
-	PromptTemplateBundleVersion int            `json:"prompt_template_bundle_version,omitempty"`
-	// Visualization hint for frontend chart auto-selection
-	VisualizationHint *VisualizationHint `json:"visualization_hint,omitempty"`
+	Result        *AIResult              `json:"result,omitempty"`
+	Metadata      *AIMetadata            `json:"metadata,omitempty"`
+	Clarification *ClarificationResponse `json:"clarification,omitempty"`
 }
+
+// AIResponse is a deprecated alias for Response.
+type AIResponse = Response
 
 // ClarificationStatus enumerates the structured clarification states.
 const (
@@ -150,9 +156,6 @@ type VisualizationHint struct {
 	ChartType string `json:"chart_type"` // bar, line, pie, table
 	Reason    string `json:"reason"`
 }
-
-// AIResponse is a deprecated alias for Response.
-type AIResponse = Response
 
 // LogicalQuerySchema defines the JSON schema the AI must output.
 const LogicalQuerySchema = `{

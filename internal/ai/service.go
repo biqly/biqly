@@ -86,12 +86,30 @@ func (s *Service) EvaluateQuestion(ctx context.Context, question string, model *
 	if err != nil {
 		return nil, err
 	}
+	var lq *query.LogicalQuery
+	var conf float64
+	var tokenUsage *providerpkg.TokenUsage
+	var promptTemplateVersions map[string]int
+	var promptTemplateBundleVersion int
+
+	if resp != nil {
+		if resp.Result != nil {
+			lq = resp.Result.LogicalQuery
+			conf = resp.Result.Confidence
+		}
+		if resp.Metadata != nil {
+			tokenUsage = resp.Metadata.TokenUsage
+			promptTemplateVersions = resp.Metadata.PromptTemplateVersions
+			promptTemplateBundleVersion = resp.Metadata.PromptTemplateBundleVersion
+		}
+	}
+
 	return &evalpkg.QuestionResult{
-		LogicalQuery:                resp.LogicalQuery,
-		Confidence:                  resp.Confidence,
-		TokenUsage:                  resp.TokenUsage,
-		PromptTemplateVersions:      resp.PromptTemplateVersions,
-		PromptTemplateBundleVersion: resp.PromptTemplateBundleVersion,
+		LogicalQuery:                lq,
+		Confidence:                  conf,
+		TokenUsage:                  tokenUsage,
+		PromptTemplateVersions:      promptTemplateVersions,
+		PromptTemplateBundleVersion: promptTemplateBundleVersion,
 	}, nil
 }
 
@@ -243,17 +261,21 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 			retries := attempt
 			templateLocale, templateVersions, bundleVersion := promptTemplateTrace(ctx, question)
 			resp := &AIResponse{
-				LogicalQuery:                lq,
-				Confidence:                  computeConfidence(validationErrCount, retries),
-				Warnings:                    append(retryWarnings, warnings...),
-				Prompt:                      prompt,
-				RawResponse:                 gen.Content,
-				RetryCount:                  retries,
-				PromptStats:                 &promptStats,
-				TokenUsage:                  providerpkg.TokenUsageFromGeneration(promptStats, gen),
-				PromptTemplateLocale:        templateLocale,
-				PromptTemplateVersions:      templateVersions,
-				PromptTemplateBundleVersion: bundleVersion,
+				Result: &AIResult{
+					LogicalQuery: lq,
+					Confidence:   computeConfidence(validationErrCount, retries),
+					Warnings:     append(retryWarnings, warnings...),
+				},
+				Metadata: &AIMetadata{
+					Prompt:                      prompt,
+					RawResponse:                 gen.Content,
+					RetryCount:                  retries,
+					PromptStats:                 &promptStats,
+					TokenUsage:                  providerpkg.TokenUsageFromGeneration(promptStats, gen),
+					PromptTemplateLocale:        templateLocale,
+					PromptTemplateVersions:      templateVersions,
+					PromptTemplateBundleVersion: bundleVersion,
+				},
 			}
 			return resp, nil
 		}
@@ -359,20 +381,26 @@ type clarificationInputs struct {
 func newClarificationResponse(in clarificationInputs) *AIResponse {
 	stats := in.PromptStats
 	return &AIResponse{
-		LogicalQuery:                in.LogicalQuery,
-		Confidence:                  in.Confidence,
-		Warnings:                    in.Warnings,
-		Prompt:                      in.Prompt,
-		RawResponse:                 in.RawResponse,
-		RetryCount:                  in.RetryCount,
-		PromptStats:                 &stats,
-		TokenUsage:                  providerpkg.TokenUsageFromGeneration(stats, in.Gen),
-		NeedsClarification:          in.Clarification != "",
-		ClarificationQuestion:       in.Clarification,
-		Clarification:               buildClarification(in.Clarification, in.FailureReason, in.Source),
-		PromptTemplateLocale:        in.PromptTemplateLocale,
-		PromptTemplateVersions:      in.PromptTemplateVersions,
-		PromptTemplateBundleVersion: in.PromptTemplateBundleVersion,
+		Result: &AIResult{
+			LogicalQuery: in.LogicalQuery,
+			Confidence:   in.Confidence,
+			Warnings:     in.Warnings,
+		},
+		Metadata: &AIMetadata{
+			Prompt:                      in.Prompt,
+			RawResponse:                 in.RawResponse,
+			RetryCount:                  in.RetryCount,
+			PromptStats:                 &stats,
+			TokenUsage:                  providerpkg.TokenUsageFromGeneration(stats, in.Gen),
+			PromptTemplateLocale:        in.PromptTemplateLocale,
+			PromptTemplateVersions:      in.PromptTemplateVersions,
+			PromptTemplateBundleVersion: in.PromptTemplateBundleVersion,
+		},
+		Clarification: &ClarificationResponse{
+			NeedsClarification:    in.Clarification != "",
+			ClarificationQuestion: in.Clarification,
+			Clarification:         buildClarification(in.Clarification, in.FailureReason, in.Source),
+		},
 	}
 }
 
@@ -404,14 +432,16 @@ func (s *Service) buildPrompt(
 		ctx,
 		question,
 		model,
-		promptRunes,
-		i18n.FromContext(ctx),
-		options.targetDialect,
-		tiered.fewShot,
-		tiered.samples,
-		tiered.priorTurns,
-		tiered.deniedFields,
-		tiered.glossary,
+		promptpkg.PromptConfig{
+			MaxRunes:     promptRunes,
+			Locale:       i18n.FromContext(ctx),
+			Dialect:      options.targetDialect,
+			Examples:     tiered.fewShot,
+			Samples:      tiered.samples,
+			PriorTurns:   tiered.priorTurns,
+			DeniedFields: tiered.deniedFields,
+			Glossary:     tiered.glossary,
+		},
 	)
 	if block := ActiveFilterInstructions(filterSess, followIntent); block != "" {
 		prompt += block
@@ -580,19 +610,23 @@ func (s *Service) tryMultiCandidate(
 	}
 	templateLocale, templateVersions, bundleVersion := promptTemplateTrace(ctx, question)
 	return &AIResponse{
-		LogicalQuery: winner.lq,
-		Confidence:   confidence,
-		Warnings: append(
-			[]string{fmt.Sprintf("self-consistency: %d/%d candidates agreed", winnerCount, n)},
-			winner.warnings...,
-		),
-		Prompt:                      prompt,
-		RawResponse:                 winner.gen.Content,
-		PromptStats:                 &stats,
-		TokenUsage:                  providerpkg.TokenUsageFromGeneration(stats, winner.gen),
-		PromptTemplateLocale:        templateLocale,
-		PromptTemplateVersions:      templateVersions,
-		PromptTemplateBundleVersion: bundleVersion,
+		Result: &AIResult{
+			LogicalQuery: winner.lq,
+			Confidence:   confidence,
+			Warnings: append(
+				[]string{fmt.Sprintf("self-consistency: %d/%d candidates agreed", winnerCount, n)},
+				winner.warnings...,
+			),
+		},
+		Metadata: &AIMetadata{
+			Prompt:                      prompt,
+			RawResponse:                 winner.gen.Content,
+			PromptStats:                 &stats,
+			TokenUsage:                  providerpkg.TokenUsageFromGeneration(stats, winner.gen),
+			PromptTemplateLocale:        templateLocale,
+			PromptTemplateVersions:      templateVersions,
+			PromptTemplateBundleVersion: bundleVersion,
+		},
 	}, true
 }
 

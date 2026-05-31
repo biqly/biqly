@@ -214,7 +214,7 @@ func decodeErrorResponse(resp *http.Response) error {
 }
 
 func clarificationFromResponse(resp *QueryResponse) error {
-	if resp != nil && resp.NeedsClarification {
+	if resp != nil && resp.Clarification != nil && resp.Clarification.NeedsClarification {
 		return newClarificationError(resp)
 	}
 	return nil

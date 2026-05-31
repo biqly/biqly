@@ -58,7 +58,7 @@ func main() {
 		slog.Error("job queue does not support consume")
 		os.Exit(1)
 	}
-	aiHandler := handlers.NewAIHandler(deps)
+	aiHandler := handlers.NewAIHandler(deps.AIDeps())
 	jobSvc := handlers.NewAIJobService(deps.MetaRepo, pub, aiHandler)
 
 	slog.Info("worker started", "nats_url", cfg.NATS.URL, "group", cfg.NATS.ConsumerGroup)

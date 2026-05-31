@@ -267,18 +267,31 @@ func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
+		var respLQ *query.LogicalQuery
+		var confidence float64
+		if resp.Result != nil {
+			respLQ = resp.Result.LogicalQuery
+			confidence = resp.Result.Confidence
+		}
+		var templateVersions map[string]int
+		var bundleVersion int
+		if resp.Metadata != nil {
+			templateVersions = resp.Metadata.PromptTemplateVersions
+			bundleVersion = resp.Metadata.PromptTemplateBundleVersion
+		}
+
 		cr := ai.EvalCaseResult{
 			Case:                        c,
-			Got:                         resp.LogicalQuery,
-			Confidence:                  resp.Confidence,
-			PromptTemplateVersions:      resp.PromptTemplateVersions,
-			PromptTemplateBundleVersion: resp.PromptTemplateBundleVersion,
+			Got:                         respLQ,
+			Confidence:                  confidence,
+			PromptTemplateVersions:      templateVersions,
+			PromptTemplateBundleVersion: bundleVersion,
 		}
-		if resp.TokenUsage != nil {
-			cr.TokenCount = resp.TokenUsage.Total
+		if resp.Metadata != nil && resp.Metadata.TokenUsage != nil {
+			cr.TokenCount = resp.Metadata.TokenUsage.Total
 		}
 		if modes&ai.EvalModeLogical != 0 {
-			cr.LogicalMatch, cr.LogicalReason = ai.LogicalQueryEqual(resp.LogicalQuery, &c.Expected)
+			cr.LogicalMatch, cr.LogicalReason = ai.LogicalQueryEqual(respLQ, &c.Expected)
 			if cr.LogicalMatch {
 				logicalPassed++
 			}
@@ -287,7 +300,7 @@ func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) {
 			logicalPassed++
 		}
 		if modes&ai.EvalModeExecution != 0 {
-			cr.ExecutionMatch, cr.ExecutionReason = ai.CompareExecutionResults(ctx, exec, c.Model, &c.Expected, resp.LogicalQuery)
+			cr.ExecutionMatch, cr.ExecutionReason = ai.CompareExecutionResults(ctx, exec, c.Model, &c.Expected, respLQ)
 			if cr.ExecutionMatch {
 				execPassed++
 			}
@@ -296,7 +309,7 @@ func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) {
 			execPassed++
 		}
 		if modes&ai.EvalModeJudge != 0 && opts.Judge != nil {
-			ok, rationale, jerr := ai.JudgeLogicalQuery(ctx, opts.Judge, c.Question, c.Model, &c.Expected, resp.LogicalQuery)
+			ok, rationale, jerr := ai.JudgeLogicalQuery(ctx, opts.Judge, c.Question, c.Model, &c.Expected, respLQ)
 			if jerr != nil {
 				cr.JudgeMatch = false
 				cr.JudgeReason = jerr.Error()
@@ -315,7 +328,7 @@ func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) {
 		if cr.Pass(opts) {
 			passed++
 			send(fmt.Sprintf("[%d/%d] PASS logical=%v exec=%v judge=%v conf=%.2f",
-				i+1, len(cases), cr.LogicalMatch, cr.ExecutionMatch, cr.JudgeMatch, resp.Confidence))
+				i+1, len(cases), cr.LogicalMatch, cr.ExecutionMatch, cr.JudgeMatch, confidence))
 		} else {
 			send(fmt.Sprintf("[%d/%d] FAIL: %s", i+1, len(cases), firstNonEmpty(cr.LogicalReason, cr.ExecutionReason, cr.JudgeReason)))
 		}

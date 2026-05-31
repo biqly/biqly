@@ -34,7 +34,7 @@ func (h *AIHandler) AIHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps); applied {
+	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps.Config); applied {
 		rows = FilterAIHistoryByDatasources(rows, wsFilter)
 	}
 	filtered := FilterAIHistoryForUser(rows, userID, perms)
@@ -105,7 +105,7 @@ func (h *AIHandler) QueryHistory(w http.ResponseWriter, r *http.Request) {
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "list AI history failed", err)
 		return
 	}
-	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps); applied {
+	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps.Config); applied {
 		rows = FilterAIHistoryByDatasources(rows, wsFilter)
 	}
 
@@ -136,7 +136,7 @@ func (h *AIHandler) AIHistoryDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wsFilter, wsApplied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps)
+	wsFilter, wsApplied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps.Config)
 
 	id := r.URL.Query().Get("id")
 	for _, row := range rows {

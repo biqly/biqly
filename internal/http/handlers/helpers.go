@@ -9,7 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/biqly/biqly/internal/app"
+	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/core"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/http/response"
@@ -48,8 +48,8 @@ func writeInternalError(ctx context.Context, w http.ResponseWriter, status int, 
 // admin — in those cases callers must not filter their results. On error the
 // helper returns it for the caller to surface with a context-appropriate
 // message; nothing is written to w.
-func resolveAccessibleDatasources(ctx context.Context, deps *app.Dependencies) (map[string]struct{}, bool, error) {
-	if !deps.Config.Auth.Enabled {
+func resolveAccessibleDatasources(ctx context.Context, config *config.Config) (map[string]struct{}, bool, error) {
+	if !config.Auth.Enabled {
 		return nil, false, nil
 	}
 	userID := bimw.UserID(ctx)
@@ -57,7 +57,7 @@ func resolveAccessibleDatasources(ctx context.Context, deps *app.Dependencies) (
 		return nil, false, nil
 	}
 
-	authClient := bimw.NewAuthClient(deps.Config.Auth.ServiceURL, deps.Config.Auth.InternalToken)
+	authClient := bimw.NewAuthClient(config.Auth.ServiceURL, config.Auth.InternalToken)
 	allowed, err := authClient.ListUserDatasources(ctx, userID)
 	if err != nil {
 		return nil, false, fmt.Errorf("list user datasources: %w", err)

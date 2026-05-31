@@ -56,7 +56,7 @@ func main() {
 			os.Exit(1)
 		}
 		deps.AIJobQueue = pub
-		aiHandler := handlers.NewAIHandler(deps)
+		aiHandler := handlers.NewAIHandler(deps.AIDeps())
 		jobSvc := handlers.NewAIJobService(deps.MetaRepo, pub, aiHandler)
 		deps.AIJobService = jobSvc
 		deps.AIJobsHTTP = handlers.NewAIJobsHandler(jobSvc)

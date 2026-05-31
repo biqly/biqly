@@ -49,11 +49,11 @@ type submitAIFeedbackRequest struct {
 
 // AIExamplesHandler handles few-shot example CRUD and feedback operations.
 type AIExamplesHandler struct {
-	deps *app.Dependencies
+	deps *app.AIDeps
 }
 
 // NewAIExamplesHandler creates a new handler for AI examples and feedback.
-func NewAIExamplesHandler(deps *app.Dependencies) *AIExamplesHandler {
+func NewAIExamplesHandler(deps *app.AIDeps) *AIExamplesHandler {
 	return &AIExamplesHandler{deps: deps}
 }
 

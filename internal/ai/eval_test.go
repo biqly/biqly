@@ -117,9 +117,13 @@ func TestGoldenEvalAgainstLiveLLM(t *testing.T) {
 			t.Errorf("[%s] error: %v", c.ID, err)
 			continue
 		}
-		ok, reason := evalpkg.LogicalQueryEqual(resp.LogicalQuery, &c.Expected)
+		var respLQ *query.LogicalQuery
+		if resp != nil && resp.Result != nil {
+			respLQ = resp.Result.LogicalQuery
+		}
+		ok, reason := evalpkg.LogicalQueryEqual(respLQ, &c.Expected)
 		if !ok {
-			t.Errorf("[%s] mismatch: %s; got=%+v", c.ID, reason, resp.LogicalQuery)
+			t.Errorf("[%s] mismatch: %s; got=%+v", c.ID, reason, respLQ)
 			continue
 		}
 		pass++

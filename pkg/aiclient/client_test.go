@@ -91,10 +91,14 @@ func TestQuery_RoundTrip(t *testing.T) {
 			t.Errorf("unexpected request: %+v", req)
 		}
 		_ = json.NewEncoder(w).Encode(ai.Response{
-			LogicalQuery: &wantLQ,
-			Confidence:   0.92,
-			ModelUsed:    "gpt-4o",
-			Warnings:     []string{"ok"},
+			Result: &ai.AIResult{
+				LogicalQuery: &wantLQ,
+				Confidence:   0.92,
+				Warnings:     []string{"ok"},
+			},
+			Metadata: &ai.AIMetadata{
+				ModelUsed: "gpt-4o",
+			},
 		})
 	})
 
@@ -102,11 +106,14 @@ func TestQuery_RoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Query() error: %v", err)
 	}
-	if out.Confidence != 0.92 || out.ModelUsed != "gpt-4o" {
+	if out.Metadata == nil || out.Metadata.ModelUsed != "gpt-4o" {
 		t.Errorf("unexpected metadata: %+v", out)
 	}
-	if out.LogicalQuery == nil || out.LogicalQuery.Select[0].Name != "revenue" {
-		t.Errorf("unexpected logical query: %+v", out.LogicalQuery)
+	if out.Result == nil || out.Result.Confidence != 0.92 {
+		t.Errorf("unexpected confidence: %+v", out)
+	}
+	if out.Result == nil || out.Result.LogicalQuery == nil || out.Result.LogicalQuery.Select[0].Name != "revenue" {
+		t.Errorf("unexpected logical query: %+v", out)
 	}
 }
 
@@ -116,9 +123,13 @@ func TestQuery_NeedsClarification(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		_ = json.NewEncoder(w).Encode(ai.Response{
-			NeedsClarification:    true,
-			ClarificationQuestion: "Which table?",
-			Confidence:            0,
+			Clarification: &ai.ClarificationResponse{
+				NeedsClarification:    true,
+				ClarificationQuestion: "Which table?",
+			},
+			Result: &ai.AIResult{
+				Confidence: 0,
+			},
 		})
 	})
 
@@ -130,7 +141,7 @@ func TestQuery_NeedsClarification(t *testing.T) {
 	if !errors.As(err, &clarErr) {
 		t.Fatalf("expected *ClarificationError, got %T", err)
 	}
-	if clarErr.Response == nil || clarErr.Response.ClarificationQuestion != "Which table?" {
+	if clarErr.Response == nil || clarErr.Response.Clarification == nil || clarErr.Response.Clarification.ClarificationQuestion != "Which table?" {
 		t.Errorf("unexpected clarification payload: %+v", clarErr.Response)
 	}
 }
@@ -142,14 +153,16 @@ func TestRun_ReturnsResult(t *testing.T) {
 		}
 		lq := query.LogicalQuery{DatasourceID: "ds_1", ModelID: "m_1", Limit: 10}
 		_ = json.NewEncoder(w).Encode(ai.Response{
-			LogicalQuery: &lq,
-			SQL:          "SELECT 1",
-			Args:         []any{},
-			Confidence:   0.88,
-			Result: &query.QueryResult{
-				Columns: []query.ResultColumn{{Name: "revenue"}},
-				Rows:    [][]any{{42.0}},
-				Stats:   query.Stats{RowCount: 1, DurationMs: 3},
+			Result: &ai.AIResult{
+				LogicalQuery: &lq,
+				SQL:          "SELECT 1",
+				Args:         []any{},
+				Confidence:   0.88,
+				Result: &query.QueryResult{
+					Columns: []query.ResultColumn{{Name: "revenue"}},
+					Rows:    [][]any{{42.0}},
+					Stats:   query.Stats{RowCount: 1, DurationMs: 3},
+				},
 			},
 		})
 	})
@@ -158,11 +171,11 @@ func TestRun_ReturnsResult(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run() error: %v", err)
 	}
-	if out.Result == nil || out.Result.Stats.RowCount != 1 {
-		t.Errorf("unexpected result: %+v", out.Result)
+	if out.Result == nil || out.Result.Result == nil || out.Result.Result.Stats.RowCount != 1 {
+		t.Errorf("unexpected result: %+v", out)
 	}
-	if out.SQL != "SELECT 1" {
-		t.Errorf("unexpected sql: %q", out.SQL)
+	if out.Result == nil || out.Result.SQL != "SELECT 1" {
+		t.Errorf("unexpected sql: %+v", out)
 	}
 }
 
@@ -173,10 +186,12 @@ func TestPreview_ReturnsSQL(t *testing.T) {
 		}
 		lq := query.LogicalQuery{DatasourceID: "ds_1", Limit: 5}
 		_ = json.NewEncoder(w).Encode(ai.Response{
-			LogicalQuery: &lq,
-			SQL:          "SELECT SUM(amount) FROM orders",
-			Args:         []any{int64(100)},
-			Confidence:   0.9,
+			Result: &ai.AIResult{
+				LogicalQuery: &lq,
+				SQL:          "SELECT SUM(amount) FROM orders",
+				Args:         []any{int64(100)},
+				Confidence:   0.9,
+			},
 		})
 	})
 
@@ -184,11 +199,11 @@ func TestPreview_ReturnsSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Preview() error: %v", err)
 	}
-	if out.SQL == "" {
+	if out.Result == nil || out.Result.SQL == "" {
 		t.Fatalf("expected compiled SQL, got empty")
 	}
-	if !strings.Contains(out.SQL, "SUM") {
-		t.Errorf("unexpected sql: %q", out.SQL)
+	if !strings.Contains(out.Result.SQL, "SUM") {
+		t.Errorf("unexpected sql: %q", out.Result.SQL)
 	}
 }
 

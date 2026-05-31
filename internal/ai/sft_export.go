@@ -227,7 +227,11 @@ func (e *SFTExporter) collectItems(ctx context.Context, opts SFTExportOptions) (
 				continue
 			}
 			add("golden", c.Question, lqBytes, "golden:"+c.ID, func() (string, string, error) {
-				user := e.builder.Build(context.Background(), c.Question, c.Model, opts.MaxPromptRunes, i18n.DefaultLocale, "postgres", nil, nil, nil, nil, nil)
+				user := e.builder.Build(context.Background(), c.Question, c.Model, promptpkg.PromptConfig{
+					MaxRunes: opts.MaxPromptRunes,
+					Locale:   i18n.DefaultLocale,
+					Dialect:  "postgres",
+				})
 				return user, assistant, nil
 			})
 		}
@@ -264,7 +268,11 @@ func (e *SFTExporter) buildFromDB(
 			dialect = ds.Type
 		}
 	}
-	user := e.builder.Build(context.Background(), question, model, maxPromptRunes, i18n.DefaultLocale, dialect, nil, nil, nil, nil, nil)
+	user := e.builder.Build(context.Background(), question, model, promptpkg.PromptConfig{
+		MaxRunes: maxPromptRunes,
+		Locale:   i18n.DefaultLocale,
+		Dialect:  dialect,
+	})
 	return user, assistant, nil
 }
 

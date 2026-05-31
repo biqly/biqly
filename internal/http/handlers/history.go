@@ -61,6 +61,30 @@ func buildAIHistoryEntry(
 	routing *routing.TableRoutingResult,
 	resp *ai.Response,
 ) *metadata.AIQueryHistoryEntry {
+	var prompt string
+	var locale string
+	var versions map[string]int
+	var bundleVer int
+	var raw string
+	var lq *query.LogicalQuery
+	var conf float64
+	var warnings []string
+
+	if resp != nil {
+		if resp.Metadata != nil {
+			prompt = resp.Metadata.Prompt
+			locale = resp.Metadata.PromptTemplateLocale
+			versions = resp.Metadata.PromptTemplateVersions
+			bundleVer = resp.Metadata.PromptTemplateBundleVersion
+			raw = resp.Metadata.RawResponse
+		}
+		if resp.Result != nil {
+			lq = resp.Result.LogicalQuery
+			conf = resp.Result.Confidence
+			warnings = resp.Result.Warnings
+		}
+	}
+
 	entry := &metadata.AIQueryHistoryEntry{
 		DatasourceID: req.DatasourceID,
 		ModelID:      query.HistoryModelID(model),
@@ -69,18 +93,18 @@ func buildAIHistoryEntry(
 			"model_id":                       req.ModelID,
 			"selected_scope":                 req.Tables,
 			"routing":                        routing,
-			"prompt":                         resp.Prompt,
-			"prompt_template_locale":         resp.PromptTemplateLocale,
-			"prompt_template_versions":       resp.PromptTemplateVersions,
-			"prompt_template_bundle_version": resp.PromptTemplateBundleVersion,
+			"prompt":                         prompt,
+			"prompt_template_locale":         locale,
+			"prompt_template_versions":       versions,
+			"prompt_template_bundle_version": bundleVer,
 		},
 		AIResponse: map[string]any{
 			"response":     resp,
-			"raw_response": resp.RawResponse,
+			"raw_response": raw,
 		},
-		LogicalQuery:    resp.LogicalQuery,
-		ConfidenceScore: &resp.Confidence,
-		Warnings:        resp.Warnings,
+		LogicalQuery:    lq,
+		ConfidenceScore: &conf,
+		Warnings:        warnings,
 	}
 	enrichAIHistoryEntry(entry, resp)
 	return entry

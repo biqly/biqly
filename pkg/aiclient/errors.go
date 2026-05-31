@@ -53,8 +53,8 @@ type ClarificationError struct {
 }
 
 func (e *ClarificationError) Error() string {
-	if e.Response != nil && e.Response.ClarificationQuestion != "" {
-		return fmt.Sprintf("aiclient: needs clarification: %s", e.Response.ClarificationQuestion)
+	if e.Response != nil && e.Response.Clarification != nil && e.Response.Clarification.ClarificationQuestion != "" {
+		return fmt.Sprintf("aiclient: needs clarification: %s", e.Response.Clarification.ClarificationQuestion)
 	}
 	return "aiclient: needs clarification"
 }

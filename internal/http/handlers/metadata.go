@@ -10,11 +10,11 @@ import (
 
 // MetadataHandler exposes endpoints for browsing and editing introspected metadata.
 type MetadataHandler struct {
-	deps *app.Dependencies
+	deps *app.CatalogDeps
 }
 
 // NewMetadataHandler creates a new metadata handler.
-func NewMetadataHandler(deps *app.Dependencies) *MetadataHandler {
+func NewMetadataHandler(deps *app.CatalogDeps) *MetadataHandler {
 	return &MetadataHandler{deps: deps}
 }
 

@@ -71,6 +71,111 @@ type Dependencies struct {
 	PoolCache *datasource.PoolCache
 }
 
+// CatalogDeps holds the subset of dependencies needed for the Catalog service
+// (datasources, schemas, tables, columns, relations, semantic models).
+type CatalogDeps struct {
+	Config       *config.Config
+	DriverReg    *datasource.Registry
+	MetaRepo     *metadata.Repository
+	SemanticRepo *semantic.Repository
+	Encryptor    *security.Encryption
+	PoolCache    *datasource.PoolCache
+	QueryService *core.QueryService
+}
+
+// CatalogDeps returns a structured copy of dependencies for the Catalog subsystem.
+func (d *Dependencies) CatalogDeps() *CatalogDeps {
+	return &CatalogDeps{
+		Config:       d.Config,
+		DriverReg:    d.DriverReg,
+		MetaRepo:     d.MetaRepo,
+		SemanticRepo: d.SemanticRepo,
+		Encryptor:    d.Encryptor,
+		PoolCache:    d.PoolCache,
+		QueryService: d.QueryService,
+	}
+}
+
+// AIDeps holds the subset of dependencies needed for the AI service
+// (NL to LogicalQuery, AI jobs, evaluation, descriptions, feedback, few-shot examples).
+type AIDeps struct {
+	Config        *config.Config
+	DriverReg     *datasource.Registry
+	MetaRepo      *metadata.Repository
+	SemanticRepo  *semantic.Repository
+	Validator     *query.Validator
+	QueryService  *core.QueryService
+	CatalogClient *catalogclient.Client
+	QueryClient   *queryclient.Client
+	AIClient      providerpkg.Provider
+	AIQueryClient providerpkg.Provider
+	AIDescriber   *ai.DescribeService
+	Encryptor     *security.Encryption
+	EvalRepo      *evalpkg.EvalRepository
+	AuditLogger   *audit.Logger
+	Embedder      ai.Embedder
+	AIEmbedMeta   *ai.EmbedMetadataService
+	TimeGrains    routing.TimeGrainStore
+	Jobs          config.JobsConfig
+	AIJobQueue    queue.AIJobPublisher
+	AIJobService  AIJobRunner
+	AIJobsHTTP    AIJobsHTTPHandler
+	PoolCache     *datasource.PoolCache
+	Executor      *query.Executor
+}
+
+// AIDeps returns a structured copy of dependencies for the AI subsystem.
+func (d *Dependencies) AIDeps() *AIDeps {
+	return &AIDeps{
+		Config:        d.Config,
+		DriverReg:     d.DriverReg,
+		MetaRepo:      d.MetaRepo,
+		SemanticRepo:  d.SemanticRepo,
+		Validator:     d.Validator,
+		QueryService:  d.QueryService,
+		CatalogClient: d.CatalogClient,
+		QueryClient:   d.QueryClient,
+		AIClient:      d.AIClient,
+		AIQueryClient: d.AIQueryClient,
+		AIDescriber:   d.AIDescriber,
+		Encryptor:     d.Encryptor,
+		EvalRepo:      d.EvalRepo,
+		AuditLogger:   d.AuditLogger,
+		Embedder:      d.Embedder,
+		AIEmbedMeta:   d.AIEmbedMeta,
+		TimeGrains:    d.TimeGrains,
+		Jobs:          d.Jobs,
+		AIJobQueue:    d.AIJobQueue,
+		AIJobService:  d.AIJobService,
+		AIJobsHTTP:    d.AIJobsHTTP,
+		PoolCache:     d.PoolCache,
+		Executor:      d.Executor,
+	}
+}
+
+// QueryDeps holds the subset of dependencies needed for the Query compiling and execution engine
+// (query run, compile, query history).
+type QueryDeps struct {
+	Config       *config.Config
+	MetaRepo     *metadata.Repository
+	Validator    *query.Validator
+	Executor     *query.Executor
+	QueryService *core.QueryService
+	AuditLogger  *audit.Logger
+}
+
+// QueryDeps returns a structured copy of dependencies for the Query subsystem.
+func (d *Dependencies) QueryDeps() *QueryDeps {
+	return &QueryDeps{
+		Config:       d.Config,
+		MetaRepo:     d.MetaRepo,
+		Validator:    d.Validator,
+		Executor:     d.Executor,
+		QueryService: d.QueryService,
+		AuditLogger:  d.AuditLogger,
+	}
+}
+
 // AIJobRunner processes queued NL→query jobs (implemented by handlers.AIJobService).
 type AIJobRunner interface {
 	Process(ctx context.Context, jobID string) error

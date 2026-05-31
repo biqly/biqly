@@ -19,11 +19,11 @@ import (
 
 // DatasourceHandler handles datasource CRUD operations.
 type DatasourceHandler struct {
-	deps *app.Dependencies
+	deps *app.CatalogDeps
 }
 
 // NewDatasourceHandler creates a new datasource handler.
-func NewDatasourceHandler(deps *app.Dependencies) *DatasourceHandler {
+func NewDatasourceHandler(deps *app.CatalogDeps) *DatasourceHandler {
 	return &DatasourceHandler{deps: deps}
 }
 
@@ -284,7 +284,7 @@ func (h *DatasourceHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allowedSet, scoped, err := resolveAccessibleDatasources(ctx, h.deps)
+	allowedSet, scoped, err := resolveAccessibleDatasources(ctx, h.deps.Config)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to verify datasource access", err)
 		return

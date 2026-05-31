@@ -256,18 +256,3 @@
   background: var(--input-bg, #fff);
   color: var(--text-primary, #111);
 }
-
-.ws-settings__table-container {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  margin-bottom: 12px;
-}
-
-@media (max-width: 680px) {
-  .ws-settings__table {
-    min-width: 32rem;
-  }
-  .ws-settings__section {
-    padding: 12px;
-  }
-}

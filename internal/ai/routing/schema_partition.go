@@ -9,8 +9,8 @@ import (
 
 const (
 	schemaPartitionScoreRatio = 0.30
-	maxActiveSchemaPartitions   = 2
-	minSchemasToPartition       = 2
+	maxActiveSchemaPartitions = 2
+	minSchemasToPartition     = 2
 )
 
 // filterTablesBySchemaCluster keeps tables in the schema(s) most relevant to the

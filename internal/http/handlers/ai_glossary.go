@@ -32,11 +32,11 @@ type BusinessGlossaryTerm = metadata.BusinessGlossaryRow
 
 // AIGlossaryHandler handles business glossary CRUD.
 type AIGlossaryHandler struct {
-	deps *app.Dependencies
+	deps *app.AIDeps
 }
 
 // NewAIGlossaryHandler creates a glossary handler.
-func NewAIGlossaryHandler(deps *app.Dependencies) *AIGlossaryHandler {
+func NewAIGlossaryHandler(deps *app.AIDeps) *AIGlossaryHandler {
 	return &AIGlossaryHandler{deps: deps}
 }
 

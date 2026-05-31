@@ -26,7 +26,7 @@ type InternalQueryHandler struct {
 
 // NewInternalQueryHandler returns a handler ready to be mounted under
 // /internal/query.
-func NewInternalQueryHandler(deps *app.Dependencies) *InternalQueryHandler {
+func NewInternalQueryHandler(deps *app.QueryDeps) *InternalQueryHandler {
 	return &InternalQueryHandler{query: deps.QueryService}
 }
 

@@ -10,13 +10,13 @@ import (
 
 // QueryHandler handles query operations.
 type QueryHandler struct {
-	deps    *app.Dependencies
+	deps    *app.QueryDeps
 	query   internalQueryRunner
 	metrics QueryMetricsRecorder
 }
 
 // NewQueryHandler creates a new query handler.
-func NewQueryHandler(deps *app.Dependencies) *QueryHandler {
+func NewQueryHandler(deps *app.QueryDeps) *QueryHandler {
 	return &QueryHandler{deps: deps, query: deps.QueryService}
 }
 
@@ -105,7 +105,7 @@ func (h *QueryHandler) History(w http.ResponseWriter, r *http.Request) {
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to list query history", err)
 		return
 	}
-	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps); applied {
+	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps.Config); applied {
 		entries = FilterQueryHistoryByDatasources(entries, wsFilter)
 	}
 	writeJSON(w, http.StatusOK, entries)
@@ -123,7 +123,7 @@ func (h *QueryHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
 		writeEntityNotFound(w, "query history")
 		return
 	}
-	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps); applied {
+	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps.Config); applied {
 		if _, ok := wsFilter[entry.DatasourceID]; !ok {
 			writeEntityNotFound(w, "query history")
 			return

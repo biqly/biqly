@@ -60,7 +60,10 @@ func TestPromptBuildIncludesBusinessGlossary(t *testing.T) {
 	glossary := []GlossaryEntry{
 		{Term: "ciro", MapsToName: "revenue", MapsToType: "metric", Definition: "toplam satış", Source: "glossary"},
 	}
-	got := pb.Build(context.Background(), "q", model, 0, i18n.DefaultLocale, "", nil, nil, nil, nil, glossary)
+	got := pb.Build(context.Background(), "q", model, PromptConfig{
+		Locale:   i18n.DefaultLocale,
+		Glossary: glossary,
+	})
 	if !strings.Contains(got, "## Business Glossary") {
 		t.Errorf("expected business glossary section")
 	}

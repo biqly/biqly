@@ -95,7 +95,7 @@ func Router(deps *app.Dependencies) http.Handler {
 			} else {
 				r.Group(func(r chi.Router) {
 					r.Use(CatalogMetricsMiddleware(GetMetrics()))
-					registerCatalogAPIRoutes(r, deps, authClient)
+					registerCatalogAPIRoutes(r, deps.CatalogDeps(), authClient)
 				})
 			}
 
@@ -103,7 +103,7 @@ func Router(deps *app.Dependencies) http.Handler {
 				registerQueryProxyRoutes(r, deps.Config.Services.QueryURL)
 			} else {
 				r.With(bimw.RequirePermission(authClient, "query:execute")).Group(func(r chi.Router) {
-					registerQueryAPIRoutes(r, deps)
+					registerQueryAPIRoutes(r, deps.QueryDeps())
 				})
 			}
 		})
@@ -124,7 +124,7 @@ func Router(deps *app.Dependencies) http.Handler {
 			if deps.Config.Services.AIURL != "" {
 				registerAIProxyRoutesWithDatasourceGuard(r, deps.Config.Services.AIURL, dsAccess)
 			} else {
-				registerAIAPIRoutes(r, deps, authClient)
+				registerAIAPIRoutes(r, deps.AIDeps(), authClient)
 			}
 		})
 	})
@@ -139,7 +139,7 @@ func Router(deps *app.Dependencies) http.Handler {
 		r.Use(handlers.InternalAuditMiddleware(deps.AuditLogger))
 		r.Use(handlers.InternalTokenMiddleware(deps.Config.Security.InternalAPIToken))
 
-		internalHandler := handlers.NewInternalHandler(deps)
+		internalHandler := handlers.NewInternalHandler(deps.CatalogDeps())
 		r.Get("/health", internalHandler.Health)
 
 		// Catalog read endpoints — consumed by every peer service.
@@ -165,7 +165,7 @@ func Router(deps *app.Dependencies) http.Handler {
 		// minus the user-facing concerns (auth, RBAC project scoping, etc.).
 		// Today they delegate to the monolith's core.QueryService; in Phase 3
 		// they move into the standalone Query Engine binary unchanged.
-		registerQueryInternalRoutes(r, deps)
+		registerQueryInternalRoutes(r, deps.QueryDeps())
 	})
 
 	return r

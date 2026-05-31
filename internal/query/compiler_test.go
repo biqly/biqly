@@ -1043,51 +1043,51 @@ func TestCompiler_MetabaseTableSearch(t *testing.T) {
 	}
 
 	tests := []struct {
-		name          string
-		dialect       dialect.Dialect
-		filter        Filter
-		wantSQLPart   string
-		wantArgs      []any
+		name        string
+		dialect     dialect.Dialect
+		filter      Filter
+		wantSQLPart string
+		wantArgs    []any
 	}{
 		{
-			name:    "postgres contains case-insensitive single",
-			dialect: dialect.PostgresDialect{},
-			filter:  Filter{Field: "title", Operator: OpContains, Value: "Marble"},
+			name:        "postgres contains case-insensitive single",
+			dialect:     dialect.PostgresDialect{},
+			filter:      Filter{Field: "title", Operator: OpContains, Value: "Marble"},
 			wantSQLPart: `"products"."title" ILIKE $1`,
 			wantArgs:    []any{"%Marble%"},
 		},
 		{
-			name:    "postgres contains case-sensitive single",
-			dialect: dialect.PostgresDialect{},
-			filter:  Filter{Field: "title", Operator: OpContains, Value: "Marble", CaseSensitive: true},
+			name:        "postgres contains case-sensitive single",
+			dialect:     dialect.PostgresDialect{},
+			filter:      Filter{Field: "title", Operator: OpContains, Value: "Marble", CaseSensitive: true},
 			wantSQLPart: `"products"."title" LIKE $1`,
 			wantArgs:    []any{"%Marble%"},
 		},
 		{
-			name:    "postgres contains case-insensitive multi",
-			dialect: dialect.PostgresDialect{},
-			filter:  Filter{Field: "title", Operator: OpContains, Value: []any{"Marble", "Watch"}},
+			name:        "postgres contains case-insensitive multi",
+			dialect:     dialect.PostgresDialect{},
+			filter:      Filter{Field: "title", Operator: OpContains, Value: []any{"Marble", "Watch"}},
 			wantSQLPart: `("products"."title" ILIKE $1 OR "products"."title" ILIKE $2)`,
 			wantArgs:    []any{"%Marble%", "%Watch%"},
 		},
 		{
-			name:    "mysql contains case-sensitive multi",
-			dialect: dialect.MySQLDialect{},
-			filter:  Filter{Field: "title", Operator: OpContains, Value: []any{"Marble", "Watch"}, CaseSensitive: true},
+			name:        "mysql contains case-sensitive multi",
+			dialect:     dialect.MySQLDialect{},
+			filter:      Filter{Field: "title", Operator: OpContains, Value: []any{"Marble", "Watch"}, CaseSensitive: true},
 			wantSQLPart: "(`products`.`title` LIKE BINARY ? OR `products`.`title` LIKE BINARY ?)",
 			wantArgs:    []any{"%Marble%", "%Watch%"},
 		},
 		{
-			name:    "sqlserver contains case-sensitive single",
-			dialect: dialect.SQLServerDialect{},
-			filter:  Filter{Field: "title", Operator: OpContains, Value: "Marble", CaseSensitive: true},
+			name:        "sqlserver contains case-sensitive single",
+			dialect:     dialect.SQLServerDialect{},
+			filter:      Filter{Field: "title", Operator: OpContains, Value: "Marble", CaseSensitive: true},
 			wantSQLPart: `[products].[title] LIKE @p1 COLLATE Latin1_General_CS_AS`,
 			wantArgs:    []any{"%Marble%"},
 		},
 		{
-			name:    "postgres neq multi",
-			dialect: dialect.PostgresDialect{},
-			filter:  Filter{Field: "title", Operator: OpNeq, Value: []any{"Marble", "Watch"}},
+			name:        "postgres neq multi",
+			dialect:     dialect.PostgresDialect{},
+			filter:      Filter{Field: "title", Operator: OpNeq, Value: []any{"Marble", "Watch"}},
 			wantSQLPart: `("products"."title" != $1 AND "products"."title" != $2)`,
 			wantArgs:    []any{"Marble", "Watch"},
 		},
@@ -1118,4 +1118,3 @@ func TestCompiler_MetabaseTableSearch(t *testing.T) {
 		})
 	}
 }
-

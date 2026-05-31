@@ -47,14 +47,14 @@ func AIRouter(deps *app.Dependencies) http.Handler {
 		// AI microservice trusts the network: JWT verification, permission, and
 		// datasource access checks all happen at the monolith proxy. Pass a nil
 		// AuthClient so the per-route middlewares degrade to pass-through.
-		registerAIAPIRoutes(r, deps, nil)
+		registerAIAPIRoutes(r, deps.AIDeps(), nil)
 	})
 
 	r.Route("/internal", func(r chi.Router) {
 		r.Use(handlers.InternalAuditMiddleware(deps.AuditLogger))
 		r.Use(handlers.InternalTokenMiddleware(deps.Config.Security.InternalAPIToken))
 
-		internalHandler := handlers.NewInternalHandlerWithService(deps, "biqly-ai")
+		internalHandler := handlers.NewInternalHandlerWithService(deps.CatalogDeps(), "biqly-ai")
 		r.Get("/health", internalHandler.Health)
 	})
 
@@ -70,7 +70,7 @@ func aiServiceRequestTimeout(deps *app.Dependencies) time.Duration {
 // are wrapped with RequireDatasourceAccess("read") so users cannot target
 // datasources they have not been granted. Pass nil from the AI microservice,
 // which is fronted by the monolith proxy that enforces the same checks.
-func registerAIAPIRoutes(r chi.Router, deps *app.Dependencies, authClient *bimw.AuthClient) {
+func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthClient) {
 	aiHandler := handlers.NewAIHandler(deps)
 	aiHandler.SetAIMetricsRecorder(GetMetrics())
 	dsAccess := bimw.RequireDatasourceAccess(authClient, "read")

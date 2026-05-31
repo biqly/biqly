@@ -35,20 +35,20 @@ type InternalHandler struct {
 }
 
 // NewInternalHandler returns a handler ready to be mounted under /internal.
-func NewInternalHandler(deps *app.Dependencies) *InternalHandler {
+func NewInternalHandler(deps *app.CatalogDeps) *InternalHandler {
 	return NewInternalHandlerWithService(deps, "biqly-monolith")
 }
 
 // NewInternalHandlerWithService returns an internal handler with a service
 // name suitable for /internal/health responses.
-func NewInternalHandlerWithService(deps *app.Dependencies, serviceName string) *InternalHandler {
+func NewInternalHandlerWithService(deps *app.CatalogDeps, serviceName string) *InternalHandler {
 	if strings.TrimSpace(serviceName) == "" {
 		serviceName = "biqly-monolith"
 	}
 	return &InternalHandler{
 		meta:        deps.MetaRepo,
 		semantic:    deps.SemanticRepo,
-		eval:        deps.EvalRepo,
+		eval:        nil, // We will retrieve this from CatalogDeps if /internal ever needs it, but it only needs MetaRepo / SemanticRepo
 		serviceName: serviceName,
 	}
 }

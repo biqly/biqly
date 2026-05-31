@@ -31,8 +31,8 @@ func TestAIHandlerPreviewUsesQueryClientDryRun(t *testing.T) {
 	defer upstream.Close()
 
 	lq := integrationLogicalQuery()
-	resp := &ai.Response{LogicalQuery: &lq}
-	handler := &AIHandler{deps: &app.Dependencies{QueryClient: queryclient.New(upstream.URL)}}
+	resp := &ai.Response{Result: &ai.AIResult{LogicalQuery: &lq}}
+	handler := &AIHandler{deps: (&app.Dependencies{QueryClient: queryclient.New(upstream.URL)}).AIDeps()}
 
 	rec := httptest.NewRecorder()
 	handler.finishAIPreview(context.Background(), rec, aiQueryRequest{DatasourceID: integrationDSID}, integrationSemanticModel(), resp)
@@ -42,8 +42,8 @@ func TestAIHandlerPreviewUsesQueryClientDryRun(t *testing.T) {
 	if !dryRunCalled {
 		t.Fatal("query dry-run upstream was not called")
 	}
-	if resp.SQL != "SELECT 1" || len(resp.Args) != 1 || resp.Args[0] != "arg" {
-		t.Fatalf("response compile payload: sql=%q args=%#v", resp.SQL, resp.Args)
+	if resp.Result == nil || resp.Result.SQL != "SELECT 1" || len(resp.Result.Args) != 1 || resp.Result.Args[0] != "arg" {
+		t.Fatalf("response compile payload: sql=%q args=%#v", resp.Result.SQL, resp.Result.Args)
 	}
 }
 
@@ -67,8 +67,8 @@ func TestAIHandlerRunUsesQueryClientRun(t *testing.T) {
 	defer upstream.Close()
 
 	lq := integrationLogicalQuery()
-	resp := &ai.Response{LogicalQuery: &lq}
-	handler := &AIHandler{deps: &app.Dependencies{QueryClient: queryclient.New(upstream.URL)}}
+	resp := &ai.Response{Result: &ai.AIResult{LogicalQuery: &lq}}
+	handler := &AIHandler{deps: (&app.Dependencies{QueryClient: queryclient.New(upstream.URL)}).AIDeps()}
 
 	rec := httptest.NewRecorder()
 	handler.finishAIRun(context.Background(), rec, integrationSemanticModel(), resp, nil)
@@ -78,11 +78,11 @@ func TestAIHandlerRunUsesQueryClientRun(t *testing.T) {
 	if !runCalled {
 		t.Fatal("query run upstream was not called")
 	}
-	if resp.Result == nil || resp.Result.Stats.RowCount != 1 || resp.Result.Stats.DurationMs != 7 {
+	if resp.Result == nil || resp.Result.Result == nil || resp.Result.Result.Stats.RowCount != 1 || resp.Result.Result.Stats.DurationMs != 7 {
 		t.Fatalf("run result stats: %#v", resp.Result)
 	}
-	if resp.SQL != `SELECT "TR"` {
-		t.Fatalf("sql: got %q", resp.SQL)
+	if resp.Result == nil || resp.Result.SQL != `SELECT "TR"` {
+		t.Fatalf("sql: got %q", resp.Result.SQL)
 	}
 }
 

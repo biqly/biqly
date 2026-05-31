@@ -34,7 +34,7 @@ func normalizeSQL(sql string) string {
 // semanticContextFixture provides a rich semantic model for golden tests
 // with multiple relationship types, display dimensions, and fanout scenarios.
 type semanticContextFixture struct {
-	Model      *semantic.SemanticModel
+	Model        *semantic.SemanticModel
 	LogicalQuery LogicalQuery
 }
 
@@ -618,9 +618,9 @@ func TestGolden_SQLServerManyToOne(t *testing.T) {
 // TestPlanner_FanoutDetection verifies the planner detects fanout risks.
 func TestPlanner_FanoutDetection(t *testing.T) {
 	tests := []struct {
-		name            string
-		fixture         func() semanticContextFixture
-		expectWarnings  bool
+		name           string
+		fixture        func() semanticContextFixture
+		expectWarnings bool
 	}{
 		{
 			name:           "many_to_one_no_fanout",

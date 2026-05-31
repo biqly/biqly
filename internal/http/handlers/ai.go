@@ -36,7 +36,7 @@ const (
 type AIHandler struct {
 	service     *ai.Service
 	tableRouter *routing.TableRouter
-	deps        *app.Dependencies
+	deps        *app.AIDeps
 	metrics     AIMetricsRecorder
 }
 
@@ -46,7 +46,7 @@ func (h *AIHandler) SetAIMetricsRecorder(m AIMetricsRecorder) {
 }
 
 // NewAIHandler creates a new AI handler.
-func NewAIHandler(deps *app.Dependencies) *AIHandler {
+func NewAIHandler(deps *app.AIDeps) *AIHandler {
 	queryCfg := deps.Config.AI.EffectiveQueryConfig()
 	provider := deps.AIQueryClient
 	if provider == nil {
@@ -186,8 +186,11 @@ func (h *AIHandler) processAIQuestion(
 	opts = append(opts, extra...)
 	resp, err := h.service.ProcessQuestion(ctx, req.Question, model, opts...)
 	if resp != nil {
-		resp.ModelUsed = h.deps.Config.AI.EffectiveQueryConfig().Model
-		resp.TableRouting = routing
+		if resp.Metadata == nil {
+			resp.Metadata = &ai.AIMetadata{}
+		}
+		resp.Metadata.ModelUsed = h.deps.Config.AI.EffectiveQueryConfig().Model
+		resp.Metadata.TableRouting = routing
 	}
 	if err != nil {
 		h.observeAIRequest(ctx, req, model, routing, nil, err, time.Since(start).Milliseconds())
@@ -264,18 +267,26 @@ func closeResolvedDatasource(ctx context.Context, resolved *app.ResolvedDatasour
 }
 
 func (h *AIHandler) finishAIPreview(ctx context.Context, w http.ResponseWriter, req aiQueryRequest, model *semantic.SemanticModel, resp *ai.Response) {
-	if resp.LogicalQuery == nil {
+	var logicalQuery *query.LogicalQuery
+	if resp != nil && resp.Result != nil {
+		logicalQuery = resp.Result.LogicalQuery
+	}
+	if logicalQuery == nil {
 		writeJSON(w, http.StatusOK, resp)
 		return
 	}
+	if resp.Result == nil {
+		resp.Result = &ai.AIResult{}
+	}
+
 	if h.deps.QueryClient != nil {
-		compiled, err := h.deps.QueryClient.DryRun(ctx, *resp.LogicalQuery)
+		compiled, err := h.deps.QueryClient.DryRun(ctx, *logicalQuery)
 		if err != nil {
 			slog.ErrorContext(ctx, "AI preview query service dry-run failed", "error", err)
-			resp.Warnings = append(resp.Warnings, "compilation failed")
+			resp.Result.Warnings = append(resp.Result.Warnings, "compilation failed")
 		} else {
-			resp.SQL = compiled.SQL
-			resp.Args = compiled.Args
+			resp.Result.SQL = compiled.SQL
+			resp.Result.Args = compiled.Args
 		}
 		writeJSON(w, http.StatusOK, resp)
 		return
@@ -288,25 +299,33 @@ func (h *AIHandler) finishAIPreview(ctx context.Context, w http.ResponseWriter, 
 	}
 	defer closeResolvedDatasource(ctx, resolved)
 
-	cq, se := h.deps.QueryService.CompileWithContext(ctx, resp.LogicalQuery, model, resolved.Driver)
+	cq, se := h.deps.QueryService.CompileWithContext(ctx, logicalQuery, model, resolved.Driver)
 	if se != nil {
 		slog.ErrorContext(ctx, "AI preview compilation failed", "error", core.LogCause(se),
 			"model_id", model.ID,
 			"datasource_id", model.DatasourceID,
 		)
-		resp.Warnings = append(resp.Warnings, "compilation failed")
+		resp.Result.Warnings = append(resp.Result.Warnings, "compilation failed")
 	} else {
-		resp.SQL = cq.SQL
-		resp.Args = cq.Args
+		resp.Result.SQL = cq.SQL
+		resp.Result.Args = cq.Args
 	}
 	writeJSON(w, http.StatusOK, resp)
 }
 
 func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, model *semantic.SemanticModel, resp *ai.Response, resolved *app.ResolvedDatasource) {
-	if resp.LogicalQuery == nil {
+	var logicalQuery *query.LogicalQuery
+	if resp != nil && resp.Result != nil {
+		logicalQuery = resp.Result.LogicalQuery
+	}
+	if logicalQuery == nil {
 		writeJSON(w, http.StatusOK, resp)
 		return
 	}
+	if resp.Result == nil {
+		resp.Result = &ai.AIResult{}
+	}
+
 	if h.deps.QueryClient != nil {
 		h.finishAIRunWithQueryClient(ctx, w, resp, model)
 		return
@@ -315,9 +334,9 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, mode
 	driver := resolved.Driver
 	db := resolved.DB
 
-	cq, se := h.deps.QueryService.CompileWithContext(ctx, resp.LogicalQuery, model, driver)
+	cq, se := h.deps.QueryService.CompileWithContext(ctx, logicalQuery, model, driver)
 	if se != nil {
-		persistQueryHistory(ctx, h.deps.MetaRepo, resp.LogicalQuery, model, nil, nil, queryStatusFailed, core.ErrAsError(se))
+		persistQueryHistory(ctx, h.deps.MetaRepo, logicalQuery, model, nil, nil, queryStatusFailed, core.ErrAsError(se))
 		writeServiceError(ctx, w, se,
 			"model_id", model.ID,
 			"datasource_id", model.DatasourceID,
@@ -325,12 +344,12 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, mode
 		return
 	}
 
-	resp.SQL = cq.SQL
-	resp.Args = cq.Args
+	resp.Result.SQL = cq.SQL
+	resp.Result.Args = cq.Args
 
 	result, err := h.deps.Executor.Execute(ctx, db, cq)
 	if err != nil {
-		persistQueryHistory(ctx, h.deps.MetaRepo, resp.LogicalQuery, model, cq, nil, queryStatusFailed, err)
+		persistQueryHistory(ctx, h.deps.MetaRepo, logicalQuery, model, cq, nil, queryStatusFailed, err)
 		writeInternalError(ctx, w, http.StatusInternalServerError, "execution failed", err,
 			"sql", cq.SQL,
 			"args", fmt.Sprintf("%v", cq.Args),
@@ -340,25 +359,37 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, mode
 		return
 	}
 
-	query.EnrichResult(result, resp.LogicalQuery, model)
+	query.EnrichResult(result, logicalQuery, model)
 	chartType, reason := query.VisualizationHintFromResult(result)
-	resp.VisualizationHint = &ai.VisualizationHint{ChartType: chartType, Reason: reason}
+	resp.Result.VisualizationHint = &ai.VisualizationHint{ChartType: chartType, Reason: reason}
 	if anomalyWarnings := query.AnomalyWarningMessages(result); len(anomalyWarnings) > 0 {
-		resp.Warnings = append(resp.Warnings, anomalyWarnings...)
+		resp.Result.Warnings = append(resp.Result.Warnings, anomalyWarnings...)
 	}
-	resp.Result = result
-	persistQueryHistory(ctx, h.deps.MetaRepo, resp.LogicalQuery, model, cq, result, queryStatusSuccess, nil)
+	resp.Result.Result = result
+	persistQueryHistory(ctx, h.deps.MetaRepo, logicalQuery, model, cq, result, queryStatusSuccess, nil)
 	writeJSON(w, http.StatusOK, resp)
 }
 
 func (h *AIHandler) finishAIRunWithQueryClient(ctx context.Context, w http.ResponseWriter, resp *ai.Response, model *semantic.SemanticModel) {
-	run, err := h.deps.QueryClient.Run(ctx, *resp.LogicalQuery, 0, 0)
+	var logicalQuery *query.LogicalQuery
+	if resp != nil && resp.Result != nil {
+		logicalQuery = resp.Result.LogicalQuery
+	}
+	if logicalQuery == nil {
+		writeJSON(w, http.StatusOK, resp)
+		return
+	}
+	if resp.Result == nil {
+		resp.Result = &ai.AIResult{}
+	}
+
+	run, err := h.deps.QueryClient.Run(ctx, *logicalQuery, 0, 0)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "query service execution failed", err)
 		return
 	}
 
-	resp.SQL = run.SQL
+	resp.Result.SQL = run.SQL
 	result := &query.QueryResult{
 		Columns: run.Columns,
 		Rows:    run.Rows,
@@ -367,13 +398,13 @@ func (h *AIHandler) finishAIRunWithQueryClient(ctx context.Context, w http.Respo
 			DurationMs: run.DurationMs,
 		},
 	}
-	query.EnrichResult(result, resp.LogicalQuery, model)
+	query.EnrichResult(result, logicalQuery, model)
 	chartType, reason := query.VisualizationHintFromResult(result)
-	resp.VisualizationHint = &ai.VisualizationHint{ChartType: chartType, Reason: reason}
+	resp.Result.VisualizationHint = &ai.VisualizationHint{ChartType: chartType, Reason: reason}
 	if anomalyWarnings := query.AnomalyWarningMessages(result); len(anomalyWarnings) > 0 {
-		resp.Warnings = append(resp.Warnings, anomalyWarnings...)
+		resp.Result.Warnings = append(resp.Result.Warnings, anomalyWarnings...)
 	}
-	resp.Result = result
+	resp.Result.Result = result
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -1065,21 +1096,29 @@ func stringValue(s *string) string {
 func clarificationResponse(routing *routing.TableRoutingResult) *ai.Response {
 	question := "Which table or topic do you want to query? Please pick one or more from the candidates."
 	return &ai.Response{
-		Warnings: []string{
-			"could not confidently choose the relevant table scope; select one or more tables and try again",
+		Result: &ai.AIResult{
+			Warnings: []string{
+				"could not confidently choose the relevant table scope; select one or more tables and try again",
+			},
+			Confidence: 0,
 		},
-		Confidence:            0,
-		TableRouting:          routing,
-		NeedsClarification:    true,
-		ClarificationQuestion: question,
-		Clarification:         ai.ClarificationFromRouting(routing, question),
+		Metadata: &ai.AIMetadata{
+			TableRouting: routing,
+		},
+		Clarification: &ai.ClarificationResponse{
+			NeedsClarification:    true,
+			ClarificationQuestion: question,
+			Clarification:         ai.ClarificationFromRouting(routing, question),
+		},
 	}
 }
 
 func failedAIResponse(err error) *ai.Response {
 	return &ai.Response{
-		Warnings:   []string{err.Error()},
-		Confidence: 0,
+		Result: &ai.AIResult{
+			Warnings:   []string{err.Error()},
+			Confidence: 0,
+		},
 	}
 }
 

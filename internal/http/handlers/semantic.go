@@ -18,12 +18,12 @@ import (
 
 // SemanticHandler handles semantic layer CRUD operations.
 type SemanticHandler struct {
-	deps    *app.Dependencies
+	deps    *app.CatalogDeps
 	metrics CatalogMetricsRecorder
 }
 
 // NewSemanticHandler creates a new semantic handler.
-func NewSemanticHandler(deps *app.Dependencies) *SemanticHandler {
+func NewSemanticHandler(deps *app.CatalogDeps) *SemanticHandler {
 	return &SemanticHandler{deps: deps}
 }
 
@@ -223,7 +223,7 @@ func (h *SemanticHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allowedSet, scoped, err := resolveAccessibleDatasources(ctx, h.deps)
+	allowedSet, scoped, err := resolveAccessibleDatasources(ctx, h.deps.Config)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to scope models", err)
 		return

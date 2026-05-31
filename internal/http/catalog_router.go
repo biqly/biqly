@@ -42,20 +42,20 @@ func CatalogRouter(deps *app.Dependencies) http.Handler {
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(CatalogMetricsMiddleware(GetMetrics()))
-		registerCatalogAPIRoutes(r, deps, nil)
+		registerCatalogAPIRoutes(r, deps.CatalogDeps(), nil)
 	})
 
 	r.Route("/internal", func(r chi.Router) {
 		r.Use(handlers.InternalAuditMiddleware(deps.AuditLogger))
 		r.Use(handlers.InternalTokenMiddleware(deps.Config.Security.InternalAPIToken))
 		r.Use(CatalogMetricsMiddleware(GetMetrics()))
-		registerCatalogInternalRoutes(r, deps, "biqly-catalog")
+		registerCatalogInternalRoutes(r, deps.CatalogDeps(), "biqly-catalog")
 	})
 
 	return r
 }
 
-func registerCatalogAPIRoutes(r chi.Router, deps *app.Dependencies, authClient *bimw.AuthClient) {
+func registerCatalogAPIRoutes(r chi.Router, deps *app.CatalogDeps, authClient *bimw.AuthClient) {
 	dsHandler := handlers.NewDatasourceHandler(deps)
 	r.Post("/datasources", dsHandler.Create)
 	r.Get("/datasources", dsHandler.List)
@@ -103,7 +103,7 @@ func registerCatalogAPIRoutes(r chi.Router, deps *app.Dependencies, authClient *
 	r.Put("/metadata/columns/{id}/translations", metaHandler.PutColumnTranslations)
 }
 
-func registerCatalogInternalRoutes(r chi.Router, deps *app.Dependencies, serviceName string) {
+func registerCatalogInternalRoutes(r chi.Router, deps *app.CatalogDeps, serviceName string) {
 	internalHandler := handlers.NewInternalHandlerWithService(deps, serviceName)
 	r.Get("/health", internalHandler.Health)
 

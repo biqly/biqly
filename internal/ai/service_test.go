@@ -156,17 +156,17 @@ func TestProcessQuestionRetriesOnInvalidJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProcessQuestion error = %v, want nil", err)
 	}
-	if resp.LogicalQuery == nil {
-		t.Fatalf("expected LogicalQuery after successful retry, got nil; warnings=%v", resp.Warnings)
+	if resp.Result == nil || resp.Result.LogicalQuery == nil {
+		t.Fatalf("expected LogicalQuery after successful retry, got nil; warnings=%v", resp.Result.Warnings)
 	}
-	if resp.Confidence <= 0 || resp.Confidence >= 0.9 {
-		t.Errorf("expected reduced (but non-zero) confidence after 1 retry, got %v", resp.Confidence)
+	if resp.Result.Confidence <= 0 || resp.Result.Confidence >= 0.9 {
+		t.Errorf("expected reduced (but non-zero) confidence after 1 retry, got %v", resp.Result.Confidence)
 	}
-	if resp.PromptStats == nil || resp.TokenUsage == nil {
-		t.Fatalf("expected prompt_stats and token_usage on success, got stats=%v usage=%v", resp.PromptStats, resp.TokenUsage)
+	if resp.Metadata == nil || resp.Metadata.PromptStats == nil || resp.Metadata.TokenUsage == nil {
+		t.Fatalf("expected prompt_stats and token_usage on success, got metadata=%+v", resp.Metadata)
 	}
-	if resp.TokenUsage.Total <= 0 {
-		t.Fatalf("expected positive token estimate, got %+v", resp.TokenUsage)
+	if resp.Metadata.TokenUsage.Total <= 0 {
+		t.Fatalf("expected positive token estimate, got %+v", resp.Metadata.TokenUsage)
 	}
 }
 
@@ -200,14 +200,14 @@ func TestProcessQuestionRetriesOnSQLDryRunFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProcessQuestion error = %v, want nil", err)
 	}
-	if resp.LogicalQuery == nil {
-		t.Fatalf("expected query after dry-run retry; warnings=%v", resp.Warnings)
+	if resp.Result == nil || resp.Result.LogicalQuery == nil {
+		t.Fatalf("expected query after dry-run retry; result=%+v", resp.Result)
 	}
 	if calls != 2 {
 		t.Errorf("expected SQLValidator to be called twice (fail then succeed), got %d", calls)
 	}
-	if resp.Confidence <= 0 || resp.Confidence >= 0.9 {
-		t.Errorf("expected reduced confidence after a dry-run retry, got %v", resp.Confidence)
+	if resp.Result.Confidence <= 0 || resp.Result.Confidence >= 0.9 {
+		t.Errorf("expected reduced confidence after a dry-run retry, got %v", resp.Result.Confidence)
 	}
 }
 
@@ -223,11 +223,11 @@ func TestProcessQuestionGivesUpAfterMaxRetries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProcessQuestion error = %v, want nil", err)
 	}
-	if resp.LogicalQuery != nil {
-		t.Errorf("expected nil LogicalQuery after exhausted retries, got %+v", resp.LogicalQuery)
+	if resp.Result != nil && resp.Result.LogicalQuery != nil {
+		t.Errorf("expected nil LogicalQuery after exhausted retries, got %+v", resp.Result.LogicalQuery)
 	}
-	if resp.Confidence != 0 {
-		t.Errorf("expected confidence 0 on total failure, got %v", resp.Confidence)
+	if resp.Result != nil && resp.Result.Confidence != 0 {
+		t.Errorf("expected confidence 0 on total failure, got %v", resp.Result.Confidence)
 	}
 }
 
@@ -253,13 +253,13 @@ func TestProcessQuestionDoesNotReturnInvalidLogicalQueryAfterValidationRetries(t
 	if err != nil {
 		t.Fatalf("ProcessQuestion error = %v, want nil", err)
 	}
-	if resp.LogicalQuery != nil {
-		t.Fatalf("expected nil LogicalQuery after exhausted validation retries, got %+v", resp.LogicalQuery)
+	if resp.Result != nil && resp.Result.LogicalQuery != nil {
+		t.Fatalf("expected nil LogicalQuery after exhausted validation retries, got %+v", resp.Result.LogicalQuery)
 	}
-	if resp.Confidence != 0 {
-		t.Errorf("expected confidence 0 on invalid exhausted validation, got %v", resp.Confidence)
+	if resp.Result != nil && resp.Result.Confidence != 0 {
+		t.Errorf("expected confidence 0 on invalid exhausted validation, got %v", resp.Result.Confidence)
 	}
-	if !resp.NeedsClarification {
+	if resp.Clarification == nil || !resp.Clarification.NeedsClarification {
 		t.Errorf("expected clarification after invalid exhausted validation")
 	}
 }
@@ -286,10 +286,10 @@ func TestProcessQuestionEmitsClarificationAfterExhaustedRetries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProcessQuestion error = %v, want nil", err)
 	}
-	if !resp.NeedsClarification {
+	if resp.Clarification == nil || !resp.Clarification.NeedsClarification {
 		t.Errorf("expected NeedsClarification=true after exhausted retries, got false")
 	}
-	if resp.ClarificationQuestion == "" {
+	if resp.Clarification == nil || resp.Clarification.ClarificationQuestion == "" {
 		t.Errorf("expected non-empty ClarificationQuestion")
 	}
 }
@@ -324,18 +324,20 @@ func TestProcessQuestionMultiCandidateMajority(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProcessQuestion error = %v, want nil", err)
 	}
-	if resp.LogicalQuery == nil || resp.LogicalQuery.Limit != 10 {
-		t.Fatalf("expected majority limit=10, got %+v", resp.LogicalQuery)
+	if resp.Result == nil || resp.Result.LogicalQuery == nil || resp.Result.LogicalQuery.Limit != 10 {
+		t.Fatalf("expected majority limit=10, got %+v", resp.Result)
 	}
 	foundVote := false
-	for _, w := range resp.Warnings {
-		if w == "self-consistency: 2/3 candidates agreed" {
-			foundVote = true
-			break
+	if resp.Result != nil {
+		for _, w := range resp.Result.Warnings {
+			if w == "self-consistency: 2/3 candidates agreed" {
+				foundVote = true
+				break
+			}
 		}
 	}
 	if !foundVote {
-		t.Errorf("expected self-consistency warning, got warnings=%v", resp.Warnings)
+		t.Errorf("expected self-consistency warning, got warnings=%v", resp.Result.Warnings)
 	}
 }
 
@@ -372,12 +374,14 @@ func TestProcessQuestionMultiCandidateNoMajorityFallsBack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProcessQuestion error = %v, want nil", err)
 	}
-	if resp.LogicalQuery == nil {
+	if resp.Result == nil || resp.Result.LogicalQuery == nil {
 		t.Fatalf("expected fallback path to produce a query, got nil")
 	}
-	for _, w := range resp.Warnings {
-		if w == "self-consistency: 1/3 candidates agreed" || w == "self-consistency: 0/3 candidates agreed" {
-			t.Errorf("did not expect self-consistency warning when no majority; got %q", w)
+	if resp.Result != nil {
+		for _, w := range resp.Result.Warnings {
+			if w == "self-consistency: 1/3 candidates agreed" || w == "self-consistency: 0/3 candidates agreed" {
+				t.Errorf("did not expect self-consistency warning when no majority; got %q", w)
+			}
 		}
 	}
 }
@@ -413,21 +417,23 @@ func TestProcessQuestionInheritsFiltersOnRefineFollowUp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProcessQuestion error = %v", err)
 	}
-	if resp.LogicalQuery == nil || len(resp.LogicalQuery.Filters) != 1 {
-		t.Fatalf("expected inherited order_date filter, got %+v", resp.LogicalQuery)
+	if resp.Result == nil || resp.Result.LogicalQuery == nil || len(resp.Result.LogicalQuery.Filters) != 1 {
+		t.Fatalf("expected inherited order_date filter, got %+v", resp.Result)
 	}
-	if resp.LogicalQuery.Filters[0].Field != "order_date" {
-		t.Errorf("filter field = %q, want order_date", resp.LogicalQuery.Filters[0].Field)
+	if resp.Result.LogicalQuery.Filters[0].Field != "order_date" {
+		t.Errorf("filter field = %q, want order_date", resp.Result.LogicalQuery.Filters[0].Field)
 	}
 	foundNote := false
-	for _, w := range resp.Warnings {
-		if strings.Contains(w, "inherited") {
-			foundNote = true
-			break
+	if resp.Result != nil {
+		for _, w := range resp.Result.Warnings {
+			if strings.Contains(w, "inherited") {
+				foundNote = true
+				break
+			}
 		}
 	}
 	if !foundNote {
-		t.Errorf("expected inheritance warning, got %v", resp.Warnings)
+		t.Errorf("expected inheritance warning, got %v", resp.Result.Warnings)
 	}
 }
 

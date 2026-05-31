@@ -17,11 +17,11 @@ type updateTimeGrainRequest struct {
 
 // AITimeGrainsHandler serves HTTP CRUD operations for time grain synonyms and suffixes.
 type AITimeGrainsHandler struct {
-	deps *app.Dependencies
+	deps *app.AIDeps
 }
 
 // NewAITimeGrainsHandler creates a new AITimeGrainsHandler.
-func NewAITimeGrainsHandler(deps *app.Dependencies) *AITimeGrainsHandler {
+func NewAITimeGrainsHandler(deps *app.AIDeps) *AITimeGrainsHandler {
 	return &AITimeGrainsHandler{deps: deps}
 }
 

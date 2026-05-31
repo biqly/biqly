@@ -120,16 +120,24 @@ func (h *AIHandler) executeAIQueryPhase(
 }
 
 func (h *AIHandler) finishAIPreviewResult(ctx context.Context, req aiQueryRequest, model *semantic.SemanticModel, resp *ai.Response) (*ai.Response, error) {
-	if resp.LogicalQuery == nil {
+	var logicalQuery *query.LogicalQuery
+	if resp != nil && resp.Result != nil {
+		logicalQuery = resp.Result.LogicalQuery
+	}
+	if logicalQuery == nil {
 		return resp, nil
 	}
+	if resp.Result == nil {
+		resp.Result = &ai.AIResult{}
+	}
+
 	if h.deps.QueryClient != nil {
-		compiled, err := h.deps.QueryClient.DryRun(ctx, *resp.LogicalQuery)
+		compiled, err := h.deps.QueryClient.DryRun(ctx, *logicalQuery)
 		if err != nil {
-			resp.Warnings = append(resp.Warnings, "compilation failed")
+			resp.Result.Warnings = append(resp.Result.Warnings, "compilation failed")
 		} else {
-			resp.SQL = compiled.SQL
-			resp.Args = compiled.Args
+			resp.Result.SQL = compiled.SQL
+			resp.Result.Args = compiled.Args
 		}
 		return resp, nil
 	}
@@ -138,20 +146,28 @@ func (h *AIHandler) finishAIPreviewResult(ctx context.Context, req aiQueryReques
 		return nil, err
 	}
 	defer closeResolvedDatasource(ctx, resolved)
-	cq, se := h.deps.QueryService.CompileWithContext(ctx, resp.LogicalQuery, model, resolved.Driver)
+	cq, se := h.deps.QueryService.CompileWithContext(ctx, logicalQuery, model, resolved.Driver)
 	if se != nil {
-		resp.Warnings = append(resp.Warnings, "compilation failed")
+		resp.Result.Warnings = append(resp.Result.Warnings, "compilation failed")
 	} else {
-		resp.SQL = cq.SQL
-		resp.Args = cq.Args
+		resp.Result.SQL = cq.SQL
+		resp.Result.Args = cq.Args
 	}
 	return resp, nil
 }
 
 func (h *AIHandler) finishAIRunResult(ctx context.Context, req aiQueryRequest, model *semantic.SemanticModel, resp *ai.Response, resolved *app.ResolvedDatasource) (*ai.Response, error) {
-	if resp.LogicalQuery == nil {
+	var logicalQuery *query.LogicalQuery
+	if resp != nil && resp.Result != nil {
+		logicalQuery = resp.Result.LogicalQuery
+	}
+	if logicalQuery == nil {
 		return resp, nil
 	}
+	if resp.Result == nil {
+		resp.Result = &ai.AIResult{}
+	}
+
 	if h.deps.QueryClient != nil {
 		return h.finishAIRunResultWithQueryClient(ctx, resp, model)
 	}
@@ -165,35 +181,46 @@ func (h *AIHandler) finishAIRunResult(ctx context.Context, req aiQueryRequest, m
 	}
 	driver := resolved.Driver
 	db := resolved.DB
-	cq, se := h.deps.QueryService.CompileWithContext(ctx, resp.LogicalQuery, model, driver)
+	cq, se := h.deps.QueryService.CompileWithContext(ctx, logicalQuery, model, driver)
 	if se != nil {
-		persistQueryHistory(ctx, h.deps.MetaRepo, resp.LogicalQuery, model, nil, nil, queryStatusFailed, core.ErrAsError(se))
+		persistQueryHistory(ctx, h.deps.MetaRepo, logicalQuery, model, nil, nil, queryStatusFailed, core.ErrAsError(se))
 		return nil, core.ErrAsError(se)
 	}
-	resp.SQL = cq.SQL
-	resp.Args = cq.Args
+	resp.Result.SQL = cq.SQL
+	resp.Result.Args = cq.Args
 	result, err := h.deps.Executor.Execute(ctx, db, cq)
 	if err != nil {
-		persistQueryHistory(ctx, h.deps.MetaRepo, resp.LogicalQuery, model, cq, nil, queryStatusFailed, err)
+		persistQueryHistory(ctx, h.deps.MetaRepo, logicalQuery, model, cq, nil, queryStatusFailed, err)
 		return nil, err
 	}
-	query.EnrichResult(result, resp.LogicalQuery, model)
+	query.EnrichResult(result, logicalQuery, model)
 	chartType, reason := query.VisualizationHintFromResult(result)
-	resp.VisualizationHint = &ai.VisualizationHint{ChartType: chartType, Reason: reason}
+	resp.Result.VisualizationHint = &ai.VisualizationHint{ChartType: chartType, Reason: reason}
 	if anomalyWarnings := query.AnomalyWarningMessages(result); len(anomalyWarnings) > 0 {
-		resp.Warnings = append(resp.Warnings, anomalyWarnings...)
+		resp.Result.Warnings = append(resp.Result.Warnings, anomalyWarnings...)
 	}
-	resp.Result = result
-	persistQueryHistory(ctx, h.deps.MetaRepo, resp.LogicalQuery, model, cq, result, queryStatusSuccess, nil)
+	resp.Result.Result = result
+	persistQueryHistory(ctx, h.deps.MetaRepo, logicalQuery, model, cq, result, queryStatusSuccess, nil)
 	return resp, nil
 }
 
 func (h *AIHandler) finishAIRunResultWithQueryClient(ctx context.Context, resp *ai.Response, model *semantic.SemanticModel) (*ai.Response, error) {
-	run, err := h.deps.QueryClient.Run(ctx, *resp.LogicalQuery, 0, 0)
+	var logicalQuery *query.LogicalQuery
+	if resp != nil && resp.Result != nil {
+		logicalQuery = resp.Result.LogicalQuery
+	}
+	if logicalQuery == nil {
+		return resp, nil
+	}
+	if resp.Result == nil {
+		resp.Result = &ai.AIResult{}
+	}
+
+	run, err := h.deps.QueryClient.Run(ctx, *logicalQuery, 0, 0)
 	if err != nil {
 		return nil, err
 	}
-	resp.SQL = run.SQL
+	resp.Result.SQL = run.SQL
 	result := &query.QueryResult{
 		Columns: run.Columns,
 		Rows:    run.Rows,
@@ -202,13 +229,13 @@ func (h *AIHandler) finishAIRunResultWithQueryClient(ctx context.Context, resp *
 			DurationMs: run.DurationMs,
 		},
 	}
-	query.EnrichResult(result, resp.LogicalQuery, model)
+	query.EnrichResult(result, logicalQuery, model)
 	chartType, reason := query.VisualizationHintFromResult(result)
-	resp.VisualizationHint = &ai.VisualizationHint{ChartType: chartType, Reason: reason}
+	resp.Result.VisualizationHint = &ai.VisualizationHint{ChartType: chartType, Reason: reason}
 	if anomalyWarnings := query.AnomalyWarningMessages(result); len(anomalyWarnings) > 0 {
-		resp.Warnings = append(resp.Warnings, anomalyWarnings...)
+		resp.Result.Warnings = append(resp.Result.Warnings, anomalyWarnings...)
 	}
-	resp.Result = result
+	resp.Result.Result = result
 	return resp, nil
 }
 
@@ -342,7 +369,7 @@ func (h *AIHandler) executeMetadataDescribeBatchJob(
 		if denom < 1 {
 			denom = 1
 		}
-		pct := 5 + (i*90/denom)
+		pct := 5 + (i * 90 / denom)
 		if report != nil {
 			nextPreview := make([]string, 0, 5)
 			for j := i + 1; j < len(req.Tables) && len(nextPreview) < 5; j++ {

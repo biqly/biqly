@@ -49,7 +49,6 @@ const defaultLayout = `{{.SystemRules}}
 {{.Examples}}
 {{.PriorTurns}}`
 
-
 var promptBuilderPool = sync.Pool{
 	New: func() any { return new(bytes.Buffer) },
 }
@@ -65,6 +64,18 @@ func withPooledBuffer(fn func(*bytes.Buffer)) string {
 	out := buf.String()
 	promptBuilderPool.Put(buf)
 	return out
+}
+
+// PromptConfig contains options to configure prompt construction.
+type PromptConfig struct {
+	MaxRunes     int
+	Locale       i18n.Locale
+	Dialect      string
+	Examples     []FewShotExample
+	Samples      []TableSample
+	PriorTurns   []ConversationTurn
+	DeniedFields []string
+	Glossary     []GlossaryEntry
 }
 
 // PromptBuilder constructs the AI prompt with semantic context.
@@ -90,21 +101,19 @@ type ConversationTurn struct {
 	Note         string // e.g. "executed", "user rejected, asked to refine"
 }
 
-// Build creates the full prompt for the AI. maxPromptRunes caps the total size (0 = default 80000)
-// so providers with finite context windows do not receive huge auto-generated semantic models.
-// locale selects which prompt template bundle is rendered. The LLM-facing rules
-// stay English (model accuracy is sensitive to phrasing), but the template
-// indirection keeps the door open for locale-specific wording where it is safe.
-// targetDialect is the datasource engine (postgres, mysql, sqlserver, clickhouse); empty defaults to postgres.
-// examples are dynamic few-shot pairs from the project's history; pass nil for none.
-// samples are concrete rows from queried tables; pass nil for none.
-// deniedFields is an optional list of qualified field names (e.g. "model.secret_field") that
-// must NOT appear in the prompt — used in strict mode to enforce row-level security at prompt time.
-func (b *PromptBuilder) Build(ctx context.Context, question string, model *semantic.SemanticModel, maxPromptRunes int, locale i18n.Locale, targetDialect string, examples []FewShotExample, samples []TableSample, priorTurns []ConversationTurn, deniedFields []string, glossary []GlossaryEntry) string {
+// Build creates the full prompt for the AI.
+func (b *PromptBuilder) Build(ctx context.Context, question string, model *semantic.SemanticModel, cfg PromptConfig) string {
+	maxPromptRunes := cfg.MaxRunes
 	if maxPromptRunes <= 0 {
 		maxPromptRunes = 80000
 	}
-	locale = PromptLocaleForQuestion(question, locale)
+	locale := PromptLocaleForQuestion(question, cfg.Locale)
+	targetDialect := cfg.Dialect
+	examples := cfg.Examples
+	samples := cfg.Samples
+	priorTurns := cfg.PriorTurns
+	deniedFields := cfg.DeniedFields
+	glossary := cfg.Glossary
 
 	// Build set of denied field names for fast lookup
 	deniedSet := make(map[string]bool, len(deniedFields))

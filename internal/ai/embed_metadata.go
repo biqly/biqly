@@ -24,10 +24,10 @@ type MetadataWriter interface {
 // EmbedMetadataService computes table and column embeddings from datasource
 // metadata, then persists them for use by the vector-aware table router.
 type EmbedMetadataService struct {
-	embedder     Embedder
-	writer       MetadataWriter
-	denySchemas  map[string]struct{}
-	denyTables   map[string]struct{} // key: "schema.table"
+	embedder    Embedder
+	writer      MetadataWriter
+	denySchemas map[string]struct{}
+	denyTables  map[string]struct{} // key: "schema.table"
 }
 
 // NewEmbedMetadataService wires the embedder and metadata repository.

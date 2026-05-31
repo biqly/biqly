@@ -22,11 +22,11 @@ type restorePromptTemplateRequest struct {
 
 // AIPromptTemplatesHandler serves admin CRUD for locale-specific static prompt sections.
 type AIPromptTemplatesHandler struct {
-	deps *app.Dependencies
+	deps *app.AIDeps
 }
 
 // NewAIPromptTemplatesHandler creates a prompt templates handler.
-func NewAIPromptTemplatesHandler(deps *app.Dependencies) *AIPromptTemplatesHandler {
+func NewAIPromptTemplatesHandler(deps *app.AIDeps) *AIPromptTemplatesHandler {
 	return &AIPromptTemplatesHandler{deps: deps}
 }
 

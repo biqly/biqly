@@ -43,19 +43,19 @@ func QueryRouter(deps *app.Dependencies) http.Handler {
 	r.Get("/metrics", MetricsHandler)
 
 	r.Route("/api", func(r chi.Router) {
-		registerQueryAPIRoutes(r, deps)
+		registerQueryAPIRoutes(r, deps.QueryDeps())
 	})
 
 	r.Route("/internal", func(r chi.Router) {
 		r.Use(handlers.InternalAuditMiddleware(deps.AuditLogger))
 		r.Use(handlers.InternalTokenMiddleware(deps.Config.Security.InternalAPIToken))
-		registerQueryInternalRoutes(r, deps)
+		registerQueryInternalRoutes(r, deps.QueryDeps())
 	})
 
 	return r
 }
 
-func registerQueryAPIRoutes(r chi.Router, deps *app.Dependencies) {
+func registerQueryAPIRoutes(r chi.Router, deps *app.QueryDeps) {
 	queryHandler := handlers.NewQueryHandler(deps)
 	queryHandler.SetQueryMetricsRecorder(GetMetrics())
 	r.Post("/query/compile", queryHandler.Compile)
@@ -65,7 +65,7 @@ func registerQueryAPIRoutes(r chi.Router, deps *app.Dependencies) {
 	r.Get("/query/history/{id}", queryHandler.GetHistory)
 }
 
-func registerQueryInternalRoutes(r chi.Router, deps *app.Dependencies) {
+func registerQueryInternalRoutes(r chi.Router, deps *app.QueryDeps) {
 	internalQueryHandler := handlers.NewInternalQueryHandler(deps)
 	internalQueryHandler.SetQueryMetricsRecorder(GetMetrics())
 	r.Post("/query/compile", internalQueryHandler.Compile)

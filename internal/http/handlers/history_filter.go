@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"slices"
 
-	"github.com/biqly/biqly/internal/app"
+	"github.com/biqly/biqly/internal/config"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	pkgmetadata "github.com/biqly/biqly/pkg/metadata"
 	pkgquery "github.com/biqly/biqly/pkg/query"
@@ -53,8 +53,8 @@ func FilterAIHistoryForUser(rows []pkgmetadata.AIQueryHistoryEntry, userID strin
 // workspace). An error returned from the auth service is logged and treated
 // as fail-closed: an empty map is returned so the listing is hidden rather
 // than leaking unfiltered rows.
-func resolveWorkspaceDatasourceFilter(ctx context.Context, deps *app.Dependencies) (map[string]struct{}, bool) {
-	if !deps.Config.Auth.Enabled {
+func resolveWorkspaceDatasourceFilter(ctx context.Context, config *config.Config) (map[string]struct{}, bool) {
+	if !config.Auth.Enabled {
 		return nil, false
 	}
 	userID := bimw.UserID(ctx)
@@ -66,7 +66,7 @@ func resolveWorkspaceDatasourceFilter(ctx context.Context, deps *app.Dependencie
 		return nil, false
 	}
 
-	client := bimw.NewAuthClient(deps.Config.Auth.ServiceURL, deps.Config.Auth.InternalToken)
+	client := bimw.NewAuthClient(config.Auth.ServiceURL, config.Auth.InternalToken)
 	allowed, err := client.ListUserDatasources(ctx, userID)
 	if err != nil {
 		slog.ErrorContext(ctx, "history: failed to list user datasources", "user_id", userID, "err", err)

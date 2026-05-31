@@ -351,7 +351,7 @@ Her lookup ~150-180 byte struct kopyaliyor. 20-50 dimension, 10-30 metric ile ~1
 
 ---
 
-### [ ] 3.3 [HIGH] PromptBuilder.Build() 11 Parametre
+### [x] 3.3 [HIGH] PromptBuilder.Build() 11 Parametre
 
 **Dosya:** `internal/ai/prompt.go:103`
 
@@ -383,7 +383,7 @@ func (b *PromptBuilder) Build(ctx context.Context, question string, model *seman
 
 ---
 
-### [ ] 3.4 [HIGH] buildFilterPart() 167 Satirlik Tek Method
+### [x] 3.4 [HIGH] buildFilterPart() 167 Satirlik Tek Method
 
 **Dosya:** `internal/query/compiler.go:739`
 
@@ -404,7 +404,7 @@ var filterHandlers = map[string]filterHandler{
 
 ---
 
-### [ ] 3.5 [HIGH] Dependencies Struct - 23 Alanli God Container
+### [x] 3.5 [HIGH] Dependencies Struct - 23 Alanli God Container
 
 **Dosya:** `internal/app/dependencies.go:34-68`
 
@@ -418,9 +418,9 @@ var filterHandlers = map[string]filterHandler{
 
 ---
 
-### [ ] 3.6 [HIGH] Response Struct - 24 Alan, 7 Farkli Kaygi
+### [x] 3.6 [HIGH] Response Struct - 24 Alan, 7 Farkli Kaygi
 
-**Dosya:** `internal/ai/schema.go:19-55`
+**Dosya:** [internal/ai/schema.go](internal/ai/schema.go)
 
 **Sorun:** Tek struct'ta karisan kaygilar:
 
@@ -613,10 +613,10 @@ func (p *PoolCache) Get(ctx context.Context, driver Driver, datasourceID, dsn st
 | # | Gorev | Dosya | Etki | Efor |
 | --- | --- | --- | --- | --- |
 | [x] 2.1 | Shared HTTP response helpers | `http/response/` | 60 satir, tutarli API | 3 saat |
-| [ ] 2.2 | `PromptBuilder.Build()` -> PromptConfig struct | `ai/prompt.go` | 11 param -> 4 | 2 saat |
+| [x] 2.2 | `PromptBuilder.Build()` -> PromptConfig struct | `ai/prompt.go` | 11 param -> 4 | 2 saat |
 | [ ] 2.3 | `LogicalQuery` -> pointer gecisi | `query/compiler*.go` | 3-5x copy azalmasi | 2 saat |
-| [ ] 2.4 | `buildFilterPart()` map-based dispatch | `query/compiler.go` | 167 satirlik method parcalanmasi | 3 saat |
-| [ ] 2.5 | `Response` struct parcalama | `ai/schema.go` | 7 kaygi ayrimi | 3 saat |
+| [x] 2.4 | `buildFilterPart()` map-based dispatch | `query/compiler.go` | 167 satirlik method parcalanmasi | 3 saat |
+| [x] 2.5 | `Response` struct parcalama | `ai/schema.go` | 7 kaygi ayrimi | 3 saat |
 | [ ] 2.6 | PoolCache singleflight | `datasource/pool_cache.go` | Lock contention azalmasi | 2 saat |
 | [x] 2.7 | WebAuthn cookie helper | `auth/handler.go` | 35 satir azalma | 1 saat |
 | [x] 2.8 | Dialect boilerplate temizligi | `dialect/*.go` | 24 satir azalma | 1 saat |
