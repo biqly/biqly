@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/biqly/biqly/internal/app"
-	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/semantic"
 	"github.com/biqly/biqly/internal/semanticgen"
@@ -224,47 +223,19 @@ func (h *SemanticHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.deps.Config.Auth.Enabled {
-		userID := bimw.UserID(ctx)
-		if userID != "" && !bimw.HasRole(ctx, bimw.RoleSuperAdmin) {
-			authClient := bimw.NewAuthClient(h.deps.Config.Auth.ServiceURL, h.deps.Config.Auth.InternalToken)
-			allowed, err := authClient.ListUserDatasources(ctx, userID)
-			if err != nil {
-				slog.ErrorContext(ctx, "failed to fetch user accessible datasources from auth service", "userID", userID, "error", err)
-				writeInternalError(ctx, w, http.StatusInternalServerError, "failed to scope models", err)
-				return
+	allowedSet, scoped, err := resolveAccessibleDatasources(ctx, h.deps)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to scope models", err)
+		return
+	}
+	if scoped {
+		filtered := make([]semantic.SemanticModel, 0, len(models))
+		for _, m := range models {
+			if _, ok := allowedSet[m.DatasourceID]; ok {
+				filtered = append(filtered, m)
 			}
-			allowedSet := make(map[string]struct{}, len(allowed))
-			for _, id := range allowed {
-				allowedSet[id] = struct{}{}
-			}
-
-			if wsID := bimw.WorkspaceID(ctx); wsID != "" {
-				wsIDs, err := authClient.ListWorkspaceDatasources(ctx, wsID)
-				if err != nil {
-					slog.ErrorContext(ctx, "failed to fetch workspace datasources from auth service", "workspaceID", wsID, "error", err)
-					writeInternalError(ctx, w, http.StatusInternalServerError, "failed to scope models to workspace", err)
-					return
-				}
-				wsSet := make(map[string]struct{}, len(wsIDs))
-				for _, id := range wsIDs {
-					wsSet[id] = struct{}{}
-				}
-				for id := range allowedSet {
-					if _, ok := wsSet[id]; !ok {
-						delete(allowedSet, id)
-					}
-				}
-			}
-
-			filtered := make([]semantic.SemanticModel, 0, len(models))
-			for _, m := range models {
-				if _, ok := allowedSet[m.DatasourceID]; ok {
-					filtered = append(filtered, m)
-				}
-			}
-			models = filtered
 		}
+		models = filtered
 	}
 
 	writeJSON(w, http.StatusOK, models)

@@ -11,7 +11,6 @@ import (
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/datasource"
-	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/security"
 	"github.com/google/uuid"
@@ -284,48 +283,19 @@ func (h *DatasourceHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.deps.Config.Auth.Enabled {
-		userID := bimw.UserID(ctx)
-		if userID != "" && !bimw.HasRole(ctx, bimw.RoleSuperAdmin) {
-			authClient := bimw.NewAuthClient(h.deps.Config.Auth.ServiceURL, h.deps.Config.Auth.InternalToken)
-			allowedIDs, err := authClient.ListUserDatasources(ctx, userID)
-			if err != nil {
-				slog.ErrorContext(ctx, "failed to fetch user accessible datasources from auth service", "userID", userID, "error", err)
-				writeInternalError(ctx, w, http.StatusInternalServerError, "failed to verify datasource access", err)
-				return
+	allowedSet, scoped, err := resolveAccessibleDatasources(ctx, h.deps)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to verify datasource access", err)
+		return
+	}
+	if scoped {
+		filtered := make([]metadata.Datasource, 0, len(datasources))
+		for _, ds := range datasources {
+			if _, ok := allowedSet[ds.ID]; ok {
+				filtered = append(filtered, ds)
 			}
-
-			allowedSet := make(map[string]struct{}, len(allowedIDs))
-			for _, id := range allowedIDs {
-				allowedSet[id] = struct{}{}
-			}
-
-			if wsID := bimw.WorkspaceID(ctx); wsID != "" {
-				wsIDs, err := authClient.ListWorkspaceDatasources(ctx, wsID)
-				if err != nil {
-					slog.ErrorContext(ctx, "failed to fetch workspace datasources from auth service", "workspaceID", wsID, "error", err)
-					writeInternalError(ctx, w, http.StatusInternalServerError, "failed to scope datasources to workspace", err)
-					return
-				}
-				wsSet := make(map[string]struct{}, len(wsIDs))
-				for _, id := range wsIDs {
-					wsSet[id] = struct{}{}
-				}
-				for id := range allowedSet {
-					if _, ok := wsSet[id]; !ok {
-						delete(allowedSet, id)
-					}
-				}
-			}
-
-			filtered := make([]metadata.Datasource, 0, len(datasources))
-			for _, ds := range datasources {
-				if _, ok := allowedSet[ds.ID]; ok {
-					filtered = append(filtered, ds)
-				}
-			}
-			datasources = filtered
 		}
+		datasources = filtered
 	}
 
 	// Mask DSN in response
