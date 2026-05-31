@@ -45,7 +45,7 @@ func (h *InternalQueryHandler) Compile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	start := time.Now()
-	result, se := h.query.Compile(r.Context(), req.LogicalQuery)
+	result, se := h.query.Compile(r.Context(), &req.LogicalQuery)
 	if h.metrics != nil {
 		h.metrics.RecordQueryCompile(time.Since(start).Milliseconds(), se == nil)
 	}
@@ -56,7 +56,7 @@ func (h *InternalQueryHandler) Compile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, internalapi.CompileResponse{
 		SQL:         result.Compiled.SQL,
 		Args:        result.Compiled.Args,
-		Fingerprint: fingerprintFor(result.LogicalQuery, result.Model),
+		Fingerprint: fingerprintFor(&result.LogicalQuery, result.Model),
 	})
 }
 
@@ -69,7 +69,7 @@ func (h *InternalQueryHandler) Run(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	start := time.Now()
-	result, se := h.query.Run(r.Context(), req.LogicalQuery)
+	result, se := h.query.Run(r.Context(), &req.LogicalQuery)
 	rows := 0
 	if result != nil && result.Result != nil {
 		rows = result.Result.Stats.RowCount
@@ -82,7 +82,7 @@ func (h *InternalQueryHandler) Run(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := internalapi.RunResponse{
-		Fingerprint: fingerprintFor(result.LogicalQuery, result.Model),
+		Fingerprint: fingerprintFor(&result.LogicalQuery, result.Model),
 		SQL:         result.Compiled.SQL,
 	}
 	if result.Result != nil {
@@ -104,7 +104,7 @@ func (h *InternalQueryHandler) DryRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	start := time.Now()
-	result, se := h.query.Compile(r.Context(), req.LogicalQuery)
+	result, se := h.query.Compile(r.Context(), &req.LogicalQuery)
 	if h.metrics != nil {
 		h.metrics.RecordQueryCompile(time.Since(start).Milliseconds(), se == nil)
 	}
@@ -115,7 +115,7 @@ func (h *InternalQueryHandler) DryRun(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, internalapi.DryRunResponse{
 		SQL:         result.Compiled.SQL,
 		Args:        result.Compiled.Args,
-		Fingerprint: fingerprintFor(result.LogicalQuery, result.Model),
+		Fingerprint: fingerprintFor(&result.LogicalQuery, result.Model),
 	})
 }
 
@@ -124,7 +124,7 @@ func (h *InternalQueryHandler) DryRun(w http.ResponseWriter, r *http.Request) {
 // semantic-model revision naturally invalidates downstream fingerprint caches.
 // PermissionScope is left empty for the internal surface; row-level filter
 // injection is handled by /api/query/* through CompileWithPermissions.
-func fingerprintFor(lq query.LogicalQuery, model *semantic.SemanticModel) string {
+func fingerprintFor(lq *query.LogicalQuery, model *semantic.SemanticModel) string {
 	in := query.FingerprintInputs{
 		LogicalQuery: lq,
 		DatasourceID: lq.DatasourceID,

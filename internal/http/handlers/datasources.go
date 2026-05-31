@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/biqly/biqly/internal/app"
+	"github.com/biqly/biqly/internal/core"
 	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/security"
@@ -396,7 +397,7 @@ func (h *DatasourceHandler) Test(w http.ResponseWriter, r *http.Request) {
 
 	driver, err := h.deps.DriverReg.Get(ds.Type)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, app.MsgUnsupportedDriver)
+		writeError(w, http.StatusBadRequest, core.MsgUnsupportedDriver)
 		return
 	}
 
@@ -448,7 +449,7 @@ func (h *DatasourceHandler) TestDraft(w http.ResponseWriter, r *http.Request) {
 
 	driver, err := h.deps.DriverReg.Get(ds.Type)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, app.MsgUnsupportedDriver)
+		writeError(w, http.StatusBadRequest, core.MsgUnsupportedDriver)
 		return
 	}
 

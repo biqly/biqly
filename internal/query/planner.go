@@ -30,7 +30,7 @@ type TableNode struct {
 }
 
 // Plan analyzes a LogicalQuery and returns a plan.
-func (p *Planner) Plan(lq LogicalQuery, model *semantic.SemanticModel) (*PlanResult, error) {
+func (p *Planner) Plan(lq *LogicalQuery, model *semantic.SemanticModel) (*PlanResult, error) {
 	warnings := make([]string, 0, 4)
 	requiredJoins := make([]string, 0, len(model.Joins))
 
@@ -175,7 +175,7 @@ func (p *Planner) checkFanout(model *semantic.SemanticModel, tables map[string]b
 }
 
 // checkAggregations validates that metrics and dimensions can be safely combined.
-func (p *Planner) checkAggregations(lq LogicalQuery) []string {
+func (p *Planner) checkAggregations(lq *LogicalQuery) []string {
 	var warnings []string
 
 	hasMetrics := false

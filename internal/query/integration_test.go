@@ -144,7 +144,7 @@ func TestIntegration_CompileAndExecute(t *testing.T) {
 	}
 
 	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(ctx, lq, model)
+	cq, err := compiler.Compile(ctx, &lq, model)
 	if err != nil {
 		t.Fatalf("compilation failed: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestIntegration_CompileMySQL(t *testing.T) {
 	}
 
 	compiler := NewCompiler(dialect.MySQLDialect{})
-	cq, err := compiler.Compile(context.Background(), lq, model)
+	cq, err := compiler.Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("MySQL compilation failed: %v", err)
 	}
@@ -234,7 +234,7 @@ func TestIntegration_CompileClickHouse(t *testing.T) {
 	}
 
 	compiler := NewCompiler(dialect.ClickHouseDialect{})
-	cq, err := compiler.Compile(context.Background(), lq, model)
+	cq, err := compiler.Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("ClickHouse compilation failed: %v", err)
 	}
@@ -272,7 +272,7 @@ func TestIntegration_CompileSQLServer(t *testing.T) {
 	}
 
 	compiler := NewCompiler(dialect.SQLServerDialect{})
-	cq, err := compiler.Compile(context.Background(), lq, model)
+	cq, err := compiler.Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("SQL Server compilation failed: %v", err)
 	}

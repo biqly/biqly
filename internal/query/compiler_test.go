@@ -54,7 +54,7 @@ func TestCompiler_SimpleSelect(t *testing.T) {
 	}
 
 	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), lq, model)
+	cq, err := compiler.Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestCompiler_RejectsUnknownGroupByAndOrderBy(t *testing.T) {
 	}
 	compiler := NewCompiler(dialect.PostgresDialect{})
 
-	_, err := compiler.Compile(context.Background(), LogicalQuery{
+	_, err := compiler.Compile(context.Background(), &LogicalQuery{
 		Select:  []SelectItem{{Type: SelectTypeMetric, Name: "order_count"}},
 		GroupBy: []GroupBy{{Field: "year(orders.created_at)"}},
 	}, model)
@@ -95,7 +95,7 @@ func TestCompiler_RejectsUnknownGroupByAndOrderBy(t *testing.T) {
 		t.Fatalf("expected unknown group_by dimension error, got %v", err)
 	}
 
-	_, err = compiler.Compile(context.Background(), LogicalQuery{
+	_, err = compiler.Compile(context.Background(), &LogicalQuery{
 		Select:  []SelectItem{{Type: SelectTypeMetric, Name: "order_count"}},
 		OrderBy: []OrderBy{{Field: "missing_metric", Direction: OrderDesc}},
 	}, model)
@@ -146,7 +146,7 @@ func TestCompiler_OmitsJoinsWhenQueryUsesOnlyBaseTable(t *testing.T) {
 		Limit: 100,
 	}
 
-	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -194,7 +194,7 @@ func TestCompiler_SingleJoinWhenRelatedTableColumnUsed(t *testing.T) {
 		Limit: 50,
 	}
 
-	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -235,7 +235,7 @@ func TestCompiler_TimeGrainYearGroupBy(t *testing.T) {
 		Limit:   100,
 	}
 
-	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -271,7 +271,7 @@ func TestCompiler_ProjectsGroupByDimensionWhenSelectOnlyHasMetrics(t *testing.T)
 		Limit:   100,
 	}
 
-	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -338,7 +338,7 @@ func TestCompiler_GroupByTimeGrainOverridesDimensionDefault(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cq, err := NewCompiler(tt.dialect).Compile(context.Background(), lq, model)
+			cq, err := NewCompiler(tt.dialect).Compile(context.Background(), &lq, model)
 			if err != nil {
 				t.Fatalf("Compile() error = %v", err)
 			}
@@ -374,7 +374,7 @@ func TestCompiler_GroupByTimeGrainDayUsesDateTrunc(t *testing.T) {
 		Limit:   50,
 	}
 
-	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -413,7 +413,7 @@ func TestCompiler_MultipleFilters(t *testing.T) {
 	}
 
 	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), lq, model)
+	cq, err := compiler.Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -457,7 +457,7 @@ func TestValidator_RejectsIntegerFilterOnRawTimestamp(t *testing.T) {
 		Filters: []Filter{{Field: "created_at", Operator: OpEq, Value: 2026}},
 		Limit:   100,
 	}
-	if err := validator.Validate(bad, model); err == nil {
+	if err := validator.Validate(&bad, model); err == nil {
 		t.Fatal("expected validation error for integer filter on raw timestamp")
 	}
 
@@ -468,7 +468,7 @@ func TestValidator_RejectsIntegerFilterOnRawTimestamp(t *testing.T) {
 		Filters: []Filter{{Field: "created_at_year", Operator: OpEq, Value: 2026}},
 		Limit:   100,
 	}
-	if err := validator.Validate(good, model); err != nil {
+	if err := validator.Validate(&good, model); err != nil {
 		t.Errorf("expected no error for integer filter on grain dim, got %v", err)
 	}
 
@@ -479,7 +479,7 @@ func TestValidator_RejectsIntegerFilterOnRawTimestamp(t *testing.T) {
 		Filters: []Filter{{Field: "created_at", Operator: OpGte, Value: "2026-01-01"}},
 		Limit:   100,
 	}
-	if err := validator.Validate(goodIso, model); err != nil {
+	if err := validator.Validate(&goodIso, model); err != nil {
 		t.Errorf("expected no error for ISO string filter on raw timestamp, got %v", err)
 	}
 }
@@ -506,7 +506,7 @@ func TestValidator_InvalidQuery(t *testing.T) {
 		Limit:   100,
 	}
 
-	err := validator.Validate(lq, model)
+	err := validator.Validate(&lq, model)
 	if err == nil {
 		t.Fatal("expected validation error for unknown dimension")
 	}
@@ -518,7 +518,7 @@ func TestValidator_InvalidQuery(t *testing.T) {
 		Limit:   99999,
 	}
 
-	err = validator.Validate(lq2, model)
+	err = validator.Validate(&lq2, model)
 	if err == nil {
 		t.Fatal("expected validation error for exceeding max rows")
 	}
@@ -544,7 +544,7 @@ func TestValidator_CalendarMonthNumericRequiresYearFilter(t *testing.T) {
 		Filters: []Filter{{Field: "created_at_ts_month", Operator: OpEq, Value: 4}},
 		Limit:   100,
 	}
-	if err := v.Validate(bad, model); err == nil {
+	if err := v.Validate(&bad, model); err == nil {
 		t.Fatal("expected validation error for month int without year")
 	}
 
@@ -557,7 +557,7 @@ func TestValidator_CalendarMonthNumericRequiresYearFilter(t *testing.T) {
 		},
 		Limit: 100,
 	}
-	if err := v.Validate(good, model); err != nil {
+	if err := v.Validate(&good, model); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -567,7 +567,7 @@ func TestValidator_CalendarMonthNumericRequiresYearFilter(t *testing.T) {
 		Filters: []Filter{{Field: "created_at_ts_month", Operator: OpEq, Value: "2026-04-01"}},
 		Limit:   100,
 	}
-	if err := v.Validate(iso, model); err != nil {
+	if err := v.Validate(&iso, model); err != nil {
 		t.Fatalf("unexpected error for ISO month anchor: %v", err)
 	}
 }
@@ -592,7 +592,7 @@ func TestCompiler_MonthGrainISOUsesDateTruncInWhere(t *testing.T) {
 		Filters:      []Filter{{Field: "created_at_ts_month", Operator: OpEq, Value: "2026-04-01T00:00:00Z"}},
 		Limit:        100,
 	}
-	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -645,7 +645,7 @@ func TestCompiler_JoinDirectionWhenBaseIsFKTarget(t *testing.T) {
 		GroupBy: []GroupBy{{Field: "qty"}},
 		Limit:   100,
 	}
-	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("Compile() error = %v, want nil", err)
 	}
@@ -690,7 +690,7 @@ func TestCompiler_Having(t *testing.T) {
 		Having:  []Filter{{Field: "total_revenue", Operator: OpGt, Value: 1000}},
 		Limit:   100,
 	}
-	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -712,7 +712,7 @@ func TestCompiler_HavingRejectsNonMetric(t *testing.T) {
 		GroupBy: []GroupBy{{Field: "country"}},
 		Having:  []Filter{{Field: "country", Operator: OpEq, Value: "US"}},
 	}
-	if _, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model); err == nil {
+	if _, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model); err == nil {
 		t.Fatal("expected having on non-metric to fail compilation")
 	}
 }
@@ -748,7 +748,7 @@ func TestCompiler_WindowFunction(t *testing.T) {
 		},
 		Limit: 100,
 	}
-	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -783,7 +783,7 @@ func TestCompiler_WindowRanking(t *testing.T) {
 			},
 		},
 	}
-	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -826,7 +826,7 @@ func TestCompiler_CalculatedDimension(t *testing.T) {
 		GroupBy: []GroupBy{{Field: "full_name"}},
 		Limit:   50,
 	}
-	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -853,7 +853,7 @@ func TestCompiler_CalculatedDimensionWithFilter(t *testing.T) {
 		Filters: []Filter{{Field: "total_with_tax", Operator: OpGt, Value: 100}},
 		Limit:   50,
 	}
-	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -884,7 +884,7 @@ func TestCompiler_CaseSelect(t *testing.T) {
 		}},
 		Limit: 10,
 	}
-	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -929,7 +929,7 @@ func TestCompiler_InSubqueryFilter(t *testing.T) {
 		GroupBy: []GroupBy{{Field: "customer_id"}},
 		Limit:   50,
 	}
-	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -965,7 +965,7 @@ func TestCompiler_CTEWithFromCTE(t *testing.T) {
 		OrderBy: []OrderBy{{Field: "order_count", Direction: OrderDesc}},
 		Limit:   5,
 	}
-	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -1020,7 +1020,7 @@ func TestCompiler_CustomExpression(t *testing.T) {
 	}
 
 	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), lq, model)
+	cq, err := compiler.Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1100,7 +1100,7 @@ func TestCompiler_MetabaseTableSearch(t *testing.T) {
 				Filters: []Filter{tt.filter},
 				Limit:   100,
 			}
-			cq, err := NewCompiler(tt.dialect).Compile(context.Background(), lq, model)
+			cq, err := NewCompiler(tt.dialect).Compile(context.Background(), &lq, model)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

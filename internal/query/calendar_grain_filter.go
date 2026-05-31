@@ -106,7 +106,7 @@ func filterTouchesField(filters []Filter, field string) bool {
 // validateCalendarGrainYearCoverage rejects EXTRACT(month)=4 style filters when
 // no *_year filter is present — "April 2026" cannot be represented by month
 // integer alone.
-func validateCalendarGrainYearCoverage(lq LogicalQuery, model *semantic.SemanticModel) *ValidationError {
+func validateCalendarGrainYearCoverage(lq *LogicalQuery, model *semantic.SemanticModel) *ValidationError {
 	dimByName := make(map[string]semantic.Dimension, len(model.Dimensions))
 	for i := range model.Dimensions {
 		d := model.Dimensions[i]

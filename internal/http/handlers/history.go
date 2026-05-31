@@ -18,7 +18,7 @@ const (
 func persistQueryHistory(
 	ctx context.Context,
 	repo *metadata.Repository,
-	lq query.LogicalQuery,
+	lq *query.LogicalQuery,
 	model *semantic.SemanticModel,
 	cq *query.CompiledQuery,
 	result *query.QueryResult,

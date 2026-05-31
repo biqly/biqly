@@ -33,6 +33,6 @@ type internalEvalRepo interface {
 }
 
 type internalQueryRunner interface {
-	Compile(ctx context.Context, lq query.LogicalQuery) (*core.CompileResult, *core.ServiceError)
-	Run(ctx context.Context, lq query.LogicalQuery) (*core.RunResult, *core.ServiceError)
+	Compile(ctx context.Context, lq *query.LogicalQuery) (*core.CompileResult, *core.ServiceError)
+	Run(ctx context.Context, lq *query.LogicalQuery) (*core.RunResult, *core.ServiceError)
 }

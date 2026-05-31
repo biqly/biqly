@@ -286,7 +286,7 @@ func (h *AIHandler) finishAIPreview(ctx context.Context, w http.ResponseWriter, 
 	}
 	defer closeResolvedDatasource(ctx, resolved)
 
-	cq, se := h.deps.QueryService.CompileWithContext(ctx, *resp.LogicalQuery, model, resolved.Driver)
+	cq, se := h.deps.QueryService.CompileWithContext(ctx, resp.LogicalQuery, model, resolved.Driver)
 	if se != nil {
 		slog.ErrorContext(ctx, "AI preview compilation failed", "error", core.LogCause(se),
 			"model_id", model.ID,
@@ -313,9 +313,9 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, mode
 	driver := resolved.Driver
 	db := resolved.DB
 
-	cq, se := h.deps.QueryService.CompileWithContext(ctx, *resp.LogicalQuery, model, driver)
+	cq, se := h.deps.QueryService.CompileWithContext(ctx, resp.LogicalQuery, model, driver)
 	if se != nil {
-		persistQueryHistory(ctx, h.deps.MetaRepo, *resp.LogicalQuery, model, nil, nil, queryStatusFailed, core.ErrAsError(se))
+		persistQueryHistory(ctx, h.deps.MetaRepo, resp.LogicalQuery, model, nil, nil, queryStatusFailed, core.ErrAsError(se))
 		writeServiceError(ctx, w, se,
 			"model_id", model.ID,
 			"datasource_id", model.DatasourceID,
@@ -328,7 +328,7 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, mode
 
 	result, err := h.deps.Executor.Execute(ctx, db, cq)
 	if err != nil {
-		persistQueryHistory(ctx, h.deps.MetaRepo, *resp.LogicalQuery, model, cq, nil, queryStatusFailed, err)
+		persistQueryHistory(ctx, h.deps.MetaRepo, resp.LogicalQuery, model, cq, nil, queryStatusFailed, err)
 		writeInternalError(ctx, w, http.StatusInternalServerError, "execution failed", err,
 			"sql", cq.SQL,
 			"args", fmt.Sprintf("%v", cq.Args),
@@ -338,14 +338,14 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, mode
 		return
 	}
 
-	query.EnrichResult(result, *resp.LogicalQuery, model)
+	query.EnrichResult(result, resp.LogicalQuery, model)
 	chartType, reason := query.VisualizationHintFromResult(result)
 	resp.VisualizationHint = &ai.VisualizationHint{ChartType: chartType, Reason: reason}
 	if anomalyWarnings := query.AnomalyWarningMessages(result); len(anomalyWarnings) > 0 {
 		resp.Warnings = append(resp.Warnings, anomalyWarnings...)
 	}
 	resp.Result = result
-	persistQueryHistory(ctx, h.deps.MetaRepo, *resp.LogicalQuery, model, cq, result, queryStatusSuccess, nil)
+	persistQueryHistory(ctx, h.deps.MetaRepo, resp.LogicalQuery, model, cq, result, queryStatusSuccess, nil)
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -365,7 +365,7 @@ func (h *AIHandler) finishAIRunWithQueryClient(ctx context.Context, w http.Respo
 			DurationMs: run.DurationMs,
 		},
 	}
-	query.EnrichResult(result, *resp.LogicalQuery, model)
+	query.EnrichResult(result, resp.LogicalQuery, model)
 	chartType, reason := query.VisualizationHintFromResult(result)
 	resp.VisualizationHint = &ai.VisualizationHint{ChartType: chartType, Reason: reason}
 	if anomalyWarnings := query.AnomalyWarningMessages(result); len(anomalyWarnings) > 0 {

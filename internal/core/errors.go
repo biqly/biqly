@@ -7,6 +7,7 @@ import "errors"
 const (
 	MsgDatasourceIDRequired = "datasource_id is required"
 	MsgModelIDRequired      = "model_id is required"
+	MsgUnsupportedDriver    = "unsupported datasource type"
 )
 
 var (

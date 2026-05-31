@@ -29,11 +29,11 @@ func TestQueryServiceCompileUsesSameSQLAsCompiler(t *testing.T) {
 		Encryptor:   nil,
 	})
 
-	got, se := service.Compile(ctx, lq)
+	got, se := service.Compile(ctx, &lq)
 	if se != nil {
 		t.Fatalf("QueryService.Compile(%+v) error = %v, want nil", lq, se)
 	}
-	want, err := query.NewCompiler(dialect.PostgresDialect{}).Compile(ctx, lq, model)
+	want, err := query.NewCompiler(dialect.PostgresDialect{}).Compile(ctx, &lq, model)
 	if err != nil {
 		t.Fatalf("Compiler.Compile(%+v) error = %v, want nil", lq, err)
 	}

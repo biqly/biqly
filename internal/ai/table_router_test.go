@@ -107,7 +107,7 @@ func TestTableRouter_RouteSelectsRelatedTables(t *testing.T) {
 		GroupBy: []query.GroupBy{{Field: "name"}},
 		Limit:   100,
 	}
-	compiled, err := query.NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model)
+	compiled, err := query.NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("Compile() with routed model error = %v, want nil", err)
 	}
@@ -290,7 +290,7 @@ func TestTableRouter_BuildsMinMaxMetricsForDateColumns(t *testing.T) {
 		GroupBy: []query.GroupBy{{Field: "name"}},
 		Limit:   100,
 	}
-	if _, err := query.NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), lq, model); err != nil {
+	if _, err := query.NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model); err != nil {
 		t.Fatalf("Compile() with date metric error = %v, want nil", err)
 	}
 }

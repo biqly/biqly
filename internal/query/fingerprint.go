@@ -14,7 +14,7 @@ import (
 // PermissionScope distinguishes runs of the same LogicalQuery under different
 // row filters or allowed-model sets.
 type FingerprintInputs struct {
-	LogicalQuery    LogicalQuery
+	LogicalQuery    *LogicalQuery
 	DatasourceID    string
 	ContextVersion  string
 	PermissionScope string

@@ -18,7 +18,7 @@ import (
 // validator no-ops — keeping the retry loop dialect-portable.
 func newSQLDryRunValidator(service *core.QueryService, db *sql.DB, driver datasource.Driver, model *semantic.SemanticModel) ai.SQLValidator {
 	return func(ctx context.Context, lq *query.LogicalQuery) error {
-		return core.ErrAsError(service.DryRun(ctx, db, *lq, model, driver))
+		return core.ErrAsError(service.DryRun(ctx, db, lq, model, driver))
 	}
 }
 

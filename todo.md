@@ -174,7 +174,7 @@ return tx.Commit()
 
 ---
 
-### [ ] 1.10 [LOW] WebAuthn Cookie Pattern 6x Tekrar (~50 satir)
+### [x] 1.10 [LOW] WebAuthn Cookie Pattern 6x Tekrar (~50 satir)
 
 **Dosyalar:** `internal/auth/handler.go` lines 424, 459, 580, 634, 669, 709
 
@@ -189,7 +189,7 @@ func (h *AuthHandler) clearSessionCookie(w, r, name string)
 
 ---
 
-### [ ] 1.11 [LOW] core/errors.go ve app/errors.go Fragmentasyonu
+### [x] 1.11 [LOW] core/errors.go ve app/errors.go Fragmentasyonu
 
 **Dosyalar:**
 
@@ -204,7 +204,7 @@ func (h *AuthHandler) clearSessionCookie(w, r, name string)
 
 ## 2. Memory ve Performans
 
-### [ ] 2.1 [MEDIUM] LogicalQuery Deger Olarak Geciliyor (~200 byte, 3-5x kopya)
+### [x] 2.1 [MEDIUM] LogicalQuery Deger Olarak Geciliyor (~200 byte, 3-5x kopya)
 
 **Dosyalar:**
 
@@ -616,7 +616,7 @@ func (p *PoolCache) Get(ctx context.Context, driver Driver, datasourceID, dsn st
 | [ ] 2.4 | `buildFilterPart()` map-based dispatch | `query/compiler.go` | 167 satirlik method parcalanmasi | 3 saat |
 | [ ] 2.5 | `Response` struct parcalama | `ai/schema.go` | 7 kaygi ayrimi | 3 saat |
 | [ ] 2.6 | PoolCache singleflight | `datasource/pool_cache.go` | Lock contention azalmasi | 2 saat |
-| [ ] 2.7 | WebAuthn cookie helper | `auth/handler.go` | 35 satir azalma | 1 saat |
+| [x] 2.7 | WebAuthn cookie helper | `auth/handler.go` | 35 satir azalma | 1 saat |
 | [x] 2.8 | Dialect boilerplate temizligi | `dialect/*.go` | 24 satir azalma | 1 saat |
 | [ ] 2.9 | Multi-candidate context cancellation | `ai/service.go` | API credit tasarrufu | 1 saat |
 | [ ] 2.10 | `metadata -> query` coupling azaltma | `metadata/repository.go` | Modularity | 2 saat |

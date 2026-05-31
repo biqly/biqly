@@ -49,7 +49,7 @@ func (sv *SchemaValidator) Validate(rawJSON string, model *semantic.SemanticMode
 	if len(lq.Select) == 0 {
 		return nil, fmt.Errorf("missing required field: select")
 	}
-	if err := sv.validator.Validate(lq, model); err != nil {
+	if err := sv.validator.Validate(&lq, model); err != nil {
 		return nil, err
 	}
 	return &lq, nil

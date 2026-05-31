@@ -9,8 +9,8 @@ import (
 	"github.com/biqly/biqly/internal/semantic"
 )
 
-func logicalQueryFromBody(body SubqueryBody) LogicalQuery {
-	return LogicalQuery{
+func logicalQueryFromBody(body SubqueryBody) *LogicalQuery {
+	return &LogicalQuery{
 		Select:  body.Select,
 		Filters: body.Filters,
 		GroupBy: body.GroupBy,
@@ -54,7 +54,7 @@ func (c *Compiler) buildWithClause(ctes []CTE, model *semantic.SemanticModel, ar
 	return "WITH " + strings.Join(parts, ", ") + " ", nil
 }
 
-func (c *Compiler) resolveFromClause(lq LogicalQuery, model *semantic.SemanticModel, args *[]any) (string, error) {
+func (c *Compiler) resolveFromClause(lq *LogicalQuery, model *semantic.SemanticModel, args *[]any) (string, error) {
 	if lq.FromSubquery != nil {
 		innerSQL, err := c.compileSubqueryBody(*lq.FromSubquery, model, args)
 		if err != nil {
@@ -80,7 +80,7 @@ func (c *Compiler) resolveFromClause(lq LogicalQuery, model *semantic.SemanticMo
 // (no regex injection on assembled SQL).
 func (c *Compiler) compileStatement(
 	ctx context.Context,
-	lq LogicalQuery,
+	lq *LogicalQuery,
 	model *semantic.SemanticModel,
 	fromClause string,
 	withPrefix string,
@@ -112,7 +112,7 @@ func (c *Compiler) compileStatement(
 		joinMap[j.Name] = j
 	}
 
-	resolver := NewSchemaResolver(model, &lq)
+	resolver := NewSchemaResolver(model, lq)
 
 	neededJoins := c.determineJoins(lq, model, dimMap, metricMap, resolver)
 

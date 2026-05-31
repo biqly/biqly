@@ -33,7 +33,7 @@ func (h *QueryHandler) Compile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	start := time.Now()
-	compiled, se := h.query.Compile(r.Context(), *lq)
+	compiled, se := h.query.Compile(r.Context(), lq)
 	if h.metrics != nil {
 		h.metrics.RecordQueryCompile(time.Since(start).Milliseconds(), se == nil)
 	}
@@ -56,7 +56,7 @@ func (h *QueryHandler) Run(w http.ResponseWriter, r *http.Request) {
 	}
 
 	start := time.Now()
-	result, se := h.query.Run(r.Context(), *lq)
+	result, se := h.query.Run(r.Context(), lq)
 	rows := 0
 	if result != nil && result.Result != nil {
 		rows = result.Result.Stats.RowCount
@@ -80,7 +80,7 @@ func (h *QueryHandler) Explain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	start := time.Now()
-	compiled, se := h.query.Compile(r.Context(), *lq)
+	compiled, se := h.query.Compile(r.Context(), lq)
 	if h.metrics != nil {
 		h.metrics.RecordQueryCompile(time.Since(start).Milliseconds(), se == nil)
 	}

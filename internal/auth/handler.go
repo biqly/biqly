@@ -404,6 +404,24 @@ func (h *AuthHandler) secureCookie(r *http.Request) bool {
 	return r.URL.Scheme == "https" || r.Header.Get("X-Forwarded-Proto") == "https" || h.config.Port != 8889
 }
 
+//nolint:gosec // G124: false positive as Secure is set dynamically based on HTTPS
+func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, r *http.Request, name, value string, maxAge int) {
+	// nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
+	http.SetCookie(w, &http.Cookie{
+		Name:     name,
+		Value:    value,
+		Path:     "/",
+		MaxAge:   maxAge,
+		HttpOnly: true,
+		Secure:   h.secureCookie(r),
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func (h *AuthHandler) clearSessionCookie(w http.ResponseWriter, r *http.Request, name string) {
+	h.setSessionCookie(w, r, name, "", -1)
+}
+
 func (h *AuthHandler) handleOAuthRedirect(w http.ResponseWriter, r *http.Request) {
 	providerName := chi.URLParam(r, "provider")
 	provider, err := NewOAuthProvider(providerName, h.config)
@@ -418,18 +436,7 @@ func (h *AuthHandler) handleOAuthRedirect(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	secureCookie := h.secureCookie(r)
-	//nolint:gosec // G124: false positive as Secure is set dynamically based on HTTPS
-	stateCookie := &http.Cookie{ // nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
-		Name:     "oauth_state_" + providerName,
-		Value:    state,
-		Path:     "/",
-		MaxAge:   300,
-		HttpOnly: true,
-		Secure:   secureCookie,
-		SameSite: http.SameSiteLaxMode,
-	}
-	http.SetCookie(w, stateCookie)
+	h.setSessionCookie(w, r, "oauth_state_"+providerName, state, 300)
 
 	authURL := provider.GetAuthURL(state)
 	http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
@@ -453,18 +460,7 @@ func (h *AuthHandler) handleOAuthCallback(w http.ResponseWriter, r *http.Request
 	}
 
 	// Clear the state cookie
-	secureCookie := h.secureCookie(r)
-	//nolint:gosec // G124: false positive as Secure is set dynamically based on HTTPS
-	clearCookie := &http.Cookie{ // nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
-		Name:     "oauth_state_" + providerName,
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   secureCookie,
-		SameSite: http.SameSiteLaxMode,
-	}
-	http.SetCookie(w, clearCookie)
+	h.clearSessionCookie(w, r, "oauth_state_"+providerName)
 
 	token, err := provider.ExchangeCode(r.Context(), codeParam)
 	if err != nil {
@@ -574,17 +570,7 @@ func (h *AuthHandler) handlePasskeyRegisterBegin(w http.ResponseWriter, r *http.
 	}
 
 	sessionB64 := base64.StdEncoding.EncodeToString(sessionJSON)
-	secureCookie := h.secureCookie(r)
-	//nolint:gosec // G124: false positive as Secure is set dynamically based on HTTPS
-	http.SetCookie(w, &http.Cookie{ // nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
-		Name:     "webauthn_register_session",
-		Value:    sessionB64,
-		Path:     "/",
-		MaxAge:   300,
-		HttpOnly: true,
-		Secure:   secureCookie,
-		SameSite: http.SameSiteLaxMode,
-	})
+	h.setSessionCookie(w, r, "webauthn_register_session", sessionB64, 300)
 
 	h.respondJSON(w, http.StatusOK, creation)
 }
@@ -628,17 +614,7 @@ func (h *AuthHandler) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http
 		return
 	}
 
-	secureCookie := h.secureCookie(r)
-	//nolint:gosec // G124: false positive as Secure is set dynamically based on HTTPS
-	http.SetCookie(w, &http.Cookie{ // nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
-		Name:     "webauthn_register_session",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   secureCookie,
-		SameSite: http.SameSiteLaxMode,
-	})
+	h.clearSessionCookie(w, r, "webauthn_register_session")
 
 	h.respondJSON(w, http.StatusOK, map[string]string{"status": "success"})
 }
@@ -663,17 +639,7 @@ func (h *AuthHandler) handlePasskeyLoginBegin(w http.ResponseWriter, r *http.Req
 	}
 
 	sessionB64 := base64.StdEncoding.EncodeToString(sessionJSON)
-	secureCookie := h.secureCookie(r)
-	//nolint:gosec // G124: false positive as Secure is set dynamically based on HTTPS
-	http.SetCookie(w, &http.Cookie{ // nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
-		Name:     "webauthn_login_session",
-		Value:    sessionB64,
-		Path:     "/",
-		MaxAge:   300,
-		HttpOnly: true,
-		Secure:   secureCookie,
-		SameSite: http.SameSiteLaxMode,
-	})
+	h.setSessionCookie(w, r, "webauthn_login_session", sessionB64, 300)
 
 	h.respondJSON(w, http.StatusOK, assertion)
 }
@@ -703,17 +669,7 @@ func (h *AuthHandler) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	secureCookie := h.secureCookie(r)
-	//nolint:gosec // G124: false positive as Secure is set dynamically based on HTTPS
-	http.SetCookie(w, &http.Cookie{ // nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
-		Name:     "webauthn_login_session",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   secureCookie,
-		SameSite: http.SameSiteLaxMode,
-	})
+	h.clearSessionCookie(w, r, "webauthn_login_session")
 
 	ip := r.RemoteAddr
 	ua := r.UserAgent()

@@ -620,7 +620,7 @@ func (s *Service) parseAndValidate(raw string, model *semantic.SemanticModel) (*
 
 	// Validate against semantic model
 	validationErrCount := 0
-	if err := s.validator.Validate(lq, model); err != nil {
+	if err := s.validator.Validate(&lq, model); err != nil {
 		warnings = append(warnings, "validation warnings: "+err.Error())
 		if ve, ok := errors.AsType[query.ValidationErrors](err); ok {
 			validationErrCount = len(ve)

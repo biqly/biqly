@@ -33,7 +33,7 @@ func NewValidator(maxRows int) *Validator {
 }
 
 // Validate checks a LogicalQuery for correctness.
-func (v *Validator) Validate(lq LogicalQuery, model *semantic.SemanticModel) error {
+func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) error {
 	var errs ValidationErrors
 
 	// Build lookup maps from the semantic model — single source of truth.

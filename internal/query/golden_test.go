@@ -389,7 +389,7 @@ func TestGolden_PostgresSimpleSelect(t *testing.T) {
 	}
 
 	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), lq, model)
+	cq, err := compiler.Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("compilation failed: %v", err)
 	}
@@ -426,7 +426,7 @@ func TestGolden_MySQLSimpleSelect(t *testing.T) {
 	}
 
 	compiler := NewCompiler(dialect.MySQLDialect{})
-	cq, err := compiler.Compile(context.Background(), lq, model)
+	cq, err := compiler.Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("MySQL compilation failed: %v", err)
 	}
@@ -448,7 +448,7 @@ func TestGolden_PostgresManyToOne(t *testing.T) {
 
 	fixture := fixtureManyToOne()
 	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), fixture.LogicalQuery, fixture.Model)
+	cq, err := compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
 	if err != nil {
 		t.Fatalf("compilation failed: %v", err)
 	}
@@ -470,7 +470,7 @@ func TestGolden_PostgresOneToMany(t *testing.T) {
 
 	fixture := fixtureOneToMany()
 	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), fixture.LogicalQuery, fixture.Model)
+	cq, err := compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
 	if err != nil {
 		t.Fatalf("compilation failed: %v", err)
 	}
@@ -492,7 +492,7 @@ func TestGolden_PostgresOneToOne(t *testing.T) {
 
 	fixture := fixtureOneToOne()
 	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), fixture.LogicalQuery, fixture.Model)
+	cq, err := compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
 	if err != nil {
 		t.Fatalf("compilation failed: %v", err)
 	}
@@ -514,7 +514,7 @@ func TestGolden_PostgresManyToMany(t *testing.T) {
 
 	fixture := fixtureManyToMany()
 	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), fixture.LogicalQuery, fixture.Model)
+	cq, err := compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
 	if err != nil {
 		t.Fatalf("compilation failed: %v", err)
 	}
@@ -536,7 +536,7 @@ func TestGolden_PostgresMultiHop(t *testing.T) {
 
 	fixture := fixtureMultiHop()
 	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), fixture.LogicalQuery, fixture.Model)
+	cq, err := compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
 	if err != nil {
 		t.Fatalf("compilation failed: %v", err)
 	}
@@ -558,7 +558,7 @@ func TestGolden_PostgresDisplayPriority(t *testing.T) {
 
 	fixture := fixtureDisplayPriority()
 	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), fixture.LogicalQuery, fixture.Model)
+	cq, err := compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
 	if err != nil {
 		t.Fatalf("compilation failed: %v", err)
 	}
@@ -580,7 +580,7 @@ func TestGolden_MySQLManyToOne(t *testing.T) {
 
 	fixture := fixtureManyToOne()
 	compiler := NewCompiler(dialect.MySQLDialect{})
-	cq, err := compiler.Compile(context.Background(), fixture.LogicalQuery, fixture.Model)
+	cq, err := compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
 	if err != nil {
 		t.Fatalf("compilation failed: %v", err)
 	}
@@ -602,7 +602,7 @@ func TestGolden_SQLServerManyToOne(t *testing.T) {
 
 	fixture := fixtureManyToOne()
 	compiler := NewCompiler(dialect.SQLServerDialect{})
-	cq, err := compiler.Compile(context.Background(), fixture.LogicalQuery, fixture.Model)
+	cq, err := compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
 	if err != nil {
 		t.Fatalf("compilation failed: %v", err)
 	}
@@ -643,7 +643,7 @@ func TestPlanner_FanoutDetection(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := tt.fixture()
 			planner := NewPlanner()
-			result, err := planner.Plan(fixture.LogicalQuery, fixture.Model)
+			result, err := planner.Plan(&fixture.LogicalQuery, fixture.Model)
 			if err != nil {
 				t.Fatalf("planning failed: %v", err)
 			}
@@ -664,7 +664,7 @@ func TestValidator_FanoutRelationship(t *testing.T) {
 
 	fixture := fixtureManyToMany()
 	planner := NewPlanner()
-	result, err := planner.Plan(fixture.LogicalQuery, fixture.Model)
+	result, err := planner.Plan(&fixture.LogicalQuery, fixture.Model)
 	if err != nil {
 		t.Fatalf("planning failed: %v", err)
 	}
@@ -690,7 +690,7 @@ func TestGolden_PostgresCalculatedDimension(t *testing.T) {
 
 	fixture := fixtureCalculated()
 	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), fixture.LogicalQuery, fixture.Model)
+	cq, err := compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
 	if err != nil {
 		t.Fatalf("compilation failed: %v", err)
 	}
@@ -718,7 +718,7 @@ func TestGolden_RowFilterInjection_Eq(t *testing.T) {
 		{Field: "order_date", Operator: "eq", Value: "2024-01-01"},
 	}
 
-	cq, err := compiler.CompileWithPermissions(context.Background(), fixture.LogicalQuery, fixture.Model, rowFilters)
+	cq, err := compiler.CompileWithPermissions(context.Background(), &fixture.LogicalQuery, fixture.Model, rowFilters)
 	if err != nil {
 		t.Fatalf("compilation with permissions failed: %v", err)
 	}
@@ -743,7 +743,7 @@ func TestGolden_RowFilterInjection_In(t *testing.T) {
 		{Field: "order_date", Operator: "in", Value: []any{"2024-01-01", "2024-02-01", "2024-03-01"}},
 	}
 
-	cq, err := compiler.CompileWithPermissions(context.Background(), fixture.LogicalQuery, fixture.Model, rowFilters)
+	cq, err := compiler.CompileWithPermissions(context.Background(), &fixture.LogicalQuery, fixture.Model, rowFilters)
 	if err != nil {
 		t.Fatalf("compilation with permissions failed: %v", err)
 	}
@@ -766,7 +766,7 @@ func TestGolden_RowFilterInjection_WithExistingWhere(t *testing.T) {
 	lq := fixture.LogicalQuery
 	lq.Filters = append(lq.Filters, Filter{Field: "order_date", Operator: OpGte, Value: "2024-01-01"})
 
-	cq, err := compiler.CompileWithPermissions(context.Background(), lq, fixture.Model, rowFilters)
+	cq, err := compiler.CompileWithPermissions(context.Background(), &lq, fixture.Model, rowFilters)
 	if err != nil {
 		t.Fatalf("compilation with permissions failed: %v", err)
 	}
@@ -786,13 +786,13 @@ func TestGolden_RowFilterInjection_NoFilters(t *testing.T) {
 	fixture := fixtureManyToOne()
 	compiler := NewCompiler(dialect.PostgresDialect{})
 
-	cq, err := compiler.CompileWithPermissions(context.Background(), fixture.LogicalQuery, fixture.Model, nil)
+	cq, err := compiler.CompileWithPermissions(context.Background(), &fixture.LogicalQuery, fixture.Model, nil)
 	if err != nil {
 		t.Fatalf("compilation with permissions failed: %v", err)
 	}
 
 	// Without row filters, should produce same SQL as normal compile
-	cqNormal, err := compiler.Compile(context.Background(), fixture.LogicalQuery, fixture.Model)
+	cqNormal, err := compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
 	if err != nil {
 		t.Fatalf("normal compilation failed: %v", err)
 	}

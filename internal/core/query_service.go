@@ -108,7 +108,7 @@ func (s *QueryService) openPool(ctx context.Context, driver datasource.Driver, d
 	return db, func() { _ = db.Close() }, nil
 }
 
-func (s *QueryService) Compile(ctx context.Context, lq query.LogicalQuery) (*CompileResult, *ServiceError) {
+func (s *QueryService) Compile(ctx context.Context, lq *query.LogicalQuery) (*CompileResult, *ServiceError) {
 	lq.EnsureVersion()
 	loaded, se := s.loadContext(ctx, lq)
 	if se != nil {
@@ -117,7 +117,7 @@ func (s *QueryService) Compile(ctx context.Context, lq query.LogicalQuery) (*Com
 	// Repair + EnsureGroupBySelected used to run here AND inside
 	// CompileWithContext, which double-walked the LogicalQuery for every
 	// /api/query/run. CompileWithContext is the single normalization point.
-	compiled, se := s.CompileWithContext(ctx, loaded.LogicalQuery, loaded.Model, loaded.Driver)
+	compiled, se := s.CompileWithContext(ctx, &loaded.LogicalQuery, loaded.Model, loaded.Driver)
 	if se != nil {
 		return nil, se
 	}
@@ -125,8 +125,8 @@ func (s *QueryService) Compile(ctx context.Context, lq query.LogicalQuery) (*Com
 	return loaded, nil
 }
 
-func (s *QueryService) CompileWithContext(ctx context.Context, lq query.LogicalQuery, model *semantic.SemanticModel, driver datasource.Driver) (*query.CompiledQuery, *ServiceError) {
-	query.RepairMisnamedCalendarGrainDimensions(&lq, dimensionNames(model))
+func (s *QueryService) CompileWithContext(ctx context.Context, lq *query.LogicalQuery, model *semantic.SemanticModel, driver datasource.Driver) (*query.CompiledQuery, *ServiceError) {
+	query.RepairMisnamedCalendarGrainDimensions(lq, dimensionNames(model))
 	lq.EnsureGroupBySelected()
 	if err := s.validator.Validate(lq, model); err != nil {
 		return nil, ToServiceError(err)
@@ -142,7 +142,7 @@ func (s *QueryService) CompileWithContext(ctx context.Context, lq query.LogicalQ
 	return compiled, nil
 }
 
-func (s *QueryService) Run(ctx context.Context, lq query.LogicalQuery) (*RunResult, *ServiceError) {
+func (s *QueryService) Run(ctx context.Context, lq *query.LogicalQuery) (*RunResult, *ServiceError) {
 	lq.EnsureVersion()
 	compiled, se := s.Compile(ctx, lq)
 	if se != nil {
@@ -160,15 +160,15 @@ func (s *QueryService) Run(ctx context.Context, lq query.LogicalQuery) (*RunResu
 
 	result, err := s.executor.Execute(ctx, db, compiled.Compiled)
 	if err != nil {
-		s.recordHistory(ctx, compiled.LogicalQuery, compiled.Model, compiled.Compiled, nil, QueryStatusFailed, err)
+		s.recordHistory(ctx, &compiled.LogicalQuery, compiled.Model, compiled.Compiled, nil, QueryStatusFailed, err)
 		return nil, ToServiceError(fmt.Errorf("%w: %w", ErrQueryExecution, err))
 	}
 	query.EnrichResult(result, lq, compiled.Model)
-	s.recordHistory(ctx, compiled.LogicalQuery, compiled.Model, compiled.Compiled, result, QueryStatusSuccess, nil)
+	s.recordHistory(ctx, &compiled.LogicalQuery, compiled.Model, compiled.Compiled, result, QueryStatusSuccess, nil)
 	return &RunResult{CompileResult: *compiled, Result: result}, nil
 }
 
-func (s *QueryService) DryRun(ctx context.Context, db *sql.DB, lq query.LogicalQuery, model *semantic.SemanticModel, driver datasource.Driver) *ServiceError {
+func (s *QueryService) DryRun(ctx context.Context, db *sql.DB, lq *query.LogicalQuery, model *semantic.SemanticModel, driver datasource.Driver) *ServiceError {
 	compiled, se := s.CompileWithContext(ctx, lq, model, driver)
 	if se != nil {
 		return se
@@ -202,7 +202,7 @@ func dimensionNames(model *semantic.SemanticModel) []string {
 	return out
 }
 
-func (s *QueryService) loadContext(ctx context.Context, lq query.LogicalQuery) (*CompileResult, *ServiceError) {
+func (s *QueryService) loadContext(ctx context.Context, lq *query.LogicalQuery) (*CompileResult, *ServiceError) {
 	if lq.ModelID == "" {
 		return nil, ToServiceError(ErrModelIDRequired)
 	}
@@ -222,7 +222,7 @@ func (s *QueryService) loadContext(ctx context.Context, lq query.LogicalQuery) (
 		return nil, ToServiceError(fmt.Errorf("%w: %w", ErrLoadDriver, err))
 	}
 	return &CompileResult{
-		LogicalQuery: lq,
+		LogicalQuery: *lq,
 		Model:        model,
 		Datasource:   ds,
 		Driver:       driver,
@@ -231,7 +231,7 @@ func (s *QueryService) loadContext(ctx context.Context, lq query.LogicalQuery) (
 
 func (s *QueryService) recordHistory(
 	ctx context.Context,
-	lq query.LogicalQuery,
+	lq *query.LogicalQuery,
 	model *semantic.SemanticModel,
 	cq *query.CompiledQuery,
 	result *query.QueryResult,

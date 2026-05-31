@@ -49,7 +49,7 @@ func TestCompiler_CrossSchemaJoin(t *testing.T) {
 		Limit: 10,
 	}
 
-	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(t.Context(), lq, model)
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(t.Context(), &lq, model)
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}

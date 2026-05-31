@@ -137,7 +137,7 @@ func (h *AIHandler) finishAIPreviewResult(ctx context.Context, req aiQueryReques
 		return nil, err
 	}
 	defer closeResolvedDatasource(ctx, resolved)
-	cq, se := h.deps.QueryService.CompileWithContext(ctx, *resp.LogicalQuery, model, resolved.Driver)
+	cq, se := h.deps.QueryService.CompileWithContext(ctx, resp.LogicalQuery, model, resolved.Driver)
 	if se != nil {
 		resp.Warnings = append(resp.Warnings, "compilation failed")
 	} else {
@@ -164,26 +164,26 @@ func (h *AIHandler) finishAIRunResult(ctx context.Context, req aiQueryRequest, m
 	}
 	driver := resolved.Driver
 	db := resolved.DB
-	cq, se := h.deps.QueryService.CompileWithContext(ctx, *resp.LogicalQuery, model, driver)
+	cq, se := h.deps.QueryService.CompileWithContext(ctx, resp.LogicalQuery, model, driver)
 	if se != nil {
-		persistQueryHistory(ctx, h.deps.MetaRepo, *resp.LogicalQuery, model, nil, nil, queryStatusFailed, core.ErrAsError(se))
+		persistQueryHistory(ctx, h.deps.MetaRepo, resp.LogicalQuery, model, nil, nil, queryStatusFailed, core.ErrAsError(se))
 		return nil, core.ErrAsError(se)
 	}
 	resp.SQL = cq.SQL
 	resp.Args = cq.Args
 	result, err := h.deps.Executor.Execute(ctx, db, cq)
 	if err != nil {
-		persistQueryHistory(ctx, h.deps.MetaRepo, *resp.LogicalQuery, model, cq, nil, queryStatusFailed, err)
+		persistQueryHistory(ctx, h.deps.MetaRepo, resp.LogicalQuery, model, cq, nil, queryStatusFailed, err)
 		return nil, err
 	}
-	query.EnrichResult(result, *resp.LogicalQuery, model)
+	query.EnrichResult(result, resp.LogicalQuery, model)
 	chartType, reason := query.VisualizationHintFromResult(result)
 	resp.VisualizationHint = &ai.VisualizationHint{ChartType: chartType, Reason: reason}
 	if anomalyWarnings := query.AnomalyWarningMessages(result); len(anomalyWarnings) > 0 {
 		resp.Warnings = append(resp.Warnings, anomalyWarnings...)
 	}
 	resp.Result = result
-	persistQueryHistory(ctx, h.deps.MetaRepo, *resp.LogicalQuery, model, cq, result, queryStatusSuccess, nil)
+	persistQueryHistory(ctx, h.deps.MetaRepo, resp.LogicalQuery, model, cq, result, queryStatusSuccess, nil)
 	return resp, nil
 }
 
@@ -201,7 +201,7 @@ func (h *AIHandler) finishAIRunResultWithQueryClient(ctx context.Context, resp *
 			DurationMs: run.DurationMs,
 		},
 	}
-	query.EnrichResult(result, *resp.LogicalQuery, model)
+	query.EnrichResult(result, resp.LogicalQuery, model)
 	chartType, reason := query.VisualizationHintFromResult(result)
 	resp.VisualizationHint = &ai.VisualizationHint{ChartType: chartType, Reason: reason}
 	if anomalyWarnings := query.AnomalyWarningMessages(result); len(anomalyWarnings) > 0 {

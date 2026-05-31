@@ -16,7 +16,7 @@ import (
 //
 // EnrichResult resolves columns by SelectItem alias (or the dimension/metric
 // name when no alias is set) so the rules stay aligned with the compiler.
-func EnrichResult(result *Result, lq LogicalQuery, model *semantic.SemanticModel) {
+func EnrichResult(result *Result, lq *LogicalQuery, model *semantic.SemanticModel) {
 	if result == nil || model == nil {
 		return
 	}

@@ -11,7 +11,7 @@ import (
 // BuildQueryHistoryEntry maps an executed or failed query into a HistoryEntry for persistence.
 // It sets Fingerprint from the logical query, datasource, and semantic model version.
 func BuildQueryHistoryEntry(
-	lq LogicalQuery,
+	lq *LogicalQuery,
 	model *semantic.SemanticModel,
 	cq *CompiledQuery,
 	result *QueryResult,
@@ -22,7 +22,7 @@ func BuildQueryHistoryEntry(
 	entry := &HistoryEntry{
 		DatasourceID: lq.DatasourceID,
 		ModelID:      HistoryModelID(model),
-		LogicalQuery: lq,
+		LogicalQuery: *lq,
 		Status:       status,
 		Fingerprint: ComputeFingerprint(FingerprintInputs{
 			LogicalQuery:   lq,

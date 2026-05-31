@@ -275,7 +275,7 @@ func validateTrainingLogicalQuery(raw []byte, model *semantic.SemanticModel, v *
 		return fmt.Errorf("empty select")
 	}
 	if v != nil && model != nil {
-		if err := v.Validate(lq, model); err != nil {
+		if err := v.Validate(&lq, model); err != nil {
 			return fmt.Errorf("validate: %w", err)
 		}
 	}

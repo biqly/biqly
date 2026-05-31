@@ -47,7 +47,7 @@ func TestCompiler_Joins(t *testing.T) {
 	}
 
 	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), lq, model)
+	cq, err := compiler.Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestCompiler_Placeholders(t *testing.T) {
 	}
 
 	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), lq, model)
+	cq, err := compiler.Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -136,7 +136,7 @@ func TestCompiler_DialectQuoting(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := NewCompiler(tt.dialect)
-			cq, err := c.Compile(context.Background(), lq, model)
+			cq, err := c.Compile(context.Background(), &lq, model)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -192,7 +192,7 @@ func TestCompiler_FilterOperators(t *testing.T) {
 				Limit:   10,
 			}
 			compiler := NewCompiler(dialect.PostgresDialect{})
-			cq, err := compiler.Compile(context.Background(), lq, model)
+			cq, err := compiler.Compile(context.Background(), &lq, model)
 			if err != nil {
 				t.Fatalf("unexpected error for %s: %v", tt.name, err)
 			}
@@ -229,7 +229,7 @@ func TestCompiler_PermissionInjection(t *testing.T) {
 	}
 
 	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.CompileWithPermissions(context.Background(), lq, model, rowFilters)
+	cq, err := compiler.CompileWithPermissions(context.Background(), &lq, model, rowFilters)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -277,7 +277,7 @@ func TestCompiler_PermissionInjectionDoesNotMatchCTEWhere(t *testing.T) {
 	}
 
 	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.CompileWithPermissions(context.Background(), lq, model, rowFilters)
+	cq, err := compiler.CompileWithPermissions(context.Background(), &lq, model, rowFilters)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -325,7 +325,7 @@ func TestCompiler_LimitOffset(t *testing.T) {
 	}
 
 	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), lq, model)
+	cq, err := compiler.Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -362,7 +362,7 @@ func TestCompiler_MySQLDialect(t *testing.T) {
 	}
 
 	compiler := NewCompiler(dialect.MySQLDialect{})
-	cq, err := compiler.Compile(context.Background(), lq, model)
+	cq, err := compiler.Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -401,7 +401,7 @@ func TestCompiler_SQLServerDialect(t *testing.T) {
 	}
 
 	compiler := NewCompiler(dialect.SQLServerDialect{})
-	cq, err := compiler.Compile(context.Background(), lq, model)
+	cq, err := compiler.Compile(context.Background(), &lq, model)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

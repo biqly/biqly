@@ -48,7 +48,7 @@ func NewCompiler(d dialect.Dialect) *Compiler {
 }
 
 // Compile converts a LogicalQuery + semantic model into SQL.
-func (c *Compiler) Compile(ctx context.Context, lq LogicalQuery, model *semantic.SemanticModel) (*CompiledQuery, error) {
+func (c *Compiler) Compile(ctx context.Context, lq *LogicalQuery, model *semantic.SemanticModel) (*CompiledQuery, error) {
 	args := make([]any, 0, 8)
 	withPrefix, err := c.buildWithClause(lq.CTEs, model, &args)
 	if err != nil {
@@ -68,7 +68,7 @@ func (c *Compiler) Compile(ctx context.Context, lq LogicalQuery, model *semantic
 // one inside a CTE) and produce dangerous SQL.
 func (c *Compiler) CompileWithPermissions(
 	ctx context.Context,
-	lq LogicalQuery,
+	lq *LogicalQuery,
 	model *semantic.SemanticModel,
 	rowFilters []security.RowFilter,
 ) (*CompiledQuery, error) {
@@ -116,7 +116,7 @@ func addTableFromColumnRef(tables map[string]struct{}, colRef string, resolver *
 }
 
 func tablesReferencedInLogicalQuery(
-	lq LogicalQuery,
+	lq *LogicalQuery,
 	model *semantic.SemanticModel,
 	dimMap map[string]semantic.Dimension,
 	metricMap map[string]semantic.Metric,
@@ -205,7 +205,7 @@ type joinNeighbor struct {
 // in the logical query. This avoids emitting duplicate joins to the same physical table
 // when multiple FKs exist but the query only uses base-table columns.
 func (c *Compiler) determineJoins(
-	lq LogicalQuery,
+	lq *LogicalQuery,
 	model *semantic.SemanticModel,
 	dimMap map[string]semantic.Dimension,
 	metricMap map[string]semantic.Metric,

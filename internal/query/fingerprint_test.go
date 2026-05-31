@@ -4,7 +4,7 @@ import "testing"
 
 func TestComputeFingerprintIsStable(t *testing.T) {
 	in := FingerprintInputs{
-		LogicalQuery: LogicalQuery{
+		LogicalQuery: &LogicalQuery{
 			Version:      CurrentLogicalQueryVersion,
 			DatasourceID: "ds1",
 			ModelID:      "orders",
@@ -38,10 +38,10 @@ func TestComputeFingerprintIgnoresVersionField(t *testing.T) {
 		Select:       []SelectItem{{Type: SelectTypeMetric, Name: "order_count"}},
 		Limit:        10,
 	}
-	a := ComputeFingerprint(FingerprintInputs{LogicalQuery: base, DatasourceID: "ds1"})
+	a := ComputeFingerprint(FingerprintInputs{LogicalQuery: &base, DatasourceID: "ds1"})
 
 	base.Version = "v2-experimental"
-	b := ComputeFingerprint(FingerprintInputs{LogicalQuery: base, DatasourceID: "ds1"})
+	b := ComputeFingerprint(FingerprintInputs{LogicalQuery: &base, DatasourceID: "ds1"})
 
 	if a != b {
 		t.Errorf("fingerprint must not depend on LogicalQuery.Version: %q vs %q", a, b)
@@ -51,7 +51,7 @@ func TestComputeFingerprintIgnoresVersionField(t *testing.T) {
 func TestComputeFingerprintCanonicalizesFilterOrder(t *testing.T) {
 	mk := func(filters []Filter) FingerprintInputs {
 		return FingerprintInputs{
-			LogicalQuery: LogicalQuery{
+			LogicalQuery: &LogicalQuery{
 				DatasourceID: "ds1",
 				ModelID:      "orders",
 				Select:       []SelectItem{{Type: SelectTypeMetric, Name: "order_count"}},
@@ -79,8 +79,8 @@ func TestComputeFingerprintDistinguishesContextVersion(t *testing.T) {
 		ModelID:      "orders",
 		Select:       []SelectItem{{Type: SelectTypeMetric, Name: "order_count"}},
 	}
-	a := ComputeFingerprint(FingerprintInputs{LogicalQuery: lq, DatasourceID: "ds1", ContextVersion: "1"})
-	b := ComputeFingerprint(FingerprintInputs{LogicalQuery: lq, DatasourceID: "ds1", ContextVersion: "2"})
+	a := ComputeFingerprint(FingerprintInputs{LogicalQuery: &lq, DatasourceID: "ds1", ContextVersion: "1"})
+	b := ComputeFingerprint(FingerprintInputs{LogicalQuery: &lq, DatasourceID: "ds1", ContextVersion: "2"})
 	if a == b {
 		t.Error("different context versions must produce different fingerprints")
 	}
@@ -92,8 +92,8 @@ func TestComputeFingerprintDistinguishesPermissionScope(t *testing.T) {
 		ModelID:      "orders",
 		Select:       []SelectItem{{Type: SelectTypeMetric, Name: "order_count"}},
 	}
-	a := ComputeFingerprint(FingerprintInputs{LogicalQuery: lq, DatasourceID: "ds1", PermissionScope: "user-a"})
-	b := ComputeFingerprint(FingerprintInputs{LogicalQuery: lq, DatasourceID: "ds1", PermissionScope: "user-b"})
+	a := ComputeFingerprint(FingerprintInputs{LogicalQuery: &lq, DatasourceID: "ds1", PermissionScope: "user-a"})
+	b := ComputeFingerprint(FingerprintInputs{LogicalQuery: &lq, DatasourceID: "ds1", PermissionScope: "user-b"})
 	if a == b {
 		t.Error("different permission scopes must produce different fingerprints")
 	}

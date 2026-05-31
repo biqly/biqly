@@ -124,7 +124,7 @@ type integrationQueryRunner struct {
 	compile *core.CompileResult
 }
 
-func (r integrationQueryRunner) Compile(ctx context.Context, lq query.LogicalQuery) (*core.CompileResult, *core.ServiceError) {
+func (r integrationQueryRunner) Compile(ctx context.Context, lq *query.LogicalQuery) (*core.CompileResult, *core.ServiceError) {
 	if r.compile != nil {
 		return r.compile, nil
 	}
@@ -137,7 +137,7 @@ func (r integrationQueryRunner) Compile(ctx context.Context, lq query.LogicalQue
 	}).Compile(ctx, lq)
 }
 
-func (r integrationQueryRunner) Run(ctx context.Context, lq query.LogicalQuery) (*core.RunResult, *core.ServiceError) {
+func (r integrationQueryRunner) Run(ctx context.Context, lq *query.LogicalQuery) (*core.RunResult, *core.ServiceError) {
 	compiled, se := r.Compile(ctx, lq)
 	if se != nil {
 		return nil, se

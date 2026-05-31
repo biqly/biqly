@@ -36,7 +36,7 @@ func TestEnrichResultTagsDimensionsAndMetrics(t *testing.T) {
 		Rows: [][]any{{"TR", 100.0}, {"US", 50.0}},
 	}
 
-	EnrichResult(result, lq, model)
+	EnrichResult(result, &lq, model)
 
 	if result.Columns[0].SemanticType != SemanticTypeDimension {
 		t.Errorf("country.SemanticType = %q, want dimension", result.Columns[0].SemanticType)
@@ -69,7 +69,7 @@ func TestEnrichResultDateDimensionGetsDateFormat(t *testing.T) {
 		Rows: [][]any{{1, 10}, {2, 20}},
 	}
 
-	EnrichResult(result, lq, model)
+	EnrichResult(result, &lq, model)
 
 	if result.Columns[0].Format != FormatDate {
 		t.Errorf("order_date.Format = %q, want date", result.Columns[0].Format)
@@ -90,7 +90,7 @@ func TestEnrichResultChartsForSingleMetricSingleRow(t *testing.T) {
 		Rows:    [][]any{{42}},
 	}
 
-	EnrichResult(result, lq, model)
+	EnrichResult(result, &lq, model)
 
 	want := []string{ChartNumber, ChartTable}
 	if !equalStringSlices(result.ChartSuggestions, want) {
@@ -114,7 +114,7 @@ func TestEnrichResultChartsForCategoricalBreakdown(t *testing.T) {
 		Rows: [][]any{{"TR", 1.0}, {"US", 2.0}, {"DE", 3.0}},
 	}
 
-	EnrichResult(result, lq, model)
+	EnrichResult(result, &lq, model)
 
 	// 3 rows ≤ 8 → bar+pie+table.
 	want := []string{ChartBar, ChartPie, ChartTable}
@@ -132,15 +132,15 @@ func TestEnrichResultLeavesUnknownColumnsAlone(t *testing.T) {
 			{Name: "raw_sql_col"},
 		},
 	}
-	EnrichResult(result, lq, model)
+	EnrichResult(result, &lq, model)
 	if result.Columns[1].SemanticType != "" {
 		t.Errorf("unknown column should be left blank, got %q", result.Columns[1].SemanticType)
 	}
 }
 
 func TestEnrichResultNilSafe(t *testing.T) {
-	EnrichResult(nil, LogicalQuery{}, nil)
-	EnrichResult(&Result{}, LogicalQuery{}, nil)
+	EnrichResult(nil, &LogicalQuery{}, nil)
+	EnrichResult(&Result{}, &LogicalQuery{}, nil)
 }
 
 func TestSuggestPivotTwoDimensions(t *testing.T) {
