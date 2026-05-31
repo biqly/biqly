@@ -61,6 +61,46 @@ func TestPromptBuildIncludesSoftDeleteRules(t *testing.T) {
 	}
 }
 
+func TestPromptBuildIncludesEnumValues(t *testing.T) {
+	pb := &PromptBuilder{}
+	model := &semantic.SemanticModel{
+		ID: "m", DatasourceID: "d", Name: "x", BaseSchema: "public", BaseTable: "orders",
+		Dimensions: []semantic.Dimension{{
+			Name:      "status",
+			ColumnRef: "orders.status",
+			Type:      "number",
+			EnumValues: []semantic.EnumMapping{
+				{RawValue: "1", Label: "pending", SortOrder: 0},
+				{RawValue: "3", Label: "shipped", SortOrder: 1},
+			},
+		}},
+	}
+	got := pb.Build(context.Background(), "kaç sipariş kargolandı", model, PromptConfig{Locale: i18n.DefaultLocale})
+	if !strings.Contains(got, "values: 1=pending, 3=shipped") {
+		t.Errorf("expected enum values in dimension line, got excerpt:\n%s", truncatePrompt(got, 1200))
+	}
+}
+
+func TestFormatEnumValuesEmpty(t *testing.T) {
+	if got := formatEnumValues(nil); got != "" {
+		t.Errorf("expected empty string for no enum values, got %q", got)
+	}
+}
+
+func TestFormatEnumValuesTruncates(t *testing.T) {
+	vals := make([]semantic.EnumMapping, maxEnumValuesPerLine+5)
+	for i := range vals {
+		vals[i] = semantic.EnumMapping{RawValue: "r", Label: "l"}
+	}
+	got := formatEnumValues(vals)
+	if !strings.HasSuffix(got, ", …") {
+		t.Errorf("expected truncation ellipsis, got %q", got)
+	}
+	if strings.Count(got, "=") != maxEnumValuesPerLine {
+		t.Errorf("expected %d pairs, got %d in %q", maxEnumValuesPerLine, strings.Count(got, "="), got)
+	}
+}
+
 func truncatePrompt(s string, max int) string {
 	if len(s) <= max {
 		return s

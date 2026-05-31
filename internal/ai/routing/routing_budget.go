@@ -124,6 +124,9 @@ func scoreDimensionForPrune(d semantic.Dimension, tokens map[string]bool, column
 	for _, syn := range d.Synonyms {
 		score += weightedTokenScore(tokens, syn, 2)
 	}
+	for _, ev := range d.EnumValues {
+		score += weightedTokenScore(tokens, ev.Label, 2)
+	}
 	if d.IsDisplay {
 		score += 1
 	}

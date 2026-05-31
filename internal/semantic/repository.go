@@ -181,14 +181,96 @@ func (r *Repository) CreateDimension(ctx context.Context, d *Dimension) error {
 // GetDimensions returns all active dimensions for a model.
 func (r *Repository) GetDimensions(ctx context.Context, modelID string) ([]Dimension, error) {
 	query := `SELECT id::text, model_id::text, name, label, column_ref, type, time_grain, synonyms, description, is_active, created_at FROM semantic_dimensions WHERE model_id = $1::uuid AND is_active = true ORDER BY name`
-	return platformdb.QuerySliceErr(ctx, r.db, "get dimensions", query, []any{modelID}, scanDimension)
+	dims, err := platformdb.QuerySliceErr(ctx, r.db, "get dimensions", query, []any{modelID}, scanDimension)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.attachEnumMappings(ctx, modelID, dims); err != nil {
+		return nil, err
+	}
+	return dims, nil
 }
 
 // ListAllDimensions returns every dimension (active and inactive) for a model
 // so the modeling UI can show soft-deleted items in a "Pasif" section.
 func (r *Repository) ListAllDimensions(ctx context.Context, modelID string) ([]Dimension, error) {
 	query := `SELECT id::text, model_id::text, name, label, column_ref, type, time_grain, synonyms, description, is_active, created_at FROM semantic_dimensions WHERE model_id = $1::uuid ORDER BY is_active DESC, name`
-	return platformdb.QuerySliceErr(ctx, r.db, "list all dimensions", query, []any{modelID}, scanDimension)
+	dims, err := platformdb.QuerySliceErr(ctx, r.db, "list all dimensions", query, []any{modelID}, scanDimension)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.attachEnumMappings(ctx, modelID, dims); err != nil {
+		return nil, err
+	}
+	return dims, nil
+}
+
+// Enum mapping operations
+
+// GetEnumMappings returns the enum value mappings for a single dimension,
+// ordered by sort_order then raw_value.
+func (r *Repository) GetEnumMappings(ctx context.Context, dimensionID string) ([]EnumMapping, error) {
+	query := `SELECT id::text, dimension_id::text, raw_value, label, description, sort_order FROM enum_mappings WHERE dimension_id = $1::uuid ORDER BY sort_order, raw_value`
+	return platformdb.QuerySliceErr(ctx, r.db, "get enum mappings", query, []any{dimensionID}, scanEnumMapping)
+}
+
+// ReplaceEnumMappings replaces all enum mappings for a dimension with the
+// supplied set in a single transaction, then marks the model as draft.
+func (r *Repository) ReplaceEnumMappings(ctx context.Context, modelID, dimensionID string, mappings []EnumMapping) error {
+	if err := platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM enum_mappings WHERE dimension_id = $1::uuid`, dimensionID); err != nil {
+			return fmt.Errorf("clear enum mappings: %w", err)
+		}
+		if len(mappings) == 0 {
+			return nil
+		}
+		stmt, err := tx.PrepareContext(ctx, `INSERT INTO enum_mappings (dimension_id, raw_value, label, description, sort_order) VALUES ($1::uuid, $2, $3, $4, $5)`)
+		if err != nil {
+			return fmt.Errorf("prepare enum mappings: %w", err)
+		}
+		defer func() { _ = stmt.Close() }()
+		for i := range mappings {
+			m := &mappings[i]
+			if _, err := stmt.ExecContext(ctx, dimensionID, m.RawValue, m.Label, platformdb.NullIfEmptyPtr(m.Description), m.SortOrder); err != nil {
+				return fmt.Errorf("insert enum mapping %q: %w", m.RawValue, err)
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	return r.MarkModelDraft(ctx, modelID)
+}
+
+// attachEnumMappings loads enum mappings for every dimension in the model in a
+// single query and assigns them to their owning dimension. Avoids one round
+// trip per dimension when building the full model.
+func (r *Repository) attachEnumMappings(ctx context.Context, modelID string, dims []Dimension) error {
+	if len(dims) == 0 {
+		return nil
+	}
+	query := `SELECT e.id::text, e.dimension_id::text, e.raw_value, e.label, e.description, e.sort_order
+		FROM enum_mappings e
+		JOIN semantic_dimensions d ON d.id = e.dimension_id
+		WHERE d.model_id = $1::uuid
+		ORDER BY e.sort_order, e.raw_value`
+	rows, err := platformdb.QuerySliceErr(ctx, r.db, "list enum mappings for model", query, []any{modelID}, scanEnumMapping)
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	byDim := make(map[string][]EnumMapping, len(dims))
+	for _, m := range rows {
+		byDim[m.DimensionID] = append(byDim[m.DimensionID], m)
+	}
+	for i := range dims {
+		if vals, ok := byDim[dims[i].ID]; ok {
+			dims[i].EnumValues = vals
+		}
+	}
+	return nil
 }
 
 // DeleteDimension soft-deletes a dimension by setting is_active = false.
@@ -569,6 +651,14 @@ func scanDimension(s platformdb.Scanner) (Dimension, error) {
 		d.TimeGrain = timeGrain.String
 	}
 	return d, nil
+}
+
+func scanEnumMapping(s platformdb.Scanner) (EnumMapping, error) {
+	var e EnumMapping
+	if err := s.Scan(&e.ID, &e.DimensionID, &e.RawValue, &e.Label, &e.Description, &e.SortOrder); err != nil {
+		return e, fmt.Errorf("scan enum mapping: %w", err)
+	}
+	return e, nil
 }
 
 func scanMetric(s platformdb.Scanner) (Metric, error) {

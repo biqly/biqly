@@ -34,6 +34,15 @@ export interface SemanticModelSummary {
   excluded_schemas?: string[]
 }
 
+export interface EnumMapping {
+  id?: string
+  dimension_id?: string
+  raw_value: string
+  label: string
+  description?: string | null
+  sort_order?: number
+}
+
 export interface SemanticDimension {
   id: string
   name: string
@@ -43,6 +52,7 @@ export interface SemanticDimension {
   synonyms?: string[]
   description?: string | null
   is_active?: boolean
+  enum_values?: EnumMapping[]
 }
 
 export interface SemanticMetric {

@@ -80,6 +80,8 @@ func registerCatalogAPIRoutes(r chi.Router, deps *app.CatalogDeps, authClient *b
 	r.Post("/semantic/models/{id}/dimensions", semHandler.CreateDimension)
 	r.Delete("/semantic/models/{id}/dimensions/{dimension_id}", semHandler.DeleteDimension)
 	r.Put("/semantic/models/{id}/dimensions/{dimension_id}", semHandler.UpdateDimension)
+	r.Get("/semantic/models/{id}/dimensions/{dimension_id}/enums", semHandler.GetDimensionEnums)
+	r.Put("/semantic/models/{id}/dimensions/{dimension_id}/enums", semHandler.ReplaceDimensionEnums)
 	r.Post("/semantic/models/{id}/metrics", semHandler.CreateMetric)
 	r.Delete("/semantic/models/{id}/metrics/{metric_id}", semHandler.DeleteMetric)
 	r.Put("/semantic/models/{id}/metrics/{metric_id}", semHandler.UpdateMetric)

@@ -54,6 +54,20 @@ func TestRoutingLimitsFromConfig_ZeroUsesDefaults(t *testing.T) {
 	}
 }
 
+func TestScoreDimensionForPrune_EnumLabelMatch(t *testing.T) {
+	tokens := map[string]bool{"shipped": true}
+	plain := semantic.Dimension{Name: "status", ColumnRef: "orders.status", Type: "number"}
+	coded := semantic.Dimension{
+		Name: "status", ColumnRef: "orders.status", Type: "number",
+		EnumValues: []semantic.EnumMapping{{RawValue: "3", Label: "shipped"}},
+	}
+	plainScore := scoreDimensionForPrune(plain, tokens, nil)
+	codedScore := scoreDimensionForPrune(coded, tokens, nil)
+	if codedScore <= plainScore {
+		t.Fatalf("expected enum label match to raise score: plain=%v coded=%v", plainScore, codedScore)
+	}
+}
+
 func metricPresent(metrics []semantic.Metric, name string) bool {
 	for _, m := range metrics {
 		if m.Name == name {

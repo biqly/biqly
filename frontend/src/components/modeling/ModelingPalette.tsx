@@ -43,6 +43,7 @@ interface ModelingPaletteProps {
   onAddSuggestedJoin: (join: SuggestedJoin) => void
   onReactivateJoin: (join: SemanticJoin) => void
   onRenameDimension: (dimension: SemanticDimension) => void
+  onEditDimensionValues: (dimension: SemanticDimension) => void
   onDeleteDimension: (dimensionId: string) => void
   onReactivateDimension: (dimension: SemanticDimension) => void
   onOpenAddMetric: () => void
@@ -83,6 +84,7 @@ export function ModelingPalette({
   onAddSuggestedJoin,
   onReactivateJoin,
   onRenameDimension,
+  onEditDimensionValues,
   onDeleteDimension,
   onReactivateDimension,
   onOpenAddMetric,
@@ -241,6 +243,7 @@ export function ModelingPalette({
                     <strong>{dimension.label || dimension.name}</strong>
                     <span className="modeling-pill-actions">
                       <button className="modeling-rename-btn" onClick={() => onRenameDimension(dimension)} title={t('modeling.edit_display_name_title')}>✎</button>
+                      <button className="modeling-rename-btn" onClick={() => onEditDimensionValues(dimension)} title={t('modeling.enum_values_edit_title')}>≣</button>
                       <button className="modeling-delete-btn" onClick={() => onDeleteDimension(dimension.id)} title={t('modeling.delete_dimension_title')}>×</button>
                     </span>
                   </div>

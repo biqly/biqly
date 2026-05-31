@@ -8,12 +8,14 @@ import { useT } from '../i18n'
 import type {
   ColumnRow,
   GenerateSemanticModelResponse,
+  SemanticDimension,
   SemanticJoin,
   SemanticModelDetail,
   SemanticModelSummary,
   TableRow,
 } from '../types/semantic'
 import { AddMetricModal } from './modeling/AddMetricModal'
+import { EnumValuesModal } from './modeling/EnumValuesModal'
 import { BaseSwapModal } from './modeling/BaseSwapModal'
 import { LoadingScreen } from './ui/LoadingScreen'
 import { activeEntities, inactiveEntities } from './modeling/entityActions'
@@ -224,6 +226,7 @@ export default function Modeling() {
   const [baseSwapOpen, setBaseSwapOpen] = useState(false)
   const [savingBaseSwap, setSavingBaseSwap] = useState(false)
   const [addMetricOpen, setAddMetricOpen] = useState(false)
+  const [enumDimension, setEnumDimension] = useState<SemanticDimension | null>(null)
 
 
 
@@ -746,6 +749,7 @@ export default function Modeling() {
           onAddSuggestedJoin={addSuggestedJoin}
           onReactivateJoin={reactivateJoin}
           onRenameDimension={renameDimension}
+          onEditDimensionValues={setEnumDimension}
           onDeleteDimension={deleteDimension}
           onReactivateDimension={reactivateDimension}
           onOpenAddMetric={() => setAddMetricOpen(true)}
@@ -846,6 +850,20 @@ export default function Modeling() {
             setMessage(t('modeling.metric_added'))
           }}
           postData={postData}
+          t={t}
+        />
+      )}
+      {enumDimension && model && (
+        <EnumValuesModal
+          modelId={model.id}
+          dimension={enumDimension}
+          onClose={() => setEnumDimension(null)}
+          onSaved={async () => {
+            setEnumDimension(null)
+            await refreshModels(model.id)
+            setMessage(t('modeling.dimension_label_updated'))
+          }}
+          putData={putData}
           t={t}
         />
       )}

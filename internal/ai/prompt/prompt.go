@@ -17,6 +17,7 @@ import (
 const (
 	promptStaticReserveRunes = 14000 // question, rules, output format, date
 	maxSynonymsPerLine       = 6
+	maxEnumValuesPerLine     = 20 // cap coded-value lists so prompt stays bounded
 )
 
 const defaultLayout = `{{.SystemRules}}
@@ -364,7 +365,7 @@ func (b *PromptBuilder) writeDimensions(sb *bytes.Buffer, dims []semantic.Dimens
 			if syn != "" {
 				sy = fmt.Sprintf(", synonyms: %s", syn)
 			}
-			line := fmt.Sprintf("- %s (type: %s, column: %s%s%s)\n", d.Name, d.Type, d.ColumnRef, tg, sy)
+			line := fmt.Sprintf("- %s (type: %s, column: %s%s%s%s)\n", d.Name, d.Type, d.ColumnRef, tg, sy, formatEnumValues(d.EnumValues))
 			r := utf8.RuneCountInString(line)
 			if r > budgetRunes {
 				return len(dims)
@@ -387,7 +388,7 @@ func (b *PromptBuilder) writeDimensions(sb *bytes.Buffer, dims []semantic.Dimens
 		if syn != "" {
 			sy = fmt.Sprintf(", synonyms: %s", syn)
 		}
-		line := fmt.Sprintf("- %s (type: %s, column: %s%s%s)\n", d.Name, d.Type, d.ColumnRef, tg, sy)
+		line := fmt.Sprintf("- %s (type: %s, column: %s%s%s%s)\n", d.Name, d.Type, d.ColumnRef, tg, sy, formatEnumValues(d.EnumValues))
 		r := utf8.RuneCountInString(line)
 		if used+r > budgetRunes {
 			omitted = len(otherDims) - i + len(displayDims)
@@ -517,6 +518,30 @@ func (b *PromptBuilder) BuildRetry(ctx context.Context, locale i18n.Locale, orig
 	sb.WriteString("\n\n## Required Action\n")
 	sb.WriteString("Re-run the **Planning Steps** from the original prompt, then re-emit a corrected LogicalQuery JSON object using dimensions, metrics, and operators that exist in the semantic model above. Do not repeat the previous mistake. Optional `## Reasoning` prefix allowed; final output must include valid JSON — no markdown fences.\n")
 	return sb.String()
+}
+
+// formatEnumValues renders a coded dimension's raw→label pairs as an inline
+// ", values: 1=pending, 2=shipped" segment so the LLM can translate user
+// phrasing into the stored codes. Returns "" when the dimension has no enums.
+func formatEnumValues(vals []semantic.EnumMapping) string {
+	if len(vals) == 0 {
+		return ""
+	}
+	n := len(vals)
+	truncated := false
+	if n > maxEnumValuesPerLine {
+		n = maxEnumValuesPerLine
+		truncated = true
+	}
+	parts := make([]string, 0, n)
+	for i := 0; i < n; i++ {
+		parts = append(parts, fmt.Sprintf("%s=%s", vals[i].RawValue, vals[i].Label))
+	}
+	out := ", values: " + strings.Join(parts, ", ")
+	if truncated {
+		out += ", …"
+	}
+	return out
 }
 
 func joinSynonymsCap(s []string, maxN int) string {

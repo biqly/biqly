@@ -53,6 +53,22 @@ type Dimension struct {
 	// functions (COALESCE, CONCAT, UPPER, LOWER, ROUND), CASE WHEN, and
 	// dialect-specific date functions.
 	CalculatedExpression string `json:"calculated_expression,omitempty" db:"calculated_expression"`
+	// EnumValues maps stored raw values to human-readable labels for low
+	// cardinality coded columns (e.g. status 1=pending, 2=shipped). They are
+	// surfaced to the AI prompt so the model can translate user language into
+	// the underlying codes, and their labels feed table routing as synonyms.
+	EnumValues []EnumMapping `json:"enum_values,omitempty"`
+}
+
+// EnumMapping describes a single raw-value → label pairing for a coded
+// dimension. SortOrder controls the presentation order in the prompt and UI.
+type EnumMapping struct {
+	ID          string  `json:"id" db:"id"`
+	DimensionID string  `json:"dimension_id" db:"dimension_id"`
+	RawValue    string  `json:"raw_value" db:"raw_value"`
+	Label       string  `json:"label" db:"label"`
+	Description *string `json:"description,omitempty" db:"description"`
+	SortOrder   int     `json:"sort_order" db:"sort_order"`
 }
 
 // Metric represents an aggregatable field in a semantic model.

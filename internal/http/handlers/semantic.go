@@ -623,6 +623,80 @@ func (h *SemanticHandler) UpdateDimension(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, d)
 }
 
+type enumMappingRequest struct {
+	RawValue    string `json:"raw_value"`
+	Label       string `json:"label"`
+	Description string `json:"description,omitempty"`
+	SortOrder   int    `json:"sort_order,omitempty"`
+}
+
+type replaceEnumMappingsRequest struct {
+	Values []enumMappingRequest `json:"values"`
+}
+
+// GetDimensionEnums returns the enum value mappings for a dimension.
+func (h *SemanticHandler) GetDimensionEnums(w http.ResponseWriter, r *http.Request) {
+	dimID, ok := requireURLParam(w, r, "dimension_id")
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	mappings, err := h.deps.SemanticRepo.GetEnumMappings(ctx, dimID)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get enum mappings", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, mappings)
+}
+
+// ReplaceDimensionEnums replaces all enum value mappings for a dimension.
+func (h *SemanticHandler) ReplaceDimensionEnums(w http.ResponseWriter, r *http.Request) {
+	modelID, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
+	dimID, ok := requireURLParam(w, r, "dimension_id")
+	if !ok {
+		return
+	}
+	req, ok := decodeJSON[replaceEnumMappingsRequest](w, r)
+	if !ok {
+		return
+	}
+	mappings := make([]semantic.EnumMapping, 0, len(req.Values))
+	for i, v := range req.Values {
+		if v.RawValue == "" || v.Label == "" {
+			writeError(w, http.StatusBadRequest, "raw_value and label are required for every enum value")
+			return
+		}
+		m := semantic.EnumMapping{
+			DimensionID: dimID,
+			RawValue:    v.RawValue,
+			Label:       v.Label,
+			SortOrder:   v.SortOrder,
+		}
+		if m.SortOrder == 0 {
+			m.SortOrder = i
+		}
+		if v.Description != "" {
+			desc := v.Description
+			m.Description = &desc
+		}
+		mappings = append(mappings, m)
+	}
+	ctx := r.Context()
+	if err := h.deps.SemanticRepo.ReplaceEnumMappings(ctx, modelID, dimID, mappings); err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to replace enum mappings", err)
+		return
+	}
+	stored, err := h.deps.SemanticRepo.GetEnumMappings(ctx, dimID)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to reload enum mappings", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, stored)
+}
+
 // DeleteMetric removes a metric from a semantic model.
 func (h *SemanticHandler) DeleteMetric(w http.ResponseWriter, r *http.Request) {
 	modelID, ok := requireURLParam(w, r, "id")

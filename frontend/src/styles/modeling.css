@@ -152,3 +152,27 @@
 
 
 
+
+.modeling-enum-help {
+  font-size: 0.85rem;
+  color: var(--text-muted, #6b7280);
+  margin: 0 0 0.75rem;
+}
+
+.modeling-enum-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.modeling-enum-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.5fr auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.modeling-enum-row input {
+  width: 100%;
+}

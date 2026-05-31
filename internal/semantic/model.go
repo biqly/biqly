@@ -16,6 +16,7 @@ import (
 type (
 	SemanticModel   = pkgsemantic.SemanticModel
 	Dimension       = pkgsemantic.Dimension
+	EnumMapping     = pkgsemantic.EnumMapping
 	Metric          = pkgsemantic.Metric
 	Join            = pkgsemantic.Join
 	DimensionType   = pkgsemantic.DimensionType
