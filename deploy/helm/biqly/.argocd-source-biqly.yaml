@@ -4,31 +4,31 @@ helm:
     value: ghcr.io/biqly/ai
     forcestring: true
   - name: ai.image.tag
-    value: sha-971d5e1e9ef71217b6702c772e7dd13513d591c9
+    value: sha-f817bd45950cd29d58767373895589487fc6328e
     forcestring: true
   - name: auth.image.repository
     value: ghcr.io/biqly/biqly-auth
     forcestring: true
   - name: auth.image.tag
-    value: sha-971d5e1e9ef71217b6702c772e7dd13513d591c9
+    value: sha-f817bd45950cd29d58767373895589487fc6328e
     forcestring: true
   - name: auth.migrate.image.repository
     value: ghcr.io/biqly/biqly-auth
     forcestring: true
   - name: auth.migrate.image.tag
-    value: sha-971d5e1e9ef71217b6702c772e7dd13513d591c9
+    value: sha-f817bd45950cd29d58767373895589487fc6328e
     forcestring: true
   - name: catalog.image.repository
     value: ghcr.io/biqly/catalog
     forcestring: true
   - name: catalog.image.tag
-    value: sha-971d5e1e9ef71217b6702c772e7dd13513d591c9
+    value: sha-f817bd45950cd29d58767373895589487fc6328e
     forcestring: true
   - name: frontend.image.repository
     value: ghcr.io/biqly/biqly-frontend
     forcestring: true
   - name: frontend.image.tag
-    value: sha-971d5e1e9ef71217b6702c772e7dd13513d591c9
+    value: sha-f817bd45950cd29d58767373895589487fc6328e
     forcestring: true
   - name: global.migrate.image.repository
     value: ghcr.io/biqly/migrate
@@ -52,5 +52,5 @@ helm:
     value: ghcr.io/biqly/query
     forcestring: true
   - name: query.image.tag
-    value: sha-971d5e1e9ef71217b6702c772e7dd13513d591c9
+    value: sha-f817bd45950cd29d58767373895589487fc6328e
     forcestring: true
