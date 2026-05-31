@@ -1,9 +1,10 @@
-package ai
+package routing
 
 import (
 	"context"
 	"testing"
 
+	"github.com/biqly/biqly/internal/ai/lingua"
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
 )
@@ -24,7 +25,7 @@ func TestTableRouter_TurkishQuestionUsesLocaleEmbeddings(t *testing.T) {
 		vectors:  map[string][]float32{"dün kaç tweet": {0, 1, 0}},
 		fallback: []float32{1, 0, 0},
 	}
-	trModel := EmbeddingModelForLocale("fake", i18n.LocaleTR)
+	trModel := lingua.EmbeddingModelForLocale("fake", i18n.LocaleTR)
 	embReader := &fakeEmbeddingReader{
 		embeddings: []metadata.TableEmbedding{
 			{SchemaName: "public", TableName: "tweets", Model: trModel, Embedding: []float32{0, 1, 0}},

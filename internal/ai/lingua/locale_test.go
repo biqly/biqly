@@ -1,4 +1,4 @@
-package ai
+package lingua
 
 import (
 	"testing"
@@ -21,12 +21,5 @@ func TestDetectQuestionLocale(t *testing.T) {
 		if got := DetectQuestionLocale(tc.q); got != tc.want {
 			t.Errorf("DetectQuestionLocale(%q) = %q, want %q", tc.q, got, tc.want)
 		}
-	}
-}
-
-func TestPromptLocaleForQuestionFallsBackToUILocaleWhenQuestionHasNoSignals(t *testing.T) {
-	got := PromptLocaleForQuestion("q", i18n.LocaleTR)
-	if got != i18n.LocaleTR {
-		t.Fatalf("PromptLocaleForQuestion() = %q, want %q", got, i18n.LocaleTR)
 	}
 }

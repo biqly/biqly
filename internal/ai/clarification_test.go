@@ -1,6 +1,10 @@
 package ai
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/biqly/biqly/internal/ai/routing"
+)
 
 func TestBuildClarificationReturnsNilOnEmptyQuestion(t *testing.T) {
 	if got := buildClarification("", "", "ai"); got != nil {
@@ -32,25 +36,25 @@ func TestClarificationFromRoutingNilWhenNotNeeded(t *testing.T) {
 	if got := ClarificationFromRouting(nil, ""); got != nil {
 		t.Errorf("nil routing should yield nil envelope, got %+v", got)
 	}
-	routing := &TableRoutingResult{NeedsClarification: false, Candidates: []TableCandidate{{Table: "x"}}}
-	if got := ClarificationFromRouting(routing, ""); got != nil {
+	result := &routing.TableRoutingResult{NeedsClarification: false, Candidates: []routing.TableCandidate{{Table: "x"}}}
+	if got := ClarificationFromRouting(result, ""); got != nil {
 		t.Errorf("clear routing should yield nil envelope, got %+v", got)
 	}
-	empty := &TableRoutingResult{NeedsClarification: true}
+	empty := &routing.TableRoutingResult{NeedsClarification: true}
 	if got := ClarificationFromRouting(empty, ""); got != nil {
 		t.Errorf("no candidates should yield nil envelope, got %+v", got)
 	}
 }
 
 func TestClarificationFromRoutingBuildsOptionsAndCandidates(t *testing.T) {
-	routing := &TableRoutingResult{
+	result := &routing.TableRoutingResult{
 		NeedsClarification: true,
-		Candidates: []TableCandidate{
+		Candidates: []routing.TableCandidate{
 			{Table: "public.orders", Score: 0.62, Description: "Customer orders"},
 			{Table: "public.sales", Score: 0.58, Description: "Sales transactions"},
 		},
 	}
-	c := ClarificationFromRouting(routing, "")
+	c := ClarificationFromRouting(result, "")
 	if c == nil {
 		t.Fatal("expected envelope, got nil")
 		return

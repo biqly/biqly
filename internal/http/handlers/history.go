@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/biqly/biqly/internal/ai"
+	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
@@ -39,7 +40,7 @@ func (h *AIHandler) recordAIHistory(
 	ctx context.Context,
 	req aiQueryRequest,
 	model *semantic.SemanticModel,
-	routing *ai.TableRoutingResult,
+	routing *routing.TableRoutingResult,
 	resp *ai.Response,
 ) {
 	entry := buildAIHistoryEntry(req, model, routing, resp)
@@ -57,7 +58,7 @@ func (h *AIHandler) recordAIHistory(
 func buildAIHistoryEntry(
 	req aiQueryRequest,
 	model *semantic.SemanticModel,
-	routing *ai.TableRoutingResult,
+	routing *routing.TableRoutingResult,
 	resp *ai.Response,
 ) *metadata.AIQueryHistoryEntry {
 	entry := &metadata.AIQueryHistoryEntry{

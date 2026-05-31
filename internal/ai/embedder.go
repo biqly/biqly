@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math"
 	"strings"
 
 	"github.com/biqly/biqly/internal/config"
@@ -92,23 +91,4 @@ func parseOpenAIEmbeddingResponse(body []byte, count int) ([][]float32, error) {
 		out[d.Index] = d.Embedding
 	}
 	return out, nil
-}
-
-// CosineSimilarity returns cosine similarity in [-1, 1]. Returns 0 if either
-// vector is empty or zero-norm so callers can treat it as a no-op contribution.
-func CosineSimilarity(a, b []float32) float64 {
-	if len(a) == 0 || len(b) == 0 || len(a) != len(b) {
-		return 0
-	}
-	var dot, na, nb float64
-	for i := range a {
-		ai, bi := float64(a[i]), float64(b[i])
-		dot += ai * bi
-		na += ai * ai
-		nb += bi * bi
-	}
-	if na == 0 || nb == 0 {
-		return 0
-	}
-	return dot / (math.Sqrt(na) * math.Sqrt(nb))
 }

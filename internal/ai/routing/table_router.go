@@ -1,4 +1,4 @@
-package ai
+package routing
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/biqly/biqly/internal/ai/lingua"
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/semantic"
@@ -282,7 +283,7 @@ func (r *TableRouter) Route(
 
 	columnsByTable := groupColumnsByTable(columns, len(tables))
 
-	questionLocale := DetectQuestionLocale(question)
+	questionLocale := lingua.DetectQuestionLocale(question)
 	questionLocaleProfile, _ := i18n.LocaleProfileFor(questionLocale)
 	if r.translator != nil && questionLocaleProfile.UsesMetadataTranslations {
 		if err := r.translator.ApplyTableTranslations(ctx, tables, questionLocale); err != nil {
@@ -422,7 +423,7 @@ func (r *TableRouter) embeddingSignals(ctx context.Context, datasourceID, questi
 	if tableErr == nil && len(storedTables) > 0 {
 		signals.tableBoost = make(map[string]float64, len(storedTables))
 		for _, te := range storedTables {
-			if !EmbeddingModelMatches(te.Model, baseModel, loc) {
+			if !lingua.EmbeddingModelMatches(te.Model, baseModel, loc) {
 				continue
 			}
 			sim := CosineSimilarity(q, te.Embedding)
@@ -435,7 +436,7 @@ func (r *TableRouter) embeddingSignals(ctx context.Context, datasourceID, questi
 	if columnErr == nil && len(storedColumns) > 0 {
 		signals.columnScores = make(map[string]float64, len(storedColumns))
 		for _, ce := range storedColumns {
-			if !EmbeddingModelMatches(ce.Model, baseModel, loc) {
+			if !lingua.EmbeddingModelMatches(ce.Model, baseModel, loc) {
 				continue
 			}
 			sim := CosineSimilarity(q, ce.Embedding)

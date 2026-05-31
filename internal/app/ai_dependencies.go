@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/biqly/biqly/internal/ai"
+	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/core"
@@ -78,7 +79,7 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		embedMeta = ai.NewEmbedMetadataService(embedder, metaRepo)
 	}
 
-	if err := ai.InitRouting(cfg.AI.RoutingLexiconPath, cfg.AI.RoutingWeightsPath); err != nil {
+	if err := routing.InitRouting(cfg.AI.RoutingLexiconPath, cfg.AI.RoutingWeightsPath); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("routing config: %w", err)
 	}
@@ -89,8 +90,8 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		return nil, fmt.Errorf("seed prompt templates: %w", err)
 	}
 
-	timeGrainsStore := ai.NewDBTimeGrainStore(metaRepo)
-	if err := ai.SeedTimeGrains(ctx, metaRepo); err != nil {
+	timeGrainsStore := routing.NewDBTimeGrainStore(metaRepo)
+	if err := routing.SeedTimeGrains(ctx, metaRepo); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("seed time grains: %w", err)
 	}

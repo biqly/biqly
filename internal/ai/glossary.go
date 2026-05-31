@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
@@ -157,7 +158,7 @@ func SelectGlossaryForQuestion(question string, entries []GlossaryEntry, model *
 	if len(entries) == 0 {
 		return nil
 	}
-	qTokens := tokenSet(question)
+	qTokens := routing.TokenSet(question)
 	type scored struct {
 		e     GlossaryEntry
 		score float64
@@ -200,7 +201,7 @@ func glossaryMatchScore(qTokens map[string]bool, term string) float64 {
 	if len(qTokens) == 0 {
 		return 0
 	}
-	tTokens := tokenSet(term)
+	tTokens := routing.TokenSet(term)
 	if len(tTokens) == 0 {
 		return 0
 	}

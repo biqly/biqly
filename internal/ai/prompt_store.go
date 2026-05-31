@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/biqly/biqly/internal/ai/lingua"
 	"github.com/biqly/biqly/internal/i18n"
 )
 
@@ -180,7 +181,7 @@ func (s *dbPromptStore) load(ctx context.Context, name string, loc i18n.Locale) 
 // PromptLocaleForQuestion picks the prompt bundle from the detected question locale.
 func PromptLocaleForQuestion(question string, uiLocale i18n.Locale) i18n.Locale {
 	if strings.TrimSpace(question) != "" {
-		if loc, ok := detectQuestionLocale(question); ok {
+		if loc, ok := lingua.DetectQuestionLocaleConfident(question); ok {
 			return loc
 		}
 	}

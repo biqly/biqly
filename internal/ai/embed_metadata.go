@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/biqly/biqly/internal/ai/lingua"
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
 )
@@ -208,7 +209,7 @@ func (s *EmbedMetadataService) embedTables(ctx context.Context, tables []metadat
 		return nil, fmt.Errorf("embed tables: %w", err)
 	}
 
-	model := EmbeddingModelForLocale(s.embedder.Model(), loc)
+	model := lingua.EmbeddingModelForLocale(s.embedder.Model(), loc)
 	results := make([]EmbedTableResult, 0, len(refs))
 	for i, t := range refs {
 		results = append(results, EmbedTableResult{Schema: t.SchemaName, Table: t.TableName, Kind: "table"})
@@ -243,7 +244,7 @@ func (s *EmbedMetadataService) embedColumns(ctx context.Context, cols []metadata
 		return nil, fmt.Errorf("embed columns: %w", err)
 	}
 
-	model := EmbeddingModelForLocale(s.embedder.Model(), loc)
+	model := lingua.EmbeddingModelForLocale(s.embedder.Model(), loc)
 	results := make([]EmbedTableResult, 0, len(refs))
 	for i, c := range refs {
 		results = append(results, EmbedTableResult{Schema: c.SchemaName, Table: c.TableName, Column: c.ColumnName, Kind: "column"})

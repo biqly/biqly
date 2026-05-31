@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/query"
 )
 
@@ -23,7 +24,7 @@ type Response struct {
 	Warnings              []string            `json:"warnings,omitempty"`
 	Result                *query.QueryResult  `json:"result,omitempty"`
 	Confidence            float64             `json:"confidence"`
-	TableRouting          *TableRoutingResult `json:"table_routing,omitempty"`
+	TableRouting          *routing.TableRoutingResult `json:"table_routing,omitempty"`
 	NeedsClarification    bool                `json:"needs_clarification,omitempty"`
 	ClarificationQuestion string              `json:"clarification_question,omitempty"`
 	ClarificationOptions  []string            `json:"clarification_options,omitempty"`
@@ -94,16 +95,16 @@ type ClarificationContext struct {
 // structured Clarification envelope so the frontend can render the router's
 // top candidates as selectable options. Returns nil when the routing did not
 // flag NeedsClarification or has no candidates to surface.
-func ClarificationFromRouting(routing *TableRoutingResult, question string) *Clarification {
-	if routing == nil || !routing.NeedsClarification || len(routing.Candidates) == 0 {
+func ClarificationFromRouting(result *routing.TableRoutingResult, question string) *Clarification {
+	if result == nil || !result.NeedsClarification || len(result.Candidates) == 0 {
 		return nil
 	}
 	if question == "" {
 		question = "Which table set should I use to answer this question?"
 	}
-	candidates := make([]ClarificationContext, 0, len(routing.Candidates))
-	options := make([]ClarificationOption, 0, len(routing.Candidates))
-	for _, c := range routing.Candidates {
+	candidates := make([]ClarificationContext, 0, len(result.Candidates))
+	options := make([]ClarificationOption, 0, len(result.Candidates))
+	for _, c := range result.Candidates {
 		label := c.Table
 		if c.Description != "" {
 			label = c.Table + " — " + c.Description

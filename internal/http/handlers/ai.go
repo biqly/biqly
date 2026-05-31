@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/biqly/biqly/internal/ai"
+	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/core"
 	"github.com/biqly/biqly/internal/dialect"
@@ -33,7 +34,7 @@ const (
 // AIHandler handles AI text-to-query operations.
 type AIHandler struct {
 	service     *ai.Service
-	tableRouter *ai.TableRouter
+	tableRouter *routing.TableRouter
 	deps        *app.Dependencies
 	metrics     AIMetricsRecorder
 }
@@ -51,12 +52,12 @@ func NewAIHandler(deps *app.Dependencies) *AIHandler {
 		provider = deps.AIClient
 	}
 	svc := ai.NewServiceWithProvider(queryCfg, deps.Validator, provider)
-	metadataReader := ai.MetadataReader(deps.MetaRepo)
-	var embeddingReader ai.EmbeddingReader = deps.MetaRepo
+	metadataReader := routing.MetadataReader(deps.MetaRepo)
+	var embeddingReader routing.EmbeddingReader = deps.MetaRepo
 	if deps.CatalogClient != nil {
 		metadataReader = deps.CatalogClient
 	}
-	router := ai.NewTableRouterWithEmbeddings(
+	router := routing.NewTableRouterWithEmbeddings(
 		metadataReader,
 		deps.Embedder,
 		embeddingReader,
@@ -64,7 +65,7 @@ func NewAIHandler(deps *app.Dependencies) *AIHandler {
 	)
 	router.SetMetadataTranslator(deps.MetaRepo)
 	router.SetTimeGrainStore(deps.TimeGrains)
-	router.SetRoutingLimits(ai.RoutingLimitsFromConfig(
+	router.SetRoutingLimits(routing.RoutingLimitsFromConfig(
 		deps.Config.AI.RouteMaxDimensions,
 		deps.Config.AI.RouteMaxMetrics,
 		deps.Config.AI.RouteMaxColumnsPerTable,
@@ -134,7 +135,7 @@ func priorTurnsForPrompt(payload []priorTurnPayload) []ai.ConversationTurn {
 // parseAndRouteAIQuery decodes the request, validates required fields, loads the semantic
 // model (and table routing). If it writes a response to w (bad request, model load error, or
 // clarification-only response), ok is false.
-func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request) (aiQueryRequest, *semantic.SemanticModel, *ai.TableRoutingResult, bool) {
+func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request) (aiQueryRequest, *semantic.SemanticModel, *routing.TableRoutingResult, bool) {
 	req, ok := decodeJSON[aiQueryRequest](w, r)
 	if !ok {
 		return aiQueryRequest{}, nil, nil, false
@@ -176,7 +177,7 @@ func (h *AIHandler) processAIQuestion(
 	ctx context.Context,
 	req aiQueryRequest,
 	model *semantic.SemanticModel,
-	routing *ai.TableRoutingResult,
+	routing *routing.TableRoutingResult,
 	extra ...ai.ProcessOption,
 ) (*ai.Response, error) {
 	start := time.Now()
@@ -577,7 +578,7 @@ func splitColumnRef(ref, baseSchema string) (schema, table string) {
 func (h *AIHandler) loadQueryModel(
 	ctx context.Context,
 	req aiQueryRequest,
-) (*semantic.SemanticModel, *ai.TableRoutingResult, error) {
+) (*semantic.SemanticModel, *routing.TableRoutingResult, error) {
 	if req.ModelID != "" {
 		model, err := h.loadModel(ctx, req.DatasourceID, req.ModelID)
 		if err != nil {
@@ -597,7 +598,7 @@ func (h *AIHandler) loadQueryModel(
 	return h.tableRouter.Route(ctx, req.DatasourceID, req.Question, req.Tables, base, views)
 }
 
-func (h *AIHandler) loadPreferredSemanticModel(ctx context.Context, datasourceID, question string) (*semantic.SemanticModel, *ai.TableRoutingResult, bool) {
+func (h *AIHandler) loadPreferredSemanticModel(ctx context.Context, datasourceID, question string) (*semantic.SemanticModel, *routing.TableRoutingResult, bool) {
 	models, err := h.listSemanticModels(ctx, datasourceID)
 	if err != nil {
 		slog.WarnContext(ctx, "list semantic models failed; falling back to auto context", "datasource_id", datasourceID, "error", err)
@@ -641,7 +642,7 @@ func chooseSemanticModelForQuestion(models []semantic.SemanticModel, question st
 		return active[0], true
 	}
 
-	tokens := ai.TokenSet(question)
+	tokens := routing.TokenSet(question)
 	var (
 		best      semantic.SemanticModel
 		bestScore float64
@@ -673,7 +674,7 @@ func semanticModelConfidence(models []semantic.SemanticModel, selected semantic.
 	if activeCount <= 1 {
 		return 1
 	}
-	score := scoreSemanticModelForQuestion(selected, ai.TokenSet(question))
+	score := scoreSemanticModelForQuestion(selected, routing.TokenSet(question))
 	if score <= 0 {
 		return 0.65
 	}
@@ -684,26 +685,26 @@ func semanticModelConfidence(models []semantic.SemanticModel, selected semantic.
 }
 
 func scoreSemanticModelForQuestion(model semantic.SemanticModel, tokens map[string]bool) float64 {
-	score := ai.WeightedTokenScore(tokens, model.Name, 4)
-	score += ai.WeightedTokenScore(tokens, model.BaseTable, 3)
+	score := routing.WeightedTokenScore(tokens, model.Name, 4)
+	score += routing.WeightedTokenScore(tokens, model.BaseTable, 3)
 	if model.Label != nil {
-		score += ai.WeightedTokenScore(tokens, *model.Label, 2)
+		score += routing.WeightedTokenScore(tokens, *model.Label, 2)
 	}
 	if model.Description != nil {
-		score += ai.WeightedTokenScore(tokens, *model.Description, 1.5)
+		score += routing.WeightedTokenScore(tokens, *model.Description, 1.5)
 	}
 	for _, synonym := range model.Synonyms {
-		score += ai.WeightedTokenScore(tokens, synonym, 3)
+		score += routing.WeightedTokenScore(tokens, synonym, 3)
 	}
 	return score
 }
 
-func routingForSemanticModel(model *semantic.SemanticModel, confidence float64) *ai.TableRoutingResult {
+func routingForSemanticModel(model *semantic.SemanticModel, confidence float64) *routing.TableRoutingResult {
 	if model == nil {
 		return nil
 	}
 	selectedTables := selectedTablesForSemanticModel(model)
-	routing := &ai.TableRoutingResult{
+	routing := &routing.TableRoutingResult{
 		SelectedModels:     []string{model.Name},
 		SelectedTables:     selectedTables,
 		SelectedDimensions: semanticDimensionNames(model.Dimensions),
@@ -713,13 +714,13 @@ func routingForSemanticModel(model *semantic.SemanticModel, confidence float64) 
 		ContextSource:      "semantic_model",
 		ContextKey:         model.ID,
 		RankingMethod:      "semantic",
-		Candidates: []ai.TableCandidate{{
+		Candidates: []routing.TableCandidate{{
 			Table:      qualifySemanticTable(model, model.BaseTable),
 			Score:      confidence,
 			TotalScore: confidence,
 			Selected:   true,
 		}},
-		Debug: &ai.TableRoutingDebug{
+		Debug: &routing.TableRoutingDebug{
 			RelationExpansion: semanticJoinPaths(model),
 		},
 	}
@@ -813,16 +814,16 @@ func typeScopeFromAIQueryRequest(req aiQueryRequest) (includeBase, includeViews 
 		includeViews = *req.IncludeViews
 	}
 	if !includeBase && !includeViews {
-		return false, false, ai.ErrTypeScopeEmpty
+		return false, false, routing.ErrTypeScopeEmpty
 	}
 	return includeBase, includeViews, nil
 }
 
 func (h *AIHandler) writeModelLoadError(ctx context.Context, w http.ResponseWriter, req aiQueryRequest, err error) {
 	switch {
-	case errors.Is(err, ai.ErrTypeScopeEmpty):
+	case errors.Is(err, routing.ErrTypeScopeEmpty):
 		writeError(w, http.StatusBadRequest, "at least one of include_base_tables or include_views must be true")
-	case errors.Is(err, ai.ErrTableScopeInvalid):
+	case errors.Is(err, routing.ErrTableScopeInvalid):
 		writeError(w, http.StatusBadRequest, "table scope invalid")
 	case errors.Is(err, core.ErrLoadSemanticModel):
 		writeEntityNotFound(w, "semantic model")
@@ -1060,7 +1061,7 @@ func stringValue(s *string) string {
 	return *s
 }
 
-func clarificationResponse(routing *ai.TableRoutingResult) *ai.Response {
+func clarificationResponse(routing *routing.TableRoutingResult) *ai.Response {
 	question := "Which table or topic do you want to query? Please pick one or more from the candidates."
 	return &ai.Response{
 		Warnings: []string{

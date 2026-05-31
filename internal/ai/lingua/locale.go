@@ -1,4 +1,7 @@
-package ai
+// Package lingua holds language utilities (locale detection) shared across the
+// ai sub-packages (routing, prompt). It is a leaf: it depends only on i18n and
+// must not import any other ai sub-package.
+package lingua
 
 import (
 	"strings"
@@ -10,13 +13,15 @@ import (
 // DetectQuestionLocale picks a supported locale from the natural-language question so
 // table routing uses the matching embedding vectors and localized metadata.
 func DetectQuestionLocale(question string) i18n.Locale {
-	if loc, ok := detectQuestionLocale(question); ok {
+	if loc, ok := DetectQuestionLocaleConfident(question); ok {
 		return loc
 	}
 	return i18n.DefaultLocale
 }
 
-func detectQuestionLocale(question string) (i18n.Locale, bool) {
+// DetectQuestionLocaleConfident reports the detected locale and whether the
+// detection matched any locale signal (false means the default was assumed).
+func DetectQuestionLocaleConfident(question string) (i18n.Locale, bool) {
 	q := strings.TrimSpace(question)
 	if q == "" {
 		return i18n.DefaultLocale, false

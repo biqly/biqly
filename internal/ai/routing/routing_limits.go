@@ -1,4 +1,4 @@
-package ai
+package routing
 
 // RoutingLimits caps auto-generated semantic models before they reach the LLM prompt.
 // Zero values fall back to DefaultRoutingLimits().

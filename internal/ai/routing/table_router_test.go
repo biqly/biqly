@@ -1,4 +1,4 @@
-package ai
+package routing
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/biqly/biqly/internal/ai/lingua"
 	"github.com/biqly/biqly/internal/dialect"
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
@@ -614,7 +615,7 @@ func TestTableRouter_ColumnEmbeddingsNarrowWideTableButKeepRequiredColumns(t *te
 		})
 	}
 
-	trModel := EmbeddingModelForLocale("fake", i18n.LocaleTR)
+	trModel := lingua.EmbeddingModelForLocale("fake", i18n.LocaleTR)
 	columnEmbeddings := make([]metadata.ColumnEmbedding, 0, len(reader.columns))
 	for _, col := range reader.columns {
 		vec := []float32{-1, 0}

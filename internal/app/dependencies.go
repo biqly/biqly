@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/biqly/biqly/internal/ai"
+	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/core"
@@ -57,7 +58,7 @@ type Dependencies struct {
 	// nil (the table router falls back to keyword scoring).
 	Embedder    ai.Embedder
 	AIEmbedMeta *ai.EmbedMetadataService
-	TimeGrains   ai.TimeGrainStore
+	TimeGrains   routing.TimeGrainStore
 	Jobs         config.JobsConfig
 	AIJobQueue   queue.AIJobPublisher
 	AIJobService AIJobRunner
@@ -202,7 +203,7 @@ type aiBundle struct {
 	embedder    ai.Embedder
 	embedMeta   *ai.EmbedMetadataService
 	evalRepo    *ai.EvalRepository
-	timeGrains  ai.TimeGrainStore
+	timeGrains  routing.TimeGrainStore
 }
 
 // setupAI wires the LLM provider, optional override provider for NL→query,
@@ -248,7 +249,7 @@ func setupAI(
 
 	evalRepo := ai.NewEvalRepository(db)
 
-	if err := ai.InitRouting(cfg.AI.RoutingLexiconPath, cfg.AI.RoutingWeightsPath); err != nil {
+	if err := routing.InitRouting(cfg.AI.RoutingLexiconPath, cfg.AI.RoutingWeightsPath); err != nil {
 		return aiBundle{}, fmt.Errorf("routing config: %w", err)
 	}
 
@@ -257,8 +258,8 @@ func setupAI(
 		return aiBundle{}, fmt.Errorf("seed prompt templates: %w", err)
 	}
 
-	timeGrains := ai.NewDBTimeGrainStore(metaRepo)
-	if err := ai.SeedTimeGrains(ctx, metaRepo); err != nil {
+	timeGrains := routing.NewDBTimeGrainStore(metaRepo)
+	if err := routing.SeedTimeGrains(ctx, metaRepo); err != nil {
 		return aiBundle{}, fmt.Errorf("seed time grains: %w", err)
 	}
 
