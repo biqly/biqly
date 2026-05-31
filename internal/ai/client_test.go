@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/config"
 )
 
@@ -77,7 +78,7 @@ func TestAnthropicGenerateAtParsesUsage(t *testing.T) {
 }
 
 func TestTokenUsageFromGenerationPrefersAPI(t *testing.T) {
-	stats := PromptStats{EstPromptTokens: 999}
+	stats := prompt.PromptStats{EstPromptTokens: 999}
 	api := GenerationResult{
 		Content: "x",
 		Usage:   &TokenUsage{Prompt: 10, Completion: 5, Total: 15},

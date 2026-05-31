@@ -1,4 +1,4 @@
-package ai
+package prompt
 
 const (
 	maxFewShotCompact  = 2
@@ -14,8 +14,8 @@ const (
 	maxGlossaryExpanded = 40
 )
 
-// contextTierForAttempt maps the retry loop index to a progressive context tier.
-func contextTierForAttempt(attempt int) int {
+// ContextTierForAttempt maps the retry loop index to a progressive context tier.
+func ContextTierForAttempt(attempt int) int {
 	if attempt <= 0 {
 		return 0
 	}
@@ -25,25 +25,8 @@ func contextTierForAttempt(attempt int) int {
 	return 2
 }
 
-type tieredProcessOptions struct {
-	fewShot      []FewShotExample
-	samples      []TableSample
-	priorTurns   []ConversationTurn
-	deniedFields []string
-	glossary     []GlossaryEntry
-}
-
-func applyContextTier(base processOptions, tier int) tieredProcessOptions {
-	return tieredProcessOptions{
-		fewShot:      tailSlice(base.fewShot, fewShotCap(tier)),
-		samples:      base.samples,
-		priorTurns:   tailSlice(base.priorTurns, priorTurnsCap(tier)),
-		deniedFields: base.deniedFields,
-		glossary:     tailGlossary(base.glossary, glossaryCap(tier)),
-	}
-}
-
-func fewShotCap(tier int) int {
+// FewShotCap returns the maximum number of few-shot examples for a context tier.
+func FewShotCap(tier int) int {
 	switch tier {
 	case 0:
 		return maxFewShotCompact
@@ -54,7 +37,8 @@ func fewShotCap(tier int) int {
 	}
 }
 
-func priorTurnsCap(tier int) int {
+// PriorTurnsCap returns the maximum number of prior conversation turns for a context tier.
+func PriorTurnsCap(tier int) int {
 	switch tier {
 	case 0:
 		return maxPriorTurnsCompact
@@ -65,7 +49,8 @@ func priorTurnsCap(tier int) int {
 	}
 }
 
-func glossaryCap(tier int) int {
+// GlossaryCap returns the maximum number of glossary entries for a context tier.
+func GlossaryCap(tier int) int {
 	switch tier {
 	case 0:
 		return maxGlossaryCompact
@@ -76,7 +61,8 @@ func glossaryCap(tier int) int {
 	}
 }
 
-func tailSlice[T any](items []T, max int) []T {
+// TailSlice returns the trailing max elements of items, or nil when empty.
+func TailSlice[T any](items []T, max int) []T {
 	if len(items) == 0 || max <= 0 {
 		return nil
 	}
@@ -86,7 +72,8 @@ func tailSlice[T any](items []T, max int) []T {
 	return append([]T(nil), items[len(items)-max:]...)
 }
 
-func tailGlossary(entries []GlossaryEntry, max int) []GlossaryEntry {
+// TailGlossary returns the leading max glossary entries, or nil when empty.
+func TailGlossary(entries []GlossaryEntry, max int) []GlossaryEntry {
 	if len(entries) == 0 || max <= 0 {
 		return nil
 	}

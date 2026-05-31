@@ -1,4 +1,4 @@
-package ai
+package prompt
 
 import (
 	"strings"
@@ -135,6 +135,11 @@ func contextTierLabel(tier int) string {
 	default:
 		return "expanded"
 	}
+}
+
+// ContextTierLabel returns the human-readable label for a context tier.
+func ContextTierLabel(tier int) string {
+	return contextTierLabel(tier)
 }
 
 // MeasurePrompt builds stats for a built prompt string.

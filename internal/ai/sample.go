@@ -9,14 +9,6 @@ import (
 	"github.com/biqly/biqly/internal/metadata"
 )
 
-// TableSample carries a small set of rows from a single table to be embedded
-// in the prompt as concrete examples of the data the LLM is querying.
-type TableSample struct {
-	Schema string
-	Table  string
-	Rows   []map[string]any
-}
-
 // FetchTableSample reads up to `limit` rows from schema.table, projecting only
 // the listed columns, and returns them as map[col]value. Identifiers must pass
 // the project's allowlist regex (validIdent) — we do not bind identifiers, so

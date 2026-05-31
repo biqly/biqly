@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -35,7 +36,7 @@ func parseLogicalQueryFromRaw(raw string) (query.LogicalQuery, error) {
 	}
 	var lq query.LogicalQuery
 	if err := json.Unmarshal([]byte(cleaned), &lq); err != nil {
-		return query.LogicalQuery{}, fmt.Errorf("invalid JSON: %w (raw: %s)", err, truncateRunes(cleaned, 200))
+		return query.LogicalQuery{}, fmt.Errorf("invalid JSON: %w (raw: %s)", err, promptpkg.TruncateRunes(cleaned, 200))
 	}
 	return lq, nil
 }

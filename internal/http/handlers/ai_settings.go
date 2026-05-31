@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/biqly/biqly/internal/ai"
+	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/config"
 )
 
@@ -96,7 +96,7 @@ func translationBaseURLEffectiveLabel(cfg config.AIConfig) string {
 func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 	cfg := h.deps.Config.AI
 	queryCfg := cfg.EffectiveQueryConfig()
-	profile := ai.LookupModelContextProfile(queryCfg.Model, queryCfg.NumCtx)
+	profile := prompt.LookupModelContextProfile(queryCfg.Model, queryCfg.NumCtx)
 	out := aiRuntimeSettingsResponse{
 		Provider:         cfg.Provider,
 		LLMModel:         cfg.Model,
@@ -115,7 +115,7 @@ func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 		out.QueryHTTPTimeoutSeconds = cfg.QueryHTTPTimeoutSeconds
 	}
 	out.MaxPromptInputRunes = queryCfg.MaxPromptInputRunes
-	out.EffectiveMaxPromptRunes = ai.EffectiveMaxPromptRunes(queryCfg, queryCfg.Model)
+	out.EffectiveMaxPromptRunes = prompt.EffectiveMaxPromptRunes(queryCfg, queryCfg.Model)
 	out.ContextWindowTokens = profile.ContextWindowTokens
 	out.ContextWindowSource = profile.Source
 	if cfg.EmbeddingsConfigured() {

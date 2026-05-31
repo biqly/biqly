@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+
+	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
 )
 
 // providerHooks configures endpoint-specific request/response handling for
@@ -31,7 +33,7 @@ func (p *baseProvider) generate(ctx context.Context, prompt string) (GenerationR
 }
 
 func (p *baseProvider) generateAt(ctx context.Context, prompt string, temperature float64) (GenerationResult, error) {
-	estPrompt := EstimateTokens(prompt)
+	estPrompt := promptpkg.EstimateTokens(prompt)
 	body, err := p.hooks.marshal(prompt, temperature)
 	if err != nil {
 		return GenerationResult{}, fmt.Errorf("marshal request: %w", err)

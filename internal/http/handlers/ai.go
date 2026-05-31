@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/biqly/biqly/internal/ai"
+	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/core"
@@ -113,7 +114,7 @@ const maxPriorTurns = 5
 
 // priorTurnsForPrompt converts wire-format turns into the AI service's
 // ConversationTurn slice, taking the most recent maxPriorTurns entries.
-func priorTurnsForPrompt(payload []priorTurnPayload) []ai.ConversationTurn {
+func priorTurnsForPrompt(payload []priorTurnPayload) []prompt.ConversationTurn {
 	if len(payload) == 0 {
 		return nil
 	}
@@ -121,9 +122,9 @@ func priorTurnsForPrompt(payload []priorTurnPayload) []ai.ConversationTurn {
 	if len(payload) > maxPriorTurns {
 		start = len(payload) - maxPriorTurns
 	}
-	out := make([]ai.ConversationTurn, 0, len(payload)-start)
+	out := make([]prompt.ConversationTurn, 0, len(payload)-start)
 	for _, t := range payload[start:] {
-		out = append(out, ai.ConversationTurn{
+		out = append(out, prompt.ConversationTurn{
 			Question:     t.Question,
 			LogicalQuery: string(t.LogicalQuery),
 			Note:         t.Note,
@@ -848,7 +849,7 @@ const (
 
 // loadSampleData fetches a small sample of rows from the model's base table to
 // embed in the prompt. Errors are non-fatal — sampling is purely advisory.
-func (h *AIHandler) loadSampleData(ctx context.Context, db *sql.DB, d dialect.Dialect, model *semantic.SemanticModel) []ai.TableSample {
+func (h *AIHandler) loadSampleData(ctx context.Context, db *sql.DB, d dialect.Dialect, model *semantic.SemanticModel) []prompt.TableSample {
 	if model == nil || db == nil || model.BaseTable == "" {
 		return nil
 	}
@@ -868,7 +869,7 @@ func (h *AIHandler) loadSampleData(ctx context.Context, db *sql.DB, d dialect.Di
 	if len(rows) == 0 {
 		return nil
 	}
-	return []ai.TableSample{{Schema: model.BaseSchema, Table: model.BaseTable, Rows: rows}}
+	return []prompt.TableSample{{Schema: model.BaseSchema, Table: model.BaseTable, Rows: rows}}
 }
 
 // loadFewShotExamplesWithIDs returns few-shot examples with optional explicit
@@ -876,7 +877,7 @@ func (h *AIHandler) loadSampleData(ctx context.Context, db *sql.DB, d dialect.Di
 // inputs are empty/false this matches loadFewShotExamples — used by Run() so
 // the frontend can override which exemplars hit the prompt without breaking
 // the simpler Query/Preview paths.
-func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *semantic.SemanticModel, exampleIDs []string, includePastQueries bool) []ai.FewShotExample {
+func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *semantic.SemanticModel, exampleIDs []string, includePastQueries bool) []prompt.FewShotExample {
 	if model == nil {
 		return nil
 	}
@@ -904,7 +905,7 @@ func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *seman
 		idMap[id] = true
 	}
 
-	out := make([]ai.FewShotExample, 0, fewShotLimit)
+	out := make([]prompt.FewShotExample, 0, fewShotLimit)
 	for _, r := range curated {
 		matches := r.IsFewShot
 		if len(exampleIDs) > 0 {
@@ -912,7 +913,7 @@ func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *seman
 		}
 
 		if matches {
-			out = append(out, ai.FewShotExample{
+			out = append(out, prompt.FewShotExample{
 				Question:     r.Question,
 				LogicalQuery: string(r.LogicalQuery),
 				Locale:       r.Locale,
@@ -931,7 +932,7 @@ func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *seman
 				slog.WarnContext(ctx, "load history few-shot examples failed", "error", err)
 			} else {
 				for _, r := range historyRows {
-					out = append(out, ai.FewShotExample{
+					out = append(out, prompt.FewShotExample{
 						Question:     r.Question,
 						LogicalQuery: string(r.LogicalQuery),
 					})
@@ -966,18 +967,18 @@ func (h *AIHandler) loadDatasource(ctx context.Context, datasourceID string) (*m
 
 // loadGlossaryForPrompt merges catalog synonyms with curated glossary terms and
 // selects entries relevant to the user question.
-func (h *AIHandler) loadGlossaryForPrompt(ctx context.Context, model *semantic.SemanticModel, question string) []ai.GlossaryEntry {
+func (h *AIHandler) loadGlossaryForPrompt(ctx context.Context, model *semantic.SemanticModel, question string) []prompt.GlossaryEntry {
 	if model == nil {
 		return nil
 	}
-	catalog := ai.GlossaryFromSemanticModel(model)
-	var ext []ai.ExternalGlossaryInput
+	catalog := prompt.GlossaryFromSemanticModel(model)
+	var ext []prompt.ExternalGlossaryInput
 	rows, err := h.listBusinessGlossary(ctx, model.DatasourceID, model.ID)
 	if err != nil {
 		slog.WarnContext(ctx, "load business glossary failed", "error", err)
 	} else {
 		for _, r := range rows {
-			ext = append(ext, ai.ExternalGlossaryInput{
+			ext = append(ext, prompt.ExternalGlossaryInput{
 				Term:       r.Term,
 				Definition: r.Definition,
 				MapsToType: r.MapsToType,
@@ -986,8 +987,8 @@ func (h *AIHandler) loadGlossaryForPrompt(ctx context.Context, model *semantic.S
 			})
 		}
 	}
-	merged := ai.MergeGlossaryEntries(catalog, ai.GlossaryFromExternal(ext))
-	return ai.SelectGlossaryForQuestion(question, merged, model)
+	merged := prompt.MergeGlossaryEntries(catalog, prompt.GlossaryFromExternal(ext))
+	return prompt.SelectGlossaryForQuestion(question, merged, model)
 }
 
 func (h *AIHandler) listBusinessGlossary(ctx context.Context, datasourceID, modelID string) ([]metadata.BusinessGlossaryRow, error) {
@@ -999,7 +1000,7 @@ func (h *AIHandler) listBusinessGlossary(ctx context.Context, datasourceID, mode
 
 // loadFewShotExamples returns recent high-confidence (question, logical_query)
 // pairs for this datasource+model. Errors are non-fatal — we just log and skip.
-func (h *AIHandler) loadFewShotExamples(ctx context.Context, model *semantic.SemanticModel) []ai.FewShotExample {
+func (h *AIHandler) loadFewShotExamples(ctx context.Context, model *semantic.SemanticModel) []prompt.FewShotExample {
 	if model == nil {
 		return nil
 	}
@@ -1022,10 +1023,10 @@ func (h *AIHandler) loadFewShotExamples(ctx context.Context, model *semantic.Sem
 		slog.WarnContext(ctx, "load curated few-shot examples failed", "error", err)
 	}
 
-	out := make([]ai.FewShotExample, 0, fewShotLimit)
+	out := make([]prompt.FewShotExample, 0, fewShotLimit)
 	for _, r := range curated {
 		if r.IsFewShot {
-			out = append(out, ai.FewShotExample{
+			out = append(out, prompt.FewShotExample{
 				Question:     r.Question,
 				LogicalQuery: string(r.LogicalQuery),
 				Locale:       r.Locale,
@@ -1043,7 +1044,7 @@ func (h *AIHandler) loadFewShotExamples(ctx context.Context, model *semantic.Sem
 			slog.WarnContext(ctx, "load history few-shot examples failed", "error", err)
 		} else {
 			for _, r := range historyRows {
-				out = append(out, ai.FewShotExample{
+				out = append(out, prompt.FewShotExample{
 					Question:     r.Question,
 					LogicalQuery: string(r.LogicalQuery),
 				})

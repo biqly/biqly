@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/query"
 )
 
@@ -14,7 +15,7 @@ func TestFilterSessionFromPriorTurns(t *testing.T) {
 		},
 	}
 	raw, _ := json.Marshal(prevLQ)
-	turns := []ConversationTurn{
+	turns := []prompt.ConversationTurn{
 		{Question: "geçen ay satışlar", LogicalQuery: string(raw)},
 	}
 	sess := FilterSessionFromPriorTurns(turns)

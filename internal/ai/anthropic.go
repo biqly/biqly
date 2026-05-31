@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/config"
 )
 
@@ -95,7 +96,7 @@ func marshalAnthropicRequest(model string, maxTokens int) func(string, float64) 
 	return func(prompt string, temperature float64) ([]byte, error) {
 		reqBody := anthropicRequest{
 			Model:       model,
-			System:      SystemDirective,
+			System:      promptpkg.SystemDirective,
 			Messages:    []anthropicMessage{{Role: "user", Content: prompt}},
 			MaxTokens:   maxTokens,
 			Temperature: temperature,

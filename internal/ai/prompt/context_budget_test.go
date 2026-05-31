@@ -1,4 +1,4 @@
-package ai
+package prompt
 
 import (
 	"strings"
@@ -49,16 +49,14 @@ func TestPromptRunesForTier_ExpandsOnRetry(t *testing.T) {
 }
 
 func TestApplyContextTier_ExpandsFewShot(t *testing.T) {
-	base := processOptions{
-		fewShot: make([]FewShotExample, 10),
+	base := make([]FewShotExample, 10)
+	for i := range base {
+		base[i] = FewShotExample{Question: "q"}
 	}
-	for i := range base.fewShot {
-		base.fewShot[i] = FewShotExample{Question: "q"}
-	}
-	tier0 := applyContextTier(base, 0)
-	tier2 := applyContextTier(base, 2)
-	if len(tier0.fewShot) >= len(tier2.fewShot) {
-		t.Fatalf("tier0 few-shot %d should be fewer than tier2 %d", len(tier0.fewShot), len(tier2.fewShot))
+	tier0 := TailSlice(base, FewShotCap(0))
+	tier2 := TailSlice(base, FewShotCap(2))
+	if len(tier0) >= len(tier2) {
+		t.Fatalf("tier0 few-shot %d should be fewer than tier2 %d", len(tier0), len(tier2))
 	}
 }
 

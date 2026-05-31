@@ -1,6 +1,7 @@
 package ai
 
 import (
+	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/query"
 )
@@ -43,7 +44,7 @@ type Response struct {
 	ValidationResult *ValidationExplainResult `json:"validation_result,omitempty"`
 	// Model / cost tracking
 	ModelUsed   string       `json:"model_used,omitempty"`
-	PromptStats *PromptStats `json:"prompt_stats,omitempty"`
+	PromptStats *promptpkg.PromptStats `json:"prompt_stats,omitempty"`
 	TokenUsage  *TokenUsage  `json:"token_usage,omitempty"`
 	CostUSD     float64      `json:"cost_usd,omitempty"`
 	LatencyMs   int          `json:"latency_ms,omitempty"`

@@ -1,4 +1,4 @@
-package ai
+package prompt
 
 // SystemDirective is the shared system role prompt sent to LLM providers when
 // generating LogicalQuery JSON. It primes the model to emit strict JSON and

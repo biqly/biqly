@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/config"
 )
 
@@ -100,7 +101,7 @@ func (c *Client) marshalOpenAIRequest(model string, maxTokens int) func(string, 
 		reqBody := openAIRequest{
 			Model: model,
 			Messages: []openAIMessage{
-				{Role: "system", Content: SystemDirective},
+				{Role: "system", Content: promptpkg.SystemDirective},
 				{Role: "user", Content: prompt},
 			},
 			MaxTokens:   maxTokens,

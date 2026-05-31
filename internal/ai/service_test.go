@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
@@ -404,7 +405,7 @@ func TestProcessQuestionInheritsFiltersOnRefineFollowUp(t *testing.T) {
 		},
 	}
 	prevRaw, _ := json.Marshal(prevLQ)
-	prior := []ConversationTurn{
+	prior := []prompt.ConversationTurn{
 		{Question: "geçen ay satışlar", LogicalQuery: string(prevRaw)},
 	}
 

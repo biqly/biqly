@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/query"
 )
 
@@ -44,7 +45,7 @@ type FilterSessionState struct {
 
 // FilterSessionFromPriorTurns extracts the most recent successful LogicalQuery
 // from conversation history and returns its filters as the active session.
-func FilterSessionFromPriorTurns(turns []ConversationTurn) *FilterSessionState {
+func FilterSessionFromPriorTurns(turns []promptpkg.ConversationTurn) *FilterSessionState {
 	for i := len(turns) - 1; i >= 0; i-- {
 		lq := parseLogicalQueryFromTurn(turns[i])
 		if lq == nil || len(lq.Filters) == 0 && len(lq.Having) == 0 {
@@ -58,7 +59,7 @@ func FilterSessionFromPriorTurns(turns []ConversationTurn) *FilterSessionState {
 	return nil
 }
 
-func parseLogicalQueryFromTurn(t ConversationTurn) *query.LogicalQuery {
+func parseLogicalQueryFromTurn(t promptpkg.ConversationTurn) *query.LogicalQuery {
 	raw := strings.TrimSpace(t.LogicalQuery)
 	if raw == "" {
 		return nil

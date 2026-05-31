@@ -3,6 +3,8 @@ package ai
 import (
 	"context"
 	"log/slog"
+
+	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
 )
 
 // GenerationResult is the outcome of a single LLM completion call.
@@ -25,7 +27,7 @@ func newTokenUsage(prompt, completion, total int) *TokenUsage {
 	}
 }
 
-func tokenUsageFromGeneration(stats PromptStats, result GenerationResult) *TokenUsage {
+func tokenUsageFromGeneration(stats promptpkg.PromptStats, result GenerationResult) *TokenUsage {
 	if u := result.Usage; u != nil && (u.Prompt > 0 || u.Completion > 0) {
 		return newTokenUsage(u.Prompt, u.Completion, u.Total)
 	}
@@ -34,7 +36,7 @@ func tokenUsageFromGeneration(stats PromptStats, result GenerationResult) *Token
 
 func logLLMCompletion(ctx context.Context, provider, model string, estPromptTokens int, result GenerationResult) {
 	fromAPI := result.Usage != nil && (result.Usage.Prompt > 0 || result.Usage.Completion > 0)
-	usage := tokenUsageFromGeneration(PromptStats{EstPromptTokens: estPromptTokens}, result)
+	usage := tokenUsageFromGeneration(promptpkg.PromptStats{EstPromptTokens: estPromptTokens}, result)
 
 	args := []any{
 		"provider", provider,

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/biqly/biqly/internal/ai"
+	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/config"
@@ -84,8 +85,8 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		return nil, fmt.Errorf("routing config: %w", err)
 	}
 
-	ai.SetPromptTemplateStore(ai.NewDBPromptTemplateStore(metaRepo))
-	if err := ai.SeedPromptTemplatesFromEmbed(ctx, metaRepo); err != nil {
+	prompt.SetPromptTemplateStore(prompt.NewDBPromptTemplateStore(metaRepo))
+	if err := prompt.SeedPromptTemplatesFromEmbed(ctx, metaRepo); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("seed prompt templates: %w", err)
 	}

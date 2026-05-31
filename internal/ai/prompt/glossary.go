@@ -1,4 +1,4 @@
-package ai
+package prompt
 
 import (
 	"bytes"
@@ -290,4 +290,9 @@ func truncateRunes(s string, max int) string {
 	}
 	runes := []rune(s)
 	return string(runes[:max]) + "…"
+}
+
+// TruncateRunes shortens s to at most max runes, appending an ellipsis when truncated.
+func TruncateRunes(s string, max int) string {
+	return truncateRunes(s, max)
 }

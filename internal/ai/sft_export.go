@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/query"
@@ -57,7 +58,7 @@ type SFTExportResult struct {
 type SFTExporter struct {
 	meta      *metadata.Repository
 	semantic  *semantic.Repository
-	builder   *PromptBuilder
+	builder   *promptpkg.PromptBuilder
 	validator *query.Validator
 }
 
@@ -66,7 +67,7 @@ func NewSFTExporter(meta *metadata.Repository, semantic *semantic.Repository, va
 	return &SFTExporter{
 		meta:      meta,
 		semantic:  semantic,
-		builder:   &PromptBuilder{},
+		builder:   &promptpkg.PromptBuilder{},
 		validator: validator,
 	}
 }
@@ -129,11 +130,11 @@ func (e *SFTExporter) Export(ctx context.Context, opts SFTExportOptions) (*SFTEx
 		}
 		rec := SFTRecord{
 			Messages: []SFTMessage{
-				{Role: "system", Content: SystemDirective},
+				{Role: "system", Content: promptpkg.SystemDirective},
 				{Role: "user", Content: user},
 				{Role: "assistant", Content: assistant},
 			},
-			Text: renderGemma4SFTText(SystemDirective, user, assistant),
+			Text: renderGemma4SFTText(promptpkg.SystemDirective, user, assistant),
 		}
 		line, err := json.Marshal(rec)
 		if err != nil {

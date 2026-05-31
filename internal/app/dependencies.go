@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/biqly/biqly/internal/ai"
+	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/config"
@@ -253,8 +254,8 @@ func setupAI(
 		return aiBundle{}, fmt.Errorf("routing config: %w", err)
 	}
 
-	ai.SetPromptTemplateStore(ai.NewDBPromptTemplateStore(metaRepo))
-	if err := ai.SeedPromptTemplatesFromEmbed(ctx, metaRepo); err != nil {
+	prompt.SetPromptTemplateStore(prompt.NewDBPromptTemplateStore(metaRepo))
+	if err := prompt.SeedPromptTemplatesFromEmbed(ctx, metaRepo); err != nil {
 		return aiBundle{}, fmt.Errorf("seed prompt templates: %w", err)
 	}
 
