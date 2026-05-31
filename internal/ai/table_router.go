@@ -1796,6 +1796,21 @@ func filterColumnsForTables(columns []metadata.Column, tables []metadata.Table) 
 	return out
 }
 
+// TokenSet normalizes text into a set of search tokens (Turkish-aware, with
+// light stemming and synonym expansion) used for keyword-based routing. It is
+// the single source of truth shared by the table router and the HTTP handlers
+// so routing accuracy never diverges between the two.
+func TokenSet(text string) map[string]bool {
+	return tokenSet(text)
+}
+
+// WeightedTokenScore adds weight for every question token that also appears in
+// text's token set. Exported so HTTP handlers reuse the exact same scoring as
+// the table router.
+func WeightedTokenScore(questionTokens map[string]bool, text string, weight float64) float64 {
+	return weightedTokenScore(questionTokens, text, weight)
+}
+
 func weightedTokenScore(questionTokens map[string]bool, text string, weight float64) float64 {
 	textTokens := tokenSet(text)
 	score := 0.0

@@ -641,7 +641,7 @@ func chooseSemanticModelForQuestion(models []semantic.SemanticModel, question st
 		return active[0], true
 	}
 
-	tokens := handlerTokenSet(question)
+	tokens := ai.TokenSet(question)
 	var (
 		best      semantic.SemanticModel
 		bestScore float64
@@ -673,7 +673,7 @@ func semanticModelConfidence(models []semantic.SemanticModel, selected semantic.
 	if activeCount <= 1 {
 		return 1
 	}
-	score := scoreSemanticModelForQuestion(selected, handlerTokenSet(question))
+	score := scoreSemanticModelForQuestion(selected, ai.TokenSet(question))
 	if score <= 0 {
 		return 0.65
 	}
@@ -684,16 +684,16 @@ func semanticModelConfidence(models []semantic.SemanticModel, selected semantic.
 }
 
 func scoreSemanticModelForQuestion(model semantic.SemanticModel, tokens map[string]bool) float64 {
-	score := weightedHandlerTokenScore(tokens, model.Name, 4)
-	score += weightedHandlerTokenScore(tokens, model.BaseTable, 3)
+	score := ai.WeightedTokenScore(tokens, model.Name, 4)
+	score += ai.WeightedTokenScore(tokens, model.BaseTable, 3)
 	if model.Label != nil {
-		score += weightedHandlerTokenScore(tokens, *model.Label, 2)
+		score += ai.WeightedTokenScore(tokens, *model.Label, 2)
 	}
 	if model.Description != nil {
-		score += weightedHandlerTokenScore(tokens, *model.Description, 1.5)
+		score += ai.WeightedTokenScore(tokens, *model.Description, 1.5)
 	}
 	for _, synonym := range model.Synonyms {
-		score += weightedHandlerTokenScore(tokens, synonym, 3)
+		score += ai.WeightedTokenScore(tokens, synonym, 3)
 	}
 	return score
 }
@@ -801,49 +801,6 @@ func nonEmptyStringSlice(values []string) []string {
 		}
 	}
 	return out
-}
-
-func weightedHandlerTokenScore(questionTokens map[string]bool, text string, weight float64) float64 {
-	textTokens := handlerTokenSet(text)
-	score := 0.0
-	for token := range questionTokens {
-		if textTokens[token] {
-			score += weight
-		}
-	}
-	return score
-}
-
-// handlerTurkishReplacer normalizes Turkish-specific uppercase variants so
-// keyword matching in the handler-side router agrees with ai.normalizeText.
-// Hoisted to package scope to avoid building a Replacer on every call.
-var handlerTurkishReplacer = strings.NewReplacer(
-	"İ", "i", "I", "i", "ı", "i",
-	"Ş", "s", "ş", "s",
-	"Ğ", "g", "ğ", "g",
-	"Ü", "u", "ü", "u",
-	"Ö", "o", "ö", "o",
-	"Ç", "c", "ç", "c",
-)
-
-func handlerTokenSet(text string) map[string]bool {
-	text = strings.ToLower(handlerTurkishReplacer.Replace(text))
-	var normalized strings.Builder
-	for _, r := range text {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			normalized.WriteRune(r)
-			continue
-		}
-		normalized.WriteRune(' ')
-	}
-	tokens := make(map[string]bool)
-	for token := range strings.FieldsSeq(normalized.String()) {
-		tokens[token] = true
-		if strings.HasSuffix(token, "s") && len(token) > 3 {
-			tokens[strings.TrimSuffix(token, "s")] = true
-		}
-	}
-	return tokens
 }
 
 func typeScopeFromAIQueryRequest(req aiQueryRequest) (includeBase, includeViews bool, err error) {

@@ -60,7 +60,7 @@ if avatarURLNull.Valid { user.AvatarURL = &avatarURLNull.String }
 
 ---
 
-### [ ] 1.3 [HIGH] Token Scoring Mantigi 2 Yerde Farkli Implementasyon
+### [x] 1.3 [HIGH] Token Scoring Mantigi 2 Yerde Farkli Implementasyon
 
 **Dosyalar:**
 
@@ -597,7 +597,7 @@ func (p *PoolCache) Get(ctx context.Context, driver Driver, datasourceID, dsn st
 | [ ] 1.3 | `resolveUserDatasourceSet` helper cikar | `http/handlers/` | 40 satir azalma | 45 dk |
 | [ ] 1.4 | `RunInTx` helper ekle | `platform/db/` | 45 satir azalma | 30 dk |
 | [ ] 1.5 | Nullable helper'leri `platform/db/`'de birlestir | `platform/db/` | 30 satir azalma | 1 saat |
-| [ ] 1.6 | Token scoring duplication'i kaldir | `handlers/ai.go` | ~40 satir, dogruluk artisi | 1 saat |
+| [x] 1.6 | Token scoring duplication'i kaldir | `handlers/ai.go` | ~40 satir, dogruluk artisi | 1 saat |
 | [ ] 1.7 | Slice pre-allocation (query_rows, row_scan) | `datasource/`, `ai/` | Memory allocation azalmasi | 30 dk |
 | [ ] 1.8 | Map size hints ekle | `ai/table_router.go` | Rehash azalmasi | 30 dk |
 | [ ] 1.9 | `registerDefaultDrivers` + `openMetadataDB` helper | `app/*_dependencies.go` | 60+ satir azalma | 45 dk |
