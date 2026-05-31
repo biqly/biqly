@@ -283,7 +283,25 @@ Bu bölüm Wren dokümanından Biqly Go backend'ine doğrudan uygulanacak somut 
 
 **Dosyalar:** `migrations/` (yeni), `internal/audit/audit.go` (güncelle), `internal/audit/db_writer.go` (yeni)
 
-### 4.6 Streaming Query Results (B8 — Düşük Öncelik)
+### 4.6 AI Provider/Model DB Yönetimi (B9 — Yüksek Öncelik)
+
+**Wren referansı (Bölüm 2.2):** "AI Service — retrieval, prompting, SQL generation, result validation"
+
+**Mevcut durum:** Tüm AI konfigürasyonu `BI_AI_*` environment variable'larından okunuyor (`internal/config/config.go`). Provider seçimi, API key, base URL, model adı hepsi env'de. Yeni provider eklemek veya model değiştirmek için deploy/restart gerekiyor. Ollama + OpenAI aynı anda kullanılamıyor.
+
+**Detaylı plan:** [`ai_provider_db_yonetimi_plan.md`](ai_provider_db_yonetimi_plan.md)
+
+**Özet:**
+- [ ] `ai_providers` + `ai_models` DB tabloları (migration)
+- [ ] `ProviderStore` — in-memory cache + hot-reload
+- [ ] Purpose bazlı model yönetimi: query, describe, embedding, translation, judge
+- [ ] API key AES encryption + masking
+- [ ] Admin CRUD API: `/api/ai/providers/*`, `/api/ai/models/*`
+- [ ] Bağlantı test endpoint'i: `POST /api/ai/providers/{id}/test`
+- [ ] Frontend admin panel: provider kartları + model yönetimi + purpose bazlı seçim
+- [ ] Env fallback (backward compatible) + auto-seed
+
+### 4.7 Streaming Query Results (B8 — Düşük Öncelik)
 
 **Wren referansı (Bölüm 5.6):** "bounded execution → result metadata → chart suggestion"
 
@@ -458,7 +476,7 @@ Wren dokümanında önerilen ama Biqly'nin bilerek uygulamadığı şeyler:
 
 | Öncelik | Backend (Go) | Frontend (React) |
 | --- | --- | --- |
-| 🔴 Yüksek | — | Dashboard Builder (F1), RLS Admin UI (F2) |
+| 🔴 Yüksek | AI Provider DB (B9) | Dashboard Builder (F1), RLS Admin UI (F2), AI Provider Admin UI |
 | 🟡 Orta | Enum Mapping (B1), Metric AST (B6), Golden Loader (B3) | Glossary Browser (F5), Query History (F4), Field Permission UI (F3) |
 | 🟢 Düşük | Audit DB (B2), LLM Cache (B7), Streaming Results (B8) | Export Formats (F6), Chart Customization (F7), Scheduled Queries (F8) |
 

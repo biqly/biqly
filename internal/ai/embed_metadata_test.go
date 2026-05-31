@@ -4,9 +4,26 @@ import (
 	"context"
 	"testing"
 
+	"github.com/biqly/biqly/internal/ai/lingua"
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
 )
+
+// fakeEmbedder returns a fixed fallback vector for every input; sufficient for
+// exercising the embed-metadata persistence path.
+type fakeEmbedder struct {
+	model    string
+	fallback []float32
+}
+
+func (f *fakeEmbedder) Model() string { return f.model }
+func (f *fakeEmbedder) Embed(_ context.Context, texts []string) ([][]float32, error) {
+	out := make([][]float32, len(texts))
+	for i := range texts {
+		out[i] = f.fallback
+	}
+	return out, nil
+}
 
 type fakeMetadataWriter struct {
 	tables           []metadata.Table
@@ -67,8 +84,8 @@ func TestEmbedMetadataService_EmbedsTablesAndColumns(t *testing.T) {
 	if len(results) != 6 {
 		t.Fatalf("results len = %d, want 6 (en+tr): %+v", len(results), results)
 	}
-	enModel := EmbeddingModelForLocale("fake", i18n.LocaleEN)
-	trModel := EmbeddingModelForLocale("fake", i18n.LocaleTR)
+	enModel := lingua.EmbeddingModelForLocale("fake", i18n.LocaleEN)
+	trModel := lingua.EmbeddingModelForLocale("fake", i18n.LocaleTR)
 	if len(writer.tableEmbeddings["table-1|"+enModel]) == 0 || len(writer.tableEmbeddings["table-1|"+trModel]) == 0 {
 		t.Fatalf("table embeddings per locale were not stored: %+v", writer.tableEmbeddings)
 	}

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/biqly/biqly/internal/ai"
+	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/core"
 	"github.com/biqly/biqly/internal/metadata"
@@ -24,7 +25,7 @@ type AIJobProgress struct {
 
 type AIJobProgressFunc func(p AIJobProgress)
 
-func (h *AIHandler) resolveAIQuery(ctx context.Context, req aiQueryRequest) (*semantic.SemanticModel, *ai.TableRoutingResult, *ai.Response, error) {
+func (h *AIHandler) resolveAIQuery(ctx context.Context, req aiQueryRequest) (*semantic.SemanticModel, *routing.TableRoutingResult, *ai.Response, error) {
 	if req.Question == "" {
 		return nil, nil, nil, fmt.Errorf("question is required")
 	}

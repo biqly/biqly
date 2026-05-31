@@ -9,6 +9,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/biqly/biqly/internal/ai/jsonextract"
+	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/core"
 	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/metadata"
@@ -24,7 +26,7 @@ func validIdent(s string) bool { return identRegex.MatchString(s) }
 
 // DescribeService generates table/column descriptions from sampled rows using an LLM.
 type DescribeService struct {
-	client               Provider
+	client               providerpkg.Provider
 	model                string
 	metaRepo             *metadata.Repository
 	driverReg            *datasource.Registry
@@ -36,7 +38,7 @@ type DescribeService struct {
 }
 
 // NewDescribeService wires the dependencies needed to sample, prompt, and persist descriptions.
-func NewDescribeService(client Provider, metaRepo *metadata.Repository, driverReg *datasource.Registry, translator *TranslationService, sampleRows, maxCellRunes, maxSampleRowsHardCap int, encryptor *security.Encryption) *DescribeService {
+func NewDescribeService(client providerpkg.Provider, metaRepo *metadata.Repository, driverReg *datasource.Registry, translator *TranslationService, sampleRows, maxCellRunes, maxSampleRowsHardCap int, encryptor *security.Encryption) *DescribeService {
 	if sampleRows <= 0 {
 		sampleRows = 10
 	}
@@ -392,7 +394,7 @@ func buildDescribePrompt(schema, table string, cols []metadata.Column, sample []
 }
 
 func parseDescribeResponse(raw string) (string, []ColumnDescription, error) {
-	cleaned := TrimToJSONObject(raw)
+	cleaned := jsonextract.TrimToJSONObject(raw)
 
 	var payload struct {
 		TableDescription string              `json:"table_description"`

@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/biqly/biqly/internal/ai"
+	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
@@ -82,7 +82,7 @@ func (h *AIPromptTemplatesHandler) UpdatePromptTemplate(w http.ResponseWriter, r
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to update prompt template", err)
 		return
 	}
-	ai.InvalidatePromptTemplateCache(name, loc)
+	prompt.InvalidatePromptTemplateCache(name, loc)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
@@ -108,7 +108,7 @@ func (h *AIPromptTemplatesHandler) RestorePromptTemplate(w http.ResponseWriter, 
 		return
 	}
 	ctx := r.Context()
-	if err := ai.RestorePromptTemplateFromEmbed(ctx, h.deps.MetaRepo, name, loc); err != nil {
+	if err := prompt.RestorePromptTemplateFromEmbed(ctx, h.deps.MetaRepo, name, loc); err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to restore prompt template", err)
 		return
 	}
@@ -118,7 +118,7 @@ func (h *AIPromptTemplatesHandler) RestorePromptTemplate(w http.ResponseWriter, 
 // ReseedPromptTemplates replaces all templates from embedded files.
 func (h *AIPromptTemplatesHandler) ReseedPromptTemplates(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	if err := ai.ReseedAllPromptTemplatesFromEmbed(ctx, h.deps.MetaRepo); err != nil {
+	if err := prompt.ReseedAllPromptTemplatesFromEmbed(ctx, h.deps.MetaRepo); err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to reseed prompt templates", err)
 		return
 	}
@@ -126,7 +126,7 @@ func (h *AIPromptTemplatesHandler) ReseedPromptTemplates(w http.ResponseWriter, 
 }
 
 func isKnownPromptTemplateName(name string) bool {
-	for _, n := range ai.KnownPromptTemplateNames() {
+	for _, n := range prompt.KnownPromptTemplateNames() {
 		if n == name {
 			return true
 		}

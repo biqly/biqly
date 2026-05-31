@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 )
 
 type fakeTranslationProvider struct {
@@ -11,13 +13,13 @@ type fakeTranslationProvider struct {
 	prompt   string
 }
 
-func (p *fakeTranslationProvider) Generate(ctx context.Context, prompt string) (GenerationResult, error) {
+func (p *fakeTranslationProvider) Generate(ctx context.Context, prompt string) (providerpkg.GenerationResult, error) {
 	return p.GenerateAt(ctx, prompt, 0)
 }
 
-func (p *fakeTranslationProvider) GenerateAt(ctx context.Context, prompt string, temperature float64) (GenerationResult, error) {
+func (p *fakeTranslationProvider) GenerateAt(ctx context.Context, prompt string, temperature float64) (providerpkg.GenerationResult, error) {
 	p.prompt = prompt
-	return GenerationResult{Content: p.response}, nil
+	return providerpkg.GenerationResult{Content: p.response}, nil
 }
 
 func TestTranslationServiceTranslateDescribeResult(t *testing.T) {

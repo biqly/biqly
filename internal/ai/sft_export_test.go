@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -67,7 +68,7 @@ func TestValidateTrainingLogicalQuery(t *testing.T) {
 func TestSFTRecordJSONShape(t *testing.T) {
 	rec := SFTRecord{
 		Messages: []SFTMessage{
-			{Role: "system", Content: SystemDirective},
+			{Role: "system", Content: prompt.SystemDirective},
 			{Role: "user", Content: "q"},
 			{Role: "assistant", Content: `{"select":[{"type":"metric","name":"row_count"}],"limit":100}`},
 		},

@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/biqly/biqly/internal/ai"
+	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -29,7 +30,7 @@ func (h *AIHandler) observeAIRequest(
 	ctx context.Context,
 	req aiQueryRequest,
 	model *semantic.SemanticModel,
-	routing *ai.TableRoutingResult,
+	routing *routing.TableRoutingResult,
 	resp *ai.Response,
 	procErr error,
 	latencyMs int64,

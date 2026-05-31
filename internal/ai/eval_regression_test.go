@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	evalpkg "github.com/biqly/biqly/internal/ai/eval"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/query"
 )
@@ -23,21 +24,21 @@ func TestResultSetEqualBaseline(t *testing.T) {
 			{float64(2), "DE"},
 		},
 	}
-	ok, reason := ResultSetEqual(a, b)
+	ok, reason := evalpkg.ResultSetEqual(a, b)
 	if !ok {
 		t.Fatalf("expected equivalent result sets, got: %s", reason)
 	}
 }
 
 func TestExecutionAccuracyGolden(t *testing.T) {
-	exec := MemoryResultExecutor{}
+	exec := evalpkg.MemoryResultExecutor{}
 	ctx := context.Background()
-	for _, c := range DefaultGoldenCases() {
+	for _, c := range evalpkg.DefaultGoldenCases() {
 		expRes, err := exec.Execute(ctx, c.Model, &c.Expected)
 		if err != nil {
 			t.Fatalf("[%s] execute expected: %v", c.ID, err)
 		}
-		ok, reason := ResultSetEqual(expRes, expRes)
+		ok, reason := evalpkg.ResultSetEqual(expRes, expRes)
 		if !ok {
 			t.Fatalf("[%s] self-compare: %s", c.ID, reason)
 		}
@@ -46,7 +47,7 @@ func TestExecutionAccuracyGolden(t *testing.T) {
 
 func TestBenchmarkSuiteSelfConsistent(t *testing.T) {
 	sv := NewSchemaValidatorWith(query.NewValidator(1000))
-	for _, c := range BenchmarkCases() {
+	for _, c := range evalpkg.BenchmarkCases() {
 		raw, err := marshalLogicalQuery(c.Expected)
 		if err != nil {
 			t.Errorf("[%s] marshal: %v", c.ID, err)
@@ -65,12 +66,12 @@ func TestEvalRegressionGate(t *testing.T) {
 		Temperature: 0,
 		MaxRetries:  0,
 	}
-	svc := NewServiceWithProvider(cfg, query.NewValidator(1000), NewGoldenStubProvider())
-	opts := EvalSuiteOptions{
-		Cases: DefaultGoldenCases(),
-		Modes: EvalModeLogical | EvalModeExecution,
+	svc := NewServiceWithProvider(cfg, query.NewValidator(1000), evalpkg.NewGoldenStubProvider())
+	opts := evalpkg.EvalSuiteOptions{
+		Cases: evalpkg.DefaultGoldenCases(),
+		Modes: evalpkg.EvalModeLogical | evalpkg.EvalModeExecution,
 	}
-	result := RunGoldenSuite(context.Background(), svc, opts)
+	result := evalpkg.RunGoldenSuite(context.Background(), svc, opts)
 	if result.Failed > 0 {
 		for _, c := range result.Cases {
 			if !c.Pass(opts) {
@@ -89,12 +90,12 @@ func TestBenchmarkSuiteRegressionGate(t *testing.T) {
 		Temperature: 0,
 		MaxRetries:  0,
 	}
-	svc := NewServiceWithProvider(cfg, query.NewValidator(1000), NewGoldenStubProviderForCases(BenchmarkCases()))
-	opts := EvalSuiteOptions{
-		Cases: BenchmarkCases(),
-		Modes: EvalModeLogical | EvalModeExecution,
+	svc := NewServiceWithProvider(cfg, query.NewValidator(1000), evalpkg.NewGoldenStubProviderForCases(evalpkg.BenchmarkCases()))
+	opts := evalpkg.EvalSuiteOptions{
+		Cases: evalpkg.BenchmarkCases(),
+		Modes: evalpkg.EvalModeLogical | evalpkg.EvalModeExecution,
 	}
-	result := RunGoldenSuite(context.Background(), svc, opts)
+	result := evalpkg.RunGoldenSuite(context.Background(), svc, opts)
 	if result.PassRate < 1.0 {
 		t.Fatalf("benchmark gate: pass_rate=%.2f (%d/%d)", result.PassRate, result.Passed, result.Total)
 	}

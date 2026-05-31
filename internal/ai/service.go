@@ -10,6 +10,9 @@ import (
 	"sync"
 	"time"
 
+	evalpkg "github.com/biqly/biqly/internal/ai/eval"
+	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
+	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/query"
@@ -18,8 +21,8 @@ import (
 
 // Service orchestrates the AI text-to-query flow.
 type Service struct {
-	client              Provider
-	promptBuilder       *PromptBuilder
+	client              providerpkg.Provider
+	promptBuilder       *promptpkg.PromptBuilder
 	validator           *query.Validator
 	aiCfg               config.AIConfig
 	queryModel          string
@@ -29,7 +32,7 @@ type Service struct {
 	baseTemperature     float64
 }
 
-func newService(cfg config.AIConfig, validator *query.Validator, provider Provider) *Service {
+func newService(cfg config.AIConfig, validator *query.Validator, provider providerpkg.Provider) *Service {
 	maxR := cfg.MaxPromptInputRunes
 	if maxR <= 0 {
 		maxR = 80000
@@ -41,7 +44,7 @@ func newService(cfg config.AIConfig, validator *query.Validator, provider Provid
 	effective := cfg.EffectiveQueryConfig()
 	return &Service{
 		client:              provider,
-		promptBuilder:       &PromptBuilder{},
+		promptBuilder:       &promptpkg.PromptBuilder{},
 		validator:           validator,
 		aiCfg:               effective,
 		queryModel:          effective.Model,
@@ -58,22 +61,38 @@ func NewService(cfg config.AIConfig, validator *query.Validator) *Service {
 	// Fall back to the OpenAI client on unknown providers so test setups that
 	// pass minimal configs (no Provider field) keep working. Production code
 	// should call NewServiceWithProvider for explicit error handling.
-	provider, err := NewProvider(cfg)
+	provider, err := providerpkg.NewProvider(cfg)
 	if err != nil {
-		provider = NewClient(cfg)
+		provider = providerpkg.NewClient(cfg)
 	}
 	return newService(cfg, validator, provider)
 }
 
 // NewServiceWithProvider wires a service around an explicitly-supplied Provider.
 // Use this in production wiring where unknown-provider should be a fatal error.
-func NewServiceWithProvider(cfg config.AIConfig, validator *query.Validator, provider Provider) *Service {
+func NewServiceWithProvider(cfg config.AIConfig, validator *query.Validator, provider providerpkg.Provider) *Service {
 	return newService(cfg, validator, provider)
 }
 
 // LLMProvider returns the configured generation backend (for eval judge, etc.).
-func (s *Service) LLMProvider() Provider {
+func (s *Service) LLMProvider() providerpkg.Provider {
 	return s.client
+}
+
+// EvaluateQuestion adapts Service to the eval package without making eval
+// depend on the root AI orchestration package.
+func (s *Service) EvaluateQuestion(ctx context.Context, question string, model *semantic.SemanticModel) (*evalpkg.QuestionResult, error) {
+	resp, err := s.ProcessQuestion(ctx, question, model)
+	if err != nil {
+		return nil, err
+	}
+	return &evalpkg.QuestionResult{
+		LogicalQuery:                resp.LogicalQuery,
+		Confidence:                  resp.Confidence,
+		TokenUsage:                  resp.TokenUsage,
+		PromptTemplateVersions:      resp.PromptTemplateVersions,
+		PromptTemplateBundleVersion: resp.PromptTemplateBundleVersion,
+	}, nil
 }
 
 // SQLValidator dry-runs a compiled LogicalQuery against the live datasource
@@ -87,12 +106,34 @@ type ProcessOption func(*processOptions)
 
 type processOptions struct {
 	sqlValidator  SQLValidator
-	fewShot       []FewShotExample
-	samples       []TableSample
-	priorTurns    []ConversationTurn
+	fewShot       []promptpkg.FewShotExample
+	samples       []promptpkg.TableSample
+	priorTurns    []promptpkg.ConversationTurn
 	deniedFields  []string
 	targetDialect string
-	glossary      []GlossaryEntry
+	glossary      []promptpkg.GlossaryEntry
+}
+
+type tieredProcessOptions struct {
+	fewShot      []promptpkg.FewShotExample
+	samples      []promptpkg.TableSample
+	priorTurns   []promptpkg.ConversationTurn
+	deniedFields []string
+	glossary     []promptpkg.GlossaryEntry
+}
+
+func contextTierForAttempt(attempt int) int {
+	return promptpkg.ContextTierForAttempt(attempt)
+}
+
+func applyContextTier(base processOptions, tier int) tieredProcessOptions {
+	return tieredProcessOptions{
+		fewShot:      promptpkg.TailSlice(base.fewShot, promptpkg.FewShotCap(tier)),
+		samples:      base.samples,
+		priorTurns:   promptpkg.TailSlice(base.priorTurns, promptpkg.PriorTurnsCap(tier)),
+		deniedFields: base.deniedFields,
+		glossary:     promptpkg.TailGlossary(base.glossary, promptpkg.GlossaryCap(tier)),
+	}
 }
 
 // WithSQLValidator wires a dialect-aware dry-run check (e.g. EXPLAIN) into the
@@ -104,21 +145,21 @@ func WithSQLValidator(v SQLValidator) ProcessOption {
 
 // WithFewShotExamples injects prior successful (question, logical_query) pairs
 // into the prompt. Pass the most recent N high-confidence rows from history.
-func WithFewShotExamples(examples []FewShotExample) ProcessOption {
+func WithFewShotExamples(examples []promptpkg.FewShotExample) ProcessOption {
 	return func(o *processOptions) { o.fewShot = examples }
 }
 
 // WithSampleData attaches concrete row samples from the queried tables so the
 // LLM sees actual values (not just column names). Cells should already be
 // truncated by the caller via FetchTableSample's maxCellRunes parameter.
-func WithSampleData(samples []TableSample) ProcessOption {
+func WithSampleData(samples []promptpkg.TableSample) ProcessOption {
 	return func(o *processOptions) { o.samples = samples }
 }
 
 // WithPriorTurns supplies recent turns from the active conversation so the
 // model can resolve follow-ups in context. Pass the most recent N turns
 // (caller should cap N — typically 3-5 — to keep the prompt bounded).
-func WithPriorTurns(turns []ConversationTurn) ProcessOption {
+func WithPriorTurns(turns []promptpkg.ConversationTurn) ProcessOption {
 	return func(o *processOptions) { o.priorTurns = turns }
 }
 
@@ -136,7 +177,7 @@ func WithTargetDialect(dialectName string) ProcessOption {
 }
 
 // WithGlossary injects business-term → field mappings into the prompt.
-func WithGlossary(entries []GlossaryEntry) ProcessOption {
+func WithGlossary(entries []promptpkg.GlossaryEntry) ProcessOption {
 	return func(o *processOptions) { o.glossary = entries }
 }
 
@@ -167,7 +208,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		prompt             = basePrompt
 		promptStats        = baseStats
 		lastRaw            string
-		lastGen            GenerationResult
+		lastGen            providerpkg.GenerationResult
 		retryWarnings      []string
 		lq                 *query.LogicalQuery
 		warnings           []string
@@ -209,7 +250,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 				RawResponse:                 gen.Content,
 				RetryCount:                  retries,
 				PromptStats:                 &promptStats,
-				TokenUsage:                  tokenUsageFromGeneration(promptStats, gen),
+				TokenUsage:                  providerpkg.TokenUsageFromGeneration(promptStats, gen),
 				PromptTemplateLocale:        templateLocale,
 				PromptTemplateVersions:      templateVersions,
 				PromptTemplateBundleVersion: bundleVersion,
@@ -224,11 +265,11 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 
 		// Re-prompt with the failure context for the next attempt.
 		failureMsg := failureMessageFor(parseErr, sqlErr, warnings)
-		retryWarnings = append(retryWarnings, fmt.Sprintf("retry %d (context %s): %s", attempt+1, contextTierLabel(contextTierForAttempt(attempt+1)), failureMsg))
+		retryWarnings = append(retryWarnings, fmt.Sprintf("retry %d (context %s): %s", attempt+1, promptpkg.ContextTierLabel(contextTierForAttempt(attempt+1)), failureMsg))
 		nextTier := contextTierForAttempt(attempt + 1)
 		expanded, _ := s.buildPrompt(ctx, question, model, nextTier, options, filterSess, followIntent)
-		prompt = s.promptBuilder.BuildRetry(ctx, PromptLocaleForQuestion(question, i18n.FromContext(ctx)), expanded, gen.Content, failureMsg)
-		promptStats = MeasurePrompt(prompt, s.queryModel, nextTier, s.aiCfg)
+		prompt = s.promptBuilder.BuildRetry(ctx, promptpkg.PromptLocaleForQuestion(question, i18n.FromContext(ctx)), expanded, gen.Content, failureMsg)
+		promptStats = promptpkg.MeasurePrompt(prompt, s.queryModel, nextTier, s.aiCfg)
 	}
 
 	failureReason := failureMessageFor(parseErr, nil, warnings)
@@ -305,8 +346,8 @@ type clarificationInputs struct {
 	Prompt                      string
 	RawResponse                 string
 	RetryCount                  int
-	PromptStats                 PromptStats
-	Gen                         GenerationResult
+	PromptStats                 promptpkg.PromptStats
+	Gen                         providerpkg.GenerationResult
 	Clarification               string
 	FailureReason               string
 	Source                      string
@@ -325,7 +366,7 @@ func newClarificationResponse(in clarificationInputs) *AIResponse {
 		RawResponse:                 in.RawResponse,
 		RetryCount:                  in.RetryCount,
 		PromptStats:                 &stats,
-		TokenUsage:                  tokenUsageFromGeneration(stats, in.Gen),
+		TokenUsage:                  providerpkg.TokenUsageFromGeneration(stats, in.Gen),
 		NeedsClarification:          in.Clarification != "",
 		ClarificationQuestion:       in.Clarification,
 		Clarification:               buildClarification(in.Clarification, in.FailureReason, in.Source),
@@ -336,8 +377,8 @@ func newClarificationResponse(in clarificationInputs) *AIResponse {
 }
 
 func promptTemplateTrace(ctx context.Context, question string) (string, map[string]int, int) {
-	loc := PromptLocaleForQuestion(question, i18n.FromContext(ctx))
-	versions := PromptTemplateBundleVersions(ctx, loc)
+	loc := promptpkg.PromptLocaleForQuestion(question, i18n.FromContext(ctx))
+	versions := promptpkg.PromptTemplateBundleVersions(ctx, loc)
 	maxVersion := 0
 	for _, v := range versions {
 		if v > maxVersion {
@@ -355,9 +396,9 @@ func (s *Service) buildPrompt(
 	options processOptions,
 	filterSess *FilterSessionState,
 	followIntent FollowUpIntent,
-) (string, PromptStats) {
+) (string, promptpkg.PromptStats) {
 	tiered := applyContextTier(options, tier)
-	promptRunes := PromptRunesForTier(s.maxPromptRunes, tier, s.aiCfg, s.queryModel)
+	promptRunes := promptpkg.PromptRunesForTier(s.maxPromptRunes, tier, s.aiCfg, s.queryModel)
 	start := time.Now()
 	prompt := s.promptBuilder.Build(
 		ctx,
@@ -376,7 +417,7 @@ func (s *Service) buildPrompt(
 		prompt += block
 	}
 	buildDurationMs := time.Since(start).Milliseconds()
-	stats := MeasurePrompt(prompt, s.queryModel, tier, s.aiCfg)
+	stats := promptpkg.MeasurePrompt(prompt, s.queryModel, tier, s.aiCfg)
 	stats.PromptBuildDurationMs = buildDurationMs
 	slog.InfoContext(ctx, "ai prompt context",
 		"model", stats.Model,
@@ -388,15 +429,6 @@ func (s *Service) buildPrompt(
 		"prompt_build_ms", stats.PromptBuildDurationMs,
 	)
 	return prompt, stats
-}
-
-func tokenUsageEstimate(stats PromptStats, completion string) *TokenUsage {
-	promptTok := stats.EstPromptTokens
-	completionTok := EstimateTokens(completion)
-	if promptTok == 0 && completionTok == 0 {
-		return nil
-	}
-	return newTokenUsage(promptTok, completionTok, 0)
 }
 
 // buildClarification wraps a free-text clarification question into the
@@ -427,7 +459,7 @@ func (s *Service) tryMultiCandidate(
 	prompt string,
 	model *semantic.SemanticModel,
 	options processOptions,
-	stats PromptStats,
+	stats promptpkg.PromptStats,
 	filterSess *FilterSessionState,
 	followIntent FollowUpIntent,
 ) (*AIResponse, bool) {
@@ -439,7 +471,7 @@ func (s *Service) tryMultiCandidate(
 	type candidate struct {
 		idx      int
 		lq       *query.LogicalQuery
-		gen      GenerationResult
+		gen      providerpkg.GenerationResult
 		warnings []string
 		fp       string
 	}
@@ -461,7 +493,7 @@ func (s *Service) tryMultiCandidate(
 			}
 
 			type genResult struct {
-				gen GenerationResult
+				gen providerpkg.GenerationResult
 				err error
 			}
 			ch := make(chan genResult, 1)
@@ -557,7 +589,7 @@ func (s *Service) tryMultiCandidate(
 		Prompt:                      prompt,
 		RawResponse:                 winner.gen.Content,
 		PromptStats:                 &stats,
-		TokenUsage:                  tokenUsageFromGeneration(stats, winner.gen),
+		TokenUsage:                  providerpkg.TokenUsageFromGeneration(stats, winner.gen),
 		PromptTemplateLocale:        templateLocale,
 		PromptTemplateVersions:      templateVersions,
 		PromptTemplateBundleVersion: bundleVersion,
@@ -684,7 +716,7 @@ func formatFingerprintValue(val any) string {
 // surface to the user. Failures are swallowed: clarification is best-effort
 // and must never mask the underlying validation/parse error to the caller.
 func (s *Service) tryGenerateClarification(ctx context.Context, question string, model *semantic.SemanticModel, failureReason string) string {
-	loc := PromptLocaleForQuestion(question, i18n.FromContext(ctx))
+	loc := promptpkg.PromptLocaleForQuestion(question, i18n.FromContext(ctx))
 	prompt := s.promptBuilder.BuildClarification(ctx, loc, question, model, failureReason)
 	gen, err := s.client.Generate(ctx, prompt)
 	var content string

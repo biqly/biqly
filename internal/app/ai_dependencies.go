@@ -6,6 +6,10 @@ import (
 	"log/slog"
 
 	"github.com/biqly/biqly/internal/ai"
+	evalpkg "github.com/biqly/biqly/internal/ai/eval"
+	"github.com/biqly/biqly/internal/ai/prompt"
+	providerpkg "github.com/biqly/biqly/internal/ai/provider"
+	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/core"
@@ -49,14 +53,14 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		Encryptor:   encryptor,
 	})
 
-	aiClient, err := ai.NewProvider(cfg.AI)
+	aiClient, err := providerpkg.NewProvider(cfg.AI)
 	if err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("ai provider: %w", err)
 	}
 	aiQueryClient := aiClient
 	if cfg.AI.HasQueryOverride() {
-		queryClient, err := ai.NewProvider(cfg.AI.EffectiveQueryConfig())
+		queryClient, err := providerpkg.NewProvider(cfg.AI.EffectiveQueryConfig())
 		if err != nil {
 			_ = db.Close()
 			return nil, fmt.Errorf("ai query provider: %w", err)
@@ -74,23 +78,23 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 	var embedder ai.Embedder
 	var embedMeta *ai.EmbedMetadataService
 	if cfg.AI.EmbeddingsConfigured() {
-		embedder = ai.NewOpenAIEmbedder(cfg.AI)
+		embedder = providerpkg.NewOpenAIEmbedder(cfg.AI)
 		embedMeta = ai.NewEmbedMetadataService(embedder, metaRepo)
 	}
 
-	if err := ai.InitRouting(cfg.AI.RoutingLexiconPath, cfg.AI.RoutingWeightsPath); err != nil {
+	if err := routing.InitRouting(cfg.AI.RoutingLexiconPath, cfg.AI.RoutingWeightsPath); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("routing config: %w", err)
 	}
 
-	ai.SetPromptTemplateStore(ai.NewDBPromptTemplateStore(metaRepo))
-	if err := ai.SeedPromptTemplatesFromEmbed(ctx, metaRepo); err != nil {
+	prompt.SetPromptTemplateStore(prompt.NewDBPromptTemplateStore(metaRepo))
+	if err := prompt.SeedPromptTemplatesFromEmbed(ctx, metaRepo); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("seed prompt templates: %w", err)
 	}
 
-	timeGrainsStore := ai.NewDBTimeGrainStore(metaRepo)
-	if err := ai.SeedTimeGrains(ctx, metaRepo); err != nil {
+	timeGrainsStore := routing.NewDBTimeGrainStore(metaRepo)
+	if err := routing.SeedTimeGrains(ctx, metaRepo); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("seed time grains: %w", err)
 	}
@@ -130,7 +134,7 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		AIQueryClient: aiQueryClient,
 		AIDescriber:   describer,
 		Encryptor:     encryptor,
-		EvalRepo:      ai.NewEvalRepository(db),
+		EvalRepo:      evalpkg.NewEvalRepository(db),
 		AuditLogger:   audit.NewLogger(slog.Default()),
 		Embedder:      embedder,
 		AIEmbedMeta:   embedMeta,
