@@ -41,7 +41,7 @@ if avatarURLNull.Valid { user.AvatarURL = &avatarURLNull.String }
 
 ---
 
-### [ ] 1.2 [HIGH] Auth Repository - Workspace+Role Bootstrap 2x Tekrar (~50 satir)
+### [x] 1.2 [HIGH] Auth Repository - Workspace+Role Bootstrap 2x Tekrar (~50 satir)
 
 **Dosyalar:**
 
@@ -593,7 +593,7 @@ func (p *PoolCache) Get(ctx context.Context, driver Driver, datasourceID, dsn st
 | # | Gorev | Dosya | Etki | Efor |
 | --- | --- | --- | --- | --- |
 | [x] 1.1 | `scanUser` helper cikar | `auth/repository.go` | 75 satir azalma | 30 dk |
-| [ ] 1.2 | `bootstrapUserWorkspace` helper cikar | `auth/repository.go` | 50 satir azalma | 30 dk |
+| [x] 1.2 | `bootstrapUserWorkspace` helper cikar | `auth/repository.go` | 50 satir azalma | 30 dk |
 | [ ] 1.3 | `resolveUserDatasourceSet` helper cikar | `http/handlers/` | 40 satir azalma | 45 dk |
 | [ ] 1.4 | `RunInTx` helper ekle | `platform/db/` | 45 satir azalma | 30 dk |
 | [ ] 1.5 | Nullable helper'leri `platform/db/`'de birlestir | `platform/db/` | 30 satir azalma | 1 saat |

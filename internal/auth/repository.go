@@ -76,55 +76,9 @@ func (r *UserRepository) CreateUser(ctx context.Context, email, passwordHash, di
 		user.AvatarURL = &avatarURLNull.String
 	}
 
-	// Automatically create a personal workspace for the user
-	workspaceQuery := `
-		INSERT INTO workspaces (name, slug, is_personal, created_by)
-		VALUES ($1, $2, TRUE, $3)
-		RETURNING id
-	`
-	workspaceSlug := fmt.Sprintf("%s-personal", user.ID)
-	workspaceName := fmt.Sprintf("%s's Workspace", displayName)
-	if displayName == "" {
-		workspaceName = fmt.Sprintf("%s's Workspace", email)
-	}
-
-	var workspaceID string
-	err = tx.QueryRowContext(ctx, workspaceQuery, workspaceName, workspaceSlug, user.ID).Scan(&workspaceID)
-	if err != nil {
-		return nil, fmt.Errorf("create personal workspace: %w", err)
-	}
-
-	// Get default viewer role ID (or analyst or user roles)
-	var roleID string
-	err = tx.QueryRowContext(ctx, "SELECT id FROM roles WHERE name = 'viewer'").Scan(&roleID)
-	if err != nil {
-		return nil, fmt.Errorf("get default role: %w", err)
-	}
-
-	// Assign global role as viewer (default)
-	userRoleQuery := `
-		INSERT INTO user_roles (user_id, role_id, scope_type, scope_id)
-		VALUES ($1, $2, 'global', '00000000-0000-0000-0000-000000000000')
-	`
-	_, err = tx.ExecContext(ctx, userRoleQuery, user.ID, roleID)
-	if err != nil {
-		return nil, fmt.Errorf("assign default role: %w", err)
-	}
-
-	// Also add member to personal workspace as 'admin' of that workspace
-	var adminRoleID string
-	err = tx.QueryRowContext(ctx, "SELECT id FROM roles WHERE name = 'admin'").Scan(&adminRoleID)
-	if err != nil {
-		return nil, fmt.Errorf("get admin role: %w", err)
-	}
-
-	workspaceMemberQuery := `
-		INSERT INTO workspace_members (workspace_id, user_id, role_id)
-		VALUES ($1, $2, $3)
-	`
-	_, err = tx.ExecContext(ctx, workspaceMemberQuery, workspaceID, user.ID, adminRoleID)
-	if err != nil {
-		return nil, fmt.Errorf("add member to workspace: %w", err)
+	// Automatically create a personal workspace for the user and assign roles.
+	if err := bootstrapUserWorkspace(ctx, tx, user.ID, displayName, email); err != nil {
+		return nil, err
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -132,6 +86,57 @@ func (r *UserRepository) CreateUser(ctx context.Context, email, passwordHash, di
 	}
 
 	return &user, nil
+}
+
+// bootstrapUserWorkspace provisions a newly created user: it creates a personal
+// workspace, assigns the global viewer role, and adds the user as admin of their
+// personal workspace. It must run inside the same transaction as user creation.
+func bootstrapUserWorkspace(ctx context.Context, tx *sql.Tx, userID, displayName, email string) error {
+	workspaceQuery := `
+		INSERT INTO workspaces (name, slug, is_personal, created_by)
+		VALUES ($1, $2, TRUE, $3)
+		RETURNING id
+	`
+	workspaceSlug := fmt.Sprintf("%s-personal", userID)
+	workspaceName := fmt.Sprintf("%s's Workspace", displayName)
+	if displayName == "" {
+		workspaceName = fmt.Sprintf("%s's Workspace", email)
+	}
+
+	var workspaceID string
+	if err := tx.QueryRowContext(ctx, workspaceQuery, workspaceName, workspaceSlug, userID).Scan(&workspaceID); err != nil {
+		return fmt.Errorf("create personal workspace: %w", err)
+	}
+
+	// Get default viewer role ID and assign it as the global role.
+	var roleID string
+	if err := tx.QueryRowContext(ctx, "SELECT id FROM roles WHERE name = 'viewer'").Scan(&roleID); err != nil {
+		return fmt.Errorf("get default role: %w", err)
+	}
+
+	userRoleQuery := `
+		INSERT INTO user_roles (user_id, role_id, scope_type, scope_id)
+		VALUES ($1, $2, 'global', '00000000-0000-0000-0000-000000000000')
+	`
+	if _, err := tx.ExecContext(ctx, userRoleQuery, userID, roleID); err != nil {
+		return fmt.Errorf("assign default role: %w", err)
+	}
+
+	// Add the user as 'admin' of their personal workspace.
+	var adminRoleID string
+	if err := tx.QueryRowContext(ctx, "SELECT id FROM roles WHERE name = 'admin'").Scan(&adminRoleID); err != nil {
+		return fmt.Errorf("get admin role: %w", err)
+	}
+
+	workspaceMemberQuery := `
+		INSERT INTO workspace_members (workspace_id, user_id, role_id)
+		VALUES ($1, $2, $3)
+	`
+	if _, err := tx.ExecContext(ctx, workspaceMemberQuery, workspaceID, userID, adminRoleID); err != nil {
+		return fmt.Errorf("add member to workspace: %w", err)
+	}
+
+	return nil
 }
 
 // scanUser scans a full user row (11 columns) into a *User, converting
@@ -175,7 +180,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*Use
 		WHERE email = $1
 	`
 	user, err := scanUser(r.db.QueryRowContext(ctx, query, email))
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrUserNotFound
 	} else if err != nil {
 		return nil, err
@@ -190,7 +195,7 @@ func (r *UserRepository) GetUserByID(ctx context.Context, id string) (*User, err
 		WHERE id = $1
 	`
 	user, err := scanUser(r.db.QueryRowContext(ctx, query, id))
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrUserNotFound
 	} else if err != nil {
 		return nil, err
@@ -358,51 +363,8 @@ func (r *UserRepository) CreateUserWithOAuth(ctx context.Context, email, display
 		}
 		userID = user.ID
 
-		workspaceQuery := `
-			INSERT INTO workspaces (name, slug, is_personal, created_by)
-			VALUES ($1, $2, TRUE, $3)
-			RETURNING id
-		`
-		workspaceSlug := fmt.Sprintf("%s-personal", userID)
-		workspaceName := fmt.Sprintf("%s's Workspace", displayName)
-		if displayName == "" {
-			workspaceName = fmt.Sprintf("%s's Workspace", email)
-		}
-
-		var workspaceID string
-		err = tx.QueryRowContext(ctx, workspaceQuery, workspaceName, workspaceSlug, userID).Scan(&workspaceID)
-		if err != nil {
-			return nil, fmt.Errorf("create personal workspace: %w", err)
-		}
-
-		var roleID string
-		err = tx.QueryRowContext(ctx, "SELECT id FROM roles WHERE name = 'viewer'").Scan(&roleID)
-		if err != nil {
-			return nil, fmt.Errorf("get default role: %w", err)
-		}
-
-		userRoleQuery := `
-			INSERT INTO user_roles (user_id, role_id, scope_type, scope_id)
-			VALUES ($1, $2, 'global', '00000000-0000-0000-0000-000000000000')
-		`
-		_, err = tx.ExecContext(ctx, userRoleQuery, userID, roleID)
-		if err != nil {
-			return nil, fmt.Errorf("assign default role: %w", err)
-		}
-
-		var adminRoleID string
-		err = tx.QueryRowContext(ctx, "SELECT id FROM roles WHERE name = 'admin'").Scan(&adminRoleID)
-		if err != nil {
-			return nil, fmt.Errorf("get admin role: %w", err)
-		}
-
-		workspaceMemberQuery := `
-			INSERT INTO workspace_members (workspace_id, user_id, role_id)
-			VALUES ($1, $2, $3)
-		`
-		_, err = tx.ExecContext(ctx, workspaceMemberQuery, workspaceID, userID, adminRoleID)
-		if err != nil {
-			return nil, fmt.Errorf("add member to workspace: %w", err)
+		if err := bootstrapUserWorkspace(ctx, tx, userID, displayName, email); err != nil {
+			return nil, err
 		}
 	}
 
@@ -695,7 +657,7 @@ func (r *UserRepository) GetUserByEmailOrUsername(ctx context.Context, loginStr 
 		WHERE email = $1 OR username = $1
 	`
 	user, err := scanUser(r.db.QueryRowContext(ctx, query, loginStr))
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrUserNotFound
 	} else if err != nil {
 		return nil, err
