@@ -37,8 +37,8 @@ global:
       cidrs:
         - 100.118.9.4/32
   migrate:
-    image:
-      tag: sha-91a9ff58d06ca78fdf3cf136c42c65c1e8b349a6
+    enabled: true
+    backoffLimit: 3
 
 auth:
   enabled: true

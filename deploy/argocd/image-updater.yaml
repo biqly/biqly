@@ -13,7 +13,7 @@ spec:
     allowTags: regexp:^sha-[0-9a-f]{40}$
     ignoreTags:
       - latest
-    forceUpdate: false
+    forceUpdate: true
   applicationRefs:
     - namePattern: biqly
       images:

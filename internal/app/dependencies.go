@@ -59,13 +59,16 @@ type Dependencies struct {
 	// Embedder is the embeddings provider used for vector-based table
 	// retrieval. nil when no API key is configured — callers MUST tolerate
 	// nil (the table router falls back to keyword scoring).
-	Embedder     ai.Embedder
-	AIEmbedMeta  *ai.EmbedMetadataService
-	TimeGrains   routing.TimeGrainStore
-	Jobs         config.JobsConfig
-	AIJobQueue   queue.AIJobPublisher
-	AIJobService AIJobRunner
-	AIJobsHTTP   AIJobsHTTPHandler
+	Embedder    ai.Embedder
+	AIEmbedMeta *ai.EmbedMetadataService
+	TimeGrains  routing.TimeGrainStore
+	// AIProviderStore is the DB-backed AI provider/model registry. Always
+	// non-nil; it falls back to the env config when no DB rows are configured.
+	AIProviderStore *ai.ProviderStore
+	Jobs            config.JobsConfig
+	AIJobQueue      queue.AIJobPublisher
+	AIJobService    AIJobRunner
+	AIJobsHTTP      AIJobsHTTPHandler
 	// PoolCache holds *sql.DB pools for external datasources. Closed during
 	// Dependencies.Close().
 	PoolCache *datasource.PoolCache
@@ -99,57 +102,59 @@ func (d *Dependencies) CatalogDeps() *CatalogDeps {
 // AIDeps holds the subset of dependencies needed for the AI service
 // (NL to LogicalQuery, AI jobs, evaluation, descriptions, feedback, few-shot examples).
 type AIDeps struct {
-	Config        *config.Config
-	DriverReg     *datasource.Registry
-	MetaRepo      *metadata.Repository
-	SemanticRepo  *semantic.Repository
-	Validator     *query.Validator
-	QueryService  *core.QueryService
-	CatalogClient *catalogclient.Client
-	QueryClient   *queryclient.Client
-	AIClient      providerpkg.Provider
-	AIQueryClient providerpkg.Provider
-	AIDescriber   *ai.DescribeService
-	Encryptor     *security.Encryption
-	EvalRepo      *evalpkg.EvalRepository
-	AuditLogger   *audit.Logger
-	Embedder      ai.Embedder
-	AIEmbedMeta   *ai.EmbedMetadataService
-	TimeGrains    routing.TimeGrainStore
-	Jobs          config.JobsConfig
-	AIJobQueue    queue.AIJobPublisher
-	AIJobService  AIJobRunner
-	AIJobsHTTP    AIJobsHTTPHandler
-	PoolCache     *datasource.PoolCache
-	Executor      *query.Executor
+	Config          *config.Config
+	DriverReg       *datasource.Registry
+	MetaRepo        *metadata.Repository
+	SemanticRepo    *semantic.Repository
+	Validator       *query.Validator
+	QueryService    *core.QueryService
+	CatalogClient   *catalogclient.Client
+	QueryClient     *queryclient.Client
+	AIClient        providerpkg.Provider
+	AIQueryClient   providerpkg.Provider
+	AIDescriber     *ai.DescribeService
+	Encryptor       *security.Encryption
+	EvalRepo        *evalpkg.EvalRepository
+	AuditLogger     *audit.Logger
+	Embedder        ai.Embedder
+	AIEmbedMeta     *ai.EmbedMetadataService
+	TimeGrains      routing.TimeGrainStore
+	AIProviderStore *ai.ProviderStore
+	Jobs            config.JobsConfig
+	AIJobQueue      queue.AIJobPublisher
+	AIJobService    AIJobRunner
+	AIJobsHTTP      AIJobsHTTPHandler
+	PoolCache       *datasource.PoolCache
+	Executor        *query.Executor
 }
 
 // AIDeps returns a structured copy of dependencies for the AI subsystem.
 func (d *Dependencies) AIDeps() *AIDeps {
 	return &AIDeps{
-		Config:        d.Config,
-		DriverReg:     d.DriverReg,
-		MetaRepo:      d.MetaRepo,
-		SemanticRepo:  d.SemanticRepo,
-		Validator:     d.Validator,
-		QueryService:  d.QueryService,
-		CatalogClient: d.CatalogClient,
-		QueryClient:   d.QueryClient,
-		AIClient:      d.AIClient,
-		AIQueryClient: d.AIQueryClient,
-		AIDescriber:   d.AIDescriber,
-		Encryptor:     d.Encryptor,
-		EvalRepo:      d.EvalRepo,
-		AuditLogger:   d.AuditLogger,
-		Embedder:      d.Embedder,
-		AIEmbedMeta:   d.AIEmbedMeta,
-		TimeGrains:    d.TimeGrains,
-		Jobs:          d.Jobs,
-		AIJobQueue:    d.AIJobQueue,
-		AIJobService:  d.AIJobService,
-		AIJobsHTTP:    d.AIJobsHTTP,
-		PoolCache:     d.PoolCache,
-		Executor:      d.Executor,
+		Config:          d.Config,
+		DriverReg:       d.DriverReg,
+		MetaRepo:        d.MetaRepo,
+		SemanticRepo:    d.SemanticRepo,
+		Validator:       d.Validator,
+		QueryService:    d.QueryService,
+		CatalogClient:   d.CatalogClient,
+		QueryClient:     d.QueryClient,
+		AIClient:        d.AIClient,
+		AIQueryClient:   d.AIQueryClient,
+		AIDescriber:     d.AIDescriber,
+		Encryptor:       d.Encryptor,
+		EvalRepo:        d.EvalRepo,
+		AuditLogger:     d.AuditLogger,
+		Embedder:        d.Embedder,
+		AIEmbedMeta:     d.AIEmbedMeta,
+		TimeGrains:      d.TimeGrains,
+		AIProviderStore: d.AIProviderStore,
+		Jobs:            d.Jobs,
+		AIJobQueue:      d.AIJobQueue,
+		AIJobService:    d.AIJobService,
+		AIJobsHTTP:      d.AIJobsHTTP,
+		PoolCache:       d.PoolCache,
+		Executor:        d.Executor,
 	}
 }
 
@@ -231,25 +236,26 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 	}
 
 	return &Dependencies{
-		Config:        cfg,
-		MetadataDB:    db,
-		DriverReg:     reg,
-		MetaRepo:      metaRepo,
-		SemanticRepo:  semanticRepo,
-		Validator:     validator,
-		Executor:      executor,
-		QueryService:  queryService,
-		AIClient:      aiBits.client,
-		AIQueryClient: aiBits.queryClient,
-		AIDescriber:   aiBits.describer,
-		Encryptor:     encryptor,
-		EvalRepo:      aiBits.evalRepo,
-		AuditLogger:   audit.NewLogger(slog.Default()),
-		Embedder:      aiBits.embedder,
-		AIEmbedMeta:   aiBits.embedMeta,
-		TimeGrains:    aiBits.timeGrains,
-		PoolCache:     poolCache,
-		Jobs:          cfg.Jobs,
+		Config:          cfg,
+		MetadataDB:      db,
+		DriverReg:       reg,
+		MetaRepo:        metaRepo,
+		SemanticRepo:    semanticRepo,
+		Validator:       validator,
+		Executor:        executor,
+		QueryService:    queryService,
+		AIClient:        aiBits.client,
+		AIQueryClient:   aiBits.queryClient,
+		AIDescriber:     aiBits.describer,
+		Encryptor:       encryptor,
+		EvalRepo:        aiBits.evalRepo,
+		AuditLogger:     audit.NewLogger(slog.Default()),
+		Embedder:        aiBits.embedder,
+		AIEmbedMeta:     aiBits.embedMeta,
+		TimeGrains:      aiBits.timeGrains,
+		AIProviderStore: aiBits.providerStore,
+		PoolCache:       poolCache,
+		Jobs:            cfg.Jobs,
 	}, nil
 }
 
@@ -288,13 +294,34 @@ func newDriverRegistry() *datasource.Registry {
 // aiBundle groups every AI-related dependency returned by setupAI so the
 // main constructor stays readable.
 type aiBundle struct {
-	client      providerpkg.Provider
-	queryClient providerpkg.Provider
-	describer   *ai.DescribeService
-	embedder    ai.Embedder
-	embedMeta   *ai.EmbedMetadataService
-	evalRepo    *evalpkg.EvalRepository
-	timeGrains  routing.TimeGrainStore
+	client        providerpkg.Provider
+	queryClient   providerpkg.Provider
+	describer     *ai.DescribeService
+	embedder      ai.Embedder
+	embedMeta     *ai.EmbedMetadataService
+	evalRepo      *evalpkg.EvalRepository
+	timeGrains    routing.TimeGrainStore
+	providerStore *ai.ProviderStore
+}
+
+// provideProviderStore builds the DB-backed AI provider/model store. When
+// BI_AI_DB_MANAGED is true it seeds an empty database from the BI_AI_* env vars
+// and loads the per-purpose defaults into the in-memory cache. Failures are
+// non-fatal: the store always retains the env config as a fallback.
+func provideProviderStore(ctx context.Context, cfg *config.Config, db *sql.DB, encryptor *security.Encryption) *ai.ProviderStore {
+	store := ai.NewProviderStore(db, encryptor, cfg.AI)
+	if !cfg.AI.DBManaged {
+		return store
+	}
+	if seeded, err := store.SeedFromEnv(ctx); err != nil {
+		slog.Warn("ai provider env seed failed; using env fallback", "error", err)
+	} else if seeded {
+		slog.Info("seeded ai provider configuration from environment")
+	}
+	if err := store.RefreshCache(ctx); err != nil {
+		slog.Warn("ai provider cache refresh failed; using env fallback", "error", err)
+	}
+	return store
 }
 
 // setupAI wires the LLM provider, optional override provider for NL→query,
@@ -309,30 +336,47 @@ func setupAI(
 	reg *datasource.Registry,
 	encryptor *security.Encryption,
 ) (aiBundle, error) {
-	client, err := providerpkg.NewProvider(cfg.AI)
+	providerStore := provideProviderStore(ctx, cfg, db, encryptor)
+
+	baseFallback, err := providerpkg.NewProvider(cfg.AI)
 	if err != nil {
 		return aiBundle{}, fmt.Errorf("ai provider: %w", err)
 	}
-	queryClient := client
+	queryFallback := baseFallback
 	if cfg.AI.HasQueryOverride() {
 		qc, qerr := providerpkg.NewProvider(cfg.AI.EffectiveQueryConfig())
 		if qerr != nil {
 			return aiBundle{}, fmt.Errorf("ai query provider: %w", qerr)
 		}
-		queryClient = qc
+		queryFallback = qc
 		slog.Info("AI query provider overridden",
 			"model", cfg.AI.EffectiveQueryConfig().Model,
 			"base_url", cfg.AI.EffectiveQueryConfig().BaseURL,
 			"describe_model", cfg.AI.Model)
 	}
 
-	translator := ai.NewTranslationServiceFromConfig(cfg.AI)
-	describer := ai.NewDescribeService(client, metaRepo, reg, translator, 10, cfg.AI.DescribeMaxCellRunes, cfg.AI.DescribeMaxSampleRows, encryptor).WithModel(cfg.AI.Model)
+	// Effective config carries DB-managed embedding/translation overrides; when
+	// DB management is off it is identical to the env config.
+	effectiveCfg := cfg.AI
+	client := baseFallback
+	queryClient := queryFallback
+	describeModel := cfg.AI.Model
+	if cfg.AI.DBManaged {
+		effectiveCfg = providerStore.EffectiveConfig()
+		client = ai.NewPurposeProvider(providerStore, ai.PurposeDescribe, baseFallback)
+		queryClient = ai.NewPurposeProvider(providerStore, ai.PurposeQuery, queryFallback)
+		if describeCfg, ok := providerStore.ChatConfigForPurpose(ai.PurposeDescribe); ok {
+			describeModel = describeCfg.Model
+		}
+	}
+
+	translator := ai.NewTranslationServiceFromConfig(effectiveCfg)
+	describer := ai.NewDescribeService(client, metaRepo, reg, translator, 10, cfg.AI.DescribeMaxCellRunes, cfg.AI.DescribeMaxSampleRows, encryptor).WithModel(describeModel)
 
 	var embedder ai.Embedder
 	var embedMeta *ai.EmbedMetadataService
-	if cfg.AI.EmbeddingsConfigured() {
-		embedder = providerpkg.NewOpenAIEmbedder(cfg.AI)
+	if effectiveCfg.EmbeddingsConfigured() {
+		embedder = providerpkg.NewOpenAIEmbedder(effectiveCfg)
 		embedMeta = ai.NewEmbedMetadataService(embedder, metaRepo).
 			WithDeniedSchemas(cfg.AI.EmbeddingDenySchemas).
 			WithDeniedTables(cfg.AI.EmbeddingDenyTables)
@@ -355,13 +399,14 @@ func setupAI(
 	}
 
 	return aiBundle{
-		client:      client,
-		queryClient: queryClient,
-		describer:   describer,
-		embedder:    embedder,
-		embedMeta:   embedMeta,
-		evalRepo:    evalRepo,
-		timeGrains:  timeGrains,
+		client:        client,
+		queryClient:   queryClient,
+		describer:     describer,
+		embedder:      embedder,
+		embedMeta:     embedMeta,
+		evalRepo:      evalRepo,
+		timeGrains:    timeGrains,
+		providerStore: providerStore,
 	}, nil
 }
 

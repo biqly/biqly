@@ -325,15 +325,15 @@ Bu bölüm Wren dokümanından Biqly Go backend'ine doğrudan uygulanacak somut 
 
 **Detaylı plan:** [`ai_provider_db_yonetimi_plan.md`](ai_provider_db_yonetimi_plan.md)
 
-**Özet:**
-- [ ] `ai_providers` + `ai_models` DB tabloları (migration)
-- [ ] `ProviderStore` — in-memory cache + hot-reload
-- [ ] Purpose bazlı model yönetimi: query, describe, embedding, translation, judge
-- [ ] API key AES encryption + masking
-- [ ] Admin CRUD API: `/api/ai/providers/*`, `/api/ai/models/*`
-- [ ] Bağlantı test endpoint'i: `POST /api/ai/providers/{id}/test`
-- [ ] Frontend admin panel: provider kartları + model yönetimi + purpose bazlı seçim
-- [ ] Env fallback (backward compatible) + auto-seed
+**Özet:** ✅ Tamamlandı (2026-05-31)
+- [x] `ai_providers` + `ai_models` DB tabloları (migration `033a/033b`)
+- [x] `ProviderStore` — in-memory cache + hot-reload (`internal/ai/provider_store.go` + `PurposeProvider`, restart-free)
+- [x] Purpose bazlı model yönetimi: query, describe, embedding, translation, judge
+- [x] API key AES encryption + masking (`security.Encryption`, `••••last4`)
+- [x] Admin CRUD API: `/api/ai/providers/*`, `/api/ai/models/*` (admin-gated)
+- [x] Bağlantı test endpoint'i: `POST /api/ai/providers/{id}/test`
+- [x] Frontend admin panel: provider kartları + model yönetimi + purpose bazlı seçim (`AIProvidersPanel.tsx`)
+- [x] Env fallback (backward compatible) + auto-seed (`BI_AI_DB_MANAGED`, varsayılan `true`)
 
 ### 4.7 Streaming Query Results (B8 — Düşük Öncelik)
 

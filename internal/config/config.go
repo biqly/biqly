@@ -118,6 +118,12 @@ type ServicesConfig struct {
 
 // AIConfig holds AI provider configuration.
 type AIConfig struct {
+	// DBManaged, when true, sources provider/model selection from the
+	// ai_providers / ai_models tables (managed at runtime via the admin API)
+	// instead of the BI_AI_* connection variables. The BI_AI_* values are kept
+	// as a fallback and as the seed for an empty database, so deployments that
+	// only set environment variables keep working unchanged.
+	DBManaged          bool
 	Provider           string
 	APIKey             string
 	BaseURL            string
@@ -244,6 +250,7 @@ func Load() (*Config, error) {
 			AIURL:      strings.TrimRight(getEnv("BI_AI_SERVICE_URL", ""), "/"),
 		},
 		AI: AIConfig{
+			DBManaged:             getEnvAsBool("BI_AI_DB_MANAGED", true),
 			Provider:              getEnv("BI_AI_PROVIDER", "openai"),
 			APIKey:                getEnv("BI_AI_API_KEY", ""),
 			BaseURL:               getEnv("BI_AI_BASE_URL", ""),

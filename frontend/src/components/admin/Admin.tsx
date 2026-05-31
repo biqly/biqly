@@ -12,8 +12,9 @@ const UserListPage = lazy(() => import('./UserListPage').then(m => ({ default: m
 const UserDetailPage = lazy(() => import('./UserDetailPage').then(m => ({ default: m.UserDetailPage })))
 const AIHistoryPanel = lazy(() => import('../ai/AIHistoryPanel').then(m => ({ default: m.AIHistoryPanel })))
 const SharedResourcesList = lazy(() => import('../sharing/SharedResourcesList').then(m => ({ default: m.SharedResourcesList })))
+const AIProvidersPanel = lazy(() => import('./AIProvidersPanel').then(m => ({ default: m.AIProvidersPanel })))
 
-type AdminTab = 'users' | 'roles' | 'datasource_access' | 'workspaces' | 'ai_history' | 'sharing' | 'audit_log'
+type AdminTab = 'users' | 'roles' | 'datasource_access' | 'workspaces' | 'ai_history' | 'sharing' | 'audit_log' | 'ai_providers'
 
 const pendingStyle: React.CSSProperties = { padding: 24 }
 const layoutStyle: React.CSSProperties = { padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }
@@ -83,6 +84,7 @@ export default function Admin() {
         <TabButton active={tab === 'ai_history'} onClick={() => handleTabChange('ai_history')}>{t('admin.ai_history.title')}</TabButton>
         <TabButton active={tab === 'sharing'} onClick={() => handleTabChange('sharing')}>{t('admin.sharing.title')}</TabButton>
         <TabButton active={tab === 'audit_log'} onClick={() => handleTabChange('audit_log')}>{t('admin.tabs.audit_log')}</TabButton>
+        <TabButton active={tab === 'ai_providers'} onClick={() => handleTabChange('ai_providers')}>{t('admin.tabs.ai_providers')}</TabButton>
       </div>
 
       <div style={{ position: 'relative', minHeight: '200px' }}>
@@ -100,6 +102,7 @@ export default function Admin() {
           {tab === 'ai_history' && <AIHistoryPanel />}
           {tab === 'sharing' && <SharedResourcesList />}
           {tab === 'audit_log' && <AuditLogPanel token={accessToken} />}
+          {tab === 'ai_providers' && <AIProvidersPanel />}
         </Suspense>
       </div>
     </div>

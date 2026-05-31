@@ -106,6 +106,21 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 		r.Get("/ai/eval/runs", aiHandler.EvalListRuns)
 		r.Get("/ai/eval/runs/{id}", aiHandler.EvalGetRun)
 		r.Get("/ai/eval/regression", aiHandler.EvalRegression)
+
+		// AI provider/model runtime management (DB-managed, hot-reloaded).
+		providersHandler := handlers.NewAIProvidersHandler(deps)
+		r.Get("/ai/providers", providersHandler.ListProviders)
+		r.Post("/ai/providers", providersHandler.CreateProvider)
+		r.Get("/ai/providers/active-models", providersHandler.ActiveModels)
+		r.Get("/ai/providers/{id}", providersHandler.GetProvider)
+		r.Put("/ai/providers/{id}", providersHandler.UpdateProvider)
+		r.Delete("/ai/providers/{id}", providersHandler.DeleteProvider)
+		r.Post("/ai/providers/{id}/test", providersHandler.TestProvider)
+		r.Get("/ai/models", providersHandler.ListModels)
+		r.Post("/ai/models", providersHandler.CreateModel)
+		r.Put("/ai/models/{id}", providersHandler.UpdateModel)
+		r.Delete("/ai/models/{id}", providersHandler.DeleteModel)
+		r.Post("/ai/models/{id}/default", providersHandler.SetDefaultModel)
 	})
 
 	examplesHandler := handlers.NewAIExamplesHandler(deps)

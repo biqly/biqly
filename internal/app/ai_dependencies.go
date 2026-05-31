@@ -41,32 +41,47 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		Encryptor:   encryptor,
 	})
 
-	aiClient, err := providerpkg.NewProvider(cfg.AI)
+	providerStore := provideProviderStore(ctx, cfg, db, encryptor)
+
+	baseFallback, err := providerpkg.NewProvider(cfg.AI)
 	if err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("ai provider: %w", err)
 	}
-	aiQueryClient := aiClient
+	queryFallback := baseFallback
 	if cfg.AI.HasQueryOverride() {
 		queryClient, err := providerpkg.NewProvider(cfg.AI.EffectiveQueryConfig())
 		if err != nil {
 			_ = db.Close()
 			return nil, fmt.Errorf("ai query provider: %w", err)
 		}
-		aiQueryClient = queryClient
+		queryFallback = queryClient
 		slog.Info("AI query provider overridden",
 			"model", cfg.AI.EffectiveQueryConfig().Model,
 			"base_url", cfg.AI.EffectiveQueryConfig().BaseURL,
 			"describe_model", cfg.AI.Model)
 	}
 
-	translator := ai.NewTranslationServiceFromConfig(cfg.AI)
-	describer := ai.NewDescribeService(aiClient, metaRepo, reg, translator, 10, cfg.AI.DescribeMaxCellRunes, cfg.AI.DescribeMaxSampleRows, encryptor).WithModel(cfg.AI.Model)
+	effectiveCfg := cfg.AI
+	aiClient := baseFallback
+	aiQueryClient := queryFallback
+	describeModel := cfg.AI.Model
+	if cfg.AI.DBManaged {
+		effectiveCfg = providerStore.EffectiveConfig()
+		aiClient = ai.NewPurposeProvider(providerStore, ai.PurposeDescribe, baseFallback)
+		aiQueryClient = ai.NewPurposeProvider(providerStore, ai.PurposeQuery, queryFallback)
+		if describeCfg, ok := providerStore.ChatConfigForPurpose(ai.PurposeDescribe); ok {
+			describeModel = describeCfg.Model
+		}
+	}
+
+	translator := ai.NewTranslationServiceFromConfig(effectiveCfg)
+	describer := ai.NewDescribeService(aiClient, metaRepo, reg, translator, 10, cfg.AI.DescribeMaxCellRunes, cfg.AI.DescribeMaxSampleRows, encryptor).WithModel(describeModel)
 
 	var embedder ai.Embedder
 	var embedMeta *ai.EmbedMetadataService
-	if cfg.AI.EmbeddingsConfigured() {
-		embedder = providerpkg.NewOpenAIEmbedder(cfg.AI)
+	if effectiveCfg.EmbeddingsConfigured() {
+		embedder = providerpkg.NewOpenAIEmbedder(effectiveCfg)
 		embedMeta = ai.NewEmbedMetadataService(embedder, metaRepo)
 	}
 
@@ -108,25 +123,26 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 	}
 
 	return &Dependencies{
-		Config:        cfg,
-		MetadataDB:    db,
-		DriverReg:     reg,
-		MetaRepo:      metaRepo,
-		SemanticRepo:  semanticRepo,
-		Validator:     validator,
-		Executor:      executor,
-		QueryService:  queryService,
-		CatalogClient: catalogHTTPClient,
-		QueryClient:   queryHTTPClient,
-		AIClient:      aiClient,
-		AIQueryClient: aiQueryClient,
-		AIDescriber:   describer,
-		Encryptor:     encryptor,
-		EvalRepo:      evalpkg.NewEvalRepository(db),
-		AuditLogger:   audit.NewLogger(slog.Default()),
-		Embedder:      embedder,
-		AIEmbedMeta:   embedMeta,
-		Jobs:          cfg.Jobs,
-		TimeGrains:    timeGrainsStore,
+		Config:          cfg,
+		MetadataDB:      db,
+		DriverReg:       reg,
+		MetaRepo:        metaRepo,
+		SemanticRepo:    semanticRepo,
+		Validator:       validator,
+		Executor:        executor,
+		QueryService:    queryService,
+		CatalogClient:   catalogHTTPClient,
+		QueryClient:     queryHTTPClient,
+		AIClient:        aiClient,
+		AIQueryClient:   aiQueryClient,
+		AIDescriber:     describer,
+		Encryptor:       encryptor,
+		EvalRepo:        evalpkg.NewEvalRepository(db),
+		AuditLogger:     audit.NewLogger(slog.Default()),
+		Embedder:        embedder,
+		AIEmbedMeta:     embedMeta,
+		Jobs:            cfg.Jobs,
+		TimeGrains:      timeGrainsStore,
+		AIProviderStore: providerStore,
 	}, nil
 }

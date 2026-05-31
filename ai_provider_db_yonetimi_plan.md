@@ -384,31 +384,29 @@ API Key göster/gizle toggle. Test butonu ile bağlantı doğrulama.
 
 ### Backend
 
-- [ ] Migration: `ai_providers` + `ai_models` tabloları
-- [ ] `internal/ai/provider_store.go` — ProviderStore implementasyonu
-- [ ] `internal/ai/provider_store_test.go` — Unit testler
-- [ ] `internal/config/config.go` — `DBManaged` alanı + fallback logic
-- [ ] `internal/app/ai_dependencies.go` — ProviderStore wiring + resolve logic
-- [ ] `internal/app/dependencies.go` — Monolith wiring (aynı pattern)
-- [ ] `internal/ai/service.go` — ProviderStore entegrasyonu (per-call resolve)
-- [ ] `internal/ai/describe.go` — ProviderStore'dan describe model resolve
-- [ ] `internal/ai/embed_metadata.go` — ProviderStore'dan embedding model resolve
-- [ ] `internal/ai/translation.go` — ProviderStore'dan translation model resolve
-- [ ] `internal/http/handlers/ai_providers.go` — CRUD + test endpoint
-- [ ] `internal/http/handlers/ai_providers_test.go` — Handler testler
-- [ ] `internal/http/router.go` — Route kayıtları
-- [ ] Env → DB seed logic (auto-migration)
+- [x] Migration: `ai_providers` + `ai_models` tabloları (`033a/033b`)
+- [x] `internal/ai/provider_store.go` — ProviderStore implementasyonu (+ `purpose_provider.go` hot-reload)
+- [x] `internal/ai/provider_store_test.go` — Unit testler (DB gerektirmeyen: masking, config build, fallback, purpose delegation)
+- [x] `internal/config/config.go` — `DBManaged` alanı + fallback logic (`BI_AI_DB_MANAGED`, default `true`)
+- [x] `internal/app/ai_dependencies.go` — ProviderStore wiring + resolve logic
+- [x] `internal/app/dependencies.go` — Monolith wiring (`provideProviderStore` ortak yardımcı)
+- [x] `internal/ai/service.go` — ProviderStore entegrasyonu (`PurposeProvider` ile provider katmanında hot-reload; service.go değişikliği gerekmedi)
+- [x] describe / embedding / translation resolve (`ChatConfigForPurpose` + `EffectiveConfig` ile wiring'de)
+- [x] `internal/http/handlers/ai_providers.go` — CRUD + test endpoint
+- [ ] `internal/http/handlers/ai_providers_test.go` — Handler testler (DB/mocks gerektiriyor; ertelendi)
+- [x] `internal/http/ai_router.go` — Route kayıtları (admin-gated)
+- [x] Env → DB seed logic (`ProviderStore.SeedFromEnv`, startup'ta idempotent)
 
 ### Frontend
 
-- [ ] `admin/AIProvidersPanel.tsx` — Provider listesi + kart grid
-- [ ] `admin/AddProviderModal.tsx` — Provider ekleme formu
-- [ ] `admin/AddModelModal.tsx` — Model ekleme formu
-- [ ] `admin/ActiveModelsPanel.tsx` — Purpose bazlı aktif model görünümü
-- [ ] `hooks/useAIProviders.ts` — Provider/model API hook'u
-- [ ] Sidebar'a "AI Providers" link ekle
-- [ ] `/ai-query` routing panel güncelleme (aktif model göster)
-- [ ] `/settings` sayfasına AI config link
+- [x] `admin/AIProvidersPanel.tsx` — Provider listesi + kart grid (modallar + aktif model bölümü tek dosyada)
+- [x] Provider ekleme/düzenleme modalı (inline `ProviderModal` — tip→base URL autofill, key göster/gizle, test)
+- [x] Model ekleme/düzenleme modalı (inline `ModelModal` — purpose seçimi, set default)
+- [x] Purpose bazlı aktif model görünümü (panel içinde `Active Models by Purpose`)
+- [x] `api/aiProviders.ts` — Provider/model API katmanı (hook yerine typed API modülü)
+- [x] Admin paneline "AI Providers" tab ekle (`Admin.tsx`)
+- [ ] `/ai-query` routing panel güncelleme (aktif model göster) — ertelendi (opsiyonel polish)
+- [ ] `/settings` sayfasına AI config link — ertelendi (opsiyonel polish)
 
 ---
 
