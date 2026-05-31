@@ -640,8 +640,8 @@ func (p *PoolCache) Get(ctx context.Context, driver Driver, datasourceID, dsn st
 | [x] 4.1 | Auth paketini alt paketlere ayir | core, rbac, oauth, mfa, handlers, workspace |
 | [x] 4.2 | Datasource driver integration test'leri ekle | Özel mocking köprüleri ile tüm sürücüler unit-test edildi. |
 | [x] 4.3 | Metadata repository test coverage artir | 20+ test senaryosu ve işlevsellik doğrulandı. |
-| [ ] 4.4 | DI framework entegrasyonu | Wire/Dig ile constructor injection |
-| [ ] 4.5 | Observability standartizasyonu | Structured logging, metrics, tracing tutarliligi |
+| [x] 4.4 | DI framework entegrasyonu | Wire/Dig yerine framework'süz formalize edildi: `internal/app/providers.go` provider fonksiyonları (`provideRepositories`, `provideEncryptor`, `provideQueryEngine`) ve 4 composition root constructor. Reflection/codegen yok — Go ekibinin önerdiği açık manuel wiring. |
+| [x] 4.5 | Observability standartizasyonu | `internal/platform/observability`: iki paralel metrics sistemi tek Prometheus backend'inde birleştirildi (`promhttp` exposition), slog kurulumu tüm main'lerde `SetupLogging` ile tekilleştirildi, request-scoped logger (request_id + traceparent) eklendi. |
 
 ---
 

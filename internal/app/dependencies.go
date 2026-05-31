@@ -208,13 +208,11 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 
 	reg := newDriverRegistry()
 
-	metaRepo := metadata.NewRepository(db)
-	semanticRepo := semantic.NewRepository(db)
+	metaRepo, semanticRepo := provideRepositories(db)
 
-	encryptor := setupEncryption(ctx, db)
+	encryptor := provideEncryptor(ctx, db, true)
 
-	validator := query.NewValidator(cfg.Query.MaxRows)
-	executor := query.NewExecutor(cfg.Query.MaxRows, cfg.QueryTimeout())
+	validator, executor := provideQueryEngine(cfg)
 	poolCache := datasource.NewPoolCache()
 	queryService := core.NewQueryService(core.QueryServiceDeps{
 		Models:      semanticRepo,
@@ -285,21 +283,6 @@ func newDriverRegistry() *datasource.Registry {
 	reg.Register(sqlserver.NewDriver())
 	reg.Register(clickhouse.NewDriver())
 	return reg
-}
-
-// setupEncryption tries to load the BI_ENCRYPTION_KEY-backed Encryption
-// helper and migrates any plaintext DSNs to ciphertext. Returns nil on
-// missing key — datasource handlers tolerate nil and warn at write time.
-func setupEncryption(ctx context.Context, db *sql.DB) *security.Encryption {
-	enc, err := security.NewEncryption()
-	if err != nil {
-		slog.Warn("encryption disabled; DSNs will be stored in plaintext", "detail", err)
-		return nil
-	}
-	if migrateErr := migratePlaintextDSNs(ctx, db, enc); migrateErr != nil {
-		slog.Warn("failed to migrate existing plaintext DSNs to encrypted format", "error", migrateErr)
-	}
-	return enc
 }
 
 // aiBundle groups every AI-related dependency returned by setupAI so the

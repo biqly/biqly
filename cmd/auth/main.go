@@ -21,7 +21,7 @@ import (
 	"github.com/biqly/biqly/internal/auth/workspace"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/mail"
-	"github.com/biqly/biqly/internal/platform/logger"
+	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/internal/security"
 	"github.com/biqly/biqly/pkg/common/requestid"
 	"github.com/go-chi/chi/v5"
@@ -49,10 +49,7 @@ func main() {
 
 	// Structured JSON logging (defaults: info level, JSON format) so auth logs
 	// are machine-parseable and correlatable by request_id in aggregation.
-	slog.SetDefault(logger.New(logger.Config{
-		Level: logger.LevelFromString(os.Getenv("BI_AUTH_LOG_LEVEL")),
-		JSON:  logger.JSONFromString(os.Getenv("BI_AUTH_LOG_FORMAT")),
-	}))
+	observability.SetupLogging(os.Getenv("BI_AUTH_LOG_LEVEL"), os.Getenv("BI_AUTH_LOG_FORMAT"))
 
 	db, err := sql.Open("pgx", cfg.DBDSN)
 	if err != nil {

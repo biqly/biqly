@@ -9,36 +9,30 @@ import (
 )
 
 // BenchmarkMetricsRecordConcurrent measures the cost of the hot-path Record*
-// calls under contention. With the old sync.Mutex implementation, every
-// counter increment serialized through one lock; the atomic.Int64 refactor
-// should keep ns/op flat as parallelism increases.
+// calls under contention. The collectors are Prometheus counters/histograms,
+// which update lock-free on the hot path, so ns/op should stay flat as
+// parallelism increases.
 //
 // Run with:
 //
 //	go test -bench=BenchmarkMetricsRecord -benchmem ./internal/http/...
 func BenchmarkMetricsRecordConcurrent(b *testing.B) {
-	old := globalMetrics
-	b.Cleanup(func() { globalMetrics = old })
-	globalMetrics = &Metrics{}
+	m := GetMetrics()
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			globalMetrics.RecordQuery(42, true, false)
-			globalMetrics.RecordAIRequest(120, true, 0, false)
-			globalMetrics.RecordLLMRequest(95, 512, 8)
+			m.RecordQuery(42, true, false)
+			m.RecordAIRequest(120, true, 0, false)
+			m.RecordLLMRequest(95, 512, 8)
 		}
 	})
 }
 
-// BenchmarkMetricsHandlerConcurrent measures /metrics throughput while
-// Record* calls happen in parallel. With the mutex implementation the
-// handler serialized behind every increment; with atomic counters they
-// share no critical section.
+// BenchmarkMetricsHandlerConcurrent measures /metrics throughput while Record*
+// calls happen in parallel.
 func BenchmarkMetricsHandlerConcurrent(b *testing.B) {
-	old := globalMetrics
-	b.Cleanup(func() { globalMetrics = old })
-	globalMetrics = &Metrics{}
+	m := GetMetrics()
 
 	// Background writers warm the counters.
 	stop := make(chan struct{})
@@ -52,7 +46,7 @@ func BenchmarkMetricsHandlerConcurrent(b *testing.B) {
 				case <-stop:
 					return
 				default:
-					globalMetrics.RecordQuery(10, true, false)
+					m.RecordQuery(10, true, false)
 				}
 			}
 		}()
@@ -62,8 +56,7 @@ func BenchmarkMetricsHandlerConcurrent(b *testing.B) {
 		wg.Wait()
 	})
 
-	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/metrics", nil)
 		MetricsHandler(rec, req)

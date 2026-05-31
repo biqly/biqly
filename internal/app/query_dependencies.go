@@ -7,10 +7,6 @@ import (
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/core"
-	"github.com/biqly/biqly/internal/metadata"
-	"github.com/biqly/biqly/internal/query"
-	"github.com/biqly/biqly/internal/security"
-	"github.com/biqly/biqly/internal/semantic"
 	"github.com/biqly/biqly/pkg/catalogclient"
 )
 
@@ -23,19 +19,11 @@ func NewQueryDependencies(ctx context.Context, cfg *config.Config) (*Dependencie
 
 	reg := newDriverRegistry()
 
-	metaRepo := metadata.NewRepository(db)
-	semanticRepo := semantic.NewRepository(db)
+	metaRepo, semanticRepo := provideRepositories(db)
 
-	var encryptor *security.Encryption
-	enc, err := security.NewEncryption()
-	if err != nil {
-		slog.Warn("encryption disabled; DSNs will be read as plaintext", "detail", err)
-	} else {
-		encryptor = enc
-	}
+	encryptor := provideEncryptor(ctx, db, false)
 
-	validator := query.NewValidator(cfg.Query.MaxRows)
-	executor := query.NewExecutor(cfg.Query.MaxRows, cfg.QueryTimeout())
+	validator, executor := provideQueryEngine(cfg)
 	models := core.ModelLoader(semanticRepo)
 	datasources := core.DatasourceLoader(metaRepo)
 	history := core.HistoryRecorder(metaRepo)

@@ -8,43 +8,39 @@ import (
 	"testing"
 )
 
-func TestMetricsHandlerIncludesCatalogMetrics(t *testing.T) {
-	old := globalMetrics
-	t.Cleanup(func() { globalMetrics = old })
-	globalMetrics = &Metrics{}
-	globalMetrics.RecordCatalogDBQuery(1500, true)
-	globalMetrics.RecordCatalogDBQuery(500, false)
-	globalMetrics.RecordModelPublish(250, true)
-	globalMetrics.RecordQueryCompile(125, true)
-	globalMetrics.RecordQueryCompile(25, false)
-	globalMetrics.RecordQueryExecution(200, true, 7)
-	globalMetrics.RecordQueryExecution(300, false, 0)
-	globalMetrics.RecordLLMRequest(750, 1234, 50)
+// TestMetricsHandlerExposesPrometheus verifies the /metrics endpoint serves
+// Prometheus text exposition and that recorded BI engine collectors appear in
+// the output. Exact counter values are asserted in the observability package
+// against an isolated registry; here counters share the process-wide default
+// registry, so we assert presence rather than precise values.
+func TestMetricsHandlerExposesPrometheus(t *testing.T) {
+	m := GetMetrics()
+	m.RecordCatalogDBQuery(1500, true)
+	m.RecordModelPublish(250, true)
+	m.RecordQueryCompile(125, true)
+	m.RecordQueryExecution(200, true, 7)
+	m.RecordLLMRequest(750, 1234, 50)
+	m.RecordAIRequest(120, true, 1, false)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/metrics", nil)
 	MetricsHandler(rec, req)
 
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
 	body := rec.Body.String()
 	for _, want := range []string{
-		"go_goroutines ",
-		"go_memstats_alloc_bytes ",
-		"process_uptime_seconds ",
-		"catalog_db_queries_total 2\n",
-		"catalog_db_query_errors_total 1\n",
-		"catalog_db_query_duration_seconds 2.000\n",
-		"model_publish_total 1\n",
-		"model_publish_duration_seconds 0.250\n",
-		"query_compile_total 2\n",
-		"query_compile_errors_total 1\n",
-		"query_compile_duration_seconds 0.150\n",
-		"query_execute_total 2\n",
-		"query_execute_errors_total 1\n",
-		"query_execute_duration_seconds 0.500\n",
-		"query_rows_returned 7\n",
-		"llm_request_duration_seconds 0.750\n",
-		"llm_tokens_used_total 1234\n",
-		"prompt_build_duration_seconds 0.050\n",
+		"go_goroutines",
+		"catalog_db_queries_total",
+		"model_publish_total",
+		"query_compile_total",
+		"query_execute_total",
+		"query_rows_returned_total",
+		"llm_request_duration_seconds",
+		"llm_tokens_used_total",
+		"prompt_build_duration_seconds",
+		"bi_ai_requests_total",
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("metrics body missing %q:\n%s", want, body)

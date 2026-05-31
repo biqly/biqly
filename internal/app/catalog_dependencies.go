@@ -7,9 +7,6 @@ import (
 	evalpkg "github.com/biqly/biqly/internal/ai/eval"
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/config"
-	"github.com/biqly/biqly/internal/metadata"
-	"github.com/biqly/biqly/internal/security"
-	"github.com/biqly/biqly/internal/semantic"
 )
 
 // NewCatalogDependencies wires only the Catalog Service dependency graph.
@@ -23,19 +20,9 @@ func NewCatalogDependencies(ctx context.Context, cfg *config.Config) (*Dependenc
 
 	reg := newDriverRegistry()
 
-	metaRepo := metadata.NewRepository(db)
-	semanticRepo := semantic.NewRepository(db)
+	metaRepo, semanticRepo := provideRepositories(db)
 
-	var encryptor *security.Encryption
-	enc, err := security.NewEncryption()
-	if err != nil {
-		slog.Warn("encryption disabled; DSNs will be stored in plaintext", "detail", err)
-	} else {
-		encryptor = enc
-		if migrateErr := migratePlaintextDSNs(ctx, db, encryptor); migrateErr != nil {
-			slog.Warn("failed to migrate existing plaintext DSNs to encrypted format", "error", migrateErr)
-		}
-	}
+	encryptor := provideEncryptor(ctx, db, true)
 
 	return &Dependencies{
 		Config:       cfg,

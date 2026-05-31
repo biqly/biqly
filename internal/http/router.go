@@ -30,6 +30,7 @@ func Router(deps *app.Dependencies) http.Handler {
 	r.Use(middleware.RequestID)
 	r.Use(requestIDPropagationMiddleware)
 	r.Use(traceContextPropagationMiddleware)
+	r.Use(requestLoggerMiddleware)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)

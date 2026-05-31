@@ -14,7 +14,7 @@ import (
 	"github.com/biqly/biqly/internal/config"
 	httprouter "github.com/biqly/biqly/internal/http"
 	"github.com/biqly/biqly/internal/http/handlers"
-	"github.com/biqly/biqly/internal/platform/logger"
+	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/internal/queue"
 	"github.com/biqly/biqly/internal/security"
 )
@@ -26,10 +26,7 @@ func main() {
 		slog.Error("failed to load config", "error", err)
 		os.Exit(1)
 	}
-	slog.SetDefault(logger.New(logger.Config{
-		Level: logger.LevelFromString(cfg.Logging.Level),
-		JSON:  logger.JSONFromString(cfg.Logging.Format),
-	}))
+	observability.SetupLogging(cfg.Logging.Level, cfg.Logging.Format)
 
 	ctx := context.Background()
 
