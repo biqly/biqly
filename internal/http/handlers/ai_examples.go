@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"slices"
 	"strconv"
 	"time"
 
@@ -51,12 +50,18 @@ type submitAIFeedbackRequest struct {
 
 // AIExamplesHandler handles few-shot example CRUD and feedback operations.
 type AIExamplesHandler struct {
-	deps *app.AIDeps
+	deps       *app.AIDeps
+	authClient *bimw.AuthClient
 }
 
 // NewAIExamplesHandler creates a new handler for AI examples and feedback.
 func NewAIExamplesHandler(deps *app.AIDeps) *AIExamplesHandler {
 	return &AIExamplesHandler{deps: deps}
+}
+
+// SetAuthClient sets the auth service client.
+func (h *AIExamplesHandler) SetAuthClient(c *bimw.AuthClient) {
+	h.authClient = c
 }
 
 // ListExamples returns all few-shot examples, optionally filtered.
@@ -271,7 +276,24 @@ func (h *AIExamplesHandler) GetAIUsage(w http.ResponseWriter, r *http.Request) {
 
 // GetAIUsageBreakdown returns per-user, per-LLM-model token aggregates for admins.
 func (h *AIExamplesHandler) GetAIUsageBreakdown(w http.ResponseWriter, r *http.Request) {
-	if !slices.Contains(bimw.Permissions(r.Context()), PermissionAIViewDetails) {
+	ctx := r.Context()
+	userID := bimw.UserID(ctx)
+
+	var hasViewDetails bool
+	if h.authClient == nil {
+		hasViewDetails = true
+	} else {
+		hasViewDetails = bimw.HasRole(ctx, bimw.RoleSuperAdmin)
+		if !hasViewDetails && userID != "" {
+			workspaceID := bimw.WorkspaceID(ctx)
+			allowed, err := h.authClient.CheckPermission(ctx, userID, PermissionAIViewDetails, "workspace", workspaceID)
+			if err == nil && allowed {
+				hasViewDetails = true
+			}
+		}
+	}
+
+	if !hasViewDetails {
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -281,7 +303,6 @@ func (h *AIExamplesHandler) GetAIUsageBreakdown(w http.ResponseWriter, r *http.R
 			days = n
 		}
 	}
-	ctx := r.Context()
 	totals, err := h.deps.MetaRepo.GetAIUsageTotals(ctx, days)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get usage totals", err)

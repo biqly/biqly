@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
-	"slices"
 	"strconv"
 
 	"github.com/biqly/biqly/internal/metadata"
@@ -15,8 +14,23 @@ import (
 // are applied in the database; heavy fields are masked per permission rules.
 func (h *AIHandler) AIHistory(w http.ResponseWriter, r *http.Request) {
 	userID := bimw.UserID(r.Context())
-	perms := bimw.Permissions(r.Context())
-	hasViewDetails := slices.Contains(perms, PermissionAIViewDetails)
+	var hasViewDetails bool
+	if h.authClient == nil {
+		hasViewDetails = true
+	} else {
+		hasViewDetails = bimw.HasRole(r.Context(), bimw.RoleSuperAdmin)
+		if !hasViewDetails && userID != "" {
+			workspaceID := bimw.WorkspaceID(r.Context())
+			allowed, err := h.authClient.CheckPermission(r.Context(), userID, PermissionAIViewDetails, "workspace", workspaceID)
+			if err == nil && allowed {
+				hasViewDetails = true
+			}
+		}
+	}
+	var perms []string
+	if hasViewDetails {
+		perms = []string{PermissionAIViewDetails}
+	}
 
 	q := r.URL.Query()
 	page := 1
@@ -142,8 +156,20 @@ func (h *AIHandler) QueryHistory(w http.ResponseWriter, r *http.Request) {
 // own entries; otherwise sensitive fields are stripped.
 func (h *AIHandler) AIHistoryDetail(w http.ResponseWriter, r *http.Request) {
 	userID := bimw.UserID(r.Context())
-	perms := bimw.Permissions(r.Context())
-	hasViewDetails := slices.Contains(perms, PermissionAIViewDetails)
+	var hasViewDetails bool
+	if h.authClient == nil {
+		hasViewDetails = true
+	} else {
+		hasViewDetails = bimw.HasRole(r.Context(), bimw.RoleSuperAdmin)
+		if !hasViewDetails && userID != "" {
+			workspaceID := bimw.WorkspaceID(r.Context())
+			allowed, err := h.authClient.CheckPermission(r.Context(), userID, PermissionAIViewDetails, "workspace", workspaceID)
+			if err == nil && allowed {
+				hasViewDetails = true
+			}
+		}
+	}
+
 
 	id := r.URL.Query().Get("id")
 	if id == "" {
