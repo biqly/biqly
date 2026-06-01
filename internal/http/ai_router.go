@@ -43,11 +43,13 @@ func AIRouter(deps *app.Dependencies) http.Handler {
 	}))
 	r.Get("/metrics", MetricsHandler)
 
+	authClient := NewAuthClient(deps)
+	deps.WireAIUserResolver(authClient)
+	authMW := buildAPIAuthMiddleware(deps)
+
 	r.Route("/api", func(r chi.Router) {
-		// AI microservice trusts the network: JWT verification, permission, and
-		// datasource access checks all happen at the monolith proxy. Pass a nil
-		// AuthClient so the per-route middlewares degrade to pass-through.
-		registerAIAPIRoutes(r, deps.AIDeps(), nil)
+		r.Use(authMW)
+		registerAIAPIRoutes(r, deps.AIDeps(), authClient, false)
 	})
 
 	r.Route("/internal", func(r chi.Router) {
@@ -70,11 +72,16 @@ func aiServiceRequestTimeout(deps *app.Dependencies) time.Duration {
 // are wrapped with RequireDatasourceAccess("read") so users cannot target
 // datasources they have not been granted. Pass nil from the AI microservice,
 // which is fronted by the monolith proxy that enforces the same checks.
-func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthClient) {
+func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthClient, enforceMiddlewares bool) {
 	aiHandler := handlers.NewAIHandler(deps)
 	aiHandler.SetAuthClient(authClient)
 	aiHandler.SetAIMetricsRecorder(GetMetrics())
-	dsAccess := bimw.RequireDatasourceAccess(authClient, "read")
+	var dsAccess func(http.Handler) http.Handler
+	if enforceMiddlewares && authClient != nil {
+		dsAccess = bimw.RequireDatasourceAccess(authClient, "read")
+	} else {
+		dsAccess = func(next http.Handler) http.Handler { return next }
+	}
 	aiUserMW := bimw.InjectAIUserContext
 	if deps.Jobs.Enabled && deps.AIJobsHTTP != nil {
 		r.With(dsAccess).Post("/ai/jobs", deps.AIJobsHTTP.Create)

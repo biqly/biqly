@@ -53,7 +53,10 @@ func main() {
 			os.Exit(1)
 		}
 		deps.AIJobQueue = pub
+		authClient := httprouter.NewAuthClient(deps)
+		deps.WireAIUserResolver(authClient)
 		aiHandler := handlers.NewAIHandler(deps.AIDeps())
+		aiHandler.SetAuthClient(authClient)
 		jobSvc := handlers.NewAIJobService(deps.MetaRepo, pub, aiHandler)
 		deps.AIJobService = jobSvc
 		deps.AIJobsHTTP = handlers.NewAIJobsHandler(jobSvc)

@@ -126,7 +126,7 @@ func Router(deps *app.Dependencies) http.Handler {
 			if deps.Config.Services.AIURL != "" {
 				registerAIProxyRoutesWithDatasourceGuard(r, deps.Config.Services.AIURL, dsAccess)
 			} else {
-				registerAIAPIRoutes(r, deps.AIDeps(), authClient)
+				registerAIAPIRoutes(r, deps.AIDeps(), authClient, true)
 			}
 		})
 	})

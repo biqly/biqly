@@ -40,6 +40,9 @@ func main() {
 		}
 	}()
 
+	authClient := httprouter.NewAuthClient(deps)
+	deps.WireAIUserResolver(authClient)
+
 	if deps.Jobs.Enabled {
 		pub, qerr := app.NewAIJobQueue(cfg)
 		if qerr != nil {
@@ -48,6 +51,7 @@ func main() {
 		}
 		deps.AIJobQueue = pub
 		aiHandler := handlers.NewAIHandler(deps.AIDeps())
+		aiHandler.SetAuthClient(authClient)
 		jobSvc := handlers.NewAIJobService(deps.MetaRepo, pub, aiHandler)
 		deps.AIJobService = jobSvc
 		deps.AIJobsHTTP = handlers.NewAIJobsHandler(jobSvc)
