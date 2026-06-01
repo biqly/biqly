@@ -20,6 +20,7 @@ const SavedQuestions = lazy(() => import('./components/SavedQuestions'))
 const TableBrowser = lazy(() => import('./components/TableBrowser'))
 const FewShotExamples = lazy(() => import('./components/FewShotExamples'))
 const PromptTemplates = lazy(() => import('./components/PromptTemplates'))
+const Glossary = lazy(() => import('./components/Glossary'))
 const Evaluation = lazy(() => import('./components/Evaluation'))
 const Dashboard = lazy(() => import('./components/Dashboard'))
 const Settings = lazy(() => import('./components/Settings'))
@@ -193,6 +194,15 @@ const IconSettings = (
   </svg>
 )
 
+const IconGlossary = (
+  <svg {...iconProps}>
+    <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z" />
+    <path d="M6 6h10" />
+    <path d="M6 10h10" />
+    <path d="M6 14h10" />
+  </svg>
+)
+
 const routeDefs: AppRouteDef[] = [
   {
     path: '/',
@@ -275,6 +285,15 @@ const routeDefs: AppRouteDef[] = [
     descriptionKey: 'app.nav.few_shot_desc',
     icon: IconFewShot,
     component: FewShotExamples,
+  },
+  {
+    path: '/glossary',
+    sectionKey: 'ai',
+    labelKey: 'app.nav.glossary',
+    eyebrowKey: 'app.nav.glossary_eyebrow',
+    descriptionKey: 'app.nav.glossary_desc',
+    icon: IconGlossary,
+    component: Glossary,
   },
   {
     path: '/prompt-templates',

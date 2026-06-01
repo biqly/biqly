@@ -16,7 +16,7 @@
 | Retrieval (Hybrid) | Tamamı mevcut | Tam | ✅ |
 | Prompt Engineering | Tamamı mevcut | Tam | ✅ |
 | Validation / Security | Tamamı mevcut | Tam | ✅ |
-| Business Glossary | Backend mevcut, Frontend browser yok | Tam | ⚠️ |
+| Business Glossary | Tamamı mevcut | Tam | ✅ |
 | Feedback / Memory | Tamamı mevcut | Tam | ✅ |
 | Eval / Regression | Tamamı mevcut | Tam | ✅ |
 | Async Job Queue | Tamamı mevcut | Tam | ✅ |
@@ -28,7 +28,7 @@
 | SFT Export Pipeline | Tamamı mevcut | Yok | ✅ |
 | Dashboard Builder | Yok | Var | ❌ |
 | Raw SQL Editor | Yok (tasarım kararı) | Var | — |
-| Row-Level Security UI | Backend var, Frontend yok | Var | ❌ |
+| Row-Level Security UI | Tamamı mevcut | Var | ✅ |
 | AI Provider DB Yönetimi | Yok (env-based) | Kısmen | ❌ |
 
 ---
@@ -408,15 +408,15 @@ Bu bölüm Wren dokümanından Biqly Go backend'ine doğrudan uygulanacak somut 
 
 **Uygulanacak:**
 
-- [ ] `Glossary.tsx` page oluştur:
+- [x] `Glossary.tsx` page oluştur:
   - Datasource/model filtresi
   - Term listesi (table view)
   - Create/Edit/Delete glossary term modal
   - `maps_to_type` → dimension/metric/model link
   - Alias yönetimi
   - Search/filter
-- [ ] Sidebar'a "Glossary" link ekle (AI bölümü altına)
-- [ ] Mevcut API endpoint'leri: `GET/POST/PUT/DELETE /api/ai/glossary/*`
+- [x] Sidebar'a "Glossary" link ekle (AI bölümü altına)
+- [x] Mevcut API endpoint'leri: `GET/POST/PUT/DELETE /api/ai/glossary/*`
 
 ### 5.4 Kullanıcı Query History Sayfası (F4 — Orta Öncelik)
 
@@ -576,12 +576,12 @@ Wren dokümanında önerilen ama Biqly'nin bilerek uygulamadığı şeyler:
 
 ### Faz 7 — Frontend Gap Kapatma (Uygulanacak)
 
-- [ ] **Dashboard Builder** (F1) — Yüksek öncelik
-- [ ] **Row-Level Security Admin UI** (F2) — Yüksek öncelik
+- [x] **Dashboard Builder** (F1) — Yüksek öncelik
+- [x] **Row-Level Security Admin UI** (F2) — Yüksek öncelik
 - [ ] **AI Provider Admin UI** — Yüksek öncelik (B9 frontend)
-- [ ] **Business Glossary Browser** (F5) — Orta öncelik (backend hazır)
+- [x] **Business Glossary Browser** (F5) — Orta öncelik (backend hazır)
 - [ ] **Kullanıcı Query History** (F4) — Orta öncelik (backend hazır)
-- [ ] **Field-Level Permission UI** (F3) — Orta öncelik
+- [x] **Field-Level Permission UI** (F3) — Orta öncelik
 
 ---
 
