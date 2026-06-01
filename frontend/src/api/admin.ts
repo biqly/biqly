@@ -330,3 +330,58 @@ export async function createShare(
 export async function deleteShare(token: string, shareID: string): Promise<void> {
   await apiFetch<void>('DELETE', `${AUTH_API_BASE}/shares/${shareID}`, undefined, { token })
 }
+
+// === Security Policies (Row-Level Security & Field Permissions) ===
+
+export interface PermissionRowFilter {
+  field: string
+  operator?: string
+  value?: any
+}
+
+export interface SecurityPolicy {
+  id?: string
+  user_id: string
+  datasource_id: string
+  allowed_models: string[]
+  denied_fields: string[]
+  row_filters: PermissionRowFilter[]
+}
+
+export async function listSecurityPolicies(token: string): Promise<SecurityPolicy[]> {
+  return apiFetch<SecurityPolicy[]>('GET', '/api/permissions', undefined, { token })
+}
+
+export async function getSecurityPolicyByKeys(
+  token: string,
+  userID: string,
+  datasourceID: string,
+): Promise<SecurityPolicy> {
+  return apiFetch<SecurityPolicy>(
+    'GET',
+    `/api/permissions/keys?user_id=${encodeURIComponent(userID)}&datasource_id=${encodeURIComponent(datasourceID)}`,
+    undefined,
+    { token },
+  )
+}
+
+export async function upsertSecurityPolicy(token: string, policy: SecurityPolicy): Promise<SecurityPolicy> {
+  return apiFetch<SecurityPolicy>('PUT', '/api/permissions', policy, { token })
+}
+
+export async function deleteSecurityPolicy(token: string, id: string): Promise<void> {
+  await apiFetch<void>('DELETE', `/api/permissions/${id}`, undefined, { token })
+}
+
+export async function deleteSecurityPolicyByKeys(
+  token: string,
+  userID: string,
+  datasourceID: string,
+): Promise<void> {
+  await apiFetch<void>(
+    'DELETE',
+    `/api/permissions/keys?user_id=${encodeURIComponent(userID)}&datasource_id=${encodeURIComponent(datasourceID)}`,
+    undefined,
+    { token },
+  )
+}

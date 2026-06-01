@@ -8,6 +8,8 @@ export const admin = {
     workspaces: 'Workspaces',
     audit_log: 'Audit Log',
     ai_providers: 'AI Providers',
+    row_level_security: 'Row-Level Security',
+    field_permissions: 'Field Permissions',
   },
   fields: {
     user: 'User',

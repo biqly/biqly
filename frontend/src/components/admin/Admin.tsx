@@ -13,8 +13,10 @@ const UserDetailPage = lazy(() => import('./UserDetailPage').then(m => ({ defaul
 const AIHistoryPanel = lazy(() => import('../ai/AIHistoryPanel').then(m => ({ default: m.AIHistoryPanel })))
 const SharedResourcesList = lazy(() => import('../sharing/SharedResourcesList').then(m => ({ default: m.SharedResourcesList })))
 const AIProvidersPanel = lazy(() => import('./AIProvidersPanel').then(m => ({ default: m.AIProvidersPanel })))
+const RowLevelSecurityPanel = lazy(() => import('./RowLevelSecurityPanel').then(m => ({ default: m.RowLevelSecurityPanel })))
+const FieldPermissionPanel = lazy(() => import('./FieldPermissionPanel').then(m => ({ default: m.FieldPermissionPanel })))
 
-type AdminTab = 'users' | 'roles' | 'datasource_access' | 'workspaces' | 'ai_history' | 'sharing' | 'audit_log' | 'ai_providers'
+type AdminTab = 'users' | 'roles' | 'datasource_access' | 'workspaces' | 'ai_history' | 'sharing' | 'audit_log' | 'ai_providers' | 'row_level_security' | 'field_permissions'
 
 const pendingStyle: React.CSSProperties = { padding: 24 }
 const layoutStyle: React.CSSProperties = { padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }
@@ -85,6 +87,8 @@ export default function Admin() {
         <TabButton active={tab === 'sharing'} onClick={() => handleTabChange('sharing')}>{t('admin.sharing.title')}</TabButton>
         <TabButton active={tab === 'audit_log'} onClick={() => handleTabChange('audit_log')}>{t('admin.tabs.audit_log')}</TabButton>
         <TabButton active={tab === 'ai_providers'} onClick={() => handleTabChange('ai_providers')}>{t('admin.tabs.ai_providers')}</TabButton>
+        <TabButton active={tab === 'row_level_security'} onClick={() => handleTabChange('row_level_security')}>{t('admin.tabs.row_level_security')}</TabButton>
+        <TabButton active={tab === 'field_permissions'} onClick={() => handleTabChange('field_permissions')}>{t('admin.tabs.field_permissions')}</TabButton>
       </div>
 
       <div style={{ position: 'relative', minHeight: '200px' }}>
@@ -103,6 +107,8 @@ export default function Admin() {
           {tab === 'sharing' && <SharedResourcesList />}
           {tab === 'audit_log' && <AuditLogPanel token={accessToken} />}
           {tab === 'ai_providers' && <AIProvidersPanel />}
+          {tab === 'row_level_security' && <RowLevelSecurityPanel token={accessToken} />}
+          {tab === 'field_permissions' && <FieldPermissionPanel token={accessToken} />}
         </Suspense>
       </div>
     </div>

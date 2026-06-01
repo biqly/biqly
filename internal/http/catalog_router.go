@@ -103,6 +103,15 @@ func registerCatalogAPIRoutes(r chi.Router, deps *app.CatalogDeps, authClient *b
 	r.Put("/metadata/tables/{id}/translations", metaHandler.PutTableTranslations)
 	r.Get("/metadata/columns/{id}/translations", metaHandler.GetColumnTranslations)
 	r.Put("/metadata/columns/{id}/translations", metaHandler.PutColumnTranslations)
+
+	permHandler := handlers.NewPermissionHandler(deps)
+	r.With(bimw.RequirePermission(authClient, "admin:roles")).Route("/permissions", func(r chi.Router) {
+		r.Get("/", permHandler.List)
+		r.Get("/keys", permHandler.GetByKeys)
+		r.Put("/", permHandler.Upsert)
+		r.Delete("/{id}", permHandler.Delete)
+		r.Delete("/keys", permHandler.DeleteByKeys)
+	})
 }
 
 func registerCatalogInternalRoutes(r chi.Router, deps *app.CatalogDeps, serviceName string) {

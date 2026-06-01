@@ -10,6 +10,8 @@ export const admin: AdminDictionary = {
     workspaces: "Workspace'ler",
     audit_log: 'Denetim Günlüğü',
     ai_providers: 'AI Sağlayıcılar',
+    row_level_security: 'Satır Seviyesi Güvenlik',
+    field_permissions: 'Alan İzinleri',
   },
   fields: {
     user: 'Kullanıcı',

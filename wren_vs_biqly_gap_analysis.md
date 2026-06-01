@@ -390,15 +390,15 @@ Bu bölüm Wren dokümanından Biqly Go backend'ine doğrudan uygulanacak somut 
 
 **Uygulanacak:**
 
-- [ ] `admin/RowLevelSecurityPanel.tsx` oluştur:
+- [x] `admin/RowLevelSecurityPanel.tsx` oluştur:
   - Datasource/model seçimi
   - Role bazlı row filter tanımlama
   - Filter builder: `field` + `operator` + `value` satırları
   - JSON preview
-- [ ] `admin/FieldPermissionPanel.tsx` oluştur:
+- [x] `admin/FieldPermissionPanel.tsx` oluştur:
   - Model seçimi → dimension/metric listesi
   - Role bazlı denied fields toggle
-- [ ] Backend'de mevcut `permissions` tablosunu kullan
+- [x] Backend'de mevcut `permissions` tablosunu kullan
 
 ### 5.3 Business Glossary Browser (F5 — Orta Öncelik)
 

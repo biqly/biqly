@@ -1330,3 +1330,85 @@ func TestAIJobs_And_AIMetrics(t *testing.T) {
 	assert.Len(t, daily, 1)
 	assert.Equal(t, 10, summary.TotalQueries)
 }
+
+func TestSecurityPolicies(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	now := time.Now()
+
+	state.execs = []execMock{
+		{Pattern: "INSERT INTO permissions", RowsAffected: 1},
+		{Pattern: "DELETE FROM permissions WHERE id", RowsAffected: 1},
+		{Pattern: "DELETE FROM permissions WHERE user_id", RowsAffected: 1},
+	}
+
+	state.queries = []queryMock{
+		{
+			Pattern: "SELECT id, user_id, datasource_id, allowed_models, denied_fields, row_filters, created_at, updated_at FROM permissions ORDER BY",
+			Cols:    []string{"id", "user_id", "datasource_id", "allowed_models", "denied_fields", "row_filters", "created_at", "updated_at"},
+			Rows: [][]driver.Value{
+				{"p-1", "role:viewer", "ds-1", `{model1}`, `{field1}`, []byte(`[{"field":"country", "operator":"eq", "value":"US"}]`), now, now},
+			},
+		},
+		{
+			Pattern: "SELECT id, user_id, datasource_id, allowed_models, denied_fields, row_filters, created_at, updated_at FROM permissions WHERE id =",
+			Cols:    []string{"id", "user_id", "datasource_id", "allowed_models", "denied_fields", "row_filters", "created_at", "updated_at"},
+			Rows: [][]driver.Value{
+				{"p-1", "role:viewer", "ds-1", `{model1}`, `{field1}`, []byte(`[{"field":"country", "operator":"eq", "value":"US"}]`), now, now},
+			},
+		},
+		{
+			Pattern: "SELECT id, user_id, datasource_id, allowed_models, denied_fields, row_filters, created_at, updated_at FROM permissions WHERE user_id = $1 AND datasource_id =",
+			Cols:    []string{"id", "user_id", "datasource_id", "allowed_models", "denied_fields", "row_filters", "created_at", "updated_at"},
+			Rows: [][]driver.Value{
+				{"p-1", "role:viewer", "ds-1", `{model1}`, `{field1}`, []byte(`[{"field":"country", "operator":"eq", "value":"US"}]`), now, now},
+			},
+		},
+	}
+
+	// 1. List
+	policies, err := repo.ListSecurityPolicies(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, policies, 1)
+	assert.Equal(t, "role:viewer", policies[0].UserID)
+	assert.Equal(t, []string{"field1"}, policies[0].DeniedFields)
+	assert.Len(t, policies[0].RowFilters, 1)
+	assert.Equal(t, "country", policies[0].RowFilters[0].Field)
+	assert.Equal(t, "eq", policies[0].RowFilters[0].Operator)
+	assert.Equal(t, "US", policies[0].RowFilters[0].Value)
+
+	// 2. Get by ID
+	p, err := repo.GetSecurityPolicy(ctx, "p-1")
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+	assert.Equal(t, "p-1", p.ID)
+
+	// 3. Get by Keys
+	pk, err := repo.GetSecurityPolicyByKeys(ctx, "role:viewer", "ds-1")
+	assert.NoError(t, err)
+	assert.NotNil(t, pk)
+	assert.Equal(t, "p-1", pk.ID)
+
+	// 4. Upsert
+	newPolicy := &SecurityPolicy{
+		ID:           "p-1",
+		UserID:       "role:viewer",
+		DatasourceID: "ds-1",
+		RowFilters: []PermissionRowFilter{
+			{Field: "country", Operator: "eq", Value: "US"},
+		},
+	}
+	err = repo.UpsertSecurityPolicy(ctx, newPolicy)
+	assert.NoError(t, err)
+
+	// 5. Delete by ID
+	err = repo.DeleteSecurityPolicy(ctx, "p-1")
+	assert.NoError(t, err)
+
+	// 6. Delete by Keys
+	err = repo.DeleteSecurityPolicyByKeys(ctx, "role:viewer", "ds-1")
+	assert.NoError(t, err)
+}
+

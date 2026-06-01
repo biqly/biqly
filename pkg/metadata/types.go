@@ -143,5 +143,19 @@ type PermissionPolicyRecord struct {
 // PermissionRowFilter is the persisted form of a row-level filter used by
 // permission enforcement.
 type PermissionRowFilter struct {
-	Field string `json:"field"`
+	Field    string `json:"field"`
+	Operator string `json:"operator,omitempty"`
+	Value    any    `json:"value,omitempty"`
+}
+
+// SecurityPolicy represents a row-level and column-level access control policy in the database.
+type SecurityPolicy struct {
+	ID            string                `json:"id" db:"id"`
+	UserID        string                `json:"user_id" db:"user_id"`
+	DatasourceID  string                `json:"datasource_id" db:"datasource_id"`
+	AllowedModels []string              `json:"allowed_models" db:"allowed_models"`
+	DeniedFields  []string              `json:"denied_fields" db:"denied_fields"`
+	RowFilters    []PermissionRowFilter `json:"row_filters" db:"row_filters"`
+	CreatedAt     time.Time             `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time             `json:"updated_at" db:"updated_at"`
 }

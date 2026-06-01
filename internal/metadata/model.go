@@ -20,6 +20,7 @@ type (
 	AIQueryHistoryEntry    = pkgmetadata.AIQueryHistoryEntry
 	PermissionPolicyRecord = pkgmetadata.PermissionPolicyRecord
 	PermissionRowFilter    = pkgmetadata.PermissionRowFilter
+	SecurityPolicy         = pkgmetadata.SecurityPolicy
 )
 
 // Re-exported DSN mode identifiers.
