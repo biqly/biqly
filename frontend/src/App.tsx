@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useState, type ComponentType, type LazyExoticComponent, type MouseEvent, type ReactNode } from 'react'
-import { Routes, Route, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Routes, Route, Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { Breadcrumbs, type Crumb } from './components/ui/Breadcrumbs'
 import { CommandPalette, type CommandItem } from './components/ui/CommandPalette'
 import { EmptyState } from './components/ui/EmptyState'
@@ -392,7 +392,6 @@ function App() {
   const urlSearch = useUrlSearch()
   const navigate = useNavigate()
   const { user, accessToken, logout, roles } = useAuth()
-  const [userDropdownOpen, setUserDropdownOpen] = useState(false)
   const isAdmin = roles.some((role) => role === 'super_admin' || role === 'admin')
   const roleLabel = roles.includes('super_admin')
     ? 'Super Admin'
@@ -679,32 +678,34 @@ function App() {
 
                 <div className="sidebar-footer">
                   {user && (
-                    <div className="sidebar-user" onClick={() => setUserDropdownOpen(!userDropdownOpen)}>
-                      <div className="user-avatar">
-                        {user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : getInitials(user.displayName, user.email)}
-                      </div>
-                      <div className="user-details">
-                        <span className="user-name">{user.displayName || user.email}</span>
-                        <span className="user-role">{roleLabel}</span>
-                      </div>
-                      
-                      {userDropdownOpen && (
-                        <div className="user-dropdown">
-                          <button
-                            type="button"
-                            className="dropdown-item dropdown-item--danger"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              logout()
-                              setUserDropdownOpen(false)
-                              navigate('/auth/signin')
-                            }}
-                          >
-                            🚪 {t('auth.logout')}
-                          </button>
+                    <>
+                      <Link to="/settings" className="sidebar-user">
+                        <div className="user-avatar">
+                          {user.avatarUrl ? (
+                            <img src={user.avatarUrl} alt="" />
+                          ) : (
+                            getInitials(user.displayName, user.email)
+                          )}
                         </div>
-                      )}
-                    </div>
+                        <div className="user-details">
+                          <span className="user-name">{user.displayName || user.email}</span>
+                          <span className="user-role">{roleLabel}</span>
+                        </div>
+                      </Link>
+                      <button
+                        type="button"
+                        className="btn sidebar-logout-btn"
+                        onClick={() => {
+                          void logout()
+                          navigate('/auth/signin')
+                        }}
+                      >
+                        <span className="sidebar-logout-btn__icon" aria-hidden="true">
+                          🚪
+                        </span>
+                        {t('auth.logout')}
+                      </button>
+                    </>
                   )}
                   <div className="header-controls">
                     <LanguageSwitcher />

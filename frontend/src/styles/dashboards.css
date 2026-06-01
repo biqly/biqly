@@ -1,0 +1,78 @@
+.dashboard-list-empty {
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+.dashboard-list-empty .btn {
+  margin-top: 1rem;
+}
+
+.dashboard-list-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.dashboard-list-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 10rem;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.dashboard-list-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.dashboard-list-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.dashboard-list-card__title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.dashboard-list-card__delete {
+  flex-shrink: 0;
+  padding: 0 0.2rem;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dashboard-list-card__delete:hover {
+  color: var(--text-primary);
+}
+
+.dashboard-list-card__desc {
+  margin: 0.5rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.dashboard-list-card__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.dashboard-create-form .form-hint {
+  font-weight: 400;
+}

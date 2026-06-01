@@ -5,12 +5,14 @@ import { useConfirm } from '../hooks/useConfirm'
 import { EmptyState } from './ui/EmptyState'
 import { LoadingOverlay } from './ui/LoadingOverlay'
 import { ErrorAlert } from './ui/ErrorAlert'
+import { Modal } from './ui/Modal'
+import '../styles/dashboards.css'
 
 interface Dashboard {
   id: string
   name: string
   description?: string
-  widgets: any[]
+  widgets: unknown[]
   created_at: string
 }
 
@@ -39,12 +41,26 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
     fetchDashboards()
   }, [])
 
+  const closeCreateModal = () => {
+    setIsModalOpen(false)
+    setName('')
+    setDescription('')
+    setFormError(null)
+  }
+
+  const openCreateModal = () => {
+    setName('')
+    setDescription('')
+    setFormError(null)
+    setIsModalOpen(true)
+  }
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     setFormError(null)
 
     if (!name.trim()) {
-      setFormError('Name is required')
+      setFormError(t('customDashboards.name_required'))
       return
     }
 
@@ -56,9 +72,7 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
 
     const res = await postData<Dashboard>('/api/dashboards', payload)
     if (res) {
-      setIsModalOpen(false)
-      setName('')
-      setDescription('')
+      closeCreateModal()
       fetchDashboards()
       onSelect(res.id)
     }
@@ -67,8 +81,8 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
   const handleDelete = async (e: React.MouseEvent, id: string, dashName: string) => {
     e.stopPropagation()
     const ok = await confirm({
-      title: `Delete dashboard "${dashName}"?`,
-      message: 'This action cannot be undone.',
+      title: t('customDashboards.delete_title', { name: dashName }),
+      message: t('customDashboards.delete_message'),
       variant: 'danger',
     })
     if (!ok) return
@@ -80,7 +94,7 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
   }
 
   return (
-    <div className="page-stack" style={{ position: 'relative' }}>
+    <div className="page-stack dashboard-list-page" style={{ position: 'relative' }}>
       <LoadingOverlay loading={loading} />
 
       {error && <ErrorAlert error={error} />}
@@ -88,109 +102,61 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
       <div className="card">
         <div className="card-header-row card-header-row--spaced">
           <div>
-            <h2>Custom Dashboards</h2>
+            <h2>{t('customDashboards.title')}</h2>
             <p className="card-lead" style={{ marginTop: '0.4rem' }}>
-              Create and organize custom dashboard layouts with charts, tables, and KPIs.
+              {t('customDashboards.lead')}
             </p>
           </div>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => setIsModalOpen(true)}
-          >
-            + New Dashboard
+          <button type="button" className="btn btn-primary" onClick={openCreateModal}>
+            + {t('customDashboards.new')}
           </button>
         </div>
       </div>
 
       {dashboards.length === 0 ? (
-        <div className="card" style={{ padding: '4rem 2rem', textAlign: 'center' }}>
+        <div className="card dashboard-list-empty">
           <EmptyState
-            title="No Dashboards"
-            description="Create your first custom dashboard to start building visual summaries."
+            title={t('customDashboards.empty_title')}
+            description={t('customDashboards.empty_description')}
           >
-            <button
-              type="button"
-              className="btn btn-primary"
-              style={{ marginTop: '1rem' }}
-              onClick={() => setIsModalOpen(true)}
-            >
-              + Create Dashboard
+            <button type="button" className="btn btn-primary btn-auto-width" onClick={openCreateModal}>
+              + {t('customDashboards.empty_cta')}
             </button>
           </EmptyState>
         </div>
       ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-            gap: '1.5rem',
-          }}
-        >
+        <div className="dashboard-list-grid">
           {dashboards.map((d) => (
             <div
               key={d.id}
-              className="card card--elevated"
-              style={{
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                minHeight: '160px',
-                transition: 'transform 0.2s, box-shadow 0.2s',
-              }}
+              className="card card--elevated dashboard-list-card"
+              role="button"
+              tabIndex={0}
               onClick={() => onSelect(d.id)}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)'
-                e.currentTarget.style.boxShadow = 'var(--shadow-lg)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'none'
-                e.currentTarget.style.boxShadow = 'none'
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onSelect(d.id)
+                }
               }}
             >
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 600 }}>{d.name}</h3>
+                <div className="dashboard-list-card__head">
+                  <h3 className="dashboard-list-card__title">{d.name}</h3>
                   <button
                     type="button"
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text-muted)',
-                      cursor: 'pointer',
-                      fontSize: '1.1rem',
-                      padding: '0 0.2rem',
-                    }}
+                    className="dashboard-list-card__delete"
                     onClick={(e) => handleDelete(e, d.id, d.name)}
-                    title="Delete Dashboard"
+                    title={t('customDashboards.delete_tooltip')}
+                    aria-label={t('customDashboards.delete_tooltip')}
                   >
                     🗑️
                   </button>
                 </div>
-                {d.description && (
-                  <p
-                    style={{
-                      color: 'var(--text-muted)',
-                      fontSize: '0.9rem',
-                      marginTop: '0.5rem',
-                      lineHeight: '1.4',
-                    }}
-                  >
-                    {d.description}
-                  </p>
-                )}
+                {d.description && <p className="dashboard-list-card__desc">{d.description}</p>}
               </div>
-              <div
-                style={{
-                  color: 'var(--text-muted)',
-                  fontSize: '0.8rem',
-                  marginTop: '1rem',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <span>Widgets: {d.widgets?.length || 0}</span>
+              <div className="dashboard-list-card__meta">
+                <span>{t('customDashboards.widgets_count', { count: d.widgets?.length || 0 })}</span>
                 <span>
                   {new Date(d.created_at).toLocaleDateString(undefined, {
                     month: 'short',
@@ -204,65 +170,55 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
         </div>
       )}
 
-      {isModalOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-content" style={{ maxWidth: '480px' }}>
-            <div className="modal-header">
-              <h3>Create New Dashboard</h3>
-              <button
-                type="button"
-                className="modal-close"
-                onClick={() => setIsModalOpen(false)}
-              >
-                ✕
-              </button>
-            </div>
-            <form onSubmit={handleCreate}>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                {formError && <div className="error-alert">{formError}</div>}
-                <div className="form-field">
-                  <label className="form-label" htmlFor="dash-name">
-                    Name
-                  </label>
-                  <input
-                    id="dash-name"
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="E.g., Sales Overview"
-                    autoFocus
-                    required
-                  />
-                </div>
-                <div className="form-field">
-                  <label className="form-label" htmlFor="dash-desc">
-                    Description (optional)
-                  </label>
-                  <textarea
-                    id="dash-desc"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Brief summary of what this dashboard displays..."
-                    rows={3}
-                  />
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setIsModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Create Dashboard
-                </button>
-              </div>
-            </form>
+      <Modal
+        open={isModalOpen}
+        title={t('customDashboards.create_title')}
+        subtitle={t('customDashboards.create_subtitle')}
+        onClose={closeCreateModal}
+        className="modal-card--dashboard"
+        labelledBy="dashboard-create-title"
+      >
+        <form onSubmit={handleCreate} className="dashboard-create-form">
+          {formError && <ErrorAlert error={formError} />}
+          <div className="form-group">
+            <label htmlFor="dash-name">{t('customDashboards.name_label')}</label>
+            <input
+              id="dash-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t('customDashboards.name_placeholder')}
+              autoFocus
+              required
+            />
           </div>
-        </div>
-      )}
+          <div className="form-group">
+            <label htmlFor="dash-desc">
+              {t('customDashboards.desc_label')}{' '}
+              <span className="form-hint">({t('common.optional')})</span>
+            </label>
+            <textarea
+              id="dash-desc"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={t('customDashboards.desc_placeholder')}
+              rows={3}
+            />
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn btn-secondary btn-auto-width" onClick={closeCreateModal}>
+              {t('customDashboards.cancel')}
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary btn-auto-width"
+              disabled={loading || !name.trim()}
+            >
+              {t('customDashboards.create')}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   )
 }

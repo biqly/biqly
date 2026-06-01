@@ -66,6 +66,20 @@
   width: min(100%, 30rem);
 }
 
+.modal-card--dashboard {
+  width: min(100%, 28rem);
+}
+
+.modal-card--dashboard .modal-body {
+  gap: 1rem;
+}
+
+.modal-card--dashboard .modal-actions {
+  margin-top: 0.25rem;
+  padding: 0.85rem 0 0;
+  border-top: 1px solid var(--border);
+}
+
 .modeling-dialog-subtitle,
 .modeling-dialog-copy,
 .modal-subtitle {

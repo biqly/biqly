@@ -196,6 +196,33 @@
   gap: 0.5rem;
 }
 
+.sidebar-logout-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  margin-top: 0;
+  min-height: 2.25rem;
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.1);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.sidebar-logout-btn:hover {
+  border-color: rgba(248, 113, 113, 0.65);
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.18);
+  transform: none;
+}
+
+.sidebar-logout-btn__icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
 .status-dot {
   width: 0.5rem;
   height: 0.5rem;

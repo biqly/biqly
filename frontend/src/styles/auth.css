@@ -403,11 +403,13 @@
   align-items: center;
   gap: var(--spacing-3, 12px);
   padding: 10px 12px;
-  margin-bottom: var(--spacing-2, 8px);
+  margin-bottom: 0;
   border-radius: var(--border-radius-md, 8px);
   cursor: pointer;
   transition: background-color 0.2s ease;
   position: relative;
+  text-decoration: none;
+  color: inherit;
 }
 
 .sidebar-user:hover {
