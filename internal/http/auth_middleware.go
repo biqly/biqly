@@ -39,3 +39,35 @@ func NewAuthClient(deps *app.Dependencies) *bimw.AuthClient {
 	}
 	return bimw.NewAuthClient(deps.Config.Auth.ServiceURL, deps.Config.Auth.InternalToken)
 }
+
+// buildAIAuthClient builds the auth-service client for the AI service. Unlike
+// NewAuthClient it does not require BI_AUTH_ENABLED: the AI service needs the
+// client for per-user features (model preferences, RBAC model access) whenever
+// the auth service is reachable, even when JWT enforcement is left off and
+// identity is resolved optionally. Returns nil when no auth service URL is set.
+func buildAIAuthClient(deps *app.Dependencies) *bimw.AuthClient {
+	if deps.Config.Auth.ServiceURL == "" {
+		return nil
+	}
+	return bimw.NewAuthClient(deps.Config.Auth.ServiceURL, deps.Config.Auth.InternalToken)
+}
+
+// buildAIAuthMiddleware selects the AI service's request-auth middleware:
+//   - BI_AUTH_ENABLED=true  -> hard JWT enforcement (every /api request needs a JWT).
+//   - auth service URL set  -> optional JWT identity: the caller is resolved from a
+//     valid Bearer JWT when present, but admin-key and unauthenticated routes keep
+//     working. This is the default microservice posture (network-trusted edge).
+//   - otherwise             -> legacy API key check.
+func buildAIAuthMiddleware(deps *app.Dependencies) func(http.Handler) http.Handler {
+	authCfg := deps.Config.Auth
+	if authCfg.Enabled {
+		if authCfg.ServiceURL == "" {
+			slog.Error("BI_AUTH_ENABLED is true but BI_AUTH_SERVICE_URL is empty — JWT verification will fail")
+		}
+		return bimw.JWTAuth(bimw.NewPublicKeyProvider(authCfg.ServiceURL, authCfg.InternalToken))
+	}
+	if authCfg.ServiceURL != "" {
+		return bimw.OptionalJWTAuth(bimw.NewPublicKeyProvider(authCfg.ServiceURL, authCfg.InternalToken))
+	}
+	return bimw.APIKeyAuth(deps.Config.Security.APIKey)
+}

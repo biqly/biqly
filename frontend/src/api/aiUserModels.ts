@@ -19,20 +19,22 @@ export interface UserAIModelsResponse {
   db_managed: boolean
 }
 
-export async function fetchUserAIModels(): Promise<UserAIModelsResponse> {
-  return apiFetch<UserAIModelsResponse>('GET', `${AI_API_BASE}/user-models`)
+export async function fetchUserAIModels(token?: string): Promise<UserAIModelsResponse> {
+  return apiFetch<UserAIModelsResponse>('GET', `${AI_API_BASE}/user-models`, undefined, { token })
 }
 
 export async function putUserAIPreferences(
   preferences: { purpose: AIPurpose; model_id: string }[],
+  token?: string,
 ): Promise<{ preferences: Record<string, string> }> {
   return apiFetch<{ preferences: Record<string, string> }>(
     'PUT',
     `${AI_API_BASE}/user-preferences`,
     { preferences },
+    { token },
   )
 }
 
-export async function deleteUserAIPreference(purpose: AIPurpose): Promise<void> {
-  await apiFetch<void>('DELETE', `${AI_API_BASE}/user-preferences/${purpose}`)
+export async function deleteUserAIPreference(purpose: AIPurpose, token?: string): Promise<void> {
+  await apiFetch<void>('DELETE', `${AI_API_BASE}/user-preferences/${purpose}`, undefined, { token })
 }

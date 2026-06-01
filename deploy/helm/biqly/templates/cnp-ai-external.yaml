@@ -49,4 +49,17 @@ spec:
               protocol: TCP
             {{- end }}
     {{- end }}
+    {{- if and $aiExt.authService $aiExt.authService.enabled }}
+    # In-cluster egress to the auth service: the AI service fetches the JWT
+    # public key (optional identity) and calls /internal/auth/* for per-user
+    # AI model access and preferences.
+    - toEndpoints:
+        - matchLabels:
+            app.kubernetes.io/component: auth
+            app.kubernetes.io/part-of: biqly
+      toPorts:
+        - ports:
+            - port: {{ $aiExt.authService.port | quote }}
+              protocol: TCP
+    {{- end }}
 {{- end }}

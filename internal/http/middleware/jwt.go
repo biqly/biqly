@@ -152,40 +152,82 @@ func JWTAuth(provider *PublicKeyProvider, bypassPaths ...string) func(http.Handl
 				return
 			}
 
-			parserOpts := []jwt.ParserOption{
-				jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name}),
-			}
-			if cfg.issuer != "" {
-				parserOpts = append(parserOpts, jwt.WithIssuer(cfg.issuer))
-			}
-			if cfg.audience != "" {
-				parserOpts = append(parserOpts, jwt.WithAudience(cfg.audience))
-			}
-			parser := jwt.NewParser(parserOpts...)
-
-			claims := &JWTClaims{}
-			tok, err := parser.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (any, error) {
-				if _, ok := t.Method.(*jwt.SigningMethodRSA); !ok {
-					return nil, errors.New("unexpected signing method")
-				}
-				return cfg.key, nil
-			})
-			if err != nil || !tok.Valid {
+			claims, err := verifyJWTClaims(cfg, tokenStr)
+			if err != nil {
 				writeAuthError(w, http.StatusUnauthorized, "invalid token")
 				return
 			}
 
-			ctx := r.Context()
-			ctx = context.WithValue(ctx, UserIDKey, claims.Subject)
-			ctx = context.WithValue(ctx, UserEmailKey, claims.Email)
-			ctx = context.WithValue(ctx, UserRolesKey, claims.Roles)
-			ctx = context.WithValue(ctx, WorkspaceIDKey, claims.WorkspaceID)
-			ctx = context.WithValue(ctx, AccessibleDSKey, claims.AccessibleDatasources)
-			ctx = context.WithValue(ctx, EmailVerifiedKey, claims.EmailVerified)
-
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, r.WithContext(applyJWTClaims(r.Context(), claims)))
 		})
 	}
+}
+
+// OptionalJWTAuth populates the user identity from a valid Bearer JWT when one
+// is present, but never rejects the request. Requests with no token, an
+// unverifiable token (e.g. an admin API key), or a temporarily unavailable
+// auth key simply proceed without identity. This lets services that are not
+// JWT-enforced (BI_AUTH_ENABLED=false) still resolve the caller for per-user
+// features while keeping admin-key and unauthenticated routes working.
+func OptionalJWTAuth(provider *PublicKeyProvider) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			tokenStr := extractBearer(r)
+			if tokenStr == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			cfg, err := provider.getConfig(r.Context())
+			if err != nil {
+				next.ServeHTTP(w, r)
+				return
+			}
+			claims, err := verifyJWTClaims(cfg, tokenStr)
+			if err != nil {
+				next.ServeHTTP(w, r)
+				return
+			}
+			next.ServeHTTP(w, r.WithContext(applyJWTClaims(r.Context(), claims)))
+		})
+	}
+}
+
+func verifyJWTClaims(cfg *jwtConfig, tokenStr string) (*JWTClaims, error) {
+	parserOpts := []jwt.ParserOption{
+		jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name}),
+	}
+	if cfg.issuer != "" {
+		parserOpts = append(parserOpts, jwt.WithIssuer(cfg.issuer))
+	}
+	if cfg.audience != "" {
+		parserOpts = append(parserOpts, jwt.WithAudience(cfg.audience))
+	}
+	parser := jwt.NewParser(parserOpts...)
+
+	claims := &JWTClaims{}
+	tok, err := parser.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (any, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
+		return cfg.key, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !tok.Valid {
+		return nil, errors.New("invalid token")
+	}
+	return claims, nil
+}
+
+func applyJWTClaims(ctx context.Context, claims *JWTClaims) context.Context {
+	ctx = context.WithValue(ctx, UserIDKey, claims.Subject)
+	ctx = context.WithValue(ctx, UserEmailKey, claims.Email)
+	ctx = context.WithValue(ctx, UserRolesKey, claims.Roles)
+	ctx = context.WithValue(ctx, WorkspaceIDKey, claims.WorkspaceID)
+	ctx = context.WithValue(ctx, AccessibleDSKey, claims.AccessibleDatasources)
+	ctx = context.WithValue(ctx, EmailVerifiedKey, claims.EmailVerified)
+	return ctx
 }
 
 func extractBearer(r *http.Request) string {

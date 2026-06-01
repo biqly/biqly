@@ -43,9 +43,9 @@ func AIRouter(deps *app.Dependencies) http.Handler {
 	}))
 	r.Get("/metrics", MetricsHandler)
 
-	authClient := NewAuthClient(deps)
+	authClient := buildAIAuthClient(deps)
 	deps.WireAIUserResolver(authClient)
-	authMW := buildAPIAuthMiddleware(deps)
+	authMW := buildAIAuthMiddleware(deps)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(authMW)

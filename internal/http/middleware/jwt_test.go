@@ -334,3 +334,92 @@ func TestRequireVerifiedEmail(t *testing.T) {
 		t.Fatalf("POST verified should be 200, got %d", w.Code)
 	}
 }
+
+func TestOptionalJWTAuth_ValidTokenPopulatesIdentity(t *testing.T) {
+	priv, pub := newSigningKey(t)
+	srv := newKeyServer(t, pub, "biqly")
+	defer srv.Close()
+
+	tokenStr := signToken(t, priv, JWTClaims{
+		Email: "u@x.com",
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   "user-42",
+			Issuer:    "biqly-auth",
+			Audience:  jwt.ClaimStrings{"biqly"},
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	})
+
+	mw := OptionalJWTAuth(NewPublicKeyProvider(srv.URL, "tok"))
+	var gotUserID string
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUserID = UserID(r.Context())
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/api/ai/user-preferences", nil)
+	req.Header.Set("Authorization", "Bearer "+tokenStr)
+	w := httptest.NewRecorder()
+	mw(handler).ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if gotUserID != "user-42" {
+		t.Fatalf("expected user-42, got %q", gotUserID)
+	}
+}
+
+func TestOptionalJWTAuth_NoTokenPassesWithoutIdentity(t *testing.T) {
+	priv, pub := newSigningKey(t)
+	srv := newKeyServer(t, pub, "biqly")
+	defer srv.Close()
+	_ = priv
+
+	mw := OptionalJWTAuth(NewPublicKeyProvider(srv.URL, "tok"))
+	var sawUserID string
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sawUserID = UserID(r.Context())
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/ai/user-models", nil)
+	w := httptest.NewRecorder()
+	mw(handler).ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected pass-through 200, got %d", w.Code)
+	}
+	if sawUserID != "" {
+		t.Fatalf("expected empty userID, got %q", sawUserID)
+	}
+}
+
+func TestOptionalJWTAuth_NonJWTBearerNotRejected(t *testing.T) {
+	priv, pub := newSigningKey(t)
+	srv := newKeyServer(t, pub, "biqly")
+	defer srv.Close()
+	_ = priv
+
+	mw := OptionalJWTAuth(NewPublicKeyProvider(srv.URL, "tok"))
+	reached := false
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reached = true
+		if UserID(r.Context()) != "" {
+			t.Fatalf("admin-key bearer must not populate identity")
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// An admin API key is not a JWT — the middleware must let it through so an
+	// inner AdminKeyMiddleware can validate it, rather than rejecting it.
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/ai/providers", nil)
+	req.Header.Set("Authorization", "Bearer some-admin-api-key")
+	w := httptest.NewRecorder()
+	mw(handler).ServeHTTP(w, req)
+
+	if !reached || w.Code != http.StatusOK {
+		t.Fatalf("expected pass-through 200, reached=%v code=%d", reached, w.Code)
+	}
+}

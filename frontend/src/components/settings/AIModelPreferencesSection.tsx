@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useT } from '../../i18n'
 import { useToast } from '../../hooks/useToast'
+import { useAuth } from '../auth/AuthProvider'
 import { Select } from '../ui/Select'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import type { AIPurpose } from '../../api/aiProviders'
@@ -34,6 +35,7 @@ const PURPOSE_ICONS: Record<AIPurpose, React.ReactNode> = {
 export function AIModelPreferencesSection() {
   const t = useT()
   const toast = useToast()
+  const { accessToken } = useAuth()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [dbManaged, setDbManaged] = useState(false)
@@ -44,7 +46,7 @@ export function AIModelPreferencesSection() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await fetchUserAIModels()
+      const data = await fetchUserAIModels(accessToken ?? undefined)
       setDbManaged(data.db_managed)
       setRestricted(data.restricted)
       setModels(data.models ?? [])
@@ -54,7 +56,7 @@ export function AIModelPreferencesSection() {
     } finally {
       setLoading(false)
     }
-  }, [toast])
+  }, [toast, accessToken])
 
   useEffect(() => {
     load()
@@ -81,7 +83,7 @@ export function AIModelPreferencesSection() {
         const modelID = choices[purpose]
         return modelID ? [{ purpose, model_id: modelID }] : []
       })
-      const res = await putUserAIPreferences(preferences)
+      const res = await putUserAIPreferences(preferences, accessToken ?? undefined)
       setChoices(res.preferences ?? {})
       toast.success(t('settings.ai_models.saved'))
     } catch (e) {
@@ -94,7 +96,7 @@ export function AIModelPreferencesSection() {
   const handleClear = async (purpose: AIPurpose) => {
     setSaving(true)
     try {
-      await deleteUserAIPreference(purpose)
+      await deleteUserAIPreference(purpose, accessToken ?? undefined)
       setChoices((prev) => {
         const next = { ...prev }
         delete next[purpose]
