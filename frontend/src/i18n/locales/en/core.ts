@@ -1161,6 +1161,14 @@ export const core = {
       clear: 'Clear',
       saved: 'AI model preferences saved.',
       cleared: 'Preference cleared.',
+      no_models_for_purpose: 'No models available for this purpose.',
+      purpose_hints: {
+        query: 'Natural language questions → SQL',
+        describe: 'AI-generated table and column descriptions',
+        embedding: 'Semantic search over metadata',
+        translation: 'Translate descriptions and labels',
+        judge: 'Evaluation and quality scoring',
+      },
     },
     persist_hint:
       'Language and theme are available in the sidebar — saved per browser.',

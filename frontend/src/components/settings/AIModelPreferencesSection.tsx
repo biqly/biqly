@@ -91,38 +91,42 @@ export function AIModelPreferencesSection() {
   }
 
   return (
-    <section className="card card--elevated settings-prefs-card" aria-labelledby="ai-models-prefs-heading">
+    <section
+      className="card card--elevated settings-prefs-card settings-security-card ai-model-prefs"
+      aria-labelledby="ai-models-prefs-heading"
+    >
       <div className="settings-prefs-card__header">
         <div>
           <h2 id="ai-models-prefs-heading">{t('settings.ai_models.section')}</h2>
           <p>{t('settings.ai_models.hint')}</p>
-          {restricted && (
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 6 }}>
-              {t('settings.ai_models.restricted_hint')}
-            </p>
-          )}
+          {restricted && <p className="ai-model-prefs__restricted">{t('settings.ai_models.restricted_hint')}</p>}
         </div>
-        <button
-          type="button"
-          className="btn btn-primary btn-sm btn-auto-width"
-          disabled={saving || loading}
-          onClick={handleSave}
-        >
-          {saving ? '…' : t('settings.ai_models.save')}
-        </button>
       </div>
 
       <LoadingOverlay loading={loading}>
-        <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {PURPOSES.map((purpose) => {
-            const options = modelsByPurpose[purpose] ?? []
-            const value = choices[purpose] ?? ''
-            return (
-              <div key={purpose} style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
-                <div style={{ flex: '1 1 200px', minWidth: 200 }}>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
-                    {t(`admin.ai_providers.purposes.${purpose}`)}
-                  </label>
+        <div className="ai-model-prefs__body">
+          <div className="ai-model-prefs__grid">
+            {PURPOSES.map((purpose) => {
+              const options = modelsByPurpose[purpose] ?? []
+              const value = choices[purpose] ?? ''
+              return (
+                <div key={purpose} className="ai-purpose-pref">
+                  <div className="ai-purpose-pref__head">
+                    <div>
+                      <p className="ai-purpose-pref__title">{t(`admin.ai_providers.purposes.${purpose}`)}</p>
+                      <p className="ai-purpose-pref__hint">{t(`settings.ai_models.purpose_hints.${purpose}`)}</p>
+                    </div>
+                    {value ? (
+                      <button
+                        type="button"
+                        className="ai-purpose-pref__clear"
+                        disabled={saving}
+                        onClick={() => handleClear(purpose)}
+                      >
+                        {t('settings.ai_models.clear')}
+                      </button>
+                    ) : null}
+                  </div>
                   <Select
                     value={value}
                     onChange={(v) => setChoices((prev) => ({ ...prev, [purpose]: v }))}
@@ -135,20 +139,23 @@ export function AIModelPreferencesSection() {
                     ]}
                     disabled={saving || options.length === 0}
                   />
+                  {options.length === 0 && (
+                    <p className="ai-purpose-pref__empty-hint">{t('settings.ai_models.no_models_for_purpose')}</p>
+                  )}
                 </div>
-                {value && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    disabled={saving}
-                    onClick={() => handleClear(purpose)}
-                  >
-                    {t('settings.ai_models.clear')}
-                  </button>
-                )}
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
+          <div className="ai-model-prefs__footer">
+            <button
+              type="button"
+              className="btn btn-primary btn-sm btn-auto-width"
+              disabled={saving || loading}
+              onClick={handleSave}
+            >
+              {saving ? '…' : t('settings.ai_models.save')}
+            </button>
+          </div>
         </div>
       </LoadingOverlay>
     </section>

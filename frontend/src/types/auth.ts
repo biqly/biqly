@@ -7,6 +7,9 @@ export interface AuthUser {
   isActive: boolean
   emailVerified: boolean
   hasPassword?: boolean
+  mfaEnabled?: boolean
+  mfaPending?: boolean
+  passkeyCount?: number
   active_workspace_id?: string
   createdAt: string
   updatedAt: string

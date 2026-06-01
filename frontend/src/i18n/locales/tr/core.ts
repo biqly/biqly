@@ -1163,6 +1163,14 @@ export const core: CoreDictionary = {
       clear: 'Temizle',
       saved: 'AI model tercihleri kaydedildi.',
       cleared: 'Tercih temizlendi.',
+      no_models_for_purpose: 'Bu amaç için kullanılabilir model yok.',
+      purpose_hints: {
+        query: 'Doğal dil soruları → SQL',
+        describe: 'Tablo ve sütun açıklamaları üretimi',
+        embedding: 'Metadata üzerinde anlamsal arama',
+        translation: 'Açıklama ve etiket çevirisi',
+        judge: 'Değerlendirme ve kalite puanlama',
+      },
     },
     persist_hint:
       'Dil ve tema yan menüden erişilebilir — tarayıcı başına saklanır.',

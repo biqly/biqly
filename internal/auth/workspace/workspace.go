@@ -146,6 +146,35 @@ func (s *WorkspaceService) ListForUser(ctx context.Context, userID string) ([]Wo
 	return list, rows.Err()
 }
 
+func (s *WorkspaceService) ListAll(ctx context.Context) ([]Workspace, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, name, slug, description, is_personal, mfa_required, created_by, created_at, updated_at
+		FROM workspaces
+		ORDER BY is_personal DESC, name
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("query workspaces: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var list []Workspace
+	for rows.Next() {
+		var ws Workspace
+		var desc sql.NullString
+		if err := rows.Scan(&ws.ID, &ws.Name, &ws.Slug, &desc, &ws.IsPersonal, &ws.MFARequired, &ws.CreatedBy, &ws.CreatedAt, &ws.UpdatedAt); err != nil {
+			return nil, err
+		}
+		if desc.Valid {
+			ws.Description = &desc.String
+		}
+		list = append(list, ws)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
 func (s *WorkspaceService) Update(ctx context.Context, id, callerID, name, description string, mfaRequired *bool) (*Workspace, error) {
 	if err := s.requireOwner(ctx, id, callerID); err != nil {
 		return nil, err

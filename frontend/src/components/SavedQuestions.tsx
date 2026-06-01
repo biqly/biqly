@@ -447,7 +447,23 @@ export default function SavedQuestions() {
                       }}
                       onClick={() => setSelectedQuestion(q)}
                     >
-                      <h3>{q.name}</h3>
+                      <div className="saved-question-item__top">
+                        <h3>{q.name}</h3>
+                        <label
+                          className={`fewshot-checkbox fewshot-checkbox--inline${checked ? ' is-active' : ''}`}
+                          title={t('saved_questions.fewshot_use_title')}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleFewShot(q)}
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label={t('saved_questions.fewshot_aria', { name: q.name })}
+                          />
+                          <span>{t('saved_questions.fewshot_badge')}</span>
+                        </label>
+                      </div>
                       {q.description && <p>{q.description}</p>}
                       <div className="saved-question-tags">
                         {q.tags.map((tag) => (
@@ -455,19 +471,6 @@ export default function SavedQuestions() {
                         ))}
                       </div>
                     </button>
-                    <label
-                      className={`fewshot-checkbox${checked ? ' is-active' : ''}`}
-                      title={t('saved_questions.fewshot_use_title')}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleFewShot(q)}
-                        onClick={(e) => e.stopPropagation()}
-                        aria-label={t('saved_questions.fewshot_aria', { name: q.name })}
-                      />
-                      <span>{t('saved_questions.fewshot_badge')}</span>
-                    </label>
                     <button
                       type="button"
                       className={`saved-question-fav${q.is_favorite ? ' is-active' : ''}`}

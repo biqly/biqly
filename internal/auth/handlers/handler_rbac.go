@@ -136,7 +136,17 @@ func (h *RBACHandler) RegisterInternalRoutes(r chi.Router, internalMW func(http.
 
 func (h *RBACHandler) handleListWorkspaces(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(userIDKey).(string)
-	list, err := h.ws.ListForUser(r.Context(), userID)
+	isSuper, err := h.rbac.IsSuperAdmin(r.Context(), userID)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	var list []workspace.Workspace
+	if isSuper {
+		list, err = h.ws.ListAll(r.Context())
+	} else {
+		list, err = h.ws.ListForUser(r.Context(), userID)
+	}
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
@@ -833,7 +843,7 @@ func writeError(w http.ResponseWriter, r *http.Request, status int, err error) {
 }
 
 func (h *RBACHandler) handleAdminListUsers(w http.ResponseWriter, r *http.Request) {
-	users, err := h.userRepo.ListUsers(r.Context())
+	users, err := h.userRepo.ListUsersForAdmin(r.Context())
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
@@ -843,34 +853,39 @@ func (h *RBACHandler) handleAdminListUsers(w http.ResponseWriter, r *http.Reques
 	status := r.URL.Query().Get("status")
 
 	var filtered []auth.UserResponse
-	for _, u := range users {
+	for _, row := range users {
 		matchesSearch := true
 		if search != "" {
-			emailMatch := strings.Contains(strings.ToLower(u.Email), search)
-			usernameMatch := u.Username != nil && strings.Contains(strings.ToLower(*u.Username), search)
-			displayNameMatch := u.DisplayName != nil && strings.Contains(strings.ToLower(*u.DisplayName), search)
+			emailMatch := strings.Contains(strings.ToLower(row.Email), search)
+			usernameMatch := row.Username != nil && strings.Contains(strings.ToLower(*row.Username), search)
+			displayNameMatch := row.DisplayName != nil && strings.Contains(strings.ToLower(*row.DisplayName), search)
 			matchesSearch = emailMatch || usernameMatch || displayNameMatch
 		}
 
 		matchesStatus := true
 		switch status {
 		case "active":
-			matchesStatus = u.IsActive
+			matchesStatus = row.IsActive
 		case "inactive":
-			matchesStatus = !u.IsActive
+			matchesStatus = !row.IsActive
 		}
 
 		if matchesSearch && matchesStatus {
+			hasPassword := row.PasswordHash != nil && *row.PasswordHash != ""
 			filtered = append(filtered, auth.UserResponse{
-				ID:            u.ID,
-				Email:         u.Email,
-				Username:      u.Username,
-				DisplayName:   u.DisplayName,
-				AvatarURL:     u.AvatarURL,
-				IsActive:      u.IsActive,
-				EmailVerified: u.EmailVerified,
-				CreatedAt:     u.CreatedAt,
-				UpdatedAt:     u.UpdatedAt,
+				ID:            row.ID,
+				Email:         row.Email,
+				Username:      row.Username,
+				DisplayName:   row.DisplayName,
+				AvatarURL:     row.AvatarURL,
+				IsActive:      row.IsActive,
+				EmailVerified: row.EmailVerified,
+				HasPassword:   hasPassword,
+				MFAEnabled:    row.MFAEnabled,
+				MFAPending:    row.MFAPending,
+				PasskeyCount:  row.PasskeyCount,
+				CreatedAt:     row.CreatedAt,
+				UpdatedAt:     row.UpdatedAt,
 			})
 		}
 	}

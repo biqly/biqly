@@ -98,6 +98,7 @@ export function ActiveUsersTab({
                   <th className="admin-th">{t('admin.users.col_name')}</th>
                   <th className="admin-th">{t('admin.users.col_status')}</th>
                   <th className="admin-th">{t('admin.users.col_email_verification')}</th>
+                  <th className="admin-th">{t('admin.users.col_security')}</th>
                   <th className="admin-th">{t('admin.users.col_created_at')}</th>
                   <th className="admin-th"></th>
                 </tr>
@@ -105,7 +106,7 @@ export function ActiveUsersTab({
               <tbody>
                 {displayedUsers.length === 0 ? (
                   <tr className="admin-tr">
-                    <td colSpan={6} style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>
+                    <td colSpan={7} style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>
                       {loading ? '' : t('admin.users.empty')}
                     </td>
                   </tr>
@@ -139,6 +140,30 @@ export function ActiveUsersTab({
                               {verificationLoadingId === u.id ? '...' : t('admin.users.resend_verification')}
                             </button>
                           )}
+                        </div>
+                      </td>
+                      <td className="admin-td">
+                        <div className="admin-user-security">
+                          <span
+                            className={
+                              u.mfaEnabled
+                                ? 'admin-badge-verified'
+                                : u.mfaPending
+                                  ? 'admin-badge-unverified'
+                                  : 'admin-badge-inactive'
+                            }
+                          >
+                            {u.mfaEnabled
+                              ? t('admin.users.mfa_active')
+                              : u.mfaPending
+                                ? t('admin.users.mfa_pending')
+                                : t('admin.users.mfa_off')}
+                          </span>
+                          <span className="admin-subtext">
+                            {(u.passkeyCount ?? 0) > 0
+                              ? t('admin.users.passkeys_count', { count: u.passkeyCount })
+                              : t('admin.users.passkeys_none')}
+                          </span>
                         </div>
                       </td>
                       <td className="admin-td">

@@ -80,9 +80,20 @@ type UserResponse struct {
 	IsActive          bool      `json:"is_active"`
 	EmailVerified     bool      `json:"email_verified"`
 	HasPassword       bool      `json:"has_password"`
+	MFAEnabled        bool      `json:"mfa_enabled,omitempty"`
+	MFAPending        bool      `json:"mfa_pending,omitempty"`
+	PasskeyCount      int       `json:"passkey_count,omitempty"`
 	ActiveWorkspaceID string    `json:"active_workspace_id,omitempty"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
+}
+
+// AdminUserListRow is a user row enriched with MFA and passkey summary for admin lists.
+type AdminUserListRow struct {
+	User
+	MFAEnabled   bool
+	MFAPending   bool
+	PasskeyCount int
 }
 
 type UpdateProfileRequest struct {

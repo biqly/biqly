@@ -171,31 +171,35 @@ export function AIProvidersPanel() {
 
       <AIModelSharingPanel />
 
-      {/* Active models by purpose */}
-      <section style={cardStyle}>
-        <div style={cardHeaderStyle}>{t('admin.ai_providers.active_models_title')}</div>
-        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {PURPOSES.map((purpose) => {
-            const m = activeByPurpose(purpose)
-            return (
-              <div key={purpose} style={purposeRowStyle}>
-                <span style={{ fontWeight: 600, fontSize: 13, minWidth: 160 }}>
-                  {t(`admin.ai_providers.purposes.${purpose}`)}
-                </span>
-                {m ? (
-                  <span style={{ fontSize: 13, color: 'var(--text-primary, #f4f4f5)' }}>
-                    {m.display_name}{' '}
-                    <span style={{ color: 'var(--text-secondary, #a1a1aa)' }}>({m.provider_name})</span>
-                  </span>
-                ) : (
-                  <span style={{ fontSize: 13, color: 'var(--text-secondary, #a1a1aa)' }}>—</span>
-                )}
-              </div>
-            )
-          })}
-          {activeModels.length === 0 && (
-            <div style={{ fontSize: 13, color: 'var(--text-secondary, #a1a1aa)' }}>
+      <section className="admin-ai-card">
+        <div className="admin-ai-card__header">
+          <strong>{t('admin.ai_providers.active_models_title')}</strong>
+          <p>{t('admin.ai_providers.active_models_hint')}</p>
+        </div>
+        <div className="admin-ai-card__body">
+          {activeModels.length === 0 ? (
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary, #a1a1aa)' }}>
               {t('admin.ai_providers.active_models_empty')}
+            </p>
+          ) : (
+            <div className="admin-ai-purpose-grid">
+              {PURPOSES.map((purpose) => {
+                const m = activeByPurpose(purpose)
+                return (
+                  <div key={purpose} className="admin-ai-purpose-row">
+                    <div className="admin-ai-purpose-row__label">{t(`admin.ai_providers.purposes.${purpose}`)}</div>
+                    <div className="admin-ai-purpose-row__value">
+                      {m ? (
+                        <>
+                          <strong>{m.display_name}</strong> ({m.provider_name})
+                        </>
+                      ) : (
+                        '—'
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

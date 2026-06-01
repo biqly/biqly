@@ -22,6 +22,14 @@ import {
 type TargetKind = 'workspace' | 'role'
 type GrantKind = 'provider' | 'model'
 
+type GrantListItem = {
+  key: string
+  targetBadge: 'workspace' | 'role'
+  resourceBadge: 'provider' | 'model'
+  label: string
+  onRevoke: () => Promise<void>
+}
+
 export function AIModelSharingPanel() {
   const t = useT()
   const toast = useToast()
@@ -87,13 +95,60 @@ export function AIModelSharingPanel() {
     return (id: string) => m.get(id) ?? id.slice(0, 8)
   }, [roles])
 
-  const targetOptions = targetKind === 'workspace'
-    ? workspaces.map((w) => ({ value: w.id, label: w.name }))
-    : roles.map((r) => ({ value: r.id, label: r.name }))
+  const targetOptions = useMemo(() => {
+    const list = targetKind === 'workspace' ? workspaces : roles
+    return list.map((x) => ({ value: x.id, label: x.name }))
+  }, [targetKind, workspaces, roles])
 
-  const resourceOptions = grantKind === 'provider'
-    ? providers.map((p) => ({ value: p.id, label: p.name }))
-    : models.map((m) => ({ value: m.id, label: `${m.display_name} (${m.provider_name})` }))
+  const resourceOptions = useMemo(() => {
+    if (grantKind === 'provider') {
+      return providers.map((p) => ({ value: p.id, label: p.name }))
+    }
+    return models.map((m) => ({ value: m.id, label: `${m.display_name} (${m.provider_name})` }))
+  }, [grantKind, providers, models])
+
+  const grantItems = useMemo((): GrantListItem[] => {
+    if (!grants || !accessToken) return []
+    const items: GrantListItem[] = []
+    for (const g of grants.provider_workspaces ?? []) {
+      items.push({
+        key: `pw-${g.workspace_id}-${g.provider_id}`,
+        targetBadge: 'workspace',
+        resourceBadge: 'provider',
+        label: `${workspaceName(g.workspace_id)} → ${providerName(g.provider_id)}`,
+        onRevoke: () => revokeProviderWorkspace(accessToken, g.workspace_id, g.provider_id),
+      })
+    }
+    for (const g of grants.model_workspaces ?? []) {
+      items.push({
+        key: `mw-${g.workspace_id}-${g.model_id}`,
+        targetBadge: 'workspace',
+        resourceBadge: 'model',
+        label: `${workspaceName(g.workspace_id)} → ${modelLabel(g.model_id)}`,
+        onRevoke: () => revokeModelWorkspace(accessToken, g.workspace_id, g.model_id),
+      })
+    }
+    for (const g of grants.provider_roles ?? []) {
+      items.push({
+        key: `pr-${g.role_id}-${g.provider_id}`,
+        targetBadge: 'role',
+        resourceBadge: 'provider',
+        label: `${roleName(g.role_id)} → ${providerName(g.provider_id)}`,
+        onRevoke: () => revokeProviderRole(accessToken, g.role_id, g.provider_id),
+      })
+    }
+    for (const g of grants.model_roles ?? []) {
+      items.push({
+        key: `mr-${g.role_id}-${g.model_id}`,
+        targetBadge: 'role',
+        resourceBadge: 'model',
+        label: `${roleName(g.role_id)} → ${modelLabel(g.model_id)}`,
+        onRevoke: () => revokeModelRole(accessToken, g.role_id, g.model_id),
+      })
+    }
+    items.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))
+    return items
+  }, [grants, accessToken, workspaceName, providerName, modelLabel, roleName])
 
   const handleGrant = async () => {
     if (!accessToken || !targetID || !resourceID) return
@@ -129,138 +184,131 @@ export function AIModelSharingPanel() {
     }
   }
 
+  const targetPlaceholder =
+    targetKind === 'workspace'
+      ? t('admin.ai_model_access.select_workspace')
+      : t('admin.ai_model_access.select_role')
+
+  const resourcePlaceholder =
+    grantKind === 'provider'
+      ? t('admin.ai_model_access.select_provider')
+      : t('admin.ai_model_access.select_model')
+
   return (
-    <section style={cardStyle}>
-      <div style={cardHeaderStyle}>
-        <div>
-          <strong>{t('admin.ai_model_access.title')}</strong>
-          <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text-secondary, #a1a1aa)' }}>
-            {t('admin.ai_model_access.description')}
-          </p>
-        </div>
+    <section className="admin-ai-card">
+      <div className="admin-ai-card__header">
+        <strong>{t('admin.ai_model_access.title')}</strong>
+        <p>{t('admin.ai_model_access.description')}</p>
       </div>
 
       <LoadingOverlay loading={loading}>
-        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
-            <Field label={t('admin.ai_model_access.target_kind')}>
+        <div className="admin-ai-card__body">
+          <div className="admin-ai-grant-toolbar">
+            <label className="admin-form-label" style={{ gap: 4, margin: 0 }}>
+              <span className="admin-label-text">{t('admin.ai_model_access.target_kind')}</span>
               <Select
                 value={targetKind}
-                onChange={(v) => { setTargetKind(v as TargetKind); setTargetID('') }}
+                onChange={(v) => {
+                  setTargetKind(v as TargetKind)
+                  setTargetID('')
+                }}
                 options={[
                   { value: 'workspace', label: t('admin.ai_model_access.workspace') },
                   { value: 'role', label: t('admin.ai_model_access.role') },
                 ]}
               />
-            </Field>
-            <Field label={t('admin.ai_model_access.grant_kind')}>
+            </label>
+            <label className="admin-form-label" style={{ gap: 4, margin: 0 }}>
+              <span className="admin-label-text">{t('admin.ai_model_access.grant_kind')}</span>
               <Select
                 value={grantKind}
-                onChange={(v) => { setGrantKind(v as GrantKind); setResourceID('') }}
+                onChange={(v) => {
+                  setGrantKind(v as GrantKind)
+                  setResourceID('')
+                }}
                 options={[
                   { value: 'provider', label: t('admin.ai_model_access.provider') },
                   { value: 'model', label: t('admin.ai_model_access.model') },
                 ]}
               />
-            </Field>
-            <Field label={targetKind === 'workspace' ? t('admin.ai_model_access.workspace') : t('admin.ai_model_access.role')}>
+            </label>
+            <label className="admin-form-label" style={{ gap: 4, margin: 0 }}>
+              <span className="admin-label-text">
+                {targetKind === 'workspace' ? t('admin.ai_model_access.workspace') : t('admin.ai_model_access.role')}
+              </span>
               <Select
                 value={targetID}
                 onChange={setTargetID}
-                options={[{ value: '', label: '—' }, ...targetOptions]}
+                options={[{ value: '', label: targetPlaceholder }, ...targetOptions]}
+                searchable={targetOptions.length > 6}
+                placeholder={targetPlaceholder}
               />
-            </Field>
-            <Field label={grantKind === 'provider' ? t('admin.ai_model_access.provider') : t('admin.ai_model_access.model')}>
+            </label>
+            <label className="admin-form-label" style={{ gap: 4, margin: 0 }}>
+              <span className="admin-label-text">
+                {grantKind === 'provider' ? t('admin.ai_model_access.provider') : t('admin.ai_model_access.model')}
+              </span>
               <Select
                 value={resourceID}
                 onChange={setResourceID}
-                options={[{ value: '', label: '—' }, ...resourceOptions]}
+                options={[{ value: '', label: resourcePlaceholder }, ...resourceOptions]}
+                searchable={resourceOptions.length > 6}
+                placeholder={resourcePlaceholder}
               />
-            </Field>
-          </div>
-          <div>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              disabled={submitting || !targetID || !resourceID}
-              onClick={handleGrant}
-            >
-              {t('admin.ai_model_access.grant_btn')}
-            </button>
+            </label>
+            <div className="admin-ai-grant-toolbar__actions">
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                disabled={submitting || !targetID || !resourceID}
+                onClick={handleGrant}
+              >
+                {t('admin.ai_model_access.grant_btn')}
+              </button>
+            </div>
           </div>
 
-          {grants && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
-              {(grants.provider_workspaces ?? []).map((g) => (
-                <GrantRow
-                  key={`pw-${g.workspace_id}-${g.provider_id}`}
-                  label={`${workspaceName(g.workspace_id)} → ${providerName(g.provider_id)} (${t('admin.ai_model_access.provider')})`}
-                  onRevoke={() => revoke(() => revokeProviderWorkspace(accessToken!, g.workspace_id, g.provider_id))}
-                />
+          <p className="admin-ai-grants-meta">
+            {targetKind === 'workspace'
+              ? t('admin.ai_model_access.workspaces_available', { count: workspaces.length })
+              : t('admin.ai_model_access.roles_available', { count: roles.length })}
+            {grantItems.length > 0
+              ? ` · ${t('admin.ai_model_access.grants_count', { count: grantItems.length })}`
+              : ''}
+          </p>
+
+          {grantItems.length === 0 ? (
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary, #a1a1aa)' }}>
+              {t('admin.ai_model_access.empty')}
+            </p>
+          ) : (
+            <ul className="admin-ai-grant-list" aria-label={t('admin.ai_model_access.grants_list')}>
+              {grantItems.map((item) => (
+                <li key={item.key} className="admin-ai-grant-row">
+                  <div className="admin-ai-grant-row__main">
+                    <div className="admin-ai-grant-row__badges">
+                      <span className={`admin-ai-badge admin-ai-badge--${item.targetBadge}`}>
+                        {t(`admin.ai_model_access.${item.targetBadge}`)}
+                      </span>
+                      <span className={`admin-ai-badge admin-ai-badge--${item.resourceBadge}`}>
+                        {t(`admin.ai_model_access.${item.resourceBadge}`)}
+                      </span>
+                    </div>
+                    <div className="admin-ai-grant-row__label">{item.label}</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => revoke(item.onRevoke)}
+                  >
+                    {t('admin.ai_model_access.revoke_btn')}
+                  </button>
+                </li>
               ))}
-              {(grants.model_workspaces ?? []).map((g) => (
-                <GrantRow
-                  key={`mw-${g.workspace_id}-${g.model_id}`}
-                  label={`${workspaceName(g.workspace_id)} → ${modelLabel(g.model_id)}`}
-                  onRevoke={() => revoke(() => revokeModelWorkspace(accessToken!, g.workspace_id, g.model_id))}
-                />
-              ))}
-              {(grants.provider_roles ?? []).map((g) => (
-                <GrantRow
-                  key={`pr-${g.role_id}-${g.provider_id}`}
-                  label={`${roleName(g.role_id)} → ${providerName(g.provider_id)} (${t('admin.ai_model_access.provider')})`}
-                  onRevoke={() => revoke(() => revokeProviderRole(accessToken!, g.role_id, g.provider_id))}
-                />
-              ))}
-              {(grants.model_roles ?? []).map((g) => (
-                <GrantRow
-                  key={`mr-${g.role_id}-${g.model_id}`}
-                  label={`${roleName(g.role_id)} → ${modelLabel(g.model_id)}`}
-                  onRevoke={() => revoke(() => revokeModelRole(accessToken!, g.role_id, g.model_id))}
-                />
-              ))}
-              {!grants.provider_workspaces?.length &&
-                !grants.model_workspaces?.length &&
-                !grants.provider_roles?.length &&
-                !grants.model_roles?.length && (
-                  <p style={{ color: 'var(--text-secondary)', margin: 0 }}>{t('admin.ai_model_access.empty')}</p>
-                )}
-            </div>
+            </ul>
           )}
         </div>
       </LoadingOverlay>
     </section>
   )
-}
-
-function GrantRow({ label, onRevoke }: { label: string; onRevoke: () => void }) {
-  const t = useT()
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-      <span>{label}</span>
-      <button type="button" className="btn btn-secondary btn-sm" onClick={onRevoke}>
-        {t('admin.ai_model_access.revoke_btn')}
-      </button>
-    </div>
-  )
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{label}</label>
-      {children}
-    </div>
-  )
-}
-
-const cardStyle: React.CSSProperties = {
-  border: '1px solid var(--border, rgba(255,255,255,0.06))',
-  borderRadius: 8,
-  background: 'var(--surface, rgba(255,255,255,0.02))',
-}
-
-const cardHeaderStyle: React.CSSProperties = {
-  padding: '12px 16px',
-  borderBottom: '1px solid var(--border, rgba(255,255,255,0.06))',
 }

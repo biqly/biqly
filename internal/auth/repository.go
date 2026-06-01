@@ -201,6 +201,51 @@ func (r *UserRepository) ListUsers(ctx context.Context) ([]User, error) {
 	return users, rows.Err()
 }
 
+func (r *UserRepository) ListUsersForAdmin(ctx context.Context) ([]AdminUserListRow, error) {
+	query := `
+		SELECT
+			u.id, u.email, u.username, u.display_name, u.avatar_url, u.password_hash,
+			u.is_active, u.email_verified, u.created_at, u.updated_at, u.last_login_at,
+			COALESCE(m.enabled, FALSE) AS mfa_enabled,
+			(m.user_id IS NOT NULL AND NOT COALESCE(m.enabled, FALSE)) AS mfa_pending,
+			COALESCE(pk.passkey_count, 0) AS passkey_count
+		FROM users u
+		LEFT JOIN user_mfa m ON m.user_id = u.id
+		LEFT JOIN (
+			SELECT user_id, COUNT(*)::int AS passkey_count
+			FROM passkeys
+			GROUP BY user_id
+		) pk ON pk.user_id = u.id
+		ORDER BY u.created_at DESC
+	`
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []AdminUserListRow
+	for rows.Next() {
+		var row AdminUserListRow
+		var usernameNull, displayNameNull, avatarURLNull, passwordHashNull sql.NullString
+		var lastLoginNull sql.NullTime
+		if err := rows.Scan(
+			&row.ID, &row.Email, &usernameNull, &displayNameNull, &avatarURLNull, &passwordHashNull,
+			&row.IsActive, &row.EmailVerified, &row.CreatedAt, &row.UpdatedAt, &lastLoginNull,
+			&row.MFAEnabled, &row.MFAPending, &row.PasskeyCount,
+		); err != nil {
+			return nil, err
+		}
+		row.Username = platformdb.StringPtrFromNull(usernameNull)
+		row.DisplayName = platformdb.StringPtrFromNull(displayNameNull)
+		row.AvatarURL = platformdb.StringPtrFromNull(avatarURLNull)
+		row.PasswordHash = platformdb.StringPtrFromNull(passwordHashNull)
+		row.LastLoginAt = platformdb.TimePtrFromNull(lastLoginNull)
+		out = append(out, row)
+	}
+	return out, rows.Err()
+}
+
 func (r *UserRepository) UpdateLastLogin(ctx context.Context, userID string) error {
 	query := `UPDATE users SET last_login_at = NOW() WHERE id = $1`
 	_, err := r.db.ExecContext(ctx, query, userID)
