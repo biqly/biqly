@@ -4,6 +4,7 @@ import { useT } from '../../i18n'
 import { formatResultCell } from '../../utils/resultCellFormat'
 import { buildPivotTable } from '../../utils/pivotTable'
 import { rowsToChartData } from '../../utils/chartData'
+import { normalizeAIQueryResponse } from '../../utils/normalizeAIQueryResponse'
 import { ResultTable } from '../ResultTable'
 import { ChartContainer } from '../ui/ChartContainer'
 import { ChartTypeSelector } from '../ui/ChartTypeSelector'
@@ -67,7 +68,7 @@ export function AssistantMessageCard({
   onCellDrillDown,
 }: AssistantMessageCardProps) {
   const navigate = useNavigate()
-  const result = message.ai_response
+  const result = normalizeAIQueryResponse(message.ai_response)
   if (!result) return null
 
   const [chartType, setChartType] = useState<'bar' | 'line' | 'pie' | 'table'>('table')

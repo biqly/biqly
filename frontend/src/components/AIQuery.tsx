@@ -6,6 +6,7 @@ import { useAIJobs } from '../hooks/useAIJobs'
 import { useConversation } from '../hooks/useConversation'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { localeNumberTag } from '../utils/formatters'
+import { normalizeAIQueryResponse } from '../utils/normalizeAIQueryResponse'
 import type {
   AIQueryRequest,
   AIQueryResponse,
@@ -232,17 +233,19 @@ export default function AIQuery() {
     prior_turns: includePastQueries ? recentPriorTurns : undefined,
   })
 
-  const applyAIResponse = (q: string, res: AIQueryResponse) => {
-    if (res.needs_clarification) {
+  const applyAIResponse = (q: string, res: AIQueryResponse | unknown) => {
+    const flat = normalizeAIQueryResponse(res)
+    if (!flat) return
+    if (flat.needs_clarification) {
       addMessage({ role: 'user', content: q })
-      addMessage({ role: 'assistant', content: res.clarification_question ?? t('ai_query.clarify_default'), ai_response: res })
+      addMessage({ role: 'assistant', content: flat.clarification_question ?? t('ai_query.clarify_default'), ai_response: flat })
       return
     }
     addMessage({ role: 'user', content: q })
-    const summary = res.sql
-      ? t('ai_query.assistant_sql_preview', { snippet: res.sql.slice(0, 120) })
+    const summary = flat.sql
+      ? t('ai_query.assistant_sql_preview', { snippet: flat.sql.slice(0, 120) })
       : t('ai_query.assistant_executed')
-    addMessage({ role: 'assistant', content: summary, ai_response: res })
+    addMessage({ role: 'assistant', content: summary, ai_response: flat })
   }
 
   const sendQuery = async (q: string, execute: boolean) => {
