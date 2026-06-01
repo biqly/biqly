@@ -18,6 +18,7 @@ const QueryBuilder = lazy(() => import('./components/QueryBuilder'))
 const AIQuery = lazy(() => import('./components/AIQuery'))
 const SavedQuestions = lazy(() => import('./components/SavedQuestions'))
 const TableBrowser = lazy(() => import('./components/TableBrowser'))
+const QueryHistory = lazy(() => import('./components/QueryHistory'))
 const FewShotExamples = lazy(() => import('./components/FewShotExamples'))
 const PromptTemplates = lazy(() => import('./components/PromptTemplates'))
 const Glossary = lazy(() => import('./components/Glossary'))
@@ -203,6 +204,13 @@ const IconGlossary = (
   </svg>
 )
 
+const IconHistory = (
+  <svg {...iconProps}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 6v6l4 2" />
+  </svg>
+)
+
 const routeDefs: AppRouteDef[] = [
   {
     path: '/',
@@ -276,6 +284,15 @@ const routeDefs: AppRouteDef[] = [
     descriptionKey: 'app.nav.table_browser_desc',
     icon: IconTableBrowser,
     component: TableBrowser,
+  },
+  {
+    path: '/query-history',
+    sectionKey: 'query',
+    labelKey: 'app.nav.query_history',
+    eyebrowKey: 'app.nav.query_history_eyebrow',
+    descriptionKey: 'app.nav.query_history_desc',
+    icon: IconHistory,
+    component: QueryHistory,
   },
   {
     path: '/few-shot-examples',

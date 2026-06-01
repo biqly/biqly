@@ -26,10 +26,10 @@
 | AI Job System | Tamamı mevcut | Yok | ✅ |
 | Entity Translations | Tamamı mevcut | Yok | ✅ |
 | SFT Export Pipeline | Tamamı mevcut | Yok | ✅ |
-| Dashboard Builder | Yok | Var | ❌ |
+| Dashboard Builder | Tamamı mevcut | Var | ✅ |
 | Raw SQL Editor | Yok (tasarım kararı) | Var | — |
 | Row-Level Security UI | Tamamı mevcut | Var | ✅ |
-| AI Provider DB Yönetimi | Yok (env-based) | Kısmen | ❌ |
+| AI Provider DB Yönetimi | Tamamı mevcut | Kısmen | ✅ |
 
 ---
 
@@ -54,7 +54,7 @@
 | Admin panel | ✅ Tamamı | `Admin.tsx` — user management, roles (`RolesPanel`), workspaces (`WorkspacesPanel`), datasource access (`DatasourceAccessPanel`), audit log (`AuditLogPanel`), queue status |
 | Auth pages | ✅ Tamamı | Sign-in/up, OAuth, passkey, MFA, password reset, email verification, invitation claiming |
 | Settings | ✅ Tamamı | MFA enrollment, passkey management, workspace selector |
-| Dashboard builder (drag-drop) | ❌ Eksik | Mevcut `/dashboard` AI usage analytics gösteriyor. Kullanıcıların kendi dashboard oluşturabileceği bir builder yok. |
+| Dashboard builder (drag-drop) | ✅ Tamamı | `DashboardBuilder.tsx` — Grid-based drag-and-drop dashboard and widget editor. |
 | Public embed / sharing | ⚠️ Kısmen | `ShareButton` + `SharedResourcesList` ile workspace paylaşımı var ama public iframe embed yok |
 
 ### 2.2 Wren AI Service (Bölüm 2.2) → Backend AI Layer
@@ -127,7 +127,7 @@
 | 3 | Metric definitions reusable ve tek kaynak mı? | ✅ | `semantic_metrics` tablosu, publish workflow ile locked |
 | 4 | Join path'ler explicit relationship olarak tanımlı mı? | ✅ | `semantic_joins` — from_table, from_column, to_table, to_column, join_type, relationship + cross-schema (`from_schema`/`to_schema`) |
 | 5 | Ambiguous alanlar için synonym/glossary var mı? | ✅ | Synonyms on models, dimensions, metrics + `business_glossary_terms` table + entity translations |
-| 6 | Enum mapping var mı? | ⚠️ | Açık enum mapping yok. Description'larda dokümente edilebilir ama `status = 4 => refunded` gibi otomatik mapping mekanizması yok. **B1'e bakın.** |
+| 6 | Enum mapping var mı? | ✅ | `enum_mappings` tablosu + dimension mapping + prompt injection ve UI editor eklendi. |
 | 7 | PII/sensitive kolonlar hide edilebiliyor mu? | ✅ | `WithDeniedFields` — column-level access control |
 | 8 | Row-level / column-level access tasarlanmış mı? | ✅ | Backend tamamı. `CompileWithPermissions()` row-level, `PermissionManager` column-level + RBAC with scope types |
 | 9 | Versioning var mı? | ✅ | `publish.go` — draft/publish/rollback, version increment |
@@ -426,12 +426,12 @@ Bu bölüm Wren dokümanından Biqly Go backend'ine doğrudan uygulanacak somut 
 
 **Uygulanacak:**
 
-- [ ] `QueryHistory.tsx` page oluştur:
+- [x] `QueryHistory.tsx` page oluştur:
   - Kullanıcının kendi AI sorgu geçmişi
   - Search/filter (datasource, model, tarih, status)
   - Tekrar çalıştır butonu
   - Sonuç preview
-- [ ] Sidebar'da "History" link ekle (Query bölümü altına)
+- [x] Sidebar'da "History" link ekle (Query bölümü altına)
 
 ---
 
@@ -514,7 +514,7 @@ Wren dokümanında önerilen ama Biqly'nin bilerek uygulamadığı şeyler:
 
 **Kalan:**
 
-- [ ] Enum mapping mekanizması (B1)
+- [x] Enum mapping mekanizması (B1)
 - [x] Metric expression AST validation (B6) — DML guard mevcut ama AST parser yok
 
 ### Faz 2 — Retrieval Layer (✅ Tamamlandı)
@@ -578,9 +578,9 @@ Wren dokümanında önerilen ama Biqly'nin bilerek uygulamadığı şeyler:
 
 - [x] **Dashboard Builder** (F1) — Yüksek öncelik
 - [x] **Row-Level Security Admin UI** (F2) — Yüksek öncelik
-- [ ] **AI Provider Admin UI** — Yüksek öncelik (B9 frontend)
+- [x] **AI Provider Admin UI** — Yüksek öncelik (B9 frontend)
 - [x] **Business Glossary Browser** (F5) — Orta öncelik (backend hazır)
-- [ ] **Kullanıcı Query History** (F4) — Orta öncelik (backend hazır)
+- [x] **Kullanıcı Query History** (F4) — Orta öncelik (backend hazır)
 - [x] **Field-Level Permission UI** (F3) — Orta öncelik
 
 ---
