@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useT } from '../../i18n'
 import { useDatasources } from '../../hooks/useDatasources'
 import { useSemanticModels } from '../../hooks/useSemanticModels'
-import { useModelDetail } from '../../hooks/useModelDetail'
+import { request } from '../../hooks/useApi'
 import { getSecurityPolicyByKeys, upsertSecurityPolicy } from '../../api/admin'
 import type { SecurityPolicy } from '../../api/admin'
+import type { SemanticModelFieldRow, SemanticModelFieldsPage } from '../../types/semantic'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
@@ -14,29 +15,31 @@ import {
   semanticModelSelectOptions,
 } from './adminSelectOptions'
 
+const DEFAULT_FIELD_PAGE_SIZE = 15
+
 export function FieldPermissionPanel({ token }: { token: string }) {
   const t = useT()
 
-  // Selectors
   const [selectedRole, setSelectedRole] = useState('viewer')
   const { datasources, loading: loadingDS } = useDatasources()
   const [selectedDS, setSelectedDS] = useState<string>('')
 
-  // Semantic Models
   const { models, loading: loadingModels } = useSemanticModels(selectedDS || null)
   const [selectedModel, setSelectedModel] = useState<string>('')
-  const { model, loading: loadingModelDetail } = useModelDetail(selectedModel || null)
 
-  // Policy & Denied fields
   const [policy, setPolicy] = useState<SecurityPolicy | null>(null)
   const [deniedFields, setDeniedFields] = useState<string[]>([])
   const [loadingPolicy, setLoadingPolicy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
-  const [fieldPage, setFieldPage] = useState(1)
-  const fieldPageSize = 15
 
-  // Auto-select first datasource
+  const [modelName, setModelName] = useState<string | null>(null)
+  const [fieldRows, setFieldRows] = useState<SemanticModelFieldRow[]>([])
+  const [fieldTotal, setFieldTotal] = useState(0)
+  const [fieldPage, setFieldPage] = useState(1)
+  const [fieldPageSize] = useState(DEFAULT_FIELD_PAGE_SIZE)
+  const [loadingFields, setLoadingFields] = useState(false)
+
   useEffect(() => {
     if (datasources && datasources.length > 0 && !selectedDS) {
       const firstDS = datasources[0]
@@ -46,7 +49,6 @@ export function FieldPermissionPanel({ token }: { token: string }) {
     }
   }, [datasources, selectedDS])
 
-  // Auto-select first model
   useEffect(() => {
     if (models && models.length > 0) {
       const firstModel = models[0]
@@ -58,7 +60,6 @@ export function FieldPermissionPanel({ token }: { token: string }) {
     }
   }, [models])
 
-  // Fetch policy when role or datasource changes
   useEffect(() => {
     if (!selectedRole || !selectedDS) {
       setPolicy(null)
@@ -93,22 +94,60 @@ export function FieldPermissionPanel({ token }: { token: string }) {
     }
   }, [token, selectedRole, selectedDS])
 
+  const loadFields = useCallback(async () => {
+    if (!selectedModel) {
+      setModelName(null)
+      setFieldRows([])
+      setFieldTotal(0)
+      return
+    }
+    setLoadingFields(true)
+    const params = new URLSearchParams({
+      page: String(fieldPage),
+      page_size: String(fieldPageSize),
+    })
+    const { data, error: fieldsErr } = await request<SemanticModelFieldsPage>(
+      'GET',
+      `/api/semantic/models/${encodeURIComponent(selectedModel)}/fields?${params}`,
+    )
+    if (fieldsErr) {
+      setError(fieldsErr)
+      setModelName(null)
+      setFieldRows([])
+      setFieldTotal(0)
+    } else if (data) {
+      setModelName(data.model_name)
+      setFieldRows(data.items)
+      setFieldTotal(data.total)
+    } else {
+      setModelName(null)
+      setFieldRows([])
+      setFieldTotal(0)
+    }
+    setLoadingFields(false)
+  }, [selectedModel, fieldPage, fieldPageSize])
+
+  useEffect(() => {
+    void loadFields()
+  }, [loadFields])
+
+  useEffect(() => {
+    setFieldPage(1)
+  }, [selectedModel, selectedRole, selectedDS])
+
   const handleToggleField = (fieldName: string) => {
-    if (!model) return
-    const qualified = `${model.name}.${fieldName}`
-    
-    // Check if either qualified or plain field is in deniedFields
+    if (!modelName) return
+    const qualified = `${modelName}.${fieldName}`
+
     const isDenied = deniedFields.includes(qualified) || deniedFields.includes(fieldName)
-    
+
     let updated: string[]
     if (isDenied) {
-      // Remove both forms
       updated = deniedFields.filter((f) => f !== qualified && f !== fieldName)
     } else {
-      // Add qualified form
       updated = [...deniedFields, qualified]
     }
-    
+
     setDeniedFields(updated)
     setSaveSuccess(false)
   }
@@ -118,7 +157,6 @@ export function FieldPermissionPanel({ token }: { token: string }) {
     setError(null)
     setSaveSuccess(false)
 
-    // Construct request policy
     const policyToSave: SecurityPolicy = {
       id: policy?.id,
       user_id: `role:${selectedRole}`,
@@ -142,48 +180,14 @@ export function FieldPermissionPanel({ token }: { token: string }) {
   }
 
   const isFieldDenied = (fieldName: string) => {
-    if (!model) return false
-    const qualified = `${model.name}.${fieldName}`
+    if (!modelName) return false
+    const qualified = `${modelName}.${fieldName}`
     return deniedFields.includes(qualified) || deniedFields.includes(fieldName)
   }
 
-  const hasFields = model && ((model.dimensions?.length || 0) > 0 || (model.metrics?.length || 0) > 0)
-  const isSavingDisabled = !model || loadingPolicy
-
-  type FieldRow =
-    | { kind: 'dimension'; id: string; name: string; label?: string | null; type: string; ref: string }
-    | { kind: 'metric'; id: string; name: string; label?: string | null; aggregation: string; ref: string }
-
-  const fieldRows = useMemo((): FieldRow[] => {
-    if (!model) return []
-    const dims: FieldRow[] = (model.dimensions ?? []).map((d) => ({
-      kind: 'dimension',
-      id: d.id,
-      name: d.name,
-      label: d.label,
-      type: d.type,
-      ref: d.column_ref,
-    }))
-    const mets: FieldRow[] = (model.metrics ?? []).map((m) => ({
-      kind: 'metric',
-      id: m.id,
-      name: m.name,
-      label: m.label,
-      aggregation: m.aggregation,
-      ref: m.expression,
-    }))
-    return [...dims, ...mets]
-  }, [model])
-
-  const fieldTotalPages = Math.max(1, Math.ceil(fieldRows.length / fieldPageSize))
-  const pagedFieldRows = useMemo(() => {
-    const start = (fieldPage - 1) * fieldPageSize
-    return fieldRows.slice(start, start + fieldPageSize)
-  }, [fieldRows, fieldPage, fieldPageSize])
-
-  useEffect(() => {
-    setFieldPage(1)
-  }, [selectedModel, selectedRole, selectedDS])
+  const hasFields = fieldTotal > 0
+  const fieldTotalPages = Math.max(1, Math.ceil(fieldTotal / fieldPageSize))
+  const isSavingDisabled = !selectedModel || !modelName || loadingPolicy
 
   const dsOptions = useMemo(
     () => datasourceSelectOptions(datasources ?? [], loadingDS),
@@ -229,18 +233,18 @@ export function FieldPermissionPanel({ token }: { token: string }) {
       {saveSuccess && <div style={successStyle}>Field permissions saved successfully!</div>}
 
       <div style={contentLayout}>
-        <LoadingOverlay loading={loadingPolicy || loadingModelDetail}>
+        <LoadingOverlay loading={loadingPolicy || loadingFields}>
           <div style={innerPanelStyle}>
             <div style={panelHeaderStyle}>
               <h3 style={sectionTitleStyle}>Dimension & Metric Access Matrix</h3>
-              {model && <span style={badgeStyle}>{model.name}</span>}
+              {modelName && <span style={badgeStyle}>{modelName}</span>}
             </div>
 
-            {!model ? (
+            {!selectedModel ? (
               <div style={noModelStyle}>
                 Select a semantic model to configure field access controls.
               </div>
-            ) : !hasFields ? (
+            ) : !hasFields && !loadingFields ? (
               <div style={noFieldsStyle}>
                 This semantic model has no dimensions or metrics configured.
               </div>
@@ -256,7 +260,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {pagedFieldRows.map((row) => {
+                    {fieldRows.map((row) => {
                       const denied = isFieldDenied(row.name)
                       return (
                         <tr key={`${row.kind}-${row.id}`} style={trRow}>
@@ -268,9 +272,9 @@ export function FieldPermissionPanel({ token }: { token: string }) {
                           </td>
                           <td style={tdStyle}>
                             {row.kind === 'dimension' ? (
-                              <span style={dimTypeBadge}>dimension ({row.type})</span>
+                              <span style={dimTypeBadge}>dimension ({row.subtype})</span>
                             ) : (
-                              <span style={metricTypeBadge}>metric ({row.aggregation})</span>
+                              <span style={metricTypeBadge}>metric ({row.subtype})</span>
                             )}
                           </td>
                           <td style={tdStyle}>
@@ -293,7 +297,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
                   currentPage={fieldPage}
                   totalPages={fieldTotalPages}
                   onPageChange={setFieldPage}
-                  totalItems={fieldRows.length}
+                  totalItems={fieldTotal}
                   itemsPerPage={fieldPageSize}
                   alwaysShow
                 />

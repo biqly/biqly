@@ -72,6 +72,7 @@ func registerCatalogAPIRoutes(r chi.Router, deps *app.CatalogDeps, authClient *b
 	r.Post("/semantic/models/generate", semHandler.GenerateModel)
 	r.Get("/semantic/models", semHandler.ListModels)
 	r.Get("/semantic/models/{id}", semHandler.GetModel)
+	r.Get("/semantic/models/{id}/fields", semHandler.ListModelFields)
 	r.Put("/semantic/models/{id}", semHandler.UpdateModel)
 	r.Delete("/semantic/models/{id}", semHandler.DeleteModel)
 	r.Post("/semantic/models/{id}/validate", semHandler.ValidateModel)

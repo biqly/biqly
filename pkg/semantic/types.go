@@ -71,6 +71,16 @@ type EnumMapping struct {
 	SortOrder   int     `json:"sort_order" db:"sort_order"`
 }
 
+// ModelField is a dimension or metric row for paginated field-permission UIs.
+type ModelField struct {
+	Kind    string  `json:"kind"`
+	ID      string  `json:"id"`
+	Name    string  `json:"name"`
+	Label   *string `json:"label,omitempty"`
+	Ref     string  `json:"ref"`
+	Subtype string  `json:"subtype"`
+}
+
 // Metric represents an aggregatable field in a semantic model.
 type Metric struct {
 	ID          string    `json:"id" db:"id"`

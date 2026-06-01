@@ -19,6 +19,7 @@ type (
 	EnumMapping     = pkgsemantic.EnumMapping
 	Metric          = pkgsemantic.Metric
 	Join            = pkgsemantic.Join
+	ModelField      = pkgsemantic.ModelField
 	DimensionType   = pkgsemantic.DimensionType
 	AggregationType = pkgsemantic.AggregationType
 )

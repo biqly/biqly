@@ -87,6 +87,23 @@ export interface SemanticModelDetail extends SemanticModelSummary {
   joins?: SemanticJoin[]
 }
 
+export interface SemanticModelFieldRow {
+  kind: 'dimension' | 'metric'
+  id: string
+  name: string
+  label?: string | null
+  ref: string
+  subtype: string
+}
+
+export interface SemanticModelFieldsPage {
+  model_name: string
+  items: SemanticModelFieldRow[]
+  total: number
+  page: number
+  page_size: number
+}
+
 export interface GenerateSemanticModelResponse {
   model: SemanticModelDetail
   warnings?: string[]

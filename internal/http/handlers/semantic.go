@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -270,6 +271,66 @@ func (h *SemanticHandler) GetModel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, model)
+}
+
+type listModelFieldsResponse struct {
+	ModelName string                `json:"model_name"`
+	Items     []semantic.ModelField `json:"items"`
+	Total     int                   `json:"total"`
+	Page      int                   `json:"page"`
+	PageSize  int                   `json:"page_size"`
+}
+
+// ListModelFields returns paginated active dimensions and metrics for field-permission UIs.
+func (h *SemanticHandler) ListModelFields(w http.ResponseWriter, r *http.Request) {
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
+	q := r.URL.Query()
+	page := 1
+	if v := q.Get("page"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			page = n
+		}
+	}
+	pageSize := 15
+	if v := q.Get("page_size"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			pageSize = n
+		}
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	ctx := r.Context()
+	model, err := h.deps.SemanticRepo.GetModel(ctx, id)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusNotFound, "model not found", err)
+		return
+	}
+	total, err := h.deps.SemanticRepo.CountActiveModelFields(ctx, id)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to count model fields", err)
+		return
+	}
+	offset := (page - 1) * pageSize
+	items, err := h.deps.SemanticRepo.ListActiveModelFields(ctx, id, pageSize, offset)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list model fields", err)
+		return
+	}
+	if items == nil {
+		items = []semantic.ModelField{}
+	}
+	writeJSON(w, http.StatusOK, listModelFieldsResponse{
+		ModelName: model.Name,
+		Items:     items,
+		Total:     total,
+		Page:      page,
+		PageSize:  pageSize,
+	})
 }
 
 type updateModelRequest struct {

@@ -70,6 +70,68 @@
   font-size: 0.875rem;
 }
 
+.conn-mode-segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--bg-card-raised, rgba(255, 255, 255, 0.04));
+}
+
+.conn-mode-segmented__btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid transparent;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.conn-mode-segmented__btn:hover:not(.conn-mode-segmented__btn--active) {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--bg-card) 70%, transparent);
+}
+
+.conn-mode-segmented__btn--active {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.conn-mode-segmented__title {
+  font-weight: 600;
+  font-size: 0.8125rem;
+}
+
+.conn-mode-segmented__desc {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.conn-mode-segmented__btn--active .conn-mode-segmented__desc {
+  color: var(--text-secondary);
+}
+
 .form-hint {
   display: block;
   margin-top: 0.25rem;

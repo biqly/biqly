@@ -76,20 +76,24 @@ export function DatasourceFormModal({
       <div className="form-stack">
         <div className="form-group">
           <span className="form-group__label">{t('datasources.connection_mode')}</span>
-          <div className="bulk-segmented" role="group" aria-label={t('datasources.connection_mode')}>
+          <div className="conn-mode-segmented" role="group" aria-label={t('datasources.connection_mode')}>
             <button
               type="button"
-              className={`bulk-segmented__btn${connMode === 'structured' ? ' bulk-segmented__btn--active' : ''}`}
+              className={`conn-mode-segmented__btn${connMode === 'structured' ? ' conn-mode-segmented__btn--active' : ''}`}
+              aria-pressed={connMode === 'structured'}
               onClick={() => onConnModeChange('structured')}
             >
-              {t('datasources.mode_structured')}
+              <span className="conn-mode-segmented__title">{t('datasources.mode_structured')}</span>
+              <span className="conn-mode-segmented__desc">{t('datasources.mode_structured_desc')}</span>
             </button>
             <button
               type="button"
-              className={`bulk-segmented__btn${connMode === 'raw' ? ' bulk-segmented__btn--active' : ''}`}
+              className={`conn-mode-segmented__btn${connMode === 'raw' ? ' conn-mode-segmented__btn--active' : ''}`}
+              aria-pressed={connMode === 'raw'}
               onClick={() => onConnModeChange('raw')}
             >
-              {t('datasources.mode_raw')}
+              <span className="conn-mode-segmented__title">{t('datasources.mode_raw')}</span>
+              <span className="conn-mode-segmented__desc">{t('datasources.mode_raw_desc')}</span>
             </button>
           </div>
         </div>

@@ -683,6 +683,46 @@ func scanJoin(s platformdb.Scanner) (Join, error) {
 	return j, nil
 }
 
+// CountActiveModelFields returns the number of active dimensions plus metrics for a model.
+func (r *Repository) CountActiveModelFields(ctx context.Context, modelID string) (int, error) {
+	query := `
+		SELECT (
+			SELECT COUNT(*)::int FROM semantic_dimensions WHERE model_id = $1::uuid AND is_active = true
+		) + (
+			SELECT COUNT(*)::int FROM semantic_metrics WHERE model_id = $1::uuid AND is_active = true
+		)`
+	var n int
+	if err := r.db.QueryRowContext(ctx, query, modelID).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count model fields: %w", err)
+	}
+	return n, nil
+}
+
+// ListActiveModelFields returns a paginated union of active dimensions and metrics ordered by name.
+func (r *Repository) ListActiveModelFields(ctx context.Context, modelID string, limit, offset int) ([]ModelField, error) {
+	query := `
+		SELECT kind, id, name, label, ref, subtype FROM (
+			SELECT 'dimension'::text AS kind, id::text, name, label, column_ref AS ref, type AS subtype
+			FROM semantic_dimensions
+			WHERE model_id = $1::uuid AND is_active = true
+			UNION ALL
+			SELECT 'metric'::text, id::text, name, label, expression AS ref, aggregation AS subtype
+			FROM semantic_metrics
+			WHERE model_id = $1::uuid AND is_active = true
+		) fields
+		ORDER BY name, kind
+		LIMIT $2 OFFSET $3`
+	return platformdb.QuerySliceErr(ctx, r.db, "list model fields", query, []any{modelID, limit, offset}, scanModelField)
+}
+
+func scanModelField(s platformdb.Scanner) (ModelField, error) {
+	var f ModelField
+	if err := s.Scan(&f.Kind, &f.ID, &f.Name, &f.Label, &f.Ref, &f.Subtype); err != nil {
+		return f, fmt.Errorf("scan model field: %w", err)
+	}
+	return f, nil
+}
+
 func (r *Repository) scanModel(s platformdb.Scanner) (*SemanticModel, error) {
 	m := &SemanticModel{}
 	err := s.Scan(
