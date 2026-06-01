@@ -991,22 +991,32 @@ input[type='checkbox']:disabled {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 0.75rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .metadata-toolbar__title {
   margin: 0;
   font-size: 1.05rem;
-  flex: 0 1 auto;
-  min-width: 0;
+  font-weight: 650;
+  line-height: 1.85rem;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .metadata-toolbar__actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.45rem;
   flex: 0 0 auto;
   margin-left: auto;
+}
+
+.metadata-toolbar__actions .btn {
+  width: auto;
+  margin-top: 0;
+  min-height: 1.85rem;
 }
 
 .metadata-lang-tabs {
@@ -1093,30 +1103,25 @@ input[type='checkbox']:disabled {
 }
 
 .metadata-table-filters--toolbar {
-  flex: 1 1 12rem;
+  flex: 1 1 16rem;
   justify-content: flex-start;
+  align-items: center;
   min-width: 0;
 }
 
 .metadata-table-filters--toolbar .metadata-filter-field {
-  flex: 1 1 9rem;
+  flex: 0 1 11rem;
+  min-width: 9rem;
   max-width: 11rem;
 }
 
 .metadata-table-filters .metadata-filter-field {
-  margin-bottom: 0;
-  min-width: 10rem;
+  margin: 0;
+  min-width: 0;
 }
 
-.metadata-table-filters .metadata-filter-field label {
-  font-size: 0.72rem;
-}
-
-.metadata-table-filters .form-group select:not([multiple]) {
-  min-height: 2.125rem;
-  padding: 0.42rem 2.15rem 0.42rem 0.65rem;
-  font-size: 0.8125rem;
-  background-position: right 0.65rem center;
+.metadata-table-filters .metadata-filter-field .ui-select {
+  width: 100%;
 }
 
 .results-table.results-table--metadata-list th,
@@ -1129,6 +1134,22 @@ input[type='checkbox']:disabled {
   line-height: 1.35;
   padding-top: 0.6rem;
   padding-bottom: 0.6rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.results-table.results-table--metadata-list thead th.metadata-col-name {
+  padding-left: calc(0.55rem + 0.7rem + 0.35rem);
+}
+
+.results-table.results-table--metadata-list thead th.metadata-col-desc,
+.results-table.results-table--metadata-list tbody td.metadata-desc-cell {
+  text-align: left;
+}
+
+.results-table.results-table--metadata-list thead th.metadata-col-actions,
+.results-table.results-table--metadata-list tbody td.actions {
+  text-align: right;
 }
 
 /* İç içe kolon tablosu: üst tabloyla aynı thead ölçüleri (ayrıca specificity ile net) */

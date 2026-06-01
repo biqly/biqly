@@ -247,9 +247,10 @@ export default function Metadata() {
             </h2>
             {tables.length > 0 && (
               <div className="metadata-table-filters metadata-table-filters--toolbar">
-                <div className="form-group metadata-filter-field">
+                <div className="metadata-filter-field">
                   <Select
                     id="metadata-filter-schema"
+                    size="sm"
                     ariaLabel={t('metadata.filter_schema_aria')}
                     value={tableFilterSchema}
                     onChange={setTableFilterSchema}
@@ -259,9 +260,10 @@ export default function Metadata() {
                     ]}
                   />
                 </div>
-                <div className="form-group metadata-filter-field">
+                <div className="metadata-filter-field">
                   <Select
                     id="metadata-filter-type"
+                    size="sm"
                     ariaLabel={t('metadata.filter_type_aria')}
                     value={tableFilterType}
                     onChange={setTableFilterType}
@@ -334,10 +336,18 @@ export default function Metadata() {
               </colgroup>
               <thead>
                 <tr>
-                  <th>{t('metadata.col_table_name')}</th>
-                  <th className="metadata-col-type">{t('metadata.col_object_type')}</th>
-                  <th>{t('metadata.col_table_desc')}</th>
-                  <th className="actions">{t('metadata.col_actions')}</th>
+                  <th scope="col" className="metadata-col-name">
+                    {t('metadata.col_table_name')}
+                  </th>
+                  <th scope="col" className="metadata-col-type">
+                    {t('metadata.col_object_type')}
+                  </th>
+                  <th scope="col" className="metadata-col-desc">
+                    {t('metadata.col_table_desc')}
+                  </th>
+                  <th scope="col" className="actions metadata-col-actions">
+                    {t('metadata.col_actions')}
+                  </th>
                 </tr>
               </thead>
               <tbody>
