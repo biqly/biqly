@@ -31,6 +31,8 @@ type Workspace struct {
 type WorkspaceMember struct {
 	WorkspaceID string    `json:"workspace_id"`
 	UserID      string    `json:"user_id"`
+	Email       string    `json:"email,omitempty"`
+	DisplayName *string   `json:"display_name,omitempty"`
 	RoleID      string    `json:"role_id"`
 	RoleName    string    `json:"role_name,omitempty"`
 	JoinedAt    time.Time `json:"joined_at"`
@@ -38,10 +40,11 @@ type WorkspaceMember struct {
 }
 
 type WorkspaceDatasource struct {
-	WorkspaceID  string    `json:"workspace_id"`
-	DatasourceID string    `json:"datasource_id"`
-	AccessLevel  string    `json:"access_level"`
-	AttachedAt   time.Time `json:"attached_at"`
+	WorkspaceID    string    `json:"workspace_id"`
+	DatasourceID   string    `json:"datasource_id"`
+	DatasourceName string    `json:"datasource_name,omitempty"`
+	AccessLevel    string    `json:"access_level"`
+	AttachedAt     time.Time `json:"attached_at"`
 }
 
 type WorkspaceService struct {
@@ -186,9 +189,10 @@ func (s *WorkspaceService) Delete(ctx context.Context, id, callerID string) erro
 
 func (s *WorkspaceService) ListMembers(ctx context.Context, workspaceID string) ([]WorkspaceMember, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT wm.workspace_id, wm.user_id, wm.role_id, r.name, wm.joined_at, wm.invited_by
+		SELECT wm.workspace_id, wm.user_id, u.email, u.display_name, wm.role_id, r.name, wm.joined_at, wm.invited_by
 		FROM workspace_members wm
 		JOIN roles r ON wm.role_id = r.id
+		JOIN users u ON u.id = wm.user_id
 		WHERE wm.workspace_id = $1
 		ORDER BY wm.joined_at
 	`, workspaceID)
@@ -201,8 +205,12 @@ func (s *WorkspaceService) ListMembers(ctx context.Context, workspaceID string) 
 	for rows.Next() {
 		var m WorkspaceMember
 		var invitedBy sql.NullString
-		if err := rows.Scan(&m.WorkspaceID, &m.UserID, &m.RoleID, &m.RoleName, &m.JoinedAt, &invitedBy); err != nil {
+		var displayName sql.NullString
+		if err := rows.Scan(&m.WorkspaceID, &m.UserID, &m.Email, &displayName, &m.RoleID, &m.RoleName, &m.JoinedAt, &invitedBy); err != nil {
 			return nil, err
+		}
+		if displayName.Valid {
+			m.DisplayName = &displayName.String
 		}
 		if invitedBy.Valid {
 			m.InvitedBy = &invitedBy.String
@@ -296,8 +304,10 @@ func (s *WorkspaceService) SetMFARequired(ctx context.Context, workspaceID, call
 
 func (s *WorkspaceService) ListDatasources(ctx context.Context, workspaceID string) ([]WorkspaceDatasource, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT workspace_id, datasource_id, access_level, attached_at
-		FROM workspace_datasources WHERE workspace_id = $1
+		SELECT wd.workspace_id, wd.datasource_id, COALESCE(ds.name, ''), wd.access_level, wd.attached_at
+		FROM workspace_datasources wd
+		LEFT JOIN datasources ds ON ds.id = wd.datasource_id
+		WHERE wd.workspace_id = $1
 	`, workspaceID)
 	if err != nil {
 		return nil, fmt.Errorf("query workspace datasources: %w", err)
@@ -307,7 +317,7 @@ func (s *WorkspaceService) ListDatasources(ctx context.Context, workspaceID stri
 	var list []WorkspaceDatasource
 	for rows.Next() {
 		var wd WorkspaceDatasource
-		if err := rows.Scan(&wd.WorkspaceID, &wd.DatasourceID, &wd.AccessLevel, &wd.AttachedAt); err != nil {
+		if err := rows.Scan(&wd.WorkspaceID, &wd.DatasourceID, &wd.DatasourceName, &wd.AccessLevel, &wd.AttachedAt); err != nil {
 			return nil, err
 		}
 		list = append(list, wd)

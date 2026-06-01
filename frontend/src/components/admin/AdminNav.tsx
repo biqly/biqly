@@ -39,9 +39,11 @@ export function AdminNav({ activeTab, onTabChange }: AdminNavProps) {
 
       <div className="admin-nav__desktop">
         {ADMIN_NAV_GROUPS.map((group) => (
-          <div key={group.id} className="admin-nav__group">
-            <p className="admin-nav__group-title">{t(group.labelKey)}</p>
-            <ul className="admin-nav__list">
+          <div key={group.id} className="admin-nav__group" role="group" aria-label={t(group.labelKey)}>
+            <p className="admin-nav__group-title" id={`admin-nav-group-${group.id}`}>
+              {t(group.labelKey)}
+            </p>
+            <ul className="admin-nav__list" aria-labelledby={`admin-nav-group-${group.id}`}>
               {group.tabs.map((tab) => {
                 const isActive = activeTab === tab
                 return (

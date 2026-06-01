@@ -78,15 +78,7 @@ export function WorkspacesPanel({ token }: { token: string }) {
 
   if (selectedWS) {
     return (
-      <WorkspaceSettingsPage
-        token={token}
-        workspaceID={selectedWS}
-        onBack={() => {
-          setSelectedWSParam('')
-          setWorkspaceLabelParam('')
-          reload()
-        }}
-      />
+      <WorkspaceSettingsPage token={token} workspaceID={selectedWS} />
     )
   }
 
@@ -172,6 +164,7 @@ export function WorkspacesPanel({ token }: { token: string }) {
           onPageChange={setCurrentPage}
           totalItems={totalItems}
           itemsPerPage={pageSize}
+          alwaysShow
         />
       </div>
     </div>

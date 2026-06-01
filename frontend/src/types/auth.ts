@@ -6,6 +6,7 @@ export interface AuthUser {
   avatarUrl?: string
   isActive: boolean
   emailVerified: boolean
+  hasPassword?: boolean
   active_workspace_id?: string
   createdAt: string
   updatedAt: string
@@ -75,6 +76,8 @@ export interface Workspace {
 export interface WorkspaceMember {
   workspace_id: string
   user_id: string
+  email?: string
+  display_name?: string | null
   role_id: string
   role_name?: string
   joined_at: string
@@ -118,6 +121,7 @@ export interface UserRoleInfo {
 export interface WorkspaceDatasource {
   workspace_id: string
   datasource_id: string
+  datasource_name?: string
   access_level: string
   attached_by?: string
   attached_at: string

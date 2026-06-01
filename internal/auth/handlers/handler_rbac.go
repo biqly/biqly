@@ -95,6 +95,8 @@ func (h *RBACHandler) RegisterAuthRoutes(r chi.Router, authMW func(http.Handler)
 			r.Delete("/datasource-access/{id}", h.handleAdminRevokeAccess)
 
 			r.Get("/roles", h.handleAdminListRoles)
+			r.Get("/roles/{roleId}/permissions", h.handleAdminGetRolePermissions)
+			r.Put("/roles/{roleId}/permissions", h.handleAdminSetRolePermissions)
 			r.Get("/permissions", h.handleAdminListPermissions)
 			r.Post("/users/{id}/roles", h.handleAdminAssignRole)
 			r.Delete("/users/{id}/roles/{roleId}", h.handleAdminRemoveRole)
@@ -464,6 +466,32 @@ func (h *RBACHandler) handleAdminListPermissions(w http.ResponseWriter, r *http.
 		"permissions": paginated,
 		"total":       total,
 	})
+}
+
+func (h *RBACHandler) handleAdminGetRolePermissions(w http.ResponseWriter, r *http.Request) {
+	roleID := chi.URLParam(r, "roleId")
+	ids, err := h.rbacRepo.GetRolePermissionIDs(r.Context(), roleID)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"permission_ids": ids})
+}
+
+func (h *RBACHandler) handleAdminSetRolePermissions(w http.ResponseWriter, r *http.Request) {
+	roleID := chi.URLParam(r, "roleId")
+	var req struct {
+		PermissionIDs []string `json:"permission_ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, r, http.StatusBadRequest, err)
+		return
+	}
+	if err := h.rbacRepo.SetRolePermissions(r.Context(), roleID, req.PermissionIDs); err != nil {
+		writeError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *RBACHandler) handleAdminAssignRole(w http.ResponseWriter, r *http.Request) {

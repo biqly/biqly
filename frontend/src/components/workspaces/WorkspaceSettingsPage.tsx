@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import {
   getWorkspace,
   updateWorkspace,
@@ -16,18 +16,25 @@ import type { Workspace, WorkspaceMember, WorkspaceDatasource, Role } from '../.
 import { useConfirm } from '../../hooks/useConfirm'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Select } from '../ui/Select'
-import { roleSelectOptions } from '../admin/adminSelectOptions'
+import {
+  datasourceDisplayLabel,
+  datasourcePickerOptions,
+  roleSelectOptions,
+  userDisplayLabel,
+  userSelectOptions,
+} from '../admin/adminSelectOptions'
+import { useAdminLookups } from '../../hooks/useAdminLookups'
 import '../../styles/workspace.css'
 
 interface Props {
   token: string
   workspaceID: string
-  onBack: () => void
 }
 
-export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
+export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
   const t = useT()
   const confirm = useConfirm()
+  const { users, datasources: allDatasources } = useAdminLookups(token)
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [members, setMembers] = useState<WorkspaceMember[]>([])
   const [datasources, setDatasources] = useState<WorkspaceDatasource[]>([])
@@ -44,6 +51,15 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
   const [inviteRoleID, setInviteRoleID] = useState('')
 
   const [attachDsID, setAttachDsID] = useState('')
+
+  const memberUserOptions = useMemo(
+    () => userSelectOptions(users, t('admin.workspaces.select_user')),
+    [users, t],
+  )
+  const attachDsOptions = useMemo(
+    () => datasourcePickerOptions(allDatasources, t('admin.workspaces.select_datasource')),
+    [allDatasources, t],
+  )
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -161,7 +177,6 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
   if (!workspace) {
     return (
       <div className="ws-settings">
-        <button onClick={onBack} className="ws-settings__back">{t('admin.workspaces.back')}</button>
         <div style={{ padding: 24, textAlign: 'center', color: 'var(--red-text, #f87171)' }}>{t('common.error')}</div>
       </div>
     )
@@ -170,8 +185,6 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
   return (
     <div className="ws-settings" style={{ position: 'relative' }}>
       <LoadingOverlay loading={loading}>
-        <button onClick={onBack} className="ws-settings__back">{t('admin.workspaces.back')}</button>
-
         <h2 className="ws-settings__title">{t('admin.workspaces.settings_title')}</h2>
 
         {error && <div className="ws-settings__error">{error}</div>}
@@ -221,7 +234,7 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
             <table className="ws-settings__table">
               <thead>
                 <tr>
-                  <th>{t('admin.workspaces.invite_user')}</th>
+                  <th>{t('admin.fields.user')}</th>
                   <th>{t('admin.workspaces.role')}</th>
                   <th>{t('admin.workspaces.joined_at')}</th>
                   <th>{t('common.actions')}</th>
@@ -230,8 +243,13 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
               <tbody>
                 {members.map((m) => (
                   <tr key={m.user_id}>
-                    <td className="ws-settings__mono">{m.user_id.slice(0, 8)}…</td>
                     <td>
+                      {userDisplayLabel(m.user_id, users, {
+                        email: m.email,
+                        display_name: m.display_name,
+                      })}
+                    </td>
+                    <td className="ws-settings__cell-control">
                       <Select
                         size="sm"
                         value={m.role_id}
@@ -239,9 +257,9 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
                         onChange={(roleID) => void onChangeRole(m.user_id, roleID)}
                       />
                     </td>
-                    <td>{new Date(m.joined_at).toLocaleDateString()}</td>
-                    <td>
-                      <button onClick={() => onRemoveMember(m.user_id)} className="ws-settings__btn-danger">
+                    <td className="ws-settings__cell-muted">{new Date(m.joined_at).toLocaleDateString()}</td>
+                    <td className="ws-settings__cell-actions">
+                      <button type="button" onClick={() => onRemoveMember(m.user_id)} className="ws-settings__btn-danger">
                         {t('common.delete')}
                       </button>
                     </td>
@@ -252,20 +270,26 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
           </div>
         )}
 
-        <form onSubmit={onInviteMember} className="ws-settings__inline-form">
-          <input
-            placeholder={t('admin.workspaces.invite_user')}
-            value={inviteUserID}
-            onChange={(e) => setInviteUserID(e.target.value)}
-            required
-          />
-          <Select
-            value={inviteRoleID}
-            onChange={setInviteRoleID}
-            placeholder={t('admin.workspaces.invite_role')}
-            options={roleSelectOptions(roles)}
-          />
-          <button type="submit" className="ws-settings__btn-primary">
+        <form onSubmit={onInviteMember} className="ws-settings__toolbar">
+          <label className="admin-form-label ws-settings__field-240">
+            <span className="admin-label-text">{t('admin.fields.user')}</span>
+            <Select
+              value={inviteUserID}
+              onChange={setInviteUserID}
+              placeholder={t('admin.workspaces.select_user')}
+              options={memberUserOptions}
+            />
+          </label>
+          <label className="admin-form-label ws-settings__field-240">
+            <span className="admin-label-text">{t('admin.workspaces.role')}</span>
+            <Select
+              value={inviteRoleID}
+              onChange={setInviteRoleID}
+              placeholder={t('admin.workspaces.invite_role')}
+              options={roleSelectOptions(roles)}
+            />
+          </label>
+          <button type="submit" className="ws-settings__btn-primary ws-settings__toolbar-submit">
             {t('admin.workspaces.invite_member')}
           </button>
         </form>
@@ -281,7 +305,7 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
             <table className="ws-settings__table">
               <thead>
                 <tr>
-                  <th>{t('admin.workspaces.datasource_id')}</th>
+                  <th>{t('admin.workspaces.datasource_name')}</th>
                   <th>{t('admin.datasource_access.level')}</th>
                   <th>{t('common.actions')}</th>
                 </tr>
@@ -289,10 +313,14 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
               <tbody>
                 {datasources.map((d) => (
                   <tr key={d.datasource_id}>
-                    <td className="ws-settings__mono">{d.datasource_id.slice(0, 8)}…</td>
-                    <td><span className="ws-settings__level-badge">{d.access_level}</span></td>
                     <td>
-                      <button onClick={() => onDetachDS(d.datasource_id)} className="ws-settings__btn-danger">
+                      {datasourceDisplayLabel(d.datasource_id, allDatasources, d.datasource_name)}
+                    </td>
+                    <td className="ws-settings__cell-muted">
+                      <span className="ws-settings__level-badge">{d.access_level}</span>
+                    </td>
+                    <td className="ws-settings__cell-actions">
+                      <button type="button" onClick={() => onDetachDS(d.datasource_id)} className="ws-settings__btn-danger">
                         {t('common.delete')}
                       </button>
                     </td>
@@ -303,14 +331,17 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
           </div>
         )}
 
-        <form onSubmit={onAttachDS} className="ws-settings__inline-form">
-          <input
-            placeholder={t('admin.workspaces.datasource_id')}
-            value={attachDsID}
-            onChange={(e) => setAttachDsID(e.target.value)}
-            required
-          />
-          <button type="submit" className="ws-settings__btn-primary">
+        <form onSubmit={onAttachDS} className="ws-settings__toolbar">
+          <label className="admin-form-label ws-settings__field-240">
+            <span className="admin-label-text">{t('admin.workspaces.datasource_name')}</span>
+            <Select
+              value={attachDsID}
+              onChange={setAttachDsID}
+              placeholder={t('admin.workspaces.select_datasource')}
+              options={attachDsOptions}
+            />
+          </label>
+          <button type="submit" className="ws-settings__btn-primary ws-settings__toolbar-submit">
             {t('admin.workspaces.attach_datasource')}
           </button>
         </form>

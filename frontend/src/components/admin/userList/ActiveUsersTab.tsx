@@ -165,6 +165,7 @@ export function ActiveUsersTab({
           onPageChange={setCurrentPage}
           totalItems={totalItems}
           itemsPerPage={pageSize}
+          alwaysShow
         />
       </div>
     </>

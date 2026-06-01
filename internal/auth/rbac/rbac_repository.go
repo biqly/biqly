@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
+	platformdb "github.com/biqly/biqly/internal/platform/db"
 )
 
 type RBACRepository struct {
@@ -304,4 +306,45 @@ func (r *RBACRepository) GetUserRolesWithScope(ctx context.Context, userID strin
 		return nil, err
 	}
 	return roles, nil
+}
+
+func (r *RBACRepository) GetRolePermissionIDs(ctx context.Context, roleID string) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT permission_id FROM role_permissions WHERE role_id = $1 ORDER BY permission_id`,
+		roleID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query role permissions: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+func (r *RBACRepository) SetRolePermissions(ctx context.Context, roleID string, permissionIDs []string) error {
+	return platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM role_permissions WHERE role_id = $1`, roleID); err != nil {
+			return err
+		}
+		for _, pid := range permissionIDs {
+			if pid == "" {
+				continue
+			}
+			if _, err := tx.ExecContext(ctx,
+				`INSERT INTO role_permissions (role_id, permission_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+				roleID, pid,
+			); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }

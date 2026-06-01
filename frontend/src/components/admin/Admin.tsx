@@ -54,14 +54,7 @@ export default function Admin() {
         <Suspense fallback={<LoadingScreen minHeight="200px" />}>
           {tab === 'users' && (
             selectedUserID ? (
-              <UserDetailPage
-                token={accessToken}
-                userID={selectedUserID}
-                onBack={() => {
-                  setUserIdParam('')
-                  setUserLabelParam('')
-                }}
-              />
+              <UserDetailPage token={accessToken} userID={selectedUserID} />
             ) : (
               <UserListPage
                 token={accessToken}

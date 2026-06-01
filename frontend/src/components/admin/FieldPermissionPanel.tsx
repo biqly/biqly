@@ -6,6 +6,7 @@ import { useModelDetail } from '../../hooks/useModelDetail'
 import { getSecurityPolicyByKeys, upsertSecurityPolicy } from '../../api/admin'
 import type { SecurityPolicy } from '../../api/admin'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
+import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
 import {
   datasourceSelectOptions,
@@ -32,6 +33,8 @@ export function FieldPermissionPanel({ token }: { token: string }) {
   const [loadingPolicy, setLoadingPolicy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [fieldPage, setFieldPage] = useState(1)
+  const fieldPageSize = 15
 
   // Auto-select first datasource
   useEffect(() => {
@@ -147,6 +150,41 @@ export function FieldPermissionPanel({ token }: { token: string }) {
   const hasFields = model && ((model.dimensions?.length || 0) > 0 || (model.metrics?.length || 0) > 0)
   const isSavingDisabled = !model || loadingPolicy
 
+  type FieldRow =
+    | { kind: 'dimension'; id: string; name: string; label?: string | null; type: string; ref: string }
+    | { kind: 'metric'; id: string; name: string; label?: string | null; aggregation: string; ref: string }
+
+  const fieldRows = useMemo((): FieldRow[] => {
+    if (!model) return []
+    const dims: FieldRow[] = (model.dimensions ?? []).map((d) => ({
+      kind: 'dimension',
+      id: d.id,
+      name: d.name,
+      label: d.label,
+      type: d.type,
+      ref: d.column_ref,
+    }))
+    const mets: FieldRow[] = (model.metrics ?? []).map((m) => ({
+      kind: 'metric',
+      id: m.id,
+      name: m.name,
+      label: m.label,
+      aggregation: m.aggregation,
+      ref: m.expression,
+    }))
+    return [...dims, ...mets]
+  }, [model])
+
+  const fieldTotalPages = Math.max(1, Math.ceil(fieldRows.length / fieldPageSize))
+  const pagedFieldRows = useMemo(() => {
+    const start = (fieldPage - 1) * fieldPageSize
+    return fieldRows.slice(start, start + fieldPageSize)
+  }, [fieldRows, fieldPage, fieldPageSize])
+
+  useEffect(() => {
+    setFieldPage(1)
+  }, [selectedModel, selectedRole, selectedDS])
+
   const dsOptions = useMemo(
     () => datasourceSelectOptions(datasources ?? [], loadingDS),
     [datasources, loadingDS],
@@ -218,55 +256,31 @@ export function FieldPermissionPanel({ token }: { token: string }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {model.dimensions && model.dimensions.map((d) => {
-                      const denied = isFieldDenied(d.name)
+                    {pagedFieldRows.map((row) => {
+                      const denied = isFieldDenied(row.name)
                       return (
-                        <tr key={`dim-${d.id}`} style={trRow}>
+                        <tr key={`${row.kind}-${row.id}`} style={trRow}>
                           <td style={tdStyle}>
                             <div style={fieldNameContainer}>
-                              <strong style={nameStyle}>{d.name}</strong>
-                              {d.label && <span style={labelSpan}>{d.label}</span>}
+                              <strong style={nameStyle}>{row.name}</strong>
+                              {row.label && <span style={labelSpan}>{row.label}</span>}
                             </div>
                           </td>
                           <td style={tdStyle}>
-                            <span style={dimTypeBadge}>dimension ({d.type})</span>
+                            {row.kind === 'dimension' ? (
+                              <span style={dimTypeBadge}>dimension ({row.type})</span>
+                            ) : (
+                              <span style={metricTypeBadge}>metric ({row.aggregation})</span>
+                            )}
                           </td>
                           <td style={tdStyle}>
-                            <code style={codeStyle}>{d.column_ref}</code>
+                            <code style={codeStyle}>{row.ref}</code>
                           </td>
                           <td style={{ ...tdStyle, textAlign: 'center' }}>
                             <input
                               type="checkbox"
                               checked={denied}
-                              onChange={() => handleToggleField(d.name)}
-                              style={checkboxStyle}
-                            />
-                          </td>
-                        </tr>
-                      )
-                    })}
-
-                    {model.metrics && model.metrics.map((m) => {
-                      const denied = isFieldDenied(m.name)
-                      return (
-                        <tr key={`met-${m.id}`} style={trRow}>
-                          <td style={tdStyle}>
-                            <div style={fieldNameContainer}>
-                              <strong style={nameStyle}>{m.name}</strong>
-                              {m.label && <span style={labelSpan}>{m.label}</span>}
-                            </div>
-                          </td>
-                          <td style={tdStyle}>
-                            <span style={metricTypeBadge}>metric ({m.aggregation})</span>
-                          </td>
-                          <td style={tdStyle}>
-                            <code style={codeStyle}>{m.expression}</code>
-                          </td>
-                          <td style={{ ...tdStyle, textAlign: 'center' }}>
-                            <input
-                              type="checkbox"
-                              checked={denied}
-                              onChange={() => handleToggleField(m.name)}
+                              onChange={() => handleToggleField(row.name)}
                               style={checkboxStyle}
                             />
                           </td>
@@ -275,6 +289,14 @@ export function FieldPermissionPanel({ token }: { token: string }) {
                     })}
                   </tbody>
                 </table>
+                <Pagination
+                  currentPage={fieldPage}
+                  totalPages={fieldTotalPages}
+                  onPageChange={setFieldPage}
+                  totalItems={fieldRows.length}
+                  itemsPerPage={fieldPageSize}
+                  alwaysShow
+                />
               </div>
             )}
 

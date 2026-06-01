@@ -21,6 +21,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   const confirm = useConfirm()
   const [users, setUsers] = useState<AuthUser[]>([])
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -40,6 +41,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   }
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [inviteSearch, setInviteSearch] = useState('')
+  const [debouncedInviteSearch, setDebouncedInviteSearch] = useState('')
   const [inviteStatusFilter, setInviteStatusFilter] = useState<'all' | 'pending' | 'claimed' | 'expired'>('all')
   const [invitesLoading, setInvitesLoading] = useState(false)
   const [invitesError, setInvitesError] = useState<string | null>(null)
@@ -57,7 +59,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
       const res = await apiListInvitations(token, {
         page: inviteCurrentPage,
         pageSize,
-        search: inviteSearch,
+        search: debouncedInviteSearch,
         status: inviteStatusFilter,
       })
       setInvitations(res.invitations)
@@ -74,7 +76,17 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     if (subTab === 'invitations') {
       loadInvitations()
     }
-  }, [token, inviteCurrentPage, inviteSearch, inviteStatusFilter, subTab])
+  }, [token, inviteCurrentPage, debouncedInviteSearch, inviteStatusFilter, subTab])
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedSearch(search.trim()), 300)
+    return () => window.clearTimeout(id)
+  }, [search])
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedInviteSearch(inviteSearch.trim()), 300)
+    return () => window.clearTimeout(id)
+  }, [inviteSearch])
 
   useEffect(() => {
     if (subTab !== 'active') return
@@ -85,7 +97,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
         const res = await listUsers(token, {
           page: currentPage,
           pageSize,
-          search,
+          search: debouncedSearch,
           status: statusFilter,
         })
         if (!cancelled) {
@@ -103,15 +115,15 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     return () => {
       cancelled = true
     }
-  }, [token, currentPage, search, statusFilter, subTab])
+  }, [token, currentPage, debouncedSearch, statusFilter, subTab])
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [search, statusFilter])
+  }, [debouncedSearch, statusFilter])
 
   useEffect(() => {
     setInviteCurrentPage(1)
-  }, [inviteSearch, inviteStatusFilter])
+  }, [debouncedInviteSearch, inviteStatusFilter])
 
   const handleResend = async (id: string) => {
     const ok = await confirm({

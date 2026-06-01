@@ -194,6 +194,7 @@ export function InvitationsTab({
             onPageChange={setInviteCurrentPage}
             totalItems={inviteTotalItems}
             itemsPerPage={pageSize}
+            alwaysShow
           />
         )}
       </div>

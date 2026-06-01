@@ -35,6 +35,25 @@ export async function listPermissions(token: string, page?: number, pageSize?: n
   return apiFetch<{ permissions: Permission[]; total: number }>('GET', `${AUTH_API_BASE}/admin/permissions${suffix}`, undefined, { token })
 }
 
+export async function getRolePermissions(token: string, roleID: string): Promise<string[]> {
+  const data = await apiFetch<{ permission_ids: string[] }>(
+    'GET',
+    `${AUTH_API_BASE}/admin/roles/${roleID}/permissions`,
+    undefined,
+    { token },
+  )
+  return data.permission_ids ?? []
+}
+
+export async function setRolePermissions(token: string, roleID: string, permissionIDs: string[]): Promise<void> {
+  await apiFetch<void>(
+    'PUT',
+    `${AUTH_API_BASE}/admin/roles/${roleID}/permissions`,
+    { permission_ids: permissionIDs },
+    { token },
+  )
+}
+
 export async function assignRole(
   token: string,
   userID: string,

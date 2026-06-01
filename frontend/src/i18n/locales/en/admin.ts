@@ -96,6 +96,9 @@ export const admin = {
   roles: {
     title: 'Roles ({{count}})',
     permissions_title: 'Permissions ({{count}})',
+    permissions_for: 'Permissions · {{role}}',
+    select_role_hint: 'Select a role to view and edit its permissions.',
+    save_permissions: 'Save permissions',
     name: 'Name',
   },
   datasource_access: {
@@ -122,6 +125,9 @@ export const admin = {
     members_empty: 'No members yet.',
     invite_member: 'Invite Member',
     invite_user: 'User ID',
+    select_user: 'Select user…',
+    select_datasource: 'Select datasource…',
+    datasource_name: 'Datasource',
     invite_role: 'Role',
     role: 'Role',
     joined_at: 'Joined',

@@ -23,6 +23,7 @@ import { OTPCodeInput } from './settings/OTPCodeInput'
 import { PasskeyTable } from './settings/PasskeyTable'
 import { SettingsLinkCard } from './settings/SettingsLinkCard'
 import { RecoveryCodesDisplay } from './settings/RecoveryCodesDisplay'
+import { AccountProfileSection } from './settings/AccountProfileSection'
 
 export default function Settings() {
   const navigate = useNavigate()
@@ -283,6 +284,13 @@ export default function Settings() {
           )}
         </div>
       )}
+
+      <section className="settings-section-group" aria-labelledby="settings-profile-group-heading">
+        <h2 id="settings-profile-group-heading" className="settings-section-group__title">
+          {t('settings.profile_group')}
+        </h2>
+        <AccountProfileSection />
+      </section>
 
       <section className="settings-section-group" aria-labelledby="settings-security-heading">
         <h2 id="settings-security-heading" className="settings-section-group__title">

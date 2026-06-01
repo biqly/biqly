@@ -6,6 +6,8 @@ interface PaginationProps {
   onPageChange: (page: number) => void
   totalItems?: number
   itemsPerPage?: number
+  /** When true, show range and controls even if there is only one page (admin tables). */
+  alwaysShow?: boolean
 }
 
 export function Pagination({
@@ -14,16 +16,23 @@ export function Pagination({
   onPageChange,
   totalItems,
   itemsPerPage,
+  alwaysShow = false,
 }: PaginationProps) {
   const t = useT()
 
-  if (totalPages <= 1) return null
+  const safeTotalPages = Math.max(1, totalPages)
+  const hasItems = totalItems === undefined || totalItems > 0
+
+  if (!hasItems) return null
+  if (!alwaysShow && safeTotalPages <= 1) return null
 
   const start = totalItems !== undefined && itemsPerPage !== undefined ? (currentPage - 1) * itemsPerPage + 1 : 0
   const end = totalItems !== undefined && itemsPerPage !== undefined ? Math.min(currentPage * itemsPerPage, totalItems) : 0
+  const singlePage = safeTotalPages <= 1
 
   return (
     <div
+      className="table-pagination"
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -44,8 +53,8 @@ export function Pagination({
         <button
           type="button"
           onClick={() => onPageChange(1)}
-          disabled={currentPage === 1}
-          style={currentPage === 1 ? btnDisabled : btnActive}
+          disabled={singlePage || currentPage === 1}
+          style={singlePage || currentPage === 1 ? btnDisabled : btnActive}
           title={t('table_browser.first_page')}
         >
           «
@@ -53,29 +62,29 @@ export function Pagination({
         <button
           type="button"
           onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          style={currentPage === 1 ? btnDisabled : btnActive}
+          disabled={singlePage || currentPage === 1}
+          style={singlePage || currentPage === 1 ? btnDisabled : btnActive}
         >
           {t('table_browser.prev_page')}
         </button>
 
         <span style={{ fontSize: 13, color: 'var(--text-primary, #f4f4f5)', margin: '0 8px' }}>
-          {currentPage} / {totalPages}
+          {currentPage} / {safeTotalPages}
         </span>
 
         <button
           type="button"
           onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          style={currentPage === totalPages ? btnDisabled : btnActive}
+          disabled={singlePage || currentPage === safeTotalPages}
+          style={singlePage || currentPage === safeTotalPages ? btnDisabled : btnActive}
         >
           {t('table_browser.next_page')}
         </button>
         <button
           type="button"
-          onClick={() => onPageChange(totalPages)}
-          disabled={currentPage === totalPages}
-          style={currentPage === totalPages ? btnDisabled : btnActive}
+          onClick={() => onPageChange(safeTotalPages)}
+          disabled={singlePage || currentPage === safeTotalPages}
+          style={singlePage || currentPage === safeTotalPages ? btnDisabled : btnActive}
           title={t('table_browser.last_page')}
         >
           »

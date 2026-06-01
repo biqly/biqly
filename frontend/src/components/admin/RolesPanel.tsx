@@ -1,164 +1,247 @@
-import { useEffect, useState } from 'react'
-import { listPermissions, listRoles } from '../../api/admin'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  getRolePermissions,
+  listPermissions,
+  listRoles,
+  setRolePermissions,
+} from '../../api/admin'
 import { useT } from '../../i18n'
 import type { Permission, Role } from '../../types/auth'
-import { Pagination } from '../ui/Pagination'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
+
+const ALL_PAGE_SIZE = 500
 
 export function RolesPanel({ token }: { token: string }) {
   const t = useT()
   const [roles, setRoles] = useState<Role[]>([])
-  const [perms, setPerms] = useState<Permission[]>([])
+  const [allPerms, setAllPerms] = useState<Permission[]>([])
+  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null)
+  const [assignedIds, setAssignedIds] = useState<Set<string>>(new Set())
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
-  const [loadingRoles, setLoadingRoles] = useState(true)
-  const [loadingPerms, setLoadingPerms] = useState(true)
+  const [loadingMeta, setLoadingMeta] = useState(true)
+  const [loadingRolePerms, setLoadingRolePerms] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  // Roles Pagination
-  const [rolesPage, setRolesPage] = useState(1)
-  const rolesPageSize = 10
-  const [totalRoles, setTotalRoles] = useState(0)
+  const selectedRole = roles.find((r) => r.id === selectedRoleId) ?? null
+  const dirty = useMemo(() => {
+    if (assignedIds.size !== savedIds.size) return true
+    for (const id of assignedIds) {
+      if (!savedIds.has(id)) return true
+    }
+    return false
+  }, [assignedIds, savedIds])
 
-  // Permissions Pagination
-  const [permsPage, setPermsPage] = useState(1)
-  const permsPageSize = 10
-  const [totalPerms, setTotalPerms] = useState(0)
-
-  // Fetch Roles
   useEffect(() => {
     let cancelled = false
-    async function load() {
+    async function loadMeta() {
       try {
-        setLoadingRoles(true)
-        const res = await listRoles(token, rolesPage, rolesPageSize)
+        setLoadingMeta(true)
+        const [rolesRes, permsRes] = await Promise.all([
+          listRoles(token, 1, ALL_PAGE_SIZE),
+          listPermissions(token, 1, ALL_PAGE_SIZE),
+        ])
         if (cancelled) return
-        setRoles(res.roles)
-        setTotalRoles(res.total)
+        setRoles(rolesRes.roles)
+        setAllPerms(permsRes.permissions)
+        const firstRole = rolesRes.roles[0]
+        if (firstRole) {
+          setSelectedRoleId((prev) =>
+            prev && rolesRes.roles.some((r) => r.id === prev) ? prev : firstRole.id,
+          )
+        }
+        setError(null)
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e))
       } finally {
-        if (!cancelled) setLoadingRoles(false)
+        if (!cancelled) setLoadingMeta(false)
       }
     }
-    load()
+    loadMeta()
     return () => {
       cancelled = true
     }
-  }, [token, rolesPage])
+  }, [token])
 
-  // Fetch Permissions
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
+  const loadRolePermissions = useCallback(
+    async (roleID: string) => {
+      setLoadingRolePerms(true)
       try {
-        setLoadingPerms(true)
-        const res = await listPermissions(token, permsPage, permsPageSize)
-        if (cancelled) return
-        setPerms(res.permissions)
-        setTotalPerms(res.total)
+        const ids = await getRolePermissions(token, roleID)
+        const set = new Set(ids)
+        setAssignedIds(set)
+        setSavedIds(new Set(set))
+        setError(null)
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e))
+        setError(e instanceof Error ? e.message : String(e))
       } finally {
-        if (!cancelled) setLoadingPerms(false)
+        setLoadingRolePerms(false)
       }
-    }
-    load()
-    return () => {
-      cancelled = true
-    }
-  }, [token, permsPage])
+    },
+    [token],
+  )
 
-  const totalRolesPages = Math.ceil(totalRoles / rolesPageSize)
-  const totalPermsPages = Math.ceil(totalPerms / permsPageSize)
-  const displayedPerms = perms
-  const displayedRoles = roles
+  useEffect(() => {
+    if (!selectedRoleId) return
+    loadRolePermissions(selectedRoleId)
+  }, [selectedRoleId, loadRolePermissions])
+
+  const permsByResource = useMemo(() => {
+    const map = new Map<string, Permission[]>()
+    for (const p of allPerms) {
+      const list = map.get(p.resource) ?? []
+      list.push(p)
+      map.set(p.resource, list)
+    }
+    const resources = [...map.keys()].sort()
+    return resources.map((resource) => ({
+      resource,
+      permissions: (map.get(resource) ?? []).sort((a, b) => a.name.localeCompare(b.name)),
+    }))
+  }, [allPerms])
+
+  function togglePermission(permId: string) {
+    setAssignedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(permId)) next.delete(permId)
+      else next.add(permId)
+      return next
+    })
+  }
+
+  function toggleResourceGroup(perms: Permission[], checked: boolean) {
+    setAssignedIds((prev) => {
+      const next = new Set(prev)
+      for (const p of perms) {
+        if (checked) next.add(p.id)
+        else next.delete(p.id)
+      }
+      return next
+    })
+  }
+
+  async function onSave() {
+    if (!selectedRoleId || !dirty) return
+    setSaving(true)
+    try {
+      await setRolePermissions(token, selectedRoleId, [...assignedIds])
+      setSavedIds(new Set(assignedIds))
+      setError(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function onDiscard() {
+    setAssignedIds(new Set(savedIds))
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {error && <div style={errStyle}>{t('common.error')}: {error}</div>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 24, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 280px) 1fr', gap: 24, alignItems: 'start' }}>
         <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.roles.title', { count: totalRoles })}</h2>
+          <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.roles.title', { count: roles.length })}</h2>
           <div style={containerStyle}>
-            <LoadingOverlay loading={loadingRoles}>
-              <div style={{ minHeight: displayedRoles.length === 0 && loadingRoles ? 120 : 'auto', display: 'flex', flexDirection: 'column' }}>
-                <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column' }}>
-                  {displayedRoles.length === 0 ? (
-                    <li style={{ padding: 16, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
-                      {loadingRoles ? '' : '—'}
-                    </li>
-                  ) : (
-                    displayedRoles.map((r, i) => (
-                      <li
-                        key={r.id}
-                        style={{
-                          padding: '12px 16px',
-                          borderBottom: i === displayedRoles.length - 1 && totalRolesPages <= 1 ? 'none' : '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-                        }}
-                      >
-                        <strong style={{ fontSize: 14, color: 'var(--text-primary, #f4f4f5)' }}>{r.name}</strong>
-                        {r.description && (
-                          <div style={{ fontSize: 12, color: 'var(--text-secondary, #a1a1aa)', marginTop: 4 }}>
-                            {r.description}
-                          </div>
-                        )}
+            <LoadingOverlay loading={loadingMeta}>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {roles.length === 0 ? (
+                  <li style={{ padding: 16, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>—</li>
+                ) : (
+                  roles.map((r) => {
+                    const active = r.id === selectedRoleId
+                    return (
+                      <li key={r.id}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedRoleId(r.id)}
+                          className={`admin-role-list-item${active ? ' admin-role-list-item--active' : ''}`}
+                        >
+                          <strong style={{ fontSize: 14 }}>{r.name}</strong>
+                          {r.description && (
+                            <div style={{ fontSize: 12, color: 'var(--text-secondary, #a1a1aa)', marginTop: 4 }}>
+                              {r.description}
+                            </div>
+                          )}
+                        </button>
                       </li>
-                    ))
-                  )}
-                </ul>
-              </div>
+                    )
+                  })
+                )}
+              </ul>
             </LoadingOverlay>
-            <Pagination
-              currentPage={rolesPage}
-              totalPages={totalRolesPages}
-              onPageChange={setRolesPage}
-              totalItems={totalRoles}
-              itemsPerPage={rolesPageSize}
-            />
           </div>
         </section>
 
-        <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.roles.permissions_title', { count: totalPerms })}</h2>
-          <div style={containerStyle}>
-            <LoadingOverlay loading={loadingPerms}>
-              <div style={{ minHeight: displayedPerms.length === 0 && loadingPerms ? 120 : 'auto', display: 'flex', flexDirection: 'column' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-                  <thead>
-                    <tr style={theadRow}>
-                      <th style={thStyle}>Resource</th>
-                      <th style={thStyle}>Action</th>
-                      <th style={thStyle}>{t('admin.roles.name')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {displayedPerms.length === 0 ? (
-                      <tr>
-                        <td colSpan={3} style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>
-                          {loadingPerms ? '' : '—'}
-                        </td>
-                      </tr>
-                    ) : (
-                      displayedPerms.map((p) => (
-                        <tr key={p.id} style={trRow}>
-                          <td style={tdStyle}>{resourceBadge(p.resource)}</td>
-                          <td style={tdStyle}>{actionBadge(p.action)}</td>
-                          <td style={{ ...tdStyle, fontFamily: 'var(--font-mono, monospace)', fontSize: 12 }}>{p.name}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+        <section style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <h2 style={{ marginTop: 0, fontSize: 18, marginBottom: 0 }}>
+              {selectedRole
+                ? t('admin.roles.permissions_for', { role: selectedRole.name })
+                : t('admin.roles.permissions_title', { count: allPerms.length })}
+            </h2>
+            {selectedRole && dirty && (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" className="admin-btn-secondary" onClick={onDiscard} disabled={saving}>
+                  {t('common.cancel')}
+                </button>
+                <button type="button" className="admin-btn-primary" onClick={() => void onSave()} disabled={saving}>
+                  {saving ? t('common.saving') : t('admin.roles.save_permissions')}
+                </button>
               </div>
-            </LoadingOverlay>
-            <Pagination
-              currentPage={permsPage}
-              totalPages={totalPermsPages}
-              onPageChange={setPermsPage}
-              totalItems={totalPerms}
-              itemsPerPage={permsPageSize}
-            />
+            )}
           </div>
+
+          {!selectedRole ? (
+            <p style={hintStyle}>{t('admin.roles.select_role_hint')}</p>
+          ) : (
+            <div style={containerStyle}>
+              <LoadingOverlay loading={loadingMeta || loadingRolePerms}>
+                <div style={{ padding: '12px 16px', maxHeight: 'min(70vh, 640px)', overflowY: 'auto' }}>
+                  {permsByResource.map(({ resource, permissions }) => {
+                    const allChecked = permissions.every((p) => assignedIds.has(p.id))
+                    const someChecked = permissions.some((p) => assignedIds.has(p.id))
+                    return (
+                      <div key={resource} style={{ marginBottom: 20 }}>
+                        <label style={groupLabelStyle}>
+                          <input
+                            type="checkbox"
+                            checked={allChecked}
+                            ref={(el) => {
+                              if (el) el.indeterminate = someChecked && !allChecked
+                            }}
+                            onChange={(e) => toggleResourceGroup(permissions, e.target.checked)}
+                          />
+                          {resourceBadge(resource)}
+                          <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
+                            {permissions.filter((p) => assignedIds.has(p.id)).length}/{permissions.length}
+                          </span>
+                        </label>
+                        <ul style={{ listStyle: 'none', padding: '8px 0 0 28px', margin: 0 }}>
+                          {permissions.map((p) => (
+                            <li key={p.id} style={{ marginBottom: 8 }}>
+                              <label style={permLabelStyle}>
+                                <input
+                                  type="checkbox"
+                                  checked={assignedIds.has(p.id)}
+                                  onChange={() => togglePermission(p.id)}
+                                />
+                                <span style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 12 }}>{p.name}</span>
+                                <span style={{ marginLeft: 8 }}>{actionBadge(p.action)}</span>
+                              </label>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )
+                  })}
+                </div>
+              </LoadingOverlay>
+            </div>
+          )}
         </section>
       </div>
     </div>
@@ -203,7 +286,7 @@ function actionBadge(act: string) {
         border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
         color: 'var(--text-primary, #f4f4f5)',
         borderRadius: '4px',
-        fontSize: '12px',
+        fontSize: '11px',
         fontFamily: 'var(--font-mono, monospace)',
         display: 'inline-block',
       }}
@@ -221,31 +304,26 @@ const containerStyle: React.CSSProperties = {
   boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05))',
 }
 
-const theadRow: React.CSSProperties = {
-  background: 'var(--table-header-bg, #f9fafb)',
-  borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  textAlign: 'left',
-}
-
-const thStyle: React.CSSProperties = {
-  padding: '12px 16px',
+const groupLabelStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  cursor: 'pointer',
   fontWeight: 600,
-  color: 'var(--table-header-fg, #4b5563)',
 }
 
-const trRow: React.CSSProperties = {
-  borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
+const permLabelStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  cursor: 'pointer',
+  fontSize: 13,
 }
 
-const tdStyle: React.CSSProperties = {
-  padding: '12px 16px',
-  color: 'var(--text-primary, #f4f4f5)',
-}
-
-const textMuted: React.CSSProperties = {
-  color: 'var(--text-secondary, #8a8a92)',
+const hintStyle: React.CSSProperties = {
+  color: 'var(--text-secondary, #a1a1aa)',
   fontSize: 14,
-  padding: 16,
+  margin: 0,
 }
 
 const errStyle: React.CSSProperties = {
@@ -253,4 +331,3 @@ const errStyle: React.CSSProperties = {
   padding: 16,
   fontWeight: 600,
 }
-

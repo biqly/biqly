@@ -89,3 +89,31 @@ export function roleSelectOptions(
     label: role.description ? `${role.name} (${role.description})` : role.name,
   }))
 }
+
+export function userDisplayLabel(
+  userID: string,
+  users: AuthUser[],
+  fallback?: { email?: string; display_name?: string | null },
+): string {
+  const u = users.find((x) => x.id === userID)
+  if (u) {
+    return u.displayName ? `${u.displayName} · ${u.email}` : u.email
+  }
+  if (fallback?.email) {
+    return fallback.display_name
+      ? `${fallback.display_name} · ${fallback.email}`
+      : fallback.email
+  }
+  return userID
+}
+
+export function datasourceDisplayLabel(
+  datasourceID: string,
+  datasources: Datasource[],
+  fallbackName?: string,
+): string {
+  const ds = datasources.find((d) => d.id === datasourceID)
+  if (ds) return ds.name
+  if (fallbackName) return fallbackName
+  return datasourceID
+}

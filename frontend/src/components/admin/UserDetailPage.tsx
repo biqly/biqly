@@ -19,10 +19,9 @@ import { roleSelectOptions } from './adminSelectOptions'
 interface UserDetailPageProps {
   token: string
   userID: string
-  onBack: () => void
 }
 
-export function UserDetailPage({ token, userID, onBack }: UserDetailPageProps) {
+export function UserDetailPage({ token, userID }: UserDetailPageProps) {
   const t = useT()
   const [locale] = useLocale()
   const confirm = useConfirm()
@@ -183,12 +182,6 @@ export function UserDetailPage({ token, userID, onBack }: UserDetailPageProps) {
 
   return (
     <div className="page-stack" style={{ gap: 24 }}>
-      <div>
-        <button onClick={onBack} className="admin-btn-secondary">
-          &larr; {t('admin.user_detail.back_to_list')}
-        </button>
-      </div>
-
       {/* User profile details card */}
       <div className="admin-card">
         <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>

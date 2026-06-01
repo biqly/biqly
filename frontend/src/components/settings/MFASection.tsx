@@ -61,47 +61,37 @@ export function MFASection({
         <EmptyState title={t('mfa.empty_title')} description={t('mfa.empty_desc')} />
       ) : (
         <>
-          <div className="results-table-scroll border-border overflow-hidden">
-            <table className="results-table" style={{ margin: 0 }}>
-              <thead>
-                <tr>
-                  <th>{t('mfa.col_method')}</th>
-                  <th>{t('mfa.col_status')}</th>
-                  <th>{t('mfa.col_enabled_at')}</th>
-                  <th className="actions" style={{ width: '80px', textAlign: 'right' }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style={{ fontWeight: 600 }}>
-                    <span style={{ marginRight: '6px' }}>📱</span> {t('mfa.method_totp')}
-                  </td>
-                  <td>
-                    <span className="badge badge-success admin-badge-active" style={{ fontSize: '0.75rem' }}>
-                      {t('mfa.status_active')}
-                    </span>
-                  </td>
-                  <td>
-                    {status.verified_at
-                      ? new Date(status.verified_at).toLocaleString(localeLanguageTag(locale))
-                      : '-'}
-                  </td>
-                  <td className="actions">
-                    <div className="flex-gap-center-end">
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-secondary btn-icon-only"
-                        title={t('mfa.regenerate_recovery_btn')}
-                        onClick={onRegenerate}
-                      >
-                        🔄
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <ul className="settings-security-list" role="list">
+            <li className="settings-security-item">
+              <div className="settings-security-item__row">
+                <div className="settings-security-item__identity">
+                  <span className="settings-security-item__icon" aria-hidden>
+                    📱
+                  </span>
+                  <span className="settings-security-item__name">{t('mfa.method_totp')}</span>
+                  <span className="badge badge-success admin-badge-active" style={{ fontSize: '0.75rem' }}>
+                    {t('mfa.status_active')}
+                  </span>
+                </div>
+                <div className="settings-security-item__actions">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-secondary btn-icon-only"
+                    title={t('mfa.regenerate_recovery_btn')}
+                    onClick={onRegenerate}
+                  >
+                    🔄
+                  </button>
+                </div>
+              </div>
+              <p className="settings-security-item__detail">
+                {t('mfa.col_enabled_at')}:{' '}
+                {status.verified_at
+                  ? new Date(status.verified_at).toLocaleString(localeLanguageTag(locale))
+                  : '—'}
+              </p>
+            </li>
+          </ul>
           {recoveryCodes && <RecoveryCodesDisplay codes={recoveryCodes} />}
         </>
       )}

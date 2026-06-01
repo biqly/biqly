@@ -195,6 +195,7 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
           onPageChange={setCurrentPage}
           totalItems={totalItems}
           itemsPerPage={pageSize}
+          alwaysShow
         />
       </div>
     </div>

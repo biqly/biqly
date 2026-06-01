@@ -20,6 +20,7 @@ var (
 	ErrMFARequired        = errors.New("mfa required for active workspace")
 	ErrEmailChangePending = errors.New("email change confirmation pending")
 	ErrPasswordReused     = errors.New("password was recently used")
+	ErrNoPasswordSet      = errors.New("password login is not enabled for this account")
 	ErrSuperAdminRequired = errors.New("super admin privilege required")
 	ErrMFANotEnabled      = errors.New("mfa not enabled")
 	ErrNotWorkspaceOwner  = errors.New("not workspace owner")
@@ -449,6 +450,7 @@ func (s *AuthService) GetMe(ctx context.Context, userID string) (*UserResponse, 
 		AvatarURL:         user.AvatarURL,
 		IsActive:          user.IsActive,
 		EmailVerified:     user.EmailVerified,
+		HasPassword:       user.PasswordHash != nil,
 		ActiveWorkspaceID: activeWS,
 		CreatedAt:         user.CreatedAt,
 		UpdatedAt:         user.UpdatedAt,

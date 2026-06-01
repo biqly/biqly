@@ -79,9 +79,19 @@ type UserResponse struct {
 	AvatarURL         *string   `json:"avatar_url,omitempty"`
 	IsActive          bool      `json:"is_active"`
 	EmailVerified     bool      `json:"email_verified"`
+	HasPassword       bool      `json:"has_password"`
 	ActiveWorkspaceID string    `json:"active_workspace_id,omitempty"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
+}
+
+type UpdateProfileRequest struct {
+	DisplayName string `json:"display_name"`
+}
+
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
 }
 
 type SetActiveWorkspaceRequest struct {

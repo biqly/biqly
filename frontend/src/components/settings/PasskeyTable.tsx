@@ -33,50 +33,55 @@ export function PasskeyTable({
   }
 
   return (
-    <div className="results-table-scroll border-border overflow-hidden">
-      <table className="results-table" style={{ margin: 0 }}>
-        <thead>
-          <tr>
-            <th>{t('passkeys.col_name')}</th>
-            <th>{t('passkeys.col_created')}</th>
-            <th>{t('passkeys.col_last_used')}</th>
-            <th className="actions" style={{ width: '80px', textAlign: 'right' }}></th>
-          </tr>
-        </thead>
-        <tbody>
-          {passkeys.map((passkey) => (
-            <tr key={passkey.id}>
-              <td style={{ fontWeight: 600 }}>
-                <span style={{ marginRight: '6px' }}>🔑</span> {passkey.name}
-              </td>
-              <td>{new Date(passkey.created_at).toLocaleString(languageTag)}</td>
-              <td>
-                {passkey.last_used_at
-                  ? new Date(passkey.last_used_at).toLocaleString(languageTag)
-                  : t('passkeys.never_used')}
-              </td>
-              <td className="actions">
-                <div className="flex-gap-center-end">
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-secondary btn-icon-only"
-                    onClick={() => onRename(passkey)}
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-danger-outline btn-icon-only"
-                    onClick={() => onDelete(passkey)}
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <ul className="settings-security-list" role="list">
+      {passkeys.map((passkey) => {
+        const created = new Date(passkey.created_at).toLocaleString(languageTag)
+        const lastUsed = passkey.last_used_at
+          ? new Date(passkey.last_used_at).toLocaleString(languageTag)
+          : t('passkeys.never_used')
+
+        return (
+          <li key={passkey.id} className="settings-security-item">
+            <div className="settings-security-item__row">
+              <div className="settings-security-item__identity">
+                <span className="settings-security-item__icon" aria-hidden>
+                  🔑
+                </span>
+                <span className="settings-security-item__name">{passkey.name}</span>
+              </div>
+              <div className="settings-security-item__actions">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-secondary btn-icon-only"
+                  title={t('passkeys.rename_title')}
+                  onClick={() => onRename(passkey)}
+                >
+                  ✏️
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-danger-outline btn-icon-only"
+                  title={t('passkeys.delete_title')}
+                  onClick={() => onDelete(passkey)}
+                >
+                  🗑️
+                </button>
+              </div>
+            </div>
+            <p className="settings-security-item__detail">
+              <span>
+                {t('passkeys.col_created')}: {created}
+              </span>
+              <span className="settings-security-item__sep" aria-hidden>
+                ·
+              </span>
+              <span>
+                {t('passkeys.col_last_used')}: {lastUsed}
+              </span>
+            </p>
+          </li>
+        )
+      })}
+    </ul>
   )
 }

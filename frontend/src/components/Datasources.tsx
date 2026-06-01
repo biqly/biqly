@@ -2,20 +2,12 @@ import { useEffect, useState } from 'react'
 import { getMyDatasources } from '../api/admin'
 import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
-import {
-  DRIVER_IDS,
-  driverDefaultPort,
-  driverDsnPlaceholder,
-  driverLabelKey,
-  driverLogoUrl,
-  driverStructuredDefaults,
-  isInsecureSslMode,
-} from '../dbDrivers'
+import { driverLabelKey, driverLogoUrl, driverStructuredDefaults } from '../dbDrivers'
 import { useT } from '../i18n'
 import type { Datasource } from '../types/metadata'
 import { useAuth } from './auth/AuthProvider'
 import { buildDatasourceAccessView } from './datasources/accessView'
-import { DriverTileGrid } from './DriverTileGrid'
+import { DatasourceFormModal } from './datasources/DatasourceFormModal'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingScreen } from './ui/LoadingScreen'
@@ -107,8 +99,6 @@ export default function Datasources() {
     load()
   }, [accessToken])
 
-  const driverConnHints = driverStructuredDefaults(form.type)
-  const defaultPortHint = driverDefaultPort(form.type)
   const resetForm = () => {
     setEditingId(null)
     setForm({ name: '', type: 'postgres', dsn: '' })
@@ -117,16 +107,16 @@ export default function Datasources() {
   }
 
   const openNewForm = () => {
-    if (showForm && !editingId) {
-      resetForm()
-      setShowForm(false)
-      return
-    }
     resetForm()
     const defaults = driverStructuredDefaults('postgres')
     setStructured({ ...emptyStructured(), port: defaults.port, ssl_mode: defaults.ssl_mode })
     setConnMode('structured')
     setShowForm(true)
+  }
+
+  const closeForm = () => {
+    resetForm()
+    setShowForm(false)
   }
 
   const draftPayload = () => {
@@ -184,8 +174,7 @@ export default function Datasources() {
       ? await putData(`/api/datasources/${editingId}`, payload, authRequestOptions(accessToken))
       : await postData('/api/datasources', payload, authRequestOptions(accessToken))
     if (saved) {
-      resetForm()
-      setShowForm(false)
+      closeForm()
       load()
     }
   }
@@ -290,176 +279,21 @@ export default function Datasources() {
     return <LoadingScreen minHeight="300px" />
   }
 
+  const showAccessBadge = accessibleDatasourceIDs !== null
+
   return (
-    <div className="page-stack">
-        <div className="card">
-          <div className="card-header-row">
-            <h2>{t('datasources.panel_title')}</h2>
-            <button className="btn" type="button" onClick={openNewForm}>
-              {showForm && !editingId ? t('datasources.cancel') : t('datasources.new')}
-            </button>
-          </div>
-
-        {showForm && (
-          <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-            <div className="card-header-row datasource-form-header">
-              <h3 style={{ margin: 0 }}>{editingId ? t('datasources.edit_title') : t('datasources.new')}</h3>
-              {editingId && (
-                <button className="btn btn-sm" type="button" onClick={() => { resetForm(); setShowForm(false) }}>
-                  {t('datasources.cancel')}
-                </button>
-              )}
-            </div>
-            <div className="form-group">
-              <div style={{ fontWeight: 600, marginBottom: '0.35rem' }}>{t('datasources.connection_mode')}</div>
-              <div className="bulk-segmented" role="group" aria-label={t('datasources.connection_mode')}>
-                <button
-                  type="button"
-                  className={`bulk-segmented__btn${connMode === 'structured' ? ' bulk-segmented__btn--active' : ''}`}
-                  onClick={() => setConnMode('structured')}
-                >
-                  {t('datasources.mode_structured')}
-                </button>
-                <button
-                  type="button"
-                  className={`bulk-segmented__btn${connMode === 'raw' ? ' bulk-segmented__btn--active' : ''}`}
-                  onClick={() => setConnMode('raw')}
-                >
-                  {t('datasources.mode_raw')}
-                </button>
-              </div>
-            </div>
-            <div className="form-group">
-              <label htmlFor="datasource-name">{t('datasources.name')}</label>
-              <input
-                id="datasource-name"
-                name="name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="prod-orders-db"
-                autoComplete="off"
-              />
-            </div>
-            <div className="form-group">
-              <div style={{ fontWeight: 600, marginBottom: '0.35rem' }}>{t('datasources.type')}</div>
-              <DriverTileGrid
-                value={form.type}
-                onChange={setDriver}
-                ids={DRIVER_IDS}
-                ariaLabel={t('datasources.pick_driver')}
-                t={t}
-              />
-            </div>
-            {connMode === 'raw' ? (
-              <div className="form-group">
-                <label htmlFor="datasource-dsn">{t('datasources.dsn')}</label>
-                <input
-                  id="datasource-dsn"
-                  name="dsn"
-                  type="password"
-                  value={form.dsn}
-                  onChange={(e) => setForm({ ...form, dsn: e.target.value })}
-                  placeholder={driverDsnPlaceholder(form.type)}
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-                <small style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
-                  {editingId ? t('datasources.dsn_keep_hint') : t('datasources.dsn_hint')}
-                </small>
-              </div>
-            ) : (
-              <>
-                <div className="form-group">
-                  <label htmlFor="ds-host">{t('datasources.fields.host')}</label>
-                  <input
-                    id="ds-host"
-                    value={structured.host}
-                    onChange={(e) => setStructured({ ...structured, host: e.target.value })}
-                    placeholder="localhost"
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="ds-port">{t('datasources.fields.port')}</label>
-                  <input
-                    id="ds-port"
-                    value={structured.port}
-                    onChange={(e) => setStructured({ ...structured, port: e.target.value })}
-                    placeholder={defaultPortHint > 0 ? String(defaultPortHint) : ''}
-                    inputMode="numeric"
-                    autoComplete="off"
-                  />
-                  <small style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
-                    {t('common.optional')}
-                  </small>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="ds-db">{t('datasources.fields.database')}</label>
-                  <input
-                    id="ds-db"
-                    value={structured.database_name}
-                    onChange={(e) => setStructured({ ...structured, database_name: e.target.value })}
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="ds-user">{t('datasources.fields.username')}</label>
-                  <input
-                    id="ds-user"
-                    value={structured.username}
-                    onChange={(e) => setStructured({ ...structured, username: e.target.value })}
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="ds-pass">{t('datasources.fields.password')}</label>
-                  <input
-                    id="ds-pass"
-                    type="password"
-                    value={structured.password}
-                    onChange={(e) => setStructured({ ...structured, password: e.target.value })}
-                    autoComplete="off"
-                  />
-                  <small style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
-                    {editingId ? t('datasources.password_keep_hint') : t('datasources.dsn_hint')}
-                  </small>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="ds-ssl">{t('datasources.fields.ssl_mode')}</label>
-                  <input
-                    id="ds-ssl"
-                    value={structured.ssl_mode}
-                    onChange={(e) => setStructured({ ...structured, ssl_mode: e.target.value })}
-                    placeholder={driverConnHints.ssl_mode || 'disable'}
-                    autoComplete="off"
-                  />
-                  <small style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
-                    {t('common.optional')}
-                  </small>
-                  {isInsecureSslMode(structured.ssl_mode) && (
-                    <small style={{ color: 'var(--warning)', fontSize: '0.75rem', display: 'block', marginTop: '0.25rem' }}>
-                      ⚠ {t('datasources.ssl_insecure_warning')}
-                    </small>
-                  )}
-                </div>
-              </>
-            )}
-            <div className="datasource-form-actions">
-              <button className="btn" type="button" onClick={testDraft} disabled={loading || !canSubmit}>
-                {t('datasources.test_before_save')}
-              </button>
-              <button className="btn btn-primary" type="button" onClick={save} disabled={loading || !canSubmit}>
-                {editingId ? t('datasources.save') : t('datasources.create')}
-              </button>
-              {draftTestResult && (
-                <small style={{ color: 'var(--text-secondary)' }}>{draftTestResult}</small>
-              )}
-            </div>
-          </div>
-        )}
-
-        <ErrorAlert error={error} className="error--top-gap" />
+    <div className="page-stack datasources-page">
+      <div className="datasources-toolbar">
+        <div className="datasources-toolbar__text">
+          <h2 className="datasources-toolbar__title">{t('datasources.panel_title')}</h2>
+          <p className="datasources-toolbar__hint">{t('datasources.form_subtitle')}</p>
+        </div>
+        <button className="btn btn-primary" type="button" onClick={openNewForm}>
+          {t('datasources.new')}
+        </button>
       </div>
+
+      <ErrorAlert error={error} className="error--top-gap" />
 
       <div className="card">
         <h2>{t('datasources.registered_count', { count: datasourceRows.length })}</h2>
@@ -495,22 +329,33 @@ export default function Datasources() {
               return (
               <tr key={ds.id}>
                 <td>
-                  <div>{ds.name}</div>
-                  <small style={{ color: 'var(--text-secondary)' }}>{modeHint}</small>
-                  <button
-                    type="button"
-                    title={ds.id}
-                    aria-label={t('datasources.copy_id_aria', { id: ds.id })}
-                    className="datasource-id-pill"
-                    onClick={() => {
-                      navigator.clipboard?.writeText(ds.id).catch(() => {})
-                    }}
-                  >
-                    <span aria-hidden="true">id · {ds.id.slice(0, 8)}…</span>
-                  </button>
-                  <span className={`datasource-access-badge datasource-access-badge--${access}`}>
-                    {access === 'allowed' ? t('datasources.access_allowed') : t('datasources.access_unknown')}
-                  </span>
+                  <div className="ds-record">
+                    <div className="ds-record__head">
+                      <span className="ds-record__name">{ds.name}</span>
+                      {showAccessBadge && access === 'allowed' && (
+                        <span className="ds-record__access ds-record__access--allowed">
+                          <span className="ds-record__access-icon" aria-hidden>
+                            ✓
+                          </span>
+                          {t('datasources.access_allowed')}
+                        </span>
+                      )}
+                    </div>
+                    {modeHint ? <div className="ds-record__meta">{modeHint}</div> : null}
+                    <div className="ds-record__foot">
+                      <button
+                        type="button"
+                        title={ds.id}
+                        aria-label={t('datasources.copy_id_aria', { id: ds.id })}
+                        className="ds-record__id"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(ds.id).catch(() => {})
+                        }}
+                      >
+                        <span aria-hidden="true">id · {ds.id.slice(0, 8)}…</span>
+                      </button>
+                    </div>
+                  </div>
                 </td>
                 <td>
                   <div className={`driver-cell driver-cell--${ds.type}`}>
@@ -557,6 +402,24 @@ export default function Datasources() {
           </tbody>
         </table>
       </div>
+
+      <DatasourceFormModal
+        open={showForm}
+        editingId={editingId}
+        connMode={connMode}
+        form={form}
+        structured={structured}
+        draftTestResult={draftTestResult}
+        loading={loading}
+        canSubmit={canSubmit}
+        onClose={closeForm}
+        onConnModeChange={setConnMode}
+        onFormChange={setForm}
+        onStructuredChange={setStructured}
+        onDriverChange={setDriver}
+        onTest={testDraft}
+        onSave={save}
+      />
     </div>
   )
 }

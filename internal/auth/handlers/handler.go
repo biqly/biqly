@@ -115,6 +115,9 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
 		r.Use(h.authMiddleware)
 		r.Get("/me", h.handleMe)
+		r.Patch("/me/profile", h.handleUpdateProfile)
+		r.Post("/me/password", h.handleChangePassword)
+		r.Post("/me/mfa/bypass", h.handleMeGenerateMFABypass)
 		r.Get("/me/export", h.handleMeExport)
 		r.Post("/me/active-workspace", h.handleSetActiveWorkspace)
 		r.Post("/me/email-change/request", h.handleRequestEmailChange)
@@ -1107,7 +1110,10 @@ func (h *AuthHandler) handleAdminListInvitations(w http.ResponseWriter, r *http.
 
 	total := len(filtered)
 	pageStr := r.URL.Query().Get("page")
-	pageSizeStr := r.URL.Query().Get("pageSize")
+	pageSizeStr := r.URL.Query().Get("page_size")
+	if pageSizeStr == "" {
+		pageSizeStr = r.URL.Query().Get("pageSize")
+	}
 	page := 1
 	pageSize := 10
 	if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
@@ -1119,10 +1125,7 @@ func (h *AuthHandler) handleAdminListInvitations(w http.ResponseWriter, r *http.
 	start := (page - 1) * pageSize
 	var paginated []*auth.Invitation
 	if start < total {
-		end := start + pageSize
-		if end > total {
-			end = total
-		}
+		end := min(start+pageSize, total)
 		paginated = filtered[start:end]
 	} else {
 		paginated = []*auth.Invitation{}

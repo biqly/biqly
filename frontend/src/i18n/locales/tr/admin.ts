@@ -98,6 +98,9 @@ export const admin: AdminDictionary = {
   roles: {
     title: 'Roller ({{count}})',
     permissions_title: 'İzinler ({{count}})',
+    permissions_for: 'İzinler · {{role}}',
+    select_role_hint: 'İzinleri görüntülemek ve düzenlemek için bir rol seçin.',
+    save_permissions: 'İzinleri kaydet',
     name: 'İsim',
   },
   datasource_access: {
@@ -124,6 +127,9 @@ export const admin: AdminDictionary = {
     members_empty: 'Henüz üye yok.',
     invite_member: 'Üye Davet Et',
     invite_user: 'Kullanıcı ID',
+    select_user: 'Kullanıcı seçin…',
+    select_datasource: 'Veri kaynağı seçin…',
+    datasource_name: 'Veri kaynağı',
     invite_role: 'Rol',
     role: 'Rol',
     joined_at: 'Katılma',

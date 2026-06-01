@@ -13,6 +13,7 @@ import { ThemeProvider } from './theme'
 import './index.css'
 import './styles/loading.css'
 import './styles/settings.css'
+import './styles/datasources.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

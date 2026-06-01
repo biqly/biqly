@@ -45,6 +45,7 @@ export function normalizeAuthUser(raw: any): AuthUser {
     avatarUrl: raw.avatarUrl ?? raw.avatar_url,
     isActive: raw.isActive ?? raw.is_active,
     emailVerified: raw.emailVerified ?? raw.email_verified,
+    hasPassword: raw.hasPassword ?? raw.has_password,
     active_workspace_id: raw.active_workspace_id,
     createdAt: raw.createdAt ?? raw.created_at,
     updatedAt: raw.updatedAt ?? raw.updated_at,
@@ -74,6 +75,26 @@ export async function apiLogout(refreshToken: string): Promise<void> {
 export async function apiGetMe(accessToken: string): Promise<AuthUser> {
   const data = await apiFetch<any>('GET', `${AUTH_API_BASE}/me`, undefined, { token: accessToken })
   return normalizeAuthUser(data)
+}
+
+export async function apiUpdateProfile(accessToken: string, displayName: string): Promise<AuthUser> {
+  const data = await apiFetch<any>('PATCH', `${AUTH_API_BASE}/me/profile`, { display_name: displayName }, { token: accessToken })
+  return normalizeAuthUser(data)
+}
+
+export async function apiChangePassword(accessToken: string, currentPassword: string, newPassword: string): Promise<void> {
+  await apiFetch<void>('POST', `${AUTH_API_BASE}/me/password`, {
+    current_password: currentPassword,
+    new_password: newPassword,
+  }, { token: accessToken })
+}
+
+export async function apiRequestEmailChange(accessToken: string, newEmail: string): Promise<{ message?: string }> {
+  return apiFetch<{ message?: string }>('POST', `${AUTH_API_BASE}/me/email-change/request`, { new_email: newEmail }, { token: accessToken })
+}
+
+export async function apiGenerateMFABypassSelf(accessToken: string): Promise<{ bypass_code: string }> {
+  return apiFetch<{ bypass_code: string }>('POST', `${AUTH_API_BASE}/me/mfa/bypass`, undefined, { token: accessToken })
 }
 
 export async function apiSetActiveWorkspace(accessToken: string, workspaceID: string): Promise<SetActiveWorkspaceResponse> {
@@ -157,7 +178,7 @@ export async function apiListInvitations(
 ): Promise<{ invitations: Invitation[]; total: number }> {
   const query = new URLSearchParams({
     page: String(params.page),
-    pageSize: String(params.pageSize),
+    page_size: String(params.pageSize),
     search: params.search || '',
     status: params.status || 'all',
   })
