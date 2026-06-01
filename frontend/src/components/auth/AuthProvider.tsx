@@ -1,6 +1,14 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiGetMe, apiLogin, apiLogout, apiRefresh, apiRegister, apiSetActiveWorkspace } from '../../api/auth'
+import {
+  apiGetMe,
+  apiGetMyPermissions,
+  apiLogin,
+  apiLogout,
+  apiRefresh,
+  apiRegister,
+  apiSetActiveWorkspace,
+} from '../../api/auth'
 import type { AuthUser } from '../../types/auth'
 
 // classifySessionExpiry inspects the server-returned error message and maps it
@@ -18,6 +26,9 @@ interface AuthContextType {
   user: AuthUser | null
   accessToken: string | null
   roles: string[]
+  permissions: string[]
+  isSuperAdmin: boolean
+  hasPermission: (...perms: string[]) => boolean
   loading: boolean
   login: (email: string, password: string) => Promise<{ mfaRequired?: boolean; mfaToken?: string } | void>
   loginWithTokens: (accessToken: string, refreshToken: string, roles?: string[]) => Promise<void>
@@ -34,13 +45,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(null)
   const [roles, setRoles] = useState<string[]>([])
+  const [permissions, setPermissions] = useState<string[]>([])
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const clearAuth = () => {
     setUser(null)
     setAccessToken(null)
     setRoles([])
+    setPermissions([])
+    setIsSuperAdmin(false)
     localStorage.removeItem('biqly_refresh_token')
+  }
+
+  // loadPermissions fetches the caller's effective permissions so the UI can
+  // disable controls the user is not allowed to use. Failure is non-fatal:
+  // the backend still enforces every mutation, so we just fall back to an
+  // empty permission set (controls disabled) rather than blocking sign-in.
+  const loadPermissions = async (accToken: string) => {
+    try {
+      const p = await apiGetMyPermissions(accToken)
+      setPermissions(p.permissions)
+      setIsSuperAdmin(p.is_super_admin)
+    } catch {
+      setPermissions([])
+      setIsSuperAdmin(false)
+    }
   }
 
   const handleAuthSuccess = async (accToken: string, refToken: string, nextRoles: string[] = []) => {
@@ -54,7 +84,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearAuth()
       throw err
     }
+    await loadPermissions(accToken)
   }
+
+  const hasPermission = useCallback(
+    (...perms: string[]) => {
+      if (isSuperAdmin) return true
+      if (perms.length === 0) return false
+      return perms.some((p) => permissions.includes(p))
+    },
+    [isSuperAdmin, permissions],
+  )
 
   const login = async (email: string, password: string) => {
     const resp = await apiLogin(email, password)
@@ -139,6 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAccessToken(resp.access_token)
         setRoles(resp.roles)
         localStorage.setItem('biqly_refresh_token', resp.refresh_token)
+        await loadPermissions(resp.access_token)
       } catch (err: unknown) {
         // Refresh failed — classify the server-side reason so the next sign-in
         // screen can render an explanatory banner (idle/absolute/revoked) and
@@ -161,6 +202,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         accessToken,
         roles,
+        permissions,
+        isSuperAdmin,
+        hasPermission,
         loading,
         login,
         loginWithTokens,

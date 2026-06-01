@@ -12,7 +12,12 @@ import {
   type SelectableAIModel,
 } from '../../api/aiUserModels'
 
-const PURPOSES: AIPurpose[] = ['query', 'describe', 'embedding', 'translation', 'judge']
+// Only the purposes that are resolved per-user at runtime and are safe to vary
+// per user are offered here. embedding/translation write shared metadata and
+// vectors (must stay consistent across users) and evaluation (judge) is an
+// admin concern — those stay on the workspace/admin default. The backend
+// rejects per-user preferences for any other purpose.
+const PURPOSES: AIPurpose[] = ['query', 'describe']
 
 const PURPOSE_ICONS: Record<AIPurpose, React.ReactNode> = {
   query: (
@@ -169,6 +174,7 @@ export function AIModelPreferencesSection() {
               )
             })}
           </div>
+          <p className="ai-purpose-pref__hint">{t('settings.ai_models.admin_managed_note')}</p>
           <div className="ai-model-prefs__footer">
             <button
               type="button"

@@ -1160,8 +1160,9 @@ export const core: CoreDictionary = {
     configuration_group: 'Yapılandırma',
     ai_models: {
       section: 'AI model tercihleri',
-      hint: 'Her görev için kullanmak istediğiniz modeli seçin. Boş bırakırsanız varsayılan model kullanılır.',
+      hint: 'Sorgularınız ve açıklamalar için kullanmak istediğiniz modeli seçin. Boş bırakırsanız varsayılan model kullanılır.',
       restricted_hint: 'Yalnızca çalışma alanlarınıza veya rollerinize paylaşılan modeller listelenir.',
+      admin_managed_note: 'Embedding, çeviri ve değerlendirme modelleri yöneticiler tarafından yönetilir ve tüm kullanıcılar arasında ortaktır.',
       use_default: 'Varsayılanı kullan',
       save: 'Tercihleri kaydet',
       clear: 'Temizle',

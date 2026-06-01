@@ -83,10 +83,10 @@ func userSelectableModels(
 }
 
 type userAIModelsResponse struct {
-	Models       []selectableModelSummary `json:"models"`
-	Preferences  map[string]string        `json:"preferences"`
-	Restricted   bool                     `json:"restricted"`
-	DBManaged    bool                     `json:"db_managed"`
+	Models      []selectableModelSummary `json:"models"`
+	Preferences map[string]string        `json:"preferences"`
+	Restricted  bool                     `json:"restricted"`
+	DBManaged   bool                     `json:"db_managed"`
 }
 
 type userAIPreferenceInput struct {
@@ -153,8 +153,8 @@ func (h *AIHandler) PutUserAIPreferences(w http.ResponseWriter, r *http.Request)
 		if p.Purpose == "" || p.ModelID == "" {
 			continue
 		}
-		if !ai.ValidPurpose(p.Purpose) {
-			writeError(w, http.StatusBadRequest, "invalid purpose: "+p.Purpose)
+		if !ai.UserSelectablePurpose(p.Purpose) {
+			writeError(w, http.StatusBadRequest, "purpose not user-selectable: "+p.Purpose)
 			return
 		}
 		if _, ok := allowed[p.ModelID]; !ok {

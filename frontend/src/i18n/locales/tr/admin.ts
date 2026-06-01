@@ -149,6 +149,7 @@ export const admin: AdminDictionary = {
     back: '← Listeye dön',
     save_success: 'Workspace güncellendi.',
     personal_readonly: 'Kişisel workspace\'ler düzenlenemez.',
+    no_manage_permission: 'Bu workspace\'i yönetme yetkiniz yok.',
   },
   audit: {
     title: 'Denetim Günlüğü',

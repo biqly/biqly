@@ -1158,8 +1158,9 @@ export const core = {
     configuration_group: 'Configuration',
     ai_models: {
       section: 'AI model preferences',
-      hint: 'Choose which managed model to use for each task. Leave empty to use the workspace default.',
+      hint: 'Choose which managed model to use for your queries and descriptions. Leave empty to use the workspace default.',
       restricted_hint: 'Only models shared with your workspaces or roles are listed.',
+      admin_managed_note: 'Embedding, translation and evaluation models are managed by administrators and are shared across users.',
       use_default: 'Use default',
       save: 'Save preferences',
       clear: 'Clear',

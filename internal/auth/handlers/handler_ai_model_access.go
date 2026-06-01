@@ -21,6 +21,14 @@ func (h *RBACHandler) registerAIModelAccessAdminRoutes(r chi.Router) {
 	r.Delete("/ai-model-access/role/model", h.handleAdminRevokeModelRole)
 }
 
+// userSelectableAIPurpose mirrors ai.UserSelectablePurpose: only purposes that
+// are resolved per-user at runtime and safe to vary per user may be stored as a
+// personal preference. Kept as a local list to avoid importing the ai package
+// into the auth service.
+func userSelectableAIPurpose(p string) bool {
+	return p == "query" || p == "describe"
+}
+
 func (h *RBACHandler) registerAIModelAccessUserRoutes(r chi.Router) {
 	r.Get("/me/ai-preferences", h.handleGetMyAIPreferences)
 	r.Put("/me/ai-preferences", h.handlePutMyAIPreferences)
@@ -196,6 +204,10 @@ func (h *RBACHandler) handlePutMyAIPreferences(w http.ResponseWriter, r *http.Re
 		if p.Purpose == "" || p.ModelID == "" {
 			continue
 		}
+		if !userSelectableAIPurpose(p.Purpose) {
+			response.WriteError(w, http.StatusBadRequest, "purpose not user-selectable: "+p.Purpose)
+			return
+		}
 		ok, err := h.aiModelAccess.CanUseModel(r.Context(), userID, p.ModelID)
 		if err != nil {
 			response.WriteError(w, http.StatusInternalServerError, err.Error())
@@ -262,6 +274,10 @@ func (h *RBACHandler) handleInternalPutUserAIPreference(w http.ResponseWriter, r
 	}
 	if req.Purpose == "" || req.ModelID == "" {
 		response.WriteError(w, http.StatusBadRequest, "purpose and model_id are required")
+		return
+	}
+	if !userSelectableAIPurpose(req.Purpose) {
+		response.WriteError(w, http.StatusBadRequest, "purpose not user-selectable: "+req.Purpose)
 		return
 	}
 	if err := h.aiModelAccess.SetUserPreference(r.Context(), userID, req.Purpose, req.ModelID); err != nil {

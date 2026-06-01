@@ -147,6 +147,7 @@ export const admin = {
     back: '← Back to list',
     save_success: 'Workspace updated.',
     personal_readonly: 'Personal workspaces cannot be edited.',
+    no_manage_permission: 'You do not have permission to manage this workspace.',
   },
   audit: {
     title: 'Audit Log',

@@ -21,16 +21,16 @@ import (
 )
 
 type RBACHandler struct {
-	rbac     *rbac.RBACService
-	rbacRepo *rbac.RBACRepository
-	userRepo *auth.UserRepository
+	rbac          *rbac.RBACService
+	rbacRepo      *rbac.RBACRepository
+	userRepo      *auth.UserRepository
 	dsAccess      *rbac.DatasourceAccessService
 	aiModelAccess *rbac.AIModelAccessService
 	ws            *workspace.WorkspaceService
 	sharing       *workspace.SharingService
-	audit    *auth.AuditService
-	jwtMgr   *auth.JWTManager
-	cfg      *auth.Config
+	audit         *auth.AuditService
+	jwtMgr        *auth.JWTManager
+	cfg           *auth.Config
 }
 
 func NewRBACHandler(
@@ -46,16 +46,75 @@ func NewRBACHandler(
 	cfg *auth.Config,
 ) *RBACHandler {
 	return &RBACHandler{
-		rbac:     rbacSvc,
-		rbacRepo: rbacRepo,
-		userRepo: userRepo,
+		rbac:          rbacSvc,
+		rbacRepo:      rbacRepo,
+		userRepo:      userRepo,
 		dsAccess:      dsAccess,
 		aiModelAccess: aiModelAccess,
 		ws:            ws,
 		sharing:       sharing,
-		audit:    audit,
-		jwtMgr:   jwtMgr,
-		cfg:      cfg,
+		audit:         audit,
+		jwtMgr:        jwtMgr,
+		cfg:           cfg,
+	}
+}
+
+// requirePermission gates a route on the caller holding at least one of the
+// given global permissions. Super admins always pass (handled inside
+// RBACService.RequireAny). Used for platform-wide admin endpoints.
+func (h *RBACHandler) requirePermission(perms ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			userID, _ := r.Context().Value(userIDKey).(string)
+			if userID == "" {
+				writeError(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+				return
+			}
+			ok, err := h.rbac.RequireAny(r.Context(), userID, perms...)
+			if err != nil {
+				writeError(w, r, http.StatusInternalServerError, err)
+				return
+			}
+			if !ok {
+				writeError(w, r, http.StatusForbidden, errors.New("insufficient permissions"))
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// requireWorkspacePermission gates a route on the caller holding at least one
+// of the given permissions, evaluated with the workspace scope taken from the
+// {id} URL param (so a global grant OR a workspace-scoped grant both satisfy
+// it). Super admins always pass (handled inside RBACService.Check).
+func (h *RBACHandler) requireWorkspacePermission(perms ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			userID, _ := r.Context().Value(userIDKey).(string)
+			if userID == "" {
+				writeError(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+				return
+			}
+			wsID := chi.URLParam(r, "id")
+			for _, p := range perms {
+				ok, err := h.rbac.Check(r.Context(), rbac.PermissionCheck{
+					UserID:     userID,
+					Permission: p,
+					ScopeType:  rbac.ScopeWorkspace,
+					ScopeID:    wsID,
+				})
+				if err != nil {
+					writeError(w, r, http.StatusInternalServerError, err)
+					return
+				}
+				if ok {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+			writeError(w, r, http.StatusForbidden, errors.New("insufficient permissions"))
+		})
 	}
 }
 
@@ -69,20 +128,21 @@ func (h *RBACHandler) RegisterAuthRoutes(r chi.Router, authMW func(http.Handler)
 		r.Use(authMW)
 
 		r.Get("/workspaces", h.handleListWorkspaces)
-		r.Post("/workspaces", h.handleCreateWorkspace)
+		r.With(h.requirePermission("workspace:create")).Post("/workspaces", h.handleCreateWorkspace)
 		r.Get("/workspaces/{id}", h.handleGetWorkspace)
-		r.Put("/workspaces/{id}", h.handleUpdateWorkspace)
-		r.Delete("/workspaces/{id}", h.handleDeleteWorkspace)
+		r.With(h.requireWorkspacePermission("admin:workspaces")).Put("/workspaces/{id}", h.handleUpdateWorkspace)
+		r.With(h.requireWorkspacePermission("admin:workspaces")).Delete("/workspaces/{id}", h.handleDeleteWorkspace)
 
 		r.Get("/workspaces/{id}/members", h.handleListMembers)
-		r.Post("/workspaces/{id}/members", h.handleAddMember)
-		r.Put("/workspaces/{id}/members/{userId}", h.handleUpdateMemberRole)
-		r.Delete("/workspaces/{id}/members/{userId}", h.handleRemoveMember)
+		r.With(h.requireWorkspacePermission("workspace:invite", "admin:workspaces")).Post("/workspaces/{id}/members", h.handleAddMember)
+		r.With(h.requireWorkspacePermission("workspace:invite", "admin:workspaces")).Put("/workspaces/{id}/members/{userId}", h.handleUpdateMemberRole)
+		r.With(h.requireWorkspacePermission("workspace:invite", "admin:workspaces")).Delete("/workspaces/{id}/members/{userId}", h.handleRemoveMember)
 
 		r.Get("/workspaces/{id}/datasources", h.handleListWorkspaceDatasources)
-		r.Post("/workspaces/{id}/datasources", h.handleAttachDatasource)
-		r.Delete("/workspaces/{id}/datasources/{dsId}", h.handleDetachDatasource)
+		r.With(h.requireWorkspacePermission("workspace:manage_datasources", "admin:workspaces")).Post("/workspaces/{id}/datasources", h.handleAttachDatasource)
+		r.With(h.requireWorkspacePermission("workspace:manage_datasources", "admin:workspaces")).Delete("/workspaces/{id}/datasources/{dsId}", h.handleDetachDatasource)
 
+		r.Get("/me/permissions", h.handleMyPermissions)
 		r.Get("/me/datasources", h.handleListMyDatasources)
 		r.Get("/me/datasources/{id}/check", h.handleCheckMyDatasource)
 		r.Post("/me/datasources/{id}/request-access", h.handleRequestAccess)
@@ -94,26 +154,38 @@ func (h *RBACHandler) RegisterAuthRoutes(r chi.Router, authMW func(http.Handler)
 		h.registerAIModelAccessUserRoutes(r)
 
 		r.Route("/admin", func(r chi.Router) {
-			r.Get("/datasource-access", h.handleAdminListAccess)
-			r.Post("/datasource-access", h.handleAdminGrantAccess)
-			r.Put("/datasource-access/{id}", h.handleAdminUpdateAccess)
-			r.Delete("/datasource-access/{id}", h.handleAdminRevokeAccess)
+			r.Group(func(r chi.Router) {
+				r.Use(h.requirePermission("datasource:grant_access"))
+				r.Get("/datasource-access", h.handleAdminListAccess)
+				r.Post("/datasource-access", h.handleAdminGrantAccess)
+				r.Put("/datasource-access/{id}", h.handleAdminUpdateAccess)
+				r.Delete("/datasource-access/{id}", h.handleAdminRevokeAccess)
+			})
 
-			r.Get("/roles", h.handleAdminListRoles)
-			r.Get("/roles/{roleId}/permissions", h.handleAdminGetRolePermissions)
-			r.Put("/roles/{roleId}/permissions", h.handleAdminSetRolePermissions)
-			r.Get("/permissions", h.handleAdminListPermissions)
-			r.Post("/users/{id}/roles", h.handleAdminAssignRole)
-			r.Delete("/users/{id}/roles/{roleId}", h.handleAdminRemoveRole)
+			r.Group(func(r chi.Router) {
+				r.Use(h.requirePermission("admin:roles"))
+				r.Get("/roles", h.handleAdminListRoles)
+				r.Get("/roles/{roleId}/permissions", h.handleAdminGetRolePermissions)
+				r.Put("/roles/{roleId}/permissions", h.handleAdminSetRolePermissions)
+				r.Get("/permissions", h.handleAdminListPermissions)
+				r.Post("/users/{id}/roles", h.handleAdminAssignRole)
+				r.Delete("/users/{id}/roles/{roleId}", h.handleAdminRemoveRole)
+			})
 
-			r.Get("/users", h.handleAdminListUsers)
-			r.Get("/users/{id}", h.handleAdminGetUser)
-			r.Get("/users/{id}/roles", h.handleAdminGetUserRoles)
-			r.Put("/users/{id}", h.handleAdminUpdateUser)
+			r.Group(func(r chi.Router) {
+				r.Use(h.requirePermission("admin:users"))
+				r.Get("/users", h.handleAdminListUsers)
+				r.Get("/users/{id}", h.handleAdminGetUser)
+				r.Get("/users/{id}/roles", h.handleAdminGetUserRoles)
+				r.Put("/users/{id}", h.handleAdminUpdateUser)
+			})
 
-			r.Get("/audit-log", h.handleAdminListAuditLog)
+			r.With(h.requirePermission("admin:audit")).Get("/audit-log", h.handleAdminListAuditLog)
 
-			h.registerAIModelAccessAdminRoutes(r)
+			r.Group(func(r chi.Router) {
+				r.Use(h.requirePermission("admin:settings", "admin:roles"))
+				h.registerAIModelAccessAdminRoutes(r)
+			})
 		})
 	})
 }
@@ -129,6 +201,35 @@ func (h *RBACHandler) RegisterInternalRoutes(r chi.Router, internalMW func(http.
 		r.Post("/invalidate-cache", h.handleInternalInvalidateCache)
 		r.Get("/public-key", h.handleInternalPublicKey)
 		h.registerAIModelAccessInternalRoutes(r)
+	})
+}
+
+// handleMyPermissions returns the caller's effective global permissions plus a
+// super-admin flag, so the UI can disable controls the user is not allowed to
+// use. This is a convenience mirror of the server-side checks — never the sole
+// gate; every mutating endpoint is still enforced on the backend.
+func (h *RBACHandler) handleMyPermissions(w http.ResponseWriter, r *http.Request) {
+	userID, _ := r.Context().Value(userIDKey).(string)
+	if userID == "" {
+		writeError(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	isSuper, err := h.rbac.IsSuperAdmin(r.Context(), userID)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	perms, err := h.rbac.GetEffectivePermissions(r.Context(), userID, "")
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	if perms == nil {
+		perms = []string{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"permissions":    perms,
+		"is_super_admin": isSuper,
 	})
 }
 

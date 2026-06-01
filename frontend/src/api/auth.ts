@@ -90,6 +90,21 @@ export async function apiGetMe(accessToken: string): Promise<AuthUser> {
   return normalizeAuthUser(data)
 }
 
+export interface MyPermissions {
+  permissions: string[]
+  is_super_admin: boolean
+}
+
+export async function apiGetMyPermissions(accessToken: string): Promise<MyPermissions> {
+  const data = await apiFetch<Partial<MyPermissions>>('GET', `${AUTH_API_BASE}/me/permissions`, undefined, {
+    token: accessToken,
+  })
+  return {
+    permissions: data.permissions ?? [],
+    is_super_admin: data.is_super_admin ?? false,
+  }
+}
+
 export async function apiUpdateProfile(accessToken: string, displayName: string, avatarUrl?: string): Promise<AuthUser> {
   const data = await apiFetch<any>('PATCH', `${AUTH_API_BASE}/me/profile`, { display_name: displayName, avatar_url: avatarUrl }, { token: accessToken })
   return normalizeAuthUser(data)

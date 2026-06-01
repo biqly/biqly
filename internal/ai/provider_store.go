@@ -49,6 +49,26 @@ func ValidPurpose(p string) bool {
 	}
 }
 
+// UserSelectablePurposes is the subset of purposes a user may set a personal
+// model preference for. Only purposes that are (a) actually resolved per-user
+// at runtime and (b) safe to vary per user are exposed. embedding/translation
+// write shared metadata/vectors (must stay consistent) and judge is an
+// admin-only evaluation concern — those remain admin/global-controlled.
+var UserSelectablePurposes = []Purpose{PurposeQuery, PurposeDescribe}
+
+// UserSelectablePurpose reports whether a user may set a personal preference
+// for purpose p.
+func UserSelectablePurpose(p string) bool {
+	switch Purpose(p) {
+	case PurposeQuery, PurposeDescribe:
+		return true
+	case PurposeEmbedding, PurposeTranslation, PurposeJudge:
+		return false
+	default:
+		return false
+	}
+}
+
 // ValidProviderType reports whether t is a supported provider backend.
 func ValidProviderType(t string) bool {
 	switch strings.ToLower(strings.TrimSpace(t)) {
