@@ -23,6 +23,7 @@ import (
 	"github.com/biqly/biqly/internal/datasource/mysql"
 	"github.com/biqly/biqly/internal/datasource/postgres"
 	"github.com/biqly/biqly/internal/datasource/sqlserver"
+	"github.com/biqly/biqly/internal/dashboard"
 	"github.com/biqly/biqly/internal/metadata"
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 	"github.com/biqly/biqly/internal/query"
@@ -74,6 +75,7 @@ type Dependencies struct {
 	// PoolCache holds *sql.DB pools for external datasources. Closed during
 	// Dependencies.Close().
 	PoolCache *datasource.PoolCache
+	DashboardRepo *dashboard.Repository
 }
 
 // CatalogDeps holds the subset of dependencies needed for the Catalog service
@@ -218,6 +220,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 	reg := newDriverRegistry()
 
 	metaRepo, semanticRepo := provideRepositories(db)
+	dashboardRepo := dashboard.NewRepository(db)
 
 	encryptor := provideEncryptor(ctx, db, true)
 
@@ -261,6 +264,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		ResponseCache:   aiBits.responseCache,
 		PoolCache:       poolCache,
 		Jobs:            cfg.Jobs,
+		DashboardRepo:   dashboardRepo,
 	}, nil
 }
 

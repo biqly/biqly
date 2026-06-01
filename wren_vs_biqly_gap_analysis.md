@@ -295,7 +295,7 @@ Bu bölüm Wren dokümanından Biqly Go backend'ine doğrudan uygulanacak somut 
 
 **Uygulanacak:**
 
-- [ ] `audit_events` tablosu oluştur (migration):
+- [x] `audit_events` tablosu oluştur (migration):
 
   ```sql
   CREATE TABLE audit_events (
@@ -326,6 +326,7 @@ Bu bölüm Wren dokümanından Biqly Go backend'ine doğrudan uygulanacak somut 
 **Detaylı plan:** [`ai_provider_db_yonetimi_plan.md`](ai_provider_db_yonetimi_plan.md)
 
 **Özet:** ✅ Tamamlandı (2026-05-31)
+
 - [x] `ai_providers` + `ai_models` DB tabloları (migration `033a/033b`)
 - [x] `ProviderStore` — in-memory cache + hot-reload (`internal/ai/provider_store.go` + `PurposeProvider`, restart-free)
 - [x] Purpose bazlı model yönetimi: query, describe, embedding, translation, judge
@@ -369,17 +370,17 @@ Bu bölüm Wren dokümanından Biqly Go backend'ine doğrudan uygulanacak somut 
 
 **Uygulanacak:**
 
-- [ ] Grid-based dashboard layout engine (react-grid-layout veya css grid)
-- [ ] Widget tipleri: ChartWidget, TableWidget, KPIWidget, TextWidget
-- [ ] Dashboard CRUD API (backend):
+- [x] Grid-based dashboard layout engine (react-grid-layout veya css grid)
+- [x] Widget tipleri: ChartWidget, TableWidget, KPIWidget, TextWidget
+- [x] Dashboard CRUD API (backend):
   - `POST /api/dashboards` — oluştur
   - `GET /api/dashboards` — listele
   - `GET /api/dashboards/{id}` — getir
   - `PUT /api/dashboards/{id}` — güncelle
   - `DELETE /api/dashboards/{id}` — sil
-- [ ] Dashboard DB table (migration)
-- [ ] Frontend: `DashboardBuilder.tsx` — drag-drop widget editor
-- [ ] Frontend: Widget configuration panel (data source = saved query)
+- [x] Dashboard DB table (migration)
+- [x] Frontend: `DashboardBuilder.tsx` — drag-drop widget editor
+- [x] Frontend: Widget configuration panel (data source = saved query)
 
 ### 5.2 Row-Level Security Admin UI (F2 — Yüksek Öncelik)
 
