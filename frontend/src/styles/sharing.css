@@ -102,6 +102,10 @@
   color: var(--text-primary, #111);
 }
 
+.share-modal__field .ui-select {
+  width: 100%;
+}
+
 .share-modal__error {
   padding: 8px 12px;
   background: rgba(239, 68, 68, .08);

@@ -2154,6 +2154,27 @@ input[type='checkbox']:disabled {
   text-transform: uppercase;
 }
 
+.ui-select-search {
+  padding: 0.35rem 0.5rem 0.25rem;
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+}
+
+.ui-select-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  border-radius: 0.35rem;
+  font-size: 0.78rem;
+  background: var(--input-bg, rgba(0, 0, 0, 0.2));
+  color: var(--text-primary);
+}
+
+.ui-select-search-input:focus {
+  outline: none;
+  border-color: var(--accent, #7c3aed);
+}
+
 .ui-select-list {
   list-style: none;
   margin: 0;

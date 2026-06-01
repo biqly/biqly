@@ -1,5 +1,5 @@
 import type { SelectOption } from '../ui/Select'
-import type { AuthUser } from '../../types/auth'
+import type { AuthUser, Workspace } from '../../types/auth'
 import type { Datasource } from '../../types/metadata'
 import type { SemanticModelSummary } from '../../types/semantic'
 import { SECURITY_POLICY_ROLES } from './securityPolicyConstants'
@@ -57,6 +57,34 @@ export function userSelectOptions(
       label: u.displayName ? `${u.email} (${u.displayName})` : u.email,
     })),
   ]
+}
+
+export function shareUserSelectOptions(users: AuthUser[], loading?: boolean): SelectOption[] {
+  if (loading) {
+    return [{ value: '', label: 'Loading…', disabled: true }]
+  }
+  if (users.length === 0) {
+    return [{ value: '', label: 'No users', disabled: true }]
+  }
+  return users.map((u) => ({
+    value: u.id,
+    label: u.displayName ? `${u.displayName} · ${u.email}` : u.email,
+    hint: u.username || undefined,
+  }))
+}
+
+export function workspaceSelectOptions(workspaces: Workspace[], loading?: boolean): SelectOption[] {
+  if (loading) {
+    return [{ value: '', label: 'Loading…', disabled: true }]
+  }
+  if (workspaces.length === 0) {
+    return [{ value: '', label: 'No workspaces', disabled: true }]
+  }
+  return workspaces.map((w) => ({
+    value: w.id,
+    label: w.name,
+    hint: w.slug,
+  }))
 }
 
 export function datasourcePickerOptions(

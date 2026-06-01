@@ -1,7 +1,9 @@
-import { useState } from 'react'
-import { createShare } from '../../api/admin'
+import { useEffect, useMemo, useState } from 'react'
+import { createShare, listUsers, listWorkspaces } from '../../api/admin'
+import { shareUserSelectOptions, workspaceSelectOptions } from '../admin/adminSelectOptions'
 import { useAuth } from '../auth/AuthProvider'
 import { useT } from '../../i18n'
+import type { AuthUser, Workspace } from '../../types/auth'
 import { Select } from '../ui/Select'
 import '../../styles/sharing.css'
 
@@ -10,6 +12,8 @@ interface Props {
   resourceID: string
   onShared?: () => void
 }
+
+const LOOKUP_PAGE_SIZE = 500
 
 export function ShareButton({ resourceType, resourceID, onShared }: Props) {
   const t = useT()
@@ -20,6 +24,42 @@ export function ShareButton({ resourceType, resourceID, onShared }: Props) {
   const [permission, setPermission] = useState<'view' | 'execute' | 'edit'>('view')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [users, setUsers] = useState<AuthUser[]>([])
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+  const [lookupsLoading, setLookupsLoading] = useState(false)
+
+  useEffect(() => {
+    if (!open || !accessToken) return
+    let cancelled = false
+    setLookupsLoading(true)
+    Promise.all([
+      listUsers(accessToken, { pageSize: LOOKUP_PAGE_SIZE }),
+      listWorkspaces(accessToken, 1, LOOKUP_PAGE_SIZE),
+    ])
+      .then(([userRes, wsRes]) => {
+        if (cancelled) return
+        setUsers(userRes.users)
+        setWorkspaces(wsRes.workspaces)
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : String(e))
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLookupsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, accessToken])
+
+  const targetOptions = useMemo(() => {
+    if (mode === 'user') {
+      return shareUserSelectOptions(users, lookupsLoading)
+    }
+    return workspaceSelectOptions(workspaces, lookupsLoading)
+  }, [mode, users, workspaces, lookupsLoading])
 
   async function onSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -45,6 +85,12 @@ export function ShareButton({ resourceType, resourceID, onShared }: Props) {
     }
   }
 
+  function closeModal() {
+    setOpen(false)
+    setTargetID('')
+    setError(null)
+  }
+
   return (
     <>
       <button onClick={() => setOpen(true)} className="share-btn">
@@ -57,11 +103,11 @@ export function ShareButton({ resourceType, resourceID, onShared }: Props) {
       </button>
 
       {open && (
-        <div className="share-modal__overlay" onClick={() => setOpen(false)}>
+        <div className="share-modal__overlay" onClick={closeModal}>
           <div className="share-modal" onClick={(e) => e.stopPropagation()}>
             <div className="share-modal__header">
               <h3>{t('admin.sharing.share_resource')}</h3>
-              <button onClick={() => setOpen(false)} className="share-modal__close" aria-label={t('common.close')}>×</button>
+              <button onClick={closeModal} className="share-modal__close" aria-label={t('common.close')}>×</button>
             </div>
 
             <form onSubmit={onSubmit} className="share-modal__form">
@@ -69,28 +115,40 @@ export function ShareButton({ resourceType, resourceID, onShared }: Props) {
                 <button
                   type="button"
                   className={`share-modal__tab ${mode === 'user' ? 'share-modal__tab--active' : ''}`}
-                  onClick={() => setMode('user')}
+                  onClick={() => {
+                    setMode('user')
+                    setTargetID('')
+                  }}
                 >
                   {t('admin.sharing.share_with_user')}
                 </button>
                 <button
                   type="button"
                   className={`share-modal__tab ${mode === 'workspace' ? 'share-modal__tab--active' : ''}`}
-                  onClick={() => setMode('workspace')}
+                  onClick={() => {
+                    setMode('workspace')
+                    setTargetID('')
+                  }}
                 >
                   {t('admin.sharing.share_with_workspace')}
                 </button>
               </div>
 
-              <label className="share-modal__field">
+              <div className="share-modal__field">
                 <span>{mode === 'user' ? t('admin.sharing.user_id') : t('admin.sharing.workspace')}</span>
-                <input
+                <Select
+                  searchable
                   value={targetID}
-                  onChange={(e) => setTargetID(e.target.value)}
-                  placeholder={mode === 'user' ? t('admin.sharing.user_id_placeholder') : t('admin.sharing.workspace_id_placeholder')}
-                  required
+                  options={targetOptions}
+                  onChange={setTargetID}
+                  placeholder={
+                    mode === 'user'
+                      ? t('admin.sharing.user_id_placeholder')
+                      : t('admin.sharing.workspace_id_placeholder')
+                  }
+                  disabled={lookupsLoading}
                 />
-              </label>
+              </div>
 
               <label className="share-modal__field">
                 <span>{t('admin.sharing.permission')}</span>
@@ -108,10 +166,10 @@ export function ShareButton({ resourceType, resourceID, onShared }: Props) {
               {error && <div className="share-modal__error">{error}</div>}
 
               <div className="share-modal__actions">
-                <button type="button" onClick={() => setOpen(false)} className="share-modal__btn-cancel">
+                <button type="button" onClick={closeModal} className="share-modal__btn-cancel">
                   {t('common.cancel')}
                 </button>
-                <button type="submit" disabled={loading} className="share-modal__btn-submit">
+                <button type="submit" disabled={loading || !targetID.trim()} className="share-modal__btn-submit">
                   {loading ? t('common.saving') : t('admin.sharing.share')}
                 </button>
               </div>

@@ -269,6 +269,20 @@ func (s *ProviderStore) EffectiveConfig() config.AIConfig {
 	return cfg
 }
 
+// EffectiveConfigForEmbeddings returns config used to decide whether embeddings
+// are available. When the DB has no default embedding model, env embedding fields
+// are cleared so stale BI_AI_EMBEDDING_* values do not enable embed actions.
+func (s *ProviderStore) EffectiveConfigForEmbeddings() config.AIConfig {
+	cfg := s.EffectiveConfig()
+	if !s.HasResolved(PurposeEmbedding) {
+		cfg.EmbeddingModel = ""
+		cfg.EmbeddingBaseURL = ""
+		cfg.EmbeddingAPIKey = ""
+		cfg.EmbeddingHTTPTimeoutSeconds = 0
+	}
+	return cfg
+}
+
 func (s *ProviderStore) decrypt(enc string) string {
 	enc = strings.TrimSpace(enc)
 	if enc == "" {

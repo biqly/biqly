@@ -67,7 +67,7 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 	aiQueryClient := queryFallback
 	describeModel := cfg.AI.Model
 	if cfg.AI.DBManaged {
-		effectiveCfg = providerStore.EffectiveConfig()
+		effectiveCfg = providerStore.EffectiveConfigForEmbeddings()
 		aiClient = ai.NewPurposeProvider(providerStore, ai.PurposeDescribe, baseFallback)
 		aiQueryClient = ai.NewPurposeProvider(providerStore, ai.PurposeQuery, queryFallback)
 		if describeCfg, ok := providerStore.ChatConfigForPurpose(ai.PurposeDescribe); ok {

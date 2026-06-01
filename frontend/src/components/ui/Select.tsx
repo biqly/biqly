@@ -24,6 +24,8 @@ interface SelectProps<T extends string = string> {
   size?: 'sm' | 'md'
   /** When true, shows option hint under the label in the closed trigger (e.g. sidebar workspace). */
   showHintInTrigger?: boolean
+  /** When true, shows a filter field inside the dropdown to search options. */
+  searchable?: boolean
 }
 
 interface PopoverPos {
@@ -47,6 +49,7 @@ export function Select<T extends string = string>({
   className,
   size = 'md',
   showHintInTrigger = false,
+  searchable = false,
 }: SelectProps<T>) {
   const t = useT()
   const reactId = useId()
@@ -59,6 +62,19 @@ export function Select<T extends string = string>({
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  const [search, setSearch] = useState('')
+
+  const displayOptions = useMemo(() => {
+    if (!searchable) return options
+    const q = search.trim().toLowerCase()
+    if (!q) return options
+    return options.filter((o) => {
+      const hay = `${o.label} ${o.hint ?? ''} ${o.value}`.toLowerCase()
+      return hay.includes(q)
+    })
+  }, [options, search, searchable])
 
   const selectedIndex = useMemo(() => options.findIndex((o) => o.value === value), [options, value])
   const selected = selectedIndex >= 0 ? options[selectedIndex] : null
@@ -70,26 +86,26 @@ export function Select<T extends string = string>({
 
   const pickByIndex = useCallback(
     (idx: number) => {
-      const opt = options[idx]
+      const opt = displayOptions[idx]
       if (!opt || opt.disabled) return
       onChange(opt.value)
       closeAndFocus()
     },
-    [options, onChange, closeAndFocus],
+    [displayOptions, onChange, closeAndFocus],
   )
 
   const findNextEnabled = useCallback(
     (start: number, direction: 1 | -1): number => {
-      if (options.length === 0) return -1
+      if (displayOptions.length === 0) return -1
       let i = start
-      for (let step = 0; step < options.length; step++) {
-        i = (i + direction + options.length) % options.length
-        const opt = options[i]
+      for (let step = 0; step < displayOptions.length; step++) {
+        i = (i + direction + displayOptions.length) % displayOptions.length
+        const opt = displayOptions[i]
         if (opt && !opt.disabled) return i
       }
       return -1
     },
-    [options],
+    [displayOptions],
   )
 
   const updatePosition = useCallback(() => {
@@ -135,14 +151,25 @@ export function Select<T extends string = string>({
   }, [open])
 
   useEffect(() => {
-    if (open) {
-      const first = findNextEnabled(-1, 1)
-      const cur = selectedIndex >= 0 ? options[selectedIndex] : undefined
-      setActiveIndex(cur && !cur.disabled ? selectedIndex : first)
-    } else {
+    if (!open) {
+      setSearch('')
       setActiveIndex(-1)
+      return
     }
-  }, [open, options, selectedIndex, findNextEnabled])
+    const first = findNextEnabled(-1, 1)
+    const curIdx = displayOptions.findIndex((o) => o.value === value)
+    const cur = curIdx >= 0 ? displayOptions[curIdx] : undefined
+    setActiveIndex(cur && !cur.disabled ? curIdx : first)
+    if (searchable) {
+      requestAnimationFrame(() => searchRef.current?.focus())
+    }
+  }, [open, displayOptions, value, findNextEnabled, searchable])
+
+  useEffect(() => {
+    if (!open || !searchable) return
+    const first = findNextEnabled(-1, 1)
+    setActiveIndex(first)
+  }, [search, open, searchable, findNextEnabled])
 
   useEffect(() => {
     if (!open || activeIndex < 0) return
@@ -167,11 +194,13 @@ export function Select<T extends string = string>({
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       setActiveIndex((i) => findNextEnabled(i < 0 ? -1 : i, 1))
+      searchRef.current?.blur()
       return
     }
     if (e.key === 'ArrowUp') {
       e.preventDefault()
-      setActiveIndex((i) => findNextEnabled(i < 0 ? options.length : i, -1))
+      setActiveIndex((i) => findNextEnabled(i < 0 ? displayOptions.length : i, -1))
+      searchRef.current?.blur()
       return
     }
     if (e.key === 'Home') {
@@ -181,7 +210,7 @@ export function Select<T extends string = string>({
     }
     if (e.key === 'End') {
       e.preventDefault()
-      setActiveIndex(findNextEnabled(options.length, -1))
+      setActiveIndex(findNextEnabled(displayOptions.length, -1))
       return
     }
     if (e.key === 'Enter' || e.key === ' ') {
@@ -257,21 +286,43 @@ export function Select<T extends string = string>({
           role="presentation"
         >
           {header && <div className="ui-select-header">{header}</div>}
+          {searchable && (
+            <div className="ui-select-search">
+              <input
+                ref={searchRef}
+                type="search"
+                className="ui-select-search-input"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={`${t('common.search')}…`}
+                autoComplete="off"
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === 'Escape') {
+                    onTriggerKeyDown(e)
+                  }
+                  if (e.key === ' ') {
+                    e.stopPropagation()
+                  }
+                }}
+              />
+            </div>
+          )}
           <ul
             ref={listRef}
             id={`${baseId}-list`}
             role="listbox"
             aria-activedescendant={activeIndex >= 0 ? `${baseId}-opt-${activeIndex}` : undefined}
             className="ui-select-list"
-            style={{ maxHeight: popover.maxHeight }}
+            style={{ maxHeight: searchable ? Math.max(120, popover.maxHeight - 44) : popover.maxHeight }}
             tabIndex={-1}
+            onKeyDown={onTriggerKeyDown}
           >
-            {options.length === 0 && (
+            {displayOptions.length === 0 && (
               <li className="ui-select-empty" role="option" aria-disabled="true">
                 {t('common.no_options')}
               </li>
             )}
-            {options.map((opt, idx) => {
+            {displayOptions.map((opt, idx) => {
               const isSelected = opt.value === value
               const isActive = idx === activeIndex
               const classes = ['ui-select-option']

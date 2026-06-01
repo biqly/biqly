@@ -192,6 +192,36 @@ func TestPurposeProviderFallsBackWhenUnresolved(t *testing.T) {
 	}
 }
 
+func TestEffectiveConfigForEmbeddings_ClearsEnvWhenUnresolved(t *testing.T) {
+	fallback := config.AIConfig{
+		EmbeddingModel: "env-embed",
+		EmbeddingAPIKey: "env-key",
+		BaseURL:         "https://api.openai.com/v1",
+	}
+	store := NewProviderStore(nil, nil, fallback)
+
+	cfg := store.EffectiveConfigForEmbeddings()
+	if cfg.EmbeddingsConfigured() {
+		t.Fatal("expected embeddings disabled when DB has no embedding model")
+	}
+	if cfg.EmbeddingModel != "" {
+		t.Errorf("EmbeddingModel = %q, want empty", cfg.EmbeddingModel)
+	}
+
+	store.resolved[PurposeEmbedding] = &resolvedModel{
+		ModelID: "db-embed",
+		APIKey:  "db-key",
+		BaseURL: "https://embed.example/v1",
+	}
+	cfg2 := store.EffectiveConfigForEmbeddings()
+	if !cfg2.EmbeddingsConfigured() {
+		t.Fatal("expected embeddings enabled when DB embedding model is resolved")
+	}
+	if cfg2.EmbeddingModel != "db-embed" {
+		t.Errorf("EmbeddingModel = %q, want db-embed", cfg2.EmbeddingModel)
+	}
+}
+
 func TestModelLabelForPurpose(t *testing.T) {
 	fallback := config.AIConfig{Model: "env-describe", QueryModel: "qwen-env"}
 	store := NewProviderStore(nil, nil, fallback)

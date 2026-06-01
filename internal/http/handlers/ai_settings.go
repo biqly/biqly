@@ -133,13 +133,17 @@ func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 	out.EffectiveMaxPromptRunes = prompt.EffectiveMaxPromptRunes(queryCfg, queryCfg.Model)
 	out.ContextWindowTokens = profile.ContextWindowTokens
 	out.ContextWindowSource = profile.Source
-	if cfg.EmbeddingsConfigured() {
+	embedCfg := cfg
+	if cfg.DBManaged && h.deps.AIProviderStore != nil {
+		embedCfg = h.deps.AIProviderStore.EffectiveConfigForEmbeddings()
+	}
+	if embedCfg.EmbeddingsConfigured() {
 		out.EmbeddingsEnabled = true
-		out.EmbeddingModel = strings.TrimSpace(cfg.EmbeddingModel)
-		out.EmbeddingBaseURL = cfg.EmbeddingBaseURL
-		out.EmbeddingBaseURLEffective = embeddingBaseURLEffectiveLabel(cfg)
-		out.EmbeddingAPIKeyConfigured = strings.TrimSpace(cfg.EffectiveEmbeddingAPIKey()) != ""
-		out.EmbeddingAPIKeyDedicated = strings.TrimSpace(cfg.EmbeddingAPIKey) != ""
+		out.EmbeddingModel = strings.TrimSpace(embedCfg.EmbeddingModel)
+		out.EmbeddingBaseURL = embedCfg.EmbeddingBaseURL
+		out.EmbeddingBaseURLEffective = embeddingBaseURLEffectiveLabel(embedCfg)
+		out.EmbeddingAPIKeyConfigured = strings.TrimSpace(embedCfg.EffectiveEmbeddingAPIKey()) != ""
+		out.EmbeddingAPIKeyDedicated = strings.TrimSpace(embedCfg.EmbeddingAPIKey) != ""
 	}
 	if cfg.TranslationConfigured() {
 		out.TranslationEnabled = true

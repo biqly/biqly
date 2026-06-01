@@ -75,9 +75,14 @@ export function RoutingPanel({
       : aiRuntime
         ? t('ai_query.model_badge_legacy')
         : undefined
-  const embeddingBadge = dbManaged
-    ? activeEmbedding?.display_name
-    : aiRuntime?.embeddings_enabled ? aiRuntime?.embedding_model : undefined
+  const embeddingsAvailable = dbManaged
+    ? Boolean(activeEmbedding?.model_id?.trim())
+    : aiRuntime?.embeddings_enabled === true
+  const embeddingBadge = embeddingsAvailable
+    ? dbManaged
+      ? activeEmbedding?.display_name
+      : aiRuntime?.embedding_model
+    : undefined
   const translationBadge = dbManaged
     ? activeTranslation?.display_name
     : aiRuntime?.translation_enabled ? aiRuntime?.translation_model : undefined
@@ -93,7 +98,7 @@ export function RoutingPanel({
           translationModel={translationBadge}
           className="query-config-badges"
         />
-        {aiRuntime?.embeddings_enabled === true && (
+        {embeddingsAvailable && (
           <button
             type="button"
             className="btn btn-sm query-config-embed-btn"
@@ -111,7 +116,7 @@ export function RoutingPanel({
           </button>
         )}
       </div>
-      {aiRuntime?.embeddings_enabled === true && (embeddingStatus || embeddingError || aiRuntimeErr) && (
+      {embeddingsAvailable && (embeddingStatus || embeddingError || aiRuntimeErr) && (
         <div className="query-config-embed-status">
           {embeddingStatus && <span className="ai-embedding-status">{embeddingStatus}</span>}
           {embeddingError && <span className="ai-embedding-error">{embeddingError}</span>}
