@@ -7,6 +7,7 @@ import (
 	evalpkg "github.com/biqly/biqly/internal/ai/eval"
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/config"
+	"github.com/biqly/biqly/internal/dashboard"
 )
 
 // NewCatalogDependencies wires only the Catalog Service dependency graph.
@@ -21,17 +22,19 @@ func NewCatalogDependencies(ctx context.Context, cfg *config.Config) (*Dependenc
 	reg := newDriverRegistry()
 
 	metaRepo, semanticRepo := provideRepositories(db)
+	dashboardRepo := dashboard.NewRepository(db)
 
 	encryptor := provideEncryptor(ctx, db, true)
 
 	return &Dependencies{
-		Config:       cfg,
-		MetadataDB:   db,
-		DriverReg:    reg,
-		MetaRepo:     metaRepo,
-		SemanticRepo: semanticRepo,
-		Encryptor:    encryptor,
-		EvalRepo:     evalpkg.NewEvalRepository(db),
-		AuditLogger:  audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(db, slog.Default())),
+		Config:        cfg,
+		MetadataDB:    db,
+		DriverReg:     reg,
+		MetaRepo:      metaRepo,
+		SemanticRepo:  semanticRepo,
+		Encryptor:     encryptor,
+		EvalRepo:      evalpkg.NewEvalRepository(db),
+		AuditLogger:   audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(db, slog.Default())),
+		DashboardRepo: dashboardRepo,
 	}, nil
 }

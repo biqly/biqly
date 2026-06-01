@@ -100,7 +100,13 @@ func (r *Repository) List(ctx context.Context, workspaceID string) ([]Dashboard,
 		}
 		list = append(list, d)
 	}
-	return list, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if list == nil {
+		list = []Dashboard{}
+	}
+	return list, nil
 }
 
 // Update updates name, description, and widgets configuration of a dashboard.
