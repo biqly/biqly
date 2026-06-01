@@ -73,13 +73,13 @@ global:
         - 9000
     aiExternal:
       enabled: true
-      # Egress from biqly-ai pods to upstream LLM APIs (remote model list, query, embed).
-      # Add every host from ai_providers.base_url (hostname only). Custom OpenAI-compatible
-      # gateways are blocked by default and cause "Fetching…" to hang until timeout.
-      fqdnNames:
-        - api.openai.com
-        - api.anthropic.com
-      # Optional Cilium FQDN wildcards (e.g. "*.example.com") for provider families.
+      # HTTPS to any host (OpenAI-compatible gateways, CDNs with rotating IPs).
+      # Prefer this over toFQDNs alone — FQDN rules miss alternate A records.
+      allowWorldHTTPS: true
+      worldPorts:
+        - 443
+      # Optional extra toFQDNs (redundant when allowWorldHTTPS is true).
+      fqdnNames: []
       fqdnMatchPatterns: []
       fqdnPorts:
         - 443

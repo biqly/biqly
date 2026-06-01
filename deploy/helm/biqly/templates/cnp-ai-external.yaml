@@ -12,6 +12,16 @@ spec:
       app.kubernetes.io/part-of: biqly
   egress:
     {{- $aiExt := .Values.global.networkPolicy.aiExternal }}
+    {{- if $aiExt.allowWorldHTTPS }}
+    - toEntities:
+        - world
+      toPorts:
+        - ports:
+            {{- range $aiExt.worldPorts }}
+            - port: {{ . | quote }}
+              protocol: TCP
+            {{- end }}
+    {{- end }}
     {{- if or $aiExt.fqdnNames $aiExt.fqdnMatchPatterns }}
     - toFQDNs:
         {{- range $aiExt.fqdnNames }}
