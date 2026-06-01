@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	ai "github.com/biqly/biqly/internal/ai/eval"
 	"github.com/biqly/biqly/internal/query"
+	"github.com/biqly/biqly/internal/semantic"
 	"github.com/google/uuid"
 )
 
@@ -70,7 +73,7 @@ func (h *AIHandler) evalAIConfigured() error {
 	return fmt.Errorf("AI is not configured (set BI_AI_MODEL and BI_AI_API_KEY, or BI_AI_BASE_URL for keyless local LLM)")
 }
 
-func evalModesFromRequest(r *http.Request) (ai.EvalMode, string, string, []ai.GoldenCase) {
+func (h *AIHandler) evalModesFromRequest(ctx context.Context, r *http.Request) (ai.EvalMode, string, string, []ai.GoldenCase, error) {
 	modes := ai.EvalModeLogical | ai.EvalModeExecution
 	parts := []string{"logical", "execution"}
 
@@ -88,15 +91,40 @@ func evalModesFromRequest(r *http.Request) (ai.EvalMode, string, string, []ai.Go
 	}
 
 	var cases []ai.GoldenCase
+	var err error
 	suiteName := "golden"
 	switch strings.TrimSpace(r.URL.Query().Get("suite")) {
 	case "benchmark", ai.BenchmarkSuiteName:
 		cases = ai.BenchmarkCases()
 		suiteName = ai.BenchmarkSuiteName
+	case "file:golden":
+		cases, err = ai.LoadGoldenCasesFromDir(findGoldenDir())
+		if err != nil {
+			return 0, "", "", nil, fmt.Errorf("failed to load golden cases: %w", err)
+		}
+		suiteName = "file:golden"
 	default:
 		cases = ai.DefaultGoldenCases()
 	}
-	return modes, suiteName, suiteName + ":" + strings.Join(parts, ","), cases
+
+	// Resolve semantic models for loaded cases
+	resolvedCases := make([]ai.GoldenCase, len(cases))
+	for i, c := range cases {
+		modelID := c.Model.ID
+		var fullModel *semantic.SemanticModel
+		if modelID == "orders" {
+			fullModel = ai.OrdersModel()
+		} else {
+			fullModel, err = h.deps.SemanticRepo.GetFullModel(ctx, modelID)
+			if err != nil {
+				return 0, "", "", nil, fmt.Errorf("failed to load model %s for case %s: %w", modelID, c.ID, err)
+			}
+		}
+		c.Model = fullModel
+		resolvedCases[i] = c
+	}
+
+	return modes, suiteName, suiteName + ":" + strings.Join(parts, ","), resolvedCases, nil
 }
 
 func removeMode(parts []string, mode string) []string {
@@ -114,7 +142,10 @@ func (h *AIHandler) executeGoldenCasesWithMetrics(ctx context.Context, r *http.R
 		return nil, nil, err
 	}
 
-	modes, suiteName, modesLabel, cases := evalModesFromRequest(r)
+	modes, suiteName, modesLabel, cases, err := h.evalModesFromRequest(ctx, r)
+	if err != nil {
+		return nil, nil, err
+	}
 	opts := ai.EvalSuiteOptions{
 		Cases: cases,
 		Modes: modes,
@@ -242,7 +273,11 @@ func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) {
 		flusher.Flush()
 	}
 
-	modes, _, modesLabel, cases := evalModesFromRequest(r)
+	modes, _, modesLabel, cases, err := h.evalModesFromRequest(ctx, r)
+	if err != nil {
+		send(fmt.Sprintf("Failed to load suite: %v", err))
+		return
+	}
 	opts := ai.EvalSuiteOptions{Cases: cases, Modes: modes}
 	if modes&ai.EvalModeJudge != 0 {
 		opts.Judge = h.service.LLMProvider()
@@ -433,4 +468,92 @@ func (h *AIHandler) EvalRegression(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, report)
+}
+
+type evalCaseWire struct {
+	ID       string              `json:"id"`
+	Question string              `json:"question"`
+	ModelID  string              `json:"model_id"`
+	Expected query.LogicalQuery `json:"expected"`
+}
+
+func (h *AIHandler) EvalListCases(w http.ResponseWriter, r *http.Request) {
+	cases, err := ai.LoadGoldenCasesFromDir(findGoldenDir())
+	if err != nil {
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "list golden cases failed", err)
+		return
+	}
+
+	wireList := make([]evalCaseWire, len(cases))
+	for i, c := range cases {
+		wireList[i] = evalCaseWire{
+			ID:       c.ID,
+			Question: c.Question,
+			ModelID:  c.Model.ID,
+			Expected: c.Expected,
+		}
+	}
+	writeJSON(w, http.StatusOK, wireList)
+}
+
+func (h *AIHandler) EvalCreateCase(w http.ResponseWriter, r *http.Request) {
+	var req evalCaseWire
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		return
+	}
+	if req.ID == "" {
+		writeError(w, http.StatusBadRequest, "id is required")
+		return
+	}
+	if req.Question == "" {
+		writeError(w, http.StatusBadRequest, "question is required")
+		return
+	}
+	if req.ModelID == "" {
+		writeError(w, http.StatusBadRequest, "model_id is required")
+		return
+	}
+
+	err := ai.SaveGoldenCaseToDir(findGoldenDir(), req.ID, req.Question, req.ModelID, req.Expected)
+	if err != nil {
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "save golden case failed", err)
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, map[string]any{"status": "created", "id": req.ID})
+}
+
+func (h *AIHandler) EvalDeleteCase(w http.ResponseWriter, r *http.Request) {
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	err := ai.DeleteGoldenCaseFromDir(findGoldenDir(), id)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "delete golden case failed", err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"status": "deleted", "id": id})
+}
+
+func findGoldenDir() string {
+	dir := "testdata/golden"
+	if _, err := os.Stat(dir); err == nil {
+		return dir
+	}
+	parent := dir
+	for i := 0; i < 4; i++ {
+		parent = filepath.Join("..", parent)
+		if _, err := os.Stat(parent); err == nil {
+			return parent
+		}
+	}
+	return dir
 }

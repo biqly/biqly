@@ -243,7 +243,7 @@ Bu bölüm Wren dokümanından Biqly Go backend'ine doğrudan uygulanacak somut 
 
 **Uygulanacak:**
 
-- [ ] `internal/ai/eval/golden_loader.go` oluştur:
+- [x] `internal/ai/eval/golden_loader.go` oluştur:
 
   ```go
   func LoadGoldenCasesFromDir(dir string) ([]GoldenCase, error)
@@ -251,13 +251,13 @@ Bu bölüm Wren dokümanından Biqly Go backend'ine doğrudan uygulanacak somut 
 
   - `testdata/golden/*.json` dosyalarından case'leri yükle
   - Her dosya: `{id, question, model, expected: LogicalQuery}`
-- [ ] Eval runner'da `suite=file:golden` parametresi destekle
-- [ ] `testdata/golden/` dizini oluştur, örnek JSON case dosyaları ekle
-- [ ] Golden case CRUD API ekle:
+- [x] Eval runner'da `suite=file:golden` parametresi destekle
+- [x] `testdata/golden/` dizini oluştur, örnek JSON case dosyaları ekle
+- [x] Golden case CRUD API ekle:
   - `GET /api/ai/eval/cases` — mevcut golden case'leri listele
   - `POST /api/ai/eval/cases` — yeni golden case ekle
   - `DELETE /api/ai/eval/cases/{id}` — golden case sil
-- [ ] CI'da eval runner: `Makefile`'a `make eval` target ekle
+- [x] CI'da eval runner: `Makefile`'a `make eval` target ekle
 
 **Dosyalar:** `internal/ai/eval/golden_loader.go` (yeni), `internal/http/handlers/ai_eval.go` (güncelle), `testdata/golden/` (yeni dizin)
 
@@ -561,8 +561,8 @@ Wren dokümanında önerilen ama Biqly'nin bilerek uygulamadığı şeyler:
 
 **Kalan:**
 
-- [ ] Golden case external file loader + CRUD API (B3)
-- [ ] CI pipeline'a eval runner ekle
+- [x] Golden case external file loader + CRUD API (B3)
+- [x] CI pipeline'a eval runner ekle
 
 ### Faz 6 — Auth & Admin (✅ Tamamlandı)
 

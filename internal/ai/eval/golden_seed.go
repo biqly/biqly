@@ -8,8 +8,9 @@ import (
 // DefaultGoldenCases returns the built-in text-to-SQL golden set used by HTTP
 // eval endpoints and tests. Keep cases small and self-consistent — expand over
 // time or load from testdata in a follow-up.
-func DefaultGoldenCases() []GoldenCase {
-	ordersModel := &semantic.SemanticModel{
+// OrdersModel returns the mock Orders semantic model used by the built-in seed cases.
+func OrdersModel() *semantic.SemanticModel {
+	return &semantic.SemanticModel{
 		ID:           "orders",
 		DatasourceID: "ds-1",
 		Name:         "public.orders",
@@ -24,6 +25,10 @@ func DefaultGoldenCases() []GoldenCase {
 			{Name: "total_amount", Aggregation: "sum", Expression: "orders.amount"},
 		},
 	}
+}
+
+func DefaultGoldenCases() []GoldenCase {
+	ordersModel := OrdersModel()
 
 	return []GoldenCase{
 		{

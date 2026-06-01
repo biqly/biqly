@@ -1,0 +1,14 @@
+{
+  "id": "total-amount-file",
+  "question": "tüm siparişlerin tutar toplamı",
+  "model_id": "orders",
+  "expected": {
+    "select": [
+      {
+        "type": "metric",
+        "name": "total_amount"
+      }
+    ],
+    "limit": 100
+  }
+}

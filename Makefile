@@ -1,4 +1,4 @@
-.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai test eval-regression lint semgrep-scan helm-deps helm-lint helm-template clean migrate-up migrate-down docker-up docker-down seed-adventureworks
+.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai test eval eval-regression lint semgrep-scan helm-deps helm-lint helm-template clean migrate-up migrate-down docker-up docker-down seed-adventureworks
 
 BINARY_NAME=biqly
 GO_FILES=$(shell find . -name '*.go' -not -path './vendor/*')
@@ -61,6 +61,9 @@ run-ai: build-ai
 
 test:
 	@go test -v -race -coverprofile=coverage.out ./...
+
+eval:
+	@go test -v ./internal/ai/... ./internal/http/handlers/... -run "TestGoldenSeedSelfConsistent|TestLogicalQueryEqualBaseline|TestGoldenLoader|TestEvalCaseCRUD"
 
 eval-regression:
 	@go test ./internal/ai/ -run 'TestGoldenSeedSelfConsistent|TestLogicalQueryEqualBaseline|TestResultSetEqualBaseline|TestExecutionAccuracyGolden|TestEvalRegressionGate|TestBenchmarkSuiteRegressionGate|TestBenchmarkSuiteSelfConsistent' -count=1 -v

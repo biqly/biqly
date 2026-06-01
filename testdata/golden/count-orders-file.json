@@ -1,0 +1,14 @@
+{
+  "id": "count-orders-file",
+  "question": "kaç sipariş var",
+  "model_id": "orders",
+  "expected": {
+    "select": [
+      {
+        "type": "metric",
+        "name": "row_count"
+      }
+    ],
+    "limit": 100
+  }
+}
