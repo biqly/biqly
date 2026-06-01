@@ -1,8 +1,9 @@
-import React from 'react'
+import { useMemo } from 'react'
 import type { Invitation } from '../../../types/auth'
 import { localeLanguageTag } from '../../../i18n'
 import { Pagination } from '../../ui/Pagination'
 import { LoadingOverlay } from '../../ui/LoadingOverlay'
+import { Select } from '../../ui/Select'
 
 interface InvitationsTabProps {
   inviteSearch: string
@@ -51,6 +52,16 @@ export function InvitationsTab({
     return isExpired ? 'expired' : 'pending'
   }
 
+  const statusOptions = useMemo(
+    () => [
+      { value: 'all', label: t('auth.invite_status_all') },
+      { value: 'pending', label: t('auth.invite_status_pending') },
+      { value: 'claimed', label: t('auth.invite_status_claimed') },
+      { value: 'expired', label: t('auth.invite_status_expired') },
+    ],
+    [t],
+  )
+
   return (
     <>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -62,16 +73,13 @@ export function InvitationsTab({
           className="admin-input"
           style={{ maxWidth: 320 }}
         />
-        <select
-          value={inviteStatusFilter}
-          onChange={(e) => setInviteStatusFilter(e.target.value as any)}
-          className="admin-select"
-        >
-          <option value="all">{t('auth.invite_status_all')}</option>
-          <option value="pending">{t('auth.invite_status_pending')}</option>
-          <option value="claimed">{t('auth.invite_status_claimed')}</option>
-          <option value="expired">{t('auth.invite_status_expired')}</option>
-        </select>
+        <div style={{ minWidth: 180 }}>
+          <Select
+            value={inviteStatusFilter}
+            options={statusOptions}
+            onChange={(v) => setInviteStatusFilter(v as InvitationsTabProps['inviteStatusFilter'])}
+          />
+        </div>
       </div>
 
       <div className="admin-table-container">
@@ -137,15 +145,15 @@ export function InvitationsTab({
                                 status === 'claimed'
                                   ? 'admin-badge-claimed'
                                   : status === 'expired'
-                                  ? 'admin-badge-expired'
-                                  : 'admin-badge-pending'
+                                    ? 'admin-badge-expired'
+                                    : 'admin-badge-pending'
                               }
                             >
                               {status === 'claimed'
                                 ? t('auth.invite_status_claimed')
                                 : status === 'expired'
-                                ? t('auth.invite_status_expired')
-                                : t('auth.invite_status_pending')}
+                                  ? t('auth.invite_status_expired')
+                                  : t('auth.invite_status_pending')}
                             </span>
                           </td>
                           <td className="admin-td" style={{ textAlign: 'right' }}>

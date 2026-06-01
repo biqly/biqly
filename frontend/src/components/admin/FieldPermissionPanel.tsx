@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useT } from '../../i18n'
 import { useDatasources } from '../../hooks/useDatasources'
 import { useSemanticModels } from '../../hooks/useSemanticModels'
@@ -6,8 +6,12 @@ import { useModelDetail } from '../../hooks/useModelDetail'
 import { getSecurityPolicyByKeys, upsertSecurityPolicy } from '../../api/admin'
 import type { SecurityPolicy } from '../../api/admin'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
-
-const ROLES = ['viewer', 'analyst', 'developer', 'admin', 'super_admin']
+import { Select } from '../ui/Select'
+import {
+  datasourceSelectOptions,
+  securityRoleOptions,
+  semanticModelSelectOptions,
+} from './adminSelectOptions'
 
 export function FieldPermissionPanel({ token }: { token: string }) {
   const t = useT()
@@ -143,46 +147,44 @@ export function FieldPermissionPanel({ token }: { token: string }) {
   const hasFields = model && ((model.dimensions?.length || 0) > 0 || (model.metrics?.length || 0) > 0)
   const isSavingDisabled = !model || loadingPolicy
 
+  const dsOptions = useMemo(
+    () => datasourceSelectOptions(datasources ?? [], loadingDS),
+    [datasources, loadingDS],
+  )
+  const modelOptions = useMemo(
+    () => semanticModelSelectOptions(models ?? [], loadingModels),
+    [models, loadingModels],
+  )
+
   return (
     <div style={containerStyle}>
       <h2 style={headerStyle}>{t('admin.tabs.field_permissions')}</h2>
 
       <div style={gridSelectStyle}>
-        <label style={labelStyle}>
+        <div style={labelStyle} className="admin-form-label">
           <span style={labelTextStyle}>Role</span>
-          <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} style={selectStyle}>
-            {ROLES.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-        </label>
+          <Select value={selectedRole} options={securityRoleOptions()} onChange={setSelectedRole} />
+        </div>
 
-        <label style={labelStyle}>
+        <div style={labelStyle} className="admin-form-label">
           <span style={labelTextStyle}>Datasource</span>
-          <select value={selectedDS} onChange={(e) => setSelectedDS(e.target.value)} style={selectStyle}>
-            {loadingDS && <option>Loading...</option>}
-            {datasources.map((ds) => (
-              <option key={ds.id} value={ds.id}>
-                {ds.name} ({ds.type})
-              </option>
-            ))}
-          </select>
-        </label>
+          <Select
+            value={selectedDS}
+            options={dsOptions}
+            onChange={setSelectedDS}
+            disabled={loadingDS || dsOptions.every((o) => o.disabled)}
+          />
+        </div>
 
-        <label style={labelStyle}>
+        <div style={labelStyle} className="admin-form-label">
           <span style={labelTextStyle}>Semantic Model</span>
-          <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} style={selectStyle} disabled={!selectedDS}>
-            {loadingModels && <option>Loading...</option>}
-            {models.length === 0 && !loadingModels && <option value="">No models available</option>}
-            {models.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </label>
+          <Select
+            value={selectedModel}
+            options={modelOptions}
+            onChange={setSelectedModel}
+            disabled={!selectedDS || loadingModels}
+          />
+        </div>
       </div>
 
       {error && <div style={errStyle}>{t('common.error')}: {error}</div>}
@@ -327,16 +329,6 @@ const labelTextStyle: React.CSSProperties = {
   fontWeight: 500,
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
-}
-
-const selectStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 6,
-  fontSize: 14,
-  background: 'var(--input-bg, #18181b)',
-  color: 'var(--text-primary, #f4f4f5)',
-  cursor: 'pointer',
 }
 
 const contentLayout: React.CSSProperties = {

@@ -1,4 +1,4 @@
-import type { SemanticDimension, SemanticJoin, SemanticMetric, TableRow } from '../../types/semantic'
+import type { SemanticDimension, SemanticMetric, TableRow } from '../../types/semantic'
 
 export interface SuggestedJoin {
   from_schema: string

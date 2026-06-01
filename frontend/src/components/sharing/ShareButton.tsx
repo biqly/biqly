@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createShare } from '../../api/admin'
 import { useAuth } from '../auth/AuthProvider'
 import { useT } from '../../i18n'
+import { Select } from '../ui/Select'
 import '../../styles/sharing.css'
 
 interface Props {
@@ -93,11 +94,15 @@ export function ShareButton({ resourceType, resourceID, onShared }: Props) {
 
               <label className="share-modal__field">
                 <span>{t('admin.sharing.permission')}</span>
-                <select value={permission} onChange={(e) => setPermission(e.target.value as 'view' | 'execute' | 'edit')}>
-                  <option value="view">{t('admin.sharing.permission_view')}</option>
-                  <option value="execute">{t('admin.sharing.permission_execute')}</option>
-                  <option value="edit">{t('admin.sharing.permission_edit')}</option>
-                </select>
+                <Select
+                  value={permission}
+                  options={[
+                    { value: 'view', label: t('admin.sharing.permission_view') },
+                    { value: 'execute', label: t('admin.sharing.permission_execute') },
+                    { value: 'edit', label: t('admin.sharing.permission_edit') },
+                  ]}
+                  onChange={(v) => setPermission(v as 'view' | 'execute' | 'edit')}
+                />
               </label>
 
               {error && <div className="share-modal__error">{error}</div>}

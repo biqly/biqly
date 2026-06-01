@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { useT } from '../../i18n'
 import type { Workspace } from '../../types/auth'
 import { resolveActiveWorkspace } from './workspaceSelection'
+import { Select } from '../ui/Select'
 import '../../styles/workspace.css'
 
 const storageKey = 'biqly_active_workspace_id'
@@ -51,6 +52,11 @@ export function WorkspaceSelector({ token }: { token: string }) {
 
   const active = resolveActiveWorkspace(workspaces, activeID)
 
+  const workspaceOptions = workspaces.map((workspace) => ({
+    value: workspace.id,
+    label: `${workspace.name}${workspace.is_personal ? ` ${t('admin.workspaces.personal_suffix')}` : ''}`,
+  }))
+
   const handleChange = async (nextID: string) => {
     if (!nextID || nextID === activeID) return
     setSwitching(true)
@@ -68,18 +74,13 @@ export function WorkspaceSelector({ token }: { token: string }) {
   return (
     <label className="workspace-selector">
       <span className="workspace-selector__label">{t('admin.workspaces.selector_label')}</span>
-      <select
+      <Select
         value={active?.id ?? ''}
-        onChange={(e) => void handleChange(e.target.value)}
-        aria-label={t('admin.workspaces.selector_label')}
+        options={workspaceOptions}
+        onChange={(v) => void handleChange(v)}
+        ariaLabel={t('admin.workspaces.selector_label')}
         disabled={switching}
-      >
-        {workspaces.map((workspace) => (
-          <option key={workspace.id} value={workspace.id}>
-            {workspace.name}{workspace.is_personal ? ` ${t('admin.workspaces.personal_suffix')}` : ''}
-          </option>
-        ))}
-      </select>
+      />
     </label>
   )
 }

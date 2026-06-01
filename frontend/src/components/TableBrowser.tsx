@@ -19,7 +19,6 @@ import type {
   SemanticDimension,
   SemanticMetric,
   SemanticModelDetail,
-  SemanticModelSummary,
 } from '../types/semantic'
 import { modelListLabel, modelListHint } from '../types/semantic'
 
@@ -506,12 +505,12 @@ export default function TableBrowser() {
         prev.map((f) =>
           f.id === editingFilterId
             ? {
-                ...f,
-                field: popoverField,
-                operator: popoverOperator,
-                value: finalValue,
-                caseSensitive: popoverCaseSensitive,
-              }
+              ...f,
+              field: popoverField,
+              operator: popoverOperator,
+              value: finalValue,
+              caseSensitive: popoverCaseSensitive,
+            }
             : f,
         ),
       )
@@ -680,14 +679,14 @@ export default function TableBrowser() {
       ? t('table_browser.range_empty')
       : totalRows != null
         ? t('table_browser.range_of_total', {
-            start: formatInt(rangeStart),
-            end: formatInt(rangeEnd),
-            total: formatInt(totalRows),
-          })
+          start: formatInt(rangeStart),
+          end: formatInt(rangeEnd),
+          total: formatInt(totalRows),
+        })
         : t('table_browser.range_unknown_total', {
-            start: formatInt(rangeStart),
-            end: formatInt(rangeEnd),
-          })
+          start: formatInt(rangeStart),
+          end: formatInt(rangeEnd),
+        })
 
   if (dsLoading || (modelId && !modelDetail && modelLoading)) {
     return <LoadingScreen minHeight="300px" />
@@ -745,308 +744,308 @@ export default function TableBrowser() {
             {t('table_browser.no_columns_for_table')}
           </p>
         ) : (
-        <>
-          <div className="table-browser-filter-bar">
-            {filters.map((f) => (
-              <span
-                key={f.id}
-                className="table-browser-filter-tag"
-                style={{ cursor: 'pointer' }}
-                onClick={() => handleOpenEditFilter(f)}
-              >
-                {getDimensionLabel(f.field)} {getOperatorLabel(f.operator)} {formatFilterValue(f.value)}
-                <button
-                  type="button"
-                  className="table-browser-filter-tag-close"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleRemoveFilter(f.id)
-                  }}
-                  aria-label={t('table_browser.remove_filter')}
+          <>
+            <div className="table-browser-filter-bar">
+              {filters.map((f) => (
+                <span
+                  key={f.id}
+                  className="table-browser-filter-tag"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleOpenEditFilter(f)}
                 >
-                  ×
-                </button>
-              </span>
-            ))}
-            <button
-              type="button"
-              className="table-browser-add-filter-btn"
-              onClick={() => handleOpenAddFilter()}
-              title={t('table_browser.add_filter')}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '0.85rem', height: '0.85rem' }}>
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              {t('table_browser.filter')}
-            </button>
-
-            {popoverOpen && (
-              <div className="filter-popover" style={{ width: '18rem' }}>
-                <div className="filter-popover-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 'none', paddingBottom: '0.2rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <button type="button" className="filter-popover-back" onClick={() => setPopoverOpen(false)}>‹</button>
-                    <span style={{ fontSize: '0.86rem', fontWeight: 700 }}>{getDimensionLabel(popoverField)}</span>
-                  </div>
-                  <Select value={popoverOperator} onChange={setPopoverOperator} options={operatorOptions} size="sm" />
-                </div>
-
-                {!editingFilterId && (
-                  <div className="filter-popover-row" style={{ marginTop: '0.1rem' }}>
-                    <label>{t('table_browser.column')}</label>
-                    <Select value={popoverField} onChange={setPopoverField} options={filterFieldOpts} size="sm" />
-                  </div>
-                )}
-
-                <div className="filter-popover-row">
-                  <label>{t('table_browser.value')}</label>
-                  <div className="chip-input-container" onClick={() => document.getElementById('chip-input-el')?.focus()}>
-                    {popoverChips.map((chip, idx) => (
-                      <span key={idx} className="chip-tag">
-                        {chip}
-                        <button
-                          type="button"
-                          className="chip-tag-close"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleRemoveChip(idx)
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                    <input
-                      id="chip-input-el"
-                      type="text"
-                      value={chipInputText}
-                      onChange={(e) => setChipInputText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ',') {
-                          e.preventDefault()
-                          handleAddChip(chipInputText)
-                        } else if (e.key === 'Backspace' && !chipInputText && popoverChips.length > 0) {
-                          handleRemoveChip(popoverChips.length - 1)
-                        }
-                      }}
-                      placeholder={popoverChips.length === 0 ? t('table_browser.enter_value') : ''}
-                      className="chip-input-field"
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.2rem' }}>
-                  <div className="filter-popover-checkbox-row">
-                    <input
-                      type="checkbox"
-                      id="case-sensitive-cb"
-                      checked={popoverCaseSensitive}
-                      onChange={(e) => setPopoverCaseSensitive(e.target.checked)}
-                    />
-                    <label htmlFor="case-sensitive-cb">{t('table_browser.case_sensitive')}</label>
-                  </div>
+                  {getDimensionLabel(f.field)} {getOperatorLabel(f.operator)} {formatFilterValue(f.value)}
                   <button
                     type="button"
-                    className="filter-popover-btn"
-                    style={{ width: 'auto', padding: '0.35rem 0.85rem' }}
-                    onClick={handleSaveFilter}
+                    className="table-browser-filter-tag-close"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleRemoveFilter(f.id)
+                    }}
+                    aria-label={t('table_browser.remove_filter')}
                   >
-                    {editingFilterId ? t('table_browser.update_filter') : t('table_browser.add_filter')}
+                    ×
                   </button>
-                </div>
-              </div>
-            )}
-          </div>
+                </span>
+              ))}
+              <button
+                type="button"
+                className="table-browser-add-filter-btn"
+                onClick={() => handleOpenAddFilter()}
+                title={t('table_browser.add_filter')}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '0.85rem', height: '0.85rem' }}>
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                {t('table_browser.filter')}
+              </button>
 
-          <ValidationErrorBanner
-            error={error}
-            t={t}
-            onOpenModeling={() => {
-              const modelId = modelDetail?.id
-              const dsId = datasourceId
-              const params = new URLSearchParams()
-              if (dsId) params.set('ds', dsId)
-              if (modelId) params.set('model', modelId)
-              const qs = params.toString()
-              navigate(qs ? `/modeling?${qs}` : '/modeling')
-            }}
-          />
+              {popoverOpen && (
+                <div className="filter-popover" style={{ width: '18rem' }}>
+                  <div className="filter-popover-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 'none', paddingBottom: '0.2rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <button type="button" className="filter-popover-back" onClick={() => setPopoverOpen(false)}>‹</button>
+                      <span style={{ fontSize: '0.86rem', fontWeight: 700 }}>{getDimensionLabel(popoverField)}</span>
+                    </div>
+                    <Select value={popoverOperator} onChange={setPopoverOperator} options={operatorOptions} size="sm" />
+                  </div>
 
-          {showTablePanel && (
-            <>
-              {showInitialPlaceholder ? (
-                <div className="table-browser-table-placeholder" role="status" aria-live="polite" aria-busy="true">
-                  <span className="loading-overlay-spinner" aria-hidden="true" />
-                  <span>{t('table_browser.loading')}</span>
-                </div>
-              ) : result?.columns ? (
-                <LoadingOverlay
-                  loading={fetching}
-                  label={t('table_browser.loading_page')}
-                  className="table-browser-table-overlay"
-                >
-                  <div className={`table-browser-table-wrap${fetching ? ' is-blurred' : ''}`}>
-                    <table className="results-table table-browser-grid">
-                      <thead>
-                        <tr>
-                          <th scope="col" className="table-browser-col-index"></th>
-                          {displayColumnNames.map((colName) => (
-                            <th
-                              key={colName}
-                              scope="col"
-                              draggable={!fetching}
-                              className={`table-browser-th th-clickable${dragColumn === colName ? ' is-dragging' : ''}${dropTargetColumn === colName ? ' is-drop-target' : ''}`}
-                              onDragStart={handleColumnDragStart(colName)}
-                              onDragOver={handleColumnDragOver(colName)}
-                              onDrop={handleColumnDrop(colName)}
-                              onDragEnd={handleColumnDragEnd}
-                              onClick={() => !fetching && handleOpenAddFilter(colName)}
-                              title={t('table_browser.filter_by_column', { column: colName })}
-                            >
-                              <span className="table-browser-th-inner">
-                                <span
-                                  className="table-browser-th-grip"
-                                  aria-hidden="true"
-                                  title={t('table_browser.drag_column')}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  ⋮⋮
-                                </span>
-                                <span className="table-browser-th-label">{getDimensionLabel(colName)}</span>
-                                <span className="th-chevron">▼</span>
-                              </span>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(result.rows ?? []).map((row, i) => (
-                          <tr
-                            key={i}
-                            className={`table-browser-data-row${fetching ? ' is-disabled' : ''}`}
-                            onClick={() => {
-                              if (fetching) return
-                              setDetailRow({
-                                displayIndex: page * pageSize + i + 1,
-                                row,
-                              })
+                  {!editingFilterId && (
+                    <div className="filter-popover-row" style={{ marginTop: '0.1rem' }}>
+                      <label>{t('table_browser.column')}</label>
+                      <Select value={popoverField} onChange={setPopoverField} options={filterFieldOpts} size="sm" />
+                    </div>
+                  )}
+
+                  <div className="filter-popover-row">
+                    <label>{t('table_browser.value')}</label>
+                    <div className="chip-input-container" onClick={() => document.getElementById('chip-input-el')?.focus()}>
+                      {popoverChips.map((chip, idx) => (
+                        <span key={idx} className="chip-tag">
+                          {chip}
+                          <button
+                            type="button"
+                            className="chip-tag-close"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleRemoveChip(idx)
                             }}
                           >
-                            <td className="table-browser-col-index">
-                              <span className="row-index-number">{page * pageSize + i + 1}</span>
-                            </td>
-                            {displayColumnNames.map((colName) => {
-                              const j = columnIndexByName.get(colName)
-                              const cell = j != null ? row[j] : null
-                              const display = formatResultCell(cell, colName, {})
-                              return (
-                                <td key={colName} title={display}>
-                                  {display}
-                                </td>
-                              )
-                            })}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </LoadingOverlay>
-              ) : null}
-
-              {hasTableData && (
-                <div className={`table-browser-pagination${fetching ? ' is-loading' : ''}`}>
-                  <span className="table-browser-range">{rangeLabel}</span>
-                  <div className="table-browser-pagination-controls">
-                    <div className="table-browser-page-size">
-                      <span className="table-browser-page-size-label">
-                        {t('table_browser.rows_per_page')}
-                      </span>
-                      <Select
-                        value={String(pageSize)}
-                        onChange={(v) => {
-                          setPageSize(Number(v))
-                          goToPage(0)
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        id="chip-input-el"
+                        type="text"
+                        value={chipInputText}
+                        onChange={(e) => setChipInputText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ',') {
+                            e.preventDefault()
+                            handleAddChip(chipInputText)
+                          } else if (e.key === 'Backspace' && !chipInputText && popoverChips.length > 0) {
+                            handleRemoveChip(popoverChips.length - 1)
+                          }
                         }}
-                        options={pageSizeOptions}
-                        size="sm"
+                        placeholder={popoverChips.length === 0 ? t('table_browser.enter_value') : ''}
+                        className="chip-input-field"
                       />
                     </div>
-                    <nav className="table-browser-page-nav" aria-label={t('table_browser.pagination_nav')}>
-                      <button
-                        type="button"
-                        className="table-browser-page-btn table-browser-page-btn--icon"
-                        disabled={page === 0 || fetching}
-                        onClick={() => goToPage(0)}
-                        title={t('table_browser.first_page')}
-                        aria-label={t('table_browser.first_page')}
-                      >
-                        «
-                      </button>
-                      <button
-                        type="button"
-                        className="table-browser-page-btn table-browser-page-btn--icon"
-                        disabled={page === 0 || fetching}
-                        onClick={() => goToPage(page - 1)}
-                        title={t('table_browser.prev_page')}
-                        aria-label={t('table_browser.prev_page')}
-                      >
-                        ‹
-                      </button>
-                      {pageList ? (
-                        <div className="table-browser-page-list" role="list">
-                          {pageList.map((token, idx) =>
-                            token === 'gap' ? (
-                              <span key={`gap-${idx}`} className="table-browser-page-gap" aria-hidden="true">
-                                …
-                              </span>
-                            ) : (
-                              <button
-                                key={token}
-                                type="button"
-                                role="listitem"
-                                className={`table-browser-page-num-btn${token === page ? ' is-active' : ''}`}
-                                disabled={fetching || token === page}
-                                onClick={() => goToPage(token)}
-                                aria-label={t('table_browser.go_to_page', { page: token + 1 })}
-                                aria-current={token === page ? 'page' : undefined}
-                              >
-                                {formatInt(token + 1)}
-                              </button>
-                            ),
-                          )}
-                        </div>
-                      ) : (
-                        <span className="table-browser-page-num">
-                          {t('table_browser.page_number', { page: formatInt(page + 1) })}
-                        </span>
-                      )}
-                      <button
-                        type="button"
-                        className="table-browser-page-btn table-browser-page-btn--icon"
-                        disabled={!hasNext || fetching}
-                        onClick={() => goToPage(page + 1)}
-                        title={t('table_browser.next_page')}
-                        aria-label={t('table_browser.next_page')}
-                      >
-                        ›
-                      </button>
-                      <button
-                        type="button"
-                        className="table-browser-page-btn table-browser-page-btn--icon"
-                        disabled={lastPageIndex == null || page >= lastPageIndex || fetching}
-                        onClick={() => lastPageIndex != null && goToPage(lastPageIndex)}
-                        title={t('table_browser.last_page')}
-                        aria-label={t('table_browser.last_page')}
-                      >
-                        »
-                      </button>
-                    </nav>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.2rem' }}>
+                    <div className="filter-popover-checkbox-row">
+                      <input
+                        type="checkbox"
+                        id="case-sensitive-cb"
+                        checked={popoverCaseSensitive}
+                        onChange={(e) => setPopoverCaseSensitive(e.target.checked)}
+                      />
+                      <label htmlFor="case-sensitive-cb">{t('table_browser.case_sensitive')}</label>
+                    </div>
+                    <button
+                      type="button"
+                      className="filter-popover-btn"
+                      style={{ width: 'auto', padding: '0.35rem 0.85rem' }}
+                      onClick={handleSaveFilter}
+                    >
+                      {editingFilterId ? t('table_browser.update_filter') : t('table_browser.add_filter')}
+                    </button>
                   </div>
                 </div>
               )}
-            </>
-          )}
-        </>
+            </div>
+
+            <ValidationErrorBanner
+              error={error}
+              t={t}
+              onOpenModeling={() => {
+                const modelId = modelDetail?.id
+                const dsId = datasourceId
+                const params = new URLSearchParams()
+                if (dsId) params.set('ds', dsId)
+                if (modelId) params.set('model', modelId)
+                const qs = params.toString()
+                navigate(qs ? `/modeling?${qs}` : '/modeling')
+              }}
+            />
+
+            {showTablePanel && (
+              <>
+                {showInitialPlaceholder ? (
+                  <div className="table-browser-table-placeholder" role="status" aria-live="polite" aria-busy="true">
+                    <span className="loading-overlay-spinner" aria-hidden="true" />
+                    <span>{t('table_browser.loading')}</span>
+                  </div>
+                ) : result?.columns ? (
+                  <LoadingOverlay
+                    loading={fetching}
+                    label={t('table_browser.loading_page')}
+                    className="table-browser-table-overlay"
+                  >
+                    <div className={`table-browser-table-wrap${fetching ? ' is-blurred' : ''}`}>
+                      <table className="results-table table-browser-grid">
+                        <thead>
+                          <tr>
+                            <th scope="col" className="table-browser-col-index"></th>
+                            {displayColumnNames.map((colName) => (
+                              <th
+                                key={colName}
+                                scope="col"
+                                draggable={!fetching}
+                                className={`table-browser-th th-clickable${dragColumn === colName ? ' is-dragging' : ''}${dropTargetColumn === colName ? ' is-drop-target' : ''}`}
+                                onDragStart={handleColumnDragStart(colName)}
+                                onDragOver={handleColumnDragOver(colName)}
+                                onDrop={handleColumnDrop(colName)}
+                                onDragEnd={handleColumnDragEnd}
+                                onClick={() => !fetching && handleOpenAddFilter(colName)}
+                                title={t('table_browser.filter_by_column', { column: colName })}
+                              >
+                                <span className="table-browser-th-inner">
+                                  <span
+                                    className="table-browser-th-grip"
+                                    aria-hidden="true"
+                                    title={t('table_browser.drag_column')}
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    ⋮⋮
+                                  </span>
+                                  <span className="table-browser-th-label">{getDimensionLabel(colName)}</span>
+                                  <span className="th-chevron">▼</span>
+                                </span>
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(result.rows ?? []).map((row, i) => (
+                            <tr
+                              key={i}
+                              className={`table-browser-data-row${fetching ? ' is-disabled' : ''}`}
+                              onClick={() => {
+                                if (fetching) return
+                                setDetailRow({
+                                  displayIndex: page * pageSize + i + 1,
+                                  row,
+                                })
+                              }}
+                            >
+                              <td className="table-browser-col-index">
+                                <span className="row-index-number">{page * pageSize + i + 1}</span>
+                              </td>
+                              {displayColumnNames.map((colName) => {
+                                const j = columnIndexByName.get(colName)
+                                const cell = j != null ? row[j] : null
+                                const display = formatResultCell(cell, colName, {})
+                                return (
+                                  <td key={colName} title={display}>
+                                    {display}
+                                  </td>
+                                )
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </LoadingOverlay>
+                ) : null}
+
+                {hasTableData && (
+                  <div className={`table-browser-pagination${fetching ? ' is-loading' : ''}`}>
+                    <span className="table-browser-range">{rangeLabel}</span>
+                    <div className="table-browser-pagination-controls">
+                      <div className="table-browser-page-size">
+                        <span className="table-browser-page-size-label">
+                          {t('table_browser.rows_per_page')}
+                        </span>
+                        <Select
+                          value={String(pageSize)}
+                          onChange={(v) => {
+                            setPageSize(Number(v))
+                            goToPage(0)
+                          }}
+                          options={pageSizeOptions}
+                          size="sm"
+                        />
+                      </div>
+                      <nav className="table-browser-page-nav" aria-label={t('table_browser.pagination_nav')}>
+                        <button
+                          type="button"
+                          className="table-browser-page-btn table-browser-page-btn--icon"
+                          disabled={page === 0 || fetching}
+                          onClick={() => goToPage(0)}
+                          title={t('table_browser.first_page')}
+                          aria-label={t('table_browser.first_page')}
+                        >
+                          «
+                        </button>
+                        <button
+                          type="button"
+                          className="table-browser-page-btn table-browser-page-btn--icon"
+                          disabled={page === 0 || fetching}
+                          onClick={() => goToPage(page - 1)}
+                          title={t('table_browser.prev_page')}
+                          aria-label={t('table_browser.prev_page')}
+                        >
+                          ‹
+                        </button>
+                        {pageList ? (
+                          <div className="table-browser-page-list" role="list">
+                            {pageList.map((token, idx) =>
+                              token === 'gap' ? (
+                                <span key={`gap-${idx}`} className="table-browser-page-gap" aria-hidden="true">
+                                  …
+                                </span>
+                              ) : (
+                                <button
+                                  key={token}
+                                  type="button"
+                                  role="listitem"
+                                  className={`table-browser-page-num-btn${token === page ? ' is-active' : ''}`}
+                                  disabled={fetching || token === page}
+                                  onClick={() => goToPage(token)}
+                                  aria-label={t('table_browser.go_to_page', { page: token + 1 })}
+                                  aria-current={token === page ? 'page' : undefined}
+                                >
+                                  {formatInt(token + 1)}
+                                </button>
+                              ),
+                            )}
+                          </div>
+                        ) : (
+                          <span className="table-browser-page-num">
+                            {t('table_browser.page_number', { page: formatInt(page + 1) })}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          className="table-browser-page-btn table-browser-page-btn--icon"
+                          disabled={!hasNext || fetching}
+                          onClick={() => goToPage(page + 1)}
+                          title={t('table_browser.next_page')}
+                          aria-label={t('table_browser.next_page')}
+                        >
+                          ›
+                        </button>
+                        <button
+                          type="button"
+                          className="table-browser-page-btn table-browser-page-btn--icon"
+                          disabled={lastPageIndex == null || page >= lastPageIndex || fetching}
+                          onClick={() => lastPageIndex != null && goToPage(lastPageIndex)}
+                          title={t('table_browser.last_page')}
+                          aria-label={t('table_browser.last_page')}
+                        >
+                          »
+                        </button>
+                      </nav>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </>
         )
       ) : (
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{t('table_browser.select_model')}</p>
@@ -1057,11 +1056,11 @@ export default function TableBrowser() {
         title={
           detailRow && result?.columns
             ? buildRowModalTitle(
-                detailRow.row,
-                result.columns.map((c) => c.name),
-                t('table_browser.row_detail_title', { n: formatInt(detailRow.displayIndex) }),
-                selectedTableKey ?? modelDetail?.base_table,
-              )
+              detailRow.row,
+              result.columns.map((c) => c.name),
+              t('table_browser.row_detail_title', { n: formatInt(detailRow.displayIndex) }),
+              selectedTableKey ?? modelDetail?.base_table,
+            )
             : t('table_browser.row_detail')
         }
         subtitle={selectedTableKey || modelDetail?.base_table}

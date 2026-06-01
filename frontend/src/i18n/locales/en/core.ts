@@ -2,6 +2,7 @@ export const core = {
   common: {
     loading: 'Loading…',
     no_options: 'No options',
+    selected: 'selected',
     error: 'Error',
     unknown_error: 'Unknown error',
     save: 'Save',

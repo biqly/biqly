@@ -1,7 +1,9 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { apiInviteUser } from '../../../api/auth'
 
 import type { TranslationKey } from '../../../i18n'
+import { Select } from '../../ui/Select'
+import { securityRoleOptions } from '../adminSelectOptions'
 
 const backdropStyle: React.CSSProperties = {
   position: 'fixed',
@@ -143,22 +145,16 @@ export function InviteUserModal({
               />
             </div>
 
-            <div className="page-stack" style={gap6}>
+            <div className="page-stack admin-form-label" style={gap6}>
               <label style={labelStyle} htmlFor="invite-role-input">
                 {t('auth.invite_user_role')}
               </label>
-              <select
+              <Select
                 id="invite-role-input"
                 value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value)}
-                className="admin-select-wide"
-              >
-                <option value="viewer">Viewer</option>
-                <option value="analyst">Analyst</option>
-                <option value="developer">Developer</option>
-                <option value="admin">Admin</option>
-                <option value="super_admin">Super Admin</option>
-              </select>
+                options={securityRoleOptions()}
+                onChange={setInviteRole}
+              />
             </div>
 
             <div style={footerStyle}>

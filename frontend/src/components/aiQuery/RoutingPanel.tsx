@@ -1,3 +1,4 @@
+import { MultiSelect } from '../ui/MultiSelect'
 import { Select } from '../ui/Select'
 import { ModelBadgeRow } from '../ui/ModelBadgeRow'
 import type { RoutingPanelProps } from './types'
@@ -173,11 +174,19 @@ export function RoutingPanel({
             </label>
           </div>
           <input value={tableSearch} onChange={(e) => setTableSearch(e.target.value)} placeholder={t('ai_query.table_search_placeholder')} disabled={!datasourceId || tables.length === 0} autoComplete="off" />
-          <select aria-label={t('ai_query.selected_tables_aria')} multiple value={selectedTables} onChange={(e) => setSelectedTables(Array.from(e.target.selectedOptions, (o) => o.value))}
+          <MultiSelect
+            display="inline"
+            className="ai-scope-multiselect"
+            ariaLabel={t('ai_query.selected_tables_aria')}
+            value={selectedTables}
+            onChange={setSelectedTables}
             disabled={!datasourceId || tables.length === 0 || (!includeBaseTables && !includeViews)}
-            className="ai-scope-multiselect" size={Math.min(8, Math.max(3, filteredTables.length || 3))}>
-            {filteredTables.map((table) => { const label = tableLabel(table); return <option key={label} value={label}>{label}</option> })}
-          </select>
+            maxHeight={Math.min(288, Math.max(120, (filteredTables.length || 3) * 36))}
+            options={filteredTables.map((table) => {
+              const label = tableLabel(table)
+              return { value: label, label }
+            })}
+          />
         </div>
       )}
     </header>

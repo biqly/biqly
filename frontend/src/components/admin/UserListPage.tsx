@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { listUsers, resendUserVerification } from '../../api/admin'
 import { useLocale, useT } from '../../i18n'
 import type { AuthUser, Invitation } from '../../types/auth'

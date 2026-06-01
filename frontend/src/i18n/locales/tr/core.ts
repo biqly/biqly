@@ -4,6 +4,7 @@ export const core: CoreDictionary = {
   common: {
     loading: 'Yükleniyor…',
     no_options: 'Seçenek yok',
+    selected: 'seçili',
     error: 'Hata',
     unknown_error: 'Bilinmeyen hata',
     save: 'Kaydet',

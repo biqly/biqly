@@ -1,8 +1,9 @@
-import React from 'react'
+import { useMemo } from 'react'
 import type { AuthUser } from '../../../types/auth'
 import { localeLanguageTag } from '../../../i18n'
 import { Pagination } from '../../ui/Pagination'
 import { LoadingOverlay } from '../../ui/LoadingOverlay'
+import { Select } from '../../ui/Select'
 
 interface ActiveUsersTabProps {
   search: string
@@ -45,6 +46,15 @@ export function ActiveUsersTab({
   t,
   loading = false,
 }: ActiveUsersTabProps) {
+  const statusOptions = useMemo(
+    () => [
+      { value: 'all', label: t('admin.users.status_all') },
+      { value: 'active', label: t('admin.users.status_active') },
+      { value: 'inactive', label: t('admin.users.status_inactive') },
+    ],
+    [t],
+  )
+
   return (
     <>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -56,15 +66,13 @@ export function ActiveUsersTab({
           className="admin-input"
           style={{ maxWidth: 320 }}
         />
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as any)}
-          className="admin-select"
-        >
-          <option value="all">{t('admin.users.status_all')}</option>
-          <option value="active">{t('admin.users.status_active')}</option>
-          <option value="inactive">{t('admin.users.status_inactive')}</option>
-        </select>
+        <div style={{ minWidth: 180 }}>
+          <Select
+            value={statusFilter}
+            options={statusOptions}
+            onChange={(v) => setStatusFilter(v as ActiveUsersTabProps['statusFilter'])}
+          />
+        </div>
       </div>
 
       <div className="admin-table-container">

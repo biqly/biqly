@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"database/sql"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -48,14 +50,11 @@ func (h *PermissionHandler) GetByKeys(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	policy, err := h.deps.MetaRepo.GetSecurityPolicyByKeys(ctx, userID, datasourceID)
 	if err != nil {
-		defaultPolicy := metadata.SecurityPolicy{
-			UserID:        userID,
-			DatasourceID:  datasourceID,
-			AllowedModels: []string{},
-			DeniedFields:  []string{},
-			RowFilters:    []metadata.PermissionRowFilter{},
+		if errors.Is(err, sql.ErrNoRows) {
+			writeJSON(w, http.StatusOK, emptySecurityPolicy(userID, datasourceID))
+			return
 		}
-		writeJSON(w, http.StatusOK, defaultPolicy)
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get permission policy", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, policy)
@@ -140,4 +139,14 @@ func (h *PermissionHandler) DeleteByKeys(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func emptySecurityPolicy(userID, datasourceID string) metadata.SecurityPolicy {
+	return metadata.SecurityPolicy{
+		UserID:        userID,
+		DatasourceID:  datasourceID,
+		AllowedModels: []string{},
+		DeniedFields:  []string{},
+		RowFilters:    []metadata.PermissionRowFilter{},
+	}
 }

@@ -1,18 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useT } from '../../i18n'
-import { useApi } from '../../hooks/useApi'
 import { useDatasources } from '../../hooks/useDatasources'
 import { useSemanticModels } from '../../hooks/useSemanticModels'
 import { useModelDetail } from '../../hooks/useModelDetail'
 import { getSecurityPolicyByKeys, upsertSecurityPolicy } from '../../api/admin'
 import type { SecurityPolicy, PermissionRowFilter } from '../../api/admin'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
-
-const ROLES = ['viewer', 'analyst', 'developer', 'admin', 'super_admin']
+import { Select } from '../ui/Select'
+import {
+  datasourceSelectOptions,
+  securityRoleOptions,
+  semanticModelSelectOptions,
+} from './adminSelectOptions'
+import { FILTER_OPERATOR_OPTIONS, fieldSelectOptions } from './securityPolicyConstants'
 
 export function RowLevelSecurityPanel({ token }: { token: string }) {
   const t = useT()
-  const api = useApi()
 
   // Selectors
   const [selectedRole, setSelectedRole] = useState('viewer')
@@ -88,16 +91,26 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
     }
   }, [token, selectedRole, selectedDS])
 
-  // Get available fields from semantic model detail
-  const fields: string[] = []
-  if (model) {
-    if (model.dimensions) {
-      model.dimensions.forEach((d) => fields.push(d.name))
+  const fields = useMemo(() => {
+    const names: string[] = []
+    if (model?.dimensions) {
+      model.dimensions.forEach((d) => names.push(d.name))
     }
-    if (model.metrics) {
-      model.metrics.forEach((m) => fields.push(m.name))
+    if (model?.metrics) {
+      model.metrics.forEach((m) => names.push(m.name))
     }
-  }
+    return names
+  }, [model])
+
+  const dsOptions = useMemo(
+    () => datasourceSelectOptions(datasources ?? [], loadingDS),
+    [datasources, loadingDS],
+  )
+  const modelOptions = useMemo(
+    () => semanticModelSelectOptions(models ?? [], loadingModels),
+    [models, loadingModels],
+  )
+  const fieldOptions = useMemo(() => fieldSelectOptions(fields), [fields])
 
   const handleAddFilter = () => {
     if (fields.length === 0) return
@@ -184,41 +197,30 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
       <h2 style={headerStyle}>{t('admin.tabs.row_level_security')}</h2>
       
       <div style={gridSelectStyle}>
-        <label style={labelStyle}>
+        <div style={labelStyle} className="admin-form-label">
           <span style={labelTextStyle}>Role</span>
-          <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} style={selectStyle}>
-            {ROLES.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-        </label>
+          <Select value={selectedRole} options={securityRoleOptions()} onChange={setSelectedRole} />
+        </div>
 
-        <label style={labelStyle}>
+        <div style={labelStyle} className="admin-form-label">
           <span style={labelTextStyle}>Datasource</span>
-          <select value={selectedDS} onChange={(e) => setSelectedDS(e.target.value)} style={selectStyle}>
-            {loadingDS && <option>Loading...</option>}
-            {datasources.map((ds) => (
-              <option key={ds.id} value={ds.id}>
-                {ds.name} ({ds.type})
-              </option>
-            ))}
-          </select>
-        </label>
+          <Select
+            value={selectedDS}
+            options={dsOptions}
+            onChange={setSelectedDS}
+            disabled={loadingDS || dsOptions.every((o) => o.disabled)}
+          />
+        </div>
 
-        <label style={labelStyle}>
+        <div style={labelStyle} className="admin-form-label">
           <span style={labelTextStyle}>Semantic Model</span>
-          <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} style={selectStyle} disabled={!selectedDS}>
-            {loadingModels && <option>Loading...</option>}
-            {models.length === 0 && !loadingModels && <option value="">No models available</option>}
-            {models.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </label>
+          <Select
+            value={selectedModel}
+            options={modelOptions}
+            onChange={setSelectedModel}
+            disabled={!selectedDS || loadingModels}
+          />
+        </div>
       </div>
 
       {error && <div style={errStyle}>{t('common.error')}: {error}</div>}
@@ -259,33 +261,20 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
                     }
 
                     return (
-                      <div key={i} style={filterRowStyle}>
-                        <select 
-                          value={f.field} 
-                          onChange={(e) => handleFilterChange(i, 'field', e.target.value)}
-                          style={filterSelectStyle}
-                        >
-                          {fields.map((fld) => (
-                            <option key={fld} value={fld}>{fld}</option>
-                          ))}
-                        </select>
+                      <div key={i} style={filterRowStyle} className="admin-filter-row">
+                        <Select
+                          size="sm"
+                          value={f.field}
+                          options={fieldOptions}
+                          onChange={(v) => handleFilterChange(i, 'field', v)}
+                        />
 
-                        <select
+                        <Select
+                          size="sm"
                           value={f.operator || 'eq'}
-                          onChange={(e) => handleFilterChange(i, 'operator', e.target.value)}
-                          style={filterSelectStyle}
-                        >
-                          <option value="eq">Equals (=)</option>
-                          <option value="neq">Not Equals (&lt;&gt;)</option>
-                          <option value="gt">Greater Than (&gt;)</option>
-                          <option value="gte">Greater Than or Equal (&gt;=)</option>
-                          <option value="lt">Less Than (&lt;)</option>
-                          <option value="lte">Less Than or Equal (&lt;=)</option>
-                          <option value="in">In (List)</option>
-                          <option value="not_in">Not In (List)</option>
-                          <option value="is_null">Is Null</option>
-                          <option value="is_not_null">Is Not Null</option>
-                        </select>
+                          options={FILTER_OPERATOR_OPTIONS}
+                          onChange={(v) => handleFilterChange(i, 'operator', v)}
+                        />
 
                         <input
                           type="text"
@@ -364,16 +353,6 @@ const labelTextStyle: React.CSSProperties = {
   fontWeight: 500,
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
-}
-
-const selectStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 6,
-  fontSize: 14,
-  background: 'var(--input-bg, #18181b)',
-  color: 'var(--text-primary, #f4f4f5)',
-  cursor: 'pointer',
 }
 
 const contentGridStyle: React.CSSProperties = {
@@ -471,17 +450,6 @@ const filterRowStyle: React.CSSProperties = {
   display: 'flex',
   gap: 12,
   alignItems: 'center',
-}
-
-const filterSelectStyle: React.CSSProperties = {
-  flex: '1',
-  padding: '8px 12px',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 6,
-  fontSize: 13,
-  background: 'var(--input-bg, #18181b)',
-  color: 'var(--text-primary, #f4f4f5)',
-  cursor: 'pointer',
 }
 
 const filterInputStyle: React.CSSProperties = {

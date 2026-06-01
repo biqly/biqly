@@ -5,6 +5,8 @@ import type { AuditLogEntry } from '../../types/auth'
 import { Pagination } from '../ui/Pagination'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { useAdminLookups } from '../../hooks/useAdminLookups'
+import { Select } from '../ui/Select'
+import { numberSelectOptions, stringSelectOptions, userSelectOptions } from './adminSelectOptions'
 
 const COMMON_ACTIONS = [
   'login.success',
@@ -71,6 +73,16 @@ export function AuditLogPanel({ token }: { token: string }) {
   const dsMap = useMemo(() => new Map(datasources.map((d) => [d.id, d.name])), [datasources])
   const wsMap = useMemo(() => new Map(workspaces.map((w) => [w.id, w.name])), [workspaces])
 
+  const userFilterOptions = useMemo(
+    () => userSelectOptions(users, t('admin.filters.all')),
+    [users, t],
+  )
+  const actionFilterOptions = useMemo(
+    () => stringSelectOptions(COMMON_ACTIONS, t('admin.filters.all')),
+    [t],
+  )
+  const pageSizeOptions = useMemo(() => numberSelectOptions(AUDIT_PAGE_SIZE_OPTIONS), [])
+
   async function reload(nextFilters = { userID, action, page: currentPage, pageSize }) {
     setLoading(true)
     try {
@@ -116,43 +128,26 @@ export function AuditLogPanel({ token }: { token: string }) {
       </div>
 
       <form onSubmit={onSubmit} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-        <label className="admin-form-label" style={{ gap: 4 }}>
+        <label className="admin-form-label" style={{ gap: 4, minWidth: 220 }}>
           <span className="admin-label-text">{t('admin.fields.user')}</span>
-          <select value={userID} onChange={(e) => setUserID(e.target.value)} className="admin-select" style={{ minWidth: 220 }}>
-            <option value="">{t('admin.filters.all')}</option>
-            {users.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.email} {u.displayName ? `(${u.displayName})` : ''}
-              </option>
-            ))}
-          </select>
+          <Select value={userID} options={userFilterOptions} onChange={setUserID} />
         </label>
-        <label className="admin-form-label" style={{ gap: 4 }}>
+        <label className="admin-form-label" style={{ gap: 4, minWidth: 200 }}>
           <span className="admin-label-text">{t('admin.audit.action')}</span>
-          <select value={action} onChange={(e) => setAction(e.target.value)} className="admin-select" style={{ minWidth: 120 }}>
-            <option value="">{t('admin.filters.all')}</option>
-            {COMMON_ACTIONS.map((act) => (
-              <option key={act} value={act}>{act}</option>
-            ))}
-          </select>
+          <Select value={action} options={actionFilterOptions} onChange={setAction} />
         </label>
-        <label className="admin-form-label" style={{ gap: 4 }}>
+        <label className="admin-form-label" style={{ gap: 4, minWidth: 120 }}>
           <span className="admin-label-text">{t('admin.audit.page_size')}</span>
-          <select
-            value={pageSize}
-            onChange={(e) => {
-              const nextSize = Number(e.target.value)
+          <Select
+            value={String(pageSize)}
+            options={pageSizeOptions}
+            onChange={(v) => {
+              const nextSize = Number(v)
               setPageSize(nextSize)
               setCurrentPage(1)
               reload({ userID, action, page: 1, pageSize: nextSize })
             }}
-            className="admin-select"
-            style={{ minWidth: 120 }}
-          >
-            {AUDIT_PAGE_SIZE_OPTIONS.map((size) => (
-              <option key={size} value={size}>{size}</option>
-            ))}
-          </select>
+          />
         </label>
         <button type="submit" className="admin-btn-primary">{t('admin.filters.apply')}</button>
         <button

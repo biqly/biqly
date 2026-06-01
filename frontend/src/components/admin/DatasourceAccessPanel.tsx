@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   grantDatasourceAccess,
   listDatasourceAccess,
@@ -11,6 +11,13 @@ import { Pagination } from '../ui/Pagination'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { useConfirm } from '../../hooks/useConfirm'
 import { useAdminLookups } from '../../hooks/useAdminLookups'
+import { Select } from '../ui/Select'
+import {
+  datasourceAccessLevelOptions,
+  datasourcePickerOptions,
+  userSelectOptions,
+} from './adminSelectOptions'
+import type { DatasourceAccessLevel } from './adminSelectOptions'
 
 export function DatasourceAccessPanel({ token }: { token: string }) {
   const t = useT()
@@ -32,6 +39,16 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
   const pageSize = 10
   const [totalItems, setTotalItems] = useState(0)
   const totalPages = Math.ceil(totalItems / pageSize)
+
+  const userOptions = useMemo(
+    () => userSelectOptions(users, t('evaluation.placeholder_select')),
+    [users, t],
+  )
+  const dsOptions = useMemo(
+    () => datasourcePickerOptions(datasources, t('evaluation.placeholder_select')),
+    [datasources, t],
+  )
+  const levelOptions = useMemo(() => datasourceAccessLevelOptions(), [])
 
   async function reload() {
     setLoading(true)
@@ -95,31 +112,26 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
       <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.datasource_access.title')}</h2>
 
       <form onSubmit={onGrant} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-        <label className="admin-form-label" style={{ gap: 4 }}>
+        <label className="admin-form-label" style={{ gap: 4, minWidth: 240 }}>
           <span className="admin-label-text">{t('admin.fields.user')}</span>
-          <select value={userID} onChange={(e) => setUserID(e.target.value)} className="admin-select" style={{ minWidth: 240 }} required>
-            <option value="">{t('evaluation.placeholder_select')}</option>
-            {users.map((u) => (
-              <option key={u.id} value={u.id}>{u.email}</option>
-            ))}
-          </select>
+          <Select value={userID} options={userOptions} onChange={setUserID} placeholder={t('evaluation.placeholder_select')} />
         </label>
-        <label className="admin-form-label" style={{ gap: 4 }}>
+        <label className="admin-form-label" style={{ gap: 4, minWidth: 240 }}>
           <span className="admin-label-text">Datasource</span>
-          <select value={datasourceID} onChange={(e) => setDatasourceID(e.target.value)} className="admin-select" style={{ minWidth: 240 }} required>
-            <option value="">{t('evaluation.placeholder_select')}</option>
-            {datasources.map((d) => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
-          </select>
+          <Select
+            value={datasourceID}
+            options={dsOptions}
+            onChange={setDatasourceID}
+            placeholder={t('evaluation.placeholder_select')}
+          />
         </label>
-        <label className="admin-form-label" style={{ gap: 4 }}>
+        <label className="admin-form-label" style={{ gap: 4, minWidth: 240 }}>
           <span className="admin-label-text">{t('admin.datasource_access.level')}</span>
-          <select value={level} onChange={(e) => setLevel(e.target.value as 'read' | 'write' | 'admin')} className="admin-select" style={{ minWidth: 240 }}>
-            <option value="read">read</option>
-            <option value="write">write</option>
-            <option value="admin">admin</option>
-          </select>
+          <Select
+            value={level}
+            options={levelOptions}
+            onChange={(v) => setLevel(v as DatasourceAccessLevel)}
+          />
         </label>
         <button type="submit" className="admin-btn-primary">
           {t('admin.datasource_access.grant')}
@@ -157,15 +169,13 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
                         <td className="admin-td-mono">{userObj ? userObj.email : r.user_id}</td>
                         <td className="admin-td-mono">{dsObj ? dsObj.name : r.datasource_id}</td>
                         <td className="admin-td">
-                          <select
+                          <Select
+                            size="sm"
                             value={r.access_level}
-                            onChange={(e) => onChangeLevel(r.id, e.target.value as 'read' | 'write' | 'admin')}
-                            className={`admin-select-small admin-level-${r.access_level}`}
-                          >
-                            <option value="read" style={{ background: 'var(--bg-card)', color: 'var(--success)' }}>read</option>
-                            <option value="write" style={{ background: 'var(--bg-card)', color: 'var(--warning)' }}>write</option>
-                            <option value="admin" style={{ background: 'var(--bg-card)', color: 'var(--error)' }}>admin</option>
-                          </select>
+                            options={levelOptions}
+                            onChange={(v) => onChangeLevel(r.id, v as DatasourceAccessLevel)}
+                            className={`admin-level-${r.access_level}`}
+                          />
                         </td>
                         <td className="admin-td">{new Date(r.granted_at).toLocaleString(localeLanguageTag(locale))}</td>
                         <td className="admin-td" style={{ textAlign: 'right' }}>

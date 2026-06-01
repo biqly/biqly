@@ -101,20 +101,28 @@ export function JoinEditor({
         <div className="modeling-editor-grid">
           <div className="form-group">
             <label>{t('modeling.join_type_label')}</label>
-            <select value={joinForm.joinType} onChange={(event) => onChange({ joinType: event.target.value as JoinForm['joinType'] })}>
-              <option value="LEFT">LEFT</option>
-              <option value="INNER">INNER</option>
-              <option value="RIGHT">RIGHT</option>
-            </select>
+            <Select
+              value={joinForm.joinType}
+              options={[
+                { value: 'LEFT', label: 'LEFT' },
+                { value: 'INNER', label: 'INNER' },
+                { value: 'RIGHT', label: 'RIGHT' },
+              ]}
+              onChange={(v) => onChange({ joinType: v as JoinForm['joinType'] })}
+            />
           </div>
           <div className="form-group">
             <label>{t('modeling.cardinality')}</label>
-            <select value={joinForm.relationship} onChange={(event) => onChange({ relationship: event.target.value as JoinForm['relationship'] })}>
-              <option value="many_to_one">many_to_one</option>
-              <option value="one_to_many">one_to_many</option>
-              <option value="one_to_one">one_to_one</option>
-              <option value="many_to_many">many_to_many</option>
-            </select>
+            <Select
+              value={joinForm.relationship}
+              options={[
+                { value: 'many_to_one', label: 'many_to_one' },
+                { value: 'one_to_many', label: 'one_to_many' },
+                { value: 'one_to_one', label: 'one_to_one' },
+                { value: 'many_to_many', label: 'many_to_many' },
+              ]}
+              onChange={(v) => onChange({ relationship: v as JoinForm['relationship'] })}
+            />
           </div>
         </div>
         <button className="btn btn-primary" type="button" onClick={onSave} disabled={!canSave || saving || loading}>

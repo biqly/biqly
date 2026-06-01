@@ -2135,6 +2135,10 @@ route yapıyor. Auth service'in aşağıdaki ingress kuralları `abi.il1.nl` blo
 - hostname: "abi.il1.nl"
   path: "^/api/semantic"           → biqly-catalog:8080
 - hostname: "abi.il1.nl"
+  path: "^/api/permissions"       → biqly-catalog:8080
+- hostname: "abi.il1.nl"
+  path: "^/api/dashboards"         → biqly-catalog:8080
+- hostname: "abi.il1.nl"
   path: "^/api/query"              → biqly-query:8081
 - hostname: "abi.il1.nl"
   path: "^/api/ai"                 → biqly-ai:8082
@@ -2173,6 +2177,12 @@ route yapıyor. Auth service'in aşağıdaki ingress kuralları `abi.il1.nl` blo
   service: http://biqly-catalog.biqly.svc.cluster.local:8080
 - hostname: "abi.il1.nl"
   path: "^/api/semantic"
+  service: http://biqly-catalog.biqly.svc.cluster.local:8080
+- hostname: "abi.il1.nl"
+  path: "^/api/permissions"
+  service: http://biqly-catalog.biqly.svc.cluster.local:8080
+- hostname: "abi.il1.nl"
+  path: "^/api/dashboards"
   service: http://biqly-catalog.biqly.svc.cluster.local:8080
 - hostname: "abi.il1.nl"
   path: "^/api/query"

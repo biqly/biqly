@@ -258,13 +258,11 @@
   display: block;
   width: 100%;
   box-sizing: border-box;
-  padding: 0.3rem;
   font-size: 0.74rem;
-  line-height: 1.35;
-  border-radius: 5px;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text-primary);
+}
+
+.bulk-schema-multiselect .ui-select-option {
+  font-size: 0.74rem;
 }
 
 .bulk-schema-multiselect-tools {

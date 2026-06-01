@@ -308,6 +308,14 @@
   font-weight: 600;
   color: var(--text-secondary, #4b5563);
 }
+.admin-form-label > .ui-select {
+  width: 100%;
+  min-width: 0;
+}
+.admin-filter-row .ui-select {
+  flex: 1;
+  min-width: 0;
+}
 .admin-label {
   font-size: 12px;
   color: var(--text-secondary, #9ca3af);

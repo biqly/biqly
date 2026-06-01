@@ -15,6 +15,8 @@ import { useT } from '../../i18n'
 import type { Workspace, WorkspaceMember, WorkspaceDatasource, Role } from '../../types/auth'
 import { useConfirm } from '../../hooks/useConfirm'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
+import { Select } from '../ui/Select'
+import { roleSelectOptions } from '../admin/adminSelectOptions'
 import '../../styles/workspace.css'
 
 interface Props {
@@ -230,14 +232,12 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
                   <tr key={m.user_id}>
                     <td className="ws-settings__mono">{m.user_id.slice(0, 8)}…</td>
                     <td>
-                      <select
+                      <Select
+                        size="sm"
                         value={m.role_id}
-                        onChange={(e) => onChangeRole(m.user_id, e.target.value)}
-                      >
-                        {roles.map((r) => (
-                          <option key={r.id} value={r.id}>{r.name}</option>
-                        ))}
-                      </select>
+                        options={roleSelectOptions(roles)}
+                        onChange={(roleID) => void onChangeRole(m.user_id, roleID)}
+                      />
                     </td>
                     <td>{new Date(m.joined_at).toLocaleDateString()}</td>
                     <td>
@@ -259,12 +259,12 @@ export function WorkspaceSettingsPage({ token, workspaceID, onBack }: Props) {
             onChange={(e) => setInviteUserID(e.target.value)}
             required
           />
-          <select value={inviteRoleID} onChange={(e) => setInviteRoleID(e.target.value)} required>
-            <option value="">{t('admin.workspaces.invite_role')}</option>
-            {roles.map((r) => (
-              <option key={r.id} value={r.id}>{r.name}</option>
-            ))}
-          </select>
+          <Select
+            value={inviteRoleID}
+            onChange={setInviteRoleID}
+            placeholder={t('admin.workspaces.invite_role')}
+            options={roleSelectOptions(roles)}
+          />
           <button type="submit" className="ws-settings__btn-primary">
             {t('admin.workspaces.invite_member')}
           </button>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   getUserDetail,
   getUserRoles,
@@ -13,6 +13,8 @@ import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import type { AuthUser, UserRoleInfo, Role } from '../../types/auth'
 import { useAuth } from '../auth/AuthProvider'
 import { useConfirm } from '../../hooks/useConfirm'
+import { Select } from '../ui/Select'
+import { roleSelectOptions } from './adminSelectOptions'
 
 interface UserDetailPageProps {
   token: string
@@ -71,6 +73,15 @@ export function UserDetailPage({ token, userID, onBack }: UserDetailPageProps) {
 
   const isSelf = currentUser?.id === userID
   const isSuperAdmin = currentUserRoles?.includes('super_admin') ?? false
+
+  const assignableRoleOptions = useMemo(() => roleSelectOptions(availableRoles), [availableRoles])
+  const scopeTypeOptions = useMemo(
+    () => [
+      { value: 'global', label: 'global' },
+      { value: 'workspace', label: 'workspace' },
+    ],
+    [],
+  )
 
   async function handleGenerateBypassCode() {
     const ok = await confirm({
@@ -328,29 +339,17 @@ export function UserDetailPage({ token, userID, onBack }: UserDetailPageProps) {
           <form onSubmit={handleAssignRole} className="page-stack" style={{ gap: 12 }}>
             <label className="admin-form-label">
               <span>{t('admin.user_detail.select_role')}</span>
-              <select
+              <Select
                 value={selectedRoleID}
-                onChange={(e) => setSelectedRoleID(e.target.value)}
-                className="admin-select"
-              >
-                {availableRoles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.name} {role.description ? `(${role.description})` : ''}
-                  </option>
-                ))}
-              </select>
+                options={assignableRoleOptions}
+                onChange={setSelectedRoleID}
+                disabled={assignableRoleOptions.length === 0}
+              />
             </label>
 
             <label className="admin-form-label">
               <span>{t('admin.user_detail.scope_type')}</span>
-              <select
-                value={scopeType}
-                onChange={(e) => setScopeType(e.target.value)}
-                className="admin-select"
-              >
-                <option value="global">global</option>
-                <option value="workspace">workspace</option>
-              </select>
+              <Select value={scopeType} options={scopeTypeOptions} onChange={setScopeType} />
             </label>
 
             {scopeType === 'workspace' && (

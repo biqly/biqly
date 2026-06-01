@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { BarChart } from 'recharts/es6/chart/BarChart'
 import { Bar } from 'recharts/es6/cartesian/Bar'
 import { XAxis } from 'recharts/es6/cartesian/XAxis'

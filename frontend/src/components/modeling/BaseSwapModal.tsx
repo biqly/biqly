@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useT } from '../../i18n'
 import type { TableRow } from '../../types/semantic'
 import { Modal } from '../ui/Modal'
+import { Select } from '../ui/Select'
 
 export interface BaseSwapModalProps {
   candidateTables: TableRow[]
@@ -31,16 +32,18 @@ export function BaseSwapModal({ candidateTables, onCancel, onSubmit, saving, t }
         <p className="modeling-empty">{t('modeling.no_alternative_base')}</p>
       ) : (
         <div className="form-group">
-          <select value={picked} onChange={(e) => setPicked(e.target.value)} disabled={saving} size={Math.min(8, Math.max(3, options.length))} style={{ width: '100%' }}>
-            {options.map((tbl) => {
+          <Select
+            value={picked}
+            onChange={setPicked}
+            disabled={saving}
+            options={options.map((tbl) => {
               const key = `${tbl.schema_name}.${tbl.table_name}`
-              return (
-                <option key={tbl.id} value={key}>
-                  {tbl.label || tbl.table_name} — {tbl.schema_name}.{tbl.table_name}
-                </option>
-              )
+              return {
+                value: key,
+                label: `${tbl.label || tbl.table_name} — ${tbl.schema_name}.${tbl.table_name}`,
+              }
             })}
-          </select>
+          />
         </div>
       )}
       <div className="modal-actions">

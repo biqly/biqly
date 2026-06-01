@@ -235,6 +235,8 @@ catalog:
       - /api/datasources
       - /api/metadata
       - /api/semantic
+      - /api/permissions
+      - /api/dashboards
       - /health
       - /ready
       - /metrics

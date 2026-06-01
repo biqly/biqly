@@ -1,4 +1,3 @@
-import React from 'react'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
 import { ErrorAlert } from '../ui/ErrorAlert'

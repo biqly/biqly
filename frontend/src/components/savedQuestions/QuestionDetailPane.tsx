@@ -1,4 +1,3 @@
-import React from 'react'
 import { EmptyState } from '../ui/EmptyState'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import { LoadingOverlay } from '../ui/LoadingOverlay'

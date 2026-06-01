@@ -1376,6 +1376,10 @@ input[type='checkbox']:disabled {
   font-size: 0.8rem;
 }
 
+.ai-scope-multiselect .ui-select-option {
+  font-size: 0.8rem;
+}
+
 
 
 
@@ -2191,6 +2195,16 @@ input[type='checkbox']:disabled {
 /* Make custom select align with form-group label spacing */
 .form-group > .ui-select {
   margin-top: 0;
+}
+
+.form-group > .ui-multiselect--inline {
+  margin-top: 0.35rem;
+}
+
+.ui-multiselect--inline .ui-select-list {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card-raised, var(--input-bg));
 }
 
 /* ─── Segmented toggle (shared: Query Builder, AI Query, …) ───── */

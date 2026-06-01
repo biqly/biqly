@@ -4,6 +4,7 @@ import { useT } from '../../i18n'
 import type { AIRuntimeSettings } from '../../types/ai'
 import type { TableRow } from '../../types/semantic'
 import { ModelBadgeRow } from '../ui/ModelBadgeRow'
+import { MultiSelect } from '../ui/MultiSelect'
 import {
   BulkProgressHeader,
   BulkQueuePreview,
@@ -245,23 +246,16 @@ export function MetadataBulkDescribeModal({
                       <p className="bulk-schema-placeholder">{t('metadata.bulk_schema_all_hint')}</p>
                     ) : (
                       <>
-                        <select
+                        <MultiSelect
                           id="bulk-schema-multiselect"
+                          display="inline"
                           className="bulk-schema-multiselect"
-                          multiple
-                          size={Math.min(8, Math.max(4, schemaOptions.length))}
+                          ariaLabel={t('metadata.bulk_aria_schemas_pick')}
                           value={bulkSchemasSelected}
-                          onChange={(e) =>
-                            setBulkSchemasSelected([...e.target.selectedOptions].map((o) => o.value))
-                          }
-                          aria-label={t('metadata.bulk_aria_schemas_pick')}
-                        >
-                          {schemaOptions.map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
-                          ))}
-                        </select>
+                          onChange={setBulkSchemasSelected}
+                          maxHeight={Math.min(288, Math.max(144, schemaOptions.length * 36))}
+                          options={schemaOptions.map((s) => ({ value: s, label: s }))}
+                        />
                         <div className="bulk-schema-multiselect-tools">
                           <button
                             type="button"
