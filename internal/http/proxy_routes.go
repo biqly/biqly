@@ -29,13 +29,15 @@ func registerUpstreamProxy(r chi.Router, spec upstreamProxySpec) {
 	}
 }
 
-// catalogProxyPaths are the routes proxied to the Catalog service when
-// BI_CATALOG_SERVICE_URL is set.
 var catalogProxyPaths = []string{
 	"/datasources",
 	"/datasources/*",
 	"/metadata/*",
 	"/semantic/*",
+	"/permissions",
+	"/permissions/*",
+	"/dashboards",
+	"/dashboards/*",
 }
 
 // queryProxyPaths are the routes proxied to the Query service when

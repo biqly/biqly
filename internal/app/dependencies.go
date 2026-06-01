@@ -81,25 +81,27 @@ type Dependencies struct {
 // CatalogDeps holds the subset of dependencies needed for the Catalog service
 // (datasources, schemas, tables, columns, relations, semantic models).
 type CatalogDeps struct {
-	Config       *config.Config
-	DriverReg    *datasource.Registry
-	MetaRepo     *metadata.Repository
-	SemanticRepo *semantic.Repository
-	Encryptor    *security.Encryption
-	PoolCache    *datasource.PoolCache
-	QueryService *core.QueryService
+	Config        *config.Config
+	DriverReg     *datasource.Registry
+	MetaRepo      *metadata.Repository
+	SemanticRepo  *semantic.Repository
+	Encryptor     *security.Encryption
+	PoolCache     *datasource.PoolCache
+	QueryService  *core.QueryService
+	DashboardRepo *dashboard.Repository
 }
 
 // CatalogDeps returns a structured copy of dependencies for the Catalog subsystem.
 func (d *Dependencies) CatalogDeps() *CatalogDeps {
 	return &CatalogDeps{
-		Config:       d.Config,
-		DriverReg:    d.DriverReg,
-		MetaRepo:     d.MetaRepo,
-		SemanticRepo: d.SemanticRepo,
-		Encryptor:    d.Encryptor,
-		PoolCache:    d.PoolCache,
-		QueryService: d.QueryService,
+		Config:        d.Config,
+		DriverReg:     d.DriverReg,
+		MetaRepo:      d.MetaRepo,
+		SemanticRepo:  d.SemanticRepo,
+		Encryptor:     d.Encryptor,
+		PoolCache:     d.PoolCache,
+		QueryService:  d.QueryService,
+		DashboardRepo: d.DashboardRepo,
 	}
 }
 

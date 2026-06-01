@@ -7,7 +7,7 @@ import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { LanguageSwitcher } from './components/ui/LanguageSwitcher'
 import { ThemeToggle } from './components/ui/ThemeToggle'
 import abiLogo from './assets/abi-logo.png'
-import { useT, LocaleSection, type TranslationKey } from './i18n'
+import { useT, LocaleSection, useLocaleSection, type TranslationKey } from './i18n'
 import { LoadingScreen } from './components/ui/LoadingScreen'
 
 const Home = lazy(() => import('./components/Home'))
@@ -384,6 +384,8 @@ const AuthLoading = () => {
 
 function App() {
   const t = useT()
+  const authReady = useLocaleSection('auth')
+  const adminReady = useLocaleSection('admin')
   const location = useLocation()
   const navigate = useNavigate()
   const { user, accessToken, logout, roles } = useAuth()
@@ -571,6 +573,10 @@ function App() {
       document.title = `${t('common.page_not_found')} · ABI`
     }
   }, [activeRoute, activePath, t])
+
+  if (!authReady || !adminReady) {
+    return <LoadingScreen />
+  }
 
   const handleNavClick = (event: MouseEvent<HTMLAnchorElement>, path: string) => {
     if (

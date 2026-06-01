@@ -112,6 +112,15 @@ func registerCatalogAPIRoutes(r chi.Router, deps *app.CatalogDeps, authClient *b
 		r.Delete("/{id}", permHandler.Delete)
 		r.Delete("/keys", permHandler.DeleteByKeys)
 	})
+
+	dashHandler := handlers.NewDashboardHandler(deps.DashboardRepo)
+	r.Route("/dashboards", func(r chi.Router) {
+		r.Post("/", dashHandler.Create)
+		r.Get("/", dashHandler.List)
+		r.Get("/{id}", dashHandler.Get)
+		r.Put("/{id}", dashHandler.Update)
+		r.Delete("/{id}", dashHandler.Delete)
+	})
 }
 
 func registerCatalogInternalRoutes(r chi.Router, deps *app.CatalogDeps, serviceName string) {
