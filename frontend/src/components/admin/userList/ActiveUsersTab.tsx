@@ -114,9 +114,31 @@ export function ActiveUsersTab({
                   displayedUsers.map((u) => (
                     <tr key={u.id} className="admin-tr">
                       <td className="admin-td">
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <span style={{ fontWeight: 600 }}>{u.email}</span>
-                          {u.username && <span className="admin-subtext">{u.username}</span>}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <div className="admin-list-avatar" style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: '50%',
+                            background: 'var(--bg-avatar, #e0e7ff)',
+                            color: 'var(--text-avatar, #4f46e5)',
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            fontWeight: 700,
+                            fontSize: 12,
+                            overflow: 'hidden',
+                            flexShrink: 0
+                          }}>
+                            {u.avatarUrl ? (
+                              <img src={u.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              u.displayName ? u.displayName.slice(0, 2).toUpperCase() : u.email.slice(0, 2).toUpperCase()
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontWeight: 600 }}>{u.email}</span>
+                            {u.username && <span className="admin-subtext">{u.username}</span>}
+                          </div>
                         </div>
                       </td>
                       <td className="admin-td">{u.displayName || t('common.em_dash')}</td>

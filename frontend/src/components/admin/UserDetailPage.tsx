@@ -185,8 +185,12 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
       {/* User profile details card */}
       <div className="admin-card">
         <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div className="admin-avatar-circle">
-            {user.displayName ? user.displayName.slice(0, 2).toUpperCase() : user.email.slice(0, 2).toUpperCase()}
+          <div className="admin-avatar-circle" style={{ overflow: 'hidden' }}>
+            {user.avatarUrl ? (
+              <img src={user.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              user.displayName ? user.displayName.slice(0, 2).toUpperCase() : user.email.slice(0, 2).toUpperCase()
+            )}
           </div>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
             <h2 style={{ margin: 0, fontSize: 22 }}>{user.displayName || t('admin.user_detail.unnamed_user')}</h2>

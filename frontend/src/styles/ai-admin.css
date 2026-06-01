@@ -65,9 +65,28 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: min(420px, 50vh);
+  max-height: 240px;
   overflow-y: auto;
-  padding-right: 4px;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border, rgba(255, 255, 255, 0.12)) transparent;
+}
+
+.admin-ai-grant-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.admin-ai-grant-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-ai-grant-list::-webkit-scrollbar-thumb {
+  background: var(--border, rgba(255, 255, 255, 0.12));
+  border-radius: 3px;
+}
+
+.admin-ai-grant-list::-webkit-scrollbar-thumb:hover {
+  background: var(--border-hover, rgba(255, 255, 255, 0.2));
 }
 
 .admin-ai-grant-row {
