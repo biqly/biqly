@@ -262,7 +262,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="settings-page page-stack">
+    <div className="settings-page">
       {(error || successMessage) && (
         <div className="settings-alerts">
           {error && (
@@ -285,13 +285,15 @@ export default function Settings() {
         </div>
       )}
 
-      <section className="settings-section-group" aria-labelledby="settings-profile-group-heading">
-        <h2 id="settings-profile-group-heading" className="settings-section-group__title">
-          {t('settings.profile_group')}
-        </h2>
-        <AccountProfileSection />
-      </section>
+      <div className="settings-layout">
+        <aside className="settings-layout__profile" aria-labelledby="settings-profile-group-heading">
+          <h2 id="settings-profile-group-heading" className="settings-section-group__title">
+            {t('settings.profile_group')}
+          </h2>
+          <AccountProfileSection />
+        </aside>
 
+        <div className="settings-layout__main">
       <section className="settings-section-group" aria-labelledby="settings-security-heading">
         <h2 id="settings-security-heading" className="settings-section-group__title">
           {t('settings.security_group')}
@@ -369,6 +371,10 @@ export default function Settings() {
           />
         </div>
       </section>
+
+      <p className="settings-footnote">{t('settings.persist_hint')}</p>
+        </div>
+      </div>
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
@@ -627,7 +633,6 @@ export default function Settings() {
         </form>
       </Modal>
 
-      <p className="settings-footnote">{t('settings.persist_hint')}</p>
     </div>
   )
 }
