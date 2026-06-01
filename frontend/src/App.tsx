@@ -38,6 +38,8 @@ const ClaimInvitePage = lazy(() => import('./components/auth/ClaimInvitePage'))
 import { AuthGuard } from './components/auth/AuthGuard'
 import { useAuth } from './components/auth/AuthProvider'
 import { WorkspaceSelector } from './components/workspaces/WorkspaceSelector'
+import { useUrlSearch } from './hooks/useQueryParam'
+import { appendAdminBreadcrumbs } from './lib/adminBreadcrumbs'
 import './styles/sidebar.css'
 
 
@@ -376,7 +378,7 @@ const AuthLoading = () => {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <LoadingScreen minHeight="auto" />
+        <LoadingScreen minHeight="auto" variant="center" />
       </div>
     </div>
   )
@@ -387,6 +389,7 @@ function App() {
   const authReady = useLocaleSection('auth')
   const adminReady = useLocaleSection('admin')
   const location = useLocation()
+  const urlSearch = useUrlSearch()
   const navigate = useNavigate()
   const { user, accessToken, logout, roles } = useAuth()
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
@@ -485,40 +488,26 @@ function App() {
     const section = sidebarSections.find((s) => s.routes.some((r) => r.path === activeRoute.path))
     const crumbs: Crumb[] = []
     if (section) crumbs.push({ label: section.heading })
-    
+
+    const usesUrlSync = activeRoute.path === '/admin' || activeRoute.path === '/evaluation'
+    const effectiveSearch = usesUrlSync ? urlSearch : location.search
+    const hasAdminOrEvalTab = usesUrlSync && new URLSearchParams(effectiveSearch).has('tab')
+
     crumbs.push({
       label: activeRoute.label,
-      onClick: () => navigate(activeRoute.path),
+      onClick: hasAdminOrEvalTab
+        ? () => {
+            const next = new URLSearchParams()
+            next.set('tab', new URLSearchParams(effectiveSearch).get('tab') || 'users')
+            navigate(`${activeRoute.path}?${next.toString()}`)
+          }
+        : () => navigate(activeRoute.path),
     })
 
     if (activeRoute.path === '/admin') {
-      const searchParams = new URLSearchParams(location.search)
-      const tabParam = searchParams.get('tab') || 'users'
-      const userIdParam = searchParams.get('userId')
-
-      let tabLabel = ''
-      if (tabParam === 'users') tabLabel = t('admin.tabs.users')
-      else if (tabParam === 'roles') tabLabel = t('admin.tabs.roles')
-      else if (tabParam === 'datasource_access') tabLabel = t('admin.tabs.datasource_access')
-      else if (tabParam === 'workspaces') tabLabel = t('admin.tabs.workspaces')
-      else if (tabParam === 'ai_history') tabLabel = t('admin.ai_history.title')
-      else if (tabParam === 'sharing') tabLabel = t('admin.sharing.title')
-      else if (tabParam === 'audit_log') tabLabel = t('admin.tabs.audit_log')
-
-      if (tabLabel) {
-        crumbs.push({
-          label: tabLabel,
-          onClick: () => navigate(`/admin?tab=${tabParam}`),
-        })
-      }
-
-      if (tabParam === 'users' && userIdParam) {
-        crumbs.push({
-          label: t('admin.user_detail.title') || 'User Detail',
-        })
-      }
+      appendAdminBreadcrumbs(crumbs, effectiveSearch, t, navigate)
     } else if (activeRoute.path === '/evaluation') {
-      const searchParams = new URLSearchParams(location.search)
+      const searchParams = new URLSearchParams(effectiveSearch)
       const tabParam = searchParams.get('tab') || 'run'
 
       let tabLabel = ''
@@ -535,7 +524,7 @@ function App() {
     }
 
     return crumbs
-  }, [activeRoute, sidebarSections, location.search, navigate, t])
+  }, [activeRoute, sidebarSections, location.search, urlSearch, navigate, t])
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 

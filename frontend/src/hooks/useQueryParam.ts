@@ -27,6 +27,11 @@ function getServerSnapshot(): string {
   return ''
 }
 
+/** Subscribes to URL search changes from useQueryParam and browser navigation. */
+export function useUrlSearch(): string {
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+}
+
 export function useQueryParam(key: string): [string, (next: string) => void] {
   const search = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
   const value = new URLSearchParams(search).get(key) ?? ''

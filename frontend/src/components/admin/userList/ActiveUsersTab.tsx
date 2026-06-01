@@ -15,7 +15,7 @@ interface ActiveUsersTabProps {
   displayedUsers: AuthUser[]
   verificationLoadingId: string | null
   handleResendVerification: (id: string) => Promise<void>
-  onSelectUser: (id: string) => void
+  onSelectUser: (id: string, label: string) => void
   currentPage: number
   totalPages: number
   setCurrentPage: (page: number) => void
@@ -145,7 +145,10 @@ export function ActiveUsersTab({
                         {new Date(u.createdAt).toLocaleDateString(localeLanguageTag(locale))}
                       </td>
                       <td className="admin-td" style={{ textAlign: 'right' }}>
-                        <button onClick={() => onSelectUser(u.id)} className="admin-btn-primary">
+                        <button
+                          onClick={() => onSelectUser(u.id, u.displayName?.trim() || u.email)}
+                          className="admin-btn-primary"
+                        >
                           {t('admin.users.manage')}
                         </button>
                       </td>

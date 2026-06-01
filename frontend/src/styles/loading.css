@@ -1,0 +1,126 @@
+.loading-screen {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  min-height: 12rem;
+}
+
+.loading-screen--center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.loading-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  max-width: min(18rem, calc(100vw - 2rem));
+  padding: 0.4rem 0.85rem 0.4rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-card) 88%, transparent);
+  box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, 0.28));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  pointer-events: none;
+}
+
+.loading-indicator--fixed {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right, 0px));
+  bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  z-index: 120;
+}
+
+.loading-indicator--anchored {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 6;
+}
+
+.loading-indicator__mark {
+  position: relative;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.loading-indicator--sm .loading-indicator__mark {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.loading-indicator__logo {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0.52;
+  animation: loading-logo-breathe 2.4s ease-in-out infinite;
+}
+
+.loading-indicator__ring {
+  position: absolute;
+  inset: -3px;
+  border: 2px solid transparent;
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  opacity: 0.85;
+  animation: loading-spin 0.85s linear infinite;
+}
+
+.loading-indicator__label {
+  padding-right: 0.15rem;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.loading-overlay--subtle {
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  pointer-events: none;
+}
+
+.loading-overlay--subtle .loading-indicator {
+  margin: 0.75rem;
+}
+
+[data-theme='light'] .loading-indicator {
+  background: color-mix(in srgb, var(--bg-card) 92%, transparent);
+}
+
+@keyframes loading-logo-breathe {
+  0%,
+  100% {
+    opacity: 0.42;
+  }
+
+  50% {
+    opacity: 0.62;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-indicator__logo,
+  .loading-indicator__ring {
+    animation: none;
+  }
+
+  .loading-indicator__logo {
+    opacity: 0.5;
+  }
+}

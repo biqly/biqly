@@ -40,7 +40,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     return (
       <div className="auth-page">
         <div className="auth-card">
-          <LoadingScreen minHeight="auto" label="Loading session…" />
+          <LoadingScreen minHeight="auto" variant="center" label="Loading session…" />
         </div>
       </div>
     )

@@ -12,7 +12,7 @@ import { InviteUserModal } from './userList/InviteUserModal'
 
 interface UserListPageProps {
   token: string
-  onSelectUser: (id: string) => void
+  onSelectUser: (id: string, label: string) => void
 }
 
 export function UserListPage({ token, onSelectUser }: UserListPageProps) {

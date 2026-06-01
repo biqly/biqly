@@ -1,39 +1,39 @@
-import abiLogo from '../../assets/abi-logo.png'
 import { useT } from '../../i18n'
+import { LoadingIndicator } from './LoadingIndicator'
 
 interface LoadingScreenProps {
   label?: string
   minHeight?: string
+  /** corner: fixed bottom-right (default). center: inline for compact areas like auth card. */
+  variant?: 'corner' | 'center'
 }
 
-export function LoadingScreen({ label, minHeight = '60vh' }: LoadingScreenProps) {
+export function LoadingScreen({ label, minHeight = '40vh', variant = 'corner' }: LoadingScreenProps) {
   const t = useT()
+  const displayLabel = label ?? t('common.loading')
+
+  if (variant === 'center') {
+    return (
+      <div
+        className="loading-screen loading-screen--center"
+        style={{ minHeight }}
+        role="status"
+        aria-live="polite"
+      >
+        <LoadingIndicator label={displayLabel} />
+      </div>
+    )
+  }
+
   return (
     <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        flex: 1,
-        height: '100%',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight,
-        gap: '20px',
-      }}
+      className="loading-screen"
+      style={{ minHeight }}
       role="status"
       aria-live="polite"
+      aria-label={displayLabel}
     >
-      <div className="loading-logo-container">
-        <img
-          src={abiLogo}
-          alt="ABI Logo"
-          className="loading-logo-image"
-        />
-        <div className="loading-logo-spinner" />
-      </div>
-      <span style={{ color: 'var(--text-secondary, #a1a1aa)', fontSize: '14px', fontWeight: 500 }}>
-        {label ?? t('common.loading')}
-      </span>
+      <LoadingIndicator label={displayLabel} className="loading-indicator--fixed" />
     </div>
   )
 }

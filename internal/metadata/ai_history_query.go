@@ -92,7 +92,7 @@ func (r *Repository) ListAIQueryHistoryFiltered(ctx context.Context, filter AIHi
 	where, args := buildAIHistoryWhere(filter)
 
 	var total int
-	countQ := `SELECT COUNT(*) FROM ai_query_history WHERE ` + where
+	countQ := `SELECT COUNT(*) FROM ai_query_history WHERE ` + where // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query
 	if err := r.db.QueryRowContext(ctx, countQ, args...).Scan(&total); err != nil {
 		return AIHistoryListResult{}, fmt.Errorf("count AI history: %w", err)
 	}
@@ -100,7 +100,7 @@ func (r *Repository) ListAIQueryHistoryFiltered(ctx context.Context, filter AIHi
 	listArgs := append(append([]any(nil), args...), filter.PageSize, filter.offset())
 	limitArg := len(args) + 1
 	offsetArg := len(args) + 2
-	listQ := `SELECT ` + aiHistorySelectCols + ` FROM ai_query_history WHERE ` + where + //nolint:gosec // WHERE uses parameterized placeholders only; column list is constant
+	listQ := `SELECT ` + aiHistorySelectCols + ` FROM ai_query_history WHERE ` + where + //nolint:gosec // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query
 		` ORDER BY created_at DESC LIMIT $` + strconv.Itoa(limitArg) +
 		` OFFSET $` + strconv.Itoa(offsetArg)
 

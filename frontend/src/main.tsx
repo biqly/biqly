@@ -11,6 +11,7 @@ import { ToastProvider } from './hooks/useToast'
 import { I18nProvider } from './i18n'
 import { ThemeProvider } from './theme'
 import './index.css'
+import './styles/loading.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

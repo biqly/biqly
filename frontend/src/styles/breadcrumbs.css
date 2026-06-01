@@ -10,7 +10,7 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
 }
 
 .breadcrumbs__item {
@@ -22,9 +22,10 @@
   border: none;
   background: none;
   padding: 0;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   cursor: pointer;
   font: inherit;
+  font-weight: 500;
 }
 
 .breadcrumbs__link:hover {

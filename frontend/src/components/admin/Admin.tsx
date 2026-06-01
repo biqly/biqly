@@ -61,6 +61,9 @@ export default function Admin() {
   const { accessToken } = useAuth()
   const [tabParam, setTabParam] = useQueryParam('tab')
   const [userIdParam, setUserIdParam] = useQueryParam('userId')
+  const [, setUserLabelParam] = useQueryParam('userLabel')
+  const [, setWorkspaceIdParam] = useQueryParam('workspaceId')
+  const [, setWorkspaceLabelParam] = useQueryParam('workspaceLabel')
   const [, setSubTabParam] = useQueryParam('subTab')
 
   const tab = (tabParam as AdminTab) || 'users'
@@ -72,8 +75,11 @@ export default function Admin() {
 
   const handleTabChange = (newTab: AdminTab) => {
     setTabParam(newTab)
-    setUserIdParam('') // reset selection when switching tabs
-    setSubTabParam('') // reset sub tab selection when switching main tabs
+    setUserIdParam('')
+    setUserLabelParam('')
+    setWorkspaceIdParam('')
+    setWorkspaceLabelParam('')
+    setSubTabParam('')
   }
 
   return (
@@ -95,9 +101,22 @@ export default function Admin() {
         <Suspense fallback={<LoadingScreen minHeight="200px" />}>
           {tab === 'users' && (
             selectedUserID ? (
-              <UserDetailPage token={accessToken} userID={selectedUserID} onBack={() => setUserIdParam('')} />
+              <UserDetailPage
+                token={accessToken}
+                userID={selectedUserID}
+                onBack={() => {
+                  setUserIdParam('')
+                  setUserLabelParam('')
+                }}
+              />
             ) : (
-              <UserListPage token={accessToken} onSelectUser={(id) => setUserIdParam(id)} />
+              <UserListPage
+                token={accessToken}
+                onSelectUser={(id, label) => {
+                  setUserIdParam(id)
+                  setUserLabelParam(label)
+                }}
+              />
             )
           )}
           {tab === 'roles' && <RolesPanel token={accessToken} />}

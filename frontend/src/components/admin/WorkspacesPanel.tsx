@@ -18,6 +18,7 @@ export function WorkspacesPanel({ token }: { token: string }) {
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [selectedWSParam, setSelectedWSParam] = useQueryParam('workspaceId')
+  const [, setWorkspaceLabelParam] = useQueryParam('workspaceLabel')
   const selectedWS = selectedWSParam || null
 
   // Pagination
@@ -80,7 +81,11 @@ export function WorkspacesPanel({ token }: { token: string }) {
       <WorkspaceSettingsPage
         token={token}
         workspaceID={selectedWS}
-        onBack={() => { setSelectedWSParam(''); reload() }}
+        onBack={() => {
+          setSelectedWSParam('')
+          setWorkspaceLabelParam('')
+          reload()
+        }}
       />
     )
   }
@@ -142,7 +147,13 @@ export function WorkspacesPanel({ token }: { token: string }) {
                       <div style={{ fontSize: 11, color: 'var(--text-muted, #8a8a92)', fontFamily: 'var(--font-mono, monospace)' }}>{w.slug}</div>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => setSelectedWSParam(w.id)} style={btnSettings}>
+                      <button
+                        onClick={() => {
+                          setSelectedWSParam(w.id)
+                          setWorkspaceLabelParam(w.name)
+                        }}
+                        style={btnSettings}
+                      >
                         {t('admin.workspaces.settings')}
                       </button>
                       {!w.is_personal && (
