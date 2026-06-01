@@ -124,157 +124,175 @@ export function AccountProfileSection() {
   const initials = (user.displayName || user.email).slice(0, 2).toUpperCase()
 
   return (
-    <section className="card card--elevated settings-profile-card" aria-labelledby="settings-profile-heading">
-      <div className="settings-profile-card__hero">
-        <div className="settings-profile-avatar" aria-hidden>
-          {initials}
+    <>
+      <section className="card card--elevated settings-profile-card" aria-labelledby="settings-profile-heading">
+        <div className="settings-profile-card__hero">
+          <div className="settings-profile-avatar" aria-hidden>
+            {initials}
+          </div>
+          <div>
+            <h2 id="settings-profile-heading" className="settings-profile-card__title">
+              {t('settings.profile_section')}
+            </h2>
+            <p className="settings-profile-card__subtitle">{t('settings.profile_hint')}</p>
+          </div>
         </div>
-        <div>
-          <h2 id="settings-profile-heading" className="settings-profile-card__title">
-            {t('settings.profile_section')}
-          </h2>
-          <p className="settings-profile-card__subtitle">{t('settings.profile_hint')}</p>
-        </div>
-      </div>
 
-      <form onSubmit={handleProfileSubmit} className="settings-profile-block">
-        <h3 className="settings-profile-block__title">{t('settings.profile_name_title')}</h3>
-        <div className="form-group">
-          <label htmlFor="settings-display-name">{t('settings.profile_display_name')}</label>
-          <input
-            id="settings-display-name"
-            type="text"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            autoComplete="name"
-            maxLength={120}
-          />
-        </div>
-        <div className="form-group">
-          <label htmlFor="settings-email-readonly">{t('settings.profile_email')}</label>
-          <input id="settings-email-readonly" type="email" value={user.email} readOnly disabled className="input-readonly" />
-        </div>
-        {profileMessage && (
-          <p className={profileMessage.type === 'success' ? 'settings-inline-success' : 'settings-inline-error'}>
-            {profileMessage.text}
-          </p>
-        )}
-        <button type="submit" className="btn btn-primary btn-sm btn-auto-width" disabled={profileSaving}>
-          {profileSaving ? '...' : t('settings.profile_save')}
-        </button>
-      </form>
+        <form onSubmit={handleProfileSubmit} className="settings-profile-block" style={{ borderTop: 'none', paddingTop: 0 }}>
+          <h3 className="settings-profile-block__title">{t('settings.profile_name_title')}</h3>
+          <div className="form-group">
+            <label htmlFor="settings-display-name">{t('settings.profile_display_name')}</label>
+            <input
+              id="settings-display-name"
+              type="text"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              autoComplete="name"
+              maxLength={120}
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="settings-email-readonly">{t('settings.profile_email')}</label>
+            <input id="settings-email-readonly" type="email" value={user.email} readOnly disabled className="input-readonly" />
+          </div>
+          {profileMessage && (
+            <p className={profileMessage.type === 'success' ? 'settings-inline-success' : 'settings-inline-error'}>
+              {profileMessage.text}
+            </p>
+          )}
+          <button type="submit" className="btn btn-primary btn-sm btn-auto-width" disabled={profileSaving}>
+            {profileSaving ? '...' : t('settings.profile_save')}
+          </button>
+        </form>
+      </section>
 
-      <form onSubmit={handleEmailSubmit} className="settings-profile-block">
-        <h3 className="settings-profile-block__title">{t('settings.profile_email_change_title')}</h3>
-        <p className="settings-profile-block__hint">{t('settings.profile_email_change_hint')}</p>
-        <div className="form-group">
-          <label htmlFor="settings-new-email">{t('settings.profile_new_email')}</label>
-          <input
-            id="settings-new-email"
-            type="email"
-            value={newEmail}
-            onChange={(e) => setNewEmail(e.target.value)}
-            autoComplete="email"
-            placeholder={t('settings.profile_new_email_placeholder')}
-          />
-        </div>
-        {emailMessage && (
-          <p className={emailMessage.type === 'success' ? 'settings-inline-success' : 'settings-inline-error'}>
-            {emailMessage.text}
-          </p>
-        )}
-        <button type="submit" className="btn btn-secondary btn-sm btn-auto-width" disabled={emailSaving || !newEmail.trim()}>
-          {emailSaving ? '...' : t('settings.profile_email_request')}
-        </button>
-      </form>
+      <section className="card card--elevated settings-profile-card" aria-labelledby="settings-email-change-heading">
+        <form onSubmit={handleEmailSubmit} className="settings-profile-block" style={{ borderTop: 'none', paddingTop: 0 }}>
+          <h3 id="settings-email-change-heading" className="settings-profile-block__title">
+            {t('settings.profile_email_change_title')}
+          </h3>
+          <p className="settings-profile-block__hint">{t('settings.profile_email_change_hint')}</p>
+          <div className="form-group">
+            <label htmlFor="settings-new-email">{t('settings.profile_new_email')}</label>
+            <input
+              id="settings-new-email"
+              type="email"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              autoComplete="email"
+              placeholder={t('settings.profile_new_email_placeholder')}
+            />
+          </div>
+          {emailMessage && (
+            <p className={emailMessage.type === 'success' ? 'settings-inline-success' : 'settings-inline-error'}>
+              {emailMessage.text}
+            </p>
+          )}
+          <button type="submit" className="btn btn-secondary btn-sm btn-auto-width" disabled={emailSaving || !newEmail.trim()}>
+            {emailSaving ? '...' : t('settings.profile_email_request')}
+          </button>
+        </form>
+      </section>
 
-      <form onSubmit={handlePasswordSubmit} className="settings-profile-block">
-        <h3 className="settings-profile-block__title">{t('settings.profile_password_title')}</h3>
-        {!hasPassword ? (
-          <p className="settings-profile-block__hint">{t('settings.profile_no_password')}</p>
-        ) : (
-          <>
-            <div className="form-group">
-              <label htmlFor="settings-current-password">{t('settings.profile_current_password')}</label>
-              <input
-                id="settings-current-password"
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                autoComplete="current-password"
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="settings-new-password">{t('settings.profile_new_password')}</label>
-              <input
-                id="settings-new-password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                autoComplete="new-password"
-              />
-              <PasswordStrengthMeter password={newPassword} onValidityChange={handleValidity} />
-            </div>
-            <div className="form-group">
-              <label htmlFor="settings-confirm-password">{t('settings.profile_confirm_password')}</label>
-              <input
-                id="settings-confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                autoComplete="new-password"
-              />
-            </div>
-            {passwordMessage && (
-              <p className={passwordMessage.type === 'success' ? 'settings-inline-success' : 'settings-inline-error'}>
-                {passwordMessage.text}
-              </p>
-            )}
-            <div className="settings-profile-actions">
-              <button
-                type="submit"
-                className="btn btn-primary btn-sm btn-auto-width"
-                disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
-              >
-                {passwordSaving ? '...' : t('settings.profile_password_save')}
-              </button>
-              <Link to="/auth/forgot-password" className="settings-profile-link">
-                {t('settings.profile_forgot_password')}
-              </Link>
-            </div>
-          </>
-        )}
-      </form>
+      <section className="card card--elevated settings-profile-card" aria-labelledby="settings-password-heading">
+        <form onSubmit={handlePasswordSubmit} className="settings-profile-block" style={{ borderTop: 'none', paddingTop: 0 }}>
+          <h3 id="settings-password-heading" className="settings-profile-block__title">
+            {t('settings.profile_password_title')}
+          </h3>
+          {!hasPassword ? (
+            <p className="settings-profile-block__hint">{t('settings.profile_no_password')}</p>
+          ) : (
+            <>
+              <div className="form-group">
+                <label htmlFor="settings-current-password">{t('settings.profile_current_password')}</label>
+                <input
+                  id="settings-current-password"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="settings-new-password">{t('settings.profile_new_password')}</label>
+                <input
+                  id="settings-new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  autoComplete="new-password"
+                />
+                <PasswordStrengthMeter password={newPassword} onValidityChange={handleValidity} />
+              </div>
+              <div className="form-group">
+                <label htmlFor="settings-confirm-password">{t('settings.profile_confirm_password')}</label>
+                <input
+                  id="settings-confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
+                />
+              </div>
+              {passwordMessage && (
+                <p className={passwordMessage.type === 'success' ? 'settings-inline-success' : 'settings-inline-error'}>
+                  {passwordMessage.text}
+                </p>
+              )}
+              <div className="settings-profile-actions">
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-sm btn-auto-width"
+                  disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
+                >
+                  {passwordSaving ? '...' : t('settings.profile_password_save')}
+                </button>
+                <Link to="/auth/forgot-password" className="settings-profile-link">
+                  {t('settings.profile_forgot_password')}
+                </Link>
+              </div>
+            </>
+          )}
+        </form>
+      </section>
 
       {isSuperAdmin && (
-        <div className="settings-profile-block settings-profile-block--support">
-          <h3 className="settings-profile-block__title">{t('settings.profile_mfa_bypass_title')}</h3>
-          <p className="settings-profile-block__hint">{t('settings.profile_mfa_bypass_hint')}</p>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm btn-auto-width"
-            onClick={handleGenerateBypass}
-            disabled={bypassGenerating}
-          >
-            {bypassGenerating ? '...' : t('settings.profile_mfa_bypass_btn')}
-          </button>
-          {bypassError && <p className="settings-inline-error">{bypassError}</p>}
-          {bypassCode && (
-            <div className="settings-bypass-code">
-              <code>{bypassCode}</code>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => {
-                  void navigator.clipboard.writeText(bypassCode)
-                }}
-              >
-                {t('admin.user_detail.copy')}
-              </button>
-            </div>
-          )}
-        </div>
+        <section className="card card--elevated settings-profile-card settings-profile-card--support-card" aria-labelledby="settings-support-heading">
+          <div className="settings-profile-block" style={{ borderTop: 'none', paddingTop: 0 }}>
+            <h3 id="settings-support-heading" className="settings-profile-block__title">
+              {t('settings.profile_mfa_bypass_title')}
+            </h3>
+            <p className="settings-profile-block__hint">{t('settings.profile_mfa_bypass_hint')}</p>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm btn-auto-width"
+              onClick={handleGenerateBypass}
+              disabled={bypassGenerating}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shield-alert"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+              {t('settings.profile_mfa_bypass_btn')}
+            </button>
+            {bypassError && <p className="settings-inline-error">{bypassError}</p>}
+            {bypassCode && (
+              <div className="settings-bypass-code">
+                <code>{bypassCode}</code>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm btn-auto-width"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  onClick={() => {
+                    void navigator.clipboard.writeText(bypassCode)
+                  }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                  {t('admin.user_detail.copy')}
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
       )}
-    </section>
+    </>
   )
 }

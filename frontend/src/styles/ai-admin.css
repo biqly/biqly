@@ -110,6 +110,8 @@
 
 .admin-ai-grant-row .btn {
   flex-shrink: 0;
+  width: auto;
+  margin: 0;
 }
 
 .admin-ai-badge {
