@@ -304,10 +304,10 @@ func (s *WorkspaceService) SetMFARequired(ctx context.Context, workspaceID, call
 
 func (s *WorkspaceService) ListDatasources(ctx context.Context, workspaceID string) ([]WorkspaceDatasource, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT wd.workspace_id, wd.datasource_id, COALESCE(ds.name, ''), wd.access_level, wd.attached_at
-		FROM workspace_datasources wd
-		LEFT JOIN datasources ds ON ds.id = wd.datasource_id
-		WHERE wd.workspace_id = $1
+		SELECT workspace_id, datasource_id, access_level, attached_at
+		FROM workspace_datasources
+		WHERE workspace_id = $1
+		ORDER BY attached_at
 	`, workspaceID)
 	if err != nil {
 		return nil, fmt.Errorf("query workspace datasources: %w", err)
@@ -317,12 +317,15 @@ func (s *WorkspaceService) ListDatasources(ctx context.Context, workspaceID stri
 	var list []WorkspaceDatasource
 	for rows.Next() {
 		var wd WorkspaceDatasource
-		if err := rows.Scan(&wd.WorkspaceID, &wd.DatasourceID, &wd.DatasourceName, &wd.AccessLevel, &wd.AttachedAt); err != nil {
+		if err := rows.Scan(&wd.WorkspaceID, &wd.DatasourceID, &wd.AccessLevel, &wd.AttachedAt); err != nil {
 			return nil, err
 		}
 		list = append(list, wd)
 	}
-	return list, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return list, nil
 }
 
 func (s *WorkspaceService) AttachDatasource(ctx context.Context, workspaceID, datasourceID, level, callerID string) error {
