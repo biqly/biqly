@@ -11,6 +11,7 @@ const DEFAULT_PASSWORD_POLICY: PasswordPolicy = {
   require_digit: true,
   require_special: true,
   min_score: 2,
+  self_signup_enabled: true,
 }
 
 let cachedPolicy: PasswordPolicy | null = null
@@ -34,6 +35,15 @@ export async function apiGetPasswordPolicy(): Promise<PasswordPolicy> {
     }
   })()
   return inflightPolicy
+}
+
+export function selfSignupEnabledFromPolicy(policy: PasswordPolicy | null | undefined): boolean {
+  return policy?.self_signup_enabled !== false
+}
+
+export function clearPasswordPolicyCache(): void {
+  cachedPolicy = null
+  inflightPolicy = null
 }
 
 export function normalizeAuthUser(raw: any): AuthUser {

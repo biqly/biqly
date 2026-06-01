@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type SubmitEvent } from 'react'
 import abiLogo from '../../assets/abi-logo.png'
-import { apiPasskeyLoginBegin, apiPasskeyLoginFinish, apiMFALogin } from '../../api/auth'
+import { apiGetPasswordPolicy, apiPasskeyLoginBegin, apiPasskeyLoginFinish, apiMFALogin, selfSignupEnabledFromPolicy } from '../../api/auth'
 import { useT } from '../../i18n'
 import { base64urlToBuffer, bufferToBase64url } from '../../utils/webauthn'
 import { useNavigate } from 'react-router-dom'
@@ -27,6 +27,19 @@ export default function SignInPage() {
   const [mfaToken, setMfaToken] = useState('')
   const [mfaCode, setMfaCode] = useState('')
   const [mfaLoading, setMfaLoading] = useState(false)
+  const [signupAllowed, setSignupAllowed] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    apiGetPasswordPolicy()
+      .then((policy) => {
+        if (!cancelled) setSignupAllowed(selfSignupEnabledFromPolicy(policy))
+      })
+      .catch(() => {
+        if (!cancelled) setSignupAllowed(true)
+      })
+    return () => { cancelled = true }
+  }, [])
 
   // Check for redirect MFA challenge token from OAuth flow on mount
   useEffect(() => {
@@ -177,12 +190,14 @@ export default function SignInPage() {
             <img src={abiLogo} alt="" width={34} height={34} />
           </div>
           <h1 className="auth-title">{t('auth.title_signin')}</h1>
-          <p className="auth-subtitle">
-            {t('auth.no_account')}{' '}
-            <a href="/auth/signup" onClick={(e) => { e.preventDefault(); navigate('/auth/signup'); }}>
-              {t('auth.btn_signup')}
-            </a>
-          </p>
+          {signupAllowed && (
+            <p className="auth-subtitle">
+              {t('auth.no_account')}{' '}
+              <a href="/auth/signup" onClick={(e) => { e.preventDefault(); navigate('/auth/signup'); }}>
+                {t('auth.btn_signup')}
+              </a>
+            </p>
+          )}
         </div>
 
         {sessionBanner && (

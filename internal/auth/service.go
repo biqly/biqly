@@ -21,7 +21,8 @@ var (
 	ErrEmailChangePending = errors.New("email change confirmation pending")
 	ErrPasswordReused     = errors.New("password was recently used")
 	ErrNoPasswordSet      = errors.New("password login is not enabled for this account")
-	ErrSuperAdminRequired = errors.New("super admin privilege required")
+	ErrSuperAdminRequired  = errors.New("super admin privilege required")
+	ErrSelfSignupDisabled  = errors.New("self-service registration is disabled")
 	ErrMFANotEnabled      = errors.New("mfa not enabled")
 	ErrNotWorkspaceOwner  = errors.New("not workspace owner")
 )
@@ -51,7 +52,8 @@ type AuthService struct {
 	emailSender  mail.EmailSender
 	workspaceSvc WorkspaceService
 	mfaSvc       MFAService
-	magicLinks   *MagicLinkRepository
+	magicLinks       *MagicLinkRepository
+	platformSettings *PlatformSettingsRepository
 }
 
 func (s *AuthService) UserRepo() *UserRepository {
@@ -96,6 +98,14 @@ func NewAuthService(
 }
 
 func (s *AuthService) Register(ctx context.Context, req RegisterRequest, userAgent, ipAddress *string) (*TokenResponse, error) {
+	enabled, err := s.SelfSignupEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !enabled {
+		return nil, ErrSelfSignupDisabled
+	}
+
 	email, err := NormalizeEmail(req.Email)
 	if err != nil {
 		return nil, err

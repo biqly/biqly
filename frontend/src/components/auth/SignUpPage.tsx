@@ -1,10 +1,11 @@
-import { useCallback, useState, type SubmitEvent } from 'react'
+import { useCallback, useEffect, useState, type SubmitEvent } from 'react'
 import abiLogo from '../../assets/abi-logo.png'
 import { useT, useLocale } from '../../i18n'
 import { useAuth } from './AuthProvider'
 import { useNavigate } from 'react-router-dom'
 import PasswordStrengthMeter from './PasswordStrengthMeter'
 import { Modal } from '../ui/Modal'
+import { apiGetPasswordPolicy, selfSignupEnabledFromPolicy } from '../../api/auth'
 import {
   TermsOfUseEN,
   TermsOfUseTR,
@@ -28,6 +29,20 @@ export default function SignUpPage() {
   const [passwordValid, setPasswordValid] = useState(false)
   const [termsOpen, setTermsOpen] = useState(false)
   const [privacyOpen, setPrivacyOpen] = useState(false)
+  const [policyLoading, setPolicyLoading] = useState(true)
+  const [signupAllowed, setSignupAllowed] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    apiGetPasswordPolicy()
+      .then((policy) => {
+        if (!cancelled) setSignupAllowed(selfSignupEnabledFromPolicy(policy))
+      })
+      .finally(() => {
+        if (!cancelled) setPolicyLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [])
 
   const handleValidity = useCallback((info: { valid: boolean }) => {
     setPasswordValid(info.valid)
@@ -63,6 +78,38 @@ export default function SignUpPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (policyLoading) {
+    return (
+      <div className="auth-page">
+        <div className="auth-card">
+          <p className="auth-subtitle" style={{ textAlign: 'center', margin: 0 }}>{t('common.loading')}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!signupAllowed) {
+    return (
+      <div className="auth-page">
+        <div className="auth-card">
+          <div className="auth-header">
+            <div className="auth-logo">
+              <img src={abiLogo} alt="" width={34} height={34} />
+            </div>
+            <h1 className="auth-title">{t('auth.signup_closed_title')}</h1>
+            <p className="auth-subtitle">{t('auth.signup_closed_body')}</p>
+            <p className="auth-subtitle">{t('auth.signup_closed_contact')}</p>
+          </div>
+          <p className="auth-subtitle" style={{ textAlign: 'center' }}>
+            <a href="/auth/signin" onClick={(e) => { e.preventDefault(); navigate('/auth/signin'); }}>
+              {t('auth.back_to_login')}
+            </a>
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (

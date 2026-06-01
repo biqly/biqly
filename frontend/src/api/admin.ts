@@ -11,6 +11,7 @@ import type {
   AuthUser,
   UserRoleInfo,
   ResourceShare,
+  PlatformSettings,
 } from '../types/auth'
 import { normalizeAuthUser } from './auth'
 import { apiFetch } from './apiClient'
@@ -415,6 +416,22 @@ export async function deleteSecurityPolicyByKeys(
     'DELETE',
     `/api/permissions/keys?user_id=${encodeURIComponent(userID)}&datasource_id=${encodeURIComponent(datasourceID)}`,
     undefined,
+    { token },
+  )
+}
+
+export async function getPlatformSettings(token: string): Promise<PlatformSettings> {
+  return apiFetch<PlatformSettings>('GET', `${AUTH_API_BASE}/admin/platform-settings`, undefined, { token })
+}
+
+export async function updatePlatformSettings(
+  token: string,
+  selfSignupEnabled: boolean,
+): Promise<PlatformSettings> {
+  return apiFetch<PlatformSettings>(
+    'PUT',
+    `${AUTH_API_BASE}/admin/platform-settings`,
+    { self_signup_enabled: selfSignupEnabled },
     { token },
   )
 }

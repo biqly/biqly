@@ -17,6 +17,7 @@ const SharedResourcesList = lazy(() => import('../sharing/SharedResourcesList').
 const AIProvidersPanel = lazy(() => import('./AIProvidersPanel').then(m => ({ default: m.AIProvidersPanel })))
 const RowLevelSecurityPanel = lazy(() => import('./RowLevelSecurityPanel').then(m => ({ default: m.RowLevelSecurityPanel })))
 const FieldPermissionPanel = lazy(() => import('./FieldPermissionPanel').then(m => ({ default: m.FieldPermissionPanel })))
+const PlatformSettingsPanel = lazy(() => import('./PlatformSettingsPanel').then(m => ({ default: m.PlatformSettingsPanel })))
 
 const pendingStyle: React.CSSProperties = { padding: 24 }
 
@@ -74,6 +75,7 @@ export default function Admin() {
           {tab === 'ai_providers' && <AIProvidersPanel />}
           {tab === 'row_level_security' && <RowLevelSecurityPanel token={accessToken} />}
           {tab === 'field_permissions' && <FieldPermissionPanel token={accessToken} />}
+          {tab === 'platform_settings' && <PlatformSettingsPanel token={accessToken} />}
         </Suspense>
       </div>
     </div>

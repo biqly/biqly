@@ -25,6 +25,13 @@ export interface PasswordPolicy {
   require_digit: boolean
   require_special: boolean
   min_score: number
+  self_signup_enabled?: boolean
+}
+
+export interface PlatformSettings {
+  self_signup_enabled: boolean
+  updated_at?: string
+  updated_by?: string
 }
 
 export interface TokenResponse {

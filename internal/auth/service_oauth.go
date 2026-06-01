@@ -24,6 +24,15 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, provider string,
 	var user *User
 
 	if errors.Is(err, ErrOAuthAccountNotFound) {
+		enabled, signupErr := s.SelfSignupEnabled(ctx)
+		if signupErr != nil {
+			MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()
+			return nil, signupErr
+		}
+		if !enabled {
+			MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()
+			return nil, ErrSelfSignupDisabled
+		}
 		user, err = s.userRepo.CreateUserWithOAuth(ctx, email, displayName, provider, userInfo.Sub, token)
 		if err != nil {
 			MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()

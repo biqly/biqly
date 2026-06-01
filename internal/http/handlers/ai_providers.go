@@ -19,6 +19,7 @@ type providerStoreAPI interface {
 	UpdateProvider(ctx context.Context, id string, in ai.UpdateProviderInput) error
 	DeleteProvider(ctx context.Context, id string) error
 	TestConnection(ctx context.Context, providerID, modelID string) (ai.ConnectionTestResult, error)
+	ListRemoteModels(ctx context.Context, providerID string) ([]ai.RemoteModelOption, error)
 	ListModels(ctx context.Context, providerID, purpose string) ([]ai.ModelRow, error)
 	ActiveModels(ctx context.Context) ([]ai.ModelRow, error)
 	CreateModel(ctx context.Context, in ai.CreateModelInput) (string, error)
@@ -267,6 +268,30 @@ func (h *AIProvidersHandler) TestProvider(w http.ResponseWriter, r *http.Request
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+// ListProviderRemoteModels returns model ids from the provider's upstream API.
+func (h *AIProvidersHandler) ListProviderRemoteModels(w http.ResponseWriter, r *http.Request) {
+	if !h.ready(w) {
+		return
+	}
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
+	models, err := h.store.ListRemoteModels(r.Context(), id)
+	if errors.Is(err, ai.ErrProviderNotFound) {
+		writeEntityNotFound(w, "provider")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	if models == nil {
+		models = []ai.RemoteModelOption{}
+	}
+	writeJSON(w, http.StatusOK, models)
 }
 
 // ----- models ----------------------------------------------------------------

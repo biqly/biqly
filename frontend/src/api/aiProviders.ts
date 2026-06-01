@@ -50,6 +50,11 @@ export interface ConnectionTestResult {
   model?: string
 }
 
+export interface RemoteModelOption {
+  id: string
+  owned_by?: string
+}
+
 export interface CreateProviderPayload {
   name: string
   provider_type: AIProviderType
@@ -110,6 +115,9 @@ export const deleteProvider = (id: string) =>
 
 export const testProvider = (id: string, modelID?: string) =>
   apiFetch<ConnectionTestResult>('POST', `${AI_API_BASE}/providers/${id}/test`, { model_id: modelID ?? '' }, adminOpts)
+
+export const listProviderRemoteModels = (providerID: string) =>
+  apiFetch<RemoteModelOption[]>('GET', `${AI_API_BASE}/providers/${providerID}/remote-models`, undefined, adminOpts)
 
 export const listActiveModels = () =>
   apiFetch<AIModel[]>('GET', `${AI_API_BASE}/providers/active-models`, undefined, adminOpts)

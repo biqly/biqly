@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useT } from '../../i18n'
 import { useToast } from '../../hooks/useToast'
 import { useConfirm } from '../../hooks/useConfirm'
@@ -17,11 +17,13 @@ import {
   deleteProvider,
   listActiveModels,
   listModels,
+  listProviderRemoteModels,
   listProviders,
   setDefaultModel,
   testProvider,
   updateModel,
   updateProvider,
+  type RemoteModelOption,
 } from '../../api/aiProviders'
 
 const PROVIDER_TYPES: AIProviderType[] = ['openai', 'openai-compatible', 'anthropic']
@@ -295,7 +297,7 @@ export function AIProvidersPanel() {
 
       {modelModalOpen && selectedProvider && (
         <ModelModal
-          providerID={selectedProvider.id}
+          provider={selectedProvider}
           model={editingModel}
           onClose={() => { setModelModalOpen(false); setEditingModel(null) }}
           onSaved={onModelSaved}
@@ -479,9 +481,9 @@ function ProviderModal({
 }
 
 function ModelModal({
-  providerID, model, onClose, onSaved,
+  provider, model, onClose, onSaved,
 }: {
-  providerID: string
+  provider: AIProvider
   model: AIModel | null
   onClose: () => void
   onSaved: () => void
@@ -497,6 +499,52 @@ function ModelModal({
   const [maxPromptRunes, setMaxPromptRunes] = useState(model?.max_prompt_input_runes ?? 80000)
   const [isDefault, setIsDefault] = useState(model?.is_default ?? false)
   const [saving, setSaving] = useState(false)
+  const [remoteModels, setRemoteModels] = useState<RemoteModelOption[]>([])
+  const [loadingRemote, setLoadingRemote] = useState(false)
+  const [remoteError, setRemoteError] = useState<string | null>(null)
+  const [useManualModelID, setUseManualModelID] = useState(false)
+
+  const fetchRemoteModels = useCallback(async () => {
+    setLoadingRemote(true)
+    setRemoteError(null)
+    try {
+      const rows = await listProviderRemoteModels(provider.id)
+      setRemoteModels(rows ?? [])
+      if ((rows?.length ?? 0) === 0) {
+        setRemoteError(t('admin.ai_providers.fields.remote_models_failed'))
+        setUseManualModelID(true)
+      }
+    } catch (e) {
+      setRemoteModels([])
+      setRemoteError(e instanceof Error ? e.message : String(e))
+      setUseManualModelID(true)
+    } finally {
+      setLoadingRemote(false)
+    }
+  }, [provider.id, t])
+
+  useEffect(() => {
+    void fetchRemoteModels()
+  }, [fetchRemoteModels])
+
+  const remoteModelOptions = useMemo(() => {
+    const opts = remoteModels.map((m) => ({
+      value: m.id,
+      label: m.owned_by ? `${m.id} · ${m.owned_by}` : m.id,
+    }))
+    const cur = modelID.trim()
+    if (cur && !opts.some((o) => o.value === cur)) {
+      opts.unshift({ value: cur, label: cur })
+    }
+    return opts
+  }, [remoteModels, modelID])
+
+  const pickModelID = (next: string) => {
+    setModelID(next)
+    if (!displayName.trim() && next.trim()) {
+      setDisplayName(next.trim())
+    }
+  }
 
   const save = async () => {
     if (!modelID.trim()) { toast.error(t('admin.ai_providers.fields.model_id')); return }
@@ -509,7 +557,7 @@ function ModelModal({
         })
       } else {
         await createModel({
-          provider_id: providerID, model_id: modelID, display_name: displayName || modelID,
+          provider_id: provider.id, model_id: modelID, display_name: displayName || modelID,
           purpose, max_tokens: maxTokens, temperature, max_prompt_input_runes: maxPromptRunes,
           is_default: isDefault,
         })
@@ -527,7 +575,67 @@ function ModelModal({
     <Modal open title={editing ? t('admin.ai_providers.edit_model') : t('admin.ai_providers.add_model')} onClose={onClose}>
       <div style={formStyle}>
         <Field label={t('admin.ai_providers.fields.model_id')}>
-          <input style={inputStyle} value={modelID} onChange={(e) => setModelID(e.target.value)} autoFocus placeholder="gpt-4o" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+              {remoteModels.length > 0 && !useManualModelID ? (
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Select
+                    value={modelID}
+                    onChange={pickModelID}
+                    options={remoteModelOptions}
+                    placeholder={t('admin.ai_providers.fields.model_id')}
+                  />
+                </div>
+              ) : (
+                <input
+                  style={{ ...inputStyle, flex: 1 }}
+                  value={modelID}
+                  onChange={(e) => pickModelID(e.target.value)}
+                  autoFocus
+                  placeholder="gpt-4o"
+                  list={remoteModels.length > 0 ? `remote-models-${provider.id}` : undefined}
+                />
+              )}
+              <button
+                type="button"
+                style={{ ...secondaryBtn, flexShrink: 0, alignSelf: 'stretch' }}
+                disabled={loadingRemote}
+                onClick={() => void fetchRemoteModels()}
+              >
+                {loadingRemote ? t('admin.ai_providers.fields.fetching_remote_models') : t('admin.ai_providers.fields.fetch_remote_models')}
+              </button>
+            </div>
+            {remoteModels.length > 0 && !remoteError && (
+              <small className="form-hint" style={{ margin: 0 }}>
+                {t('admin.ai_providers.fields.remote_models_count', { count: remoteModels.length })}
+                {' · '}
+                <button
+                  type="button"
+                  style={{ ...linkBtn, padding: 0, fontSize: 'inherit' }}
+                  onClick={() => setUseManualModelID((v) => !v)}
+                >
+                  {useManualModelID
+                    ? t('admin.ai_providers.fields.pick_from_list')
+                    : t('admin.ai_providers.fields.enter_model_manually')}
+                </button>
+              </small>
+            )}
+            {remoteModels.length > 0 && useManualModelID && (
+              <datalist id={`remote-models-${provider.id}`}>
+                {remoteModels.map((m) => (
+                  <option key={m.id} value={m.id} label={m.owned_by} />
+                ))}
+              </datalist>
+            )}
+            {remoteError && (
+              <small className="form-hint form-hint--warning" style={{ margin: 0 }}>
+                {remoteError}
+              </small>
+            )}
+            <small className="form-hint" style={{ margin: 0 }}>
+              {t('admin.ai_providers.fields.model_id_hint')}
+            </small>
+          </div>
         </Field>
         <Field label={t('admin.ai_providers.fields.display_name')}>
           <input style={inputStyle} value={displayName} onChange={(e) => setDisplayName(e.target.value)} />

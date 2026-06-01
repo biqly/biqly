@@ -135,6 +135,8 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 		r.Get("/admin/invitations", h.handleAdminListInvitations)
 		r.Delete("/admin/invitations/{id}", h.handleAdminRevokeInvitation)
 		r.Post("/admin/invitations/{id}/resend", h.handleAdminResendInvitation)
+		r.Get("/admin/platform-settings", h.handleAdminGetPlatformSettings)
+		r.Put("/admin/platform-settings", h.handleAdminUpdatePlatformSettings)
 		r.Post("/admin/users/{id}/resend-verification", h.handleAdminResendUserVerification)
 		h.RegisterAccountSelfRoutes(r)
 	})
@@ -158,6 +160,10 @@ func (h *AuthHandler) handleRegister(w http.ResponseWriter, r *http.Request) {
 	ip := r.RemoteAddr
 	ua := r.UserAgent()
 	resp, err := h.service.Register(r.Context(), req, &ua, &ip)
+	if errors.Is(err, auth.ErrSelfSignupDisabled) {
+		h.respondError(w, http.StatusForbidden, err.Error())
+		return
+	}
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, err.Error())
 		return
@@ -489,6 +495,10 @@ func (h *AuthHandler) handleOAuthCallback(w http.ResponseWriter, r *http.Request
 	ua := r.UserAgent()
 	ip := r.RemoteAddr
 	resp, err := h.service.LoginOrRegisterOAuth(r.Context(), providerName, token, userInfo, &ua, &ip)
+	if errors.Is(err, auth.ErrSelfSignupDisabled) {
+		h.respondError(w, http.StatusForbidden, err.Error())
+		return
+	}
 	if err != nil {
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return

@@ -94,6 +94,8 @@ func main() {
 	}
 
 	authSvc := biqauth.NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, cfg, redisClient, emailSender)
+	platformSettingsRepo := biqauth.NewPlatformSettingsRepository(db)
+	authSvc.SetPlatformSettingsRepository(platformSettingsRepo)
 	webAuthnSvc, err := mfa.NewWebAuthnService(cfg, userRepo)
 	if err != nil {
 		slog.Error("initialize webauthn", "err", err)

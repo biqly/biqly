@@ -11,6 +11,7 @@ export type AdminTab =
   | 'ai_providers'
   | 'row_level_security'
   | 'field_permissions'
+  | 'platform_settings'
 
 export const ADMIN_TAB_LABEL_KEYS = {
   users: 'admin.tabs.users',
@@ -23,6 +24,7 @@ export const ADMIN_TAB_LABEL_KEYS = {
   ai_providers: 'admin.tabs.ai_providers',
   row_level_security: 'admin.tabs.row_level_security',
   field_permissions: 'admin.tabs.field_permissions',
+  platform_settings: 'admin.tabs.platform_settings',
 } as const satisfies Record<AdminTab, TranslationKey>
 
 export const ADMIN_NAV_GROUPS: { id: string; labelKey: TranslationKey; tabs: AdminTab[] }[] = [
@@ -44,7 +46,7 @@ export const ADMIN_NAV_GROUPS: { id: string; labelKey: TranslationKey; tabs: Adm
   {
     id: 'compliance',
     labelKey: 'admin.nav.compliance',
-    tabs: ['audit_log'],
+    tabs: ['audit_log', 'platform_settings'],
   },
 ]
 

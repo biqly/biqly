@@ -28,6 +28,8 @@ type fakeProviderStore struct {
 	createProviderID string
 	createModelID    string
 	testResult       ai.ConnectionTestResult
+	remoteModels     []ai.RemoteModelOption
+	remoteModelsErr  error
 	setDefaultErr    error
 	updateErr        error
 }
@@ -53,6 +55,12 @@ func (f *fakeProviderStore) UpdateProvider(context.Context, string, ai.UpdatePro
 func (f *fakeProviderStore) DeleteProvider(context.Context, string) error { return f.deleteErr }
 func (f *fakeProviderStore) TestConnection(context.Context, string, string) (ai.ConnectionTestResult, error) {
 	return f.testResult, nil
+}
+func (f *fakeProviderStore) ListRemoteModels(context.Context, string) ([]ai.RemoteModelOption, error) {
+	if f.remoteModelsErr != nil {
+		return nil, f.remoteModelsErr
+	}
+	return f.remoteModels, nil
 }
 func (f *fakeProviderStore) ListModels(context.Context, string, string) ([]ai.ModelRow, error) {
 	return f.models, nil
@@ -88,6 +96,7 @@ func newTestRouter(store providerStoreAPI) *chi.Mux {
 	r.Put("/ai/providers/{id}", h.UpdateProvider)
 	r.Delete("/ai/providers/{id}", h.DeleteProvider)
 	r.Post("/ai/providers/{id}/test", h.TestProvider)
+	r.Get("/ai/providers/{id}/remote-models", h.ListProviderRemoteModels)
 	r.Get("/ai/models", h.ListModels)
 	r.Post("/ai/models", h.CreateModel)
 	r.Put("/ai/models/{id}", h.UpdateModel)

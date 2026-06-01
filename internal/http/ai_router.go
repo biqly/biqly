@@ -119,6 +119,7 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 		r.Put("/ai/providers/{id}", providersHandler.UpdateProvider)
 		r.Delete("/ai/providers/{id}", providersHandler.DeleteProvider)
 		r.Post("/ai/providers/{id}/test", providersHandler.TestProvider)
+		r.Get("/ai/providers/{id}/remote-models", providersHandler.ListProviderRemoteModels)
 		r.Get("/ai/models", providersHandler.ListModels)
 		r.Post("/ai/models", providersHandler.CreateModel)
 		r.Put("/ai/models/{id}", providersHandler.UpdateModel)

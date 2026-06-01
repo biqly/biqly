@@ -793,6 +793,32 @@ type ConnectionTestResult struct {
 	Model     string `json:"model,omitempty"`
 }
 
+// ListRemoteModels fetches model ids from the provider's upstream catalog API.
+func (s *ProviderStore) ListRemoteModels(ctx context.Context, providerID string) ([]RemoteModelOption, error) {
+	prov, err := s.GetProvider(ctx, providerID)
+	if err != nil {
+		return nil, err
+	}
+
+	var encKey sql.NullString
+	if err := s.db.QueryRowContext(ctx, `SELECT api_key_encrypted FROM ai_providers WHERE id = $1::uuid`, providerID).Scan(&encKey); err != nil {
+		return nil, fmt.Errorf("load provider api key: %w", err)
+	}
+	apiKey := ""
+	if encKey.Valid {
+		apiKey = s.decrypt(encKey.String)
+	}
+
+	timeout := time.Duration(prov.HTTPTimeoutSeconds) * time.Second
+	if timeout <= 0 {
+		timeout = defaultRemoteModelsTimeout
+	}
+	if timeout > 60*time.Second {
+		timeout = 60 * time.Second
+	}
+	return ListRemoteModelsFromEndpoint(ctx, prov.ProviderType, prov.BaseURL, apiKey, timeout)
+}
+
 // TestConnection sends a tiny prompt to the provider using modelID (or the
 // provider's first configured model) and reports latency or the error.
 func (s *ProviderStore) TestConnection(ctx context.Context, providerID, modelID string) (ConnectionTestResult, error) {
