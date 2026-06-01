@@ -326,16 +326,18 @@ export default function Settings() {
               </button>
             </div>
 
-            <PasskeyTable
-              passkeys={passkeys}
-              loading={loading}
-              locale={locale}
-              onRename={(passkey) => {
-                setRenameTarget(passkey)
-                setRenamingName(passkey.name)
-              }}
-              onDelete={setDeleteTarget}
-            />
+            <div className="settings-passkeys-scroll-wrapper">
+              <PasskeyTable
+                passkeys={passkeys}
+                loading={loading}
+                locale={locale}
+                onRename={(passkey) => {
+                  setRenameTarget(passkey)
+                  setRenamingName(passkey.name)
+                }}
+                onDelete={setDeleteTarget}
+              />
+            </div>
           </section>
         </div>
       </section>

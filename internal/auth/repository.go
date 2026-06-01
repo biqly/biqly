@@ -280,6 +280,28 @@ func (r *UserRepository) UpdateUserDisplayName(ctx context.Context, userID, disp
 	return nil
 }
 
+func (r *UserRepository) UpdateUserAvatarURL(ctx context.Context, userID string, avatarURL *string) error {
+	var val any
+	if avatarURL != nil && *avatarURL != "" {
+		val = *avatarURL
+	}
+	res, err := r.db.ExecContext(ctx,
+		`UPDATE users SET avatar_url = $1, updated_at = NOW() WHERE id = $2`,
+		val, userID,
+	)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
 func (r *UserRepository) GetPersonalWorkspaceID(ctx context.Context, userID string) (string, error) {
 	var id string
 	err := r.db.QueryRowContext(ctx, "SELECT id FROM workspaces WHERE created_by = $1 AND is_personal = TRUE LIMIT 1", userID).Scan(&id)

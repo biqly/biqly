@@ -185,7 +185,7 @@
 
 /* Settings: per-purpose model preferences */
 .ai-model-prefs.settings-security-card .settings-prefs-card__header {
-  margin-bottom: 0;
+  margin-bottom: 1.25rem;
   padding-bottom: 0;
   border-bottom: none;
 }
@@ -199,7 +199,7 @@
 }
 
 .ai-model-prefs__body {
-  padding: 0 16px 16px;
+  padding: 0;
 }
 
 .ai-model-prefs__grid {
@@ -288,7 +288,7 @@
 .ai-model-prefs__footer {
   display: flex;
   justify-content: flex-end;
-  padding: 12px 16px 0;
-  margin-top: 4px;
+  padding: 1.25rem 0 0;
+  margin-top: 1.25rem;
   border-top: 1px solid var(--border, rgba(255, 255, 255, 0.06));
 }

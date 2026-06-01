@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState, type SubmitEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useState, useRef, type SubmitEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useT } from '../../i18n'
 import { useAuth } from '../auth/AuthProvider'
 import {
@@ -9,17 +9,22 @@ import {
   apiUpdateProfile,
 } from '../../api/auth'
 import PasswordStrengthMeter from '../auth/PasswordStrengthMeter'
+import { AvatarCropModal } from './AvatarCropModal'
 
 type ProfileMessage = { type: 'success' | 'error'; text: string }
 
 export function AccountProfileSection() {
   const t = useT()
-  const { user, accessToken, roles, refreshUser } = useAuth()
+  const navigate = useNavigate()
+  const { user, accessToken, roles, refreshUser, logout } = useAuth()
   const isSuperAdmin = roles.includes('super_admin')
 
   const [displayName, setDisplayName] = useState('')
   const [profileSaving, setProfileSaving] = useState(false)
   const [profileMessage, setProfileMessage] = useState<ProfileMessage | null>(null)
+
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [newEmail, setNewEmail] = useState('')
   const [emailSaving, setEmailSaving] = useState(false)
@@ -53,6 +58,56 @@ export function AccountProfileSection() {
     setProfileMessage(null)
     try {
       await apiUpdateProfile(accessToken, displayName.trim())
+      await refreshUser()
+      setProfileMessage({ type: 'success', text: t('settings.profile_saved') })
+    } catch (err: unknown) {
+      setProfileMessage({ type: 'error', text: err instanceof Error ? err.message : t('common.error') })
+    } finally {
+      setProfileSaving(false)
+    }
+  }
+
+  const handleAvatarClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+      fileInputRef.current.click()
+    }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setCropImageSrc(reader.result)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleCropSave = async (croppedBase64: string) => {
+    setCropImageSrc(null)
+    if (!accessToken || profileSaving) return
+    setProfileSaving(true)
+    setProfileMessage(null)
+    try {
+      await apiUpdateProfile(accessToken, displayName.trim(), croppedBase64)
+      await refreshUser()
+      setProfileMessage({ type: 'success', text: t('settings.profile_saved') })
+    } catch (err: unknown) {
+      setProfileMessage({ type: 'error', text: err instanceof Error ? err.message : t('common.error') })
+    } finally {
+      setProfileSaving(false)
+    }
+  }
+
+  const handleAvatarRemove = async () => {
+    if (!accessToken || profileSaving) return
+    setProfileSaving(true)
+    setProfileMessage(null)
+    try {
+      await apiUpdateProfile(accessToken, displayName.trim(), '')
       await refreshUser()
       setProfileMessage({ type: 'success', text: t('settings.profile_saved') })
     } catch (err: unknown) {
@@ -127,8 +182,39 @@ export function AccountProfileSection() {
     <>
       <section className="card card--elevated settings-profile-card" aria-labelledby="settings-profile-heading">
         <div className="settings-profile-card__hero">
-          <div className="settings-profile-avatar" aria-hidden>
-            {initials}
+          <div className="settings-profile-avatar-container">
+            <button
+              type="button"
+              className="settings-profile-avatar-button"
+              onClick={handleAvatarClick}
+              title={t('settings.profile_picture_change')}
+            >
+              {user.avatarUrl ? (
+                <img src={user.avatarUrl} alt="" className="settings-profile-avatar-img" />
+              ) : (
+                <span className="settings-profile-avatar-initials">{initials}</span>
+              )}
+              <div className="settings-profile-avatar-overlay">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-camera"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+              </div>
+            </button>
+            {user.avatarUrl && (
+              <button
+                type="button"
+                className="settings-profile-avatar-remove"
+                onClick={handleAvatarRemove}
+                title={t('settings.profile_picture_remove')}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+              </button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleFileChange}
+            />
           </div>
           <div>
             <h2 id="settings-profile-heading" className="settings-profile-card__title">
@@ -247,7 +333,15 @@ export function AccountProfileSection() {
                 >
                   {passwordSaving ? '...' : t('settings.profile_password_save')}
                 </button>
-                <Link to="/auth/forgot-password" className="settings-profile-link">
+                <Link
+                  to="/auth/forgot-password"
+                  className="settings-profile-link"
+                  onClick={async (e) => {
+                    e.preventDefault()
+                    await logout()
+                    navigate('/auth/forgot-password')
+                  }}
+                >
                   {t('settings.profile_forgot_password')}
                 </Link>
               </div>
@@ -292,6 +386,14 @@ export function AccountProfileSection() {
             )}
           </div>
         </section>
+      )}
+
+      {cropImageSrc && (
+        <AvatarCropModal
+          imageSrc={cropImageSrc}
+          onClose={() => setCropImageSrc(null)}
+          onSave={handleCropSave}
+        />
       )}
     </>
   )

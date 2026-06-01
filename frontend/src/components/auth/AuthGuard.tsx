@@ -52,3 +52,30 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   return <>{children}</>
 }
+
+export function GuestGuard({ children }: AuthGuardProps) {
+  const { user, loading } = useAuth()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!loading && user) {
+      navigate('/')
+    }
+  }, [user, loading, navigate])
+
+  if (loading) {
+    return (
+      <div className="auth-page">
+        <div className="auth-card">
+          <LoadingScreen minHeight="auto" variant="center" label="Loading session…" />
+        </div>
+      </div>
+    )
+  }
+
+  if (user) {
+    return null
+  }
+
+  return <>{children}</>
+}

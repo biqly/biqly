@@ -97,7 +97,8 @@ type AdminUserListRow struct {
 }
 
 type UpdateProfileRequest struct {
-	DisplayName string `json:"display_name"`
+	DisplayName string  `json:"display_name"`
+	AvatarURL   *string `json:"avatar_url,omitempty"`
 }
 
 type ChangePasswordRequest struct {

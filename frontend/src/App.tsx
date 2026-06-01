@@ -35,7 +35,7 @@ const VerifyEmailPage = lazy(() => import('./components/auth/VerifyEmailPage'))
 const OAuthCallback = lazy(() => import('./components/auth/OAuthCallback'))
 const ClaimInvitePage = lazy(() => import('./components/auth/ClaimInvitePage'))
 
-import { AuthGuard } from './components/auth/AuthGuard'
+import { AuthGuard, GuestGuard } from './components/auth/AuthGuard'
 import { useAuth } from './components/auth/AuthProvider'
 import { WorkspaceSelector } from './components/workspaces/WorkspaceSelector'
 import { useUrlSearch } from './hooks/useQueryParam'
@@ -589,7 +589,15 @@ function App() {
 
   return (
     <Routes>
-      <Route element={<LocaleSection name="auth" fallback={<AuthLoading />}><Outlet /></LocaleSection>}>
+      <Route
+        element={
+          <GuestGuard>
+            <LocaleSection name="auth" fallback={<AuthLoading />}>
+              <Outlet />
+            </LocaleSection>
+          </GuestGuard>
+        }
+      >
         <Route path="/auth/signin" element={<Suspense fallback={<AuthLoading />}><SignInPage /></Suspense>} />
         <Route path="/auth/signup" element={<Suspense fallback={<AuthLoading />}><SignUpPage /></Suspense>} />
         <Route path="/auth/forgot-password" element={<Suspense fallback={<AuthLoading />}><ForgotPasswordPage /></Suspense>} />

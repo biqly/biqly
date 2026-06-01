@@ -12,6 +12,11 @@ func (s *AuthService) UpdateProfile(ctx context.Context, userID string, req Upda
 	if err := s.userRepo.UpdateUserDisplayName(ctx, userID, displayName); err != nil {
 		return nil, err
 	}
+	if req.AvatarURL != nil {
+		if err := s.userRepo.UpdateUserAvatarURL(ctx, userID, req.AvatarURL); err != nil {
+			return nil, err
+		}
+	}
 	return s.GetMe(ctx, userID)
 }
 

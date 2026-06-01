@@ -90,8 +90,8 @@ export async function apiGetMe(accessToken: string): Promise<AuthUser> {
   return normalizeAuthUser(data)
 }
 
-export async function apiUpdateProfile(accessToken: string, displayName: string): Promise<AuthUser> {
-  const data = await apiFetch<any>('PATCH', `${AUTH_API_BASE}/me/profile`, { display_name: displayName }, { token: accessToken })
+export async function apiUpdateProfile(accessToken: string, displayName: string, avatarUrl?: string): Promise<AuthUser> {
+  const data = await apiFetch<any>('PATCH', `${AUTH_API_BASE}/me/profile`, { display_name: displayName, avatar_url: avatarUrl }, { token: accessToken })
   return normalizeAuthUser(data)
 }
 
