@@ -184,6 +184,7 @@ export const admin: AdminDictionary = {
     col_latency: 'Ort. gecikme',
     empty: 'Bu dönemde AI kullanımı yok.',
     anonymous: 'Bilinmeyen kullanıcı',
+    row_count: '{{count}} satır',
   },
   ai_history: {
     title: 'AI Sorgu Geçmişi',

@@ -182,6 +182,7 @@ export const admin = {
     col_latency: 'Avg latency',
     empty: 'No AI usage in this period.',
     anonymous: 'Unknown user',
+    row_count: '{{count}} rows',
   },
   ai_history: {
     title: 'AI Query History',

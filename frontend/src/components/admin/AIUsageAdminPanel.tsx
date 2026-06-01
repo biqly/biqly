@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useApi } from '../../hooks/useApi'
-import { useAuth } from '../auth/AuthProvider'
 import { useAdminLookups } from '../../hooks/useAdminLookups'
 import { useT } from '../../i18n'
-import { LoadingOverlay } from '../ui/LoadingOverlay'
+import { useAuth } from '../auth/AuthProvider'
 import { KPICard } from '../ui/KPICard'
+import { LoadingOverlay } from '../ui/LoadingOverlay'
+import { Pagination } from '../ui/Pagination'
+import { Select } from '../ui/Select'
+import { numberSelectOptions } from './adminSelectOptions'
+
+const DEFAULT_PAGE_SIZE = 25
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 
 interface AIUsageTotals {
   query_count: number
@@ -50,6 +56,26 @@ export function AIUsageAdminPanel() {
   const [rows, setRows] = useState<AIUsageBreakdownRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
+
+  const periodOptions = useMemo(
+    () => [
+      { value: '7', label: t('admin.ai_usage.days_7') },
+      { value: '30', label: t('admin.ai_usage.days_30') },
+      { value: '90', label: t('admin.ai_usage.days_90') },
+    ],
+    [t],
+  )
+  const pageSizeOptions = useMemo(() => numberSelectOptions(PAGE_SIZE_OPTIONS), [])
+
+  const totalItems = rows.length
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
+
+  const pageRows = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return rows.slice(start, start + pageSize)
+  }, [rows, currentPage, pageSize])
 
   const userLabelByID = useMemo(() => {
     const map = new Map<string, string>()
@@ -83,6 +109,16 @@ export function AIUsageAdminPanel() {
     }
   }, [days, get])
 
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [days])
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
+
   const thStyle: React.CSSProperties = {
     textAlign: 'left',
     padding: '0.6rem 0.75rem',
@@ -107,19 +143,34 @@ export function AIUsageAdminPanel() {
             {t('admin.ai_usage.description')}
           </p>
         </div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem' }}>
-          <span>{t('admin.ai_usage.period')}</span>
-          <select
-            className="input"
-            value={days}
-            onChange={(e) => setDays(Number(e.target.value))}
-            style={{ minWidth: 120 }}
-          >
-            <option value={7}>{t('admin.ai_usage.days_7')}</option>
-            <option value={30}>{t('admin.ai_usage.days_30')}</option>
-            <option value={90}>{t('admin.ai_usage.days_90')}</option>
-          </select>
-        </label>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          {totalItems > 0 && (
+            <span style={{ fontSize: 13, color: 'var(--text-secondary, #a1a1aa)' }}>
+              {t('admin.ai_usage.row_count', { count: totalItems })}
+            </span>
+          )}
+          <label className="admin-form-label" style={{ gap: 4, minWidth: 160 }}>
+            <span className="admin-label-text">{t('admin.ai_usage.period')}</span>
+            <Select
+              value={String(days)}
+              options={periodOptions}
+              onChange={(v) => setDays(Number(v))}
+              size="sm"
+            />
+          </label>
+          <label className="admin-form-label" style={{ gap: 4, minWidth: 120 }}>
+            <span className="admin-label-text">{t('admin.audit.page_size')}</span>
+            <Select
+              value={String(pageSize)}
+              options={pageSizeOptions}
+              onChange={(v) => {
+                setPageSize(Number(v))
+                setCurrentPage(1)
+              }}
+              size="sm"
+            />
+          </label>
+        </div>
       </div>
 
       {error && (
@@ -140,7 +191,7 @@ export function AIUsageAdminPanel() {
           </div>
         )}
 
-        <div className="ai-history__table-wrap">
+        <div className="ai-history__table-wrap admin-table-container">
           <table className="ai-history__table" style={{ borderCollapse: 'collapse', width: '100%' }}>
             <thead>
               <tr>
@@ -160,7 +211,7 @@ export function AIUsageAdminPanel() {
                   </td>
                 </tr>
               ) : (
-                rows.map((row) => {
+                pageRows.map((row) => {
                   const userLabel = row.user_id
                     ? userLabelByID.get(row.user_id) || row.user_id
                     : t('admin.ai_usage.anonymous')
@@ -185,6 +236,16 @@ export function AIUsageAdminPanel() {
               )}
             </tbody>
           </table>
+          {rows.length > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={totalItems}
+              itemsPerPage={pageSize}
+              alwaysShow
+            />
+          )}
         </div>
       </div>
     </div>
