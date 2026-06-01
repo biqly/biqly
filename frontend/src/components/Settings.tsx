@@ -21,6 +21,7 @@ import { usePasskeyRegistration } from '../hooks/usePasskeyRegistration'
 import { MFASection, type MFAStatus } from './settings/MFASection'
 import { OTPCodeInput } from './settings/OTPCodeInput'
 import { PasskeyTable } from './settings/PasskeyTable'
+import { SettingsLinkCard } from './settings/SettingsLinkCard'
 import { RecoveryCodesDisplay } from './settings/RecoveryCodesDisplay'
 
 export default function Settings() {
@@ -260,107 +261,106 @@ export default function Settings() {
   }
 
   return (
-    <div className="page-stack">
-      <section className="card card--elevated settings-prefs-card">
-        <div className="card-intro card-intro--compact">
-          <h2>{t('settings.prompt_templates_section')}</h2>
-          <p className="card-lead card-lead--single-line" title={t('settings.prompt_templates_hint')}>
-            {t('settings.prompt_templates_hint')}
-          </p>
+    <div className="settings-page page-stack">
+      {(error || successMessage) && (
+        <div className="settings-alerts">
+          {error && (
+            <div className="card-lead-margin" style={{ margin: 0 }}>
+              <ErrorAlert error={error} />
+            </div>
+          )}
+          {successMessage && (
+            <div className="admin-alert-success">
+              <div>🎉 {successMessage}</div>
+              <button
+                type="button"
+                className="admin-alert-close-btn"
+                onClick={() => setSuccessMessage(null)}
+              >
+                ×
+              </button>
+            </div>
+          )}
         </div>
-        <div className="settings-control-row">
-          <button type="button" className="btn btn-primary" onClick={() => goTo('/prompt-templates')}>
-            {t('settings.prompt_templates_open')}
-          </button>
+      )}
+
+      <section className="settings-section-group" aria-labelledby="settings-security-heading">
+        <h2 id="settings-security-heading" className="settings-section-group__title">
+          {t('settings.security_group')}
+        </h2>
+        <div className="settings-security-grid">
+          <MFASection
+            className="settings-security-card"
+            status={mfaStatus}
+            recoveryCodes={mfaNewRecoveryCodes}
+            onEnable={handleMFAEnrollStart}
+            onDisable={openMFADisableModal}
+            onRegenerate={openMFARegenModal}
+          />
+
+          <section className="card card--elevated settings-prefs-card settings-security-card" aria-labelledby="passkeys-heading">
+            <div className="settings-prefs-card__header">
+              <div>
+                <h2 id="passkeys-heading">{t('passkeys.title')}</h2>
+                <p>{t('passkeys.subtitle')}</p>
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm btn-auto-width"
+                onClick={openAddModal}
+              >
+                🔒 {t('passkeys.add_btn')}
+              </button>
+            </div>
+
+            <PasskeyTable
+              passkeys={passkeys}
+              loading={loading}
+              locale={locale}
+              onRename={(passkey) => {
+                setRenameTarget(passkey)
+                setRenamingName(passkey.name)
+              }}
+              onDelete={setDeleteTarget}
+            />
+          </section>
         </div>
       </section>
 
-      <section className="card card--elevated settings-prefs-card">
-        <div className="card-intro card-intro--compact">
-          <h2>{t('settings.time_grains_section')}</h2>
-          <p className="card-lead card-lead--single-line" title={t('settings.time_grains_hint')}>
-            {t('settings.time_grains_hint')}
-          </p>
-        </div>
-        <div className="settings-control-row">
-          <button type="button" className="btn btn-primary" onClick={() => goTo('/time-grains')}>
-            {t('settings.time_grains_open')}
-          </button>
+      <section className="settings-section-group" aria-labelledby="settings-config-heading">
+        <h2 id="settings-config-heading" className="settings-section-group__title">
+          {t('settings.configuration_group')}
+        </h2>
+        <div className="settings-link-grid">
+          <SettingsLinkCard
+            title={t('settings.prompt_templates_section')}
+            description={t('settings.prompt_templates_hint')}
+            action={
+              <button type="button" className="btn btn-primary" onClick={() => goTo('/prompt-templates')}>
+                {t('settings.prompt_templates_open')}
+              </button>
+            }
+          />
+          <SettingsLinkCard
+            title={t('settings.time_grains_section')}
+            description={t('settings.time_grains_hint')}
+            action={
+              <button type="button" className="btn btn-primary" onClick={() => goTo('/time-grains')}>
+                {t('settings.time_grains_open')}
+              </button>
+            }
+          />
+          <SettingsLinkCard
+            title={t('settings.ai_config_section')}
+            description={t('settings.ai_config_hint')}
+            action={
+              <button type="button" className="btn btn-primary" onClick={() => goTo('/admin?tab=ai_providers')}>
+                {t('settings.ai_config_open')}
+              </button>
+            }
+          />
         </div>
       </section>
-
-      <section className="card card--elevated settings-prefs-card">
-        <div className="card-intro card-intro--compact">
-          <h2>{t('settings.ai_config_section')}</h2>
-          <p className="card-lead card-lead--single-line" title={t('settings.ai_config_hint')}>
-            {t('settings.ai_config_hint')}
-          </p>
-        </div>
-        <div className="settings-control-row">
-          <button type="button" className="btn btn-primary" onClick={() => goTo('/admin?tab=ai_providers')}>
-            {t('settings.ai_config_open')}
-          </button>
-        </div>
-      </section>
-
-      {/* Security & Passkey Management Section */}
-      <section className="card card--elevated settings-prefs-card">
-        <div className="card-intro card-intro--compact">
-          <div className="card-header-row card-header-row--spaced">
-            <h2>{t('passkeys.title')}</h2>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm btn-auto-width"
-              onClick={openAddModal}
-            >
-              🔒 {t('passkeys.add_btn')}
-            </button>
-          </div>
-          <p className="card-lead card-lead-margin">
-            {t('passkeys.subtitle')}
-          </p>
-        </div>
-
-        {error && (
-          <div className="card-lead-margin">
-            <ErrorAlert error={error} />
-          </div>
-        )}
-
-        {successMessage && (
-          <div className="admin-alert-success">
-            <div>🎉 {successMessage}</div>
-            <button
-              type="button"
-              className="admin-alert-close-btn"
-              onClick={() => setSuccessMessage(null)}
-            >
-              ×
-            </button>
-          </div>
-        )}
-
-        <PasskeyTable
-          passkeys={passkeys}
-          loading={loading}
-          locale={locale}
-          onRename={(passkey) => {
-            setRenameTarget(passkey)
-            setRenamingName(passkey.name)
-          }}
-          onDelete={setDeleteTarget}
-        />
-      </section>
-
-
-      {/* Multi-Factor Authentication (2FA) Section */}
-      <MFASection
-        status={mfaStatus}
-        recoveryCodes={mfaNewRecoveryCodes}
-        onEnable={handleMFAEnrollStart}
-        onDisable={openMFADisableModal}
-        onRegenerate={openMFARegenModal}
-      />
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog

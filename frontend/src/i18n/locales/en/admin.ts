@@ -1,6 +1,14 @@
 export const admin = {
   title: 'Administration',
   auth_pending: 'Waiting for authorization…',
+  nav: {
+    label: 'Administration sections',
+    jump_to: 'Section',
+    access: 'Access & identity',
+    security: 'Security policies',
+    ai: 'AI & sharing',
+    compliance: 'Audit & compliance',
+  },
   tabs: {
     users: 'Users',
     roles: 'Roles & Permissions',

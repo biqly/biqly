@@ -1122,6 +1122,8 @@ export const core = {
     ai_config_section: 'AI providers & models',
     ai_config_hint: 'Manage AI providers and the model used for each task (query, describe, embedding, translation, judge). Changes apply without a restart.',
     ai_config_open: 'Manage AI providers',
+    security_group: 'Account security',
+    configuration_group: 'Configuration',
     persist_hint:
       'Language and theme are available in the sidebar — saved per browser.',
   },

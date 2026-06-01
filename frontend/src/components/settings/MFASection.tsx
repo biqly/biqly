@@ -14,6 +14,7 @@ interface MFASectionProps {
   onEnable: () => void
   onDisable: () => void
   onRegenerate: () => void
+  className?: string
 }
 
 export function MFASection({
@@ -22,12 +23,13 @@ export function MFASection({
   onEnable,
   onDisable,
   onRegenerate,
+  className,
 }: MFASectionProps) {
   const t = useT()
   const [locale] = useLocale()
 
   return (
-    <section className="card card--elevated settings-prefs-card">
+    <section className={['card card--elevated settings-prefs-card', className].filter(Boolean).join(' ')}>
       <div className="card-intro card-intro--compact">
         <div className="card-header-row card-header-row--spaced">
           <h2>{t('mfa.title')}</h2>

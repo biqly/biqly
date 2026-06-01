@@ -1,0 +1,117 @@
+.settings-page {
+  max-width: 56rem;
+  margin-inline: auto;
+  width: 100%;
+}
+
+.settings-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.settings-section-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.settings-section-group__title {
+  margin: 0;
+  color: var(--text-secondary);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.settings-security-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 960px) {
+  .settings-security-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    align-items: start;
+  }
+}
+
+.settings-security-card {
+  margin-bottom: 0;
+}
+
+.settings-security-card .settings-prefs-card__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.settings-security-card .settings-prefs-card__header h2 {
+  margin: 0;
+}
+
+.settings-security-card .settings-prefs-card__header p {
+  margin: 0.35rem 0 0;
+  flex: 1 1 100%;
+  max-width: 42rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.settings-security-card .settings-prefs-card__header .btn {
+  flex-shrink: 0;
+}
+
+.settings-link-grid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .settings-link-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) {
+  .settings-link-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.settings-link-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-height: 100%;
+  margin-bottom: 0;
+  padding: 1.15rem 1.25rem;
+}
+
+.settings-link-card h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.settings-link-card p {
+  margin: 0;
+  flex: 1;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.settings-link-card .btn {
+  align-self: flex-start;
+  width: auto;
+  min-width: 0;
+  white-space: nowrap;
+}

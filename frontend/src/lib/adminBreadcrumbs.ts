@@ -1,26 +1,12 @@
 import type { useT } from '../i18n'
 import type { Crumb } from '../components/ui/Breadcrumbs'
+import { ADMIN_TAB_LABEL_KEYS, isAdminTab, type AdminTab } from '../components/admin/adminNavConfig'
 
 type TFunction = ReturnType<typeof useT>
 
-const ADMIN_TAB_LABEL_KEYS = {
-  users: 'admin.tabs.users',
-  roles: 'admin.tabs.roles',
-  datasource_access: 'admin.tabs.datasource_access',
-  workspaces: 'admin.tabs.workspaces',
-  ai_history: 'admin.ai_history.title',
-  sharing: 'admin.sharing.title',
-  audit_log: 'admin.tabs.audit_log',
-  ai_providers: 'admin.tabs.ai_providers',
-  row_level_security: 'admin.tabs.row_level_security',
-  field_permissions: 'admin.tabs.field_permissions',
-} as const satisfies Record<string, string>
-
-type AdminTabKey = keyof typeof ADMIN_TAB_LABEL_KEYS
-
 function adminTabLabel(tabParam: string, t: TFunction): string {
-  const key = ADMIN_TAB_LABEL_KEYS[tabParam as AdminTabKey]
-  return key ? t(key) : ''
+  if (!isAdminTab(tabParam)) return ''
+  return t(ADMIN_TAB_LABEL_KEYS[tabParam as AdminTab])
 }
 
 export function appendAdminBreadcrumbs(

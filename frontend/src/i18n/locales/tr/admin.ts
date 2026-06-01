@@ -3,6 +3,14 @@ import type { AdminDictionary } from '../dictionary'
 export const admin: AdminDictionary = {
   title: 'Yönetim',
   auth_pending: 'Yetkilendirme bekleniyor…',
+  nav: {
+    label: 'Yönetim bölümleri',
+    jump_to: 'Bölüm',
+    access: 'Erişim & kimlik',
+    security: 'Güvenlik politikaları',
+    ai: 'AI & paylaşım',
+    compliance: 'Denetim & uyumluluk',
+  },
   tabs: {
     users: 'Kullanıcılar',
     roles: 'Roller & İzinler',

@@ -1124,6 +1124,8 @@ export const core: CoreDictionary = {
     ai_config_section: 'AI sağlayıcılar & modeller',
     ai_config_hint: 'AI sağlayıcılarını ve her görev (sorgu, açıklama, embedding, çeviri, değerlendirici) için kullanılan modeli yönetin. Değişiklikler yeniden başlatmadan uygulanır.',
     ai_config_open: 'AI sağlayıcılarını yönet',
+    security_group: 'Hesap güvenliği',
+    configuration_group: 'Yapılandırma',
     persist_hint:
       'Dil ve tema yan menüden erişilebilir — tarayıcı başına saklanır.',
   },
