@@ -191,3 +191,24 @@ func TestPurposeProviderFallsBackWhenUnresolved(t *testing.T) {
 		t.Errorf("fallback did not receive prompt, got %q", fallback.last)
 	}
 }
+
+func TestModelLabelForPurpose(t *testing.T) {
+	fallback := config.AIConfig{Model: "env-describe", QueryModel: "qwen-env"}
+	store := NewProviderStore(nil, nil, fallback)
+	store.resolved[PurposeQuery] = &resolvedModel{
+		ModelID:     "mimo-v2.5",
+		DisplayName: "Mimo v2.5",
+	}
+
+	if got := store.ModelLabelForPurpose(PurposeQuery); got != "Mimo v2.5" {
+		t.Errorf("ModelLabelForPurpose(query) = %q, want Mimo v2.5", got)
+	}
+	if got := store.ModelLabelForPurpose(PurposeDescribe); got != "env-describe" {
+		t.Errorf("ModelLabelForPurpose(describe) = %q, want env-describe", got)
+	}
+
+	store.resolved[PurposeQuery] = &resolvedModel{ModelID: "raw-id", DisplayName: ""}
+	if got := store.ModelLabelForPurpose(PurposeQuery); got != "raw-id" {
+		t.Errorf("ModelLabelForPurpose(query) = %q, want raw-id", got)
+	}
+}

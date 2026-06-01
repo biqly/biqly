@@ -80,6 +80,13 @@ func NewAIHandler(deps *app.AIDeps) *AIHandler {
 	}
 }
 
+func (h *AIHandler) queryModelUsedLabel() string {
+	if h.deps.Config.AI.DBManaged && h.deps.AIProviderStore != nil {
+		return h.deps.AIProviderStore.ModelLabelForPurpose(ai.PurposeQuery)
+	}
+	return h.deps.Config.AI.EffectiveQueryConfig().Model
+}
+
 type aiQueryRequest struct {
 	DatasourceID string   `json:"datasource_id"`
 	ModelID      string   `json:"model_id,omitempty"`
@@ -189,7 +196,7 @@ func (h *AIHandler) processAIQuestion(
 		if resp.Metadata == nil {
 			resp.Metadata = &ai.AIMetadata{}
 		}
-		resp.Metadata.ModelUsed = h.deps.Config.AI.EffectiveQueryConfig().Model
+		resp.Metadata.ModelUsed = h.queryModelUsedLabel()
 		resp.Metadata.TableRouting = routing
 	}
 	if err != nil {

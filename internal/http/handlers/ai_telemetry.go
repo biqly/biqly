@@ -119,7 +119,7 @@ func enrichAIHistoryEntry(entry *metadata.AIQueryHistoryEntry, resp *ai.Response
 	var modelUsed string
 	var latencyMs int
 	var costUSD float64
-	var totalTokens int
+	var totalTokens, promptTokens, completionTokens int
 
 	if resp.Clarification != nil {
 		needsClarification = resp.Clarification.NeedsClarification
@@ -131,6 +131,8 @@ func enrichAIHistoryEntry(entry *metadata.AIQueryHistoryEntry, resp *ai.Response
 		costUSD = resp.Metadata.CostUSD
 		if resp.Metadata.TokenUsage != nil {
 			totalTokens = resp.Metadata.TokenUsage.Total
+			promptTokens = resp.Metadata.TokenUsage.Prompt
+			completionTokens = resp.Metadata.TokenUsage.Completion
 		}
 	}
 
@@ -146,6 +148,14 @@ func enrichAIHistoryEntry(entry *metadata.AIQueryHistoryEntry, resp *ai.Response
 	if costUSD > 0 {
 		cost := costUSD
 		entry.CostUSD = &cost
+	}
+	if promptTokens > 0 {
+		v := promptTokens
+		entry.PromptTokens = &v
+	}
+	if completionTokens > 0 {
+		v := completionTokens
+		entry.CompletionTokens = &v
 	}
 	if totalTokens > 0 {
 		tokens := totalTokens

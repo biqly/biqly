@@ -78,6 +78,7 @@ type resolvedModel struct {
 	BaseURL             string
 	APIKey              string
 	ModelID             string
+	DisplayName         string
 	MaxTokens           int
 	Temperature         float64
 	TopP                float64
@@ -127,7 +128,8 @@ func (s *ProviderStore) CacheVersion() int64 { return s.version.Load() }
 func (s *ProviderStore) RefreshCache(ctx context.Context) error {
 	const q = `
 		SELECT m.purpose, p.provider_type, p.base_url, COALESCE(p.api_key_encrypted, ''),
-		       m.model_id, m.max_tokens, m.temperature, m.top_p, m.num_ctx,
+		       m.model_id, COALESCE(NULLIF(TRIM(m.display_name), ''), m.model_id),
+		       m.max_tokens, m.temperature, m.top_p, m.num_ctx,
 		       m.max_prompt_input_runes, p.http_timeout_seconds
 		FROM ai_models m
 		JOIN ai_providers p ON p.id = m.provider_id
@@ -146,7 +148,7 @@ func (s *ProviderStore) RefreshCache(ctx context.Context) error {
 			rm                                     resolvedModel
 		)
 		if err := rows.Scan(&purpose, &providerType, &baseURL, &encKey,
-			&rm.ModelID, &rm.MaxTokens, &rm.Temperature, &rm.TopP, &rm.NumCtx,
+			&rm.ModelID, &rm.DisplayName, &rm.MaxTokens, &rm.Temperature, &rm.TopP, &rm.NumCtx,
 			&rm.MaxPromptInputRunes, &rm.HTTPTimeoutSeconds); err != nil {
 			return fmt.Errorf("scan default ai model: %w", err)
 		}
@@ -177,6 +179,36 @@ func (s *ProviderStore) resolvedFor(p Purpose) (*resolvedModel, bool) {
 func (s *ProviderStore) HasResolved(p Purpose) bool {
 	_, ok := s.resolvedFor(p)
 	return ok
+}
+
+// ModelLabelForPurpose returns the human-facing model label for telemetry and UI.
+// Prefers the DB display name, then model_id, then env fallback for the purpose.
+func (s *ProviderStore) ModelLabelForPurpose(p Purpose) string {
+	if rm, ok := s.resolvedFor(p); ok {
+		if dn := strings.TrimSpace(rm.DisplayName); dn != "" {
+			return dn
+		}
+		if id := strings.TrimSpace(rm.ModelID); id != "" {
+			return id
+		}
+	}
+	switch p {
+	case PurposeQuery:
+		return s.fallback.EffectiveQueryConfig().Model
+	case PurposeDescribe, PurposeJudge:
+		if m := strings.TrimSpace(s.fallback.Model); m != "" {
+			return m
+		}
+	case PurposeEmbedding:
+		if m := strings.TrimSpace(s.fallback.EmbeddingModel); m != "" {
+			return m
+		}
+	case PurposeTranslation:
+		if m := strings.TrimSpace(s.fallback.TranslationModel); m != "" {
+			return m
+		}
+	}
+	return s.fallback.EffectiveQueryConfig().Model
 }
 
 // ChatConfigForPurpose returns the AIConfig for a chat-completion purpose

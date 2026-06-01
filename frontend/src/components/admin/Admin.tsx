@@ -13,6 +13,7 @@ const AuditLogPanel = lazy(() => import('./AuditLogPanel').then(m => ({ default:
 const UserListPage = lazy(() => import('./UserListPage').then(m => ({ default: m.UserListPage })))
 const UserDetailPage = lazy(() => import('./UserDetailPage').then(m => ({ default: m.UserDetailPage })))
 const AIHistoryPanel = lazy(() => import('../ai/AIHistoryPanel').then(m => ({ default: m.AIHistoryPanel })))
+const AIUsageAdminPanel = lazy(() => import('./AIUsageAdminPanel').then(m => ({ default: m.AIUsageAdminPanel })))
 const SharedResourcesList = lazy(() => import('../sharing/SharedResourcesList').then(m => ({ default: m.SharedResourcesList })))
 const AIProvidersPanel = lazy(() => import('./AIProvidersPanel').then(m => ({ default: m.AIProvidersPanel })))
 const RowLevelSecurityPanel = lazy(() => import('./RowLevelSecurityPanel').then(m => ({ default: m.RowLevelSecurityPanel })))
@@ -69,6 +70,7 @@ export default function Admin() {
           {tab === 'roles' && <RolesPanel token={accessToken} />}
           {tab === 'datasource_access' && <DatasourceAccessPanel token={accessToken} />}
           {tab === 'workspaces' && <WorkspacesPanel token={accessToken} />}
+          {tab === 'ai_usage' && <AIUsageAdminPanel />}
           {tab === 'ai_history' && <AIHistoryPanel />}
           {tab === 'sharing' && <SharedResourcesList />}
           {tab === 'audit_log' && <AuditLogPanel token={accessToken} />}

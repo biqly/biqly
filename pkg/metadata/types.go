@@ -126,6 +126,8 @@ type AIQueryHistoryEntry struct {
 	RetryCount         int       `json:"retry_count" db:"retry_count"`
 	NeedsClarification bool      `json:"needs_clarification" db:"needs_clarification"`
 	ModelUsed          *string   `json:"model_used" db:"model_used"`
+	PromptTokens       *int      `json:"prompt_tokens" db:"prompt_tokens"`
+	CompletionTokens   *int      `json:"completion_tokens" db:"completion_tokens"`
 	TokenCount         *int      `json:"token_count" db:"token_count"`
 	CostUSD            *float64  `json:"cost_usd" db:"cost_usd"`
 	LatencyMs          *int      `json:"latency_ms" db:"latency_ms"`

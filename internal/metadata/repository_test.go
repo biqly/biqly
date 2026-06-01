@@ -802,9 +802,9 @@ func TestQueryAndAIHistory(t *testing.T) {
 		},
 		{
 			Pattern: "SELECT id, datasource_id, model_id, user_id, question, prompt_context",
-			Cols:    []string{"id", "datasource_id", "model_id", "user_id", "question", "prompt_context", "ai_response", "logical_query", "confidence_score", "warnings", "outcome_status", "retry_count", "needs_clarification", "model_used", "token_count", "cost_usd", "latency_ms", "created_at"},
+			Cols:    []string{"id", "datasource_id", "model_id", "user_id", "question", "prompt_context", "ai_response", "logical_query", "confidence_score", "warnings", "outcome_status", "retry_count", "needs_clarification", "model_used", "prompt_tokens", "completion_tokens", "token_count", "cost_usd", "latency_ms", "created_at"},
 			Rows: [][]driver.Value{
-				{"aqh-123", "ds-1", "m-1", "u-1", "how many users?", []byte(`{}`), []byte(`{}`), []byte(`{"version":"v1"}`), 0.95, `{warn1}`, "success", int64(0), false, "gpt-4", int64(10), 0.05, int64(120), now},
+				{"aqh-123", "ds-1", "m-1", "u-1", "how many users?", []byte(`{}`), []byte(`{}`), []byte(`{"version":"v1"}`), 0.95, `{warn1}`, "success", int64(0), false, "gpt-4", int64(6), int64(4), int64(10), 0.05, int64(120), now},
 			},
 		},
 	}

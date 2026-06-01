@@ -8,6 +8,17 @@ import { Pagination } from '../ui/Pagination'
 import { useQueryParam } from '../../hooks/useQueryParam'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 
+function formatHistoryTokens(entry: AIHistoryEntry): string {
+  const prompt = entry.prompt_tokens ?? 0
+  const completion = entry.completion_tokens ?? 0
+  const total = entry.token_count ?? 0
+  if (prompt > 0 || completion > 0) {
+    return `${prompt.toLocaleString()} + ${completion.toLocaleString()}`
+  }
+  if (total > 0) return total.toLocaleString()
+  return '—'
+}
+
 export function AIHistoryPanel() {
   const t = useT()
   const { accessToken, roles } = useAuth()
@@ -151,7 +162,9 @@ export function AIHistoryPanel() {
                             <td style={tdStyle}>{entry.confidence_score != null ? `${(entry.confidence_score * 100).toFixed(0)}%` : '—'}</td>
                             <td className="ai-history__mono" style={{ ...tdStyle, fontFamily: 'var(--font-mono, monospace)' }}>{entry.model_used || '—'}</td>
                             <td style={tdStyle}>{entry.latency_ms != null ? `${entry.latency_ms}ms` : '—'}</td>
-                            <td style={tdStyle}>{entry.token_count ?? '—'}</td>
+                            <td style={tdStyle} title={t('admin.ai_history.tokens_breakdown')}>
+                              {formatHistoryTokens(entry)}
+                            </td>
                             <td style={tdStyle}>{new Date(entry.created_at).toLocaleString()}</td>
                             <td style={{ ...tdStyle, textAlign: 'right' }}>
                               <div className="ai-history__actions">

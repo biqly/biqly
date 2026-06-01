@@ -134,6 +134,7 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 	r.Delete("/ai/examples/{id}", examplesHandler.DeleteExample)
 	r.Post("/ai/feedback", examplesHandler.SubmitFeedback)
 	r.Get("/ai/usage", examplesHandler.GetAIUsage)
+	r.Get("/ai/usage/breakdown", examplesHandler.GetAIUsageBreakdown)
 	r.Get("/ai/example-ids", examplesHandler.GetExampleIDs)
 	r.Get("/ai/stats/models", examplesHandler.GetModelSuccessRates)
 

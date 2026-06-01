@@ -3,11 +3,13 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strconv"
 	"time"
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/metadata"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 )
 
 // FewShotExample is the wire format for a curated few-shot example (alias for metadata row type).
@@ -265,6 +267,36 @@ func (h *AIExamplesHandler) GetAIUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"summary": summary, "daily": daily})
+}
+
+// GetAIUsageBreakdown returns per-user, per-LLM-model token aggregates for admins.
+func (h *AIExamplesHandler) GetAIUsageBreakdown(w http.ResponseWriter, r *http.Request) {
+	if !slices.Contains(bimw.Permissions(r.Context()), PermissionAIViewDetails) {
+		writeError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	days := 30
+	if v := r.URL.Query().Get("days"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 365 {
+			days = n
+		}
+	}
+	ctx := r.Context()
+	totals, err := h.deps.MetaRepo.GetAIUsageTotals(ctx, days)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get usage totals", err)
+		return
+	}
+	rows, err := h.deps.MetaRepo.ListAIUsageByUserAndModel(ctx, days)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get usage breakdown", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"days":    days,
+		"totals":  totals,
+		"rows":    rows,
+	})
 }
 
 // GetExampleIDs returns a list of example IDs for a datasource/model.

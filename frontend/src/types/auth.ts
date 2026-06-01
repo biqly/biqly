@@ -149,6 +149,8 @@ export interface AIHistoryEntry {
   retry_count: number
   needs_clarification: boolean
   model_used?: string
+  prompt_tokens?: number
+  completion_tokens?: number
   token_count?: number
   cost_usd?: number
   latency_ms?: number

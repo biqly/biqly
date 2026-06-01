@@ -594,10 +594,10 @@ func (r *Repository) CreateAIQueryHistory(ctx context.Context, entry *AIQueryHis
 			datasource_id, model_id, user_id, question, prompt_context,
 			ai_response, logical_query, confidence_score, warnings,
 			outcome_status, retry_count, needs_clarification,
-			model_used, token_count, cost_usd, latency_ms
+			model_used, prompt_tokens, completion_tokens, token_count, cost_usd, latency_ms
 		)
 		VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8, $9,
-			$10, $11, $12, $13, $14, $15, $16)
+			$10, $11, $12, $13, $14, $15, $16, $17, $18)
 		RETURNING id, created_at
 	`
 	if err := r.db.QueryRowContext(
@@ -616,6 +616,8 @@ func (r *Repository) CreateAIQueryHistory(ctx context.Context, entry *AIQueryHis
 		entry.RetryCount,
 		entry.NeedsClarification,
 		entry.ModelUsed,
+		entry.PromptTokens,
+		entry.CompletionTokens,
 		entry.TokenCount,
 		entry.CostUSD,
 		entry.LatencyMs,
@@ -635,8 +637,8 @@ func (r *Repository) ListAIQueryHistory(ctx context.Context, userID string, limi
 
 	const baseQuery = `SELECT id, datasource_id, model_id, user_id, question, prompt_context,
 		       ai_response, logical_query, confidence_score, warnings, outcome_status,
-		       retry_count, needs_clarification, model_used, token_count, cost_usd,
-		       latency_ms, created_at FROM ai_query_history`
+		       retry_count, needs_clarification, model_used, prompt_tokens, completion_tokens,
+		       token_count, cost_usd, latency_ms, created_at FROM ai_query_history`
 	const filteredQuery = baseQuery + ` WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`
 	const allQuery = baseQuery + ` ORDER BY created_at DESC LIMIT $1`
 
@@ -673,13 +675,13 @@ func scanAIHistoryEntry(s platformdb.Scanner) (AIQueryHistoryEntry, error) {
 	var warnings pq.StringArray
 	var retryCount sql.NullInt64
 	var needsClarification sql.NullBool
-	var tokenCount, latencyMs sql.NullInt64
+	var promptTokens, completionTokens, tokenCount, latencyMs sql.NullInt64
 
 	if err := s.Scan(
 		&entry.ID, &entry.DatasourceID, &modelID, &userID, &entry.Question,
 		&promptCtx, &aiResp, &logicalQ, &confidence, &warnings, &outcome,
-		&retryCount, &needsClarification, &modelUsed, &tokenCount, &cost, &latencyMs,
-		&entry.CreatedAt,
+		&retryCount, &needsClarification, &modelUsed, &promptTokens, &completionTokens,
+		&tokenCount, &cost, &latencyMs, &entry.CreatedAt,
 	); err != nil {
 		return entry, fmt.Errorf("scan AI history row: %w", err)
 	}
@@ -712,6 +714,14 @@ func scanAIHistoryEntry(s platformdb.Scanner) (AIQueryHistoryEntry, error) {
 	}
 	if needsClarification.Valid {
 		entry.NeedsClarification = needsClarification.Bool
+	}
+	if promptTokens.Valid {
+		v := int(promptTokens.Int64)
+		entry.PromptTokens = &v
+	}
+	if completionTokens.Valid {
+		v := int(completionTokens.Int64)
+		entry.CompletionTokens = &v
 	}
 	if tokenCount.Valid {
 		v := int(tokenCount.Int64)
