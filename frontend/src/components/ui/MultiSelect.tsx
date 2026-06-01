@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useT } from '../../i18n'
 import type { SelectOption } from './Select'
+import { resolveSelectPopoverLayout } from './selectLayout'
 
 interface MultiSelectProps {
   value: string[]
@@ -84,8 +85,9 @@ export function MultiSelect({
     const placement: 'down' | 'up' = spaceBelow < 220 && spaceAbove > spaceBelow ? 'up' : 'down'
     const listMax = Math.max(160, Math.min(maxHeight, placement === 'down' ? spaceBelow : spaceAbove))
     const top = placement === 'down' ? rect.bottom + 6 : Math.max(8, rect.top - 6 - listMax)
-    setPopover({ left: rect.left, top, width: Math.max(rect.width, 120), maxHeight: listMax, placement })
-  }, [display, maxHeight])
+    const { left, width } = resolveSelectPopoverLayout(rect, options, size === 'sm' ? 11.5 : 12.5)
+    setPopover({ left, top, width, maxHeight: listMax, placement })
+  }, [display, maxHeight, options, size])
 
   useLayoutEffect(() => {
     if (display === 'popover' && open) updatePosition()

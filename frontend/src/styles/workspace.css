@@ -3,6 +3,18 @@
   flex-direction: column;
   gap: 0.35rem;
   margin: 0 0 1rem;
+  min-width: 0;
+}
+
+.workspace-selector__select .ui-select-trigger--stacked {
+  align-items: flex-start;
+  min-height: 2.65rem;
+  padding-top: 0.42rem;
+  padding-bottom: 0.42rem;
+}
+
+.workspace-selector__select .ui-select-trigger--stacked .ui-select-chevron {
+  margin-top: 0.2rem;
 }
 
 .workspace-selector__label {

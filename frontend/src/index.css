@@ -2055,6 +2055,35 @@ input[type='checkbox']:disabled {
   color: var(--text-muted);
 }
 
+.ui-select-value--stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  align-items: flex-start;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+}
+
+.ui-select-value-primary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  width: 100%;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.ui-select-value-hint {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
 .ui-select-chevron {
   flex-shrink: 0;
   color: var(--text-muted);
@@ -2169,6 +2198,11 @@ input[type='checkbox']:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ui-select-popover .ui-select-label {
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .ui-select-hint {
@@ -3126,20 +3160,28 @@ body.modeling-grabbing * {
 
 .modal-card.modal-card--few-shot {
   width: min(100%, 56rem);
+  max-height: min(calc(100dvh - 4rem), 92vh);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.modal-body--two-col {
+.modal-card.modal-card--few-shot .modal-body--two-col {
   display: grid;
-  grid-template-columns: 1fr 280px;
+  grid-template-columns: minmax(0, 1fr) 280px;
   gap: 1.25rem;
-  align-items: stretch;
-  height: 480px;
-  max-height: 70vh;
+  align-items: start;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .few-shot-main-form {
-  overflow-y: auto;
-  padding-right: 0.5rem;
+  overflow: visible;
+  padding-right: 0.25rem;
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
@@ -3151,7 +3193,8 @@ body.modeling-grabbing * {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  overflow: hidden;
+  min-height: 0;
+  align-self: stretch;
 }
 
 .few-shot-sidebar__header {
@@ -3165,12 +3208,27 @@ body.modeling-grabbing * {
 }
 
 .few-shot-sidebar__list {
-  flex: 1;
+  max-height: min(42vh, 22rem);
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
   padding-right: 0.25rem;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 720px) {
+  .modal-card.modal-card--few-shot .modal-body--two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .few-shot-sidebar {
+    border-left: none;
+    padding-left: 0;
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+  }
 }
 
 .field-badge-btn {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useT } from '../../i18n'
+import { resolveSelectPopoverLayout } from './selectLayout'
 
 export interface SelectOption<T extends string = string> {
   value: T
@@ -21,6 +22,8 @@ interface SelectProps<T extends string = string> {
   ariaLabel?: string
   className?: string
   size?: 'sm' | 'md'
+  /** When true, shows option hint under the label in the closed trigger (e.g. sidebar workspace). */
+  showHintInTrigger?: boolean
 }
 
 interface PopoverPos {
@@ -43,6 +46,7 @@ export function Select<T extends string = string>({
   ariaLabel,
   className,
   size = 'md',
+  showHintInTrigger = false,
 }: SelectProps<T>) {
   const t = useT()
   const reactId = useId()
@@ -98,9 +102,9 @@ export function Select<T extends string = string>({
     const placement: 'down' | 'up' = spaceBelow < 220 && spaceAbove > spaceBelow ? 'up' : 'down'
     const maxHeight = Math.max(160, Math.min(desired, placement === 'down' ? spaceBelow : spaceAbove))
     const top = placement === 'down' ? rect.bottom + 6 : Math.max(8, rect.top - 6 - maxHeight)
-    const width = Math.max(rect.width, 120)
-    setPopover({ left: rect.left, top, width, maxHeight, placement })
-  }, [])
+    const { left, width } = resolveSelectPopoverLayout(rect, options, size === 'sm' ? 11.5 : 12.5)
+    setPopover({ left, top, width, maxHeight, placement })
+  }, [options, size])
 
   useLayoutEffect(() => {
     if (!open) return
@@ -187,7 +191,14 @@ export function Select<T extends string = string>({
   }
 
   const triggerLabel = selected ? selected.label : placeholder
+  const triggerTitle =
+    selected && (showHintInTrigger && selected.hint)
+      ? `${selected.label} · ${selected.hint}`
+      : selected
+        ? selected.label
+        : undefined
   const triggerClasses = ['ui-select-trigger']
+  if (showHintInTrigger && selected?.hint) triggerClasses.push('ui-select-trigger--stacked')
   if (size === 'sm') triggerClasses.push('ui-select-trigger--sm')
   if (open) triggerClasses.push('is-open')
   if (!selected) triggerClasses.push('is-empty')
@@ -205,13 +216,31 @@ export function Select<T extends string = string>({
         aria-label={ariaLabel}
         aria-controls={open ? `${baseId}-list` : undefined}
         disabled={disabled}
+        title={triggerTitle}
         onClick={() => {
           if (disabled) return
           setOpen((o) => !o)
         }}
         onKeyDown={onTriggerKeyDown}
       >
-        <span className={`ui-select-value${!selected ? ' is-placeholder' : ''}`}>{triggerLabel}</span>
+        <span
+          className={[
+            'ui-select-value',
+            !selected ? 'is-placeholder' : '',
+            showHintInTrigger && selected?.hint ? 'ui-select-value--stacked' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          {showHintInTrigger && selected?.hint ? (
+            <>
+              <span className="ui-select-value-primary">{selected.label}</span>
+              <span className="ui-select-value-hint">{selected.hint}</span>
+            </>
+          ) : (
+            triggerLabel
+          )}
+        </span>
         <svg className="ui-select-chevron" viewBox="0 0 12 8" width="9" height="5.5" aria-hidden="true">
           <path d="M1 1.5l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>

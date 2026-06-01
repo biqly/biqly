@@ -283,13 +283,27 @@ export async function detachWorkspaceDatasource(
 
 export async function listAIHistory(
   token: string,
-  opts: { page?: number; pageSize?: number; limit?: number; showAll?: boolean } = {},
+  opts: {
+    page?: number
+    pageSize?: number
+    limit?: number
+    showAll?: boolean
+    datasourceId?: string
+    modelId?: string
+    status?: string
+    search?: string
+  } = {},
 ): Promise<{ entries: AIHistoryEntry[]; total: number }> {
   const params = new URLSearchParams()
   if (opts.page) params.set('page', String(opts.page))
   if (opts.pageSize) params.set('page_size', String(opts.pageSize))
   if (opts.limit) params.set('limit', String(opts.limit))
   if (opts.showAll) params.set('show_all', 'true')
+  else if (opts.showAll === false) params.set('show_all', 'false')
+  if (opts.datasourceId) params.set('datasource_id', opts.datasourceId)
+  if (opts.modelId) params.set('model_id', opts.modelId)
+  if (opts.status) params.set('status', opts.status)
+  if (opts.search?.trim()) params.set('search', opts.search.trim())
   const suffix = params.toString() ? `?${params.toString()}` : ''
   return apiFetch<{ entries: AIHistoryEntry[]; total: number }>('GET', `/api/ai/history${suffix}`, undefined, { token })
 }

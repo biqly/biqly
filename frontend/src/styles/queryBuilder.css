@@ -230,6 +230,12 @@
   border: 1px solid rgba(16, 185, 129, 0.22);
 }
 
+.notebook-tag .ui-select {
+  flex: 1 1 auto;
+  min-width: 8.5rem;
+  max-width: 16rem;
+}
+
 .notebook-tag--purple {
   background: rgba(168, 85, 247, 0.08);
   color: #d8b4fe;

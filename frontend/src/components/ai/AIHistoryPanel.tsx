@@ -36,7 +36,7 @@ export function AIHistoryPanel() {
       const res = await listAIHistory(accessToken, {
         page: currentPage,
         pageSize,
-        showAll: isAdmin && showAll
+        showAll: isAdmin ? showAll : undefined,
       })
       setEntries(res.entries || [])
       setTotalItems(res.total || 0)

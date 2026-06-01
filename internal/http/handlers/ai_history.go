@@ -1,45 +1,23 @@
 package handlers
 
 import (
+	"database/sql"
+	"errors"
 	"net/http"
 	"slices"
 	"strconv"
 
+	"github.com/biqly/biqly/internal/metadata"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
-	pkgmetadata "github.com/biqly/biqly/pkg/metadata"
 )
 
-// AIHistory returns the AI query history list, filtered by user when the
-// caller lacks ai:queue:view_details. Heavy fields (prompt context, AI
-// response, logical query) are masked for non-admin views.
-//
-// When the auth feature flag is off, falls back to legacy "all rows"
-// behavior — the API key alone is the access control.
+// AIHistory returns a paginated AI query history list. Filtering and pagination
+// are applied in the database; heavy fields are masked per permission rules.
 func (h *AIHandler) AIHistory(w http.ResponseWriter, r *http.Request) {
 	userID := bimw.UserID(r.Context())
 	perms := bimw.Permissions(r.Context())
 	hasViewDetails := slices.Contains(perms, PermissionAIViewDetails)
 
-	// Fetch a larger window to support server-side pagination of filtered rows
-	limit := 1000
-
-	repoFilterUser := userID
-	if hasViewDetails || userID == "" {
-		repoFilterUser = ""
-	}
-
-	rows, err := h.deps.MetaRepo.ListAIQueryHistory(r.Context(), repoFilterUser, limit)
-	if err != nil {
-		writeInternalError(r.Context(), w, http.StatusInternalServerError, "list AI history failed", err)
-		return
-	}
-
-	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps.Config); applied {
-		rows = FilterAIHistoryByDatasources(rows, wsFilter)
-	}
-	filtered := FilterAIHistoryForUser(rows, userID, perms)
-
-	total := len(filtered)
 	q := r.URL.Query()
 	page := 1
 	if v := q.Get("page"); v != "" {
@@ -52,24 +30,61 @@ func (h *AIHandler) AIHistory(w http.ResponseWriter, r *http.Request) {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			pageSize = n
 		}
+	} else if v := q.Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			pageSize = n
+		}
+	}
+	if pageSize > 100 {
+		pageSize = 100
 	}
 
-	start := (page - 1) * pageSize
-	end := start + pageSize
+	filter := metadata.AIHistoryListFilter{
+		DatasourceID: q.Get("datasource_id"),
+		ModelID:      q.Get("model_id"),
+		Status:       q.Get("status"),
+		Search:       q.Get("search"),
+		Page:         page,
+		PageSize:     pageSize,
+	}
 
-	var paginated []pkgmetadata.AIQueryHistoryEntry
-	if start < total {
-		if end > total {
-			end = total
+	if hasViewDetails {
+		if _, ok := q["show_all"]; ok && q.Get("show_all") != "true" && userID != "" {
+			filter.UserID = userID
 		}
-		paginated = filtered[start:end]
-	} else {
-		paginated = []pkgmetadata.AIQueryHistoryEntry{}
+	} else if userID != "" {
+		filter.UserID = userID
+	}
+
+	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps.Config); applied {
+		if len(wsFilter) == 0 {
+			writeJSON(w, http.StatusOK, map[string]any{"entries": []metadata.AIQueryHistoryEntry{}, "total": 0})
+			return
+		}
+		if filter.DatasourceID != "" {
+			if _, ok := wsFilter[filter.DatasourceID]; !ok {
+				writeJSON(w, http.StatusOK, map[string]any{"entries": []metadata.AIQueryHistoryEntry{}, "total": 0})
+				return
+			}
+		} else {
+			filter.DatasourceIDs = mapKeys(wsFilter)
+		}
+	}
+
+	result, err := h.deps.MetaRepo.ListAIQueryHistoryFiltered(r.Context(), filter)
+	if err != nil {
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "list AI history failed", err)
+		return
+	}
+
+	entries := result.Entries
+	if !hasViewDetails && userID != "" {
+		entries = FilterAIHistoryForUser(entries, userID, perms)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"entries": paginated,
-		"total":   total,
+		"entries": entries,
+		"total":   result.Total,
 	})
 }
 
@@ -130,31 +145,40 @@ func (h *AIHandler) AIHistoryDetail(w http.ResponseWriter, r *http.Request) {
 	perms := bimw.Permissions(r.Context())
 	hasViewDetails := slices.Contains(perms, PermissionAIViewDetails)
 
-	rows, err := h.deps.MetaRepo.ListAIQueryHistory(r.Context(), "", 500)
-	if err != nil {
-		writeInternalError(r.Context(), w, http.StatusInternalServerError, "list AI history failed", err)
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "id is required")
 		return
 	}
 
-	wsFilter, wsApplied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps.Config)
-
-	id := r.URL.Query().Get("id")
-	for _, row := range rows {
-		if row.ID != id {
-			continue
-		}
-		if !hasViewDetails && userID != "" && (row.UserID == nil || *row.UserID != userID) {
-			writeError(w, http.StatusForbidden, "not owner of this entry")
+	row, err := h.deps.MetaRepo.GetAIQueryHistoryByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "entry not found")
 			return
 		}
-		if wsApplied {
-			if _, ok := wsFilter[row.DatasourceID]; !ok {
-				writeError(w, http.StatusNotFound, "entry not found")
-				return
-			}
-		}
-		writeJSON(w, http.StatusOK, row)
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "get AI history failed", err)
 		return
 	}
-	writeError(w, http.StatusNotFound, "entry not found")
+
+	if !hasViewDetails && userID != "" && (row.UserID == nil || *row.UserID != userID) {
+		writeError(w, http.StatusForbidden, "not owner of this entry")
+		return
+	}
+	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps.Config); applied {
+		if _, ok := wsFilter[row.DatasourceID]; !ok {
+			writeError(w, http.StatusNotFound, "entry not found")
+			return
+		}
+	}
+
+	writeJSON(w, http.StatusOK, row)
+}
+
+func mapKeys(m map[string]struct{}) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
 }

@@ -18,51 +18,40 @@ export default function QueryHistory() {
   const { accessToken } = useAuth()
 
   const [entries, setEntries] = useState<AIHistoryEntry[]>([])
+  const [totalItems, setTotalItems] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Filters & Search
   const { datasources } = useDatasources()
   const { models } = useSemanticModels(null, { all: true })
 
   const [selectedDatasourceId, setSelectedDatasourceId] = useState('')
   const [selectedModelId, setSelectedModelId] = useState('')
-  const [statusFilter, setStatusFilter] = useState('') // '', 'success', 'error', 'clarification'
-  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
 
-  // Detail panel expansion
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [detail, setDetail] = useState<AIHistoryEntry | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
 
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
 
-  // Load all recent query history (up to 1000) for fast client-side filtering
-  const loadHistory = useCallback(async () => {
-    if (!accessToken) return
-    setLoading(true)
-    try {
-      const res = await listAIHistory(accessToken, { page: 1, pageSize: 1000 })
-      setEntries(res.entries || [])
-      setError(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setLoading(false)
-    }
-  }, [accessToken])
-
-  useEffect(() => {
-    loadHistory()
-  }, [loadHistory])
-
-  // Reset selected model if it is not valid for the current datasource filter
   const filteredModels = useMemo(() => {
     if (!selectedDatasourceId) return models
     return models.filter((m) => m.datasource_id === selectedDatasourceId)
   }, [models, selectedDatasourceId])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(searchInput), 300)
+    return () => window.clearTimeout(timer)
+  }, [searchInput])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [selectedDatasourceId, selectedModelId, statusFilter, debouncedSearch])
 
   useEffect(() => {
     if (selectedModelId) {
@@ -73,12 +62,40 @@ export default function QueryHistory() {
     }
   }, [selectedDatasourceId, filteredModels, selectedModelId])
 
-  // Reset current page when filters change
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [selectedDatasourceId, selectedModelId, statusFilter, searchQuery])
+  const loadHistory = useCallback(async () => {
+    if (!accessToken) return
+    setLoading(true)
+    try {
+      const res = await listAIHistory(accessToken, {
+        page: currentPage,
+        pageSize,
+        datasourceId: selectedDatasourceId || undefined,
+        modelId: selectedModelId || undefined,
+        status: statusFilter || undefined,
+        search: debouncedSearch || undefined,
+      })
+      setEntries(res.entries || [])
+      setTotalItems(res.total ?? 0)
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setLoading(false)
+    }
+  }, [
+    accessToken,
+    currentPage,
+    pageSize,
+    selectedDatasourceId,
+    selectedModelId,
+    statusFilter,
+    debouncedSearch,
+  ])
 
-  // Load detail for expanded row
+  useEffect(() => {
+    loadHistory()
+  }, [loadHistory])
+
   useEffect(() => {
     if (!expandedId || !accessToken) {
       setDetail(null)
@@ -101,45 +118,6 @@ export default function QueryHistory() {
     }
   }, [expandedId, accessToken])
 
-  // Filter entries client-side
-  const filteredEntries = useMemo(() => {
-    return entries.filter((entry) => {
-      if (selectedDatasourceId && entry.datasource_id !== selectedDatasourceId) {
-        return false
-      }
-      if (selectedModelId && entry.model_id !== selectedModelId) {
-        return false
-      }
-      if (statusFilter) {
-        if (statusFilter === 'clarification') {
-          if (!entry.needs_clarification) return false
-        } else if (statusFilter === 'success') {
-          if (entry.needs_clarification || entry.outcome_status !== 'success') return false
-        } else if (statusFilter === 'error') {
-          if (entry.needs_clarification || entry.outcome_status === 'success') return false
-        }
-      }
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase()
-        const questionText = (entry.question || '').toLowerCase()
-        if (!questionText.includes(q)) {
-          return false
-        }
-      }
-      return true
-    })
-  }, [entries, selectedDatasourceId, selectedModelId, statusFilter, searchQuery])
-
-  // Paginate filtered entries
-  const paginatedEntries = useMemo(() => {
-    const start = (currentPage - 1) * pageSize
-    const end = start + pageSize
-    return filteredEntries.slice(start, end)
-  }, [filteredEntries, currentPage, pageSize])
-
-  const totalPages = Math.ceil(filteredEntries.length / pageSize)
-
-  // Map datasource & model IDs to user-friendly labels
   const datasourceMap = useMemo(() => {
     return new Map(datasources.map((d) => [d.id, d.name]))
   }, [datasources])
@@ -150,7 +128,7 @@ export default function QueryHistory() {
 
   const toggleDetail = (id: string) => {
     setExpandedId((prev) => (prev === id ? null : id))
-  };
+  }
 
   const handleRerun = (question: string) => {
     navigate('/ai-query', { state: { question } })
@@ -183,7 +161,6 @@ export default function QueryHistory() {
           </p>
         </div>
 
-        {/* Filters Panel */}
         <div className="form-row" style={{ gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '1.25rem' }}>
           <label className="form-field" style={{ minWidth: '13rem' }}>
             <span className="form-label">{t('glossary.label_datasource')}</span>
@@ -228,8 +205,8 @@ export default function QueryHistory() {
             <input
               type="text"
               placeholder={t('query_history.search_placeholder')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               className="input"
             />
           </div>
@@ -242,8 +219,8 @@ export default function QueryHistory() {
         )}
 
         <LoadingOverlay loading={loading}>
-          <div style={{ minHeight: filteredEntries.length === 0 && loading ? 120 : 'auto', display: 'flex', flexDirection: 'column' }}>
-            {filteredEntries.length === 0 ? (
+          <div style={{ minHeight: totalItems === 0 && loading ? 120 : 'auto', display: 'flex', flexDirection: 'column' }}>
+            {totalItems === 0 && !loading ? (
               <EmptyState description={t('query_history.empty')} />
             ) : (
               <>
@@ -262,7 +239,7 @@ export default function QueryHistory() {
                       </tr>
                     </thead>
                     <tbody>
-                      {paginatedEntries.map((entry) => {
+                      {entries.map((entry) => {
                         const badge = getStatusBadge(entry)
                         const isExpanded = expandedId === entry.id
                         const datasourceName = datasourceMap.get(entry.datasource_id) || entry.datasource_id
@@ -364,7 +341,7 @@ export default function QueryHistory() {
                   currentPage={currentPage}
                   totalPages={totalPages}
                   onPageChange={setCurrentPage}
-                  totalItems={filteredEntries.length}
+                  totalItems={totalItems}
                   itemsPerPage={pageSize}
                 />
               </>

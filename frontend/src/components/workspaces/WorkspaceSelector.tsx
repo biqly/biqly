@@ -54,7 +54,8 @@ export function WorkspaceSelector({ token }: { token: string }) {
 
   const workspaceOptions = workspaces.map((workspace) => ({
     value: workspace.id,
-    label: `${workspace.name}${workspace.is_personal ? ` ${t('admin.workspaces.personal_suffix')}` : ''}`,
+    label: workspace.name,
+    hint: workspace.is_personal ? t('admin.workspaces.type_personal') : undefined,
   }))
 
   const handleChange = async (nextID: string) => {
@@ -75,11 +76,13 @@ export function WorkspaceSelector({ token }: { token: string }) {
     <label className="workspace-selector">
       <span className="workspace-selector__label">{t('admin.workspaces.selector_label')}</span>
       <Select
+        className="workspace-selector__select"
         value={active?.id ?? ''}
         options={workspaceOptions}
         onChange={(v) => void handleChange(v)}
         ariaLabel={t('admin.workspaces.selector_label')}
         disabled={switching}
+        showHintInTrigger
       />
     </label>
   )
