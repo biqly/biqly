@@ -133,6 +133,120 @@ func (c *AuthClient) ListUserDatasources(ctx context.Context, userID string) ([]
 	return c.fetchDatasourceIDs(ctx, fmt.Sprintf("/internal/auth/user/%s/datasources", userID))
 }
 
+// UserAIAccess mirrors rbac.UserAIAccess for internal auth resolution.
+type UserAIAccess struct {
+	Restricted  bool              `json:"restricted"`
+	ModelIDs    []string          `json:"model_ids"`
+	ProviderIDs []string          `json:"provider_ids"`
+	Preferences map[string]string `json:"preferences"`
+}
+
+func (c *AuthClient) UserAIAccess(ctx context.Context, userID string) (*UserAIAccess, error) {
+	if userID == "" {
+		return nil, nil
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+fmt.Sprintf("/internal/auth/user/%s/ai-access", userID), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("X-Internal-Token", c.internalToken)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("user ai access: status %d", resp.StatusCode)
+	}
+	var out UserAIAccess
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+	if out.Preferences == nil {
+		out.Preferences = map[string]string{}
+	}
+	return &out, nil
+}
+
+// UserAIPreference is a single per-purpose model choice stored in auth DB.
+type UserAIPreference struct {
+	Purpose string `json:"purpose"`
+	ModelID string `json:"model_id"`
+}
+
+func (c *AuthClient) ListUserAIPreferences(ctx context.Context, userID string) ([]UserAIPreference, error) {
+	if userID == "" {
+		return nil, nil
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+fmt.Sprintf("/internal/auth/user/%s/ai-preferences", userID), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("X-Internal-Token", c.internalToken)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("list user ai preferences: status %d", resp.StatusCode)
+	}
+	var out struct {
+		Preferences []UserAIPreference `json:"preferences"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+	return out.Preferences, nil
+}
+
+func (c *AuthClient) SetUserAIPreference(ctx context.Context, userID, purpose, modelID string) error {
+	body, err := json.Marshal(map[string]string{
+		"purpose":  purpose,
+		"model_id": modelID,
+	})
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, c.baseURL+fmt.Sprintf("/internal/auth/user/%s/ai-preferences", userID), bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("X-Internal-Token", c.internalToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("set user ai preference: status %d", resp.StatusCode)
+	}
+	return nil
+}
+
+func (c *AuthClient) DeleteUserAIPreference(ctx context.Context, userID, purpose string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.baseURL+fmt.Sprintf("/internal/auth/user/%s/ai-preferences/%s", userID, purpose), nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("X-Internal-Token", c.internalToken)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("delete user ai preference: status %d", resp.StatusCode)
+	}
+	return nil
+}
+
 // ListWorkspaceDatasources returns the datasource IDs attached to a workspace.
 // Cached in-memory per workspace ID with the same TTL as other auth checks.
 func (c *AuthClient) ListWorkspaceDatasources(ctx context.Context, workspaceID string) ([]string, error) {

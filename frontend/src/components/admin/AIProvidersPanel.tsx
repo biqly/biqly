@@ -5,6 +5,7 @@ import { useConfirm } from '../../hooks/useConfirm'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
+import { AIModelSharingPanel } from './AIModelSharingPanel'
 import {
   type AIModel,
   type AIProvider,
@@ -167,6 +168,8 @@ export function AIProvidersPanel() {
       </div>
 
       {error && <div style={errStyle}>{t('common.error')}: {error}</div>}
+
+      <AIModelSharingPanel />
 
       {/* Active models by purpose */}
       <section style={cardStyle}>

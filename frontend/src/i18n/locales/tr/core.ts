@@ -1154,6 +1154,16 @@ export const core: CoreDictionary = {
     profile_mfa_bypass_btn: 'Bypass kodu üret',
     security_group: 'Hesap güvenliği',
     configuration_group: 'Yapılandırma',
+    ai_models: {
+      section: 'AI model tercihleri',
+      hint: 'Her görev için kullanmak istediğiniz modeli seçin. Boş bırakırsanız varsayılan model kullanılır.',
+      restricted_hint: 'Yalnızca çalışma alanlarınıza veya rollerinize paylaşılan modeller listelenir.',
+      use_default: 'Varsayılanı kullan',
+      save: 'Tercihleri kaydet',
+      clear: 'Temizle',
+      saved: 'AI model tercihleri kaydedildi.',
+      cleared: 'Tercih temizlendi.',
+    },
     persist_hint:
       'Dil ve tema yan menüden erişilebilir — tarayıcı başına saklanır.',
   },

@@ -24,6 +24,7 @@ import (
 	"github.com/biqly/biqly/internal/datasource/postgres"
 	"github.com/biqly/biqly/internal/datasource/sqlserver"
 	"github.com/biqly/biqly/internal/dashboard"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/metadata"
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 	"github.com/biqly/biqly/internal/query"
@@ -307,6 +308,8 @@ func newDriverRegistry() *datasource.Registry {
 type aiBundle struct {
 	client        providerpkg.Provider
 	queryClient   providerpkg.Provider
+	describePP    *ai.PurposeProvider
+	queryPP       *ai.PurposeProvider
 	describer     *ai.DescribeService
 	embedder      ai.Embedder
 	embedMeta     *ai.EmbedMetadataService
@@ -373,10 +376,13 @@ func setupAI(
 	client := baseFallback
 	queryClient := queryFallback
 	describeModel := cfg.AI.Model
+	var describePP, queryPP *ai.PurposeProvider
 	if cfg.AI.DBManaged {
 		effectiveCfg = providerStore.EffectiveConfig()
-		client = ai.NewPurposeProvider(providerStore, ai.PurposeDescribe, baseFallback)
-		queryClient = ai.NewPurposeProvider(providerStore, ai.PurposeQuery, queryFallback)
+		describePP = ai.NewPurposeProvider(providerStore, ai.PurposeDescribe, baseFallback, nil)
+		queryPP = ai.NewPurposeProvider(providerStore, ai.PurposeQuery, queryFallback, nil)
+		client = describePP
+		queryClient = queryPP
 		if describeCfg, ok := providerStore.ChatConfigForPurpose(ai.PurposeDescribe); ok {
 			describeModel = describeCfg.Model
 		}
@@ -429,6 +435,8 @@ func setupAI(
 	return aiBundle{
 		client:        client,
 		queryClient:   queryClient,
+		describePP:    describePP,
+		queryPP:       queryPP,
 		describer:     describer,
 		embedder:      embedder,
 		embedMeta:     embedMeta,
@@ -437,6 +445,24 @@ func setupAI(
 		providerStore: providerStore,
 		responseCache: responseCache,
 	}, nil
+}
+
+// WireAIUserResolver attaches per-user model selection when auth is enabled.
+func (d *Dependencies) WireAIUserResolver(auth *bimw.AuthClient) {
+	if auth == nil || !d.Config.Auth.Enabled || !d.Config.AI.DBManaged || d.AIProviderStore == nil {
+		return
+	}
+	resolver := NewAIUserConfigResolver(d.AIProviderStore, auth)
+	if d.AIClient != nil {
+		if pp, ok := d.AIClient.(*ai.PurposeProvider); ok {
+			pp.SetResolver(resolver)
+		}
+	}
+	if d.AIQueryClient != nil {
+		if pp, ok := d.AIQueryClient.(*ai.PurposeProvider); ok {
+			pp.SetResolver(resolver)
+		}
+	}
 }
 
 // migratePlaintextDSNs scans the datasources table for DSNs that do not look

@@ -103,6 +103,7 @@ func main() {
 	}
 	rbacSvc := rbac.NewRBACService(rbacRepo)
 	dsAccessSvc := rbac.NewDatasourceAccessService(db, redisClient, rbacSvc)
+	aiModelAccessSvc := rbac.NewAIModelAccessService(db, rbacSvc)
 	workspaceSvc := workspace.NewWorkspaceService(db, dsAccessSvc)
 	authSvc.SetWorkspaceService(workspaceSvc)
 	sharingSvc := workspace.NewSharingService(db)
@@ -121,7 +122,7 @@ func main() {
 	gdprExporter := handlers.NewGDPRExporter(db, userRepo, workspaceSvc, dsAccessSvc, sharingSvc, auditSvc, webAuthnSvc)
 	authHandler.SetGDPRExporter(gdprExporter)
 	authHandler.SetAuditService(auditSvc)
-	rbacHandler := handlers.NewRBACHandler(rbacSvc, rbacRepo, userRepo, dsAccessSvc, workspaceSvc, sharingSvc, auditSvc, jwtMgr, cfg)
+	rbacHandler := handlers.NewRBACHandler(rbacSvc, rbacRepo, userRepo, dsAccessSvc, aiModelAccessSvc, workspaceSvc, sharingSvc, auditSvc, jwtMgr, cfg)
 
 	state := &appState{
 		db:          db,

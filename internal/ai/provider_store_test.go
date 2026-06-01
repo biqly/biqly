@@ -178,7 +178,7 @@ func (s *stubProvider) GenerateAt(ctx context.Context, prompt string, _ float64)
 func TestPurposeProviderFallsBackWhenUnresolved(t *testing.T) {
 	fallback := &stubProvider{reply: "from-fallback"}
 	store := NewProviderStore(nil, nil, config.AIConfig{Model: "gpt-4o"})
-	pp := NewPurposeProvider(store, PurposeQuery, fallback)
+	pp := NewPurposeProvider(store, PurposeQuery, fallback, nil)
 
 	res, err := pp.Generate(context.Background(), "hello")
 	if err != nil {

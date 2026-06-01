@@ -1152,6 +1152,16 @@ export const core = {
     profile_mfa_bypass_btn: 'Generate bypass code',
     security_group: 'Account security',
     configuration_group: 'Configuration',
+    ai_models: {
+      section: 'AI model preferences',
+      hint: 'Choose which managed model to use for each task. Leave empty to use the workspace default.',
+      restricted_hint: 'Only models shared with your workspaces or roles are listed.',
+      use_default: 'Use default',
+      save: 'Save preferences',
+      clear: 'Clear',
+      saved: 'AI model preferences saved.',
+      cleared: 'Preference cleared.',
+    },
     persist_hint:
       'Language and theme are available in the sidebar — saved per browser.',
   },

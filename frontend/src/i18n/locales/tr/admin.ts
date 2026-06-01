@@ -275,6 +275,22 @@ export const admin: AdminDictionary = {
     show_key: 'Göster',
     hide_key: 'Gizle',
   },
+  ai_model_access: {
+    title: 'AI sağlayıcı ve model paylaşımı',
+    description:
+      'Çalışma alanlarına veya rollere belirli sağlayıcıların (tüm aktif modeller) veya tek tek modellerin erişimini verin. İlk paylaşım oluşturulduğunda, süper admin olmayan kullanıcılar yalnızca paylaşılan modelleri görür.',
+    target_kind: 'Paylaşım hedefi',
+    grant_kind: 'Kaynak türü',
+    workspace: 'Çalışma alanı',
+    role: 'Rol',
+    provider: 'Sağlayıcı',
+    model: 'Model',
+    grant_btn: 'Erişim ver',
+    revoke_btn: 'Kaldır',
+    granted: 'Erişim verildi.',
+    revoked: 'Erişim kaldırıldı.',
+    empty: 'Henüz paylaşım yok. İlk paylaşım oluşturulana kadar kullanıcılar tüm aktif modelleri kullanabilir.',
+  },
   sharing: {
     title: 'Paylaşım',
     share: 'Paylaş',

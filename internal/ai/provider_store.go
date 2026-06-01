@@ -15,6 +15,7 @@ import (
 	"github.com/biqly/biqly/internal/config"
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 	"github.com/biqly/biqly/internal/security"
+	"github.com/lib/pq"
 )
 
 // Purpose identifies which AI workload a model serves. Each purpose can have at
@@ -211,16 +212,44 @@ func (s *ProviderStore) ModelLabelForPurpose(p Purpose) string {
 	return s.fallback.EffectiveQueryConfig().Model
 }
 
-// ChatConfigForPurpose returns the AIConfig for a chat-completion purpose
-// (query, describe, judge, translation), layering the resolved DB selection
-// over the fallback env config so non-connection tuning knobs carry through.
-// The bool reports whether the DB supplied the selection.
-func (s *ProviderStore) ChatConfigForPurpose(p Purpose) (config.AIConfig, bool) {
-	cfg := s.fallback
-	rm, ok := s.resolvedFor(p)
-	if !ok {
-		return cfg, false
+// ChatConfigForModelUUID loads a single active model row by its metadata UUID.
+func (s *ProviderStore) ChatConfigForModelUUID(ctx context.Context, modelUUID string) (config.AIConfig, bool) {
+	modelUUID = strings.TrimSpace(modelUUID)
+	if modelUUID == "" {
+		return config.AIConfig{}, false
 	}
+	const q = `
+		SELECT m.purpose, p.provider_type, p.base_url, COALESCE(p.api_key_encrypted, ''),
+		       m.model_id, COALESCE(NULLIF(TRIM(m.display_name), ''), m.model_id),
+		       m.max_tokens, m.temperature, m.top_p, m.num_ctx,
+		       m.max_prompt_input_runes, p.http_timeout_seconds
+		FROM ai_models m
+		JOIN ai_providers p ON p.id = m.provider_id
+		WHERE m.id = $1::uuid AND m.is_active = true AND p.is_active = true`
+	var (
+		purpose, providerType, baseURL, encKey string
+		rm                                     resolvedModel
+	)
+	err := s.db.QueryRowContext(ctx, q, modelUUID).Scan(
+		&purpose, &providerType, &baseURL, &encKey,
+		&rm.ModelID, &rm.DisplayName, &rm.MaxTokens, &rm.Temperature, &rm.TopP, &rm.NumCtx,
+		&rm.MaxPromptInputRunes, &rm.HTTPTimeoutSeconds,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return config.AIConfig{}, false
+		}
+		slog.Warn("load ai model by uuid failed", "model_id", modelUUID, "error", err)
+		return config.AIConfig{}, false
+	}
+	rm.ProviderType = providerType
+	rm.BaseURL = baseURL
+	rm.APIKey = s.decrypt(encKey)
+	return s.chatConfigFromResolved(rm), true
+}
+
+func (s *ProviderStore) chatConfigFromResolved(rm resolvedModel) config.AIConfig {
+	cfg := s.fallback
 	cfg.Provider = rm.ProviderType
 	cfg.Model = rm.ModelID
 	cfg.BaseURL = rm.BaseURL
@@ -237,11 +266,59 @@ func (s *ProviderStore) ChatConfigForPurpose(p Purpose) (config.AIConfig, bool) 
 	if rm.MaxPromptInputRunes > 0 {
 		cfg.MaxPromptInputRunes = rm.MaxPromptInputRunes
 	}
-	// The DB selection is authoritative for the query path, so neutralize the
-	// BI_AI_QUERY_* transport overrides (EffectiveQueryConfig becomes a no-op).
 	cfg.QueryProvider, cfg.QueryModel, cfg.QueryBaseURL, cfg.QueryAPIKey = "", "", "", ""
 	cfg.QueryHTTPTimeoutSeconds = 0
-	return cfg, true
+	return cfg
+}
+
+// ListAllActiveModels returns every active model on active providers.
+func (s *ProviderStore) ListAllActiveModels(ctx context.Context) ([]ModelRow, error) {
+	const q = `
+		SELECT m.id::text, m.provider_id::text, p.name, p.provider_type,
+		       m.model_id, m.display_name, m.purpose, m.max_tokens, m.temperature,
+		       m.top_p, m.num_ctx, m.max_prompt_input_runes, m.is_default, m.is_active,
+		       m.created_at, m.updated_at
+		FROM ai_models m JOIN ai_providers p ON p.id = m.provider_id
+		WHERE m.is_active = true AND p.is_active = true
+		ORDER BY m.purpose, p.name, m.display_name`
+	return platformdb.QuerySliceErr(ctx, s.db, "list all active ai models", q, nil, scanModel)
+}
+
+// ActiveModelUUIDsByProviders maps each provider UUID to active model UUIDs.
+func (s *ProviderStore) ActiveModelUUIDsByProviders(ctx context.Context, providerIDs []string) (map[string][]string, error) {
+	out := make(map[string][]string)
+	if len(providerIDs) == 0 {
+		return out, nil
+	}
+	const q = `
+		SELECT m.provider_id::text, m.id::text
+		FROM ai_models m JOIN ai_providers p ON p.id = m.provider_id
+		WHERE m.is_active = true AND p.is_active = true AND m.provider_id = ANY($1::uuid[])`
+	rows, err := s.db.QueryContext(ctx, q, pq.Array(providerIDs))
+	if err != nil {
+		return nil, fmt.Errorf("list active models by providers: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var pid, mid string
+		if err := rows.Scan(&pid, &mid); err != nil {
+			return nil, err
+		}
+		out[pid] = append(out[pid], mid)
+	}
+	return out, rows.Err()
+}
+
+// ChatConfigForPurpose returns the AIConfig for a chat-completion purpose
+// (query, describe, judge, translation), layering the resolved DB selection
+// over the fallback env config so non-connection tuning knobs carry through.
+// The bool reports whether the DB supplied the selection.
+func (s *ProviderStore) ChatConfigForPurpose(p Purpose) (config.AIConfig, bool) {
+	rm, ok := s.resolvedFor(p)
+	if !ok {
+		return s.fallback, false
+	}
+	return s.chatConfigFromResolved(*rm), true
 }
 
 // EffectiveConfig returns the fallback config with embedding and translation

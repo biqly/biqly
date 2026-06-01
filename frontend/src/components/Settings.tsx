@@ -24,6 +24,7 @@ import { PasskeyTable } from './settings/PasskeyTable'
 import { SettingsLinkCard } from './settings/SettingsLinkCard'
 import { RecoveryCodesDisplay } from './settings/RecoveryCodesDisplay'
 import { AccountProfileSection } from './settings/AccountProfileSection'
+import { AIModelPreferencesSection } from './settings/AIModelPreferencesSection'
 
 export default function Settings() {
   const navigate = useNavigate()
@@ -341,6 +342,7 @@ export default function Settings() {
         <h2 id="settings-config-heading" className="settings-section-group__title">
           {t('settings.configuration_group')}
         </h2>
+        <AIModelPreferencesSection />
         <div className="settings-link-grid">
           <SettingsLinkCard
             title={t('settings.prompt_templates_section')}

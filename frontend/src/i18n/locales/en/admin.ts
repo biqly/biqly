@@ -273,6 +273,22 @@ export const admin = {
     show_key: 'Show',
     hide_key: 'Hide',
   },
+  ai_model_access: {
+    title: 'Share AI providers & models',
+    description:
+      'Grant workspaces or roles access to specific providers (all active models) or individual models. When any grant exists, users only see shared models unless they are super admins.',
+    target_kind: 'Share with',
+    grant_kind: 'Resource type',
+    workspace: 'Workspace',
+    role: 'Role',
+    provider: 'Provider',
+    model: 'Model',
+    grant_btn: 'Grant access',
+    revoke_btn: 'Revoke',
+    granted: 'Access granted.',
+    revoked: 'Access revoked.',
+    empty: 'No sharing grants yet. Users can use all active models until the first grant is created.',
+  },
   sharing: {
     title: 'Sharing',
     share: 'Share',

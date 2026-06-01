@@ -82,6 +82,7 @@ func Router(deps *app.Dependencies) http.Handler {
 	// API routes
 	authMW := buildAPIAuthMiddleware(deps)
 	authClient := NewAuthClient(deps)
+	deps.WireAIUserResolver(authClient)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(authMW)

@@ -24,9 +24,10 @@ type RBACHandler struct {
 	rbac     *rbac.RBACService
 	rbacRepo *rbac.RBACRepository
 	userRepo *auth.UserRepository
-	dsAccess *rbac.DatasourceAccessService
-	ws       *workspace.WorkspaceService
-	sharing  *workspace.SharingService
+	dsAccess      *rbac.DatasourceAccessService
+	aiModelAccess *rbac.AIModelAccessService
+	ws            *workspace.WorkspaceService
+	sharing       *workspace.SharingService
 	audit    *auth.AuditService
 	jwtMgr   *auth.JWTManager
 	cfg      *auth.Config
@@ -37,6 +38,7 @@ func NewRBACHandler(
 	rbacRepo *rbac.RBACRepository,
 	userRepo *auth.UserRepository,
 	dsAccess *rbac.DatasourceAccessService,
+	aiModelAccess *rbac.AIModelAccessService,
 	ws *workspace.WorkspaceService,
 	sharing *workspace.SharingService,
 	audit *auth.AuditService,
@@ -47,9 +49,10 @@ func NewRBACHandler(
 		rbac:     rbacSvc,
 		rbacRepo: rbacRepo,
 		userRepo: userRepo,
-		dsAccess: dsAccess,
-		ws:       ws,
-		sharing:  sharing,
+		dsAccess:      dsAccess,
+		aiModelAccess: aiModelAccess,
+		ws:            ws,
+		sharing:       sharing,
 		audit:    audit,
 		jwtMgr:   jwtMgr,
 		cfg:      cfg,
@@ -88,6 +91,8 @@ func (h *RBACHandler) RegisterAuthRoutes(r chi.Router, authMW func(http.Handler)
 		r.Get("/shares", h.handleListShares)
 		r.Delete("/shares/{id}", h.handleRevokeShare)
 
+		h.registerAIModelAccessUserRoutes(r)
+
 		r.Route("/admin", func(r chi.Router) {
 			r.Get("/datasource-access", h.handleAdminListAccess)
 			r.Post("/datasource-access", h.handleAdminGrantAccess)
@@ -107,6 +112,8 @@ func (h *RBACHandler) RegisterAuthRoutes(r chi.Router, authMW func(http.Handler)
 			r.Put("/users/{id}", h.handleAdminUpdateUser)
 
 			r.Get("/audit-log", h.handleAdminListAuditLog)
+
+			h.registerAIModelAccessAdminRoutes(r)
 		})
 	})
 }
@@ -121,6 +128,7 @@ func (h *RBACHandler) RegisterInternalRoutes(r chi.Router, internalMW func(http.
 		r.Get("/workspaces/{id}/datasources", h.handleInternalWorkspaceDatasources)
 		r.Post("/invalidate-cache", h.handleInternalInvalidateCache)
 		r.Get("/public-key", h.handleInternalPublicKey)
+		h.registerAIModelAccessInternalRoutes(r)
 	})
 }
 

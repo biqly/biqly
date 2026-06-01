@@ -72,8 +72,10 @@ func aiServiceRequestTimeout(deps *app.Dependencies) time.Duration {
 // which is fronted by the monolith proxy that enforces the same checks.
 func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthClient) {
 	aiHandler := handlers.NewAIHandler(deps)
+	aiHandler.SetAuthClient(authClient)
 	aiHandler.SetAIMetricsRecorder(GetMetrics())
 	dsAccess := bimw.RequireDatasourceAccess(authClient, "read")
+	aiUserMW := bimw.InjectAIUserContext
 	if deps.Jobs.Enabled && deps.AIJobsHTTP != nil {
 		r.With(dsAccess).Post("/ai/jobs", deps.AIJobsHTTP.Create)
 		r.Get("/ai/jobs/describe-batch/conflict", deps.AIJobsHTTP.DescribeBatchConflict)
@@ -88,12 +90,15 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 	r.Get("/ai/history", aiHandler.AIHistory)
 	r.Get("/ai/history/detail", aiHandler.AIHistoryDetail)
 	r.Get("/ai/query/history", aiHandler.QueryHistory)
-	r.With(dsAccess).Post("/ai/query", aiHandler.Query)
-	r.With(dsAccess).Post("/ai/query/preview", aiHandler.Preview)
-	r.With(dsAccess).Post("/ai/query/run", aiHandler.Run)
-	r.With(dsAccess).Post("/ai/metadata/describe", aiHandler.Describe)
-	r.With(dsAccess).Post("/ai/metadata/embed", aiHandler.EmbedMetadata)
+	r.With(aiUserMW, dsAccess).Post("/ai/query", aiHandler.Query)
+	r.With(aiUserMW, dsAccess).Post("/ai/query/preview", aiHandler.Preview)
+	r.With(aiUserMW, dsAccess).Post("/ai/query/run", aiHandler.Run)
+	r.With(aiUserMW, dsAccess).Post("/ai/metadata/describe", aiHandler.Describe)
+	r.With(aiUserMW, dsAccess).Post("/ai/metadata/embed", aiHandler.EmbedMetadata)
 	r.Get("/ai/settings", aiHandler.RuntimeSettings)
+	r.Get("/ai/user-models", aiHandler.UserAIModels)
+	r.Put("/ai/user-preferences", aiHandler.PutUserAIPreferences)
+	r.Delete("/ai/user-preferences/{purpose}", aiHandler.DeleteUserAIPreference)
 	r.Group(func(r chi.Router) {
 		r.Use(handlers.AdminKeyMiddleware(deps.Config.Security.AdminAPIKey))
 		if deps.Jobs.Enabled && deps.AIJobsHTTP != nil {

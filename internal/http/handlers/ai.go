@@ -16,6 +16,7 @@ import (
 	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/app"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/core"
 	"github.com/biqly/biqly/internal/dialect"
 	"github.com/biqly/biqly/internal/metadata"
@@ -37,7 +38,13 @@ type AIHandler struct {
 	service     *ai.Service
 	tableRouter *routing.TableRouter
 	deps        *app.AIDeps
+	authClient  *bimw.AuthClient
 	metrics     AIMetricsRecorder
+}
+
+// SetAuthClient wires the auth service client for user model access checks.
+func (h *AIHandler) SetAuthClient(c *bimw.AuthClient) {
+	h.authClient = c
 }
 
 // SetAIMetricsRecorder wires process-level counters (e.g. Prometheus /metrics).
