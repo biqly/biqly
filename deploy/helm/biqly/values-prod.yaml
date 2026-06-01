@@ -34,6 +34,12 @@ global:
       enabled: true
   networkPolicy:
     aiExternal:
+      fqdnNames:
+        - api.openai.com
+        - api.anthropic.com
+        - token-plan-sgp.xiaomimimo.com
+      fqdnMatchPatterns:
+        - "*.xiaomimimo.com"
       cidrs:
         - 100.118.9.4/32
   migrate:

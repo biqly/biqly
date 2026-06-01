@@ -116,8 +116,15 @@ export const deleteProvider = (id: string) =>
 export const testProvider = (id: string, modelID?: string) =>
   apiFetch<ConnectionTestResult>('POST', `${AI_API_BASE}/providers/${id}/test`, { model_id: modelID ?? '' }, adminOpts)
 
+const REMOTE_MODELS_FETCH_TIMEOUT_MS = 45_000
+
 export const listProviderRemoteModels = (providerID: string) =>
-  apiFetch<RemoteModelOption[]>('GET', `${AI_API_BASE}/providers/${providerID}/remote-models`, undefined, adminOpts)
+  apiFetch<RemoteModelOption[]>(
+    'GET',
+    `${AI_API_BASE}/providers/${providerID}/remote-models`,
+    undefined,
+    { ...adminOpts, timeout: REMOTE_MODELS_FETCH_TIMEOUT_MS },
+  )
 
 export const listActiveModels = () =>
   apiFetch<AIModel[]>('GET', `${AI_API_BASE}/providers/active-models`, undefined, adminOpts)
