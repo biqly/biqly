@@ -23,6 +23,9 @@ export interface MetadataBulkDescribeModalProps {
   schemaOptions: string[]
   typeOptions: string[]
   aiRuntime: AIRuntimeSettings | null
+  // Effective per-user describe model label (preference resolved); falls back to
+  // the global default from aiRuntime when not set.
+  describeModel?: string
   bulkRunning: boolean
   bulkEntries: BulkEntry[]
   bulkSummary: { ok: number; error: number; skipped: number } | null
@@ -46,6 +49,7 @@ export function MetadataBulkDescribeModal({
   schemaOptions,
   typeOptions,
   aiRuntime,
+  describeModel,
   bulkRunning,
   bulkEntries,
   bulkSummary,
@@ -165,7 +169,7 @@ export function MetadataBulkDescribeModal({
             <p className="bulk-modal-subtitle">{t('metadata.bulk_modal_subtitle')}</p>
             <ModelBadgeRow
               primaryLabel={t('metadata.describe_badge_label')}
-              primaryModel={aiRuntime?.llm_model}
+              primaryModel={describeModel || aiRuntime?.llm_model}
               translationModel={aiRuntime?.translation_enabled ? aiRuntime?.translation_model : undefined}
             />
           </div>

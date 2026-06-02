@@ -7,6 +7,8 @@ import { getSecurityPolicyByKeys, upsertSecurityPolicy } from '../../api/admin'
 import type { SecurityPolicy, PermissionRowFilter } from '../../api/admin'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Select } from '../ui/Select'
+import { useAuth } from '../auth/AuthProvider'
+import { ReadOnlyNote } from './ReadOnlyNote'
 import {
   datasourceSelectOptions,
   securityRoleOptions,
@@ -16,6 +18,9 @@ import { FILTER_OPERATOR_OPTIONS, fieldSelectOptions } from './securityPolicyCon
 
 export function RowLevelSecurityPanel({ token }: { token: string }) {
   const t = useT()
+  const { hasPermission } = useAuth()
+  // Row-level security policies are stored as permissions (admin:roles).
+  const canEdit = hasPermission('admin:roles')
 
   // Selectors
   const [selectedRole, setSelectedRole] = useState('viewer')
@@ -195,7 +200,9 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
   return (
     <div style={containerStyle}>
       <h2 style={headerStyle}>{t('admin.tabs.row_level_security')}</h2>
-      
+
+      {!canEdit && <ReadOnlyNote />}
+
       <div style={gridSelectStyle}>
         <div style={labelStyle} className="admin-form-label">
           <span style={labelTextStyle}>Role</span>
@@ -232,10 +239,10 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
             <div style={innerPanelStyle}>
               <div style={builderHeaderStyle}>
                 <h3 style={sectionTitleStyle}>Filter Rules</h3>
-                <button 
-                  onClick={handleAddFilter} 
-                  disabled={fields.length === 0} 
-                  style={fields.length === 0 ? btnSecondaryDisabled : btnAddStyle}
+                <button
+                  onClick={handleAddFilter}
+                  disabled={fields.length === 0 || !canEdit}
+                  style={fields.length === 0 || !canEdit ? btnSecondaryDisabled : btnAddStyle}
                 >
                   + Add Filter Row
                 </button>
@@ -267,6 +274,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
                           value={f.field}
                           options={fieldOptions}
                           onChange={(v) => handleFilterChange(i, 'field', v)}
+                          disabled={!canEdit}
                         />
 
                         <Select
@@ -274,18 +282,19 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
                           value={f.operator || 'eq'}
                           options={FILTER_OPERATOR_OPTIONS}
                           onChange={(v) => handleFilterChange(i, 'operator', v)}
+                          disabled={!canEdit}
                         />
 
                         <input
                           type="text"
                           value={isValDisabled ? '' : valDisplay}
-                          disabled={isValDisabled}
+                          disabled={isValDisabled || !canEdit}
                           onChange={(e) => handleFilterChange(i, 'value', e.target.value)}
                           placeholder={f.operator === 'in' || f.operator === 'not_in' ? 'val1, val2, val3' : 'Value'}
                           style={isValDisabled ? inputStyleDisabled : filterInputStyle}
                         />
 
-                        <button onClick={() => handleRemoveFilter(i)} style={btnDeleteRowStyle}>
+                        <button onClick={() => handleRemoveFilter(i)} style={btnDeleteRowStyle} disabled={!canEdit}>
                           ✕
                         </button>
                       </div>
@@ -297,8 +306,8 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
               <div style={{ marginTop: 24 }}>
                 <button
                   onClick={handleSave}
-                  disabled={isSavingDisabled}
-                  style={isSavingDisabled ? btnPrimaryDisabled : btnPrimary}
+                  disabled={isSavingDisabled || !canEdit}
+                  style={isSavingDisabled || !canEdit ? btnPrimaryDisabled : btnPrimary}
                 >
                   Save Access Rules
                 </button>

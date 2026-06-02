@@ -8,11 +8,16 @@ import {
 import { useT } from '../../i18n'
 import type { Permission, Role } from '../../types/auth'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
+import { useAuth } from '../auth/AuthProvider'
+import { ReadOnlyNote } from './ReadOnlyNote'
 
 const ALL_PAGE_SIZE = 500
 
 export function RolesPanel({ token }: { token: string }) {
   const t = useT()
+  const { hasPermission } = useAuth()
+  // Editing role→permission mappings requires admin:roles (server-enforced).
+  const canEdit = hasPermission('admin:roles')
   const [roles, setRoles] = useState<Role[]>([])
   const [allPerms, setAllPerms] = useState<Permission[]>([])
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null)
@@ -141,6 +146,7 @@ export function RolesPanel({ token }: { token: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {error && <div style={errStyle}>{t('common.error')}: {error}</div>}
+      {!canEdit && <ReadOnlyNote />}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 280px) 1fr', gap: 24, alignItems: 'start' }}>
         <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -214,6 +220,7 @@ export function RolesPanel({ token }: { token: string }) {
                               if (el) el.indeterminate = someChecked && !allChecked
                             }}
                             onChange={(e) => toggleResourceGroup(permissions, e.target.checked)}
+                            disabled={!canEdit}
                           />
                           {resourceBadge(resource)}
                           <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
@@ -228,6 +235,7 @@ export function RolesPanel({ token }: { token: string }) {
                                   type="checkbox"
                                   checked={assignedIds.has(p.id)}
                                   onChange={() => togglePermission(p.id)}
+                                  disabled={!canEdit}
                                 />
                                 <span style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 12 }}>{p.name}</span>
                                 <span style={{ marginLeft: 8 }}>{actionBadge(p.action)}</span>

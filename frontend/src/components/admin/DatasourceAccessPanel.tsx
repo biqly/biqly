@@ -18,11 +18,16 @@ import {
   userSelectOptions,
 } from './adminSelectOptions'
 import type { DatasourceAccessLevel } from './adminSelectOptions'
+import { useAuth } from '../auth/AuthProvider'
+import { ReadOnlyNote } from './ReadOnlyNote'
 
 export function DatasourceAccessPanel({ token }: { token: string }) {
   const t = useT()
   const [locale] = useLocale()
   const confirm = useConfirm()
+  const { hasPermission } = useAuth()
+  // Granting/revoking datasource access requires datasource:grant_access (server-enforced).
+  const canEdit = hasPermission('datasource:grant_access')
   const [rows, setRows] = useState<DatasourceAccess[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -111,10 +116,12 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
     <div className="page-stack">
       <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.datasource_access.title')}</h2>
 
+      {!canEdit && <ReadOnlyNote />}
+
       <form onSubmit={onGrant} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
         <label className="admin-form-label" style={{ gap: 4, minWidth: 240 }}>
           <span className="admin-label-text">{t('admin.fields.user')}</span>
-          <Select value={userID} options={userOptions} onChange={setUserID} placeholder={t('evaluation.placeholder_select')} />
+          <Select value={userID} options={userOptions} onChange={setUserID} placeholder={t('evaluation.placeholder_select')} disabled={!canEdit} />
         </label>
         <label className="admin-form-label" style={{ gap: 4, minWidth: 240 }}>
           <span className="admin-label-text">Datasource</span>
@@ -123,6 +130,7 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
             options={dsOptions}
             onChange={setDatasourceID}
             placeholder={t('evaluation.placeholder_select')}
+            disabled={!canEdit}
           />
         </label>
         <label className="admin-form-label" style={{ gap: 4, minWidth: 240 }}>
@@ -131,9 +139,10 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
             value={level}
             options={levelOptions}
             onChange={(v) => setLevel(v as DatasourceAccessLevel)}
+            disabled={!canEdit}
           />
         </label>
-        <button type="submit" className="admin-btn-primary">
+        <button type="submit" className="admin-btn-primary" disabled={!canEdit}>
           {t('admin.datasource_access.grant')}
         </button>
       </form>
@@ -175,11 +184,12 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
                             options={levelOptions}
                             onChange={(v) => onChangeLevel(r.id, v as DatasourceAccessLevel)}
                             className={`admin-level-${r.access_level}`}
+                            disabled={!canEdit}
                           />
                         </td>
                         <td className="admin-td">{new Date(r.granted_at).toLocaleString(localeLanguageTag(locale))}</td>
                         <td className="admin-td" style={{ textAlign: 'right' }}>
-                          <button onClick={() => onRevoke(r.user_id, r.datasource_id)} className="admin-btn-secondary">{t('common.delete')}</button>
+                          <button onClick={() => onRevoke(r.user_id, r.datasource_id)} className="admin-btn-secondary" disabled={!canEdit}>{t('common.delete')}</button>
                         </td>
                       </tr>
                     )

@@ -4,10 +4,15 @@ import { useToast } from '../../hooks/useToast'
 import { getPlatformSettings, updatePlatformSettings } from '../../api/admin'
 import { clearPasswordPolicyCache } from '../../api/auth'
 import { LoadingScreen } from '../ui/LoadingScreen'
+import { useAuth } from '../auth/AuthProvider'
+import { ReadOnlyNote } from './ReadOnlyNote'
 
 export function PlatformSettingsPanel({ token }: { token: string }) {
   const t = useT()
   const toast = useToast()
+  const { isSuperAdmin } = useAuth()
+  // Platform settings are super-admin only (enforced server-side).
+  const canEdit = isSuperAdmin
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [selfSignupEnabled, setSelfSignupEnabled] = useState(true)
@@ -58,6 +63,8 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
         </p>
       </div>
 
+      {!canEdit && <ReadOnlyNote />}
+
       <label
         style={{
           display: 'flex',
@@ -74,6 +81,7 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
           type="checkbox"
           checked={selfSignupEnabled}
           onChange={(e) => setSelfSignupEnabled(e.target.checked)}
+          disabled={!canEdit}
           style={{ marginTop: 3 }}
         />
         <span>
@@ -97,7 +105,7 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
       )}
 
       <div style={{ display: 'flex', gap: 8 }}>
-        <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void save()}>
+        <button type="button" className="btn btn-primary" disabled={saving || !canEdit} onClick={() => void save()}>
           {saving ? t('common.saving') : t('common.save')}
         </button>
       </div>

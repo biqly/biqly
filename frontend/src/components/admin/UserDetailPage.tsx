@@ -25,7 +25,10 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
   const t = useT()
   const [locale] = useLocale()
   const confirm = useConfirm()
-  const { user: currentUser, roles: currentUserRoles } = useAuth()
+  const { user: currentUser, roles: currentUserRoles, hasPermission } = useAuth()
+  // User activation/update needs admin:users; role assignment/revocation needs admin:roles.
+  const canManageUsers = hasPermission('admin:users')
+  const canManageRoles = hasPermission('admin:roles')
   const [user, setUser] = useState<AuthUser | null>(null)
   const [verificationSending, setVerificationSending] = useState(false)
   const [verificationMessage, setVerificationMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -201,6 +204,7 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
               <button
                 onClick={handleToggleActive}
+                disabled={!canManageUsers}
                 className={user.isActive ? 'admin-btn-deactivate' : 'admin-btn-activate'}
               >
                 {user.isActive ? t('admin.user_detail.suspend_account') : t('admin.user_detail.activate_account')}
@@ -319,7 +323,7 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
                       {ur.scope_id === '00000000-0000-0000-0000-000000000000' ? t('admin.user_detail.all_or_none') : ur.scope_id}
                     </td>
                     <td className="admin-td" style={{ textAlign: 'right' }}>
-                      <button onClick={() => handleRevokeRole(ur.role_id)} className="admin-btn-revoke">
+                      <button onClick={() => handleRevokeRole(ur.role_id)} className="admin-btn-revoke" disabled={!canManageRoles}>
                         {t('admin.user_detail.remove_role')}
                       </button>
                     </td>
@@ -340,7 +344,7 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
                 value={selectedRoleID}
                 options={assignableRoleOptions}
                 onChange={setSelectedRoleID}
-                disabled={assignableRoleOptions.length === 0}
+                disabled={!canManageRoles || assignableRoleOptions.length === 0}
               />
             </label>
 
@@ -363,7 +367,7 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
               </label>
             )}
 
-            <button type="submit" className="admin-btn-submit">
+            <button type="submit" className="admin-btn-submit" disabled={!canManageRoles}>
               {t('admin.user_detail.assign_role')}
             </button>
           </form>

@@ -12,6 +12,7 @@ import { Select } from './ui/Select'
 import { LoadingScreen } from './ui/LoadingScreen'
 import type { AIRuntimeSettings } from '../types/ai'
 import { MetadataBulkDescribeModal } from './metadata/MetadataBulkDescribeModal'
+import { fetchUserAIModels } from '../api/aiUserModels'
 import { MetadataColumnPanel } from './metadata/MetadataColumnPanel'
 import { MetadataDescribeModal } from './metadata/MetadataDescribeModal'
 import { MetadataDescriptionCell } from './metadata/MetadataDescriptionCell'
@@ -44,6 +45,10 @@ export default function Metadata() {
   const [tableFilterSchema, setTableFilterSchema] = useState(schemaParam)
   const [tableFilterType, setTableFilterType] = useState(typeParam)
   const [aiRuntime, setAiRuntime] = useState<AIRuntimeSettings | null>(null)
+  // The describe model actually used is resolved per-user (the user's preference
+  // when set, otherwise the global default). Resolve it so the modal badge
+  // reflects what will run, not just the global default.
+  const [effectiveDescribeModel, setEffectiveDescribeModel] = useState<string | null>(null)
 
   const [initLoading, setInitLoading] = useState(true)
   const [tablesLoading, setTablesLoading] = useState(false)
@@ -65,6 +70,27 @@ export default function Metadata() {
     ]).finally(() => {
       setInitLoading(false)
     })
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void fetchUserAIModels()
+      .then((res) => {
+        if (cancelled) return
+        const prefId = res.preferences?.describe
+        if (!prefId) {
+          setEffectiveDescribeModel(null)
+          return
+        }
+        const m = res.models.find((mm) => mm.id === prefId)
+        setEffectiveDescribeModel(m ? m.display_name || m.model_id : null)
+      })
+      .catch(() => {
+        if (!cancelled) setEffectiveDescribeModel(null)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {
@@ -436,6 +462,7 @@ export default function Metadata() {
           schemaOptions={schemaOptions}
           typeOptions={typeOptions}
           aiRuntime={aiRuntime}
+          describeModel={effectiveDescribeModel ?? undefined}
           bulkRunning={bulkRunning}
           bulkEntries={bulkEntries}
           bulkSummary={bulkSummary}

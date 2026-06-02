@@ -1,6 +1,7 @@
 export const admin = {
   title: 'Administration',
   auth_pending: 'Waiting for authorization…',
+  read_only_note: 'You have read-only access here — you do not have permission to make changes.',
   nav: {
     label: 'Administration sections',
     jump_to: 'Section',

@@ -6,6 +6,8 @@ import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { AIModelSharingPanel } from './AIModelSharingPanel'
+import { useAuth } from '../auth/AuthProvider'
+import { ReadOnlyNote } from './ReadOnlyNote'
 import {
   type AIModel,
   type AIProvider,
@@ -45,6 +47,9 @@ export function AIProvidersPanel() {
   const t = useT()
   const toast = useToast()
   const confirm = useConfirm()
+  const { hasPermission } = useAuth()
+  // Managing AI providers/models is a platform-config action (admin:settings).
+  const canEdit = hasPermission('admin:settings')
 
   const [providers, setProviders] = useState<AIProvider[]>([])
   const [activeModels, setActiveModels] = useState<AIModel[]>([])
@@ -168,6 +173,7 @@ export function AIProvidersPanel() {
       </div>
 
       {error && <div style={errStyle}>{t('common.error')}: {error}</div>}
+      {!canEdit && <ReadOnlyNote />}
 
       <AIModelSharingPanel />
 
@@ -209,7 +215,7 @@ export function AIProvidersPanel() {
       <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h3 style={{ margin: 0, fontSize: 15 }}>{t('admin.ai_providers.providers_title')}</h3>
-          <button style={primaryBtn} onClick={() => { setEditingProvider(null); setProviderModalOpen(true) }}>
+          <button style={primaryBtn} disabled={!canEdit} onClick={() => { setEditingProvider(null); setProviderModalOpen(true) }}>
             + {t('admin.ai_providers.add_provider')}
           </button>
         </div>
@@ -224,6 +230,7 @@ export function AIProvidersPanel() {
                 onSelect={() => setSelectedProvider((cur) => (cur?.id === p.id ? null : p))}
                 onEdit={() => { setEditingProvider(p); setProviderModalOpen(true) }}
                 onDelete={() => handleDeleteProvider(p)}
+                canEdit={canEdit}
               />
             ))}
             {!loading && providers.length === 0 && (
@@ -240,7 +247,7 @@ export function AIProvidersPanel() {
         <section style={cardStyle}>
           <div style={{ ...cardHeaderStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span>{t('admin.ai_providers.models_for', { name: selectedProvider.name })}</span>
-            <button style={secondaryBtn} onClick={() => { setEditingModel(null); setModelModalOpen(true) }}>
+            <button style={secondaryBtn} disabled={!canEdit} onClick={() => { setEditingModel(null); setModelModalOpen(true) }}>
               + {t('admin.ai_providers.add_model')}
             </button>
           </div>
@@ -268,14 +275,14 @@ export function AIProvidersPanel() {
                     <td style={tdStyle}>{m.max_tokens}</td>
                     <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>
                       {!m.is_default && (
-                        <button style={linkBtn} onClick={() => handleSetDefault(m)}>
+                        <button style={linkBtn} disabled={!canEdit} onClick={() => handleSetDefault(m)}>
                           {t('admin.ai_providers.set_default')}
                         </button>
                       )}
-                      <button style={linkBtn} onClick={() => { setEditingModel(m); setModelModalOpen(true) }}>
+                      <button style={linkBtn} disabled={!canEdit} onClick={() => { setEditingModel(m); setModelModalOpen(true) }}>
                         {t('common.edit')}
                       </button>
-                      <button style={{ ...linkBtn, color: 'var(--error, #ef4444)' }} onClick={() => handleDeleteModel(m)}>
+                      <button style={{ ...linkBtn, color: 'var(--error, #ef4444)' }} disabled={!canEdit} onClick={() => handleDeleteModel(m)}>
                         {t('common.delete')}
                       </button>
                     </td>
@@ -315,13 +322,14 @@ export function AIProvidersPanel() {
 }
 
 function ProviderCard({
-  provider, selected, onSelect, onEdit, onDelete,
+  provider, selected, onSelect, onEdit, onDelete, canEdit,
 }: {
   provider: AIProvider
   selected: boolean
   onSelect: () => void
   onEdit: () => void
   onDelete: () => void
+  canEdit: boolean
 }) {
   const t = useT()
   return (
@@ -349,8 +357,8 @@ function ProviderCard({
         {provider.has_api_key && <span> · {provider.api_key_masked}</span>}
       </div>
       <div style={{ display: 'flex', gap: 8, marginTop: 4 }} onClick={(e) => e.stopPropagation()}>
-        <button style={linkBtn} onClick={onEdit}>{t('common.edit')}</button>
-        <button style={{ ...linkBtn, color: 'var(--error, #ef4444)' }} onClick={onDelete}>{t('common.delete')}</button>
+        <button style={linkBtn} disabled={!canEdit} onClick={onEdit}>{t('common.edit')}</button>
+        <button style={{ ...linkBtn, color: 'var(--error, #ef4444)' }} disabled={!canEdit} onClick={onDelete}>{t('common.delete')}</button>
       </div>
     </div>
   )

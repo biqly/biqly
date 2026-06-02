@@ -2,6 +2,7 @@ import type { AdminDictionary } from '../dictionary'
 
 export const admin: AdminDictionary = {
   title: 'Yönetim',
+  read_only_note: 'Burada salt-okunur erişiminiz var — değişiklik yapma yetkiniz yok.',
   auth_pending: 'Yetkilendirme bekleniyor…',
   nav: {
     label: 'Yönetim bölümleri',

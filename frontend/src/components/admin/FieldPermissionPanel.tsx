@@ -9,6 +9,8 @@ import type { SemanticModelFieldRow, SemanticModelFieldsPage } from '../../types
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
+import { useAuth } from '../auth/AuthProvider'
+import { ReadOnlyNote } from './ReadOnlyNote'
 import {
   datasourceSelectOptions,
   securityRoleOptions,
@@ -19,6 +21,9 @@ const DEFAULT_FIELD_PAGE_SIZE = 15
 
 export function FieldPermissionPanel({ token }: { token: string }) {
   const t = useT()
+  const { hasPermission } = useAuth()
+  // Field-level security policies are stored as permissions (admin:roles).
+  const canEdit = hasPermission('admin:roles')
 
   const [selectedRole, setSelectedRole] = useState('viewer')
   const { datasources, loading: loadingDS } = useDatasources()
@@ -202,6 +207,8 @@ export function FieldPermissionPanel({ token }: { token: string }) {
     <div style={containerStyle}>
       <h2 style={headerStyle}>{t('admin.tabs.field_permissions')}</h2>
 
+      {!canEdit && <ReadOnlyNote />}
+
       <div style={gridSelectStyle}>
         <div style={labelStyle} className="admin-form-label">
           <span style={labelTextStyle}>Role</span>
@@ -285,6 +292,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
                               type="checkbox"
                               checked={denied}
                               onChange={() => handleToggleField(row.name)}
+                              disabled={!canEdit}
                               style={checkboxStyle}
                             />
                           </td>
@@ -307,8 +315,8 @@ export function FieldPermissionPanel({ token }: { token: string }) {
             <div style={{ marginTop: 24 }}>
               <button
                 onClick={handleSave}
-                disabled={isSavingDisabled}
-                style={isSavingDisabled ? btnPrimaryDisabled : btnPrimary}
+                disabled={isSavingDisabled || !canEdit}
+                style={isSavingDisabled || !canEdit ? btnPrimaryDisabled : btnPrimary}
               >
                 Save Field Permissions
               </button>
