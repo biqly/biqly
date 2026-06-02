@@ -4,7 +4,7 @@ helm:
     value: ghcr.io/biqly/ai
     forcestring: true
   - name: ai.image.tag
-    value: sha-8250a60ee7071858d815f5650348bfc9017abaf1
+    value: sha-980e136b0280b58bf044e18ac0435372ed214235
     forcestring: true
   - name: auth.image.repository
     value: ghcr.io/biqly/biqly-auth
@@ -22,13 +22,13 @@ helm:
     value: ghcr.io/biqly/catalog
     forcestring: true
   - name: catalog.image.tag
-    value: sha-8250a60ee7071858d815f5650348bfc9017abaf1
+    value: sha-980e136b0280b58bf044e18ac0435372ed214235
     forcestring: true
   - name: frontend.image.repository
     value: ghcr.io/biqly/biqly-frontend
     forcestring: true
   - name: frontend.image.tag
-    value: sha-8250a60ee7071858d815f5650348bfc9017abaf1
+    value: sha-980e136b0280b58bf044e18ac0435372ed214235
     forcestring: true
   - name: global.migrate.image.repository
     value: ghcr.io/biqly/migrate
@@ -52,5 +52,5 @@ helm:
     value: ghcr.io/biqly/query
     forcestring: true
   - name: query.image.tag
-    value: sha-8250a60ee7071858d815f5650348bfc9017abaf1
+    value: sha-980e136b0280b58bf044e18ac0435372ed214235
     forcestring: true
