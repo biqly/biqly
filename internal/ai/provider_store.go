@@ -855,10 +855,18 @@ func (s *ProviderStore) TestConnection(ctx context.Context, providerID, modelID 
 	if err != nil {
 		return ConnectionTestResult{}, err
 	}
+	// Pick the provider's default model. When a specific modelID is given we
+	// look up its purpose; otherwise we take the default model of any purpose so
+	// embedding-only providers can be tested too.
+	var purpose string
 	if strings.TrimSpace(modelID) == "" {
 		_ = s.db.QueryRowContext(ctx,
-			`SELECT model_id FROM ai_models WHERE provider_id = $1::uuid AND purpose != 'embedding' ORDER BY is_default DESC, created_at LIMIT 1`,
-			providerID).Scan(&modelID)
+			`SELECT model_id, purpose FROM ai_models WHERE provider_id = $1::uuid ORDER BY is_default DESC, created_at LIMIT 1`,
+			providerID).Scan(&modelID, &purpose)
+	} else {
+		_ = s.db.QueryRowContext(ctx,
+			`SELECT purpose FROM ai_models WHERE provider_id = $1::uuid AND model_id = $2 LIMIT 1`,
+			providerID, strings.TrimSpace(modelID)).Scan(&purpose)
 	}
 	modelID = strings.TrimSpace(modelID)
 	if modelID == "" {
@@ -869,6 +877,26 @@ func (s *ProviderStore) TestConnection(ctx context.Context, providerID, modelID 
 	var encKey sql.NullString
 	if err := s.db.QueryRowContext(ctx, `SELECT api_key_encrypted FROM ai_providers WHERE id = $1::uuid`, providerID).Scan(&encKey); err == nil && encKey.Valid {
 		apiKey = s.decrypt(encKey.String)
+	}
+
+	testCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	start := time.Now()
+
+	// Embedding providers expose /embeddings, not /chat/completions — probe the
+	// right endpoint so the test reflects how the model is actually used.
+	if Purpose(purpose) == PurposeEmbedding {
+		cfg := s.fallback
+		cfg.EmbeddingModel = modelID
+		cfg.EmbeddingBaseURL = prov.BaseURL
+		cfg.EmbeddingAPIKey = apiKey
+		cfg.EmbeddingHTTPTimeoutSeconds = 30
+		embedder := providerpkg.NewOpenAIEmbedder(cfg)
+		defer func() { _ = embedder.Close() }()
+		if _, err := embedder.Embed(testCtx, []string{"connectivity check"}); err != nil {
+			return ConnectionTestResult{Status: "error", Message: err.Error(), Model: modelID}, nil
+		}
+		return ConnectionTestResult{Status: "connected", LatencyMS: time.Since(start).Milliseconds(), Model: modelID}, nil
 	}
 
 	cfg := s.fallback
@@ -886,9 +914,6 @@ func (s *ProviderStore) TestConnection(ctx context.Context, providerID, modelID 
 	}
 	defer closeProvider(p)
 
-	testCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	start := time.Now()
 	if _, err := p.Generate(testCtx, "Respond with the single word: OK"); err != nil {
 		return ConnectionTestResult{Status: "error", Message: err.Error(), Model: modelID}, nil
 	}

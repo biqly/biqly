@@ -25,7 +25,14 @@ func (p httpProvider) url(path string) string {
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
-	return p.baseURL + path
+	base := strings.TrimRight(p.baseURL, "/")
+	// Tolerate base URLs that already include the endpoint path (a common
+	// mistake when pasting a full "…/v1/embeddings" or "…/v1/chat/completions"
+	// URL) so we don't produce ".../embeddings/embeddings" → 404.
+	if strings.HasSuffix(base, path) {
+		return base
+	}
+	return base + path
 }
 
 func (p httpProvider) bearerAuthHeaders() map[string]string {
