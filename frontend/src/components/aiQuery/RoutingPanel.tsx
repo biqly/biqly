@@ -83,9 +83,11 @@ export function RoutingPanel({
       ? activeEmbedding?.display_name
       : aiRuntime?.embedding_model
     : undefined
+  const embeddingNote = dbManaged ? activeEmbedding?.provider_name : undefined
   const translationBadge = dbManaged
     ? activeTranslation?.display_name
     : aiRuntime?.translation_enabled ? aiRuntime?.translation_model : undefined
+  const translationNote = dbManaged ? activeTranslation?.provider_name : undefined
 
   return (
     <header className="query-config-header">
@@ -95,7 +97,9 @@ export function RoutingPanel({
           primaryModel={queryModel}
           primaryNote={queryNote}
           embeddingModel={embeddingBadge}
+          embeddingNote={embeddingNote}
           translationModel={translationBadge}
+          translationNote={translationNote}
           className="query-config-badges"
         />
         {embeddingsAvailable && (

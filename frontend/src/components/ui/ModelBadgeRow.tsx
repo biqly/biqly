@@ -16,7 +16,9 @@ export interface ModelBadgeRowProps {
   primaryModel?: string
   primaryNote?: string
   translationModel?: string
+  translationNote?: string
   embeddingModel?: string
+  embeddingNote?: string
   className?: string
   style?: CSSProperties
 }
@@ -30,8 +32,8 @@ interface Badge {
 export function ModelBadgeRow(props: ModelBadgeRowProps) {
   const t = useT()
   const badges: Badge[] = [{ label: props.primaryLabel, model: props.primaryModel, note: props.primaryNote }]
-  if (props.translationModel) badges.push({ label: t('common.model_badge_translate'), model: props.translationModel })
-  if (props.embeddingModel) badges.push({ label: t('common.model_badge_embedding'), model: props.embeddingModel })
+  if (props.translationModel) badges.push({ label: t('common.model_badge_translate'), model: props.translationModel, note: props.translationNote })
+  if (props.embeddingModel) badges.push({ label: t('common.model_badge_embedding'), model: props.embeddingModel, note: props.embeddingNote })
 
   const containerStyle: CSSProperties = {
     display: 'flex',

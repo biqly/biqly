@@ -43,6 +43,9 @@ export function MetadataDescribeModal({
   const [result, setResult] = useState<DescribeResult | null>(null)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const dbManaged = aiRuntime?.db_managed === true
+  const activeDescribe = dbManaged ? aiRuntime?.active_models?.find((m) => m.purpose === 'describe') : undefined
+  const activeTranslation = dbManaged ? aiRuntime?.active_models?.find((m) => m.purpose === 'translation') : undefined
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -103,6 +106,7 @@ export function MetadataDescribeModal({
             <ModelBadgeRow
               primaryLabel={t('metadata.describe_badge_label')}
               primaryModel={result?.model ?? aiRuntime?.llm_model}
+              primaryNote={dbManaged ? activeDescribe?.provider_name : undefined}
               translationModel={
                 result?.translation_applied
                   ? result?.translation_model
@@ -110,6 +114,7 @@ export function MetadataDescribeModal({
                     ? aiRuntime?.translation_model
                     : undefined
               }
+              translationNote={dbManaged ? activeTranslation?.provider_name : undefined}
             />
           </div>
           <button type="button" className="modal-close" aria-label={t('metadata.describe_close_aria')} onClick={onClose}>

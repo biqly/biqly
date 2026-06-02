@@ -67,6 +67,9 @@ export function MetadataBulkDescribeModal({
     message: string
     schemas?: string
   } | null>(null)
+  const dbManaged = aiRuntime?.db_managed === true
+  const activeDescribe = dbManaged ? aiRuntime?.active_models?.find((m) => m.purpose === 'describe') : undefined
+  const activeTranslation = dbManaged ? aiRuntime?.active_models?.find((m) => m.purpose === 'translation') : undefined
 
   useEffect(() => {
     if (!open) return
@@ -170,7 +173,9 @@ export function MetadataBulkDescribeModal({
             <ModelBadgeRow
               primaryLabel={t('metadata.describe_badge_label')}
               primaryModel={describeModel || aiRuntime?.llm_model}
+              primaryNote={dbManaged ? activeDescribe?.provider_name : undefined}
               translationModel={aiRuntime?.translation_enabled ? aiRuntime?.translation_model : undefined}
+              translationNote={dbManaged ? activeTranslation?.provider_name : undefined}
             />
           </div>
           <button
