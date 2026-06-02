@@ -423,20 +423,24 @@ export function AddMetricModal({ model, includedTables, columns, onClose, onCrea
             </div>
           </div>
 
-          <div className="modeling-tabs" style={{ marginBottom: '0.25rem' }}>
+          <div className="toggle-group metric-mode-toggle" role="tablist" aria-label={t('modeling.add_metric_title')}>
             <button
               type="button"
-              className={`modeling-tab ${mode === 'simple' ? 'modeling-tab--active' : ''}`}
+              className={`toggle-btn ${mode === 'simple' ? 'active' : ''}`}
               onClick={() => handleModeChange('simple')}
               disabled={saving}
+              role="tab"
+              aria-selected={mode === 'simple'}
             >
               {t('modeling.simple_metric')}
             </button>
             <button
               type="button"
-              className={`modeling-tab ${mode === 'custom' ? 'modeling-tab--active' : ''}`}
+              className={`toggle-btn ${mode === 'custom' ? 'active' : ''}`}
               onClick={() => handleModeChange('custom')}
               disabled={saving}
+              role="tab"
+              aria-selected={mode === 'custom'}
             >
               {t('modeling.custom_expression')}
             </button>

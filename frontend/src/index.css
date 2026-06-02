@@ -439,7 +439,8 @@ a {
 .query-builder-row select,
 .query-builder-row input:not([type='checkbox']):not([type='radio']),
 .form-field select,
-.form-field input:not([type='checkbox']):not([type='radio']) {
+.form-field input:not([type='checkbox']):not([type='radio']),
+.few-shot-sidebar__search {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 0.5rem;
@@ -457,7 +458,8 @@ a {
 .query-builder-row input:focus-visible:not([type='checkbox']):not([type='radio']),
 .form-field input:focus-visible:not([type='checkbox']):not([type='radio']),
 .form-field select:focus-visible,
-.form-field textarea:focus-visible {
+.form-field textarea:focus-visible,
+.few-shot-sidebar__search:focus-visible {
   border-color: var(--control-focus-border);
   box-shadow: 0 0 0 1px var(--bg-primary), 0 0 0 3px var(--control-focus-ring);
   outline: none;
@@ -2328,6 +2330,12 @@ input[type='checkbox']:disabled {
   padding: 0.2rem;
   background: var(--bg-card-raised);
   gap: 0.2rem;
+}
+
+.metric-mode-toggle {
+  width: 100%;
+  margin-top: 0.35rem;
+  margin-bottom: 0.15rem;
 }
 
 .toggle-btn {
