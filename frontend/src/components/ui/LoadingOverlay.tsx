@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import { useT } from '../../i18n'
-import { LoadingIndicator } from './LoadingIndicator'
 
 interface LoadingOverlayProps {
   loading: boolean
@@ -17,8 +16,9 @@ export function LoadingOverlay({ loading, label, children, className }: LoadingO
     return (
       <div className={`loading-overlay-wrap${className ? ` ${className}` : ''}`} aria-busy="true">
         {children}
-        <div className="loading-overlay loading-overlay--subtle" role="status" aria-live="polite">
-          <LoadingIndicator label={displayLabel} size="sm" className="loading-indicator--anchored" />
+        <div className="loading-overlay" role="status" aria-live="polite">
+          <span className="loading-overlay-spinner" aria-hidden="true" />
+          <span className="loading-overlay-label">{displayLabel}</span>
         </div>
       </div>
     )
@@ -29,3 +29,4 @@ export function LoadingOverlay({ loading, label, children, className }: LoadingO
     </p>
   )
 }
+

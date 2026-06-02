@@ -1185,9 +1185,9 @@ func TestAIJobs_And_AIMetrics(t *testing.T) {
 	state.queries = []queryMock{
 		{
 			Pattern: "SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct",
-			Cols:    []string{"id", "client_session_id", "kind", "status", "phase", "phase_message", "progress_pct", "datasource_id", "scope_schemas", "progress_json", "request_json", "result_json", "error_message", "created_at", "updated_at", "started_at", "finished_at"},
+			Cols:    []string{"id", "client_session_id", "kind", "status", "phase", "phase_message", "progress_pct", "datasource_id", "scope_schemas", "progress_json", "request_json", "result_json", "error_message", "created_at", "updated_at", "started_at", "finished_at", "user_id"},
 			Rows: [][]driver.Value{
-				{"job-1", "sess-1", "describe", "pending", "routing", "", 5, "ds-1", "{schema1}", []byte(`{}`), []byte(`{}`), []byte(`{}`), "", now, now, now, now},
+				{"job-1", "sess-1", "describe", "pending", "routing", "", 5, "ds-1", "{schema1}", []byte(`{}`), []byte(`{}`), []byte(`{}`), "", now, now, now, now, nil},
 			},
 		},
 		{
@@ -1199,9 +1199,9 @@ func TestAIJobs_And_AIMetrics(t *testing.T) {
 		},
 		{
 			Pattern: "SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct", // ListStaleAIJobs
-			Cols:    []string{"id", "client_session_id", "kind", "status", "phase", "phase_message", "progress_pct", "datasource_id", "scope_schemas", "progress_json", "request_json", "result_json", "error_message", "created_at", "updated_at", "started_at", "finished_at"},
+			Cols:    []string{"id", "client_session_id", "kind", "status", "phase", "phase_message", "progress_pct", "datasource_id", "scope_schemas", "progress_json", "request_json", "result_json", "error_message", "created_at", "updated_at", "started_at", "finished_at", "user_id"},
 			Rows: [][]driver.Value{
-				{"job-stale", "sess-1", "describe", "pending", "routing", "", 5, "ds-1", "{schema1}", []byte(`{}`), []byte(`{}`), []byte(`{}`), "", now, now, now, now},
+				{"job-stale", "sess-1", "describe", "pending", "routing", "", 5, "ds-1", "{schema1}", []byte(`{}`), []byte(`{}`), []byte(`{}`), "", now, now, now, now, nil},
 			},
 		},
 		{

@@ -8,9 +8,10 @@ import {
 type AdminNavProps = {
   activeTab: AdminTab
   onTabChange: (tab: AdminTab) => void
+  onTabHover?: (tab: AdminTab) => void
 }
 
-export function AdminNav({ activeTab, onTabChange }: AdminNavProps) {
+export function AdminNav({ activeTab, onTabChange, onTabHover }: AdminNavProps) {
   const t = useT()
 
   return (
@@ -52,6 +53,8 @@ export function AdminNav({ activeTab, onTabChange }: AdminNavProps) {
                       type="button"
                       className={`admin-nav__link${isActive ? ' is-active' : ''}`}
                       onClick={() => onTabChange(tab)}
+                      onMouseEnter={() => onTabHover?.(tab)}
+                      onFocus={() => onTabHover?.(tab)}
                       aria-current={isActive ? 'page' : undefined}
                     >
                       {t(ADMIN_TAB_LABEL_KEYS[tab])}
@@ -66,3 +69,4 @@ export function AdminNav({ activeTab, onTabChange }: AdminNavProps) {
     </nav>
   )
 }
+

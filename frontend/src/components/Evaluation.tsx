@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
+import { useEffect, useMemo, useState, lazy, Suspense, startTransition, type ComponentType, type LazyExoticComponent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../styles/evaluation.css'
 import { useAdminApi } from '../hooks/useApi'
@@ -9,9 +9,17 @@ import { LoadingScreen } from './ui/LoadingScreen'
 import type { EvalRunSummary, EvalRunDetail, RegressionReport } from '../types/ai'
 import type { EvalRunResponse } from './evaluation/demoData'
 
-const EvalRunTab = lazy(() => import('./evaluation/EvalRunTab').then(m => ({ default: m.EvalRunTab })))
-const EvalHistoryTab = lazy(() => import('./evaluation/EvalHistoryTab').then(m => ({ default: m.EvalHistoryTab })))
-const EvalRegressionTab = lazy(() => import('./evaluation/EvalRegressionTab').then(m => ({ default: m.EvalRegressionTab })))
+const lazyWithPreload = <T extends ComponentType<any>>(
+  factory: () => Promise<{ default: T }>
+) => {
+  const Component = lazy(factory) as any
+  Component.preload = factory
+  return Component as LazyExoticComponent<T> & { preload: () => Promise<{ default: T }> }
+}
+
+const EvalRunTab = lazyWithPreload(() => import('./evaluation/EvalRunTab').then(m => ({ default: m.EvalRunTab })))
+const EvalHistoryTab = lazyWithPreload(() => import('./evaluation/EvalHistoryTab').then(m => ({ default: m.EvalHistoryTab })))
+const EvalRegressionTab = lazyWithPreload(() => import('./evaluation/EvalRegressionTab').then(m => ({ default: m.EvalRegressionTab })))
 
 // DEMO_DATA is lazy-loaded from ./evaluation/demoData.ts
 
@@ -45,6 +53,30 @@ export default function Evaluation() {
   const [currentId, setCurrentId] = useState(currentParam)
   const [regression, setRegression] = useState<RegressionReport | null>(null)
   const [regressionLoading, setRegressionLoading] = useState(false)
+
+  const TAB_COMPONENTS = {
+    run: EvalRunTab,
+    history: EvalHistoryTab,
+    regression: EvalRegressionTab,
+  }
+
+  const handleTabHover = (hoveredTab: 'run' | 'history' | 'regression') => {
+    const comp = TAB_COMPONENTS[hoveredTab]
+    if (comp && typeof comp.preload === 'function') {
+      comp.preload()
+    }
+  }
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      Object.values(TAB_COMPONENTS).forEach((comp) => {
+        if (comp && typeof comp.preload === 'function') {
+          comp.preload()
+        }
+      })
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [])
 
   useEffect(() => {
     setTabParam(activeTab === 'run' ? '' : activeTab)
@@ -149,7 +181,15 @@ export default function Evaluation() {
               role="tab"
               aria-selected={isActive}
               className={`btn btn-sm${isActive ? '' : ' btn-ghost'}`}
-              onClick={() => { setActiveTab(tab.key); setSelectedRun(null); setRegression(null) }}
+              onClick={() => {
+                startTransition(() => {
+                  setActiveTab(tab.key)
+                  setSelectedRun(null)
+                  setRegression(null)
+                })
+              }}
+              onMouseEnter={() => handleTabHover(tab.key)}
+              onFocus={() => handleTabHover(tab.key)}
             >
               {tab.label}
             </button>

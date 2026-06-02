@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/biqly/biqly/internal/metadata"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -26,7 +27,7 @@ func (h *AIJobsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req = *parsed
-	job, err := h.svc.Enqueue(r.Context(), req.Kind, req.ClientSessionID, req.Request)
+	job, err := h.svc.Enqueue(r.Context(), req.Kind, req.ClientSessionID, bimw.UserID(r.Context()), req.Request)
 	if err != nil {
 		var conflict *AIJobConflictError
 		if errors.As(err, &conflict) {

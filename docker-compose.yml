@@ -192,7 +192,9 @@ services:
   auth-migrate:
     build:
       context: .
-      dockerfile: Dockerfile.auth-migrate
+      dockerfile: Dockerfile.auth
+    entrypoint: ["/auth-migrate"]
+    command: ["-dir", "/migrations/auth", "up"]
     environment:
       BI_AUTH_DB_DSN: postgres://bi_auth_user:bi_auth_password@auth-db:5432/bi_auth?sslmode=disable
     depends_on:

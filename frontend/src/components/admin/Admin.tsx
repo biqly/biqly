@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, startTransition, useEffect, type ComponentType, type LazyExoticComponent } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { useT } from '../../i18n'
 import { useQueryParam } from '../../hooks/useQueryParam'
@@ -6,21 +6,44 @@ import { LoadingScreen } from '../ui/LoadingScreen'
 import { AdminNav } from './AdminNav'
 import { isAdminTab, type AdminTab } from './adminNavConfig'
 
-const RolesPanel = lazy(() => import('./RolesPanel').then(m => ({ default: m.RolesPanel })))
-const DatasourceAccessPanel = lazy(() => import('./DatasourceAccessPanel').then(m => ({ default: m.DatasourceAccessPanel })))
-const WorkspacesPanel = lazy(() => import('./WorkspacesPanel').then(m => ({ default: m.WorkspacesPanel })))
-const AuditLogPanel = lazy(() => import('./AuditLogPanel').then(m => ({ default: m.AuditLogPanel })))
-const UserListPage = lazy(() => import('./UserListPage').then(m => ({ default: m.UserListPage })))
-const UserDetailPage = lazy(() => import('./UserDetailPage').then(m => ({ default: m.UserDetailPage })))
-const AIHistoryPanel = lazy(() => import('../ai/AIHistoryPanel').then(m => ({ default: m.AIHistoryPanel })))
-const AIUsageAdminPanel = lazy(() => import('./AIUsageAdminPanel').then(m => ({ default: m.AIUsageAdminPanel })))
-const SharedResourcesList = lazy(() => import('../sharing/SharedResourcesList').then(m => ({ default: m.SharedResourcesList })))
-const AIProvidersPanel = lazy(() => import('./AIProvidersPanel').then(m => ({ default: m.AIProvidersPanel })))
-const RowLevelSecurityPanel = lazy(() => import('./RowLevelSecurityPanel').then(m => ({ default: m.RowLevelSecurityPanel })))
-const FieldPermissionPanel = lazy(() => import('./FieldPermissionPanel').then(m => ({ default: m.FieldPermissionPanel })))
-const PlatformSettingsPanel = lazy(() => import('./PlatformSettingsPanel').then(m => ({ default: m.PlatformSettingsPanel })))
+const lazyWithPreload = <T extends ComponentType<any>>(
+  factory: () => Promise<{ default: T }>
+) => {
+  const Component = lazy(factory) as any
+  Component.preload = factory
+  return Component as LazyExoticComponent<T> & { preload: () => Promise<{ default: T }> }
+}
+
+const RolesPanel = lazyWithPreload(() => import('./RolesPanel').then(m => ({ default: m.RolesPanel })))
+const DatasourceAccessPanel = lazyWithPreload(() => import('./DatasourceAccessPanel').then(m => ({ default: m.DatasourceAccessPanel })))
+const WorkspacesPanel = lazyWithPreload(() => import('./WorkspacesPanel').then(m => ({ default: m.WorkspacesPanel })))
+const AuditLogPanel = lazyWithPreload(() => import('./AuditLogPanel').then(m => ({ default: m.AuditLogPanel })))
+const UserListPage = lazyWithPreload(() => import('./UserListPage').then(m => ({ default: m.UserListPage })))
+const UserDetailPage = lazyWithPreload(() => import('./UserDetailPage').then(m => ({ default: m.UserDetailPage })))
+const AIHistoryPanel = lazyWithPreload(() => import('../ai/AIHistoryPanel').then(m => ({ default: m.AIHistoryPanel })))
+const AIUsageAdminPanel = lazyWithPreload(() => import('./AIUsageAdminPanel').then(m => ({ default: m.AIUsageAdminPanel })))
+const SharedResourcesList = lazyWithPreload(() => import('../sharing/SharedResourcesList').then(m => ({ default: m.SharedResourcesList })))
+const AIProvidersPanel = lazyWithPreload(() => import('./AIProvidersPanel').then(m => ({ default: m.AIProvidersPanel })))
+const RowLevelSecurityPanel = lazyWithPreload(() => import('./RowLevelSecurityPanel').then(m => ({ default: m.RowLevelSecurityPanel })))
+const FieldPermissionPanel = lazyWithPreload(() => import('./FieldPermissionPanel').then(m => ({ default: m.FieldPermissionPanel })))
+const PlatformSettingsPanel = lazyWithPreload(() => import('./PlatformSettingsPanel').then(m => ({ default: m.PlatformSettingsPanel })))
 
 const pendingStyle: React.CSSProperties = { padding: 24 }
+
+const TAB_COMPONENTS: Record<AdminTab, any> = {
+  users: UserListPage,
+  roles: RolesPanel,
+  datasource_access: DatasourceAccessPanel,
+  workspaces: WorkspacesPanel,
+  ai_usage: AIUsageAdminPanel,
+  ai_history: AIHistoryPanel,
+  sharing: SharedResourcesList,
+  audit_log: AuditLogPanel,
+  ai_providers: AIProvidersPanel,
+  row_level_security: RowLevelSecurityPanel,
+  field_permissions: FieldPermissionPanel,
+  platform_settings: PlatformSettingsPanel,
+}
 
 export default function Admin() {
   const t = useT()
@@ -35,22 +58,48 @@ export default function Admin() {
   const tab: AdminTab = isAdminTab(tabParam) ? tabParam : 'users'
   const selectedUserID = userIdParam || null
 
+  const handleTabHover = (hoveredTab: AdminTab) => {
+    const comp = TAB_COMPONENTS[hoveredTab]
+    if (comp && typeof comp.preload === 'function') {
+      comp.preload()
+    }
+    if (hoveredTab === 'users' && typeof UserDetailPage.preload === 'function') {
+      UserDetailPage.preload()
+    }
+  }
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      Object.values(TAB_COMPONENTS).forEach((comp) => {
+        if (comp && typeof comp.preload === 'function') {
+          comp.preload()
+        }
+      })
+      if (typeof UserDetailPage.preload === 'function') {
+        UserDetailPage.preload()
+      }
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [])
+
   if (!accessToken) {
     return <div style={pendingStyle}>{t('admin.auth_pending')}</div>
   }
 
   const handleTabChange = (newTab: AdminTab) => {
-    setTabParam(newTab)
-    setUserIdParam('')
-    setUserLabelParam('')
-    setWorkspaceIdParam('')
-    setWorkspaceLabelParam('')
-    setSubTabParam('')
+    startTransition(() => {
+      setTabParam(newTab)
+      setUserIdParam('')
+      setUserLabelParam('')
+      setWorkspaceIdParam('')
+      setWorkspaceLabelParam('')
+      setSubTabParam('')
+    })
   }
 
   return (
     <div className="admin-layout">
-      <AdminNav activeTab={tab} onTabChange={handleTabChange} />
+      <AdminNav activeTab={tab} onTabChange={handleTabChange} onTabHover={handleTabHover} />
 
       <div className="admin-content">
         <Suspense fallback={<LoadingScreen minHeight="200px" />}>

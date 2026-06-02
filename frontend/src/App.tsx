@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useState, type ComponentType, type LazyExoticComponent, type MouseEvent, type ReactNode } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useState, startTransition, type ComponentType, type LazyExoticComponent, type MouseEvent, type ReactNode } from 'react'
 import { Routes, Route, Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { Breadcrumbs, type Crumb } from './components/ui/Breadcrumbs'
 import { CommandPalette, type CommandItem } from './components/ui/CommandPalette'
@@ -10,30 +10,38 @@ import abiLogo from './assets/abi-logo.png'
 import { useT, LocaleSection, useLocaleSection, type TranslationKey } from './i18n'
 import { LoadingScreen } from './components/ui/LoadingScreen'
 
-const Home = lazy(() => import('./components/Home'))
-const Datasources = lazy(() => import('./components/Datasources'))
-const Metadata = lazy(() => import('./components/Metadata'))
-const Modeling = lazy(() => import('./components/Modeling'))
-const QueryBuilder = lazy(() => import('./components/QueryBuilder'))
-const AIQuery = lazy(() => import('./components/AIQuery'))
-const SavedQuestions = lazy(() => import('./components/SavedQuestions'))
-const TableBrowser = lazy(() => import('./components/TableBrowser'))
-const QueryHistory = lazy(() => import('./components/QueryHistory'))
-const FewShotExamples = lazy(() => import('./components/FewShotExamples'))
-const PromptTemplates = lazy(() => import('./components/PromptTemplates'))
-const Glossary = lazy(() => import('./components/Glossary'))
-const Evaluation = lazy(() => import('./components/Evaluation'))
-const Dashboard = lazy(() => import('./components/Dashboard'))
-const Settings = lazy(() => import('./components/Settings'))
-const TimeGrains = lazy(() => import('./components/TimeGrains'))
-const Admin = lazy(() => import('./components/admin/Admin'))
-const SignInPage = lazy(() => import('./components/auth/SignInPage'))
-const SignUpPage = lazy(() => import('./components/auth/SignUpPage'))
-const ForgotPasswordPage = lazy(() => import('./components/auth/ForgotPasswordPage'))
-const ResetPasswordPage = lazy(() => import('./components/auth/ResetPasswordPage'))
-const VerifyEmailPage = lazy(() => import('./components/auth/VerifyEmailPage'))
-const OAuthCallback = lazy(() => import('./components/auth/OAuthCallback'))
-const ClaimInvitePage = lazy(() => import('./components/auth/ClaimInvitePage'))
+const lazyWithPreload = <T extends ComponentType<any>>(
+  factory: () => Promise<{ default: T }>
+) => {
+  const Component = lazy(factory) as any
+  Component.preload = factory
+  return Component as LazyExoticComponent<T> & { preload: () => Promise<{ default: T }> }
+}
+
+const Home = lazyWithPreload(() => import('./components/Home'))
+const Datasources = lazyWithPreload(() => import('./components/Datasources'))
+const Metadata = lazyWithPreload(() => import('./components/Metadata'))
+const Modeling = lazyWithPreload(() => import('./components/Modeling'))
+const QueryBuilder = lazyWithPreload(() => import('./components/QueryBuilder'))
+const AIQuery = lazyWithPreload(() => import('./components/AIQuery'))
+const SavedQuestions = lazyWithPreload(() => import('./components/SavedQuestions'))
+const TableBrowser = lazyWithPreload(() => import('./components/TableBrowser'))
+const QueryHistory = lazyWithPreload(() => import('./components/QueryHistory'))
+const FewShotExamples = lazyWithPreload(() => import('./components/FewShotExamples'))
+const PromptTemplates = lazyWithPreload(() => import('./components/PromptTemplates'))
+const Glossary = lazyWithPreload(() => import('./components/Glossary'))
+const Evaluation = lazyWithPreload(() => import('./components/Evaluation'))
+const Dashboard = lazyWithPreload(() => import('./components/Dashboard'))
+const Settings = lazyWithPreload(() => import('./components/Settings'))
+const TimeGrains = lazyWithPreload(() => import('./components/TimeGrains'))
+const Admin = lazyWithPreload(() => import('./components/admin/Admin'))
+const SignInPage = lazyWithPreload(() => import('./components/auth/SignInPage'))
+const SignUpPage = lazyWithPreload(() => import('./components/auth/SignUpPage'))
+const ForgotPasswordPage = lazyWithPreload(() => import('./components/auth/ForgotPasswordPage'))
+const ResetPasswordPage = lazyWithPreload(() => import('./components/auth/ResetPasswordPage'))
+const VerifyEmailPage = lazyWithPreload(() => import('./components/auth/VerifyEmailPage'))
+const OAuthCallback = lazyWithPreload(() => import('./components/auth/OAuthCallback'))
+const ClaimInvitePage = lazyWithPreload(() => import('./components/auth/ClaimInvitePage'))
 
 import { AuthGuard, GuestGuard } from './components/auth/AuthGuard'
 import { useAuth } from './components/auth/AuthProvider'
@@ -457,7 +465,7 @@ function App() {
         group: section.heading,
         keywords: `${route.eyebrow} ${route.description} ${route.path}`,
         icon: route.icon,
-        perform: () => navigate(route.path),
+        perform: () => startTransition(() => navigate(route.path)),
       })),
     )
     if (homeRoute) {
@@ -467,7 +475,7 @@ function App() {
         group: homeRoute.eyebrow,
         keywords: `${homeRoute.eyebrow} ${homeRoute.description} ${homeRoute.path}`,
         icon: homeRoute.icon,
-        perform: () => navigate(homeRoute.path),
+        perform: () => startTransition(() => navigate(homeRoute.path)),
       })
     }
     return sectionItems
@@ -498,13 +506,15 @@ function App() {
         ? () => {
             const next = new URLSearchParams()
             next.set('tab', new URLSearchParams(effectiveSearch).get('tab') || 'users')
-            navigate(`${activeRoute.path}?${next.toString()}`)
+            startTransition(() => {
+              navigate(`${activeRoute.path}?${next.toString()}`)
+            })
           }
-        : () => navigate(activeRoute.path),
+        : () => startTransition(() => navigate(activeRoute.path)),
     })
 
     if (activeRoute.path === '/admin') {
-      appendAdminBreadcrumbs(crumbs, effectiveSearch, t, navigate)
+      appendAdminBreadcrumbs(crumbs, effectiveSearch, t, (p) => startTransition(() => navigate(p)))
     } else if (activeRoute.path === '/evaluation') {
       const searchParams = new URLSearchParams(effectiveSearch)
       const tabParam = searchParams.get('tab') || 'run'
@@ -517,7 +527,7 @@ function App() {
       if (tabLabel) {
         crumbs.push({
           label: tabLabel,
-          onClick: () => navigate(`/evaluation?tab=${tabParam}`),
+          onClick: () => startTransition(() => navigate(`/evaluation?tab=${tabParam}`)),
         })
       }
     }
@@ -566,6 +576,23 @@ function App() {
     return <LoadingScreen />
   }
 
+  const handleNavHover = (component: any) => {
+    if (component && typeof component.preload === 'function') {
+      component.preload()
+    }
+  }
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      routes.forEach((route) => {
+        if ((route.component as any).preload) {
+          ;(route.component as any).preload()
+        }
+      })
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [routes])
+
   const handleNavClick = (event: MouseEvent<HTMLAnchorElement>, path: string) => {
     if (
       event.defaultPrevented ||
@@ -583,7 +610,9 @@ function App() {
     if (targetUrl.origin !== window.location.origin) return
 
     event.preventDefault()
-    navigate(path)
+    startTransition(() => {
+      navigate(path)
+    })
     setMobileNavOpen(false)
   }
 
@@ -636,7 +665,13 @@ function App() {
               />
 
               <aside id="primary-sidebar" className="sidebar" aria-label={t('common.primary_nav')}>
-                <a className="brand" href={DEFAULT_PATH} onClick={(event) => handleNavClick(event, DEFAULT_PATH)}>
+                <a
+                  className="brand"
+                  href={DEFAULT_PATH}
+                  onClick={(event) => handleNavClick(event, DEFAULT_PATH)}
+                  onMouseEnter={() => handleNavHover(Home)}
+                  onFocus={() => handleNavHover(Home)}
+                >
                   <span className="brand-mark" aria-hidden="true">
                     <img src={abiLogo} alt="" width={34} height={34} />
                   </span>
@@ -655,6 +690,8 @@ function App() {
                         href={homeRoute.path}
                         aria-current={activeRoute?.path === homeRoute.path ? 'page' : undefined}
                         onClick={(event) => handleNavClick(event, homeRoute.path)}
+                        onMouseEnter={() => handleNavHover(homeRoute.component)}
+                        onFocus={() => handleNavHover(homeRoute.component)}
                       >
                         <span className="nav-icon" aria-hidden="true">{homeRoute.icon}</span>
                         <span className="nav-label">{homeRoute.label}</span>
@@ -674,6 +711,8 @@ function App() {
                             href={route.path}
                             aria-current={activeRoute?.path === route.path ? 'page' : undefined}
                             onClick={(event) => handleNavClick(event, route.path)}
+                            onMouseEnter={() => handleNavHover(route.component)}
+                            onFocus={() => handleNavHover(route.component)}
                           >
                             <span className="nav-icon" aria-hidden="true">{route.icon}</span>
                             <span className="nav-label">{route.label}</span>
@@ -687,7 +726,12 @@ function App() {
                 <div className="sidebar-footer">
                   {user && (
                     <>
-                      <Link to="/settings" className="sidebar-user">
+                      <Link
+                        to="/settings"
+                        className="sidebar-user"
+                        onMouseEnter={() => handleNavHover(Settings)}
+                        onFocus={() => handleNavHover(Settings)}
+                      >
                         <div className="user-avatar">
                           {user.avatarUrl ? (
                             <img src={user.avatarUrl} alt="" />

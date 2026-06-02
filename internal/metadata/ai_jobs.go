@@ -23,6 +23,7 @@ const (
 type AIJob struct {
 	ID              string          `json:"id"`
 	ClientSessionID string          `json:"client_session_id"`
+	UserID          *string         `json:"user_id,omitempty"`
 	Kind            string          `json:"kind"`
 	Status          string          `json:"status"`
 	Phase           string          `json:"phase"`
@@ -51,10 +52,10 @@ func (r *Repository) CreateAIJob(ctx context.Context, job *AIJob) error {
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO ai_jobs (
 			id, client_session_id, kind, status, phase, phase_message, progress_pct,
-			datasource_id, scope_schemas, request_json
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::uuid, $9, $10::jsonb)`,
+			datasource_id, scope_schemas, request_json, user_id
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::uuid, $9, $10::jsonb, $11)`,
 		job.ID, job.ClientSessionID, job.Kind, job.Status, job.Phase, job.PhaseMessage, job.ProgressPct,
-		job.DatasourceID, pq.Array(scopeSchemas), job.RequestJSON,
+		job.DatasourceID, pq.Array(scopeSchemas), job.RequestJSON, job.UserID,
 	)
 	if err != nil {
 		return fmt.Errorf("create ai job: %w", err)
@@ -66,7 +67,7 @@ func (r *Repository) GetAIJob(ctx context.Context, id string) (*AIJob, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct,
 		       datasource_id, scope_schemas, progress_json,
-		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at
+		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at, user_id
 		FROM ai_jobs WHERE id = $1`, id)
 	return scanAIJob(row)
 }
@@ -78,7 +79,7 @@ func (r *Repository) ListAIJobsBySession(ctx context.Context, sessionID string, 
 	q := `
 		SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct,
 		       datasource_id, scope_schemas, progress_json,
-		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at
+		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at, user_id
 		FROM ai_jobs
 		WHERE client_session_id = $1`
 	if activeOnly {
@@ -135,7 +136,7 @@ func (r *Repository) FindConflictingDescribeBatch(
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct,
 		       datasource_id, scope_schemas, progress_json,
-		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at
+		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at, user_id
 		FROM ai_jobs
 		WHERE kind = 'describe_batch'
 		  AND status IN ('pending', 'queued', 'running')
@@ -214,7 +215,7 @@ func (r *Repository) ListStaleAIJobs(ctx context.Context, sessionID string, olde
 	q := `
 		SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct,
 		       datasource_id, scope_schemas, progress_json,
-		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at
+		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at, user_id
 		FROM ai_jobs
 		WHERE status IN ($1, $2, $3) AND updated_at < $4`
 	args := []any{AIJobStatusPending, AIJobStatusQueued, AIJobStatusRunning, cutoff}
@@ -369,10 +370,11 @@ func scanAIJob(row *sql.Row) (*AIJob, error) {
 	var dsID sql.NullString
 	var scope pq.StringArray
 	var started, finished sql.NullTime
+	var userID sql.NullString
 	err := row.Scan(
 		&job.ID, &job.ClientSessionID, &job.Kind, &job.Status, &job.Phase, &job.PhaseMessage, &job.ProgressPct,
 		&dsID, &scope, &progress,
-		&job.RequestJSON, &result, &errMsg, &job.CreatedAt, &job.UpdatedAt, &started, &finished,
+		&job.RequestJSON, &result, &errMsg, &job.CreatedAt, &job.UpdatedAt, &started, &finished, &userID,
 	)
 	if err != nil {
 		return nil, err
@@ -400,6 +402,10 @@ func scanAIJob(row *sql.Row) (*AIJob, error) {
 	if finished.Valid {
 		t := finished.Time
 		job.FinishedAt = &t
+	}
+	if userID.Valid {
+		s := userID.String
+		job.UserID = &s
 	}
 	return &job, nil
 }
@@ -416,10 +422,11 @@ func scanAIJobRows(rows aiJobScanner) (*AIJob, error) {
 	var dsID sql.NullString
 	var scope pq.StringArray
 	var started, finished sql.NullTime
+	var userID sql.NullString
 	err := rows.Scan(
 		&job.ID, &job.ClientSessionID, &job.Kind, &job.Status, &job.Phase, &job.PhaseMessage, &job.ProgressPct,
 		&dsID, &scope, &progress,
-		&job.RequestJSON, &result, &errMsg, &job.CreatedAt, &job.UpdatedAt, &started, &finished,
+		&job.RequestJSON, &result, &errMsg, &job.CreatedAt, &job.UpdatedAt, &started, &finished, &userID,
 	)
 	if err != nil {
 		return nil, err
@@ -447,6 +454,10 @@ func scanAIJobRows(rows aiJobScanner) (*AIJob, error) {
 	if finished.Valid {
 		t := finished.Time
 		job.FinishedAt = &t
+	}
+	if userID.Valid {
+		s := userID.String
+		job.UserID = &s
 	}
 	return &job, nil
 }

@@ -30,7 +30,7 @@ type createAIJobRequest struct {
 	Request         json.RawMessage `json:"request"`
 }
 
-func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID string, req json.RawMessage) (*metadata.AIJob, error) {
+func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID, userID string, req json.RawMessage) (*metadata.AIJob, error) {
 	if sessionID == "" {
 		return nil, fmt.Errorf("client_session_id is required")
 	}
@@ -68,9 +68,15 @@ func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID string, req 
 			}
 		}
 	}
+	var userIDPtr *string
+	if strings.TrimSpace(userID) != "" {
+		u := userID
+		userIDPtr = &u
+	}
 	job := &metadata.AIJob{
 		ID:              uuid.NewString(),
 		ClientSessionID: sessionID,
+		UserID:          userIDPtr,
 		Kind:            kind,
 		Status:          metadata.AIJobStatusQueued,
 		Phase:           "queued",
@@ -188,6 +194,12 @@ func (s *AIJobService) Process(ctx context.Context, jobID string) error {
 		if uerr := s.repo.UpdateAIJobProgressDetail(ctx, jobID, status, p.Phase, p.Message, p.Progress, p.Detail); uerr != nil {
 			slog.WarnContext(ctx, "ai job progress update failed", "job_id", jobID, "error", uerr)
 		}
+	}
+	// Re-attach the submitting user's identity so per-user model preferences
+	// (resolved by the AI provider store) apply inside the async worker, which
+	// otherwise runs with a bare consumer context.
+	if job.UserID != nil && *job.UserID != "" {
+		ctx = ai.WithUserID(ctx, *job.UserID)
 	}
 	raw, err := s.processJob(ctx, job, report)
 	if err != nil {
