@@ -219,6 +219,18 @@ export function AIModelSharingPanel() {
               />
             </label>
             <label className="admin-form-label" style={{ gap: 4, margin: 0 }}>
+              <span className="admin-label-text">
+                {targetKind === 'workspace' ? t('admin.ai_model_access.workspace') : t('admin.ai_model_access.role')}
+              </span>
+              <Select
+                value={targetID}
+                onChange={setTargetID}
+                options={[{ value: '', label: targetPlaceholder }, ...targetOptions]}
+                searchable={targetOptions.length > 6}
+                placeholder={targetPlaceholder}
+              />
+            </label>
+            <label className="admin-form-label" style={{ gap: 4, margin: 0 }}>
               <span className="admin-label-text">{t('admin.ai_model_access.grant_kind')}</span>
               <Select
                 value={grantKind}
@@ -230,18 +242,6 @@ export function AIModelSharingPanel() {
                   { value: 'provider', label: t('admin.ai_model_access.provider') },
                   { value: 'model', label: t('admin.ai_model_access.model') },
                 ]}
-              />
-            </label>
-            <label className="admin-form-label" style={{ gap: 4, margin: 0 }}>
-              <span className="admin-label-text">
-                {targetKind === 'workspace' ? t('admin.ai_model_access.workspace') : t('admin.ai_model_access.role')}
-              </span>
-              <Select
-                value={targetID}
-                onChange={setTargetID}
-                options={[{ value: '', label: targetPlaceholder }, ...targetOptions]}
-                searchable={targetOptions.length > 6}
-                placeholder={targetPlaceholder}
               />
             </label>
             <label className="admin-form-label" style={{ gap: 4, margin: 0 }}>
