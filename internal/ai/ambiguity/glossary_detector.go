@@ -19,6 +19,13 @@ func DetectGlossary(question string, entries []prompt.GlossaryEntry, model *sema
 		if term == "" || !glossaryTermMatches(questionTokens, term) {
 			continue
 		}
+		// A "model" entry maps a term to the whole dataset/entity (the query
+		// subject), not a substitutable field. Treating it as a competing
+		// interpretation produces false ambiguities (e.g. the entity word
+		// "tweet" colliding with a "tweet_id" dimension), so skip it.
+		if strings.EqualFold(strings.TrimSpace(entry.MapsToType), "model") {
+			continue
+		}
 		byTerm[term] = append(byTerm[term], entry)
 	}
 

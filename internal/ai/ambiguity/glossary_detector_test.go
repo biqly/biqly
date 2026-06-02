@@ -80,3 +80,28 @@ func TestDetectGlossary_EmptyGlossary(t *testing.T) {
 		t.Errorf("DetectGlossary() = %#v, want no ambiguities", got)
 	}
 }
+
+// TestDetectGlossary_ModelEntryNotAmbiguous guards against a false ambiguity
+// when an entity word (e.g. "tweet") maps both to the model itself and to a
+// single field synonym. The model entry must not count as an interpretation.
+func TestDetectGlossary_ModelEntryNotAmbiguous(t *testing.T) {
+	entries := []prompt.GlossaryEntry{
+		{
+			Term:       "tweet",
+			Definition: "model label",
+			MapsToType: "model",
+			MapsToName: "zlitter_2",
+		},
+		{
+			Term:       "tweet",
+			Definition: "dimension (text) → timeline_tweets.id",
+			MapsToType: "dimension",
+			MapsToName: "tweet_id",
+		},
+	}
+
+	got := DetectGlossary("dün toplam kaç tweet atılmıştır?", entries, nil)
+	if len(got) != 0 {
+		t.Errorf("DetectGlossary() = %#v, want no ambiguities", got)
+	}
+}
