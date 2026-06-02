@@ -70,6 +70,7 @@ export interface EmbedMetadataResponse {
 export interface AIQueryRequest {
   datasource_id: string
   model_id?: string
+  composite_id?: string
   question: string
   clarification_choice?: string
   tables?: string[]

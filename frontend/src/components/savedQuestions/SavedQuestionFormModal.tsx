@@ -70,7 +70,7 @@ export function SavedQuestionFormModal({
             id={id('name')}
             value={form.name}
             onChange={(e) => onChange({ name: e.target.value })}
-            placeholder="e.g. Sales by region"
+            placeholder={t('saved_questions.placeholder_name')}
             autoComplete="off"
           />
         </div>
@@ -81,7 +81,7 @@ export function SavedQuestionFormModal({
             id={id('desc')}
             value={form.description}
             onChange={(e) => onChange({ description: e.target.value })}
-            placeholder="e.g. Shows regional breakdown for orders"
+            placeholder={t('saved_questions.placeholder_description')}
             rows={2}
           />
         </div>
@@ -92,7 +92,7 @@ export function SavedQuestionFormModal({
             id={id('question')}
             value={form.question}
             onChange={(e) => onChange({ question: e.target.value })}
-            placeholder="e.g. ne kadar sipariş aldık ülkelere göre?"
+            placeholder={t('saved_questions.placeholder_question')}
             rows={2}
           />
         </div>

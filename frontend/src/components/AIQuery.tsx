@@ -15,6 +15,7 @@ import type {
   PriorTurn,
 } from '../types/ai'
 import type { Datasource } from '../types/metadata'
+import type { CompositeModelSummary } from '../types/composite'
 import { useLocale, useT } from '../i18n'
 import { SidebarConversationItem } from './aiQuery/SidebarConversationItem'
 import { RoutingPanel } from './aiQuery/RoutingPanel'
@@ -51,6 +52,7 @@ export default function AIQuery() {
   const [datasourceId, setDatasourceId] = useState(dsParam)
   const { models: semanticModels } = useSemanticModels(datasourceId)
   const [semanticModelId, setSemanticModelId] = useState<string>('')
+  const [composites, setComposites] = useState<CompositeModelSummary[]>([])
   const [selectedTables, setSelectedTables] = useState<string[]>([])
   const [tableSearch, setTableSearch] = useState('')
   const [includeBaseTables, setIncludeBaseTables] = useState(true)
@@ -117,10 +119,14 @@ export default function AIQuery() {
     setSelectedTables([]); setTableSearch(''); setIncludeBaseTables(true); setIncludeViews(true); setTables([])
     setEmbeddingStatus(null)
     setSemanticModelId('')
+    setComposites([])
     if (!datasourceId) return
     let cancelled = false
     get<TableOption[]>(`/api/datasources/${datasourceId}/tables`).then((data) => {
       if (!cancelled) setTables(data || [])
+    })
+    get<CompositeModelSummary[]>(`/api/semantic/composites?datasource_id=${datasourceId}`).then((data) => {
+      if (!cancelled) setComposites((data || []).filter((c) => c.status === 'published'))
     })
     return () => {
       cancelled = true
@@ -205,7 +211,7 @@ export default function AIQuery() {
 
     const request = {
       datasource_id: datasourceId,
-      model_id: semanticModelId || undefined,
+      model_id: semanticModelId.startsWith('composite:') ? undefined : semanticModelId || undefined,
     }
 
     try {
@@ -241,17 +247,21 @@ export default function AIQuery() {
     }
   }
 
-  const requestBody = (q = question, clarificationChoice?: string): AIQueryRequest => ({
-    datasource_id: datasourceId,
-    model_id: semanticModelId || undefined,
-    question: q,
-    clarification_choice: clarificationChoice,
-    tables: autoTableRouting ? undefined : selectedTables,
-    include_base_tables: includeBaseTables,
-    include_views: includeViews,
-    conversation_id: activeConversation?.id,
-    prior_turns: includePastQueries ? recentPriorTurns : undefined,
-  })
+  const requestBody = (q = question, clarificationChoice?: string): AIQueryRequest => {
+    const isComposite = semanticModelId.startsWith('composite:')
+    return {
+      datasource_id: datasourceId,
+      model_id: isComposite ? undefined : semanticModelId || undefined,
+      composite_id: isComposite ? semanticModelId.slice('composite:'.length) : undefined,
+      question: q,
+      clarification_choice: clarificationChoice,
+      tables: autoTableRouting ? undefined : selectedTables,
+      include_base_tables: includeBaseTables,
+      include_views: includeViews,
+      conversation_id: activeConversation?.id,
+      prior_turns: includePastQueries ? recentPriorTurns : undefined,
+    }
+  }
 
   const applyAIResponse = (q: string, res: AIQueryResponse | unknown) => {
     const flat = normalizeAIQueryResponse(res)
@@ -336,6 +346,7 @@ export default function AIQuery() {
           semanticModels={semanticModels}
           semanticModelId={semanticModelId}
           setSemanticModelId={setSemanticModelId}
+          composites={composites}
           tables={tables}
           selectedTables={selectedTables}
           setSelectedTables={setSelectedTables}

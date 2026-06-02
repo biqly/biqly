@@ -135,6 +135,12 @@ type TableRoutingResult struct {
 	// "manual" when the user supplied a scope, "hybrid" when both keyword
 	// and embedding similarity contributed, otherwise "keyword".
 	RankingMethod string `json:"ranking_method,omitempty"`
+	// CompositeID is set when the question was routed to a published composite
+	// semantic model instead of a single model or auto-generated raw tables.
+	CompositeID string `json:"composite_id,omitempty"`
+	// ComponentModels lists the model IDs that make up the selected composite,
+	// populated only when CompositeID is set.
+	ComponentModels []string `json:"component_models,omitempty"`
 }
 
 type tableBundle struct {

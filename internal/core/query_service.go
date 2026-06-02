@@ -23,6 +23,13 @@ type ModelLoader interface {
 	GetPublishedFullModel(ctx context.Context, modelID string) (*semantic.SemanticModel, error)
 }
 
+// CompositeModelLoader resolves a composite semantic model into the merged
+// SemanticModel that the compiler consumes. Optional dependency: when nil,
+// LogicalQueries referencing composite_id are rejected.
+type CompositeModelLoader interface {
+	GetPublishedResolvedComposite(ctx context.Context, compositeID string) (*semantic.SemanticModel, error)
+}
+
 type DatasourceLoader interface {
 	GetDatasource(ctx context.Context, datasourceID string) (*metadata.Datasource, error)
 }
@@ -37,6 +44,7 @@ type HistoryRecorder interface {
 
 type QueryServiceDeps struct {
 	Models      ModelLoader
+	Composites  CompositeModelLoader
 	Datasources DatasourceLoader
 	Drivers     DriverGetter
 	Validator   *query.Validator
@@ -52,6 +60,7 @@ type QueryServiceDeps struct {
 
 type QueryService struct {
 	models      ModelLoader
+	composites  CompositeModelLoader
 	datasources DatasourceLoader
 	drivers     DriverGetter
 	validator   *query.Validator
@@ -78,6 +87,7 @@ type RunResult struct {
 func NewQueryService(deps QueryServiceDeps) *QueryService {
 	return &QueryService{
 		models:      deps.Models,
+		composites:  deps.Composites,
 		datasources: deps.Datasources,
 		drivers:     deps.Drivers,
 		validator:   deps.Validator,
@@ -203,15 +213,27 @@ func dimensionNames(model *semantic.SemanticModel) []string {
 }
 
 func (s *QueryService) loadContext(ctx context.Context, lq *query.LogicalQuery) (*CompileResult, *ServiceError) {
-	if lq.ModelID == "" {
-		return nil, ToServiceError(ErrModelIDRequired)
-	}
 	if lq.DatasourceID == "" {
 		return nil, ToServiceError(ErrDatasourceIDRequired)
 	}
-	model, err := s.models.GetPublishedFullModel(ctx, lq.ModelID)
-	if err != nil {
-		return nil, ToServiceError(fmt.Errorf("%w: %w", ErrLoadSemanticModel, err))
+	var model *semantic.SemanticModel
+	var err error
+	if lq.CompositeID != "" {
+		if s.composites == nil {
+			return nil, ToServiceError(fmt.Errorf("%w: composite models not supported", ErrLoadSemanticModel))
+		}
+		model, err = s.composites.GetPublishedResolvedComposite(ctx, lq.CompositeID)
+		if err != nil {
+			return nil, ToServiceError(fmt.Errorf("%w: %w", ErrLoadSemanticModel, err))
+		}
+	} else {
+		if lq.ModelID == "" {
+			return nil, ToServiceError(ErrModelIDRequired)
+		}
+		model, err = s.models.GetPublishedFullModel(ctx, lq.ModelID)
+		if err != nil {
+			return nil, ToServiceError(fmt.Errorf("%w: %w", ErrLoadSemanticModel, err))
+		}
 	}
 	ds, err := s.datasources.GetDatasource(ctx, lq.DatasourceID)
 	if err != nil {

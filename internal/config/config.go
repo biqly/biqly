@@ -12,21 +12,32 @@ import (
 
 // Config holds all application configuration.
 type Config struct {
-	HTTP     HTTPConfig
-	Logging  LoggingConfig
-	Metadata MetadataConfig
-	Redis    RedisConfig
-	Query    QueryConfig
-	Security SecurityConfig
-	Services ServicesConfig
-	AI       AIConfig
-	NATS     NATSConfig
-	Jobs     JobsConfig
-	Auth     AuthConfig
+	HTTP      HTTPConfig
+	Logging   LoggingConfig
+	Metadata  MetadataConfig
+	Redis     RedisConfig
+	Query     QueryConfig
+	Security  SecurityConfig
+	Services  ServicesConfig
+	AI        AIConfig
+	NATS      NATSConfig
+	Jobs      JobsConfig
+	Auth      AuthConfig
+	Composite CompositeConfig
+}
+
+// CompositeConfig caps the size of composite semantic models. Zero disables a limit.
+type CompositeConfig struct {
+	// MaxComponents caps component models per composite.
+	MaxComponents int
+	// MaxCrossJoins caps active cross-model joins per composite.
+	MaxCrossJoins int
+	// MaxMergedFields caps combined dimensions + metrics of the resolved model.
+	MaxMergedFields int
 }
 
 // AuthConfig wires the monolith to the standalone auth service.
-//
+
 // When Enabled is false, all /api/* routes fall back to the legacy
 // APIKeyAuth middleware. When Enabled is true, /api/* routes verify a JWT
 // against the auth service's public key, and routes can additionally enforce
@@ -316,6 +327,11 @@ func Load() (*Config, error) {
 			Enabled:       getEnvAsBool("BI_AUTH_ENABLED", false),
 			ServiceURL:    strings.TrimRight(getEnv("BI_AUTH_SERVICE_URL", ""), "/"),
 			InternalToken: getEnv("BI_AUTH_INTERNAL_TOKEN", ""),
+		},
+		Composite: CompositeConfig{
+			MaxComponents:   getEnvAsInt("BI_COMPOSITE_MAX_COMPONENTS", 8),
+			MaxCrossJoins:   getEnvAsInt("BI_COMPOSITE_MAX_CROSS_JOINS", 16),
+			MaxMergedFields: getEnvAsInt("BI_COMPOSITE_MAX_MERGED_FIELDS", 300),
 		},
 	}
 

@@ -56,6 +56,17 @@ Biqly can run:
   - Types + workflow: `internal/semantic/` (draft/publish/rollback, versioning)
   - Auto-generation from metadata: `internal/semanticgen/`
 
+- **Composite semantic models** (cross-domain models merging ≥2 published models)
+  - Resolver/merger: `internal/semantic/composite.go`
+  - Metric graph + cycle detection: `internal/semantic/metric_graph.go`
+  - Publish/rollback/validation/limits: `internal/semantic/composite_publish.go`
+  - Persistence: `internal/semantic/composite_repository.go`
+  - Caching: `internal/semantic/composite_cache.go`
+  - Routing: `internal/ai/routing/composite_router.go`
+  - Prompt context: `internal/ai/prompt/prompt.go` (`writeCompositeContext`)
+  - HTTP: `internal/http/handlers/composite.go`, routes in `internal/http/catalog_router.go`
+  - A composite is **resolved into an ordinary `SemanticModel`** before compilation; no composite-specific compiler code. See `docs/composite-semantic-models.md`.
+
 - **Runtime AI settings**
   - Providers/models are **DB-backed and configurable at runtime** via admin APIs/UI (not env vars).
   - Glossary and prompt templates are first-class and versioned.

@@ -7,6 +7,7 @@ import (
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/core"
+	"github.com/biqly/biqly/internal/semantic"
 	"github.com/biqly/biqly/pkg/catalogclient"
 )
 
@@ -25,6 +26,7 @@ func NewQueryDependencies(ctx context.Context, cfg *config.Config) (*Dependencie
 
 	validator, executor := provideQueryEngine(cfg)
 	models := core.ModelLoader(semanticRepo)
+	composites := core.CompositeModelLoader(semantic.NewCompositeRepository(db))
 	datasources := core.DatasourceLoader(metaRepo)
 	history := core.HistoryRecorder(metaRepo)
 	if cfg.Services.CatalogURL != "" {
@@ -37,11 +39,13 @@ func NewQueryDependencies(ctx context.Context, cfg *config.Config) (*Dependencie
 		models = adapter
 		datasources = adapter
 		history = adapter
+		composites = nil
 		slog.Info("query engine using Catalog Service for model/datasource/history",
 			"catalog_url", catalog.BaseURL())
 	}
 	queryService := core.NewQueryService(core.QueryServiceDeps{
 		Models:      models,
+		Composites:  composites,
 		Datasources: datasources,
 		Drivers:     reg,
 		Validator:   validator,

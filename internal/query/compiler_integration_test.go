@@ -306,6 +306,64 @@ func indexOfStr(s, sub string) int {
 	return -1
 }
 
+// TestCompiler_CompositeRowFilterTargetsCorrectTable verifies that, for a
+// resolved composite model spanning two physical tables, a row-level security
+// filter declared on a secondary component's dimension is injected against that
+// component's table (via its fully qualified column ref) rather than the base
+// table. This proves cross-model RLS targeting works once component policies
+// are merged and fed through CompileWithPermissions.
+func TestCompiler_CompositeRowFilterTargetsCorrectTable(t *testing.T) {
+	// Merged composite model: orders (primary) joined to customers (secondary).
+	model := &semantic.SemanticModel{
+		Name:       "sales_customer",
+		BaseSchema: "public",
+		BaseTable:  "orders",
+		Dimensions: []semantic.Dimension{
+			{Name: "amount", ColumnRef: "public.orders.amount", Type: "number"},
+			{Name: "customer_region", ColumnRef: "public.customers.region", Type: "text"},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "count", Expression: "public.orders.id", Aggregation: "count"},
+		},
+		Joins: []semantic.Join{
+			{
+				Name:       "orders_customers",
+				FromTable:  "orders",
+				FromColumn: "customer_id",
+				ToTable:    "customers",
+				ToColumn:   "id",
+				JoinType:   "LEFT",
+			},
+		},
+	}
+
+	lq := LogicalQuery{
+		ModelID: "sales_customer",
+		Select:  []SelectItem{{Type: "dimension", Name: "customer_region"}, {Type: "metric", Name: "count"}},
+		GroupBy: []GroupBy{{Field: "customer_region"}},
+		Limit:   100,
+	}
+
+	// RLS filter sourced from the customer component, keyed by its dimension.
+	rowFilters := []security.RowFilter{
+		{Field: "customer_region", Operator: "eq", Value: "EU"},
+	}
+
+	compiler := NewCompiler(dialect.PostgresDialect{})
+	cq, err := compiler.CompileWithPermissions(context.Background(), &lq, model, rowFilters)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// The filter must reference the customers table column, not orders.
+	if !containsStr(cq.SQL, "customers") || !containsStr(cq.SQL, "region") {
+		t.Errorf("expected customers.region in RLS predicate: %s", cq.SQL)
+	}
+	if !containsStr(cq.SQL, "JOIN") {
+		t.Errorf("expected JOIN to customers table: %s", cq.SQL)
+	}
+}
+
 // TestCompiler_LimitOffset verifies LIMIT/OFFSET generation.
 func TestCompiler_LimitOffset(t *testing.T) {
 	model := &semantic.SemanticModel{

@@ -381,8 +381,8 @@ export function AddMetricModal({ model, includedTables, columns, onClose, onCrea
     { label: 'count_distinct(...)', value: 'count_distinct()' },
     { label: 'min(...)', value: 'min()' },
     { label: 'max(...)', value: 'max()' },
-    { label: 'SumIf (Koşullu Toplam)', value: 'sum(case when [field] = \'değer\' then [amount] else 0 end)' },
-    { label: 'CountIf (Koşullu Sayım)', value: 'count(case when [field] = \'değer\' then 1 else null end)' },
+    { label: t('modeling.metric_func_sumif'), value: `sum(case when [field] = '${t('modeling.metric_func_value_placeholder')}' then [amount] else 0 end)` },
+    { label: t('modeling.metric_func_countif'), value: `count(case when [field] = '${t('modeling.metric_func_value_placeholder')}' then 1 else null end)` },
   ]
 
   const customOps = ['+', '-', '*', '/', '(', ')']

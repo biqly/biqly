@@ -83,6 +83,7 @@ Unset a service URL to fall back to in-process monolith handler for that domain.
 - Auto-generation from introspected metadata
 - Business glossary with term definitions
 - Enum mappings for dimension values
+- Composite semantic models — merge multiple published models into one cross-domain model ([docs](docs/composite-semantic-models.md))
 
 ### Security
 
@@ -401,6 +402,27 @@ testdata/               Golden SQL test files
 | `PUT` | `/api/semantic/models/{id}/joins/{jid}` | Update join |
 | `DELETE` | `/api/semantic/models/{id}/joins/{jid}` | Remove join |
 | `GET` | `/api/semantic/models/{id}/suggested-joins` | AI-suggested joins |
+
+### Composite Semantic Models
+
+| Method | Path | Description |
+| -------- | ------ | ------------- |
+| `POST` | `/api/semantic/composites` | Create composite |
+| `GET` | `/api/semantic/composites` | List composites |
+| `GET` | `/api/semantic/composites/{id}` | Get full composite |
+| `PUT` | `/api/semantic/composites/{id}` | Update composite |
+| `DELETE` | `/api/semantic/composites/{id}` | Delete composite |
+| `POST` | `/api/semantic/composites/{id}/components` | Add component |
+| `DELETE` | `/api/semantic/composites/{id}/components/{model_id}` | Remove component |
+| `POST` | `/api/semantic/composites/{id}/cross-joins` | Add cross-model join |
+| `PUT` | `/api/semantic/composites/{id}/cross-joins/{join_id}` | Update cross-model join |
+| `DELETE` | `/api/semantic/composites/{id}/cross-joins/{join_id}` | Remove cross-model join |
+| `PUT` | `/api/semantic/composites/{id}/canonical-date` | Set canonical date |
+| `PUT` | `/api/semantic/composites/{id}/dimension-resolutions` | Set dimension resolutions |
+| `POST` | `/api/semantic/composites/{id}/validate` | Validate composite |
+| `POST` | `/api/semantic/composites/{id}/publish` | Publish composite |
+| `POST` | `/api/semantic/composites/{id}/rollback` | Rollback composite |
+| `GET` | `/api/semantic/composites/{id}/suggested-joins` | Suggested cross-model joins |
 
 ### Query Engine
 

@@ -22,6 +22,21 @@ type (
 	ModelField      = pkgsemantic.ModelField
 	DimensionType   = pkgsemantic.DimensionType
 	AggregationType = pkgsemantic.AggregationType
+
+	CompositeModel              = pkgsemantic.CompositeModel
+	ComponentModelRef           = pkgsemantic.ComponentModelRef
+	CrossModelJoin              = pkgsemantic.CrossModelJoin
+	CanonicalDateRef            = pkgsemantic.CanonicalDateRef
+	DimensionConflictResolution = pkgsemantic.DimensionConflictResolution
+)
+
+// Re-exported composite model role and conflict resolution constants.
+const (
+	ComponentRolePrimary         = pkgsemantic.ComponentRolePrimary
+	ComponentRoleSecondary       = pkgsemantic.ComponentRoleSecondary
+	ConflictResolutionUsePrimary = pkgsemantic.ConflictResolutionUsePrimary
+	ConflictResolutionRename     = pkgsemantic.ConflictResolutionRename
+	ConflictResolutionMerge      = pkgsemantic.ConflictResolutionMerge
 )
 
 // Re-exported dimension types.

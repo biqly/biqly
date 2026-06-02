@@ -29,10 +29,16 @@ type FingerprintInputs struct {
 //     irrelevant, so callers that build the same query in a different order
 //     still collide;
 //   - leaves Select/OrderBy in caller order because position carries meaning.
+//
+// For composite models the fingerprint also pins CompositeID; ContextVersion
+// is expected to encode the resolved composite snapshot version (which in turn
+// rolls forward whenever any component model is republished), so a component
+// change naturally invalidates cached composite fingerprints.
 func ComputeFingerprint(in FingerprintInputs) string {
 	type canonical struct {
 		DatasourceID    string       `json:"datasource_id"`
 		ModelID         string       `json:"model_id"`
+		CompositeID     string       `json:"composite_id,omitempty"`
 		ContextVersion  string       `json:"context_version,omitempty"`
 		PermissionScope string       `json:"permission_scope,omitempty"`
 		Select          []SelectItem `json:"select"`
@@ -48,6 +54,7 @@ func ComputeFingerprint(in FingerprintInputs) string {
 	c := canonical{
 		DatasourceID:    in.DatasourceID,
 		ModelID:         in.LogicalQuery.ModelID,
+		CompositeID:     in.LogicalQuery.CompositeID,
 		ContextVersion:  in.ContextVersion,
 		PermissionScope: in.PermissionScope,
 		Select:          in.LogicalQuery.Select,

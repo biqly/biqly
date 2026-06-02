@@ -12,12 +12,17 @@ type LogicalQuery struct {
 	// Version identifies the LogicalQuery schema revision. Persisted in query
 	// history and audit logs so eval/replay tools can filter by the shape that
 	// produced a given run.
-	Version      string       `json:"version,omitempty"`
-	DatasourceID string       `json:"datasource_id"`
-	ModelID      string       `json:"model_id"`
-	Select       []SelectItem `json:"select"`
-	Filters      []Filter     `json:"filters,omitempty"`
-	GroupBy      []GroupBy    `json:"group_by,omitempty"`
+	Version      string `json:"version,omitempty"`
+	DatasourceID string `json:"datasource_id"`
+	ModelID      string `json:"model_id"`
+	// CompositeID, when set, selects a composite semantic model. The query
+	// pipeline resolves it into a merged SemanticModel before compilation.
+	// Backward compatible with ModelID: if CompositeID is set the merged model
+	// is used, otherwise the single model referenced by ModelID is used.
+	CompositeID string       `json:"composite_id,omitempty"`
+	Select      []SelectItem `json:"select"`
+	Filters     []Filter     `json:"filters,omitempty"`
+	GroupBy     []GroupBy    `json:"group_by,omitempty"`
 	// Having filters apply AFTER aggregation. Each Field references a metric
 	// name in the semantic model; the compiler substitutes the aggregate
 	// expression so the dialect emits e.g. SUM(orders.total_amount) > $1.
@@ -109,10 +114,10 @@ type WindowSpec struct {
 
 // Filter represents a WHERE condition.
 type Filter struct {
-	Field         string          `json:"field"`
-	Operator      string          `json:"operator"`
-	Value         any             `json:"value"`
-	CaseSensitive bool            `json:"case_sensitive,omitempty"`
+	Field         string `json:"field"`
+	Operator      string `json:"operator"`
+	Value         any    `json:"value"`
+	CaseSensitive bool   `json:"case_sensitive,omitempty"`
 	// Subquery is used with operator in/not_in instead of Value: the outer Field
 	// is compared to the single column projected by the nested query.
 	Subquery *SubqueryFilter `json:"subquery,omitempty"`

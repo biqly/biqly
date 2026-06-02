@@ -4,6 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"log/slog"
+	"time"
+
+	"github.com/redis/go-redis/v9"
 
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/metadata"
@@ -51,4 +54,33 @@ func provideEncryptor(ctx context.Context, db *sql.DB, migrate bool) *security.E
 func provideQueryEngine(cfg *config.Config) (*query.Validator, *query.Executor) {
 	return query.NewValidator(cfg.Query.MaxRows),
 		query.NewExecutor(cfg.Query.MaxRows, cfg.QueryTimeout())
+}
+
+// provideCompositeCache builds the Redis-backed cache for published resolved
+// composite models. It returns nil (caching disabled) when Redis is not
+// configured or unreachable, mirroring the LLM response cache wiring.
+func provideCompositeCache(ctx context.Context, cfg *config.Config) semantic.ResolvedCompositeCache {
+	if cfg.Redis.DSN == "" {
+		return nil
+	}
+	opt, err := redis.ParseURL(cfg.Redis.DSN)
+	if err != nil {
+		slog.Warn("composite cache Redis DSN parse failed; cache disabled", "error", err)
+		return nil
+	}
+	client := redis.NewClient(opt)
+	if pingErr := client.Ping(ctx).Err(); pingErr != nil {
+		slog.Warn("composite cache Redis ping failed; cache disabled", "error", pingErr)
+		return nil
+	}
+	slog.Info("Composite model cache initialized with Redis")
+	return semantic.NewRedisCompositeCache(client, time.Hour)
+}
+
+func provideCompositeLimits(cfg *config.Config) semantic.CompositeLimits {
+	return semantic.CompositeLimits{
+		MaxComponents:   cfg.Composite.MaxComponents,
+		MaxCrossJoins:   cfg.Composite.MaxCrossJoins,
+		MaxMergedFields: cfg.Composite.MaxMergedFields,
+	}
 }

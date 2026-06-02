@@ -13,6 +13,7 @@ import (
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/core"
+	"github.com/biqly/biqly/internal/semantic"
 	"github.com/biqly/biqly/pkg/catalogclient"
 	"github.com/biqly/biqly/pkg/queryclient"
 )
@@ -33,6 +34,7 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 	validator, executor := provideQueryEngine(cfg)
 	queryService := core.NewQueryService(core.QueryServiceDeps{
 		Models:      semanticRepo,
+		Composites:  semantic.NewCompositeRepository(db),
 		Datasources: metaRepo,
 		Drivers:     reg,
 		Validator:   validator,
@@ -109,6 +111,7 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		DriverReg:       reg,
 		MetaRepo:        metaRepo,
 		SemanticRepo:    semanticRepo,
+		CompositeRepo:   semantic.NewCompositeRepository(db),
 		Validator:       validator,
 		Executor:        executor,
 		QueryService:    queryService,

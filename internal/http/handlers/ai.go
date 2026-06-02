@@ -98,6 +98,7 @@ func (h *AIHandler) queryModelUsedLabel() string {
 type aiQueryRequest struct {
 	DatasourceID        string   `json:"datasource_id"`
 	ModelID             string   `json:"model_id,omitempty"`
+	CompositeID         string   `json:"composite_id,omitempty"`
 	Question            string   `json:"question"`
 	Tables              []string `json:"tables,omitempty"`
 	ClarificationChoice string   `json:"clarification_choice,omitempty"`
@@ -672,6 +673,9 @@ func (h *AIHandler) loadQueryModel(
 	ctx context.Context,
 	req aiQueryRequest,
 ) (*semantic.SemanticModel, *routing.TableRoutingResult, error) {
+	if req.CompositeID != "" {
+		return h.loadCompositeModel(ctx, req.CompositeID)
+	}
 	if req.ModelID != "" {
 		model, err := h.loadModel(ctx, req.DatasourceID, req.ModelID)
 		if err != nil {
@@ -689,6 +693,25 @@ func (h *AIHandler) loadQueryModel(
 		return nil, nil, err
 	}
 	return h.tableRouter.Route(ctx, req.DatasourceID, req.Question, req.Tables, base, views)
+}
+
+func (h *AIHandler) loadCompositeModel(
+	ctx context.Context,
+	compositeID string,
+) (*semantic.SemanticModel, *routing.TableRoutingResult, error) {
+	if h.deps.CompositeRepo == nil {
+		return nil, nil, fmt.Errorf("composite models are not configured")
+	}
+	model, err := h.deps.CompositeRepo.GetPublishedResolvedComposite(ctx, compositeID)
+	if err != nil {
+		return nil, nil, err
+	}
+	routingResult := routingForSemanticModel(model, 1)
+	if routingResult != nil {
+		routingResult.ContextSource = "composite_model"
+		routingResult.ContextKey = compositeID
+	}
+	return model, routingResult, nil
 }
 
 func (h *AIHandler) loadPreferredSemanticModel(ctx context.Context, datasourceID, question string) (*semantic.SemanticModel, *routing.TableRoutingResult, bool) {

@@ -29,7 +29,7 @@ const defaultLayout = `{{.SystemRules}}
 {{end}}{{if .ModelDescription}}Description: {{.ModelDescription}}
 {{end}}Base table: {{.BaseTable}}
 {{if .ModelSynonyms}}Model synonyms: {{.ModelSynonyms}}
-{{end}}
+{{end}}{{.CompositeContext}}
 ## Available Dimensions
 {{.Dimensions}}
 {{.Note}}
@@ -77,6 +77,43 @@ type PromptConfig struct {
 	PriorTurns   []ConversationTurn
 	DeniedFields []string
 	Glossary     []GlossaryEntry
+	// Composite, when non-nil, marks this prompt as targeting a cross-domain
+	// composite model and supplies the extra context (component domains,
+	// cross-model joins, canonical date, renamed duplicate dimensions) the LLM
+	// needs to reason across merged domains.
+	Composite *CompositeContext
+}
+
+// CompositeContext describes the cross-domain shape of a composite semantic
+// model so the prompt can explain to the LLM how the merged model was assembled.
+// The merged SemanticModel already carries the flattened dimensions/metrics/joins;
+// this struct only adds the domain-level narrative the flattened model loses.
+type CompositeContext struct {
+	// Name is the composite model's display name.
+	Name string
+	// Components lists the participating domains as "alias: model label" hints.
+	Components []CompositeComponentHint
+	// CrossModelJoins describes how the component domains connect.
+	CrossModelJoins []CompositeJoinHint
+	// CanonicalDate, when set, is the shared date dimension used to align time
+	// grains across domains (e.g. "order_date").
+	CanonicalDate string
+	// RenamedDimensions lists duplicate dimensions that were alias-prefixed to
+	// disambiguate them across domains (e.g. "sales_name vs customer_name").
+	RenamedDimensions []string
+}
+
+// CompositeComponentHint names one component domain in a composite model.
+type CompositeComponentHint struct {
+	Alias string
+	Label string
+}
+
+// CompositeJoinHint describes one cross-model join in human-readable terms.
+type CompositeJoinHint struct {
+	FromModel    string
+	ToModel      string
+	Relationship string
 }
 
 // PromptBuilder constructs the AI prompt with semantic context.
@@ -224,6 +261,8 @@ func (b *PromptBuilder) Build(ctx context.Context, question string, model *seman
 		modelSynonymsStr = strings.Join(model.Synonyms, ", ")
 	}
 
+	compositeStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeCompositeContext(buf, cfg.Composite) })
+
 	data := map[string]any{
 		"SystemRules":      rules,
 		"CurrentDateTime":  time.Now().Format("2006-01-02 15:04:05 UTC"),
@@ -232,6 +271,7 @@ func (b *PromptBuilder) Build(ctx context.Context, question string, model *seman
 		"ModelDescription": descStr,
 		"BaseTable":        fmt.Sprintf("%s.%s", model.BaseSchema, model.BaseTable),
 		"ModelSynonyms":    modelSynonymsStr,
+		"CompositeContext": compositeStr,
 		"Dimensions":       dimensionsStr,
 		"Metrics":          metricsStr,
 		"Note":             noteStr,
@@ -254,6 +294,49 @@ func (b *PromptBuilder) Build(ctx context.Context, question string, model *seman
 	}
 
 	return renderPromptTemplate(layoutTmpl, data)
+}
+
+// writeCompositeContext appends a cross-domain narrative for composite models.
+// The merged SemanticModel flattens everything into one dimension/metric/join
+// list, which hides that the data spans several domains joined through shared
+// keys. This block restores that domain-level context so the LLM understands
+// the model is cross-domain, how the domains connect, which date dimension
+// aligns time grains, and which dimensions were renamed to avoid collisions.
+func (b *PromptBuilder) writeCompositeContext(sb *bytes.Buffer, cc *CompositeContext) {
+	if cc == nil {
+		return
+	}
+	sb.WriteString("\n## Composite Model\n")
+	sb.WriteString("This is a cross-domain composite model: its dimensions and metrics come from multiple business domains merged into one model. Treat all listed fields as a single model — the backend resolves the cross-domain joins automatically.\n")
+	if len(cc.Components) > 0 {
+		sb.WriteString("\nComponent domains:\n")
+		for _, comp := range cc.Components {
+			label := strings.TrimSpace(comp.Label)
+			if label == "" {
+				fmt.Fprintf(sb, "- %s\n", comp.Alias)
+				continue
+			}
+			fmt.Fprintf(sb, "- %s: %s\n", comp.Alias, label)
+		}
+	}
+	if len(cc.CrossModelJoins) > 0 {
+		sb.WriteString("\nCross-domain connections:\n")
+		for _, j := range cc.CrossModelJoins {
+			rel := strings.TrimSpace(j.Relationship)
+			if rel == "" {
+				fmt.Fprintf(sb, "- %s ↔ %s\n", j.FromModel, j.ToModel)
+				continue
+			}
+			fmt.Fprintf(sb, "- %s ↔ %s (%s)\n", j.FromModel, j.ToModel, rel)
+		}
+	}
+	if date := strings.TrimSpace(cc.CanonicalDate); date != "" {
+		fmt.Fprintf(sb, "\nCanonical date: use **%s** for any date filter or time grouping so results align across domains.\n", date)
+	}
+	if len(cc.RenamedDimensions) > 0 {
+		fmt.Fprintf(sb, "\nDisambiguated dimensions (renamed to avoid collisions across domains): %s\n", strings.Join(cc.RenamedDimensions, ", "))
+	}
+	sb.WriteString("\n")
 }
 
 // writePriorTurns appends recent turns from the active conversation so the

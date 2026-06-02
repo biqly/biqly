@@ -22,6 +22,7 @@ const Home = lazyWithPreload(() => import('./components/Home'))
 const Datasources = lazyWithPreload(() => import('./components/Datasources'))
 const Metadata = lazyWithPreload(() => import('./components/Metadata'))
 const Modeling = lazyWithPreload(() => import('./components/Modeling'))
+const Composites = lazyWithPreload(() => import('./components/Composites'))
 const QueryBuilder = lazyWithPreload(() => import('./components/QueryBuilder'))
 const AIQuery = lazyWithPreload(() => import('./components/AIQuery'))
 const SavedQuestions = lazyWithPreload(() => import('./components/SavedQuestions'))
@@ -258,6 +259,15 @@ const routeDefs: AppRouteDef[] = [
     descriptionKey: 'app.nav.modeling_desc',
     icon: IconModeling,
     component: Modeling,
+  },
+  {
+    path: '/composites',
+    sectionKey: 'data',
+    labelKey: 'app.nav.composites',
+    eyebrowKey: 'app.nav.composites_eyebrow',
+    descriptionKey: 'app.nav.composites_desc',
+    icon: IconModeling,
+    component: Composites,
   },
   {
     path: '/query-builder',

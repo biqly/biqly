@@ -801,3 +801,87 @@ func TestGolden_RowFilterInjection_NoFilters(t *testing.T) {
 		t.Errorf("expected same SQL without row filters.\nNormal:\n%s\n\nWithPermissions:\n%s", cqNormal.SQL, cq.SQL)
 	}
 }
+
+// compositeGoldenModel resolves a two-component composite (orders primary +
+// customers secondary, joined on customer_id) into a merged SemanticModel.
+func compositeGoldenModel(t *testing.T) *semantic.SemanticModel {
+	t.Helper()
+	orders := &semantic.SemanticModel{
+		ID: "m-orders", Name: "orders", BaseSchema: "public", BaseTable: "orders",
+		Status: "published",
+		Dimensions: []semantic.Dimension{
+			{Name: "customer_id", ColumnRef: "customer_id", Type: "number"},
+			{Name: "order_date", ColumnRef: "created_at", Type: "date"},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "total_revenue", Expression: "total_amount", Aggregation: "sum"},
+		},
+	}
+	customers := &semantic.SemanticModel{
+		ID: "m-customers", Name: "customers", BaseSchema: "public", BaseTable: "customers",
+		Status: "published",
+		Dimensions: []semantic.Dimension{
+			{Name: "id", ColumnRef: "id", Type: "number"},
+			{Name: "customer_region", ColumnRef: "region", Type: "text"},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "customer_count", Expression: "id", Aggregation: "count_distinct"},
+		},
+	}
+	composite := &semantic.CompositeModel{
+		ID: "c-1", DatasourceID: "ds-1", Name: "orders_customers", Status: "draft",
+		Components: []semantic.ComponentModelRef{
+			{Alias: "ord", ModelID: "m-orders", Role: semantic.ComponentRolePrimary},
+			{Alias: "cust", ModelID: "m-customers", Role: semantic.ComponentRoleSecondary},
+		},
+		CrossModelJoins: []semantic.CrossModelJoin{
+			{
+				Name: "orders_customers", FromModel: "ord", FromDimension: "customer_id",
+				ToModel: "cust", ToDimension: "id", JoinType: "LEFT",
+				Relationship: "many_to_one", IsActive: true,
+			},
+		},
+	}
+	resolved, err := semantic.NewCompositeResolver().Resolve(composite, map[string]*semantic.SemanticModel{
+		"ord": orders, "cust": customers,
+	})
+	if err != nil {
+		t.Fatalf("composite resolve failed: %v", err)
+	}
+	return resolved
+}
+
+// TestGolden_PostgresComposite verifies a composite model compiles to SQL that
+// joins the secondary component and selects a metric from the primary plus a
+// dimension from the secondary.
+func TestGolden_PostgresComposite(t *testing.T) {
+	model := compositeGoldenModel(t)
+	lq := LogicalQuery{
+		ModelID: "c-1",
+		Select: []SelectItem{
+			{Type: "dimension", Name: "customer_region"},
+			{Type: "metric", Name: "total_revenue"},
+		},
+		GroupBy: []GroupBy{{Field: "customer_region"}},
+		OrderBy: []OrderBy{{Field: "total_revenue", Direction: "desc"}},
+		Limit:   50,
+	}
+
+	compiler := NewCompiler(dialect.PostgresDialect{})
+	cq, err := compiler.Compile(context.Background(), &lq, model)
+	if err != nil {
+		t.Fatalf("composite compilation failed: %v", err)
+	}
+
+	golden, err := os.ReadFile(filepath.Join("..", "..", "testdata", "sql", "postgres", "composite_cross_model.sql"))
+	if err != nil {
+		t.Logf("ACTUAL SQL:\n%s", cq.SQL)
+		t.Skip("golden file not found")
+	}
+
+	expected := normalizeSQL(string(golden))
+	actual := normalizeSQL(cq.SQL)
+	if expected != actual {
+		t.Errorf("Composite SQL mismatch.\nExpected:\n%s\n\nGot:\n%s", expected, actual)
+	}
+}

@@ -40,7 +40,7 @@ export function Select<T extends string = string>({
   value,
   onChange,
   options,
-  placeholder = '— seçin —',
+  placeholder,
   header,
   disabled = false,
   id,
@@ -219,7 +219,7 @@ export function Select<T extends string = string>({
     }
   }
 
-  const triggerLabel = selected ? selected.label : placeholder
+  const triggerLabel = selected ? selected.label : (placeholder ?? t('common.select_placeholder'))
   const triggerTitle =
     selected && (showHintInTrigger && selected.hint)
       ? `${selected.label} · ${selected.hint}`

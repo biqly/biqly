@@ -13,6 +13,7 @@ export function RoutingPanel({
   semanticModels,
   semanticModelId,
   setSemanticModelId,
+  composites,
   tables,
   selectedTables,
   setSelectedTables,
@@ -154,6 +155,11 @@ export function RoutingPanel({
                 value: m.id,
                 label: m.label || m.name,
                 hint: m.status,
+              })),
+              ...(composites ?? []).map((c) => ({
+                value: `composite:${c.id}`,
+                label: `⧉ ${c.label || c.name}`,
+                hint: c.status,
               })),
             ]}
           />

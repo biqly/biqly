@@ -58,6 +58,7 @@ export interface RoutingPanelProps {
   semanticModels: { id: string; name: string; label?: string | null; status: string }[]
   semanticModelId: string
   setSemanticModelId: (id: string) => void
+  composites?: { id: string; name: string; label?: string | null; status: string }[]
   tables: TableOption[]
   selectedTables: string[]
   setSelectedTables: (tables: string[]) => void

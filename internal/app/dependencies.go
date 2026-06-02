@@ -18,12 +18,12 @@ import (
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/core"
+	"github.com/biqly/biqly/internal/dashboard"
 	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/datasource/clickhouse"
 	"github.com/biqly/biqly/internal/datasource/mysql"
 	"github.com/biqly/biqly/internal/datasource/postgres"
 	"github.com/biqly/biqly/internal/datasource/sqlserver"
-	"github.com/biqly/biqly/internal/dashboard"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/metadata"
 	platformdb "github.com/biqly/biqly/internal/platform/db"
@@ -44,6 +44,7 @@ type Dependencies struct {
 	DriverReg     *datasource.Registry
 	MetaRepo      *metadata.Repository
 	SemanticRepo  *semantic.Repository
+	CompositeRepo *semantic.CompositeRepository
 	Validator     *query.Validator
 	Executor      *query.Executor
 	QueryService  *core.QueryService
@@ -75,7 +76,7 @@ type Dependencies struct {
 	AIJobsHTTP      AIJobsHTTPHandler
 	// PoolCache holds *sql.DB pools for external datasources. Closed during
 	// Dependencies.Close().
-	PoolCache *datasource.PoolCache
+	PoolCache     *datasource.PoolCache
 	DashboardRepo *dashboard.Repository
 }
 
@@ -86,6 +87,7 @@ type CatalogDeps struct {
 	DriverReg     *datasource.Registry
 	MetaRepo      *metadata.Repository
 	SemanticRepo  *semantic.Repository
+	CompositeRepo *semantic.CompositeRepository
 	Encryptor     *security.Encryption
 	PoolCache     *datasource.PoolCache
 	QueryService  *core.QueryService
@@ -99,6 +101,7 @@ func (d *Dependencies) CatalogDeps() *CatalogDeps {
 		DriverReg:     d.DriverReg,
 		MetaRepo:      d.MetaRepo,
 		SemanticRepo:  d.SemanticRepo,
+		CompositeRepo: d.CompositeRepo,
 		Encryptor:     d.Encryptor,
 		PoolCache:     d.PoolCache,
 		QueryService:  d.QueryService,
@@ -113,6 +116,7 @@ type AIDeps struct {
 	DriverReg       *datasource.Registry
 	MetaRepo        *metadata.Repository
 	SemanticRepo    *semantic.Repository
+	CompositeRepo   *semantic.CompositeRepository
 	Validator       *query.Validator
 	QueryService    *core.QueryService
 	CatalogClient   *catalogclient.Client
@@ -143,6 +147,7 @@ func (d *Dependencies) AIDeps() *AIDeps {
 		DriverReg:       d.DriverReg,
 		MetaRepo:        d.MetaRepo,
 		SemanticRepo:    d.SemanticRepo,
+		CompositeRepo:   d.CompositeRepo,
 		Validator:       d.Validator,
 		QueryService:    d.QueryService,
 		CatalogClient:   d.CatalogClient,
@@ -223,6 +228,9 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 	reg := newDriverRegistry()
 
 	metaRepo, semanticRepo := provideRepositories(db)
+	compositeRepo := semantic.NewCompositeRepository(db).
+		WithResolvedCache(provideCompositeCache(ctx, cfg)).
+		WithLimits(provideCompositeLimits(cfg))
 	dashboardRepo := dashboard.NewRepository(db)
 
 	encryptor := provideEncryptor(ctx, db, true)
@@ -231,6 +239,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 	poolCache := datasource.NewPoolCache()
 	queryService := core.NewQueryService(core.QueryServiceDeps{
 		Models:      semanticRepo,
+		Composites:  compositeRepo,
 		Datasources: metaRepo,
 		Drivers:     reg,
 		Validator:   validator,
@@ -251,6 +260,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		DriverReg:       reg,
 		MetaRepo:        metaRepo,
 		SemanticRepo:    semanticRepo,
+		CompositeRepo:   compositeRepo,
 		Validator:       validator,
 		Executor:        executor,
 		QueryService:    queryService,
