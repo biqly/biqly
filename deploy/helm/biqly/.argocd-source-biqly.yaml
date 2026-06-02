@@ -52,5 +52,5 @@ helm:
     value: ghcr.io/biqly/query
     forcestring: true
   - name: query.image.tag
-    value: sha-c1cbb6a32fc1dcd2e20e71a71af01a97c907a293
+    value: sha-45f87e0543c3be206d4464f7425d3e2d0293e988
     forcestring: true
