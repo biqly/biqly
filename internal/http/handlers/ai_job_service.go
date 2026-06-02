@@ -68,6 +68,29 @@ func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID, userID stri
 			}
 		}
 	}
+	if kind == "embed_metadata" {
+		var er embedMetadataRequest
+		if err := json.Unmarshal(req, &er); err != nil {
+			return nil, fmt.Errorf("invalid request payload")
+		}
+		ds := strings.TrimSpace(er.DatasourceID)
+		if ds == "" {
+			return nil, fmt.Errorf(core.MsgDatasourceIDRequired)
+		}
+		datasourceID = &ds
+		model := strings.TrimSpace(er.ModelID)
+		existing, err := s.repo.FindConflictingEmbedMetadata(ctx, ds, model)
+		if err != nil {
+			return nil, err
+		}
+		if existing != nil {
+			return nil, &AIJobConflictError{
+				Message:    "embedding refresh already running for the same scope",
+				ExistingID: existing.ID,
+				Existing:   existing,
+			}
+		}
+	}
 	var userIDPtr *string
 	if strings.TrimSpace(userID) != "" {
 		u := userID

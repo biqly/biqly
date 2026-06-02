@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import '../styles/aiQuery.css'
 import { useApi } from '../hooks/useApi'
-import { useAIJobs } from '../hooks/useAIJobs'
+import { jobIsActive, useAIJobs } from '../hooks/useAIJobs'
 import { useConversation } from '../hooks/useConversation'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { localeNumberTag } from '../utils/formatters'
@@ -29,7 +29,7 @@ export default function AIQuery() {
   const t = useT()
   const [locale] = useLocale()
   const localeTag = localeNumberTag(locale)
-  const { runJob } = useAIJobs()
+  const { runJob, jobs } = useAIJobs()
   const { get, postData, loading, error, abort } = useApi()
   const { postData: postEmbedData, loading: embeddingLoading, error: embeddingError } = useApi()
   const {
@@ -179,8 +179,27 @@ export default function AIQuery() {
     [semanticModels, semanticModelId],
   )
 
+  const activeEmbeddingJob = useMemo(() => {
+    if (!datasourceId) return null
+    const targetModelId = semanticModelId.trim()
+    return (
+      jobs.find((j) => {
+        if (j.kind !== 'embed_metadata') return false
+        if (!jobIsActive(j)) return false
+        if (!j.request_json || typeof j.request_json !== 'object') return false
+        const req = j.request_json as Record<string, unknown>
+        if (req.datasource_id !== datasourceId) return false
+        const reqModel = typeof req.model_id === 'string' ? req.model_id.trim() : ''
+        // Treat empty model_id and missing as the "all tables" embed refresh.
+        return (reqModel || '') === (targetModelId || '')
+      }) ?? null
+    )
+  }, [jobs, datasourceId, semanticModelId])
+
+  const embeddingActive = Boolean(activeEmbeddingJob) || embeddingRunning || embeddingLoading
+
   const refreshMetadataEmbeddings = async () => {
-    if (!datasourceId || embeddingRunning || embeddingLoading) return
+    if (!datasourceId || embeddingActive) return
     setEmbeddingStatus(null)
     setEmbeddingRunning(true)
 
@@ -330,7 +349,7 @@ export default function AIQuery() {
           embeddingStatus={embeddingStatus}
           embeddingError={embeddingError}
           embeddingLoading={embeddingLoading}
-          embeddingRunning={embeddingRunning}
+          embeddingRunning={embeddingActive}
           selectedDatasourceName={selectedDatasourceName}
           semanticModelName={semanticModelName}
           onRefreshEmbeddings={refreshMetadataEmbeddings}

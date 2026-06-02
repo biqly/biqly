@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/lib/pq"
@@ -150,6 +151,41 @@ func (r *Repository) FindConflictingDescribeBatch(
 	}
 	if err != nil {
 		return nil, fmt.Errorf("find conflicting describe batch: %w", err)
+	}
+	return job, nil
+}
+
+// FindConflictingEmbedMetadata returns a currently-active embedding refresh job
+// for the same datasource and semantic model scope (modelID).
+//
+// modelID is compared against request_json.model_id (missing/empty treated as "").
+func (r *Repository) FindConflictingEmbedMetadata(
+	ctx context.Context,
+	datasourceID string,
+	modelID string,
+) (*AIJob, error) {
+	datasourceID = strings.TrimSpace(datasourceID)
+	modelID = strings.TrimSpace(modelID)
+	if datasourceID == "" {
+		return nil, nil
+	}
+	row := r.db.QueryRowContext(ctx, `
+		SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct,
+		       datasource_id, scope_schemas, progress_json,
+		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at, user_id
+		FROM ai_jobs
+		WHERE kind = 'embed_metadata'
+		  AND status IN ('pending', 'queued', 'running')
+		  AND datasource_id = $1::uuid
+		  AND COALESCE(request_json->>'model_id', '') = $2
+		ORDER BY created_at ASC
+		LIMIT 1`, datasourceID, modelID)
+	job, err := scanAIJob(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find conflicting embed metadata: %w", err)
 	}
 	return job, nil
 }
