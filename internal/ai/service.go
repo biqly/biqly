@@ -295,7 +295,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 			}
 		}
 		if result.IsAmbiguous {
-			return ambiguityClarificationResponse(result, options.ambiguityMaxOptions), nil
+			return ambiguityClarificationResponse(i18n.FromContext(ctx), result, options.ambiguityMaxOptions), nil
 		}
 	}
 
@@ -460,8 +460,8 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 	}), nil
 }
 
-func ambiguityClarificationResponse(result ambiguitypkg.AmbiguityResult, maxOptions int) *AIResponse {
-	clarification := ClarificationFromAmbiguityWithMaxOptions(result, maxOptions)
+func ambiguityClarificationResponse(locale i18n.Locale, result ambiguitypkg.AmbiguityResult, maxOptions int) *AIResponse {
+	clarification := ClarificationFromAmbiguityWithMaxOptions(locale, result, maxOptions)
 	if clarification == nil {
 		return nil
 	}
@@ -471,7 +471,7 @@ func ambiguityClarificationResponse(result ambiguitypkg.AmbiguityResult, maxOpti
 	}
 	return &AIResponse{
 		Result: &AIResult{
-			Warnings:   []string{"question requires clarification before query generation"},
+			Warnings:   []string{i18n.T(locale, "clarification.needs_clarification_warning")},
 			Confidence: 0,
 		},
 		Clarification: &ClarificationResponse{

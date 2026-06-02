@@ -2391,10 +2391,11 @@ input[type='checkbox']:disabled {
 
 .clarification-option-hint {
   display: block;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-weight: 400;
-  opacity: 0.85;
-  margin-top: 0.15rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+  margin-top: 0.1rem;
 }
 
 .semantic-joins-panel {

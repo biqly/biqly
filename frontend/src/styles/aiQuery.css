@@ -902,9 +902,14 @@
   background: color-mix(in srgb, var(--warning) 5%, var(--bg-card));
   border: 1px solid color-mix(in srgb, var(--warning) 20%, transparent);
   border-radius: 0.6rem;
-  padding: 1rem;
+  padding: 1.1rem 1.15rem;
   margin-bottom: 1rem;
   box-shadow: var(--shadow-sm);
+}
+
+.clarification-card--ambiguity {
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 .clarification-title {
@@ -914,48 +919,96 @@
   font-family: 'Plus Jakarta Sans', sans-serif;
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+/* Ambiguity term summary (term + detector type) */
+.clarification-ambiguity-terms {
+  list-style: none;
+  margin: 0.5rem 0 0.25rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.clarification-ambiguity-terms li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.clarification-ambiguity-terms strong {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+}
+
+.clarification-ambiguity-type {
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  padding: 0.08rem 0.45rem;
+  border-radius: 999px;
 }
 
 .clarification-question {
   color: var(--text-secondary);
-  margin-bottom: 0.75rem;
+  margin: 0.15rem 0 0.85rem;
   font-size: 0.86rem;
   line-height: 1.4;
-  font-style: italic;
 }
 
 .clarification-options {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: 0.85rem;
 }
 
 .btn-clarification {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  width: 100%;
+  text-align: left;
   background: var(--bg-card-raised);
   border: 1px solid var(--border-strong);
   color: var(--text-primary);
-  padding: 0.45rem 0.9rem;
-  border-radius: 0.4rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: 0.5rem;
   cursor: pointer;
   font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 160ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .btn-clarification:hover {
   background: var(--bg-card);
   border-color: var(--accent);
-  box-shadow: 0 2px 6px var(--accent-glow);
+  box-shadow: 0 2px 8px var(--accent-glow);
+  transform: translateY(-1px);
+}
+
+.btn-clarification:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .btn-clarification:active {
-  transform: scale(0.98);
+  transform: scale(0.995);
 }
 
 .btn-skip {
+  display: block;
+  margin: 0 auto;
   background: transparent;
   border: none;
   color: var(--text-muted);

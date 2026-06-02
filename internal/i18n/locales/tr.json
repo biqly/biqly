@@ -16,6 +16,12 @@
     "encrypt_failed": "gizli veri şifrelenemedi",
     "datasource_create_failed": "veri kaynağı oluşturulamadı"
   },
+  "clarification": {
+    "ambiguity_reason": "Bu soru birden fazla olası anlamla eşleşti.",
+    "ambiguity_question_single": "\"{{.Term}}\" ile ne demek istediniz?",
+    "ambiguity_question_multiple": "Lütfen sorunuzdaki belirsiz ifadeleri netleştirin.",
+    "needs_clarification_warning": "Sorgu oluşturulabilmesi için bu sorunun netleştirilmesi gerekiyor."
+  },
   "datasources": {
     "title": "Veri Kaynakları",
     "new": "Yeni veri kaynağı",

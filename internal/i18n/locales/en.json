@@ -16,6 +16,12 @@
     "encrypt_failed": "failed to encrypt secret",
     "datasource_create_failed": "failed to create datasource"
   },
+  "clarification": {
+    "ambiguity_reason": "This question matched more than one possible meaning.",
+    "ambiguity_question_single": "What did you mean by \"{{.Term}}\"?",
+    "ambiguity_question_multiple": "Please clarify the ambiguous terms in your question.",
+    "needs_clarification_warning": "This question needs clarification before a query can be generated."
+  },
   "datasources": {
     "title": "Datasources",
     "new": "New datasource",

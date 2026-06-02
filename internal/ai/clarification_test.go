@@ -5,6 +5,7 @@ import (
 
 	"github.com/biqly/biqly/internal/ai/ambiguity"
 	"github.com/biqly/biqly/internal/ai/routing"
+	"github.com/biqly/biqly/internal/i18n"
 )
 
 func TestBuildClarificationReturnsNilOnEmptyQuestion(t *testing.T) {
@@ -131,7 +132,7 @@ func TestClarificationFromAmbiguityWithMaxOptionsCapsChoices(t *testing.T) {
 		},
 	}
 
-	got := ClarificationFromAmbiguityWithMaxOptions(result, 1)
+	got := ClarificationFromAmbiguityWithMaxOptions(i18n.LocaleTR, result, 1)
 	if got == nil || len(got.Options) != 1 {
 		t.Fatalf("ClarificationFromAmbiguityWithMaxOptions() = %+v, want one option", got)
 	}

@@ -7,6 +7,7 @@ import (
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/ai/routing"
+	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/query"
 )
 
@@ -150,13 +151,13 @@ func ClarificationFromRouting(result *routing.TableRoutingResult, question strin
 
 // ClarificationFromAmbiguity wraps semantic ambiguities into selectable options.
 func ClarificationFromAmbiguity(result ambiguitypkg.AmbiguityResult) *Clarification {
-	return ClarificationFromAmbiguityWithMaxOptions(result, 0)
+	return ClarificationFromAmbiguityWithMaxOptions(i18n.DefaultLocale, result, 0)
 }
 
 // ClarificationFromAmbiguityWithMaxOptions wraps semantic ambiguities into a
 // bounded list of selectable options. A non-positive maximum leaves the list
 // uncapped for backward compatibility.
-func ClarificationFromAmbiguityWithMaxOptions(result ambiguitypkg.AmbiguityResult, maxOptions int) *Clarification {
+func ClarificationFromAmbiguityWithMaxOptions(locale i18n.Locale, result ambiguitypkg.AmbiguityResult, maxOptions int) *Clarification {
 	if !result.IsAmbiguous || len(result.Ambiguities) == 0 {
 		return nil
 	}
@@ -181,14 +182,14 @@ func ClarificationFromAmbiguityWithMaxOptions(result ambiguitypkg.AmbiguityResul
 		return nil
 	}
 
-	question := "Please clarify the ambiguous terms in your question."
+	question := i18n.T(locale, "clarification.ambiguity_question_multiple")
 	if len(result.Ambiguities) == 1 {
-		question = fmt.Sprintf("What did you mean by %q?", result.Ambiguities[0].Term)
+		question = i18n.Tf(locale, "clarification.ambiguity_question_single", map[string]any{"Term": result.Ambiguities[0].Term})
 	}
 	return &Clarification{
 		Status:   ClarificationStatusNeeded,
 		Question: question,
-		Reason:   "Multiple semantic interpretations matched this question.",
+		Reason:   i18n.T(locale, "clarification.ambiguity_reason"),
 		Options:  options,
 		Source:   "ambiguity_analyzer",
 		AmbiguityDetail: &AmbiguityDetail{
