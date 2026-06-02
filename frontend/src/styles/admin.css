@@ -793,6 +793,25 @@
   height: 1.85rem !important;
 }
 
+/* ── User detail roles two-column grid ── */
+.admin-roles-grid {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 1.5rem;
+  align-items: start;
+  min-width: 0;
+}
+
+.admin-roles-grid > * {
+  min-width: 0;
+}
+
+@media (max-width: 800px) {
+  .admin-roles-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 899px) {
   .admin-table {
     min-width: 36rem;

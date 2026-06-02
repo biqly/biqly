@@ -294,9 +294,9 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
       )}
 
       {/* User Roles lists and Assign role form */}
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 24, alignItems: 'start' }}>
+      <div className="admin-roles-grid">
         {/* Roles list */}
-        <div className="admin-card">
+        <div className="admin-card" style={{ minWidth: 0, overflow: 'hidden' }}>
           <h3 style={{ marginTop: 0, marginBottom: 16 }}>{t('admin.user_detail.assigned_roles', { count: userRoles.length })}</h3>
           {userRoles.length === 0 ? (
             <div className="admin-text-muted">{t('admin.user_detail.no_roles')}</div>
@@ -335,7 +335,7 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
         </div>
 
         {/* Assign role form */}
-        <div className="admin-card">
+        <div className="admin-card" style={{ minWidth: 0, overflow: 'hidden' }}>
           <h3 style={{ marginTop: 0, marginBottom: 16 }}>{t('admin.user_detail.assign_new_role')}</h3>
           <form onSubmit={handleAssignRole} className="page-stack" style={{ gap: 12 }}>
             <label className="admin-form-label">
