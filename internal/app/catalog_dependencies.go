@@ -8,6 +8,7 @@ import (
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/dashboard"
+	"github.com/biqly/biqly/internal/semantic"
 )
 
 // NewCatalogDependencies wires only the Catalog Service dependency graph.
@@ -22,6 +23,9 @@ func NewCatalogDependencies(ctx context.Context, cfg *config.Config) (*Dependenc
 	reg := newDriverRegistry()
 
 	metaRepo, semanticRepo := provideRepositories(db)
+	compositeRepo := semantic.NewCompositeRepository(db).
+		WithResolvedCache(provideCompositeCache(ctx, cfg)).
+		WithLimits(provideCompositeLimits(cfg))
 	dashboardRepo := dashboard.NewRepository(db)
 
 	encryptor := provideEncryptor(ctx, db, true)
@@ -32,6 +36,7 @@ func NewCatalogDependencies(ctx context.Context, cfg *config.Config) (*Dependenc
 		DriverReg:     reg,
 		MetaRepo:      metaRepo,
 		SemanticRepo:  semanticRepo,
+		CompositeRepo: compositeRepo,
 		Encryptor:     encryptor,
 		EvalRepo:      evalpkg.NewEvalRepository(db),
 		AuditLogger:   audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(db, slog.Default())),
