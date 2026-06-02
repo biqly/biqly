@@ -145,8 +145,9 @@ services:
 
   api:
     build: .
-    # Secrets / AI: project `.env` (BI_AI_API_KEY, BI_AI_MODEL, BI_AI_BASE_URL,
-    # optional BI_AI_EMBEDDING_MODEL, BI_AI_EMBEDDING_BASE_URL, BI_AI_EMBEDDING_API_KEY).
+    # AI providers/models are configured at runtime in the database (admin UI,
+    # Administration → AI Providers), not via environment variables. Project
+    # `.env` only carries operational AI knobs (timeouts, rate limit, etc.).
     env_file:
       - path: .env
         required: false

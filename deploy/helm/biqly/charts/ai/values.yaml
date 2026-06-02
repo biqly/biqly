@@ -20,8 +20,7 @@ global:
     BI_METADATA_DB_DSN: ""
     BI_ENCRYPTION_KEY: ""
     BI_INTERNAL_API_TOKEN: ""
-    BI_AI_API_KEY: ""
-    BI_AI_EMBEDDING_API_KEY: ""
+    # AI provider API keys are stored encrypted in the database, not in secrets.
   gateway:
     enabled: true
     parentRef:
@@ -43,9 +42,8 @@ config:
   BI_CATALOG_SERVICE_URL: http://biqly-catalog:8080
   BI_QUERY_SERVICE_URL: http://biqly-query:8081
   BI_AUTH_SERVICE_URL: http://biqly-auth:8889
-  BI_AI_PROVIDER: openai
-  BI_AI_MODEL: gpt-4o
-  BI_AI_TEMPERATURE: "0"
+  # AI provider/model selection is managed in the database (Administration →
+  # AI Providers), not via environment variables.
 resources:
   requests:
     cpu: 250m

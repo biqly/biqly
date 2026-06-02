@@ -118,12 +118,11 @@ type ServicesConfig struct {
 
 // AIConfig holds AI provider configuration.
 type AIConfig struct {
-	// DBManaged, when true, sources provider/model selection from the
-	// ai_providers / ai_models tables (managed at runtime via the admin API)
-	// instead of the BI_AI_* connection variables. The BI_AI_* values are kept
-	// as a fallback and as the seed for an empty database, so deployments that
-	// only set environment variables keep working unchanged.
-	DBManaged          bool
+	// Provider/model selection is sourced exclusively from the ai_providers /
+	// ai_models tables (managed at runtime via the admin API). The connection
+	// fields below (Provider/Model/BaseURL/APIKey/tuning) are NOT read from the
+	// environment anymore — they are populated only by the ProviderStore from
+	// the resolved DB model, layered over the operational knobs in this struct.
 	Provider           string
 	APIKey             string
 	BaseURL            string
@@ -132,6 +131,9 @@ type AIConfig struct {
 	Temperature        float64
 	TopP               float64
 	NumCtx             int
+	// HTTPTimeoutSeconds is the operational request budget used to size the HTTP
+	// server write timeout (BI_AI_HTTP_TIMEOUT_SECONDS). The per-provider LLM
+	// timeout is a separate value stored on each ai_providers row.
 	HTTPTimeoutSeconds int
 	RateLimitPerMinute int
 	// MaxPromptInputRunes caps the semantic-model section of NL→query prompts (~4 chars/rune ≈ 1 token).
@@ -252,23 +254,16 @@ func Load() (*Config, error) {
 			AIURL:      strings.TrimRight(getEnv("BI_AI_SERVICE_URL", ""), "/"),
 		},
 		AI: AIConfig{
-			DBManaged:             getEnvAsBool("BI_AI_DB_MANAGED", true),
-			Provider:              getEnv("BI_AI_PROVIDER", "openai"),
-			APIKey:                getEnv("BI_AI_API_KEY", ""),
-			BaseURL:               getEnv("BI_AI_BASE_URL", ""),
-			Model:                 getEnv("BI_AI_MODEL", "gpt-4o"),
-			MaxTokens:             getEnvAsInt("BI_AI_MAX_TOKENS", 4096),
-			Temperature:           getEnvAsFloat("BI_AI_TEMPERATURE", 0.0),
-			TopP:                  getEnvAsFloat("BI_AI_TOP_P", 0.0),
-			NumCtx:                getEnvAsInt("BI_AI_NUM_CTX", 0),
+			// Connection/model selection (Provider/Model/BaseURL/APIKey/tuning,
+			// plus the per-purpose Query*/Embedding*/Translation* model fields)
+			// is intentionally NOT read from the environment — it comes only from
+			// the ai_providers / ai_models tables via the ProviderStore. Only the
+			// operational knobs below are environment-driven.
 			HTTPTimeoutSeconds:    getEnvAsInt("BI_AI_HTTP_TIMEOUT_SECONDS", 300),
 			RateLimitPerMinute:    getEnvAsInt("BI_AI_RATE_LIMIT_PER_MINUTE", 20),
 			MaxPromptInputRunes:   getEnvAsInt("BI_AI_MAX_PROMPT_RUNES", 80000),
 			DescribeMaxCellRunes:  getEnvAsInt("BI_AI_DESCRIBE_MAX_CELL_RUNES", 500),
 			DescribeMaxSampleRows: getEnvAsInt("BI_AI_DESCRIBE_MAX_SAMPLE_ROWS", 12),
-			TranslationModel:      getEnv("BI_AI_TRANSLATION_MODEL", ""),
-			TranslationBaseURL:    getEnv("BI_AI_TRANSLATION_BASE_URL", ""),
-			TranslationAPIKey:     getEnv("BI_AI_TRANSLATION_API_KEY", ""),
 			TranslationTargetLanguage: getEnv(
 				"BI_AI_TRANSLATION_TARGET_LANGUAGE",
 				"Turkish",
@@ -277,9 +272,6 @@ func Load() (*Config, error) {
 			TranslationHTTPTimeoutSeconds: getEnvAsInt("BI_AI_TRANSLATION_HTTP_TIMEOUT_SECONDS", 120),
 			MaxRetries:                    getEnvAsInt("BI_AI_MAX_RETRIES", 2),
 			MultiCandidateCount:           getEnvAsInt("BI_AI_MULTI_CANDIDATE_COUNT", 1),
-			EmbeddingModel:                getEnv("BI_AI_EMBEDDING_MODEL", ""),
-			EmbeddingBaseURL:              getEnv("BI_AI_EMBEDDING_BASE_URL", ""),
-			EmbeddingAPIKey:               getEnv("BI_AI_EMBEDDING_API_KEY", ""),
 			EmbeddingHTTPTimeoutSeconds: getEnvAsInt(
 				"BI_AI_EMBEDDING_HTTP_TIMEOUT_SECONDS",
 				getEnvAsInt("BI_AI_HTTP_TIMEOUT_SECONDS", 600),
@@ -287,11 +279,6 @@ func Load() (*Config, error) {
 			EmbeddingWeight:         getEnvAsFloat("BI_AI_EMBEDDING_WEIGHT", 30.0),
 			EmbeddingDenySchemas:    splitCSV(getEnv("BI_AI_EMBEDDING_DENY_SCHEMAS", "")),
 			EmbeddingDenyTables:     splitCSV(getEnv("BI_AI_EMBEDDING_DENY_TABLES", "")),
-			QueryProvider:           getEnv("BI_AI_QUERY_PROVIDER", ""),
-			QueryModel:              getEnv("BI_AI_QUERY_MODEL", ""),
-			QueryBaseURL:            getEnv("BI_AI_QUERY_BASE_URL", ""),
-			QueryAPIKey:             getEnv("BI_AI_QUERY_API_KEY", ""),
-			QueryHTTPTimeoutSeconds: getEnvAsInt("BI_AI_QUERY_HTTP_TIMEOUT_SECONDS", 0),
 			RoutingLexiconPath:      getEnv("BI_AI_ROUTING_LEXICON_PATH", ""),
 			RoutingWeightsPath:      getEnv("BI_AI_ROUTING_WEIGHTS_PATH", ""),
 			RouteMaxDimensions:      getEnvAsInt("BI_AI_ROUTE_MAX_DIMENSIONS", 0),

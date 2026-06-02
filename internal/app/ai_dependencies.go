@@ -43,36 +43,17 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 
 	providerStore := provideProviderStore(ctx, cfg, db, encryptor)
 
-	baseFallback, err := providerpkg.NewProvider(cfg.AI)
-	if err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("ai provider: %w", err)
-	}
-	queryFallback := baseFallback
-	if cfg.AI.HasQueryOverride() {
-		queryClient, err := providerpkg.NewProvider(cfg.AI.EffectiveQueryConfig())
-		if err != nil {
-			_ = db.Close()
-			return nil, fmt.Errorf("ai query provider: %w", err)
-		}
-		queryFallback = queryClient
-		slog.Info("AI query provider overridden",
-			"model", cfg.AI.EffectiveQueryConfig().Model,
-			"base_url", cfg.AI.EffectiveQueryConfig().BaseURL,
-			"describe_model", cfg.AI.Model)
-	}
-
-	effectiveCfg := cfg.AI
-	aiClient := baseFallback
-	aiQueryClient := queryFallback
-	describeModel := cfg.AI.Model
-	if cfg.AI.DBManaged {
-		effectiveCfg = providerStore.EffectiveConfigForEmbeddings()
-		aiClient = ai.NewPurposeProvider(providerStore, ai.PurposeDescribe, baseFallback, nil)
-		aiQueryClient = ai.NewPurposeProvider(providerStore, ai.PurposeQuery, queryFallback, nil)
-		if describeCfg, ok := providerStore.ChatConfigForPurpose(ai.PurposeDescribe); ok {
-			describeModel = describeCfg.Model
-		}
+	// Provider/model selection is DB-only: the AI clients resolve their backend
+	// per purpose from the ProviderStore on every call. There is no environment
+	// fallback — when no default model is configured for a purpose the provider
+	// returns a clear "no model configured" error rather than silently using a
+	// baked-in model.
+	effectiveCfg := providerStore.EffectiveConfig()
+	aiClient := ai.NewPurposeProvider(providerStore, ai.PurposeDescribe, nil, nil)
+	aiQueryClient := ai.NewPurposeProvider(providerStore, ai.PurposeQuery, nil, nil)
+	describeModel := ""
+	if describeCfg, ok := providerStore.ChatConfigForPurpose(ai.PurposeDescribe); ok {
+		describeModel = describeCfg.Model
 	}
 
 	translator := ai.NewTranslationServiceFromConfig(effectiveCfg)

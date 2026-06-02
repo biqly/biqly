@@ -88,7 +88,7 @@ func NewAIHandler(deps *app.AIDeps) *AIHandler {
 }
 
 func (h *AIHandler) queryModelUsedLabel() string {
-	if h.deps.Config.AI.DBManaged && h.deps.AIProviderStore != nil {
+	if h.deps.AIProviderStore != nil {
 		return h.deps.AIProviderStore.ModelLabelForPurpose(ai.PurposeQuery)
 	}
 	return h.deps.Config.AI.EffectiveQueryConfig().Model

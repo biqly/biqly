@@ -8,17 +8,8 @@ data:
   {{- range $key, $value := .Values.global.config }}
   {{ $key }}: {{ $value | quote }}
   {{- end }}
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ .Values.global.secretNames.aiConfig }}-provider
-  labels:
-    {{- include "biqly.labels" . | nindent 4 }}
-data:
-  BI_AI_PROVIDER: {{ .Values.ai.config.BI_AI_PROVIDER | quote }}
-  BI_AI_MODEL: {{ .Values.ai.config.BI_AI_MODEL | quote }}
-  BI_AI_TEMPERATURE: {{ .Values.ai.config.BI_AI_TEMPERATURE | quote }}
-  {{- with .Values.ai.config.BI_AI_EMBEDDING_MODEL }}
-  BI_AI_EMBEDDING_MODEL: {{ . | quote }}
-  {{- end }}
+{{/*
+  The former "{{ .Values.global.secretNames.aiConfig }}-provider" ConfigMap held
+  BI_AI_PROVIDER/MODEL/TEMPERATURE/EMBEDDING_MODEL. Provider/model selection now
+  lives in the ai_providers / ai_models tables, so that ConfigMap was removed.
+*/}}

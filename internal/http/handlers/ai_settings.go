@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/config"
 )
@@ -107,9 +108,22 @@ func translationBaseURLEffectiveLabel(cfg config.AIConfig) string {
 	return eff + " (from BI_AI_BASE_URL; override with BI_AI_TRANSLATION_BASE_URL)"
 }
 
-// RuntimeSettings returns non-secret AI configuration for the UI (env-backed).
+// RuntimeSettings returns non-secret AI configuration for the UI. Operational
+// knobs come from the environment; provider/model selection is overlaid from
+// the database (the sole source of truth for connections and models).
 func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 	cfg := h.deps.Config.AI
+	if h.deps.AIProviderStore != nil {
+		// Overlay DB-resolved embedding/translation, then the base (describe) and
+		// query connections, so the UI reflects what actually runs.
+		cfg = h.deps.AIProviderStore.EffectiveConfig()
+		if dc, ok := h.deps.AIProviderStore.ChatConfigForPurpose(ai.PurposeDescribe); ok {
+			cfg.Provider, cfg.Model, cfg.BaseURL, cfg.APIKey = dc.Provider, dc.Model, dc.BaseURL, dc.APIKey
+		}
+		if qc, ok := h.deps.AIProviderStore.ChatConfigForPurpose(ai.PurposeQuery); ok {
+			cfg.QueryProvider, cfg.QueryModel, cfg.QueryBaseURL, cfg.QueryAPIKey = qc.Provider, qc.Model, qc.BaseURL, qc.APIKey
+		}
+	}
 	queryCfg := cfg.EffectiveQueryConfig()
 	profile := prompt.LookupModelContextProfile(queryCfg.Model, queryCfg.NumCtx)
 	out := aiRuntimeSettingsResponse{
@@ -133,10 +147,8 @@ func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 	out.EffectiveMaxPromptRunes = prompt.EffectiveMaxPromptRunes(queryCfg, queryCfg.Model)
 	out.ContextWindowTokens = profile.ContextWindowTokens
 	out.ContextWindowSource = profile.Source
+	// cfg already carries the DB-resolved embedding/translation overlay.
 	embedCfg := cfg
-	if cfg.DBManaged && h.deps.AIProviderStore != nil {
-		embedCfg = h.deps.AIProviderStore.EffectiveConfigForEmbeddings()
-	}
 	if embedCfg.EmbeddingsConfigured() {
 		out.EmbeddingsEnabled = true
 		out.EmbeddingModel = strings.TrimSpace(embedCfg.EmbeddingModel)
@@ -155,8 +167,8 @@ func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 		out.TranslationTargetLanguage = cfg.TranslationTargetLanguage
 		out.TranslationTargetCode = cfg.TranslationTargetCode
 	}
-	out.DBManaged = cfg.DBManaged
-	if cfg.DBManaged && h.deps.AIProviderStore != nil {
+	out.DBManaged = true
+	if h.deps.AIProviderStore != nil {
 		if rows, err := h.deps.AIProviderStore.ActiveModels(r.Context()); err == nil {
 			out.ActiveModels = make([]activeModelSummary, 0, len(rows))
 			for _, m := range rows {

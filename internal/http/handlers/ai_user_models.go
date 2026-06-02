@@ -100,7 +100,7 @@ type putUserAIPrefsRequest struct {
 
 // UserAIModels lists models the caller may select and their saved preferences.
 func (h *AIHandler) UserAIModels(w http.ResponseWriter, r *http.Request) {
-	if h.deps.AIProviderStore == nil || !h.deps.Config.AI.DBManaged {
+	if h.deps.AIProviderStore == nil {
 		writeJSON(w, http.StatusOK, userAIModelsResponse{
 			Preferences: map[string]string{},
 		})
@@ -122,8 +122,8 @@ func (h *AIHandler) UserAIModels(w http.ResponseWriter, r *http.Request) {
 
 // PutUserAIPreferences saves per-purpose model choices after access checks.
 func (h *AIHandler) PutUserAIPreferences(w http.ResponseWriter, r *http.Request) {
-	if h.deps.AIProviderStore == nil || !h.deps.Config.AI.DBManaged {
-		writeError(w, http.StatusBadRequest, "ai model preferences require db-managed providers")
+	if h.deps.AIProviderStore == nil {
+		writeError(w, http.StatusBadRequest, "ai provider store is not configured")
 		return
 	}
 	if h.authClient == nil {

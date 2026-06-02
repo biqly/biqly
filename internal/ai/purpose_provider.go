@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 
@@ -68,7 +69,10 @@ func (p *PurposeProvider) current(ctx context.Context) providerpkg.Provider {
 		cfg, ok = p.store.ChatConfigForPurpose(p.purpose)
 	}
 	if !ok {
-		return p.fallback
+		if p.fallback != nil {
+			return p.fallback
+		}
+		return notConfiguredProvider{purpose: p.purpose}
 	}
 	version := p.store.CacheVersion()
 	userKey := ""
@@ -83,11 +87,14 @@ func (p *PurposeProvider) current(ctx context.Context) providerpkg.Provider {
 	}
 	prov, err := providerpkg.NewProvider(cfg)
 	if err != nil {
-		slog.Warn("purpose provider build failed; using fallback", "purpose", p.purpose, "error", err)
+		slog.Warn("purpose provider build failed", "purpose", p.purpose, "error", err)
 		p.builtVersion = version
 		p.builtUserKey = userKey
 		p.built = nil
-		return p.fallback
+		if p.fallback != nil {
+			return p.fallback
+		}
+		return notConfiguredProvider{purpose: p.purpose, err: err}
 	}
 	if p.built != nil {
 		closeProvider(p.built)
@@ -100,6 +107,29 @@ func (p *PurposeProvider) current(ctx context.Context) providerpkg.Provider {
 
 func userConfigCacheKey(ctx context.Context) string {
 	return UserIDFromContext(ctx)
+}
+
+// notConfiguredProvider is returned when no model is configured in the database
+// for a purpose and there is no fallback. Its Generate calls fail with a clear,
+// actionable error instead of panicking on a nil provider.
+type notConfiguredProvider struct {
+	purpose Purpose
+	err     error
+}
+
+func (n notConfiguredProvider) errorf() error {
+	if n.err != nil {
+		return fmt.Errorf("no usable AI model configured for %q: %w; configure a provider and default model under Administration → AI Providers", n.purpose, n.err)
+	}
+	return fmt.Errorf("no AI model configured for %q; configure a provider and default model under Administration → AI Providers", n.purpose)
+}
+
+func (n notConfiguredProvider) Generate(_ context.Context, _ string) (providerpkg.GenerationResult, error) {
+	return providerpkg.GenerationResult{}, n.errorf()
+}
+
+func (n notConfiguredProvider) GenerateAt(_ context.Context, _ string, _ float64) (providerpkg.GenerationResult, error) {
+	return providerpkg.GenerationResult{}, n.errorf()
 }
 
 // Close releases the currently built provider's idle connections.

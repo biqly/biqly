@@ -319,22 +319,16 @@ type aiBundle struct {
 	responseCache ai.ResponseCache
 }
 
-// provideProviderStore builds the DB-backed AI provider/model store. When
-// BI_AI_DB_MANAGED is true it seeds an empty database from the BI_AI_* env vars
-// and loads the per-purpose defaults into the in-memory cache. Failures are
-// non-fatal: the store always retains the env config as a fallback.
+// provideProviderStore builds the DB-backed AI provider/model store and loads
+// the per-purpose defaults into the in-memory cache. Provider/model selection
+// is sourced exclusively from the ai_providers / ai_models tables — there is no
+// environment seed or fallback. A refresh failure is non-fatal: the service
+// still starts so providers can be configured via the admin API, and requests
+// for unconfigured purposes return a clear "no model configured" error.
 func provideProviderStore(ctx context.Context, cfg *config.Config, db *sql.DB, encryptor *security.Encryption) *ai.ProviderStore {
 	store := ai.NewProviderStore(db, encryptor, cfg.AI)
-	if !cfg.AI.DBManaged {
-		return store
-	}
-	if seeded, err := store.SeedFromEnv(ctx); err != nil {
-		slog.Warn("ai provider env seed failed; using env fallback", "error", err)
-	} else if seeded {
-		slog.Info("seeded ai provider configuration from environment")
-	}
 	if err := store.RefreshCache(ctx); err != nil {
-		slog.Warn("ai provider cache refresh failed; using env fallback", "error", err)
+		slog.Warn("ai provider cache refresh failed; configure providers under Administration → AI Providers", "error", err)
 	}
 	return store
 }
@@ -353,39 +347,17 @@ func setupAI(
 ) (aiBundle, error) {
 	providerStore := provideProviderStore(ctx, cfg, db, encryptor)
 
-	baseFallback, err := providerpkg.NewProvider(cfg.AI)
-	if err != nil {
-		return aiBundle{}, fmt.Errorf("ai provider: %w", err)
-	}
-	queryFallback := baseFallback
-	if cfg.AI.HasQueryOverride() {
-		qc, qerr := providerpkg.NewProvider(cfg.AI.EffectiveQueryConfig())
-		if qerr != nil {
-			return aiBundle{}, fmt.Errorf("ai query provider: %w", qerr)
-		}
-		queryFallback = qc
-		slog.Info("AI query provider overridden",
-			"model", cfg.AI.EffectiveQueryConfig().Model,
-			"base_url", cfg.AI.EffectiveQueryConfig().BaseURL,
-			"describe_model", cfg.AI.Model)
-	}
-
-	// Effective config carries DB-managed embedding/translation overrides; when
-	// DB management is off it is identical to the env config.
-	effectiveCfg := cfg.AI
-	client := baseFallback
-	queryClient := queryFallback
-	describeModel := cfg.AI.Model
-	var describePP, queryPP *ai.PurposeProvider
-	if cfg.AI.DBManaged {
-		effectiveCfg = providerStore.EffectiveConfig()
-		describePP = ai.NewPurposeProvider(providerStore, ai.PurposeDescribe, baseFallback, nil)
-		queryPP = ai.NewPurposeProvider(providerStore, ai.PurposeQuery, queryFallback, nil)
-		client = describePP
-		queryClient = queryPP
-		if describeCfg, ok := providerStore.ChatConfigForPurpose(ai.PurposeDescribe); ok {
-			describeModel = describeCfg.Model
-		}
+	// Provider/model selection is DB-only (no env fallback). The per-purpose
+	// providers resolve their backend from the ProviderStore on every call and
+	// return a clear "no model configured" error when nothing is set.
+	effectiveCfg := providerStore.EffectiveConfig()
+	describePP := ai.NewPurposeProvider(providerStore, ai.PurposeDescribe, nil, nil)
+	queryPP := ai.NewPurposeProvider(providerStore, ai.PurposeQuery, nil, nil)
+	client := providerpkg.Provider(describePP)
+	queryClient := providerpkg.Provider(queryPP)
+	describeModel := ""
+	if describeCfg, ok := providerStore.ChatConfigForPurpose(ai.PurposeDescribe); ok {
+		describeModel = describeCfg.Model
 	}
 
 	translator := ai.NewTranslationServiceFromConfig(effectiveCfg)
@@ -449,7 +421,7 @@ func setupAI(
 
 // WireAIUserResolver attaches per-user model selection when auth is enabled.
 func (d *Dependencies) WireAIUserResolver(auth *bimw.AuthClient) {
-	if auth == nil || !d.Config.Auth.Enabled || !d.Config.AI.DBManaged || d.AIProviderStore == nil {
+	if auth == nil || !d.Config.Auth.Enabled || d.AIProviderStore == nil {
 		return
 	}
 	resolver := NewAIUserConfigResolver(d.AIProviderStore, auth)

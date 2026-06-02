@@ -84,18 +84,11 @@ spec:
             - configMapRef:
                 name: {{ .Values.global.secretNames.config }}
             - configMapRef:
-                name: {{ .Values.global.secretNames.aiConfig }}-provider
-            - configMapRef:
                 name: {{ include "ai.fullname" . }}-config
             - secretRef:
                 name: {{ .Values.global.secretNames.db }}
             - secretRef:
                 name: {{ .Values.global.secretNames.security }}
-            - secretRef:
-                name: {{ .Values.global.secretNames.ai }}
-            - secretRef:
-                name: {{ .Values.global.secretNames.embedding }}
-                optional: true
           env:
             # Shared internal token so the AI service can call the auth service's
             # /internal/auth/* endpoints (user AI model access & preferences) and
