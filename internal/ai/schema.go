@@ -150,6 +150,13 @@ func ClarificationFromRouting(result *routing.TableRoutingResult, question strin
 
 // ClarificationFromAmbiguity wraps semantic ambiguities into selectable options.
 func ClarificationFromAmbiguity(result ambiguitypkg.AmbiguityResult) *Clarification {
+	return ClarificationFromAmbiguityWithMaxOptions(result, 0)
+}
+
+// ClarificationFromAmbiguityWithMaxOptions wraps semantic ambiguities into a
+// bounded list of selectable options. A non-positive maximum leaves the list
+// uncapped for backward compatibility.
+func ClarificationFromAmbiguityWithMaxOptions(result ambiguitypkg.AmbiguityResult, maxOptions int) *Clarification {
 	if !result.IsAmbiguous || len(result.Ambiguities) == 0 {
 		return nil
 	}
@@ -162,6 +169,12 @@ func ClarificationFromAmbiguity(result ambiguitypkg.AmbiguityResult) *Clarificat
 				Label: interpretation.Label,
 				Hint:  interpretation.Description,
 			})
+			if maxOptions > 0 && len(options) >= maxOptions {
+				break
+			}
+		}
+		if maxOptions > 0 && len(options) >= maxOptions {
+			break
 		}
 	}
 	if len(options) == 0 {

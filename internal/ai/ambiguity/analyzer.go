@@ -5,12 +5,14 @@ import (
 	"context"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
 const defaultConfidenceThreshold = 0.70
+const ruleBasedAnalysisTimeout = 2 * time.Second
 
 // AmbiguityResult describes whether a question needs user clarification.
 type AmbiguityResult struct {
@@ -41,16 +43,56 @@ type SemanticMapping struct {
 }
 
 // Analyze runs rule-based ambiguity detectors before LogicalQuery generation.
-func Analyze(_ context.Context, question string, model *semantic.SemanticModel, glossary []prompt.GlossaryEntry, confidenceThreshold float64) AmbiguityResult {
+func Analyze(ctx context.Context, question string, model *semantic.SemanticModel, glossary []prompt.GlossaryEntry, confidenceThreshold float64) AmbiguityResult {
+	return analyzeWithDetectors(ctx, []func() []AmbiguityItem{
+		func() []AmbiguityItem { return DetectGlossary(question, glossary, model) },
+		func() []AmbiguityItem { return DetectSynonyms(question, model) },
+		func() []AmbiguityItem { return DetectTemporal(question, model) },
+		func() []AmbiguityItem { return DetectScope(question, model) },
+	}, confidenceThreshold, ruleBasedAnalysisTimeout)
+}
+
+func analyzeWithDetectors(ctx context.Context, detectors []func() []AmbiguityItem, confidenceThreshold float64, timeout time.Duration) AmbiguityResult {
 	if confidenceThreshold <= 0 {
 		confidenceThreshold = defaultConfidenceThreshold
 	}
-	ambiguities := mergeAmbiguities(
-		DetectGlossary(question, glossary, model),
-		DetectSynonyms(question, model),
-		DetectTemporal(question, model),
-		DetectScope(question, model),
-	)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	analysisCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	type detectorResult struct {
+		index int
+		group []AmbiguityItem
+	}
+	results := make(chan detectorResult, len(detectors))
+	for index, detector := range detectors {
+		go func() {
+			result := detectorResult{index: index, group: detector()}
+			select {
+			case results <- result:
+			case <-analysisCtx.Done():
+			}
+		}()
+	}
+
+	groups := make([][]AmbiguityItem, len(detectors))
+	completed := 0
+	for completed < len(detectors) {
+		select {
+		case result := <-results:
+			groups[result.index] = result.group
+			completed++
+		case <-analysisCtx.Done():
+			return ambiguityResult(groups, confidenceThreshold)
+		}
+	}
+	return ambiguityResult(groups, confidenceThreshold)
+}
+
+func ambiguityResult(groups [][]AmbiguityItem, confidenceThreshold float64) AmbiguityResult {
+	ambiguities := mergeAmbiguities(groups...)
 	ambiguities = filterAmbiguities(ambiguities, confidenceThreshold)
 	return AmbiguityResult{
 		IsAmbiguous: len(ambiguities) > 0,
@@ -96,10 +138,10 @@ func mergeAmbiguities(groups ...[]AmbiguityItem) []AmbiguityItem {
 }
 
 func mergeInterpretation(item *AmbiguityItem, interpretation Interpretation) {
-	key := strings.ToLower(interpretation.SemanticMapping.Type) + "|" + strings.ToLower(interpretation.SemanticMapping.Name)
+	key := interpretationKey(item.Type, interpretation)
 	for i := range item.Interpretations {
 		current := item.Interpretations[i]
-		currentKey := strings.ToLower(current.SemanticMapping.Type) + "|" + strings.ToLower(current.SemanticMapping.Name)
+		currentKey := interpretationKey(item.Type, current)
 		if currentKey != key {
 			continue
 		}
@@ -109,6 +151,14 @@ func mergeInterpretation(item *AmbiguityItem, interpretation Interpretation) {
 		return
 	}
 	item.Interpretations = append(item.Interpretations, interpretation)
+}
+
+func interpretationKey(ambiguityType string, interpretation Interpretation) string {
+	key := strings.ToLower(interpretation.SemanticMapping.Type) + "|" + strings.ToLower(interpretation.SemanticMapping.Name)
+	if ambiguityType == "temporal" {
+		key += "|" + strings.ToLower(interpretation.Label)
+	}
+	return key
 }
 
 func filterAmbiguities(ambiguities []AmbiguityItem, threshold float64) []AmbiguityItem {

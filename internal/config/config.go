@@ -123,14 +123,14 @@ type AIConfig struct {
 	// fields below (Provider/Model/BaseURL/APIKey/tuning) are NOT read from the
 	// environment anymore — they are populated only by the ProviderStore from
 	// the resolved DB model, layered over the operational knobs in this struct.
-	Provider           string
-	APIKey             string
-	BaseURL            string
-	Model              string
-	MaxTokens          int
-	Temperature        float64
-	TopP               float64
-	NumCtx             int
+	Provider    string
+	APIKey      string
+	BaseURL     string
+	Model       string
+	MaxTokens   int
+	Temperature float64
+	TopP        float64
+	NumCtx      int
 	// HTTPTimeoutSeconds is the operational request budget used to size the HTTP
 	// server write timeout (BI_AI_HTTP_TIMEOUT_SECONDS). The per-provider LLM
 	// timeout is a separate value stored on each ai_providers row.
@@ -217,6 +217,10 @@ type AIConfig struct {
 	AmbiguityCheckEnabled bool
 	// AmbiguityConfidenceThreshold is the minimum interpretation confidence to count toward clarification.
 	AmbiguityConfidenceThreshold float64
+	// AmbiguityMaxOptions caps the selectable clarification options returned to the user.
+	AmbiguityMaxOptions int
+	// AmbiguityLLMEnabled enables the provider-backed ambiguity fallback after deterministic checks pass.
+	AmbiguityLLMEnabled bool
 }
 
 // Load reads configuration from environment variables.
@@ -296,6 +300,8 @@ func Load() (*Config, error) {
 				"BI_AI_AMBIGUITY_CONFIDENCE_THRESHOLD",
 				0.70,
 			),
+			AmbiguityMaxOptions: getEnvAsInt("BI_AI_AMBIGUITY_MAX_OPTIONS", 5),
+			AmbiguityLLMEnabled: getEnvAsBool("BI_AI_AMBIGUITY_LLM_ENABLED", false),
 		},
 		NATS: NATSConfig{
 			URL:           getEnv("BI_NATS_URL", ""),

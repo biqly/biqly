@@ -60,7 +60,7 @@ func (h *AIHandler) executeAIQueryPhase(
 	}
 	if req.ClarificationChoice != "" {
 		glossary := h.loadGlossaryForAmbiguity(ctx, model)
-		if err := resolveClarificationChoice(ctx, &req, model, glossary); err != nil {
+		if err := h.resolveClarificationChoice(ctx, &req, model, glossary); err != nil {
 			return nil, err
 		}
 	}

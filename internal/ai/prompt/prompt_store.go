@@ -210,7 +210,7 @@ func PromptTemplateBundleVersions(ctx context.Context, loc i18n.Locale) map[stri
 
 // KnownPromptTemplateNames lists editable static sections stored in ai_prompt_templates.
 func KnownPromptTemplateNames() []string {
-	return []string{"system_rules", "output_format", "retry", "clarification", "prompt_layout"}
+	return []string{"system_rules", "output_format", "retry", "clarification", "ambiguity", "prompt_layout"}
 }
 
 // InvalidatePromptTemplateCache drops cached text after an admin edit.

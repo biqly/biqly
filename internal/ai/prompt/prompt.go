@@ -431,6 +431,37 @@ func (b *PromptBuilder) writeMetrics(sb *bytes.Buffer, metrics []semantic.Metric
 	return omitted
 }
 
+// BuildAmbiguityAnalysis asks the LLM to identify unclear terms before
+// LogicalQuery generation. The result is structured JSON consumed by the
+// ambiguity analyzer, never SQL.
+func (b *PromptBuilder) BuildAmbiguityAnalysis(ctx context.Context, locale i18n.Locale, question string, model *semantic.SemanticModel, glossary []GlossaryEntry) string {
+	locale = PromptLocaleForQuestion(question, locale)
+	if model == nil {
+		model = &semantic.SemanticModel{}
+	}
+
+	names := make([]string, 0, len(model.Dimensions))
+	for _, dimension := range model.Dimensions {
+		names = append(names, dimension.Name)
+	}
+	metricNames := make([]string, 0, len(model.Metrics))
+	for _, metric := range model.Metrics {
+		metricNames = append(metricNames, metric.Name)
+	}
+	glossaryEntries := make([]string, 0, len(glossary))
+	for _, entry := range glossary {
+		glossaryEntries = append(glossaryEntries, entry.Term+": "+entry.Definition)
+	}
+
+	return renderPromptTemplate(promptTemplate(ctx, locale, "ambiguity"), map[string]any{
+		"Question":   question,
+		"ModelName":  model.Name,
+		"Dimensions": strings.Join(names, ", "),
+		"Metrics":    strings.Join(metricNames, ", "),
+		"Glossary":   strings.Join(glossaryEntries, "; "),
+	})
+}
+
 // BuildClarification asks the LLM to produce a single, user-facing clarifying
 // question explaining what is ambiguous about the original request, given the
 // available semantic model. Output is plain text (no JSON) — short, natural.

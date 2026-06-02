@@ -32,6 +32,7 @@ type Service struct {
 	multiCandidateCount int
 	baseTemperature     float64
 	cache               ResponseCache
+	ambiguityCache      sync.Map
 }
 
 // WithCache configures a cache for AI query responses.
@@ -130,17 +131,23 @@ type SQLValidator func(ctx context.Context, lq *query.LogicalQuery) error
 // keep the call site backward compatible while enabling optional features.
 type ProcessOption func(*processOptions)
 
+// AmbiguityAnalysisObserver records rule-based and LLM ambiguity passes.
+type AmbiguityAnalysisObserver func(latencyMs int64, source string, detected bool)
+
 type processOptions struct {
-	sqlValidator      SQLValidator
-	fewShot           []promptpkg.FewShotExample
-	samples           []promptpkg.TableSample
-	priorTurns        []promptpkg.ConversationTurn
-	deniedFields      []string
-	targetDialect     string
-	glossary          []promptpkg.GlossaryEntry
-	ambiguityGlossary           []promptpkg.GlossaryEntry
-	ambiguityCheck              bool
+	sqlValidator                 SQLValidator
+	fewShot                      []promptpkg.FewShotExample
+	samples                      []promptpkg.TableSample
+	priorTurns                   []promptpkg.ConversationTurn
+	deniedFields                 []string
+	targetDialect                string
+	glossary                     []promptpkg.GlossaryEntry
+	ambiguityGlossary            []promptpkg.GlossaryEntry
+	ambiguityCheck               bool
 	ambiguityConfidenceThreshold float64
+	ambiguityMaxOptions          int
+	ambiguityLLMCheck            bool
+	ambiguityObserver            AmbiguityAnalysisObserver
 }
 
 type tieredProcessOptions struct {
@@ -225,6 +232,21 @@ func WithAmbiguityConfidenceThreshold(threshold float64) ProcessOption {
 	return func(o *processOptions) { o.ambiguityConfidenceThreshold = threshold }
 }
 
+// WithAmbiguityMaxOptions caps the clarification choices returned to the user.
+func WithAmbiguityMaxOptions(maxOptions int) ProcessOption {
+	return func(o *processOptions) { o.ambiguityMaxOptions = maxOptions }
+}
+
+// WithLLMAmbiguityCheck enables provider-backed ambiguity detection after deterministic checks pass.
+func WithLLMAmbiguityCheck(enabled bool) ProcessOption {
+	return func(o *processOptions) { o.ambiguityLLMCheck = enabled }
+}
+
+// WithAmbiguityAnalysisObserver records ambiguity latency and source metrics.
+func WithAmbiguityAnalysisObserver(observer AmbiguityAnalysisObserver) ProcessOption {
+	return func(o *processOptions) { o.ambiguityObserver = observer }
+}
+
 // ProcessQuestion handles a natural language question. On parse or validation
 // failure the LLM is re-prompted with the prior output and error message, up
 // to s.maxRetries additional attempts.
@@ -239,9 +261,41 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		if glossary == nil {
 			glossary = options.glossary
 		}
-		result := ambiguitypkg.Analyze(ctx, question, model, glossary, options.ambiguityConfidenceThreshold)
+		cacheKey := ambiguityAnalysisCacheKey(question, model, glossary, options.ambiguityConfidenceThreshold, options.ambiguityLLMCheck)
+		result, source, cached := s.getCachedAmbiguityAnalysis(cacheKey)
+		if cached && options.ambiguityObserver != nil {
+			options.ambiguityObserver(0, source, result.IsAmbiguous)
+		}
+		if !cached {
+			cacheable := true
+			source = "rule_based"
+			start := time.Now()
+			result = ambiguitypkg.Analyze(ctx, question, model, glossary, options.ambiguityConfidenceThreshold)
+			if options.ambiguityObserver != nil {
+				options.ambiguityObserver(time.Since(start).Milliseconds(), source, result.IsAmbiguous)
+			}
+			if !result.IsAmbiguous && options.ambiguityLLMCheck {
+				analysisCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+				start = time.Now()
+				llmResult, err := ambiguitypkg.NewLLMAnalyzer(s.client).Analyze(analysisCtx, i18n.FromContext(ctx), question, model, glossary)
+				cancel()
+				source = "llm"
+				if err != nil {
+					cacheable = false
+					slog.WarnContext(ctx, "LLM ambiguity analysis failed", "error", err)
+				} else {
+					result = llmResult
+				}
+				if options.ambiguityObserver != nil {
+					options.ambiguityObserver(time.Since(start).Milliseconds(), source, result.IsAmbiguous)
+				}
+			}
+			if cacheable {
+				s.cacheAmbiguityAnalysis(cacheKey, result, source)
+			}
+		}
 		if result.IsAmbiguous {
-			return ambiguityClarificationResponse(result), nil
+			return ambiguityClarificationResponse(result, options.ambiguityMaxOptions), nil
 		}
 	}
 
@@ -406,8 +460,8 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 	}), nil
 }
 
-func ambiguityClarificationResponse(result ambiguitypkg.AmbiguityResult) *AIResponse {
-	clarification := ClarificationFromAmbiguity(result)
+func ambiguityClarificationResponse(result ambiguitypkg.AmbiguityResult, maxOptions int) *AIResponse {
+	clarification := ClarificationFromAmbiguityWithMaxOptions(result, maxOptions)
 	if clarification == nil {
 		return nil
 	}

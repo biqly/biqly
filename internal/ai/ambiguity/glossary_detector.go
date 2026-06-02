@@ -45,11 +45,11 @@ func DetectGlossary(question string, entries []prompt.GlossaryEntry, model *sema
 
 func glossaryTermMatches(questionTokens map[string]bool, term string) bool {
 	for token := range routing.TokenSet(term) {
-		if questionTokens[token] {
-			return true
+		if !questionTokens[token] {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 func glossaryInterpretations(entries []prompt.GlossaryEntry) []Interpretation {

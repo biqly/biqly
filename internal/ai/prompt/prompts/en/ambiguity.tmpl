@@ -1,0 +1,19 @@
+Analyze this question for semantic ambiguity given the model.
+
+Question: {{.Question}}
+Model: {{.ModelName}}
+Dimensions: {{.Dimensions}}
+Metrics: {{.Metrics}}
+Glossary: {{.Glossary}}
+
+Return JSON only:
+{
+  "is_ambiguous": false,
+  "ambiguities": [{
+    "term": "...",
+    "possible_meanings": ["...", "..."],
+    "recommended_clarification": "..."
+  }]
+}
+
+Only report a term when at least two materially different meanings are plausible.

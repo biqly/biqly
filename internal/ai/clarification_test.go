@@ -115,3 +115,24 @@ func TestClarificationFromAmbiguityBuildsOptionsAndDetail(t *testing.T) {
 		t.Errorf("ClarificationFromAmbiguity().AmbiguityDetail = %+v, want one ambiguity", got.AmbiguityDetail)
 	}
 }
+
+func TestClarificationFromAmbiguityWithMaxOptionsCapsChoices(t *testing.T) {
+	result := ambiguity.AmbiguityResult{
+		IsAmbiguous: true,
+		Ambiguities: []ambiguity.AmbiguityItem{
+			{
+				Term: "ciro",
+				Type: "semantic",
+				Interpretations: []ambiguity.Interpretation{
+					{Label: "Brüt gelir"},
+					{Label: "Net gelir"},
+				},
+			},
+		},
+	}
+
+	got := ClarificationFromAmbiguityWithMaxOptions(result, 1)
+	if got == nil || len(got.Options) != 1 {
+		t.Fatalf("ClarificationFromAmbiguityWithMaxOptions() = %+v, want one option", got)
+	}
+}

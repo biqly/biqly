@@ -4,6 +4,8 @@ package handlers
 type AIMetricsRecorder interface {
 	RecordAIRequest(latencyMs int64, success bool, retryCount int, clarification bool)
 	RecordLLMRequest(latencyMs int64, tokensUsed int, promptBuildMs int64)
+	RecordAmbiguityAnalysis(latencyMs int64, source string, detected bool)
+	RecordAmbiguityClarified()
 }
 
 // CatalogMetricsRecorder records Catalog Service process metrics.

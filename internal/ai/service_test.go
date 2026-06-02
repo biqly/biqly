@@ -32,6 +32,23 @@ func (p *countingProvider) GenerateAt(ctx context.Context, prompt string, _ floa
 	return p.Generate(ctx, prompt)
 }
 
+type scriptedProvider struct {
+	calls   atomic.Int32
+	replies []string
+}
+
+func (p *scriptedProvider) Generate(_ context.Context, _ string) (providerpkg.GenerationResult, error) {
+	index := int(p.calls.Add(1)) - 1
+	if index >= len(p.replies) {
+		index = len(p.replies) - 1
+	}
+	return providerpkg.GenerationResult{Content: p.replies[index]}, nil
+}
+
+func (p *scriptedProvider) GenerateAt(ctx context.Context, prompt string, _ float64) (providerpkg.GenerationResult, error) {
+	return p.Generate(ctx, prompt)
+}
+
 func TestParseAndValidateNormalizesLogicalQueryContext(t *testing.T) {
 	service := &Service{validator: query.NewValidator(1000)}
 	model := &semantic.SemanticModel{
@@ -194,7 +211,7 @@ func TestProcessQuestionReturnsAmbiguityClarificationBeforeLLM(t *testing.T) {
 		},
 	}
 
-	resp, err := svc.ProcessQuestion(context.Background(), "Ciro göster", model, WithAmbiguityCheck(true))
+	resp, err := svc.ProcessQuestion(context.Background(), "Ciro göster", model, WithAmbiguityCheck(true), WithLLMAmbiguityCheck(true))
 	if err != nil {
 		t.Fatalf("ProcessQuestion() error = %v, want nil", err)
 	}
@@ -206,6 +223,71 @@ func TestProcessQuestionReturnsAmbiguityClarificationBeforeLLM(t *testing.T) {
 	}
 	if got := resp.Clarification.Clarification.Source; got != "ambiguity_analyzer" {
 		t.Errorf("ProcessQuestion() clarification source = %q, want %q", got, "ambiguity_analyzer")
+	}
+}
+
+func TestProcessQuestionReturnsLLMAmbiguityClarificationWhenRuleBasedClean(t *testing.T) {
+	client := &scriptedProvider{
+		replies: []string{`{
+			"is_ambiguous": true,
+			"ambiguities": [{
+				"term": "active customers",
+				"possible_meanings": ["Enabled accounts", "Recently ordering customers"],
+				"recommended_clarification": "Which active customer definition should be used?"
+			}]
+		}`},
+	}
+	svc := NewServiceWithProvider(config.AIConfig{}, query.NewValidator(1000), client)
+	model := &semantic.SemanticModel{
+		Metrics: []semantic.Metric{{Name: "row_count", Aggregation: "count", Expression: "*"}},
+	}
+
+	resp, err := svc.ProcessQuestion(
+		context.Background(),
+		"Show active customers",
+		model,
+		WithAmbiguityCheck(true),
+		WithLLMAmbiguityCheck(true),
+	)
+	if err != nil {
+		t.Fatalf("ProcessQuestion() error = %v, want nil", err)
+	}
+	if got := client.calls.Load(); got != 1 {
+		t.Errorf("ProcessQuestion() provider calls = %d, want 1", got)
+	}
+	if resp.Clarification == nil || resp.Clarification.Clarification == nil {
+		t.Fatalf("ProcessQuestion() clarification = %+v, want structured clarification", resp.Clarification)
+	}
+}
+
+func TestProcessQuestionCachesLLMAmbiguityAnalysis(t *testing.T) {
+	client := &scriptedProvider{
+		replies: []string{`{
+			"is_ambiguous": true,
+			"ambiguities": [{
+				"term": "active customers",
+				"possible_meanings": ["Enabled accounts", "Recently ordering customers"]
+			}]
+		}`},
+	}
+	svc := NewServiceWithProvider(config.AIConfig{}, query.NewValidator(1000), client)
+	model := &semantic.SemanticModel{
+		ID:      "customers",
+		Metrics: []semantic.Metric{{Name: "row_count", Aggregation: "count", Expression: "*"}},
+	}
+	opts := []ProcessOption{WithAmbiguityCheck(true), WithLLMAmbiguityCheck(true)}
+
+	for range 2 {
+		resp, err := svc.ProcessQuestion(context.Background(), "Show active customers", model, opts...)
+		if err != nil {
+			t.Fatalf("ProcessQuestion() error = %v, want nil", err)
+		}
+		if resp.Clarification == nil {
+			t.Fatalf("ProcessQuestion() clarification = nil, want structured clarification")
+		}
+	}
+	if got := client.calls.Load(); got != 1 {
+		t.Errorf("ProcessQuestion() provider calls = %d, want 1 cached ambiguity analysis", got)
 	}
 }
 

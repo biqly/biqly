@@ -16,6 +16,7 @@ import (
 // /metrics exposition reported (10ms / 50ms / 100ms / 500ms / 1s), expressed in
 // seconds for Prometheus histogram convention.
 var queryLatencyBuckets = []float64{0.01, 0.05, 0.1, 0.5, 1}
+var ambiguityLatencyMSBuckets = []float64{1, 5, 10, 25, 50, 100, 250, 500, 1000, 2000, 5000}
 
 // Metrics holds every process-local Prometheus collector for the BI engine.
 // Construct it with NewMetrics (tests, isolated registries) or obtain the
@@ -36,6 +37,10 @@ type Metrics struct {
 	llmRequestDuration prometheus.Histogram
 	llmTokensUsed      prometheus.Counter
 	promptBuildSeconds prometheus.Histogram
+	ambiguityDetected  prometheus.Counter
+	ambiguityClarified prometheus.Counter
+	ambiguityLatencyMS prometheus.Histogram
+	ambiguityBySource  *prometheus.CounterVec
 
 	validationFailures prometheus.Counter
 	connectionErrors   prometheus.Counter
@@ -103,6 +108,18 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 		promptBuildSeconds: f.NewHistogram(prometheus.HistogramOpts{
 			Name: "prompt_build_duration_seconds", Help: "Prompt build duration in seconds.", Buckets: prometheus.DefBuckets,
 		}),
+		ambiguityDetected: f.NewCounter(prometheus.CounterOpts{
+			Name: "biqly_ambiguity_detected_total", Help: "Total questions where ambiguity was detected.",
+		}),
+		ambiguityClarified: f.NewCounter(prometheus.CounterOpts{
+			Name: "biqly_ambiguity_clarified_total", Help: "Total ambiguity clarifications answered by users.",
+		}),
+		ambiguityLatencyMS: f.NewHistogram(prometheus.HistogramOpts{
+			Name: "biqly_ambiguity_latency_ms", Help: "Ambiguity analysis latency in milliseconds.", Buckets: ambiguityLatencyMSBuckets,
+		}),
+		ambiguityBySource: f.NewCounterVec(prometheus.CounterOpts{
+			Name: "biqly_ambiguity_by_source", Help: "Total detected ambiguities by analyzer source.",
+		}, []string{"source"}),
 
 		validationFailures: f.NewCounter(prometheus.CounterOpts{
 			Name: "bi_validation_failures_total", Help: "Total validation failures.",
@@ -209,6 +226,18 @@ func (m *Metrics) RecordLLMRequest(latencyMs int64, tokensUsed int, promptBuildM
 	}
 	m.promptBuildSeconds.Observe(msToSeconds(promptBuildMs))
 }
+
+// RecordAmbiguityAnalysis records one deterministic or LLM-backed ambiguity pass.
+func (m *Metrics) RecordAmbiguityAnalysis(latencyMs int64, source string, detected bool) {
+	m.ambiguityLatencyMS.Observe(float64(latencyMs))
+	if detected {
+		m.ambiguityDetected.Inc()
+		m.ambiguityBySource.WithLabelValues(source).Inc()
+	}
+}
+
+// RecordAmbiguityClarified records a user answer to an ambiguity clarification.
+func (m *Metrics) RecordAmbiguityClarified() { m.ambiguityClarified.Inc() }
 
 // RecordCatalogDBQuery records a Catalog-owned handler call that performs
 // metadata DB work.

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/semantic"
@@ -117,5 +118,98 @@ func TestFilterAmbiguities_RequiresTwoInterpretationsAboveThreshold(t *testing.T
 	got := filterAmbiguities(ambiguities, defaultConfidenceThreshold)
 	if len(got) != 0 {
 		t.Errorf("filterAmbiguities() = %#v, want no ambiguities", got)
+	}
+}
+
+func TestAnalyze_QuestionExamples(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Dimensions: []semantic.Dimension{
+			{Name: "order_date", Type: string(semantic.DimensionTypeDate)},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "order_count"},
+			{Name: "revenue"},
+		},
+	}
+	glossary := []prompt.GlossaryEntry{
+		{Term: "aktif müşteriler", Definition: "Yakın dönemde sipariş veren müşteriler", MapsToType: "dimension", MapsToName: "recent_customer"},
+		{Term: "aktif müşteriler", Definition: "Hesabı kapatılmamış müşteriler", MapsToType: "dimension", MapsToName: "enabled_customer"},
+	}
+
+	tests := []struct {
+		name      string
+		question  string
+		ambiguous bool
+	}{
+		{name: "glossary ambiguity", question: "aktif müşteriler", ambiguous: true},
+		{name: "scope ambiguity", question: "büyük siparişler", ambiguous: true},
+		{name: "temporal ambiguity", question: "son zamanlarda sipariş veren müşteriler", ambiguous: true},
+		{name: "specific time range", question: "son 30 günde sipariş veren müşteriler", ambiguous: false},
+		{name: "empty question", question: "", ambiguous: false},
+		{name: "very short question", question: "x", ambiguous: false},
+		{name: "exact metric match", question: "yüksek revenue", ambiguous: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := Analyze(context.Background(), tt.question, model, glossary, 0)
+			if got.IsAmbiguous != tt.ambiguous {
+				t.Fatalf("Analyze(%q).IsAmbiguous = %t, want %t; result = %#v", tt.question, got.IsAmbiguous, tt.ambiguous, got)
+			}
+		})
+	}
+}
+
+func TestAnalyzeWithDetectorsRunsDetectorsInParallel(t *testing.T) {
+	started := make(chan struct{}, 2)
+	release := make(chan struct{})
+	detector := func() []AmbiguityItem {
+		started <- struct{}{}
+		<-release
+		return []AmbiguityItem{}
+	}
+
+	done := make(chan struct{})
+	go func() {
+		analyzeWithDetectors(context.Background(), []func() []AmbiguityItem{detector, detector}, 0, time.Second)
+		close(done)
+	}()
+
+	for range 2 {
+		select {
+		case <-started:
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("detectors did not start in parallel")
+		}
+	}
+	close(release)
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("analyzeWithDetectors() did not finish")
+	}
+}
+
+func TestAnalyzeWithDetectorsStopsWaitingAtTimeout(t *testing.T) {
+	release := make(chan struct{})
+	t.Cleanup(func() { close(release) })
+
+	start := time.Now()
+	got := analyzeWithDetectors(
+		context.Background(),
+		[]func() []AmbiguityItem{
+			func() []AmbiguityItem {
+				<-release
+				return []AmbiguityItem{}
+			},
+		},
+		0,
+		10*time.Millisecond,
+	)
+	if got.IsAmbiguous {
+		t.Fatalf("analyzeWithDetectors() = %#v, want no ambiguity", got)
+	}
+	if elapsed := time.Since(start); elapsed > 200*time.Millisecond {
+		t.Fatalf("analyzeWithDetectors() elapsed = %s, want <= 200ms", elapsed)
 	}
 }

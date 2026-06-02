@@ -1,0 +1,19 @@
+Modeli dikkate alarak bu sorudaki anlamsal belirsizlikleri analiz et.
+
+Soru: {{.Question}}
+Model: {{.ModelName}}
+Boyutlar: {{.Dimensions}}
+Metrikler: {{.Metrics}}
+Sozluk: {{.Glossary}}
+
+Yalnizca JSON dondur:
+{
+  "is_ambiguous": false,
+  "ambiguities": [{
+    "term": "...",
+    "possible_meanings": ["...", "..."],
+    "recommended_clarification": "..."
+  }]
+}
+
+Yalnizca en az iki belirgin sekilde farkli anlam makul oldugunda bir terim bildir.

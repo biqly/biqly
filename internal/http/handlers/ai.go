@@ -162,6 +162,17 @@ func resolveClarificationChoice(ctx context.Context, req *aiQueryRequest, model 
 	return nil
 }
 
+func (h *AIHandler) resolveClarificationChoice(ctx context.Context, req *aiQueryRequest, model *semantic.SemanticModel, glossary []prompt.GlossaryEntry) error {
+	choice := req.ClarificationChoice
+	if err := resolveClarificationChoice(ctx, req, model, glossary); err != nil {
+		return err
+	}
+	if h.metrics != nil && strings.HasPrefix(choice, "ambiguity:") {
+		h.metrics.RecordAmbiguityClarified()
+	}
+	return nil
+}
+
 // parseAndRouteAIQuery decodes the request, validates required fields, loads the semantic
 // model (and table routing). If it writes a response to w (bad request, model load error, or
 // clarification-only response), ok is false.
@@ -193,7 +204,7 @@ func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request)
 	}
 	if req.ClarificationChoice != "" {
 		glossary := h.loadGlossaryForAmbiguity(ctx, model)
-		if err := resolveClarificationChoice(ctx, req, model, glossary); err != nil {
+		if err := h.resolveClarificationChoice(ctx, req, model, glossary); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return *req, nil, nil, false
 		}
@@ -214,7 +225,12 @@ func (h *AIHandler) standardProcessOptions(ctx context.Context, req aiQueryReque
 		opts = append(opts,
 			ai.WithAmbiguityCheck(true),
 			ai.WithAmbiguityConfidenceThreshold(h.deps.Config.AI.AmbiguityConfidenceThreshold),
+			ai.WithAmbiguityMaxOptions(h.deps.Config.AI.AmbiguityMaxOptions),
+			ai.WithLLMAmbiguityCheck(h.deps.Config.AI.AmbiguityLLMEnabled),
 		)
+		if h.metrics != nil {
+			opts = append(opts, ai.WithAmbiguityAnalysisObserver(h.metrics.RecordAmbiguityAnalysis))
+		}
 	}
 	return opts
 }

@@ -21,6 +21,9 @@ func TestMetricsRecord(t *testing.T) {
 	m.RecordLLMRequest(750, 1234, 50)
 	m.RecordAIRequest(120, true, 2, false)
 	m.RecordAIRequest(90, false, 0, true)
+	m.RecordAmbiguityAnalysis(12, "rule_based", true)
+	m.RecordAmbiguityAnalysis(34, "llm", true)
+	m.RecordAmbiguityClarified()
 
 	if got := testutil.ToFloat64(m.catalogDBQueries); got != 2 {
 		t.Fatalf("catalog_db_queries_total = %v, want 2", got)
@@ -48,6 +51,15 @@ func TestMetricsRecord(t *testing.T) {
 	}
 	if got := testutil.ToFloat64(m.queryCompiles); got != 2 {
 		t.Fatalf("query_compile_total = %v, want 2", got)
+	}
+	if got := testutil.ToFloat64(m.ambiguityDetected); got != 2 {
+		t.Fatalf("biqly_ambiguity_detected_total = %v, want 2", got)
+	}
+	if got := testutil.ToFloat64(m.ambiguityBySource.WithLabelValues("llm")); got != 1 {
+		t.Fatalf("biqly_ambiguity_by_source{source=llm} = %v, want 1", got)
+	}
+	if got := testutil.ToFloat64(m.ambiguityClarified); got != 1 {
+		t.Fatalf("biqly_ambiguity_clarified_total = %v, want 1", got)
 	}
 }
 

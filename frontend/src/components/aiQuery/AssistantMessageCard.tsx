@@ -210,8 +210,8 @@ export function AssistantMessageCard({
           question={result.clarification?.question ?? result.clarification_question ?? t('ai_query.clarify_default')}
           options={result.clarification_options ?? result.clarification?.options?.map((o) => o.label) ?? []}
           clarification={result.clarification}
-          onSelect={onSelectClarification}
-          onSkip={onSkipClarification}
+          onSelect={(choice) => onSelectClarification(choice, userQuestion)}
+          onSkip={() => onSkipClarification(userQuestion)}
         />
       ) : null}
 

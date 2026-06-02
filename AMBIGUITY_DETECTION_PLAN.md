@@ -75,7 +75,7 @@ Mevcut sistem sadece **hata durumlarında** clarification üretir. Örneğin:
 
 ### 2.1 LLM-based Ambiguity Analyzer
 
-- [ ] `internal/ai/ambiguity/llm_analyzer.go` — LLM ile belirsizlik tespiti
+- [x] `internal/ai/ambiguity/llm_analyzer.go` — LLM ile belirsizlik tespiti
   - Soruyu + semantic model bilgisini LLM'e gönder
   - "Bu soruda hangi terimler/niyetler belirsiz?" sorusunu sor
   - Structured JSON output: `{ "ambiguous_terms": [...], "clarification_needed": bool }`
@@ -83,7 +83,7 @@ Mevcut sistem sadece **hata durumlarında** clarification üretir. Örneğin:
 
 ### 2.2 Ambiguity Prompt Template
 
-- [ ] `internal/ai/prompt/prompts/en/ambiguity.tmpl` — İngilizce şablon
+- [x] `internal/ai/prompt/prompts/en/ambiguity.tmpl` — İngilizce şablon
   ```
   Analyze this question for semantic ambiguity given the model:
   Question: {{.Question}}
@@ -103,7 +103,7 @@ Mevcut sistem sadece **hata durumlarında** clarification üretir. Örneğin:
   }
   ```
 
-- [ ] `internal/ai/prompt/prompts/tr/ambiguity.tmpl` — Türkçe şablon
+- [x] `internal/ai/prompt/prompts/tr/ambiguity.tmpl` — Türkçe şablon
 
 ---
 
@@ -164,9 +164,9 @@ NL Question → Table Router → [Ambiguity Analyzer] → Prompt Builder → LLM
 
 ### 4.2 DB Migration
 
-- [ ] `migrations/` — yeni migration
-  - `ai_settings` tablosuna ambiguity ile ilgili kolonlar
-  - veya mevcut settings tablosuna JSON column ekle
+- [x] `migrations/` — yeni migration gerekmiyor
+  - Ambiguity operational knob'ları mevcut config yaklaşımıyla env-driven kalır.
+  - Yeni `ambiguity` prompt template'i mevcut `ai_prompt_templates` tablosuna startup seed ile eklenir.
 
 ### 4.3 Frontend — Clarification UI
 
@@ -184,7 +184,7 @@ NL Question → Table Router → [Ambiguity Analyzer] → Prompt Builder → LLM
 
 ### 5.1 Unit Tests
 
-- [ ] `internal/ai/ambiguity/analyzer_test.go`
+- [x] `internal/ai/ambiguity/analyzer_test.go`
   - Belirsiz sorular: "aktif müşteriler", "büyük siparişler", "son zamanlarda"
   - Belirli sorular: "son 30 günde sipariş veren müşteriler" → ambiguous olmamalı
   - Edge cases: boş soru, çok kısa soru, tam eşleşme
@@ -196,10 +196,10 @@ NL Question → Table Router → [Ambiguity Analyzer] → Prompt Builder → LLM
 - [x] `internal/ai/ambiguity/synonym_detector_test.go`
   - Synonym collision senaryoları
 
-- [ ] `internal/ai/ambiguity/temporal_detector_test.go`
+- [x] `internal/ai/ambiguity/temporal_detector_test.go`
   - Locale-aware TR/EN date ambiguity
 
-- [ ] `internal/ai/ambiguity/llm_analyzer_test.go`
+- [x] `internal/ai/ambiguity/llm_analyzer_test.go`
   - Mock provider ile test
 
 ### 5.2 Integration Tests
@@ -211,7 +211,7 @@ NL Question → Table Router → [Ambiguity Analyzer] → Prompt Builder → LLM
 
 ### 5.3 Golden/Eval Cases
 
-- [ ] `internal/ai/eval/` — ambiguity eval cases ekle
+- [x] `internal/ai/eval/` — ambiguity eval cases ekle
   - Belirsiz sorular için expected clarification output
   - Eval runner'da `EvalModeClarification` modu ekle
 
@@ -221,14 +221,14 @@ NL Question → Table Router → [Ambiguity Analyzer] → Prompt Builder → LLM
 
 ### 6.1 Performance Guardrails
 
-- [ ] Ambiguity analysis timeout (max 2s for rule-based, max 5s for LLM-based)
-- [ ] Ambiguity analysis'i cache'leme (aynı soru + model → aynı ambiguity result)
-- [ ] Parallel execution: rule-based detectors paralel çalışsın
-- [ ] LLM call maliyeti: sadece rule-based ambiguous değilse ve LLM flag açıkssa çağır
+- [x] Ambiguity analysis timeout (max 2s for rule-based, max 5s for LLM-based)
+- [x] Ambiguity analysis'i cache'leme (aynı soru + model → aynı ambiguity result)
+- [x] Parallel execution: rule-based detectors paralel çalışsın
+- [x] LLM call maliyeti: sadece rule-based ambiguous değilse ve LLM flag açıkssa çağır
 
 ### 6.2 Metrics & Observability
 
-- [ ] Prometheus metrics ekle
+- [x] Prometheus metrics ekle
   - `biqly_ambiguity_detected_total` — kaç soruda ambiguity tespit edildi
   - `biqly_ambiguity_clarified_total` — kaç clarification kullanıcı tarafından yanıtlandı
   - `biqly_ambiguity_latency_ms` — analysis süresi
