@@ -15,7 +15,7 @@ executor apply without modification.
 ## Concepts
 
 | Concept | Description |
-|---|---|
+| --- | --- |
 | **Component** | A published `SemanticModel` referenced by a composite, addressed by a unique `alias`. Exactly one component has role `primary`; the rest are `secondary`. |
 | **Cross-model join** | A join between two component aliases (`from_alias.from_dimension` → `to_alias.to_dimension`) with a `join_type` and a `relationship` cardinality. |
 | **Canonical date** | One component dimension chosen as the composite's authoritative date field for time-grain queries. |
@@ -26,7 +26,7 @@ executor apply without modification.
 
 ## Pipeline
 
-```
+```text
 NL question
   → Composite Router (keyword overlap over component domains)
   → Prompt Builder (cross-domain CompositeContext narrative)
@@ -112,7 +112,7 @@ nil Redis client yields a nil cache, so caching degrades gracefully.
 Size limits are enforced at validate/publish time. Zero disables a limit.
 
 | Env var | Default | Limit |
-|---|---|---|
+| --- | --- | --- |
 | `BI_COMPOSITE_MAX_COMPONENTS` | 8 | Component models per composite |
 | `BI_COMPOSITE_MAX_CROSS_JOINS` | 16 | Active cross-model joins |
 | `BI_COMPOSITE_MAX_MERGED_FIELDS` | 300 | Combined dimensions + metrics of the resolved model |
@@ -128,7 +128,7 @@ All routes are served by the catalog service (and the monolith) under
 `/api/semantic/composites`:
 
 | Method | Path | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `POST` | `/semantic/composites` | Create composite |
 | `GET` | `/semantic/composites` | List composites |
 | `GET` | `/semantic/composites/{id}` | Get full composite |
@@ -153,7 +153,7 @@ All routes are served by the catalog service (and the monolith) under
 Migration `037a_composite_semantic_models.up.sql`:
 
 | Table | Purpose |
-|---|---|
+| --- | --- |
 | `composite_models` | Composite header (datasource, name, canonical_date JSONB, status, version) |
 | `composite_model_components` | Component refs (model_id, alias, role) |
 | `composite_cross_model_joins` | Cross-model joins (from/to alias+dimension, join_type, relationship) |

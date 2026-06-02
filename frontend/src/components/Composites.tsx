@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import '../styles/composites.css'
 import { useT } from '../i18n'
 import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
@@ -266,14 +267,14 @@ export default function Composites() {
 
   return (
     <div className="composites-page">
-      <header className="composites-header">
-        <div>
-          <h1>{t('composites.title')}</h1>
-          <p className="composites-subtitle">
-            {t('composites.subtitle')}
-          </p>
-        </div>
-        <div className="composites-header-controls">
+      <div className="composites-page-header">
+        <span className="composites-eyebrow">{t('composites.eyebrow')}</span>
+        <h1>{t('composites.title')}</h1>
+        <p>{t('composites.subtitle')}</p>
+      </div>
+
+      <div className="composites-controls-row">
+        <div className="composites-ds-select">
           <Select
             value={datasourceId}
             onChange={setDatasourceId}
@@ -281,29 +282,38 @@ export default function Composites() {
             placeholder={t('composites.datasource_placeholder')}
             ariaLabel={t('composites.datasource_placeholder')}
           />
-          <button type="button" className="btn-primary" onClick={() => setShowCreate(true)} disabled={!datasourceId}>
-            {t('composites.new')}
-          </button>
         </div>
-      </header>
+        <button type="button" className="btn-primary" onClick={() => setShowCreate(true)} disabled={!datasourceId}>
+          {t('composites.new')}
+        </button>
+      </div>
 
       {error && <ErrorAlert error={error} />}
 
       <div className="composites-layout">
-        <aside className="composites-list">
+        <aside className="composites-sidebar">
+          <div className="composites-sidebar-header">
+            <h2>{t('composites.sidebar_title')}</h2>
+          </div>
           {composites.length === 0 ? (
-            <EmptyState description={t('composites.empty_list')} />
+            <div style={{ padding: '1rem' }}>
+              <EmptyState description={t('composites.empty_list')} />
+            </div>
           ) : (
             <ul>
               {composites.map((c) => (
                 <li key={c.id} className={c.id === selectedId ? 'active' : ''}>
-                  <button type="button" onClick={() => setSelectedId(c.id)}>
+                  <button
+                    type="button"
+                    className="composites-list-btn"
+                    onClick={() => setSelectedId(c.id)}
+                  >
                     <span className="composite-name">{c.label || c.name}</span>
                     <span className={`composite-status status-${c.status}`}>{c.status}</span>
                   </button>
                   <button
                     type="button"
-                    className="btn-icon-danger"
+                    className="composites-delete-btn"
                     aria-label={t('composites.aria_delete')}
                     onClick={() => handleDelete(c.id)}
                   >
@@ -559,18 +569,39 @@ export default function Composites() {
 
       <Modal open={showCreate} title={t('composites.create_title')} onClose={() => setShowCreate(false)}>
         <div className="composite-create-form">
-          <label>
-            {t('composites.field_name')}
-            <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus />
-          </label>
-          <label>
-            {t('composites.field_label')}
-            <input type="text" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} />
-          </label>
-          <label>
-            {t('composites.field_description')}
-            <textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} rows={3} />
-          </label>
+          <div className="form-row">
+            <div className="field-group">
+              <label htmlFor="composite-name">{t('composites.field_name')}</label>
+              <input
+                id="composite-name"
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                autoFocus
+                placeholder="e.g. sales_overview"
+              />
+            </div>
+            <div className="field-group">
+              <label htmlFor="composite-label">{t('composites.field_label')}</label>
+              <input
+                id="composite-label"
+                type="text"
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+                placeholder="e.g. Sales Overview"
+              />
+            </div>
+          </div>
+          <div className="field-group">
+            <label htmlFor="composite-desc">{t('composites.field_description')}</label>
+            <textarea
+              id="composite-desc"
+              value={newDescription}
+              onChange={(e) => setNewDescription(e.target.value)}
+              rows={3}
+              placeholder={t('composites.description_placeholder')}
+            />
+          </div>
           <div className="form-actions">
             <button type="button" className="btn-secondary" onClick={() => setShowCreate(false)}>
               {t('composites.cancel')}
