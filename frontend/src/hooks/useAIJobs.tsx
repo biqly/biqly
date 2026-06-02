@@ -168,10 +168,10 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       if (entry.status === 'skipped') return entry
       const key = `${entry.schema}.${entry.table}`
       if (completed.has(key)) {
-        return { ...entry, status: 'ok', message: job.phase_message || entry.message }
+        return { ...entry, status: 'ok', message: `described ${key}` }
       }
       if (curSchema === entry.schema && curTable === entry.table) {
-        return { ...entry, status: 'running', message: job.phase_message || '' }
+        return { ...entry, status: 'running', message: `describing ${key}` }
       }
       if (entry.status === 'running' && !(curSchema === entry.schema && curTable === entry.table)) {
         return { ...entry, status: 'pending', message: undefined }
