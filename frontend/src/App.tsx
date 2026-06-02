@@ -572,10 +572,6 @@ function App() {
     }
   }, [activeRoute, activePath, t])
 
-  if (!authReady || !adminReady) {
-    return <LoadingScreen />
-  }
-
   const handleNavHover = (component: any) => {
     if (component && typeof component.preload === 'function') {
       component.preload()
@@ -592,6 +588,10 @@ function App() {
     }, 1000)
     return () => clearTimeout(timer)
   }, [routes])
+
+  if (!authReady || !adminReady) {
+    return <LoadingScreen />
+  }
 
   const handleNavClick = (event: MouseEvent<HTMLAnchorElement>, path: string) => {
     if (
