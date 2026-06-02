@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
@@ -17,7 +18,7 @@ func TestDetectSynonyms(t *testing.T) {
 		},
 	}
 
-	got := DetectSynonyms("Ciro göster", model)
+	got := DetectSynonyms(i18n.LocaleEN, "Ciro göster", model)
 	want := []AmbiguityItem{
 		{
 			Term: "ciro",
@@ -60,7 +61,7 @@ func TestDetectSynonyms_FuzzyQuestionMatch(t *testing.T) {
 		},
 	}
 
-	got := DetectSynonyms("Cirp göster", model)
+	got := DetectSynonyms(i18n.LocaleEN, "Cirp göster", model)
 	want := []AmbiguityItem{
 		{
 			Term: "ciro",

@@ -3,6 +3,7 @@ package ambiguity
 import (
 	"testing"
 
+	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
@@ -14,7 +15,7 @@ func TestDetectScope_QualifierWithoutMetric(t *testing.T) {
 		},
 	}
 
-	got := DetectScope("Büyük müşterileri göster", model)
+	got := DetectScope(i18n.LocaleTR, "Büyük müşterileri göster", model)
 	if len(got) != 1 {
 		t.Fatalf("DetectScope() len = %d, want 1", len(got))
 	}
@@ -30,7 +31,7 @@ func TestDetectScope_SingleMetricMentioned(t *testing.T) {
 			{Name: "order_count"},
 		},
 	}
-	got := DetectScope("Yüksek ciro", model)
+	got := DetectScope(i18n.LocaleTR, "Yüksek ciro", model)
 	if len(got) != 0 {
 		t.Fatalf("DetectScope() = %#v, want no ambiguities when one metric is explicit", got)
 	}

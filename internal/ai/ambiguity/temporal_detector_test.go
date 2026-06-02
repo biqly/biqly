@@ -3,6 +3,7 @@ package ambiguity
 import (
 	"testing"
 
+	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
@@ -13,7 +14,7 @@ func TestDetectTemporal_VaguePhrase(t *testing.T) {
 		},
 	}
 
-	got := DetectTemporal("Geçen ay satışlar", model)
+	got := DetectTemporal(i18n.LocaleTR, "Geçen ay satışlar", model)
 	if len(got) != 1 {
 		t.Fatalf("DetectTemporal() len = %d, want 1", len(got))
 	}
@@ -34,7 +35,7 @@ func TestDetectTemporal_SpecificPhraseSkipped(t *testing.T) {
 			{Name: "order_date", Type: string(semantic.DimensionTypeDate)},
 		},
 	}
-	got := DetectTemporal("Son 30 günde sipariş veren müşteriler", model)
+	got := DetectTemporal(i18n.LocaleTR, "Son 30 günde sipariş veren müşteriler", model)
 	if len(got) != 0 {
 		t.Fatalf("DetectTemporal() = %#v, want no ambiguities", got)
 	}
@@ -47,7 +48,7 @@ func TestDetectTemporal_EnglishVaguePhrase(t *testing.T) {
 		},
 	}
 
-	got := DetectTemporal("Show customers who ordered recently", model)
+	got := DetectTemporal(i18n.LocaleEN, "Show customers who ordered recently", model)
 	if len(got) != 1 {
 		t.Fatalf("DetectTemporal() len = %d, want 1", len(got))
 	}

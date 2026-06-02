@@ -6,6 +6,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/biqly/biqly/internal/ai/routing"
+	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
@@ -18,7 +19,7 @@ type synonymTarget struct {
 }
 
 // DetectSynonyms returns question synonyms that map to more than one semantic field.
-func DetectSynonyms(question string, model *semantic.SemanticModel) []AmbiguityItem {
+func DetectSynonyms(locale i18n.Locale, question string, model *semantic.SemanticModel) []AmbiguityItem {
 	if model == nil {
 		return nil
 	}
@@ -27,10 +28,10 @@ func DetectSynonyms(question string, model *semantic.SemanticModel) []AmbiguityI
 	questionTokens := routing.TokenSet(question)
 	bySynonym := make(map[string][]synonymTarget)
 	for _, dimension := range model.Dimensions {
-		addSynonymTargets(bySynonym, question, questionTokens, "dimension", dimension.Name, dimension.Label, dimension.Description, dimension.Synonyms)
+		addSynonymTargets(locale, bySynonym, question, questionTokens, "dimension", dimension.Name, dimension.Label, dimension.Description, dimension.Synonyms)
 	}
 	for _, metric := range model.Metrics {
-		addSynonymTargets(bySynonym, question, questionTokens, "metric", metric.Name, metric.Label, metric.Description, metric.Synonyms)
+		addSynonymTargets(locale, bySynonym, question, questionTokens, "metric", metric.Name, metric.Label, metric.Description, metric.Synonyms)
 	}
 
 	terms := make([]string, 0, len(bySynonym))
@@ -54,7 +55,7 @@ func DetectSynonyms(question string, model *semantic.SemanticModel) []AmbiguityI
 	return ambiguities
 }
 
-func addSynonymTargets(bySynonym map[string][]synonymTarget, question string, questionTokens map[string]bool, kind, name string, label, description *string, synonyms []string) {
+func addSynonymTargets(locale i18n.Locale, bySynonym map[string][]synonymTarget, question string, questionTokens map[string]bool, kind, name string, label, description *string, synonyms []string) {
 	for _, synonym := range synonyms {
 		synonym = normalizeSynonym(synonym)
 		confidence := synonymMatchConfidence(question, questionTokens, synonym)
@@ -65,7 +66,7 @@ func addSynonymTargets(bySynonym map[string][]synonymTarget, question string, qu
 			kind:        kind,
 			name:        name,
 			label:       stringValueOr(label, name),
-			description: stringValueOr(description, kind+" "+name),
+			description: stringValueOr(description, i18n.Tf(locale, "clarification.synonym_fallback_"+kind, map[string]any{"Name": name})),
 			confidence:  confidence,
 		})
 	}

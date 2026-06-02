@@ -20,7 +20,30 @@
     "ambiguity_reason": "Bu soru birden fazla olası anlamla eşleşti.",
     "ambiguity_question_single": "\"{{.Term}}\" ile ne demek istediniz?",
     "ambiguity_question_multiple": "Lütfen sorunuzdaki belirsiz ifadeleri netleştirin.",
-    "needs_clarification_warning": "Sorgu oluşturulabilmesi için bu sorunun netleştirilmesi gerekiyor."
+    "needs_clarification_warning": "Sorgu oluşturulabilmesi için bu sorunun netleştirilmesi gerekiyor.",
+    "scope_apply_to_metric": "Niteleyiciyi {{.Metric}} metriğine uygula",
+    "synonym_fallback_dimension": "{{.Name}} boyutu",
+    "synonym_fallback_metric": "{{.Name}} metriği",
+    "temporal": {
+      "prev_calendar_month_label": "Geçen takvim ayı",
+      "prev_calendar_month_desc": "Önceki ayın ilk gününden son gününe kadar",
+      "rolling_30d_label": "Son 30 gün",
+      "rolling_30d_desc": "Bugünden geriye 30 günlük pencere",
+      "last_week_label": "Son 7 gün",
+      "last_week_desc": "Bugünden geriye bir hafta",
+      "last_month_label": "Son 30 gün",
+      "last_month_desc": "Bugünden geriye bir ay",
+      "last_quarter_label": "Son 90 gün",
+      "last_quarter_desc": "Bugünden geriye üç ay",
+      "prev_calendar_week_label": "Geçen takvim haftası",
+      "prev_calendar_week_desc": "Önceki haftanın Pazartesi–Pazar aralığı",
+      "rolling_7d_label": "Son 7 gün",
+      "rolling_7d_desc": "Bugünden geriye 7 günlük pencere",
+      "ytd_label": "Yıl başından bugüne",
+      "ytd_desc": "1 Ocak'tan bugüne kadar",
+      "last_12m_label": "Son 12 ay",
+      "last_12m_desc": "Bugünden geriye 12 aylık pencere"
+    }
   },
   "datasources": {
     "title": "Veri Kaynakları",

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/biqly/biqly/internal/ai/routing"
+	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
@@ -14,7 +15,7 @@ var scopeQualifiers = []string{
 }
 
 // DetectScope flags qualitative qualifiers when it is unclear which metric they modify.
-func DetectScope(question string, model *semantic.SemanticModel) []AmbiguityItem {
+func DetectScope(locale i18n.Locale, question string, model *semantic.SemanticModel) []AmbiguityItem {
 	if model == nil || len(model.Metrics) < 2 {
 		return nil
 	}
@@ -46,7 +47,7 @@ func DetectScope(question string, model *semantic.SemanticModel) []AmbiguityItem
 		label := stringValueOr(metric.Label, metric.Name)
 		interpretations = append(interpretations, Interpretation{
 			Label:       qualifier + " — " + label,
-			Description: "Apply the qualifier to metric " + metric.Name,
+			Description: i18n.Tf(locale, "clarification.scope_apply_to_metric", map[string]any{"Metric": metric.Name}),
 			SemanticMapping: SemanticMapping{
 				Type: "metric",
 				Name: metric.Name,

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/biqly/biqly/internal/ai/prompt"
+	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
@@ -44,11 +45,12 @@ type SemanticMapping struct {
 
 // Analyze runs rule-based ambiguity detectors before LogicalQuery generation.
 func Analyze(ctx context.Context, question string, model *semantic.SemanticModel, glossary []prompt.GlossaryEntry, confidenceThreshold float64) AmbiguityResult {
+	locale := i18n.FromContext(ctx)
 	return analyzeWithDetectors(ctx, []func() []AmbiguityItem{
 		func() []AmbiguityItem { return DetectGlossary(question, glossary, model) },
-		func() []AmbiguityItem { return DetectSynonyms(question, model) },
-		func() []AmbiguityItem { return DetectTemporal(question, model) },
-		func() []AmbiguityItem { return DetectScope(question, model) },
+		func() []AmbiguityItem { return DetectSynonyms(locale, question, model) },
+		func() []AmbiguityItem { return DetectTemporal(locale, question, model) },
+		func() []AmbiguityItem { return DetectScope(locale, question, model) },
 	}, confidenceThreshold, ruleBasedAnalysisTimeout)
 }
 
