@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 
+	"github.com/biqly/biqly/internal/auth/ldap"
 	"github.com/biqly/biqly/internal/auth/rbac"
 	"github.com/biqly/biqly/internal/mail"
 )
@@ -54,6 +56,8 @@ type AuthService struct {
 	mfaSvc       MFAService
 	magicLinks       *MagicLinkRepository
 	platformSettings *PlatformSettingsRepository
+	ldapConfig       *LDAPConfigRepository
+	ldapAuth         ldap.Authenticator
 }
 
 func (s *AuthService) UserRepo() *UserRepository {
@@ -192,27 +196,47 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 
 	user, err := s.userRepo.GetUserByEmail(ctx, email)
 	if errors.Is(err, ErrUserNotFound) {
+		user = nil
 		// Burn the same amount of CPU as a real bcrypt verify so the response
 		// time does not reveal whether the email exists.
 		VerifyDummyPassword(req.Password)
-		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
-		MetricFailedLogins.WithLabelValues(LoginFailUserNotFound).Inc()
-		s.recordLoginFailure(ctx, email, nil)
-		return nil, ErrInvalidCredentials
 	} else if err != nil {
 		return nil, err
 	}
 
-	// Compute password verification regardless of IsActive / hash presence so
-	// inactive or oauth-only accounts spend the same wall-clock time as
-	// password-backed accounts.
-	passwordOK := user.PasswordHash != nil && VerifyPassword(req.Password, *user.PasswordHash)
-	if user.PasswordHash == nil {
+	// Compute local password verification regardless of IsActive / hash presence
+	// so inactive or directory/oauth-only accounts spend the same wall-clock time
+	// as password-backed accounts.
+	passwordOK := user != nil && user.PasswordHash != nil && VerifyPassword(req.Password, *user.PasswordHash)
+	if user != nil && user.PasswordHash == nil {
 		VerifyDummyPassword(req.Password)
 	}
 
-	if !user.IsActive {
+	// Directory (LDAP) fallback — local-first. Only attempted when local auth did
+	// not succeed, so a local bootstrap admin always works and a slow/unreachable
+	// directory cannot affect successful local logins.
+	method := "password"
+	if !passwordOK {
+		ldapUser, lerr := s.tryLDAP(ctx, req.Email, req.Password)
+		if lerr != nil {
+			slog.WarnContext(ctx, "ldap authentication error", "error", lerr)
+		}
+		if ldapUser != nil {
+			user = ldapUser
+			passwordOK = true
+			method = "ldap"
+		}
+	}
+
+	if user == nil {
 		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
+		MetricFailedLogins.WithLabelValues(LoginFailUserNotFound).Inc()
+		s.recordLoginFailure(ctx, email, nil)
+		return nil, ErrInvalidCredentials
+	}
+
+	if !user.IsActive {
+		MetricLoginAttempts.WithLabelValues(method, "failed").Inc()
 		MetricFailedLogins.WithLabelValues(LoginFailInactive).Inc()
 		return nil, ErrInactiveUser
 	}
@@ -268,7 +292,7 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 		return nil, ErrMFARequired
 	}
 
-	return s.issueSession(ctx, user, userAgent, ipAddress, "password")
+	return s.issueSession(ctx, user, userAgent, ipAddress, method)
 }
 
 func (s *AuthService) activeWorkspaceRequiresMFA(ctx context.Context, userID string) (bool, error) {

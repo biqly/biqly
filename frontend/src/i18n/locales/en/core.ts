@@ -55,6 +55,14 @@ export const core = {
     copy: 'Copy',
     inline_edit_save_hint: 'Save with Cmd/Ctrl+Enter or click outside. Cancel: Escape.',
   },
+  app_update: {
+    available_title: 'Update available',
+    available_body: 'A new version has been deployed. The page will refresh to load the latest assets.',
+    recover_title: 'Refreshing…',
+    recover_body: "A new version was deployed while this page was open. We'll refresh to recover.",
+    reloading_in: 'Reloading in {{seconds}}s',
+    reload_now: 'Reload now',
+  },
   command_palette: {
     title: 'Command palette',
     placeholder: 'Search pages and actions…',

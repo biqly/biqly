@@ -114,3 +114,12 @@ networkPolicy:
       enabled: true
       ports:
         - 8890
+    # LDAP / directory egress. Disabled by default — enable and (optionally) set
+    # cidrs when turning on LDAP sign-in so the auth pod can reach the directory.
+    # Empty cidrs => allow the listed ports to any destination.
+    ldap:
+      enabled: false
+      cidrs: []
+      ports:
+        - 389
+        - 636

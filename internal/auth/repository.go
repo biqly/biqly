@@ -73,6 +73,42 @@ func (r *UserRepository) CreateUser(ctx context.Context, email, passwordHash, di
 	return &user, nil
 }
 
+// CreateDirectoryUser just-in-time provisions a passwordless user authenticated
+// by an external directory (LDAP). The email is marked verified (the directory
+// is the source of truth) and the user gets a personal workspace + default role,
+// mirroring OAuth provisioning. Returns ErrUserAlreadyExists if the email exists.
+func (r *UserRepository) CreateDirectoryUser(ctx context.Context, email, displayName string) (*User, error) {
+	var user User
+	err := platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		var exists bool
+		if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", email).Scan(&exists); err != nil {
+			return fmt.Errorf("check user existence: %w", err)
+		}
+		if exists {
+			return ErrUserAlreadyExists
+		}
+		var usernameNull, displayNameNull, avatarURLNull sql.NullString
+		if err := tx.QueryRowContext(ctx, `
+			INSERT INTO users (email, password_hash, display_name, email_verified)
+			VALUES ($1, NULL, $2, TRUE)
+			RETURNING id, email, username, display_name, avatar_url, is_active, email_verified, created_at, updated_at
+		`, email, displayName).Scan(
+			&user.ID, &user.Email, &usernameNull, &displayNameNull, &avatarURLNull,
+			&user.IsActive, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
+		); err != nil {
+			return fmt.Errorf("insert directory user: %w", err)
+		}
+		user.Username = platformdb.StringPtrFromNull(usernameNull)
+		user.DisplayName = platformdb.StringPtrFromNull(displayNameNull)
+		user.AvatarURL = platformdb.StringPtrFromNull(avatarURLNull)
+		return bootstrapUserWorkspace(ctx, tx, user.ID, displayName, email)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 // bootstrapUserWorkspace provisions a newly created user: it creates a personal
 // workspace, assigns the global viewer role, and adds the user as admin of their
 // personal workspace. It must run inside the same transaction as user creation.

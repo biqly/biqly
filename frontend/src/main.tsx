@@ -10,6 +10,7 @@ import { ShortcutsProvider } from './hooks/useKeyboardShortcuts'
 import { ToastProvider } from './hooks/useToast'
 import { I18nProvider } from './i18n'
 import { ThemeProvider } from './theme'
+import { AppUpdateGate } from './components/ui/AppUpdateGate'
 import './index.css'
 import './styles/loading.css'
 import './styles/settings.css'
@@ -26,6 +27,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 <BrowserRouter>
                   <AuthProvider>
                     <App />
+                    <AppUpdateGate />
                     <AIJobTracker />
                   </AuthProvider>
                 </BrowserRouter>

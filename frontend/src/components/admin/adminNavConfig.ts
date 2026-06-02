@@ -12,6 +12,7 @@ export type AdminTab =
   | 'ai_providers'
   | 'row_level_security'
   | 'field_permissions'
+  | 'ldap'
   | 'platform_settings'
 
 export const ADMIN_TAB_LABEL_KEYS = {
@@ -26,6 +27,7 @@ export const ADMIN_TAB_LABEL_KEYS = {
   ai_providers: 'admin.tabs.ai_providers',
   row_level_security: 'admin.tabs.row_level_security',
   field_permissions: 'admin.tabs.field_permissions',
+  ldap: 'admin.tabs.ldap',
   platform_settings: 'admin.tabs.platform_settings',
 } as const satisfies Record<AdminTab, TranslationKey>
 
@@ -38,7 +40,7 @@ export const ADMIN_NAV_GROUPS: { id: string; labelKey: TranslationKey; tabs: Adm
   {
     id: 'security',
     labelKey: 'admin.nav.security',
-    tabs: ['row_level_security', 'field_permissions'],
+    tabs: ['row_level_security', 'field_permissions', 'ldap'],
   },
   {
     id: 'ai',

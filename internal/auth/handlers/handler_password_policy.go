@@ -16,6 +16,7 @@ type PasswordPolicyResponse struct {
 	RequireSpecial      bool `json:"require_special"`
 	MinScore            int  `json:"min_score"`
 	SelfSignupEnabled   bool `json:"self_signup_enabled"`
+	LDAPEnabled         bool `json:"ldap_enabled"`
 }
 
 func (h *AuthHandler) handlePasswordPolicy(w http.ResponseWriter, r *http.Request) {
@@ -33,6 +34,7 @@ func (h *AuthHandler) handlePasswordPolicy(w http.ResponseWriter, r *http.Reques
 		RequireSpecial:    policy.RequireSpecial,
 		MinScore:          policy.MinScore,
 		SelfSignupEnabled: selfSignup,
+		LDAPEnabled:       h.service.LDAPEnabled(r.Context()),
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "public, max-age=300")

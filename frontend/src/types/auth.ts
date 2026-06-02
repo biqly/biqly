@@ -29,6 +29,7 @@ export interface PasswordPolicy {
   require_special: boolean
   min_score: number
   self_signup_enabled?: boolean
+  ldap_enabled?: boolean
 }
 
 export interface PlatformSettings {

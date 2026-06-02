@@ -16,6 +16,7 @@ import (
 
 	biqauth "github.com/biqly/biqly/internal/auth"
 	"github.com/biqly/biqly/internal/auth/handlers"
+	"github.com/biqly/biqly/internal/auth/ldap"
 	"github.com/biqly/biqly/internal/auth/mfa"
 	"github.com/biqly/biqly/internal/auth/rbac"
 	"github.com/biqly/biqly/internal/auth/workspace"
@@ -96,6 +97,8 @@ func main() {
 	authSvc := biqauth.NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, cfg, redisClient, emailSender)
 	platformSettingsRepo := biqauth.NewPlatformSettingsRepository(db)
 	authSvc.SetPlatformSettingsRepository(platformSettingsRepo)
+	ldapConfigRepo := biqauth.NewLDAPConfigRepository(db, tokenEnc)
+	authSvc.SetLDAP(ldapConfigRepo, ldap.New())
 	webAuthnSvc, err := mfa.NewWebAuthnService(cfg, userRepo)
 	if err != nil {
 		slog.Error("initialize webauthn", "err", err)

@@ -28,12 +28,15 @@ export default function SignInPage() {
   const [mfaCode, setMfaCode] = useState('')
   const [mfaLoading, setMfaLoading] = useState(false)
   const [signupAllowed, setSignupAllowed] = useState(true)
+  const [ldapEnabled, setLdapEnabled] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     apiGetPasswordPolicy()
       .then((policy) => {
-        if (!cancelled) setSignupAllowed(selfSignupEnabledFromPolicy(policy))
+        if (cancelled) return
+        setSignupAllowed(selfSignupEnabledFromPolicy(policy))
+        setLdapEnabled(policy?.ldap_enabled === true)
       })
       .catch(() => {
         if (!cancelled) setSignupAllowed(true)
@@ -264,6 +267,11 @@ export default function SignInPage() {
         ) : (
           <>
             <form onSubmit={handleSubmit} className="auth-form">
+              {ldapEnabled && (
+                <div className="auth-info" role="status" aria-live="polite">
+                  {t('auth.ldap_hint')}
+                </div>
+              )}
               {error && <div className="auth-error" role="alert" aria-live="assertive">{error}</div>}
               {throttleMs > 0 && (
                 <div className="auth-error" role="status" aria-live="polite">

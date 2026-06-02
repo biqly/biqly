@@ -65,6 +65,20 @@ spec:
           port: {{ . }}
         {{- end }}
     {{- end }}
+    {{- if and .Values.networkPolicy.egress.ldap .Values.networkPolicy.egress.ldap.enabled }}
+    - to:
+        {{- with .Values.networkPolicy.egress.ldap.cidrs }}
+        {{- range . }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+        {{- end }}
+      ports:
+        {{- range .Values.networkPolicy.egress.ldap.ports }}
+        - protocol: TCP
+          port: {{ . }}
+        {{- end }}
+    {{- end }}
     - to:
         - namespaceSelector: {}
           podSelector:

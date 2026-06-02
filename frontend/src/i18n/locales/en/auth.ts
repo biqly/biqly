@@ -1,5 +1,6 @@
 export const auth = {
   title_signin: 'Sign In to ABI',
+  ldap_hint: 'You can sign in with your directory (LDAP) account or your local password.',
   title_signup: 'Create Your Account',
   title_forgot: 'Forgot Password',
   title_reset: 'Reset Password',

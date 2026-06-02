@@ -57,6 +57,14 @@ export const core: CoreDictionary = {
     copy: 'Kopyala',
     inline_edit_save_hint: 'Kaydetmek için Cmd/Ctrl+Enter veya dışarı tıklayın. İptal: Escape.',
   },
+  app_update: {
+    available_title: 'Yeni sürüm hazır',
+    available_body: 'Yeni bir sürüm yayınlandı. En güncel dosyaları yüklemek için sayfa yenilenecek.',
+    recover_title: 'Yenileniyor…',
+    recover_body: 'Sayfa açıkken yeni sürüm yayınlandı. Hataları toparlamak için sayfayı yeniliyoruz.',
+    reloading_in: '{{seconds}} sn sonra yenilenecek',
+    reload_now: 'Şimdi yenile',
+  },
   command_palette: {
     title: 'Komut paleti',
     placeholder: 'Sayfa ve işlemlerde ara…',

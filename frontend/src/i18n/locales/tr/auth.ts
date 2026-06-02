@@ -2,6 +2,7 @@ import type { AuthDictionary } from '../dictionary'
 
 export const auth: AuthDictionary = {
   title_signin: 'ABI\'ye Giriş Yap',
+  ldap_hint: 'Dizin (LDAP) hesabınızla ya da yerel parolanızla giriş yapabilirsiniz.',
   title_signup: 'Hesabınızı Oluşturun',
   title_forgot: 'Şifremi Unuttum',
   title_reset: 'Şifreyi Sıfırla',

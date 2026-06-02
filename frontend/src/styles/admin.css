@@ -815,3 +815,52 @@
 }
 
 
+
+/* ── LDAP / Directory settings ───────────────────────────────────────────── */
+.ldap-fieldset {
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  border-radius: 10px;
+  padding: 16px 18px 18px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--surface-elevated, rgba(255, 255, 255, 0.02));
+}
+.ldap-fieldset:disabled {
+  opacity: 0.6;
+}
+.ldap-fieldset > legend {
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--text-secondary, #a1a1aa);
+}
+.ldap-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.ldap-grid > * {
+  min-width: 0;
+}
+@media (max-width: 720px) {
+  .ldap-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.ldap-toggle {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border, #27272a);
+  background: var(--surface-elevated, #18181b);
+  cursor: pointer;
+}
+.ldap-toggle input {
+  margin-top: 3px;
+}
