@@ -203,14 +203,20 @@ func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request)
 
 func (h *AIHandler) standardProcessOptions(ctx context.Context, req aiQueryRequest, model *semantic.SemanticModel) []ai.ProcessOption {
 	catalog, external := h.loadGlossaryEntries(ctx, model)
-	return []ai.ProcessOption{
+	opts := []ai.ProcessOption{
 		ai.WithTargetDialect(h.datasourceDialectName(ctx, req.DatasourceID)),
 		ai.WithFewShotExamples(h.loadFewShotExamples(ctx, model)),
 		ai.WithPriorTurns(priorTurnsForPrompt(req.PriorTurns)),
 		ai.WithGlossary(prompt.SelectGlossaryForQuestion(req.Question, prompt.MergeGlossaryEntries(catalog, external), model)),
 		ai.WithAmbiguityGlossary(combineGlossaryEntries(catalog, external)),
-		ai.WithAmbiguityCheck(true),
 	}
+	if h.deps.Config.AI.AmbiguityCheckEnabled {
+		opts = append(opts,
+			ai.WithAmbiguityCheck(true),
+			ai.WithAmbiguityConfidenceThreshold(h.deps.Config.AI.AmbiguityConfidenceThreshold),
+		)
+	}
+	return opts
 }
 
 func (h *AIHandler) processAIQuestion(

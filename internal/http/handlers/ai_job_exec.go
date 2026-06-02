@@ -58,6 +58,12 @@ func (h *AIHandler) executeAIQueryPhase(
 	if clarify != nil {
 		return clarify, nil
 	}
+	if req.ClarificationChoice != "" {
+		glossary := h.loadGlossaryForAmbiguity(ctx, model)
+		if err := resolveClarificationChoice(ctx, &req, model, glossary); err != nil {
+			return nil, err
+		}
+	}
 
 	if report != nil {
 		report(AIJobProgress{Phase: "generating", Message: "generating logical query", Progress: 35, Status: metadata.AIJobStatusRunning})

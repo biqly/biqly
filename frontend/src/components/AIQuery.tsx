@@ -241,10 +241,11 @@ export default function AIQuery() {
     }
   }
 
-  const requestBody = (q = question): AIQueryRequest => ({
+  const requestBody = (q = question, clarificationChoice?: string): AIQueryRequest => ({
     datasource_id: datasourceId,
     model_id: semanticModelId || undefined,
     question: q,
+    clarification_choice: clarificationChoice,
     tables: autoTableRouting ? undefined : selectedTables,
     include_base_tables: includeBaseTables,
     include_views: includeViews,
@@ -267,12 +268,12 @@ export default function AIQuery() {
     addMessage({ role: 'assistant', content: summary, ai_response: flat })
   }
 
-  const sendQuery = async (q: string, execute: boolean) => {
+  const sendQuery = async (q: string, execute: boolean, clarificationChoice?: string) => {
     if (!q.trim()) return
     setQueryAction(execute ? 'execute' : 'preview')
     setJobError(null)
     try {
-      const body = requestBody(q)
+      const body = requestBody(q, clarificationChoice)
       const kind = execute ? 'run' : 'preview'
       const outcome = await runJob(kind, body, {
         onError: (message) => setJobError(message),

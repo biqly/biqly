@@ -219,16 +219,27 @@ export function ClarificationCard({
   question: string
   options: string[]
   clarification?: import('../../types/ai').Clarification
-  onSelect: (o: string) => void
+  onSelect: (choice: string) => void
   onSkip: () => void
 }) {
   const t = useT()
   const structured = clarification?.options?.filter((o) => o.label?.trim()) ?? []
   const useStructured = structured.length > 0
+  const isAmbiguity = clarification?.source === 'ambiguity_analyzer'
   return (
-    <div className="clarification-card">
+    <div className={`clarification-card${isAmbiguity ? ' clarification-card--ambiguity' : ''}`}>
       <div className="clarification-title">{t('ai_query.clarification_title')}</div>
       {clarification?.reason && <p className="clarification-reason">{clarification.reason}</p>}
+      {isAmbiguity && clarification?.ambiguity_detail?.ambiguities?.length ? (
+        <ul className="clarification-ambiguity-terms">
+          {clarification.ambiguity_detail.ambiguities.map((item) => (
+            <li key={item.term}>
+              <strong>{item.term}</strong>
+              <span className="clarification-ambiguity-type">{item.type}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <p className="clarification-question">{question}</p>
       <div className="clarification-options">
         {useStructured
@@ -238,7 +249,7 @@ export function ClarificationCard({
                 type="button"
                 className="btn btn-clarification"
                 title={opt.hint}
-                onClick={() => onSelect(opt.label)}
+                onClick={() => onSelect(opt.key || opt.label)}
               >
                 {opt.label}
                 {opt.hint ? <span className="clarification-option-hint">{opt.hint}</span> : null}

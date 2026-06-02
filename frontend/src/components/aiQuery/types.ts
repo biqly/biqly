@@ -42,8 +42,8 @@ export interface AssistantMessageCardProps {
   t: (key: TranslationKey, params?: Record<string, string | number>) => string
   localeNumberTag: (locale: Locale) => string
   localeTag: string
-  onSelectClarification: (option: string) => void
-  onSkipClarification: () => void
+  onSelectClarification: (choice: string, originalQuestion: string) => void
+  onSkipClarification: (originalQuestion: string) => void
   onFilterByValue: (column: string, value: string) => void
   onCellDrillDown: (column: string, value: string) => void
 }
@@ -95,7 +95,7 @@ export interface ChatPanelProps {
   aiElapsedMs: number
   includePastQueries: boolean
   setIncludePastQueries: (v: boolean) => void
-  onSendQuery: (q: string, execute: boolean) => void
+  onSendQuery: (q: string, execute: boolean, clarificationChoice?: string) => void
   onAbort: () => void
   get: <T>(url: string) => Promise<T | null>
   postData: <T>(url: string, body: unknown, options?: RequestOptions) => Promise<T | null>

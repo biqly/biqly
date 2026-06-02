@@ -213,6 +213,10 @@ type AIConfig struct {
 	RouteSlimNumericMetrics bool
 	// ResponseCacheTTLSeconds sets the time-to-live for cached AI query responses.
 	ResponseCacheTTLSeconds int
+	// AmbiguityCheckEnabled toggles pre-LLM semantic ambiguity clarification.
+	AmbiguityCheckEnabled bool
+	// AmbiguityConfidenceThreshold is the minimum interpretation confidence to count toward clarification.
+	AmbiguityConfidenceThreshold float64
 }
 
 // Load reads configuration from environment variables.
@@ -287,6 +291,11 @@ func Load() (*Config, error) {
 			RouteMaxDateGrainExtras: getEnvAsInt("BI_AI_ROUTE_MAX_DATE_GRAIN_EXTRAS", 0),
 			RouteSlimNumericMetrics: getEnvAsBool("BI_AI_ROUTE_SLIM_NUMERIC_METRICS", true),
 			ResponseCacheTTLSeconds: getEnvAsInt("BI_AI_RESPONSE_CACHE_TTL", 3600),
+			AmbiguityCheckEnabled:   getEnvAsBool("BI_AI_AMBIGUITY_CHECK_ENABLED", true),
+			AmbiguityConfidenceThreshold: getEnvAsFloat(
+				"BI_AI_AMBIGUITY_CONFIDENCE_THRESHOLD",
+				0.70,
+			),
 		},
 		NATS: NATSConfig{
 			URL:           getEnv("BI_NATS_URL", ""),

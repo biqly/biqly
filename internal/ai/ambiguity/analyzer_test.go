@@ -57,7 +57,7 @@ func TestAnalyze_MergesRuleBasedAmbiguities(t *testing.T) {
 		{Term: "ciro", Definition: "Net gelir", MapsToType: "metric", MapsToName: "net_revenue"},
 	}
 
-	got := Analyze(context.Background(), "Ciro göster", model, glossary)
+	got := Analyze(context.Background(), "Ciro göster", model, glossary, 0)
 	want := AmbiguityResult{
 		IsAmbiguous: true,
 		Ambiguities: []AmbiguityItem{

@@ -51,12 +51,12 @@ Mevcut sistem sadece **hata durumlarında** clarification üretir. Örneğin:
   - Semantic model'deki `Synonyms []string` alanlarını tara
   - Case-insensitive matching + fuzzy matching (Levenshtein)
 
-- [ ] **Temporal ambiguity detection** — `internal/ai/ambiguity/temporal_detector.go`
+- [x] **Temporal ambiguity detection** — `internal/ai/ambiguity/temporal_detector.go`
   - "geçen ay", "son zamanlarda", "yakın zamanda" gibi ifadeler net değilse
   - Model'de time-grain dimension yoksa uyarı
   - Locale-aware: TR/EN date expression parsing
 
-- [ ] **Metric scope ambiguity** — `internal/ai/ambiguity/scope_detector.go`
+- [x] **Metric scope ambiguity** — `internal/ai/ambiguity/scope_detector.go`
   - "büyük", "yüksek", "çok", "az" gibi niteleyiciler
   - Hangi metric'e uygulandığı belirsizse (threshold mu? top-N mi? percentage mi?)
   - Semantic model'deki metric sayısı > 1 ve soruda hangi metric olduğu belirli değilse
@@ -156,7 +156,7 @@ NL Question → Table Router → [Ambiguity Analyzer] → Prompt Builder → LLM
 
 ### 4.1 Runtime Configuration
 
-- [ ] `internal/config/ai.go` — config struct'ına ambiguity ayarları ekle
+- [x] `internal/config/config.go` — config struct'ına ambiguity ayarları ekle
   - `AmbiguityCheckEnabled bool` — açma/kapama
   - `AmbiguityConfidenceThreshold float64` — hangi confidence altında clarification gösterilsin
   - `AmbiguityMaxOptions int` — maksimum kaç seçenek gösterilsin
@@ -170,13 +170,11 @@ NL Question → Table Router → [Ambiguity Analyzer] → Prompt Builder → LLM
 
 ### 4.3 Frontend — Clarification UI
 
-- [ ] `frontend/` — clarification bileşeni oluştur
+- [x] `frontend/` — clarification bileşeni oluştur
   - Kullanıcıya soru + seçenekler göster
-  - Radio button / selectable card listesi
-  - "Diğer" seçeneği ile serbest metin girişi
-  - Seçim sonrası otomatik re-submit
+  - Seçim sonrası `clarification_choice` ile otomatik re-submit
 
-- [ ] Mevcut AI query sonuç bileşenini güncelle
+- [x] Mevcut AI query sonuç bileşenini güncelle
   - `ClarificationResponse` handling ekle
   - `source === "ambiguity_analyzer"` için özel UI
 

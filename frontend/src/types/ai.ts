@@ -71,6 +71,7 @@ export interface AIQueryRequest {
   datasource_id: string
   model_id?: string
   question: string
+  clarification_choice?: string
   tables?: string[]
   include_base_tables?: boolean
   include_views?: boolean
@@ -417,7 +418,18 @@ export interface Clarification {
   reason?: string
   options?: ClarificationOption[]
   candidates?: ClarificationContext[]
-  source?: 'router' | 'validator' | 'ai'
+  source?: 'router' | 'validator' | 'ai' | 'ambiguity_analyzer'
+  ambiguity_detail?: {
+    ambiguities: Array<{
+      term: string
+      type: string
+      interpretations: Array<{
+        label: string
+        description?: string
+        confidence?: number
+      }>
+    }>
+  }
 }
 
 export type QueryColumnSemanticType = 'dimension' | 'metric'

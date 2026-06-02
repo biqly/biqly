@@ -17,7 +17,7 @@ var ErrInvalidClarificationChoice = errors.New("invalid ambiguity clarification 
 
 // Resolve analyzes the original question and applies a selected interpretation.
 func Resolve(ctx context.Context, question, choice string, model *semantic.SemanticModel, glossary []prompt.GlossaryEntry) (string, error) {
-	return ResolveChoice(question, choice, Analyze(ctx, question, model, glossary))
+	return ResolveChoice(question, choice, Analyze(ctx, question, model, glossary, 0))
 }
 
 // ResolveChoice rewrites a question using the selected ambiguity interpretation.

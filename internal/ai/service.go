@@ -138,8 +138,9 @@ type processOptions struct {
 	deniedFields      []string
 	targetDialect     string
 	glossary          []promptpkg.GlossaryEntry
-	ambiguityGlossary []promptpkg.GlossaryEntry
-	ambiguityCheck    bool
+	ambiguityGlossary           []promptpkg.GlossaryEntry
+	ambiguityCheck              bool
+	ambiguityConfidenceThreshold float64
 }
 
 type tieredProcessOptions struct {
@@ -219,6 +220,11 @@ func WithAmbiguityCheck(enabled bool) ProcessOption {
 	return func(o *processOptions) { o.ambiguityCheck = enabled }
 }
 
+// WithAmbiguityConfidenceThreshold sets the minimum interpretation confidence for ambiguity clarification.
+func WithAmbiguityConfidenceThreshold(threshold float64) ProcessOption {
+	return func(o *processOptions) { o.ambiguityConfidenceThreshold = threshold }
+}
+
 // ProcessQuestion handles a natural language question. On parse or validation
 // failure the LLM is re-prompted with the prior output and error message, up
 // to s.maxRetries additional attempts.
@@ -233,7 +239,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		if glossary == nil {
 			glossary = options.glossary
 		}
-		result := ambiguitypkg.Analyze(ctx, question, model, glossary)
+		result := ambiguitypkg.Analyze(ctx, question, model, glossary, options.ambiguityConfidenceThreshold)
 		if result.IsAmbiguous {
 			return ambiguityClarificationResponse(result), nil
 		}

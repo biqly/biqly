@@ -41,12 +41,17 @@ type SemanticMapping struct {
 }
 
 // Analyze runs rule-based ambiguity detectors before LogicalQuery generation.
-func Analyze(_ context.Context, question string, model *semantic.SemanticModel, glossary []prompt.GlossaryEntry) AmbiguityResult {
+func Analyze(_ context.Context, question string, model *semantic.SemanticModel, glossary []prompt.GlossaryEntry, confidenceThreshold float64) AmbiguityResult {
+	if confidenceThreshold <= 0 {
+		confidenceThreshold = defaultConfidenceThreshold
+	}
 	ambiguities := mergeAmbiguities(
 		DetectGlossary(question, glossary, model),
 		DetectSynonyms(question, model),
+		DetectTemporal(question, model),
+		DetectScope(question, model),
 	)
-	ambiguities = filterAmbiguities(ambiguities, defaultConfidenceThreshold)
+	ambiguities = filterAmbiguities(ambiguities, confidenceThreshold)
 	return AmbiguityResult{
 		IsAmbiguous: len(ambiguities) > 0,
 		Ambiguities: ambiguities,

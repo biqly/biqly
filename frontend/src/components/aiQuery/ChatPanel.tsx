@@ -89,8 +89,8 @@ export function ChatPanel({
                     t={t}
                     localeNumberTag={localeNumberTag}
                     localeTag={localeTag}
-                    onSelectClarification={(opt) => onSendQuery(opt, true)}
-                    onSkipClarification={() => onSendQuery(question, true)}
+                    onSelectClarification={(choice, originalQuestion) => onSendQuery(originalQuestion, true, choice)}
+                    onSkipClarification={(originalQuestion) => onSendQuery(originalQuestion, true)}
                     onFilterByValue={(column, value) => {
                       const filterText = t('ai_query.filter_by_value', { column, value })
                       setQuestion((prev: string) => prev ? `${prev} ${filterText}` : filterText)
