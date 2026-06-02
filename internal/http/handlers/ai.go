@@ -13,12 +13,13 @@ import (
 	"time"
 
 	"github.com/biqly/biqly/internal/ai"
+	"github.com/biqly/biqly/internal/ai/ambiguity"
 	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/app"
-	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/core"
 	"github.com/biqly/biqly/internal/dialect"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
@@ -95,10 +96,11 @@ func (h *AIHandler) queryModelUsedLabel() string {
 }
 
 type aiQueryRequest struct {
-	DatasourceID string   `json:"datasource_id"`
-	ModelID      string   `json:"model_id,omitempty"`
-	Question     string   `json:"question"`
-	Tables       []string `json:"tables,omitempty"`
+	DatasourceID        string   `json:"datasource_id"`
+	ModelID             string   `json:"model_id,omitempty"`
+	Question            string   `json:"question"`
+	Tables              []string `json:"tables,omitempty"`
+	ClarificationChoice string   `json:"clarification_choice,omitempty"`
 	// IncludeBaseTables / IncludeViews default to true when omitted (backward compatible).
 	IncludeBaseTables *bool `json:"include_base_tables,omitempty"`
 	IncludeViews      *bool `json:"include_views,omitempty"`
@@ -147,6 +149,19 @@ func priorTurnsForPrompt(payload []priorTurnPayload) []prompt.ConversationTurn {
 	return out
 }
 
+func resolveClarificationChoice(ctx context.Context, req *aiQueryRequest, model *semantic.SemanticModel, glossary []prompt.GlossaryEntry) error {
+	if req.ClarificationChoice == "" {
+		return nil
+	}
+	question, err := ambiguity.Resolve(ctx, req.Question, req.ClarificationChoice, model, glossary)
+	if err != nil {
+		return err
+	}
+	req.Question = question
+	req.ClarificationChoice = ""
+	return nil
+}
+
 // parseAndRouteAIQuery decodes the request, validates required fields, loads the semantic
 // model (and table routing). If it writes a response to w (bad request, model load error, or
 // clarification-only response), ok is false.
@@ -176,15 +191,25 @@ func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request)
 		writeJSON(w, http.StatusOK, resp)
 		return *req, nil, nil, false
 	}
+	if req.ClarificationChoice != "" {
+		glossary := h.loadGlossaryForAmbiguity(ctx, model)
+		if err := resolveClarificationChoice(ctx, req, model, glossary); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return *req, nil, nil, false
+		}
+	}
 	return *req, model, routing, true
 }
 
 func (h *AIHandler) standardProcessOptions(ctx context.Context, req aiQueryRequest, model *semantic.SemanticModel) []ai.ProcessOption {
+	catalog, external := h.loadGlossaryEntries(ctx, model)
 	return []ai.ProcessOption{
 		ai.WithTargetDialect(h.datasourceDialectName(ctx, req.DatasourceID)),
 		ai.WithFewShotExamples(h.loadFewShotExamples(ctx, model)),
 		ai.WithPriorTurns(priorTurnsForPrompt(req.PriorTurns)),
-		ai.WithGlossary(h.loadGlossaryForPrompt(ctx, model, req.Question)),
+		ai.WithGlossary(prompt.SelectGlossaryForQuestion(req.Question, prompt.MergeGlossaryEntries(catalog, external), model)),
+		ai.WithAmbiguityGlossary(combineGlossaryEntries(catalog, external)),
+		ai.WithAmbiguityCheck(true),
 	}
 }
 
@@ -1010,11 +1035,14 @@ func (h *AIHandler) loadDatasource(ctx context.Context, datasourceID string) (*m
 	return h.deps.MetaRepo.GetDatasource(ctx, datasourceID)
 }
 
-// loadGlossaryForPrompt merges catalog synonyms with curated glossary terms and
-// selects entries relevant to the user question.
-func (h *AIHandler) loadGlossaryForPrompt(ctx context.Context, model *semantic.SemanticModel, question string) []prompt.GlossaryEntry {
+func (h *AIHandler) loadGlossaryForAmbiguity(ctx context.Context, model *semantic.SemanticModel) []prompt.GlossaryEntry {
+	catalog, external := h.loadGlossaryEntries(ctx, model)
+	return combineGlossaryEntries(catalog, external)
+}
+
+func (h *AIHandler) loadGlossaryEntries(ctx context.Context, model *semantic.SemanticModel) ([]prompt.GlossaryEntry, []prompt.GlossaryEntry) {
 	if model == nil {
-		return nil
+		return nil, nil
 	}
 	catalog := prompt.GlossaryFromSemanticModel(model)
 	var ext []prompt.ExternalGlossaryInput
@@ -1032,8 +1060,13 @@ func (h *AIHandler) loadGlossaryForPrompt(ctx context.Context, model *semantic.S
 			})
 		}
 	}
-	merged := prompt.MergeGlossaryEntries(catalog, prompt.GlossaryFromExternal(ext))
-	return prompt.SelectGlossaryForQuestion(question, merged, model)
+	return catalog, prompt.GlossaryFromExternal(ext)
+}
+
+func combineGlossaryEntries(catalog, external []prompt.GlossaryEntry) []prompt.GlossaryEntry {
+	entries := make([]prompt.GlossaryEntry, 0, len(catalog)+len(external))
+	entries = append(entries, catalog...)
+	return append(entries, external...)
 }
 
 func (h *AIHandler) listBusinessGlossary(ctx context.Context, datasourceID, modelID string) ([]metadata.BusinessGlossaryRow, error) {

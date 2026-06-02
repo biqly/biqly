@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	ambiguitypkg "github.com/biqly/biqly/internal/ai/ambiguity"
 	evalpkg "github.com/biqly/biqly/internal/ai/eval"
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
@@ -130,13 +131,15 @@ type SQLValidator func(ctx context.Context, lq *query.LogicalQuery) error
 type ProcessOption func(*processOptions)
 
 type processOptions struct {
-	sqlValidator  SQLValidator
-	fewShot       []promptpkg.FewShotExample
-	samples       []promptpkg.TableSample
-	priorTurns    []promptpkg.ConversationTurn
-	deniedFields  []string
-	targetDialect string
-	glossary      []promptpkg.GlossaryEntry
+	sqlValidator      SQLValidator
+	fewShot           []promptpkg.FewShotExample
+	samples           []promptpkg.TableSample
+	priorTurns        []promptpkg.ConversationTurn
+	deniedFields      []string
+	targetDialect     string
+	glossary          []promptpkg.GlossaryEntry
+	ambiguityGlossary []promptpkg.GlossaryEntry
+	ambiguityCheck    bool
 }
 
 type tieredProcessOptions struct {
@@ -206,6 +209,16 @@ func WithGlossary(entries []promptpkg.GlossaryEntry) ProcessOption {
 	return func(o *processOptions) { o.glossary = entries }
 }
 
+// WithAmbiguityGlossary preserves unmerged terms so collision checks see every mapping.
+func WithAmbiguityGlossary(entries []promptpkg.GlossaryEntry) ProcessOption {
+	return func(o *processOptions) { o.ambiguityGlossary = entries }
+}
+
+// WithAmbiguityCheck enables rule-based semantic clarification before prompting.
+func WithAmbiguityCheck(enabled bool) ProcessOption {
+	return func(o *processOptions) { o.ambiguityCheck = enabled }
+}
+
 // ProcessQuestion handles a natural language question. On parse or validation
 // failure the LLM is re-prompted with the prior output and error message, up
 // to s.maxRetries additional attempts.
@@ -213,6 +226,17 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 	options := processOptions{}
 	for _, opt := range opts {
 		opt(&options)
+	}
+
+	if options.ambiguityCheck {
+		glossary := options.ambiguityGlossary
+		if glossary == nil {
+			glossary = options.glossary
+		}
+		result := ambiguitypkg.Analyze(ctx, question, model, glossary)
+		if result.IsAmbiguous {
+			return ambiguityClarificationResponse(result), nil
+		}
 	}
 
 	filterSess := FilterSessionFromPriorTurns(options.priorTurns)
@@ -374,6 +398,29 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		PromptTemplateVersions:      templateVersions,
 		PromptTemplateBundleVersion: bundleVersion,
 	}), nil
+}
+
+func ambiguityClarificationResponse(result ambiguitypkg.AmbiguityResult) *AIResponse {
+	clarification := ClarificationFromAmbiguity(result)
+	if clarification == nil {
+		return nil
+	}
+	options := make([]string, 0, len(clarification.Options))
+	for _, option := range clarification.Options {
+		options = append(options, option.Label)
+	}
+	return &AIResponse{
+		Result: &AIResult{
+			Warnings:   []string{"question requires clarification before query generation"},
+			Confidence: 0,
+		},
+		Clarification: &ClarificationResponse{
+			NeedsClarification:    true,
+			ClarificationQuestion: clarification.Question,
+			ClarificationOptions:  options,
+			Clarification:         clarification,
+		},
+	}
 }
 
 // clarificationInputs collects the variable fields used to assemble an

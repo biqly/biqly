@@ -1,6 +1,9 @@
 package ai
 
 import (
+	"fmt"
+
+	ambiguitypkg "github.com/biqly/biqly/internal/ai/ambiguity"
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/ai/routing"
@@ -9,10 +12,11 @@ import (
 
 // Request is the input for the AI query endpoint.
 type Request struct {
-	DatasourceID string   `json:"datasource_id"`
-	ModelID      string   `json:"model_id,omitempty"`
-	Question     string   `json:"question"`
-	Tables       []string `json:"tables,omitempty"`
+	DatasourceID        string   `json:"datasource_id"`
+	ModelID             string   `json:"model_id,omitempty"`
+	Question            string   `json:"question"`
+	Tables              []string `json:"tables,omitempty"`
+	ClarificationChoice string   `json:"clarification_choice,omitempty"`
 }
 
 // AIRequest is a deprecated alias for Request.
@@ -74,12 +78,18 @@ const (
 // key appended (the backend wires it through Request.Tables or a dedicated
 // clarification continuation depending on the source).
 type Clarification struct {
-	Status     string                 `json:"status"`               // ClarificationStatusNeeded
-	Question   string                 `json:"question"`             // user-facing prompt
-	Reason     string                 `json:"reason,omitempty"`     // short explanation, e.g. "Multiple revenue metrics matched"
-	Options    []ClarificationOption  `json:"options,omitempty"`    // discrete choices
-	Candidates []ClarificationContext `json:"candidates,omitempty"` // alternative semantic contexts when the router was unsure
-	Source     string                 `json:"source,omitempty"`     // "router" | "validator" | "ai"
+	Status          string                 `json:"status"`               // ClarificationStatusNeeded
+	Question        string                 `json:"question"`             // user-facing prompt
+	Reason          string                 `json:"reason,omitempty"`     // short explanation, e.g. "Multiple revenue metrics matched"
+	Options         []ClarificationOption  `json:"options,omitempty"`    // discrete choices
+	Candidates      []ClarificationContext `json:"candidates,omitempty"` // alternative semantic contexts when the router was unsure
+	Source          string                 `json:"source,omitempty"`     // "router" | "validator" | "ai" | "ambiguity_analyzer"
+	AmbiguityDetail *AmbiguityDetail       `json:"ambiguity_detail,omitempty"`
+}
+
+// AmbiguityDetail carries the analyzer evidence needed to render semantic choices.
+type AmbiguityDetail struct {
+	Ambiguities []ambiguitypkg.AmbiguityItem `json:"ambiguities"`
 }
 
 // ClarificationOption is a single discrete answer a user can pick.
@@ -135,6 +145,42 @@ func ClarificationFromRouting(result *routing.TableRoutingResult, question strin
 		Options:    options,
 		Candidates: candidates,
 		Source:     "router",
+	}
+}
+
+// ClarificationFromAmbiguity wraps semantic ambiguities into selectable options.
+func ClarificationFromAmbiguity(result ambiguitypkg.AmbiguityResult) *Clarification {
+	if !result.IsAmbiguous || len(result.Ambiguities) == 0 {
+		return nil
+	}
+
+	var options []ClarificationOption
+	for ambiguityIndex, item := range result.Ambiguities {
+		for interpretationIndex, interpretation := range item.Interpretations {
+			options = append(options, ClarificationOption{
+				Key:   fmt.Sprintf("ambiguity:%d:%d", ambiguityIndex, interpretationIndex),
+				Label: interpretation.Label,
+				Hint:  interpretation.Description,
+			})
+		}
+	}
+	if len(options) == 0 {
+		return nil
+	}
+
+	question := "Please clarify the ambiguous terms in your question."
+	if len(result.Ambiguities) == 1 {
+		question = fmt.Sprintf("What did you mean by %q?", result.Ambiguities[0].Term)
+	}
+	return &Clarification{
+		Status:   ClarificationStatusNeeded,
+		Question: question,
+		Reason:   "Multiple semantic interpretations matched this question.",
+		Options:  options,
+		Source:   "ambiguity_analyzer",
+		AmbiguityDetail: &AmbiguityDetail{
+			Ambiguities: result.Ambiguities,
+		},
 	}
 }
 

@@ -11,12 +11,26 @@ import (
 	"testing"
 
 	"github.com/biqly/biqly/internal/ai/prompt"
+	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
 var errPlannerSyntax = stderrors.New("planner: syntax error near 'FROO'")
+
+type countingProvider struct {
+	calls atomic.Int32
+}
+
+func (p *countingProvider) Generate(_ context.Context, _ string) (providerpkg.GenerationResult, error) {
+	p.calls.Add(1)
+	return providerpkg.GenerationResult{Content: `{"select":[{"type":"metric","name":"gross_revenue"}]}`}, nil
+}
+
+func (p *countingProvider) GenerateAt(ctx context.Context, prompt string, _ float64) (providerpkg.GenerationResult, error) {
+	return p.Generate(ctx, prompt)
+}
 
 func TestParseAndValidateNormalizesLogicalQueryContext(t *testing.T) {
 	service := &Service{validator: query.NewValidator(1000)}
@@ -167,6 +181,84 @@ func TestProcessQuestionRetriesOnInvalidJSON(t *testing.T) {
 	}
 	if resp.Metadata.TokenUsage.Total <= 0 {
 		t.Fatalf("expected positive token estimate, got %+v", resp.Metadata.TokenUsage)
+	}
+}
+
+func TestProcessQuestionReturnsAmbiguityClarificationBeforeLLM(t *testing.T) {
+	client := &countingProvider{}
+	svc := NewServiceWithProvider(config.AIConfig{}, query.NewValidator(1000), client)
+	model := &semantic.SemanticModel{
+		Metrics: []semantic.Metric{
+			{Name: "gross_revenue", Synonyms: []string{"ciro"}},
+			{Name: "net_revenue", Synonyms: []string{"ciro"}},
+		},
+	}
+
+	resp, err := svc.ProcessQuestion(context.Background(), "Ciro göster", model, WithAmbiguityCheck(true))
+	if err != nil {
+		t.Fatalf("ProcessQuestion() error = %v, want nil", err)
+	}
+	if got := client.calls.Load(); got != 0 {
+		t.Errorf("ProcessQuestion() provider calls = %d, want 0", got)
+	}
+	if resp.Clarification == nil || resp.Clarification.Clarification == nil {
+		t.Fatalf("ProcessQuestion() clarification = %+v, want structured clarification", resp.Clarification)
+	}
+	if got := resp.Clarification.Clarification.Source; got != "ambiguity_analyzer" {
+		t.Errorf("ProcessQuestion() clarification source = %q, want %q", got, "ambiguity_analyzer")
+	}
+}
+
+func TestProcessQuestionAmbiguityCheckIsOptIn(t *testing.T) {
+	client := &countingProvider{}
+	svc := NewServiceWithProvider(config.AIConfig{}, query.NewValidator(1000), client)
+	model := &semantic.SemanticModel{
+		Metrics: []semantic.Metric{
+			{Name: "gross_revenue", Synonyms: []string{"ciro"}},
+			{Name: "net_revenue", Synonyms: []string{"ciro"}},
+		},
+	}
+
+	resp, err := svc.ProcessQuestion(context.Background(), "Ciro göster", model)
+	if err != nil {
+		t.Fatalf("ProcessQuestion() error = %v, want nil", err)
+	}
+	if got := client.calls.Load(); got != 1 {
+		t.Errorf("ProcessQuestion() provider calls = %d, want 1", got)
+	}
+	if resp.Clarification != nil {
+		t.Errorf("ProcessQuestion() clarification = %+v, want nil", resp.Clarification)
+	}
+}
+
+func TestProcessQuestionUsesUnmergedAmbiguityGlossary(t *testing.T) {
+	client := &countingProvider{}
+	svc := NewServiceWithProvider(config.AIConfig{}, query.NewValidator(1000), client)
+	model := &semantic.SemanticModel{}
+	promptGlossary := []prompt.GlossaryEntry{
+		{Term: "aktif", Definition: "Durumu active olan müşteri", MapsToType: "filter", MapsToName: "status=active"},
+	}
+	ambiguityGlossary := []prompt.GlossaryEntry{
+		{Term: "aktif", Definition: "Durumu active olan müşteri", MapsToType: "filter", MapsToName: "status=active"},
+		{Term: "aktif", Definition: "Son 30 günde sipariş veren müşteri", MapsToType: "filter", MapsToName: "last_order_date>=now()-30d"},
+	}
+
+	resp, err := svc.ProcessQuestion(
+		context.Background(),
+		"Aktif müşterileri göster",
+		model,
+		WithGlossary(promptGlossary),
+		WithAmbiguityGlossary(ambiguityGlossary),
+		WithAmbiguityCheck(true),
+	)
+	if err != nil {
+		t.Fatalf("ProcessQuestion() error = %v, want nil", err)
+	}
+	if got := client.calls.Load(); got != 0 {
+		t.Errorf("ProcessQuestion() provider calls = %d, want 0", got)
+	}
+	if resp.Clarification == nil || resp.Clarification.Clarification == nil {
+		t.Fatalf("ProcessQuestion() clarification = %+v, want structured clarification", resp.Clarification)
 	}
 }
 

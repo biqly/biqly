@@ -3,6 +3,7 @@ package ai
 import (
 	"testing"
 
+	"github.com/biqly/biqly/internal/ai/ambiguity"
 	"github.com/biqly/biqly/internal/ai/routing"
 )
 
@@ -67,5 +68,50 @@ func TestClarificationFromRoutingBuildsOptionsAndCandidates(t *testing.T) {
 	}
 	if len(c.Candidates) != 2 || c.Candidates[0].Score != 0.62 {
 		t.Errorf("candidates not built: %+v", c.Candidates)
+	}
+}
+
+func TestClarificationFromAmbiguityBuildsOptionsAndDetail(t *testing.T) {
+	result := ambiguity.AmbiguityResult{
+		IsAmbiguous: true,
+		Ambiguities: []ambiguity.AmbiguityItem{
+			{
+				Term: "ciro",
+				Type: "semantic",
+				Interpretations: []ambiguity.Interpretation{
+					{
+						Label:       "Brüt gelir",
+						Description: "İndirim öncesi gelir",
+						SemanticMapping: ambiguity.SemanticMapping{
+							Type: "metric",
+							Name: "gross_revenue",
+						},
+						Confidence: 0.95,
+					},
+					{
+						Label: "Net gelir",
+						SemanticMapping: ambiguity.SemanticMapping{
+							Type: "metric",
+							Name: "net_revenue",
+						},
+						Confidence: 0.91,
+					},
+				},
+			},
+		},
+	}
+
+	got := ClarificationFromAmbiguity(result)
+	if got == nil {
+		t.Fatal("ClarificationFromAmbiguity() = nil, want envelope")
+	}
+	if got.Source != "ambiguity_analyzer" {
+		t.Errorf("ClarificationFromAmbiguity().Source = %q, want %q", got.Source, "ambiguity_analyzer")
+	}
+	if len(got.Options) != 2 || got.Options[0].Key != "ambiguity:0:0" || got.Options[0].Hint != "İndirim öncesi gelir" {
+		t.Errorf("ClarificationFromAmbiguity().Options = %+v, want analyzer options", got.Options)
+	}
+	if got.AmbiguityDetail == nil || len(got.AmbiguityDetail.Ambiguities) != 1 {
+		t.Errorf("ClarificationFromAmbiguity().AmbiguityDetail = %+v, want one ambiguity", got.AmbiguityDetail)
 	}
 }
