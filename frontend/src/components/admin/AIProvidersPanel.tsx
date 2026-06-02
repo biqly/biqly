@@ -191,16 +191,39 @@ export function AIProvidersPanel() {
             <div className="admin-ai-purpose-grid">
               {PURPOSES.map((purpose) => {
                 const m = activeByPurpose(purpose)
+                const providerLabel = m?.provider_name?.trim()
+                const modelLabel = m?.display_name?.trim()
+                const modelHint = m?.model_id?.trim()
                 return (
-                  <div key={purpose} className="admin-ai-purpose-row">
-                    <div className="admin-ai-purpose-row__label">{t(`admin.ai_providers.purposes.${purpose}`)}</div>
-                    <div className="admin-ai-purpose-row__value">
+                  <div key={purpose} className="admin-ai-purpose-card">
+                    <div className="admin-ai-purpose-card__head">
+                      <div className="admin-ai-purpose-card__title">
+                        {t(`admin.ai_providers.purposes.${purpose}`)}
+                      </div>
+                      <div className="admin-ai-purpose-card__meta">
+                        {providerLabel ? (
+                          <span className="admin-ai-purpose-pill admin-ai-purpose-pill--provider">
+                            {providerLabel}
+                          </span>
+                        ) : (
+                          <span className="admin-ai-purpose-pill admin-ai-purpose-pill--muted">—</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="admin-ai-purpose-card__body">
                       {m ? (
                         <>
-                          <strong>{m.display_name}</strong> ({m.provider_name})
+                          <div className="admin-ai-purpose-card__model" title={modelHint || modelLabel}>
+                            {modelLabel || modelHint || '—'}
+                          </div>
+                          {modelHint && modelHint !== modelLabel && (
+                            <div className="admin-ai-purpose-card__hint">
+                              <code>{modelHint}</code>
+                            </div>
+                          )}
                         </>
                       ) : (
-                        '—'
+                        <div className="admin-ai-purpose-card__empty">{t('common.em_dash')}</div>
                       )}
                     </div>
                   </div>
