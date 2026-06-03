@@ -11,7 +11,7 @@ COPY . .
 RUN npm run build
 
 # Runtime: nginx serving the built bundle. SPA fallback to index.html.
-FROM nginx:1.27-alpine
+FROM nginx:1.30-alpine
 
 RUN rm -rf /usr/share/nginx/html/* \
     && rm /etc/nginx/conf.d/default.conf
