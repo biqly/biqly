@@ -53,8 +53,8 @@ linters:
         - pattern: ^panic$
           msg: avoid panic in application code
 
-issues:
-  exclude-rules:
-    - path: ^cmd/
-      linters:
-        - forbidigo
+  exclusions:
+    rules:
+      - path: ^cmd/
+        linters:
+          - forbidigo
