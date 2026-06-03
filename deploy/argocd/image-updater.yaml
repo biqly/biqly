@@ -65,9 +65,9 @@ spec:
             helm:
               name: mail.migrate.image.repository
               tag: mail.migrate.image.tag
-        - alias: migrate
-          imageName: ghcr.io/biqly/migrate
-          manifestTargets:
-            helm:
-              name: global.migrate.image.repository
-              tag: global.migrate.image.tag
+        # NOTE: ghcr.io/biqly/migrate is intentionally NOT tracked here. The
+        # PreSync migrate Job is deleted on success (hook-delete-policy), so
+        # its image never appears in the Application's live image list and the
+        # updater would permanently skip it. Instead the Helm template pins
+        # the migrate tag to the catalog image tag (same commit sha) — see
+        # deploy/helm/biqly/templates/migrate-job.yaml.
