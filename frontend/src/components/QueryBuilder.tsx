@@ -403,16 +403,36 @@ export default function QueryBuilder() {
                 {/* Step 2: Joins (Read-only display of relationships defined on semantic layer) */}
                 {modelDetail.joins && modelDetail.joins.length > 0 && (
                   <NotebookStep label="Join data" themeClass="join">
-                    {modelDetail.joins.map((j, index) => (
-                      <div key={j.id || index} className="notebook-join-flow">
-                        <span className="notebook-tag notebook-tag--blue">{modelDetail.base_table}</span>
-                        <span className="notebook-join-icon">⟝⟞</span>
-                        <span className="notebook-tag notebook-tag--blue">{j.to_table}</span>
-                        <span className="notebook-join-on">
-                          on {modelDetail.base_table}.{j.from_column} = {j.to_table}.{j.to_column}
-                        </span>
-                      </div>
-                    ))}
+                    {modelDetail.joins.map((j, index) => {
+                      const getCardinality = (rel?: string) => {
+                        if (!rel) return '1:1'
+                        switch (rel) {
+                          case 'many_to_one': return 'N:1'
+                          case 'one_to_many': return '1:N'
+                          case 'one_to_one': return '1:1'
+                          case 'many_to_many': return 'N:N'
+                          default: return rel.replace(/_/g, '-')
+                        }
+                      }
+                      return (
+                        <div key={j.id || index} className="notebook-join-flow">
+                          <span className="notebook-join-type">{j.join_type || 'LEFT'}</span>
+                          <span className="notebook-tag notebook-tag--table">{j.from_table}</span>
+                          <span className="notebook-join-connector">
+                            <span className="notebook-join-line"></span>
+                            <span className="notebook-join-cardinality">{getCardinality(j.relationship)}</span>
+                            <span className="notebook-join-line"></span>
+                          </span>
+                          <span className="notebook-tag notebook-tag--table">{j.to_table}</span>
+                          <span className="notebook-join-on-clause">
+                            <span className="notebook-join-on-label">ON</span>
+                            <code className="notebook-join-expression">
+                              <span className="notebook-join-table-prefix">{j.from_table}</span>.{j.from_column} = <span className="notebook-join-table-prefix">{j.to_table}</span>.{j.to_column}
+                            </code>
+                          </span>
+                        </div>
+                      )
+                    })}
                   </NotebookStep>
                 )}
 
