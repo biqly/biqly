@@ -107,82 +107,82 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
       <LoadingOverlay loading={loading}>
         {error && <ErrorAlert error={error} />}
 
-      <div className="card">
-        <div className="card-header-row card-header-row--spaced">
-          <div>
-            <h2>{t('customDashboards.title')}</h2>
-            <p className="card-lead" style={{ marginTop: '0.4rem' }}>
-              {t('customDashboards.lead')}
-            </p>
-          </div>
-          <button type="button" className="btn btn-primary" onClick={openCreateModal}>
-            + {t('customDashboards.new')}
-          </button>
-        </div>
-      </div>
-
-      {dashboards.length === 0 ? (
-        <div className="card dashboard-list-empty">
-          <EmptyState
-            title={t('customDashboards.empty_title')}
-            description={t('customDashboards.empty_description')}
-          >
-            <button
-              type="button"
-              className="btn btn-primary btn-auto-width"
-              onClick={openCreateModal}
-            >
-              + {t('customDashboards.empty_cta')}
-            </button>
-          </EmptyState>
-        </div>
-      ) : (
-        <div className="dashboard-list-grid">
-          {dashboards.map((d) => (
-            <div
-              key={d.id}
-              className="card card--elevated dashboard-list-card"
-              role="button"
-              tabIndex={0}
-              onClick={() => onSelect(d.id)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  onSelect(d.id)
-                }
-              }}
-            >
-              <div>
-                <div className="dashboard-list-card__head">
-                  <h3 className="dashboard-list-card__title">{d.name}</h3>
-                  <button
-                    type="button"
-                    className="dashboard-list-card__delete"
-                    onClick={(e) => handleDelete(e, d.id, d.name)}
-                    title={t('customDashboards.delete_tooltip')}
-                    aria-label={t('customDashboards.delete_tooltip')}
-                  >
-                    🗑️
-                  </button>
-                </div>
-                {d.description && <p className="dashboard-list-card__desc">{d.description}</p>}
-              </div>
-              <div className="dashboard-list-card__meta">
-                <span>
-                  {t('customDashboards.widgets_count', { count: d.widgets?.length || 0 })}
-                </span>
-                <span>
-                  {new Date(d.created_at).toLocaleDateString(undefined, {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
-                </span>
-              </div>
+        <div className="card">
+          <div className="card-header-row card-header-row--spaced">
+            <div>
+              <h2>{t('customDashboards.title')}</h2>
+              <p className="card-lead" style={{ marginTop: '0.4rem' }}>
+                {t('customDashboards.lead')}
+              </p>
             </div>
-          ))}
+            <button type="button" className="btn btn-primary" onClick={openCreateModal}>
+              + {t('customDashboards.new')}
+            </button>
+          </div>
         </div>
-      )}
+
+        {dashboards.length === 0 ? (
+          <div className="card dashboard-list-empty">
+            <EmptyState
+              title={t('customDashboards.empty_title')}
+              description={t('customDashboards.empty_description')}
+            >
+              <button
+                type="button"
+                className="btn btn-primary btn-auto-width"
+                onClick={openCreateModal}
+              >
+                + {t('customDashboards.empty_cta')}
+              </button>
+            </EmptyState>
+          </div>
+        ) : (
+          <div className="dashboard-list-grid">
+            {dashboards.map((d) => (
+              <div
+                key={d.id}
+                className="card card--elevated dashboard-list-card"
+                role="button"
+                tabIndex={0}
+                onClick={() => onSelect(d.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onSelect(d.id)
+                  }
+                }}
+              >
+                <div>
+                  <div className="dashboard-list-card__head">
+                    <h3 className="dashboard-list-card__title">{d.name}</h3>
+                    <button
+                      type="button"
+                      className="dashboard-list-card__delete"
+                      onClick={(e) => handleDelete(e, d.id, d.name)}
+                      title={t('customDashboards.delete_tooltip')}
+                      aria-label={t('customDashboards.delete_tooltip')}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                  {d.description && <p className="dashboard-list-card__desc">{d.description}</p>}
+                </div>
+                <div className="dashboard-list-card__meta">
+                  <span>
+                    {t('customDashboards.widgets_count', { count: d.widgets?.length || 0 })}
+                  </span>
+                  <span>
+                    {new Date(d.created_at).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </LoadingOverlay>
 
       <Modal
