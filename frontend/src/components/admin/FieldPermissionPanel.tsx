@@ -3,8 +3,8 @@ import { useT } from '../../i18n'
 import { useDatasources } from '../../hooks/useDatasources'
 import { useSemanticModels } from '../../hooks/useSemanticModels'
 import { request } from '../../hooks/useApi'
-import { getSecurityPolicyByKeys, upsertSecurityPolicy } from '../../api/admin'
-import type { SecurityPolicy } from '../../api/admin'
+import { getSecurityPolicyByKeys, listPIIColumns, upsertSecurityPolicy } from '../../api/admin'
+import type { PIIAccessLevel, PIIColumn, PIIColumnAccess, SecurityPolicy } from '../../api/admin'
 import type { SemanticModelFieldRow, SemanticModelFieldsPage } from '../../types/semantic'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Pagination } from '../ui/Pagination'
@@ -34,6 +34,8 @@ export function FieldPermissionPanel({ token }: { token: string }) {
 
   const [policy, setPolicy] = useState<SecurityPolicy | null>(null)
   const [deniedFields, setDeniedFields] = useState<string[]>([])
+  const [piiPolicy, setPIIPolicy] = useState<Record<string, PIIColumnAccess>>({})
+  const [piiColumns, setPIIColumns] = useState<PIIColumn[]>([])
   const [loadingPolicy, setLoadingPolicy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -69,6 +71,8 @@ export function FieldPermissionPanel({ token }: { token: string }) {
     if (!selectedRole || !selectedDS) {
       setPolicy(null)
       setDeniedFields([])
+      setPIIPolicy({})
+      setPIIColumns([])
       return
     }
 
@@ -78,10 +82,15 @@ export function FieldPermissionPanel({ token }: { token: string }) {
       setError(null)
       setSaveSuccess(false)
       try {
-        const policyData = await getSecurityPolicyByKeys(token, `role:${selectedRole}`, selectedDS)
+        const [policyData, piiCols] = await Promise.all([
+          getSecurityPolicyByKeys(token, `role:${selectedRole}`, selectedDS),
+          listPIIColumns(token, selectedDS).catch(() => [] as PIIColumn[]),
+        ])
         if (cancelled) return
         setPolicy(policyData)
         setDeniedFields(policyData.denied_fields || [])
+        setPIIPolicy(policyData.pii_policy || {})
+        setPIIColumns(piiCols)
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : String(err))
@@ -169,6 +178,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
       allowed_models: policy?.allowed_models || [],
       denied_fields: deniedFields,
       row_filters: policy?.row_filters || [],
+      pii_policy: piiPolicy,
     }
 
     try {
@@ -176,6 +186,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
       const res = await upsertSecurityPolicy(token, policyToSave)
       setPolicy(res)
       setDeniedFields(res.denied_fields || [])
+      setPIIPolicy(res.pii_policy || {})
       setSaveSuccess(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -183,6 +194,54 @@ export function FieldPermissionPanel({ token }: { token: string }) {
       setLoadingPolicy(false)
     }
   }
+
+  // Role defaults mirror the backend pii.DefaultPIIPolicy: admin raw,
+  // analyst masked, viewer hidden for sensitive types / masked otherwise.
+  const roleDefaultAccess = (piiType: string): PIIAccessLevel => {
+    if (selectedRole === 'admin') return 'raw'
+    if (selectedRole === 'analyst') return 'masked'
+    return ['tc_kimlik_no', 'credit_card_like', 'iban'].includes(piiType) ? 'hidden' : 'masked'
+  }
+
+  const piiKey = (col: PIIColumn) => `${col.schema}.${col.table}.${col.column}`
+
+  const piiAccessFor = (col: PIIColumn): PIIAccessLevel | '' =>
+    piiPolicy[piiKey(col)]?.access || piiPolicy[`${col.table}.${col.column}`]?.access || ''
+
+  const handlePIIAccessChange = (col: PIIColumn, access: string) => {
+    const key = piiKey(col)
+    setPIIPolicy((prev) => {
+      const next = { ...prev }
+      delete next[`${col.table}.${col.column}`]
+      if (access === '') {
+        delete next[key]
+      } else {
+        next[key] = { access: access as PIIAccessLevel }
+      }
+      return next
+    })
+    setSaveSuccess(false)
+  }
+
+  const handleBulkApplyDefaults = () => {
+    const next: Record<string, PIIColumnAccess> = {}
+    for (const col of piiColumns) {
+      next[piiKey(col)] = { access: roleDefaultAccess(col.pii_type) }
+    }
+    setPIIPolicy(next)
+    setSaveSuccess(false)
+  }
+
+  // PII badge support: map of "table.column" refs to PII type for the badge
+  // shown next to dimension fields backed by PII columns.
+  const piiTypeByRef = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const col of piiColumns) {
+      map.set(`${col.table}.${col.column}`, col.pii_type)
+      map.set(`${col.schema}.${col.table}.${col.column}`, col.pii_type)
+    }
+    return map
+  }, [piiColumns])
 
   const isFieldDenied = (fieldName: string) => {
     if (!modelName) return false
@@ -273,7 +332,17 @@ export function FieldPermissionPanel({ token }: { token: string }) {
                         <tr key={`${row.kind}-${row.id}`} style={trRow}>
                           <td style={tdStyle}>
                             <div style={fieldNameContainer}>
-                              <strong style={nameStyle}>{row.name}</strong>
+                              <strong style={nameStyle}>
+                                {row.name}
+                                {piiTypeByRef.has(row.ref) && (
+                                  <span
+                                    style={piiBadgeStyle}
+                                    title={`${t('admin.pii.badge')}: ${piiTypeByRef.get(row.ref)}`}
+                                  >
+                                    {t('admin.pii.badge')}
+                                  </span>
+                                )}
+                              </strong>
                               {row.label && <span style={labelSpan}>{row.label}</span>}
                             </div>
                           </td>
@@ -309,6 +378,65 @@ export function FieldPermissionPanel({ token }: { token: string }) {
                   itemsPerPage={fieldPageSize}
                   alwaysShow
                 />
+              </div>
+            )}
+
+            {piiColumns.length > 0 && (
+              <div style={{ marginTop: 32 }}>
+                <div style={panelHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>{t('admin.pii.policy_title')}</h3>
+                </div>
+                <p style={piiDescStyle}>{t('admin.pii.policy_description')}</p>
+                <div style={fieldsTableContainer}>
+                  <table style={tableStyle}>
+                    <thead>
+                      <tr style={theadRow}>
+                        <th style={thStyle}>{t('admin.pii.col_column')}</th>
+                        <th style={thStyle}>{t('admin.pii.col_type')}</th>
+                        <th style={{ ...thStyle, width: 200 }}>Access</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {piiColumns.map((col) => (
+                        <tr key={col.column_id} style={trRow}>
+                          <td style={tdStyle}>
+                            <code style={codeStyle}>
+                              {col.schema}.{col.table}.{col.column}
+                            </code>
+                          </td>
+                          <td style={tdStyle}>
+                            <span style={dimTypeBadge}>{col.pii_type}</span>
+                          </td>
+                          <td style={tdStyle}>
+                            <select
+                              value={piiAccessFor(col)}
+                              onChange={(e) => handlePIIAccessChange(col, e.target.value)}
+                              disabled={!canEdit}
+                              style={piiSelectStyle}
+                              aria-label={`${col.column} access`}
+                            >
+                              <option value="">
+                                {t('admin.pii.policy_default')} ({roleDefaultAccess(col.pii_type)})
+                              </option>
+                              <option value="raw">{t('admin.pii.access_raw')}</option>
+                              <option value="masked">{t('admin.pii.access_masked')}</option>
+                              <option value="hidden">{t('admin.pii.access_hidden')}</option>
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <button
+                    onClick={handleBulkApplyDefaults}
+                    disabled={!canEdit}
+                    style={!canEdit ? btnSecondaryDisabled : btnSecondary}
+                  >
+                    {t('admin.pii.bulk_apply', { role: selectedRole })}
+                  </button>
+                </div>
               </div>
             )}
 
@@ -521,6 +649,53 @@ const btnPrimaryDisabled: React.CSSProperties = {
   cursor: 'not-allowed',
   fontSize: 13,
   fontWeight: 600,
+  opacity: 0.5,
+}
+
+const piiBadgeStyle: React.CSSProperties = {
+  marginLeft: 8,
+  padding: '1px 6px',
+  background: 'rgba(239, 68, 68, 0.12)',
+  color: '#ef4444',
+  borderRadius: 999,
+  fontSize: 10,
+  fontWeight: 700,
+  letterSpacing: '0.5px',
+  verticalAlign: 'middle',
+}
+
+const piiDescStyle: React.CSSProperties = {
+  margin: '0 0 12px',
+  fontSize: 13,
+  color: 'var(--text-secondary, #a1a1aa)',
+}
+
+const piiSelectStyle: React.CSSProperties = {
+  padding: '6px 10px',
+  borderRadius: 6,
+  border: '1px solid var(--border, rgba(255, 255, 255, 0.12))',
+  background: 'var(--bg-card, transparent)',
+  color: 'var(--text-primary, #f4f4f5)',
+  fontSize: 13,
+  minWidth: 180,
+}
+
+const btnSecondary: React.CSSProperties = {
+  padding: '6px 12px',
+  background: 'transparent',
+  color: 'var(--accent, #6366f1)',
+  border: '1px solid var(--accent, #6366f1)',
+  borderRadius: 6,
+  cursor: 'pointer',
+  fontSize: 12,
+  fontWeight: 600,
+}
+
+const btnSecondaryDisabled: React.CSSProperties = {
+  ...btnSecondary,
+  color: 'var(--text-secondary, #a1a1aa)',
+  border: '1px solid var(--border, rgba(255,255,255,0.1))',
+  cursor: 'not-allowed',
   opacity: 0.5,
 }
 

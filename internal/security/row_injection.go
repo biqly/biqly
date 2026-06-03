@@ -145,7 +145,7 @@ func (pi *PermissionInjector) CheckFieldAccess(
 }
 
 func (pi *PermissionInjector) isFieldAllowed(policy *PermissionPolicy, qualified, unqualified string) bool {
-	return !FieldIsDenied(policy, qualified, unqualified)
+	return !FieldIsDenied(policy, qualified, unqualified) && !PIIFieldIsHidden(policy, qualified, unqualified)
 }
 
 func joinStr(parts []string, sep string) string {

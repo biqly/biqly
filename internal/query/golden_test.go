@@ -9,6 +9,7 @@ import (
 
 	"github.com/biqly/biqly/internal/dialect"
 	"github.com/biqly/biqly/internal/security"
+	"github.com/biqly/biqly/internal/security/pii"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
@@ -718,7 +719,7 @@ func TestGolden_RowFilterInjection_Eq(t *testing.T) {
 		{Field: "order_date", Operator: "eq", Value: "2024-01-01"},
 	}
 
-	cq, err := compiler.CompileWithPermissions(context.Background(), &fixture.LogicalQuery, fixture.Model, rowFilters)
+	cq, err := compiler.CompileWithPermissions(context.Background(), &fixture.LogicalQuery, fixture.Model, rowFilters, nil)
 	if err != nil {
 		t.Fatalf("compilation with permissions failed: %v", err)
 	}
@@ -743,7 +744,7 @@ func TestGolden_RowFilterInjection_In(t *testing.T) {
 		{Field: "order_date", Operator: "in", Value: []any{"2024-01-01", "2024-02-01", "2024-03-01"}},
 	}
 
-	cq, err := compiler.CompileWithPermissions(context.Background(), &fixture.LogicalQuery, fixture.Model, rowFilters)
+	cq, err := compiler.CompileWithPermissions(context.Background(), &fixture.LogicalQuery, fixture.Model, rowFilters, nil)
 	if err != nil {
 		t.Fatalf("compilation with permissions failed: %v", err)
 	}
@@ -766,7 +767,7 @@ func TestGolden_RowFilterInjection_WithExistingWhere(t *testing.T) {
 	lq := fixture.LogicalQuery
 	lq.Filters = append(lq.Filters, Filter{Field: "order_date", Operator: OpGte, Value: "2024-01-01"})
 
-	cq, err := compiler.CompileWithPermissions(context.Background(), &lq, fixture.Model, rowFilters)
+	cq, err := compiler.CompileWithPermissions(context.Background(), &lq, fixture.Model, rowFilters, nil)
 	if err != nil {
 		t.Fatalf("compilation with permissions failed: %v", err)
 	}
@@ -786,7 +787,7 @@ func TestGolden_RowFilterInjection_NoFilters(t *testing.T) {
 	fixture := fixtureManyToOne()
 	compiler := NewCompiler(dialect.PostgresDialect{})
 
-	cq, err := compiler.CompileWithPermissions(context.Background(), &fixture.LogicalQuery, fixture.Model, nil)
+	cq, err := compiler.CompileWithPermissions(context.Background(), &fixture.LogicalQuery, fixture.Model, nil, nil)
 	if err != nil {
 		t.Fatalf("compilation with permissions failed: %v", err)
 	}
@@ -883,5 +884,96 @@ func TestGolden_PostgresComposite(t *testing.T) {
 	actual := normalizeSQL(cq.SQL)
 	if expected != actual {
 		t.Errorf("Composite SQL mismatch.\nExpected:\n%s\n\nGot:\n%s", expected, actual)
+	}
+}
+
+// TestGolden_PIIMasking_AllTypesPostgres verifies the exact compiled SQL for
+// every PII type with "masked" access on Postgres.
+func TestGolden_PIIMasking_AllTypesPostgres(t *testing.T) {
+	cases := []struct {
+		piiType  string
+		expected string
+	}{
+		{pii.TypeEmail, `SELECT (LEFT(CAST("customers"."pii_col" AS TEXT), 2) || '***' || SUBSTRING(CAST("customers"."pii_col" AS TEXT) FROM POSITION('@' IN CAST("customers"."pii_col" AS TEXT)))) AS "pii_field" FROM "public"."customers" LIMIT 10`},
+		{pii.TypePhone, `SELECT (LEFT(CAST("customers"."pii_col" AS TEXT), 3) || '****' || RIGHT(CAST("customers"."pii_col" AS TEXT), 2)) AS "pii_field" FROM "public"."customers" LIMIT 10`},
+		{pii.TypeIBAN, `SELECT (LEFT(CAST("customers"."pii_col" AS TEXT), 4) || '****' || RIGHT(CAST("customers"."pii_col" AS TEXT), 2)) AS "pii_field" FROM "public"."customers" LIMIT 10`},
+		{pii.TypeTCKimlikNo, `SELECT (LEFT(CAST("customers"."pii_col" AS TEXT), 3) || '*****') AS "pii_field" FROM "public"."customers" LIMIT 10`},
+		{pii.TypeAddress, `SELECT (LEFT(CAST("customers"."pii_col" AS TEXT), 10) || '...') AS "pii_field" FROM "public"."customers" LIMIT 10`},
+		{pii.TypeIPAddress, `SELECT REGEXP_REPLACE(CAST("customers"."pii_col" AS TEXT), '[0-9a-fA-F]+', '*', 'g') AS "pii_field" FROM "public"."customers" LIMIT 10`},
+		{pii.TypeCreditCardLike, `SELECT (LEFT(CAST("customers"."pii_col" AS TEXT), 4) || ' **** **** ' || RIGHT(CAST("customers"."pii_col" AS TEXT), 4)) AS "pii_field" FROM "public"."customers" LIMIT 10`},
+	}
+
+	model := &semantic.SemanticModel{
+		Name:       "customers",
+		BaseSchema: "public",
+		BaseTable:  "customers",
+		Dimensions: []semantic.Dimension{
+			{Name: "pii_field", ColumnRef: "customers.pii_col", Type: "text"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.piiType, func(t *testing.T) {
+			cfg := &PIIMaskingConfig{
+				ColumnAccess: map[string]string{"customers.pii_col": "masked"},
+				ColumnTypes:  map[string]string{"customers.pii_col": tc.piiType},
+			}
+			lq := LogicalQuery{
+				ModelID: "customers",
+				Select:  []SelectItem{{Type: "dimension", Name: "pii_field"}},
+				Limit:   10,
+			}
+			cq, err := NewCompiler(dialect.PostgresDialect{}).CompileWithPermissions(context.Background(), &lq, model, nil, cfg)
+			if err != nil {
+				t.Fatalf("compile failed: %v", err)
+			}
+			if got := normalizeSQL(cq.SQL); got != tc.expected {
+				t.Errorf("PII masked SQL mismatch.\nExpected:\n%s\n\nGot:\n%s", tc.expected, got)
+			}
+		})
+	}
+}
+
+// TestGolden_PIIMasking_EmailPerDialect verifies the exact email masking SQL
+// for every supported dialect.
+func TestGolden_PIIMasking_EmailPerDialect(t *testing.T) {
+	cases := []struct {
+		d        dialect.Dialect
+		expected string
+	}{
+		{dialect.Postgres, `SELECT (LEFT(CAST("customers"."email" AS TEXT), 2) || '***' || SUBSTRING(CAST("customers"."email" AS TEXT) FROM POSITION('@' IN CAST("customers"."email" AS TEXT)))) AS "email" FROM "public"."customers" LIMIT 10`},
+		{dialect.MySQL, "SELECT CONCAT(LEFT(CAST(`customers`.`email` AS CHAR), 2), '***', SUBSTRING(CAST(`customers`.`email` AS CHAR), LOCATE('@', CAST(`customers`.`email` AS CHAR)))) AS `email` FROM `public`.`customers` LIMIT 10"},
+		{dialect.SQLServer, `SELECT CONCAT(LEFT(CAST([customers].[email] AS NVARCHAR(256)), 2), '***', SUBSTRING(CAST([customers].[email] AS NVARCHAR(256)), CHARINDEX('@', CAST([customers].[email] AS NVARCHAR(256))), LEN(CAST([customers].[email] AS NVARCHAR(256))))) AS [email] FROM [public].[customers] ORDER BY (SELECT NULL) OFFSET 0 ROWS FETCH NEXT 10 ROWS ONLY`},
+		{dialect.ClickHouse, "SELECT concat(substring(toString(`customers`.`email`), 1, 2), '***', substring(toString(`customers`.`email`), position(toString(`customers`.`email`), '@'))) AS `email` FROM `public`.`customers` LIMIT 10"},
+	}
+
+	model := &semantic.SemanticModel{
+		Name:       "customers",
+		BaseSchema: "public",
+		BaseTable:  "customers",
+		Dimensions: []semantic.Dimension{
+			{Name: "email", ColumnRef: "customers.email", Type: "text"},
+		},
+	}
+	cfg := &PIIMaskingConfig{
+		ColumnAccess: map[string]string{"customers.email": "masked"},
+		ColumnTypes:  map[string]string{"customers.email": pii.TypeEmail},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.d.Name(), func(t *testing.T) {
+			lq := LogicalQuery{
+				ModelID: "customers",
+				Select:  []SelectItem{{Type: "dimension", Name: "email"}},
+				Limit:   10,
+			}
+			cq, err := NewCompiler(tc.d).CompileWithPermissions(context.Background(), &lq, model, nil, cfg)
+			if err != nil {
+				t.Fatalf("compile failed: %v", err)
+			}
+			if got := normalizeSQL(cq.SQL); got != normalizeSQL(tc.expected) {
+				t.Errorf("PII masked SQL mismatch (%s).\nExpected:\n%s\n\nGot:\n%s", tc.d.Name(), normalizeSQL(tc.expected), got)
+			}
+		})
 	}
 }

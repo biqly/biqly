@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/biqly/biqly/internal/app"
+	"github.com/biqly/biqly/internal/audit"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/google/uuid"
 )
@@ -20,12 +22,13 @@ func NewPermissionHandler(deps *app.CatalogDeps) *PermissionHandler {
 }
 
 type upsertPermissionRequest struct {
-	ID            string                         `json:"id,omitempty"`
-	UserID        string                         `json:"user_id"`
-	DatasourceID  string                         `json:"datasource_id"`
-	AllowedModels []string                       `json:"allowed_models"`
-	DeniedFields  []string                       `json:"denied_fields"`
-	RowFilters    []metadata.PermissionRowFilter `json:"row_filters"`
+	ID            string                              `json:"id,omitempty"`
+	UserID        string                              `json:"user_id"`
+	DatasourceID  string                              `json:"datasource_id"`
+	AllowedModels []string                            `json:"allowed_models"`
+	DeniedFields  []string                            `json:"denied_fields"`
+	RowFilters    []metadata.PermissionRowFilter      `json:"row_filters"`
+	PIIPolicy     map[string]metadata.PIIColumnAccess `json:"pii_policy,omitempty"`
 }
 
 func (h *PermissionHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -74,13 +77,23 @@ func (h *PermissionHandler) Upsert(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := req.ID
-	if id == "" {
-		ctx := r.Context()
-		existing, err := h.deps.MetaRepo.GetSecurityPolicyByKeys(ctx, userID, datasourceID)
-		if err == nil && existing != nil {
+	var previousPIIPolicy map[string]metadata.PIIColumnAccess
+	if existing, err := h.deps.MetaRepo.GetSecurityPolicyByKeys(r.Context(), userID, datasourceID); err == nil && existing != nil {
+		if id == "" {
 			id = existing.ID
-		} else {
-			id = uuid.New().String()
+		}
+		previousPIIPolicy = existing.PIIPolicy
+	}
+	if id == "" {
+		id = uuid.New().String()
+	}
+
+	for col, entry := range req.PIIPolicy {
+		switch entry.Access {
+		case "raw", "masked", "hidden":
+		default:
+			writeError(w, http.StatusBadRequest, "invalid pii_policy access for column "+col+": must be raw, masked or hidden")
+			return
 		}
 	}
 
@@ -91,6 +104,7 @@ func (h *PermissionHandler) Upsert(w http.ResponseWriter, r *http.Request) {
 		AllowedModels: req.AllowedModels,
 		DeniedFields:  req.DeniedFields,
 		RowFilters:    req.RowFilters,
+		PIIPolicy:     req.PIIPolicy,
 	}
 	if policy.AllowedModels == nil {
 		policy.AllowedModels = []string{}
@@ -101,6 +115,9 @@ func (h *PermissionHandler) Upsert(w http.ResponseWriter, r *http.Request) {
 	if policy.RowFilters == nil {
 		policy.RowFilters = []metadata.PermissionRowFilter{}
 	}
+	if policy.PIIPolicy == nil {
+		policy.PIIPolicy = map[string]metadata.PIIColumnAccess{}
+	}
 
 	ctx := r.Context()
 	if err := h.deps.MetaRepo.UpsertSecurityPolicy(ctx, policy); err != nil {
@@ -108,7 +125,32 @@ func (h *PermissionHandler) Upsert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.deps.AuditLogger != nil && piiPolicyChanged(previousPIIPolicy, policy.PIIPolicy) {
+		h.deps.AuditLogger.Log(ctx, audit.Event{
+			UserID:       bimw.UserID(ctx),
+			EventType:    audit.EventPIIPolicyUpdated,
+			DatasourceID: datasourceID,
+			Details: map[string]any{
+				"policy_user_id": userID,
+				"old_pii_policy": previousPIIPolicy,
+				"new_pii_policy": policy.PIIPolicy,
+			},
+		})
+	}
+
 	writeJSON(w, http.StatusOK, policy)
+}
+
+func piiPolicyChanged(oldPolicy, newPolicy map[string]metadata.PIIColumnAccess) bool {
+	if len(oldPolicy) != len(newPolicy) {
+		return true
+	}
+	for col, entry := range newPolicy {
+		if oldPolicy[col] != entry {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *PermissionHandler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -148,5 +190,6 @@ func emptySecurityPolicy(userID, datasourceID string) metadata.SecurityPolicy {
 		AllowedModels: []string{},
 		DeniedFields:  []string{},
 		RowFilters:    []metadata.PermissionRowFilter{},
+		PIIPolicy:     map[string]metadata.PIIColumnAccess{},
 	}
 }

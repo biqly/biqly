@@ -20,6 +20,10 @@ const (
 	EventPermissionDeny  EventType = "permission_denied"
 	EventAIGenerated     EventType = "ai_generated"
 	EventInternalRequest EventType = "internal_request"
+
+	EventPIIScanCompleted  EventType = "pii.scan_completed"
+	EventPIIPolicyUpdated  EventType = "pii.policy_updated"
+	EventPIIMaskingApplied EventType = "pii.masking_applied"
 )
 
 // Event represents an audit log entry.
@@ -66,7 +70,8 @@ func (l *Logger) Log(ctx context.Context, event Event) {
 	switch event.EventType {
 	case EventQueryFailed, EventPermissionDeny:
 		l.logger.ErrorContext(ctx, "audit", attrs...)
-	case EventQueryExecuted, EventQueryCompiled, EventDatasourceSync, EventAIGenerated, EventInternalRequest:
+	case EventQueryExecuted, EventQueryCompiled, EventDatasourceSync, EventAIGenerated, EventInternalRequest,
+		EventPIIScanCompleted, EventPIIPolicyUpdated, EventPIIMaskingApplied:
 		l.logger.InfoContext(ctx, "audit", attrs...)
 	default:
 		l.logger.InfoContext(ctx, "audit", attrs...)

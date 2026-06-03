@@ -92,6 +92,8 @@ Unset a service URL to fall back to in-process monolith handler for that domain.
 - Fail-closed permissions (nil policy = deny all)
 - AES-256-GCM encrypted DSN storage
 - Full audit trail for every query
+- Automatic PII detection on metadata sync (7 types: email, phone, IBAN, TCKN, address, IP, credit card) with confidence scoring and admin review
+- Role-based PII masking compiled into SQL (admin: raw, analyst: masked, viewer: hidden) — see `docs/pii-detection-masking.md`
 
 ### Authentication & Authorization
 
@@ -359,7 +361,9 @@ testdata/               Golden SQL test files
 | `PUT` | `/api/datasources/{id}` | Update datasource |
 | `DELETE` | `/api/datasources/{id}` | Delete datasource |
 | `POST` | `/api/datasources/{id}/test` | Test existing connection |
-| `POST` | `/api/datasources/{id}/sync-metadata` | Introspect & store schema |
+| `POST` | `/api/datasources/{id}/sync-metadata` | Introspect & store schema (auto PII scan, `?scan_pii=false` to skip) |
+| `POST` | `/api/datasources/{id}/scan-pii` | Trigger PII detection scan |
+| `GET` | `/api/datasources/{id}/pii-columns` | List PII-annotated columns |
 
 ### Metadata
 
@@ -375,6 +379,9 @@ testdata/               Golden SQL test files
 | `PUT` | `/api/metadata/tables/{id}/translations` | Upsert table translations |
 | `GET` | `/api/metadata/columns/{id}/translations` | Get column locale translations |
 | `PUT` | `/api/metadata/columns/{id}/translations` | Upsert column translations |
+| `PATCH` | `/api/metadata/columns/{id}/pii` | Manually set/override column PII annotation |
+| `DELETE` | `/api/metadata/columns/{id}/pii` | Clear PII annotation (mark reviewed safe) |
+| `GET` | `/api/compliance/pii-summary` | PII compliance summary (`?format=csv`) |
 
 ### Semantic Models
 

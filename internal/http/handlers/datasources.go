@@ -662,11 +662,30 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
+	response := map[string]any{
 		"success":   true,
 		"schemas":   len(result.Schemas),
 		"tables":    len(result.Tables),
 		"columns":   len(result.Columns),
 		"relations": len(result.Relations),
-	})
+	}
+	h.appendPostSyncPIIScan(ctx, r, resolved, response)
+
+	writeJSON(w, http.StatusOK, response)
+}
+
+// appendPostSyncPIIScan runs the post-sync PII scan (opt-out via
+// ?scan_pii=false or config) and attaches the summary to the sync response.
+// Scan failures don't fail the sync: metadata is already persisted here.
+func (h *DatasourceHandler) appendPostSyncPIIScan(ctx context.Context, r *http.Request, resolved *app.ResolvedDatasource, response map[string]any) {
+	autoScan := piiEnabled(h.deps) && (h.deps.Config == nil || h.deps.Config.PII.AutoScanOnSync)
+	if !autoScan || r.URL.Query().Get("scan_pii") == "false" {
+		return
+	}
+	summary, err := runPIIScan(ctx, h.deps, resolved)
+	if err != nil {
+		slog.ErrorContext(ctx, "post-sync pii scan failed", "datasource_id", resolved.Record.ID, "error", err)
+		return
+	}
+	response["pii_scan"] = summary
 }

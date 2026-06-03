@@ -22,6 +22,9 @@ var reBracket = regexp.MustCompile(`\[([^\]]+)\]`)
 // Compiler compiles a LogicalQuery into dialect-specific SQL.
 type Compiler struct {
 	dialect dialect.Dialect
+	// pii holds the per-user PII masking policy for the current compilation.
+	// Nil means no masking. Set via CompileWithPermissions only.
+	pii *PIIMaskingConfig
 }
 
 // NewCompiler creates a new SQL compiler for the given dialect.
@@ -66,13 +69,23 @@ func (c *Compiler) Compile(ctx context.Context, lq *LogicalQuery, model *semanti
 // earlier implementation that injected the filters via regex surgery on the
 // finished SQL — that approach could match the wrong WHERE keyword (e.g.
 // one inside a CTE) and produce dangerous SQL.
+//
+// piiConfig applies column-level PII masking to the projection (and rejects
+// filters on hidden columns). Nil piiConfig means no masking.
 func (c *Compiler) CompileWithPermissions(
 	ctx context.Context,
 	lq *LogicalQuery,
 	model *semantic.SemanticModel,
 	rowFilters []security.RowFilter,
+	piiConfig *PIIMaskingConfig,
 ) (*CompiledQuery, error) {
-	if len(rowFilters) == 0 {
+	if piiConfig != nil {
+		// Clone so the masking policy is scoped to this compilation; nested
+		// subquery/CTE compilation reuses the same compiler and must apply
+		// the same policy.
+		c = &Compiler{dialect: c.dialect, pii: piiConfig}
+	}
+	if len(rowFilters) == 0 && piiConfig == nil {
 		return c.Compile(ctx, lq, model)
 	}
 	args := make([]any, 0, 8)
@@ -330,7 +343,7 @@ func (c *Compiler) resolveCustomToken(
 	token = strings.TrimSpace(token)
 	for name, dim := range dimMap {
 		if strings.EqualFold(name, token) {
-			return c.dimensionSQL(dim, resolver)
+			return c.dimensionOutputSQL(dim, resolver)
 		}
 	}
 	for name, m := range metricMap {
@@ -392,7 +405,7 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]*semantic.D
 				}
 				return nil, validationErrWithCode("select", errmsg.UnknownDimensionMsg(item.Name), errmsg.CodeUnknownDimension, item.Name, suggestAlternatives(item.Name, dimKeys))
 			}
-			col := c.dimensionSQL(dim, resolver)
+			col := c.dimensionOutputSQL(dim, resolver)
 			alias := item.Alias
 			if alias == "" {
 				alias = dim.Name
@@ -720,6 +733,9 @@ func (c *Compiler) buildWhere(filters []Filter, dimMap map[string]*semantic.Dime
 // resolveFilterLHS returns SQL for the left-hand side of a filter (quoted column, metric expression, or date_trunc).
 func (c *Compiler) resolveFilterLHS(field string, dimMap map[string]*semantic.Dimension, metricMap map[string]*semantic.Metric, model *semantic.SemanticModel, resolver *SchemaResolver) (string, error) {
 	if dim, ok := dimMap[field]; ok {
+		if c.filterFieldHidden(dim, resolver) {
+			return "", validationErrWithCode("filters", errmsg.HiddenPIIFieldMsg(field), errmsg.CodeHiddenPIIField, field, nil)
+		}
 		return c.dimensionSQL(dim, resolver), nil
 	}
 	if metric, ok := metricMap[field]; ok {
@@ -784,7 +800,7 @@ func (c *Compiler) buildGroupBy(groupBy []GroupBy, dimMap map[string]*semantic.D
 			}
 			return "", validationErrWithCode("group_by", errmsg.UnknownDimensionMsg(gb.Field), errmsg.CodeUnknownDimension, gb.Field, suggestAlternatives(gb.Field, dimKeys))
 		}
-		parts = append(parts, c.dimensionSQL(dim, resolver))
+		parts = append(parts, c.dimensionOutputSQL(dim, resolver))
 	}
 	return strings.Join(parts, ", "), nil
 }
@@ -801,7 +817,7 @@ func (c *Compiler) buildOrderBy(orderBy []OrderBy, dimMap map[string]*semantic.D
 			if dir == "" {
 				dir = "ASC"
 			}
-			parts = append(parts, c.dimensionSQL(dim, resolver)+" "+dir)
+			parts = append(parts, c.dimensionOutputSQL(dim, resolver)+" "+dir)
 		} else if metric, ok := metricMap[ob.Field]; ok {
 			dir := strings.ToUpper(ob.Direction)
 			if dir == "" {

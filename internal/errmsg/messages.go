@@ -28,7 +28,12 @@ const (
 	CodeNegativeOffset        = "NEGATIVE_OFFSET"
 	CodeDateValueTypeMismatch = "DATE_VALUE_TYPE_MISMATCH"
 	CodeAmbiguousYearCoverage = "AMBIGUOUS_YEAR_COVERAGE"
+	CodeHiddenPIIField        = "HIDDEN_PII_FIELD"
 )
+
+// HiddenPIIField is the message prefix for filters referencing PII columns
+// hidden from the current user.
+const HiddenPIIField = "field is hidden by PII policy"
 
 func UnknownDimensionMsg(name string) string {
 	return fmt.Sprintf("%s: %s", UnknownDimension, name)
@@ -56,4 +61,8 @@ func ErrUnknownField(name string) error {
 
 func RowFilterUnknownField(name string) error {
 	return fmt.Errorf("%s: %s", RowFilterUnknownFieldPrefix, name)
+}
+
+func HiddenPIIFieldMsg(name string) string {
+	return fmt.Sprintf("%s: %s", HiddenPIIField, name)
 }

@@ -229,7 +229,7 @@ func TestCompiler_PermissionInjection(t *testing.T) {
 	}
 
 	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.CompileWithPermissions(context.Background(), &lq, model, rowFilters)
+	cq, err := compiler.CompileWithPermissions(context.Background(), &lq, model, rowFilters, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -277,7 +277,7 @@ func TestCompiler_PermissionInjectionDoesNotMatchCTEWhere(t *testing.T) {
 	}
 
 	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.CompileWithPermissions(context.Background(), &lq, model, rowFilters)
+	cq, err := compiler.CompileWithPermissions(context.Background(), &lq, model, rowFilters, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -350,7 +350,7 @@ func TestCompiler_CompositeRowFilterTargetsCorrectTable(t *testing.T) {
 	}
 
 	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.CompileWithPermissions(context.Background(), &lq, model, rowFilters)
+	cq, err := compiler.CompileWithPermissions(context.Background(), &lq, model, rowFilters, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

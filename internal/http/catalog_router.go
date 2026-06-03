@@ -66,6 +66,10 @@ func registerCatalogAPIRoutes(r chi.Router, deps *app.CatalogDeps, authClient *b
 	r.With(bimw.RequireDatasourceAccess(authClient, "read")).Post("/datasources/{id}/test", dsHandler.Test)
 	r.With(bimw.RequireDatasourceAccess(authClient, "write")).Post("/datasources/{id}/sync-metadata", dsHandler.SyncMetadata)
 
+	piiHandler := handlers.NewPIIHandler(deps)
+	r.With(bimw.RequireDatasourceAccess(authClient, "write")).Post("/datasources/{id}/scan-pii", piiHandler.Scan)
+	r.With(bimw.RequireDatasourceAccess(authClient, "read")).Get("/datasources/{id}/pii-columns", piiHandler.ListColumns)
+
 	semHandler := handlers.NewSemanticHandler(deps)
 	semHandler.SetCatalogMetricsRecorder(GetMetrics())
 	r.Post("/semantic/models", semHandler.CreateModel)
@@ -122,6 +126,9 @@ func registerCatalogAPIRoutes(r chi.Router, deps *app.CatalogDeps, authClient *b
 	r.Put("/metadata/tables/{id}/translations", metaHandler.PutTableTranslations)
 	r.Get("/metadata/columns/{id}/translations", metaHandler.GetColumnTranslations)
 	r.Put("/metadata/columns/{id}/translations", metaHandler.PutColumnTranslations)
+	r.With(bimw.RequirePermission(authClient, "admin:roles")).Patch("/metadata/columns/{id}/pii", piiHandler.UpdateColumn)
+	r.With(bimw.RequirePermission(authClient, "admin:roles")).Delete("/metadata/columns/{id}/pii", piiHandler.DeleteColumn)
+	r.With(bimw.RequirePermission(authClient, "admin:roles")).Get("/compliance/pii-summary", piiHandler.ComplianceSummary)
 
 	permHandler := handlers.NewPermissionHandler(deps)
 	r.With(bimw.RequirePermission(authClient, "admin:roles")).Route("/permissions", func(r chi.Router) {

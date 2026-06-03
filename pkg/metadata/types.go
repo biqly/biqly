@@ -83,6 +83,12 @@ type Column struct {
 	ReferencedTable  *string   `json:"referenced_table" db:"referenced_table"`
 	ReferencedColumn *string   `json:"referenced_column" db:"referenced_column"`
 	CreatedAt        time.Time `json:"created_at" db:"created_at"`
+
+	PIIType            *string    `json:"pii_type,omitempty" db:"pii_type"`
+	PIIConfidence      *float64   `json:"pii_confidence,omitempty" db:"pii_confidence"`
+	PIIDetectedAt      *time.Time `json:"pii_detected_at,omitempty" db:"pii_detected_at"`
+	PIIReviewedBy      *string    `json:"pii_reviewed_by,omitempty" db:"pii_reviewed_by"`
+	PIIMaskingStrategy *string    `json:"pii_masking_strategy,omitempty" db:"pii_masking_strategy"`
 }
 
 // ColumnEmbedding pairs a fully-qualified column with its stored embedding.
@@ -150,14 +156,20 @@ type PermissionRowFilter struct {
 	Value    any    `json:"value,omitempty"`
 }
 
+// PIIColumnAccess describes how a user may access a PII-annotated column.
+type PIIColumnAccess struct {
+	Access string `json:"access"` // "raw", "masked", "hidden"
+}
+
 // SecurityPolicy represents a row-level and column-level access control policy in the database.
 type SecurityPolicy struct {
-	ID            string                `json:"id" db:"id"`
-	UserID        string                `json:"user_id" db:"user_id"`
-	DatasourceID  string                `json:"datasource_id" db:"datasource_id"`
-	AllowedModels []string              `json:"allowed_models" db:"allowed_models"`
-	DeniedFields  []string              `json:"denied_fields" db:"denied_fields"`
-	RowFilters    []PermissionRowFilter `json:"row_filters" db:"row_filters"`
-	CreatedAt     time.Time             `json:"created_at" db:"created_at"`
-	UpdatedAt     time.Time             `json:"updated_at" db:"updated_at"`
+	ID            string                     `json:"id" db:"id"`
+	UserID        string                     `json:"user_id" db:"user_id"`
+	DatasourceID  string                     `json:"datasource_id" db:"datasource_id"`
+	AllowedModels []string                   `json:"allowed_models" db:"allowed_models"`
+	DeniedFields  []string                   `json:"denied_fields" db:"denied_fields"`
+	RowFilters    []PermissionRowFilter      `json:"row_filters" db:"row_filters"`
+	PIIPolicy     map[string]PIIColumnAccess `json:"pii_policy,omitempty" db:"pii_policy"`
+	CreatedAt     time.Time                  `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time                  `json:"updated_at" db:"updated_at"`
 }

@@ -20,6 +20,7 @@ type (
 	AIQueryHistoryEntry    = pkgmetadata.AIQueryHistoryEntry
 	PermissionPolicyRecord = pkgmetadata.PermissionPolicyRecord
 	PermissionRowFilter    = pkgmetadata.PermissionRowFilter
+	PIIColumnAccess        = pkgmetadata.PIIColumnAccess
 	SecurityPolicy         = pkgmetadata.SecurityPolicy
 )
 

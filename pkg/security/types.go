@@ -7,6 +7,9 @@ type PermissionPolicy struct {
 	AllowedModels []string    `json:"allowed_models,omitempty"`
 	DeniedFields  []string    `json:"denied_fields,omitempty"`
 	RowFilters    []RowFilter `json:"row_filters,omitempty"`
+	// PIIPolicy maps a qualified column name to its access level:
+	// "raw", "masked" or "hidden".
+	PIIPolicy map[string]string `json:"pii_policy,omitempty"`
 }
 
 // RowFilter defines a mandatory filter to inject into queries.

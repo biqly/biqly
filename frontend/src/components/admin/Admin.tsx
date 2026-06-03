@@ -26,6 +26,7 @@ const SharedResourcesList = lazyWithPreload(() => import('../sharing/SharedResou
 const AIProvidersPanel = lazyWithPreload(() => import('./AIProvidersPanel').then(m => ({ default: m.AIProvidersPanel })))
 const RowLevelSecurityPanel = lazyWithPreload(() => import('./RowLevelSecurityPanel').then(m => ({ default: m.RowLevelSecurityPanel })))
 const FieldPermissionPanel = lazyWithPreload(() => import('./FieldPermissionPanel').then(m => ({ default: m.FieldPermissionPanel })))
+const PIIDetectionPanel = lazyWithPreload(() => import('./PIIDetectionPanel').then(m => ({ default: m.PIIDetectionPanel })))
 const PlatformSettingsPanel = lazyWithPreload(() => import('./PlatformSettingsPanel').then(m => ({ default: m.PlatformSettingsPanel })))
 const LDAPSettingsPanel = lazyWithPreload(() => import('./LDAPSettingsPanel').then(m => ({ default: m.LDAPSettingsPanel })))
 
@@ -43,6 +44,7 @@ const TAB_COMPONENTS: Record<AdminTab, any> = {
   ai_providers: AIProvidersPanel,
   row_level_security: RowLevelSecurityPanel,
   field_permissions: FieldPermissionPanel,
+  pii_detection: PIIDetectionPanel,
   ldap: LDAPSettingsPanel,
   platform_settings: PlatformSettingsPanel,
 }
@@ -128,6 +130,7 @@ export default function Admin() {
           {tab === 'ai_providers' && <AIProvidersPanel />}
           {tab === 'row_level_security' && <RowLevelSecurityPanel token={accessToken} />}
           {tab === 'field_permissions' && <FieldPermissionPanel token={accessToken} />}
+          {tab === 'pii_detection' && <PIIDetectionPanel token={accessToken} />}
           {tab === 'ldap' && <LDAPSettingsPanel token={accessToken} />}
           {tab === 'platform_settings' && <PlatformSettingsPanel token={accessToken} />}
         </Suspense>

@@ -24,6 +24,26 @@ type Config struct {
 	Jobs      JobsConfig
 	Auth      AuthConfig
 	Composite CompositeConfig
+	PII       PIIConfig
+}
+
+// PIIConfig controls automatic PII detection and role-based masking.
+type PIIConfig struct {
+	// Enabled toggles the whole PII subsystem (detection + masking).
+	Enabled bool
+	// DetectionThreshold is the minimum combined confidence (0–1) required
+	// to flag a column as PII.
+	DetectionThreshold float64
+	// SampleDataLimit is the number of non-NULL sample values fetched per
+	// column during a scan.
+	SampleDataLimit int
+	// AutoScanOnSync runs a PII scan after every metadata sync (can still be
+	// suppressed per request via ?scan_pii=false).
+	AutoScanOnSync bool
+	// DefaultMaskingStrategy names the masking strategy applied to columns
+	// without an explicit per-column strategy ("partial" is the only
+	// built-in today).
+	DefaultMaskingStrategy string
 }
 
 // CompositeConfig caps the size of composite semantic models. Zero disables a limit.
@@ -332,6 +352,13 @@ func Load() (*Config, error) {
 			MaxComponents:   getEnvAsInt("BI_COMPOSITE_MAX_COMPONENTS", 8),
 			MaxCrossJoins:   getEnvAsInt("BI_COMPOSITE_MAX_CROSS_JOINS", 16),
 			MaxMergedFields: getEnvAsInt("BI_COMPOSITE_MAX_MERGED_FIELDS", 300),
+		},
+		PII: PIIConfig{
+			Enabled:                getEnvAsBool("BI_PII_ENABLED", true),
+			DetectionThreshold:     getEnvAsFloat("BI_PII_DETECTION_THRESHOLD", 0.6),
+			SampleDataLimit:        getEnvAsInt("BI_PII_SAMPLE_DATA_LIMIT", 50),
+			AutoScanOnSync:         getEnvAsBool("BI_PII_AUTO_SCAN_ON_SYNC", true),
+			DefaultMaskingStrategy: getEnv("BI_PII_DEFAULT_MASKING_STRATEGY", "partial"),
 		},
 	}
 

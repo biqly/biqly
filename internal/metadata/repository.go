@@ -755,7 +755,7 @@ func scanTable(s platformdb.Scanner) (Table, error) {
 
 func scanColumn(s platformdb.Scanner) (Column, error) {
 	var c Column
-	if err := s.Scan(&c.ID, &c.DatasourceID, &c.TableID, &c.SchemaName, &c.TableName, &c.ColumnName, &c.DataType, &c.Nullable, &c.OrdinalPosition, &c.CharMaxLength, &c.NumericPrecision, &c.NumericScale, &c.ColumnDefault, &c.Description, &c.IsPrimaryKey, &c.IsForeignKey, &c.ReferencedSchema, &c.ReferencedTable, &c.ReferencedColumn, &c.CreatedAt); err != nil {
+	if err := s.Scan(&c.ID, &c.DatasourceID, &c.TableID, &c.SchemaName, &c.TableName, &c.ColumnName, &c.DataType, &c.Nullable, &c.OrdinalPosition, &c.CharMaxLength, &c.NumericPrecision, &c.NumericScale, &c.ColumnDefault, &c.Description, &c.IsPrimaryKey, &c.IsForeignKey, &c.ReferencedSchema, &c.ReferencedTable, &c.ReferencedColumn, &c.CreatedAt, &c.PIIType, &c.PIIConfidence, &c.PIIDetectedAt, &c.PIIReviewedBy, &c.PIIMaskingStrategy); err != nil {
 		return c, fmt.Errorf("scan column: %w", err)
 	}
 	return c, nil

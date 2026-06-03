@@ -599,10 +599,10 @@ func TestUpsertColumns_And_GetColumn(t *testing.T) {
 	now := time.Now()
 	state.queries = []queryMock{
 		{
-			Pattern: "SELECT id, datasource_id, table_id, schema_name, table_name, column_name, data_type, nullable, ordinal_position, character_maximum_length, numeric_precision, numeric_scale, column_default, description, is_primary_key, is_foreign_key, referenced_schema, referenced_table, referenced_column, created_at FROM columns",
-			Cols:    []string{"id", "datasource_id", "table_id", "schema_name", "table_name", "column_name", "data_type", "nullable", "ordinal_position", "character_maximum_length", "numeric_precision", "numeric_scale", "column_default", "description", "is_primary_key", "is_foreign_key", "referenced_schema", "referenced_table", "referenced_column", "created_at"},
+			Pattern: "SELECT id, datasource_id, table_id, schema_name, table_name, column_name, data_type, nullable, ordinal_position, character_maximum_length, numeric_precision, numeric_scale, column_default, description, is_primary_key, is_foreign_key, referenced_schema, referenced_table, referenced_column, created_at, pii_type, pii_confidence, pii_detected_at, pii_reviewed_by, pii_masking_strategy FROM columns",
+			Cols:    []string{"id", "datasource_id", "table_id", "schema_name", "table_name", "column_name", "data_type", "nullable", "ordinal_position", "character_maximum_length", "numeric_precision", "numeric_scale", "column_default", "description", "is_primary_key", "is_foreign_key", "referenced_schema", "referenced_table", "referenced_column", "created_at", "pii_type", "pii_confidence", "pii_detected_at", "pii_reviewed_by", "pii_masking_strategy"},
 			Rows: [][]driver.Value{
-				{"col-1", "ds-1", "t-1", "public", "users", "username", "varchar", true, colCount, charMax, prec, scale, defVal, desc, true, false, nil, nil, nil, now},
+				{"col-1", "ds-1", "t-1", "public", "users", "username", "varchar", true, colCount, charMax, prec, scale, defVal, desc, true, false, nil, nil, nil, now, nil, nil, nil, nil, nil},
 			},
 		},
 	}
@@ -671,9 +671,9 @@ func TestSearchColumns_And_Tables(t *testing.T) {
 	state.queries = []queryMock{
 		{
 			Pattern: "FROM columns",
-			Cols:    []string{"id", "datasource_id", "table_id", "schema_name", "table_name", "column_name", "data_type", "nullable", "ordinal_position", "character_maximum_length", "numeric_precision", "numeric_scale", "column_default", "description", "is_primary_key", "is_foreign_key", "referenced_schema", "referenced_table", "referenced_column", "created_at"},
+			Cols:    []string{"id", "datasource_id", "table_id", "schema_name", "table_name", "column_name", "data_type", "nullable", "ordinal_position", "character_maximum_length", "numeric_precision", "numeric_scale", "column_default", "description", "is_primary_key", "is_foreign_key", "referenced_schema", "referenced_table", "referenced_column", "created_at", "pii_type", "pii_confidence", "pii_detected_at", "pii_reviewed_by", "pii_masking_strategy"},
 			Rows: [][]driver.Value{
-				{"col-1", "ds-1", "t-1", "public", "users", "username", "varchar", true, 1, 100, 10, 2, "df", desc, true, false, nil, nil, nil, now},
+				{"col-1", "ds-1", "t-1", "public", "users", "username", "varchar", true, 1, 100, 10, 2, "df", desc, true, false, nil, nil, nil, now, nil, nil, nil, nil, nil},
 			},
 		},
 		{
@@ -1346,24 +1346,24 @@ func TestSecurityPolicies(t *testing.T) {
 
 	state.queries = []queryMock{
 		{
-			Pattern: "SELECT id, user_id, datasource_id, allowed_models, denied_fields, row_filters, created_at, updated_at FROM permissions ORDER BY",
-			Cols:    []string{"id", "user_id", "datasource_id", "allowed_models", "denied_fields", "row_filters", "created_at", "updated_at"},
+			Pattern: "SELECT id, user_id, datasource_id, allowed_models, denied_fields, row_filters, pii_policy, created_at, updated_at FROM permissions ORDER BY",
+			Cols:    []string{"id", "user_id", "datasource_id", "allowed_models", "denied_fields", "row_filters", "pii_policy", "created_at", "updated_at"},
 			Rows: [][]driver.Value{
-				{"p-1", "role:viewer", "ds-1", `{model1}`, `{field1}`, []byte(`[{"field":"country", "operator":"eq", "value":"US"}]`), now, now},
+				{"p-1", "role:viewer", "ds-1", `{model1}`, `{field1}`, []byte(`[{"field":"country", "operator":"eq", "value":"US"}]`), []byte(`{"public.customers.email":{"access":"masked"}}`), now, now},
 			},
 		},
 		{
-			Pattern: "SELECT id, user_id, datasource_id, allowed_models, denied_fields, row_filters, created_at, updated_at FROM permissions WHERE id =",
-			Cols:    []string{"id", "user_id", "datasource_id", "allowed_models", "denied_fields", "row_filters", "created_at", "updated_at"},
+			Pattern: "SELECT id, user_id, datasource_id, allowed_models, denied_fields, row_filters, pii_policy, created_at, updated_at FROM permissions WHERE id =",
+			Cols:    []string{"id", "user_id", "datasource_id", "allowed_models", "denied_fields", "row_filters", "pii_policy", "created_at", "updated_at"},
 			Rows: [][]driver.Value{
-				{"p-1", "role:viewer", "ds-1", `{model1}`, `{field1}`, []byte(`[{"field":"country", "operator":"eq", "value":"US"}]`), now, now},
+				{"p-1", "role:viewer", "ds-1", `{model1}`, `{field1}`, []byte(`[{"field":"country", "operator":"eq", "value":"US"}]`), []byte(`{"public.customers.email":{"access":"masked"}}`), now, now},
 			},
 		},
 		{
-			Pattern: "SELECT id, user_id, datasource_id, allowed_models, denied_fields, row_filters, created_at, updated_at FROM permissions WHERE user_id = $1 AND datasource_id =",
-			Cols:    []string{"id", "user_id", "datasource_id", "allowed_models", "denied_fields", "row_filters", "created_at", "updated_at"},
+			Pattern: "SELECT id, user_id, datasource_id, allowed_models, denied_fields, row_filters, pii_policy, created_at, updated_at FROM permissions WHERE user_id = $1 AND datasource_id =",
+			Cols:    []string{"id", "user_id", "datasource_id", "allowed_models", "denied_fields", "row_filters", "pii_policy", "created_at", "updated_at"},
 			Rows: [][]driver.Value{
-				{"p-1", "role:viewer", "ds-1", `{model1}`, `{field1}`, []byte(`[{"field":"country", "operator":"eq", "value":"US"}]`), now, now},
+				{"p-1", "role:viewer", "ds-1", `{model1}`, `{field1}`, []byte(`[{"field":"country", "operator":"eq", "value":"US"}]`), []byte(`{"public.customers.email":{"access":"masked"}}`), now, now},
 			},
 		},
 	}

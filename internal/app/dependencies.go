@@ -92,6 +92,7 @@ type CatalogDeps struct {
 	PoolCache     *datasource.PoolCache
 	QueryService  *core.QueryService
 	DashboardRepo *dashboard.Repository
+	AuditLogger   *audit.Logger
 }
 
 // CatalogDeps returns a structured copy of dependencies for the Catalog subsystem.
@@ -106,6 +107,7 @@ func (d *Dependencies) CatalogDeps() *CatalogDeps {
 		PoolCache:     d.PoolCache,
 		QueryService:  d.QueryService,
 		DashboardRepo: d.DashboardRepo,
+		AuditLogger:   d.AuditLogger,
 	}
 }
 
@@ -237,6 +239,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 
 	validator, executor := provideQueryEngine(cfg)
 	poolCache := datasource.NewPoolCache()
+	auditLogger := audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(db, slog.Default()))
 	queryService := core.NewQueryService(core.QueryServiceDeps{
 		Models:      semanticRepo,
 		Composites:  compositeRepo,
@@ -247,6 +250,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		History:     metaRepo,
 		Encryptor:   encryptor,
 		Pools:       poolCache,
+		PIIPolicies: providePIIPolicyService(cfg, metaRepo, auditLogger),
 	})
 
 	aiBits, err := setupAI(ctx, cfg, db, metaRepo, reg, encryptor)
@@ -269,7 +273,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		AIDescriber:     aiBits.describer,
 		Encryptor:       encryptor,
 		EvalRepo:        aiBits.evalRepo,
-		AuditLogger:     audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(db, slog.Default())),
+		AuditLogger:     auditLogger,
 		Embedder:        aiBits.embedder,
 		AIEmbedMeta:     aiBits.embedMeta,
 		TimeGrains:      aiBits.timeGrains,

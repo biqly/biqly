@@ -12,7 +12,7 @@ import (
 // ListSecurityPolicies returns all security policy records.
 func (r *Repository) ListSecurityPolicies(ctx context.Context) ([]SecurityPolicy, error) {
 	return platformdb.QuerySliceErr(ctx, r.db, "list security policies", `
-		SELECT id, user_id, datasource_id, allowed_models, denied_fields, row_filters, created_at, updated_at
+		SELECT id, user_id, datasource_id, allowed_models, denied_fields, row_filters, pii_policy, created_at, updated_at
 		FROM permissions
 		ORDER BY user_id, datasource_id
 	`, nil, scanSecurityPolicy)
@@ -21,7 +21,7 @@ func (r *Repository) ListSecurityPolicies(ctx context.Context) ([]SecurityPolicy
 // GetSecurityPolicy retrieves a security policy by ID.
 func (r *Repository) GetSecurityPolicy(ctx context.Context, id string) (*SecurityPolicy, error) {
 	query := `
-		SELECT id, user_id, datasource_id, allowed_models, denied_fields, row_filters, created_at, updated_at
+		SELECT id, user_id, datasource_id, allowed_models, denied_fields, row_filters, pii_policy, created_at, updated_at
 		FROM permissions
 		WHERE id = $1::uuid
 	`
@@ -36,7 +36,7 @@ func (r *Repository) GetSecurityPolicy(ctx context.Context, id string) (*Securit
 // GetSecurityPolicyByKeys retrieves a security policy by user_id and datasource_id.
 func (r *Repository) GetSecurityPolicyByKeys(ctx context.Context, userID string, datasourceID string) (*SecurityPolicy, error) {
 	query := `
-		SELECT id, user_id, datasource_id, allowed_models, denied_fields, row_filters, created_at, updated_at
+		SELECT id, user_id, datasource_id, allowed_models, denied_fields, row_filters, pii_policy, created_at, updated_at
 		FROM permissions
 		WHERE user_id = $1 AND datasource_id = $2::uuid
 	`
@@ -72,16 +72,25 @@ func (r *Repository) UpsertSecurityPolicy(ctx context.Context, policy *SecurityP
 	if err != nil {
 		return fmt.Errorf("marshal row filters: %w", err)
 	}
+	piiPolicy := policy.PIIPolicy
+	if piiPolicy == nil {
+		piiPolicy = map[string]PIIColumnAccess{}
+	}
+	piiPolicyJSON, err := json.Marshal(piiPolicy)
+	if err != nil {
+		return fmt.Errorf("marshal pii policy: %w", err)
+	}
 
 	query := `
 		INSERT INTO permissions (
-			id, user_id, datasource_id, allowed_models, denied_fields, row_filters, created_at, updated_at
+			id, user_id, datasource_id, allowed_models, denied_fields, row_filters, pii_policy, created_at, updated_at
 		)
-		VALUES ($1::uuid, $2, $3::uuid, $4, $5, $6::jsonb, now(), now())
+		VALUES ($1::uuid, $2, $3::uuid, $4, $5, $6::jsonb, $7::jsonb, now(), now())
 		ON CONFLICT (user_id, datasource_id) DO UPDATE SET
 			allowed_models = EXCLUDED.allowed_models,
 			denied_fields = EXCLUDED.denied_fields,
 			row_filters = EXCLUDED.row_filters,
+			pii_policy = EXCLUDED.pii_policy,
 			updated_at = now()
 	`
 	_, err = r.db.ExecContext(ctx, query,
@@ -91,6 +100,7 @@ func (r *Repository) UpsertSecurityPolicy(ctx context.Context, policy *SecurityP
 		pq.StringArray(policy.AllowedModels),
 		pq.StringArray(policy.DeniedFields),
 		rowFiltersJSON,
+		piiPolicyJSON,
 	)
 	if err != nil {
 		return fmt.Errorf("upsert security policy: %w", err)
@@ -104,6 +114,7 @@ func scanSecurityPolicy(s platformdb.Scanner) (SecurityPolicy, error) {
 		allowed    pq.StringArray
 		denied     pq.StringArray
 		rowFilters []byte
+		piiPolicy  []byte
 	)
 	if err := s.Scan(
 		&policy.ID,
@@ -112,6 +123,7 @@ func scanSecurityPolicy(s platformdb.Scanner) (SecurityPolicy, error) {
 		&allowed,
 		&denied,
 		&rowFilters,
+		&piiPolicy,
 		&policy.CreatedAt,
 		&policy.UpdatedAt,
 	); err != nil {
@@ -122,6 +134,11 @@ func scanSecurityPolicy(s platformdb.Scanner) (SecurityPolicy, error) {
 	if len(rowFilters) > 0 {
 		if err := json.Unmarshal(rowFilters, &policy.RowFilters); err != nil {
 			return policy, fmt.Errorf("row filters: %w", err)
+		}
+	}
+	if len(piiPolicy) > 0 {
+		if err := json.Unmarshal(piiPolicy, &policy.PIIPolicy); err != nil {
+			return policy, fmt.Errorf("pii policy: %w", err)
 		}
 	}
 	return policy, nil

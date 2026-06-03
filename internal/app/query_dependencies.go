@@ -43,6 +43,7 @@ func NewQueryDependencies(ctx context.Context, cfg *config.Config) (*Dependencie
 		slog.Info("query engine using Catalog Service for model/datasource/history",
 			"catalog_url", catalog.BaseURL())
 	}
+	auditLogger := audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(db, slog.Default()))
 	queryService := core.NewQueryService(core.QueryServiceDeps{
 		Models:      models,
 		Composites:  composites,
@@ -52,6 +53,7 @@ func NewQueryDependencies(ctx context.Context, cfg *config.Config) (*Dependencie
 		Executor:    executor,
 		History:     history,
 		Encryptor:   encryptor,
+		PIIPolicies: providePIIPolicyService(cfg, metaRepo, auditLogger),
 	})
 
 	return &Dependencies{
@@ -64,6 +66,6 @@ func NewQueryDependencies(ctx context.Context, cfg *config.Config) (*Dependencie
 		Executor:     executor,
 		QueryService: queryService,
 		Encryptor:    encryptor,
-		AuditLogger:  audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(db, slog.Default())),
+		AuditLogger:  auditLogger,
 	}, nil
 }

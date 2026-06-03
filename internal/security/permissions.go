@@ -103,3 +103,28 @@ func (pm *PermissionManager) HasFieldAccess(policy *PermissionPolicy, modelName,
 	}
 	return !FieldIsDenied(policy, modelName+"."+fieldName, fieldName)
 }
+
+// GetPIIPolicy returns the explicit per-column PII access overrides for a
+// user, keyed by qualified column name. A nil policy returns nil; role
+// defaults are resolved downstream (fail-closed).
+func (pm *PermissionManager) GetPIIPolicy(policy *PermissionPolicy) map[string]string {
+	if policy == nil {
+		return nil
+	}
+	return policy.PIIPolicy
+}
+
+// PIIFieldIsHidden reports whether qualifiedField or plainField is explicitly
+// hidden by the user's PII policy. Unrecognized access values fail closed to
+// hidden; absent entries are not hidden here (role defaults apply later).
+func PIIFieldIsHidden(policy *PermissionPolicy, qualifiedField, plainField string) bool {
+	if policy == nil {
+		return true
+	}
+	for _, key := range []string{qualifiedField, plainField} {
+		if access, ok := policy.PIIPolicy[key]; ok && access != "raw" && access != "masked" {
+			return true
+		}
+	}
+	return false
+}

@@ -56,6 +56,8 @@ type QueryServiceDeps struct {
 	// Pools caches *sql.DB handles across query executions. When nil the
 	// service falls back to opening a fresh pool per query (legacy behavior).
 	Pools *datasource.PoolCache
+	// PIIPolicies resolves per-user PII masking configs. Nil disables masking.
+	PIIPolicies *PIIPolicyService
 }
 
 type QueryService struct {
@@ -69,6 +71,7 @@ type QueryService struct {
 	logger      *slog.Logger
 	encryptor   *security.Encryption
 	pools       *datasource.PoolCache
+	piiPolicies *PIIPolicyService
 }
 
 type CompileResult struct {
@@ -96,6 +99,7 @@ func NewQueryService(deps QueryServiceDeps) *QueryService {
 		logger:      deps.Logger,
 		encryptor:   deps.Encryptor,
 		pools:       deps.Pools,
+		piiPolicies: deps.PIIPolicies,
 	}
 }
 
@@ -141,7 +145,12 @@ func (s *QueryService) CompileWithContext(ctx context.Context, lq *query.Logical
 	if err := s.validator.Validate(lq, model); err != nil {
 		return nil, ToServiceError(err)
 	}
-	compiled, err := query.NewCompiler(driver.Dialect()).Compile(ctx, lq, model)
+	// Per-user PII masking; errors fail the query rather than run unmasked.
+	piiConfig, err := s.piiPolicies.MaskingConfig(ctx, lq.DatasourceID)
+	if err != nil {
+		return nil, ToServiceError(fmt.Errorf("resolve pii policy: %w", err))
+	}
+	compiled, err := query.NewCompiler(driver.Dialect()).CompileWithPermissions(ctx, lq, model, nil, piiConfig)
 	if err != nil {
 		var valErrs query.ValidationErrors
 		if errors.As(err, &valErrs) {

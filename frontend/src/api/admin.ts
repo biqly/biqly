@@ -373,6 +373,12 @@ export interface PermissionRowFilter {
   value?: any
 }
 
+export type PIIAccessLevel = 'raw' | 'masked' | 'hidden'
+
+export interface PIIColumnAccess {
+  access: PIIAccessLevel
+}
+
 export interface SecurityPolicy {
   id?: string
   user_id: string
@@ -380,6 +386,63 @@ export interface SecurityPolicy {
   allowed_models: string[]
   denied_fields: string[]
   row_filters: PermissionRowFilter[]
+  pii_policy?: Record<string, PIIColumnAccess>
+}
+
+export interface PIIColumn {
+  column_id: string
+  schema: string
+  table: string
+  column: string
+  pii_type: string
+  confidence: number | null
+  masking_strategy: string | null
+  reviewed_by: string | null
+}
+
+export interface PIIScanSummary {
+  scanned_columns: number
+  detected: Record<string, number>
+}
+
+export async function listPIIColumns(token: string, datasourceID: string): Promise<PIIColumn[]> {
+  return apiFetch<PIIColumn[]>(
+    'GET',
+    `/api/datasources/${encodeURIComponent(datasourceID)}/pii-columns`,
+    undefined,
+    { token },
+  )
+}
+
+export async function scanPII(token: string, datasourceID: string): Promise<PIIScanSummary> {
+  return apiFetch<PIIScanSummary>(
+    'POST',
+    `/api/datasources/${encodeURIComponent(datasourceID)}/scan-pii`,
+    undefined,
+    { token },
+  )
+}
+
+export async function updateColumnPII(
+  token: string,
+  columnID: string,
+  body: { pii_type: string; pii_masking_strategy?: string; pii_reviewed_by: string },
+): Promise<void> {
+  await apiFetch<unknown>(
+    'PATCH',
+    `/api/metadata/columns/${encodeURIComponent(columnID)}/pii`,
+    body,
+    { token },
+  )
+}
+
+export async function deleteColumnPII(token: string, columnID: string, reviewedBy: string): Promise<void> {
+  await apiFetch<void>(
+    'DELETE',
+    `/api/metadata/columns/${encodeURIComponent(columnID)}/pii?reviewed_by=${encodeURIComponent(reviewedBy)}`,
+    undefined,
+    { token },
+  )
 }
 
 export async function listSecurityPolicies(token: string): Promise<SecurityPolicy[]> {
