@@ -52,3 +52,9 @@ linters:
           msg: use structured logger instead of fmt.Print*
         - pattern: ^panic$
           msg: avoid panic in application code
+
+issues:
+  exclude-rules:
+    - path: ^cmd/
+      linters:
+        - forbidigo

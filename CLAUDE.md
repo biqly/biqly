@@ -1,73 +1,97 @@
-# Biqly — Agent Memory (Text-to-SQL / NL-to-LogicalQuery)
+# claude.md
 
-Source of truth for product shape is `README.md`. This file exists to keep **agent-facing constraints** and **navigation hints** aligned with current code.
+## user-global rules
 
-## Hard constraints (do not violate)
+these rules apply in every project and override any default skill template or conflicting project-local rule.
 
-- **LogicalQuery-first**: AI outputs `LogicalQuery` JSON, never SQL.
-- **Compiler owns SQL**: always parameterized, dialect-quoted identifiers; never concatenate values.
-- **Security gates stay strict**: read-only checker, permissions, row-level filter injection, timeouts, row limits.
-- **Fail closed**: missing/unknown permission policy must deny.
-- **No secrets in logs**: DSNs, API keys, tokens, session IDs.
+1. don't assume. don't hide confusion. surface tradeoffs.
+2. minimum code that solves the problem. nothing speculative.
+3. touch only what you must. clean up only your own mess.
+4. define success criteria. loop until verified.
+5. when something is asked, answer compactly unless a detailed answer is explicitly requested.
 
-## Runtime modes
+## gograph — go repository intelligence
+<!-- gograph-start: do not remove -->
+rules (enforced when gograph mcp server is connected):
 
-- **Monolith**: `cmd/api` serves everything on `:8888`.
-- **Microservices + BFF** (BFF remains `:8888` and proxies when service URLs are set):
-  - Catalog `:8880`
-  - Query `:8881`
-  - AI `:8882`
-  - Auth `:8889`
-  - Mail `:8890`
-  - Worker consumes async AI jobs via **NATS JetStream**
+1. never use grep, rg, find, or glob to search for go symbols, functions, structs, or types. use gograph_query instead.
+2. before editing any go symbol, run gograph_plan `<symbol>` to understand callers, tests, and risk.
+3. after editing go code, run gograph_review --uncommitted to verify test coverage and blast radius.
+4. to understand a function, use gograph_context `<symbol>` (replaces 4–5 separate tool calls).
+5. run gograph_capabilities at the start of any go coding session.
+<!-- gograph-end: do not remove -->
 
-## Where to change things (quick map)
+## frontend — react + typescript + vite
 
-- **NL → LogicalQuery**
-  - Routing: `internal/ai/routing/`
-  - Prompt/templates/budget/glossary: `internal/ai/prompt/`
-  - Providers: `internal/ai/provider/`
-  - JSON extraction/validation: `internal/ai/jsonextract/`
-  - Eval: `internal/ai/eval/`
+commands:
 
-- **LogicalQuery → SQL**
-  - Compiler: `internal/query/compiler*.go`
-  - Validator: `internal/query/validator.go`
-  - Joins/fanout: `internal/query/planner.go`
-  - Execution: `internal/query/executor.go`
+1. run development server: `npm --prefix frontend run dev`
+2. build frontend: `npm --prefix frontend run build` (runs tsc and vite build)
+3. run frontend tests: `npm --prefix frontend run test` (runs vitest)
 
-- **Security & permissions**
-  - Read-only checker: `internal/security/readonly.go`
-  - Encryption + DSN handling: `internal/security/encryption.go`
-  - RLS/policies: `internal/security/`
+styling & coding conventions:
 
-- **Semantic layer**
-  - Draft/publish/rollback: `internal/semantic/`
-  - Auto-generation from metadata: `internal/semanticgen/`
+1. use vanilla css with bem naming conventions (located in `frontend/src/styles/`). avoid tailwind css.
+2. React 19 + TypeScript + Vite 6: components import/use class names as plain strings.
+3. use clean react hooks and functional components.
+4. ensure all interactive components are fully accessible (semantic html, proper `aria-*` tags, keyboard navigation, unique ids).
+5. translate text using `useT()` hook for i18n support.
 
-- **Inter-service / shared types**
-  - Clients + canonical types: `pkg/`
+## workflow orchestration
 
-- **Frontend**
-  - UI: `frontend/` (admin, modeling canvas, AI query panel)
+### plan mode default
 
-## AI provider/model configuration
+- enter plan mode for any non-trivial task (3+ steps or architectural decisions).
+- if something goes sideways, stop and re-plan immediately — don't keep pushing.
+- use plan mode for verification steps, not just building.
+- write detailed specs upfront to reduce ambiguity.
 
-- Providers/models/templates/glossary are **DB-backed and configurable at runtime** via admin APIs/UI.
-- Do **not** assume env vars select provider/model; treat env as infrastructure wiring only (ports, DSNs, redis/nats URLs, budgets).
+### subagent strategy
 
-## When adding/changing query semantics
+- use subagents liberally to keep the main context window clean.
+- offload research, exploration, and parallel analysis to subagents.
+- for complex problems, throw more compute at it via subagents.
+- one task per subagent for focused execution.
 
-If you add/modify any of these:
+### self-improvement loop
 
-- filter operators
-- select item types (e.g. window/case)
-- time grains
-- compiler behaviors
+- after any correction from the user: update tasks/lessons.md with the pattern.
+- write rules that prevent the same mistake from recurring.
+- ruthlessly iterate on lessons until mistake rate drops.
+- review tasks/lessons.md at session start for relevant context.
 
-Then ensure you update (as applicable):
+### verification before done
 
-- request/response schema + prompt rendering
-- validator + compiler
-- golden tests / eval cases
-- read-only checker compatibility (if SQL shape changes)
+- never mark a task complete without proving it works.
+- diff behavior between main and your changes when relevant.
+- ask: "would a staff engineer approve this?"
+- run tests, check logs, demonstrate correctness.
+
+### demand elegance (balanced)
+
+- for non-trivial changes: pause and ask "is there a more elegant way?"
+- if a fix feels hacky: "knowing everything i know now, implement the elegant solution."
+- skip this for simple, obvious fixes — don't over-engineer.
+- challenge your own work before presenting it.
+
+### autonomous bug fixing
+
+- when given a bug report: just fix it. don't ask for hand-holding.
+- point at logs, errors, failing tests — then resolve them.
+- zero context switching required from the user.
+- fix failing ci tests without being told how.
+
+## task management
+
+1. **plan first**: write plan to tasks/todo.md with checkable items.
+2. **verify plan**: check in before starting implementation.
+3. **track progress**: mark items complete as you go.
+4. **explain changes**: high-level summary at each step.
+5. **document results**: add a review section to tasks/todo.md.
+6. **capture lessons**: update tasks/lessons.md after corrections.
+
+## core principles
+
+- **simplicity first**: make every change as simple as possible. minimal code impact.
+- **no laziness**: find root causes. no temporary fixes. senior developer standards.
+- **minimal impact**: touch only what is necessary. avoid introducing bugs.
