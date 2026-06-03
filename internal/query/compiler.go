@@ -800,6 +800,9 @@ func (c *Compiler) buildGroupBy(groupBy []GroupBy, dimMap map[string]*semantic.D
 			}
 			return "", validationErrWithCode("group_by", errmsg.UnknownDimensionMsg(gb.Field), errmsg.CodeUnknownDimension, gb.Field, suggestAlternatives(gb.Field, dimKeys))
 		}
+		if c.dimensionFullyHidden(dim, resolver) {
+			return "", validationErrWithCode("group_by", errmsg.HiddenPIIFieldMsg(gb.Field), errmsg.CodeHiddenPIIField, gb.Field, nil)
+		}
 		parts = append(parts, c.dimensionOutputSQL(dim, resolver))
 	}
 	return strings.Join(parts, ", "), nil
@@ -813,6 +816,9 @@ func (c *Compiler) buildOrderBy(orderBy []OrderBy, dimMap map[string]*semantic.D
 	parts := make([]string, 0, len(orderBy))
 	for _, ob := range orderBy {
 		if dim, ok := dimMap[ob.Field]; ok {
+			if c.dimensionFullyHidden(dim, resolver) {
+				return "", validationErrWithCode("order_by", errmsg.HiddenPIIFieldMsg(ob.Field), errmsg.CodeHiddenPIIField, ob.Field, nil)
+			}
 			dir := strings.ToUpper(ob.Direction)
 			if dir == "" {
 				dir = "ASC"

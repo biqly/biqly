@@ -8,6 +8,13 @@ import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Select } from '../ui/Select'
 import { datasourceSelectOptions } from './adminSelectOptions'
+import {
+  normalizePIIMaskingStrategy,
+  piiMaskingStrategyLabelKey,
+  piiStrategyChanged,
+  PII_MASKING_STRATEGIES,
+  shouldShowPIIConfirmAction,
+} from './piiDetectionPanelLogic'
 import { ReadOnlyNote } from './ReadOnlyNote'
 
 const PII_TYPES = [
@@ -22,8 +29,9 @@ const PII_TYPES = [
 
 export function PIIDetectionPanel({ token }: { token: string }) {
   const t = useT()
-  const { hasPermission, user } = useAuth()
+  const { hasPermission, isSuperAdmin, roles, user } = useAuth()
   const canEdit = hasPermission('admin:roles')
+  const hasRawPIIAccess = isSuperAdmin || roles.some((role) => ['admin', 'super_admin'].includes(role.toLowerCase()))
   const reviewer = user?.email || 'admin'
 
   const { datasources, loading: loadingDS } = useDatasources()
@@ -35,6 +43,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
   const [scanSummary, setScanSummary] = useState<PIIScanSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pendingType, setPendingType] = useState<Record<string, string>>({})
+  const [pendingStrategy, setPendingStrategy] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (datasources && datasources.length > 0 && !selectedDS) {
@@ -66,6 +75,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
   useEffect(() => {
     setScanSummary(null)
     setPendingType({})
+    setPendingStrategy({})
     void loadColumns()
   }, [loadColumns])
 
@@ -88,10 +98,12 @@ export function PIIDetectionPanel({ token }: { token: string }) {
 
   const handleConfirm = async (col: PIIColumn) => {
     const piiType = pendingType[col.column_id] || col.pii_type
+    const maskingStrategy = normalizePIIMaskingStrategy(pendingStrategy[col.column_id] || col.masking_strategy)
     setError(null)
     try {
       await updateColumnPII(token, col.column_id, {
         pii_type: piiType,
+        pii_masking_strategy: maskingStrategy,
         pii_reviewed_by: reviewer,
       })
       await loadColumns()
@@ -181,8 +193,22 @@ export function PIIDetectionPanel({ token }: { token: string }) {
                 </tr>
               </thead>
               <tbody>
-                {columns.map((col) => (
-                  <tr key={col.column_id} style={trRow}>
+                {columns.map((col) => {
+                  const selectedStrategy = normalizePIIMaskingStrategy(
+                    pendingStrategy[col.column_id] || col.masking_strategy,
+                  )
+                  const pendingPIIType = pendingType[col.column_id]
+                  const typeChanged = pendingPIIType != null && pendingPIIType !== col.pii_type
+                  const strategyChanged = piiStrategyChanged(col.masking_strategy, pendingStrategy[col.column_id])
+                  const showConfirm = shouldShowPIIConfirmAction({
+                    canEdit,
+                    reviewedBy: col.reviewed_by,
+                    typeChanged,
+                    strategyChanged,
+                  })
+
+                  return (
+                    <tr key={col.column_id} style={trRow}>
                     <td style={tdStyle}>
                       <code style={codeStyle}>
                         {col.schema}.{col.table}.{col.column}
@@ -211,7 +237,33 @@ export function PIIDetectionPanel({ token }: { token: string }) {
                     <td style={tdStyle}>
                       <ConfidenceBadge confidence={col.confidence} />
                     </td>
-                    <td style={tdStyle}>{col.masking_strategy || '—'}</td>
+                    <td style={tdStyle}>
+                      {canEdit ? (
+                        <>
+                          <select
+                            value={selectedStrategy}
+                            onChange={(e) =>
+                              setPendingStrategy((prev) => ({ ...prev, [col.column_id]: e.target.value }))
+                            }
+                            style={typeSelectStyle}
+                            aria-label={t('admin.pii.col_strategy')}
+                          >
+                            {PII_MASKING_STRATEGIES.map((strategy) => (
+                              <option key={strategy} value={strategy}>
+                                {t(piiMaskingStrategyLabelKey(strategy))}
+                              </option>
+                            ))}
+                          </select>
+                          {hasRawPIIAccess && (
+                            <div style={strategyHintStyle}>{t('admin.pii.strategy_raw_access_note')}</div>
+                          )}
+                        </>
+                      ) : (
+                        <span>
+                          {col.masking_strategy ? t(piiMaskingStrategyLabelKey(col.masking_strategy)) : '—'}
+                        </span>
+                      )}
+                    </td>
                     <td style={tdStyle}>
                       {col.reviewed_by ? (
                         <span style={reviewedBadge}>
@@ -222,7 +274,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
                       )}
                     </td>
                     <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      {!col.reviewed_by && (
+                      {showConfirm && (
                         <button
                           onClick={() => handleConfirm(col)}
                           disabled={!canEdit}
@@ -240,7 +292,8 @@ export function PIIDetectionPanel({ token }: { token: string }) {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           )}
@@ -392,6 +445,13 @@ const unreviewedBadge: React.CSSProperties = {
   fontSize: 11,
   color: '#f59e0b',
   fontWeight: 500,
+}
+
+const strategyHintStyle: React.CSSProperties = {
+  marginTop: 4,
+  color: 'var(--text-secondary, #a1a1aa)',
+  fontSize: 11,
+  lineHeight: 1.35,
 }
 
 const btnPrimary: React.CSSProperties = {

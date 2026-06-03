@@ -142,6 +142,26 @@ func TestCompileWithPermissions_FilterOnMaskedColumnAllowed(t *testing.T) {
 	}
 }
 
+func TestCompileWithPermissions_FilterOnFullStrategyColumnRejected(t *testing.T) {
+	config := piiTestConfig()
+	config.ColumnStrategies = map[string]string{"customers.email": pii.MaskingStrategyFull}
+	lq := LogicalQuery{
+		ModelID: "customers",
+		Select:  []SelectItem{{Type: "dimension", Name: "country"}},
+		Filters: []Filter{{Field: "email", Operator: OpEq, Value: "target@example.com"}},
+		Limit:   10,
+	}
+
+	compiler := NewCompiler(dialect.PostgresDialect{})
+	_, err := compiler.CompileWithPermissions(context.Background(), &lq, piiTestModel(), nil, config)
+	if err == nil {
+		t.Fatal("expected error for filter on full-masked PII column")
+	}
+	if !strings.Contains(err.Error(), "hidden") {
+		t.Errorf("expected hidden PII error, got: %v", err)
+	}
+}
+
 func TestCompileWithPermissions_GroupByAndOrderByUseMaskedExpr(t *testing.T) {
 	lq := LogicalQuery{
 		ModelID: "customers",
@@ -162,6 +182,71 @@ func TestCompileWithPermissions_GroupByAndOrderByUseMaskedExpr(t *testing.T) {
 	// bare column.
 	if got := strings.Count(cq.SQL, "LEFT(CAST("); got < 3 {
 		t.Errorf("expected masked expr in SELECT, GROUP BY and ORDER BY (3+ occurrences), got %d: %s", got, cq.SQL)
+	}
+}
+
+func TestCompileWithPermissions_GroupByFullStrategyColumnRejected(t *testing.T) {
+	config := piiTestConfig()
+	config.ColumnStrategies = map[string]string{"customers.email": pii.MaskingStrategyFull}
+	lq := LogicalQuery{
+		ModelID: "customers",
+		Select: []SelectItem{
+			{Type: "dimension", Name: "email"},
+			{Type: "metric", Name: "count"},
+		},
+		GroupBy: []GroupBy{{Field: "email"}},
+		Limit:   10,
+	}
+
+	compiler := NewCompiler(dialect.PostgresDialect{})
+	_, err := compiler.CompileWithPermissions(context.Background(), &lq, piiTestModel(), nil, config)
+	if err == nil {
+		t.Fatal("expected error for grouping by full-masked PII column")
+	}
+	if !strings.Contains(err.Error(), "hidden") {
+		t.Errorf("expected hidden PII error, got: %v", err)
+	}
+}
+
+func TestCompileWithPermissions_OrderByFullStrategyColumnRejected(t *testing.T) {
+	config := piiTestConfig()
+	config.ColumnStrategies = map[string]string{"customers.email": pii.MaskingStrategyFull}
+	lq := LogicalQuery{
+		ModelID: "customers",
+		Select:  []SelectItem{{Type: "dimension", Name: "country"}},
+		OrderBy: []OrderBy{{Field: "email", Direction: "asc"}},
+		Limit:   10,
+	}
+
+	compiler := NewCompiler(dialect.PostgresDialect{})
+	_, err := compiler.CompileWithPermissions(context.Background(), &lq, piiTestModel(), nil, config)
+	if err == nil {
+		t.Fatal("expected error for sorting by full-masked PII column")
+	}
+	if !strings.Contains(err.Error(), "hidden") {
+		t.Errorf("expected hidden PII error, got: %v", err)
+	}
+}
+
+func TestCompileWithPermissions_UnknownMaskingStrategyFailsClosed(t *testing.T) {
+	config := piiTestConfig()
+	config.ColumnStrategies = map[string]string{"customers.email": "surprise"}
+	lq := LogicalQuery{
+		ModelID: "customers",
+		Select:  []SelectItem{{Type: "dimension", Name: "email"}},
+		Limit:   10,
+	}
+
+	compiler := NewCompiler(dialect.PostgresDialect{})
+	cq, err := compiler.CompileWithPermissions(context.Background(), &lq, piiTestModel(), nil, config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !containsStr(cq.SQL, `'***' AS "email"`) {
+		t.Errorf("unknown strategy must fail closed to hidden literal: %s", cq.SQL)
+	}
+	if strings.Contains(cq.SQL, "LEFT(") {
+		t.Errorf("unknown strategy must not fall back to partial masking: %s", cq.SQL)
 	}
 }
 
@@ -264,5 +349,50 @@ func TestCompileWithPermissions_MaskingAcrossDialects(t *testing.T) {
 				t.Errorf("expected mask literal in %s SQL: %s", d.Name(), cq.SQL)
 			}
 		})
+	}
+}
+
+func TestCompileWithPermissions_MaskingStrategyOverride(t *testing.T) {
+	config := &PIIMaskingConfig{
+		ColumnAccess: map[string]string{
+			"customers.email": pii.AccessMasked,
+			"customers.phone": pii.AccessMasked,
+		},
+		ColumnTypes: map[string]string{
+			"customers.email": pii.TypeEmail,
+			"customers.phone": pii.TypePhone,
+		},
+		ColumnStrategies: map[string]string{
+			"customers.phone": pii.MaskingStrategyFull,
+			"customers.email": pii.MaskingStrategyPartial,
+		},
+	}
+
+	lq := LogicalQuery{
+		ModelID: "customers",
+		Select: []SelectItem{
+			{Type: "dimension", Name: "email"},
+			{Type: "dimension", Name: "phone"},
+		},
+		Limit: 10,
+	}
+
+	compiler := NewCompiler(dialect.PostgresDialect{})
+	cq, err := compiler.CompileWithPermissions(context.Background(), &lq, piiTestModel(), nil, config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Email has "partial" strategy -> should use LEFT(CAST(...
+	if !containsStr(cq.SQL, "LEFT(") {
+		t.Errorf("expected partial masking for email: %s", cq.SQL)
+	}
+
+	// Phone has "full" strategy -> should be hidden literal '***'
+	if !containsStr(cq.SQL, `'***' AS "phone"`) {
+		t.Errorf("expected full masking (hidden literal) for phone: %s", cq.SQL)
+	}
+	if strings.Contains(cq.SQL, `"customers"."phone"`) {
+		t.Errorf("full masking column must not be referenced in SQL: %s", cq.SQL)
 	}
 }

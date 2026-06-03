@@ -14,8 +14,45 @@ const (
 	AccessHidden = "hidden"
 )
 
+// Masking strategies for masked PII columns.
+const (
+	MaskingStrategyPartial = "partial"
+	MaskingStrategyFull    = "full"
+)
+
 // HiddenLiteral is the SQL literal emitted in place of hidden PII columns.
 const HiddenLiteral = "'***'"
+
+// NormalizeMaskingStrategy canonicalizes a stored strategy value. Unknown
+// non-empty values fail closed to full masking.
+func NormalizeMaskingStrategy(strategy string) string {
+	switch strings.ToLower(strings.TrimSpace(strategy)) {
+	case "", MaskingStrategyPartial:
+		return MaskingStrategyPartial
+	case MaskingStrategyFull:
+		return MaskingStrategyFull
+	default:
+		return MaskingStrategyFull
+	}
+}
+
+// EffectiveColumnAccess folds the column masking strategy into the access
+// level so downstream query compilation has one decision path.
+func EffectiveColumnAccess(access, strategy string) string {
+	switch access {
+	case AccessRaw:
+		return AccessRaw
+	case AccessMasked:
+		if NormalizeMaskingStrategy(strategy) == MaskingStrategyFull {
+			return AccessHidden
+		}
+		return AccessMasked
+	case AccessHidden:
+		return AccessHidden
+	default:
+		return AccessHidden
+	}
+}
 
 // MaskingStrategy renders the SQL expression that masks a PII column.
 type MaskingStrategy interface {

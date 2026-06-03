@@ -87,3 +87,21 @@ func TestBuildColumnAccessMaps_ShortKeyOverride(t *testing.T) {
 	assert.Equal(t, AccessHidden, access["public.customers.email"])
 	assert.Equal(t, AccessHidden, access["customers.email"])
 }
+
+func TestBuildColumnMaskingStrategyMaps(t *testing.T) {
+	email := TypeEmail
+	full := MaskingStrategyFull
+	invalid := "surprise"
+	cols := []pkgmetadata.Column{
+		{SchemaName: "public", TableName: "customers", ColumnName: "email", PIIType: &email, PIIMaskingStrategy: &full},
+		{SchemaName: "public", TableName: "customers", ColumnName: "name", PIIMaskingStrategy: &full},
+		{SchemaName: "public", TableName: "customers", ColumnName: "notes", PIIType: &email, PIIMaskingStrategy: &invalid},
+	}
+
+	strategies := BuildColumnMaskingStrategyMaps(cols)
+
+	assert.Equal(t, MaskingStrategyFull, strategies["public.customers.email"])
+	assert.Equal(t, MaskingStrategyFull, strategies["customers.email"])
+	assert.NotContains(t, strategies, "customers.name")
+	assert.Equal(t, MaskingStrategyFull, strategies["customers.notes"])
+}

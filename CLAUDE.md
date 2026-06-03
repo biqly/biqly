@@ -21,6 +21,23 @@ rules (enforced when gograph mcp server is connected):
 5. run gograph_capabilities at the start of any go coding session.
 <!-- gograph-end: do not remove -->
 
+## go — performance rules
+
+when writing or reviewing go code, apply these to minimize performance loss (especially on hot paths):
+
+1. avoid unnecessary allocations; keep values on the stack where possible.
+2. minimize `interface{}` / `any` usage on hot paths — prefer concrete types or generics.
+3. pre-allocate slice capacity when the size is known (`make([]T, 0, n)`).
+4. use `strings.Builder` instead of string concatenation in loops.
+5. for json-heavy paths, consider benchmarking alternatives (jsoniter/sonic/easyjson) before adopting.
+6. use `sync.Pool` only when measurements justify it — never speculatively.
+7. choose map key/value types carefully (small, comparable keys; avoid pointer-heavy values).
+8. profile with pprof (cpu + heap) before and after optimizing; don't guess.
+9. check escape analysis (`go build -gcflags='-m'`) for hot-path allocations.
+10. tune `GOMEMLIMIT` and `GOGC` for deployment environments when memory pressure matters.
+
+these complement, not override, "simplicity first": optimize hot paths with measurements, not speculation.
+
 ## frontend — react + typescript + vite
 
 commands:

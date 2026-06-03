@@ -106,3 +106,21 @@ func BuildColumnAccessMaps(role string, columns []pkgmetadata.Column, overrides 
 	}
 	return access, types
 }
+
+// BuildColumnMaskingStrategyMaps computes per-column masking strategies for
+// PII-annotated columns only. Each column is registered under both physical
+// and semantic key forms.
+func BuildColumnMaskingStrategyMaps(columns []pkgmetadata.Column) map[string]string {
+	strategies := make(map[string]string, len(columns)*2)
+	for _, col := range columns {
+		if col.PIIType == nil || *col.PIIType == "" || col.PIIMaskingStrategy == nil || *col.PIIMaskingStrategy == "" {
+			continue
+		}
+		strategy := NormalizeMaskingStrategy(*col.PIIMaskingStrategy)
+		qualified := col.SchemaName + "." + col.TableName + "." + col.ColumnName
+		short := col.TableName + "." + col.ColumnName
+		strategies[qualified] = strategy
+		strategies[short] = strategy
+	}
+	return strategies
+}

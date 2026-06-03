@@ -36,6 +36,10 @@ export const admin: AdminDictionary = {
     col_type: 'PII Tipi',
     col_confidence: 'Güven',
     col_strategy: 'Maskeleme Stratejisi',
+    strategy_partial: 'Kısmi Maske',
+    strategy_full: 'Tam Maske',
+    strategy_raw_access_note:
+      'Ham erişimli roller değerleri ham görür; bu ayar politika erişimi maskeliyken uygulanır.',
     col_reviewed: 'İnceleme',
     col_actions: 'İşlemler',
     confirm: 'Onayla',

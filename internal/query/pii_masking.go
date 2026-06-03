@@ -16,6 +16,8 @@ type PIIMaskingConfig struct {
 	// expression can be selected. A masked column with an unknown type fails
 	// closed to a full mask.
 	ColumnTypes map[string]string
+	// ColumnStrategies maps the same keys to the column's PII masking strategy override ("partial" | "full").
+	ColumnStrategies map[string]string
 	// Strategy generates masking SQL. Nil uses pii.DefaultMaskingStrategy.
 	Strategy pii.MaskingStrategy
 }
@@ -35,10 +37,27 @@ func (cfg *PIIMaskingConfig) lookup(refs ...string) (access, piiType string, ok 
 			continue
 		}
 		if a, found := cfg.ColumnAccess[ref]; found {
-			return a, cfg.ColumnTypes[ref], true
+			return pii.EffectiveColumnAccess(a, cfg.lookupStrategy(refs...)), cfg.ColumnTypes[ref], true
 		}
 	}
 	return "", "", false
+}
+
+// lookupStrategy resolves the masking strategy override for the first matching
+// column reference.
+func (cfg *PIIMaskingConfig) lookupStrategy(refs ...string) string {
+	if cfg.ColumnStrategies == nil {
+		return ""
+	}
+	for _, ref := range refs {
+		if ref == "" {
+			continue
+		}
+		if s, found := cfg.ColumnStrategies[ref]; found {
+			return s
+		}
+	}
+	return ""
 }
 
 // piiAccessForDim returns the PII access level and type for a dimension's
@@ -66,10 +85,16 @@ func (c *Compiler) dimensionOutputSQL(dim *semantic.Dimension, resolver *SchemaR
 	return pii.HiddenLiteral
 }
 
+// dimensionFullyHidden reports whether dim is hidden for this user after
+// access policy and masking strategy are resolved.
+func (c *Compiler) dimensionFullyHidden(dim *semantic.Dimension, resolver *SchemaResolver) bool {
+	access, _, found := c.piiAccessForDim(dim, resolver)
+	return found && access != pii.AccessRaw && access != pii.AccessMasked
+}
+
 // filterFieldHidden reports whether a filter on dim must be rejected because
 // the column is hidden for this user. Masked columns may still be filtered
 // (the predicate runs server-side; values are never projected raw).
 func (c *Compiler) filterFieldHidden(dim *semantic.Dimension, resolver *SchemaResolver) bool {
-	access, _, found := c.piiAccessForDim(dim, resolver)
-	return found && access != pii.AccessRaw && access != pii.AccessMasked
+	return c.dimensionFullyHidden(dim, resolver)
 }
