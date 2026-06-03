@@ -15,6 +15,7 @@ import (
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/config"
+	"github.com/biqly/biqly/internal/errmsg"
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
@@ -250,6 +251,8 @@ func WithAmbiguityAnalysisObserver(observer AmbiguityAnalysisObserver) ProcessOp
 // ProcessQuestion handles a natural language question. On parse or validation
 // failure the LLM is re-prompted with the prior output and error message, up
 // to s.maxRetries additional attempts.
+//
+//nolint:gocyclo // orchestrates ambiguity check, cache, multi-candidate voting, and repair/retry loop
 func (s *Service) ProcessQuestion(ctx context.Context, question string, model *semantic.SemanticModel, opts ...ProcessOption) (*AIResponse, error) {
 	options := processOptions{}
 	for _, opt := range opts {
@@ -333,6 +336,8 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		warnings           []string
 		validationErrCount int
 		parseErr           error
+		validationErrors   query.ValidationErrors
+		repairDetails      []RepairDetail
 	)
 
 	for attempt := 0; attempt <= s.maxRetries; attempt++ {
@@ -343,7 +348,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		lastGen = gen
 		lastRaw = gen.Content
 
-		lq, warnings, validationErrCount, parseErr = s.parseAndValidate(gen.Content, model)
+		lq, warnings, validationErrCount, validationErrors, parseErr = s.parseAndValidate(gen.Content, model)
 
 		// Dry-run check (e.g. EXPLAIN) only when the query parsed and passed
 		// semantic validation; otherwise the SQL would not be compilable anyway.
@@ -376,6 +381,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 					PromptTemplateLocale:        templateLocale,
 					PromptTemplateVersions:      templateVersions,
 					PromptTemplateBundleVersion: bundleVersion,
+					RepairDetails:               repairDetails,
 				},
 			}
 			s.cacheResponse(ctx, cacheKey, resp)
@@ -392,7 +398,46 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		retryWarnings = append(retryWarnings, fmt.Sprintf("retry %d (context %s): %s", attempt+1, promptpkg.ContextTierLabel(contextTierForAttempt(attempt+1)), failureMsg))
 		nextTier := contextTierForAttempt(attempt + 1)
 		expanded, _ := s.buildPrompt(ctx, question, model, nextTier, options, filterSess, followIntent)
-		prompt = s.promptBuilder.BuildRetry(ctx, promptpkg.PromptLocaleForQuestion(question, i18n.FromContext(ctx)), expanded, gen.Content, failureMsg)
+
+		locale := promptpkg.PromptLocaleForQuestion(question, i18n.FromContext(ctx))
+		if len(validationErrors) > 0 {
+			var filteredErrors query.ValidationErrors
+			if attempt == 0 {
+				for _, ve := range validationErrors {
+					if ve.Code == errmsg.CodeUnknownField || ve.Code == errmsg.CodeUnknownDimension || ve.Code == errmsg.CodeUnknownMetric {
+						filteredErrors = append(filteredErrors, ve)
+					}
+				}
+				if len(filteredErrors) == 0 {
+					filteredErrors = validationErrors
+				}
+			} else {
+				filteredErrors = validationErrors
+			}
+
+			// Build repair detail
+			var errorCodes []string
+			for _, ve := range filteredErrors {
+				if ve.Code != "" {
+					errorCodes = append(errorCodes, ve.Code)
+				}
+			}
+			errorsJSON := filteredErrors.ToRepairJSON()
+
+			// Record the same strategy text the repair prompt will use (1-indexed attempt).
+			strategyStr := promptpkg.RepairStrategy(locale, attempt+1)
+
+			repairDetails = append(repairDetails, RepairDetail{
+				Attempt:    attempt + 1,
+				ErrorCodes: errorCodes,
+				ErrorsJSON: errorsJSON,
+				Strategy:   strategyStr,
+			})
+
+			prompt = s.promptBuilder.BuildRepairPrompt(ctx, locale, expanded, gen.Content, filteredErrors, attempt+1)
+		} else {
+			prompt = s.promptBuilder.BuildRetry(ctx, locale, expanded, gen.Content, failureMsg)
+		}
 		promptStats = promptpkg.MeasurePrompt(prompt, s.queryModel, nextTier, s.aiCfg)
 	}
 
@@ -416,6 +461,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 			PromptTemplateLocale:        templateLocale,
 			PromptTemplateVersions:      templateVersions,
 			PromptTemplateBundleVersion: bundleVersion,
+			RepairDetails:               repairDetails,
 		}), nil
 	}
 
@@ -438,6 +484,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 			PromptTemplateLocale:        templateLocale,
 			PromptTemplateVersions:      templateVersions,
 			PromptTemplateBundleVersion: bundleVersion,
+			RepairDetails:               repairDetails,
 		}), nil
 	}
 
@@ -457,6 +504,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		PromptTemplateLocale:        templateLocale,
 		PromptTemplateVersions:      templateVersions,
 		PromptTemplateBundleVersion: bundleVersion,
+		RepairDetails:               repairDetails,
 	}), nil
 }
 
@@ -501,6 +549,7 @@ type clarificationInputs struct {
 	PromptTemplateLocale        string
 	PromptTemplateVersions      map[string]int
 	PromptTemplateBundleVersion int
+	RepairDetails               []RepairDetail
 }
 
 func newClarificationResponse(in clarificationInputs) *AIResponse {
@@ -520,6 +569,7 @@ func newClarificationResponse(in clarificationInputs) *AIResponse {
 			PromptTemplateLocale:        in.PromptTemplateLocale,
 			PromptTemplateVersions:      in.PromptTemplateVersions,
 			PromptTemplateBundleVersion: in.PromptTemplateBundleVersion,
+			RepairDetails:               in.RepairDetails,
 		},
 		Clarification: &ClarificationResponse{
 			NeedsClarification:    in.Clarification != "",
@@ -673,7 +723,7 @@ func (s *Service) tryMultiCandidate(
 				return
 			}
 
-			lq, warnings, validationErrCount, parseErr := s.parseAndValidate(gen.Content, model)
+			lq, warnings, validationErrCount, _, parseErr := s.parseAndValidate(gen.Content, model)
 			if parseErr != nil || validationErrCount > 0 || lq == nil {
 				return
 			}
@@ -923,12 +973,12 @@ func (s *Service) cacheResponse(ctx context.Context, key string, resp *AIRespons
 	}
 }
 
-func (s *Service) parseAndValidate(raw string, model *semantic.SemanticModel) (*query.LogicalQuery, []string, int, error) {
+func (s *Service) parseAndValidate(raw string, model *semantic.SemanticModel) (*query.LogicalQuery, []string, int, query.ValidationErrors, error) {
 	var warnings []string
 
 	lq, err := parseLogicalQueryFromRaw(raw)
 	if err != nil {
-		return nil, warnings, 0, fmt.Errorf("invalid JSON from AI: %w", err)
+		return nil, warnings, 0, nil, fmt.Errorf("invalid JSON from AI: %w", err)
 	}
 	normalizeLogicalQueryContext(&lq, model)
 	lq.EnsureGroupBySelected()
@@ -937,14 +987,16 @@ func (s *Service) parseAndValidate(raw string, model *semantic.SemanticModel) (*
 	// Guardrails: reject empty selects
 	if len(lq.Select) == 0 {
 		warnings = append(warnings, "AI returned empty select - question may be ambiguous")
-		return nil, warnings, 0, fmt.Errorf("ambiguous question")
+		return nil, warnings, 0, nil, fmt.Errorf("ambiguous question")
 	}
 
 	// Validate against semantic model
+	var validationErrors query.ValidationErrors
 	validationErrCount := 0
 	if err := s.validator.Validate(&lq, model); err != nil {
 		warnings = append(warnings, "validation warnings: "+err.Error())
 		if ve, ok := errors.AsType[query.ValidationErrors](err); ok {
+			validationErrors = ve
 			validationErrCount = len(ve)
 		} else {
 			validationErrCount = 1
@@ -952,7 +1004,7 @@ func (s *Service) parseAndValidate(raw string, model *semantic.SemanticModel) (*
 		// Still return the query but with warnings
 	}
 
-	return &lq, warnings, validationErrCount, nil
+	return &lq, warnings, validationErrCount, validationErrors, nil
 }
 
 // computeConfidence produces a [0.0, 1.0] confidence score for a generated

@@ -31,6 +31,9 @@ linters:
     - forbidigo
     - usestdlibvars
     - rowserrcheck
+    - sqlclosecheck
+    - makezero
+
   settings:
     revive:
       rules:
@@ -39,8 +42,10 @@ linters:
         - name: error-return
         - name: error-strings
         - name: var-naming
+
     gocyclo:
-      min-complexity: 50
+      min-complexity: 30
+
     forbidigo:
       forbid:
         - pattern: ^fmt\.Print.*$

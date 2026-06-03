@@ -49,6 +49,14 @@ type AIMetadata struct {
 	PromptTemplateBundleVersion int                         `json:"prompt_template_bundle_version,omitempty"`
 	Candidates                  []CandidateEntry            `json:"candidates,omitempty"`
 	CandidatesCount             int                         `json:"candidates_count,omitempty"`
+	RepairDetails               []RepairDetail              `json:"repair_details,omitempty"`
+}
+
+type RepairDetail struct {
+	Attempt    int      `json:"attempt"`
+	ErrorCodes []string `json:"error_codes"`
+	ErrorsJSON string   `json:"errors_json,omitempty"`
+	Strategy   string   `json:"strategy"`
 }
 
 type ClarificationResponse struct {

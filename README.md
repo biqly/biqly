@@ -765,6 +765,6 @@ INSERT, UPDATE, DELETE, MERGE, DROP, ALTER, TRUNCATE, CREATE, GRANT, REVOKE, EXE
 - [x] AI Provider Management (runtime, DB-backed)
 - [x] SFT Dataset Export for Fine-Tuning
 - [x] Helm Chart + Argo CD GitOps
-- [ ] Composite Semantic Models
+- [x] Composite Semantic Models
 - [ ] Metric Expression Security (controlled AST)
 - [ ] Embedding-based Learning from User Confirmations

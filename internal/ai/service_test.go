@@ -61,7 +61,7 @@ func TestParseAndValidateNormalizesLogicalQueryContext(t *testing.T) {
 	}
 	raw := `{"datasource_id":"","model_id":"","select":[{"type":"metric","name":"first_order_created_at"}],"limit":100}`
 
-	got, _, _, err := service.parseAndValidate(raw, model)
+	got, _, _, _, err := service.parseAndValidate(raw, model)
 	if err != nil {
 		t.Fatalf("parseAndValidate(%s) error = %v, want nil", raw, err)
 	}
@@ -89,7 +89,7 @@ func TestParseAndValidateAddsMissingGroupByDimensionToSelect(t *testing.T) {
 	}
 	raw := `{"select":[{"type":"metric","name":"row_count"},{"type":"metric","name":"sum_retweets"}],"group_by":[{"field":"created_at_ts_day"}],"limit":100}`
 
-	got, _, _, err := service.parseAndValidate(raw, model)
+	got, _, _, _, err := service.parseAndValidate(raw, model)
 	if err != nil {
 		t.Fatalf("parseAndValidate(%s) error = %v, want nil", raw, err)
 	}
@@ -128,7 +128,7 @@ func TestParseAndValidateOrdersTimeSeriesGroupBy(t *testing.T) {
 		"limit":0
 	}`
 
-	got, _, _, err := service.parseAndValidate(raw, model)
+	got, _, _, _, err := service.parseAndValidate(raw, model)
 	if err != nil {
 		t.Fatalf("parseAndValidate(%s) error = %v, want nil", raw, err)
 	}

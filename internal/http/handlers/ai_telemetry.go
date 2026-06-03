@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"log/slog"
+	"strings"
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/ai/routing"
@@ -67,6 +68,8 @@ func (h *AIHandler) observeAIRequest(
 	var promptBuildMs int64
 	var confidence float64
 	var totalWarnings int
+	var repairAttempts int
+	var repairErrorCodes []string
 
 	if resp.Metadata != nil {
 		retryCount = resp.Metadata.RetryCount
@@ -75,6 +78,12 @@ func (h *AIHandler) observeAIRequest(
 		}
 		if resp.Metadata.PromptStats != nil {
 			promptBuildMs = resp.Metadata.PromptStats.PromptBuildDurationMs
+		}
+		if len(resp.Metadata.RepairDetails) > 0 {
+			repairAttempts = len(resp.Metadata.RepairDetails)
+			for _, rd := range resp.Metadata.RepairDetails {
+				repairErrorCodes = append(repairErrorCodes, rd.ErrorCodes...)
+			}
 		}
 	}
 	if resp.Clarification != nil {
@@ -88,6 +97,9 @@ func (h *AIHandler) observeAIRequest(
 	if h.metrics != nil {
 		h.metrics.RecordAIRequest(latencyMs, success, retryCount, needsClarification)
 		h.metrics.RecordLLMRequest(latencyMs, totalTokens, promptBuildMs)
+		if repairAttempts > 0 {
+			h.metrics.RecordAIRepair(success, repairAttempts, repairErrorCodes)
+		}
 	}
 
 	logArgs := []any{
@@ -98,6 +110,9 @@ func (h *AIHandler) observeAIRequest(
 		"latency_ms", latencyMs,
 		"needs_clarification", needsClarification,
 		"warnings", totalWarnings,
+	}
+	if repairAttempts > 0 {
+		logArgs = append(logArgs, "repair_attempts", repairAttempts, "repair_errors", strings.Join(repairErrorCodes, ","))
 	}
 	if model != nil {
 		logArgs = append(logArgs, "model", model.Name)

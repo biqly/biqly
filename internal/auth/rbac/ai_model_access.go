@@ -315,93 +315,95 @@ type AIModelAccessGrants struct {
 
 func (s *AIModelAccessService) ListAllGrants(ctx context.Context) (AIModelAccessGrants, error) {
 	var out AIModelAccessGrants
-	rows, err := s.db.QueryContext(ctx, `SELECT workspace_id::text, provider_id::text, granted_by::text, granted_at FROM ai_provider_workspace_grants`)
-	if err != nil {
-		return out, err
-	}
-	for rows.Next() {
-		var g AIProviderWorkspaceGrant
-		var gb sql.NullString
-		if err := rows.Scan(&g.WorkspaceID, &g.ProviderID, &gb, &g.GrantedAt); err != nil {
-			_ = rows.Close()
-			return out, err
-		}
-		if gb.Valid {
-			g.GrantedBy = &gb.String
-		}
-		out.ProviderWorkspaces = append(out.ProviderWorkspaces, g)
-	}
-	if err := rows.Err(); err != nil {
-		_ = rows.Close()
-		return out, err
-	}
-	_ = rows.Close()
 
-	rows, err = s.db.QueryContext(ctx, `SELECT workspace_id::text, model_id::text, granted_by::text, granted_at FROM ai_model_workspace_grants`)
-	if err != nil {
-		return out, err
-	}
-	for rows.Next() {
-		var g AIModelWorkspaceGrant
-		var gb sql.NullString
-		if err := rows.Scan(&g.WorkspaceID, &g.ModelID, &gb, &g.GrantedAt); err != nil {
-			_ = rows.Close()
+	{
+		rows, err := s.db.QueryContext(ctx, `SELECT workspace_id::text, provider_id::text, granted_by::text, granted_at FROM ai_provider_workspace_grants`)
+		if err != nil {
 			return out, err
 		}
-		if gb.Valid {
-			g.GrantedBy = &gb.String
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var g AIProviderWorkspaceGrant
+			var gb sql.NullString
+			if err := rows.Scan(&g.WorkspaceID, &g.ProviderID, &gb, &g.GrantedAt); err != nil {
+				return out, err
+			}
+			if gb.Valid {
+				g.GrantedBy = &gb.String
+			}
+			out.ProviderWorkspaces = append(out.ProviderWorkspaces, g)
 		}
-		out.ModelWorkspaces = append(out.ModelWorkspaces, g)
+		if err := rows.Err(); err != nil {
+			return out, err
+		}
 	}
-	if err := rows.Err(); err != nil {
-		_ = rows.Close()
-		return out, err
-	}
-	_ = rows.Close()
 
-	rows, err = s.db.QueryContext(ctx, `SELECT role_id::text, provider_id::text, granted_by::text, granted_at FROM ai_provider_role_grants`)
-	if err != nil {
-		return out, err
-	}
-	for rows.Next() {
-		var g AIProviderRoleGrant
-		var gb sql.NullString
-		if err := rows.Scan(&g.RoleID, &g.ProviderID, &gb, &g.GrantedAt); err != nil {
-			_ = rows.Close()
+	{
+		rows, err := s.db.QueryContext(ctx, `SELECT workspace_id::text, model_id::text, granted_by::text, granted_at FROM ai_model_workspace_grants`)
+		if err != nil {
 			return out, err
 		}
-		if gb.Valid {
-			g.GrantedBy = &gb.String
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var g AIModelWorkspaceGrant
+			var gb sql.NullString
+			if err := rows.Scan(&g.WorkspaceID, &g.ModelID, &gb, &g.GrantedAt); err != nil {
+				return out, err
+			}
+			if gb.Valid {
+				g.GrantedBy = &gb.String
+			}
+			out.ModelWorkspaces = append(out.ModelWorkspaces, g)
 		}
-		out.ProviderRoles = append(out.ProviderRoles, g)
+		if err := rows.Err(); err != nil {
+			return out, err
+		}
 	}
-	if err := rows.Err(); err != nil {
-		_ = rows.Close()
-		return out, err
-	}
-	_ = rows.Close()
 
-	rows, err = s.db.QueryContext(ctx, `SELECT role_id::text, model_id::text, granted_by::text, granted_at FROM ai_model_role_grants`)
-	if err != nil {
-		return out, err
-	}
-	for rows.Next() {
-		var g AIModelRoleGrant
-		var gb sql.NullString
-		if err := rows.Scan(&g.RoleID, &g.ModelID, &gb, &g.GrantedAt); err != nil {
-			_ = rows.Close()
+	{
+		rows, err := s.db.QueryContext(ctx, `SELECT role_id::text, provider_id::text, granted_by::text, granted_at FROM ai_provider_role_grants`)
+		if err != nil {
 			return out, err
 		}
-		if gb.Valid {
-			g.GrantedBy = &gb.String
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var g AIProviderRoleGrant
+			var gb sql.NullString
+			if err := rows.Scan(&g.RoleID, &g.ProviderID, &gb, &g.GrantedAt); err != nil {
+				return out, err
+			}
+			if gb.Valid {
+				g.GrantedBy = &gb.String
+			}
+			out.ProviderRoles = append(out.ProviderRoles, g)
 		}
-		out.ModelRoles = append(out.ModelRoles, g)
+		if err := rows.Err(); err != nil {
+			return out, err
+		}
 	}
-	if err := rows.Err(); err != nil {
-		_ = rows.Close()
-		return out, err
+
+	{
+		rows, err := s.db.QueryContext(ctx, `SELECT role_id::text, model_id::text, granted_by::text, granted_at FROM ai_model_role_grants`)
+		if err != nil {
+			return out, err
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var g AIModelRoleGrant
+			var gb sql.NullString
+			if err := rows.Scan(&g.RoleID, &g.ModelID, &gb, &g.GrantedAt); err != nil {
+				return out, err
+			}
+			if gb.Valid {
+				g.GrantedBy = &gb.String
+			}
+			out.ModelRoles = append(out.ModelRoles, g)
+		}
+		if err := rows.Err(); err != nil {
+			return out, err
+		}
 	}
-	_ = rows.Close()
+
 	return out, nil
 }
 

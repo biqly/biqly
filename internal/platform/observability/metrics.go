@@ -45,6 +45,10 @@ type Metrics struct {
 	validationFailures prometheus.Counter
 	connectionErrors   prometheus.Counter
 
+	aiRepairSuccess     prometheus.Counter
+	aiRepairByErrorCode *prometheus.CounterVec
+	aiRepairAttempts    prometheus.Histogram
+
 	queryCompiles        prometheus.Counter
 	queryCompileErrors   prometheus.Counter
 	queryCompileDuration prometheus.Histogram
@@ -126,6 +130,16 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 		}),
 		connectionErrors: f.NewCounter(prometheus.CounterOpts{
 			Name: "bi_connection_errors_total", Help: "Total datasource connection errors.",
+		}),
+
+		aiRepairSuccess: f.NewCounter(prometheus.CounterOpts{
+			Name: "bi_ai_repair_success_total", Help: "Total number of AI requests successfully repaired.",
+		}),
+		aiRepairByErrorCode: f.NewCounterVec(prometheus.CounterOpts{
+			Name: "bi_ai_repair_by_error_code_total", Help: "Total query repairs by validation error code.",
+		}, []string{"code"}),
+		aiRepairAttempts: f.NewHistogram(prometheus.HistogramOpts{
+			Name: "bi_ai_repair_attempts_histogram", Help: "Histogram of repair attempt counts.", Buckets: []float64{1, 2, 3, 4, 5},
 		}),
 
 		queryCompiles: f.NewCounter(prometheus.CounterOpts{
@@ -284,3 +298,16 @@ func (m *Metrics) RecordValidationFailure() { m.validationFailures.Inc() }
 
 // RecordConnectionError records a datasource connection error.
 func (m *Metrics) RecordConnectionError() { m.connectionErrors.Inc() }
+
+// RecordAIRepair success, attempts, and error codes.
+func (m *Metrics) RecordAIRepair(success bool, attempts int, errorCodes []string) {
+	if success {
+		m.aiRepairSuccess.Inc()
+	}
+	if attempts > 0 {
+		m.aiRepairAttempts.Observe(float64(attempts))
+	}
+	for _, code := range errorCodes {
+		m.aiRepairByErrorCode.WithLabelValues(code).Inc()
+	}
+}

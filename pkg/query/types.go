@@ -1,6 +1,7 @@
 package query
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -115,8 +116,11 @@ type HistoryEntry struct {
 
 // ValidationError represents a LogicalQuery validation error.
 type ValidationError struct {
-	Field   string `json:"field"`
-	Message string `json:"message"`
+	Field               string   `json:"field"`
+	Code                string   `json:"code,omitempty"`
+	Message             string   `json:"message"`
+	Value               string   `json:"value,omitempty"`
+	AllowedAlternatives []string `json:"allowed_alternatives,omitempty"`
 }
 
 // Error formats the validation error for log messages and API envelopes.
@@ -138,4 +142,38 @@ func (ve ValidationErrors) Error() string {
 		fmt.Fprintf(&msg, " %s: %s;", e.Field, e.Message)
 	}
 	return msg.String()
+}
+
+// HasCode reports whether the collection contains any error with the given code.
+func (ve ValidationErrors) HasCode(code string) bool {
+	for _, err := range ve {
+		if err.Code == code {
+			return true
+		}
+	}
+	return false
+}
+
+// FilterByCode filters the collection to errors matching the given code.
+func (ve ValidationErrors) FilterByCode(code string) []*ValidationError {
+	var res []*ValidationError
+	for _, err := range ve {
+		if err.Code == code {
+			res = append(res, err)
+		}
+	}
+	return res
+}
+
+// ToRepairJSON serializes the validation errors into a compact JSON array
+// intended for LLM repair prompting.
+func (ve ValidationErrors) ToRepairJSON() string {
+	if len(ve) == 0 {
+		return "[]"
+	}
+	data, err := json.Marshal(ve)
+	if err != nil {
+		return "[]"
+	}
+	return string(data)
 }

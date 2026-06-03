@@ -15,6 +15,19 @@ const (
 	MetricExpressionUnknownColumn   = "metric expression references unknown column"
 	JoinUnknownFromColumn           = "join references unknown from column"
 	JoinUnknownToColumn             = "join references unknown to column"
+
+	CodeUnknownDimension      = "UNKNOWN_DIMENSION"
+	CodeUnknownMetric         = "UNKNOWN_METRIC"
+	CodeUnknownField          = "UNKNOWN_FIELD"
+	CodeInvalidOperator       = "INVALID_OPERATOR"
+	CodeInvalidTimeGrain      = "INVALID_TIME_GRAIN"
+	CodeTimeGrainOnNonDate    = "TIME_GRAIN_ON_NON_DATE"
+	CodeMissingField          = "MISSING_FIELD"
+	CodeInvalidSelectType     = "INVALID_SELECT_TYPE"
+	CodeRowLimitExceeded      = "ROW_LIMIT_EXCEEDED"
+	CodeNegativeOffset        = "NEGATIVE_OFFSET"
+	CodeDateValueTypeMismatch = "DATE_VALUE_TYPE_MISMATCH"
+	CodeAmbiguousYearCoverage = "AMBIGUOUS_YEAR_COVERAGE"
 )
 
 func UnknownDimensionMsg(name string) string {

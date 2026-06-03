@@ -22,6 +22,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+//nolint:gocyclo // table-driven coverage of many internal HTTP endpoints
 func TestInternalIntegration_Endpoints(t *testing.T) {
 	encDSN := mustEncryptDSN(t, plaintextProbeDSN)
 	catalog := integrationCatalogFixture(encDSN)

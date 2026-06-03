@@ -1,0 +1,13 @@
+{{.OriginalPrompt}}
+
+## Previous Attempt (incorrect, attempt {{.Attempt}})
+Your previous response was:
+{{.LastResponse}}
+
+## Why It Failed
+The previous LogicalQuery JSON had validation error(s):
+{{.ValidationError}}
+
+## Required Action
+Repair Strategy: {{.StrategyInstruction}}
+Re-run the **Planning Steps** from the original prompt, then re-emit a corrected LogicalQuery JSON object. Correct each of the errors listed above by replacing the invalid fields, operators, or values with allowed alternatives. Do not repeat the previous mistake. Optional `## Reasoning` prefix allowed; final output must include valid JSON - no markdown fences.

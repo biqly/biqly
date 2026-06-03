@@ -81,6 +81,8 @@ func containsMessage(messages []string, needle string) bool {
 
 // ValidateContext checks whether a draft semantic model can be safely
 // published. Errors block publish; warnings describe risky but valid context.
+//
+//nolint:gocyclo // aggregates dimension, metric, join, and catalog consistency checks
 func ValidateContext(ctx context.Context, model SemanticModel, catalog CatalogReader) PublishValidationResult {
 	result := PublishValidationResult{
 		Valid:               true,

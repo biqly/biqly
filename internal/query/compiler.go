@@ -386,7 +386,11 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]*semantic.D
 		case SelectTypeDimension:
 			dim, ok := dimMap[item.Name]
 			if !ok {
-				return nil, validationErr("select", errmsg.UnknownDimensionMsg(item.Name))
+				dimKeys := make([]string, 0, len(dimMap))
+				for k := range dimMap {
+					dimKeys = append(dimKeys, k)
+				}
+				return nil, validationErrWithCode("select", errmsg.UnknownDimensionMsg(item.Name), errmsg.CodeUnknownDimension, item.Name, suggestAlternatives(item.Name, dimKeys))
 			}
 			col := c.dimensionSQL(dim, resolver)
 			alias := item.Alias
@@ -398,7 +402,11 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]*semantic.D
 		case SelectTypeMetric:
 			metric, ok := metricMap[item.Name]
 			if !ok {
-				return nil, validationErr("select", errmsg.UnknownMetricMsg(item.Name))
+				var metricKeys []string
+				for k := range metricMap {
+					metricKeys = append(metricKeys, k)
+				}
+				return nil, validationErrWithCode("select", errmsg.UnknownMetricMsg(item.Name), errmsg.CodeUnknownMetric, item.Name, suggestAlternatives(item.Name, metricKeys))
 			}
 			agg := c.dialect.Aggregate(metric.Aggregation, c.metricExpressionRef(metric.Expression, resolver, dimMap, metricMap, model))
 			alias := item.Alias
@@ -717,7 +725,14 @@ func (c *Compiler) resolveFilterLHS(field string, dimMap map[string]*semantic.Di
 	if metric, ok := metricMap[field]; ok {
 		return c.qualifyMetricExpression(metric.Expression, resolver, dimMap, metricMap, model), nil
 	}
-	return "", validationErr("filters", errmsg.UnknownFieldMsg(field))
+	var fieldKeys []string
+	for k := range dimMap {
+		fieldKeys = append(fieldKeys, k)
+	}
+	for k := range metricMap {
+		fieldKeys = append(fieldKeys, k)
+	}
+	return "", validationErrWithCode("filters", errmsg.UnknownFieldMsg(field), errmsg.CodeUnknownField, field, suggestAlternatives(field, fieldKeys))
 }
 
 func sliceOfStrings(val any) ([]string, bool) {
@@ -763,7 +778,11 @@ func (c *Compiler) buildGroupBy(groupBy []GroupBy, dimMap map[string]*semantic.D
 	for _, gb := range groupBy {
 		dim, ok := dimMap[gb.Field]
 		if !ok {
-			return "", validationErr("group_by", errmsg.UnknownDimensionMsg(gb.Field))
+			var dimKeys []string
+			for k := range dimMap {
+				dimKeys = append(dimKeys, k)
+			}
+			return "", validationErrWithCode("group_by", errmsg.UnknownDimensionMsg(gb.Field), errmsg.CodeUnknownDimension, gb.Field, suggestAlternatives(gb.Field, dimKeys))
 		}
 		parts = append(parts, c.dimensionSQL(dim, resolver))
 	}
@@ -790,7 +809,14 @@ func (c *Compiler) buildOrderBy(orderBy []OrderBy, dimMap map[string]*semantic.D
 			}
 			parts = append(parts, c.dialect.QuoteIdent(metric.Name)+" "+dir)
 		} else {
-			return "", validationErr("order_by", errmsg.UnknownFieldMsg(ob.Field))
+			var fieldKeys []string
+			for k := range dimMap {
+				fieldKeys = append(fieldKeys, k)
+			}
+			for k := range metricMap {
+				fieldKeys = append(fieldKeys, k)
+			}
+			return "", validationErrWithCode("order_by", errmsg.UnknownFieldMsg(ob.Field), errmsg.CodeUnknownField, ob.Field, suggestAlternatives(ob.Field, fieldKeys))
 		}
 	}
 

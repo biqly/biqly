@@ -107,6 +107,7 @@ func (h *DatasourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, ds)
 }
 
+//nolint:gocyclo // branches over datasource types, config shapes, and update vs create
 func (h *DatasourceHandler) datasourceDraft(_ context.Context, req createDatasourceRequest, id string, existing *metadata.Datasource) (*metadata.Datasource, string, int, string, error) {
 	if strings.TrimSpace(req.Name) == "" || strings.TrimSpace(req.Type) == "" {
 		return nil, "", http.StatusBadRequest, "name and type are required", nil

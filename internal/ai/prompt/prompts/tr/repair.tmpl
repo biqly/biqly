@@ -1,0 +1,13 @@
+{{.OriginalPrompt}}
+
+## Önceki Deneme (hatalı, deneme {{.Attempt}})
+Önceki yanıtınız şuydu:
+{{.LastResponse}}
+
+## Neden Başarısız Oldu
+Önceki LogicalQuery JSON nesnesi doğrulama hatası/hataları içeriyor:
+{{.ValidationError}}
+
+## Gerekli Eylem
+Düzeltme Stratejisi: {{.StrategyInstruction}}
+Orijinal prompt'taki **Planlama Adımlarını** (Planning Steps) tekrar çalıştırın ve ardından düzeltilmiş bir LogicalQuery JSON nesnesi oluşturun. Geçersiz alanları, operatörleri veya değerleri izin verilen alternatiflerle değiştirerek yukarıdaki hataların her birini düzeltin. Önceki hatayı tekrarlamayın. İsteğe bağlı `## Reasoning` öneki kullanılabilir; nihai çıktı geçerli JSON içermelidir - markdown kod blok işaretleri (fences) kullanmayın.

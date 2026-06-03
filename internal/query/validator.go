@@ -33,6 +33,8 @@ func NewValidator(maxRows int) *Validator {
 }
 
 // Validate checks a LogicalQuery for correctness.
+//
+//nolint:gocyclo // validates select, filters, group_by, having, order_by, windows, and case items
 func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) error {
 	var errs ValidationErrors
 
@@ -49,25 +51,34 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 		case SelectTypeDimension:
 			if !dimMap[item.Name] {
 				errs = append(errs, &ValidationError{
-					Field:   "select",
-					Message: errmsg.UnknownDimensionMsg(item.Name),
+					Field:               "select",
+					Code:                errmsg.CodeUnknownDimension,
+					Message:             errmsg.UnknownDimensionMsg(item.Name),
+					Value:               item.Name,
+					AllowedAlternatives: suggestAlternatives(item.Name, getDimensionNames(model)),
 				})
 			}
 		case SelectTypeMetric:
 			if !metricRegistry.Has(item.Name) {
 				errs = append(errs, &ValidationError{
-					Field:   "select",
-					Message: errmsg.UnknownMetricMsg(item.Name),
+					Field:               "select",
+					Code:                errmsg.CodeUnknownMetric,
+					Message:             errmsg.UnknownMetricMsg(item.Name),
+					Value:               item.Name,
+					AllowedAlternatives: suggestAlternatives(item.Name, getMetricNames(model)),
 				})
 			}
 		case SelectTypeWindow:
-			errs = append(errs, validateWindowSelect(item, dimMap, metricRegistry)...)
+			errs = append(errs, validateWindowSelect(item, model)...)
 		case SelectTypeCase:
-			errs = append(errs, validateCaseSelect(item, dimMap)...)
+			errs = append(errs, validateCaseSelect(item, model)...)
 		default:
 			errs = append(errs, &ValidationError{
-				Field:   "select",
-				Message: "invalid select type: " + item.Type,
+				Field:               "select",
+				Code:                errmsg.CodeInvalidSelectType,
+				Message:             "invalid select type: " + item.Type,
+				Value:               item.Type,
+				AllowedAlternatives: []string{SelectTypeDimension, SelectTypeMetric, SelectTypeWindow, SelectTypeCase},
 			})
 		}
 	}
@@ -76,14 +87,20 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 	for _, f := range lq.Having {
 		if !metricRegistry.Has(f.Field) {
 			errs = append(errs, &ValidationError{
-				Field:   "having",
-				Message: "having field must reference a metric: " + f.Field,
+				Field:               "having",
+				Code:                errmsg.CodeUnknownMetric,
+				Message:             "having field must reference a metric: " + f.Field,
+				Value:               f.Field,
+				AllowedAlternatives: suggestAlternatives(f.Field, getMetricNames(model)),
 			})
 		}
 		if !slices.Contains(havingOps, f.Operator) {
 			errs = append(errs, &ValidationError{
-				Field:   "having",
-				Message: "operator not supported in having: " + f.Operator,
+				Field:               "having",
+				Code:                errmsg.CodeInvalidOperator,
+				Message:             "operator not supported in having: " + f.Operator,
+				Value:               f.Operator,
+				AllowedAlternatives: havingOps,
 			})
 		}
 	}
@@ -100,14 +117,20 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 	for _, f := range lq.Filters {
 		if !allowedFields[f.Field] {
 			errs = append(errs, &ValidationError{
-				Field:   "filters",
-				Message: errmsg.UnknownFieldMsg(f.Field),
+				Field:               "filters",
+				Code:                errmsg.CodeUnknownField,
+				Message:             errmsg.UnknownFieldMsg(f.Field),
+				Value:               f.Field,
+				AllowedAlternatives: suggestAlternatives(f.Field, getAllFieldNames(model)),
 			})
 		}
 		if !slices.Contains(validFilterOps, f.Operator) {
 			errs = append(errs, &ValidationError{
-				Field:   "filters",
-				Message: "invalid operator: " + f.Operator,
+				Field:               "filters",
+				Code:                errmsg.CodeInvalidOperator,
+				Message:             "invalid operator: " + f.Operator,
+				Value:               f.Operator,
+				AllowedAlternatives: validFilterOps,
 			})
 		}
 		if f.Subquery != nil {
@@ -121,12 +144,17 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 	if lq.FromSubquery != nil && strings.TrimSpace(lq.FromCTE) != "" {
 		errs = append(errs, &ValidationError{
 			Field:   "from",
+			Code:    "MUTUALLY_EXCLUSIVE_FROM",
 			Message: "from_subquery and from_cte are mutually exclusive",
 		})
 	}
 	for _, cte := range lq.CTEs {
 		if strings.TrimSpace(cte.Name) == "" {
-			errs = append(errs, &ValidationError{Field: "ctes", Message: "cte name is required"})
+			errs = append(errs, &ValidationError{
+				Field:   "ctes",
+				Code:    "MISSING_CTE_NAME",
+				Message: "cte name is required",
+			})
 		}
 	}
 	if strings.TrimSpace(lq.FromCTE) != "" {
@@ -140,7 +168,9 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 		if !found {
 			errs = append(errs, &ValidationError{
 				Field:   "from_cte",
+				Code:    "UNKNOWN_CTE",
 				Message: "from_cte must match a defined cte name: " + lq.FromCTE,
+				Value:   lq.FromCTE,
 			})
 		}
 	}
@@ -159,8 +189,11 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 	for _, gb := range lq.GroupBy {
 		if !dimMap[gb.Field] {
 			errs = append(errs, &ValidationError{
-				Field:   "group_by",
-				Message: errmsg.UnknownDimensionMsg(gb.Field),
+				Field:               "group_by",
+				Code:                errmsg.CodeUnknownDimension,
+				Message:             errmsg.UnknownDimensionMsg(gb.Field),
+				Value:               gb.Field,
+				AllowedAlternatives: suggestAlternatives(gb.Field, getDimensionNames(model)),
 			})
 			continue
 		}
@@ -169,15 +202,20 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 		}
 		if !IsValidTimeGrain(gb.TimeGrain) {
 			errs = append(errs, &ValidationError{
-				Field:   "group_by.time_grain",
-				Message: "invalid time_grain (expected day|week|month|quarter|year): " + gb.TimeGrain,
+				Field:               "group_by.time_grain",
+				Code:                errmsg.CodeInvalidTimeGrain,
+				Message:             "invalid time_grain (expected day|week|month|quarter|year): " + gb.TimeGrain,
+				Value:               gb.TimeGrain,
+				AllowedAlternatives: []string{"day", "week", "month", "quarter", "year"},
 			})
 			continue
 		}
 		if t := dimTypes[gb.Field]; t != "date" && t != "timestamp" && t != "datetime" {
 			errs = append(errs, &ValidationError{
 				Field:   "group_by.time_grain",
+				Code:    errmsg.CodeTimeGrainOnNonDate,
 				Message: "time_grain only valid on date/timestamp dimensions: " + gb.Field,
+				Value:   gb.Field,
 			})
 		}
 	}
@@ -186,14 +224,20 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 	for _, ob := range lq.OrderBy {
 		if !dimMap[ob.Field] && !metricRegistry.Has(ob.Field) {
 			errs = append(errs, &ValidationError{
-				Field:   "order_by",
-				Message: errmsg.UnknownFieldMsg(ob.Field),
+				Field:               "order_by",
+				Code:                errmsg.CodeUnknownField,
+				Message:             errmsg.UnknownFieldMsg(ob.Field),
+				Value:               ob.Field,
+				AllowedAlternatives: suggestAlternatives(ob.Field, getAllFieldNames(model)),
 			})
 		}
 		if ob.Direction != "" && ob.Direction != OrderAsc && ob.Direction != OrderDesc {
 			errs = append(errs, &ValidationError{
-				Field:   "order_by",
-				Message: "invalid direction: " + ob.Direction,
+				Field:               "order_by",
+				Code:                "INVALID_DIRECTION",
+				Message:             "invalid direction: " + ob.Direction,
+				Value:               ob.Direction,
+				AllowedAlternatives: []string{OrderAsc, OrderDesc},
 			})
 		}
 	}
@@ -202,13 +246,16 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 	if lq.Limit < 0 {
 		errs = append(errs, &ValidationError{
 			Field:   "limit",
+			Code:    "NEGATIVE_LIMIT",
 			Message: "limit must be non-negative",
 		})
 	}
 	if lq.Limit > v.maxRows {
 		errs = append(errs, &ValidationError{
 			Field:   "limit",
+			Code:    errmsg.CodeRowLimitExceeded,
 			Message: "limit exceeds maximum allowed rows (" + strconv.Itoa(v.maxRows) + ")",
+			Value:   strconv.Itoa(lq.Limit),
 		})
 	}
 
@@ -216,6 +263,7 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 	if lq.Offset < 0 {
 		errs = append(errs, &ValidationError{
 			Field:   "offset",
+			Code:    errmsg.CodeNegativeOffset,
 			Message: "offset must be non-negative",
 		})
 	}
@@ -263,9 +311,11 @@ func validateDateFilterValueType(f Filter, dimensions []semantic.Dimension) *Val
 		return nil
 	}
 	return &ValidationError{
-		Field: "filters",
-		Message: "filter on raw date/timestamp dimension " + f.Field +
-			" must use an ISO date string (\"YYYY-MM-DD\"); for integer year/month/day filters use the matching *_year, *_month, or *_day grain dimension",
+		Field:               "filters",
+		Code:                errmsg.CodeDateValueTypeMismatch,
+		Message:             "filter on raw date/timestamp dimension " + f.Field + " must use an ISO date string (\"YYYY-MM-DD\"); for integer year/month/day filters use the matching *_year, *_month, or *_day grain dimension",
+		Value:               f.Field,
+		AllowedAlternatives: []string{f.Field + "_year", f.Field + "_month", f.Field + "_day"},
 	}
 }
 
@@ -282,15 +332,31 @@ func isNumericFilterValue(v any) bool {
 // validateWindowSelect ensures a window SelectItem is well-formed: spec is
 // present, the aggregation is recognised, partition_by and order_by fields
 // resolve in the semantic model, and any referenced metric exists.
-func validateWindowSelect(item SelectItem, dimMap map[string]bool, metricRegistry *semantic.MetricRegistry) ValidationErrors {
+func validateWindowSelect(item SelectItem, model *semantic.SemanticModel) ValidationErrors {
 	var errs ValidationErrors
 	if item.Window == nil {
-		errs = append(errs, &ValidationError{Field: "select", Message: "window item missing window spec: " + item.Name})
+		errs = append(errs, &ValidationError{
+			Field:   "select",
+			Code:    "MISSING_WINDOW_SPEC",
+			Message: "window item missing window spec: " + item.Name,
+		})
 		return errs
 	}
 	w := item.Window
+	metricRegistry := semantic.NewMetricRegistry(model.Metrics)
+	dimMap := make(map[string]bool, len(model.Dimensions))
+	for _, d := range model.Dimensions {
+		dimMap[d.Name] = true
+	}
+
 	if w.Metric != "" && !metricRegistry.Has(w.Metric) {
-		errs = append(errs, &ValidationError{Field: "select.window", Message: "unknown metric reference: " + w.Metric})
+		errs = append(errs, &ValidationError{
+			Field:               "select.window",
+			Code:                errmsg.CodeUnknownMetric,
+			Message:             "unknown metric reference: " + w.Metric,
+			Value:               w.Metric,
+			AllowedAlternatives: suggestAlternatives(w.Metric, getMetricNames(model)),
+		})
 	}
 	allowedAgg := map[string]bool{
 		"sum": true, "avg": true, "count": true, "count_distinct": true,
@@ -298,58 +364,113 @@ func validateWindowSelect(item SelectItem, dimMap map[string]bool, metricRegistr
 		"row_number": true, "rank": true, "dense_rank": true, "ntile": true,
 	}
 	if !allowedAgg[strings.ToLower(strings.TrimSpace(w.Aggregation))] && w.Metric == "" {
-		errs = append(errs, &ValidationError{Field: "select.window", Message: "unsupported window aggregation: " + w.Aggregation})
+		errs = append(errs, &ValidationError{
+			Field:   "select.window",
+			Code:    "INVALID_WINDOW_AGGREGATION",
+			Message: "unsupported window aggregation: " + w.Aggregation,
+			Value:   w.Aggregation,
+		})
 	}
 	for _, p := range w.PartitionBy {
 		if !dimMap[p] {
-			errs = append(errs, &ValidationError{Field: "select.window.partition_by", Message: errmsg.UnknownDimensionMsg(p)})
+			errs = append(errs, &ValidationError{
+				Field:               "select.window.partition_by",
+				Code:                errmsg.CodeUnknownDimension,
+				Message:             errmsg.UnknownDimensionMsg(p),
+				Value:               p,
+				AllowedAlternatives: suggestAlternatives(p, getDimensionNames(model)),
+			})
 		}
 	}
 	for _, ob := range w.OrderBy {
 		if !dimMap[ob.Field] && !metricRegistry.Has(ob.Field) {
-			errs = append(errs, &ValidationError{Field: "select.window.order_by", Message: errmsg.UnknownFieldMsg(ob.Field)})
+			errs = append(errs, &ValidationError{
+				Field:               "select.window.order_by",
+				Code:                errmsg.CodeUnknownField,
+				Message:             errmsg.UnknownFieldMsg(ob.Field),
+				Value:               ob.Field,
+				AllowedAlternatives: suggestAlternatives(ob.Field, getAllFieldNames(model)),
+			})
 		}
 		if ob.Direction != "" && ob.Direction != OrderAsc && ob.Direction != OrderDesc {
-			errs = append(errs, &ValidationError{Field: "select.window.order_by", Message: "invalid direction: " + ob.Direction})
+			errs = append(errs, &ValidationError{
+				Field:               "select.window.order_by",
+				Code:                "INVALID_DIRECTION",
+				Message:             "invalid direction: " + ob.Direction,
+				Value:               ob.Direction,
+				AllowedAlternatives: []string{OrderAsc, OrderDesc},
+			})
 		}
 	}
 	return errs
 }
 
-func validateCaseSelect(item SelectItem, dimMap map[string]bool) ValidationErrors {
+func validateCaseSelect(item SelectItem, model *semantic.SemanticModel) ValidationErrors {
 	var errs ValidationErrors
 	if item.Case == nil || len(item.Case.Branches) == 0 {
-		errs = append(errs, &ValidationError{Field: "select.case", Message: "case item requires branches: " + item.Name})
+		errs = append(errs, &ValidationError{
+			Field:   "select.case",
+			Code:    "MISSING_CASE_BRANCHES",
+			Message: "case item requires branches: " + item.Name,
+		})
 		return errs
 	}
 	if strings.TrimSpace(item.Name) == "" && strings.TrimSpace(item.Alias) == "" {
-		errs = append(errs, &ValidationError{Field: "select.case", Message: "case item requires name or alias"})
+		errs = append(errs, &ValidationError{
+			Field:   "select.case",
+			Code:    "MISSING_CASE_NAME",
+			Message: "case item requires name or alias",
+		})
 	}
 	for i, br := range item.Case.Branches {
 		if len(br.When) == 0 {
-			errs = append(errs, &ValidationError{Field: "select.case", Message: fmt.Sprintf("case branch %d missing when filters", i)})
+			errs = append(errs, &ValidationError{
+				Field:   "select.case",
+				Code:    "MISSING_CASE_WHEN",
+				Message: fmt.Sprintf("case branch %d missing when filters", i),
+			})
 		}
-		errs = append(errs, validateCaseThen(br.Then, dimMap, "select.case")...)
+		errs = append(errs, validateCaseThen(br.Then, model, "select.case")...)
 	}
 	if item.Case.Else != nil {
-		errs = append(errs, validateCaseThen(*item.Case.Else, dimMap, "select.case")...)
+		errs = append(errs, validateCaseThen(*item.Case.Else, model, "select.case")...)
 	}
 	return errs
 }
 
-func validateCaseThen(then CaseThen, dimMap map[string]bool, field string) ValidationErrors {
+func validateCaseThen(then CaseThen, model *semantic.SemanticModel, field string) ValidationErrors {
 	var errs ValidationErrors
+	dimMap := make(map[string]bool, len(model.Dimensions))
+	for _, d := range model.Dimensions {
+		dimMap[d.Name] = true
+	}
 	switch strings.ToLower(strings.TrimSpace(then.Type)) {
 	case CaseThenTypeDimension, "":
 		if then.Dimension == "" || !dimMap[then.Dimension] {
-			errs = append(errs, &ValidationError{Field: field, Message: "unknown case then dimension: " + then.Dimension})
+			errs = append(errs, &ValidationError{
+				Field:               field,
+				Code:                errmsg.CodeUnknownDimension,
+				Message:             "unknown case then dimension: " + then.Dimension,
+				Value:               then.Dimension,
+				AllowedAlternatives: suggestAlternatives(then.Dimension, getDimensionNames(model)),
+			})
 		}
 	case CaseThenTypeLiteral:
 		if then.Literal == nil {
-			errs = append(errs, &ValidationError{Field: field, Message: "case then literal value required"})
+			errs = append(errs, &ValidationError{
+				Field:   field,
+				Code:    "MISSING_CASE_THEN_LITERAL",
+				Message: "case then literal value required",
+			})
 		}
 	default:
-		errs = append(errs, &ValidationError{Field: field, Message: "invalid case then type: " + then.Type})
+		errs = append(errs, &ValidationError{
+			Field:               field,
+			Code:                "INVALID_CASE_THEN_TYPE",
+			Message:             "invalid case then type: " + then.Type,
+			Value:               then.Type,
+			AllowedAlternatives: []string{CaseThenTypeDimension, CaseThenTypeLiteral},
+		})
 	}
 	return errs
 }
@@ -357,16 +478,30 @@ func validateCaseThen(then CaseThen, dimMap map[string]bool, field string) Valid
 func validateSubqueryFilter(f Filter) ValidationErrors {
 	var errs ValidationErrors
 	if f.Operator != OpIn && f.Operator != OpNotIn {
-		errs = append(errs, &ValidationError{Field: "filters.subquery", Message: "subquery filter requires in or not_in operator"})
+		errs = append(errs, &ValidationError{
+			Field:               "filters.subquery",
+			Code:                "INVALID_SUBQUERY_OPERATOR",
+			Message:             "subquery filter requires in or not_in operator",
+			Value:               f.Operator,
+			AllowedAlternatives: []string{"in", "not_in"},
+		})
 	}
 	if f.Subquery == nil {
 		return errs
 	}
 	if strings.TrimSpace(f.Subquery.ResultField) == "" {
-		errs = append(errs, &ValidationError{Field: "filters.subquery", Message: "subquery result_field is required"})
+		errs = append(errs, &ValidationError{
+			Field:   "filters.subquery",
+			Code:    "MISSING_SUBQUERY_RESULT_FIELD",
+			Message: "subquery result_field is required",
+		})
 	}
 	if len(f.Subquery.Body.Select) == 0 {
-		errs = append(errs, &ValidationError{Field: "filters.subquery", Message: "subquery body requires select"})
+		errs = append(errs, &ValidationError{
+			Field:   "filters.subquery",
+			Code:    "MISSING_SUBQUERY_SELECT",
+			Message: "subquery body requires select",
+		})
 	}
 	return errs
 }

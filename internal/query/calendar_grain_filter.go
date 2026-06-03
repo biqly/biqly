@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/biqly/biqly/internal/errmsg"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
@@ -147,12 +148,11 @@ func validateCalendarGrainYearCoverage(lq *LogicalQuery, model *semantic.Semanti
 			continue
 		}
 		return &ValidationError{
-			Field: "filters",
-			Message: fmt.Sprintf(
-				"ambiguous calendar %s filter on %q (numeric value without year): add a filter on dimension %q (e.g. eq 2026), "+
-					"or replace the %q filter value with an ISO calendar anchor like \"2026-04-01\"",
-				g, f.Field, yearField, f.Field,
-			),
+			Field:               "filters",
+			Code:                errmsg.CodeAmbiguousYearCoverage,
+			Message:             fmt.Sprintf("ambiguous calendar %s filter on %q (numeric value without year): add a filter on dimension %q (e.g. eq 2026), or replace the %q filter value with an ISO calendar anchor like \"2026-04-01\"", g, f.Field, yearField, f.Field),
+			Value:               f.Field,
+			AllowedAlternatives: []string{yearField},
 		}
 	}
 	return nil

@@ -120,42 +120,39 @@ func (r *Repository) BulkInsertModelChildren(ctx context.Context, modelID string
 			if err != nil {
 				return fmt.Errorf("prepare dimensions: %w", err)
 			}
+			defer func() { _ = stmt.Close() }()
 			for i := range dims {
 				d := &dims[i]
 				if _, err := stmt.ExecContext(ctx, d.ID, d.ModelID, d.Name, d.Label, d.ColumnRef, d.Type, platformdb.NullIfEmpty(d.TimeGrain), d.Synonyms, d.Description, d.IsActive); err != nil {
-					_ = stmt.Close()
 					return fmt.Errorf("insert dimension %q: %w", d.Name, err)
 				}
 			}
-			_ = stmt.Close()
 		}
 		if len(mets) > 0 {
 			stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_metrics (id, model_id, name, label, expression, aggregation, format, synonyms, description, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`)
 			if err != nil {
 				return fmt.Errorf("prepare metrics: %w", err)
 			}
+			defer func() { _ = stmt.Close() }()
 			for i := range mets {
 				m := &mets[i]
 				if _, err := stmt.ExecContext(ctx, m.ID, m.ModelID, m.Name, m.Label, m.Expression, m.Aggregation, m.Format, m.Synonyms, m.Description, m.IsActive); err != nil {
-					_ = stmt.Close()
 					return fmt.Errorf("insert metric %q: %w", m.Name, err)
 				}
 			}
-			_ = stmt.Close()
 		}
 		if len(joins) > 0 {
 			stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_joins (id, model_id, name, from_schema, from_table, from_column, to_schema, to_table, to_column, join_type, relationship, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`)
 			if err != nil {
 				return fmt.Errorf("prepare joins: %w", err)
 			}
+			defer func() { _ = stmt.Close() }()
 			for i := range joins {
 				j := &joins[i]
 				if _, err := stmt.ExecContext(ctx, j.ID, j.ModelID, j.Name, j.FromSchema, j.FromTable, j.FromColumn, j.ToSchema, j.ToTable, j.ToColumn, j.JoinType, j.Relationship, j.IsActive); err != nil {
-					_ = stmt.Close()
 					return fmt.Errorf("insert join %q: %w", j.Name, err)
 				}
 			}
-			_ = stmt.Close()
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE semantic_models SET status = 'draft', draft_updated_at = now(), updated_at = now() WHERE id = $1::uuid`, modelID); err != nil {
 			return fmt.Errorf("mark model draft: %w", err)

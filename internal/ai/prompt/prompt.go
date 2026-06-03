@@ -12,6 +12,7 @@ import (
 
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/semantic"
+	"github.com/biqly/biqly/pkg/query"
 )
 
 const (
@@ -631,6 +632,80 @@ func (b *PromptBuilder) BuildRetry(ctx context.Context, locale i18n.Locale, orig
 	sb.WriteString(validationError)
 	sb.WriteString("\n\n## Required Action\n")
 	sb.WriteString("Re-run the **Planning Steps** from the original prompt, then re-emit a corrected LogicalQuery JSON object using dimensions, metrics, and operators that exist in the semantic model above. Do not repeat the previous mistake. Optional `## Reasoning` prefix allowed; final output must include valid JSON — no markdown fences.\n")
+	return sb.String()
+}
+
+// RepairStrategy returns the locale-specific repair instruction for a 1-indexed
+// repair attempt. Attempt 1 is a minimal, surgical fix; attempt 2 re-evaluates
+// structure; attempt 3+ regenerates the whole query. Shared by BuildRepairPrompt
+// and the service repair loop so the prompt text and recorded telemetry stay in sync.
+func RepairStrategy(locale i18n.Locale, attempt int) string {
+	if locale == i18n.LocaleTR {
+		switch attempt {
+		case 1:
+			return "Hata listesinde belirtilen geçersiz boyut/metrik adlarını düzeltmeye odaklanın. Sorgunun geri kalanını değiştirmeyin."
+		case 2:
+			return "Sorgu yapısını, join yollarını ve seçilen alanları tekrar değerlendirin; ancak kullanıcının amacına sadık kalın."
+		default:
+			return "Tüm LogicalQuery'yi sıfırdan oluşturun; önceki hatalardan kaçındığınızdan emin olun."
+		}
+	}
+	switch attempt {
+	case 1:
+		return "Focus strictly on fixing the invalid dimension/metric names highlighted in the error list. Keep the rest of the query identical."
+	case 2:
+		return "Re-evaluate the query structure, including join paths and selected fields, while keeping the user's intent intact."
+	default:
+		return "Regenerate the entire LogicalQuery from scratch; ensure you avoid all previous errors."
+	}
+}
+
+// BuildRepairPrompt builds a highly-focused corrective prompt to guide the LLM to fix the validation errors.
+func (b *PromptBuilder) BuildRepairPrompt(ctx context.Context, locale i18n.Locale, originalPrompt, lastResponse string, errs query.ValidationErrors, attempt int) string {
+	tmpl := promptTemplate(ctx, locale, "repair")
+	if tmpl == "" {
+		tmpl = promptTemplate(ctx, locale, "retry")
+	}
+
+	strategyStr := RepairStrategy(locale, attempt)
+
+	var explanation strings.Builder
+	for _, e := range errs {
+		if e.Code != "" {
+			_, _ = fmt.Fprintf(&explanation, "- Field: %s, Error Code: %s, Message: %s", e.Field, e.Code, e.Message)
+		} else {
+			_, _ = fmt.Fprintf(&explanation, "- Field: %s, Message: %s", e.Field, e.Message)
+		}
+		if len(e.AllowedAlternatives) > 0 {
+			_, _ = fmt.Fprintf(&explanation, " (did you mean one of: %s?)", strings.Join(e.AllowedAlternatives, ", "))
+		}
+		explanation.WriteString("\n")
+	}
+
+	if tmpl != "" {
+		return renderPromptTemplate(tmpl, map[string]any{
+			"OriginalPrompt":      originalPrompt,
+			"LastResponse":        lastResponse,
+			"ValidationError":     explanation.String(),
+			"ValidationErrors":    errs.ToRepairJSON(),
+			"Attempt":             attempt,
+			"StrategyInstruction": strategyStr,
+		})
+	}
+
+	sb := promptBuilderPool.Get().(*bytes.Buffer)
+	sb.Reset()
+	defer promptBuilderPool.Put(sb)
+	sb.WriteString(originalPrompt)
+	sb.WriteString("\n\n## Previous Attempt (incorrect)\n")
+	sb.WriteString("Your previous response was:\n")
+	sb.WriteString(lastResponse)
+	sb.WriteString("\n\n## Why It Failed\n")
+	sb.WriteString("The previous LogicalQuery had validation errors:\n")
+	sb.WriteString(explanation.String())
+	sb.WriteString("\n## Required Action\n")
+	fmt.Fprintf(sb, "Repair Strategy: %s\n", strategyStr)
+	sb.WriteString("Re-run the **Planning Steps** from the original prompt, and fix each validation error above. Replace incorrect dimensions, metrics, or operators with allowed alternatives. Do not repeat the previous mistake. Final output must include valid JSON - no markdown fences.\n")
 	return sb.String()
 }
 
