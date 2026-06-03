@@ -30,14 +30,15 @@ commands:
 3. run frontend tests: `npm --prefix frontend run test` (runs vitest)
 4. lint frontend (react/typescript): `make lint-frontend` or `npm --prefix frontend run lint` (eslint)
 
-## pre-commit lint (required)
+## pre-commit checks (required)
 
-before any `git commit`, run both linters and fix reported issues:
+before any `git commit`, run the linters AND tests for the code you changed, and fix reported issues:
 
-1. **go**: `make lint-go` (golangci-lint)
-2. **react / frontend**: `make lint-frontend` (eslint)
+1. **go**: `make lint-go` (golangci-lint) + `make test-go` (go test -race)
+2. **react / frontend**: `make lint-frontend` (eslint) + `make test-frontend` (vitest)
+3. **frontend full gate** (same as CI): `make check-frontend` (lint + format:check + knip + test + build)
 
-or run both in one command: `make lint`
+or run everything in one command: `make precommit` (= `make lint` + `make test`)
 
 do not commit until these pass for the code you changed (go paths, frontend paths, or both).
 

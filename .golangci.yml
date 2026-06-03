@@ -54,6 +54,9 @@ linters:
           msg: avoid panic in application code
 
   exclusions:
+    paths:
+      # Third-party JS packages can ship Go files (e.g. flatted/golang).
+      - ^frontend/
     rules:
       - path: ^cmd/
         linters:

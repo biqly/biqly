@@ -1,4 +1,4 @@
-.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai test eval eval-regression lint lint-go lint-frontend semgrep-scan helm-deps helm-lint helm-template clean migrate-up migrate-down docker-up docker-down seed-adventureworks
+.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai test test-go test-frontend eval eval-regression lint lint-go lint-frontend format-frontend check-frontend precommit semgrep-scan helm-deps helm-lint helm-template clean migrate-up migrate-down docker-up docker-down seed-adventureworks
 
 BINARY_NAME=biqly
 GO_FILES=$(shell find . -name '*.go' -not -path './vendor/*')
@@ -59,8 +59,13 @@ run-query: build-query
 run-ai: build-ai
 	@./bin/biqly-ai
 
-test:
+test: test-go test-frontend
+
+test-go:
 	@go test -v -race -coverprofile=coverage.out ./...
+
+test-frontend:
+	@npm --prefix frontend run test
 
 eval:
 	@go test -v ./internal/ai/... ./internal/http/handlers/... -run "TestGoldenSeedSelfConsistent|TestLogicalQueryEqualBaseline|TestGoldenLoader|TestEvalCaseCRUD"
@@ -75,6 +80,17 @@ lint-go:
 
 lint-frontend:
 	@npm --prefix frontend run lint
+
+format-frontend:
+	@npm --prefix frontend run format
+
+# Full frontend quality gate: lint + format:check + knip + test + build
+# (same command CI runs).
+check-frontend:
+	@npm --prefix frontend run check
+
+# Run before every commit: all linters and all tests for both stacks.
+precommit: lint test
 
 semgrep-scan:
 	@semgrep scan $(foreach config,$(SEMGREP_CONFIGS),--config $(config)) --sarif --output $(SEMGREP_SARIF)
