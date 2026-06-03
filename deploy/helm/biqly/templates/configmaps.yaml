@@ -4,6 +4,13 @@ metadata:
   name: {{ .Values.global.secretNames.config }}
   labels:
     {{- include "biqly.labels" . | nindent 4 }}
+  annotations:
+    # Latest migration revision shipped with the chart. PreSync hook Jobs do
+    # not participate in ArgoCD diffing, so a commit that only changes
+    # migrations/hook resources never triggers an automated sync. Bumping
+    # this annotation creates a real diff and forces the sync (and thus the
+    # migrate hook) to run.
+    migrations.biqly.io/revision: "039"
 data:
   {{- range $key, $value := .Values.global.config }}
   {{ $key }}: {{ $value | quote }}
