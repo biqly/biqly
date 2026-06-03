@@ -167,7 +167,7 @@ export function EvalRunTab({
                       <YAxis stroke={chartAxisStroke} domain={[0, 100]} tick={smallChartTick} />
                       <RechartsTooltip
                         contentStyle={chartTooltipStyle}
-                        formatter={(v: number) => `${v}%`}
+                        formatter={(v: any) => v != null ? `${v}%` : ''}
                       />
                       <Bar dataKey="pass_rate_pct" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                     </BarChart>
