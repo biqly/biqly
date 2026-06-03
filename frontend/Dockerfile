@@ -1,5 +1,5 @@
 # Builder: install deps and produce a static dist/ via Vite.
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /src
 
