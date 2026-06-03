@@ -274,7 +274,7 @@ export default function TableBrowser() {
 
   const { datasources, loading: dsLoading } = useDatasources()
   const [datasourceId, setDatasourceId] = useState('')
-  const { models } = useSemanticModels(datasourceId)
+  const { models, loading: modelsLoading } = useSemanticModels(datasourceId)
   const [modelId, setModelId] = useState('')
   const {
     model: modelDetail,
@@ -759,7 +759,7 @@ export default function TableBrowser() {
             end: formatInt(rangeEnd),
           })
 
-  if (dsLoading || (modelId && !modelDetail && modelLoading)) {
+  if (dsLoading || modelsLoading || (modelId ? modelLoading : false)) {
     return <LoadingScreen minHeight="300px" />
   }
 

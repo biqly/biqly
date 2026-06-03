@@ -22,6 +22,7 @@ import { chartAxisStroke, chartGridStroke, chartTooltipStyle } from '../utils/ch
 import { chartColor } from '../utils/constants'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingOverlay } from './ui/LoadingOverlay'
+import { LoadingScreen } from './ui/LoadingScreen'
 import { Select } from './ui/Select'
 
 interface Widget {
@@ -293,10 +294,14 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
     }
   }
 
+  if (loading && !dashboard) {
+    return <LoadingScreen minHeight="300px" />
+  }
+
   return (
     <div className="page-stack" style={{ position: 'relative' }}>
-      <LoadingOverlay loading={loading} />
-      {error && <ErrorAlert error={error} />}
+      <LoadingOverlay loading={loading}>
+        {error && <ErrorAlert error={error} />}
 
       {/* Header Panel */}
       <div className="card">
@@ -886,6 +891,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
           </div>
         </div>
       )}
+      </LoadingOverlay>
     </div>
   )
 }

@@ -325,12 +325,6 @@ export default function Composites() {
 
   return (
     <div className="composites-page">
-      <div className="composites-page-header">
-        <span className="composites-eyebrow">{t('composites.eyebrow')}</span>
-        <h1>{t('composites.title')}</h1>
-        <p>{t('composites.subtitle')}</p>
-      </div>
-
       <div className="composites-controls-row">
         <div className="composites-ds-select">
           <Select

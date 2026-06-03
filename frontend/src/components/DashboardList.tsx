@@ -8,6 +8,7 @@ import { useT } from '../i18n'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingOverlay } from './ui/LoadingOverlay'
+import { LoadingScreen } from './ui/LoadingScreen'
 import { Modal } from './ui/Modal'
 
 interface Dashboard {
@@ -97,11 +98,14 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
     }
   }
 
+  if (loading && dashboards.length === 0) {
+    return <LoadingScreen minHeight="300px" />
+  }
+
   return (
     <div className="page-stack dashboard-list-page" style={{ position: 'relative' }}>
-      <LoadingOverlay loading={loading} />
-
-      {error && <ErrorAlert error={error} />}
+      <LoadingOverlay loading={loading}>
+        {error && <ErrorAlert error={error} />}
 
       <div className="card">
         <div className="card-header-row card-header-row--spaced">
@@ -179,6 +183,7 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
           ))}
         </div>
       )}
+      </LoadingOverlay>
 
       <Modal
         open={isModalOpen}
