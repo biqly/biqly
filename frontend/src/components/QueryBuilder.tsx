@@ -71,8 +71,8 @@ export default function QueryBuilder() {
   const loadedDatasources = !dsLoading
   const [datasourceId, setDatasourceId] = useState(dsParam)
   const [modelId, setModelId] = useState('')
-  const { models, setModels } = useSemanticModels(datasourceId)
-  const { model: modelDetail, setModel: setModelDetail } = useModelDetail(modelId)
+  const { models, loading: modelsLoading, setModels } = useSemanticModels(datasourceId)
+  const { model: modelDetail, loading: modelDetailLoading, setModel: setModelDetail } = useModelDetail(modelId)
   const [generatingModel, setGeneratingModel] = useState(false)
   const [generatedModel, setGeneratedModel] = useState<GenerateSemanticModelResponse | null>(null)
 
@@ -302,7 +302,7 @@ export default function QueryBuilder() {
 
   const chartData = useMemo(() => rowsToChartData(result?.rows), [result?.rows])
 
-  if (dsLoading || (modelId && !modelDetail)) {
+  if (dsLoading || modelsLoading || (modelId ? modelDetailLoading : false)) {
     return <LoadingScreen minHeight="300px" />
   }
 

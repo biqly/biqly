@@ -59,7 +59,7 @@ export default function Modeling() {
   const [datasourceId, setDatasourceId] = useState(dsParam)
   const [tables, setTables] = useState<TableRow[]>([])
   const [columns, setColumns] = useState<ColumnRow[]>([])
-  const { models, setModels } = useSemanticModels(datasourceId)
+  const { models, loading: modelsLoading, setModels } = useSemanticModels(datasourceId)
   const [modelId, setModelId] = useState(routeModelId || modelParam)
 
   useEffect(() => {
@@ -68,7 +68,7 @@ export default function Modeling() {
     }
   }, [routeModelId])
 
-  const { model, setModel } = useModelDetail(modelId, { includeInactive: true })
+  const { model, loading: modelDetailLoading, setModel } = useModelDetail(modelId, { includeInactive: true })
   const [joinForm, setJoinForm] = useState<JoinForm>(() => defaultJoinForm([], [], null))
   const [creatingModel, setCreatingModel] = useState(false)
   const [savingJoin, setSavingJoin] = useState(false)
@@ -649,7 +649,7 @@ export default function Modeling() {
     }
   }, [highlightJoinId, joins, model])
 
-  if (dsLoading || (modelId && !model)) {
+  if (dsLoading || modelsLoading || (modelId ? modelDetailLoading : false)) {
     return <LoadingScreen minHeight="300px" />
   }
 
