@@ -83,7 +83,7 @@ biqly/
 
 | Layer | Technology |
 |---|---|
-| Language | Go 1.26.3 |
+| Language | Go 1.26.4 |
 | HTTP | `go-chi/chi/v5` |
 | Metadata DB | PostgreSQL via `jackc/pgx/v5` |
 | Migrations | `golang-migrate/migrate/v4` |

@@ -145,7 +145,7 @@ Unset a service URL to fall back to in-process monolith handler for that domain.
 
 ### Prerequisites
 
-- Go 1.26+
+- Go 1.26.4+
 - Docker & Docker Compose
 - Node.js 22+ (frontend development)
 
@@ -558,7 +558,7 @@ testdata/               Golden SQL test files
 
 | Layer | Technology |
 | ------- | ----------- |
-| Backend | Go 1.26 |
+| Backend | Go 1.26.4 |
 | HTTP | `go-chi/chi/v5` |
 | Metadata DB | PostgreSQL via `jackc/pgx/v5` |
 | Cache | Redis (`redis/go-redis/v9`) |
