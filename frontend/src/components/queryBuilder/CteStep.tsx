@@ -10,15 +10,10 @@ interface CteStepProps {
   t: any
 }
 
-export function CteStep({
-  ctes,
-  updateCTE,
-  removeCTE,
-  addCTE,
-  onClear,
-  t,
-}: CteStepProps) {
-  if (ctes.length === 0) return null
+export function CteStep({ ctes, updateCTE, removeCTE, addCTE, onClear, t }: CteStepProps) {
+  if (ctes.length === 0) {
+    return null
+  }
 
   return (
     <NotebookStep

@@ -26,7 +26,7 @@ export function MetadataDescriptionCell({
   onCancel,
 }: MetadataDescriptionCellProps) {
   const isEditing = editing?.kind === kind && editing.id === entityId
-  const displayValue = isEditing ? editing.value : description ?? ''
+  const displayValue = isEditing ? editing.value : (description ?? '')
   return (
     <InlineEdit
       editing={isEditing}

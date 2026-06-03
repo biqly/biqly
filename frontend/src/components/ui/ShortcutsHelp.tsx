@@ -1,17 +1,24 @@
-import { useMemo } from 'react'
-import { useT } from '../../i18n'
-import { Modal } from './Modal'
-import type { ShortcutDef, ShortcutKeys } from '../../hooks/useKeyboardShortcuts'
 import '../../styles/shortcuts-help.css'
 
-const isMac =
-  typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(navigator.userAgent)
+import { useMemo } from 'react'
+
+import type { ShortcutDef, ShortcutKeys } from '../../hooks/useKeyboardShortcuts'
+import { useT } from '../../i18n'
+import { Modal } from './Modal'
+
+const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(navigator.userAgent)
 
 function comboParts(keys: ShortcutKeys): string[] {
   const parts: string[] = []
-  if (keys.mod) parts.push(isMac ? '⌘' : 'Ctrl')
-  if (keys.shift) parts.push(isMac ? '⇧' : 'Shift')
-  if (keys.alt) parts.push(isMac ? '⌥' : 'Alt')
+  if (keys.mod) {
+    parts.push(isMac ? '⌘' : 'Ctrl')
+  }
+  if (keys.shift) {
+    parts.push(isMac ? '⇧' : 'Shift')
+  }
+  if (keys.alt) {
+    parts.push(isMac ? '⌥' : 'Alt')
+  }
   parts.push(keys.key.length === 1 ? keys.key.toUpperCase() : keys.key)
   return parts
 }

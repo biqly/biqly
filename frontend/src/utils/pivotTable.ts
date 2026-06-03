@@ -13,9 +13,13 @@ export function buildPivotTable(
   const rowIdx = columns.findIndex((c) => c.name === hint.row_field)
   const colIdx = columns.findIndex((c) => c.name === hint.column_field)
   const valueField = hint.value_fields[0]
-  if (!valueField) return null
+  if (!valueField) {
+    return null
+  }
   const valIdx = columns.findIndex((c) => c.name === valueField)
-  if (rowIdx < 0 || colIdx < 0 || valIdx < 0) return null
+  if (rowIdx < 0 || colIdx < 0 || valIdx < 0) {
+    return null
+  }
 
   const grid = new Map<string, Map<string, number>>()
   const colKeys = new Set<string>()
@@ -25,9 +29,13 @@ export function buildPivotTable(
     const ck = String(row[colIdx] ?? '')
     const raw = row[valIdx]
     const n = typeof raw === 'number' ? raw : Number(raw)
-    if (Number.isNaN(n)) continue
+    if (Number.isNaN(n)) {
+      continue
+    }
     colKeys.add(ck)
-    if (!grid.has(rk)) grid.set(rk, new Map())
+    if (!grid.has(rk)) {
+      grid.set(rk, new Map())
+    }
     const bucket = grid.get(rk)!
     bucket.set(ck, (bucket.get(ck) ?? 0) + n)
   }

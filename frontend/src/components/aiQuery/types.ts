@@ -1,7 +1,12 @@
-import type { TranslationKey, Locale } from '../../i18n'
-import type { AIRuntimeSettings, AIQueryResponse, ConversationMessage, Conversation } from '../../types/ai'
-import type { Datasource, Table } from '../../types/metadata'
 import type { RequestOptions } from '../../api/apiClient'
+import type { Locale, TranslationKey } from '../../i18n'
+import type {
+  AIQueryResponse,
+  AIRuntimeSettings,
+  Conversation,
+  ConversationMessage,
+} from '../../types/ai'
+import type { Datasource, Table } from '../../types/metadata'
 
 export type TableOption = Omit<Table, 'columns'>
 
@@ -38,7 +43,11 @@ export interface AssistantMessageCardProps {
   userQuestion: string
   get: <T>(url: string) => Promise<T | null>
   postData: <T>(url: string, body: unknown, options?: RequestOptions) => Promise<T | null>
-  updateMessageResponse: (conversationId: string, messageIndex: number, aiResponse: AIQueryResponse) => void
+  updateMessageResponse: (
+    conversationId: string,
+    messageIndex: number,
+    aiResponse: AIQueryResponse,
+  ) => void
   t: (key: TranslationKey, params?: Record<string, string | number>) => string
   localeNumberTag: (locale: Locale) => string
   localeTag: string
@@ -100,5 +109,9 @@ export interface ChatPanelProps {
   onAbort: () => void
   get: <T>(url: string) => Promise<T | null>
   postData: <T>(url: string, body: unknown, options?: RequestOptions) => Promise<T | null>
-  updateMessageResponse: (conversationId: string, messageIndex: number, aiResponse: AIQueryResponse) => void
+  updateMessageResponse: (
+    conversationId: string,
+    messageIndex: number,
+    aiResponse: AIQueryResponse,
+  ) => void
 }

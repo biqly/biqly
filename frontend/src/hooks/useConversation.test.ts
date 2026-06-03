@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import type { Conversation } from '../types/ai'
 import { loadConversations, saveConversations } from './useConversation'
 
@@ -39,7 +40,9 @@ describe('conversation storage', () => {
       getItem: () => null,
       setItem: (_key: string, next: string) => {
         calls.push(next)
-        if (calls.length === 1) throw new Error('quota exceeded')
+        if (calls.length === 1) {
+          throw new Error('quota exceeded')
+        }
       },
     }
     const conversations = Array.from({ length: 25 }, (_, i) => conversation(`conv-${i}`))

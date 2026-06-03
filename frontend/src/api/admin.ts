@@ -1,39 +1,65 @@
 import type {
-  DatasourceAccess,
-  Permission,
-  Role,
-  Workspace,
-  WorkspaceMember,
-  WorkspaceDatasource,
-  AIQueueStatus,
   AIHistoryEntry,
+  AIQueueStatus,
   AuditLogEntry,
   AuthUser,
-  UserRoleInfo,
-  ResourceShare,
+  DatasourceAccess,
+  Permission,
   PlatformSettings,
+  ResourceShare,
+  Role,
+  UserRoleInfo,
+  Workspace,
+  WorkspaceDatasource,
+  WorkspaceMember,
 } from '../types/auth'
-import { normalizeAuthUser } from './auth'
 import { apiFetch } from './apiClient'
+import { normalizeAuthUser } from './auth'
 
 const AUTH_API_BASE = '/api/auth'
 
 // === RBAC admin ===
 
-export async function listRoles(token: string, page?: number, pageSize?: number): Promise<{ roles: Role[]; total: number }> {
+export async function listRoles(
+  token: string,
+  page?: number,
+  pageSize?: number,
+): Promise<{ roles: Role[]; total: number }> {
   const params = new URLSearchParams()
-  if (page) params.set('page', String(page))
-  if (pageSize) params.set('page_size', String(pageSize))
+  if (page) {
+    params.set('page', String(page))
+  }
+  if (pageSize) {
+    params.set('page_size', String(pageSize))
+  }
   const suffix = params.toString() ? `?${params.toString()}` : ''
-  return apiFetch<{ roles: Role[]; total: number }>('GET', `${AUTH_API_BASE}/admin/roles${suffix}`, undefined, { token })
+  return apiFetch<{ roles: Role[]; total: number }>(
+    'GET',
+    `${AUTH_API_BASE}/admin/roles${suffix}`,
+    undefined,
+    { token },
+  )
 }
 
-export async function listPermissions(token: string, page?: number, pageSize?: number): Promise<{ permissions: Permission[]; total: number }> {
+export async function listPermissions(
+  token: string,
+  page?: number,
+  pageSize?: number,
+): Promise<{ permissions: Permission[]; total: number }> {
   const params = new URLSearchParams()
-  if (page) params.set('page', String(page))
-  if (pageSize) params.set('page_size', String(pageSize))
+  if (page) {
+    params.set('page', String(page))
+  }
+  if (pageSize) {
+    params.set('page_size', String(pageSize))
+  }
   const suffix = params.toString() ? `?${params.toString()}` : ''
-  return apiFetch<{ permissions: Permission[]; total: number }>('GET', `${AUTH_API_BASE}/admin/permissions${suffix}`, undefined, { token })
+  return apiFetch<{ permissions: Permission[]; total: number }>(
+    'GET',
+    `${AUTH_API_BASE}/admin/permissions${suffix}`,
+    undefined,
+    { token },
+  )
 }
 
 export async function getRolePermissions(token: string, roleID: string): Promise<string[]> {
@@ -46,7 +72,11 @@ export async function getRolePermissions(token: string, roleID: string): Promise
   return data.permission_ids ?? []
 }
 
-export async function setRolePermissions(token: string, roleID: string, permissionIDs: string[]): Promise<void> {
+export async function setRolePermissions(
+  token: string,
+  roleID: string,
+  permissionIDs: string[],
+): Promise<void> {
   await apiFetch<void>(
     'PUT',
     `${AUTH_API_BASE}/admin/roles/${roleID}/permissions`,
@@ -62,15 +92,25 @@ export async function assignRole(
   scopeType?: string,
   scopeID?: string,
 ): Promise<void> {
-  await apiFetch<void>('POST', `${AUTH_API_BASE}/admin/users/${userID}/roles`, {
-    role_id: roleID,
-    scope_type: scopeType,
-    scope_id: scopeID,
-  }, { token })
+  await apiFetch<void>(
+    'POST',
+    `${AUTH_API_BASE}/admin/users/${userID}/roles`,
+    {
+      role_id: roleID,
+      scope_type: scopeType,
+      scope_id: scopeID,
+    },
+    { token },
+  )
 }
 
 export async function removeRole(token: string, userID: string, roleID: string): Promise<void> {
-  await apiFetch<void>('DELETE', `${AUTH_API_BASE}/admin/users/${userID}/roles/${roleID}`, undefined, { token })
+  await apiFetch<void>(
+    'DELETE',
+    `${AUTH_API_BASE}/admin/users/${userID}/roles/${roleID}`,
+    undefined,
+    { token },
+  )
 }
 
 // === Audit log ===
@@ -83,26 +123,57 @@ export interface AuditLogFilters {
   pageSize?: number
 }
 
-export async function listAuditLog(token: string, filters: AuditLogFilters = {}): Promise<{ entries: AuditLogEntry[]; total: number }> {
+export async function listAuditLog(
+  token: string,
+  filters: AuditLogFilters = {},
+): Promise<{ entries: AuditLogEntry[]; total: number }> {
   const params = new URLSearchParams()
-  if (filters.userID) params.set('user_id', filters.userID)
-  if (filters.action) params.set('action', filters.action)
-  if (filters.limit) params.set('limit', String(filters.limit))
-  if (filters.page) params.set('page', String(filters.page))
-  if (filters.pageSize) params.set('page_size', String(filters.pageSize))
+  if (filters.userID) {
+    params.set('user_id', filters.userID)
+  }
+  if (filters.action) {
+    params.set('action', filters.action)
+  }
+  if (filters.limit) {
+    params.set('limit', String(filters.limit))
+  }
+  if (filters.page) {
+    params.set('page', String(filters.page))
+  }
+  if (filters.pageSize) {
+    params.set('page_size', String(filters.pageSize))
+  }
   const suffix = params.toString() ? `?${params.toString()}` : ''
-  const data = await apiFetch<{ entries?: AuditLogEntry[]; total?: number }>('GET', `${AUTH_API_BASE}/admin/audit-log${suffix}`, undefined, { token })
+  const data = await apiFetch<{ entries?: AuditLogEntry[]; total?: number }>(
+    'GET',
+    `${AUTH_API_BASE}/admin/audit-log${suffix}`,
+    undefined,
+    { token },
+  )
   return { entries: data?.entries || [], total: data?.total || 0 }
 }
 
 // === Datasource access ===
 
-export async function listDatasourceAccess(token: string, page?: number, pageSize?: number): Promise<{ access: DatasourceAccess[]; total: number }> {
+export async function listDatasourceAccess(
+  token: string,
+  page?: number,
+  pageSize?: number,
+): Promise<{ access: DatasourceAccess[]; total: number }> {
   const params = new URLSearchParams()
-  if (page) params.set('page', String(page))
-  if (pageSize) params.set('page_size', String(pageSize))
+  if (page) {
+    params.set('page', String(page))
+  }
+  if (pageSize) {
+    params.set('page_size', String(pageSize))
+  }
   const suffix = params.toString() ? `?${params.toString()}` : ''
-  return apiFetch<{ access: DatasourceAccess[]; total: number }>('GET', `${AUTH_API_BASE}/admin/datasource-access${suffix}`, undefined, { token })
+  return apiFetch<{ access: DatasourceAccess[]; total: number }>(
+    'GET',
+    `${AUTH_API_BASE}/admin/datasource-access${suffix}`,
+    undefined,
+    { token },
+  )
 }
 
 export async function grantDatasourceAccess(
@@ -111,11 +182,16 @@ export async function grantDatasourceAccess(
   datasourceID: string,
   level: 'read' | 'write' | 'admin',
 ): Promise<DatasourceAccess> {
-  return apiFetch<DatasourceAccess>('POST', `${AUTH_API_BASE}/admin/datasource-access`, {
-    user_id: userID,
-    datasource_id: datasourceID,
-    access_level: level,
-  }, { token })
+  return apiFetch<DatasourceAccess>(
+    'POST',
+    `${AUTH_API_BASE}/admin/datasource-access`,
+    {
+      user_id: userID,
+      datasource_id: datasourceID,
+      access_level: level,
+    },
+    { token },
+  )
 }
 
 export async function updateDatasourceAccess(
@@ -123,9 +199,14 @@ export async function updateDatasourceAccess(
   id: string,
   level: 'read' | 'write' | 'admin',
 ): Promise<void> {
-  await apiFetch<void>('PUT', `${AUTH_API_BASE}/admin/datasource-access/${id}`, {
-    access_level: level,
-  }, { token })
+  await apiFetch<void>(
+    'PUT',
+    `${AUTH_API_BASE}/admin/datasource-access/${id}`,
+    {
+      access_level: level,
+    },
+    { token },
+  )
 }
 
 export async function revokeDatasourceAccess(
@@ -133,25 +214,48 @@ export async function revokeDatasourceAccess(
   userID: string,
   datasourceID: string,
 ): Promise<void> {
-  await apiFetch<void>('DELETE', `${AUTH_API_BASE}/admin/datasource-access`, {
-    user_id: userID,
-    datasource_id: datasourceID,
-  }, { token })
+  await apiFetch<void>(
+    'DELETE',
+    `${AUTH_API_BASE}/admin/datasource-access`,
+    {
+      user_id: userID,
+      datasource_id: datasourceID,
+    },
+    { token },
+  )
 }
 
 export async function getMyDatasources(token: string): Promise<string[]> {
-  const data = await apiFetch<{ datasource_ids: string[] }>('GET', `${AUTH_API_BASE}/me/datasources`, undefined, { token })
+  const data = await apiFetch<{ datasource_ids: string[] }>(
+    'GET',
+    `${AUTH_API_BASE}/me/datasources`,
+    undefined,
+    { token },
+  )
   return data.datasource_ids || []
 }
 
 // === Workspaces ===
 
-export async function listWorkspaces(token: string, page?: number, pageSize?: number): Promise<{ workspaces: Workspace[]; total: number }> {
+export async function listWorkspaces(
+  token: string,
+  page?: number,
+  pageSize?: number,
+): Promise<{ workspaces: Workspace[]; total: number }> {
   const params = new URLSearchParams()
-  if (page) params.set('page', String(page))
-  if (pageSize) params.set('page_size', String(pageSize))
+  if (page) {
+    params.set('page', String(page))
+  }
+  if (pageSize) {
+    params.set('page_size', String(pageSize))
+  }
   const suffix = params.toString() ? `?${params.toString()}` : ''
-  return apiFetch<{ workspaces: Workspace[]; total: number }>('GET', `${AUTH_API_BASE}/workspaces${suffix}`, undefined, { token })
+  return apiFetch<{ workspaces: Workspace[]; total: number }>(
+    'GET',
+    `${AUTH_API_BASE}/workspaces${suffix}`,
+    undefined,
+    { token },
+  )
 }
 
 export async function createWorkspace(
@@ -159,7 +263,12 @@ export async function createWorkspace(
   name: string,
   description?: string,
 ): Promise<Workspace> {
-  return apiFetch<Workspace>('POST', `${AUTH_API_BASE}/workspaces`, { name, description }, { token })
+  return apiFetch<Workspace>(
+    'POST',
+    `${AUTH_API_BASE}/workspaces`,
+    { name, description },
+    { token },
+  )
 }
 
 export async function deleteWorkspace(token: string, id: string): Promise<void> {
@@ -170,7 +279,12 @@ export async function listWorkspaceMembers(
   token: string,
   workspaceID: string,
 ): Promise<WorkspaceMember[]> {
-  return apiFetch<WorkspaceMember[]>('GET', `${AUTH_API_BASE}/workspaces/${workspaceID}/members`, undefined, { token })
+  return apiFetch<WorkspaceMember[]>(
+    'GET',
+    `${AUTH_API_BASE}/workspaces/${workspaceID}/members`,
+    undefined,
+    { token },
+  )
 }
 
 export async function addWorkspaceMember(
@@ -179,15 +293,23 @@ export async function addWorkspaceMember(
   userID: string,
   roleID: string,
 ): Promise<void> {
-  await apiFetch<void>('POST', `${AUTH_API_BASE}/workspaces/${workspaceID}/members`, {
-    user_id: userID,
-    role_id: roleID,
-  }, { token })
+  await apiFetch<void>(
+    'POST',
+    `${AUTH_API_BASE}/workspaces/${workspaceID}/members`,
+    {
+      user_id: userID,
+      role_id: roleID,
+    },
+    { token },
+  )
 }
 
 // === AI queue ===
 
-export async function getAIQueueStatus(token: string, clientSessionID?: string): Promise<AIQueueStatus> {
+export async function getAIQueueStatus(
+  token: string,
+  clientSessionID?: string,
+): Promise<AIQueueStatus> {
   const url = clientSessionID
     ? `/api/ai/jobs/queue/status?client_session_id=${encodeURIComponent(clientSessionID)}`
     : '/api/ai/jobs/queue/status'
@@ -196,14 +318,30 @@ export async function getAIQueueStatus(token: string, clientSessionID?: string):
 
 // === User management admin ===
 
-export async function listUsers(token: string, filters: { page?: number; pageSize?: number; search?: string; status?: string } = {}): Promise<{ users: AuthUser[]; total: number }> {
+export async function listUsers(
+  token: string,
+  filters: { page?: number; pageSize?: number; search?: string; status?: string } = {},
+): Promise<{ users: AuthUser[]; total: number }> {
   const params = new URLSearchParams()
-  if (filters.page) params.set('page', String(filters.page))
-  if (filters.pageSize) params.set('page_size', String(filters.pageSize))
-  if (filters.search) params.set('search', filters.search)
-  if (filters.status) params.set('status', filters.status)
+  if (filters.page) {
+    params.set('page', String(filters.page))
+  }
+  if (filters.pageSize) {
+    params.set('page_size', String(filters.pageSize))
+  }
+  if (filters.search) {
+    params.set('search', filters.search)
+  }
+  if (filters.status) {
+    params.set('status', filters.status)
+  }
   const suffix = params.toString() ? `?${params.toString()}` : ''
-  const data = await apiFetch<{ users: any[]; total: number }>('GET', `${AUTH_API_BASE}/admin/users${suffix}`, undefined, { token })
+  const data = await apiFetch<{ users: any[]; total: number }>(
+    'GET',
+    `${AUTH_API_BASE}/admin/users${suffix}`,
+    undefined,
+    { token },
+  )
   return {
     users: (data.users || []).map(normalizeAuthUser),
     total: data.total || 0,
@@ -211,28 +349,65 @@ export async function listUsers(token: string, filters: { page?: number; pageSiz
 }
 
 export async function getUserDetail(token: string, id: string): Promise<AuthUser> {
-  const data = await apiFetch<any>('GET', `${AUTH_API_BASE}/admin/users/${id}`, undefined, { token })
+  const data = await apiFetch<any>('GET', `${AUTH_API_BASE}/admin/users/${id}`, undefined, {
+    token,
+  })
   return normalizeAuthUser(data)
 }
 
 export async function getUserRoles(token: string, id: string): Promise<UserRoleInfo[]> {
-  return apiFetch<UserRoleInfo[]>('GET', `${AUTH_API_BASE}/admin/users/${id}/roles`, undefined, { token })
+  return apiFetch<UserRoleInfo[]>('GET', `${AUTH_API_BASE}/admin/users/${id}/roles`, undefined, {
+    token,
+  })
 }
 
-export async function updateUserActiveStatus(token: string, id: string, isActive: boolean): Promise<void> {
-  await apiFetch<void>('PUT', `${AUTH_API_BASE}/admin/users/${id}`, { is_active: isActive }, { token })
+export async function updateUserActiveStatus(
+  token: string,
+  id: string,
+  isActive: boolean,
+): Promise<void> {
+  await apiFetch<void>(
+    'PUT',
+    `${AUTH_API_BASE}/admin/users/${id}`,
+    { is_active: isActive },
+    { token },
+  )
 }
 
-export async function resendUserVerification(token: string, userId: string): Promise<{ message: string }> {
-  return apiFetch<{ message: string }>('POST', `${AUTH_API_BASE}/admin/users/${encodeURIComponent(userId)}/resend-verification`, undefined, { token })
+export async function resendUserVerification(
+  token: string,
+  userId: string,
+): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>(
+    'POST',
+    `${AUTH_API_BASE}/admin/users/${encodeURIComponent(userId)}/resend-verification`,
+    undefined,
+    { token },
+  )
 }
 
-export async function generateMFABypassCode(token: string, userId: string): Promise<{ bypass_code: string }> {
-  return apiFetch<{ bypass_code: string }>('POST', `${AUTH_API_BASE}/admin/users/${encodeURIComponent(userId)}/mfa/bypass`, undefined, { token })
+export async function generateMFABypassCode(
+  token: string,
+  userId: string,
+): Promise<{ bypass_code: string }> {
+  return apiFetch<{ bypass_code: string }>(
+    'POST',
+    `${AUTH_API_BASE}/admin/users/${encodeURIComponent(userId)}/mfa/bypass`,
+    undefined,
+    { token },
+  )
 }
 
-export async function requestDatasourceAccess(token: string, datasourceID: string): Promise<{ success: boolean }> {
-  return apiFetch<{ success: boolean }>('POST', `${AUTH_API_BASE}/me/datasources/${datasourceID}/request-access`, undefined, { token })
+export async function requestDatasourceAccess(
+  token: string,
+  datasourceID: string,
+): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(
+    'POST',
+    `${AUTH_API_BASE}/me/datasources/${datasourceID}/request-access`,
+    undefined,
+    { token },
+  )
 }
 
 // === Workspace detail & update ===
@@ -248,11 +423,16 @@ export async function updateWorkspace(
   description?: string,
   mfaRequired?: boolean,
 ): Promise<void> {
-  await apiFetch<void>('PUT', `${AUTH_API_BASE}/workspaces/${id}`, {
-    name,
-    description,
-    mfa_required: mfaRequired,
-  }, { token })
+  await apiFetch<void>(
+    'PUT',
+    `${AUTH_API_BASE}/workspaces/${id}`,
+    {
+      name,
+      description,
+      mfa_required: mfaRequired,
+    },
+    { token },
+  )
 }
 
 // === Workspace member management ===
@@ -262,7 +442,12 @@ export async function removeWorkspaceMember(
   workspaceID: string,
   userID: string,
 ): Promise<void> {
-  await apiFetch<void>('DELETE', `${AUTH_API_BASE}/workspaces/${workspaceID}/members/${userID}`, undefined, { token })
+  await apiFetch<void>(
+    'DELETE',
+    `${AUTH_API_BASE}/workspaces/${workspaceID}/members/${userID}`,
+    undefined,
+    { token },
+  )
 }
 
 export async function updateWorkspaceMemberRole(
@@ -271,7 +456,12 @@ export async function updateWorkspaceMemberRole(
   userID: string,
   roleID: string,
 ): Promise<void> {
-  await apiFetch<void>('PUT', `${AUTH_API_BASE}/workspaces/${workspaceID}/members/${userID}`, { role_id: roleID }, { token })
+  await apiFetch<void>(
+    'PUT',
+    `${AUTH_API_BASE}/workspaces/${workspaceID}/members/${userID}`,
+    { role_id: roleID },
+    { token },
+  )
 }
 
 // === Workspace datasources ===
@@ -280,7 +470,12 @@ export async function listWorkspaceDatasources(
   token: string,
   workspaceID: string,
 ): Promise<WorkspaceDatasource[]> {
-  return apiFetch<WorkspaceDatasource[]>('GET', `${AUTH_API_BASE}/workspaces/${workspaceID}/datasources`, undefined, { token })
+  return apiFetch<WorkspaceDatasource[]>(
+    'GET',
+    `${AUTH_API_BASE}/workspaces/${workspaceID}/datasources`,
+    undefined,
+    { token },
+  )
 }
 
 export async function attachWorkspaceDatasource(
@@ -288,7 +483,12 @@ export async function attachWorkspaceDatasource(
   workspaceID: string,
   datasourceID: string,
 ): Promise<void> {
-  await apiFetch<void>('POST', `${AUTH_API_BASE}/workspaces/${workspaceID}/datasources`, { datasource_id: datasourceID }, { token })
+  await apiFetch<void>(
+    'POST',
+    `${AUTH_API_BASE}/workspaces/${workspaceID}/datasources`,
+    { datasource_id: datasourceID },
+    { token },
+  )
 }
 
 export async function detachWorkspaceDatasource(
@@ -296,7 +496,12 @@ export async function detachWorkspaceDatasource(
   workspaceID: string,
   datasourceID: string,
 ): Promise<void> {
-  await apiFetch<void>('DELETE', `${AUTH_API_BASE}/workspaces/${workspaceID}/datasources/${datasourceID}`, undefined, { token })
+  await apiFetch<void>(
+    'DELETE',
+    `${AUTH_API_BASE}/workspaces/${workspaceID}/datasources/${datasourceID}`,
+    undefined,
+    { token },
+  )
 }
 
 // === AI history ===
@@ -315,21 +520,48 @@ export async function listAIHistory(
   } = {},
 ): Promise<{ entries: AIHistoryEntry[]; total: number }> {
   const params = new URLSearchParams()
-  if (opts.page) params.set('page', String(opts.page))
-  if (opts.pageSize) params.set('page_size', String(opts.pageSize))
-  if (opts.limit) params.set('limit', String(opts.limit))
-  if (opts.showAll) params.set('show_all', 'true')
-  else if (opts.showAll === false) params.set('show_all', 'false')
-  if (opts.datasourceId) params.set('datasource_id', opts.datasourceId)
-  if (opts.modelId) params.set('model_id', opts.modelId)
-  if (opts.status) params.set('status', opts.status)
-  if (opts.search?.trim()) params.set('search', opts.search.trim())
+  if (opts.page) {
+    params.set('page', String(opts.page))
+  }
+  if (opts.pageSize) {
+    params.set('page_size', String(opts.pageSize))
+  }
+  if (opts.limit) {
+    params.set('limit', String(opts.limit))
+  }
+  if (opts.showAll) {
+    params.set('show_all', 'true')
+  } else if (opts.showAll === false) {
+    params.set('show_all', 'false')
+  }
+  if (opts.datasourceId) {
+    params.set('datasource_id', opts.datasourceId)
+  }
+  if (opts.modelId) {
+    params.set('model_id', opts.modelId)
+  }
+  if (opts.status) {
+    params.set('status', opts.status)
+  }
+  if (opts.search?.trim()) {
+    params.set('search', opts.search.trim())
+  }
   const suffix = params.toString() ? `?${params.toString()}` : ''
-  return apiFetch<{ entries: AIHistoryEntry[]; total: number }>('GET', `/api/ai/history${suffix}`, undefined, { token })
+  return apiFetch<{ entries: AIHistoryEntry[]; total: number }>(
+    'GET',
+    `/api/ai/history${suffix}`,
+    undefined,
+    { token },
+  )
 }
 
 export async function getAIHistoryDetail(token: string, id: string): Promise<AIHistoryEntry> {
-  return apiFetch<AIHistoryEntry>('GET', `/api/ai/history/detail?id=${encodeURIComponent(id)}`, undefined, { token })
+  return apiFetch<AIHistoryEntry>(
+    'GET',
+    `/api/ai/history/detail?id=${encodeURIComponent(id)}`,
+    undefined,
+    { token },
+  )
 }
 
 // === Sharing ===
@@ -339,11 +571,22 @@ export async function listShares(
   opts: { page?: number; pageSize?: number; resourceType?: string } = {},
 ): Promise<{ shares: ResourceShare[]; total: number }> {
   const params = new URLSearchParams()
-  if (opts.page) params.set('page', String(opts.page))
-  if (opts.pageSize) params.set('page_size', String(opts.pageSize))
-  if (opts.resourceType) params.set('resource_type', opts.resourceType)
+  if (opts.page) {
+    params.set('page', String(opts.page))
+  }
+  if (opts.pageSize) {
+    params.set('page_size', String(opts.pageSize))
+  }
+  if (opts.resourceType) {
+    params.set('resource_type', opts.resourceType)
+  }
   const suffix = params.toString() ? `?${params.toString()}` : ''
-  const data = await apiFetch<{ shares: ResourceShare[]; total: number } | null>('GET', `${AUTH_API_BASE}/shares${suffix}`, undefined, { token })
+  const data = await apiFetch<{ shares: ResourceShare[]; total: number } | null>(
+    'GET',
+    `${AUTH_API_BASE}/shares${suffix}`,
+    undefined,
+    { token },
+  )
   return data || { shares: [], total: 0 }
 }
 
@@ -355,9 +598,17 @@ export async function createShare(
   sharedWith?: string,
   workspaceID?: string,
 ): Promise<ResourceShare> {
-  const body: Record<string, unknown> = { resource_type: resourceType, resource_id: resourceID, permission }
-  if (sharedWith) body.shared_with = sharedWith
-  if (workspaceID) body.workspace_id = workspaceID
+  const body: Record<string, unknown> = {
+    resource_type: resourceType,
+    resource_id: resourceID,
+    permission,
+  }
+  if (sharedWith) {
+    body.shared_with = sharedWith
+  }
+  if (workspaceID) {
+    body.workspace_id = workspaceID
+  }
   return apiFetch<ResourceShare>('POST', `${AUTH_API_BASE}/shares`, body, { token })
 }
 
@@ -436,7 +687,11 @@ export async function updateColumnPII(
   )
 }
 
-export async function deleteColumnPII(token: string, columnID: string, reviewedBy: string): Promise<void> {
+export async function deleteColumnPII(
+  token: string,
+  columnID: string,
+  reviewedBy: string,
+): Promise<void> {
   await apiFetch<void>(
     'DELETE',
     `/api/metadata/columns/${encodeURIComponent(columnID)}/pii?reviewed_by=${encodeURIComponent(reviewedBy)}`,
@@ -462,7 +717,10 @@ export async function getSecurityPolicyByKeys(
   )
 }
 
-export async function upsertSecurityPolicy(token: string, policy: SecurityPolicy): Promise<SecurityPolicy> {
+export async function upsertSecurityPolicy(
+  token: string,
+  policy: SecurityPolicy,
+): Promise<SecurityPolicy> {
   return apiFetch<SecurityPolicy>('PUT', '/api/permissions', policy, { token })
 }
 
@@ -484,7 +742,9 @@ export async function deleteSecurityPolicyByKeys(
 }
 
 export async function getPlatformSettings(token: string): Promise<PlatformSettings> {
-  return apiFetch<PlatformSettings>('GET', `${AUTH_API_BASE}/admin/platform-settings`, undefined, { token })
+  return apiFetch<PlatformSettings>('GET', `${AUTH_API_BASE}/admin/platform-settings`, undefined, {
+    token,
+  })
 }
 
 export async function updatePlatformSettings(

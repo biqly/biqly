@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from 'react'
-import { useApi } from './useApi'
+import { useCallback, useEffect, useState } from 'react'
+
 import type { Datasource } from '../types/metadata'
+import { useApi } from './useApi'
 
 export function useDatasources() {
   const { get, loading, error } = useApi()

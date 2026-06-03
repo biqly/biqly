@@ -1,12 +1,14 @@
-import type { useT } from '../i18n'
+import { ADMIN_TAB_LABEL_KEYS, type AdminTab, isAdminTab } from '../components/admin/adminNavConfig'
 import type { Crumb } from '../components/ui/Breadcrumbs'
-import { ADMIN_TAB_LABEL_KEYS, isAdminTab, type AdminTab } from '../components/admin/adminNavConfig'
+import type { useT } from '../i18n'
 
 type TFunction = ReturnType<typeof useT>
 
 function adminTabLabel(tabParam: string, t: TFunction): string {
-  if (!isAdminTab(tabParam)) return ''
-  return t(ADMIN_TAB_LABEL_KEYS[tabParam as AdminTab])
+  if (!isAdminTab(tabParam)) {
+    return ''
+  }
+  return t(ADMIN_TAB_LABEL_KEYS[tabParam])
 }
 
 export function appendAdminBreadcrumbs(
@@ -18,7 +20,9 @@ export function appendAdminBreadcrumbs(
   const params = new URLSearchParams(search)
   const tabParam = params.get('tab') || 'users'
   const tabLabel = adminTabLabel(tabParam, t)
-  if (!tabLabel) return
+  if (!tabLabel) {
+    return
+  }
 
   const userId = params.get('userId')
   const workspaceId = params.get('workspaceId')

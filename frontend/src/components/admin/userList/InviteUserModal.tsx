@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { apiInviteUser } from '../../../api/auth'
 
+import { apiInviteUser } from '../../../api/auth'
 import type { TranslationKey } from '../../../i18n'
 import { Select } from '../../ui/Select'
 import { securityRoleOptions } from '../adminSelectOptions'
@@ -43,8 +43,18 @@ const closeBtnStyle: React.CSSProperties = {
 const labelStyle: React.CSSProperties = { fontSize: 13, fontWeight: 500 }
 const gap16: React.CSSProperties = { gap: 16 }
 const gap6: React.CSSProperties = { gap: 6 }
-const footerStyle: React.CSSProperties = { display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 8 }
-const spinnerStyle: React.CSSProperties = { marginRight: 6, display: 'inline-block', width: 12, height: 12 }
+const footerStyle: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'flex-end',
+  gap: 12,
+  marginTop: 8,
+}
+const spinnerStyle: React.CSSProperties = {
+  marginRight: 6,
+  display: 'inline-block',
+  width: 12,
+  height: 12,
+}
 
 interface InviteUserModalProps {
   open: boolean
@@ -54,20 +64,16 @@ interface InviteUserModalProps {
   t: (key: TranslationKey, params?: Record<string, string | number>) => string
 }
 
-export function InviteUserModal({
-  open,
-  onClose,
-  token,
-  onSuccess,
-  t,
-}: InviteUserModalProps) {
+export function InviteUserModal({ open, onClose, token, onSuccess, t }: InviteUserModalProps) {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState('viewer')
   const [inviteLoading, setInviteLoading] = useState(false)
   const [inviteSuccess, setInviteSuccess] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
 
-  if (!open) return null
+  if (!open) {
+    return null
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -89,23 +95,16 @@ export function InviteUserModal({
       className="modal-backdrop"
       role="presentation"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
+        if (e.target === e.currentTarget) {
+          onClose()
+        }
       }}
       style={backdropStyle}
     >
-      <section
-        className="modal-card"
-        role="dialog"
-        aria-modal="true"
-        style={cardStyle}
-      >
+      <section className="modal-card" role="dialog" aria-modal="true" style={cardStyle}>
         <header style={headerStyle}>
           <h2 style={titleStyle}>{t('auth.invite_user_modal_title')}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            style={closeBtnStyle}
-          >
+          <button type="button" onClick={onClose} style={closeBtnStyle}>
             ×
           </button>
         </header>
@@ -115,11 +114,7 @@ export function InviteUserModal({
             <div className="admin-success-box">
               {t('auth.invite_user_success', { email: inviteEmail })}
             </div>
-            <button
-              type="button"
-              className="admin-btn-primary"
-              onClick={onClose}
-            >
+            <button type="button" className="admin-btn-primary" onClick={onClose}>
               {t('common.close')}
             </button>
           </div>
@@ -171,12 +166,7 @@ export function InviteUserModal({
                 className="admin-btn-primary"
                 disabled={inviteLoading || !inviteEmail}
               >
-                {inviteLoading && (
-                  <span
-                    className="spinner"
-                    style={spinnerStyle}
-                  />
-                )}
+                {inviteLoading && <span className="spinner" style={spinnerStyle} />}
                 {t('auth.btn_invite_user')}
               </button>
             </div>

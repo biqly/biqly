@@ -14,7 +14,9 @@ function readCookie(name: string): string | null {
 
 async function ensureCSRFToken(): Promise<string> {
   let token = readCookie(CSRF_COOKIE_NAME)
-  if (token) return token
+  if (token) {
+    return token
+  }
 
   await fetch(AUTH_CSRF_BOOTSTRAP_PATH, {
     method: 'GET',
@@ -35,7 +37,10 @@ function mergeHeaders(headers: HeadersInit | undefined, csrfToken: string): Head
   return merged
 }
 
-export async function csrfFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+export async function csrfFetch(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+): Promise<Response> {
   const method = (init.method || 'GET').toUpperCase()
   if (SAFE_METHODS.has(method)) {
     return fetch(input, { ...init, credentials: init.credentials ?? 'same-origin' })

@@ -30,10 +30,11 @@ export function ChartTypeSelector<T extends ChartTypeOption>({
   ariaLabel = 'Chart type',
   labels,
 }: ChartTypeSelectorProps<T>) {
-  const items = (options ?? (DEFAULT_OPTIONS as readonly T[]))
-  const wrapperClass = variant === 'group'
-    ? `toggle-group${className ? ` ${className}` : ''}`
-    : `chart-toggle${className ? ` ${className}` : ''}`
+  const items = options ?? (DEFAULT_OPTIONS as readonly T[])
+  const wrapperClass =
+    variant === 'group'
+      ? `toggle-group${className ? ` ${className}` : ''}`
+      : `chart-toggle${className ? ` ${className}` : ''}`
   const btnClass = variant === 'group' ? 'toggle-btn' : undefined
   const toggleOptions: ToggleButtonOption<T>[] = items.map((opt) => ({
     value: opt,

@@ -21,7 +21,9 @@ export function HavingStep({
   onClear,
   t,
 }: HavingStepProps) {
-  if (having.length === 0) return null
+  if (having.length === 0) {
+    return null
+  }
 
   return (
     <NotebookStep

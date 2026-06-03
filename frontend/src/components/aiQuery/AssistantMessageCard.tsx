@@ -1,45 +1,89 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+
 import { useT } from '../../i18n'
-import { formatResultCell } from '../../utils/resultCellFormat'
-import { buildPivotTable } from '../../utils/pivotTable'
 import { rowsToChartData } from '../../utils/chartData'
 import { normalizeAIQueryResponse } from '../../utils/normalizeAIQueryResponse'
+import { buildPivotTable } from '../../utils/pivotTable'
+import { formatResultCell } from '../../utils/resultCellFormat'
 import { ResultTable } from '../ResultTable'
 import { ChartContainer } from '../ui/ChartContainer'
 import { ChartTypeSelector } from '../ui/ChartTypeSelector'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Modal } from '../ui/Modal'
-import { Collapsible, ConfidenceBar, CostBadge, PromptStatsPanel, LogicalQueryMetaBadges, CandidateComparisonPanel, ClarificationCard, TableRoutingViz, warningBodyKey } from './routingViz'
 import { FeedbackSection } from './FeedbackSection'
-import type { AssistantMessageCardProps, SampleData, FeedbackCatKey } from './types'
+import {
+  CandidateComparisonPanel,
+  ClarificationCard,
+  Collapsible,
+  ConfidenceBar,
+  CostBadge,
+  LogicalQueryMetaBadges,
+  PromptStatsPanel,
+  TableRoutingViz,
+  warningBodyKey,
+} from './routingViz'
+import type { AssistantMessageCardProps, FeedbackCatKey, SampleData } from './types'
 import { AI_QUERY_TIMEOUT_MS } from './types'
 
-function SampleDataModal({ open, onClose, tableName, datasourceId, get }: { open: boolean; onClose: () => void; tableName: string; datasourceId: string; get: <T>(url: string) => Promise<T | null> }) {
+function SampleDataModal({
+  open,
+  onClose,
+  tableName,
+  datasourceId,
+  get,
+}: {
+  open: boolean
+  onClose: () => void
+  tableName: string
+  datasourceId: string
+  get: <T>(url: string) => Promise<T | null>
+}) {
   const t = useT()
   const [sample, setSample] = useState<SampleData | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (!open) { setSample(null); return }
+    if (!open) {
+      setSample(null)
+      return
+    }
     setLoading(true)
     const [schema, ...rest] = tableName.split('.')
     const tName = rest.length > 0 ? rest.join('.') : schema
     const url = `/api/datasources/${datasourceId}/tables/${schema ?? 'public'}/${tName}/sample`
-    get<SampleData>(url).then((data) => { setSample(data); setLoading(false) })
+    get<SampleData>(url).then((data) => {
+      setSample(data)
+      setLoading(false)
+    })
   }, [datasourceId, get, open, tableName])
 
   return (
-    <Modal open={open} title={t('ai_query.sample_modal_title', { table: tableName })} onClose={onClose} labelledBy="sample-data-title">
+    <Modal
+      open={open}
+      title={t('ai_query.sample_modal_title', { table: tableName })}
+      onClose={onClose}
+      labelledBy="sample-data-title"
+    >
       <LoadingOverlay loading={loading} />
       {sample?.columns && sample?.rows && (
         <div className="results-table-scroll">
           <table className="results-table">
-            <thead><tr>{sample.columns.map((c) => <th key={c.name}>{c.name}</th>)}</tr></thead>
+            <thead>
+              <tr>
+                {sample.columns.map((c) => (
+                  <th key={c.name}>{c.name}</th>
+                ))}
+              </tr>
+            </thead>
             <tbody>
               {sample.rows.map((row, i) => (
-                <tr key={i}>{row.map((cell, j) => <td key={j}>{formatResultCell(cell, sample.columns[j]?.name ?? '', {})}</td>)}</tr>
+                <tr key={i}>
+                  {row.map((cell, j) => (
+                    <td key={j}>{formatResultCell(cell, sample.columns[j]?.name ?? '', {})}</td>
+                  ))}
+                </tr>
               ))}
             </tbody>
           </table>
@@ -68,8 +112,10 @@ export function AssistantMessageCard({
   onCellDrillDown,
 }: AssistantMessageCardProps) {
   const navigate = useNavigate()
+  // NOTE: all hooks must run before any early return (rules-of-hooks):
+  // result may be null, so hooks below guard with optional chaining and the
+  // null short-circuit happens after the last hook.
   const result = normalizeAIQueryResponse(message.ai_response)
-  if (!result) return null
 
   const [chartType, setChartType] = useState<'bar' | 'line' | 'pie' | 'table'>('table')
   const [tableView, setTableView] = useState<'flat' | 'pivot'>('flat')
@@ -79,26 +125,39 @@ export function AssistantMessageCard({
   const [sampleModalTable, setSampleModalTable] = useState('')
 
   const pivotTable = useMemo(() => {
-    const hint = result.result?.pivot_hint
-    const cols = result.result?.columns
-    const rows = result.result?.rows
-    if (!hint || !cols || !rows) return null
+    const hint = result?.result?.pivot_hint
+    const cols = result?.result?.columns
+    const rows = result?.result?.rows
+    if (!hint || !cols || !rows) {
+      return null
+    }
     return buildPivotTable(cols, rows, hint)
-  }, [result.result?.pivot_hint, result.result?.columns, result.result?.rows])
+  }, [result?.result?.pivot_hint, result?.result?.columns, result?.result?.rows])
 
   useEffect(() => {
-    if (pivotTable) setTableView('pivot')
-    else setTableView('flat')
-  }, [pivotTable, result.logical_query?.model_id])
+    if (pivotTable) {
+      setTableView('pivot')
+    } else {
+      setTableView('flat')
+    }
+  }, [pivotTable, result?.logical_query?.model_id])
 
   useEffect(() => {
-    const raw = result.visualization_hint?.chart_type ?? result.result?.chart_suggestions?.[0]
-    if (!raw) return
+    const raw = result?.visualization_hint?.chart_type ?? result?.result?.chart_suggestions?.[0]
+    if (!raw) {
+      return
+    }
     const mapped = raw === 'number' ? 'table' : raw
     if (mapped === 'bar' || mapped === 'line' || mapped === 'pie' || mapped === 'table') {
       setChartType(mapped)
     }
-  }, [result.visualization_hint?.chart_type, result.result?.chart_suggestions])
+  }, [result?.visualization_hint?.chart_type, result?.result?.chart_suggestions])
+
+  const chartData = useMemo(() => rowsToChartData(result?.result?.rows), [result?.result?.rows])
+
+  if (!result) {
+    return null
+  }
 
   const handleUseCandidate = (i: number) => {
     const c = result.candidates?.[i]
@@ -112,11 +171,15 @@ export function AssistantMessageCard({
   }
 
   const runQuery = async () => {
-    if (!result.logical_query) return
+    if (!result.logical_query) {
+      return
+    }
     setLoading(true)
     setError(null)
     try {
-      const res = await postData<any>('/api/query/run', result.logical_query, { timeout: AI_QUERY_TIMEOUT_MS })
+      const res = await postData<any>('/api/query/run', result.logical_query, {
+        timeout: AI_QUERY_TIMEOUT_MS,
+      })
       if (res) {
         const updated = {
           ...result,
@@ -147,8 +210,14 @@ export function AssistantMessageCard({
 
   const submitPositiveFeedback = async () => {
     try {
-      await postData('/api/ai/feedback', { question: userQuestion, datasource_id: datasourceId, rating: 'positive' })
-    } catch { /* noop */ }
+      await postData('/api/ai/feedback', {
+        question: userQuestion,
+        datasource_id: datasourceId,
+        rating: 'positive',
+      })
+    } catch {
+      /* noop */
+    }
   }
 
   const submitNegativeFeedback = async (categories: FeedbackCatKey[], text: string) => {
@@ -160,11 +229,15 @@ export function AssistantMessageCard({
         categories: categories.map((k) => t(k)),
         text,
       })
-    } catch { /* noop */ }
+    } catch {
+      /* noop */
+    }
   }
 
   const handleSaveToLibrary = () => {
-    if (!result.logical_query) return
+    if (!result.logical_query) {
+      return
+    }
     const lqStr = JSON.stringify(result.logical_query)
     const dsId = datasourceId
     const modelId = result.logical_query.model_id || ''
@@ -181,23 +254,40 @@ export function AssistantMessageCard({
     navigate(path)
   }
 
-  const chartData = useMemo(() => rowsToChartData(result.result?.rows), [result.result?.rows])
-
   return (
     <div className="assistant-card">
-      {result.confidence !== undefined && <ConfidenceBar value={result.confidence} breakdown={result.confidence_breakdown} />}
-      <CostBadge latencyMs={result.latency_ms} tokenUsage={result.token_usage} costUsd={result.cost_usd} />
+      {result.confidence !== undefined && (
+        <ConfidenceBar value={result.confidence} breakdown={result.confidence_breakdown} />
+      )}
+      <CostBadge
+        latencyMs={result.latency_ms}
+        tokenUsage={result.token_usage}
+        costUsd={result.cost_usd}
+      />
       <PromptStatsPanel stats={result.prompt_stats} tokenUsage={result.token_usage} />
 
       {result.model_used && (
-        <div className="model-used-badge" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+        <div
+          className="model-used-badge"
+          style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}
+        >
           {t('ai_query.model_used')} <code translate="no">{result.model_used}</code>
-          {aiRuntime?.query_model_override && aiRuntime.query_model && result.model_used !== aiRuntime.query_model && (
-            <span> ({t('ai_query.configured')} <code translate="no">{aiRuntime.query_model}</code>)</span>
-          )}
-          {!aiRuntime?.query_model_override && aiRuntime?.llm_model && result.model_used !== aiRuntime.llm_model && (
-            <span> ({t('ai_query.configured')} <code translate="no">{aiRuntime.llm_model}</code>)</span>
-          )}
+          {aiRuntime?.query_model_override &&
+            aiRuntime.query_model &&
+            result.model_used !== aiRuntime.query_model && (
+              <span>
+                {' '}
+                ({t('ai_query.configured')} <code translate="no">{aiRuntime.query_model}</code>)
+              </span>
+            )}
+          {!aiRuntime?.query_model_override &&
+            aiRuntime?.llm_model &&
+            result.model_used !== aiRuntime.llm_model && (
+              <span>
+                {' '}
+                ({t('ai_query.configured')} <code translate="no">{aiRuntime.llm_model}</code>)
+              </span>
+            )}
         </div>
       )}
 
@@ -205,10 +295,17 @@ export function AssistantMessageCard({
         <div className="retry-badge">{t('ai_query.retry_badge', { n: result.retry_count })}</div>
       )}
 
-      {result.needs_clarification && (result.clarification_options?.length || result.clarification?.options?.length) ? (
+      {result.needs_clarification &&
+      (result.clarification_options?.length || result.clarification?.options?.length) ? (
         <ClarificationCard
-          question={result.clarification?.question ?? result.clarification_question ?? t('ai_query.clarify_default')}
-          options={result.clarification_options ?? result.clarification?.options?.map((o) => o.label) ?? []}
+          question={
+            result.clarification?.question ??
+            result.clarification_question ??
+            t('ai_query.clarify_default')
+          }
+          options={
+            result.clarification_options ?? result.clarification?.options?.map((o) => o.label) ?? []
+          }
           clarification={result.clarification}
           onSelect={(choice) => onSelectClarification(choice, userQuestion)}
           onSkip={() => onSkipClarification(userQuestion)}
@@ -228,7 +325,9 @@ export function AssistantMessageCard({
               className="btn btn-sm btn-sample"
               onClick={() => {
                 const firstSel = result.table_routing?.selected_tables?.[0]
-                if (firstSel) handleSampleData(firstSel)
+                if (firstSel) {
+                  handleSampleData(firstSel)
+                }
               }}
             >
               {t('ai_query.sample_preview_btn')}
@@ -239,21 +338,45 @@ export function AssistantMessageCard({
 
       {result.validation_result && (
         <Collapsible
-          title={result.validation_result.plan_ok ? t('ai_query.plan_ok_title') : t('ai_query.plan_warn_title')}
+          title={
+            result.validation_result.plan_ok
+              ? t('ai_query.plan_ok_title')
+              : t('ai_query.plan_warn_title')
+          }
           defaultOpen={!result.validation_result.plan_ok}
         >
-          {result.validation_result.explain_output && <pre className="sql-preview explain-output">{result.validation_result.explain_output}</pre>}
-          <p className={`plan-status ${result.validation_result.plan_ok ? 'plan-ok' : 'plan-warn'}`}>
-            {result.validation_result.plan_ok ? t('ai_query.plan_ok_body') : t('ai_query.plan_warn_body')}
+          {result.validation_result.explain_output && (
+            <pre className="sql-preview explain-output">
+              {result.validation_result.explain_output}
+            </pre>
+          )}
+          <p
+            className={`plan-status ${result.validation_result.plan_ok ? 'plan-ok' : 'plan-warn'}`}
+          >
+            {result.validation_result.plan_ok
+              ? t('ai_query.plan_ok_body')
+              : t('ai_query.plan_warn_body')}
           </p>
         </Collapsible>
       )}
 
-      {(result.logical_query?.select?.filter((s): s is import('../../types/ai').SelectField & { type: 'window' } => s.type === 'window') ?? []).length > 0 && (
+      {(
+        result.logical_query?.select?.filter(
+          (s): s is import('../../types/ai').SelectField & { type: 'window' } =>
+            s.type === 'window',
+        ) ?? []
+      ).length > 0 && (
         <div style={{ marginBottom: '0.5rem' }}>
-          {(result.logical_query?.select ?? []).filter((s): s is import('../../types/ai').SelectField & { type: 'window' } => s.type === 'window').map((s, i) => (
-            <span key={i} className="wf-badge">{t('ai_query.window_fn_badge', { name: s.window?.aggregation || s.name })}</span>
-          ))}
+          {(result.logical_query?.select ?? [])
+            .filter(
+              (s): s is import('../../types/ai').SelectField & { type: 'window' } =>
+                s.type === 'window',
+            )
+            .map((s, i) => (
+              <span key={i} className="wf-badge">
+                {t('ai_query.window_fn_badge', { name: s.window?.aggregation || s.name })}
+              </span>
+            ))}
         </div>
       )}
 
@@ -284,7 +407,9 @@ export function AssistantMessageCard({
           )}
           {result.token_usage && result.token_usage.prompt > 30000 && (
             <p className="prompt-warning">
-              {t('ai_query.prompt_large_warning', { k: (result.token_usage.prompt / 1000).toFixed(1) })}
+              {t('ai_query.prompt_large_warning', {
+                k: (result.token_usage.prompt / 1000).toFixed(1),
+              })}
             </p>
           )}
         </Collapsible>
@@ -297,7 +422,9 @@ export function AssistantMessageCard({
             <p>{t(warningBodyKey(result))}</p>
           </div>
           <ul>
-            {result.warnings.map((w, i) => <li key={i}>{w}</li>)}
+            {result.warnings.map((w, i) => (
+              <li key={i}>{w}</li>
+            ))}
           </ul>
         </section>
       )}
@@ -310,12 +437,7 @@ export function AssistantMessageCard({
 
       {!result.result && result.sql && (
         <div className="btn-run-query-container">
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={loading}
-            onClick={runQuery}
-          >
+          <button type="button" className="btn btn-primary" disabled={loading} onClick={runQuery}>
             {loading ? t('ai_query.loading_executing') : t('ai_query.btn_run_query')}
           </button>
         </div>
@@ -377,32 +499,30 @@ export function AssistantMessageCard({
             <ChartContainer data={chartData} type={chartType} />
           )}
 
-          {chartType === 'table' && (() => {
-            const flat = {
-              columns: result.result.columns,
-              rows: result.result.rows,
-            }
-            const view =
-              tableView === 'pivot' && pivotTable
-                ? pivotTable
-                : flat
-            return (
-              <ResultTable
-                columns={view.columns}
-                rows={view.rows}
-                rowCount={view.rows.length}
-                durationMs={result.result.stats?.duration_ms}
-                question={userQuestion}
-                anomalies={tableView === 'flat' ? result.result.anomalies : undefined}
-                onFilterByValue={tableView === 'flat' ? onFilterByValue : undefined}
-                onCellClick={
-                  tableView === 'flat'
-                    ? (colName, value) => onCellDrillDown(colName, String(value))
-                    : undefined
-                }
-              />
-            )
-          })()}
+          {chartType === 'table' &&
+            (() => {
+              const flat = {
+                columns: result.result.columns,
+                rows: result.result.rows,
+              }
+              const view = tableView === 'pivot' && pivotTable ? pivotTable : flat
+              return (
+                <ResultTable
+                  columns={view.columns}
+                  rows={view.rows}
+                  rowCount={view.rows.length}
+                  durationMs={result.result.stats?.duration_ms}
+                  question={userQuestion}
+                  anomalies={tableView === 'flat' ? result.result.anomalies : undefined}
+                  onFilterByValue={tableView === 'flat' ? onFilterByValue : undefined}
+                  onCellClick={
+                    tableView === 'flat'
+                      ? (colName, value) => onCellDrillDown(colName, String(value))
+                      : undefined
+                  }
+                />
+              )
+            })()}
         </div>
       )}
 
@@ -415,7 +535,12 @@ export function AssistantMessageCard({
           <button
             type="button"
             className="btn btn-sm btn-ghost"
-            style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+            style={{
+              marginLeft: 'auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+            }}
             onClick={handleSaveToLibrary}
             title={t('saved_questions.new')}
           >
@@ -424,7 +549,13 @@ export function AssistantMessageCard({
         )}
       </div>
 
-      <SampleDataModal open={sampleModalOpen} onClose={() => setSampleModalOpen(false)} tableName={sampleModalTable} datasourceId={datasourceId} get={get} />
+      <SampleDataModal
+        open={sampleModalOpen}
+        onClose={() => setSampleModalOpen(false)}
+        tableName={sampleModalTable}
+        datasourceId={datasourceId}
+        get={get}
+      />
     </div>
   )
 }

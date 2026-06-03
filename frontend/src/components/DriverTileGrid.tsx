@@ -1,8 +1,8 @@
-import type { TranslationKey } from '../i18n'
 import type { DriverId } from '../dbDrivers'
 import { DRIVER_IDS, driverLabelKey, driverLogoUrl } from '../dbDrivers'
+import type { TranslationKey } from '../i18n'
 
-type Props<T extends DriverId | string = string> = {
+interface Props<T extends DriverId | string = string> {
   value: string
   onChange: (id: string) => void
   ariaLabel?: string
@@ -10,7 +10,7 @@ type Props<T extends DriverId | string = string> = {
   t: (key: TranslationKey) => string
 }
 
-export function DriverTileGrid({ value, onChange, ariaLabel, ids = DRIVER_IDS as readonly string[], t }: Props) {
+export function DriverTileGrid({ value, onChange, ariaLabel, ids = DRIVER_IDS, t }: Props) {
   return (
     <div className="driver-tile-grid" role="radiogroup" aria-label={ariaLabel}>
       {(ids as string[]).map((id) => {

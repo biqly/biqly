@@ -8,18 +8,26 @@ export function tableKey(schema: string, table: string) {
 
 export function splitTableKey(key: string) {
   const idx = key.indexOf('.')
-  if (idx === -1) return { schema: '', table: key }
+  if (idx === -1) {
+    return { schema: '', table: key }
+  }
   return { schema: key.slice(0, idx), table: key.slice(idx + 1) }
 }
 
 export function compareColumns(a: ColumnRow, b: ColumnRow, linked?: Set<string>) {
   const pk = Number(b.is_primary_key) - Number(a.is_primary_key)
-  if (pk !== 0) return pk
+  if (pk !== 0) {
+    return pk
+  }
   const fk = Number(b.is_foreign_key) - Number(a.is_foreign_key)
-  if (fk !== 0) return fk
+  if (fk !== 0) {
+    return fk
+  }
   if (linked) {
     const joinLinked = Number(linked.has(b.column_name)) - Number(linked.has(a.column_name))
-    if (joinLinked !== 0) return joinLinked
+    if (joinLinked !== 0) {
+      return joinLinked
+    }
   }
   return a.column_name.localeCompare(b.column_name)
 }
@@ -45,8 +53,12 @@ export function formatDataType(t: (key: TranslationKey) => string, dataType: str
 
 export function columnSelectHint(column: ColumnRow, t: (key: TranslationKey) => string) {
   const parts: string[] = []
-  if (column.is_primary_key) parts.push(t('modeling.pk_badge'))
-  if (column.is_foreign_key) parts.push(t('modeling.fk_badge'))
+  if (column.is_primary_key) {
+    parts.push(t('modeling.pk_badge'))
+  }
+  if (column.is_foreign_key) {
+    parts.push(t('modeling.fk_badge'))
+  }
   parts.push(formatDataType(t, column.data_type))
   return parts.join(' · ')
 }
@@ -60,37 +72,113 @@ export function columnSelectOptions(cols: ColumnRow[], t: (key: TranslationKey) 
 }
 
 export function normalizeJoinDataType(dataType: string) {
-  const type = dataType.toLowerCase().replace(/\(.+\)/, '').replace(/\s+/g, ' ').trim()
-  if (['smallint', 'int2', 'integer', 'int', 'int4', 'bigint', 'int8', 'serial', 'serial4', 'bigserial', 'serial8'].includes(type)) {
+  const type = dataType
+    .toLowerCase()
+    .replace(/\(.+\)/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (
+    [
+      'smallint',
+      'int2',
+      'integer',
+      'int',
+      'int4',
+      'bigint',
+      'int8',
+      'serial',
+      'serial4',
+      'bigserial',
+      'serial8',
+    ].includes(type)
+  ) {
     return 'integer'
   }
-  if (['text', 'character varying', 'varchar', 'character', 'char', 'citext', 'nvarchar', 'nchar', 'string'].includes(type)) {
+  if (
+    [
+      'text',
+      'character varying',
+      'varchar',
+      'character',
+      'char',
+      'citext',
+      'nvarchar',
+      'nchar',
+      'string',
+    ].includes(type)
+  ) {
     return 'text'
   }
-  if (['boolean', 'bool'].includes(type)) return 'boolean'
-  if (['timestamp', 'timestamp without time zone', 'timestamp with time zone', 'timestamptz', 'datetime'].includes(type)) return 'timestamp'
-  if (['date'].includes(type)) return 'date'
-  if (['numeric', 'decimal', 'double precision', 'float', 'float4', 'float8', 'real', 'money'].includes(type)) return 'decimal'
-  if (['json', 'jsonb'].includes(type)) return 'json'
+  if (['boolean', 'bool'].includes(type)) {
+    return 'boolean'
+  }
+  if (
+    [
+      'timestamp',
+      'timestamp without time zone',
+      'timestamp with time zone',
+      'timestamptz',
+      'datetime',
+    ].includes(type)
+  ) {
+    return 'timestamp'
+  }
+  if (['date'].includes(type)) {
+    return 'date'
+  }
+  if (
+    [
+      'numeric',
+      'decimal',
+      'double precision',
+      'float',
+      'float4',
+      'float8',
+      'real',
+      'money',
+    ].includes(type)
+  ) {
+    return 'decimal'
+  }
+  if (['json', 'jsonb'].includes(type)) {
+    return 'json'
+  }
   return type
 }
 
-export function columnsAreJoinCompatible(left: ColumnRow | null | undefined, right: ColumnRow | null | undefined) {
-  if (!left || !right) return false
+export function columnsAreJoinCompatible(
+  left: ColumnRow | null | undefined,
+  right: ColumnRow | null | undefined,
+) {
+  if (!left || !right) {
+    return false
+  }
   return normalizeJoinDataType(left.data_type) === normalizeJoinDataType(right.data_type)
 }
 
 export function findColumn(columns: ColumnRow[], tableRef: string, columnName: string) {
-  return columnOptions(columns, tableRef).find((column) => column.column_name === columnName) ?? null
+  return (
+    columnOptions(columns, tableRef).find((column) => column.column_name === columnName) ?? null
+  )
 }
 
-export function firstCompatibleColumnName(columns: ColumnRow[], tableRef: string, sourceColumn: ColumnRow | null) {
+export function firstCompatibleColumnName(
+  columns: ColumnRow[],
+  tableRef: string,
+  sourceColumn: ColumnRow | null,
+) {
   const options = columnOptions(columns, tableRef)
-  if (!sourceColumn) return options[0]?.column_name ?? ''
+  if (!sourceColumn) {
+    return options[0]?.column_name ?? ''
+  }
   return options.find((column) => columnsAreJoinCompatible(sourceColumn, column))?.column_name ?? ''
 }
 
-export function defaultJoinForm(tables: TableRow[], columns: ColumnRow[], model: SemanticModelDetail | null): JoinForm {
+export function defaultJoinForm(
+  tables: TableRow[],
+  columns: ColumnRow[],
+  model: SemanticModelDetail | null,
+): JoinForm {
   const base = model
     ? tableKey(model.base_schema, model.base_table)
     : tables[0]
@@ -139,7 +227,9 @@ export function canSaveJoinForm(
   form: JoinForm,
   columns: ColumnRow[],
 ): boolean {
-  if (!model || !form.fromTable || !form.fromColumn || !form.toTable || !form.toColumn) return false
+  if (!model || !form.fromTable || !form.fromColumn || !form.toTable || !form.toColumn) {
+    return false
+  }
   const fromCol = findColumn(columns, form.fromTable, form.fromColumn)
   const toCol = findColumn(columns, form.toTable, form.toColumn)
   return Boolean(fromCol && toCol && columnsAreJoinCompatible(fromCol, toCol))
@@ -170,10 +260,18 @@ export function columnRefMatchesTable(
   table: string,
   baseSchema: string,
 ) {
-  if (!ref) return false
+  if (!ref) {
+    return false
+  }
   const r = ref.trim()
-  if (!r) return false
-  if (r.startsWith(`${schema}.${table}.`)) return true
-  if (schema === baseSchema && r.startsWith(`${table}.`)) return true
+  if (!r) {
+    return false
+  }
+  if (r.startsWith(`${schema}.${table}.`)) {
+    return true
+  }
+  if (schema === baseSchema && r.startsWith(`${table}.`)) {
+    return true
+  }
   return false
 }

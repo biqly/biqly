@@ -24,7 +24,13 @@ export type Tab = 'joins' | 'dimensions' | 'metrics' | 'tables'
 export type RenameTarget =
   | { kind: 'model'; current: string; title: string; subtitle: string }
   | { kind: 'table'; current: string; table: TableRow; title: string; subtitle: string }
-  | { kind: 'dimension'; current: string; dimension: SemanticDimension; title: string; subtitle: string }
+  | {
+      kind: 'dimension'
+      current: string
+      dimension: SemanticDimension
+      title: string
+      subtitle: string
+    }
   | { kind: 'metric'; current: string; metric: SemanticMetric; title: string; subtitle: string }
 
 export interface Pt {

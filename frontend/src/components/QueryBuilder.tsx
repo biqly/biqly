@@ -1,24 +1,24 @@
-import { useEffect, useMemo, useState } from 'react'
 import '../styles/queryBuilder.css'
-import { useT } from '../i18n'
+
+import { useEffect, useMemo, useState } from 'react'
+
 import { useApi } from '../hooks/useApi'
 import { useArrayState } from '../hooks/useArrayState'
-import { useQueryParam } from '../hooks/useQueryParam'
 import { useDatasources } from '../hooks/useDatasources'
-import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useModelDetail } from '../hooks/useModelDetail'
-import { formatResultCell } from '../utils/resultCellFormat'
-import { rowsToChartData } from '../utils/chartData'
-import { ChartContainer } from './ui/ChartContainer'
-import { ChartTypeSelector } from './ui/ChartTypeSelector'
-import { ErrorAlert } from './ui/ErrorAlert'
-import { Select } from './ui/Select'
-import { LoadingScreen } from './ui/LoadingScreen'
-import { LockedState } from './ui/LockedState'
-import type {
-  GenerateSemanticModelResponse,
-} from '../types/semantic'
+import { useQueryParam } from '../hooks/useQueryParam'
+import { useSemanticModels } from '../hooks/useSemanticModels'
+import { useT } from '../i18n'
+import type { GenerateSemanticModelResponse } from '../types/semantic'
 import { modelListHint, modelListLabel } from '../types/semantic'
+import { rowsToChartData } from '../utils/chartData'
+import { formatResultCell } from '../utils/resultCellFormat'
+import { CteStep } from './queryBuilder/CteStep'
+import { FieldsStep } from './queryBuilder/FieldsStep'
+import { FilterStep } from './queryBuilder/FilterStep'
+import { HavingStep } from './queryBuilder/HavingStep'
+import { buildQueryPayload } from './queryBuilder/logicalQuery'
+import { NotebookStep } from './queryBuilder/NotebookStep'
 import {
   addFilterRow,
   addGroupByRow as appendGroupByRow,
@@ -30,25 +30,24 @@ import {
   removeHavingRow,
   updateGroupByRow as patchGroupByRow,
 } from './queryBuilder/rowState'
-import { buildQueryPayload } from './queryBuilder/logicalQuery'
+import { SortStep } from './queryBuilder/SortStep'
+import { SummarizeStep } from './queryBuilder/SummarizeStep'
 import type { CTERow, FilterRow, HavingRow, SelectItem, WindowFuncRow } from './queryBuilder/types'
 import { newRowId } from './queryBuilder/types'
 import {
-  dimOptionsForGroupRow,
   dimFieldOptions,
+  dimOptionsForGroupRow,
   filterFieldOptions,
   metricFieldOptions,
   orderByFieldOptions,
 } from './queryBuilder/utils'
-import { NotebookStep } from './queryBuilder/NotebookStep'
-import { FilterStep } from './queryBuilder/FilterStep'
-import { FieldsStep } from './queryBuilder/FieldsStep'
-import { SummarizeStep } from './queryBuilder/SummarizeStep'
-import { SortStep } from './queryBuilder/SortStep'
-import { HavingStep } from './queryBuilder/HavingStep'
 import { WindowFuncStep } from './queryBuilder/WindowFuncStep'
-import { CteStep } from './queryBuilder/CteStep'
-
+import { ChartContainer } from './ui/ChartContainer'
+import { ChartTypeSelector } from './ui/ChartTypeSelector'
+import { ErrorAlert } from './ui/ErrorAlert'
+import { LoadingScreen } from './ui/LoadingScreen'
+import { LockedState } from './ui/LockedState'
+import { Select } from './ui/Select'
 
 interface QueryBuilderResult {
   columns?: { name: string; type?: string }[]
@@ -72,13 +71,21 @@ export default function QueryBuilder() {
   const [datasourceId, setDatasourceId] = useState(dsParam)
   const [modelId, setModelId] = useState('')
   const { models, loading: modelsLoading, setModels } = useSemanticModels(datasourceId)
-  const { model: modelDetail, loading: modelDetailLoading, setModel: setModelDetail } = useModelDetail(modelId)
+  const {
+    model: modelDetail,
+    loading: modelDetailLoading,
+    setModel: setModelDetail,
+  } = useModelDetail(modelId)
   const [generatingModel, setGeneratingModel] = useState(false)
   const [generatedModel, setGeneratedModel] = useState<GenerateSemanticModelResponse | null>(null)
 
   const isLocked = useMemo(() => {
-    if (!loadedDatasources) return false
-    if (!datasourceId) return false
+    if (!loadedDatasources) {
+      return false
+    }
+    if (!datasourceId) {
+      return false
+    }
     return !datasources.some((d) => d.id === datasourceId)
   }, [loadedDatasources, datasourceId, datasources])
 
@@ -97,9 +104,13 @@ export default function QueryBuilder() {
   useEffect(() => {
     if (models.length > 0) {
       setModelId((prev) => {
-        if (prev && models.some((m) => m.id === prev)) return prev
+        if (prev && models.some((m) => m.id === prev)) {
+          return prev
+        }
         const published = models.filter((m) => m.status === 'published')
-        if (published.length > 0) return published[0]!.id
+        if (published.length > 0) {
+          return published[0]!.id
+        }
         return models[0]?.id ?? ''
       })
     } else {
@@ -133,25 +144,34 @@ export default function QueryBuilder() {
 
   const dimensions = useMemo(() => modelDetail?.dimensions ?? [], [modelDetail])
   const metrics = useMemo(() => modelDetail?.metrics ?? [], [modelDetail])
-  const filterFieldOpts = useMemo(() => filterFieldOptions(dimensions, metrics, t), [dimensions, metrics, t])
+  const filterFieldOpts = useMemo(
+    () => filterFieldOptions(dimensions, metrics, t),
+    [dimensions, metrics, t],
+  )
 
   const orderByOpts = useMemo(() => {
     const fields = orderByFieldOptions(dimensions, metrics, t)
-    if (fields.length === 0) return []
+    if (fields.length === 0) {
+      return []
+    }
     return [{ value: '', label: t('query_builder.order_none'), hint: '' }, ...fields]
   }, [dimensions, metrics, t])
 
   const metricOptsHaving = useMemo(() => metricFieldOptions(metrics), [metrics])
 
   const createSemanticModel = async () => {
-    if (!datasourceId || generatingModel) return
+    if (!datasourceId || generatingModel) {
+      return
+    }
     setGeneratingModel(true)
     try {
       const res = await postData<GenerateSemanticModelResponse>('/api/semantic/models/generate', {
         datasource_id: datasourceId,
         publish: true,
       })
-      if (!res?.model) return
+      if (!res?.model) {
+        return
+      }
       setGeneratedModel(res)
       setModels((prev) => {
         const summary = res.model
@@ -171,7 +191,9 @@ export default function QueryBuilder() {
       if (next) {
         // Transitioning to summarized mode:
         // Find dimensions and metrics in selectItems
-        const rawDims = selectItems.filter((item) => item.type === 'dimension' && item.name).map((item) => item.name)
+        const rawDims = selectItems
+          .filter((item) => item.type === 'dimension' && item.name)
+          .map((item) => item.name)
 
         if (rawDims.length > 0) {
           setGroupBy(rawDims)
@@ -192,14 +214,20 @@ export default function QueryBuilder() {
         // Move groupBy dimensions and metrics back to selectItems
         const nextSelectItems: SelectItem[] = []
         for (const name of groupBy) {
-          if (name) nextSelectItems.push({ id: newRowId(), type: 'dimension', name })
+          if (name) {
+            nextSelectItems.push({ id: newRowId(), type: 'dimension', name })
+          }
         }
         for (const item of selectItems) {
-          if (item.type === 'metric') nextSelectItems.push(item)
+          if (item.type === 'metric') {
+            nextSelectItems.push(item)
+          }
         }
         if (nextSelectItems.length === 0) {
           const firstDim = dimensions[0]?.name
-          if (firstDim) nextSelectItems.push({ id: newRowId(), type: 'dimension', name: firstDim })
+          if (firstDim) {
+            nextSelectItems.push({ id: newRowId(), type: 'dimension', name: firstDim })
+          }
         }
         setSelectItems(nextSelectItems)
         setGroupBy([])
@@ -214,7 +242,9 @@ export default function QueryBuilder() {
   }
   const updateSelectItem = (i: number, field: keyof SelectItem, value: string) => {
     const existing = selectItems[i]
-    if (!existing) return
+    if (!existing) {
+      return
+    }
     if (field === 'type' && value !== existing.type) {
       selectItemsState.update(i, { ...existing, type: value as 'dimension' | 'metric', name: '' })
     } else {
@@ -234,7 +264,8 @@ export default function QueryBuilder() {
   const removeFilter = (i: number) => setFilters((prev) => removeFilterRow(prev, i))
 
   const addGroupByRow = () => setGroupBy((prev) => appendGroupByRow(prev))
-  const updateGroupByRow = (i: number, value: string) => setGroupBy((prev) => patchGroupByRow(prev, i, value))
+  const updateGroupByRow = (i: number, value: string) =>
+    setGroupBy((prev) => patchGroupByRow(prev, i, value))
   const removeGroupByRow = (i: number) => setGroupBy((prev) => dropGroupByRow(prev, i))
 
   const addHaving = () => setHaving((prev) => addHavingRow(prev))
@@ -247,10 +278,17 @@ export default function QueryBuilder() {
   }
   const removeHaving = (i: number) => setHaving((prev) => removeHavingRow(prev, i))
 
-  const addWindowFunc = () => windowFunctionState.add({ func: 'ROW_NUMBER', field: '', partition_by: '', order_by: '' })
+  const addWindowFunc = () =>
+    windowFunctionState.add({ func: 'ROW_NUMBER', field: '', partition_by: '', order_by: '' })
   const updateWindowFunc = (i: number, field: keyof WindowFuncRow, value: string) => {
     const existing = windowFunctions[i]
-    windowFunctionState.update(i, { func: existing?.func ?? 'ROW_NUMBER', field: existing?.field ?? '', partition_by: existing?.partition_by ?? '', order_by: existing?.order_by ?? '', [field]: value })
+    windowFunctionState.update(i, {
+      func: existing?.func ?? 'ROW_NUMBER',
+      field: existing?.field ?? '',
+      partition_by: existing?.partition_by ?? '',
+      order_by: existing?.order_by ?? '',
+      [field]: value,
+    })
   }
   const removeWindowFunc = (i: number) => windowFunctionState.remove(i)
 
@@ -264,13 +302,13 @@ export default function QueryBuilder() {
   const runQuery = async () => {
     const querySelectItems = isSummarized
       ? [
-        ...groupBy.filter(Boolean).map((g) => ({
-          id: newRowId(),
-          type: 'dimension' as const,
-          name: g,
-        })),
-        ...selectItems.filter((item) => item.type === 'metric'),
-      ]
+          ...groupBy.filter(Boolean).map((g) => ({
+            id: newRowId(),
+            type: 'dimension' as const,
+            name: g,
+          })),
+          ...selectItems.filter((item) => item.type === 'metric'),
+        ]
       : selectItems
 
     const payload = buildQueryPayload({
@@ -334,9 +372,25 @@ export default function QueryBuilder() {
               />
             )}
           </div>
-          <div className="toggle-group query-builder-mode-toggle" role="group" aria-label={t('query_builder.mode_toggle_aria')}>
-            <button type="button" className={`toggle-btn ${mode === 'simple' ? 'active' : ''}`} onClick={() => setMode('simple')}>{t('query_builder.mode_simple')}</button>
-            <button type="button" className={`toggle-btn ${mode === 'advanced' ? 'active' : ''}`} onClick={() => setMode('advanced')}>{t('query_builder.mode_advanced')}</button>
+          <div
+            className="toggle-group query-builder-mode-toggle"
+            role="group"
+            aria-label={t('query_builder.mode_toggle_aria')}
+          >
+            <button
+              type="button"
+              className={`toggle-btn ${mode === 'simple' ? 'active' : ''}`}
+              onClick={() => setMode('simple')}
+            >
+              {t('query_builder.mode_simple')}
+            </button>
+            <button
+              type="button"
+              className={`toggle-btn ${mode === 'advanced' ? 'active' : ''}`}
+              onClick={() => setMode('advanced')}
+            >
+              {t('query_builder.mode_advanced')}
+            </button>
           </div>
         </div>
 
@@ -349,7 +403,10 @@ export default function QueryBuilder() {
           <>
             {/* Semantic Model Warning/Setup */}
             {modelId && models.find((m) => m.id === modelId)?.status !== 'published' ? (
-              <p className="hint-text" style={{ marginBottom: '1rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              <p
+                className="hint-text"
+                style={{ marginBottom: '1rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}
+              >
                 {t('query_builder.draft_model_warning')}
               </p>
             ) : null}
@@ -360,14 +417,28 @@ export default function QueryBuilder() {
                   <strong>{t('query_builder.model_setup_title')}</strong>
                   <p>{t('query_builder.model_setup_body')}</p>
                 </div>
-                <button type="button" className="btn btn-sm" onClick={createSemanticModel} disabled={generatingModel}>
-                  {generatingModel ? t('query_builder.model_setup_generating') : t('query_builder.model_setup_create')}
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={createSemanticModel}
+                  disabled={generatingModel}
+                >
+                  {generatingModel
+                    ? t('query_builder.model_setup_generating')
+                    : t('query_builder.model_setup_create')}
                 </button>
               </div>
             ) : null}
 
             {generatedModel ? (
-              <div className={generatedModel.validation?.valid === false ? 'semantic-model-setup semantic-model-setup--error' : 'semantic-model-setup semantic-model-setup--success'} style={{ marginBottom: '1rem' }}>
+              <div
+                className={
+                  generatedModel.validation?.valid === false
+                    ? 'semantic-model-setup semantic-model-setup--error'
+                    : 'semantic-model-setup semantic-model-setup--success'
+                }
+                style={{ marginBottom: '1rem' }}
+              >
                 <div>
                   <strong>
                     {generatedModel.published
@@ -383,7 +454,9 @@ export default function QueryBuilder() {
                   </p>
                   {generatedModel.validation?.errors?.length ? (
                     <ul>
-                      {generatedModel.validation.errors.map((msg) => <li key={msg}>{msg}</li>)}
+                      {generatedModel.validation.errors.map((msg) => (
+                        <li key={msg}>{msg}</li>
+                      ))}
                     </ul>
                   ) : null}
                 </div>
@@ -395,9 +468,7 @@ export default function QueryBuilder() {
               <div className="query-builder-notebook">
                 {/* Step 1: Data */}
                 <NotebookStep label="Data" themeClass="data">
-                  <span className="notebook-tag notebook-tag--blue">
-                    {modelDetail.base_table}
-                  </span>
+                  <span className="notebook-tag notebook-tag--blue">{modelDetail.base_table}</span>
                 </NotebookStep>
 
                 {/* Step 2: Joins (Read-only display of relationships defined on semantic layer) */}
@@ -405,13 +476,20 @@ export default function QueryBuilder() {
                   <NotebookStep label="Join data" themeClass="join">
                     {modelDetail.joins.map((j, index) => {
                       const getCardinality = (rel?: string) => {
-                        if (!rel) return '1:1'
+                        if (!rel) {
+                          return '1:1'
+                        }
                         switch (rel) {
-                          case 'many_to_one': return 'N:1'
-                          case 'one_to_many': return '1:N'
-                          case 'one_to_one': return '1:1'
-                          case 'many_to_many': return 'N:N'
-                          default: return rel.replace(/_/g, '-')
+                          case 'many_to_one':
+                            return 'N:1'
+                          case 'one_to_many':
+                            return '1:N'
+                          case 'one_to_one':
+                            return '1:1'
+                          case 'many_to_many':
+                            return 'N:N'
+                          default:
+                            return rel.replace(/_/g, '-')
                         }
                       }
                       return (
@@ -420,14 +498,19 @@ export default function QueryBuilder() {
                           <span className="notebook-tag notebook-tag--table">{j.from_table}</span>
                           <span className="notebook-join-connector">
                             <span className="notebook-join-line"></span>
-                            <span className="notebook-join-cardinality">{getCardinality(j.relationship)}</span>
+                            <span className="notebook-join-cardinality">
+                              {getCardinality(j.relationship)}
+                            </span>
                             <span className="notebook-join-line"></span>
                           </span>
                           <span className="notebook-tag notebook-tag--table">{j.to_table}</span>
                           <span className="notebook-join-on-clause">
                             <span className="notebook-join-on-label">ON</span>
                             <code className="notebook-join-expression">
-                              <span className="notebook-join-table-prefix">{j.from_table}</span>.{j.from_column} = <span className="notebook-join-table-prefix">{j.to_table}</span>.{j.to_column}
+                              <span className="notebook-join-table-prefix">{j.from_table}</span>.
+                              {j.from_column} ={' '}
+                              <span className="notebook-join-table-prefix">{j.to_table}</span>.
+                              {j.to_column}
                             </code>
                           </span>
                         </div>
@@ -574,17 +657,15 @@ export default function QueryBuilder() {
                   onClick={() => {
                     if (!orderBy) {
                       const firstOpt = orderByOpts.find((o) => o.value)
-                      if (firstOpt) setOrderBy(firstOpt.value)
+                      if (firstOpt) {
+                        setOrderBy(firstOpt.value)
+                      }
                     }
                   }}
                 >
                   + Sort
                 </button>
-                <button
-                  type="button"
-                  className="toolbar-btn toolbar-btn--limit"
-                  onClick={() => { }}
-                >
+                <button type="button" className="toolbar-btn toolbar-btn--limit" onClick={() => {}}>
                   Limit ({limit})
                 </button>
                 {mode === 'advanced' && (
@@ -618,7 +699,12 @@ export default function QueryBuilder() {
             {/* Footer Actions */}
             {modelDetail && (
               <div className="visualize-btn-container">
-                <button type="button" className="visualize-btn" onClick={runQuery} disabled={loading}>
+                <button
+                  type="button"
+                  className="visualize-btn"
+                  onClick={runQuery}
+                  disabled={loading}
+                >
                   {loading ? t('query_builder.running') : 'Visualize'}
                 </button>
               </div>
@@ -642,7 +728,12 @@ export default function QueryBuilder() {
         <div className="card">
           {chartData.length > 0 ? (
             <div className="card-header-row card-header-row--spaced">
-              <h2>{t('query_builder.results_title', { rows: result.stats?.row_count || 0, ms: result.stats?.duration_ms || 0 })}</h2>
+              <h2>
+                {t('query_builder.results_title', {
+                  rows: result.stats?.row_count || 0,
+                  ms: result.stats?.duration_ms || 0,
+                })}
+              </h2>
               <ChartTypeSelector
                 value={chartType}
                 onChange={setChartType}
@@ -657,12 +748,15 @@ export default function QueryBuilder() {
               />
             </div>
           ) : (
-            <h2>{t('query_builder.results_title', { rows: result.stats?.row_count || 0, ms: result.stats?.duration_ms || 0 })}</h2>
+            <h2>
+              {t('query_builder.results_title', {
+                rows: result.stats?.row_count || 0,
+                ms: result.stats?.duration_ms || 0,
+              })}
+            </h2>
           )}
 
-          {chartData.length > 0 && (
-            <ChartContainer data={chartData} type={chartType} />
-          )}
+          {chartData.length > 0 && <ChartContainer data={chartData} type={chartType} />}
 
           {result.columns && result.rows && (
             <div className="results-table-scroll">
@@ -678,7 +772,9 @@ export default function QueryBuilder() {
                   {result.rows.map((row, i) => (
                     <tr key={i}>
                       {row.map((cell, j) => (
-                        <td key={j}>{formatResultCell(cell, result.columns?.[j]?.name ?? '', {})}</td>
+                        <td key={j}>
+                          {formatResultCell(cell, result.columns?.[j]?.name ?? '', {})}
+                        </td>
                       ))}
                     </tr>
                   ))}

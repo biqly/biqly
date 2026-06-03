@@ -81,15 +81,15 @@ export interface AIQueryRequest {
   prior_turns?: PriorTurn[]
 }
 
-export type AIJobKind = 'query' | 'preview' | 'run' | 'describe' | 'describe_batch' | 'embed_metadata'
+export type AIJobKind =
+  | 'query'
+  | 'preview'
+  | 'run'
+  | 'describe'
+  | 'describe_batch'
+  | 'embed_metadata'
 
-export type AIJobStatus =
-  | 'pending'
-  | 'queued'
-  | 'running'
-  | 'succeeded'
-  | 'failed'
-  | 'cancelled'
+export type AIJobStatus = 'pending' | 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'
 
 export interface DescribeBatchJobProgress {
   total: number
@@ -421,27 +421,21 @@ export interface Clarification {
   candidates?: ClarificationContext[]
   source?: 'router' | 'validator' | 'ai' | 'ambiguity_analyzer'
   ambiguity_detail?: {
-    ambiguities: Array<{
+    ambiguities: {
       term: string
       type: string
-      interpretations: Array<{
+      interpretations: {
         label: string
         description?: string
         confidence?: number
-      }>
-    }>
+      }[]
+    }[]
   }
 }
 
 export type QueryColumnSemanticType = 'dimension' | 'metric'
 
-export type QueryColumnFormat =
-  | 'number'
-  | 'currency'
-  | 'percent'
-  | 'date'
-  | 'datetime'
-  | 'text'
+export type QueryColumnFormat = 'number' | 'currency' | 'percent' | 'date' | 'datetime' | 'text'
 
 export interface QueryColumn {
   name: string

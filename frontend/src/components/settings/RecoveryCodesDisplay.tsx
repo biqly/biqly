@@ -27,7 +27,9 @@ export function RecoveryCodesDisplay({
           </p>
         </div>
         <div className="recovery-codes-grid border-border" style={{ padding: '1rem' }}>
-          {codes.map((code, index) => <div key={index}>{code}</div>)}
+          {codes.map((code, index) => (
+            <div key={index}>{code}</div>
+          ))}
         </div>
         <div className="flex-gap-center-end" style={{ marginTop: '0.5rem' }}>
           <button type="button" className="btn btn-secondary btn-auto-width" onClick={copyCodes}>
@@ -42,7 +44,10 @@ export function RecoveryCodesDisplay({
   }
 
   return (
-    <div className="recovery-codes-box border-border overflow-hidden card-lead-margin" style={{ padding: '1rem', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+    <div
+      className="recovery-codes-box border-border overflow-hidden card-lead-margin"
+      style={{ padding: '1rem', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}
+    >
       <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text)' }}>
         {t('mfa.recovery_title')}
       </h4>
@@ -50,7 +55,9 @@ export function RecoveryCodesDisplay({
         {t('mfa.recovery_desc')}
       </p>
       <div className="recovery-codes-grid">
-        {codes.map((code, index) => <div key={index}>{code}</div>)}
+        {codes.map((code, index) => (
+          <div key={index}>{code}</div>
+        ))}
       </div>
       <button
         type="button"

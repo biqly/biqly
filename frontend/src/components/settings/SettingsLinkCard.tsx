@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-type SettingsLinkCardProps = {
+interface SettingsLinkCardProps {
   title: string
   description: string
   action: ReactNode
@@ -17,5 +17,5 @@ export function SettingsLinkCard({ title, description, action, icon }: SettingsL
       <p>{description}</p>
       {action}
     </article>
-  );
+  )
 }

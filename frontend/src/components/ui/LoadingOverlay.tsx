@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+
 import { useT } from '../../i18n'
 
 interface LoadingOverlayProps {
@@ -11,7 +12,9 @@ interface LoadingOverlayProps {
 export function LoadingOverlay({ loading, label, children, className }: LoadingOverlayProps) {
   const t = useT()
   const displayLabel = label ?? t('common.loading')
-  if (!loading) return children ? <>{children}</> : null
+  if (!loading) {
+    return children ? <>{children}</> : null
+  }
   if (children) {
     return (
       <div className={`loading-overlay-wrap${className ? ` ${className}` : ''}`} aria-busy="true">
@@ -24,9 +27,12 @@ export function LoadingOverlay({ loading, label, children, className }: LoadingO
     )
   }
   return (
-    <p className={`loading-text${className ? ` ${className}` : ''}`} role="status" aria-live="polite">
+    <p
+      className={`loading-text${className ? ` ${className}` : ''}`}
+      role="status"
+      aria-live="polite"
+    >
       {displayLabel}
     </p>
   )
 }
-

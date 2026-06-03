@@ -46,7 +46,10 @@ export function JoinEditor({
   t,
 }: JoinEditorProps) {
   return (
-    <aside className={`modeling-editor ${open ? '' : 'modeling-side--collapsed'}`} aria-label={t('modeling.relationship_editor_aria')}>
+    <aside
+      className={`modeling-editor ${open ? '' : 'modeling-side--collapsed'}`}
+      aria-label={t('modeling.relationship_editor_aria')}
+    >
       <button
         type="button"
         className="modeling-side-toggle modeling-side-toggle--right"
@@ -63,7 +66,14 @@ export function JoinEditor({
         </div>
         <div className="form-group">
           <label>{t('modeling.source_table')}</label>
-          <Select name="fromTable" value={joinForm.fromTable} onChange={(value) => onChange({ fromTable: value })} placeholder={t('modeling.table_placeholder')} header={t('modeling.source_table')} options={tableOptions} />
+          <Select
+            name="fromTable"
+            value={joinForm.fromTable}
+            onChange={(value) => onChange({ fromTable: value })}
+            placeholder={t('modeling.table_placeholder')}
+            header={t('modeling.source_table')}
+            options={tableOptions}
+          />
         </div>
         <div className="form-group">
           <label>{t('modeling.source_column')}</label>
@@ -71,7 +81,9 @@ export function JoinEditor({
             name="fromColumn"
             value={fromColumnValue}
             onChange={(value) => onChange({ fromColumn: value })}
-            placeholder={fromColumns.length === 0 ? t('modeling.no_columns') : t('modeling.column_placeholder')}
+            placeholder={
+              fromColumns.length === 0 ? t('modeling.no_columns') : t('modeling.column_placeholder')
+            }
             header={t('modeling.source_column')}
             options={fromColumnOptions}
             disabled={!joinForm.fromTable || fromColumns.length === 0}
@@ -79,7 +91,14 @@ export function JoinEditor({
         </div>
         <div className="form-group">
           <label>{t('modeling.target_table')}</label>
-          <Select name="toTable" value={joinForm.toTable} onChange={(value) => onChange({ toTable: value })} placeholder={t('modeling.table_placeholder')} header={t('modeling.target_table')} options={tableOptions} />
+          <Select
+            name="toTable"
+            value={joinForm.toTable}
+            onChange={(value) => onChange({ toTable: value })}
+            placeholder={t('modeling.table_placeholder')}
+            header={t('modeling.target_table')}
+            options={tableOptions}
+          />
         </div>
         <div className="form-group">
           <label>{t('modeling.target_column')}</label>
@@ -87,14 +106,20 @@ export function JoinEditor({
             name="toColumn"
             value={toColumnValue}
             onChange={(value) => onChange({ toColumn: value })}
-            placeholder={toColumns.length === 0 ? t('modeling.no_compatible_columns') : t('modeling.column_placeholder')}
+            placeholder={
+              toColumns.length === 0
+                ? t('modeling.no_compatible_columns')
+                : t('modeling.column_placeholder')
+            }
             header={t('modeling.target_column')}
             options={toColumnOptions}
             disabled={!joinForm.toTable || toColumns.length === 0}
           />
           {selectedFromColumn && (
             <small className="modeling-type-hint">
-              {t('modeling.compatible_columns_hint', { type: formatDataType(t, selectedFromColumn.data_type) })}
+              {t('modeling.compatible_columns_hint', {
+                type: formatDataType(t, selectedFromColumn.data_type),
+              })}
             </small>
           )}
         </div>
@@ -108,7 +133,7 @@ export function JoinEditor({
                 { value: 'INNER', label: 'INNER' },
                 { value: 'RIGHT', label: 'RIGHT' },
               ]}
-              onChange={(v) => onChange({ joinType: v as JoinForm['joinType'] })}
+              onChange={(v) => onChange({ joinType: v })}
             />
           </div>
           <div className="form-group">
@@ -121,11 +146,16 @@ export function JoinEditor({
                 { value: 'one_to_one', label: 'one_to_one' },
                 { value: 'many_to_many', label: 'many_to_many' },
               ]}
-              onChange={(v) => onChange({ relationship: v as JoinForm['relationship'] })}
+              onChange={(v) => onChange({ relationship: v })}
             />
           </div>
         </div>
-        <button className="btn btn-primary" type="button" onClick={onSave} disabled={!canSave || saving || loading}>
+        <button
+          className="btn btn-primary"
+          type="button"
+          onClick={onSave}
+          disabled={!canSave || saving || loading}
+        >
           {saving ? t('common.saving') : t('modeling.add_relationship')}
         </button>
       </div>

@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from 'react'
-import { useApi } from './useApi'
+import { useCallback, useEffect, useState } from 'react'
+
 import type { SemanticModelSummary } from '../types/semantic'
+import { useApi } from './useApi'
 
 export function useSemanticModels(datasourceId: string | null, options?: { all?: boolean }) {
   const { get, loading, error } = useApi()
@@ -18,7 +19,7 @@ export function useSemanticModels(datasourceId: string | null, options?: { all?:
       return
     }
     get<SemanticModelSummary[]>(
-      `/api/semantic/models?datasource_id=${encodeURIComponent(datasourceId)}`
+      `/api/semantic/models?datasource_id=${encodeURIComponent(datasourceId)}`,
     ).then((data) => {
       setModels(data ?? [])
     })

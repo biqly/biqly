@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useT } from '../i18n'
-import { EmptyState } from './ui/EmptyState'
-import { ErrorAlert } from './ui/ErrorAlert'
-import { LoadingOverlay } from './ui/LoadingOverlay'
-import { Select } from './ui/Select'
-import { LoadingScreen } from './ui/LoadingScreen'
+
 import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
 import { useDatasources } from '../hooks/useDatasources'
 import { useSemanticModels } from '../hooks/useSemanticModels'
-import type { SavedQuestion, SavedQuestionFormState } from './savedQuestions/types'
-import { SavedQuestionFormModal } from './savedQuestions/SavedQuestionFormModal'
+import { useT } from '../i18n'
 import { QuestionDetailPane } from './savedQuestions/QuestionDetailPane'
+import { SavedQuestionFormModal } from './savedQuestions/SavedQuestionFormModal'
+import type { SavedQuestion, SavedQuestionFormState } from './savedQuestions/types'
+import { EmptyState } from './ui/EmptyState'
+import { ErrorAlert } from './ui/ErrorAlert'
+import { LoadingOverlay } from './ui/LoadingOverlay'
+import { LoadingScreen } from './ui/LoadingScreen'
+import { Select } from './ui/Select'
 
 export default function SavedQuestions() {
   const t = useT()
@@ -64,19 +65,24 @@ export default function SavedQuestions() {
   } | null>(null)
 
   // Fetch Saved Questions
-  const fetchQuestions = useCallback(async (dsId: string, mId: string) => {
-    if (!dsId) return
-    setInitLoading(true)
-    try {
-      const url = `/api/ai/examples?datasource_id=${encodeURIComponent(dsId)}${mId ? `&model_id=${encodeURIComponent(mId)}` : ''}`
-      const data = await get<SavedQuestion[]>(url)
-      if (data) {
-        setQuestions(data)
+  const fetchQuestions = useCallback(
+    async (dsId: string, mId: string) => {
+      if (!dsId) {
+        return
       }
-    } finally {
-      setInitLoading(false)
-    }
-  }, [get])
+      setInitLoading(true)
+      try {
+        const url = `/api/ai/examples?datasource_id=${encodeURIComponent(dsId)}${mId ? `&model_id=${encodeURIComponent(mId)}` : ''}`
+        const data = await get<SavedQuestion[]>(url)
+        if (data) {
+          setQuestions(data)
+        }
+      } finally {
+        setInitLoading(false)
+      }
+    },
+    [get],
+  )
 
   // Set default datasourceId
   useEffect(() => {
@@ -144,7 +150,9 @@ export default function SavedQuestions() {
   const filtered = useMemo(() => {
     const term = search.toLowerCase().trim()
     return questions.filter((q) => {
-      if (!term) return true
+      if (!term) {
+        return true
+      }
       return (
         q.name.toLowerCase().includes(term) ||
         q.question.toLowerCase().includes(term) ||
@@ -166,10 +174,10 @@ export default function SavedQuestions() {
     const updatedIsFewShot = !q.is_few_shot
     // Immediate UI update
     setQuestions((prev) =>
-      prev.map((item) => (item.id === q.id ? { ...item, is_few_shot: updatedIsFewShot } : item))
+      prev.map((item) => (item.id === q.id ? { ...item, is_few_shot: updatedIsFewShot } : item)),
     )
     if (selectedQuestion?.id === q.id) {
-      setSelectedQuestion((prev) => prev ? { ...prev, is_few_shot: updatedIsFewShot } : null)
+      setSelectedQuestion((prev) => (prev ? { ...prev, is_few_shot: updatedIsFewShot } : null))
     }
 
     try {
@@ -188,10 +196,10 @@ export default function SavedQuestions() {
     } catch {
       // Revert on failure
       setQuestions((prev) =>
-        prev.map((item) => (item.id === q.id ? { ...item, is_few_shot: q.is_few_shot } : item))
+        prev.map((item) => (item.id === q.id ? { ...item, is_few_shot: q.is_few_shot } : item)),
       )
       if (selectedQuestion?.id === q.id) {
-        setSelectedQuestion((prev) => prev ? { ...prev, is_few_shot: q.is_few_shot } : null)
+        setSelectedQuestion((prev) => (prev ? { ...prev, is_few_shot: q.is_few_shot } : null))
       }
     }
   }
@@ -200,7 +208,7 @@ export default function SavedQuestions() {
   const toggleFavorite = async (q: SavedQuestion) => {
     const updated = !q.is_favorite
     setQuestions((prev) =>
-      prev.map((item) => (item.id === q.id ? { ...item, is_favorite: updated } : item))
+      prev.map((item) => (item.id === q.id ? { ...item, is_favorite: updated } : item)),
     )
     if (selectedQuestion?.id === q.id) {
       setSelectedQuestion((prev) => (prev ? { ...prev, is_favorite: updated } : null))
@@ -219,7 +227,7 @@ export default function SavedQuestions() {
       })
     } catch {
       setQuestions((prev) =>
-        prev.map((item) => (item.id === q.id ? { ...item, is_favorite: q.is_favorite } : item))
+        prev.map((item) => (item.id === q.id ? { ...item, is_favorite: q.is_favorite } : item)),
       )
       if (selectedQuestion?.id === q.id) {
         setSelectedQuestion((prev) => (prev ? { ...prev, is_favorite: q.is_favorite } : null))
@@ -300,7 +308,10 @@ export default function SavedQuestions() {
       model_id: form.modelId || undefined,
       question: form.question,
       logical_query: parsedLq,
-      tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean),
+      tags: form.tags
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean),
       dialect: form.dialect,
       locale: form.locale || undefined,
       name: form.name,
@@ -344,7 +355,9 @@ export default function SavedQuestions() {
       title: t('saved_questions.confirm_delete'),
       variant: 'danger',
     })
-    if (!ok) return
+    if (!ok) {
+      return
+    }
     const res = await deleteData(`/api/ai/examples/${id}`)
     if (res || apiError === null) {
       setSelectedQuestion(null)
@@ -385,7 +398,9 @@ export default function SavedQuestions() {
         {/* Filters Top Bar */}
         <div className="form-row" style={{ marginTop: '1.25rem', flexWrap: 'wrap' }}>
           <div className="form-field" style={{ minWidth: '14rem' }}>
-            <label htmlFor="library-datasource" className="form-label">{t('saved_questions.label_select_datasource')}</label>
+            <label htmlFor="library-datasource" className="form-label">
+              {t('saved_questions.label_select_datasource')}
+            </label>
             <Select
               id="library-datasource"
               value={datasourceId}
@@ -394,19 +409,27 @@ export default function SavedQuestions() {
             />
           </div>
           <div className="form-field" style={{ minWidth: '14rem' }}>
-            <label htmlFor="library-model" className="form-label">{t('saved_questions.label_select_model')}</label>
+            <label htmlFor="library-model" className="form-label">
+              {t('saved_questions.label_select_model')}
+            </label>
             <Select
               id="library-model"
               value={semanticModelId}
               onChange={setSemanticModelId}
               options={[
                 { value: '', label: t('saved_questions.label_all_models') },
-                ...semanticModels.map((m) => ({ value: m.id, label: m.label || m.name, hint: m.status }))
+                ...semanticModels.map((m) => ({
+                  value: m.id,
+                  label: m.label || m.name,
+                  hint: m.status,
+                })),
               ]}
             />
           </div>
           <div className="form-field" style={{ flexGrow: 1, minWidth: '16rem' }}>
-            <label htmlFor="library-search" className="form-label">{t('common.search')}</label>
+            <label htmlFor="library-search" className="form-label">
+              {t('common.search')}
+            </label>
             <input
               id="library-search"
               value={search}
@@ -421,10 +444,21 @@ export default function SavedQuestions() {
       {apiError && <ErrorAlert error={apiError} />}
 
       {filtered.length === 0 ? (
-        <div className="card" style={{ position: 'relative', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div
+          className="card"
+          style={{
+            position: 'relative',
+            minHeight: '300px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
           <LoadingOverlay loading={apiLoading} />
           <EmptyState
-            description={search.trim() ? t('saved_questions.no_matches') : t('saved_questions.empty')}
+            description={
+              search.trim() ? t('saved_questions.no_matches') : t('saved_questions.empty')
+            }
           />
         </div>
       ) : (
@@ -467,7 +501,9 @@ export default function SavedQuestions() {
                       {q.description && <p>{q.description}</p>}
                       <div className="saved-question-tags">
                         {q.tags.map((tag) => (
-                          <span key={tag} className="tag-pill">{tag}</span>
+                          <span key={tag} className="tag-pill">
+                            {tag}
+                          </span>
                         ))}
                       </div>
                     </button>
@@ -478,8 +514,16 @@ export default function SavedQuestions() {
                         e.stopPropagation()
                         toggleFavorite(q)
                       }}
-                      aria-label={q.is_favorite ? t('saved_questions.favorite_remove') : t('saved_questions.favorite_add')}
-                      title={q.is_favorite ? t('saved_questions.favorite_remove') : t('saved_questions.favorite_add')}
+                      aria-label={
+                        q.is_favorite
+                          ? t('saved_questions.favorite_remove')
+                          : t('saved_questions.favorite_add')
+                      }
+                      title={
+                        q.is_favorite
+                          ? t('saved_questions.favorite_remove')
+                          : t('saved_questions.favorite_add')
+                      }
                     >
                       {q.is_favorite ? '★' : '☆'}
                     </button>

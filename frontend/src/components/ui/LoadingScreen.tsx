@@ -8,7 +8,11 @@ interface LoadingScreenProps {
   variant?: 'corner' | 'center'
 }
 
-export function LoadingScreen({ label, minHeight = '40vh', variant = 'corner' }: LoadingScreenProps) {
+export function LoadingScreen({
+  label,
+  minHeight = '40vh',
+  variant = 'corner',
+}: LoadingScreenProps) {
   const t = useT()
   const displayLabel = label ?? t('common.loading')
 

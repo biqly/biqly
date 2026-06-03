@@ -117,7 +117,9 @@ export interface GenerateSemanticModelResponse {
 }
 
 export function modelListLabel(m: SemanticModelSummary): string {
-  if (m.label && m.label.trim()) return `${m.name} (${m.label})`
+  if (m.label?.trim()) {
+    return `${m.name} (${m.label})`
+  }
   return m.name
 }
 

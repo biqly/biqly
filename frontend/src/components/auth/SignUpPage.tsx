@@ -1,17 +1,13 @@
-import { useCallback, useEffect, useState, type SubmitEvent } from 'react'
-import abiLogo from '../../assets/abi-logo.png'
-import { useT, useLocale } from '../../i18n'
-import { useAuth } from './AuthProvider'
+import { type SubmitEvent, useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import PasswordStrengthMeter from './PasswordStrengthMeter'
-import { Modal } from '../ui/Modal'
+
 import { apiGetPasswordPolicy, selfSignupEnabledFromPolicy } from '../../api/auth'
-import {
-  TermsOfUseEN,
-  TermsOfUseTR,
-  PrivacyPolicyEN,
-  PrivacyPolicyTR
-} from './PolicyContent'
+import abiLogo from '../../assets/abi-logo.png'
+import { useLocale, useT } from '../../i18n'
+import { Modal } from '../ui/Modal'
+import { useAuth } from './AuthProvider'
+import PasswordStrengthMeter from './PasswordStrengthMeter'
+import { PrivacyPolicyEN, PrivacyPolicyTR, TermsOfUseEN, TermsOfUseTR } from './PolicyContent'
 
 export default function SignUpPage() {
   const navigate = useNavigate()
@@ -36,12 +32,18 @@ export default function SignUpPage() {
     let cancelled = false
     apiGetPasswordPolicy()
       .then((policy) => {
-        if (!cancelled) setSignupAllowed(selfSignupEnabledFromPolicy(policy))
+        if (!cancelled) {
+          setSignupAllowed(selfSignupEnabledFromPolicy(policy))
+        }
       })
       .finally(() => {
-        if (!cancelled) setPolicyLoading(false)
+        if (!cancelled) {
+          setPolicyLoading(false)
+        }
       })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const handleValidity = useCallback((info: { valid: boolean }) => {
@@ -50,7 +52,9 @@ export default function SignUpPage() {
 
   const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!displayName || !email || !password || !confirmPassword) return
+    if (!displayName || !email || !password || !confirmPassword) {
+      return
+    }
 
     if (password !== confirmPassword) {
       setError(t('auth.passwords_dont_match'))
@@ -84,7 +88,9 @@ export default function SignUpPage() {
     return (
       <div className="auth-page">
         <div className="auth-card">
-          <p className="auth-subtitle" style={{ textAlign: 'center', margin: 0 }}>{t('common.loading')}</p>
+          <p className="auth-subtitle" style={{ textAlign: 'center', margin: 0 }}>
+            {t('common.loading')}
+          </p>
         </div>
       </div>
     )
@@ -103,7 +109,13 @@ export default function SignUpPage() {
             <p className="auth-subtitle">{t('auth.signup_closed_contact')}</p>
           </div>
           <p className="auth-subtitle" style={{ textAlign: 'center' }}>
-            <a href="/auth/signin" onClick={(e) => { e.preventDefault(); navigate('/auth/signin'); }}>
+            <a
+              href="/auth/signin"
+              onClick={(e) => {
+                e.preventDefault()
+                navigate('/auth/signin')
+              }}
+            >
               {t('auth.back_to_login')}
             </a>
           </p>
@@ -122,17 +134,29 @@ export default function SignUpPage() {
           <h1 className="auth-title">{t('auth.title_signup')}</h1>
           <p className="auth-subtitle">
             {t('auth.already_account')}{' '}
-            <a href="/auth/signin" onClick={(e) => { e.preventDefault(); navigate('/auth/signin'); }}>
+            <a
+              href="/auth/signin"
+              onClick={(e) => {
+                e.preventDefault()
+                navigate('/auth/signin')
+              }}
+            >
               {t('auth.btn_signin')}
             </a>
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">
-          {error && <div className="auth-error" role="alert" aria-live="assertive">{error}</div>}
+          {error && (
+            <div className="auth-error" role="alert" aria-live="assertive">
+              {error}
+            </div>
+          )}
 
           <div className="form-group">
-            <label className="form-label" htmlFor="name-input">{t('auth.display_name')}</label>
+            <label className="form-label" htmlFor="name-input">
+              {t('auth.display_name')}
+            </label>
             <input
               id="name-input"
               type="text"
@@ -146,7 +170,9 @@ export default function SignUpPage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="email-input">{t('auth.email')}</label>
+            <label className="form-label" htmlFor="email-input">
+              {t('auth.email')}
+            </label>
             <input
               id="email-input"
               type="email"
@@ -160,7 +186,9 @@ export default function SignUpPage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="password-input">{t('auth.password')}</label>
+            <label className="form-label" htmlFor="password-input">
+              {t('auth.password')}
+            </label>
             <input
               id="password-input"
               type="password"
@@ -176,7 +204,9 @@ export default function SignUpPage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="confirm-password-input">{t('auth.confirm_password')}</label>
+            <label className="form-label" htmlFor="confirm-password-input">
+              {t('auth.confirm_password')}
+            </label>
             <input
               id="confirm-password-input"
               type="password"
@@ -190,7 +220,10 @@ export default function SignUpPage() {
           </div>
 
           <div className="form-row">
-            <label className="form-checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+            <label
+              className="form-checkbox-label"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+            >
               <input
                 type="checkbox"
                 checked={agree}
@@ -252,11 +285,7 @@ export default function SignUpPage() {
       </div>
 
       {/* Terms of Use Modal */}
-      <Modal
-        open={termsOpen}
-        title={t('auth.terms_of_use')}
-        onClose={() => setTermsOpen(false)}
-      >
+      <Modal open={termsOpen} title={t('auth.terms_of_use')} onClose={() => setTermsOpen(false)}>
         {locale?.startsWith('tr') ? <TermsOfUseTR /> : <TermsOfUseEN />}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
           <button

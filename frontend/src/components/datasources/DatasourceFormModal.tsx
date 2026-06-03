@@ -26,7 +26,7 @@ interface DatasourceForm {
   dsn: string
 }
 
-export type DatasourceFormModalProps = {
+export interface DatasourceFormModalProps {
   open: boolean
   editingId: string | null
   connMode: ConnectionMode
@@ -76,7 +76,11 @@ export function DatasourceFormModal({
       <div className="form-stack">
         <div className="form-group">
           <span className="form-group__label">{t('datasources.connection_mode')}</span>
-          <div className="conn-mode-segmented" role="group" aria-label={t('datasources.connection_mode')}>
+          <div
+            className="conn-mode-segmented"
+            role="group"
+            aria-label={t('datasources.connection_mode')}
+          >
             <button
               type="button"
               className={`conn-mode-segmented__btn${connMode === 'structured' ? ' conn-mode-segmented__btn--active' : ''}`}
@@ -84,7 +88,9 @@ export function DatasourceFormModal({
               onClick={() => onConnModeChange('structured')}
             >
               <span className="conn-mode-segmented__title">{t('datasources.mode_structured')}</span>
-              <span className="conn-mode-segmented__desc">{t('datasources.mode_structured_desc')}</span>
+              <span className="conn-mode-segmented__desc">
+                {t('datasources.mode_structured_desc')}
+              </span>
             </button>
             <button
               type="button"
@@ -171,7 +177,9 @@ export function DatasourceFormModal({
                 <input
                   id="ds-db"
                   value={structured.database_name}
-                  onChange={(e) => onStructuredChange({ ...structured, database_name: e.target.value })}
+                  onChange={(e) =>
+                    onStructuredChange({ ...structured, database_name: e.target.value })
+                  }
                   autoComplete="off"
                 />
               </div>
@@ -231,7 +239,12 @@ export function DatasourceFormModal({
         <button className="btn" type="button" onClick={onTest} disabled={loading || !canSubmit}>
           {t('datasources.test_before_save')}
         </button>
-        <button className="btn btn-primary" type="button" onClick={onSave} disabled={loading || !canSubmit}>
+        <button
+          className="btn btn-primary"
+          type="button"
+          onClick={onSave}
+          disabled={loading || !canSubmit}
+        >
           {editingId ? t('datasources.save') : t('datasources.create')}
         </button>
       </div>

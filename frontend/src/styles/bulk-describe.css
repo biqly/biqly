@@ -158,7 +158,10 @@
   font-size: 0.75rem;
   line-height: 1.2;
   cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
 }
 
 .bulk-pill:hover {
@@ -208,7 +211,9 @@
   font-size: 0.74rem;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 
 .bulk-segmented__btn:hover {

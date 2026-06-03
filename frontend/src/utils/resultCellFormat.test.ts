@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { formatResultCell } from './resultCellFormat'
 
 describe('formatResultCell', () => {

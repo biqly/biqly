@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+
 import {
   apiGetMe,
   apiGetMyPermissions,
@@ -14,11 +15,19 @@ import type { AuthUser } from '../../types/auth'
 // classifySessionExpiry inspects the server-returned error message and maps it
 // to one of the i18n reasons so the signin page can show the right banner.
 function classifySessionExpiry(err: unknown): string {
-  if (!(err instanceof Error)) return 'unknown'
+  if (!(err instanceof Error)) {
+    return 'unknown'
+  }
   const msg = err.message.toLowerCase()
-  if (msg.includes('idle')) return 'idle'
-  if (msg.includes('absolute') || msg.includes('maximum lifetime')) return 'absolute'
-  if (msg.includes('revoked')) return 'revoked'
+  if (msg.includes('idle')) {
+    return 'idle'
+  }
+  if (msg.includes('absolute') || msg.includes('maximum lifetime')) {
+    return 'absolute'
+  }
+  if (msg.includes('revoked')) {
+    return 'revoked'
+  }
   return 'unknown'
 }
 
@@ -30,7 +39,10 @@ interface AuthContextType {
   isSuperAdmin: boolean
   hasPermission: (...perms: string[]) => boolean
   loading: boolean
-  login: (email: string, password: string) => Promise<{ mfaRequired?: boolean; mfaToken?: string } | void>
+  login: (
+    email: string,
+    password: string,
+  ) => Promise<{ mfaRequired?: boolean; mfaToken?: string } | void>
   loginWithTokens: (accessToken: string, refreshToken: string, roles?: string[]) => Promise<void>
   register: (email: string, password: string, displayName: string) => Promise<void>
   logout: () => Promise<void>
@@ -73,7 +85,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const handleAuthSuccess = async (accToken: string, refToken: string, nextRoles: string[] = []) => {
+  const handleAuthSuccess = async (
+    accToken: string,
+    refToken: string,
+    nextRoles: string[] = [],
+  ) => {
     setAccessToken(accToken)
     setRoles(nextRoles)
     localStorage.setItem('biqly_refresh_token', refToken)
@@ -89,8 +105,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasPermission = useCallback(
     (...perms: string[]) => {
-      if (isSuperAdmin) return true
-      if (perms.length === 0) return false
+      if (isSuperAdmin) {
+        return true
+      }
+      if (perms.length === 0) {
+        return false
+      }
       return perms.some((p) => permissions.includes(p))
     },
     [isSuperAdmin, permissions],
@@ -102,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { mfaRequired: true, mfaToken: resp.mfa_token }
     }
     await handleAuthSuccess(resp.access_token, resp.refresh_token, resp.roles)
+    return undefined
   }
 
   const loginWithTokens = async (accToken: string, refToken: string, nextRoles: string[] = []) => {
@@ -126,7 +147,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const refreshUser = async () => {
-    if (!accessToken) return
+    if (!accessToken) {
+      return
+    }
     try {
       const profile = await apiGetMe(accessToken)
       setUser(profile)
@@ -136,7 +159,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const setActiveWorkspace = async (workspaceID: string) => {
-    if (!accessToken) throw new Error('not authenticated')
+    if (!accessToken) {
+      throw new Error('not authenticated')
+    }
     const resp = await apiSetActiveWorkspace(accessToken, workspaceID)
     setAccessToken(resp.access_token)
     setUser((prev) => (prev ? { ...prev, active_workspace_id: resp.active_workspace_id } : prev))
@@ -165,33 +190,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Silent refresh timer
   useEffect(() => {
-    if (!accessToken) return
+    if (!accessToken) {
+      return
+    }
 
     // Refresh every 14 minutes (since access token expires in 15 minutes)
-    const interval = window.setInterval(async () => {
-      const refToken = localStorage.getItem('biqly_refresh_token')
-      if (!refToken) {
-        clearAuth()
-        return
-      }
-      try {
-        const resp = await apiRefresh(refToken)
-        setAccessToken(resp.access_token)
-        setRoles(resp.roles)
-        localStorage.setItem('biqly_refresh_token', resp.refresh_token)
-        await loadPermissions(resp.access_token)
-      } catch (err: unknown) {
-        // Refresh failed — classify the server-side reason so the next sign-in
-        // screen can render an explanatory banner (idle/absolute/revoked) and
-        // not just bounce the user to a blank login form.
-        const reason = classifySessionExpiry(err)
-        sessionStorage.setItem('biqly_session_expired_reason', reason)
-        clearAuth()
-        if (window.location.pathname !== '/auth/signin') {
-          navigate('/auth/signin?expired=' + reason)
+    const interval = window.setInterval(
+      async () => {
+        const refToken = localStorage.getItem('biqly_refresh_token')
+        if (!refToken) {
+          clearAuth()
+          return
         }
-      }
-    }, 14 * 60 * 1000)
+        try {
+          const resp = await apiRefresh(refToken)
+          setAccessToken(resp.access_token)
+          setRoles(resp.roles)
+          localStorage.setItem('biqly_refresh_token', resp.refresh_token)
+          await loadPermissions(resp.access_token)
+        } catch (err: unknown) {
+          // Refresh failed — classify the server-side reason so the next sign-in
+          // screen can render an explanatory banner (idle/absolute/revoked) and
+          // not just bounce the user to a blank login form.
+          const reason = classifySessionExpiry(err)
+          sessionStorage.setItem('biqly_session_expired_reason', reason)
+          clearAuth()
+          if (window.location.pathname !== '/auth/signin') {
+            navigate('/auth/signin?expired=' + reason)
+          }
+        }
+      },
+      14 * 60 * 1000,
+    )
 
     return () => window.clearInterval(interval)
   }, [accessToken, navigate])

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+
 import { apiPasskeyRegisterBegin, apiPasskeyRegisterFinish } from '../api/auth'
 import { base64urlToBuffer, bufferToBase64url } from '../utils/webauthn'
 
@@ -7,7 +8,8 @@ export function usePasskeyRegistration(accessToken: string) {
   const [error, setError] = useState<string | null>(null)
 
   const registerPasskey = async (name: string): Promise<boolean> => {
-    const isSupported = window.PublicKeyCredential &&
+    const isSupported =
+      window.PublicKeyCredential &&
       typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function'
 
     if (!isSupported) {

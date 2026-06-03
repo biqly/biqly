@@ -81,7 +81,9 @@
 }
 
 @media (max-width: 768px) {
-  .eval-charts-row { grid-template-columns: 1fr; }
+  .eval-charts-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .eval-empty-chart {
@@ -205,4 +207,3 @@
   overflow: auto;
   font-size: 0.78rem;
 }
-

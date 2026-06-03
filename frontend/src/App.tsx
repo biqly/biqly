@@ -1,18 +1,28 @@
-import { Suspense, lazy, useEffect, useMemo, useState, startTransition, type ComponentType, type LazyExoticComponent, type MouseEvent, type ReactNode } from 'react'
-import { Routes, Route, Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
+import {
+  type ComponentType,
+  lazy,
+  type LazyExoticComponent,
+  type MouseEvent,
+  type ReactNode,
+  startTransition,
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
+import { Link, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+
+import abiLogo from './assets/abi-logo.png'
 import { Breadcrumbs, type Crumb } from './components/ui/Breadcrumbs'
-import { CommandPalette, type CommandItem } from './components/ui/CommandPalette'
+import { type CommandItem, CommandPalette } from './components/ui/CommandPalette'
 import { EmptyState } from './components/ui/EmptyState'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { LanguageSwitcher } from './components/ui/LanguageSwitcher'
-import { ThemeToggle } from './components/ui/ThemeToggle'
-import abiLogo from './assets/abi-logo.png'
-import { useT, LocaleSection, useLocaleSection, type TranslationKey } from './i18n'
 import { LoadingScreen } from './components/ui/LoadingScreen'
+import { ThemeToggle } from './components/ui/ThemeToggle'
+import { LocaleSection, type TranslationKey, useLocaleSection, useT } from './i18n'
 
-const lazyWithPreload = <T extends ComponentType<any>>(
-  factory: () => Promise<{ default: T }>
-) => {
+const lazyWithPreload = <T extends ComponentType<any>>(factory: () => Promise<{ default: T }>) => {
   const Component = lazy(factory) as any
   Component.preload = factory
   return Component as LazyExoticComponent<T> & { preload: () => Promise<{ default: T }> }
@@ -44,17 +54,17 @@ const VerifyEmailPage = lazyWithPreload(() => import('./components/auth/VerifyEm
 const OAuthCallback = lazyWithPreload(() => import('./components/auth/OAuthCallback'))
 const ClaimInvitePage = lazyWithPreload(() => import('./components/auth/ClaimInvitePage'))
 
+import './styles/sidebar.css'
+
 import { AuthGuard, GuestGuard } from './components/auth/AuthGuard'
 import { useAuth } from './components/auth/AuthProvider'
 import { WorkspaceSelector } from './components/workspaces/WorkspaceSelector'
 import { useUrlSearch } from './hooks/useQueryParam'
 import { appendAdminBreadcrumbs } from './lib/adminBreadcrumbs'
-import './styles/sidebar.css'
-
 
 type RouteSectionKey = 'data' | 'query' | 'ai' | 'analytics' | 'preferences'
 type NavigateFn = (path: string) => void
-type RouteComponentProps = {
+interface RouteComponentProps {
   navigate?: NavigateFn
 }
 
@@ -450,7 +460,9 @@ function App() {
   const sidebarSections = useMemo(() => {
     const buckets = new Map<RouteSectionKey, AppRoute[]>()
     for (const route of routes) {
-      if (route.hidden && !(route.path === '/admin' && isAdmin)) continue
+      if (route.hidden && !(route.path === '/admin' && isAdmin)) {
+        continue
+      }
       const prev = buckets.get(route.sectionKey) ?? []
       prev.push(route)
       buckets.set(route.sectionKey, prev)
@@ -494,17 +506,28 @@ function App() {
   const activePath = location.pathname
   const activeRoute = useMemo(() => {
     return routes.find((route) => {
-      if (route.path === activePath) return true
-      if (route.path === '/modeling' && (activePath.startsWith('/modeling/') || activePath.startsWith('/model/'))) return true
+      if (route.path === activePath) {
+        return true
+      }
+      if (
+        route.path === '/modeling' &&
+        (activePath.startsWith('/modeling/') || activePath.startsWith('/model/'))
+      ) {
+        return true
+      }
       return false
     })
   }, [routes, activePath])
 
   const breadcrumbs = useMemo<Crumb[]>(() => {
-    if (!activeRoute) return []
+    if (!activeRoute) {
+      return []
+    }
     const section = sidebarSections.find((s) => s.routes.some((r) => r.path === activeRoute.path))
     const crumbs: Crumb[] = []
-    if (section) crumbs.push({ label: section.heading })
+    if (section) {
+      crumbs.push({ label: section.heading })
+    }
 
     const usesUrlSync = activeRoute.path === '/admin' || activeRoute.path === '/evaluation'
     const effectiveSearch = usesUrlSync ? urlSearch : location.search
@@ -530,9 +553,13 @@ function App() {
       const tabParam = searchParams.get('tab') || 'run'
 
       let tabLabel = ''
-      if (tabParam === 'run') tabLabel = t('evaluation.tab_run')
-      else if (tabParam === 'history') tabLabel = t('evaluation.tab_history')
-      else if (tabParam === 'regression') tabLabel = t('evaluation.tab_regression')
+      if (tabParam === 'run') {
+        tabLabel = t('evaluation.tab_run')
+      } else if (tabParam === 'history') {
+        tabLabel = t('evaluation.tab_history')
+      } else if (tabParam === 'regression') {
+        tabLabel = t('evaluation.tab_regression')
+      }
 
       if (tabLabel) {
         crumbs.push({
@@ -548,9 +575,13 @@ function App() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   useEffect(() => {
-    if (!mobileNavOpen) return
+    if (!mobileNavOpen) {
+      return
+    }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMobileNavOpen(false)
+      if (e.key === 'Escape') {
+        setMobileNavOpen(false)
+      }
     }
     window.addEventListener('keydown', onKey)
     document.body.classList.add('app-shell--nav-open')
@@ -617,7 +648,9 @@ function App() {
     }
 
     const targetUrl = new URL(event.currentTarget.href)
-    if (targetUrl.origin !== window.location.origin) return
+    if (targetUrl.origin !== window.location.origin) {
+      return
+    }
 
     event.preventDefault()
     startTransition(() => {
@@ -637,13 +670,62 @@ function App() {
           </GuestGuard>
         }
       >
-        <Route path="/auth/signin" element={<Suspense fallback={<AuthLoading />}><SignInPage /></Suspense>} />
-        <Route path="/auth/signup" element={<Suspense fallback={<AuthLoading />}><SignUpPage /></Suspense>} />
-        <Route path="/auth/forgot-password" element={<Suspense fallback={<AuthLoading />}><ForgotPasswordPage /></Suspense>} />
-        <Route path="/auth/reset-password" element={<Suspense fallback={<AuthLoading />}><ResetPasswordPage /></Suspense>} />
-        <Route path="/auth/verify-email" element={<Suspense fallback={<AuthLoading />}><VerifyEmailPage /></Suspense>} />
-        <Route path="/auth/claim-invite" element={<Suspense fallback={<AuthLoading />}><ClaimInvitePage /></Suspense>} />
-        <Route path="/auth/callback" element={<Suspense fallback={<AuthLoading />}><OAuthCallback /></Suspense>} />
+        <Route
+          path="/auth/signin"
+          element={
+            <Suspense fallback={<AuthLoading />}>
+              <SignInPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/auth/signup"
+          element={
+            <Suspense fallback={<AuthLoading />}>
+              <SignUpPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/auth/forgot-password"
+          element={
+            <Suspense fallback={<AuthLoading />}>
+              <ForgotPasswordPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/auth/reset-password"
+          element={
+            <Suspense fallback={<AuthLoading />}>
+              <ResetPasswordPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/auth/verify-email"
+          element={
+            <Suspense fallback={<AuthLoading />}>
+              <VerifyEmailPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/auth/claim-invite"
+          element={
+            <Suspense fallback={<AuthLoading />}>
+              <ClaimInvitePage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/auth/callback"
+          element={
+            <Suspense fallback={<AuthLoading />}>
+              <OAuthCallback />
+            </Suspense>
+          }
+        />
       </Route>
 
       <Route
@@ -703,13 +785,19 @@ function App() {
                         onMouseEnter={() => handleNavHover(homeRoute.component)}
                         onFocus={() => handleNavHover(homeRoute.component)}
                       >
-                        <span className="nav-icon" aria-hidden="true">{homeRoute.icon}</span>
+                        <span className="nav-icon" aria-hidden="true">
+                          {homeRoute.icon}
+                        </span>
                         <span className="nav-label">{homeRoute.label}</span>
                       </a>
                     </div>
                   )}
                   {sidebarSections.map((section) => (
-                    <section key={section.sectionKey} className="nav-section" aria-labelledby={`nav-heading-${section.sectionKey}`}>
+                    <section
+                      key={section.sectionKey}
+                      className="nav-section"
+                      aria-labelledby={`nav-heading-${section.sectionKey}`}
+                    >
                       <div className="nav-section-label" id={`nav-heading-${section.sectionKey}`}>
                         {section.heading}
                       </div>
@@ -724,7 +812,9 @@ function App() {
                             onMouseEnter={() => handleNavHover(route.component)}
                             onFocus={() => handleNavHover(route.component)}
                           >
-                            <span className="nav-icon" aria-hidden="true">{route.icon}</span>
+                            <span className="nav-icon" aria-hidden="true">
+                              {route.icon}
+                            </span>
                             <span className="nav-label">{route.label}</span>
                           </a>
                         ))}
@@ -776,7 +866,9 @@ function App() {
                   <div className="sidebar-footer__api">
                     <span className="status-dot" aria-hidden="true" />
                     <span>
-                      {typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+                      {typeof window !== 'undefined' &&
+                      (window.location.hostname === 'localhost' ||
+                        window.location.hostname === '127.0.0.1')
                         ? t('common.local_api')
                         : `API · ${typeof window !== 'undefined' ? window.location.host : ''}/api`}
                     </span>
@@ -819,7 +911,7 @@ function App() {
                         />
                       )
                     })}
-                    
+
                     <Route
                       path="/modeling/:modelId"
                       element={
@@ -841,8 +933,15 @@ function App() {
                       path="*"
                       element={
                         <section className="card card--elevated">
-                          <EmptyState title={t('common.module_not_found')} description={t('common.module_not_found_desc')}>
-                            <a className="btn" href={DEFAULT_PATH} onClick={(event) => handleNavClick(event, DEFAULT_PATH)}>
+                          <EmptyState
+                            title={t('common.module_not_found')}
+                            description={t('common.module_not_found_desc')}
+                          >
+                            <a
+                              className="btn"
+                              href={DEFAULT_PATH}
+                              onClick={(event) => handleNavClick(event, DEFAULT_PATH)}
+                            >
                               {t('common.go_to_datasources')}
                             </a>
                           </EmptyState>

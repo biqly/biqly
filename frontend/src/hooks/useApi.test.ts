@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
+
 import { request } from './useApi'
 
 describe('request', () => {
   it('returns a readable error from HTML error responses', async () => {
     const originalFetch = globalThis.fetch
-    globalThis.fetch = (() =>
-      Promise.resolve(new Response('<strong>bad gateway</strong>', { status: 502 }))) as typeof fetch
+    globalThis.fetch = () =>
+      Promise.resolve(new Response('<strong>bad gateway</strong>', { status: 502 }))
 
     try {
       await expect(request('GET', '/api/test')).resolves.toEqual({
@@ -19,8 +20,7 @@ describe('request', () => {
 
   it('rejects successful non-JSON responses', async () => {
     const originalFetch = globalThis.fetch
-    globalThis.fetch = (() =>
-      Promise.resolve(new Response('ok', { status: 200 }))) as typeof fetch
+    globalThis.fetch = () => Promise.resolve(new Response('ok', { status: 200 }))
 
     try {
       await expect(request('GET', '/api/test')).resolves.toEqual({
@@ -34,12 +34,12 @@ describe('request', () => {
 
   it('reports timeout aborts separately from caller aborts', async () => {
     const originalFetch = globalThis.fetch
-    globalThis.fetch = ((_url, init) =>
+    globalThis.fetch = (_url, init) =>
       new Promise((_resolve, reject) => {
         init?.signal?.addEventListener('abort', () =>
           reject(new DOMException('aborted', 'AbortError')),
         )
-      })) as typeof fetch
+      })
 
     try {
       await expect(request('GET', '/api/slow', undefined, { timeout: 1 })).resolves.toEqual({

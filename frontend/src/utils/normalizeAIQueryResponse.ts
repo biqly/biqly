@@ -46,7 +46,9 @@ function pickClarification(
 
 /** Unwraps backend `ai.Response` ({ result, metadata, clarification }) into flat `AIQueryResponse`. */
 export function normalizeAIQueryResponse(raw: unknown): AIQueryResponse | null {
-  if (!isRecord(raw)) return null
+  if (!isRecord(raw)) {
+    return null
+  }
 
   const inner = raw.result
   const metadata = isRecord(raw.metadata) ? raw.metadata : null

@@ -1,6 +1,7 @@
+import '../../styles/skeleton.css'
+
 import clsx from 'clsx'
 import type { CSSProperties } from 'react'
-import '../../styles/skeleton.css'
 
 interface SkeletonProps {
   width?: number | string

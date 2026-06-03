@@ -1,7 +1,8 @@
 import { useState } from 'react'
+
 import { useT } from '../../i18n'
-import { Select } from '../ui/Select'
 import type { ComponentModelRef, CrossModelJoin } from '../../types/composite'
+import { Select } from '../ui/Select'
 
 interface CrossJoinEditorProps {
   components: ComponentModelRef[]
@@ -33,7 +34,9 @@ export function CrossJoinEditor({
   const [toModel, setToModel] = useState(initial?.to_model ?? components[1]?.alias ?? '')
   const [fromDimension, setFromDimension] = useState(initial?.from_dimension ?? '')
   const [toDimension, setToDimension] = useState(initial?.to_dimension ?? '')
-  const [joinType, setJoinType] = useState<CrossModelJoin['join_type']>(initial?.join_type ?? 'LEFT')
+  const [joinType, setJoinType] = useState<CrossModelJoin['join_type']>(
+    initial?.join_type ?? 'LEFT',
+  )
   const [relationship, setRelationship] = useState<CrossModelJoin['relationship']>(
     initial?.relationship ?? 'many_to_one',
   )
@@ -98,7 +101,7 @@ export function CrossJoinEditor({
           {t('composites.editor_join_type')}
           <Select
             value={joinType}
-            onChange={(v) => setJoinType(v as CrossModelJoin['join_type'])}
+            onChange={(v) => setJoinType(v)}
             options={JOIN_TYPES.map((j) => ({ value: j, label: j }))}
           />
         </label>
@@ -106,7 +109,7 @@ export function CrossJoinEditor({
           {t('composites.editor_relationship')}
           <Select
             value={relationship}
-            onChange={(v) => setRelationship(v as CrossModelJoin['relationship'])}
+            onChange={(v) => setRelationship(v)}
             options={RELATIONSHIPS.map((r) => ({ value: r, label: r }))}
           />
         </label>

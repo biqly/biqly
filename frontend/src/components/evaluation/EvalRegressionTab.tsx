@@ -34,7 +34,14 @@ export function EvalRegressionTab({
         <h3>{t('evaluation.regression_title')}</h3>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: '14rem' }}>
-            <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.3rem' }}>
+            <label
+              style={{
+                display: 'block',
+                fontSize: '0.8rem',
+                color: 'var(--text-secondary)',
+                marginBottom: '0.3rem',
+              }}
+            >
               {t('evaluation.baseline_label')}
             </label>
             <Select
@@ -50,7 +57,14 @@ export function EvalRegressionTab({
             />
           </div>
           <div style={{ flex: 1, minWidth: '14rem' }}>
-            <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.3rem' }}>
+            <label
+              style={{
+                display: 'block',
+                fontSize: '0.8rem',
+                color: 'var(--text-secondary)',
+                marginBottom: '0.3rem',
+              }}
+            >
               {t('evaluation.current_label')}
             </label>
             <Select
@@ -77,21 +91,33 @@ export function EvalRegressionTab({
 
       {regression && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '1rem',
+            }}
+          >
             <div className="card" style={{ borderColor: 'var(--error)', marginBottom: 0 }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{t('evaluation.reg_new_failures')}</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                {t('evaluation.reg_new_failures')}
+              </p>
               <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--error)' }}>
                 {regression.new_failures.length}
               </p>
             </div>
             <div className="card" style={{ borderColor: 'var(--success)', marginBottom: 0 }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{t('evaluation.reg_fixed')}</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                {t('evaluation.reg_fixed')}
+              </p>
               <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--success)' }}>
                 {regression.fixed_failures.length}
               </p>
             </div>
             <div className="card" style={{ borderColor: 'var(--warning)', marginBottom: 0 }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{t('evaluation.reg_changed')}</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                {t('evaluation.reg_changed')}
+              </p>
               <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--warning)' }}>
                 {regression.changed_cases.length}
               </p>

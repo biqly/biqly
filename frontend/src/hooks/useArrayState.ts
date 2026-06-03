@@ -8,10 +8,16 @@ export function useArrayState<T>(initial: T[] = []) {
   }, [])
 
   const update = useCallback((index: number, updater: T | ((item: T | undefined) => T)) => {
-    setItems((prev) => prev.map((item, i) => {
-      if (i !== index) return item
-      return typeof updater === 'function' ? (updater as (item: T | undefined) => T)(item) : updater
-    }))
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== index) {
+          return item
+        }
+        return typeof updater === 'function'
+          ? (updater as (item: T | undefined) => T)(item)
+          : updater
+      }),
+    )
   }, [])
 
   const remove = useCallback((index: number) => {

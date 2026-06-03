@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+
 import { useT } from '../../i18n'
 import { resolveSelectPopoverLayout } from './selectLayout'
 
@@ -67,9 +68,13 @@ export function Select<T extends string = string>({
   const [search, setSearch] = useState('')
 
   const displayOptions = useMemo(() => {
-    if (!searchable) return options
+    if (!searchable) {
+      return options
+    }
     const q = search.trim().toLowerCase()
-    if (!q) return options
+    if (!q) {
+      return options
+    }
     return options.filter((o) => {
       const hay = `${o.label} ${o.hint ?? ''} ${o.value}`.toLowerCase()
       return hay.includes(q)
@@ -87,7 +92,9 @@ export function Select<T extends string = string>({
   const pickByIndex = useCallback(
     (idx: number) => {
       const opt = displayOptions[idx]
-      if (!opt || opt.disabled) return
+      if (!opt || opt.disabled) {
+        return
+      }
       onChange(opt.value)
       closeAndFocus()
     },
@@ -96,12 +103,16 @@ export function Select<T extends string = string>({
 
   const findNextEnabled = useCallback(
     (start: number, direction: 1 | -1): number => {
-      if (displayOptions.length === 0) return -1
+      if (displayOptions.length === 0) {
+        return -1
+      }
       let i = start
       for (let step = 0; step < displayOptions.length; step++) {
         i = (i + direction + displayOptions.length) % displayOptions.length
         const opt = displayOptions[i]
-        if (opt && !opt.disabled) return i
+        if (opt && !opt.disabled) {
+          return i
+        }
       }
       return -1
     },
@@ -109,26 +120,35 @@ export function Select<T extends string = string>({
   )
 
   const updatePosition = useCallback(() => {
-    if (!triggerRef.current) return
+    if (!triggerRef.current) {
+      return
+    }
     const rect = triggerRef.current.getBoundingClientRect()
     const viewportH = window.innerHeight
     const spaceBelow = viewportH - rect.bottom - 12
     const spaceAbove = rect.top - 12
     const desired = 288
     const placement: 'down' | 'up' = spaceBelow < 220 && spaceAbove > spaceBelow ? 'up' : 'down'
-    const maxHeight = Math.max(160, Math.min(desired, placement === 'down' ? spaceBelow : spaceAbove))
+    const maxHeight = Math.max(
+      160,
+      Math.min(desired, placement === 'down' ? spaceBelow : spaceAbove),
+    )
     const top = placement === 'down' ? rect.bottom + 6 : Math.max(8, rect.top - 6 - maxHeight)
     const { left, width } = resolveSelectPopoverLayout(rect, options, size === 'sm' ? 11.5 : 12.5)
     setPopover({ left, top, width, maxHeight, placement })
   }, [options, size])
 
   useLayoutEffect(() => {
-    if (!open) return
+    if (!open) {
+      return
+    }
     updatePosition()
   }, [open, updatePosition])
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      return
+    }
     const handle = () => updatePosition()
     window.addEventListener('resize', handle)
     window.addEventListener('scroll', handle, true)
@@ -139,12 +159,16 @@ export function Select<T extends string = string>({
   }, [open, updatePosition])
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      return
+    }
     const onDown = (e: MouseEvent) => {
       const target = e.target as Node
       const inRoot = rootRef.current?.contains(target)
       const inList = listRef.current?.contains(target)
-      if (!inRoot && !inList) setOpen(false)
+      if (!inRoot && !inList) {
+        setOpen(false)
+      }
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
@@ -166,19 +190,25 @@ export function Select<T extends string = string>({
   }, [open, displayOptions, value, findNextEnabled, searchable])
 
   useEffect(() => {
-    if (!open || !searchable) return
+    if (!open || !searchable) {
+      return
+    }
     const first = findNextEnabled(-1, 1)
     setActiveIndex(first)
   }, [search, open, searchable, findNextEnabled])
 
   useEffect(() => {
-    if (!open || activeIndex < 0) return
+    if (!open || activeIndex < 0) {
+      return
+    }
     const node = listRef.current?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`)
     node?.scrollIntoView({ block: 'nearest' })
   }, [open, activeIndex])
 
   const onTriggerKeyDown = (e: React.KeyboardEvent) => {
-    if (disabled) return
+    if (disabled) {
+      return
+    }
     if (!open) {
       if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault()
@@ -215,22 +245,32 @@ export function Select<T extends string = string>({
     }
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
-      if (activeIndex >= 0) pickByIndex(activeIndex)
+      if (activeIndex >= 0) {
+        pickByIndex(activeIndex)
+      }
     }
   }
 
   const triggerLabel = selected ? selected.label : (placeholder ?? t('common.select_placeholder'))
   const triggerTitle =
-    selected && (showHintInTrigger && selected.hint)
+    selected && showHintInTrigger && selected.hint
       ? `${selected.label} · ${selected.hint}`
       : selected
         ? selected.label
         : undefined
   const triggerClasses = ['ui-select-trigger']
-  if (showHintInTrigger && selected?.hint) triggerClasses.push('ui-select-trigger--stacked')
-  if (size === 'sm') triggerClasses.push('ui-select-trigger--sm')
-  if (open) triggerClasses.push('is-open')
-  if (!selected) triggerClasses.push('is-empty')
+  if (showHintInTrigger && selected?.hint) {
+    triggerClasses.push('ui-select-trigger--stacked')
+  }
+  if (size === 'sm') {
+    triggerClasses.push('ui-select-trigger--sm')
+  }
+  if (open) {
+    triggerClasses.push('is-open')
+  }
+  if (!selected) {
+    triggerClasses.push('is-empty')
+  }
 
   return (
     <div ref={rootRef} className={['ui-select', className].filter(Boolean).join(' ')}>
@@ -247,7 +287,9 @@ export function Select<T extends string = string>({
         disabled={disabled}
         title={triggerTitle}
         onClick={() => {
-          if (disabled) return
+          if (disabled) {
+            return
+          }
           setOpen((o) => !o)
         }}
         onKeyDown={onTriggerKeyDown}
@@ -270,8 +312,21 @@ export function Select<T extends string = string>({
             triggerLabel
           )}
         </span>
-        <svg className="ui-select-chevron" viewBox="0 0 12 8" width="9" height="5.5" aria-hidden="true">
-          <path d="M1 1.5l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        <svg
+          className="ui-select-chevron"
+          viewBox="0 0 12 8"
+          width="9"
+          height="5.5"
+          aria-hidden="true"
+        >
+          <path
+            d="M1 1.5l5 5 5-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </svg>
       </button>
       {open && popover && (
@@ -297,7 +352,12 @@ export function Select<T extends string = string>({
                 placeholder={`${t('common.search')}…`}
                 autoComplete="off"
                 onKeyDown={(e) => {
-                  if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === 'Escape') {
+                  if (
+                    e.key === 'ArrowDown' ||
+                    e.key === 'ArrowUp' ||
+                    e.key === 'Enter' ||
+                    e.key === 'Escape'
+                  ) {
                     onTriggerKeyDown(e)
                   }
                   if (e.key === ' ') {
@@ -313,7 +373,9 @@ export function Select<T extends string = string>({
             role="listbox"
             aria-activedescendant={activeIndex >= 0 ? `${baseId}-opt-${activeIndex}` : undefined}
             className="ui-select-list"
-            style={{ maxHeight: searchable ? Math.max(120, popover.maxHeight - 44) : popover.maxHeight }}
+            style={{
+              maxHeight: searchable ? Math.max(120, popover.maxHeight - 44) : popover.maxHeight,
+            }}
             tabIndex={-1}
             onKeyDown={onTriggerKeyDown}
           >
@@ -326,9 +388,15 @@ export function Select<T extends string = string>({
               const isSelected = opt.value === value
               const isActive = idx === activeIndex
               const classes = ['ui-select-option']
-              if (isSelected) classes.push('is-selected')
-              if (isActive) classes.push('is-active')
-              if (opt.disabled) classes.push('is-disabled')
+              if (isSelected) {
+                classes.push('is-selected')
+              }
+              if (isActive) {
+                classes.push('is-active')
+              }
+              if (opt.disabled) {
+                classes.push('is-disabled')
+              }
               return (
                 <li
                   key={`${opt.value}-${idx}`}
@@ -345,7 +413,14 @@ export function Select<T extends string = string>({
                   <span className="ui-select-check" aria-hidden="true">
                     {isSelected ? (
                       <svg viewBox="0 0 12 12" width="10" height="10">
-                        <path d="M2.5 6.3l2.5 2.5 4.5-5.1" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        <path
+                          d="M2.5 6.3l2.5 2.5 4.5-5.1"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </svg>
                     ) : null}
                   </span>
@@ -353,7 +428,9 @@ export function Select<T extends string = string>({
                     {opt.label}
                     {opt.hint && <span className="ui-select-hint">{opt.hint}</span>}
                   </span>
-                  {typeof opt.count === 'number' && <span className="ui-select-count">{opt.count}</span>}
+                  {typeof opt.count === 'number' && (
+                    <span className="ui-select-count">{opt.count}</span>
+                  )}
                 </li>
               )
             })}

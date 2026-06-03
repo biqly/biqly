@@ -145,8 +145,14 @@
 }
 
 @keyframes popoverFadeIn {
-  from { opacity: 0; transform: translateY(-5px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .filter-popover-header {
@@ -268,7 +274,6 @@
   box-shadow: none;
 }
 
-
 .filter-popover-checkbox-row {
   display: flex;
   align-items: center;
@@ -285,7 +290,7 @@
   user-select: none;
 }
 
-.filter-popover-checkbox-row input[type="checkbox"] {
+.filter-popover-checkbox-row input[type='checkbox'] {
   width: 0.85rem;
   height: 0.85rem;
   cursor: pointer;
@@ -294,7 +299,9 @@
 .results-table thead th.th-clickable {
   cursor: pointer;
   user-select: none;
-  transition: background-color 150ms ease, color 150ms ease;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
   position: relative;
   padding-right: 1.5rem;
 }
@@ -303,7 +310,6 @@
   background-color: var(--border-strong);
   color: var(--text-primary);
 }
-
 
 .results-table th.th-clickable .th-chevron {
   position: absolute;
@@ -380,7 +386,6 @@
   color: #c084fc;
 }
 
-
 .row-index-number {
   color: var(--text-muted);
   font-size: 0.76rem;
@@ -402,7 +407,9 @@
   letter-spacing: 0.04em;
   color: var(--text-secondary);
   border-bottom: 2px solid var(--border);
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
   user-select: none;
   white-space: nowrap;
   line-height: 1.15;
@@ -498,7 +505,9 @@
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: 0.5rem;
-  transition: filter 0.2s ease, opacity 0.2s ease;
+  transition:
+    filter 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .table-browser-table-wrap.is-blurred {
@@ -633,7 +642,9 @@
   font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 150ms ease, color 150ms ease;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
 }
 
 .table-browser-page-num-btn:hover:not(:disabled) {
@@ -689,7 +700,9 @@
   padding: 0.35rem 0.65rem;
   border-radius: 0.35rem;
   cursor: pointer;
-  transition: background-color 150ms ease, color 150ms ease;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
 }
 
 .table-browser-page-btn--icon {
@@ -719,4 +732,3 @@
   text-align: center;
   padding: 0 0.35rem;
 }
-

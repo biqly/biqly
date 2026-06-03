@@ -72,9 +72,14 @@ export function buildQueryPayload(state: QueryBuilderFormState) {
                   aggregation: (w.func || 'row_number').toLowerCase(),
                   expression: w.field,
                   partition_by: w.partition_by
-                    ? w.partition_by.split(',').map((s) => s.trim()).filter(Boolean)
+                    ? w.partition_by
+                        .split(',')
+                        .map((s) => s.trim())
+                        .filter(Boolean)
                     : undefined,
-                  order_by: w.order_by ? [{ field: w.order_by, direction: 'asc' as const }] : undefined,
+                  order_by: w.order_by
+                    ? [{ field: w.order_by, direction: 'asc' as const }]
+                    : undefined,
                 },
               })),
           ],

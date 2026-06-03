@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useT } from '../../i18n'
-import { useToast } from '../../hooks/useToast'
+
 import { getPlatformSettings, updatePlatformSettings } from '../../api/admin'
 import { clearPasswordPolicyCache } from '../../api/auth'
-import { LoadingScreen } from '../ui/LoadingScreen'
+import { useToast } from '../../hooks/useToast'
+import { useT } from '../../i18n'
 import { useAuth } from '../auth/AuthProvider'
+import { LoadingScreen } from '../ui/LoadingScreen'
 import { ReadOnlyNote } from './ReadOnlyNote'
 
 export function PlatformSettingsPanel({ token }: { token: string }) {
@@ -105,7 +106,12 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
       )}
 
       <div style={{ display: 'flex', gap: 8 }}>
-        <button type="button" className="btn btn-primary" disabled={saving || !canEdit} onClick={() => void save()}>
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={saving || !canEdit}
+          onClick={() => void save()}
+        >
           {saving ? t('common.saving') : t('common.save')}
         </button>
       </div>

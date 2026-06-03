@@ -1,11 +1,13 @@
+import '../../styles/workspace.css'
+
 import { useEffect, useState } from 'react'
+
 import { listWorkspaces } from '../../api/admin'
-import { useAuth } from '../auth/AuthProvider'
 import { useT } from '../../i18n'
 import type { Workspace } from '../../types/auth'
-import { resolveActiveWorkspace } from './workspaceSelection'
+import { useAuth } from '../auth/AuthProvider'
 import { Select } from '../ui/Select'
-import '../../styles/workspace.css'
+import { resolveActiveWorkspace } from './workspaceSelection'
 
 const storageKey = 'biqly_active_workspace_id'
 
@@ -31,15 +33,23 @@ export function WorkspaceSelector({ token }: { token: string }) {
     async function load() {
       try {
         const res = await listWorkspaces(token)
-        if (cancelled) return
+        if (cancelled) {
+          return
+        }
         setWorkspaces(res.workspaces)
         const active = resolveActiveWorkspace(res.workspaces, activeID)
         setActiveID(active?.id ?? null)
-        if (active) localStorage.setItem(storageKey, active.id)
+        if (active) {
+          localStorage.setItem(storageKey, active.id)
+        }
       } catch {
-        if (!cancelled) setWorkspaces([])
+        if (!cancelled) {
+          setWorkspaces([])
+        }
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
     }
     load()
@@ -48,7 +58,9 @@ export function WorkspaceSelector({ token }: { token: string }) {
     }
   }, [token])
 
-  if (loading || workspaces.length === 0) return null
+  if (loading || workspaces.length === 0) {
+    return null
+  }
 
   const active = resolveActiveWorkspace(workspaces, activeID)
 
@@ -59,7 +71,9 @@ export function WorkspaceSelector({ token }: { token: string }) {
   }))
 
   const handleChange = async (nextID: string) => {
-    if (!nextID || nextID === activeID) return
+    if (!nextID || nextID === activeID) {
+      return
+    }
     setSwitching(true)
     try {
       await setActiveWorkspace(nextID)

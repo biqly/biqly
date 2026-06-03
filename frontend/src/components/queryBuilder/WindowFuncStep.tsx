@@ -1,7 +1,7 @@
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
-import { WINDOW_FUNC_OPTIONS } from './types'
 import type { WindowFuncRow } from './types'
+import { WINDOW_FUNC_OPTIONS } from './types'
 
 interface WindowFuncStepProps {
   windowFunctions: WindowFuncRow[]
@@ -20,7 +20,9 @@ export function WindowFuncStep({
   onClear,
   t,
 }: WindowFuncStepProps) {
-  if (windowFunctions.length === 0) return null
+  if (windowFunctions.length === 0) {
+    return null
+  }
 
   return (
     <NotebookStep

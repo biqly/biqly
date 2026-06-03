@@ -7,7 +7,9 @@ interface ErrorAlertProps {
 }
 
 export function ErrorAlert({ error, className, children }: ErrorAlertProps) {
-  if (!error && !children) return null
+  if (!error && !children) {
+    return null
+  }
   return (
     <div className={`error${className ? ` ${className}` : ''}`} role="alert">
       {error}

@@ -1,6 +1,12 @@
 import type { SelectOption } from '../ui/Select'
 
-export const SECURITY_POLICY_ROLES = ['viewer', 'analyst', 'developer', 'admin', 'super_admin'] as const
+export const SECURITY_POLICY_ROLES = [
+  'viewer',
+  'analyst',
+  'developer',
+  'admin',
+  'super_admin',
+] as const
 
 export const FILTER_OPERATOR_OPTIONS: SelectOption[] = [
   { value: 'eq', label: 'Equals (=)' },

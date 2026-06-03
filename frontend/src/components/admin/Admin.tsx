@@ -1,34 +1,70 @@
-import { lazy, Suspense, startTransition, useEffect, type ComponentType, type LazyExoticComponent } from 'react'
-import { useAuth } from '../auth/AuthProvider'
-import { useT } from '../../i18n'
+import {
+  type ComponentType,
+  lazy,
+  type LazyExoticComponent,
+  startTransition,
+  Suspense,
+  useEffect,
+} from 'react'
+
 import { useQueryParam } from '../../hooks/useQueryParam'
+import { useT } from '../../i18n'
+import { useAuth } from '../auth/AuthProvider'
 import { LoadingScreen } from '../ui/LoadingScreen'
 import { AdminNav } from './AdminNav'
-import { isAdminTab, type AdminTab } from './adminNavConfig'
+import { type AdminTab, isAdminTab } from './adminNavConfig'
 
-const lazyWithPreload = <T extends ComponentType<any>>(
-  factory: () => Promise<{ default: T }>
-) => {
+const lazyWithPreload = <T extends ComponentType<any>>(factory: () => Promise<{ default: T }>) => {
   const Component = lazy(factory) as any
   Component.preload = factory
   return Component as LazyExoticComponent<T> & { preload: () => Promise<{ default: T }> }
 }
 
-const RolesPanel = lazyWithPreload(() => import('./RolesPanel').then(m => ({ default: m.RolesPanel })))
-const DatasourceAccessPanel = lazyWithPreload(() => import('./DatasourceAccessPanel').then(m => ({ default: m.DatasourceAccessPanel })))
-const WorkspacesPanel = lazyWithPreload(() => import('./WorkspacesPanel').then(m => ({ default: m.WorkspacesPanel })))
-const AuditLogPanel = lazyWithPreload(() => import('./AuditLogPanel').then(m => ({ default: m.AuditLogPanel })))
-const UserListPage = lazyWithPreload(() => import('./UserListPage').then(m => ({ default: m.UserListPage })))
-const UserDetailPage = lazyWithPreload(() => import('./UserDetailPage').then(m => ({ default: m.UserDetailPage })))
-const AIHistoryPanel = lazyWithPreload(() => import('../ai/AIHistoryPanel').then(m => ({ default: m.AIHistoryPanel })))
-const AIUsageAdminPanel = lazyWithPreload(() => import('./AIUsageAdminPanel').then(m => ({ default: m.AIUsageAdminPanel })))
-const SharedResourcesList = lazyWithPreload(() => import('../sharing/SharedResourcesList').then(m => ({ default: m.SharedResourcesList })))
-const AIProvidersPanel = lazyWithPreload(() => import('./AIProvidersPanel').then(m => ({ default: m.AIProvidersPanel })))
-const RowLevelSecurityPanel = lazyWithPreload(() => import('./RowLevelSecurityPanel').then(m => ({ default: m.RowLevelSecurityPanel })))
-const FieldPermissionPanel = lazyWithPreload(() => import('./FieldPermissionPanel').then(m => ({ default: m.FieldPermissionPanel })))
-const PIIDetectionPanel = lazyWithPreload(() => import('./PIIDetectionPanel').then(m => ({ default: m.PIIDetectionPanel })))
-const PlatformSettingsPanel = lazyWithPreload(() => import('./PlatformSettingsPanel').then(m => ({ default: m.PlatformSettingsPanel })))
-const LDAPSettingsPanel = lazyWithPreload(() => import('./LDAPSettingsPanel').then(m => ({ default: m.LDAPSettingsPanel })))
+const RolesPanel = lazyWithPreload(() =>
+  import('./RolesPanel').then((m) => ({ default: m.RolesPanel })),
+)
+const DatasourceAccessPanel = lazyWithPreload(() =>
+  import('./DatasourceAccessPanel').then((m) => ({ default: m.DatasourceAccessPanel })),
+)
+const WorkspacesPanel = lazyWithPreload(() =>
+  import('./WorkspacesPanel').then((m) => ({ default: m.WorkspacesPanel })),
+)
+const AuditLogPanel = lazyWithPreload(() =>
+  import('./AuditLogPanel').then((m) => ({ default: m.AuditLogPanel })),
+)
+const UserListPage = lazyWithPreload(() =>
+  import('./UserListPage').then((m) => ({ default: m.UserListPage })),
+)
+const UserDetailPage = lazyWithPreload(() =>
+  import('./UserDetailPage').then((m) => ({ default: m.UserDetailPage })),
+)
+const AIHistoryPanel = lazyWithPreload(() =>
+  import('../ai/AIHistoryPanel').then((m) => ({ default: m.AIHistoryPanel })),
+)
+const AIUsageAdminPanel = lazyWithPreload(() =>
+  import('./AIUsageAdminPanel').then((m) => ({ default: m.AIUsageAdminPanel })),
+)
+const SharedResourcesList = lazyWithPreload(() =>
+  import('../sharing/SharedResourcesList').then((m) => ({ default: m.SharedResourcesList })),
+)
+const AIProvidersPanel = lazyWithPreload(() =>
+  import('./AIProvidersPanel').then((m) => ({ default: m.AIProvidersPanel })),
+)
+const RowLevelSecurityPanel = lazyWithPreload(() =>
+  import('./RowLevelSecurityPanel').then((m) => ({ default: m.RowLevelSecurityPanel })),
+)
+const FieldPermissionPanel = lazyWithPreload(() =>
+  import('./FieldPermissionPanel').then((m) => ({ default: m.FieldPermissionPanel })),
+)
+const PIIDetectionPanel = lazyWithPreload(() =>
+  import('./PIIDetectionPanel').then((m) => ({ default: m.PIIDetectionPanel })),
+)
+const PlatformSettingsPanel = lazyWithPreload(() =>
+  import('./PlatformSettingsPanel').then((m) => ({ default: m.PlatformSettingsPanel })),
+)
+const LDAPSettingsPanel = lazyWithPreload(() =>
+  import('./LDAPSettingsPanel').then((m) => ({ default: m.LDAPSettingsPanel })),
+)
 
 const pendingStyle: React.CSSProperties = { padding: 24 }
 
@@ -107,8 +143,8 @@ export default function Admin() {
 
       <div className="admin-content">
         <Suspense fallback={<LoadingScreen minHeight="200px" />}>
-          {tab === 'users' && (
-            selectedUserID ? (
+          {tab === 'users' &&
+            (selectedUserID ? (
               <UserDetailPage token={accessToken} userID={selectedUserID} />
             ) : (
               <UserListPage
@@ -118,8 +154,7 @@ export default function Admin() {
                   setUserLabelParam(label)
                 }}
               />
-            )
-          )}
+            ))}
           {tab === 'roles' && <RolesPanel token={accessToken} />}
           {tab === 'datasource_access' && <DatasourceAccessPanel token={accessToken} />}
           {tab === 'workspaces' && <WorkspacesPanel token={accessToken} />}

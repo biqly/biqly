@@ -1,18 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
 import '../styles/composites.css'
-import { useT } from '../i18n'
+
+import { useCallback, useEffect, useMemo, useState } from 'react'
+
 import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
 import { useDatasources } from '../hooks/useDatasources'
 import { useSemanticModels } from '../hooks/useSemanticModels'
-import { EmptyState } from './ui/EmptyState'
-import { ErrorAlert } from './ui/ErrorAlert'
-import { Select } from './ui/Select'
-import { Modal } from './ui/Modal'
-import { LoadingScreen } from './ui/LoadingScreen'
-import { CompositeCanvas } from './composites/CompositeCanvas'
-import { CrossJoinEditor } from './composites/CrossJoinEditor'
-import type { SemanticModelDetail } from '../types/semantic'
+import { useT } from '../i18n'
 import type {
   CompositeModelDetail,
   CompositeModelSummary,
@@ -23,6 +17,14 @@ import type {
   SuggestedCrossJoin,
   SuggestedJoinsResponse,
 } from '../types/composite'
+import type { SemanticModelDetail } from '../types/semantic'
+import { CompositeCanvas } from './composites/CompositeCanvas'
+import { CrossJoinEditor } from './composites/CrossJoinEditor'
+import { EmptyState } from './ui/EmptyState'
+import { ErrorAlert } from './ui/ErrorAlert'
+import { LoadingScreen } from './ui/LoadingScreen'
+import { Modal } from './ui/Modal'
+import { Select } from './ui/Select'
 
 export default function Composites() {
   const t = useT()
@@ -65,7 +67,9 @@ export default function Composites() {
   }, [datasources, datasourceId])
 
   const loadComposites = useCallback(async () => {
-    if (!datasourceId) return
+    if (!datasourceId) {
+      return
+    }
     const list = await get<CompositeModelSummary[]>(
       `/api/semantic/composites?datasource_id=${encodeURIComponent(datasourceId)}`,
     )
@@ -92,8 +96,11 @@ export default function Composites() {
   )
 
   useEffect(() => {
-    if (selectedId) loadDetail(selectedId)
-    else setDetail(null)
+    if (selectedId) {
+      loadDetail(selectedId)
+    } else {
+      setDetail(null)
+    }
   }, [selectedId, loadDetail])
 
   // Load full model details for each component (dimensions + names).
@@ -106,9 +113,13 @@ export default function Composites() {
         const m = await get<SemanticModelDetail>(
           `/api/semantic/models/${c.model_id}?include_inactive=true`,
         )
-        if (m) next[c.model_id] = m
+        if (m) {
+          next[c.model_id] = m
+        }
       }
-      if (!cancelled) setComponentModels(next)
+      if (!cancelled) {
+        setComponentModels(next)
+      }
     })()
     return () => {
       cancelled = true
@@ -117,7 +128,9 @@ export default function Composites() {
 
   const modelNames = useMemo(() => {
     const m: Record<string, string> = {}
-    for (const model of models) m[model.id] = model.label || model.name
+    for (const model of models) {
+      m[model.id] = model.label || model.name
+    }
     return m
   }, [models])
 
@@ -131,7 +144,9 @@ export default function Composites() {
   }, [detail?.components, componentModels])
 
   const handleCreate = async () => {
-    if (!newName.trim()) return
+    if (!newName.trim()) {
+      return
+    }
     const created = await postData<CompositeModelDetail>('/api/semantic/composites', {
       datasource_id: datasourceId,
       name: newName.trim(),
@@ -143,22 +158,38 @@ export default function Composites() {
     setNewLabel('')
     setNewDescription('')
     await loadComposites()
-    if (created?.id) setSelectedId(created.id)
+    if (created?.id) {
+      setSelectedId(created.id)
+    }
   }
 
   const handleDelete = async (id: string) => {
-    if (!(await confirm({ title: t('composites.delete_confirm_title'), message: t('composites.delete_confirm_message'), variant: 'danger' }))) return
+    if (
+      !(await confirm({
+        title: t('composites.delete_confirm_title'),
+        message: t('composites.delete_confirm_message'),
+        variant: 'danger',
+      }))
+    ) {
+      return
+    }
     await deleteData(`/api/semantic/composites/${id}`)
-    if (selectedId === id) setSelectedId(null)
+    if (selectedId === id) {
+      setSelectedId(null)
+    }
     await loadComposites()
   }
 
   const refreshDetail = async () => {
-    if (selectedId) await loadDetail(selectedId)
+    if (selectedId) {
+      await loadDetail(selectedId)
+    }
   }
 
   const handleAddComponent = async () => {
-    if (!selectedId || !addModelId || !addAlias.trim()) return
+    if (!selectedId || !addModelId || !addAlias.trim()) {
+      return
+    }
     await postData(`/api/semantic/composites/${selectedId}/components`, {
       model_id: addModelId,
       alias: addAlias.trim(),
@@ -171,13 +202,17 @@ export default function Composites() {
   }
 
   const handleRemoveComponent = async (modelId: string) => {
-    if (!selectedId) return
+    if (!selectedId) {
+      return
+    }
     await deleteData(`/api/semantic/composites/${selectedId}/components/${modelId}`)
     await refreshDetail()
   }
 
   const handleSubmitCrossJoin = async (join: CrossModelJoin) => {
-    if (!selectedId) return
+    if (!selectedId) {
+      return
+    }
     if (editingJoin?.id) {
       await putData(`/api/semantic/composites/${selectedId}/cross-joins/${editingJoin.id}`, join)
     } else {
@@ -189,13 +224,17 @@ export default function Composites() {
   }
 
   const handleRemoveCrossJoin = async (joinId?: string) => {
-    if (!selectedId || !joinId) return
+    if (!selectedId || !joinId) {
+      return
+    }
     await deleteData(`/api/semantic/composites/${selectedId}/cross-joins/${joinId}`)
     await refreshDetail()
   }
 
   const handleSetCanonicalDate = async (alias: string, dimension: string) => {
-    if (!selectedId) return
+    if (!selectedId) {
+      return
+    }
     await putData(`/api/semantic/composites/${selectedId}/canonical-date`, {
       model_alias: alias,
       dimension_name: dimension,
@@ -204,7 +243,9 @@ export default function Composites() {
   }
 
   const handleResolutionChange = async (res: DimensionConflictResolution) => {
-    if (!selectedId) return
+    if (!selectedId) {
+      return
+    }
     await putData(`/api/semantic/composites/${selectedId}/dimension-resolutions`, {
       resolutions: [res],
     })
@@ -212,7 +253,9 @@ export default function Composites() {
   }
 
   const handleValidate = async () => {
-    if (!selectedId) return
+    if (!selectedId) {
+      return
+    }
     const result = await postData<CompositePublishResult>(
       `/api/semantic/composites/${selectedId}/validate`,
       {},
@@ -221,7 +264,9 @@ export default function Composites() {
   }
 
   const handlePublish = async () => {
-    if (!selectedId) return
+    if (!selectedId) {
+      return
+    }
     const result = await postData<CompositePublishResult>(
       `/api/semantic/composites/${selectedId}/publish`,
       {},
@@ -232,15 +277,26 @@ export default function Composites() {
   }
 
   const handleRollback = async () => {
-    if (!selectedId) return
-    if (!(await confirm({ title: t('composites.rollback_confirm_title'), message: t('composites.rollback_confirm_message') }))) return
+    if (!selectedId) {
+      return
+    }
+    if (
+      !(await confirm({
+        title: t('composites.rollback_confirm_title'),
+        message: t('composites.rollback_confirm_message'),
+      }))
+    ) {
+      return
+    }
     await postData(`/api/semantic/composites/${selectedId}/rollback`, {})
     await refreshDetail()
     await loadComposites()
   }
 
   const loadSuggestions = async () => {
-    if (!selectedId) return
+    if (!selectedId) {
+      return
+    }
     const res = await get<SuggestedJoinsResponse>(
       `/api/semantic/composites/${selectedId}/suggested-joins`,
     )
@@ -248,7 +304,9 @@ export default function Composites() {
   }
 
   const applySuggestion = async (s: SuggestedCrossJoin) => {
-    if (!selectedId) return
+    if (!selectedId) {
+      return
+    }
     await postData(`/api/semantic/composites/${selectedId}/cross-joins`, {
       from_model: s.from_model,
       from_dimension: s.from_dimension,
@@ -283,7 +341,12 @@ export default function Composites() {
             ariaLabel={t('composites.datasource_placeholder')}
           />
         </div>
-        <button type="button" className="btn-primary" onClick={() => setShowCreate(true)} disabled={!datasourceId}>
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={() => setShowCreate(true)}
+          disabled={!datasourceId}
+        >
           {t('composites.new')}
         </button>
       </div>
@@ -341,13 +404,28 @@ export default function Composites() {
                   </span>
                 </div>
                 <div className="composite-actions">
-                  <button type="button" className="btn-secondary" onClick={handleValidate} disabled={loading}>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={handleValidate}
+                    disabled={loading}
+                  >
                     {t('composites.validate')}
                   </button>
-                  <button type="button" className="btn-primary" onClick={handlePublish} disabled={loading}>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={handlePublish}
+                    disabled={loading}
+                  >
                     {t('composites.publish')}
                   </button>
-                  <button type="button" className="btn-secondary" onClick={handleRollback} disabled={loading}>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={handleRollback}
+                    disabled={loading}
+                  >
                     {t('composites.rollback')}
                   </button>
                 </div>
@@ -355,7 +433,11 @@ export default function Composites() {
 
               {validation && (
                 <div className={`composite-validation ${validation.valid ? 'valid' : 'invalid'}`}>
-                  <strong>{validation.valid ? t('composites.validation_success') : t('composites.validation_errors')}</strong>
+                  <strong>
+                    {validation.valid
+                      ? t('composites.validation_success')
+                      : t('composites.validation_errors')}
+                  </strong>
                   {(validation.errors ?? []).map((e, i) => (
                     <div key={`err-${i}`} className="validation-error">
                       {e.field ? `${e.field}: ` : ''}
@@ -384,7 +466,9 @@ export default function Composites() {
                   {(detail.components ?? []).map((c) => (
                     <li key={c.model_id}>
                       <span className="component-alias">{c.alias}</span>
-                      <span className="component-model">{modelNames[c.model_id] ?? c.model_id}</span>
+                      <span className="component-model">
+                        {modelNames[c.model_id] ?? c.model_id}
+                      </span>
                       <span className={`component-role role-${c.role}`}>{c.role}</span>
                       <button
                         type="button"
@@ -403,9 +487,14 @@ export default function Composites() {
                     onChange={(v) => {
                       setAddModelId(v)
                       const m = availableModels.find((x) => x.id === v)
-                      if (m && !addAlias) setAddAlias(m.name)
+                      if (m && !addAlias) {
+                        setAddAlias(m.name)
+                      }
                     }}
-                    options={availableModels.map((m) => ({ value: m.id, label: m.label || m.name }))}
+                    options={availableModels.map((m) => ({
+                      value: m.id,
+                      label: m.label || m.name,
+                    }))}
                     placeholder={t('composites.model_select')}
                   />
                   <input
@@ -416,7 +505,7 @@ export default function Composites() {
                   />
                   <Select
                     value={addRole}
-                    onChange={(v) => setAddRole(v as 'primary' | 'secondary')}
+                    onChange={(v) => setAddRole(v)}
                     options={[
                       { value: 'primary', label: 'primary' },
                       { value: 'secondary', label: 'secondary' },
@@ -492,7 +581,11 @@ export default function Composites() {
                           {s.from_model}.{s.from_dimension} → {s.to_model}.{s.to_dimension}
                         </span>
                         <span className="suggestion-reason">{s.reason}</span>
-                        <button type="button" className="btn-link" onClick={() => applySuggestion(s)}>
+                        <button
+                          type="button"
+                          className="btn-link"
+                          onClick={() => applySuggestion(s)}
+                        >
                           {t('composites.apply')}
                         </button>
                       </div>
@@ -503,9 +596,7 @@ export default function Composites() {
 
               <div className="composite-section">
                 <h3>{t('composites.canonical_date_title')}</h3>
-                <p className="section-hint">
-                  {t('composites.canonical_date_hint')}
-                </p>
+                <p className="section-hint">{t('composites.canonical_date_hint')}</p>
                 <div className="canonical-date-grid">
                   {(detail.components ?? []).map((c) => (
                     <div key={c.alias} className="canonical-date-model">
@@ -534,9 +625,7 @@ export default function Composites() {
 
               <div className="composite-section">
                 <h3>{t('composites.conflicts_title')}</h3>
-                <p className="section-hint">
-                  {t('composites.conflicts_hint')}
-                </p>
+                <p className="section-hint">{t('composites.conflicts_hint')}</p>
                 <ul className="resolution-list">
                   {(detail.conflict_resolutions ?? []).map((res) => (
                     <li key={res.dimension_name}>
@@ -546,7 +635,7 @@ export default function Composites() {
                         onChange={(v) =>
                           handleResolutionChange({
                             ...res,
-                            resolution: v as DimensionConflictResolution['resolution'],
+                            resolution: v,
                           })
                         }
                         options={[
@@ -567,7 +656,11 @@ export default function Composites() {
         </section>
       </div>
 
-      <Modal open={showCreate} title={t('composites.create_title')} onClose={() => setShowCreate(false)}>
+      <Modal
+        open={showCreate}
+        title={t('composites.create_title')}
+        onClose={() => setShowCreate(false)}
+      >
         <div className="composite-create-form">
           <div className="form-row">
             <div className="field-group">
@@ -606,7 +699,12 @@ export default function Composites() {
             <button type="button" className="btn-secondary" onClick={() => setShowCreate(false)}>
               {t('composites.cancel')}
             </button>
-            <button type="button" className="btn-primary" onClick={handleCreate} disabled={!newName.trim()}>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={handleCreate}
+              disabled={!newName.trim()}
+            >
               {t('composites.create')}
             </button>
           </div>

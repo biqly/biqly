@@ -1,6 +1,7 @@
-import { useState, type Dispatch, type SetStateAction } from 'react'
-import type { TranslationKey } from '../../i18n'
+import { type Dispatch, type SetStateAction, useState } from 'react'
+
 import type { useConfirm } from '../../hooks/useConfirm'
+import type { TranslationKey } from '../../i18n'
 import type {
   SemanticDimension,
   SemanticJoin,
@@ -8,7 +9,6 @@ import type {
   SemanticModelDetail,
   TableRow,
 } from '../../types/semantic'
-import type { RenameTarget } from './types'
 import {
   reactivateDimensionPayload,
   reactivateJoinPayload,
@@ -16,6 +16,7 @@ import {
   renameDimensionPayload,
   renameMetricPayload,
 } from './entityActions'
+import type { RenameTarget } from './types'
 
 type Translate = (key: TranslationKey, vars?: Record<string, string | number>) => string
 type DeleteData = <T = unknown>(url: string) => Promise<T | null>
@@ -64,13 +65,17 @@ export function useEntityActions({
   }
 
   const closeRename = () => {
-    if (savingRename) return
+    if (savingRename) {
+      return
+    }
     setRenameTarget(null)
     setRenameValue('')
   }
 
   const renameModel = () => {
-    if (!model) return
+    if (!model) {
+      return
+    }
     openRename({
       kind: 'model',
       current: model.label || model.name,
@@ -90,7 +95,9 @@ export function useEntityActions({
   }
 
   const renameDimension = (dimension: SemanticDimension) => {
-    if (!model) return
+    if (!model) {
+      return
+    }
     openRename({
       kind: 'dimension',
       current: dimension.label || dimension.name,
@@ -101,7 +108,9 @@ export function useEntityActions({
   }
 
   const renameMetric = (metric: SemanticMetric) => {
-    if (!model) return
+    if (!model) {
+      return
+    }
     openRename({
       kind: 'metric',
       current: metric.label || metric.name,
@@ -112,7 +121,9 @@ export function useEntityActions({
   }
 
   const deleteJoin = async (joinId: string) => {
-    if (!model) return
+    if (!model) {
+      return
+    }
     const join = joins.find((item) => item.id === joinId)
     const ok = await confirm({
       title: t('modeling.delete_join_title'),
@@ -122,7 +133,9 @@ export function useEntityActions({
       variant: 'danger',
       confirmLabel: t('common.delete'),
     })
-    if (!ok) return
+    if (!ok) {
+      return
+    }
     setMessage(null)
     await deleteData(`/api/semantic/models/${model.id}/joins/${joinId}`)
     await refreshModels(model.id)
@@ -131,17 +144,23 @@ export function useEntityActions({
   }
 
   const deleteDimension = async (dimensionId: string) => {
-    if (!model) return
+    if (!model) {
+      return
+    }
     const dimension = dims.find((item) => item.id === dimensionId)
     const ok = await confirm({
       title: t('modeling.confirm_delete_dimension_title'),
       message: dimension
-        ? t('modeling.confirm_delete_dimension_body_named', { name: dimension.label || dimension.name })
+        ? t('modeling.confirm_delete_dimension_body_named', {
+            name: dimension.label || dimension.name,
+          })
         : t('modeling.confirm_delete_dimension_body_generic'),
       variant: 'danger',
       confirmLabel: t('common.delete'),
     })
-    if (!ok) return
+    if (!ok) {
+      return
+    }
     setMessage(null)
     await deleteData(`/api/semantic/models/${model.id}/dimensions/${dimensionId}`)
     await refreshModels(model.id)
@@ -149,7 +168,9 @@ export function useEntityActions({
   }
 
   const deleteMetric = async (metricId: string) => {
-    if (!model) return
+    if (!model) {
+      return
+    }
     const metric = metrics.find((item) => item.id === metricId)
     const ok = await confirm({
       title: t('modeling.confirm_delete_metric_title'),
@@ -159,7 +180,9 @@ export function useEntityActions({
       variant: 'danger',
       confirmLabel: t('common.delete'),
     })
-    if (!ok) return
+    if (!ok) {
+      return
+    }
     setMessage(null)
     await deleteData(`/api/semantic/models/${model.id}/metrics/${metricId}`)
     await refreshModels(model.id)
@@ -167,28 +190,42 @@ export function useEntityActions({
   }
 
   const reactivateJoin = async (join: SemanticJoin) => {
-    if (!model) return
+    if (!model) {
+      return
+    }
     await putData(`/api/semantic/models/${model.id}/joins/${join.id}`, reactivateJoinPayload(join))
     await refreshModels(model.id)
     setMessage(t('modeling.reactivate_relationship'))
   }
 
   const reactivateDimension = async (dimension: SemanticDimension) => {
-    if (!model) return
-    await putData(`/api/semantic/models/${model.id}/dimensions/${dimension.id}`, reactivateDimensionPayload(dimension))
+    if (!model) {
+      return
+    }
+    await putData(
+      `/api/semantic/models/${model.id}/dimensions/${dimension.id}`,
+      reactivateDimensionPayload(dimension),
+    )
     await refreshModels(model.id)
     setMessage(t('modeling.reactivate_dimension'))
   }
 
   const reactivateMetric = async (metric: SemanticMetric) => {
-    if (!model) return
-    await putData(`/api/semantic/models/${model.id}/metrics/${metric.id}`, reactivateMetricPayload(metric))
+    if (!model) {
+      return
+    }
+    await putData(
+      `/api/semantic/models/${model.id}/metrics/${metric.id}`,
+      reactivateMetricPayload(metric),
+    )
     await refreshModels(model.id)
     setMessage(t('modeling.reactivate_metric'))
   }
 
   const submitRename = async () => {
-    if (!renameTarget || savingRename) return
+    if (!renameTarget || savingRename) {
+      return
+    }
     const trimmed = renameValue.trim()
     if (!trimmed || trimmed === renameTarget.current) {
       closeRename()
@@ -197,9 +234,13 @@ export function useEntityActions({
     setSavingRename(true)
     try {
       if (renameTarget.kind === 'table') {
-        const updated = await patchData<TableRow>(`/api/metadata/tables/${renameTarget.table.id}`, { label: trimmed })
+        const updated = await patchData<TableRow>(`/api/metadata/tables/${renameTarget.table.id}`, {
+          label: trimmed,
+        })
         if (updated) {
-          setTables((current) => current.map((table) => (table.id === renameTarget.table.id ? updated : table)))
+          setTables((current) =>
+            current.map((table) => (table.id === renameTarget.table.id ? updated : table)),
+          )
           setMessage(t('modeling.table_label_updated'))
         }
       } else if (renameTarget.kind === 'model' && model) {
@@ -212,12 +253,18 @@ export function useEntityActions({
         setMessage(t('modeling.model_renamed'))
       } else if (renameTarget.kind === 'dimension' && model) {
         const dimension = renameTarget.dimension
-        await putData(`/api/semantic/models/${model.id}/dimensions/${dimension.id}`, renameDimensionPayload(dimension, trimmed))
+        await putData(
+          `/api/semantic/models/${model.id}/dimensions/${dimension.id}`,
+          renameDimensionPayload(dimension, trimmed),
+        )
         await refreshModels(model.id)
         setMessage(t('modeling.dimension_label_updated'))
       } else if (renameTarget.kind === 'metric' && model) {
         const metric = renameTarget.metric
-        await putData(`/api/semantic/models/${model.id}/metrics/${metric.id}`, renameMetricPayload(metric, trimmed))
+        await putData(
+          `/api/semantic/models/${model.id}/metrics/${metric.id}`,
+          renameMetricPayload(metric, trimmed),
+        )
         await refreshModels(model.id)
         setMessage(t('modeling.metric_label_updated'))
       }

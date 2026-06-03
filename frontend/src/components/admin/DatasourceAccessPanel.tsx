@@ -1,24 +1,25 @@
 import { useEffect, useMemo, useState } from 'react'
+
 import {
   grantDatasourceAccess,
   listDatasourceAccess,
   revokeDatasourceAccess,
   updateDatasourceAccess,
 } from '../../api/admin'
+import { useAdminLookups } from '../../hooks/useAdminLookups'
+import { useConfirm } from '../../hooks/useConfirm'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import type { DatasourceAccess } from '../../types/auth'
-import { Pagination } from '../ui/Pagination'
+import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
-import { useConfirm } from '../../hooks/useConfirm'
-import { useAdminLookups } from '../../hooks/useAdminLookups'
+import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
+import type { DatasourceAccessLevel } from './adminSelectOptions'
 import {
   datasourceAccessLevelOptions,
   datasourcePickerOptions,
   userSelectOptions,
 } from './adminSelectOptions'
-import type { DatasourceAccessLevel } from './adminSelectOptions'
-import { useAuth } from '../auth/AuthProvider'
 import { ReadOnlyNote } from './ReadOnlyNote'
 
 export function DatasourceAccessPanel({ token }: { token: string }) {
@@ -75,7 +76,9 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
 
   async function onGrant(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!userID || !datasourceID) return
+    if (!userID || !datasourceID) {
+      return
+    }
     try {
       await grantDatasourceAccess(token, userID, datasourceID, level)
       setUserID('')
@@ -92,7 +95,9 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
       title: t('admin.datasource_access.confirm_revoke'),
       variant: 'danger',
     })
-    if (!ok) return
+    if (!ok) {
+      return
+    }
     try {
       await revokeDatasourceAccess(token, uid, dsid)
       setCurrentPage(1)
@@ -101,7 +106,6 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
       setError(e instanceof Error ? e.message : String(e))
     }
   }
-
 
   async function onChangeLevel(id: string, newLevel: 'read' | 'write' | 'admin') {
     try {
@@ -118,10 +122,19 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
 
       {!canEdit && <ReadOnlyNote />}
 
-      <form onSubmit={onGrant} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+      <form
+        onSubmit={onGrant}
+        style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}
+      >
         <label className="admin-form-label" style={{ gap: 4, minWidth: 240 }}>
           <span className="admin-label-text">{t('admin.fields.user')}</span>
-          <Select value={userID} options={userOptions} onChange={setUserID} placeholder={t('evaluation.placeholder_select')} disabled={!canEdit} />
+          <Select
+            value={userID}
+            options={userOptions}
+            onChange={setUserID}
+            placeholder={t('evaluation.placeholder_select')}
+            disabled={!canEdit}
+          />
         </label>
         <label className="admin-form-label" style={{ gap: 4, minWidth: 240 }}>
           <span className="admin-label-text">Datasource</span>
@@ -147,11 +160,21 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
         </button>
       </form>
 
-      {error && <div className="admin-err-text">{t('common.error')}: {error}</div>}
+      {error && (
+        <div className="admin-err-text">
+          {t('common.error')}: {error}
+        </div>
+      )}
 
       <div className="admin-table-container">
         <LoadingOverlay loading={loading}>
-          <div style={{ minHeight: rows.length === 0 && loading ? 120 : 'auto', display: 'flex', flexDirection: 'column' }}>
+          <div
+            style={{
+              minHeight: rows.length === 0 && loading ? 120 : 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
             <table className="admin-table">
               <thead>
                 <tr className="admin-thead-row">
@@ -187,9 +210,17 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
                             disabled={!canEdit}
                           />
                         </td>
-                        <td className="admin-td">{new Date(r.granted_at).toLocaleString(localeLanguageTag(locale))}</td>
+                        <td className="admin-td">
+                          {new Date(r.granted_at).toLocaleString(localeLanguageTag(locale))}
+                        </td>
                         <td className="admin-td" style={{ textAlign: 'right' }}>
-                          <button onClick={() => onRevoke(r.user_id, r.datasource_id)} className="admin-btn-secondary" disabled={!canEdit}>{t('common.delete')}</button>
+                          <button
+                            onClick={() => onRevoke(r.user_id, r.datasource_id)}
+                            className="admin-btn-secondary"
+                            disabled={!canEdit}
+                          >
+                            {t('common.delete')}
+                          </button>
                         </td>
                       </tr>
                     )
@@ -211,4 +242,3 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
     </div>
   )
 }
-

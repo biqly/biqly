@@ -1,4 +1,11 @@
-import type { AuthUser, PasskeyInfo, PasswordPolicy, SetActiveWorkspaceResponse, TokenResponse, Invitation } from '../types/auth'
+import type {
+  AuthUser,
+  Invitation,
+  PasskeyInfo,
+  PasswordPolicy,
+  SetActiveWorkspaceResponse,
+  TokenResponse,
+} from '../types/auth'
 import { apiFetch } from './apiClient'
 
 const AUTH_API_BASE = '/api/auth'
@@ -18,8 +25,12 @@ let cachedPolicy: PasswordPolicy | null = null
 let inflightPolicy: Promise<PasswordPolicy> | null = null
 
 export async function apiGetPasswordPolicy(): Promise<PasswordPolicy> {
-  if (cachedPolicy) return cachedPolicy
-  if (inflightPolicy) return inflightPolicy
+  if (cachedPolicy) {
+    return cachedPolicy
+  }
+  if (inflightPolicy) {
+    return inflightPolicy
+  }
   inflightPolicy = (async () => {
     try {
       const data = await apiFetch<PasswordPolicy>('GET', `${AUTH_API_BASE}/password-policy`)
@@ -65,8 +76,16 @@ export function normalizeAuthUser(raw: any): AuthUser {
   }
 }
 
-export async function apiRegister(email: string, password: string, displayName: string): Promise<TokenResponse> {
-  return apiFetch<TokenResponse>('POST', `${AUTH_API_BASE}/register`, { email, password, display_name: displayName })
+export async function apiRegister(
+  email: string,
+  password: string,
+  displayName: string,
+): Promise<TokenResponse> {
+  return apiFetch<TokenResponse>('POST', `${AUTH_API_BASE}/register`, {
+    email,
+    password,
+    display_name: displayName,
+  })
 }
 
 export async function apiLogin(email: string, password: string): Promise<TokenResponse> {
@@ -78,7 +97,9 @@ export async function apiOAuthExchange(code: string): Promise<TokenResponse> {
 }
 
 export async function apiRefresh(refreshToken: string): Promise<TokenResponse> {
-  return apiFetch<TokenResponse>('POST', `${AUTH_API_BASE}/refresh`, { refresh_token: refreshToken })
+  return apiFetch<TokenResponse>('POST', `${AUTH_API_BASE}/refresh`, {
+    refresh_token: refreshToken,
+  })
 }
 
 export async function apiLogout(refreshToken: string): Promise<void> {
@@ -96,47 +117,92 @@ export interface MyPermissions {
 }
 
 export async function apiGetMyPermissions(accessToken: string): Promise<MyPermissions> {
-  const data = await apiFetch<Partial<MyPermissions>>('GET', `${AUTH_API_BASE}/me/permissions`, undefined, {
-    token: accessToken,
-  })
+  const data = await apiFetch<Partial<MyPermissions>>(
+    'GET',
+    `${AUTH_API_BASE}/me/permissions`,
+    undefined,
+    {
+      token: accessToken,
+    },
+  )
   return {
     permissions: data.permissions ?? [],
     is_super_admin: data.is_super_admin ?? false,
   }
 }
 
-export async function apiUpdateProfile(accessToken: string, displayName: string, avatarUrl?: string): Promise<AuthUser> {
-  const data = await apiFetch<any>('PATCH', `${AUTH_API_BASE}/me/profile`, { display_name: displayName, avatar_url: avatarUrl }, { token: accessToken })
+export async function apiUpdateProfile(
+  accessToken: string,
+  displayName: string,
+  avatarUrl?: string,
+): Promise<AuthUser> {
+  const data = await apiFetch<any>(
+    'PATCH',
+    `${AUTH_API_BASE}/me/profile`,
+    { display_name: displayName, avatar_url: avatarUrl },
+    { token: accessToken },
+  )
   return normalizeAuthUser(data)
 }
 
-export async function apiChangePassword(accessToken: string, currentPassword: string, newPassword: string): Promise<void> {
-  await apiFetch<void>('POST', `${AUTH_API_BASE}/me/password`, {
-    current_password: currentPassword,
-    new_password: newPassword,
-  }, { token: accessToken })
+export async function apiChangePassword(
+  accessToken: string,
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  await apiFetch<void>(
+    'POST',
+    `${AUTH_API_BASE}/me/password`,
+    {
+      current_password: currentPassword,
+      new_password: newPassword,
+    },
+    { token: accessToken },
+  )
 }
 
-export async function apiRequestEmailChange(accessToken: string, newEmail: string): Promise<{ message?: string }> {
-  return apiFetch<{ message?: string }>('POST', `${AUTH_API_BASE}/me/email-change/request`, { new_email: newEmail }, { token: accessToken })
+export async function apiRequestEmailChange(
+  accessToken: string,
+  newEmail: string,
+): Promise<{ message?: string }> {
+  return apiFetch<{ message?: string }>(
+    'POST',
+    `${AUTH_API_BASE}/me/email-change/request`,
+    { new_email: newEmail },
+    { token: accessToken },
+  )
 }
 
-export async function apiGenerateMFABypassSelf(accessToken: string): Promise<{ bypass_code: string }> {
-  return apiFetch<{ bypass_code: string }>('POST', `${AUTH_API_BASE}/me/mfa/bypass`, undefined, { token: accessToken })
+export async function apiGenerateMFABypassSelf(
+  accessToken: string,
+): Promise<{ bypass_code: string }> {
+  return apiFetch<{ bypass_code: string }>('POST', `${AUTH_API_BASE}/me/mfa/bypass`, undefined, {
+    token: accessToken,
+  })
 }
 
-export async function apiSetActiveWorkspace(accessToken: string, workspaceID: string): Promise<SetActiveWorkspaceResponse> {
-  return apiFetch<SetActiveWorkspaceResponse>('POST', `${AUTH_API_BASE}/me/active-workspace`, { workspace_id: workspaceID }, { token: accessToken })
+export async function apiSetActiveWorkspace(
+  accessToken: string,
+  workspaceID: string,
+): Promise<SetActiveWorkspaceResponse> {
+  return apiFetch<SetActiveWorkspaceResponse>(
+    'POST',
+    `${AUTH_API_BASE}/me/active-workspace`,
+    { workspace_id: workspaceID },
+    { token: accessToken },
+  )
 }
 
 export async function apiPasskeyRegisterBegin(accessToken: string): Promise<any> {
-  return apiFetch<any>('POST', `${AUTH_API_BASE}/passkey/register-begin`, undefined, { token: accessToken })
+  return apiFetch<any>('POST', `${AUTH_API_BASE}/passkey/register-begin`, undefined, {
+    token: accessToken,
+  })
 }
 
 export async function apiPasskeyRegisterFinish(
   accessToken: string,
   credential: any,
-  name?: string
+  name?: string,
 ): Promise<{ status: string }> {
   let url = `${AUTH_API_BASE}/passkey/register-finish`
   if (name) {
@@ -154,35 +220,62 @@ export async function apiPasskeyLoginFinish(credential: any): Promise<TokenRespo
 }
 
 export async function apiGetPasskeys(accessToken: string): Promise<PasskeyInfo[]> {
-  return apiFetch<PasskeyInfo[]>('GET', `${AUTH_API_BASE}/me/passkeys`, undefined, { token: accessToken })
+  return apiFetch<PasskeyInfo[]>('GET', `${AUTH_API_BASE}/me/passkeys`, undefined, {
+    token: accessToken,
+  })
 }
 
 export async function apiDeletePasskey(accessToken: string, id: string): Promise<void> {
-  await apiFetch<void>('DELETE', `${AUTH_API_BASE}/me/passkeys/${id}`, undefined, { token: accessToken })
+  await apiFetch<void>('DELETE', `${AUTH_API_BASE}/me/passkeys/${id}`, undefined, {
+    token: accessToken,
+  })
 }
 
 export async function apiPasskeyRename(
   accessToken: string,
   id: string,
-  name: string
+  name: string,
 ): Promise<void> {
-  await apiFetch<void>('PATCH', `${AUTH_API_BASE}/me/passkeys/${id}`, { name }, { token: accessToken })
+  await apiFetch<void>(
+    'PATCH',
+    `${AUTH_API_BASE}/me/passkeys/${id}`,
+    { name },
+    { token: accessToken },
+  )
 }
 
 export async function apiForgotPassword(email: string): Promise<{ message: string }> {
   return apiFetch<{ message: string }>('POST', `${AUTH_API_BASE}/forgot-password`, { email })
 }
 
-export async function apiResetPassword(token: string, password: string): Promise<{ message: string }> {
-  return apiFetch<{ message: string }>('POST', `${AUTH_API_BASE}/reset-password`, { token, password })
+export async function apiResetPassword(
+  token: string,
+  password: string,
+): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>('POST', `${AUTH_API_BASE}/reset-password`, {
+    token,
+    password,
+  })
 }
 
 export async function apiVerifyEmail(token: string): Promise<{ message: string }> {
-  return apiFetch<{ message: string }>('GET', `${AUTH_API_BASE}/verify-email?token=${encodeURIComponent(token)}`)
+  return apiFetch<{ message: string }>(
+    'GET',
+    `${AUTH_API_BASE}/verify-email?token=${encodeURIComponent(token)}`,
+  )
 }
 
-export async function apiInviteUser(accessToken: string, email: string, roleName: string): Promise<{ message: string }> {
-  return apiFetch<{ message: string }>('POST', `${AUTH_API_BASE}/admin/invitations`, { email, role_name: roleName }, { token: accessToken })
+export async function apiInviteUser(
+  accessToken: string,
+  email: string,
+  roleName: string,
+): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>(
+    'POST',
+    `${AUTH_API_BASE}/admin/invitations`,
+    { email, role_name: roleName },
+    { token: accessToken },
+  )
 }
 
 export async function apiGetInvitation(token: string): Promise<{
@@ -196,13 +289,21 @@ export async function apiGetInvitation(token: string): Promise<{
   return apiFetch<any>('GET', `${AUTH_API_BASE}/invitations/${encodeURIComponent(token)}`)
 }
 
-export async function apiClaimInvitation(token: string, password: string, displayName: string): Promise<TokenResponse> {
-  return apiFetch<TokenResponse>('POST', `${AUTH_API_BASE}/invitations/${encodeURIComponent(token)}/claim`, { password, display_name: displayName })
+export async function apiClaimInvitation(
+  token: string,
+  password: string,
+  displayName: string,
+): Promise<TokenResponse> {
+  return apiFetch<TokenResponse>(
+    'POST',
+    `${AUTH_API_BASE}/invitations/${encodeURIComponent(token)}/claim`,
+    { password, display_name: displayName },
+  )
 }
 
 export async function apiListInvitations(
   accessToken: string,
-  params: { page: number; pageSize: number; search?: string; status?: string }
+  params: { page: number; pageSize: number; search?: string; status?: string },
 ): Promise<{ invitations: Invitation[]; total: number }> {
   const query = new URLSearchParams({
     page: String(params.page),
@@ -210,15 +311,36 @@ export async function apiListInvitations(
     search: params.search || '',
     status: params.status || 'all',
   })
-  return apiFetch<{ invitations: Invitation[]; total: number }>('GET', `${AUTH_API_BASE}/admin/invitations?${query.toString()}`, undefined, { token: accessToken })
+  return apiFetch<{ invitations: Invitation[]; total: number }>(
+    'GET',
+    `${AUTH_API_BASE}/admin/invitations?${query.toString()}`,
+    undefined,
+    { token: accessToken },
+  )
 }
 
-export async function apiRevokeInvitation(accessToken: string, id: string): Promise<{ message: string }> {
-  return apiFetch<{ message: string }>('DELETE', `${AUTH_API_BASE}/admin/invitations/${encodeURIComponent(id)}`, undefined, { token: accessToken })
+export async function apiRevokeInvitation(
+  accessToken: string,
+  id: string,
+): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>(
+    'DELETE',
+    `${AUTH_API_BASE}/admin/invitations/${encodeURIComponent(id)}`,
+    undefined,
+    { token: accessToken },
+  )
 }
 
-export async function apiResendInvitation(accessToken: string, id: string): Promise<{ message: string }> {
-  return apiFetch<{ message: string }>('POST', `${AUTH_API_BASE}/admin/invitations/${encodeURIComponent(id)}/resend`, undefined, { token: accessToken })
+export async function apiResendInvitation(
+  accessToken: string,
+  id: string,
+): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>(
+    'POST',
+    `${AUTH_API_BASE}/admin/invitations/${encodeURIComponent(id)}/resend`,
+    undefined,
+    { token: accessToken },
+  )
 }
 
 export async function apiMFAStatus(accessToken: string): Promise<{
@@ -226,7 +348,12 @@ export async function apiMFAStatus(accessToken: string): Promise<{
   method?: string
   verified_at?: string
 }> {
-  return apiFetch<{ enabled: boolean; method?: string; verified_at?: string }>('GET', `${AUTH_API_BASE}/mfa/status`, undefined, { token: accessToken })
+  return apiFetch<{ enabled: boolean; method?: string; verified_at?: string }>(
+    'GET',
+    `${AUTH_API_BASE}/mfa/status`,
+    undefined,
+    { token: accessToken },
+  )
 }
 
 export async function apiMFAEnroll(accessToken: string): Promise<{
@@ -234,7 +361,12 @@ export async function apiMFAEnroll(accessToken: string): Promise<{
   otpauth_url: string
   recovery_codes: string[]
 }> {
-  return apiFetch<{ secret: string; otpauth_url: string; recovery_codes: string[] }>('POST', `${AUTH_API_BASE}/mfa/enroll`, undefined, { token: accessToken })
+  return apiFetch<{ secret: string; otpauth_url: string; recovery_codes: string[] }>(
+    'POST',
+    `${AUTH_API_BASE}/mfa/enroll`,
+    undefined,
+    { token: accessToken },
+  )
 }
 
 export async function apiMFAVerify(accessToken: string, code: string): Promise<void> {
@@ -246,9 +378,20 @@ export async function apiMFADisable(accessToken: string, code: string): Promise<
 }
 
 export async function apiMFALogin(mfaToken: string, code: string): Promise<TokenResponse> {
-  return apiFetch<TokenResponse>('POST', `${AUTH_API_BASE}/mfa/login`, { mfa_token: mfaToken, code })
+  return apiFetch<TokenResponse>('POST', `${AUTH_API_BASE}/mfa/login`, {
+    mfa_token: mfaToken,
+    code,
+  })
 }
 
-export async function apiMFARegenerateRecovery(accessToken: string, code: string): Promise<{ recovery_codes: string[] }> {
-  return apiFetch<{ recovery_codes: string[] }>('POST', `${AUTH_API_BASE}/mfa/recovery/regenerate`, { code }, { token: accessToken })
+export async function apiMFARegenerateRecovery(
+  accessToken: string,
+  code: string,
+): Promise<{ recovery_codes: string[] }> {
+  return apiFetch<{ recovery_codes: string[] }>(
+    'POST',
+    `${AUTH_API_BASE}/mfa/recovery/regenerate`,
+    { code },
+    { token: accessToken },
+  )
 }

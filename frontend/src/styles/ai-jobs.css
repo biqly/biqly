@@ -274,7 +274,9 @@
   justify-content: space-between;
   gap: 16px;
 }
-.ai-history__header h2 { margin: 0; }
+.ai-history__header h2 {
+  margin: 0;
+}
 
 .ai-history__toggle {
   display: flex;
@@ -284,12 +286,14 @@
   cursor: pointer;
   color: var(--text-secondary, #6b7280);
 }
-.ai-history__toggle input { cursor: pointer; }
+.ai-history__toggle input {
+  cursor: pointer;
+}
 
 .ai-history__error {
   padding: 10px 14px;
-  background: rgba(239,68,68,.08);
-  border: 1px solid rgba(239,68,68,.25);
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
   border-radius: 6px;
   color: #dc2626;
   font-size: 13px;
@@ -324,7 +328,7 @@
   font-weight: 600;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: .4px;
+  letter-spacing: 0.4px;
   color: var(--text-secondary, #6b7280);
   white-space: nowrap;
 }
@@ -343,9 +347,18 @@
   font-size: 11px;
   font-weight: 600;
 }
-.ai-history__status--success { background: rgba(16,185,129,.12); color: var(--success, #059669); }
-.ai-history__status--error   { background: rgba(239,68,68,.10);  color: var(--error, #dc2626); }
-.ai-history__status--clarification { background: rgba(245,158,11,.12); color: var(--warning, #d97706); }
+.ai-history__status--success {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success, #059669);
+}
+.ai-history__status--error {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--error, #dc2626);
+}
+.ai-history__status--clarification {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--warning, #d97706);
+}
 
 .ai-history__mono {
   font-family: var(--font-mono, monospace);
@@ -362,7 +375,7 @@
   color: var(--text-secondary, #6b7280);
 }
 .ai-history__detail-btn:hover {
-  background: rgba(99,102,241,.06);
+  background: rgba(99, 102, 241, 0.06);
 }
 
 .ai-history__actions {
@@ -376,7 +389,7 @@
 }
 
 .ai-history__row--expanded {
-  background: rgba(99,102,241,.03);
+  background: rgba(99, 102, 241, 0.03);
 }
 
 .ai-history__detail-row td {
@@ -397,7 +410,7 @@
   font-weight: 600;
   color: var(--text-secondary, #6b7280);
   text-transform: uppercase;
-  letter-spacing: .4px;
+  letter-spacing: 0.4px;
 }
 
 .ai-history__detail-block pre {
@@ -411,8 +424,8 @@
   overflow-y: auto;
   color: var(--text-primary, #111);
 }
-[data-theme="dark"] .ai-history__detail-block pre {
-  background: rgba(255,255,255,.05);
+[data-theme='dark'] .ai-history__detail-block pre {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .ai-history__load-more {
@@ -426,5 +439,5 @@
   font-size: 13px;
 }
 .ai-history__load-more:hover {
-  background: rgba(99,102,241,.06);
+  background: rgba(99, 102, 241, 0.06);
 }

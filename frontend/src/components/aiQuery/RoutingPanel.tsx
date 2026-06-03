@@ -1,6 +1,6 @@
+import { ModelBadgeRow } from '../ui/ModelBadgeRow'
 import { MultiSelect } from '../ui/MultiSelect'
 import { Select } from '../ui/Select'
-import { ModelBadgeRow } from '../ui/ModelBadgeRow'
 import type { RoutingPanelProps } from './types'
 
 export function RoutingPanel({
@@ -33,20 +33,30 @@ export function RoutingPanel({
   semanticModelName,
   onRefreshEmbeddings,
 }: RoutingPanelProps) {
-  const tableLabel = (table: (typeof tables)[number]) => table.label || `${table.schema_name}.${table.table_name}`
+  const tableLabel = (table: (typeof tables)[number]) =>
+    table.label || `${table.schema_name}.${table.table_name}`
 
   const tablesInTypeScope = tables.filter((table) => {
     const typ = (table.table_type || '').toUpperCase()
-    if (typ === 'VIEW') return includeViews
-    if (typ === 'BASE TABLE') return includeBaseTables
+    if (typ === 'VIEW') {
+      return includeViews
+    }
+    if (typ === 'BASE TABLE') {
+      return includeBaseTables
+    }
     return includeBaseTables
   })
 
   const filteredTables = (() => {
     const search = tableSearch.trim().toLowerCase()
     return tablesInTypeScope.filter((table) => {
-      if (!search) return true
-      return tableLabel(table).toLowerCase().includes(search) || (table.description || '').toLowerCase().includes(search)
+      if (!search) {
+        return true
+      }
+      return (
+        tableLabel(table).toLowerCase().includes(search) ||
+        (table.description || '').toLowerCase().includes(search)
+      )
     })
   })()
 
@@ -66,9 +76,12 @@ export function RoutingPanel({
   const activeEmbedding = activeFor('embedding')
   const activeTranslation = activeFor('translation')
 
-  const queryModel = dbManaged && activeQuery
-    ? activeQuery.display_name
-    : aiRuntime?.query_model_override ? aiRuntime?.query_model : aiRuntime?.llm_model
+  const queryModel =
+    dbManaged && activeQuery
+      ? activeQuery.display_name
+      : aiRuntime?.query_model_override
+        ? aiRuntime?.query_model
+        : aiRuntime?.llm_model
   const queryNote = dbManaged
     ? activeQuery?.provider_name
     : aiRuntime?.query_model_override
@@ -87,7 +100,9 @@ export function RoutingPanel({
   const embeddingNote = dbManaged ? activeEmbedding?.provider_name : undefined
   const translationBadge = dbManaged
     ? activeTranslation?.display_name
-    : aiRuntime?.translation_enabled ? aiRuntime?.translation_model : undefined
+    : aiRuntime?.translation_enabled
+      ? aiRuntime?.translation_model
+      : undefined
   const translationNote = dbManaged ? activeTranslation?.provider_name : undefined
 
   return (
@@ -167,9 +182,25 @@ export function RoutingPanel({
         <div className="form-group routing-toggle">
           <span className="form-label">{t('ai_query.table_routing_label')}</span>
           <div className="routing-toggle-row">
-            <div className="toggle-group" role="group" aria-label={t('ai_query.table_routing_label')}>
-              <button type="button" className={`toggle-btn ${autoTableRouting ? 'active' : ''}`} onClick={() => setAutoTableRouting(true)}>{t('ai_query.table_routing_auto')}</button>
-              <button type="button" className={`toggle-btn ${!autoTableRouting ? 'active' : ''}`} onClick={() => setAutoTableRouting(false)}>{t('ai_query.table_routing_manual')}</button>
+            <div
+              className="toggle-group"
+              role="group"
+              aria-label={t('ai_query.table_routing_label')}
+            >
+              <button
+                type="button"
+                className={`toggle-btn ${autoTableRouting ? 'active' : ''}`}
+                onClick={() => setAutoTableRouting(true)}
+              >
+                {t('ai_query.table_routing_auto')}
+              </button>
+              <button
+                type="button"
+                className={`toggle-btn ${!autoTableRouting ? 'active' : ''}`}
+                onClick={() => setAutoTableRouting(false)}
+              >
+                {t('ai_query.table_routing_manual')}
+              </button>
             </div>
           </div>
         </div>
@@ -180,15 +211,31 @@ export function RoutingPanel({
           <span className="ai-scope-label">{t('ai_query.scope_label')}</span>
           <div className="ai-scope-type-filters" role="group">
             <label className="ai-scope-type-option">
-              <input type="checkbox" checked={includeBaseTables} onChange={(e) => setIncludeBaseTables(e.target.checked)} disabled={!datasourceId || tables.length === 0} />
+              <input
+                type="checkbox"
+                checked={includeBaseTables}
+                onChange={(e) => setIncludeBaseTables(e.target.checked)}
+                disabled={!datasourceId || tables.length === 0}
+              />
               <span>{t('ai_query.scope_base_tables')}</span>
             </label>
             <label className="ai-scope-type-option">
-              <input type="checkbox" checked={includeViews} onChange={(e) => setIncludeViews(e.target.checked)} disabled={!datasourceId || tables.length === 0} />
+              <input
+                type="checkbox"
+                checked={includeViews}
+                onChange={(e) => setIncludeViews(e.target.checked)}
+                disabled={!datasourceId || tables.length === 0}
+              />
               <span>{t('ai_query.scope_views')}</span>
             </label>
           </div>
-          <input value={tableSearch} onChange={(e) => setTableSearch(e.target.value)} placeholder={t('ai_query.table_search_placeholder')} disabled={!datasourceId || tables.length === 0} autoComplete="off" />
+          <input
+            value={tableSearch}
+            onChange={(e) => setTableSearch(e.target.value)}
+            placeholder={t('ai_query.table_search_placeholder')}
+            disabled={!datasourceId || tables.length === 0}
+            autoComplete="off"
+          />
           <MultiSelect
             display="inline"
             className="ai-scope-multiselect"

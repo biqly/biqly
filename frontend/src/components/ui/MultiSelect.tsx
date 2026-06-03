@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+
 import { useT } from '../../i18n'
 import type { SelectOption } from './Select'
 import { resolveSelectPopoverLayout } from './selectLayout'
@@ -68,7 +69,9 @@ export function MultiSelect({
   )
 
   const triggerLabel = useMemo(() => {
-    if (value.length === 0) return resolvedPlaceholder
+    if (value.length === 0) {
+      return resolvedPlaceholder
+    }
     if (value.length === 1) {
       const opt = options.find((o) => o.value === value[0])
       return opt?.label ?? value[0]
@@ -77,24 +80,33 @@ export function MultiSelect({
   }, [value, options, resolvedPlaceholder, t])
 
   const updatePosition = useCallback(() => {
-    if (display !== 'popover' || !triggerRef.current) return
+    if (display !== 'popover' || !triggerRef.current) {
+      return
+    }
     const rect = triggerRef.current.getBoundingClientRect()
     const viewportH = window.innerHeight
     const spaceBelow = viewportH - rect.bottom - 12
     const spaceAbove = rect.top - 12
     const placement: 'down' | 'up' = spaceBelow < 220 && spaceAbove > spaceBelow ? 'up' : 'down'
-    const listMax = Math.max(160, Math.min(maxHeight, placement === 'down' ? spaceBelow : spaceAbove))
+    const listMax = Math.max(
+      160,
+      Math.min(maxHeight, placement === 'down' ? spaceBelow : spaceAbove),
+    )
     const top = placement === 'down' ? rect.bottom + 6 : Math.max(8, rect.top - 6 - listMax)
     const { left, width } = resolveSelectPopoverLayout(rect, options, size === 'sm' ? 11.5 : 12.5)
     setPopover({ left, top, width, maxHeight: listMax, placement })
   }, [display, maxHeight, options, size])
 
   useLayoutEffect(() => {
-    if (display === 'popover' && open) updatePosition()
+    if (display === 'popover' && open) {
+      updatePosition()
+    }
   }, [display, open, updatePosition])
 
   useEffect(() => {
-    if (display !== 'popover' || !open) return
+    if (display !== 'popover' || !open) {
+      return
+    }
     const handle = () => updatePosition()
     window.addEventListener('resize', handle)
     window.addEventListener('scroll', handle, true)
@@ -105,18 +117,23 @@ export function MultiSelect({
   }, [display, open, updatePosition])
 
   useEffect(() => {
-    if (display !== 'popover' || !open) return
+    if (display !== 'popover' || !open) {
+      return
+    }
     const onDown = (e: MouseEvent) => {
       const target = e.target as Node
       const inRoot = rootRef.current?.contains(target)
       const inList = listRef.current?.contains(target)
-      if (!inRoot && !inList) setOpen(false)
+      if (!inRoot && !inList) {
+        setOpen(false)
+      }
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
   }, [display, open])
 
-  const listMaxStyle = display === 'inline' ? { maxHeight } : popover ? { maxHeight: popover.maxHeight } : undefined
+  const listMaxStyle =
+    display === 'inline' ? { maxHeight } : popover ? { maxHeight: popover.maxHeight } : undefined
 
   const renderOptions = () => (
     <ul
@@ -155,7 +172,9 @@ export function MultiSelect({
             onMouseEnter={() => !opt.disabled && setActiveIndex(idx)}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
-              if (opt.disabled) return
+              if (opt.disabled) {
+                return
+              }
               toggleValue(opt.value)
             }}
           >
@@ -186,7 +205,12 @@ export function MultiSelect({
 
   if (display === 'inline') {
     return (
-      <div ref={rootRef} className={['ui-select', 'ui-multiselect', 'ui-multiselect--inline', className].filter(Boolean).join(' ')}>
+      <div
+        ref={rootRef}
+        className={['ui-select', 'ui-multiselect', 'ui-multiselect--inline', className]
+          .filter(Boolean)
+          .join(' ')}
+      >
         {header && <div className="ui-select-header">{header}</div>}
         {renderOptions()}
       </div>
@@ -194,12 +218,21 @@ export function MultiSelect({
   }
 
   const triggerClasses = ['ui-select-trigger']
-  if (size === 'sm') triggerClasses.push('ui-select-trigger--sm')
-  if (open) triggerClasses.push('is-open')
-  if (value.length === 0) triggerClasses.push('is-empty')
+  if (size === 'sm') {
+    triggerClasses.push('ui-select-trigger--sm')
+  }
+  if (open) {
+    triggerClasses.push('is-open')
+  }
+  if (value.length === 0) {
+    triggerClasses.push('is-empty')
+  }
 
   return (
-    <div ref={rootRef} className={['ui-select', 'ui-multiselect', className].filter(Boolean).join(' ')}>
+    <div
+      ref={rootRef}
+      className={['ui-select', 'ui-multiselect', className].filter(Boolean).join(' ')}
+    >
       <button
         ref={triggerRef}
         type="button"
@@ -211,13 +244,30 @@ export function MultiSelect({
         aria-controls={open ? `${baseId}-list` : undefined}
         disabled={disabled}
         onClick={() => {
-          if (disabled) return
+          if (disabled) {
+            return
+          }
           setOpen((o) => !o)
         }}
       >
-        <span className={`ui-select-value${value.length === 0 ? ' is-placeholder' : ''}`}>{triggerLabel}</span>
-        <svg className="ui-select-chevron" viewBox="0 0 12 8" width="9" height="5.5" aria-hidden="true">
-          <path d="M1 1.5l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        <span className={`ui-select-value${value.length === 0 ? ' is-placeholder' : ''}`}>
+          {triggerLabel}
+        </span>
+        <svg
+          className="ui-select-chevron"
+          viewBox="0 0 12 8"
+          width="9"
+          height="5.5"
+          aria-hidden="true"
+        >
+          <path
+            d="M1 1.5l5 5 5-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </svg>
       </button>
       {open && popover && (

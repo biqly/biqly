@@ -1,8 +1,9 @@
-import { useState, type SubmitEvent } from 'react'
-import abiLogo from '../../assets/abi-logo.png'
-import { apiForgotPassword } from '../../api/auth'
-import { useT } from '../../i18n'
+import { type SubmitEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+
+import { apiForgotPassword } from '../../api/auth'
+import abiLogo from '../../assets/abi-logo.png'
+import { useT } from '../../i18n'
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate()
@@ -14,7 +15,9 @@ export default function ForgotPasswordPage() {
 
   const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!email) return
+    if (!email) {
+      return
+    }
 
     setLoading(true)
     setError(null)
@@ -39,7 +42,13 @@ export default function ForgotPasswordPage() {
           </div>
           <h1 className="auth-title">{t('auth.title_forgot')}</h1>
           <p className="auth-subtitle">
-            <a href="/auth/signin" onClick={(e) => { e.preventDefault(); navigate('/auth/signin'); }}>
+            <a
+              href="/auth/signin"
+              onClick={(e) => {
+                e.preventDefault()
+                navigate('/auth/signin')
+              }}
+            >
               {t('auth.back_to_login')}
             </a>
           </p>
@@ -54,7 +63,9 @@ export default function ForgotPasswordPage() {
             {error && <div className="auth-error">{error}</div>}
 
             <div className="form-group">
-              <label className="form-label" htmlFor="email-input">{t('auth.email')}</label>
+              <label className="form-label" htmlFor="email-input">
+                {t('auth.email')}
+              </label>
               <input
                 id="email-input"
                 type="email"
@@ -67,11 +78,7 @@ export default function ForgotPasswordPage() {
               />
             </div>
 
-            <button
-              type="submit"
-              className="auth-btn"
-              disabled={loading || !email}
-            >
+            <button type="submit" className="auth-btn" disabled={loading || !email}>
               {loading && <div className="spinner" />}
               {t('auth.btn_send_reset')}
             </button>

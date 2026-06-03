@@ -1,8 +1,8 @@
+import type { Datasource } from '../../types/metadata'
+import { ErrorAlert } from '../ui/ErrorAlert'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
-import { ErrorAlert } from '../ui/ErrorAlert'
-import type { Datasource } from '../../types/metadata'
-import type { SavedQuestionSemanticModel, SavedQuestionFormState } from './types'
+import type { SavedQuestionFormState, SavedQuestionSemanticModel } from './types'
 
 interface SavedQuestionFormModalProps {
   mode: 'new' | 'edit'
@@ -140,7 +140,10 @@ export function SavedQuestionFormModal({
           />
         </div>
 
-        <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
+        <div
+          className="form-group"
+          style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}
+        >
           <input
             type="checkbox"
             id={id('is-few-shot')}
@@ -152,7 +155,10 @@ export function SavedQuestionFormModal({
           </label>
         </div>
 
-        <div className="modal-actions" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+        <div
+          className="modal-actions"
+          style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1rem' }}
+        >
           <button type="button" className="btn btn--neutral" onClick={onClose}>
             {t('saved_questions.btn_cancel')}
           </button>

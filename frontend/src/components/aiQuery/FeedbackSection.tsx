@@ -1,4 +1,5 @@
 import { useState } from 'react'
+
 import { useT } from '../../i18n'
 import type { FeedbackCatKey } from './types'
 import { FEEDBACK_CAT_KEYS } from './types'
@@ -34,23 +35,31 @@ export function FeedbackSection({ onSubmitPositive, onSubmitNegative }: Feedback
   return (
     <>
       <div className="feedback-row">
-        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginRight: '0.5rem' }}>{t('ai_query.feedback_helpful')}</span>
+        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginRight: '0.5rem' }}>
+          {t('ai_query.feedback_helpful')}
+        </span>
         <button
           type="button"
           className={`feedback-btn ${userFeedback === 'positive' ? 'feedback-active' : ''}`}
           aria-label={t('ai_query.feedback_positive_aria')}
           onClick={() => submitFeedback('positive')}
-        >👍</button>
+        >
+          👍
+        </button>
         <button
           type="button"
           className={`feedback-btn ${userFeedback === 'negative' ? 'feedback-negative' : ''}`}
           aria-label={t('ai_query.feedback_negative_aria')}
           onClick={() => submitFeedback('negative')}
-        >👎</button>
+        >
+          👎
+        </button>
       </div>
       {showFeedbackForm && (
         <div className="feedback-form">
-          <p style={{ fontSize: '0.8rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>{t('ai_query.feedback_what_wrong')}</p>
+          <p style={{ fontSize: '0.8rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>
+            {t('ai_query.feedback_what_wrong')}
+          </p>
           <div className="feedback-categories">
             {FEEDBACK_CAT_KEYS.map((cat) => (
               <button
@@ -75,11 +84,17 @@ export function FeedbackSection({ onSubmitPositive, onSubmitNegative }: Feedback
             style={{ width: '100%', fontSize: '0.8rem', resize: 'vertical' }}
           />
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem' }}>
-            <button type="button" className="btn btn-sm btn-primary" onClick={submitNegative}>{t('ai_query.feedback_submit')}</button>
+            <button type="button" className="btn btn-sm btn-primary" onClick={submitNegative}>
+              {t('ai_query.feedback_submit')}
+            </button>
             <button
               type="button"
               className="btn btn-sm btn-ghost"
-              onClick={() => { setShowFeedbackForm(false); setFeedbackCategories([]); setFeedbackText('') }}
+              onClick={() => {
+                setShowFeedbackForm(false)
+                setFeedbackCategories([])
+                setFeedbackText('')
+              }}
             >
               {t('ai_query.feedback_cancel')}
             </button>

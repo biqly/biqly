@@ -1,7 +1,9 @@
-import clsx from 'clsx'
-import { useT } from '../../i18n'
-import type { ToastItem } from '../../hooks/useToast'
 import '../../styles/toast.css'
+
+import clsx from 'clsx'
+
+import type { ToastItem } from '../../hooks/useToast'
+import { useT } from '../../i18n'
 
 const VARIANT_ICON: Record<ToastItem['variant'], string> = {
   success: '✓',
@@ -17,7 +19,9 @@ interface ToastViewportProps {
 
 export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
   const t = useT()
-  if (toasts.length === 0) return null
+  if (toasts.length === 0) {
+    return null
+  }
   return (
     <div className="toast-viewport" role="region" aria-label={t('common.notifications')}>
       {toasts.map((toast) => (

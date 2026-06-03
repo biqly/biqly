@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react'
 import type { KeyboardEvent } from 'react'
+import { useEffect, useRef } from 'react'
+
 import { ErrorAlert } from '../ui/ErrorAlert'
 import { AssistantMessageCard } from './AssistantMessageCard'
 import { formatAiWaitElapsed } from './routingViz'
@@ -50,62 +51,80 @@ export function ChatPanel({
     prevMsgCountRef.current = currentCount
   }, [activeConversation?.messages.length, activeConversationId])
 
-  const loadingLabel = loading && queryAction !== null
-    ? t('ai_query.loading_thinking')
-    : ''
+  const loadingLabel = loading && queryAction !== null ? t('ai_query.loading_thinking') : ''
 
-  const previewButtonLabel = loading && queryAction === 'preview' ? loadingLabel : t('ai_query.preview_btn')
-  const executeButtonLabel = loading && queryAction === 'execute' ? loadingLabel : t('ai_query.execute_btn')
+  const previewButtonLabel =
+    loading && queryAction === 'preview' ? loadingLabel : t('ai_query.preview_btn')
+  const executeButtonLabel =
+    loading && queryAction === 'execute' ? loadingLabel : t('ai_query.execute_btn')
 
   return (
     <>
       <div ref={chatFeedRef} className="chat-feed">
-        {activeConversation && activeConversation.messages.length > 0 ? (() => {
-          const conv = activeConversation
-          return conv.messages.map((message: any, index: number) => {
-            if (message.role === 'user') {
-              return (
-                <div key={index} className="chat-bubble user-bubble">
-                  <div className="bubble-content">{message.content}</div>
-                  <span className="bubble-time">
-                    {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              )
-            } else {
-              const userQuestion = index > 0 ? conv.messages[index - 1]?.content ?? '' : ''
-              return (
-                <div key={index} className="chat-bubble assistant-bubble">
-                  <AssistantMessageCard
-                    message={message}
-                    messageIndex={index}
-                    conversationId={conv.id}
-                    datasourceId={datasourceId}
-                    aiRuntime={aiRuntime}
-                    userQuestion={userQuestion}
-                    get={get}
-                    postData={postData}
-                    updateMessageResponse={updateMessageResponse}
-                    t={t}
-                    localeNumberTag={localeNumberTag}
-                    localeTag={localeTag}
-                    onSelectClarification={(choice, originalQuestion) => onSendQuery(originalQuestion, true, choice)}
-                    onSkipClarification={(originalQuestion) => onSendQuery(originalQuestion, true)}
-                    onFilterByValue={(column, value) => {
-                      const filterText = t('ai_query.filter_by_value', { column, value })
-                      setQuestion((prev: string) => prev ? `${prev} ${filterText}` : filterText)
-                    }}
-                    onCellDrillDown={(col, val) => onSendQuery(t('ai_query.drill_down_prompt', { column: col, value: val }), true)}
-                  />
-                </div>
-              )
-            }
-          })
-        })() : (
+        {activeConversation && activeConversation.messages.length > 0 ? (
+          (() => {
+            const conv = activeConversation
+            return conv.messages.map((message: any, index: number) => {
+              if (message.role === 'user') {
+                return (
+                  <div key={index} className="chat-bubble user-bubble">
+                    <div className="bubble-content">{message.content}</div>
+                    <span className="bubble-time">
+                      {new Date(message.timestamp).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+                )
+              } else {
+                const userQuestion = index > 0 ? (conv.messages[index - 1]?.content ?? '') : ''
+                return (
+                  <div key={index} className="chat-bubble assistant-bubble">
+                    <AssistantMessageCard
+                      message={message}
+                      messageIndex={index}
+                      conversationId={conv.id}
+                      datasourceId={datasourceId}
+                      aiRuntime={aiRuntime}
+                      userQuestion={userQuestion}
+                      get={get}
+                      postData={postData}
+                      updateMessageResponse={updateMessageResponse}
+                      t={t}
+                      localeNumberTag={localeNumberTag}
+                      localeTag={localeTag}
+                      onSelectClarification={(choice, originalQuestion) =>
+                        onSendQuery(originalQuestion, true, choice)
+                      }
+                      onSkipClarification={(originalQuestion) =>
+                        onSendQuery(originalQuestion, true)
+                      }
+                      onFilterByValue={(column, value) => {
+                        const filterText = t('ai_query.filter_by_value', { column, value })
+                        setQuestion((prev: string) => (prev ? `${prev} ${filterText}` : filterText))
+                      }}
+                      onCellDrillDown={(col, val) =>
+                        onSendQuery(
+                          t('ai_query.drill_down_prompt', { column: col, value: val }),
+                          true,
+                        )
+                      }
+                    />
+                  </div>
+                )
+              }
+            })
+          })()
+        ) : (
           <div className="chat-empty-state">
             <h3>✨ {t('ai_query.workspace_title')}</h3>
             <p>{t('ai_query.subtitle')}</p>
-            <div className="chat-empty-state__suggestions" role="list" aria-label={t('ai_query.suggestions_aria')}>
+            <div
+              className="chat-empty-state__suggestions"
+              role="list"
+              aria-label={t('ai_query.suggestions_aria')}
+            >
               {[
                 t('ai_query.suggestion_1'),
                 t('ai_query.suggestion_2'),

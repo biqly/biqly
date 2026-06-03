@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { runMetadataDescribeDirect, type DescribeResult } from '../../api/metadataDescribe'
+
+import { type DescribeResult, runMetadataDescribeDirect } from '../../api/metadataDescribe'
 import { useT } from '../../i18n'
 import type { AIRuntimeSettings } from '../../types/ai'
 import type { ColumnRow, TableRow } from '../../types/semantic'
@@ -44,12 +45,18 @@ export function MetadataDescribeModal({
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const dbManaged = aiRuntime?.db_managed === true
-  const activeDescribe = dbManaged ? aiRuntime?.active_models?.find((m) => m.purpose === 'describe') : undefined
-  const activeTranslation = dbManaged ? aiRuntime?.active_models?.find((m) => m.purpose === 'translation') : undefined
+  const activeDescribe = dbManaged
+    ? aiRuntime?.active_models?.find((m) => m.purpose === 'describe')
+    : undefined
+  const activeTranslation = dbManaged
+    ? aiRuntime?.active_models?.find((m) => m.purpose === 'translation')
+    : undefined
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        onClose()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -72,7 +79,9 @@ export function MetadataDescribeModal({
       }
       if (res) {
         setResult(res)
-        if (res.applied) onApplied(table)
+        if (res.applied) {
+          onApplied(table)
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('metadata.bulk_network_error'))
@@ -86,7 +95,9 @@ export function MetadataDescribeModal({
       await patchDescription('table', table.id, description)
     } else {
       const col = columns.find((c) => c.column_name === name)
-      if (!col) return
+      if (!col) {
+        return
+      }
       await patchDescription('column', col.id, description)
     }
   }
@@ -95,13 +106,24 @@ export function MetadataDescribeModal({
     <div
       className="modal-backdrop"
       role="presentation"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose()
+        }
+      }}
     >
-      <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="describe-title">
+      <section
+        className="modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="describe-title"
+      >
         <header className="modal-header">
           <div>
             <h2 id="describe-title">
-              {t('metadata.describe_modal_title', { fqn: `${table.schema_name}.${table.table_name}` })}
+              {t('metadata.describe_modal_title', {
+                fqn: `${table.schema_name}.${table.table_name}`,
+              })}
             </h2>
             <ModelBadgeRow
               primaryLabel={t('metadata.describe_badge_label')}
@@ -117,13 +139,20 @@ export function MetadataDescribeModal({
               translationNote={dbManaged ? activeTranslation?.provider_name : undefined}
             />
           </div>
-          <button type="button" className="modal-close" aria-label={t('metadata.describe_close_aria')} onClick={onClose}>
+          <button
+            type="button"
+            className="modal-close"
+            aria-label={t('metadata.describe_close_aria')}
+            onClick={onClose}
+          >
             ×
           </button>
         </header>
 
         <div className="modal-body">
-          <p style={{ color: 'var(--text-secondary)', margin: 0 }}>{t('metadata.describe_intro')}</p>
+          <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+            {t('metadata.describe_intro')}
+          </p>
 
           {!result && (
             <>
@@ -159,7 +188,12 @@ export function MetadataDescribeModal({
                 <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
                   {t('metadata.bulk_cancel')}
                 </button>
-                <button type="button" className="btn btn-sm" onClick={() => void runDescribe()} disabled={running}>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => void runDescribe()}
+                  disabled={running}
+                >
                   {running ? t('metadata.describe_analyzing') : t('metadata.describe_generate')}
                 </button>
               </div>
@@ -172,15 +206,20 @@ export function MetadataDescribeModal({
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                   {t('metadata.describe_model_line')} <code translate="no">{result.model}</code>
                   {result.translation_applied && result.translation_model ? (
-                    <>{t('metadata.describe_translation_sep')} <code translate="no">{result.translation_model}</code></>
+                    <>
+                      {t('metadata.describe_translation_sep')}{' '}
+                      <code translate="no">{result.translation_model}</code>
+                    </>
                   ) : null}
                 </div>
               )}
               <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
                 {t('metadata.describe_rows_sampled', { n: result.sample_rows })}{' '}
-                {result.applied
-                  ? <span className="success">{t('metadata.describe_all_applied')}</span>
-                  : t('metadata.describe_review_apply')}
+                {result.applied ? (
+                  <span className="success">{t('metadata.describe_all_applied')}</span>
+                ) : (
+                  t('metadata.describe_review_apply')
+                )}
               </p>
               {result.translation_error && (
                 <p style={{ margin: 0, color: 'var(--error)' }}>
@@ -191,11 +230,19 @@ export function MetadataDescribeModal({
               <div>
                 <h3 style={{ marginBottom: '0.4rem' }}>{t('metadata.describe_section_table')}</h3>
                 <div className="suggestion-block">
-                  {result.description || <em style={{ color: 'var(--text-secondary)' }}>{t('metadata.describe_empty_paren')}</em>}
+                  {result.description || (
+                    <em style={{ color: 'var(--text-secondary)' }}>
+                      {t('metadata.describe_empty_paren')}
+                    </em>
+                  )}
                 </div>
                 {!result.applied && result.description && (
                   <div className="modal-actions">
-                    <button type="button" className="btn btn-sm" onClick={() => void applySuggestion('table', '', result.description)}>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={() => void applySuggestion('table', '', result.description)}
+                    >
                       {t('metadata.describe_apply_table')}
                     </button>
                   </div>
@@ -209,18 +256,34 @@ export function MetadataDescribeModal({
                     <tr>
                       <th>{t('metadata.describe_col_column')}</th>
                       <th>{t('metadata.describe_col_suggestion')}</th>
-                      {!result.applied && <th style={{ textAlign: 'right' }}>{t('metadata.describe_col_action')}</th>}
+                      {!result.applied && (
+                        <th style={{ textAlign: 'right' }}>{t('metadata.describe_col_action')}</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
                     {result.columns.map((c) => (
                       <tr key={c.name}>
-                        <td><code>{c.name}</code></td>
-                        <td>{c.description || <em style={{ color: 'var(--text-secondary)' }}>{t('metadata.describe_empty_paren')}</em>}</td>
+                        <td>
+                          <code>{c.name}</code>
+                        </td>
+                        <td>
+                          {c.description || (
+                            <em style={{ color: 'var(--text-secondary)' }}>
+                              {t('metadata.describe_empty_paren')}
+                            </em>
+                          )}
+                        </td>
                         {!result.applied && (
                           <td className="actions">
                             {c.description && (
-                              <button type="button" className="btn btn-sm" onClick={() => void applySuggestion('column', c.name, c.description)}>
+                              <button
+                                type="button"
+                                className="btn btn-sm"
+                                onClick={() =>
+                                  void applySuggestion('column', c.name, c.description)
+                                }
+                              >
                                 {t('metadata.describe_apply')}
                               </button>
                             )}
@@ -233,7 +296,14 @@ export function MetadataDescribeModal({
               </div>
 
               <div className="modal-actions">
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setResult(null); onClose() }}>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => {
+                    setResult(null)
+                    onClose()
+                  }}
+                >
                   {t('metadata.describe_close_footer')}
                 </button>
               </div>

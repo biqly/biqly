@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+
 import { listUsers, listWorkspaces } from '../api/admin'
 import { apiFetch } from '../api/apiClient'
 import type { AuthUser, Workspace } from '../types/auth'
@@ -14,7 +15,9 @@ export function useAdminLookups(token: string) {
   useEffect(() => {
     let cancelled = false
     async function load() {
-      if (!token) return
+      if (!token) {
+        return
+      }
       setLoading(true)
       try {
         const [uRes, dsData, wsRes] = await Promise.all([

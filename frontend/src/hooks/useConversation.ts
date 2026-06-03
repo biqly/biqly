@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
-import type { Conversation, ConversationMessage, AIQueryResponse } from '../types/ai'
+
+import type { AIQueryResponse, Conversation, ConversationMessage } from '../types/ai'
 
 const STORAGE_KEY = 'biqly_conversations'
 type ConversationStorage = Pick<Storage, 'getItem' | 'setItem'>
@@ -8,8 +9,12 @@ function defaultConversationStorage(): ConversationStorage | null {
   return typeof localStorage === 'undefined' ? null : localStorage
 }
 
-export function loadConversations(storage: ConversationStorage | null = defaultConversationStorage()): Conversation[] {
-  if (!storage) return []
+export function loadConversations(
+  storage: ConversationStorage | null = defaultConversationStorage(),
+): Conversation[] {
+  if (!storage) {
+    return []
+  }
   try {
     const raw = storage.getItem(STORAGE_KEY)
     return raw ? JSON.parse(raw) : []
@@ -22,7 +27,9 @@ export function saveConversations(
   conversations: Conversation[],
   storage: ConversationStorage | null = defaultConversationStorage(),
 ) {
-  if (!storage) return
+  if (!storage) {
+    return
+  }
   try {
     storage.setItem(STORAGE_KEY, JSON.stringify(conversations))
   } catch {
@@ -42,7 +49,7 @@ export function useConversation() {
   const [initialConversations] = useState(loadConversations)
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations)
   const [activeConversationId, setActiveConversationId] = useState<string | null>(
-    () => initialConversations[0]?.id ?? null
+    () => initialConversations[0]?.id ?? null,
   )
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) ?? null
@@ -78,13 +85,14 @@ export function useConversation() {
       }
       setConversations((prev) => {
         const updated = prev.map((c) => {
-          if (c.id !== targetId) return c
+          if (c.id !== targetId) {
+            return c
+          }
           const ts = new Date().toISOString()
           const msg: ConversationMessage = { ...message, timestamp: ts }
           const newMessages = [...c.messages, msg]
           const title =
-            c.title ??
-            (message.role === 'user' ? message.content.slice(0, 60) : undefined)
+            c.title ?? (message.role === 'user' ? message.content.slice(0, 60) : undefined)
           return { ...c, messages: newMessages, title, updated_at: ts }
         })
         saveConversations(updated)
@@ -102,25 +110,27 @@ export function useConversation() {
         setActiveConversationId(updated[0]?.id ?? null)
       }
     },
-    [activeConversationId, conversations, persist]
+    [activeConversationId, conversations, persist],
   )
 
   const renameConversation = useCallback(
     (id: string, title: string) => {
       const updated = conversations.map((c) =>
-        c.id === id ? { ...c, title, updated_at: new Date().toISOString() } : c
+        c.id === id ? { ...c, title, updated_at: new Date().toISOString() } : c,
       )
       persist(updated)
     },
-    [conversations, persist]
+    [conversations, persist],
   )
 
   const clearConversation = useCallback(() => {
-    if (!activeConversationId) return
+    if (!activeConversationId) {
+      return
+    }
     const updated = conversations.map((c) =>
       c.id === activeConversationId
         ? { ...c, messages: [], updated_at: new Date().toISOString() }
-        : c
+        : c,
     )
     persist(updated)
   }, [activeConversationId, conversations, persist])
@@ -129,9 +139,11 @@ export function useConversation() {
     (conversationId: string, messageIndex: number, aiResponse: AIQueryResponse) => {
       setConversations((prev) => {
         const updated = prev.map((c) => {
-          if (c.id !== conversationId) return c
+          if (c.id !== conversationId) {
+            return c
+          }
           const newMessages = c.messages.map((m, idx) =>
-            idx === messageIndex ? { ...m, ai_response: aiResponse } : m
+            idx === messageIndex ? { ...m, ai_response: aiResponse } : m,
           )
           return { ...c, messages: newMessages, updated_at: new Date().toISOString() }
         })
@@ -139,7 +151,7 @@ export function useConversation() {
         return updated
       })
     },
-    []
+    [],
   )
 
   return {

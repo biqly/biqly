@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useApi } from '../../hooks/useApi'
+
 import { useAdminLookups } from '../../hooks/useAdminLookups'
+import { useApi } from '../../hooks/useApi'
 import { useT } from '../../i18n'
 import { useAuth } from '../auth/AuthProvider'
 import { KPICard } from '../ui/KPICard'
@@ -37,12 +38,16 @@ function formatTokens(prompt: number, completion: number, total: number): string
   if (prompt > 0 || completion > 0) {
     return `${prompt.toLocaleString()} + ${completion.toLocaleString()} = ${total.toLocaleString()}`
   }
-  if (total > 0) return total.toLocaleString()
+  if (total > 0) {
+    return total.toLocaleString()
+  }
   return '—'
 }
 
 function formatUSD(v: number): string {
-  if (v <= 0) return '—'
+  if (v <= 0) {
+    return '—'
+  }
   return `$${v.toFixed(4)}`
 }
 
@@ -89,9 +94,13 @@ export function AIUsageAdminPanel() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    get<{ totals: AIUsageTotals; rows: AIUsageBreakdownRow[] }>(`/api/ai/usage/breakdown?days=${days}`)
+    get<{ totals: AIUsageTotals; rows: AIUsageBreakdownRow[] }>(
+      `/api/ai/usage/breakdown?days=${days}`,
+    )
       .then((data) => {
-        if (cancelled || !data) return
+        if (cancelled || !data) {
+          return
+        }
         setTotals(data.totals)
         setRows(data.rows || [])
         setError(null)
@@ -102,7 +111,9 @@ export function AIUsageAdminPanel() {
         }
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+        }
       })
     return () => {
       cancelled = true
@@ -136,7 +147,16 @@ export function AIUsageAdminPanel() {
 
   return (
     <div className="admin-panel">
-      <div className="admin-panel__header" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div
+        className="admin-panel__header"
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '1rem',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
         <div>
           <h2 style={{ margin: 0 }}>{t('admin.ai_usage.title')}</h2>
           <p style={{ margin: '0.35rem 0 0', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
@@ -174,25 +194,52 @@ export function AIUsageAdminPanel() {
       </div>
 
       {error && (
-        <p className="error-text" style={{ marginTop: '1rem' }}>{error}</p>
+        <p className="error-text" style={{ marginTop: '1rem' }}>
+          {error}
+        </p>
       )}
 
       <div style={{ position: 'relative', marginTop: '1.25rem', minHeight: 120 }}>
         <LoadingOverlay loading={loading || lookupsLoading} />
         {totals && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem' }}>
-            <KPICard label={t('admin.ai_usage.kpi_queries')} value={totals.query_count.toLocaleString()} />
-            <KPICard label={t('admin.ai_usage.kpi_tokens')} value={totals.total_tokens.toLocaleString()} />
-            <KPICard label={t('admin.ai_usage.kpi_prompt')} value={totals.prompt_tokens.toLocaleString()} />
-            <KPICard label={t('admin.ai_usage.kpi_completion')} value={totals.completion_tokens.toLocaleString()} />
-            <KPICard label={t('admin.ai_usage.kpi_cost')} value={formatUSD(totals.total_cost_usd)} />
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+              gap: '0.75rem',
+              marginBottom: '1.25rem',
+            }}
+          >
+            <KPICard
+              label={t('admin.ai_usage.kpi_queries')}
+              value={totals.query_count.toLocaleString()}
+            />
+            <KPICard
+              label={t('admin.ai_usage.kpi_tokens')}
+              value={totals.total_tokens.toLocaleString()}
+            />
+            <KPICard
+              label={t('admin.ai_usage.kpi_prompt')}
+              value={totals.prompt_tokens.toLocaleString()}
+            />
+            <KPICard
+              label={t('admin.ai_usage.kpi_completion')}
+              value={totals.completion_tokens.toLocaleString()}
+            />
+            <KPICard
+              label={t('admin.ai_usage.kpi_cost')}
+              value={formatUSD(totals.total_cost_usd)}
+            />
             <KPICard label={t('admin.ai_usage.kpi_users')} value={String(totals.unique_users)} />
             <KPICard label={t('admin.ai_usage.kpi_models')} value={String(totals.unique_models)} />
           </div>
         )}
 
         <div className="ai-history__table-wrap admin-table-container">
-          <table className="ai-history__table" style={{ borderCollapse: 'collapse', width: '100%' }}>
+          <table
+            className="ai-history__table"
+            style={{ borderCollapse: 'collapse', width: '100%' }}
+          >
             <thead>
               <tr>
                 <th style={thStyle}>{t('admin.ai_usage.col_user')}</th>
@@ -219,7 +266,10 @@ export function AIUsageAdminPanel() {
                   return (
                     <tr key={key}>
                       <td style={tdStyle}>{userLabel}</td>
-                      <td className="ai-history__mono" style={{ ...tdStyle, fontFamily: 'var(--font-mono, monospace)' }}>
+                      <td
+                        className="ai-history__mono"
+                        style={{ ...tdStyle, fontFamily: 'var(--font-mono, monospace)' }}
+                      >
                         {row.model_used}
                       </td>
                       <td style={tdStyle}>{row.query_count.toLocaleString()}</td>

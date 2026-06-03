@@ -1,6 +1,6 @@
-import type { EvalRunSummary, EvalRunDetail } from '../../types/ai'
-import { KPICard } from '../ui/KPICard'
+import type { EvalRunDetail, EvalRunSummary } from '../../types/ai'
 import { getRateColor } from '../../utils/formatters'
+import { KPICard } from '../ui/KPICard'
 
 interface EvalHistoryTabProps {
   runHistory: EvalRunSummary[]
@@ -78,10 +78,26 @@ export function EvalHistoryTab({
         </button>
       </div>
       <div className="kpi-row">
-        <KPICard label={t('evaluation.detail_kpi_total')} value={selectedRun.summary.total_cases} color="var(--accent)" />
-        <KPICard label={t('evaluation.detail_kpi_passed')} value={selectedRun.summary.passed} color="var(--success)" />
-        <KPICard label={t('evaluation.detail_kpi_failed')} value={selectedRun.summary.failed} color="var(--error)" />
-        <KPICard label={t('evaluation.detail_kpi_rate')} value={`${(selectedRun.summary.pass_rate * 100).toFixed(0)}%`} color="var(--warning)" />
+        <KPICard
+          label={t('evaluation.detail_kpi_total')}
+          value={selectedRun.summary.total_cases}
+          color="var(--accent)"
+        />
+        <KPICard
+          label={t('evaluation.detail_kpi_passed')}
+          value={selectedRun.summary.passed}
+          color="var(--success)"
+        />
+        <KPICard
+          label={t('evaluation.detail_kpi_failed')}
+          value={selectedRun.summary.failed}
+          color="var(--error)"
+        />
+        <KPICard
+          label={t('evaluation.detail_kpi_rate')}
+          value={`${(selectedRun.summary.pass_rate * 100).toFixed(0)}%`}
+          color="var(--warning)"
+        />
       </div>
       <div className="card">
         <h3>

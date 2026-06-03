@@ -48,10 +48,14 @@ export async function fetchIndexEntryScript(): Promise<string | null> {
     credentials: 'same-origin',
     headers: { 'cache-control': 'no-cache' },
   })
-  if (!res.ok) return null
+  if (!res.ok) {
+    return null
+  }
   const html = await res.text()
-  const match = html.match(/<script[^>]+type=["']module["'][^>]+src=["']([^"']+)["']/i)
-  if (!match?.[1]) return null
+  const match = /<script[^>]+type=["']module["'][^>]+src=["']([^"']+)["']/i.exec(html)
+  if (!match?.[1]) {
+    return null
+  }
   return normalizeAssetPath(match[1])
 }
 
@@ -60,7 +64,9 @@ export function startIndexPoll(onNewVersion: () => void): () => void {
   let lastSeen = currentIndexEntryScript()
 
   async function tick() {
-    if (cancelled) return
+    if (cancelled) {
+      return
+    }
     try {
       const next = await fetchIndexEntryScript()
       if (next && lastSeen && next !== lastSeen) {
@@ -86,7 +92,9 @@ export function startIndexPoll(onNewVersion: () => void): () => void {
 }
 
 function errorString(err: unknown): string {
-  if (err instanceof Error) return `${err.name}: ${err.message}`
+  if (err instanceof Error) {
+    return `${err.name}: ${err.message}`
+  }
   return String(err ?? '')
 }
 
@@ -97,9 +105,8 @@ export function isLikelyAssetLoadFailure(err: unknown): boolean {
     msg.includes('chunkloaderror') ||
     msg.includes('failed to fetch dynamically imported module') ||
     msg.includes('importing a module script failed') ||
-    msg.includes('css') && msg.includes('failed') ||
+    (msg.includes('css') && msg.includes('failed')) ||
     msg.includes('net::err') ||
     msg.includes('unexpected token') // sometimes served HTML instead of JS after deploy
   )
 }
-

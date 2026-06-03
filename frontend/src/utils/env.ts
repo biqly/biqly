@@ -11,7 +11,7 @@ declare global {
 }
 
 export function resolveAdminApiKey(): string {
-  return typeof window !== 'undefined' ? window.__BIQLY_ENV__?.adminApiKey ?? '' : ''
+  return typeof window !== 'undefined' ? (window.__BIQLY_ENV__?.adminApiKey ?? '') : ''
 }
 
 export const frontendEnv: FrontendEnv = {

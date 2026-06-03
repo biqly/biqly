@@ -1,8 +1,8 @@
 import { useT } from '../../i18n'
 import type { ColumnRow, TableRow } from '../../types/semantic'
 import { MetadataDescriptionCell } from './MetadataDescriptionCell'
-import { columnKeySuffix } from './utils'
 import type { MetadataEditingState } from './utils'
+import { columnKeySuffix } from './utils'
 
 interface MetadataColumnPanelProps {
   table: TableRow
@@ -31,9 +31,14 @@ export function MetadataColumnPanel({
     <tr className="metadata-nested-row">
       <td colSpan={4} className="metadata-nested-cell">
         <div className="metadata-nested-panel">
-          <table className="results-table results-table--metadata-list results-table--nested" lang={locale}>
+          <table
+            className="results-table results-table--metadata-list results-table--nested"
+            lang={locale}
+          >
             <caption className="metadata-nested-caption">
-              {t('metadata.nested_columns_caption', { fqn: `${table.schema_name}.${table.table_name}` })}
+              {t('metadata.nested_columns_caption', {
+                fqn: `${table.schema_name}.${table.table_name}`,
+              })}
             </caption>
             <colgroup>
               <col className="metadata-ncol-name" />
@@ -43,14 +48,20 @@ export function MetadataColumnPanel({
             <thead>
               <tr>
                 <th scope="col">{t('metadata.col_column_name')}</th>
-                <th scope="col" className="metadata-col-type">{t('metadata.col_data_type')}</th>
+                <th scope="col" className="metadata-col-type">
+                  {t('metadata.col_data_type')}
+                </th>
                 <th scope="col">{t('metadata.col_column_desc')}</th>
               </tr>
             </thead>
             <tbody>
               {columns.map((c) => {
                 const keySuffix = columnKeySuffix(c, t)
-                const fkMultiline = !!(c.is_foreign_key && c.referenced_table && c.referenced_column)
+                const fkMultiline = !!(
+                  c.is_foreign_key &&
+                  c.referenced_table &&
+                  c.referenced_column
+                )
                 return (
                   <tr key={c.id}>
                     <td className="metadata-col-name-cell">

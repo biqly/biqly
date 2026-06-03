@@ -77,7 +77,11 @@ export function SummarizeStep({
                 </div>
               )
             })}
-          <button type="button" className="notebook-add-btn" onClick={() => addMetricSelectItem('')}>
+          <button
+            type="button"
+            className="notebook-add-btn"
+            onClick={() => addMetricSelectItem('')}
+          >
             +
           </button>
         </div>

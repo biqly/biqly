@@ -1,4 +1,4 @@
-.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai test eval eval-regression lint semgrep-scan helm-deps helm-lint helm-template clean migrate-up migrate-down docker-up docker-down seed-adventureworks
+.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai test eval eval-regression lint lint-go lint-frontend semgrep-scan helm-deps helm-lint helm-template clean migrate-up migrate-down docker-up docker-down seed-adventureworks
 
 BINARY_NAME=biqly
 GO_FILES=$(shell find . -name '*.go' -not -path './vendor/*')
@@ -68,8 +68,13 @@ eval:
 eval-regression:
 	@go test ./internal/ai/ -run 'TestGoldenSeedSelfConsistent|TestLogicalQueryEqualBaseline|TestResultSetEqualBaseline|TestExecutionAccuracyGolden|TestEvalRegressionGate|TestBenchmarkSuiteRegressionGate|TestBenchmarkSuiteSelfConsistent' -count=1 -v
 
-lint:
+lint: lint-go lint-frontend
+
+lint-go:
 	@golangci-lint run ./...
+
+lint-frontend:
+	@npm --prefix frontend run lint
 
 semgrep-scan:
 	@semgrep scan $(foreach config,$(SEMGREP_CONFIGS),--config $(config)) --sarif --output $(SEMGREP_SARIF)

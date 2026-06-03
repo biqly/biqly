@@ -1,5 +1,7 @@
-import { useState, useCallback, useRef } from 'react'
-import { apiFetch, RequestOptions } from '../api/apiClient'
+import { useCallback, useRef, useState } from 'react'
+
+import type { RequestOptions } from '../api/apiClient'
+import { apiFetch } from '../api/apiClient'
 import { resolveAdminApiKey } from '../utils/env'
 
 export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
@@ -44,7 +46,9 @@ export function useApi() {
       controllerRef.current = controller
       const mergedSignal = { ...options, signal: controller.signal }
       const { data, error: err } = await request<T>(method, url, body, mergedSignal)
-      if (err) setError(err)
+      if (err) {
+        setError(err)
+      }
       inFlightRef.current--
       if (inFlightRef.current === 0) {
         setLoading(false)
@@ -75,7 +79,8 @@ export function useApi() {
     [call],
   )
   const deleteData = useCallback(
-    <T = unknown>(url: string, options?: RequestOptions) => call<T>('DELETE', url, undefined, options),
+    <T = unknown>(url: string, options?: RequestOptions) =>
+      call<T>('DELETE', url, undefined, options),
     [call],
   )
 
@@ -101,23 +106,28 @@ export function useAdminApi() {
   )
 
   const get = useCallback(
-    <T = unknown>(url: string, options?: RequestOptions) => api.get<T>(url, withAdminHeaders(options)),
+    <T = unknown>(url: string, options?: RequestOptions) =>
+      api.get<T>(url, withAdminHeaders(options)),
     [api],
   )
   const postData = useCallback(
-    <T = unknown>(url: string, body: unknown, options?: RequestOptions) => bodyRequest<T>('postData', url, body, options),
+    <T = unknown>(url: string, body: unknown, options?: RequestOptions) =>
+      bodyRequest<T>('postData', url, body, options),
     [bodyRequest],
   )
   const putData = useCallback(
-    <T = unknown>(url: string, body: unknown, options?: RequestOptions) => bodyRequest<T>('putData', url, body, options),
+    <T = unknown>(url: string, body: unknown, options?: RequestOptions) =>
+      bodyRequest<T>('putData', url, body, options),
     [bodyRequest],
   )
   const patchData = useCallback(
-    <T = unknown>(url: string, body: unknown, options?: RequestOptions) => bodyRequest<T>('patchData', url, body, options),
+    <T = unknown>(url: string, body: unknown, options?: RequestOptions) =>
+      bodyRequest<T>('patchData', url, body, options),
     [bodyRequest],
   )
   const deleteData = useCallback(
-    <T = unknown>(url: string, options?: RequestOptions) => api.deleteData<T>(url, withAdminHeaders(options)),
+    <T = unknown>(url: string, options?: RequestOptions) =>
+      api.deleteData<T>(url, withAdminHeaders(options)),
     [api],
   )
 

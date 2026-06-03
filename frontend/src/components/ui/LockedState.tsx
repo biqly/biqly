@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { useT } from '../../i18n'
+
 import { requestDatasourceAccess } from '../../api/admin'
+import { useT } from '../../i18n'
 import { useAuth } from '../auth/AuthProvider'
 import { ErrorAlert } from './ErrorAlert'
 
@@ -17,7 +18,9 @@ export function LockedState({ datasourceId, datasourceName }: LockedStateProps) 
   const [error, setError] = useState<string | null>(null)
 
   const handleRequest = async () => {
-    if (!accessToken || requesting) return
+    if (!accessToken || requesting) {
+      return
+    }
     setRequesting(true)
     setError(null)
     setSuccess(false)
@@ -30,7 +33,11 @@ export function LockedState({ datasourceId, datasourceName }: LockedStateProps) 
         setError(t('datasources.request_failed', { error: t('common.unknown_error') }))
       }
     } catch (err: unknown) {
-      setError(t('datasources.request_failed', { error: err instanceof Error ? err.message : String(err) }))
+      setError(
+        t('datasources.request_failed', {
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      )
     } finally {
       setRequesting(false)
     }
@@ -55,9 +62,7 @@ export function LockedState({ datasourceId, datasourceName }: LockedStateProps) 
             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
         </div>
-        <h2 className="locked-state-title">
-          {t('datasources.locked_title')}
-        </h2>
+        <h2 className="locked-state-title">{t('datasources.locked_title')}</h2>
         <p className="locked-state-desc">
           {datasourceName ? `"${datasourceName}" — ` : ''}
           {t('datasources.locked_desc')}

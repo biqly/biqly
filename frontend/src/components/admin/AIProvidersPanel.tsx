@@ -1,13 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useT } from '../../i18n'
-import { useToast } from '../../hooks/useToast'
-import { useConfirm } from '../../hooks/useConfirm'
-import { Modal } from '../ui/Modal'
-import { Select } from '../ui/Select'
-import { LoadingOverlay } from '../ui/LoadingOverlay'
-import { AIModelSharingPanel } from './AIModelSharingPanel'
-import { useAuth } from '../auth/AuthProvider'
-import { ReadOnlyNote } from './ReadOnlyNote'
+
 import {
   type AIModel,
   type AIProvider,
@@ -22,12 +14,21 @@ import {
   listModels,
   listProviderRemoteModels,
   listProviders,
+  type RemoteModelOption,
   setDefaultModel,
   testProvider,
   updateModel,
   updateProvider,
-  type RemoteModelOption,
 } from '../../api/aiProviders'
+import { useConfirm } from '../../hooks/useConfirm'
+import { useToast } from '../../hooks/useToast'
+import { useT } from '../../i18n'
+import { useAuth } from '../auth/AuthProvider'
+import { LoadingOverlay } from '../ui/LoadingOverlay'
+import { Modal } from '../ui/Modal'
+import { Select } from '../ui/Select'
+import { AIModelSharingPanel } from './AIModelSharingPanel'
+import { ReadOnlyNote } from './ReadOnlyNote'
 
 const PROVIDER_TYPES: AIProviderType[] = ['openai', 'openai-compatible', 'anthropic']
 const PURPOSES: AIPurpose[] = ['query', 'describe', 'embedding', 'translation', 'judge']
@@ -78,25 +79,31 @@ export function AIProvidersPanel() {
     }
   }, [])
 
-  const reloadModels = useCallback(async (providerID: string) => {
-    setModelsLoading(true)
-    try {
-      const rows = await listModels(providerID)
-      setModels(rows ?? [])
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
-    } finally {
-      setModelsLoading(false)
-    }
-  }, [toast])
+  const reloadModels = useCallback(
+    async (providerID: string) => {
+      setModelsLoading(true)
+      try {
+        const rows = await listModels(providerID)
+        setModels(rows ?? [])
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : String(e))
+      } finally {
+        setModelsLoading(false)
+      }
+    },
+    [toast],
+  )
 
   useEffect(() => {
     reloadTop()
   }, [reloadTop])
 
   useEffect(() => {
-    if (selectedProvider) reloadModels(selectedProvider.id)
-    else setModels([])
+    if (selectedProvider) {
+      reloadModels(selectedProvider.id)
+    } else {
+      setModels([])
+    }
   }, [selectedProvider, reloadModels])
 
   const handleDeleteProvider = async (p: AIProvider) => {
@@ -105,11 +112,15 @@ export function AIProvidersPanel() {
       message: t('admin.ai_providers.confirm_delete_provider', { name: p.name }),
       variant: 'danger',
     })
-    if (!ok) return
+    if (!ok) {
+      return
+    }
     try {
       await deleteProvider(p.id)
       toast.success(t('admin.ai_providers.deleted'))
-      if (selectedProvider?.id === p.id) setSelectedProvider(null)
+      if (selectedProvider?.id === p.id) {
+        setSelectedProvider(null)
+      }
       await reloadTop()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e))
@@ -122,11 +133,15 @@ export function AIProvidersPanel() {
       message: t('admin.ai_providers.confirm_delete_model', { name: m.display_name }),
       variant: 'danger',
     })
-    if (!ok) return
+    if (!ok) {
+      return
+    }
     try {
       await deleteModel(m.id)
       toast.success(t('admin.ai_providers.deleted'))
-      if (selectedProvider) await reloadModels(selectedProvider.id)
+      if (selectedProvider) {
+        await reloadModels(selectedProvider.id)
+      }
       await reloadTop()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e))
@@ -137,7 +152,9 @@ export function AIProvidersPanel() {
     try {
       await setDefaultModel(m.id)
       toast.success(t('admin.ai_providers.saved'))
-      if (selectedProvider) await reloadModels(selectedProvider.id)
+      if (selectedProvider) {
+        await reloadModels(selectedProvider.id)
+      }
       await reloadTop()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e))
@@ -150,14 +167,18 @@ export function AIProvidersPanel() {
     await reloadTop()
     if (selectedProvider) {
       const refreshed = providers.find((p) => p.id === selectedProvider.id)
-      if (refreshed) setSelectedProvider(refreshed)
+      if (refreshed) {
+        setSelectedProvider(refreshed)
+      }
     }
   }
 
   const onModelSaved = async () => {
     setModelModalOpen(false)
     setEditingModel(null)
-    if (selectedProvider) await reloadModels(selectedProvider.id)
+    if (selectedProvider) {
+      await reloadModels(selectedProvider.id)
+    }
     await reloadTop()
   }
 
@@ -172,7 +193,11 @@ export function AIProvidersPanel() {
         </p>
       </div>
 
-      {error && <div style={errStyle}>{t('common.error')}: {error}</div>}
+      {error && (
+        <div style={errStyle}>
+          {t('common.error')}: {error}
+        </div>
+      )}
       {!canEdit && <ReadOnlyNote />}
 
       <AIModelSharingPanel />
@@ -206,14 +231,19 @@ export function AIProvidersPanel() {
                             {providerLabel}
                           </span>
                         ) : (
-                          <span className="admin-ai-purpose-pill admin-ai-purpose-pill--muted">—</span>
+                          <span className="admin-ai-purpose-pill admin-ai-purpose-pill--muted">
+                            —
+                          </span>
                         )}
                       </div>
                     </div>
                     <div className="admin-ai-purpose-card__body">
                       {m ? (
                         <>
-                          <div className="admin-ai-purpose-card__model" title={modelHint || modelLabel}>
+                          <div
+                            className="admin-ai-purpose-card__model"
+                            title={modelHint || modelLabel}
+                          >
                             {modelLabel || modelHint || '—'}
                           </div>
                           {modelHint && modelHint !== modelLabel && (
@@ -238,7 +268,14 @@ export function AIProvidersPanel() {
       <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h3 style={{ margin: 0, fontSize: 15 }}>{t('admin.ai_providers.providers_title')}</h3>
-          <button style={primaryBtn} disabled={!canEdit} onClick={() => { setEditingProvider(null); setProviderModalOpen(true) }}>
+          <button
+            style={primaryBtn}
+            disabled={!canEdit}
+            onClick={() => {
+              setEditingProvider(null)
+              setProviderModalOpen(true)
+            }}
+          >
             + {t('admin.ai_providers.add_provider')}
           </button>
         </div>
@@ -251,7 +288,10 @@ export function AIProvidersPanel() {
                 provider={p}
                 selected={selectedProvider?.id === p.id}
                 onSelect={() => setSelectedProvider((cur) => (cur?.id === p.id ? null : p))}
-                onEdit={() => { setEditingProvider(p); setProviderModalOpen(true) }}
+                onEdit={() => {
+                  setEditingProvider(p)
+                  setProviderModalOpen(true)
+                }}
                 onDelete={() => handleDeleteProvider(p)}
                 canEdit={canEdit}
               />
@@ -268,9 +308,23 @@ export function AIProvidersPanel() {
       {/* Models for selected provider */}
       {selectedProvider && (
         <section style={cardStyle}>
-          <div style={{ ...cardHeaderStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div
+            style={{
+              ...cardHeaderStyle,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
             <span>{t('admin.ai_providers.models_for', { name: selectedProvider.name })}</span>
-            <button style={secondaryBtn} disabled={!canEdit} onClick={() => { setEditingModel(null); setModelModalOpen(true) }}>
+            <button
+              style={secondaryBtn}
+              disabled={!canEdit}
+              onClick={() => {
+                setEditingModel(null)
+                setModelModalOpen(true)
+              }}
+            >
               + {t('admin.ai_providers.add_model')}
             </button>
           </div>
@@ -290,22 +344,49 @@ export function AIProvidersPanel() {
                   <tr key={m.id} style={trRow}>
                     <td style={tdStyle}>
                       {m.display_name}
-                      {m.is_default && <span style={defaultBadge}>{t('admin.ai_providers.default_badge')}</span>}
-                      {!m.is_active && <span style={inactiveBadge}>{t('admin.ai_providers.inactive')}</span>}
+                      {m.is_default && (
+                        <span style={defaultBadge}>{t('admin.ai_providers.default_badge')}</span>
+                      )}
+                      {!m.is_active && (
+                        <span style={inactiveBadge}>{t('admin.ai_providers.inactive')}</span>
+                      )}
                     </td>
-                    <td style={{ ...tdStyle, fontFamily: 'var(--font-mono, monospace)', fontSize: 12 }}>{m.model_id}</td>
+                    <td
+                      style={{
+                        ...tdStyle,
+                        fontFamily: 'var(--font-mono, monospace)',
+                        fontSize: 12,
+                      }}
+                    >
+                      {m.model_id}
+                    </td>
                     <td style={tdStyle}>{t(`admin.ai_providers.purposes.${m.purpose}`)}</td>
                     <td style={tdStyle}>{m.max_tokens}</td>
                     <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>
                       {!m.is_default && (
-                        <button style={linkBtn} disabled={!canEdit} onClick={() => handleSetDefault(m)}>
+                        <button
+                          style={linkBtn}
+                          disabled={!canEdit}
+                          onClick={() => handleSetDefault(m)}
+                        >
                           {t('admin.ai_providers.set_default')}
                         </button>
                       )}
-                      <button style={linkBtn} disabled={!canEdit} onClick={() => { setEditingModel(m); setModelModalOpen(true) }}>
+                      <button
+                        style={linkBtn}
+                        disabled={!canEdit}
+                        onClick={() => {
+                          setEditingModel(m)
+                          setModelModalOpen(true)
+                        }}
+                      >
                         {t('common.edit')}
                       </button>
-                      <button style={{ ...linkBtn, color: 'var(--error, #ef4444)' }} disabled={!canEdit} onClick={() => handleDeleteModel(m)}>
+                      <button
+                        style={{ ...linkBtn, color: 'var(--error, #ef4444)' }}
+                        disabled={!canEdit}
+                        onClick={() => handleDeleteModel(m)}
+                      >
                         {t('common.delete')}
                       </button>
                     </td>
@@ -313,7 +394,14 @@ export function AIProvidersPanel() {
                 ))}
                 {!modelsLoading && models.length === 0 && (
                   <tr>
-                    <td colSpan={5} style={{ padding: 20, textAlign: 'center', color: 'var(--text-secondary, #a1a1aa)' }}>
+                    <td
+                      colSpan={5}
+                      style={{
+                        padding: 20,
+                        textAlign: 'center',
+                        color: 'var(--text-secondary, #a1a1aa)',
+                      }}
+                    >
                       {t('admin.ai_providers.no_models')}
                     </td>
                   </tr>
@@ -327,7 +415,10 @@ export function AIProvidersPanel() {
       {providerModalOpen && (
         <ProviderModal
           provider={editingProvider}
-          onClose={() => { setProviderModalOpen(false); setEditingProvider(null) }}
+          onClose={() => {
+            setProviderModalOpen(false)
+            setEditingProvider(null)
+          }}
           onSaved={onProviderSaved}
         />
       )}
@@ -336,7 +427,10 @@ export function AIProvidersPanel() {
         <ModelModal
           provider={selectedProvider}
           model={editingModel}
-          onClose={() => { setModelModalOpen(false); setEditingModel(null) }}
+          onClose={() => {
+            setModelModalOpen(false)
+            setEditingModel(null)
+          }}
           onSaved={onModelSaved}
         />
       )}
@@ -345,7 +439,12 @@ export function AIProvidersPanel() {
 }
 
 function ProviderCard({
-  provider, selected, onSelect, onEdit, onDelete, canEdit,
+  provider,
+  selected,
+  onSelect,
+  onEdit,
+  onDelete,
+  canEdit,
 }: {
   provider: AIProvider
   selected: boolean
@@ -372,7 +471,14 @@ function ProviderCard({
       <div style={{ fontSize: 12, color: 'var(--text-secondary, #a1a1aa)' }}>
         {t(`admin.ai_providers.types.${provider.provider_type}`)}
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text-secondary, #a1a1aa)', fontFamily: 'var(--font-mono, monospace)', wordBreak: 'break-all' }}>
+      <div
+        style={{
+          fontSize: 12,
+          color: 'var(--text-secondary, #a1a1aa)',
+          fontFamily: 'var(--font-mono, monospace)',
+          wordBreak: 'break-all',
+        }}
+      >
         {provider.base_url || '—'}
       </div>
       <div style={{ fontSize: 12, color: 'var(--text-secondary, #a1a1aa)' }}>
@@ -380,15 +486,25 @@ function ProviderCard({
         {provider.has_api_key && <span> · {provider.api_key_masked}</span>}
       </div>
       <div style={{ display: 'flex', gap: 8, marginTop: 4 }} onClick={(e) => e.stopPropagation()}>
-        <button style={linkBtn} disabled={!canEdit} onClick={onEdit}>{t('common.edit')}</button>
-        <button style={{ ...linkBtn, color: 'var(--error, #ef4444)' }} disabled={!canEdit} onClick={onDelete}>{t('common.delete')}</button>
+        <button style={linkBtn} disabled={!canEdit} onClick={onEdit}>
+          {t('common.edit')}
+        </button>
+        <button
+          style={{ ...linkBtn, color: 'var(--error, #ef4444)' }}
+          disabled={!canEdit}
+          onClick={onDelete}
+        >
+          {t('common.delete')}
+        </button>
       </div>
     </div>
   )
 }
 
 function ProviderModal({
-  provider, onClose, onSaved,
+  provider,
+  onClose,
+  onSaved,
 }: {
   provider: AIProvider | null
   onClose: () => void
@@ -411,23 +527,35 @@ function ProviderModal({
   const onTypeChange = (next: AIProviderType) => {
     setType(next)
     // Autofill base URL only when empty or still the previous type's default.
-    if (!baseURL || baseURL === defaultBaseURL(type)) setBaseURL(defaultBaseURL(next))
+    if (!baseURL || baseURL === defaultBaseURL(type)) {
+      setBaseURL(defaultBaseURL(next))
+    }
   }
 
   const save = async () => {
-    if (!name.trim()) { toast.error(t('admin.ai_providers.fields.name')); return }
+    if (!name.trim()) {
+      toast.error(t('admin.ai_providers.fields.name'))
+      return
+    }
     setSaving(true)
     try {
       if (editing) {
         await updateProvider(provider.id, {
-          name, provider_type: type, base_url: baseURL,
+          name,
+          provider_type: type,
+          base_url: baseURL,
           api_key: apiKey ? apiKey : null,
-          is_active: isActive, http_timeout_seconds: timeout,
+          is_active: isActive,
+          http_timeout_seconds: timeout,
         })
       } else {
         await createProvider({
-          name, provider_type: type, base_url: baseURL,
-          api_key: apiKey || undefined, is_active: isActive, http_timeout_seconds: timeout,
+          name,
+          provider_type: type,
+          base_url: baseURL,
+          api_key: apiKey || undefined,
+          is_active: isActive,
+          http_timeout_seconds: timeout,
         })
       }
       toast.success(t('admin.ai_providers.saved'))
@@ -457,20 +585,37 @@ function ProviderModal({
   }
 
   return (
-    <Modal open title={editing ? t('admin.ai_providers.edit_provider') : t('admin.ai_providers.add_provider')} onClose={onClose}>
+    <Modal
+      open
+      title={editing ? t('admin.ai_providers.edit_provider') : t('admin.ai_providers.add_provider')}
+      onClose={onClose}
+    >
       <div style={formStyle}>
         <Field label={t('admin.ai_providers.fields.name')}>
-          <input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+          <input
+            style={inputStyle}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+          />
         </Field>
         <Field label={t('admin.ai_providers.fields.type')}>
           <Select<AIProviderType>
             value={type}
             onChange={onTypeChange}
-            options={PROVIDER_TYPES.map((pt) => ({ value: pt, label: t(`admin.ai_providers.types.${pt}`) }))}
+            options={PROVIDER_TYPES.map((pt) => ({
+              value: pt,
+              label: t(`admin.ai_providers.types.${pt}`),
+            }))}
           />
         </Field>
         <Field label={t('admin.ai_providers.fields.base_url')}>
-          <input style={inputStyle} value={baseURL} onChange={(e) => setBaseURL(e.target.value)} placeholder="https://…/v1" />
+          <input
+            style={inputStyle}
+            value={baseURL}
+            onChange={(e) => setBaseURL(e.target.value)}
+            placeholder="https://…/v1"
+          />
         </Field>
         <Field label={t('admin.ai_providers.fields.api_key')}>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -487,10 +632,19 @@ function ProviderModal({
           </div>
         </Field>
         <Field label={t('admin.ai_providers.fields.http_timeout')}>
-          <input style={inputStyle} type="number" value={timeout} onChange={(e) => setTimeoutVal(Number(e.target.value))} />
+          <input
+            style={inputStyle}
+            type="number"
+            value={timeout}
+            onChange={(e) => setTimeoutVal(Number(e.target.value))}
+          />
         </Field>
         <label style={checkboxRow}>
-          <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={isActive}
+            onChange={(e) => setIsActive(e.target.checked)}
+          />
           {t('admin.ai_providers.fields.is_active')}
         </label>
 
@@ -500,7 +654,15 @@ function ProviderModal({
               {testing ? t('admin.ai_providers.testing') : t('admin.ai_providers.test_connection')}
             </button>
             {testResult && (
-              <span style={{ fontSize: 13, color: testResult.status === 'connected' ? 'var(--success, #10b981)' : 'var(--error, #ef4444)' }}>
+              <span
+                style={{
+                  fontSize: 13,
+                  color:
+                    testResult.status === 'connected'
+                      ? 'var(--success, #10b981)'
+                      : 'var(--error, #ef4444)',
+                }}
+              >
                 {testResult.status === 'connected'
                   ? t('admin.ai_providers.test_connected', { ms: testResult.latency_ms ?? 0 })
                   : `${t('admin.ai_providers.test_failed')}: ${testResult.message ?? ''}`}
@@ -510,8 +672,12 @@ function ProviderModal({
         )}
 
         <div style={modalActions}>
-          <button style={secondaryBtn} onClick={onClose}>{t('common.cancel')}</button>
-          <button style={primaryBtn} disabled={saving} onClick={save}>{t('common.save')}</button>
+          <button style={secondaryBtn} onClick={onClose}>
+            {t('common.cancel')}
+          </button>
+          <button style={primaryBtn} disabled={saving} onClick={save}>
+            {t('common.save')}
+          </button>
         </div>
       </div>
     </Modal>
@@ -519,7 +685,10 @@ function ProviderModal({
 }
 
 function ModelModal({
-  provider, model, onClose, onSaved,
+  provider,
+  model,
+  onClose,
+  onSaved,
 }: {
   provider: AIProvider
   model: AIModel | null
@@ -585,18 +754,30 @@ function ModelModal({
   }
 
   const save = async () => {
-    if (!modelID.trim()) { toast.error(t('admin.ai_providers.fields.model_id')); return }
+    if (!modelID.trim()) {
+      toast.error(t('admin.ai_providers.fields.model_id'))
+      return
+    }
     setSaving(true)
     try {
       if (editing) {
         await updateModel(model.id, {
-          model_id: modelID, display_name: displayName || modelID, purpose,
-          max_tokens: maxTokens, temperature, max_prompt_input_runes: maxPromptRunes,
+          model_id: modelID,
+          display_name: displayName || modelID,
+          purpose,
+          max_tokens: maxTokens,
+          temperature,
+          max_prompt_input_runes: maxPromptRunes,
         })
       } else {
         await createModel({
-          provider_id: provider.id, model_id: modelID, display_name: displayName || modelID,
-          purpose, max_tokens: maxTokens, temperature, max_prompt_input_runes: maxPromptRunes,
+          provider_id: provider.id,
+          model_id: modelID,
+          display_name: displayName || modelID,
+          purpose,
+          max_tokens: maxTokens,
+          temperature,
+          max_prompt_input_runes: maxPromptRunes,
           is_default: isDefault,
         })
       }
@@ -610,7 +791,11 @@ function ModelModal({
   }
 
   return (
-    <Modal open title={editing ? t('admin.ai_providers.edit_model') : t('admin.ai_providers.add_model')} onClose={onClose}>
+    <Modal
+      open
+      title={editing ? t('admin.ai_providers.edit_model') : t('admin.ai_providers.add_model')}
+      onClose={onClose}
+    >
       <div style={formStyle}>
         <Field label={t('admin.ai_providers.fields.model_id')}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -640,7 +825,9 @@ function ModelModal({
                 disabled={loadingRemote}
                 onClick={() => void fetchRemoteModels()}
               >
-                {loadingRemote ? t('admin.ai_providers.fields.fetching_remote_models') : t('admin.ai_providers.fields.fetch_remote_models')}
+                {loadingRemote
+                  ? t('admin.ai_providers.fields.fetching_remote_models')
+                  : t('admin.ai_providers.fields.fetch_remote_models')}
               </button>
             </div>
             {remoteModels.length > 0 && !remoteError && (
@@ -676,45 +863,86 @@ function ModelModal({
           </div>
         </Field>
         <Field label={t('admin.ai_providers.fields.display_name')}>
-          <input style={inputStyle} value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+          <input
+            style={inputStyle}
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+          />
         </Field>
         <Field label={t('admin.ai_providers.fields.purpose')}>
           <Select<AIPurpose>
             value={purpose}
             onChange={setPurpose}
-            options={PURPOSES.map((p) => ({ value: p, label: t(`admin.ai_providers.purposes.${p}`) }))}
+            options={PURPOSES.map((p) => ({
+              value: p,
+              label: t(`admin.ai_providers.purposes.${p}`),
+            }))}
           />
         </Field>
         <div style={{ display: 'flex', gap: 12 }}>
           <Field label={t('admin.ai_providers.fields.max_tokens')} style={{ flex: 1 }}>
-            <input style={inputStyle} type="number" value={maxTokens} onChange={(e) => setMaxTokens(Number(e.target.value))} />
+            <input
+              style={inputStyle}
+              type="number"
+              value={maxTokens}
+              onChange={(e) => setMaxTokens(Number(e.target.value))}
+            />
           </Field>
           <Field label={t('admin.ai_providers.fields.temperature')} style={{ flex: 1 }}>
-            <input style={inputStyle} type="number" step="0.1" value={temperature} onChange={(e) => setTemperature(Number(e.target.value))} />
+            <input
+              style={inputStyle}
+              type="number"
+              step="0.1"
+              value={temperature}
+              onChange={(e) => setTemperature(Number(e.target.value))}
+            />
           </Field>
         </div>
         <Field label={t('admin.ai_providers.fields.max_prompt_runes')}>
-          <input style={inputStyle} type="number" value={maxPromptRunes} onChange={(e) => setMaxPromptRunes(Number(e.target.value))} />
+          <input
+            style={inputStyle}
+            type="number"
+            value={maxPromptRunes}
+            onChange={(e) => setMaxPromptRunes(Number(e.target.value))}
+          />
         </Field>
         {!editing && (
           <label style={checkboxRow}>
-            <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={isDefault}
+              onChange={(e) => setIsDefault(e.target.checked)}
+            />
             {t('admin.ai_providers.fields.set_default')}
           </label>
         )}
         <div style={modalActions}>
-          <button style={secondaryBtn} onClick={onClose}>{t('common.cancel')}</button>
-          <button style={primaryBtn} disabled={saving} onClick={save}>{t('common.save')}</button>
+          <button style={secondaryBtn} onClick={onClose}>
+            {t('common.cancel')}
+          </button>
+          <button style={primaryBtn} disabled={saving} onClick={save}>
+            {t('common.save')}
+          </button>
         </div>
       </div>
     </Modal>
   )
 }
 
-function Field({ label, children, style }: { label: string; children: React.ReactNode; style?: React.CSSProperties }) {
+function Field({
+  label,
+  children,
+  style,
+}: {
+  label: string
+  children: React.ReactNode
+  style?: React.CSSProperties
+}) {
   return (
     <label style={{ display: 'flex', flexDirection: 'column', gap: 4, ...style }}>
-      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #a1a1aa)' }}>{label}</span>
+      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #a1a1aa)' }}>
+        {label}
+      </span>
       {children}
     </label>
   )
@@ -754,8 +982,14 @@ const theadRow: React.CSSProperties = {
   borderBottom: '1px solid var(--border, rgba(255,255,255,0.06))',
   textAlign: 'left',
 }
-const thStyle: React.CSSProperties = { padding: '10px 16px', fontWeight: 600, color: 'var(--text-secondary, #a1a1aa)' }
-const trRow: React.CSSProperties = { borderBottom: '1px solid var(--border, rgba(255,255,255,0.06))' }
+const thStyle: React.CSSProperties = {
+  padding: '10px 16px',
+  fontWeight: 600,
+  color: 'var(--text-secondary, #a1a1aa)',
+}
+const trRow: React.CSSProperties = {
+  borderBottom: '1px solid var(--border, rgba(255,255,255,0.06))',
+}
 const tdStyle: React.CSSProperties = { padding: '10px 16px', color: 'var(--text-primary, #f4f4f5)' }
 const formStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 14 }
 const inputStyle: React.CSSProperties = {
@@ -767,8 +1001,18 @@ const inputStyle: React.CSSProperties = {
   fontSize: 13,
   width: '100%',
 }
-const checkboxRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }
-const modalActions: React.CSSProperties = { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }
+const checkboxRow: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  fontSize: 13,
+}
+const modalActions: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'flex-end',
+  gap: 8,
+  marginTop: 8,
+}
 const primaryBtn: React.CSSProperties = {
   padding: '8px 14px',
   background: 'var(--accent, #6366f1)',
@@ -814,6 +1058,18 @@ const inactiveBadge: React.CSSProperties = {
   background: 'rgba(107,114,128,0.15)',
   color: 'var(--text-secondary, #a1a1aa)',
 }
-const activeDot: React.CSSProperties = { fontSize: 11, color: 'var(--success, #10b981)', fontWeight: 600 }
-const inactiveDot: React.CSSProperties = { fontSize: 11, color: 'var(--text-secondary, #a1a1aa)', fontWeight: 600 }
-const errStyle: React.CSSProperties = { color: 'var(--error, crimson)', padding: 12, fontWeight: 600 }
+const activeDot: React.CSSProperties = {
+  fontSize: 11,
+  color: 'var(--success, #10b981)',
+  fontWeight: 600,
+}
+const inactiveDot: React.CSSProperties = {
+  fontSize: 11,
+  color: 'var(--text-secondary, #a1a1aa)',
+  fontWeight: 600,
+}
+const errStyle: React.CSSProperties = {
+  color: 'var(--error, crimson)',
+  padding: 12,
+  fontWeight: 600,
+}

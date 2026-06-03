@@ -1,14 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  getRolePermissions,
-  listPermissions,
-  listRoles,
-  setRolePermissions,
-} from '../../api/admin'
+
+import { getRolePermissions, listPermissions, listRoles, setRolePermissions } from '../../api/admin'
 import { useT } from '../../i18n'
 import type { Permission, Role } from '../../types/auth'
-import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { useAuth } from '../auth/AuthProvider'
+import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { ReadOnlyNote } from './ReadOnlyNote'
 
 const ALL_PAGE_SIZE = 500
@@ -30,9 +26,13 @@ export function RolesPanel({ token }: { token: string }) {
 
   const selectedRole = roles.find((r) => r.id === selectedRoleId) ?? null
   const dirty = useMemo(() => {
-    if (assignedIds.size !== savedIds.size) return true
+    if (assignedIds.size !== savedIds.size) {
+      return true
+    }
     for (const id of assignedIds) {
-      if (!savedIds.has(id)) return true
+      if (!savedIds.has(id)) {
+        return true
+      }
     }
     return false
   }, [assignedIds, savedIds])
@@ -46,7 +46,9 @@ export function RolesPanel({ token }: { token: string }) {
           listRoles(token, 1, ALL_PAGE_SIZE),
           listPermissions(token, 1, ALL_PAGE_SIZE),
         ])
-        if (cancelled) return
+        if (cancelled) {
+          return
+        }
         setRoles(rolesRes.roles)
         setAllPerms(permsRes.permissions)
         const firstRole = rolesRes.roles[0]
@@ -57,9 +59,13 @@ export function RolesPanel({ token }: { token: string }) {
         }
         setError(null)
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e))
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : String(e))
+        }
       } finally {
-        if (!cancelled) setLoadingMeta(false)
+        if (!cancelled) {
+          setLoadingMeta(false)
+        }
       }
     }
     loadMeta()
@@ -87,7 +93,9 @@ export function RolesPanel({ token }: { token: string }) {
   )
 
   useEffect(() => {
-    if (!selectedRoleId) return
+    if (!selectedRoleId) {
+      return
+    }
     loadRolePermissions(selectedRoleId)
   }, [selectedRoleId, loadRolePermissions])
 
@@ -108,8 +116,11 @@ export function RolesPanel({ token }: { token: string }) {
   function togglePermission(permId: string) {
     setAssignedIds((prev) => {
       const next = new Set(prev)
-      if (next.has(permId)) next.delete(permId)
-      else next.add(permId)
+      if (next.has(permId)) {
+        next.delete(permId)
+      } else {
+        next.add(permId)
+      }
       return next
     })
   }
@@ -118,15 +129,20 @@ export function RolesPanel({ token }: { token: string }) {
     setAssignedIds((prev) => {
       const next = new Set(prev)
       for (const p of perms) {
-        if (checked) next.add(p.id)
-        else next.delete(p.id)
+        if (checked) {
+          next.add(p.id)
+        } else {
+          next.delete(p.id)
+        }
       }
       return next
     })
   }
 
   async function onSave() {
-    if (!selectedRoleId || !dirty) return
+    if (!selectedRoleId || !dirty) {
+      return
+    }
     setSaving(true)
     try {
       await setRolePermissions(token, selectedRoleId, [...assignedIds])
@@ -145,17 +161,32 @@ export function RolesPanel({ token }: { token: string }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {error && <div style={errStyle}>{t('common.error')}: {error}</div>}
+      {error && (
+        <div style={errStyle}>
+          {t('common.error')}: {error}
+        </div>
+      )}
       {!canEdit && <ReadOnlyNote />}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 280px) 1fr', gap: 24, alignItems: 'start' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(220px, 280px) 1fr',
+          gap: 24,
+          alignItems: 'start',
+        }}
+      >
         <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.roles.title', { count: roles.length })}</h2>
+          <h2 style={{ marginTop: 0, fontSize: 18 }}>
+            {t('admin.roles.title', { count: roles.length })}
+          </h2>
           <div style={containerStyle}>
             <LoadingOverlay loading={loadingMeta}>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                 {roles.length === 0 ? (
-                  <li style={{ padding: 16, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>—</li>
+                  <li style={{ padding: 16, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
+                    —
+                  </li>
                 ) : (
                   roles.map((r) => {
                     const active = r.id === selectedRoleId
@@ -168,7 +199,13 @@ export function RolesPanel({ token }: { token: string }) {
                         >
                           <strong style={{ fontSize: 14 }}>{r.name}</strong>
                           {r.description && (
-                            <div style={{ fontSize: 12, color: 'var(--text-secondary, #a1a1aa)', marginTop: 4 }}>
+                            <div
+                              style={{
+                                fontSize: 12,
+                                color: 'var(--text-secondary, #a1a1aa)',
+                                marginTop: 4,
+                              }}
+                            >
                               {r.description}
                             </div>
                           )}
@@ -183,7 +220,15 @@ export function RolesPanel({ token }: { token: string }) {
         </section>
 
         <section style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              flexWrap: 'wrap',
+            }}
+          >
             <h2 style={{ marginTop: 0, fontSize: 18, marginBottom: 0 }}>
               {selectedRole
                 ? t('admin.roles.permissions_for', { role: selectedRole.name })
@@ -191,10 +236,20 @@ export function RolesPanel({ token }: { token: string }) {
             </h2>
             {selectedRole && dirty && (
               <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" className="admin-btn-secondary" onClick={onDiscard} disabled={saving}>
+                <button
+                  type="button"
+                  className="admin-btn-secondary"
+                  onClick={onDiscard}
+                  disabled={saving}
+                >
                   {t('common.cancel')}
                 </button>
-                <button type="button" className="admin-btn-primary" onClick={() => void onSave()} disabled={saving}>
+                <button
+                  type="button"
+                  className="admin-btn-primary"
+                  onClick={() => void onSave()}
+                  disabled={saving}
+                >
                   {saving ? t('common.saving') : t('admin.roles.save_permissions')}
                 </button>
               </div>
@@ -206,7 +261,9 @@ export function RolesPanel({ token }: { token: string }) {
           ) : (
             <div style={containerStyle}>
               <LoadingOverlay loading={loadingMeta || loadingRolePerms}>
-                <div style={{ padding: '12px 16px', maxHeight: 'min(70vh, 640px)', overflowY: 'auto' }}>
+                <div
+                  style={{ padding: '12px 16px', maxHeight: 'min(70vh, 640px)', overflowY: 'auto' }}
+                >
                   {permsByResource.map(({ resource, permissions }) => {
                     const allChecked = permissions.every((p) => assignedIds.has(p.id))
                     const someChecked = permissions.some((p) => assignedIds.has(p.id))
@@ -217,14 +274,19 @@ export function RolesPanel({ token }: { token: string }) {
                             type="checkbox"
                             checked={allChecked}
                             ref={(el) => {
-                              if (el) el.indeterminate = someChecked && !allChecked
+                              if (el) {
+                                el.indeterminate = someChecked && !allChecked
+                              }
                             }}
                             onChange={(e) => toggleResourceGroup(permissions, e.target.checked)}
                             disabled={!canEdit}
                           />
                           {resourceBadge(resource)}
-                          <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
-                            {permissions.filter((p) => assignedIds.has(p.id)).length}/{permissions.length}
+                          <span
+                            style={{ marginLeft: 8, fontSize: 12, color: 'var(--text-secondary)' }}
+                          >
+                            {permissions.filter((p) => assignedIds.has(p.id)).length}/
+                            {permissions.length}
                           </span>
                         </label>
                         <ul style={{ listStyle: 'none', padding: '8px 0 0 28px', margin: 0 }}>
@@ -237,7 +299,14 @@ export function RolesPanel({ token }: { token: string }) {
                                   onChange={() => togglePermission(p.id)}
                                   disabled={!canEdit}
                                 />
-                                <span style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 12 }}>{p.name}</span>
+                                <span
+                                  style={{
+                                    fontFamily: 'var(--font-mono, monospace)',
+                                    fontSize: 12,
+                                  }}
+                                >
+                                  {p.name}
+                                </span>
                                 <span style={{ marginLeft: 8 }}>{actionBadge(p.action)}</span>
                               </label>
                             </li>
@@ -274,13 +343,21 @@ function resourceBadge(res: string) {
       style = { ...style, background: 'rgba(16, 185, 129, 0.12)', color: 'var(--success, #10b981)' }
       break
     case 'datasource':
-      style = { ...style, background: 'var(--accent-glow, rgba(99, 102, 241, 0.15))', color: 'var(--accent, #6366f1)' }
+      style = {
+        ...style,
+        background: 'var(--accent-glow, rgba(99, 102, 241, 0.15))',
+        color: 'var(--accent, #6366f1)',
+      }
       break
     case 'model':
       style = { ...style, background: 'rgba(245, 158, 11, 0.14)', color: 'var(--warning, #f59e0b)' }
       break
     default:
-      style = { ...style, background: 'rgba(107, 114, 128, 0.1)', color: 'var(--text-secondary, #a1a1aa)' }
+      style = {
+        ...style,
+        background: 'rgba(107, 114, 128, 0.1)',
+        color: 'var(--text-secondary, #a1a1aa)',
+      }
   }
   return <span style={style}>{res}</span>
 }

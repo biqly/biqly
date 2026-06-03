@@ -159,7 +159,9 @@
   cursor: pointer;
   overflow: hidden;
   padding: 0;
-  transition: border-color 200ms ease, box-shadow 200ms ease;
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease;
 }
 
 .settings-profile-avatar-button:hover {
@@ -246,7 +248,11 @@
 
 .settings-profile-card--support-card {
   border-color: color-mix(in srgb, var(--warning, #f59e0b) 20%, var(--border)) !important;
-  background: linear-gradient(180deg, var(--bg-card) 0%, color-mix(in srgb, var(--warning, #f59e0b) 3%, var(--bg-card)) 100%) !important;
+  background: linear-gradient(
+    180deg,
+    var(--bg-card) 0%,
+    color-mix(in srgb, var(--warning, #f59e0b) 3%, var(--bg-card)) 100%
+  ) !important;
 }
 
 .settings-profile-block__title {
@@ -345,7 +351,10 @@
   min-height: 100%;
   margin-bottom: 0;
   padding: 1.25rem;
-  transition: transform 220ms cubic-bezier(0.4, 0, 0.2, 1), border-color 220ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 220ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    transform 220ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 220ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 220ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .settings-link-card:hover {

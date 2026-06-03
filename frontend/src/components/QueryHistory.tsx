@@ -1,16 +1,18 @@
-import { Fragment, useEffect, useState, useMemo, useCallback } from 'react'
+import '../styles/ai-jobs.css'
+
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { listAIHistory, getAIHistoryDetail } from '../api/admin'
-import { useAuth } from './auth/AuthProvider'
-import { useT } from '../i18n'
-import type { AIHistoryEntry } from '../types/auth'
-import { Pagination } from './ui/Pagination'
-import { LoadingOverlay } from './ui/LoadingOverlay'
+
+import { getAIHistoryDetail, listAIHistory } from '../api/admin'
 import { useDatasources } from '../hooks/useDatasources'
 import { useSemanticModels } from '../hooks/useSemanticModels'
-import { Select } from './ui/Select'
+import { useT } from '../i18n'
+import type { AIHistoryEntry } from '../types/auth'
+import { useAuth } from './auth/AuthProvider'
 import { EmptyState } from './ui/EmptyState'
-import '../styles/ai-jobs.css'
+import { LoadingOverlay } from './ui/LoadingOverlay'
+import { Pagination } from './ui/Pagination'
+import { Select } from './ui/Select'
 
 export default function QueryHistory() {
   const t = useT()
@@ -40,7 +42,9 @@ export default function QueryHistory() {
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
 
   const filteredModels = useMemo(() => {
-    if (!selectedDatasourceId) return models
+    if (!selectedDatasourceId) {
+      return models
+    }
     return models.filter((m) => m.datasource_id === selectedDatasourceId)
   }, [models, selectedDatasourceId])
 
@@ -63,7 +67,9 @@ export default function QueryHistory() {
   }, [selectedDatasourceId, filteredModels, selectedModelId])
 
   const loadHistory = useCallback(async () => {
-    if (!accessToken) return
+    if (!accessToken) {
+      return
+    }
     setLoading(true)
     try {
       const res = await listAIHistory(accessToken, {
@@ -105,13 +111,19 @@ export default function QueryHistory() {
     setDetailLoading(true)
     getAIHistoryDetail(accessToken, expandedId)
       .then((data) => {
-        if (!cancelled) setDetail(data)
+        if (!cancelled) {
+          setDetail(data)
+        }
       })
       .catch(() => {
-        if (!cancelled) setDetail(null)
+        if (!cancelled) {
+          setDetail(null)
+        }
       })
       .finally(() => {
-        if (!cancelled) setDetailLoading(false)
+        if (!cancelled) {
+          setDetailLoading(false)
+        }
       })
     return () => {
       cancelled = true
@@ -145,23 +157,28 @@ export default function QueryHistory() {
   }
 
   function formatDetail(value: unknown): string {
-    if (typeof value === 'string') return value
+    if (typeof value === 'string') {
+      return value
+    }
     return JSON.stringify(value, null, 2)
   }
 
-  if (!accessToken) return null
+  if (!accessToken) {
+    return null
+  }
 
   return (
     <div className="page-stack">
       <div className="card">
         <div className="card-intro">
           <h2>{t('query_history.title')}</h2>
-          <p className="card-lead card-lead--single-line">
-            {t('app.nav.query_history_desc')}
-          </p>
+          <p className="card-lead card-lead--single-line">{t('app.nav.query_history_desc')}</p>
         </div>
 
-        <div className="form-row" style={{ gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '1.25rem' }}>
+        <div
+          className="form-row"
+          style={{ gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '1.25rem' }}
+        >
           <label className="form-field" style={{ minWidth: '13rem' }}>
             <span className="form-label">{t('glossary.label_datasource')}</span>
             <Select
@@ -219,50 +236,157 @@ export default function QueryHistory() {
         )}
 
         <LoadingOverlay loading={loading}>
-          <div style={{ minHeight: totalItems === 0 && loading ? 120 : 'auto', display: 'flex', flexDirection: 'column' }}>
+          <div
+            style={{
+              minHeight: totalItems === 0 && loading ? 120 : 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
             {totalItems === 0 && !loading ? (
               <EmptyState description={t('query_history.empty')} />
             ) : (
               <>
                 <div className="ai-history__table-wrap">
-                  <table className="ai-history__table" style={{ borderCollapse: 'collapse', width: '100%' }}>
+                  <table
+                    className="ai-history__table"
+                    style={{ borderCollapse: 'collapse', width: '100%' }}
+                  >
                     <thead>
-                      <tr style={{ background: 'var(--table-header-bg, #f9fafb)', borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))', textAlign: 'left' }}>
-                        <th style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--table-header-fg, #4b5563)' }}>{t('query_history.col_question')}</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--table-header-fg, #4b5563)' }}>{t('query_history.col_status')}</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--table-header-fg, #4b5563)' }}>{t('query_history.col_confidence')}</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--table-header-fg, #4b5563)' }}>{t('query_history.col_model')}</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--table-header-fg, #4b5563)' }}>{t('query_history.col_latency')}</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--table-header-fg, #4b5563)' }}>{t('query_history.col_tokens')}</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--table-header-fg, #4b5563)' }}>{t('query_history.col_created_at')}</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--table-header-fg, #4b5563)' }}>{t('query_history.col_actions')}</th>
+                      <tr
+                        style={{
+                          background: 'var(--table-header-bg, #f9fafb)',
+                          borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
+                          textAlign: 'left',
+                        }}
+                      >
+                        <th
+                          style={{
+                            padding: '12px 16px',
+                            fontWeight: 600,
+                            color: 'var(--table-header-fg, #4b5563)',
+                          }}
+                        >
+                          {t('query_history.col_question')}
+                        </th>
+                        <th
+                          style={{
+                            padding: '12px 16px',
+                            fontWeight: 600,
+                            color: 'var(--table-header-fg, #4b5563)',
+                          }}
+                        >
+                          {t('query_history.col_status')}
+                        </th>
+                        <th
+                          style={{
+                            padding: '12px 16px',
+                            fontWeight: 600,
+                            color: 'var(--table-header-fg, #4b5563)',
+                          }}
+                        >
+                          {t('query_history.col_confidence')}
+                        </th>
+                        <th
+                          style={{
+                            padding: '12px 16px',
+                            fontWeight: 600,
+                            color: 'var(--table-header-fg, #4b5563)',
+                          }}
+                        >
+                          {t('query_history.col_model')}
+                        </th>
+                        <th
+                          style={{
+                            padding: '12px 16px',
+                            fontWeight: 600,
+                            color: 'var(--table-header-fg, #4b5563)',
+                          }}
+                        >
+                          {t('query_history.col_latency')}
+                        </th>
+                        <th
+                          style={{
+                            padding: '12px 16px',
+                            fontWeight: 600,
+                            color: 'var(--table-header-fg, #4b5563)',
+                          }}
+                        >
+                          {t('query_history.col_tokens')}
+                        </th>
+                        <th
+                          style={{
+                            padding: '12px 16px',
+                            fontWeight: 600,
+                            color: 'var(--table-header-fg, #4b5563)',
+                          }}
+                        >
+                          {t('query_history.col_created_at')}
+                        </th>
+                        <th
+                          style={{
+                            padding: '12px 16px',
+                            fontWeight: 600,
+                            color: 'var(--table-header-fg, #4b5563)',
+                          }}
+                        >
+                          {t('query_history.col_actions')}
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {entries.map((entry) => {
                         const badge = getStatusBadge(entry)
                         const isExpanded = expandedId === entry.id
-                        const datasourceName = datasourceMap.get(entry.datasource_id) || entry.datasource_id
-                        const modelName = entry.model_id ? (modelMap.get(entry.model_id) || entry.model_id) : '—'
+                        const datasourceName =
+                          datasourceMap.get(entry.datasource_id) || entry.datasource_id
+                        const modelName = entry.model_id
+                          ? modelMap.get(entry.model_id) || entry.model_id
+                          : '—'
 
                         return (
                           <Fragment key={entry.id}>
-                            <tr className={isExpanded ? 'ai-history__row--expanded' : ''} style={{ borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))' }}>
-                              <td className="ai-history__question" style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>
+                            <tr
+                              className={isExpanded ? 'ai-history__row--expanded' : ''}
+                              style={{
+                                borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
+                              }}
+                            >
+                              <td
+                                className="ai-history__question"
+                                style={{ padding: '12px 16px', color: 'var(--text-primary)' }}
+                              >
                                 <div style={{ fontWeight: '500' }}>{entry.question || '—'}</div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                <div
+                                  style={{
+                                    fontSize: '0.75rem',
+                                    color: 'var(--text-secondary)',
+                                    marginTop: '2px',
+                                  }}
+                                >
                                   {datasourceName}
                                 </div>
                               </td>
                               <td style={{ padding: '12px 16px' }}>
-                                <span className={`ai-history__status ai-history__status--${badge.cls}`}>
+                                <span
+                                  className={`ai-history__status ai-history__status--${badge.cls}`}
+                                >
                                   {badge.label}
                                 </span>
                               </td>
                               <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>
-                                {entry.confidence_score != null ? `${(entry.confidence_score * 100).toFixed(0)}%` : '—'}
+                                {entry.confidence_score != null
+                                  ? `${(entry.confidence_score * 100).toFixed(0)}%`
+                                  : '—'}
                               </td>
-                              <td className="ai-history__mono" style={{ padding: '12px 16px', fontFamily: 'var(--font-mono, monospace)', color: 'var(--text-primary)' }}>
+                              <td
+                                className="ai-history__mono"
+                                style={{
+                                  padding: '12px 16px',
+                                  fontFamily: 'var(--font-mono, monospace)',
+                                  color: 'var(--text-primary)',
+                                }}
+                              >
                                 {modelName}
                               </td>
                               <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>
@@ -271,11 +395,24 @@ export default function QueryHistory() {
                               <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>
                                 {entry.token_count ?? '—'}
                               </td>
-                              <td style={{ padding: '12px 16px', color: 'var(--text-primary)', fontSize: '0.8rem' }}>
+                              <td
+                                style={{
+                                  padding: '12px 16px',
+                                  color: 'var(--text-primary)',
+                                  fontSize: '0.8rem',
+                                }}
+                              >
                                 {new Date(entry.created_at).toLocaleString()}
                               </td>
                               <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    gap: '8px',
+                                    justifyContent: 'flex-end',
+                                    alignItems: 'center',
+                                  }}
+                                >
                                   <button
                                     type="button"
                                     onClick={() => handleRerun(entry.question)}
@@ -300,7 +437,15 @@ export default function QueryHistory() {
                               <tr className="ai-history__detail-row">
                                 <td colSpan={8}>
                                   {detailLoading ? (
-                                    <div style={{ position: 'relative', minHeight: 85, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <div
+                                      style={{
+                                        position: 'relative',
+                                        minHeight: 85,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                      }}
+                                    >
                                       <LoadingOverlay loading={true} />
                                     </div>
                                   ) : detail ? (

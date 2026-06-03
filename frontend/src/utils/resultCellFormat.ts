@@ -29,26 +29,42 @@ const numberFormatCache = new Map<string, Intl.NumberFormat>()
 function getNumberFormat(options: Intl.NumberFormatOptions): Intl.NumberFormat {
   const key = JSON.stringify(options)
   const cached = numberFormatCache.get(key)
-  if (cached) return cached
+  if (cached) {
+    return cached
+  }
   const formatter = new Intl.NumberFormat(undefined, options)
   if (numberFormatCache.size >= MAX_NUMBER_FORMAT_CACHE_SIZE) {
     const oldest = numberFormatCache.keys().next().value
-    if (oldest) numberFormatCache.delete(oldest)
+    if (oldest) {
+      numberFormatCache.delete(oldest)
+    }
   }
   numberFormatCache.set(key, formatter)
   return formatter
 }
 
 function parseNumeric(value: unknown): number | null {
-  if (value === null || value === undefined) return null
-  if (typeof value === 'boolean') return null
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'bigint') return Number(value)
+  if (value === null || value === undefined) {
+    return null
+  }
+  if (typeof value === 'boolean') {
+    return null
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+  if (typeof value === 'bigint') {
+    return Number(value)
+  }
   if (typeof value === 'string') {
     const t = value.trim()
-    if (t === '') return null
+    if (t === '') {
+      return null
+    }
     const n = Number(t)
-    if (!Number.isNaN(n) && Number.isFinite(n)) return n
+    if (!Number.isNaN(n) && Number.isFinite(n)) {
+      return n
+    }
   }
   return null
 }
@@ -56,13 +72,26 @@ function parseNumeric(value: unknown): number | null {
 /** Surrogate keys and numeric IDs: no thousand separators (e.g. 11091 not 11,091). */
 function isIdentifierLikeColumn(name: string): boolean {
   const u = name.toUpperCase()
-  if (u === 'ID' || u === 'ROW' || u === 'YEAR' || u === 'MONTH' || u === 'QUARTER' || u === 'WEEK') {
+  if (
+    u === 'ID' ||
+    u === 'ROW' ||
+    u === 'YEAR' ||
+    u === 'MONTH' ||
+    u === 'QUARTER' ||
+    u === 'WEEK'
+  ) {
     return false
   }
-  if (u.endsWith('_ID') || u.endsWith('_KEY')) return true
-  if (u.includes('ENTITYID')) return true
+  if (u.endsWith('_ID') || u.endsWith('_KEY')) {
+    return true
+  }
+  if (u.includes('ENTITYID')) {
+    return true
+  }
   // Camel/snake keys: customerid, orderid, territoryid (length avoids GRID, VALID, …)
-  if (u.length >= 7 && u.endsWith('ID') && /[A-Z]ID$/.test(u)) return true
+  if (u.length >= 7 && u.endsWith('ID') && /[A-Z]ID$/.test(u)) {
+    return true
+  }
   return false
 }
 
@@ -86,13 +115,17 @@ function isCalendarIntColumn(name: string): boolean {
 
 function maxFractionDigitsFromQuestion(q: string): number | null {
   const lower = q.toLowerCase()
-  const m = lower.match(/(\d+)\s*(?:ondalık|decimal|hane|place|places|digits?)\b/)
-  if (m?.[1]) return Math.min(10, Math.max(1, parseInt(m[1], 10)))
+  const m = /(\d+)\s*(?:ondalık|decimal|hane|place|places|digits?)\b/.exec(lower)
+  if (m?.[1]) {
+    return Math.min(10, Math.max(1, parseInt(m[1], 10)))
+  }
   return null
 }
 
 function wantsFractionalDisplay(question: string | undefined): boolean {
-  if (!question || !question.trim()) return false
+  if (!question?.trim()) {
+    return false
+  }
   const q = question.toLowerCase()
   return FRACTION_HINT_PATTERNS.some((p) => p.test(q))
 }
@@ -103,20 +136,28 @@ function wantsFractionalDisplay(question: string | undefined): boolean {
 export function formatResultCell(
   value: unknown,
   columnName: string,
-  options: FormatResultCellOptions = {}
+  options: FormatResultCellOptions = {},
 ): string {
-  if (value === null || value === undefined) return ''
+  if (value === null || value === undefined) {
+    return ''
+  }
 
-  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})$/.test(value)) {
+  if (
+    typeof value === 'string' &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})$/.test(value)
+  ) {
     const d = new Date(value)
     if (!isNaN(d.getTime())) {
-      const hasTime = !value.endsWith('T00:00:00Z') && !value.endsWith('T00:00:00') && !value.includes('T00:00:00.000')
+      const hasTime =
+        !value.endsWith('T00:00:00Z') &&
+        !value.endsWith('T00:00:00') &&
+        !value.includes('T00:00:00.000')
       try {
         return new Intl.DateTimeFormat(undefined, {
           year: 'numeric',
           month: 'short',
           day: 'numeric',
-          ...(hasTime ? { hour: '2-digit', minute: '2-digit' } : {})
+          ...(hasTime ? { hour: '2-digit', minute: '2-digit' } : {}),
         }).format(d)
       } catch (e) {
         // ignore and fallback
@@ -125,12 +166,13 @@ export function formatResultCell(
   }
 
   const n = parseNumeric(value)
-  if (n === null) return String(value)
+  if (n === null) {
+    return String(value)
+  }
 
   const calendarInt = isCalendarIntColumn(columnName)
   const idLike = isIdentifierLikeColumn(columnName)
-  const fractional =
-    !calendarInt && !idLike && wantsFractionalDisplay(options.question)
+  const fractional = !calendarInt && !idLike && wantsFractionalDisplay(options.question)
 
   if (calendarInt || idLike) {
     const rounded = Math.round(n)

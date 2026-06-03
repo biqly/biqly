@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useT } from '../../i18n'
-import { useToast } from '../../hooks/useToast'
-import { useAuth } from '../auth/AuthProvider'
-import { Select } from '../ui/Select'
-import { LoadingOverlay } from '../ui/LoadingOverlay'
+
 import type { AIPurpose } from '../../api/aiProviders'
 import {
   deleteUserAIPreference,
@@ -11,6 +7,11 @@ import {
   putUserAIPreferences,
   type SelectableAIModel,
 } from '../../api/aiUserModels'
+import { useToast } from '../../hooks/useToast'
+import { useT } from '../../i18n'
+import { useAuth } from '../auth/AuthProvider'
+import { LoadingOverlay } from '../ui/LoadingOverlay'
+import { Select } from '../ui/Select'
 
 // Only the purposes that are resolved per-user at runtime and are safe to vary
 // per user are offered here. embedding/translation write shared metadata and
@@ -21,19 +22,105 @@ const PURPOSES: AIPurpose[] = ['query', 'describe']
 
 const PURPOSE_ICONS: Record<AIPurpose, React.ReactNode> = {
   query: (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-message-square-code" style={{ color: 'var(--accent)' }}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="m10 8-2 2 2 2"/><path d="m14 8 2 2-2 2"/></svg>
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="lucide lucide-message-square-code"
+      style={{ color: 'var(--accent)' }}
+    >
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      <path d="m10 8-2 2 2 2" />
+      <path d="m14 8 2 2-2 2" />
+    </svg>
   ),
   describe: (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-file-text" style={{ color: '#10b981' }}><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="lucide lucide-file-text"
+      style={{ color: '#10b981' }}
+    >
+      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+      <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+      <path d="M10 9H8" />
+      <path d="M16 13H8" />
+      <path d="M16 17H8" />
+    </svg>
   ),
   embedding: (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-database" style={{ color: '#f59e0b' }}><circle cx="12" cy="5" r="3"/><path d="M3 5V19a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5"/><path d="M3 12h18"/></svg>
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="lucide lucide-database"
+      style={{ color: '#f59e0b' }}
+    >
+      <circle cx="12" cy="5" r="3" />
+      <path d="M3 5V19a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5" />
+      <path d="M3 12h18" />
+    </svg>
   ),
   translation: (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-languages" style={{ color: '#3b82f6' }}><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="lucide lucide-languages"
+      style={{ color: '#3b82f6' }}
+    >
+      <path d="m5 8 6 6" />
+      <path d="m4 14 6-6 2-3" />
+      <path d="M2 5h12" />
+      <path d="M7 2h1" />
+      <path d="m22 22-5-10-5 10" />
+      <path d="M14 18h6" />
+    </svg>
   ),
   judge: (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-gavel" style={{ color: '#ec4899' }}><path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L11 10"/><path d="m16 16 3-3"/><path d="m8 7 9 9"/><path d="m11 4 8 8"/></svg>
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="lucide lucide-gavel"
+      style={{ color: '#ec4899' }}
+    >
+      <path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L11 10" />
+      <path d="m16 16 3-3" />
+      <path d="m8 7 9 9" />
+      <path d="m11 4 8 8" />
+    </svg>
   ),
 }
 
@@ -69,7 +156,9 @@ export function AIModelPreferencesSection() {
 
   const modelsByPurpose = useMemo(() => {
     const map: Record<string, SelectableAIModel[]> = {}
-    for (const p of PURPOSES) map[p] = []
+    for (const p of PURPOSES) {
+      map[p] = []
+    }
     for (const m of models) {
       const bucket = map[m.purpose] ?? (map[m.purpose] = [])
       bucket.push(m)
@@ -124,7 +213,9 @@ export function AIModelPreferencesSection() {
         <div>
           <h2 id="ai-models-prefs-heading">{t('settings.ai_models.section')}</h2>
           <p>{t('settings.ai_models.hint')}</p>
-          {restricted && <p className="ai-model-prefs__restricted">{t('settings.ai_models.restricted_hint')}</p>}
+          {restricted && (
+            <p className="ai-model-prefs__restricted">{t('settings.ai_models.restricted_hint')}</p>
+          )}
         </div>
       </div>
 
@@ -138,11 +229,21 @@ export function AIModelPreferencesSection() {
                 <div key={purpose} className="ai-purpose-pref">
                   <div className="ai-purpose-pref__head">
                     <div>
-                      <p className="ai-purpose-pref__title" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                      <p
+                        className="ai-purpose-pref__title"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          margin: 0,
+                        }}
+                      >
                         {PURPOSE_ICONS[purpose]}
                         {t(`admin.ai_providers.purposes.${purpose}`)}
                       </p>
-                      <p className="ai-purpose-pref__hint">{t(`settings.ai_models.purpose_hints.${purpose}`)}</p>
+                      <p className="ai-purpose-pref__hint">
+                        {t(`settings.ai_models.purpose_hints.${purpose}`)}
+                      </p>
                     </div>
                     {value ? (
                       <button
@@ -168,7 +269,9 @@ export function AIModelPreferencesSection() {
                     disabled={saving || options.length === 0}
                   />
                   {options.length === 0 && (
-                    <p className="ai-purpose-pref__empty-hint">{t('settings.ai_models.no_models_for_purpose')}</p>
+                    <p className="ai-purpose-pref__empty-hint">
+                      {t('settings.ai_models.no_models_for_purpose')}
+                    </p>
                   )}
                 </div>
               )

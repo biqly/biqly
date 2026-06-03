@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
+
 import { getMyDatasources } from '../api/admin'
+import { driverLabelKey, driverLogoUrl, driverStructuredDefaults } from '../dbDrivers'
 import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
-import { driverLabelKey, driverLogoUrl, driverStructuredDefaults } from '../dbDrivers'
 import { useT } from '../i18n'
 import type { Datasource } from '../types/metadata'
 import { useAuth } from './auth/AuthProvider'
@@ -49,8 +50,12 @@ function connectionSummary(ds: Datasource): { line1: string; line2?: string } {
   if (ds.dsn_mode === 'structured') {
     const host = ds.host?.trim()
     const db = ds.database_name?.trim()
-    if (host && db) return { line1: `${host} · ${db}` }
-    if (host) return { line1: host }
+    if (host && db) {
+      return { line1: `${host} · ${db}` }
+    }
+    if (host) {
+      return { line1: host }
+    }
     return { line1: '' }
   }
   return { line1: '' }
@@ -74,9 +79,13 @@ export default function Datasources() {
   const [draftTestResult, setDraftTestResult] = useState<string | null>(null)
 
   const formatDateTime = (value: string | null | undefined) => {
-    if (!value) return t('datasources.never')
+    if (!value) {
+      return t('datasources.never')
+    }
     const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return t('datasources.never')
+    if (Number.isNaN(date.getTime())) {
+      return t('datasources.never')
+    }
     return dateFormatter.format(date)
   }
 
@@ -88,7 +97,9 @@ export default function Datasources() {
         get<Datasource[]>('/api/datasources', options),
         accessToken ? getMyDatasources(accessToken).catch(() => null) : Promise.resolve(null),
       ])
-      if (data) setItems(data)
+      if (data) {
+        setItems(data)
+      }
       setAccessibleDatasourceIDs(accessibleIDs)
     } finally {
       setInitLoading(false)
@@ -121,10 +132,14 @@ export default function Datasources() {
 
   const draftPayload = () => {
     const name = form.name.trim()
-    if (!name) return null
+    if (!name) {
+      return null
+    }
 
     if (connMode === 'raw') {
-      if (!editingId && !form.dsn.trim()) return null
+      if (!editingId && !form.dsn.trim()) {
+        return null
+      }
       return {
         id: editingId ?? undefined,
         name,
@@ -134,12 +149,16 @@ export default function Datasources() {
       }
     }
 
-    if (!structured.host.trim()) return null
+    if (!structured.host.trim()) {
+      return null
+    }
     const portStr = structured.port.trim()
     let port: number | undefined
     if (portStr !== '') {
       const n = parseInt(portStr, 10)
-      if (Number.isNaN(n) || n <= 0) return null
+      if (Number.isNaN(n) || n <= 0) {
+        return null
+      }
       port = n
     }
 
@@ -168,7 +187,9 @@ export default function Datasources() {
 
   const save = async () => {
     const payload = draftPayload()
-    if (!payload) return
+    if (!payload) {
+      return
+    }
 
     const saved = editingId
       ? await putData(`/api/datasources/${editingId}`, payload, authRequestOptions(accessToken))
@@ -181,7 +202,9 @@ export default function Datasources() {
 
   const testDraft = async () => {
     const payload = draftPayload()
-    if (!payload) return
+    if (!payload) {
+      return
+    }
     setDraftTestResult(t('datasources.testing'))
     const res = await postData<{ success: boolean; latency_ms?: number; error?: string }>(
       '/api/datasources/test-connection',
@@ -224,7 +247,9 @@ export default function Datasources() {
       message: t('datasources.delete_confirm'),
       variant: 'danger',
     })
-    if (!ok) return
+    if (!ok) {
+      return
+    }
     await deleteData(`/api/datasources/${id}`, authRequestOptions(accessToken))
     load()
   }
@@ -251,11 +276,12 @@ export default function Datasources() {
 
   const sync = async (id: string) => {
     setSyncResult({ ...syncResult, [id]: t('datasources.syncing') })
-    const res = await postData<{ schemas: number; tables: number; columns: number; relations: number }>(
-      `/api/datasources/${id}/sync-metadata`,
-      {},
-      authRequestOptions(accessToken),
-    )
+    const res = await postData<{
+      schemas: number
+      tables: number
+      columns: number
+      relations: number
+    }>(`/api/datasources/${id}/sync-metadata`, {}, authRequestOptions(accessToken))
     if (res) {
       setSyncResult({
         ...syncResult,
@@ -272,7 +298,8 @@ export default function Datasources() {
     (connMode === 'raw'
       ? editingId !== null || form.dsn.trim() !== ''
       : structured.host.trim() !== '' &&
-        (structured.port.trim() === '' || (!Number.isNaN(parseInt(structured.port, 10)) && parseInt(structured.port, 10) > 0)))
+        (structured.port.trim() === '' ||
+          (!Number.isNaN(parseInt(structured.port, 10)) && parseInt(structured.port, 10) > 0)))
   const datasourceRows = buildDatasourceAccessView(items, accessibleDatasourceIDs)
 
   if (initLoading && items.length === 0) {
@@ -325,78 +352,84 @@ export default function Datasources() {
               const logoSrc = driverLogoUrl(ds.type)
               const modeHint =
                 hint.line1 ||
-                (ds.dsn_mode === 'structured' ? t('datasources.mode_structured') : t('datasources.mode_raw'))
+                (ds.dsn_mode === 'structured'
+                  ? t('datasources.mode_structured')
+                  : t('datasources.mode_raw'))
               return (
-              <tr key={ds.id}>
-                <td>
-                  <div className="ds-record">
-                    <div className="ds-record__head">
-                      <span className="ds-record__name">{ds.name}</span>
-                      {showAccessBadge && access === 'allowed' && (
-                        <span className="ds-record__access ds-record__access--allowed">
-                          <span className="ds-record__access-icon" aria-hidden>
-                            ✓
+                <tr key={ds.id}>
+                  <td>
+                    <div className="ds-record">
+                      <div className="ds-record__head">
+                        <span className="ds-record__name">{ds.name}</span>
+                        {showAccessBadge && access === 'allowed' && (
+                          <span className="ds-record__access ds-record__access--allowed">
+                            <span className="ds-record__access-icon" aria-hidden>
+                              ✓
+                            </span>
+                            {t('datasources.access_allowed')}
                           </span>
-                          {t('datasources.access_allowed')}
-                        </span>
-                      )}
+                        )}
+                      </div>
+                      {modeHint ? <div className="ds-record__meta">{modeHint}</div> : null}
+                      <div className="ds-record__foot">
+                        <button
+                          type="button"
+                          title={ds.id}
+                          aria-label={t('datasources.copy_id_aria', { id: ds.id })}
+                          className="ds-record__id"
+                          onClick={() => {
+                            navigator.clipboard?.writeText(ds.id).catch(() => {})
+                          }}
+                        >
+                          <span aria-hidden="true">id · {ds.id.slice(0, 8)}…</span>
+                        </button>
+                      </div>
                     </div>
-                    {modeHint ? <div className="ds-record__meta">{modeHint}</div> : null}
-                    <div className="ds-record__foot">
+                  </td>
+                  <td>
+                    <div className={`driver-cell driver-cell--${ds.type}`}>
+                      {logoSrc ? (
+                        <span className="driver-cell__logo" aria-hidden>
+                          <img src={logoSrc} alt="" width={26} height={26} />
+                        </span>
+                      ) : null}
+                      <span className="driver-cell__label">{t(driverLabelKey(ds.type))}</span>
+                    </div>
+                  </td>
+                  <td>
+                    {formatDateTime(ds.last_sync_at)}
+                    {syncResult[ds.id] && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        {syncResult[ds.id]}
+                      </div>
+                    )}
+                    {testResult[ds.id] && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        {testResult[ds.id]}
+                      </div>
+                    )}
+                  </td>
+                  <td className="actions">
+                    <div className="row-actions">
+                      <button type="button" className="btn btn-sm" onClick={() => edit(ds)}>
+                        {t('datasources.edit')}
+                      </button>
+                      <button type="button" className="btn btn-sm" onClick={() => test(ds.id)}>
+                        {t('datasources.test')}
+                      </button>
+                      <button type="button" className="btn btn-sm" onClick={() => sync(ds.id)}>
+                        {t('datasources.sync')}
+                      </button>
                       <button
                         type="button"
-                        title={ds.id}
-                        aria-label={t('datasources.copy_id_aria', { id: ds.id })}
-                        className="ds-record__id"
-                        onClick={() => {
-                          navigator.clipboard?.writeText(ds.id).catch(() => {})
-                        }}
+                        className="btn btn-sm btn-danger"
+                        onClick={() => del(ds.id)}
                       >
-                        <span aria-hidden="true">id · {ds.id.slice(0, 8)}…</span>
+                        {t('datasources.delete')}
                       </button>
                     </div>
-                  </div>
-                </td>
-                <td>
-                  <div className={`driver-cell driver-cell--${ds.type}`}>
-                    {logoSrc ? (
-                      <span className="driver-cell__logo" aria-hidden>
-                        <img src={logoSrc} alt="" width={26} height={26} />
-                      </span>
-                    ) : null}
-                    <span className="driver-cell__label">{t(driverLabelKey(ds.type))}</span>
-                  </div>
-                </td>
-                <td>
-                  {formatDateTime(ds.last_sync_at)}
-                  {syncResult[ds.id] && (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      {syncResult[ds.id]}
-                    </div>
-                  )}
-                  {testResult[ds.id] && (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      {testResult[ds.id]}
-                    </div>
-                  )}
-                </td>
-                <td className="actions">
-                  <div className="row-actions">
-                    <button type="button" className="btn btn-sm" onClick={() => edit(ds)}>
-                      {t('datasources.edit')}
-                    </button>
-                    <button type="button" className="btn btn-sm" onClick={() => test(ds.id)}>
-                      {t('datasources.test')}
-                    </button>
-                    <button type="button" className="btn btn-sm" onClick={() => sync(ds.id)}>
-                      {t('datasources.sync')}
-                    </button>
-                    <button type="button" className="btn btn-sm btn-danger" onClick={() => del(ds.id)}>
-                      {t('datasources.delete')}
-                    </button>
-                  </div>
-                </td>
-              </tr>
+                  </td>
+                </tr>
               )
             })}
           </tbody>

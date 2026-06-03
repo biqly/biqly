@@ -1,21 +1,23 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import '../../styles/workspace.css'
+
+import { useCallback, useEffect, useMemo, useState } from 'react'
+
 import {
-  getWorkspace,
-  updateWorkspace,
-  listWorkspaceMembers,
   addWorkspaceMember,
-  removeWorkspaceMember,
-  updateWorkspaceMemberRole,
-  listWorkspaceDatasources,
   attachWorkspaceDatasource,
   detachWorkspaceDatasource,
+  getWorkspace,
   listRoles,
+  listWorkspaceDatasources,
+  listWorkspaceMembers,
+  removeWorkspaceMember,
+  updateWorkspace,
+  updateWorkspaceMemberRole,
 } from '../../api/admin'
-import { useT } from '../../i18n'
-import type { Workspace, WorkspaceMember, WorkspaceDatasource, Role } from '../../types/auth'
+import { useAdminLookups } from '../../hooks/useAdminLookups'
 import { useConfirm } from '../../hooks/useConfirm'
-import { LoadingOverlay } from '../ui/LoadingOverlay'
-import { Select } from '../ui/Select'
+import { useT } from '../../i18n'
+import type { Role, Workspace, WorkspaceDatasource, WorkspaceMember } from '../../types/auth'
 import {
   datasourceDisplayLabel,
   datasourcePickerOptions,
@@ -23,9 +25,9 @@ import {
   userDisplayLabel,
   userSelectOptions,
 } from '../admin/adminSelectOptions'
-import { useAdminLookups } from '../../hooks/useAdminLookups'
 import { useAuth } from '../auth/AuthProvider'
-import '../../styles/workspace.css'
+import { LoadingOverlay } from '../ui/LoadingOverlay'
+import { Select } from '../ui/Select'
 
 interface Props {
   token: string
@@ -96,14 +98,17 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
   // caller actually holds the relevant permission (super admins always do).
   // The backend enforces the same checks; this only drives the UI affordances.
   const canManageMembers = !isPersonal && hasPermission('admin:workspaces', 'workspace:invite')
-  const canManageDatasources = !isPersonal && hasPermission('admin:workspaces', 'workspace:manage_datasources')
+  const canManageDatasources =
+    !isPersonal && hasPermission('admin:workspaces', 'workspace:manage_datasources')
   const restrictedNote = isPersonal
     ? t('admin.workspaces.personal_readonly')
     : t('admin.workspaces.no_manage_permission')
 
   async function onSave(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (isPersonal) return
+    if (isPersonal) {
+      return
+    }
     try {
       await updateWorkspace(token, workspaceID, editName, editDesc || undefined, editMFARequired)
       setSuccess(t('admin.workspaces.save_success'))
@@ -116,7 +121,9 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
 
   async function onInviteMember(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!inviteUserID.trim() || !inviteRoleID) return
+    if (!inviteUserID.trim() || !inviteRoleID) {
+      return
+    }
     try {
       await addWorkspaceMember(token, workspaceID, inviteUserID.trim(), inviteRoleID)
       setInviteUserID('')
@@ -132,7 +139,9 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
       title: t('admin.workspaces.confirm_remove_member'),
       variant: 'danger',
     })
-    if (!ok) return
+    if (!ok) {
+      return
+    }
     try {
       await removeWorkspaceMember(token, workspaceID, userID)
       load()
@@ -152,7 +161,9 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
 
   async function onAttachDS(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!attachDsID.trim()) return
+    if (!attachDsID.trim()) {
+      return
+    }
     try {
       await attachWorkspaceDatasource(token, workspaceID, attachDsID.trim())
       setAttachDsID('')
@@ -167,7 +178,9 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
       title: t('admin.workspaces.confirm_detach'),
       variant: 'danger',
     })
-    if (!ok) return
+    if (!ok) {
+      return
+    }
     try {
       await detachWorkspaceDatasource(token, workspaceID, dsID)
       load()
@@ -178,7 +191,16 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
 
   if (!workspace && loading) {
     return (
-      <div className="ws-settings" style={{ minHeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+      <div
+        className="ws-settings"
+        style={{
+          minHeight: 300,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'relative',
+        }}
+      >
         <LoadingOverlay loading={true} />
       </div>
     )
@@ -187,7 +209,9 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
   if (!workspace) {
     return (
       <div className="ws-settings">
-        <div style={{ padding: 24, textAlign: 'center', color: 'var(--red-text, #f87171)' }}>{t('common.error')}</div>
+        <div style={{ padding: 24, textAlign: 'center', color: 'var(--red-text, #f87171)' }}>
+          {t('common.error')}
+        </div>
       </div>
     )
   }
@@ -229,152 +253,162 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                 />
                 <span>{t('admin.workspaces.mfa_required')}</span>
               </label>
-              <button type="submit" className="ws-settings__btn-primary">{t('common.save')}</button>
+              <button type="submit" className="ws-settings__btn-primary">
+                {t('common.save')}
+              </button>
             </form>
           )}
         </section>
 
-      {/* ── Members ── */}
-      <section className="ws-settings__section">
-        <h3>{t('admin.workspaces.members')}</h3>
-        {members.length === 0 ? (
-          <p className="ws-settings__empty">{t('admin.workspaces.members_empty')}</p>
-        ) : (
-          <div className="ws-settings__table-container">
-            <table className="ws-settings__table">
-              <thead>
-                <tr>
-                  <th>{t('admin.fields.user')}</th>
-                  <th>{t('admin.workspaces.role')}</th>
-                  <th>{t('admin.workspaces.joined_at')}</th>
-                  <th>{t('common.actions')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {members.map((m) => (
-                  <tr key={m.user_id}>
-                    <td>
-                      {userDisplayLabel(m.user_id, users, {
-                        email: m.email,
-                        display_name: m.display_name,
-                      })}
-                    </td>
-                    <td className="ws-settings__cell-control">
-                      <Select
-                        size="sm"
-                        value={m.role_id}
-                        options={roleSelectOptions(roles)}
-                        onChange={(roleID) => void onChangeRole(m.user_id, roleID)}
-                        disabled={!canManageMembers}
-                      />
-                    </td>
-                    <td className="ws-settings__cell-muted">{new Date(m.joined_at).toLocaleDateString()}</td>
-                    <td className="ws-settings__cell-actions">
-                      <button
-                        type="button"
-                        onClick={() => onRemoveMember(m.user_id)}
-                        className="ws-settings__btn-danger"
-                        disabled={!canManageMembers}
-                      >
-                        {t('common.delete')}
-                      </button>
-                    </td>
+        {/* ── Members ── */}
+        <section className="ws-settings__section">
+          <h3>{t('admin.workspaces.members')}</h3>
+          {members.length === 0 ? (
+            <p className="ws-settings__empty">{t('admin.workspaces.members_empty')}</p>
+          ) : (
+            <div className="ws-settings__table-container">
+              <table className="ws-settings__table">
+                <thead>
+                  <tr>
+                    <th>{t('admin.fields.user')}</th>
+                    <th>{t('admin.workspaces.role')}</th>
+                    <th>{t('admin.workspaces.joined_at')}</th>
+                    <th>{t('common.actions')}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody>
+                  {members.map((m) => (
+                    <tr key={m.user_id}>
+                      <td>
+                        {userDisplayLabel(m.user_id, users, {
+                          email: m.email,
+                          display_name: m.display_name,
+                        })}
+                      </td>
+                      <td className="ws-settings__cell-control">
+                        <Select
+                          size="sm"
+                          value={m.role_id}
+                          options={roleSelectOptions(roles)}
+                          onChange={(roleID) => void onChangeRole(m.user_id, roleID)}
+                          disabled={!canManageMembers}
+                        />
+                      </td>
+                      <td className="ws-settings__cell-muted">
+                        {new Date(m.joined_at).toLocaleDateString()}
+                      </td>
+                      <td className="ws-settings__cell-actions">
+                        <button
+                          type="button"
+                          onClick={() => onRemoveMember(m.user_id)}
+                          className="ws-settings__btn-danger"
+                          disabled={!canManageMembers}
+                        >
+                          {t('common.delete')}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-        {canManageMembers ? (
-          <form onSubmit={onInviteMember} className="ws-settings__toolbar">
-            <label className="admin-form-label ws-settings__field-240">
-              <span className="admin-label-text">{t('admin.fields.user')}</span>
-              <Select
-                value={inviteUserID}
-                onChange={setInviteUserID}
-                placeholder={t('admin.workspaces.select_user')}
-                options={memberUserOptions}
-              />
-            </label>
-            <label className="admin-form-label ws-settings__field-240">
-              <span className="admin-label-text">{t('admin.workspaces.role')}</span>
-              <Select
-                value={inviteRoleID}
-                onChange={setInviteRoleID}
-                placeholder={t('admin.workspaces.invite_role')}
-                options={roleSelectOptions(roles)}
-              />
-            </label>
-            <button type="submit" className="ws-settings__btn-primary ws-settings__toolbar-submit">
-              {t('admin.workspaces.invite_member')}
-            </button>
-          </form>
-        ) : (
-          <p className="ws-settings__readonly-note">{restrictedNote}</p>
-        )}
-      </section>
+          {canManageMembers ? (
+            <form onSubmit={onInviteMember} className="ws-settings__toolbar">
+              <label className="admin-form-label ws-settings__field-240">
+                <span className="admin-label-text">{t('admin.fields.user')}</span>
+                <Select
+                  value={inviteUserID}
+                  onChange={setInviteUserID}
+                  placeholder={t('admin.workspaces.select_user')}
+                  options={memberUserOptions}
+                />
+              </label>
+              <label className="admin-form-label ws-settings__field-240">
+                <span className="admin-label-text">{t('admin.workspaces.role')}</span>
+                <Select
+                  value={inviteRoleID}
+                  onChange={setInviteRoleID}
+                  placeholder={t('admin.workspaces.invite_role')}
+                  options={roleSelectOptions(roles)}
+                />
+              </label>
+              <button
+                type="submit"
+                className="ws-settings__btn-primary ws-settings__toolbar-submit"
+              >
+                {t('admin.workspaces.invite_member')}
+              </button>
+            </form>
+          ) : (
+            <p className="ws-settings__readonly-note">{restrictedNote}</p>
+          )}
+        </section>
 
-      {/* ── Datasources ── */}
-      <section className="ws-settings__section">
-        <h3>{t('admin.workspaces.datasources')}</h3>
-        {datasources.length === 0 ? (
-          <p className="ws-settings__empty">{t('admin.workspaces.datasources_empty')}</p>
-        ) : (
-          <div className="ws-settings__table-container">
-            <table className="ws-settings__table">
-              <thead>
-                <tr>
-                  <th>{t('admin.workspaces.datasource_name')}</th>
-                  <th>{t('admin.datasource_access.level')}</th>
-                  <th>{t('common.actions')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {datasources.map((d) => (
-                  <tr key={d.datasource_id}>
-                    <td>
-                      {datasourceDisplayLabel(d.datasource_id, allDatasources, d.datasource_name)}
-                    </td>
-                    <td className="ws-settings__cell-muted">
-                      <span className="ws-settings__level-badge">{d.access_level}</span>
-                    </td>
-                    <td className="ws-settings__cell-actions">
-                      <button
-                        type="button"
-                        onClick={() => onDetachDS(d.datasource_id)}
-                        className="ws-settings__btn-danger"
-                        disabled={!canManageDatasources}
-                      >
-                        {t('common.delete')}
-                      </button>
-                    </td>
+        {/* ── Datasources ── */}
+        <section className="ws-settings__section">
+          <h3>{t('admin.workspaces.datasources')}</h3>
+          {datasources.length === 0 ? (
+            <p className="ws-settings__empty">{t('admin.workspaces.datasources_empty')}</p>
+          ) : (
+            <div className="ws-settings__table-container">
+              <table className="ws-settings__table">
+                <thead>
+                  <tr>
+                    <th>{t('admin.workspaces.datasource_name')}</th>
+                    <th>{t('admin.datasource_access.level')}</th>
+                    <th>{t('common.actions')}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody>
+                  {datasources.map((d) => (
+                    <tr key={d.datasource_id}>
+                      <td>
+                        {datasourceDisplayLabel(d.datasource_id, allDatasources, d.datasource_name)}
+                      </td>
+                      <td className="ws-settings__cell-muted">
+                        <span className="ws-settings__level-badge">{d.access_level}</span>
+                      </td>
+                      <td className="ws-settings__cell-actions">
+                        <button
+                          type="button"
+                          onClick={() => onDetachDS(d.datasource_id)}
+                          className="ws-settings__btn-danger"
+                          disabled={!canManageDatasources}
+                        >
+                          {t('common.delete')}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-        {canManageDatasources ? (
-          <form onSubmit={onAttachDS} className="ws-settings__toolbar">
-            <label className="admin-form-label ws-settings__field-240">
-              <span className="admin-label-text">{t('admin.workspaces.datasource_name')}</span>
-              <Select
-                value={attachDsID}
-                onChange={setAttachDsID}
-                placeholder={t('admin.workspaces.select_datasource')}
-                options={attachDsOptions}
-              />
-            </label>
-            <button type="submit" className="ws-settings__btn-primary ws-settings__toolbar-submit">
-              {t('admin.workspaces.attach_datasource')}
-            </button>
-          </form>
-        ) : (
-          <p className="ws-settings__readonly-note">{restrictedNote}</p>
-        )}
-      </section>
+          {canManageDatasources ? (
+            <form onSubmit={onAttachDS} className="ws-settings__toolbar">
+              <label className="admin-form-label ws-settings__field-240">
+                <span className="admin-label-text">{t('admin.workspaces.datasource_name')}</span>
+                <Select
+                  value={attachDsID}
+                  onChange={setAttachDsID}
+                  placeholder={t('admin.workspaces.select_datasource')}
+                  options={attachDsOptions}
+                />
+              </label>
+              <button
+                type="submit"
+                className="ws-settings__btn-primary ws-settings__toolbar-submit"
+              >
+                {t('admin.workspaces.attach_datasource')}
+              </button>
+            </form>
+          ) : (
+            <p className="ws-settings__readonly-note">{restrictedNote}</p>
+          )}
+        </section>
       </LoadingOverlay>
     </div>
   )

@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react'
-import { useApi } from '../hooks/useApi'
-import { useT } from '../i18n'
-import { useConfirm } from '../hooks/useConfirm'
-import { EmptyState } from './ui/EmptyState'
-import { LoadingOverlay } from './ui/LoadingOverlay'
-import { ErrorAlert } from './ui/ErrorAlert'
-import { Modal } from './ui/Modal'
 import '../styles/dashboards.css'
+
+import { useEffect, useState } from 'react'
+
+import { useApi } from '../hooks/useApi'
+import { useConfirm } from '../hooks/useConfirm'
+import { useT } from '../i18n'
+import { EmptyState } from './ui/EmptyState'
+import { ErrorAlert } from './ui/ErrorAlert'
+import { LoadingOverlay } from './ui/LoadingOverlay'
+import { Modal } from './ui/Modal'
 
 interface Dashboard {
   id: string
@@ -85,7 +87,9 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
       message: t('customDashboards.delete_message'),
       variant: 'danger',
     })
-    if (!ok) return
+    if (!ok) {
+      return
+    }
 
     const res = await deleteData(`/api/dashboards/${id}`)
     if (res || error === null) {
@@ -119,7 +123,11 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
             title={t('customDashboards.empty_title')}
             description={t('customDashboards.empty_description')}
           >
-            <button type="button" className="btn btn-primary btn-auto-width" onClick={openCreateModal}>
+            <button
+              type="button"
+              className="btn btn-primary btn-auto-width"
+              onClick={openCreateModal}
+            >
               + {t('customDashboards.empty_cta')}
             </button>
           </EmptyState>
@@ -156,7 +164,9 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
                 {d.description && <p className="dashboard-list-card__desc">{d.description}</p>}
               </div>
               <div className="dashboard-list-card__meta">
-                <span>{t('customDashboards.widgets_count', { count: d.widgets?.length || 0 })}</span>
+                <span>
+                  {t('customDashboards.widgets_count', { count: d.widgets?.length || 0 })}
+                </span>
                 <span>
                   {new Date(d.created_at).toLocaleDateString(undefined, {
                     month: 'short',
@@ -206,7 +216,11 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
             />
           </div>
           <div className="modal-actions">
-            <button type="button" className="btn btn-secondary btn-auto-width" onClick={closeCreateModal}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-auto-width"
+              onClick={closeCreateModal}
+            >
               {t('customDashboards.cancel')}
             </button>
             <button

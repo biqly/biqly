@@ -20,15 +20,12 @@ export function SortStep({
   onClear,
   t,
 }: SortStepProps) {
-  if (!orderBy) return null
+  if (!orderBy) {
+    return null
+  }
 
   return (
-    <NotebookStep
-      label="Sort"
-      themeClass="sort"
-      onClose={onClear}
-      closeTitle={t('common.cancel')}
-    >
+    <NotebookStep label="Sort" themeClass="sort" onClose={onClear} closeTitle={t('common.cancel')}>
       <div
         className="notebook-tag notebook-tag--purple"
         style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}

@@ -1,7 +1,9 @@
-import { useEffect, useRef, type ReactNode } from 'react'
-import clsx from 'clsx'
-import { useT } from '../../i18n'
 import '../../styles/modal.css'
+
+import clsx from 'clsx'
+import { type ReactNode, useEffect, useRef } from 'react'
+
+import { useT } from '../../i18n'
 
 interface ModalProps {
   open: boolean
@@ -39,16 +41,21 @@ export function Modal({
   const dialogRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
-    if (!open) return
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    if (!open) {
+      return
+    }
+    const previousFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
     const dialog = dialogRef.current
-    
+
     // Prioritize [autoFocus] or elements in .modal-body over the close button in the header
     const autoFocusEl = dialog?.querySelector<HTMLElement>('[autofocus], [autoFocus]')
     if (autoFocusEl) {
       autoFocusEl.focus()
     } else {
-      const bodySelector = FOCUSABLE_SELECTOR.split(',').map(s => `.modal-body ${s.trim()}`).join(',')
+      const bodySelector = FOCUSABLE_SELECTOR.split(',')
+        .map((s) => `.modal-body ${s.trim()}`)
+        .join(',')
       const bodyFocusable = dialog?.querySelector<HTMLElement>(bodySelector)
       if (bodyFocusable) {
         bodyFocusable.focus()
@@ -64,7 +71,9 @@ export function Modal({
         onClose()
         return
       }
-      if (event.key !== 'Tab' || !dialog) return
+      if (event.key !== 'Tab' || !dialog) {
+        return
+      }
 
       const focusableElements = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
       if (focusableElements.length === 0) {
@@ -75,7 +84,9 @@ export function Modal({
 
       const first = focusableElements[0]
       const last = focusableElements[focusableElements.length - 1]
-      if (!first || !last) return
+      if (!first || !last) {
+        return
+      }
       if (event.shiftKey && document.activeElement === first) {
         event.preventDefault()
         last.focus()
@@ -92,14 +103,18 @@ export function Modal({
     }
   }, [onClose, open])
 
-  if (!open) return null
+  if (!open) {
+    return null
+  }
 
   return (
     <div
       className="modal-backdrop"
       role="presentation"
       onClick={(event) => {
-        if (closeOnBackdrop && event.target === event.currentTarget) onClose()
+        if (closeOnBackdrop && event.target === event.currentTarget) {
+          onClose()
+        }
       }}
     >
       <section
@@ -115,13 +130,16 @@ export function Modal({
             <h3 id={labelledBy}>{title}</h3>
             {subtitle && <p className="modal-subtitle">{subtitle}</p>}
           </div>
-          <button type="button" className="modal-close" aria-label={t('common.modal_close_aria')} onClick={onClose}>
+          <button
+            type="button"
+            className="modal-close"
+            aria-label={t('common.modal_close_aria')}
+            onClick={onClose}
+          >
             ×
           </button>
         </header>
-        <div className={clsx('modal-body', bodyClassName)}>
-          {children}
-        </div>
+        <div className={clsx('modal-body', bodyClassName)}>{children}</div>
       </section>
     </div>
   )

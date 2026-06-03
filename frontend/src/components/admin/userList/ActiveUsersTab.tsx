@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
-import type { AuthUser } from '../../../types/auth'
+
 import { localeLanguageTag } from '../../../i18n'
-import { Pagination } from '../../ui/Pagination'
+import type { AuthUser } from '../../../types/auth'
 import { LoadingOverlay } from '../../ui/LoadingOverlay'
+import { Pagination } from '../../ui/Pagination'
 import { Select } from '../../ui/Select'
 
 interface ActiveUsersTabProps {
@@ -83,14 +84,22 @@ export function ActiveUsersTab({
             role="button"
             tabIndex={0}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') setActionMessage(null)
+              if (e.key === 'Enter' || e.key === ' ') {
+                setActionMessage(null)
+              }
             }}
           >
             {actionMessage.text}
           </div>
         )}
         <LoadingOverlay loading={loading}>
-          <div style={{ minHeight: displayedUsers.length === 0 && loading ? 120 : 'auto', display: 'flex', flexDirection: 'column' }}>
+          <div
+            style={{
+              minHeight: displayedUsers.length === 0 && loading ? 120 : 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
             <table className="admin-table">
               <thead>
                 <tr className="admin-thead-row">
@@ -115,24 +124,33 @@ export function ActiveUsersTab({
                     <tr key={u.id} className="admin-tr">
                       <td className="admin-td">
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                          <div className="admin-list-avatar" style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: '50%',
-                            background: 'var(--bg-avatar, #e0e7ff)',
-                            color: 'var(--text-avatar, #4f46e5)',
-                            display: 'flex',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            fontWeight: 700,
-                            fontSize: 12,
-                            overflow: 'hidden',
-                            flexShrink: 0
-                          }}>
+                          <div
+                            className="admin-list-avatar"
+                            style={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: '50%',
+                              background: 'var(--bg-avatar, #e0e7ff)',
+                              color: 'var(--text-avatar, #4f46e5)',
+                              display: 'flex',
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                              fontWeight: 700,
+                              fontSize: 12,
+                              overflow: 'hidden',
+                              flexShrink: 0,
+                            }}
+                          >
                             {u.avatarUrl ? (
-                              <img src={u.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <img
+                                src={u.avatarUrl}
+                                alt=""
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              />
+                            ) : u.displayName ? (
+                              u.displayName.slice(0, 2).toUpperCase()
                             ) : (
-                              u.displayName ? u.displayName.slice(0, 2).toUpperCase() : u.email.slice(0, 2).toUpperCase()
+                              u.email.slice(0, 2).toUpperCase()
                             )}
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -143,14 +161,31 @@ export function ActiveUsersTab({
                       </td>
                       <td className="admin-td">{u.displayName || t('common.em_dash')}</td>
                       <td className="admin-td">
-                        <span className={u.isActive ? 'admin-badge-active' : 'admin-badge-inactive'}>
-                          {u.isActive ? t('admin.users.status_active') : t('admin.users.status_inactive')}
+                        <span
+                          className={u.isActive ? 'admin-badge-active' : 'admin-badge-inactive'}
+                        >
+                          {u.isActive
+                            ? t('admin.users.status_active')
+                            : t('admin.users.status_inactive')}
                         </span>
                       </td>
                       <td className="admin-td">
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
-                          <span className={u.emailVerified ? 'admin-badge-verified' : 'admin-badge-unverified'}>
-                            {u.emailVerified ? t('admin.users.email_verified') : t('admin.users.email_unverified')}
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 6,
+                            alignItems: 'flex-start',
+                          }}
+                        >
+                          <span
+                            className={
+                              u.emailVerified ? 'admin-badge-verified' : 'admin-badge-unverified'
+                            }
+                          >
+                            {u.emailVerified
+                              ? t('admin.users.email_verified')
+                              : t('admin.users.email_unverified')}
                           </span>
                           {!u.emailVerified && (
                             <button
@@ -159,7 +194,9 @@ export function ActiveUsersTab({
                               disabled={verificationLoadingId === u.id}
                               className="admin-btn-secondary"
                             >
-                              {verificationLoadingId === u.id ? '...' : t('admin.users.resend_verification')}
+                              {verificationLoadingId === u.id
+                                ? '...'
+                                : t('admin.users.resend_verification')}
                             </button>
                           )}
                         </div>

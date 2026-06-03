@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 
 export type ThemeMode = 'system' | 'light' | 'dark'
 export type ResolvedTheme = 'light' | 'dark'
@@ -14,10 +22,14 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 
 function readMode(): ThemeMode {
-  if (typeof window === 'undefined') return 'system'
+  if (typeof window === 'undefined') {
+    return 'system'
+  }
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (raw === 'light' || raw === 'dark' || raw === 'system') return raw
+    if (raw === 'light' || raw === 'dark' || raw === 'system') {
+      return raw
+    }
   } catch {
     /* ignore */
   }
@@ -25,17 +37,23 @@ function readMode(): ThemeMode {
 }
 
 function resolveSystem(): ResolvedTheme {
-  if (typeof window === 'undefined' || !window.matchMedia) return 'dark'
+  if (typeof window === 'undefined' || !window.matchMedia) {
+    return 'dark'
+  }
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
 }
 
 function resolveTheme(mode: ThemeMode): ResolvedTheme {
-  if (mode === 'system') return resolveSystem()
+  if (mode === 'system') {
+    return resolveSystem()
+  }
   return mode
 }
 
 function applyDocumentTheme(theme: ResolvedTheme) {
-  if (typeof document === 'undefined') return
+  if (typeof document === 'undefined') {
+    return
+  }
   document.documentElement.dataset.theme = theme
   document.documentElement.style.colorScheme = theme
 }
@@ -58,8 +76,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [mode])
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return
-    if (mode !== 'system') return
+    if (typeof window === 'undefined' || !window.matchMedia) {
+      return
+    }
+    if (mode !== 'system') {
+      return
+    }
     const mq = window.matchMedia('(prefers-color-scheme: light)')
     const handler = () => {
       const next = resolveSystem()
@@ -74,7 +96,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setModeState(next)
   }, [])
 
-  const value = useMemo<ThemeContextValue>(() => ({ mode, setMode, resolved }), [mode, setMode, resolved])
+  const value = useMemo<ThemeContextValue>(
+    () => ({ mode, setMode, resolved }),
+    [mode, setMode, resolved],
+  )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
 }

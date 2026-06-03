@@ -1,20 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useT } from '../../i18n'
-import { useDatasources } from '../../hooks/useDatasources'
-import { useSemanticModels } from '../../hooks/useSemanticModels'
-import { useModelDetail } from '../../hooks/useModelDetail'
+
+import type { PermissionRowFilter, SecurityPolicy } from '../../api/admin'
 import { getSecurityPolicyByKeys, upsertSecurityPolicy } from '../../api/admin'
-import type { SecurityPolicy, PermissionRowFilter } from '../../api/admin'
+import { useDatasources } from '../../hooks/useDatasources'
+import { useModelDetail } from '../../hooks/useModelDetail'
+import { useSemanticModels } from '../../hooks/useSemanticModels'
+import { useT } from '../../i18n'
+import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Select } from '../ui/Select'
-import { useAuth } from '../auth/AuthProvider'
-import { ReadOnlyNote } from './ReadOnlyNote'
 import {
   datasourceSelectOptions,
   securityRoleOptions,
   semanticModelSelectOptions,
 } from './adminSelectOptions'
-import { FILTER_OPERATOR_OPTIONS, fieldSelectOptions } from './securityPolicyConstants'
+import { ReadOnlyNote } from './ReadOnlyNote'
+import { fieldSelectOptions, FILTER_OPERATOR_OPTIONS } from './securityPolicyConstants'
 
 export function RowLevelSecurityPanel({ token }: { token: string }) {
   const t = useT()
@@ -76,7 +77,9 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
       setSaveSuccess(false)
       try {
         const policyData = await getSecurityPolicyByKeys(token, `role:${selectedRole}`, selectedDS)
-        if (cancelled) return
+        if (cancelled) {
+          return
+        }
         setPolicy(policyData)
         setFilters(policyData.row_filters || [])
       } catch (err) {
@@ -118,12 +121,11 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
   const fieldOptions = useMemo(() => fieldSelectOptions(fields), [fields])
 
   const handleAddFilter = () => {
-    if (fields.length === 0) return
+    if (fields.length === 0) {
+      return
+    }
     const firstField = fields[0] || ''
-    setFilters([
-      ...filters,
-      { field: firstField, operator: 'eq', value: '' },
-    ])
+    setFilters([...filters, { field: firstField, operator: 'eq', value: '' }])
     setSaveSuccess(false)
   }
 
@@ -135,7 +137,9 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
   const handleFilterChange = (index: number, key: keyof PermissionRowFilter, val: any) => {
     const updated = [...filters]
     const item = updated[index]
-    if (!item) return
+    if (!item) {
+      return
+    }
 
     if (key === 'operator') {
       const op = val as string
@@ -153,9 +157,19 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
       if (op === 'in' || op === 'not_in') {
         try {
           const parsed = JSON.parse(val)
-          updated[index] = { field: item.field, operator: op, value: Array.isArray(parsed) ? parsed : [val] }
+          updated[index] = {
+            field: item.field,
+            operator: op,
+            value: Array.isArray(parsed) ? parsed : [val],
+          }
         } catch {
-          updated[index] = { field: item.field, operator: op, value: String(val).split(',').map(s => s.trim()) }
+          updated[index] = {
+            field: item.field,
+            operator: op,
+            value: String(val)
+              .split(',')
+              .map((s) => s.trim()),
+          }
         }
       } else {
         updated[index] = { field: item.field, operator: op, value: val }
@@ -168,7 +182,9 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
   }
 
   const handleSave = async () => {
-    if (!selectedDS) return
+    if (!selectedDS) {
+      return
+    }
     setError(null)
     setSaveSuccess(false)
 
@@ -230,7 +246,11 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
         </div>
       </div>
 
-      {error && <div style={errStyle}>{t('common.error')}: {error}</div>}
+      {error && (
+        <div style={errStyle}>
+          {t('common.error')}: {error}
+        </div>
+      )}
       {saveSuccess && <div style={successStyle}>Access policy saved successfully!</div>}
 
       <div style={contentGridStyle}>
@@ -254,7 +274,8 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
                 </div>
               ) : filters.length === 0 ? (
                 <div style={noFiltersStyle}>
-                  No row filters defined for this role and datasource yet. Click "Add Filter Row" to restrict access.
+                  No row filters defined for this role and datasource yet. Click "Add Filter Row" to
+                  restrict access.
                 </div>
               ) : (
                 <div style={filtersListStyle}>
@@ -290,11 +311,19 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
                           value={isValDisabled ? '' : valDisplay}
                           disabled={isValDisabled || !canEdit}
                           onChange={(e) => handleFilterChange(i, 'value', e.target.value)}
-                          placeholder={f.operator === 'in' || f.operator === 'not_in' ? 'val1, val2, val3' : 'Value'}
+                          placeholder={
+                            f.operator === 'in' || f.operator === 'not_in'
+                              ? 'val1, val2, val3'
+                              : 'Value'
+                          }
                           style={isValDisabled ? inputStyleDisabled : filterInputStyle}
                         />
 
-                        <button onClick={() => handleRemoveFilter(i)} style={btnDeleteRowStyle} disabled={!canEdit}>
+                        <button
+                          onClick={() => handleRemoveFilter(i)}
+                          style={btnDeleteRowStyle}
+                          disabled={!canEdit}
+                        >
                           ✕
                         </button>
                       </div>
@@ -318,9 +347,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
 
         <div style={rightPanelStyle}>
           <h3 style={sectionTitleStyle}>JSON Policy Output</h3>
-          <pre style={jsonPreviewStyle}>
-            {JSON.stringify(filters, null, 2)}
-          </pre>
+          <pre style={jsonPreviewStyle}>{JSON.stringify(filters, null, 2)}</pre>
         </div>
       </div>
     </div>

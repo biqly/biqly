@@ -27,7 +27,8 @@ export const admin: AdminDictionary = {
   },
   pii: {
     title: 'PII Tespiti',
-    description: 'Kişisel veri (PII) olarak işaretlenen kolonlar. Her tespiti onaylayın, tipini değiştirin veya kaldırın.',
+    description:
+      'Kişisel veri (PII) olarak işaretlenen kolonlar. Her tespiti onaylayın, tipini değiştirin veya kaldırın.',
     rescan: 'PII Taramasını Yenile',
     scanning: 'Taranıyor…',
     scan_summary: '{{scanned}} kolon tarandı, {{detected}} PII tespiti.',
@@ -39,13 +40,15 @@ export const admin: AdminDictionary = {
     col_actions: 'İşlemler',
     confirm: 'Onayla',
     dismiss: 'Kaldır',
-    dismiss_confirm: 'Bu kolondaki PII işareti temizlensin mi? Sonraki taramalar yeniden işaretlemez.',
+    dismiss_confirm:
+      'Bu kolondaki PII işareti temizlensin mi? Sonraki taramalar yeniden işaretlemez.',
     reviewed_by: '{{reviewer}} tarafından',
     unreviewed: 'İncelenmedi',
     empty: 'Bu datasource için PII kolonu tespit edilmedi.',
     select_datasource: 'PII tespitlerini görmek için bir datasource seçin.',
     policy_title: 'PII Erişim Politikası',
-    policy_description: 'Bu rolün PII kolonlarını nasıl gördüğünü belirler: ham değer, maskeli değer veya gizli.',
+    policy_description:
+      'Bu rolün PII kolonlarını nasıl gördüğünü belirler: ham değer, maskeli değer veya gizli.',
     policy_default: 'Rol varsayılanı',
     access_raw: 'Ham',
     access_masked: 'Maskeli',
@@ -127,9 +130,11 @@ export const admin: AdminDictionary = {
     workspace_uuid_placeholder: 'Workspace ID (UUID formatında)',
     assign_role: 'Rolü Ata',
     mfa_support_title: '2FA Destek',
-    mfa_support_desc: 'Kilitlenen bir kullanıcının giriş yapabilmesi için tek kullanımlık bir bypass kodu üretin. Kod yalnızca bir kez çalışır ve kullanıldıktan sonra geçersiz olur. Sadece süper admin.',
+    mfa_support_desc:
+      'Kilitlenen bir kullanıcının giriş yapabilmesi için tek kullanımlık bir bypass kodu üretin. Kod yalnızca bir kez çalışır ve kullanıldıktan sonra geçersiz olur. Sadece süper admin.',
     mfa_generate_bypass: 'Bypass Kodu Üret',
-    mfa_generate_bypass_confirm: 'Bu kullanıcı için tek kullanımlık bir 2FA bypass kodu üretilsin mi? Kodu yalnızca doğrulanmış bir kanaldan paylaşın.',
+    mfa_generate_bypass_confirm:
+      'Bu kullanıcı için tek kullanımlık bir 2FA bypass kodu üretilsin mi? Kodu yalnızca doğrulanmış bir kanaldan paylaşın.',
     mfa_bypass_generated: 'Tek kullanımlık bypass kodu (yalnızca bir kez gösterilir):',
     mfa_bypass_copied: 'Bypass kodu panoya kopyalandı.',
     mfa_bypass_not_enabled: 'Bu kullanıcının 2FA özelliği etkin değil.',
@@ -173,16 +178,16 @@ export const admin: AdminDictionary = {
     invite_role: 'Rol',
     role: 'Rol',
     joined_at: 'Katılma',
-    confirm_remove_member: 'Bu üyeyi workspace\'den kaldırmak istediğinden emin misin?',
+    confirm_remove_member: "Bu üyeyi workspace'den kaldırmak istediğinden emin misin?",
     datasources: 'Veri Kaynakları',
     datasources_empty: 'Bağlı veri kaynağı yok.',
     attach_datasource: 'Veri Kaynağı Bağla',
     datasource_id: 'Veri Kaynağı ID',
-    confirm_detach: 'Bu veri kaynağını workspace\'den kaldırmak istediğinden emin misin?',
+    confirm_detach: "Bu veri kaynağını workspace'den kaldırmak istediğinden emin misin?",
     back: '← Listeye dön',
     save_success: 'Workspace güncellendi.',
-    personal_readonly: 'Kişisel workspace\'ler düzenlenemez.',
-    no_manage_permission: 'Bu workspace\'i yönetme yetkiniz yok.',
+    personal_readonly: "Kişisel workspace'ler düzenlenemez.",
+    no_manage_permission: "Bu workspace'i yönetme yetkiniz yok.",
   },
   audit: {
     title: 'Denetim Günlüğü',
@@ -250,8 +255,10 @@ export const admin: AdminDictionary = {
   },
   ai_providers: {
     title: 'AI Sağlayıcılar',
-    description: 'AI sağlayıcılarını ve her görev için kullanılan modelleri yönetin. Değişiklikler anında uygulanır — yeniden başlatma gerekmez.',
-    not_configured: 'AI sağlayıcı deposu kullanılamıyor. BI_AI_DB_MANAGED=true ayarlayın ve migration’ların uygulandığından emin olun.',
+    description:
+      'AI sağlayıcılarını ve her görev için kullanılan modelleri yönetin. Değişiklikler anında uygulanır — yeniden başlatma gerekmez.',
+    not_configured:
+      'AI sağlayıcı deposu kullanılamıyor. BI_AI_DB_MANAGED=true ayarlayın ve migration’ların uygulandığından emin olun.',
     add_provider: 'Sağlayıcı Ekle',
     edit_provider: 'Sağlayıcıyı Düzenle',
     add_model: 'Model Ekle',
@@ -259,7 +266,8 @@ export const admin: AdminDictionary = {
     providers_title: 'Sağlayıcılar',
     no_providers: 'Henüz sağlayıcı yok. Başlamak için bir tane ekleyin.',
     active_models_title: 'Göreve Göre Aktif Modeller',
-    active_models_hint: 'Kullanıcılar ayarlarda “Varsayılanı kullan” seçtiğinde geçerli olan workspace varsayılanları.',
+    active_models_hint:
+      'Kullanıcılar ayarlarda “Varsayılanı kullan” seçtiğinde geçerli olan workspace varsayılanları.',
     active_models_empty: 'Varsayılan model tanımlı değil.',
     models_for: 'Modeller — {{name}}',
     no_models: 'Bu sağlayıcı için henüz model yok.',
@@ -284,7 +292,7 @@ export const admin: AdminDictionary = {
       is_active: 'Aktif',
       provider: 'Sağlayıcı',
       model_id: 'Model Kimliği',
-      model_id_hint: 'Mümkünse sağlayıcı API\'sinden alınır; özel bir kimlik de yazabilirsiniz.',
+      model_id_hint: "Mümkünse sağlayıcı API'sinden alınır; özel bir kimlik de yazabilirsiniz.",
       fetch_remote_models: 'Modelleri getir',
       fetching_remote_models: 'Getiriliyor…',
       remote_models_count: 'Sağlayıcıdan {{count}} model',
@@ -331,7 +339,8 @@ export const admin: AdminDictionary = {
     revoke_btn: 'Kaldır',
     granted: 'Erişim verildi.',
     revoked: 'Erişim kaldırıldı.',
-    empty: 'Henüz paylaşım yok. İlk paylaşım oluşturulana kadar kullanıcılar tüm aktif modelleri kullanabilir.',
+    empty:
+      'Henüz paylaşım yok. İlk paylaşım oluşturulana kadar kullanıcılar tüm aktif modelleri kullanabilir.',
     select_workspace: 'Çalışma alanı seçin…',
     select_role: 'Rol seçin…',
     select_provider: 'Sağlayıcı seçin…',
@@ -366,20 +375,26 @@ export const admin: AdminDictionary = {
   },
   platform_settings: {
     title: 'Platform Ayarları',
-    description: 'Yeni kullanıcıların platforma nasıl katılacağını belirleyin. Davet akışı bu ayardan bağımsız olarak çalışır.',
+    description:
+      'Yeni kullanıcıların platforma nasıl katılacağını belirleyin. Davet akışı bu ayardan bağımsız olarak çalışır.',
     self_signup_label: 'Kendi kendine kayıt (self sign-up)',
-    self_signup_on_hint: 'Kayıt sayfasına erişen herkes hesap oluşturabilir. OAuth ile giriş yeni kullanıcı kaydı da açabilir.',
-    self_signup_off_hint: 'Yalnızca davet edilen kullanıcılar katılabilir. Herkese açık kayıt ve yeni OAuth hesapları kapatılır.',
+    self_signup_on_hint:
+      'Kayıt sayfasına erişen herkes hesap oluşturabilir. OAuth ile giriş yeni kullanıcı kaydı da açabilir.',
+    self_signup_off_hint:
+      'Yalnızca davet edilen kullanıcılar katılabilir. Herkese açık kayıt ve yeni OAuth hesapları kapatılır.',
     last_updated: 'Son güncelleme: {{date}}',
     saved: 'Platform ayarları kaydedildi.',
   },
   ldap: {
     title: 'LDAP / Dizin ile giriş',
-    description: 'Giriş sırasında kullanıcıları bir LDAP / Active Directory sunucusuyla doğrulayın. Yerel parola ile giriş çalışmaya devam eder — LDAP yalnızca yerel doğrulama başarısız olduğunda denenir.',
+    description:
+      'Giriş sırasında kullanıcıları bir LDAP / Active Directory sunucusuyla doğrulayın. Yerel parola ile giriş çalışmaya devam eder — LDAP yalnızca yerel doğrulama başarısız olduğunda denenir.',
     enabled_label: 'LDAP girişini etkinleştir',
-    enabled_hint: 'Açıkken kullanıcılar normal giriş formunda dizin kimlik bilgileriyle giriş yapabilir.',
+    enabled_hint:
+      'Açıkken kullanıcılar normal giriş formunda dizin kimlik bilgileriyle giriş yapabilir.',
     auto_create_label: 'İlk girişte kullanıcıyı otomatik oluştur',
-    auto_create_hint: 'Bir dizin kullanıcısı ilk kez başarıyla giriş yaptığında yerel hesabı otomatik oluşturulur. Yalnızca mevcut kullanıcılara izin vermek için kapatın.',
+    auto_create_hint:
+      'Bir dizin kullanıcısı ilk kez başarıyla giriş yaptığında yerel hesabı otomatik oluşturulur. Yalnızca mevcut kullanıcılara izin vermek için kapatın.',
     connection: 'Bağlantı',
     host: 'Sunucu (Host)',
     port: 'Port',
@@ -388,9 +403,11 @@ export const admin: AdminDictionary = {
     security_starttls: 'StartTLS',
     security_ldaps: 'LDAPS (TLS)',
     skip_tls_verify: 'TLS sertifika doğrulamasını atla',
-    skip_tls_verify_hint: 'Yalnızca güvenilir ağlarda self-signed sertifikalar için — aksi halde güvensizdir.',
+    skip_tls_verify_hint:
+      'Yalnızca güvenilir ağlarda self-signed sertifikalar için — aksi halde güvensizdir.',
     bind_dn: 'Bind DN (servis hesabı)',
-    bind_dn_hint: 'Kullanıcıları aramak için kullanılan hesap, ör. cn=svc,dc=example,dc=com. Anonim bind için boş bırakın.',
+    bind_dn_hint:
+      'Kullanıcıları aramak için kullanılan hesap, ör. cn=svc,dc=example,dc=com. Anonim bind için boş bırakın.',
     bind_password: 'Bind parolası',
     bind_password_placeholder: 'Mevcut parolayı korumak için boş bırakın',
     bind_password_set: 'Kayıtlı bir bind parolası var.',
@@ -398,7 +415,8 @@ export const admin: AdminDictionary = {
     base_dn: 'Base DN',
     base_dn_hint: 'Arama kökü, ör. ou=people,dc=example,dc=com.',
     user_filter: 'Kullanıcı arama filtresi',
-    user_filter_hint: 'Kullanıcı adı için %s kullanın. Örnekler: (uid=%s), (sAMAccountName=%s), (mail=%s).',
+    user_filter_hint:
+      'Kullanıcı adı için %s kullanın. Örnekler: (uid=%s), (sAMAccountName=%s), (mail=%s).',
     email_attr: 'E-posta özniteliği',
     display_name_attr: 'Görünen ad özniteliği',
     test: 'Bağlantıyı Test Et',

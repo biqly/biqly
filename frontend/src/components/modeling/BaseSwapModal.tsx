@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useT } from '../../i18n'
+
+import type { useT } from '../../i18n'
 import type { TableRow } from '../../types/semantic'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
@@ -12,7 +13,13 @@ export interface BaseSwapModalProps {
   t: ReturnType<typeof useT>
 }
 
-export function BaseSwapModal({ candidateTables, onCancel, onSubmit, saving, t }: BaseSwapModalProps) {
+export function BaseSwapModal({
+  candidateTables,
+  onCancel,
+  onSubmit,
+  saving,
+  t,
+}: BaseSwapModalProps) {
   const options = candidateTables
   const [picked, setPicked] = useState<string>(() =>
     options[0] ? `${options[0].schema_name}.${options[0].table_name}` : '',
@@ -47,7 +54,9 @@ export function BaseSwapModal({ candidateTables, onCancel, onSubmit, saving, t }
         </div>
       )}
       <div className="modal-actions">
-        <button className="btn btn-secondary" type="button" onClick={onCancel} disabled={saving}>{t('common.cancel')}</button>
+        <button className="btn btn-secondary" type="button" onClick={onCancel} disabled={saving}>
+          {t('common.cancel')}
+        </button>
         <button
           className="btn btn-danger"
           type="button"
@@ -56,7 +65,9 @@ export function BaseSwapModal({ candidateTables, onCancel, onSubmit, saving, t }
             const parts = picked.split('.')
             const schema = parts[0] ?? ''
             const table = parts.slice(1).join('.')
-            if (!schema || !table) return
+            if (!schema || !table) {
+              return
+            }
             void onSubmit(schema, table)
           }}
         >

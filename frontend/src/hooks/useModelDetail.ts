@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from 'react'
-import { useApi } from './useApi'
+import { useCallback, useEffect, useState } from 'react'
+
 import type { SemanticModelDetail } from '../types/semantic'
+import { useApi } from './useApi'
 
 interface Options {
   includeInactive?: boolean
@@ -16,9 +17,11 @@ export function useModelDetail(modelId: string | null, options?: Options) {
       return
     }
     const query = options?.includeInactive ? '?include_inactive=true' : ''
-    get<SemanticModelDetail>(`/api/semantic/models/${encodeURIComponent(modelId)}${query}`).then((data) => {
-      setModel(data)
-    })
+    get<SemanticModelDetail>(`/api/semantic/models/${encodeURIComponent(modelId)}${query}`).then(
+      (data) => {
+        setModel(data)
+      },
+    )
   }, [get, modelId, options?.includeInactive])
 
   useEffect(() => {

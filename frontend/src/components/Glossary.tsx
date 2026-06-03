@@ -1,15 +1,17 @@
-import { useEffect, useState, useMemo, useRef, KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { useConfirm } from '../hooks/useConfirm'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+
 import { useApi } from '../hooks/useApi'
+import { useConfirm } from '../hooks/useConfirm'
+import { useDatasources } from '../hooks/useDatasources'
+import { useModelDetail } from '../hooks/useModelDetail'
+import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useT } from '../i18n'
+import type { BusinessGlossaryTerm } from '../types/glossary'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
-import { Select } from './ui/Select'
 import { LoadingScreen } from './ui/LoadingScreen'
-import { useDatasources } from '../hooks/useDatasources'
-import { useSemanticModels } from '../hooks/useSemanticModels'
-import { useModelDetail } from '../hooks/useModelDetail'
-import type { BusinessGlossaryTerm } from '../types/glossary'
+import { Select } from './ui/Select'
 
 export default function Glossary() {
   const t = useT()
@@ -33,14 +35,18 @@ export default function Glossary() {
   const [formModelId, setFormModelId] = useState('')
   const [formTerm, setFormTerm] = useState('')
   const [formDefinition, setFormDefinition] = useState('')
-  const [formMapsToType, setFormMapsToType] = useState<'dimension' | 'metric' | 'model'>('dimension')
+  const [formMapsToType, setFormMapsToType] = useState<'dimension' | 'metric' | 'model'>(
+    'dimension',
+  )
   const [formMapsToName, setFormMapsToName] = useState('')
   const [formAliases, setFormAliases] = useState<string[]>([])
   const [aliasInput, setAliasInput] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
 
   // Sidebar details for selecting model fields
-  const { model: activeModelDetail, setModel: setActiveModelDetail } = useModelDetail(formModelId, { includeInactive: true })
+  const { model: activeModelDetail, setModel: setActiveModelDetail } = useModelDetail(formModelId, {
+    includeInactive: true,
+  })
   const [sidebarSearch, setSidebarSearch] = useState('')
 
   // Default datasource configuration
@@ -55,7 +61,9 @@ export default function Glossary() {
 
   // Load Glossary Terms
   const loadTerms = async () => {
-    if (!selectedDatasourceId) return
+    if (!selectedDatasourceId) {
+      return
+    }
     setInitLoading(true)
     try {
       const url = `/api/ai/glossary?datasource_id=${encodeURIComponent(selectedDatasourceId)}${
@@ -196,7 +204,9 @@ export default function Glossary() {
       title: t('glossary.confirm_delete'),
       variant: 'danger',
     })
-    if (!ok) return
+    if (!ok) {
+      return
+    }
     try {
       await deleteData(`/api/ai/glossary/${id}`)
       setTerms(terms.filter((t) => t.id !== id))
@@ -216,53 +226,63 @@ export default function Glossary() {
 
   // Filter lists inside main view
   const filterModels = useMemo(() => {
-    if (!selectedDatasourceId) return []
+    if (!selectedDatasourceId) {
+      return []
+    }
     return allModels.filter((m) => m.datasource_id === selectedDatasourceId)
   }, [allModels, selectedDatasourceId])
 
   // Filter lists inside form
   const formModels = useMemo(() => {
-    if (!formDatasourceId) return []
+    if (!formDatasourceId) {
+      return []
+    }
     return allModels.filter((m) => m.datasource_id === formDatasourceId)
   }, [allModels, formDatasourceId])
 
   // Search logic for items in the glossary table
   const displayedTerms = useMemo(() => {
     const q = searchQuery.toLowerCase().trim()
-    if (!q) return terms
+    if (!q) {
+      return terms
+    }
     return terms.filter((term) => {
       return (
         term.term.toLowerCase().includes(q) ||
-        (term.definition && term.definition.toLowerCase().includes(q)) ||
+        term.definition?.toLowerCase().includes(q) ||
         term.maps_to_name.toLowerCase().includes(q) ||
         term.maps_to_type.toLowerCase().includes(q) ||
-        (term.aliases && term.aliases.some((a) => a.toLowerCase().includes(q)))
+        term.aliases?.some((a) => a.toLowerCase().includes(q))
       )
     })
   }, [terms, searchQuery])
 
   // Sidebar list filters
   const filteredDimensions = useMemo(() => {
-    if (!activeModelDetail?.dimensions) return []
+    if (!activeModelDetail?.dimensions) {
+      return []
+    }
     const query = sidebarSearch.toLowerCase().trim()
-    const list = activeModelDetail.dimensions.filter(d => d.is_active !== false)
-    if (!query) return list
+    const list = activeModelDetail.dimensions.filter((d) => d.is_active !== false)
+    if (!query) {
+      return list
+    }
     return list.filter(
-      (d) =>
-        d.name.toLowerCase().includes(query) ||
-        (d.label && d.label.toLowerCase().includes(query))
+      (d) => d.name.toLowerCase().includes(query) || d.label?.toLowerCase().includes(query),
     )
   }, [activeModelDetail, sidebarSearch])
 
   const filteredMetrics = useMemo(() => {
-    if (!activeModelDetail?.metrics) return []
+    if (!activeModelDetail?.metrics) {
+      return []
+    }
     const query = sidebarSearch.toLowerCase().trim()
-    const list = activeModelDetail.metrics.filter(m => m.is_active !== false)
-    if (!query) return list
+    const list = activeModelDetail.metrics.filter((m) => m.is_active !== false)
+    if (!query) {
+      return list
+    }
     return list.filter(
-      (m) =>
-        m.name.toLowerCase().includes(query) ||
-        (m.label && m.label.toLowerCase().includes(query))
+      (m) => m.name.toLowerCase().includes(query) || m.label?.toLowerCase().includes(query),
     )
   }, [activeModelDetail, sidebarSearch])
 
@@ -271,14 +291,18 @@ export default function Glossary() {
   }
 
   const getModelName = (modelId: string | undefined) => {
-    if (!modelId) return t('glossary.option_all_models')
+    if (!modelId) {
+      return t('glossary.option_all_models')
+    }
     const m = allModels.find((model) => model.id === modelId)
-    return m ? (m.label || m.name) : modelId
+    return m ? m.label || m.name : modelId
   }
 
   // Populate maps_to_name select options
   const mapsToNameOptions = useMemo(() => {
-    if (!formModelId || !activeModelDetail) return []
+    if (!formModelId || !activeModelDetail) {
+      return []
+    }
     if (formMapsToType === 'dimension') {
       return (activeModelDetail.dimensions || [])
         .filter((d) => d.is_active !== false)
@@ -290,7 +314,14 @@ export default function Glossary() {
         .map((m) => ({ value: m.name, label: m.label ? `${m.name} (${m.label})` : m.name }))
     }
     if (formMapsToType === 'model') {
-      return [{ value: activeModelDetail.name, label: activeModelDetail.label ? `${activeModelDetail.name} (${activeModelDetail.label})` : activeModelDetail.name }]
+      return [
+        {
+          value: activeModelDetail.name,
+          label: activeModelDetail.label
+            ? `${activeModelDetail.name} (${activeModelDetail.label})`
+            : activeModelDetail.name,
+        },
+      ]
     }
     return []
   }, [activeModelDetail, formMapsToType, formModelId])
@@ -315,7 +346,10 @@ export default function Glossary() {
         </div>
 
         {/* Filters & Search */}
-        <div className="form-row" style={{ gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '1.25rem' }}>
+        <div
+          className="form-row"
+          style={{ gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '1.25rem' }}
+        >
           <label className="form-field" style={{ minWidth: '14rem' }}>
             <span className="form-label">{t('glossary.label_datasource')}</span>
             <Select
@@ -369,11 +403,23 @@ export default function Glossary() {
                 {displayedTerms.map((term) => (
                   <tr key={term.id}>
                     <td style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{term.term}</td>
-                    <td style={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={term.definition}>
-                      {term.definition || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>—</span>}
+                    <td
+                      style={{
+                        maxWidth: 300,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                      title={term.definition}
+                    >
+                      {term.definition || (
+                        <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>—</span>
+                      )}
                     </td>
                     <td>
-                      <code style={{ fontSize: '0.78rem', color: 'var(--text-primary)' }}>{term.maps_to_name}</code>
+                      <code style={{ fontSize: '0.78rem', color: 'var(--text-primary)' }}>
+                        {term.maps_to_name}
+                      </code>
                     </td>
                     <td>
                       <span
@@ -427,10 +473,18 @@ export default function Glossary() {
                     </td>
                     <td className="actions">
                       <div className="row-actions">
-                        <button type="button" className="btn btn-sm btn-ghost" onClick={() => openEdit(term)}>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-ghost"
+                          onClick={() => openEdit(term)}
+                        >
                           {t('common.edit')}
                         </button>
-                        <button type="button" className="btn btn-sm btn-danger" onClick={() => handleDelete(term.id)}>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-danger"
+                          onClick={() => handleDelete(term.id)}
+                        >
                           {t('common.delete')}
                         </button>
                       </div>
@@ -514,7 +568,7 @@ export default function Glossary() {
                     <Select
                       value={formMapsToType}
                       onChange={(val) => {
-                        setFormMapsToType(val as 'dimension' | 'metric' | 'model')
+                        setFormMapsToType(val)
                         setFormMapsToName('')
                       }}
                       options={[
@@ -641,7 +695,11 @@ export default function Glossary() {
                         type="button"
                         className="field-badge-btn"
                         onClick={() => handleInsertField(activeModelDetail.name, 'model')}
-                        title={activeModelDetail.description || activeModelDetail.label || activeModelDetail.name}
+                        title={
+                          activeModelDetail.description ||
+                          activeModelDetail.label ||
+                          activeModelDetail.name
+                        }
                       >
                         <span>{activeModelDetail.name}</span>
                         <span className="field-badge-btn__type">model</span>
@@ -673,14 +731,28 @@ export default function Glossary() {
                         </button>
                       ))}
                       {filteredDimensions.length === 0 && filteredMetrics.length === 0 && (
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center', marginTop: '1rem' }}>
+                        <span
+                          style={{
+                            fontSize: '0.75rem',
+                            color: 'var(--text-secondary)',
+                            textAlign: 'center',
+                            marginTop: '1rem',
+                          }}
+                        >
                           No fields found
                         </span>
                       )}
                     </div>
                   </>
                 ) : (
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.4', marginTop: '0.5rem' }}>
+                  <div
+                    style={{
+                      fontSize: '0.75rem',
+                      color: 'var(--text-secondary)',
+                      lineHeight: '1.4',
+                      marginTop: '0.5rem',
+                    }}
+                  >
                     {t('few_shot.helper_select_model')}
                   </div>
                 )}
@@ -690,7 +762,12 @@ export default function Glossary() {
               <button type="button" className="btn btn-ghost" onClick={resetForm}>
                 {t('common.cancel')}
               </button>
-              <button type="button" className="btn btn-primary" onClick={handleSave} disabled={loading}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSave}
+                disabled={loading}
+              >
                 {loading ? t('common.saving') : t('common.save')}
               </button>
             </div>

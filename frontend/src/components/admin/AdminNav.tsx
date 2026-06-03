@@ -1,11 +1,7 @@
 import { useT } from '../../i18n'
-import {
-  ADMIN_NAV_GROUPS,
-  ADMIN_TAB_LABEL_KEYS,
-  type AdminTab,
-} from './adminNavConfig'
+import { ADMIN_NAV_GROUPS, ADMIN_TAB_LABEL_KEYS, type AdminTab } from './adminNavConfig'
 
-type AdminNavProps = {
+interface AdminNavProps {
   activeTab: AdminTab
   onTabChange: (tab: AdminTab) => void
   onTabHover?: (tab: AdminTab) => void
@@ -40,7 +36,12 @@ export function AdminNav({ activeTab, onTabChange, onTabHover }: AdminNavProps) 
 
       <div className="admin-nav__desktop">
         {ADMIN_NAV_GROUPS.map((group) => (
-          <div key={group.id} className="admin-nav__group" role="group" aria-label={t(group.labelKey)}>
+          <div
+            key={group.id}
+            className="admin-nav__group"
+            role="group"
+            aria-label={t(group.labelKey)}
+          >
             <p className="admin-nav__group-title" id={`admin-nav-group-${group.id}`}>
               {t(group.labelKey)}
             </p>
@@ -69,4 +70,3 @@ export function AdminNav({ activeTab, onTabChange, onTabHover }: AdminNavProps) 
     </nav>
   )
 }
-

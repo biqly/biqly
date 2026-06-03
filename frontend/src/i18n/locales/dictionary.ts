@@ -3,9 +3,9 @@
 // These are TYPE-ONLY imports: they are erased at compile time and create no
 // runtime dependency, so `admin`/`auth` stay in their own lazily-loaded chunks
 // while `TranslationKey` keeps full compile-time coverage of every key.
-import type { core } from './en/core'
 import type { admin } from './en/admin'
 import type { auth } from './en/auth'
+import type { core } from './en/core'
 
 /** Widens string-literal values to `string` so other locales can differ. */
 export type DictionaryShape<T> = {

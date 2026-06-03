@@ -1,5 +1,6 @@
-import { Fragment } from 'react'
 import '../../styles/breadcrumbs.css'
+
+import { Fragment } from 'react'
 
 export interface Crumb {
   label: string
@@ -12,7 +13,9 @@ interface BreadcrumbsProps {
 }
 
 export function Breadcrumbs({ items, ariaLabel = 'Breadcrumb' }: BreadcrumbsProps) {
-  if (items.length === 0) return null
+  if (items.length === 0) {
+    return null
+  }
   return (
     <nav className="breadcrumbs" aria-label={ariaLabel}>
       <ol className="breadcrumbs__list">

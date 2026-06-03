@@ -114,7 +114,12 @@ export const deleteProvider = (id: string) =>
   apiFetch<void>('DELETE', `${AI_API_BASE}/providers/${id}`, undefined, adminOpts)
 
 export const testProvider = (id: string, modelID?: string) =>
-  apiFetch<ConnectionTestResult>('POST', `${AI_API_BASE}/providers/${id}/test`, { model_id: modelID ?? '' }, adminOpts)
+  apiFetch<ConnectionTestResult>(
+    'POST',
+    `${AI_API_BASE}/providers/${id}/test`,
+    { model_id: modelID ?? '' },
+    adminOpts,
+  )
 
 const REMOTE_MODELS_FETCH_TIMEOUT_MS = 45_000
 
@@ -131,8 +136,12 @@ export const listActiveModels = () =>
 
 export const listModels = (providerID?: string, purpose?: string) => {
   const params = new URLSearchParams()
-  if (providerID) params.set('provider_id', providerID)
-  if (purpose) params.set('purpose', purpose)
+  if (providerID) {
+    params.set('provider_id', providerID)
+  }
+  if (purpose) {
+    params.set('purpose', purpose)
+  }
   const suffix = params.toString() ? `?${params.toString()}` : ''
   return apiFetch<AIModel[]>('GET', `${AI_API_BASE}/models${suffix}`, undefined, adminOpts)
 }

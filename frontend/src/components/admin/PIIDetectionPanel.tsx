@@ -1,18 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useT } from '../../i18n'
-import { useDatasources } from '../../hooks/useDatasources'
-import {
-  deleteColumnPII,
-  listPIIColumns,
-  scanPII,
-  updateColumnPII,
-} from '../../api/admin'
+
 import type { PIIColumn, PIIScanSummary } from '../../api/admin'
+import { deleteColumnPII, listPIIColumns, scanPII, updateColumnPII } from '../../api/admin'
+import { useDatasources } from '../../hooks/useDatasources'
+import { useT } from '../../i18n'
+import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Select } from '../ui/Select'
-import { useAuth } from '../auth/AuthProvider'
-import { ReadOnlyNote } from './ReadOnlyNote'
 import { datasourceSelectOptions } from './adminSelectOptions'
+import { ReadOnlyNote } from './ReadOnlyNote'
 
 const PII_TYPES = [
   'email',
@@ -74,7 +70,9 @@ export function PIIDetectionPanel({ token }: { token: string }) {
   }, [loadColumns])
 
   const handleRescan = async () => {
-    if (!selectedDS || scanning) return
+    if (!selectedDS || scanning) {
+      return
+    }
     setScanning(true)
     setError(null)
     try {
@@ -103,7 +101,9 @@ export function PIIDetectionPanel({ token }: { token: string }) {
   }
 
   const handleDismiss = async (col: PIIColumn) => {
-    if (!window.confirm(t('admin.pii.dismiss_confirm'))) return
+    if (!window.confirm(t('admin.pii.dismiss_confirm'))) {
+      return
+    }
     setError(null)
     try {
       await deleteColumnPII(token, col.column_id, reviewer)
@@ -251,7 +251,9 @@ export function PIIDetectionPanel({ token }: { token: string }) {
 }
 
 function ConfidenceBadge({ confidence }: { confidence: number | null }) {
-  if (confidence == null) return <span>—</span>
+  if (confidence == null) {
+    return <span>—</span>
+  }
   const pct = Math.round(confidence * 100)
   const color = confidence > 0.8 ? '#10b981' : confidence >= 0.6 ? '#f59e0b' : '#ef4444'
   return (

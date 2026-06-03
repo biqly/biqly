@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { normalizeAIQueryResponse } from './normalizeAIQueryResponse'
 
 describe('normalizeAIQueryResponse', () => {

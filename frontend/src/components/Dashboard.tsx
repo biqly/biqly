@@ -1,8 +1,9 @@
 import { useState } from 'react'
+
 import { useT } from '../i18n'
-import DashboardList from './DashboardList'
-import DashboardBuilder from './DashboardBuilder'
 import AIUsageDashboard from './AIUsageDashboard'
+import DashboardBuilder from './DashboardBuilder'
+import DashboardList from './DashboardList'
 
 export default function Dashboard() {
   const t = useT()
@@ -28,7 +29,8 @@ export default function Dashboard() {
             style={{
               background: 'none',
               border: 'none',
-              borderBottom: activeTab === 'custom' ? '2px solid var(--accent)' : '2px solid transparent',
+              borderBottom:
+                activeTab === 'custom' ? '2px solid var(--accent)' : '2px solid transparent',
               color: activeTab === 'custom' ? 'var(--text)' : 'var(--text-muted)',
               cursor: 'pointer',
               fontSize: '1rem',
@@ -45,7 +47,8 @@ export default function Dashboard() {
             style={{
               background: 'none',
               border: 'none',
-              borderBottom: activeTab === 'ai_usage' ? '2px solid var(--accent)' : '2px solid transparent',
+              borderBottom:
+                activeTab === 'ai_usage' ? '2px solid var(--accent)' : '2px solid transparent',
               color: activeTab === 'ai_usage' ? 'var(--text)' : 'var(--text-muted)',
               cursor: 'pointer',
               fontSize: '1rem',

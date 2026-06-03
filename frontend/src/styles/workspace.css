@@ -59,7 +59,9 @@
   padding: 4px 0;
   font-size: 13px;
 }
-.ws-settings__back:hover { text-decoration: underline; }
+.ws-settings__back:hover {
+  text-decoration: underline;
+}
 
 .ws-settings__title {
   margin: 0;
@@ -68,8 +70,8 @@
 
 .ws-settings__error {
   padding: 10px 14px;
-  background: rgba(239, 68, 68, .08);
-  border: 1px solid rgba(239, 68, 68, .25);
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
   border-radius: 6px;
   color: #dc2626;
   font-size: 13px;
@@ -77,8 +79,8 @@
 
 .ws-settings__success {
   padding: 10px 14px;
-  background: rgba(34, 197, 94, .08);
-  border: 1px solid rgba(34, 197, 94, .25);
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.25);
   border-radius: 6px;
   color: #16a34a;
   font-size: 13px;
@@ -111,14 +113,14 @@
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: .5px;
+  letter-spacing: 0.5px;
 }
-.ws-settings__badge[data-type="personal"] {
-  background: rgba(99, 102, 241, .1);
+.ws-settings__badge[data-type='personal'] {
+  background: rgba(99, 102, 241, 0.1);
   color: #6366f1;
 }
-.ws-settings__badge[data-type="team"] {
-  background: rgba(16, 185, 129, .1);
+.ws-settings__badge[data-type='team'] {
+  background: rgba(16, 185, 129, 0.1);
   color: #10b981;
 }
 
@@ -201,7 +203,7 @@
   min-height: 1.85rem;
   padding: 0 10px;
   background: transparent;
-  border: 1px solid rgba(239, 68, 68, .3);
+  border: 1px solid rgba(239, 68, 68, 0.3);
   color: #dc2626;
   border-radius: 6px;
   cursor: pointer;
@@ -209,7 +211,7 @@
   line-height: 1.2;
 }
 .ws-settings__btn-danger:hover {
-  background: rgba(239, 68, 68, .06);
+  background: rgba(239, 68, 68, 0.06);
 }
 
 .ws-settings__table {
@@ -229,7 +231,7 @@
   font-weight: 600;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: .4px;
+  letter-spacing: 0.4px;
   color: var(--text-secondary, #6b7280);
   white-space: nowrap;
 }
@@ -272,7 +274,7 @@
   border-radius: 10px;
   font-size: 11px;
   font-weight: 500;
-  background: rgba(99, 102, 241, .1);
+  background: rgba(99, 102, 241, 0.1);
   color: #6366f1;
 }
 

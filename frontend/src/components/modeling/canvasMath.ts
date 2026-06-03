@@ -16,7 +16,7 @@ import {
   ZOOM_STEPS,
 } from './constants'
 import type { CardLayout, JoinPath, Pt, Viewport } from './types'
-import { compareColumns, columnOptions, tableKey } from './utils'
+import { columnOptions, compareColumns, tableKey } from './utils'
 
 export function clampScale(scale: number) {
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale))
@@ -27,7 +27,9 @@ export function zoomStepIndex(scale: number) {
   let idx = 0
   for (let i = 0; i < ZOOM_STEPS.length; i++) {
     const step = ZOOM_STEPS[i]
-    if (step !== undefined && step <= clamped + 1e-9) idx = i
+    if (step !== undefined && step <= clamped + 1e-9) {
+      idx = i
+    }
   }
   return idx
 }
@@ -42,13 +44,16 @@ export function snapScaleNearest(scale: number) {
   const clamped = clampScale(scale)
   let best = ZOOM_STEPS[0] ?? MIN_SCALE
   for (const step of ZOOM_STEPS) {
-    if (Math.abs(step - clamped) < Math.abs(best - clamped)) best = step
+    if (Math.abs(step - clamped) < Math.abs(best - clamped)) {
+      best = step
+    }
   }
   return best
 }
 
 export const cardHeight = (count: number) => HEADER_HEIGHT + count * ROW_HEIGHT + CARD_PAD_Y * 2
-export const rowCenterY = (idx: number) => HEADER_HEIGHT + CARD_PAD_Y + idx * ROW_HEIGHT + ROW_HEIGHT / 2
+export const rowCenterY = (idx: number) =>
+  HEADER_HEIGHT + CARD_PAD_Y + idx * ROW_HEIGHT + ROW_HEIGHT / 2
 
 export function applyDragDelta(startPos: Pt, dx: number, dy: number, scale: number): Pt {
   return {
@@ -84,8 +89,15 @@ export function panViewport(start: Viewport, dx: number, dy: number): Viewport {
   return { ...start, tx: start.tx + dx, ty: start.ty + dy }
 }
 
-export function zoomViewportAtPoint(vp: Viewport, cx: number, cy: number, newScale: number): Viewport {
-  if (newScale === vp.scale) return vp
+export function zoomViewportAtPoint(
+  vp: Viewport,
+  cx: number,
+  cy: number,
+  newScale: number,
+): Viewport {
+  if (newScale === vp.scale) {
+    return vp
+  }
   const k = newScale / vp.scale
   return { scale: newScale, tx: cx - k * (cx - vp.tx), ty: cy - k * (cy - vp.ty) }
 }
@@ -103,7 +115,7 @@ export function layoutInitialPositions(
     const col = i % LAYOUT_COLS
     const cursorY = colCursors[col] ?? ORIGIN_Y
     next[key] = { x: ORIGIN_X + col * GRID_X, y: cursorY }
-    colCursors[col] = Math.max(cursorY, next[key]!.y + h + GRID_Y)
+    colCursors[col] = Math.max(cursorY, next[key].y + h + GRID_Y)
   })
   return next
 }
@@ -119,7 +131,9 @@ export function computeCanvasBounds(
     const key = tableKey(tbl.schema_name, tbl.table_name)
     const pos = positions[key]
     const layout = cardLayouts.get(key)
-    if (!pos || !layout) continue
+    if (!pos || !layout) {
+      continue
+    }
     maxX = Math.max(maxX, pos.x + CARD_WIDTH)
     maxY = Math.max(maxY, pos.y + layout.height)
   }
@@ -142,7 +156,12 @@ export function buildCardLayouts(
     cols.forEach((c, i) => idx.set(c.column_name, i))
     const hidden = Math.max(0, allCols.length - cols.length)
     const rowCount = cols.length + (hidden > 0 ? 1 : 0)
-    out.set(key, { columnsShown: cols, columnIndex: idx, height: cardHeight(rowCount), hiddenCount: hidden })
+    out.set(key, {
+      columnsShown: cols,
+      columnIndex: idx,
+      height: cardHeight(rowCount),
+      hiddenCount: hidden,
+    })
   }
   return out
 }
@@ -159,11 +178,15 @@ export function computeJoinPath(
   const toPos = positions[toKey]
   const fromLayout = cardLayouts.get(fromKey)
   const toLayout = cardLayouts.get(toKey)
-  if (!fromPos || !toPos || !fromLayout || !toLayout) return null
+  if (!fromPos || !toPos || !fromLayout || !toLayout) {
+    return null
+  }
 
   const fromIdx = fromLayout.columnIndex.get(join.from_column)
   const toIdx = toLayout.columnIndex.get(join.to_column)
-  if (fromIdx === undefined || toIdx === undefined) return null
+  if (fromIdx === undefined || toIdx === undefined) {
+    return null
+  }
   const fromY = fromPos.y + rowCenterY(fromIdx)
   const toY = toPos.y + rowCenterY(toIdx)
 

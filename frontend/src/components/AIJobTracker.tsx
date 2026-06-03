@@ -1,8 +1,10 @@
-import { useCallback, useMemo, useState } from 'react'
-import { jobQuestionPreview, useAIJobs, type TrackedAIJob } from '../hooks/useAIJobs'
-import type { AIJobKind } from '../types/ai'
-import { useT, type TranslationKey } from '../i18n'
 import '../styles/ai-jobs.css'
+
+import { useCallback, useMemo, useState } from 'react'
+
+import { jobQuestionPreview, type TrackedAIJob, useAIJobs } from '../hooks/useAIJobs'
+import { type TranslationKey, useT } from '../i18n'
+import type { AIJobKind } from '../types/ai'
 
 const PIPELINE_PHASES = [
   'queued',
@@ -17,11 +19,18 @@ const DESCRIBE_PHASES = ['queued', 'sampling', 'generating', 'applying'] as cons
 
 const EMBED_PHASES = ['queued', 'fetching', 'embedding', 'completing'] as const
 
-type PipelinePhase = (typeof PIPELINE_PHASES)[number] | (typeof DESCRIBE_PHASES)[number] | (typeof EMBED_PHASES)[number]
+type PipelinePhase =
+  | (typeof PIPELINE_PHASES)[number]
+  | (typeof DESCRIBE_PHASES)[number]
+  | (typeof EMBED_PHASES)[number]
 
 function phasesForJob(job: TrackedAIJob): readonly PipelinePhase[] {
-  if (job.kind === 'describe' || job.kind === 'describe_batch') return DESCRIBE_PHASES
-  if (job.kind === 'embed_metadata') return EMBED_PHASES
+  if (job.kind === 'describe' || job.kind === 'describe_batch') {
+    return DESCRIBE_PHASES
+  }
+  if (job.kind === 'embed_metadata') {
+    return EMBED_PHASES
+  }
   return PIPELINE_PHASES
 }
 
@@ -31,12 +40,12 @@ function phaseIndex(phases: readonly PipelinePhase[], phase: string): number {
 }
 
 function phaseKey(phase: PipelinePhase): TranslationKey {
-  return `ai_jobs.phase_${phase}` as TranslationKey
+  return `ai_jobs.phase_${phase}`
 }
 
 function phaseLabelKey(job: TrackedAIJob, phase: PipelinePhase): TranslationKey {
   if ((job.kind === 'describe' || job.kind === 'describe_batch') && phase === 'generating') {
-    return 'ai_jobs.phase_describing' as TranslationKey
+    return 'ai_jobs.phase_describing'
   }
   return phaseKey(phase)
 }
@@ -46,17 +55,25 @@ function isActive(job: TrackedAIJob): boolean {
 }
 
 function describeBatchScopeLine(job: TrackedAIJob): string | null {
-  if (job.kind !== 'describe_batch' || !job.scope_schemas?.length) return null
+  if (job.kind !== 'describe_batch' || !job.scope_schemas?.length) {
+    return null
+  }
   return job.scope_schemas.join(', ')
 }
 
-function describeBatchQueueLine(job: TrackedAIJob): { current: string | null; next: string | null } | null {
-  if (job.kind !== 'describe_batch' || !job.progress_json) return null
+function describeBatchQueueLine(
+  job: TrackedAIJob,
+): { current: string | null; next: string | null } | null {
+  if (job.kind !== 'describe_batch' || !job.progress_json) {
+    return null
+  }
   const p = job.progress_json
   const current =
     p.current_schema && p.current_table ? `${p.current_schema}.${p.current_table}` : null
   const next = p.pending_preview?.length ? p.pending_preview.join(', ') : null
-  if (!current && !next) return null
+  if (!current && !next) {
+    return null
+  }
   return { current, next }
 }
 
@@ -71,9 +88,13 @@ function JobPipeline({ job }: { job: TrackedAIJob }) {
     <ol className="ai-job-pipeline" aria-label={t('ai_jobs.pipeline_aria')}>
       {phases.map((phase, idx) => {
         let state: 'done' | 'current' | 'pending' | 'failed' = 'pending'
-        if (failed && idx === current) state = 'failed'
-        else if (done || idx < current) state = 'done'
-        else if (idx === current) state = 'current'
+        if (failed && idx === current) {
+          state = 'failed'
+        } else if (done || idx < current) {
+          state = 'done'
+        } else if (idx === current) {
+          state = 'current'
+        }
         return (
           <li key={phase} className={`ai-job-pipeline__step ai-job-pipeline__step--${state}`}>
             <span className="ai-job-pipeline__dot" aria-hidden="true" />
@@ -106,14 +127,14 @@ function JobCard({
     job.kind === 'describe_batch'
       ? t('ai_jobs.kind_describe_batch')
       : job.kind === 'describe'
-      ? t('ai_jobs.kind_describe')
-      : job.kind === 'embed_metadata'
-      ? t('ai_jobs.kind_embed_metadata')
-      : job.kind === 'run'
-      ? t('ai_jobs.kind_run')
-      : job.kind === 'preview'
-        ? t('ai_jobs.kind_preview')
-        : t('ai_jobs.kind_query')
+        ? t('ai_jobs.kind_describe')
+        : job.kind === 'embed_metadata'
+          ? t('ai_jobs.kind_embed_metadata')
+          : job.kind === 'run'
+            ? t('ai_jobs.kind_run')
+            : job.kind === 'preview'
+              ? t('ai_jobs.kind_preview')
+              : t('ai_jobs.kind_query')
 
   return (
     <article className={`ai-job-card${active ? ' ai-job-card--active' : ''}`}>
@@ -138,7 +159,12 @@ function JobCard({
             </button>
           )}
           {!active && (
-            <button type="button" className="btn btn-sm btn-ghost" onClick={onDismiss} aria-label={t('ai_jobs.dismiss')}>
+            <button
+              type="button"
+              className="btn btn-sm btn-ghost"
+              onClick={onDismiss}
+              aria-label={t('ai_jobs.dismiss')}
+            >
               ×
             </button>
           )}
@@ -163,9 +189,13 @@ function JobCard({
             </p>
           )}
           {job.status === 'cancelled' && (
-            <p className="ai-job-card__cancelled">{job.error_message || job.phase_message || t('ai_jobs.cancelled')}</p>
+            <p className="ai-job-card__cancelled">
+              {job.error_message || job.phase_message || t('ai_jobs.cancelled')}
+            </p>
           )}
-          {job.status === 'succeeded' && <p className="ai-job-card__ok">{t('ai_jobs.completed')}</p>}
+          {job.status === 'succeeded' && (
+            <p className="ai-job-card__ok">{t('ai_jobs.completed')}</p>
+          )}
           {active && job.status === 'queued' && (
             <p className="ai-job-card__hint">{t('ai_jobs.stuck_hint')}</p>
           )}
@@ -192,7 +222,9 @@ function StaleJobsPanel({
   }
   return (
     <div className="ai-job-panel__stale">
-      <p className="ai-job-panel__stale-head">{t('ai_jobs.manage_stale_count', { count: staleJobs.length })}</p>
+      <p className="ai-job-panel__stale-head">
+        {t('ai_jobs.manage_stale_count', { count: staleJobs.length })}
+      </p>
       <ul className="ai-job-panel__stale-list">
         {staleJobs.map((job) => (
           <li key={job.id} className="ai-job-panel__stale-item">
@@ -243,7 +275,7 @@ export default function AIJobTracker() {
         ...job,
         questionPreview:
           job.request_json && typeof job.request_json === 'object'
-            ? jobQuestionPreview(job.kind as AIJobKind, job.request_json)
+            ? jobQuestionPreview(job.kind, job.request_json)
             : job.kind,
       })),
     )
@@ -264,7 +296,9 @@ export default function AIJobTracker() {
   )
   const primary = visible[0] ?? jobs[0]
 
-  if (!jobs.length) return null
+  if (!jobs.length) {
+    return null
+  }
 
   const activeCount = jobs.filter(isActive).length
 
@@ -282,7 +316,9 @@ export default function AIJobTracker() {
       >
         <span className="ai-job-fab__pulse" aria-hidden="true" />
         <span className="ai-job-fab__label">
-          {activeCount > 0 ? t('ai_jobs.fab_running', { count: activeCount }) : t('ai_jobs.fab_done')}
+          {activeCount > 0
+            ? t('ai_jobs.fab_running', { count: activeCount })
+            : t('ai_jobs.fab_done')}
         </span>
         {primary && <span className="ai-job-fab__pct">{primary.progress_pct}%</span>}
       </button>

@@ -19,7 +19,7 @@
 .share-modal__overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, .4);
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -33,7 +33,7 @@
   border-radius: 12px;
   width: 100%;
   max-width: 420px;
-  box-shadow: var(--shadow, 0 20px 60px rgba(0, 0, 0, .2));
+  box-shadow: var(--shadow, 0 20px 60px rgba(0, 0, 0, 0.2));
   animation: slideUp 200ms ease-out;
 }
 
@@ -44,7 +44,10 @@
   padding: 16px 20px;
   border-bottom: 1px solid var(--border-color, #f0f0f0);
 }
-.share-modal__header h3 { margin: 0; font-size: 16px; }
+.share-modal__header h3 {
+  margin: 0;
+  font-size: 16px;
+}
 
 .share-modal__close {
   background: none;
@@ -108,7 +111,7 @@
 
 .share-modal__error {
   padding: 8px 12px;
-  background: rgba(239, 68, 68, .08);
+  background: rgba(239, 68, 68, 0.08);
   border-radius: 4px;
   color: #dc2626;
   font-size: 12px;
@@ -142,7 +145,7 @@
   filter: brightness(1.1);
 }
 .share-modal__btn-submit:disabled {
-  opacity: .6;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
@@ -158,7 +161,7 @@
 }
 .shared-list__error {
   padding: 10px 14px;
-  background: rgba(239, 68, 68, .08);
+  background: rgba(239, 68, 68, 0.08);
   border-radius: 6px;
   color: #dc2626;
   font-size: 13px;
@@ -179,7 +182,7 @@
   font-weight: 600;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: .4px;
+  letter-spacing: 0.4px;
   color: var(--text-secondary, #6b7280);
 }
 
@@ -210,27 +213,41 @@
   font-size: 11px;
   font-weight: 600;
 }
-.shared-list__perm--view    { background: rgba(107, 114, 128, .1); color: var(--text-secondary, #6b7280); }
-.shared-list__perm--execute { background: rgba(245, 158, 11, .12); color: var(--warning, #d97706); }
-.shared-list__perm--edit    { background: rgba(16, 185, 129, .12); color: var(--success, #059669); }
+.shared-list__perm--view {
+  background: rgba(107, 114, 128, 0.1);
+  color: var(--text-secondary, #6b7280);
+}
+.shared-list__perm--execute {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--warning, #d97706);
+}
+.shared-list__perm--edit {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success, #059669);
+}
 
 .shared-list__revoke {
   padding: 3px 10px;
   background: transparent;
-  border: 1px solid rgba(239, 68, 68, .3);
+  border: 1px solid rgba(239, 68, 68, 0.3);
   color: #dc2626;
   border-radius: 4px;
   cursor: pointer;
   font-size: 12px;
 }
 .shared-list__revoke:hover {
-  background: rgba(239, 68, 68, .06);
+  background: rgba(239, 68, 68, 0.06);
 }
 
 /* Queue Status — Pulse Animation */
 @keyframes queuePulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: .5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .queue-status--active {

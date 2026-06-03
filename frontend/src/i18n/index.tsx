@@ -1,15 +1,16 @@
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
-  type ReactNode,
 } from 'react'
+
+import type { Dictionary, LocaleSectionName } from './locales/dictionary'
 import { core as enCore } from './locales/en/core'
 import { core as trCore } from './locales/tr/core'
-import type { Dictionary, LocaleSectionName } from './locales/dictionary'
 
 export type { Dictionary } from './locales/dictionary'
 
@@ -19,10 +20,11 @@ export type Locale = 'en' | 'tr'
 export const SUPPORTED_LOCALES: Locale[] = ['en', 'tr']
 export const DEFAULT_LOCALE: Locale = 'tr'
 export const FALLBACK_LOCALE: Locale = 'en'
-export const LOCALE_OPTIONS: Record<Locale, { label: string; short: string; languageTag: string }> = {
-  en: { label: 'English', short: 'EN', languageTag: 'en-US' },
-  tr: { label: 'Türkçe', short: 'TR', languageTag: 'tr-TR' },
-}
+export const LOCALE_OPTIONS: Record<Locale, { label: string; short: string; languageTag: string }> =
+  {
+    en: { label: 'English', short: 'EN', languageTag: 'en-US' },
+    tr: { label: 'Türkçe', short: 'TR', languageTag: 'tr-TR' },
+  }
 
 export function localeLanguageTag(locale: Locale): string {
   return LOCALE_OPTIONS[locale]?.languageTag ?? LOCALE_OPTIONS[FALLBACK_LOCALE].languageTag
@@ -72,9 +74,13 @@ function notify() {
 /** Load (once) a lazy locale section and merge it into the active registry. */
 export function loadLocaleSection(locale: Locale, section: LocaleSectionName): Promise<void> {
   const key = `${locale}:${section}`
-  if (loadedSections.has(key)) return Promise.resolve()
+  if (loadedSections.has(key)) {
+    return Promise.resolve()
+  }
   const existing = inFlight.get(key)
-  if (existing) return existing
+  if (existing) {
+    return existing
+  }
   const p = sectionLoaders[locale][section]()
     .then((mod) => {
       dictionaries[locale] = { ...dictionaries[locale], ...mod }
@@ -95,7 +101,9 @@ function sectionReady(locale: Locale, section: LocaleSectionName): boolean {
 }
 
 function readLocaleFromStorage(): Locale | null {
-  if (typeof window === 'undefined') return null
+  if (typeof window === 'undefined') {
+    return null
+  }
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
     if (raw && (SUPPORTED_LOCALES as string[]).includes(raw)) {
@@ -108,15 +116,21 @@ function readLocaleFromStorage(): Locale | null {
 }
 
 function detectBrowserLocale(): Locale {
-  if (typeof navigator === 'undefined') return DEFAULT_LOCALE
+  if (typeof navigator === 'undefined') {
+    return DEFAULT_LOCALE
+  }
   const candidates = [
     navigator.language,
     ...(Array.isArray(navigator.languages) ? navigator.languages : []),
   ]
   for (const raw of candidates) {
-    if (!raw) continue
+    if (!raw) {
+      continue
+    }
     const base = raw.toLowerCase().split(/[-_]/)[0] as Locale
-    if ((SUPPORTED_LOCALES as string[]).includes(base)) return base
+    if ((SUPPORTED_LOCALES as string[]).includes(base)) {
+      return base
+    }
   }
   return DEFAULT_LOCALE
 }
@@ -158,19 +172,29 @@ function lookup(dict: PartialDict, key: string): string | undefined {
 }
 
 function interpolate(template: string, params?: Record<string, string | number>): string {
-  if (!params || !template.includes('{{')) return template
+  if (!params || !template.includes('{{')) {
+    return template
+  }
   return template.replace(/\{\{\s*([\w]+)\s*\}\}/g, (_, k) => {
     const v = params[k]
     return v === undefined || v === null ? `{{${k}}}` : String(v)
   })
 }
 
-function translate(locale: Locale, key: TranslationKey, params?: Record<string, string | number>): string {
+function translate(
+  locale: Locale,
+  key: TranslationKey,
+  params?: Record<string, string | number>,
+): string {
   const primary = lookup(dictionaries[locale], key)
-  if (primary !== undefined) return interpolate(primary, params)
+  if (primary !== undefined) {
+    return interpolate(primary, params)
+  }
   if (locale !== FALLBACK_LOCALE) {
     const fallback = lookup(dictionaries[FALLBACK_LOCALE], key)
-    if (fallback !== undefined) return interpolate(fallback, params)
+    if (fallback !== undefined) {
+      return interpolate(fallback, params)
+    }
   }
   return key
 }
@@ -206,17 +230,21 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const t = useCallback(
-    (key: TranslationKey, params?: Record<string, string | number>) => translate(locale, key, params),
+    (key: TranslationKey, params?: Record<string, string | number>) =>
+      translate(locale, key, params),
     // version participates so consumers update when admin/auth chunks land.
     [locale, version],
   )
 
-  const value = useMemo<I18nContextValue>(() => ({
-    locale,
-    setLocale,
-    t,
-    supported: SUPPORTED_LOCALES,
-  }), [locale, setLocale, t])
+  const value = useMemo<I18nContextValue>(
+    () => ({
+      locale,
+      setLocale,
+      t,
+      supported: SUPPORTED_LOCALES,
+    }),
+    [locale, setLocale, t],
+  )
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
 }
@@ -255,7 +283,9 @@ export function useLocaleSection(section: LocaleSectionName): boolean {
       loadLocaleSection(locale, section),
       loadLocaleSection(FALLBACK_LOCALE, section),
     ]).then(() => {
-      if (!cancelled) setReady(true)
+      if (!cancelled) {
+        setReady(true)
+      }
     })
     return () => {
       cancelled = true

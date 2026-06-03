@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState, type SubmitEvent } from 'react'
-import abiLogo from '../../assets/abi-logo.png'
-import { apiResetPassword } from '../../api/auth'
-import { useT } from '../../i18n'
+import { type SubmitEvent, useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+
+import { apiResetPassword } from '../../api/auth'
+import abiLogo from '../../assets/abi-logo.png'
+import { useT } from '../../i18n'
 import PasswordStrengthMeter from './PasswordStrengthMeter'
 
 export default function ResetPasswordPage() {
@@ -32,7 +33,9 @@ export default function ResetPasswordPage() {
 
   const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!token || !password || !confirmPassword) return
+    if (!token || !password || !confirmPassword) {
+      return
+    }
 
     if (password !== confirmPassword) {
       setError('Passwords do not match')
@@ -70,7 +73,13 @@ export default function ResetPasswordPage() {
           </div>
           <h1 className="auth-title">{t('auth.title_reset')}</h1>
           <p className="auth-subtitle">
-            <a href="/auth/signin" onClick={(e) => { e.preventDefault(); navigate('/auth/signin'); }}>
+            <a
+              href="/auth/signin"
+              onClick={(e) => {
+                e.preventDefault()
+                navigate('/auth/signin')
+              }}
+            >
               {t('auth.back_to_login')}
             </a>
           </p>
@@ -82,10 +91,16 @@ export default function ResetPasswordPage() {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="auth-form">
-            {error && <div className="auth-error" role="alert" aria-live="assertive">{error}</div>}
+            {error && (
+              <div className="auth-error" role="alert" aria-live="assertive">
+                {error}
+              </div>
+            )}
 
             <div className="form-group">
-              <label className="form-label" htmlFor="password-input">{t('auth.password')}</label>
+              <label className="form-label" htmlFor="password-input">
+                {t('auth.password')}
+              </label>
               <input
                 id="password-input"
                 type="password"
@@ -101,7 +116,9 @@ export default function ResetPasswordPage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label" htmlFor="confirm-password-input">{t('auth.confirm_password')}</label>
+              <label className="form-label" htmlFor="confirm-password-input">
+                {t('auth.confirm_password')}
+              </label>
               <input
                 id="confirm-password-input"
                 type="password"

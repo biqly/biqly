@@ -1,14 +1,15 @@
-import { useEffect, useState, useMemo, useRef } from 'react'
-import { useConfirm } from '../hooks/useConfirm'
+import { useEffect, useMemo, useRef, useState } from 'react'
+
 import { useApi } from '../hooks/useApi'
+import { useConfirm } from '../hooks/useConfirm'
+import { useDatasources } from '../hooks/useDatasources'
+import { useModelDetail } from '../hooks/useModelDetail'
+import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useT } from '../i18n'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
-import { Select } from './ui/Select'
 import { LoadingScreen } from './ui/LoadingScreen'
-import { useDatasources } from '../hooks/useDatasources'
-import { useSemanticModels } from '../hooks/useSemanticModels'
-import { useModelDetail } from '../hooks/useModelDetail'
+import { Select } from './ui/Select'
 
 interface FewShotExample {
   id: string
@@ -48,7 +49,9 @@ export default function FewShotExamples() {
   const [apiReady, setApiReady] = useState(true)
 
   // Sidebar States & Refs
-  const { model: activeModelDetail, setModel: setActiveModelDetail } = useModelDetail(formModelId, { includeInactive: true })
+  const { model: activeModelDetail, setModel: setActiveModelDetail } = useModelDetail(formModelId, {
+    includeInactive: true,
+  })
   const [sidebarSearch, setSidebarSearch] = useState('')
   const questionRef = useRef<HTMLTextAreaElement | null>(null)
   const lqRef = useRef<HTMLTextAreaElement | null>(null)
@@ -71,31 +74,37 @@ export default function FewShotExamples() {
     }
 
     setInitLoading(true)
-    get<FewShotExample[]>(url).then((data) => {
-      if (data) {
-        setExamples(data)
-        setApiReady(true)
-      } else {
-        // Fallback to offline local storage
-        try {
-          let local = JSON.parse(localStorage.getItem('biqly_fewshot') || '[]') as FewShotExample[]
-          if (selectedDatasourceId) {
-            local = local.filter((ex) => ex.datasource_id === selectedDatasourceId)
-            if (selectedModelId) {
-              if (selectedModelId === 'raw_tables') {
-                local = local.filter((ex) => !ex.model_id)
-              } else {
-                local = local.filter((ex) => ex.model_id === selectedModelId)
+    get<FewShotExample[]>(url)
+      .then((data) => {
+        if (data) {
+          setExamples(data)
+          setApiReady(true)
+        } else {
+          // Fallback to offline local storage
+          try {
+            let local = JSON.parse(
+              localStorage.getItem('biqly_fewshot') || '[]',
+            ) as FewShotExample[]
+            if (selectedDatasourceId) {
+              local = local.filter((ex) => ex.datasource_id === selectedDatasourceId)
+              if (selectedModelId) {
+                if (selectedModelId === 'raw_tables') {
+                  local = local.filter((ex) => !ex.model_id)
+                } else {
+                  local = local.filter((ex) => ex.model_id === selectedModelId)
+                }
               }
             }
+            setExamples(local)
+          } catch {
+            /* empty */
           }
-          setExamples(local)
-        } catch { /* empty */ }
-        setApiReady(false)
-      }
-    }).finally(() => {
-      setInitLoading(false)
-    })
+          setApiReady(false)
+        }
+      })
+      .finally(() => {
+        setInitLoading(false)
+      })
   }, [selectedDatasourceId, selectedModelId, get])
 
   const persist = (updated: FewShotExample[]) => {
@@ -174,10 +183,13 @@ export default function FewShotExamples() {
         model_id: formModelId || undefined,
         question: formQuestion,
         logical_query: lq,
-        tags: formTags.split(',').map((tok) => tok.trim()).filter(Boolean),
+        tags: formTags
+          .split(',')
+          .map((tok) => tok.trim())
+          .filter(Boolean),
         dialect: formDialect,
       }
-      const updated = examples.map((e) => e.id === editId ? updatedItem : e)
+      const updated = examples.map((e) => (e.id === editId ? updatedItem : e))
       if (apiReady) {
         await putData(`/api/ai/examples/${editId}`, updatedItem)
       }
@@ -189,7 +201,10 @@ export default function FewShotExamples() {
         model_id: formModelId || undefined,
         question: formQuestion,
         logical_query: lq,
-        tags: formTags.split(',').map((tok) => tok.trim()).filter(Boolean),
+        tags: formTags
+          .split(',')
+          .map((tok) => tok.trim())
+          .filter(Boolean),
         dialect: formDialect,
       }
       if (apiReady) {
@@ -211,7 +226,9 @@ export default function FewShotExamples() {
       title: t('few_shot.confirm_delete'),
       variant: 'danger',
     })
-    if (!ok) return
+    if (!ok) {
+      return
+    }
     if (apiReady) {
       await deleteData(`/api/ai/examples/${id}`)
     }
@@ -221,7 +238,9 @@ export default function FewShotExamples() {
   // Insert field badge at cursor
   const handleInsertField = (fieldName: string) => {
     const inputNode = lastFocusedInput === 'question' ? questionRef.current : lqRef.current
-    if (!inputNode) return
+    if (!inputNode) {
+      return
+    }
 
     const start = inputNode.selectionStart
     const end = inputNode.selectionEnd
@@ -245,13 +264,17 @@ export default function FewShotExamples() {
 
   // Filter lists inside main view
   const filterModels = useMemo(() => {
-    if (!selectedDatasourceId) return []
+    if (!selectedDatasourceId) {
+      return []
+    }
     return allModels.filter((m) => m.datasource_id === selectedDatasourceId)
   }, [allModels, selectedDatasourceId])
 
   // Filter lists inside form
   const formModels = useMemo(() => {
-    if (!formDatasourceId) return []
+    if (!formDatasourceId) {
+      return []
+    }
     return allModels.filter((m) => m.datasource_id === formDatasourceId)
   }, [allModels, formDatasourceId])
 
@@ -265,26 +288,32 @@ export default function FewShotExamples() {
 
   // Sidebar search filtering
   const filteredDimensions = useMemo(() => {
-    if (!activeModelDetail?.dimensions) return []
+    if (!activeModelDetail?.dimensions) {
+      return []
+    }
     const query = sidebarSearch.toLowerCase().trim()
-    if (!query) return activeModelDetail.dimensions.filter(d => d.is_active !== false)
+    if (!query) {
+      return activeModelDetail.dimensions.filter((d) => d.is_active !== false)
+    }
     return activeModelDetail.dimensions.filter(
       (d) =>
         d.is_active !== false &&
-        (d.name.toLowerCase().includes(query) ||
-          (d.label && d.label.toLowerCase().includes(query)))
+        (d.name.toLowerCase().includes(query) || d.label?.toLowerCase().includes(query)),
     )
   }, [activeModelDetail, sidebarSearch])
 
   const filteredMetrics = useMemo(() => {
-    if (!activeModelDetail?.metrics) return []
+    if (!activeModelDetail?.metrics) {
+      return []
+    }
     const query = sidebarSearch.toLowerCase().trim()
-    if (!query) return activeModelDetail.metrics.filter(m => m.is_active !== false)
+    if (!query) {
+      return activeModelDetail.metrics.filter((m) => m.is_active !== false)
+    }
     return activeModelDetail.metrics.filter(
       (m) =>
         m.is_active !== false &&
-        (m.name.toLowerCase().includes(query) ||
-          (m.label && m.label.toLowerCase().includes(query)))
+        (m.name.toLowerCase().includes(query) || m.label?.toLowerCase().includes(query)),
     )
   }, [activeModelDetail, sidebarSearch])
 
@@ -293,9 +322,11 @@ export default function FewShotExamples() {
   }
 
   const getModelName = (modelId: string | undefined) => {
-    if (!modelId) return t('few_shot.option_raw_tables')
+    if (!modelId) {
+      return t('few_shot.option_raw_tables')
+    }
     const m = allModels.find((model) => model.id === modelId)
-    return m ? (m.label || m.name) : modelId
+    return m ? m.label || m.name : modelId
   }
 
   if (initLoading && examples.length === 0) {
@@ -304,9 +335,7 @@ export default function FewShotExamples() {
 
   return (
     <div className="page-stack">
-      {!apiReady && (
-        <ErrorAlert error={t('few_shot.api_offline_alert')} />
-      )}
+      {!apiReady && <ErrorAlert error={t('few_shot.api_offline_alert')} />}
 
       <div className="card">
         <div className="card-intro">
@@ -322,7 +351,10 @@ export default function FewShotExamples() {
         </div>
 
         {/* Filters */}
-        <div className="form-row" style={{ gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '1.25rem' }}>
+        <div
+          className="form-row"
+          style={{ gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '1.25rem' }}
+        >
           <label className="form-field" style={{ minWidth: '14rem' }}>
             <span className="form-label">{t('few_shot.label_datasource')}</span>
             <Select
@@ -371,23 +403,58 @@ export default function FewShotExamples() {
               <tbody>
                 {displayedExamples.map((ex) => (
                   <tr key={ex.id}>
-                    <td style={{ maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ex.question}>
+                    <td
+                      style={{
+                        maxWidth: 280,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                      title={ex.question}
+                    >
                       {ex.question}
                     </td>
                     <td>{getDatasourceName(ex.datasource_id)}</td>
                     <td>{getModelName(ex.model_id)}</td>
-                    <td><code style={{ fontSize: '0.78rem', color: 'var(--accent)' }}>{ex.dialect}</code></td>
+                    <td>
+                      <code style={{ fontSize: '0.78rem', color: 'var(--accent)' }}>
+                        {ex.dialect}
+                      </code>
+                    </td>
                     <td>
                       {ex.tags.map((tag) => (
-                        <span key={tag} style={{ display: 'inline-block', padding: '0.15rem 0.5rem', background: 'rgba(96,165,250,0.1)', borderRadius: '0.3rem', fontSize: '0.72rem', marginRight: '0.3rem', color: 'var(--accent)' }}>
+                        <span
+                          key={tag}
+                          style={{
+                            display: 'inline-block',
+                            padding: '0.15rem 0.5rem',
+                            background: 'rgba(96,165,250,0.1)',
+                            borderRadius: '0.3rem',
+                            fontSize: '0.72rem',
+                            marginRight: '0.3rem',
+                            color: 'var(--accent)',
+                          }}
+                        >
                           {tag}
                         </span>
                       ))}
                     </td>
                     <td className="actions">
                       <div className="row-actions">
-                        <button type="button" className="btn btn-sm btn-ghost" onClick={() => openEdit(ex)}>{t('common.edit')}</button>
-                        <button type="button" className="btn btn-sm btn-danger" onClick={() => handleDelete(ex.id)}>{t('common.delete')}</button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-ghost"
+                          onClick={() => openEdit(ex)}
+                        >
+                          {t('common.edit')}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-danger"
+                          onClick={() => handleDelete(ex.id)}
+                        >
+                          {t('common.delete')}
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -404,7 +471,9 @@ export default function FewShotExamples() {
           <div className="modal-card modal-card--few-shot" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{editId ? t('few_shot.form_edit_title') : t('few_shot.form_add_title')}</h2>
-              <button className="modal-close" onClick={resetForm}>×</button>
+              <button className="modal-close" onClick={resetForm}>
+                ×
+              </button>
             </div>
             <div className="modal-body modal-body--two-col">
               <div className="few-shot-main-form">
@@ -448,7 +517,10 @@ export default function FewShotExamples() {
                   />
                 </div>
 
-                <div className="form-group" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <div
+                  className="form-group"
+                  style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
+                >
                   <label htmlFor="fs-lq">{t('few_shot.label_lq_json')}</label>
                   <textarea
                     ref={lqRef}
@@ -457,7 +529,12 @@ export default function FewShotExamples() {
                     onChange={(e) => setFormLq(e.target.value)}
                     onFocus={() => setLastFocusedInput('lq')}
                     placeholder='{"select": [{"type": "metric", "name": "revenue"}]}'
-                    style={{ fontFamily: 'monospace', fontSize: '0.8rem', flex: 1, minHeight: '120px' }}
+                    style={{
+                      fontFamily: 'monospace',
+                      fontSize: '0.8rem',
+                      flex: 1,
+                      minHeight: '120px',
+                    }}
                   />
                 </div>
 
@@ -524,22 +601,45 @@ export default function FewShotExamples() {
                         </button>
                       ))}
                       {filteredDimensions.length === 0 && filteredMetrics.length === 0 && (
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center', marginTop: '1rem' }}>
+                        <span
+                          style={{
+                            fontSize: '0.75rem',
+                            color: 'var(--text-secondary)',
+                            textAlign: 'center',
+                            marginTop: '1rem',
+                          }}
+                        >
                           No fields found
                         </span>
                       )}
                     </div>
                   </>
                 ) : (
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.4', marginTop: '0.5rem' }}>
+                  <div
+                    style={{
+                      fontSize: '0.75rem',
+                      color: 'var(--text-secondary)',
+                      lineHeight: '1.4',
+                      marginTop: '0.5rem',
+                    }}
+                  >
                     {t('few_shot.helper_select_model')}
                   </div>
                 )}
               </div>
             </div>
             <div className="modal-actions">
-              <button type="button" className="btn btn-ghost" onClick={resetForm}>{t('common.cancel')}</button>
-              <button type="button" className="btn btn-primary" onClick={handleSave} disabled={loading}>{loading ? t('common.saving') : t('common.save')}</button>
+              <button type="button" className="btn btn-ghost" onClick={resetForm}>
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSave}
+                disabled={loading}
+              >
+                {loading ? t('common.saving') : t('common.save')}
+              </button>
             </div>
           </div>
         </div>

@@ -1,9 +1,9 @@
-export type JobCallbacks<TResult = unknown> = {
+export interface JobCallbacks<TResult = unknown> {
   onComplete?: (result: TResult) => void
   onError?: (message: string) => void
 }
 
-export type JobWaiterHandle = {
+export interface JobWaiterHandle {
   settleComplete: (result: unknown) => void
   settleError: (message: string) => void
   settleDismiss: () => void
@@ -15,7 +15,9 @@ export function createJobWaiter<TResult>(
 ): JobWaiterHandle {
   let settled = false
   const once = (run: () => void) => {
-    if (settled) return
+    if (settled) {
+      return
+    }
     settled = true
     run()
   }

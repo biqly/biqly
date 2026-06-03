@@ -1,13 +1,20 @@
-import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+
 import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
-import { DEFAULT_LOCALE, LOCALE_OPTIONS, SUPPORTED_LOCALES, useT } from '../i18n'
 import type { Locale, TranslationKey } from '../i18n'
+import { DEFAULT_LOCALE, LOCALE_OPTIONS, SUPPORTED_LOCALES, useT } from '../i18n'
 import { ErrorAlert } from './ui/ErrorAlert'
-import { Select } from './ui/Select'
 import { LoadingScreen } from './ui/LoadingScreen'
+import { Select } from './ui/Select'
 
-const TEMPLATE_NAMES = ['system_rules', 'output_format', 'retry', 'clarification', 'prompt_layout'] as const
+const TEMPLATE_NAMES = [
+  'system_rules',
+  'output_format',
+  'retry',
+  'clarification',
+  'prompt_layout',
+] as const
 type TemplateName = (typeof TEMPLATE_NAMES)[number]
 type EditLocale = Locale
 
@@ -32,8 +39,19 @@ const nameLabelKeys: Record<TemplateName, TranslationKey> = {
 const TEMPLATE_PARAMS: Record<TemplateName, string[]> = {
   system_rules: [],
   output_format: [],
-  clarification: ['{{.Question}}', '{{.FailureReason}}', '{{.ModelName}}', '{{.Dimensions}}', '{{.Metrics}}'],
-  retry: ['{{.OriginalPrompt}}', '{{.LastResponse}}', '{{.ValidationError}}', '{{.ValidationErrors}}'],
+  clarification: [
+    '{{.Question}}',
+    '{{.FailureReason}}',
+    '{{.ModelName}}',
+    '{{.Dimensions}}',
+    '{{.Metrics}}',
+  ],
+  retry: [
+    '{{.OriginalPrompt}}',
+    '{{.LastResponse}}',
+    '{{.ValidationError}}',
+    '{{.ValidationErrors}}',
+  ],
   prompt_layout: [
     '{{.SystemRules}}',
     '{{.CurrentDateTime}}',
@@ -55,12 +73,14 @@ const TEMPLATE_PARAMS: Record<TemplateName, string[]> = {
     '{{.OutputFormat}}',
     '{{.SampleData}}',
     '{{.Examples}}',
-    '{{.PriorTurns}}'
-  ]
+    '{{.PriorTurns}}',
+  ],
 }
 
 function highlightContent(text: string) {
-  if (!text) return null
+  if (!text) {
+    return null
+  }
   const parts = text.split(/(\{\{.*?\}\})/g)
   return parts.map((part, idx) => {
     if (part.startsWith('{{') && part.endsWith('}}')) {
@@ -82,10 +102,10 @@ function highlightContent(text: string) {
 
       return (
         <span key={idx} style={{ fontWeight: 'bold' }}>
-          <span style={{ color: 'rgba(255, 255, 255, 0.35)' }}>{"{{"}</span>
+          <span style={{ color: 'rgba(255, 255, 255, 0.35)' }}>{'{{'}</span>
           {keyword && <span style={{ color: '#f43f5e', fontWeight: 'bold' }}>{keyword}</span>}
           <span style={{ color: 'var(--accent)', fontWeight: 'bold' }}>{rest}</span>
-          <span style={{ color: 'rgba(255, 255, 255, 0.35)' }}>{"}}"}</span>
+          <span style={{ color: 'rgba(255, 255, 255, 0.35)' }}>{'}}'}</span>
         </span>
       )
     }
@@ -112,66 +132,74 @@ export default function PromptTemplates() {
   const [suggestionIndex, setSuggestionIndex] = useState(0)
   const [queryStartIdx, setQueryStartIdx] = useState(-1)
 
-  const insertParameter = useCallback((param: string, customStart?: number) => {
-    const textarea = textareaRef.current
-    if (!textarea) return
+  const insertParameter = useCallback(
+    (param: string, customStart?: number) => {
+      const textarea = textareaRef.current
+      if (!textarea) {
+        return
+      }
 
-    const start = customStart !== undefined ? customStart : textarea.selectionStart
-    const end = textarea.selectionEnd
-    const text = textarea.value
+      const start = customStart !== undefined ? customStart : textarea.selectionStart
+      const end = textarea.selectionEnd
+      const text = textarea.value
 
-    const newValue = text.substring(0, start) + param + text.substring(end)
-    setDraft(newValue)
-    setDirty(true)
-    setSaveOk(null)
-    setShowSuggestions(false)
-
-    setTimeout(() => {
-      textarea.focus()
-      const newCursorPos = start + param.length
-      textarea.setSelectionRange(newCursorPos, newCursorPos)
-    }, 0)
-  }, [setDraft, setDirty, setSaveOk])
-
-  const checkSuggestions = useCallback((val: string, cursorIndex: number) => {
-    const activeParams = TEMPLATE_PARAMS[selectedName] || []
-    if (activeParams.length === 0) {
+      const newValue = text.substring(0, start) + param + text.substring(end)
+      setDraft(newValue)
+      setDirty(true)
+      setSaveOk(null)
       setShowSuggestions(false)
-      return
-    }
 
-    const lastOpen = val.lastIndexOf('{{', cursorIndex - 1)
-    if (lastOpen === -1 || lastOpen < cursorIndex - 30) {
-      setShowSuggestions(false)
-      return
-    }
+      setTimeout(() => {
+        textarea.focus()
+        const newCursorPos = start + param.length
+        textarea.setSelectionRange(newCursorPos, newCursorPos)
+      }, 0)
+    },
+    [setDraft, setDirty, setSaveOk],
+  )
 
-    const textBetween = val.substring(lastOpen, cursorIndex)
-    if (textBetween.includes('}}')) {
-      setShowSuggestions(false)
-      return
-    }
+  const checkSuggestions = useCallback(
+    (val: string, cursorIndex: number) => {
+      const activeParams = TEMPLATE_PARAMS[selectedName] || []
+      if (activeParams.length === 0) {
+        setShowSuggestions(false)
+        return
+      }
 
-    const query = textBetween
-    setQueryStartIdx(lastOpen)
+      const lastOpen = val.lastIndexOf('{{', cursorIndex - 1)
+      if (lastOpen === -1 || lastOpen < cursorIndex - 30) {
+        setShowSuggestions(false)
+        return
+      }
 
-    const filtered = activeParams.filter((p) => {
-      const paramLower = p.toLowerCase()
-      const queryLower = query.toLowerCase()
-      return (
-        paramLower.includes(queryLower) ||
-        p.replace(/[{}.]/g, '').toLowerCase().includes(query.replace(/[{}.]/g, '').toLowerCase())
-      )
-    })
+      const textBetween = val.substring(lastOpen, cursorIndex)
+      if (textBetween.includes('}}')) {
+        setShowSuggestions(false)
+        return
+      }
 
-    if (filtered.length > 0) {
-      setSuggestions(filtered)
-      setSuggestionIndex(0)
-      setShowSuggestions(true)
-    } else {
-      setShowSuggestions(false)
-    }
-  }, [selectedName])
+      const query = textBetween
+      setQueryStartIdx(lastOpen)
+
+      const filtered = activeParams.filter((p) => {
+        const paramLower = p.toLowerCase()
+        const queryLower = query.toLowerCase()
+        return (
+          paramLower.includes(queryLower) ||
+          p.replace(/[{}.]/g, '').toLowerCase().includes(query.replace(/[{}.]/g, '').toLowerCase())
+        )
+      })
+
+      if (filtered.length > 0) {
+        setSuggestions(filtered)
+        setSuggestionIndex(0)
+        setShowSuggestions(true)
+      } else {
+        setShowSuggestions(false)
+      }
+    },
+    [selectedName],
+  )
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value
@@ -187,7 +215,9 @@ export default function PromptTemplates() {
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!showSuggestions) return
+    if (!showSuggestions) {
+      return
+    }
 
     if (e.key === 'ArrowDown') {
       e.preventDefault()
@@ -209,7 +239,7 @@ export default function PromptTemplates() {
 
   const handleTextareaScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
     const textarea = e.currentTarget
-    const underlay = textarea.parentElement?.querySelector('.prompt-editor-underlay') as HTMLElement
+    const underlay = textarea.parentElement?.querySelector('.prompt-editor-underlay')
     if (underlay) {
       underlay.scrollTop = textarea.scrollTop
       underlay.scrollLeft = textarea.scrollLeft
@@ -219,7 +249,7 @@ export default function PromptTemplates() {
   useEffect(() => {
     const textarea = textareaRef.current
     if (textarea) {
-      const underlay = textarea.parentElement?.querySelector('.prompt-editor-underlay') as HTMLElement
+      const underlay = textarea.parentElement?.querySelector('.prompt-editor-underlay')
       if (underlay) {
         underlay.scrollTop = textarea.scrollTop
         underlay.scrollLeft = textarea.scrollLeft
@@ -231,7 +261,9 @@ export default function PromptTemplates() {
     setInitLoading(true)
     try {
       const data = await get<PromptTemplateRow[]>('/api/ai/prompt-templates')
-      if (data) setRows(data)
+      if (data) {
+        setRows(data)
+      }
     } finally {
       setInitLoading(false)
     }
@@ -283,8 +315,12 @@ export default function PromptTemplates() {
       setActionError(t('prompt_templates.err_empty'))
       return
     }
-    const ok = await putData(`/api/ai/prompt-templates/${selectedName}/${editLocale}`, { content: trimmed })
-    if (!ok) return
+    const ok = await putData(`/api/ai/prompt-templates/${selectedName}/${editLocale}`, {
+      content: trimmed,
+    })
+    if (!ok) {
+      return
+    }
     setDirty(false)
     setSaveOk(t('prompt_templates.saved'))
     await load()
@@ -295,14 +331,18 @@ export default function PromptTemplates() {
       title: t('prompt_templates.confirm_restore'),
       variant: 'warning',
     })
-    if (!ok) return
+    if (!ok) {
+      return
+    }
     setActionError(null)
     setSaveOk(null)
     const res = await postData('/api/ai/prompt-templates/restore', {
       name: selectedName,
       locale: editLocale,
     })
-    if (!res) return
+    if (!res) {
+      return
+    }
     setSaveOk(t('prompt_templates.restored'))
     await load()
   }
@@ -312,19 +352,21 @@ export default function PromptTemplates() {
       title: t('prompt_templates.confirm_reseed'),
       variant: 'danger',
     })
-    if (!ok) return
+    if (!ok) {
+      return
+    }
     setActionError(null)
     setSaveOk(null)
     const res = await postData('/api/ai/prompt-templates/reseed', {})
-    if (!res) return
+    if (!res) {
+      return
+    }
     setSaveOk(t('prompt_templates.reseeded'))
     await load()
   }
 
   const updatedLabel =
-    currentRow?.updated_at != null
-      ? new Date(currentRow.updated_at).toLocaleString()
-      : '—'
+    currentRow?.updated_at != null ? new Date(currentRow.updated_at).toLocaleString() : '—'
 
   if (initLoading && rows.length === 0) {
     return <LoadingScreen minHeight="300px" />
@@ -341,10 +383,7 @@ export default function PromptTemplates() {
           <div className="card-header-row">
             <h2>{t('prompt_templates.title')}</h2>
           </div>
-          <p
-            className="card-lead card-lead--single-line"
-            title={t('prompt_templates.manage_hint')}
-          >
+          <p className="card-lead card-lead--single-line" title={t('prompt_templates.manage_hint')}>
             {t('prompt_templates.manage_hint')}
           </p>
         </div>
@@ -355,7 +394,7 @@ export default function PromptTemplates() {
             <Select
               value={editLocale}
               options={localeOptions}
-              onChange={(v) => setEditLocale(v as EditLocale)}
+              onChange={(v) => setEditLocale(v)}
               size="sm"
             />
           </label>
@@ -364,65 +403,82 @@ export default function PromptTemplates() {
             <Select
               value={selectedName}
               options={templateOptions}
-              onChange={(v) => setSelectedName(v as TemplateName)}
+              onChange={(v) => setSelectedName(v)}
               size="sm"
             />
           </label>
         </div>
 
-        <div style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          gap: '0.5rem',
-          marginTop: '0.75rem',
-          marginBottom: '1rem',
-        }}>
-          <span style={{
-            fontSize: '0.72rem',
-            fontWeight: 500,
-            background: 'rgba(255, 255, 255, 0.03)',
-            border: '1px solid var(--border)',
-            borderRadius: '4px',
-            padding: '0.15rem 0.5rem',
-            color: 'var(--text-secondary)'
-          }}>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: '0.5rem',
+            marginTop: '0.75rem',
+            marginBottom: '1rem',
+          }}
+        >
+          <span
+            style={{
+              fontSize: '0.72rem',
+              fontWeight: 500,
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid var(--border)',
+              borderRadius: '4px',
+              padding: '0.15rem 0.5rem',
+              color: 'var(--text-secondary)',
+            }}
+          >
             {t('prompt_templates.meta_updated', { date: updatedLabel })}
           </span>
-          <span style={{
-            fontSize: '0.72rem',
-            fontWeight: 500,
-            background: 'rgba(255, 255, 255, 0.03)',
-            border: '1px solid var(--border)',
-            borderRadius: '4px',
-            padding: '0.15rem 0.5rem',
-            color: 'var(--text-secondary)'
-          }}>
+          <span
+            style={{
+              fontSize: '0.72rem',
+              fontWeight: 500,
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid var(--border)',
+              borderRadius: '4px',
+              padding: '0.15rem 0.5rem',
+              color: 'var(--text-secondary)',
+            }}
+          >
             {t('prompt_templates.meta_chars', { count: draft.length })}
           </span>
-          <span style={{
-            fontSize: '0.72rem',
-            fontWeight: 500,
-            background: 'rgba(99, 102, 241, 0.08)',
-            border: '1px solid rgba(99, 102, 241, 0.15)',
-            borderRadius: '4px',
-            padding: '0.15rem 0.5rem',
-            color: 'var(--accent)'
-          }}>
+          <span
+            style={{
+              fontSize: '0.72rem',
+              fontWeight: 500,
+              background: 'rgba(99, 102, 241, 0.08)',
+              border: '1px solid rgba(99, 102, 241, 0.15)',
+              borderRadius: '4px',
+              padding: '0.15rem 0.5rem',
+              color: 'var(--accent)',
+            }}
+          >
             {t('prompt_templates.meta_version', { version: currentRow?.version ?? '-' })}
           </span>
         </div>
 
         {/* Clickable parameter pills */}
         {TEMPLATE_PARAMS[selectedName]?.length > 0 && (
-          <div style={{
-            marginBottom: '1rem',
-            padding: '0.75rem',
-            background: 'rgba(255, 255, 255, 0.015)',
-            border: '1px solid var(--border)',
-            borderRadius: '0.5rem',
-          }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+          <div
+            style={{
+              marginBottom: '1rem',
+              padding: '0.75rem',
+              background: 'rgba(255, 255, 255, 0.015)',
+              border: '1px solid var(--border)',
+              borderRadius: '0.5rem',
+            }}
+          >
+            <div
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                color: 'var(--text-secondary)',
+                marginBottom: '0.5rem',
+              }}
+            >
               {t('prompt_templates.available_params')}
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
@@ -478,7 +534,8 @@ export default function PromptTemplates() {
                 background: 'var(--bg-card-raised)',
                 border: '1px solid var(--border-strong)',
                 borderRadius: '0.5rem',
-                boxShadow: 'var(--shadow-lg, 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3))',
+                boxShadow:
+                  'var(--shadow-lg, 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3))',
                 zIndex: 10,
                 maxHeight: '150px',
                 overflowY: 'auto',
@@ -488,7 +545,15 @@ export default function PromptTemplates() {
                 WebkitBackdropFilter: 'blur(12px)',
               }}
             >
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', padding: '0.25rem 0.4rem', borderBottom: '1px solid var(--border)', marginBottom: '0.25rem' }}>
+              <div
+                style={{
+                  fontSize: '0.68rem',
+                  color: 'var(--text-secondary)',
+                  padding: '0.25rem 0.4rem',
+                  borderBottom: '1px solid var(--border)',
+                  marginBottom: '0.25rem',
+                }}
+              >
                 {t('prompt_templates.intellisense_hint')}
               </div>
               {suggestions.map((s, idx) => {
@@ -525,17 +590,29 @@ export default function PromptTemplates() {
           >
             {t('prompt_templates.save')}
           </button>
-          <button type="button" className="btn btn-sm" disabled={loading} onClick={() => void handleRestore()}>
+          <button
+            type="button"
+            className="btn btn-sm"
+            disabled={loading}
+            onClick={() => void handleRestore()}
+          >
             {t('prompt_templates.restore_default')}
           </button>
-          <button type="button" className="btn btn-sm btn-danger-outline" disabled={loading} onClick={() => void handleReseed()}>
+          <button
+            type="button"
+            className="btn btn-sm btn-danger-outline"
+            disabled={loading}
+            onClick={() => void handleReseed()}
+          >
             {t('prompt_templates.reseed_all')}
           </button>
         </div>
 
         {versionHistory.length > 0 && (
           <div style={{ marginTop: '1.5rem' }}>
-            <h3 style={{ fontSize: '0.95rem', marginBottom: '0.5rem' }}>{t('prompt_templates.version_history')}</h3>
+            <h3 style={{ fontSize: '0.95rem', marginBottom: '0.5rem' }}>
+              {t('prompt_templates.version_history')}
+            </h3>
             <div className="table-wrap">
               <table className="results-table">
                 <thead>
@@ -550,7 +627,11 @@ export default function PromptTemplates() {
                   {versionHistory.map((row) => (
                     <tr key={`${row.name}:${row.locale}:${row.version}`}>
                       <td>v{row.version}</td>
-                      <td>{row.is_active ? t('prompt_templates.status_active') : t('prompt_templates.status_inactive')}</td>
+                      <td>
+                        {row.is_active
+                          ? t('prompt_templates.status_active')
+                          : t('prompt_templates.status_inactive')}
+                      </td>
                       <td>{new Date(row.updated_at).toLocaleString()}</td>
                       <td>{row.content.length}</td>
                     </tr>

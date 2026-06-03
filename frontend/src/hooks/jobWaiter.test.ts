@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+
 import { createJobWaiter } from './jobWaiter'
 
 describe('createJobWaiter', () => {

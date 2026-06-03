@@ -47,7 +47,9 @@ export function FieldsStep({
             onChange={(v) => updateSelectItem(i, 'name', v)}
             placeholder={t('query_builder.pick_field_placeholder')}
             disabled={item.type === 'dimension' ? dimensions.length === 0 : metrics.length === 0}
-            options={item.type === 'dimension' ? dimFieldOptions(dimensions) : metricFieldOptions(metrics)}
+            options={
+              item.type === 'dimension' ? dimFieldOptions(dimensions) : metricFieldOptions(metrics)
+            }
             size="sm"
           />
           <button

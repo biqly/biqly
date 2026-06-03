@@ -1,5 +1,7 @@
 function escapeCsvValue(value: unknown): string {
-  if (value === null || value === undefined) return ''
+  if (value === null || value === undefined) {
+    return ''
+  }
   const raw = typeof value === 'object' ? JSON.stringify(value) : String(value)
   if (/[",\n\r]/.test(raw)) {
     return `"${raw.replace(/"/g, '""')}"`
@@ -15,7 +17,11 @@ export function buildCsv(columns: { name: string }[], rows: unknown[][]): string
 }
 
 function sanitizeFilename(name: string): string {
-  const trimmed = name.trim().slice(0, 60).replace(/[^\w\d-]+/g, '-').replace(/^-+|-+$/g, '')
+  const trimmed = name
+    .trim()
+    .slice(0, 60)
+    .replace(/[^\w\d-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
   return trimmed || 'export'
 }
 

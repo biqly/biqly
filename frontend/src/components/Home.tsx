@@ -1,12 +1,14 @@
+import '../styles/home.css'
+
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+
 import { useApi } from '../hooks/useApi'
 import { useToast } from '../hooks/useToast'
-import { useT, type TranslationKey } from '../i18n'
+import { type TranslationKey, useT } from '../i18n'
+import type { SavedQuestion } from './savedQuestions/types'
 import { EmptyState } from './ui/EmptyState'
 import { Skeleton } from './ui/Skeleton'
-import type { SavedQuestion } from './savedQuestions/types'
-import '../styles/home.css'
 
 interface RecentQuery {
   id: string
@@ -258,6 +260,13 @@ function Favorites() {
 
 function formatDate(iso: string): string {
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  if (Number.isNaN(d.getTime())) {
+    return ''
+  }
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }

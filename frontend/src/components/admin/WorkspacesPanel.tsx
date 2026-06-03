@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
+
 import { createWorkspace, deleteWorkspace, listWorkspaces } from '../../api/admin'
+import { useConfirm } from '../../hooks/useConfirm'
+import { useQueryParam } from '../../hooks/useQueryParam'
 import { useT } from '../../i18n'
 import type { Workspace } from '../../types/auth'
-import { WorkspaceSettingsPage } from '../workspaces/WorkspaceSettingsPage'
-import { Pagination } from '../ui/Pagination'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
-import { useQueryParam } from '../../hooks/useQueryParam'
-import { useConfirm } from '../../hooks/useConfirm'
+import { Pagination } from '../ui/Pagination'
+import { WorkspaceSettingsPage } from '../workspaces/WorkspaceSettingsPage'
 
 export function WorkspacesPanel({ token }: { token: string }) {
   const t = useT()
@@ -47,7 +48,9 @@ export function WorkspacesPanel({ token }: { token: string }) {
 
   async function onCreate(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!newName.trim()) return
+    if (!newName.trim()) {
+      return
+    }
     try {
       await createWorkspace(token, newName.trim(), newDesc.trim() || undefined)
       setNewName('')
@@ -67,7 +70,9 @@ export function WorkspacesPanel({ token }: { token: string }) {
       title: t('admin.workspaces.confirm_delete', { name }),
       variant: 'danger',
     })
-    if (!ok) return
+    if (!ok) {
+      return
+    }
     try {
       await deleteWorkspace(token, id)
       reload()
@@ -77,22 +82,32 @@ export function WorkspacesPanel({ token }: { token: string }) {
   }
 
   if (selectedWS) {
-    return (
-      <WorkspaceSettingsPage token={token} workspaceID={selectedWS} />
-    )
+    return <WorkspaceSettingsPage token={token} workspaceID={selectedWS} />
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.workspaces.title')}</h2>
 
-      <form onSubmit={onCreate} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+      <form
+        onSubmit={onCreate}
+        style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}
+      >
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 12, color: 'var(--text-secondary, #a1a1aa)' }}>{t('admin.workspaces.name')}</span>
-          <input value={newName} onChange={(e) => setNewName(e.target.value)} style={inputStyle} required />
+          <span style={{ fontSize: 12, color: 'var(--text-secondary, #a1a1aa)' }}>
+            {t('admin.workspaces.name')}
+          </span>
+          <input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            style={inputStyle}
+            required
+          />
         </label>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 12, color: 'var(--text-secondary, #a1a1aa)' }}>{t('admin.workspaces.description')}</span>
+          <span style={{ fontSize: 12, color: 'var(--text-secondary, #a1a1aa)' }}>
+            {t('admin.workspaces.description')}
+          </span>
           <input value={newDesc} onChange={(e) => setNewDesc(e.target.value)} style={inputStyle} />
         </label>
         <button type="submit" style={btnPrimary}>
@@ -100,11 +115,21 @@ export function WorkspacesPanel({ token }: { token: string }) {
         </button>
       </form>
 
-      {error && <div style={errStyle}>{t('common.error')}: {error}</div>}
+      {error && (
+        <div style={errStyle}>
+          {t('common.error')}: {error}
+        </div>
+      )}
 
       <div style={containerStyle}>
         <LoadingOverlay loading={loading}>
-          <div style={{ minHeight: displayedItems.length === 0 && loading ? 120 : 'auto', display: 'flex', flexDirection: 'column' }}>
+          <div
+            style={{
+              minHeight: displayedItems.length === 0 && loading ? 120 : 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
             <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column' }}>
               {displayedItems.length === 0 ? (
                 <li style={{ padding: 24, textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
@@ -116,7 +141,10 @@ export function WorkspacesPanel({ token }: { token: string }) {
                     key={w.id}
                     style={{
                       padding: '16px 20px',
-                      borderBottom: i === displayedItems.length - 1 && totalPages <= 1 ? 'none' : '1px solid var(--border, rgba(255, 255, 255, 0.06))',
+                      borderBottom:
+                        i === displayedItems.length - 1 && totalPages <= 1
+                          ? 'none'
+                          : '1px solid var(--border, rgba(255, 255, 255, 0.06))',
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
@@ -126,17 +154,33 @@ export function WorkspacesPanel({ token }: { token: string }) {
                   >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <strong style={{ fontSize: 15, color: 'var(--text-primary, #f4f4f5)' }}>{w.name}</strong>
+                        <strong style={{ fontSize: 15, color: 'var(--text-primary, #f4f4f5)' }}>
+                          {w.name}
+                        </strong>
                         <span
                           className="ws-settings__badge"
                           data-type={w.is_personal ? 'personal' : 'team'}
                           style={{ fontSize: 10, padding: '1px 6px' }}
                         >
-                          {w.is_personal ? t('admin.workspaces.type_personal') : t('admin.workspaces.type_team')}
+                          {w.is_personal
+                            ? t('admin.workspaces.type_personal')
+                            : t('admin.workspaces.type_team')}
                         </span>
                       </div>
-                      {w.description && <div style={{ fontSize: 13, color: 'var(--text-secondary, #a1a1aa)' }}>{w.description}</div>}
-                      <div style={{ fontSize: 11, color: 'var(--text-muted, #8a8a92)', fontFamily: 'var(--font-mono, monospace)' }}>{w.slug}</div>
+                      {w.description && (
+                        <div style={{ fontSize: 13, color: 'var(--text-secondary, #a1a1aa)' }}>
+                          {w.description}
+                        </div>
+                      )}
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: 'var(--text-muted, #8a8a92)',
+                          fontFamily: 'var(--font-mono, monospace)',
+                        }}
+                      >
+                        {w.slug}
+                      </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button
@@ -149,7 +193,9 @@ export function WorkspacesPanel({ token }: { token: string }) {
                         {t('admin.workspaces.settings')}
                       </button>
                       {!w.is_personal && (
-                        <button onClick={() => onDelete(w.id, w.name)} style={btnSecondary}>{t('common.delete')}</button>
+                        <button onClick={() => onDelete(w.id, w.name)} style={btnSecondary}>
+                          {t('common.delete')}
+                        </button>
                       )}
                     </div>
                   </li>
@@ -232,4 +278,3 @@ const errStyle: React.CSSProperties = {
   padding: 16,
   fontWeight: 600,
 }
-

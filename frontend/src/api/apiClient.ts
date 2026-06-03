@@ -1,7 +1,7 @@
-import { csrfFetch } from './csrf'
-import { resolveAdminApiKey } from '../utils/env'
 import { getLocale } from '../i18n'
+import { resolveAdminApiKey } from '../utils/env'
 import { plainTextFromHTML } from '../utils/plainText'
+import { csrfFetch } from './csrf'
 
 export interface RequestOptions extends Omit<RequestInit, 'body'> {
   timeout?: number
@@ -10,7 +10,9 @@ export interface RequestOptions extends Omit<RequestInit, 'body'> {
 }
 
 function parseResponseBody(text: string): unknown {
-  if (!text) return null
+  if (!text) {
+    return null
+  }
   try {
     return JSON.parse(text)
   } catch {
@@ -22,7 +24,9 @@ function responseError(status: number, data: unknown): string {
   if (data && typeof data === 'object' && data !== null) {
     const obj = data as Record<string, unknown>
     const err = obj.error ?? obj.message
-    if (typeof err === 'string' && err.trim()) return err
+    if (typeof err === 'string' && err.trim()) {
+      return err
+    }
   }
   if (typeof data === 'string') {
     const plain = plainTextFromHTML(data)
@@ -31,11 +35,15 @@ function responseError(status: number, data: unknown): string {
   return `HTTP ${status}`
 }
 
-export type FetchJSONResult<T> = { data: T | null; status: number; error: string | null }
+export interface FetchJSONResult<T> {
+  data: T | null
+  status: number
+  error: string | null
+}
 
 export async function fetchJSON<T>(
   url: string,
-  init?: RequestInit & RequestOptions
+  init?: RequestInit & RequestOptions,
 ): Promise<FetchJSONResult<T>> {
   const method = init?.method ?? 'GET'
   const body = init?.body
@@ -43,20 +51,19 @@ export async function fetchJSON<T>(
 
   const controller = new AbortController()
   let didTimeout = false
-  const timeoutId = setTimeout(
-    () => {
-      didTimeout = true
-      controller.abort()
-    },
-    timeout,
-  )
+  const timeoutId = setTimeout(() => {
+    didTimeout = true
+    controller.abort()
+  }, timeout)
 
   const signal = init?.signal
     ? (() => {
         const merged = new AbortController()
         init.signal?.addEventListener('abort', () => merged.abort())
         controller.signal.addEventListener('abort', () => merged.abort())
-        if (init.signal?.aborted || controller.signal.aborted) merged.abort()
+        if (init.signal?.aborted || controller.signal.aborted) {
+          merged.abort()
+        }
         return merged.signal
       })()
     : controller.signal
@@ -118,7 +125,7 @@ export async function apiFetch<T>(
   method: string,
   url: string,
   body?: unknown,
-  options: RequestOptions = {}
+  options: RequestOptions = {},
 ): Promise<T> {
   const init: RequestInit & RequestOptions = {
     ...options,

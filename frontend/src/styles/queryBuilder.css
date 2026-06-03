@@ -135,14 +135,30 @@
   color: var(--text-primary);
 }
 
-.notebook-step-label--data { color: #818cf8; }
-.notebook-step-label--join { color: #38bdf8; }
-.notebook-step-label--filter { color: #c084fc; }
-.notebook-step-label--fields { color: #f472b6; }
-.notebook-step-label--summarize { color: #34d399; }
-.notebook-step-label--sort { color: #fb7185; }
-.notebook-step-label--limit { color: #94a3b8; }
-.notebook-step-label--advanced { color: #f59e0b; }
+.notebook-step-label--data {
+  color: #818cf8;
+}
+.notebook-step-label--join {
+  color: #38bdf8;
+}
+.notebook-step-label--filter {
+  color: #c084fc;
+}
+.notebook-step-label--fields {
+  color: #f472b6;
+}
+.notebook-step-label--summarize {
+  color: #34d399;
+}
+.notebook-step-label--sort {
+  color: #fb7185;
+}
+.notebook-step-label--limit {
+  color: #94a3b8;
+}
+.notebook-step-label--advanced {
+  color: #f59e0b;
+}
 
 .notebook-step-card {
   flex: 1;
@@ -157,7 +173,9 @@
   flex-wrap: wrap;
   position: relative;
   min-height: 2.6rem;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
   box-shadow: var(--shadow-sm);
 }
 
@@ -167,17 +185,35 @@
 
 /* Color accents on card focus/hover based on step types */
 .notebook-step:hover .notebook-step-card {
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.01), var(--shadow-sm);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.01),
+    var(--shadow-sm);
 }
 
-.notebook-step-card--data { border-left: 3px solid #6366f1; }
-.notebook-step-card--join { border-left: 3px solid #0284c7; }
-.notebook-step-card--filter { border-left: 3px solid #a855f7; }
-.notebook-step-card--fields { border-left: 3px solid #ec4899; }
-.notebook-step-card--summarize { border-left: 3px solid #10b981; }
-.notebook-step-card--sort { border-left: 3px solid #f43f5e; }
-.notebook-step-card--limit { border-left: 3px solid #64748b; }
-.notebook-step-card--advanced { border-left: 3px solid #d97706; }
+.notebook-step-card--data {
+  border-left: 3px solid #6366f1;
+}
+.notebook-step-card--join {
+  border-left: 3px solid #0284c7;
+}
+.notebook-step-card--filter {
+  border-left: 3px solid #a855f7;
+}
+.notebook-step-card--fields {
+  border-left: 3px solid #ec4899;
+}
+.notebook-step-card--summarize {
+  border-left: 3px solid #10b981;
+}
+.notebook-step-card--sort {
+  border-left: 3px solid #f43f5e;
+}
+.notebook-step-card--limit {
+  border-left: 3px solid #64748b;
+}
+.notebook-step-card--advanced {
+  border-left: 3px solid #d97706;
+}
 
 .notebook-step-close {
   position: absolute;
@@ -196,7 +232,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.15s, background-color 0.15s;
+  transition:
+    color 0.15s,
+    background-color 0.15s;
 }
 
 .notebook-step-close:hover {
@@ -358,11 +396,26 @@
   box-shadow: 0 0 8px var(--accent-glow);
 }
 
-.toolbar-btn--filter.active { border-color: #a855f7; background: rgba(168, 85, 247, 0.06); }
-.toolbar-btn--summarize.active { border-color: #10b981; background: rgba(16, 185, 129, 0.06); }
-.toolbar-btn--sort.active { border-color: #f43f5e; background: rgba(244, 63, 94, 0.06); }
-.toolbar-btn--limit.active { border-color: #64748b; background: rgba(100, 116, 139, 0.06); }
-.toolbar-btn--advanced.active { border-color: #d97706; background: rgba(217, 119, 6, 0.06); }
+.toolbar-btn--filter.active {
+  border-color: #a855f7;
+  background: rgba(168, 85, 247, 0.06);
+}
+.toolbar-btn--summarize.active {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.06);
+}
+.toolbar-btn--sort.active {
+  border-color: #f43f5e;
+  background: rgba(244, 63, 94, 0.06);
+}
+.toolbar-btn--limit.active {
+  border-color: #64748b;
+  background: rgba(100, 116, 139, 0.06);
+}
+.toolbar-btn--advanced.active {
+  border-color: #d97706;
+  background: rgba(217, 119, 6, 0.06);
+}
 
 /* ─── Visualize Button ─────────────────────────────────────────── */
 

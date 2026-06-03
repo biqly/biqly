@@ -48,7 +48,16 @@ export interface QueryBuilderFormState {
   ctes: CTERow[]
 }
 
-export const WINDOW_FUNC_OPTIONS = ['ROW_NUMBER', 'RANK', 'DENSE_RANK', 'LAG', 'LEAD', 'SUM', 'AVG', 'COUNT'] as const
+export const WINDOW_FUNC_OPTIONS = [
+  'ROW_NUMBER',
+  'RANK',
+  'DENSE_RANK',
+  'LAG',
+  'LEAD',
+  'SUM',
+  'AVG',
+  'COUNT',
+] as const
 
 export function newRowId(): string {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto

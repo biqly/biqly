@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import type { SemanticDimension } from '../../types/semantic'
 import { buildQueryPayload } from './logicalQuery'
 import {

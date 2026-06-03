@@ -1,6 +1,6 @@
 import type { SemanticDimension, SemanticJoin, SemanticMetric } from '../../types/semantic'
 
-type EntityWithActiveState = {
+interface EntityWithActiveState {
   is_active?: boolean
 }
 

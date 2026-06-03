@@ -1,7 +1,7 @@
 import type { AIJob } from '../types/ai'
 import { apiFetch } from './apiClient'
 
-export type DescribeBatchConflictResult = {
+export interface DescribeBatchConflictResult {
   conflict: boolean
   existing_job_id?: string
   existing_job?: AIJob
@@ -20,13 +20,16 @@ export async function fetchDescribeBatchConflict(
     params.append('schemas', s)
   }
   try {
-    return await apiFetch<DescribeBatchConflictResult>('GET', `/api/ai/jobs/describe-batch/conflict?${params}`)
+    return await apiFetch<DescribeBatchConflictResult>(
+      'GET',
+      `/api/ai/jobs/describe-batch/conflict?${params}`,
+    )
   } catch {
     return null
   }
 }
 
-export type DescribeBatchConflictBody = {
+export interface DescribeBatchConflictBody {
   error: string
   existing_job_id?: string
   existing_job?: AIJob

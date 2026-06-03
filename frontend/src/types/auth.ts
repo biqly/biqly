@@ -182,4 +182,3 @@ export interface Invitation {
   expires_at: string
   claimed_at?: string
 }
-

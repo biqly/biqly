@@ -150,7 +150,9 @@
   height: 1.05rem;
   flex-shrink: 0;
   color: var(--text-muted);
-  transition: color 180ms ease, transform 180ms ease;
+  transition:
+    color 180ms ease,
+    transform 180ms ease;
 }
 
 .nav-icon svg {
@@ -248,7 +250,11 @@
   font-size: 1.2rem;
   cursor: pointer;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
-  transition: left 200ms ease, background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+  transition:
+    left 200ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
 }
 
 .mobile-nav-toggle:focus-visible {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+
 import { useApi } from '../hooks/useApi'
 import { useT } from '../i18n'
 import { ErrorAlert } from './ui/ErrorAlert'
@@ -29,14 +30,16 @@ export default function TimeGrains() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const fetchGrains = () => {
-    get<TimeGrain[]>('/api/ai/settings/time-grains').then((data) => {
-      if (data) {
-        setGrains(data)
-      }
-      setInitLoading(false)
-    }).catch(() => {
-      setInitLoading(false)
-    })
+    get<TimeGrain[]>('/api/ai/settings/time-grains')
+      .then((data) => {
+        if (data) {
+          setGrains(data)
+        }
+        setInitLoading(false)
+      })
+      .catch(() => {
+        setInitLoading(false)
+      })
   }
 
   useEffect(() => {
@@ -58,7 +61,9 @@ export default function TimeGrains() {
   }
 
   const handleSave = async () => {
-    if (!editingGrain) return
+    if (!editingGrain) {
+      return
+    }
     setFormError(null)
     setSuccessMessage(null)
 
@@ -80,10 +85,10 @@ export default function TimeGrains() {
 
     const res = await putData<{ status: string }>(
       `/api/ai/settings/time-grains/${editingGrain.grain}`,
-      payload
+      payload,
     )
 
-    if (res && res.status === 'ok') {
+    if (res?.status === 'ok') {
       setSuccessMessage(t('time_grains.success_save') || 'Time grain updated successfully.')
       setEditingGrain(null)
       fetchGrains()
@@ -104,11 +109,7 @@ export default function TimeGrains() {
         <div className="card-intro">
           <div className="card-header-row">
             <h2>{t('time_grains.title') || 'Time Grains'}</h2>
-            <button
-              type="button"
-              className="btn-back"
-              onClick={() => navigate('/settings')}
-            >
+            <button type="button" className="btn-back" onClick={() => navigate('/settings')}>
               ← {t('time_grains.back_to_settings') || 'Back to Settings'}
             </button>
           </div>
@@ -144,7 +145,9 @@ export default function TimeGrains() {
                     <tr key={tg.grain}>
                       <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{tg.grain}</td>
                       <td>
-                        <code style={{ fontSize: '0.78rem', color: 'var(--accent)' }}>{tg.suffix}</code>
+                        <code style={{ fontSize: '0.78rem', color: 'var(--accent)' }}>
+                          {tg.suffix}
+                        </code>
                       </td>
                       <td>
                         {tg.requires_time ? (
@@ -213,7 +216,7 @@ export default function TimeGrains() {
               </table>
             ) : (
               <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                {loading ? '' : (t('common.no_data') || 'No data found')}
+                {loading ? '' : t('common.no_data') || 'No data found'}
               </div>
             )}
           </div>
@@ -260,7 +263,12 @@ export default function TimeGrains() {
 
               <div
                 className="form-group"
-                style={{ flexDirection: 'row', alignItems: 'flex-start', gap: '0.75rem', marginTop: '1rem' }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'flex-start',
+                  gap: '0.75rem',
+                  marginTop: '1rem',
+                }}
               >
                 <input
                   id="tg-requires-time"
@@ -270,7 +278,10 @@ export default function TimeGrains() {
                   style={{ width: 'auto', marginTop: '0.2rem' }}
                 />
                 <div>
-                  <label htmlFor="tg-requires-time" style={{ marginBottom: '0.1rem', cursor: 'pointer' }}>
+                  <label
+                    htmlFor="tg-requires-time"
+                    style={{ marginBottom: '0.1rem', cursor: 'pointer' }}
+                  >
                     {t('time_grains.label_requires_time') || 'Requires Time Column'}
                   </label>
                   <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
@@ -288,9 +299,7 @@ export default function TimeGrains() {
                   id="tg-synonyms"
                   value={formSynonyms}
                   onChange={(e) => setFormSynonyms(e.target.value)}
-                  placeholder={
-                    t('time_grains.placeholder_synonyms') || 'e.g., daily, per day, day'
-                  }
+                  placeholder={t('time_grains.placeholder_synonyms') || 'e.g., daily, per day, day'}
                   rows={4}
                 />
               </div>

@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
-import type { Invitation } from '../../../types/auth'
+
 import { localeLanguageTag } from '../../../i18n'
-import { Pagination } from '../../ui/Pagination'
+import type { Invitation } from '../../../types/auth'
 import { LoadingOverlay } from '../../ui/LoadingOverlay'
+import { Pagination } from '../../ui/Pagination'
 import { Select } from '../../ui/Select'
 
 interface InvitationsTabProps {
@@ -47,7 +48,9 @@ export function InvitationsTab({
   t,
 }: InvitationsTabProps) {
   const getInviteStatus = (inv: Invitation): 'claimed' | 'expired' | 'pending' => {
-    if (inv.claimed_at) return 'claimed'
+    if (inv.claimed_at) {
+      return 'claimed'
+    }
     const isExpired = new Date(inv.expires_at).getTime() < Date.now()
     return isExpired ? 'expired' : 'pending'
   }
@@ -90,7 +93,9 @@ export function InvitationsTab({
             role="button"
             tabIndex={0}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') setActionMessage(null)
+              if (e.key === 'Enter' || e.key === ' ') {
+                setActionMessage(null)
+              }
             }}
           >
             {actionMessage.text}
@@ -102,7 +107,13 @@ export function InvitationsTab({
           </div>
         ) : (
           <LoadingOverlay loading={invitesLoading}>
-            <div style={{ minHeight: invitations.length === 0 && invitesLoading ? 120 : 'auto', display: 'flex', flexDirection: 'column' }}>
+            <div
+              style={{
+                minHeight: invitations.length === 0 && invitesLoading ? 120 : 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
               <table className="admin-table">
                 <thead>
                   <tr className="admin-thead-row">
@@ -118,7 +129,10 @@ export function InvitationsTab({
                 <tbody>
                   {invitations.length === 0 ? (
                     <tr className="admin-tr">
-                      <td colSpan={7} style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>
+                      <td
+                        colSpan={7}
+                        style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}
+                      >
                         {invitesLoading ? '' : t('auth.invite_list_empty')}
                       </td>
                     </tr>

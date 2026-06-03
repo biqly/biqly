@@ -1,17 +1,23 @@
 import { useState } from 'react'
-import { BarChart } from 'recharts/es6/chart/BarChart'
 import { Bar } from 'recharts/es6/cartesian/Bar'
+import { CartesianGrid } from 'recharts/es6/cartesian/CartesianGrid'
 import { XAxis } from 'recharts/es6/cartesian/XAxis'
 import { YAxis } from 'recharts/es6/cartesian/YAxis'
-import { CartesianGrid } from 'recharts/es6/cartesian/CartesianGrid'
-import { Tooltip as RechartsTooltip } from 'recharts/es6/component/Tooltip'
-import { ResponsiveContainer } from 'recharts/es6/component/ResponsiveContainer'
+import { BarChart } from 'recharts/es6/chart/BarChart'
 import { PieChart } from 'recharts/es6/chart/PieChart'
-import { Pie } from 'recharts/es6/polar/Pie'
 import { Cell } from 'recharts/es6/component/Cell'
-import { KPICard } from '../ui/KPICard'
+import { ResponsiveContainer } from 'recharts/es6/component/ResponsiveContainer'
+import { Tooltip as RechartsTooltip } from 'recharts/es6/component/Tooltip'
+import { Pie } from 'recharts/es6/polar/Pie'
+
+import {
+  chartAxisStroke,
+  chartGridStroke,
+  chartTooltipStyle,
+  smallChartTick,
+} from '../../utils/chartConfig'
 import { ErrorAlert } from '../ui/ErrorAlert'
-import { chartAxisStroke, chartGridStroke, chartTooltipStyle, smallChartTick } from '../../utils/chartConfig'
+import { KPICard } from '../ui/KPICard'
 
 interface EvalTestCase {
   id: string
@@ -41,7 +47,13 @@ interface EvalRunTabProps {
   t: any
 }
 
-function DiffView({ expected, got }: { expected: Record<string, unknown>; got: Record<string, unknown> }) {
+function DiffView({
+  expected,
+  got,
+}: {
+  expected: Record<string, unknown>
+  got: Record<string, unknown>
+}) {
   const expectedStr = JSON.stringify(expected, null, 2)
   const gotStr = JSON.stringify(got, null, 2)
   return (
@@ -73,10 +85,14 @@ function TestCaseRow({ tc, t }: { tc: EvalTestCase; t: any }) {
           </span>
         </td>
         <td className="eval-tc-confidence">
-          {tc.confidence !== undefined ? `${Math.round(tc.confidence * 100)}%` : t('common.em_dash')}
+          {tc.confidence !== undefined
+            ? `${Math.round(tc.confidence * 100)}%`
+            : t('common.em_dash')}
         </td>
         <td>
-          {isFail && tc.error_message && <span className="eval-error-hint">{tc.error_message}</span>}
+          {isFail && tc.error_message && (
+            <span className="eval-error-hint">{tc.error_message}</span>
+          )}
           <button className="btn btn-sm btn-ghost" onClick={() => setOpen(!open)}>
             {open ? t('evaluation.hide_diff') : t('evaluation.show_diff')}
           </button>
@@ -124,10 +140,26 @@ export function EvalRunTab({
         <>
           {/* KPI Cards */}
           <div className="kpi-row">
-            <KPICard label={t('evaluation.kpi_total_scenarios')} value={activeData.total} color="var(--accent)" />
-            <KPICard label={t('evaluation.kpi_pass_rate')} value={`${Math.round(activeData.pass_rate * 100)}%`} color="var(--success)" />
-            <KPICard label={t('evaluation.kpi_failed_scenarios')} value={activeData.failed} color="var(--error)" />
-            <KPICard label={t('evaluation.kpi_avg_confidence')} value={`${Math.round(activeData.avg_confidence * 100)}%`} color="var(--warning)" />
+            <KPICard
+              label={t('evaluation.kpi_total_scenarios')}
+              value={activeData.total}
+              color="var(--accent)"
+            />
+            <KPICard
+              label={t('evaluation.kpi_pass_rate')}
+              value={`${Math.round(activeData.pass_rate * 100)}%`}
+              color="var(--success)"
+            />
+            <KPICard
+              label={t('evaluation.kpi_failed_scenarios')}
+              value={activeData.failed}
+              color="var(--error)"
+            />
+            <KPICard
+              label={t('evaluation.kpi_avg_confidence')}
+              value={`${Math.round(activeData.avg_confidence * 100)}%`}
+              color="var(--warning)"
+            />
           </div>
 
           {/* Charts */}
@@ -167,7 +199,7 @@ export function EvalRunTab({
                       <YAxis stroke={chartAxisStroke} domain={[0, 100]} tick={smallChartTick} />
                       <RechartsTooltip
                         contentStyle={chartTooltipStyle}
-                        formatter={(v: any) => v != null ? `${v}%` : ''}
+                        formatter={(v: any) => (v != null ? `${v}%` : '')}
                       />
                       <Bar dataKey="pass_rate_pct" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                     </BarChart>

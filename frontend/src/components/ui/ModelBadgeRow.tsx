@@ -9,6 +9,7 @@
  * strip scrolls horizontally instead of wrapping.
  */
 import type { CSSProperties } from 'react'
+
 import { useT } from '../../i18n'
 
 export interface ModelBadgeRowProps {
@@ -31,9 +32,23 @@ interface Badge {
 
 export function ModelBadgeRow(props: ModelBadgeRowProps) {
   const t = useT()
-  const badges: Badge[] = [{ label: props.primaryLabel, model: props.primaryModel, note: props.primaryNote }]
-  if (props.translationModel) badges.push({ label: t('common.model_badge_translate'), model: props.translationModel, note: props.translationNote })
-  if (props.embeddingModel) badges.push({ label: t('common.model_badge_embedding'), model: props.embeddingModel, note: props.embeddingNote })
+  const badges: Badge[] = [
+    { label: props.primaryLabel, model: props.primaryModel, note: props.primaryNote },
+  ]
+  if (props.translationModel) {
+    badges.push({
+      label: t('common.model_badge_translate'),
+      model: props.translationModel,
+      note: props.translationNote,
+    })
+  }
+  if (props.embeddingModel) {
+    badges.push({
+      label: t('common.model_badge_embedding'),
+      model: props.embeddingModel,
+      note: props.embeddingNote,
+    })
+  }
 
   const containerStyle: CSSProperties = {
     display: 'flex',
@@ -69,7 +84,9 @@ export function ModelBadgeRow(props: ModelBadgeRowProps) {
       {badges.map((b) => (
         <span key={b.label} style={pillStyle}>
           <strong style={{ fontWeight: 600 }}>{b.label}:</strong>
-          <code translate="no" style={{ background: 'transparent', padding: 0 }}>{b.model && b.model.trim() !== '' ? b.model : t('common.em_dash')}</code>
+          <code translate="no" style={{ background: 'transparent', padding: 0 }}>
+            {b.model && b.model.trim() !== '' ? b.model : t('common.em_dash')}
+          </code>
           {b.note ? <span style={{ opacity: 0.7 }}>· {b.note}</span> : null}
         </span>
       ))}

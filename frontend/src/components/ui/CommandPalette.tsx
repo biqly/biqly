@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { useT } from '../../i18n'
-import { useShortcut } from '../../hooks/useKeyboardShortcuts'
 import '../../styles/command-palette.css'
+
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+
+import { useShortcut } from '../../hooks/useKeyboardShortcuts'
+import { useT } from '../../i18n'
 
 export interface CommandItem {
   id: string
@@ -17,7 +19,9 @@ interface CommandPaletteProps {
 }
 
 function matches(item: CommandItem, query: string): boolean {
-  if (!query) return true
+  if (!query) {
+    return true
+  }
   const haystack = `${item.label} ${item.group ?? ''} ${item.keywords ?? ''}`.toLowerCase()
   return query
     .toLowerCase()
@@ -60,17 +64,23 @@ export function CommandPalette({ items }: CommandPaletteProps) {
   }, [query])
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      return
+    }
     const node = listRef.current?.querySelector<HTMLElement>('[data-active="true"]')
     node?.scrollIntoView({ block: 'nearest' })
   }, [activeIndex, open])
 
-  if (!open) return null
+  if (!open) {
+    return null
+  }
 
   const close = () => setOpen(false)
 
   const runItem = (item: CommandItem | undefined) => {
-    if (!item) return
+    if (!item) {
+      return
+    }
     close()
     item.perform()
   }
@@ -81,7 +91,9 @@ export function CommandPalette({ items }: CommandPaletteProps) {
       setActiveIndex((prev) => (filtered.length ? (prev + 1) % filtered.length : 0))
     } else if (event.key === 'ArrowUp') {
       event.preventDefault()
-      setActiveIndex((prev) => (filtered.length ? (prev - 1 + filtered.length) % filtered.length : 0))
+      setActiveIndex((prev) =>
+        filtered.length ? (prev - 1 + filtered.length) % filtered.length : 0,
+      )
     } else if (event.key === 'Enter') {
       event.preventDefault()
       runItem(filtered[activeIndex])
@@ -96,10 +108,17 @@ export function CommandPalette({ items }: CommandPaletteProps) {
       className="cmdk-backdrop"
       role="presentation"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) close()
+        if (event.target === event.currentTarget) {
+          close()
+        }
       }}
     >
-      <div className="cmdk-panel" role="dialog" aria-modal="true" aria-label={t('command_palette.title')}>
+      <div
+        className="cmdk-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('command_palette.title')}
+      >
         <div className="cmdk-search">
           <span className="cmdk-search__icon" aria-hidden="true">
             ⌕
@@ -134,7 +153,11 @@ export function CommandPalette({ items }: CommandPaletteProps) {
                 onMouseMove={() => setActiveIndex(index)}
                 onClick={() => runItem(item)}
               >
-                {item.icon && <span className="cmdk-option__icon" aria-hidden="true">{item.icon}</span>}
+                {item.icon && (
+                  <span className="cmdk-option__icon" aria-hidden="true">
+                    {item.icon}
+                  </span>
+                )}
                 <span className="cmdk-option__label">{item.label}</span>
                 {item.group && <span className="cmdk-option__group">{item.group}</span>}
               </li>

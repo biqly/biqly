@@ -28,6 +28,18 @@ commands:
 1. run development server: `npm --prefix frontend run dev`
 2. build frontend: `npm --prefix frontend run build` (runs tsc and vite build)
 3. run frontend tests: `npm --prefix frontend run test` (runs vitest)
+4. lint frontend (react/typescript): `make lint-frontend` or `npm --prefix frontend run lint` (eslint)
+
+## pre-commit lint (required)
+
+before any `git commit`, run both linters and fix reported issues:
+
+1. **go**: `make lint-go` (golangci-lint)
+2. **react / frontend**: `make lint-frontend` (eslint)
+
+or run both in one command: `make lint`
+
+do not commit until these pass for the code you changed (go paths, frontend paths, or both).
 
 styling & coding conventions:
 

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import abiLogo from '../../assets/abi-logo.png'
+import { useNavigate } from 'react-router-dom'
+
 import { apiOAuthExchange } from '../../api/auth'
+import abiLogo from '../../assets/abi-logo.png'
 import { useT } from '../../i18n'
 import { useAuth } from './AuthProvider'
-import { useNavigate } from 'react-router-dom'
 
 export default function OAuthCallback() {
   const navigate = useNavigate()
@@ -16,7 +17,9 @@ export default function OAuthCallback() {
   const startedRef = useRef(false)
 
   useEffect(() => {
-    if (startedRef.current) return
+    if (startedRef.current) {
+      return
+    }
     startedRef.current = true
 
     const handleCallback = async () => {
@@ -67,21 +70,28 @@ export default function OAuthCallback() {
 
         {error ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div className="auth-error">
-              {error}
-            </div>
-            <button
-              type="button"
-              className="auth-btn"
-              onClick={() => navigate('/auth/signin')}
-            >
+            <div className="auth-error">{error}</div>
+            <button type="button" className="auth-btn" onClick={() => navigate('/auth/signin')}>
               {t('auth.back_to_login')}
             </button>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '16px' }}>
-            <div className="spinner" style={{ width: '32px', height: '32px', borderTopColor: '#6366f1' }}></div>
-            <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Completing sign in…</span>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '16px',
+              padding: '16px',
+            }}
+          >
+            <div
+              className="spinner"
+              style={{ width: '32px', height: '32px', borderTopColor: '#6366f1' }}
+            ></div>
+            <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+              Completing sign in…
+            </span>
           </div>
         )}
       </div>

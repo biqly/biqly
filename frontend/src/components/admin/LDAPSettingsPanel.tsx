@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useT } from '../../i18n'
-import { useToast } from '../../hooks/useToast'
-import { LoadingScreen } from '../ui/LoadingScreen'
-import { Select } from '../ui/Select'
-import { useAuth } from '../auth/AuthProvider'
-import { ReadOnlyNote } from './ReadOnlyNote'
+
 import {
   getLDAPConfig,
-  updateLDAPConfig,
-  testLDAPConnection,
   type LDAPConfigInput,
   type LDAPSecurity,
+  testLDAPConnection,
+  updateLDAPConfig,
 } from '../../api/ldap'
+import { useToast } from '../../hooks/useToast'
+import { useT } from '../../i18n'
+import { useAuth } from '../auth/AuthProvider'
+import { LoadingScreen } from '../ui/LoadingScreen'
+import { Select } from '../ui/Select'
+import { ReadOnlyNote } from './ReadOnlyNote'
 
 const EMPTY: LDAPConfigInput = {
   enabled: false,
@@ -97,7 +98,9 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
         toast.error(t('admin.ldap.test_failed', { error: res.message || '' }))
       }
     } catch (e) {
-      toast.error(t('admin.ldap.test_failed', { error: e instanceof Error ? e.message : String(e) }))
+      toast.error(
+        t('admin.ldap.test_failed', { error: e instanceof Error ? e.message : String(e) }),
+      )
     } finally {
       setTesting(false)
     }
@@ -117,7 +120,9 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
     <div className="page-stack" style={{ maxWidth: 760 }}>
       <div>
         <h2 style={{ margin: 0 }}>{t('admin.ldap.title')}</h2>
-        <p className="form-hint" style={{ marginTop: 8 }}>{t('admin.ldap.description')}</p>
+        <p className="form-hint" style={{ marginTop: 8 }}>
+          {t('admin.ldap.description')}
+        </p>
       </div>
 
       {!canEdit && <ReadOnlyNote />}
@@ -143,13 +148,28 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
         <legend>{t('admin.ldap.connection')}</legend>
         <div className="ldap-grid">
           <Field label={t('admin.ldap.host')} style={{ gridColumn: 'span 2' }}>
-            <input className="admin-input" value={form.host} onChange={(e) => set('host', e.target.value)} placeholder="ldap.example.com" />
+            <input
+              className="admin-input"
+              value={form.host}
+              onChange={(e) => set('host', e.target.value)}
+              placeholder="ldap.example.com"
+            />
           </Field>
           <Field label={t('admin.ldap.port')}>
-            <input className="admin-input" type="number" value={form.port} onChange={(e) => set('port', Number(e.target.value) || 0)} />
+            <input
+              className="admin-input"
+              type="number"
+              value={form.port}
+              onChange={(e) => set('port', Number(e.target.value) || 0)}
+            />
           </Field>
           <Field label={t('admin.ldap.security')}>
-            <Select value={form.security} options={securityOptions} onChange={(v) => set('security', v as LDAPSecurity)} disabled={!canEdit} />
+            <Select
+              value={form.security}
+              options={securityOptions}
+              onChange={(v) => set('security', v)}
+              disabled={!canEdit}
+            />
           </Field>
         </div>
         <CheckRow
@@ -160,7 +180,12 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
           onChange={(v) => set('skip_tls_verify', v)}
         />
         <Field label={t('admin.ldap.bind_dn')} hint={t('admin.ldap.bind_dn_hint')}>
-          <input className="admin-input" value={form.bind_dn} onChange={(e) => set('bind_dn', e.target.value)} placeholder="cn=svc,dc=example,dc=com" />
+          <input
+            className="admin-input"
+            value={form.bind_dn}
+            onChange={(e) => set('bind_dn', e.target.value)}
+            placeholder="cn=svc,dc=example,dc=com"
+          />
         </Field>
         <Field
           label={t('admin.ldap.bind_password')}
@@ -181,26 +206,56 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
       <fieldset className="ldap-fieldset" disabled={!canEdit}>
         <legend>{t('admin.ldap.directory')}</legend>
         <Field label={t('admin.ldap.base_dn')} hint={t('admin.ldap.base_dn_hint')}>
-          <input className="admin-input" value={form.base_dn} onChange={(e) => set('base_dn', e.target.value)} placeholder="ou=people,dc=example,dc=com" />
+          <input
+            className="admin-input"
+            value={form.base_dn}
+            onChange={(e) => set('base_dn', e.target.value)}
+            placeholder="ou=people,dc=example,dc=com"
+          />
         </Field>
         <Field label={t('admin.ldap.user_filter')} hint={t('admin.ldap.user_filter_hint')}>
-          <input className="admin-input" value={form.user_filter} onChange={(e) => set('user_filter', e.target.value)} placeholder="(uid=%s)" />
+          <input
+            className="admin-input"
+            value={form.user_filter}
+            onChange={(e) => set('user_filter', e.target.value)}
+            placeholder="(uid=%s)"
+          />
         </Field>
         <div className="ldap-grid">
           <Field label={t('admin.ldap.email_attr')}>
-            <input className="admin-input" value={form.email_attr} onChange={(e) => set('email_attr', e.target.value)} placeholder="mail" />
+            <input
+              className="admin-input"
+              value={form.email_attr}
+              onChange={(e) => set('email_attr', e.target.value)}
+              placeholder="mail"
+            />
           </Field>
           <Field label={t('admin.ldap.display_name_attr')}>
-            <input className="admin-input" value={form.display_name_attr} onChange={(e) => set('display_name_attr', e.target.value)} placeholder="cn" />
+            <input
+              className="admin-input"
+              value={form.display_name_attr}
+              onChange={(e) => set('display_name_attr', e.target.value)}
+              placeholder="cn"
+            />
           </Field>
         </div>
       </fieldset>
 
       <div style={{ display: 'flex', gap: 8 }}>
-        <button type="button" className="btn btn-secondary" disabled={!canEdit || testing} onClick={() => void onTest()}>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          disabled={!canEdit || testing}
+          onClick={() => void onTest()}
+        >
           {testing ? '…' : t('admin.ldap.test')}
         </button>
-        <button type="button" className="btn btn-primary" disabled={!canEdit || saving} onClick={() => void onSave()}>
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={!canEdit || saving}
+          onClick={() => void onSave()}
+        >
           {saving ? '…' : t('admin.ldap.save')}
         </button>
       </div>
@@ -208,35 +263,95 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
   )
 }
 
-function Field({ label, hint, children, style }: { label: string; hint?: string; children: React.ReactNode; style?: React.CSSProperties }) {
+function Field({
+  label,
+  hint,
+  children,
+  style,
+}: {
+  label: string
+  hint?: string
+  children: React.ReactNode
+  style?: React.CSSProperties
+}) {
   return (
-    <label className="admin-form-label" style={{ display: 'flex', flexDirection: 'column', gap: 4, ...style }}>
+    <label
+      className="admin-form-label"
+      style={{ display: 'flex', flexDirection: 'column', gap: 4, ...style }}
+    >
       <span className="admin-label-text">{label}</span>
       {children}
-      {hint && <span className="form-hint" style={{ margin: 0 }}>{hint}</span>}
+      {hint && (
+        <span className="form-hint" style={{ margin: 0 }}>
+          {hint}
+        </span>
+      )}
     </label>
   )
 }
 
-function Toggle({ label, hint, checked, disabled, onChange }: { label: string; hint?: string; checked: boolean; disabled?: boolean; onChange: (v: boolean) => void }) {
+function Toggle({
+  label,
+  hint,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string
+  hint?: string
+  checked: boolean
+  disabled?: boolean
+  onChange: (v: boolean) => void
+}) {
   return (
     <label className="ldap-toggle">
-      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+      />
       <span>
         <strong style={{ display: 'block' }}>{label}</strong>
-        {hint && <span className="form-hint" style={{ margin: 0 }}>{hint}</span>}
+        {hint && (
+          <span className="form-hint" style={{ margin: 0 }}>
+            {hint}
+          </span>
+        )}
       </span>
     </label>
   )
 }
 
-function CheckRow({ label, hint, checked, disabled, onChange }: { label: string; hint?: string; checked: boolean; disabled?: boolean; onChange: (v: boolean) => void }) {
+function CheckRow({
+  label,
+  hint,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string
+  hint?: string
+  checked: boolean
+  disabled?: boolean
+  onChange: (v: boolean) => void
+}) {
   return (
     <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 8 }}>
-      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} style={{ marginTop: 3 }} />
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        style={{ marginTop: 3 }}
+      />
       <span>
         {label}
-        {hint && <span className="form-hint" style={{ margin: 0, display: 'block' }}>{hint}</span>}
+        {hint && (
+          <span className="form-hint" style={{ margin: 0, display: 'block' }}>
+            {hint}
+          </span>
+        )}
       </span>
     </label>
   )

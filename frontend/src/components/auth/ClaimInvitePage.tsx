@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState, type SubmitEvent } from 'react'
+import { type SubmitEvent, useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+
+import { apiClaimInvitation, apiGetInvitation } from '../../api/auth'
 import abiLogo from '../../assets/abi-logo.png'
-import { apiGetInvitation, apiClaimInvitation } from '../../api/auth'
 import { useT } from '../../i18n'
 import { useAuth } from './AuthProvider'
-import { useNavigate } from 'react-router-dom'
 import PasswordStrengthMeter from './PasswordStrengthMeter'
 
 export default function ClaimInvitePage() {
@@ -54,7 +55,9 @@ export default function ClaimInvitePage() {
 
   const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!token || !password || !confirmPassword) return
+    if (!token || !password || !confirmPassword) {
+      return
+    }
 
     if (password !== confirmPassword) {
       setError('Passwords do not match')
@@ -95,16 +98,32 @@ export default function ClaimInvitePage() {
           </div>
           <h1 className="auth-title">{t('auth.title_invite')}</h1>
           {email && !success && (
-            <p className="auth-subtitle" style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+            <p
+              className="auth-subtitle"
+              style={{ fontSize: '14px', color: 'var(--text-secondary)' }}
+            >
               {t('auth.invite_setup_desc', { role: roleName })}
             </p>
           )}
         </div>
 
         {verifying ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '16px' }}>
-            <div className="spinner" style={{ width: '32px', height: '32px', borderTopColor: '#6366f1' }}></div>
-            <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Validating your invitation…</span>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '16px',
+              padding: '16px',
+            }}
+          >
+            <div
+              className="spinner"
+              style={{ width: '32px', height: '32px', borderTopColor: '#6366f1' }}
+            ></div>
+            <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+              Validating your invitation…
+            </span>
           </div>
         ) : success ? (
           <div className="auth-success" style={{ marginBottom: '16px' }}>
@@ -115,17 +134,17 @@ export default function ClaimInvitePage() {
             <div className="auth-error" role="alert" aria-live="assertive">
               {error}
             </div>
-            <button
-              type="button"
-              className="auth-btn"
-              onClick={() => navigate('/auth/signin')}
-            >
+            <button type="button" className="auth-btn" onClick={() => navigate('/auth/signin')}>
               {t('auth.back_to_login')}
             </button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="auth-form">
-            {error && <div className="auth-error" role="alert" aria-live="assertive">{error}</div>}
+            {error && (
+              <div className="auth-error" role="alert" aria-live="assertive">
+                {error}
+              </div>
+            )}
 
             <div className="form-group">
               <label className="form-label">{t('auth.email')}</label>
@@ -139,7 +158,9 @@ export default function ClaimInvitePage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label" htmlFor="name-input">{t('auth.display_name')}</label>
+              <label className="form-label" htmlFor="name-input">
+                {t('auth.display_name')}
+              </label>
               <input
                 id="name-input"
                 type="text"
@@ -153,7 +174,9 @@ export default function ClaimInvitePage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label" htmlFor="password-input">{t('auth.password')}</label>
+              <label className="form-label" htmlFor="password-input">
+                {t('auth.password')}
+              </label>
               <input
                 id="password-input"
                 type="password"
@@ -168,7 +191,9 @@ export default function ClaimInvitePage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label" htmlFor="confirm-password-input">{t('auth.confirm_password')}</label>
+              <label className="form-label" htmlFor="confirm-password-input">
+                {t('auth.confirm_password')}
+              </label>
               <input
                 id="confirm-password-input"
                 type="password"

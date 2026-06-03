@@ -40,12 +40,10 @@ export interface AIModelAccessGrants {
 const adminOpts = { useAdminKey: true as const }
 
 export async function listAIModelAccess(token: string): Promise<AIModelAccessGrants> {
-  return apiFetch<AIModelAccessGrants>(
-    'GET',
-    `${AUTH_API_BASE}/admin/ai-model-access`,
-    undefined,
-    { token, ...adminOpts },
-  )
+  return apiFetch<AIModelAccessGrants>('GET', `${AUTH_API_BASE}/admin/ai-model-access`, undefined, {
+    token,
+    ...adminOpts,
+  })
 }
 
 export async function grantProviderWorkspace(

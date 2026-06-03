@@ -23,11 +23,21 @@ export function Pagination({
   const safeTotalPages = Math.max(1, totalPages)
   const hasItems = totalItems === undefined || totalItems > 0
 
-  if (!hasItems) return null
-  if (!alwaysShow && safeTotalPages <= 1) return null
+  if (!hasItems) {
+    return null
+  }
+  if (!alwaysShow && safeTotalPages <= 1) {
+    return null
+  }
 
-  const start = totalItems !== undefined && itemsPerPage !== undefined ? (currentPage - 1) * itemsPerPage + 1 : 0
-  const end = totalItems !== undefined && itemsPerPage !== undefined ? Math.min(currentPage * itemsPerPage, totalItems) : 0
+  const start =
+    totalItems !== undefined && itemsPerPage !== undefined
+      ? (currentPage - 1) * itemsPerPage + 1
+      : 0
+  const end =
+    totalItems !== undefined && itemsPerPage !== undefined
+      ? Math.min(currentPage * itemsPerPage, totalItems)
+      : 0
   const singlePage = safeTotalPages <= 1
 
   return (

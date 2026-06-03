@@ -1,26 +1,24 @@
-import { useCallback, useEffect, useMemo, useState, type DragEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
 import '../styles/tableBrowser.css'
+
+import { type DragEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+
 import { useApi } from '../hooks/useApi'
+import { useDatasources } from '../hooks/useDatasources'
+import { useModelDetail } from '../hooks/useModelDetail'
+import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useLocale, useT } from '../i18n'
-import { formatResultCell } from '../utils/resultCellFormat'
+import type { SemanticDimension, SemanticMetric, SemanticModelDetail } from '../types/semantic'
+import { modelListHint, modelListLabel } from '../types/semantic'
 import { localeNumberTag } from '../utils/formatters'
+import { formatResultCell } from '../utils/resultCellFormat'
+import { columnRefMatchesTable, splitTableKey, tableKey } from './modeling/utils'
 import { buildQueryPayload } from './queryBuilder/logicalQuery'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingOverlay } from './ui/LoadingOverlay'
+import { LoadingScreen } from './ui/LoadingScreen'
 import { Modal } from './ui/Modal'
 import { Select } from './ui/Select'
-import { LoadingScreen } from './ui/LoadingScreen'
-import { splitTableKey, tableKey, columnRefMatchesTable } from './modeling/utils'
-import { useDatasources } from '../hooks/useDatasources'
-import { useSemanticModels } from '../hooks/useSemanticModels'
-import { useModelDetail } from '../hooks/useModelDetail'
-import type {
-  SemanticDimension,
-  SemanticMetric,
-  SemanticModelDetail,
-} from '../types/semantic'
-import { modelListLabel, modelListHint } from '../types/semantic'
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100] as const
 const DEFAULT_PAGE_SIZE = 50
@@ -43,15 +41,21 @@ interface TableBrowserFilter {
 }
 
 function resolveCountMetric(metrics: SemanticMetric[] | undefined): string | null {
-  if (!metrics?.length) return null
+  if (!metrics?.length) {
+    return null
+  }
   const byName = metrics.find((m) => m.name === 'row_count' || m.name === 'count')
-  if (byName) return byName.name
+  if (byName) {
+    return byName.name
+  }
   const countAgg = metrics.find((m) => m.aggregation === 'count')
   return countAgg?.name ?? null
 }
 
 function parseCountValue(rows: unknown[][] | undefined): number | null {
-  if (!rows?.length) return null
+  if (!rows?.length) {
+    return null
+  }
   const cell = rows[0]?.[0]
   const n = typeof cell === 'number' ? cell : Number(cell)
   return Number.isFinite(n) ? Math.trunc(n) : null
@@ -64,13 +68,19 @@ function buildPageList(currentPage: number, totalPages: number): PageToken[] {
     return Array.from({ length: totalPages }, (_, i) => i)
   }
   const pages = new Set<number>([0, totalPages - 1, currentPage])
-  if (currentPage > 0) pages.add(currentPage - 1)
-  if (currentPage < totalPages - 1) pages.add(currentPage + 1)
+  if (currentPage > 0) {
+    pages.add(currentPage - 1)
+  }
+  if (currentPage < totalPages - 1) {
+    pages.add(currentPage + 1)
+  }
   const sorted = [...pages].sort((a, b) => a - b)
   const out: PageToken[] = []
   for (let i = 0; i < sorted.length; i++) {
     const p = sorted[i]!
-    if (i > 0 && p - sorted[i - 1]! > 1) out.push('gap')
+    if (i > 0 && p - sorted[i - 1]! > 1) {
+      out.push('gap')
+    }
     out.push(p)
   }
   return out
@@ -104,7 +114,9 @@ function ValidationErrorBanner({
   onOpenModeling: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
-  if (!error) return null
+  if (!error) {
+    return null
+  }
 
   const isValidation = /validation failed/i.test(error)
   if (!isValidation) {
@@ -123,11 +135,7 @@ function ValidationErrorBanner({
         </span>
         <div className="validation-error-banner__actions">
           {count > 0 && (
-            <button
-              type="button"
-              className="btn btn-sm"
-              onClick={() => setExpanded((v) => !v)}
-            >
+            <button type="button" className="btn btn-sm" onClick={() => setExpanded((v) => !v)}>
               {expanded
                 ? t('table_browser.validation_error_hide')
                 : t('table_browser.validation_error_show')}
@@ -153,8 +161,12 @@ function ValidationErrorBanner({
 
 function singularize(name: string): string {
   const n = name.toLowerCase()
-  if (n.endsWith('ies')) return `${n.slice(0, -3)}y`
-  if (n.endsWith('s') && !n.endsWith('ss')) return n.slice(0, -1)
+  if (n.endsWith('ies')) {
+    return `${n.slice(0, -3)}y`
+  }
+  if (n.endsWith('s') && !n.endsWith('ss')) {
+    return n.slice(0, -1)
+  }
   return n
 }
 
@@ -164,24 +176,34 @@ function buildRowModalTitle(
   fallback: string,
   tableKeyValue?: string | null,
 ): string {
-  const stringValues: Array<{ name: string; value: string }> = []
+  const stringValues: { name: string; value: string }[] = []
   for (let i = 0; i < columns.length; i++) {
     const v = row[i]
-    if (v == null) continue
+    if (v == null) {
+      continue
+    }
     const s = typeof v === 'string' ? v : typeof v === 'number' ? String(v) : ''
     const trimmed = s.trim()
-    if (!trimmed) continue
+    if (!trimmed) {
+      continue
+    }
     const colName = columns[i]
-    if (!colName) continue
+    if (!colName) {
+      continue
+    }
     stringValues.push({ name: colName.toLowerCase(), value: trimmed })
   }
-  if (stringValues.length === 0) return fallback
+  if (stringValues.length === 0) {
+    return fallback
+  }
 
   const truncate = (s: string) => (s.length > 80 ? `${s.slice(0, 77).trimEnd()}…` : s)
 
   for (const pattern of PREFERRED_TITLE_COLUMN_PATTERNS) {
     const hit = stringValues.find((c) => pattern.test(c.name))
-    if (hit) return truncate(hit.value)
+    if (hit) {
+      return truncate(hit.value)
+    }
   }
 
   // Prefer the table's own PK column (e.g. order_id for orders) over foreign keys.
@@ -189,33 +211,42 @@ function buildRowModalTitle(
     const lastSegment = tableKeyValue.split('.').pop() ?? tableKeyValue
     const singular = singularize(lastSegment)
     const pkHit = stringValues.find(
-      (c) => c.name === `${singular}_id` || c.name === `${lastSegment.toLowerCase()}_id` || c.name === 'id',
+      (c) =>
+        c.name === `${singular}_id` ||
+        c.name === `${lastSegment.toLowerCase()}_id` ||
+        c.name === 'id',
     )
-    if (pkHit) return truncate(`${pkHit.name} ${pkHit.value}`)
+    if (pkHit) {
+      return truncate(`${pkHit.name} ${pkHit.value}`)
+    }
   }
 
   // Fall back to first id-like column.
   for (const pattern of ID_COLUMN_PATTERNS) {
     const hit = stringValues.find((c) => pattern.test(c.name))
-    if (hit) return truncate(`${hit.name} ${hit.value}`)
+    if (hit) {
+      return truncate(`${hit.name} ${hit.value}`)
+    }
   }
   return fallback
 }
-
-
 
 function collectModelTables(model: SemanticModelDetail): { value: string; label: string }[] {
   const seen = new Set<string>()
   const out: { value: string; label: string }[] = []
   const add = (schema: string, table: string) => {
     const key = tableKey(schema, table)
-    if (seen.has(key)) return
+    if (seen.has(key)) {
+      return
+    }
     seen.add(key)
     out.push({ value: key, label: key })
   }
   add(model.base_schema, model.base_table)
   for (const j of model.joins ?? []) {
-    if (j.is_active === false) continue
+    if (j.is_active === false) {
+      continue
+    }
     add(j.from_schema ?? model.base_schema, j.from_table)
     add(j.to_schema ?? model.base_schema, j.to_table)
   }
@@ -225,8 +256,11 @@ function collectModelTables(model: SemanticModelDetail): { value: string; label:
 function reorderColumnNames(order: string[], source: string, target: string): string[] {
   const next = order.filter((n) => n !== source)
   const idx = next.indexOf(target)
-  if (idx === -1) next.push(source)
-  else next.splice(idx, 0, source)
+  if (idx === -1) {
+    next.push(source)
+  } else {
+    next.splice(idx, 0, source)
+  }
   return next
 }
 
@@ -242,7 +276,11 @@ export default function TableBrowser() {
   const [datasourceId, setDatasourceId] = useState('')
   const { models } = useSemanticModels(datasourceId)
   const [modelId, setModelId] = useState('')
-  const { model: modelDetail, setModel: setModelDetail, loading: modelLoading } = useModelDetail(modelId)
+  const {
+    model: modelDetail,
+    setModel: setModelDetail,
+    loading: modelLoading,
+  } = useModelDetail(modelId)
   const [selectedTableKey, setSelectedTableKey] = useState('')
   const [columnOrder, setColumnOrder] = useState<string[]>([])
   const [dragColumn, setDragColumn] = useState<string | null>(null)
@@ -313,12 +351,16 @@ export default function TableBrowser() {
   }, [filters])
 
   const tableOptions = useMemo(() => {
-    if (!modelDetail) return []
+    if (!modelDetail) {
+      return []
+    }
     return collectModelTables(modelDetail)
   }, [modelDetail])
 
   const activeDimensions = useMemo(() => {
-    if (!modelDetail || !selectedTableKey) return []
+    if (!modelDetail || !selectedTableKey) {
+      return []
+    }
     const { schema, table } = splitTableKey(selectedTableKey)
     return (modelDetail.dimensions ?? []).filter(
       (d) =>
@@ -328,7 +370,11 @@ export default function TableBrowser() {
   }, [modelDetail, selectedTableKey])
 
   const dimensionNamesKey = useMemo(
-    () => activeDimensions.map((d) => d.name).sort().join('\0'),
+    () =>
+      activeDimensions
+        .map((d) => d.name)
+        .sort()
+        .join('\0'),
     [activeDimensions],
   )
 
@@ -345,10 +391,14 @@ export default function TableBrowser() {
     const ordered: SemanticDimension[] = []
     for (const name of columnOrder) {
       const d = byName.get(name)
-      if (d) ordered.push(d)
+      if (d) {
+        ordered.push(d)
+      }
     }
     for (const d of activeDimensions) {
-      if (!columnOrder.includes(d.name)) ordered.push(d)
+      if (!columnOrder.includes(d.name)) {
+        ordered.push(d)
+      }
     }
     return ordered
   }, [activeDimensions, columnOrder])
@@ -366,7 +416,9 @@ export default function TableBrowser() {
   )
 
   const queryBase = useMemo(() => {
-    if (!datasourceId || !modelId || !modelDetail || orderedDimensions.length === 0) return null
+    if (!datasourceId || !modelId || !modelDetail || orderedDimensions.length === 0) {
+      return null
+    }
     return {
       datasourceId,
       modelId,
@@ -388,11 +440,15 @@ export default function TableBrowser() {
 
   const displayColumnNames = useMemo(() => {
     const fromResult = result?.columns?.map((c) => c.name) ?? []
-    if (fromResult.length === 0) return columnOrder
+    if (fromResult.length === 0) {
+      return columnOrder
+    }
     const inResult = new Set(fromResult)
     const ordered = columnOrder.filter((n) => inResult.has(n))
     for (const n of fromResult) {
-      if (!ordered.includes(n)) ordered.push(n)
+      if (!ordered.includes(n)) {
+        ordered.push(n)
+      }
     }
     return ordered.length > 0 ? ordered : fromResult
   }, [result?.columns, columnOrder])
@@ -427,7 +483,9 @@ export default function TableBrowser() {
   }, [queryBase, countMetricName, postData])
 
   const runDataQuery = useCallback(async () => {
-    if (!queryBase) return
+    if (!queryBase) {
+      return
+    }
 
     setFetching(true)
     const dataRes = await postData<QueryBuilderResult>(
@@ -456,13 +514,18 @@ export default function TableBrowser() {
   const rangeStart = rowCount > 0 ? page * pageSize + 1 : 0
   const rangeEnd = page * pageSize + rowCount
   const totalPages =
-    totalRows != null && totalRows > 0 ? Math.ceil(totalRows / pageSize) : totalRows === 0 ? 0 : null
+    totalRows != null && totalRows > 0
+      ? Math.ceil(totalRows / pageSize)
+      : totalRows === 0
+        ? 0
+        : null
   const lastPageIndex = totalPages != null && totalPages > 0 ? totalPages - 1 : null
-  const hasNext =
-    lastPageIndex != null ? page < lastPageIndex : rowCount === pageSize
+  const hasNext = lastPageIndex != null ? page < lastPageIndex : rowCount === pageSize
 
   const pageList = useMemo(() => {
-    if (totalPages == null || totalPages <= 1) return null
+    if (totalPages == null || totalPages <= 1) {
+      return null
+    }
     return buildPageList(page, totalPages)
   }, [page, totalPages])
 
@@ -488,29 +551,33 @@ export default function TableBrowser() {
   }
 
   const handleSaveFilter = () => {
-    if (!popoverField) return
+    if (!popoverField) {
+      return
+    }
 
-    let finalChips = [...popoverChips]
+    const finalChips = [...popoverChips]
     const textVal = chipInputText.trim()
     if (textVal && !finalChips.includes(textVal)) {
       finalChips.push(textVal)
     }
 
-    if (finalChips.length === 0) return
+    if (finalChips.length === 0) {
+      return
+    }
 
-    const finalValue = finalChips.length > 1 ? JSON.stringify(finalChips) : (finalChips[0] || '')
+    const finalValue = finalChips.length > 1 ? JSON.stringify(finalChips) : finalChips[0] || ''
 
     if (editingFilterId) {
       setFilters((prev) =>
         prev.map((f) =>
           f.id === editingFilterId
             ? {
-              ...f,
-              field: popoverField,
-              operator: popoverOperator,
-              value: finalValue,
-              caseSensitive: popoverCaseSensitive,
-            }
+                ...f,
+                field: popoverField,
+                operator: popoverOperator,
+                value: finalValue,
+                caseSensitive: popoverCaseSensitive,
+              }
             : f,
         ),
       )
@@ -542,14 +609,18 @@ export default function TableBrowser() {
   const handleColumnDragOver = (colName: string) => (e: DragEvent) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
-    if (dragColumn && dragColumn !== colName) setDropTargetColumn(colName)
+    if (dragColumn && dragColumn !== colName) {
+      setDropTargetColumn(colName)
+    }
   }
 
   const handleColumnDrop = (colName: string) => (e: DragEvent) => {
     e.preventDefault()
     const source = e.dataTransfer.getData('text/plain') || dragColumn
     if (source && source !== colName) {
-      setColumnOrder((prev) => reorderColumnNames(prev.length ? prev : displayColumnNames, source, colName))
+      setColumnOrder((prev) =>
+        reorderColumnNames(prev.length ? prev : displayColumnNames, source, colName),
+      )
     }
     setDragColumn(null)
     setDropTargetColumn(null)
@@ -597,7 +668,7 @@ export default function TableBrowser() {
 
   const getDimensionLabel = (name: string) => {
     const dim = activeDimensions.find((d) => d.name === name)
-    return dim ? (dim.label || dim.name) : name
+    return dim ? dim.label || dim.name : name
   }
 
   const formatFilterValue = (value: string) => {
@@ -679,14 +750,14 @@ export default function TableBrowser() {
       ? t('table_browser.range_empty')
       : totalRows != null
         ? t('table_browser.range_of_total', {
-          start: formatInt(rangeStart),
-          end: formatInt(rangeEnd),
-          total: formatInt(totalRows),
-        })
+            start: formatInt(rangeStart),
+            end: formatInt(rangeEnd),
+            total: formatInt(totalRows),
+          })
         : t('table_browser.range_unknown_total', {
-          start: formatInt(rangeStart),
-          end: formatInt(rangeEnd),
-        })
+            start: formatInt(rangeStart),
+            end: formatInt(rangeEnd),
+          })
 
   if (dsLoading || (modelId && !modelDetail && modelLoading)) {
     return <LoadingScreen minHeight="300px" />
@@ -753,7 +824,8 @@ export default function TableBrowser() {
                   style={{ cursor: 'pointer' }}
                   onClick={() => handleOpenEditFilter(f)}
                 >
-                  {getDimensionLabel(f.field)} {getOperatorLabel(f.operator)} {formatFilterValue(f.value)}
+                  {getDimensionLabel(f.field)} {getOperatorLabel(f.operator)}{' '}
+                  {formatFilterValue(f.value)}
                   <button
                     type="button"
                     className="table-browser-filter-tag-close"
@@ -773,7 +845,15 @@ export default function TableBrowser() {
                 onClick={() => handleOpenAddFilter()}
                 title={t('table_browser.add_filter')}
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '0.85rem', height: '0.85rem' }}>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ width: '0.85rem', height: '0.85rem' }}
+                >
                   <line x1="12" y1="5" x2="12" y2="19" />
                   <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
@@ -782,24 +862,54 @@ export default function TableBrowser() {
 
               {popoverOpen && (
                 <div className="filter-popover" style={{ width: '18rem' }}>
-                  <div className="filter-popover-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 'none', paddingBottom: '0.2rem' }}>
+                  <div
+                    className="filter-popover-header"
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      borderBottom: 'none',
+                      paddingBottom: '0.2rem',
+                    }}
+                  >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <button type="button" className="filter-popover-back" onClick={() => setPopoverOpen(false)}>‹</button>
-                      <span style={{ fontSize: '0.86rem', fontWeight: 700 }}>{getDimensionLabel(popoverField)}</span>
+                      <button
+                        type="button"
+                        className="filter-popover-back"
+                        onClick={() => setPopoverOpen(false)}
+                      >
+                        ‹
+                      </button>
+                      <span style={{ fontSize: '0.86rem', fontWeight: 700 }}>
+                        {getDimensionLabel(popoverField)}
+                      </span>
                     </div>
-                    <Select value={popoverOperator} onChange={setPopoverOperator} options={operatorOptions} size="sm" />
+                    <Select
+                      value={popoverOperator}
+                      onChange={setPopoverOperator}
+                      options={operatorOptions}
+                      size="sm"
+                    />
                   </div>
 
                   {!editingFilterId && (
                     <div className="filter-popover-row" style={{ marginTop: '0.1rem' }}>
                       <label>{t('table_browser.column')}</label>
-                      <Select value={popoverField} onChange={setPopoverField} options={filterFieldOpts} size="sm" />
+                      <Select
+                        value={popoverField}
+                        onChange={setPopoverField}
+                        options={filterFieldOpts}
+                        size="sm"
+                      />
                     </div>
                   )}
 
                   <div className="filter-popover-row">
                     <label>{t('table_browser.value')}</label>
-                    <div className="chip-input-container" onClick={() => document.getElementById('chip-input-el')?.focus()}>
+                    <div
+                      className="chip-input-container"
+                      onClick={() => document.getElementById('chip-input-el')?.focus()}
+                    >
                       {popoverChips.map((chip, idx) => (
                         <span key={idx} className="chip-tag">
                           {chip}
@@ -824,17 +934,30 @@ export default function TableBrowser() {
                           if (e.key === 'Enter' || e.key === ',') {
                             e.preventDefault()
                             handleAddChip(chipInputText)
-                          } else if (e.key === 'Backspace' && !chipInputText && popoverChips.length > 0) {
+                          } else if (
+                            e.key === 'Backspace' &&
+                            !chipInputText &&
+                            popoverChips.length > 0
+                          ) {
                             handleRemoveChip(popoverChips.length - 1)
                           }
                         }}
-                        placeholder={popoverChips.length === 0 ? t('table_browser.enter_value') : ''}
+                        placeholder={
+                          popoverChips.length === 0 ? t('table_browser.enter_value') : ''
+                        }
                         className="chip-input-field"
                       />
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.2rem' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginTop: '0.2rem',
+                    }}
+                  >
                     <div className="filter-popover-checkbox-row">
                       <input
                         type="checkbox"
@@ -850,7 +973,9 @@ export default function TableBrowser() {
                       style={{ width: 'auto', padding: '0.35rem 0.85rem' }}
                       onClick={handleSaveFilter}
                     >
-                      {editingFilterId ? t('table_browser.update_filter') : t('table_browser.add_filter')}
+                      {editingFilterId
+                        ? t('table_browser.update_filter')
+                        : t('table_browser.add_filter')}
                     </button>
                   </div>
                 </div>
@@ -864,8 +989,12 @@ export default function TableBrowser() {
                 const modelId = modelDetail?.id
                 const dsId = datasourceId
                 const params = new URLSearchParams()
-                if (dsId) params.set('ds', dsId)
-                if (modelId) params.set('model', modelId)
+                if (dsId) {
+                  params.set('ds', dsId)
+                }
+                if (modelId) {
+                  params.set('model', modelId)
+                }
                 const qs = params.toString()
                 navigate(qs ? `/modeling?${qs}` : '/modeling')
               }}
@@ -874,7 +1003,12 @@ export default function TableBrowser() {
             {showTablePanel && (
               <>
                 {showInitialPlaceholder ? (
-                  <div className="table-browser-table-placeholder" role="status" aria-live="polite" aria-busy="true">
+                  <div
+                    className="table-browser-table-placeholder"
+                    role="status"
+                    aria-live="polite"
+                    aria-busy="true"
+                  >
                     <span className="loading-overlay-spinner" aria-hidden="true" />
                     <span>{t('table_browser.loading')}</span>
                   </div>
@@ -911,7 +1045,9 @@ export default function TableBrowser() {
                                   >
                                     ⋮⋮
                                   </span>
-                                  <span className="table-browser-th-label">{getDimensionLabel(colName)}</span>
+                                  <span className="table-browser-th-label">
+                                    {getDimensionLabel(colName)}
+                                  </span>
                                   <span className="th-chevron">▼</span>
                                 </span>
                               </th>
@@ -924,7 +1060,9 @@ export default function TableBrowser() {
                               key={i}
                               className={`table-browser-data-row${fetching ? ' is-disabled' : ''}`}
                               onClick={() => {
-                                if (fetching) return
+                                if (fetching) {
+                                  return
+                                }
                                 setDetailRow({
                                   displayIndex: page * pageSize + i + 1,
                                   row,
@@ -970,7 +1108,10 @@ export default function TableBrowser() {
                           size="sm"
                         />
                       </div>
-                      <nav className="table-browser-page-nav" aria-label={t('table_browser.pagination_nav')}>
+                      <nav
+                        className="table-browser-page-nav"
+                        aria-label={t('table_browser.pagination_nav')}
+                      >
                         <button
                           type="button"
                           className="table-browser-page-btn table-browser-page-btn--icon"
@@ -995,7 +1136,11 @@ export default function TableBrowser() {
                           <div className="table-browser-page-list" role="list">
                             {pageList.map((token, idx) =>
                               token === 'gap' ? (
-                                <span key={`gap-${idx}`} className="table-browser-page-gap" aria-hidden="true">
+                                <span
+                                  key={`gap-${idx}`}
+                                  className="table-browser-page-gap"
+                                  aria-hidden="true"
+                                >
                                   …
                                 </span>
                               ) : (
@@ -1048,7 +1193,9 @@ export default function TableBrowser() {
           </>
         )
       ) : (
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{t('table_browser.select_model')}</p>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+          {t('table_browser.select_model')}
+        </p>
       )}
 
       <Modal
@@ -1056,11 +1203,11 @@ export default function TableBrowser() {
         title={
           detailRow && result?.columns
             ? buildRowModalTitle(
-              detailRow.row,
-              result.columns.map((c) => c.name),
-              t('table_browser.row_detail_title', { n: formatInt(detailRow.displayIndex) }),
-              selectedTableKey ?? modelDetail?.base_table,
-            )
+                detailRow.row,
+                result.columns.map((c) => c.name),
+                t('table_browser.row_detail_title', { n: formatInt(detailRow.displayIndex) }),
+                selectedTableKey ?? modelDetail?.base_table,
+              )
             : t('table_browser.row_detail')
         }
         subtitle={selectedTableKey || modelDetail?.base_table}
@@ -1068,7 +1215,11 @@ export default function TableBrowser() {
         bodyClassName="table-browser-detail-modal-body"
       >
         {detailRow && result?.columns && (
-          <div className="table-browser-detail-grid" role="region" aria-label={t('table_browser.row_detail')}>
+          <div
+            className="table-browser-detail-grid"
+            role="region"
+            aria-label={t('table_browser.row_detail')}
+          >
             {displayColumnNames.map((colName) => {
               const j = columnIndexByName.get(colName)
               const display = formatResultCell(j != null ? detailRow.row[j] : null, colName, {})

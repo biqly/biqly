@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import type { ColumnRow } from '../../types/semantic'
 import {
   applyDragDelta,
@@ -71,14 +72,28 @@ describe('canvas drag-and-drop math', () => {
 describe('canvas layout', () => {
   it('lays out cards in a grid', () => {
     const tables = [
-      { id: 't1', schema_name: 'public', table_name: 'orders', table_type: 'BASE TABLE', description: null },
-      { id: 't2', schema_name: 'public', table_name: 'customers', table_type: 'BASE TABLE', description: null },
+      {
+        id: 't1',
+        schema_name: 'public',
+        table_name: 'orders',
+        table_type: 'BASE TABLE',
+        description: null,
+      },
+      {
+        id: 't2',
+        schema_name: 'public',
+        table_name: 'customers',
+        table_type: 'BASE TABLE',
+        description: null,
+      },
     ]
     const joinColumns = new Map<string, Set<string>>()
     const layouts = buildCardLayouts(tables, columns, joinColumns, 10)
     const positions = layoutInitialPositions(tables, layouts)
     expect(positions[tableKey('public', 'orders')]).toEqual({ x: 40, y: 40 })
-    expect(positions[tableKey('public', 'customers')]!.x).toBeGreaterThan(positions[tableKey('public', 'orders')]!.x)
+    expect(positions[tableKey('public', 'customers')]!.x).toBeGreaterThan(
+      positions[tableKey('public', 'orders')]!.x,
+    )
   })
 
   it('draws join paths between compatible columns', () => {
@@ -140,7 +155,15 @@ describe('viewport zoom', () => {
   })
 
   it('computes canvas bounds from card positions', () => {
-    const tables = [{ id: 't1', schema_name: 'public', table_name: 'orders', table_type: 'BASE TABLE', description: null }]
+    const tables = [
+      {
+        id: 't1',
+        schema_name: 'public',
+        table_name: 'orders',
+        table_type: 'BASE TABLE',
+        description: null,
+      },
+    ]
     const layouts = buildCardLayouts(tables, columns.slice(0, 1), new Map(), 10)
     const positions = layoutInitialPositions(tables, layouts)
     const bounds = computeCanvasBounds(tables, positions, layouts)

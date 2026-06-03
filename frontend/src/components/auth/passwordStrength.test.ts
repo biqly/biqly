@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import type { PasswordPolicy } from '../../types/auth'
 import { rulesFor, scorePassword, scoreToLevel } from './passwordStrength'
 
@@ -58,7 +59,11 @@ describe('rulesFor', () => {
   })
 
   it('skips classes not required by policy', () => {
-    const policy: PasswordPolicy = { ...defaultPolicy, require_special: false, require_lower: false }
+    const policy: PasswordPolicy = {
+      ...defaultPolicy,
+      require_special: false,
+      require_lower: false,
+    }
     const rules = rulesFor('PASSWORD1', policy, labels)
     expect(rules.map((r) => r.key)).toEqual(['length', 'upper', 'digit'])
   })

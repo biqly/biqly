@@ -42,12 +42,13 @@
   --control-hover-bg: #202024;
   --control-open-bg: #27272a;
   --control-hover-border: rgba(255, 255, 255, 0.12);
-  --control-active-border: rgba(255, 255, 255, 0.20);
+  --control-active-border: rgba(255, 255, 255, 0.2);
   --control-focus-border: rgba(99, 102, 241, 0.6);
   --control-focus-ring: rgba(99, 102, 241, 0.22);
   --control-option-active-bg: rgba(255, 255, 255, 0.06);
   --metadata-nested-panel-bg: linear-gradient(180deg, #18181b 0%, #09090b 100%);
-  --metadata-nested-panel-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 12px 36px rgba(0, 0, 0, 0.6);
+  --metadata-nested-panel-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 12px 36px rgba(0, 0, 0, 0.6);
   --metadata-nested-caption-bg: rgba(0, 0, 0, 0.3);
   --metadata-nested-cell-bg: rgba(0, 0, 0, 0.2);
   --metadata-nested-inner-stripe-odd: rgba(255, 255, 255, 0.03);
@@ -62,7 +63,9 @@
   --z-modal: 1000;
   --z-select: 1100;
 
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
 }
 
 :root[data-theme='light'] {
@@ -102,7 +105,8 @@
   --control-focus-ring: rgba(79, 70, 229, 0.16);
   --control-option-active-bg: rgba(15, 23, 42, 0.05);
   --metadata-nested-panel-bg: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  --metadata-nested-panel-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 12px 36px rgba(15, 23, 42, 0.05);
+  --metadata-nested-panel-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 12px 36px rgba(15, 23, 42, 0.05);
   --metadata-nested-caption-bg: rgba(15, 23, 42, 0.03);
   --metadata-nested-cell-bg: rgba(15, 23, 42, 0.015);
   --metadata-nested-inner-stripe-odd: rgba(15, 23, 42, 0.01);
@@ -122,7 +126,14 @@ body {
   overflow-x: hidden;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family:
+    'Inter',
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
   line-height: 1.5;
 }
 
@@ -238,7 +249,10 @@ a {
   padding: 1.5rem;
   margin-bottom: 1.25rem;
   box-shadow: var(--shadow);
-  transition: transform 220ms cubic-bezier(0.4, 0, 0.2, 1), border-color 220ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 220ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    transform 220ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 220ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 220ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .card:hover {
@@ -461,7 +475,9 @@ a {
 .form-field textarea:focus-visible,
 .few-shot-sidebar__search:focus-visible {
   border-color: var(--control-focus-border);
-  box-shadow: 0 0 0 1px var(--bg-primary), 0 0 0 3px var(--control-focus-ring);
+  box-shadow:
+    0 0 0 1px var(--bg-primary),
+    0 0 0 3px var(--control-focus-ring);
   outline: none;
 }
 
@@ -1235,8 +1251,6 @@ input[type='checkbox']:disabled {
   max-width: 100%;
 }
 
-
-
 .driver-tile-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
@@ -1359,9 +1373,6 @@ input[type='checkbox']:disabled {
   font-size: 0.88rem;
 }
 
-
-
-
 /* AI Query — semantic scope type filters */
 .ai-scope-label {
   display: block;
@@ -1403,9 +1414,6 @@ input[type='checkbox']:disabled {
 .ai-scope-multiselect .ui-select-option {
   font-size: 0.8rem;
 }
-
-
-
 
 .stats {
   display: flex;
@@ -1480,7 +1488,9 @@ input[type='checkbox']:disabled {
 }
 
 @keyframes loading-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .warning-panel {
@@ -1536,7 +1546,7 @@ input[type='checkbox']:disabled {
   height: 0.38rem;
   border-radius: 999px;
   background: var(--warning);
-  content: "";
+  content: '';
 }
 
 .success {
@@ -1604,7 +1614,10 @@ input[type='checkbox']:disabled {
   padding: 0.48rem 0.62rem;
   cursor: pointer;
   text-align: left;
-  transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    transform 120ms ease;
 }
 
 .query-builder-aggregation-chip:hover:not(:disabled) {
@@ -1665,7 +1678,9 @@ input[type='checkbox']:disabled {
   display: block;
   padding: 0.85rem 1rem;
   text-align: left;
-  transition: background-color 120ms ease, border-color 120ms ease;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
 }
 
 .saved-question-item:hover {
@@ -1784,7 +1799,6 @@ input[type='checkbox']:disabled {
   gap: 4px;
   align-items: flex-start;
 }
-
 
 .saved-question-description {
   color: var(--text-secondary);
@@ -1975,18 +1989,12 @@ input[type='checkbox']:disabled {
   }
 }
 
-
-
-
-
-
-
 /* ─── Prompt large warning ─────────────────────────────────────── */
 .prompt-warning {
   font-size: 0.75rem;
   color: var(--warning);
-  background: rgba(251,191,36,0.06);
-  border: 1px solid rgba(251,191,36,0.2);
+  background: rgba(251, 191, 36, 0.06);
+  border: 1px solid rgba(251, 191, 36, 0.2);
   border-radius: 0.35rem;
   padding: 0.3rem 0.6rem;
   margin-top: 0.4rem;
@@ -1996,8 +2004,8 @@ input[type='checkbox']:disabled {
 .model-fallback-badge {
   font-size: 0.72rem;
   color: var(--warning);
-  background: rgba(251,191,36,0.06);
-  border: 1px solid rgba(251,191,36,0.2);
+  background: rgba(251, 191, 36, 0.06);
+  border: 1px solid rgba(251, 191, 36, 0.2);
   border-radius: 0.3rem;
   padding: 0.2rem 0.5rem;
   margin-bottom: 0.5rem;
@@ -2031,14 +2039,12 @@ input[type='checkbox']:disabled {
 .inherited-filters-badge {
   font-size: 0.7rem;
   color: var(--text-muted);
-  background: rgba(148,163,184,0.08);
-  border: 1px solid rgba(148,163,184,0.15);
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.15);
   border-radius: 0.3rem;
   padding: 0.15rem 0.5rem;
   margin-left: 0.5rem;
 }
-
-
 
 /* ─── Custom Select (UI) ────────────────────────────────────────── */
 .ui-select {
@@ -2147,7 +2153,9 @@ input[type='checkbox']:disabled {
 .ui-select-chevron {
   flex-shrink: 0;
   color: var(--text-muted);
-  transition: transform 140ms ease, color 140ms ease;
+  transition:
+    transform 140ms ease,
+    color 140ms ease;
 }
 
 .ui-select-trigger.is-open .ui-select-chevron {
@@ -2247,7 +2255,9 @@ input[type='checkbox']:disabled {
   color: var(--text-secondary);
   font-size: 0.78rem;
   cursor: pointer;
-  transition: background-color 100ms ease, color 100ms ease;
+  transition:
+    background-color 100ms ease,
+    color 100ms ease;
 }
 
 .ui-select-option.is-active {
@@ -2352,13 +2362,18 @@ input[type='checkbox']:disabled {
   font-size: 0.78rem;
   font-weight: 600;
   line-height: 1.2;
-  transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    background-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .toggle-btn.active {
   background: var(--bg-card);
   color: var(--text-primary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--border-strong);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 0 0 1px var(--border-strong);
 }
 
 .toggle-btn:hover:not(.active):not(:disabled) {
@@ -2600,7 +2615,9 @@ input[type='checkbox']:disabled {
   cursor: pointer;
   z-index: 5;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-  transition: color 120ms ease, background 120ms ease;
+  transition:
+    color 120ms ease,
+    background 120ms ease;
 }
 
 .modeling-side-toggle:hover {
@@ -2712,9 +2729,11 @@ input[type='checkbox']:disabled {
   cursor: grab;
   background:
     linear-gradient(var(--border) 1px, transparent 1px),
-    linear-gradient(90deg, var(--border) 1px, transparent 1px),
-    var(--bg-card);
-  background-size: 24px 24px, 24px 24px, auto;
+    linear-gradient(90deg, var(--border) 1px, transparent 1px), var(--bg-card);
+  background-size:
+    24px 24px,
+    24px 24px,
+    auto;
 }
 
 body.modeling-panning,
@@ -2789,14 +2808,19 @@ body.modeling-grabbing * {
   stroke-width: 1.6;
   stroke-linejoin: miter;
   stroke-linecap: square;
-  transition: stroke-width 120ms ease, stroke 120ms ease, opacity 120ms ease;
+  transition:
+    stroke-width 120ms ease,
+    stroke 120ms ease,
+    opacity 120ms ease;
 }
 
 .modeling-join-line circle {
   fill: color-mix(in srgb, var(--accent) 80%, var(--text-primary));
   stroke: var(--bg-card);
   stroke-width: 1.5;
-  transition: opacity 120ms ease, fill 120ms ease;
+  transition:
+    opacity 120ms ease,
+    fill 120ms ease;
 }
 
 .modeling-join-line--hi path {
@@ -2809,7 +2833,6 @@ body.modeling-grabbing * {
   fill: var(--accent);
   r: 5;
 }
-
 
 .modeling-join-pill--active {
   border-color: var(--accent);
@@ -2834,7 +2857,10 @@ body.modeling-grabbing * {
   border-radius: 10px;
   background: var(--bg-card-raised);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
-  transition: box-shadow 120ms ease, transform 120ms ease, border-color 120ms ease;
+  transition:
+    box-shadow 120ms ease,
+    transform 120ms ease,
+    border-color 120ms ease;
 }
 
 .modeling-table-card:hover {
@@ -3016,7 +3042,9 @@ body.modeling-grabbing * {
   font-weight: 700;
   padding: 0.55rem 0.5rem;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .modeling-tab:not(:last-child) {
@@ -3069,7 +3097,9 @@ body.modeling-grabbing * {
   line-height: 1;
   padding: 0.15rem 0.45rem;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .modeling-delete-btn:hover {
@@ -3093,7 +3123,9 @@ body.modeling-grabbing * {
   line-height: 1;
   padding: 0.15rem 0.45rem;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .modeling-add-btn:hover {
@@ -3111,7 +3143,10 @@ body.modeling-grabbing * {
   line-height: 1;
   padding: 0.15rem 0.45rem;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .modeling-rename-btn:hover {
@@ -3203,7 +3238,9 @@ body.modeling-grabbing * {
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background 140ms ease, color 140ms ease;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
 }
 
 .theme-toggle__btn {
@@ -3236,9 +3273,6 @@ body.modeling-grabbing * {
 :root[data-theme='light'] .nav-link[aria-current='page'] {
   background: rgba(53, 99, 221, 0.08);
 }
-
-
-
 
 /* Few-Shot Examples Improvements */
 .card-header-row .btn {
@@ -3391,12 +3425,16 @@ body.modeling-grabbing * {
   border-radius: 0.5rem;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
   resize: vertical;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
 }
 
 .prompt-editor-textarea:focus-visible {
   border-color: var(--control-focus-border);
-  box-shadow: 0 0 0 1px var(--bg-primary), 0 0 0 3px var(--control-focus-ring);
+  box-shadow:
+    0 0 0 1px var(--bg-primary),
+    0 0 0 3px var(--control-focus-ring);
   outline: none;
 }
 
@@ -3485,8 +3523,3 @@ body.modeling-grabbing * {
 /* ═══════════════════════════════════════════════════════════════
    Workspace Settings Page
    ═══════════════════════════════════════════════════════════════ */
-
-
-
-
-

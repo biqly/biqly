@@ -40,7 +40,9 @@ export function useQueryParam(key: string): [string, (next: string) => void] {
     (next: string) => {
       const params = new URLSearchParams(window.location.search)
       const current = params.get(key) ?? ''
-      if (current === next) return
+      if (current === next) {
+        return
+      }
       if (next === '' || next == null) {
         params.delete(key)
       } else {

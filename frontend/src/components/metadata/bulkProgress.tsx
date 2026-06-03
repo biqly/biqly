@@ -1,5 +1,5 @@
-import { useT } from '../../i18n'
 import type { TranslationKey } from '../../i18n'
+import { useT } from '../../i18n'
 import { TagBadge } from '../ui/TagBadge'
 
 export type BulkStatus = 'pending' | 'running' | 'ok' | 'error' | 'skipped'
@@ -25,7 +25,9 @@ export function sortBulkEntriesForDisplay(entries: BulkEntry[]): BulkEntry[] {
     .sort((a, b) => {
       const da = BULK_DISPLAY_ORDER[a.entry.status]
       const db = BULK_DISPLAY_ORDER[b.entry.status]
-      if (da !== db) return da - db
+      if (da !== db) {
+        return da - db
+      }
       return a.queueIndex - b.queueIndex
     })
     .map(({ entry }) => entry)
@@ -59,8 +61,12 @@ type TFn = ReturnType<typeof useT>
 
 export function objectTypeLabel(tableType: string, t: TFn): string {
   const u = tableType.toUpperCase()
-  if (u === 'VIEW') return t('metadata.type_view')
-  if (u === 'BASE TABLE') return t('metadata.type_base_table')
+  if (u === 'VIEW') {
+    return t('metadata.type_view')
+  }
+  if (u === 'BASE TABLE') {
+    return t('metadata.type_base_table')
+  }
   return tableType
 }
 
@@ -75,7 +81,9 @@ export function BulkProgressHeader({
 }) {
   const t = useT()
   const total = entries.length
-  const done = entries.filter((e) => e.status === 'ok' || e.status === 'error' || e.status === 'skipped').length
+  const done = entries.filter(
+    (e) => e.status === 'ok' || e.status === 'error' || e.status === 'skipped',
+  ).length
   const ok = entries.filter((e) => e.status === 'ok').length
   const err = entries.filter((e) => e.status === 'error').length
   const skipped = entries.filter((e) => e.status === 'skipped').length
@@ -88,7 +96,16 @@ export function BulkProgressHeader({
 
   return (
     <div style={{ marginBottom: '0.5rem', flexShrink: 0 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.25rem', gap: '0.5rem' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          fontSize: '0.8rem',
+          color: 'var(--text-secondary)',
+          marginBottom: '0.25rem',
+          gap: '0.5rem',
+        }}
+      >
         <span>
           {running ? (
             <>{t('metadata.bulk_progress_processing', { done, total, current: currentDisplay })}</>
@@ -106,7 +123,15 @@ export function BulkProgressHeader({
         </span>
         <span>{pct}%</span>
       </div>
-      <div style={{ height: '6px', background: 'var(--bg-card)', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+      <div
+        style={{
+          height: '6px',
+          background: 'var(--bg-card)',
+          borderRadius: '4px',
+          overflow: 'hidden',
+          border: '1px solid var(--border)',
+        }}
+      >
         <div
           style={{
             width: `${pct}%`,
@@ -116,7 +141,15 @@ export function BulkProgressHeader({
           }}
         />
       </div>
-      <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.3rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: '0.75rem',
+          marginTop: '0.3rem',
+          fontSize: '0.75rem',
+          color: 'var(--text-secondary)',
+        }}
+      >
         <span style={{ color: '#4ade80' }}>{t('metadata.bulk_counts_ok', { ok })}</span>
         <span style={{ color: '#f87171' }}>{t('metadata.bulk_counts_err', { err })}</span>
         <span>{t('metadata.bulk_counts_skip', { skipped })}</span>
@@ -141,16 +174,21 @@ export function BulkQueuePreview({
   const completedSet = new Set(progress?.completed ?? [])
   const pending = entries.filter((e) => {
     const key = `${e.schema}.${e.table}`
-    if (completedSet.has(key)) return false
-    if (e.status === 'ok' || e.status === 'error' || e.status === 'skipped') return false
+    if (completedSet.has(key)) {
+      return false
+    }
+    if (e.status === 'ok' || e.status === 'error' || e.status === 'skipped') {
+      return false
+    }
     return e.status === 'pending' || e.status === 'running'
   })
-  const preview =
-    progress?.pending_preview?.length
-      ? progress.pending_preview
-      : pending.slice(0, 6).map((e) => `${e.schema}.${e.table}`)
+  const preview = progress?.pending_preview?.length
+    ? progress.pending_preview
+    : pending.slice(0, 6).map((e) => `${e.schema}.${e.table}`)
 
-  if (!preview.length && !progress?.current_schema) return null
+  if (!preview.length && !progress?.current_schema) {
+    return null
+  }
 
   const current =
     progress?.current_schema && progress?.current_table
@@ -164,7 +202,14 @@ export function BulkQueuePreview({
 
   return (
     <div className="bulk-queue-preview" style={{ marginBottom: '0.75rem', flexShrink: 0 }}>
-      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
+      <div
+        style={{
+          fontSize: '0.75rem',
+          fontWeight: 600,
+          color: 'var(--text-secondary)',
+          marginBottom: '0.35rem',
+        }}
+      >
         {t('metadata.bulk_queue_heading')}
       </div>
       {current && (

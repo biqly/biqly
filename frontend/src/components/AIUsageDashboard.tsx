@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react'
 import { Bar } from 'recharts/es6/cartesian/Bar'
-import { BarChart } from 'recharts/es6/chart/BarChart'
 import { CartesianGrid } from 'recharts/es6/cartesian/CartesianGrid'
-import { ResponsiveContainer } from 'recharts/es6/component/ResponsiveContainer'
-import { Tooltip } from 'recharts/es6/component/Tooltip'
 import { XAxis } from 'recharts/es6/cartesian/XAxis'
 import { YAxis } from 'recharts/es6/cartesian/YAxis'
+import { BarChart } from 'recharts/es6/chart/BarChart'
+import { ResponsiveContainer } from 'recharts/es6/component/ResponsiveContainer'
+import { Tooltip } from 'recharts/es6/component/Tooltip'
+
 import { useApi } from '../hooks/useApi'
 import { useT } from '../i18n'
+import type { ModelStats } from '../types/ai'
 import { chartAxisStroke, chartGridStroke, chartTooltipStyle } from '../utils/chartConfig'
 import { getRateColor } from '../utils/formatters'
-import { KPICard } from './ui/KPICard'
 import { ChartContainer } from './ui/ChartContainer'
+import { KPICard } from './ui/KPICard'
 import { Skeleton } from './ui/Skeleton'
-import type { ModelStats } from '../types/ai'
 
 interface AIUsageSummary {
   total_queries: number
@@ -53,14 +54,18 @@ export default function AIUsageDashboard() {
         }
       }),
       get<ModelStats[]>('/api/ai/stats/models').then((data) => {
-        if (data) setModels(data)
-      })
+        if (data) {
+          setModels(data)
+        }
+      }),
     ]).finally(() => {
       setLoading(false)
     })
   }, [])
 
-  if (loading) return <AIUsageSkeleton heading={t('dashboard.ai_usage_last_30')} />
+  if (loading) {
+    return <AIUsageSkeleton heading={t('dashboard.ai_usage_last_30')} />
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -74,7 +79,14 @@ function AIUsageSkeleton({ heading }: { heading: string }) {
   return (
     <div>
       <h2 style={{ marginBottom: '1rem' }}>{heading}</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: '1rem',
+          marginBottom: '1.5rem',
+        }}
+      >
         {Array.from({ length: 6 }, (_, i) => (
           <div key={i} className="card" style={{ display: 'grid', gap: '0.6rem' }}>
             <Skeleton height="0.7rem" width="55%" />
@@ -82,7 +94,13 @@ function AIUsageSkeleton({ heading }: { heading: string }) {
           </div>
         ))}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+          gap: '1.5rem',
+        }}
+      >
         {Array.from({ length: 2 }, (_, i) => (
           <div key={i} className="card" style={{ display: 'grid', gap: '0.8rem' }}>
             <Skeleton height="1rem" width="40%" />
@@ -107,31 +125,79 @@ function AIUsageSection({ summary, daily }: { summary: AIUsageSummary; daily: Da
     <div>
       <h2 style={{ marginBottom: '1rem' }}>{t('dashboard.ai_usage_last_30')}</h2>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-        <KPICard label={t('dashboard.kpi_total_ai_queries')} value={summary.total_queries} color="var(--accent)" />
-        <KPICard label={t('dashboard.kpi_success_rate')} value={`${(summary.success_rate * 100).toFixed(0)}%`} color={getRateColor(summary.success_rate * 100)} />
-        <KPICard label={t('dashboard.kpi_failure_rate')} value={`${(summary.failure_rate * 100).toFixed(0)}%`} color={getRateColor(100 - summary.failure_rate * 100)} />
-        <KPICard label={t('dashboard.kpi_avg_retry')} value={summary.avg_retry_count.toFixed(2)} color="var(--text-muted)" />
-        <KPICard label={t('dashboard.kpi_avg_latency')} value={t('evaluation.latency_ms', { ms: Math.round(summary.avg_latency_ms) })} color="var(--warning)" />
-        <KPICard label={t('dashboard.kpi_total_cost')} value={`$${summary.total_cost.toFixed(4)}`} color="var(--success)" />
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: '1rem',
+          marginBottom: '1.5rem',
+        }}
+      >
+        <KPICard
+          label={t('dashboard.kpi_total_ai_queries')}
+          value={summary.total_queries}
+          color="var(--accent)"
+        />
+        <KPICard
+          label={t('dashboard.kpi_success_rate')}
+          value={`${(summary.success_rate * 100).toFixed(0)}%`}
+          color={getRateColor(summary.success_rate * 100)}
+        />
+        <KPICard
+          label={t('dashboard.kpi_failure_rate')}
+          value={`${(summary.failure_rate * 100).toFixed(0)}%`}
+          color={getRateColor(100 - summary.failure_rate * 100)}
+        />
+        <KPICard
+          label={t('dashboard.kpi_avg_retry')}
+          value={summary.avg_retry_count.toFixed(2)}
+          color="var(--text-muted)"
+        />
+        <KPICard
+          label={t('dashboard.kpi_avg_latency')}
+          value={t('evaluation.latency_ms', { ms: Math.round(summary.avg_latency_ms) })}
+          color="var(--warning)"
+        />
+        <KPICard
+          label={t('dashboard.kpi_total_cost')}
+          value={`$${summary.total_cost.toFixed(4)}`}
+          color="var(--success)"
+        />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+          gap: '1.5rem',
+        }}
+      >
         <div className="card">
           <h3>{t('dashboard.daily_queries')}</h3>
           {trendData.length > 0 ? (
             <ChartContainer data={trendData} type="line" height={250} dataKey="queries" />
           ) : (
-            <p style={{ color: 'var(--text-muted)', textAlign: 'center', paddingTop: '4rem' }}>{t('dashboard.no_ai_queries')}</p>
+            <p style={{ color: 'var(--text-muted)', textAlign: 'center', paddingTop: '4rem' }}>
+              {t('dashboard.no_ai_queries')}
+            </p>
           )}
         </div>
 
         <div className="card">
           <h3>{t('dashboard.daily_cost')}</h3>
           {trendData.length > 0 ? (
-            <ChartContainer data={trendData} type="bar" height={250} dataKey="cost" fill="#f59e0b" barRadius={[4, 4, 0, 0]} />
+            <ChartContainer
+              data={trendData}
+              type="bar"
+              height={250}
+              dataKey="cost"
+              fill="#f59e0b"
+              barRadius={[4, 4, 0, 0]}
+            />
           ) : (
-            <p style={{ color: 'var(--text-muted)', textAlign: 'center', paddingTop: '4rem' }}>{t('dashboard.no_cost_data')}</p>
+            <p style={{ color: 'var(--text-muted)', textAlign: 'center', paddingTop: '4rem' }}>
+              {t('dashboard.no_cost_data')}
+            </p>
           )}
         </div>
       </div>
@@ -141,66 +207,84 @@ function AIUsageSection({ summary, daily }: { summary: AIUsageSummary; daily: Da
 
 function ModelSuccessRates({ models }: { models: ModelStats[] }) {
   const t = useT()
-  if (models.length === 0) return null
+  if (models.length === 0) {
+    return null
+  }
 
   return (
     <div>
       <h2 style={{ marginBottom: '1rem' }}>{t('dashboard.model_rates_heading')}</h2>
       <div className="results-table-scroll">
-      <table className="results-table">
-        <thead>
-          <tr>
-            <th>{t('dashboard.col_model')}</th>
-            <th style={{ textAlign: 'right' }}>{t('dashboard.tbl_total')}</th>
-            <th style={{ textAlign: 'right' }}>{t('dashboard.tbl_success')}</th>
-            <th style={{ textAlign: 'right' }}>{t('dashboard.tbl_fail')}</th>
-            <th style={{ textAlign: 'right' }}>{t('dashboard.tbl_success_pct')}</th>
-            <th style={{ textAlign: 'right' }}>{t('dashboard.tbl_confidence')}</th>
-            <th style={{ textAlign: 'right' }}>{t('dashboard.tbl_latency')}</th>
-            <th style={{ textAlign: 'right' }}>👍</th>
-            <th style={{ textAlign: 'right' }}>👎</th>
-          </tr>
-        </thead>
-        <tbody>
-          {models.map((m) => (
-            <tr key={m.model_id}>
-              <td>{m.model_name || m.model_id}</td>
-              <td style={{ textAlign: 'right' }}>{m.total_queries}</td>
-              <td style={{ textAlign: 'right', color: 'var(--success)' }}>{m.success_count}</td>
-              <td style={{ textAlign: 'right', color: 'var(--error)' }}>{m.failure_count}</td>
-              <td style={{ textAlign: 'right' }}>
-                <span style={{
-                  color: getRateColor(m.success_rate),
-                  fontWeight: 700,
-                }}>
-                  {m.success_rate.toFixed(1)}%
-                </span>
-              </td>
-              <td style={{ textAlign: 'right' }}>{(m.avg_confidence * 100).toFixed(0)}%</td>
-              <td style={{ textAlign: 'right' }}>{t('evaluation.latency_ms', { ms: Math.round(m.avg_latency_ms) })}</td>
-              <td style={{ textAlign: 'right', color: 'var(--success)' }}>{m.positive_count}</td>
-              <td style={{ textAlign: 'right', color: 'var(--error)' }}>{m.negative_count}</td>
+        <table className="results-table">
+          <thead>
+            <tr>
+              <th>{t('dashboard.col_model')}</th>
+              <th style={{ textAlign: 'right' }}>{t('dashboard.tbl_total')}</th>
+              <th style={{ textAlign: 'right' }}>{t('dashboard.tbl_success')}</th>
+              <th style={{ textAlign: 'right' }}>{t('dashboard.tbl_fail')}</th>
+              <th style={{ textAlign: 'right' }}>{t('dashboard.tbl_success_pct')}</th>
+              <th style={{ textAlign: 'right' }}>{t('dashboard.tbl_confidence')}</th>
+              <th style={{ textAlign: 'right' }}>{t('dashboard.tbl_latency')}</th>
+              <th style={{ textAlign: 'right' }}>👍</th>
+              <th style={{ textAlign: 'right' }}>👎</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {models.map((m) => (
+              <tr key={m.model_id}>
+                <td>{m.model_name || m.model_id}</td>
+                <td style={{ textAlign: 'right' }}>{m.total_queries}</td>
+                <td style={{ textAlign: 'right', color: 'var(--success)' }}>{m.success_count}</td>
+                <td style={{ textAlign: 'right', color: 'var(--error)' }}>{m.failure_count}</td>
+                <td style={{ textAlign: 'right' }}>
+                  <span
+                    style={{
+                      color: getRateColor(m.success_rate),
+                      fontWeight: 700,
+                    }}
+                  >
+                    {m.success_rate.toFixed(1)}%
+                  </span>
+                </td>
+                <td style={{ textAlign: 'right' }}>{(m.avg_confidence * 100).toFixed(0)}%</td>
+                <td style={{ textAlign: 'right' }}>
+                  {t('evaluation.latency_ms', { ms: Math.round(m.avg_latency_ms) })}
+                </td>
+                <td style={{ textAlign: 'right', color: 'var(--success)' }}>{m.positive_count}</td>
+                <td style={{ textAlign: 'right', color: 'var(--error)' }}>{m.negative_count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       <div className="card" style={{ marginTop: '1rem' }}>
         <h3>{t('dashboard.chart_success_compare')}</h3>
         <div style={{ height: 250 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={models.map((m) => ({
-              name: m.model_name || m.model_id,
-              success_rate: m.success_rate,
-              confidence: m.avg_confidence * 100,
-            }))}>
+            <BarChart
+              data={models.map((m) => ({
+                name: m.model_name || m.model_id,
+                success_rate: m.success_rate,
+                confidence: m.avg_confidence * 100,
+              }))}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} />
               <XAxis dataKey="name" stroke={chartAxisStroke} tick={{ fontSize: 11 }} />
               <YAxis stroke={chartAxisStroke} domain={[0, 100]} />
               <Tooltip contentStyle={chartTooltipStyle} />
-              <Bar dataKey="success_rate" fill="#22c55e" radius={[4, 4, 0, 0]} name={t('dashboard.legend_success_pct')} />
-              <Bar dataKey="confidence" fill="#3b82f6" radius={[4, 4, 0, 0]} name={t('dashboard.legend_confidence_pct')} />
+              <Bar
+                dataKey="success_rate"
+                fill="#22c55e"
+                radius={[4, 4, 0, 0]}
+                name={t('dashboard.legend_success_pct')}
+              />
+              <Bar
+                dataKey="confidence"
+                fill="#3b82f6"
+                radius={[4, 4, 0, 0]}
+                name={t('dashboard.legend_confidence_pct')}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>

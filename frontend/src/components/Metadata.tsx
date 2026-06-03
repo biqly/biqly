@@ -1,22 +1,23 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { useApi } from '../hooks/useApi'
-import { jobIsActive, useAIJobs } from '../hooks/useAIJobs'
+
+import { fetchUserAIModels } from '../api/aiUserModels'
 import { type DescribeResult } from '../api/metadataDescribe'
+import { jobIsActive, useAIJobs } from '../hooks/useAIJobs'
+import { useApi } from '../hooks/useApi'
 import { useQueryParam } from '../hooks/useQueryParam'
-import { FALLBACK_LOCALE, LOCALE_OPTIONS, SUPPORTED_LOCALES, useLocale, useT } from '../i18n'
 import type { Locale } from '../i18n'
+import { FALLBACK_LOCALE, LOCALE_OPTIONS, SUPPORTED_LOCALES, useLocale, useT } from '../i18n'
+import type { AIRuntimeSettings } from '../types/ai'
 import type { Datasource } from '../types/metadata'
 import type { ColumnRow, TableRow } from '../types/semantic'
-import { ErrorAlert } from './ui/ErrorAlert'
-import { Select } from './ui/Select'
-import { LoadingScreen } from './ui/LoadingScreen'
-import type { AIRuntimeSettings } from '../types/ai'
 import { MetadataBulkDescribeModal } from './metadata/MetadataBulkDescribeModal'
-import { fetchUserAIModels } from '../api/aiUserModels'
 import { MetadataColumnPanel } from './metadata/MetadataColumnPanel'
 import { MetadataDescribeModal } from './metadata/MetadataDescribeModal'
 import { MetadataDescriptionCell } from './metadata/MetadataDescriptionCell'
 import type { MetadataEditingState } from './metadata/utils'
+import { ErrorAlert } from './ui/ErrorAlert'
+import { LoadingScreen } from './ui/LoadingScreen'
+import { Select } from './ui/Select'
 
 export default function Metadata() {
   const { get, patchData, putData, loading, error } = useApi()
@@ -39,8 +40,13 @@ export default function Metadata() {
   const [editing, setEditing] = useState<MetadataEditingState | null>(null)
   const [describeOpen, setDescribeOpen] = useState<TableRow | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
-  const { running: bulkRunning, entries: bulkEntries, summary: bulkSummary, start: startBulkDescribe, cancel: cancelBulkDescribe } =
-    bulkDescribe
+  const {
+    running: bulkRunning,
+    entries: bulkEntries,
+    summary: bulkSummary,
+    start: startBulkDescribe,
+    cancel: cancelBulkDescribe,
+  } = bulkDescribe
   const skipBlurSaveRef = useRef(false)
   const [tableFilterSchema, setTableFilterSchema] = useState(schemaParam)
   const [tableFilterType, setTableFilterType] = useState(typeParam)
@@ -57,16 +63,22 @@ export default function Metadata() {
     setInitLoading(true)
     Promise.all([
       get<Datasource[]>('/api/datasources').then((data) => {
-        if (!data) return
+        if (!data) {
+          return
+        }
         setDatasources(data)
         setDatasourceId((prev) => {
-          if (prev && data.some((d) => d.id === prev)) return prev
+          if (prev && data.some((d) => d.id === prev)) {
+            return prev
+          }
           return data[0]?.id ?? ''
         })
       }),
       get<AIRuntimeSettings>('/api/ai/settings').then((data) => {
-        if (data) setAiRuntime(data)
-      })
+        if (data) {
+          setAiRuntime(data)
+        }
+      }),
     ]).finally(() => {
       setInitLoading(false)
     })
@@ -76,7 +88,9 @@ export default function Metadata() {
     let cancelled = false
     void fetchUserAIModels()
       .then((res) => {
-        if (cancelled) return
+        if (cancelled) {
+          return
+        }
         const prefId = res.preferences?.describe
         if (!prefId) {
           setEffectiveDescribeModel(null)
@@ -86,7 +100,9 @@ export default function Metadata() {
         setEffectiveDescribeModel(m ? m.display_name || m.model_id : null)
       })
       .catch(() => {
-        if (!cancelled) setEffectiveDescribeModel(null)
+        if (!cancelled) {
+          setEffectiveDescribeModel(null)
+        }
       })
     return () => {
       cancelled = true
@@ -106,7 +122,9 @@ export default function Metadata() {
   const prevDsRef = useRef(datasourceId)
 
   useEffect(() => {
-    if (!datasourceId) return
+    if (!datasourceId) {
+      return
+    }
     setTablesLoading(true)
     get<TableRow[]>(`/api/datasources/${datasourceId}/tables`, descriptionLocaleOpts)
       .then((data) => setTables(data || []))
@@ -131,15 +149,21 @@ export default function Metadata() {
   const filteredTables = useMemo(
     () =>
       tables.filter((tab) => {
-        if (tableFilterSchema && tab.schema_name !== tableFilterSchema) return false
-        if (tableFilterType && tab.table_type !== tableFilterType) return false
+        if (tableFilterSchema && tab.schema_name !== tableFilterSchema) {
+          return false
+        }
+        if (tableFilterType && tab.table_type !== tableFilterType) {
+          return false
+        }
         return true
       }),
     [tables, tableFilterSchema, tableFilterType],
   )
 
   useEffect(() => {
-    if (!openTableId) return
+    if (!openTableId) {
+      return
+    }
     if (!filteredTables.some((tab) => tab.id === openTableId)) {
       setOpenTableId(null)
       setColumns([])
@@ -147,9 +171,13 @@ export default function Metadata() {
   }, [filteredTables, openTableId])
 
   useEffect(() => {
-    if (!datasourceId || !openTableId) return
+    if (!datasourceId || !openTableId) {
+      return
+    }
     const tab = tables.find((row) => row.id === openTableId)
-    if (!tab) return
+    if (!tab) {
+      return
+    }
     get<ColumnRow[]>(
       `/api/datasources/${datasourceId}/columns?schema=${encodeURIComponent(tab.schema_name)}&table=${encodeURIComponent(tab.table_name)}`,
       descriptionLocaleOpts,
@@ -162,9 +190,13 @@ export default function Metadata() {
   )
 
   const refreshTables = () => {
-    void get<TableRow[]>(`/api/datasources/${datasourceId}/tables`, descriptionLocaleOpts).then((fresh) => {
-      if (fresh) setTables(fresh)
-    })
+    void get<TableRow[]>(`/api/datasources/${datasourceId}/tables`, descriptionLocaleOpts).then(
+      (fresh) => {
+        if (fresh) {
+          setTables(fresh)
+        }
+      },
+    )
   }
 
   const toggleTable = async (tab: TableRow) => {
@@ -186,12 +218,16 @@ export default function Metadata() {
       skipBlurSaveRef.current = false
       return
     }
-    if (!editing) return
+    if (!editing) {
+      return
+    }
     const entityPath = editing.kind === 'table' ? 'tables' : 'columns'
     const value = editing.value.trim() === '' ? null : editing.value
     let ok = false
     if (editLocale === FALLBACK_LOCALE) {
-      const res = await patchData(`/api/metadata/${entityPath}/${editing.id}`, { description: value })
+      const res = await patchData(`/api/metadata/${entityPath}/${editing.id}`, {
+        description: value,
+      })
       ok = !!res
     } else {
       const body: Record<string, Record<string, string>> = {
@@ -202,7 +238,9 @@ export default function Metadata() {
     }
     if (ok) {
       if (editing.kind === 'table') {
-        setTables(tables.map((row) => (row.id === editing.id ? { ...row, description: value } : row)))
+        setTables(
+          tables.map((row) => (row.id === editing.id ? { ...row, description: value } : row)),
+        )
       } else {
         setColumns(columns.map((c) => (c.id === editing.id ? { ...c, description: value } : c)))
       }
@@ -220,7 +258,11 @@ export default function Metadata() {
     }
   }
 
-  const patchDescribeDescription = async (kind: 'table' | 'column', id: string, description: string) => {
+  const patchDescribeDescription = async (
+    kind: 'table' | 'column',
+    id: string,
+    description: string,
+  ) => {
     const entityPath = kind === 'table' ? 'tables' : 'columns'
     await patchData(`/api/metadata/${entityPath}/${id}`, { description })
     if (kind === 'table') {
@@ -239,8 +281,7 @@ export default function Metadata() {
       auto_apply: boolean
     },
     onError: (message: string) => void,
-  ) =>
-    runJob<typeof request, DescribeResult>('describe', request, { onError })
+  ) => runJob<typeof request, DescribeResult>('describe', request, { onError })
 
   if (initLoading && datasources.length === 0) {
     return <LoadingScreen minHeight="300px" />
@@ -267,8 +308,7 @@ export default function Metadata() {
         <div className="card">
           <div className="metadata-toolbar">
             <h2 className="metadata-toolbar__title">
-              {t('metadata.tables')} (
-              {filteredTables.length}
+              {t('metadata.tables')} ({filteredTables.length}
               {filteredTables.length !== tables.length ? ` / ${tables.length}` : ''})
             </h2>
             {tables.length > 0 && (
@@ -379,14 +419,27 @@ export default function Metadata() {
               <tbody>
                 {filteredTables.length === 0 && tables.length > 0 && (
                   <tr>
-                    <td colSpan={4} style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', padding: '0.75rem' }}>
+                    <td
+                      colSpan={4}
+                      style={{
+                        color: 'var(--text-secondary)',
+                        fontSize: '0.85rem',
+                        padding: '0.75rem',
+                      }}
+                    >
                       {t('metadata.filter_no_match')}
                     </td>
                   </tr>
                 )}
                 {filteredTables.map((tab) => (
                   <Fragment key={tab.id}>
-                    <tr className={openTableId === tab.id ? 'metadata-table-row metadata-table-row--expanded' : 'metadata-table-row'}>
+                    <tr
+                      className={
+                        openTableId === tab.id
+                          ? 'metadata-table-row metadata-table-row--expanded'
+                          : 'metadata-table-row'
+                      }
+                    >
                       <td>
                         <button
                           type="button"
@@ -394,8 +447,12 @@ export default function Metadata() {
                           aria-expanded={openTableId === tab.id}
                           aria-label={
                             openTableId === tab.id
-                              ? t('metadata.aria_table_collapse', { name: `${tab.schema_name}.${tab.table_name}` })
-                              : t('metadata.aria_table_expand', { name: `${tab.schema_name}.${tab.table_name}` })
+                              ? t('metadata.aria_table_collapse', {
+                                  name: `${tab.schema_name}.${tab.table_name}`,
+                                })
+                              : t('metadata.aria_table_expand', {
+                                  name: `${tab.schema_name}.${tab.table_name}`,
+                                })
                           }
                           onClick={() => void toggleTable(tab)}
                         >
@@ -422,7 +479,11 @@ export default function Metadata() {
                         }}
                       />
                       <td className="actions">
-                        <button type="button" className="btn btn-sm" onClick={() => setDescribeOpen(tab)}>
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          onClick={() => setDescribeOpen(tab)}
+                        >
                           {t('metadata.btn_ai_describe')}
                         </button>
                       </td>
@@ -437,7 +498,9 @@ export default function Metadata() {
                           skipBlurSaveRef.current = false
                           setEditing({ kind: 'column', id: c.id, value: c.description ?? '' })
                         }}
-                        onEditChange={(columnId, value) => setEditing({ kind: 'column', id: columnId, value })}
+                        onEditChange={(columnId, value) =>
+                          setEditing({ kind: 'column', id: columnId, value })
+                        }
                         onSave={() => void saveDescription()}
                         onCancelEdit={() => {
                           skipBlurSaveRef.current = true

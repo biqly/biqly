@@ -1,9 +1,16 @@
-import { useEffect, useRef, useState, type SubmitEvent } from 'react'
+import { type SubmitEvent, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+
+import {
+  apiGetPasswordPolicy,
+  apiMFALogin,
+  apiPasskeyLoginBegin,
+  apiPasskeyLoginFinish,
+  selfSignupEnabledFromPolicy,
+} from '../../api/auth'
 import abiLogo from '../../assets/abi-logo.png'
-import { apiGetPasswordPolicy, apiPasskeyLoginBegin, apiPasskeyLoginFinish, apiMFALogin, selfSignupEnabledFromPolicy } from '../../api/auth'
 import { useT } from '../../i18n'
 import { base64urlToBuffer, bufferToBase64url } from '../../utils/webauthn'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from './AuthProvider'
 
 const FAILED_LOGIN_BACKOFFS_MS = [0, 1000, 2000, 4000, 8000]
@@ -34,14 +41,20 @@ export default function SignInPage() {
     let cancelled = false
     apiGetPasswordPolicy()
       .then((policy) => {
-        if (cancelled) return
+        if (cancelled) {
+          return
+        }
         setSignupAllowed(selfSignupEnabledFromPolicy(policy))
         setLdapEnabled(policy?.ldap_enabled === true)
       })
       .catch(() => {
-        if (!cancelled) setSignupAllowed(true)
+        if (!cancelled) {
+          setSignupAllowed(true)
+        }
       })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   // Check for redirect MFA challenge token from OAuth flow on mount
@@ -61,17 +74,27 @@ export default function SignInPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const reason = params.get('expired')
-    if (!reason) return
+    if (!reason) {
+      return
+    }
 
-    const titleKey = reason === 'idle' ? 'session_expired_title_idle'
-      : reason === 'absolute' ? 'session_expired_title_absolute'
-      : reason === 'revoked' ? 'session_expired_title_revoked'
-      : 'session_expired_title_generic'
+    const titleKey =
+      reason === 'idle'
+        ? 'session_expired_title_idle'
+        : reason === 'absolute'
+          ? 'session_expired_title_absolute'
+          : reason === 'revoked'
+            ? 'session_expired_title_revoked'
+            : 'session_expired_title_generic'
 
-    const bodyKey = reason === 'idle' ? 'session_expired_idle'
-      : reason === 'absolute' ? 'session_expired_absolute'
-      : reason === 'revoked' ? 'session_expired_revoked'
-      : 'session_expired_generic'
+    const bodyKey =
+      reason === 'idle'
+        ? 'session_expired_idle'
+        : reason === 'absolute'
+          ? 'session_expired_absolute'
+          : reason === 'revoked'
+            ? 'session_expired_revoked'
+            : 'session_expired_generic'
 
     setSessionBanner({
       title: t(`auth.${titleKey}` as const),
@@ -81,7 +104,9 @@ export default function SignInPage() {
   }, [t])
 
   useEffect(() => {
-    if (throttleMs <= 0) return
+    if (throttleMs <= 0) {
+      return
+    }
     const interval = window.setInterval(() => {
       setThrottleMs((prev) => Math.max(0, prev - 250))
     }, 250)
@@ -90,7 +115,9 @@ export default function SignInPage() {
 
   const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!email || !password || throttleMs > 0) return
+    if (!email || !password || throttleMs > 0) {
+      return
+    }
 
     setLoading(true)
     setError(null)
@@ -111,7 +138,9 @@ export default function SignInPage() {
       const idx = Math.min(failureCountRef.current + 1, FAILED_LOGIN_BACKOFFS_MS.length - 1)
       failureCountRef.current = idx
       const wait = FAILED_LOGIN_BACKOFFS_MS[idx] ?? 0
-      if (wait > 0) setThrottleMs(wait)
+      if (wait > 0) {
+        setThrottleMs(wait)
+      }
     } finally {
       setLoading(false)
     }
@@ -119,7 +148,9 @@ export default function SignInPage() {
 
   const handleMFALoginSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!mfaCode.trim() || !mfaToken || mfaLoading) return
+    if (!mfaCode.trim() || !mfaToken || mfaLoading) {
+      return
+    }
 
     setMfaLoading(true)
     setError(null)
@@ -196,7 +227,13 @@ export default function SignInPage() {
           {signupAllowed && (
             <p className="auth-subtitle">
               {t('auth.no_account')}{' '}
-              <a href="/auth/signup" onClick={(e) => { e.preventDefault(); navigate('/auth/signup'); }}>
+              <a
+                href="/auth/signup"
+                onClick={(e) => {
+                  e.preventDefault()
+                  navigate('/auth/signup')
+                }}
+              >
                 {t('auth.btn_signup')}
               </a>
             </p>
@@ -212,17 +249,34 @@ export default function SignInPage() {
 
         {mfaRequired ? (
           <form onSubmit={handleMFALoginSubmit} className="auth-form">
-            <h2 className="auth-title" style={{ fontSize: '1.25rem', marginBottom: '0.5rem', textAlign: 'center' }}>
+            <h2
+              className="auth-title"
+              style={{ fontSize: '1.25rem', marginBottom: '0.5rem', textAlign: 'center' }}
+            >
               {t('mfa.login_title')}
             </h2>
-            <p className="auth-subtitle" style={{ fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'center', padding: '0 0.5rem' }}>
+            <p
+              className="auth-subtitle"
+              style={{
+                fontSize: '0.85rem',
+                marginBottom: '1.5rem',
+                textAlign: 'center',
+                padding: '0 0.5rem',
+              }}
+            >
               {t('mfa.login_desc')}
             </p>
 
-            {error && <div className="auth-error" role="alert" aria-live="assertive">{error}</div>}
+            {error && (
+              <div className="auth-error" role="alert" aria-live="assertive">
+                {error}
+              </div>
+            )}
 
             <div className="form-group">
-              <label className="form-label" htmlFor="mfa-login-code">{t('mfa.label_code')}</label>
+              <label className="form-label" htmlFor="mfa-login-code">
+                {t('mfa.label_code')}
+              </label>
               <input
                 id="mfa-login-code"
                 type="text"
@@ -252,7 +306,12 @@ export default function SignInPage() {
             <button
               type="button"
               className="auth-btn"
-              style={{ marginTop: '0.5rem', backgroundColor: 'transparent', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+              style={{
+                marginTop: '0.5rem',
+                backgroundColor: 'transparent',
+                border: '1px solid var(--border)',
+                color: 'var(--text-secondary)',
+              }}
               onClick={() => {
                 setMfaRequired(false)
                 setMfaToken('')
@@ -272,7 +331,11 @@ export default function SignInPage() {
                   {t('auth.ldap_hint')}
                 </div>
               )}
-              {error && <div className="auth-error" role="alert" aria-live="assertive">{error}</div>}
+              {error && (
+                <div className="auth-error" role="alert" aria-live="assertive">
+                  {error}
+                </div>
+              )}
               {throttleMs > 0 && (
                 <div className="auth-error" role="status" aria-live="polite">
                   {t('auth.login_throttled')} ({Math.ceil(throttleMs / 1000)}s)
@@ -280,7 +343,9 @@ export default function SignInPage() {
               )}
 
               <div className="form-group">
-                <label className="form-label" htmlFor="email-input">{t('auth.email')}</label>
+                <label className="form-label" htmlFor="email-input">
+                  {t('auth.email')}
+                </label>
                 <input
                   id="email-input"
                   type="email"
@@ -294,7 +359,9 @@ export default function SignInPage() {
               </div>
 
               <div className="form-group">
-                <label className="form-label" htmlFor="password-input">{t('auth.password')}</label>
+                <label className="form-label" htmlFor="password-input">
+                  {t('auth.password')}
+                </label>
                 <input
                   id="password-input"
                   type="password"
@@ -315,7 +382,10 @@ export default function SignInPage() {
                 <a
                   href="/auth/forgot-password"
                   className="form-link"
-                  onClick={(e) => { e.preventDefault(); navigate('/auth/forgot-password'); }}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    navigate('/auth/forgot-password')
+                  }}
                 >
                   {t('auth.forgot_password')}
                 </a>
@@ -341,7 +411,7 @@ export default function SignInPage() {
                 disabled={loading || passkeyLoading}
               >
                 <svg className="social-icon" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+                  <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
                 </svg>
                 {t('auth.github_continue')}
               </button>
@@ -353,10 +423,22 @@ export default function SignInPage() {
                 disabled={loading || passkeyLoading}
               >
                 <svg className="social-icon" viewBox="0 0 24 24">
-                  <path fill="#EA4335" d="M12 5.04c1.62 0 3.08.56 4.22 1.64l3.15-3.15C17.45 1.74 14.9 1 12 1 7.35 1 3.38 3.67 1.38 7.57l3.85 2.99c.96-2.88 3.66-4.52 6.77-4.52z"/>
-                  <path fill="#4285F4" d="M23.49 12.27c0-.81-.07-1.59-.2-2.34H12v4.44h6.44c-.28 1.47-1.11 2.72-2.36 3.56l3.66 2.84c2.14-1.97 3.38-4.87 3.38-8.5z"/>
-                  <path fill="#FBBC05" d="M5.23 14.44c-.24-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29L1.38 6.86C.5 8.61 0 10.56 0 12.64s.5 4.03 1.38 5.78l3.85-2.99z"/>
-                  <path fill="#34A853" d="M12 23c3.24 0 5.97-1.07 7.96-2.91l-3.66-2.84c-1.1.74-2.5 1.18-4.3 1.18-3.11 0-5.81-1.64-6.77-4.52L1.38 16.9C3.38 20.8 7.35 23 12 23z"/>
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.04c1.62 0 3.08.56 4.22 1.64l3.15-3.15C17.45 1.74 14.9 1 12 1 7.35 1 3.38 3.67 1.38 7.57l3.85 2.99c.96-2.88 3.66-4.52 6.77-4.52z"
+                  />
+                  <path
+                    fill="#4285F4"
+                    d="M23.49 12.27c0-.81-.07-1.59-.2-2.34H12v4.44h6.44c-.28 1.47-1.11 2.72-2.36 3.56l3.66 2.84c2.14-1.97 3.38-4.87 3.38-8.5z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.23 14.44c-.24-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29L1.38 6.86C.5 8.61 0 10.56 0 12.64s.5 4.03 1.38 5.78l3.85-2.99z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c3.24 0 5.97-1.07 7.96-2.91l-3.66-2.84c-1.1.74-2.5 1.18-4.3 1.18-3.11 0-5.81-1.64-6.77-4.52L1.38 16.9C3.38 20.8 7.35 23 12 23z"
+                  />
                 </svg>
                 {t('auth.google_continue')}
               </button>

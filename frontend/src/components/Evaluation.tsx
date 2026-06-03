@@ -1,25 +1,40 @@
-import { useEffect, useMemo, useState, lazy, Suspense, startTransition, type ComponentType, type LazyExoticComponent } from 'react'
-import { useNavigate } from 'react-router-dom'
 import '../styles/evaluation.css'
+
+import {
+  type ComponentType,
+  lazy,
+  type LazyExoticComponent,
+  startTransition,
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
+import { useNavigate } from 'react-router-dom'
+
 import { useAdminApi } from '../hooks/useApi'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { localeLanguageTag, useI18n, useT } from '../i18n'
+import type { EvalRunDetail, EvalRunSummary, RegressionReport } from '../types/ai'
+import type { EvalRunResponse } from './evaluation/demoData'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingScreen } from './ui/LoadingScreen'
-import type { EvalRunSummary, EvalRunDetail, RegressionReport } from '../types/ai'
-import type { EvalRunResponse } from './evaluation/demoData'
 
-const lazyWithPreload = <T extends ComponentType<any>>(
-  factory: () => Promise<{ default: T }>
-) => {
+const lazyWithPreload = <T extends ComponentType<any>>(factory: () => Promise<{ default: T }>) => {
   const Component = lazy(factory) as any
   Component.preload = factory
   return Component as LazyExoticComponent<T> & { preload: () => Promise<{ default: T }> }
 }
 
-const EvalRunTab = lazyWithPreload(() => import('./evaluation/EvalRunTab').then(m => ({ default: m.EvalRunTab })))
-const EvalHistoryTab = lazyWithPreload(() => import('./evaluation/EvalHistoryTab').then(m => ({ default: m.EvalHistoryTab })))
-const EvalRegressionTab = lazyWithPreload(() => import('./evaluation/EvalRegressionTab').then(m => ({ default: m.EvalRegressionTab })))
+const EvalRunTab = lazyWithPreload(() =>
+  import('./evaluation/EvalRunTab').then((m) => ({ default: m.EvalRunTab })),
+)
+const EvalHistoryTab = lazyWithPreload(() =>
+  import('./evaluation/EvalHistoryTab').then((m) => ({ default: m.EvalHistoryTab })),
+)
+const EvalRegressionTab = lazyWithPreload(() =>
+  import('./evaluation/EvalRegressionTab').then((m) => ({ default: m.EvalRegressionTab })),
+)
 
 // DEMO_DATA is lazy-loaded from ./evaluation/demoData.ts
 
@@ -89,9 +104,13 @@ export default function Evaluation() {
   }, [currentId, setCurrentParam])
 
   const loadRunHistory = async () => {
-    if (!adminApi.configured || historyLoaded) return
+    if (!adminApi.configured || historyLoaded) {
+      return
+    }
     const data = await adminApi.get<EvalRunSummary[]>('/api/ai/eval/runs')
-    if (data) setRunHistory(data)
+    if (data) {
+      setRunHistory(data)
+    }
     setHistoryLoaded(true)
   }
 
@@ -102,7 +121,9 @@ export default function Evaluation() {
   }, [activeTab])
 
   useEffect(() => {
-    if (selectedRun) return // don't reload if already selected
+    if (selectedRun) {
+      return
+    } // don't reload if already selected
     // Auto-select latest run when on history tab
     if (activeTab === 'history' && runHistory.length > 0 && !selectedRun) {
       // Show list, don't auto-select
@@ -110,23 +131,35 @@ export default function Evaluation() {
   }, [activeTab, runHistory, selectedRun])
 
   const loadRunDetail = async (runId: string) => {
-    if (!adminApi.configured) return
+    if (!adminApi.configured) {
+      return
+    }
     const data = await adminApi.get<EvalRunDetail>(`/api/ai/eval/runs/${runId}`)
-    if (data) setSelectedRun(data)
+    if (data) {
+      setSelectedRun(data)
+    }
   }
 
   const runRegression = async () => {
-    if (!baselineId || !currentId || !adminApi.configured) return
+    if (!baselineId || !currentId || !adminApi.configured) {
+      return
+    }
     setRegressionLoading(true)
     setRegression(null)
-    const data = await adminApi.get<RegressionReport>(`/api/ai/eval/regression?baseline=${baselineId}&current=${currentId}`)
-    if (data) setRegression(data)
+    const data = await adminApi.get<RegressionReport>(
+      `/api/ai/eval/regression?baseline=${baselineId}&current=${currentId}`,
+    )
+    if (data) {
+      setRegression(data)
+    }
     setRegressionLoading(false)
   }
 
   // Derive pie chart data from current eval data
   const pieData = useMemo(() => {
-    if (!evalData) return []
+    if (!evalData) {
+      return []
+    }
     return [
       { name: t('evaluation.pie_passed'), value: evalData.passed, fill: '#22c55e' },
       { name: t('evaluation.pie_failed'), value: evalData.failed, fill: '#ef4444' },
@@ -135,7 +168,9 @@ export default function Evaluation() {
 
   // Derive trend data
   const trendData = useMemo(() => {
-    if (!evalData?.accuracy_trend) return []
+    if (!evalData?.accuracy_trend) {
+      return []
+    }
     return evalData.accuracy_trend.map((d) => ({
       ...d,
       pass_rate_pct: Math.round(d.pass_rate * 100),
@@ -152,8 +187,11 @@ export default function Evaluation() {
     setShowDemo(false)
     try {
       const res = await adminApi.postData<EvalRunResponse>('/api/ai/eval/run', {})
-      if (res) setEvalData(res)
-      else setEvalData(null)
+      if (res) {
+        setEvalData(res)
+      } else {
+        setEvalData(null)
+      }
     } catch {
       setShowDemo(true)
       import('./evaluation/demoData').then((m) => setEvalData(m.DEMO_DATA))
@@ -168,11 +206,14 @@ export default function Evaluation() {
     <div className="evaluation-layout">
       {/* Tabs */}
       <div className="page-tabs" role="tablist" aria-label={t('evaluation.tabs_aria')}>
-        {([
+        {[
           { key: 'run' as const, label: t('evaluation.tab_run') },
-          { key: 'history' as const, label: t('evaluation.tab_history', { count: runHistory.length }) },
+          {
+            key: 'history' as const,
+            label: t('evaluation.tab_history', { count: runHistory.length }),
+          },
           { key: 'regression' as const, label: t('evaluation.tab_regression') },
-        ]).map((tab) => {
+        ].map((tab) => {
           const isActive = activeTab === tab.key
           return (
             <button

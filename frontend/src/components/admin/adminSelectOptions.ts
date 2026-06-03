@@ -1,7 +1,7 @@
-import type { SelectOption } from '../ui/Select'
 import type { AuthUser, Workspace } from '../../types/auth'
 import type { Datasource } from '../../types/metadata'
 import type { SemanticModelSummary } from '../../types/semantic'
+import type { SelectOption } from '../ui/Select'
 import { SECURITY_POLICY_ROLES } from './securityPolicyConstants'
 
 export const DATASOURCE_ACCESS_LEVELS = ['read', 'write', 'admin'] as const
@@ -46,10 +46,7 @@ export function semanticModelSelectOptions(
   return models.map((m) => ({ value: m.id, label: m.name }))
 }
 
-export function userSelectOptions(
-  users: AuthUser[],
-  emptyLabel: string,
-): SelectOption[] {
+export function userSelectOptions(users: AuthUser[], emptyLabel: string): SelectOption[] {
   return [
     { value: '', label: emptyLabel },
     ...users.map((u) => ({
@@ -128,9 +125,7 @@ export function userDisplayLabel(
     return u.displayName ? `${u.displayName} · ${u.email}` : u.email
   }
   if (fallback?.email) {
-    return fallback.display_name
-      ? `${fallback.display_name} · ${fallback.email}`
-      : fallback.email
+    return fallback.display_name ? `${fallback.display_name} · ${fallback.email}` : fallback.email
   }
   return userID
 }
@@ -141,7 +136,11 @@ export function datasourceDisplayLabel(
   fallbackName?: string,
 ): string {
   const ds = datasources.find((d) => d.id === datasourceID)
-  if (ds) return ds.name
-  if (fallbackName) return fallbackName
+  if (ds) {
+    return ds.name
+  }
+  if (fallbackName) {
+    return fallbackName
+  }
   return datasourceID
 }

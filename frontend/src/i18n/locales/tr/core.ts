@@ -39,7 +39,8 @@ export const core: CoreDictionary = {
     skip_to_content: 'İçeriğe atla',
     module_loading: 'Modül yükleniyor',
     module_not_found: 'Modül bulunamadı',
-    module_not_found_desc: 'İstenen sayfa mevcut değil. Var olan bir modülü açmak için navigasyonu kullanın.',
+    module_not_found_desc:
+      'İstenen sayfa mevcut değil. Var olan bir modülü açmak için navigasyonu kullanın.',
     go_to_datasources: 'Veri Kaynaklarına Git',
     page_not_found: 'Sayfa bulunamadı',
     not_found_eyebrow: 'Bulunamadı',
@@ -60,9 +61,11 @@ export const core: CoreDictionary = {
   },
   app_update: {
     available_title: 'Yeni sürüm hazır',
-    available_body: 'Yeni bir sürüm yayınlandı. En güncel dosyaları yüklemek için sayfa yenilenecek.',
+    available_body:
+      'Yeni bir sürüm yayınlandı. En güncel dosyaları yüklemek için sayfa yenilenecek.',
     recover_title: 'Yenileniyor…',
-    recover_body: 'Sayfa açıkken yeni sürüm yayınlandı. Hataları toparlamak için sayfayı yeniliyoruz.',
+    recover_body:
+      'Sayfa açıkken yeni sürüm yayınlandı. Hataları toparlamak için sayfayı yeniliyoruz.',
     reloading_in: '{{seconds}} sn sonra yenilenecek',
     reload_now: 'Şimdi yenile',
   },
@@ -97,13 +100,15 @@ export const core: CoreDictionary = {
     nav: {
       home: 'Ana Sayfa',
       home_eyebrow: 'Genel Bakış',
-      home_desc: 'Kaldığınız yerden devam edin, son soruları yeniden çalıştırın ve favorilerinizi açın.',
+      home_desc:
+        'Kaldığınız yerden devam edin, son soruları yeniden çalıştırın ve favorilerinizi açın.',
       datasources: 'Veri Kaynakları',
       datasources_eyebrow: 'Bağlantılar',
       datasources_desc: 'Veritabanı bağlayın, erişimi test edin ve metadata eşitleyin.',
       metadata: 'Metadata',
       metadata_eyebrow: 'Katalog',
-      metadata_desc: 'Şemaları inceleyin, tablo açıklamalarını zenginleştirin ve AI bağlamını hazırlayın.',
+      metadata_desc:
+        'Şemaları inceleyin, tablo açıklamalarını zenginleştirin ve AI bağlamını hazırlayın.',
       modeling: 'Modelleme',
       modeling_eyebrow: 'Semantik graf',
       modeling_desc: 'Model oluşturun, tablo ilişkilerini görün ve semantic join ekleyin.',
@@ -121,7 +126,8 @@ export const core: CoreDictionary = {
       saved_questions_desc: 'Yeniden kullanılabilir soruları ve sorgu şablonlarını görüntüleyin.',
       table_browser: 'Tablo Tarayıcı',
       table_browser_eyebrow: 'Gözat',
-      table_browser_desc: 'Semantik model tablolarını keşfedin, satırları filtreleyin ve veriyi önizleyin.',
+      table_browser_desc:
+        'Semantik model tablolarını keşfedin, satırları filtreleyin ve veriyi önizleyin.',
       query_history: 'Sorgu Geçmişi',
       query_history_eyebrow: 'Geçmiş',
       query_history_desc: 'Önceki doğal dil sorgu geçmişinizi inceleyin ve tekrar çalıştırın.',
@@ -133,7 +139,8 @@ export const core: CoreDictionary = {
       glossary_desc: 'AI için iş terimlerini, eş anlamlıları ve eşleştirme kurallarını yönetin.',
       prompt_templates: 'Prompt Şablonları',
       prompt_templates_eyebrow: 'İstemler',
-      prompt_templates_desc: 'Veritabanındaki desteklenen tüm dillerin sistem promptlarını düzenleyin.',
+      prompt_templates_desc:
+        'Veritabanındaki desteklenen tüm dillerin sistem promptlarını düzenleyin.',
       evaluation: 'Değerlendirme',
       evaluation_eyebrow: 'Kalite',
       evaluation_desc: 'AI text-to-SQL değerlendirme sonuçlarını çalıştırın ve inceleyin.',
@@ -145,10 +152,12 @@ export const core: CoreDictionary = {
       settings_desc: 'Dil, tema ve diğer tercihler.',
       admin: 'Yönetim',
       admin_eyebrow: 'Erişim kontrolü',
-      admin_desc: 'Kullanıcıları, rolleri, çalışma alanlarını, denetim kayıtlarını ve veri kaynağı erişimini yönetin.',
+      admin_desc:
+        'Kullanıcıları, rolleri, çalışma alanlarını, denetim kayıtlarını ve veri kaynağı erişimini yönetin.',
       time_grains: 'Zaman Kırılımları',
       time_grains_eyebrow: 'Kırılımlar',
-      time_grains_desc: 'Tarih/zaman kırılım eş anlamlılarını ve sonek davranışlarını özelleştirin.',
+      time_grains_desc:
+        'Tarih/zaman kırılım eş anlamlılarını ve sonek davranışlarını özelleştirin.',
     },
     sections: {
       data: 'Veri',
@@ -177,7 +186,8 @@ export const core: CoreDictionary = {
     access_allowed: 'erişim var',
     access_unknown: 'erişim doğrulanıyor',
     locked_title: 'Erişim Kilitlendi',
-    locked_desc: 'Bu veri kaynağına erişim izniniz bulunmuyor. Lütfen erişim talep edin veya başka bir veri kaynağına geçiş yapın.',
+    locked_desc:
+      'Bu veri kaynağına erişim izniniz bulunmuyor. Lütfen erişim talep edin veya başka bir veri kaynağına geçiş yapın.',
     btn_request_access: 'Erişim İste',
     request_success: 'Erişim talebi başarıyla iletildi.',
     request_failed: 'Erişim talebi iletilemedi: {{error}}',
@@ -200,8 +210,9 @@ export const core: CoreDictionary = {
     actions: 'İşlemler',
     mode_structured: 'Yapılandırılmış',
     mode_structured_desc: 'Sunucu, port ve kimlik bilgileri',
-    copy_id_aria: 'Datasource id\'sini kopyala {{id}}',
-    ssl_insecure_warning: 'SSL kapalı — kimlik bilgileri ve sorgu verisi şifrelenmeden gönderilecek. Üretim ortamında require veya verify-full kullanın.',
+    copy_id_aria: "Datasource id'sini kopyala {{id}}",
+    ssl_insecure_warning:
+      'SSL kapalı — kimlik bilgileri ve sorgu verisi şifrelenmeden gönderilecek. Üretim ortamında require veya verify-full kullanın.',
     mode_raw: 'Ham DSN',
     mode_raw_desc: 'Tam bağlantı dizesi yapıştırın',
     connection_mode: 'Bağlantı biçimi',
@@ -382,7 +393,7 @@ export const core: CoreDictionary = {
     embed_refresh_model: "Embedding'leri yenile (model)",
     embed_refreshing: "Embedding'ler yenileniyor…",
     embed_refreshing_short: 'Yenileniyor...',
-    embed_title_model: "Semantic modele özel embedding güncellemesi: {{name}}",
+    embed_title_model: 'Semantic modele özel embedding güncellemesi: {{name}}',
     embed_title_ds: "Seçilen veri kaynağı ({{name}}) için embedding'leri yenile",
     embed_title_none: 'Önce bir veri kaynağı seçin',
     scope_label: 'Tablolar / anlamsal kapsam',
@@ -410,8 +421,7 @@ export const core: CoreDictionary = {
     use_this: 'Bunu kullan',
     cost_sec: '⏱ {{s}} sn',
     cost_tokens: '🪙 {{n}} token',
-    cost_token_title:
-      'İstem: {{prompt}} · Tamamlama: {{completion}} · Toplam: {{total}}',
+    cost_token_title: 'İstem: {{prompt}} · Tamamlama: {{completion}} · Toplam: {{total}}',
     lq_default_schema: 'Varsayılan şema: {{schema}}',
     lq_schema_map: 'Şema: {{map}}',
     lq_cte: 'CTE ×{{n}}',
@@ -426,7 +436,8 @@ export const core: CoreDictionary = {
     prompt_runes_badge: '{{n}} rune',
     prompt_token_compare_title: 'Tahmini istem ile token_usage karşılaştırması',
     prompt_token_compare_badge: 'Token (yanıt): {{n}}',
-    embedding_summary: 'Gömüldü: {{tables}} tablo · {{columns}} kolon · {{locales}} dil × {{vectors}} vektör · {{model}}',
+    embedding_summary:
+      'Gömüldü: {{tables}} tablo · {{columns}} kolon · {{locales}} dil × {{vectors}} vektör · {{model}}',
     sample_modal_title: 'Örnek veri — {{table}}',
     clarify_default: 'Lütfen netleştirin.',
     assistant_sql_preview: 'SQL: {{snippet}}…',
@@ -455,13 +466,11 @@ export const core: CoreDictionary = {
     collapsible_sql: '📝 Derlenmiş SQL',
     collapsible_prompt: '🔍 İstem metnini göster',
     token_line: 'Token: {{prompt}} istem · {{completion}} tamamlama · {{total}} toplam',
-    prompt_large_warning:
-      '⚠️ İstem büyük ({{k}}K token) — yanıt kalitesini etkileyebilir.',
+    prompt_large_warning: '⚠️ İstem büyük ({{k}}K token) — yanıt kalitesini etkileyebilir.',
     warnings_title: 'Uyarılar',
     warnings_body:
       'AI, anlamsal modelle uyuşmayan bir sorgu şekli üretti. En iyi eşleşen tabloyu elle seçmeyi veya alanları net belirterek soruyu yeniden yazmayı deneyin.',
-    warnings_body_success:
-      'Sorgu başarıyla çalıştı; yine de gözden geçirilecek notlar var.',
+    warnings_body_success: 'Sorgu başarıyla çalıştı; yine de gözden geçirilecek notlar var.',
     recovery_failed: 'AI, {{n}} denemeden sonra geçerli bir sorgu üretemedi.',
     recovery_rewrite: 'Soruyu yeniden yaz',
     recovery_query_builder: 'Manuel sorgu oluşturucu',
@@ -544,7 +553,8 @@ export const core: CoreDictionary = {
     cancel: 'İşi iptal et',
     cancelling: 'İptal ediliyor…',
     cancelled: 'İptal edildi',
-    stuck_hint: 'Kuyrukta takıldıysa iptal edip yeniden deneyin veya AI worker podunun çalıştığını kontrol edin.',
+    stuck_hint:
+      'Kuyrukta takıldıysa iptal edip yeniden deneyin veya AI worker podunun çalıştığını kontrol edin.',
     completed: 'Başarıyla tamamlandı',
     kind_preview: 'Önizleme',
     kind_run: 'Çalıştır',
@@ -593,7 +603,8 @@ export const core: CoreDictionary = {
     placeholder_pick_model: '— model seçin —',
     no_models_for_ds: 'Bu kaynakta model yok',
     model_setup_title: 'Bu veri kaynağı için anlamsal model yok',
-    model_setup_body: 'Senkronize metadata üzerinden boyut, metrik ve join içeren bir model taslağı oluşturup yayınlayın.',
+    model_setup_body:
+      'Senkronize metadata üzerinden boyut, metrik ve join içeren bir model taslağı oluşturup yayınlayın.',
     model_setup_create: 'Model oluştur',
     model_setup_generating: 'Oluşturuluyor…',
     model_setup_created_published: 'Anlamsal model oluşturuldu ve yayınlandı',
@@ -633,7 +644,8 @@ export const core: CoreDictionary = {
     remove_group_aria: 'Gruplama {{n}} kaldır',
     add_group_row: '+ Gruplama alanı',
     aggregations_label: 'Özet fonksiyonları',
-    aggregations_hint: 'Grupladıktan sonra COUNT, COUNT DISTINCT, SUM veya AVG gibi metrik fonksiyonlarını seçin.',
+    aggregations_hint:
+      'Grupladıktan sonra COUNT, COUNT DISTINCT, SUM veya AVG gibi metrik fonksiyonlarını seçin.',
     aggregations_empty: 'Bu model için metrik tanımı yok.',
     add_aggregation_aria: '{{aggregation}} özet fonksiyonunu ekle: {{name}}',
     order_by_label: 'Sırala',
@@ -677,9 +689,11 @@ export const core: CoreDictionary = {
     title: 'Kaydedilmiş sorular',
     new: 'Yeni soru',
     empty: 'Henüz kaydedilmiş soru yok.',
-    select_hint: 'Detayları ve mantıksal sorguyu görüntülemek için soldaki listeden bir soru seçin.',
+    select_hint:
+      'Detayları ve mantıksal sorguyu görüntülemek için soldaki listeden bir soru seçin.',
     no_matches: 'Aramanızla eşleşen soru yok.',
-    intro_fewshot_none: 'Text-to-SQL doğruluğunu artırmak için soruları AI few-shot örneği olarak işaretleyin.',
+    intro_fewshot_none:
+      'Text-to-SQL doğruluğunu artırmak için soruları AI few-shot örneği olarak işaretleyin.',
     intro_fewshot_active: '{{count}} soru AI few-shot örneği olarak işaretlendi.',
     search_placeholder: 'İsim veya etiketle ara…',
     demo_q1_name: 'Ülkeye göre gelir',
@@ -751,7 +765,8 @@ export const core: CoreDictionary = {
     reseeded: 'Tüm şablonlar gömülü dosyalardan yenilendi.',
     err_empty: 'İçerik boş olamaz.',
     confirm_restore: 'Bu şablon sunucudaki gömülü varsayılanla değiştirilsin mi?',
-    confirm_reseed: 'TÜM prompt şablonları (TR + EN) gömülü varsayılanlarla değiştirilsin mi? Diğer bölümlerdeki kaydedilmemiş değişiklikler silinir.',
+    confirm_reseed:
+      'TÜM prompt şablonları (TR + EN) gömülü varsayılanlarla değiştirilsin mi? Diğer bölümlerdeki kaydedilmemiş değişiklikler silinir.',
     available_params: 'Kullanılabilir Parametreler',
     intellisense_hint: 'Otomatik tamamlama için {{ yazın',
   },
@@ -759,8 +774,7 @@ export const core: CoreDictionary = {
     title: 'Few-shot örnekleri',
     new: '+ Örnek ekle',
     empty: 'Henüz örnek yok.',
-    manage_hint:
-      'Örnekler, modele kalıcı düzenler öğretmek için NL→LogicalQuery istemine eklenir.',
+    manage_hint: 'Örnekler, modele kalıcı düzenler öğretmek için NL→LogicalQuery istemine eklenir.',
     api_offline_alert:
       'Backend uç noktası henüz hazır değil. Örnekler tarayıcınızda yerel olarak saklanıyor.',
     col_question: 'Soru',
@@ -785,7 +799,8 @@ export const core: CoreDictionary = {
     option_all_models: 'Tüm semantik modeller',
     option_raw_tables: 'Ham tablolar',
     available_fields_title: 'Kullanılabilir Alanlar',
-    helper_select_model: 'Semantik model seçerek kullanılabilir boyut ve metrikleri burada listeleyebilirsiniz.',
+    helper_select_model:
+      'Semantik model seçerek kullanılabilir boyut ve metrikleri burada listeleyebilirsiniz.',
     search_fields_placeholder: 'Alanlarda ara…',
   },
   result_table: {
@@ -930,7 +945,7 @@ export const core: CoreDictionary = {
     validation_error_summary: 'Doğrulama başarısız: {{count}} alan bu modelde yok.',
     validation_error_show: 'Detayları göster',
     validation_error_hide: 'Detayları gizle',
-    validation_error_open_modeling: 'Modeling\'i aç →',
+    validation_error_open_modeling: "Modeling'i aç →",
   },
   dashboard: {
     title: 'AI Analiz',
@@ -1004,7 +1019,8 @@ export const core: CoreDictionary = {
     suggested_fk_relationships: 'Önerilen FK ilişkileri',
     no_dimensions: 'Kırılım yok.',
     enum_values_title: 'Değer etiketlerini düzenle',
-    enum_values_help: 'Kayıtlı kodları okunabilir etiketlerle eşleştirin; böylece AI soruları alttaki değerlere çevirebilir (örn. 1 = beklemede).',
+    enum_values_help:
+      'Kayıtlı kodları okunabilir etiketlerle eşleştirin; böylece AI soruları alttaki değerlere çevirebilir (örn. 1 = beklemede).',
     enum_values_edit_title: 'Değer etiketlerini düzenle',
     enum_raw_value: 'Kayıtlı değer',
     enum_label: 'Etiket',
@@ -1074,8 +1090,8 @@ export const core: CoreDictionary = {
     edit_display_name_title: 'Görünen adı düzenle',
     on_canvas: 'Canvas üstünde',
     not_visible: 'Görünür değil',
-    show_on_canvas_title: 'Canvas\'a ekle',
-    hide_from_canvas_title: 'Canvas\'tan kaldır',
+    show_on_canvas_title: "Canvas'a ekle",
+    hide_from_canvas_title: "Canvas'tan kaldır",
     remove_table_title: 'Tabloyu modelden kaldır',
     remove_table_body:
       '{{table}} tablosunu kaldırırsanız, ilişkili {{joins}} ilişki, {{dims}} kırılım ve {{metrics}} metrik de silinecek. Geri alınamaz.',
@@ -1137,17 +1153,20 @@ export const core: CoreDictionary = {
     theme_section: 'Tema',
     theme_hint: 'Arayüzün nasıl görüneceğini seçin.',
     prompt_templates_section: 'Prompt şablonları',
-    prompt_templates_hint: 'DB tabanlı AI prompt bölümlerini düzenleyin ve eval koşularında kullanılan aktif sürümleri izleyin.',
+    prompt_templates_hint:
+      'DB tabanlı AI prompt bölümlerini düzenleyin ve eval koşularında kullanılan aktif sürümleri izleyin.',
     prompt_templates_open: 'Prompt editörünü aç',
     time_grains_section: 'Zaman kırılımları',
-    time_grains_hint: 'Kullanıcı sorgularını veritabanı işlemlerine yönlendiren tarih/zaman kırılımı eş anlamlılarını ve soneklerini yönetin.',
+    time_grains_hint:
+      'Kullanıcı sorgularını veritabanı işlemlerine yönlendiren tarih/zaman kırılımı eş anlamlılarını ve soneklerini yönetin.',
     time_grains_open: 'Zaman kırılımları editörünü aç',
     ai_config_section: 'AI sağlayıcılar & modeller',
-    ai_config_hint: 'AI sağlayıcılarını ve her görev (sorgu, açıklama, embedding, çeviri, değerlendirici) için kullanılan modeli yönetin. Değişiklikler yeniden başlatmadan uygulanır.',
+    ai_config_hint:
+      'AI sağlayıcılarını ve her görev (sorgu, açıklama, embedding, çeviri, değerlendirici) için kullanılan modeli yönetin. Değişiklikler yeniden başlatmadan uygulanır.',
     ai_config_open: 'AI sağlayıcılarını yönet',
     profile_group: 'Profil',
     profile_section: 'Hesabınız',
-    profile_hint: 'ABI\'de görünen adınızı ve giriş bilgilerinizi güncelleyin.',
+    profile_hint: "ABI'de görünen adınızı ve giriş bilgilerinizi güncelleyin.",
     profile_name_title: 'Ad ve e-posta',
     profile_display_name: 'Görünen ad',
     profile_email: 'E-posta adresi',
@@ -1170,17 +1189,21 @@ export const core: CoreDictionary = {
     profile_password_save: 'Şifreyi güncelle',
     profile_password_saved: 'Şifre güncellendi.',
     profile_forgot_password: 'Şifremi unuttum',
-    profile_no_password: 'Bu hesap yalnızca passkey veya sosyal giriş kullanıyor. Güvenlik bölümünden passkey ekleyebilir veya daha önce şifre belirlediyseniz şifremi unuttum akışını kullanabilirsiniz.',
+    profile_no_password:
+      'Bu hesap yalnızca passkey veya sosyal giriş kullanıyor. Güvenlik bölümünden passkey ekleyebilir veya daha önce şifre belirlediyseniz şifremi unuttum akışını kullanabilirsiniz.',
     profile_mfa_bypass_title: 'MFA bypass (destek)',
-    profile_mfa_bypass_hint: 'Kimlik doğrulayıcıya erişemiyorsanız kendi hesabınız için tek kullanımlık kod üretin. Yalnızca süper yöneticiler.',
+    profile_mfa_bypass_hint:
+      'Kimlik doğrulayıcıya erişemiyorsanız kendi hesabınız için tek kullanımlık kod üretin. Yalnızca süper yöneticiler.',
     profile_mfa_bypass_btn: 'Bypass kodu üret',
     security_group: 'Hesap güvenliği',
     configuration_group: 'Yapılandırma',
     ai_models: {
       section: 'AI model tercihleri',
       hint: 'Sorgularınız ve açıklamalar için kullanmak istediğiniz modeli seçin. Boş bırakırsanız varsayılan model kullanılır.',
-      restricted_hint: 'Yalnızca çalışma alanlarınıza veya rollerinize paylaşılan modeller listelenir.',
-      admin_managed_note: 'Embedding, çeviri ve değerlendirme modelleri yöneticiler tarafından yönetilir ve tüm kullanıcılar arasında ortaktır.',
+      restricted_hint:
+        'Yalnızca çalışma alanlarınıza veya rollerinize paylaşılan modeller listelenir.',
+      admin_managed_note:
+        'Embedding, çeviri ve değerlendirme modelleri yöneticiler tarafından yönetilir ve tüm kullanıcılar arasında ortaktır.',
       use_default: 'Varsayılanı kullan',
       save: 'Tercihleri kaydet',
       clear: 'Temizle',
@@ -1195,36 +1218,40 @@ export const core: CoreDictionary = {
         judge: 'Değerlendirme ve kalite puanlama',
       },
     },
-    persist_hint:
-      'Dil ve tema yan menüden erişilebilir — tarayıcı başına saklanır.',
+    persist_hint: 'Dil ve tema yan menüden erişilebilir — tarayıcı başına saklanır.',
   },
   passkeys: {
     title: 'Güvenlik & Passkey',
-    subtitle: 'Hesabınıza daha hızlı ve güvenli bir şekilde giriş yapmak için Face ID, Touch ID veya güvenlik anahtarlarınızı ekleyin.',
+    subtitle:
+      'Hesabınıza daha hızlı ve güvenli bir şekilde giriş yapmak için Face ID, Touch ID veya güvenlik anahtarlarınızı ekleyin.',
     add_btn: 'Passkey Ekle',
     col_name: 'Anahtar Adı',
     col_created: 'Oluşturulma Tarihi',
     col_last_used: 'Son Kullanım',
     never_used: 'Hiç kullanılmadı',
     empty_title: 'Kayıtlı passkey bulunamadı',
-    empty_desc: 'Cihazınızın biyometrik doğrulama veya güvenlik anahtarını ekleyerek şifresiz giriş yapabilirsiniz.',
-    delete_title: 'Passkey\'i Sil',
-    delete_confirm: 'Bu passkey\'i silmek istediğinizden emin misiniz? Artık bu cihazla giriş yapamayacaksınız.',
+    empty_desc:
+      'Cihazınızın biyometrik doğrulama veya güvenlik anahtarını ekleyerek şifresiz giriş yapabilirsiniz.',
+    delete_title: "Passkey'i Sil",
+    delete_confirm:
+      "Bu passkey'i silmek istediğinizden emin misiniz? Artık bu cihazla giriş yapamayacaksınız.",
     success_register: 'Passkey başarıyla eklendi.',
     success_delete: 'Passkey başarıyla silindi.',
     success_rename: 'Passkey adı başarıyla değiştirildi.',
-    rename_title: 'Passkey\'i Yeniden Adlandır',
+    rename_title: "Passkey'i Yeniden Adlandır",
     rename_desc: 'Bu passkey için yeni bir isim girin.',
-    error_not_supported: 'Bu tarayıcı veya cihaz passkey doğrulamasını desteklemiyor veya güvenli bir bağlantı (HTTPS) üzerinde değilsiniz.',
+    error_not_supported:
+      'Bu tarayıcı veya cihaz passkey doğrulamasını desteklemiyor veya güvenli bir bağlantı (HTTPS) üzerinde değilsiniz.',
     modal_title: 'Passkey Biyometrisi',
-    modal_desc: 'Bu passkey\'i daha sonra tanıyabilmeniz için bir isim verin.',
+    modal_desc: "Bu passkey'i daha sonra tanıyabilmeniz için bir isim verin.",
     modal_label_name: 'Anahtar Adı',
     modal_placeholder_name: 'örn. MacBook Touch ID, iPhone Face ID',
     modal_submit: 'Kaydet',
   },
   mfa: {
     title: 'İki Faktörlü Doğrulama (2FA)',
-    subtitle: 'Hesabınızın güvenliğini artırmak için Google Authenticator, Duo veya benzeri bir uygulama kullanarak şifrenize ek olarak tek kullanımlık kodlar tanımlayın.',
+    subtitle:
+      'Hesabınızın güvenliğini artırmak için Google Authenticator, Duo veya benzeri bir uygulama kullanarak şifrenize ek olarak tek kullanımlık kodlar tanımlayın.',
     status_enabled: '2FA Durumu: Etkin',
     status_disabled: '2FA Durumu: Devre Dışı',
     enable_btn: '2FA Etkinleştir',
@@ -1240,30 +1267,36 @@ export const core: CoreDictionary = {
     modal_enroll_title: 'İki Faktörlü Doğrulamayı Etkinleştir',
     modal_enroll_desc: 'Aşağıdaki adımları takip ederek 2FA kurulumunu tamamlayın.',
     step_scan: '1. QR Kodunu Taratın',
-    step_scan_desc: 'Authenticator uygulamanızı (Google Authenticator, Duo vb.) açın ve aşağıdaki QR kodunu taratın.',
+    step_scan_desc:
+      'Authenticator uygulamanızı (Google Authenticator, Duo vb.) açın ve aşağıdaki QR kodunu taratın.',
     step_manual: 'Alternatif olarak, gizli anahtarı manuel girebilirsiniz:',
     step_verify: '2. Doğrulama Kodunu Girin',
-    step_verify_desc: 'Uygulamanız tarafından üretilen 6 haneli kodu aşağıya girerek doğrulamayı tamamlayın.',
+    step_verify_desc:
+      'Uygulamanız tarafından üretilen 6 haneli kodu aşağıya girerek doğrulamayı tamamlayın.',
     label_code: 'Doğrulama Kodu',
     placeholder_code: 'örn. 123456',
     verify_btn: 'Doğrula & Etkinleştir',
     recovery_title: 'Yedek Kurtarma Kodları',
-    recovery_desc: 'Telefonunuzu kaybetmeniz durumunda hesabınıza erişebilmek için bu tek kullanımlık kurtarma kodlarını güvenli bir yere kaydedin. Bu kodlar sadece bir kez görüntülenecektir!',
+    recovery_desc:
+      'Telefonunuzu kaybetmeniz durumunda hesabınıza erişebilmek için bu tek kullanımlık kurtarma kodlarını güvenli bir yere kaydedin. Bu kodlar sadece bir kez görüntülenecektir!',
     recovery_copied: 'Kurtarma kodları panoya kopyalandı.',
     success_enabled: 'İki faktörlü doğrulama başarıyla etkinleştirildi.',
     success_disabled: 'İki faktörlü doğrulama başarıyla devre dışı bırakıldı.',
     success_regenerate: 'Kurtarma kodları başarıyla yeniden üretildi.',
     disable_title: '2FA Devre Dışı Bırak',
-    disable_desc: 'İki faktörlü doğrulamayı devre dışı bırakmak için lütfen güncel 6 haneli doğrulama kodunuzu girin.',
+    disable_desc:
+      'İki faktörlü doğrulamayı devre dışı bırakmak için lütfen güncel 6 haneli doğrulama kodunuzu girin.',
     disable_submit: 'Kapat & Devre Dışı Bırak',
     login_title: 'İki Faktörlü Doğrulama',
-    login_desc: 'Hesabınız iki faktörlü doğrulama ile korunmaktadır. Lütfen kimlik doğrulama uygulamanızdaki 6 haneli kodu girin.',
+    login_desc:
+      'Hesabınız iki faktörlü doğrulama ile korunmaktadır. Lütfen kimlik doğrulama uygulamanızdaki 6 haneli kodu girin.',
     login_submit: 'Giriş Yap',
     login_cancel: 'Geri Dön',
   },
   time_grains: {
     title: 'Zaman Kırılımları',
-    subtitle: 'AI\'ın zaman/tarih sorgu kırılımlarını (örn. günlük, aylık, yıllık) nasıl algılayıp işleyeceğini özelleştirin.',
+    subtitle:
+      "AI'ın zaman/tarih sorgu kırılımlarını (örn. günlük, aylık, yıllık) nasıl algılayıp işleyeceğini özelleştirin.",
     col_grain: 'Zaman Kırılımı',
     col_suffix: 'Sonek',
     col_requires_time: 'Zaman Kolonu Gerektirir',
@@ -1271,7 +1304,8 @@ export const core: CoreDictionary = {
     edit_title: 'Zaman Kırılımını Düzenle',
     label_suffix: 'Sonek',
     label_requires_time: 'Zaman Kolonu Gerektirir',
-    label_requires_time_hint: 'Etkinleştirilirse, bu kırılım sadece timestamp/datetime kolonlarına uygulanır, saf tarih kolonlarına uygulanmaz.',
+    label_requires_time_hint:
+      'Etkinleştirilirse, bu kırılım sadece timestamp/datetime kolonlarına uygulanır, saf tarih kolonlarına uygulanmaz.',
     label_synonyms: 'Eş Anlamlılar (virgülle ayrılmış)',
     placeholder_synonyms: 'örn. saat, saatlik, saatte, hour',
     success_save: 'Zaman kırılımı başarıyla güncellendi.',
@@ -1283,7 +1317,8 @@ export const core: CoreDictionary = {
     title: 'İş Sözlüğü',
     new: 'Yeni sözlük terimi',
     empty: 'Henüz sözlük terimi yok.',
-    manage_hint: 'AI\'nın doğal dildeki soruları doğru şekilde eşleştirmesine yardımcı olmak için iş sözlüğü terimlerini tanımlayın ve bunları semantik bileşenlerle eşleştirin.',
+    manage_hint:
+      "AI'nın doğal dildeki soruları doğru şekilde eşleştirmesine yardımcı olmak için iş sözlüğü terimlerini tanımlayın ve bunları semantik bileşenlerle eşleştirin.",
     col_term: 'Terim',
     col_definition: 'Açıklama',
     col_maps_to: 'Hedef Eşleşme',
@@ -1300,7 +1335,7 @@ export const core: CoreDictionary = {
     label_maps_to_type: 'Eşleşen Tür',
     label_maps_to_name: 'Eşleşen İsim',
     label_aliases: 'Alternatif İsimler / Eş Anlamlılar',
-    placeholder_aliases: 'Eş anlamlı yazıp enter\'a basın…',
+    placeholder_aliases: "Eş anlamlı yazıp enter'a basın…",
     err_term_required: 'Terim zorunludur',
     err_maps_to_name_required: 'Eşleşen isim zorunludur',
     err_maps_to_type_required: 'Eşleşen tür zorunludur',
@@ -1343,7 +1378,8 @@ export const core: CoreDictionary = {
     empty_description: 'Görsel özetler oluşturmak için ilk özel panonuzu oluşturun.',
     empty_cta: 'Pano Oluştur',
     create_title: 'Yeni Pano Oluştur',
-    create_subtitle: 'Panoya bir ad verin ve isteğe bağlı açıklama ekleyin. Oluşturduktan sonra widget ekleyebilirsiniz.',
+    create_subtitle:
+      'Panoya bir ad verin ve isteğe bağlı açıklama ekleyin. Oluşturduktan sonra widget ekleyebilirsiniz.',
     name_label: 'Ad',
     name_placeholder: 'Örn. Satış Özeti',
     desc_label: 'Açıklama',
@@ -1358,7 +1394,8 @@ export const core: CoreDictionary = {
   },
   composites: {
     title: 'Composite Modeller',
-    subtitle: 'Birden çok semantic modeli birleştirerek domain\'ler arası sorgu modelleri oluşturun.',
+    subtitle:
+      "Birden çok semantic modeli birleştirerek domain'ler arası sorgu modelleri oluşturun.",
     datasource_placeholder: 'Veri kaynağı',
     new: 'Yeni Composite',
     empty_list: 'Bu veri kaynağında composite model yok.',
@@ -1374,16 +1411,17 @@ export const core: CoreDictionary = {
     model_select: 'Model seçin',
     alias_placeholder: 'alias',
     add: 'Ekle',
-    cross_joins_title: 'Cross-Model Join\'ler',
+    cross_joins_title: "Cross-Model Join'ler",
     suggest: 'Öneri Getir',
     add_join: 'Join Ekle',
     edit: 'Düzenle',
-    suggested_joins: 'Önerilen join\'ler',
+    suggested_joins: "Önerilen join'ler",
     apply: 'Uygula',
     canonical_date_title: 'Canonical Date Dimension',
-    canonical_date_hint: 'Tüm component modeller için ortak tarih ekseni olarak kullanılacak dimension.',
+    canonical_date_hint:
+      'Tüm component modeller için ortak tarih ekseni olarak kullanılacak dimension.',
     conflicts_title: 'Dimension Çakışma Çözümleri',
-    conflicts_hint: 'Birden çok modelde aynı isimli dimension\'lar için çözüm stratejisi seçin.',
+    conflicts_hint: "Birden çok modelde aynı isimli dimension'lar için çözüm stratejisi seçin.",
     resolution_use_primary: 'Primary kullan',
     resolution_rename: 'Yeniden adlandır',
     resolution_merge: 'Birleştir',

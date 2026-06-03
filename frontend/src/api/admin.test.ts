@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import { listAuditLog } from './admin'
 
 describe('admin API', () => {
@@ -9,20 +10,23 @@ describe('admin API', () => {
   it('lists audit log entries with filters', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      text: () => Promise.resolve(JSON.stringify({
-        entries: [
-          {
-            id: 'audit-1',
-            user_id: 'user-1',
-            action: 'login',
-            resource: 'session',
-            resource_id: 'session-1',
-            metadata: { method: 'password' },
-            ip_address: '192.0.2.1',
-            created_at: '2026-05-25T10:00:00Z',
-          },
-        ],
-      })),
+      text: () =>
+        Promise.resolve(
+          JSON.stringify({
+            entries: [
+              {
+                id: 'audit-1',
+                user_id: 'user-1',
+                action: 'login',
+                resource: 'session',
+                resource_id: 'session-1',
+                metadata: { method: 'password' },
+                ip_address: '192.0.2.1',
+                created_at: '2026-05-25T10:00:00Z',
+              },
+            ],
+          }),
+        ),
     })
     vi.stubGlobal('fetch', fetchMock)
 

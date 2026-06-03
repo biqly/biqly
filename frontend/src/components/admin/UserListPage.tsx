@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
+
 import { listUsers, resendUserVerification } from '../../api/admin'
+import { apiListInvitations, apiResendInvitation, apiRevokeInvitation } from '../../api/auth'
+import { useConfirm } from '../../hooks/useConfirm'
+import { useQueryParam } from '../../hooks/useQueryParam'
 import { useLocale, useT } from '../../i18n'
 import type { AuthUser, Invitation } from '../../types/auth'
 import { useAuth } from '../auth/AuthProvider'
-import { apiListInvitations, apiRevokeInvitation, apiResendInvitation } from '../../api/auth'
-import { useQueryParam } from '../../hooks/useQueryParam'
-import { useConfirm } from '../../hooks/useConfirm'
 import { ActiveUsersTab } from './userList/ActiveUsersTab'
 import { InvitationsTab } from './userList/InvitationsTab'
 import { InviteUserModal } from './userList/InviteUserModal'
@@ -42,7 +43,9 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [inviteSearch, setInviteSearch] = useState('')
   const [debouncedInviteSearch, setDebouncedInviteSearch] = useState('')
-  const [inviteStatusFilter, setInviteStatusFilter] = useState<'all' | 'pending' | 'claimed' | 'expired'>('all')
+  const [inviteStatusFilter, setInviteStatusFilter] = useState<
+    'all' | 'pending' | 'claimed' | 'expired'
+  >('all')
   const [invitesLoading, setInvitesLoading] = useState(false)
   const [invitesError, setInvitesError] = useState<string | null>(null)
   const [inviteCurrentPage, setInviteCurrentPage] = useState(1)
@@ -50,10 +53,15 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
 
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
   const [verificationLoadingId, setVerificationLoadingId] = useState<string | null>(null)
-  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [actionMessage, setActionMessage] = useState<{
+    type: 'success' | 'error'
+    text: string
+  } | null>(null)
 
   const loadInvitations = async () => {
-    if (!isSuperAdmin) return
+    if (!isSuperAdmin) {
+      return
+    }
     try {
       setInvitesLoading(true)
       const res = await apiListInvitations(token, {
@@ -89,7 +97,9 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   }, [inviteSearch])
 
   useEffect(() => {
-    if (subTab !== 'active') return
+    if (subTab !== 'active') {
+      return
+    }
     let cancelled = false
     async function load() {
       try {
@@ -106,9 +116,13 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
           setError(null)
         }
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e))
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : String(e))
+        }
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
     }
     load()
@@ -130,7 +144,9 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
       title: t('auth.invite_resend_confirm'),
       variant: 'default',
     })
-    if (!ok) return
+    if (!ok) {
+      return
+    }
     setActionLoadingId(id)
     setActionMessage(null)
     try {
@@ -149,7 +165,9 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
       title: t('admin.users.resend_verification_confirm'),
       variant: 'default',
     })
-    if (!ok) return
+    if (!ok) {
+      return
+    }
     setVerificationLoadingId(id)
     setActionMessage(null)
     try {
@@ -168,7 +186,9 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
       title: t('auth.invite_revoke_confirm'),
       variant: 'danger',
     })
-    if (!ok) return
+    if (!ok) {
+      return
+    }
     setActionLoadingId(id)
     setActionMessage(null)
     try {
@@ -226,7 +246,11 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
         </div>
       )}
 
-      {error && <div className="admin-err-text">{t('common.error')}: {error}</div>}
+      {error && (
+        <div className="admin-err-text">
+          {t('common.error')}: {error}
+        </div>
+      )}
 
       {subTab === 'active' ? (
         <ActiveUsersTab
@@ -286,4 +310,3 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     </div>
   )
 }
-

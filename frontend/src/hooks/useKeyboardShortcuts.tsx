@@ -1,13 +1,14 @@
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from 'react'
+
 import { ShortcutsHelp } from '../components/ui/ShortcutsHelp'
 
 export interface ShortcutKeys {
@@ -36,22 +37,27 @@ interface ShortcutsContextValue {
 const ShortcutsContext = createContext<ShortcutsContextValue | null>(null)
 
 function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
   const tag = target.tagName
-  return (
-    tag === 'INPUT' ||
-    tag === 'TEXTAREA' ||
-    tag === 'SELECT' ||
-    target.isContentEditable
-  )
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable
 }
 
 function matchesEvent(keys: ShortcutKeys, event: KeyboardEvent): boolean {
-  if (event.key.toLowerCase() !== keys.key.toLowerCase()) return false
+  if (event.key.toLowerCase() !== keys.key.toLowerCase()) {
+    return false
+  }
   const mod = event.metaKey || event.ctrlKey
-  if (keys.mod !== undefined && keys.mod !== mod) return false
-  if (keys.shift !== undefined && keys.shift !== event.shiftKey) return false
-  if (keys.alt !== undefined && keys.alt !== event.altKey) return false
+  if (keys.mod !== undefined && keys.mod !== mod) {
+    return false
+  }
+  if (keys.shift !== undefined && keys.shift !== event.shiftKey) {
+    return false
+  }
+  if (keys.alt !== undefined && keys.alt !== event.altKey) {
+    return false
+  }
   return true
 }
 
@@ -85,7 +91,9 @@ export function ShortcutsProvider({ children }: { children: ReactNode }) {
         return
       }
       for (const def of registry.current.values()) {
-        if (!def.allowInInput && editable) continue
+        if (!def.allowInInput && editable) {
+          continue
+        }
         if (matchesEvent(def.keys, event)) {
           event.preventDefault()
           def.handler()

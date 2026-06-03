@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { normalizeOTPCode } from './otp'
 
 describe('OTP code normalization', () => {

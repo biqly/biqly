@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import type { AIJob } from '../types/ai'
 import { fetchJSON, jobQuestionPreview, trackedJobFromAIJob } from './useAIJobs'
 
@@ -19,7 +20,9 @@ function job(overrides: Partial<AIJob>): AIJob {
 
 describe('jobQuestionPreview', () => {
   it('uses schema and table for describe jobs', () => {
-    expect(jobQuestionPreview('describe', { schema: 'sales', table: 'orders' })).toBe('sales.orders')
+    expect(jobQuestionPreview('describe', { schema: 'sales', table: 'orders' })).toBe(
+      'sales.orders',
+    )
   })
 
   it('summarizes describe batch jobs by table count', () => {
@@ -35,17 +38,16 @@ describe('jobQuestionPreview', () => {
 
 describe('trackedJobFromAIJob', () => {
   it('adds the shared question preview to tracked jobs', () => {
-    expect(trackedJobFromAIJob(job({ request_json: { question: 'total revenue' } })).questionPreview).toBe(
-      'total revenue',
-    )
+    expect(
+      trackedJobFromAIJob(job({ request_json: { question: 'total revenue' } })).questionPreview,
+    ).toBe('total revenue')
   })
 })
 
 describe('fetchJSON', () => {
   it('returns a visible error for invalid JSON responses', async () => {
     const originalFetch = globalThis.fetch
-    globalThis.fetch = (() =>
-      Promise.resolve(new Response('<html>nope</html>', { status: 200 }))) as typeof fetch
+    globalThis.fetch = () => Promise.resolve(new Response('<html>nope</html>', { status: 200 }))
 
     try {
       expect(await fetchJSON('/api/test')).toEqual({

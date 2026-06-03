@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useT } from '../../i18n'
+
+import type { useT } from '../../i18n'
 import type { EnumMapping, SemanticDimension } from '../../types/semantic'
 import { Modal } from '../ui/Modal'
 
@@ -12,7 +13,7 @@ export interface EnumValuesModalProps {
   t: ReturnType<typeof useT>
 }
 
-type EnumRow = {
+interface EnumRow {
   raw_value: string
   label: string
   description: string
@@ -29,7 +30,14 @@ function toRows(values: EnumMapping[] | undefined): EnumRow[] {
   }))
 }
 
-export function EnumValuesModal({ modelId, dimension, onClose, onSaved, putData, t }: EnumValuesModalProps) {
+export function EnumValuesModal({
+  modelId,
+  dimension,
+  onClose,
+  onSaved,
+  putData,
+  t,
+}: EnumValuesModalProps) {
   const [rows, setRows] = useState<EnumRow[]>(() => toRows(dimension.enum_values))
   const [saving, setSaving] = useState(false)
 
@@ -37,14 +45,17 @@ export function EnumValuesModal({ modelId, dimension, onClose, onSaved, putData,
     setRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)))
   }
 
-  const addRow = () => setRows((current) => [...current, { raw_value: '', label: '', description: '' }])
+  const addRow = () =>
+    setRows((current) => [...current, { raw_value: '', label: '', description: '' }])
 
   const removeRow = (index: number) => {
     setRows((current) => current.filter((_, i) => i !== index))
   }
 
   const save = async () => {
-    if (saving) return
+    if (saving) {
+      return
+    }
     const values = rows
       .map((row, i) => ({
         raw_value: row.raw_value.trim(),
@@ -114,7 +125,12 @@ export function EnumValuesModal({ modelId, dimension, onClose, onSaved, putData,
             </div>
           ))}
         </div>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={addRow} disabled={saving}>
+        <button
+          type="button"
+          className="btn btn-secondary btn-sm"
+          onClick={addRow}
+          disabled={saving}
+        >
           {t('modeling.enum_add_value')}
         </button>
         <div className="modal-actions">

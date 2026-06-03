@@ -3,12 +3,20 @@ import type { IndexedRow, SortDirection } from './types'
 export type { SortDirection }
 
 export function compareCellValues(av: unknown, bv: unknown, dir: 1 | -1): number {
-  if (av == null && bv == null) return 0
-  if (av == null) return dir
-  if (bv == null) return -dir
+  if (av == null && bv == null) {
+    return 0
+  }
+  if (av == null) {
+    return dir
+  }
+  if (bv == null) {
+    return -dir
+  }
   const an = Number(av)
   const bn = Number(bv)
-  if (!isNaN(an) && !isNaN(bn)) return (an - bn) * dir
+  if (!isNaN(an) && !isNaN(bn)) {
+    return (an - bn) * dir
+  }
   return String(av).localeCompare(String(bv)) * dir
 }
 
@@ -21,7 +29,9 @@ export function sortIndexedRows(
   sortColIdx: number | null,
   sortDir: SortDirection,
 ): IndexedRow[] {
-  if (sortColIdx === null || sortDir === null) return indexedRows
+  if (sortColIdx === null || sortDir === null) {
+    return indexedRows
+  }
   const dir = sortDir === 'asc' ? 1 : -1
   return [...indexedRows].sort((a, b) =>
     compareCellValues(a.row[sortColIdx], b.row[sortColIdx], dir),
@@ -36,8 +46,12 @@ export function cycleSortState(
   if (currentColIdx !== clickedColIdx) {
     return { sortColIdx: clickedColIdx, sortDir: 'asc' }
   }
-  if (currentDir === 'asc') return { sortColIdx: clickedColIdx, sortDir: 'desc' }
-  if (currentDir === 'desc') return { sortColIdx: null, sortDir: null }
+  if (currentDir === 'asc') {
+    return { sortColIdx: clickedColIdx, sortDir: 'desc' }
+  }
+  if (currentDir === 'desc') {
+    return { sortColIdx: null, sortDir: null }
+  }
   return { sortColIdx: clickedColIdx, sortDir: 'asc' }
 }
 
@@ -46,7 +60,9 @@ export function ariaSortValue(
   sortDir: SortDirection,
   colIdx: number,
 ): 'none' | 'ascending' | 'descending' {
-  if (sortColIdx !== colIdx || !sortDir) return 'none'
+  if (sortColIdx !== colIdx || !sortDir) {
+    return 'none'
+  }
   return sortDir === 'asc' ? 'ascending' : 'descending'
 }
 
@@ -55,6 +71,8 @@ export function sortArrow(
   sortDir: SortDirection,
   colIdx: number,
 ): string {
-  if (sortColIdx !== colIdx || !sortDir) return ''
+  if (sortColIdx !== colIdx || !sortDir) {
+    return ''
+  }
   return sortDir === 'asc' ? '↑' : '↓'
 }

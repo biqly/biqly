@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { AUDIT_PAGE_SIZE_OPTIONS, DEFAULT_AUDIT_PAGE_SIZE } from './AuditLogPanel'
 
 describe('AuditLogPanel pagination defaults', () => {

@@ -25,7 +25,8 @@ export const admin = {
   },
   pii: {
     title: 'PII Detection',
-    description: 'Columns flagged as personally identifiable information. Review each detection to confirm, change its type, or dismiss it.',
+    description:
+      'Columns flagged as personally identifiable information. Review each detection to confirm, change its type, or dismiss it.',
     rescan: 'Rescan PII',
     scanning: 'Scanning…',
     scan_summary: 'Scanned {{scanned}} columns, {{detected}} PII detections.',
@@ -43,7 +44,8 @@ export const admin = {
     empty: 'No PII columns detected for this datasource.',
     select_datasource: 'Select a datasource to view PII detections.',
     policy_title: 'PII Access Policy',
-    policy_description: 'Controls how this role sees PII columns: raw value, masked value, or hidden.',
+    policy_description:
+      'Controls how this role sees PII columns: raw value, masked value, or hidden.',
     policy_default: 'Role default',
     access_raw: 'Raw',
     access_masked: 'Masked',
@@ -125,9 +127,11 @@ export const admin = {
     workspace_uuid_placeholder: 'Workspace ID (UUID format)',
     assign_role: 'Assign Role',
     mfa_support_title: '2FA Support',
-    mfa_support_desc: 'Generate a one-time bypass code so a locked-out user can sign in. The code works once and expires after use. Super admin only.',
+    mfa_support_desc:
+      'Generate a one-time bypass code so a locked-out user can sign in. The code works once and expires after use. Super admin only.',
     mfa_generate_bypass: 'Generate Bypass Code',
-    mfa_generate_bypass_confirm: 'Generate a single-use 2FA bypass code for this user? Share it only through a verified channel.',
+    mfa_generate_bypass_confirm:
+      'Generate a single-use 2FA bypass code for this user? Share it only through a verified channel.',
     mfa_bypass_generated: 'One-time bypass code (shown once):',
     mfa_bypass_copied: 'Bypass code copied to clipboard.',
     mfa_bypass_not_enabled: 'This user does not have 2FA enabled.',
@@ -248,8 +252,10 @@ export const admin = {
   },
   ai_providers: {
     title: 'AI Providers',
-    description: 'Manage AI providers and the models used for each task. Changes apply immediately — no restart required.',
-    not_configured: 'The AI provider store is unavailable. Set BI_AI_DB_MANAGED=true and ensure migrations are applied.',
+    description:
+      'Manage AI providers and the models used for each task. Changes apply immediately — no restart required.',
+    not_configured:
+      'The AI provider store is unavailable. Set BI_AI_DB_MANAGED=true and ensure migrations are applied.',
     add_provider: 'Add Provider',
     edit_provider: 'Edit Provider',
     add_model: 'Add Model',
@@ -329,7 +335,8 @@ export const admin = {
     revoke_btn: 'Revoke',
     granted: 'Access granted.',
     revoked: 'Access revoked.',
-    empty: 'No sharing grants yet. Users can use all active models until the first grant is created.',
+    empty:
+      'No sharing grants yet. Users can use all active models until the first grant is created.',
     select_workspace: 'Select workspace…',
     select_role: 'Select role…',
     select_provider: 'Select provider…',
@@ -364,20 +371,26 @@ export const admin = {
   },
   platform_settings: {
     title: 'Platform Settings',
-    description: 'Control how new users can join the platform. Invitations always work regardless of this setting.',
+    description:
+      'Control how new users can join the platform. Invitations always work regardless of this setting.',
     self_signup_label: 'Allow self-service sign-up',
-    self_signup_on_hint: 'Anyone with the sign-up page can create an account. OAuth sign-in can also register new users.',
-    self_signup_off_hint: 'Only invited users can join. Disable public sign-up and OAuth registration for new accounts.',
+    self_signup_on_hint:
+      'Anyone with the sign-up page can create an account. OAuth sign-in can also register new users.',
+    self_signup_off_hint:
+      'Only invited users can join. Disable public sign-up and OAuth registration for new accounts.',
     last_updated: 'Last updated: {{date}}',
     saved: 'Platform settings saved.',
   },
   ldap: {
     title: 'LDAP / Directory sign-in',
-    description: 'Authenticate users against an LDAP / Active Directory server at sign-in. Local password sign-in keeps working — LDAP is tried only when local authentication does not succeed.',
+    description:
+      'Authenticate users against an LDAP / Active Directory server at sign-in. Local password sign-in keeps working — LDAP is tried only when local authentication does not succeed.',
     enabled_label: 'Enable LDAP sign-in',
-    enabled_hint: 'When on, users can sign in with their directory credentials on the normal sign-in form.',
+    enabled_hint:
+      'When on, users can sign in with their directory credentials on the normal sign-in form.',
     auto_create_label: 'Auto-create users on first sign-in',
-    auto_create_hint: 'When a directory user signs in successfully for the first time, create a local account automatically. Turn off to only allow users that already exist.',
+    auto_create_hint:
+      'When a directory user signs in successfully for the first time, create a local account automatically. Turn off to only allow users that already exist.',
     connection: 'Connection',
     host: 'Host',
     port: 'Port',
@@ -386,9 +399,11 @@ export const admin = {
     security_starttls: 'StartTLS',
     security_ldaps: 'LDAPS (TLS)',
     skip_tls_verify: 'Skip TLS certificate verification',
-    skip_tls_verify_hint: 'Only for self-signed certificates in trusted networks — insecure otherwise.',
+    skip_tls_verify_hint:
+      'Only for self-signed certificates in trusted networks — insecure otherwise.',
     bind_dn: 'Bind DN (service account)',
-    bind_dn_hint: 'Account used to search for users, e.g. cn=svc,dc=example,dc=com. Leave empty for anonymous bind.',
+    bind_dn_hint:
+      'Account used to search for users, e.g. cn=svc,dc=example,dc=com. Leave empty for anonymous bind.',
     bind_password: 'Bind password',
     bind_password_placeholder: 'Leave blank to keep the current password',
     bind_password_set: 'A bind password is stored.',
@@ -396,7 +411,8 @@ export const admin = {
     base_dn: 'Base DN',
     base_dn_hint: 'Search root, e.g. ou=people,dc=example,dc=com.',
     user_filter: 'User search filter',
-    user_filter_hint: 'Use %s for the username. Examples: (uid=%s), (sAMAccountName=%s), (mail=%s).',
+    user_filter_hint:
+      'Use %s for the username. Examples: (uid=%s), (sAMAccountName=%s), (mail=%s).',
     email_attr: 'Email attribute',
     display_name_attr: 'Display name attribute',
     test: 'Test Connection',

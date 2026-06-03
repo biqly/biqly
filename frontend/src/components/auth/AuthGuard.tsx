@@ -1,7 +1,8 @@
-import { useEffect, type ReactNode } from 'react'
+import { type ReactNode, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from './AuthProvider'
+
 import { LoadingScreen } from '../ui/LoadingScreen'
+import { useAuth } from './AuthProvider'
 
 let navigateRef: ((path: string) => void) | null = null
 
@@ -9,7 +10,9 @@ export function globalNavigate(path: string) {
   if (navigateRef) {
     navigateRef(path)
   } else {
-    if (path === window.location.pathname) return
+    if (path === window.location.pathname) {
+      return
+    }
     window.history.pushState(null, '', path)
     window.dispatchEvent(new PopStateEvent('popstate'))
   }

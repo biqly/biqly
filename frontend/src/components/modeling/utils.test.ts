@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import type { ColumnRow, TableRow } from '../../types/semantic'
 import { publishModelRequest, suggestedJoinToPayload } from './types'
 import {
@@ -11,8 +12,20 @@ import {
 } from './utils'
 
 const tables: TableRow[] = [
-  { id: 't1', schema_name: 'public', table_name: 'orders', table_type: 'BASE TABLE', description: null },
-  { id: 't2', schema_name: 'public', table_name: 'customers', table_type: 'BASE TABLE', description: null },
+  {
+    id: 't1',
+    schema_name: 'public',
+    table_name: 'orders',
+    table_type: 'BASE TABLE',
+    description: null,
+  },
+  {
+    id: 't2',
+    schema_name: 'public',
+    table_name: 'customers',
+    table_type: 'BASE TABLE',
+    description: null,
+  },
 ]
 
 const columns: ColumnRow[] = [

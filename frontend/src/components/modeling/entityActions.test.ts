@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import {
   activeEntities,
   inactiveEntities,
@@ -28,16 +29,18 @@ describe('modeling entity actions', () => {
   })
 
   it('builds complete reactivation payloads for joins', () => {
-    expect(reactivateJoinPayload({
-      id: 'join-1',
-      name: 'orders_customers',
-      from_table: 'orders',
-      from_column: 'customer_id',
-      to_table: 'customers',
-      to_column: 'id',
-      join_type: 'LEFT',
-      relationship: 'many_to_one',
-    })).toEqual({
+    expect(
+      reactivateJoinPayload({
+        id: 'join-1',
+        name: 'orders_customers',
+        from_table: 'orders',
+        from_column: 'customer_id',
+        to_table: 'customers',
+        to_column: 'id',
+        join_type: 'LEFT',
+        relationship: 'many_to_one',
+      }),
+    ).toEqual({
       name: 'orders_customers',
       from_schema: '',
       from_table: 'orders',
@@ -53,11 +56,33 @@ describe('modeling entity actions', () => {
 
   it('preserves dimension and metric fields when changing active state or label', () => {
     const dimension = { id: 'dim-1', name: 'city', column_ref: 'customers.city', type: 'text' }
-    const metric = { id: 'metric-1', name: 'revenue', expression: 'orders.total', aggregation: 'sum' }
+    const metric = {
+      id: 'metric-1',
+      name: 'revenue',
+      expression: 'orders.total',
+      aggregation: 'sum',
+    }
 
-    expect(reactivateDimensionPayload(dimension)).toMatchObject({ label: '', synonyms: [], description: '', is_active: true })
-    expect(renameDimensionPayload(dimension, 'City')).toMatchObject({ label: 'City', is_active: undefined })
-    expect(reactivateMetricPayload(metric)).toMatchObject({ label: '', format: '', synonyms: [], description: '', is_active: true })
-    expect(renameMetricPayload(metric, 'Revenue')).toMatchObject({ label: 'Revenue', is_active: undefined })
+    expect(reactivateDimensionPayload(dimension)).toMatchObject({
+      label: '',
+      synonyms: [],
+      description: '',
+      is_active: true,
+    })
+    expect(renameDimensionPayload(dimension, 'City')).toMatchObject({
+      label: 'City',
+      is_active: undefined,
+    })
+    expect(reactivateMetricPayload(metric)).toMatchObject({
+      label: '',
+      format: '',
+      synonyms: [],
+      description: '',
+      is_active: true,
+    })
+    expect(renameMetricPayload(metric, 'Revenue')).toMatchObject({
+      label: 'Revenue',
+      is_active: undefined,
+    })
   })
 })

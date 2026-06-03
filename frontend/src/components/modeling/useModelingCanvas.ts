@@ -1,23 +1,29 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+
 import type { ColumnRow, SemanticJoin, SemanticModelDetail, TableRow } from '../../types/semantic'
-import { COL_LIMIT } from './constants'
 import {
   applyDragDelta,
   applyKeyboardMove,
+  buildCardLayouts,
   computeCanvasBounds,
   computeJoinPath,
   keyboardDeltaFromKey,
   layoutInitialPositions,
   panViewport,
-  buildCardLayouts,
   snapScaleNearest,
   zoomStep,
   zoomViewportAtPoint,
 } from './canvasMath'
+import { COL_LIMIT } from './constants'
 import type { CardLayout, Pt, Viewport } from './types'
 import { tableKey } from './utils'
 
-export function useModelingCanvas(modelId: string, tableCards: TableRow[], columns: ColumnRow[], model: SemanticModelDetail | null) {
+export function useModelingCanvas(
+  modelId: string,
+  tableCards: TableRow[],
+  columns: ColumnRow[],
+  model: SemanticModelDetail | null,
+) {
   const [positions, setPositions] = useState<Record<string, Pt>>({})
   const [viewport, setViewport] = useState<Viewport>({ scale: 1, tx: 0, ty: 0 })
 
@@ -30,8 +36,12 @@ export function useModelingCanvas(modelId: string, tableCards: TableRow[], colum
     for (const join of (model?.joins ?? []).filter((j) => j.is_active !== false)) {
       const fromKey = tableKey(join.from_schema || model?.base_schema || '', join.from_table)
       const toKey = tableKey(join.to_schema || model?.base_schema || '', join.to_table)
-      if (!joinColumns.has(fromKey)) joinColumns.set(fromKey, new Set())
-      if (!joinColumns.has(toKey)) joinColumns.set(toKey, new Set())
+      if (!joinColumns.has(fromKey)) {
+        joinColumns.set(fromKey, new Set())
+      }
+      if (!joinColumns.has(toKey)) {
+        joinColumns.set(toKey, new Set())
+      }
       joinColumns.get(fromKey)!.add(join.from_column)
       joinColumns.get(toKey)!.add(join.to_column)
     }
@@ -54,9 +64,13 @@ export function useModelingCanvas(modelId: string, tableCards: TableRow[], colum
 
   const onCardDragStart = useCallback(
     (key: string) => (event: React.MouseEvent) => {
-      if (event.button !== 0) return
+      if (event.button !== 0) {
+        return
+      }
       const target = event.target as HTMLElement
-      if (target.closest('button')) return
+      if (target.closest('button')) {
+        return
+      }
       event.preventDefault()
       event.stopPropagation()
       const startX = event.clientX
@@ -86,7 +100,9 @@ export function useModelingCanvas(modelId: string, tableCards: TableRow[], colum
   const onCardKeyDown = useCallback(
     (key: string) => (event: React.KeyboardEvent) => {
       const delta = keyboardDeltaFromKey(event.key)
-      if (!delta) return
+      if (!delta) {
+        return
+      }
       event.preventDefault()
       setPositions((prev) => {
         const cur = prev[key] ?? { x: 0, y: 0 }
@@ -101,8 +117,12 @@ export function useModelingCanvas(modelId: string, tableCards: TableRow[], colum
 
   const onCanvasMouseDown = useCallback((event: React.MouseEvent) => {
     const target = event.target as HTMLElement
-    if (target.closest('.modeling-table-card')) return
-    if (event.button !== 0) return
+    if (target.closest('.modeling-table-card')) {
+      return
+    }
+    if (event.button !== 0) {
+      return
+    }
     event.preventDefault()
     const startX = event.clientX
     const startY = event.clientY
@@ -122,9 +142,13 @@ export function useModelingCanvas(modelId: string, tableCards: TableRow[], colum
 
   useLayoutEffect(() => {
     const node = wrapRef.current
-    if (!node) return
+    if (!node) {
+      return
+    }
     const onWheel = (ev: WheelEvent) => {
-      if (!ev.ctrlKey && !ev.metaKey && Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) return
+      if (!ev.ctrlKey && !ev.metaKey && Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) {
+        return
+      }
       ev.preventDefault()
       const rect = node.getBoundingClientRect()
       const cx = ev.clientX - rect.left
@@ -143,8 +167,12 @@ export function useModelingCanvas(modelId: string, tableCards: TableRow[], colum
     const node = wrapRef.current
     setViewport((vp) => {
       const newScale = zoomStep(vp.scale, direction)
-      if (newScale === vp.scale) return vp
-      if (!node) return { ...vp, scale: newScale }
+      if (newScale === vp.scale) {
+        return vp
+      }
+      if (!node) {
+        return { ...vp, scale: newScale }
+      }
       const rect = node.getBoundingClientRect()
       const cx = rect.width / 2
       const cy = rect.height / 2
@@ -156,7 +184,9 @@ export function useModelingCanvas(modelId: string, tableCards: TableRow[], colum
 
   const fitView = useCallback(() => {
     const node = wrapRef.current
-    if (!node) return
+    if (!node) {
+      return
+    }
     const rect = node.getBoundingClientRect()
     const padding = 40
     const scaleX = (rect.width - padding * 2) / Math.max(1, canvasBounds.width)

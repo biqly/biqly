@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+
 import { useConfirm } from '../../hooks/useConfirm'
 import type { Conversation } from '../../types/ai'
 
@@ -65,10 +66,7 @@ export function SidebarConversationItem({
   }
 
   return (
-    <div
-      className={`conversation-item ${isActive ? 'active' : ''}`}
-      onClick={onSelect}
-    >
+    <div className={`conversation-item ${isActive ? 'active' : ''}`} onClick={onSelect}>
       {isEditing ? (
         <input
           ref={inputRef}

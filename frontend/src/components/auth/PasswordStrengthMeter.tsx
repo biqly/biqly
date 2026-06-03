@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+
 import { apiGetPasswordPolicy } from '../../api/auth'
 import { useT } from '../../i18n'
 import type { PasswordPolicy } from '../../types/auth'
@@ -8,7 +9,11 @@ interface Props {
   password: string
   // Called whenever rules+score are recomputed so the parent form can gate the
   // submit button on policy compliance without duplicating logic.
-  onValidityChange?: (info: { valid: boolean; score: number; policy: PasswordPolicy | null }) => void
+  onValidityChange?: (info: {
+    valid: boolean
+    score: number
+    policy: PasswordPolicy | null
+  }) => void
 }
 
 // PasswordStrengthMeter fetches the live server policy on mount and renders a
@@ -20,7 +25,9 @@ export default function PasswordStrengthMeter({ password, onValidityChange }: Pr
   useEffect(() => {
     let alive = true
     apiGetPasswordPolicy().then((p) => {
-      if (alive) setPolicy(p)
+      if (alive) {
+        setPolicy(p)
+      }
     })
     return () => {
       alive = false
@@ -61,7 +68,9 @@ export default function PasswordStrengthMeter({ password, onValidityChange }: Pr
     })
   }, [allRulesOk, meetsScore, score, policy, onValidityChange])
 
-  if (password.length === 0 || !policy) return null
+  if (password.length === 0 || !policy) {
+    return null
+  }
 
   return (
     <div className="password-strength" aria-live="polite">

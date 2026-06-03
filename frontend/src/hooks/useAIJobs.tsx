@@ -1,22 +1,29 @@
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from 'react'
-import type { AIJob, AIJobKind, AIJobListResponse, AIQueryResponse, DescribeBatchJobProgress } from '../types/ai'
+
+import { fetchJSON, type FetchJSONResult } from '../api/apiClient'
 import type { DescribeBatchConflictBody } from '../api/describeBatchConflict'
 import { runMetadataDescribeDirect } from '../api/metadataDescribe'
-import type { DescribeBatchResult, DescribeResult } from '../types/metadata'
 import type { BulkEntry } from '../components/metadata/bulkProgress'
 import { getLocale } from '../i18n'
+import type {
+  AIJob,
+  AIJobKind,
+  AIJobListResponse,
+  AIQueryResponse,
+  DescribeBatchJobProgress,
+} from '../types/ai'
+import type { DescribeBatchResult, DescribeResult } from '../types/metadata'
 import { getAIClientSessionId } from '../utils/aiSession'
 import { createJobWaiter, type JobCallbacks, type JobWaiterHandle } from './jobWaiter'
-import { fetchJSON, type FetchJSONResult } from '../api/apiClient'
 export { fetchJSON }
 export type { FetchJSONResult }
 
@@ -24,7 +31,9 @@ const POLL_MS = 1200
 const TERMINAL = new Set(['succeeded', 'failed', 'cancelled'])
 
 function isValidJobId(id: unknown): id is string {
-  if (typeof id !== 'string') return false
+  if (typeof id !== 'string') {
+    return false
+  }
   const trimmed = id.trim()
   return trimmed.length > 0 && trimmed !== 'undefined' && trimmed !== 'null'
 }
@@ -32,7 +41,9 @@ function isValidJobId(id: unknown): id is string {
 function jobEnqueueError(data: unknown, status: number): string {
   if (data && typeof data === 'object') {
     const err = (data as Record<string, unknown>).error
-    if (typeof err === 'string' && err.trim()) return err.trim()
+    if (typeof err === 'string' && err.trim()) {
+      return err.trim()
+    }
   }
   return `Failed to enqueue AI job (${status})`
 }
@@ -47,15 +58,19 @@ export type TrackedAIJob = AIJob & {
 
 export type { JobCallbacks } from './jobWaiter'
 
-export type BulkDescribeSummary = { ok: number; error: number; skipped: number }
+export interface BulkDescribeSummary {
+  ok: number
+  error: number
+  skipped: number
+}
 
-export type BulkDescribeTarget = {
+export interface BulkDescribeTarget {
   schema_name: string
   table_name: string
   description: string | null
 }
 
-type AIJobsContextValue = {
+interface AIJobsContextValue {
   sessionId: string
   jobs: TrackedAIJob[]
   expanded: boolean
@@ -98,7 +113,9 @@ function asString(value: unknown): string {
 }
 
 export function jobQuestionPreview(kind: AIJobKind, req: unknown): string {
-  if (!req || typeof req !== 'object') return kind
+  if (!req || typeof req !== 'object') {
+    return kind
+  }
   const record = req as Record<string, unknown>
   if (kind === 'describe') {
     const schema = asString(record.schema)
@@ -116,7 +133,9 @@ export function jobQuestionPreview(kind: AIJobKind, req: unknown): string {
     return 'Embedding refresh'
   }
   const q = asString(record.question)
-  if (q.length <= 80) return q
+  if (q.length <= 80) {
+    return q
+  }
   return `${q.slice(0, 77)}…`
 }
 
@@ -129,8 +148,12 @@ export function trackedJobFromAIJob(job: AIJob): TrackedAIJob {
 }
 
 function parseResult<TResult>(job: AIJob): TResult | null {
-  if (!job.result_json) return null
-  if (typeof job.result_json === 'object') return job.result_json as TResult
+  if (!job.result_json) {
+    return null
+  }
+  if (typeof job.result_json === 'object') {
+    return job.result_json as TResult
+  }
   return null
 }
 
@@ -153,19 +176,21 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   const bulkRunIdRef = useRef(0)
 
   const applyBulkProgressFromJob = useCallback((job: AIJob, queue: BulkEntry[]): BulkEntry[] => {
-    const progress = job.progress_json as DescribeBatchJobProgress | null | undefined
+    const progress = job.progress_json
     if (!progress) {
       const msg = job.phase_message?.trim()
-      if (!msg) return queue
-      return queue.map((entry) =>
-        entry.status === 'running' ? { ...entry, message: msg } : entry,
-      )
+      if (!msg) {
+        return queue
+      }
+      return queue.map((entry) => (entry.status === 'running' ? { ...entry, message: msg } : entry))
     }
     const completed = new Set(progress.completed ?? [])
     const curSchema = progress.current_schema?.trim() ?? ''
     const curTable = progress.current_table?.trim() ?? ''
     return queue.map((entry) => {
-      if (entry.status === 'skipped') return entry
+      if (entry.status === 'skipped') {
+        return entry
+      }
       const key = `${entry.schema}.${entry.table}`
       if (completed.has(key)) {
         return { ...entry, status: 'ok', message: `described ${key}` }
@@ -176,16 +201,22 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       if (entry.status === 'running' && !(curSchema === entry.schema && curTable === entry.table)) {
         return { ...entry, status: 'pending', message: undefined }
       }
-      if (entry.status === 'pending') return entry
+      if (entry.status === 'pending') {
+        return entry
+      }
       return entry
     })
   }, [])
 
   const upsertJob = useCallback((job: TrackedAIJob) => {
-    if (!isValidJobId(job.id)) return
+    if (!isValidJobId(job.id)) {
+      return
+    }
     setJobs((prev) => {
       const idx = prev.findIndex((j) => j.id === job.id)
-      if (idx === -1) return [job, ...prev].slice(0, 12)
+      if (idx === -1) {
+        return [job, ...prev].slice(0, 12)
+      }
       const next = [...prev]
       next[idx] = { ...next[idx], ...job }
       return next
@@ -202,29 +233,36 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   const stopPolling = useCallback(
     (jobId: string) => {
       pollingIdsRef.current.delete(jobId)
-      if (pollingIdsRef.current.size === 0) stopPollLoop()
+      if (pollingIdsRef.current.size === 0) {
+        stopPollLoop()
+      }
     },
     [stopPollLoop],
   )
 
-  const finishJob = useCallback((job: AIJob) => {
-    stopPolling(job.id)
-    const waiter = callbacksRef.current.get(job.id)
-    if (!waiter) return
-    callbacksRef.current.delete(job.id)
-    if (job.status === 'succeeded') {
-      const result = parseResult<unknown>(job)
-      if (result != null) {
-        waiter.settleComplete(result)
-      } else {
-        waiter.settleError('Job succeeded without result')
+  const finishJob = useCallback(
+    (job: AIJob) => {
+      stopPolling(job.id)
+      const waiter = callbacksRef.current.get(job.id)
+      if (!waiter) {
+        return
       }
-    } else if (job.status === 'failed') {
-      waiter.settleError(job.error_message || 'Job failed')
-    } else if (job.status === 'cancelled') {
-      waiter.settleError(job.phase_message || 'Job cancelled')
-    }
-  }, [stopPolling])
+      callbacksRef.current.delete(job.id)
+      if (job.status === 'succeeded') {
+        const result = parseResult<unknown>(job)
+        if (result != null) {
+          waiter.settleComplete(result)
+        } else {
+          waiter.settleError('Job succeeded without result')
+        }
+      } else if (job.status === 'failed') {
+        waiter.settleError(job.error_message || 'Job failed')
+      } else if (job.status === 'cancelled') {
+        waiter.settleError(job.phase_message || 'Job cancelled')
+      }
+    },
+    [stopPolling],
+  )
 
   const pollJob = useCallback(
     async (jobId: string) => {
@@ -232,7 +270,9 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
         stopPolling(jobId)
         return
       }
-      const { data, status, error } = await fetchJSON<AIJob>(`/api/ai/jobs/${encodeURIComponent(jobId)}`)
+      const { data, status, error } = await fetchJSON<AIJob>(
+        `/api/ai/jobs/${encodeURIComponent(jobId)}`,
+      )
       if (error) {
         stopPolling(jobId)
         const waiter = callbacksRef.current.get(jobId)
@@ -272,12 +312,16 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
 
   const runPollLoop = useCallback(async () => {
     const ids = [...pollingIdsRef.current]
-    if (ids.length === 0) return
+    if (ids.length === 0) {
+      return
+    }
     await Promise.all(ids.map((id) => pollJob(id)))
   }, [pollJob])
 
   const ensurePollLoop = useCallback(() => {
-    if (pollLoopRef.current != null) return
+    if (pollLoopRef.current != null) {
+      return
+    }
     pollLoopRef.current = window.setInterval(() => {
       void runPollLoop()
     }, POLL_MS)
@@ -285,8 +329,12 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
 
   const startPolling = useCallback(
     (jobId: string) => {
-      if (!isValidJobId(jobId)) return
-      if (pollingIdsRef.current.has(jobId)) return
+      if (!isValidJobId(jobId)) {
+        return
+      }
+      if (pollingIdsRef.current.has(jobId)) {
+        return
+      }
       pollingIdsRef.current.add(jobId)
       void pollJob(jobId)
       ensurePollLoop()
@@ -298,10 +346,16 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     const { data, status, error } = await fetchJSON<{ jobs: AIJob[] }>(
       `/api/ai/jobs?client_session_id=${encodeURIComponent(sessionId)}&active=true`,
     )
-    if (error) return
-    if (status === 404 || !data?.jobs?.length) return
+    if (error) {
+      return
+    }
+    if (status === 404 || !data?.jobs?.length) {
+      return
+    }
     for (const job of data.jobs) {
-      if (!isValidJobId(job.id)) continue
+      if (!isValidJobId(job.id)) {
+        continue
+      }
       upsertJob(trackedJobFromAIJob(job))
       startPolling(job.id)
     }
@@ -359,23 +413,33 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     [sessionId, startPolling, upsertJob],
   )
 
-  const dismissJob = useCallback((id: string) => {
-    setJobs((prev) => prev.filter((j) => j.id !== id))
-    stopPolling(id)
-    const waiter = callbacksRef.current.get(id)
-    if (waiter) {
-      callbacksRef.current.delete(id)
-      waiter.settleDismiss()
-    }
-  }, [stopPolling])
+  const dismissJob = useCallback(
+    (id: string) => {
+      setJobs((prev) => prev.filter((j) => j.id !== id))
+      stopPolling(id)
+      const waiter = callbacksRef.current.get(id)
+      if (waiter) {
+        callbacksRef.current.delete(id)
+        waiter.settleDismiss()
+      }
+    },
+    [stopPolling],
+  )
 
   const cancelJob = useCallback(
     async (id: string) => {
-      const { data, status, error } = await fetchJSON<AIJob>(`/api/ai/jobs/${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-      })
-      if (error) return false
-      if (status === 404 || status === 405) return false
+      const { data, status, error } = await fetchJSON<AIJob>(
+        `/api/ai/jobs/${encodeURIComponent(id)}`,
+        {
+          method: 'DELETE',
+        },
+      )
+      if (error) {
+        return false
+      }
+      if (status === 404 || status === 405) {
+        return false
+      }
       if (data) {
         upsertJob(trackedJobFromAIJob(data))
         finishJob(data)
@@ -390,12 +454,19 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   runJobRef.current = runJob
 
   const cancelAllActiveJobs = useCallback(async () => {
-    const { data, status, error } = await fetchJSON<{ cancelled: number }>('/api/ai/jobs/cancel-active', {
-      method: 'POST',
-      body: JSON.stringify({ client_session_id: sessionId }),
-    })
-    if (error) return 0
-    if (status === 404 || status === 405 || !data) return 0
+    const { data, status, error } = await fetchJSON<{ cancelled: number }>(
+      '/api/ai/jobs/cancel-active',
+      {
+        method: 'POST',
+        body: JSON.stringify({ client_session_id: sessionId }),
+      },
+    )
+    if (error) {
+      return 0
+    }
+    if (status === 404 || status === 405 || !data) {
+      return 0
+    }
     const activeIds = jobs.filter(jobIsActive).map((j) => j.id)
     for (const id of activeIds) {
       await pollJob(id)
@@ -408,26 +479,42 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       const { data, status, error } = await fetchJSON<AIJobListResponse>(
         `/api/ai/jobs/stale?client_session_id=${encodeURIComponent(sessionId)}&older_minutes=${olderMinutes}`,
       )
-      if (error) return []
-      if (status === 404 || status === 405 || !data?.jobs) return []
+      if (error) {
+        return []
+      }
+      if (status === 404 || status === 405 || !data?.jobs) {
+        return []
+      }
       return data.jobs
     },
     [sessionId],
   )
 
-  const cancelJobIds = useCallback(async (ids: string[]) => {
-    if (!ids.length) return 0
-    const { data, status, error } = await fetchJSON<{ cancelled: number }>('/api/ai/jobs/cancel-batch', {
-      method: 'POST',
-      body: JSON.stringify({ ids }),
-    })
-    if (error) return 0
-    if (status === 404 || status === 405 || !data) return 0
-    for (const id of ids) {
-      await pollJob(id)
-    }
-    return data.cancelled ?? 0
-  }, [pollJob])
+  const cancelJobIds = useCallback(
+    async (ids: string[]) => {
+      if (!ids.length) {
+        return 0
+      }
+      const { data, status, error } = await fetchJSON<{ cancelled: number }>(
+        '/api/ai/jobs/cancel-batch',
+        {
+          method: 'POST',
+          body: JSON.stringify({ ids }),
+        },
+      )
+      if (error) {
+        return 0
+      }
+      if (status === 404 || status === 405 || !data) {
+        return 0
+      }
+      for (const id of ids) {
+        await pollJob(id)
+      }
+      return data.cancelled ?? 0
+    },
+    [pollJob],
+  )
 
   const cancelBulkDescribe = useCallback(() => {
     bulkCancelRef.current = true
@@ -451,7 +538,9 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       onFinished?: () => void
     }) => {
       const { datasourceId, targets, sampleSize, skipExisting, onConflict, onFinished } = opts
-      if (!datasourceId || targets.length === 0) return
+      if (!datasourceId || targets.length === 0) {
+        return
+      }
 
       bulkCancelRef.current = false
       const runId = ++bulkRunIdRef.current
@@ -486,7 +575,9 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
           const match = batch.entries.find(
             (e) => e.schema === entry.schema && e.table === entry.table,
           )
-          if (!match) continue
+          if (!match) {
+            continue
+          }
           if (match.status === 'ok') {
             const cols = match.result?.columns?.length ?? 0
             queue[i] = {
@@ -521,7 +612,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       const runSequential = async () => {
         let ok = 0
         let errCount = 0
-        let skipped = queue.filter((q) => q.status === 'skipped').length
+        const skipped = queue.filter((q) => q.status === 'skipped').length
         const runOne = runJobRef.current
         if (!runOne) {
           setBulkRunning(false)
@@ -529,10 +620,14 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
         }
 
         for (let i = 0; i < targets.length; i++) {
-          if (bulkCancelRef.current) break
+          if (bulkCancelRef.current) {
+            break
+          }
           const row = targets[i]
           const entry = queue[i]
-          if (!row || !entry || entry.status === 'skipped') continue
+          if (!row || !entry || entry.status === 'skipped') {
+            continue
+          }
 
           const schema = row.schema_name
           const table = row.table_name
@@ -589,23 +684,28 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
           skip_existing: skipExisting,
         }
 
-        const { data: enqueued, status, error } = await fetchJSON<AIJob | DescribeBatchConflictBody>(
-          '/api/ai/jobs',
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              client_session_id: sessionId,
-              kind: 'describe_batch',
-              request: batchRequest,
-            }),
-          },
-        )
-        if (isStale()) return
+        const {
+          data: enqueued,
+          status,
+          error,
+        } = await fetchJSON<AIJob | DescribeBatchConflictBody>('/api/ai/jobs', {
+          method: 'POST',
+          body: JSON.stringify({
+            client_session_id: sessionId,
+            kind: 'describe_batch',
+            request: batchRequest,
+          }),
+        })
+        if (isStale()) {
+          return
+        }
 
         if (error) {
           setBulkEntries((prev) => {
             const next = prev.map((entry) =>
-              entry.status === 'running' ? { ...entry, status: 'error' as const, message: error } : entry,
+              entry.status === 'running'
+                ? { ...entry, status: 'error' as const, message: error }
+                : entry,
             )
             bulkEntriesRef.current = next
             return next
@@ -617,19 +717,14 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
         }
 
         if (status === 409 && enqueued && typeof enqueued === 'object' && 'error' in enqueued) {
-          const conflict = enqueued as DescribeBatchConflictBody
+          const conflict = enqueued
           onConflict?.(conflict.error, conflict.existing_job_id)
           setBulkRunning(false)
           onFinished?.()
           return
         }
 
-        if (
-          status >= 200 &&
-          status < 300 &&
-          enqueued &&
-          isValidJobId((enqueued as AIJob).id)
-        ) {
+        if (status >= 200 && status < 300 && enqueued && isValidJobId((enqueued as AIJob).id)) {
           const job = enqueued as AIJob
           bulkBatchJobIdRef.current = job.id
           upsertJob({
@@ -645,7 +740,9 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
           bulkBatchJobIdRef.current = null
 
           if (isStale() || bulkCancelRef.current) {
-            if (isMountedRef.current) setBulkRunning(false)
+            if (isMountedRef.current) {
+              setBulkRunning(false)
+            }
             onFinished?.()
             return
           }
@@ -656,11 +753,15 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
             await runSequential()
           }
         } else {
-          if (isStale()) return
+          if (isStale()) {
+            return
+          }
           await runSequential()
         }
 
-        if (!isStale()) setBulkRunning(false)
+        if (!isStale()) {
+          setBulkRunning(false)
+        }
         onFinished?.()
       })()
     },

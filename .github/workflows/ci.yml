@@ -97,8 +97,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Type check + build
-        run: npm run build
+      # check = lint (eslint, 0 errors + warning ratchet) + format:check
+      # (prettier) + knip:ci (unused files/deps) + test (vitest) + build
+      - name: Quality gate (lint + format + knip + test + build)
+        run: npm run check
 
       - name: Upload dist artifact
         uses: actions/upload-artifact@v7

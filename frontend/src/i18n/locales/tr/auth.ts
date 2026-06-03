@@ -1,7 +1,7 @@
 import type { AuthDictionary } from '../dictionary'
 
 export const auth: AuthDictionary = {
-  title_signin: 'ABI\'ye Giriş Yap',
+  title_signin: "ABI'ye Giriş Yap",
   ldap_hint: 'Dizin (LDAP) hesabınızla ya da yerel parolanızla giriş yapabilirsiniz.',
   title_signup: 'Hesabınızı Oluşturun',
   title_forgot: 'Şifremi Unuttum',
@@ -25,7 +25,8 @@ export const auth: AuthDictionary = {
   passkey_continue: 'Passkey kullan',
   no_account: 'Hesabınız yok mu?',
   signup_closed_title: 'Kayıt kapalı',
-  signup_closed_body: 'Yeni hesaplar yalnızca davet ile açılabilir. E-postanızdaki davet bağlantısını kullanın.',
+  signup_closed_body:
+    'Yeni hesaplar yalnızca davet ile açılabilir. E-postanızdaki davet bağlantısını kullanın.',
   signup_closed_contact: 'Erişim için yöneticinizle iletişime geçin.',
   already_account: 'Zaten hesabınız var mı?',
   back_to_login: 'Giriş sayfasına dön',
@@ -54,7 +55,8 @@ export const auth: AuthDictionary = {
   session_expired_title_generic: 'Oturumunuz sona erdi',
   session_expired_idle: 'Oturumunuz uzun süre hareketsiz kaldı. Lütfen tekrar giriş yapın.',
   session_expired_absolute: 'Oturumunuz maksimum süreye ulaştı. Lütfen tekrar giriş yapın.',
-  session_expired_revoked: 'Oturumunuz yönetici tarafından sonlandırıldı. Lütfen tekrar giriş yapın.',
+  session_expired_revoked:
+    'Oturumunuz yönetici tarafından sonlandırıldı. Lütfen tekrar giriş yapın.',
   session_expired_generic: 'Lütfen tekrar giriş yapın.',
   login_throttled: 'Çok fazla deneme. Lütfen yeniden denemeden önce kısa bir süre bekleyin.',
   register_success: 'Kayıt başarılı! Doğrulama e-postası gönderildi.',
@@ -69,17 +71,21 @@ export const auth: AuthDictionary = {
   passkey_not_supported: 'Passkey bu cihazda veya tarayıcıda desteklenmiyor.',
   passkey_no_keys: 'Kayıtlı passkey bulunamadı.',
   logout: 'Çıkış Yap',
-  my_passkeys: 'Passkey\'lerim',
+  my_passkeys: "Passkey'lerim",
   passkey_list_empty: 'Henüz kayıtlı passkey yok.',
   btn_delete: 'Sil',
-  passkey_delete_confirm: 'Bu passkey\'i silmek istediğinizden emin misiniz? Tekrar kaydetmeden bununla giriş yapamazsınız.',
+  passkey_delete_confirm:
+    "Bu passkey'i silmek istediğinizden emin misiniz? Tekrar kaydetmeden bununla giriş yapamazsınız.",
   passkey_name_placeholder: 'Passkey adı (örn. MacBook Pro)',
   passkey_register_dialog: 'Passkey Ekle',
-  passkey_prompt_desc: 'Passkey\'ler Face ID, Touch ID veya PIN kullanarak şifresiz, güvenli giriş yapmanızı sağlar.',
+  passkey_prompt_desc:
+    "Passkey'ler Face ID, Touch ID veya PIN kullanarak şifresiz, güvenli giriş yapmanızı sağlar.",
   title_invite: 'Hesabınızı Kurun',
-  invite_setup_desc: 'ABI\'ye {{role}} rolüyle davet edildiniz. Katılmak için hesap bilgilerinizi belirleyin.',
+  invite_setup_desc:
+    "ABI'ye {{role}} rolüyle davet edildiniz. Katılmak için hesap bilgilerinizi belirleyin.",
   invite_setup_success: 'Hesap kurulumu başarılı! Giriş yapılıyor...',
-  invite_invalid_token: 'Geçersiz veya süresi dolmuş davet bağlantısı. Lütfen yöneticinizden yeni bir davet isteyin.',
+  invite_invalid_token:
+    'Geçersiz veya süresi dolmuş davet bağlantısı. Lütfen yöneticinizden yeni bir davet isteyin.',
   btn_setup_account: 'Kurulumu Tamamla',
   btn_invite_user: 'Kullanıcı Davet Et',
   invite_user_modal_title: 'Yeni Kullanıcı Davet Et',
@@ -102,8 +108,10 @@ export const auth: AuthDictionary = {
   invite_status_all: 'Tüm Durumlar',
   btn_resend: 'Yeniden Gönder',
   btn_revoke: 'İptal Et',
-  invite_revoke_confirm: 'Bu daveti iptal etmek istediğinizden emin misiniz? Davet bağlantısı geçersiz olacaktır.',
-  invite_resend_confirm: 'Bu daveti yeniden göndermek istediğinizden emin misiniz? Yeni bir bağlantı oluşturulacak ve e-postası gönderilecektir.',
+  invite_revoke_confirm:
+    'Bu daveti iptal etmek istediğinizden emin misiniz? Davet bağlantısı geçersiz olacaktır.',
+  invite_resend_confirm:
+    'Bu daveti yeniden göndermek istediğinizden emin misiniz? Yeni bir bağlantı oluşturulacak ve e-postası gönderilecektir.',
   invite_resend_success: 'Davet başarıyla yeniden gönderildi.',
   invite_revoke_success: 'Davet başarıyla iptal edildi.',
   invite_list_empty: 'Davet bulunamadı.',

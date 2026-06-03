@@ -1,21 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useT } from '../../i18n'
+
+import type { PIIAccessLevel, PIIColumn, PIIColumnAccess, SecurityPolicy } from '../../api/admin'
+import { getSecurityPolicyByKeys, listPIIColumns, upsertSecurityPolicy } from '../../api/admin'
+import { request } from '../../hooks/useApi'
 import { useDatasources } from '../../hooks/useDatasources'
 import { useSemanticModels } from '../../hooks/useSemanticModels'
-import { request } from '../../hooks/useApi'
-import { getSecurityPolicyByKeys, listPIIColumns, upsertSecurityPolicy } from '../../api/admin'
-import type { PIIAccessLevel, PIIColumn, PIIColumnAccess, SecurityPolicy } from '../../api/admin'
+import { useT } from '../../i18n'
 import type { SemanticModelFieldRow, SemanticModelFieldsPage } from '../../types/semantic'
+import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
-import { useAuth } from '../auth/AuthProvider'
-import { ReadOnlyNote } from './ReadOnlyNote'
 import {
   datasourceSelectOptions,
   securityRoleOptions,
   semanticModelSelectOptions,
 } from './adminSelectOptions'
+import { ReadOnlyNote } from './ReadOnlyNote'
 
 const DEFAULT_FIELD_PAGE_SIZE = 15
 
@@ -86,7 +87,9 @@ export function FieldPermissionPanel({ token }: { token: string }) {
           getSecurityPolicyByKeys(token, `role:${selectedRole}`, selectedDS),
           listPIIColumns(token, selectedDS).catch(() => [] as PIIColumn[]),
         ])
-        if (cancelled) return
+        if (cancelled) {
+          return
+        }
         setPolicy(policyData)
         setDeniedFields(policyData.denied_fields || [])
         setPIIPolicy(policyData.pii_policy || {})
@@ -150,7 +153,9 @@ export function FieldPermissionPanel({ token }: { token: string }) {
   }, [selectedModel, selectedRole, selectedDS])
 
   const handleToggleField = (fieldName: string) => {
-    if (!modelName) return
+    if (!modelName) {
+      return
+    }
     const qualified = `${modelName}.${fieldName}`
 
     const isDenied = deniedFields.includes(qualified) || deniedFields.includes(fieldName)
@@ -167,7 +172,9 @@ export function FieldPermissionPanel({ token }: { token: string }) {
   }
 
   const handleSave = async () => {
-    if (!selectedDS) return
+    if (!selectedDS) {
+      return
+    }
     setError(null)
     setSaveSuccess(false)
 
@@ -198,8 +205,12 @@ export function FieldPermissionPanel({ token }: { token: string }) {
   // Role defaults mirror the backend pii.DefaultPIIPolicy: admin raw,
   // analyst masked, viewer hidden for sensitive types / masked otherwise.
   const roleDefaultAccess = (piiType: string): PIIAccessLevel => {
-    if (selectedRole === 'admin') return 'raw'
-    if (selectedRole === 'analyst') return 'masked'
+    if (selectedRole === 'admin') {
+      return 'raw'
+    }
+    if (selectedRole === 'analyst') {
+      return 'masked'
+    }
     return ['tc_kimlik_no', 'credit_card_like', 'iban'].includes(piiType) ? 'hidden' : 'masked'
   }
 
@@ -244,7 +255,9 @@ export function FieldPermissionPanel({ token }: { token: string }) {
   }, [piiColumns])
 
   const isFieldDenied = (fieldName: string) => {
-    if (!modelName) return false
+    if (!modelName) {
+      return false
+    }
     const qualified = `${modelName}.${fieldName}`
     return deniedFields.includes(qualified) || deniedFields.includes(fieldName)
   }
@@ -295,7 +308,11 @@ export function FieldPermissionPanel({ token }: { token: string }) {
         </div>
       </div>
 
-      {error && <div style={errStyle}>{t('common.error')}: {error}</div>}
+      {error && (
+        <div style={errStyle}>
+          {t('common.error')}: {error}
+        </div>
+      )}
       {saveSuccess && <div style={successStyle}>Field permissions saved successfully!</div>}
 
       <div style={contentLayout}>

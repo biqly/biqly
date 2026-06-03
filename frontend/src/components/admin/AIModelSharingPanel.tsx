@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useT } from '../../i18n'
-import { useAuth } from '../auth/AuthProvider'
-import { useToast } from '../../hooks/useToast'
-import { Select } from '../ui/Select'
-import { LoadingOverlay } from '../ui/LoadingOverlay'
+
 import { listRoles, listWorkspaces } from '../../api/admin'
-import { listModels, listProviders, type AIModel, type AIProvider } from '../../api/aiProviders'
 import {
+  type AIModelAccessGrants,
   grantModelRole,
   grantModelWorkspace,
   grantProviderRole,
@@ -16,13 +12,18 @@ import {
   revokeModelWorkspace,
   revokeProviderRole,
   revokeProviderWorkspace,
-  type AIModelAccessGrants,
 } from '../../api/aiModelAccess'
+import { type AIModel, type AIProvider, listModels, listProviders } from '../../api/aiProviders'
+import { useToast } from '../../hooks/useToast'
+import { useT } from '../../i18n'
+import { useAuth } from '../auth/AuthProvider'
+import { LoadingOverlay } from '../ui/LoadingOverlay'
+import { Select } from '../ui/Select'
 
 type TargetKind = 'workspace' | 'role'
 type GrantKind = 'provider' | 'model'
 
-type GrantListItem = {
+interface GrantListItem {
   key: string
   targetBadge: 'workspace' | 'role'
   resourceBadge: 'provider' | 'model'
@@ -49,7 +50,9 @@ export function AIModelSharingPanel() {
   const [submitting, setSubmitting] = useState(false)
 
   const reload = useCallback(async () => {
-    if (!accessToken) return
+    if (!accessToken) {
+      return
+    }
     setLoading(true)
     try {
       const [g, ws, rs, provs, allModels] = await Promise.all([
@@ -108,7 +111,9 @@ export function AIModelSharingPanel() {
   }, [grantKind, providers, models])
 
   const grantItems = useMemo((): GrantListItem[] => {
-    if (!grants || !accessToken) return []
+    if (!grants || !accessToken) {
+      return []
+    }
     const items: GrantListItem[] = []
     for (const g of grants.provider_workspaces ?? []) {
       items.push({
@@ -151,7 +156,9 @@ export function AIModelSharingPanel() {
   }, [grants, accessToken, workspaceName, providerName, modelLabel, roleName])
 
   const handleGrant = async () => {
-    if (!accessToken || !targetID || !resourceID) return
+    if (!accessToken || !targetID || !resourceID) {
+      return
+    }
     setSubmitting(true)
     try {
       if (targetKind === 'workspace' && grantKind === 'provider') {
@@ -174,7 +181,9 @@ export function AIModelSharingPanel() {
   }
 
   const revoke = async (fn: () => Promise<void>) => {
-    if (!accessToken) return
+    if (!accessToken) {
+      return
+    }
     try {
       await fn()
       toast.success(t('admin.ai_model_access.revoked'))
@@ -209,7 +218,7 @@ export function AIModelSharingPanel() {
               <Select
                 value={targetKind}
                 onChange={(v) => {
-                  setTargetKind(v as TargetKind)
+                  setTargetKind(v)
                   setTargetID('')
                 }}
                 options={[
@@ -220,7 +229,9 @@ export function AIModelSharingPanel() {
             </label>
             <label className="admin-form-label" style={{ gap: 4, margin: 0 }}>
               <span className="admin-label-text">
-                {targetKind === 'workspace' ? t('admin.ai_model_access.workspace') : t('admin.ai_model_access.role')}
+                {targetKind === 'workspace'
+                  ? t('admin.ai_model_access.workspace')
+                  : t('admin.ai_model_access.role')}
               </span>
               <Select
                 value={targetID}
@@ -235,7 +246,7 @@ export function AIModelSharingPanel() {
               <Select
                 value={grantKind}
                 onChange={(v) => {
-                  setGrantKind(v as GrantKind)
+                  setGrantKind(v)
                   setResourceID('')
                 }}
                 options={[
@@ -246,7 +257,9 @@ export function AIModelSharingPanel() {
             </label>
             <label className="admin-form-label" style={{ gap: 4, margin: 0 }}>
               <span className="admin-label-text">
-                {grantKind === 'provider' ? t('admin.ai_model_access.provider') : t('admin.ai_model_access.model')}
+                {grantKind === 'provider'
+                  ? t('admin.ai_model_access.provider')
+                  : t('admin.ai_model_access.model')}
               </span>
               <Select
                 value={resourceID}

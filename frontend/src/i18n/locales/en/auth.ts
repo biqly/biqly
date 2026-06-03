@@ -23,7 +23,8 @@ export const auth = {
   passkey_continue: 'Use Passkey',
   no_account: "Don't have an account?",
   signup_closed_title: 'Registration is closed',
-  signup_closed_body: 'New accounts are invite-only. If you received an invitation, use the link in your email.',
+  signup_closed_body:
+    'New accounts are invite-only. If you received an invitation, use the link in your email.',
   signup_closed_contact: 'Contact your administrator for access.',
   already_account: 'Already have an account?',
   back_to_login: 'Back to Sign In',
@@ -70,14 +71,18 @@ export const auth = {
   my_passkeys: 'My Passkeys',
   passkey_list_empty: 'No passkeys registered yet.',
   btn_delete: 'Delete',
-  passkey_delete_confirm: 'Delete this passkey? You won\'t be able to log in with it unless you register it again.',
+  passkey_delete_confirm:
+    "Delete this passkey? You won't be able to log in with it unless you register it again.",
   passkey_name_placeholder: 'Passkey name (e.g. MacBook Pro)',
   passkey_register_dialog: 'Add Passkey',
-  passkey_prompt_desc: 'Passkeys allow secure, passwordless authentication using Face ID, Touch ID, or PIN.',
+  passkey_prompt_desc:
+    'Passkeys allow secure, passwordless authentication using Face ID, Touch ID, or PIN.',
   title_invite: 'Setup Your Account',
-  invite_setup_desc: 'You have been invited to ABI as a {{role}}. Set up your account credentials to join.',
+  invite_setup_desc:
+    'You have been invited to ABI as a {{role}}. Set up your account credentials to join.',
   invite_setup_success: 'Account setup successful! Signing in...',
-  invite_invalid_token: 'Invalid or expired invitation link. Please request a new invite from your administrator.',
+  invite_invalid_token:
+    'Invalid or expired invitation link. Please request a new invite from your administrator.',
   btn_setup_account: 'Complete Setup',
   btn_invite_user: 'Invite User',
   invite_user_modal_title: 'Invite New User',
@@ -100,8 +105,10 @@ export const auth = {
   invite_status_all: 'All Statuses',
   btn_resend: 'Resend',
   btn_revoke: 'Cancel',
-  invite_revoke_confirm: 'Are you sure you want to cancel this invitation? This will render the invitation link invalid.',
-  invite_resend_confirm: 'Are you sure you want to resend this invitation? This will generate a new link and notify the user.',
+  invite_revoke_confirm:
+    'Are you sure you want to cancel this invitation? This will render the invitation link invalid.',
+  invite_resend_confirm:
+    'Are you sure you want to resend this invitation? This will generate a new link and notify the user.',
   invite_resend_success: 'Invitation resent successfully.',
   invite_revoke_success: 'Invitation cancelled successfully.',
   invite_list_empty: 'No invitations found.',

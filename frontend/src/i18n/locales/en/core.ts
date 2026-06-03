@@ -37,7 +37,8 @@ export const core = {
     skip_to_content: 'Skip to content',
     module_loading: 'Module loading',
     module_not_found: 'Module not found',
-    module_not_found_desc: 'The requested page does not exist. Use navigation to open an existing module.',
+    module_not_found_desc:
+      'The requested page does not exist. Use navigation to open an existing module.',
     go_to_datasources: 'Go to Datasources',
     page_not_found: 'Page not found',
     not_found_eyebrow: 'Not found',
@@ -58,7 +59,8 @@ export const core = {
   },
   app_update: {
     available_title: 'Update available',
-    available_body: 'A new version has been deployed. The page will refresh to load the latest assets.',
+    available_body:
+      'A new version has been deployed. The page will refresh to load the latest assets.',
     recover_title: 'Refreshing…',
     recover_body: "A new version was deployed while this page was open. We'll refresh to recover.",
     reloading_in: 'Reloading in {{seconds}}s',
@@ -131,7 +133,8 @@ export const core = {
       glossary_desc: 'Manage business terms, synonyms, and mapping rules for the AI.',
       prompt_templates: 'Prompt Templates',
       prompt_templates_eyebrow: 'Prompts',
-      prompt_templates_desc: 'Edit system prompts for every supported locale stored in the database.',
+      prompt_templates_desc:
+        'Edit system prompts for every supported locale stored in the database.',
       evaluation: 'Evaluation',
       evaluation_eyebrow: 'Quality',
       evaluation_desc: 'Run and review AI text-to-SQL evaluation suites.',
@@ -175,7 +178,8 @@ export const core = {
     access_allowed: 'access granted',
     access_unknown: 'checking access',
     locked_title: 'Access Locked',
-    locked_desc: 'You do not have permission to access this database. Please request access or switch to another datasource.',
+    locked_desc:
+      'You do not have permission to access this database. Please request access or switch to another datasource.',
     btn_request_access: 'Request Access',
     request_success: 'Access request submitted successfully.',
     request_failed: 'Failed to submit access request: {{error}}',
@@ -199,7 +203,8 @@ export const core = {
     mode_structured: 'Structured',
     mode_structured_desc: 'Host, port, and credentials',
     copy_id_aria: 'Copy datasource id {{id}}',
-    ssl_insecure_warning: 'SSL disabled — credentials and query data will be sent unencrypted. Use require or verify-full in production.',
+    ssl_insecure_warning:
+      'SSL disabled — credentials and query data will be sent unencrypted. Use require or verify-full in production.',
     mode_raw: 'Raw DSN',
     mode_raw_desc: 'Paste a full connection string',
     connection_mode: 'Connection format',
@@ -280,8 +285,7 @@ export const core = {
     bulk_ok_columns: '{{cols}} columns described',
     bulk_network_error: 'network error',
     bulk_modal_title: 'AI metadata generator',
-    bulk_modal_subtitle:
-      'Turkish‑first LLM descriptions for selected tables and columns',
+    bulk_modal_subtitle: 'Turkish‑first LLM descriptions for selected tables and columns',
     describe_badge_label: 'Describe',
     bulk_close_aria: 'Close',
     bulk_lede:
@@ -409,8 +413,7 @@ export const core = {
     use_this: 'Use this',
     cost_sec: '⏱ {{s}}s',
     cost_tokens: '🪙 {{n}} tokens',
-    cost_token_title:
-      'Prompt: {{prompt}} · Completion: {{completion}} · Total: {{total}}',
+    cost_token_title: 'Prompt: {{prompt}} · Completion: {{completion}} · Total: {{total}}',
     lq_default_schema: 'Default schema: {{schema}}',
     lq_schema_map: 'Schema: {{map}}',
     lq_cte: 'CTE ×{{n}}',
@@ -425,7 +428,8 @@ export const core = {
     prompt_runes_badge: '{{n}} runes',
     prompt_token_compare_title: 'Compare estimated prompt with response token_usage',
     prompt_token_compare_badge: 'Tokens (response): {{n}}',
-    embedding_summary: 'Embedded: {{tables}} tables · {{columns}} columns · {{locales}} locales × {{vectors}} vectors · {{model}}',
+    embedding_summary:
+      'Embedded: {{tables}} tables · {{columns}} columns · {{locales}} locales × {{vectors}} vectors · {{model}}',
     sample_modal_title: 'Sample data — {{table}}',
     clarify_default: 'Please clarify.',
     assistant_sql_preview: 'SQL: {{snippet}}…',
@@ -454,13 +458,11 @@ export const core = {
     collapsible_sql: '📝 Compiled SQL',
     collapsible_prompt: '🔍 Show prompt text',
     token_line: 'Token: {{prompt}} prompt · {{completion}} completion · {{total}} total',
-    prompt_large_warning:
-      '⚠️ Prompt is large ({{k}}K tokens) — may affect response quality.',
+    prompt_large_warning: '⚠️ Prompt is large ({{k}}K tokens) — may affect response quality.',
     warnings_title: 'Warnings',
     warnings_body:
       'The AI produced a query shape that does not fully match the semantic model. Try manually selecting the best table or restating fields clearly.',
-    warnings_body_success:
-      'The query ran successfully, but there are notes worth reviewing.',
+    warnings_body_success: 'The query ran successfully, but there are notes worth reviewing.',
     recovery_failed: 'The AI could not produce a valid query after {{n}} attempts.',
     recovery_rewrite: 'Rewrite question',
     recovery_query_builder: 'Manual query builder',
@@ -592,7 +594,8 @@ export const core = {
     placeholder_pick_model: '— choose model —',
     no_models_for_ds: 'No models for this datasource',
     model_setup_title: 'No semantic model for this datasource',
-    model_setup_body: 'Generate and publish a model draft with dimensions, metrics, and joins from synced metadata.',
+    model_setup_body:
+      'Generate and publish a model draft with dimensions, metrics, and joins from synced metadata.',
     model_setup_create: 'Create model',
     model_setup_generating: 'Creating…',
     model_setup_created_published: 'Semantic model created and published',
@@ -632,7 +635,8 @@ export const core = {
     remove_group_aria: 'Remove grouping {{n}}',
     add_group_row: '+ Grouping field',
     aggregations_label: 'Aggregations',
-    aggregations_hint: 'Pick metric functions such as COUNT, COUNT DISTINCT, SUM, or AVG after grouping.',
+    aggregations_hint:
+      'Pick metric functions such as COUNT, COUNT DISTINCT, SUM, or AVG after grouping.',
     aggregations_empty: 'No metric definitions are available for this model.',
     add_aggregation_aria: 'Add {{aggregation}} aggregation {{name}}',
     order_by_label: 'Sort by',
@@ -676,7 +680,8 @@ export const core = {
     title: 'Saved questions',
     new: 'New question',
     empty: 'No saved questions yet.',
-    select_hint: 'Select a question from the list on the left to view details and the logical query.',
+    select_hint:
+      'Select a question from the list on the left to view details and the logical query.',
     no_matches: 'No questions match your search.',
     intro_fewshot_none: 'Mark questions as AI few-shot examples to improve text-to-SQL.',
     intro_fewshot_active: '{{count}} question(s) marked as AI few-shot examples.',
@@ -750,7 +755,8 @@ export const core = {
     reseeded: 'All templates reloaded from embedded files.',
     err_empty: 'Content cannot be empty.',
     confirm_restore: 'Replace this template with the embedded default from the server build?',
-    confirm_reseed: 'Replace ALL prompt templates (EN + TR) with embedded defaults? Unsaved edits in other sections will be lost.',
+    confirm_reseed:
+      'Replace ALL prompt templates (EN + TR) with embedded defaults? Unsaved edits in other sections will be lost.',
     available_params: 'Available Parameters',
     intellisense_hint: 'Type {{ to open autocomplete',
   },
@@ -1002,7 +1008,8 @@ export const core = {
     suggested_fk_relationships: 'Suggested FK relationships',
     no_dimensions: 'No dimensions.',
     enum_values_title: 'Edit value labels',
-    enum_values_help: 'Map stored codes to human-readable labels so the AI can translate questions into the underlying values (e.g. 1 = pending).',
+    enum_values_help:
+      'Map stored codes to human-readable labels so the AI can translate questions into the underlying values (e.g. 1 = pending).',
     enum_values_edit_title: 'Edit value labels',
     enum_raw_value: 'Stored value',
     enum_label: 'Label',
@@ -1135,13 +1142,16 @@ export const core = {
     theme_section: 'Theme',
     theme_hint: 'Choose how the interface looks.',
     prompt_templates_section: 'Prompt templates',
-    prompt_templates_hint: 'Edit DB-backed AI prompt sections and review active versions used by evaluations.',
+    prompt_templates_hint:
+      'Edit DB-backed AI prompt sections and review active versions used by evaluations.',
     prompt_templates_open: 'Open prompt editor',
     time_grains_section: 'Time grains',
-    time_grains_hint: 'Manage the date/time grain synonyms and suffixes that route user queries to database operations.',
+    time_grains_hint:
+      'Manage the date/time grain synonyms and suffixes that route user queries to database operations.',
     time_grains_open: 'Open time grains editor',
     ai_config_section: 'AI providers & models',
-    ai_config_hint: 'Manage AI providers and the model used for each task (query, describe, embedding, translation, judge). Changes apply without a restart.',
+    ai_config_hint:
+      'Manage AI providers and the model used for each task (query, describe, embedding, translation, judge). Changes apply without a restart.',
     ai_config_open: 'Manage AI providers',
     profile_group: 'Profile',
     profile_section: 'Your account',
@@ -1168,9 +1178,11 @@ export const core = {
     profile_password_save: 'Update password',
     profile_password_saved: 'Password updated.',
     profile_forgot_password: 'Forgot password?',
-    profile_no_password: 'This account uses passkey or social sign-in only. Add a passkey under security, or use forgot password if you previously set a password.',
+    profile_no_password:
+      'This account uses passkey or social sign-in only. Add a passkey under security, or use forgot password if you previously set a password.',
     profile_mfa_bypass_title: 'MFA bypass (support)',
-    profile_mfa_bypass_hint: 'Generate a one-time code for your own account if you are locked out of your authenticator. Super administrators only.',
+    profile_mfa_bypass_hint:
+      'Generate a one-time code for your own account if you are locked out of your authenticator. Super administrators only.',
     profile_mfa_bypass_btn: 'Generate bypass code',
     security_group: 'Account security',
     configuration_group: 'Configuration',
@@ -1178,7 +1190,8 @@ export const core = {
       section: 'AI model preferences',
       hint: 'Choose which managed model to use for your queries and descriptions. Leave empty to use the workspace default.',
       restricted_hint: 'Only models shared with your workspaces or roles are listed.',
-      admin_managed_note: 'Embedding, translation and evaluation models are managed by administrators and are shared across users.',
+      admin_managed_note:
+        'Embedding, translation and evaluation models are managed by administrators and are shared across users.',
       use_default: 'Use default',
       save: 'Save preferences',
       clear: 'Clear',
@@ -1193,27 +1206,30 @@ export const core = {
         judge: 'Evaluation and quality scoring',
       },
     },
-    persist_hint:
-      'Language and theme are available in the sidebar — saved per browser.',
+    persist_hint: 'Language and theme are available in the sidebar — saved per browser.',
   },
   passkeys: {
     title: 'Security & Passkeys',
-    subtitle: 'Add Face ID, Touch ID, or security keys to sign in to your account faster and more securely.',
+    subtitle:
+      'Add Face ID, Touch ID, or security keys to sign in to your account faster and more securely.',
     add_btn: 'Add Passkey',
     col_name: 'Key Name',
     col_created: 'Created At',
     col_last_used: 'Last Used',
     never_used: 'Never used',
     empty_title: 'No passkeys found',
-    empty_desc: 'Register your device\'s biometric authentication or a security key to sign in passwordless.',
+    empty_desc:
+      "Register your device's biometric authentication or a security key to sign in passwordless.",
     delete_title: 'Delete Passkey',
-    delete_confirm: 'Are you sure you want to delete this passkey? You will no longer be able to use this device to sign in.',
+    delete_confirm:
+      'Are you sure you want to delete this passkey? You will no longer be able to use this device to sign in.',
     success_register: 'Passkey registered successfully.',
     success_delete: 'Passkey deleted successfully.',
     success_rename: 'Passkey renamed successfully.',
     rename_title: 'Rename Passkey',
     rename_desc: 'Enter a new name for this passkey.',
-    error_not_supported: 'This browser or device does not support passkeys, or you are not using a secure context (HTTPS).',
+    error_not_supported:
+      'This browser or device does not support passkeys, or you are not using a secure context (HTTPS).',
     modal_title: 'Register Passkey',
     modal_desc: 'Give this passkey a name so you can recognize it later.',
     modal_label_name: 'Key Name',
@@ -1222,7 +1238,8 @@ export const core = {
   },
   mfa: {
     title: 'Multi-Factor Authentication (2FA)',
-    subtitle: 'Enhance your account security by requiring a one-time verification code from an authenticator app (e.g., Google Authenticator, Duo) in addition to your password.',
+    subtitle:
+      'Enhance your account security by requiring a one-time verification code from an authenticator app (e.g., Google Authenticator, Duo) in addition to your password.',
     status_enabled: '2FA Status: Enabled',
     status_disabled: '2FA Status: Disabled',
     enable_btn: 'Enable 2FA',
@@ -1238,7 +1255,8 @@ export const core = {
     modal_enroll_title: 'Enable Multi-Factor Authentication',
     modal_enroll_desc: 'Follow the steps below to complete your 2FA setup.',
     step_scan: '1. Scan the QR Code',
-    step_scan_desc: 'Open your authenticator app (Google Authenticator, Duo, etc.) and scan the QR code below.',
+    step_scan_desc:
+      'Open your authenticator app (Google Authenticator, Duo, etc.) and scan the QR code below.',
     step_manual: 'Alternatively, you can manually enter the secret key:',
     step_verify: '2. Enter Verification Code',
     step_verify_desc: 'Enter the 6-digit code generated by your app to complete verification.',
@@ -1246,22 +1264,26 @@ export const core = {
     placeholder_code: 'e.g., 123456',
     verify_btn: 'Verify & Enable',
     recovery_title: 'Backup Recovery Codes',
-    recovery_desc: 'Save these one-time recovery codes in a secure place. You can use them to access your account if you lose your phone. These will only be shown once!',
+    recovery_desc:
+      'Save these one-time recovery codes in a secure place. You can use them to access your account if you lose your phone. These will only be shown once!',
     recovery_copied: 'Recovery codes copied to clipboard.',
     success_enabled: 'Multi-factor authentication enabled successfully.',
     success_disabled: 'Multi-factor authentication disabled successfully.',
     success_regenerate: 'Recovery codes regenerated successfully.',
     disable_title: 'Disable 2FA',
-    disable_desc: 'Please enter your current 6-digit verification code to disable multi-factor authentication.',
+    disable_desc:
+      'Please enter your current 6-digit verification code to disable multi-factor authentication.',
     disable_submit: 'Confirm & Disable',
     login_title: 'Two-Factor Authentication',
-    login_desc: 'Your account is protected with two-factor authentication. Please enter the 6-digit verification code from your authenticator app.',
+    login_desc:
+      'Your account is protected with two-factor authentication. Please enter the 6-digit verification code from your authenticator app.',
     login_submit: 'Sign In',
     login_cancel: 'Go Back',
   },
   time_grains: {
     title: 'Time Grains',
-    subtitle: 'Customize how the AI recognizes and handles time/date query grains (e.g., daily, monthly, yearly).',
+    subtitle:
+      'Customize how the AI recognizes and handles time/date query grains (e.g., daily, monthly, yearly).',
     col_grain: 'Time Grain',
     col_suffix: 'Suffix',
     col_requires_time: 'Requires Time Column',
@@ -1269,7 +1291,8 @@ export const core = {
     edit_title: 'Edit Time Grain',
     label_suffix: 'Suffix',
     label_requires_time: 'Requires Time Column',
-    label_requires_time_hint: 'If enabled, this grain is only applied to timestamp/datetime columns, not pure date columns.',
+    label_requires_time_hint:
+      'If enabled, this grain is only applied to timestamp/datetime columns, not pure date columns.',
     label_synonyms: 'Synonyms (comma separated)',
     placeholder_synonyms: 'e.g., hour, hours, hourly, saat',
     success_save: 'Time grain updated successfully.',
@@ -1281,7 +1304,8 @@ export const core = {
     title: 'Business Glossary',
     new: 'New glossary term',
     empty: 'No glossary terms yet.',
-    manage_hint: 'Define business glossary terms and map them to semantic components to help the AI map natural language questions accurately.',
+    manage_hint:
+      'Define business glossary terms and map them to semantic components to help the AI map natural language questions accurately.',
     col_term: 'Term',
     col_definition: 'Definition',
     col_maps_to: 'Maps to',
@@ -1341,7 +1365,8 @@ export const core = {
     empty_description: 'Create your first custom dashboard to start building visual summaries.',
     empty_cta: 'Create Dashboard',
     create_title: 'Create New Dashboard',
-    create_subtitle: 'Name your dashboard and add an optional description. You can add widgets after creating it.',
+    create_subtitle:
+      'Name your dashboard and add an optional description. You can add widgets after creating it.',
     name_label: 'Name',
     name_placeholder: 'E.g., Sales Overview',
     desc_label: 'Description',
@@ -1381,7 +1406,8 @@ export const core = {
     canonical_date_title: 'Canonical Date Dimension',
     canonical_date_hint: 'Dimension used as the common date axis across all component models.',
     conflicts_title: 'Dimension Conflict Resolutions',
-    conflicts_hint: 'Choose a resolution strategy for dimensions with the same name across multiple models.',
+    conflicts_hint:
+      'Choose a resolution strategy for dimensions with the same name across multiple models.',
     resolution_use_primary: 'Use primary',
     resolution_rename: 'Rename',
     resolution_merge: 'Merge',

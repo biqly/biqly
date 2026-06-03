@@ -1,6 +1,7 @@
+import type { ReactNode } from 'react'
+
 import { useT } from '../../i18n'
 import { Modal } from './Modal'
-import type { ReactNode } from 'react'
 
 interface ConfirmDialogProps {
   open: boolean

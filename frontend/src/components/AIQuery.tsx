@@ -1,12 +1,15 @@
+import '../styles/aiQuery.css'
+
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import '../styles/aiQuery.css'
-import { useApi } from '../hooks/useApi'
+
 import { jobIsActive, useAIJobs } from '../hooks/useAIJobs'
+import { useApi } from '../hooks/useApi'
 import { useConversation } from '../hooks/useConversation'
+import { useDatasources } from '../hooks/useDatasources'
 import { useQueryParam } from '../hooks/useQueryParam'
-import { localeNumberTag } from '../utils/formatters'
-import { normalizeAIQueryResponse } from '../utils/normalizeAIQueryResponse'
+import { useSemanticModels } from '../hooks/useSemanticModels'
+import { useLocale, useT } from '../i18n'
 import type {
   AIQueryRequest,
   AIQueryResponse,
@@ -14,17 +17,16 @@ import type {
   EmbedMetadataResponse,
   PriorTurn,
 } from '../types/ai'
-import type { Datasource } from '../types/metadata'
 import type { CompositeModelSummary } from '../types/composite'
-import { useLocale, useT } from '../i18n'
-import { SidebarConversationItem } from './aiQuery/SidebarConversationItem'
-import { RoutingPanel } from './aiQuery/RoutingPanel'
+import type { Datasource } from '../types/metadata'
+import { localeNumberTag } from '../utils/formatters'
+import { normalizeAIQueryResponse } from '../utils/normalizeAIQueryResponse'
 import { ChatPanel } from './aiQuery/ChatPanel'
+import { RoutingPanel } from './aiQuery/RoutingPanel'
 import { embeddingSummary } from './aiQuery/routingViz'
+import { SidebarConversationItem } from './aiQuery/SidebarConversationItem'
 import type { TableOption } from './aiQuery/types'
-import { AI_QUERY_TIMEOUT_MS, AI_METADATA_EMBED_TIMEOUT_MS } from './aiQuery/types'
-import { useDatasources } from '../hooks/useDatasources'
-import { useSemanticModels } from '../hooks/useSemanticModels'
+import { AI_METADATA_EMBED_TIMEOUT_MS, AI_QUERY_TIMEOUT_MS } from './aiQuery/types'
 
 export default function AIQuery() {
   const t = useT()
@@ -88,7 +90,9 @@ export default function AIQuery() {
   useEffect(() => {
     if (datasources.length > 0) {
       setDatasourceId((prev) => {
-        if (prev && datasources.some((d) => d.id === prev)) return prev
+        if (prev && datasources.some((d) => d.id === prev)) {
+          return prev
+        }
         return datasources[0]?.id ?? ''
       })
     }
@@ -101,7 +105,9 @@ export default function AIQuery() {
   useEffect(() => {
     let cancelled = false
     get<AIRuntimeSettings>('/api/ai/settings').then((data) => {
-      if (cancelled) return
+      if (cancelled) {
+        return
+      }
       if (data) {
         setAiRuntime(data)
         setAiRuntimeErr(null)
@@ -116,54 +122,86 @@ export default function AIQuery() {
   }, [get, t])
 
   useEffect(() => {
-    setSelectedTables([]); setTableSearch(''); setIncludeBaseTables(true); setIncludeViews(true); setTables([])
+    setSelectedTables([])
+    setTableSearch('')
+    setIncludeBaseTables(true)
+    setIncludeViews(true)
+    setTables([])
     setEmbeddingStatus(null)
     setSemanticModelId('')
     setComposites([])
-    if (!datasourceId) return
+    if (!datasourceId) {
+      return
+    }
     let cancelled = false
     get<TableOption[]>(`/api/datasources/${datasourceId}/tables`).then((data) => {
-      if (!cancelled) setTables(data || [])
+      if (!cancelled) {
+        setTables(data || [])
+      }
     })
-    get<CompositeModelSummary[]>(`/api/semantic/composites?datasource_id=${datasourceId}`).then((data) => {
-      if (!cancelled) setComposites((data || []).filter((c) => c.status === 'published'))
-    })
+    get<CompositeModelSummary[]>(`/api/semantic/composites?datasource_id=${datasourceId}`).then(
+      (data) => {
+        if (!cancelled) {
+          setComposites((data || []).filter((c) => c.status === 'published'))
+        }
+      },
+    )
     return () => {
       cancelled = true
     }
   }, [datasourceId, get])
 
-  const tableLabel = (table: TableOption) => table.label || `${table.schema_name}.${table.table_name}`
+  const tableLabel = (table: TableOption) =>
+    table.label || `${table.schema_name}.${table.table_name}`
 
   const tablesInTypeScope = useMemo(
-    () => tables.filter((table) => {
-      const typ = (table.table_type || '').toUpperCase()
-      if (typ === 'VIEW') return includeViews
-      if (typ === 'BASE TABLE') return includeBaseTables
-      return includeBaseTables
-    }),
+    () =>
+      tables.filter((table) => {
+        const typ = (table.table_type || '').toUpperCase()
+        if (typ === 'VIEW') {
+          return includeViews
+        }
+        if (typ === 'BASE TABLE') {
+          return includeBaseTables
+        }
+        return includeBaseTables
+      }),
     [tables, includeBaseTables, includeViews],
   )
 
   const filteredTables = useMemo(() => {
     const search = tableSearch.trim().toLowerCase()
     return tablesInTypeScope.filter((table) => {
-      if (!search) return true
-      return tableLabel(table).toLowerCase().includes(search) || (table.description || '').toLowerCase().includes(search)
+      if (!search) {
+        return true
+      }
+      return (
+        tableLabel(table).toLowerCase().includes(search) ||
+        (table.description || '').toLowerCase().includes(search)
+      )
     })
   }, [tablesInTypeScope, tableSearch])
 
-  const allowedLabels = useMemo(() => new Set(tablesInTypeScope.map((t) => tableLabel(t))), [tablesInTypeScope])
-  useEffect(() => { setSelectedTables((prev) => prev.filter((s) => allowedLabels.has(s))) }, [allowedLabels])
+  const allowedLabels = useMemo(
+    () => new Set(tablesInTypeScope.map((t) => tableLabel(t))),
+    [tablesInTypeScope],
+  )
+  useEffect(() => {
+    setSelectedTables((prev) => prev.filter((s) => allowedLabels.has(s)))
+  }, [allowedLabels])
 
   const recentPriorTurns = useMemo(() => {
-    if (!activeConversation) return undefined
+    if (!activeConversation) {
+      return undefined
+    }
     const MAX = 5
     const turns: PriorTurn[] = []
     const msgs = activeConversation.messages
     for (let i = 0; i < msgs.length; i++) {
       const m = msgs[i]
-      if (!m || m.role !== 'user') continue
+      if (m?.role !== 'user') {
+        continue
+      }
       const next = msgs[i + 1]
       const lq = next?.role === 'assistant' ? next.ai_response?.logical_query : undefined
       turns.push({
@@ -181,20 +219,33 @@ export default function AIQuery() {
   )
 
   const semanticModelName = useMemo(
-    () => semanticModels.find((m) => m.id === semanticModelId)?.label || semanticModels.find((m) => m.id === semanticModelId)?.name || '',
+    () =>
+      semanticModels.find((m) => m.id === semanticModelId)?.label ||
+      semanticModels.find((m) => m.id === semanticModelId)?.name ||
+      '',
     [semanticModels, semanticModelId],
   )
 
   const activeEmbeddingJob = useMemo(() => {
-    if (!datasourceId) return null
+    if (!datasourceId) {
+      return null
+    }
     const targetModelId = semanticModelId.trim()
     return (
       jobs.find((j) => {
-        if (j.kind !== 'embed_metadata') return false
-        if (!jobIsActive(j)) return false
-        if (!j.request_json || typeof j.request_json !== 'object') return false
+        if (j.kind !== 'embed_metadata') {
+          return false
+        }
+        if (!jobIsActive(j)) {
+          return false
+        }
+        if (!j.request_json || typeof j.request_json !== 'object') {
+          return false
+        }
         const req = j.request_json as Record<string, unknown>
-        if (req.datasource_id !== datasourceId) return false
+        if (req.datasource_id !== datasourceId) {
+          return false
+        }
         const reqModel = typeof req.model_id === 'string' ? req.model_id.trim() : ''
         // Treat empty model_id and missing as the "all tables" embed refresh.
         return (reqModel || '') === (targetModelId || '')
@@ -205,7 +256,9 @@ export default function AIQuery() {
   const embeddingActive = Boolean(activeEmbeddingJob) || embeddingRunning || embeddingLoading
 
   const refreshMetadataEmbeddings = async () => {
-    if (!datasourceId || embeddingActive) return
+    if (!datasourceId || embeddingActive) {
+      return
+    }
     setEmbeddingStatus(null)
     setEmbeddingRunning(true)
 
@@ -227,15 +280,13 @@ export default function AIQuery() {
             setEmbeddingRunning(false)
             setEmbeddingStatus(err || 'Failed to refresh embeddings')
           },
-        }
+        },
       )
 
       if (outcome === 'fallback') {
-        const res = await postEmbedData<EmbedMetadataResponse>(
-          '/api/ai/metadata/embed',
-          request,
-          { timeout: AI_METADATA_EMBED_TIMEOUT_MS },
-        )
+        const res = await postEmbedData<EmbedMetadataResponse>('/api/ai/metadata/embed', request, {
+          timeout: AI_METADATA_EMBED_TIMEOUT_MS,
+        })
         setEmbeddingRunning(false)
         if (res) {
           setEmbeddingStatus(embeddingSummary(res, t))
@@ -265,10 +316,16 @@ export default function AIQuery() {
 
   const applyAIResponse = (q: string, res: AIQueryResponse | unknown) => {
     const flat = normalizeAIQueryResponse(res)
-    if (!flat) return
+    if (!flat) {
+      return
+    }
     if (flat.needs_clarification) {
       addMessage({ role: 'user', content: q })
-      addMessage({ role: 'assistant', content: flat.clarification_question ?? t('ai_query.clarify_default'), ai_response: flat })
+      addMessage({
+        role: 'assistant',
+        content: flat.clarification_question ?? t('ai_query.clarify_default'),
+        ai_response: flat,
+      })
       return
     }
     addMessage({ role: 'user', content: q })
@@ -279,7 +336,9 @@ export default function AIQuery() {
   }
 
   const sendQuery = async (q: string, execute: boolean, clarificationChoice?: string) => {
-    if (!q.trim()) return
+    if (!q.trim()) {
+      return
+    }
     setQueryAction(execute ? 'execute' : 'preview')
     setJobError(null)
     try {
@@ -290,13 +349,19 @@ export default function AIQuery() {
       })
       if (outcome === 'fallback') {
         const endpoint = execute ? '/api/ai/query/run' : '/api/ai/query/preview'
-        const res = await postData<AIQueryResponse>(endpoint, body, { timeout: AI_QUERY_TIMEOUT_MS })
-        if (!res) return
+        const res = await postData<AIQueryResponse>(endpoint, body, {
+          timeout: AI_QUERY_TIMEOUT_MS,
+        })
+        if (!res) {
+          return
+        }
         applyAIResponse(q, res)
         setQuestion('')
         return
       }
-      if (!outcome) return
+      if (!outcome) {
+        return
+      }
       setJobError(null)
       applyAIResponse(q, outcome)
       setQuestion('')
@@ -308,14 +373,30 @@ export default function AIQuery() {
   return (
     <div className="ai-query-layout">
       <aside className="conversation-sidebar">
-        <div className="sidebar-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '0.75rem' }}>
+        <div
+          className="sidebar-header"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'stretch',
+            gap: '0.75rem',
+          }}
+        >
           <h3 style={{ textAlign: 'center', width: '100%', margin: 0 }}>
             {t('ai_query.conv_title')}
           </h3>
           <button
             className="btn btn-primary btn-sm"
-            style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
-            onClick={() => { createConversation(); setQuestion('') }}
+            style={{
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+            onClick={() => {
+              createConversation()
+              setQuestion('')
+            }}
           >
             {t('ai_query.conv_new')}
           </button>

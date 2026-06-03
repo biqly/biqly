@@ -84,7 +84,9 @@ export function driverStructuredDefaults(id: string): { port: string; ssl_mode: 
 const SSL_INSECURE_VALUES = new Set(['disable', 'disabled', 'off', 'false', '0', 'no'])
 
 export function isInsecureSslMode(value: string | null | undefined): boolean {
-  if (!value) return false
+  if (!value) {
+    return false
+  }
   return SSL_INSECURE_VALUES.has(value.trim().toLowerCase())
 }
 

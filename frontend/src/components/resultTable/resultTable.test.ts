@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { formatResultCell } from '../../utils/resultCellFormat'
 import { buildAnomalyCellSet, isAnomalyCell } from './anomalies'
 import {
@@ -111,6 +112,8 @@ describe('cell formatting (ResultTable display)', () => {
 
   it('formats metric columns with grouping for table display', () => {
     expect(formatResultCell(9876543, 'total_revenue')).toBe('9,876,543')
-    expect(formatResultCell(42.789, 'total_revenue', { question: '2 decimal places' })).toBe('42.79')
+    expect(formatResultCell(42.789, 'total_revenue', { question: '2 decimal places' })).toBe(
+      '42.79',
+    )
   })
 })

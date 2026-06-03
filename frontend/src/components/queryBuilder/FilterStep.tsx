@@ -21,7 +21,9 @@ export function FilterStep({
   onClear,
   t,
 }: FilterStepProps) {
-  if (filters.length === 0) return null
+  if (filters.length === 0) {
+    return null
+  }
 
   return (
     <NotebookStep

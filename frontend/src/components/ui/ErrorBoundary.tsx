@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+
 import { useT } from '../../i18n'
 
 interface ErrorBoundaryProps {
@@ -23,24 +24,21 @@ function ErrorFallback({ error, onRetry }: { error: Error; onRetry: () => void }
 }
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { error: null }
+  override state: ErrorBoundaryState = { error: null }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { error }
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo) {
+  override componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('Unhandled UI error', error, info.componentStack)
   }
 
-  render() {
-    if (!this.state.error) return this.props.children
+  override render() {
+    if (!this.state.error) {
+      return this.props.children
+    }
 
-    return (
-      <ErrorFallback
-        error={this.state.error}
-        onRetry={() => this.setState({ error: null })}
-      />
-    )
+    return <ErrorFallback error={this.state.error} onRetry={() => this.setState({ error: null })} />
   }
 }

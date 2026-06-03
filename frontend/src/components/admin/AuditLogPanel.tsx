@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+
 import { listAuditLog } from '../../api/admin'
+import { useAdminLookups } from '../../hooks/useAdminLookups'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import type { AuditLogEntry } from '../../types/auth'
-import { Pagination } from '../ui/Pagination'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
-import { useAdminLookups } from '../../hooks/useAdminLookups'
+import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
 import { numberSelectOptions, stringSelectOptions, userSelectOptions } from './adminSelectOptions'
 
@@ -44,7 +45,7 @@ const COMMON_ACTIONS = [
   'login.new_device',
   'session.evicted',
   'admin.force_logout',
-  'password.expired'
+  'password.expired',
 ].sort()
 
 export const DEFAULT_AUDIT_PAGE_SIZE = 10
@@ -124,10 +125,15 @@ export function AuditLogPanel({ token }: { token: string }) {
             {t('admin.audit.description')}
           </p>
         </div>
-        <div style={{ color: 'var(--text-secondary, #a1a1aa)', fontSize: 13 }}>{t('admin.audit.count', { count: totalItems })}</div>
+        <div style={{ color: 'var(--text-secondary, #a1a1aa)', fontSize: 13 }}>
+          {t('admin.audit.count', { count: totalItems })}
+        </div>
       </div>
 
-      <form onSubmit={onSubmit} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+      <form
+        onSubmit={onSubmit}
+        style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}
+      >
         <label className="admin-form-label" style={{ gap: 4, minWidth: 220 }}>
           <span className="admin-label-text">{t('admin.fields.user')}</span>
           <Select value={userID} options={userFilterOptions} onChange={setUserID} />
@@ -149,7 +155,9 @@ export function AuditLogPanel({ token }: { token: string }) {
             }}
           />
         </label>
-        <button type="submit" className="admin-btn-primary">{t('admin.filters.apply')}</button>
+        <button type="submit" className="admin-btn-primary">
+          {t('admin.filters.apply')}
+        </button>
         <button
           type="button"
           onClick={() => {
@@ -165,13 +173,27 @@ export function AuditLogPanel({ token }: { token: string }) {
         </button>
       </form>
 
-      {error && <div className="admin-err-text">{t('common.error')}: {error}</div>}
+      {error && (
+        <div className="admin-err-text">
+          {t('common.error')}: {error}
+        </div>
+      )}
 
       <div className="admin-table-container">
         <LoadingOverlay loading={loading} label={t('common.loading')}>
-          <div style={{ overflowX: 'auto', minHeight: entries.length === 0 && loading ? 120 : 'auto', display: 'flex', flexDirection: 'column' }}>
+          <div
+            style={{
+              overflowX: 'auto',
+              minHeight: entries.length === 0 && loading ? 120 : 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
             {entries.length === 0 ? (
-              <div className="admin-text-muted" style={{ padding: 48, textAlign: 'center', width: '100%', border: 0 }}>
+              <div
+                className="admin-text-muted"
+                style={{ padding: 48, textAlign: 'center', width: '100%', border: 0 }}
+              >
                 {loading ? '' : t('admin.audit.empty')}
               </div>
             ) : (
@@ -189,9 +211,17 @@ export function AuditLogPanel({ token }: { token: string }) {
                 <tbody>
                   {displayedEntries.map((entry) => (
                     <tr key={entry.id} className="admin-tr">
-                      <td className="admin-td-mono">{formatDate(entry.created_at, localeLanguageTag(locale))}</td>
-                      <td className="admin-td"><span className="admin-badge-action">{entry.action}</span></td>
-                      <td className="admin-td-mono">{entry.user_id ? (userMap.get(entry.user_id) || entry.user_id) : t('admin.audit.system_user')}</td>
+                      <td className="admin-td-mono">
+                        {formatDate(entry.created_at, localeLanguageTag(locale))}
+                      </td>
+                      <td className="admin-td">
+                        <span className="admin-badge-action">{entry.action}</span>
+                      </td>
+                      <td className="admin-td-mono">
+                        {entry.user_id
+                          ? userMap.get(entry.user_id) || entry.user_id
+                          : t('admin.audit.system_user')}
+                      </td>
                       <td className="admin-td-mono">{formatResource(entry, dsMap, wsMap)}</td>
                       <td className="admin-td-mono">{entry.ip_address || '-'}</td>
                       <td className="admin-td-metadata">{formatMetadata(entry.metadata)}</td>
@@ -219,26 +249,41 @@ export function AuditLogPanel({ token }: { token: string }) {
 
 function formatDate(value: string, languageTag: string) {
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
   return date.toLocaleString(languageTag)
 }
 
-function formatResource(entry: AuditLogEntry, dsMap: Map<string, string>, wsMap: Map<string, string>) {
-  if (!entry.resource && !entry.resource_id) return '-'
+function formatResource(
+  entry: AuditLogEntry,
+  dsMap: Map<string, string>,
+  wsMap: Map<string, string>,
+) {
+  if (!entry.resource && !entry.resource_id) {
+    return '-'
+  }
   if (entry.resource === 'datasource' && entry.resource_id && dsMap.has(entry.resource_id)) {
     return `datasource:${dsMap.get(entry.resource_id)}`
   }
   if (entry.resource === 'workspace' && entry.resource_id && wsMap.has(entry.resource_id)) {
     return `workspace:${wsMap.get(entry.resource_id)}`
   }
-  if (!entry.resource_id) return entry.resource
-  if (!entry.resource) return entry.resource_id
+  if (!entry.resource_id) {
+    return entry.resource
+  }
+  if (!entry.resource) {
+    return entry.resource_id
+  }
   return `${entry.resource}:${entry.resource_id}`
 }
 
 function formatMetadata(value: unknown) {
-  if (value === undefined || value === null) return '-'
-  if (typeof value === 'string') return value
+  if (value === undefined || value === null) {
+    return '-'
+  }
+  if (typeof value === 'string') {
+    return value
+  }
   return JSON.stringify(value)
 }
-

@@ -1,4 +1,7 @@
+import '../../styles/bulk-describe.css'
+
 import { useEffect, useMemo, useState } from 'react'
+
 import { fetchDescribeBatchConflict } from '../../api/describeBatchConflict'
 import { useT } from '../../i18n'
 import type { AIRuntimeSettings } from '../../types/ai'
@@ -6,14 +9,13 @@ import type { TableRow } from '../../types/semantic'
 import { ModelBadgeRow } from '../ui/ModelBadgeRow'
 import { MultiSelect } from '../ui/MultiSelect'
 import {
+  type BulkEntry,
   BulkProgressHeader,
   BulkQueuePreview,
   BulkStatusBadge,
   objectTypeLabel,
   sortBulkEntriesForDisplay,
-  type BulkEntry,
 } from './bulkProgress'
-import '../../styles/bulk-describe.css'
 
 export interface MetadataBulkDescribeModalProps {
   open: boolean
@@ -68,11 +70,17 @@ export function MetadataBulkDescribeModal({
     schemas?: string
   } | null>(null)
   const dbManaged = aiRuntime?.db_managed === true
-  const activeDescribe = dbManaged ? aiRuntime?.active_models?.find((m) => m.purpose === 'describe') : undefined
-  const activeTranslation = dbManaged ? aiRuntime?.active_models?.find((m) => m.purpose === 'translation') : undefined
+  const activeDescribe = dbManaged
+    ? aiRuntime?.active_models?.find((m) => m.purpose === 'describe')
+    : undefined
+  const activeTranslation = dbManaged
+    ? aiRuntime?.active_models?.find((m) => m.purpose === 'translation')
+    : undefined
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      return
+    }
     setBulkTypeEnabled(Object.fromEntries(typeOptions.map((ty) => [ty, true])))
     setBulkSchemaRestrict(false)
     setBulkSchemasSelected([])
@@ -81,22 +89,31 @@ export function MetadataBulkDescribeModal({
   const bulkTargetTables = useMemo(() => {
     const restrictTypes = Object.keys(bulkTypeEnabled).length > 0
     return tables.filter((tab) => {
-      if (restrictTypes && !bulkTypeEnabled[tab.table_type]) return false
+      if (restrictTypes && !bulkTypeEnabled[tab.table_type]) {
+        return false
+      }
       if (bulkSchemaRestrict) {
-        if (bulkSchemasSelected.length === 0) return false
-        if (!bulkSchemasSelected.includes(tab.schema_name)) return false
+        if (bulkSchemasSelected.length === 0) {
+          return false
+        }
+        if (!bulkSchemasSelected.includes(tab.schema_name)) {
+          return false
+        }
       }
       return true
     })
   }, [tables, bulkTypeEnabled, bulkSchemaRestrict, bulkSchemasSelected])
 
-  const bulkHasObjectType = typeOptions.length === 0 || typeOptions.some((ty) => bulkTypeEnabled[ty])
+  const bulkHasObjectType =
+    typeOptions.length === 0 || typeOptions.some((ty) => bulkTypeEnabled[ty])
 
   const bulkScopeSchemas = useMemo(() => {
     if (bulkSchemaRestrict) {
       return [...bulkSchemasSelected].sort((a, b) => a.localeCompare(b))
     }
-    return [...new Set(bulkTargetTables.map((tab) => tab.schema_name))].sort((a, b) => a.localeCompare(b))
+    return [...new Set(bulkTargetTables.map((tab) => tab.schema_name))].sort((a, b) =>
+      a.localeCompare(b),
+    )
   }, [bulkSchemaRestrict, bulkSchemasSelected, bulkTargetTables])
 
   useEffect(() => {
@@ -106,7 +123,9 @@ export function MetadataBulkDescribeModal({
     }
     let cancelled = false
     void fetchDescribeBatchConflict(datasourceId, bulkScopeSchemas).then((res) => {
-      if (cancelled) return
+      if (cancelled) {
+        return
+      }
       if (res?.conflict) {
         setBulkScopeConflict({
           message: t('metadata.already_running'),
@@ -135,7 +154,9 @@ export function MetadataBulkDescribeModal({
 
   const runBulkDescribe = () => {
     const targets = bulkTargetTables
-    if (!datasourceId || targets.length === 0 || bulkScopeConflict) return
+    if (!datasourceId || targets.length === 0 || bulkScopeConflict) {
+      return
+    }
     setBulkScopeConflict(null)
     onStartBulk({
       targets,
@@ -155,7 +176,9 @@ export function MetadataBulkDescribeModal({
       className="modal-backdrop"
       role="presentation"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
+        if (e.target === e.currentTarget) {
+          onClose()
+        }
       }}
     >
       <section
@@ -174,7 +197,9 @@ export function MetadataBulkDescribeModal({
               primaryLabel={t('metadata.describe_badge_label')}
               primaryModel={describeModel || aiRuntime?.llm_model}
               primaryNote={dbManaged ? activeDescribe?.provider_name : undefined}
-              translationModel={aiRuntime?.translation_enabled ? aiRuntime?.translation_model : undefined}
+              translationModel={
+                aiRuntime?.translation_enabled ? aiRuntime?.translation_model : undefined
+              }
               translationNote={dbManaged ? activeTranslation?.provider_name : undefined}
             />
           </div>
@@ -194,16 +219,18 @@ export function MetadataBulkDescribeModal({
               <div className="bulk-panel-grid">
                 <fieldset className="bulk-fieldset">
                   <legend className="bulk-legend">{t('metadata.bulk_legend_types')}</legend>
-                  <div className="bulk-pill-row" role="group" aria-label={t('metadata.bulk_aria_types')}>
+                  <div
+                    className="bulk-pill-row"
+                    role="group"
+                    aria-label={t('metadata.bulk_aria_types')}
+                  >
                     {typeOptions.map((ty) => (
                       <button
                         key={ty}
                         type="button"
                         className={`bulk-pill${bulkTypeEnabled[ty] === true ? ' bulk-pill--on' : ''}`}
                         aria-pressed={bulkTypeEnabled[ty] === true}
-                        onClick={() =>
-                          setBulkTypeEnabled((prev) => ({ ...prev, [ty]: !prev[ty] }))
-                        }
+                        onClick={() => setBulkTypeEnabled((prev) => ({ ...prev, [ty]: !prev[ty] }))}
                       >
                         <span className="bulk-pill-label">{objectTypeLabel(ty, t)}</span>
                         <span className="bulk-pill-code">{ty}</span>
@@ -244,15 +271,21 @@ export function MetadataBulkDescribeModal({
                       }
                       onClick={() => {
                         setBulkSchemaRestrict(true)
-                        setBulkSchemasSelected((prev) => (prev.length > 0 ? prev : [...schemaOptions]))
+                        setBulkSchemasSelected((prev) =>
+                          prev.length > 0 ? prev : [...schemaOptions],
+                        )
                       }}
                     >
                       {t('metadata.bulk_pick_schemas')}
                     </button>
                   </div>
-                  <div className={`bulk-schema-box${bulkSchemaRestrict ? ' bulk-schema-box--active' : ''}`}>
+                  <div
+                    className={`bulk-schema-box${bulkSchemaRestrict ? ' bulk-schema-box--active' : ''}`}
+                  >
                     {!bulkSchemaRestrict ? (
-                      <p className="bulk-schema-placeholder">{t('metadata.bulk_schema_all_hint')}</p>
+                      <p className="bulk-schema-placeholder">
+                        {t('metadata.bulk_schema_all_hint')}
+                      </p>
                     ) : (
                       <>
                         <MultiSelect
@@ -280,7 +313,9 @@ export function MetadataBulkDescribeModal({
                           >
                             {t('metadata.bulk_select_none')}
                           </button>
-                          <span className="bulk-schema-hint">{t('metadata.bulk_multiselect_hint')}</span>
+                          <span className="bulk-schema-hint">
+                            {t('metadata.bulk_multiselect_hint')}
+                          </span>
                         </div>
                       </>
                     )}
@@ -299,7 +334,9 @@ export function MetadataBulkDescribeModal({
                     max={100}
                     className="bulk-opt-input"
                     value={bulkConfig.sample_size}
-                    onChange={(e) => setBulkConfig({ ...bulkConfig, sample_size: Number(e.target.value) })}
+                    onChange={(e) =>
+                      setBulkConfig({ ...bulkConfig, sample_size: Number(e.target.value) })
+                    }
                   />
                 </div>
                 <label className="bulk-skip-label" htmlFor="bulk-skip-existing">
@@ -307,7 +344,9 @@ export function MetadataBulkDescribeModal({
                     id="bulk-skip-existing"
                     type="checkbox"
                     checked={bulkConfig.skip_existing}
-                    onChange={(e) => setBulkConfig({ ...bulkConfig, skip_existing: e.target.checked })}
+                    onChange={(e) =>
+                      setBulkConfig({ ...bulkConfig, skip_existing: e.target.checked })
+                    }
                   />
                   <span>{t('metadata.bulk_skip_existing')}</span>
                 </label>
@@ -349,7 +388,11 @@ export function MetadataBulkDescribeModal({
 
           {bulkEntries.length > 0 && (
             <>
-              <BulkProgressHeader entries={bulkEntries} running={bulkRunning} summary={bulkSummary} />
+              <BulkProgressHeader
+                entries={bulkEntries}
+                running={bulkRunning}
+                summary={bulkSummary}
+              />
               {bulkRunning && (
                 <BulkQueuePreview
                   entries={bulkEntries}

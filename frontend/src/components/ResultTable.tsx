@@ -1,10 +1,12 @@
-import { useMemo, useState, type MouseEvent, type KeyboardEvent } from 'react'
-import { useT } from '../i18n'
+import '../styles/table-results.css'
+
+import { type KeyboardEvent, type MouseEvent, useMemo, useState } from 'react'
+
 import { useToast } from '../hooks/useToast'
+import { useT } from '../i18n'
+import type { ResultAnomaly } from '../types/ai'
 import { downloadCsv } from '../utils/exportCsv'
 import { formatResultCell } from '../utils/resultCellFormat'
-import '../styles/table-results.css'
-import type { ResultAnomaly } from '../types/ai'
 import { buildAnomalyCellSet, isAnomalyCell } from './resultTable/anomalies'
 import {
   buildContextMenuFromCellRect,
@@ -16,8 +18,8 @@ import {
   cycleSortState,
   indexRows,
   sortArrow,
-  sortIndexedRows,
   type SortDirection,
+  sortIndexedRows,
 } from './resultTable/sort'
 
 interface ResultTableProps {
@@ -79,13 +81,19 @@ export function ResultTable({
   const closeContextMenu = () => setContextMenu(null)
 
   const handleContextMenu = (e: MouseEvent, colName: string, value: string) => {
-    if (!onFilterByValue) return
+    if (!onFilterByValue) {
+      return
+    }
     e.preventDefault()
     setContextMenu(buildContextMenuFromPointer(e.clientX, e.clientY, colName, value))
   }
   const handleCellKeyDown = (e: KeyboardEvent<HTMLElement>, colName: string, value: string) => {
-    if (!onFilterByValue) return
-    if (!isContextMenuKey(e.key, e.shiftKey)) return
+    if (!onFilterByValue) {
+      return
+    }
+    if (!isContextMenuKey(e.key, e.shiftKey)) {
+      return
+    }
     e.preventDefault()
     const rect = e.currentTarget.getBoundingClientRect()
     setContextMenu(buildContextMenuFromCellRect(rect, colName, value))
@@ -93,17 +101,16 @@ export function ResultTable({
 
   const handleGlobalClick = () => closeContextMenu()
   const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') closeContextMenu()
+    if (e.key === 'Escape') {
+      closeContextMenu()
+    }
   }
 
   return (
     <div onKeyDown={handleKeyDown} style={{ position: 'relative' }}>
       {contextMenu && (
         <>
-          <div
-            style={{ position: 'fixed', inset: 0, zIndex: 999 }}
-            onClick={handleGlobalClick}
-          />
+          <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={handleGlobalClick} />
           <div
             className="context-menu"
             style={{
@@ -120,7 +127,10 @@ export function ResultTable({
                 closeContextMenu()
               }}
             >
-              {t('result_table.filter_by_value', { column: contextMenu.colName, value: contextMenu.value })}
+              {t('result_table.filter_by_value', {
+                column: contextMenu.colName,
+                value: contextMenu.value,
+              })}
             </button>
             <button
               className="context-menu-item"
@@ -149,9 +159,14 @@ export function ResultTable({
                     className="sortable"
                     aria-sort={ariaSort}
                     title={t('result_table.sort_hint', {
-                      direction: isActive && sortDir
-                        ? t(sortDir === 'asc' ? 'result_table.sort_asc' : 'result_table.sort_desc')
-                        : '',
+                      direction:
+                        isActive && sortDir
+                          ? t(
+                              sortDir === 'asc'
+                                ? 'result_table.sort_asc'
+                                : 'result_table.sort_desc',
+                            )
+                          : '',
                     })}
                   >
                     <button
@@ -171,31 +186,32 @@ export function ResultTable({
             {sortedRows.map(({ row, originalIndex }, rowIdx) => {
               const anomalyTitle = t('ai_query.anomalies_title')
               return (
-              <tr key={rowIdx}>
-                {row.map((cell, colIdx) => {
-                  const colName = columns[colIdx]?.name ?? ''
-                  const isAnomaly = isAnomalyCell(anomalyCells, originalIndex, colName)
-                  return (
-                    <td
-                      key={colIdx}
-                      className={isAnomaly ? 'results-cell--anomaly' : undefined}
-                      title={isAnomaly ? anomalyTitle : undefined}
-                      onContextMenu={(e) => handleContextMenu(e, colName, String(cell))}
-                      onKeyDown={(e) => handleCellKeyDown(e, colName, String(cell))}
-                      tabIndex={onFilterByValue ? 0 : undefined}
-                    >
-                      <span
-                        className={onCellClick ? 'cell-drillable' : ''}
-                        onClick={() => onCellClick?.(colName, String(cell))}
-                        style={{ cursor: onCellClick ? 'pointer' : 'default' }}
+                <tr key={rowIdx}>
+                  {row.map((cell, colIdx) => {
+                    const colName = columns[colIdx]?.name ?? ''
+                    const isAnomaly = isAnomalyCell(anomalyCells, originalIndex, colName)
+                    return (
+                      <td
+                        key={colIdx}
+                        className={isAnomaly ? 'results-cell--anomaly' : undefined}
+                        title={isAnomaly ? anomalyTitle : undefined}
+                        onContextMenu={(e) => handleContextMenu(e, colName, String(cell))}
+                        onKeyDown={(e) => handleCellKeyDown(e, colName, String(cell))}
+                        tabIndex={onFilterByValue ? 0 : undefined}
                       >
-                        {formatResultCell(cell, colName, { question })}
-                      </span>
-                    </td>
-                  )
-                })}
-              </tr>
-            )})}
+                        <span
+                          className={onCellClick ? 'cell-drillable' : ''}
+                          onClick={() => onCellClick?.(colName, String(cell))}
+                          style={{ cursor: onCellClick ? 'pointer' : 'default' }}
+                        >
+                          {formatResultCell(cell, colName, { question })}
+                        </span>
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -209,7 +225,8 @@ export function ResultTable({
           <span>
             {t('result_table.sorting', {
               column: columns[sortColIdx!]?.name ?? '',
-              direction: sortDir === 'asc' ? t('result_table.sort_asc') : t('result_table.sort_desc'),
+              direction:
+                sortDir === 'asc' ? t('result_table.sort_asc') : t('result_table.sort_desc'),
             })}
           </span>
         )}

@@ -1,5 +1,6 @@
-import type { KeyboardEvent } from 'react'
 import clsx from 'clsx'
+import type { KeyboardEvent } from 'react'
+
 import { useT } from '../../i18n'
 
 interface InlineEditProps {
@@ -38,7 +39,9 @@ export function InlineEdit({
   }
 
   const handleDisplayKeyDown = (event: KeyboardEvent<HTMLTableCellElement>) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return
+    }
     event.preventDefault()
     onStart()
   }
@@ -64,7 +67,12 @@ export function InlineEdit({
           onKeyDown={handleKeyDown}
         />
       ) : (
-        <span style={{ color: value ? 'var(--text-primary)' : 'var(--text-secondary)', fontStyle: value ? 'normal' : 'italic' }}>
+        <span
+          style={{
+            color: value ? 'var(--text-primary)' : 'var(--text-secondary)',
+            fontStyle: value ? 'normal' : 'italic',
+          }}
+        >
           {value || placeholder}
         </span>
       )}

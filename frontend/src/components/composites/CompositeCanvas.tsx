@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+
 import { useT } from '../../i18n'
 import type { ComponentModelRef, CrossModelJoin } from '../../types/composite'
 
@@ -24,7 +25,16 @@ const GAP_X = 90
 const GAP_Y = 60
 const PAD = 24
 
-const PALETTE = ['#2563eb', '#16a34a', '#d97706', '#9333ea', '#dc2626', '#0891b2', '#ca8a04', '#db2777']
+const PALETTE = [
+  '#2563eb',
+  '#16a34a',
+  '#d97706',
+  '#9333ea',
+  '#dc2626',
+  '#0891b2',
+  '#ca8a04',
+  '#db2777',
+]
 
 // CompositeCanvas renders component models as nodes and cross-model joins as
 // connecting lines, giving a domain-colored overview of the merged model.
@@ -55,7 +65,9 @@ export function CompositeCanvas({ components, crossJoins, modelNames }: Composit
 
   const byAlias = useMemo(() => {
     const m: Record<string, NodeBox> = {}
-    for (const n of nodes) m[n.alias] = n
+    for (const n of nodes) {
+      m[n.alias] = n
+    }
     return m
   }, [nodes])
 
@@ -79,7 +91,9 @@ export function CompositeCanvas({ components, crossJoins, modelNames }: Composit
       {crossJoins.map((j, i) => {
         const from = byAlias[j.from_model]
         const to = byAlias[j.to_model]
-        if (!from || !to) return null
+        if (!from || !to) {
+          return null
+        }
         const x1 = from.x + from.width / 2
         const y1 = from.y + from.height / 2
         const x2 = to.x + to.width / 2
@@ -88,7 +102,15 @@ export function CompositeCanvas({ components, crossJoins, modelNames }: Composit
         const midY = (y1 + y2) / 2
         return (
           <g key={j.id ?? `cj-${i}`}>
-            <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4 3" />
+            <line
+              x1={x1}
+              y1={y1}
+              x2={x2}
+              y2={y2}
+              stroke="#94a3b8"
+              strokeWidth={1.5}
+              strokeDasharray="4 3"
+            />
             <text x={midX} y={midY - 4} textAnchor="middle" fontSize={10} fill="#64748b">
               {j.relationship}
             </text>
@@ -109,13 +131,32 @@ export function CompositeCanvas({ components, crossJoins, modelNames }: Composit
               stroke={color}
               strokeWidth={n.role === 'primary' ? 2.5 : 1.5}
             />
-            <text x={n.x + n.width / 2} y={n.y + 26} textAnchor="middle" fontSize={13} fontWeight={600} fill={color}>
+            <text
+              x={n.x + n.width / 2}
+              y={n.y + 26}
+              textAnchor="middle"
+              fontSize={13}
+              fontWeight={600}
+              fill={color}
+            >
               {n.label.length > 18 ? `${n.label.slice(0, 17)}…` : n.label}
             </text>
-            <text x={n.x + n.width / 2} y={n.y + 44} textAnchor="middle" fontSize={11} fill="#64748b">
+            <text
+              x={n.x + n.width / 2}
+              y={n.y + 44}
+              textAnchor="middle"
+              fontSize={11}
+              fill="#64748b"
+            >
               {n.alias}
             </text>
-            <text x={n.x + n.width / 2} y={n.y + 60} textAnchor="middle" fontSize={10} fill="#94a3b8">
+            <text
+              x={n.x + n.width / 2}
+              y={n.y + 60}
+              textAnchor="middle"
+              fontSize={10}
+              fill="#94a3b8"
+            >
               {n.role}
             </text>
           </g>

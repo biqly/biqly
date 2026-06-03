@@ -8,11 +8,10 @@ function optionText(opt: SelectOption): string {
   return opt.hint ? `${opt.label} ${opt.hint}` : opt.label
 }
 
-export function measureSelectOptionsWidth(
-  options: SelectOption[],
-  fontSizePx: number,
-): number {
-  if (options.length === 0) return MIN_POPOVER_WIDTH_PX
+export function measureSelectOptionsWidth(options: SelectOption[], fontSizePx: number): number {
+  if (options.length === 0) {
+    return MIN_POPOVER_WIDTH_PX
+  }
 
   if (typeof document !== 'undefined') {
     const canvas = document.createElement('canvas')
