@@ -281,6 +281,32 @@ func (c *AuthClient) InvalidateWorkspaceDatasourceCache(workspaceID string) {
 	c.wsDSMu.Unlock()
 }
 
+func (c *AuthClient) GetUserEmail(ctx context.Context, userID string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/internal/auth/user/"+userID, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("X-Internal-Token", c.internalToken)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("get user email: status %d", resp.StatusCode)
+	}
+
+	var body struct {
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return "", err
+	}
+	return body.Email, nil
+}
+
 func (c *AuthClient) fetchDatasourceIDs(ctx context.Context, path string) ([]string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
 	if err != nil {

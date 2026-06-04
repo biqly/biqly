@@ -10,10 +10,12 @@ import (
 	"time"
 
 	"github.com/biqly/biqly/internal/app"
+	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/core"
 	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/security"
+	"github.com/biqly/biqly/internal/semantic/drift"
 	"github.com/google/uuid"
 )
 
@@ -471,6 +473,8 @@ func (h *DatasourceHandler) TestDraft(w http.ResponseWriter, r *http.Request) {
 }
 
 // SyncMetadata introspects and persists the schema of a datasource.
+//
+//nolint:gocyclo // sync, embedding refresh, and drift detection share one orchestration path
 func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request) {
 	id, ok := requireURLParam(w, r, "id")
 	if !ok {
@@ -660,6 +664,84 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 	if err := h.deps.MetaRepo.UpdateDatasourceSync(ctx, ds.ID); err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to update sync timestamp", err)
 		return
+	}
+
+	// 1. Fetch final column/table state
+	freshColumns, err := h.deps.MetaRepo.ListColumns(ctx, ds.ID, "", "")
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to list columns for drift check", "datasource_id", ds.ID, "error", err)
+	}
+	freshTables, err := h.deps.MetaRepo.ListTables(ctx, ds.ID, "")
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to list tables for drift check", "datasource_id", ds.ID, "error", err)
+	}
+
+	// 2. Load all active semantic models for this datasource
+	models, err := h.deps.SemanticRepo.ListModels(ctx, ds.ID)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to list models for drift check", "datasource_id", ds.ID, "error", err)
+	}
+
+	// 3. Compare and check for drift
+	for _, model := range models {
+		if !model.IsActive {
+			continue
+		}
+		// Fetch full model to ensure dimensions, metrics, joins are populated
+		fullModel, err := h.deps.SemanticRepo.GetFullModel(ctx, model.ID)
+		if err != nil {
+			slog.ErrorContext(ctx, "failed to fetch full model for drift check", "model_id", model.ID, "error", err)
+			continue
+		}
+
+		report, err := h.deps.DriftDetector.Compare(ctx, *fullModel, freshColumns, freshTables)
+		if err != nil {
+			slog.ErrorContext(ctx, "drift comparison failed", "model_id", model.ID, "error", err)
+			continue
+		}
+
+		if report != nil && len(report.Drifts) > 0 {
+			// Persist via driftRepo
+			if err := h.deps.DriftRepo.InsertReport(ctx, report); err != nil {
+				slog.ErrorContext(ctx, "failed to insert drift report", "model_id", model.ID, "error", err)
+				continue
+			}
+
+			// Emit audit event if critical/warning
+			if report.Severity == drift.SeverityCritical || report.Severity == drift.SeverityWarning {
+				driftSummaries := make([]string, 0, len(report.Drifts))
+				for _, item := range report.Drifts {
+					driftSummaries = append(driftSummaries, fmt.Sprintf("%s: %s", item.Type, item.Description))
+				}
+				summaryStr := strings.Join(driftSummaries, "; ")
+
+				h.deps.AuditLogger.Log(ctx, audit.Event{
+					EventType:    audit.EventDriftDetected,
+					DatasourceID: ds.ID,
+					ModelID:      model.ID,
+					Details: map[string]any{
+						"drift_count": len(report.Drifts),
+						"severity":    report.Severity,
+						"summary":     summaryStr,
+					},
+				})
+
+				// Queue notification
+				go func(r *drift.DriftReport, mName string, creator *string, parent context.Context) {
+					notifyCtx, cancel := context.WithTimeout(context.WithoutCancel(parent), 15*time.Second)
+					defer cancel()
+
+					var frontendURL string
+					if h.deps.Config != nil {
+						frontendURL = h.deps.Config.Mail.FrontendURL
+					}
+
+					if err := h.deps.DriftNotifier.NotifyOwner(notifyCtx, r, mName, creator, frontendURL); err != nil {
+						slog.Error("failed to notify owner about schema drift", "model_id", r.ModelID, "error", err)
+					}
+				}(report, fullModel.Name, fullModel.CreatedBy, ctx)
+			}
+		}
 	}
 
 	response := map[string]any{

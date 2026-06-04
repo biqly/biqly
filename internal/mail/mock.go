@@ -73,3 +73,8 @@ func (m *MockEmailSender) SendInvitation(_ context.Context, email, token, roleNa
 	return nil
 }
 
+func (m *MockEmailSender) SendDriftAlert(_ context.Context, email string, modelName string, driftsText string, drifts []map[string]any, modelURL string) error {
+	m.record(email, "drift_alert", fmt.Sprintf("Drift alert for model: %s, drifts: %d", modelName, len(drifts)))
+	return nil
+}
+

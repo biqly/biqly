@@ -157,6 +157,13 @@ func (s *SMTPEmailSender) buildTemplateData(template string, data map[string]any
 			"RoleName":  str("role_name"),
 			"ExpiresAt": displayTime("expires_at"),
 		}, nil
+	case "drift_alert":
+		return map[string]any{
+			"ModelName":  str("ModelName"),
+			"DriftsText": str("DriftsText"),
+			"ModelURL":   str("ModelURL"),
+			"Drifts":     data["Drifts"],
+		}, nil
 	default:
 		return nil, fmt.Errorf("%w: %q", ErrUnknownTemplate, template)
 	}

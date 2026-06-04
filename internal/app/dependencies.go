@@ -30,7 +30,9 @@ import (
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/queue"
 	"github.com/biqly/biqly/internal/security"
+	"github.com/biqly/biqly/internal/mail"
 	"github.com/biqly/biqly/internal/semantic"
+	"github.com/biqly/biqly/internal/semantic/drift"
 	"github.com/biqly/biqly/pkg/catalogclient"
 	"github.com/biqly/biqly/pkg/queryclient"
 	_ "github.com/jackc/pgx/v5/stdlib" // PostgreSQL driver registration
@@ -78,6 +80,10 @@ type Dependencies struct {
 	// Dependencies.Close().
 	PoolCache     *datasource.PoolCache
 	DashboardRepo *dashboard.Repository
+	DriftRepo      *drift.Repository
+	DriftDetector  *drift.Detector
+	DriftNotifier  *drift.Notifier
+	DriftScheduler *drift.Scheduler
 }
 
 // CatalogDeps holds the subset of dependencies needed for the Catalog service
@@ -93,6 +99,9 @@ type CatalogDeps struct {
 	QueryService  *core.QueryService
 	DashboardRepo *dashboard.Repository
 	AuditLogger   *audit.Logger
+	DriftRepo     *drift.Repository
+	DriftDetector *drift.Detector
+	DriftNotifier *drift.Notifier
 }
 
 // CatalogDeps returns a structured copy of dependencies for the Catalog subsystem.
@@ -108,6 +117,9 @@ func (d *Dependencies) CatalogDeps() *CatalogDeps {
 		QueryService:  d.QueryService,
 		DashboardRepo: d.DashboardRepo,
 		AuditLogger:   d.AuditLogger,
+		DriftRepo:     d.DriftRepo,
+		DriftDetector: d.DriftDetector,
+		DriftNotifier: d.DriftNotifier,
 	}
 }
 
@@ -240,6 +252,12 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 	validator, executor := provideQueryEngine(cfg)
 	poolCache := datasource.NewPoolCache()
 	auditLogger := audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(db, slog.Default()))
+
+	driftRepo := drift.NewRepository(db)
+	driftDetector := drift.NewDetector()
+	mailClient := mail.NewAPIClient(cfg.Mail.ServiceURL, cfg.Mail.InternalToken, nil)
+	driftNotifier := drift.NewNotifier(mailClient, nil)
+
 	queryService := core.NewQueryService(core.QueryServiceDeps{
 		Models:      semanticRepo,
 		Composites:  compositeRepo,
@@ -257,6 +275,16 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 	if err != nil {
 		return nil, err
 	}
+
+	driftScheduler := drift.NewScheduler(
+		metaRepo,
+		semanticRepo,
+		driftDetector,
+		driftRepo,
+		driftNotifier,
+		cfg.Drift.CheckInterval,
+		cfg.Mail.FrontendURL,
+	)
 
 	return &Dependencies{
 		Config:          cfg,
@@ -282,6 +310,10 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		PoolCache:       poolCache,
 		Jobs:            cfg.Jobs,
 		DashboardRepo:   dashboardRepo,
+		DriftRepo:       driftRepo,
+		DriftDetector:   driftDetector,
+		DriftNotifier:   driftNotifier,
+		DriftScheduler:  driftScheduler,
 	}, nil
 }
 
@@ -451,6 +483,13 @@ func (d *Dependencies) WireAIUserResolver(auth *bimw.AuthClient) {
 	}
 }
 
+// WireDriftNotifier attaches the auth client to the drift notifier.
+func (d *Dependencies) WireDriftNotifier(auth *bimw.AuthClient) {
+	if d.DriftNotifier != nil {
+		d.DriftNotifier.SetAuthClient(auth)
+	}
+}
+
 // migratePlaintextDSNs scans the datasources table for DSNs that do not look
 // encrypted and encrypts them in-place. This runs once on startup.
 func migratePlaintextDSNs(ctx context.Context, db *sql.DB, enc *security.Encryption) error {
@@ -501,6 +540,10 @@ func migratePlaintextDSNs(ctx context.Context, db *sql.DB, enc *security.Encrypt
 // joined so callers see every failure instead of just the first.
 func (d *Dependencies) Close() error {
 	var errs []error
+
+	if d.DriftScheduler != nil {
+		d.DriftScheduler.Stop()
+	}
 
 	if d.AuditLogger != nil {
 		if err := d.AuditLogger.Close(); err != nil {

@@ -112,3 +112,12 @@ func (c *APIClient) SendInvitation(ctx context.Context, email, token, roleName s
 	})
 }
 
+func (c *APIClient) SendDriftAlert(ctx context.Context, email string, modelName string, driftsText string, drifts []map[string]any, modelURL string) error {
+	return c.send(ctx, "drift_alert", email, map[string]any{
+		"ModelName":  modelName,
+		"DriftsText": driftsText,
+		"Drifts":      drifts,
+		"ModelURL":   modelURL,
+	})
+}
+

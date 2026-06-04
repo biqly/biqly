@@ -411,6 +411,86 @@ var builtinEmailTemplates = map[string]map[string]*emailTemplate{
 <p style="font-size: 13px; color: #64748b; word-break: break-all;"><a href="{{.URL}}" style="color: #4f46e5;">{{.URL}}</a></p>`,
 		},
 	},
+	"drift_alert": {
+		"en": {
+			Subject: "[Biqly] Schema drift detected in model: {{.ModelName}}",
+			Text:    "Schema drift has been detected in model \"{{.ModelName}}\".\n\nDetails:\n{{.DriftsText}}\n\nYou can view and resolve these issues in the model editor:\n{{.ModelURL}}\n",
+			HTML: `<p>Schema drift has been detected in model <strong>{{.ModelName}}</strong>.</p>
+<p>Here are the details of the detected drift items:</p>
+<table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+  <thead>
+    <tr style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+      <th style="padding: 10px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Severity</th>
+      <th style="padding: 10px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Type</th>
+      <th style="padding: 10px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Field / Path</th>
+      <th style="padding: 10px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Drifts}}
+    <tr style="border-bottom: 1px solid #e2e8f0;">
+      <td style="padding: 10px; font-size: 13px;">
+        {{if eq .Severity "critical"}}
+          <span style="background-color: #fef2f2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-weight: 600; font-size: 11px; text-transform: uppercase;">Critical</span>
+        {{else if eq .Severity "warning"}}
+          <span style="background-color: #fffbeb; color: #92400e; padding: 2px 6px; border-radius: 4px; font-weight: 600; font-size: 11px; text-transform: uppercase;">Warning</span>
+        {{else}}
+          <span style="background-color: #f0fdf4; color: #166534; padding: 2px 6px; border-radius: 4px; font-weight: 600; font-size: 11px; text-transform: uppercase;">Info</span>
+        {{end}}
+      </td>
+      <td style="padding: 10px; font-size: 13px; color: #0f172a;">{{.Type}}</td>
+      <td style="padding: 10px; font-size: 13px; font-family: monospace; color: #475569;">
+        {{if .Field}}<strong>{{.Field}}</strong> ({{.ColumnRef}}){{else}}{{.ColumnRef}}{{end}}
+      </td>
+      <td style="padding: 10px; font-size: 13px; color: #334155;">{{.Description}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+<div class="button-container" style="margin-top: 24px;">
+  <a href="{{.ModelURL}}" class="button" style="color: #ffffff;">View Model in Editor</a>
+</div>`,
+		},
+		"tr": {
+			Subject: "[Biqly] {{.ModelName}} modelinde şema sapması tespit edildi",
+			Text:    "\"{{.ModelName}}\" modelinde şema sapması tespit edildi.\n\nDetaylar:\n{{.DriftsText}}\n\nBu sorunları model düzenleyicisinde inceleyebilir ve çözebilirsiniz:\n{{.ModelURL}}\n",
+			HTML: `<p><strong>{{.ModelName}}</strong> modelinde şema sapması tespit edildi.</p>
+<p>Tespit edilen sapma detayları aşağıdadır:</p>
+<table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+  <thead>
+    <tr style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+      <th style="padding: 10px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Önem Derecesi</th>
+      <th style="padding: 10px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Tür</th>
+      <th style="padding: 10px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Alan / Yol</th>
+      <th style="padding: 10px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Açıklama</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Drifts}}
+    <tr style="border-bottom: 1px solid #e2e8f0;">
+      <td style="padding: 10px; font-size: 13px;">
+        {{if eq .Severity "critical"}}
+          <span style="background-color: #fef2f2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-weight: 600; font-size: 11px; text-transform: uppercase;">Kritik</span>
+        {{else if eq .Severity "warning"}}
+          <span style="background-color: #fffbeb; color: #92400e; padding: 2px 6px; border-radius: 4px; font-weight: 600; font-size: 11px; text-transform: uppercase;">Uyarı</span>
+        {{else}}
+          <span style="background-color: #f0fdf4; color: #166534; padding: 2px 6px; border-radius: 4px; font-weight: 600; font-size: 11px; text-transform: uppercase;">Bilgi</span>
+        {{end}}
+      </td>
+      <td style="padding: 10px; font-size: 13px; color: #0f172a;">{{.Type}}</td>
+      <td style="padding: 10px; font-size: 13px; font-family: monospace; color: #475569;">
+        {{if .Field}}<strong>{{.Field}}</strong> ({{.ColumnRef}}){{else}}{{.ColumnRef}}{{end}}
+      </td>
+      <td style="padding: 10px; font-size: 13px; color: #334155;">{{.Description}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+<div class="button-container" style="margin-top: 24px;">
+  <a href="{{.ModelURL}}" class="button" style="color: #ffffff;">Modeli Düzenleyicide Görüntüle</a>
+</div>`,
+		},
+	},
 }
 
 // wrapHTML embeds a template's HTML body into a responsive, premium card layout.

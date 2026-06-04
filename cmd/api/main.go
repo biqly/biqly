@@ -62,6 +62,12 @@ func main() {
 		"metadata_db", security.RedactDSN(cfg.Metadata.DSN),
 	)
 
+	authClient := httprouter.NewAuthClient(deps)
+	deps.WireAIUserResolver(authClient)
+	deps.WireDriftNotifier(authClient)
+
+	deps.DriftScheduler.Start(ctx)
+
 	if deps.Jobs.Enabled {
 		pub, qerr := app.NewAIJobQueue(cfg)
 		if qerr != nil {
@@ -69,8 +75,6 @@ func main() {
 			os.Exit(1)
 		}
 		deps.AIJobQueue = pub
-		authClient := httprouter.NewAuthClient(deps)
-		deps.WireAIUserResolver(authClient)
 		aiHandler := handlers.NewAIHandler(deps.AIDeps())
 		aiHandler.SetAuthClient(authClient)
 		jobSvc := handlers.NewAIJobService(deps.MetaRepo, pub, aiHandler)

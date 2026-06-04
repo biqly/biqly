@@ -99,6 +99,11 @@ func registerCatalogAPIRoutes(r chi.Router, deps *app.CatalogDeps, authClient *b
 	r.Put("/semantic/models/{id}/joins/{join_id}", semHandler.UpdateJoin)
 	r.Get("/semantic/models/{id}/suggested-joins", semHandler.SuggestedJoins)
 
+	driftHandler := handlers.NewDriftHandler(deps)
+	r.Get("/semantic/models/{id}/drift", driftHandler.ListForModel)
+	r.Get("/datasources/{id}/drift", driftHandler.ListForDatasource)
+	r.Post("/drift/{id}/resolve", driftHandler.Resolve)
+
 	compHandler := handlers.NewCompositeHandler(deps)
 	r.Post("/semantic/composites", compHandler.CreateComposite)
 	r.Get("/semantic/composites", compHandler.ListComposites)

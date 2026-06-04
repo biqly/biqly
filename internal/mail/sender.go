@@ -16,4 +16,5 @@ type EmailSender interface {
 	SendDuplicateRegistrationNotice(ctx context.Context, email string) error
 	SendMagicLink(ctx context.Context, email, token string) error
 	SendInvitation(ctx context.Context, email, token, roleName string, expiresAt time.Time) error
+	SendDriftAlert(ctx context.Context, email string, modelName string, driftsText string, drifts []map[string]any, modelURL string) error
 }

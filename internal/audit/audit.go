@@ -24,6 +24,9 @@ const (
 	EventPIIScanCompleted  EventType = "pii.scan_completed"
 	EventPIIPolicyUpdated  EventType = "pii.policy_updated"
 	EventPIIMaskingApplied EventType = "pii.masking_applied"
+
+	EventDriftDetected EventType = "drift.drift_detected"
+	EventDriftResolved EventType = "drift.drift_resolved"
 )
 
 // Event represents an audit log entry.
@@ -71,7 +74,7 @@ func (l *Logger) Log(ctx context.Context, event Event) {
 	case EventQueryFailed, EventPermissionDeny:
 		l.logger.ErrorContext(ctx, "audit", attrs...)
 	case EventQueryExecuted, EventQueryCompiled, EventDatasourceSync, EventAIGenerated, EventInternalRequest,
-		EventPIIScanCompleted, EventPIIPolicyUpdated, EventPIIMaskingApplied:
+		EventPIIScanCompleted, EventPIIPolicyUpdated, EventPIIMaskingApplied, EventDriftDetected, EventDriftResolved:
 		l.logger.InfoContext(ctx, "audit", attrs...)
 	default:
 		l.logger.InfoContext(ctx, "audit", attrs...)

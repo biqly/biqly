@@ -200,6 +200,7 @@ func (h *RBACHandler) RegisterInternalRoutes(r chi.Router, internalMW func(http.
 		r.Get("/workspaces/{id}/datasources", h.handleInternalWorkspaceDatasources)
 		r.Post("/invalidate-cache", h.handleInternalInvalidateCache)
 		r.Get("/public-key", h.handleInternalPublicKey)
+		r.Get("/user/{id}", h.handleInternalGetUser)
 		h.registerAIModelAccessInternalRoutes(r)
 	})
 }
@@ -877,6 +878,22 @@ func (h *RBACHandler) handleInternalUserWorkspaces(w http.ResponseWriter, r *htt
 		return
 	}
 	writeJSON(w, http.StatusOK, list)
+}
+
+func (h *RBACHandler) handleInternalGetUser(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	u, err := h.userRepo.GetUserByID(r.Context(), id)
+	if errors.Is(err, auth.ErrUserNotFound) {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "user not found"})
+		return
+	} else if err != nil {
+		writeError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"id":    u.ID,
+		"email": u.Email,
+	})
 }
 
 func (h *RBACHandler) handleInternalWorkspaceDatasources(w http.ResponseWriter, r *http.Request) {

@@ -1,4 +1,5 @@
 import '../styles/modeling.css'
+import '../styles/drift.css'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
@@ -27,6 +28,7 @@ import { EditDimensionModal } from './modeling/EditDimensionModal'
 import { EnumValuesModal } from './modeling/EnumValuesModal'
 import { JoinEditor } from './modeling/JoinEditor'
 import { ModelingCanvas } from './modeling/ModelingCanvas'
+import { DriftPanel } from './admin/DriftPanel'
 import { ModelingPalette } from './modeling/ModelingPalette'
 import type { JoinForm, SuggestedJoin, Tab } from './modeling/types'
 import { publishModelRequest, suggestedJoinToPayload } from './modeling/types'
@@ -876,6 +878,8 @@ export default function Modeling() {
           {message && (
             <div className="semantic-model-setup semantic-model-setup--success">{message}</div>
           )}
+
+          {model && <DriftPanel modelId={model.id} />}
 
           <section
             className={`modeling-shell ${paletteOpen ? '' : 'modeling-shell--palette-closed'} ${editorOpen ? '' : 'modeling-shell--editor-closed'}`}

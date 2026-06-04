@@ -26,6 +26,20 @@ type Config struct {
 	Auth      AuthConfig
 	Composite CompositeConfig
 	PII       PIIConfig
+	Drift     DriftConfig
+	Mail      MailConfig
+}
+
+// DriftConfig controls the background schema drift check.
+type DriftConfig struct {
+	CheckInterval time.Duration
+}
+
+// MailConfig holds details to access the mail worker.
+type MailConfig struct {
+	ServiceURL    string
+	InternalToken string
+	FrontendURL   string
 }
 
 // PIIConfig controls automatic PII detection and role-based masking.
@@ -258,6 +272,14 @@ type AIConfig struct {
 // Load reads configuration from environment variables.
 func Load() (*Config, error) {
 	cfg := &Config{
+		Drift: DriftConfig{
+			CheckInterval: getEnvAsDuration("BI_DRIFT_CHECK_INTERVAL", 6*time.Hour),
+		},
+		Mail: MailConfig{
+			ServiceURL:    getEnv("BI_AUTH_MAIL_SERVICE_URL", "http://localhost:8890"),
+			InternalToken: getEnv("BI_AUTH_MAIL_INTERNAL_TOKEN", ""),
+			FrontendURL:   getEnv("BI_AUTH_FRONTEND_BASE_URL", "http://localhost:3333"),
+		},
 		HTTP: HTTPConfig{
 			Host:               getEnv("BI_HTTP_HOST", "0.0.0.0"),
 			Port:               getEnvAsInt("BI_HTTP_PORT", 8888),
@@ -627,4 +649,19 @@ func (c *Config) QueryTimeout() time.Duration {
 // MaxQueryRuntime returns the maximum query runtime as time.Duration.
 func (c *Config) MaxQueryRuntime() time.Duration {
 	return time.Duration(c.Query.MaxRuntimeSeconds) * time.Second
+}
+
+func getEnvAsDuration(key string, defaultVal time.Duration) time.Duration {
+	valStr := os.Getenv(key)
+	if valStr == "" {
+		return defaultVal
+	}
+	val, err := time.ParseDuration(valStr)
+	if err != nil {
+		slog.Warn("ignoring invalid duration env var; using default",
+			"key", key, "value", valStr, "default", defaultVal, "error", err,
+		)
+		return defaultVal
+	}
+	return val
 }

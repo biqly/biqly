@@ -8,7 +8,9 @@ import (
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/dashboard"
+	"github.com/biqly/biqly/internal/mail"
 	"github.com/biqly/biqly/internal/semantic"
+	"github.com/biqly/biqly/internal/semantic/drift"
 )
 
 // NewCatalogDependencies wires only the Catalog Service dependency graph.
@@ -30,6 +32,11 @@ func NewCatalogDependencies(ctx context.Context, cfg *config.Config) (*Dependenc
 
 	encryptor := provideEncryptor(ctx, db, true)
 
+	driftRepo := drift.NewRepository(db)
+	driftDetector := drift.NewDetector()
+	mailClient := mail.NewAPIClient(cfg.Mail.ServiceURL, cfg.Mail.InternalToken, nil)
+	driftNotifier := drift.NewNotifier(mailClient, nil)
+
 	return &Dependencies{
 		Config:        cfg,
 		MetadataDB:    db,
@@ -41,5 +48,8 @@ func NewCatalogDependencies(ctx context.Context, cfg *config.Config) (*Dependenc
 		EvalRepo:      evalpkg.NewEvalRepository(db),
 		AuditLogger:   audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(db, slog.Default())),
 		DashboardRepo: dashboardRepo,
+		DriftRepo:     driftRepo,
+		DriftDetector: driftDetector,
+		DriftNotifier: driftNotifier,
 	}, nil
 }

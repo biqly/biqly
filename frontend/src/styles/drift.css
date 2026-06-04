@@ -1,0 +1,350 @@
+/* ============================================================
+   Drift Panel — Schema drift detection UI
+   BEM naming convention
+   ============================================================ */
+
+/* ---------- Drift badge (inline indicator) ---------- */
+
+.drift-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.drift-badge--critical {
+  background: var(--color-danger-surface, hsl(0 70% 95%));
+  color: var(--color-danger, hsl(0 70% 45%));
+}
+
+.drift-badge--warning {
+  background: var(--color-warning-surface, hsl(40 90% 92%));
+  color: var(--color-warning, hsl(30 80% 40%));
+}
+
+.drift-badge--info {
+  background: var(--color-info-surface, hsl(210 70% 94%));
+  color: var(--color-info, hsl(210 60% 45%));
+}
+
+.drift-badge__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.drift-badge--critical .drift-badge__dot {
+  background: var(--color-danger, hsl(0 70% 45%));
+}
+
+.drift-badge--warning .drift-badge__dot {
+  background: var(--color-warning, hsl(30 80% 40%));
+}
+
+.drift-badge--info .drift-badge__dot {
+  background: var(--color-info, hsl(210 60% 45%));
+}
+
+/* ---------- Drift banner (model detail toolbar) ---------- */
+
+.drift-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  animation: drift-banner-enter 0.25s ease-out;
+}
+
+.drift-banner--critical {
+  background: var(--color-danger-surface, hsl(0 70% 95%));
+  border: 1px solid var(--color-danger-border, hsl(0 50% 85%));
+  color: var(--color-danger, hsl(0 70% 45%));
+}
+
+.drift-banner--warning {
+  background: var(--color-warning-surface, hsl(40 90% 92%));
+  border: 1px solid var(--color-warning-border, hsl(40 50% 80%));
+  color: var(--color-warning, hsl(30 80% 40%));
+}
+
+.drift-banner__icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.drift-banner__text {
+  flex: 1;
+}
+
+.drift-banner__action {
+  flex-shrink: 0;
+}
+
+@keyframes drift-banner-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- Drift panel (collapsible section) ---------- */
+
+.drift-panel {
+  border: 1px solid var(--color-border, hsl(220 13% 86%));
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--color-surface, hsl(0 0% 100%));
+  margin-top: 12px;
+  animation: drift-panel-enter 0.3s ease-out;
+}
+
+@keyframes drift-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.drift-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--color-surface-raised, hsl(220 14% 96%));
+  cursor: pointer;
+  user-select: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.drift-panel__header:hover {
+  background: var(--color-surface-hover, hsl(220 14% 93%));
+}
+
+.drift-panel__header:focus-visible {
+  outline: 2px solid var(--color-primary, hsl(220 70% 50%));
+  outline-offset: -2px;
+}
+
+.drift-panel__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.drift-panel__chevron {
+  font-size: 0.75rem;
+  transition: transform 0.2s ease;
+}
+
+.drift-panel__chevron--open {
+  transform: rotate(90deg);
+}
+
+.drift-panel__body {
+  padding: 0 14px 14px;
+}
+
+/* ---------- Drift table ---------- */
+
+.drift-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.825rem;
+  margin-top: 10px;
+}
+
+.drift-table th {
+  text-align: left;
+  padding: 6px 10px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted, hsl(220 10% 50%));
+  border-bottom: 1px solid var(--color-border, hsl(220 13% 86%));
+}
+
+.drift-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border-soft, hsl(220 13% 92%));
+  vertical-align: top;
+}
+
+.drift-table tr:last-child td {
+  border-bottom: none;
+}
+
+.drift-table__severity {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.drift-table__severity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.drift-table__severity-dot--critical {
+  background: var(--color-danger, hsl(0 70% 45%));
+}
+
+.drift-table__severity-dot--warning {
+  background: var(--color-warning, hsl(30 80% 40%));
+}
+
+.drift-table__severity-dot--info {
+  background: var(--color-info, hsl(210 60% 45%));
+}
+
+.drift-table__field {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.8rem;
+}
+
+.drift-table__desc {
+  color: var(--color-text-secondary, hsl(220 10% 40%));
+  max-width: 320px;
+}
+
+.drift-table__resolve-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border, hsl(220 13% 86%));
+  background: var(--color-surface, hsl(0 0% 100%));
+  color: var(--color-text, hsl(220 10% 20%));
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.drift-table__resolve-btn:hover {
+  background: var(--color-success-surface, hsl(140 50% 94%));
+  border-color: var(--color-success, hsl(140 50% 40%));
+  color: var(--color-success, hsl(140 50% 40%));
+}
+
+.drift-table__resolve-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---------- Drift empty state ---------- */
+
+.drift-panel__empty {
+  padding: 18px 14px;
+  text-align: center;
+  color: var(--color-text-muted, hsl(220 10% 50%));
+  font-size: 0.85rem;
+}
+
+/* ---------- Drift report group header ---------- */
+
+.drift-report__heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--color-text-muted, hsl(220 10% 50%));
+  margin: 10px 0 2px;
+}
+
+.drift-report__heading time {
+  font-style: italic;
+}
+
+/* ---------- Resolve-all button ---------- */
+
+.drift-panel__resolve-all {
+  margin-top: 10px;
+  text-align: right;
+}
+
+/* ---------- Dark theme overrides ---------- */
+
+:root[data-theme='dark'] .drift-badge--critical {
+  background: hsl(0 40% 18%);
+  color: hsl(0 80% 72%);
+}
+
+:root[data-theme='dark'] .drift-badge--warning {
+  background: hsl(40 40% 18%);
+  color: hsl(40 80% 70%);
+}
+
+:root[data-theme='dark'] .drift-badge--info {
+  background: hsl(210 30% 18%);
+  color: hsl(210 70% 72%);
+}
+
+:root[data-theme='dark'] .drift-banner--critical {
+  background: hsl(0 40% 14%);
+  border-color: hsl(0 40% 25%);
+  color: hsl(0 80% 72%);
+}
+
+:root[data-theme='dark'] .drift-banner--warning {
+  background: hsl(40 40% 14%);
+  border-color: hsl(40 40% 25%);
+  color: hsl(40 80% 70%);
+}
+
+:root[data-theme='dark'] .drift-panel {
+  border-color: var(--color-border-dark, hsl(220 10% 24%));
+  background: var(--color-surface-dark, hsl(220 10% 12%));
+}
+
+:root[data-theme='dark'] .drift-panel__header {
+  background: var(--color-surface-raised-dark, hsl(220 10% 16%));
+}
+
+:root[data-theme='dark'] .drift-panel__header:hover {
+  background: hsl(220 10% 20%);
+}
+
+:root[data-theme='dark'] .drift-table th {
+  border-color: hsl(220 10% 24%);
+}
+
+:root[data-theme='dark'] .drift-table td {
+  border-color: hsl(220 10% 20%);
+}
+
+:root[data-theme='dark'] .drift-table__resolve-btn {
+  background: hsl(220 10% 16%);
+  border-color: hsl(220 10% 24%);
+  color: hsl(0 0% 85%);
+}
+
+:root[data-theme='dark'] .drift-table__resolve-btn:hover {
+  background: hsl(140 30% 16%);
+  border-color: hsl(140 40% 35%);
+  color: hsl(140 60% 70%);
+}
