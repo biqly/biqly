@@ -76,7 +76,7 @@ export function ExpressionBuilder({
   const [mode, setMode] = useState<'visual' | 'text'>('text')
   const [textInput, setTextInput] = useState(initialText)
   const [astNode, setAstNode] = useState<SemanticExprNode>(
-    initialNode || { type: 'literal', value: '' }
+    initialNode || { type: 'literal', value: '' },
   )
 
   const [compiledSQL, setCompiledSQL] = useState('')
@@ -102,9 +102,7 @@ export function ExpressionBuilder({
   // Filter columns based on active tables
   const modelColumns = useMemo(() => {
     return columns.filter((col) =>
-      activeTables.some(
-        (t) => t.schema === col.schema_name && t.table === col.table_name
-      )
+      activeTables.some((t) => t.schema === col.schema_name && t.table === col.table_name),
     )
   }, [columns, activeTables])
 
@@ -123,14 +121,11 @@ export function ExpressionBuilder({
     async (payload: { expression?: string; expr?: SemanticExprNode }) => {
       setLoading(true)
       try {
-        const res = await fetch(
-          `/api/semantic/models/${model.id}/compile-expression`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          }
-        )
+        const res = await fetch(`/api/semantic/models/${model.id}/compile-expression`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
         const data = await res.json()
         if (res.ok) {
           setCompiledSQL(data.sql || '')
@@ -151,7 +146,7 @@ export function ExpressionBuilder({
         setLoading(false)
       }
     },
-    [model.id, onChange, astNode]
+    [model.id, onChange, astNode],
   )
 
   // Trigger compile when Visual AST changes
@@ -160,7 +155,7 @@ export function ExpressionBuilder({
       setAstNode(newNode)
       void compileExpression({ expr: newNode })
     },
-    [compileExpression]
+    [compileExpression],
   )
 
   // Debounced compile for text input
@@ -275,10 +270,16 @@ export function ExpressionBuilder({
           >
             <option value="literal">{t('modeling.expr_literal', 'Literal (Constant)')}</option>
             <option value="column_ref">{t('modeling.expr_column_ref', 'Table Column')}</option>
-            <option value="dimension_ref">{t('modeling.expr_dimension_ref', 'Dimension Reference')}</option>
+            <option value="dimension_ref">
+              {t('modeling.expr_dimension_ref', 'Dimension Reference')}
+            </option>
             <option value="metric_ref">{t('modeling.expr_metric_ref', 'Metric Reference')}</option>
-            <option value="binary">{t('modeling.expr_binary', 'Math / Comparison Operator')}</option>
-            <option value="unary">{t('modeling.expr_unary', 'Unary Operator (NOT / Negate)')}</option>
+            <option value="binary">
+              {t('modeling.expr_binary', 'Math / Comparison Operator')}
+            </option>
+            <option value="unary">
+              {t('modeling.expr_unary', 'Unary Operator (NOT / Negate)')}
+            </option>
             <option value="function_call">{t('modeling.expr_function', 'Function Call')}</option>
             <option value="case">{t('modeling.expr_case', 'Case Expression (Conditional)')}</option>
           </select>
@@ -444,12 +445,10 @@ export function ExpressionBuilder({
                   className="ast-select"
                   value={node.name.toUpperCase()}
                   onChange={(e) => {
-                    const func = ALLOWED_FUNCTIONS.find(
-                      (f) => f.name === e.target.value
-                    )
+                    const func = ALLOWED_FUNCTIONS.find((f) => f.name === e.target.value)
                     const argsCount = func ? (func.arity === -1 ? 1 : func.arity) : 1
                     const newArgs: SemanticExprNode[] = Array.from({ length: argsCount }).map(
-                      (_, i) => node.args?.[i] || { type: 'literal', value: '' }
+                      (_, i) => node.args?.[i] || { type: 'literal', value: '' },
                     )
                     onChangeNode({
                       type: 'function_call',
@@ -465,9 +464,10 @@ export function ExpressionBuilder({
                   ))}
                 </select>
                 <span className="ast-func-desc">
-                  {ALLOWED_FUNCTIONS.find(
-                    (f) => f.name.toUpperCase() === node.name.toUpperCase()
-                  )?.desc}
+                  {
+                    ALLOWED_FUNCTIONS.find((f) => f.name.toUpperCase() === node.name.toUpperCase())
+                      ?.desc
+                  }
                 </span>
               </div>
               <div className="ast-func-args">
@@ -500,19 +500,15 @@ export function ExpressionBuilder({
                     )}
                   </div>
                 ))}
-                {ALLOWED_FUNCTIONS.find(
-                  (f) => f.name.toUpperCase() === node.name.toUpperCase()
-                )?.arity === -1 && (
+                {ALLOWED_FUNCTIONS.find((f) => f.name.toUpperCase() === node.name.toUpperCase())
+                  ?.arity === -1 && (
                   <button
                     type="button"
                     className="ast-add-btn"
                     onClick={() => {
                       onChangeNode({
                         ...node,
-                        args: [
-                          ...(node.args || []),
-                          { type: 'literal', value: '' },
-                        ],
+                        args: [...(node.args || []), { type: 'literal', value: '' }],
                       })
                     }}
                   >
@@ -534,7 +530,10 @@ export function ExpressionBuilder({
                         node={cond.when}
                         onChangeNode={(when) => {
                           const updated = [...(node.conditions || [])]
-                          updated[idx] = { when, then: updated[idx]?.then || { type: 'literal', value: '' } }
+                          updated[idx] = {
+                            when,
+                            then: updated[idx]?.then || { type: 'literal', value: '' },
+                          }
                           onChangeNode({ ...node, conditions: updated })
                         }}
                       />
@@ -545,7 +544,10 @@ export function ExpressionBuilder({
                         node={cond.then}
                         onChangeNode={(then) => {
                           const updated = [...(node.conditions || [])]
-                          updated[idx] = { when: updated[idx]?.when || { type: 'literal', value: '' }, then }
+                          updated[idx] = {
+                            when: updated[idx]?.when || { type: 'literal', value: '' },
+                            then,
+                          }
                           onChangeNode({ ...node, conditions: updated })
                         }}
                       />
@@ -590,9 +592,7 @@ export function ExpressionBuilder({
                 <span className="ast-case-label">ELSE</span>
                 <ExpressionNodeBuilder
                   node={node.else || { type: 'literal', value: '' }}
-                  onChangeNode={(elseNode) =>
-                    onChangeNode({ ...node, else: elseNode })
-                  }
+                  onChangeNode={(elseNode) => onChangeNode({ ...node, else: elseNode })}
                 />
               </div>
             </div>
@@ -624,10 +624,7 @@ export function ExpressionBuilder({
       <div className="expression-builder-body">
         {mode === 'visual' ? (
           <div className="ast-tree-root">
-            <ExpressionNodeBuilder
-              node={astNode}
-              onChangeNode={handleAstChange}
-            />
+            <ExpressionNodeBuilder node={astNode} onChangeNode={handleAstChange} />
           </div>
         ) : (
           <div className="text-editor-wrapper">

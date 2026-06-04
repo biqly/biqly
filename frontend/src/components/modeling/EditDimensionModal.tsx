@@ -36,7 +36,7 @@ export function EditDimensionModal({
   const [label, setLabel] = useState(dimension.label || '')
   const [type, setType] = useState(dimension.type)
   const [sourceMode, setSourceMode] = useState<'column' | 'calculated'>(
-    dimension.calculated_expression ? 'calculated' : 'column'
+    dimension.calculated_expression ? 'calculated' : 'column',
   )
   const [saving, setSaving] = useState(false)
 
@@ -62,10 +62,10 @@ export function EditDimensionModal({
 
   // Calculated expression fields
   const [calculatedExpression, setCalculatedExpression] = useState(
-    dimension.calculated_expression || ''
+    dimension.calculated_expression || '',
   )
   const [calculatedExpr, setCalculatedExpr] = useState<SemanticExprNode | undefined>(
-    dimension.calculated_expr
+    dimension.calculated_expr,
   )
 
   const modelTableKeys = useMemo(() => {
@@ -299,9 +299,7 @@ export function EditDimensionModal({
           </>
         ) : (
           <div className="form-group" style={{ display: 'block', width: '100%' }}>
-            <label htmlFor="dim-expression">
-              {t('modeling.metric_expression_label')}
-            </label>
+            <label htmlFor="dim-expression">{t('modeling.metric_expression_label')}</label>
             <ExpressionBuilder
               model={model}
               columns={columns}
@@ -324,7 +322,9 @@ export function EditDimensionModal({
             className="btn btn-primary"
             type="submit"
             disabled={
-              saving || !label.trim() || (sourceMode === 'column' ? !selectedColumn : !calculatedExpression.trim())
+              saving ||
+              !label.trim() ||
+              (sourceMode === 'column' ? !selectedColumn : !calculatedExpression.trim())
             }
           >
             {saving ? t('common.saving') : t('common.save')}
@@ -336,4 +336,3 @@ export function EditDimensionModal({
 }
 
 EditDimensionModal.displayName = 'EditDimensionModal'
-

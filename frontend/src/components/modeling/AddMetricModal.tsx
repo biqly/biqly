@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import type { useT } from '../../i18n'
-import type { ColumnRow, SemanticModelDetail, TableRow, SemanticMetric, SemanticExprNode } from '../../types/semantic'
+import type {
+  ColumnRow,
+  SemanticModelDetail,
+  TableRow,
+  SemanticMetric,
+  SemanticExprNode,
+} from '../../types/semantic'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
 import { ExpressionBuilder } from './ExpressionBuilder'
@@ -39,9 +45,9 @@ export function AddMetricModal({
   t,
 }: AddMetricModalProps) {
   const [name, setName] = useState(metric ? metric.name : '')
-  const [label, setLabel] = useState(metric ? (metric.label || '') : '')
+  const [label, setLabel] = useState(metric ? metric.label || '' : '')
   const [mode, setMode] = useState<'simple' | 'custom'>(
-    metric ? (metric.aggregation === 'custom' ? 'custom' : 'simple') : 'simple'
+    metric ? (metric.aggregation === 'custom' ? 'custom' : 'simple') : 'simple',
   )
   const [saving, setSaving] = useState(false)
 
@@ -67,12 +73,12 @@ export function AddMetricModal({
   const [selectedAggregation, setSelectedAggregation] = useState<
     'count' | 'sum' | 'avg' | 'min' | 'max' | 'count_distinct'
   >(metric && metric.aggregation !== 'custom' ? (metric.aggregation as any) : 'sum')
-  const [format, setFormat] = useState(metric ? (metric.format || '') : '')
+  const [format, setFormat] = useState(metric ? metric.format || '' : '')
 
   // Custom Mode state
   const [expression, setExpression] = useState(metric ? metric.expression : '')
   const [astNode, setAstNode] = useState<SemanticExprNode | undefined>(
-    metric ? metric.expr : undefined
+    metric ? metric.expr : undefined,
   )
 
   // Get active tables in model
@@ -380,7 +386,7 @@ export function AddMetricModal({
               saving || !name.trim() || (mode === 'simple' ? !selectedColumn : !expression.trim())
             }
           >
-            {saving ? t('common.saving') : (metric ? t('common.save') : t('common.create'))}
+            {saving ? t('common.saving') : metric ? t('common.save') : t('common.create')}
           </button>
         </div>
       </form>
