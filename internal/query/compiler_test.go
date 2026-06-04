@@ -7,6 +7,7 @@ import (
 
 	"github.com/biqly/biqly/internal/dialect"
 	"github.com/biqly/biqly/internal/semantic"
+	pkgsemantic "github.com/biqly/biqly/pkg/semantic"
 )
 
 func TestCompiler_SimpleSelect(t *testing.T) {
@@ -806,7 +807,7 @@ func containsStrHelper(s, substr string) bool {
 }
 
 // TestCompiler_CalculatedDimension verifies dimensions with calculated
-// expressions emit the expression directly instead of quoting a column ref.
+// expressions compile through the expression AST path.
 func TestCompiler_CalculatedDimension(t *testing.T) {
 	model := &semantic.SemanticModel{
 		Name: "orders", BaseSchema: "public", BaseTable: "orders",
@@ -830,8 +831,8 @@ func TestCompiler_CalculatedDimension(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
-	// Calculated expression should appear directly in SELECT and GROUP BY
-	if !strings.Contains(cq.SQL, `COALESCE(orders.first_name, '') || ' ' || COALESCE(orders.last_name, '')`) {
+	wantExpr := `((COALESCE("orders"."first_name", '') || ' ') || COALESCE("orders"."last_name", ''))`
+	if !strings.Contains(cq.SQL, wantExpr) {
 		t.Errorf("expected calculated expression in SQL, got: %s", cq.SQL)
 	}
 	if !strings.Contains(cq.SQL, `COUNT("orders"."id")`) {
@@ -857,8 +858,76 @@ func TestCompiler_CalculatedDimensionWithFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
-	if !strings.Contains(cq.SQL, `orders.total_amount * 1.18`) {
+	if !strings.Contains(cq.SQL, `("orders"."total_amount" * 1.18)`) {
 		t.Errorf("expected calculated expression in WHERE, got: %s", cq.SQL)
+	}
+}
+
+func TestCompiler_CalculatedDimensionUsesAST(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name: "orders", BaseSchema: "public", BaseTable: "orders",
+		Dimensions: []semantic.Dimension{
+			{
+				Name: "total_with_tax",
+				CalculatedExpr: pkgsemantic.BinaryExpr{
+					Op:    pkgsemantic.OpMultiply,
+					Left:  pkgsemantic.ColumnRefExpr{Table: "orders", Column: "total_amount"},
+					Right: pkgsemantic.LiteralExpr{Value: 1.18},
+				},
+				Type: "number",
+			},
+		},
+	}
+	lq := LogicalQuery{
+		Select:  []SelectItem{{Type: SelectTypeDimension, Name: "total_with_tax"}},
+		Filters: []Filter{{Field: "total_with_tax", Operator: OpGt, Value: 100}},
+		Limit:   50,
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	wantExpr := `("orders"."total_amount" * 1.18)`
+	if !strings.Contains(cq.SQL, wantExpr) {
+		t.Errorf("Compile() SQL = %s, want calculated AST expression %s", cq.SQL, wantExpr)
+	}
+}
+
+func TestCompiler_MetricUsesASTExpression(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name: "orders", BaseSchema: "public", BaseTable: "orders",
+		Metrics: []semantic.Metric{
+			{
+				Name:        "gross_margin",
+				Aggregation: "sum",
+				Expr: pkgsemantic.BinaryExpr{
+					Op:    pkgsemantic.OpSubtract,
+					Left:  pkgsemantic.ColumnRefExpr{Table: "orders", Column: "revenue"},
+					Right: pkgsemantic.ColumnRefExpr{Table: "orders", Column: "cost"},
+				},
+			},
+		},
+	}
+	lq := LogicalQuery{
+		Select:  []SelectItem{{Type: SelectTypeMetric, Name: "gross_margin"}},
+		Filters: []Filter{{Field: "gross_margin", Operator: OpGt, Value: 100}},
+		OrderBy: []OrderBy{{Field: "gross_margin", Direction: OrderDesc}},
+		Limit:   50,
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	wantAgg := `SUM(("orders"."revenue" - "orders"."cost"))`
+	if !strings.Contains(cq.SQL, wantAgg) {
+		t.Errorf("Compile() SQL = %s, want metric AST aggregate %s in SELECT", cq.SQL, wantAgg)
+	}
+	wantFilter := `WHERE ("orders"."revenue" - "orders"."cost") > $1`
+	if !strings.Contains(cq.SQL, wantFilter) {
+		t.Errorf("Compile() SQL = %s, want metric AST filter expression %s", cq.SQL, wantFilter)
+	}
+	if !strings.Contains(cq.SQL, `ORDER BY "gross_margin" DESC`) {
+		t.Errorf("Compile() SQL = %s, want order by metric alias", cq.SQL)
 	}
 }
 

@@ -1,8 +1,1 @@
-SELECT
-  "salesorderheader"."salesordernumber" AS "order_number",
-  "salesorderheader"."totaldue" AS "total_due"
-FROM
-  "sales"."salesorderheader"
-WHERE
-  "salesorderheader"."totaldue" >= $1
-LIMIT 50
+SELECT "salesorderheader"."salesordernumber" AS "order_number", "salesorderheader"."totaldue" AS "total_due" FROM "sales"."salesorderheader" WHERE "salesorderheader"."totaldue" >= $1 LIMIT 50

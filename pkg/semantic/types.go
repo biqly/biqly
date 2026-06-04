@@ -53,6 +53,9 @@ type Dimension struct {
 	// functions (COALESCE, CONCAT, UPPER, LOWER, ROUND), CASE WHEN, and
 	// dialect-specific date functions.
 	CalculatedExpression string `json:"calculated_expression,omitempty" db:"calculated_expression"`
+	// CalculatedExpr holds the parsed expression AST used by the query compiler.
+	// CalculatedExpression remains the storage/backward-compatibility field.
+	CalculatedExpr ExprNode `json:"calculated_expr,omitempty" db:"-"`
 	// EnumValues maps stored raw values to human-readable labels for low
 	// cardinality coded columns (e.g. status 1=pending, 2=shipped). They are
 	// surfaced to the AI prompt so the model can translate user language into
@@ -83,11 +86,14 @@ type ModelField struct {
 
 // Metric represents an aggregatable field in a semantic model.
 type Metric struct {
-	ID          string    `json:"id" db:"id"`
-	ModelID     string    `json:"model_id" db:"model_id"`
-	Name        string    `json:"name" db:"name"`
-	Label       *string   `json:"label" db:"label"`
-	Expression  string    `json:"expression" db:"expression"`
+	ID         string  `json:"id" db:"id"`
+	ModelID    string  `json:"model_id" db:"model_id"`
+	Name       string  `json:"name" db:"name"`
+	Label      *string `json:"label" db:"label"`
+	Expression string  `json:"expression" db:"expression"`
+	// Expr holds the parsed metric expression AST used by the query compiler.
+	// Expression remains the storage/backward-compatibility field.
+	Expr        ExprNode  `json:"expr,omitempty" db:"-"`
 	Aggregation string    `json:"aggregation" db:"aggregation"` // count, sum, avg, min, max, count_distinct
 	Format      *string   `json:"format" db:"format"`
 	Synonyms    []string  `json:"synonyms" db:"synonyms"`

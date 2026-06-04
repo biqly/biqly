@@ -1,7 +1,1 @@
-SELECT
-  `products`.`name` AS `name`
-FROM
-  `store`.`products`
-WHERE
-  LOWER(`products`.`name`) LIKE LOWER(?)
-LIMIT 50
+SELECT `salesorderheader`.`salesordernumber` AS `order_number`, `salesorderheader`.`totaldue` AS `total_due` FROM `sales`.`salesorderheader` WHERE `salesorderheader`.`totaldue` >= ? LIMIT 50

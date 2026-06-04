@@ -1,0 +1,1 @@
+SELECT [customers].[name] AS [name], [customers].[email] AS [email], COUNT([orders].[id]) AS [order_count] FROM [public].[customers] LEFT JOIN [public].[orders] ON [public].[customers].[id] = [public].[orders].[customer_id] GROUP BY [customers].[name], [customers].[email] ORDER BY [order_count] DESC OFFSET 0 ROWS FETCH NEXT 50 ROWS ONLY

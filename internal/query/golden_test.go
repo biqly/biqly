@@ -346,273 +346,226 @@ func fixtureCalculated() semanticContextFixture {
 	}
 }
 
-// TestGolden_PostgresSimpleSelect verifies compiler output matches golden SQL.
-func TestGolden_PostgresSimpleSelect(t *testing.T) {
-	golden, err := os.ReadFile(filepath.Join("..", "..", "testdata", "sql", "postgres", "group_by_metric.sql"))
-	if err != nil {
-		t.Skip("golden file not found")
+// fixtureSimpleSelect returns a simple select query structure.
+func fixtureSimpleSelect() semanticContextFixture {
+	return semanticContextFixture{
+		Model: &semantic.SemanticModel{
+			Name:       "sales_orders_simple",
+			BaseSchema: "sales",
+			BaseTable:  "salesorderheader",
+			Dimensions: []semantic.Dimension{
+				{Name: "order_number", ColumnRef: "salesorderheader.salesordernumber", Type: "text"},
+				{Name: "total_due", ColumnRef: "salesorderheader.totaldue", Type: "number"},
+			},
+		},
+		LogicalQuery: LogicalQuery{
+			ModelID: "sales_orders_simple",
+			Select: []SelectItem{
+				{Type: "dimension", Name: "order_number"},
+				{Type: "dimension", Name: "total_due"},
+			},
+			Filters: []Filter{{Field: "total_due", Operator: OpGte, Value: 100.0}},
+			Limit:   50,
+		},
 	}
+}
 
-	model := &semantic.SemanticModel{
-		Name:       "sales_orders",
-		BaseSchema: "sales",
-		BaseTable:  "salesorderheader",
-		Dimensions: []semantic.Dimension{
-			{Name: "country", ColumnRef: "salesterritory.countryregioncode", Type: "text"},
-			{Name: "order_date", ColumnRef: "salesorderheader.orderdate", Type: "date"},
+// fixtureGroupByMetric returns a query structure with a join and group by metric.
+func fixtureGroupByMetric() semanticContextFixture {
+	return semanticContextFixture{
+		Model: &semantic.SemanticModel{
+			Name:       "sales_orders",
+			BaseSchema: "sales",
+			BaseTable:  "salesorderheader",
+			Dimensions: []semantic.Dimension{
+				{Name: "country", ColumnRef: "salesterritory.countryregioncode", Type: "text"},
+				{Name: "order_date", ColumnRef: "salesorderheader.orderdate", Type: "date"},
+			},
+			Metrics: []semantic.Metric{
+				{Name: "order_count", Expression: "salesorderheader.salesorderid", Aggregation: "count"},
+			},
+			Joins: []semantic.Join{
+				{
+					Name:         "salesorderheader_salesterritory",
+					FromTable:    "salesorderheader",
+					FromColumn:   "territoryid",
+					ToTable:      "salesterritory",
+					ToColumn:     "territoryid",
+					JoinType:     "LEFT",
+					Relationship: "many_to_one",
+				},
+			},
 		},
-		Metrics: []semantic.Metric{
-			{Name: "order_count", Expression: "salesorderheader.salesorderid", Aggregation: "count"},
+		LogicalQuery: LogicalQuery{
+			ModelID: "sales_orders",
+			Select: []SelectItem{
+				{Type: "dimension", Name: "country"},
+				{Type: "metric", Name: "order_count"},
+			},
+			Filters: []Filter{{Field: "order_date", Operator: OpGte, Value: "2011-01-01"}},
+			GroupBy: []GroupBy{{Field: "country"}},
+			OrderBy: []OrderBy{{Field: "order_count", Direction: "desc"}},
+			Limit:   100,
 		},
-		Joins: []semantic.Join{
-			{
-				Name:         "salesorderheader_salesterritory",
-				FromTable:    "salesorderheader",
-				FromColumn:   "territoryid",
-				ToTable:      "salesterritory",
-				ToColumn:     "territoryid",
-				JoinType:     "LEFT",
-				Relationship: "many_to_one",
+	}
+}
+
+func fixtureComposite(t *testing.T) semanticContextFixture {
+	return semanticContextFixture{
+		Model: compositeGoldenModel(t),
+		LogicalQuery: LogicalQuery{
+			ModelID: "c-1",
+			Select: []SelectItem{
+				{Type: "dimension", Name: "customer_region"},
+				{Type: "metric", Name: "total_revenue"},
+			},
+			GroupBy: []GroupBy{{Field: "customer_region"}},
+			OrderBy: []OrderBy{{Field: "total_revenue", Direction: "desc"}},
+			Limit:   50,
+		},
+	}
+}
+
+type goldenTestCase struct {
+	name       string
+	fixture    func(t *testing.T) semanticContextFixture
+	rowFilters []security.RowFilter
+}
+
+func getGoldenTestCases() []goldenTestCase {
+	return []goldenTestCase{
+		{
+			name: "simple_select",
+			fixture: func(t *testing.T) semanticContextFixture {
+				return fixtureSimpleSelect()
+			},
+		},
+		{
+			name: "group_by_metric",
+			fixture: func(t *testing.T) semanticContextFixture {
+				return fixtureGroupByMetric()
+			},
+		},
+		{
+			name: "many_to_one_join",
+			fixture: func(t *testing.T) semanticContextFixture {
+				return fixtureManyToOne()
+			},
+		},
+		{
+			name: "one_to_many_join",
+			fixture: func(t *testing.T) semanticContextFixture {
+				return fixtureOneToMany()
+			},
+		},
+		{
+			name: "one_to_one_join",
+			fixture: func(t *testing.T) semanticContextFixture {
+				return fixtureOneToOne()
+			},
+		},
+		{
+			name: "many_to_many_join",
+			fixture: func(t *testing.T) semanticContextFixture {
+				return fixtureManyToMany()
+			},
+		},
+		{
+			name: "multi_hop_join",
+			fixture: func(t *testing.T) semanticContextFixture {
+				return fixtureMultiHop()
+			},
+		},
+		{
+			name: "display_dimension_priority",
+			fixture: func(t *testing.T) semanticContextFixture {
+				return fixtureDisplayPriority()
+			},
+		},
+		{
+			name: "calculated_dimension",
+			fixture: func(t *testing.T) semanticContextFixture {
+				return fixtureCalculated()
+			},
+		},
+		{
+			name:    "composite_cross_model",
+			fixture: fixtureComposite,
+		},
+		{
+			name: "row_filter_eq",
+			fixture: func(t *testing.T) semanticContextFixture {
+				return fixtureManyToOne()
+			},
+			rowFilters: []security.RowFilter{
+				{Field: "order_date", Operator: "eq", Value: "2024-01-01"},
+			},
+		},
+		{
+			name: "row_filter_in",
+			fixture: func(t *testing.T) semanticContextFixture {
+				return fixtureManyToOne()
+			},
+			rowFilters: []security.RowFilter{
+				{Field: "order_date", Operator: "in", Value: []any{"2024-01-01", "2024-02-01", "2024-03-01"}},
 			},
 		},
 	}
-
-	lq := LogicalQuery{
-		ModelID: "sales_orders",
-		Select: []SelectItem{
-			{Type: "dimension", Name: "country"},
-			{Type: "metric", Name: "order_count"},
-		},
-		Filters: []Filter{{Field: "order_date", Operator: OpGte, Value: "2011-01-01"}},
-		GroupBy: []GroupBy{{Field: "country"}},
-		OrderBy: []OrderBy{{Field: "order_count", Direction: "desc"}},
-		Limit:   100,
-	}
-
-	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), &lq, model)
-	if err != nil {
-		t.Fatalf("compilation failed: %v", err)
-	}
-
-	expected := normalizeSQL(string(golden))
-	actual := normalizeSQL(cq.SQL)
-
-	if expected != actual {
-		t.Errorf("SQL mismatch.\nExpected:\n%s\n\nGot:\n%s", expected, actual)
-	}
 }
 
-// TestGolden_MySQLSimpleSelect verifies MySQL compiler output.
-func TestGolden_MySQLSimpleSelect(t *testing.T) {
-	golden, err := os.ReadFile(filepath.Join("..", "..", "testdata", "sql", "mysql", "simple_select.sql"))
-	if err != nil {
-		t.Skip("golden file not found")
+func TestGoldenAcrossDialects(t *testing.T) {
+	dialects := []dialect.Dialect{
+		dialect.PostgresDialect{},
+		dialect.MySQLDialect{},
+		dialect.SQLServerDialect{},
 	}
 
-	model := &semantic.SemanticModel{
-		Name:       "products",
-		BaseSchema: "store",
-		BaseTable:  "products",
-		Dimensions: []semantic.Dimension{
-			{Name: "name", ColumnRef: "products.name", Type: "text"},
-		},
-	}
+	updateGolden := os.Getenv("UPDATE_GOLDEN") == "true"
 
-	lq := LogicalQuery{
-		ModelID: "products",
-		Select:  []SelectItem{{Type: "dimension", Name: "name"}},
-		Filters: []Filter{{Field: "name", Operator: OpContains, Value: "test"}},
-		Limit:   50,
-	}
+	for _, d := range dialects {
+		t.Run(d.Name(), func(t *testing.T) {
+			for _, tc := range getGoldenTestCases() {
+				t.Run(tc.name, func(t *testing.T) {
+					fixture := tc.fixture(t)
+					compiler := NewCompiler(d)
+					var cq *CompiledQuery
+					var err error
+					if len(tc.rowFilters) > 0 {
+						cq, err = compiler.CompileWithPermissions(context.Background(), &fixture.LogicalQuery, fixture.Model, tc.rowFilters, nil)
+					} else {
+						cq, err = compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
+					}
+					if err != nil {
+						t.Fatalf("compilation failed: %v", err)
+					}
 
-	compiler := NewCompiler(dialect.MySQLDialect{})
-	cq, err := compiler.Compile(context.Background(), &lq, model)
-	if err != nil {
-		t.Fatalf("MySQL compilation failed: %v", err)
-	}
+					goldenDir := filepath.Join("..", "..", "testdata", "sql", d.Name())
+					goldenPath := filepath.Join(goldenDir, tc.name+".sql")
 
-	expected := normalizeSQL(string(golden))
-	actual := normalizeSQL(cq.SQL)
+					if updateGolden {
+						if err := os.MkdirAll(goldenDir, 0750); err != nil {
+							t.Fatalf("failed to create golden directory: %v", err)
+						}
+						if err := os.WriteFile(goldenPath, []byte(cq.SQL), 0600); err != nil {
+							t.Fatalf("failed to write golden file: %v", err)
+						}
+					}
 
-	if expected != actual {
-		t.Errorf("MySQL SQL mismatch.\nExpected:\n%s\n\nGot:\n%s", expected, actual)
-	}
-}
+					// #nosec G304
+					goldenBytes, err := os.ReadFile(goldenPath)
+					if err != nil {
+						t.Fatalf("failed to read golden file: %v", err)
+					}
 
-// TestGolden_PostgresManyToOne verifies many-to-one join with display dimension.
-func TestGolden_PostgresManyToOne(t *testing.T) {
-	golden, err := os.ReadFile(filepath.Join("..", "..", "testdata", "sql", "postgres", "many_to_one_join.sql"))
-	if err != nil {
-		t.Skip("golden file not found")
-	}
+					expected := normalizeSQL(string(goldenBytes))
+					actual := normalizeSQL(cq.SQL)
 
-	fixture := fixtureManyToOne()
-	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
-	if err != nil {
-		t.Fatalf("compilation failed: %v", err)
-	}
-
-	expected := normalizeSQL(string(golden))
-	actual := normalizeSQL(cq.SQL)
-
-	if expected != actual {
-		t.Errorf("SQL mismatch.\nExpected:\n%s\n\nGot:\n%s", expected, actual)
-	}
-}
-
-// TestGolden_PostgresOneToMany verifies one-to-many join with fanout.
-func TestGolden_PostgresOneToMany(t *testing.T) {
-	golden, err := os.ReadFile(filepath.Join("..", "..", "testdata", "sql", "postgres", "one_to_many_join.sql"))
-	if err != nil {
-		t.Skip("golden file not found")
-	}
-
-	fixture := fixtureOneToMany()
-	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
-	if err != nil {
-		t.Fatalf("compilation failed: %v", err)
-	}
-
-	expected := normalizeSQL(string(golden))
-	actual := normalizeSQL(cq.SQL)
-
-	if expected != actual {
-		t.Errorf("SQL mismatch.\nExpected:\n%s\n\nGot:\n%s", expected, actual)
-	}
-}
-
-// TestGolden_PostgresOneToOne verifies one-to-one join without fanout.
-func TestGolden_PostgresOneToOne(t *testing.T) {
-	golden, err := os.ReadFile(filepath.Join("..", "..", "testdata", "sql", "postgres", "one_to_one_join.sql"))
-	if err != nil {
-		t.Skip("golden file not found")
-	}
-
-	fixture := fixtureOneToOne()
-	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
-	if err != nil {
-		t.Fatalf("compilation failed: %v", err)
-	}
-
-	expected := normalizeSQL(string(golden))
-	actual := normalizeSQL(cq.SQL)
-
-	if expected != actual {
-		t.Errorf("SQL mismatch.\nExpected:\n%s\n\nGot:\n%s", expected, actual)
-	}
-}
-
-// TestGolden_PostgresManyToMany verifies many-to-many join with fanout warning.
-func TestGolden_PostgresManyToMany(t *testing.T) {
-	golden, err := os.ReadFile(filepath.Join("..", "..", "testdata", "sql", "postgres", "many_to_many_join.sql"))
-	if err != nil {
-		t.Skip("golden file not found")
-	}
-
-	fixture := fixtureManyToMany()
-	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
-	if err != nil {
-		t.Fatalf("compilation failed: %v", err)
-	}
-
-	expected := normalizeSQL(string(golden))
-	actual := normalizeSQL(cq.SQL)
-
-	if expected != actual {
-		t.Errorf("SQL mismatch.\nExpected:\n%s\n\nGot:\n%s", expected, actual)
-	}
-}
-
-// TestGolden_PostgresMultiHop verifies multi-hop join with mixed relationship types.
-func TestGolden_PostgresMultiHop(t *testing.T) {
-	golden, err := os.ReadFile(filepath.Join("..", "..", "testdata", "sql", "postgres", "multi_hop_join.sql"))
-	if err != nil {
-		t.Skip("golden file not found")
-	}
-
-	fixture := fixtureMultiHop()
-	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
-	if err != nil {
-		t.Fatalf("compilation failed: %v", err)
-	}
-
-	expected := normalizeSQL(string(golden))
-	actual := normalizeSQL(cq.SQL)
-
-	if expected != actual {
-		t.Errorf("SQL mismatch.\nExpected:\n%s\n\nGot:\n%s", expected, actual)
-	}
-}
-
-// TestGolden_PostgresDisplayPriority verifies display columns preferred over IDs.
-func TestGolden_PostgresDisplayPriority(t *testing.T) {
-	golden, err := os.ReadFile(filepath.Join("..", "..", "testdata", "sql", "postgres", "display_dimension_priority.sql"))
-	if err != nil {
-		t.Skip("golden file not found")
-	}
-
-	fixture := fixtureDisplayPriority()
-	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
-	if err != nil {
-		t.Fatalf("compilation failed: %v", err)
-	}
-
-	expected := normalizeSQL(string(golden))
-	actual := normalizeSQL(cq.SQL)
-
-	if expected != actual {
-		t.Errorf("SQL mismatch.\nExpected:\n%s\n\nGot:\n%s", expected, actual)
-	}
-}
-
-// TestGolden_MySQLManyToOne verifies MySQL many-to-one join.
-func TestGolden_MySQLManyToOne(t *testing.T) {
-	golden, err := os.ReadFile(filepath.Join("..", "..", "testdata", "sql", "mysql", "many_to_one_join.sql"))
-	if err != nil {
-		t.Skip("golden file not found")
-	}
-
-	fixture := fixtureManyToOne()
-	compiler := NewCompiler(dialect.MySQLDialect{})
-	cq, err := compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
-	if err != nil {
-		t.Fatalf("compilation failed: %v", err)
-	}
-
-	expected := normalizeSQL(string(golden))
-	actual := normalizeSQL(cq.SQL)
-
-	if expected != actual {
-		t.Errorf("MySQL SQL mismatch.\nExpected:\n%s\n\nGot:\n%s", expected, actual)
-	}
-}
-
-// TestGolden_SQLServerManyToOne verifies SQL Server many-to-one join.
-func TestGolden_SQLServerManyToOne(t *testing.T) {
-	golden, err := os.ReadFile(filepath.Join("..", "..", "testdata", "sql", "sqlserver", "many_to_one_join.sql"))
-	if err != nil {
-		t.Skip("golden file not found")
-	}
-
-	fixture := fixtureManyToOne()
-	compiler := NewCompiler(dialect.SQLServerDialect{})
-	cq, err := compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
-	if err != nil {
-		t.Fatalf("compilation failed: %v", err)
-	}
-
-	expected := normalizeSQL(string(golden))
-	actual := normalizeSQL(cq.SQL)
-
-	if expected != actual {
-		t.Errorf("SQL Server SQL mismatch.\nExpected:\n%s\n\nGot:\n%s", expected, actual)
+					if expected != actual {
+						t.Errorf("SQL mismatch for %s/%s.\nExpected:\n%s\n\nGot:\n%s", d.Name(), tc.name, expected, actual)
+					}
+				})
+			}
+		})
 	}
 }
 
@@ -682,81 +635,7 @@ func TestValidator_FanoutRelationship(t *testing.T) {
 	}
 }
 
-// TestGolden_PostgresCalculatedDimension verifies calculated dimensions.
-func TestGolden_PostgresCalculatedDimension(t *testing.T) {
-	golden, err := os.ReadFile(filepath.Join("..", "..", "testdata", "sql", "postgres", "calculated_dimension.sql"))
-	if err != nil {
-		t.Skip("golden file not found")
-	}
-
-	fixture := fixtureCalculated()
-	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
-	if err != nil {
-		t.Fatalf("compilation failed: %v", err)
-	}
-
-	expected := normalizeSQL(string(golden))
-	actual := normalizeSQL(cq.SQL)
-
-	if expected != actual {
-		t.Errorf("SQL mismatch.\nExpected:\n%s\n\nGot:\n%s", expected, actual)
-	}
-}
-
-// TestGolden_RowFilterInjection verifies row-level security filters are
-// correctly injected into compiled SQL (golden test for permission injection).
-func TestGolden_RowFilterInjection_Eq(t *testing.T) {
-	golden, err := os.ReadFile(filepath.Join("..", "..", "testdata", "sql", "postgres", "row_filter_eq.sql"))
-	if err != nil {
-		t.Skip("golden file not found")
-	}
-
-	fixture := fixtureManyToOne()
-	compiler := NewCompiler(dialect.PostgresDialect{})
-	// Use a field that exists in the fixture: order_date -> orders.created_at
-	rowFilters := []security.RowFilter{
-		{Field: "order_date", Operator: "eq", Value: "2024-01-01"},
-	}
-
-	cq, err := compiler.CompileWithPermissions(context.Background(), &fixture.LogicalQuery, fixture.Model, rowFilters, nil)
-	if err != nil {
-		t.Fatalf("compilation with permissions failed: %v", err)
-	}
-
-	expected := normalizeSQL(string(golden))
-	actual := normalizeSQL(cq.SQL)
-
-	if expected != actual {
-		t.Errorf("Row filter injection SQL mismatch.\nExpected:\n%s\n\nGot:\n%s", expected, actual)
-	}
-}
-
-func TestGolden_RowFilterInjection_In(t *testing.T) {
-	golden, err := os.ReadFile(filepath.Join("..", "..", "testdata", "sql", "postgres", "row_filter_in.sql"))
-	if err != nil {
-		t.Skip("golden file not found")
-	}
-
-	fixture := fixtureManyToOne()
-	compiler := NewCompiler(dialect.PostgresDialect{})
-	rowFilters := []security.RowFilter{
-		{Field: "order_date", Operator: "in", Value: []any{"2024-01-01", "2024-02-01", "2024-03-01"}},
-	}
-
-	cq, err := compiler.CompileWithPermissions(context.Background(), &fixture.LogicalQuery, fixture.Model, rowFilters, nil)
-	if err != nil {
-		t.Fatalf("compilation with permissions failed: %v", err)
-	}
-
-	expected := normalizeSQL(string(golden))
-	actual := normalizeSQL(cq.SQL)
-
-	if expected != actual {
-		t.Errorf("Row filter IN injection SQL mismatch.\nExpected:\n%s\n\nGot:\n%s", expected, actual)
-	}
-}
-
+// TestGolden_RowFilterInjection_WithExistingWhere verifies RowFilter injection when WHERE already exists.
 func TestGolden_RowFilterInjection_WithExistingWhere(t *testing.T) {
 	fixture := fixtureManyToOne()
 	compiler := NewCompiler(dialect.PostgresDialect{})
@@ -783,6 +662,7 @@ func TestGolden_RowFilterInjection_WithExistingWhere(t *testing.T) {
 	}
 }
 
+// TestGolden_RowFilterInjection_NoFilters verifies compilation when no filters are present.
 func TestGolden_RowFilterInjection_NoFilters(t *testing.T) {
 	fixture := fixtureManyToOne()
 	compiler := NewCompiler(dialect.PostgresDialect{})
@@ -799,7 +679,7 @@ func TestGolden_RowFilterInjection_NoFilters(t *testing.T) {
 	}
 
 	if cq.SQL != cqNormal.SQL {
-		t.Errorf("expected same SQL without row filters.\nNormal:\n%s\n\nWithPermissions:\n%s", cqNormal.SQL, cq.SQL)
+		t.Errorf("expected same SQL without row filters.\nNormal:\n%s\n\nGot:\n%s", cqNormal.SQL, cq.SQL)
 	}
 }
 
@@ -850,41 +730,6 @@ func compositeGoldenModel(t *testing.T) *semantic.SemanticModel {
 		t.Fatalf("composite resolve failed: %v", err)
 	}
 	return resolved
-}
-
-// TestGolden_PostgresComposite verifies a composite model compiles to SQL that
-// joins the secondary component and selects a metric from the primary plus a
-// dimension from the secondary.
-func TestGolden_PostgresComposite(t *testing.T) {
-	model := compositeGoldenModel(t)
-	lq := LogicalQuery{
-		ModelID: "c-1",
-		Select: []SelectItem{
-			{Type: "dimension", Name: "customer_region"},
-			{Type: "metric", Name: "total_revenue"},
-		},
-		GroupBy: []GroupBy{{Field: "customer_region"}},
-		OrderBy: []OrderBy{{Field: "total_revenue", Direction: "desc"}},
-		Limit:   50,
-	}
-
-	compiler := NewCompiler(dialect.PostgresDialect{})
-	cq, err := compiler.Compile(context.Background(), &lq, model)
-	if err != nil {
-		t.Fatalf("composite compilation failed: %v", err)
-	}
-
-	golden, err := os.ReadFile(filepath.Join("..", "..", "testdata", "sql", "postgres", "composite_cross_model.sql"))
-	if err != nil {
-		t.Logf("ACTUAL SQL:\n%s", cq.SQL)
-		t.Skip("golden file not found")
-	}
-
-	expected := normalizeSQL(string(golden))
-	actual := normalizeSQL(cq.SQL)
-	if expected != actual {
-		t.Errorf("Composite SQL mismatch.\nExpected:\n%s\n\nGot:\n%s", expected, actual)
-	}
 }
 
 // TestGolden_PIIMasking_AllTypesPostgres verifies the exact compiled SQL for

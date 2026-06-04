@@ -1,13 +1,1 @@
-SELECT
-  "salesterritory"."countryregioncode" AS "country",
-  COUNT("salesorderheader"."salesorderid") AS "order_count"
-FROM
-  "sales"."salesorderheader"
-LEFT JOIN "sales"."salesterritory" ON "sales"."salesorderheader"."territoryid" = "sales"."salesterritory"."territoryid"
-WHERE
-  "salesorderheader"."orderdate" >= $1
-GROUP BY
-  "salesterritory"."countryregioncode"
-ORDER BY
-  "order_count" DESC
-LIMIT 100
+SELECT "salesterritory"."countryregioncode" AS "country", COUNT("salesorderheader"."salesorderid") AS "order_count" FROM "sales"."salesorderheader" LEFT JOIN "sales"."salesterritory" ON "sales"."salesorderheader"."territoryid" = "sales"."salesterritory"."territoryid" WHERE "salesorderheader"."orderdate" >= $1 GROUP BY "salesterritory"."countryregioncode" ORDER BY "order_count" DESC LIMIT 100

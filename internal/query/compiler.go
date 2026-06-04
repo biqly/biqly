@@ -294,8 +294,13 @@ func (c *Compiler) determineJoins(
 }
 
 func (c *Compiler) dimensionSQL(dim *semantic.Dimension, resolver *SchemaResolver) string {
-	// If a calculated expression is defined, use it directly.
-	if strings.TrimSpace(dim.CalculatedExpression) != "" {
+	if dim.CalculatedExpr != nil {
+		return CompileExpr(dim.CalculatedExpr, c.dialect, resolver)
+	}
+	if expr := strings.TrimSpace(dim.CalculatedExpression); expr != "" {
+		if parsed, err := ParseExpression(expr); err == nil {
+			return CompileExpr(parsed, c.dialect, resolver)
+		}
 		return dim.CalculatedExpression
 	}
 	colRef := resolver.PhysicalColumnRef(dim.ColumnRef)
@@ -349,7 +354,7 @@ func (c *Compiler) resolveCustomToken(
 	}
 	for name, m := range metricMap {
 		if strings.EqualFold(name, token) {
-			return c.dialect.Aggregate(m.Aggregation, c.metricExpressionRef(m.Expression, resolver, dimMap, metricMap, model))
+			return c.metricAggregate(m, resolver, dimMap, metricMap, model)
 		}
 	}
 	if strings.Contains(token, ".") {
@@ -362,25 +367,99 @@ func (c *Compiler) resolveCustomToken(
 }
 
 func (c *Compiler) metricExpressionRef(
+	metric *semantic.Metric,
 	expr string,
 	resolver *SchemaResolver,
 	dimMap map[string]*semantic.Dimension,
 	metricMap map[string]*semantic.Metric,
 	model *semantic.SemanticModel,
 ) string {
+	if metric != nil && metric.Expr != nil && strings.TrimSpace(expr) == strings.TrimSpace(metric.Expression) {
+		return CompileExpr(metric.Expr, c.dialect, resolver)
+	}
+	expr = strings.TrimSpace(expr)
 	if expr == "*" {
 		return expr
 	}
 	return c.resolveBracketExpressions(expr, resolver, dimMap, metricMap, model)
 }
 
+func (c *Compiler) metricAggregate(
+	metric *semantic.Metric,
+	resolver *SchemaResolver,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
+	model *semantic.SemanticModel,
+) string {
+	expr := c.metricExpressionRef(metric, metric.Expression, resolver, dimMap, metricMap, model)
+	if metric.Expr != nil {
+		return c.aggregateExpr(metric.Aggregation, expr)
+	}
+	return c.dialect.Aggregate(metric.Aggregation, expr)
+}
+
+func (c *Compiler) aggregateExpr(fn, expr string) string {
+	fnLower := strings.ToLower(strings.TrimSpace(fn))
+	if fnLower == "custom" || fnLower == "none" || fnLower == "" {
+		return expr
+	}
+	if fnLower == "count" && expr == "*" {
+		if c.dialect.Name() == "clickhouse" {
+			return "count()"
+		}
+		return "COUNT(*)"
+	}
+	switch fnLower {
+	case "count":
+		if c.dialect.Name() == "clickhouse" {
+			return "count(" + expr + ")"
+		}
+		return "COUNT(" + expr + ")"
+	case "count_distinct":
+		if c.dialect.Name() == "clickhouse" {
+			return "uniq(" + expr + ")"
+		}
+		return "COUNT(DISTINCT " + expr + ")"
+	case "sum":
+		if c.dialect.Name() == "clickhouse" {
+			return "sum(" + expr + ")"
+		}
+		return "SUM(" + expr + ")"
+	case "avg":
+		if c.dialect.Name() == "clickhouse" {
+			return "avg(" + expr + ")"
+		}
+		return "AVG(" + expr + ")"
+	case "min":
+		if c.dialect.Name() == "clickhouse" {
+			return "min(" + expr + ")"
+		}
+		return "MIN(" + expr + ")"
+	case "max":
+		if c.dialect.Name() == "clickhouse" {
+			return "max(" + expr + ")"
+		}
+		return "MAX(" + expr + ")"
+	default:
+		if c.dialect.Name() == "clickhouse" {
+			return "count(" + expr + ")"
+		}
+		return "COUNT(" + expr + ")"
+	}
+}
+
 func (c *Compiler) qualifyMetricExpression(
+	metric *semantic.Metric,
 	expr string,
 	resolver *SchemaResolver,
 	dimMap map[string]*semantic.Dimension,
 	metricMap map[string]*semantic.Metric,
 	model *semantic.SemanticModel,
 ) string {
+	if metric != nil && metric.Expr != nil && strings.TrimSpace(expr) == strings.TrimSpace(metric.Expression) {
+		return CompileExpr(metric.Expr, c.dialect, resolver)
+	}
+	expr = strings.TrimSpace(expr)
 	if expr == "*" {
 		return expr
 	}
@@ -429,7 +508,7 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]*semantic.D
 				}
 				return nil, validationErrWithCode("select", errmsg.UnknownMetricMsg(item.Name), errmsg.CodeUnknownMetric, item.Name, suggestAlternatives(item.Name, metricKeys))
 			}
-			agg := c.dialect.Aggregate(metric.Aggregation, c.metricExpressionRef(metric.Expression, resolver, dimMap, metricMap, model))
+			agg := c.metricAggregate(metric, resolver, dimMap, metricMap, model)
 			alias := item.Alias
 			if alias == "" {
 				alias = metric.Name
@@ -519,7 +598,7 @@ func (c *Compiler) buildWindowExpr(
 		}
 	}
 	if expr != "" && expr != "*" {
-		expr = c.metricExpressionRef(expr, resolver, dimMap, metricMap, model)
+		expr = c.metricExpressionRef(nil, expr, resolver, dimMap, metricMap, model)
 	}
 	if agg == "" {
 		return "", fmt.Errorf("window select item %q missing aggregation", item.Name)
@@ -565,7 +644,7 @@ func (c *Compiler) buildWindowExpr(
 			if dim, ok := dimMap[ob.Field]; ok {
 				ref = c.dimensionSQL(dim, resolver)
 			} else if metric, ok := metricMap[ob.Field]; ok {
-				ref = c.dialect.Aggregate(metric.Aggregation, c.metricExpressionRef(metric.Expression, resolver, dimMap, metricMap, model))
+				ref = c.metricAggregate(metric, resolver, dimMap, metricMap, model)
 			} else {
 				return "", fmt.Errorf("unknown window order_by field: %s", ob.Field)
 			}
@@ -609,7 +688,7 @@ func (c *Compiler) buildHaving(
 		if !ok {
 			return "", nil, fmt.Errorf("unknown having field (must be a metric): %s", f.Field)
 		}
-		aggSQL := c.dialect.Aggregate(metric.Aggregation, c.metricExpressionRef(metric.Expression, resolver, dimMap, metricMap, model))
+		aggSQL := c.metricAggregate(metric, resolver, dimMap, metricMap, model)
 		switch f.Operator {
 		case OpEq, OpNeq, OpGt, OpGte, OpLt, OpLte:
 			args = append(args, f.Value)
@@ -790,7 +869,7 @@ func (c *Compiler) resolveFilterLHS(field string, dimMap map[string]*semantic.Di
 		return c.dimensionSQL(dim, resolver), nil
 	}
 	if metric, ok := metricMap[field]; ok {
-		return c.qualifyMetricExpression(metric.Expression, resolver, dimMap, metricMap, model), nil
+		return c.qualifyMetricExpression(metric, metric.Expression, resolver, dimMap, metricMap, model), nil
 	}
 	var fieldKeys []string
 	for k := range dimMap {
