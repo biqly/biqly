@@ -31,7 +31,8 @@ export function PIIDetectionPanel({ token }: { token: string }) {
   const t = useT()
   const { hasPermission, isSuperAdmin, roles, user } = useAuth()
   const canEdit = hasPermission('admin:roles')
-  const hasRawPIIAccess = isSuperAdmin || roles.some((role) => ['admin', 'super_admin'].includes(role.toLowerCase()))
+  const hasRawPIIAccess =
+    isSuperAdmin || roles.some((role) => ['admin', 'super_admin'].includes(role.toLowerCase()))
   const reviewer = user?.email || 'admin'
 
   const { datasources, loading: loadingDS } = useDatasources()
@@ -98,7 +99,9 @@ export function PIIDetectionPanel({ token }: { token: string }) {
 
   const handleConfirm = async (col: PIIColumn) => {
     const piiType = pendingType[col.column_id] || col.pii_type
-    const maskingStrategy = normalizePIIMaskingStrategy(pendingStrategy[col.column_id] || col.masking_strategy)
+    const maskingStrategy = normalizePIIMaskingStrategy(
+      pendingStrategy[col.column_id] || col.masking_strategy,
+    )
     setError(null)
     try {
       await updateColumnPII(token, col.column_id, {
@@ -199,7 +202,10 @@ export function PIIDetectionPanel({ token }: { token: string }) {
                   )
                   const pendingPIIType = pendingType[col.column_id]
                   const typeChanged = pendingPIIType != null && pendingPIIType !== col.pii_type
-                  const strategyChanged = piiStrategyChanged(col.masking_strategy, pendingStrategy[col.column_id])
+                  const strategyChanged = piiStrategyChanged(
+                    col.masking_strategy,
+                    pendingStrategy[col.column_id],
+                  )
                   const showConfirm = shouldShowPIIConfirmAction({
                     canEdit,
                     reviewedBy: col.reviewed_by,
@@ -209,89 +215,99 @@ export function PIIDetectionPanel({ token }: { token: string }) {
 
                   return (
                     <tr key={col.column_id} style={trRow}>
-                    <td style={tdStyle}>
-                      <code style={codeStyle}>
-                        {col.schema}.{col.table}.{col.column}
-                      </code>
-                    </td>
-                    <td style={tdStyle}>
-                      {canEdit && !col.reviewed_by ? (
-                        <select
-                          value={pendingType[col.column_id] || col.pii_type}
-                          onChange={(e) =>
-                            setPendingType((prev) => ({ ...prev, [col.column_id]: e.target.value }))
-                          }
-                          style={typeSelectStyle}
-                          aria-label={t('admin.pii.col_type')}
-                        >
-                          {PII_TYPES.map((typ) => (
-                            <option key={typ} value={typ}>
-                              {typ}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span style={typeBadge}>{col.pii_type}</span>
-                      )}
-                    </td>
-                    <td style={tdStyle}>
-                      <ConfidenceBadge confidence={col.confidence} />
-                    </td>
-                    <td style={tdStyle}>
-                      {canEdit ? (
-                        <>
+                      <td style={tdStyle}>
+                        <code style={codeStyle}>
+                          {col.schema}.{col.table}.{col.column}
+                        </code>
+                      </td>
+                      <td style={tdStyle}>
+                        {canEdit && !col.reviewed_by ? (
                           <select
-                            value={selectedStrategy}
+                            value={pendingType[col.column_id] || col.pii_type}
                             onChange={(e) =>
-                              setPendingStrategy((prev) => ({ ...prev, [col.column_id]: e.target.value }))
+                              setPendingType((prev) => ({
+                                ...prev,
+                                [col.column_id]: e.target.value,
+                              }))
                             }
                             style={typeSelectStyle}
-                            aria-label={t('admin.pii.col_strategy')}
+                            aria-label={t('admin.pii.col_type')}
                           >
-                            {PII_MASKING_STRATEGIES.map((strategy) => (
-                              <option key={strategy} value={strategy}>
-                                {t(piiMaskingStrategyLabelKey(strategy))}
+                            {PII_TYPES.map((typ) => (
+                              <option key={typ} value={typ}>
+                                {typ}
                               </option>
                             ))}
                           </select>
-                          {hasRawPIIAccess && (
-                            <div style={strategyHintStyle}>{t('admin.pii.strategy_raw_access_note')}</div>
-                          )}
-                        </>
-                      ) : (
-                        <span>
-                          {col.masking_strategy ? t(piiMaskingStrategyLabelKey(col.masking_strategy)) : '—'}
-                        </span>
-                      )}
-                    </td>
-                    <td style={tdStyle}>
-                      {col.reviewed_by ? (
-                        <span style={reviewedBadge}>
-                          {t('admin.pii.reviewed_by', { reviewer: col.reviewed_by })}
-                        </span>
-                      ) : (
-                        <span style={unreviewedBadge}>{t('admin.pii.unreviewed')}</span>
-                      )}
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      {showConfirm && (
+                        ) : (
+                          <span style={typeBadge}>{col.pii_type}</span>
+                        )}
+                      </td>
+                      <td style={tdStyle}>
+                        <ConfidenceBadge confidence={col.confidence} />
+                      </td>
+                      <td style={tdStyle}>
+                        {canEdit ? (
+                          <>
+                            <select
+                              value={selectedStrategy}
+                              onChange={(e) =>
+                                setPendingStrategy((prev) => ({
+                                  ...prev,
+                                  [col.column_id]: e.target.value,
+                                }))
+                              }
+                              style={typeSelectStyle}
+                              aria-label={t('admin.pii.col_strategy')}
+                            >
+                              {PII_MASKING_STRATEGIES.map((strategy) => (
+                                <option key={strategy} value={strategy}>
+                                  {t(piiMaskingStrategyLabelKey(strategy))}
+                                </option>
+                              ))}
+                            </select>
+                            {hasRawPIIAccess && (
+                              <div style={strategyHintStyle}>
+                                {t('admin.pii.strategy_raw_access_note')}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <span>
+                            {col.masking_strategy
+                              ? t(piiMaskingStrategyLabelKey(col.masking_strategy))
+                              : '—'}
+                          </span>
+                        )}
+                      </td>
+                      <td style={tdStyle}>
+                        {col.reviewed_by ? (
+                          <span style={reviewedBadge}>
+                            {t('admin.pii.reviewed_by', { reviewer: col.reviewed_by })}
+                          </span>
+                        ) : (
+                          <span style={unreviewedBadge}>{t('admin.pii.unreviewed')}</span>
+                        )}
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        {showConfirm && (
+                          <button
+                            onClick={() => handleConfirm(col)}
+                            disabled={!canEdit}
+                            style={canEdit ? btnSmall : btnSmallDisabled}
+                          >
+                            {t('admin.pii.confirm')}
+                          </button>
+                        )}
                         <button
-                          onClick={() => handleConfirm(col)}
+                          onClick={() => handleDismiss(col)}
                           disabled={!canEdit}
-                          style={canEdit ? btnSmall : btnSmallDisabled}
+                          style={canEdit ? btnSmallDanger : btnSmallDisabled}
                         >
-                          {t('admin.pii.confirm')}
+                          {t('admin.pii.dismiss')}
                         </button>
-                      )}
-                      <button
-                        onClick={() => handleDismiss(col)}
-                        disabled={!canEdit}
-                        style={canEdit ? btnSmallDanger : btnSmallDisabled}
-                      >
-                        {t('admin.pii.dismiss')}
-                      </button>
-                    </td>
-                  </tr>
+                      </td>
+                    </tr>
                   )
                 })}
               </tbody>

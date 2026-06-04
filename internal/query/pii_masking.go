@@ -8,6 +8,10 @@ import (
 // PIIMaskingConfig drives column-level PII masking during SQL compilation.
 // A nil config disables masking entirely (backward compatible).
 type PIIMaskingConfig struct {
+	// ColumnInfo maps a column reference to its resolved PII policy metadata.
+	// Prefer this over the legacy split maps below so each lookup touches one
+	// map instead of three.
+	ColumnInfo map[string]PIIColumnInfo
 	// ColumnAccess maps a column reference to "raw" | "masked" | "hidden".
 	// Keys may use the semantic ColumnRef form ("customers.email") or the
 	// fully qualified physical form ("public.customers.email").
@@ -20,6 +24,13 @@ type PIIMaskingConfig struct {
 	ColumnStrategies map[string]string
 	// Strategy generates masking SQL. Nil uses pii.DefaultMaskingStrategy.
 	Strategy pii.MaskingStrategy
+}
+
+// PIIColumnInfo is the resolved PII policy metadata for one column reference.
+type PIIColumnInfo struct {
+	Access   string
+	PIIType  string
+	Strategy string
 }
 
 func (cfg *PIIMaskingConfig) strategy() pii.MaskingStrategy {
@@ -35,6 +46,9 @@ func (cfg *PIIMaskingConfig) lookup(refs ...string) (access, piiType string, ok 
 	for _, ref := range refs {
 		if ref == "" {
 			continue
+		}
+		if info, found := cfg.ColumnInfo[ref]; found {
+			return pii.EffectiveColumnAccess(info.Access, info.Strategy), info.PIIType, true
 		}
 		if a, found := cfg.ColumnAccess[ref]; found {
 			return pii.EffectiveColumnAccess(a, cfg.lookupStrategy(refs...)), cfg.ColumnTypes[ref], true

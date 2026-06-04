@@ -16,14 +16,24 @@ describe('piiDetectionPanelLogic', () => {
   })
 
   it('shows the confirm action for reviewed rows when strategy changes', () => {
-    expect(shouldShowPIIConfirmAction({ canEdit: true, reviewedBy: 'admin', typeChanged: false, strategyChanged: true })).toBe(
-      true,
-    )
+    expect(
+      shouldShowPIIConfirmAction({
+        canEdit: true,
+        reviewedBy: 'admin',
+        typeChanged: false,
+        strategyChanged: true,
+      }),
+    ).toBe(true)
   })
 
   it('hides the confirm action for unchanged reviewed rows', () => {
     expect(
-      shouldShowPIIConfirmAction({ canEdit: true, reviewedBy: 'admin', typeChanged: false, strategyChanged: false }),
+      shouldShowPIIConfirmAction({
+        canEdit: true,
+        reviewedBy: 'admin',
+        typeChanged: false,
+        strategyChanged: false,
+      }),
     ).toBe(false)
   })
 

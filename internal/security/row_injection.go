@@ -34,6 +34,9 @@ func BuildRowFilterPredicates(
 	ph := func() string {
 		return d.Placeholder(initialArgCount + len(extraArgs))
 	}
+	predicate := func(lhs, op, rhs string) string {
+		return lhs + " " + op + " " + rhs
+	}
 	for _, rf := range filters {
 		colRef, ok := dimMap[rf.Field]
 		if !ok {
@@ -47,22 +50,22 @@ func BuildRowFilterPredicates(
 		switch op {
 		case "", "eq":
 			extraArgs = append(extraArgs, rf.Value)
-			preds = append(preds, fmt.Sprintf("%s = %s", quoted, ph()))
+			preds = append(preds, predicate(quoted, "=", ph()))
 		case "neq":
 			extraArgs = append(extraArgs, rf.Value)
-			preds = append(preds, fmt.Sprintf("%s <> %s", quoted, ph()))
+			preds = append(preds, predicate(quoted, "<>", ph()))
 		case "gt":
 			extraArgs = append(extraArgs, rf.Value)
-			preds = append(preds, fmt.Sprintf("%s > %s", quoted, ph()))
+			preds = append(preds, predicate(quoted, ">", ph()))
 		case "gte":
 			extraArgs = append(extraArgs, rf.Value)
-			preds = append(preds, fmt.Sprintf("%s >= %s", quoted, ph()))
+			preds = append(preds, predicate(quoted, ">=", ph()))
 		case "lt":
 			extraArgs = append(extraArgs, rf.Value)
-			preds = append(preds, fmt.Sprintf("%s < %s", quoted, ph()))
+			preds = append(preds, predicate(quoted, "<", ph()))
 		case "lte":
 			extraArgs = append(extraArgs, rf.Value)
-			preds = append(preds, fmt.Sprintf("%s <= %s", quoted, ph()))
+			preds = append(preds, predicate(quoted, "<=", ph()))
 		case "in", "not_in":
 			vals, ok := rf.Value.([]any)
 			if !ok {
@@ -80,7 +83,7 @@ func BuildRowFilterPredicates(
 			if op == "not_in" {
 				keyword = "NOT IN"
 			}
-			preds = append(preds, fmt.Sprintf("%s %s (%s)", quoted, keyword, strings.Join(placeholders, ", ")))
+			preds = append(preds, predicate(quoted, keyword, "("+strings.Join(placeholders, ", ")+")"))
 		case "is_null":
 			preds = append(preds, quoted+" IS NULL")
 		case "is_not_null":

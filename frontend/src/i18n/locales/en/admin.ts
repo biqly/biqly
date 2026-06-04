@@ -36,7 +36,8 @@ export const admin = {
     col_strategy: 'Masking Strategy',
     strategy_partial: 'Partial Mask',
     strategy_full: 'Full Mask',
-    strategy_raw_access_note: 'Raw-access roles still see raw values; this applies when policy access is masked.',
+    strategy_raw_access_note:
+      'Raw-access roles still see raw values; this applies when policy access is masked.',
     col_reviewed: 'Reviewed',
     col_actions: 'Actions',
     confirm: 'Confirm',

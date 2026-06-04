@@ -38,6 +38,17 @@ func (c *Compiler) buildFilterPart(f Filter, lhsSQL string, model *semantic.Sema
 	return "", nil, fmt.Errorf("unsupported operator: %s", f.Operator)
 }
 
+func caseSensitiveComparison(dialectName, lhsSQL, op, placeholder string) string {
+	switch dialectName {
+	case "mysql":
+		return lhsSQL + " " + op + " BINARY " + placeholder
+	case "sqlserver":
+		return lhsSQL + " " + op + " " + placeholder + " COLLATE Latin1_General_CS_AS"
+	default:
+		return lhsSQL + " " + op + " " + placeholder
+	}
+}
+
 func (c *Compiler) buildEqFilter(f Filter, lhsSQL string, model *semantic.SemanticModel, args *[]any) (string, []any, error) {
 	vals, isSlice := sliceOfStrings(f.Value)
 	if isSlice {
@@ -49,14 +60,7 @@ func (c *Compiler) buildEqFilter(f Filter, lhsSQL string, model *semantic.Semant
 			*args = append(*args, valStr)
 			var part string
 			if f.CaseSensitive {
-				switch c.dialect.Name() {
-				case "mysql":
-					part = fmt.Sprintf("%s = BINARY %s", lhsSQL, c.dialect.Placeholder(len(*args)))
-				case "sqlserver":
-					part = fmt.Sprintf("%s = %s COLLATE Latin1_General_CS_AS", lhsSQL, c.dialect.Placeholder(len(*args)))
-				default:
-					part = lhsSQL + " = " + c.dialect.Placeholder(len(*args))
-				}
+				part = caseSensitiveComparison(c.dialect.Name(), lhsSQL, "=", c.dialect.Placeholder(len(*args)))
 			} else {
 				part = lhsSQL + " = " + c.dialect.Placeholder(len(*args))
 			}
@@ -66,12 +70,7 @@ func (c *Compiler) buildEqFilter(f Filter, lhsSQL string, model *semantic.Semant
 	}
 	*args = append(*args, f.Value)
 	if f.CaseSensitive {
-		switch c.dialect.Name() {
-		case "mysql":
-			return fmt.Sprintf("%s = BINARY %s", lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
-		case "sqlserver":
-			return fmt.Sprintf("%s = %s COLLATE Latin1_General_CS_AS", lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
-		}
+		return caseSensitiveComparison(c.dialect.Name(), lhsSQL, "=", c.dialect.Placeholder(len(*args))), nil, nil
 	}
 	return lhsSQL + " = " + c.dialect.Placeholder(len(*args)), nil, nil
 }
@@ -87,14 +86,7 @@ func (c *Compiler) buildNeqFilter(f Filter, lhsSQL string, model *semantic.Seman
 			*args = append(*args, valStr)
 			var part string
 			if f.CaseSensitive {
-				switch c.dialect.Name() {
-				case "mysql":
-					part = fmt.Sprintf("%s != BINARY %s", lhsSQL, c.dialect.Placeholder(len(*args)))
-				case "sqlserver":
-					part = fmt.Sprintf("%s != %s COLLATE Latin1_General_CS_AS", lhsSQL, c.dialect.Placeholder(len(*args)))
-				default:
-					part = lhsSQL + " != " + c.dialect.Placeholder(len(*args))
-				}
+				part = caseSensitiveComparison(c.dialect.Name(), lhsSQL, "!=", c.dialect.Placeholder(len(*args)))
 			} else {
 				part = lhsSQL + " != " + c.dialect.Placeholder(len(*args))
 			}
@@ -104,12 +96,7 @@ func (c *Compiler) buildNeqFilter(f Filter, lhsSQL string, model *semantic.Seman
 	}
 	*args = append(*args, f.Value)
 	if f.CaseSensitive {
-		switch c.dialect.Name() {
-		case "mysql":
-			return fmt.Sprintf("%s != BINARY %s", lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
-		case "sqlserver":
-			return fmt.Sprintf("%s != %s COLLATE Latin1_General_CS_AS", lhsSQL, c.dialect.Placeholder(len(*args))), nil, nil
-		}
+		return caseSensitiveComparison(c.dialect.Name(), lhsSQL, "!=", c.dialect.Placeholder(len(*args))), nil, nil
 	}
 	return lhsSQL + " != " + c.dialect.Placeholder(len(*args)), nil, nil
 }

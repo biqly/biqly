@@ -250,6 +250,32 @@ func TestCompileWithPermissions_UnknownMaskingStrategyFailsClosed(t *testing.T) 
 	}
 }
 
+func TestCompileWithPermissions_ColumnInfoMap(t *testing.T) {
+	config := &PIIMaskingConfig{
+		ColumnInfo: map[string]PIIColumnInfo{
+			"customers.email": {
+				Access:   pii.AccessMasked,
+				PIIType:  pii.TypeEmail,
+				Strategy: pii.MaskingStrategyFull,
+			},
+		},
+	}
+	lq := LogicalQuery{
+		ModelID: "customers",
+		Select:  []SelectItem{{Type: "dimension", Name: "email"}},
+		Limit:   10,
+	}
+
+	compiler := NewCompiler(dialect.PostgresDialect{})
+	cq, err := compiler.CompileWithPermissions(context.Background(), &lq, piiTestModel(), nil, config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !containsStr(cq.SQL, `'***' AS "email"`) {
+		t.Errorf("full strategy from ColumnInfo must hide column: %s", cq.SQL)
+	}
+}
+
 func TestCompileWithPermissions_MaskingWithRowFilters(t *testing.T) {
 	lq := LogicalQuery{
 		ModelID: "customers",

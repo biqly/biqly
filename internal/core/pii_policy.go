@@ -79,6 +79,14 @@ func (s *PIIPolicyService) MaskingConfig(ctx context.Context, datasourceID strin
 
 	access, types := pii.BuildColumnAccessMaps(pii.PrimaryRole(roles), cols, overrides)
 	strategies := pii.BuildColumnMaskingStrategyMaps(cols)
+	info := make(map[string]query.PIIColumnInfo, len(access))
+	for ref, level := range access {
+		info[ref] = query.PIIColumnInfo{
+			Access:   level,
+			PIIType:  types[ref],
+			Strategy: strategies[ref],
+		}
+	}
 
 	if s.audit != nil {
 		masked := make([]string, 0, len(cols))
@@ -99,6 +107,7 @@ func (s *PIIPolicyService) MaskingConfig(ctx context.Context, datasourceID strin
 	}
 
 	return &query.PIIMaskingConfig{
+		ColumnInfo:       info,
 		ColumnAccess:     access,
 		ColumnTypes:      types,
 		ColumnStrategies: strategies,
