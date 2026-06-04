@@ -34,7 +34,7 @@ helm:
     value: ghcr.io/biqly/migrate
     forcestring: true
   - name: global.migrate.image.tag
-    value: sha-f2217d9fe00c6c63b65a453589a9c5586cf4c7dd
+    value: sha-68786cc767be4968e0d108e60cb4cd742304df6d
     forcestring: true
   - name: mail.image.repository
     value: ghcr.io/biqly/biqly-mail
