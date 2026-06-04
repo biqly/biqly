@@ -987,7 +987,7 @@ func (s *Service) parseAndValidate(raw string, model *semantic.SemanticModel) (*
 	// Guardrails: reject empty selects
 	if len(lq.Select) == 0 {
 		warnings = append(warnings, "AI returned empty select - question may be ambiguous")
-		return nil, warnings, 0, nil, fmt.Errorf("ambiguous question")
+		return nil, warnings, 0, nil, errors.New("ambiguous question")
 	}
 
 	// Validate against semantic model

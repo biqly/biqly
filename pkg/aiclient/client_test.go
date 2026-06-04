@@ -158,7 +158,7 @@ func TestRun_ReturnsResult(t *testing.T) {
 				SQL:          "SELECT 1",
 				Args:         []any{},
 				Confidence:   0.88,
-				Result: &query.QueryResult{
+				Result: &query.Result{
 					Columns: []query.ResultColumn{{Name: "revenue"}},
 					Rows:    [][]any{{42.0}},
 					Stats:   query.Stats{RowCount: 1, DurationMs: 3},

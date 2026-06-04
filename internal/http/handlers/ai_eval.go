@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -70,7 +71,7 @@ func (h *AIHandler) evalAIConfigured() error {
 	if h.deps.Config.AI.QueryLLMConfigured() {
 		return nil
 	}
-	return fmt.Errorf("AI is not configured (set BI_AI_MODEL and BI_AI_API_KEY, or BI_AI_BASE_URL for keyless local LLM)")
+	return errors.New("AI is not configured (set BI_AI_MODEL and BI_AI_API_KEY, or BI_AI_BASE_URL for keyless local LLM)")
 }
 
 func (h *AIHandler) evalModesFromRequest(ctx context.Context, r *http.Request) (ai.EvalMode, string, string, []ai.GoldenCase, error) {

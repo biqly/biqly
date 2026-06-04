@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -27,10 +28,10 @@ type AIJobProgressFunc func(p AIJobProgress)
 
 func (h *AIHandler) resolveAIQuery(ctx context.Context, req aiQueryRequest) (*semantic.SemanticModel, *routing.TableRoutingResult, *ai.Response, error) {
 	if req.Question == "" {
-		return nil, nil, nil, fmt.Errorf("question is required")
+		return nil, nil, nil, errors.New("question is required")
 	}
 	if req.DatasourceID == "" {
-		return nil, nil, nil, fmt.Errorf(core.MsgDatasourceIDRequired)
+		return nil, nil, nil, errors.New(core.MsgDatasourceIDRequired)
 	}
 	model, routing, err := h.loadQueryModel(ctx, req)
 	if err != nil {
@@ -227,10 +228,10 @@ func (h *AIHandler) finishAIRunResultWithQueryClient(ctx context.Context, resp *
 		return nil, err
 	}
 	resp.Result.SQL = run.SQL
-	result := &query.QueryResult{
+	result := &query.Result{
 		Columns: run.Columns,
 		Rows:    run.Rows,
-		Stats: query.QueryStats{
+		Stats: query.Stats{
 			RowCount:   run.RowCount,
 			DurationMs: run.DurationMs,
 		},
@@ -328,7 +329,7 @@ func (h *AIHandler) executeMetadataDescribeBatchJob(
 	report AIJobProgressFunc,
 ) (*ai.DescribeBatchResult, error) {
 	if req.DatasourceID == "" || len(req.Tables) == 0 {
-		return nil, fmt.Errorf("datasource_id and tables are required")
+		return nil, errors.New("datasource_id and tables are required")
 	}
 
 	existingDesc := map[string]bool{}
@@ -349,7 +350,7 @@ func (h *AIHandler) executeMetadataDescribeBatchJob(
 	var completedKeys []string
 	for i, target := range req.Tables {
 		if h.isAIJobCancelled(ctx, jobID) {
-			return out, fmt.Errorf("job cancelled")
+			return out, errors.New("job cancelled")
 		}
 		schema := strings.TrimSpace(target.Schema)
 		table := strings.TrimSpace(target.Table)
@@ -396,7 +397,7 @@ func (h *AIHandler) executeMetadataDescribeBatchJob(
 			})
 			report(AIJobProgress{
 				Phase:    "generating",
-				Message:  fmt.Sprintf("describing %s", key),
+				Message:  "describing " + key,
 				Progress: pct,
 				Status:   metadata.AIJobStatusRunning,
 				Detail:   detail,
@@ -448,7 +449,7 @@ func (h *AIHandler) executeEmbedMetadataJob(
 	}
 
 	if h.deps.AIEmbedMeta == nil || h.deps.Embedder == nil {
-		return nil, fmt.Errorf("embeddings are not configured")
+		return nil, errors.New("embeddings are not configured")
 	}
 
 	var (

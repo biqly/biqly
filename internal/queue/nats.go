@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -24,7 +25,7 @@ type NATSQueue struct {
 
 func ConnectNATS(cfg NATSConfig) (*NATSQueue, error) {
 	if cfg.URL == "" {
-		return nil, fmt.Errorf("nats url is empty")
+		return nil, errors.New("nats url is empty")
 	}
 	if cfg.Stream == "" {
 		cfg.Stream = AIJobStream

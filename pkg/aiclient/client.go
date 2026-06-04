@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -114,7 +115,7 @@ func (c *Client) post(ctx context.Context, path string, body, out any) error {
 
 func (c *Client) do(ctx context.Context, method, path string, query url.Values, body, out any) error {
 	if c.baseURL == "" {
-		return fmt.Errorf("aiclient: baseURL is empty")
+		return errors.New("aiclient: baseURL is empty")
 	}
 	u := c.baseURL + "/api/ai" + path
 	if len(query) > 0 {

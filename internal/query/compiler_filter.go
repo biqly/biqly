@@ -1,6 +1,7 @@
 package query
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -231,7 +232,7 @@ func (c *Compiler) buildIsNotNullFilter(f Filter, lhsSQL string, model *semantic
 func (c *Compiler) buildInFilter(lhsSQL string, value any, args *[]any) (string, []any, error) {
 	vals, ok := value.([]any)
 	if !ok {
-		return "", nil, fmt.Errorf("in operator expects array")
+		return "", nil, errors.New("in operator expects array")
 	}
 	placeholders := make([]string, len(vals))
 	for i, v := range vals {
@@ -244,7 +245,7 @@ func (c *Compiler) buildInFilter(lhsSQL string, value any, args *[]any) (string,
 func (c *Compiler) buildNotInFilter(lhsSQL string, value any, args *[]any) (string, []any, error) {
 	vals, ok := value.([]any)
 	if !ok {
-		return "", nil, fmt.Errorf("not_in operator expects array")
+		return "", nil, errors.New("not_in operator expects array")
 	}
 	placeholders := make([]string, len(vals))
 	for i, v := range vals {
@@ -257,7 +258,7 @@ func (c *Compiler) buildNotInFilter(lhsSQL string, value any, args *[]any) (stri
 func (c *Compiler) buildBetweenFilter(lhsSQL string, value any, args *[]any) (string, []any, error) {
 	vals, ok := value.([]any)
 	if !ok || len(vals) != 2 {
-		return "", nil, fmt.Errorf("between operator expects 2 values")
+		return "", nil, errors.New("between operator expects 2 values")
 	}
 	*args = append(*args, vals[0], vals[1])
 	p1 := c.dialect.Placeholder(len(*args) - 1)

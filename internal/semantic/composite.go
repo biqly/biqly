@@ -1,6 +1,7 @@
 package semantic
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -24,7 +25,7 @@ func NewCompositeResolver() *CompositeResolver {
 // cross-model joins are flattened into physical Join entries.
 func (r *CompositeResolver) Resolve(composite *CompositeModel, components map[string]*SemanticModel) (*SemanticModel, error) {
 	if composite == nil {
-		return nil, fmt.Errorf("composite model is nil")
+		return nil, errors.New("composite model is nil")
 	}
 	if len(composite.Components) == 0 {
 		return nil, fmt.Errorf("composite model %q has no components", composite.Name)

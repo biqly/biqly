@@ -84,7 +84,7 @@ type CompileResult struct {
 
 type RunResult struct {
 	CompileResult
-	Result *query.QueryResult `json:"result,omitempty"`
+	Result *query.Result `json:"result,omitempty"`
 }
 
 func NewQueryService(deps QueryServiceDeps) *QueryService {
@@ -265,7 +265,7 @@ func (s *QueryService) recordHistory(
 	lq *query.LogicalQuery,
 	model *semantic.SemanticModel,
 	cq *query.CompiledQuery,
-	result *query.QueryResult,
+	result *query.Result,
 	status string,
 	queryErr error,
 ) {

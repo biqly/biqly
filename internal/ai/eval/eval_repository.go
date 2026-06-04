@@ -260,7 +260,8 @@ func (r *EvalRepository) GenerateRegressionReport(ctx context.Context, baselineR
 		}
 
 		// Both exist - compare
-		if base.Match && !cur.Match {
+		switch {
+		case base.Match && !cur.Match:
 			report.NewFailures = append(report.NewFailures, RegressionChange{
 				CaseID:    caseID,
 				Question:  cur.Question,
@@ -269,7 +270,7 @@ func (r *EvalRepository) GenerateRegressionReport(ctx context.Context, baselineR
 				WasReason: base.Reason,
 				IsReason:  cur.Reason,
 			})
-		} else if !base.Match && cur.Match {
+		case !base.Match && cur.Match:
 			report.FixedFailures = append(report.FixedFailures, RegressionChange{
 				CaseID:    caseID,
 				Question:  cur.Question,
@@ -277,7 +278,7 @@ func (r *EvalRepository) GenerateRegressionReport(ctx context.Context, baselineR
 				IsMatch:   true,
 				WasReason: base.Reason,
 			})
-		} else if base.Reason != cur.Reason {
+		case base.Reason != cur.Reason:
 			report.ChangedCases = append(report.ChangedCases, RegressionChange{
 				CaseID:    caseID,
 				Question:  cur.Question,

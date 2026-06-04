@@ -22,7 +22,7 @@ func (c *Client) Preview(ctx context.Context, req QueryRequest) (*PreviewRespons
 	if err := c.post(ctx, "/query/preview", req, &resp); err != nil {
 		return nil, err
 	}
-	if err := clarificationFromResponse((*QueryResponse)(&resp)); err != nil {
+	if err := clarificationFromResponse(&resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
@@ -34,7 +34,7 @@ func (c *Client) Run(ctx context.Context, req QueryRequest) (*RunResponse, error
 	if err := c.post(ctx, "/query/run", req, &resp); err != nil {
 		return nil, err
 	}
-	if err := clarificationFromResponse((*QueryResponse)(&resp)); err != nil {
+	if err := clarificationFromResponse(&resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil

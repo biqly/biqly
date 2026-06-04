@@ -48,10 +48,10 @@ func NewSharingService(db *sql.DB) *SharingService {
 
 func (s *SharingService) Share(ctx context.Context, ownerID string, req ShareRequest) (*ResourceShare, error) {
 	if req.ResourceType == "" || req.ResourceID == "" {
-		return nil, fmt.Errorf("resource_type and resource_id are required")
+		return nil, errors.New("resource_type and resource_id are required")
 	}
 	if req.SharedWith == nil && req.WorkspaceID == nil {
-		return nil, fmt.Errorf("either shared_with or workspace_id must be provided")
+		return nil, errors.New("either shared_with or workspace_id must be provided")
 	}
 	if !isValidPermission(req.Permission) {
 		return nil, fmt.Errorf("invalid permission: %s", req.Permission)
@@ -112,7 +112,7 @@ func (s *SharingService) Revoke(ctx context.Context, shareID, callerID string) e
 		return err
 	}
 	if ownerID != callerID {
-		return fmt.Errorf("only owner can revoke share")
+		return errors.New("only owner can revoke share")
 	}
 	_, err = s.db.ExecContext(ctx, `DELETE FROM resource_shares WHERE id = $1`, shareID)
 	return err

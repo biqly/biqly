@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -43,7 +44,7 @@ func (c *Compiler) buildWithClause(ctes []CTE, model *semantic.SemanticModel, ar
 	for _, cte := range ctes {
 		name := strings.TrimSpace(cte.Name)
 		if name == "" {
-			return "", fmt.Errorf("cte name is required")
+			return "", errors.New("cte name is required")
 		}
 		innerSQL, err := c.compileSubqueryBody(cte.Subquery(), model, args)
 		if err != nil {
@@ -203,10 +204,10 @@ func (c *Compiler) compileStatement(
 
 func (c *Compiler) buildInSubqueryFilter(lhsSQL string, f Filter, model *semantic.SemanticModel, positive bool, args *[]any) (string, []any, error) {
 	if f.Subquery == nil {
-		return "", nil, fmt.Errorf("subquery filter missing body")
+		return "", nil, errors.New("subquery filter missing body")
 	}
 	if strings.TrimSpace(f.Subquery.ResultField) == "" {
-		return "", nil, fmt.Errorf("subquery filter requires result_field")
+		return "", nil, errors.New("subquery filter requires result_field")
 	}
 	subSQL, err := c.compileSubqueryBody(f.Subquery.Body, model, args)
 	if err != nil {

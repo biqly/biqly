@@ -443,11 +443,11 @@ func (b *PromptBuilder) writeDimensions(sb *bytes.Buffer, dims []semantic.Dimens
 			syn := joinSynonymsCap(d.Synonyms, maxSynonymsPerLine)
 			tg := ""
 			if d.TimeGrain != "" {
-				tg = fmt.Sprintf(", time_grain: %s", d.TimeGrain)
+				tg = ", time_grain: " + d.TimeGrain
 			}
 			sy := ""
 			if syn != "" {
-				sy = fmt.Sprintf(", synonyms: %s", syn)
+				sy = ", synonyms: " + syn
 			}
 			line := fmt.Sprintf("- %s (type: %s, column: %s%s%s%s)\n", d.Name, d.Type, d.ColumnRef, tg, sy, formatEnumValues(d.EnumValues))
 			r := utf8.RuneCountInString(line)
@@ -466,11 +466,11 @@ func (b *PromptBuilder) writeDimensions(sb *bytes.Buffer, dims []semantic.Dimens
 		syn := joinSynonymsCap(d.Synonyms, maxSynonymsPerLine)
 		tg := ""
 		if d.TimeGrain != "" {
-			tg = fmt.Sprintf(", time_grain: %s", d.TimeGrain)
+			tg = ", time_grain: " + d.TimeGrain
 		}
 		sy := ""
 		if syn != "" {
-			sy = fmt.Sprintf(", synonyms: %s", syn)
+			sy = ", synonyms: " + syn
 		}
 		line := fmt.Sprintf("- %s (type: %s, column: %s%s%s%s)\n", d.Name, d.Type, d.ColumnRef, tg, sy, formatEnumValues(d.EnumValues))
 		r := utf8.RuneCountInString(line)
@@ -501,7 +501,7 @@ func (b *PromptBuilder) writeMetrics(sb *bytes.Buffer, metrics []semantic.Metric
 		syn := joinSynonymsCap(m.Synonyms, maxSynonymsPerLine)
 		sy := ""
 		if syn != "" {
-			sy = fmt.Sprintf(", synonyms: %s", syn)
+			sy = ", synonyms: " + syn
 		}
 		line := fmt.Sprintf("- %s (aggregation: %s, expression: %s%s)\n", m.Name, m.Aggregation, m.Expression, sy)
 		r := utf8.RuneCountInString(line)

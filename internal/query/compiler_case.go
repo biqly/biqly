@@ -1,6 +1,7 @@
 package query
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -54,7 +55,7 @@ func (c *Compiler) buildCaseThen(
 	switch strings.ToLower(strings.TrimSpace(then.Type)) {
 	case CaseThenTypeDimension, "":
 		if then.Dimension == "" {
-			return "", fmt.Errorf("case then dimension name required")
+			return "", errors.New("case then dimension name required")
 		}
 		dim, ok := dimMap[then.Dimension]
 		if !ok {
@@ -77,7 +78,7 @@ func (c *Compiler) buildPredicate(
 	args *[]any,
 ) (string, error) {
 	if len(filters) == 0 {
-		return "", fmt.Errorf("empty predicate")
+		return "", errors.New("empty predicate")
 	}
 	var parts []string
 	for _, f := range filters {

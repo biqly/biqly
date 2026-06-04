@@ -4,6 +4,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
@@ -121,7 +122,7 @@ func parseOpenAIResponse(respBody []byte) (GenerationResult, error) {
 		return GenerationResult{}, fmt.Errorf("API error: %s", aiResp.Error.Message)
 	}
 	if len(aiResp.Choices) == 0 {
-		return GenerationResult{}, fmt.Errorf("no choices in response")
+		return GenerationResult{}, errors.New("no choices in response")
 	}
 	gen := GenerationResult{Content: aiResp.Choices[0].Message.Content}
 	if aiResp.Usage != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -281,7 +282,7 @@ func (r *CompositeRepository) RollbackComposite(ctx context.Context, id string, 
 		targetVersion = current.Version - 1
 	}
 	if targetVersion <= 0 {
-		return nil, fmt.Errorf("no previous published context to roll back to")
+		return nil, errors.New("no previous published context to roll back to")
 	}
 	payload, err := r.compositeSnapshotByVersion(ctx, id, targetVersion)
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,7 +45,7 @@ func (rl *RateLimiter) Limit(limit int, window time.Duration, keyPrefix string) 
 			}
 
 			if count > int64(limit) {
-				w.Header().Set("Retry-After", fmt.Sprintf("%d", int(window.Seconds())))
+				w.Header().Set("Retry-After", strconv.Itoa(int(window.Seconds())))
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusTooManyRequests)
 				_, _ = w.Write([]byte(`{"error":"too_many_requests","message":"Rate limit exceeded. Please try again later."}`))

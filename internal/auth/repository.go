@@ -118,10 +118,10 @@ func bootstrapUserWorkspace(ctx context.Context, tx *sql.Tx, userID, displayName
 		VALUES ($1, $2, TRUE, $3)
 		RETURNING id
 	`
-	workspaceSlug := fmt.Sprintf("%s-personal", userID)
-	workspaceName := fmt.Sprintf("%s's Workspace", displayName)
+	workspaceSlug := userID + "-personal"
+	workspaceName := displayName + "'s Workspace"
 	if displayName == "" {
-		workspaceName = fmt.Sprintf("%s's Workspace", email)
+		workspaceName = email + "'s Workspace"
 	}
 
 	var workspaceID string

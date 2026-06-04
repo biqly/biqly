@@ -185,7 +185,7 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 		email = strings.TrimSpace(strings.ToLower(req.Email))
 	}
 	if s.redisClient != nil {
-		lockKey := fmt.Sprintf("login_failures:%s", email)
+		lockKey := "login_failures:" + email
 		val, err := s.redisClient.Get(ctx, lockKey).Int()
 		if err == nil && val >= 5 {
 			MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
@@ -264,7 +264,7 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 	}
 
 	if s.redisClient != nil {
-		lockKey := fmt.Sprintf("login_failures:%s", email)
+		lockKey := "login_failures:" + email
 		_ = s.redisClient.Del(ctx, lockKey).Err()
 	}
 
@@ -345,8 +345,8 @@ func (s *AuthService) issueSession(ctx context.Context, user *User, userAgent, i
 	MetricLoginAttempts.WithLabelValues(method, "success").Inc()
 	MetricTokensIssued.WithLabelValues(method).Inc()
 
-	if max := s.config.MaxActiveSessions; max > 0 {
-		_, _ = s.sessionMgr.EnforceMaxSessions(ctx, user.ID, max)
+	if maxSessions := s.config.MaxActiveSessions; maxSessions > 0 {
+		_, _ = s.sessionMgr.EnforceMaxSessions(ctx, user.ID, maxSessions)
 	}
 
 	if isNew, err := s.userRepo.RecordKnownDevice(ctx, user.ID, fingerprint, userAgent, ipAddress); err == nil && isNew && s.emailSender != nil {

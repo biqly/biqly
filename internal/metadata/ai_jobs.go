@@ -44,7 +44,7 @@ type AIJob struct {
 
 func (r *Repository) CreateAIJob(ctx context.Context, job *AIJob) error {
 	if job == nil {
-		return fmt.Errorf("job is nil")
+		return errors.New("job is nil")
 	}
 	scopeSchemas := job.ScopeSchemas
 	if scopeSchemas == nil {

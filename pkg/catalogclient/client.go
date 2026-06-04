@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -125,7 +126,7 @@ func (c *Client) post(ctx context.Context, path string, body, out any) error {
 // so per-endpoint methods stay one-liners.
 func (c *Client) do(ctx context.Context, method, path string, query url.Values, body, out any) error {
 	if c.baseURL == "" {
-		return fmt.Errorf("catalogclient: baseURL is empty")
+		return errors.New("catalogclient: baseURL is empty")
 	}
 	u := c.baseURL + "/internal" + path
 	if len(query) > 0 {

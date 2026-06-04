@@ -2,7 +2,7 @@ package rbac
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"slices"
 	"time"
 )
@@ -70,7 +70,7 @@ func (s *RBACService) IsSuperAdmin(ctx context.Context, userID string) (bool, er
 
 func (s *RBACService) Check(ctx context.Context, check PermissionCheck) (bool, error) {
 	if check.UserID == "" || check.Permission == "" {
-		return false, fmt.Errorf("user_id and permission are required")
+		return false, errors.New("user_id and permission are required")
 	}
 
 	isSuper, err := s.IsSuperAdmin(ctx, check.UserID)

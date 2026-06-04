@@ -68,7 +68,7 @@ func (c *Cache) Key(datasourceID, modelID string, lq query.LogicalQuery, userSco
 }
 
 // Get retrieves a cached result.
-func (c *Cache) Get(ctx context.Context, key string) (*query.QueryResult, bool) {
+func (c *Cache) Get(ctx context.Context, key string) (*query.Result, bool) {
 	if c.client == nil {
 		return nil, false
 	}
@@ -78,7 +78,7 @@ func (c *Cache) Get(ctx context.Context, key string) (*query.QueryResult, bool) 
 		return nil, false
 	}
 
-	var result query.QueryResult
+	var result query.Result
 	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, false
 	}
@@ -87,7 +87,7 @@ func (c *Cache) Get(ctx context.Context, key string) (*query.QueryResult, bool) 
 }
 
 // Set stores a query result in the cache.
-func (c *Cache) Set(ctx context.Context, key string, result *query.QueryResult) error {
+func (c *Cache) Set(ctx context.Context, key string, result *query.Result) error {
 	if c.client == nil {
 		return nil
 	}

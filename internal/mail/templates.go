@@ -61,21 +61,21 @@ func renderPlain(tmpl string, data map[string]any) string {
 			out.WriteString(tmpl)
 			return out.String()
 		}
-		close := strings.Index(tmpl[open:], "}}")
-		if close < 0 {
+		closeIdx := strings.Index(tmpl[open:], "}}")
+		if closeIdx < 0 {
 			out.WriteString(tmpl)
 			return out.String()
 		}
-		close += open
+		closeIdx += open
 		out.WriteString(tmpl[:open])
-		expr := strings.TrimSpace(tmpl[open+2 : close])
+		expr := strings.TrimSpace(tmpl[open+2 : closeIdx])
 		if strings.HasPrefix(expr, ".") {
 			key := expr[1:]
 			if v, ok := data[key]; ok {
 				fmt.Fprint(&out, v)
 			}
 		}
-		tmpl = tmpl[close+2:]
+		tmpl = tmpl[closeIdx+2:]
 	}
 }
 

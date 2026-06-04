@@ -121,17 +121,17 @@ func (s *SMTPEmailSender) buildTemplateData(template string, data map[string]any
 
 	switch template {
 	case "verification":
-		return map[string]any{"URL": s.frontendURL(fmt.Sprintf("/auth/verify-email?token=%s", str("token")))}, nil
+		return map[string]any{"URL": s.frontendURL("/auth/verify-email?token=" + str("token"))}, nil
 	case "password_reset":
-		return map[string]any{"URL": s.frontendURL(fmt.Sprintf("/auth/reset-password?token=%s", str("token")))}, nil
+		return map[string]any{"URL": s.frontendURL("/auth/reset-password?token=" + str("token"))}, nil
 	case "email_change":
 		newEmail, _ := data["new_email"].(bool)
 		return map[string]any{
-			"URL":      s.frontendURL(fmt.Sprintf("/auth/email-change/confirm?token=%s", str("token"))),
+			"URL":      s.frontendURL("/auth/email-change/confirm?token=" + str("token")),
 			"NewEmail": newEmail,
 		}, nil
 	case "account_unlock":
-		return map[string]any{"URL": s.frontendURL(fmt.Sprintf("/auth/unlock-account?token=%s", str("token")))}, nil
+		return map[string]any{"URL": s.frontendURL("/auth/unlock-account?token=" + str("token"))}, nil
 	case "new_device":
 		return map[string]any{
 			"OccurredAt":  displayTime("occurred_at"),
@@ -150,10 +150,10 @@ func (s *SMTPEmailSender) buildTemplateData(template string, data map[string]any
 			"ForgotURL": s.frontendURL("/auth/forgot-password"),
 		}, nil
 	case "magic_link":
-		return map[string]any{"URL": s.frontendURL(fmt.Sprintf("/auth/magic-link?token=%s", str("token")))}, nil
+		return map[string]any{"URL": s.frontendURL("/auth/magic-link?token=" + str("token"))}, nil
 	case "invitation":
 		return map[string]any{
-			"URL":       s.frontendURL(fmt.Sprintf("/auth/claim-invite?token=%s", str("token"))),
+			"URL":       s.frontendURL("/auth/claim-invite?token=" + str("token")),
 			"RoleName":  str("role_name"),
 			"ExpiresAt": displayTime("expires_at"),
 		}, nil
@@ -277,7 +277,7 @@ func (s *SMTPEmailSender) handleJob(job emailJob) {
 
 func (s *SMTPEmailSender) dispatch(job emailJob) error {
 	if s.config.SMTPHost == "" {
-		return fmt.Errorf("SMTP host is not configured")
+		return errors.New("SMTP host is not configured")
 	}
 	addr := s.config.SMTPHost + ":" + strconv.Itoa(s.config.SMTPPort)
 	auth := smtp.PlainAuth("", s.config.SMTPUser, s.config.SMTPPass, s.config.SMTPHost)

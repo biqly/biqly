@@ -65,7 +65,7 @@ type TableRouter struct {
 }
 
 // NewTableRouter creates a metadata-backed table router with no embeddings.
-// Equivalent to NewTableRouterWithEmbeddings(reader, nil, nil, 0).
+// Equivalent to NewTableRouterWithEmbeddings(reader, no embedder, no embedding reader, 0).
 func NewTableRouter(reader MetadataReader) *TableRouter {
 	return &TableRouter{
 		reader:     reader,

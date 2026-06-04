@@ -144,10 +144,10 @@ func (r integrationQueryRunner) Run(ctx context.Context, lq *query.LogicalQuery)
 	}
 	return &core.RunResult{
 		CompileResult: *compiled,
-		Result: &query.QueryResult{
+		Result: &query.Result{
 			Columns: []query.ResultColumn{{Name: "country", Type: "text"}},
 			Rows:    [][]any{{"TR"}},
-			Stats:   query.QueryStats{RowCount: 1, DurationMs: 3},
+			Stats:   query.Stats{RowCount: 1, DurationMs: 3},
 		},
 	}, nil
 }

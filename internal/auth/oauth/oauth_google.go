@@ -3,6 +3,7 @@ package oauth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -67,7 +68,7 @@ func (p *GoogleProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (
 	}
 
 	if rawProfile.Email == "" {
-		return nil, fmt.Errorf("could not retrieve email address from google account")
+		return nil, errors.New("could not retrieve email address from google account")
 	}
 
 	return &auth.OAuthUserInfo{

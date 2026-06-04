@@ -2,6 +2,7 @@ package ai
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/biqly/biqly/internal/ai/jsonextract"
@@ -33,7 +34,7 @@ func NewSchemaValidatorWith(validator *query.Validator) *SchemaValidator {
 func parseLogicalQueryFromRaw(raw string) (query.LogicalQuery, error) {
 	cleaned := jsonextract.TrimToJSONObject(raw)
 	if cleaned == "" {
-		return query.LogicalQuery{}, fmt.Errorf("empty AI response")
+		return query.LogicalQuery{}, errors.New("empty AI response")
 	}
 	var lq query.LogicalQuery
 	if err := json.Unmarshal([]byte(cleaned), &lq); err != nil {
@@ -49,7 +50,7 @@ func (sv *SchemaValidator) Validate(rawJSON string, model *semantic.SemanticMode
 		return nil, err
 	}
 	if len(lq.Select) == 0 {
-		return nil, fmt.Errorf("missing required field: select")
+		return nil, errors.New("missing required field: select")
 	}
 	if err := sv.validator.Validate(&lq, model); err != nil {
 		return nil, err

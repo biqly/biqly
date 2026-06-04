@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"fmt"
 	"time"
 )
 
@@ -57,7 +56,7 @@ func (s *AuthService) UnlockAccount(ctx context.Context, token string) (string, 
 		return "", err
 	}
 	if s.redisClient != nil {
-		_ = s.redisClient.Del(ctx, fmt.Sprintf("login_failures:%s", user.Email)).Err()
+		_ = s.redisClient.Del(ctx, "login_failures:"+user.Email).Err()
 	}
 	return userID, nil
 }

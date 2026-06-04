@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
@@ -121,7 +122,7 @@ func parseAnthropicResponse(respBody []byte) (GenerationResult, error) {
 		}
 	}
 	if text == "" {
-		return GenerationResult{}, fmt.Errorf("no text content in Anthropic response")
+		return GenerationResult{}, errors.New("no text content in Anthropic response")
 	}
 	gen := GenerationResult{Content: text}
 	if ar.Usage != nil {

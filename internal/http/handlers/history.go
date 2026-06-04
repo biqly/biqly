@@ -22,7 +22,7 @@ func persistQueryHistory(
 	lq *query.LogicalQuery,
 	model *semantic.SemanticModel,
 	cq *query.CompiledQuery,
-	result *query.QueryResult,
+	result *query.Result,
 	status string,
 	queryErr error,
 ) {

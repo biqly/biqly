@@ -2,6 +2,7 @@ package eval
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -31,10 +32,10 @@ type MemoryResultExecutor struct{}
 
 func (MemoryResultExecutor) Execute(_ context.Context, model *semantic.SemanticModel, lq *query.LogicalQuery) (*query.Result, error) {
 	if model == nil || lq == nil {
-		return nil, fmt.Errorf("model and logical query are required")
+		return nil, errors.New("model and logical query are required")
 	}
 	if model.Name != "public.orders" && model.BaseTable != "orders" {
-		return nil, fmt.Errorf("memory executor only supports the golden orders model")
+		return nil, errors.New("memory executor only supports the golden orders model")
 	}
 	rows := filterMemoryRows(defaultOrdersSeed, lq.Filters, model)
 	if len(lq.GroupBy) == 0 {
@@ -110,7 +111,7 @@ func memoryFieldValue(r memoryOrderRow, col string) any {
 
 func groupMemoryRows(rows []memoryOrderRow, lq *query.LogicalQuery, model *semantic.SemanticModel) (*query.Result, error) {
 	if len(lq.GroupBy) != 1 {
-		return nil, fmt.Errorf("memory executor supports single-dimension group_by only")
+		return nil, errors.New("memory executor supports single-dimension group_by only")
 	}
 	gbField := lq.GroupBy[0].Field
 	gbCol := memoryColumnForField(gbField, model)

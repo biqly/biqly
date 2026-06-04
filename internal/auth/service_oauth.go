@@ -23,7 +23,8 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, provider string,
 	userID, err := s.userRepo.GetOAuthAccount(ctx, provider, userInfo.Sub)
 	var user *User
 
-	if errors.Is(err, ErrOAuthAccountNotFound) {
+	switch {
+	case errors.Is(err, ErrOAuthAccountNotFound):
 		enabled, signupErr := s.SelfSignupEnabled(ctx)
 		if signupErr != nil {
 			MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()
@@ -38,10 +39,10 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, provider string,
 			MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()
 			return nil, err
 		}
-	} else if err != nil {
+	case err != nil:
 		MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()
 		return nil, err
-	} else {
+	default:
 		user, err = s.userRepo.GetUserByID(ctx, userID)
 		if err != nil {
 			MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()

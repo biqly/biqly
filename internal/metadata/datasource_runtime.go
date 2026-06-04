@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -19,7 +20,7 @@ import (
 // driver layers it talks to.
 func RuntimeDSN(ds *Datasource, enc *security.Encryption) (string, error) {
 	if ds == nil {
-		return "", fmt.Errorf("metadata: nil datasource")
+		return "", errors.New("metadata: nil datasource")
 	}
 	mode := strings.TrimSpace(ds.DSNMode)
 	if mode == "" {

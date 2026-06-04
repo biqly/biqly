@@ -1,7 +1,7 @@
 package app
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/queue"
@@ -9,7 +9,7 @@ import (
 
 func NewAIJobQueue(cfg *config.Config) (queue.AIJobPublisher, error) {
 	if cfg == nil {
-		return nil, fmt.Errorf("config is nil")
+		return nil, errors.New("config is nil")
 	}
 	if cfg.NATS.URL != "" {
 		return queue.ConnectNATS(queue.NATSConfig{

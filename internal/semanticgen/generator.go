@@ -1,6 +1,7 @@
 package semanticgen
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -29,10 +30,10 @@ type GeneratedModel struct {
 
 func GenerateModelFromMetadata(tables []metadata.Table, columns []metadata.Column, relations []metadata.Relation, opts GenerateModelOptions) (*GeneratedModel, error) {
 	if opts.DatasourceID == "" {
-		return nil, fmt.Errorf("datasource_id is required")
+		return nil, errors.New("datasource_id is required")
 	}
 	if len(tables) == 0 {
-		return nil, fmt.Errorf("metadata has no tables; sync metadata first")
+		return nil, errors.New("metadata has no tables; sync metadata first")
 	}
 	if opts.MaxDimensions <= 0 {
 		opts.MaxDimensions = 512
@@ -46,7 +47,7 @@ func GenerateModelFromMetadata(tables []metadata.Table, columns []metadata.Colum
 
 	base, ok := chooseBaseTable(tables, relations, opts.BaseSchema, opts.BaseTable)
 	if !ok {
-		return nil, fmt.Errorf("base table not found")
+		return nil, errors.New("base table not found")
 	}
 
 	modelID := uuid.New().String()

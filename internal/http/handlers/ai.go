@@ -452,10 +452,10 @@ func (h *AIHandler) finishAIRunWithQueryClient(ctx context.Context, w http.Respo
 	}
 
 	resp.Result.SQL = run.SQL
-	result := &query.QueryResult{
+	result := &query.Result{
 		Columns: run.Columns,
 		Rows:    run.Rows,
-		Stats: query.QueryStats{
+		Stats: query.Stats{
 			RowCount:   run.RowCount,
 			DurationMs: run.DurationMs,
 		},
@@ -700,7 +700,7 @@ func (h *AIHandler) loadCompositeModel(
 	compositeID string,
 ) (*semantic.SemanticModel, *routing.TableRoutingResult, error) {
 	if h.deps.CompositeRepo == nil {
-		return nil, nil, fmt.Errorf("composite models are not configured")
+		return nil, nil, errors.New("composite models are not configured")
 	}
 	model, err := h.deps.CompositeRepo.GetPublishedResolvedComposite(ctx, compositeID)
 	if err != nil {

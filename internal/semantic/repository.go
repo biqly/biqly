@@ -523,7 +523,7 @@ func (r *Repository) RollbackModel(ctx context.Context, id string, targetVersion
 		targetVersion = current.Version - 1
 	}
 	if targetVersion <= 0 {
-		return nil, fmt.Errorf("no previous published context to roll back to")
+		return nil, errors.New("no previous published context to roll back to")
 	}
 	target, err := r.snapshotByVersion(ctx, current.ID, targetVersion)
 	if err != nil {

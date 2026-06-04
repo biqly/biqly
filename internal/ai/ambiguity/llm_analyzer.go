@@ -3,6 +3,7 @@ package ambiguity
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -44,7 +45,7 @@ type llmAmbiguityItem struct {
 // into the shared result shape used by clarification responses.
 func (a *LLMAnalyzer) Analyze(ctx context.Context, locale i18n.Locale, question string, model *semantic.SemanticModel, glossary []prompt.GlossaryEntry) (AmbiguityResult, error) {
 	if a == nil || a.client == nil {
-		return AmbiguityResult{}, fmt.Errorf("LLM ambiguity analyzer requires a provider")
+		return AmbiguityResult{}, errors.New("LLM ambiguity analyzer requires a provider")
 	}
 
 	analysisPrompt := a.builder.BuildAmbiguityAnalysis(ctx, locale, question, model, glossary)

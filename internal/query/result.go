@@ -23,14 +23,17 @@ type (
 )
 
 // QueryResult is an alias for backward compatibility.
+//
 // Deprecated: Use Result instead.
 type QueryResult = pkgquery.Result
 
 // QueryStats is an alias for backward compatibility.
+//
 // Deprecated: Use Stats instead.
 type QueryStats = pkgquery.Stats
 
 // QueryHistoryEntry is an alias for backward compatibility.
+//
 // Deprecated: Use HistoryEntry instead.
 type QueryHistoryEntry = pkgquery.HistoryEntry
 

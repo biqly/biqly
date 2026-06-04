@@ -28,7 +28,7 @@ type AIResult struct {
 	SQL               string              `json:"sql,omitempty"`
 	Args              []any               `json:"args,omitempty"`
 	Warnings          []string            `json:"warnings,omitempty"`
-	Result            *query.QueryResult  `json:"result,omitempty"`
+	Result            *query.Result  `json:"result,omitempty"`
 	Confidence        float64             `json:"confidence"`
 	VisualizationHint *VisualizationHint  `json:"visualization_hint,omitempty"`
 }

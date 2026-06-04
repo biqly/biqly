@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -106,7 +107,7 @@ func (c *Client) BaseURL() string { return c.baseURL }
 // LogicalQuery body.
 func (c *Client) do(ctx context.Context, path string, body, out any) error {
 	if c.baseURL == "" {
-		return fmt.Errorf("queryclient: baseURL is empty")
+		return errors.New("queryclient: baseURL is empty")
 	}
 	u := c.baseURL + "/internal/query" + path
 

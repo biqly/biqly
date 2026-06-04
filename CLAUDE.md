@@ -49,7 +49,7 @@ commands:
 
 ## pre-commit checks (required)
 
-before any `git commit`, run the linters AND tests for the code you changed, and fix reported issues:
+before any `git commit`, run the linters AND tests for the code you changed, and **fix every reported issue before staging or committing**. lint failures are blockers — do not commit with open lint errors, defer fixes to a follow-up commit, or push hoping CI will catch them.
 
 1. **go**: `make lint-go` (golangci-lint) + `make test-go` (go test -race)
 2. **react / frontend**: `make lint-frontend` (eslint) + `make test-frontend` (vitest)
@@ -57,7 +57,9 @@ before any `git commit`, run the linters AND tests for the code you changed, and
 
 or run everything in one command: `make precommit` (= `make lint` + `make test`)
 
-do not commit until these pass for the code you changed (go paths, frontend paths, or both).
+`make lint-go` / `golangci-lint run` scans the whole repo, not only files you edited. if you add or enable linters (e.g. `.golangci.yml`), fix all new findings across the codebase in the same change before commit.
+
+do not commit until lint and tests pass cleanly (zero errors) for the stacks you touched — go paths, frontend paths, or both.
 
 styling & coding conventions:
 

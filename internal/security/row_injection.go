@@ -82,9 +82,9 @@ func BuildRowFilterPredicates(
 			}
 			preds = append(preds, fmt.Sprintf("%s %s (%s)", quoted, keyword, strings.Join(placeholders, ", ")))
 		case "is_null":
-			preds = append(preds, fmt.Sprintf("%s IS NULL", quoted))
+			preds = append(preds, quoted+" IS NULL")
 		case "is_not_null":
-			preds = append(preds, fmt.Sprintf("%s IS NOT NULL", quoted))
+			preds = append(preds, quoted+" IS NOT NULL")
 		default:
 			return nil, nil, fmt.Errorf("row filter operator %q is not supported for field %q", rf.Operator, rf.Field)
 		}

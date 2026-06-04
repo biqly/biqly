@@ -3,6 +3,7 @@ package eval
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -21,7 +22,7 @@ type judgeVerdict struct {
 // answers the question relative to the expected reference query.
 func JudgeLogicalQuery(ctx context.Context, provider providerpkg.Provider, question string, model *semantic.SemanticModel, expected, got *query.LogicalQuery) (bool, string, error) {
 	if provider == nil {
-		return false, "", fmt.Errorf("judge provider is nil")
+		return false, "", errors.New("judge provider is nil")
 	}
 	if expected == nil || got == nil {
 		return false, "missing logical query", nil

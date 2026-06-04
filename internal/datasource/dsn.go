@@ -2,6 +2,7 @@ package datasource
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -89,7 +90,7 @@ func ComposeDSN(driver string, f ConnectionFields) (string, error) {
 	d := NormalizeDriverType(driver)
 	host := strings.TrimSpace(f.Host)
 	if host == "" {
-		return "", fmt.Errorf("host is required")
+		return "", errors.New("host is required")
 	}
 	port := f.Port
 	if port <= 0 {
@@ -106,7 +107,7 @@ func ComposeDSN(driver string, f ConnectionFields) (string, error) {
 	switch d {
 	case "postgres":
 		if db == "" {
-			return "", fmt.Errorf("database name is required for postgres")
+			return "", errors.New("database name is required for postgres")
 		}
 		mode := ssl
 		if mode == "" {
@@ -131,7 +132,7 @@ func ComposeDSN(driver string, f ConnectionFields) (string, error) {
 
 	case "mysql":
 		if db == "" {
-			return "", fmt.Errorf("database name is required for mysql")
+			return "", errors.New("database name is required for mysql")
 		}
 		cfg := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s",
 			url.QueryEscape(user), url.QueryEscape(pass), host, port, url.QueryEscape(db))
@@ -160,7 +161,7 @@ func ComposeDSN(driver string, f ConnectionFields) (string, error) {
 
 	case "sqlserver":
 		if db == "" {
-			return "", fmt.Errorf("database name is required for sqlserver")
+			return "", errors.New("database name is required for sqlserver")
 		}
 		u := url.URL{
 			Scheme: "sqlserver",

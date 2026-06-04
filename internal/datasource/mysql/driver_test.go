@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -19,7 +20,7 @@ type mockMySQLConn struct {
 }
 
 func (c *mockMySQLConn) Prepare(query string) (driver.Stmt, error) {
-	return nil, fmt.Errorf("prepare is not implemented")
+	return nil, errors.New("prepare is not implemented")
 }
 
 func (c *mockMySQLConn) Close() error {
@@ -27,7 +28,7 @@ func (c *mockMySQLConn) Close() error {
 }
 
 func (c *mockMySQLConn) Begin() (driver.Tx, error) {
-	return nil, fmt.Errorf("transactions are not implemented")
+	return nil, errors.New("transactions are not implemented")
 }
 
 func (c *mockMySQLConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {

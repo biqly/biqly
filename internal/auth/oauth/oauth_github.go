@@ -3,6 +3,7 @@ package oauth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -100,7 +101,7 @@ func (p *GitHubProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (
 	}
 
 	if email == "" {
-		return nil, fmt.Errorf("could not retrieve any email address from github account")
+		return nil, errors.New("could not retrieve any email address from github account")
 	}
 
 	name := rawProfile.Name

@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -449,7 +450,7 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]*semantic.D
 				alias = item.Name
 			}
 			if alias == "" {
-				return nil, fmt.Errorf("case select item requires name or alias")
+				return nil, errors.New("case select item requires name or alias")
 			}
 			parts = append(parts, caseSQL+" AS "+c.dialect.QuoteIdent(alias))
 		}

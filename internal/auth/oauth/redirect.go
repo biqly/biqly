@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -17,7 +18,7 @@ func ValidateAuthURL(providerName, authURL string) error {
 		return fmt.Errorf("parse oauth auth url: %w", err)
 	}
 	if u.Scheme != "https" {
-		return fmt.Errorf("oauth auth url must use https")
+		return errors.New("oauth auth url must use https")
 	}
 	hosts, ok := allowedAuthHosts[providerName]
 	if !ok {

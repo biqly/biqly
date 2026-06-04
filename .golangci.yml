@@ -33,6 +33,15 @@ linters:
     - rowserrcheck
     - sqlclosecheck
     - makezero
+    - perfsprint
+    - unconvert
+    - gocritic
+    - dupword
+    - predeclared
+    - loggercheck
+    - sloglint
+    - mirror
+    - fatcontext
 
   settings:
     revive:
@@ -42,6 +51,10 @@ linters:
         - name: error-return
         - name: error-strings
         - name: var-naming
+
+    gocritic:
+      disabled-checks:
+        - exitAfterDefer
 
     gocyclo:
       min-complexity: 30

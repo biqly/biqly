@@ -1,6 +1,7 @@
 package security
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -42,13 +43,13 @@ func NewReadOnlyChecker() *ReadOnlyChecker {
 func (c *ReadOnlyChecker) Check(sql string) error {
 	trimmed := strings.TrimSpace(sql)
 	if trimmed == "" {
-		return fmt.Errorf("empty query")
+		return errors.New("empty query")
 	}
 
 	cleaned := stripSQLLiteralsAndComments(trimmed)
 	cleanedTrim := strings.TrimSpace(cleaned)
 	if cleanedTrim == "" {
-		return fmt.Errorf("empty query after stripping comments")
+		return errors.New("empty query after stripping comments")
 	}
 
 	upper := strings.ToUpper(cleanedTrim)
@@ -69,7 +70,7 @@ func (c *ReadOnlyChecker) Check(sql string) error {
 	}
 
 	if hasMultipleStatements(cleaned) {
-		return fmt.Errorf("multiple statements are not allowed")
+		return errors.New("multiple statements are not allowed")
 	}
 
 	return nil

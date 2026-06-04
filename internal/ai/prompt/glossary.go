@@ -273,7 +273,7 @@ func (b *PromptBuilder) writeBusinessGlossary(sb *bytes.Buffer, entries []Glossa
 	for _, e := range entries {
 		def := ""
 		if e.Definition != "" {
-			def = fmt.Sprintf(" — %s", e.Definition)
+			def = " — " + e.Definition
 		}
 		cur := ""
 		if e.Source == "glossary" {
@@ -284,15 +284,15 @@ func (b *PromptBuilder) writeBusinessGlossary(sb *bytes.Buffer, entries []Glossa
 	sb.WriteString("\n")
 }
 
-func truncateRunes(s string, max int) string {
-	if utf8.RuneCountInString(s) <= max {
+func truncateRunes(s string, maxRunes int) string {
+	if utf8.RuneCountInString(s) <= maxRunes {
 		return s
 	}
 	runes := []rune(s)
-	return string(runes[:max]) + "…"
+	return string(runes[:maxRunes]) + "…"
 }
 
-// TruncateRunes shortens s to at most max runes, appending an ellipsis when truncated.
-func TruncateRunes(s string, max int) string {
-	return truncateRunes(s, max)
+// TruncateRunes shortens s to at most maxRunes runes, appending an ellipsis when truncated.
+func TruncateRunes(s string, maxRunes int) string {
+	return truncateRunes(s, maxRunes)
 }

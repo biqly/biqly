@@ -23,24 +23,25 @@ func grainStemBeforeSuffix(dimName, suffix string) (stem string, ok bool) {
 // instant (RFC3339, YYYY-MM-DD, YYYY-MM, etc.). Used to compile month/quarter
 // grain filters as DATE_TRUNC instead of bare EXTRACT parts.
 func calendarAnchorTime(v any) (time.Time, bool) {
-	switch x := v.(type) {
-	case string:
-		s := strings.TrimSpace(x)
-		if s == "" {
-			return time.Time{}, false
-		}
-		layouts := []string{
-			time.RFC3339Nano,
-			time.RFC3339,
-			"2006-01-02T15:04:05Z07:00",
-			"2006-01-02 15:04:05",
-			"2006-01-02",
-			"2006-01",
-		}
-		for _, layout := range layouts {
-			if t, err := time.Parse(layout, s); err == nil {
-				return t.UTC(), true
-			}
+	s, ok := v.(string)
+	if !ok {
+		return time.Time{}, false
+	}
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return time.Time{}, false
+	}
+	layouts := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02T15:04:05Z07:00",
+		"2006-01-02 15:04:05",
+		"2006-01-02",
+		"2006-01",
+	}
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t.UTC(), true
 		}
 	}
 	return time.Time{}, false

@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -248,7 +249,7 @@ func (e *SFTExporter) buildFromDB(
 	maxPromptRunes int,
 ) (string, string, error) {
 	if semanticModelID == "" {
-		return "", "", fmt.Errorf("missing semantic model id")
+		return "", "", errors.New("missing semantic model id")
 	}
 	model, err := e.semantic.GetPublishedFullModel(ctx, semanticModelID)
 	if err != nil {
@@ -282,7 +283,7 @@ func validateTrainingLogicalQuery(raw []byte, model *semantic.SemanticModel, v *
 		return fmt.Errorf("parse logical_query: %w", err)
 	}
 	if len(lq.Select) == 0 {
-		return fmt.Errorf("empty select")
+		return errors.New("empty select")
 	}
 	if v != nil && model != nil {
 		if err := v.Validate(&lq, model); err != nil {

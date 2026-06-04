@@ -3,6 +3,7 @@ package ai
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"regexp"
@@ -111,7 +112,7 @@ type ColumnDescription struct {
 // Describe fetches a sample, asks the LLM, parses suggestions, and (optionally) saves them.
 func (s *DescribeService) Describe(ctx context.Context, req DescribeRequest) (*DescribeResult, error) {
 	if req.DatasourceID == "" || req.Table == "" {
-		return nil, fmt.Errorf("datasource_id and table are required")
+		return nil, errors.New("datasource_id and table are required")
 	}
 
 	limit := req.SampleSize

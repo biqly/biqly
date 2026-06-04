@@ -92,8 +92,8 @@ func (m *SessionManager) createSession(ctx context.Context, userID string, userA
 // EnforceMaxSessions revokes the oldest active sessions (by last_active_at)
 // until the active-session count is at most max. Returns the IDs of the
 // sessions that were evicted. Returns no-op when max <= 0.
-func (m *SessionManager) EnforceMaxSessions(ctx context.Context, userID string, max int) ([]string, error) {
-	if max <= 0 {
+func (m *SessionManager) EnforceMaxSessions(ctx context.Context, userID string, maxSessions int) ([]string, error) {
+	if maxSessions <= 0 {
 		return nil, nil
 	}
 	rows, err := m.db.QueryContext(ctx, `
@@ -105,7 +105,7 @@ func (m *SessionManager) EnforceMaxSessions(ctx context.Context, userID string, 
 		UPDATE sessions SET revoked_at = NOW()
 		WHERE id IN (SELECT id FROM ordered WHERE rn > $2)
 		RETURNING id
-	`, userID, max)
+	`, userID, maxSessions)
 	if err != nil {
 		return nil, fmt.Errorf("evict sessions: %w", err)
 	}

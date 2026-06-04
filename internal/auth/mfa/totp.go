@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -35,8 +36,8 @@ func BuildOTPAuthURL(issuer, account, secret string) string {
 	q.Set("secret", secret)
 	q.Set("issuer", issuer)
 	q.Set("algorithm", "SHA1")
-	q.Set("digits", fmt.Sprintf("%d", totpDigits))
-	q.Set("period", fmt.Sprintf("%d", totpPeriod))
+	q.Set("digits", strconv.Itoa(totpDigits))
+	q.Set("period", strconv.Itoa(totpPeriod))
 	return "otpauth://totp/" + label + "?" + q.Encode()
 }
 

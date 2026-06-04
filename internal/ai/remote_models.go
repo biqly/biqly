@@ -3,6 +3,7 @@ package ai
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -50,7 +51,7 @@ func ListRemoteModelsFromEndpoint(ctx context.Context, providerType, baseURL, ap
 func listOpenAICompatibleModels(ctx context.Context, baseURL, apiKey string, timeout time.Duration) ([]RemoteModelOption, error) {
 	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if base == "" {
-		return nil, fmt.Errorf("base URL is required to list models")
+		return nil, errors.New("base URL is required to list models")
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/models", nil)
 	if err != nil {
@@ -68,7 +69,7 @@ func listAnthropicModels(ctx context.Context, baseURL, apiKey string, timeout ti
 		base = "https://api.anthropic.com/v1"
 	}
 	if strings.TrimSpace(apiKey) == "" {
-		return nil, fmt.Errorf("API key is required to list models")
+		return nil, errors.New("API key is required to list models")
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/models", nil)
 	if err != nil {

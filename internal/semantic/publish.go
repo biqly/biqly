@@ -2,6 +2,7 @@ package semantic
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -352,7 +353,7 @@ func estimatePromptSize(model SemanticModel) int {
 func validateCalculatedExpression(expr string, columnSet datasourceColumnSet, defaultSchema string) error {
 	expr = strings.TrimSpace(expr)
 	if expr == "" {
-		return fmt.Errorf("calculated expression is empty")
+		return errors.New("calculated expression is empty")
 	}
 
 	if CalculatedExpressionValidator != nil {

@@ -1,6 +1,7 @@
 package security
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 )
@@ -13,7 +14,7 @@ import (
 // component model, the entire composite is denied — there is no partial access.
 func (pm *PermissionManager) CheckCompositeAccess(policy *PermissionPolicy, componentModelNames []string) error {
 	if policy == nil {
-		return fmt.Errorf("no permission policy supplied for composite model")
+		return errors.New("no permission policy supplied for composite model")
 	}
 	for _, name := range componentModelNames {
 		if err := pm.CheckModelAccess(policy, name); err != nil {
@@ -37,7 +38,7 @@ func MergeComponentPolicies(userID, datasourceID string, policies []*PermissionP
 
 	for _, p := range policies {
 		if p == nil {
-			return nil, fmt.Errorf("missing permission policy for a composite component")
+			return nil, errors.New("missing permission policy for a composite component")
 		}
 		for _, f := range p.DeniedFields {
 			if _, ok := deniedSeen[f]; ok {

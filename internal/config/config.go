@@ -2,6 +2,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -363,13 +364,13 @@ func Load() (*Config, error) {
 	}
 
 	if cfg.Metadata.DSN == "" {
-		return nil, fmt.Errorf("BI_METADATA_DB_DSN is required")
+		return nil, errors.New("BI_METADATA_DB_DSN is required")
 	}
 	if cfg.Security.EncryptionKey == "" {
-		return nil, fmt.Errorf("BI_ENCRYPTION_KEY is required")
+		return nil, errors.New("BI_ENCRYPTION_KEY is required")
 	}
 	if cfg.Security.EncryptionKey == "change-this-to-a-secure-32-byte-key!!" {
-		return nil, fmt.Errorf("BI_ENCRYPTION_KEY must be changed from its default value")
+		return nil, errors.New("BI_ENCRYPTION_KEY must be changed from its default value")
 	}
 
 	return cfg, nil

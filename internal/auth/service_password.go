@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 )
 
@@ -11,7 +10,7 @@ func (s *AuthService) recordLoginFailure(ctx context.Context, email string, user
 	if s.redisClient == nil {
 		return
 	}
-	lockKey := fmt.Sprintf("login_failures:%s", email)
+	lockKey := "login_failures:" + email
 	count, err := s.redisClient.Incr(ctx, lockKey).Result()
 	if err != nil {
 		return

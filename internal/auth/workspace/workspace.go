@@ -59,7 +59,7 @@ func NewWorkspaceService(db *sql.DB, dsAcc *rbac.DatasourceAccessService) *Works
 func (s *WorkspaceService) Create(ctx context.Context, name, description, createdBy string) (*Workspace, error) {
 	slug := slugify(name)
 	if slug == "" {
-		return nil, fmt.Errorf("invalid workspace name")
+		return nil, errors.New("invalid workspace name")
 	}
 
 	var ws Workspace
@@ -209,7 +209,7 @@ func (s *WorkspaceService) Delete(ctx context.Context, id, callerID string) erro
 		return ErrNotWorkspaceOwner
 	}
 	if ws.IsPersonal {
-		return fmt.Errorf("cannot delete personal workspace")
+		return errors.New("cannot delete personal workspace")
 	}
 
 	_, err = s.db.ExecContext(ctx, `DELETE FROM workspaces WHERE id = $1`, id)
@@ -289,7 +289,7 @@ func (s *WorkspaceService) RemoveMember(ctx context.Context, workspaceID, userID
 		return err
 	}
 	if ws.CreatedBy == userID {
-		return fmt.Errorf("cannot remove workspace owner")
+		return errors.New("cannot remove workspace owner")
 	}
 
 	_, err = s.db.ExecContext(ctx, `

@@ -62,23 +62,23 @@ func GlossaryCap(tier int) int {
 }
 
 // TailSlice returns the trailing max elements of items, or nil when empty.
-func TailSlice[T any](items []T, max int) []T {
-	if len(items) == 0 || max <= 0 {
+func TailSlice[T any](items []T, maxItems int) []T {
+	if len(items) == 0 || maxItems <= 0 {
 		return nil
 	}
-	if len(items) <= max {
+	if len(items) <= maxItems {
 		return items
 	}
-	return append([]T(nil), items[len(items)-max:]...)
+	return append([]T(nil), items[len(items)-maxItems:]...)
 }
 
-// TailGlossary returns the leading max glossary entries, or nil when empty.
-func TailGlossary(entries []GlossaryEntry, max int) []GlossaryEntry {
-	if len(entries) == 0 || max <= 0 {
+// TailGlossary returns the leading maxItems glossary entries, or nil when empty.
+func TailGlossary(entries []GlossaryEntry, maxItems int) []GlossaryEntry {
+	if len(entries) == 0 || maxItems <= 0 {
 		return nil
 	}
-	if len(entries) <= max {
+	if len(entries) <= maxItems {
 		return entries
 	}
-	return append([]GlossaryEntry(nil), entries[:max]...)
+	return append([]GlossaryEntry(nil), entries[:maxItems]...)
 }

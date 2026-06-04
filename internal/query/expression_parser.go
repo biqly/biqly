@@ -1,6 +1,7 @@
 package query
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"unicode"
@@ -20,16 +21,19 @@ type Node interface {
 type IdentifierNode struct {
 	Name string
 }
+
 func (IdentifierNode) sealed() {}
 
 type NumberNode struct {
 	Val string
 }
+
 func (NumberNode) sealed() {}
 
 type StringNode struct {
 	Val string
 }
+
 func (StringNode) sealed() {}
 
 type BinaryOpNode struct {
@@ -37,30 +41,35 @@ type BinaryOpNode struct {
 	Left  Node
 	Right Node
 }
+
 func (BinaryOpNode) sealed() {}
 
 type UnaryOpNode struct {
 	Op   string
 	Expr Node
 }
+
 func (UnaryOpNode) sealed() {}
 
 type FunctionCallNode struct {
 	Name string
 	Args []Node
 }
+
 func (FunctionCallNode) sealed() {}
 
 type CaseNode struct {
 	Conditions []CaseWhenNode
 	ElseExpr   Node
 }
+
 func (CaseNode) sealed() {}
 
 type CaseWhenNode struct {
 	When Node
 	Then Node
 }
+
 func (CaseWhenNode) sealed() {}
 
 type TokenType int
@@ -129,15 +138,15 @@ func (l *Lexer) NextToken() (Token, error) {
 
 	// Semicolons are explicitly forbidden
 	if ch == ';' {
-		return Token{Type: TokenError, Value: ";"}, fmt.Errorf("semicolons are not allowed")
+		return Token{Type: TokenError, Value: ";"}, errors.New("semicolons are not allowed")
 	}
 
 	// Comments are explicitly forbidden
 	if ch == '-' && l.peekNext() == '-' {
-		return Token{Type: TokenError, Value: "--"}, fmt.Errorf("comments are not allowed")
+		return Token{Type: TokenError, Value: "--"}, errors.New("comments are not allowed")
 	}
 	if ch == '/' && l.peekNext() == '*' {
-		return Token{Type: TokenError, Value: "/*"}, fmt.Errorf("comments are not allowed")
+		return Token{Type: TokenError, Value: "/*"}, errors.New("comments are not allowed")
 	}
 
 	// Parentheses and commas
@@ -469,7 +478,7 @@ func (p *Parser) parseComparison() (Node, error) {
 		case "IN":
 			p.next()
 			if !p.match(TokenParenOpen) {
-				return nil, fmt.Errorf("expected '(' after IN")
+				return nil, errors.New("expected '(' after IN")
 			}
 			var list []Node
 			if p.current().Type != TokenParenClose {
@@ -486,7 +495,7 @@ func (p *Parser) parseComparison() (Node, error) {
 				}
 			}
 			if !p.match(TokenParenClose) {
-				return nil, fmt.Errorf("expected ')' after IN list")
+				return nil, errors.New("expected ')' after IN list")
 			}
 			return BinaryOpNode{Op: "IN", Left: left, Right: FunctionCallNode{Name: "IN_LIST", Args: list}}, nil
 
@@ -497,7 +506,7 @@ func (p *Parser) parseComparison() (Node, error) {
 				not = true
 			}
 			if !p.matchKeyword("NULL") {
-				return nil, fmt.Errorf("expected 'NULL' after 'IS' / 'IS NOT'")
+				return nil, errors.New("expected 'NULL' after 'IS' / 'IS NOT'")
 			}
 			op := "IS NULL"
 			if not {
@@ -512,7 +521,7 @@ func (p *Parser) parseComparison() (Node, error) {
 				return nil, err
 			}
 			if !p.matchKeyword("AND") {
-				return nil, fmt.Errorf("expected 'AND' in BETWEEN expression")
+				return nil, errors.New("expected 'AND' in BETWEEN expression")
 			}
 			end, err := p.parseArithmetic()
 			if err != nil {
@@ -628,7 +637,7 @@ func (p *Parser) parsePrimary() (Node, error) {
 			return nil, err
 		}
 		if !p.match(TokenParenClose) {
-			return nil, fmt.Errorf("expected closing parenthesis")
+			return nil, errors.New("expected closing parenthesis")
 		}
 		return expr, nil
 	}
@@ -642,7 +651,7 @@ func (p *Parser) parsePrimary() (Node, error) {
 				return nil, err
 			}
 			if !p.matchKeyword("THEN") {
-				return nil, fmt.Errorf("expected 'THEN' in CASE expression")
+				return nil, errors.New("expected 'THEN' in CASE expression")
 			}
 			thenExpr, err := p.parseOr()
 			if err != nil {
@@ -651,7 +660,7 @@ func (p *Parser) parsePrimary() (Node, error) {
 			conditions = append(conditions, CaseWhenNode{When: whenExpr, Then: thenExpr})
 		}
 		if len(conditions) == 0 {
-			return nil, fmt.Errorf("CASE expression must have at least one WHEN condition")
+			return nil, errors.New("CASE expression must have at least one WHEN condition")
 		}
 		var elseExpr Node
 		if p.matchKeyword("ELSE") {
@@ -662,7 +671,7 @@ func (p *Parser) parsePrimary() (Node, error) {
 			}
 		}
 		if !p.matchKeyword("END") {
-			return nil, fmt.Errorf("expected 'END' at the end of CASE expression")
+			return nil, errors.New("expected 'END' at the end of CASE expression")
 		}
 		return CaseNode{Conditions: conditions, ElseExpr: elseExpr}, nil
 	}

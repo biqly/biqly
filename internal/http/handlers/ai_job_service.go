@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -32,7 +33,7 @@ type createAIJobRequest struct {
 
 func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID, userID string, req json.RawMessage) (*metadata.AIJob, error) {
 	if sessionID == "" {
-		return nil, fmt.Errorf("client_session_id is required")
+		return nil, errors.New("client_session_id is required")
 	}
 	if err := validateAIJobRequest(kind, req); err != nil {
 		return nil, err
@@ -45,16 +46,16 @@ func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID, userID stri
 	if kind == "describe_batch" {
 		var batchReq ai.DescribeBatchRequest
 		if err := json.Unmarshal(req, &batchReq); err != nil {
-			return nil, fmt.Errorf("invalid request payload")
+			return nil, errors.New("invalid request payload")
 		}
 		ds := strings.TrimSpace(batchReq.DatasourceID)
 		if ds == "" {
-			return nil, fmt.Errorf("datasource_id is required")
+			return nil, errors.New("datasource_id is required")
 		}
 		datasourceID = &ds
 		scopeSchemas = ai.DescribeBatchScopeSchemas(batchReq.Tables)
 		if len(scopeSchemas) == 0 {
-			return nil, fmt.Errorf("tables must include at least one schema")
+			return nil, errors.New("tables must include at least one schema")
 		}
 		existing, err := s.repo.FindConflictingDescribeBatch(ctx, ds, scopeSchemas)
 		if err != nil {
@@ -71,11 +72,11 @@ func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID, userID stri
 	if kind == "embed_metadata" {
 		var er embedMetadataRequest
 		if err := json.Unmarshal(req, &er); err != nil {
-			return nil, fmt.Errorf("invalid request payload")
+			return nil, errors.New("invalid request payload")
 		}
 		ds := strings.TrimSpace(er.DatasourceID)
 		if ds == "" {
-			return nil, fmt.Errorf(core.MsgDatasourceIDRequired)
+			return nil, errors.New(core.MsgDatasourceIDRequired)
 		}
 		datasourceID = &ds
 		model := strings.TrimSpace(er.ModelID)
@@ -126,43 +127,43 @@ func validateAIJobRequest(kind string, raw json.RawMessage) error {
 	case "query", "preview", "run":
 		var req aiQueryRequest
 		if err := json.Unmarshal(raw, &req); err != nil {
-			return fmt.Errorf("invalid request payload")
+			return errors.New("invalid request payload")
 		}
 		if req.Question == "" {
-			return fmt.Errorf("question is required")
+			return errors.New("question is required")
 		}
 		if req.DatasourceID == "" {
-			return fmt.Errorf(core.MsgDatasourceIDRequired)
+			return errors.New(core.MsgDatasourceIDRequired)
 		}
 	case "describe":
 		var req ai.DescribeRequest
 		if err := json.Unmarshal(raw, &req); err != nil {
-			return fmt.Errorf("invalid request payload")
+			return errors.New("invalid request payload")
 		}
 		if req.DatasourceID == "" || req.Table == "" {
-			return fmt.Errorf("datasource_id and table are required")
+			return errors.New("datasource_id and table are required")
 		}
 	case "describe_batch":
 		var req ai.DescribeBatchRequest
 		if err := json.Unmarshal(raw, &req); err != nil {
-			return fmt.Errorf("invalid request payload")
+			return errors.New("invalid request payload")
 		}
 		if req.DatasourceID == "" || len(req.Tables) == 0 {
-			return fmt.Errorf("datasource_id and tables are required")
+			return errors.New("datasource_id and tables are required")
 		}
 		if len(req.Tables) > 200 {
-			return fmt.Errorf("at most 200 tables per batch")
+			return errors.New("at most 200 tables per batch")
 		}
 	case "embed_metadata":
 		var req embedMetadataRequest
 		if err := json.Unmarshal(raw, &req); err != nil {
-			return fmt.Errorf("invalid request payload")
+			return errors.New("invalid request payload")
 		}
 		if req.DatasourceID == "" {
-			return fmt.Errorf(core.MsgDatasourceIDRequired)
+			return errors.New(core.MsgDatasourceIDRequired)
 		}
 	default:
-		return fmt.Errorf("invalid kind")
+		return errors.New("invalid kind")
 	}
 	return nil
 }
@@ -181,7 +182,7 @@ func (s *AIJobService) Cancel(ctx context.Context, jobID string) (*metadata.AIJo
 		case metadata.AIJobStatusSucceeded, metadata.AIJobStatusFailed, metadata.AIJobStatusCancelled:
 			return job, nil
 		default:
-			return nil, fmt.Errorf("job cannot be cancelled")
+			return nil, errors.New("job cannot be cancelled")
 		}
 	}
 	return s.repo.GetAIJob(ctx, jobID)
@@ -248,7 +249,7 @@ func (s *AIJobService) processJob(ctx context.Context, job *metadata.AIJob, repo
 		}
 		var req aiQueryRequest
 		if err := json.Unmarshal(job.RequestJSON, &req); err != nil {
-			return nil, fmt.Errorf("invalid request payload")
+			return nil, errors.New("invalid request payload")
 		}
 		resp, err := s.ai.executeAIQueryPhase(ctx, req, phase, report)
 		if err != nil {
@@ -258,7 +259,7 @@ func (s *AIJobService) processJob(ctx context.Context, job *metadata.AIJob, repo
 	case "describe":
 		var req ai.DescribeRequest
 		if err := json.Unmarshal(job.RequestJSON, &req); err != nil {
-			return nil, fmt.Errorf("invalid request payload")
+			return nil, errors.New("invalid request payload")
 		}
 		result, err := s.ai.executeMetadataDescribeJob(ctx, req, report)
 		if err != nil {
@@ -268,7 +269,7 @@ func (s *AIJobService) processJob(ctx context.Context, job *metadata.AIJob, repo
 	case "describe_batch":
 		var req ai.DescribeBatchRequest
 		if err := json.Unmarshal(job.RequestJSON, &req); err != nil {
-			return nil, fmt.Errorf("invalid request payload")
+			return nil, errors.New("invalid request payload")
 		}
 		result, err := s.ai.executeMetadataDescribeBatchJob(ctx, job.ID, req, report)
 		if err != nil {
@@ -281,7 +282,7 @@ func (s *AIJobService) processJob(ctx context.Context, job *metadata.AIJob, repo
 	case "embed_metadata":
 		var req embedMetadataRequest
 		if err := json.Unmarshal(job.RequestJSON, &req); err != nil {
-			return nil, fmt.Errorf("invalid request payload")
+			return nil, errors.New("invalid request payload")
 		}
 		result, err := s.ai.executeEmbedMetadataJob(ctx, req, report)
 		if err != nil {

@@ -191,16 +191,18 @@ func (h *AuthHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		// "wrong password" from "inactive account" from "no such user".
 		h.respondError(w, http.StatusUnauthorized, auth.ErrInvalidCredentials.Error())
 		return
-	} else if errors.Is(err, auth.ErrAccountLocked) {
+	}
+	switch {
+	case errors.Is(err, auth.ErrAccountLocked):
 		h.respondError(w, http.StatusTooManyRequests, err.Error())
 		return
-	} else if errors.Is(err, auth.ErrMFARequired) {
+	case errors.Is(err, auth.ErrMFARequired):
 		h.respondError(w, http.StatusForbidden, err.Error())
 		return
-	} else if errors.Is(err, auth.ErrAccountFrozen) || errors.Is(err, auth.ErrAccountDeleted) {
+	case errors.Is(err, auth.ErrAccountFrozen), errors.Is(err, auth.ErrAccountDeleted):
 		h.respondError(w, http.StatusForbidden, err.Error())
 		return
-	} else if err != nil {
+	case err != nil:
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -983,13 +985,14 @@ func (h *AuthHandler) handleAdminInviteUser(w http.ResponseWriter, r *http.Reque
 	}
 
 	err := h.service.InviteUser(r.Context(), userID, req.Email, req.RoleName)
-	if errors.Is(err, auth.ErrNotSuperAdmin) {
+	switch {
+	case errors.Is(err, auth.ErrNotSuperAdmin):
 		h.respondError(w, http.StatusForbidden, err.Error())
 		return
-	} else if errors.Is(err, auth.ErrRoleNotFound) {
+	case errors.Is(err, auth.ErrRoleNotFound):
 		h.respondError(w, http.StatusNotFound, err.Error())
 		return
-	} else if err != nil {
+	case err != nil:
 		h.respondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -1009,13 +1012,14 @@ func (h *AuthHandler) handleGetInvitation(w http.ResponseWriter, r *http.Request
 	}
 
 	invite, err := h.service.GetInvitation(r.Context(), token)
-	if errors.Is(err, auth.ErrInvitationNotFound) {
+	switch {
+	case errors.Is(err, auth.ErrInvitationNotFound):
 		h.respondError(w, http.StatusNotFound, err.Error())
 		return
-	} else if errors.Is(err, auth.ErrInvitationExpired) || errors.Is(err, auth.ErrInvitationClaimed) {
+	case errors.Is(err, auth.ErrInvitationExpired), errors.Is(err, auth.ErrInvitationClaimed):
 		h.respondError(w, http.StatusGone, err.Error())
 		return
-	} else if err != nil {
+	case err != nil:
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -1051,13 +1055,14 @@ func (h *AuthHandler) handleClaimInvitation(w http.ResponseWriter, r *http.Reque
 	ua := r.UserAgent()
 
 	resp, err := h.service.ClaimInvitation(r.Context(), token, req.Password, req.DisplayName, ua, ip)
-	if errors.Is(err, auth.ErrInvitationNotFound) {
+	switch {
+	case errors.Is(err, auth.ErrInvitationNotFound):
 		h.respondError(w, http.StatusNotFound, err.Error())
 		return
-	} else if errors.Is(err, auth.ErrInvitationExpired) || errors.Is(err, auth.ErrInvitationClaimed) {
+	case errors.Is(err, auth.ErrInvitationExpired), errors.Is(err, auth.ErrInvitationClaimed):
 		h.respondError(w, http.StatusGone, err.Error())
 		return
-	} else if err != nil {
+	case err != nil:
 		h.respondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -1164,13 +1169,14 @@ func (h *AuthHandler) handleAdminRevokeInvitation(w http.ResponseWriter, r *http
 	}
 
 	err := h.service.RevokeInvitation(r.Context(), userID, id)
-	if errors.Is(err, auth.ErrNotSuperAdmin) {
+	switch {
+	case errors.Is(err, auth.ErrNotSuperAdmin):
 		h.respondError(w, http.StatusForbidden, err.Error())
 		return
-	} else if errors.Is(err, auth.ErrInvitationNotFound) {
+	case errors.Is(err, auth.ErrInvitationNotFound):
 		h.respondError(w, http.StatusNotFound, err.Error())
 		return
-	} else if err != nil {
+	case err != nil:
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -1192,13 +1198,14 @@ func (h *AuthHandler) handleAdminResendInvitation(w http.ResponseWriter, r *http
 	}
 
 	err := h.service.ResendInvitation(r.Context(), userID, id)
-	if errors.Is(err, auth.ErrNotSuperAdmin) {
+	switch {
+	case errors.Is(err, auth.ErrNotSuperAdmin):
 		h.respondError(w, http.StatusForbidden, err.Error())
 		return
-	} else if errors.Is(err, auth.ErrInvitationNotFound) {
+	case errors.Is(err, auth.ErrInvitationNotFound):
 		h.respondError(w, http.StatusNotFound, err.Error())
 		return
-	} else if err != nil {
+	case err != nil:
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

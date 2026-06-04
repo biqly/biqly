@@ -212,8 +212,8 @@ func (s *AuthService) ClaimInvitation(ctx context.Context, token, password, disp
 			VALUES ($1, $2, TRUE, $3)
 			RETURNING id
 		`
-		workspaceSlug := fmt.Sprintf("%s-personal", user.ID)
-		workspaceName := fmt.Sprintf("%s's Workspace", sanitizedDisplayName)
+		workspaceSlug := user.ID + "-personal"
+		workspaceName := sanitizedDisplayName + "'s Workspace"
 
 		if err := tx.QueryRowContext(ctx, workspaceQuery, workspaceName, workspaceSlug, user.ID).Scan(&workspaceID); err != nil {
 			return fmt.Errorf("create personal workspace: %w", err)

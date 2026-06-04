@@ -3,7 +3,7 @@ package eval
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 )
@@ -51,7 +51,7 @@ func (p *goldenStubProvider) lookup(prompt string) (string, error) {
 			return body, nil
 		}
 	}
-	return "", fmt.Errorf("golden stub: no matching case in prompt")
+	return "", errors.New("golden stub: no matching case in prompt")
 }
 
 func containsFold(haystack, needle string) bool {
