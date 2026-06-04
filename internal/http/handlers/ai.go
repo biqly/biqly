@@ -844,8 +844,7 @@ func routingForSemanticModel(model *semantic.SemanticModel, confidence float64) 
 		routing.ContextKey = model.Name
 	}
 	if !model.UpdatedAt.IsZero() {
-		t := model.UpdatedAt
-		routing.ContextUpdatedAt = &t
+		routing.ContextUpdatedAt = new(model.UpdatedAt)
 	}
 	return routing
 }
@@ -998,8 +997,7 @@ func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *seman
 	}
 	var modelID *string
 	if model.ID != "" {
-		id := model.ID
-		modelID = &id
+		modelID = new(model.ID)
 	}
 
 	var curated []metadata.FewShotCuratedRow
@@ -1129,8 +1127,7 @@ func (h *AIHandler) loadFewShotExamples(ctx context.Context, model *semantic.Sem
 	}
 	var modelID *string
 	if model.ID != "" {
-		id := model.ID
-		modelID = &id
+		modelID = new(model.ID)
 	}
 
 	var curated []metadata.FewShotCuratedRow

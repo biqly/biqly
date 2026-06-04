@@ -371,8 +371,7 @@ func applyModelContextToRouting(
 	if updatedAt != nil {
 		result.ContextUpdatedAt = updatedAt
 	} else if !model.UpdatedAt.IsZero() {
-		t := model.UpdatedAt
-		result.ContextUpdatedAt = &t
+		result.ContextUpdatedAt = new(model.UpdatedAt)
 	}
 	result.SelectedDimensions = dimensionNames(model.Dimensions)
 	result.SelectedMetrics = metricNames(model.Metrics)

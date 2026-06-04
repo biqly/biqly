@@ -152,8 +152,7 @@ func (s *QueryService) CompileWithContext(ctx context.Context, lq *query.Logical
 	}
 	compiled, err := query.NewCompiler(driver.Dialect()).CompileWithPermissions(ctx, lq, model, nil, piiConfig)
 	if err != nil {
-		var valErrs query.ValidationErrors
-		if errors.As(err, &valErrs) {
+		if _, ok := errors.AsType[query.ValidationErrors](err); ok {
 			return nil, ToServiceError(err)
 		}
 		return nil, ToServiceError(fmt.Errorf("compile: %w", err))

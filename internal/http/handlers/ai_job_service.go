@@ -52,7 +52,7 @@ func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID, userID stri
 		if ds == "" {
 			return nil, errors.New("datasource_id is required")
 		}
-		datasourceID = &ds
+		datasourceID = new(strings.TrimSpace(batchReq.DatasourceID))
 		scopeSchemas = ai.DescribeBatchScopeSchemas(batchReq.Tables)
 		if len(scopeSchemas) == 0 {
 			return nil, errors.New("tables must include at least one schema")
@@ -78,7 +78,7 @@ func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID, userID stri
 		if ds == "" {
 			return nil, errors.New(core.MsgDatasourceIDRequired)
 		}
-		datasourceID = &ds
+		datasourceID = new(strings.TrimSpace(er.DatasourceID))
 		model := strings.TrimSpace(er.ModelID)
 		existing, err := s.repo.FindConflictingEmbedMetadata(ctx, ds, model)
 		if err != nil {
@@ -94,8 +94,7 @@ func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID, userID stri
 	}
 	var userIDPtr *string
 	if strings.TrimSpace(userID) != "" {
-		u := userID
-		userIDPtr = &u
+		userIDPtr = new(userID)
 	}
 	job := &metadata.AIJob{
 		ID:              uuid.NewString(),

@@ -199,10 +199,10 @@ func (h *SemanticHandler) CreateModel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Label != "" {
-		m.Label = &req.Label
+		m.Label = new(req.Label)
 	}
 	if req.Description != "" {
-		m.Description = &req.Description
+		m.Description = new(req.Description)
 	}
 
 	ctx := r.Context()
@@ -382,10 +382,10 @@ func (h *SemanticHandler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 		existing.ExcludedSchemas = *req.ExcludedSchemas
 	}
 	if req.Label != "" {
-		existing.Label = &req.Label
+		existing.Label = new(req.Label)
 	}
 	if req.Description != "" {
-		existing.Description = &req.Description
+		existing.Description = new(req.Description)
 	}
 	if req.IsActive != nil {
 		existing.IsActive = *req.IsActive
@@ -511,7 +511,7 @@ func dimensionFromRequest(id, modelID string, req createDimensionRequest) (*sema
 		IsActive:             true,
 	}
 	if req.Label != "" {
-		d.Label = &req.Label
+		d.Label = new(req.Label)
 	}
 	return d, nil
 }
@@ -569,10 +569,10 @@ func metricFromRequest(id, modelID string, req createMetricRequest) (*semantic.M
 		IsActive:    true,
 	}
 	if req.Label != "" {
-		m.Label = &req.Label
+		m.Label = new(req.Label)
 	}
 	if req.Format != "" {
-		m.Format = &req.Format
+		m.Format = new(req.Format)
 	}
 	return m, nil
 }
@@ -785,8 +785,7 @@ func (h *SemanticHandler) ReplaceDimensionEnums(w http.ResponseWriter, r *http.R
 			m.SortOrder = i
 		}
 		if v.Description != "" {
-			desc := v.Description
-			m.Description = &desc
+			m.Description = new(v.Description)
 		}
 		mappings = append(mappings, m)
 	}

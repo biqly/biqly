@@ -3,6 +3,7 @@ package rbac
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	platformdb "github.com/biqly/biqly/internal/platform/db"
@@ -273,7 +274,7 @@ func (r *RBACRepository) GetUserWorkspaceRole(ctx context.Context, userID, works
 	`
 	var roleName string
 	err := r.db.QueryRowContext(ctx, query, workspaceID, userID).Scan(&roleName)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return "", nil
 	} else if err != nil {
 		return "", err

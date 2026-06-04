@@ -137,8 +137,8 @@ func TestQuery_NeedsClarification(t *testing.T) {
 	if !errors.Is(err, aiclient.ErrNeedsClarification) {
 		t.Fatalf("expected ErrNeedsClarification, got: %v", err)
 	}
-	var clarErr *aiclient.ClarificationError
-	if !errors.As(err, &clarErr) {
+	clarErr, ok := errors.AsType[*aiclient.ClarificationError](err)
+	if !ok {
 		t.Fatalf("expected *ClarificationError, got %T", err)
 	}
 	if clarErr.Response == nil || clarErr.Response.Clarification == nil || clarErr.Response.Clarification.ClarificationQuestion != "Which table?" {
@@ -217,8 +217,8 @@ func TestQuery_Unauthorized(t *testing.T) {
 	if !errors.Is(err, aiclient.ErrUnauthorized) {
 		t.Fatalf("expected ErrUnauthorized, got: %v", err)
 	}
-	var apiErr *aiclient.APIError
-	if !errors.As(err, &apiErr) {
+	apiErr, ok := errors.AsType[*aiclient.APIError](err)
+	if !ok {
 		t.Fatalf("expected *APIError, got %T", err)
 	}
 	if apiErr.StatusCode != http.StatusUnauthorized {

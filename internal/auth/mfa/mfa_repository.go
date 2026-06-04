@@ -96,12 +96,10 @@ func (r *MFARepository) Get(ctx context.Context, userID string) (*MFAEnrollment,
 	enrol.RecoveryCodes = []string(codes)
 	enrol.BypassCodes = []string(bypassCodes)
 	if verifiedAt.Valid {
-		t := verifiedAt.Time
-		enrol.VerifiedAt = &t
+		enrol.VerifiedAt = new(verifiedAt.Time)
 	}
 	if lastUsedAt.Valid {
-		t := lastUsedAt.Time
-		enrol.LastUsedAt = &t
+		enrol.LastUsedAt = new(lastUsedAt.Time)
 	}
 	return &enrol, nil
 }

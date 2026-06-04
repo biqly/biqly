@@ -405,7 +405,7 @@ func (r *UserRepository) LinkOAuthAccount(ctx context.Context, userID, provider,
 
 	var expiresAt *time.Time
 	if !token.Expiry.IsZero() {
-		expiresAt = &token.Expiry
+		expiresAt = new(token.Expiry)
 	}
 
 	query := `
@@ -475,7 +475,7 @@ func (r *UserRepository) CreateUserWithOAuth(ctx context.Context, email, display
 
 		var expiresAt *time.Time
 		if !token.Expiry.IsZero() {
-			expiresAt = &token.Expiry
+			expiresAt = new(token.Expiry)
 		}
 
 		oauthQuery := `
@@ -624,8 +624,7 @@ func (r *UserRepository) SavePasskey(ctx context.Context, userID string, cred *w
 	if len(cred.Authenticator.AAGUID) > 0 {
 		u, err := uuid.FromBytes(cred.Authenticator.AAGUID)
 		if err == nil {
-			s := u.String()
-			aaguidStr = &s
+			aaguidStr = new(u.String())
 		}
 	}
 
@@ -914,14 +913,14 @@ func (r *UserRepository) ConfirmEmailChangeToken(ctx context.Context, token stri
 				return err
 			}
 			if req.OldEmailConfirmedAt == nil {
-				req.OldEmailConfirmedAt = &now
+				req.OldEmailConfirmedAt = new(now)
 			}
 		case req.NewEmailToken:
 			if _, err := tx.ExecContext(ctx, "UPDATE email_change_requests SET new_email_confirmed_at = COALESCE(new_email_confirmed_at, $1) WHERE id = $2", now, req.ID); err != nil {
 				return err
 			}
 			if req.NewEmailConfirmedAt == nil {
-				req.NewEmailConfirmedAt = &now
+				req.NewEmailConfirmedAt = new(now)
 			}
 		default:
 			return errors.New("invalid email change token")
@@ -934,7 +933,7 @@ func (r *UserRepository) ConfirmEmailChangeToken(ctx context.Context, token stri
 			if _, err := tx.ExecContext(ctx, "UPDATE email_change_requests SET completed_at = $1 WHERE id = $2", now, req.ID); err != nil {
 				return err
 			}
-			req.CompletedAt = &now
+			req.CompletedAt = new(now)
 		}
 		return nil
 	})

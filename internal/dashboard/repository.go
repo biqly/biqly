@@ -3,6 +3,7 @@ package dashboard
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 )
 
@@ -45,16 +46,16 @@ func (r *Repository) Get(ctx context.Context, id string) (*Dashboard, error) {
 	d := &Dashboard{}
 	var wsID, desc sql.NullString
 	err := r.db.QueryRowContext(ctx, query, id).Scan(&d.ID, &wsID, &d.Name, &desc, &d.Widgets, &d.CreatedAt, &d.UpdatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("dashboard not found: %w", err)
 	} else if err != nil {
 		return nil, fmt.Errorf("get dashboard: %w", err)
 	}
 	if wsID.Valid {
-		d.WorkspaceID = &wsID.String
+		d.WorkspaceID = new(wsID.String)
 	}
 	if desc.Valid {
-		d.Description = &desc.String
+		d.Description = new(desc.String)
 	}
 	return d, nil
 }
@@ -93,10 +94,10 @@ func (r *Repository) List(ctx context.Context, workspaceID string) ([]Dashboard,
 			return nil, fmt.Errorf("scan dashboard row: %w", err)
 		}
 		if wsID.Valid {
-			d.WorkspaceID = &wsID.String
+			d.WorkspaceID = new(wsID.String)
 		}
 		if desc.Valid {
-			d.Description = &desc.String
+			d.Description = new(desc.String)
 		}
 		list = append(list, d)
 	}

@@ -176,14 +176,12 @@ func suiteResultToWire(result *ai.EvalSuiteResult, opts ai.EvalSuiteOptions, sui
 			tc.ErrorMessage = firstNonEmpty(c.LogicalReason, c.ExecutionReason, c.JudgeReason)
 		}
 		if c.Confidence > 0 {
-			cf := c.Confidence
-			tc.Confidence = &cf
+			tc.Confidence = new(c.Confidence)
 		}
-		lm, em, jm := c.LogicalMatch, c.ExecutionMatch, c.JudgeMatch
-		tc.LogicalMatch = &lm
-		tc.ExecutionMatch = &em
+		tc.LogicalMatch = new(c.LogicalMatch)
+		tc.ExecutionMatch = new(c.ExecutionMatch)
 		if opts.Modes&ai.EvalModeJudge != 0 && opts.Judge != nil {
-			tc.JudgeMatch = &jm
+			tc.JudgeMatch = new(c.JudgeMatch)
 			tc.JudgeRationale = c.JudgeReason
 		}
 		if c.Pass(opts) {

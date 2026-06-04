@@ -143,12 +143,10 @@ func (e *GDPRExporter) queryOAuthAccounts(ctx context.Context, userID string) ([
 			return nil, err
 		}
 		if scope.Valid {
-			s := scope.String
-			a.Scope = &s
+			a.Scope = new(scope.String)
 		}
 		if exp.Valid {
-			t := exp.Time
-			a.TokenExpiresAt = &t
+			a.TokenExpiresAt = new(exp.Time)
 		}
 		out = append(out, a)
 	}
@@ -175,16 +173,13 @@ func (e *GDPRExporter) querySessions(ctx context.Context, userID string) ([]GDPR
 		}
 		s.TokenHint = auth.MaskToken(refresh)
 		if ua.Valid {
-			v := ua.String
-			s.UserAgent = &v
+			s.UserAgent = new(ua.String)
 		}
 		if ip.Valid {
-			v := ip.String
-			s.IPAddress = &v
+			s.IPAddress = new(ip.String)
 		}
 		if revoked.Valid {
-			t := revoked.Time
-			s.RevokedAt = &t
+			s.RevokedAt = new(revoked.Time)
 		}
 		out = append(out, s)
 	}

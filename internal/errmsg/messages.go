@@ -22,7 +22,6 @@ const (
 	CodeInvalidOperator       = "INVALID_OPERATOR"
 	CodeInvalidTimeGrain      = "INVALID_TIME_GRAIN"
 	CodeTimeGrainOnNonDate    = "TIME_GRAIN_ON_NON_DATE"
-	CodeMissingField          = "MISSING_FIELD"
 	CodeInvalidSelectType     = "INVALID_SELECT_TYPE"
 	CodeRowLimitExceeded      = "ROW_LIMIT_EXCEEDED"
 	CodeNegativeOffset        = "NEGATIVE_OFFSET"

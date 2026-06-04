@@ -93,8 +93,7 @@ func (c *Compiler) compileStatement(
 
 	dimMap := make(map[string]*semantic.Dimension, len(model.Dimensions))
 	for _, d := range model.Dimensions {
-		dCopy := d
-		dimMap[d.Name] = &dCopy
+		dimMap[d.Name] = new(d)
 	}
 	for _, gb := range lq.GroupBy {
 		if gb.TimeGrain == "" {
@@ -106,8 +105,7 @@ func (c *Compiler) compileStatement(
 	}
 	metricMap := make(map[string]*semantic.Metric, len(model.Metrics))
 	for _, m := range model.Metrics {
-		mCopy := m
-		metricMap[m.Name] = &mCopy
+		metricMap[m.Name] = new(m)
 	}
 	joinMap := make(map[string]semantic.Join)
 	for _, j := range model.Joins {

@@ -225,20 +225,16 @@ func (s *AuditService) List(ctx context.Context, filter AuditFilter) ([]AuditEnt
 			return nil, fmt.Errorf("scan audit entry: %w", err)
 		}
 		if userID.Valid {
-			s := userID.String
-			e.UserID = &s
+			e.UserID = new(userID.String)
 		}
 		if resource.Valid {
-			s := resource.String
-			e.Resource = &s
+			e.Resource = new(resource.String)
 		}
 		if resourceID.Valid {
-			s := resourceID.String
-			e.ResourceID = &s
+			e.ResourceID = new(resourceID.String)
 		}
 		if ip.Valid {
-			s := ip.String
-			e.IPAddress = &s
+			e.IPAddress = new(ip.String)
 		}
 		if len(metadata) > 0 {
 			e.Metadata = metadata

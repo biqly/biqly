@@ -47,8 +47,7 @@ func ValidateCompositeQuery(
 	// Base field/aggregation/limit validation against the merged model.
 	if v != nil {
 		if err := v.Validate(lq, resolved); err != nil {
-			var ve ValidationErrors
-			if errors.As(err, &ve) {
+			if ve, ok := errors.AsType[ValidationErrors](err); ok {
 				result.Errors = append(result.Errors, ve...)
 			} else {
 				result.Errors = append(result.Errors, &ValidationError{

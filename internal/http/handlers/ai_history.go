@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/biqly/biqly/internal/metadata"
+	"github.com/go-chi/chi/v5"
+
 	bimw "github.com/biqly/biqly/internal/http/middleware"
+	"github.com/biqly/biqly/internal/metadata"
 )
 
 // AIHistory returns a paginated AI query history list. Filtering and pagination
@@ -171,7 +173,10 @@ func (h *AIHandler) AIHistoryDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 
-	id := r.URL.Query().Get("id")
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		id = r.URL.Query().Get("id")
+	}
 	if id == "" {
 		writeError(w, http.StatusBadRequest, "id is required")
 		return

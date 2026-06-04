@@ -688,27 +688,22 @@ func scanAIHistoryEntry(s platformdb.Scanner) (AIQueryHistoryEntry, error) {
 	}
 
 	if modelID.Valid {
-		s := modelID.String
-		entry.ModelID = &s
+		entry.ModelID = new(modelID.String)
 	}
 	if userID.Valid {
-		s := userID.String
-		entry.UserID = &s
+		entry.UserID = new(userID.String)
 	}
 	if outcome.Valid {
 		entry.OutcomeStatus = outcome.String
 	}
 	if modelUsed.Valid {
-		s := modelUsed.String
-		entry.ModelUsed = &s
+		entry.ModelUsed = new(modelUsed.String)
 	}
 	if confidence.Valid {
-		v := confidence.Float64
-		entry.ConfidenceScore = &v
+		entry.ConfidenceScore = new(confidence.Float64)
 	}
 	if cost.Valid {
-		v := cost.Float64
-		entry.CostUSD = &v
+		entry.CostUSD = new(cost.Float64)
 	}
 	if retryCount.Valid {
 		entry.RetryCount = int(retryCount.Int64)
@@ -717,20 +712,16 @@ func scanAIHistoryEntry(s platformdb.Scanner) (AIQueryHistoryEntry, error) {
 		entry.NeedsClarification = needsClarification.Bool
 	}
 	if promptTokens.Valid {
-		v := int(promptTokens.Int64)
-		entry.PromptTokens = &v
+		entry.PromptTokens = new(int(promptTokens.Int64))
 	}
 	if completionTokens.Valid {
-		v := int(completionTokens.Int64)
-		entry.CompletionTokens = &v
+		entry.CompletionTokens = new(int(completionTokens.Int64))
 	}
 	if tokenCount.Valid {
-		v := int(tokenCount.Int64)
-		entry.TokenCount = &v
+		entry.TokenCount = new(int(tokenCount.Int64))
 	}
 	if latencyMs.Valid {
-		v := int(latencyMs.Int64)
-		entry.LatencyMs = &v
+		entry.LatencyMs = new(int(latencyMs.Int64))
 	}
 	if len(promptCtx) > 0 {
 		_ = sonic.Unmarshal(promptCtx, &entry.PromptContext)
@@ -835,12 +826,10 @@ func scanQueryHistoryEntry(s platformdb.Scanner) (pkgquery.HistoryEntry, error) 
 		entry.Fingerprint = fingerprint.String
 	}
 	if rowCount.Valid {
-		v := int(rowCount.Int64)
-		entry.RowCount = &v
+		entry.RowCount = new(int(rowCount.Int64))
 	}
 	if durationMs.Valid {
-		v := int(durationMs.Int64)
-		entry.DurationMs = &v
+		entry.DurationMs = new(int(durationMs.Int64))
 	}
 	return entry, nil
 }
@@ -853,8 +842,7 @@ func nullableJSON(value any) (*string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("marshal json: %w", err)
 	}
-	s := string(encoded)
-	return &s, nil
+	return new(string(encoded)), nil
 }
 
 // Search operations

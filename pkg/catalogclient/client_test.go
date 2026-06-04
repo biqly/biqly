@@ -101,8 +101,8 @@ func TestGetDatasource_NotFound(t *testing.T) {
 	if !errors.Is(err, catalogclient.ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got: %v", err)
 	}
-	var apiErr *catalogclient.APIError
-	if !errors.As(err, &apiErr) {
+	apiErr, ok := errors.AsType[*catalogclient.APIError](err)
+	if !ok {
 		t.Fatalf("expected *APIError, got %T", err)
 	}
 	if apiErr.StatusCode != http.StatusNotFound || apiErr.Code != internalapi.CodeNotFound {
@@ -266,8 +266,8 @@ func TestHTMLProxyError_IsParsed(t *testing.T) {
 	if !errors.Is(err, catalogclient.ErrUpstream) {
 		t.Fatalf("expected ErrUpstream, got: %v", err)
 	}
-	var apiErr *catalogclient.APIError
-	if !errors.As(err, &apiErr) {
+	apiErr, ok := errors.AsType[*catalogclient.APIError](err)
+	if !ok {
 		t.Fatalf("expected *APIError, got %T", err)
 	}
 	if apiErr.StatusCode != http.StatusBadGateway {

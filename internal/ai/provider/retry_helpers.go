@@ -90,10 +90,9 @@ func isRetriableNetErr(err error) bool {
 		errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ETIMEDOUT) {
 		return true
 	}
-	var ne net.Error
-	if errors.As(err, &ne) && ne.Timeout() {
+	if ne, ok := errors.AsType[net.Error](err); ok && ne.Timeout() {
 		return true
 	}
-	var opErr *net.OpError
-	return errors.As(err, &opErr)
+	_, ok := errors.AsType[*net.OpError](err)
+	return ok
 }

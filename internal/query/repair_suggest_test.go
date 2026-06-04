@@ -51,8 +51,8 @@ func TestValidatorStructuredErrors(t *testing.T) {
 	}
 	err1 := v.Validate(lq1, model)
 	assert.NotNil(t, err1)
-	var ve1 ValidationErrors
-	assert.True(t, errors.As(err1, &ve1))
+	ve1, ok := errors.AsType[ValidationErrors](err1)
+	assert.True(t, ok)
 	assert.Len(t, ve1, 1)
 	assert.Equal(t, "UNKNOWN_DIMENSION", ve1[0].Code)
 	assert.Equal(t, "customer_nam", ve1[0].Value)
@@ -66,8 +66,8 @@ func TestValidatorStructuredErrors(t *testing.T) {
 	}
 	err2 := v.Validate(lq2, model)
 	assert.NotNil(t, err2)
-	var ve2 ValidationErrors
-	assert.True(t, errors.As(err2, &ve2))
+	ve2, ok := errors.AsType[ValidationErrors](err2)
+	assert.True(t, ok)
 	assert.Len(t, ve2, 1)
 	assert.Equal(t, "UNKNOWN_METRIC", ve2[0].Code)
 	assert.Equal(t, "revenue", ve2[0].Value)

@@ -513,7 +513,7 @@ func (r *Repository) PublishModel(ctx context.Context, id, publishedBy string, c
 	model.Status = ModelStatusPublished
 	model.Version = nextVersion
 	if publishedBy != "" {
-		model.PublishedBy = &publishedBy
+		model.PublishedBy = new(publishedBy)
 	}
 
 	payload, err := sonic.Marshal(model)
@@ -558,7 +558,7 @@ func (r *Repository) RollbackModel(ctx context.Context, id string, targetVersion
 	target.Version = nextVersion
 	target.Status = ModelStatusPublished
 	if publishedBy != "" {
-		target.PublishedBy = &publishedBy
+		target.PublishedBy = new(publishedBy)
 	}
 	payload, err := sonic.Marshal(target)
 	if err != nil {

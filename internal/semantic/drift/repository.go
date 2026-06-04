@@ -3,6 +3,7 @@ package drift
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	platformdb "github.com/biqly/biqly/internal/platform/db"
@@ -102,7 +103,7 @@ func (r *Repository) GetLatestByModel(ctx context.Context, modelID string) (*Dri
 		&rpt.DetectedAt,
 		&rpt.CreatedAt,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {

@@ -29,8 +29,7 @@ func (h *AIJobsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	req = *parsed
 	job, err := h.svc.Enqueue(r.Context(), req.Kind, req.ClientSessionID, bimw.UserID(r.Context()), req.Request)
 	if err != nil {
-		var conflict *AIJobConflictError
-		if errors.As(err, &conflict) {
+		if conflict, ok := errors.AsType[*AIJobConflictError](err); ok {
 			writeAIJobConflict(w, conflict)
 			return
 		}

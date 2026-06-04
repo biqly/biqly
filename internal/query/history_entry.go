@@ -31,7 +31,7 @@ func BuildQueryHistoryEntry(
 		}),
 	}
 	if cq != nil {
-		entry.CompiledSQL = &cq.SQL
+		entry.CompiledSQL = new(cq.SQL)
 		sqlArgs, err := MarshalSQLArgs(cq.Args)
 		if err != nil {
 			return nil, err
@@ -39,14 +39,11 @@ func BuildQueryHistoryEntry(
 		entry.SQLArgs = sqlArgs
 	}
 	if result != nil {
-		rowCount := result.Stats.RowCount
-		durationMs := int(result.Stats.DurationMs)
-		entry.RowCount = &rowCount
-		entry.DurationMs = &durationMs
+		entry.RowCount = new(result.Stats.RowCount)
+		entry.DurationMs = new(int(result.Stats.DurationMs))
 	}
 	if queryErr != nil {
-		msg := queryErr.Error()
-		entry.ErrorMessage = &msg
+		entry.ErrorMessage = new(queryErr.Error())
 	}
 	return entry, nil
 }
@@ -60,7 +57,7 @@ func HistoryModelID(model *semantic.SemanticModel) *string {
 	if _, err := uuid.Parse(model.ID); err != nil {
 		return nil
 	}
-	return &model.ID
+	return new(model.ID)
 }
 
 // MarshalSQLArgs JSON-encodes SQL arguments for history storage.
@@ -72,8 +69,7 @@ func MarshalSQLArgs(args []any) (*string, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := string(b)
-	return &s, nil
+	return new(string(b)), nil
 }
 
 func semanticModelVersionForFingerprint(model *semantic.SemanticModel) string {

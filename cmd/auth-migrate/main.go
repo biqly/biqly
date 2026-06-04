@@ -201,8 +201,8 @@ func execSQL(ctx context.Context, db *sql.DB, sqlText string) error {
 }
 
 func isAlreadyAppliedError(err error) bool {
-	var pgErr *pgconn.PgError
-	if !errors.As(err, &pgErr) {
+	pgErr, ok := errors.AsType[*pgconn.PgError](err)
+	if !ok {
 		return false
 	}
 	switch pgErr.Code {

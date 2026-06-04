@@ -368,7 +368,7 @@ func (r *Repository) GetAIQueueStatus(ctx context.Context, sessionID string) (*A
 			  AND created_at < $3
 		`, AIJobStatusPending, AIJobStatusQueued, myCreated).Scan(&position)
 		if err == nil {
-			status.MyPosition = &position
+			status.MyPosition = new(position)
 		}
 	}
 
@@ -422,8 +422,7 @@ func scanAIJob(row *sql.Row) (*AIJob, error) {
 		job.ProgressJSON = json.RawMessage(progress)
 	}
 	if dsID.Valid {
-		s := dsID.String
-		job.DatasourceID = &s
+		job.DatasourceID = new(dsID.String)
 	}
 	if len(scope) > 0 {
 		job.ScopeSchemas = []string(scope)
@@ -432,16 +431,13 @@ func scanAIJob(row *sql.Row) (*AIJob, error) {
 		job.ErrorMessage = errMsg.String
 	}
 	if started.Valid {
-		t := started.Time
-		job.StartedAt = &t
+		job.StartedAt = new(started.Time)
 	}
 	if finished.Valid {
-		t := finished.Time
-		job.FinishedAt = &t
+		job.FinishedAt = new(finished.Time)
 	}
 	if userID.Valid {
-		s := userID.String
-		job.UserID = &s
+		job.UserID = new(userID.String)
 	}
 	return &job, nil
 }
@@ -474,8 +470,7 @@ func scanAIJobRows(rows aiJobScanner) (*AIJob, error) {
 		job.ProgressJSON = json.RawMessage(progress)
 	}
 	if dsID.Valid {
-		s := dsID.String
-		job.DatasourceID = &s
+		job.DatasourceID = new(dsID.String)
 	}
 	if len(scope) > 0 {
 		job.ScopeSchemas = []string(scope)
@@ -484,16 +479,13 @@ func scanAIJobRows(rows aiJobScanner) (*AIJob, error) {
 		job.ErrorMessage = errMsg.String
 	}
 	if started.Valid {
-		t := started.Time
-		job.StartedAt = &t
+		job.StartedAt = new(started.Time)
 	}
 	if finished.Valid {
-		t := finished.Time
-		job.FinishedAt = &t
+		job.FinishedAt = new(finished.Time)
 	}
 	if userID.Valid {
-		s := userID.String
-		job.UserID = &s
+		job.UserID = new(userID.String)
 	}
 	return &job, nil
 }

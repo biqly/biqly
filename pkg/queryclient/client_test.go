@@ -218,8 +218,8 @@ func TestCompile_ErrorClass(t *testing.T) {
 			if !errors.Is(err, tt.want) {
 				t.Fatalf("want %v sentinel, got %v", tt.want, err)
 			}
-			var apiErr *queryclient.APIError
-			if !errors.As(err, &apiErr) {
+			apiErr, ok := errors.AsType[*queryclient.APIError](err)
+			if !ok {
 				t.Fatalf("expected *APIError, got %T", err)
 			}
 			if apiErr.StatusCode != tt.wantHTTP {

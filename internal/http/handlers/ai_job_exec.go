@@ -33,14 +33,14 @@ func (h *AIHandler) resolveAIQuery(ctx context.Context, req aiQueryRequest) (*se
 	if req.DatasourceID == "" {
 		return nil, nil, nil, errors.New(core.MsgDatasourceIDRequired)
 	}
-	model, routing, err := h.loadQueryModel(ctx, req)
+	model, routeResult, err := h.loadQueryModel(ctx, req)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if routing != nil && routing.NeedsClarification {
-		return nil, routing, clarificationResponse(routing), nil
+	if routeResult != nil && routeResult.NeedsClarification {
+		return nil, routeResult, clarificationResponse(routeResult), nil
 	}
-	return model, routing, nil, nil
+	return model, routeResult, nil, nil
 }
 
 func (h *AIHandler) executeAIQueryPhase(
@@ -52,7 +52,7 @@ func (h *AIHandler) executeAIQueryPhase(
 	if report != nil {
 		report(AIJobProgress{Phase: "routing", Message: "routing tables", Progress: 10, Status: metadata.AIJobStatusRunning})
 	}
-	model, routing, clarify, err := h.resolveAIQuery(ctx, req)
+	model, routeResult, clarify, err := h.resolveAIQuery(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func (h *AIHandler) executeAIQueryPhase(
 		report(AIJobProgress{Phase: "validating", Message: "validating response", Progress: 55, Status: metadata.AIJobStatusRunning})
 	}
 
-	resp, err := h.processAIQuestion(ctx, req, model, routing, processOpts...)
+	resp, err := h.processAIQuestion(ctx, req, model, routeResult, processOpts...)
 	if err != nil {
 		return nil, err
 	}

@@ -195,8 +195,7 @@ func nullStringPtr(ns sql.NullString) *string {
 	if !ns.Valid {
 		return nil
 	}
-	s := ns.String
-	return &s
+	return new(ns.String)
 }
 
 func scanTableEmbeddingRow(s platformdb.Scanner) ([]TableEmbedding, error) {

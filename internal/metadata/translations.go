@@ -169,12 +169,10 @@ func (r *Repository) ListEntityTranslations(ctx context.Context, entityType, ent
 // requested locale, falling back through: requested → DefaultLocale → raw.
 func LocalizedDescription(translations EntityTranslations, raw sql.NullString) *string {
 	if v, ok := translations[TranslationFieldDescription]; ok && v != "" {
-		s := v
-		return &s
+		return new(v)
 	}
 	if raw.Valid && raw.String != "" {
-		s := raw.String
-		return &s
+		return new(raw.String)
 	}
 	return nil
 }
@@ -197,8 +195,7 @@ func (r *Repository) ApplyTableTranslations(ctx context.Context, tables []Table,
 	for i := range tables {
 		if m, ok := tr[tables[i].ID]; ok {
 			if v, ok := m[TranslationFieldDescription]; ok && v != "" {
-				s := v
-				tables[i].Description = &s
+				tables[i].Description = new(v)
 			}
 		}
 	}
@@ -222,8 +219,7 @@ func (r *Repository) ApplyColumnTranslations(ctx context.Context, cols []Column,
 	for i := range cols {
 		if m, ok := tr[cols[i].ID]; ok {
 			if v, ok := m[TranslationFieldDescription]; ok && v != "" {
-				s := v
-				cols[i].Description = &s
+				cols[i].Description = new(v)
 			}
 		}
 	}

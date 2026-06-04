@@ -74,7 +74,7 @@ func (m *SessionManager) createSession(ctx context.Context, userID string, userA
 
 	var fp *string
 	if fingerprint != "" {
-		fp = &fingerprint
+		fp = new(fingerprint)
 	}
 
 	query := `
@@ -153,12 +153,10 @@ func (m *SessionManager) ListActiveSessions(ctx context.Context, userID string) 
 			return nil, err
 		}
 		if ua.Valid {
-			s := ua.String
-			info.UserAgent = &s
+			info.UserAgent = new(ua.String)
 		}
 		if ip.Valid {
-			s := ip.String
-			info.IPAddress = &s
+			info.IPAddress = new(ip.String)
 		}
 		out = append(out, info)
 	}

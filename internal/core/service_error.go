@@ -27,8 +27,7 @@ func ToServiceError(err error) *ServiceError {
 	if err == nil {
 		return nil
 	}
-	var se *ServiceError
-	if errors.As(err, &se) {
+	if se, ok := errors.AsType[*ServiceError](err); ok {
 		return se
 	}
 	mapped := mapQueryServiceError(err)
@@ -50,8 +49,7 @@ func ErrAsError(se *ServiceError) error {
 
 // LogCause returns the wrapped cause when err is a ServiceError, for structured logging.
 func LogCause(err error) error {
-	var se *ServiceError
-	if errors.As(err, &se) && se.cause != nil {
+	if se, ok := errors.AsType[*ServiceError](err); ok && se.cause != nil {
 		return se.cause
 	}
 	return err
@@ -61,8 +59,7 @@ func MapQueryServiceError(err error) *ServiceError {
 	if err == nil {
 		return nil
 	}
-	var se *ServiceError
-	if errors.As(err, &se) {
+	if se, ok := errors.AsType[*ServiceError](err); ok {
 		return se
 	}
 	return mapQueryServiceError(err)
@@ -83,8 +80,7 @@ func mapQueryServiceError(err error) *ServiceError {
 	case errors.Is(err, ErrQueryExecution):
 		return &ServiceError{Status: http.StatusInternalServerError, Message: "query failed"}
 	}
-	var valErrs query.ValidationErrors
-	if errors.As(err, &valErrs) {
+	if valErrs, ok := errors.AsType[query.ValidationErrors](err); ok {
 		return &ServiceError{Status: http.StatusBadRequest, Message: valErrs.Error()}
 	}
 	return &ServiceError{Status: http.StatusInternalServerError, Message: "query failed"}

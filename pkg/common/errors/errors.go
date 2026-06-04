@@ -151,8 +151,8 @@ func As(err error) *ServiceError {
 	if err == nil {
 		return nil
 	}
-	var se *ServiceError
-	if errors.As(err, &se) {
+	se, ok := errors.AsType[*ServiceError](err)
+	if ok {
 		return se
 	}
 	return nil

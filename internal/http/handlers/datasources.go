@@ -191,13 +191,13 @@ func (h *DatasourceHandler) datasourceDraft(_ context.Context, req createDatasou
 		if host == "" {
 			return nil, "", http.StatusBadRequest, "connection.host is required", nil
 		}
-		ds.Host = &host
+		ds.Host = new(strings.TrimSpace(c.Host))
 
 		port := datasource.DefaultPort(driverType)
 		if c.Port != nil && *c.Port > 0 {
 			port = *c.Port
 		}
-		ds.Port = &port
+		ds.Port = new(datasource.DefaultPort(driverType))
 
 		if u := optionalStringPtr(c.Username); u != nil {
 			ds.Username = u
@@ -211,7 +211,7 @@ func (h *DatasourceHandler) datasourceDraft(_ context.Context, req createDatasou
 			ssl = defaults.SSLMode
 		}
 		if ssl != "" {
-			ds.SSLMode = &ssl
+			ds.SSLMode = new(strings.TrimSpace(c.SSLMode))
 		}
 
 		ext := map[string]string{}
@@ -541,8 +541,7 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 			RowEstimate:  t.RowEstimate,
 		}
 		if t.Comment != "" {
-			c := t.Comment
-			table.Description = &c
+			table.Description = new(t.Comment)
 		}
 		tableID, err := h.deps.MetaRepo.UpsertTable(ctx, ds.ID, table)
 		if err != nil {
@@ -601,14 +600,12 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 		}
 		if target, isFK := fkBySource[[3]string{c.SchemaName, c.TableName, c.ColumnName}]; isFK {
 			col.IsForeignKey = true
-			schema, table, column := target.schema, target.table, target.column
-			col.ReferencedSchema = &schema
-			col.ReferencedTable = &table
-			col.ReferencedColumn = &column
+			col.ReferencedSchema = new(target.schema)
+			col.ReferencedTable = new(target.table)
+			col.ReferencedColumn = new(target.column)
 		}
 		if c.Comment != "" {
-			cm := c.Comment
-			col.Description = &cm
+			col.Description = new(c.Comment)
 		}
 		colBatch = append(colBatch, col)
 		if len(colBatch) >= 100 {

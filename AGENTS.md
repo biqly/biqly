@@ -21,6 +21,54 @@ rules (enforced when gograph mcp server is connected):
 5. run gograph_capabilities at the start of any go coding session.
 <!-- gograph-end: do not remove -->
 
+## go — language (1.26)
+
+this repo targets go 1.26+. use stdlib error helpers so wrapped errors still match:
+
+### match sentinel / target errors
+
+- use `errors.Is(err, target)` instead of `err == target` — equality fails when `err` is wrapped with `%w`.
+- applies to `sql.ErrNoRows`, `io.EOF`, `http.ErrServerClosed`, package sentinels, and other comparable error values.
+
+example:
+
+```go
+if errors.Is(err, sql.ErrNoRows) {
+    return nil, fmt.Errorf("...")
+}
+```
+
+### unwrap to a concrete type
+
+- use `errors.AsType[T](err)` instead of `errors.As(err, &target)` — returns `(T, bool)` and avoids pointer-to-interface mistakes.
+- keep `errors.As` only when the target type is not fixed at compile time or you are touching code outside a focused migration.
+
+example:
+
+```go
+if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
+    // use pgErr
+}
+```
+
+### optional / pointer fields (`new` with expression)
+
+- go 1.26: `new(expr)` allocates a variable of the expression's type, initializes it to `expr`, and returns `*T`.
+- use `new(expr)` instead of copying to a local and taking its address — common for optional JSON/API pointer fields.
+
+example:
+
+```go
+// before
+cf := c.Confidence
+tc.Confidence = &cf
+
+// after
+tc.Confidence = new(c.Confidence)
+```
+
+- `new(T)` still allocates a zero value when you only need a typed nil pointer shell.
+
 ## go — performance rules
 
 when writing or reviewing go code, apply these to minimize performance loss (especially on hot paths):

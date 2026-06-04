@@ -154,26 +154,21 @@ func enrichAIHistoryEntry(entry *metadata.AIQueryHistoryEntry, resp *ai.Response
 	entry.RetryCount = retryCount
 	entry.NeedsClarification = needsClarification
 	if modelUsed != "" {
-		entry.ModelUsed = &modelUsed
+		entry.ModelUsed = new(modelUsed)
 	}
 	if latencyMs > 0 {
-		ms := latencyMs
-		entry.LatencyMs = &ms
+		entry.LatencyMs = new(latencyMs)
 	}
 	if costUSD > 0 {
-		cost := costUSD
-		entry.CostUSD = &cost
+		entry.CostUSD = new(costUSD)
 	}
 	if promptTokens > 0 {
-		v := promptTokens
-		entry.PromptTokens = &v
+		entry.PromptTokens = new(promptTokens)
 	}
 	if completionTokens > 0 {
-		v := completionTokens
-		entry.CompletionTokens = &v
+		entry.CompletionTokens = new(completionTokens)
 	}
 	if totalTokens > 0 {
-		tokens := totalTokens
-		entry.TokenCount = &tokens
+		entry.TokenCount = new(totalTokens)
 	}
 }

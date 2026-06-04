@@ -48,20 +48,16 @@ func (r *UserRepository) GetAccountState(ctx context.Context, userID string) (Ac
 		return st, fmt.Errorf("query account state: %w", err)
 	}
 	if frozen.Valid {
-		t := frozen.Time
-		st.FrozenAt = &t
+		st.FrozenAt = new(frozen.Time)
 	}
 	if deleted.Valid {
-		t := deleted.Time
-		st.DeletedAt = &t
+		st.DeletedAt = new(deleted.Time)
 	}
 	if purge.Valid {
-		t := purge.Time
-		st.PurgeAfter = &t
+		st.PurgeAfter = new(purge.Time)
 	}
 	if pwChanged.Valid {
-		t := pwChanged.Time
-		st.PasswordChangedAt = &t
+		st.PasswordChangedAt = new(pwChanged.Time)
 	}
 	return st, nil
 }

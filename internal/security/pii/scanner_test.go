@@ -80,9 +80,8 @@ func TestScanDatasource_DetectsAndPersists(t *testing.T) {
 }
 
 func TestScanDatasource_SkipsReviewedColumns(t *testing.T) {
-	reviewer := "admin@biqly.com"
 	reviewed := col("c1", "email", "varchar")
-	reviewed.PIIReviewedBy = &reviewer
+	reviewed.PIIReviewedBy = new("admin@biqly.com")
 
 	store := newFakeColumnStore(reviewed)
 	s := NewScanner(NewDetector(DefaultThreshold), store, 10)
@@ -95,8 +94,7 @@ func TestScanDatasource_SkipsReviewedColumns(t *testing.T) {
 
 func TestScanDatasource_ClearsStaleAnnotations(t *testing.T) {
 	stale := col("c1", "renamed_col", "varchar")
-	prev := TypeEmail
-	stale.PIIType = &prev // previously detected, no longer matches
+	stale.PIIType = new(TypeEmail) // previously detected, no longer matches
 
 	store := newFakeColumnStore(stale)
 	s := NewScanner(NewDetector(DefaultThreshold), store, 10)

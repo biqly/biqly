@@ -152,8 +152,8 @@ func decodeJSONAllowEmpty[T any](w http.ResponseWriter, r *http.Request) (*T, bo
 }
 
 func isMaxBytesError(err error) bool {
-	var maxErr *http.MaxBytesError
-	return errors.As(err, &maxErr)
+	_, ok := errors.AsType[*http.MaxBytesError](err)
+	return ok
 }
 
 func requireURLParam(w http.ResponseWriter, r *http.Request, key string) (string, bool) {

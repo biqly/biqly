@@ -723,14 +723,14 @@ func auditFilterFromQuery(r *http.Request) (auth.AuditFilter, error) {
 		if err != nil {
 			return filter, errors.New("from must be RFC3339")
 		}
-		filter.From = &t
+		filter.From = new(t)
 	}
 	if v := q.Get("to"); v != "" {
 		t, err := time.Parse(time.RFC3339, v)
 		if err != nil {
 			return filter, errors.New("to must be RFC3339")
 		}
-		filter.To = &t
+		filter.To = new(t)
 	}
 	return filter, nil
 }
