@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"net/http"
@@ -12,23 +13,27 @@ import (
 	"github.com/biqly/biqly/internal/metadata"
 )
 
+func canViewAIHistoryDetails(ctx context.Context, authClient *bimw.AuthClient, userID string) bool {
+	if authClient == nil {
+		return true
+	}
+	if bimw.HasRole(ctx, bimw.RoleSuperAdmin) {
+		return true
+	}
+	if userID == "" {
+		return false
+	}
+
+	workspaceID := bimw.WorkspaceID(ctx)
+	allowed, err := authClient.CheckPermission(ctx, userID, PermissionAIViewDetails, "workspace", workspaceID)
+	return err == nil && allowed
+}
+
 // AIHistory returns a paginated AI query history list. Filtering and pagination
 // are applied in the database; heavy fields are masked per permission rules.
 func (h *AIHandler) AIHistory(w http.ResponseWriter, r *http.Request) {
 	userID := bimw.UserID(r.Context())
-	var hasViewDetails bool
-	if h.authClient == nil {
-		hasViewDetails = true
-	} else {
-		hasViewDetails = bimw.HasRole(r.Context(), bimw.RoleSuperAdmin)
-		if !hasViewDetails && userID != "" {
-			workspaceID := bimw.WorkspaceID(r.Context())
-			allowed, err := h.authClient.CheckPermission(r.Context(), userID, PermissionAIViewDetails, "workspace", workspaceID)
-			if err == nil && allowed {
-				hasViewDetails = true
-			}
-		}
-	}
+	hasViewDetails := canViewAIHistoryDetails(r.Context(), h.authClient, userID)
 	var perms []string
 	if hasViewDetails {
 		perms = []string{PermissionAIViewDetails}
@@ -158,20 +163,7 @@ func (h *AIHandler) QueryHistory(w http.ResponseWriter, r *http.Request) {
 // own entries; otherwise sensitive fields are stripped.
 func (h *AIHandler) AIHistoryDetail(w http.ResponseWriter, r *http.Request) {
 	userID := bimw.UserID(r.Context())
-	var hasViewDetails bool
-	if h.authClient == nil {
-		hasViewDetails = true
-	} else {
-		hasViewDetails = bimw.HasRole(r.Context(), bimw.RoleSuperAdmin)
-		if !hasViewDetails && userID != "" {
-			workspaceID := bimw.WorkspaceID(r.Context())
-			allowed, err := h.authClient.CheckPermission(r.Context(), userID, PermissionAIViewDetails, "workspace", workspaceID)
-			if err == nil && allowed {
-				hasViewDetails = true
-			}
-		}
-	}
-
+	hasViewDetails := canViewAIHistoryDetails(r.Context(), h.authClient, userID)
 
 	id := chi.URLParam(r, "id")
 	if id == "" {

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/biqly/biqly/internal/app"
-	"github.com/biqly/biqly/internal/metadata"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
+	"github.com/biqly/biqly/internal/metadata"
 )
 
 // FewShotExample is the wire format for a curated few-shot example (alias for metadata row type).
@@ -278,20 +278,7 @@ func (h *AIExamplesHandler) GetAIUsage(w http.ResponseWriter, r *http.Request) {
 func (h *AIExamplesHandler) GetAIUsageBreakdown(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	userID := bimw.UserID(ctx)
-
-	var hasViewDetails bool
-	if h.authClient == nil {
-		hasViewDetails = true
-	} else {
-		hasViewDetails = bimw.HasRole(ctx, bimw.RoleSuperAdmin)
-		if !hasViewDetails && userID != "" {
-			workspaceID := bimw.WorkspaceID(ctx)
-			allowed, err := h.authClient.CheckPermission(ctx, userID, PermissionAIViewDetails, "workspace", workspaceID)
-			if err == nil && allowed {
-				hasViewDetails = true
-			}
-		}
-	}
+	hasViewDetails := canViewAIHistoryDetails(ctx, h.authClient, userID)
 
 	if !hasViewDetails {
 		writeError(w, http.StatusForbidden, "forbidden")
@@ -314,9 +301,9 @@ func (h *AIExamplesHandler) GetAIUsageBreakdown(w http.ResponseWriter, r *http.R
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"days":    days,
-		"totals":  totals,
-		"rows":    rows,
+		"days":   days,
+		"totals": totals,
+		"rows":   rows,
 	})
 }
 
