@@ -2,10 +2,12 @@ package query
 
 import (
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 
 	"github.com/biqly/biqly/internal/dialect"
+	"github.com/biqly/biqly/internal/security"
 	pkgsemantic "github.com/biqly/biqly/pkg/semantic"
 )
 
@@ -39,7 +41,15 @@ var dialectFunctions = map[string]map[string]string{
 // CompileExpr emits safe SQL from a canonical semantic expression AST.
 func CompileExpr(expr pkgsemantic.ExprNode, d dialect.Dialect, resolver *SchemaResolver) string {
 	d = normalizeExprDialect(d)
-	return compileExpr(expr, d, resolver)
+	sql := compileExpr(expr, d, resolver)
+	if sql != "" {
+		checker := security.NewReadOnlyChecker()
+		if err := checker.Check("SELECT " + sql); err != nil {
+			slog.Error("expression compiled to unsafe SQL, aborting compilation", "error", err)
+			return ""
+		}
+	}
+	return sql
 }
 
 func normalizeExprDialect(d dialect.Dialect) dialect.Dialect {

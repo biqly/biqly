@@ -158,3 +158,12 @@ func TestCompileExprAcrossDialects(t *testing.T) {
 		}
 	}
 }
+
+func TestCompileExprSafetyNet(t *testing.T) {
+	expr := pkgsemantic.ColumnRefExpr{Column: "1; DROP TABLE users"}
+	got := CompileExpr(expr, dialect.SQLServerDialect{}, nil)
+	if got != "" {
+		t.Fatalf("expected CompileExpr to return empty string for unsafe SQL, got: %q", got)
+	}
+}
+

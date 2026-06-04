@@ -46,12 +46,12 @@ interface ModelingPaletteProps {
   onDeleteJoin: (joinId: string) => void
   onAddSuggestedJoin: (join: SuggestedJoin) => void
   onReactivateJoin: (join: SemanticJoin) => void
-  onRenameDimension: (dimension: SemanticDimension) => void
+  onEditDimension: (dimension: SemanticDimension) => void
   onEditDimensionValues: (dimension: SemanticDimension) => void
   onDeleteDimension: (dimensionId: string) => void
   onReactivateDimension: (dimension: SemanticDimension) => void
   onOpenAddMetric: () => void
-  onRenameMetric: (metric: SemanticMetric) => void
+  onEditMetric: (metric: SemanticMetric) => void
   onDeleteMetric: (metricId: string) => void
   onReactivateMetric: (metric: SemanticMetric) => void
   t: Translate
@@ -87,12 +87,12 @@ export function ModelingPalette({
   onDeleteJoin,
   onAddSuggestedJoin,
   onReactivateJoin,
-  onRenameDimension,
+  onEditDimension,
   onEditDimensionValues,
   onDeleteDimension,
   onReactivateDimension,
   onOpenAddMetric,
-  onRenameMetric,
+  onEditMetric,
   onDeleteMetric,
   onReactivateMetric,
   t,
@@ -379,7 +379,7 @@ export function ModelingPalette({
                       <span className="modeling-pill-actions">
                         <button
                           className="modeling-rename-btn"
-                          onClick={() => onRenameDimension(dimension)}
+                          onClick={() => onEditDimension(dimension)}
                           title={t('modeling.edit_display_name_title')}
                         >
                           ✎
@@ -454,7 +454,7 @@ export function ModelingPalette({
                       <span className="modeling-pill-actions">
                         <button
                           className="modeling-rename-btn"
-                          onClick={() => onRenameMetric(metric)}
+                          onClick={() => onEditMetric(metric)}
                           title={t('modeling.edit_display_name_title')}
                         >
                           ✎

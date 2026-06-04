@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import type { useT } from '../../i18n'
-import type { ColumnRow, SemanticModelDetail, TableRow } from '../../types/semantic'
+import type { ColumnRow, SemanticModelDetail, TableRow, SemanticMetric, SemanticExprNode } from '../../types/semantic'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
+import { ExpressionBuilder } from './ExpressionBuilder'
 
 const METRIC_AGGREGATION_OPTIONS = [
   { value: 'count', label: 'count' },
@@ -18,9 +19,11 @@ export interface AddMetricModalProps {
   model: SemanticModelDetail
   includedTables: TableRow[]
   columns: ColumnRow[]
+  metric?: SemanticMetric
   onClose: () => void
   onCreated: () => void | Promise<void>
   postData: (url: string, body: unknown) => Promise<unknown>
+  putData?: (url: string, body: unknown) => Promise<unknown>
   t: ReturnType<typeof useT>
 }
 
@@ -28,27 +31,49 @@ export function AddMetricModal({
   model,
   includedTables,
   columns,
+  metric,
   onClose,
   onCreated,
   postData,
+  putData,
   t,
 }: AddMetricModalProps) {
-  const [name, setName] = useState('')
-  const [label, setLabel] = useState('')
-  const [mode, setMode] = useState<'simple' | 'custom'>('simple')
+  const [name, setName] = useState(metric ? metric.name : '')
+  const [label, setLabel] = useState(metric ? (metric.label || '') : '')
+  const [mode, setMode] = useState<'simple' | 'custom'>(
+    metric ? (metric.aggregation === 'custom' ? 'custom' : 'simple') : 'simple'
+  )
   const [saving, setSaving] = useState(false)
 
   // Simple Mode state
-  const [selectedSchema, setSelectedSchema] = useState(model.base_schema)
-  const [selectedTable, setSelectedTable] = useState(model.base_table)
-  const [selectedColumn, setSelectedColumn] = useState('')
+  const parts = metric && metric.aggregation !== 'custom' ? metric.expression.split('.') : []
+  let initialSchema: string = model.base_schema
+  let initialTable: string = model.base_table
+  let initialColumn = ''
+  if (parts.length === 3) {
+    initialSchema = parts[0] || model.base_schema
+    initialTable = parts[1] || model.base_table
+    initialColumn = parts[2] || ''
+  } else if (parts.length === 2) {
+    initialTable = parts[0] || model.base_table
+    initialColumn = parts[1] || ''
+  } else if (parts.length === 1) {
+    initialColumn = parts[0] || ''
+  }
+
+  const [selectedSchema, setSelectedSchema] = useState(initialSchema)
+  const [selectedTable, setSelectedTable] = useState(initialTable)
+  const [selectedColumn, setSelectedColumn] = useState(initialColumn)
   const [selectedAggregation, setSelectedAggregation] = useState<
     'count' | 'sum' | 'avg' | 'min' | 'max' | 'count_distinct'
-  >('sum')
-  const [format, setFormat] = useState('')
+  >(metric && metric.aggregation !== 'custom' ? (metric.aggregation as any) : 'sum')
+  const [format, setFormat] = useState(metric ? (metric.format || '') : '')
 
   // Custom Mode state
-  const [expression, setExpression] = useState('')
+  const [expression, setExpression] = useState(metric ? metric.expression : '')
+  const [astNode, setAstNode] = useState<SemanticExprNode | undefined>(
+    metric ? metric.expr : undefined
+  )
 
   // Get active tables in model
   const modelTableKeys = useMemo(() => {
@@ -64,222 +89,6 @@ export function AddMetricModal({
     }
     return keys
   }, [model])
-
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
-  const containerRef = useRef<HTMLDivElement | null>(null)
-
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const [suggestions, setSuggestions] = useState<string[]>([])
-  const [suggestionIndex, setSuggestionIndex] = useState(0)
-  const [queryStartIdx, setQueryStartIdx] = useState(-1)
-
-  const funcCandidates = useMemo(
-    () => [
-      'sum(',
-      'avg(',
-      'count(',
-      'count_distinct(',
-      'min(',
-      'max(',
-      'case',
-      'when',
-      'then',
-      'else',
-      'end',
-    ],
-    [],
-  )
-
-  const fieldCandidates = useMemo(() => {
-    const list: string[] = []
-    if (model.dimensions) {
-      model.dimensions
-        .filter((d) => d.is_active)
-        .forEach((d) => {
-          list.push(`[${d.name}]`)
-        })
-    }
-    if (model.metrics) {
-      model.metrics
-        .filter((m) => m.is_active)
-        .forEach((m) => {
-          list.push(`[${m.name}]`)
-        })
-    }
-    columns.forEach((c) => {
-      if (modelTableKeys.has(`${c.schema_name}.${c.table_name}`)) {
-        list.push(`[${c.table_name}.${c.column_name}]`)
-      }
-    })
-    return Array.from(new Set(list)).sort()
-  }, [model, columns, modelTableKeys])
-
-  const checkSuggestions = useCallback(
-    (val: string, cursorIndex: number) => {
-      const lastOpen = val.lastIndexOf('[', cursorIndex - 1)
-      let isInside = false
-      if (lastOpen !== -1) {
-        const textBetween = val.substring(lastOpen, cursorIndex)
-        if (!textBetween.includes(']')) {
-          isInside = true
-        }
-      }
-
-      if (isInside) {
-        const query = val.substring(lastOpen, cursorIndex).toLowerCase()
-        setQueryStartIdx(lastOpen)
-        const filtered = fieldCandidates.filter((cand) => cand.toLowerCase().includes(query))
-        if (filtered.length > 0) {
-          setSuggestions(filtered)
-          setSuggestionIndex(0)
-          setShowSuggestions(true)
-        } else {
-          setShowSuggestions(false)
-        }
-      } else {
-        const wordMatch = /[a-zA-Z_]+$/.exec(val.substring(0, cursorIndex))
-        if (wordMatch) {
-          const word = wordMatch[0].toLowerCase()
-          const wordStart = cursorIndex - wordMatch[0].length
-          setQueryStartIdx(wordStart)
-          const filtered = funcCandidates.filter((f) => f.toLowerCase().startsWith(word))
-          if (filtered.length > 0) {
-            setSuggestions(filtered)
-            setSuggestionIndex(0)
-            setShowSuggestions(true)
-          } else {
-            setShowSuggestions(false)
-          }
-        } else {
-          setShowSuggestions(false)
-        }
-      }
-    },
-    [fieldCandidates, funcCandidates],
-  )
-
-  const insertSuggestion = useCallback(
-    (suggestion: string) => {
-      const textarea = textareaRef.current
-      if (!textarea) {
-        return
-      }
-      const start = queryStartIdx
-      const end = textarea.selectionEnd
-      const text = textarea.value
-      const newValue = text.substring(0, start) + suggestion + text.substring(end)
-      setExpression(newValue)
-      setShowSuggestions(false)
-      setTimeout(() => {
-        textarea.focus()
-        const newCursorPos = start + suggestion.length
-        textarea.setSelectionRange(newCursorPos, newCursorPos)
-      }, 0)
-    },
-    [queryStartIdx],
-  )
-
-  const highlightExpression = (expr: string) => {
-    if (!expr) {
-      return null
-    }
-    const regex =
-      /(\[[^\]]*\]|\bcase\b|\bwhen\b|\bthen\b|\belse\b|\bend\b|\bsum\b|\bavg\b|\bcount\b|\bcount_distinct\b|\bmin\b|\bmax\b)/gi
-    const parts = expr.split(regex)
-    return parts.map((part, idx) => {
-      const partLower = part.toLowerCase()
-      if (part.startsWith('[') && part.endsWith(']')) {
-        const inner = part.slice(1, -1)
-        return (
-          <span key={idx} style={{ fontWeight: 'bold' }}>
-            <span style={{ color: 'rgba(255, 255, 255, 0.35)' }}>[</span>
-            <span style={{ color: 'var(--accent)' }}>{inner}</span>
-            <span style={{ color: 'rgba(255, 255, 255, 0.35)' }}>]</span>
-          </span>
-        )
-      }
-      if (['case', 'when', 'then', 'else', 'end'].includes(partLower)) {
-        return (
-          <span key={idx} style={{ color: '#fbbf24', fontWeight: 'bold' }}>
-            {part}
-          </span>
-        )
-      }
-      if (['sum', 'avg', 'count', 'count_distinct', 'min', 'max'].includes(partLower)) {
-        return (
-          <span key={idx} style={{ color: '#60a5fa', fontWeight: 'bold' }}>
-            {part}
-          </span>
-        )
-      }
-      return <span key={idx}>{part}</span>
-    })
-  }
-
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const val = e.target.value
-    setExpression(val)
-    checkSuggestions(val, e.target.selectionStart)
-  }
-
-  const handleTextareaSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
-    const target = e.target as HTMLTextAreaElement
-    checkSuggestions(target.value, target.selectionStart)
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!showSuggestions) {
-      return
-    }
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setSuggestionIndex((prev) => (prev + 1) % suggestions.length)
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setSuggestionIndex((prev) => (prev - 1 + suggestions.length) % suggestions.length)
-    } else if (e.key === 'Enter' || e.key === 'Tab') {
-      e.preventDefault()
-      const selected = suggestions[suggestionIndex]
-      if (selected && queryStartIdx !== -1) {
-        insertSuggestion(selected)
-      }
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      setShowSuggestions(false)
-    }
-  }
-
-  const handleTextareaScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
-    const textarea = e.currentTarget
-    const underlay = textarea.parentElement?.querySelector('.expression-editor-underlay')
-    if (underlay) {
-      underlay.scrollTop = textarea.scrollTop
-      underlay.scrollLeft = textarea.scrollLeft
-    }
-  }
-
-  useEffect(() => {
-    const textarea = textareaRef.current
-    if (textarea) {
-      const underlay = textarea.parentElement?.querySelector('.expression-editor-underlay')
-      if (underlay) {
-        underlay.scrollTop = textarea.scrollTop
-        underlay.scrollLeft = textarea.scrollLeft
-      }
-    }
-  }, [expression])
-
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setShowSuggestions(false)
-      }
-    }
-    document.addEventListener('mousedown', handleOutsideClick)
-    return () => {
-      document.removeEventListener('mousedown', handleOutsideClick)
-    }
-  }, [])
 
   // Simple Mode lists
   const availableSchemas = useMemo(() => {
@@ -307,8 +116,16 @@ export function AddMetricModal({
     })
   }, [columns, selectedSchema, selectedTable])
 
+  const [isFirstRender, setIsFirstRender] = useState(true)
+  useEffect(() => {
+    setIsFirstRender(false)
+  }, [])
+
   // Select first table/column when schema/table changes
   useEffect(() => {
+    if (isFirstRender) {
+      return
+    }
     if (availableTables.length > 0) {
       const found = availableTables.find((t) => t.table_name === selectedTable)
       if (!found && availableTables[0]) {
@@ -317,9 +134,12 @@ export function AddMetricModal({
     } else {
       setSelectedTable('')
     }
-  }, [selectedSchema, availableTables, selectedTable])
+  }, [selectedSchema, availableTables, selectedTable, isFirstRender])
 
   useEffect(() => {
+    if (isFirstRender) {
+      return
+    }
     if (availableColumns.length > 0) {
       const found = availableColumns.find((c) => c.column_name === selectedColumn)
       if (!found && availableColumns[0]) {
@@ -328,7 +148,7 @@ export function AddMetricModal({
     } else {
       setSelectedColumn('')
     }
-  }, [selectedTable, availableColumns, selectedColumn])
+  }, [selectedTable, availableColumns, selectedColumn, isFirstRender])
 
   // Sync Simple selection to Custom mode if they toggle tabs
   const handleModeChange = (newMode: 'simple' | 'custom') => {
@@ -342,37 +162,6 @@ export function AddMetricModal({
     setMode(newMode)
   }
 
-  // Custom Mode Table Expand/Collapse state
-  const [expandedTable, setExpandedTable] = useState<string | null>(model.base_table)
-
-  // Insertion logic
-  const insertTextAtCursor = (text: string) => {
-    const textarea = document.getElementById('metric-expression') as HTMLTextAreaElement
-    if (!textarea) {
-      setExpression((prev) => prev + text)
-      return
-    }
-    const start = textarea.selectionStart
-    const end = textarea.selectionEnd
-    const prevValue = textarea.value
-    const newValue = prevValue.substring(0, start) + text + prevValue.substring(end)
-    setExpression(newValue)
-
-    let caretPos = start + text.length
-    if (text.endsWith('()')) {
-      caretPos = start + text.length - 1
-    } else if (text.includes('[field]')) {
-      caretPos = start + text.indexOf('[field]')
-    } else if (text.includes('[amount]')) {
-      caretPos = start + text.indexOf('[amount]')
-    }
-
-    setTimeout(() => {
-      textarea.focus()
-      textarea.selectionStart = textarea.selectionEnd = caretPos
-    }, 0)
-  }
-
   const submit = async () => {
     if (!name.trim()) {
       return
@@ -380,6 +169,7 @@ export function AddMetricModal({
 
     let finalExpr = ''
     let finalAgg = ''
+    let finalAst: SemanticExprNode | undefined = undefined
 
     if (mode === 'simple') {
       if (!selectedColumn) {
@@ -397,41 +187,35 @@ export function AddMetricModal({
       }
       finalExpr = expression.trim()
       finalAgg = 'custom'
+      finalAst = astNode
     }
 
     setSaving(true)
     try {
-      await postData(`/api/semantic/models/${model.id}/metrics`, {
-        name: name.trim(),
-        label: label.trim() || undefined,
-        expression: finalExpr,
-        aggregation: finalAgg,
-        format: format.trim() || undefined,
-      })
+      if (metric && putData) {
+        await putData(`/api/semantic/models/${model.id}/metrics/${metric.id}`, {
+          name: name.trim(),
+          label: label.trim() || undefined,
+          expression: finalExpr,
+          aggregation: finalAgg,
+          format: format.trim() || undefined,
+          expr: finalAst,
+        })
+      } else {
+        await postData(`/api/semantic/models/${model.id}/metrics`, {
+          name: name.trim(),
+          label: label.trim() || undefined,
+          expression: finalExpr,
+          aggregation: finalAgg,
+          format: format.trim() || undefined,
+          expr: finalAst,
+        })
+      }
       await onCreated()
     } finally {
       setSaving(false)
     }
   }
-
-  const customFuncs = [
-    { label: 'sum(...)', value: 'sum()' },
-    { label: 'avg(...)', value: 'avg()' },
-    { label: 'count(...)', value: 'count()' },
-    { label: 'count_distinct(...)', value: 'count_distinct()' },
-    { label: 'min(...)', value: 'min()' },
-    { label: 'max(...)', value: 'max()' },
-    {
-      label: t('modeling.metric_func_sumif'),
-      value: `sum(case when [field] = '${t('modeling.metric_func_value_placeholder')}' then [amount] else 0 end)`,
-    },
-    {
-      label: t('modeling.metric_func_countif'),
-      value: `count(case when [field] = '${t('modeling.metric_func_value_placeholder')}' then 1 else null end)`,
-    },
-  ]
-
-  const customOps = ['+', '-', '*', '/', '(', ')']
 
   return (
     <Modal
@@ -440,7 +224,7 @@ export function AddMetricModal({
       closeOnBackdrop={!saving}
       className={mode === 'custom' ? 'modal-card--metric' : 'modal-card--modeling'}
       labelledBy="modeling-add-metric-title"
-      title={t('modeling.add_metric_title')}
+      title={metric ? t('modeling.edit_metric_title') : t('modeling.add_metric_title')}
     >
       <form
         onSubmit={(event) => {
@@ -453,10 +237,10 @@ export function AddMetricModal({
             <label htmlFor="metric-name">{t('modeling.metric_name_label')}</label>
             <input
               id="metric-name"
-              autoFocus
+              autoFocus={!metric}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              disabled={saving}
+              disabled={saving || !!metric}
               autoComplete="off"
             />
           </div>
@@ -464,6 +248,7 @@ export function AddMetricModal({
             <label htmlFor="metric-label">{t('modeling.metric_label_label')}</label>
             <input
               id="metric-label"
+              autoFocus={!!metric}
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               disabled={saving}
@@ -475,7 +260,7 @@ export function AddMetricModal({
         <div
           className="toggle-group metric-mode-toggle"
           role="tablist"
-          aria-label={t('modeling.add_metric_title')}
+          aria-label={metric ? t('modeling.edit_metric_title') : t('modeling.add_metric_title')}
         >
           <button
             type="button"
@@ -557,244 +342,20 @@ export function AddMetricModal({
             </div>
           </>
         ) : (
-          <>
-            <div className="form-group">
-              <label htmlFor="metric-expression">{t('modeling.metric_expression_label')}</label>
-              <div ref={containerRef} className="expression-editor-container">
-                <pre className="expression-editor-underlay">{highlightExpression(expression)}</pre>
-                <textarea
-                  ref={textareaRef}
-                  id="metric-expression"
-                  className="expression-editor-textarea"
-                  value={expression}
-                  onChange={handleTextareaChange}
-                  onSelect={handleTextareaSelect}
-                  onKeyDown={handleKeyDown}
-                  onScroll={handleTextareaScroll}
-                  placeholder="sum([orders.total_amount]) / sum([orders.quantity])"
-                  autoComplete="off"
-                  rows={3}
-                  spellCheck={false}
-                  disabled={saving}
-                />
-                {showSuggestions && suggestions.length > 0 && (
-                  <div
-                    className="autocomplete-dropdown"
-                    style={{
-                      position: 'absolute',
-                      bottom: 'auto',
-                      top: '100%',
-                      left: '0',
-                      background: 'var(--bg-card-raised)',
-                      border: '1px solid var(--border-strong)',
-                      borderRadius: '0.5rem',
-                      boxShadow:
-                        'var(--shadow-lg, 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3))',
-                      zIndex: 10,
-                      maxHeight: '150px',
-                      overflowY: 'auto',
-                      width: '320px',
-                      padding: '0.25rem',
-                      backdropFilter: 'blur(12px)',
-                      WebkitBackdropFilter: 'blur(12px)',
-                      marginTop: '0.25rem',
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: '0.68rem',
-                        color: 'var(--text-secondary)',
-                        padding: '0.25rem 0.4rem',
-                        borderBottom: '1px solid var(--border)',
-                        marginBottom: '0.25rem',
-                      }}
-                    >
-                      {t('modeling.metric_intellisense_hint')}
-                    </div>
-                    {suggestions.map((s, idx) => {
-                      const isSelected = idx === suggestionIndex
-                      return (
-                        <div
-                          key={s}
-                          style={{
-                            padding: '0.35rem 0.5rem',
-                            borderRadius: '0.3rem',
-                            cursor: 'pointer',
-                            fontSize: '0.78rem',
-                            fontFamily: 'var(--font-mono, monospace)',
-                            color: isSelected ? '#ffffff' : 'var(--text-primary)',
-                            background: isSelected ? 'var(--accent)' : 'transparent',
-                          }}
-                          onClick={() => insertSuggestion(s)}
-                        >
-                          {s}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="metric-helper-grid">
-              <div className="metric-helper-pane">
-                <h4>{t('modeling.helper_fields')}</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {(model.dimensions ?? []).length > 0 && (
-                    <div>
-                      <div
-                        style={{
-                          fontSize: '0.72rem',
-                          fontWeight: 600,
-                          color: 'var(--text-secondary)',
-                          marginBottom: '0.2rem',
-                        }}
-                      >
-                        {t('modeling.tab_short_dim')}
-                      </div>
-                      <div className="metric-helper-list">
-                        {(model.dimensions ?? [])
-                          .filter((d) => d.is_active)
-                          .map((d) => (
-                            <button
-                              key={d.id}
-                              type="button"
-                              className="metric-helper-badge"
-                              onClick={() => insertTextAtCursor(`[${d.name}]`)}
-                              title={d.column_ref}
-                            >
-                              {d.label || d.name}
-                            </button>
-                          ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {(model.metrics ?? []).length > 0 && (
-                    <div>
-                      <div
-                        style={{
-                          fontSize: '0.72rem',
-                          fontWeight: 600,
-                          color: 'var(--text-secondary)',
-                          marginBottom: '0.2rem',
-                        }}
-                      >
-                        {t('modeling.tab_short_metric')}
-                      </div>
-                      <div className="metric-helper-list">
-                        {(model.metrics ?? [])
-                          .filter((m) => m.is_active)
-                          .map((m) => (
-                            <button
-                              key={m.id}
-                              type="button"
-                              className="metric-helper-badge"
-                              onClick={() => insertTextAtCursor(`[${m.name}]`)}
-                              title={`${m.aggregation}(${m.expression})`}
-                            >
-                              {m.label || m.name}
-                            </button>
-                          ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    <div
-                      style={{
-                        fontSize: '0.72rem',
-                        fontWeight: 600,
-                        color: 'var(--text-secondary)',
-                        marginBottom: '0.2rem',
-                      }}
-                    >
-                      {t('modeling.tab_short_tables')}
-                    </div>
-                    {Array.from(modelTableKeys).map((tableKey) => {
-                      const parts = tableKey.split('.')
-                      const schemaName = parts[0]
-                      const tableName = parts[1]
-                      const tbl = includedTables.find(
-                        (t) => t.schema_name === schemaName && t.table_name === tableName,
-                      )
-                      const tableLabel = tbl?.label || tableName
-                      const isExpanded = expandedTable === tableKey
-
-                      const tableCols = columns.filter(
-                        (c) => c.schema_name === schemaName && c.table_name === tableName,
-                      )
-
-                      return (
-                        <div key={tableKey} style={{ marginBottom: '0.2rem' }}>
-                          <div
-                            className="metric-helper-table-header"
-                            onClick={() => setExpandedTable(isExpanded ? null : tableKey)}
-                          >
-                            <span>{tableLabel}</span>
-                            <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-                              {isExpanded ? '▼' : '▶'}
-                            </span>
-                          </div>
-                          {isExpanded && (
-                            <div className="metric-helper-table-columns">
-                              {tableCols.map((c) => (
-                                <button
-                                  key={c.id}
-                                  type="button"
-                                  className="metric-helper-badge"
-                                  onClick={() => {
-                                    insertTextAtCursor(`[${tableName}.${c.column_name}]`)
-                                  }}
-                                  title={`${c.column_name} (${c.data_type})`}
-                                >
-                                  {c.column_name}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              <div className="metric-helper-pane">
-                <h4>{t('modeling.helper_funcs')}</h4>
-                <div
-                  className="metric-helper-list"
-                  style={{ flexDirection: 'column', gap: '0.35rem', alignItems: 'stretch' }}
-                >
-                  {customFuncs.map((f, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      className="metric-helper-badge"
-                      style={{ justifyContent: 'flex-start', textAlign: 'left' }}
-                      onClick={() => insertTextAtCursor(f.value)}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
-
-                <h4 style={{ marginTop: '0.5rem' }}>{t('modeling.helper_ops')}</h4>
-                <div className="metric-helper-list">
-                  {customOps.map((op, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      className="metric-helper-badge"
-                      onClick={() => insertTextAtCursor(op)}
-                    >
-                      {op}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </>
+          <div className="form-group" style={{ display: 'block', width: '100%' }}>
+            <label htmlFor="metric-expression">{t('modeling.metric_expression_label')}</label>
+            <ExpressionBuilder
+              model={model}
+              columns={columns}
+              initialNode={astNode}
+              initialText={expression}
+              onChange={(node, textExpr) => {
+                setExpression(textExpr)
+                setAstNode(node)
+              }}
+              t={(key, vars) => t(key as any, vars)}
+            />
+          </div>
         )}
 
         <div className="form-group">
@@ -819,7 +380,7 @@ export function AddMetricModal({
               saving || !name.trim() || (mode === 'simple' ? !selectedColumn : !expression.trim())
             }
           >
-            {saving ? t('common.saving') : t('common.create')}
+            {saving ? t('common.saving') : (metric ? t('common.save') : t('common.create'))}
           </button>
         </div>
       </form>

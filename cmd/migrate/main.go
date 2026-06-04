@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/biqly/biqly/internal/query"
+	"github.com/bytedance/sonic"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -30,7 +32,7 @@ func main() {
 
 	args := flag.Args()
 	if len(args) == 0 {
-		slog.Error("Usage: migrate [up|down]")
+		slog.Error("Usage: migrate [up|down|backfill]")
 		os.Exit(1)
 	}
 
@@ -65,6 +67,8 @@ func main() {
 		err = migrateUp(ctx, db, absDir)
 	case "down":
 		err = migrateDown(ctx, db, absDir)
+	case "backfill":
+		err = backfillExpressions(ctx, db)
 	default:
 		slog.Error("unknown command", "command", args[0])
 		os.Exit(1)
@@ -212,4 +216,118 @@ func isAlreadyAppliedError(err error) bool {
 	default:
 		return false
 	}
+}
+
+func backfillExpressions(ctx context.Context, db *sql.DB) error {
+	// Process dimensions
+	dimRows, err := db.QueryContext(ctx, `SELECT id, calculated_expression FROM semantic_dimensions WHERE calculated_expression IS NOT NULL AND calculated_expression != ''`)
+	if err != nil {
+		return fmt.Errorf("query dimensions: %w", err)
+	}
+	defer func() { _ = dimRows.Close() }()
+
+	type dimUpdate struct {
+		id   string
+		json []byte
+	}
+	var dimUpdates []dimUpdate
+
+	for dimRows.Next() {
+		var id, exprStr string
+		if err := dimRows.Scan(&id, &exprStr); err != nil {
+			return fmt.Errorf("scan dimension: %w", err)
+		}
+		exprStr = strings.TrimSpace(exprStr)
+		if exprStr == "" {
+			continue
+		}
+		ast, err := query.ParseExpression(exprStr)
+		if err != nil {
+			slog.Warn("failed to parse dimension calculated expression", "id", id, "expr", exprStr, "error", err)
+			continue
+		}
+		jsonBytes, err := sonic.Marshal(ast)
+		if err != nil {
+			return fmt.Errorf("marshal dimension ast: %w", err)
+		}
+		dimUpdates = append(dimUpdates, dimUpdate{id: id, json: jsonBytes})
+	}
+	if err := dimRows.Err(); err != nil {
+		return err
+	}
+
+	// Process metrics
+	metRows, err := db.QueryContext(ctx, `SELECT id, expression FROM semantic_metrics WHERE expression IS NOT NULL AND expression != '' AND expression != '*'`)
+	if err != nil {
+		return fmt.Errorf("query metrics: %w", err)
+	}
+	defer func() { _ = metRows.Close() }()
+
+	type metUpdate struct {
+		id   string
+		json []byte
+	}
+	var metUpdates []metUpdate
+
+	for metRows.Next() {
+		var id, exprStr string
+		if err := metRows.Scan(&id, &exprStr); err != nil {
+			return fmt.Errorf("scan metric: %w", err)
+		}
+		exprStr = strings.TrimSpace(exprStr)
+		if exprStr == "" || exprStr == "*" {
+			continue
+		}
+		ast, err := query.ParseExpression(exprStr)
+		if err != nil {
+			slog.Warn("failed to parse metric expression", "id", id, "expr", exprStr, "error", err)
+			continue
+		}
+		jsonBytes, err := sonic.Marshal(ast)
+		if err != nil {
+			return fmt.Errorf("marshal metric ast: %w", err)
+		}
+		metUpdates = append(metUpdates, metUpdate{id: id, json: jsonBytes})
+	}
+	if err := metRows.Err(); err != nil {
+		return err
+	}
+
+	// Write updates in a transaction
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	dimStmt, err := tx.PrepareContext(ctx, `UPDATE semantic_dimensions SET calculated_expr_json = $1::jsonb WHERE id = $2::uuid`)
+	if err != nil {
+		return fmt.Errorf("prepare dimension update: %w", err)
+	}
+	defer func() { _ = dimStmt.Close() }()
+
+	for _, u := range dimUpdates {
+		if _, err := dimStmt.ExecContext(ctx, u.json, u.id); err != nil {
+			return fmt.Errorf("update dimension %s: %w", u.id, err)
+		}
+	}
+
+	metStmt, err := tx.PrepareContext(ctx, `UPDATE semantic_metrics SET expr_json = $1::jsonb WHERE id = $2::uuid`)
+	if err != nil {
+		return fmt.Errorf("prepare metric update: %w", err)
+	}
+	defer func() { _ = metStmt.Close() }()
+
+	for _, u := range metUpdates {
+		if _, err := metStmt.ExecContext(ctx, u.json, u.id); err != nil {
+			return fmt.Errorf("update metric %s: %w", u.id, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
+	}
+
+	slog.Info("backfill completed", "dimensions_updated", len(dimUpdates), "metrics_updated", len(metUpdates))
+	return nil
 }

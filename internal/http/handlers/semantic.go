@@ -13,6 +13,7 @@ import (
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/metadata"
+	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
 	"github.com/biqly/biqly/internal/semanticgen"
 	pkgsemantic "github.com/biqly/biqly/pkg/semantic"
@@ -1256,3 +1257,172 @@ func (a semanticCatalogAdapter) ListSemanticPolicies(ctx context.Context, dataso
 	}
 	return out, nil
 }
+
+type LineageNode struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Kind string `json:"kind"` // "dimension" or "metric"
+}
+
+type LineageEdge struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
+type LineageResponse struct {
+	Nodes []LineageNode `json:"nodes"`
+	Edges []LineageEdge `json:"edges"`
+}
+
+// GetModelLineage returns a dependency graph of metrics and dimensions in the model.
+func (h *SemanticHandler) GetModelLineage(w http.ResponseWriter, r *http.Request) {
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+
+	model, err := h.deps.SemanticRepo.GetFullModel(ctx, id)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusNotFound, "model not found", err)
+		return
+	}
+
+	nodes := make([]LineageNode, 0, len(model.Dimensions)+len(model.Metrics))
+	edges := make([]LineageEdge, 0)
+	nodeMap := make(map[string]bool)
+
+	addNode := func(id, name, kind string) {
+		nameLower := strings.ToLower(name)
+		if nodeMap[nameLower] {
+			return
+		}
+		nodeMap[nameLower] = true
+		nodes = append(nodes, LineageNode{
+			ID:   id,
+			Name: name,
+			Kind: kind,
+		})
+	}
+
+	for _, d := range model.Dimensions {
+		addNode(d.ID, d.Name, "dimension")
+		expr := getOrParseExprInHandler(d.CalculatedExpression, d.CalculatedExpr)
+		if expr != nil {
+			_, mets, dims := pkgsemantic.ExprDependencies(expr)
+			for _, depDim := range dims {
+				edges = append(edges, LineageEdge{
+					From: d.Name,
+					To:   depDim,
+				})
+			}
+			for _, depMet := range mets {
+				edges = append(edges, LineageEdge{
+					From: d.Name,
+					To:   depMet,
+				})
+			}
+		}
+	}
+
+	for _, m := range model.Metrics {
+		addNode(m.ID, m.Name, "metric")
+		expr := getOrParseExprInHandler(m.Expression, m.Expr)
+		if expr != nil {
+			_, mets, dims := pkgsemantic.ExprDependencies(expr)
+			for _, depDim := range dims {
+				edges = append(edges, LineageEdge{
+					From: m.Name,
+					To:   depDim,
+				})
+			}
+			for _, depMet := range mets {
+				edges = append(edges, LineageEdge{
+					From: m.Name,
+					To:   depMet,
+				})
+			}
+		}
+	}
+
+	writeJSON(w, http.StatusOK, LineageResponse{
+		Nodes: nodes,
+		Edges: edges,
+	})
+}
+
+func getOrParseExprInHandler(exprStr string, ast pkgsemantic.ExprNode) pkgsemantic.ExprNode {
+	if ast != nil {
+		return ast
+	}
+	exprStr = strings.TrimSpace(exprStr)
+	if exprStr == "" || exprStr == "*" || semantic.ExpressionParser == nil {
+		return nil
+	}
+	parsed, err := semantic.ExpressionParser(exprStr)
+	if err != nil {
+		return nil
+	}
+	return parsed
+}
+
+type compileExpressionRequest struct {
+	Expression string          `json:"expression"`
+	Expr       json.RawMessage `json:"expr,omitempty"`
+}
+
+type compileExpressionResponse struct {
+	SQL  string               `json:"sql"`
+	Expr pkgsemantic.ExprNode `json:"expr,omitempty"`
+}
+
+// CompileExpression compiles a loose expression (string or AST) to dialect-specific SQL.
+func (h *SemanticHandler) CompileExpression(w http.ResponseWriter, r *http.Request) {
+	modelID, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeJSON[compileExpressionRequest](w, r)
+	if !ok {
+		return
+	}
+
+	ctx := r.Context()
+	model, err := h.deps.SemanticRepo.GetFullModel(ctx, modelID)
+	if err != nil {
+		writeEntityNotFound(w, "model")
+		return
+	}
+
+	expr, err := expressionNodeFromRequest(req.Expr, req.Expression, "expression")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if expr == nil {
+		writeError(w, http.StatusBadRequest, "expression is empty or could not be parsed")
+		return
+	}
+
+	ds, err := h.deps.MetaRepo.GetDatasource(ctx, model.DatasourceID)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get model datasource", err)
+		return
+	}
+
+	driver, err := h.deps.DriverReg.Get(ds.Type)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get driver for datasource type: "+ds.Type, err)
+		return
+	}
+
+	resolver := query.NewSchemaResolver(model, nil)
+	compiledSQL := query.CompileExpr(expr, driver.Dialect(), resolver)
+
+	writeJSON(w, http.StatusOK, compileExpressionResponse{
+		SQL:  compiledSQL,
+		Expr: expr,
+	})
+}
+

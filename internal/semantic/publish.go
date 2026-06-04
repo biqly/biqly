@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/biqly/biqly/internal/errmsg"
+	pkgsemantic "github.com/biqly/biqly/pkg/semantic"
 )
 
 const (
@@ -128,11 +129,27 @@ func ValidateContext(ctx context.Context, model SemanticModel, catalog CatalogRe
 	validateDuplicateNames("metric", model.Metrics, func(m Metric) string { return m.Name }, addError)
 	validateDuplicateNames("relationship", model.Joins, func(j Join) string { return j.Name }, addError)
 
+	// Build map of allowed dimensions and metrics for reference checking
+	allowedDims := make(map[string]bool, len(model.Dimensions))
+	for _, d := range model.Dimensions {
+		allowedDims[strings.ToLower(d.Name)] = true
+	}
+	allowedMets := make(map[string]bool, len(model.Metrics))
+	for _, m := range model.Metrics {
+		allowedMets[strings.ToLower(m.Name)] = true
+	}
+
 	for _, dim := range model.Dimensions {
 		if dim.CalculatedExpression != "" {
 			// Validate calculated expression
 			if err := validateCalculatedExpression(dim.CalculatedExpression, columnSet, model.BaseSchema); err != nil {
 				addError("dimension %q calculated expression invalid: %s", dim.Name, err)
+			}
+			expr := getOrParseExpr(dim.CalculatedExpression, dim.CalculatedExpr)
+			if expr != nil {
+				if err := pkgsemantic.ValidateExprStrict(expr, columnSet, allowedMets, allowedDims, false, 0); err != nil {
+					addError("dimension %q calculated expression invalid: %s", dim.Name, err)
+				}
 			}
 		} else if !columnSet.has(model.BaseSchema, dim.ColumnRef) {
 			addError("%s: %s", errmsg.DimensionUnknownColumn, dim.ColumnRef)
@@ -177,6 +194,14 @@ func ValidateContext(ctx context.Context, model SemanticModel, catalog CatalogRe
 				}
 			}
 		}
+
+		expr := getOrParseExpr(metric.Expression, metric.Expr)
+		if expr != nil {
+			allowMets := strings.ToLower(strings.TrimSpace(metric.Aggregation)) == "custom"
+			if err := pkgsemantic.ValidateExprStrict(expr, columnSet, allowedMets, allowedDims, allowMets, 0); err != nil {
+				addError("metric %q expression invalid: %s", metric.Name, err)
+			}
+		}
 	}
 
 	for _, join := range model.Joins {
@@ -196,6 +221,11 @@ func ValidateContext(ctx context.Context, model SemanticModel, catalog CatalogRe
 		default:
 			addError("join has invalid relationship type: %s", join.Relationship)
 		}
+	}
+
+	// Circular dependency validation
+	for _, cycleErr := range checkCircularDependencies(model) {
+		addError("%s", cycleErr)
 	}
 
 	validatePolicies(model, policies, addError)
@@ -497,3 +527,106 @@ func isSQLLiteral(s string) bool {
 	}
 	return true
 }
+
+func checkCircularDependencies(model SemanticModel) []string {
+	var errors []string
+	adj := make(map[string][]string)
+
+	for _, d := range model.Dimensions {
+		expr := getOrParseExpr(d.CalculatedExpression, d.CalculatedExpr)
+		if expr != nil {
+			_, mets, dims := pkgsemantic.ExprDependencies(expr)
+			nodeKey := "dim:" + strings.ToLower(d.Name)
+			for _, depDim := range dims {
+				adj[nodeKey] = append(adj[nodeKey], "dim:"+strings.ToLower(depDim))
+			}
+			for _, depMet := range mets {
+				adj[nodeKey] = append(adj[nodeKey], "met:"+strings.ToLower(depMet))
+			}
+		}
+	}
+
+	for _, m := range model.Metrics {
+		expr := getOrParseExpr(m.Expression, m.Expr)
+		if expr != nil {
+			_, mets, dims := pkgsemantic.ExprDependencies(expr)
+			nodeKey := "met:" + strings.ToLower(m.Name)
+			for _, depDim := range dims {
+				adj[nodeKey] = append(adj[nodeKey], "dim:"+strings.ToLower(depDim))
+			}
+			for _, depMet := range mets {
+				adj[nodeKey] = append(adj[nodeKey], "met:"+strings.ToLower(depMet))
+			}
+		}
+	}
+
+	visited := make(map[string]int) // 0 = unvisited, 1 = visiting, 2 = visited
+	var path []string
+
+	var dfs func(u string) bool
+	dfs = func(u string) bool {
+		visited[u] = 1
+		path = append(path, u)
+
+		for _, v := range adj[u] {
+			if visited[v] == 1 {
+				cycleStartIdx := -1
+				for i, p := range path {
+					if p == v {
+						cycleStartIdx = i
+						break
+					}
+				}
+				if cycleStartIdx != -1 {
+					cycle := make([]string, 0, len(path)-cycleStartIdx+1)
+					for _, p := range path[cycleStartIdx:] {
+						cycle = append(cycle, cleanNodeName(p))
+					}
+					cycle = append(cycle, cleanNodeName(v))
+					errors = append(errors, "circular dependency detected: "+strings.Join(cycle, " -> "))
+				}
+				return true
+			} else if visited[v] == 0 {
+				if dfs(v) {
+					return true
+				}
+			}
+		}
+
+		path = path[:len(path)-1]
+		visited[u] = 2
+		return false
+	}
+
+	for k := range adj {
+		if visited[k] == 0 {
+			dfs(k)
+		}
+	}
+
+	return errors
+}
+
+func getOrParseExpr(exprStr string, ast pkgsemantic.ExprNode) pkgsemantic.ExprNode {
+	if ast != nil {
+		return ast
+	}
+	exprStr = strings.TrimSpace(exprStr)
+	if exprStr == "" || exprStr == "*" || ExpressionParser == nil {
+		return nil
+	}
+	parsed, err := ExpressionParser(exprStr)
+	if err != nil {
+		return nil
+	}
+	return parsed
+}
+
+func cleanNodeName(s string) string {
+	parts := strings.SplitN(s, ":", 2)
+	if len(parts) == 2 {
+		return parts[1]
+	}
+	return s
+}
+

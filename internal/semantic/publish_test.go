@@ -208,4 +208,33 @@ func TestValidateContextCalculatedExpressionsAST(t *testing.T) {
 	}
 }
 
+func TestValidateContextCircularDependencies(t *testing.T) {
+	// A depends on B, B depends on A
+	model := validPublishModel()
+	model.Metrics = []semantic.Metric{
+		{
+			Name:        "metric_a",
+			Expression:  "[metric_b] * 2",
+			Aggregation: "custom",
+			IsActive:    true,
+		},
+		{
+			Name:        "metric_b",
+			Expression:  "[metric_a] + 10",
+			Aggregation: "custom",
+			IsActive:    true,
+		},
+	}
+
+	result := semantic.ValidateContext(context.Background(), model, validPublishCatalog())
+	if result.Valid {
+		t.Fatal("expected invalid context due to circular metric dependency")
+	}
+	if !result.HasError("circular dependency detected: metric_a -> metric_b -> metric_a") &&
+		!result.HasError("circular dependency detected: metric_b -> metric_a -> metric_b") {
+		t.Fatalf("expected circular dependency error, got %v", result.Errors)
+	}
+}
+
+
 

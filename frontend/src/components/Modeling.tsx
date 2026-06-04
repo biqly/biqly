@@ -14,6 +14,7 @@ import type {
   ColumnRow,
   GenerateSemanticModelResponse,
   SemanticDimension,
+  SemanticMetric,
   SemanticJoin,
   SemanticModelDetail,
   SemanticModelSummary,
@@ -22,6 +23,7 @@ import type {
 import { AddMetricModal } from './modeling/AddMetricModal'
 import { BaseSwapModal } from './modeling/BaseSwapModal'
 import { activeEntities, inactiveEntities } from './modeling/entityActions'
+import { EditDimensionModal } from './modeling/EditDimensionModal'
 import { EnumValuesModal } from './modeling/EnumValuesModal'
 import { JoinEditor } from './modeling/JoinEditor'
 import { ModelingCanvas } from './modeling/ModelingCanvas'
@@ -248,6 +250,8 @@ export default function Modeling() {
   const [savingBaseSwap, setSavingBaseSwap] = useState(false)
   const [addMetricOpen, setAddMetricOpen] = useState(false)
   const [enumDimension, setEnumDimension] = useState<SemanticDimension | null>(null)
+  const [editingMetric, setEditingMetric] = useState<SemanticMetric | null>(null)
+  const [editingDimension, setEditingDimension] = useState<SemanticDimension | null>(null)
 
   const expressionRefsTable = useCallback(
     (expr: string | undefined | null, schema: string, table: string) => {
@@ -906,12 +910,12 @@ export default function Modeling() {
               onDeleteJoin={deleteJoin}
               onAddSuggestedJoin={addSuggestedJoin}
               onReactivateJoin={reactivateJoin}
-              onRenameDimension={renameDimension}
+              onEditDimension={setEditingDimension}
               onEditDimensionValues={setEnumDimension}
               onDeleteDimension={deleteDimension}
               onReactivateDimension={reactivateDimension}
               onOpenAddMetric={() => setAddMetricOpen(true)}
-              onRenameMetric={renameMetric}
+              onEditMetric={setEditingMetric}
               onDeleteMetric={deleteMetric}
               onReactivateMetric={reactivateMetric}
               t={t}
@@ -1005,18 +1009,41 @@ export default function Modeling() {
           t={t}
         />
       )}
-      {addMetricOpen && model && (
+      {(addMetricOpen || editingMetric) && model && (
         <AddMetricModal
           model={model}
           includedTables={includedTables}
           columns={columns}
-          onClose={() => setAddMetricOpen(false)}
-          onCreated={async () => {
+          metric={editingMetric || undefined}
+          onClose={() => {
             setAddMetricOpen(false)
+            setEditingMetric(null)
+          }}
+          onCreated={async () => {
+            const isEdit = !!editingMetric
+            setAddMetricOpen(false)
+            setEditingMetric(null)
             await refreshModels(model.id)
-            setMessage(t('modeling.metric_added'))
+            setMessage(isEdit ? t('modeling.metric_updated') : t('modeling.metric_added'))
           }}
           postData={postData}
+          putData={putData}
+          t={t}
+        />
+      )}
+      {editingDimension && model && (
+        <EditDimensionModal
+          model={model}
+          includedTables={includedTables}
+          columns={columns}
+          dimension={editingDimension}
+          onClose={() => setEditingDimension(null)}
+          onSaved={async () => {
+            setEditingDimension(null)
+            await refreshModels(model.id)
+            setMessage(t('modeling.dimension_updated'))
+          }}
+          putData={putData}
           t={t}
         />
       )}
