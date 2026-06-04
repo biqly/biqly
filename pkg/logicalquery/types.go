@@ -1,5 +1,7 @@
 package logicalquery
 
+import pkgsemantic "github.com/biqly/biqly/pkg/semantic"
+
 // CurrentLogicalQueryVersion is the schema version applied to LogicalQuery
 // payloads when callers leave Version empty. Bump this only when the LogicalQuery
 // shape changes in a way that affects compilation or replay; older values remain
@@ -104,12 +106,13 @@ type SelectItem struct {
 
 // WindowSpec describes an analytic window expression.
 type WindowSpec struct {
-	Aggregation string    `json:"aggregation"`            // sum | avg | count | count_distinct | min | max | row_number | rank | dense_rank | ntile
-	Expression  string    `json:"expression,omitempty"`   // raw column ref, optional for ranking functions
-	Metric      string    `json:"metric,omitempty"`       // metric name to inherit aggregation+expression from
-	PartitionBy []string  `json:"partition_by,omitempty"` // dimension names
-	OrderBy     []OrderBy `json:"order_by,omitempty"`     // dimension or metric names
-	Frame       string    `json:"frame,omitempty"`        // optional raw frame clause, e.g. "ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW"
+	Aggregation string               `json:"aggregation"`            // sum | avg | count | count_distinct | min | max | row_number | rank | dense_rank | ntile
+	Expression  string               `json:"expression,omitempty"`   // raw column ref, optional for ranking functions
+	Expr        pkgsemantic.ExprNode `json:"expr,omitempty"`         // parsed expression AST, optional for ranking functions
+	Metric      string               `json:"metric,omitempty"`       // metric name to inherit aggregation+expression from
+	PartitionBy []string             `json:"partition_by,omitempty"` // dimension names
+	OrderBy     []OrderBy            `json:"order_by,omitempty"`     // dimension or metric names
+	Frame       string               `json:"frame,omitempty"`        // optional raw frame clause, e.g. "ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW"
 }
 
 // Filter represents a WHERE condition.

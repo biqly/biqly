@@ -36,6 +36,8 @@ export function renameDimensionPayload(dimension: SemanticDimension, label: stri
     synonyms: dimension.synonyms ?? [],
     description: dimension.description ?? '',
     is_active: dimension.is_active,
+    calculated_expression: dimension.calculated_expression ?? '',
+    calculated_expr: dimension.calculated_expr,
   }
 }
 
@@ -56,6 +58,7 @@ export function renameMetricPayload(metric: SemanticMetric, label: string) {
     synonyms: metric.synonyms ?? [],
     description: metric.description ?? '',
     is_active: metric.is_active,
+    expr: metric.expr,
   }
 }
 

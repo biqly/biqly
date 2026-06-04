@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/bytedance/sonic"
 	platformdb "github.com/biqly/biqly/internal/platform/db"
+	"github.com/bytedance/sonic"
 )
 
 // Repository handles semantic layer database operations.
@@ -116,27 +116,35 @@ func (r *Repository) BulkInsertModelChildren(ctx context.Context, modelID string
 	}
 	return platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
 		if len(dims) > 0 {
-			stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_dimensions (id, model_id, name, label, column_ref, type, time_grain, synonyms, description, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`)
+			stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_dimensions (id, model_id, name, label, column_ref, type, time_grain, synonyms, description, is_active, calculated_expression, calculated_expr_json) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`)
 			if err != nil {
 				return fmt.Errorf("prepare dimensions: %w", err)
 			}
 			defer func() { _ = stmt.Close() }()
 			for i := range dims {
 				d := &dims[i]
-				if _, err := stmt.ExecContext(ctx, d.ID, d.ModelID, d.Name, d.Label, d.ColumnRef, d.Type, platformdb.NullIfEmpty(d.TimeGrain), d.Synonyms, d.Description, d.IsActive); err != nil {
+				calculatedExprJSON, err := encodeExprNodeJSON(d.CalculatedExpr)
+				if err != nil {
+					return fmt.Errorf("encode dimension expression %q: %w", d.Name, err)
+				}
+				if _, err := stmt.ExecContext(ctx, d.ID, d.ModelID, d.Name, d.Label, d.ColumnRef, d.Type, platformdb.NullIfEmpty(d.TimeGrain), d.Synonyms, d.Description, d.IsActive, platformdb.NullIfEmpty(d.CalculatedExpression), calculatedExprJSON); err != nil {
 					return fmt.Errorf("insert dimension %q: %w", d.Name, err)
 				}
 			}
 		}
 		if len(mets) > 0 {
-			stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_metrics (id, model_id, name, label, expression, aggregation, format, synonyms, description, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`)
+			stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_metrics (id, model_id, name, label, expression, aggregation, format, synonyms, description, is_active, expr_json) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`)
 			if err != nil {
 				return fmt.Errorf("prepare metrics: %w", err)
 			}
 			defer func() { _ = stmt.Close() }()
 			for i := range mets {
 				m := &mets[i]
-				if _, err := stmt.ExecContext(ctx, m.ID, m.ModelID, m.Name, m.Label, m.Expression, m.Aggregation, m.Format, m.Synonyms, m.Description, m.IsActive); err != nil {
+				exprJSON, err := encodeExprNodeJSON(m.Expr)
+				if err != nil {
+					return fmt.Errorf("encode metric expression %q: %w", m.Name, err)
+				}
+				if _, err := stmt.ExecContext(ctx, m.ID, m.ModelID, m.Name, m.Label, m.Expression, m.Aggregation, m.Format, m.Synonyms, m.Description, m.IsActive, exprJSON); err != nil {
 					return fmt.Errorf("insert metric %q: %w", m.Name, err)
 				}
 			}
@@ -166,10 +174,14 @@ func (r *Repository) BulkInsertModelChildren(ctx context.Context, modelID string
 // CreateDimension inserts a new dimension.
 func (r *Repository) CreateDimension(ctx context.Context, d *Dimension) error {
 	query := `
-		INSERT INTO semantic_dimensions (id, model_id, name, label, column_ref, type, time_grain, synonyms, description, is_active)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO semantic_dimensions (id, model_id, name, label, column_ref, type, time_grain, synonyms, description, is_active, calculated_expression, calculated_expr_json)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`
-	if err := r.db.QueryRowContext(ctx, query, d.ID, d.ModelID, d.Name, d.Label, d.ColumnRef, d.Type, platformdb.NullIfEmpty(d.TimeGrain), d.Synonyms, d.Description, d.IsActive).Err(); err != nil {
+	calculatedExprJSON, err := encodeExprNodeJSON(d.CalculatedExpr)
+	if err != nil {
+		return fmt.Errorf("encode dimension expression: %w", err)
+	}
+	if err := r.db.QueryRowContext(ctx, query, d.ID, d.ModelID, d.Name, d.Label, d.ColumnRef, d.Type, platformdb.NullIfEmpty(d.TimeGrain), d.Synonyms, d.Description, d.IsActive, platformdb.NullIfEmpty(d.CalculatedExpression), calculatedExprJSON).Err(); err != nil {
 		return fmt.Errorf("create dimension: %w", err)
 	}
 	return r.MarkModelDraft(ctx, d.ModelID)
@@ -177,7 +189,7 @@ func (r *Repository) CreateDimension(ctx context.Context, d *Dimension) error {
 
 // GetDimensions returns all active dimensions for a model.
 func (r *Repository) GetDimensions(ctx context.Context, modelID string) ([]Dimension, error) {
-	query := `SELECT id::text, model_id::text, name, label, column_ref, type, time_grain, synonyms, description, is_active, created_at FROM semantic_dimensions WHERE model_id = $1::uuid AND is_active = true ORDER BY name`
+	query := `SELECT id::text, model_id::text, name, label, column_ref, type, time_grain, synonyms, description, is_active, created_at, calculated_expression, calculated_expr_json FROM semantic_dimensions WHERE model_id = $1::uuid AND is_active = true ORDER BY name`
 	dims, err := platformdb.QuerySliceErr(ctx, r.db, "get dimensions", query, []any{modelID}, scanDimension)
 	if err != nil {
 		return nil, err
@@ -191,7 +203,7 @@ func (r *Repository) GetDimensions(ctx context.Context, modelID string) ([]Dimen
 // ListAllDimensions returns every dimension (active and inactive) for a model
 // so the modeling UI can show soft-deleted items in a "Pasif" section.
 func (r *Repository) ListAllDimensions(ctx context.Context, modelID string) ([]Dimension, error) {
-	query := `SELECT id::text, model_id::text, name, label, column_ref, type, time_grain, synonyms, description, is_active, created_at FROM semantic_dimensions WHERE model_id = $1::uuid ORDER BY is_active DESC, name`
+	query := `SELECT id::text, model_id::text, name, label, column_ref, type, time_grain, synonyms, description, is_active, created_at, calculated_expression, calculated_expr_json FROM semantic_dimensions WHERE model_id = $1::uuid ORDER BY is_active DESC, name`
 	dims, err := platformdb.QuerySliceErr(ctx, r.db, "list all dimensions", query, []any{modelID}, scanDimension)
 	if err != nil {
 		return nil, err
@@ -281,8 +293,12 @@ func (r *Repository) DeleteDimension(ctx context.Context, modelID, dimensionID s
 
 // UpdateDimension updates an existing dimension.
 func (r *Repository) UpdateDimension(ctx context.Context, d *Dimension) error {
-	query := `UPDATE semantic_dimensions SET name = $2, label = $3, column_ref = $4, type = $5, time_grain = $6, synonyms = $7, description = $8, is_active = $9 WHERE id = $1::uuid AND model_id = $10::uuid`
-	_, err := r.db.ExecContext(ctx, query, d.ID, d.Name, d.Label, d.ColumnRef, d.Type, platformdb.NullIfEmpty(d.TimeGrain), d.Synonyms, d.Description, d.IsActive, d.ModelID)
+	query := `UPDATE semantic_dimensions SET name = $2, label = $3, column_ref = $4, type = $5, time_grain = $6, synonyms = $7, description = $8, is_active = $9, calculated_expression = $10, calculated_expr_json = $11 WHERE id = $1::uuid AND model_id = $12::uuid`
+	calculatedExprJSON, err := encodeExprNodeJSON(d.CalculatedExpr)
+	if err != nil {
+		return fmt.Errorf("encode dimension expression: %w", err)
+	}
+	_, err = r.db.ExecContext(ctx, query, d.ID, d.Name, d.Label, d.ColumnRef, d.Type, platformdb.NullIfEmpty(d.TimeGrain), d.Synonyms, d.Description, d.IsActive, platformdb.NullIfEmpty(d.CalculatedExpression), calculatedExprJSON, d.ModelID)
 	if err != nil {
 		return fmt.Errorf("update dimension: %w", err)
 	}
@@ -293,11 +309,15 @@ func (r *Repository) UpdateDimension(ctx context.Context, d *Dimension) error {
 
 // CreateMetric inserts a new metric.
 func (r *Repository) CreateMetric(ctx context.Context, m *Metric) error {
+	exprJSON, err := encodeExprNodeJSON(m.Expr)
+	if err != nil {
+		return fmt.Errorf("encode metric expression: %w", err)
+	}
 	query := `
-		INSERT INTO semantic_metrics (id, model_id, name, label, expression, aggregation, format, synonyms, description, is_active)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO semantic_metrics (id, model_id, name, label, expression, aggregation, format, synonyms, description, is_active, expr_json)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
-	if err := r.db.QueryRowContext(ctx, query, m.ID, m.ModelID, m.Name, m.Label, m.Expression, m.Aggregation, m.Format, m.Synonyms, m.Description, m.IsActive).Err(); err != nil {
+	if err := r.db.QueryRowContext(ctx, query, m.ID, m.ModelID, m.Name, m.Label, m.Expression, m.Aggregation, m.Format, m.Synonyms, m.Description, m.IsActive, exprJSON).Err(); err != nil {
 		return fmt.Errorf("create metric: %w", err)
 	}
 	return r.MarkModelDraft(ctx, m.ModelID)
@@ -305,13 +325,13 @@ func (r *Repository) CreateMetric(ctx context.Context, m *Metric) error {
 
 // GetMetrics returns all active metrics for a model.
 func (r *Repository) GetMetrics(ctx context.Context, modelID string) ([]Metric, error) {
-	query := `SELECT id::text, model_id::text, name, label, expression, aggregation, format, synonyms, description, is_active, created_at FROM semantic_metrics WHERE model_id = $1::uuid AND is_active = true ORDER BY name`
+	query := `SELECT id::text, model_id::text, name, label, expression, aggregation, format, synonyms, description, is_active, created_at, expr_json FROM semantic_metrics WHERE model_id = $1::uuid AND is_active = true ORDER BY name`
 	return platformdb.QuerySliceErr(ctx, r.db, "get metrics", query, []any{modelID}, scanMetric)
 }
 
 // ListAllMetrics returns every metric (active and inactive) for a model.
 func (r *Repository) ListAllMetrics(ctx context.Context, modelID string) ([]Metric, error) {
-	query := `SELECT id::text, model_id::text, name, label, expression, aggregation, format, synonyms, description, is_active, created_at FROM semantic_metrics WHERE model_id = $1::uuid ORDER BY is_active DESC, name`
+	query := `SELECT id::text, model_id::text, name, label, expression, aggregation, format, synonyms, description, is_active, created_at, expr_json FROM semantic_metrics WHERE model_id = $1::uuid ORDER BY is_active DESC, name`
 	return platformdb.QuerySliceErr(ctx, r.db, "list all metrics", query, []any{modelID}, scanMetric)
 }
 
@@ -326,8 +346,12 @@ func (r *Repository) DeleteMetric(ctx context.Context, modelID, metricID string)
 
 // UpdateMetric updates an existing metric.
 func (r *Repository) UpdateMetric(ctx context.Context, m *Metric) error {
-	query := `UPDATE semantic_metrics SET name = $2, label = $3, expression = $4, aggregation = $5, format = $6, synonyms = $7, description = $8, is_active = $9 WHERE id = $1::uuid AND model_id = $10::uuid`
-	_, err := r.db.ExecContext(ctx, query, m.ID, m.Name, m.Label, m.Expression, m.Aggregation, m.Format, m.Synonyms, m.Description, m.IsActive, m.ModelID)
+	exprJSON, err := encodeExprNodeJSON(m.Expr)
+	if err != nil {
+		return fmt.Errorf("encode metric expression: %w", err)
+	}
+	query := `UPDATE semantic_metrics SET name = $2, label = $3, expression = $4, aggregation = $5, format = $6, synonyms = $7, description = $8, is_active = $9, expr_json = $10 WHERE id = $1::uuid AND model_id = $11::uuid`
+	_, err = r.db.ExecContext(ctx, query, m.ID, m.Name, m.Label, m.Expression, m.Aggregation, m.Format, m.Synonyms, m.Description, m.IsActive, exprJSON, m.ModelID)
 	if err != nil {
 		return fmt.Errorf("update metric: %w", err)
 	}
@@ -428,6 +452,7 @@ func (r *Repository) GetFullModel(ctx context.Context, id string) (*SemanticMode
 	model.Dimensions = dims
 	model.Metrics = mets
 	model.Joins = joins
+	hydrateExpressionASTs(model)
 	return model, nil
 }
 
@@ -635,6 +660,7 @@ func decodeModelSnapshot(raw []byte) (*SemanticModel, error) {
 	if err := sonic.Unmarshal(raw, &model); err != nil {
 		return nil, fmt.Errorf("decode model snapshot: %w", err)
 	}
+	hydrateExpressionASTs(&model)
 	return &model, nil
 }
 
@@ -647,11 +673,19 @@ func modelSelectSQL() string {
 func scanDimension(s platformdb.Scanner) (Dimension, error) {
 	var d Dimension
 	var timeGrain sql.NullString
-	if err := s.Scan(&d.ID, &d.ModelID, &d.Name, &d.Label, &d.ColumnRef, &d.Type, &timeGrain, &platformdb.NullStringArray{S: &d.Synonyms}, &d.Description, &d.IsActive, &d.CreatedAt); err != nil {
+	var calculatedExpression sql.NullString
+	var calculatedExprJSON sql.NullString
+	if err := s.Scan(&d.ID, &d.ModelID, &d.Name, &d.Label, &d.ColumnRef, &d.Type, &timeGrain, &platformdb.NullStringArray{S: &d.Synonyms}, &d.Description, &d.IsActive, &d.CreatedAt, &calculatedExpression, &calculatedExprJSON); err != nil {
 		return d, fmt.Errorf("scan dimension: %w", err)
 	}
 	if timeGrain.Valid {
 		d.TimeGrain = timeGrain.String
+	}
+	if calculatedExpression.Valid {
+		d.CalculatedExpression = calculatedExpression.String
+	}
+	if calculatedExprJSON.Valid {
+		d.CalculatedExpr = decodeExprNodeJSON([]byte(calculatedExprJSON.String))
 	}
 	return d, nil
 }
@@ -666,8 +700,12 @@ func scanEnumMapping(s platformdb.Scanner) (EnumMapping, error) {
 
 func scanMetric(s platformdb.Scanner) (Metric, error) {
 	var m Metric
-	if err := s.Scan(&m.ID, &m.ModelID, &m.Name, &m.Label, &m.Expression, &m.Aggregation, &m.Format, &platformdb.NullStringArray{S: &m.Synonyms}, &m.Description, &m.IsActive, &m.CreatedAt); err != nil {
+	var exprJSON sql.NullString
+	if err := s.Scan(&m.ID, &m.ModelID, &m.Name, &m.Label, &m.Expression, &m.Aggregation, &m.Format, &platformdb.NullStringArray{S: &m.Synonyms}, &m.Description, &m.IsActive, &m.CreatedAt, &exprJSON); err != nil {
 		return m, fmt.Errorf("scan metric: %w", err)
+	}
+	if exprJSON.Valid {
+		m.Expr = decodeExprNodeJSON([]byte(exprJSON.String))
 	}
 	return m, nil
 }

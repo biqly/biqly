@@ -759,6 +759,44 @@ func TestCompiler_WindowFunction(t *testing.T) {
 	}
 }
 
+func TestCompiler_WindowFunctionUsesASTExpression(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name: "orders", BaseSchema: "public", BaseTable: "orders",
+		Dimensions: []semantic.Dimension{
+			{Name: "country", ColumnRef: "orders.country", Type: "text"},
+			{Name: "created_at", ColumnRef: "orders.created_at", Type: "date"},
+		},
+	}
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeDimension, Name: "country"},
+			{
+				Type:  SelectTypeWindow,
+				Name:  "running_margin",
+				Alias: "running_margin",
+				Window: &WindowSpec{
+					Aggregation: "sum",
+					Expr: pkgsemantic.BinaryExpr{
+						Op:    pkgsemantic.OpSubtract,
+						Left:  pkgsemantic.ColumnRefExpr{Table: "orders", Column: "revenue"},
+						Right: pkgsemantic.ColumnRefExpr{Table: "orders", Column: "cost"},
+					},
+					PartitionBy: []string{"country"},
+					OrderBy:     []OrderBy{{Field: "created_at", Direction: "asc"}},
+				},
+			},
+		},
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	want := `SUM(("orders"."revenue" - "orders"."cost")) OVER (PARTITION BY "orders"."country" ORDER BY "orders"."created_at" ASC) AS "running_margin"`
+	if !strings.Contains(cq.SQL, want) {
+		t.Errorf("expected window AST expr %q in SQL, got: %s", want, cq.SQL)
+	}
+}
+
 func TestCompiler_WindowRanking(t *testing.T) {
 	model := &semantic.SemanticModel{
 		Name: "orders", BaseSchema: "public", BaseTable: "orders",

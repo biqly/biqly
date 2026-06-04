@@ -43,6 +43,65 @@ export interface EnumMapping {
   sort_order?: number
 }
 
+export type SemanticExprNode =
+  | SemanticLiteralExpr
+  | SemanticColumnRefExpr
+  | SemanticMetricRefExpr
+  | SemanticDimensionRefExpr
+  | SemanticBinaryExpr
+  | SemanticUnaryExpr
+  | SemanticFunctionCallExpr
+  | SemanticCaseExpr
+
+export interface SemanticLiteralExpr {
+  type: 'literal'
+  value: string | number | boolean | null
+}
+
+export interface SemanticColumnRefExpr {
+  type: 'column_ref'
+  table?: string
+  column: string
+}
+
+export interface SemanticMetricRefExpr {
+  type: 'metric_ref'
+  name: string
+}
+
+export interface SemanticDimensionRefExpr {
+  type: 'dimension_ref'
+  name: string
+}
+
+export interface SemanticBinaryExpr {
+  type: 'binary'
+  op: string
+  left: SemanticExprNode
+  right: SemanticExprNode
+}
+
+export interface SemanticUnaryExpr {
+  type: 'unary'
+  op: string
+  expr: SemanticExprNode
+}
+
+export interface SemanticFunctionCallExpr {
+  type: 'function_call'
+  name: string
+  args?: SemanticExprNode[]
+}
+
+export interface SemanticCaseExpr {
+  type: 'case'
+  conditions?: {
+    when: SemanticExprNode
+    then: SemanticExprNode
+  }[]
+  else?: SemanticExprNode
+}
+
 export interface SemanticDimension {
   id: string
   name: string
@@ -52,6 +111,8 @@ export interface SemanticDimension {
   synonyms?: string[]
   description?: string | null
   is_active?: boolean
+  calculated_expression?: string
+  calculated_expr?: SemanticExprNode
   enum_values?: EnumMapping[]
 }
 
@@ -65,6 +126,7 @@ export interface SemanticMetric {
   synonyms?: string[]
   description?: string | null
   is_active?: boolean
+  expr?: SemanticExprNode
 }
 
 export interface SemanticJoin {

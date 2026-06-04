@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/semantic"
 	"github.com/biqly/biqly/internal/semanticgen"
+	pkgsemantic "github.com/biqly/biqly/pkg/semantic"
 	"github.com/google/uuid"
 )
 
@@ -480,12 +482,37 @@ func (h *SemanticHandler) RollbackModel(w http.ResponseWriter, r *http.Request) 
 }
 
 type createDimensionRequest struct {
-	Name      string   `json:"name"`
-	Label     string   `json:"label,omitempty"`
-	ColumnRef string   `json:"column_ref"`
-	Type      string   `json:"type"`
-	TimeGrain string   `json:"time_grain,omitempty"`
-	Synonyms  []string `json:"synonyms,omitempty"`
+	Name                 string          `json:"name"`
+	Label                string          `json:"label,omitempty"`
+	ColumnRef            string          `json:"column_ref"`
+	Type                 string          `json:"type"`
+	TimeGrain            string          `json:"time_grain,omitempty"`
+	Synonyms             []string        `json:"synonyms,omitempty"`
+	CalculatedExpression string          `json:"calculated_expression,omitempty"`
+	CalculatedExpr       json.RawMessage `json:"calculated_expr,omitempty"`
+}
+
+func dimensionFromRequest(id, modelID string, req createDimensionRequest) (*semantic.Dimension, error) {
+	calculatedExpr, err := expressionNodeFromRequest(req.CalculatedExpr, req.CalculatedExpression, "calculated_expr")
+	if err != nil {
+		return nil, err
+	}
+	d := &semantic.Dimension{
+		ID:                   id,
+		ModelID:              modelID,
+		Name:                 req.Name,
+		ColumnRef:            req.ColumnRef,
+		Type:                 req.Type,
+		TimeGrain:            req.TimeGrain,
+		Synonyms:             req.Synonyms,
+		CalculatedExpression: req.CalculatedExpression,
+		CalculatedExpr:       calculatedExpr,
+		IsActive:             true,
+	}
+	if req.Label != "" {
+		d.Label = &req.Label
+	}
+	return d, nil
 }
 
 // CreateDimension adds a dimension to a semantic model.
@@ -500,19 +527,10 @@ func (h *SemanticHandler) CreateDimension(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	d := &semantic.Dimension{
-		ID:        uuid.New().String(),
-		ModelID:   modelID,
-		Name:      req.Name,
-		ColumnRef: req.ColumnRef,
-		Type:      req.Type,
-		TimeGrain: req.TimeGrain,
-		Synonyms:  req.Synonyms,
-		IsActive:  true,
-	}
-
-	if req.Label != "" {
-		d.Label = &req.Label
+	d, err := dimensionFromRequest(uuid.New().String(), modelID, *req)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	ctx := r.Context()
@@ -525,12 +543,57 @@ func (h *SemanticHandler) CreateDimension(w http.ResponseWriter, r *http.Request
 }
 
 type createMetricRequest struct {
-	Name        string   `json:"name"`
-	Label       string   `json:"label,omitempty"`
-	Expression  string   `json:"expression"`
-	Aggregation string   `json:"aggregation"`
-	Format      string   `json:"format,omitempty"`
-	Synonyms    []string `json:"synonyms,omitempty"`
+	Name        string          `json:"name"`
+	Label       string          `json:"label,omitempty"`
+	Expression  string          `json:"expression"`
+	Aggregation string          `json:"aggregation"`
+	Format      string          `json:"format,omitempty"`
+	Synonyms    []string        `json:"synonyms,omitempty"`
+	Expr        json.RawMessage `json:"expr,omitempty"`
+}
+
+func metricFromRequest(id, modelID string, req createMetricRequest) (*semantic.Metric, error) {
+	expr, err := expressionNodeFromRequest(req.Expr, req.Expression, "expr")
+	if err != nil {
+		return nil, err
+	}
+	m := &semantic.Metric{
+		ID:          id,
+		ModelID:     modelID,
+		Name:        req.Name,
+		Expression:  req.Expression,
+		Expr:        expr,
+		Aggregation: req.Aggregation,
+		Synonyms:    req.Synonyms,
+		IsActive:    true,
+	}
+	if req.Label != "" {
+		m.Label = &req.Label
+	}
+	if req.Format != "" {
+		m.Format = &req.Format
+	}
+	return m, nil
+}
+
+func expressionNodeFromRequest(raw json.RawMessage, expression string, field string) (pkgsemantic.ExprNode, error) {
+	trimmedRaw := strings.TrimSpace(string(raw))
+	if trimmedRaw != "" && !strings.EqualFold(trimmedRaw, "null") {
+		expr, err := pkgsemantic.UnmarshalExprNode(raw)
+		if err != nil {
+			return nil, fmt.Errorf("invalid %s: %w", field, err)
+		}
+		return expr, nil
+	}
+	expression = strings.TrimSpace(expression)
+	if expression == "" || expression == "*" || semantic.ExpressionParser == nil {
+		return nil, nil
+	}
+	expr, err := semantic.ExpressionParser(expression)
+	if err != nil {
+		return nil, fmt.Errorf("invalid %s: %w", field, err)
+	}
+	return expr, nil
 }
 
 // CreateMetric adds a metric to a semantic model.
@@ -545,21 +608,10 @@ func (h *SemanticHandler) CreateMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m := &semantic.Metric{
-		ID:          uuid.New().String(),
-		ModelID:     modelID,
-		Name:        req.Name,
-		Expression:  req.Expression,
-		Aggregation: req.Aggregation,
-		Synonyms:    req.Synonyms,
-		IsActive:    true,
-	}
-
-	if req.Label != "" {
-		m.Label = &req.Label
-	}
-	if req.Format != "" {
-		m.Format = &req.Format
+	m, err := metricFromRequest(uuid.New().String(), modelID, *req)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	ctx := r.Context()
@@ -664,18 +716,10 @@ func (h *SemanticHandler) UpdateDimension(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
-	d := &semantic.Dimension{
-		ID:        dimID,
-		ModelID:   modelID,
-		Name:      req.Name,
-		ColumnRef: req.ColumnRef,
-		Type:      req.Type,
-		TimeGrain: req.TimeGrain,
-		Synonyms:  req.Synonyms,
-		IsActive:  true,
-	}
-	if req.Label != "" {
-		d.Label = &req.Label
+	d, err := dimensionFromRequest(dimID, modelID, *req)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
 	}
 	if err := h.deps.SemanticRepo.UpdateDimension(r.Context(), d); err != nil {
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to update dimension", err)
@@ -789,20 +833,10 @@ func (h *SemanticHandler) UpdateMetric(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	m := &semantic.Metric{
-		ID:          metricID,
-		ModelID:     modelID,
-		Name:        req.Name,
-		Expression:  req.Expression,
-		Aggregation: req.Aggregation,
-		Synonyms:    req.Synonyms,
-		IsActive:    true,
-	}
-	if req.Label != "" {
-		m.Label = &req.Label
-	}
-	if req.Format != "" {
-		m.Format = &req.Format
+	m, err := metricFromRequest(metricID, modelID, *req)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
 	}
 	if err := h.deps.SemanticRepo.UpdateMetric(r.Context(), m); err != nil {
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to update metric", err)

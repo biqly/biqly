@@ -55,12 +55,25 @@ describe('modeling entity actions', () => {
   })
 
   it('preserves dimension and metric fields when changing active state or label', () => {
-    const dimension = { id: 'dim-1', name: 'city', column_ref: 'customers.city', type: 'text' }
+    const dimension = {
+      id: 'dim-1',
+      name: 'city',
+      column_ref: 'customers.city',
+      type: 'text',
+      calculated_expression: 'revenue - cost',
+      calculated_expr: {
+        type: 'binary' as const,
+        op: 'subtract',
+        left: { type: 'column_ref' as const, column: 'revenue' },
+        right: { type: 'column_ref' as const, column: 'cost' },
+      },
+    }
     const metric = {
       id: 'metric-1',
       name: 'revenue',
       expression: 'orders.total',
       aggregation: 'sum',
+      expr: { type: 'column_ref' as const, column: 'total' },
     }
 
     expect(reactivateDimensionPayload(dimension)).toMatchObject({
@@ -68,10 +81,14 @@ describe('modeling entity actions', () => {
       synonyms: [],
       description: '',
       is_active: true,
+      calculated_expression: 'revenue - cost',
+      calculated_expr: dimension.calculated_expr,
     })
     expect(renameDimensionPayload(dimension, 'City')).toMatchObject({
       label: 'City',
       is_active: undefined,
+      calculated_expression: 'revenue - cost',
+      calculated_expr: dimension.calculated_expr,
     })
     expect(reactivateMetricPayload(metric)).toMatchObject({
       label: '',
@@ -79,10 +96,12 @@ describe('modeling entity actions', () => {
       synonyms: [],
       description: '',
       is_active: true,
+      expr: metric.expr,
     })
     expect(renameMetricPayload(metric, 'Revenue')).toMatchObject({
       label: 'Revenue',
       is_active: undefined,
+      expr: metric.expr,
     })
   })
 })

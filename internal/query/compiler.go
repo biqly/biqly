@@ -583,6 +583,11 @@ func (c *Compiler) buildWindowExpr(
 
 	agg := strings.ToLower(strings.TrimSpace(w.Aggregation))
 	expr := strings.TrimSpace(w.Expression)
+	exprFromAST := false
+	if w.Expr != nil {
+		expr = CompileExpr(w.Expr, c.dialect, resolver)
+		exprFromAST = true
+	}
 
 	// Inherit aggregation+expression from a named metric when requested.
 	if mname := strings.TrimSpace(w.Metric); mname != "" {
@@ -594,10 +599,15 @@ func (c *Compiler) buildWindowExpr(
 			agg = strings.ToLower(m.Aggregation)
 		}
 		if expr == "" {
-			expr = m.Expression
+			if m.Expr != nil {
+				expr = CompileExpr(m.Expr, c.dialect, resolver)
+				exprFromAST = true
+			} else {
+				expr = m.Expression
+			}
 		}
 	}
-	if expr != "" && expr != "*" {
+	if expr != "" && expr != "*" && !exprFromAST {
 		expr = c.metricExpressionRef(nil, expr, resolver, dimMap, metricMap, model)
 	}
 	if agg == "" {
@@ -618,7 +628,11 @@ func (c *Compiler) buildWindowExpr(
 		}
 		head = fmt.Sprintf("NTILE(%s)", bucket)
 	default:
-		head = c.dialect.Aggregate(agg, expr)
+		if exprFromAST {
+			head = c.aggregateExpr(agg, expr)
+		} else {
+			head = c.dialect.Aggregate(agg, expr)
+		}
 	}
 
 	clauses := make([]string, 0, 4)
