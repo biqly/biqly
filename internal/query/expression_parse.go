@@ -3,74 +3,17 @@ package query
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode"
 
-	"github.com/biqly/biqly/internal/semantic"
+	internalsemantic "github.com/biqly/biqly/internal/semantic"
+	pkgsemantic "github.com/biqly/biqly/pkg/semantic"
 )
 
 func init() {
-	semantic.CalculatedExpressionValidator = ValidateExpression
+	internalsemantic.CalculatedExpressionValidator = ValidateExpression
 }
-
-// Node represents an AST node.
-type Node interface {
-	sealed()
-}
-
-type IdentifierNode struct {
-	Name string
-}
-
-func (IdentifierNode) sealed() {}
-
-type NumberNode struct {
-	Val string
-}
-
-func (NumberNode) sealed() {}
-
-type StringNode struct {
-	Val string
-}
-
-func (StringNode) sealed() {}
-
-type BinaryOpNode struct {
-	Op    string
-	Left  Node
-	Right Node
-}
-
-func (BinaryOpNode) sealed() {}
-
-type UnaryOpNode struct {
-	Op   string
-	Expr Node
-}
-
-func (UnaryOpNode) sealed() {}
-
-type FunctionCallNode struct {
-	Name string
-	Args []Node
-}
-
-func (FunctionCallNode) sealed() {}
-
-type CaseNode struct {
-	Conditions []CaseWhenNode
-	ElseExpr   Node
-}
-
-func (CaseNode) sealed() {}
-
-type CaseWhenNode struct {
-	When Node
-	Then Node
-}
-
-func (CaseWhenNode) sealed() {}
 
 type TokenType int
 
@@ -272,7 +215,7 @@ func (l *Lexer) readBracketedIdentifier() (Token, error) {
 }
 
 func isOperatorChar(ch byte) bool {
-	return strings.ContainsRune("+-*/%=!<>", rune(ch))
+	return strings.ContainsRune("+-*/%=!<>|", rune(ch))
 }
 
 func (l *Lexer) readOperator() (Token, error) {
@@ -282,7 +225,8 @@ func (l *Lexer) readOperator() (Token, error) {
 	if (l.input[start] == '!' && ch == '=') ||
 		(l.input[start] == '<' && ch == '>') ||
 		(l.input[start] == '<' && ch == '=') ||
-		(l.input[start] == '>' && ch == '=') {
+		(l.input[start] == '>' && ch == '=') ||
+		(l.input[start] == '|' && ch == '|') {
 		l.next()
 	}
 	return Token{Type: TokenOperator, Value: l.input[start:l.pos]}, nil
@@ -393,7 +337,7 @@ func (p *Parser) matchKeyword(kw string) bool {
 	return false
 }
 
-func (p *Parser) Parse() (Node, error) {
+func (p *Parser) Parse() (pkgsemantic.ExprNode, error) {
 	node, err := p.parseOr()
 	if err != nil {
 		return nil, err
@@ -404,7 +348,7 @@ func (p *Parser) Parse() (Node, error) {
 	return node, nil
 }
 
-func (p *Parser) parseOr() (Node, error) {
+func (p *Parser) parseOr() (pkgsemantic.ExprNode, error) {
 	left, err := p.parseAnd()
 	if err != nil {
 		return nil, err
@@ -415,12 +359,12 @@ func (p *Parser) parseOr() (Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		left = BinaryOpNode{Op: "OR", Left: left, Right: right}
+		left = pkgsemantic.BinaryExpr{Op: pkgsemantic.OpOr, Left: left, Right: right}
 	}
 	return left, nil
 }
 
-func (p *Parser) parseAnd() (Node, error) {
+func (p *Parser) parseAnd() (pkgsemantic.ExprNode, error) {
 	left, err := p.parseNot()
 	if err != nil {
 		return nil, err
@@ -431,23 +375,23 @@ func (p *Parser) parseAnd() (Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		left = BinaryOpNode{Op: "AND", Left: left, Right: right}
+		left = pkgsemantic.BinaryExpr{Op: pkgsemantic.OpAnd, Left: left, Right: right}
 	}
 	return left, nil
 }
 
-func (p *Parser) parseNot() (Node, error) {
+func (p *Parser) parseNot() (pkgsemantic.ExprNode, error) {
 	if p.matchKeyword("NOT") {
 		expr, err := p.parseNot()
 		if err != nil {
 			return nil, err
 		}
-		return UnaryOpNode{Op: "NOT", Expr: expr}, nil
+		return pkgsemantic.UnaryExpr{Op: pkgsemantic.OpNot, Expr: expr}, nil
 	}
 	return p.parseComparison()
 }
 
-func (p *Parser) parseComparison() (Node, error) {
+func (p *Parser) parseComparison() (pkgsemantic.ExprNode, error) {
 	left, err := p.parseArithmetic()
 	if err != nil {
 		return nil, err
@@ -461,7 +405,7 @@ func (p *Parser) parseComparison() (Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		return BinaryOpNode{Op: op, Left: left, Right: right}, nil
+		return pkgsemantic.BinaryExpr{Op: binaryOpFromToken(op), Left: left, Right: right}, nil
 	}
 
 	if tok.Type == TokenKeyword {
@@ -473,14 +417,14 @@ func (p *Parser) parseComparison() (Node, error) {
 			if err != nil {
 				return nil, err
 			}
-			return BinaryOpNode{Op: op, Left: left, Right: right}, nil
+			return pkgsemantic.BinaryExpr{Op: binaryOpFromToken(op), Left: left, Right: right}, nil
 
 		case "IN":
 			p.next()
 			if !p.match(TokenParenOpen) {
 				return nil, errors.New("expected '(' after IN")
 			}
-			var list []Node
+			var list []pkgsemantic.ExprNode
 			if p.current().Type != TokenParenClose {
 				for {
 					item, err := p.parseOr()
@@ -497,7 +441,11 @@ func (p *Parser) parseComparison() (Node, error) {
 			if !p.match(TokenParenClose) {
 				return nil, errors.New("expected ')' after IN list")
 			}
-			return BinaryOpNode{Op: "IN", Left: left, Right: FunctionCallNode{Name: "IN_LIST", Args: list}}, nil
+			return pkgsemantic.BinaryExpr{
+				Op:    pkgsemantic.BinaryOp("in"),
+				Left:  left,
+				Right: pkgsemantic.FunctionCallExpr{Name: "IN_LIST", Args: list},
+			}, nil
 
 		case "IS":
 			p.next()
@@ -512,7 +460,7 @@ func (p *Parser) parseComparison() (Node, error) {
 			if not {
 				op = "IS NOT NULL"
 			}
-			return UnaryOpNode{Op: op, Expr: left}, nil
+			return pkgsemantic.UnaryExpr{Op: unaryOpFromToken(op), Expr: left}, nil
 
 		case "BETWEEN":
 			p.next()
@@ -527,11 +475,11 @@ func (p *Parser) parseComparison() (Node, error) {
 			if err != nil {
 				return nil, err
 			}
-			return BinaryOpNode{
-				Op:   "BETWEEN",
+			return pkgsemantic.BinaryExpr{
+				Op:   pkgsemantic.BinaryOp("between"),
 				Left: left,
-				Right: BinaryOpNode{
-					Op:    "AND",
+				Right: pkgsemantic.BinaryExpr{
+					Op:    pkgsemantic.OpAnd,
 					Left:  start,
 					Right: end,
 				},
@@ -542,7 +490,7 @@ func (p *Parser) parseComparison() (Node, error) {
 	return left, nil
 }
 
-func (p *Parser) parseArithmetic() (Node, error) {
+func (p *Parser) parseArithmetic() (pkgsemantic.ExprNode, error) {
 	left, err := p.parseFactor()
 	if err != nil {
 		return nil, err
@@ -550,14 +498,14 @@ func (p *Parser) parseArithmetic() (Node, error) {
 
 	for {
 		tok := p.current()
-		if tok.Type == TokenOperator && (tok.Value == "+" || tok.Value == "-") {
+		if tok.Type == TokenOperator && (tok.Value == "+" || tok.Value == "-" || tok.Value == "||") {
 			op := tok.Value
 			p.next()
 			right, err := p.parseFactor()
 			if err != nil {
 				return nil, err
 			}
-			left = BinaryOpNode{Op: op, Left: left, Right: right}
+			left = pkgsemantic.BinaryExpr{Op: binaryOpFromToken(op), Left: left, Right: right}
 		} else {
 			break
 		}
@@ -565,7 +513,7 @@ func (p *Parser) parseArithmetic() (Node, error) {
 	return left, nil
 }
 
-func (p *Parser) parseFactor() (Node, error) {
+func (p *Parser) parseFactor() (pkgsemantic.ExprNode, error) {
 	left, err := p.parsePrimary()
 	if err != nil {
 		return nil, err
@@ -580,7 +528,7 @@ func (p *Parser) parseFactor() (Node, error) {
 			if err != nil {
 				return nil, err
 			}
-			left = BinaryOpNode{Op: op, Left: left, Right: right}
+			left = pkgsemantic.BinaryExpr{Op: binaryOpFromToken(op), Left: left, Right: right}
 		} else {
 			break
 		}
@@ -588,19 +536,23 @@ func (p *Parser) parseFactor() (Node, error) {
 	return left, nil
 }
 
-func (p *Parser) parsePrimary() (Node, error) {
+func (p *Parser) parsePrimary() (pkgsemantic.ExprNode, error) {
 	tok := p.current()
 
 	// Numbers
 	if tok.Type == TokenNumber {
 		p.next()
-		return NumberNode{Val: tok.Value}, nil
+		val, err := parseNumberLiteral(tok.Value)
+		if err != nil {
+			return nil, err
+		}
+		return pkgsemantic.LiteralExpr{Value: val}, nil
 	}
 
 	// Strings
 	if tok.Type == TokenString {
 		p.next()
-		return StringNode{Val: tok.Value}, nil
+		return pkgsemantic.LiteralExpr{Value: parseStringLiteral(tok.Value)}, nil
 	}
 
 	// Identifiers and function calls
@@ -608,7 +560,7 @@ func (p *Parser) parsePrimary() (Node, error) {
 		name := tok.Value
 		p.next()
 		if p.match(TokenParenOpen) {
-			var args []Node
+			var args []pkgsemantic.ExprNode
 			if p.current().Type != TokenParenClose {
 				for {
 					arg, err := p.parseOr()
@@ -625,9 +577,9 @@ func (p *Parser) parsePrimary() (Node, error) {
 			if !p.match(TokenParenClose) {
 				return nil, fmt.Errorf("expected closing parenthesis in function call %s", name)
 			}
-			return FunctionCallNode{Name: name, Args: args}, nil
+			return pkgsemantic.FunctionCallExpr{Name: strings.ToUpper(name), Args: args}, nil
 		}
-		return IdentifierNode{Name: name}, nil
+		return identifierExpr(name), nil
 	}
 
 	// Parenthesized expressions
@@ -644,7 +596,7 @@ func (p *Parser) parsePrimary() (Node, error) {
 
 	// CASE expression
 	if p.matchKeyword("CASE") {
-		var conditions []CaseWhenNode
+		var conditions []pkgsemantic.CaseWhen
 		for p.matchKeyword("WHEN") {
 			whenExpr, err := p.parseOr()
 			if err != nil {
@@ -657,12 +609,12 @@ func (p *Parser) parsePrimary() (Node, error) {
 			if err != nil {
 				return nil, err
 			}
-			conditions = append(conditions, CaseWhenNode{When: whenExpr, Then: thenExpr})
+			conditions = append(conditions, pkgsemantic.CaseWhen{When: whenExpr, Then: thenExpr})
 		}
 		if len(conditions) == 0 {
 			return nil, errors.New("CASE expression must have at least one WHEN condition")
 		}
-		var elseExpr Node
+		var elseExpr pkgsemantic.ExprNode
 		if p.matchKeyword("ELSE") {
 			var err error
 			elseExpr, err = p.parseOr()
@@ -673,23 +625,105 @@ func (p *Parser) parsePrimary() (Node, error) {
 		if !p.matchKeyword("END") {
 			return nil, errors.New("expected 'END' at the end of CASE expression")
 		}
-		return CaseNode{Conditions: conditions, ElseExpr: elseExpr}, nil
+		return pkgsemantic.CaseExpr{Conditions: conditions, ElseExpr: elseExpr}, nil
 	}
 
 	return nil, fmt.Errorf("unexpected token: %q", tok.Value)
 }
 
-func ValidateExpression(expr string) error {
+func binaryOpFromToken(op string) pkgsemantic.BinaryOp {
+	switch strings.ToUpper(op) {
+	case "+":
+		return pkgsemantic.OpAdd
+	case "-":
+		return pkgsemantic.OpSubtract
+	case "*":
+		return pkgsemantic.OpMultiply
+	case "/":
+		return pkgsemantic.OpDivide
+	case "%":
+		return pkgsemantic.OpModulo
+	case "=":
+		return pkgsemantic.OpEq
+	case "!=", "<>":
+		return pkgsemantic.OpNeq
+	case "<":
+		return pkgsemantic.OpLt
+	case "<=":
+		return pkgsemantic.OpLte
+	case ">":
+		return pkgsemantic.OpGt
+	case ">=":
+		return pkgsemantic.OpGte
+	case "||":
+		return pkgsemantic.OpConcat
+	case "AND":
+		return pkgsemantic.OpAnd
+	case "OR":
+		return pkgsemantic.OpOr
+	default:
+		return pkgsemantic.BinaryOp(strings.ToLower(strings.ReplaceAll(op, " ", "_")))
+	}
+}
+
+func unaryOpFromToken(op string) pkgsemantic.UnaryOp {
+	switch strings.ToUpper(op) {
+	case "NOT":
+		return pkgsemantic.OpNot
+	case "-":
+		return pkgsemantic.OpNegate
+	default:
+		return pkgsemantic.UnaryOp(strings.ToLower(strings.ReplaceAll(op, " ", "_")))
+	}
+}
+
+func parseNumberLiteral(value string) (any, error) {
+	if strings.Contains(value, ".") {
+		parsed, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return nil, fmt.Errorf("parse numeric literal %q: %w", value, err)
+		}
+		return parsed, nil
+	}
+	parsed, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("parse integer literal %q: %w", value, err)
+	}
+	return parsed, nil
+}
+
+func parseStringLiteral(value string) string {
+	if len(value) >= 2 {
+		quote := value[0]
+		if (quote == '\'' || quote == '"') && value[len(value)-1] == quote {
+			value = value[1 : len(value)-1]
+		}
+	}
+	return strings.ReplaceAll(value, "''", "'")
+}
+
+func identifierExpr(name string) pkgsemantic.ExprNode {
+	if strings.HasPrefix(name, "[") && strings.HasSuffix(name, "]") {
+		return pkgsemantic.MetricRefExpr{Name: strings.TrimSuffix(strings.TrimPrefix(name, "["), "]")}
+	}
+	if table, column, ok := strings.Cut(name, "."); ok {
+		return pkgsemantic.ColumnRefExpr{Table: table, Column: column}
+	}
+	return pkgsemantic.ColumnRefExpr{Column: name}
+}
+
+// ParseExpression parses a calculated expression into the canonical semantic AST.
+func ParseExpression(expr string) (pkgsemantic.ExprNode, error) {
 	expr = strings.TrimSpace(expr)
 	if expr == "" {
-		return nil
+		return nil, nil
 	}
 	lexer := NewLexer(expr)
 	var tokens []Token
 	for {
 		tok, err := lexer.NextToken()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if tok.Type == TokenEOF {
 			break
@@ -698,6 +732,10 @@ func ValidateExpression(expr string) error {
 	}
 
 	parser := NewParser(tokens)
-	_, err := parser.Parse()
+	return parser.Parse()
+}
+
+func ValidateExpression(expr string) error {
+	_, err := ParseExpression(expr)
 	return err
 }
