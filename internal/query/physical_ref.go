@@ -137,7 +137,7 @@ func splitQualifiedTableName(table string) (schema, name string) {
 }
 
 func splitDot(s string) []string {
-	var result []string
+	result := make([]string, 0, 4)
 	start := 0
 	for i := 0; i < len(s); i++ {
 		if s[i] == '.' {

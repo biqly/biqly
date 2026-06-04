@@ -64,7 +64,7 @@ func suggestAlternatives(unknown string, candidates []string) []string {
 		name string
 		dist int
 	}
-	var list []candidateWithDist
+	list := make([]candidateWithDist, 0, len(candidates))
 	unknownLower := strings.ToLower(unknown)
 	for _, c := range candidates {
 		cLower := strings.ToLower(c)
@@ -82,11 +82,11 @@ func suggestAlternatives(unknown string, candidates []string) []string {
 		return strings.Compare(a.name, b.name)
 	})
 
-	var res []string
 	limit := maxFieldSuggestions
 	if len(list) < limit {
 		limit = len(list)
 	}
+	res := make([]string, 0, limit)
 	for i := 0; i < limit; i++ {
 		// Only suggest if reasonably similar, or it's the absolute best recommendation
 		if list[i].dist <= 5 || i == 0 {

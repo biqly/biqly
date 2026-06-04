@@ -56,7 +56,7 @@ func (r *Repository) GetModelByName(ctx context.Context, datasourceID, name stri
 // ListModels returns all models, optionally filtered by datasource.
 func (r *Repository) ListModels(ctx context.Context, datasourceID string) ([]SemanticModel, error) {
 	query := modelSelectSQL()
-	var args []any
+	args := make([]any, 0, 8)
 	if datasourceID != "" {
 		query += " WHERE datasource_id = $1::uuid"
 		args = append(args, datasourceID)

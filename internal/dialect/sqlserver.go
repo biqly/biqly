@@ -33,7 +33,7 @@ func (d SQLServerDialect) Placeholder(index int) string {
 
 // LimitOffset generates the LIMIT/OFFSET clause.
 func (d SQLServerDialect) LimitOffset(limit, offset int) string {
-	var parts []string
+	parts := make([]string, 0, 2)
 	parts = append(parts, "OFFSET "+strconv.Itoa(offset)+" ROWS")
 	if limit > 0 {
 		parts = append(parts, "FETCH NEXT "+strconv.Itoa(limit)+" ROWS ONLY")

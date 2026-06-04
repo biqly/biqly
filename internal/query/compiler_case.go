@@ -19,7 +19,7 @@ func (c *Compiler) buildCaseExpr(
 	if item.Case == nil || len(item.Case.Branches) == 0 {
 		return "", fmt.Errorf("case select item %q missing case branches", item.Name)
 	}
-	var parts []string
+	parts := make([]string, 0, len(item.Case.Branches)+3)
 	parts = append(parts, "CASE")
 	for i, br := range item.Case.Branches {
 		if len(br.When) == 0 {
@@ -80,7 +80,7 @@ func (c *Compiler) buildPredicate(
 	if len(filters) == 0 {
 		return "", errors.New("empty predicate")
 	}
-	var parts []string
+	parts := make([]string, 0, len(filters))
 	for _, f := range filters {
 		colSQL, err := c.resolveFilterLHS(f.Field, dimMap, metricMap, model, resolver)
 		if err != nil {

@@ -23,7 +23,7 @@ func QuoteIdentQualified(q identSegmentQuoter, identifier string) string {
 
 // StandardLimitOffset is the LIMIT/OFFSET clause shared by PostgreSQL, MySQL, and ClickHouse.
 func StandardLimitOffset(limit, offset int) string {
-	var parts []string
+	parts := make([]string, 0, 2)
 	if limit > 0 {
 		parts = append(parts, "LIMIT "+strconv.Itoa(limit))
 	}

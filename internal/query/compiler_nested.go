@@ -157,6 +157,7 @@ func (c *Compiler) compileStatement(
 	limitClause := c.dialect.LimitOffset(lq.Limit, lq.Offset)
 
 	var sql strings.Builder
+	sql.Grow(256)
 	sql.WriteString(withPrefix)
 	sql.WriteString("SELECT ")
 	sql.WriteString(strings.Join(selectParts, ", "))

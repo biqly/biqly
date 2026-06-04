@@ -129,12 +129,12 @@ func (p *Planner) Plan(lq *LogicalQuery, model *semantic.SemanticModel) (*PlanRe
 
 // checkFanout detects potential fanout issues from many-to-many or multiple many-to-one joins.
 func (p *Planner) checkFanout(model *semantic.SemanticModel, tables map[string]bool) []string {
-	var warnings []string
+	warnings := make([]string, 0, 4)
 
 	manyToManyCount := 0
 	manyToOneCount := 0
 	oneToManyCount := 0
-	var riskyJoins []string
+	riskyJoins := make([]string, 0, 4)
 
 	for _, join := range model.Joins {
 		if !tables[join.FromTable] && !tables[join.ToTable] {
@@ -176,7 +176,7 @@ func (p *Planner) checkFanout(model *semantic.SemanticModel, tables map[string]b
 
 // checkAggregations validates that metrics and dimensions can be safely combined.
 func (p *Planner) checkAggregations(lq *LogicalQuery) []string {
-	var warnings []string
+	warnings := make([]string, 0, 4)
 
 	hasMetrics := false
 	for _, item := range lq.Select {

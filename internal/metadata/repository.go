@@ -656,7 +656,7 @@ func (r *Repository) ListAIQueryHistory(ctx context.Context, userID string, limi
 	}
 	defer func() { _ = rows.Close() }()
 
-	var list []AIQueryHistoryEntry
+	list := make([]AIQueryHistoryEntry, 0, 64)
 	for rows.Next() {
 		entry, err := scanAIHistoryEntry(rows)
 		if err != nil {

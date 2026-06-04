@@ -40,7 +40,7 @@ func (r *Repository) ListTimeGrains(ctx context.Context) ([]TimeGrain, error) {
 	}
 	defer func() { _ = rows.Close() }()
 
-	var grains []TimeGrain
+	grains := make([]TimeGrain, 0, 8)
 	for rows.Next() {
 		var tg TimeGrain
 		err := rows.Scan(

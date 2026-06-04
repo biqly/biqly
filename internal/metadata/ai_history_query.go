@@ -110,7 +110,7 @@ func (r *Repository) ListAIQueryHistoryFiltered(ctx context.Context, filter AIHi
 	}
 	defer func() { _ = rows.Close() }()
 
-	var entries []AIQueryHistoryEntry
+	entries := make([]AIQueryHistoryEntry, 0, filter.PageSize)
 	for rows.Next() {
 		entry, err := scanAIHistoryEntry(rows)
 		if err != nil {

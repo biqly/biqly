@@ -4,10 +4,18 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/biqly/biqly/internal/security"
 )
+
+var scanSlicePool = sync.Pool{
+	New: func() any {
+		s := make([]any, 0, 32)
+		return &s
+	},
+}
 
 // Executor runs compiled SQL queries against a database.
 type Executor struct {
@@ -70,8 +78,36 @@ func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (
 	resultRows := make([][]any, 0, capacity)
 	count := 0
 
-	vals := make([]any, len(colTypes))
-	valPtrs := make([]any, len(colTypes))
+	var vals []any
+	var valPtrs []any
+	var valsPtr *[]any
+	var valPtrsPtr *[]any
+
+	if len(colTypes) <= 32 {
+		valsPtr = scanSlicePool.Get().(*[]any)
+		vals = (*valsPtr)[:len(colTypes)]
+		valPtrsPtr = scanSlicePool.Get().(*[]any)
+		valPtrs = (*valPtrsPtr)[:len(colTypes)]
+	} else {
+		vals = make([]any, len(colTypes))
+		valPtrs = make([]any, len(colTypes))
+	}
+
+	defer func() {
+		if valsPtr != nil {
+			for i := range *valsPtr {
+				(*valsPtr)[i] = nil
+			}
+			scanSlicePool.Put(valsPtr)
+		}
+		if valPtrsPtr != nil {
+			for i := range *valPtrsPtr {
+				(*valPtrsPtr)[i] = nil
+			}
+			scanSlicePool.Put(valPtrsPtr)
+		}
+	}()
+
 	for i := range vals {
 		valPtrs[i] = &vals[i]
 	}

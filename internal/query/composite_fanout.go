@@ -101,7 +101,7 @@ func classifyFanoutRisk(oneToMany, manyToMany int) string {
 }
 
 func suggestMitigations(oneToMany, manyToMany int) []string {
-	var out []string
+	out := make([]string, 0, 4)
 	if manyToMany > 0 {
 		out = append(out,
 			"pre-aggregate one side in a CTE before joining",

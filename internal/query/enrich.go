@@ -145,8 +145,8 @@ func suggestCharts(columns []ResultColumn, rowCount int) []string {
 // suggestPivot recommends a pivot layout when there are two categorical dimensions
 // and at least one metric (typical cross-tab shape).
 func suggestPivot(columns []ResultColumn) *PivotHint {
-	var catDims []string
-	var metrics []string
+	catDims := make([]string, 0, len(columns))
+	metrics := make([]string, 0, len(columns))
 	for _, c := range columns {
 		switch c.SemanticType {
 		case SemanticTypeDimension:
