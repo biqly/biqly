@@ -19,7 +19,7 @@ func AIRouter(deps *app.Dependencies) http.Handler {
 	r.Use(middleware.RequestID)
 	r.Use(requestIDPropagationMiddleware)
 	r.Use(traceContextPropagationMiddleware)
-	r.Use(middleware.RealIP)
+	r.Use(bimw.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(aiServiceRequestTimeout(deps)))

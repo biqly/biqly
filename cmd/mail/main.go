@@ -21,6 +21,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/biqly/biqly/internal/mail"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 )
 
 func main() {
@@ -75,7 +76,7 @@ func main() {
 
 	router := chi.NewRouter()
 	router.Use(middleware.RequestID)
-	router.Use(middleware.RealIP)
+	router.Use(bimw.RealIP)
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 	router.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
