@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/bytedance/sonic"
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 	pkgquery "github.com/biqly/biqly/pkg/query"
 	"github.com/lib/pq"
@@ -337,7 +338,7 @@ func encodeEmbedding(vec []float32) (string, error) {
 	if vec == nil {
 		return "null", nil
 	}
-	b, err := json.Marshal(vec)
+	b, err := sonic.Marshal(vec)
 	if err != nil {
 		return "", fmt.Errorf("encode embedding: %w", err)
 	}
@@ -349,7 +350,7 @@ func decodeEmbedding(raw []byte) ([]float32, error) {
 		return nil, nil
 	}
 	var vec []float32
-	if err := json.Unmarshal(raw, &vec); err != nil {
+	if err := sonic.Unmarshal(raw, &vec); err != nil {
 		return nil, fmt.Errorf("decode embedding: %w", err)
 	}
 	return vec, nil
@@ -461,7 +462,7 @@ func (r *Repository) ListRelations(ctx context.Context, datasourceID string) ([]
 
 // CreateQueryHistory stores a structured query execution history entry.
 func (r *Repository) CreateQueryHistory(ctx context.Context, entry *pkgquery.HistoryEntry) error {
-	logicalQueryJSON, err := json.Marshal(entry.LogicalQuery)
+	logicalQueryJSON, err := sonic.Marshal(entry.LogicalQuery)
 	if err != nil {
 		return fmt.Errorf("marshal logical query: %w", err)
 	}
@@ -732,13 +733,13 @@ func scanAIHistoryEntry(s platformdb.Scanner) (AIQueryHistoryEntry, error) {
 		entry.LatencyMs = &v
 	}
 	if len(promptCtx) > 0 {
-		_ = json.Unmarshal(promptCtx, &entry.PromptContext)
+		_ = sonic.Unmarshal(promptCtx, &entry.PromptContext)
 	}
 	if len(aiResp) > 0 {
-		_ = json.Unmarshal(aiResp, &entry.AIResponse)
+		_ = sonic.Unmarshal(aiResp, &entry.AIResponse)
 	}
 	if len(logicalQ) > 0 {
-		_ = json.Unmarshal(logicalQ, &entry.LogicalQuery)
+		_ = sonic.Unmarshal(logicalQ, &entry.LogicalQuery)
 	}
 	entry.Warnings = []string(warnings)
 
@@ -792,7 +793,7 @@ func scanPermissionPolicy(s platformdb.Scanner) (PermissionPolicyRecord, error) 
 	}
 	policy.DeniedFields = []string(denied)
 	if len(rowFilters) > 0 {
-		if err := json.Unmarshal(rowFilters, &policy.RowFilters); err != nil {
+		if err := sonic.Unmarshal(rowFilters, &policy.RowFilters); err != nil {
 			return policy, fmt.Errorf("row filters: %w", err)
 		}
 	}
@@ -822,7 +823,7 @@ func scanQueryHistoryEntry(s platformdb.Scanner) (pkgquery.HistoryEntry, error) 
 	); err != nil {
 		return entry, fmt.Errorf("scan query history: %w", err)
 	}
-	if err := json.Unmarshal(logicalQueryRaw, &entry.LogicalQuery); err != nil {
+	if err := sonic.Unmarshal(logicalQueryRaw, &entry.LogicalQuery); err != nil {
 		return entry, fmt.Errorf("unmarshal logical query: %w", err)
 	}
 	entry.ModelID = platformdb.StringPtrFromNull(modelID)
@@ -848,7 +849,7 @@ func nullableJSON(value any) (*string, error) {
 	if value == nil {
 		return nil, nil
 	}
-	encoded, err := json.Marshal(value)
+	encoded, err := sonic.Marshal(value)
 	if err != nil {
 		return nil, fmt.Errorf("marshal json: %w", err)
 	}

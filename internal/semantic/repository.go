@@ -3,11 +3,11 @@ package semantic
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
 
+	"github.com/bytedance/sonic"
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 )
 
@@ -491,11 +491,11 @@ func (r *Repository) PublishModel(ctx context.Context, id, publishedBy string, c
 		model.PublishedBy = &publishedBy
 	}
 
-	payload, err := json.Marshal(model)
+	payload, err := sonic.Marshal(model)
 	if err != nil {
 		return nil, fmt.Errorf("publish model marshal context: %w", err)
 	}
-	validationPayload, err := json.Marshal(validation)
+	validationPayload, err := sonic.Marshal(validation)
 	if err != nil {
 		return nil, fmt.Errorf("publish model marshal validation: %w", err)
 	}
@@ -535,12 +535,12 @@ func (r *Repository) RollbackModel(ctx context.Context, id string, targetVersion
 	if publishedBy != "" {
 		target.PublishedBy = &publishedBy
 	}
-	payload, err := json.Marshal(target)
+	payload, err := sonic.Marshal(target)
 	if err != nil {
 		return nil, fmt.Errorf("rollback model marshal context: %w", err)
 	}
 	validation := PublishValidationResult{Valid: true, Warnings: []string{fmt.Sprintf("rolled back from version %d to version %d", current.Version, targetVersion)}}
-	validationPayload, err := json.Marshal(validation)
+	validationPayload, err := sonic.Marshal(validation)
 	if err != nil {
 		return nil, fmt.Errorf("rollback model marshal validation: %w", err)
 	}
@@ -632,7 +632,7 @@ func (r *Repository) snapshotByVersion(ctx context.Context, modelID string, vers
 
 func decodeModelSnapshot(raw []byte) (*SemanticModel, error) {
 	var model SemanticModel
-	if err := json.Unmarshal(raw, &model); err != nil {
+	if err := sonic.Unmarshal(raw, &model); err != nil {
 		return nil, fmt.Errorf("decode model snapshot: %w", err)
 	}
 	return &model, nil

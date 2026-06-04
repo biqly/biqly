@@ -75,7 +75,6 @@ func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (
 	if capacity <= 0 {
 		capacity = 64
 	}
-	resultRows := make([][]any, 0, capacity)
 	count := 0
 
 	var vals []any
@@ -112,6 +111,9 @@ func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (
 		valPtrs[i] = &vals[i]
 	}
 
+	numCols := len(vals)
+	allCells := make([]any, 0, capacity*numCols)
+
 	truncated := false
 	for rows.Next() {
 		if e.maxRows > 0 && count >= e.maxRows {
@@ -124,14 +126,17 @@ func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (
 		}
 
 		// Convert to plain values
-		row := make([]any, len(vals))
-		copy(row, vals)
-		resultRows = append(resultRows, row)
+		allCells = append(allCells, vals...)
 		count++
 	}
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	resultRows := make([][]any, count)
+	for i := 0; i < count; i++ {
+		resultRows[i] = allCells[i*numCols : (i+1)*numCols]
 	}
 
 	duration := time.Since(start).Milliseconds()

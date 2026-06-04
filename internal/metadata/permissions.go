@@ -2,9 +2,9 @@ package metadata
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
+	"github.com/bytedance/sonic"
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 	"github.com/lib/pq"
 )
@@ -68,7 +68,7 @@ func (r *Repository) DeleteSecurityPolicyByKeys(ctx context.Context, userID stri
 
 // UpsertSecurityPolicy inserts or updates a security policy.
 func (r *Repository) UpsertSecurityPolicy(ctx context.Context, policy *SecurityPolicy) error {
-	rowFiltersJSON, err := json.Marshal(policy.RowFilters)
+	rowFiltersJSON, err := sonic.Marshal(policy.RowFilters)
 	if err != nil {
 		return fmt.Errorf("marshal row filters: %w", err)
 	}
@@ -76,7 +76,7 @@ func (r *Repository) UpsertSecurityPolicy(ctx context.Context, policy *SecurityP
 	if piiPolicy == nil {
 		piiPolicy = map[string]PIIColumnAccess{}
 	}
-	piiPolicyJSON, err := json.Marshal(piiPolicy)
+	piiPolicyJSON, err := sonic.Marshal(piiPolicy)
 	if err != nil {
 		return fmt.Errorf("marshal pii policy: %w", err)
 	}
@@ -132,12 +132,12 @@ func scanSecurityPolicy(s platformdb.Scanner) (SecurityPolicy, error) {
 	policy.AllowedModels = []string(allowed)
 	policy.DeniedFields = []string(denied)
 	if len(rowFilters) > 0 {
-		if err := json.Unmarshal(rowFilters, &policy.RowFilters); err != nil {
+		if err := sonic.Unmarshal(rowFilters, &policy.RowFilters); err != nil {
 			return policy, fmt.Errorf("row filters: %w", err)
 		}
 	}
 	if len(piiPolicy) > 0 {
-		if err := json.Unmarshal(piiPolicy, &policy.PIIPolicy); err != nil {
+		if err := sonic.Unmarshal(piiPolicy, &policy.PIIPolicy); err != nil {
 			return policy, fmt.Errorf("pii policy: %w", err)
 		}
 	}

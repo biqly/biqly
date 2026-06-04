@@ -5,6 +5,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	_ "net/http/pprof" // #nosec G108 — local interface only, used for diagnostics
 	"os"
 	"os/signal"
 	"syscall"
@@ -20,6 +21,21 @@ import (
 )
 
 func main() {
+	// Start pprof server on localhost:6060 for local profiling/debugging
+	go func() {
+		slog.Info("starting pprof server", "addr", "localhost:6060")
+		pprofSrv := &http.Server{
+			Addr:         "localhost:6060",
+			Handler:      nil, // uses http.DefaultServeMux
+			ReadTimeout:  10 * time.Second,
+			WriteTimeout: 10 * time.Second,
+			IdleTimeout:  30 * time.Second,
+		}
+		if err := pprofSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("pprof server failed", "error", err)
+		}
+	}()
+
 	// Load config
 	cfg, err := config.Load()
 	if err != nil {
