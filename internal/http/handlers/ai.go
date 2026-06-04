@@ -288,13 +288,10 @@ func (h *AIHandler) processAndObserve(w http.ResponseWriter, r *http.Request, ph
 			}
 			defer closeResolvedDatasource(ctx, resolved)
 
-			driver := resolved.Driver
-			db := resolved.DB
-			processOpts = []ai.ProcessOption{
-				ai.WithSQLValidator(newSQLDryRunValidator(h.deps.QueryService, db, driver, model)),
-				ai.WithTargetDialect(driver.Dialect().Name()),
-				ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.ExampleIDs, req.IncludePastQueries)),
-				ai.WithSampleData(h.loadSampleData(ctx, db, driver.Dialect(), model)),
+			processOpts, err = h.localRunProcessOptions(ctx, req, model, resolved)
+			if err != nil {
+				writeInternalError(ctx, w, http.StatusInternalServerError, "datasource not resolved", err)
+				return
 			}
 		}
 	}
@@ -315,7 +312,16 @@ func (h *AIHandler) processAndObserve(w http.ResponseWriter, r *http.Request, ph
 	case aiPhasePreview:
 		h.finishAIPreview(ctx, w, req, model, resp)
 	case aiPhaseRun:
-		h.finishAIRun(ctx, w, model, resp, resolved)
+		if h.deps.QueryClient != nil {
+			h.finishAIRunWithQueryClient(ctx, w, resp, model)
+			return
+		}
+		runDatasource := resolved
+		if runDatasource == nil {
+			writeInternalError(ctx, w, http.StatusInternalServerError, "datasource not resolved", errors.New("datasource not resolved"))
+			return
+		}
+		h.finishAIRun(ctx, w, model, resp, runDatasource)
 	}
 }
 
@@ -326,6 +332,22 @@ func closeResolvedDatasource(ctx context.Context, resolved *app.ResolvedDatasour
 	if closeErr := resolved.DB.Close(); closeErr != nil {
 		slog.ErrorContext(ctx, "failed to close database connection", "error", closeErr)
 	}
+}
+
+func (h *AIHandler) localRunProcessOptions(ctx context.Context, req aiQueryRequest, model *semantic.SemanticModel, resolved *app.ResolvedDatasource) ([]ai.ProcessOption, error) {
+	if resolved == nil || resolved.DB == nil || resolved.Driver == nil {
+		return nil, errors.New("datasource not resolved")
+	}
+
+	driver := resolved.Driver
+	db := resolved.DB
+	dialect := driver.Dialect()
+	return []ai.ProcessOption{
+		ai.WithSQLValidator(newSQLDryRunValidator(h.deps.QueryService, db, driver, model)),
+		ai.WithTargetDialect(dialect.Name()),
+		ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.ExampleIDs, req.IncludePastQueries)),
+		ai.WithSampleData(h.loadSampleData(ctx, db, dialect, model)),
+	}, nil
 }
 
 func (h *AIHandler) finishAIPreview(ctx context.Context, w http.ResponseWriter, req aiQueryRequest, model *semantic.SemanticModel, resp *ai.Response) {
@@ -390,6 +412,10 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, mode
 
 	if h.deps.QueryClient != nil {
 		h.finishAIRunWithQueryClient(ctx, w, resp, model)
+		return
+	}
+	if resolved == nil || resolved.DB == nil || resolved.Driver == nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "datasource not resolved", errors.New("datasource not resolved"))
 		return
 	}
 

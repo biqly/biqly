@@ -16,8 +16,6 @@ import (
 	"time"
 
 	"github.com/biqly/biqly/internal/app"
-	bimw "github.com/biqly/biqly/internal/http/middleware"
-	"github.com/biqly/biqly/pkg/common/requestid"
 	"github.com/biqly/biqly/pkg/internalapi"
 )
 
@@ -348,15 +346,7 @@ func writeInternalAPIError(ctx context.Context, w http.ResponseWriter,
 ) {
 	if err != nil {
 		allArgs := []any{"error", err}
-		if reqID := requestid.FromContext(ctx); reqID != "" {
-			allArgs = append(allArgs, "request_id", reqID)
-		}
-		if userID := bimw.UserID(ctx); userID != "" {
-			allArgs = append(allArgs, "user_id", userID)
-		}
-		if wsID := bimw.WorkspaceID(ctx); wsID != "" {
-			allArgs = append(allArgs, "workspace_id", wsID)
-		}
+		allArgs = appendRequestLogArgs(ctx, allArgs)
 		slog.ErrorContext(ctx, publicMsg, allArgs...)
 	}
 	writeInternalAPIErrorMsg(w, status, code, publicMsg)

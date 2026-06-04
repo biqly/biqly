@@ -41,6 +41,19 @@ func writeInternalError(ctx context.Context, w http.ResponseWriter, status int, 
 	response.WriteInternalError(ctx, w, status, publicMsg, err, args...)
 }
 
+func appendRequestLogArgs(ctx context.Context, args []any) []any {
+	if reqID := requestid.FromContext(ctx); reqID != "" {
+		args = append(args, "request_id", reqID)
+	}
+	if userID := bimw.UserID(ctx); userID != "" {
+		args = append(args, "user_id", userID)
+	}
+	if wsID := bimw.WorkspaceID(ctx); wsID != "" {
+		args = append(args, "workspace_id", wsID)
+	}
+	return args
+}
+
 // resolveAccessibleDatasources returns the set of datasource IDs the current
 // caller may access, intersected with the active workspace's attached
 // datasources. The boolean reports whether scoping applies: it is false when
@@ -99,15 +112,7 @@ func writeServiceError(ctx context.Context, w http.ResponseWriter, se *core.Serv
 	}
 	if se.Status >= http.StatusInternalServerError {
 		allArgs := append([]any{"error", core.LogCause(se)}, args...)
-		if reqID := requestid.FromContext(ctx); reqID != "" {
-			allArgs = append(allArgs, "request_id", reqID)
-		}
-		if userID := bimw.UserID(ctx); userID != "" {
-			allArgs = append(allArgs, "user_id", userID)
-		}
-		if wsID := bimw.WorkspaceID(ctx); wsID != "" {
-			allArgs = append(allArgs, "workspace_id", wsID)
-		}
+		allArgs = appendRequestLogArgs(ctx, allArgs)
 		slog.ErrorContext(ctx, se.Message, allArgs...)
 	}
 	writeError(w, se.Status, se.Message)

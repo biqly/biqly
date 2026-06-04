@@ -580,7 +580,6 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 			return
 		}
 
-		colDefault := c.ColumnDefault
 		col := metadata.Column{
 			ID:               uuid.New().String(),
 			DatasourceID:     ds.ID,
@@ -594,7 +593,7 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 			CharMaxLength:    c.CharMaxLength,
 			NumericPrecision: c.NumericPrecision,
 			NumericScale:     c.NumericScale,
-			ColumnDefault:    &colDefault,
+			ColumnDefault:    new(c.ColumnDefault),
 			IsPrimaryKey:     c.IsPrimaryKey,
 			IsForeignKey:     c.IsForeignKey,
 		}

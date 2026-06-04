@@ -86,13 +86,9 @@ func (h *AIHandler) executeAIQueryPhase(
 				return nil, resolveErr
 			}
 			defer closeResolvedDatasource(ctx, resolved)
-			driver := resolved.Driver
-			db := resolved.DB
-			processOpts = []ai.ProcessOption{
-				ai.WithSQLValidator(newSQLDryRunValidator(h.deps.QueryService, db, driver, model)),
-				ai.WithTargetDialect(driver.Dialect().Name()),
-				ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.ExampleIDs, req.IncludePastQueries)),
-				ai.WithSampleData(h.loadSampleData(ctx, db, driver.Dialect(), model)),
+			processOpts, resolveErr = h.localRunProcessOptions(ctx, req, model, resolved)
+			if resolveErr != nil {
+				return nil, resolveErr
 			}
 		}
 	} else {
