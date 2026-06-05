@@ -5,6 +5,19 @@ export interface PivotTableData {
   rows: unknown[][]
 }
 
+function pivotCellKey(value: unknown): string {
+  if (value === null || value === undefined) {
+    return ''
+  }
+  if (typeof value === 'string') {
+    return value
+  }
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value)
+  }
+  return JSON.stringify(value)
+}
+
 export function buildPivotTable(
   columns: QueryColumn[],
   rows: unknown[][],
@@ -25,8 +38,8 @@ export function buildPivotTable(
   const colKeys = new Set<string>()
 
   for (const row of rows) {
-    const rk = String(row[rowIdx] ?? '')
-    const ck = String(row[colIdx] ?? '')
+    const rk = pivotCellKey(row[rowIdx])
+    const ck = pivotCellKey(row[colIdx])
     const raw = row[valIdx]
     const n = typeof raw === 'number' ? raw : Number(raw)
     if (Number.isNaN(n)) {

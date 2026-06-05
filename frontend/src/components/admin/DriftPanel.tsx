@@ -123,11 +123,7 @@ export function DriftBanner({ reports, onExpand }: DriftBannerProps) {
       <span className="drift-banner__text">
         {t('modeling.drift_banner_text', { count: totalDrifts })}
       </span>
-      <button
-        type="button"
-        className="btn btn-secondary drift-banner__action"
-        onClick={onExpand}
-      >
+      <button type="button" className="btn btn-secondary drift-banner__action" onClick={onExpand}>
         {t('modeling.drift_view_details')}
       </button>
     </div>

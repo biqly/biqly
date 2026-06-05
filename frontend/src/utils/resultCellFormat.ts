@@ -122,6 +122,27 @@ function maxFractionDigitsFromQuestion(q: string): number | null {
   return null
 }
 
+function looksLikeIsoDateTime(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}T/.test(value)) {
+    return false
+  }
+  const d = new Date(value)
+  return !Number.isNaN(d.getTime())
+}
+
+function formatNonNumericCell(value: unknown): string {
+  if (typeof value === 'string') {
+    return value
+  }
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value)
+  }
+  if (typeof value === 'object' && value !== null) {
+    return JSON.stringify(value)
+  }
+  return ''
+}
+
 function wantsFractionalDisplay(question: string | undefined): boolean {
   if (!question?.trim()) {
     return false
@@ -142,10 +163,7 @@ export function formatResultCell(
     return ''
   }
 
-  if (
-    typeof value === 'string' &&
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})$/.test(value)
-  ) {
+  if (typeof value === 'string' && looksLikeIsoDateTime(value)) {
     const d = new Date(value)
     if (!isNaN(d.getTime())) {
       const hasTime =
@@ -159,7 +177,7 @@ export function formatResultCell(
           day: 'numeric',
           ...(hasTime ? { hour: '2-digit', minute: '2-digit' } : {}),
         }).format(d)
-      } catch (e) {
+      } catch {
         // ignore and fallback
       }
     }
@@ -167,7 +185,7 @@ export function formatResultCell(
 
   const n = parseNumeric(value)
   if (n === null) {
-    return String(value)
+    return formatNonNumericCell(value)
   }
 
   const calendarInt = isCalendarIntColumn(columnName)
@@ -192,7 +210,7 @@ export function formatResultCell(
     }).format(rounded)
   }
 
-  const maxFrac = maxFractionDigitsFromQuestion(options.question || '') ?? 4
+  const maxFrac = maxFractionDigitsFromQuestion(options.question ?? '') ?? 4
   return getNumberFormat({
     maximumFractionDigits: maxFrac,
     minimumFractionDigits: 0,

@@ -242,7 +242,9 @@
   color: var(--color-text, hsl(220 10% 20%));
   font-size: 0.75rem;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .drift-table__resolve-btn:hover {
