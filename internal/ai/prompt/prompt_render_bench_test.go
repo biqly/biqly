@@ -14,7 +14,7 @@ import (
 var largeBenchTemplate = func() string {
 	var b strings.Builder
 	b.WriteString("Header section\n")
-	for i := 0; i < 30; i++ {
+	for range 30 {
 		b.WriteString("{{if .Section")
 		b.WriteString(strings.Repeat("x", 8))
 		b.WriteString("}}\n## Block {{.Title}} — {{.Body}}\n{{end}}\n")

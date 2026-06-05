@@ -39,7 +39,7 @@ func (r *PlatformSettingsRepository) Get(ctx context.Context) (PlatformSettings,
 		return PlatformSettings{}, fmt.Errorf("get platform settings: %w", err)
 	}
 	if updatedBy.Valid {
-		s.UpdatedBy = &updatedBy.String
+		s.UpdatedBy = new(updatedBy.String)
 	}
 	return s, nil
 }
@@ -62,7 +62,7 @@ func (r *PlatformSettingsRepository) SetSelfSignupEnabled(ctx context.Context, e
 		return PlatformSettings{}, fmt.Errorf("update platform settings: %w", err)
 	}
 	if updatedByOut.Valid {
-		s.UpdatedBy = &updatedByOut.String
+		s.UpdatedBy = new(updatedByOut.String)
 	}
 	return s, nil
 }

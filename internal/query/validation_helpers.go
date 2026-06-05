@@ -87,7 +87,7 @@ func suggestAlternatives(unknown string, candidates []string) []string {
 		limit = len(list)
 	}
 	res := make([]string, 0, limit)
-	for i := 0; i < limit; i++ {
+	for i := range limit {
 		// Only suggest if reasonably similar, or it's the absolute best recommendation
 		if list[i].dist <= 5 || i == 0 {
 			res = append(res, list[i].name)

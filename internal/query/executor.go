@@ -135,7 +135,7 @@ func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (
 	}
 
 	resultRows := make([][]any, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		resultRows[i] = allCells[i*numCols : (i+1)*numCols]
 	}
 

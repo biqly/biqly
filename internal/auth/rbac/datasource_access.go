@@ -76,7 +76,7 @@ func (s *DatasourceAccessService) Grant(ctx context.Context, userID, datasourceI
 		return nil, fmt.Errorf("grant datasource access: %w", err)
 	}
 	if grantedByNull.Valid {
-		access.GrantedBy = &grantedByNull.String
+		access.GrantedBy = new(grantedByNull.String)
 	}
 
 	_ = s.InvalidateCache(ctx, userID)
@@ -125,7 +125,7 @@ func (s *DatasourceAccessService) ListUserAccess(ctx context.Context, userID str
 			return nil, err
 		}
 		if grantedBy.Valid {
-			a.GrantedBy = &grantedBy.String
+			a.GrantedBy = new(grantedBy.String)
 		}
 		list = append(list, a)
 	}
@@ -150,7 +150,7 @@ func (s *DatasourceAccessService) ListAll(ctx context.Context) ([]DatasourceAcce
 			return nil, err
 		}
 		if grantedBy.Valid {
-			a.GrantedBy = &grantedBy.String
+			a.GrantedBy = new(grantedBy.String)
 		}
 		list = append(list, a)
 	}

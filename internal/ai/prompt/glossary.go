@@ -188,7 +188,7 @@ func SelectGlossaryForQuestion(question string, entries []GlossaryEntry, model *
 			n = len(ranked)
 		}
 		out := make([]GlossaryEntry, n)
-		for i := 0; i < n; i++ {
+		for i := range n {
 			out[i] = ranked[i].e
 		}
 		return out
@@ -258,7 +258,7 @@ func defaultGlossarySlice(entries []GlossaryEntry, model *semantic.SemanticModel
 		n = len(pool)
 	}
 	out := make([]GlossaryEntry, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		out[i] = pool[i].e
 	}
 	return out

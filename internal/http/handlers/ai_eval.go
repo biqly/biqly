@@ -548,7 +548,7 @@ func findGoldenDir() string {
 		return dir
 	}
 	parent := dir
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		parent = filepath.Join("..", parent)
 		if _, err := os.Stat(parent); err == nil {
 			return parent

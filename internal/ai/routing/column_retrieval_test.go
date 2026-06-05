@@ -9,11 +9,12 @@ import (
 )
 
 func TestRankColumnsForTable_KeywordMatchWithoutEmbeddings(t *testing.T) {
-	cols := []metadata.Column{
-		{SchemaName: "sales", TableName: "orders", ColumnName: "order_id", DataType: "int", IsPrimaryKey: true},
-		{SchemaName: "sales", TableName: "orders", ColumnName: "shipment_date", DataType: "date"},
-	}
-	for i := 0; i < 40; i++ {
+	cols := make([]metadata.Column, 0, 42)
+	cols = append(cols,
+		metadata.Column{SchemaName: "sales", TableName: "orders", ColumnName: "order_id", DataType: "int", IsPrimaryKey: true},
+		metadata.Column{SchemaName: "sales", TableName: "orders", ColumnName: "shipment_date", DataType: "date"},
+	)
+	for i := range 40 {
 		cols = append(cols, metadata.Column{
 			SchemaName: "sales",
 			TableName:  "orders",
@@ -41,7 +42,7 @@ func TestTableRouter_ColumnKeywordRankingWhenEmbeddingsIncomplete(t *testing.T) 
 		metadata.Column{DatasourceID: "ds1", SchemaName: "sales", TableName: "salesorderheader", ColumnName: "salesorderid", DataType: "int", IsPrimaryKey: true},
 		metadata.Column{DatasourceID: "ds1", SchemaName: "sales", TableName: "salesorderheader", ColumnName: "shipment_date", DataType: "date"},
 	)
-	for i := 0; i < 40; i++ {
+	for i := range 40 {
 		reader.columns = append(reader.columns, metadata.Column{
 			DatasourceID: "ds1",
 			SchemaName:   "sales",

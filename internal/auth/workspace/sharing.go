@@ -94,10 +94,10 @@ func (s *SharingService) Share(ctx context.Context, ownerID string, req ShareReq
 		return nil, fmt.Errorf("share resource: %w", err)
 	}
 	if swNull.Valid {
-		share.SharedWith = &swNull.String
+		share.SharedWith = new(swNull.String)
 	}
 	if wsNull.Valid {
-		share.WorkspaceID = &wsNull.String
+		share.WorkspaceID = new(wsNull.String)
 	}
 	return &share, nil
 }
@@ -155,10 +155,10 @@ func (s *SharingService) ListShared(ctx context.Context, userID, resourceType st
 			return nil, err
 		}
 		if swNull.Valid {
-			share.SharedWith = &swNull.String
+			share.SharedWith = new(swNull.String)
 		}
 		if wsNull.Valid {
-			share.WorkspaceID = &wsNull.String
+			share.WorkspaceID = new(wsNull.String)
 		}
 		list = append(list, share)
 	}
@@ -196,10 +196,10 @@ func (s *SharingService) ListOwned(ctx context.Context, ownerID, resourceType, r
 			return nil, err
 		}
 		if swNull.Valid {
-			share.SharedWith = &swNull.String
+			share.SharedWith = new(swNull.String)
 		}
 		if wsNull.Valid {
-			share.WorkspaceID = &wsNull.String
+			share.WorkspaceID = new(wsNull.String)
 		}
 		list = append(list, share)
 	}

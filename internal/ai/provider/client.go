@@ -137,10 +137,10 @@ func (c *Client) ollamaOptions(temperature float64) *ollamaOptions {
 	}
 	opts := &ollamaOptions{Temperature: &temperature}
 	if c.topP > 0 {
-		opts.TopP = &c.topP
+		opts.TopP = new(c.topP)
 	}
 	if c.numCtx > 0 {
-		opts.NumCtx = &c.numCtx
+		opts.NumCtx = new(c.numCtx)
 	}
 	return opts
 }

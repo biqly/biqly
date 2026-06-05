@@ -80,7 +80,7 @@ func (s *WorkspaceService) Create(ctx context.Context, name, description, create
 		return nil, fmt.Errorf("insert workspace: %w", err)
 	}
 	if desc.Valid {
-		ws.Description = &desc.String
+		ws.Description = new(desc.String)
 	}
 
 	var adminRoleID string
@@ -113,7 +113,7 @@ func (s *WorkspaceService) Get(ctx context.Context, id string) (*Workspace, erro
 		return nil, err
 	}
 	if desc.Valid {
-		ws.Description = &desc.String
+		ws.Description = new(desc.String)
 	}
 	return &ws, nil
 }
@@ -139,7 +139,7 @@ func (s *WorkspaceService) ListForUser(ctx context.Context, userID string) ([]Wo
 			return nil, err
 		}
 		if desc.Valid {
-			ws.Description = &desc.String
+			ws.Description = new(desc.String)
 		}
 		list = append(list, ws)
 	}
@@ -165,7 +165,7 @@ func (s *WorkspaceService) ListAll(ctx context.Context) ([]Workspace, error) {
 			return nil, err
 		}
 		if desc.Valid {
-			ws.Description = &desc.String
+			ws.Description = new(desc.String)
 		}
 		list = append(list, ws)
 	}
@@ -239,10 +239,10 @@ func (s *WorkspaceService) ListMembers(ctx context.Context, workspaceID string) 
 			return nil, err
 		}
 		if displayName.Valid {
-			m.DisplayName = &displayName.String
+			m.DisplayName = new(displayName.String)
 		}
 		if invitedBy.Valid {
-			m.InvitedBy = &invitedBy.String
+			m.InvitedBy = new(invitedBy.String)
 		}
 		list = append(list, m)
 	}

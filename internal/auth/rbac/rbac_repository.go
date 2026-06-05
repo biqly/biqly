@@ -213,7 +213,7 @@ func (r *RBACRepository) ListRoles(ctx context.Context) ([]Role, error) {
 			return nil, err
 		}
 		if desc.Valid {
-			role.Description = &desc.String
+			role.Description = new(desc.String)
 		}
 		roles = append(roles, role)
 	}
@@ -235,7 +235,7 @@ func (r *RBACRepository) ListPermissions(ctx context.Context) ([]Permission, err
 			return nil, err
 		}
 		if desc.Valid {
-			p.Description = &desc.String
+			p.Description = new(desc.String)
 		}
 		perms = append(perms, p)
 	}

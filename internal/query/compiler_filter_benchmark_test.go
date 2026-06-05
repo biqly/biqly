@@ -27,7 +27,7 @@ func BenchmarkCompilerFilterHandler(b *testing.B) {
 		b.ReportAllocs()
 		var sql string
 		var args []any
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			args = make([]any, 0, 8)
 			var err error
 			sql, err = run(&args)

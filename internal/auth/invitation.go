@@ -134,10 +134,10 @@ func (s *AuthService) GetInvitation(ctx context.Context, token string) (*Invitat
 	}
 
 	if tokenNull.Valid {
-		invite.Token = &tokenNull.String
+		invite.Token = new(tokenNull.String)
 	}
 	if claimedAtNull.Valid {
-		invite.ClaimedAt = &claimedAtNull.Time
+		invite.ClaimedAt = new(claimedAtNull.Time)
 		return nil, ErrInvitationClaimed
 	}
 
@@ -327,10 +327,10 @@ func (s *AuthService) ListInvitations(ctx context.Context, actorUserID string) (
 			return nil, fmt.Errorf("scan invitation: %w", err)
 		}
 		if tokenNull.Valid {
-			invite.Token = &tokenNull.String
+			invite.Token = new(tokenNull.String)
 		}
 		if claimedAtNull.Valid {
-			invite.ClaimedAt = &claimedAtNull.Time
+			invite.ClaimedAt = new(claimedAtNull.Time)
 		}
 		invites = append(invites, &invite)
 	}

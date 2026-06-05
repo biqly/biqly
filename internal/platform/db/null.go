@@ -37,7 +37,7 @@ func StringPtrFromNull(value sql.NullString) *string {
 	if !value.Valid {
 		return nil
 	}
-	return &value.String
+	return new(value.String)
 }
 
 // TimePtrFromNull converts a sql.NullTime into a *time.Time, returning nil
@@ -46,7 +46,7 @@ func TimePtrFromNull(value sql.NullTime) *time.Time {
 	if !value.Valid {
 		return nil
 	}
-	return &value.Time
+	return new(value.Time)
 }
 
 // IntPtrFromNull converts a sql.NullInt64 into a *int, returning nil
@@ -55,8 +55,7 @@ func IntPtrFromNull(value sql.NullInt64) *int {
 	if !value.Valid {
 		return nil
 	}
-	val := int(value.Int64)
-	return &val
+	return new(int(value.Int64))
 }
 
 // NullIfNilIntPtr returns nil when the int pointer is nil; otherwise it returns

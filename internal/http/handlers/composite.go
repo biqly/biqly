@@ -532,7 +532,7 @@ func (h *CompositeHandler) SuggestedJoins(w http.ResponseWriter, r *http.Request
 // once to avoid duplicate suggestions.
 func suggestCrossModelJoins(components []semantic.ComponentModelRef, models map[string]*semantic.SemanticModel) []SuggestedCrossJoin {
 	var out []SuggestedCrossJoin
-	for i := 0; i < len(components); i++ {
+	for i := range components {
 		from := models[components[i].Alias]
 		if from == nil {
 			continue

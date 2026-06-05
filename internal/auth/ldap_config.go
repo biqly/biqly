@@ -72,7 +72,7 @@ func (r *LDAPConfigRepository) Get(ctx context.Context) (LDAPConfig, error) {
 		c.BindPassword = r.decrypt(encPw)
 	}
 	if updatedBy.Valid {
-		c.UpdatedBy = &updatedBy.String
+		c.UpdatedBy = new(updatedBy.String)
 	}
 	return c, nil
 }

@@ -723,7 +723,7 @@ func formatEnumValues(vals []semantic.EnumMapping) string {
 		truncated = true
 	}
 	parts := make([]string, 0, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		parts = append(parts, fmt.Sprintf("%s=%s", vals[i].RawValue, vals[i].Label))
 	}
 	out := ", values: " + strings.Join(parts, ", ")

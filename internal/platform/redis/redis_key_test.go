@@ -40,7 +40,7 @@ func TestKeyDeterministicWithMapValue(t *testing.T) {
 
 	// Re-build the LogicalQuery each iteration so internal map state is fresh.
 	first := cache.Key("ds-1", "m-1", mkLQ(), "tenant-a")
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		got := cache.Key("ds-1", "m-1", mkLQ(), "tenant-a")
 		if got != first {
 			t.Fatalf("key drifted on iteration %d: %s vs %s", i, got, first)

@@ -329,7 +329,7 @@ func (s *AIModelAccessService) ListAllGrants(ctx context.Context) (AIModelAccess
 				return out, err
 			}
 			if gb.Valid {
-				g.GrantedBy = &gb.String
+				g.GrantedBy = new(gb.String)
 			}
 			out.ProviderWorkspaces = append(out.ProviderWorkspaces, g)
 		}
@@ -351,7 +351,7 @@ func (s *AIModelAccessService) ListAllGrants(ctx context.Context) (AIModelAccess
 				return out, err
 			}
 			if gb.Valid {
-				g.GrantedBy = &gb.String
+				g.GrantedBy = new(gb.String)
 			}
 			out.ModelWorkspaces = append(out.ModelWorkspaces, g)
 		}
@@ -373,7 +373,7 @@ func (s *AIModelAccessService) ListAllGrants(ctx context.Context) (AIModelAccess
 				return out, err
 			}
 			if gb.Valid {
-				g.GrantedBy = &gb.String
+				g.GrantedBy = new(gb.String)
 			}
 			out.ProviderRoles = append(out.ProviderRoles, g)
 		}
@@ -395,7 +395,7 @@ func (s *AIModelAccessService) ListAllGrants(ctx context.Context) (AIModelAccess
 				return out, err
 			}
 			if gb.Valid {
-				g.GrantedBy = &gb.String
+				g.GrantedBy = new(gb.String)
 			}
 			out.ModelRoles = append(out.ModelRoles, g)
 		}

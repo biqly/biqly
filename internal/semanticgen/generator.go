@@ -367,8 +367,7 @@ func metricFormat(name string) *string {
 	n := strings.ToLower(name)
 	if strings.Contains(n, "amount") || strings.Contains(n, "total") || strings.Contains(n, "price") ||
 		strings.Contains(n, "cost") || strings.Contains(n, "revenue") {
-		v := "#,##0.00"
-		return &v
+		return new("#,##0.00")
 	}
 	return nil
 }

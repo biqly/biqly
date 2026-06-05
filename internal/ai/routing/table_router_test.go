@@ -605,7 +605,7 @@ func TestTableRouter_ColumnEmbeddingsNarrowWideTableButKeepRequiredColumns(t *te
 		metadata.Column{DatasourceID: "ds1", SchemaName: "sales", TableName: "salesorderheader", ColumnName: "orderdate", DataType: "timestamp"},
 		metadata.Column{DatasourceID: "ds1", SchemaName: "sales", TableName: "salesorderheader", ColumnName: "totaldue", DataType: "numeric"},
 	)
-	for i := 0; i < 40; i++ {
+	for i := range 40 {
 		reader.columns = append(reader.columns, metadata.Column{
 			DatasourceID: "ds1",
 			SchemaName:   "sales",

@@ -490,7 +490,7 @@ func TestBruteForceLockout(t *testing.T) {
 
 	ua := "Test"
 	ip := "127.0.0.1"
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		_, err := service.Login(ctx, LoginRequest{Email: email, Password: "wrong-password"}, &ua, &ip)
 		assert.ErrorIs(t, err, ErrInvalidCredentials)
 	}

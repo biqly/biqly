@@ -340,7 +340,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		repairDetails      []RepairDetail
 	)
 
-	for attempt := 0; attempt <= s.maxRetries; attempt++ {
+	for attempt := range s.maxRetries + 1 {
 		gen, genErr := s.client.Generate(ctx, prompt)
 		if genErr != nil {
 			return nil, fmt.Errorf("AI generation failed: %w", genErr)
@@ -688,7 +688,7 @@ func (s *Service) tryMultiCandidate(
 	results := make([]*candidate, n)
 	var wg sync.WaitGroup
 	wg.Add(n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		idx := i
 		go func() {
 			defer wg.Done()

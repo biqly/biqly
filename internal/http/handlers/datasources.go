@@ -83,7 +83,7 @@ func optionalStringPtr(s string) *string {
 	if v == "" {
 		return nil
 	}
-	return &v
+	return new(v)
 }
 
 // Create handles datasource creation.

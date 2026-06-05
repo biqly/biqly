@@ -41,7 +41,7 @@ func BenchmarkStripSQLLiteralsAndComments(b *testing.B) {
 		b.Run(query.name+"/current", func(b *testing.B) {
 			b.ReportAllocs()
 			var result string
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				result = stripSQLLiteralsAndComments(query.sql)
 			}
 			benchmarkReadonlyResult = result
@@ -50,7 +50,7 @@ func BenchmarkStripSQLLiteralsAndComments(b *testing.B) {
 		b.Run(query.name+"/pooled_builder", func(b *testing.B) {
 			b.ReportAllocs()
 			var result string
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				result = benchmarkStripSQLLiteralsAndCommentsWithPool(query.sql)
 			}
 			benchmarkReadonlyResult = result
