@@ -26,6 +26,8 @@ type Compiler struct {
 	// pii holds the per-user PII masking policy for the current compilation.
 	// Nil means no masking. Set via CompileWithPermissions only.
 	pii *PIIMaskingConfig
+	// compileCtx is the request context for nested subquery compilation.
+	compileCtx context.Context
 }
 
 // NewCompiler creates a new SQL compiler for the given dialect.
@@ -53,16 +55,17 @@ func NewCompiler(d dialect.Dialect) *Compiler {
 
 // Compile converts a LogicalQuery + semantic model into SQL.
 func (c *Compiler) Compile(ctx context.Context, lq *LogicalQuery, model *semantic.SemanticModel) (*CompiledQuery, error) {
+	comp := c.withCompileCtx(ctx)
 	args := make([]any, 0, 8)
-	withPrefix, err := c.buildWithClause(lq.CTEs, model, &args)
+	withPrefix, err := comp.buildWithClause(lq.CTEs, model, &args)
 	if err != nil {
 		return nil, err
 	}
-	fromClause, err := c.resolveFromClause(lq, model, &args)
+	fromClause, err := comp.resolveFromClause(lq, model, &args)
 	if err != nil {
 		return nil, err
 	}
-	return c.compileStatement(ctx, lq, model, fromClause, withPrefix, &args, nil)
+	return comp.compileStatement(ctx, lq, model, fromClause, withPrefix, &args, nil)
 }
 
 // CompileWithPermissions compiles a LogicalQuery with row-level security
@@ -89,16 +92,24 @@ func (c *Compiler) CompileWithPermissions(
 	if len(rowFilters) == 0 && piiConfig == nil {
 		return c.Compile(ctx, lq, model)
 	}
+	comp := c.withCompileCtx(ctx)
 	args := make([]any, 0, 8)
-	withPrefix, err := c.buildWithClause(lq.CTEs, model, &args)
+	withPrefix, err := comp.buildWithClause(lq.CTEs, model, &args)
 	if err != nil {
 		return nil, err
 	}
-	fromClause, err := c.resolveFromClause(lq, model, &args)
+	fromClause, err := comp.resolveFromClause(lq, model, &args)
 	if err != nil {
 		return nil, err
 	}
-	return c.compileStatement(ctx, lq, model, fromClause, withPrefix, &args, rowFilters)
+	return comp.compileStatement(ctx, lq, model, fromClause, withPrefix, &args, rowFilters)
+}
+
+func (c *Compiler) withCompileCtx(ctx context.Context) *Compiler { //nolint:contextcheck // stores request ctx for nested subquery compilation
+	if ctx == nil {
+		ctx = context.TODO()
+	}
+	return &Compiler{dialect: c.dialect, pii: c.pii, compileCtx: ctx}
 }
 
 // buildRowFilterPreds turns the policy row filters into SQL predicate
@@ -129,6 +140,7 @@ func addTableFromColumnRef(tables map[string]struct{}, colRef string, resolver *
 	}
 }
 
+//nolint:gocognit
 func tablesReferencedInLogicalQuery(
 	lq *LogicalQuery,
 	model *semantic.SemanticModel,
@@ -218,7 +230,7 @@ type joinNeighbor struct {
 // determineJoins returns joins on paths from the base table to every table referenced
 // in the logical query. This avoids emitting duplicate joins to the same physical table
 // when multiple FKs exist but the query only uses base-table columns.
-func (c *Compiler) determineJoins(
+func (*Compiler) determineJoins(
 	lq *LogicalQuery,
 	model *semantic.SemanticModel,
 	dimMap map[string]*semantic.Dimension,
@@ -472,6 +484,7 @@ func (c *Compiler) qualifyMetricExpression(
 	return c.dialect.QuoteIdent(expr)
 }
 
+//nolint:gocognit,funlen
 func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]*semantic.Dimension, metricMap map[string]*semantic.Metric, model *semantic.SemanticModel, resolver *SchemaResolver, args *[]any) ([]string, error) {
 	parts := make([]string, 0, len(items))
 	var sb strings.Builder
@@ -569,6 +582,7 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]*semantic.D
 // Aggregation/Expression are sourced from the SelectItem.Window or, when
 // Window.Metric is set, inherited from the named metric in the semantic model.
 // Ranking functions (row_number, rank, dense_rank, ntile) ignore Expression.
+//nolint:gocognit
 func (c *Compiler) buildWindowExpr(
 	item SelectItem,
 	dimMap map[string]*semantic.Dimension,
@@ -590,7 +604,7 @@ func (c *Compiler) buildWindowExpr(
 	}
 
 	// Inherit aggregation+expression from a named metric when requested.
-	if mname := strings.TrimSpace(w.Metric); mname != "" {
+	if mname := strings.TrimSpace(w.Metric); mname != "" { //nolint:nestif
 		m, ok := metricMap[mname]
 		if !ok {
 			return "", fmt.Errorf("window metric not found: %s", mname)
@@ -960,7 +974,7 @@ func (c *Compiler) buildOrderBy(orderBy []OrderBy, dimMap map[string]*semantic.D
 	parts := make([]string, 0, len(orderBy))
 	var sb strings.Builder
 	for _, ob := range orderBy {
-		if dim, ok := dimMap[ob.Field]; ok {
+		if dim, ok := dimMap[ob.Field]; ok { //nolint:nestif
 			if c.dimensionFullyHidden(dim, resolver) {
 				return "", validationErrWithCode("order_by", errmsg.HiddenPIIFieldMsg(ob.Field), errmsg.CodeHiddenPIIField, ob.Field, nil)
 			}

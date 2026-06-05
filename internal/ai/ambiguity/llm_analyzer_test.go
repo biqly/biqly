@@ -23,7 +23,7 @@ func (p *fakeLLMAmbiguityProvider) Generate(_ context.Context, prompt string) (p
 	return p.result, p.err
 }
 
-func (p *fakeLLMAmbiguityProvider) GenerateAt(_ context.Context, _ string, _ float64) (provider.GenerationResult, error) {
+func (*fakeLLMAmbiguityProvider) GenerateAt(_ context.Context, _ string, _ float64) (provider.GenerationResult, error) {
 	return provider.GenerationResult{}, errors.New("unexpected GenerateAt call")
 }
 

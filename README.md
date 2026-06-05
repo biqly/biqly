@@ -63,6 +63,9 @@ Unset a service URL to fall back to in-process monolith handler for that domain.
 - Follow-up intent classification with filter state inheritance
 - 3-tier evaluation framework: structural comparison, execution comparison, LLM judge
 - SFT dataset export for fine-tuning (Gemma 4)
+- Prompt A/B testing: deterministic traffic split, statistical significance, winner recommendation
+- Expression AST: sealed interface with JSON discriminator, dialect-aware compilation, visual builder
+- Schema drift detection: automatic on metadata sync, email alerts, scheduled re-checks
 
 ### Query Engine API
 
@@ -78,8 +81,10 @@ Unset a service URL to fall back to in-process monolith handler for that domain.
 
 - Visual semantic model editor (canvas-based)
 - Dimensions, metrics, joins with synonyms
-- Calculated dimensions (expression-based)
+- Calculated dimensions (expression-based with controlled AST)
+- Expression builder: text mode (backend compile) and visual mode (recursive AST editor)
 - Draft / publish / rollback workflow with versioning
+- Circular dependency detection and expression lineage graph
 - Auto-generation from introspected metadata
 - Business glossary with term definitions
 - Enum mappings for dimension values
@@ -94,6 +99,7 @@ Unset a service URL to fall back to in-process monolith handler for that domain.
 - Full audit trail for every query
 - Automatic PII detection on metadata sync (7 types: email, phone, IBAN, TCKN, address, IP, credit card) with confidence scoring and admin review
 - Role-based PII masking compiled into SQL (admin: raw, analyst: masked, viewer: hidden) — see `docs/pii-detection-masking.md`
+- Schema drift detection: compares semantic model references against synced datasource columns, alerts on dropped/changed columns
 
 ### Authentication & Authorization
 
@@ -127,7 +133,7 @@ Unset a service URL to fall back to in-process monolith handler for that domain.
 - Notebook-style query builder (fields, filters, summarize, sort, having, CTE, window functions)
 - AI chat panel with routing visualization
 - Dashboard builder
-- Admin panel: users, roles, permissions, datasource access, RLS, AI providers, AI model sharing, usage, audit log, LDAP, platform settings, workspaces
+- Admin panel: users, roles, permissions, datasource access, RLS, AI providers, AI model sharing, usage, audit log, LDAP, platform settings, workspaces, PII detection, schema drift
 - i18n: English + Turkish
 - Light / dark theme
 - Command palette
@@ -409,6 +415,8 @@ testdata/               Golden SQL test files
 | `PUT` | `/api/semantic/models/{id}/joins/{jid}` | Update join |
 | `DELETE` | `/api/semantic/models/{id}/joins/{jid}` | Remove join |
 | `GET` | `/api/semantic/models/{id}/suggested-joins` | AI-suggested joins |
+| `GET` | `/api/semantic/models/{id}/lineage` | Expression lineage graph (nodes + edges) |
+| `POST` | `/api/semantic/models/{id}/compile-expression` | Validate and compile expression AST/string to SQL |
 
 ### Composite Semantic Models
 
@@ -542,6 +550,30 @@ testdata/               Golden SQL test files
 | `DELETE` | `/api/ai/models/{id}` | Delete model config |
 | `POST` | `/api/ai/models/{id}/default` | Set default model |
 
+### AI — Prompt A/B Testing
+
+| Method | Path | Description |
+| -------- | ------ | ------------- |
+| `POST` | `/api/ai/ab-experiments` | Create experiment (admin only) |
+| `GET` | `/api/ai/ab-experiments` | List experiments |
+| `GET` | `/api/ai/ab-experiments/{id}` | Get experiment details |
+| `PUT` | `/api/ai/ab-experiments/{id}` | Update experiment details |
+| `PUT` | `/api/ai/ab-experiments/{id}/status` | Transition experiment status |
+| `POST` | `/api/ai/ab-experiments/{id}/variants` | Add variant |
+| `PUT` | `/api/ai/ab-experiments/{id}/variants/{variantId}` | Update variant |
+| `DELETE` | `/api/ai/ab-experiments/{id}/variants/{variantId}` | Delete variant |
+| `GET` | `/api/ai/ab-experiments/{id}/metrics` | Compute and return experiment metrics |
+| `GET` | `/api/ai/ab-experiments/{id}/timeseries` | Daily metrics timeseries breakdown |
+| `GET` | `/api/ai/ab-experiments/{id}/recommendation` | Get winner recommendation analysis |
+
+### Schema Drift
+
+| Method | Path | Description |
+| -------- | ------ | ------------- |
+| `GET` | `/api/semantic/models/{id}/drift` | List unresolved drift reports for model |
+| `GET` | `/api/datasources/{id}/drift` | List unresolved drifts across all models |
+| `POST` | `/api/drift/{id}/resolve` | Mark drift report as resolved |
+
 ### Permissions
 
 | Method | Path | Description |
@@ -655,7 +687,7 @@ make clean              # Remove bin/ and coverage.out
 
 ## Database Schema
 
-Metadata DB: PostgreSQL `bi_metadata`, 36 migrations.
+Metadata DB: PostgreSQL `bi_metadata`, 42 migrations.
 
 | Table | Purpose |
 | ------- | --------- |
@@ -663,8 +695,8 @@ Metadata DB: PostgreSQL `bi_metadata`, 36 migrations.
 | `schemas`, `tables`, `columns` | Synced schema metadata |
 | `relations` | Foreign key relationships |
 | `semantic_models` | Semantic models (draft/published, versioned) |
-| `semantic_dimensions` | Dimensions with type, synonyms, calculated expressions |
-| `semantic_metrics` | Metrics with aggregation, expression, synonyms |
+| `semantic_dimensions` | Dimensions with type, synonyms, calculated expressions (string + AST JSON) |
+| `semantic_metrics` | Metrics with aggregation, expression, synonyms (string + AST JSON) |
 | `semantic_joins` | Join definitions with cardinality |
 | `query_history` | Compiled SQL, status, duration, fingerprint |
 | `ai_query_history` | AI prompts, responses, confidence, token usage |
@@ -678,6 +710,9 @@ Metadata DB: PostgreSQL `bi_metadata`, 36 migrations.
 | `ai_providers` / `ai_models` | Runtime AI provider/model registry |
 | `audit_events` | Audit trail |
 | `dashboards` | Dashboard persistence |
+| `ab_experiments` | Prompt A/B testing experiments config |
+| `ab_variants` | A/B testing experiment variants and traffic splits |
+| `drift_reports` | Schema drift detection reports (per model, per sync) |
 
 Auth DB: PostgreSQL `bi_auth`, 35 migrations (users, sessions, OAuth, MFA, RBAC, workspaces, invitations, LDAP).
 
@@ -773,5 +808,7 @@ INSERT, UPDATE, DELETE, MERGE, DROP, ALTER, TRUNCATE, CREATE, GRANT, REVOKE, EXE
 - [x] SFT Dataset Export for Fine-Tuning
 - [x] Helm Chart + Argo CD GitOps
 - [x] Composite Semantic Models
-- [ ] Metric Expression Security (controlled AST)
+- [x] Metric Expression Security (controlled AST)
+- [x] Schema Drift Detection & Alerts
+- [x] Prompt A/B Testing
 - [ ] Embedding-based Learning from User Confirmations

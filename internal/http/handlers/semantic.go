@@ -516,31 +516,39 @@ func dimensionFromRequest(id, modelID string, req createDimensionRequest) (*sema
 	return d, nil
 }
 
-// CreateDimension adds a dimension to a semantic model.
-func (h *SemanticHandler) CreateDimension(w http.ResponseWriter, r *http.Request) {
+func createModelEntity[T any, E any](
+	w http.ResponseWriter,
+	r *http.Request,
+	build func(id, modelID string, req T) (E, error),
+	persist func(context.Context, E) error,
+	failMsg string,
+) {
 	modelID, ok := requireURLParam(w, r, "id")
 	if !ok {
 		return
 	}
-
-	req, ok := decodeJSON[createDimensionRequest](w, r)
+	req, ok := decodeJSON[T](w, r)
 	if !ok {
 		return
 	}
-
-	d, err := dimensionFromRequest(uuid.New().String(), modelID, *req)
+	entity, err := build(uuid.New().String(), modelID, *req)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-
 	ctx := r.Context()
-	if err := h.deps.SemanticRepo.CreateDimension(ctx, d); err != nil {
-		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to create dimension", err)
+	if err := persist(ctx, entity); err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, failMsg, err)
 		return
 	}
+	writeJSON(w, http.StatusCreated, entity)
+}
 
-	writeJSON(w, http.StatusCreated, d)
+// CreateDimension adds a dimension to a semantic model.
+func (h *SemanticHandler) CreateDimension(w http.ResponseWriter, r *http.Request) {
+	createModelEntity(w, r, dimensionFromRequest, func(ctx context.Context, d *semantic.Dimension) error {
+		return h.deps.SemanticRepo.CreateDimension(ctx, d)
+	}, "failed to create dimension")
 }
 
 type createMetricRequest struct {
@@ -588,7 +596,7 @@ func expressionNodeFromRequest(raw json.RawMessage, expression string, field str
 	}
 	expression = strings.TrimSpace(expression)
 	if expression == "" || expression == "*" || semantic.ExpressionParser == nil {
-		return nil, nil
+		return nil, nil //nolint:nilnil // empty expression means no AST to validate
 	}
 	expr, err := semantic.ExpressionParser(expression)
 	if err != nil {
@@ -599,29 +607,9 @@ func expressionNodeFromRequest(raw json.RawMessage, expression string, field str
 
 // CreateMetric adds a metric to a semantic model.
 func (h *SemanticHandler) CreateMetric(w http.ResponseWriter, r *http.Request) {
-	modelID, ok := requireURLParam(w, r, "id")
-	if !ok {
-		return
-	}
-
-	req, ok := decodeJSON[createMetricRequest](w, r)
-	if !ok {
-		return
-	}
-
-	m, err := metricFromRequest(uuid.New().String(), modelID, *req)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	ctx := r.Context()
-	if err := h.deps.SemanticRepo.CreateMetric(ctx, m); err != nil {
-		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to create metric", err)
-		return
-	}
-
-	writeJSON(w, http.StatusCreated, m)
+	createModelEntity(w, r, metricFromRequest, func(ctx context.Context, m *semantic.Metric) error {
+		return h.deps.SemanticRepo.CreateMetric(ctx, m)
+	}, "failed to create metric")
 }
 
 type createJoinRequest struct {
@@ -703,30 +691,43 @@ func (h *SemanticHandler) DeleteDimension(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// UpdateDimension modifies an existing dimension.
-func (h *SemanticHandler) UpdateDimension(w http.ResponseWriter, r *http.Request) {
+func updateModelEntity[T any, E any](
+	w http.ResponseWriter,
+	r *http.Request,
+	entityIDParam string,
+	build func(id, modelID string, req T) (E, error),
+	persist func(context.Context, E) error,
+	failMsg string,
+) {
 	modelID, ok := requireURLParam(w, r, "id")
 	if !ok {
 		return
 	}
-	dimID, ok := requireURLParam(w, r, "dimension_id")
+	entityID, ok := requireURLParam(w, r, entityIDParam)
 	if !ok {
 		return
 	}
-	req, ok := decodeJSON[createDimensionRequest](w, r)
+	req, ok := decodeJSON[T](w, r)
 	if !ok {
 		return
 	}
-	d, err := dimensionFromRequest(dimID, modelID, *req)
+	entity, err := build(entityID, modelID, *req)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := h.deps.SemanticRepo.UpdateDimension(r.Context(), d); err != nil {
-		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to update dimension", err)
+	if err := persist(r.Context(), entity); err != nil {
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, failMsg, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, d)
+	writeJSON(w, http.StatusOK, entity)
+}
+
+// UpdateDimension modifies an existing dimension.
+func (h *SemanticHandler) UpdateDimension(w http.ResponseWriter, r *http.Request) {
+	updateModelEntity(w, r, "dimension_id", dimensionFromRequest, func(ctx context.Context, d *semantic.Dimension) error {
+		return h.deps.SemanticRepo.UpdateDimension(ctx, d)
+	}, "failed to update dimension")
 }
 
 type enumMappingRequest struct {
@@ -821,28 +822,9 @@ func (h *SemanticHandler) DeleteMetric(w http.ResponseWriter, r *http.Request) {
 
 // UpdateMetric modifies an existing metric.
 func (h *SemanticHandler) UpdateMetric(w http.ResponseWriter, r *http.Request) {
-	modelID, ok := requireURLParam(w, r, "id")
-	if !ok {
-		return
-	}
-	metricID, ok := requireURLParam(w, r, "metric_id")
-	if !ok {
-		return
-	}
-	req, ok := decodeJSON[createMetricRequest](w, r)
-	if !ok {
-		return
-	}
-	m, err := metricFromRequest(metricID, modelID, *req)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if err := h.deps.SemanticRepo.UpdateMetric(r.Context(), m); err != nil {
-		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to update metric", err)
-		return
-	}
-	writeJSON(w, http.StatusOK, m)
+	updateModelEntity(w, r, "metric_id", metricFromRequest, func(ctx context.Context, m *semantic.Metric) error {
+		return h.deps.SemanticRepo.UpdateMetric(ctx, m)
+	}, "failed to update metric")
 }
 
 // DeleteJoin removes a join from a semantic model.
@@ -875,6 +857,7 @@ type removeTableResponse struct {
 
 // RemoveTable cascade-deletes joins, dimensions, and metrics referencing the
 // given table. Rejects the request if the table is the model's base table.
+//nolint:gocognit
 func (h *SemanticHandler) RemoveTable(w http.ResponseWriter, r *http.Request) {
 	modelID, ok := requireURLParam(w, r, "id")
 	if !ok {

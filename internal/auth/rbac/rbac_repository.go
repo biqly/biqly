@@ -17,6 +17,27 @@ func NewRBACRepository(db *sql.DB) *RBACRepository {
 	return &RBACRepository{db: db}
 }
 
+func (r *RBACRepository) queryStringColumn(ctx context.Context, query, userID, errLabel string) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", errLabel, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []string
+	for rows.Next() {
+		var value string
+		if err := rows.Scan(&value); err != nil {
+			return nil, err
+		}
+		out = append(out, value)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (r *RBACRepository) GetUserRoles(ctx context.Context, userID string) ([]string, error) {
 	query := `
 		WITH RECURSIVE effective_roles AS (
@@ -37,25 +58,7 @@ func (r *RBACRepository) GetUserRoles(ctx context.Context, userID string) ([]str
 		FROM effective_roles
 		ORDER BY name
 	`
-	rows, err := r.db.QueryContext(ctx, query, userID)
-	if err != nil {
-		return nil, fmt.Errorf("query user roles: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var roles []string
-	for rows.Next() {
-		var role string
-		if err := rows.Scan(&role); err != nil {
-			return nil, err
-		}
-		roles = append(roles, role)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return roles, nil
+	return r.queryStringColumn(ctx, query, userID, "query user roles")
 }
 
 func (r *RBACRepository) GetUserPermissions(ctx context.Context, userID string) ([]string, error) {
@@ -79,25 +82,7 @@ func (r *RBACRepository) GetUserPermissions(ctx context.Context, userID string) 
 		JOIN permissions p ON rp.permission_id = p.id
 		ORDER BY p.name
 	`
-	rows, err := r.db.QueryContext(ctx, query, userID)
-	if err != nil {
-		return nil, fmt.Errorf("query user permissions: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var perms []string
-	for rows.Next() {
-		var perm string
-		if err := rows.Scan(&perm); err != nil {
-			return nil, err
-		}
-		perms = append(perms, perm)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return perms, nil
+	return r.queryStringColumn(ctx, query, userID, "query user permissions")
 }
 
 func (r *RBACRepository) GetUserScopedPermissions(ctx context.Context, userID string, scopeType ScopeType, scopeID string) ([]string, error) {

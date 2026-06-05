@@ -175,6 +175,7 @@ type embeddingSignals struct {
 // Route selects tables for a question and returns a semantic model over them.
 // includeBaseTables / includeViews restrict which metadata objects participate in routing
 // (BASE TABLE vs VIEW). When both are true, behavior matches an unscoped datasource.
+//nolint:funlen
 func (r *TableRouter) Route(
 	ctx context.Context,
 	datasourceID string,
@@ -334,7 +335,7 @@ func (r *TableRouter) Route(
 	return model, result, nil
 }
 
-func (r *TableRouter) selectTables(
+func (*TableRouter) selectTables(
 	tables []metadata.Table,
 	columnsByTable map[string][]metadata.Column,
 	question string,

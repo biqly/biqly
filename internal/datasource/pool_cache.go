@@ -65,7 +65,11 @@ func (p *PoolCache) Get(ctx context.Context, driver Driver, datasourceID, dsn st
 	if err != nil {
 		return nil, err
 	}
-	return result.(*sql.DB), nil
+	db, ok := result.(*sql.DB)
+	if !ok {
+		return nil, fmt.Errorf("pool cache: unexpected type %T", result)
+	}
+	return db, nil
 }
 
 // Invalidate removes and closes all cached pools whose key prefix matches

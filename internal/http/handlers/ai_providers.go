@@ -223,8 +223,14 @@ func (h *AIProvidersHandler) UpdateProvider(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, row)
 }
 
-// DeleteProvider removes a provider and its models.
-func (h *AIProvidersHandler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
+func (h *AIProvidersHandler) deleteAIEntity(
+	w http.ResponseWriter,
+	r *http.Request,
+	deleteFn func(context.Context, string) error,
+	notFoundErr error,
+	entity string,
+	failMsg string,
+) {
 	if !h.ready(w) {
 		return
 	}
@@ -232,17 +238,22 @@ func (h *AIProvidersHandler) DeleteProvider(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
-	err := h.store.DeleteProvider(r.Context(), id)
-	if errors.Is(err, ai.ErrProviderNotFound) {
-		writeEntityNotFound(w, "provider")
+	err := deleteFn(r.Context(), id)
+	if errors.Is(err, notFoundErr) {
+		writeEntityNotFound(w, entity)
 		return
 	}
 	if err != nil {
-		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to delete provider", err)
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, failMsg, err)
 		return
 	}
 	h.refresh(r)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// DeleteProvider removes a provider and its models.
+func (h *AIProvidersHandler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
+	h.deleteAIEntity(w, r, h.store.DeleteProvider, ai.ErrProviderNotFound, "provider", "failed to delete provider")
 }
 
 // TestProvider probes provider connectivity with a tiny prompt.
@@ -390,24 +401,7 @@ func (h *AIProvidersHandler) UpdateModel(w http.ResponseWriter, r *http.Request)
 
 // DeleteModel removes a model.
 func (h *AIProvidersHandler) DeleteModel(w http.ResponseWriter, r *http.Request) {
-	if !h.ready(w) {
-		return
-	}
-	id, ok := requireURLParam(w, r, "id")
-	if !ok {
-		return
-	}
-	err := h.store.DeleteModel(r.Context(), id)
-	if errors.Is(err, ai.ErrModelNotFound) {
-		writeEntityNotFound(w, "model")
-		return
-	}
-	if err != nil {
-		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to delete model", err)
-		return
-	}
-	h.refresh(r)
-	w.WriteHeader(http.StatusNoContent)
+	h.deleteAIEntity(w, r, h.store.DeleteModel, ai.ErrModelNotFound, "model", "failed to delete model")
 }
 
 // SetDefaultModel marks a model as the default for its purpose.

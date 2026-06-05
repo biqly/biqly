@@ -137,6 +137,8 @@ type AIQueryHistoryEntry struct {
 	TokenCount         *int      `json:"token_count" db:"token_count"`
 	CostUSD            *float64  `json:"cost_usd" db:"cost_usd"`
 	LatencyMs          *int      `json:"latency_ms" db:"latency_ms"`
+	ABExperimentID     *string   `json:"ab_experiment_id,omitempty" db:"ab_experiment_id"`
+	ABVariantID        *string   `json:"ab_variant_id,omitempty" db:"ab_variant_id"`
 	CreatedAt          time.Time `json:"created_at" db:"created_at"`
 }
 

@@ -96,7 +96,7 @@ func BuildRowFilterPredicates(
 }
 
 // InjectRowFilters adds mandatory row-level security filters to the compiled query.
-func (pi *PermissionInjector) InjectRowFilters(
+func (*PermissionInjector) InjectRowFilters(
 	d dialect.Dialect,
 	filters []RowFilter,
 	dimMap map[string]string, // field name -> column reference
@@ -147,7 +147,7 @@ func (pi *PermissionInjector) CheckFieldAccess(
 	return nil
 }
 
-func (pi *PermissionInjector) isFieldAllowed(policy *PermissionPolicy, qualified, unqualified string) bool {
+func (*PermissionInjector) isFieldAllowed(policy *PermissionPolicy, qualified, unqualified string) bool {
 	return !FieldIsDenied(policy, qualified, unqualified) && !PIIFieldIsHidden(policy, qualified, unqualified)
 }
 

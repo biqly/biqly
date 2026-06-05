@@ -2,6 +2,7 @@ package prompt
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 	"text/template"
 )
@@ -37,7 +38,11 @@ func renderPromptTemplate(body string, data any) string {
 
 func getOrParseTemplate(body string) (*template.Template, error) {
 	if cached, ok := templateCache.Load(body); ok {
-		return cached.(*template.Template), nil
+		tmpl, ok := cached.(*template.Template)
+		if !ok {
+			return nil, fmt.Errorf("prompt template cache: unexpected type %T", cached)
+		}
+		return tmpl, nil
 	}
 	tmpl, err := template.New("prompt").Option("missingkey=zero").Parse(body)
 	if err != nil {
@@ -46,5 +51,9 @@ func getOrParseTemplate(body string) (*template.Template, error) {
 	// Multiple goroutines may race here; first store wins, others get the
 	// already-stored value back. Parsing is idempotent so this is safe.
 	actual, _ := templateCache.LoadOrStore(body, tmpl)
-	return actual.(*template.Template), nil
+	parsed, ok := actual.(*template.Template)
+	if !ok {
+		return nil, fmt.Errorf("prompt template cache: unexpected type %T", actual)
+	}
+	return parsed, nil
 }

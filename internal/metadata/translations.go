@@ -177,53 +177,60 @@ func LocalizedDescription(translations EntityTranslations, raw sql.NullString) *
 	return nil
 }
 
+func overlayDescriptionTranslations(tr map[string]EntityTranslations, index map[string]int, apply func(i int, description string)) {
+	for id, m := range tr {
+		if v, ok := m[TranslationFieldDescription]; ok && v != "" {
+			apply(index[id], v)
+		}
+	}
+}
+
+func applyDescriptionTranslations[E any](
+	ctx context.Context,
+	r *Repository,
+	entities []E,
+	entityType string,
+	entityID func(E) string,
+	setDescription func(int, string),
+	loc i18n.Locale,
+) error {
+	if len(entities) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(entities))
+	index := make(map[string]int, len(entities))
+	for i, entity := range entities {
+		id := entityID(entity)
+		ids = append(ids, id)
+		index[id] = i
+	}
+	tr, err := r.GetEntityTranslations(ctx, entityType, ids, loc)
+	if err != nil {
+		return err
+	}
+	overlayDescriptionTranslations(tr, index, setDescription)
+	return nil
+}
+
 // ApplyTableTranslations overlays localized description (and label) onto a
 // slice of tables in-place. Tables without a translation keep their raw
 // description.
 func (r *Repository) ApplyTableTranslations(ctx context.Context, tables []Table, loc i18n.Locale) error {
-	if len(tables) == 0 {
-		return nil
-	}
-	ids := make([]string, 0, len(tables))
-	for _, t := range tables {
-		ids = append(ids, t.ID)
-	}
-	tr, err := r.GetEntityTranslations(ctx, EntityTypeTable, ids, loc)
-	if err != nil {
-		return err
-	}
-	for i := range tables {
-		if m, ok := tr[tables[i].ID]; ok {
-			if v, ok := m[TranslationFieldDescription]; ok && v != "" {
-				tables[i].Description = new(v)
-			}
-		}
-	}
-	return nil
+	return applyDescriptionTranslations(ctx, r, tables, EntityTypeTable,
+		func(t Table) string { return t.ID },
+		func(i int, description string) { tables[i].Description = new(description) },
+		loc,
+	)
 }
 
 // ApplyColumnTranslations overlays localized description onto a slice of
 // columns in-place.
 func (r *Repository) ApplyColumnTranslations(ctx context.Context, cols []Column, loc i18n.Locale) error {
-	if len(cols) == 0 {
-		return nil
-	}
-	ids := make([]string, 0, len(cols))
-	for _, c := range cols {
-		ids = append(ids, c.ID)
-	}
-	tr, err := r.GetEntityTranslations(ctx, EntityTypeColumn, ids, loc)
-	if err != nil {
-		return err
-	}
-	for i := range cols {
-		if m, ok := tr[cols[i].ID]; ok {
-			if v, ok := m[TranslationFieldDescription]; ok && v != "" {
-				cols[i].Description = new(v)
-			}
-		}
-	}
-	return nil
+	return applyDescriptionTranslations(ctx, r, cols, EntityTypeColumn,
+		func(c Column) string { return c.ID },
+		func(i int, description string) { cols[i].Description = new(description) },
+		loc,
+	)
 }
 
 func uniqueLangs(langs ...string) []string {

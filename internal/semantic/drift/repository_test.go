@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // --- Simple SQL Mock Driver for Repository Tests ---
@@ -128,13 +129,13 @@ func (c *mockConn) Prepare(query string) (driver.Stmt, error) {
 	return &mockStmt{conn: c, query: query}, nil
 }
 
-func (c *mockConn) Close() error { return nil }
+func (*mockConn) Close() error { return nil }
 func (c *mockConn) Begin() (driver.Tx, error) {
 	c.db.logCall("BEGIN", nil)
 	return &mockTx{conn: c}, nil
 }
 
-func (c *mockConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+func (c *mockConn) QueryContext(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	vals := make([]driver.Value, len(args))
 	for i, arg := range args {
 		vals[i] = arg.Value
@@ -143,7 +144,7 @@ func (c *mockConn) QueryContext(ctx context.Context, query string, args []driver
 	return c.db.nextQueryRows(query, vals)
 }
 
-func (c *mockConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+func (c *mockConn) ExecContext(_ context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	vals := make([]driver.Value, len(args))
 	for i, arg := range args {
 		vals[i] = arg.Value
@@ -157,8 +158,8 @@ type mockStmt struct {
 	query string
 }
 
-func (s *mockStmt) Close() error { return nil }
-func (s *mockStmt) NumInput() int { return -1 }
+func (*mockStmt) Close() error { return nil }
+func (*mockStmt) NumInput() int { return -1 }
 func (s *mockStmt) Exec(args []driver.Value) (driver.Result, error) {
 	s.conn.db.logCall("EXEC: "+s.query, args)
 	return s.conn.db.nextExecResult(s.query, args)
@@ -186,7 +187,7 @@ type mockRows struct {
 }
 
 func (r *mockRows) Columns() []string { return r.cols }
-func (r *mockRows) Close() error      { return nil }
+func (*mockRows) Close() error      { return nil }
 func (r *mockRows) Next(dest []driver.Value) error {
 	if r.pos >= len(r.rows) {
 		return io.EOF
@@ -239,9 +240,10 @@ func TestRepositoryListUnresolved(t *testing.T) {
 	ctx := context.Background()
 
 	now := time.Now()
-	driftsJSON, _ := json.Marshal([]DriftItem{
+	driftsJSON, err := json.Marshal([]DriftItem{
 		{Type: DriftTypeColumnDropped, Field: "age", ColumnRef: "public.users.age"},
 	})
+	require.NoError(t, err)
 
 	state.queries = []queryMock{
 		{

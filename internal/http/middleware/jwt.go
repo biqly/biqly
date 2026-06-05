@@ -242,7 +242,9 @@ func extractBearer(r *http.Request) string {
 func writeAuthError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
+	if err := json.NewEncoder(w).Encode(map[string]string{"error": msg}); err != nil {
+		return
+	}
 }
 
 // Context helpers

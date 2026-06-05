@@ -137,6 +137,20 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 		r.Put("/ai/models/{id}", providersHandler.UpdateModel)
 		r.Delete("/ai/models/{id}", providersHandler.DeleteModel)
 		r.Post("/ai/models/{id}/default", providersHandler.SetDefaultModel)
+
+		// Prompt A/B testing management endpoints
+		abHandler := handlers.NewABExperimentHandler(deps)
+		r.Post("/ai/ab-experiments", abHandler.Create)
+		r.Get("/ai/ab-experiments", abHandler.List)
+		r.Get("/ai/ab-experiments/{id}", abHandler.Get)
+		r.Put("/ai/ab-experiments/{id}", abHandler.Update)
+		r.Put("/ai/ab-experiments/{id}/status", abHandler.UpdateStatus)
+		r.Post("/ai/ab-experiments/{id}/variants", abHandler.AddVariant)
+		r.Put("/ai/ab-experiments/{id}/variants/{variantId}", abHandler.UpdateVariant)
+		r.Delete("/ai/ab-experiments/{id}/variants/{variantId}", abHandler.DeleteVariant)
+		r.Get("/ai/ab-experiments/{id}/metrics", abHandler.GetMetrics)
+		r.Get("/ai/ab-experiments/{id}/timeseries", abHandler.GetTimeseries)
+		r.Get("/ai/ab-experiments/{id}/recommendation", abHandler.GetRecommendation)
 	})
 
 	examplesHandler := handlers.NewAIExamplesHandler(deps)

@@ -264,7 +264,7 @@ func defaultGlossarySlice(entries []GlossaryEntry, model *semantic.SemanticModel
 	return out
 }
 
-func (b *PromptBuilder) writeBusinessGlossary(sb *bytes.Buffer, entries []GlossaryEntry) {
+func (*PromptBuilder) writeBusinessGlossary(sb *bytes.Buffer, entries []GlossaryEntry) {
 	if len(entries) == 0 {
 		return
 	}

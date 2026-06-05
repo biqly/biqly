@@ -221,44 +221,58 @@ func (h *InternalHandler) ListGlossary(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, rows)
 }
 
-// CreateAIHistory persists one AI query history row. Returns the assigned
-// row id so callers can correlate later /api/ai/feedback submissions.
-func (h *InternalHandler) CreateAIHistory(w http.ResponseWriter, r *http.Request) {
-	req, ok := decodeJSON[internalapi.AIHistoryRequest](w, r)
+type historyEntryRequest interface {
+	HistoryDatasourceID() string
+	HistoryID() string
+}
+
+func recordHistoryEntry[TReq historyEntryRequest, TResp any](
+	w http.ResponseWriter,
+	r *http.Request,
+	persist func(context.Context, *TReq) error,
+	response func(string) TResp,
+	failMsg string,
+) {
+	req, ok := decodeJSON[TReq](w, r)
 	if !ok {
 		return
 	}
-	if strings.TrimSpace(req.Entry.DatasourceID) == "" {
+	entry := *req
+	if strings.TrimSpace(entry.HistoryDatasourceID()) == "" {
 		writeInternalAPIErrorMsg(w, http.StatusBadRequest, internalapi.CodeInvalidRequest,
 			"entry.datasource_id is required")
 		return
 	}
-	if err := h.meta.CreateAIQueryHistory(r.Context(), &req.Entry); err != nil {
+	if err := persist(r.Context(), req); err != nil {
 		writeInternalAPIError(r.Context(), w, http.StatusInternalServerError,
-			internalapi.CodeInternal, "failed to record ai history", err)
+			internalapi.CodeInternal, failMsg, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, internalapi.AIHistoryResponse{ID: req.Entry.ID})
+	writeJSON(w, http.StatusCreated, response((*req).HistoryID()))
+}
+
+// CreateAIHistory persists one AI query history row. Returns the assigned
+// row id so callers can correlate later /api/ai/feedback submissions.
+func (h *InternalHandler) CreateAIHistory(w http.ResponseWriter, r *http.Request) {
+	recordHistoryEntry(w, r,
+		func(ctx context.Context, req *internalapi.AIHistoryRequest) error {
+			return h.meta.CreateAIQueryHistory(ctx, &req.Entry)
+		},
+		func(id string) internalapi.AIHistoryResponse { return internalapi.AIHistoryResponse{ID: id} },
+		"failed to record ai history",
+	)
 }
 
 // CreateQueryHistory persists one query history row. Returns the assigned
 // row id so the caller can attach this id to downstream telemetry.
 func (h *InternalHandler) CreateQueryHistory(w http.ResponseWriter, r *http.Request) {
-	req, ok := decodeJSON[internalapi.QueryHistoryRequest](w, r)
-	if !ok {
-		return
-	}
-	if strings.TrimSpace(req.Entry.DatasourceID) == "" {
-		writeInternalAPIErrorMsg(w, http.StatusBadRequest, internalapi.CodeInvalidRequest,
-			"entry.datasource_id is required")
-		return
-	}
-	if err := h.meta.CreateQueryHistory(r.Context(), &req.Entry); err != nil {
-		writeInternalAPIError(r.Context(), w, http.StatusInternalServerError,
-			internalapi.CodeInternal, "failed to record query history", err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, internalapi.QueryHistoryResponse{ID: req.Entry.ID})
+	recordHistoryEntry(w, r,
+		func(ctx context.Context, req *internalapi.QueryHistoryRequest) error {
+			return h.meta.CreateQueryHistory(ctx, &req.Entry)
+		},
+		func(id string) internalapi.QueryHistoryResponse { return internalapi.QueryHistoryResponse{ID: id} },
+		"failed to record query history",
+	)
 }
 
 // CreateEvalResults persists one eval run's per-case results and aggregate

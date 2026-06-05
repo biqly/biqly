@@ -183,56 +183,45 @@ func TestJWTAuth_ExpiredTokenRejected(t *testing.T) {
 	}
 }
 
-func TestJWTAuth_WrongIssuerRejected(t *testing.T) {
+func assertJWTRejected(t *testing.T, claims JWTClaims, label string) {
+	t.Helper()
 	priv, pub := newSigningKey(t)
 	srv := newKeyServer(t, pub, "biqly-monolith")
 	defer srv.Close()
 
-	tokenStr := signToken(t, priv, JWTClaims{
+	tokenStr := signToken(t, priv, claims)
+	provider := NewPublicKeyProvider(srv.URL, "tok")
+	mw := JWTAuth(provider)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+	req.Header.Set("Authorization", "Bearer "+tokenStr)
+	w := httptest.NewRecorder()
+	mw(okHandler()).ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for %s, got %d", label, w.Code)
+	}
+}
+
+func TestJWTAuth_WrongIssuerRejected(t *testing.T) {
+	assertJWTRejected(t, JWTClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   "user-1",
 			Issuer:    "evil",
 			Audience:  jwt.ClaimStrings{"biqly-monolith"},
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
 		},
-	})
-
-	provider := NewPublicKeyProvider(srv.URL, "tok")
-	mw := JWTAuth(provider)
-
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
-	req.Header.Set("Authorization", "Bearer "+tokenStr)
-	w := httptest.NewRecorder()
-	mw(okHandler()).ServeHTTP(w, req)
-	if w.Code != http.StatusUnauthorized {
-		t.Fatalf("expected 401 for wrong issuer, got %d", w.Code)
-	}
+	}, "wrong issuer")
 }
 
 func TestJWTAuth_WrongAudienceRejected(t *testing.T) {
-	priv, pub := newSigningKey(t)
-	srv := newKeyServer(t, pub, "biqly-monolith")
-	defer srv.Close()
-
-	tokenStr := signToken(t, priv, JWTClaims{
+	assertJWTRejected(t, JWTClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   "user-1",
 			Issuer:    "biqly-auth",
 			Audience:  jwt.ClaimStrings{"someone-else"},
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
 		},
-	})
-
-	provider := NewPublicKeyProvider(srv.URL, "tok")
-	mw := JWTAuth(provider)
-
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
-	req.Header.Set("Authorization", "Bearer "+tokenStr)
-	w := httptest.NewRecorder()
-	mw(okHandler()).ServeHTTP(w, req)
-	if w.Code != http.StatusUnauthorized {
-		t.Fatalf("expected 401 for wrong audience, got %d", w.Code)
-	}
+	}, "wrong audience")
 }
 
 func TestJWTAuth_HS256TokenRejected(t *testing.T) {
@@ -266,7 +255,7 @@ func TestJWTAuth_HS256TokenRejected(t *testing.T) {
 
 func TestJWTAuth_KeyFetchFailureReturns503(t *testing.T) {
 	// Provider pointed at a closed server simulates auth service down.
-	closedSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
+	closedSrv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
 	closedSrv.Close()
 
 	provider := NewPublicKeyProvider(closedSrv.URL, "tok")

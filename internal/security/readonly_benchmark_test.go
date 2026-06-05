@@ -41,7 +41,7 @@ func BenchmarkStripSQLLiteralsAndComments(b *testing.B) {
 		b.Run(query.name+"/current", func(b *testing.B) {
 			b.ReportAllocs()
 			var result string
-			for range b.N {
+			for b.Loop() {
 				result = stripSQLLiteralsAndComments(query.sql)
 			}
 			benchmarkReadonlyResult = result
@@ -50,7 +50,7 @@ func BenchmarkStripSQLLiteralsAndComments(b *testing.B) {
 		b.Run(query.name+"/pooled_builder", func(b *testing.B) {
 			b.ReportAllocs()
 			var result string
-			for range b.N {
+			for b.Loop() {
 				result = benchmarkStripSQLLiteralsAndCommentsWithPool(query.sql)
 			}
 			benchmarkReadonlyResult = result
@@ -59,74 +59,14 @@ func BenchmarkStripSQLLiteralsAndComments(b *testing.B) {
 }
 
 func benchmarkStripSQLLiteralsAndCommentsWithPool(sql string) string {
-	out := benchmarkReadonlyPool.Get().(*strings.Builder)
+	out, ok := benchmarkReadonlyPool.Get().(*strings.Builder)
+	if !ok {
+		out = &strings.Builder{}
+	}
 	out.Reset()
 	out.Grow(len(sql))
-	defer benchmarkReadonlyPool.Put(out)
-
-	i := 0
-	n := len(sql)
-	for i < n {
-		c := sql[i]
-
-		if c == '-' && i+1 < n && sql[i+1] == '-' {
-			for i < n && sql[i] != '\n' {
-				i++
-			}
-			continue
-		}
-
-		if c == '/' && i+1 < n && sql[i+1] == '*' {
-			i += 2
-			for i+1 < n && (sql[i] != '*' || sql[i+1] != '/') {
-				i++
-			}
-			if i+1 < n {
-				i += 2
-			} else {
-				i = n
-			}
-			continue
-		}
-
-		if c == '\'' {
-			out.WriteByte('\'')
-			i++
-			for i < n {
-				if sql[i] == '\'' {
-					if i+1 < n && sql[i+1] == '\'' {
-						i += 2
-						continue
-					}
-					out.WriteByte('\'')
-					i++
-					break
-				}
-				i++
-			}
-			continue
-		}
-
-		if c == '"' {
-			out.WriteByte('"')
-			i++
-			for i < n {
-				if sql[i] == '"' {
-					if i+1 < n && sql[i+1] == '"' {
-						i += 2
-						continue
-					}
-					out.WriteByte('"')
-					i++
-					break
-				}
-				i++
-			}
-			continue
-		}
-
-		out.WriteByte(c)
-		i++
-	}
-	return out.String()
+	writeStrippedSQLLiteralsAndComments(sql, out)
+	result := out.String()
+	benchmarkReadonlyPool.Put(out)
+	return result
 }

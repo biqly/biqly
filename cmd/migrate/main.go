@@ -218,7 +218,7 @@ func isAlreadyAppliedError(err error) bool {
 	}
 }
 
-func backfillExpressions(ctx context.Context, db *sql.DB) error {
+func backfillExpressions(ctx context.Context, db *sql.DB) error { //nolint:funlen,gocognit
 	// Process dimensions
 	dimRows, err := db.QueryContext(ctx, `SELECT id, calculated_expression FROM semantic_dimensions WHERE calculated_expression IS NOT NULL AND calculated_expression != ''`)
 	if err != nil {

@@ -37,7 +37,7 @@ func (m *SessionManager) SetLifecycleTTLs(absolute, idle time.Duration) {
 	m.idleTTL = idle
 }
 
-func (m *SessionManager) generateOpaqueToken() (string, error) {
+func (*SessionManager) generateOpaqueToken() (string, error) {
 	b := make([]byte, 32)
 	_, err := rand.Read(b)
 	if err != nil {

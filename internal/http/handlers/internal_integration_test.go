@@ -22,7 +22,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-//nolint:gocyclo // table-driven coverage of many internal HTTP endpoints
+//nolint:gocyclo,gocognit,funlen // table-driven coverage of many internal HTTP endpoints
 func TestInternalIntegration_Endpoints(t *testing.T) {
 	encDSN := mustEncryptDSN(t, plaintextProbeDSN)
 	catalog := integrationCatalogFixture(encDSN)
@@ -162,7 +162,7 @@ func TestInternalIntegration_Endpoints(t *testing.T) {
 	})
 
 	t.Run("POST /internal/eval-results", func(t *testing.T) {
-		payload, _ := json.Marshal(internalapi.EvalResultsRequest{
+		payload, _ := json.Marshal(internalapi.EvalResultsRequest{ //nolint:musttag // nested eval types omit json tags by design
 			RunID: "run_1", Provider: "openai", Model: "gpt-4o",
 			Results: []ai.EvalResultWithMetrics{},
 		})

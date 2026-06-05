@@ -252,14 +252,14 @@ func WithAmbiguityAnalysisObserver(observer AmbiguityAnalysisObserver) ProcessOp
 // failure the LLM is re-prompted with the prior output and error message, up
 // to s.maxRetries additional attempts.
 //
-//nolint:gocyclo // orchestrates ambiguity check, cache, multi-candidate voting, and repair/retry loop
+//nolint:gocyclo,gocognit,funlen // orchestrates ambiguity check, cache, multi-candidate voting, and repair/retry loop
 func (s *Service) ProcessQuestion(ctx context.Context, question string, model *semantic.SemanticModel, opts ...ProcessOption) (*AIResponse, error) {
 	options := processOptions{}
 	for _, opt := range opts {
 		opt(&options)
 	}
 
-	if options.ambiguityCheck {
+	if options.ambiguityCheck { //nolint:nestif
 		glossary := options.ambiguityGlossary
 		if glossary == nil {
 			glossary = options.glossary
@@ -400,7 +400,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		expanded, _ := s.buildPrompt(ctx, question, model, nextTier, options, filterSess, followIntent)
 
 		locale := promptpkg.PromptLocaleForQuestion(question, i18n.FromContext(ctx))
-		if len(validationErrors) > 0 {
+		if len(validationErrors) > 0 { //nolint:nestif
 			var filteredErrors query.ValidationErrors
 			if attempt == 0 {
 				for _, ve := range validationErrors {
@@ -658,6 +658,7 @@ func buildClarification(question, reason, source string) *Clarification {
 // majority returns immediately; ties or no successful candidates fall through
 // to the standard single-shot + retry path. Best-effort: any provider error
 // falls back rather than aborting the whole request.
+//nolint:gocognit,funlen
 func (s *Service) tryMultiCandidate(
 	ctx context.Context,
 	question string,

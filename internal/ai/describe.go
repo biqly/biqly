@@ -258,6 +258,7 @@ func truncateStringRunes(s string, maxRunes int) string {
 	return string(runes[:maxRunes]) + "…"
 }
 
+//nolint:gocognit
 func (s *DescribeService) apply(ctx context.Context, cols []metadata.Column, result *DescribeResult) error {
 	colByName := make(map[string]metadata.Column, len(cols))
 	for _, c := range cols {
@@ -293,7 +294,7 @@ func (s *DescribeService) apply(ctx context.Context, cols []metadata.Column, res
 		}
 	}
 
-	if result.originalLang != "" && result.TranslationApplied && len(cols) > 0 {
+	if result.originalLang != "" && result.TranslationApplied && len(cols) > 0 { //nolint:nestif
 		if result.originalDescription != "" {
 			_ = s.metaRepo.UpsertTranslation(ctx, metadata.Translation{
 				EntityType: metadata.EntityTypeTable,

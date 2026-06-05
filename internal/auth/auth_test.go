@@ -525,7 +525,7 @@ func TestRateLimiting(t *testing.T) {
 	rClient.Del(ctx, key)
 
 	limiter := NewRateLimiter(rClient)
-	handler := limiter.Limit(2, 1*time.Minute, "test")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := limiter.Limit(2, 1*time.Minute, "test")(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -548,7 +548,7 @@ func TestRateLimiting(t *testing.T) {
 
 func TestCSRF(t *testing.T) {
 	ctx := context.Background()
-	handler := CSRF(false)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := CSRF(false)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 

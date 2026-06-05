@@ -72,7 +72,7 @@ func validateColumnRefExpr(e ColumnRefExpr, allowedColumns map[string]bool) erro
 	if e.Table != "" {
 		key = strings.ToLower(e.Table + "." + e.Column)
 	}
-	if !allowedColumns[key] {
+	if !allowedColumns[key] { //nolint:nestif
 		// Fallback: check unqualified column if allowedColumns has table.column format
 		if e.Table == "" {
 			found := false

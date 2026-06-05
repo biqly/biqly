@@ -23,17 +23,17 @@ type fakeTimeGrainRepo struct {
 	upsertErr error
 }
 
-func (f *fakeTimeGrainRepo) CountTimeGrains(ctx context.Context) (int, error) {
+func (f *fakeTimeGrainRepo) CountTimeGrains(_ context.Context) (int, error) {
 	f.countCalls++
 	return f.countVal, f.countErr
 }
 
-func (f *fakeTimeGrainRepo) ListTimeGrains(ctx context.Context) ([]metadata.TimeGrain, error) {
+func (f *fakeTimeGrainRepo) ListTimeGrains(_ context.Context) ([]metadata.TimeGrain, error) {
 	f.listCalls++
 	return f.listVal, f.listErr
 }
 
-func (f *fakeTimeGrainRepo) UpsertTimeGrain(ctx context.Context, tg metadata.TimeGrain) error {
+func (f *fakeTimeGrainRepo) UpsertTimeGrain(_ context.Context, _ metadata.TimeGrain) error {
 	f.upsertCalls++
 	return f.upsertErr
 }

@@ -237,7 +237,11 @@ func (h *RBACHandler) handleMyPermissions(w http.ResponseWriter, r *http.Request
 // === Workspace ===
 
 func (h *RBACHandler) handleListWorkspaces(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(userIDKey).(string)
+	userID, ok := contextUserID(r)
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
+		return
+	}
 	isSuper, err := h.rbac.IsSuperAdmin(r.Context(), userID)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)
@@ -261,7 +265,11 @@ func (h *RBACHandler) handleListWorkspaces(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *RBACHandler) handleCreateWorkspace(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(userIDKey).(string)
+	userID, ok := contextUserID(r)
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
+		return
+	}
 	var req struct {
 		Name        string `json:"name"`
 		Description string `json:"description"`
@@ -288,7 +296,11 @@ func (h *RBACHandler) handleGetWorkspace(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *RBACHandler) handleUpdateWorkspace(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(userIDKey).(string)
+	userID, ok := contextUserID(r)
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
+		return
+	}
 	var req struct {
 		Name        string `json:"name"`
 		Description string `json:"description"`
@@ -307,7 +319,11 @@ func (h *RBACHandler) handleUpdateWorkspace(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *RBACHandler) handleDeleteWorkspace(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(userIDKey).(string)
+	userID, ok := contextUserID(r)
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
+		return
+	}
 	if err := h.ws.Delete(r.Context(), chi.URLParam(r, "id"), userID); err != nil {
 		writeError(w, r, http.StatusForbidden, err)
 		return
@@ -325,7 +341,11 @@ func (h *RBACHandler) handleListMembers(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *RBACHandler) handleAddMember(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(userIDKey).(string)
+	userID, ok := contextUserID(r)
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
+		return
+	}
 	var req struct {
 		UserID string `json:"user_id"`
 		RoleID string `json:"role_id"`
@@ -342,7 +362,11 @@ func (h *RBACHandler) handleAddMember(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RBACHandler) handleUpdateMemberRole(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(userIDKey).(string)
+	userID, ok := contextUserID(r)
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
+		return
+	}
 	var req struct {
 		RoleID string `json:"role_id"`
 	}
@@ -358,7 +382,11 @@ func (h *RBACHandler) handleUpdateMemberRole(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *RBACHandler) handleRemoveMember(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(userIDKey).(string)
+	userID, ok := contextUserID(r)
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
+		return
+	}
 	if err := h.ws.RemoveMember(r.Context(), chi.URLParam(r, "id"), chi.URLParam(r, "userId"), userID); err != nil {
 		writeError(w, r, http.StatusForbidden, err)
 		return
@@ -376,7 +404,11 @@ func (h *RBACHandler) handleListWorkspaceDatasources(w http.ResponseWriter, r *h
 }
 
 func (h *RBACHandler) handleAttachDatasource(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(userIDKey).(string)
+	userID, ok := contextUserID(r)
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
+		return
+	}
 	var req struct {
 		DatasourceID string `json:"datasource_id"`
 		AccessLevel  string `json:"access_level"`
@@ -396,7 +428,11 @@ func (h *RBACHandler) handleAttachDatasource(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *RBACHandler) handleDetachDatasource(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(userIDKey).(string)
+	userID, ok := contextUserID(r)
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
+		return
+	}
 	if err := h.ws.DetachDatasource(r.Context(), chi.URLParam(r, "id"), chi.URLParam(r, "dsId"), userID); err != nil {
 		writeError(w, r, http.StatusForbidden, err)
 		return
@@ -407,7 +443,11 @@ func (h *RBACHandler) handleDetachDatasource(w http.ResponseWriter, r *http.Requ
 // === Datasource access ===
 
 func (h *RBACHandler) handleListMyDatasources(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(userIDKey).(string)
+	userID, ok := contextUserID(r)
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
+		return
+	}
 	ids, err := h.dsAccess.ListAccessibleDatasourceIDs(r.Context(), userID)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)
@@ -417,7 +457,11 @@ func (h *RBACHandler) handleListMyDatasources(w http.ResponseWriter, r *http.Req
 }
 
 func (h *RBACHandler) handleCheckMyDatasource(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(userIDKey).(string)
+	userID, ok := contextUserID(r)
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
+		return
+	}
 	dsID := chi.URLParam(r, "id")
 	level := r.URL.Query().Get("level")
 	if level == "" {
@@ -432,7 +476,11 @@ func (h *RBACHandler) handleCheckMyDatasource(w http.ResponseWriter, r *http.Req
 }
 
 func (h *RBACHandler) handleRequestAccess(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(userIDKey).(string)
+	userID, ok := contextUserID(r)
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
+		return
+	}
 	dsID := chi.URLParam(r, "id")
 	action := "datasource.request_access"
 	resType := "datasource"
@@ -447,7 +495,11 @@ func (h *RBACHandler) handleRequestAccess(w http.ResponseWriter, r *http.Request
 // === Sharing ===
 
 func (h *RBACHandler) handleCreateShare(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(userIDKey).(string)
+	userID, ok := contextUserID(r)
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
+		return
+	}
 	var req workspace.ShareRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, r, http.StatusBadRequest, err)
@@ -462,7 +514,11 @@ func (h *RBACHandler) handleCreateShare(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *RBACHandler) handleListShares(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(userIDKey).(string)
+	userID, ok := contextUserID(r)
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
+		return
+	}
 	resourceType := r.URL.Query().Get("resource_type")
 	mode := r.URL.Query().Get("mode")
 
@@ -486,7 +542,11 @@ func (h *RBACHandler) handleListShares(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RBACHandler) handleRevokeShare(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(userIDKey).(string)
+	userID, ok := contextUserID(r)
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
+		return
+	}
 	if err := h.sharing.Revoke(r.Context(), chi.URLParam(r, "id"), userID); err != nil {
 		writeError(w, r, http.StatusForbidden, err)
 		return
@@ -510,7 +570,11 @@ func (h *RBACHandler) handleAdminListAccess(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *RBACHandler) handleAdminGrantAccess(w http.ResponseWriter, r *http.Request) {
-	caller := r.Context().Value(userIDKey).(string)
+	caller, ok := contextUserID(r)
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
+		return
+	}
 	var req struct {
 		UserID       string `json:"user_id"`
 		DatasourceID string `json:"datasource_id"`

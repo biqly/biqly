@@ -63,7 +63,7 @@ func HistoryModelID(model *semantic.SemanticModel) *string {
 // MarshalSQLArgs JSON-encodes SQL arguments for history storage.
 func MarshalSQLArgs(args []any) (*string, error) {
 	if args == nil {
-		return nil, nil
+		return nil, nil //nolint:nilnil // nil args serialize as SQL NULL
 	}
 	b, err := json.Marshal(args)
 	if err != nil {

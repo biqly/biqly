@@ -77,7 +77,7 @@ func (s *AuthService) RedeemOAuthCallbackCode(ctx context.Context, code string) 
 	usedKey := oauthCallbackUsedKeyPrefix + code
 
 	raw, err := s.redisClient.GetDel(ctx, key).Bytes()
-	if err != nil {
+	if err != nil { //nolint:nestif
 		if !errors.Is(err, redis.Nil) {
 			return nil, fmt.Errorf("redeem oauth callback code: %w", err)
 		}

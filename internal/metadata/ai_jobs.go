@@ -132,7 +132,7 @@ func (r *Repository) FindConflictingDescribeBatch(
 	scopeSchemas []string,
 ) (*AIJob, error) {
 	if datasourceID == "" || len(scopeSchemas) == 0 {
-		return nil, nil
+		return nil, nil //nolint:nilnil // optional result
 	}
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct,
@@ -147,7 +147,7 @@ func (r *Repository) FindConflictingDescribeBatch(
 		LIMIT 1`, datasourceID, pq.Array(scopeSchemas))
 	job, err := scanAIJob(row)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
+		return nil, nil //nolint:nilnil // optional result
 	}
 	if err != nil {
 		return nil, fmt.Errorf("find conflicting describe batch: %w", err)
@@ -167,7 +167,7 @@ func (r *Repository) FindConflictingEmbedMetadata(
 	datasourceID = strings.TrimSpace(datasourceID)
 	modelID = strings.TrimSpace(modelID)
 	if datasourceID == "" {
-		return nil, nil
+		return nil, nil //nolint:nilnil // optional result
 	}
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct,
@@ -182,7 +182,7 @@ func (r *Repository) FindConflictingEmbedMetadata(
 		LIMIT 1`, datasourceID, modelID)
 	job, err := scanAIJob(row)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
+		return nil, nil //nolint:nilnil // optional result
 	}
 	if err != nil {
 		return nil, fmt.Errorf("find conflicting embed metadata: %w", err)
@@ -398,55 +398,11 @@ func nullableRawJSON(raw json.RawMessage) any {
 	return raw
 }
 
-func scanAIJob(row *sql.Row) (*AIJob, error) {
-	var job AIJob
-	var result []byte
-	var progress []byte
-	var errMsg sql.NullString
-	var dsID sql.NullString
-	var scope pq.StringArray
-	var started, finished sql.NullTime
-	var userID sql.NullString
-	err := row.Scan(
-		&job.ID, &job.ClientSessionID, &job.Kind, &job.Status, &job.Phase, &job.PhaseMessage, &job.ProgressPct,
-		&dsID, &scope, &progress,
-		&job.RequestJSON, &result, &errMsg, &job.CreatedAt, &job.UpdatedAt, &started, &finished, &userID,
-	)
-	if err != nil {
-		return nil, err
-	}
-	if len(result) > 0 {
-		job.ResultJSON = json.RawMessage(result)
-	}
-	if len(progress) > 0 {
-		job.ProgressJSON = json.RawMessage(progress)
-	}
-	if dsID.Valid {
-		job.DatasourceID = new(dsID.String)
-	}
-	if len(scope) > 0 {
-		job.ScopeSchemas = []string(scope)
-	}
-	if errMsg.Valid {
-		job.ErrorMessage = errMsg.String
-	}
-	if started.Valid {
-		job.StartedAt = new(started.Time)
-	}
-	if finished.Valid {
-		job.FinishedAt = new(finished.Time)
-	}
-	if userID.Valid {
-		job.UserID = new(userID.String)
-	}
-	return &job, nil
-}
-
 type aiJobScanner interface {
 	Scan(dest ...any) error
 }
 
-func scanAIJobRows(rows aiJobScanner) (*AIJob, error) {
+func scanAIJobFromScanner(scanner aiJobScanner) (*AIJob, error) {
 	var job AIJob
 	var result []byte
 	var progress []byte
@@ -455,7 +411,7 @@ func scanAIJobRows(rows aiJobScanner) (*AIJob, error) {
 	var scope pq.StringArray
 	var started, finished sql.NullTime
 	var userID sql.NullString
-	err := rows.Scan(
+	err := scanner.Scan(
 		&job.ID, &job.ClientSessionID, &job.Kind, &job.Status, &job.Phase, &job.PhaseMessage, &job.ProgressPct,
 		&dsID, &scope, &progress,
 		&job.RequestJSON, &result, &errMsg, &job.CreatedAt, &job.UpdatedAt, &started, &finished, &userID,
@@ -488,4 +444,12 @@ func scanAIJobRows(rows aiJobScanner) (*AIJob, error) {
 		job.UserID = new(userID.String)
 	}
 	return &job, nil
+}
+
+func scanAIJob(row *sql.Row) (*AIJob, error) {
+	return scanAIJobFromScanner(row)
+}
+
+func scanAIJobRows(rows aiJobScanner) (*AIJob, error) {
+	return scanAIJobFromScanner(rows)
 }

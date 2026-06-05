@@ -27,7 +27,7 @@ func TestHydrateExpressionASTsParsesDimensionAndMetricExpressions(t *testing.T) 
 			}, nil
 		default:
 			t.Fatalf("ExpressionParser(%q) called unexpectedly", expr)
-			return nil, nil
+			return nil, nil //nolint:nilnil // unreachable after Fatalf
 		}
 	}
 

@@ -15,6 +15,7 @@ import (
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
+	"github.com/stretchr/testify/require"
 )
 
 var errPlannerSyntax = stderrors.New("planner: syntax error near 'FROO'")
@@ -582,7 +583,8 @@ func TestProcessQuestionInheritsFiltersOnRefineFollowUp(t *testing.T) {
 			{Field: "order_date", Operator: query.OpBetween, Value: []any{"2025-04-01", "2025-04-30"}},
 		},
 	}
-	prevRaw, _ := json.Marshal(prevLQ)
+	prevRaw, err := json.Marshal(prevLQ)
+	require.NoError(t, err)
 	prior := []prompt.ConversationTurn{
 		{Question: "geçen ay satışlar", LogicalQuery: string(prevRaw)},
 	}

@@ -34,7 +34,7 @@ func NewValidator(maxRows int) *Validator {
 
 // Validate checks a LogicalQuery for correctness.
 //
-//nolint:gocyclo // validates select, filters, group_by, having, order_by, windows, and case items
+//nolint:gocyclo,gocognit,funlen // validates select, filters, group_by, having, order_by, windows, and case items
 func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) error {
 	var errs ValidationErrors
 
@@ -220,27 +220,7 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 		}
 	}
 
-	// Check order by
-	for _, ob := range lq.OrderBy {
-		if !dimMap[ob.Field] && !metricRegistry.Has(ob.Field) {
-			errs = append(errs, &ValidationError{
-				Field:               "order_by",
-				Code:                errmsg.CodeUnknownField,
-				Message:             errmsg.UnknownFieldMsg(ob.Field),
-				Value:               ob.Field,
-				AllowedAlternatives: suggestAlternatives(ob.Field, getAllFieldNames(model)),
-			})
-		}
-		if ob.Direction != "" && ob.Direction != OrderAsc && ob.Direction != OrderDesc {
-			errs = append(errs, &ValidationError{
-				Field:               "order_by",
-				Code:                "INVALID_DIRECTION",
-				Message:             "invalid direction: " + ob.Direction,
-				Value:               ob.Direction,
-				AllowedAlternatives: []string{OrderAsc, OrderDesc},
-			})
-		}
-	}
+	errs = append(errs, validateOrderByClauses(lq.OrderBy, dimMap, metricRegistry, model, "order_by")...)
 
 	// Check limit
 	if lq.Limit < 0 {
@@ -332,6 +312,37 @@ func isNumericFilterValue(v any) bool {
 // validateWindowSelect ensures a window SelectItem is well-formed: spec is
 // present, the aggregation is recognised, partition_by and order_by fields
 // resolve in the semantic model, and any referenced metric exists.
+func validateOrderByClauses(
+	orderBy []OrderBy,
+	dimMap map[string]bool,
+	metricRegistry *semantic.MetricRegistry,
+	model *semantic.SemanticModel,
+	field string,
+) ValidationErrors {
+	var errs ValidationErrors
+	for _, ob := range orderBy {
+		if !dimMap[ob.Field] && !metricRegistry.Has(ob.Field) {
+			errs = append(errs, &ValidationError{
+				Field:               field,
+				Code:                errmsg.CodeUnknownField,
+				Message:             errmsg.UnknownFieldMsg(ob.Field),
+				Value:               ob.Field,
+				AllowedAlternatives: suggestAlternatives(ob.Field, getAllFieldNames(model)),
+			})
+		}
+		if ob.Direction != "" && ob.Direction != OrderAsc && ob.Direction != OrderDesc {
+			errs = append(errs, &ValidationError{
+				Field:               field,
+				Code:                "INVALID_DIRECTION",
+				Message:             "invalid direction: " + ob.Direction,
+				Value:               ob.Direction,
+				AllowedAlternatives: []string{OrderAsc, OrderDesc},
+			})
+		}
+	}
+	return errs
+}
+
 func validateWindowSelect(item SelectItem, model *semantic.SemanticModel) ValidationErrors {
 	var errs ValidationErrors
 	if item.Window == nil {
@@ -382,26 +393,7 @@ func validateWindowSelect(item SelectItem, model *semantic.SemanticModel) Valida
 			})
 		}
 	}
-	for _, ob := range w.OrderBy {
-		if !dimMap[ob.Field] && !metricRegistry.Has(ob.Field) {
-			errs = append(errs, &ValidationError{
-				Field:               "select.window.order_by",
-				Code:                errmsg.CodeUnknownField,
-				Message:             errmsg.UnknownFieldMsg(ob.Field),
-				Value:               ob.Field,
-				AllowedAlternatives: suggestAlternatives(ob.Field, getAllFieldNames(model)),
-			})
-		}
-		if ob.Direction != "" && ob.Direction != OrderAsc && ob.Direction != OrderDesc {
-			errs = append(errs, &ValidationError{
-				Field:               "select.window.order_by",
-				Code:                "INVALID_DIRECTION",
-				Message:             "invalid direction: " + ob.Direction,
-				Value:               ob.Direction,
-				AllowedAlternatives: []string{OrderAsc, OrderDesc},
-			})
-		}
-	}
+	errs = append(errs, validateOrderByClauses(w.OrderBy, dimMap, metricRegistry, model, "select.window.order_by")...)
 	return errs
 }
 

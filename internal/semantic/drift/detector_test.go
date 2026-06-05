@@ -8,7 +8,7 @@ import (
 	"github.com/biqly/biqly/internal/semantic"
 )
 
-func TestDetectorCompare(t *testing.T) {
+func TestDetectorCompare(t *testing.T) { //nolint:funlen,gocognit
 	detector := NewDetector()
 	ctx := context.Background()
 
@@ -45,67 +45,55 @@ func TestDetectorCompare(t *testing.T) {
 		}
 	})
 
-	t.Run("Schema Dropped", func(t *testing.T) {
-		model := semantic.SemanticModel{
-			ID:           "model-1",
-			DatasourceID: "ds-1",
-			BaseSchema:   "public",
-			BaseTable:    "users",
-		}
-
-		tables := []metadata.Table{
-			{SchemaName: "other", TableName: "users"},
-		}
-
-		columns := []metadata.Column{
-			{SchemaName: "other", TableName: "users", ColumnName: "id", DataType: "integer"},
-		}
-
-		report, err := detector.Compare(ctx, model, columns, tables)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if report == nil {
-			t.Fatal("expected report, got nil")
-		}
-		if len(report.Drifts) != 1 || report.Drifts[0].Type != DriftTypeSchemaDropped {
-			t.Fatalf("expected SchemaDropped drift, got: %+v", report.Drifts)
-		}
-		if report.Severity != SeverityCritical {
-			t.Fatalf("expected Critical severity, got: %s", report.Severity)
-		}
-	})
-
-	t.Run("Table Dropped", func(t *testing.T) {
-		model := semantic.SemanticModel{
-			ID:           "model-1",
-			DatasourceID: "ds-1",
-			BaseSchema:   "public",
-			BaseTable:    "users",
-		}
-
-		tables := []metadata.Table{
-			{SchemaName: "public", TableName: "orders"},
-		}
-
-		columns := []metadata.Column{
-			{SchemaName: "public", TableName: "orders", ColumnName: "id", DataType: "integer"},
-		}
-
-		report, err := detector.Compare(ctx, model, columns, tables)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if report == nil {
-			t.Fatal("expected report, got nil")
-		}
-		if len(report.Drifts) != 1 || report.Drifts[0].Type != DriftTypeTableDropped {
-			t.Fatalf("expected TableDropped drift, got: %+v", report.Drifts)
-		}
-		if report.Severity != SeverityCritical {
-			t.Fatalf("expected Critical severity, got: %s", report.Severity)
-		}
-	})
+	for _, tc := range []struct {
+		name      string
+		tables    []metadata.Table
+		columns   []metadata.Column
+		wantType  DriftType
+	}{
+		{
+			name: "Schema Dropped",
+			tables: []metadata.Table{
+				{SchemaName: "other", TableName: "users"},
+			},
+			columns: []metadata.Column{
+				{SchemaName: "other", TableName: "users", ColumnName: "id", DataType: "integer"},
+			},
+			wantType: DriftTypeSchemaDropped,
+		},
+		{
+			name: "Table Dropped",
+			tables: []metadata.Table{
+				{SchemaName: "public", TableName: "orders"},
+			},
+			columns: []metadata.Column{
+				{SchemaName: "public", TableName: "orders", ColumnName: "id", DataType: "integer"},
+			},
+			wantType: DriftTypeTableDropped,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			model := semantic.SemanticModel{
+				ID:           "model-1",
+				DatasourceID: "ds-1",
+				BaseSchema:   "public",
+				BaseTable:    "users",
+			}
+			report, err := detector.Compare(ctx, model, tc.columns, tc.tables)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if report == nil {
+				t.Fatal("expected report, got nil")
+			}
+			if len(report.Drifts) != 1 || report.Drifts[0].Type != tc.wantType {
+				t.Fatalf("expected %s drift, got: %+v", tc.wantType, report.Drifts)
+			}
+			if report.Severity != SeverityCritical {
+				t.Fatalf("expected Critical severity, got: %s", report.Severity)
+			}
+		})
+	}
 
 	t.Run("Column Dropped", func(t *testing.T) {
 		model := semantic.SemanticModel{

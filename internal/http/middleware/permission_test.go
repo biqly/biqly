@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/stretchr/testify/require"
 )
 
 type authStub struct {
@@ -150,21 +151,27 @@ func TestRequirePermission_Denied(t *testing.T) {
 	}
 }
 
-func TestRequirePermission_UpstreamError(t *testing.T) {
+func assertMiddlewareUpstreamError(t *testing.T, configure func(*authStub), mw func(*AuthClient) func(http.Handler) http.Handler, path string) {
+	t.Helper()
 	stub := newAuthStub()
 	defer stub.Close()
-	stub.permStatusCode = http.StatusInternalServerError
-
+	configure(stub)
 	client := NewAuthClient(stub.server.URL, "tok")
-	mw := RequirePermission(client, "query:execute")
-
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, nil)
 	req = req.WithContext(ctxWithUser([]string{"analyst"}))
 	w := httptest.NewRecorder()
-	mw(okHandler()).ServeHTTP(w, req)
+	mw(client)(okHandler()).ServeHTTP(w, req)
 	if w.Code != http.StatusServiceUnavailable {
 		t.Fatalf("expected 503, got %d", w.Code)
 	}
+}
+
+func TestRequirePermission_UpstreamError(t *testing.T) {
+	assertMiddlewareUpstreamError(t, func(stub *authStub) {
+		stub.permStatusCode = http.StatusInternalServerError
+	}, func(client *AuthClient) func(http.Handler) http.Handler {
+		return RequirePermission(client, "query:execute")
+	}, "/x")
 }
 
 func TestRequirePermission_PropagatesWorkspaceScope(t *testing.T) {
@@ -319,7 +326,8 @@ func TestRequireDatasourceAccess_FromJSONBodyAndRestores(t *testing.T) {
 	wrapped := mw(handler)
 
 	body := payload{DatasourceID: "body-1", Question: "merhaba"}
-	buf, _ := json.Marshal(body)
+	buf, err := json.Marshal(body)
+	require.NoError(t, err)
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/ai/query", bytes.NewReader(buf))
 	req.Header.Set("Content-Type", "application/json")
 	req = req.WithContext(ctxWithUser([]string{"analyst"}))
@@ -358,20 +366,11 @@ func TestRequireDatasourceAccess_Denied(t *testing.T) {
 }
 
 func TestRequireDatasourceAccess_UpstreamError(t *testing.T) {
-	stub := newAuthStub()
-	defer stub.Close()
-	stub.dsStatusCode = http.StatusBadGateway
-
-	client := NewAuthClient(stub.server.URL, "tok")
-	mw := RequireDatasourceAccess(client, "read")
-
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x?datasource_id=ds-1", nil)
-	req = req.WithContext(ctxWithUser([]string{"analyst"}))
-	w := httptest.NewRecorder()
-	mw(okHandler()).ServeHTTP(w, req)
-	if w.Code != http.StatusServiceUnavailable {
-		t.Fatalf("expected 503, got %d", w.Code)
-	}
+	assertMiddlewareUpstreamError(t, func(stub *authStub) {
+		stub.dsStatusCode = http.StatusBadGateway
+	}, func(client *AuthClient) func(http.Handler) http.Handler {
+		return RequireDatasourceAccess(client, "read")
+	}, "/x?datasource_id=ds-1")
 }
 
 func TestRequireDatasourceAccess_CachedAcrossCalls(t *testing.T) {

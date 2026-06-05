@@ -38,58 +38,68 @@ func CastTypeUpper(sqlType string) string {
 	return strings.ToUpper(sqlType)
 }
 
-// AggregateStandardSQL formats COUNT/SUM/AVG/MIN/MAX in the conventional SQL style (PostgreSQL family).
-func AggregateStandardSQL(d interface{ QuoteIdent(string) string }, fn, column string) string {
+type aggregateSpelling struct {
+	countStar      string
+	count          string
+	countDistinct  string
+	sum            string
+	avg            string
+	min            string
+	max            string
+	defaultUnknown string
+}
+
+func aggregateSQL(d interface{ QuoteIdent(string) string }, fn, column string, spell aggregateSpelling) string {
 	fnLower := strings.ToLower(strings.TrimSpace(fn))
 	if fnLower == "custom" || fnLower == "none" || fnLower == "" {
 		return column
 	}
 	if fnLower == "count" && column == "*" {
-		return "COUNT(*)"
+		return spell.countStar
 	}
 	quotedCol := d.QuoteIdent(column)
 	switch fnLower {
 	case "count":
-		return fmt.Sprintf("COUNT(%s)", quotedCol)
+		return fmt.Sprintf(spell.count, quotedCol)
 	case "count_distinct":
-		return fmt.Sprintf("COUNT(DISTINCT %s)", quotedCol)
+		return fmt.Sprintf(spell.countDistinct, quotedCol)
 	case "sum":
-		return fmt.Sprintf("SUM(%s)", quotedCol)
+		return fmt.Sprintf(spell.sum, quotedCol)
 	case "avg":
-		return fmt.Sprintf("AVG(%s)", quotedCol)
+		return fmt.Sprintf(spell.avg, quotedCol)
 	case "min":
-		return fmt.Sprintf("MIN(%s)", quotedCol)
+		return fmt.Sprintf(spell.min, quotedCol)
 	case "max":
-		return fmt.Sprintf("MAX(%s)", quotedCol)
+		return fmt.Sprintf(spell.max, quotedCol)
 	default:
-		return fmt.Sprintf("COUNT(%s)", quotedCol)
+		return fmt.Sprintf(spell.defaultUnknown, quotedCol)
 	}
+}
+
+// AggregateStandardSQL formats COUNT/SUM/AVG/MIN/MAX in the conventional SQL style (PostgreSQL family).
+func AggregateStandardSQL(d interface{ QuoteIdent(string) string }, fn, column string) string {
+	return aggregateSQL(d, fn, column, aggregateSpelling{
+		countStar:      "COUNT(*)",
+		count:          "COUNT(%s)",
+		countDistinct:  "COUNT(DISTINCT %s)",
+		sum:            "SUM(%s)",
+		avg:            "AVG(%s)",
+		min:            "MIN(%s)",
+		max:            "MAX(%s)",
+		defaultUnknown: "COUNT(%s)",
+	})
 }
 
 // AggregateClickHouseSQL formats aggregates using ClickHouse-native spellings where they differ.
 func AggregateClickHouseSQL(d interface{ QuoteIdent(string) string }, fn, column string) string {
-	fnLower := strings.ToLower(strings.TrimSpace(fn))
-	if fnLower == "custom" || fnLower == "none" || fnLower == "" {
-		return column
-	}
-	if fnLower == "count" && column == "*" {
-		return "count()"
-	}
-	quotedCol := d.QuoteIdent(column)
-	switch fnLower {
-	case "count":
-		return fmt.Sprintf("count(%s)", quotedCol)
-	case "count_distinct":
-		return fmt.Sprintf("uniq(%s)", quotedCol)
-	case "sum":
-		return fmt.Sprintf("sum(%s)", quotedCol)
-	case "avg":
-		return fmt.Sprintf("avg(%s)", quotedCol)
-	case "min":
-		return fmt.Sprintf("min(%s)", quotedCol)
-	case "max":
-		return fmt.Sprintf("max(%s)", quotedCol)
-	default:
-		return fmt.Sprintf("count(%s)", quotedCol)
-	}
+	return aggregateSQL(d, fn, column, aggregateSpelling{
+		countStar:      "count()",
+		count:          "count(%s)",
+		countDistinct:  "uniq(%s)",
+		sum:            "sum(%s)",
+		avg:            "avg(%s)",
+		min:            "min(%s)",
+		max:            "max(%s)",
+		defaultUnknown: "count(%s)",
+	})
 }

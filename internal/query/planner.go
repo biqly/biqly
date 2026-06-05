@@ -30,6 +30,7 @@ type TableNode struct {
 }
 
 // Plan analyzes a LogicalQuery and returns a plan.
+//nolint:gocognit
 func (p *Planner) Plan(lq *LogicalQuery, model *semantic.SemanticModel) (*PlanResult, error) {
 	warnings := make([]string, 0, 4)
 	requiredJoins := make([]string, 0, len(model.Joins))
@@ -128,7 +129,7 @@ func (p *Planner) Plan(lq *LogicalQuery, model *semantic.SemanticModel) (*PlanRe
 }
 
 // checkFanout detects potential fanout issues from many-to-many or multiple many-to-one joins.
-func (p *Planner) checkFanout(model *semantic.SemanticModel, tables map[string]bool) []string {
+func (*Planner) checkFanout(model *semantic.SemanticModel, tables map[string]bool) []string {
 	warnings := make([]string, 0, 4)
 
 	manyToManyCount := 0
@@ -175,7 +176,7 @@ func (p *Planner) checkFanout(model *semantic.SemanticModel, tables map[string]b
 }
 
 // checkAggregations validates that metrics and dimensions can be safely combined.
-func (p *Planner) checkAggregations(lq *LogicalQuery) []string {
+func (*Planner) checkAggregations(lq *LogicalQuery) []string {
 	warnings := make([]string, 0, 4)
 
 	hasMetrics := false

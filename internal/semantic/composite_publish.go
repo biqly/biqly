@@ -90,6 +90,7 @@ func resolveComponents(ctx context.Context, composite *CompositeModel, provider 
 
 // ValidateComposite checks whether a draft composite model can be published.
 // Errors block publish; warnings describe risky but valid configurations.
+//nolint:gocognit
 func ValidateComposite(ctx context.Context, composite *CompositeModel, provider ComponentProvider) (*SemanticModel, PublishValidationResult) {
 	result := PublishValidationResult{Valid: true}
 	addError := func(format string, args ...any) {
@@ -309,7 +310,7 @@ func (r *CompositeRepository) RollbackComposite(ctx context.Context, id string, 
 	return &CompositePublishResult{Composite: published, Validation: validation, Version: nextVersion}, nil
 }
 
-func (r *CompositeRepository) writeCompositeVersionTx(
+func (*CompositeRepository) writeCompositeVersionTx(
 	ctx context.Context,
 	tx *sql.Tx,
 	compositeID string,

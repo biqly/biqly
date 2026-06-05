@@ -107,7 +107,7 @@ func (e *Encryption) Decrypt(encoded string) (string, error) {
 
 // IsEncrypted checks if a value looks like our encrypted format (base64, sufficiently long).
 // This is a heuristic used during migration to detect plaintext DSNs.
-func (e *Encryption) IsEncrypted(value string) bool {
+func (*Encryption) IsEncrypted(value string) bool {
 	decoded, err := base64.StdEncoding.DecodeString(value)
 	if err != nil {
 		return false

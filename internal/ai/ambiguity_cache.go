@@ -20,7 +20,7 @@ type ambiguityAnalysisCacheEntry struct {
 }
 
 func ambiguityAnalysisCacheKey(question string, model *semantic.SemanticModel, glossary []promptpkg.GlossaryEntry, confidenceThreshold float64, llmEnabled bool) string {
-	payload, _ := json.Marshal(struct {
+	payload, err := json.Marshal(struct { //nolint:musttag // cache key fields are explicitly tagged
 		Question            string                    `json:"question"`
 		Model               *semantic.SemanticModel   `json:"model"`
 		Glossary            []promptpkg.GlossaryEntry `json:"glossary"`
@@ -33,6 +33,10 @@ func ambiguityAnalysisCacheKey(question string, model *semantic.SemanticModel, g
 		ConfidenceThreshold: confidenceThreshold,
 		LLMEnabled:          llmEnabled,
 	})
+	if err != nil {
+		sum := sha256.Sum256([]byte(question))
+		return hex.EncodeToString(sum[:])
+	}
 	sum := sha256.Sum256(payload)
 	return hex.EncodeToString(sum[:])
 }
@@ -42,7 +46,10 @@ func (s *Service) getCachedAmbiguityAnalysis(key string) (ambiguitypkg.Ambiguity
 	if !ok {
 		return ambiguitypkg.AmbiguityResult{}, "", false
 	}
-	entry := value.(ambiguityAnalysisCacheEntry)
+	entry, ok := value.(ambiguityAnalysisCacheEntry)
+	if !ok {
+		return ambiguitypkg.AmbiguityResult{}, "", false
+	}
 	if time.Now().After(entry.expiresAt) {
 		s.ambiguityCache.Delete(key)
 		return ambiguitypkg.AmbiguityResult{}, "", false

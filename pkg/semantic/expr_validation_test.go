@@ -5,6 +5,7 @@ import (
 	"testing"
 )
 
+//nolint:funlen
 func TestValidateExprStrict(t *testing.T) {
 	allowedCols := map[string]bool{
 		"orders.revenue":      true,

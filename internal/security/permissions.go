@@ -43,7 +43,7 @@ func SystemPolicy() *PermissionPolicy {
 //
 // Returns an error when policy is nil (fail-closed) or when an explicit
 // AllowedModels list is set and does not contain modelName.
-func (pm *PermissionManager) CheckModelAccess(policy *PermissionPolicy, modelName string) error {
+func (*PermissionManager) CheckModelAccess(policy *PermissionPolicy, modelName string) error {
 	if policy == nil {
 		return fmt.Errorf("no permission policy supplied for model %s", modelName)
 	}
@@ -71,7 +71,7 @@ func FieldIsDenied(policy *PermissionPolicy, qualifiedField, plainField string) 
 }
 
 // FilterAllowedFields removes denied fields from the semantic model.
-func (pm *PermissionManager) FilterAllowedFields(modelName string, allowedFields []string, deniedFields []string) []string {
+func (*PermissionManager) FilterAllowedFields(modelName string, allowedFields []string, deniedFields []string) []string {
 	if len(deniedFields) == 0 {
 		return allowedFields
 	}
@@ -88,7 +88,7 @@ func (pm *PermissionManager) FilterAllowedFields(modelName string, allowedFields
 
 // GetRowFilters returns the mandatory row filters for a user.
 // A nil policy returns nil — the executor must not run without a policy.
-func (pm *PermissionManager) GetRowFilters(policy *PermissionPolicy) []RowFilter {
+func (*PermissionManager) GetRowFilters(policy *PermissionPolicy) []RowFilter {
 	if policy == nil {
 		return nil
 	}
@@ -97,7 +97,7 @@ func (pm *PermissionManager) GetRowFilters(policy *PermissionPolicy) []RowFilter
 
 // HasFieldAccess checks if a user can access a specific field.
 // Fail-closed: nil policy denies.
-func (pm *PermissionManager) HasFieldAccess(policy *PermissionPolicy, modelName, fieldName string) bool {
+func (pm *PermissionManager) HasFieldAccess(policy *PermissionPolicy, modelName, fieldName string) bool { //nolint:revive // method receiver groups permission helpers
 	if policy == nil {
 		return false
 	}
@@ -107,7 +107,7 @@ func (pm *PermissionManager) HasFieldAccess(policy *PermissionPolicy, modelName,
 // GetPIIPolicy returns the explicit per-column PII access overrides for a
 // user, keyed by qualified column name. A nil policy returns nil; role
 // defaults are resolved downstream (fail-closed).
-func (pm *PermissionManager) GetPIIPolicy(policy *PermissionPolicy) map[string]string {
+func (pm *PermissionManager) GetPIIPolicy(policy *PermissionPolicy) map[string]string { //nolint:revive
 	if policy == nil {
 		return nil
 	}

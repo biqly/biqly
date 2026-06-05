@@ -149,7 +149,7 @@ func (c *mockDBConn) Begin() (driver.Tx, error) {
 	return nil, errors.New("begin transaction not implemented")
 }
 
-func (c *mockDBConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+func (c *mockDBConn) QueryContext(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.onQuery != nil {
@@ -185,7 +185,7 @@ func (r *mockDBRows) Columns() []string {
 	return r.columns
 }
 
-func (r *mockDBRows) Close() error {
+func (*mockDBRows) Close() error {
 	return nil
 }
 
@@ -211,7 +211,7 @@ var (
 
 type dbMockDriver struct{}
 
-func (dbMockDriver) Open(name string) (driver.Conn, error) {
+func (dbMockDriver) Open(_ string) (driver.Conn, error) {
 	return persistentMockConn, nil
 }
 
@@ -233,7 +233,7 @@ func TestRunInTx(t *testing.T) {
 		}
 		persistentMockConn.mu.Unlock()
 
-		err := RunInTx(context.Background(), db, func(tx *sql.Tx) error {
+		err := RunInTx(context.Background(), db, func(_ *sql.Tx) error {
 			return nil
 		})
 
@@ -252,7 +252,7 @@ func TestRunInTx(t *testing.T) {
 		}
 		persistentMockConn.mu.Unlock()
 
-		err := RunInTx(context.Background(), db, func(tx *sql.Tx) error {
+		err := RunInTx(context.Background(), db, func(_ *sql.Tx) error {
 			return expectedErr
 		})
 
@@ -270,7 +270,7 @@ func TestRunInTx(t *testing.T) {
 		}
 		persistentMockConn.mu.Unlock()
 
-		err := RunInTx(context.Background(), db, func(tx *sql.Tx) error {
+		err := RunInTx(context.Background(), db, func(_ *sql.Tx) error {
 			return nil
 		})
 
@@ -287,7 +287,7 @@ func TestRunInTx(t *testing.T) {
 		}
 		persistentMockConn.mu.Unlock()
 
-		err := RunInTx(context.Background(), db, func(tx *sql.Tx) error {
+		err := RunInTx(context.Background(), db, func(_ *sql.Tx) error {
 			return nil
 		})
 
@@ -302,7 +302,7 @@ func TestQuerySlice(t *testing.T) {
 
 	t.Run("successful query scan", func(t *testing.T) {
 		persistentMockConn.mu.Lock()
-		persistentMockConn.onQuery = func(query string, args []driver.NamedValue) (driver.Rows, error) {
+		persistentMockConn.onQuery = func(_ string, _ []driver.NamedValue) (driver.Rows, error) {
 			return &mockDBRows{
 				columns: []string{"id", "name"},
 				data: [][]driver.Value{
@@ -336,12 +336,12 @@ func TestQuerySlice(t *testing.T) {
 		queryErr := errors.New("table not found")
 
 		persistentMockConn.mu.Lock()
-		persistentMockConn.onQuery = func(query string, args []driver.NamedValue) (driver.Rows, error) {
+		persistentMockConn.onQuery = func(_ string, _ []driver.NamedValue) (driver.Rows, error) {
 			return nil, queryErr
 		}
 		persistentMockConn.mu.Unlock()
 
-		_, err := QuerySlice(context.Background(), db, "SELECT * FROM absent", nil, func(s Scanner) (int, error) {
+		_, err := QuerySlice(context.Background(), db, "SELECT * FROM absent", nil, func(_ Scanner) (int, error) {
 			return 0, nil
 		})
 
@@ -352,12 +352,12 @@ func TestQuerySlice(t *testing.T) {
 		queryErr := errors.New("table not found")
 
 		persistentMockConn.mu.Lock()
-		persistentMockConn.onQuery = func(query string, args []driver.NamedValue) (driver.Rows, error) {
+		persistentMockConn.onQuery = func(_ string, _ []driver.NamedValue) (driver.Rows, error) {
 			return nil, queryErr
 		}
 		persistentMockConn.mu.Unlock()
 
-		_, err := QuerySliceErr(context.Background(), db, "GetUsers", "SELECT * FROM absent", nil, func(s Scanner) (int, error) {
+		_, err := QuerySliceErr(context.Background(), db, "GetUsers", "SELECT * FROM absent", nil, func(_ Scanner) (int, error) {
 			return 0, nil
 		})
 

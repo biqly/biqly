@@ -34,19 +34,19 @@ func (b BaseDialect) QuoteIdent(identifier string) string {
 }
 
 // CastType returns the upper-cased SQL type name.
-func (b BaseDialect) CastType(sqlType string) string {
+func (BaseDialect) CastType(sqlType string) string {
 	return CastTypeUpper(sqlType)
 }
 
 // DateTruncPlaceholder casts the placeholder to a timestamp via standard SQL
 // `CAST(... AS TIMESTAMP)` and wraps it in `DATE_TRUNC('part', ...)`. Dialects
 // without DATE_TRUNC or with a different timestamp keyword override this.
-func (b BaseDialect) DateTruncPlaceholder(part, placeholder string) string {
+func (BaseDialect) DateTruncPlaceholder(part, placeholder string) string {
 	return fmt.Sprintf("DATE_TRUNC('%s', CAST(%s AS TIMESTAMP))", part, placeholder)
 }
 
 // LimitOffset generates a standard LIMIT/OFFSET clause.
-func (b BaseDialect) LimitOffset(limit, offset int) string {
+func (BaseDialect) LimitOffset(limit, offset int) string {
 	return StandardLimitOffset(limit, offset)
 }
 
@@ -82,12 +82,12 @@ func CalendarPartLookup(d Dialect, part, column string, yearFmt, quarterFmt, mon
 }
 
 // DefaultOrderBy returns an empty string by default.
-func (b BaseDialect) DefaultOrderBy() string {
+func (BaseDialect) DefaultOrderBy() string {
 	return ""
 }
 
 // SelectWithLimit formats a standard SELECT with limit query.
-func (b BaseDialect) SelectWithLimit(columns []string, table string, limit int) string {
+func (BaseDialect) SelectWithLimit(columns []string, table string, limit int) string {
 	var limitStr string
 	if limit > 0 {
 		limitStr = " LIMIT " + strconv.Itoa(limit)

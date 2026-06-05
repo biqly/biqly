@@ -37,7 +37,7 @@ func (n *Notifier) NotifyOwner(ctx context.Context, report *DriftReport, modelNa
 	}
 
 	var recipientEmail string
-	if createdBy != nil && *createdBy != "" {
+	if createdBy != nil && *createdBy != "" { //nolint:nestif
 		if n.authClient != nil {
 			email, err := n.authClient.GetUserEmail(ctx, *createdBy)
 			if err != nil {

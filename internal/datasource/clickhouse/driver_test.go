@@ -19,19 +19,19 @@ type mockClickHouseConn struct {
 	queries map[string]*mockClickHouseRows
 }
 
-func (c *mockClickHouseConn) Prepare(query string) (driver.Stmt, error) {
+func (*mockClickHouseConn) Prepare(_ string) (driver.Stmt, error) {
 	return nil, errors.New("prepare is not implemented")
 }
 
-func (c *mockClickHouseConn) Close() error {
+func (*mockClickHouseConn) Close() error {
 	return nil
 }
 
-func (c *mockClickHouseConn) Begin() (driver.Tx, error) {
+func (*mockClickHouseConn) Begin() (driver.Tx, error) {
 	return nil, errors.New("transactions are not implemented")
 }
 
-func (c *mockClickHouseConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+func (c *mockClickHouseConn) QueryContext(_ context.Context, query string, _ []driver.NamedValue) (driver.Rows, error) {
 	normalized := strings.ToLower(strings.Join(strings.Fields(query), " "))
 	for k, v := range c.queries {
 		if strings.Contains(normalized, strings.ToLower(k)) {
@@ -52,7 +52,7 @@ func (r *mockClickHouseRows) Columns() []string {
 	return r.cols
 }
 
-func (r *mockClickHouseRows) Close() error {
+func (*mockClickHouseRows) Close() error {
 	return nil
 }
 
@@ -79,7 +79,7 @@ var (
 
 type clickhouseMockBridge struct{}
 
-func (clickhouseMockBridge) Open(name string) (driver.Conn, error) {
+func (clickhouseMockBridge) Open(_ string) (driver.Conn, error) {
 	activeMockConnMutex.Lock()
 	defer activeMockConnMutex.Unlock()
 	return activeMockConn, nil

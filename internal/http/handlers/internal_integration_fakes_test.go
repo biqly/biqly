@@ -100,14 +100,14 @@ func (c integrationCatalog) ListBusinessGlossary(_ context.Context, datasourceID
 	return c.glossary, nil
 }
 
-func (c integrationCatalog) CreateAIQueryHistory(_ context.Context, entry *metadata.AIQueryHistoryEntry) error {
+func (integrationCatalog) CreateAIQueryHistory(_ context.Context, entry *metadata.AIQueryHistoryEntry) error {
 	if entry.ID == "" {
 		entry.ID = "ai_hist_1"
 	}
 	return nil
 }
 
-func (c integrationCatalog) CreateQueryHistory(_ context.Context, entry *query.HistoryEntry) error {
+func (integrationCatalog) CreateQueryHistory(_ context.Context, entry *query.HistoryEntry) error {
 	if entry.ID == "" {
 		entry.ID = "query_hist_1"
 	}
@@ -172,11 +172,13 @@ type integrationDriver struct {
 	dialect dialect.Dialect
 }
 
-func (d integrationDriver) Type() string                                  { return "postgres" }
-func (d integrationDriver) Ping(context.Context, string) error            { return nil }
-func (d integrationDriver) Open(context.Context, string) (*sql.DB, error) { return nil, nil }
-func (d integrationDriver) Introspect(context.Context, *sql.DB) (*datasource.IntrospectionResult, error) {
-	return nil, nil
+func (integrationDriver) Type() string                                  { return "postgres" }
+func (integrationDriver) Ping(context.Context, string) error            { return nil }
+func (integrationDriver) Open(context.Context, string) (*sql.DB, error) {
+	return nil, nil //nolint:nilnil // integration test stub never opens a DB
+}
+func (integrationDriver) Introspect(context.Context, *sql.DB) (*datasource.IntrospectionResult, error) {
+	return nil, nil //nolint:nilnil // integration test stub never introspects
 }
 func (d integrationDriver) Dialect() dialect.Dialect { return d.dialect }
 

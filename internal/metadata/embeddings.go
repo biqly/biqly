@@ -42,7 +42,7 @@ func baseEmbeddingModel(modelName string) string {
 
 func mergeEmbeddingPayload(existing []byte, existingModel *string, modelName string, embedding []float32) (string, string, error) {
 	store := multiLocaleEmbeddingPayload{Locales: make(map[string]localeStoredEmbedding)}
-	if len(existing) > 0 {
+	if len(existing) > 0 { //nolint:nestif
 		if err := json.Unmarshal(existing, &store); err == nil && len(store.Locales) > 0 {
 			// multi-locale payload
 		} else if vec, err := decodeEmbedding(existing); err == nil && len(vec) > 0 {

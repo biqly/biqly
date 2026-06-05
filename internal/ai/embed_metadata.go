@@ -115,6 +115,7 @@ func (s *EmbedMetadataService) EmbedForTables(ctx context.Context, datasourceID 
 	return s.embedForFilter(ctx, datasourceID, allowed)
 }
 
+//nolint:gocognit
 func (s *EmbedMetadataService) embedForFilter(ctx context.Context, datasourceID string, allowed map[string]bool) ([]EmbedTableResult, error) {
 	tables, err := s.writer.ListTables(ctx, datasourceID, "")
 	if err != nil {

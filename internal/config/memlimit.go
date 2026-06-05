@@ -53,7 +53,7 @@ func readCgroupMemoryLimit() int64 {
 		}
 	}
 	// Try cgroup v1
-	if limitBytes, err := os.ReadFile("/sys/fs/cgroup/memory/memory.limit_in_bytes"); err == nil {
+	if limitBytes, err := os.ReadFile("/sys/fs/cgroup/memory/memory.limit_in_bytes"); err == nil { //nolint:nestif
 		limitStr := strings.TrimSpace(string(limitBytes))
 		if limitStr != "" {
 			if v, err := strconv.ParseInt(limitStr, 10, 64); err == nil {

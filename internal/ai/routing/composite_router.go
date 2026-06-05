@@ -34,7 +34,7 @@ func NewCompositeMatcher() *CompositeMatcher {
 // candidates sorted by descending score. Only composites scoring at or above
 // minCompositeMatchScore are returned. Drafts (Status != "published") are
 // skipped so unpublished work never affects routing.
-func (m *CompositeMatcher) Match(question string, composites []semantic.CompositeModel) []CompositeCandidate {
+func (*CompositeMatcher) Match(question string, composites []semantic.CompositeModel) []CompositeCandidate {
 	questionTokens := tokenSet(question)
 	var out []CompositeCandidate
 	for i := range composites {

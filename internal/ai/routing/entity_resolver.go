@@ -8,6 +8,7 @@ import (
 	"github.com/biqly/biqly/internal/metadata"
 )
 
+//nolint:gocognit
 func appendQuestionEntityTables(
 	selected []tableBundle,
 	tables []metadata.Table,

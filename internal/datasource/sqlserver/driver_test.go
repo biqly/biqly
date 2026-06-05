@@ -19,19 +19,19 @@ type mockSQLServerConn struct {
 	queries map[string]*mockSQLServerRows
 }
 
-func (c *mockSQLServerConn) Prepare(query string) (driver.Stmt, error) {
+func (*mockSQLServerConn) Prepare(_ string) (driver.Stmt, error) {
 	return nil, errors.New("prepare is not implemented")
 }
 
-func (c *mockSQLServerConn) Close() error {
+func (*mockSQLServerConn) Close() error {
 	return nil
 }
 
-func (c *mockSQLServerConn) Begin() (driver.Tx, error) {
+func (*mockSQLServerConn) Begin() (driver.Tx, error) {
 	return nil, errors.New("transactions are not implemented")
 }
 
-func (c *mockSQLServerConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+func (c *mockSQLServerConn) QueryContext(_ context.Context, query string, _ []driver.NamedValue) (driver.Rows, error) {
 	normalized := strings.ToLower(strings.Join(strings.Fields(query), " "))
 	for k, v := range c.queries {
 		if strings.Contains(normalized, strings.ToLower(k)) {
@@ -52,7 +52,7 @@ func (r *mockSQLServerRows) Columns() []string {
 	return r.cols
 }
 
-func (r *mockSQLServerRows) Close() error {
+func (*mockSQLServerRows) Close() error {
 	return nil
 }
 
@@ -79,7 +79,7 @@ var (
 
 type sqlserverMockBridge struct{}
 
-func (sqlserverMockBridge) Open(name string) (driver.Conn, error) {
+func (sqlserverMockBridge) Open(_ string) (driver.Conn, error) {
 	activeMockConnMutex.Lock()
 	defer activeMockConnMutex.Unlock()
 	return activeMockConn, nil

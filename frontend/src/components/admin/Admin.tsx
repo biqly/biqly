@@ -65,6 +65,9 @@ const PlatformSettingsPanel = lazyWithPreload(() =>
 const LDAPSettingsPanel = lazyWithPreload(() =>
   import('./LDAPSettingsPanel').then((m) => ({ default: m.LDAPSettingsPanel })),
 )
+const ABExperimentPanel = lazyWithPreload(() =>
+  import('./ABExperimentPanel').then((m) => ({ default: m.ABExperimentPanel })),
+)
 
 const pendingStyle: React.CSSProperties = { padding: 24 }
 
@@ -83,6 +86,7 @@ const TAB_COMPONENTS: Record<AdminTab, any> = {
   pii_detection: PIIDetectionPanel,
   ldap: LDAPSettingsPanel,
   platform_settings: PlatformSettingsPanel,
+  ai_ab_experiments: ABExperimentPanel,
 }
 
 export default function Admin() {
@@ -168,6 +172,7 @@ export default function Admin() {
           {tab === 'pii_detection' && <PIIDetectionPanel token={accessToken} />}
           {tab === 'ldap' && <LDAPSettingsPanel token={accessToken} />}
           {tab === 'platform_settings' && <PlatformSettingsPanel token={accessToken} />}
+          {tab === 'ai_ab_experiments' && <ABExperimentPanel />}
         </Suspense>
       </div>
     </div>

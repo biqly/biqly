@@ -32,5 +32,7 @@ func (h *AuthHandler) handleMeExport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Content-Disposition", "attachment; filename=biqly_user_data.json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(data)
+	if err := json.NewEncoder(w).Encode(data); err != nil { //nolint:musttag // nested auth/workspace types carry json tags
+		return
+	}
 }

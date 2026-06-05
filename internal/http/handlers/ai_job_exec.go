@@ -72,7 +72,7 @@ func (h *AIHandler) executeAIQueryPhase(
 
 	var resolved *app.ResolvedDatasource
 	var processOpts []ai.ProcessOption
-	if phase == aiPhaseRun {
+	if phase == aiPhaseRun { //nolint:nestif
 		if h.deps.QueryClient != nil {
 			processOpts = []ai.ProcessOption{
 				ai.WithSQLValidator(newQueryClientDryRunValidator(h.deps.QueryClient)),
@@ -318,6 +318,7 @@ func (h *AIHandler) isAIJobCancelled(ctx context.Context, jobID string) bool {
 	return job.Status == metadata.AIJobStatusCancelled
 }
 
+//nolint:gocognit
 func (h *AIHandler) executeMetadataDescribeBatchJob(
 	ctx context.Context,
 	jobID string,
@@ -383,7 +384,7 @@ func (h *AIHandler) executeMetadataDescribeBatchJob(
 				}
 				nextPreview = append(nextPreview, ai.DescribeBatchTableKey(ns, nt))
 			}
-			detail, _ := json.Marshal(ai.DescribeBatchJobProgress{
+			detail, err := json.Marshal(ai.DescribeBatchJobProgress{
 				Total:          total,
 				Index:          i,
 				CurrentSchema:  schema,
@@ -391,6 +392,9 @@ func (h *AIHandler) executeMetadataDescribeBatchJob(
 				Completed:      append([]string(nil), completedKeys...),
 				PendingPreview: nextPreview,
 			})
+			if err != nil {
+				detail = nil
+			}
 			report(AIJobProgress{
 				Phase:    "generating",
 				Message:  "describing " + key,

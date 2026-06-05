@@ -19,19 +19,19 @@ type mockMySQLConn struct {
 	queries map[string]*mockMySQLRows
 }
 
-func (c *mockMySQLConn) Prepare(query string) (driver.Stmt, error) {
+func (*mockMySQLConn) Prepare(_ string) (driver.Stmt, error) {
 	return nil, errors.New("prepare is not implemented")
 }
 
-func (c *mockMySQLConn) Close() error {
+func (*mockMySQLConn) Close() error {
 	return nil
 }
 
-func (c *mockMySQLConn) Begin() (driver.Tx, error) {
+func (*mockMySQLConn) Begin() (driver.Tx, error) {
 	return nil, errors.New("transactions are not implemented")
 }
 
-func (c *mockMySQLConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+func (c *mockMySQLConn) QueryContext(_ context.Context, query string, _ []driver.NamedValue) (driver.Rows, error) {
 	normalized := strings.ToLower(strings.Join(strings.Fields(query), " "))
 	for k, v := range c.queries {
 		if strings.Contains(normalized, strings.ToLower(k)) {
@@ -52,7 +52,7 @@ func (r *mockMySQLRows) Columns() []string {
 	return r.cols
 }
 
-func (r *mockMySQLRows) Close() error {
+func (*mockMySQLRows) Close() error {
 	return nil
 }
 
@@ -79,7 +79,7 @@ var (
 
 type mysqlMockBridge struct{}
 
-func (mysqlMockBridge) Open(name string) (driver.Conn, error) {
+func (mysqlMockBridge) Open(_ string) (driver.Conn, error) {
 	activeMockConnMutex.Lock()
 	defer activeMockConnMutex.Unlock()
 	return activeMockConn, nil

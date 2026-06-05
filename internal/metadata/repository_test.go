@@ -52,7 +52,7 @@ func (s *mockDBState) logCall(op string, args []driver.Value) {
 	s.calls = append(s.calls, mockCall{Op: s.simplifyQuery(op), Args: args})
 }
 
-func (s *mockDBState) simplifyQuery(q string) string {
+func (*mockDBState) simplifyQuery(q string) string {
 	return strings.Join(strings.Fields(q), " ")
 }
 
@@ -138,7 +138,7 @@ func (c *mockConn) Prepare(query string) (driver.Stmt, error) {
 	return &mockStmt{conn: c, query: query}, nil
 }
 
-func (c *mockConn) Close() error {
+func (*mockConn) Close() error {
 	return nil
 }
 
@@ -147,12 +147,12 @@ func (c *mockConn) Begin() (driver.Tx, error) {
 	return &mockTx{conn: c}, nil
 }
 
-func (c *mockConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+func (c *mockConn) BeginTx(_ context.Context, _ driver.TxOptions) (driver.Tx, error) {
 	c.db.logCall("BEGIN TX", nil)
 	return &mockTx{conn: c}, nil
 }
 
-func (c *mockConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+func (c *mockConn) QueryContext(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	vals := make([]driver.Value, len(args))
 	for i, arg := range args {
 		vals[i] = arg.Value
@@ -161,7 +161,7 @@ func (c *mockConn) QueryContext(ctx context.Context, query string, args []driver
 	return c.db.nextQueryRows(query, vals)
 }
 
-func (c *mockConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+func (c *mockConn) ExecContext(_ context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	vals := make([]driver.Value, len(args))
 	for i, arg := range args {
 		vals[i] = arg.Value
@@ -175,11 +175,11 @@ type mockStmt struct {
 	query string
 }
 
-func (s *mockStmt) Close() error {
+func (*mockStmt) Close() error {
 	return nil
 }
 
-func (s *mockStmt) NumInput() int {
+func (*mockStmt) NumInput() int {
 	return -1
 }
 
@@ -217,7 +217,7 @@ func (r *mockRows) Columns() []string {
 	return r.cols
 }
 
-func (r *mockRows) Close() error {
+func (*mockRows) Close() error {
 	return nil
 }
 
@@ -802,11 +802,12 @@ func TestQueryAndAIHistory(t *testing.T) {
 		},
 		{
 			Pattern: "SELECT id, datasource_id, model_id, user_id, question, prompt_context",
-			Cols:    []string{"id", "datasource_id", "model_id", "user_id", "question", "prompt_context", "ai_response", "logical_query", "confidence_score", "warnings", "outcome_status", "retry_count", "needs_clarification", "model_used", "prompt_tokens", "completion_tokens", "token_count", "cost_usd", "latency_ms", "created_at"},
+			Cols:    []string{"id", "datasource_id", "model_id", "user_id", "question", "prompt_context", "ai_response", "logical_query", "confidence_score", "warnings", "outcome_status", "retry_count", "needs_clarification", "model_used", "prompt_tokens", "completion_tokens", "token_count", "cost_usd", "latency_ms", "created_at", "ab_experiment_id", "ab_variant_id"},
 			Rows: [][]driver.Value{
-				{"aqh-123", "ds-1", "m-1", "u-1", "how many users?", []byte(`{}`), []byte(`{}`), []byte(`{"version":"v1"}`), 0.95, `{warn1}`, "success", int64(0), false, "gpt-4", int64(6), int64(4), int64(10), 0.05, int64(120), now},
+				{"aqh-123", "ds-1", "m-1", "u-1", "how many users?", []byte(`{}`), []byte(`{}`), []byte(`{"version":"v1"}`), 0.95, `{warn1}`, "success", int64(0), false, "gpt-4", int64(6), int64(4), int64(10), 0.05, int64(120), now, nil, nil},
 			},
 		},
+
 	}
 
 	// 1. CreateQueryHistory
@@ -874,6 +875,7 @@ func TestQueryAndAIHistory(t *testing.T) {
 	assert.Equal(t, "aqh-123", aiHistoryList[0].ID)
 }
 
+//nolint:funlen
 func TestTimeGrains_PromptTemplates_And_BusinessGlossary(t *testing.T) {
 	db, state := setupMockDB(t)
 	repo := NewRepository(db)
@@ -1022,6 +1024,7 @@ func TestTimeGrains_PromptTemplates_And_BusinessGlossary(t *testing.T) {
 	assert.True(t, ok)
 }
 
+//nolint:funlen
 func TestCuratedAI(t *testing.T) {
 	db, state := setupMockDB(t)
 	repo := NewRepository(db)
@@ -1163,6 +1166,7 @@ func TestCuratedAI(t *testing.T) {
 	assert.Equal(t, "fe-1", ids[0])
 }
 
+//nolint:funlen
 func TestAIJobs_And_AIMetrics(t *testing.T) {
 	db, state := setupMockDB(t)
 	repo := NewRepository(db)

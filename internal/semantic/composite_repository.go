@@ -260,7 +260,7 @@ func (r *CompositeRepository) markDraft(ctx context.Context, id string) error {
 
 func marshalCanonicalDate(ref *CanonicalDateRef) (any, error) {
 	if ref == nil {
-		return nil, nil
+		return nil, nil //nolint:nilnil // nil canonical date serializes as SQL NULL
 	}
 	raw, err := json.Marshal(ref)
 	if err != nil {

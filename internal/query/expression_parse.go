@@ -3,6 +3,7 @@ package query
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -392,6 +393,7 @@ func (p *Parser) parseNot() (pkgsemantic.ExprNode, error) {
 	return p.parseComparison()
 }
 
+//nolint:gocognit
 func (p *Parser) parseComparison() (pkgsemantic.ExprNode, error) {
 	left, err := p.parseArithmetic()
 	if err != nil {
@@ -409,7 +411,7 @@ func (p *Parser) parseComparison() (pkgsemantic.ExprNode, error) {
 		return pkgsemantic.BinaryExpr{Op: binaryOpFromToken(op), Left: left, Right: right}, nil
 	}
 
-	if tok.Type == TokenKeyword {
+	if tok.Type == TokenKeyword { //nolint:nestif
 		switch tok.Value {
 		case "LIKE", "ILIKE":
 			op := tok.Value
@@ -491,52 +493,39 @@ func (p *Parser) parseComparison() (pkgsemantic.ExprNode, error) {
 	return left, nil
 }
 
-func (p *Parser) parseArithmetic() (pkgsemantic.ExprNode, error) {
-	left, err := p.parseFactor()
+func (p *Parser) parseLeftAssociative(
+	parseOperand func() (pkgsemantic.ExprNode, error),
+	ops ...string,
+) (pkgsemantic.ExprNode, error) {
+	left, err := parseOperand()
 	if err != nil {
 		return nil, err
 	}
-
 	for {
 		tok := p.current()
-		if tok.Type == TokenOperator && (tok.Value == "+" || tok.Value == "-" || tok.Value == "||") {
-			op := tok.Value
-			p.next()
-			right, err := p.parseFactor()
-			if err != nil {
-				return nil, err
-			}
-			left = pkgsemantic.BinaryExpr{Op: binaryOpFromToken(op), Left: left, Right: right}
-		} else {
+		if tok.Type != TokenOperator || !slices.Contains(ops, tok.Value) {
 			break
 		}
+		op := tok.Value
+		p.next()
+		right, err := parseOperand()
+		if err != nil {
+			return nil, err
+		}
+		left = pkgsemantic.BinaryExpr{Op: binaryOpFromToken(op), Left: left, Right: right}
 	}
 	return left, nil
+}
+
+func (p *Parser) parseArithmetic() (pkgsemantic.ExprNode, error) {
+	return p.parseLeftAssociative(p.parseFactor, "+", "-", "||")
 }
 
 func (p *Parser) parseFactor() (pkgsemantic.ExprNode, error) {
-	left, err := p.parsePrimary()
-	if err != nil {
-		return nil, err
-	}
-
-	for {
-		tok := p.current()
-		if tok.Type == TokenOperator && (tok.Value == "*" || tok.Value == "/" || tok.Value == "%") {
-			op := tok.Value
-			p.next()
-			right, err := p.parsePrimary()
-			if err != nil {
-				return nil, err
-			}
-			left = pkgsemantic.BinaryExpr{Op: binaryOpFromToken(op), Left: left, Right: right}
-		} else {
-			break
-		}
-	}
-	return left, nil
+	return p.parseLeftAssociative(p.parsePrimary, "*", "/", "%")
 }
 
+//nolint:gocognit
 func (p *Parser) parsePrimary() (pkgsemantic.ExprNode, error) {
 	tok := p.current()
 
@@ -557,7 +546,7 @@ func (p *Parser) parsePrimary() (pkgsemantic.ExprNode, error) {
 	}
 
 	// Identifiers and function calls
-	if tok.Type == TokenIdentifier {
+	if tok.Type == TokenIdentifier { //nolint:nestif
 		name := tok.Value
 		p.next()
 		if p.match(TokenParenOpen) {
@@ -596,7 +585,7 @@ func (p *Parser) parsePrimary() (pkgsemantic.ExprNode, error) {
 	}
 
 	// CASE expression
-	if p.matchKeyword("CASE") {
+	if p.matchKeyword("CASE") { //nolint:nestif
 		var conditions []pkgsemantic.CaseWhen
 		for p.matchKeyword("WHEN") {
 			whenExpr, err := p.parseOr()
@@ -717,7 +706,7 @@ func identifierExpr(name string) pkgsemantic.ExprNode {
 func ParseExpression(expr string) (pkgsemantic.ExprNode, error) {
 	expr = strings.TrimSpace(expr)
 	if expr == "" {
-		return nil, nil
+		return nil, nil //nolint:nilnil // empty expression means no AST
 	}
 	lexer := NewLexer(expr)
 	var tokens []Token

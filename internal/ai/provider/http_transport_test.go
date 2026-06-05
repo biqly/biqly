@@ -11,7 +11,7 @@ import (
 func TestExecHTTPPostRetryBytesRetries503(t *testing.T) {
 	t.Parallel()
 	var calls atomic.Int32
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		n := calls.Add(1)
 		if n < 3 {
 			w.WriteHeader(http.StatusServiceUnavailable)

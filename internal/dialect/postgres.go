@@ -20,12 +20,12 @@ var Postgres = PostgresDialect{
 }
 
 // Name returns the dialect name.
-func (d PostgresDialect) Name() string {
+func (PostgresDialect) Name() string {
 	return "postgres"
 }
 
 // Placeholder returns the parameter placeholder for the given index.
-func (d PostgresDialect) Placeholder(index int) string {
+func (PostgresDialect) Placeholder(index int) string {
 	return "$" + strconv.Itoa(index)
 }
 
@@ -36,7 +36,7 @@ func (d PostgresDialect) DateTrunc(part, column string) string {
 
 // DateTruncPlaceholder casts the placeholder to timestamptz (PostgreSQL's
 // preferred timestamp-with-tz type) before truncating.
-func (d PostgresDialect) DateTruncPlaceholder(part, placeholder string) string {
+func (PostgresDialect) DateTruncPlaceholder(part, placeholder string) string {
 	return fmt.Sprintf("DATE_TRUNC('%s', %s::timestamptz)", part, placeholder)
 }
 
@@ -51,7 +51,7 @@ func (d PostgresDialect) CalendarPart(part, column string) string {
 
 // ILike returns a case-insensitive LIKE expression.
 // column must be a SQL expression (e.g. already-quoted "schema"."col").
-func (d PostgresDialect) ILike(column, placeholder string) string {
+func (PostgresDialect) ILike(column, placeholder string) string {
 	return fmt.Sprintf("%s ILIKE %s", column, placeholder)
 }
 

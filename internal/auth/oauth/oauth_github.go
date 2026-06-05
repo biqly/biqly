@@ -37,6 +37,7 @@ func (p *GitHubProvider) ExchangeCode(ctx context.Context, code string) (*oauth2
 	return p.oauthCfg.Exchange(ctx, code)
 }
 
+//nolint:gocognit
 func (p *GitHubProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (*auth.OAuthUserInfo, error) {
 	client := p.oauthCfg.Client(ctx, token)
 
@@ -69,7 +70,7 @@ func (p *GitHubProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (
 	email := rawProfile.Email
 
 	// If email is empty (private email setting), fetch user emails list
-	if email == "" {
+	if email == "" { //nolint:nestif
 		reqEmails, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/user/emails", nil)
 		if err != nil {
 			return nil, err

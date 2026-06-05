@@ -122,3 +122,24 @@ func (r *Repository) DeleteAllPromptTemplates(ctx context.Context) error {
 	}
 	return nil
 }
+
+// GetPromptTemplateByVersion loads a specific version of a prompt section. Missing rows return ("", nil).
+func (r *Repository) GetPromptTemplateByVersion(ctx context.Context, name string, loc i18n.Locale, version int) (string, error) {
+	if loc == "" {
+		loc = i18n.DefaultLocale
+	}
+	var content string
+	err := r.db.QueryRowContext(ctx, `
+		SELECT content FROM ai_prompt_templates
+		WHERE name = $1 AND locale = $2 AND version = $3`,
+		name, string(loc), version,
+	).Scan(&content)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil
+		}
+		return "", fmt.Errorf("get prompt template by version: %w", err)
+	}
+	return content, nil
+}
+

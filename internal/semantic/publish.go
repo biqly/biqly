@@ -84,7 +84,7 @@ func containsMessage(messages []string, needle string) bool {
 // ValidateContext checks whether a draft semantic model can be safely
 // published. Errors block publish; warnings describe risky but valid context.
 //
-//nolint:gocyclo // aggregates dimension, metric, join, and catalog consistency checks
+//nolint:gocyclo,gocognit,funlen // aggregates dimension, metric, join, and catalog consistency checks
 func ValidateContext(ctx context.Context, model SemanticModel, catalog CatalogReader) PublishValidationResult {
 	result := PublishValidationResult{
 		Valid:               true,
@@ -140,7 +140,7 @@ func ValidateContext(ctx context.Context, model SemanticModel, catalog CatalogRe
 	}
 
 	for _, dim := range model.Dimensions {
-		if dim.CalculatedExpression != "" {
+		if dim.CalculatedExpression != "" { //nolint:nestif
 			// Validate calculated expression
 			if err := validateCalculatedExpression(dim.CalculatedExpression, columnSet, model.BaseSchema); err != nil {
 				addError("dimension %q calculated expression invalid: %s", dim.Name, err)
@@ -158,7 +158,7 @@ func ValidateContext(ctx context.Context, model SemanticModel, catalog CatalogRe
 
 	for _, metric := range model.Metrics {
 		fnLower := strings.ToLower(strings.TrimSpace(metric.Aggregation))
-		if fnLower == "custom" || strings.Contains(metric.Expression, "[") {
+		if fnLower == "custom" || strings.Contains(metric.Expression, "[") { //nolint:nestif
 			matches := reBracket.FindAllStringSubmatch(metric.Expression, -1)
 			for _, match := range matches {
 				token := strings.TrimSpace(match[1])
@@ -444,6 +444,7 @@ func containsDMLKeyword(expr string) (string, bool) {
 // identifiers, line comments (--), and block comments (/* */) from a SQL
 // fragment so the remainder can be scanned for DML keywords without false
 // positives from values or comment text.
+//nolint:gocognit
 func stripCalcExprLiteralsAndComments(sql string) string {
 	var out strings.Builder
 	out.Grow(len(sql))
@@ -528,6 +529,7 @@ func isSQLLiteral(s string) bool {
 	return true
 }
 
+//nolint:gocognit
 func checkCircularDependencies(model SemanticModel) []string {
 	var errors []string
 	adj := make(map[string][]string)

@@ -65,14 +65,14 @@ func (s *AuditService) Log(ctx context.Context, userID *string, action string, r
 	return nil
 }
 
-func (s *AuditService) LogResult(ctx context.Context, userID *string, action string, resource, resourceID *string, metadata any, ipAddress *string, result AuditResult) error {
+func (s *AuditService) LogResult(ctx context.Context, userID *string, action string, resource, resourceID *string, metadata any, ipAddress *string, _ AuditResult) error {
 	if err := s.Log(ctx, userID, action, resource, resourceID, metadata, ipAddress); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *AuditService) emitStructured(_ context.Context, userID *string, action string, resource, resourceID, ipAddress *string, metadata any, result AuditResult) {
+func (s *AuditService) emitStructured(ctx context.Context, userID *string, action string, resource, resourceID, ipAddress *string, metadata any, result AuditResult) {
 	if s.logger == nil {
 		return
 	}
@@ -98,7 +98,7 @@ func (s *AuditService) emitStructured(_ context.Context, userID *string, action 
 			attrs = append(attrs, slog.Any("metadata", masked))
 		}
 	}
-	s.logger.LogAttrs(context.Background(), slog.LevelInfo, "audit", attrs...)
+	s.logger.LogAttrs(ctx, slog.LevelInfo, "audit", attrs...)
 }
 
 func maskAuditMetadata(metadata any) any {

@@ -69,6 +69,7 @@ func buildAIHistoryEntry(
 	var lq *query.LogicalQuery
 	var conf float64
 	var warnings []string
+	var abExpID, abVarID string
 
 	if resp != nil {
 		if resp.Metadata != nil {
@@ -77,6 +78,8 @@ func buildAIHistoryEntry(
 			versions = resp.Metadata.PromptTemplateVersions
 			bundleVer = resp.Metadata.PromptTemplateBundleVersion
 			raw = resp.Metadata.RawResponse
+			abExpID = resp.Metadata.ABExperimentID
+			abVarID = resp.Metadata.ABVariantID
 		}
 		if resp.Result != nil {
 			lq = resp.Result.LogicalQuery
@@ -105,7 +108,17 @@ func buildAIHistoryEntry(
 		LogicalQuery:    lq,
 		ConfidenceScore: &conf,
 		Warnings:        warnings,
+		ABExperimentID:  nullIfEmpty(abExpID),
+		ABVariantID:     nullIfEmpty(abVarID),
 	}
 	enrichAIHistoryEntry(entry, resp)
 	return entry
 }
+
+func nullIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+

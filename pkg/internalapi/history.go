@@ -18,6 +18,9 @@ type AIHistoryRequest struct {
 	Entry metadata.AIQueryHistoryEntry `json:"entry"`
 }
 
+func (r AIHistoryRequest) HistoryDatasourceID() string { return r.Entry.DatasourceID }
+func (r AIHistoryRequest) HistoryID() string           { return r.Entry.ID }
+
 // AIHistoryResponse is the body of POST /internal/ai-history. ID is the
 // row identifier assigned by the catalog service, which the AI service
 // SHOULD persist alongside the user-visible response so feedback /
@@ -30,6 +33,9 @@ type AIHistoryResponse struct {
 type QueryHistoryRequest struct {
 	Entry query.HistoryEntry `json:"entry"`
 }
+
+func (r QueryHistoryRequest) HistoryDatasourceID() string { return r.Entry.DatasourceID }
+func (r QueryHistoryRequest) HistoryID() string             { return r.Entry.ID }
 
 // QueryHistoryResponse is the body of POST /internal/query-history.
 type QueryHistoryResponse struct {

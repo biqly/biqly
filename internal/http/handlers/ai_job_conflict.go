@@ -38,5 +38,7 @@ func writeAIJobConflict(w http.ResponseWriter, err *AIJobConflictError) {
 	if err.Existing != nil {
 		body.ScopeSchemas = err.Existing.ScopeSchemas
 	}
-	_ = json.NewEncoder(w).Encode(body)
+	if err := json.NewEncoder(w).Encode(body); err != nil {
+		return
+	}
 }

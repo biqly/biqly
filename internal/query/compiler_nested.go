@@ -29,7 +29,7 @@ func (c *Compiler) compileSubqueryBody(
 	args *[]any,
 ) (string, error) {
 	inner := logicalQueryFromBody(body)
-	cq, err := c.compileStatement(context.Background(), inner, model, c.buildFrom(model), "", args, nil)
+	cq, err := c.compileStatement(c.compileCtx, inner, model, c.buildFrom(model), "", args, nil)
 	if err != nil {
 		return "", err
 	}
@@ -88,7 +88,7 @@ func (c *Compiler) compileStatement(
 	args *[]any,
 	rowFilters []security.RowFilter,
 ) (*CompiledQuery, error) {
-	_ = ctx
+	c = c.withCompileCtx(ctx)
 	lq.EnsureGroupBySelected()
 
 	dimMap := make(map[string]*semantic.Dimension, len(model.Dimensions))

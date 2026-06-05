@@ -63,6 +63,7 @@ func TestValidateExpression(t *testing.T) {
 	}
 }
 
+//nolint:gocognit
 func TestParseExpressionProducesSemanticAST(t *testing.T) {
 	tests := []struct {
 		name   string

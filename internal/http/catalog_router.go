@@ -55,6 +55,7 @@ func CatalogRouter(deps *app.Dependencies) http.Handler {
 	return r
 }
 
+//nolint:funlen
 func registerCatalogAPIRoutes(r chi.Router, deps *app.CatalogDeps, authClient *bimw.AuthClient) {
 	dsHandler := handlers.NewDatasourceHandler(deps)
 	r.Post("/datasources", dsHandler.Create)

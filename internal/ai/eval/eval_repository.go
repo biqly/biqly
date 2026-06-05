@@ -90,12 +90,13 @@ func (r *EvalRepository) SaveRunResults(ctx context.Context, runID, provider, mo
 	})
 }
 
-func (r *EvalRepository) saveRunResultsTx(ctx context.Context, tx *sql.Tx, runID, provider, model string, contextVersion int, contextUpdatedAt time.Time, results []EvalResultWithMetrics) error {
+func (*EvalRepository) saveRunResultsTx(ctx context.Context, tx *sql.Tx, runID, provider, model string, contextVersion int, contextUpdatedAt time.Time, results []EvalResultWithMetrics) error {
 	for _, res := range results {
 		gotLQ := ""
 		if res.Got != nil {
-			data, _ := json.Marshal(res.Got)
-			gotLQ = string(data)
+			if data, err := json.Marshal(res.Got); err == nil {
+				gotLQ = string(data)
+			}
 		}
 		expectedLQ := ""
 		if data, err := json.Marshal(res.Case.Expected); err == nil {

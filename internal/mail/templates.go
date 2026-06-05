@@ -495,6 +495,7 @@ var builtinEmailTemplates = map[string]map[string]*emailTemplate{
 
 // wrapHTML embeds a template's HTML body into a responsive, premium card layout.
 // It also provides BCP-47 localized footers for Turkish and English environments.
+//nolint:funlen
 func wrapHTML(bodyHTML, subject, locale string) string {
 	footerText := "This is an automated email, please do not reply. To secure your ABI account, never share these links with anyone."
 	if strings.HasPrefix(strings.ToLower(locale), "tr") {

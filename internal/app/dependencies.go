@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/biqly/biqly/internal/ai"
+	"github.com/biqly/biqly/internal/ai/abtest"
 	evalpkg "github.com/biqly/biqly/internal/ai/eval"
 	"github.com/biqly/biqly/internal/ai/prompt"
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
@@ -84,6 +85,7 @@ type Dependencies struct {
 	DriftDetector  *drift.Detector
 	DriftNotifier  *drift.Notifier
 	DriftScheduler *drift.Scheduler
+	ABRouter       *abtest.TrafficRouter
 }
 
 // CatalogDeps holds the subset of dependencies needed for the Catalog service
@@ -152,6 +154,7 @@ type AIDeps struct {
 	AIJobsHTTP      AIJobsHTTPHandler
 	PoolCache       *datasource.PoolCache
 	Executor        *query.Executor
+	ABRouter        *abtest.TrafficRouter
 }
 
 // AIDeps returns a structured copy of dependencies for the AI subsystem.
@@ -183,6 +186,7 @@ func (d *Dependencies) AIDeps() *AIDeps {
 		AIJobsHTTP:      d.AIJobsHTTP,
 		PoolCache:       d.PoolCache,
 		Executor:        d.Executor,
+		ABRouter:        d.ABRouter,
 	}
 }
 
@@ -251,7 +255,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 
 	validator, executor := provideQueryEngine(cfg)
 	poolCache := datasource.NewPoolCache()
-	auditLogger := audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(db, slog.Default()))
+	auditLogger := audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(ctx, db, slog.Default()))
 
 	driftRepo := drift.NewRepository(db)
 	driftDetector := drift.NewDetector()
@@ -314,6 +318,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		DriftDetector:   driftDetector,
 		DriftNotifier:   driftNotifier,
 		DriftScheduler:  driftScheduler,
+		ABRouter:        aiBits.abRouter,
 	}, nil
 }
 
@@ -363,6 +368,7 @@ type aiBundle struct {
 	timeGrains    routing.TimeGrainStore
 	providerStore *ai.ProviderStore
 	responseCache ai.ResponseCache
+	abRouter      *abtest.TrafficRouter
 }
 
 // provideProviderStore builds the DB-backed AI provider/model store and loads
@@ -425,6 +431,10 @@ func setupAI(
 	}
 
 	prompt.SetPromptTemplateStore(prompt.NewDBPromptTemplateStore(metaRepo))
+	abRepo := abtest.NewRepository(db)
+	abRouter := abtest.NewTrafficRouter(abRepo)
+	prompt.SetVariantResolver(abRouter)
+
 	if err := prompt.SeedPromptTemplatesFromEmbed(ctx, metaRepo); err != nil {
 		return aiBundle{}, fmt.Errorf("seed prompt templates: %w", err)
 	}
@@ -435,7 +445,7 @@ func setupAI(
 	}
 
 	var responseCache ai.ResponseCache
-	if cfg.Redis.DSN != "" {
+	if cfg.Redis.DSN != "" { //nolint:nestif
 		opt, err := redis.ParseURL(cfg.Redis.DSN)
 		if err == nil {
 			redisClient := redis.NewClient(opt)
@@ -462,6 +472,7 @@ func setupAI(
 		timeGrains:    timeGrains,
 		providerStore: providerStore,
 		responseCache: responseCache,
+		abRouter:      abRouter,
 	}, nil
 }
 

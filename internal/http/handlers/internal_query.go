@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/biqly/biqly/internal/app"
+	"github.com/biqly/biqly/internal/core"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
 	"github.com/biqly/biqly/pkg/internalapi"
@@ -44,13 +46,8 @@ func (h *InternalQueryHandler) Compile(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	start := time.Now()
-	result, se := h.query.Compile(r.Context(), &req.LogicalQuery)
-	if h.metrics != nil {
-		h.metrics.RecordQueryCompile(time.Since(start).Milliseconds(), se == nil)
-	}
-	if se != nil {
-		writeServiceError(r.Context(), w, se)
+	result, ok := h.compileLogicalQuery(w, r, &req.LogicalQuery)
+	if !ok {
 		return
 	}
 	writeJSON(w, http.StatusOK, internalapi.CompileResponse{
@@ -81,6 +78,16 @@ func (h *InternalQueryHandler) Run(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(r.Context(), w, se)
 		return
 	}
+	if result == nil || result.Compiled == nil {
+		writeInternalError(
+			r.Context(),
+			w,
+			http.StatusInternalServerError,
+			"query failed",
+			errors.New("query run returned nil result"),
+		)
+		return
+	}
 	resp := internalapi.RunResponse{
 		Fingerprint: fingerprintFor(&result.LogicalQuery, result.Model),
 		SQL:         result.Compiled.SQL,
@@ -103,13 +110,8 @@ func (h *InternalQueryHandler) DryRun(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	start := time.Now()
-	result, se := h.query.Compile(r.Context(), &req.LogicalQuery)
-	if h.metrics != nil {
-		h.metrics.RecordQueryCompile(time.Since(start).Milliseconds(), se == nil)
-	}
-	if se != nil {
-		writeServiceError(r.Context(), w, se)
+	result, ok := h.compileLogicalQuery(w, r, &req.LogicalQuery)
+	if !ok {
 		return
 	}
 	writeJSON(w, http.StatusOK, internalapi.DryRunResponse{
@@ -117,6 +119,33 @@ func (h *InternalQueryHandler) DryRun(w http.ResponseWriter, r *http.Request) {
 		Args:        result.Compiled.Args,
 		Fingerprint: fingerprintFor(&result.LogicalQuery, result.Model),
 	})
+}
+
+func (h *InternalQueryHandler) compileLogicalQuery(
+	w http.ResponseWriter,
+	r *http.Request,
+	lq *query.LogicalQuery,
+) (*core.CompileResult, bool) {
+	start := time.Now()
+	result, se := h.query.Compile(r.Context(), lq)
+	if h.metrics != nil {
+		h.metrics.RecordQueryCompile(time.Since(start).Milliseconds(), se == nil)
+	}
+	if se != nil {
+		writeServiceError(r.Context(), w, se)
+		return nil, false
+	}
+	if result == nil || result.Compiled == nil {
+		writeInternalError(
+			r.Context(),
+			w,
+			http.StatusInternalServerError,
+			"query failed",
+			errors.New("query compile returned nil result"),
+		)
+		return nil, false
+	}
+	return result, true
 }
 
 // fingerprintFor produces the canonical fingerprint for a compiled query.

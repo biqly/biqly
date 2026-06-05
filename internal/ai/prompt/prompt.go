@@ -141,6 +141,8 @@ type ConversationTurn struct {
 }
 
 // Build creates the full prompt for the AI.
+//
+//nolint:funlen // prompt assembly spans many optional sections with shared budget logic
 func (b *PromptBuilder) Build(ctx context.Context, question string, model *semantic.SemanticModel, cfg PromptConfig) string {
 	maxPromptRunes := cfg.MaxRunes
 	if maxPromptRunes <= 0 {
@@ -303,7 +305,7 @@ func (b *PromptBuilder) Build(ctx context.Context, question string, model *seman
 // keys. This block restores that domain-level context so the LLM understands
 // the model is cross-domain, how the domains connect, which date dimension
 // aligns time grains, and which dimensions were renamed to avoid collisions.
-func (b *PromptBuilder) writeCompositeContext(sb *bytes.Buffer, cc *CompositeContext) {
+func (b *PromptBuilder) writeCompositeContext(sb *bytes.Buffer, cc *CompositeContext) { //nolint:revive // keeps PromptBuilder method grouping
 	if cc == nil {
 		return
 	}
@@ -344,7 +346,7 @@ func (b *PromptBuilder) writeCompositeContext(sb *bytes.Buffer, cc *CompositeCon
 // model can resolve follow-ups like "now filter to last quarter" or "same
 // breakdown but by region". Each turn shows the user's question and, if
 // available, the prior LogicalQuery the assistant produced.
-func (b *PromptBuilder) writePriorTurns(sb *bytes.Buffer, turns []ConversationTurn) {
+func (*PromptBuilder) writePriorTurns(sb *bytes.Buffer, turns []ConversationTurn) {
 	if len(turns) == 0 {
 		return
 	}
@@ -368,7 +370,7 @@ func (b *PromptBuilder) writePriorTurns(sb *bytes.Buffer, turns []ConversationTu
 // writeSampleData appends a compact JSON block of concrete rows so the LLM can
 // see actual values (formats, casing, enum-like fields). Skipped silently if
 // no samples were provided.
-func (b *PromptBuilder) writeSampleData(sb *bytes.Buffer, samples []TableSample) {
+func (*PromptBuilder) writeSampleData(sb *bytes.Buffer, samples []TableSample) {
 	if len(samples) == 0 {
 		return
 	}
@@ -391,7 +393,7 @@ func (b *PromptBuilder) writeSampleData(sb *bytes.Buffer, samples []TableSample)
 // when matching the active locale; locale-empty rows are always eligible and
 // rows tagged for a different locale are filtered out. Skipped silently if no
 // rows survive the filter.
-func (b *PromptBuilder) writeFewShotExamples(sb *bytes.Buffer, examples []FewShotExample, locale i18n.Locale) {
+func (*PromptBuilder) writeFewShotExamples(sb *bytes.Buffer, examples []FewShotExample, locale i18n.Locale) {
 	if len(examples) == 0 {
 		return
 	}
@@ -418,7 +420,7 @@ func (b *PromptBuilder) writeFewShotExamples(sb *bytes.Buffer, examples []FewSho
 	}
 }
 
-func (b *PromptBuilder) writeDimensions(sb *bytes.Buffer, dims []semantic.Dimension, budgetRunes int) int {
+func (*PromptBuilder) writeDimensions(sb *bytes.Buffer, dims []semantic.Dimension, budgetRunes int) int {
 	if budgetRunes <= 0 {
 		fmt.Fprintf(sb, "(dimensions omitted — size budget)\n")
 		return len(dims)
@@ -490,7 +492,7 @@ func (b *PromptBuilder) writeDimensions(sb *bytes.Buffer, dims []semantic.Dimens
 	return omitted
 }
 
-func (b *PromptBuilder) writeMetrics(sb *bytes.Buffer, metrics []semantic.Metric, budgetRunes int) int {
+func (*PromptBuilder) writeMetrics(sb *bytes.Buffer, metrics []semantic.Metric, budgetRunes int) int {
 	if budgetRunes <= 0 {
 		fmt.Fprintf(sb, "(metrics omitted — size budget)\n")
 		return len(metrics)
@@ -518,7 +520,7 @@ func (b *PromptBuilder) writeMetrics(sb *bytes.Buffer, metrics []semantic.Metric
 // BuildAmbiguityAnalysis asks the LLM to identify unclear terms before
 // LogicalQuery generation. The result is structured JSON consumed by the
 // ambiguity analyzer, never SQL.
-func (b *PromptBuilder) BuildAmbiguityAnalysis(ctx context.Context, locale i18n.Locale, question string, model *semantic.SemanticModel, glossary []GlossaryEntry) string {
+func (*PromptBuilder) BuildAmbiguityAnalysis(ctx context.Context, locale i18n.Locale, question string, model *semantic.SemanticModel, glossary []GlossaryEntry) string {
 	locale = PromptLocaleForQuestion(question, locale)
 	if model == nil {
 		model = &semantic.SemanticModel{}
@@ -549,7 +551,7 @@ func (b *PromptBuilder) BuildAmbiguityAnalysis(ctx context.Context, locale i18n.
 // BuildClarification asks the LLM to produce a single, user-facing clarifying
 // question explaining what is ambiguous about the original request, given the
 // available semantic model. Output is plain text (no JSON) — short, natural.
-func (b *PromptBuilder) BuildClarification(ctx context.Context, locale i18n.Locale, question string, model *semantic.SemanticModel, failureReason string) string {
+func (*PromptBuilder) BuildClarification(ctx context.Context, locale i18n.Locale, question string, model *semantic.SemanticModel, failureReason string) string {
 	locale = PromptLocaleForQuestion(question, locale)
 	tmpl := promptTemplate(ctx, locale, "clarification")
 	if tmpl != "" {
@@ -573,44 +575,42 @@ func (b *PromptBuilder) BuildClarification(ctx context.Context, locale i18n.Loca
 		})
 	}
 
-	sb := promptBuilderPool.Get().(*bytes.Buffer)
-	sb.Reset()
-	defer promptBuilderPool.Put(sb)
-	sb.WriteString("You are a Business Intelligence assistant. The user asked a question that could not be answered with the current semantic model.\n\n")
-	fmt.Fprintf(sb, "## User Question\n%s\n\n", question)
-	if failureReason != "" {
-		fmt.Fprintf(sb, "## Why It Was Ambiguous\n%s\n\n", failureReason)
-	}
-	fmt.Fprintf(sb, "## Semantic Model: %s\n", model.Name)
-	if len(model.Dimensions) > 0 {
-		sb.WriteString("Dimensions: ")
-		names := make([]string, 0, len(model.Dimensions))
-		for _, d := range model.Dimensions {
-			names = append(names, d.Name)
+	return withPooledBuffer(func(sb *bytes.Buffer) {
+		sb.WriteString("You are a Business Intelligence assistant. The user asked a question that could not be answered with the current semantic model.\n\n")
+		fmt.Fprintf(sb, "## User Question\n%s\n\n", question)
+		if failureReason != "" {
+			fmt.Fprintf(sb, "## Why It Was Ambiguous\n%s\n\n", failureReason)
 		}
-		sb.WriteString(strings.Join(names, ", "))
-		sb.WriteString("\n")
-	}
-	if len(model.Metrics) > 0 {
-		sb.WriteString("Metrics: ")
-		names := make([]string, 0, len(model.Metrics))
-		for _, m := range model.Metrics {
-			names = append(names, m.Name)
+		fmt.Fprintf(sb, "## Semantic Model: %s\n", model.Name)
+		if len(model.Dimensions) > 0 {
+			sb.WriteString("Dimensions: ")
+			names := make([]string, 0, len(model.Dimensions))
+			for _, d := range model.Dimensions {
+				names = append(names, d.Name)
+			}
+			sb.WriteString(strings.Join(names, ", "))
+			sb.WriteString("\n")
 		}
-		sb.WriteString(strings.Join(names, ", "))
-		sb.WriteString("\n")
-	}
-	sb.WriteString("\n## Required Output\n")
-	sb.WriteString("Reply with ONE short clarifying question (max 200 chars) the user can answer to disambiguate their request. ")
-	sb.WriteString("Match the user's language. No prefixes, no JSON, no quotes — just the question itself.\n")
-	return sb.String()
+		if len(model.Metrics) > 0 {
+			sb.WriteString("Metrics: ")
+			names := make([]string, 0, len(model.Metrics))
+			for _, m := range model.Metrics {
+				names = append(names, m.Name)
+			}
+			sb.WriteString(strings.Join(names, ", "))
+			sb.WriteString("\n")
+		}
+		sb.WriteString("\n## Required Output\n")
+		sb.WriteString("Reply with ONE short clarifying question (max 200 chars) the user can answer to disambiguate their request. ")
+		sb.WriteString("Match the user's language. No prefixes, no JSON, no quotes — just the question itself.\n")
+	})
 }
 
 // BuildRetry constructs a corrective prompt to send back to the LLM when the
 // previous attempt produced unparseable or semantically-invalid output. The
 // original prompt is reused as the source of truth for the schema; the
 // addendum carries the model's failed response and the validation error.
-func (b *PromptBuilder) BuildRetry(ctx context.Context, locale i18n.Locale, originalPrompt, lastResponse, validationError string) string {
+func (*PromptBuilder) BuildRetry(ctx context.Context, locale i18n.Locale, originalPrompt, lastResponse, validationError string) string {
 	tmpl := promptTemplate(ctx, locale, "retry")
 	if tmpl != "" {
 		return renderPromptTemplate(tmpl, map[string]any{
@@ -621,18 +621,16 @@ func (b *PromptBuilder) BuildRetry(ctx context.Context, locale i18n.Locale, orig
 		})
 	}
 
-	sb := promptBuilderPool.Get().(*bytes.Buffer)
-	sb.Reset()
-	defer promptBuilderPool.Put(sb)
-	sb.WriteString(originalPrompt)
-	sb.WriteString("\n\n## Previous Attempt (incorrect)\n")
-	sb.WriteString("Your previous response was:\n")
-	sb.WriteString(lastResponse)
-	sb.WriteString("\n\n## Why It Failed\n")
-	sb.WriteString(validationError)
-	sb.WriteString("\n\n## Required Action\n")
-	sb.WriteString("Re-run the **Planning Steps** from the original prompt, then re-emit a corrected LogicalQuery JSON object using dimensions, metrics, and operators that exist in the semantic model above. Do not repeat the previous mistake. Optional `## Reasoning` prefix allowed; final output must include valid JSON — no markdown fences.\n")
-	return sb.String()
+	return withPooledBuffer(func(sb *bytes.Buffer) {
+		sb.WriteString(originalPrompt)
+		sb.WriteString("\n\n## Previous Attempt (incorrect)\n")
+		sb.WriteString("Your previous response was:\n")
+		sb.WriteString(lastResponse)
+		sb.WriteString("\n\n## Why It Failed\n")
+		sb.WriteString(validationError)
+		sb.WriteString("\n\n## Required Action\n")
+		sb.WriteString("Re-run the **Planning Steps** from the original prompt, then re-emit a corrected LogicalQuery JSON object using dimensions, metrics, and operators that exist in the semantic model above. Do not repeat the previous mistake. Optional `## Reasoning` prefix allowed; final output must include valid JSON — no markdown fences.\n")
+	})
 }
 
 // RepairStrategy returns the locale-specific repair instruction for a 1-indexed
@@ -661,7 +659,7 @@ func RepairStrategy(locale i18n.Locale, attempt int) string {
 }
 
 // BuildRepairPrompt builds a highly-focused corrective prompt to guide the LLM to fix the validation errors.
-func (b *PromptBuilder) BuildRepairPrompt(ctx context.Context, locale i18n.Locale, originalPrompt, lastResponse string, errs query.ValidationErrors, attempt int) string {
+func (*PromptBuilder) BuildRepairPrompt(ctx context.Context, locale i18n.Locale, originalPrompt, lastResponse string, errs query.ValidationErrors, attempt int) string {
 	tmpl := promptTemplate(ctx, locale, "repair")
 	if tmpl == "" {
 		tmpl = promptTemplate(ctx, locale, "retry")
@@ -693,20 +691,18 @@ func (b *PromptBuilder) BuildRepairPrompt(ctx context.Context, locale i18n.Local
 		})
 	}
 
-	sb := promptBuilderPool.Get().(*bytes.Buffer)
-	sb.Reset()
-	defer promptBuilderPool.Put(sb)
-	sb.WriteString(originalPrompt)
-	sb.WriteString("\n\n## Previous Attempt (incorrect)\n")
-	sb.WriteString("Your previous response was:\n")
-	sb.WriteString(lastResponse)
-	sb.WriteString("\n\n## Why It Failed\n")
-	sb.WriteString("The previous LogicalQuery had validation errors:\n")
-	sb.WriteString(explanation.String())
-	sb.WriteString("\n## Required Action\n")
-	fmt.Fprintf(sb, "Repair Strategy: %s\n", strategyStr)
-	sb.WriteString("Re-run the **Planning Steps** from the original prompt, and fix each validation error above. Replace incorrect dimensions, metrics, or operators with allowed alternatives. Do not repeat the previous mistake. Final output must include valid JSON - no markdown fences.\n")
-	return sb.String()
+	return withPooledBuffer(func(sb *bytes.Buffer) {
+		sb.WriteString(originalPrompt)
+		sb.WriteString("\n\n## Previous Attempt (incorrect)\n")
+		sb.WriteString("Your previous response was:\n")
+		sb.WriteString(lastResponse)
+		sb.WriteString("\n\n## Why It Failed\n")
+		sb.WriteString("The previous LogicalQuery had validation errors:\n")
+		sb.WriteString(explanation.String())
+		sb.WriteString("\n## Required Action\n")
+		fmt.Fprintf(sb, "Repair Strategy: %s\n", strategyStr)
+		sb.WriteString("Re-run the **Planning Steps** from the original prompt, and fix each validation error above. Replace incorrect dimensions, metrics, or operators with allowed alternatives. Do not repeat the previous mistake. Final output must include valid JSON - no markdown fences.\n")
+	})
 }
 
 // formatEnumValues renders a coded dimension's raw→label pairs as an inline

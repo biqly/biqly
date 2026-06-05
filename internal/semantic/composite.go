@@ -75,7 +75,7 @@ func (r *CompositeResolver) Resolve(composite *CompositeModel, components map[st
 }
 
 // findPrimary locates the primary component and returns its loaded model.
-func (r *CompositeResolver) findPrimary(composite *CompositeModel, components map[string]*SemanticModel) (*SemanticModel, error) {
+func (*CompositeResolver) findPrimary(composite *CompositeModel, components map[string]*SemanticModel) (*SemanticModel, error) {
 	var primaryAlias string
 	for _, c := range composite.Components {
 		if c.Role == ComponentRolePrimary {
@@ -100,7 +100,7 @@ func (r *CompositeResolver) findPrimary(composite *CompositeModel, components ma
 // resolving duplicate names. Unresolved duplicates are deterministically
 // disambiguated by prefixing the component alias so runtime never breaks; the
 // publish validator surfaces them as warnings.
-func (r *CompositeResolver) mergeDimensions(
+func (*CompositeResolver) mergeDimensions(
 	composite *CompositeModel,
 	components map[string]*SemanticModel,
 	primary *SemanticModel,
@@ -136,7 +136,7 @@ func (r *CompositeResolver) mergeDimensions(
 
 // mergeMetrics unions all component metrics, qualifying expressions and
 // disambiguating duplicate names by alias prefix.
-func (r *CompositeResolver) mergeMetrics(
+func (*CompositeResolver) mergeMetrics(
 	composite *CompositeModel,
 	components map[string]*SemanticModel,
 ) ([]Metric, error) {
@@ -256,7 +256,7 @@ func (r *CompositeResolver) resolveCrossJoin(
 
 // dimensionEndpoint resolves a (component alias, dimension name) pair to its
 // physical schema/table/column.
-func (r *CompositeResolver) dimensionEndpoint(
+func (*CompositeResolver) dimensionEndpoint(
 	components map[string]*SemanticModel,
 	alias, dimensionName string,
 ) (schema, table, column string, err error) {
@@ -281,7 +281,7 @@ func (r *CompositeResolver) dimensionEndpoint(
 // referenced dimension exists in the merged model it is left as-is; the
 // canonical reference primarily guides prompt building and time-grain
 // alignment downstream.
-func (r *CompositeResolver) applyCanonicalDate(composite *CompositeModel, merged *SemanticModel) {
+func (*CompositeResolver) applyCanonicalDate(composite *CompositeModel, merged *SemanticModel) {
 	if composite.CanonicalDate == nil {
 		return
 	}

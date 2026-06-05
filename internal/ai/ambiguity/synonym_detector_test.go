@@ -8,8 +8,8 @@ import (
 	"github.com/biqly/biqly/internal/semantic"
 )
 
-func TestDetectSynonyms(t *testing.T) {
-	model := &semantic.SemanticModel{
+func ciroAmbiguityModel() *semantic.SemanticModel {
+	return &semantic.SemanticModel{
 		Dimensions: []semantic.Dimension{
 			{Name: "customer_segment", Synonyms: []string{"CIRO"}},
 		},
@@ -17,9 +17,18 @@ func TestDetectSynonyms(t *testing.T) {
 			{Name: "revenue", Synonyms: []string{"ciro"}},
 		},
 	}
+}
 
-	got := DetectSynonyms(i18n.LocaleEN, "Ciro göster", model)
-	want := []AmbiguityItem{
+func assertDetectSynonyms(t *testing.T, model *semantic.SemanticModel, question string, want []AmbiguityItem) {
+	t.Helper()
+	got := DetectSynonyms(i18n.LocaleEN, question, model)
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("DetectSynonyms() = %#v, want %#v", got, want)
+	}
+}
+
+func TestDetectSynonyms(t *testing.T) {
+	assertDetectSynonyms(t, ciroAmbiguityModel(), "Ciro göster", []AmbiguityItem{
 		{
 			Term: "ciro",
 			Type: "semantic",
@@ -44,15 +53,11 @@ func TestDetectSynonyms(t *testing.T) {
 				},
 			},
 		},
-	}
-
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("DetectSynonyms() = %#v, want %#v", got, want)
-	}
+	})
 }
 
-func TestDetectSynonyms_FuzzyQuestionMatch(t *testing.T) {
-	model := &semantic.SemanticModel{
+func fuzzyCiroAmbiguityModel() *semantic.SemanticModel {
+	return &semantic.SemanticModel{
 		Dimensions: []semantic.Dimension{
 			{Name: "customer_segment", Synonyms: []string{"ciro"}},
 		},
@@ -60,9 +65,10 @@ func TestDetectSynonyms_FuzzyQuestionMatch(t *testing.T) {
 			{Name: "revenue", Synonyms: []string{"ciro"}},
 		},
 	}
+}
 
-	got := DetectSynonyms(i18n.LocaleEN, "Cirp göster", model)
-	want := []AmbiguityItem{
+func TestDetectSynonyms_FuzzyQuestionMatch(t *testing.T) {
+	assertDetectSynonyms(t, fuzzyCiroAmbiguityModel(), "Cirp göster", []AmbiguityItem{
 		{
 			Term: "ciro",
 			Type: "semantic",
@@ -87,9 +93,5 @@ func TestDetectSynonyms_FuzzyQuestionMatch(t *testing.T) {
 				},
 			},
 		},
-	}
-
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("DetectSynonyms() = %#v, want %#v", got, want)
-	}
+	})
 }

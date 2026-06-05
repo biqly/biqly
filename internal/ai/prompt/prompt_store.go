@@ -2,12 +2,14 @@ package prompt
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
 	"sync"
 	"sync/atomic"
 
+	"github.com/biqly/biqly/internal/ai/abtest"
 	"github.com/biqly/biqly/internal/ai/lingua"
 	"github.com/biqly/biqly/internal/i18n"
 )
@@ -24,6 +26,7 @@ type PromptTemplateSnapshot struct {
 type PromptTemplateStore interface {
 	Template(ctx context.Context, loc i18n.Locale, name string) string
 	Snapshot(ctx context.Context, loc i18n.Locale, name string) PromptTemplateSnapshot
+	SnapshotForUser(ctx context.Context, userID string, loc i18n.Locale, name string) PromptTemplateSnapshot
 }
 
 type embedPromptStore struct{}
@@ -41,10 +44,15 @@ func (embedPromptStore) Snapshot(_ context.Context, loc i18n.Locale, name string
 	}
 }
 
+func (s embedPromptStore) SnapshotForUser(ctx context.Context, _ string, loc i18n.Locale, name string) PromptTemplateSnapshot {
+	return s.Snapshot(ctx, loc, name)
+}
+
 type dbPromptStore struct {
-	repo  promptTemplateRepo
-	mu    sync.RWMutex
-	cache map[string]PromptTemplateSnapshot // key: name+"\x00"+locale
+	repo   promptTemplateRepo
+	router VariantResolver
+	mu     sync.RWMutex
+	cache  map[string]PromptTemplateSnapshot // key: name+"\x00"+locale
 }
 
 type promptTemplateRepo interface {
@@ -55,6 +63,14 @@ type promptTemplateRepo interface {
 
 type promptTemplateVersionRepo interface {
 	GetPromptTemplateVersion(ctx context.Context, name string, loc i18n.Locale) (string, int, error)
+}
+
+type promptTemplateByVersionRepo interface {
+	GetPromptTemplateByVersion(ctx context.Context, name string, loc i18n.Locale, version int) (string, error)
+}
+
+type VariantResolver interface {
+	ResolveVariant(ctx context.Context, userID, templateName string, locale string, defaultVersion int) (abtest.Variant, error)
 }
 
 type promptStoreWrapper struct {
@@ -68,7 +84,11 @@ func init() {
 }
 
 func getActivePromptStore() PromptTemplateStore {
-	return activePromptStore.Load().(promptStoreWrapper).store
+	loaded, ok := activePromptStore.Load().(promptStoreWrapper)
+	if !ok {
+		return embedPromptStore{}
+	}
+	return loaded.store
 }
 
 // SetPromptTemplateStore switches template resolution to the database (with
@@ -89,7 +109,7 @@ func SeedPromptTemplatesFromEmbed(ctx context.Context, repo promptTemplateRepo) 
 	}
 	for _, loc := range i18n.SupportedLocales {
 		for _, name := range KnownPromptTemplateNames() {
-			if n > 0 {
+			if n > 0 { //nolint:nestif
 				existing, err := repo.GetPromptTemplate(ctx, name, loc)
 				if err != nil {
 					return err
@@ -167,6 +187,57 @@ func (s *dbPromptStore) Snapshot(ctx context.Context, loc i18n.Locale, name stri
 	return snap
 }
 
+func (s *dbPromptStore) SnapshotForUser(ctx context.Context, userID string, loc i18n.Locale, name string) PromptTemplateSnapshot {
+	if loc == "" {
+		loc = i18n.DefaultLocale
+	}
+	s.mu.RLock()
+	router := s.router
+	s.mu.RUnlock()
+
+	if router == nil || userID == "" {
+		return s.Snapshot(ctx, loc, name)
+	}
+
+	activeSnap := s.Snapshot(ctx, loc, name)
+
+	variant, err := router.ResolveVariant(ctx, userID, name, string(loc), activeSnap.Version)
+	if err != nil {
+		slog.WarnContext(ctx, "failed to resolve A/B variant, falling back to active template", "userID", userID, "name", name, "locale", loc, "error", err)
+		return activeSnap
+	}
+
+	// Capture the resolved variant in the context's ExperimentTracker if active
+	if tracker := abtest.TrackerFromContext(ctx); tracker != nil && variant.ExperimentID != "" {
+		tracker.AddVariant(variant)
+	}
+
+
+	if variant.ExperimentID == "" || variant.TemplateVersion == activeSnap.Version {
+		return activeSnap
+	}
+
+	content, err := s.loadVersion(ctx, name, loc, variant.TemplateVersion)
+	if err != nil {
+		slog.WarnContext(ctx, "failed to load template version for A/B variant", "name", name, "locale", loc, "version", variant.TemplateVersion, "error", err)
+		return activeSnap
+	}
+
+	return PromptTemplateSnapshot{
+		Name:    name,
+		Locale:  loc,
+		Content: content,
+		Version: variant.TemplateVersion,
+	}
+}
+
+func (s *dbPromptStore) loadVersion(ctx context.Context, name string, loc i18n.Locale, version int) (string, error) {
+	if r, ok := s.repo.(promptTemplateByVersionRepo); ok {
+		return r.GetPromptTemplateByVersion(ctx, name, loc, version)
+	}
+	return "", errors.New("repository does not support GetPromptTemplateByVersion")
+}
+
 func (s *dbPromptStore) load(ctx context.Context, name string, loc i18n.Locale) (string, int, error) {
 	if r, ok := s.repo.(promptTemplateVersionRepo); ok {
 		return r.GetPromptTemplateVersion(ctx, name, loc)
@@ -192,18 +263,23 @@ func PromptLocaleForQuestion(question string, uiLocale i18n.Locale) i18n.Locale 
 }
 
 func promptTemplate(ctx context.Context, loc i18n.Locale, name string) string {
+	userID := UserIDFromContext(ctx)
+	if userID != "" {
+		return getActivePromptStore().SnapshotForUser(ctx, userID, loc, name).Content
+	}
 	return getActivePromptStore().Template(ctx, loc, name)
-}
-
-func promptTemplateSnapshot(ctx context.Context, loc i18n.Locale, name string) PromptTemplateSnapshot {
-	return getActivePromptStore().Snapshot(ctx, loc, name)
 }
 
 // PromptTemplateBundleVersions reports active versions for the editable prompt bundle.
 func PromptTemplateBundleVersions(ctx context.Context, loc i18n.Locale) map[string]int {
+	userID := UserIDFromContext(ctx)
 	out := make(map[string]int, len(KnownPromptTemplateNames()))
 	for _, name := range KnownPromptTemplateNames() {
-		out[name] = promptTemplateSnapshot(ctx, loc, name).Version
+		if userID != "" {
+			out[name] = getActivePromptStore().SnapshotForUser(ctx, userID, loc, name).Version
+		} else {
+			out[name] = getActivePromptStore().Snapshot(ctx, loc, name).Version
+		}
 	}
 	return out
 }
@@ -217,6 +293,15 @@ func KnownPromptTemplateNames() []string {
 func InvalidatePromptTemplateCache(name string, loc i18n.Locale) {
 	if s, ok := getActivePromptStore().(*dbPromptStore); ok {
 		s.invalidate(name, loc)
+	}
+}
+
+// SetVariantResolver sets the traffic router for A/B testing on the active store.
+func SetVariantResolver(resolver VariantResolver) {
+	if s, ok := getActivePromptStore().(*dbPromptStore); ok {
+		s.mu.Lock()
+		s.router = resolver
+		s.mu.Unlock()
 	}
 }
 

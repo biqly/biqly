@@ -17,7 +17,7 @@ func (p *fakeTranslationProvider) Generate(ctx context.Context, prompt string) (
 	return p.GenerateAt(ctx, prompt, 0)
 }
 
-func (p *fakeTranslationProvider) GenerateAt(ctx context.Context, prompt string, temperature float64) (providerpkg.GenerationResult, error) {
+func (p *fakeTranslationProvider) GenerateAt(_ context.Context, prompt string, _ float64) (providerpkg.GenerationResult, error) {
 	p.prompt = prompt
 	return providerpkg.GenerationResult{Content: p.response}, nil
 }

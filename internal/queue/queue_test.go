@@ -46,7 +46,7 @@ func TestLocalAIJobQueue_PublishAndSubscribe(t *testing.T) {
 		var processed []string
 		var mu sync.Mutex
 
-		handler := func(ctx context.Context, jobID string) error {
+		handler := func(_ context.Context, jobID string) error {
 			mu.Lock()
 			processed = append(processed, jobID)
 			mu.Unlock()
@@ -73,7 +73,7 @@ func TestLocalAIJobQueue_SubscribeWithCancellation(t *testing.T) {
 	var subErr error
 	go func() {
 		defer wg.Done()
-		subErr = q.Subscribe(ctx, "worker-group", func(ctx context.Context, jobID string) error {
+		subErr = q.Subscribe(ctx, "worker-group", func(_ context.Context, _ string) error {
 			return nil
 		})
 	}()
@@ -105,7 +105,7 @@ func TestLocalAIJobQueue_CloseBehavior(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	err = q.Subscribe(ctx, "worker-group", func(ctx context.Context, jobID string) error {
+	err = q.Subscribe(ctx, "worker-group", func(_ context.Context, jobID string) error {
 		processed = append(processed, jobID)
 		return nil
 	})
@@ -122,7 +122,7 @@ func TestLocalAIJobQueue_HandlerError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	err := q.Subscribe(ctx, "worker-group", func(ctx context.Context, jobID string) error {
+	err := q.Subscribe(ctx, "worker-group", func(_ context.Context, _ string) error {
 		return expectedErr
 	})
 

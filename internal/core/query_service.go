@@ -226,7 +226,7 @@ func (s *QueryService) loadContext(ctx context.Context, lq *query.LogicalQuery) 
 	}
 	var model *semantic.SemanticModel
 	var err error
-	if lq.CompositeID != "" {
+	if lq.CompositeID != "" { //nolint:nestif
 		if s.composites == nil {
 			return nil, ToServiceError(fmt.Errorf("%w: composite models not supported", ErrLoadSemanticModel))
 		}

@@ -181,7 +181,7 @@ func TestCreateEvalResults_PostsBatch(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		var req internalapi.EvalResultsRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil { //nolint:musttag // nested eval types omit json tags by design
 			t.Fatalf("decode: %v", err)
 		}
 		if req.RunID != "run_1" || req.Provider != "openai" || req.Model != "gpt-4o" {

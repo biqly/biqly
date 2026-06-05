@@ -12,6 +12,7 @@ var calendarGrainSuffixes = []string{
 // created_at_month when the model only defines created_at_ts_month).
 // It only rewrites when the original name is absent and exactly one injected
 // candidate exists in knownDimensions.
+//nolint:gocognit
 func RepairMisnamedCalendarGrainDimensions(lq *LogicalQuery, knownDimensions []string) {
 	if lq == nil || len(knownDimensions) == 0 {
 		return

@@ -23,27 +23,37 @@ const (
 )
 
 // LiteralExpr represents a scalar literal value.
+//
+//nolint:recvcheck // UnmarshalJSON uses pointer receiver; marshal/sealed use value receiver
 type LiteralExpr struct {
 	Value any `json:"value"`
 }
 
 // ColumnRefExpr represents a physical column reference.
+//
+//nolint:recvcheck // UnmarshalJSON uses pointer receiver; marshal/sealed use value receiver
 type ColumnRefExpr struct {
 	Table  string `json:"table,omitempty"`
 	Column string `json:"column"`
 }
 
 // MetricRefExpr references another semantic metric by name.
+//
+//nolint:recvcheck // UnmarshalJSON uses pointer receiver; marshal/sealed use value receiver
 type MetricRefExpr struct {
 	Name string `json:"name"`
 }
 
 // DimensionRefExpr references another semantic dimension by name.
+//
+//nolint:recvcheck // UnmarshalJSON uses pointer receiver; marshal/sealed use value receiver
 type DimensionRefExpr struct {
 	Name string `json:"name"`
 }
 
 // BinaryExpr combines two expressions with a binary operator.
+//
+//nolint:recvcheck // UnmarshalJSON uses pointer receiver; marshal/sealed use value receiver
 type BinaryExpr struct {
 	Op    BinaryOp `json:"op"`
 	Left  ExprNode `json:"left"`
@@ -51,18 +61,24 @@ type BinaryExpr struct {
 }
 
 // UnaryExpr applies a unary operator to an expression.
+//
+//nolint:recvcheck // UnmarshalJSON uses pointer receiver; marshal/sealed use value receiver
 type UnaryExpr struct {
 	Op   UnaryOp  `json:"op"`
 	Expr ExprNode `json:"expr"`
 }
 
 // FunctionCallExpr calls a whitelisted SQL function.
+//
+//nolint:recvcheck // UnmarshalJSON uses pointer receiver; marshal/sealed use value receiver
 type FunctionCallExpr struct {
 	Name string     `json:"name"`
 	Args []ExprNode `json:"args,omitempty"`
 }
 
 // CaseExpr represents a SQL CASE expression.
+//
+//nolint:recvcheck // UnmarshalJSON uses pointer receiver; marshal/sealed use value receiver
 type CaseExpr struct {
 	Conditions []CaseWhen `json:"conditions,omitempty"`
 	ElseExpr   ExprNode   `json:"else,omitempty"`

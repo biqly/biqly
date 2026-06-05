@@ -29,12 +29,12 @@ type stubDriver struct {
 	opens atomic.Int32
 }
 
-func (s *stubDriver) Type() string             { return "stub" }
-func (s *stubDriver) Dialect() dialect.Dialect { return dialect.PostgresDialect{} }
-func (s *stubDriver) Ping(_ context.Context, _ string) error {
+func (*stubDriver) Type() string { return "stub" }
+func (*stubDriver) Dialect() dialect.Dialect { return dialect.PostgresDialect{} }
+func (*stubDriver) Ping(_ context.Context, _ string) error {
 	return nil
 }
-func (s *stubDriver) Introspect(_ context.Context, _ *sql.DB) (*IntrospectionResult, error) {
+func (*stubDriver) Introspect(_ context.Context, _ *sql.DB) (*IntrospectionResult, error) {
 	return &IntrospectionResult{}, nil
 }
 func (s *stubDriver) Open(_ context.Context, _ string) (*sql.DB, error) {

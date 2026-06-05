@@ -23,7 +23,7 @@ func BenchmarkPoolCacheGet(b *testing.B) {
 	b.Cleanup(func() { _ = cache.Close() })
 
 	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		if _, err := cache.Get(context.Background(), d, "ds-1", "dsn-1"); err != nil {
 			b.Fatal(err)
 		}
@@ -37,7 +37,7 @@ func BenchmarkPoolCacheGet(b *testing.B) {
 func BenchmarkFreshOpenPerCall(b *testing.B) {
 	d := &stubDriver{}
 	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		db, err := d.Open(context.Background(), "dsn-1")
 		if err != nil {
 			b.Fatal(err)

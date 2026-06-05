@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -37,40 +38,36 @@ func (h *AuthHandler) RegisterAccountAdminRoutes(r chi.Router, authMW func(http.
 	})
 }
 
-func (h *AuthHandler) handleFreezeAccount(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) handleAccountFreezeToggle(
+	w http.ResponseWriter,
+	r *http.Request,
+	action func(context.Context, string) error,
+	conflictErr error,
+	auditAction string,
+) {
 	userID, ok := r.Context().Value(userIDKey).(string)
 	if !ok || userID == "" {
 		h.respondError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-	if err := h.service.FreezeAccount(r.Context(), userID); err != nil {
-		if errors.Is(err, auth.ErrAccountAlreadyFrozen) {
+	if err := action(r.Context(), userID); err != nil {
+		if errors.Is(err, conflictErr) {
 			h.respondError(w, http.StatusConflict, err.Error())
 			return
 		}
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	h.auditLog(r, &userID, auth.AuditAccountFrozen, nil, nil, nil)
+	h.auditLog(r, &userID, auditAction, nil, nil, nil)
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *AuthHandler) handleFreezeAccount(w http.ResponseWriter, r *http.Request) {
+	h.handleAccountFreezeToggle(w, r, h.service.FreezeAccount, auth.ErrAccountAlreadyFrozen, auth.AuditAccountFrozen)
+}
+
 func (h *AuthHandler) handleUnfreezeAccount(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-	if err := h.service.UnfreezeAccount(r.Context(), userID); err != nil {
-		if errors.Is(err, auth.ErrAccountNotFrozen) {
-			h.respondError(w, http.StatusConflict, err.Error())
-			return
-		}
-		h.respondError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	h.auditLog(r, &userID, auth.AuditAccountUnfrozen, nil, nil, nil)
-	w.WriteHeader(http.StatusNoContent)
+	h.handleAccountFreezeToggle(w, r, h.service.UnfreezeAccount, auth.ErrAccountNotFrozen, auth.AuditAccountUnfrozen)
 }
 
 func (h *AuthHandler) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
@@ -95,8 +92,8 @@ func (h *AuthHandler) handleDeleteAccount(w http.ResponseWriter, r *http.Request
 }
 
 func (h *AuthHandler) handleListSessions(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
+	userID, ok := contextUserID(r)
+	if !ok {
 		h.respondError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}

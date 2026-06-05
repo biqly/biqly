@@ -99,10 +99,12 @@ type fakeDriver struct {
 	dialect dialect.Dialect
 }
 
-func (f fakeDriver) Type() string                                  { return "postgres" }
-func (f fakeDriver) Ping(context.Context, string) error            { return nil }
-func (f fakeDriver) Open(context.Context, string) (*sql.DB, error) { return nil, nil }
-func (f fakeDriver) Introspect(context.Context, *sql.DB) (*datasource.IntrospectionResult, error) {
-	return nil, nil
+func (fakeDriver) Type() string                                  { return "postgres" }
+func (fakeDriver) Ping(context.Context, string) error            { return nil }
+func (fakeDriver) Open(context.Context, string) (*sql.DB, error) {
+	return nil, nil //nolint:nilnil // test stub driver is never opened
+}
+func (fakeDriver) Introspect(context.Context, *sql.DB) (*datasource.IntrospectionResult, error) {
+	return nil, nil //nolint:nilnil // optional result
 }
 func (f fakeDriver) Dialect() dialect.Dialect { return f.dialect }

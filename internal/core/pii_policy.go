@@ -49,11 +49,11 @@ func (s *PIIPolicyService) WithAudit(logger *audit.Logger) *PIIPolicyService {
 // unmasked.
 func (s *PIIPolicyService) MaskingConfig(ctx context.Context, datasourceID string) (*query.PIIMaskingConfig, error) {
 	if s == nil || s.store == nil || s.identity == nil || datasourceID == "" {
-		return nil, nil
+		return nil, nil //nolint:nilnil // optional result
 	}
 	userID, roles := s.identity(ctx)
 	if userID == "" {
-		return nil, nil
+		return nil, nil //nolint:nilnil // optional result
 	}
 
 	cols, err := s.store.ListPIIColumns(ctx, datasourceID)
@@ -61,7 +61,7 @@ func (s *PIIPolicyService) MaskingConfig(ctx context.Context, datasourceID strin
 		return nil, fmt.Errorf("load pii columns: %w", err)
 	}
 	if len(cols) == 0 {
-		return nil, nil
+		return nil, nil //nolint:nilnil // optional result
 	}
 
 	overrides := map[string]string{}

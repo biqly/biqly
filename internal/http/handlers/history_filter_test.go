@@ -107,6 +107,7 @@ func TestFilterQueryHistoryByDatasources(t *testing.T) {
 }
 
 func TestMaskAIHistoryRow_NilSafe(t *testing.T) {
+	t.Helper()
 	MaskAIHistoryRow(nil) // must not panic
 }
 

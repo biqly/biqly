@@ -62,10 +62,12 @@ func newUpstreamProxy(targetURL, envVarName, serviceLabel string) (http.Handler,
 			slog.ErrorContext(r.Context(), logTag, "error", err, "path", r.URL.Path)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadGateway)
-			_ = json.NewEncoder(w).Encode(internalapi.Error{
+			if err := json.NewEncoder(w).Encode(internalapi.Error{
 				Code:  internalapi.CodeUpstream,
 				Error: bodyMessage,
-			})
+			}); err != nil {
+				return
+			}
 		},
 	}
 	return proxy, true

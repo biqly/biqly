@@ -313,97 +313,97 @@ type AIModelAccessGrants struct {
 	ModelRoles         []AIModelRoleGrant         `json:"model_roles"`
 }
 
-func (s *AIModelAccessService) ListAllGrants(ctx context.Context) (AIModelAccessGrants, error) {
-	var out AIModelAccessGrants
+func scanGrantedBy(gb sql.NullString) *string {
+	if gb.Valid {
+		return new(gb.String)
+	}
+	return nil
+}
 
-	{
-		rows, err := s.db.QueryContext(ctx, `SELECT workspace_id::text, provider_id::text, granted_by::text, granted_at FROM ai_provider_workspace_grants`)
+func listGrants[G any](ctx context.Context, db *sql.DB, query string, scan func(*sql.Rows) (G, error)) ([]G, error) {
+	rows, err := db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var grants []G
+	for rows.Next() {
+		g, err := scan(rows)
 		if err != nil {
-			return out, err
+			return nil, err
 		}
-		defer func() { _ = rows.Close() }()
-		for rows.Next() {
+		grants = append(grants, g)
+	}
+	return grants, rows.Err()
+}
+
+func (s *AIModelAccessService) listProviderWorkspaceGrants(ctx context.Context) ([]AIProviderWorkspaceGrant, error) {
+	return listGrants(ctx, s.db, `SELECT workspace_id::text, provider_id::text, granted_by::text, granted_at FROM ai_provider_workspace_grants`,
+		func(rows *sql.Rows) (AIProviderWorkspaceGrant, error) {
 			var g AIProviderWorkspaceGrant
 			var gb sql.NullString
 			if err := rows.Scan(&g.WorkspaceID, &g.ProviderID, &gb, &g.GrantedAt); err != nil {
-				return out, err
+				return g, err
 			}
-			if gb.Valid {
-				g.GrantedBy = new(gb.String)
-			}
-			out.ProviderWorkspaces = append(out.ProviderWorkspaces, g)
-		}
-		if err := rows.Err(); err != nil {
-			return out, err
-		}
-	}
+			g.GrantedBy = scanGrantedBy(gb)
+			return g, nil
+		})
+}
 
-	{
-		rows, err := s.db.QueryContext(ctx, `SELECT workspace_id::text, model_id::text, granted_by::text, granted_at FROM ai_model_workspace_grants`)
-		if err != nil {
-			return out, err
-		}
-		defer func() { _ = rows.Close() }()
-		for rows.Next() {
+func (s *AIModelAccessService) listModelWorkspaceGrants(ctx context.Context) ([]AIModelWorkspaceGrant, error) {
+	return listGrants(ctx, s.db, `SELECT workspace_id::text, model_id::text, granted_by::text, granted_at FROM ai_model_workspace_grants`,
+		func(rows *sql.Rows) (AIModelWorkspaceGrant, error) {
 			var g AIModelWorkspaceGrant
 			var gb sql.NullString
 			if err := rows.Scan(&g.WorkspaceID, &g.ModelID, &gb, &g.GrantedAt); err != nil {
-				return out, err
+				return g, err
 			}
-			if gb.Valid {
-				g.GrantedBy = new(gb.String)
-			}
-			out.ModelWorkspaces = append(out.ModelWorkspaces, g)
-		}
-		if err := rows.Err(); err != nil {
-			return out, err
-		}
-	}
+			g.GrantedBy = scanGrantedBy(gb)
+			return g, nil
+		})
+}
 
-	{
-		rows, err := s.db.QueryContext(ctx, `SELECT role_id::text, provider_id::text, granted_by::text, granted_at FROM ai_provider_role_grants`)
-		if err != nil {
-			return out, err
-		}
-		defer func() { _ = rows.Close() }()
-		for rows.Next() {
+func (s *AIModelAccessService) listProviderRoleGrants(ctx context.Context) ([]AIProviderRoleGrant, error) {
+	return listGrants(ctx, s.db, `SELECT role_id::text, provider_id::text, granted_by::text, granted_at FROM ai_provider_role_grants`,
+		func(rows *sql.Rows) (AIProviderRoleGrant, error) {
 			var g AIProviderRoleGrant
 			var gb sql.NullString
 			if err := rows.Scan(&g.RoleID, &g.ProviderID, &gb, &g.GrantedAt); err != nil {
-				return out, err
+				return g, err
 			}
-			if gb.Valid {
-				g.GrantedBy = new(gb.String)
-			}
-			out.ProviderRoles = append(out.ProviderRoles, g)
-		}
-		if err := rows.Err(); err != nil {
-			return out, err
-		}
-	}
+			g.GrantedBy = scanGrantedBy(gb)
+			return g, nil
+		})
+}
 
-	{
-		rows, err := s.db.QueryContext(ctx, `SELECT role_id::text, model_id::text, granted_by::text, granted_at FROM ai_model_role_grants`)
-		if err != nil {
-			return out, err
-		}
-		defer func() { _ = rows.Close() }()
-		for rows.Next() {
+func (s *AIModelAccessService) listModelRoleGrants(ctx context.Context) ([]AIModelRoleGrant, error) {
+	return listGrants(ctx, s.db, `SELECT role_id::text, model_id::text, granted_by::text, granted_at FROM ai_model_role_grants`,
+		func(rows *sql.Rows) (AIModelRoleGrant, error) {
 			var g AIModelRoleGrant
 			var gb sql.NullString
 			if err := rows.Scan(&g.RoleID, &g.ModelID, &gb, &g.GrantedAt); err != nil {
-				return out, err
+				return g, err
 			}
-			if gb.Valid {
-				g.GrantedBy = new(gb.String)
-			}
-			out.ModelRoles = append(out.ModelRoles, g)
-		}
-		if err := rows.Err(); err != nil {
-			return out, err
-		}
-	}
+			g.GrantedBy = scanGrantedBy(gb)
+			return g, nil
+		})
+}
 
+func (s *AIModelAccessService) ListAllGrants(ctx context.Context) (AIModelAccessGrants, error) {
+	var out AIModelAccessGrants
+	var err error
+	if out.ProviderWorkspaces, err = s.listProviderWorkspaceGrants(ctx); err != nil {
+		return out, err
+	}
+	if out.ModelWorkspaces, err = s.listModelWorkspaceGrants(ctx); err != nil {
+		return out, err
+	}
+	if out.ProviderRoles, err = s.listProviderRoleGrants(ctx); err != nil {
+		return out, err
+	}
+	if out.ModelRoles, err = s.listModelRoleGrants(ctx); err != nil {
+		return out, err
+	}
 	return out, nil
 }
 

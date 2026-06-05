@@ -209,7 +209,7 @@ func (r *fakeRows) Err() error {
 	return r.err
 }
 
-func (r *fakeRows) Close() error {
+func (r *fakeRows) Close() error { //nolint:revive // satisfies rowsScanner in tests
 	return nil
 }
 

@@ -172,7 +172,7 @@ func (s *Scheduler) checkDatasourceDrift(ctx context.Context, dsID string) {
 	}
 }
 
-func (s *Scheduler) driftsMatch(a, b []DriftItem) bool {
+func (*Scheduler) driftsMatch(a, b []DriftItem) bool {
 	if len(a) != len(b) {
 		return false
 	}

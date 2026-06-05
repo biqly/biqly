@@ -98,6 +98,7 @@ type EvalSuiteResult struct {
 }
 
 // RunGoldenSuite runs each case through the AI service and optional checks.
+//nolint:gocognit
 func RunGoldenSuite(ctx context.Context, processor QuestionProcessor, opts EvalSuiteOptions) *EvalSuiteResult {
 	cases := opts.Cases
 	if len(cases) == 0 {
@@ -157,7 +158,7 @@ func RunGoldenSuite(ctx context.Context, processor QuestionProcessor, opts EvalS
 			cr.ExecutionMatch = true
 		}
 
-		if opts.Modes&EvalModeJudge != 0 && opts.Judge != nil {
+		if opts.Modes&EvalModeJudge != 0 && opts.Judge != nil { //nolint:nestif
 			ok, rationale, jerr := JudgeLogicalQuery(ctx, opts.Judge, c.Question, c.Model, &c.Expected, resp.LogicalQuery)
 			if jerr != nil {
 				cr.JudgeMatch = false

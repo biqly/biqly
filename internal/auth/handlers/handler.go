@@ -33,6 +33,11 @@ const (
 	workspaceIDKey contextKey = "workspaceID"
 )
 
+func contextUserID(r *http.Request) (string, bool) {
+	userID, ok := r.Context().Value(userIDKey).(string)
+	return userID, ok && userID != ""
+}
+
 type AuthHandler struct {
 	service  *auth.AuthService
 	webAuthn *mfa.WebAuthnService
@@ -401,7 +406,7 @@ func (h *AuthHandler) internalTokenMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func (h *AuthHandler) respondJSON(w http.ResponseWriter, status int, data any) {
+func (*AuthHandler) respondJSON(w http.ResponseWriter, status int, data any) {
 	response.WriteJSON(w, status, data)
 }
 
@@ -409,7 +414,7 @@ func (h *AuthHandler) respondJSON(w http.ResponseWriter, status int, data any) {
 // detailed message is sent to logs/telemetry only and the client receives a
 // generic, user-friendly message so internal details never leak. Client
 // errors (4xx) keep their message, which is intentional validation feedback.
-func (h *AuthHandler) respondError(w http.ResponseWriter, status int, message string) {
+func (*AuthHandler) respondError(w http.ResponseWriter, status int, message string) {
 	if status >= http.StatusInternalServerError {
 		slog.Error("auth handler error", "detail", message, "status", status)
 		message = "internal server error"
@@ -558,7 +563,7 @@ func (h *AuthHandler) handleOAuthExchange(w http.ResponseWriter, r *http.Request
 	h.respondJSON(w, http.StatusOK, resp)
 }
 
-func (h *AuthHandler) generateState() (string, error) {
+func (*AuthHandler) generateState() (string, error) {
 	b := make([]byte, 16)
 	_, err := rand.Read(b)
 	if err != nil {
@@ -799,20 +804,34 @@ type ConfirmEmailChangeRequest struct {
 	Token string `json:"token"`
 }
 
-func (h *AuthHandler) handleForgotPassword(w http.ResponseWriter, r *http.Request) {
-	var req ForgotPasswordRequest
+func (h *AuthHandler) handleEmailAction(
+	w http.ResponseWriter,
+	r *http.Request,
+	action func(context.Context, string) error,
+	okMessage string,
+	errStatus int,
+) {
+	var req struct {
+		Email string `json:"email"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-
-	err := h.service.ForgotPassword(r.Context(), req.Email)
-	if err != nil {
-		h.respondError(w, http.StatusInternalServerError, err.Error())
+	if err := action(r.Context(), req.Email); err != nil {
+		h.respondError(w, errStatus, err.Error())
 		return
 	}
+	h.respondJSON(w, http.StatusOK, map[string]string{"message": okMessage})
+}
 
-	h.respondJSON(w, http.StatusOK, map[string]string{"message": "If the email exists, a password reset link has been sent."})
+func (h *AuthHandler) handleForgotPassword(w http.ResponseWriter, r *http.Request) {
+	h.handleEmailAction(
+		w, r,
+		h.service.ForgotPassword,
+		"If the email exists, a password reset link has been sent.",
+		http.StatusInternalServerError,
+	)
 }
 
 func (h *AuthHandler) handleResetPassword(w http.ResponseWriter, r *http.Request) {
@@ -896,19 +915,12 @@ func (h *AuthHandler) handleVerifyEmail(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *AuthHandler) handleResendVerification(w http.ResponseWriter, r *http.Request) {
-	var req ResendVerificationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	err := h.service.ResendVerificationEmail(r.Context(), req.Email)
-	if err != nil {
-		h.respondError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	h.respondJSON(w, http.StatusOK, map[string]string{"message": "If the email is not verified, a new verification link has been sent."})
+	h.handleEmailAction(
+		w, r,
+		h.service.ResendVerificationEmail,
+		"If the email is not verified, a new verification link has been sent.",
+		http.StatusBadRequest,
+	)
 }
 
 func (h *AuthHandler) handleRequestEmailChange(w http.ResponseWriter, r *http.Request) {
@@ -1155,62 +1167,41 @@ func (h *AuthHandler) handleAdminListInvitations(w http.ResponseWriter, r *http.
 	})
 }
 
-func (h *AuthHandler) handleAdminRevokeInvitation(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) handleAdminInvitationAction(
+	w http.ResponseWriter,
+	r *http.Request,
+	action func(context.Context, string, string) error,
+	okMessage string,
+) {
 	userID, ok := r.Context().Value(userIDKey).(string)
 	if !ok || userID == "" {
 		h.respondError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-
 	id := chi.URLParam(r, "id")
 	if id == "" {
 		h.respondError(w, http.StatusBadRequest, "id is required")
 		return
 	}
-
-	err := h.service.RevokeInvitation(r.Context(), userID, id)
+	err := action(r.Context(), userID, id)
 	switch {
 	case errors.Is(err, auth.ErrNotSuperAdmin):
 		h.respondError(w, http.StatusForbidden, err.Error())
-		return
 	case errors.Is(err, auth.ErrInvitationNotFound):
 		h.respondError(w, http.StatusNotFound, err.Error())
-		return
 	case err != nil:
 		h.respondError(w, http.StatusInternalServerError, err.Error())
-		return
+	default:
+		h.respondJSON(w, http.StatusOK, map[string]string{"message": okMessage})
 	}
+}
 
-	h.respondJSON(w, http.StatusOK, map[string]string{"message": "invitation revoked successfully"})
+func (h *AuthHandler) handleAdminRevokeInvitation(w http.ResponseWriter, r *http.Request) {
+	h.handleAdminInvitationAction(w, r, h.service.RevokeInvitation, "invitation revoked successfully")
 }
 
 func (h *AuthHandler) handleAdminResendInvitation(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-
-	id := chi.URLParam(r, "id")
-	if id == "" {
-		h.respondError(w, http.StatusBadRequest, "id is required")
-		return
-	}
-
-	err := h.service.ResendInvitation(r.Context(), userID, id)
-	switch {
-	case errors.Is(err, auth.ErrNotSuperAdmin):
-		h.respondError(w, http.StatusForbidden, err.Error())
-		return
-	case errors.Is(err, auth.ErrInvitationNotFound):
-		h.respondError(w, http.StatusNotFound, err.Error())
-		return
-	case err != nil:
-		h.respondError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	h.respondJSON(w, http.StatusOK, map[string]string{"message": "invitation resent successfully"})
+	h.handleAdminInvitationAction(w, r, h.service.ResendInvitation, "invitation resent successfully")
 }
 
 func (h *AuthHandler) handleAdminResendUserVerification(w http.ResponseWriter, r *http.Request) {

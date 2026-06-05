@@ -21,17 +21,17 @@ var ClickHouse = ClickHouseDialect{
 }
 
 // Name returns the dialect name.
-func (d ClickHouseDialect) Name() string {
+func (ClickHouseDialect) Name() string {
 	return "clickhouse"
 }
 
 // Placeholder returns the parameter placeholder for the given index.
-func (d ClickHouseDialect) Placeholder(index int) string {
+func (ClickHouseDialect) Placeholder(_ int) string {
 	return "?"
 }
 
 // LimitOffset generates the LIMIT/OFFSET clause.
-func (d ClickHouseDialect) LimitOffset(limit, offset int) string {
+func (ClickHouseDialect) LimitOffset(limit, offset int) string {
 	return StandardLimitOffset(limit, offset)
 }
 
@@ -56,7 +56,7 @@ func titleCase(s string) string {
 
 // ILike returns a case-insensitive LIKE expression.
 // column must be a SQL expression (e.g. already-quoted identifiers).
-func (d ClickHouseDialect) ILike(column, placeholder string) string {
+func (ClickHouseDialect) ILike(column, placeholder string) string {
 	return fmt.Sprintf("lower(%s) LIKE lower(%s)", column, placeholder)
 }
 

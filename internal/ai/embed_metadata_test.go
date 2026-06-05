@@ -56,11 +56,11 @@ func (w *fakeMetadataWriter) UpsertColumnEmbedding(_ context.Context, columnID, 
 	return nil
 }
 
-func (w *fakeMetadataWriter) ApplyTableTranslations(context.Context, []metadata.Table, i18n.Locale) error {
+func (*fakeMetadataWriter) ApplyTableTranslations(context.Context, []metadata.Table, i18n.Locale) error {
 	return nil
 }
 
-func (w *fakeMetadataWriter) ApplyColumnTranslations(context.Context, []metadata.Column, i18n.Locale) error {
+func (*fakeMetadataWriter) ApplyColumnTranslations(context.Context, []metadata.Column, i18n.Locale) error {
 	return nil
 }
 

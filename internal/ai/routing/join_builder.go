@@ -145,6 +145,7 @@ func shortestPathFromSet(adj map[string][]string, from map[string]struct{}, to s
 
 // expandSelectedWithJoinBridges inserts intermediate tables on shortest FK paths so high-scoring
 // picks that were disconnected (e.g. sales header + production productcategory) become one component.
+//nolint:gocognit
 func expandSelectedWithJoinBridges(
 	selected []tableBundle,
 	relations []metadata.Relation,

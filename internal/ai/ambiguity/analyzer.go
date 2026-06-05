@@ -58,9 +58,6 @@ func analyzeWithDetectors(ctx context.Context, detectors []func() []AmbiguityIte
 	if confidenceThreshold <= 0 {
 		confidenceThreshold = defaultConfidenceThreshold
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	analysisCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 

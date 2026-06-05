@@ -161,7 +161,7 @@ func (s *MFAService) Disable(ctx context.Context, userID string) error {
 func (s *MFAService) Status(ctx context.Context, userID string) (*MFAEnrollment, error) {
 	enrol, err := s.repo.Get(ctx, userID)
 	if errors.Is(err, ErrMFANotEnrolled) {
-		return nil, nil
+		return nil, nil //nolint:nilnil // not enrolled is a normal state, not an error
 	}
 	return enrol, err
 }

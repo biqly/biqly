@@ -14,7 +14,7 @@ import (
 const aiHistorySelectCols = `id, datasource_id, model_id, user_id, question, prompt_context,
 		       ai_response, logical_query, confidence_score, warnings, outcome_status,
 		       retry_count, needs_clarification, model_used, prompt_tokens, completion_tokens,
-		       token_count, cost_usd, latency_ms, created_at`
+		       token_count, cost_usd, latency_ms, created_at, ab_experiment_id, ab_variant_id`
 
 // AIHistoryListFilter drives paginated ai_query_history listing.
 type AIHistoryListFilter struct {

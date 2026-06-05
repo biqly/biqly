@@ -37,7 +37,7 @@ func userSelectableModels(
 	for _, m := range rows {
 		candidateIDs = append(candidateIDs, m.ID)
 	}
-	if userID != "" && auth != nil {
+	if userID != "" && auth != nil { //nolint:nestif
 		access, aerr := auth.UserAIAccess(ctx, userID)
 		if aerr != nil {
 			return nil, preferences, false, aerr

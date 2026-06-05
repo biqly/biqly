@@ -84,6 +84,25 @@ for i := 0; i < 5; i++ { ... }
 for i := range 5 { ... }
 ```
 
+### benchmark loops
+
+- go 1.24+: use `b.Loop()` in benchmarks instead of manual `for range b.N` or `for i := 0; i < b.N; i++` loops.
+- this is the benchmark-specific exception to the general "range over integer" rule.
+
+example:
+
+```go
+// before
+for range b.N {
+    run()
+}
+
+// after
+for b.Loop() {
+    run()
+}
+```
+
 ## go — performance rules
 
 when writing or reviewing go code, apply these to minimize performance loss (especially on hot paths):

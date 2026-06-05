@@ -103,8 +103,9 @@ func selectAutomaticTablesWithTokens(
 			selected = append(selected, bundle)
 		}
 	}
-	selected = appendCategoryTableIfMissing(selected, bundles, tokens, maxAutoSelectedTables)
-	selected = appendProductTableIfMissing(selected, bundles, tokens, maxAutoSelectedTables)
+	lex := activeRoutingLexicon()
+	selected = appendTableIfMissing(selected, bundles, tokens, maxAutoSelectedTables, lex.CategoryTableSubstrings)
+	selected = appendTableIfMissing(selected, bundles, tokens, maxAutoSelectedTables, lex.ProductCatalogSubstrings)
 
 	result := &TableRoutingResult{
 		SelectedTables: bundleLabels(selected),
@@ -114,20 +115,20 @@ func selectAutomaticTablesWithTokens(
 	return selected, result, nil
 }
 
-// appendCategoryTableIfMissing ensures category breakdown questions pull in a *category* table
-// even when it ranked just below the score threshold (needed for revenue-by-category queries).
-func appendCategoryTableIfMissing(
+// appendTableIfMissing ensures category/product breakdown questions pull in a matching
+// catalog table even when it ranked just below the score threshold.
+func appendTableIfMissing(
 	selected []tableBundle,
 	bundles []tableBundle,
 	tokens map[string]bool,
 	maxN int,
+	nameSubstrings []string,
 ) []tableBundle {
 	if !isCategoryOrProductQuestion(tokens) {
 		return selected
 	}
-	lex := activeRoutingLexicon()
 	for _, b := range selected {
-		if tableNameMatchesSubstrings(b.table.TableName, lex.CategoryTableSubstrings) {
+		if tableNameMatchesSubstrings(b.table.TableName, nameSubstrings) {
 			return selected
 		}
 	}
@@ -136,7 +137,7 @@ func appendCategoryTableIfMissing(
 			if b.score == 0 {
 				continue
 			}
-			if !tableNameMatchesSubstrings(b.table.TableName, lex.CategoryTableSubstrings) {
+			if !tableNameMatchesSubstrings(b.table.TableName, nameSubstrings) {
 				continue
 			}
 			k := tableKey(b.table.SchemaName, b.table.TableName)
@@ -153,7 +154,6 @@ func appendCategoryTableIfMissing(
 		}
 		return selected
 	}
-	// Full slate but no category table: swap out the lowest-priority tail pick.
 	if len(selected) < 2 {
 		return selected
 	}
@@ -175,55 +175,6 @@ func appendCategoryTableIfMissing(
 // ("show sales" → don't pull in employees) are filtered out.
 func isCategoryOrProductQuestion(tokens map[string]bool) bool {
 	return activeRoutingLexicon().HasAnyToken(tokens, activeRoutingLexicon().CategoryProductTokens)
-}
-
-// appendProductTableIfMissing pulls in production.product (or subcategory) when the
-// question is product-focused but the top-N scored tables missed the catalog table
-// (common when line items score highest).
-func appendProductTableIfMissing(
-	selected []tableBundle,
-	bundles []tableBundle,
-	tokens map[string]bool,
-	maxN int,
-) []tableBundle {
-	if !isCategoryOrProductQuestion(tokens) {
-		return selected
-	}
-	lex := activeRoutingLexicon()
-	for _, b := range selected {
-		if tableNameMatchesSubstrings(b.table.TableName, lex.ProductCatalogSubstrings) {
-			return selected
-		}
-	}
-	pick := func() (tableBundle, bool) {
-		for _, b := range bundles {
-			if b.score == 0 {
-				continue
-			}
-			if !tableNameMatchesSubstrings(b.table.TableName, lex.ProductCatalogSubstrings) {
-				continue
-			}
-			k := tableKey(b.table.SchemaName, b.table.TableName)
-			if bundleSliceContains(selected, k) {
-				continue
-			}
-			return b, true
-		}
-		return tableBundle{}, false
-	}
-	if len(selected) < maxN {
-		if b, ok := pick(); ok {
-			selected = append(selected, b)
-		}
-		return selected
-	}
-	if len(selected) < 2 {
-		return selected
-	}
-	if b, ok := pick(); ok {
-		selected[len(selected)-1] = b
-	}
-	return selected
 }
 
 type tableIndex struct {

@@ -48,7 +48,7 @@ func getTestEntry() *AIQueryHistoryEntry {
 func BenchmarkJSONMarshal_Std(b *testing.B) {
 	entry := getTestEntry()
 	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		_, err := json.Marshal(entry)
 		if err != nil {
 			b.Fatal(err)
@@ -59,7 +59,7 @@ func BenchmarkJSONMarshal_Std(b *testing.B) {
 func BenchmarkJSONMarshal_Jsoniter(b *testing.B) {
 	entry := getTestEntry()
 	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		_, err := jsoniterStd.Marshal(entry)
 		if err != nil {
 			b.Fatal(err)
@@ -70,7 +70,7 @@ func BenchmarkJSONMarshal_Jsoniter(b *testing.B) {
 func BenchmarkJSONMarshal_Sonic(b *testing.B) {
 	entry := getTestEntry()
 	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		_, err := sonic.Marshal(entry)
 		if err != nil {
 			b.Fatal(err)
@@ -80,11 +80,14 @@ func BenchmarkJSONMarshal_Sonic(b *testing.B) {
 
 func BenchmarkJSONUnmarshal_Std(b *testing.B) {
 	entry := getTestEntry()
-	data, _ := json.Marshal(entry)
+	data, err := json.Marshal(entry)
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	var out AIQueryHistoryEntry
 	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		err := json.Unmarshal(data, &out)
 		if err != nil {
 			b.Fatal(err)
@@ -98,7 +101,7 @@ func BenchmarkJSONUnmarshal_Jsoniter(b *testing.B) {
 
 	var out AIQueryHistoryEntry
 	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		err := jsoniterStd.Unmarshal(data, &out)
 		if err != nil {
 			b.Fatal(err)
@@ -112,7 +115,7 @@ func BenchmarkJSONUnmarshal_Sonic(b *testing.B) {
 
 	var out AIQueryHistoryEntry
 	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		err := sonic.Unmarshal(data, &out)
 		if err != nil {
 			b.Fatal(err)

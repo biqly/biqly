@@ -239,7 +239,7 @@ func (h *AIHandler) EvalRun(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
-func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) {
+func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) { //nolint:funlen,gocognit
 	if err := h.evalAIConfigured(); err != nil {
 		writeInternalError(r.Context(), w, http.StatusServiceUnavailable, "AI eval is not configured", err)
 		return
@@ -342,7 +342,7 @@ func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) {
 			cr.ExecutionMatch = true
 			execPassed++
 		}
-		if modes&ai.EvalModeJudge != 0 && opts.Judge != nil {
+		if modes&ai.EvalModeJudge != 0 && opts.Judge != nil { //nolint:nestif
 			ok, rationale, jerr := ai.JudgeLogicalQuery(ctx, opts.Judge, c.Question, c.Model, &c.Expected, respLQ)
 			if jerr != nil {
 				cr.JudgeMatch = false
@@ -476,7 +476,7 @@ type evalCaseWire struct {
 	Expected query.LogicalQuery `json:"expected"`
 }
 
-func (h *AIHandler) EvalListCases(w http.ResponseWriter, r *http.Request) {
+func (*AIHandler) EvalListCases(w http.ResponseWriter, r *http.Request) {
 	cases, err := ai.LoadGoldenCasesFromDir(findGoldenDir())
 	if err != nil {
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "list golden cases failed", err)
@@ -495,7 +495,7 @@ func (h *AIHandler) EvalListCases(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, wireList)
 }
 
-func (h *AIHandler) EvalCreateCase(w http.ResponseWriter, r *http.Request) {
+func (*AIHandler) EvalCreateCase(w http.ResponseWriter, r *http.Request) {
 	var req evalCaseWire
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
@@ -523,7 +523,7 @@ func (h *AIHandler) EvalCreateCase(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{"status": "created", "id": req.ID})
 }
 
-func (h *AIHandler) EvalDeleteCase(w http.ResponseWriter, r *http.Request) {
+func (*AIHandler) EvalDeleteCase(w http.ResponseWriter, r *http.Request) {
 	id, ok := requireURLParam(w, r, "id")
 	if !ok {
 		return

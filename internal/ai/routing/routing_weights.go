@@ -42,16 +42,16 @@ type RoutingWeights struct {
 var (
 	routingWeights     *RoutingWeights
 	routingWeightsOnce sync.Once
-	routingWeightsErr  error
+	errRoutingWeights  error
 )
 
 // ActiveRoutingWeights returns the active routing weights (embedded default or file override).
 func ActiveRoutingWeights() (*RoutingWeights, error) {
 	routingWeightsOnce.Do(func() {
-		routingWeights, routingWeightsErr = loadRoutingWeights("")
+		routingWeights, errRoutingWeights = loadRoutingWeights("")
 	})
-	if routingWeightsErr != nil {
-		return nil, routingWeightsErr
+	if errRoutingWeights != nil {
+		return nil, errRoutingWeights
 	}
 	return routingWeights, nil
 }
@@ -77,7 +77,7 @@ func InitRoutingWeights(path string) error {
 		return err
 	}
 	routingWeights = w
-	routingWeightsErr = nil
+	errRoutingWeights = nil
 	routingWeightsOnce = sync.Once{}
 	routingWeightsOnce.Do(func() {})
 	return nil

@@ -23,6 +23,11 @@ func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
 }
 
+// DB returns the underlying sql.DB instance.
+func (r *Repository) DB() *sql.DB {
+	return r.db
+}
+
 // Datasource operations
 
 // CreateDatasource inserts a new datasource record.
@@ -150,7 +155,7 @@ func (r *Repository) UpdateDatasourceSync(ctx context.Context, id string) error 
 	return nil
 }
 
-func (r *Repository) scanDatasource(s platformdb.Scanner) (*Datasource, error) {
+func (*Repository) scanDatasource(s platformdb.Scanner) (*Datasource, error) {
 	ds := &Datasource{}
 	var host, username, dbName, sslMode sql.NullString
 	var port sql.NullInt64
@@ -595,10 +600,11 @@ func (r *Repository) CreateAIQueryHistory(ctx context.Context, entry *AIQueryHis
 			datasource_id, model_id, user_id, question, prompt_context,
 			ai_response, logical_query, confidence_score, warnings,
 			outcome_status, retry_count, needs_clarification,
-			model_used, prompt_tokens, completion_tokens, token_count, cost_usd, latency_ms
+			model_used, prompt_tokens, completion_tokens, token_count, cost_usd, latency_ms,
+			ab_experiment_id, ab_variant_id
 		)
 		VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8, $9,
-			$10, $11, $12, $13, $14, $15, $16, $17, $18)
+			$10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 		RETURNING id, created_at
 	`
 	if err := r.db.QueryRowContext(
@@ -622,6 +628,8 @@ func (r *Repository) CreateAIQueryHistory(ctx context.Context, entry *AIQueryHis
 		entry.TokenCount,
 		entry.CostUSD,
 		entry.LatencyMs,
+		entry.ABExperimentID,
+		entry.ABVariantID,
 	).Scan(&entry.ID, &entry.CreatedAt); err != nil {
 		return fmt.Errorf("insert AI query history: %w", err)
 	}
@@ -639,7 +647,7 @@ func (r *Repository) ListAIQueryHistory(ctx context.Context, userID string, limi
 	const baseQuery = `SELECT id, datasource_id, model_id, user_id, question, prompt_context,
 		       ai_response, logical_query, confidence_score, warnings, outcome_status,
 		       retry_count, needs_clarification, model_used, prompt_tokens, completion_tokens,
-		       token_count, cost_usd, latency_ms, created_at FROM ai_query_history`
+		       token_count, cost_usd, latency_ms, created_at, ab_experiment_id, ab_variant_id FROM ai_query_history`
 	const filteredQuery = baseQuery + ` WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`
 	const allQuery = baseQuery + ` ORDER BY created_at DESC LIMIT $1`
 
@@ -678,11 +686,13 @@ func scanAIHistoryEntry(s platformdb.Scanner) (AIQueryHistoryEntry, error) {
 	var needsClarification sql.NullBool
 	var promptTokens, completionTokens, tokenCount, latencyMs sql.NullInt64
 
+	var abExpID, abVarID sql.NullString
+
 	if err := s.Scan(
 		&entry.ID, &entry.DatasourceID, &modelID, &userID, &entry.Question,
 		&promptCtx, &aiResp, &logicalQ, &confidence, &warnings, &outcome,
 		&retryCount, &needsClarification, &modelUsed, &promptTokens, &completionTokens,
-		&tokenCount, &cost, &latencyMs, &entry.CreatedAt,
+		&tokenCount, &cost, &latencyMs, &entry.CreatedAt, &abExpID, &abVarID,
 	); err != nil {
 		return entry, fmt.Errorf("scan AI history row: %w", err)
 	}
@@ -722,6 +732,12 @@ func scanAIHistoryEntry(s platformdb.Scanner) (AIQueryHistoryEntry, error) {
 	}
 	if latencyMs.Valid {
 		entry.LatencyMs = new(int(latencyMs.Int64))
+	}
+	if abExpID.Valid {
+		entry.ABExperimentID = new(abExpID.String)
+	}
+	if abVarID.Valid {
+		entry.ABVariantID = new(abVarID.String)
 	}
 	if len(promptCtx) > 0 {
 		_ = sonic.Unmarshal(promptCtx, &entry.PromptContext)
@@ -836,7 +852,7 @@ func scanQueryHistoryEntry(s platformdb.Scanner) (pkgquery.HistoryEntry, error) 
 
 func nullableJSON(value any) (*string, error) {
 	if value == nil {
-		return nil, nil
+		return nil, nil //nolint:nilnil // nil value serializes as SQL NULL
 	}
 	encoded, err := sonic.Marshal(value)
 	if err != nil {

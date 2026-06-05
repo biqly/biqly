@@ -179,7 +179,7 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest, userAge
 	}, nil
 }
 
-func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ipAddress *string) (*TokenResponse, error) {
+func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ipAddress *string) (*TokenResponse, error) { //nolint:funlen,gocognit
 	email, emailErr := NormalizeEmail(req.Email)
 	if emailErr != nil {
 		email = strings.TrimSpace(strings.ToLower(req.Email))
@@ -357,7 +357,7 @@ func (s *AuthService) issueSession(ctx context.Context, user *User, userAgent, i
 		})
 	}
 
-	passwordExpired := s.isPasswordExpired(user.ID)
+	passwordExpired := s.isPasswordExpired(ctx, user.ID)
 
 	return &TokenResponse{
 		AccessToken:     accessToken,
@@ -372,12 +372,12 @@ func (s *AuthService) issueSession(ctx context.Context, user *User, userAgent, i
 // isPasswordExpired reports whether the user's password is older than the
 // configured BI_AUTH_PASSWORD_MAX_AGE_DAYS (0 = disabled). Errors during the
 // lookup are treated as "not expired" so they cannot lock the user out.
-func (s *AuthService) isPasswordExpired(userID string) bool {
+func (s *AuthService) isPasswordExpired(ctx context.Context, userID string) bool {
 	days := s.config.PasswordMaxAgeDays
 	if days <= 0 {
 		return false
 	}
-	state, err := s.userRepo.GetAccountState(context.Background(), userID)
+	state, err := s.userRepo.GetAccountState(ctx, userID)
 	if err != nil || state.PasswordChangedAt == nil {
 		return false
 	}

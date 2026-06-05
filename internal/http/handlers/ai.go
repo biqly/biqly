@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/biqly/biqly/internal/ai"
+	"github.com/biqly/biqly/internal/ai/abtest"
 	"github.com/biqly/biqly/internal/ai/ambiguity"
 	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/ai/routing"
@@ -244,6 +245,12 @@ func (h *AIHandler) processAIQuestion(
 	extra ...ai.ProcessOption,
 ) (*ai.Response, error) {
 	start := time.Now()
+	if userID := bimw.UserID(ctx); userID != "" {
+		ctx = ai.WithUserID(ctx, userID)
+	}
+	tracker := &abtest.ExperimentTracker{}
+	ctx = abtest.WithExperimentTracker(ctx, tracker)
+
 	opts := h.standardProcessOptions(ctx, req, model)
 	opts = append(opts, extra...)
 	resp, err := h.service.ProcessQuestion(ctx, req.Question, model, opts...)
@@ -253,6 +260,12 @@ func (h *AIHandler) processAIQuestion(
 		}
 		resp.Metadata.ModelUsed = h.queryModelUsedLabel()
 		resp.Metadata.TableRouting = routing
+
+		// Populate resolved A/B experiment metadata if tracked
+		if tracked := tracker.GetVariants(); len(tracked) > 0 {
+			resp.Metadata.ABExperimentID = tracked[0].ExperimentID
+			resp.Metadata.ABVariantID = tracked[0].ID
+		}
 	}
 	if err != nil {
 		h.observeAIRequest(ctx, req, model, routing, nil, err, time.Since(start).Milliseconds())
@@ -272,7 +285,7 @@ func (h *AIHandler) processAndObserve(w http.ResponseWriter, r *http.Request, ph
 
 	var resolved *app.ResolvedDatasource
 	var processOpts []ai.ProcessOption
-	if phase == aiPhaseRun {
+	if phase == aiPhaseRun { //nolint:nestif
 		if h.deps.QueryClient != nil {
 			processOpts = []ai.ProcessOption{
 				ai.WithSQLValidator(newQueryClientDryRunValidator(h.deps.QueryClient)),
@@ -569,7 +582,7 @@ func (h *AIHandler) EmbedMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 
-	if req.ClientSessionID != "" {
+	if req.ClientSessionID != "" { //nolint:nestif
 		b, err := json.Marshal(req)
 		if err != nil {
 			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to marshal job request", err)
@@ -960,7 +973,7 @@ func typeScopeFromAIQueryRequest(req aiQueryRequest) (includeBase, includeViews 
 	return includeBase, includeViews, nil
 }
 
-func (h *AIHandler) writeModelLoadError(ctx context.Context, w http.ResponseWriter, req aiQueryRequest, err error) {
+func (*AIHandler) writeModelLoadError(ctx context.Context, w http.ResponseWriter, req aiQueryRequest, err error) {
 	switch {
 	case errors.Is(err, routing.ErrTypeScopeEmpty):
 		writeError(w, http.StatusBadRequest, "at least one of include_base_tables or include_views must be true")

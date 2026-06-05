@@ -42,6 +42,22 @@ linters:
     - sloglint
     - mirror
     - fatcontext
+    - dupl
+    - gocognit
+    - nestif
+    - funlen
+    - maintidx
+    - errname
+    - errchkjson
+    - nilnil
+    - recvcheck
+    - reassign
+    - contextcheck
+    - gomoddirectives
+    - durationcheck
+    - bidichk
+    - forcetypeassert
+    - musttag
 
   settings:
     revive:
@@ -51,6 +67,8 @@ linters:
         - name: error-return
         - name: error-strings
         - name: var-naming
+        - name: unused-parameter
+        - name: unused-receiver
 
     gocritic:
       disabled-checks:
@@ -66,10 +84,27 @@ linters:
         - pattern: ^panic$
           msg: avoid panic in application code
 
+    dupl:
+      threshold: 100
+
+    funlen:
+      lines: 120
+      statements: 70
+
+    nestif:
+      min-complexity: 5
+
+    gocognit:
+      min-complexity: 30
+
+    maintidx:
+      under: 10
+
   exclusions:
     paths:
-      # Third-party JS packages can ship Go files (e.g. flatted/golang).
+      # Third-party JS packages can ship Go files, for example flatted/golang.
       - ^frontend/
+      - ^migrations/
     rules:
       - path: ^cmd/
         linters:

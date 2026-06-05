@@ -120,7 +120,7 @@ type bundle map[string]any
 var (
 	bundlesOnce sync.Once
 	bundles     map[Locale]bundle
-	bundlesErr  error
+	errBundles  error
 )
 
 func loadBundles() {
@@ -128,12 +128,12 @@ func loadBundles() {
 	for _, loc := range SupportedLocales {
 		raw, err := localeFS.ReadFile("locales/" + string(loc) + ".json")
 		if err != nil {
-			bundlesErr = fmt.Errorf("load locale %q: %w", loc, err)
+			errBundles = fmt.Errorf("load locale %q: %w", loc, err)
 			return
 		}
 		var b bundle
 		if err := json.Unmarshal(raw, &b); err != nil {
-			bundlesErr = fmt.Errorf("parse locale %q: %w", loc, err)
+			errBundles = fmt.Errorf("parse locale %q: %w", loc, err)
 			return
 		}
 		bundles[loc] = b
@@ -142,7 +142,7 @@ func loadBundles() {
 
 func getBundle(loc Locale) bundle {
 	bundlesOnce.Do(loadBundles)
-	if bundlesErr != nil {
+	if errBundles != nil {
 		return nil
 	}
 	if b, ok := bundles[loc]; ok {

@@ -46,7 +46,7 @@ func NewDatasourceAccessService(db *sql.DB, redisClient *redis.Client, rbac *RBA
 	}
 }
 
-func (s *DatasourceAccessService) cacheKey(userID string) string {
+func (*DatasourceAccessService) cacheKey(userID string) string {
 	return fmt.Sprintf("user:%s:datasources", userID)
 }
 

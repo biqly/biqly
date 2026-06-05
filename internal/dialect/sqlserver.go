@@ -22,17 +22,17 @@ var SQLServer = SQLServerDialect{
 }
 
 // Name returns the dialect name.
-func (d SQLServerDialect) Name() string {
+func (SQLServerDialect) Name() string {
 	return "sqlserver"
 }
 
 // Placeholder returns the parameter placeholder for the given index.
-func (d SQLServerDialect) Placeholder(index int) string {
+func (SQLServerDialect) Placeholder(index int) string {
 	return "@p" + strconv.Itoa(index)
 }
 
 // LimitOffset generates the LIMIT/OFFSET clause.
-func (d SQLServerDialect) LimitOffset(limit, offset int) string {
+func (SQLServerDialect) LimitOffset(limit, offset int) string {
 	parts := make([]string, 0, 2)
 	parts = append(parts, "OFFSET "+strconv.Itoa(offset)+" ROWS")
 	if limit > 0 {
@@ -57,24 +57,24 @@ func (d SQLServerDialect) CalendarPart(part, column string) string {
 
 // ILike returns a case-insensitive LIKE expression.
 // column must be a SQL expression (e.g. already-quoted identifiers).
-func (d SQLServerDialect) ILike(column, placeholder string) string {
+func (SQLServerDialect) ILike(column, placeholder string) string {
 	return fmt.Sprintf("%s LIKE %s", column, placeholder)
 }
 
 // ExplainSQL returns "" because SQL Server has no single-statement EXPLAIN form
 // (SHOWPLAN/NOEXEC require batch-level SET commands the driver may not honor in
 // QueryContext). Callers should treat empty as "skip dry-run".
-func (d SQLServerDialect) ExplainSQL(_ string) string {
+func (SQLServerDialect) ExplainSQL(_ string) string {
 	return ""
 }
 
 // DefaultOrderBy returns "(SELECT NULL)" for SQL Server.
-func (d SQLServerDialect) DefaultOrderBy() string {
+func (SQLServerDialect) DefaultOrderBy() string {
 	return "(SELECT NULL)"
 }
 
 // SelectWithLimit formats a SQL Server SELECT TOP (n) query.
-func (d SQLServerDialect) SelectWithLimit(columns []string, table string, limit int) string {
+func (SQLServerDialect) SelectWithLimit(columns []string, table string, limit int) string {
 	var topStr string
 	if limit > 0 {
 		topStr = "TOP (" + strconv.Itoa(limit) + ") "

@@ -303,6 +303,7 @@ func TestGetModelLineage(t *testing.T) {
 	}
 }
 
+//nolint:funlen
 func TestCompileExpression(t *testing.T) {
 	db := openTestDB(t)
 	ctx := context.Background()
@@ -357,7 +358,7 @@ func TestCompileExpression(t *testing.T) {
 		req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/semantic/models/"+modelID+"/compile-expression", body)
 		rctx := chi.NewRouteContext()
 		rctx.URLParams.Add("id", modelID)
-		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx)) //nolint:contextcheck // chi route context in tests //nolint:contextcheck // chi route context in tests
 		rec := httptest.NewRecorder()
 
 		handler.CompileExpression(rec, req)
@@ -395,7 +396,7 @@ func TestCompileExpression(t *testing.T) {
 		req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/semantic/models/"+modelID+"/compile-expression", body)
 		rctx := chi.NewRouteContext()
 		rctx.URLParams.Add("id", modelID)
-		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx)) //nolint:contextcheck // chi route context in tests //nolint:contextcheck // chi route context in tests
 		rec := httptest.NewRecorder()
 
 		handler.CompileExpression(rec, req)
@@ -422,7 +423,7 @@ func TestCompileExpression(t *testing.T) {
 		req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/semantic/models/"+modelID+"/compile-expression", body)
 		rctx := chi.NewRouteContext()
 		rctx.URLParams.Add("id", modelID)
-		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx)) //nolint:contextcheck // chi route context in tests //nolint:contextcheck // chi route context in tests
 		rec := httptest.NewRecorder()
 
 		handler.CompileExpression(rec, req)

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/biqly/biqly/pkg/internalapi"
+	"github.com/stretchr/testify/require"
 )
 
 // TestInternalHealth covers the health endpoint independently of any
@@ -78,16 +79,13 @@ func TestRequireQueryParam(t *testing.T) {
 	}
 }
 
-// TestCreateAIHistory_RejectsMissingDatasourceID stops at the validator
-// without invoking the repository, so this stays a pure-handler test.
-func TestCreateAIHistory_RejectsMissingDatasourceID(t *testing.T) {
-	t.Parallel()
-	h := &InternalHandler{} // deps not touched on this path
-	body, _ := json.Marshal(internalapi.AIHistoryRequest{})
+func assertInvalidRequestMissingField(t *testing.T, handler func(http.ResponseWriter, *http.Request), path string, body any, field string) {
+	t.Helper()
+	payload, err := json.Marshal(body)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
-	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/internal/history/ai", bytes.NewReader(body))
-	h.CreateAIHistory(w, r)
-
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, path, bytes.NewReader(payload))
+	handler(w, r)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status: got %d, want 400", w.Code)
 	}
@@ -98,9 +96,16 @@ func TestCreateAIHistory_RejectsMissingDatasourceID(t *testing.T) {
 	if env.Code != internalapi.CodeInvalidRequest {
 		t.Errorf("code: got %q, want %q", env.Code, internalapi.CodeInvalidRequest)
 	}
-	if !strings.Contains(env.Error, "datasource_id") {
-		t.Errorf("error should mention the missing field: %q", env.Error)
+	if field != "" && !strings.Contains(env.Error, field) {
+		t.Errorf("error should mention the missing field %q: %q", field, env.Error)
 	}
+}
+
+// TestCreateAIHistory_RejectsMissingDatasourceID stops at the validator
+// without invoking the repository, so this stays a pure-handler test.
+func TestCreateAIHistory_RejectsMissingDatasourceID(t *testing.T) {
+	t.Parallel()
+	assertInvalidRequestMissingField(t, (&InternalHandler{}).CreateAIHistory, "/internal/history/ai", internalapi.AIHistoryRequest{}, "datasource_id")
 }
 
 // TestCreateQueryHistory_RejectsMissingDatasourceID mirrors the AI variant —
@@ -108,7 +113,8 @@ func TestCreateAIHistory_RejectsMissingDatasourceID(t *testing.T) {
 func TestCreateQueryHistory_RejectsMissingDatasourceID(t *testing.T) {
 	t.Parallel()
 	h := &InternalHandler{}
-	body, _ := json.Marshal(internalapi.QueryHistoryRequest{})
+	body, err := json.Marshal(internalapi.QueryHistoryRequest{})
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/internal/history/query", bytes.NewReader(body))
 	h.CreateQueryHistory(w, r)
@@ -127,31 +133,14 @@ func TestCreateQueryHistory_RejectsMissingDatasourceID(t *testing.T) {
 
 func TestCreateEvalResults_RejectsMissingRunID(t *testing.T) {
 	t.Parallel()
-	h := &InternalHandler{}
-	body, _ := json.Marshal(internalapi.EvalResultsRequest{})
-	w := httptest.NewRecorder()
-	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/internal/eval-results", bytes.NewReader(body))
-	h.CreateEvalResults(w, r)
-
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("status: got %d, want 400", w.Code)
-	}
-	var env internalapi.Error
-	if err := json.NewDecoder(w.Body).Decode(&env); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	if env.Code != internalapi.CodeInvalidRequest {
-		t.Errorf("code: got %q, want %q", env.Code, internalapi.CodeInvalidRequest)
-	}
-	if !strings.Contains(env.Error, "run_id") {
-		t.Errorf("error should mention the missing field: %q", env.Error)
-	}
+	assertInvalidRequestMissingField(t, (&InternalHandler{}).CreateEvalResults, "/internal/eval-results", internalapi.EvalResultsRequest{}, "run_id")
 }
 
 func TestCreateEvalResults_RejectsMissingProvider(t *testing.T) {
 	t.Parallel()
 	h := &InternalHandler{}
-	body, _ := json.Marshal(internalapi.EvalResultsRequest{RunID: "run_1"})
+	body, err := json.Marshal(internalapi.EvalResultsRequest{RunID: "run_1"}) //nolint:musttag // nested eval types omit json tags by design
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/internal/eval-results", bytes.NewReader(body))
 	h.CreateEvalResults(w, r)

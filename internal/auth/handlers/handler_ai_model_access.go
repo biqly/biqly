@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -56,31 +57,54 @@ type grantProviderWorkspaceReq struct {
 	ProviderID  string `json:"provider_id"`
 }
 
-func (h *RBACHandler) handleAdminGrantProviderWorkspace(w http.ResponseWriter, r *http.Request) {
-	var req grantProviderWorkspaceReq
+func decodeGrantRequest[T any](w http.ResponseWriter, r *http.Request) (T, bool) {
+	var req T
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.WriteError(w, http.StatusBadRequest, "invalid json")
+		return req, false
+	}
+	return req, true
+}
+
+func (*RBACHandler) handleAdminGrant(w http.ResponseWriter, r *http.Request, grant func(context.Context, string) error) {
+	userID, ok := r.Context().Value(userIDKey).(string)
+	if !ok || userID == "" {
+		response.WriteError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-	userID := r.Context().Value(userIDKey).(string)
-	if err := h.aiModelAccess.GrantProviderWorkspace(r.Context(), req.WorkspaceID, req.ProviderID, userID); err != nil {
+	if err := grant(r.Context(), userID); err != nil {
 		response.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *RBACHandler) handleAdminRevokeProviderWorkspace(w http.ResponseWriter, r *http.Request) {
-	var req grantProviderWorkspaceReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.WriteError(w, http.StatusBadRequest, "invalid json")
-		return
-	}
-	if err := h.aiModelAccess.RevokeProviderWorkspace(r.Context(), req.WorkspaceID, req.ProviderID); err != nil {
+func (*RBACHandler) handleAdminRevoke(w http.ResponseWriter, r *http.Request, revoke func(context.Context) error) {
+	if err := revoke(r.Context()); err != nil {
 		response.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *RBACHandler) handleAdminGrantProviderWorkspace(w http.ResponseWriter, r *http.Request) {
+	req, ok := decodeGrantRequest[grantProviderWorkspaceReq](w, r)
+	if !ok {
+		return
+	}
+	h.handleAdminGrant(w, r, func(ctx context.Context, userID string) error {
+		return h.aiModelAccess.GrantProviderWorkspace(ctx, req.WorkspaceID, req.ProviderID, userID)
+	})
+}
+
+func (h *RBACHandler) handleAdminRevokeProviderWorkspace(w http.ResponseWriter, r *http.Request) {
+	req, ok := decodeGrantRequest[grantProviderWorkspaceReq](w, r)
+	if !ok {
+		return
+	}
+	h.handleAdminRevoke(w, r, func(ctx context.Context) error {
+		return h.aiModelAccess.RevokeProviderWorkspace(ctx, req.WorkspaceID, req.ProviderID)
+	})
 }
 
 type grantModelWorkspaceReq struct {
@@ -89,30 +113,23 @@ type grantModelWorkspaceReq struct {
 }
 
 func (h *RBACHandler) handleAdminGrantModelWorkspace(w http.ResponseWriter, r *http.Request) {
-	var req grantModelWorkspaceReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.WriteError(w, http.StatusBadRequest, "invalid json")
+	req, ok := decodeGrantRequest[grantModelWorkspaceReq](w, r)
+	if !ok {
 		return
 	}
-	userID := r.Context().Value(userIDKey).(string)
-	if err := h.aiModelAccess.GrantModelWorkspace(r.Context(), req.WorkspaceID, req.ModelID, userID); err != nil {
-		response.WriteError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	h.handleAdminGrant(w, r, func(ctx context.Context, userID string) error {
+		return h.aiModelAccess.GrantModelWorkspace(ctx, req.WorkspaceID, req.ModelID, userID)
+	})
 }
 
 func (h *RBACHandler) handleAdminRevokeModelWorkspace(w http.ResponseWriter, r *http.Request) {
-	var req grantModelWorkspaceReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.WriteError(w, http.StatusBadRequest, "invalid json")
+	req, ok := decodeGrantRequest[grantModelWorkspaceReq](w, r)
+	if !ok {
 		return
 	}
-	if err := h.aiModelAccess.RevokeModelWorkspace(r.Context(), req.WorkspaceID, req.ModelID); err != nil {
-		response.WriteError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	h.handleAdminRevoke(w, r, func(ctx context.Context) error {
+		return h.aiModelAccess.RevokeModelWorkspace(ctx, req.WorkspaceID, req.ModelID)
+	})
 }
 
 type grantProviderRoleReq struct {
@@ -121,30 +138,23 @@ type grantProviderRoleReq struct {
 }
 
 func (h *RBACHandler) handleAdminGrantProviderRole(w http.ResponseWriter, r *http.Request) {
-	var req grantProviderRoleReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.WriteError(w, http.StatusBadRequest, "invalid json")
+	req, ok := decodeGrantRequest[grantProviderRoleReq](w, r)
+	if !ok {
 		return
 	}
-	userID := r.Context().Value(userIDKey).(string)
-	if err := h.aiModelAccess.GrantProviderRole(r.Context(), req.RoleID, req.ProviderID, userID); err != nil {
-		response.WriteError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	h.handleAdminGrant(w, r, func(ctx context.Context, userID string) error {
+		return h.aiModelAccess.GrantProviderRole(ctx, req.RoleID, req.ProviderID, userID)
+	})
 }
 
 func (h *RBACHandler) handleAdminRevokeProviderRole(w http.ResponseWriter, r *http.Request) {
-	var req grantProviderRoleReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.WriteError(w, http.StatusBadRequest, "invalid json")
+	req, ok := decodeGrantRequest[grantProviderRoleReq](w, r)
+	if !ok {
 		return
 	}
-	if err := h.aiModelAccess.RevokeProviderRole(r.Context(), req.RoleID, req.ProviderID); err != nil {
-		response.WriteError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	h.handleAdminRevoke(w, r, func(ctx context.Context) error {
+		return h.aiModelAccess.RevokeProviderRole(ctx, req.RoleID, req.ProviderID)
+	})
 }
 
 type grantModelRoleReq struct {
@@ -153,34 +163,31 @@ type grantModelRoleReq struct {
 }
 
 func (h *RBACHandler) handleAdminGrantModelRole(w http.ResponseWriter, r *http.Request) {
-	var req grantModelRoleReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.WriteError(w, http.StatusBadRequest, "invalid json")
+	req, ok := decodeGrantRequest[grantModelRoleReq](w, r)
+	if !ok {
 		return
 	}
-	userID := r.Context().Value(userIDKey).(string)
-	if err := h.aiModelAccess.GrantModelRole(r.Context(), req.RoleID, req.ModelID, userID); err != nil {
-		response.WriteError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	h.handleAdminGrant(w, r, func(ctx context.Context, userID string) error {
+		return h.aiModelAccess.GrantModelRole(ctx, req.RoleID, req.ModelID, userID)
+	})
 }
 
 func (h *RBACHandler) handleAdminRevokeModelRole(w http.ResponseWriter, r *http.Request) {
-	var req grantModelRoleReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.WriteError(w, http.StatusBadRequest, "invalid json")
+	req, ok := decodeGrantRequest[grantModelRoleReq](w, r)
+	if !ok {
 		return
 	}
-	if err := h.aiModelAccess.RevokeModelRole(r.Context(), req.RoleID, req.ModelID); err != nil {
-		response.WriteError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	h.handleAdminRevoke(w, r, func(ctx context.Context) error {
+		return h.aiModelAccess.RevokeModelRole(ctx, req.RoleID, req.ModelID)
+	})
 }
 
 func (h *RBACHandler) handleGetMyAIPreferences(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(userIDKey).(string)
+	userID, ok := contextUserID(r)
+	if !ok {
+		response.WriteError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 	prefs, err := h.aiModelAccess.ListUserPreferences(r.Context(), userID)
 	if err != nil {
 		response.WriteError(w, http.StatusInternalServerError, err.Error())
@@ -194,7 +201,11 @@ type putAIPrefsReq struct {
 }
 
 func (h *RBACHandler) handlePutMyAIPreferences(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(userIDKey).(string)
+	userID, ok := contextUserID(r)
+	if !ok {
+		response.WriteError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 	var req putAIPrefsReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.WriteError(w, http.StatusBadRequest, "invalid json")
@@ -231,7 +242,11 @@ func (h *RBACHandler) handlePutMyAIPreferences(w http.ResponseWriter, r *http.Re
 }
 
 func (h *RBACHandler) handleDeleteMyAIPreference(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(userIDKey).(string)
+	userID, ok := contextUserID(r)
+	if !ok {
+		response.WriteError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 	purpose := chi.URLParam(r, "purpose")
 	if err := h.aiModelAccess.DeleteUserPreference(r.Context(), userID, purpose); err != nil {
 		response.WriteError(w, http.StatusInternalServerError, err.Error())

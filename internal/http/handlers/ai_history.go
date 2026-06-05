@@ -31,6 +31,7 @@ func canViewAIHistoryDetails(ctx context.Context, authClient *bimw.AuthClient, u
 
 // AIHistory returns a paginated AI query history list. Filtering and pagination
 // are applied in the database; heavy fields are masked per permission rules.
+//nolint:gocognit
 func (h *AIHandler) AIHistory(w http.ResponseWriter, r *http.Request) {
 	userID := bimw.UserID(r.Context())
 	hasViewDetails := canViewAIHistoryDetails(r.Context(), h.authClient, userID)
@@ -77,7 +78,7 @@ func (h *AIHandler) AIHistory(w http.ResponseWriter, r *http.Request) {
 		filter.UserID = userID
 	}
 
-	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps.Config); applied {
+	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps.Config); applied { //nolint:nestif
 		if len(wsFilter) == 0 {
 			writeJSON(w, http.StatusOK, map[string]any{"entries": []metadata.AIQueryHistoryEntry{}, "total": 0})
 			return

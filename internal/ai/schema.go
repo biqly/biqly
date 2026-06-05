@@ -47,6 +47,8 @@ type AIMetadata struct {
 	PromptTemplateLocale        string                      `json:"prompt_template_locale,omitempty"`
 	PromptTemplateVersions      map[string]int              `json:"prompt_template_versions,omitempty"`
 	PromptTemplateBundleVersion int                         `json:"prompt_template_bundle_version,omitempty"`
+	ABExperimentID              string                      `json:"ab_experiment_id,omitempty"`
+	ABVariantID                 string                      `json:"ab_variant_id,omitempty"`
 	Candidates                  []CandidateEntry            `json:"candidates,omitempty"`
 	CandidatesCount             int                         `json:"candidates_count,omitempty"`
 	RepairDetails               []RepairDetail              `json:"repair_details,omitempty"`

@@ -228,7 +228,10 @@ func (h *PIIHandler) ComplianceSummary(w http.ResponseWriter, r *http.Request) {
 		cw := csv.NewWriter(w)
 		_ = cw.Write([]string{"datasource_id", "datasource_name", "total_columns", "pii_detected", "reviewed", "unreviewed", "by_type"})
 		for _, s := range summaries {
-			byType, _ := json.Marshal(s.ByType)
+			byType, err := json.Marshal(s.ByType)
+			if err != nil {
+				continue
+			}
 			_ = cw.Write([]string{
 				s.DatasourceID,
 				s.DatasourceName,

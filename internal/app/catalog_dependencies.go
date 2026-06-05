@@ -46,7 +46,7 @@ func NewCatalogDependencies(ctx context.Context, cfg *config.Config) (*Dependenc
 		CompositeRepo: compositeRepo,
 		Encryptor:     encryptor,
 		EvalRepo:      evalpkg.NewEvalRepository(db),
-		AuditLogger:   audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(db, slog.Default())),
+		AuditLogger:   audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(ctx, db, slog.Default())),
 		DashboardRepo: dashboardRepo,
 		DriftRepo:     driftRepo,
 		DriftDetector: driftDetector,

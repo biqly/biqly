@@ -67,7 +67,7 @@ func NewJWTManager(privatePath, publicPath string, accessTTL time.Duration) (*JW
 		}, nil
 	}
 
-	if privatePath != "" {
+	if privatePath != "" { //nolint:nestif
 		//nolint:gosec
 		privBytes, err := os.ReadFile(privatePath)
 		if err != nil {

@@ -110,6 +110,7 @@ func (r *Repository) DeleteModel(ctx context.Context, id string) error {
 // BulkInsertModelChildren inserts many dimensions, metrics, and joins for a
 // model inside a single transaction with prepared statements. Used when
 // generating a model from metadata to avoid one round-trip per row.
+//nolint:gocognit
 func (r *Repository) BulkInsertModelChildren(ctx context.Context, modelID string, dims []Dimension, mets []Metric, joins []Join) error {
 	if len(dims) == 0 && len(mets) == 0 && len(joins) == 0 {
 		return nil
@@ -585,7 +586,7 @@ func (r *Repository) RollbackModel(ctx context.Context, id string, targetVersion
 	return &PublishResult{Model: published, Validation: validation, Version: nextVersion}, nil
 }
 
-func (r *Repository) writePublishedVersionTx(
+func (*Repository) writePublishedVersionTx(
 	ctx context.Context,
 	tx *sql.Tx,
 	modelID string,
@@ -758,7 +759,7 @@ func scanModelField(s platformdb.Scanner) (ModelField, error) {
 	return f, nil
 }
 
-func (r *Repository) scanModel(s platformdb.Scanner) (*SemanticModel, error) {
+func (*Repository) scanModel(s platformdb.Scanner) (*SemanticModel, error) {
 	m := &SemanticModel{}
 	err := s.Scan(
 		&m.ID,

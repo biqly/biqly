@@ -8,7 +8,7 @@ import (
 	"github.com/biqly/biqly/internal/datasource"
 )
 
-func (d *Driver) introspectSchemas(ctx context.Context, db *sql.DB) ([]datasource.SchemaInfo, error) {
+func (*Driver) introspectSchemas(ctx context.Context, db *sql.DB) ([]datasource.SchemaInfo, error) {
 	query := `
 		SELECT schema_name
 		FROM information_schema.schemata
@@ -22,7 +22,7 @@ func (d *Driver) introspectSchemas(ctx context.Context, db *sql.DB) ([]datasourc
 	})
 }
 
-func (d *Driver) introspectTables(ctx context.Context, db *sql.DB) ([]datasource.TableInfo, error) {
+func (*Driver) introspectTables(ctx context.Context, db *sql.DB) ([]datasource.TableInfo, error) {
 	query := `
 		SELECT
 			n.nspname AS schema_name,
@@ -49,7 +49,7 @@ func (d *Driver) introspectTables(ctx context.Context, db *sql.DB) ([]datasource
 	})
 }
 
-func (d *Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasource.ColumnInfo, error) {
+func (*Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasource.ColumnInfo, error) {
 	query := `
 		SELECT
 			c.table_schema,
@@ -127,7 +127,7 @@ func (d *Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasourc
 	return columns, nil
 }
 
-func (d *Driver) introspectRelations(ctx context.Context, db *sql.DB) ([]datasource.RelationInfo, error) {
+func (*Driver) introspectRelations(ctx context.Context, db *sql.DB) ([]datasource.RelationInfo, error) {
 	query := `
 		SELECT
 			tc.constraint_name,

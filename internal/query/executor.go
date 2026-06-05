@@ -17,6 +17,13 @@ var scanSlicePool = sync.Pool{
 	},
 }
 
+func borrowScanSlice(n int) (slice []any, pooled *[]any) {
+	if vp, ok := scanSlicePool.Get().(*[]any); ok {
+		return (*vp)[:n], vp
+	}
+	return make([]any, n), nil
+}
+
 // Executor runs compiled SQL queries against a database.
 type Executor struct {
 	maxRows int
@@ -83,10 +90,8 @@ func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (
 	var valPtrsPtr *[]any
 
 	if len(colTypes) <= 32 {
-		valsPtr = scanSlicePool.Get().(*[]any)
-		vals = (*valsPtr)[:len(colTypes)]
-		valPtrsPtr = scanSlicePool.Get().(*[]any)
-		valPtrs = (*valPtrsPtr)[:len(colTypes)]
+		vals, valsPtr = borrowScanSlice(len(colTypes))
+		valPtrs, valPtrsPtr = borrowScanSlice(len(colTypes))
 	} else {
 		vals = make([]any, len(colTypes))
 		valPtrs = make([]any, len(colTypes))

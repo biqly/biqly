@@ -33,7 +33,7 @@ var largeBenchTemplate = func() string {
 func BenchmarkRenderPromptTemplate_Cached(b *testing.B) {
 	data := map[string]any{"Title": "x", "Body": "y"}
 	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		_ = renderPromptTemplate(largeBenchTemplate, data)
 	}
 }
@@ -44,7 +44,7 @@ func BenchmarkRenderPromptTemplate_Cached(b *testing.B) {
 func BenchmarkRenderPromptTemplate_NoCache(b *testing.B) {
 	data := map[string]any{"Title": "x", "Body": "y"}
 	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		tmpl, err := template.New("prompt").Option("missingkey=zero").Parse(largeBenchTemplate)
 		if err != nil {
 			b.Fatal(err)

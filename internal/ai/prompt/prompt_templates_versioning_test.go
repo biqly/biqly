@@ -24,6 +24,12 @@ func (s testPromptStore) Snapshot(_ context.Context, loc i18n.Locale, name strin
 	return PromptTemplateSnapshot{Name: name, Locale: loc, Content: "", Version: 0}
 }
 
+func (s testPromptStore) SnapshotForUser(ctx context.Context, _ string, loc i18n.Locale, name string) PromptTemplateSnapshot {
+	return s.Snapshot(ctx, loc, name)
+}
+
+
+
 func withPromptStore(t *testing.T, store PromptTemplateStore) {
 	t.Helper()
 	prev := getActivePromptStore()
@@ -132,15 +138,15 @@ type mockPromptTemplateRepo struct {
 	}
 }
 
-func (m *mockPromptTemplateRepo) CountPromptTemplates(ctx context.Context) (int, error) {
+func (m *mockPromptTemplateRepo) CountPromptTemplates(_ context.Context) (int, error) {
 	return m.count, nil
 }
 
-func (m *mockPromptTemplateRepo) GetPromptTemplate(ctx context.Context, name string, loc i18n.Locale) (string, error) {
+func (m *mockPromptTemplateRepo) GetPromptTemplate(_ context.Context, name string, loc i18n.Locale) (string, error) {
 	return m.data[name+"\x00"+string(loc)], nil
 }
 
-func (m *mockPromptTemplateRepo) UpsertPromptTemplate(ctx context.Context, name string, loc i18n.Locale, content string) error {
+func (m *mockPromptTemplateRepo) UpsertPromptTemplate(_ context.Context, name string, loc i18n.Locale, content string) error {
 	m.upserts = append(m.upserts, struct {
 		name    string
 		locale  i18n.Locale

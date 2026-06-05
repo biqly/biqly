@@ -19,19 +19,19 @@ type mockPostgresConn struct {
 	queries map[string]*mockPostgresRows
 }
 
-func (c *mockPostgresConn) Prepare(query string) (driver.Stmt, error) {
+func (*mockPostgresConn) Prepare(_ string) (driver.Stmt, error) {
 	return nil, errors.New("prepare is not implemented")
 }
 
-func (c *mockPostgresConn) Close() error {
+func (*mockPostgresConn) Close() error {
 	return nil
 }
 
-func (c *mockPostgresConn) Begin() (driver.Tx, error) {
+func (*mockPostgresConn) Begin() (driver.Tx, error) {
 	return nil, errors.New("transactions are not implemented")
 }
 
-func (c *mockPostgresConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+func (c *mockPostgresConn) QueryContext(_ context.Context, query string, _ []driver.NamedValue) (driver.Rows, error) {
 	normalized := strings.ToLower(strings.Join(strings.Fields(query), " "))
 	for k, v := range c.queries {
 		if strings.Contains(normalized, strings.ToLower(k)) {
@@ -52,7 +52,7 @@ func (r *mockPostgresRows) Columns() []string {
 	return r.cols
 }
 
-func (r *mockPostgresRows) Close() error {
+func (*mockPostgresRows) Close() error {
 	return nil
 }
 
@@ -80,7 +80,7 @@ var (
 // Define another driver wrapping the mock for our SQL Open
 type postgresMockBridge struct{}
 
-func (postgresMockBridge) Open(name string) (driver.Conn, error) {
+func (postgresMockBridge) Open(_ string) (driver.Conn, error) {
 	activeMockConnMutex.Lock()
 	defer activeMockConnMutex.Unlock()
 	return activeMockConn, nil

@@ -33,11 +33,11 @@ func (d *Driver) Introspect(ctx context.Context, db *sql.DB) (*datasource.Intros
 	})
 }
 
-func (d *Driver) introspectRelations(_ context.Context, _ *sql.DB) ([]datasource.RelationInfo, error) {
+func (*Driver) introspectRelations(_ context.Context, _ *sql.DB) ([]datasource.RelationInfo, error) {
 	return nil, nil
 }
 
-func (d *Driver) introspectSchemas(ctx context.Context, db *sql.DB) ([]datasource.SchemaInfo, error) {
+func (*Driver) introspectSchemas(ctx context.Context, db *sql.DB) ([]datasource.SchemaInfo, error) {
 	query := `SELECT DISTINCT database FROM system.tables WHERE database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA')`
 	return datasource.QueryAll(ctx, db, query, nil, func(rows *sql.Rows) (datasource.SchemaInfo, error) {
 		var s datasource.SchemaInfo
@@ -46,7 +46,7 @@ func (d *Driver) introspectSchemas(ctx context.Context, db *sql.DB) ([]datasourc
 	})
 }
 
-func (d *Driver) introspectTables(ctx context.Context, db *sql.DB) ([]datasource.TableInfo, error) {
+func (*Driver) introspectTables(ctx context.Context, db *sql.DB) ([]datasource.TableInfo, error) {
 	query := `SELECT database, name, engine, 0 FROM system.tables WHERE database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA')`
 	return datasource.QueryAll(ctx, db, query, nil, func(rows *sql.Rows) (datasource.TableInfo, error) {
 		var t datasource.TableInfo
@@ -60,7 +60,7 @@ func (d *Driver) introspectTables(ctx context.Context, db *sql.DB) ([]datasource
 	})
 }
 
-func (d *Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasource.ColumnInfo, error) {
+func (*Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasource.ColumnInfo, error) {
 	query := `SELECT database, table, name, type, 0, position, 0, 0, 0, '' FROM system.columns WHERE database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA') ORDER BY database, table, position`
 	return datasource.QueryAll(ctx, db, query, nil, func(rows *sql.Rows) (datasource.ColumnInfo, error) {
 		var c datasource.ColumnInfo

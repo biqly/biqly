@@ -104,7 +104,7 @@ func (r *Repository) GetLatestByModel(ctx context.Context, modelID string) (*Dri
 		&rpt.CreatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
+		return nil, nil //nolint:nilnil // no prior report is not an error
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get latest by model scan: %w", err)

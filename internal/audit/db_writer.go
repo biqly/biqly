@@ -34,23 +34,28 @@ type DBWriter struct {
 	done      chan struct{}
 	wg        sync.WaitGroup
 	logger    *slog.Logger
+	baseCtx   context.Context
 	closed    atomic.Bool
 	closeOnce sync.Once
 }
 
 // NewDBWriter creates and starts a new DBWriter. If db is nil, it returns nil.
-func NewDBWriter(db *sql.DB, logger *slog.Logger) *DBWriter {
+func NewDBWriter(ctx context.Context, db *sql.DB, logger *slog.Logger) *DBWriter { //nolint:contextcheck // root ctx for background audit worker
 	if db == nil {
 		return nil
+	}
+	if ctx == nil {
+		ctx = context.TODO()
 	}
 	if logger == nil {
 		logger = slog.Default()
 	}
 	w := &DBWriter{
-		db:     db,
-		ch:     make(chan Event, defaultChanSize),
-		done:   make(chan struct{}),
-		logger: logger,
+		db:      db,
+		ch:      make(chan Event, defaultChanSize),
+		done:    make(chan struct{}),
+		logger:  logger,
+		baseCtx: ctx,
 	}
 	w.wg.Add(1)
 	go w.worker()
@@ -94,7 +99,7 @@ func (w *DBWriter) worker() {
 		if len(batch) == 0 {
 			return
 		}
-		if err := w.writeBatch(context.Background(), batch); err != nil {
+		if err := w.writeBatch(w.baseCtx, batch); err != nil {
 			w.logger.Error("failed to write audit events batch to database", "error", err, "batch_size", len(batch))
 		}
 		batch = batch[:0]

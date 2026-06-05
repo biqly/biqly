@@ -6,6 +6,7 @@ import (
 
 	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/query"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFilterSessionFromPriorTurns(t *testing.T) {
@@ -14,7 +15,8 @@ func TestFilterSessionFromPriorTurns(t *testing.T) {
 			{Field: "order_date", Operator: query.OpBetween, Value: []any{"2025-04-01", "2025-04-30"}},
 		},
 	}
-	raw, _ := json.Marshal(prevLQ)
+	raw, err := json.Marshal(prevLQ)
+	require.NoError(t, err)
 	turns := []prompt.ConversationTurn{
 		{Question: "geçen ay satışlar", LogicalQuery: string(raw)},
 	}

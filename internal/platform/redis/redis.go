@@ -49,7 +49,7 @@ func NewCacheDisabled() *Cache {
 // could hash to different keys, breaking the cache. encoding/json sorts
 // map keys, so the same LogicalQuery produces the same fingerprint every
 // run.
-func (c *Cache) Key(datasourceID, modelID string, lq query.LogicalQuery, userScope string) string {
+func (*Cache) Key(datasourceID, modelID string, lq query.LogicalQuery, userScope string) string {
 	data := struct {
 		DatasourceID string             `json:"d"`
 		ModelID      string             `json:"m"`

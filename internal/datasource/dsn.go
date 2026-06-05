@@ -86,7 +86,7 @@ func ParseConnectionParams(raw []byte) (map[string]string, error) {
 }
 
 // ComposeDSN builds a single connection string for Open/Ping.
-func ComposeDSN(driver string, f ConnectionFields) (string, error) {
+func ComposeDSN(driver string, f ConnectionFields) (string, error) { //nolint:funlen,gocognit
 	d := NormalizeDriverType(driver)
 	host := strings.TrimSpace(f.Host)
 	if host == "" {

@@ -43,7 +43,7 @@ func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID, userID stri
 	}
 	var datasourceID *string
 	scopeSchemas := []string{}
-	if kind == "describe_batch" {
+	if kind == "describe_batch" { //nolint:nestif
 		var batchReq ai.DescribeBatchRequest
 		if err := json.Unmarshal(req, &batchReq); err != nil {
 			return nil, errors.New("invalid request payload")

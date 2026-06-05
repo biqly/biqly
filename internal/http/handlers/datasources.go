@@ -109,7 +109,7 @@ func (h *DatasourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, ds)
 }
 
-//nolint:gocyclo // branches over datasource types, config shapes, and update vs create
+//nolint:gocyclo,gocognit,funlen // branches over datasource types, config shapes, and update vs create
 func (h *DatasourceHandler) datasourceDraft(_ context.Context, req createDatasourceRequest, id string, existing *metadata.Datasource) (*metadata.Datasource, string, int, string, error) {
 	if strings.TrimSpace(req.Name) == "" || strings.TrimSpace(req.Type) == "" {
 		return nil, "", http.StatusBadRequest, "name and type are required", nil
@@ -474,7 +474,7 @@ func (h *DatasourceHandler) TestDraft(w http.ResponseWriter, r *http.Request) {
 
 // SyncMetadata introspects and persists the schema of a datasource.
 //
-//nolint:gocyclo // sync, embedding refresh, and drift detection share one orchestration path
+//nolint:gocyclo,gocognit,funlen // sync, embedding refresh, and drift detection share one orchestration path
 func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request) {
 	id, ok := requireURLParam(w, r, "id")
 	if !ok {
@@ -696,7 +696,7 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 			continue
 		}
 
-		if report != nil && len(report.Drifts) > 0 {
+		if report != nil && len(report.Drifts) > 0 { //nolint:nestif
 			// Persist via driftRepo
 			if err := h.deps.DriftRepo.InsertReport(ctx, report); err != nil {
 				slog.ErrorContext(ctx, "failed to insert drift report", "model_id", model.ID, "error", err)

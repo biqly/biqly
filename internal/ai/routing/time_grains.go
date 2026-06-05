@@ -51,11 +51,11 @@ var DefaultTimeGrains = []metadata.TimeGrain{
 
 type staticTimeGrainStore struct{}
 
-func (s staticTimeGrainStore) List(_ context.Context) ([]metadata.TimeGrain, error) {
+func (staticTimeGrainStore) List(_ context.Context) ([]metadata.TimeGrain, error) {
 	return DefaultTimeGrains, nil
 }
 
-func (s staticTimeGrainStore) Invalidate() {}
+func (staticTimeGrainStore) Invalidate() {}
 
 // NewStaticTimeGrainStore returns a store serving compile-time defaults.
 func NewStaticTimeGrainStore() TimeGrainStore {

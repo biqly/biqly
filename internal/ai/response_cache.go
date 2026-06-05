@@ -52,11 +52,11 @@ func NewRedisResponseCache(client *redis.Client) *RedisResponseCache {
 
 func (r *RedisResponseCache) Get(ctx context.Context, fingerprint string) (*AIResponse, error) {
 	if r.client == nil {
-		return nil, nil
+		return nil, nil //nolint:nilnil // cache disabled: miss without error
 	}
 	val, err := r.client.Get(ctx, fingerprint).Bytes()
 	if errors.Is(err, redis.Nil) {
-		return nil, nil
+		return nil, nil //nolint:nilnil // cache miss
 	} else if err != nil {
 		return nil, err
 	}

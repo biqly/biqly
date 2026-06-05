@@ -139,6 +139,7 @@ func TestEnrichResultLeavesUnknownColumnsAlone(t *testing.T) {
 }
 
 func TestEnrichResultNilSafe(t *testing.T) {
+	t.Helper()
 	EnrichResult(nil, &LogicalQuery{}, nil)
 	EnrichResult(&Result{}, &LogicalQuery{}, nil)
 }

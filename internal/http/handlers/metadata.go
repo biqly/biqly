@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/biqly/biqly/internal/app"
@@ -61,36 +62,33 @@ func (h *MetadataHandler) ListColumns(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, cols)
 }
 
-// SearchColumns finds columns by name or description across a datasource.
-func (h *MetadataHandler) SearchColumns(w http.ResponseWriter, r *http.Request) {
+func (*MetadataHandler) searchMetadata(w http.ResponseWriter, r *http.Request, search func(context.Context, string, string) (any, error), errMsg string) {
 	datasourceID := r.URL.Query().Get("datasource_id")
 	q := r.URL.Query().Get("q")
 	if datasourceID == "" || q == "" {
 		writeError(w, http.StatusBadRequest, "datasource_id and q parameters are required")
 		return
 	}
-	cols, err := h.deps.MetaRepo.SearchColumns(r.Context(), datasourceID, q)
+	result, err := search(r.Context(), datasourceID, q)
 	if err != nil {
-		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to search columns", err)
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, errMsg, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, cols)
+	writeJSON(w, http.StatusOK, result)
+}
+
+// SearchColumns finds columns by name or description across a datasource.
+func (h *MetadataHandler) SearchColumns(w http.ResponseWriter, r *http.Request) {
+	h.searchMetadata(w, r, func(ctx context.Context, datasourceID, q string) (any, error) {
+		return h.deps.MetaRepo.SearchColumns(ctx, datasourceID, q)
+	}, "failed to search columns")
 }
 
 // SearchTables finds tables by name or description across a datasource.
 func (h *MetadataHandler) SearchTables(w http.ResponseWriter, r *http.Request) {
-	datasourceID := r.URL.Query().Get("datasource_id")
-	q := r.URL.Query().Get("q")
-	if datasourceID == "" || q == "" {
-		writeError(w, http.StatusBadRequest, "datasource_id and q parameters are required")
-		return
-	}
-	tables, err := h.deps.MetaRepo.SearchTables(r.Context(), datasourceID, q)
-	if err != nil {
-		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to search tables", err)
-		return
-	}
-	writeJSON(w, http.StatusOK, tables)
+	h.searchMetadata(w, r, func(ctx context.Context, datasourceID, q string) (any, error) {
+		return h.deps.MetaRepo.SearchTables(ctx, datasourceID, q)
+	}, "failed to search tables")
 }
 
 type updateDescriptionRequest struct {

@@ -254,11 +254,11 @@ type rbacScopeRows struct {
 	pos    int
 }
 
-func (r *rbacScopeRows) Columns() []string {
+func (*rbacScopeRows) Columns() []string {
 	return []string{"name"}
 }
 
-func (r *rbacScopeRows) Close() error {
+func (*rbacScopeRows) Close() error {
 	return nil
 }
 

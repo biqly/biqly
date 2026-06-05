@@ -88,7 +88,7 @@ func settingsFromLDAPConfig(c LDAPConfig) ldap.Settings {
 //   - (nil, err)   on a connectivity/configuration error.
 func (s *AuthService) tryLDAP(ctx context.Context, username, password string) (*User, error) {
 	if !s.ldapReady() {
-		return nil, nil
+		return nil, nil //nolint:nilnil // LDAP disabled; caller treats as not authenticated
 	}
 	cfg, err := s.ldapConfig.Get(ctx)
 	if err != nil || !cfg.Enabled {
@@ -97,7 +97,7 @@ func (s *AuthService) tryLDAP(ctx context.Context, username, password string) (*
 
 	res, err := s.ldapAuth.Authenticate(ctx, settingsFromLDAPConfig(cfg), username, password)
 	if errors.Is(err, ldap.ErrInvalidCredentials) {
-		return nil, nil
+		return nil, nil //nolint:nilnil // invalid credentials are not an infrastructure error
 	}
 	if err != nil {
 		return nil, err
@@ -115,7 +115,7 @@ func (s *AuthService) tryLDAP(ctx context.Context, username, password string) (*
 	user, gerr := s.userRepo.GetUserByEmail(ctx, normEmail)
 	if errors.Is(gerr, ErrUserNotFound) {
 		if !cfg.AutoCreateUsers {
-			return nil, nil
+			return nil, nil //nolint:nilnil // LDAP user missing and auto-create disabled
 		}
 		displayName, derr := SanitizeDisplayName(res.DisplayName)
 		if derr != nil || strings.TrimSpace(displayName) == "" {

@@ -19,7 +19,7 @@ type (
 	CompiledQuery    = pkgquery.CompiledQuery
 	HistoryEntry     = pkgquery.HistoryEntry
 	ValidationError  = pkgquery.ValidationError
-	ValidationErrors = pkgquery.ValidationErrors
+	ValidationErrors = pkgquery.ValidationErrors //nolint:errname // re-export of pkg/query.ValidationErrors
 )
 
 // QueryResult is an alias for backward compatibility.

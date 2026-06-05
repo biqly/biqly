@@ -19,27 +19,27 @@ const (
 
 // Experiment describes one prompt-template A/B test.
 type Experiment struct {
-	ID           string
-	Name         string
-	Description  string
-	TemplateName string
-	Locale       string
-	Status       ExperimentStatus
-	StartedAt    *time.Time
-	EndedAt      *time.Time
-	CreatedBy    string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID           string           `json:"id"`
+	Name         string           `json:"name"`
+	Description  string           `json:"description"`
+	TemplateName string           `json:"template_name"`
+	Locale       string           `json:"locale"`
+	Status       ExperimentStatus `json:"status"`
+	StartedAt    *time.Time       `json:"started_at,omitempty"`
+	EndedAt      *time.Time       `json:"ended_at,omitempty"`
+	CreatedBy    string           `json:"created_by"`
+	CreatedAt    time.Time        `json:"created_at"`
+	UpdatedAt    time.Time        `json:"updated_at"`
 }
 
 // Variant maps a traffic percentage to a specific prompt template version.
 type Variant struct {
-	ID              string
-	ExperimentID    string
-	Name            string
-	TemplateVersion int
-	TrafficPct      int
-	IsControl       bool
+	ID              string `json:"id"`
+	ExperimentID    string `json:"experiment_id"`
+	Name            string `json:"name"`
+	TemplateVersion int    `json:"template_version"`
+	TrafficPct      int    `json:"traffic_pct"`
+	IsControl       bool   `json:"is_control"`
 }
 
 // ExperimentMetrics contains aggregated performance metrics for one variant.
@@ -57,6 +57,8 @@ type ExperimentMetrics struct {
 	ExecutionSuccessRate float64
 	AvgCostUSD           float64
 	AvgLatencyMs         float64
+	StdDevCostUSD        float64
+	StdDevLatencyMs      float64
 	TotalTokens          int
 }
 

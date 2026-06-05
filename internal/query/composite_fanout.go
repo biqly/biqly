@@ -42,7 +42,7 @@ func NewCompositeFanoutDetector() *CompositeFanoutDetector {
 
 // AnalyzeFanoutRisk evaluates the cross-model joins of a composite model
 // against the merged model's metrics and returns a risk report.
-func (d *CompositeFanoutDetector) AnalyzeFanoutRisk(
+func (*CompositeFanoutDetector) AnalyzeFanoutRisk(
 	resolved *semantic.SemanticModel,
 	crossJoins []semantic.CrossModelJoin,
 ) FanoutReport {

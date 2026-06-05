@@ -40,7 +40,7 @@ func NewReadOnlyChecker() *ReadOnlyChecker {
 }
 
 // Check verifies the SQL is a safe SELECT/WITH/EXPLAIN query.
-func (c *ReadOnlyChecker) Check(sql string) error {
+func (*ReadOnlyChecker) Check(sql string) error {
 	trimmed := strings.TrimSpace(sql)
 	if trimmed == "" {
 		return errors.New("empty query")
@@ -89,9 +89,8 @@ func hasMultipleStatements(cleaned string) bool {
 // remaining text can be safely scanned for keywords and statement separators.
 // String/identifier content is replaced with empty placeholders that preserve
 // surrounding token boundaries.
-func stripSQLLiteralsAndComments(sql string) string {
-	var out strings.Builder
-	out.Grow(len(sql))
+//nolint:gocognit
+func writeStrippedSQLLiteralsAndComments(sql string, out *strings.Builder) {
 	i := 0
 	n := len(sql)
 	for i < n {
@@ -156,5 +155,11 @@ func stripSQLLiteralsAndComments(sql string) string {
 		out.WriteByte(c)
 		i++
 	}
+}
+
+func stripSQLLiteralsAndComments(sql string) string {
+	var out strings.Builder
+	out.Grow(len(sql))
+	writeStrippedSQLLiteralsAndComments(sql, &out)
 	return out.String()
 }

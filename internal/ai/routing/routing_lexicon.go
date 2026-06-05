@@ -27,16 +27,16 @@ type RoutingLexicon struct {
 var (
 	routingLexicon     *RoutingLexicon
 	routingLexiconOnce sync.Once
-	routingLexiconErr  error
+	errRoutingLexicon  error
 )
 
 // ActiveRoutingLexicon returns the active routing lexicon (embedded default or file override).
 func ActiveRoutingLexicon() (*RoutingLexicon, error) {
 	routingLexiconOnce.Do(func() {
-		routingLexicon, routingLexiconErr = loadRoutingLexicon("")
+		routingLexicon, errRoutingLexicon = loadRoutingLexicon("")
 	})
-	if routingLexiconErr != nil {
-		return nil, routingLexiconErr
+	if errRoutingLexicon != nil {
+		return nil, errRoutingLexicon
 	}
 	return routingLexicon, nil
 }
@@ -63,7 +63,7 @@ func InitRoutingLexicon(path string) error {
 		return err
 	}
 	routingLexicon = lex
-	routingLexiconErr = nil
+	errRoutingLexicon = nil
 	routingLexiconOnce = sync.Once{}
 	routingLexiconOnce.Do(func() {})
 	return nil
@@ -131,7 +131,7 @@ func mergeStringSliceField(dst *[]string, src []string) {
 	}
 }
 
-func (lex *RoutingLexicon) HasAnyToken(tokens map[string]bool, vocabulary []string) bool {
+func (*RoutingLexicon) HasAnyToken(tokens map[string]bool, vocabulary []string) bool {
 	for _, t := range vocabulary {
 		if tokens[t] {
 			return true

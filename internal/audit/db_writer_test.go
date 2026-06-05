@@ -58,7 +58,7 @@ func TestToNullUUID(t *testing.T) {
 }
 
 func TestNewDBWriter_NilDB(t *testing.T) {
-	w := NewDBWriter(nil, nil)
+	w := NewDBWriter(context.Background(), nil, nil)
 	assert.Nil(t, w)
 }
 
@@ -90,7 +90,7 @@ func TestDBWriter_Integration(t *testing.T) {
 	// Ensure clean start
 	_, _ = db.ExecContext(ctx, "DELETE FROM audit_events WHERE event_type = $1", "test_db_writer_integration")
 
-	w := NewDBWriter(db, nil)
+	w := NewDBWriter(ctx, db, nil)
 	require.NotNil(t, w)
 	defer func() { _ = w.Close() }()
 
@@ -140,7 +140,7 @@ func TestDBWriter_CloseFlushes(t *testing.T) {
 	// Ensure clean start
 	_, _ = db.ExecContext(ctx, "DELETE FROM audit_events WHERE event_type = $1", "test_close_flushes")
 
-	w := NewDBWriter(db, nil)
+	w := NewDBWriter(ctx, db, nil)
 	require.NotNil(t, w)
 
 	event := Event{

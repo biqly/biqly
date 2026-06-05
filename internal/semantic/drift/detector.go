@@ -21,8 +21,8 @@ func NewDetector() *Detector {
 
 // Compare checks a model against the current state of tables and columns, returning a report.
 //
-//nolint:gocyclo // compares dimensions, metrics, joins, and tables with multiple drift types
-func (d *Detector) Compare(ctx context.Context, model semantic.SemanticModel, columns []metadata.Column, tables []metadata.Table) (*DriftReport, error) {
+//nolint:gocyclo,gocognit,funlen // compares dimensions, metrics, joins, and tables with multiple drift types
+func (d *Detector) Compare(_ context.Context, model semantic.SemanticModel, columns []metadata.Column, tables []metadata.Table) (*DriftReport, error) {
 	colMap := make(map[string]metadata.Column, len(columns))
 	for _, col := range columns {
 		key := d.normalizeKey(col.SchemaName, col.TableName, col.ColumnName)
@@ -75,7 +75,7 @@ func (d *Detector) Compare(ctx context.Context, model semantic.SemanticModel, co
 		}
 
 		// Handle calculated expression dependencies
-		if strings.TrimSpace(dim.CalculatedExpression) != "" {
+		if strings.TrimSpace(dim.CalculatedExpression) != "" { //nolint:nestif
 			expr := dim.CalculatedExpr
 			if expr == nil && semantic.ExpressionParser != nil {
 				if parsed, err := semantic.ExpressionParser(dim.CalculatedExpression); err == nil {
@@ -258,7 +258,7 @@ func (d *Detector) Compare(ctx context.Context, model semantic.SemanticModel, co
 	}
 
 	if len(drifts) == 0 {
-		return nil, nil
+		return nil, nil //nolint:nilnil // no drifts detected is a normal outcome
 	}
 
 	// Determine worst severity
@@ -282,7 +282,7 @@ func (d *Detector) Compare(ctx context.Context, model semantic.SemanticModel, co
 	}, nil
 }
 
-func (d *Detector) normalizeKey(schema, table, column string) string {
+func (*Detector) normalizeKey(schema, table, column string) string {
 	return strings.ToLower(
 		strings.ReplaceAll(schema, "\"", "") + "." +
 			strings.ReplaceAll(table, "\"", "") + "." +
@@ -290,7 +290,7 @@ func (d *Detector) normalizeKey(schema, table, column string) string {
 	)
 }
 
-func (d *Detector) parseColumnRef(ref string, defaultSchema, defaultTable string) (schema, table, column string) {
+func (*Detector) parseColumnRef(ref string, defaultSchema, defaultTable string) (schema, table, column string) {
 	ref = strings.ReplaceAll(ref, "\"", "")
 	parts := strings.Split(ref, ".")
 	switch len(parts) {
@@ -304,7 +304,7 @@ func (d *Detector) parseColumnRef(ref string, defaultSchema, defaultTable string
 }
 
 // isTypeCompatible checks if the database column's physical type is compatible with semantic dimension type.
-func (d *Detector) isTypeCompatible(physicalType, semanticType string) bool {
+func (*Detector) isTypeCompatible(physicalType, semanticType string) bool {
 	p := strings.ToLower(physicalType)
 	s := strings.ToLower(semanticType)
 

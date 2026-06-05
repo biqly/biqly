@@ -436,55 +436,55 @@ func getGoldenTestCases() []goldenTestCase {
 	return []goldenTestCase{
 		{
 			name: "simple_select",
-			fixture: func(t *testing.T) semanticContextFixture {
+			fixture: func(_ *testing.T) semanticContextFixture {
 				return fixtureSimpleSelect()
 			},
 		},
 		{
 			name: "group_by_metric",
-			fixture: func(t *testing.T) semanticContextFixture {
+			fixture: func(_ *testing.T) semanticContextFixture {
 				return fixtureGroupByMetric()
 			},
 		},
 		{
 			name: "many_to_one_join",
-			fixture: func(t *testing.T) semanticContextFixture {
+			fixture: func(_ *testing.T) semanticContextFixture {
 				return fixtureManyToOne()
 			},
 		},
 		{
 			name: "one_to_many_join",
-			fixture: func(t *testing.T) semanticContextFixture {
+			fixture: func(_ *testing.T) semanticContextFixture {
 				return fixtureOneToMany()
 			},
 		},
 		{
 			name: "one_to_one_join",
-			fixture: func(t *testing.T) semanticContextFixture {
+			fixture: func(_ *testing.T) semanticContextFixture {
 				return fixtureOneToOne()
 			},
 		},
 		{
 			name: "many_to_many_join",
-			fixture: func(t *testing.T) semanticContextFixture {
+			fixture: func(_ *testing.T) semanticContextFixture {
 				return fixtureManyToMany()
 			},
 		},
 		{
 			name: "multi_hop_join",
-			fixture: func(t *testing.T) semanticContextFixture {
+			fixture: func(_ *testing.T) semanticContextFixture {
 				return fixtureMultiHop()
 			},
 		},
 		{
 			name: "display_dimension_priority",
-			fixture: func(t *testing.T) semanticContextFixture {
+			fixture: func(_ *testing.T) semanticContextFixture {
 				return fixtureDisplayPriority()
 			},
 		},
 		{
 			name: "calculated_dimension",
-			fixture: func(t *testing.T) semanticContextFixture {
+			fixture: func(_ *testing.T) semanticContextFixture {
 				return fixtureCalculated()
 			},
 		},
@@ -494,7 +494,7 @@ func getGoldenTestCases() []goldenTestCase {
 		},
 		{
 			name: "row_filter_eq",
-			fixture: func(t *testing.T) semanticContextFixture {
+			fixture: func(_ *testing.T) semanticContextFixture {
 				return fixtureManyToOne()
 			},
 			rowFilters: []security.RowFilter{
@@ -503,7 +503,7 @@ func getGoldenTestCases() []goldenTestCase {
 		},
 		{
 			name: "row_filter_in",
-			fixture: func(t *testing.T) semanticContextFixture {
+			fixture: func(_ *testing.T) semanticContextFixture {
 				return fixtureManyToOne()
 			},
 			rowFilters: []security.RowFilter{
@@ -513,6 +513,7 @@ func getGoldenTestCases() []goldenTestCase {
 	}
 }
 
+//nolint:gocognit
 func TestGoldenAcrossDialects(t *testing.T) {
 	dialects := []dialect.Dialect{
 		dialect.PostgresDialect{},

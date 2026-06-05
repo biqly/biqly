@@ -32,7 +32,7 @@ func (d *Driver) Introspect(ctx context.Context, db *sql.DB) (*datasource.Intros
 	})
 }
 
-func (d *Driver) introspectSchemas(ctx context.Context, db *sql.DB) ([]datasource.SchemaInfo, error) {
+func (*Driver) introspectSchemas(ctx context.Context, db *sql.DB) ([]datasource.SchemaInfo, error) {
 	query := `SELECT name FROM sys.schemas WHERE name NOT IN ('dbo', 'guest', 'INFORMATION_SCHEMA', 'sys')`
 	return datasource.QueryAll(ctx, db, query, nil, func(rows *sql.Rows) (datasource.SchemaInfo, error) {
 		var s datasource.SchemaInfo
@@ -41,7 +41,7 @@ func (d *Driver) introspectSchemas(ctx context.Context, db *sql.DB) ([]datasourc
 	})
 }
 
-func (d *Driver) introspectTables(ctx context.Context, db *sql.DB) ([]datasource.TableInfo, error) {
+func (*Driver) introspectTables(ctx context.Context, db *sql.DB) ([]datasource.TableInfo, error) {
 	query := `SELECT s.name, t.name, CASE t.type WHEN 'U' THEN 'BASE TABLE' WHEN 'V' THEN 'VIEW' END, NULL FROM sys.tables t JOIN sys.schemas s ON t.schema_id = s.schema_id UNION ALL SELECT s.name, v.name, 'VIEW', NULL FROM sys.views v JOIN sys.schemas s ON v.schema_id = s.schema_id`
 	return datasource.QueryAll(ctx, db, query, nil, func(rows *sql.Rows) (datasource.TableInfo, error) {
 		var t datasource.TableInfo
@@ -50,7 +50,7 @@ func (d *Driver) introspectTables(ctx context.Context, db *sql.DB) ([]datasource
 	})
 }
 
-func (d *Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasource.ColumnInfo, error) {
+func (*Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasource.ColumnInfo, error) {
 	// Join sys.objects (not sys.tables only): VIEW columns live under type 'V', tables under 'U'.
 	query := `SELECT s.name, o.name, c.name, TYPE_NAME(c.user_type_id), CASE c.is_nullable WHEN 1 THEN 1 ELSE 0 END, c.column_id, c.max_length, c.precision, c.scale, OBJECT_DEFINITION(c.default_object_id)
 FROM sys.columns c
@@ -73,7 +73,7 @@ ORDER BY s.name, o.name, c.column_id`
 	})
 }
 
-func (d *Driver) introspectRelations(ctx context.Context, db *sql.DB) ([]datasource.RelationInfo, error) {
+func (*Driver) introspectRelations(ctx context.Context, db *sql.DB) ([]datasource.RelationInfo, error) {
 	query := `SELECT fk.name, ps.name, po.name, pc.name, rs.name, ro.name, rc.name
 FROM sys.foreign_keys fk
 JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id

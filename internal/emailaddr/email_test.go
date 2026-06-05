@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+//nolint:funlen
 func TestNormalize(t *testing.T) {
 	tests := []struct {
 		name    string

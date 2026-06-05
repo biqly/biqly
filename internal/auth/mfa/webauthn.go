@@ -166,7 +166,7 @@ func (s *WebAuthnService) FinishRegistration(ctx context.Context, user *auth.Use
 }
 
 func (s *WebAuthnService) BeginLogin(ctx context.Context, emailOrUsername string) (*protocol.CredentialAssertion, *webauthn.SessionData, error) {
-	if emailOrUsername == "" {
+	if emailOrUsername == "" { //nolint:nestif
 		assertion, session, err := s.webAuthn.BeginDiscoverableLogin()
 		if err != nil {
 			return nil, nil, err
@@ -256,7 +256,7 @@ func (s *WebAuthnService) FinishLogin(ctx context.Context, session *webauthn.Ses
 		request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 	}
 
-	if uid == nil {
+	if uid == nil { //nolint:nestif
 		handler := func(rawID, _ []byte) (webauthn.User, error) {
 			discoveredUID, err := s.repo.GetUserIDByCredentialID(ctx, rawID)
 			if err != nil {
@@ -351,7 +351,7 @@ func applyAssertionBackupFlags(creds []webauthn.Credential, bodyBytes []byte) {
 }
 
 func AssertionBackupFlags(bodyBytes []byte) (backupEligible bool, backupState bool, ok bool) {
-	if len(bodyBytes) > 0 {
+	if len(bodyBytes) > 0 { //nolint:nestif
 		var reqPayload struct {
 			Response struct {
 				AuthenticatorData string `json:"authenticatorData"`

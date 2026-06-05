@@ -549,7 +549,7 @@ func (r *UserRepository) GetWebAuthnChallenge(ctx context.Context, challenge []b
 	}
 
 	if !found || time.Now().After(expiresAt) {
-		return nil, nil
+		return nil, nil //nolint:nilnil // missing or expired token is not an error
 	}
 
 	return platformdb.StringPtrFromNull(userID), nil
@@ -881,6 +881,7 @@ func (r *UserRepository) CreateEmailChangeRequest(
 	return req, nil
 }
 
+//nolint:gocognit
 func (r *UserRepository) ConfirmEmailChangeToken(ctx context.Context, token string, now time.Time) (*EmailChangeRequest, error) {
 	var req *EmailChangeRequest
 	err := platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {

@@ -8,7 +8,7 @@ import (
 	"github.com/biqly/biqly/internal/semantic"
 )
 
-type filterHandler func(c *Compiler, f Filter, lhsSQL string, model *semantic.SemanticModel, args *[]any) (string, []any, error)
+type filterHandler func(c *Compiler, f Filter, lhsSQL string, _ *semantic.SemanticModel, args *[]any) (string, []any, error)
 
 var filterHandlers map[string]filterHandler
 
@@ -49,7 +49,7 @@ func caseSensitiveComparison(dialectName, lhsSQL, op, placeholder string) string
 	}
 }
 
-func (c *Compiler) buildEqFilter(f Filter, lhsSQL string, model *semantic.SemanticModel, args *[]any) (string, []any, error) {
+func (c *Compiler) buildEqualityFilter(f Filter, lhsSQL string, args *[]any, op, sliceJoin string) (string, []any, error) {
 	vals, isSlice := sliceOfStrings(f.Value)
 	if isSlice {
 		if len(vals) == 0 {
@@ -60,63 +60,45 @@ func (c *Compiler) buildEqFilter(f Filter, lhsSQL string, model *semantic.Semant
 			*args = append(*args, valStr)
 			var part string
 			if f.CaseSensitive {
-				part = caseSensitiveComparison(c.dialect.Name(), lhsSQL, "=", c.dialect.Placeholder(len(*args)))
+				part = caseSensitiveComparison(c.dialect.Name(), lhsSQL, op, c.dialect.Placeholder(len(*args)))
 			} else {
-				part = lhsSQL + " = " + c.dialect.Placeholder(len(*args))
+				part = lhsSQL + " " + op + " " + c.dialect.Placeholder(len(*args))
 			}
 			parts = append(parts, part)
 		}
-		return "(" + strings.Join(parts, " OR ") + ")", nil, nil
+		return "(" + strings.Join(parts, " "+sliceJoin+" ") + ")", nil, nil
 	}
 	*args = append(*args, f.Value)
 	if f.CaseSensitive {
-		return caseSensitiveComparison(c.dialect.Name(), lhsSQL, "=", c.dialect.Placeholder(len(*args))), nil, nil
+		return caseSensitiveComparison(c.dialect.Name(), lhsSQL, op, c.dialect.Placeholder(len(*args))), nil, nil
 	}
-	return lhsSQL + " = " + c.dialect.Placeholder(len(*args)), nil, nil
+	return lhsSQL + " " + op + " " + c.dialect.Placeholder(len(*args)), nil, nil
 }
 
-func (c *Compiler) buildNeqFilter(f Filter, lhsSQL string, model *semantic.SemanticModel, args *[]any) (string, []any, error) {
-	vals, isSlice := sliceOfStrings(f.Value)
-	if isSlice {
-		if len(vals) == 0 {
-			return "1=1", nil, nil
-		}
-		parts := make([]string, 0, len(vals))
-		for _, valStr := range vals {
-			*args = append(*args, valStr)
-			var part string
-			if f.CaseSensitive {
-				part = caseSensitiveComparison(c.dialect.Name(), lhsSQL, "!=", c.dialect.Placeholder(len(*args)))
-			} else {
-				part = lhsSQL + " != " + c.dialect.Placeholder(len(*args))
-			}
-			parts = append(parts, part)
-		}
-		return "(" + strings.Join(parts, " AND ") + ")", nil, nil
-	}
-	*args = append(*args, f.Value)
-	if f.CaseSensitive {
-		return caseSensitiveComparison(c.dialect.Name(), lhsSQL, "!=", c.dialect.Placeholder(len(*args))), nil, nil
-	}
-	return lhsSQL + " != " + c.dialect.Placeholder(len(*args)), nil, nil
+func (c *Compiler) buildEqFilter(f Filter, lhsSQL string, _ *semantic.SemanticModel, args *[]any) (string, []any, error) {
+	return c.buildEqualityFilter(f, lhsSQL, args, "=", "OR")
 }
 
-func (c *Compiler) buildGtFilter(f Filter, lhsSQL string, model *semantic.SemanticModel, args *[]any) (string, []any, error) {
+func (c *Compiler) buildNeqFilter(f Filter, lhsSQL string, _ *semantic.SemanticModel, args *[]any) (string, []any, error) {
+	return c.buildEqualityFilter(f, lhsSQL, args, "!=", "AND")
+}
+
+func (c *Compiler) buildGtFilter(f Filter, lhsSQL string, _ *semantic.SemanticModel, args *[]any) (string, []any, error) {
 	*args = append(*args, f.Value)
 	return lhsSQL + " > " + c.dialect.Placeholder(len(*args)), nil, nil
 }
 
-func (c *Compiler) buildGteFilter(f Filter, lhsSQL string, model *semantic.SemanticModel, args *[]any) (string, []any, error) {
+func (c *Compiler) buildGteFilter(f Filter, lhsSQL string, _ *semantic.SemanticModel, args *[]any) (string, []any, error) {
 	*args = append(*args, f.Value)
 	return lhsSQL + " >= " + c.dialect.Placeholder(len(*args)), nil, nil
 }
 
-func (c *Compiler) buildLtFilter(f Filter, lhsSQL string, model *semantic.SemanticModel, args *[]any) (string, []any, error) {
+func (c *Compiler) buildLtFilter(f Filter, lhsSQL string, _ *semantic.SemanticModel, args *[]any) (string, []any, error) {
 	*args = append(*args, f.Value)
 	return lhsSQL + " < " + c.dialect.Placeholder(len(*args)), nil, nil
 }
 
-func (c *Compiler) buildLteFilter(f Filter, lhsSQL string, model *semantic.SemanticModel, args *[]any) (string, []any, error) {
+func (c *Compiler) buildLteFilter(f Filter, lhsSQL string, _ *semantic.SemanticModel, args *[]any) (string, []any, error) {
 	*args = append(*args, f.Value)
 	return lhsSQL + " <= " + c.dialect.Placeholder(len(*args)), nil, nil
 }
@@ -135,7 +117,7 @@ func (c *Compiler) buildNotInOperatorFilter(f Filter, lhsSQL string, model *sema
 	return c.buildNotInFilter(lhsSQL, f.Value, args)
 }
 
-func (c *Compiler) buildContainsFilter(f Filter, lhsSQL string, model *semantic.SemanticModel, args *[]any) (string, []any, error) {
+func (c *Compiler) buildContainsFilter(f Filter, lhsSQL string, _ *semantic.SemanticModel, args *[]any) (string, []any, error) {
 	vals, isSlice := sliceOfStrings(f.Value)
 	if isSlice {
 		if len(vals) == 0 {
@@ -158,7 +140,7 @@ func (c *Compiler) buildContainsFilter(f Filter, lhsSQL string, model *semantic.
 	return c.likeExpression(lhsSQL, c.dialect.Placeholder(len(*args)), f.CaseSensitive), nil, nil
 }
 
-func (c *Compiler) buildStartsWithFilter(f Filter, lhsSQL string, model *semantic.SemanticModel, args *[]any) (string, []any, error) {
+func (c *Compiler) buildStartsWithFilter(f Filter, lhsSQL string, _ *semantic.SemanticModel, args *[]any) (string, []any, error) {
 	vals, isSlice := sliceOfStrings(f.Value)
 	if isSlice {
 		if len(vals) == 0 {
@@ -181,7 +163,7 @@ func (c *Compiler) buildStartsWithFilter(f Filter, lhsSQL string, model *semanti
 	return c.likeExpression(lhsSQL, c.dialect.Placeholder(len(*args)), f.CaseSensitive), nil, nil
 }
 
-func (c *Compiler) buildEndsWithFilter(f Filter, lhsSQL string, model *semantic.SemanticModel, args *[]any) (string, []any, error) {
+func (c *Compiler) buildEndsWithFilter(f Filter, lhsSQL string, _ *semantic.SemanticModel, args *[]any) (string, []any, error) {
 	vals, isSlice := sliceOfStrings(f.Value)
 	if isSlice {
 		if len(vals) == 0 {
@@ -204,15 +186,15 @@ func (c *Compiler) buildEndsWithFilter(f Filter, lhsSQL string, model *semantic.
 	return c.likeExpression(lhsSQL, c.dialect.Placeholder(len(*args)), f.CaseSensitive), nil, nil
 }
 
-func (c *Compiler) buildBetweenOperatorFilter(f Filter, lhsSQL string, model *semantic.SemanticModel, args *[]any) (string, []any, error) {
+func (c *Compiler) buildBetweenOperatorFilter(f Filter, lhsSQL string, _ *semantic.SemanticModel, args *[]any) (string, []any, error) {
 	return c.buildBetweenFilter(lhsSQL, f.Value, args)
 }
 
-func (c *Compiler) buildIsNullFilter(f Filter, lhsSQL string, model *semantic.SemanticModel, args *[]any) (string, []any, error) {
+func (*Compiler) buildIsNullFilter(_ Filter, lhsSQL string, _ *semantic.SemanticModel, _ *[]any) (string, []any, error) {
 	return lhsSQL + " IS NULL", nil, nil
 }
 
-func (c *Compiler) buildIsNotNullFilter(f Filter, lhsSQL string, model *semantic.SemanticModel, args *[]any) (string, []any, error) {
+func (*Compiler) buildIsNotNullFilter(_ Filter, lhsSQL string, _ *semantic.SemanticModel, _ *[]any) (string, []any, error) {
 	return lhsSQL + " IS NOT NULL", nil, nil
 }
 

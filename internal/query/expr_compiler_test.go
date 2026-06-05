@@ -8,6 +8,7 @@ import (
 	pkgsemantic "github.com/biqly/biqly/pkg/semantic"
 )
 
+//nolint:funlen
 func TestCompileExprAcrossDialects(t *testing.T) {
 	resolver := NewSchemaResolver(&semantic.SemanticModel{BaseSchema: "public"}, nil)
 

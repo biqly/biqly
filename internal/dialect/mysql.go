@@ -20,12 +20,12 @@ var MySQL = MySQLDialect{
 }
 
 // Name returns the dialect name.
-func (d MySQLDialect) Name() string {
+func (MySQLDialect) Name() string {
 	return "mysql"
 }
 
 // Placeholder returns the parameter placeholder for the given index.
-func (d MySQLDialect) Placeholder(index int) string {
+func (MySQLDialect) Placeholder(_ int) string {
 	return "?"
 }
 
@@ -56,7 +56,7 @@ func (d MySQLDialect) CalendarPart(part, column string) string {
 
 // ILike returns a case-insensitive LIKE expression.
 // column must be a SQL expression (e.g. already-quoted identifiers).
-func (d MySQLDialect) ILike(column, placeholder string) string {
+func (MySQLDialect) ILike(column, placeholder string) string {
 	return fmt.Sprintf("LOWER(%s) LIKE LOWER(%s)", column, placeholder)
 }
 

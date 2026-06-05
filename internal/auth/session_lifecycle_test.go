@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"testing"
 	"time"
@@ -9,60 +10,52 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func setupRotateSessionUser(t *testing.T, email string) (*sql.DB, context.Context, string) {
+	t.Helper()
+	dbPool := openTestDBPool(t)
+	ctx := context.Background()
+	t.Cleanup(func() { _, _ = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email = $1", email) })
+	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email = $1", email)
+	var userID string
+	require.NoError(t, dbPool.QueryRowContext(ctx,
+		`INSERT INTO users (email, password_hash) VALUES ($1, '$2a$04$xxx') RETURNING id`,
+		email,
+	).Scan(&userID))
+	return dbPool, ctx, userID
+}
+
+//nolint:revive // test helper keeps *testing.T as the first parameter
+func rotateSessionWithToken(t *testing.T, ctx context.Context, dbPool *sql.DB, userID, token, sessionSQL string, wantErr error) {
+	t.Helper()
+	_, err := dbPool.ExecContext(ctx, sessionSQL, userID)
+	require.NoError(t, err)
+	mgr := NewSessionManager(dbPool)
+	mgr.SetLifecycleTTLs(30*24*time.Hour, 4*time.Hour)
+	_, err = mgr.RotateSession(ctx, token, time.Hour, nil, nil)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("expected %v, got %v", wantErr, err)
+	}
+}
+
 // TestRotateSession_AbsoluteExpiry exercises §18.3 absolute timeout: refresh
 // rotation must reject a session whose absolute_expires_at has passed, even if
 // the rolling expires_at would still allow it.
 func TestRotateSession_AbsoluteExpiry(t *testing.T) {
-	dbPool := openTestDBPool(t)
-	ctx := context.Background()
-	defer func() { _, _ = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email = 'rotate-absolute@example.invalid'") }()
-
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email = 'rotate-absolute@example.invalid'")
-	var userID string
-	require.NoError(t, dbPool.QueryRowContext(ctx,
-		`INSERT INTO users (email, password_hash) VALUES ('rotate-absolute@example.invalid', '$2a$04$xxx') RETURNING id`,
-	).Scan(&userID))
-
-	// Insert an active session whose absolute window has already elapsed.
-	_, err := dbPool.ExecContext(ctx, `
+	dbPool, ctx, userID := setupRotateSessionUser(t, "rotate-absolute@example.invalid")
+	rotateSessionWithToken(t, ctx, dbPool, userID, "absolute-test-token", `
 		INSERT INTO sessions (user_id, refresh_token, expires_at, absolute_expires_at, last_active_at)
 		VALUES ($1, 'absolute-test-token', NOW() + INTERVAL '1 hour', NOW() - INTERVAL '1 second', NOW())
-	`, userID)
-	require.NoError(t, err)
-
-	mgr := NewSessionManager(dbPool)
-	mgr.SetLifecycleTTLs(30*24*time.Hour, 4*time.Hour)
-	_, err = mgr.RotateSession(ctx, "absolute-test-token", time.Hour, nil, nil)
-	if !errors.Is(err, ErrSessionAbsoluteExpired) {
-		t.Fatalf("expected ErrSessionAbsoluteExpired, got %v", err)
-	}
+	`, ErrSessionAbsoluteExpired)
 }
 
 // TestRotateSession_IdleExpiry rejects rotation when last_active_at is older
 // than the configured idle TTL.
 func TestRotateSession_IdleExpiry(t *testing.T) {
-	dbPool := openTestDBPool(t)
-	ctx := context.Background()
-	defer func() { _, _ = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email = 'rotate-idle@example.invalid'") }()
-
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email = 'rotate-idle@example.invalid'")
-	var userID string
-	require.NoError(t, dbPool.QueryRowContext(ctx,
-		`INSERT INTO users (email, password_hash) VALUES ('rotate-idle@example.invalid', '$2a$04$xxx') RETURNING id`,
-	).Scan(&userID))
-
-	_, err := dbPool.ExecContext(ctx, `
+	dbPool, ctx, userID := setupRotateSessionUser(t, "rotate-idle@example.invalid")
+	rotateSessionWithToken(t, ctx, dbPool, userID, "idle-test-token", `
 		INSERT INTO sessions (user_id, refresh_token, expires_at, absolute_expires_at, last_active_at)
 		VALUES ($1, 'idle-test-token', NOW() + INTERVAL '1 hour', NOW() + INTERVAL '30 days', NOW() - INTERVAL '5 hours')
-	`, userID)
-	require.NoError(t, err)
-
-	mgr := NewSessionManager(dbPool)
-	mgr.SetLifecycleTTLs(30*24*time.Hour, 4*time.Hour)
-	_, err = mgr.RotateSession(ctx, "idle-test-token", time.Hour, nil, nil)
-	if !errors.Is(err, ErrSessionIdleExpired) {
-		t.Fatalf("expected ErrSessionIdleExpired, got %v", err)
-	}
+	`, ErrSessionIdleExpired)
 }
 
 // TestRotateSession_PreservesAbsoluteExpiry ensures the new (rotated) session

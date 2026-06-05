@@ -151,7 +151,7 @@ func (s Settings) filterFor(username string) string {
 // Authenticate runs the search+bind flow and returns the directory attributes
 // for the user. A reachable directory that rejects the credentials yields
 // ErrInvalidCredentials; connectivity/config problems yield other errors.
-func (c *Client) Authenticate(ctx context.Context, s Settings, username, password string) (*Result, error) {
+func (*Client) Authenticate(ctx context.Context, s Settings, username, password string) (*Result, error) {
 	// Reject empty passwords up front: many servers treat an empty password as
 	// an unauthenticated (anonymous) bind that "succeeds" — which would be an
 	// auth bypass.
@@ -212,7 +212,7 @@ func (c *Client) Authenticate(ctx context.Context, s Settings, username, passwor
 
 // TestConnection verifies the host is reachable, TLS negotiates, and the
 // service account (or anonymous) bind succeeds. It does not require a user.
-func (c *Client) TestConnection(ctx context.Context, s Settings) error {
+func (*Client) TestConnection(ctx context.Context, s Settings) error {
 	conn, err := s.dial(ctx)
 	if err != nil {
 		return err

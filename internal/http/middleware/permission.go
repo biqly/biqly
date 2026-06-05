@@ -143,7 +143,7 @@ type UserAIAccess struct {
 
 func (c *AuthClient) UserAIAccess(ctx context.Context, userID string) (*UserAIAccess, error) {
 	if userID == "" {
-		return nil, nil
+		return nil, nil //nolint:nilnil // empty user id means no AI access override
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+fmt.Sprintf("/internal/auth/user/%s/ai-access", userID), nil)
 	if err != nil {

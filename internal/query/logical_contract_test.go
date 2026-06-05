@@ -44,6 +44,7 @@ func TestEnsureVersionPreservesExistingValue(t *testing.T) {
 }
 
 func TestEnsureVersionNilReceiverIsSafe(t *testing.T) {
+	t.Helper()
 	var lq *LogicalQuery
 	lq.EnsureVersion()
 }
