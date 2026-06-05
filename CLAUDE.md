@@ -69,6 +69,21 @@ tc.Confidence = new(c.Confidence)
 
 - `new(T)` still allocates a zero value when you only need a typed nil pointer shell.
 
+### range over integer
+
+- go 1.22+: use `for i := range n` instead of `for i := 0; i < n; i++`.
+- applies whenever the loop variable is only used as an index counter.
+
+example:
+
+```go
+// before
+for i := 0; i < 5; i++ { ... }
+
+// after
+for i := range 5 { ... }
+```
+
 ## go — performance rules
 
 when writing or reviewing go code, apply these to minimize performance loss (especially on hot paths):
