@@ -175,3 +175,45 @@ styling & coding conventions:
 - **simplicity first**: make every change as simple as possible. minimal code impact.
 - **no laziness**: find root causes. no temporary fixes. senior developer standards.
 - **minimal impact**: touch only what is necessary. avoid introducing bugs.
+
+## deployment & infrastructure
+
+the app runs in the **`biqly` kubernetes namespace** in the default kubeconfig cluster.
+
+### deploy folder (`deploy/`)
+
+```
+deploy/
+├── helm/biqly/            # main helm chart (umbrella)
+│   ├── Chart.yaml
+│   ├── values.yaml        # base values (namespace: biqly, image registry, gateway)
+│   ├── values-dev.yaml    # dev overrides
+│   ├── values-prod.yaml   # prod overrides (used by argocd)
+│   ├── templates/         # namespace, postgresql (cnp), nats, dragonfly, otel, alertmanager, etc.
+│   └── charts/            # sub-charts: api, auth, ai, query, catalog, frontend, mail
+└── argocd/                # argocd application, project, and image-updater config
+    ├── application.yaml   # deploys deploy/helm/biqly → namespace biqly, values-prod.yaml
+    ├── project.yaml
+    └── image-updater.yaml # argocd image updater annotation config
+```
+
+key points:
+- namespace is declared in `values.yaml` (`global.namespace.name: biqly`) and created by the chart.
+- argocd syncs from `main` branch, helm path `deploy/helm/biqly`, with `values-prod.yaml`.
+- image tags are bumped automatically by argocd image updater (commits like `chore(deploy): bump image tags`).
+- to apply changes locally: `helm upgrade --install biqly deploy/helm/biqly -n biqly -f deploy/helm/biqly/values-dev.yaml`
+- to inspect the cluster: `kubectl -n biqly get pods`
+
+### ci / github actions (`.github/workflows/`)
+
+| workflow | trigger | purpose |
+|---|---|---|
+| `ci.yml` | push/pr to `main` | backend (go test + lint + build) + frontend quality gate + docker build & push |
+| `test.yml` | push/pr to `main` | go test only (lighter gate, also runs on prs) |
+| `build-*.yml` | push/pr to `main` | per-service docker builds (auth, ai, query, catalog, mail, migrate) |
+| `semgrep.yml` | push/pr to `main` | sast security scan |
+
+notes:
+- `ci.yml` skips when only `deploy/**` changes.
+- docker images are pushed to `ghcr.io/biqly/*` and tagged with the git sha.
+- golangci-lint version is pinned in `ci.yml` (`v2.12.2`) — match locally with `make lint-go`.
