@@ -37,3 +37,5 @@ deploy/helm/biqly/charts/*.tgz
 
 # Seed data (fetched via scripts/fetch-adventureworks.sh)
 testdata/adventureworks/
+
+.gograph/
