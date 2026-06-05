@@ -114,8 +114,14 @@ func selectVariantForBucket(bucket int, variants []Variant) (Variant, error) {
 
 func trafficBucket(userID, experimentID string) int {
 	h := fnv.New32a()
-	_, _ = h.Write([]byte(userID))
-	_, _ = h.Write([]byte{0})
-	_, _ = h.Write([]byte(experimentID))
+	if _, err := h.Write([]byte(userID)); err != nil {
+		return 0
+	}
+	if _, err := h.Write([]byte{0}); err != nil {
+		return 0
+	}
+	if _, err := h.Write([]byte(experimentID)); err != nil {
+		return 0
+	}
 	return int(h.Sum32() % 100)
 }

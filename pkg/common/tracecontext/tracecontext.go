@@ -22,6 +22,9 @@ func TraceparentFromContext(ctx context.Context) string {
 	if ctx == nil {
 		return ""
 	}
-	traceparent, _ := ctx.Value(contextKey{}).(string)
+	traceparent, ok := ctx.Value(contextKey{}).(string)
+	if !ok {
+		return ""
+	}
 	return traceparent
 }

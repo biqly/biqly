@@ -166,7 +166,7 @@ func (s *WebAuthnService) FinishRegistration(ctx context.Context, user *auth.Use
 }
 
 func (s *WebAuthnService) BeginLogin(ctx context.Context, emailOrUsername string) (*protocol.CredentialAssertion, *webauthn.SessionData, error) {
-	if emailOrUsername == "" { //nolint:nestif
+	if emailOrUsername == "" { //nolint:nestif // discoverable login when identifier is omitted
 		assertion, session, err := s.webAuthn.BeginDiscoverableLogin()
 		if err != nil {
 			return nil, nil, err
@@ -252,11 +252,15 @@ func (s *WebAuthnService) FinishLogin(ctx context.Context, session *webauthn.Ses
 	// Read and restore request body to inspect incoming credential ID and backup flags
 	var bodyBytes []byte
 	if request.Body != nil {
-		bodyBytes, _ = io.ReadAll(request.Body)
+		var readErr error
+		bodyBytes, readErr = io.ReadAll(request.Body)
+		if readErr != nil {
+			return nil, readErr
+		}
 		request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 	}
 
-	if uid == nil { //nolint:nestif
+	if uid == nil { //nolint:nestif // discoverable assertion resolves user from credential id
 		handler := func(rawID, _ []byte) (webauthn.User, error) {
 			discoveredUID, err := s.repo.GetUserIDByCredentialID(ctx, rawID)
 			if err != nil {
@@ -351,7 +355,7 @@ func applyAssertionBackupFlags(creds []webauthn.Credential, bodyBytes []byte) {
 }
 
 func AssertionBackupFlags(bodyBytes []byte) (backupEligible bool, backupState bool, ok bool) {
-	if len(bodyBytes) > 0 { //nolint:nestif
+	if len(bodyBytes) > 0 { //nolint:nestif // backup flags are optional in assertion payload
 		var reqPayload struct {
 			Response struct {
 				AuthenticatorData string `json:"authenticatorData"`

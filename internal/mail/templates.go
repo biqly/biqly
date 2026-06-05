@@ -53,26 +53,25 @@ func (t *emailTemplate) render(data map[string]any) (subject, textBody, htmlBody
 // truthy when it is a non-zero/non-empty value of common types.
 func renderPlain(tmpl string, data map[string]any) string {
 	tmpl = renderConditionals(tmpl, data)
-	var out strings.Builder
-	out.Grow(len(tmpl))
+	parts := make([]string, 0, 8)
 	for {
 		open := strings.Index(tmpl, "{{")
 		if open < 0 {
-			out.WriteString(tmpl)
-			return out.String()
+			parts = append(parts, tmpl)
+			return strings.Join(parts, "")
 		}
 		closeIdx := strings.Index(tmpl[open:], "}}")
 		if closeIdx < 0 {
-			out.WriteString(tmpl)
-			return out.String()
+			parts = append(parts, tmpl)
+			return strings.Join(parts, "")
 		}
 		closeIdx += open
-		out.WriteString(tmpl[:open])
+		parts = append(parts, tmpl[:open])
 		expr := strings.TrimSpace(tmpl[open+2 : closeIdx])
 		if strings.HasPrefix(expr, ".") {
 			key := expr[1:]
 			if v, ok := data[key]; ok {
-				fmt.Fprint(&out, v)
+				parts = append(parts, fmt.Sprint(v))
 			}
 		}
 		tmpl = tmpl[closeIdx+2:]
@@ -495,6 +494,7 @@ var builtinEmailTemplates = map[string]map[string]*emailTemplate{
 
 // wrapHTML embeds a template's HTML body into a responsive, premium card layout.
 // It also provides BCP-47 localized footers for Turkish and English environments.
+//
 //nolint:funlen
 func wrapHTML(bodyHTML, subject, locale string) string {
 	footerText := "This is an automated email, please do not reply. To secure your ABI account, never share these links with anyone."

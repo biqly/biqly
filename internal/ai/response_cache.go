@@ -110,7 +110,7 @@ func (r *RedisResponseCache) Close() error {
 }
 
 // GenerateCacheKey generates a deterministic cache key.
-func GenerateCacheKey(question string, modelID string, deniedFields []string) string {
+func GenerateCacheKey(question, modelID string, deniedFields []string) string {
 	sortedDenied := make([]string, len(deniedFields))
 	copy(sortedDenied, deniedFields)
 	sort.Strings(sortedDenied)

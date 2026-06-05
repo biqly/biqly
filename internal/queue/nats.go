@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -84,10 +85,14 @@ func (q *NATSQueue) Subscribe(ctx context.Context, group string, handler func(ct
 		hctx, cancel := context.WithTimeout(ctx, 35*time.Minute)
 		defer cancel()
 		if err := handler(hctx, jobID); err != nil {
-			_ = msg.Nak()
+			if nakErr := msg.Nak(); nakErr != nil {
+				slog.Warn("nack ai job message", "job_id", jobID, "error", nakErr)
+			}
 			return
 		}
-		_ = msg.Ack()
+		if ackErr := msg.Ack(); ackErr != nil {
+			slog.Warn("ack ai job message", "job_id", jobID, "error", ackErr)
+		}
 	})
 	return err
 }

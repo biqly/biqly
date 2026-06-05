@@ -212,16 +212,16 @@ func ActiveFilterInstructions(session *FilterSessionState, intent FollowUpIntent
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString("\n\n## Active Filters (carry forward)\n")
-	b.WriteString("The previous turn established these filters. Keep them in your LogicalQuery unless the user explicitly changes the date/period or asks for a completely new analysis.\n")
+	_, _ = b.WriteString("\n\n## Active Filters (carry forward)\n")
+	_, _ = b.WriteString("The previous turn established these filters. Keep them in your LogicalQuery unless the user explicitly changes the date/period or asks for a completely new analysis.\n")
 	if len(session.Filters) > 0 {
-		b.WriteString("WHERE filters to preserve:\n")
+		_, _ = b.WriteString("WHERE filters to preserve:\n")
 		for _, f := range session.Filters {
 			fmt.Fprintf(&b, "- %s %s %v\n", f.Field, f.Operator, f.Value)
 		}
 	}
 	if len(session.Having) > 0 {
-		b.WriteString("HAVING filters to preserve:\n")
+		_, _ = b.WriteString("HAVING filters to preserve:\n")
 		for _, f := range session.Having {
 			fmt.Fprintf(&b, "- %s %s %v\n", f.Field, f.Operator, f.Value)
 		}

@@ -125,7 +125,10 @@ func (s *SMTPEmailSender) buildTemplateData(template string, data map[string]any
 	case "password_reset":
 		return map[string]any{"URL": s.frontendURL("/auth/reset-password?token=" + str("token"))}, nil
 	case "email_change":
-		newEmail, _ := data["new_email"].(bool)
+		newEmail, ok := data["new_email"].(bool)
+		if !ok {
+			newEmail = false
+		}
 		return map[string]any{
 			"URL":      s.frontendURL("/auth/email-change/confirm?token=" + str("token")),
 			"NewEmail": newEmail,
@@ -237,7 +240,9 @@ func (s *SMTPEmailSender) checkRateLimit(ctx context.Context, email string) erro
 	if count == 1 {
 		// First send of the day; expire the counter at end of UTC day plus
 		// a small buffer so concurrent sends don't reset to zero mid-day.
-		_ = s.redis.Expire(ctx, key, 26*time.Hour).Err()
+		if err := s.redis.Expire(ctx, key, 26*time.Hour).Err(); err != nil {
+			slog.Warn("email rate-limit redis expire failed", "err", err, "to", emailaddr.Mask(email))
+		}
 	}
 	if int(count) > s.config.EmailDailyLimit {
 		slog.Info("email suppressed by daily rate limit", "to", emailaddr.Mask(email), "count", count, "limit", s.config.EmailDailyLimit)

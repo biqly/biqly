@@ -38,5 +38,7 @@ func VerifyDummyPassword(password string) {
 	if dummyBcryptHash == "" {
 		return
 	}
-	_ = bcrypt.CompareHashAndPassword([]byte(dummyBcryptHash), []byte(password))
+	if err := bcrypt.CompareHashAndPassword([]byte(dummyBcryptHash), []byte(password)); err != nil {
+		_ = err
+	}
 }

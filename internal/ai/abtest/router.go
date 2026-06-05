@@ -152,7 +152,9 @@ func WithExperimentTracker(ctx context.Context, tracker *ExperimentTracker) cont
 
 // TrackerFromContext retrieves the ExperimentTracker from context.
 func TrackerFromContext(ctx context.Context) *ExperimentTracker {
-	v, _ := ctx.Value(trackerContextKey{}).(*ExperimentTracker)
+	v, ok := ctx.Value(trackerContextKey{}).(*ExperimentTracker)
+	if !ok {
+		return nil
+	}
 	return v
 }
-

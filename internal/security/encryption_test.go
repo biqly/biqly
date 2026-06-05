@@ -29,10 +29,13 @@ func TestEncryptionRoundTrip(t *testing.T) {
 
 func TestEncryptionDifferentNonce(t *testing.T) {
 	key := make([]byte, 32)
-	enc, _ := NewEncryptionWithKey(key)
+	enc, err := NewEncryptionWithKey(key)
+	require.NoError(t, err)
 
-	encrypted1, _ := enc.Encrypt("same")
-	encrypted2, _ := enc.Encrypt("same")
+	encrypted1, err := enc.Encrypt("same")
+	require.NoError(t, err)
+	encrypted2, err := enc.Encrypt("same")
+	require.NoError(t, err)
 
 	assert.NotEqual(t, encrypted1, encrypted2, "two encryptions of same value should differ (random nonce)")
 }
@@ -46,9 +49,10 @@ func TestEncryptionInvalidKey(t *testing.T) {
 
 func TestEncryptionDecryptInvalid(t *testing.T) {
 	key := make([]byte, 32)
-	enc, _ := NewEncryptionWithKey(key)
+	enc, err := NewEncryptionWithKey(key)
+	require.NoError(t, err)
 
-	_, err := enc.Decrypt("not-base64!!!")
+	_, err = enc.Decrypt("not-base64!!!")
 	require.Error(t, err)
 
 	_, err = enc.Decrypt(base64Short())
@@ -57,9 +61,11 @@ func TestEncryptionDecryptInvalid(t *testing.T) {
 
 func TestEncryptionIsEncrypted(t *testing.T) {
 	key := make([]byte, 32)
-	enc, _ := NewEncryptionWithKey(key)
+	enc, err := NewEncryptionWithKey(key)
+	require.NoError(t, err)
 
-	encrypted, _ := enc.Encrypt("test")
+	encrypted, err := enc.Encrypt("test")
+	require.NoError(t, err)
 	assert.True(t, enc.IsEncrypted(encrypted))
 
 	assert.False(t, enc.IsEncrypted("plaintext"))

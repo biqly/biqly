@@ -146,7 +146,7 @@ func TestPostgresDriver_Introspect(t *testing.T) {
 
 	db, err := sql.Open("postgres_mock_bridge", "mock-dsn")
 	assert.NoError(t, err)
-	t.Cleanup(func() { _ = db.Close() })
+	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 
 	activeMockConnMutex.Lock()
 	activeMockConn = &mockPostgresConn{queries: queries}

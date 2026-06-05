@@ -14,19 +14,19 @@ func TestLocalAIJobQueue_BufferSizes(t *testing.T) {
 	t.Run("default buffer size", func(t *testing.T) {
 		q := NewLocalAIJobQueue(0)
 		assert.Equal(t, 64, cap(q.ch))
-		_ = q.Close()
+		assert.NoError(t, q.Close())
 	})
 
 	t.Run("negative buffer size fallback", func(t *testing.T) {
 		q := NewLocalAIJobQueue(-10)
 		assert.Equal(t, 64, cap(q.ch))
-		_ = q.Close()
+		assert.NoError(t, q.Close())
 	})
 
 	t.Run("custom positive buffer size", func(t *testing.T) {
 		q := NewLocalAIJobQueue(128)
 		assert.Equal(t, 128, cap(q.ch))
-		_ = q.Close()
+		assert.NoError(t, q.Close())
 	})
 }
 
@@ -84,7 +84,7 @@ func TestLocalAIJobQueue_SubscribeWithCancellation(t *testing.T) {
 	wg.Wait()
 
 	assert.ErrorIs(t, subErr, context.Canceled)
-	_ = q.Close()
+	assert.NoError(t, q.Close())
 }
 
 func TestLocalAIJobQueue_CloseBehavior(t *testing.T) {
@@ -116,7 +116,7 @@ func TestLocalAIJobQueue_CloseBehavior(t *testing.T) {
 
 func TestLocalAIJobQueue_HandlerError(t *testing.T) {
 	q := NewLocalAIJobQueue(5)
-	_ = q.Publish(context.Background(), "job_1")
+	assert.NoError(t, q.Publish(context.Background(), "job_1"))
 
 	expectedErr := errors.New("something went wrong in worker")
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -127,7 +127,7 @@ func TestLocalAIJobQueue_HandlerError(t *testing.T) {
 	})
 
 	assert.ErrorIs(t, err, expectedErr)
-	_ = q.Close()
+	assert.NoError(t, q.Close())
 }
 
 func TestConnectNATS_EmptyURLError(t *testing.T) {

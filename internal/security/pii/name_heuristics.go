@@ -41,24 +41,23 @@ func detectTypeFromName(columnName string) string {
 // normalizeName lowercases the column name and collapses separators to "_"
 // so keyword matching works on token boundaries (e.g. "E-Posta", "userEmail").
 func normalizeName(name string) string {
-	var b strings.Builder
-	b.Grow(len(name) + 4)
+	out := make([]rune, 0, len(name)+4)
 	prevLower := false
 	for _, r := range name {
 		switch {
 		case r >= 'A' && r <= 'Z':
 			if prevLower {
-				b.WriteByte('_') // camelCase boundary
+				out = append(out, '_') // camelCase boundary
 			}
-			b.WriteRune(r - 'A' + 'a')
+			out = append(out, r-'A'+'a')
 			prevLower = false
 		case (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'):
-			b.WriteRune(r)
+			out = append(out, r)
 			prevLower = r >= 'a' && r <= 'z'
 		default:
-			b.WriteByte('_')
+			out = append(out, '_')
 			prevLower = false
 		}
 	}
-	return strings.Trim(b.String(), "_")
+	return strings.Trim(string(out), "_")
 }

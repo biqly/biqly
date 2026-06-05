@@ -13,7 +13,7 @@ import (
 
 func TestClientGenerateAtParsesOpenAIUsage(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{
+		if err := json.NewEncoder(w).Encode(map[string]any{
 			"choices": []map[string]any{
 				{"message": map[string]string{"content": `{"limit":10}`}},
 			},
@@ -22,7 +22,9 @@ func TestClientGenerateAtParsesOpenAIUsage(t *testing.T) {
 				"completion_tokens": 30,
 				"total_tokens":      150,
 			},
-		})
+		}); err != nil {
+			t.Fatalf("encode response: %v", err)
+		}
 	}))
 	defer srv.Close()
 
@@ -48,7 +50,7 @@ func TestClientGenerateAtParsesOpenAIUsage(t *testing.T) {
 
 func TestAnthropicGenerateAtParsesUsage(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{
+		if err := json.NewEncoder(w).Encode(map[string]any{
 			"content": []map[string]string{
 				{"type": "text", "text": `{"limit":5}`},
 			},
@@ -56,7 +58,9 @@ func TestAnthropicGenerateAtParsesUsage(t *testing.T) {
 				"input_tokens":  80,
 				"output_tokens": 20,
 			},
-		})
+		}); err != nil {
+			t.Fatalf("encode response: %v", err)
+		}
 	}))
 	defer srv.Close()
 

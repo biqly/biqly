@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/stretchr/testify/require"
 )
 
 // openCompositeTestDB connects to the metadata DB and skips when unavailable or
@@ -24,7 +25,11 @@ func openCompositeTestDB(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Skip("skipping composite integration; DB not available:", err)
 	}
-	t.Cleanup(func() { _ = db.Close() })
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("failed to close database: %v", err)
+		}
+	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -67,7 +72,8 @@ func seedComponentModels(t *testing.T, db *sql.DB) (datasourceID, ordersID, cust
 	}
 	t.Cleanup(func() {
 		// Cascades clean up composite + semantic rows.
-		_, _ = db.ExecContext(context.Background(), `DELETE FROM datasources WHERE id = $1`, datasourceID)
+		_, err := db.ExecContext(context.Background(), `DELETE FROM datasources WHERE id = $1`, datasourceID)
+		require.NoError(t, err)
 	})
 	return datasourceID, ordersID, customersID
 }

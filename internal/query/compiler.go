@@ -140,7 +140,7 @@ func addTableFromColumnRef(tables map[string]struct{}, colRef string, resolver *
 	}
 }
 
-//nolint:gocognit
+//nolint:gocognit // table extraction walks select, filters, joins, and CTEs
 func tablesReferencedInLogicalQuery(
 	lq *LogicalQuery,
 	model *semantic.SemanticModel,
@@ -484,10 +484,9 @@ func (c *Compiler) qualifyMetricExpression(
 	return c.dialect.QuoteIdent(expr)
 }
 
-//nolint:gocognit,funlen
+//nolint:gocognit
 func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]*semantic.Dimension, metricMap map[string]*semantic.Metric, model *semantic.SemanticModel, resolver *SchemaResolver, args *[]any) ([]string, error) {
 	parts := make([]string, 0, len(items))
-	var sb strings.Builder
 	for _, item := range items {
 		switch item.Type {
 		case SelectTypeDimension:
@@ -505,12 +504,7 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]*semantic.D
 				alias = dim.Name
 			}
 			quotedAlias := c.dialect.QuoteIdent(alias)
-			sb.Reset()
-			sb.Grow(len(col) + len(quotedAlias) + 4)
-			sb.WriteString(col)
-			sb.WriteString(" AS ")
-			sb.WriteString(quotedAlias)
-			parts = append(parts, sb.String())
+			parts = append(parts, col+" AS "+quotedAlias)
 
 		case SelectTypeMetric:
 			metric, ok := metricMap[item.Name]
@@ -527,12 +521,7 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]*semantic.D
 				alias = metric.Name
 			}
 			quotedAlias := c.dialect.QuoteIdent(alias)
-			sb.Reset()
-			sb.Grow(len(agg) + len(quotedAlias) + 4)
-			sb.WriteString(agg)
-			sb.WriteString(" AS ")
-			sb.WriteString(quotedAlias)
-			parts = append(parts, sb.String())
+			parts = append(parts, agg+" AS "+quotedAlias)
 
 		case SelectTypeWindow:
 			windowSQL, err := c.buildWindowExpr(item, dimMap, metricMap, model, resolver)
@@ -544,12 +533,7 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]*semantic.D
 				alias = item.Name
 			}
 			quotedAlias := c.dialect.QuoteIdent(alias)
-			sb.Reset()
-			sb.Grow(len(windowSQL) + len(quotedAlias) + 4)
-			sb.WriteString(windowSQL)
-			sb.WriteString(" AS ")
-			sb.WriteString(quotedAlias)
-			parts = append(parts, sb.String())
+			parts = append(parts, windowSQL+" AS "+quotedAlias)
 
 		case SelectTypeCase:
 			caseSQL, err := c.buildCaseExpr(item, dimMap, metricMap, model, resolver, args)
@@ -564,12 +548,7 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]*semantic.D
 				return nil, errors.New("case select item requires name or alias")
 			}
 			quotedAlias := c.dialect.QuoteIdent(alias)
-			sb.Reset()
-			sb.Grow(len(caseSQL) + len(quotedAlias) + 4)
-			sb.WriteString(caseSQL)
-			sb.WriteString(" AS ")
-			sb.WriteString(quotedAlias)
-			parts = append(parts, sb.String())
+			parts = append(parts, caseSQL+" AS "+quotedAlias)
 		}
 	}
 	return parts, nil
@@ -582,6 +561,7 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]*semantic.D
 // Aggregation/Expression are sourced from the SelectItem.Window or, when
 // Window.Metric is set, inherited from the named metric in the semantic model.
 // Ranking functions (row_number, rank, dense_rank, ntile) ignore Expression.
+//
 //nolint:gocognit
 func (c *Compiler) buildWindowExpr(
 	item SelectItem,
@@ -710,7 +690,6 @@ func (c *Compiler) buildHaving(
 		argCount++
 		return c.dialect.Placeholder(argCount)
 	}
-	var sb strings.Builder
 	for _, f := range filters {
 		metric, ok := metricMap[f.Field]
 		if !ok {
@@ -722,14 +701,7 @@ func (c *Compiler) buildHaving(
 			args = append(args, f.Value)
 			op := sqlComparator(f.Operator)
 			p := emitPlaceholder()
-			sb.Reset()
-			sb.Grow(len(aggSQL) + len(op) + len(p) + 2)
-			sb.WriteString(aggSQL)
-			sb.WriteByte(' ')
-			sb.WriteString(op)
-			sb.WriteByte(' ')
-			sb.WriteString(p)
-			parts = append(parts, sb.String())
+			parts = append(parts, aggSQL+" "+op+" "+p)
 		case OpBetween:
 			vals, ok := f.Value.([]any)
 			if !ok || len(vals) != 2 {
@@ -738,26 +710,11 @@ func (c *Compiler) buildHaving(
 			args = append(args, vals[0], vals[1])
 			p1 := emitPlaceholder()
 			p2 := emitPlaceholder()
-			sb.Reset()
-			sb.Grow(len(aggSQL) + len(p1) + len(p2) + 14)
-			sb.WriteString(aggSQL)
-			sb.WriteString(" BETWEEN ")
-			sb.WriteString(p1)
-			sb.WriteString(" AND ")
-			sb.WriteString(p2)
-			parts = append(parts, sb.String())
+			parts = append(parts, aggSQL+" BETWEEN "+p1+" AND "+p2)
 		case OpIsNull:
-			sb.Reset()
-			sb.Grow(len(aggSQL) + 8)
-			sb.WriteString(aggSQL)
-			sb.WriteString(" IS NULL")
-			parts = append(parts, sb.String())
+			parts = append(parts, aggSQL+" IS NULL")
 		case OpIsNotNull:
-			sb.Reset()
-			sb.Grow(len(aggSQL) + 12)
-			sb.WriteString(aggSQL)
-			sb.WriteString(" IS NOT NULL")
-			parts = append(parts, sb.String())
+			parts = append(parts, aggSQL+" IS NOT NULL")
 		default:
 			return "", nil, fmt.Errorf("operator %q not supported in HAVING for metric %q", f.Operator, f.Field)
 		}
@@ -972,7 +929,6 @@ func (c *Compiler) buildOrderBy(orderBy []OrderBy, dimMap map[string]*semantic.D
 	}
 
 	parts := make([]string, 0, len(orderBy))
-	var sb strings.Builder
 	for _, ob := range orderBy {
 		if dim, ok := dimMap[ob.Field]; ok { //nolint:nestif
 			if c.dimensionFullyHidden(dim, resolver) {
@@ -983,24 +939,14 @@ func (c *Compiler) buildOrderBy(orderBy []OrderBy, dimMap map[string]*semantic.D
 				dir = "ASC"
 			}
 			dimSQL := c.dimensionOutputSQL(dim, resolver)
-			sb.Reset()
-			sb.Grow(len(dimSQL) + len(dir) + 1)
-			sb.WriteString(dimSQL)
-			sb.WriteByte(' ')
-			sb.WriteString(dir)
-			parts = append(parts, sb.String())
+			parts = append(parts, dimSQL+" "+dir)
 		} else if metric, ok := metricMap[ob.Field]; ok {
 			dir := strings.ToUpper(ob.Direction)
 			if dir == "" {
 				dir = "ASC"
 			}
 			quotedName := c.dialect.QuoteIdent(metric.Name)
-			sb.Reset()
-			sb.Grow(len(quotedName) + len(dir) + 1)
-			sb.WriteString(quotedName)
-			sb.WriteByte(' ')
-			sb.WriteString(dir)
-			parts = append(parts, sb.String())
+			parts = append(parts, quotedName+" "+dir)
 		} else {
 			var fieldKeys []string
 			for k := range dimMap {

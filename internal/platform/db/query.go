@@ -12,14 +12,18 @@ import (
 const querySliceInitialCap = 64
 
 // QuerySlice runs query with args and collects rows using scan.
-func QuerySlice[T any](ctx context.Context, db *sql.DB, query string, args []any, scan func(Scanner) (T, error)) ([]T, error) {
+func QuerySlice[T any](ctx context.Context, db *sql.DB, query string, args []any, scan func(Scanner) (T, error)) (out []T, err error) {
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
-	out := make([]T, 0, querySliceInitialCap)
+	out = make([]T, 0, querySliceInitialCap)
 	for rows.Next() {
 		v, err := scan(rows)
 		if err != nil {

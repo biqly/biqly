@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 )
 
@@ -48,7 +49,9 @@ func (s *AuthService) RequestMagicLink(ctx context.Context, email, ipAddress str
 		return err
 	}
 	if s.emailSender != nil {
-		_ = s.emailSender.SendMagicLink(ctx, normalized, plain)
+		if err := s.emailSender.SendMagicLink(ctx, normalized, plain); err != nil {
+			slog.ErrorContext(ctx, "failed to send magic link email", "email", normalized, "err", err)
+		}
 	}
 	return nil
 }

@@ -3,6 +3,7 @@ package auth
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"log"
 	"net/http"
 )
 
@@ -42,7 +43,10 @@ func CSRF(secure bool) func(http.Handler) http.Handler {
 
 func setCSRFCookie(w http.ResponseWriter, secure bool) {
 	tokenBytes := make([]byte, 32)
-	_, _ = rand.Read(tokenBytes)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		log.Printf("csrf: failed to generate random token: %v", err)
+		return
+	}
 	token := base64.URLEncoding.EncodeToString(tokenBytes)
 
 	//nolint:gosec // G124: CSRF cookie needs HttpOnly=false for React access and Secure is set dynamically

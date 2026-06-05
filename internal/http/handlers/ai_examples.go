@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -73,23 +74,6 @@ func (h *AIExamplesHandler) ListExamples(w http.ResponseWriter, r *http.Request)
 	examples, err := h.deps.MetaRepo.ListFewShotCurated(ctx, datasourceID, modelID)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list examples", err)
-		return
-	}
-	writeJSON(w, http.StatusOK, examples)
-}
-
-// ListFavorites returns favorited few-shot examples across datasources, newest first.
-func (h *AIExamplesHandler) ListFavorites(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	limit := 10
-	if v := r.URL.Query().Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 100 {
-			limit = n
-		}
-	}
-	examples, err := h.deps.MetaRepo.ListFavoriteExamples(ctx, limit)
-	if err != nil {
-		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list favorites", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, examples)
@@ -236,7 +220,9 @@ func (h *AIExamplesHandler) SubmitFeedback(w http.ResponseWriter, r *http.Reques
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to submit feedback", err)
 		return
 	}
-	_ = h.deps.MetaRepo.UpdateLatestAIQueryHistoryRating(ctx, input.DatasourceID, input.Rating)
+	if err := h.deps.MetaRepo.UpdateLatestAIQueryHistoryRating(ctx, input.DatasourceID, input.Rating); err != nil {
+		slog.WarnContext(ctx, "update latest AI query history rating", "datasource_id", input.DatasourceID, "err", err)
+	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "recorded"})
 }

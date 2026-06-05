@@ -105,7 +105,7 @@ func (s *AIModelAccessService) UserAIAccess(ctx context.Context, userID string) 
 	return out, nil
 }
 
-func (s *AIModelAccessService) listGrantedIDs(ctx context.Context, userID string) ([]string, []string, error) {
+func (s *AIModelAccessService) listGrantedIDs(ctx context.Context, userID string) (modelIDs []string, providerIDs []string, err error) {
 	const q = `
 		SELECT DISTINCT model_id::text FROM (
 			SELECT g.model_id FROM ai_model_workspace_grants g
@@ -124,8 +124,11 @@ func (s *AIModelAccessService) listGrantedIDs(ctx context.Context, userID string
 	if err != nil {
 		return nil, nil, fmt.Errorf("list granted model ids: %w", err)
 	}
-	defer func() { _ = modelRows.Close() }()
-	var modelIDs []string
+	defer func() {
+		if closeErr := modelRows.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close granted model rows: %w", closeErr))
+		}
+	}()
 	for modelRows.Next() {
 		var id string
 		if err := modelRows.Scan(&id); err != nil {
@@ -155,8 +158,11 @@ func (s *AIModelAccessService) listGrantedIDs(ctx context.Context, userID string
 	if err != nil {
 		return nil, nil, fmt.Errorf("list granted provider ids: %w", err)
 	}
-	defer func() { _ = provRows.Close() }()
-	var providerIDs []string
+	defer func() {
+		if closeErr := provRows.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close granted provider rows: %w", closeErr))
+		}
+	}()
 	for provRows.Next() {
 		var id string
 		if err := provRows.Scan(&id); err != nil {

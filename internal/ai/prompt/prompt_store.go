@@ -173,7 +173,11 @@ func (s *dbPromptStore) Snapshot(ctx context.Context, loc i18n.Locale, name stri
 		body = ""
 	}
 	if body == "" && loc != i18n.DefaultLocale {
-		body, version, _ = s.load(ctx, name, i18n.DefaultLocale)
+		body, version, err = s.load(ctx, name, i18n.DefaultLocale)
+		if err != nil {
+			slog.WarnContext(ctx, "prompt template default-locale db load failed", "name", name, "locale", i18n.DefaultLocale, "error", err)
+			body = ""
+		}
 	}
 	if body == "" {
 		body = promptTemplateFromEmbed(loc, name)
@@ -211,7 +215,6 @@ func (s *dbPromptStore) SnapshotForUser(ctx context.Context, userID string, loc 
 	if tracker := abtest.TrackerFromContext(ctx); tracker != nil && variant.ExperimentID != "" {
 		tracker.AddVariant(variant)
 	}
-
 
 	if variant.ExperimentID == "" || variant.TemplateVersion == activeSnap.Version {
 		return activeSnap

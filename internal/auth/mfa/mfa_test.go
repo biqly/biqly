@@ -26,7 +26,11 @@ func openTestDBPool(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Skip("skipping database tests; DB not available:", err)
 	}
-	t.Cleanup(func() { _ = dbPool.Close() })
+	t.Cleanup(func() {
+		if err := dbPool.Close(); err != nil {
+			t.Errorf("dbPool.Close() error = %v", err)
+		}
+	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -41,9 +45,12 @@ func TestMFABypassCodeFlow(t *testing.T) {
 	ctx := context.Background()
 
 	// Clear test tables to keep tests clean
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM user_mfa")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM user_roles")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users")
+	_, err := dbPool.ExecContext(ctx, "DELETE FROM user_mfa")
+	require.NoError(t, err)
+	_, err = dbPool.ExecContext(ctx, "DELETE FROM user_roles")
+	require.NoError(t, err)
+	_, err = dbPool.ExecContext(ctx, "DELETE FROM users")
+	require.NoError(t, err)
 
 	config := &auth.Config{
 		JWTAccessTTL:  5 * time.Minute,

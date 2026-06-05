@@ -18,12 +18,17 @@ func TestInvitationFlow(t *testing.T) {
 	ctx := context.Background()
 
 	// Clear test tables to keep tests clean and repeatable
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM user_invitations")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM sessions")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM workspace_members")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM workspaces")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM user_roles")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users")
+	for _, stmt := range []string{
+		"DELETE FROM user_invitations",
+		"DELETE FROM sessions",
+		"DELETE FROM workspace_members",
+		"DELETE FROM workspaces",
+		"DELETE FROM user_roles",
+		"DELETE FROM users",
+	} {
+		_, err := dbPool.ExecContext(ctx, stmt)
+		require.NoError(t, err)
+	}
 
 	config := &Config{
 		JWTAccessTTL:  5 * time.Minute,
@@ -129,12 +134,17 @@ func TestInvitationManagement(t *testing.T) {
 	ctx := context.Background()
 
 	// Clear test tables to keep tests clean and repeatable
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM user_invitations")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM sessions")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM workspace_members")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM workspaces")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM user_roles")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users")
+	for _, stmt := range []string{
+		"DELETE FROM user_invitations",
+		"DELETE FROM sessions",
+		"DELETE FROM workspace_members",
+		"DELETE FROM workspaces",
+		"DELETE FROM user_roles",
+		"DELETE FROM users",
+	} {
+		_, err := dbPool.ExecContext(ctx, stmt)
+		require.NoError(t, err)
+	}
 
 	config := &Config{
 		JWTAccessTTL:  5 * time.Minute,

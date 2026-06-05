@@ -41,7 +41,7 @@ type appState struct {
 	serviceName string
 }
 
-//nolint:funlen
+//nolint:funlen // single entrypoint wires config, LDAP, HTTP routes, and metrics
 func main() {
 	cfg, err := biqauth.LoadConfig()
 	if err != nil {

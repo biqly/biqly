@@ -20,7 +20,7 @@ func TestQueryServiceCompileUsesSameSQLAsCompiler(t *testing.T) {
 	registry := datasource.NewRegistry()
 	registry.Register(fakeDriver{dialect: dialect.PostgresDialect{}})
 
-	service := core.NewQueryService(core.QueryServiceDeps{
+	service := core.NewQueryService(&core.QueryServiceDeps{
 		Models:      fakeModelLoader{model: model},
 		Datasources: fakeDatasourceLoader{datasource: metadata.Datasource{ID: "ds1", Type: "postgres"}},
 		Drivers:     registry,
@@ -99,8 +99,8 @@ type fakeDriver struct {
 	dialect dialect.Dialect
 }
 
-func (fakeDriver) Type() string                                  { return "postgres" }
-func (fakeDriver) Ping(context.Context, string) error            { return nil }
+func (fakeDriver) Type() string                       { return "postgres" }
+func (fakeDriver) Ping(context.Context, string) error { return nil }
 func (fakeDriver) Open(context.Context, string) (*sql.DB, error) {
 	return nil, nil //nolint:nilnil // test stub driver is never opened
 }

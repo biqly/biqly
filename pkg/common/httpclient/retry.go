@@ -52,8 +52,12 @@ func DoWithRetry(ctx context.Context, policy RetryPolicy, newRequest func() (*ht
 		}
 		lastErr = err
 		if resp != nil && resp.Body != nil {
-			_, _ = io.Copy(io.Discard, resp.Body)
-			_ = resp.Body.Close()
+			if _, copyErr := io.Copy(io.Discard, resp.Body); copyErr != nil {
+				lastErr = copyErr
+			}
+			if closeErr := resp.Body.Close(); closeErr != nil && lastErr == nil {
+				lastErr = closeErr
+			}
 		}
 		if err := sleepWithContext(ctx, backoff); err != nil {
 			if lastErr != nil {

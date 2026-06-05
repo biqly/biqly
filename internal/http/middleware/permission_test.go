@@ -27,7 +27,8 @@ type authStub struct {
 	lastDSBody     []byte
 }
 
-func newAuthStub() *authStub {
+func newAuthStub(t *testing.T) *authStub {
+	t.Helper()
 	s := &authStub{
 		permAllowed:    true,
 		dsAllowed:      true,
@@ -37,23 +38,27 @@ func newAuthStub() *authStub {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/internal/auth/check-permission", func(w http.ResponseWriter, r *http.Request) {
 		s.permCalls.Add(1)
-		s.lastPermBody, _ = io.ReadAll(r.Body)
+		var err error
+		s.lastPermBody, err = io.ReadAll(r.Body)
+		require.NoError(t, err)
 		if s.permStatusCode != http.StatusOK {
 			w.WriteHeader(s.permStatusCode)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]bool{"allowed": s.permAllowed})
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]bool{"allowed": s.permAllowed}))
 	})
 	mux.HandleFunc("/internal/auth/check-datasource-access", func(w http.ResponseWriter, r *http.Request) {
 		s.dsCalls.Add(1)
-		s.lastDSBody, _ = io.ReadAll(r.Body)
+		var err error
+		s.lastDSBody, err = io.ReadAll(r.Body)
+		require.NoError(t, err)
 		if s.dsStatusCode != http.StatusOK {
 			w.WriteHeader(s.dsStatusCode)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]bool{"allowed": s.dsAllowed})
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]bool{"allowed": s.dsAllowed}))
 	})
 	s.server = httptest.NewServer(mux)
 	return s
@@ -78,7 +83,7 @@ func TestRequirePermission_NilClientPassThrough(t *testing.T) {
 }
 
 func TestRequirePermission_SuperAdminBypass(t *testing.T) {
-	stub := newAuthStub()
+	stub := newAuthStub(t)
 	defer stub.Close()
 	client := NewAuthClient(stub.server.URL, "tok")
 	mw := RequirePermission(client, "query:execute")
@@ -96,7 +101,7 @@ func TestRequirePermission_SuperAdminBypass(t *testing.T) {
 }
 
 func TestRequirePermission_NoUserUnauthorized(t *testing.T) {
-	stub := newAuthStub()
+	stub := newAuthStub(t)
 	defer stub.Close()
 	client := NewAuthClient(stub.server.URL, "tok")
 	mw := RequirePermission(client, "query:execute")
@@ -110,7 +115,7 @@ func TestRequirePermission_NoUserUnauthorized(t *testing.T) {
 }
 
 func TestRequirePermission_AllowedAndCached(t *testing.T) {
-	stub := newAuthStub()
+	stub := newAuthStub(t)
 	defer stub.Close()
 	stub.permAllowed = true
 
@@ -132,7 +137,7 @@ func TestRequirePermission_AllowedAndCached(t *testing.T) {
 }
 
 func TestRequirePermission_Denied(t *testing.T) {
-	stub := newAuthStub()
+	stub := newAuthStub(t)
 	defer stub.Close()
 	stub.permAllowed = false
 
@@ -153,7 +158,7 @@ func TestRequirePermission_Denied(t *testing.T) {
 
 func assertMiddlewareUpstreamError(t *testing.T, configure func(*authStub), mw func(*AuthClient) func(http.Handler) http.Handler, path string) {
 	t.Helper()
-	stub := newAuthStub()
+	stub := newAuthStub(t)
 	defer stub.Close()
 	configure(stub)
 	client := NewAuthClient(stub.server.URL, "tok")
@@ -175,7 +180,7 @@ func TestRequirePermission_UpstreamError(t *testing.T) {
 }
 
 func TestRequirePermission_PropagatesWorkspaceScope(t *testing.T) {
-	stub := newAuthStub()
+	stub := newAuthStub(t)
 	defer stub.Close()
 	client := NewAuthClient(stub.server.URL, "tok")
 	mw := RequirePermission(client, "query:execute")
@@ -207,7 +212,7 @@ func TestRequireDatasourceAccess_NilClientPassThrough(t *testing.T) {
 }
 
 func TestRequireDatasourceAccess_SuperAdminBypass(t *testing.T) {
-	stub := newAuthStub()
+	stub := newAuthStub(t)
 	defer stub.Close()
 	client := NewAuthClient(stub.server.URL, "tok")
 
@@ -227,7 +232,7 @@ func TestRequireDatasourceAccess_SuperAdminBypass(t *testing.T) {
 }
 
 func TestRequireDatasourceAccess_NoUser(t *testing.T) {
-	stub := newAuthStub()
+	stub := newAuthStub(t)
 	defer stub.Close()
 	client := NewAuthClient(stub.server.URL, "tok")
 
@@ -243,7 +248,7 @@ func TestRequireDatasourceAccess_NoUser(t *testing.T) {
 }
 
 func TestRequireDatasourceAccess_MissingDatasourceID(t *testing.T) {
-	stub := newAuthStub()
+	stub := newAuthStub(t)
 	defer stub.Close()
 	client := NewAuthClient(stub.server.URL, "tok")
 	mw := RequireDatasourceAccess(client, "read")
@@ -258,7 +263,7 @@ func TestRequireDatasourceAccess_MissingDatasourceID(t *testing.T) {
 }
 
 func TestRequireDatasourceAccess_FromURLParam(t *testing.T) {
-	stub := newAuthStub()
+	stub := newAuthStub(t)
 	defer stub.Close()
 	client := NewAuthClient(stub.server.URL, "tok")
 
@@ -282,7 +287,7 @@ func TestRequireDatasourceAccess_FromURLParam(t *testing.T) {
 }
 
 func TestRequireDatasourceAccess_FromQueryString(t *testing.T) {
-	stub := newAuthStub()
+	stub := newAuthStub(t)
 	defer stub.Close()
 	client := NewAuthClient(stub.server.URL, "tok")
 	mw := RequireDatasourceAccess(client, "write")
@@ -295,14 +300,14 @@ func TestRequireDatasourceAccess_FromQueryString(t *testing.T) {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
 	var body map[string]string
-	_ = json.Unmarshal(stub.lastDSBody, &body)
+	require.NoError(t, json.Unmarshal(stub.lastDSBody, &body))
 	if body["datasource_id"] != "qs-1" {
 		t.Fatalf("expected datasource_id=qs-1, got %+v", body)
 	}
 }
 
 func TestRequireDatasourceAccess_FromJSONBodyAndRestores(t *testing.T) {
-	stub := newAuthStub()
+	stub := newAuthStub(t)
 	defer stub.Close()
 	client := NewAuthClient(stub.server.URL, "tok")
 
@@ -349,7 +354,7 @@ func TestRequireDatasourceAccess_FromJSONBodyAndRestores(t *testing.T) {
 }
 
 func TestRequireDatasourceAccess_Denied(t *testing.T) {
-	stub := newAuthStub()
+	stub := newAuthStub(t)
 	defer stub.Close()
 	stub.dsAllowed = false
 
@@ -374,7 +379,7 @@ func TestRequireDatasourceAccess_UpstreamError(t *testing.T) {
 }
 
 func TestRequireDatasourceAccess_CachedAcrossCalls(t *testing.T) {
-	stub := newAuthStub()
+	stub := newAuthStub(t)
 	defer stub.Close()
 	client := NewAuthClient(stub.server.URL, "tok")
 	mw := RequireDatasourceAccess(client, "read")

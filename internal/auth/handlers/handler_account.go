@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"log/slog"
 	"net/http"
 
 	"github.com/biqly/biqly/internal/auth"
@@ -77,7 +79,10 @@ func (h *AuthHandler) handleDeleteAccount(w http.ResponseWriter, r *http.Request
 		return
 	}
 	var req auth.DeleteAccountRequest
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	purgeAt, err := h.service.DeleteAccount(r.Context(), userID, req.Password)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
@@ -224,7 +229,9 @@ func (h *AuthHandler) auditLog(r *http.Request, userID *string, action string, r
 		return
 	}
 	ip := r.RemoteAddr
-	_ = h.audit.Log(r.Context(), userID, action, resource, resourceID, metadata, &ip)
+	if err := h.audit.Log(r.Context(), userID, action, resource, resourceID, metadata, &ip); err != nil {
+		slog.WarnContext(r.Context(), "auth audit log failed", "action", action, "error", err)
+	}
 }
 
 func ptrStr(s string) *string { return &s }

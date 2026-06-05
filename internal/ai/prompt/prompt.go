@@ -60,7 +60,10 @@ var promptBuilderPool = sync.Pool{
 // and yields the string to the caller. Used by Build to avoid eleven fresh
 // bytes.Buffer allocations per prompt.
 func withPooledBuffer(fn func(*bytes.Buffer)) string {
-	buf, _ := promptBuilderPool.Get().(*bytes.Buffer)
+	buf, ok := promptBuilderPool.Get().(*bytes.Buffer)
+	if !ok {
+		buf = new(bytes.Buffer)
+	}
 	buf.Reset()
 	fn(buf)
 	out := buf.String()
@@ -165,17 +168,17 @@ func (b *PromptBuilder) Build(ctx context.Context, question string, model *seman
 	rules := promptTemplate(ctx, locale, "system_rules")
 
 	headBuf := new(bytes.Buffer)
-	fmt.Fprintf(headBuf, "## Current Date/Time: %s\n\n", time.Now().Format("2006-01-02 15:04:05 UTC"))
-	fmt.Fprintf(headBuf, "## Semantic Model: %s\n", model.Name)
+	writePromptf(headBuf, "## Current Date/Time: %s\n\n", time.Now().Format("2006-01-02 15:04:05 UTC"))
+	writePromptf(headBuf, "## Semantic Model: %s\n", model.Name)
 	if model.Label != nil {
-		fmt.Fprintf(headBuf, "Label: %s\n", *model.Label)
+		writePromptf(headBuf, "Label: %s\n", *model.Label)
 	}
 	if model.Description != nil {
-		fmt.Fprintf(headBuf, "Description: %s\n", *model.Description)
+		writePromptf(headBuf, "Description: %s\n", *model.Description)
 	}
-	fmt.Fprintf(headBuf, "Base table: %s.%s\n\n", model.BaseSchema, model.BaseTable)
+	writePromptf(headBuf, "Base table: %s.%s\n\n", model.BaseSchema, model.BaseTable)
 	if len(model.Synonyms) > 0 {
-		fmt.Fprintf(headBuf, "Model synonyms: %s\n\n", strings.Join(model.Synonyms, ", "))
+		writePromptf(headBuf, "Model synonyms: %s\n\n", strings.Join(model.Synonyms, ", "))
 	}
 
 	headRunes := utf8.RuneCountInString(rules) + utf8.RuneCount(headBuf.Bytes())
@@ -232,7 +235,7 @@ func (b *PromptBuilder) Build(ctx context.Context, question string, model *seman
 	if len(allowedJoins) > 0 {
 		joinsStr = withPooledBuffer(func(buf *bytes.Buffer) {
 			for _, j := range allowedJoins {
-				fmt.Fprintf(buf, "- %s: %s.%s → %s.%s (%s, %s)\n",
+				writePromptf(buf, "- %s: %s.%s → %s.%s (%s, %s)\n",
 					j.Name, j.FromTable, j.FromColumn, j.ToTable, j.ToColumn, j.JoinType, j.Relationship)
 			}
 		})
@@ -309,37 +312,37 @@ func (b *PromptBuilder) writeCompositeContext(sb *bytes.Buffer, cc *CompositeCon
 	if cc == nil {
 		return
 	}
-	sb.WriteString("\n## Composite Model\n")
-	sb.WriteString("This is a cross-domain composite model: its dimensions and metrics come from multiple business domains merged into one model. Treat all listed fields as a single model — the backend resolves the cross-domain joins automatically.\n")
+	_, _ = sb.WriteString("\n## Composite Model\n")
+	_, _ = sb.WriteString("This is a cross-domain composite model: its dimensions and metrics come from multiple business domains merged into one model. Treat all listed fields as a single model — the backend resolves the cross-domain joins automatically.\n")
 	if len(cc.Components) > 0 {
-		sb.WriteString("\nComponent domains:\n")
+		_, _ = sb.WriteString("\nComponent domains:\n")
 		for _, comp := range cc.Components {
 			label := strings.TrimSpace(comp.Label)
 			if label == "" {
-				fmt.Fprintf(sb, "- %s\n", comp.Alias)
+				writePromptf(sb, "- %s\n", comp.Alias)
 				continue
 			}
-			fmt.Fprintf(sb, "- %s: %s\n", comp.Alias, label)
+			writePromptf(sb, "- %s: %s\n", comp.Alias, label)
 		}
 	}
 	if len(cc.CrossModelJoins) > 0 {
-		sb.WriteString("\nCross-domain connections:\n")
+		_, _ = sb.WriteString("\nCross-domain connections:\n")
 		for _, j := range cc.CrossModelJoins {
 			rel := strings.TrimSpace(j.Relationship)
 			if rel == "" {
-				fmt.Fprintf(sb, "- %s ↔ %s\n", j.FromModel, j.ToModel)
+				writePromptf(sb, "- %s ↔ %s\n", j.FromModel, j.ToModel)
 				continue
 			}
-			fmt.Fprintf(sb, "- %s ↔ %s (%s)\n", j.FromModel, j.ToModel, rel)
+			writePromptf(sb, "- %s ↔ %s (%s)\n", j.FromModel, j.ToModel, rel)
 		}
 	}
 	if date := strings.TrimSpace(cc.CanonicalDate); date != "" {
-		fmt.Fprintf(sb, "\nCanonical date: use **%s** for any date filter or time grouping so results align across domains.\n", date)
+		writePromptf(sb, "\nCanonical date: use **%s** for any date filter or time grouping so results align across domains.\n", date)
 	}
 	if len(cc.RenamedDimensions) > 0 {
-		fmt.Fprintf(sb, "\nDisambiguated dimensions (renamed to avoid collisions across domains): %s\n", strings.Join(cc.RenamedDimensions, ", "))
+		writePromptf(sb, "\nDisambiguated dimensions (renamed to avoid collisions across domains): %s\n", strings.Join(cc.RenamedDimensions, ", "))
 	}
-	sb.WriteString("\n")
+	_, _ = sb.WriteString("\n")
 }
 
 // writePriorTurns appends recent turns from the active conversation so the
@@ -350,19 +353,19 @@ func (*PromptBuilder) writePriorTurns(sb *bytes.Buffer, turns []ConversationTurn
 	if len(turns) == 0 {
 		return
 	}
-	sb.WriteString("\n\n## Prior Turns in This Conversation\n")
-	sb.WriteString("Use these to resolve references like \"that\", \"now\", \"also\", \"instead\". The latest user question (above) takes precedence.\n")
+	_, _ = sb.WriteString("\n\n## Prior Turns in This Conversation\n")
+	_, _ = sb.WriteString("Use these to resolve references like \"that\", \"now\", \"also\", \"instead\". The latest user question (above) takes precedence.\n")
 	for i, t := range turns {
 		q := strings.TrimSpace(t.Question)
 		if q == "" {
 			continue
 		}
-		fmt.Fprintf(sb, "\nTurn %d — Question: %q\n", i+1, q)
+		writePromptf(sb, "\nTurn %d — Question: %q\n", i+1, q)
 		if lq := strings.TrimSpace(t.LogicalQuery); lq != "" {
-			fmt.Fprintf(sb, "Previous LogicalQuery: %s\n", lq)
+			writePromptf(sb, "Previous LogicalQuery: %s\n", lq)
 		}
 		if note := strings.TrimSpace(t.Note); note != "" {
-			fmt.Fprintf(sb, "Note: %s\n", note)
+			writePromptf(sb, "Note: %s\n", note)
 		}
 	}
 }
@@ -374,17 +377,17 @@ func (*PromptBuilder) writeSampleData(sb *bytes.Buffer, samples []TableSample) {
 	if len(samples) == 0 {
 		return
 	}
-	sb.WriteString("\n\n## Sample Data\n")
+	writePromptString(sb, "\n\n## Sample Data\n")
 	for _, s := range samples {
 		if len(s.Rows) == 0 {
 			continue
 		}
-		fmt.Fprintf(sb, "### %s.%s\n", s.Schema, s.Table)
+		writePromptf(sb, "### %s.%s\n", s.Schema, s.Table)
 		enc := json.NewEncoder(sb)
 		if err := enc.Encode(s.Rows); err != nil {
 			continue
 		}
-		sb.WriteString("\n")
+		writePromptString(sb, "\n")
 	}
 }
 
@@ -414,15 +417,15 @@ func (*PromptBuilder) writeFewShotExamples(sb *bytes.Buffer, examples []FewShotE
 	if len(filtered) == 0 {
 		return
 	}
-	sb.WriteString("\n\n## Examples — Successful Past Queries\n")
+	writePromptString(sb, "\n\n## Examples — Successful Past Queries\n")
 	for _, ex := range filtered {
-		fmt.Fprintf(sb, "Question: %q\n%s\n\n", strings.TrimSpace(ex.Question), strings.TrimSpace(ex.LogicalQuery))
+		writePromptf(sb, "Question: %q\n%s\n\n", strings.TrimSpace(ex.Question), strings.TrimSpace(ex.LogicalQuery))
 	}
 }
 
 func (*PromptBuilder) writeDimensions(sb *bytes.Buffer, dims []semantic.Dimension, budgetRunes int) int {
 	if budgetRunes <= 0 {
-		fmt.Fprintf(sb, "(dimensions omitted — size budget)\n")
+		writePromptString(sb, "(dimensions omitted — size budget)\n")
 		return len(dims)
 	}
 
@@ -494,7 +497,7 @@ func (*PromptBuilder) writeDimensions(sb *bytes.Buffer, dims []semantic.Dimensio
 
 func (*PromptBuilder) writeMetrics(sb *bytes.Buffer, metrics []semantic.Metric, budgetRunes int) int {
 	if budgetRunes <= 0 {
-		fmt.Fprintf(sb, "(metrics omitted — size budget)\n")
+		writePromptString(sb, "(metrics omitted — size budget)\n")
 		return len(metrics)
 	}
 	used := 0
@@ -577,11 +580,11 @@ func (*PromptBuilder) BuildClarification(ctx context.Context, locale i18n.Locale
 
 	return withPooledBuffer(func(sb *bytes.Buffer) {
 		sb.WriteString("You are a Business Intelligence assistant. The user asked a question that could not be answered with the current semantic model.\n\n")
-		fmt.Fprintf(sb, "## User Question\n%s\n\n", question)
+		writePromptf(sb, "## User Question\n%s\n\n", question)
 		if failureReason != "" {
-			fmt.Fprintf(sb, "## Why It Was Ambiguous\n%s\n\n", failureReason)
+			writePromptf(sb, "## Why It Was Ambiguous\n%s\n\n", failureReason)
 		}
-		fmt.Fprintf(sb, "## Semantic Model: %s\n", model.Name)
+		writePromptf(sb, "## Semantic Model: %s\n", model.Name)
 		if len(model.Dimensions) > 0 {
 			sb.WriteString("Dimensions: ")
 			names := make([]string, 0, len(model.Dimensions))
@@ -670,14 +673,14 @@ func (*PromptBuilder) BuildRepairPrompt(ctx context.Context, locale i18n.Locale,
 	var explanation strings.Builder
 	for _, e := range errs {
 		if e.Code != "" {
-			_, _ = fmt.Fprintf(&explanation, "- Field: %s, Error Code: %s, Message: %s", e.Field, e.Code, e.Message)
+			writePromptf(&explanation, "- Field: %s, Error Code: %s, Message: %s", e.Field, e.Code, e.Message)
 		} else {
-			_, _ = fmt.Fprintf(&explanation, "- Field: %s, Message: %s", e.Field, e.Message)
+			writePromptf(&explanation, "- Field: %s, Message: %s", e.Field, e.Message)
 		}
 		if len(e.AllowedAlternatives) > 0 {
-			_, _ = fmt.Fprintf(&explanation, " (did you mean one of: %s?)", strings.Join(e.AllowedAlternatives, ", "))
+			writePromptf(&explanation, " (did you mean one of: %s?)", strings.Join(e.AllowedAlternatives, ", "))
 		}
-		explanation.WriteString("\n")
+		writePromptString(&explanation, "\n")
 	}
 
 	if tmpl != "" {
@@ -700,7 +703,7 @@ func (*PromptBuilder) BuildRepairPrompt(ctx context.Context, locale i18n.Locale,
 		sb.WriteString("The previous LogicalQuery had validation errors:\n")
 		sb.WriteString(explanation.String())
 		sb.WriteString("\n## Required Action\n")
-		fmt.Fprintf(sb, "Repair Strategy: %s\n", strategyStr)
+		writePromptf(sb, "Repair Strategy: %s\n", strategyStr)
 		sb.WriteString("Re-run the **Planning Steps** from the original prompt, and fix each validation error above. Replace incorrect dimensions, metrics, or operators with allowed alternatives. Do not repeat the previous mistake. Final output must include valid JSON - no markdown fences.\n")
 	})
 }

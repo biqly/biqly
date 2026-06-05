@@ -111,21 +111,3 @@ func (r *MetricRegistry) Lookup(name string) *Metric {
 func (r *MetricRegistry) Has(name string) bool {
 	return r.Lookup(name) != nil
 }
-
-// All returns all registered metrics in definition order.
-func (r *MetricRegistry) All() []Metric {
-	out := make([]Metric, 0, len(r.byName))
-	for _, m := range r.byName {
-		out = append(out, *m)
-	}
-	return out
-}
-
-// Names returns the canonical names of all registered metrics.
-func (r *MetricRegistry) Names() []string {
-	names := make([]string, 0, len(r.byName))
-	for n := range r.byName {
-		names = append(names, n)
-	}
-	return names
-}

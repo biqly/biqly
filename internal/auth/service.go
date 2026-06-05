@@ -23,8 +23,8 @@ var (
 	ErrEmailChangePending = errors.New("email change confirmation pending")
 	ErrPasswordReused     = errors.New("password was recently used")
 	ErrNoPasswordSet      = errors.New("password login is not enabled for this account")
-	ErrSuperAdminRequired  = errors.New("super admin privilege required")
-	ErrSelfSignupDisabled  = errors.New("self-service registration is disabled")
+	ErrSuperAdminRequired = errors.New("super admin privilege required")
+	ErrSelfSignupDisabled = errors.New("self-service registration is disabled")
 	ErrMFANotEnabled      = errors.New("mfa not enabled")
 	ErrNotWorkspaceOwner  = errors.New("not workspace owner")
 )
@@ -45,15 +45,15 @@ type MFAService interface {
 }
 
 type AuthService struct {
-	userRepo     *UserRepository
-	rbacRepo     *rbac.RBACRepository
-	sessionMgr   *SessionManager
-	jwtMgr       *JWTManager
-	config       *Config
-	redisClient  *redis.Client
-	emailSender  mail.EmailSender
-	workspaceSvc WorkspaceService
-	mfaSvc       MFAService
+	userRepo         *UserRepository
+	rbacRepo         *rbac.RBACRepository
+	sessionMgr       *SessionManager
+	jwtMgr           *JWTManager
+	config           *Config
+	redisClient      *redis.Client
+	emailSender      mail.EmailSender
+	workspaceSvc     WorkspaceService
+	mfaSvc           MFAService
 	magicLinks       *MagicLinkRepository
 	platformSettings *PlatformSettingsRepository
 	ldapConfig       *LDAPConfigRepository
@@ -132,7 +132,9 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest, userAge
 		// Silently notify the existing owner and return a generic response
 		// so the API cannot be used to enumerate registered emails.
 		if s.emailSender != nil {
-			_ = s.emailSender.SendDuplicateRegistrationNotice(ctx, email)
+			if err := s.emailSender.SendDuplicateRegistrationNotice(ctx, email); err != nil {
+				slog.ErrorContext(ctx, "failed to send duplicate registration notice", "email", email, "err", err)
+			}
 		}
 		return &TokenResponse{VerificationPending: true}, nil
 	} else if err != nil {
@@ -161,12 +163,7 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest, userAge
 
 	// Trigger email verification sending if sender is configured
 	if s.emailSender != nil {
-		token, tokenErr := s.generateSecureToken()
-		if tokenErr == nil {
-			expiresAt := time.Now().Add(24 * time.Hour)
-			_ = s.userRepo.CreateEmailVerificationToken(ctx, user.ID, token, expiresAt)
-			_ = s.emailSender.SendEmailVerification(ctx, user.Email, token)
-		}
+		s.sendRegisterVerification(ctx, user.ID, user.Email)
 	}
 
 	return &TokenResponse{
@@ -265,7 +262,9 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 
 	if s.redisClient != nil {
 		lockKey := "login_failures:" + email
-		_ = s.redisClient.Del(ctx, lockKey).Err()
+		if err := s.redisClient.Del(ctx, lockKey).Err(); err != nil {
+			slog.WarnContext(ctx, "failed to delete login failures key", "key", lockKey, "err", err)
+		}
 	}
 
 	workspaceMFARequired, err := s.activeWorkspaceRequiresMFA(ctx, user.ID)
@@ -341,20 +340,26 @@ func (s *AuthService) issueSession(ctx context.Context, user *User, userAgent, i
 		return nil, fmt.Errorf("create session: %w", err)
 	}
 
-	_ = s.userRepo.UpdateLastLogin(ctx, user.ID)
+	if err := s.userRepo.UpdateLastLogin(ctx, user.ID); err != nil {
+		slog.ErrorContext(ctx, "failed to update last login", "userID", user.ID, "err", err)
+	}
 	MetricLoginAttempts.WithLabelValues(method, "success").Inc()
 	MetricTokensIssued.WithLabelValues(method).Inc()
 
 	if maxSessions := s.config.MaxActiveSessions; maxSessions > 0 {
-		_, _ = s.sessionMgr.EnforceMaxSessions(ctx, user.ID, maxSessions)
+		if _, err := s.sessionMgr.EnforceMaxSessions(ctx, user.ID, maxSessions); err != nil {
+			slog.ErrorContext(ctx, "failed to enforce max sessions", "userID", user.ID, "err", err)
+		}
 	}
 
 	if isNew, err := s.userRepo.RecordKnownDevice(ctx, user.ID, fingerprint, userAgent, ipAddress); err == nil && isNew && s.emailSender != nil {
-		_ = s.emailSender.SendNewDeviceLogin(ctx, user.Email, mail.DeviceLoginInfo{
+		if err := s.emailSender.SendNewDeviceLogin(ctx, user.Email, mail.DeviceLoginInfo{
 			UserAgent:  ua,
 			IPAddress:  ip,
 			OccurredAt: time.Now(),
-		})
+		}); err != nil {
+			slog.ErrorContext(ctx, "failed to send new device login email", "email", user.Email, "err", err)
+		}
 	}
 
 	passwordExpired := s.isPasswordExpired(ctx, user.ID)
@@ -474,7 +479,10 @@ func (s *AuthService) GetMe(ctx context.Context, userID string) (*UserResponse, 
 		return nil, err
 	}
 
-	activeWS, _ := s.userRepo.GetActiveOrPersonalWorkspaceID(ctx, userID)
+	activeWS, err := s.userRepo.GetActiveOrPersonalWorkspaceID(ctx, userID)
+	if err != nil {
+		activeWS = ""
+	}
 
 	return &UserResponse{
 		ID:                user.ID,
@@ -489,4 +497,18 @@ func (s *AuthService) GetMe(ctx context.Context, userID string) (*UserResponse, 
 		CreatedAt:         user.CreatedAt,
 		UpdatedAt:         user.UpdatedAt,
 	}, nil
+}
+
+func (s *AuthService) sendRegisterVerification(ctx context.Context, userID, email string) {
+	token, err := s.generateSecureToken()
+	if err != nil {
+		return
+	}
+	expiresAt := time.Now().Add(24 * time.Hour)
+	if err := s.userRepo.CreateEmailVerificationToken(ctx, userID, token, expiresAt); err != nil {
+		slog.ErrorContext(ctx, "failed to create email verification token", "userID", userID, "err", err)
+	}
+	if err := s.emailSender.SendEmailVerification(ctx, email, token); err != nil {
+		slog.ErrorContext(ctx, "failed to send email verification", "email", email, "err", err)
+	}
 }

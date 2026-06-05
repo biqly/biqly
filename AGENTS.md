@@ -1,4 +1,4 @@
-# claude.md
+# agents.md
 
 ## user-global rules
 
@@ -103,6 +103,23 @@ for b.Loop() {
 }
 ```
 
+### min / max built-ins
+
+- go 1.21+: use built-in `min` / `max` instead of simple if-statement clamps or two-value comparisons.
+- keep explicit `if` statements when branches have side effects, extra logic, or clearer domain meaning.
+
+example:
+
+```go
+// before
+if len(encoded) < chunk {
+    chunk = len(encoded)
+}
+
+// after
+chunk = min(chunk, len(encoded))
+```
+
 ## go — performance rules
 
 when writing or reviewing go code, apply these to minimize performance loss (especially on hot paths):
@@ -133,13 +150,19 @@ commands:
 
 before any `git commit`, run the linters AND tests for the code you changed, and **fix every reported issue before staging or committing**. lint failures are blockers — do not commit with open lint errors, defer fixes to a follow-up commit, or push hoping CI will catch them.
 
-1. **go**: `make lint-go` (golangci-lint) + `make test-go` (go test -race)
+1. **go**: `gofmt -w <touched .go files>` + `make lint-go` (golangci-lint) + `make test-go` (go test -race) + `deadcode -test $(go list ./... | grep -v '/frontend')`
 2. **react / frontend**: `make lint-frontend` (eslint) + `make test-frontend` (vitest)
 3. **frontend full gate** (same as CI): `make check-frontend` (lint + format:check + knip + test + build)
 
 or run everything in one command: `make precommit` (= `make lint` + `make test`)
 
 `make lint-go` / `golangci-lint run` scans the whole repo, not only files you edited. if you add or enable linters (e.g. `.golangci.yml`), fix all new findings across the codebase in the same change before commit.
+
+Run `gofmt -w` on every touched `.go` file before linting. Formatting drift is a blocker, even when the code compiles.
+
+`deadcode -test` must be scoped through `go list` and exclude `/frontend` because `frontend/node_modules` can contain third-party Go packages. Treat findings as blockers to triage before commit, but do not blindly delete: exported APIs, alternate build tags, reflection/linkname paths, and future integration seams may need an explicit keep decision.
+
+Default cleanup strategy for deadcode results: clean up only genuinely dead internal code under `internal/` that is unused in production and tests. Preserve public SDK APIs under `pkg/` and test-only helpers unless a focused review proves they are obsolete.
 
 do not commit until lint and tests pass cleanly (zero errors) for the stacks you touched — go paths, frontend paths, or both.
 
@@ -232,6 +255,7 @@ deploy/
 ```
 
 key points:
+
 - namespace is declared in `values.yaml` (`global.namespace.name: biqly`) and created by the chart.
 - argocd syncs from `main` branch, helm path `deploy/helm/biqly`, with `values-prod.yaml`.
 - image tags are bumped automatically by argocd image updater (commits like `chore(deploy): bump image tags`).
@@ -248,6 +272,7 @@ key points:
 | `semgrep.yml` | push/pr to `main` | sast security scan |
 
 notes:
+
 - `ci.yml` skips when only `deploy/**` changes.
 - docker images are pushed to `ghcr.io/biqly/*` and tagged with the git sha.
 - golangci-lint version is pinned in `ci.yml` (`v2.12.2`) — match locally with `make lint-go`.

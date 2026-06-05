@@ -47,12 +47,26 @@ func fakeServer(t *testing.T, handler http.HandlerFunc) *catalogclient.Client {
 	return catalogclient.New(srv.URL, catalogclient.WithAuthToken(testToken), catalogclient.WithCaller("test"))
 }
 
+func encodeTestJSON(t *testing.T, w http.ResponseWriter, v any) {
+	t.Helper()
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		t.Fatalf("encode response: %v", err)
+	}
+}
+
+func writeTestString(t *testing.T, w http.ResponseWriter, s string) {
+	t.Helper()
+	if _, err := w.Write([]byte(s)); err != nil {
+		t.Fatalf("write response: %v", err)
+	}
+}
+
 func TestHealth_OK(t *testing.T) {
 	c := fakeServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/internal/health" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-		_ = json.NewEncoder(w).Encode(internalapi.HealthResponse{
+		encodeTestJSON(t, w, internalapi.HealthResponse{
 			Status: "ok", Service: "catalog",
 		})
 	})
@@ -73,7 +87,7 @@ func TestRequestIDPropagation(t *testing.T) {
 		if got := r.Header.Get("traceparent"); got != sampleTraceparent {
 			t.Fatalf("traceparent: got %q, want %q", got, sampleTraceparent)
 		}
-		_ = json.NewEncoder(w).Encode(internalapi.HealthResponse{Status: "ok"})
+		encodeTestJSON(t, w, internalapi.HealthResponse{Status: "ok"})
 	})
 
 	ctx := requestid.WithRequestID(context.Background(), "req-123")
@@ -93,7 +107,7 @@ func TestGetDatasource_NotFound(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(internalapi.Error{
+		encodeTestJSON(t, w, internalapi.Error{
 			Code: internalapi.CodeNotFound, Error: "datasource not found",
 		})
 	})
@@ -113,7 +127,7 @@ func TestGetDatasource_NotFound(t *testing.T) {
 func TestGetDatasource_OK(t *testing.T) {
 	want := metadata.Datasource{ID: "ds_1", Name: "primary", Type: "postgres"}
 	c := fakeServer(t, func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(want)
+		encodeTestJSON(t, w, want)
 	})
 	got, err := c.GetDatasource(context.Background(), "ds_1")
 	if err != nil {
@@ -133,7 +147,7 @@ func TestListTables_QueryParams(t *testing.T) {
 		if q.Get("schema_name") != "public" {
 			t.Errorf("missing schema_name: %v", q)
 		}
-		_ = json.NewEncoder(w).Encode([]metadata.Table{{ID: "t1", TableName: "orders"}})
+		encodeTestJSON(t, w, []metadata.Table{{ID: "t1", TableName: "orders"}})
 	})
 	out, err := c.ListTables(context.Background(), "ds_1", "public")
 	if err != nil {
@@ -157,9 +171,9 @@ func TestCreateAIHistory_ReturnsID(t *testing.T) {
 			t.Errorf("unexpected entry: %+v", req.Entry)
 		}
 		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(internalapi.AIHistoryResponse{ID: "hist_42"})
+		encodeTestJSON(t, w, internalapi.AIHistoryResponse{ID: "hist_42"})
 	})
-	id, err := c.CreateAIHistory(context.Background(), metadata.AIQueryHistoryEntry{
+	id, err := c.CreateAIHistory(context.Background(), &metadata.AIQueryHistoryEntry{
 		DatasourceID: "ds_1",
 		Question:     "hello",
 	})
@@ -190,13 +204,13 @@ func TestCreateEvalResults_PostsBatch(t *testing.T) {
 		if len(req.Results) != 1 || req.Results[0].Case.ID != "case_1" {
 			t.Errorf("unexpected results: %+v", req.Results)
 		}
-		_ = json.NewEncoder(w).Encode(internalapi.EvalResultsResponse{
+		encodeTestJSON(t, w, internalapi.EvalResultsResponse{
 			RunID:      req.RunID,
 			TotalCases: len(req.Results),
 		})
 	})
 
-	resp, err := c.CreateEvalResults(context.Background(), catalogclient.EvalResultsInput{
+	resp, err := c.CreateEvalResults(context.Background(), &catalogclient.EvalResultsInput{
 		RunID:            "run_1",
 		Provider:         "openai",
 		Model:            "gpt-4o",
@@ -230,7 +244,7 @@ func TestGetModel_PassesIDInPath(t *testing.T) {
 		if !strings.HasSuffix(r.URL.Path, "/internal/models/m_1") {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-		_ = json.NewEncoder(w).Encode(semantic.SemanticModel{ID: "m_1", Name: "orders"})
+		encodeTestJSON(t, w, semantic.SemanticModel{ID: "m_1", Name: "orders"})
 	})
 	m, err := c.GetModel(context.Background(), "m_1")
 	if err != nil {
@@ -244,7 +258,7 @@ func TestGetModel_PassesIDInPath(t *testing.T) {
 func TestUpstreamError_5xx(t *testing.T) {
 	c := fakeServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadGateway)
-		_ = json.NewEncoder(w).Encode(internalapi.Error{
+		encodeTestJSON(t, w, internalapi.Error{
 			Code: internalapi.CodeUpstream, Error: "downstream catalog dead",
 		})
 	})
@@ -260,7 +274,7 @@ func TestHTMLProxyError_IsParsed(t *testing.T) {
 	c := fakeServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusBadGateway)
-		_, _ = w.Write([]byte("<html><body>502 Bad Gateway</body></html>"))
+		writeTestString(t, w, "<html><body>502 Bad Gateway</body></html>")
 	})
 	_, err := c.ListDatasources(context.Background())
 	if !errors.Is(err, catalogclient.ErrUpstream) {

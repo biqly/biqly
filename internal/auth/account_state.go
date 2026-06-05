@@ -70,7 +70,10 @@ func (r *UserRepository) FreezeAccount(ctx context.Context, userID string) error
 	if err != nil {
 		return fmt.Errorf("freeze account: %w", err)
 	}
-	rows, _ := res.RowsAffected()
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("freeze account rows affected: %w", err)
+	}
 	if rows == 0 {
 		return ErrAccountAlreadyFrozen
 	}
@@ -85,7 +88,10 @@ func (r *UserRepository) UnfreezeAccount(ctx context.Context, userID string) err
 	if err != nil {
 		return fmt.Errorf("unfreeze account: %w", err)
 	}
-	rows, _ := res.RowsAffected()
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("unfreeze account rows affected: %w", err)
+	}
 	if rows == 0 {
 		return ErrAccountNotFrozen
 	}
@@ -115,7 +121,10 @@ func (r *UserRepository) RestoreAccount(ctx context.Context, userID string) erro
 	if err != nil {
 		return fmt.Errorf("restore account: %w", err)
 	}
-	rows, _ := res.RowsAffected()
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("restore account rows affected: %w", err)
+	}
 	if rows == 0 {
 		return ErrUserNotFound
 	}
@@ -169,36 +178,36 @@ func (r *UserRepository) purgeUser(ctx context.Context, userID string) error {
 		purge_after = NULL,
 		updated_at = NOW()
 		WHERE id = $1`, userID, stubEmail); err != nil {
-		return fmt.Errorf("scrub user row: %w", err)
-	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM oauth_accounts       WHERE user_id = $1`, userID); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM passkeys              WHERE user_id = $1`, userID); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM sessions              WHERE user_id = $1`, userID); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM email_verification_tokens WHERE user_id = $1`, userID); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM password_reset_tokens WHERE user_id = $1`, userID); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM password_history      WHERE user_id = $1`, userID); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM email_change_requests WHERE user_id = $1`, userID); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM known_devices         WHERE user_id = $1`, userID); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM account_unlock_tokens WHERE user_id = $1`, userID); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM user_mfa              WHERE user_id = $1`, userID); err != nil {
+			return fmt.Errorf("scrub user row: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, `DELETE FROM oauth_accounts       WHERE user_id = $1`, userID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `DELETE FROM passkeys              WHERE user_id = $1`, userID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `DELETE FROM sessions              WHERE user_id = $1`, userID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `DELETE FROM email_verification_tokens WHERE user_id = $1`, userID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `DELETE FROM password_reset_tokens WHERE user_id = $1`, userID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `DELETE FROM password_history      WHERE user_id = $1`, userID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `DELETE FROM email_change_requests WHERE user_id = $1`, userID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `DELETE FROM known_devices         WHERE user_id = $1`, userID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `DELETE FROM account_unlock_tokens WHERE user_id = $1`, userID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `DELETE FROM user_mfa              WHERE user_id = $1`, userID); err != nil {
 			return err
 		}
 		return nil

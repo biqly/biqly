@@ -16,9 +16,9 @@ import (
 // sql.OpenDB() to hand back a *sql.DB pool. No real network or filesystem.
 type fakeConn struct{}
 
-func (fakeConn) Prepare(_ string) (driver.Stmt, error)   { return nil, io.EOF }
-func (fakeConn) Close() error                            { return nil }
-func (fakeConn) Begin() (driver.Tx, error)               { return nil, io.EOF }
+func (fakeConn) Prepare(_ string) (driver.Stmt, error) { return nil, io.EOF }
+func (fakeConn) Close() error                          { return nil }
+func (fakeConn) Begin() (driver.Tx, error)             { return nil, io.EOF }
 
 type fakeConnector struct{}
 
@@ -29,7 +29,7 @@ type stubDriver struct {
 	opens atomic.Int32
 }
 
-func (*stubDriver) Type() string { return "stub" }
+func (*stubDriver) Type() string             { return "stub" }
 func (*stubDriver) Dialect() dialect.Dialect { return dialect.PostgresDialect{} }
 func (*stubDriver) Ping(_ context.Context, _ string) error {
 	return nil
@@ -44,7 +44,11 @@ func (s *stubDriver) Open(_ context.Context, _ string) (*sql.DB, error) {
 
 func TestPoolCache_GetCachesByID(t *testing.T) {
 	cache := NewPoolCache()
-	defer func() { _ = cache.Close() }()
+	defer func() {
+		if err := cache.Close(); err != nil {
+			t.Fatalf("close cache: %v", err)
+		}
+	}()
 	d := &stubDriver{}
 
 	a, err := cache.Get(context.Background(), d, "ds-1", "dsn-1")
@@ -65,7 +69,11 @@ func TestPoolCache_GetCachesByID(t *testing.T) {
 
 func TestPoolCache_DifferentDSNOpensFreshPool(t *testing.T) {
 	cache := NewPoolCache()
-	defer func() { _ = cache.Close() }()
+	defer func() {
+		if err := cache.Close(); err != nil {
+			t.Fatalf("close cache: %v", err)
+		}
+	}()
 	d := &stubDriver{}
 
 	if _, err := cache.Get(context.Background(), d, "ds-1", "dsn-a"); err != nil {
@@ -81,7 +89,11 @@ func TestPoolCache_DifferentDSNOpensFreshPool(t *testing.T) {
 
 func TestPoolCache_InvalidateClosesPool(t *testing.T) {
 	cache := NewPoolCache()
-	defer func() { _ = cache.Close() }()
+	defer func() {
+		if err := cache.Close(); err != nil {
+			t.Fatalf("close cache: %v", err)
+		}
+	}()
 	d := &stubDriver{}
 
 	_, err := cache.Get(context.Background(), d, "ds-1", "dsn-1")
@@ -108,7 +120,11 @@ func TestPoolCache_NilSafe(t *testing.T) {
 
 func TestPoolCache_NilDriverErrors(t *testing.T) {
 	c := NewPoolCache()
-	defer func() { _ = c.Close() }()
+	defer func() {
+		if err := c.Close(); err != nil {
+			t.Fatalf("close cache: %v", err)
+		}
+	}()
 	if _, err := c.Get(context.Background(), nil, "ds", "dsn"); err == nil {
 		t.Fatal("expected error for nil driver")
 	}

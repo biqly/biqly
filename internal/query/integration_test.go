@@ -33,7 +33,11 @@ func skipIfNoDB(t *testing.T) {
 	if err != nil {
 		t.Skip("no test database available")
 	}
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Fatalf("close database: %v", err)
+		}
+	}()
 	if err := db.PingContext(context.Background()); err != nil {
 		t.Skip("test database not reachable")
 	}
@@ -55,7 +59,11 @@ func TestIntegration_PostgresConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open connection: %v", err)
 	}
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Fatalf("close database: %v", err)
+		}
+	}()
 
 	t.Log("connected successfully")
 }
@@ -72,7 +80,11 @@ func TestIntegration_Introspection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open connection: %v", err)
 	}
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			t.Fatalf("failed to close database connection: %v", closeErr)
+		}
+	}()
 
 	result, err := driver.Introspect(ctx, db)
 	if err != nil {
@@ -105,7 +117,11 @@ func TestIntegration_CompileAndExecute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open connection: %v", err)
 	}
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			t.Fatalf("failed to close database connection: %v", closeErr)
+		}
+	}()
 
 	model := &semantic.SemanticModel{
 		Name:       "sales_orders",

@@ -135,7 +135,7 @@ func (h *AIHandler) finishAIPreviewResult(ctx context.Context, req aiQueryReques
 	}
 
 	if h.deps.QueryClient != nil {
-		compiled, err := h.deps.QueryClient.DryRun(ctx, *logicalQuery)
+		compiled, err := h.deps.QueryClient.DryRun(ctx, logicalQuery)
 		if err != nil {
 			resp.Result.Warnings = append(resp.Result.Warnings, "compilation failed")
 		} else {
@@ -196,13 +196,7 @@ func (h *AIHandler) finishAIRunResult(ctx context.Context, req aiQueryRequest, m
 		persistQueryHistory(ctx, h.deps.MetaRepo, logicalQuery, model, cq, nil, queryStatusFailed, err)
 		return nil, err
 	}
-	query.EnrichResult(result, logicalQuery, model)
-	chartType, reason := query.VisualizationHintFromResult(result)
-	resp.Result.VisualizationHint = &ai.VisualizationHint{ChartType: chartType, Reason: reason}
-	if anomalyWarnings := query.AnomalyWarningMessages(result); len(anomalyWarnings) > 0 {
-		resp.Result.Warnings = append(resp.Result.Warnings, anomalyWarnings...)
-	}
-	resp.Result.Result = result
+	enrichAIRunResponse(resp, result, logicalQuery, model)
 	persistQueryHistory(ctx, h.deps.MetaRepo, logicalQuery, model, cq, result, queryStatusSuccess, nil)
 	return resp, nil
 }
@@ -219,7 +213,7 @@ func (h *AIHandler) finishAIRunResultWithQueryClient(ctx context.Context, resp *
 		resp.Result = &ai.AIResult{}
 	}
 
-	run, err := h.deps.QueryClient.Run(ctx, *logicalQuery, 0, 0)
+	run, err := h.deps.QueryClient.Run(ctx, logicalQuery, 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -232,6 +226,17 @@ func (h *AIHandler) finishAIRunResultWithQueryClient(ctx context.Context, resp *
 			DurationMs: run.DurationMs,
 		},
 	}
+	enrichAIRunResponse(resp, result, logicalQuery, model)
+	return resp, nil
+}
+
+func enrichAIRunResponse(resp *ai.Response, result *query.Result, logicalQuery *query.LogicalQuery, model *semantic.SemanticModel) {
+	if resp == nil || result == nil || logicalQuery == nil {
+		return
+	}
+	if resp.Result == nil {
+		resp.Result = &ai.AIResult{}
+	}
 	query.EnrichResult(result, logicalQuery, model)
 	chartType, reason := query.VisualizationHintFromResult(result)
 	resp.Result.VisualizationHint = &ai.VisualizationHint{ChartType: chartType, Reason: reason}
@@ -239,7 +244,6 @@ func (h *AIHandler) finishAIRunResultWithQueryClient(ctx context.Context, resp *
 		resp.Result.Warnings = append(resp.Result.Warnings, anomalyWarnings...)
 	}
 	resp.Result.Result = result
-	return resp, nil
 }
 
 func aiJobPhaseFromKind(kind string) (aiQueryPhase, error) {

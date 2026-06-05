@@ -52,9 +52,11 @@ func TestBackfillExpressions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to seed datasource: %v", err)
 	}
-	defer func() {
-		_, _ = db.ExecContext(context.Background(), `DELETE FROM datasources WHERE id = $1`, datasourceID)
-	}()
+	t.Cleanup(func() {
+		if _, err := db.ExecContext(context.Background(), `DELETE FROM datasources WHERE id = $1`, datasourceID); err != nil {
+			t.Errorf("failed to clean datasource: %v", err)
+		}
+	})
 
 	_, err = db.ExecContext(ctx,
 		`INSERT INTO semantic_models (id, datasource_id, name, base_schema, base_table) VALUES ($1, $2, $3, 'public', $4)`,
@@ -76,7 +78,7 @@ func TestBackfillExpressions(t *testing.T) {
 	_, err = db.ExecContext(ctx, `
 		INSERT INTO semantic_metrics (id, model_id, name, label, expression, aggregation, is_active, expr_json)
 		VALUES ($1, $2, $3, $4, $5, $6, true, NULL)
-	`, metID, modelID, "profit_margin", "Profit Margin", "orders.revenue / orders.cost", "sum",)
+	`, metID, modelID, "profit_margin", "Profit Margin", "orders.revenue / orders.cost", "sum")
 	if err != nil {
 		t.Fatalf("failed to seed metric: %v", err)
 	}

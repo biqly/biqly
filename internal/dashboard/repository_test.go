@@ -24,7 +24,7 @@ func openTestDBPool(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Skip("skipping database tests; DB not available:", err)
 	}
-	t.Cleanup(func() { _ = dbPool.Close() })
+	t.Cleanup(func() { require.NoError(t, dbPool.Close()) })
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()

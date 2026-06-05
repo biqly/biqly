@@ -39,8 +39,8 @@ func fakeServer(t *testing.T, handler http.HandlerFunc) *aiclient.Client {
 	return aiclient.New(srv.URL, aiclient.WithAuthToken(testToken), aiclient.WithCaller("test"))
 }
 
-func sampleQueryRequest() aiclient.QueryRequest {
-	return aiclient.QueryRequest{
+func sampleQueryRequest() *aiclient.QueryRequest {
+	return &aiclient.QueryRequest{
 		DatasourceID: "ds_1",
 		ModelID:      "m_1",
 		Question:     "total revenue",
@@ -234,7 +234,7 @@ func TestQuery_InternalAPIErrorEnvelope(t *testing.T) {
 			Code: internalapi.CodeInvalidRequest, Error: "question is required",
 		})
 	})
-	_, err := c.Query(context.Background(), aiclient.QueryRequest{})
+	_, err := c.Query(context.Background(), sampleQueryRequest())
 	if !errors.Is(err, aiclient.ErrInvalidRequest) {
 		t.Fatalf("expected ErrInvalidRequest, got: %v", err)
 	}

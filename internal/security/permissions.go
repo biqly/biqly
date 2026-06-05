@@ -70,22 +70,6 @@ func FieldIsDenied(policy *PermissionPolicy, qualifiedField, plainField string) 
 	return slices.Contains(policy.DeniedFields, qualifiedField) || slices.Contains(policy.DeniedFields, plainField)
 }
 
-// FilterAllowedFields removes denied fields from the semantic model.
-func (*PermissionManager) FilterAllowedFields(modelName string, allowedFields []string, deniedFields []string) []string {
-	if len(deniedFields) == 0 {
-		return allowedFields
-	}
-
-	var result []string
-	for _, field := range allowedFields {
-		qualifiedField := modelName + "." + field
-		if !slices.Contains(deniedFields, qualifiedField) && !slices.Contains(deniedFields, field) {
-			result = append(result, field)
-		}
-	}
-	return result
-}
-
 // GetRowFilters returns the mandatory row filters for a user.
 // A nil policy returns nil — the executor must not run without a policy.
 func (*PermissionManager) GetRowFilters(policy *PermissionPolicy) []RowFilter {
@@ -102,16 +86,6 @@ func (pm *PermissionManager) HasFieldAccess(policy *PermissionPolicy, modelName,
 		return false
 	}
 	return !FieldIsDenied(policy, modelName+"."+fieldName, fieldName)
-}
-
-// GetPIIPolicy returns the explicit per-column PII access overrides for a
-// user, keyed by qualified column name. A nil policy returns nil; role
-// defaults are resolved downstream (fail-closed).
-func (pm *PermissionManager) GetPIIPolicy(policy *PermissionPolicy) map[string]string { //nolint:revive
-	if policy == nil {
-		return nil
-	}
-	return policy.PIIPolicy
 }
 
 // PIIFieldIsHidden reports whether qualifiedField or plainField is explicitly

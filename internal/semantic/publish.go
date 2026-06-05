@@ -444,6 +444,7 @@ func containsDMLKeyword(expr string) (string, bool) {
 // identifiers, line comments (--), and block comments (/* */) from a SQL
 // fragment so the remainder can be scanned for DML keywords without false
 // positives from values or comment text.
+//
 //nolint:gocognit
 func stripCalcExprLiteralsAndComments(sql string) string {
 	var out strings.Builder
@@ -500,7 +501,9 @@ func stripCalcExprLiteralsAndComments(sql string) string {
 			}
 			continue
 		}
-		out.WriteByte(c)
+		if err := out.WriteByte(c); err != nil {
+			_ = err
+		}
 		i++
 	}
 	return out.String()
@@ -531,7 +534,7 @@ func isSQLLiteral(s string) bool {
 
 //nolint:gocognit
 func checkCircularDependencies(model SemanticModel) []string {
-	var errors []string
+	var errs []string
 	adj := make(map[string][]string)
 
 	for _, d := range model.Dimensions {
@@ -585,7 +588,7 @@ func checkCircularDependencies(model SemanticModel) []string {
 						cycle = append(cycle, cleanNodeName(p))
 					}
 					cycle = append(cycle, cleanNodeName(v))
-					errors = append(errors, "circular dependency detected: "+strings.Join(cycle, " -> "))
+					errs = append(errs, "circular dependency detected: "+strings.Join(cycle, " -> "))
 				}
 				return true
 			} else if visited[v] == 0 {
@@ -606,7 +609,7 @@ func checkCircularDependencies(model SemanticModel) []string {
 		}
 	}
 
-	return errors
+	return errs
 }
 
 func getOrParseExpr(exprStr string, ast pkgsemantic.ExprNode) pkgsemantic.ExprNode {
@@ -631,4 +634,3 @@ func cleanNodeName(s string) string {
 	}
 	return s
 }
-

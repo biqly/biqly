@@ -2,7 +2,6 @@ package metadata
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 
@@ -163,18 +162,6 @@ func (r *Repository) ListEntityTranslations(ctx context.Context, entityType, ent
 		out = append(out, *t)
 	}
 	return out, nil
-}
-
-// LocalizedDescription returns the best-fit description for an entity given a
-// requested locale, falling back through: requested → DefaultLocale → raw.
-func LocalizedDescription(translations EntityTranslations, raw sql.NullString) *string {
-	if v, ok := translations[TranslationFieldDescription]; ok && v != "" {
-		return new(v)
-	}
-	if raw.Valid && raw.String != "" {
-		return new(raw.String)
-	}
-	return nil
 }
 
 func overlayDescriptionTranslations(tr map[string]EntityTranslations, index map[string]int, apply func(i int, description string)) {

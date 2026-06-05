@@ -14,10 +14,10 @@ const (
 	AuditSessionRevoked   = "session.revoked"
 	AuditOAuthLogin       = "oauth.login"
 
-	AuditMFAEnrolled = "mfa.enrolled"
-	AuditMFAVerified = "mfa.verified"
-	AuditMFADisabled = "mfa.disabled"
-	AuditMFABypassGenerated = "mfa.bypass_code_generated" //nolint:gosec
+	AuditMFAEnrolled        = "mfa.enrolled"
+	AuditMFAVerified        = "mfa.verified"
+	AuditMFADisabled        = "mfa.disabled"
+	AuditMFABypassGenerated = "mfa.bypass_code_generated" //nolint:gosec // audit event name, not a credential
 
 	AuditRoleAssigned  = "role.assigned"
 	AuditRoleRemoved   = "role.removed"

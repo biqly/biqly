@@ -86,7 +86,7 @@ func (r *sqlEmailBlockListRepo) Unblock(ctx context.Context, email string) error
 	return err
 }
 
-func (r *sqlEmailBlockListRepo) List(ctx context.Context, limit, offset int) ([]BlockedEmail, error) {
+func (r *sqlEmailBlockListRepo) List(ctx context.Context, limit, offset int) (out []BlockedEmail, err error) {
 	if limit <= 0 || limit > 1000 {
 		limit = 100
 	}
@@ -100,8 +100,11 @@ func (r *sqlEmailBlockListRepo) List(ctx context.Context, limit, offset int) ([]
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = rows.Close() }()
-	var out []BlockedEmail
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 	for rows.Next() {
 		var b BlockedEmail
 		if err := rows.Scan(&b.Email, &b.Reason, &b.BlockedAt, &b.CreatedBy); err != nil {
@@ -109,7 +112,10 @@ func (r *sqlEmailBlockListRepo) List(ctx context.Context, limit, offset int) ([]
 		}
 		out = append(out, b)
 	}
-	return out, rows.Err()
+	if rowsErr := rows.Err(); rowsErr != nil {
+		return nil, rowsErr
+	}
+	return out, nil
 }
 
 // memoryEmailBlockListRepo is an in-memory implementation suitable for tests

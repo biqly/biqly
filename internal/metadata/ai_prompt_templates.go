@@ -102,7 +102,11 @@ func (r *Repository) ListPromptTemplates(ctx context.Context) ([]PromptTemplate,
 	if err != nil {
 		return nil, fmt.Errorf("list prompt templates: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			_ = closeErr
+		}
+	}()
 	out := make([]PromptTemplate, 0, 16)
 	for rows.Next() {
 		var t PromptTemplate
@@ -142,4 +146,3 @@ func (r *Repository) GetPromptTemplateByVersion(ctx context.Context, name string
 	}
 	return content, nil
 }
-

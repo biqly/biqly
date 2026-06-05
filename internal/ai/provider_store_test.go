@@ -69,7 +69,7 @@ func TestChatConfigForPurposeFallback(t *testing.T) {
 		APIKey:              "env-key",
 		MaxPromptInputRunes: 80000,
 	}
-	store := NewProviderStore(nil, nil, fallback)
+	store := NewProviderStore(nil, nil, &fallback)
 
 	// No resolved model → fallback config, ok=false.
 	cfg, ok := store.ChatConfigForPurpose(PurposeQuery)
@@ -90,7 +90,7 @@ func TestChatConfigForPurposeResolved(t *testing.T) {
 		MaxPromptInputRunes: 80000,
 		QueryModel:          "should-be-cleared",
 	}
-	store := NewProviderStore(nil, nil, fallback)
+	store := NewProviderStore(nil, nil, &fallback)
 	store.resolved[PurposeQuery] = &resolvedModel{
 		ProviderType:        "anthropic",
 		BaseURL:             "https://api.anthropic.com/v1",
@@ -126,7 +126,7 @@ func TestChatConfigForPurposeResolved(t *testing.T) {
 }
 
 func TestEffectiveConfigOverlaysEmbeddingAndTranslation(t *testing.T) {
-	store := NewProviderStore(nil, nil, config.AIConfig{Model: "gpt-4o"})
+	store := NewProviderStore(nil, nil, &config.AIConfig{Model: "gpt-4o"})
 	store.resolved[PurposeEmbedding] = &resolvedModel{
 		ModelID:            "text-embedding-3-small",
 		BaseURL:            "https://emb.example/v1",
@@ -152,7 +152,7 @@ func TestEffectiveConfigOverlaysEmbeddingAndTranslation(t *testing.T) {
 }
 
 func TestCacheVersionIncrements(t *testing.T) {
-	store := NewProviderStore(nil, nil, config.AIConfig{})
+	store := NewProviderStore(nil, nil, &config.AIConfig{})
 	v0 := store.CacheVersion()
 	store.version.Add(1)
 	if store.CacheVersion() != v0+1 {
@@ -177,7 +177,7 @@ func (s *stubProvider) GenerateAt(ctx context.Context, prompt string, _ float64)
 
 func TestPurposeProviderFallsBackWhenUnresolved(t *testing.T) {
 	fallback := &stubProvider{reply: "from-fallback"}
-	store := NewProviderStore(nil, nil, config.AIConfig{Model: "gpt-4o"})
+	store := NewProviderStore(nil, nil, &config.AIConfig{Model: "gpt-4o"})
 	pp := NewPurposeProvider(store, PurposeQuery, fallback, nil)
 
 	res, err := pp.Generate(context.Background(), "hello")
@@ -194,11 +194,11 @@ func TestPurposeProviderFallsBackWhenUnresolved(t *testing.T) {
 
 func TestEffectiveConfigForEmbeddings_ClearsEnvWhenUnresolved(t *testing.T) {
 	fallback := config.AIConfig{
-		EmbeddingModel: "env-embed",
+		EmbeddingModel:  "env-embed",
 		EmbeddingAPIKey: "env-key",
 		BaseURL:         "https://api.openai.com/v1",
 	}
-	store := NewProviderStore(nil, nil, fallback)
+	store := NewProviderStore(nil, nil, &fallback)
 
 	cfg := store.EffectiveConfigForEmbeddings()
 	if cfg.EmbeddingsConfigured() {
@@ -224,7 +224,7 @@ func TestEffectiveConfigForEmbeddings_ClearsEnvWhenUnresolved(t *testing.T) {
 
 func TestModelLabelForPurpose(t *testing.T) {
 	fallback := config.AIConfig{Model: "env-describe", QueryModel: "qwen-env"}
-	store := NewProviderStore(nil, nil, fallback)
+	store := NewProviderStore(nil, nil, &fallback)
 	store.resolved[PurposeQuery] = &resolvedModel{
 		ModelID:     "mimo-v2.5",
 		DisplayName: "Mimo v2.5",

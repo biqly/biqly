@@ -220,14 +220,16 @@ func generateRecoveryCodes(n int) (plain, hashes []string, err error) {
 // formatRecoveryCode renders the raw base32 as XXXX-XXXX-XXXX-XXXX for display.
 func formatRecoveryCode(code string) string {
 	code = strings.ToUpper(code)
-	var b strings.Builder
-	for i, r := range code {
-		if i > 0 && i%4 == 0 {
-			b.WriteByte('-')
-		}
-		b.WriteRune(r)
+	if len(code) == 16 {
+		return code[0:4] + "-" + code[4:8] + "-" + code[8:12] + "-" + code[12:16]
 	}
-	return b.String()
+	runes := []rune(code)
+	var parts []string
+	for i := 0; i < len(runes); i += 4 {
+		end := min(i+4, len(runes))
+		parts = append(parts, string(runes[i:end]))
+	}
+	return strings.Join(parts, "-")
 }
 
 func normalizeRecoveryCode(code string) string {

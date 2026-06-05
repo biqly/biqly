@@ -42,7 +42,7 @@ func (s *Service) WithCache(cache ResponseCache) *Service {
 	return s
 }
 
-func newService(cfg config.AIConfig, validator *query.Validator, provider providerpkg.Provider) *Service {
+func newService(cfg *config.AIConfig, validator *query.Validator, provider providerpkg.Provider) *Service {
 	maxR := cfg.MaxPromptInputRunes
 	if maxR <= 0 {
 		maxR = 80000
@@ -67,20 +67,20 @@ func newService(cfg config.AIConfig, validator *query.Validator, provider provid
 
 // NewService creates a new AI service. Returns an error if the configured
 // provider is unknown — callers should surface this at startup.
-func NewService(cfg config.AIConfig, validator *query.Validator) *Service {
+func NewService(cfg *config.AIConfig, validator *query.Validator) *Service {
 	// Fall back to the OpenAI client on unknown providers so test setups that
 	// pass minimal configs (no Provider field) keep working. Production code
 	// should call NewServiceWithProvider for explicit error handling.
-	provider, err := providerpkg.NewProvider(cfg)
+	provider, err := providerpkg.NewProvider(*cfg)
 	if err != nil {
-		provider = providerpkg.NewClient(cfg)
+		provider = providerpkg.NewClient(*cfg)
 	}
 	return newService(cfg, validator, provider)
 }
 
 // NewServiceWithProvider wires a service around an explicitly-supplied Provider.
 // Use this in production wiring where unknown-provider should be a fatal error.
-func NewServiceWithProvider(cfg config.AIConfig, validator *query.Validator, provider providerpkg.Provider) *Service {
+func NewServiceWithProvider(cfg *config.AIConfig, validator *query.Validator, provider providerpkg.Provider) *Service {
 	return newService(cfg, validator, provider)
 }
 
@@ -163,7 +163,7 @@ func contextTierForAttempt(attempt int) int {
 	return promptpkg.ContextTierForAttempt(attempt)
 }
 
-func applyContextTier(base processOptions, tier int) tieredProcessOptions {
+func applyContextTier(base *processOptions, tier int) tieredProcessOptions {
 	return tieredProcessOptions{
 		fewShot:      promptpkg.TailSlice(base.fewShot, promptpkg.FewShotCap(tier)),
 		samples:      base.samples,
@@ -198,13 +198,6 @@ func WithSampleData(samples []promptpkg.TableSample) ProcessOption {
 // (caller should cap N — typically 3-5 — to keep the prompt bounded).
 func WithPriorTurns(turns []promptpkg.ConversationTurn) ProcessOption {
 	return func(o *processOptions) { o.priorTurns = turns }
-}
-
-// WithDeniedFields prevents listed field names (dimensions, metrics, columns)
-// from appearing in the AI prompt — used in strict mode so the LLM cannot see
-// or select permission-denied fields.
-func WithDeniedFields(fields []string) ProcessOption {
-	return func(o *processOptions) { o.deniedFields = fields }
 }
 
 // WithTargetDialect sets the datasource SQL engine name for dialect-aware
@@ -314,13 +307,13 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		}
 	}
 
-	basePrompt, baseStats := s.buildPrompt(ctx, question, model, 0, options, filterSess, followIntent)
+	basePrompt, baseStats := s.buildPrompt(ctx, question, model, 0, &options, filterSess, followIntent)
 
 	// Self-consistency: when configured, draw N candidates with stepped temperatures
 	// and vote. A clear majority returns immediately; otherwise we fall through to
 	// the standard retry loop which handles single-shot generation + correction.
 	if s.multiCandidateCount > 1 {
-		if resp, ok := s.tryMultiCandidate(ctx, question, basePrompt, model, options, baseStats, filterSess, followIntent); ok {
+		if resp, ok := s.tryMultiCandidate(ctx, question, basePrompt, model, &options, &baseStats, filterSess, followIntent); ok {
 			s.cacheResponse(ctx, cacheKey, resp)
 			return resp, nil
 		}
@@ -397,7 +390,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		failureMsg := failureMessageFor(parseErr, sqlErr, warnings)
 		retryWarnings = append(retryWarnings, fmt.Sprintf("retry %d (context %s): %s", attempt+1, promptpkg.ContextTierLabel(contextTierForAttempt(attempt+1)), failureMsg))
 		nextTier := contextTierForAttempt(attempt + 1)
-		expanded, _ := s.buildPrompt(ctx, question, model, nextTier, options, filterSess, followIntent)
+		expanded, _ := s.buildPrompt(ctx, question, model, nextTier, &options, filterSess, followIntent)
 
 		locale := promptpkg.PromptLocaleForQuestion(question, i18n.FromContext(ctx))
 		if len(validationErrors) > 0 { //nolint:nestif
@@ -446,7 +439,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 	if parseErr != nil {
 		clarification := s.tryGenerateClarification(ctx, question, model, failureReason)
 		templateLocale, templateVersions, bundleVersion := promptTemplateTrace(ctx, question)
-		return newClarificationResponse(clarificationInputs{
+		return newClarificationResponse(&clarificationInputs{
 			LogicalQuery:                nil,
 			Confidence:                  0,
 			Warnings:                    append(retryWarnings, append(warnings, parseErr.Error())...),
@@ -469,7 +462,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 	if validationErrCount > 0 {
 		clarification = s.tryGenerateClarification(ctx, question, model, failureReason)
 		templateLocale, templateVersions, bundleVersion := promptTemplateTrace(ctx, question)
-		return newClarificationResponse(clarificationInputs{
+		return newClarificationResponse(&clarificationInputs{
 			LogicalQuery:                nil,
 			Confidence:                  0,
 			Warnings:                    append(retryWarnings, warnings...),
@@ -489,7 +482,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 	}
 
 	templateLocale, templateVersions, bundleVersion := promptTemplateTrace(ctx, question)
-	return newClarificationResponse(clarificationInputs{
+	return newClarificationResponse(&clarificationInputs{
 		LogicalQuery:                lq,
 		Confidence:                  computeConfidence(validationErrCount, s.maxRetries),
 		Warnings:                    append(retryWarnings, warnings...),
@@ -552,7 +545,7 @@ type clarificationInputs struct {
 	RepairDetails               []RepairDetail
 }
 
-func newClarificationResponse(in clarificationInputs) *AIResponse {
+func newClarificationResponse(in *clarificationInputs) *AIResponse {
 	stats := in.PromptStats
 	return &AIResponse{
 		Result: &AIResult{
@@ -579,16 +572,16 @@ func newClarificationResponse(in clarificationInputs) *AIResponse {
 	}
 }
 
-func promptTemplateTrace(ctx context.Context, question string) (string, map[string]int, int) {
+func promptTemplateTrace(ctx context.Context, question string) (locale string, versions map[string]int, bundleVersion int) {
 	loc := promptpkg.PromptLocaleForQuestion(question, i18n.FromContext(ctx))
-	versions := promptpkg.PromptTemplateBundleVersions(ctx, loc)
-	maxVersion := 0
+	versions = promptpkg.PromptTemplateBundleVersions(ctx, loc)
 	for _, v := range versions {
-		if v > maxVersion {
-			maxVersion = v
+		if v > bundleVersion {
+			bundleVersion = v
 		}
 	}
-	return string(loc), versions, maxVersion
+	locale = string(loc)
+	return locale, versions, bundleVersion
 }
 
 func (s *Service) buildPrompt(
@@ -596,7 +589,7 @@ func (s *Service) buildPrompt(
 	question string,
 	model *semantic.SemanticModel,
 	tier int,
-	options processOptions,
+	options *processOptions,
 	filterSess *FilterSessionState,
 	followIntent FollowUpIntent,
 ) (string, promptpkg.PromptStats) {
@@ -658,14 +651,15 @@ func buildClarification(question, reason, source string) *Clarification {
 // majority returns immediately; ties or no successful candidates fall through
 // to the standard single-shot + retry path. Best-effort: any provider error
 // falls back rather than aborting the whole request.
+//
 //nolint:gocognit,funlen
 func (s *Service) tryMultiCandidate(
 	ctx context.Context,
 	question string,
 	prompt string,
 	model *semantic.SemanticModel,
-	options processOptions,
-	stats promptpkg.PromptStats,
+	options *processOptions,
+	stats *promptpkg.PromptStats,
 	filterSess *FilterSessionState,
 	followIntent FollowUpIntent,
 ) (*AIResponse, bool) {
@@ -797,8 +791,8 @@ func (s *Service) tryMultiCandidate(
 		Metadata: &AIMetadata{
 			Prompt:                      prompt,
 			RawResponse:                 winner.gen.Content,
-			PromptStats:                 &stats,
-			TokenUsage:                  providerpkg.TokenUsageFromGeneration(stats, winner.gen),
+			PromptStats:                 stats,
+			TokenUsage:                  providerpkg.TokenUsageFromGeneration(*stats, winner.gen),
 			PromptTemplateLocale:        templateLocale,
 			PromptTemplateVersions:      templateVersions,
 			PromptTemplateBundleVersion: bundleVersion,
@@ -819,10 +813,10 @@ func logicalQueryFingerprint(lq *query.LogicalQuery) string {
 	sb.WriteString("select:[")
 	for i, item := range lq.Select {
 		if i > 0 {
-			sb.WriteByte(',')
+			_ = sb.WriteByte(',')
 		}
 		sb.WriteString(item.Type)
-		sb.WriteByte(':')
+		_ = sb.WriteByte(':')
 		sb.WriteString(item.Name)
 		if item.Alias != "" {
 			sb.WriteString(" as ")
@@ -831,19 +825,19 @@ func logicalQueryFingerprint(lq *query.LogicalQuery) string {
 		if item.Window != nil {
 			sb.WriteString(" over(")
 			sb.WriteString(item.Window.Aggregation)
-			sb.WriteByte(':')
+			_ = sb.WriteByte(':')
 			sb.WriteString(item.Window.Expression)
-			sb.WriteByte(':')
+			_ = sb.WriteByte(':')
 			sb.WriteString(item.Window.Metric)
 			sb.WriteString(" partition_by:[")
 			sb.WriteString(strings.Join(item.Window.PartitionBy, ","))
 			sb.WriteString("] order_by:[")
 			for j, ob := range item.Window.OrderBy {
 				if j > 0 {
-					sb.WriteByte(',')
+					_ = sb.WriteByte(',')
 				}
 				sb.WriteString(ob.Field)
-				sb.WriteByte(':')
+				_ = sb.WriteByte(':')
 				sb.WriteString(ob.Direction)
 			}
 			sb.WriteString("] frame:")
@@ -974,16 +968,15 @@ func (s *Service) cacheResponse(ctx context.Context, key string, resp *AIRespons
 	}
 }
 
-func (s *Service) parseAndValidate(raw string, model *semantic.SemanticModel) (*query.LogicalQuery, []string, int, query.ValidationErrors, error) {
-	var warnings []string
-
-	lq, err := parseLogicalQueryFromRaw(raw)
-	if err != nil {
-		return nil, warnings, 0, nil, fmt.Errorf("invalid JSON from AI: %w", err)
+func (s *Service) parseAndValidate(raw string, model *semantic.SemanticModel) (lq *query.LogicalQuery, warnings []string, validationErrCount int, validationErrors query.ValidationErrors, err error) {
+	parsed, parseErr := parseLogicalQueryFromRaw(raw)
+	if parseErr != nil {
+		return nil, warnings, 0, nil, fmt.Errorf("invalid JSON from AI: %w", parseErr)
 	}
-	normalizeLogicalQueryContext(&lq, model)
+	lq = &parsed
+	normalizeLogicalQueryContext(lq, model)
 	lq.EnsureGroupBySelected()
-	ensureTimeSeriesOrderBy(&lq, model)
+	ensureTimeSeriesOrderBy(lq, model)
 
 	// Guardrails: reject empty selects
 	if len(lq.Select) == 0 {
@@ -992,9 +985,7 @@ func (s *Service) parseAndValidate(raw string, model *semantic.SemanticModel) (*
 	}
 
 	// Validate against semantic model
-	var validationErrors query.ValidationErrors
-	validationErrCount := 0
-	if err := s.validator.Validate(&lq, model); err != nil {
+	if err := s.validator.Validate(lq, model); err != nil {
 		warnings = append(warnings, "validation warnings: "+err.Error())
 		if ve, ok := errors.AsType[query.ValidationErrors](err); ok {
 			validationErrors = ve
@@ -1005,7 +996,7 @@ func (s *Service) parseAndValidate(raw string, model *semantic.SemanticModel) (*
 		// Still return the query but with warnings
 	}
 
-	return &lq, warnings, validationErrCount, validationErrors, nil
+	return lq, warnings, validationErrCount, validationErrors, nil
 }
 
 // computeConfidence produces a [0.0, 1.0] confidence score for a generated
@@ -1036,8 +1027,8 @@ func normalizeLogicalQueryContext(lq *query.LogicalQuery, model *semantic.Semant
 	}
 	if model != nil && len(model.Dimensions) > 0 {
 		names := make([]string, 0, len(model.Dimensions))
-		for _, d := range model.Dimensions {
-			names = append(names, d.Name)
+		for i := range model.Dimensions {
+			names = append(names, model.Dimensions[i].Name)
 		}
 		query.RepairMisnamedCalendarGrainDimensions(lq, names)
 	}
@@ -1048,8 +1039,8 @@ func ensureTimeSeriesOrderBy(lq *query.LogicalQuery, model *semantic.SemanticMod
 		return
 	}
 	grainByDimension := make(map[string]string, len(model.Dimensions))
-	for _, dim := range model.Dimensions {
-		grainByDimension[dim.Name] = dim.TimeGrain
+	for i := range model.Dimensions {
+		grainByDimension[model.Dimensions[i].Name] = model.Dimensions[i].TimeGrain
 	}
 	for _, gb := range lq.GroupBy {
 		if gb.TimeGrain == "" && grainByDimension[gb.Field] == "" {

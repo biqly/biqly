@@ -15,11 +15,15 @@ func TestExecHTTPPostRetryBytesRetries503(t *testing.T) {
 		n := calls.Add(1)
 		if n < 3 {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = w.Write([]byte(`{"error":"busy"}`))
+			if _, err := w.Write([]byte(`{"error":"busy"}`)); err != nil {
+				t.Fatalf("write response: %v", err)
+			}
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"data":[{"index":0,"embedding":[0.1,0.2]}]}`))
+		if _, err := w.Write([]byte(`{"data":[{"index":0,"embedding":[0.1,0.2]}]}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
 	}))
 	t.Cleanup(srv.Close)
 

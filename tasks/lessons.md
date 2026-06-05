@@ -17,6 +17,22 @@ When you see the same logic repeated in 2+ handlers, extract a shared helper imm
 
 **Rule**: If you copy-paste more than 5 lines between handlers, stop and extract.
 
+### Dead Code Gate Before Commit
+
+Run `deadcode -test $(go list ./... | grep -v '/frontend')` before commits that touch Go code. The `/frontend` exclusion is required because `frontend/node_modules` can include third-party Go packages that are not part of this repository's Go surface.
+
+**Rule**: Treat deadcode findings as blockers to triage before commit, but do not blindly delete every reported function. Check exported APIs, alternate build tags, reflection/linkname paths, generated code, tests, and planned integration points before removal.
+
+**Default cleanup strategy**: Clean up only genuinely dead internal code under `internal/` that is unused in production and tests. Preserve public SDK APIs under `pkg/` and test-only helpers unless a focused review proves they are obsolete.
+
+### Go Formatting Gate Before Commit
+
+Run `gofmt -w` on every touched `.go` file before linting or testing. Formatting drift is a blocker, even when the code compiles.
+
+### Go Min/Max Modernization
+
+Use Go's built-in `min` / `max` for simple clamps and two-value comparisons, such as `chunk = min(chunk, len(encoded))`. Keep explicit `if` statements when branches have side effects, extra logic, or clearer domain meaning.
+
 ### Fail-Open at Read Time, Fail-Closed at Write Time
 
 Expression AST parsing follows this pattern:

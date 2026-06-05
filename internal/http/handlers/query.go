@@ -98,7 +98,7 @@ func (h *QueryHandler) Explain(w http.ResponseWriter, r *http.Request) {
 }
 
 // History returns query history. When auth is enabled and the caller is not
-// super_admin, results are scoped to the active workspace's datasources.
+// super_admin, results are scoped to the active workspace's datasource.
 func (h *QueryHandler) History(w http.ResponseWriter, r *http.Request) {
 	entries, err := h.deps.MetaRepo.ListQueryHistory(r.Context(), h.deps.Config.Query.HistoryListLimit)
 	if err != nil {

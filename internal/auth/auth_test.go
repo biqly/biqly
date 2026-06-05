@@ -202,7 +202,7 @@ func TestEmailChangeMigrationHasDoubleVerificationAndWaitPeriod(t *testing.T) {
 	up, err := os.ReadFile("../../migrations/auth/023a_create_email_change_requests.up.sql")
 	require.NoError(t, err)
 
-	sql := string(up)
+	sqlStr := string(up)
 	for _, fragment := range []string{
 		"old_email_token",
 		"new_email_token",
@@ -212,10 +212,10 @@ func TestEmailChangeMigrationHasDoubleVerificationAndWaitPeriod(t *testing.T) {
 		"completed_at",
 		"new_email",
 	} {
-		assert.Contains(t, sql, fragment)
+		assert.Contains(t, sqlStr, fragment)
 	}
-	assert.True(t, strings.Contains(sql, "UNIQUE (old_email_token)") || strings.Contains(sql, "old_email_token TEXT NOT NULL UNIQUE"))
-	assert.True(t, strings.Contains(sql, "UNIQUE (new_email_token)") || strings.Contains(sql, "new_email_token TEXT NOT NULL UNIQUE"))
+	assert.True(t, strings.Contains(sqlStr, "UNIQUE (old_email_token)") || strings.Contains(sqlStr, "old_email_token TEXT NOT NULL UNIQUE"))
+	assert.True(t, strings.Contains(sqlStr, "UNIQUE (new_email_token)") || strings.Contains(sqlStr, "new_email_token TEXT NOT NULL UNIQUE"))
 }
 
 func TestEmailChangeContract(t *testing.T) {
@@ -235,7 +235,7 @@ func TestPasswordHistoryMigrationAndContract(t *testing.T) {
 	up, err := os.ReadFile("../../migrations/auth/024a_create_password_history.up.sql")
 	require.NoError(t, err)
 
-	sql := string(up)
+	sqlStr := string(up)
 	for _, fragment := range []string{
 		"password_history",
 		"user_id",
@@ -243,7 +243,7 @@ func TestPasswordHistoryMigrationAndContract(t *testing.T) {
 		"created_at",
 		"idx_password_history_user_created",
 	} {
-		assert.Contains(t, sql, fragment)
+		assert.Contains(t, sqlStr, fragment)
 	}
 	assert.Equal(t, 5, PasswordHistoryLimit)
 	assert.ErrorIs(t, ErrPasswordReused, ErrPasswordReused)
@@ -260,7 +260,11 @@ func OpenTestDBPool(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Skip("skipping database tests; DB not available:", err)
 	}
-	t.Cleanup(func() { _ = dbPool.Close() })
+	t.Cleanup(func() {
+		if err := dbPool.Close(); err != nil {
+			t.Errorf("failed to close database pool: %v", err)
+		}
+	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -279,11 +283,16 @@ func TestIntegrationAuthFlow(t *testing.T) {
 	ctx := context.Background()
 
 	// Clear test tables to keep tests clean and repeatable
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM sessions")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM workspace_members")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM workspaces")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM user_roles")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users")
+	_, err := dbPool.ExecContext(ctx, "DELETE FROM sessions")
+	require.NoError(t, err)
+	_, err = dbPool.ExecContext(ctx, "DELETE FROM workspace_members")
+	require.NoError(t, err)
+	_, err = dbPool.ExecContext(ctx, "DELETE FROM workspaces")
+	require.NoError(t, err)
+	_, err = dbPool.ExecContext(ctx, "DELETE FROM user_roles")
+	require.NoError(t, err)
+	_, err = dbPool.ExecContext(ctx, "DELETE FROM users")
+	require.NoError(t, err)
 
 	config := &Config{
 		JWTAccessTTL:  5 * time.Minute,
@@ -391,12 +400,18 @@ func TestOAuthFlow(t *testing.T) {
 	ctx := context.Background()
 
 	// Clean tables
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM sessions")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM oauth_accounts")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM workspace_members")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM workspaces")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM user_roles")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users")
+	_, err := dbPool.ExecContext(ctx, "DELETE FROM sessions")
+	require.NoError(t, err)
+	_, err = dbPool.ExecContext(ctx, "DELETE FROM oauth_accounts")
+	require.NoError(t, err)
+	_, err = dbPool.ExecContext(ctx, "DELETE FROM workspace_members")
+	require.NoError(t, err)
+	_, err = dbPool.ExecContext(ctx, "DELETE FROM workspaces")
+	require.NoError(t, err)
+	_, err = dbPool.ExecContext(ctx, "DELETE FROM user_roles")
+	require.NoError(t, err)
+	_, err = dbPool.ExecContext(ctx, "DELETE FROM users")
+	require.NoError(t, err)
 
 	config := &Config{
 		JWTAccessTTL:  5 * time.Minute,
@@ -463,15 +478,20 @@ func TestBruteForceLockout(t *testing.T) {
 		t.Skip("skipping redis-dependent test: redis not available:", err)
 		return
 	}
-	defer func() { _ = rClient.Close() }()
+	defer func() {
+		err := rClient.Close()
+		assert.NoError(t, err)
+	}()
 
 	email := "brute@example.com"
 	rClient.Del(ctx, "login_failures:"+email)
 
 	dbPool := openTestDBPool(t)
 
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM sessions")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users")
+	_, err = dbPool.ExecContext(ctx, "DELETE FROM sessions")
+	require.NoError(t, err)
+	_, err = dbPool.ExecContext(ctx, "DELETE FROM users")
+	require.NoError(t, err)
 
 	config := &Config{
 		JWTAccessTTL:  5 * time.Minute,
@@ -517,7 +537,10 @@ func TestRateLimiting(t *testing.T) {
 		t.Skip("skipping redis-dependent test: redis not available:", err)
 		return
 	}
-	defer func() { _ = rClient.Close() }()
+	defer func() {
+		err := rClient.Close()
+		assert.NoError(t, err)
+	}()
 
 	ip := "127.0.0.1"
 	bucket := time.Now().Unix() / 60
@@ -529,7 +552,8 @@ func TestRateLimiting(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "/", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/", http.NoBody)
+	require.NoError(t, err)
 	req.RemoteAddr = ip + ":1234"
 	rr1 := httptest.NewRecorder()
 	handler.ServeHTTP(rr1, req)
@@ -552,7 +576,8 @@ func TestCSRF(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	reqGET, _ := http.NewRequestWithContext(ctx, http.MethodGet, "/", nil)
+	reqGET, err := http.NewRequestWithContext(ctx, http.MethodGet, "/", http.NoBody)
+	require.NoError(t, err)
 	rrGET := httptest.NewRecorder()
 	handler.ServeHTTP(rrGET, reqGET)
 	assert.Equal(t, http.StatusOK, rrGET.Code)
@@ -568,18 +593,21 @@ func TestCSRF(t *testing.T) {
 	require.NotNil(t, csrfCookie)
 	assert.NotEmpty(t, csrfCookie.Value)
 
-	reqPOSTNoCookie, _ := http.NewRequestWithContext(ctx, http.MethodPost, "/", nil)
+	reqPOSTNoCookie, err := http.NewRequestWithContext(ctx, http.MethodPost, "/", http.NoBody)
+	require.NoError(t, err)
 	rrPOSTNoCookie := httptest.NewRecorder()
 	handler.ServeHTTP(rrPOSTNoCookie, reqPOSTNoCookie)
 	assert.Equal(t, http.StatusForbidden, rrPOSTNoCookie.Code)
 
-	reqPOSTNoHeader, _ := http.NewRequestWithContext(ctx, http.MethodPost, "/", nil)
+	reqPOSTNoHeader, err := http.NewRequestWithContext(ctx, http.MethodPost, "/", http.NoBody)
+	require.NoError(t, err)
 	reqPOSTNoHeader.AddCookie(csrfCookie)
 	rrPOSTNoHeader := httptest.NewRecorder()
 	handler.ServeHTTP(rrPOSTNoHeader, reqPOSTNoHeader)
 	assert.Equal(t, http.StatusForbidden, rrPOSTNoHeader.Code)
 
-	reqPOSTSuccess, _ := http.NewRequestWithContext(ctx, http.MethodPost, "/", nil)
+	reqPOSTSuccess, err := http.NewRequestWithContext(ctx, http.MethodPost, "/", http.NoBody)
+	require.NoError(t, err)
 	reqPOSTSuccess.AddCookie(csrfCookie)
 	reqPOSTSuccess.Header.Set("X-CSRF-Token", csrfCookie.Value)
 	rrPOSTSuccess := httptest.NewRecorder()
@@ -591,9 +619,12 @@ func TestEmailVerificationAndReset(t *testing.T) {
 	dbPool := openTestDBPool(t)
 	ctx := context.Background()
 
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM email_verification_tokens")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM password_reset_tokens")
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users")
+	_, err := dbPool.ExecContext(ctx, "DELETE FROM email_verification_tokens")
+	require.NoError(t, err)
+	_, err = dbPool.ExecContext(ctx, "DELETE FROM password_reset_tokens")
+	require.NoError(t, err)
+	_, err = dbPool.ExecContext(ctx, "DELETE FROM users")
+	require.NoError(t, err)
 
 	config := &Config{
 		JWTAccessTTL:  5 * time.Minute,

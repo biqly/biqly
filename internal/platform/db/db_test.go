@@ -222,7 +222,7 @@ func init() {
 func TestRunInTx(t *testing.T) {
 	db, err := sql.Open("db_mock_driver", "mock-dsn-tx")
 	require.NoError(t, err)
-	defer func() { _ = db.Close() }()
+	defer func() { require.NoError(t, db.Close()) }()
 
 	t.Run("successful commit", func(t *testing.T) {
 		var txState mockDBTx
@@ -298,7 +298,11 @@ func TestRunInTx(t *testing.T) {
 func TestQuerySlice(t *testing.T) {
 	db, err := sql.Open("db_mock_driver", "mock-dsn-slice")
 	require.NoError(t, err)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("db.Close() error = %v", err)
+		}
+	}()
 
 	t.Run("successful query scan", func(t *testing.T) {
 		persistentMockConn.mu.Lock()

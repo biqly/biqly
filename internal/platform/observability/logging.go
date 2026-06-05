@@ -30,16 +30,3 @@ func ContextWithLogger(ctx context.Context, l *slog.Logger) context.Context {
 	}
 	return context.WithValue(ctx, loggerCtxKey{}, l)
 }
-
-// LoggerFrom returns the request-scoped logger stored on ctx, falling back to
-// slog.Default() when none was attached. Handlers should log through this so
-// every line for a request carries the same correlation fields (request_id,
-// traceparent) injected by the request-logger middleware.
-func LoggerFrom(ctx context.Context) *slog.Logger {
-	if ctx != nil {
-		if l, ok := ctx.Value(loggerCtxKey{}).(*slog.Logger); ok && l != nil {
-			return l
-		}
-	}
-	return slog.Default()
-}

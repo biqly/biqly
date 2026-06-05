@@ -41,16 +41,12 @@ func (h *AIHandler) observeAIRequest(
 	ctx context.Context,
 	req aiQueryRequest,
 	model *semantic.SemanticModel,
-	routing *routing.TableRoutingResult,
+	routeResult *routing.TableRoutingResult,
 	resp *ai.Response,
-	procErr error,
 	latencyMs int64,
 ) *ai.Response {
-	if procErr != nil {
-		resp = failedAIResponse(procErr)
-	}
 	if resp == nil {
-		resp = failedAIResponse(procErr)
+		resp = failedAIResponse(nil)
 	}
 	if resp.Metadata == nil {
 		resp.Metadata = &ai.AIMetadata{}
@@ -119,7 +115,7 @@ func (h *AIHandler) observeAIRequest(
 	}
 	slog.InfoContext(ctx, "ai query completed", logArgs...)
 
-	h.recordAIHistory(ctx, req, model, routing, resp)
+	h.recordAIHistory(ctx, req, model, routeResult, resp)
 	return resp
 }
 

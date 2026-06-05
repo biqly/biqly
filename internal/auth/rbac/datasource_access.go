@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -79,7 +80,9 @@ func (s *DatasourceAccessService) Grant(ctx context.Context, userID, datasourceI
 		access.GrantedBy = new(grantedByNull.String)
 	}
 
-	_ = s.InvalidateCache(ctx, userID)
+	if err := s.InvalidateCache(ctx, userID); err != nil {
+		return nil, fmt.Errorf("invalidate datasource access cache: %w", err)
+	}
 	return &access, nil
 }
 
@@ -88,7 +91,9 @@ func (s *DatasourceAccessService) Revoke(ctx context.Context, userID, datasource
 	if err != nil {
 		return fmt.Errorf("revoke datasource access: %w", err)
 	}
-	_ = s.InvalidateCache(ctx, userID)
+	if err := s.InvalidateCache(ctx, userID); err != nil {
+		return fmt.Errorf("invalidate datasource access cache: %w", err)
+	}
 	return nil
 }
 
@@ -103,7 +108,9 @@ func (s *DatasourceAccessService) UpdateLevel(ctx context.Context, accessID, lev
 	if err != nil {
 		return fmt.Errorf("update access level: %w", err)
 	}
-	_ = s.InvalidateCache(ctx, userID)
+	if err := s.InvalidateCache(ctx, userID); err != nil {
+		return fmt.Errorf("invalidate datasource access cache: %w", err)
+	}
 	return nil
 }
 
@@ -169,7 +176,9 @@ func (s *DatasourceAccessService) ListAccessibleDatasourceIDs(ctx context.Contex
 		return nil, err
 	}
 
-	_ = s.setCached(ctx, userID, ids)
+	if err := s.setCached(ctx, userID, ids); err != nil {
+		slog.WarnContext(ctx, "datasource access cache write failed", "user_id", userID, "error", err)
+	}
 	return ids, nil
 }
 

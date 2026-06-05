@@ -136,12 +136,12 @@ func (ve ValidationErrors) Error() string {
 	if len(ve) == 0 {
 		return ""
 	}
-	var msg strings.Builder
-	msg.WriteString("validation failed:")
+	parts := make([]string, 0, len(ve)+1)
+	parts = append(parts, "validation failed:")
 	for _, e := range ve {
-		fmt.Fprintf(&msg, " %s: %s;", e.Field, e.Message)
+		parts = append(parts, fmt.Sprintf(" %s: %s;", e.Field, e.Message))
 	}
-	return msg.String()
+	return strings.Join(parts, "")
 }
 
 // HasCode reports whether the collection contains any error with the given code.

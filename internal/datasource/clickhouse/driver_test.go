@@ -126,7 +126,11 @@ func TestClickHouseDriver_Introspect(t *testing.T) {
 
 	db, err := sql.Open("clickhouse_mock_bridge", "mock-dsn")
 	assert.NoError(t, err)
-	t.Cleanup(func() { _ = db.Close() })
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("db.Close() error = %v", err)
+		}
+	})
 
 	activeMockConnMutex.Lock()
 	activeMockConn = &mockClickHouseConn{queries: queries}

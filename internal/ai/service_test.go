@@ -29,8 +29,8 @@ func (p *countingProvider) Generate(_ context.Context, _ string) (providerpkg.Ge
 	return providerpkg.GenerationResult{Content: `{"select":[{"type":"metric","name":"gross_revenue"}]}`}, nil
 }
 
-func (p *countingProvider) GenerateAt(ctx context.Context, prompt string, _ float64) (providerpkg.GenerationResult, error) {
-	return p.Generate(ctx, prompt)
+func (p *countingProvider) GenerateAt(ctx context.Context, promptStr string, _ float64) (providerpkg.GenerationResult, error) {
+	return p.Generate(ctx, promptStr)
 }
 
 type scriptedProvider struct {
@@ -46,8 +46,8 @@ func (p *scriptedProvider) Generate(_ context.Context, _ string) (providerpkg.Ge
 	return providerpkg.GenerationResult{Content: p.replies[index]}, nil
 }
 
-func (p *scriptedProvider) GenerateAt(ctx context.Context, prompt string, _ float64) (providerpkg.GenerationResult, error) {
-	return p.Generate(ctx, prompt)
+func (p *scriptedProvider) GenerateAt(ctx context.Context, promptStr string, _ float64) (providerpkg.GenerationResult, error) {
+	return p.Generate(ctx, promptStr)
 }
 
 func TestParseAndValidateNormalizesLogicalQueryContext(t *testing.T) {
@@ -163,7 +163,7 @@ func stubLLMServer(t *testing.T, replies []string) *httptest.Server {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(body)
+		require.NoError(t, json.NewEncoder(w).Encode(body))
 	}))
 }
 
@@ -175,7 +175,7 @@ func TestProcessQuestionRetriesOnInvalidJSON(t *testing.T) {
 	defer srv.Close()
 
 	cfg := config.AIConfig{Provider: "openai", BaseURL: srv.URL, APIKey: "x", Model: "test", MaxRetries: 2}
-	svc := NewService(cfg, query.NewValidator(1000))
+	svc := NewService(&cfg, query.NewValidator(1000))
 
 	model := &semantic.SemanticModel{
 		ID:           "model-uuid",
@@ -204,7 +204,7 @@ func TestProcessQuestionRetriesOnInvalidJSON(t *testing.T) {
 
 func TestProcessQuestionReturnsAmbiguityClarificationBeforeLLM(t *testing.T) {
 	client := &countingProvider{}
-	svc := NewServiceWithProvider(config.AIConfig{}, query.NewValidator(1000), client)
+	svc := NewServiceWithProvider(&config.AIConfig{}, query.NewValidator(1000), client)
 	model := &semantic.SemanticModel{
 		Metrics: []semantic.Metric{
 			{Name: "gross_revenue", Synonyms: []string{"ciro"}},
@@ -238,7 +238,7 @@ func TestProcessQuestionReturnsLLMAmbiguityClarificationWhenRuleBasedClean(t *te
 			}]
 		}`},
 	}
-	svc := NewServiceWithProvider(config.AIConfig{}, query.NewValidator(1000), client)
+	svc := NewServiceWithProvider(&config.AIConfig{}, query.NewValidator(1000), client)
 	model := &semantic.SemanticModel{
 		Metrics: []semantic.Metric{{Name: "row_count", Aggregation: "count", Expression: "*"}},
 	}
@@ -271,7 +271,7 @@ func TestProcessQuestionCachesLLMAmbiguityAnalysis(t *testing.T) {
 			}]
 		}`},
 	}
-	svc := NewServiceWithProvider(config.AIConfig{}, query.NewValidator(1000), client)
+	svc := NewServiceWithProvider(&config.AIConfig{}, query.NewValidator(1000), client)
 	model := &semantic.SemanticModel{
 		ID:      "customers",
 		Metrics: []semantic.Metric{{Name: "row_count", Aggregation: "count", Expression: "*"}},
@@ -294,7 +294,7 @@ func TestProcessQuestionCachesLLMAmbiguityAnalysis(t *testing.T) {
 
 func TestProcessQuestionAmbiguityCheckIsOptIn(t *testing.T) {
 	client := &countingProvider{}
-	svc := NewServiceWithProvider(config.AIConfig{}, query.NewValidator(1000), client)
+	svc := NewServiceWithProvider(&config.AIConfig{}, query.NewValidator(1000), client)
 	model := &semantic.SemanticModel{
 		Metrics: []semantic.Metric{
 			{Name: "gross_revenue", Synonyms: []string{"ciro"}},
@@ -316,7 +316,7 @@ func TestProcessQuestionAmbiguityCheckIsOptIn(t *testing.T) {
 
 func TestProcessQuestionUsesUnmergedAmbiguityGlossary(t *testing.T) {
 	client := &countingProvider{}
-	svc := NewServiceWithProvider(config.AIConfig{}, query.NewValidator(1000), client)
+	svc := NewServiceWithProvider(&config.AIConfig{}, query.NewValidator(1000), client)
 	model := &semantic.SemanticModel{}
 	promptGlossary := []prompt.GlossaryEntry{
 		{Term: "aktif", Definition: "Durumu active olan müşteri", MapsToType: "filter", MapsToName: "status=active"},
@@ -353,7 +353,7 @@ func TestProcessQuestionRetriesOnSQLDryRunFailure(t *testing.T) {
 	defer srv.Close()
 
 	cfg := config.AIConfig{Provider: "openai", BaseURL: srv.URL, APIKey: "x", Model: "test", MaxRetries: 2}
-	svc := NewService(cfg, query.NewValidator(1000))
+	svc := NewService(&cfg, query.NewValidator(1000))
 
 	model := &semantic.SemanticModel{
 		ID:           "m",
@@ -391,7 +391,7 @@ func TestProcessQuestionGivesUpAfterMaxRetries(t *testing.T) {
 	defer srv.Close()
 
 	cfg := config.AIConfig{Provider: "openai", BaseURL: srv.URL, APIKey: "x", Model: "test", MaxRetries: 1}
-	svc := NewService(cfg, query.NewValidator(1000))
+	svc := NewService(&cfg, query.NewValidator(1000))
 
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x"}
 	resp, err := svc.ProcessQuestion(context.Background(), "q", model)
@@ -415,7 +415,7 @@ func TestProcessQuestionDoesNotReturnInvalidLogicalQueryAfterValidationRetries(t
 	defer srv.Close()
 
 	cfg := config.AIConfig{Provider: "openai", BaseURL: srv.URL, APIKey: "x", Model: "test", MaxRetries: 1}
-	svc := NewService(cfg, query.NewValidator(1000))
+	svc := NewService(&cfg, query.NewValidator(1000))
 
 	model := &semantic.SemanticModel{
 		ID:           "m",
@@ -448,7 +448,7 @@ func TestProcessQuestionEmitsClarificationAfterExhaustedRetries(t *testing.T) {
 	defer srv.Close()
 
 	cfg := config.AIConfig{Provider: "openai", BaseURL: srv.URL, APIKey: "x", Model: "test", MaxRetries: 1}
-	svc := NewService(cfg, query.NewValidator(1000))
+	svc := NewService(&cfg, query.NewValidator(1000))
 
 	model := &semantic.SemanticModel{
 		ID:           "m",
@@ -486,7 +486,7 @@ func TestProcessQuestionMultiCandidateMajority(t *testing.T) {
 		MaxRetries:          2,
 		MultiCandidateCount: 3,
 	}
-	svc := NewService(cfg, query.NewValidator(1000))
+	svc := NewService(&cfg, query.NewValidator(1000))
 
 	model := &semantic.SemanticModel{
 		ID:           "m",
@@ -536,7 +536,7 @@ func TestProcessQuestionMultiCandidateNoMajorityFallsBack(t *testing.T) {
 		MaxRetries:          1,
 		MultiCandidateCount: 3,
 	}
-	svc := NewService(cfg, query.NewValidator(1000))
+	svc := NewService(&cfg, query.NewValidator(1000))
 
 	model := &semantic.SemanticModel{
 		ID:           "m",
@@ -568,7 +568,7 @@ func TestProcessQuestionInheritsFiltersOnRefineFollowUp(t *testing.T) {
 	defer srv.Close()
 
 	cfg := config.AIConfig{Provider: "openai", BaseURL: srv.URL, APIKey: "x", Model: "test", MaxRetries: 0}
-	svc := NewService(cfg, query.NewValidator(1000))
+	svc := NewService(&cfg, query.NewValidator(1000))
 
 	model := &semantic.SemanticModel{
 		ID:           "m",

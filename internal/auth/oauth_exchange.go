@@ -92,7 +92,9 @@ func (s *AuthService) RedeemOAuthCallbackCode(ctx context.Context, code string) 
 	} else {
 		// Backup the response for the grace window so concurrent or rapid
 		// retries from the same browser get identical tokens.
-		_ = s.redisClient.Set(ctx, usedKey, raw, oauthCallbackGraceTTL).Err()
+		if err := s.redisClient.Set(ctx, usedKey, raw, oauthCallbackGraceTTL).Err(); err != nil {
+			_ = err
+		}
 	}
 
 	var resp TokenResponse

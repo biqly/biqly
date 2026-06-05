@@ -67,30 +67,30 @@ func stripTrailingNonLetters(password string) string {
 // recognized as "password". Conservative — only the highest-frequency
 // substitutions to avoid false positives on genuinely strong passwords.
 func stripLeetSpeak(password string) string {
-	var b strings.Builder
+	runes := make([]rune, 0, len(password))
 	for _, r := range strings.ToLower(password) {
 		switch r {
 		case '0':
-			b.WriteRune('o')
+			runes = append(runes, 'o')
 		case '1':
-			b.WriteRune('i')
+			runes = append(runes, 'i')
 		case '3':
-			b.WriteRune('e')
+			runes = append(runes, 'e')
 		case '4':
-			b.WriteRune('a')
+			runes = append(runes, 'a')
 		case '5':
-			b.WriteRune('s')
+			runes = append(runes, 's')
 		case '7':
-			b.WriteRune('t')
+			runes = append(runes, 't')
 		case '@':
-			b.WriteRune('a')
+			runes = append(runes, 'a')
 		case '$':
-			b.WriteRune('s')
+			runes = append(runes, 's')
 		case '!':
-			b.WriteRune('i')
+			runes = append(runes, 'i')
 		default:
-			b.WriteRune(r)
+			runes = append(runes, r)
 		}
 	}
-	return b.String()
+	return string(runes)
 }

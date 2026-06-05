@@ -152,7 +152,9 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 		return decodeErrorResponse(resp)
 	}
 	if out == nil || resp.StatusCode == http.StatusNoContent {
-		_, _ = io.Copy(io.Discard, resp.Body)
+		if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+			return fmt.Errorf("aiclient: drain response body: %w", err)
+		}
 		return nil
 	}
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
@@ -190,14 +192,21 @@ type legacyErrorEnvelope struct {
 }
 
 func decodeErrorResponse(resp *http.Response) error {
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 16*1024))
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 16*1024))
+	if err != nil {
+		return fmt.Errorf("aiclient: read error response: %w", err)
+	}
 	var env internalapi.Error
 	if len(raw) > 0 && bytes.HasPrefix(bytes.TrimSpace(raw), []byte("{")) {
-		_ = json.Unmarshal(raw, &env)
+		if err := json.Unmarshal(raw, &env); err != nil {
+			env = internalapi.Error{}
+		}
 	}
 	if env.Code == "" {
 		var legacy legacyErrorEnvelope
-		_ = json.Unmarshal(raw, &legacy)
+		if err := json.Unmarshal(raw, &legacy); err != nil {
+			legacy = legacyErrorEnvelope{}
+		}
 		if legacy.Error != "" {
 			env.Error = legacy.Error
 		}

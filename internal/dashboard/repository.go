@@ -84,7 +84,11 @@ func (r *Repository) List(ctx context.Context, workspaceID string) ([]Dashboard,
 	if err != nil {
 		return nil, fmt.Errorf("list dashboards: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			_ = err
+		}
+	}()
 
 	var list []Dashboard
 	for rows.Next() {

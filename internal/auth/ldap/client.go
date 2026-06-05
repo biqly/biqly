@@ -116,8 +116,11 @@ func (s Settings) dial(ctx context.Context) (*ldapv3.Conn, error) {
 	}
 	if s.Security == SecurityStartTLS {
 		if err := conn.StartTLS(s.tlsConfig()); err != nil {
-			_ = conn.Close()
-			return nil, fmt.Errorf("ldap: starttls: %w", err)
+			startTLSErr := fmt.Errorf("ldap: starttls: %w", err)
+			if closeErr := conn.Close(); closeErr != nil {
+				return nil, errors.Join(startTLSErr, fmt.Errorf("ldap: close after starttls failure: %w", closeErr))
+			}
+			return nil, startTLSErr
 		}
 	}
 	return conn, nil
@@ -151,7 +154,7 @@ func (s Settings) filterFor(username string) string {
 // Authenticate runs the search+bind flow and returns the directory attributes
 // for the user. A reachable directory that rejects the credentials yields
 // ErrInvalidCredentials; connectivity/config problems yield other errors.
-func (*Client) Authenticate(ctx context.Context, s Settings, username, password string) (*Result, error) {
+func (*Client) Authenticate(ctx context.Context, s Settings, username, password string) (result *Result, err error) {
 	// Reject empty passwords up front: many servers treat an empty password as
 	// an unauthenticated (anonymous) bind that "succeeds" — which would be an
 	// auth bypass.
@@ -163,7 +166,12 @@ func (*Client) Authenticate(ctx context.Context, s Settings, username, password 
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil {
+			result = nil
+			err = errors.Join(err, fmt.Errorf("ldap: close service connection: %w", closeErr))
+		}
+	}()
 
 	if err := s.bindService(conn); err != nil {
 		return nil, err
@@ -195,7 +203,12 @@ func (*Client) Authenticate(ctx context.Context, s Settings, username, password 
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = userConn.Close() }()
+	defer func() {
+		if closeErr := userConn.Close(); closeErr != nil {
+			result = nil
+			err = errors.Join(err, fmt.Errorf("ldap: close user connection: %w", closeErr))
+		}
+	}()
 	if err := userConn.Bind(entry.DN, password); err != nil {
 		if ldapv3.IsErrorWithCode(err, ldapv3.LDAPResultInvalidCredentials) {
 			return nil, ErrInvalidCredentials
@@ -212,12 +225,16 @@ func (*Client) Authenticate(ctx context.Context, s Settings, username, password 
 
 // TestConnection verifies the host is reachable, TLS negotiates, and the
 // service account (or anonymous) bind succeeds. It does not require a user.
-func (*Client) TestConnection(ctx context.Context, s Settings) error {
+func (*Client) TestConnection(ctx context.Context, s Settings) (err error) {
 	conn, err := s.dial(ctx)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = conn.Close() }()
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("ldap: close connection: %w", closeErr))
+		}
+	}()
 	return s.bindService(conn)
 }
 

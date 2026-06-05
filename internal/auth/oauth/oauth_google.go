@@ -42,7 +42,7 @@ func (p *GoogleProvider) ExchangeCode(ctx context.Context, code string) (*oauth2
 func (p *GoogleProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (*auth.OAuthUserInfo, error) {
 	client := p.oauthCfg.Client(ctx, token)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.googleapis.com/oauth2/v3/userinfo", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.googleapis.com/oauth2/v3/userinfo", http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +50,11 @@ func (p *GoogleProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (
 	if err != nil {
 		return nil, fmt.Errorf("fetch google userinfo: %w", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			_ = closeErr
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("google API userinfo returned status: %d", resp.StatusCode)

@@ -32,11 +32,6 @@ type InternalHandler struct {
 	serviceName string
 }
 
-// NewInternalHandler returns a handler ready to be mounted under /internal.
-func NewInternalHandler(deps *app.CatalogDeps) *InternalHandler {
-	return NewInternalHandlerWithService(deps, "biqly-monolith")
-}
-
 // NewInternalHandlerWithService returns an internal handler with a service
 // name suitable for /internal/health responses.
 func NewInternalHandlerWithService(deps *app.CatalogDeps, serviceName string) *InternalHandler {
@@ -226,19 +221,24 @@ type historyEntryRequest interface {
 	HistoryID() string
 }
 
-func recordHistoryEntry[TReq historyEntryRequest, TResp any](
+func recordHistoryEntry[T any, TResp any](
 	w http.ResponseWriter,
 	r *http.Request,
-	persist func(context.Context, *TReq) error,
+	persist func(context.Context, *T) error,
 	response func(string) TResp,
 	failMsg string,
 ) {
-	req, ok := decodeJSON[TReq](w, r)
+	req, ok := decodeJSON[T](w, r)
 	if !ok {
 		return
 	}
-	entry := *req
-	if strings.TrimSpace(entry.HistoryDatasourceID()) == "" {
+	hist, ok := any(req).(historyEntryRequest)
+	if !ok {
+		writeInternalAPIErrorMsg(w, http.StatusInternalServerError, internalapi.CodeInternal,
+			"history entry request type mismatch")
+		return
+	}
+	if strings.TrimSpace(hist.HistoryDatasourceID()) == "" {
 		writeInternalAPIErrorMsg(w, http.StatusBadRequest, internalapi.CodeInvalidRequest,
 			"entry.datasource_id is required")
 		return
@@ -248,7 +248,7 @@ func recordHistoryEntry[TReq historyEntryRequest, TResp any](
 			internalapi.CodeInternal, failMsg, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, response((*req).HistoryID()))
+	writeJSON(w, http.StatusCreated, response(hist.HistoryID()))
 }
 
 // CreateAIHistory persists one AI query history row. Returns the assigned

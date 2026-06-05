@@ -11,11 +11,11 @@ import (
 )
 
 var (
-	ErrSessionNotFound         = errors.New("session not found")
-	ErrSessionExpired          = errors.New("session expired")
-	ErrSessionRevoked          = errors.New("session revoked")
-	ErrSessionAbsoluteExpired  = errors.New("session absolute lifetime exceeded; please sign in again")
-	ErrSessionIdleExpired      = errors.New("session idle for too long; please sign in again")
+	ErrSessionNotFound        = errors.New("session not found")
+	ErrSessionExpired         = errors.New("session expired")
+	ErrSessionRevoked         = errors.New("session revoked")
+	ErrSessionAbsoluteExpired = errors.New("session absolute lifetime exceeded; please sign in again")
+	ErrSessionIdleExpired     = errors.New("session idle for too long; please sign in again")
 )
 
 type SessionManager struct {
@@ -122,16 +122,6 @@ func (m *SessionManager) EnforceMaxSessions(ctx context.Context, userID string, 
 	return evicted, rows.Err()
 }
 
-// TouchSession bumps last_active_at on the active session matching the refresh
-// token. Best-effort: errors are not fatal.
-func (m *SessionManager) TouchSession(ctx context.Context, refreshToken string) error {
-	_, err := m.db.ExecContext(ctx,
-		`UPDATE sessions SET last_active_at = NOW() WHERE refresh_token = $1 AND revoked_at IS NULL`,
-		refreshToken,
-	)
-	return err
-}
-
 // ListActiveSessions returns active (non-revoked, non-expired) sessions for a user.
 func (m *SessionManager) ListActiveSessions(ctx context.Context, userID string) ([]ActiveSessionInfo, error) {
 	rows, err := m.db.QueryContext(ctx, `
@@ -173,7 +163,10 @@ func (m *SessionManager) RevokeSessionByID(ctx context.Context, userID, sessionI
 	if err != nil {
 		return err
 	}
-	rows, _ := res.RowsAffected()
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("session rows affected: %w", err)
+	}
 	if rows == 0 {
 		return ErrSessionNotFound
 	}
@@ -204,7 +197,9 @@ func (m *SessionManager) RotateSession(ctx context.Context, oldToken string, ttl
 	// Token family protection: refresh of a revoked token signals theft; burn
 	// the entire family so the attacker cannot ride along.
 	if revokedAtNull.Valid {
-		_ = m.RevokeAllUserSessions(ctx, userID)
+		if err := m.RevokeAllUserSessions(ctx, userID); err != nil {
+			_ = err
+		}
 		return "", ErrSessionRevoked
 	}
 
@@ -213,11 +208,15 @@ func (m *SessionManager) RotateSession(ctx context.Context, oldToken string, ttl
 		return "", ErrSessionExpired
 	}
 	if now.After(absoluteExpiresAt) {
-		_ = m.RevokeSession(ctx, oldToken)
+		if err := m.RevokeSession(ctx, oldToken); err != nil {
+			_ = err
+		}
 		return "", ErrSessionAbsoluteExpired
 	}
 	if m.idleTTL > 0 && now.Sub(lastActiveAt) > m.idleTTL {
-		_ = m.RevokeSession(ctx, oldToken)
+		if err := m.RevokeSession(ctx, oldToken); err != nil {
+			_ = err
+		}
 		return "", ErrSessionIdleExpired
 	}
 

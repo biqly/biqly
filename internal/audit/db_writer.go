@@ -149,7 +149,15 @@ func (w *DBWriter) writeBatch(ctx context.Context, batch []Event) error {
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer func() { _ = tx.Rollback() }()
+	committed := false
+	defer func() {
+		if committed {
+			return
+		}
+		if err := tx.Rollback(); err != nil {
+			w.logger.Warn("rollback audit batch transaction", "error", err)
+		}
+	}()
 
 	stmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO audit_events (user_id, event_type, datasource_id, model_id, details, created_at)
@@ -158,7 +166,11 @@ func (w *DBWriter) writeBatch(ctx context.Context, batch []Event) error {
 	if err != nil {
 		return fmt.Errorf("prepare statement: %w", err)
 	}
-	defer func() { _ = stmt.Close() }()
+	defer func() {
+		if closeErr := stmt.Close(); closeErr != nil {
+			w.logger.Warn("failed to close prepared audit statement", "error", closeErr)
+		}
+	}()
 
 	for _, event := range batch {
 		var detailsJSON []byte
@@ -202,6 +214,7 @@ func (w *DBWriter) writeBatch(ctx context.Context, batch []Event) error {
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
 	}
+	committed = true
 
 	return nil
 }

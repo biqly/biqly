@@ -29,15 +29,15 @@ func (*PromptBuilder) writeDialectCompilationGuide(sb *bytes.Buffer, targetDiale
 		key = "postgres"
 	}
 
-	sb.WriteString("\n\n## Datasource SQL Dialect\n")
-	fmt.Fprintf(sb, "Target engine: **%s**. You output **LogicalQuery JSON only** — never raw SQL. The backend compiles your JSON to %s-specific SQL (parameterized, quoted identifiers).\n\n",
+	writePromptString(sb, "\n\n## Datasource SQL Dialect\n")
+	writePromptf(sb, "Target engine: **%s**. You output **LogicalQuery JSON only** — never raw SQL. The backend compiles your JSON to %s-specific SQL (parameterized, quoted identifiers).\n\n",
 		key, key)
 
-	sb.WriteString("### Same LogicalQuery, different compiled SQL\n")
-	sb.WriteString("Illustrative fragments for one filter + one monthly grain dimension (catalog has `order_date_month`, `order_date`, `revenue` metric on `amount`):\n\n")
-	sb.WriteString("LogicalQuery (always emit this shape):\n")
-	sb.WriteString(`{"select":[{"type":"dimension","name":"order_date_month"},{"type":"metric","name":"revenue"}],"filters":[{"field":"order_date","operator":"gte","value":"2024-01-01"}],"group_by":[{"field":"order_date_month"}],"limit":100}`)
-	sb.WriteString("\n\n")
+	writePromptString(sb, "### Same LogicalQuery, different compiled SQL\n")
+	writePromptString(sb, "Illustrative fragments for one filter + one monthly grain dimension (catalog has `order_date_month`, `order_date`, `revenue` metric on `amount`):\n\n")
+	writePromptString(sb, "LogicalQuery (always emit this shape):\n")
+	writePromptString(sb, `{"select":[{"type":"dimension","name":"order_date_month"},{"type":"metric","name":"revenue"}],"filters":[{"field":"order_date","operator":"gte","value":"2024-01-01"}],"group_by":[{"field":"order_date_month"}],"limit":100}`)
+	writePromptString(sb, "\n\n")
 
 	type dialectRow struct {
 		key   string
@@ -87,14 +87,14 @@ func (*PromptBuilder) writeDialectCompilationGuide(sb *bytes.Buffer, targetDiale
 		if r.key == key {
 			marker = " ← **this datasource**"
 		}
-		fmt.Fprintf(sb, "**%s**%s\n", r.label, marker)
-		fmt.Fprintf(sb, "- Month grain in SELECT/GROUP BY: %s\n", r.month)
-		fmt.Fprintf(sb, "- Date filter (gte): %s\n", r.gte)
-		fmt.Fprintf(sb, "- `contains` on text: %s\n", r.like)
-		fmt.Fprintf(sb, "- Row cap: %s\n\n", r.limit)
+		writePromptf(sb, "**%s**%s\n", r.label, marker)
+		writePromptf(sb, "- Month grain in SELECT/GROUP BY: %s\n", r.month)
+		writePromptf(sb, "- Date filter (gte): %s\n", r.gte)
+		writePromptf(sb, "- `contains` on text: %s\n", r.like)
+		writePromptf(sb, "- Row cap: %s\n\n", r.limit)
 	}
 
-	sb.WriteString("Use catalog dimension/metric **names** in LogicalQuery; the compiler applies the dialect rules above.\n")
+	writePromptString(sb, "Use catalog dimension/metric **names** in LogicalQuery; the compiler applies the dialect rules above.\n")
 }
 
 func (*PromptBuilder) writeFailureExamples(sb *bytes.Buffer) {
@@ -152,11 +152,11 @@ func (*PromptBuilder) writeFailureExamples(sb *bytes.Buffer) {
 	}
 
 	for i, p := range pairs {
-		fmt.Fprintf(sb, "%d. **%s**\n", i+1, p.title)
-		fmt.Fprintf(sb, "Wrong: %s\n", p.bad)
-		fmt.Fprintf(sb, "Right: %s\n", p.good)
+		_, _ = fmt.Fprintf(sb, "%d. **%s**\n", i+1, p.title)
+		_, _ = fmt.Fprintf(sb, "Wrong: %s\n", p.bad)
+		_, _ = fmt.Fprintf(sb, "Right: %s\n", p.good)
 		if p.note != "" {
-			fmt.Fprintf(sb, "Why: %s\n", p.note)
+			_, _ = fmt.Fprintf(sb, "Why: %s\n", p.note)
 		}
 		sb.WriteString("\n")
 	}
@@ -206,6 +206,6 @@ func (*PromptBuilder) writePlanningSteps(sb *bytes.Buffer) {
 	}
 
 	for _, step := range steps {
-		fmt.Fprintf(sb, "**%s** — %s\n\n", step.title, step.body)
+		_, _ = fmt.Fprintf(sb, "**%s** — %s\n\n", step.title, step.body)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"golang.org/x/oauth2"
 )
@@ -48,7 +49,9 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, provider string,
 			MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()
 			return nil, err
 		}
-		_ = s.userRepo.LinkOAuthAccount(ctx, userID, provider, userInfo.Sub, token)
+		if err := s.userRepo.LinkOAuthAccount(ctx, userID, provider, userInfo.Sub, token); err != nil {
+			slog.ErrorContext(ctx, "failed to link oauth account on login", "userID", userID, "provider", provider, "err", err)
+		}
 	}
 
 	if !user.IsActive {
@@ -80,7 +83,9 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, provider string,
 		return nil, fmt.Errorf("create session: %w", err)
 	}
 
-	_ = s.userRepo.UpdateLastLogin(ctx, user.ID)
+	if err := s.userRepo.UpdateLastLogin(ctx, user.ID); err != nil {
+		slog.ErrorContext(ctx, "failed to update last login on oauth login", "userID", user.ID, "err", err)
+	}
 
 	MetricLoginAttempts.WithLabelValues(provider, "success").Inc()
 
@@ -91,8 +96,4 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, provider string,
 		Email:        user.Email,
 		Roles:        roles,
 	}, nil
-}
-
-func (s *AuthService) UnlinkOAuth(ctx context.Context, userID, provider string) error {
-	return s.userRepo.UnlinkOAuthAccount(ctx, userID, provider)
 }

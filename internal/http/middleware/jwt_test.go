@@ -239,7 +239,10 @@ func TestJWTAuth_HS256TokenRejected(t *testing.T) {
 		Audience:  jwt.ClaimStrings{"biqly-monolith"},
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
 	})
-	s, _ := tok.SignedString(hmacKey)
+	s, err := tok.SignedString(hmacKey)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	provider := NewPublicKeyProvider(srv.URL, "tok")
 	mw := JWTAuth(provider)

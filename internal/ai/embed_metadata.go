@@ -127,7 +127,8 @@ func (s *EmbedMetadataService) embedForFilter(ctx context.Context, datasourceID 
 	}
 	if allowed != nil {
 		filteredTables := make([]metadata.Table, 0, len(tables))
-		for _, t := range tables {
+		for i := range tables {
+			t := tables[i]
 			if allowed[t.SchemaName+"."+t.TableName] {
 				filteredTables = append(filteredTables, t)
 			}
@@ -143,7 +144,8 @@ func (s *EmbedMetadataService) embedForFilter(ctx context.Context, datasourceID 
 	}
 	if len(s.denySchemas) > 0 || len(s.denyTables) > 0 {
 		filteredTables := make([]metadata.Table, 0, len(tables))
-		for _, t := range tables {
+		for i := range tables {
+			t := tables[i]
 			if !s.isDeniedTable(t.SchemaName, t.TableName) {
 				filteredTables = append(filteredTables, t)
 			}
@@ -195,9 +197,9 @@ func (s *EmbedMetadataService) embedForFilter(ctx context.Context, datasourceID 
 func (s *EmbedMetadataService) embedTables(ctx context.Context, tables []metadata.Table, colsByTable map[string][]metadata.Column, loc i18n.Locale) ([]EmbedTableResult, error) {
 	texts := make([]string, 0, len(tables))
 	refs := make([]metadata.Table, 0, len(tables))
-	for i, t := range tables {
-		key := t.SchemaName + "." + t.TableName
-		txt := buildTableEmbeddingText(t, colsByTable[key])
+	for i := range tables {
+		key := tables[i].SchemaName + "." + tables[i].TableName
+		txt := buildTableEmbeddingText(&tables[i], colsByTable[key])
 		if strings.TrimSpace(txt) == "" {
 			continue
 		}
@@ -231,8 +233,8 @@ func (s *EmbedMetadataService) embedTables(ctx context.Context, tables []metadat
 func (s *EmbedMetadataService) embedColumns(ctx context.Context, cols []metadata.Column, loc i18n.Locale) ([]EmbedTableResult, error) {
 	texts := make([]string, 0, len(cols))
 	refs := make([]metadata.Column, 0, len(cols))
-	for i, c := range cols {
-		txt := buildColumnEmbeddingText(c)
+	for i := range cols {
+		txt := buildColumnEmbeddingText(&cols[i])
 		if strings.TrimSpace(txt) == "" {
 			continue
 		}
@@ -290,9 +292,9 @@ func embedInBatches(ctx context.Context, embedder Embedder, texts []string, batc
 // and a compact column list (names + types). Kept short on purpose — table
 // retrieval doesn't need full data — so embedding cost stays bounded even
 // for catalogs with hundreds of columns per table.
-func buildTableEmbeddingText(t metadata.Table, cols []metadata.Column) string {
+func buildTableEmbeddingText(t *metadata.Table, cols []metadata.Column) string {
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "Table: %s.%s", t.SchemaName, t.TableName)
+	_, _ = fmt.Fprintf(&sb, "Table: %s.%s", t.SchemaName, t.TableName)
 	if t.Description != nil && strings.TrimSpace(*t.Description) != "" {
 		fmt.Fprintf(&sb, "\nDescription: %s", strings.TrimSpace(*t.Description))
 	}
@@ -316,7 +318,7 @@ func buildTableEmbeddingText(t metadata.Table, cols []metadata.Column) string {
 // buildColumnEmbeddingText assembles a compact semantic description for one
 // column. Structural flags stay out of the text except FK target because ranking
 // heuristics already use PK/FK/date/type from metadata.
-func buildColumnEmbeddingText(c metadata.Column) string {
+func buildColumnEmbeddingText(c *metadata.Column) string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "Column: %s.%s.%s", c.SchemaName, c.TableName, c.ColumnName)
 	fmt.Fprintf(&sb, "\nTable: %s.%s", c.SchemaName, c.TableName)

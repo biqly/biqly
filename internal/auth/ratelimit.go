@@ -41,14 +41,18 @@ func (rl *RateLimiter) Limit(limit int, window time.Duration, keyPrefix string) 
 			}
 
 			if count == 1 {
-				_ = rl.redisClient.Expire(ctx, key, window).Err()
+				if err := rl.redisClient.Expire(ctx, key, window).Err(); err != nil {
+					slog.Warn("rate limit expire key error", "key", key, "err", err)
+				}
 			}
 
 			if count > int64(limit) {
 				w.Header().Set("Retry-After", strconv.Itoa(int(window.Seconds())))
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusTooManyRequests)
-				_, _ = w.Write([]byte(`{"error":"too_many_requests","message":"Rate limit exceeded. Please try again later."}`))
+				if _, err := w.Write([]byte(`{"error":"too_many_requests","message":"Rate limit exceeded. Please try again later."}`)); err != nil {
+					_ = err
+				}
 				return
 			}
 

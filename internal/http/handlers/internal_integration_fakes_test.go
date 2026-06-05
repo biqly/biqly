@@ -128,7 +128,7 @@ func (r integrationQueryRunner) Compile(ctx context.Context, lq *query.LogicalQu
 	if r.compile != nil {
 		return r.compile, nil
 	}
-	return core.NewQueryService(core.QueryServiceDeps{
+	return core.NewQueryService(&core.QueryServiceDeps{
 		Models:      fakeModelLoader{model: integrationSemanticModel()},
 		Datasources: fakeDatasourceLoader{datasource: metadata.Datasource{ID: integrationDSID, Type: "postgres"}},
 		Drivers:     integrationDriverRegistry(),
@@ -172,8 +172,8 @@ type integrationDriver struct {
 	dialect dialect.Dialect
 }
 
-func (integrationDriver) Type() string                                  { return "postgres" }
-func (integrationDriver) Ping(context.Context, string) error            { return nil }
+func (integrationDriver) Type() string                       { return "postgres" }
+func (integrationDriver) Ping(context.Context, string) error { return nil }
 func (integrationDriver) Open(context.Context, string) (*sql.DB, error) {
 	return nil, nil //nolint:nilnil // integration test stub never opens a DB
 }

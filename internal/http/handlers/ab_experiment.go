@@ -87,17 +87,91 @@ func NewABExperimentHandler(deps *app.AIDeps) *ABExperimentHandler {
 	}
 }
 
-func (h *ABExperimentHandler) checkInitialized(w http.ResponseWriter) bool {
-	if h.repo == nil {
-		writeError(w, http.StatusServiceUnavailable, "A/B testing repository is not initialized")
-		return false
+func (h *ABExperimentHandler) initializedRepo(w http.ResponseWriter) (*abtest.Repository, bool) {
+	if h == nil {
+		return initializedABExperimentDependency[abtest.Repository](w, nil, "A/B testing repository is not initialized")
 	}
-	return true
+	return initializedABExperimentDependency(w, h.repo, "A/B testing repository is not initialized")
+}
+
+func (h *ABExperimentHandler) initializedCollector(w http.ResponseWriter) (*abtest.MetricsCollector, bool) {
+	if h == nil {
+		return initializedABExperimentDependency[abtest.MetricsCollector](w, nil, "A/B testing metrics collector is not initialized")
+	}
+	return initializedABExperimentDependency(w, h.collector, "A/B testing metrics collector is not initialized")
+}
+
+func (h *ABExperimentHandler) initializedRecommender(w http.ResponseWriter) (*abtest.Recommender, bool) {
+	if h == nil {
+		return initializedABExperimentDependency[abtest.Recommender](w, nil, "A/B testing recommender is not initialized")
+	}
+	return initializedABExperimentDependency(w, h.recommender, "A/B testing recommender is not initialized")
+}
+
+func initializedABExperimentDependency[T any](w http.ResponseWriter, dep *T, message string) (*T, bool) {
+	if dep == nil {
+		writeError(w, http.StatusServiceUnavailable, message)
+		return nil, false
+	}
+	return dep, true
+}
+
+func (h *ABExperimentHandler) requireExperimentRequest(w http.ResponseWriter, r *http.Request) (*abtest.Repository, string, bool) {
+	repo, ok := h.initializedRepo(w)
+	if !ok {
+		return nil, "", false
+	}
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return nil, "", false
+	}
+	return repo, id, true
+}
+
+func (h *ABExperimentHandler) requireMetricsExperiment(
+	w http.ResponseWriter,
+	r *http.Request,
+) (*abtest.MetricsCollector, *abtest.Experiment, string, bool) {
+	repo, id, ok := h.requireExperimentRequest(w, r)
+	if !ok {
+		return nil, nil, "", false
+	}
+	collector, ok := h.initializedCollector(w)
+	if !ok {
+		return nil, nil, "", false
+	}
+	exp, ok := getABExperiment(w, r, repo, id)
+	if !ok {
+		return nil, nil, "", false
+	}
+	return collector, exp, id, true
+}
+
+func getABExperiment(w http.ResponseWriter, r *http.Request, repo *abtest.Repository, id string) (*abtest.Experiment, bool) {
+	exp, err := repo.GetExperiment(r.Context(), id)
+	if err != nil {
+		writeABExperimentLoadError(w, r, "failed to get experiment", err)
+		return nil, false
+	}
+	return exp, true
+}
+
+func writeABExperimentLoadError(w http.ResponseWriter, r *http.Request, message string, err error) {
+	if isABExperimentNotFound(err) {
+		writeEntityNotFound(w, "Experiment")
+		return
+	}
+	writeInternalError(r.Context(), w, http.StatusInternalServerError, message, err)
+}
+
+func isABExperimentNotFound(err error) bool {
+	return errors.Is(err, sql.ErrNoRows) || strings.Contains(err.Error(), "not found")
 }
 
 // Create creates a new draft A/B experiment.
 func (h *ABExperimentHandler) Create(w http.ResponseWriter, r *http.Request) {
-	if !h.checkInitialized(w) {
+	repo, ok := h.initializedRepo(w)
+	if !ok {
 		return
 	}
 	ctx := r.Context()
@@ -149,7 +223,7 @@ func (h *ABExperimentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Status:       abtest.ExperimentStatusDraft,
 	}
 
-	if err := h.repo.CreateExperiment(ctx, exp); err != nil {
+	if err := repo.CreateExperiment(ctx, exp); err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to create experiment", err)
 		return
 	}
@@ -159,13 +233,14 @@ func (h *ABExperimentHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 // List returns A/B experiments, optionally filtered by ?status=running|draft|paused|completed.
 func (h *ABExperimentHandler) List(w http.ResponseWriter, r *http.Request) {
-	if !h.checkInitialized(w) {
+	repo, ok := h.initializedRepo(w)
+	if !ok {
 		return
 	}
 	ctx := r.Context()
 	status := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("status")))
 
-	exps, err := h.repo.ListExperiments(ctx, status)
+	exps, err := repo.ListExperiments(ctx, status)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list experiments", err)
 		return
@@ -176,26 +251,17 @@ func (h *ABExperimentHandler) List(w http.ResponseWriter, r *http.Request) {
 
 // Get returns details for one experiment including its variants.
 func (h *ABExperimentHandler) Get(w http.ResponseWriter, r *http.Request) {
-	if !h.checkInitialized(w) {
+	repo, id, ok := h.requireExperimentRequest(w, r)
+	if !ok {
 		return
 	}
 	ctx := r.Context()
-	id, ok := requireURLParam(w, r, "id")
+	exp, ok := getABExperiment(w, r, repo, id)
 	if !ok {
 		return
 	}
 
-	exp, err := h.repo.GetExperiment(ctx, id)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			writeEntityNotFound(w, "Experiment")
-			return
-		}
-		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get experiment", err)
-		return
-	}
-
-	variants, err := h.repo.ListVariants(ctx, id)
+	variants, err := repo.ListVariants(ctx, id)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list variants", err)
 		return
@@ -209,27 +275,19 @@ func (h *ABExperimentHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 // Update updates name/description of an experiment.
 func (h *ABExperimentHandler) Update(w http.ResponseWriter, r *http.Request) {
-	if !h.checkInitialized(w) {
-		return
-	}
-	ctx := r.Context()
-	id, ok := requireURLParam(w, r, "id")
+	repo, id, ok := h.requireExperimentRequest(w, r)
 	if !ok {
 		return
 	}
+	ctx := r.Context()
 
 	req, ok := decodeJSON[updateExperimentRequest](w, r)
 	if !ok {
 		return
 	}
 
-	exp, err := h.repo.GetExperiment(ctx, id)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			writeEntityNotFound(w, "Experiment")
-			return
-		}
-		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get experiment", err)
+	exp, ok := getABExperiment(w, r, repo, id)
+	if !ok {
 		return
 	}
 
@@ -241,7 +299,7 @@ func (h *ABExperimentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.repo.UpdateExperiment(ctx, exp); err != nil {
+	if err := repo.UpdateExperiment(ctx, exp); err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to update experiment", err)
 		return
 	}
@@ -251,14 +309,11 @@ func (h *ABExperimentHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 // UpdateStatus transitions experiment status.
 func (h *ABExperimentHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
-	if !h.checkInitialized(w) {
-		return
-	}
-	ctx := r.Context()
-	id, ok := requireURLParam(w, r, "id")
+	repo, id, ok := h.requireExperimentRequest(w, r)
 	if !ok {
 		return
 	}
+	ctx := r.Context()
 
 	req, ok := decodeJSON[updateStatusRequest](w, r)
 	if !ok {
@@ -274,13 +329,8 @@ func (h *ABExperimentHandler) UpdateStatus(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	exp, err := h.repo.GetExperiment(ctx, id)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			writeEntityNotFound(w, "Experiment")
-			return
-		}
-		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get experiment", err)
+	exp, ok := getABExperiment(w, r, repo, id)
+	if !ok {
 		return
 	}
 
@@ -289,7 +339,7 @@ func (h *ABExperimentHandler) UpdateStatus(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	variants, err := h.repo.ListVariants(ctx, id)
+	variants, err := repo.ListVariants(ctx, id)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list variants", err)
 		return
@@ -312,12 +362,12 @@ func (h *ABExperimentHandler) UpdateStatus(w http.ResponseWriter, r *http.Reques
 			exp.EndedAt = &now
 		}
 	case abtest.ExperimentStatusDraft, abtest.ExperimentStatusPaused:
-		// No action needed for other status values
+		// no timestamp side effects
 	}
 
 	exp.Status = newStatus
 
-	if err := h.repo.UpdateExperiment(ctx, exp); err != nil {
+	if err := repo.UpdateExperiment(ctx, exp); err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to update experiment status", err)
 		return
 	}
@@ -332,27 +382,19 @@ func (h *ABExperimentHandler) UpdateStatus(w http.ResponseWriter, r *http.Reques
 
 // AddVariant adds a new variant to a draft experiment.
 func (h *ABExperimentHandler) AddVariant(w http.ResponseWriter, r *http.Request) {
-	if !h.checkInitialized(w) {
-		return
-	}
-	ctx := r.Context()
-	id, ok := requireURLParam(w, r, "id")
+	repo, id, ok := h.requireExperimentRequest(w, r)
 	if !ok {
 		return
 	}
+	ctx := r.Context()
 
 	req, ok := decodeJSON[createVariantRequest](w, r)
 	if !ok {
 		return
 	}
 
-	exp, err := h.repo.GetExperiment(ctx, id)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			writeEntityNotFound(w, "Experiment")
-			return
-		}
-		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get experiment", err)
+	exp, ok := getABExperiment(w, r, repo, id)
+	if !ok {
 		return
 	}
 
@@ -374,7 +416,7 @@ func (h *ABExperimentHandler) AddVariant(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := h.repo.AddVariant(ctx, variant); err != nil {
+	if err := repo.AddVariant(ctx, variant); err != nil {
 		writeInternalError(ctx, w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
@@ -384,14 +426,11 @@ func (h *ABExperimentHandler) AddVariant(w http.ResponseWriter, r *http.Request)
 
 // UpdateVariant updates a variant in a draft experiment.
 func (h *ABExperimentHandler) UpdateVariant(w http.ResponseWriter, r *http.Request) {
-	if !h.checkInitialized(w) {
-		return
-	}
-	ctx := r.Context()
-	id, ok := requireURLParam(w, r, "id")
+	repo, id, ok := h.requireExperimentRequest(w, r)
 	if !ok {
 		return
 	}
+	ctx := r.Context()
 	variantID, ok := requireURLParam(w, r, "variantId")
 	if !ok {
 		return
@@ -402,13 +441,8 @@ func (h *ABExperimentHandler) UpdateVariant(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	exp, err := h.repo.GetExperiment(ctx, id)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			writeEntityNotFound(w, "Experiment")
-			return
-		}
-		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get experiment", err)
+	exp, ok := getABExperiment(w, r, repo, id)
+	if !ok {
 		return
 	}
 
@@ -431,7 +465,7 @@ func (h *ABExperimentHandler) UpdateVariant(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if err := h.repo.UpdateVariant(ctx, variant); err != nil {
+	if err := repo.UpdateVariant(ctx, variant); err != nil {
 		writeInternalError(ctx, w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
@@ -441,26 +475,18 @@ func (h *ABExperimentHandler) UpdateVariant(w http.ResponseWriter, r *http.Reque
 
 // DeleteVariant deletes a variant in a draft experiment.
 func (h *ABExperimentHandler) DeleteVariant(w http.ResponseWriter, r *http.Request) {
-	if !h.checkInitialized(w) {
-		return
-	}
-	ctx := r.Context()
-	id, ok := requireURLParam(w, r, "id")
+	repo, id, ok := h.requireExperimentRequest(w, r)
 	if !ok {
 		return
 	}
+	ctx := r.Context()
 	variantID, ok := requireURLParam(w, r, "variantId")
 	if !ok {
 		return
 	}
 
-	exp, err := h.repo.GetExperiment(ctx, id)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			writeEntityNotFound(w, "Experiment")
-			return
-		}
-		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get experiment", err)
+	exp, ok := getABExperiment(w, r, repo, id)
+	if !ok {
 		return
 	}
 
@@ -469,7 +495,7 @@ func (h *ABExperimentHandler) DeleteVariant(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if err := h.repo.DeleteVariant(ctx, variantID); err != nil {
+	if err := repo.DeleteVariant(ctx, variantID); err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to delete variant", err)
 		return
 	}
@@ -479,28 +505,15 @@ func (h *ABExperimentHandler) DeleteVariant(w http.ResponseWriter, r *http.Reque
 
 // GetMetrics returns aggregated metrics for an experiment.
 func (h *ABExperimentHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {
-	if !h.checkInitialized(w) {
-		return
-	}
-	ctx := r.Context()
-	id, ok := requireURLParam(w, r, "id")
+	collector, exp, id, ok := h.requireMetricsExperiment(w, r)
 	if !ok {
 		return
 	}
-
-	exp, err := h.repo.GetExperiment(ctx, id)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			writeEntityNotFound(w, "Experiment")
-			return
-		}
-		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get experiment", err)
-		return
-	}
+	ctx := r.Context()
 
 	start, end := parseStartEndQueries(r, exp)
 
-	metrics, err := h.collector.ComputeMetrics(ctx, id, start, end)
+	metrics, err := collector.ComputeMetrics(ctx, id, start, end)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to compute metrics", err)
 		return
@@ -511,24 +524,11 @@ func (h *ABExperimentHandler) GetMetrics(w http.ResponseWriter, r *http.Request)
 
 // GetTimeseries returns daily timeseries performance metrics for the experiment.
 func (h *ABExperimentHandler) GetTimeseries(w http.ResponseWriter, r *http.Request) {
-	if !h.checkInitialized(w) {
-		return
-	}
-	ctx := r.Context()
-	id, ok := requireURLParam(w, r, "id")
+	collector, exp, id, ok := h.requireMetricsExperiment(w, r)
 	if !ok {
 		return
 	}
-
-	exp, err := h.repo.GetExperiment(ctx, id)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			writeEntityNotFound(w, "Experiment")
-			return
-		}
-		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get experiment", err)
-		return
-	}
+	ctx := r.Context()
 
 	start, end := parseStartEndQueries(r, exp)
 
@@ -545,7 +545,7 @@ func (h *ABExperimentHandler) GetTimeseries(w http.ResponseWriter, r *http.Reque
 		dayStart := time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, d.Location())
 		dayEnd := dayStart.AddDate(0, 0, 1).Add(-time.Nanosecond)
 
-		metrics, err := h.collector.ComputeMetrics(ctx, id, dayStart, dayEnd)
+		metrics, err := collector.ComputeMetrics(ctx, id, dayStart, dayEnd)
 		if err != nil {
 			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to compute daily metrics", err)
 			return
@@ -562,7 +562,8 @@ func (h *ABExperimentHandler) GetTimeseries(w http.ResponseWriter, r *http.Reque
 
 // GetRecommendation returns automated winner recommendation analysis.
 func (h *ABExperimentHandler) GetRecommendation(w http.ResponseWriter, r *http.Request) {
-	if !h.checkInitialized(w) {
+	recommender, ok := h.initializedRecommender(w)
+	if !ok {
 		return
 	}
 	ctx := r.Context()
@@ -571,9 +572,9 @@ func (h *ABExperimentHandler) GetRecommendation(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	rec, err := h.recommender.Recommend(ctx, id)
+	rec, err := recommender.Recommend(ctx, id)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) || strings.Contains(err.Error(), "not found") {
+		if isABExperimentNotFound(err) {
 			writeEntityNotFound(w, "Experiment")
 			return
 		}

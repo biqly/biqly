@@ -26,7 +26,7 @@ func CleanAIResponseForJSON(raw string) string {
 	s = strings.TrimPrefix(s, "\ufeff")
 	s = stripReasoningPreamble(s)
 
-	if idx := strings.Index(s, "```json"); idx >= 0 { //nolint:nestif
+	if idx := strings.Index(s, "```json"); idx >= 0 { //nolint:nestif // fenced JSON may include preamble and closing fence
 		s = s[idx+len("```json"):]
 		if end := strings.Index(s, "```"); end >= 0 {
 			s = s[:end]

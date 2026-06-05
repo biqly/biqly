@@ -48,7 +48,11 @@ func main() {
 		slog.Error("open database", "error", err)
 		os.Exit(1)
 	}
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if err := db.Close(); err != nil {
+			slog.Warn("close database", "error", err)
+		}
+	}()
 
 	if err := db.PingContext(ctx); err != nil {
 		slog.Error("ping database", "error", err)
@@ -108,7 +112,7 @@ func migrateUp(ctx context.Context, db *sql.DB, dir string) error {
 		if applied[name] {
 			continue
 		}
-		body, readErr := os.ReadFile(path) //nolint:gosec
+		body, readErr := os.ReadFile(path) //nolint:gosec // migration paths come from the migrations directory listing
 		if readErr != nil {
 			return fmt.Errorf("read %s: %w", name, readErr)
 		}
@@ -148,7 +152,7 @@ func migrateDown(ctx context.Context, db *sql.DB, dir string) error {
 		return fmt.Errorf("no down migration for %s", latest)
 	}
 	path := filepath.Join(dir, downName)
-	body, err := os.ReadFile(path) //nolint:gosec
+	body, err := os.ReadFile(path) //nolint:gosec // down migration path is derived from applied migration record
 	if err != nil {
 		return fmt.Errorf("read %s: %w", downName, err)
 	}
@@ -173,14 +177,18 @@ func upToDownFilename(up string) string {
 	return strings.Replace(base, "a_", "b_", 1) + ".down.sql"
 }
 
-func loadAppliedSet(ctx context.Context, db *sql.DB) (map[string]bool, error) {
+func loadAppliedSet(ctx context.Context, db *sql.DB) (out map[string]bool, err error) {
 	rows, err := db.QueryContext(ctx, `SELECT filename FROM biqly_applied_migrations`)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
-	out := make(map[string]bool)
+	out = make(map[string]bool)
 	for rows.Next() {
 		var name string
 		if err := rows.Scan(&name); err != nil {
@@ -188,7 +196,10 @@ func loadAppliedSet(ctx context.Context, db *sql.DB) (map[string]bool, error) {
 		}
 		out[name] = true
 	}
-	return out, rows.Err()
+	if rowsErr := rows.Err(); rowsErr != nil {
+		return nil, rowsErr
+	}
+	return out, nil
 }
 
 func execSQL(ctx context.Context, db *sql.DB, sqlText string) error {

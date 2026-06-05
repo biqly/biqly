@@ -154,51 +154,40 @@ func (c *Compiler) compileStatement(
 
 	limitClause := c.dialect.LimitOffset(lq.Limit, lq.Offset)
 
-	var sql strings.Builder
-	sql.Grow(256)
-	sql.WriteString(withPrefix)
-	sql.WriteString("SELECT ")
-	sql.WriteString(strings.Join(selectParts, ", "))
-	sql.WriteString(" FROM ")
-	sql.WriteString(fromClause)
+	chunks := make([]string, 0, 16+len(joinClauses))
+	chunks = append(chunks, withPrefix, "SELECT ", strings.Join(selectParts, ", "), " FROM ", fromClause)
 
 	for _, jc := range joinClauses {
-		sql.WriteString(" ")
-		sql.WriteString(jc)
+		chunks = append(chunks, " ", jc)
 	}
 	if whereClause != "" || len(rowFilterPreds) > 0 {
-		sql.WriteString(" WHERE ")
+		chunks = append(chunks, " WHERE ")
 		if whereClause != "" {
-			sql.WriteString(whereClause)
+			chunks = append(chunks, whereClause)
 			if len(rowFilterPreds) > 0 {
-				sql.WriteString(" AND ")
+				chunks = append(chunks, " AND ")
 			}
 		}
 		if len(rowFilterPreds) > 0 {
-			sql.WriteString(strings.Join(rowFilterPreds, " AND "))
+			chunks = append(chunks, strings.Join(rowFilterPreds, " AND "))
 		}
 	}
 	if groupByClause != "" {
-		sql.WriteString(" GROUP BY ")
-		sql.WriteString(groupByClause)
+		chunks = append(chunks, " GROUP BY ", groupByClause)
 	}
 	if havingClause != "" {
-		sql.WriteString(" HAVING ")
-		sql.WriteString(havingClause)
+		chunks = append(chunks, " HAVING ", havingClause)
 	}
 	if orderByClause != "" {
-		sql.WriteString(" ORDER BY ")
-		sql.WriteString(orderByClause)
+		chunks = append(chunks, " ORDER BY ", orderByClause)
 	} else if defaultOrder := c.dialect.DefaultOrderBy(); defaultOrder != "" && limitClause != "" {
-		sql.WriteString(" ORDER BY ")
-		sql.WriteString(defaultOrder)
+		chunks = append(chunks, " ORDER BY ", defaultOrder)
 	}
 	if limitClause != "" {
-		sql.WriteString(" ")
-		sql.WriteString(limitClause)
+		chunks = append(chunks, " ", limitClause)
 	}
 
-	return &CompiledQuery{SQL: sql.String(), Args: append([]any(nil), *args...)}, nil
+	return &CompiledQuery{SQL: strings.Join(chunks, ""), Args: append([]any(nil), *args...)}, nil
 }
 
 func (c *Compiler) buildInSubqueryFilter(lhsSQL string, f Filter, model *semantic.SemanticModel, positive bool, args *[]any) (string, []any, error) {

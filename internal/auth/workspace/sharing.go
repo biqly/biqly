@@ -206,33 +206,6 @@ func (s *SharingService) ListOwned(ctx context.Context, ownerID, resourceType, r
 	return list, rows.Err()
 }
 
-// CheckAccess returns the highest permission a user has on a given resource,
-// or empty string if no access.
-func (s *SharingService) CheckAccess(ctx context.Context, userID, resourceType, resourceID string) (SharePermission, error) {
-	var permission sql.NullString
-	err := s.db.QueryRowContext(ctx, `
-		SELECT rs.permission
-		FROM resource_shares rs
-		LEFT JOIN workspace_members wm ON rs.workspace_id = wm.workspace_id
-		WHERE rs.resource_type = $1 AND rs.resource_id = $2
-		  AND (rs.shared_with = $3 OR rs.owner_id = $3 OR wm.user_id = $3)
-		ORDER BY CASE rs.permission
-			WHEN 'edit' THEN 3 WHEN 'execute' THEN 2 WHEN 'view' THEN 1 ELSE 0
-		END DESC
-		LIMIT 1
-	`, resourceType, resourceID, userID).Scan(&permission)
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", nil
-	}
-	if err != nil {
-		return "", err
-	}
-	if permission.Valid {
-		return SharePermission(permission.String), nil
-	}
-	return "", nil
-}
-
 func isValidPermission(p string) bool {
 	switch strings.ToLower(p) {
 	case "view", "execute", "edit":

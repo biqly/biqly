@@ -71,13 +71,15 @@ func connectSelectedTables(selected []tableBundle, relations []metadata.Relation
 		for _, cand := range remaining {
 			attached := false
 			for _, exist := range connected {
-				if rel, ok := directRelation(exist.table, cand.table, relations); ok {
-					connected = append(connected, cand)
-					joinPaths = append(joinPaths, relationPath(rel))
-					attached = true
-					added = true
-					break
+				rel, ok := directRelation(exist.table, cand.table, relations)
+				if !ok {
+					continue
 				}
+				connected = append(connected, cand)
+				joinPaths = append(joinPaths, relationPath(rel))
+				attached = true
+				added = true
+				break
 			}
 			if !attached {
 				still = append(still, cand)
@@ -145,6 +147,7 @@ func shortestPathFromSet(adj map[string][]string, from map[string]struct{}, to s
 
 // expandSelectedWithJoinBridges inserts intermediate tables on shortest FK paths so high-scoring
 // picks that were disconnected (e.g. sales header + production productcategory) become one component.
+//
 //nolint:gocognit
 func expandSelectedWithJoinBridges(
 	selected []tableBundle,

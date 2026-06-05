@@ -93,6 +93,8 @@ func isRetriableNetErr(err error) bool {
 	if ne, ok := errors.AsType[net.Error](err); ok && ne.Timeout() {
 		return true
 	}
-	_, ok := errors.AsType[*net.OpError](err)
-	return ok
+	if opErr, ok := errors.AsType[*net.OpError](err); ok && opErr != nil {
+		return true
+	}
+	return false
 }

@@ -28,7 +28,7 @@ type GeneratedModel struct {
 	Warnings []string                `json:"warnings,omitempty"`
 }
 
-//nolint:gocognit
+//nolint:gocognit // semantic model synthesis walks tables, columns, and relations together
 func GenerateModelFromMetadata(tables []metadata.Table, columns []metadata.Column, relations []metadata.Relation, opts GenerateModelOptions) (*GeneratedModel, error) {
 	if opts.DatasourceID == "" {
 		return nil, errors.New("datasource_id is required")

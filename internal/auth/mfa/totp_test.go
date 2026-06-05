@@ -11,7 +11,10 @@ func TestGenerateTOTPSecret_UniqueAndBase32(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generate: %v", err)
 	}
-	s2, _ := GenerateTOTPSecret()
+	s2, err := GenerateTOTPSecret()
+	if err != nil {
+		t.Fatalf("generate: %v", err)
+	}
 	if s1 == s2 {
 		t.Fatalf("expected distinct secrets")
 	}
@@ -21,7 +24,10 @@ func TestGenerateTOTPSecret_UniqueAndBase32(t *testing.T) {
 }
 
 func TestVerifyTOTP_CurrentAndSkewWindows(t *testing.T) {
-	secret, _ := GenerateTOTPSecret()
+	secret, err := GenerateTOTPSecret()
+	if err != nil {
+		t.Fatalf("generate: %v", err)
+	}
 	now := time.Unix(1_700_000_000, 0)
 	counter, ok := totpCounter(now)
 	if !ok {
@@ -36,23 +42,35 @@ func TestVerifyTOTP_CurrentAndSkewWindows(t *testing.T) {
 		t.Fatalf("current code should verify")
 	}
 
-	prev, _ := generateTOTPCode(secret, counter-1)
+	prev, err := generateTOTPCode(secret, counter-1)
+	if err != nil {
+		t.Fatalf("generate code: %v", err)
+	}
 	if !VerifyTOTP(secret, prev, now) {
 		t.Fatalf("previous step should verify (skew=1)")
 	}
-	next, _ := generateTOTPCode(secret, counter+1)
+	next, err := generateTOTPCode(secret, counter+1)
+	if err != nil {
+		t.Fatalf("generate code: %v", err)
+	}
 	if !VerifyTOTP(secret, next, now) {
 		t.Fatalf("next step should verify (skew=1)")
 	}
 
-	farFuture, _ := generateTOTPCode(secret, counter+5)
+	farFuture, err := generateTOTPCode(secret, counter+5)
+	if err != nil {
+		t.Fatalf("generate code: %v", err)
+	}
 	if VerifyTOTP(secret, farFuture, now) {
 		t.Fatalf("far-future code should not verify")
 	}
 }
 
 func TestVerifyTOTP_RejectsMalformed(t *testing.T) {
-	secret, _ := GenerateTOTPSecret()
+	secret, err := GenerateTOTPSecret()
+	if err != nil {
+		t.Fatalf("generate: %v", err)
+	}
 	if VerifyTOTP(secret, "", time.Now()) {
 		t.Fatal("empty code accepted")
 	}

@@ -26,7 +26,11 @@ func TestRBACRepositoryGetUserPermissionsOnlyReadsGlobalRoles(t *testing.T) {
 
 	dbPool, err := sql.Open("rbac_scope_check", "")
 	require.NoError(t, err)
-	defer func() { _ = dbPool.Close() }()
+	defer func() {
+		if err := dbPool.Close(); err != nil {
+			t.Errorf("dbPool.Close() error = %v", err)
+		}
+	}()
 
 	perms, err := NewRBACRepository(dbPool).GetUserPermissions(context.Background(), "user-1")
 	require.NoError(t, err)
@@ -40,7 +44,11 @@ func TestRBACServiceAllowsOnlyMatchingResourceScope(t *testing.T) {
 
 	dbPool, err := sql.Open("rbac_scope_check", "")
 	require.NoError(t, err)
-	defer func() { _ = dbPool.Close() }()
+	defer func() {
+		if err := dbPool.Close(); err != nil {
+			t.Errorf("dbPool.Close() error = %v", err)
+		}
+	}()
 
 	rbacSvc := NewRBACService(NewRBACRepository(dbPool))
 
@@ -73,8 +81,10 @@ func TestRBACServiceChecksResourceScopedRole(t *testing.T) {
 		datasourceB = "00000000-0000-0000-0000-00000000d5b2"
 	)
 
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE email = $1)", email)
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email = $1", email)
+	_, err := dbPool.ExecContext(ctx, "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE email = $1)", email)
+	require.NoError(t, err)
+	_, err = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email = $1", email)
+	require.NoError(t, err)
 
 	var userID string
 	require.NoError(t, dbPool.QueryRowContext(ctx,
@@ -126,7 +136,7 @@ func TestRoleInheritanceMigrationDefinesDefaultHierarchy(t *testing.T) {
 		t.Fatalf("ReadFile(025a_create_role_inheritance.up.sql) error = %v, want nil", err)
 	}
 
-	sql := string(up)
+	sqlStr := string(up)
 	for _, fragment := range []string{
 		"role_inheritance",
 		"parent_role_id",
@@ -137,7 +147,7 @@ func TestRoleInheritanceMigrationDefinesDefaultHierarchy(t *testing.T) {
 		"'analyst', 'viewer'",
 		"CHECK (parent_role_id <> child_role_id)",
 	} {
-		if !strings.Contains(sql, fragment) {
+		if !strings.Contains(sqlStr, fragment) {
 			t.Errorf("role inheritance migration contains %q = false, want true", fragment)
 		}
 	}
@@ -156,8 +166,10 @@ func TestRBACServiceInheritsGlobalRolePermissions(t *testing.T) {
 	}
 
 	const email = "rbac_role_inheritance@example.com"
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE email = $1)", email)
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email = $1", email)
+	_, err := dbPool.ExecContext(ctx, "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE email = $1)", email)
+	require.NoError(t, err)
+	_, err = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email = $1", email)
+	require.NoError(t, err)
 
 	var userID string
 	if err := dbPool.QueryRowContext(ctx,
@@ -282,7 +294,11 @@ func openTestDBPool(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Skip("skipping database tests; DB not available:", err)
 	}
-	t.Cleanup(func() { _ = dbPool.Close() })
+	t.Cleanup(func() {
+		if err := dbPool.Close(); err != nil {
+			t.Errorf("dbPool.Close() error = %v", err)
+		}
+	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()

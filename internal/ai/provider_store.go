@@ -127,11 +127,15 @@ type ProviderStore struct {
 // (API keys are then stored/read as plaintext, matching the datasource DSN
 // fallback). fallback supplies the env-backed configuration used to seed an
 // empty database and to resolve purposes with no configured default.
-func NewProviderStore(db *sql.DB, encryptor *security.Encryption, fallback config.AIConfig) *ProviderStore {
+func NewProviderStore(db *sql.DB, encryptor *security.Encryption, fallback *config.AIConfig) *ProviderStore {
+	var fb config.AIConfig
+	if fallback != nil {
+		fb = *fallback
+	}
 	return &ProviderStore{
 		db:        db,
 		encryptor: encryptor,
-		fallback:  fallback,
+		fallback:  fb,
 		resolved:  map[Purpose]*resolvedModel{},
 	}
 }
@@ -265,10 +269,10 @@ func (s *ProviderStore) ChatConfigForModelUUID(ctx context.Context, modelUUID st
 	rm.ProviderType = providerType
 	rm.BaseURL = baseURL
 	rm.APIKey = s.decrypt(encKey)
-	return s.chatConfigFromResolved(rm), true
+	return s.chatConfigFromResolved(&rm), true
 }
 
-func (s *ProviderStore) chatConfigFromResolved(rm resolvedModel) config.AIConfig {
+func (s *ProviderStore) chatConfigFromResolved(rm *resolvedModel) config.AIConfig {
 	cfg := s.fallback
 	cfg.Provider = rm.ProviderType
 	cfg.Model = rm.ModelID
@@ -338,7 +342,7 @@ func (s *ProviderStore) ChatConfigForPurpose(p Purpose) (config.AIConfig, bool) 
 	if !ok {
 		return s.fallback, false
 	}
-	return s.chatConfigFromResolved(*rm), true
+	return s.chatConfigFromResolved(rm), true
 }
 
 // EffectiveConfig returns the fallback config with embedding and translation
@@ -568,7 +572,7 @@ func (s *ProviderStore) scanProvider(sc platformdb.Scanner) (ProviderRow, error)
 }
 
 // CreateProvider inserts a provider and returns its id.
-func (s *ProviderStore) CreateProvider(ctx context.Context, in CreateProviderInput) (string, error) {
+func (s *ProviderStore) CreateProvider(ctx context.Context, in *CreateProviderInput) (string, error) {
 	if strings.TrimSpace(in.Name) == "" {
 		return "", errors.New("name is required")
 	}
@@ -605,7 +609,7 @@ func (s *ProviderStore) CreateProvider(ctx context.Context, in CreateProviderInp
 }
 
 // UpdateProvider patches a provider by id.
-func (s *ProviderStore) UpdateProvider(ctx context.Context, id string, in UpdateProviderInput) error {
+func (s *ProviderStore) UpdateProvider(ctx context.Context, id string, in *UpdateProviderInput) error {
 	if strings.TrimSpace(in.Name) == "" {
 		return errors.New("name is required")
 	}
@@ -695,7 +699,7 @@ func scanModel(sc platformdb.Scanner) (ModelRow, error) {
 
 // CreateModel inserts a model. When IsDefault is set it atomically clears any
 // existing default for the same purpose.
-func (s *ProviderStore) CreateModel(ctx context.Context, in CreateModelInput) (string, error) {
+func (s *ProviderStore) CreateModel(ctx context.Context, in *CreateModelInput) (string, error) {
 	if strings.TrimSpace(in.ProviderID) == "" {
 		return "", errors.New("provider_id is required")
 	}
@@ -745,7 +749,7 @@ func (s *ProviderStore) CreateModel(ctx context.Context, in CreateModelInput) (s
 }
 
 // UpdateModel patches a model by id.
-func (s *ProviderStore) UpdateModel(ctx context.Context, id string, in UpdateModelInput) error {
+func (s *ProviderStore) UpdateModel(ctx context.Context, id string, in *UpdateModelInput) error {
 	if strings.TrimSpace(in.ModelID) == "" {
 		return errors.New("model_id is required")
 	}
@@ -860,13 +864,17 @@ func (s *ProviderStore) TestConnection(ctx context.Context, providerID, modelID 
 	// embedding-only providers can be tested too.
 	var purpose string
 	if strings.TrimSpace(modelID) == "" {
-		_ = s.db.QueryRowContext(ctx,
+		if err := s.db.QueryRowContext(ctx,
 			`SELECT model_id, purpose FROM ai_models WHERE provider_id = $1::uuid ORDER BY is_default DESC, created_at LIMIT 1`,
-			providerID).Scan(&modelID, &purpose)
+			providerID).Scan(&modelID, &purpose); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return ConnectionTestResult{}, fmt.Errorf("lookup default provider model: %w", err)
+		}
 	} else {
-		_ = s.db.QueryRowContext(ctx,
+		if err := s.db.QueryRowContext(ctx,
 			`SELECT purpose FROM ai_models WHERE provider_id = $1::uuid AND model_id = $2 LIMIT 1`,
-			providerID, strings.TrimSpace(modelID)).Scan(&purpose)
+			providerID, strings.TrimSpace(modelID)).Scan(&purpose); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return ConnectionTestResult{}, fmt.Errorf("lookup provider model purpose: %w", err)
+		}
 	}
 	modelID = strings.TrimSpace(modelID)
 	if modelID == "" {

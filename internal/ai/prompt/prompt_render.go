@@ -26,7 +26,10 @@ func renderPromptTemplate(body string, data any) string {
 		return body
 	}
 
-	buf, _ := renderBufPool.Get().(*bytes.Buffer)
+	buf, ok := renderBufPool.Get().(*bytes.Buffer)
+	if !ok {
+		buf = new(bytes.Buffer)
+	}
 	buf.Reset()
 	defer renderBufPool.Put(buf)
 

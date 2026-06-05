@@ -124,7 +124,7 @@ func (c *Client) post(ctx context.Context, path string, body, out any) error {
 // do is the single HTTP path. It centralises URL construction, header
 // management, body encoding, status-code branching and error envelope parsing
 // so per-endpoint methods stay one-liners.
-func (c *Client) do(ctx context.Context, method, path string, query url.Values, body, out any) error {
+func (c *Client) do(ctx context.Context, method, path string, query url.Values, body, out any) (err error) {
 	if c.baseURL == "" {
 		return errors.New("catalogclient: baseURL is empty")
 	}
@@ -157,13 +157,19 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 	if err != nil {
 		return fmt.Errorf("catalogclient: %s %s: %w", method, u, err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return decodeErrorResponse(resp)
 	}
 	if out == nil || resp.StatusCode == http.StatusNoContent {
-		_, _ = io.Copy(io.Discard, resp.Body)
+		if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+			return fmt.Errorf("catalogclient: drain response body: %w", err)
+		}
 		return nil
 	}
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
@@ -199,10 +205,15 @@ func (c *Client) setHeaders(ctx context.Context, req *http.Request, hasBody bool
 // cleanly (e.g. proxy HTML pages on a misconfigured ingress) still produce a
 // usable APIError carrying the raw text snippet.
 func decodeErrorResponse(resp *http.Response) error {
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 16*1024))
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 16*1024))
+	if err != nil {
+		return newAPIErrorFromResponse(resp.StatusCode, internalapi.Error{Error: "read error response: " + err.Error()})
+	}
 	var env internalapi.Error
 	if len(raw) > 0 && bytes.HasPrefix(bytes.TrimSpace(raw), []byte("{")) {
-		_ = json.Unmarshal(raw, &env)
+		if err := json.Unmarshal(raw, &env); err != nil {
+			env.Error = strings.TrimSpace(string(raw))
+		}
 	}
 	if env.Error == "" {
 		env.Error = strings.TrimSpace(string(raw))

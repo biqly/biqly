@@ -12,9 +12,9 @@ import (
 
 // Config holds database connection parameters.
 type Config struct {
-	DSN            string
-	MaxOpenConns   int
-	MaxIdleConns   int
+	DSN             string
+	MaxOpenConns    int
+	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
 	ConnMaxIdleTime time.Duration
 }
@@ -22,9 +22,9 @@ type Config struct {
 // DefaultConfig returns sensible defaults.
 func DefaultConfig(dsn string) Config {
 	return Config{
-		DSN:            dsn,
-		MaxOpenConns:   25,
-		MaxIdleConns:   5,
+		DSN:             dsn,
+		MaxOpenConns:    25,
+		MaxIdleConns:    5,
 		ConnMaxLifetime: 30 * time.Minute,
 		ConnMaxIdleTime: 10 * time.Minute,
 	}
@@ -43,17 +43,11 @@ func NewPool(ctx context.Context, cfg Config) (*sql.DB, error) {
 	db.SetConnMaxIdleTime(cfg.ConnMaxIdleTime)
 
 	if err := db.PingContext(ctx); err != nil {
-		_ = db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			_ = closeErr
+		}
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
 
 	return db, nil
-}
-
-// Close safely closes a database connection pool.
-func Close(db *sql.DB) error {
-	if db == nil {
-		return nil
-	}
-	return db.Close()
 }

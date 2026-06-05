@@ -40,12 +40,12 @@ func (h *AIHandler) recordAIHistory(
 	ctx context.Context,
 	req aiQueryRequest,
 	model *semantic.SemanticModel,
-	routing *routing.TableRoutingResult,
+	routeResult *routing.TableRoutingResult,
 	resp *ai.Response,
 ) {
-	entry := buildAIHistoryEntry(req, model, routing, resp)
+	entry := buildAIHistoryEntry(req, model, routeResult, resp)
 	if h.deps.CatalogClient != nil {
-		if _, err := h.deps.CatalogClient.CreateAIHistory(ctx, *entry); err != nil {
+		if _, err := h.deps.CatalogClient.CreateAIHistory(ctx, entry); err != nil {
 			slog.ErrorContext(ctx, "create AI query history via catalog failed", "error", err)
 		}
 		return
@@ -58,7 +58,7 @@ func (h *AIHandler) recordAIHistory(
 func buildAIHistoryEntry(
 	req aiQueryRequest,
 	model *semantic.SemanticModel,
-	routing *routing.TableRoutingResult,
+	routeResult *routing.TableRoutingResult,
 	resp *ai.Response,
 ) *metadata.AIQueryHistoryEntry {
 	var prompt string
@@ -95,7 +95,7 @@ func buildAIHistoryEntry(
 		PromptContext: map[string]any{
 			"model_id":                       req.ModelID,
 			"selected_scope":                 req.Tables,
-			"routing":                        routing,
+			"routing":                        routeResult,
 			"prompt":                         prompt,
 			"prompt_template_locale":         locale,
 			"prompt_template_versions":       versions,
@@ -121,4 +121,3 @@ func nullIfEmpty(s string) *string {
 	}
 	return &s
 }
-

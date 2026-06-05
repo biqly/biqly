@@ -1,8 +1,6 @@
 package eval
 
 import (
-	"strings"
-
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -100,20 +98,5 @@ func benchmarkQuery(selects []query.SelectItem, groupBy []query.GroupBy, filters
 	}
 }
 
-// BenchmarkCaseIDs returns stable IDs for CI reporting.
-func BenchmarkCaseIDs() []string {
-	cases := BenchmarkCases()
-	ids := make([]string, len(cases))
-	for i, c := range cases {
-		ids[i] = c.ID
-	}
-	return ids
-}
-
 // BenchmarkSuiteName is the identifier for full-pipeline benchmark runs.
 const BenchmarkSuiteName = "biqly-benchmark-v1"
-
-// NormalizeBenchmarkQuestion trims whitespace for stable matching in reports.
-func NormalizeBenchmarkQuestion(q string) string {
-	return strings.TrimSpace(q)
-}

@@ -87,7 +87,7 @@ type RunResult struct {
 	Result *query.Result `json:"result,omitempty"`
 }
 
-func NewQueryService(deps QueryServiceDeps) *QueryService {
+func NewQueryService(deps *QueryServiceDeps) *QueryService {
 	return &QueryService{
 		models:      deps.Models,
 		composites:  deps.Composites,
@@ -214,8 +214,8 @@ func dimensionNames(model *semantic.SemanticModel) []string {
 		return nil
 	}
 	out := make([]string, 0, len(model.Dimensions))
-	for _, d := range model.Dimensions {
-		out = append(out, d.Name)
+	for i := range model.Dimensions {
+		out = append(out, model.Dimensions[i].Name)
 	}
 	return out
 }
@@ -226,7 +226,7 @@ func (s *QueryService) loadContext(ctx context.Context, lq *query.LogicalQuery) 
 	}
 	var model *semantic.SemanticModel
 	var err error
-	if lq.CompositeID != "" { //nolint:nestif
+	if lq.CompositeID != "" { //nolint:nestif // composite and base-model resolution share post-load validation
 		if s.composites == nil {
 			return nil, ToServiceError(fmt.Errorf("%w: composite models not supported", ErrLoadSemanticModel))
 		}

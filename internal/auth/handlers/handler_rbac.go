@@ -65,8 +65,8 @@ func NewRBACHandler(
 func (h *RBACHandler) requirePermission(perms ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			userID, _ := r.Context().Value(userIDKey).(string)
-			if userID == "" {
+			userID, ok := r.Context().Value(userIDKey).(string)
+			if !ok || userID == "" {
 				writeError(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 				return
 			}
@@ -91,8 +91,8 @@ func (h *RBACHandler) requirePermission(perms ...string) func(http.Handler) http
 func (h *RBACHandler) requireWorkspacePermission(perms ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			userID, _ := r.Context().Value(userIDKey).(string)
-			if userID == "" {
+			userID, ok := r.Context().Value(userIDKey).(string)
+			if !ok || userID == "" {
 				writeError(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 				return
 			}
@@ -116,11 +116,6 @@ func (h *RBACHandler) requireWorkspacePermission(perms ...string) func(http.Hand
 			writeError(w, r, http.StatusForbidden, errors.New("insufficient permissions"))
 		})
 	}
-}
-
-func (h *RBACHandler) RegisterRoutes(r chi.Router, authMW func(http.Handler) http.Handler, internalMW func(http.Handler) http.Handler) {
-	r.Route("/auth", func(r chi.Router) { h.RegisterAuthRoutes(r, authMW) })
-	r.Route("/internal/auth", func(r chi.Router) { h.RegisterInternalRoutes(r, internalMW) })
 }
 
 func (h *RBACHandler) RegisterAuthRoutes(r chi.Router, authMW func(http.Handler) http.Handler) {
@@ -210,8 +205,8 @@ func (h *RBACHandler) RegisterInternalRoutes(r chi.Router, internalMW func(http.
 // use. This is a convenience mirror of the server-side checks — never the sole
 // gate; every mutating endpoint is still enforced on the backend.
 func (h *RBACHandler) handleMyPermissions(w http.ResponseWriter, r *http.Request) {
-	userID, _ := r.Context().Value(userIDKey).(string)
-	if userID == "" {
+	userID, ok := r.Context().Value(userIDKey).(string)
+	if !ok || userID == "" {
 		writeError(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
@@ -680,7 +675,11 @@ func (h *RBACHandler) handleAdminSetRolePermissions(w http.ResponseWriter, r *ht
 
 func (h *RBACHandler) handleAdminAssignRole(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "id")
-	caller, _ := r.Context().Value(userIDKey).(string)
+	caller, ok := r.Context().Value(userIDKey).(string)
+	if !ok || caller == "" {
+		writeError(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 	if err := h.rbacRepo.EnforceSelfModificationGuard(r.Context(), caller, userID, "role.assign"); err != nil {
 		h.auditSoD(r, caller, "role.assign")
 		writeError(w, r, http.StatusForbidden, err)
@@ -701,8 +700,10 @@ func (h *RBACHandler) handleAdminAssignRole(w http.ResponseWriter, r *http.Reque
 	}
 	if h.audit != nil {
 		resType := "user_role"
-		_ = h.audit.Log(r.Context(), &caller, auth.AuditRoleAssigned, &resType, &userID,
-			map[string]any{"role_id": req.RoleID}, nil)
+		if err := h.audit.Log(r.Context(), &caller, auth.AuditRoleAssigned, &resType, &userID,
+			map[string]any{"role_id": req.RoleID}, nil); err != nil {
+			slog.WarnContext(r.Context(), "auth audit log failed", "action", auth.AuditRoleAssigned, "error", err)
+		}
 	}
 	w.WriteHeader(http.StatusCreated)
 }
@@ -712,8 +713,10 @@ func (h *RBACHandler) auditSoD(r *http.Request, caller, action string) {
 		return
 	}
 	resType := "user"
-	_ = h.audit.Log(r.Context(), &caller, auth.AuditAdminBlockSod, &resType, &caller,
-		map[string]any{"blocked_action": action}, nil)
+	if err := h.audit.Log(r.Context(), &caller, auth.AuditAdminBlockSod, &resType, &caller,
+		map[string]any{"blocked_action": action}, nil); err != nil {
+		slog.WarnContext(r.Context(), "auth audit log failed", "action", auth.AuditAdminBlockSod, "error", err)
+	}
 }
 
 func (h *RBACHandler) handleAdminListAuditLog(w http.ResponseWriter, r *http.Request) {
@@ -733,11 +736,17 @@ func (h *RBACHandler) handleAdminListAuditLog(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	caller, _ := r.Context().Value(userIDKey).(string)
+	caller, ok := r.Context().Value(userIDKey).(string)
+	if !ok || caller == "" {
+		writeError(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 	exportAction := auth.AuditAuditExport
 	resType := "audit_log"
-	_ = h.audit.Log(r.Context(), &caller, exportAction, &resType, nil,
-		map[string]any{"format": "json", "count": len(entries)}, nil)
+	if err := h.audit.Log(r.Context(), &caller, exportAction, &resType, nil,
+		map[string]any{"format": "json", "count": len(entries)}, nil); err != nil {
+		slog.Warn("audit export event failed", "error", err)
+	}
 
 	switch r.URL.Query().Get("format") {
 	case "csv":
@@ -804,7 +813,9 @@ func writeAuditCSV(w http.ResponseWriter, entries []auth.AuditEntry) {
 	w.Header().Set("Content-Disposition", "attachment; filename=audit_log.csv")
 	cw := csv.NewWriter(w)
 	defer cw.Flush()
-	_ = cw.Write([]string{"id", "created_at", "user_id", "action", "resource", "resource_id", "ip_address", "metadata"})
+	if err := cw.Write([]string{"id", "created_at", "user_id", "action", "resource", "resource_id", "ip_address", "metadata"}); err != nil {
+		return
+	}
 	for _, e := range entries {
 		row := []string{
 			e.ID,
@@ -816,7 +827,9 @@ func writeAuditCSV(w http.ResponseWriter, entries []auth.AuditEntry) {
 			strOrEmpty(e.IPAddress),
 			string(e.Metadata),
 		}
-		_ = cw.Write(row)
+		if err := cw.Write(row); err != nil {
+			return
+		}
 	}
 }
 
@@ -856,8 +869,10 @@ func (h *RBACHandler) handleAdminRemoveRole(w http.ResponseWriter, r *http.Reque
 	}
 	if h.audit != nil {
 		resType := "user_role"
-		_ = h.audit.Log(r.Context(), &caller, auth.AuditRoleRemoved, &resType, &userID,
-			map[string]any{"role_id": roleID}, nil)
+		if err := h.audit.Log(r.Context(), &caller, auth.AuditRoleRemoved, &resType, &userID,
+			map[string]any{"role_id": roleID}, nil); err != nil {
+			slog.Warn("audit role removal failed", "error", err)
+		}
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -982,7 +997,10 @@ func (h *RBACHandler) handleInternalInvalidateCache(w http.ResponseWriter, r *ht
 		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
-	_ = h.dsAccess.InvalidateCache(r.Context(), req.UserID)
+	if err := h.dsAccess.InvalidateCache(r.Context(), req.UserID); err != nil {
+		writeError(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 

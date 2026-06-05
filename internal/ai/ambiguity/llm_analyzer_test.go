@@ -18,8 +18,8 @@ type fakeLLMAmbiguityProvider struct {
 	prompt string
 }
 
-func (p *fakeLLMAmbiguityProvider) Generate(_ context.Context, prompt string) (provider.GenerationResult, error) {
-	p.prompt = prompt
+func (p *fakeLLMAmbiguityProvider) Generate(_ context.Context, promptStr string) (provider.GenerationResult, error) {
+	p.prompt = promptStr
 	return p.result, p.err
 }
 

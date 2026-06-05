@@ -135,13 +135,19 @@ func (c *Client) do(ctx context.Context, path string, body, out any) error {
 	if err != nil {
 		return fmt.Errorf("queryclient: POST %s: %w", u, err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			_ = err
+		}
+	}()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return decodeErrorResponse(resp)
 	}
 	if out == nil || resp.StatusCode == http.StatusNoContent {
-		_, _ = io.Copy(io.Discard, resp.Body)
+		if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+			_ = err
+		}
 		return nil
 	}
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
@@ -173,10 +179,15 @@ func (c *Client) setHeaders(ctx context.Context, req *http.Request, hasBody bool
 }
 
 func decodeErrorResponse(resp *http.Response) error {
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 16*1024))
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 16*1024))
+	if err != nil {
+		raw = nil
+	}
 	var env internalapi.Error
 	if len(raw) > 0 && bytes.HasPrefix(bytes.TrimSpace(raw), []byte("{")) {
-		_ = json.Unmarshal(raw, &env)
+		if err := json.Unmarshal(raw, &env); err != nil {
+			_ = err
+		}
 	}
 	if env.Error == "" {
 		env.Error = strings.TrimSpace(string(raw))

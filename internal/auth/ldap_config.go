@@ -46,9 +46,9 @@ func NewLDAPConfigRepository(db *sql.DB, enc *security.Encryption) *LDAPConfigRe
 // use (login / test connection).
 func (r *LDAPConfigRepository) Get(ctx context.Context) (LDAPConfig, error) {
 	var (
-		c          LDAPConfig
-		encPw      string
-		updatedBy  sql.NullString
+		c         LDAPConfig
+		encPw     string
+		updatedBy sql.NullString
 	)
 	err := r.db.QueryRowContext(ctx, `
 		SELECT enabled, auto_create_users, host, port, security, skip_tls_verify,
@@ -88,8 +88,9 @@ func (r *LDAPConfigRepository) Update(ctx context.Context, in LDAPConfig, update
 		}
 		encPw = enc
 	} else {
-		// Preserve the existing encrypted password.
-		_ = r.db.QueryRowContext(ctx, `SELECT bind_password_encrypted FROM ldap_config WHERE id = 1`).Scan(&encPw)
+		if err := r.db.QueryRowContext(ctx, `SELECT bind_password_encrypted FROM ldap_config WHERE id = 1`).Scan(&encPw); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return LDAPConfig{}, fmt.Errorf("get existing ldap bind password: %w", err)
+		}
 	}
 
 	if _, err := r.db.ExecContext(ctx, `

@@ -24,7 +24,7 @@ func newSQLDryRunValidator(service *core.QueryService, db *sql.DB, driver dataso
 
 func newQueryClientDryRunValidator(client *queryclient.Client) ai.SQLValidator {
 	return func(ctx context.Context, lq *query.LogicalQuery) error {
-		_, err := client.DryRun(ctx, *lq)
+		_, err := client.DryRun(ctx, lq)
 		return err
 	}
 }

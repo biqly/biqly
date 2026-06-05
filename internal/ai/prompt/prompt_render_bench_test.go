@@ -12,15 +12,13 @@ import (
 // per-call parse cost is observable. The body has ~30 actions to keep the
 // parse step non-trivial; the variant uses different {{.A}}…{{.Z}} keys.
 var largeBenchTemplate = func() string {
-	var b strings.Builder
-	b.WriteString("Header section\n")
+	parts := make([]string, 0, 32)
+	parts = append(parts, "Header section\n")
 	for range 30 {
-		b.WriteString("{{if .Section")
-		b.WriteString(strings.Repeat("x", 8))
-		b.WriteString("}}\n## Block {{.Title}} — {{.Body}}\n{{end}}\n")
+		parts = append(parts, "{{if .Section", strings.Repeat("x", 8), "}}\n## Block {{.Title}} — {{.Body}}\n{{end}}\n")
 	}
-	b.WriteString(strings.Repeat("Some filler paragraph text. ", 80))
-	return b.String()
+	parts = append(parts, strings.Repeat("Some filler paragraph text. ", 80))
+	return strings.Join(parts, "")
 }()
 
 // BenchmarkRenderPromptTemplate_Cached measures the steady-state cost when

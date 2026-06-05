@@ -13,16 +13,16 @@ import (
 var ErrMFANotEnrolled = errors.New("mfa not enrolled")
 
 type MFAEnrollment struct {
-	UserID         string
-	Method         string
-	Secret         string
-	RecoveryCodes  []string
-	BypassCodes    []string
-	Enabled        bool
-	VerifiedAt     *time.Time
-	LastUsedAt     *time.Time
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	UserID        string
+	Method        string
+	Secret        string
+	RecoveryCodes []string
+	BypassCodes   []string
+	Enabled       bool
+	VerifiedAt    *time.Time
+	LastUsedAt    *time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 type MFARepository struct {
@@ -132,7 +132,10 @@ func (r *MFARepository) ConsumeRecoveryCode(ctx context.Context, userID, hash st
 	if err != nil {
 		return false, err
 	}
-	rows, _ := res.RowsAffected()
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
 	return rows > 0, nil
 }
 
@@ -159,6 +162,9 @@ func (r *MFARepository) ConsumeBypassCode(ctx context.Context, userID, hash stri
 	if err != nil {
 		return false, err
 	}
-	rows, _ := res.RowsAffected()
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
 	return rows > 0, nil
 }

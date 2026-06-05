@@ -42,8 +42,8 @@ func fakeServer(t *testing.T, handler http.HandlerFunc) *queryclient.Client {
 	return queryclient.New(srv.URL, queryclient.WithAuthToken(testToken), queryclient.WithCaller("test"))
 }
 
-func sampleLQ() query.LogicalQuery {
-	return query.LogicalQuery{
+func sampleLQ() *query.LogicalQuery {
+	return &query.LogicalQuery{
 		DatasourceID: "ds_1",
 		ModelID:      "m_1",
 		Select:       []query.SelectItem{{Type: "metric", Name: "revenue"}},
@@ -63,11 +63,13 @@ func TestCompile_RoundTrip(t *testing.T) {
 		if req.LogicalQuery.DatasourceID != "ds_1" {
 			t.Errorf("unexpected LQ: %+v", req.LogicalQuery)
 		}
-		_ = json.NewEncoder(w).Encode(internalapi.CompileResponse{
+		if err := json.NewEncoder(w).Encode(internalapi.CompileResponse{
 			SQL:         "SELECT SUM(revenue) FROM orders",
 			Args:        []any{},
 			Fingerprint: "abc123",
-		})
+		}); err != nil {
+			t.Fatalf("encode response: %v", err)
+		}
 	})
 
 	out, err := c.Compile(context.Background(), sampleLQ())
@@ -87,7 +89,9 @@ func TestCompile_RetriesTransientStatus(t *testing.T) {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(internalapi.CompileResponse{SQL: "SELECT 1"})
+		if err := json.NewEncoder(w).Encode(internalapi.CompileResponse{SQL: "SELECT 1"}); err != nil {
+			t.Fatalf("encode response: %v", err)
+		}
 	})
 
 	out, err := c.Compile(context.Background(), sampleLQ())
@@ -133,7 +137,9 @@ func TestRequestIDPropagation(t *testing.T) {
 		if got := r.Header.Get("traceparent"); got != sampleTraceparent {
 			t.Fatalf("traceparent: got %q, want %q", got, sampleTraceparent)
 		}
-		_ = json.NewEncoder(w).Encode(internalapi.CompileResponse{SQL: "SELECT 1"})
+		if err := json.NewEncoder(w).Encode(internalapi.CompileResponse{SQL: "SELECT 1"}); err != nil {
+			t.Fatalf("encode response: %v", err)
+		}
 	})
 
 	ctx := requestid.WithRequestID(context.Background(), "req-123")
@@ -149,7 +155,9 @@ const sampleTraceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-
 func TestRun_PassesOverrides(t *testing.T) {
 	c := fakeServer(t, func(w http.ResponseWriter, r *http.Request) {
 		var req internalapi.RunRequest
-		_ = json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
 		if req.MaxRows != 50 || req.TimeoutMs != 1000 {
 			t.Errorf("overrides lost: %+v", req)
 		}

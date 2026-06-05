@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-//nolint:funlen
+//nolint:funlen // table-driven expression validation matrix
 func TestValidateExprStrict(t *testing.T) {
 	allowedCols := map[string]bool{
 		"orders.revenue":      true,
@@ -157,8 +157,8 @@ func TestValidateExprStrict(t *testing.T) {
 			wantErr:      "function COALESCE requires at least 1 argument, got 0",
 		},
 		{
-			name: "nesting depth overflow",
-			expr: buildDeepExpr(12),
+			name:         "nesting depth overflow",
+			expr:         buildDeepExpr(12),
 			allowMetrics: false,
 			wantErr:      "expression nesting depth exceeds limit of 10",
 		},

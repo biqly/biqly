@@ -37,12 +37,12 @@ func (p *GitHubProvider) ExchangeCode(ctx context.Context, code string) (*oauth2
 	return p.oauthCfg.Exchange(ctx, code)
 }
 
-//nolint:gocognit
+//nolint:gocognit // profile fetch plus optional secondary emails API when primary email is private
 func (p *GitHubProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (*auth.OAuthUserInfo, error) {
 	client := p.oauthCfg.Client(ctx, token)
 
 	// Fetch primary user profile
-	reqProfile, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/user", nil)
+	reqProfile, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/user", http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +50,11 @@ func (p *GitHubProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (
 	if err != nil {
 		return nil, fmt.Errorf("fetch github user profile: %w", err)
 	}
-	defer func() { _ = respProfile.Body.Close() }()
+	defer func() {
+		if closeErr := respProfile.Body.Close(); closeErr != nil {
+			_ = closeErr
+		}
+	}()
 
 	if respProfile.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("github API profile returned status: %d", respProfile.StatusCode)
@@ -70,8 +74,8 @@ func (p *GitHubProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (
 	email := rawProfile.Email
 
 	// If email is empty (private email setting), fetch user emails list
-	if email == "" { //nolint:nestif
-		reqEmails, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/user/emails", nil)
+	if email == "" { //nolint:nestif // secondary emails lookup only when profile payload omits email
+		reqEmails, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/user/emails", http.NoBody)
 		if err != nil {
 			return nil, err
 		}
@@ -79,7 +83,11 @@ func (p *GitHubProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (
 		if err != nil {
 			return nil, fmt.Errorf("fetch github emails: %w", err)
 		}
-		defer func() { _ = respEmails.Body.Close() }()
+		defer func() {
+			if closeErr := respEmails.Body.Close(); closeErr != nil {
+				_ = closeErr
+			}
+		}()
 
 		if respEmails.StatusCode == http.StatusOK {
 			var rawEmails []struct {

@@ -41,7 +41,7 @@ func NewExecutor(maxRows int, timeout time.Duration) *Executor {
 }
 
 // Execute runs a compiled query and returns results.
-func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (*QueryResult, error) {
+func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (result *Result, err error) {
 	// Safety check
 	if err := e.checker.Check(cq.SQL); err != nil {
 		return nil, fmt.Errorf("security check failed: %w", err)
@@ -61,7 +61,11 @@ func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (
 	if err != nil {
 		return nil, fmt.Errorf("query execution failed: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	// Get column info
 	colTypes, err := rows.ColumnTypes()

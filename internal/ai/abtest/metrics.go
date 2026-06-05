@@ -3,6 +3,7 @@ package abtest
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -22,7 +23,7 @@ func (m *MetricsCollector) ComputeMetrics(
 	ctx context.Context,
 	experimentID string,
 	periodStart, periodEnd time.Time,
-) ([]ExperimentMetrics, error) {
+) (metrics []ExperimentMetrics, err error) {
 	query := `
 		SELECT
 			COALESCE(ab_variant_id, ''),
@@ -46,9 +47,12 @@ func (m *MetricsCollector) ComputeMetrics(
 	if err != nil {
 		return nil, fmt.Errorf("query ab experiment metrics: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close ab experiment metrics rows: %w", closeErr))
+		}
+	}()
 
-	var metrics []ExperimentMetrics
 	for rows.Next() {
 		var em ExperimentMetrics
 		var totalTokens sql.NullInt64

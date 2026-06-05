@@ -56,12 +56,11 @@ func (h *AIHandler) SetAIMetricsRecorder(m AIMetricsRecorder) {
 
 // NewAIHandler creates a new AI handler.
 func NewAIHandler(deps *app.AIDeps) *AIHandler {
-	queryCfg := deps.Config.AI.EffectiveQueryConfig()
 	provider := deps.AIQueryClient
 	if provider == nil {
 		provider = deps.AIClient
 	}
-	svc := ai.NewServiceWithProvider(queryCfg, deps.Validator, provider).WithCache(deps.ResponseCache)
+	svc := ai.NewServiceWithProvider(new(deps.Config.AI.EffectiveQueryConfig()), deps.Validator, provider).WithCache(deps.ResponseCache)
 	metadataReader := routing.MetadataReader(deps.MetaRepo)
 	var embeddingReader routing.EmbeddingReader = deps.MetaRepo
 	if deps.CatalogClient != nil {
@@ -193,14 +192,14 @@ func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request)
 	}
 
 	ctx := r.Context()
-	model, routing, err := h.loadQueryModel(ctx, *req)
+	model, routeResult, err := h.loadQueryModel(ctx, *req)
 	if err != nil {
 		h.writeModelLoadError(ctx, w, *req, err)
 		return *req, nil, nil, false
 	}
-	if routing != nil && routing.NeedsClarification {
-		resp := clarificationResponse(routing)
-		h.observeAIRequest(ctx, *req, model, routing, resp, nil, 0)
+	if routeResult != nil && routeResult.NeedsClarification {
+		resp := clarificationResponse(routeResult)
+		h.observeAIRequest(ctx, *req, model, routeResult, resp, 0)
 		writeJSON(w, http.StatusOK, resp)
 		return *req, nil, nil, false
 	}
@@ -211,7 +210,7 @@ func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request)
 			return *req, nil, nil, false
 		}
 	}
-	return *req, model, routing, true
+	return *req, model, routeResult, true
 }
 
 func (h *AIHandler) standardProcessOptions(ctx context.Context, req aiQueryRequest, model *semantic.SemanticModel) []ai.ProcessOption {
@@ -241,7 +240,7 @@ func (h *AIHandler) processAIQuestion(
 	ctx context.Context,
 	req aiQueryRequest,
 	model *semantic.SemanticModel,
-	routing *routing.TableRoutingResult,
+	routeResult *routing.TableRoutingResult,
 	extra ...ai.ProcessOption,
 ) (*ai.Response, error) {
 	start := time.Now()
@@ -259,7 +258,7 @@ func (h *AIHandler) processAIQuestion(
 			resp.Metadata = &ai.AIMetadata{}
 		}
 		resp.Metadata.ModelUsed = h.queryModelUsedLabel()
-		resp.Metadata.TableRouting = routing
+		resp.Metadata.TableRouting = routeResult
 
 		// Populate resolved A/B experiment metadata if tracked
 		if tracked := tracker.GetVariants(); len(tracked) > 0 {
@@ -268,16 +267,19 @@ func (h *AIHandler) processAIQuestion(
 		}
 	}
 	if err != nil {
-		h.observeAIRequest(ctx, req, model, routing, nil, err, time.Since(start).Milliseconds())
+		h.observeAIRequest(ctx, req, model, routeResult, failedAIResponse(err), time.Since(start).Milliseconds())
 		return nil, err
 	}
-	return h.observeAIRequest(ctx, req, model, routing, resp, nil, time.Since(start).Milliseconds()), nil
+	if resp == nil {
+		resp = failedAIResponse(errors.New("ai response missing"))
+	}
+	return h.observeAIRequest(ctx, req, model, routeResult, resp, time.Since(start).Milliseconds()), nil
 }
 
 // processAndObserve is the shared entry for Query, Preview, and Run: parse/route,
 // optional Run-phase datasource pool, LLM process + telemetry, then phase-specific compile/execute.
 func (h *AIHandler) processAndObserve(w http.ResponseWriter, r *http.Request, phase aiQueryPhase) {
-	req, model, routing, ok := h.parseAndRouteAIQuery(w, r)
+	req, model, routeResult, ok := h.parseAndRouteAIQuery(w, r)
 	if !ok {
 		return
 	}
@@ -309,7 +311,7 @@ func (h *AIHandler) processAndObserve(w http.ResponseWriter, r *http.Request, ph
 		}
 	}
 
-	resp, err := h.processAIQuestion(ctx, req, model, routing, processOpts...)
+	resp, err := h.processAIQuestion(ctx, req, model, routeResult, processOpts...)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to process question", err,
 			"question", req.Question,
@@ -354,12 +356,12 @@ func (h *AIHandler) localRunProcessOptions(ctx context.Context, req aiQueryReque
 
 	driver := resolved.Driver
 	db := resolved.DB
-	dialect := driver.Dialect()
+	targetDialect := driver.Dialect()
 	return []ai.ProcessOption{
 		ai.WithSQLValidator(newSQLDryRunValidator(h.deps.QueryService, db, driver, model)),
-		ai.WithTargetDialect(dialect.Name()),
+		ai.WithTargetDialect(targetDialect.Name()),
 		ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.ExampleIDs, req.IncludePastQueries)),
-		ai.WithSampleData(h.loadSampleData(ctx, db, dialect, model)),
+		ai.WithSampleData(h.loadSampleData(ctx, db, targetDialect, model)),
 	}, nil
 }
 
@@ -377,7 +379,7 @@ func (h *AIHandler) finishAIPreview(ctx context.Context, w http.ResponseWriter, 
 	}
 
 	if h.deps.QueryClient != nil {
-		compiled, err := h.deps.QueryClient.DryRun(ctx, *logicalQuery)
+		compiled, err := h.deps.QueryClient.DryRun(ctx, logicalQuery)
 		if err != nil {
 			slog.ErrorContext(ctx, "AI preview query service dry-run failed", "error", err)
 			resp.Result.Warnings = append(resp.Result.Warnings, "compilation failed")
@@ -484,7 +486,7 @@ func (h *AIHandler) finishAIRunWithQueryClient(ctx context.Context, w http.Respo
 		resp.Result = &ai.AIResult{}
 	}
 
-	run, err := h.deps.QueryClient.Run(ctx, *logicalQuery, 0, 0)
+	run, err := h.deps.QueryClient.Run(ctx, logicalQuery, 0, 0)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "query service execution failed", err)
 		return
@@ -606,7 +608,9 @@ func (h *AIHandler) EmbedMetadata(w http.ResponseWriter, r *http.Request) {
 		}
 		if h.deps.AIJobQueue != nil {
 			if err := h.deps.AIJobQueue.Publish(ctx, job.ID); err != nil {
-				_ = h.deps.MetaRepo.FailAIJob(ctx, job.ID, err.Error())
+				if failErr := h.deps.MetaRepo.FailAIJob(ctx, job.ID, err.Error()); failErr != nil {
+					slog.WarnContext(ctx, "mark async AI job failed", "job_id", job.ID, "err", failErr)
+				}
 				writeInternalError(ctx, w, http.StatusInternalServerError, "failed to publish job to queue", err)
 				return
 			}
@@ -723,8 +727,8 @@ func (h *AIHandler) loadQueryModel(
 		return model, routingForSemanticModel(model, 1), nil
 	}
 	if len(nonEmptyStringSlice(req.Tables)) == 0 {
-		if model, routing, ok := h.loadPreferredSemanticModel(ctx, req.DatasourceID, req.Question); ok {
-			return model, routing, nil
+		if model, routeResult, ok := h.loadPreferredSemanticModel(ctx, req.DatasourceID, req.Question); ok {
+			return model, routeResult, nil
 		}
 	}
 	base, views, err := typeScopeFromAIQueryRequest(req)
@@ -859,7 +863,7 @@ func routingForSemanticModel(model *semantic.SemanticModel, confidence float64) 
 		return nil
 	}
 	selectedTables := selectedTablesForSemanticModel(model)
-	routing := &routing.TableRoutingResult{
+	routeResult := &routing.TableRoutingResult{
 		SelectedModels:     []string{model.Name},
 		SelectedTables:     selectedTables,
 		SelectedDimensions: semanticDimensionNames(model.Dimensions),
@@ -879,13 +883,13 @@ func routingForSemanticModel(model *semantic.SemanticModel, confidence float64) 
 			RelationExpansion: semanticJoinPaths(model),
 		},
 	}
-	if routing.ContextKey == "" {
-		routing.ContextKey = model.Name
+	if routeResult.ContextKey == "" {
+		routeResult.ContextKey = model.Name
 	}
 	if !model.UpdatedAt.IsZero() {
-		routing.ContextUpdatedAt = new(model.UpdatedAt)
+		routeResult.ContextUpdatedAt = new(model.UpdatedAt)
 	}
-	return routing
+	return routeResult
 }
 
 func selectedTablesForSemanticModel(model *semantic.SemanticModel) []string {
@@ -1221,7 +1225,7 @@ func stringValue(s *string) string {
 	return *s
 }
 
-func clarificationResponse(routing *routing.TableRoutingResult) *ai.Response {
+func clarificationResponse(routeResult *routing.TableRoutingResult) *ai.Response {
 	question := "Which table or topic do you want to query? Please pick one or more from the candidates."
 	return &ai.Response{
 		Result: &ai.AIResult{
@@ -1231,20 +1235,24 @@ func clarificationResponse(routing *routing.TableRoutingResult) *ai.Response {
 			Confidence: 0,
 		},
 		Metadata: &ai.AIMetadata{
-			TableRouting: routing,
+			TableRouting: routeResult,
 		},
 		Clarification: &ai.ClarificationResponse{
 			NeedsClarification:    true,
 			ClarificationQuestion: question,
-			Clarification:         ai.ClarificationFromRouting(routing, question),
+			Clarification:         ai.ClarificationFromRouting(routeResult, question),
 		},
 	}
 }
 
 func failedAIResponse(err error) *ai.Response {
+	message := "ai request failed"
+	if err != nil {
+		message = err.Error()
+	}
 	return &ai.Response{
 		Result: &ai.AIResult{
-			Warnings:   []string{err.Error()},
+			Warnings:   []string{message},
 			Confidence: 0,
 		},
 	}

@@ -268,8 +268,8 @@ func (*PromptBuilder) writeBusinessGlossary(sb *bytes.Buffer, entries []Glossary
 	if len(entries) == 0 {
 		return
 	}
-	sb.WriteString("\n\n## Business Glossary\n")
-	sb.WriteString("Map business language in the question to exact catalog names. Prefer **glossary** rows over guessing.\n\n")
+	writePromptString(sb, "\n\n## Business Glossary\n")
+	writePromptString(sb, "Map business language in the question to exact catalog names. Prefer **glossary** rows over guessing.\n\n")
 	for _, e := range entries {
 		def := ""
 		if e.Definition != "" {
@@ -279,9 +279,9 @@ func (*PromptBuilder) writeBusinessGlossary(sb *bytes.Buffer, entries []Glossary
 		if e.Source == "glossary" {
 			cur = " [curated]"
 		}
-		fmt.Fprintf(sb, "- **%s** → `%s` (%s)%s%s\n", e.Term, e.MapsToName, e.MapsToType, def, cur)
+		writePromptf(sb, "- **%s** → `%s` (%s)%s%s\n", e.Term, e.MapsToName, e.MapsToType, def, cur)
 	}
-	sb.WriteString("\n")
+	writePromptString(sb, "\n")
 }
 
 func truncateRunes(s string, maxRunes int) string {

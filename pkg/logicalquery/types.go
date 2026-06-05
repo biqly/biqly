@@ -75,7 +75,7 @@ type CTE struct {
 }
 
 // Subquery returns a SubqueryBody copy of this CTE for shared compilation.
-func (c CTE) Subquery() SubqueryBody {
+func (c *CTE) Subquery() SubqueryBody {
 	return SubqueryBody{
 		Select:  c.Select,
 		Filters: c.Filters,

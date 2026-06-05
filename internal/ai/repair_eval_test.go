@@ -29,7 +29,7 @@ func TestRepairLoopEvalRegressionGate(t *testing.T) {
 			// First reply fails validation; the repair loop must recover to `good`.
 			provider := &scriptedProvider{replies: []string{rc.BadFirstResponse, good}}
 			cfg := config.AIConfig{Model: "stub", MaxTokens: 2048, Temperature: 0, MaxRetries: 2}
-			svc := NewServiceWithProvider(cfg, query.NewValidator(1000), provider)
+			svc := NewServiceWithProvider(&cfg, query.NewValidator(1000), provider)
 
 			opts := evalpkg.EvalSuiteOptions{
 				Cases: []evalpkg.GoldenCase{rc.GoldenCase},

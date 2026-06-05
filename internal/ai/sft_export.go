@@ -65,10 +65,10 @@ type SFTExporter struct {
 }
 
 // NewSFTExporter creates an exporter wired to metadata and semantic repositories.
-func NewSFTExporter(meta *metadata.Repository, semantic *semantic.Repository, validator *query.Validator) *SFTExporter {
+func NewSFTExporter(meta *metadata.Repository, semanticRepo *semantic.Repository, validator *query.Validator) *SFTExporter {
 	return &SFTExporter{
 		meta:      meta,
-		semantic:  semantic,
+		semantic:  semanticRepo,
 		builder:   &promptpkg.PromptBuilder{},
 		validator: validator,
 	}
@@ -83,7 +83,7 @@ type sftWorkItem struct {
 }
 
 // Export writes train.jsonl, validation.jsonl, and hard_eval.jsonl under OutDir.
-func (e *SFTExporter) Export(ctx context.Context, opts SFTExportOptions) (*SFTExportResult, error) {
+func (e *SFTExporter) Export(ctx context.Context, opts SFTExportOptions) (*SFTExportResult, error) { //nolint:gocognit,funlen // export flow is linear file setup, split accounting, and close-error handling.
 	if opts.OutDir == "" {
 		opts.OutDir = "data/biqly-gemma4"
 	}
@@ -111,17 +111,41 @@ func (e *SFTExporter) Export(ctx context.Context, opts SFTExportOptions) (*SFTEx
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = trainW.Close() }()
+	defer func() {
+		if trainW != nil {
+			_ = trainW.Close()
+		}
+	}()
 	valW, err := os.Create(valPath) //nolint:gosec // output path is under the caller-provided export directory
 	if err != nil {
+		if closeErr := trainW.Close(); closeErr != nil {
+			return nil, fmt.Errorf("close train export after validation file create failed: %w", closeErr)
+		}
+		trainW = nil
 		return nil, err
 	}
-	defer func() { _ = valW.Close() }()
+	defer func() {
+		if valW != nil {
+			_ = valW.Close()
+		}
+	}()
 	hardW, err := os.Create(hardPath) //nolint:gosec // output path is under the caller-provided export directory
 	if err != nil {
+		if closeErr := trainW.Close(); closeErr != nil {
+			return nil, fmt.Errorf("close train export after hard eval file create failed: %w", closeErr)
+		}
+		trainW = nil
+		if closeErr := valW.Close(); closeErr != nil {
+			return nil, fmt.Errorf("close validation export after hard eval file create failed: %w", closeErr)
+		}
+		valW = nil
 		return nil, err
 	}
-	defer func() { _ = hardW.Close() }()
+	defer func() {
+		if hardW != nil {
+			_ = hardW.Close()
+		}
+	}()
 
 	for _, item := range items {
 		user, assistant, err := item.build()
@@ -160,6 +184,18 @@ func (e *SFTExporter) Export(ctx context.Context, opts SFTExportOptions) (*SFTEx
 			return nil, fmt.Errorf("write %s: %w", split, err)
 		}
 	}
+	if err := trainW.Close(); err != nil {
+		return nil, fmt.Errorf("close train export: %w", err)
+	}
+	trainW = nil
+	if err := valW.Close(); err != nil {
+		return nil, fmt.Errorf("close validation export: %w", err)
+	}
+	valW = nil
+	if err := hardW.Close(); err != nil {
+		return nil, fmt.Errorf("close hard eval export: %w", err)
+	}
+	hardW = nil
 	return result, nil
 }
 
@@ -344,32 +380,13 @@ func splitForKey(key string, trainRatio, validationRatio float64) string {
 // Matches Unsloth "gemma-4" chat template: <|turn>system/user/model (no <bos> — tokenizer adds it).
 func renderGemma4SFTText(system, user, assistant string) string {
 	var b strings.Builder
-	b.WriteString("<|turn>system\n")
-	b.WriteString(system)
+	_, _ = b.WriteString("<|turn>system\n")
+	_, _ = b.WriteString(system)
 	b.WriteString("<|turn>user\n")
 	b.WriteString(user)
 	b.WriteString("<|turn>model\n")
 	b.WriteString(assistant)
 	return b.String()
-}
-
-// WriteJSONL appends records to path (used in tests).
-func WriteJSONL(path string, records []SFTRecord) error {
-	f, err := os.Create(path) //nolint:gosec // helper writes to caller-provided test/export path
-	if err != nil {
-		return err
-	}
-	defer func() { _ = f.Close() }()
-	for _, rec := range records {
-		line, err := json.Marshal(rec)
-		if err != nil {
-			return err
-		}
-		if _, err := f.Write(append(line, '\n')); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // SplitBucket exposes split assignment for tests.

@@ -89,6 +89,7 @@ func hasMultipleStatements(cleaned string) bool {
 // remaining text can be safely scanned for keywords and statement separators.
 // String/identifier content is replaced with empty placeholders that preserve
 // surrounding token boundaries.
+//
 //nolint:gocognit
 func writeStrippedSQLLiteralsAndComments(sql string, out *strings.Builder) {
 	i := 0
@@ -117,7 +118,7 @@ func writeStrippedSQLLiteralsAndComments(sql string, out *strings.Builder) {
 		}
 
 		if c == '\'' {
-			out.WriteByte('\'')
+			writeBuilderByte(out, '\'')
 			i++
 			for i < n {
 				if sql[i] == '\'' {
@@ -125,7 +126,7 @@ func writeStrippedSQLLiteralsAndComments(sql string, out *strings.Builder) {
 						i += 2
 						continue
 					}
-					out.WriteByte('\'')
+					writeBuilderByte(out, '\'')
 					i++
 					break
 				}
@@ -135,7 +136,7 @@ func writeStrippedSQLLiteralsAndComments(sql string, out *strings.Builder) {
 		}
 
 		if c == '"' {
-			out.WriteByte('"')
+			writeBuilderByte(out, '"')
 			i++
 			for i < n {
 				if sql[i] == '"' {
@@ -143,7 +144,7 @@ func writeStrippedSQLLiteralsAndComments(sql string, out *strings.Builder) {
 						i += 2
 						continue
 					}
-					out.WriteByte('"')
+					writeBuilderByte(out, '"')
 					i++
 					break
 				}
@@ -152,8 +153,14 @@ func writeStrippedSQLLiteralsAndComments(sql string, out *strings.Builder) {
 			continue
 		}
 
-		out.WriteByte(c)
+		writeBuilderByte(out, c)
 		i++
+	}
+}
+
+func writeBuilderByte(out *strings.Builder, b byte) {
+	if err := out.WriteByte(b); err != nil {
+		return
 	}
 }
 

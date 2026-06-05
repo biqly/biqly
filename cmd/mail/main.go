@@ -20,8 +20,8 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/biqly/biqly/internal/mail"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
+	"github.com/biqly/biqly/internal/mail"
 )
 
 func main() {
@@ -81,7 +81,9 @@ func main() {
 	router.Use(middleware.Recoverer)
 	router.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
+		if _, err := w.Write([]byte("ok")); err != nil {
+			slog.Warn("write health response", "err", err)
+		}
 	})
 	router.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
@@ -91,7 +93,9 @@ func main() {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ready"))
+		if _, err := w.Write([]byte("ready")); err != nil {
+			slog.Warn("write readiness response", "err", err)
+		}
 	})
 	router.Mount("/", mailServer.Routes())
 

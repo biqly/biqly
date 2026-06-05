@@ -29,7 +29,11 @@ func NewDBSampleFetcher(db *sql.DB, d dialect.Dialect) SampleFetcher {
 		if err != nil {
 			return nil, fmt.Errorf("sample %s: %w", tableRef, err)
 		}
-		defer func() { _ = rows.Close() }()
+		defer func() {
+			if err := rows.Close(); err != nil {
+				_ = err
+			}
+		}()
 
 		samples := make([]string, 0, limit)
 		for rows.Next() {

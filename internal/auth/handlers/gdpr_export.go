@@ -125,7 +125,7 @@ func (e *GDPRExporter) Export(ctx context.Context, userID string) (*GDPRExport, 
 	return out, nil
 }
 
-func (e *GDPRExporter) queryOAuthAccounts(ctx context.Context, userID string) ([]GDPROAuthAccount, error) {
+func (e *GDPRExporter) queryOAuthAccounts(ctx context.Context, userID string) (out []GDPROAuthAccount, err error) {
 	rows, err := e.db.QueryContext(ctx, `
 		SELECT provider, provider_uid, scope, token_expires_at, created_at
 		FROM oauth_accounts WHERE user_id = $1 ORDER BY created_at DESC
@@ -133,8 +133,11 @@ func (e *GDPRExporter) queryOAuthAccounts(ctx context.Context, userID string) ([
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = rows.Close() }()
-	var out []GDPROAuthAccount
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 	for rows.Next() {
 		var a GDPROAuthAccount
 		var scope sql.NullString
@@ -150,7 +153,10 @@ func (e *GDPRExporter) queryOAuthAccounts(ctx context.Context, userID string) ([
 		}
 		out = append(out, a)
 	}
-	return out, rows.Err()
+	if rowsErr := rows.Err(); rowsErr != nil {
+		return nil, rowsErr
+	}
+	return out, nil
 }
 
 func (e *GDPRExporter) querySessions(ctx context.Context, userID string) ([]GDPRSessionRecord, error) {

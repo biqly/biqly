@@ -20,7 +20,11 @@ func BenchmarkPoolCacheGet(b *testing.B) {
 	if _, err := cache.Get(context.Background(), d, "ds-1", "dsn-1"); err != nil {
 		b.Fatal(err)
 	}
-	b.Cleanup(func() { _ = cache.Close() })
+	b.Cleanup(func() {
+		if err := cache.Close(); err != nil {
+			b.Fatal(err)
+		}
+	})
 
 	b.ResetTimer()
 	for b.Loop() {
@@ -42,7 +46,9 @@ func BenchmarkFreshOpenPerCall(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		_ = db.Close()
+		if err := db.Close(); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -55,7 +61,11 @@ func BenchmarkPoolCacheGetParallel(b *testing.B) {
 	if _, err := cache.Get(context.Background(), d, "ds-1", "dsn-1"); err != nil {
 		b.Fatal(err)
 	}
-	b.Cleanup(func() { _ = cache.Close() })
+	b.Cleanup(func() {
+		if err := cache.Close(); err != nil {
+			b.Fatal(err)
+		}
+	})
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {

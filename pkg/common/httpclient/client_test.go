@@ -37,7 +37,7 @@ func TestDoWithRetryRetriesTransientStatuses(t *testing.T) {
 		context.Background(),
 		RetryPolicy{MaxAttempts: 3, BaseBackoff: time.Nanosecond, MaxBackoff: time.Nanosecond},
 		func() (*http.Request, error) {
-			return http.NewRequestWithContext(context.Background(), http.MethodGet, "http://example.test", nil)
+			return http.NewRequestWithContext(context.Background(), http.MethodGet, "http://example.test", http.NoBody)
 		},
 		func(_ *http.Request) (*http.Response, error) {
 			attempts++
@@ -50,7 +50,11 @@ func TestDoWithRetryRetriesTransientStatuses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DoWithRetry() error: %v", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
+	}()
 	if resp.StatusCode != http.StatusOK || attempts != 3 {
 		t.Fatalf("status/attempts: got %d/%d, want 200/3", resp.StatusCode, attempts)
 	}
@@ -63,7 +67,7 @@ func TestDoWithRetryDoesNotRetryContextCancellation(t *testing.T) {
 		context.Background(),
 		RetryPolicy{MaxAttempts: 3, BaseBackoff: time.Nanosecond, MaxBackoff: time.Nanosecond},
 		func() (*http.Request, error) {
-			return http.NewRequestWithContext(context.Background(), http.MethodGet, "http://example.test", nil)
+			return http.NewRequestWithContext(context.Background(), http.MethodGet, "http://example.test", http.NoBody)
 		},
 		func(_ *http.Request) (*http.Response, error) {
 			attempts++
@@ -74,7 +78,11 @@ func TestDoWithRetryDoesNotRetryContextCancellation(t *testing.T) {
 		t.Fatalf("error: got %v, want context.Canceled", err)
 	}
 	if resp != nil {
-		defer func() { _ = resp.Body.Close() }()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				t.Fatalf("close response body: %v", err)
+			}
+		}()
 	}
 	if attempts != 1 {
 		t.Fatalf("attempts: got %d, want 1", attempts)

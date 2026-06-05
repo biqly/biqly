@@ -66,12 +66,12 @@ func TestEvalCaseCRUD(t *testing.T) {
 	// 3. Delete the case
 	w = httptest.NewRecorder()
 	r = httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/api/ai/eval/cases/test-http-case", nil)
-	
+
 	// Setup route URL param id using chi context
 	rctx := chi.NewRouteContext()
 	rctx.URLParams.Add("id", "test-http-case")
 	r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
-	
+
 	h.EvalDeleteCase(w, r)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -105,7 +105,8 @@ func TestEvalCaseCRUD_ValidationErrors(t *testing.T) {
 			Question: "q",
 			ModelID:  "orders",
 		}
-		b, _ := json.Marshal(req)
+		b, err := json.Marshal(req)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/ai/eval/cases", bytes.NewReader(b))
 		h.EvalCreateCase(w, r)
@@ -118,7 +119,8 @@ func TestEvalCaseCRUD_ValidationErrors(t *testing.T) {
 			ID:      "id-1",
 			ModelID: "orders",
 		}
-		b, _ := json.Marshal(req)
+		b, err := json.Marshal(req)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/ai/eval/cases", bytes.NewReader(b))
 		h.EvalCreateCase(w, r)
@@ -131,7 +133,8 @@ func TestEvalCaseCRUD_ValidationErrors(t *testing.T) {
 			ID:       "id-1",
 			Question: "q",
 		}
-		b, _ := json.Marshal(req)
+		b, err := json.Marshal(req)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/ai/eval/cases", bytes.NewReader(b))
 		h.EvalCreateCase(w, r)

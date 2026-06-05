@@ -30,7 +30,10 @@ func (h *AuthHandler) handleMFAEnroll(w http.ResponseWriter, r *http.Request) {
 		h.respondError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-	email, _ := r.Context().Value(emailKey).(string)
+	email, ok := r.Context().Value(emailKey).(string)
+	if !ok {
+		email = ""
+	}
 	if email == "" {
 		email = userID
 	}

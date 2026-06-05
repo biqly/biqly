@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 )
 
@@ -15,14 +16,18 @@ func (s *AuthService) recordLoginFailure(ctx context.Context, email string, user
 	if err != nil {
 		return
 	}
-	_ = s.redisClient.Expire(ctx, lockKey, 15*time.Minute).Err()
+	if err := s.redisClient.Expire(ctx, lockKey, 15*time.Minute).Err(); err != nil {
+		slog.ErrorContext(ctx, "failed to set expire lock on login failures", "key", lockKey, "err", err)
+	}
 
 	// On the threshold transition (5th consecutive failure), send a one-time
 	// unlock email so the user can prove ownership and bypass the lockout.
 	if count == 5 && user != nil && s.emailSender != nil {
 		token, terr := s.userRepo.CreateUnlockToken(ctx, user.ID, time.Hour)
 		if terr == nil {
-			_ = s.emailSender.SendAccountUnlock(ctx, user.Email, token)
+			if err := s.emailSender.SendAccountUnlock(ctx, user.Email, token); err != nil {
+				slog.ErrorContext(ctx, "failed to send account unlock email", "email", user.Email, "err", err)
+			}
 		}
 	}
 }
@@ -97,6 +102,8 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword stri
 		return err
 	}
 
-	_ = s.userRepo.MarkPasswordResetTokenUsed(ctx, token)
+	if err := s.userRepo.MarkPasswordResetTokenUsed(ctx, token); err != nil {
+		slog.ErrorContext(ctx, "failed to mark password reset token as used", "token", token, "err", err)
+	}
 	return nil
 }

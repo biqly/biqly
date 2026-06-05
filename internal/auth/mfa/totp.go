@@ -51,7 +51,9 @@ func generateTOTPCode(secret string, counter uint64) (string, error) {
 	binary.BigEndian.PutUint64(buf, counter)
 
 	mac := hmac.New(sha1.New, key)
-	mac.Write(buf)
+	if _, err := mac.Write(buf); err != nil {
+		return "", err
+	}
 	sum := mac.Sum(nil)
 
 	offset := sum[len(sum)-1] & 0x0f

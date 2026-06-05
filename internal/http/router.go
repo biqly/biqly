@@ -141,27 +141,7 @@ func Router(deps *app.Dependencies) http.Handler {
 		r.Use(handlers.InternalAuditMiddleware(deps.AuditLogger))
 		r.Use(handlers.InternalTokenMiddleware(deps.Config.Security.InternalAPIToken))
 
-		internalHandler := handlers.NewInternalHandler(deps.CatalogDeps())
-		r.Get("/health", internalHandler.Health)
-
-		// Catalog read endpoints — consumed by every peer service.
-		r.Get("/datasources", internalHandler.ListDatasources)
-		r.Get("/datasources/{id}", internalHandler.GetDatasource)
-		r.Get("/models", internalHandler.ListModels)
-		r.Get("/models/{id}", internalHandler.GetFullModel)
-		r.Get("/datasources/{id}/tables", internalHandler.ListTables)
-		r.Get("/datasources/{id}/columns", internalHandler.ListColumns)
-		r.Get("/datasources/{id}/relations", internalHandler.ListRelations)
-		r.Get("/few-shot", internalHandler.ListFewShot)
-		r.Get("/glossary", internalHandler.ListGlossary)
-
-		// History write endpoints — consumed by AI Service after generation
-		// and Query Engine after execution. POST-only by design: history is
-		// append-only and any future mutation goes through the same audit
-		// trail as the original write.
-		r.Post("/history/ai", internalHandler.CreateAIHistory)
-		r.Post("/history/query", internalHandler.CreateQueryHistory)
-		r.Post("/eval-results", internalHandler.CreateEvalResults)
+		registerCatalogInternalRoutes(r, deps.CatalogDeps(), "biqly-monolith")
 
 		// Internal query endpoints — same compile/run pipeline as /api/query/*,
 		// minus the user-facing concerns (auth, RBAC project scoping, etc.).

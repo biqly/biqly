@@ -214,20 +214,16 @@ func dateTruncColumnRef(expr pkgsemantic.ExprNode, resolver *SchemaResolver) (st
 }
 
 func caseExprSQL(expr pkgsemantic.CaseExpr, d dialect.Dialect, resolver *SchemaResolver) string {
-	var b strings.Builder
-	b.WriteString("CASE")
+	chunks := make([]string, 0, 2+len(expr.Conditions)*4)
+	chunks = append(chunks, "CASE")
 	for _, condition := range expr.Conditions {
-		b.WriteString(" WHEN ")
-		b.WriteString(compileExpr(condition.When, d, resolver))
-		b.WriteString(" THEN ")
-		b.WriteString(compileExpr(condition.Then, d, resolver))
+		chunks = append(chunks, " WHEN ", compileExpr(condition.When, d, resolver), " THEN ", compileExpr(condition.Then, d, resolver))
 	}
 	if expr.ElseExpr != nil {
-		b.WriteString(" ELSE ")
-		b.WriteString(compileExpr(expr.ElseExpr, d, resolver))
+		chunks = append(chunks, " ELSE ", compileExpr(expr.ElseExpr, d, resolver))
 	}
-	b.WriteString(" END")
-	return b.String()
+	chunks = append(chunks, " END")
+	return strings.Join(chunks, "")
 }
 
 func binaryOpSQL(op pkgsemantic.BinaryOp) string {

@@ -43,13 +43,13 @@ func (f *fakeProviderStore) GetProvider(_ context.Context, id string) (ai.Provid
 	}
 	return ai.ProviderRow{ID: id, Name: "p"}, nil
 }
-func (f *fakeProviderStore) CreateProvider(context.Context, ai.CreateProviderInput) (string, error) {
+func (f *fakeProviderStore) CreateProvider(context.Context, *ai.CreateProviderInput) (string, error) {
 	if f.createErr != nil {
 		return "", f.createErr
 	}
 	return f.createProviderID, nil
 }
-func (f *fakeProviderStore) UpdateProvider(context.Context, string, ai.UpdateProviderInput) error {
+func (f *fakeProviderStore) UpdateProvider(context.Context, string, *ai.UpdateProviderInput) error {
 	return f.updateErr
 }
 func (f *fakeProviderStore) DeleteProvider(context.Context, string) error { return f.deleteErr }
@@ -68,13 +68,13 @@ func (f *fakeProviderStore) ListModels(context.Context, string, string) ([]ai.Mo
 func (f *fakeProviderStore) ActiveModels(context.Context) ([]ai.ModelRow, error) {
 	return f.models, nil
 }
-func (f *fakeProviderStore) CreateModel(context.Context, ai.CreateModelInput) (string, error) {
+func (f *fakeProviderStore) CreateModel(context.Context, *ai.CreateModelInput) (string, error) {
 	if f.createErr != nil {
 		return "", f.createErr
 	}
 	return f.createModelID, nil
 }
-func (f *fakeProviderStore) UpdateModel(context.Context, string, ai.UpdateModelInput) error {
+func (f *fakeProviderStore) UpdateModel(context.Context, string, *ai.UpdateModelInput) error {
 	return f.updateErr
 }
 func (f *fakeProviderStore) DeleteModel(context.Context, string) error { return f.deleteErr }

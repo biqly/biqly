@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"log/slog"
 	"time"
 )
 
@@ -9,7 +10,9 @@ func (s *AuthService) FreezeAccount(ctx context.Context, userID string) error {
 	if err := s.userRepo.FreezeAccount(ctx, userID); err != nil {
 		return err
 	}
-	_ = s.sessionMgr.RevokeAllUserSessions(ctx, userID)
+	if err := s.sessionMgr.RevokeAllUserSessions(ctx, userID); err != nil {
+		slog.ErrorContext(ctx, "failed to revoke user sessions on freeze", "userID", userID, "err", err)
+	}
 	return nil
 }
 
@@ -33,9 +36,13 @@ func (s *AuthService) DeleteAccount(ctx context.Context, userID, password string
 	if err != nil {
 		return time.Time{}, err
 	}
-	_ = s.sessionMgr.RevokeAllUserSessions(ctx, userID)
+	if err := s.sessionMgr.RevokeAllUserSessions(ctx, userID); err != nil {
+		slog.ErrorContext(ctx, "failed to revoke user sessions on delete", "userID", userID, "err", err)
+	}
 	if s.emailSender != nil {
-		_ = s.emailSender.SendAccountDeletionScheduled(ctx, user.Email, purgeAt)
+		if err := s.emailSender.SendAccountDeletionScheduled(ctx, user.Email, purgeAt); err != nil {
+			slog.ErrorContext(ctx, "failed to send account deletion scheduled email", "email", user.Email, "err", err)
+		}
 	}
 	return purgeAt, nil
 }
@@ -56,13 +63,9 @@ func (s *AuthService) UnlockAccount(ctx context.Context, token string) (string, 
 		return "", err
 	}
 	if s.redisClient != nil {
-		_ = s.redisClient.Del(ctx, "login_failures:"+user.Email).Err()
+		if err := s.redisClient.Del(ctx, "login_failures:"+user.Email).Err(); err != nil {
+			slog.ErrorContext(ctx, "failed to clear login failures on unlock", "email", user.Email, "err", err)
+		}
 	}
 	return userID, nil
-}
-
-// PurgeExpiredAccounts is the cron entry point that scrubs PII for accounts
-// whose purge_after has elapsed.
-func (s *AuthService) PurgeExpiredAccounts(ctx context.Context) ([]string, error) {
-	return s.userRepo.PurgeExpiredAccounts(ctx, time.Now())
 }

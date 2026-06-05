@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	DefaultJWTIssuer   = "biqly-auth"
-	DefaultJWTAudience = "biqly-api"
+	DefaultJWTIssuer     = "biqly-auth"
+	DefaultJWTAudience   = "biqly-api"
 	MFAChallengeAudience = "biqly-mfa"
 	mfaChallengeTTL      = 5 * time.Minute
 )
@@ -67,8 +67,8 @@ func NewJWTManager(privatePath, publicPath string, accessTTL time.Duration) (*JW
 		}, nil
 	}
 
-	if privatePath != "" { //nolint:nestif
-		//nolint:gosec
+	if privatePath != "" { //nolint:nestif // optional public key file overrides derived key
+		//nolint:gosec // JWT key paths come from operator config
 		privBytes, err := os.ReadFile(privatePath)
 		if err != nil {
 			return nil, fmt.Errorf("read private key: %w", err)
@@ -79,7 +79,7 @@ func NewJWTManager(privatePath, publicPath string, accessTTL time.Duration) (*JW
 		}
 		pubKey := &privKey.PublicKey
 		if publicPath != "" {
-			//nolint:gosec
+			//nolint:gosec // JWT key paths come from operator config
 			pubBytes, err := os.ReadFile(publicPath)
 			if err != nil {
 				return nil, fmt.Errorf("read public key: %w", err)

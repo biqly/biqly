@@ -41,7 +41,7 @@ func NewAPIClient(baseURL, internalToken string, httpClient *http.Client) *APICl
 	}
 }
 
-func (c *APIClient) send(ctx context.Context, template, to string, data map[string]any) error {
+func (c *APIClient) send(ctx context.Context, template, to string, data map[string]any) (err error) {
 	body, err := json.Marshal(sendRequest{Template: template, To: to, Data: data})
 	if err != nil {
 		return err
@@ -58,9 +58,16 @@ func (c *APIClient) send(ctx context.Context, template, to string, data map[stri
 	if err != nil {
 		return err
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		snippet, err := io.ReadAll(io.LimitReader(resp.Body, 512))
+		if err != nil {
+			return fmt.Errorf("read mail service error response: %w", err)
+		}
 		return fmt.Errorf("mail service returned %d: %s", resp.StatusCode, strings.TrimSpace(string(snippet)))
 	}
 	return nil
@@ -116,8 +123,7 @@ func (c *APIClient) SendDriftAlert(ctx context.Context, email string, modelName 
 	return c.send(ctx, "drift_alert", email, map[string]any{
 		"ModelName":  modelName,
 		"DriftsText": driftsText,
-		"Drifts":      drifts,
+		"Drifts":     drifts,
 		"ModelURL":   modelURL,
 	})
 }
-

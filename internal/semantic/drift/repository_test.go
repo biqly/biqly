@@ -113,7 +113,7 @@ func setupMockDB(t *testing.T) (*sql.DB, *mockDBState) {
 		t.Fatalf("failed to open mock db: %v", err)
 	}
 	t.Cleanup(func() {
-		_ = db.Close()
+		require.NoError(t, db.Close())
 		mDriver.mu.Lock()
 		delete(mDriver.states, name)
 		mDriver.mu.Unlock()
@@ -158,7 +158,7 @@ type mockStmt struct {
 	query string
 }
 
-func (*mockStmt) Close() error { return nil }
+func (*mockStmt) Close() error  { return nil }
 func (*mockStmt) NumInput() int { return -1 }
 func (s *mockStmt) Exec(args []driver.Value) (driver.Result, error) {
 	s.conn.db.logCall("EXEC: "+s.query, args)
@@ -187,7 +187,7 @@ type mockRows struct {
 }
 
 func (r *mockRows) Columns() []string { return r.cols }
-func (*mockRows) Close() error      { return nil }
+func (*mockRows) Close() error        { return nil }
 func (r *mockRows) Next(dest []driver.Value) error {
 	if r.pos >= len(r.rows) {
 		return io.EOF

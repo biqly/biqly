@@ -263,7 +263,9 @@ func (s *WorkspaceService) AddMember(ctx context.Context, workspaceID, userID, r
 		return fmt.Errorf("add member: %w", err)
 	}
 	if s.dsAcc != nil {
-		_ = s.dsAcc.InvalidateCache(ctx, userID)
+		if err := s.dsAcc.InvalidateCache(ctx, userID); err != nil {
+			return fmt.Errorf("invalidate datasource access cache: %w", err)
+		}
 	}
 	return nil
 }
@@ -296,7 +298,9 @@ func (s *WorkspaceService) RemoveMember(ctx context.Context, workspaceID, userID
 		DELETE FROM workspace_members WHERE workspace_id = $1 AND user_id = $2
 	`, workspaceID, userID)
 	if err == nil && s.dsAcc != nil {
-		_ = s.dsAcc.InvalidateCache(ctx, userID)
+		if cacheErr := s.dsAcc.InvalidateCache(ctx, userID); cacheErr != nil {
+			return fmt.Errorf("invalidate datasource access cache: %w", cacheErr)
+		}
 	}
 	return err
 }
@@ -376,7 +380,9 @@ func (s *WorkspaceService) AttachDatasource(ctx context.Context, workspaceID, da
 	}
 
 	if s.dsAcc != nil {
-		_ = s.invalidateAllMembers(ctx, workspaceID)
+		if err := s.invalidateAllMembers(ctx, workspaceID); err != nil {
+			return fmt.Errorf("invalidate workspace datasource access cache: %w", err)
+		}
 	}
 	return nil
 }
@@ -390,7 +396,9 @@ func (s *WorkspaceService) DetachDatasource(ctx context.Context, workspaceID, da
 		DELETE FROM workspace_datasources WHERE workspace_id = $1 AND datasource_id = $2
 	`, workspaceID, datasourceID)
 	if err == nil && s.dsAcc != nil {
-		_ = s.invalidateAllMembers(ctx, workspaceID)
+		if cacheErr := s.invalidateAllMembers(ctx, workspaceID); cacheErr != nil {
+			return fmt.Errorf("invalidate workspace datasource access cache: %w", cacheErr)
+		}
 	}
 	return err
 }
@@ -407,7 +415,9 @@ func (s *WorkspaceService) invalidateAllMembers(ctx context.Context, workspaceID
 		if err := rows.Scan(&uid); err != nil {
 			continue
 		}
-		_ = s.dsAcc.InvalidateCache(ctx, uid)
+		if err := s.dsAcc.InvalidateCache(ctx, uid); err != nil {
+			return err
+		}
 	}
 	return rows.Err()
 }
@@ -453,9 +463,9 @@ func slugify(s string) string {
 	for _, r := range s {
 		switch {
 		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
-			b.WriteRune(r)
+			_, _ = b.WriteRune(r)
 		case r == ' ' || r == '-' || r == '_':
-			b.WriteRune('-')
+			_, _ = b.WriteRune('-')
 		}
 	}
 	out := strings.Trim(b.String(), "-")

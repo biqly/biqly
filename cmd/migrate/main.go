@@ -218,13 +218,17 @@ func isAlreadyAppliedError(err error) bool {
 	}
 }
 
-func backfillExpressions(ctx context.Context, db *sql.DB) error { //nolint:funlen,gocognit
+func backfillExpressions(ctx context.Context, db *sql.DB) (err error) { //nolint:funlen,gocognit,gocyclo // one-off migration backfill over dimensions and metrics
 	// Process dimensions
 	dimRows, err := db.QueryContext(ctx, `SELECT id, calculated_expression FROM semantic_dimensions WHERE calculated_expression IS NOT NULL AND calculated_expression != ''`)
 	if err != nil {
 		return fmt.Errorf("query dimensions: %w", err)
 	}
-	defer func() { _ = dimRows.Close() }()
+	defer func() {
+		if closeErr := dimRows.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close dimension rows: %w", closeErr)
+		}
+	}()
 
 	type dimUpdate struct {
 		id   string
@@ -261,7 +265,11 @@ func backfillExpressions(ctx context.Context, db *sql.DB) error { //nolint:funle
 	if err != nil {
 		return fmt.Errorf("query metrics: %w", err)
 	}
-	defer func() { _ = metRows.Close() }()
+	defer func() {
+		if closeErr := metRows.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close metric rows: %w", closeErr)
+		}
+	}()
 
 	type metUpdate struct {
 		id   string
@@ -298,13 +306,25 @@ func backfillExpressions(ctx context.Context, db *sql.DB) error { //nolint:funle
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
-	defer func() { _ = tx.Rollback() }()
+	committed := false
+	defer func() {
+		if committed {
+			return
+		}
+		if err := tx.Rollback(); err != nil {
+			slog.Warn("rollback expression backfill transaction", "error", err)
+		}
+	}()
 
 	dimStmt, err := tx.PrepareContext(ctx, `UPDATE semantic_dimensions SET calculated_expr_json = $1::jsonb WHERE id = $2::uuid`)
 	if err != nil {
 		return fmt.Errorf("prepare dimension update: %w", err)
 	}
-	defer func() { _ = dimStmt.Close() }()
+	defer func() {
+		if closeErr := dimStmt.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close dimension update statement: %w", closeErr)
+		}
+	}()
 
 	for _, u := range dimUpdates {
 		if _, err := dimStmt.ExecContext(ctx, u.json, u.id); err != nil {
@@ -316,7 +336,11 @@ func backfillExpressions(ctx context.Context, db *sql.DB) error { //nolint:funle
 	if err != nil {
 		return fmt.Errorf("prepare metric update: %w", err)
 	}
-	defer func() { _ = metStmt.Close() }()
+	defer func() {
+		if closeErr := metStmt.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close metric update statement: %w", closeErr)
+		}
+	}()
 
 	for _, u := range metUpdates {
 		if _, err := metStmt.ExecContext(ctx, u.json, u.id); err != nil {
@@ -327,6 +351,7 @@ func backfillExpressions(ctx context.Context, db *sql.DB) error { //nolint:funle
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit tx: %w", err)
 	}
+	committed = true
 
 	slog.Info("backfill completed", "dimensions_updated", len(dimUpdates), "metrics_updated", len(metUpdates))
 	return nil

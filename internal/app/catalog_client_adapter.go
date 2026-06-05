@@ -38,7 +38,7 @@ func (a *queryCatalogAdapter) CreateQueryHistory(ctx context.Context, entry *que
 	if entry == nil {
 		return nil
 	}
-	if _, err := a.client.CreateQueryHistory(ctx, *entry); err != nil {
+	if _, err := a.client.CreateQueryHistory(ctx, entry); err != nil {
 		return fmt.Errorf("catalog create query history: %w", err)
 	}
 	return nil

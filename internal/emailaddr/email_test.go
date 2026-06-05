@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-//nolint:funlen
+//nolint:funlen // table-driven normalization cases cover many provider formats
 func TestNormalize(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -33,7 +33,7 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 
 	validator, executor := provideQueryEngine(cfg)
 	auditLogger := audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(ctx, db, slog.Default()))
-	queryService := core.NewQueryService(core.QueryServiceDeps{
+	queryService := core.NewQueryService(&core.QueryServiceDeps{
 		Models:      semanticRepo,
 		Composites:  semantic.NewCompositeRepository(db),
 		Datasources: metaRepo,

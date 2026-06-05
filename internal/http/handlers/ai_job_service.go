@@ -21,8 +21,8 @@ type AIJobService struct {
 	ai        *AIHandler
 }
 
-func NewAIJobService(repo *metadata.Repository, publisher queue.AIJobPublisher, ai *AIHandler) *AIJobService {
-	return &AIJobService{repo: repo, publisher: publisher, ai: ai}
+func NewAIJobService(repo *metadata.Repository, publisher queue.AIJobPublisher, aiHandler *AIHandler) *AIJobService {
+	return &AIJobService{repo: repo, publisher: publisher, ai: aiHandler}
 }
 
 type createAIJobRequest struct {
@@ -31,7 +31,7 @@ type createAIJobRequest struct {
 	Request         json.RawMessage `json:"request"`
 }
 
-func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID, userID string, req json.RawMessage) (*metadata.AIJob, error) {
+func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID, userID string, req json.RawMessage) (*metadata.AIJob, error) { //nolint:gocognit // validates multiple job kinds before one enqueue path.
 	if sessionID == "" {
 		return nil, errors.New("client_session_id is required")
 	}
@@ -114,7 +114,9 @@ func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID, userID stri
 	}
 	if s.publisher != nil {
 		if err := s.publisher.Publish(ctx, job.ID); err != nil {
-			_ = s.repo.FailAIJob(ctx, job.ID, err.Error())
+			if failErr := s.repo.FailAIJob(ctx, job.ID, err.Error()); failErr != nil {
+				slog.WarnContext(ctx, "mark async AI job failed", "job_id", job.ID, "err", failErr)
+			}
 			return nil, err
 		}
 	}
@@ -233,7 +235,9 @@ func (s *AIJobService) Process(ctx context.Context, jobID string) error {
 		if strings.Contains(strings.ToLower(err.Error()), "cancelled") {
 			return nil
 		}
-		_ = s.repo.FailAIJob(ctx, jobID, err.Error())
+		if failErr := s.repo.FailAIJob(ctx, jobID, err.Error()); failErr != nil {
+			slog.WarnContext(ctx, "mark async AI job failed", "job_id", jobID, "err", failErr)
+		}
 		return err
 	}
 	return s.repo.CompleteAIJob(ctx, jobID, raw)

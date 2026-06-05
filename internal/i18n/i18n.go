@@ -101,17 +101,6 @@ func IsSupported(loc Locale) bool {
 	return isSupported(loc)
 }
 
-// MetadataTranslationLocales returns locales that should receive translated metadata.
-func MetadataTranslationLocales() []Locale {
-	out := make([]Locale, 0, len(SupportedLocales))
-	for _, profile := range SupportedLocaleProfiles() {
-		if profile.UsesMetadataTranslations {
-			out = append(out, profile.Locale)
-		}
-	}
-	return out
-}
-
 //go:embed locales/*.json
 var localeFS embed.FS
 

@@ -97,7 +97,10 @@ func BenchmarkJSONUnmarshal_Std(b *testing.B) {
 
 func BenchmarkJSONUnmarshal_Jsoniter(b *testing.B) {
 	entry := getTestEntry()
-	data, _ := jsoniterStd.Marshal(entry)
+	data, err := jsoniterStd.Marshal(entry)
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	var out AIQueryHistoryEntry
 	b.ResetTimer()
@@ -111,7 +114,10 @@ func BenchmarkJSONUnmarshal_Jsoniter(b *testing.B) {
 
 func BenchmarkJSONUnmarshal_Sonic(b *testing.B) {
 	entry := getTestEntry()
-	data, _ := sonic.Marshal(entry)
+	data, err := sonic.Marshal(entry)
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	var out AIQueryHistoryEntry
 	b.ResetTimer()

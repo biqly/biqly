@@ -53,7 +53,7 @@ func listOpenAICompatibleModels(ctx context.Context, baseURL, apiKey string, tim
 	if base == "" {
 		return nil, errors.New("base URL is required to list models")
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/models", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/models", http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func listAnthropicModels(ctx context.Context, baseURL, apiKey string, timeout ti
 	if strings.TrimSpace(apiKey) == "" {
 		return nil, errors.New("API key is required to list models")
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/models", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/models", http.NoBody)
 	if err != nil {
 		return nil, err
 	}

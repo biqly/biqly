@@ -34,8 +34,10 @@ func TestSeparationOfDutiesBlocksSelfSuperAdminChange(t *testing.T) {
 	ctx := context.Background()
 
 	const email = "sod_test@example.com"
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE email = $1)", email)
-	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email = $1", email)
+	_, err := dbPool.ExecContext(ctx, "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE email = $1)", email)
+	require.NoError(t, err)
+	_, err = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email = $1", email)
+	require.NoError(t, err)
 
 	var userID string
 	require.NoError(t, dbPool.QueryRowContext(ctx,
@@ -51,7 +53,7 @@ func TestSeparationOfDutiesBlocksSelfSuperAdminChange(t *testing.T) {
 	rbacRepo := rbac.NewRBACRepository(dbPool)
 	require.NoError(t, rbacRepo.AssignRole(ctx, userID, saRoleID, nil, nil))
 
-	err := rbacRepo.EnforceSelfModificationGuard(ctx, userID, userID, "user.deactivate")
+	err = rbacRepo.EnforceSelfModificationGuard(ctx, userID, userID, "user.deactivate")
 	assert.ErrorIs(t, err, rbac.ErrCannotDeactivateSelf)
 
 	// Self-modification by a super_admin must be denied.

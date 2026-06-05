@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -73,9 +74,13 @@ func (c *redisCompositeCache) Set(ctx context.Context, compositeID string, versi
 	if err != nil {
 		return
 	}
-	_ = c.client.Set(ctx, compositeCacheKey(compositeID), payload, c.ttl).Err()
+	if err := c.client.Set(ctx, compositeCacheKey(compositeID), payload, c.ttl).Err(); err != nil {
+		slog.WarnContext(ctx, "semantic composite cache set failed", "composite_id", compositeID, "error", err)
+	}
 }
 
 func (c *redisCompositeCache) Invalidate(ctx context.Context, compositeID string) {
-	_ = c.client.Del(ctx, compositeCacheKey(compositeID)).Err()
+	if err := c.client.Del(ctx, compositeCacheKey(compositeID)).Err(); err != nil {
+		slog.WarnContext(ctx, "semantic composite cache invalidate failed", "composite_id", compositeID, "error", err)
+	}
 }

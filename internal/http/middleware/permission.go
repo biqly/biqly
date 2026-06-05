@@ -145,7 +145,7 @@ func (c *AuthClient) UserAIAccess(ctx context.Context, userID string) (*UserAIAc
 	if userID == "" {
 		return nil, nil //nolint:nilnil // empty user id means no AI access override
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+fmt.Sprintf("/internal/auth/user/%s/ai-access", userID), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+fmt.Sprintf("/internal/auth/user/%s/ai-access", userID), http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func (c *AuthClient) ListUserAIPreferences(ctx context.Context, userID string) (
 	if userID == "" {
 		return nil, nil
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+fmt.Sprintf("/internal/auth/user/%s/ai-preferences", userID), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+fmt.Sprintf("/internal/auth/user/%s/ai-preferences", userID), http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +230,7 @@ func (c *AuthClient) SetUserAIPreference(ctx context.Context, userID, purpose, m
 }
 
 func (c *AuthClient) DeleteUserAIPreference(ctx context.Context, userID, purpose string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.baseURL+fmt.Sprintf("/internal/auth/user/%s/ai-preferences/%s", userID, purpose), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.baseURL+fmt.Sprintf("/internal/auth/user/%s/ai-preferences/%s", userID, purpose), http.NoBody)
 	if err != nil {
 		return err
 	}
@@ -282,7 +282,7 @@ func (c *AuthClient) InvalidateWorkspaceDatasourceCache(workspaceID string) {
 }
 
 func (c *AuthClient) GetUserEmail(ctx context.Context, userID string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/internal/auth/user/"+userID, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/internal/auth/user/"+userID, http.NoBody)
 	if err != nil {
 		return "", err
 	}
@@ -308,7 +308,7 @@ func (c *AuthClient) GetUserEmail(ctx context.Context, userID string) (string, e
 }
 
 func (c *AuthClient) fetchDatasourceIDs(ctx context.Context, path string) ([]string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, http.NoBody)
 	if err != nil {
 		return nil, err
 	}

@@ -70,47 +70,45 @@ func TestServerHandleSend(t *testing.T) {
 		require.NoError(t, err)
 		return resp
 	}
-
 	t.Run("missing token rejected", func(t *testing.T) {
 		resp := post("", `{"template":"verification","to":"a@b.com","data":{"token":"x"}}`)
-		defer func() { _ = resp.Body.Close() }()
+		defer func() { require.NoError(t, resp.Body.Close()) }()
 		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 	})
 
 	t.Run("wrong token rejected", func(t *testing.T) {
 		resp := post("nope", `{"template":"verification","to":"a@b.com","data":{"token":"x"}}`)
-		defer func() { _ = resp.Body.Close() }()
+		defer func() { require.NoError(t, resp.Body.Close()) }()
 		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 	})
 
 	t.Run("unknown template is 400", func(t *testing.T) {
 		resp := post("secret-token", `{"template":"bogus","to":"a@b.com","data":{}}`)
-		defer func() { _ = resp.Body.Close() }()
+		defer func() { require.NoError(t, resp.Body.Close()) }()
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	})
 
 	t.Run("invalid recipient is 400", func(t *testing.T) {
 		resp := post("secret-token", `{"template":"verification","to":"not-an-email","data":{"token":"x"}}`)
-		defer func() { _ = resp.Body.Close() }()
+		defer func() { require.NoError(t, resp.Body.Close()) }()
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	})
 
 	t.Run("valid request is accepted", func(t *testing.T) {
 		resp := post("secret-token", `{"template":"verification","to":"user@example.com","data":{"token":"x"}}`)
-		defer func() { _ = resp.Body.Close() }()
+		defer func() { require.NoError(t, resp.Body.Close()) }()
 		assert.Equal(t, http.StatusAccepted, resp.StatusCode)
 	})
 }
 
 func TestAPIClientRoundTrip(t *testing.T) {
-	var (
-		gotToken string
-		gotReq   sendRequest
-	)
+	var gotToken string
+	var gotReq sendRequest
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotToken = r.Header.Get("X-Internal-Token")
-		body, _ := io.ReadAll(r.Body)
-		_ = json.Unmarshal(body, &gotReq)
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		require.NoError(t, json.Unmarshal(body, &gotReq))
 		w.WriteHeader(http.StatusAccepted)
 	}))
 	t.Cleanup(srv.Close)

@@ -18,12 +18,6 @@ type ResolvedDatasource struct {
 	DB     *sql.DB
 }
 
-// ResolveDatasourceDB loads the datasource, resolves the driver, decrypts the DSN, and opens a pool.
-// The caller must close DB when finished.
-func (d *Dependencies) ResolveDatasourceDB(ctx context.Context, id string) (*ResolvedDatasource, error) {
-	return resolveDatasourceDBHelper(ctx, d.MetaRepo, d.DriverReg, d.Encryptor, id)
-}
-
 // ResolveDatasourceDB loads the datasource for CatalogDeps.
 func (d *CatalogDeps) ResolveDatasourceDB(ctx context.Context, id string) (*ResolvedDatasource, error) {
 	return resolveDatasourceDBHelper(ctx, d.MetaRepo, d.DriverReg, d.Encryptor, id)

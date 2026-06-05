@@ -18,6 +18,9 @@ func FromContext(ctx context.Context) string {
 	if ctx == nil {
 		return ""
 	}
-	id, _ := ctx.Value(contextKey{}).(string)
+	id, ok := ctx.Value(contextKey{}).(string)
+	if !ok {
+		return ""
+	}
 	return id
 }

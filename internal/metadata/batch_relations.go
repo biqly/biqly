@@ -31,22 +31,16 @@ func upsertRelationsChunk(ctx context.Context, q execContexter, datasourceID str
 		return nil
 	}
 
-	var values strings.Builder
+	values := make([]string, 0, len(relations))
 	args := make([]any, 0, len(relations)*relationUpsertRowCols)
 	placeholder := 1
-	for i, rel := range relations {
-		if i > 0 {
-			values.WriteByte(',')
-		}
-		values.WriteByte('(')
-		for col := range relationUpsertRowCols {
-			if col > 0 {
-				values.WriteByte(',')
-			}
-			fmt.Fprintf(&values, "$%d", placeholder)
+	for _, rel := range relations {
+		row := make([]string, 0, relationUpsertRowCols)
+		for range relationUpsertRowCols {
+			row = append(row, fmt.Sprintf("$%d", placeholder))
 			placeholder++
 		}
-		values.WriteByte(')')
+		values = append(values, "("+strings.Join(row, ",")+")")
 		args = append(args,
 			rel.ID, datasourceID, rel.ConstraintName,
 			rel.FromSchema, rel.FromTable, rel.FromColumn,
@@ -54,7 +48,7 @@ func upsertRelationsChunk(ctx context.Context, q execContexter, datasourceID str
 		)
 	}
 
-	query := fmt.Sprintf(relationUpsertValueQuery, values.String())
+	query := fmt.Sprintf(relationUpsertValueQuery, strings.Join(values, ","))
 	if _, err := q.ExecContext(ctx, query, args...); err != nil {
 		return fmt.Errorf("upsert relations batch: %w", err)
 	}

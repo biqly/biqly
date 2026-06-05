@@ -66,14 +66,6 @@ type jwtConfig struct {
 	audience string
 }
 
-func (p *PublicKeyProvider) Get(ctx context.Context) (*rsa.PublicKey, error) {
-	cfg, err := p.getConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return cfg.key, nil
-}
-
 func (p *PublicKeyProvider) getConfig(ctx context.Context) (*jwtConfig, error) {
 	p.mu.RLock()
 	if p.publicKey != nil && time.Since(p.fetchedAt) < p.ttl {
@@ -91,7 +83,7 @@ func (p *PublicKeyProvider) getConfig(ctx context.Context) (*jwtConfig, error) {
 	}
 
 	url := p.authServiceURL + "/internal/auth/public-key"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("build public-key request: %w", err)
 	}
@@ -269,11 +261,6 @@ func AccessibleDatasources(ctx context.Context) []string {
 	return v
 }
 
-func Permissions(ctx context.Context) []string {
-	v, _ := ctx.Value(PermissionsKey).([]string)
-	return v
-}
-
 func HasRole(ctx context.Context, role string) bool {
 	return slices.Contains(UserRoles(ctx), role)
 }
@@ -313,33 +300,4 @@ func RequireVerifiedEmail() func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
-}
-
-// WorkspaceDatasourceFilter resolves the active workspace's attached datasource
-// IDs for the request context. Returns (ids, applied).
-//
-//   - applied=false → no filter should be applied: caller is super_admin, auth
-//     is disabled (client nil), or there is no active workspace.
-//   - applied=true  → only datasource IDs in ids are visible. An empty ids
-//     slice means the workspace has no datasources and the listing should be
-//     empty.
-//
-// Errors from the auth service propagate so handlers can decide between
-// failing closed and serving unfiltered.
-func WorkspaceDatasourceFilter(ctx context.Context, client *AuthClient) ([]string, bool, error) {
-	if client == nil {
-		return nil, false, nil
-	}
-	if HasRole(ctx, RoleSuperAdmin) {
-		return nil, false, nil
-	}
-	wsID := WorkspaceID(ctx)
-	if wsID == "" {
-		return nil, false, nil
-	}
-	ids, err := client.ListWorkspaceDatasources(ctx, wsID)
-	if err != nil {
-		return nil, false, err
-	}
-	return ids, true, nil
 }

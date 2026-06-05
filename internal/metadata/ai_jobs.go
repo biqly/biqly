@@ -92,7 +92,11 @@ func (r *Repository) ListAIJobsBySession(ctx context.Context, sessionID string, 
 	if err != nil {
 		return nil, fmt.Errorf("list ai jobs: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			_ = closeErr
+		}
+	}()
 
 	out := make([]AIJob, 0, limit)
 	for rows.Next() {
@@ -267,7 +271,11 @@ func (r *Repository) ListStaleAIJobs(ctx context.Context, sessionID string, olde
 	if err != nil {
 		return nil, fmt.Errorf("list stale ai jobs: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			_ = closeErr
+		}
+	}()
 
 	out := make([]AIJob, 0, limit)
 	for rows.Next() {

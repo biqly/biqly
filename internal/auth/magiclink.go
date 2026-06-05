@@ -100,17 +100,6 @@ func (r *MagicLinkRepository) Consume(ctx context.Context, plaintext string) (st
 	return userID.String, nil
 }
 
-// PurgeExpired drops tokens whose expires_at has passed by at least the
-// supplied grace period. Intended to be called from a periodic janitor.
-func (r *MagicLinkRepository) PurgeExpired(ctx context.Context, grace time.Duration) (int64, error) {
-	cutoff := time.Now().Add(-grace)
-	res, err := r.db.ExecContext(ctx, `DELETE FROM magic_link_tokens WHERE expires_at < $1`, cutoff)
-	if err != nil {
-		return 0, err
-	}
-	return res.RowsAffected()
-}
-
 func hashMagicLink(plaintext string) string {
 	sum := sha256.Sum256([]byte(plaintext))
 	return hex.EncodeToString(sum[:])

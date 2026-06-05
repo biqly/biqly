@@ -43,22 +43,16 @@ func upsertColumnsChunk(ctx context.Context, q execContexter, datasourceID strin
 		return nil
 	}
 
-	var values strings.Builder
+	values := make([]string, 0, len(columns))
 	args := make([]any, 0, len(columns)*columnUpsertRowCols)
 	placeholder := 1
-	for i, c := range columns {
-		if i > 0 {
-			values.WriteByte(',')
-		}
-		values.WriteByte('(')
-		for col := range columnUpsertRowCols {
-			if col > 0 {
-				values.WriteByte(',')
-			}
-			fmt.Fprintf(&values, "$%d", placeholder)
+	for _, c := range columns {
+		row := make([]string, 0, columnUpsertRowCols)
+		for range columnUpsertRowCols {
+			row = append(row, fmt.Sprintf("$%d", placeholder))
 			placeholder++
 		}
-		values.WriteByte(')')
+		values = append(values, "("+strings.Join(row, ",")+")")
 		args = append(args,
 			c.ID, datasourceID, c.TableID, c.SchemaName, c.TableName, c.ColumnName,
 			c.DataType, c.Nullable, c.OrdinalPosition, c.CharMaxLength, c.NumericPrecision,
@@ -67,7 +61,7 @@ func upsertColumnsChunk(ctx context.Context, q execContexter, datasourceID strin
 		)
 	}
 
-	query := fmt.Sprintf(columnUpsertValueQuery, values.String())
+	query := fmt.Sprintf(columnUpsertValueQuery, strings.Join(values, ","))
 	if _, err := q.ExecContext(ctx, query, args...); err != nil {
 		return fmt.Errorf("upsert columns batch: %w", err)
 	}

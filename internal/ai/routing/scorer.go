@@ -106,15 +106,15 @@ var turkishLowerReplacer = strings.NewReplacer(
 
 func normalizeText(text string) string {
 	text = strings.ToLower(turkishLowerReplacer.Replace(text))
-	var sb strings.Builder
+	out := make([]rune, 0, len(text))
 	for _, r := range text {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) {
-			sb.WriteRune(r)
+			out = append(out, r)
 			continue
 		}
-		sb.WriteRune(' ')
+		out = append(out, ' ')
 	}
-	return sb.String()
+	return string(out)
 }
 
 func isRevenueLikeQuestion(tokens map[string]bool) bool {

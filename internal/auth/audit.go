@@ -40,10 +40,6 @@ func NewAuditService(db *sql.DB) *AuditService {
 	return &AuditService{db: db, logger: slog.Default().With("subsystem", "audit")}
 }
 
-func (s *AuditService) WithLogger(l *slog.Logger) *AuditService {
-	return &AuditService{db: s.db, logger: l.With("subsystem", "audit")}
-}
-
 func (s *AuditService) Log(ctx context.Context, userID *string, action string, resource, resourceID *string, metadata any, ipAddress *string) error {
 	var metaJSON []byte
 	if metadata != nil {
@@ -62,13 +58,6 @@ func (s *AuditService) Log(ctx context.Context, userID *string, action string, r
 		return fmt.Errorf("insert audit log: %w", err)
 	}
 	s.emitStructured(ctx, userID, action, resource, resourceID, ipAddress, metadata, AuditResultSuccess)
-	return nil
-}
-
-func (s *AuditService) LogResult(ctx context.Context, userID *string, action string, resource, resourceID *string, metadata any, ipAddress *string, _ AuditResult) error {
-	if err := s.Log(ctx, userID, action, resource, resourceID, metadata, ipAddress); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -168,10 +157,7 @@ func (s *AuditService) List(ctx context.Context, filter AuditFilter) ([]AuditEnt
 	if limit > 1000 {
 		limit = 1000
 	}
-	offset := filter.Offset
-	if offset < 0 {
-		offset = 0
-	}
+	offset := max(filter.Offset, 0)
 
 	var parts []string
 	args := []any{}

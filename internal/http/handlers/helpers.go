@@ -61,8 +61,8 @@ func appendRequestLogArgs(ctx context.Context, args []any) []any {
 // admin — in those cases callers must not filter their results. On error the
 // helper returns it for the caller to surface with a context-appropriate
 // message; nothing is written to w.
-func resolveAccessibleDatasources(ctx context.Context, config *config.Config) (map[string]struct{}, bool, error) {
-	if !config.Auth.Enabled {
+func resolveAccessibleDatasources(ctx context.Context, cfg *config.Config) (map[string]struct{}, bool, error) {
+	if !cfg.Auth.Enabled {
 		return nil, false, nil
 	}
 	userID := bimw.UserID(ctx)
@@ -70,7 +70,7 @@ func resolveAccessibleDatasources(ctx context.Context, config *config.Config) (m
 		return nil, false, nil
 	}
 
-	authClient := bimw.NewAuthClient(config.Auth.ServiceURL, config.Auth.InternalToken)
+	authClient := bimw.NewAuthClient(cfg.Auth.ServiceURL, cfg.Auth.InternalToken)
 	allowed, err := authClient.ListUserDatasources(ctx, userID)
 	if err != nil {
 		return nil, false, fmt.Errorf("list user datasources: %w", err)

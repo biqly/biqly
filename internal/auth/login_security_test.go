@@ -79,13 +79,17 @@ func newEnumHandler(t *testing.T, loginErr error) http.Handler {
 		if errors.Is(loginErr, ErrInvalidCredentials) || errors.Is(loginErr, ErrInactiveUser) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
-			_ = json.NewEncoder(w).Encode(map[string]string{"error": ErrInvalidCredentials.Error()})
+			if err := json.NewEncoder(w).Encode(map[string]string{"error": ErrInvalidCredentials.Error()}); err != nil {
+				t.Errorf("failed to encode json: %v", err)
+			}
 			return
 		}
 		if errors.Is(loginErr, ErrAccountLocked) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusTooManyRequests)
-			_ = json.NewEncoder(w).Encode(map[string]string{"error": loginErr.Error()})
+			if err := json.NewEncoder(w).Encode(map[string]string{"error": loginErr.Error()}); err != nil {
+				t.Errorf("failed to encode json: %v", err)
+			}
 			return
 		}
 		w.WriteHeader(http.StatusOK)

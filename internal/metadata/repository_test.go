@@ -122,7 +122,9 @@ func setupMockDB(t *testing.T) (*sql.DB, *mockDBState) {
 		t.Fatalf("failed to open mock db: %v", err)
 	}
 	t.Cleanup(func() {
-		_ = db.Close()
+		if err := db.Close(); err != nil {
+			t.Errorf("failed to close mock db: %v", err)
+		}
 		mDriver.mu.Lock()
 		delete(mDriver.states, name)
 		mDriver.mu.Unlock()
@@ -807,7 +809,6 @@ func TestQueryAndAIHistory(t *testing.T) {
 				{"aqh-123", "ds-1", "m-1", "u-1", "how many users?", []byte(`{}`), []byte(`{}`), []byte(`{"version":"v1"}`), 0.95, `{warn1}`, "success", int64(0), false, "gpt-4", int64(6), int64(4), int64(10), 0.05, int64(120), now, nil, nil},
 			},
 		},
-
 	}
 
 	// 1. CreateQueryHistory
@@ -1415,4 +1416,3 @@ func TestSecurityPolicies(t *testing.T) {
 	err = repo.DeleteSecurityPolicyByKeys(ctx, "role:viewer", "ds-1")
 	assert.NoError(t, err)
 }
-

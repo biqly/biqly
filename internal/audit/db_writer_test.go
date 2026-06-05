@@ -73,7 +73,7 @@ func openTestDBPool(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Skip("skipping database tests; DB not available:", err)
 	}
-	t.Cleanup(func() { _ = dbPool.Close() })
+	t.Cleanup(func() { require.NoError(t, dbPool.Close()) })
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -88,11 +88,12 @@ func TestDBWriter_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	// Ensure clean start
-	_, _ = db.ExecContext(ctx, "DELETE FROM audit_events WHERE event_type = $1", "test_db_writer_integration")
+	_, err := db.ExecContext(ctx, "DELETE FROM audit_events WHERE event_type = $1", "test_db_writer_integration")
+	require.NoError(t, err)
 
 	w := NewDBWriter(ctx, db, nil)
 	require.NotNil(t, w)
-	defer func() { _ = w.Close() }()
+	t.Cleanup(func() { require.NoError(t, w.Close()) })
 
 	event := Event{
 		UserID:       "4da3108c-02a8-4eb8-b9a5-1d0b30177724",
@@ -109,7 +110,7 @@ func TestDBWriter_Integration(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	var count int
-	err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM audit_events WHERE event_type = $1", "test_db_writer_integration").Scan(&count)
+	err = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM audit_events WHERE event_type = $1", "test_db_writer_integration").Scan(&count)
 	require.NoError(t, err)
 	assert.Equal(t, 1, count)
 
@@ -138,7 +139,8 @@ func TestDBWriter_CloseFlushes(t *testing.T) {
 	ctx := context.Background()
 
 	// Ensure clean start
-	_, _ = db.ExecContext(ctx, "DELETE FROM audit_events WHERE event_type = $1", "test_close_flushes")
+	_, err := db.ExecContext(ctx, "DELETE FROM audit_events WHERE event_type = $1", "test_close_flushes")
+	require.NoError(t, err)
 
 	w := NewDBWriter(ctx, db, nil)
 	require.NotNil(t, w)
@@ -152,7 +154,7 @@ func TestDBWriter_CloseFlushes(t *testing.T) {
 	w.Write(event)
 
 	// Close immediately, which should trigger a flush of any remaining events in the channel
-	err := w.Close()
+	err = w.Close()
 	require.NoError(t, err)
 
 	var count int

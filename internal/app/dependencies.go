@@ -26,12 +26,12 @@ import (
 	"github.com/biqly/biqly/internal/datasource/postgres"
 	"github.com/biqly/biqly/internal/datasource/sqlserver"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
+	"github.com/biqly/biqly/internal/mail"
 	"github.com/biqly/biqly/internal/metadata"
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/queue"
 	"github.com/biqly/biqly/internal/security"
-	"github.com/biqly/biqly/internal/mail"
 	"github.com/biqly/biqly/internal/semantic"
 	"github.com/biqly/biqly/internal/semantic/drift"
 	"github.com/biqly/biqly/pkg/catalogclient"
@@ -79,8 +79,8 @@ type Dependencies struct {
 	AIJobsHTTP      AIJobsHTTPHandler
 	// PoolCache holds *sql.DB pools for external datasources. Closed during
 	// Dependencies.Close().
-	PoolCache     *datasource.PoolCache
-	DashboardRepo *dashboard.Repository
+	PoolCache      *datasource.PoolCache
+	DashboardRepo  *dashboard.Repository
 	DriftRepo      *drift.Repository
 	DriftDetector  *drift.Detector
 	DriftNotifier  *drift.Notifier
@@ -262,7 +262,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 	mailClient := mail.NewAPIClient(cfg.Mail.ServiceURL, cfg.Mail.InternalToken, nil)
 	driftNotifier := drift.NewNotifier(mailClient, nil)
 
-	queryService := core.NewQueryService(core.QueryServiceDeps{
+	queryService := core.NewQueryService(&core.QueryServiceDeps{
 		Models:      semanticRepo,
 		Composites:  compositeRepo,
 		Datasources: metaRepo,
@@ -378,7 +378,7 @@ type aiBundle struct {
 // still starts so providers can be configured via the admin API, and requests
 // for unconfigured purposes return a clear "no model configured" error.
 func provideProviderStore(ctx context.Context, cfg *config.Config, db *sql.DB, encryptor *security.Encryption) *ai.ProviderStore {
-	store := ai.NewProviderStore(db, encryptor, cfg.AI)
+	store := ai.NewProviderStore(db, encryptor, &cfg.AI)
 	if err := store.RefreshCache(ctx); err != nil {
 		slog.Warn("ai provider cache refresh failed; configure providers under Administration → AI Providers", "error", err)
 	}

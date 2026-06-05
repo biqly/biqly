@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bytedance/sonic"
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 	pkgquery "github.com/biqly/biqly/pkg/query"
+	"github.com/bytedance/sonic"
 	"github.com/lib/pq"
 )
 
@@ -740,13 +740,19 @@ func scanAIHistoryEntry(s platformdb.Scanner) (AIQueryHistoryEntry, error) {
 		entry.ABVariantID = new(abVarID.String)
 	}
 	if len(promptCtx) > 0 {
-		_ = sonic.Unmarshal(promptCtx, &entry.PromptContext)
+		if err := sonic.Unmarshal(promptCtx, &entry.PromptContext); err != nil {
+			return entry, fmt.Errorf("decode prompt context: %w", err)
+		}
 	}
 	if len(aiResp) > 0 {
-		_ = sonic.Unmarshal(aiResp, &entry.AIResponse)
+		if err := sonic.Unmarshal(aiResp, &entry.AIResponse); err != nil {
+			return entry, fmt.Errorf("decode ai response: %w", err)
+		}
 	}
 	if len(logicalQ) > 0 {
-		_ = sonic.Unmarshal(logicalQ, &entry.LogicalQuery)
+		if err := sonic.Unmarshal(logicalQ, &entry.LogicalQuery); err != nil {
+			return entry, fmt.Errorf("decode logical query: %w", err)
+		}
 	}
 	entry.Warnings = []string(warnings)
 

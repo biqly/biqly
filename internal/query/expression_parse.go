@@ -32,33 +32,6 @@ const (
 	TokenKeyword
 )
 
-func (t TokenType) String() string {
-	switch t {
-	case TokenEOF:
-		return "EOF"
-	case TokenError:
-		return "Error"
-	case TokenIdentifier:
-		return "Identifier"
-	case TokenNumber:
-		return "Number"
-	case TokenString:
-		return "String"
-	case TokenOperator:
-		return "Operator"
-	case TokenParenOpen:
-		return "ParenOpen"
-	case TokenParenClose:
-		return "ParenClose"
-	case TokenComma:
-		return "Comma"
-	case TokenKeyword:
-		return "Keyword"
-	default:
-		return "Unknown"
-	}
-}
-
 type Token struct {
 	Type  TokenType
 	Value string

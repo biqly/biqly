@@ -18,14 +18,14 @@ const aiHistorySelectCols = `id, datasource_id, model_id, user_id, question, pro
 
 // AIHistoryListFilter drives paginated ai_query_history listing.
 type AIHistoryListFilter struct {
-	UserID         string
-	DatasourceID   string
-	DatasourceIDs  []string
-	ModelID        string
-	Status         string
-	Search         string
-	Page           int
-	PageSize       int
+	UserID        string
+	DatasourceID  string
+	DatasourceIDs []string
+	ModelID       string
+	Status        string
+	Search        string
+	Page          int
+	PageSize      int
 }
 
 // AIHistoryListResult is a page of AI history rows plus total matching count.
@@ -108,7 +108,11 @@ func (r *Repository) ListAIQueryHistoryFiltered(ctx context.Context, filter AIHi
 	if err != nil {
 		return AIHistoryListResult{}, fmt.Errorf("list AI history filtered: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			_ = err
+		}
+	}()
 
 	entries := make([]AIQueryHistoryEntry, 0, filter.PageSize)
 	for rows.Next() {

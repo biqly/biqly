@@ -39,7 +39,11 @@ func execHTTPPost(ctx context.Context, client *http.Client, spec httpPostSpec) (
 	if err != nil {
 		return 0, nil, fmt.Errorf("send request: %w", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	respBody, err := readResponseBody(resp)
 	if err != nil {

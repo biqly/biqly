@@ -15,15 +15,15 @@ import (
 type providerStoreAPI interface {
 	ListProviders(ctx context.Context) ([]ai.ProviderRow, error)
 	GetProvider(ctx context.Context, id string) (ai.ProviderRow, error)
-	CreateProvider(ctx context.Context, in ai.CreateProviderInput) (string, error)
-	UpdateProvider(ctx context.Context, id string, in ai.UpdateProviderInput) error
+	CreateProvider(ctx context.Context, in *ai.CreateProviderInput) (string, error)
+	UpdateProvider(ctx context.Context, id string, in *ai.UpdateProviderInput) error
 	DeleteProvider(ctx context.Context, id string) error
 	TestConnection(ctx context.Context, providerID, modelID string) (ai.ConnectionTestResult, error)
 	ListRemoteModels(ctx context.Context, providerID string) ([]ai.RemoteModelOption, error)
 	ListModels(ctx context.Context, providerID, purpose string) ([]ai.ModelRow, error)
 	ActiveModels(ctx context.Context) ([]ai.ModelRow, error)
-	CreateModel(ctx context.Context, in ai.CreateModelInput) (string, error)
-	UpdateModel(ctx context.Context, id string, in ai.UpdateModelInput) error
+	CreateModel(ctx context.Context, in *ai.CreateModelInput) (string, error)
+	UpdateModel(ctx context.Context, id string, in *ai.UpdateModelInput) error
 	DeleteModel(ctx context.Context, id string) error
 	SetDefaultModel(ctx context.Context, id string) error
 	RefreshCache(ctx context.Context) error
@@ -162,7 +162,7 @@ func (h *AIProvidersHandler) CreateProvider(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
-	id, err := h.store.CreateProvider(r.Context(), ai.CreateProviderInput{
+	id, err := h.store.CreateProvider(r.Context(), &ai.CreateProviderInput{
 		Name:               in.Name,
 		ProviderType:       in.ProviderType,
 		BaseURL:            in.BaseURL,
@@ -197,7 +197,7 @@ func (h *AIProvidersHandler) UpdateProvider(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
-	err := h.store.UpdateProvider(r.Context(), id, ai.UpdateProviderInput{
+	err := h.store.UpdateProvider(r.Context(), id, &ai.UpdateProviderInput{
 		Name:               in.Name,
 		ProviderType:       in.ProviderType,
 		BaseURL:            in.BaseURL,
@@ -342,7 +342,7 @@ func (h *AIProvidersHandler) CreateModel(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	id, err := h.store.CreateModel(r.Context(), ai.CreateModelInput{
+	id, err := h.store.CreateModel(r.Context(), &ai.CreateModelInput{
 		ProviderID:          in.ProviderID,
 		ModelID:             in.ModelID,
 		DisplayName:         in.DisplayName,
@@ -376,7 +376,7 @@ func (h *AIProvidersHandler) UpdateModel(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	err := h.store.UpdateModel(r.Context(), id, ai.UpdateModelInput{
+	err := h.store.UpdateModel(r.Context(), id, &ai.UpdateModelInput{
 		ModelID:             in.ModelID,
 		DisplayName:         in.DisplayName,
 		Purpose:             in.Purpose,

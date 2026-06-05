@@ -78,7 +78,7 @@ func readinessDBCheck(ctx context.Context, deps *app.Dependencies) readinessChec
 }
 
 func readinessHTTPCheck(ctx context.Context, baseURL string) readinessCheck {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(baseURL, "/")+"/health", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(baseURL, "/")+"/health", http.NoBody)
 	if err != nil {
 		return readinessCheck{Status: "error", Error: "invalid upstream URL"}
 	}

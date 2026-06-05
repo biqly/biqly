@@ -9,8 +9,8 @@ import (
 
 // Compile validates a LogicalQuery and returns the parameterized SQL plus the
 // canonical fingerprint. It does NOT execute the query.
-func (c *Client) Compile(ctx context.Context, lq query.LogicalQuery) (*internalapi.CompileResponse, error) {
-	req := internalapi.CompileRequest{LogicalQuery: lq}
+func (c *Client) Compile(ctx context.Context, lq *query.LogicalQuery) (*internalapi.CompileResponse, error) {
+	req := internalapi.CompileRequest{LogicalQuery: *lq}
 	var resp internalapi.CompileResponse
 	if err := c.do(ctx, "/compile", req, &resp); err != nil {
 		return nil, err
@@ -23,9 +23,9 @@ func (c *Client) Compile(ctx context.Context, lq query.LogicalQuery) (*internala
 // BI_QUERY_MAX_ROWS and BI_QUERY_TIMEOUT_SECONDS respectively.
 //
 // Pass 0 for either to use the server default.
-func (c *Client) Run(ctx context.Context, lq query.LogicalQuery, maxRows, timeoutMs int) (*internalapi.RunResponse, error) {
+func (c *Client) Run(ctx context.Context, lq *query.LogicalQuery, maxRows, timeoutMs int) (*internalapi.RunResponse, error) {
 	req := internalapi.RunRequest{
-		LogicalQuery: lq,
+		LogicalQuery: *lq,
 		MaxRows:      maxRows,
 		TimeoutMs:    timeoutMs,
 	}
@@ -38,8 +38,8 @@ func (c *Client) Run(ctx context.Context, lq query.LogicalQuery, maxRows, timeou
 
 // DryRun validates and compiles a LogicalQuery without executing it. Use this
 // when you only need the SQL/fingerprint for audit, caching, or preview.
-func (c *Client) DryRun(ctx context.Context, lq query.LogicalQuery) (*internalapi.DryRunResponse, error) {
-	req := internalapi.DryRunRequest{LogicalQuery: lq}
+func (c *Client) DryRun(ctx context.Context, lq *query.LogicalQuery) (*internalapi.DryRunResponse, error) {
+	req := internalapi.DryRunRequest{LogicalQuery: *lq}
 	var resp internalapi.DryRunResponse
 	if err := c.do(ctx, "/dry-run", req, &resp); err != nil {
 		return nil, err

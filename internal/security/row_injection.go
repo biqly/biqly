@@ -95,30 +95,6 @@ func BuildRowFilterPredicates(
 	return preds, extraArgs, nil
 }
 
-// InjectRowFilters adds mandatory row-level security filters to the compiled query.
-func (*PermissionInjector) InjectRowFilters(
-	d dialect.Dialect,
-	filters []RowFilter,
-	dimMap map[string]string, // field name -> column reference
-	existingWhere string,
-	args []any,
-) (string, []any, error) {
-	if len(filters) == 0 {
-		return existingWhere, args, nil
-	}
-
-	filterPreds, extraArgs, err := BuildRowFilterPredicates(d, dimMap, filters, len(args), false)
-	if err != nil {
-		return "", nil, err
-	}
-	var parts []string
-	if existingWhere != "" {
-		parts = append(parts, existingWhere)
-	}
-	parts = append(parts, filterPreds...)
-	return joinStr(parts, " AND "), append(args, extraArgs...), nil
-}
-
 // CheckFieldAccess validates that all selected/filter fields are allowed.
 func (pi *PermissionInjector) CheckFieldAccess(
 	policy *PermissionPolicy,
@@ -149,22 +125,4 @@ func (pi *PermissionInjector) CheckFieldAccess(
 
 func (*PermissionInjector) isFieldAllowed(policy *PermissionPolicy, qualified, unqualified string) bool {
 	return !FieldIsDenied(policy, qualified, unqualified) && !PIIFieldIsHidden(policy, qualified, unqualified)
-}
-
-func joinStr(parts []string, sep string) string {
-	if len(parts) == 0 {
-		return ""
-	}
-	var result strings.Builder
-	total := len(parts[0])
-	for i := 1; i < len(parts); i++ {
-		total += len(sep) + len(parts[i])
-	}
-	result.Grow(total)
-	result.WriteString(parts[0])
-	for i := 1; i < len(parts); i++ {
-		result.WriteString(sep)
-		result.WriteString(parts[i])
-	}
-	return result.String()
 }

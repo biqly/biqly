@@ -261,8 +261,8 @@ func truncateStringRunes(s string, maxRunes int) string {
 //nolint:gocognit
 func (s *DescribeService) apply(ctx context.Context, cols []metadata.Column, result *DescribeResult) error {
 	colByName := make(map[string]metadata.Column, len(cols))
-	for _, c := range cols {
-		colByName[c.ColumnName] = c
+	for i := range cols {
+		colByName[cols[i].ColumnName] = cols[i]
 	}
 
 	tableDescription := result.Description
@@ -296,13 +296,15 @@ func (s *DescribeService) apply(ctx context.Context, cols []metadata.Column, res
 
 	if result.originalLang != "" && result.TranslationApplied && len(cols) > 0 { //nolint:nestif
 		if result.originalDescription != "" {
-			_ = s.metaRepo.UpsertTranslation(ctx, metadata.Translation{
+			if err := s.metaRepo.UpsertTranslation(ctx, metadata.Translation{
 				EntityType: metadata.EntityTypeTable,
 				EntityID:   cols[0].TableID,
 				Lang:       result.originalLang,
 				Field:      metadata.TranslationFieldDescription,
 				Value:      result.originalDescription,
-			})
+			}); err != nil {
+				slog.Warn("upsert original table translation", "table_id", cols[0].TableID, "lang", result.originalLang, "err", err)
+			}
 		}
 		for _, cd := range result.originalColumns {
 			if cd.Description == "" {
@@ -312,25 +314,29 @@ func (s *DescribeService) apply(ctx context.Context, cols []metadata.Column, res
 			if !ok {
 				continue
 			}
-			_ = s.metaRepo.UpsertTranslation(ctx, metadata.Translation{
+			if err := s.metaRepo.UpsertTranslation(ctx, metadata.Translation{
 				EntityType: metadata.EntityTypeColumn,
 				EntityID:   col.ID,
 				Lang:       result.originalLang,
 				Field:      metadata.TranslationFieldDescription,
 				Value:      cd.Description,
-			})
+			}); err != nil {
+				slog.Warn("upsert original column translation", "column_id", col.ID, "lang", result.originalLang, "err", err)
+			}
 		}
 
 		targetLang := s.translator.TargetCode()
 		if targetLang != "" {
 			if result.Description != "" {
-				_ = s.metaRepo.UpsertTranslation(ctx, metadata.Translation{
+				if err := s.metaRepo.UpsertTranslation(ctx, metadata.Translation{
 					EntityType: metadata.EntityTypeTable,
 					EntityID:   cols[0].TableID,
 					Lang:       targetLang,
 					Field:      metadata.TranslationFieldDescription,
 					Value:      result.Description,
-				})
+				}); err != nil {
+					slog.Warn("upsert translated table description", "table_id", cols[0].TableID, "lang", targetLang, "err", err)
+				}
 			}
 			for _, cd := range result.Columns {
 				if cd.Description == "" {
@@ -340,13 +346,15 @@ func (s *DescribeService) apply(ctx context.Context, cols []metadata.Column, res
 				if !ok {
 					continue
 				}
-				_ = s.metaRepo.UpsertTranslation(ctx, metadata.Translation{
+				if err := s.metaRepo.UpsertTranslation(ctx, metadata.Translation{
 					EntityType: metadata.EntityTypeColumn,
 					EntityID:   col.ID,
 					Lang:       targetLang,
 					Field:      metadata.TranslationFieldDescription,
 					Value:      cd.Description,
-				})
+				}); err != nil {
+					slog.Warn("upsert translated column description", "column_id", col.ID, "lang", targetLang, "err", err)
+				}
 			}
 		}
 	}
@@ -365,9 +373,10 @@ func buildDescribePrompt(schema, table string, cols []metadata.Column, sample []
 	sb.WriteString("- Keep original table/column names and common technical terms when useful, so descriptions still bridge to the physical schema.\n")
 	sb.WriteString("- If you cannot infer a column from the sample, leave its description empty.\n\n")
 
-	fmt.Fprintf(&sb, "## Table: %s.%s\n", schema, table)
+	_, _ = fmt.Fprintf(&sb, "## Table: %s.%s\n", schema, table)
 	sb.WriteString("### Columns\n")
-	for _, c := range cols {
+	for i := range cols {
+		c := &cols[i]
 		line := fmt.Sprintf("- %s (%s", c.ColumnName, c.DataType)
 		if c.IsPrimaryKey {
 			line += ", primary key"
@@ -385,7 +394,7 @@ func buildDescribePrompt(schema, table string, cols []metadata.Column, sample []
 
 	sb.WriteString("\n### Sample Rows (JSON, compact; cell strings may be truncated)\n")
 	if data, err := json.Marshal(sample); err == nil {
-		sb.Write(data)
+		_, _ = sb.Write(data)
 		sb.WriteString("\n")
 	}
 

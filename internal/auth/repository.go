@@ -17,10 +17,10 @@ import (
 )
 
 var (
-	ErrUserNotFound          = errors.New("user not found")
-	ErrUserAlreadyExists     = errors.New("user already exists")
-	ErrOAuthAccountNotFound  = errors.New("oauth account not found")
-	ErrEmailAlreadyVerified  = errors.New("email is already verified")
+	ErrUserNotFound         = errors.New("user not found")
+	ErrUserAlreadyExists    = errors.New("user already exists")
+	ErrOAuthAccountNotFound = errors.New("oauth account not found")
+	ErrEmailAlreadyVerified = errors.New("email is already verified")
 )
 
 type UserRepository struct {
@@ -607,7 +607,7 @@ func (r *UserRepository) GetPasskeysByUserID(ctx context.Context, userID string)
 		credentials = append(credentials, cred)
 	}
 
-	if err = rows.Err(); err != nil {
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
@@ -674,7 +674,6 @@ func (r *UserRepository) GetUserIDByCredentialID(ctx context.Context, credential
 	return userID, nil
 }
 
-
 func (r *UserRepository) DeletePasskey(ctx context.Context, userID string, passkeyID string) error {
 	query := `
 		DELETE FROM passkeys
@@ -716,7 +715,7 @@ func (r *UserRepository) GetUserPasskeys(ctx context.Context, userID string) ([]
 		passkeys = append(passkeys, p)
 	}
 
-	if err = rows.Err(); err != nil {
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 

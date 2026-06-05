@@ -199,7 +199,7 @@ func (r *Repository) UpdateVariant(ctx context.Context, variant *Variant) error 
 }
 
 // ListVariants returns variants for one experiment.
-func (r *Repository) ListVariants(ctx context.Context, experimentID string) ([]Variant, error) {
+func (r *Repository) ListVariants(ctx context.Context, experimentID string) (variants []Variant, err error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, experiment_id, name, template_version, traffic_pct, is_control
 		FROM ab_variants
@@ -210,8 +210,12 @@ func (r *Repository) ListVariants(ctx context.Context, experimentID string) ([]V
 	if err != nil {
 		return nil, fmt.Errorf("list ab variants: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
-	variants := make([]Variant, 0, 2)
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close ab variant rows: %w", closeErr))
+		}
+	}()
+	variants = make([]Variant, 0, 2)
 	for rows.Next() {
 		var variant Variant
 		if err := rows.Scan(&variant.ID, &variant.ExperimentID, &variant.Name, &variant.TemplateVersion, &variant.TrafficPct, &variant.IsControl); err != nil {
@@ -282,13 +286,17 @@ func (r *Repository) validatePromptTemplateVersion(ctx context.Context, experime
 	return nil
 }
 
-func (r *Repository) queryExperiments(ctx context.Context, query string, args ...any) ([]Experiment, error) {
+func (r *Repository) queryExperiments(ctx context.Context, query string, args ...any) (experiments []Experiment, err error) {
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query ab experiments: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
-	experiments := make([]Experiment, 0, 4)
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close ab experiment rows: %w", closeErr))
+		}
+	}()
+	experiments = make([]Experiment, 0, 4)
 	for rows.Next() {
 		var experiment Experiment
 		if err := scanExperiment(rows, &experiment); err != nil {

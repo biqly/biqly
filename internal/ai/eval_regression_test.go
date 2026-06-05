@@ -66,7 +66,7 @@ func TestEvalRegressionGate(t *testing.T) {
 		Temperature: 0,
 		MaxRetries:  0,
 	}
-	svc := NewServiceWithProvider(cfg, query.NewValidator(1000), evalpkg.NewGoldenStubProvider())
+	svc := NewServiceWithProvider(&cfg, query.NewValidator(1000), evalpkg.NewGoldenStubProvider())
 	opts := evalpkg.EvalSuiteOptions{
 		Cases: evalpkg.DefaultGoldenCases(),
 		Modes: evalpkg.EvalModeLogical | evalpkg.EvalModeExecution,
@@ -90,7 +90,7 @@ func TestBenchmarkSuiteRegressionGate(t *testing.T) {
 		Temperature: 0,
 		MaxRetries:  0,
 	}
-	svc := NewServiceWithProvider(cfg, query.NewValidator(1000), evalpkg.NewGoldenStubProviderForCases(evalpkg.BenchmarkCases()))
+	svc := NewServiceWithProvider(&cfg, query.NewValidator(1000), evalpkg.NewGoldenStubProviderForCases(evalpkg.BenchmarkCases()))
 	opts := evalpkg.EvalSuiteOptions{
 		Cases: evalpkg.BenchmarkCases(),
 		Modes: evalpkg.EvalModeLogical | evalpkg.EvalModeExecution,

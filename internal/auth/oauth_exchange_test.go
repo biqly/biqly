@@ -25,7 +25,11 @@ func TestOAuthCallbackCodeIssueAndRedeem(t *testing.T) {
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		t.Skip("redis not available:", err)
 	}
-	defer func() { _ = rdb.Close() }()
+	defer func() {
+		if err := rdb.Close(); err != nil {
+			t.Errorf("rdb.Close() error = %v", err)
+		}
+	}()
 
 	svc := &AuthService{redisClient: rdb}
 	resp := &TokenResponse{
@@ -64,7 +68,9 @@ func TestOAuthCallbackCodeIssueAndRedeem(t *testing.T) {
 	}
 
 	// After the grace TTL elapses the code is gone for good.
-	_ = rdb.Del(ctx, oauthCallbackUsedKeyPrefix+code).Err()
+	if err := rdb.Del(ctx, oauthCallbackUsedKeyPrefix+code).Err(); err != nil {
+		t.Fatalf("failed to delete grace key: %v", err)
+	}
 	_, err = svc.RedeemOAuthCallbackCode(ctx, code)
 	if !errors.Is(err, ErrInvalidOAuthCallbackCode) {
 		t.Fatalf("post-grace redeem error = %v, want ErrInvalidOAuthCallbackCode", err)

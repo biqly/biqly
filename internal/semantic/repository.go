@@ -110,18 +110,23 @@ func (r *Repository) DeleteModel(ctx context.Context, id string) error {
 // BulkInsertModelChildren inserts many dimensions, metrics, and joins for a
 // model inside a single transaction with prepared statements. Used when
 // generating a model from metadata to avoid one round-trip per row.
+//
 //nolint:gocognit
 func (r *Repository) BulkInsertModelChildren(ctx context.Context, modelID string, dims []Dimension, mets []Metric, joins []Join) error {
 	if len(dims) == 0 && len(mets) == 0 && len(joins) == 0 {
 		return nil
 	}
-	return platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+	return platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) (err error) {
 		if len(dims) > 0 {
 			stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_dimensions (id, model_id, name, label, column_ref, type, time_grain, synonyms, description, is_active, calculated_expression, calculated_expr_json) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`)
 			if err != nil {
 				return fmt.Errorf("prepare dimensions: %w", err)
 			}
-			defer func() { _ = stmt.Close() }()
+			defer func() {
+				if closeErr := stmt.Close(); closeErr != nil && err == nil {
+					err = fmt.Errorf("close dimensions statement: %w", closeErr)
+				}
+			}()
 			for i := range dims {
 				d := &dims[i]
 				calculatedExprJSON, err := encodeExprNodeJSON(d.CalculatedExpr)
@@ -138,7 +143,11 @@ func (r *Repository) BulkInsertModelChildren(ctx context.Context, modelID string
 			if err != nil {
 				return fmt.Errorf("prepare metrics: %w", err)
 			}
-			defer func() { _ = stmt.Close() }()
+			defer func() {
+				if closeErr := stmt.Close(); closeErr != nil && err == nil {
+					err = fmt.Errorf("close metrics statement: %w", closeErr)
+				}
+			}()
 			for i := range mets {
 				m := &mets[i]
 				exprJSON, err := encodeExprNodeJSON(m.Expr)
@@ -155,7 +164,11 @@ func (r *Repository) BulkInsertModelChildren(ctx context.Context, modelID string
 			if err != nil {
 				return fmt.Errorf("prepare joins: %w", err)
 			}
-			defer func() { _ = stmt.Close() }()
+			defer func() {
+				if closeErr := stmt.Close(); closeErr != nil && err == nil {
+					err = fmt.Errorf("close joins statement: %w", closeErr)
+				}
+			}()
 			for i := range joins {
 				j := &joins[i]
 				if _, err := stmt.ExecContext(ctx, j.ID, j.ModelID, j.Name, j.FromSchema, j.FromTable, j.FromColumn, j.ToSchema, j.ToTable, j.ToColumn, j.JoinType, j.Relationship, j.IsActive); err != nil {
@@ -227,7 +240,7 @@ func (r *Repository) GetEnumMappings(ctx context.Context, dimensionID string) ([
 // ReplaceEnumMappings replaces all enum mappings for a dimension with the
 // supplied set in a single transaction, then marks the model as draft.
 func (r *Repository) ReplaceEnumMappings(ctx context.Context, modelID, dimensionID string, mappings []EnumMapping) error {
-	if err := platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+	if err := platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) (err error) {
 		if _, err := tx.ExecContext(ctx, `DELETE FROM enum_mappings WHERE dimension_id = $1::uuid`, dimensionID); err != nil {
 			return fmt.Errorf("clear enum mappings: %w", err)
 		}
@@ -238,7 +251,11 @@ func (r *Repository) ReplaceEnumMappings(ctx context.Context, modelID, dimension
 		if err != nil {
 			return fmt.Errorf("prepare enum mappings: %w", err)
 		}
-		defer func() { _ = stmt.Close() }()
+		defer func() {
+			if closeErr := stmt.Close(); closeErr != nil && err == nil {
+				err = fmt.Errorf("close statement: %w", closeErr)
+			}
+		}()
 		for i := range mappings {
 			m := &mappings[i]
 			if _, err := stmt.ExecContext(ctx, dimensionID, m.RawValue, m.Label, platformdb.NullIfEmptyPtr(m.Description), m.SortOrder); err != nil {

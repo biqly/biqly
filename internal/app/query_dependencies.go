@@ -44,7 +44,7 @@ func NewQueryDependencies(ctx context.Context, cfg *config.Config) (*Dependencie
 			"catalog_url", catalog.BaseURL())
 	}
 	auditLogger := audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(ctx, db, slog.Default()))
-	queryService := core.NewQueryService(core.QueryServiceDeps{
+	queryService := core.NewQueryService(&core.QueryServiceDeps{
 		Models:      models,
 		Composites:  composites,
 		Datasources: datasources,

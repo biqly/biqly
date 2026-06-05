@@ -90,7 +90,8 @@ func (s *PIIPolicyService) MaskingConfig(ctx context.Context, datasourceID strin
 
 	if s.audit != nil {
 		masked := make([]string, 0, len(cols))
-		for _, col := range cols {
+		for i := range cols {
+			col := &cols[i]
 			qualified := col.SchemaName + "." + col.TableName + "." + col.ColumnName
 			if level := access[qualified]; level == pii.AccessMasked || level == pii.AccessHidden {
 				masked = append(masked, qualified+":"+level)

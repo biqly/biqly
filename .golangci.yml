@@ -24,6 +24,7 @@ linters:
     - nolintlint
     - errorlint
     - nilerr
+    - nilnesserr
     - noctx
     - whitespace
     - exhaustive
@@ -60,6 +61,11 @@ linters:
     - musttag
 
   settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
+      disable-default-exclusions: false
+
     revive:
       rules:
         - name: blank-imports
@@ -71,6 +77,16 @@ linters:
         - name: unused-receiver
 
     gocritic:
+      enabled-checks:
+        - badLock
+        - badRegexp
+        - evalOrder
+        - httpNoBody
+        - nilValReturn
+        - sloppyReassign
+        - truncateCmp
+        - weakCond
+        - importShadow
       disabled-checks:
         - exitAfterDefer
 
@@ -109,3 +125,6 @@ linters:
       - path: ^cmd/
         linters:
           - forbidigo
+      - path: _test\.go
+        linters:
+          - dupl

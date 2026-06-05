@@ -14,6 +14,9 @@ func WithUserID(ctx context.Context, userID string) context.Context {
 
 // UserIDFromContext returns the user id previously stored with WithUserID.
 func UserIDFromContext(ctx context.Context) string {
-	v, _ := ctx.Value(userIDContextKey{}).(string)
+	v, ok := ctx.Value(userIDContextKey{}).(string)
+	if !ok {
+		return ""
+	}
 	return v
 }

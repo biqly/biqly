@@ -14,7 +14,7 @@ func BuildQueryHistoryEntry(
 	lq *LogicalQuery,
 	model *semantic.SemanticModel,
 	cq *CompiledQuery,
-	result *QueryResult,
+	result *Result,
 	status string,
 	queryErr error,
 ) (*HistoryEntry, error) {

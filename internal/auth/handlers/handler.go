@@ -62,11 +62,6 @@ func NewAuthHandler(service *auth.AuthService, webAuthn *mfa.WebAuthnService, jw
 	}
 }
 
-func (h *AuthHandler) RegisterRoutes(r chi.Router) {
-	r.Route("/auth", h.RegisterAuthRoutes)
-	r.Route("/internal/auth", h.RegisterInternalRoutes)
-}
-
 func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
 		if h.limiter != nil {
