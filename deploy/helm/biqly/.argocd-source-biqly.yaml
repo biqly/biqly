@@ -4,31 +4,31 @@ helm:
     value: ghcr.io/biqly/ai
     forcestring: true
   - name: ai.image.tag
-    value: sha-853739ec3dc3cf11c3dab861c3f22eb1547a853d
+    value: sha-361d7e6885b402ec69cc3aced0a30fcd88a58c22
     forcestring: true
   - name: auth.image.repository
     value: ghcr.io/biqly/biqly-auth
     forcestring: true
   - name: auth.image.tag
-    value: sha-853739ec3dc3cf11c3dab861c3f22eb1547a853d
+    value: sha-361d7e6885b402ec69cc3aced0a30fcd88a58c22
     forcestring: true
   - name: auth.migrate.image.repository
     value: ghcr.io/biqly/biqly-auth
     forcestring: true
   - name: auth.migrate.image.tag
-    value: sha-853739ec3dc3cf11c3dab861c3f22eb1547a853d
+    value: sha-361d7e6885b402ec69cc3aced0a30fcd88a58c22
     forcestring: true
   - name: catalog.image.repository
     value: ghcr.io/biqly/catalog
     forcestring: true
   - name: catalog.image.tag
-    value: sha-853739ec3dc3cf11c3dab861c3f22eb1547a853d
+    value: sha-361d7e6885b402ec69cc3aced0a30fcd88a58c22
     forcestring: true
   - name: frontend.image.repository
     value: ghcr.io/biqly/biqly-frontend
     forcestring: true
   - name: frontend.image.tag
-    value: sha-853739ec3dc3cf11c3dab861c3f22eb1547a853d
+    value: sha-361d7e6885b402ec69cc3aced0a30fcd88a58c22
     forcestring: true
   - name: global.migrate.image.repository
     value: ghcr.io/biqly/migrate
@@ -40,17 +40,17 @@ helm:
     value: ghcr.io/biqly/biqly-mail
     forcestring: true
   - name: mail.image.tag
-    value: sha-853739ec3dc3cf11c3dab861c3f22eb1547a853d
+    value: sha-361d7e6885b402ec69cc3aced0a30fcd88a58c22
     forcestring: true
   - name: mail.migrate.image.repository
     value: ghcr.io/biqly/biqly-mail
     forcestring: true
   - name: mail.migrate.image.tag
-    value: sha-853739ec3dc3cf11c3dab861c3f22eb1547a853d
+    value: sha-361d7e6885b402ec69cc3aced0a30fcd88a58c22
     forcestring: true
   - name: query.image.repository
     value: ghcr.io/biqly/query
     forcestring: true
   - name: query.image.tag
-    value: sha-853739ec3dc3cf11c3dab861c3f22eb1547a853d
+    value: sha-361d7e6885b402ec69cc3aced0a30fcd88a58c22
     forcestring: true
