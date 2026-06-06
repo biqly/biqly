@@ -3,7 +3,7 @@ package http
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"log/slog"
 	stdhttp "net/http"
 	"net/http/httptest"
@@ -41,7 +41,7 @@ func TestRouter_InternalRoutesWriteAuditLog(t *testing.T) {
 	var entry struct {
 		Details map[string]any `json:"details"`
 	}
-	if err := json.Unmarshal(logs.Bytes(), &entry); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(logs.Bytes(), &entry); err != nil {
 		t.Fatalf("decode log: %v", err)
 	}
 	if entry.Details["source"] != "service" {

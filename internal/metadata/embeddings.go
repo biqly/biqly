@@ -3,9 +3,9 @@ package metadata
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"strings"
 
 	platformdb "github.com/biqly/biqly/internal/platform/db"
@@ -43,7 +43,7 @@ func baseEmbeddingModel(modelName string) string {
 func mergeEmbeddingPayload(existing []byte, existingModel *string, modelName string, embedding []float32) (string, string, error) {
 	store := multiLocaleEmbeddingPayload{Locales: make(map[string]localeStoredEmbedding)}
 	if len(existing) > 0 { //nolint:nestif // supports legacy single-vector and multi-locale payloads
-		if err := json.Unmarshal(existing, &store); err == nil && len(store.Locales) > 0 {
+		if err := sonic.ConfigStd.Unmarshal(existing, &store); err == nil && len(store.Locales) > 0 {
 			// multi-locale payload
 		} else if vec, err := decodeEmbedding(existing); err == nil && len(vec) > 0 {
 			legacyModel := strings.TrimSpace(modelName)
@@ -60,7 +60,7 @@ func mergeEmbeddingPayload(existing []byte, existingModel *string, modelName str
 	}
 	loc := localeKeyFromEmbeddingModel(modelName)
 	store.Locales[loc] = localeStoredEmbedding{Model: strings.TrimSpace(modelName), V: embedding}
-	b, err := json.Marshal(store)
+	b, err := sonic.ConfigStd.Marshal(store)
 	if err != nil {
 		return "", "", fmt.Errorf("encode multi-locale embedding: %w", err)
 	}
@@ -72,7 +72,7 @@ func expandTableEmbeddings(schemaName, tableName string, modelN *string, rawJSON
 		return nil, nil
 	}
 	var store multiLocaleEmbeddingPayload
-	if err := json.Unmarshal(rawJSON, &store); err == nil && len(store.Locales) > 0 {
+	if err := sonic.ConfigStd.Unmarshal(rawJSON, &store); err == nil && len(store.Locales) > 0 {
 		out := make([]TableEmbedding, 0, len(store.Locales))
 		for _, le := range store.Locales {
 			if len(le.V) == 0 {
@@ -110,7 +110,7 @@ func expandColumnEmbeddings(schemaName, tableName, columnName string, modelN *st
 		return nil, nil
 	}
 	var store multiLocaleEmbeddingPayload
-	if err := json.Unmarshal(rawJSON, &store); err == nil && len(store.Locales) > 0 {
+	if err := sonic.ConfigStd.Unmarshal(rawJSON, &store); err == nil && len(store.Locales) > 0 {
 		out := make([]ColumnEmbedding, 0, len(store.Locales))
 		for _, le := range store.Locales {
 			if len(le.V) == 0 {

@@ -55,7 +55,7 @@ func TestRoutingLimitsFromConfig_ZeroUsesDefaults(t *testing.T) {
 }
 
 func TestScoreDimensionForPrune_EnumLabelMatch(t *testing.T) {
-	tokens := map[string]bool{"shipped": true}
+	tokens := map[string]struct{}{"shipped": {}}
 	plain := semantic.Dimension{Name: "status", ColumnRef: "orders.status", Type: "number"}
 	coded := semantic.Dimension{
 		Name: "status", ColumnRef: "orders.status", Type: "number",

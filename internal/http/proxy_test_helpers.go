@@ -3,7 +3,7 @@ package http
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"io"
 	stdhttp "net/http"
 	"net/http/httptest"
@@ -47,7 +47,7 @@ func assertProxiedRoutes(t *testing.T, handler stdhttp.Handler, cases []proxyRou
 			t.Fatalf("%s %s status: got %d, want 200; body=%s", tc.method, tc.path, rec.Code, rec.Body.String())
 		}
 		var body map[string]bool
-		if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		if err := sonic.ConfigStd.NewDecoder(rec.Body).Decode(&body); err != nil {
 			t.Fatalf("decode %s %s: %v", tc.method, tc.path, err)
 		}
 		if !body["proxied"] {
@@ -95,7 +95,7 @@ func assertProxyErrorEnvelope(t *testing.T, handler stdhttp.Handler, method, pat
 		t.Fatalf("status: got %d, want 502; body=%s", rec.Code, rec.Body.String())
 	}
 	var env internalapi.Error
-	if err := json.NewDecoder(rec.Body).Decode(&env); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(rec.Body).Decode(&env); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 	if env.Code != internalapi.CodeUpstream {

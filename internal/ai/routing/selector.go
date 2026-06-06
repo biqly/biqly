@@ -60,7 +60,7 @@ func selectAutomaticTables(
 func selectAutomaticTablesWithTokens(
 	tables []metadata.Table,
 	columnsByTable map[string][]metadata.Column,
-	tokens map[string]bool,
+	tokens map[string]struct{},
 	embedBoost map[string]float64,
 ) ([]tableBundle, *TableRoutingResult, error) {
 	bundles := make([]tableBundle, 0, len(tables))
@@ -120,7 +120,7 @@ func selectAutomaticTablesWithTokens(
 func appendTableIfMissing(
 	selected []tableBundle,
 	bundles []tableBundle,
-	tokens map[string]bool,
+	tokens map[string]struct{},
 	maxN int,
 	nameSubstrings []string,
 ) []tableBundle {
@@ -173,7 +173,7 @@ func appendTableIfMissing(
 // Conservative: only adds a table when there is an FK path to one of the
 // already-selected tables within maxHops, so unrelated entity collisions
 // ("show sales" → don't pull in employees) are filtered out.
-func isCategoryOrProductQuestion(tokens map[string]bool) bool {
+func isCategoryOrProductQuestion(tokens map[string]struct{}) bool {
 	return activeRoutingLexicon().HasAnyToken(tokens, activeRoutingLexicon().CategoryProductTokens)
 }
 
@@ -279,12 +279,12 @@ func roundScore(score float64) float64 {
 }
 
 func markSelectedCandidates(candidates []TableCandidate, selectedTables []string) {
-	selected := make(map[string]bool, len(selectedTables))
+	selected := make(map[string]struct{}, len(selectedTables))
 	for _, table := range selectedTables {
-		selected[table] = true
+		selected[table] = struct{}{}
 	}
 	for i := range candidates {
-		if selected[candidates[i].Table] {
+		if _, ok := selected[candidates[i].Table]; ok {
 			candidates[i].Selected = true
 			continue
 		}
@@ -344,19 +344,19 @@ func metricNames(metrics []semantic.Metric) []string {
 	return names
 }
 
-func bundleKeySet(bundles []tableBundle) map[string]bool {
-	keys := make(map[string]bool, len(bundles))
+func bundleKeySet(bundles []tableBundle) map[string]struct{} {
+	keys := make(map[string]struct{}, len(bundles))
 	for _, bundle := range bundles {
-		keys[tableKey(bundle.table.SchemaName, bundle.table.TableName)] = true
+		keys[tableKey(bundle.table.SchemaName, bundle.table.TableName)] = struct{}{}
 	}
 	return keys
 }
 
-func addedBundleLabels(before map[string]bool, bundles []tableBundle) []string {
+func addedBundleLabels(before map[string]struct{}, bundles []tableBundle) []string {
 	var added []string
 	for _, bundle := range bundles {
 		label := tableLabel(bundle.table)
-		if before[label] {
+		if _, ok := before[label]; ok {
 			continue
 		}
 		added = append(added, label)

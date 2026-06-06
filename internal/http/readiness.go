@@ -2,8 +2,8 @@ package http
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"github.com/bytedance/sonic"
 	"net/http"
 	"strings"
 	"time"
@@ -63,7 +63,7 @@ func ReadinessHandler(deps *app.Dependencies, upstreams map[string]string) http.
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(statusCode)
-		_ = json.NewEncoder(w).Encode(resp)
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(resp)
 	}
 }
 

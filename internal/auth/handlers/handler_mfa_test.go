@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -43,7 +43,7 @@ func TestAdminGenerateMFABypassHandler(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 
 	var resp map[string]string
-	err := json.Unmarshal(rr.Body.Bytes(), &resp)
+	err := sonic.ConfigStd.Unmarshal(rr.Body.Bytes(), &resp)
 	require.NoError(t, err)
 	bypassCode := resp["bypass_code"]
 	assert.True(t, strings.HasPrefix(bypassCode, "BYPASS-"))

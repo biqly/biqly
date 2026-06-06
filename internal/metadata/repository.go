@@ -139,9 +139,55 @@ func (r *Repository) ListDatasources(ctx context.Context) ([]Datasource, error) 
 
 // DeleteDatasource removes a datasource by ID.
 func (r *Repository) DeleteDatasource(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM datasources WHERE id = $1`, id)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("delete datasource: %w", err)
+		return fmt.Errorf("delete datasource tx begin: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// 1. Delete from leaf tables referencing semantic_models
+	if _, err := tx.ExecContext(ctx, `DELETE FROM semantic_dimensions WHERE model_id IN (SELECT id FROM semantic_models WHERE datasource_id = $1)`, id); err != nil {
+		return fmt.Errorf("delete semantic_dimensions: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM semantic_metrics WHERE model_id IN (SELECT id FROM semantic_models WHERE datasource_id = $1)`, id); err != nil {
+		return fmt.Errorf("delete semantic_metrics: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM semantic_joins WHERE model_id IN (SELECT id FROM semantic_models WHERE datasource_id = $1)`, id); err != nil {
+		return fmt.Errorf("delete semantic_joins: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM semantic_context_snapshots WHERE model_id IN (SELECT id FROM semantic_models WHERE datasource_id = $1)`, id); err != nil {
+		return fmt.Errorf("delete semantic_context_snapshots: %w", err)
+	}
+
+	// 2. Delete from other child tables of datasources/semantic_models
+	tablesToDelete := []string{
+		"drift_reports",
+		"ai_feedback",
+		"few_shot_examples",
+		"permissions",
+		"ai_query_history",
+		"query_saved",
+		"query_history",
+		"business_glossary_terms",
+		"relations",
+		"columns",
+		"tables",
+		"schemas",
+		"semantic_models",
+	}
+	for _, tbl := range tablesToDelete {
+		if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM %s WHERE datasource_id = $1", tbl), id); err != nil {
+			return fmt.Errorf("delete from %s: %w", tbl, err)
+		}
+	}
+
+	// 3. Delete from datasources table itself
+	if _, err := tx.ExecContext(ctx, `DELETE FROM datasources WHERE id = $1`, id); err != nil {
+		return fmt.Errorf("delete from datasources: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("delete datasource commit: %w", err)
 	}
 	return nil
 }
@@ -416,7 +462,7 @@ func (r *Repository) ListPermissionPolicies(ctx context.Context, datasourceID st
 
 // UpdateColumnDescription replaces the description text on a column row.
 func (r *Repository) UpdateColumnDescription(ctx context.Context, id string, description *string) error {
-	_, err := r.db.ExecContext(ctx, `UPDATE columns SET description = $2 WHERE id = $1`, id, description)
+	_, err := r.db.ExecContext(ctx, `UPDATE columns SET description = $2, updated_at = now() WHERE id = $1`, id, description)
 	if err != nil {
 		return fmt.Errorf("update column description: %w", err)
 	}

@@ -3,7 +3,7 @@ package middleware
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -46,7 +46,7 @@ func newAuthStub(t *testing.T) *authStub {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		require.NoError(t, json.NewEncoder(w).Encode(map[string]bool{"allowed": s.permAllowed}))
+		require.NoError(t, sonic.ConfigStd.NewEncoder(w).Encode(map[string]bool{"allowed": s.permAllowed}))
 	})
 	mux.HandleFunc("/internal/auth/check-datasource-access", func(w http.ResponseWriter, r *http.Request) {
 		s.dsCalls.Add(1)
@@ -58,7 +58,7 @@ func newAuthStub(t *testing.T) *authStub {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		require.NoError(t, json.NewEncoder(w).Encode(map[string]bool{"allowed": s.dsAllowed}))
+		require.NoError(t, sonic.ConfigStd.NewEncoder(w).Encode(map[string]bool{"allowed": s.dsAllowed}))
 	})
 	s.server = httptest.NewServer(mux)
 	return s
@@ -193,7 +193,7 @@ func TestRequirePermission_PropagatesWorkspaceScope(t *testing.T) {
 	mw(okHandler()).ServeHTTP(w, req)
 
 	var body map[string]string
-	if err := json.Unmarshal(stub.lastPermBody, &body); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(stub.lastPermBody, &body); err != nil {
 		t.Fatalf("decode body: %v", err)
 	}
 	if body["scope_type"] != "workspace" || body["scope_id"] != "ws-42" {
@@ -278,7 +278,7 @@ func TestRequireDatasourceAccess_FromURLParam(t *testing.T) {
 		t.Fatalf("expected 200, got %d body=%s", w.Code, w.Body.String())
 	}
 	var body map[string]string
-	if err := json.Unmarshal(stub.lastDSBody, &body); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(stub.lastDSBody, &body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 	if body["datasource_id"] != "ds-1" || body["level"] != "read" {
@@ -300,7 +300,7 @@ func TestRequireDatasourceAccess_FromQueryString(t *testing.T) {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
 	var body map[string]string
-	require.NoError(t, json.Unmarshal(stub.lastDSBody, &body))
+	require.NoError(t, sonic.ConfigStd.Unmarshal(stub.lastDSBody, &body))
 	if body["datasource_id"] != "qs-1" {
 		t.Fatalf("expected datasource_id=qs-1, got %+v", body)
 	}
@@ -319,7 +319,7 @@ func TestRequireDatasourceAccess_FromJSONBodyAndRestores(t *testing.T) {
 	captured := make(chan payload, 1)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var p payload
-		if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+		if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&p); err != nil {
 			http.Error(w, "decode failed", http.StatusBadRequest)
 			return
 		}
@@ -331,7 +331,7 @@ func TestRequireDatasourceAccess_FromJSONBodyAndRestores(t *testing.T) {
 	wrapped := mw(handler)
 
 	body := payload{DatasourceID: "body-1", Question: "merhaba"}
-	buf, err := json.Marshal(body)
+	buf, err := sonic.ConfigStd.Marshal(body)
 	require.NoError(t, err)
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/ai/query", bytes.NewReader(buf))
 	req.Header.Set("Content-Type", "application/json")
@@ -405,7 +405,7 @@ func TestAuthClient_ListUserDatasources(t *testing.T) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string][]string{"datasource_ids": {"a", "b", "c"}})
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(map[string][]string{"datasource_ids": {"a", "b", "c"}})
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -429,7 +429,7 @@ func TestAuthClient_ListWorkspaceDatasources_Caches(t *testing.T) {
 			return
 		}
 		calls++
-		_ = json.NewEncoder(w).Encode(map[string][]string{"datasource_ids": {"d1", "d2"}})
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(map[string][]string{"datasource_ids": {"d1", "d2"}})
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()

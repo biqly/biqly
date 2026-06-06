@@ -3,8 +3,8 @@ package mail
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"io"
 	"net/http"
 	"strings"
@@ -42,7 +42,7 @@ func NewAPIClient(baseURL, internalToken string, httpClient *http.Client) *APICl
 }
 
 func (c *APIClient) send(ctx context.Context, template, to string, data map[string]any) (err error) {
-	body, err := json.Marshal(sendRequest{Template: template, To: to, Data: data})
+	body, err := sonic.ConfigStd.Marshal(sendRequest{Template: template, To: to, Data: data})
 	if err != nil {
 		return err
 	}

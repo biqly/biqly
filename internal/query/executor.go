@@ -19,7 +19,10 @@ var scanSlicePool = sync.Pool{
 
 func borrowScanSlice(n int) (slice []any, pooled *[]any) {
 	if vp, ok := scanSlicePool.Get().(*[]any); ok {
-		return (*vp)[:n], vp
+		if cap(*vp) >= n {
+			return (*vp)[:n], vp
+		}
+		scanSlicePool.Put(vp)
 	}
 	return make([]any, n), nil
 }

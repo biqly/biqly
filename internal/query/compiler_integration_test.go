@@ -303,6 +303,72 @@ func TestCompiler_PermissionInjectionDoesNotMatchCTEWhere(t *testing.T) {
 	}
 }
 
+// TestCompiler_PermissionInjectionInSubquery verifies that row-level security
+// filters are recursively injected into subqueries used within IN / NOT IN filters.
+func TestCompiler_PermissionInjectionInSubquery(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "orders",
+		BaseSchema: "public",
+		BaseTable:  "orders",
+		Dimensions: []semantic.Dimension{
+			{Name: "tenant_id", ColumnRef: "orders.tenant_id", Type: "text"},
+			{Name: "status", ColumnRef: "orders.status", Type: "text"},
+			{Name: "customer_id", ColumnRef: "orders.customer_id", Type: "text"},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "count", Expression: "orders.id", Aggregation: "count"},
+		},
+	}
+
+	lq := LogicalQuery{
+		ModelID: "orders",
+		Select:  []SelectItem{{Type: "metric", Name: "count"}},
+		Filters: []Filter{
+			{
+				Field:    "customer_id",
+				Operator: "in",
+				Subquery: &SubqueryFilter{
+					ResultField: "customer_id",
+					Body: SubqueryBody{
+						Select: []SelectItem{{Type: "dimension", Name: "customer_id"}},
+						Filters: []Filter{
+							{Field: "status", Operator: "eq", Value: "active"},
+						},
+					},
+				},
+			},
+		},
+		Limit: 100,
+	}
+
+	rowFilters := []security.RowFilter{
+		{Field: "tenant_id", Operator: "eq", Value: "tenant_123"},
+	}
+
+	compiler := NewCompiler(dialect.PostgresDialect{})
+	cq, err := compiler.CompileWithPermissions(context.Background(), &lq, model, rowFilters, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify that the row filter is injected in BOTH the outer query and the inner subquery.
+	// Since both tables in this query are "orders", we should see the "tenant_id" filter twice.
+	count := strings.Count(cq.SQL, "tenant_id")
+	if count != 2 {
+		t.Errorf("expected tenant_id row filter to be injected twice, got %d times in SQL: %s", count, cq.SQL)
+	}
+
+	// Also verify that it's present inside the subquery body
+	subStart := strings.Index(cq.SQL, "IN (SELECT")
+	if subStart < 0 {
+		t.Fatalf("expected subquery in SQL: %s", cq.SQL)
+	}
+	innerPart := cq.SQL[subStart:]
+	if !strings.Contains(innerPart, "tenant_id") {
+		t.Errorf("expected tenant_id row filter in subquery: %s", innerPart)
+	}
+}
+
 func indexOfStr(s, sub string) int {
 	for i := 0; i+len(sub) <= len(s); i++ {
 		if s[i:i+len(sub)] == sub {

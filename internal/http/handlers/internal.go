@@ -9,7 +9,7 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -373,7 +373,7 @@ func writeInternalAPIErrorMsg(w http.ResponseWriter, status int, code, message s
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	body := internalapi.Error{Code: code, Error: message}
-	if err := json.NewEncoder(w).Encode(body); err != nil {
+	if err := sonic.ConfigStd.NewEncoder(w).Encode(body); err != nil {
 		slog.Error("failed to encode error response", "error", err)
 	}
 }

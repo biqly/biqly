@@ -3,7 +3,7 @@ package audit
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"testing"
 	"time"
 
@@ -107,7 +107,7 @@ func TestDBWriter_Integration(t *testing.T) {
 	assert.Equal(t, event.ModelID, modelID)
 
 	var detailsMap map[string]any
-	err = json.Unmarshal([]byte(detailsStr), &detailsMap)
+	err = sonic.ConfigStd.Unmarshal([]byte(detailsStr), &detailsMap)
 	require.NoError(t, err)
 	assert.Equal(t, "val", detailsMap["key"])
 }

@@ -2,7 +2,7 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -14,7 +14,7 @@ import (
 
 func TestClientGenerateAtParsesOpenAIUsage(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		if err := json.NewEncoder(w).Encode(map[string]any{
+		if err := sonic.ConfigStd.NewEncoder(w).Encode(map[string]any{
 			"choices": []map[string]any{
 				{"message": map[string]string{"content": `{"limit":10}`}},
 			},
@@ -51,7 +51,7 @@ func TestClientGenerateAtParsesOpenAIUsage(t *testing.T) {
 
 func TestAnthropicGenerateAtParsesUsage(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		if err := json.NewEncoder(w).Encode(map[string]any{
+		if err := sonic.ConfigStd.NewEncoder(w).Encode(map[string]any{
 			"content": []map[string]string{
 				{"type": "text", "text": `{"limit":5}`},
 			},

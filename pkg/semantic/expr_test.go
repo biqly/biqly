@@ -1,7 +1,7 @@
 package semantic
 
 import (
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"strings"
 	"testing"
 )
@@ -72,21 +72,21 @@ func TestExprNodeJSONRoundTrip(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			data, err := json.Marshal(tt.node)
+			data, err := sonic.ConfigStd.Marshal(tt.node)
 			if err != nil {
-				t.Fatalf("json.Marshal(%T) error = %v", tt.node, err)
+				t.Fatalf("sonic.ConfigStd.Marshal(%T) error = %v", tt.node, err)
 			}
 			if !strings.Contains(string(data), `"type"`) {
-				t.Fatalf("json.Marshal(%T) = %s, want type discriminator", tt.node, data)
+				t.Fatalf("sonic.ConfigStd.Marshal(%T) = %s, want type discriminator", tt.node, data)
 			}
 
 			got, err := UnmarshalExprNode(data)
 			if err != nil {
 				t.Fatalf("UnmarshalExprNode(%s) error = %v", data, err)
 			}
-			gotJSON, err := json.Marshal(got)
+			gotJSON, err := sonic.ConfigStd.Marshal(got)
 			if err != nil {
-				t.Fatalf("json.Marshal(roundtrip %T) error = %v", got, err)
+				t.Fatalf("sonic.ConfigStd.Marshal(roundtrip %T) error = %v", got, err)
 			}
 			if string(gotJSON) != string(data) {
 				t.Fatalf("ExprNode JSON round trip mismatch: got %s, want %s", gotJSON, data)

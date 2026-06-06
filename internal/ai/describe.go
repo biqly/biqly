@@ -3,9 +3,9 @@ package ai
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"log/slog"
 	"regexp"
 	"strings"
@@ -22,7 +22,7 @@ import (
 // identRegex matches catalog names we interpolate into a sample query after
 // dialect-specific quoting. Leading digits and internal dots are allowed (e.g. "2012",
 // "Emp.StartDate"); spaces, semicolons, and quotes are rejected.
-var identRegex = regexp.MustCompile(`^[A-Za-z0-9_$][A-Za-z0-9_.$]*$`)
+var identRegex = regexp.MustCompile(`^[A-Za-z0-9_.$]+$`)
 
 func validIdent(s string) bool { return identRegex.MatchString(s) }
 
@@ -230,6 +230,22 @@ func shrinkSampleForPrompt(rows []map[string]any, maxCellRunes int) []map[string
 	if maxCellRunes <= 0 {
 		maxCellRunes = 500
 	}
+	anyTruncated := false
+	for _, row := range rows {
+		for _, v := range row {
+			if needsTruncation(v, maxCellRunes) {
+				anyTruncated = true
+				break
+			}
+		}
+		if anyTruncated {
+			break
+		}
+	}
+	if !anyTruncated {
+		return rows
+	}
+
 	out := make([]map[string]any, len(rows))
 	for i, row := range rows {
 		m := make(map[string]any, len(row))
@@ -239,6 +255,22 @@ func shrinkSampleForPrompt(rows []map[string]any, maxCellRunes int) []map[string
 		out[i] = m
 	}
 	return out
+}
+
+func needsTruncation(v any, maxRunes int) bool {
+	if v == nil {
+		return false
+	}
+	switch x := v.(type) {
+	case []byte:
+		return utf8.RuneCount(x) > maxRunes
+	case string:
+		return utf8.RuneCountInString(x) > maxRunes
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64, bool:
+		return false
+	default:
+		return utf8.RuneCountInString(fmt.Sprint(x)) > maxRunes
+	}
 }
 
 func truncateAnyForPrompt(v any, maxRunes int) any {
@@ -404,7 +436,7 @@ func buildDescribePrompt(schema, table string, cols []metadata.Column, sample []
 	}
 
 	sb.WriteString("\n### Sample Rows (JSON, compact; cell strings may be truncated)\n")
-	if data, err := json.Marshal(sample); err == nil {
+	if data, err := sonic.ConfigStd.Marshal(sample); err == nil {
 		_, _ = sb.Write(data)
 		sb.WriteString("\n")
 	}
@@ -422,7 +454,7 @@ func parseDescribeResponse(raw string) (string, []ColumnDescription, error) {
 		TableDescription string              `json:"table_description"`
 		Columns          []ColumnDescription `json:"columns"`
 	}
-	if err := json.Unmarshal([]byte(cleaned), &payload); err != nil {
+	if err := sonic.ConfigStd.Unmarshal([]byte(cleaned), &payload); err != nil {
 		return "", nil, fmt.Errorf("invalid JSON from AI: %w", err)
 	}
 	return payload.TableDescription, payload.Columns, nil

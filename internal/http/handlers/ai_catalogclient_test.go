@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -95,7 +95,7 @@ func writeCatalogClientTestRead(t *testing.T, w http.ResponseWriter, r *http.Req
 func writeCatalogClientTestHistory(t *testing.T, w http.ResponseWriter, r *http.Request) {
 	t.Helper()
 	var req internalapi.AIHistoryRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		t.Fatalf("decode ai history request: %v", err)
 	}
 	if req.Entry.Question == "" {

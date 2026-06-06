@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"log/slog"
 	"net/http"
 	"os"
@@ -322,7 +322,7 @@ func (s *appState) handleReady(w http.ResponseWriter, r *http.Request) {
 func writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
+	if err := sonic.ConfigStd.NewEncoder(w).Encode(data); err != nil {
 		return
 	}
 }

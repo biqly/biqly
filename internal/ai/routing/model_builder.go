@@ -82,28 +82,32 @@ func buildSemanticModel(
 	return model
 }
 
-func isMandatorySemanticColumn(col metadata.Column, relationCols map[string]bool) bool {
+func isMandatorySemanticColumn(col metadata.Column, relationCols map[string]struct{}) bool {
 	if col.IsPrimaryKey || col.IsForeignKey || isDateOrTimeType(col.DataType) || isDisplayNameColumn(col.ColumnName) {
 		return true
 	}
-	if relationCols != nil && relationCols[col.ColumnName] {
-		return true
+	if relationCols != nil {
+		if _, ok := relationCols[col.ColumnName]; ok {
+			return true
+		}
 	}
 	return false
 }
 
-func relationColumnsForSelectedTables(relations []metadata.Relation, selectedKeys map[string]bool) map[string]map[string]bool {
-	out := make(map[string]map[string]bool)
+func relationColumnsForSelectedTables(relations []metadata.Relation, selectedKeys map[string]struct{}) map[string]map[string]struct{} {
+	out := make(map[string]map[string]struct{})
 	add := func(tableKey, columnName string) {
 		if out[tableKey] == nil {
-			out[tableKey] = make(map[string]bool)
+			out[tableKey] = make(map[string]struct{})
 		}
-		out[tableKey][columnName] = true
+		out[tableKey][columnName] = struct{}{}
 	}
 	for _, rel := range relations {
 		fromKey := tableKey(rel.FromSchema, rel.FromTable)
 		toKey := tableKey(rel.ToSchema, rel.ToTable)
-		if !selectedKeys[fromKey] || !selectedKeys[toKey] {
+		_, hasFrom := selectedKeys[fromKey]
+		_, hasTo := selectedKeys[toKey]
+		if !hasFrom || !hasTo {
 			continue
 		}
 		add(fromKey, rel.FromColumn)
@@ -217,13 +221,16 @@ func displayNameSynonyms(tableName, columnName string) []string {
 		return nil
 	}
 	base := singularize(strings.ToLower(tableName))
-	seen := map[string]bool{}
+	seen := map[string]struct{}{}
 	add := func(s string) []string {
 		s = strings.TrimSpace(strings.ToLower(s))
-		if s == "" || seen[s] {
+		if s == "" {
 			return nil
 		}
-		seen[s] = true
+		if _, ok := seen[s]; ok {
+			return nil
+		}
+		seen[s] = struct{}{}
 		return []string{s}
 	}
 	var out []string

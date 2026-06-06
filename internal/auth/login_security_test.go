@@ -3,8 +3,8 @@ package auth
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
+	"github.com/bytedance/sonic"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -70,7 +70,7 @@ func newEnumHandler(t *testing.T, loginErr error) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/auth/login", func(w http.ResponseWriter, r *http.Request) {
 		var req LoginRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "bad body", http.StatusBadRequest)
 			return
 		}
@@ -79,7 +79,7 @@ func newEnumHandler(t *testing.T, loginErr error) http.Handler {
 		if errors.Is(loginErr, ErrInvalidCredentials) || errors.Is(loginErr, ErrInactiveUser) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
-			if err := json.NewEncoder(w).Encode(map[string]string{"error": ErrInvalidCredentials.Error()}); err != nil {
+			if err := sonic.ConfigStd.NewEncoder(w).Encode(map[string]string{"error": ErrInvalidCredentials.Error()}); err != nil {
 				t.Errorf("failed to encode json: %v", err)
 			}
 			return
@@ -87,7 +87,7 @@ func newEnumHandler(t *testing.T, loginErr error) http.Handler {
 		if errors.Is(loginErr, ErrAccountLocked) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusTooManyRequests)
-			if err := json.NewEncoder(w).Encode(map[string]string{"error": loginErr.Error()}); err != nil {
+			if err := sonic.ConfigStd.NewEncoder(w).Encode(map[string]string{"error": loginErr.Error()}); err != nil {
 				t.Errorf("failed to encode json: %v", err)
 			}
 			return

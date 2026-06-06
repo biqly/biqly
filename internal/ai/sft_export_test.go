@@ -1,7 +1,7 @@
 package ai
 
 import (
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"strings"
 	"testing"
 
@@ -74,12 +74,12 @@ func TestSFTRecordJSONShape(t *testing.T) {
 		},
 		Text: "x",
 	}
-	b, err := json.Marshal(rec)
+	b, err := sonic.ConfigStd.Marshal(rec)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var decoded map[string]any
-	if err := json.Unmarshal(b, &decoded); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(b, &decoded); err != nil {
 		t.Fatal(err)
 	}
 	msgs, ok := decoded["messages"].([]any)

@@ -3,9 +3,9 @@ package ai
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"log/slog"
 	"sort"
 	"strings"
@@ -68,7 +68,7 @@ func (r *RedisResponseCache) Get(ctx context.Context, fingerprint string) (*AIRe
 		return nil, err
 	}
 	var resp AIResponse
-	if err := json.Unmarshal(val, &resp); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(val, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
@@ -78,7 +78,7 @@ func (r *RedisResponseCache) Put(ctx context.Context, fingerprint string, resp *
 	if r.client == nil {
 		return nil
 	}
-	data, err := json.Marshal(resp)
+	data, err := sonic.ConfigStd.Marshal(resp)
 	if err != nil {
 		return err
 	}

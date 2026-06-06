@@ -3,11 +3,12 @@ package semantic
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/bytedance/sonic"
 
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 )
@@ -264,7 +265,7 @@ func marshalCanonicalDate(ref *CanonicalDateRef) (any, error) {
 	if ref == nil {
 		return nil, nil //nolint:nilnil // nil canonical date serializes as SQL NULL
 	}
-	raw, err := json.Marshal(ref)
+	raw, err := sonic.Marshal(ref)
 	if err != nil {
 		return nil, fmt.Errorf("marshal canonical date: %w", err)
 	}
@@ -286,7 +287,7 @@ func scanComposite(s platformdb.Scanner) (*CompositeModel, error) {
 	}
 	if len(canonical) > 0 {
 		var ref CanonicalDateRef
-		if err := json.Unmarshal(canonical, &ref); err == nil && ref.DimensionName != "" {
+		if err := sonic.Unmarshal(canonical, &ref); err == nil && ref.DimensionName != "" {
 			c.CanonicalDate = &ref
 		}
 	}

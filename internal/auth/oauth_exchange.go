@@ -4,9 +4,9 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -52,8 +52,7 @@ func (s *Service) IssueOAuthCallbackCode(ctx context.Context, resp *TokenRespons
 		return "", err
 	}
 
-	//nolint:gosec // G117: ephemeral single-use OAuth payload in Redis (90s TTL), not logged.
-	payload, err := json.Marshal(resp)
+	payload, err := sonic.ConfigStd.Marshal(resp)
 	if err != nil {
 		return "", err
 	}
@@ -98,7 +97,7 @@ func (s *Service) RedeemOAuthCallbackCode(ctx context.Context, code string) (*To
 	}
 
 	var resp TokenResponse
-	if err := json.Unmarshal(raw, &resp); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(raw, &resp); err != nil {
 		return nil, fmt.Errorf("decode oauth callback payload: %w", err)
 	}
 	if resp.AccessToken == "" || resp.RefreshToken == "" {

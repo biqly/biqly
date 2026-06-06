@@ -2,8 +2,8 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"strings"
 
 	"github.com/biqly/biqly/internal/config"
@@ -64,13 +64,13 @@ func (e *OpenAIEmbedder) Embed(ctx context.Context, texts []string) ([][]float32
 
 func marshalOpenAIEmbeddingRequest(model string) func([]string) ([]byte, error) {
 	return func(texts []string) ([]byte, error) {
-		return json.Marshal(openAIEmbeddingRequest{Input: texts, Model: model})
+		return sonic.ConfigStd.Marshal(openAIEmbeddingRequest{Input: texts, Model: model})
 	}
 }
 
 func parseOpenAIEmbeddingResponse(body []byte, count int) ([][]float32, error) {
 	var parsed openAIEmbeddingResponse
-	if err := json.Unmarshal(body, &parsed); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(body, &parsed); err != nil {
 		return nil, fmt.Errorf("unmarshal embedding response: %w", err)
 	}
 	if parsed.Error != nil {

@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"net/http"
 
 	"github.com/biqly/biqly/internal/metadata"
@@ -38,7 +38,7 @@ func writeAIJobConflict(w http.ResponseWriter, err *AIJobConflictError) {
 	if err.Existing != nil {
 		body.ScopeSchemas = err.Existing.ScopeSchemas
 	}
-	if err := json.NewEncoder(w).Encode(body); err != nil {
+	if err := sonic.ConfigStd.NewEncoder(w).Encode(body); err != nil {
 		return
 	}
 }

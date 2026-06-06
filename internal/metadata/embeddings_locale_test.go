@@ -1,7 +1,7 @@
 package metadata
 
 import (
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"testing"
 )
 
@@ -19,7 +19,7 @@ func TestMergeEmbeddingPayloadMultiLocale(t *testing.T) {
 		t.Fatalf("display model = %q", display)
 	}
 	var store multiLocaleEmbeddingPayload
-	if err := json.Unmarshal([]byte(payload), &store); err != nil {
+	if err := sonic.ConfigStd.Unmarshal([]byte(payload), &store); err != nil {
 		t.Fatal(err)
 	}
 	if len(store.Locales) != 2 {

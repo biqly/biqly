@@ -1,8 +1,8 @@
 package routing
 
 import (
-	"encoding/json"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"log/slog"
 	"os"
 	"strings"
@@ -105,7 +105,7 @@ func loadRoutingWeights(path string) (*Weights, error) {
 
 func parseRoutingWeightsJSON(raw []byte) (*Weights, error) {
 	var w Weights
-	if err := json.Unmarshal(raw, &w); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(raw, &w); err != nil {
 		return nil, err
 	}
 	return &w, nil
@@ -140,7 +140,7 @@ func mergePositiveWeight(base *float64, override float64) {
 	}
 }
 
-func (w *Weights) ApplyTableBoosts(tableName string, tokens map[string]bool, score float64, lex *Lexicon) float64 {
+func (w *Weights) ApplyTableBoosts(tableName string, tokens map[string]struct{}, score float64, lex *Lexicon) float64 {
 	if w == nil || lex == nil {
 		return score
 	}

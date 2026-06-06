@@ -3,9 +3,9 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/config"
@@ -109,13 +109,13 @@ func (c *Client) marshalOpenAIRequest(model string, maxTokens int) func(string, 
 			Temperature: temperature,
 			Options:     c.ollamaOptions(temperature),
 		}
-		return json.Marshal(reqBody)
+		return sonic.ConfigStd.Marshal(reqBody)
 	}
 }
 
 func parseOpenAIResponse(respBody []byte) (GenerationResult, error) {
 	var aiResp openAIResponse
-	if err := json.Unmarshal(respBody, &aiResp); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(respBody, &aiResp); err != nil {
 		return GenerationResult{}, fmt.Errorf("unmarshal response: %w", err)
 	}
 	if aiResp.Error != nil {

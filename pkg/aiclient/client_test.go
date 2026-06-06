@@ -2,8 +2,8 @@ package aiclient_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"github.com/bytedance/sonic"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -56,7 +56,7 @@ func TestRequestIDPropagation(t *testing.T) {
 		if got := r.Header.Get("traceparent"); got != sampleTraceparent {
 			t.Fatalf("traceparent: got %q, want %q", got, sampleTraceparent)
 		}
-		_ = json.NewEncoder(w).Encode(aiclient.SettingsResponse{Provider: "openai"})
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(aiclient.SettingsResponse{Provider: "openai"})
 	})
 
 	ctx := requestid.WithRequestID(context.Background(), "req-123")
@@ -84,13 +84,13 @@ func TestQuery_RoundTrip(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		var req aiclient.QueryRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Fatalf("decode: %v", err)
 		}
 		if req.DatasourceID != "ds_1" || req.Question != "total revenue" {
 			t.Errorf("unexpected request: %+v", req)
 		}
-		_ = json.NewEncoder(w).Encode(aiclient.Response{
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(aiclient.Response{
 			Result: &aiclient.AIResult{
 				LogicalQuery: &wantLQ,
 				Confidence:   0.92,
@@ -122,7 +122,7 @@ func TestQuery_NeedsClarification(t *testing.T) {
 		if !strings.HasSuffix(r.URL.Path, "/api/ai/query") {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-		_ = json.NewEncoder(w).Encode(aiclient.Response{
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(aiclient.Response{
 			Clarification: &aiclient.ClarificationResponse{
 				NeedsClarification:    true,
 				ClarificationQuestion: "Which table?",
@@ -152,7 +152,7 @@ func TestRun_ReturnsResult(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		lq := logicalquery.LogicalQuery{DatasourceID: "ds_1", ModelID: "m_1", Limit: 10}
-		_ = json.NewEncoder(w).Encode(aiclient.Response{
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(aiclient.Response{
 			Result: &aiclient.AIResult{
 				LogicalQuery: &lq,
 				SQL:          "SELECT 1",
@@ -185,7 +185,7 @@ func TestPreview_ReturnsSQL(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		lq := logicalquery.LogicalQuery{DatasourceID: "ds_1", Limit: 5}
-		_ = json.NewEncoder(w).Encode(aiclient.Response{
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(aiclient.Response{
 			Result: &aiclient.AIResult{
 				LogicalQuery: &lq,
 				SQL:          "SELECT SUM(amount) FROM orders",
@@ -211,7 +211,7 @@ func TestQuery_Unauthorized(t *testing.T) {
 	c := fakeServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
 	})
 	_, err := c.Query(context.Background(), sampleQueryRequest())
 	if !errors.Is(err, aiclient.ErrUnauthorized) {
@@ -230,7 +230,7 @@ func TestQuery_InternalAPIErrorEnvelope(t *testing.T) {
 	c := fakeServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(internalapi.Error{
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(internalapi.Error{
 			Code: internalapi.CodeInvalidRequest, Error: "question is required",
 		})
 	})
@@ -246,13 +246,13 @@ func TestDescribe_RoundTrip(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		var req aiclient.DescribeRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Fatalf("decode: %v", err)
 		}
 		if req.DatasourceID != "ds_1" || req.Table != "orders" {
 			t.Errorf("unexpected request: %+v", req)
 		}
-		_ = json.NewEncoder(w).Encode(aiclient.DescribeResponse{
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(aiclient.DescribeResponse{
 			Schema:      "public",
 			Table:       "orders",
 			Description: "Customer orders",
@@ -277,7 +277,7 @@ func TestEmbed_RoundTrip(t *testing.T) {
 		if !strings.HasSuffix(r.URL.Path, "/api/ai/metadata/embed") {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-		_ = json.NewEncoder(w).Encode(aiclient.EmbedResponse{
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(aiclient.EmbedResponse{
 			DatasourceID: "ds_1",
 			Model:        "text-embedding-3-small",
 			Embedded:     2,
@@ -302,7 +302,7 @@ func TestSettings_GET(t *testing.T) {
 		if !strings.HasSuffix(r.URL.Path, "/api/ai/settings") {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-		_ = json.NewEncoder(w).Encode(aiclient.SettingsResponse{
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(aiclient.SettingsResponse{
 			Provider: "openai", LLMModel: "gpt-4o", APIKeyConfigured: true,
 		})
 	})

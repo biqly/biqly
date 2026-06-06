@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"net/http"
 
 	"github.com/biqly/biqly/internal/ai"
@@ -136,7 +136,7 @@ func (h *AIHandler) PutUserAIPreferences(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	var req putUserAIPrefsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}

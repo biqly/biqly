@@ -2,8 +2,8 @@ package ai
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"strings"
 
 	"github.com/biqly/biqly/internal/ai/jsonextract"
@@ -92,7 +92,7 @@ func (s *TranslationService) TranslateDescribeResult(ctx context.Context, result
 		TableDescription: result.Description,
 		Columns:          append([]ColumnDescription(nil), result.Columns...),
 	}
-	rawPayload, err := json.MarshalIndent(payload, "", "  ")
+	rawPayload, err := sonic.ConfigStd.MarshalIndent(payload, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal describe translation payload: %w", err)
 	}
@@ -103,7 +103,7 @@ func (s *TranslationService) TranslateDescribeResult(ctx context.Context, result
 	}
 
 	var translated describeTranslationPayload
-	if err := json.Unmarshal([]byte(jsonextract.TrimToJSONObject(gen.Content)), &translated); err != nil {
+	if err := sonic.ConfigStd.Unmarshal([]byte(jsonextract.TrimToJSONObject(gen.Content)), &translated); err != nil {
 		return fmt.Errorf("parse translated metadata descriptions: %w", err)
 	}
 	if err := validateDescribeTranslation(payload, translated); err != nil {

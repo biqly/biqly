@@ -21,7 +21,12 @@ func NewMockEmailSender() *MockEmailSender {
 
 func (m *MockEmailSender) record(email, kind, info string) {
 	m.SentEmails[email] = append(m.SentEmails[email], info)
-	slog.Info("MOCK EMAIL SENT", "kind", kind, "to", email, "info", info)
+	redactedInfo := info
+	switch kind {
+	case "verification", "password_reset", "email_change_new", "email_change_old", "account_unlock", "magic_link", "invitation":
+		redactedInfo = "[REDACTED]"
+	}
+	slog.Info("MOCK EMAIL SENT", "kind", kind, "to", email, "info", redactedInfo)
 }
 
 func (m *MockEmailSender) SendEmailVerification(_ context.Context, email, token string) error {
@@ -77,4 +82,3 @@ func (m *MockEmailSender) SendDriftAlert(_ context.Context, email string, modelN
 	m.record(email, "drift_alert", fmt.Sprintf("Drift alert for model: %s, drifts: %d", modelName, len(drifts)))
 	return nil
 }
-

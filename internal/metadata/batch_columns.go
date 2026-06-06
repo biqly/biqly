@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -49,7 +50,7 @@ func upsertColumnsChunk(ctx context.Context, q execContexter, datasourceID strin
 	for _, c := range columns {
 		row := make([]string, 0, columnUpsertRowCols)
 		for range columnUpsertRowCols {
-			row = append(row, fmt.Sprintf("$%d", placeholder))
+			row = append(row, "$"+strconv.Itoa(placeholder))
 			placeholder++
 		}
 		values = append(values, "("+strings.Join(row, ",")+")")
@@ -61,7 +62,7 @@ func upsertColumnsChunk(ctx context.Context, q execContexter, datasourceID strin
 		)
 	}
 
-	query := fmt.Sprintf(columnUpsertValueQuery, strings.Join(values, ","))
+	query := strings.Replace(columnUpsertValueQuery, "%s", strings.Join(values, ","), 1)
 	if _, err := q.ExecContext(ctx, query, args...); err != nil {
 		return fmt.Errorf("upsert columns batch: %w", err)
 	}

@@ -2,7 +2,7 @@ package app
 
 import (
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,12 +20,12 @@ func TestQueryCatalogAdapter_ImplementsQueryServicePorts(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/internal/models/orders":
-			_ = json.NewEncoder(w).Encode(semantic.SemanticModel{ID: "orders", DatasourceID: "ds_1"})
+			_ = sonic.ConfigStd.NewEncoder(w).Encode(semantic.SemanticModel{ID: "orders", DatasourceID: "ds_1"})
 		case "/internal/datasources/ds_1":
-			_ = json.NewEncoder(w).Encode(metadata.Datasource{ID: "ds_1", Type: "postgres"})
+			_ = sonic.ConfigStd.NewEncoder(w).Encode(metadata.Datasource{ID: "ds_1", Type: "postgres"})
 		case "/internal/history/query":
 			historyCalled = true
-			_ = json.NewEncoder(w).Encode(map[string]string{"id": "hist_1"})
+			_ = sonic.ConfigStd.NewEncoder(w).Encode(map[string]string{"id": "hist_1"})
 		default:
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}

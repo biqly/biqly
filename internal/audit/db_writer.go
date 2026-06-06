@@ -3,8 +3,8 @@ package audit
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"log/slog"
 	"regexp"
 	"sync"
@@ -177,7 +177,7 @@ func (w *DBWriter) writeBatch(ctx context.Context, batch []Event) error {
 		var detailsJSON []byte
 		if len(event.Details) > 0 {
 			var err error
-			detailsJSON, err = json.Marshal(event.Details)
+			detailsJSON, err = sonic.ConfigStd.Marshal(event.Details)
 			if err != nil {
 				w.logger.Warn("failed to marshal audit event details", "error", err)
 			}

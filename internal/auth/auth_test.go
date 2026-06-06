@@ -629,6 +629,10 @@ func TestEmailVerificationAndReset(t *testing.T) {
 	err = service.ResetPassword(ctx, resetToken, "NewSecurePass2!")
 	require.NoError(t, err)
 
+	// Single-use verification: reusing the same reset token must fail.
+	err = service.ResetPassword(ctx, resetToken, "AnotherSecurePass3!")
+	assert.Error(t, err)
+
 	loginResp, err := service.Login(ctx, LoginRequest{
 		Email:    email,
 		Password: "NewSecurePass2!",

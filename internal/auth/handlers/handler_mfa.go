@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
+	"github.com/bytedance/sonic"
 	"net/http"
 
 	"github.com/biqly/biqly/internal/auth"
@@ -30,7 +30,7 @@ func (h *AuthHandler) requireMFAUser(w http.ResponseWriter, r *http.Request) (st
 
 func (h *AuthHandler) parseAndVerifyMFACode(w http.ResponseWriter, r *http.Request, userID string) bool {
 	var req auth.MFAVerifyRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return false
 	}
@@ -71,7 +71,7 @@ func (h *AuthHandler) handleMFAVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req auth.MFAVerifyRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -138,7 +138,7 @@ func (h *AuthHandler) handleMFARegenerateRecovery(w http.ResponseWriter, r *http
 
 func (h *AuthHandler) handleMFALogin(w http.ResponseWriter, r *http.Request) {
 	var req auth.MFALoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}

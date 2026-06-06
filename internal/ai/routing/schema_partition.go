@@ -56,10 +56,10 @@ func filterTablesBySchemaCluster(
 	}
 
 	top := ranked[0].score
-	active := map[string]bool{ranked[0].name: true}
+	active := map[string]struct{}{ranked[0].name: {}}
 	for i := 1; i < len(ranked) && len(active) < maxActiveSchemaPartitions; i++ {
 		if ranked[i].score >= top*schemaPartitionScoreRatio {
-			active[ranked[i].name] = true
+			active[ranked[i].name] = struct{}{}
 		}
 	}
 	expandSchemaPartitionWithFK(active, relations)
@@ -67,7 +67,7 @@ func filterTablesBySchemaCluster(
 	var out []metadata.Table
 	names := make([]string, 0, len(active))
 	for schema, schemaTables := range bySchema {
-		if !active[schema] {
+		if _, ok := active[schema]; !ok {
 			continue
 		}
 		names = append(names, schema)
@@ -83,18 +83,20 @@ func filterTablesBySchemaCluster(
 // expandSchemaPartitionWithFK keeps tables in schemas linked by FK to an active
 // schema so cross-schema join paths (e.g. sales.customer → person.person) stay
 // reachable for entity resolution.
-func expandSchemaPartitionWithFK(active map[string]bool, relations []metadata.Relation) {
+func expandSchemaPartitionWithFK(active map[string]struct{}, relations []metadata.Relation) {
 	for {
 		changed := false
 		for _, rel := range relations {
 			from := normalizeSchemaName(rel.FromSchema)
 			to := normalizeSchemaName(rel.ToSchema)
-			if active[from] && !active[to] {
-				active[to] = true
+			_, hasFrom := active[from]
+			_, hasTo := active[to]
+			if hasFrom && !hasTo {
+				active[to] = struct{}{}
 				changed = true
 			}
-			if active[to] && !active[from] {
-				active[from] = true
+			if hasTo && !hasFrom {
+				active[from] = struct{}{}
 				changed = true
 			}
 		}

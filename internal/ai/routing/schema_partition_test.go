@@ -47,7 +47,7 @@ func TestFilterTablesBySchemaCluster_PrefersMatchingSchema(t *testing.T) {
 }
 
 func TestExpandSchemaPartitionWithFK_IncludesLinkedSchema(t *testing.T) {
-	active := map[string]bool{"sales": true}
+	active := map[string]struct{}{"sales": {}}
 	relations := []metadata.Relation{
 		{
 			FromSchema: "sales",
@@ -57,7 +57,7 @@ func TestExpandSchemaPartitionWithFK_IncludesLinkedSchema(t *testing.T) {
 		},
 	}
 	expandSchemaPartitionWithFK(active, relations)
-	if !active["person"] {
+	if _, ok := active["person"]; !ok {
 		t.Fatalf("FK expansion should include person schema; active=%v", active)
 	}
 }

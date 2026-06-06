@@ -3,8 +3,8 @@ package prompt
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"strings"
 	"sync"
 	"time"
@@ -383,7 +383,7 @@ func (*Builder) writeSampleData(sb *bytes.Buffer, samples []TableSample) {
 			continue
 		}
 		writePromptf(sb, "### %s.%s\n", s.Schema, s.Table)
-		enc := json.NewEncoder(sb)
+		enc := sonic.ConfigStd.NewEncoder(sb)
 		if err := enc.Encode(s.Rows); err != nil {
 			continue
 		}

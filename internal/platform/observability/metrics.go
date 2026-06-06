@@ -246,7 +246,11 @@ func (m *Metrics) RecordAmbiguityAnalysis(latencyMs int64, source string, detect
 	m.ambiguityLatencyMS.Observe(float64(latencyMs))
 	if detected {
 		m.ambiguityDetected.Inc()
-		m.ambiguityBySource.WithLabelValues(source).Inc()
+		cleanSource := "other"
+		if source == "rule_based" || source == "llm" {
+			cleanSource = source
+		}
+		m.ambiguityBySource.WithLabelValues(cleanSource).Inc()
 	}
 }
 
@@ -308,6 +312,14 @@ func (m *Metrics) RecordAIRepair(success bool, attempts int, errorCodes []string
 		m.aiRepairAttempts.Observe(float64(attempts))
 	}
 	for _, code := range errorCodes {
-		m.aiRepairByErrorCode.WithLabelValues(code).Inc()
+		cleanCode := "other"
+		switch code {
+		case "UNKNOWN_DIMENSION", "UNKNOWN_METRIC", "UNKNOWN_FIELD", "INVALID_OPERATOR",
+			"INVALID_TIME_GRAIN", "TIME_GRAIN_ON_NON_DATE", "INVALID_SELECT_TYPE",
+			"ROW_LIMIT_EXCEEDED", "NEGATIVE_OFFSET", "DATE_VALUE_TYPE_MISMATCH",
+			"AMBIGUOUS_YEAR_COVERAGE", "HIDDEN_PII_FIELD":
+			cleanCode = code
+		}
+		m.aiRepairByErrorCode.WithLabelValues(cleanCode).Inc()
 	}
 }

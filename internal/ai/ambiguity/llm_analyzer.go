@@ -2,9 +2,9 @@ package ambiguity
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"strings"
 
 	"github.com/biqly/biqly/internal/ai/jsonextract"
@@ -55,7 +55,7 @@ func (a *LLMAnalyzer) Analyze(ctx context.Context, locale i18n.Locale, question 
 	}
 
 	var response llmAmbiguityResponse
-	if err := json.Unmarshal([]byte(jsonextract.TrimToJSONObject(gen.Content)), &response); err != nil {
+	if err := sonic.ConfigStd.Unmarshal([]byte(jsonextract.TrimToJSONObject(gen.Content)), &response); err != nil {
 		return Result{}, fmt.Errorf("parse ambiguity analysis: %w", err)
 	}
 	if !response.IsAmbiguous && !response.ClarificationNeeded {

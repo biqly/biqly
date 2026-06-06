@@ -21,7 +21,7 @@ func TestRoutingLexicon_ExpandTokenSynonyms(t *testing.T) {
 func TestRoutingWeights_ApplyTableBoosts(t *testing.T) {
 	w := activeRoutingWeights()
 	lex := activeRoutingLexicon()
-	tokens := map[string]bool{"urun": true, "adet": true}
+	tokens := map[string]struct{}{"urun": {}, "adet": {}}
 	score := w.ApplyTableBoosts("salesorderdetail", tokens, 0, lex)
 	if score < 10 {
 		t.Fatalf("catalog+quantity orderdetail boost = %v, want >= 10", score)

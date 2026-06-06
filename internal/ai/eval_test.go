@@ -2,7 +2,7 @@ package ai
 
 import (
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"os"
 	"testing"
 
@@ -133,7 +133,7 @@ func TestGoldenEvalAgainstLiveLLM(t *testing.T) {
 
 // marshalLogicalQuery produces the JSON the schema validator expects.
 func marshalLogicalQuery(lq query.LogicalQuery) (string, error) {
-	b, err := json.Marshal(lq)
+	b, err := sonic.ConfigStd.Marshal(lq)
 	if err != nil {
 		return "", err
 	}

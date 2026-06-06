@@ -3,7 +3,7 @@ package audit
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"log/slog"
 	"testing"
 	"time"
@@ -28,7 +28,7 @@ func TestMarshal(t *testing.T) {
 	require.NoError(t, err)
 
 	var decoded Event
-	err = json.Unmarshal(data, &decoded)
+	err = sonic.ConfigStd.Unmarshal(data, &decoded)
 	require.NoError(t, err)
 
 	assert.Equal(t, event.ID, decoded.ID)
@@ -106,7 +106,7 @@ func TestLogger(t *testing.T) {
 			require.NotEmpty(t, logOutput)
 
 			var logMap map[string]any
-			err := json.Unmarshal(logOutput, &logMap)
+			err := sonic.ConfigStd.Unmarshal(logOutput, &logMap)
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.expectedLevel, logMap["level"])

@@ -55,7 +55,7 @@ func DetectSynonyms(locale i18n.Locale, question string, model *semantic.Semanti
 	return ambiguities
 }
 
-func addSynonymTargets(locale i18n.Locale, bySynonym map[string][]synonymTarget, question string, questionTokens map[string]bool, kind, name string, label, description *string, synonyms []string) {
+func addSynonymTargets(locale i18n.Locale, bySynonym map[string][]synonymTarget, question string, questionTokens map[string]struct{}, kind, name string, label, description *string, synonyms []string) {
 	for _, synonym := range synonyms {
 		synonym = normalizeSynonym(synonym)
 		confidence := synonymMatchConfidence(question, questionTokens, synonym)
@@ -72,7 +72,7 @@ func addSynonymTargets(locale i18n.Locale, bySynonym map[string][]synonymTarget,
 	}
 }
 
-func synonymMatchConfidence(question string, questionTokens map[string]bool, synonym string) float64 {
+func synonymMatchConfidence(question string, questionTokens map[string]struct{}, synonym string) float64 {
 	if synonym == "" {
 		return 0
 	}

@@ -2,7 +2,7 @@ package http
 
 import (
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	stdhttp "net/http"
 	"net/http/httptest"
 	"testing"
@@ -30,7 +30,7 @@ func TestReadinessHandlerChecksConfiguredUpstreams(t *testing.T) {
 		t.Fatalf("status: got %d, want 200; body=%s", rec.Code, rec.Body.String())
 	}
 	var body readinessResponse
-	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(rec.Body).Decode(&body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 	if body.Status != "ok" || body.Checks["catalog"].Status != "ok" || body.Checks["metadata_db"].Status != "ok" {
@@ -53,7 +53,7 @@ func TestReadinessHandlerReportsUpstreamFailure(t *testing.T) {
 		t.Fatalf("status: got %d, want 503; body=%s", rec.Code, rec.Body.String())
 	}
 	var body readinessResponse
-	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(rec.Body).Decode(&body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 	if body.Status != "degraded" || body.Checks["catalog"].Status != "error" {

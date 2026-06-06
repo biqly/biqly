@@ -605,8 +605,8 @@ func checkCircularDependencies(model SemanticModel) []string {
 	visited := make(map[string]int) // 0 = unvisited, 1 = visiting, 2 = visited
 	var path []string
 
-	var dfs func(u string) bool
-	dfs = func(u string) bool {
+	var dfs func(u string)
+	dfs = func(u string) {
 		visited[u] = 1
 		path = append(path, u)
 
@@ -627,17 +627,13 @@ func checkCircularDependencies(model SemanticModel) []string {
 					cycle = append(cycle, cleanNodeName(v))
 					errs = append(errs, "circular dependency detected: "+strings.Join(cycle, " -> "))
 				}
-				return true
 			} else if visited[v] == 0 {
-				if dfs(v) {
-					return true
-				}
+				dfs(v)
 			}
 		}
 
 		path = path[:len(path)-1]
 		visited[u] = 2
-		return false
 	}
 
 	for k := range adj {

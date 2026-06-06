@@ -3,9 +3,9 @@ package queryclient
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"io"
 	"net/http"
 	"strings"
@@ -114,7 +114,7 @@ func (c *Client) do(ctx context.Context, path string, body, out any) error {
 	var bodyBytes []byte
 	if body != nil {
 		buf := &bytes.Buffer{}
-		if err := json.NewEncoder(buf).Encode(body); err != nil {
+		if err := sonic.ConfigStd.NewEncoder(buf).Encode(body); err != nil {
 			return fmt.Errorf("queryclient: encode request body: %w", err)
 		}
 		bodyBytes = buf.Bytes()
@@ -150,7 +150,7 @@ func (c *Client) do(ctx context.Context, path string, body, out any) error {
 		}
 		return nil
 	}
-	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(resp.Body).Decode(out); err != nil {
 		return fmt.Errorf("queryclient: decode response: %w", err)
 	}
 	return nil
@@ -185,7 +185,7 @@ func decodeErrorResponse(resp *http.Response) error {
 	}
 	var env internalapi.Error
 	if len(raw) > 0 && bytes.HasPrefix(bytes.TrimSpace(raw), []byte("{")) {
-		if err := json.Unmarshal(raw, &env); err != nil {
+		if err := sonic.ConfigStd.Unmarshal(raw, &env); err != nil {
 			_ = err
 		}
 	}

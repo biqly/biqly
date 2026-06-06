@@ -688,10 +688,7 @@ func (s *Service) tryMultiCandidate(
 		idx := i
 		go func() {
 			defer wg.Done()
-			temp := s.baseTemperature + 0.2*float64(idx)
-			if temp > 1 {
-				temp = 1
-			}
+			temp := min(s.baseTemperature+0.2*float64(idx), 1)
 
 			type genResult struct {
 				gen providerpkg.GenerationResult
@@ -927,6 +924,8 @@ func (s *Service) tryGenerateClarification(ctx context.Context, question string,
 	var content string
 	if err == nil {
 		content = strings.TrimSpace(gen.Content)
+	} else {
+		slog.DebugContext(ctx, "failed to generate clarification question", "error", err)
 	}
 	if content == "" {
 		if loc == i18n.LocaleTR {

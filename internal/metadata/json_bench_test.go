@@ -1,7 +1,6 @@
 package metadata
 
 import (
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -49,7 +48,7 @@ func BenchmarkJSONMarshal_Std(b *testing.B) {
 	entry := getTestEntry()
 	b.ResetTimer()
 	for b.Loop() {
-		_, err := json.Marshal(entry)
+		_, err := sonic.ConfigStd.Marshal(entry)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -80,7 +79,7 @@ func BenchmarkJSONMarshal_Sonic(b *testing.B) {
 
 func BenchmarkJSONUnmarshal_Std(b *testing.B) {
 	entry := getTestEntry()
-	data, err := json.Marshal(entry)
+	data, err := sonic.ConfigStd.Marshal(entry)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -88,7 +87,7 @@ func BenchmarkJSONUnmarshal_Std(b *testing.B) {
 	var out AIQueryHistoryEntry
 	b.ResetTimer()
 	for b.Loop() {
-		err := json.Unmarshal(data, &out)
+		err := sonic.ConfigStd.Unmarshal(data, &out)
 		if err != nil {
 			b.Fatal(err)
 		}

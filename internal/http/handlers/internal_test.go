@@ -3,7 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -26,7 +26,7 @@ func TestInternalHealth(t *testing.T) {
 		t.Fatalf("status: got %d, want 200", w.Code)
 	}
 	var body internalapi.HealthResponse
-	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(w.Body).Decode(&body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 	if body.Status != "ok" {
@@ -65,7 +65,7 @@ func TestRequireQueryParam(t *testing.T) {
 					t.Errorf("status: got %d, want 400", w.Code)
 				}
 				var env internalapi.Error
-				if err := json.NewDecoder(w.Body).Decode(&env); err != nil {
+				if err := sonic.ConfigStd.NewDecoder(w.Body).Decode(&env); err != nil {
 					t.Fatalf("decode: %v", err)
 				}
 				if env.Code != internalapi.CodeInvalidRequest {
@@ -81,7 +81,7 @@ func TestRequireQueryParam(t *testing.T) {
 
 func assertInvalidRequestMissingField(t *testing.T, handler func(http.ResponseWriter, *http.Request), path string, body any, field string) {
 	t.Helper()
-	payload, err := json.Marshal(body)
+	payload, err := sonic.ConfigStd.Marshal(body)
 	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, path, bytes.NewReader(payload))
@@ -90,7 +90,7 @@ func assertInvalidRequestMissingField(t *testing.T, handler func(http.ResponseWr
 		t.Fatalf("status: got %d, want 400", w.Code)
 	}
 	var env internalapi.Error
-	if err := json.NewDecoder(w.Body).Decode(&env); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(w.Body).Decode(&env); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 	if env.Code != internalapi.CodeInvalidRequest {
@@ -113,7 +113,7 @@ func TestCreateAIHistory_RejectsMissingDatasourceID(t *testing.T) {
 func TestCreateQueryHistory_RejectsMissingDatasourceID(t *testing.T) {
 	t.Parallel()
 	h := &InternalHandler{}
-	body, err := json.Marshal(internalapi.QueryHistoryRequest{})
+	body, err := sonic.ConfigStd.Marshal(internalapi.QueryHistoryRequest{})
 	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/internal/history/query", bytes.NewReader(body))
@@ -123,7 +123,7 @@ func TestCreateQueryHistory_RejectsMissingDatasourceID(t *testing.T) {
 		t.Fatalf("status: got %d, want 400", w.Code)
 	}
 	var env internalapi.Error
-	if err := json.NewDecoder(w.Body).Decode(&env); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(w.Body).Decode(&env); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 	if env.Code != internalapi.CodeInvalidRequest {
@@ -139,7 +139,7 @@ func TestCreateEvalResults_RejectsMissingRunID(t *testing.T) {
 func TestCreateEvalResults_RejectsMissingProvider(t *testing.T) {
 	t.Parallel()
 	h := &InternalHandler{}
-	body, err := json.Marshal(internalapi.EvalResultsRequest{RunID: "run_1"})
+	body, err := sonic.ConfigStd.Marshal(internalapi.EvalResultsRequest{RunID: "run_1"})
 	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/internal/eval-results", bytes.NewReader(body))
@@ -149,7 +149,7 @@ func TestCreateEvalResults_RejectsMissingProvider(t *testing.T) {
 		t.Fatalf("status: got %d, want 400", w.Code)
 	}
 	var env internalapi.Error
-	if err := json.NewDecoder(w.Body).Decode(&env); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(w.Body).Decode(&env); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 	if !strings.Contains(env.Error, "provider") {
@@ -186,7 +186,7 @@ func TestWriteInternalAPIErrorMsg(t *testing.T) {
 		t.Errorf("content-type: got %q, want application/json", ct)
 	}
 	var env internalapi.Error
-	if err := json.NewDecoder(w.Body).Decode(&env); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(w.Body).Decode(&env); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 	if env.Code != internalapi.CodeNotFound || env.Error != "thing gone" {

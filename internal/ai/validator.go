@@ -1,9 +1,9 @@
 package ai
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 
 	"github.com/biqly/biqly/internal/ai/jsonextract"
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
@@ -37,7 +37,7 @@ func parseLogicalQueryFromRaw(raw string) (query.LogicalQuery, error) {
 		return query.LogicalQuery{}, errors.New("empty AI response")
 	}
 	var lq query.LogicalQuery
-	if err := json.Unmarshal([]byte(cleaned), &lq); err != nil {
+	if err := sonic.ConfigStd.Unmarshal([]byte(cleaned), &lq); err != nil {
 		return query.LogicalQuery{}, fmt.Errorf("invalid JSON: %w (raw: %s)", err, promptpkg.TruncateRunes(cleaned, 200))
 	}
 	return lq, nil

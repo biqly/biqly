@@ -73,14 +73,15 @@ func findScopeQualifier(question string) (string, bool) {
 	}
 	tokens := routing.TokenSet(normalized)
 	for _, qualifier := range scopeQualifiers {
-		if tokens[qualifier] || strings.Contains(normalized, qualifier) {
+		_, ok := tokens[qualifier]
+		if ok || strings.Contains(normalized, qualifier) {
 			return qualifier, true
 		}
 	}
 	return "", false
 }
 
-func matchedMetrics(questionTokens map[string]bool, metrics []semantic.Metric) []semantic.Metric {
+func matchedMetrics(questionTokens map[string]struct{}, metrics []semantic.Metric) []semantic.Metric {
 	var matched []semantic.Metric
 	for _, metric := range metrics {
 		if metricMatchesQuestion(questionTokens, metric) {
@@ -93,21 +94,27 @@ func matchedMetrics(questionTokens map[string]bool, metrics []semantic.Metric) [
 	return matched
 }
 
-func metricMatchesQuestion(questionTokens map[string]bool, metric semantic.Metric) bool {
+func metricMatchesQuestion(questionTokens map[string]struct{}, metric semantic.Metric) bool {
 	name := strings.ToLower(strings.TrimSpace(metric.Name))
-	if name != "" && questionTokens[name] {
-		return true
+	if name != "" {
+		if _, ok := questionTokens[name]; ok {
+			return true
+		}
 	}
 	if metric.Label != nil {
 		label := strings.ToLower(strings.TrimSpace(*metric.Label))
-		if label != "" && questionTokens[label] {
-			return true
+		if label != "" {
+			if _, ok := questionTokens[label]; ok {
+				return true
+			}
 		}
 	}
 	for _, synonym := range metric.Synonyms {
 		synonym = strings.ToLower(strings.TrimSpace(synonym))
-		if synonym != "" && questionTokens[synonym] {
-			return true
+		if synonym != "" {
+			if _, ok := questionTokens[synonym]; ok {
+				return true
+			}
 		}
 	}
 	return false

@@ -3,7 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -28,7 +28,7 @@ func TestEvalCaseCRUD(t *testing.T) {
 			Limit:  10,
 		},
 	}
-	bodyBytes, err := json.Marshal(reqBody)
+	bodyBytes, err := sonic.ConfigStd.Marshal(reqBody)
 	require.NoError(t, err)
 
 	w := httptest.NewRecorder()
@@ -37,7 +37,7 @@ func TestEvalCaseCRUD(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 	var createResp map[string]any
-	err = json.NewDecoder(w.Body).Decode(&createResp)
+	err = sonic.ConfigStd.NewDecoder(w.Body).Decode(&createResp)
 	require.NoError(t, err)
 	assert.Equal(t, "created", createResp["status"])
 	assert.Equal(t, "test-http-case", createResp["id"])
@@ -49,7 +49,7 @@ func TestEvalCaseCRUD(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	var listResp []evalCaseWire
-	err = json.NewDecoder(w.Body).Decode(&listResp)
+	err = sonic.ConfigStd.NewDecoder(w.Body).Decode(&listResp)
 	require.NoError(t, err)
 
 	found := false
@@ -76,7 +76,7 @@ func TestEvalCaseCRUD(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	var deleteResp map[string]any
-	err = json.NewDecoder(w.Body).Decode(&deleteResp)
+	err = sonic.ConfigStd.NewDecoder(w.Body).Decode(&deleteResp)
 	require.NoError(t, err)
 	assert.Equal(t, "deleted", deleteResp["status"])
 	assert.Equal(t, "test-http-case", deleteResp["id"])
@@ -87,7 +87,7 @@ func TestEvalCaseCRUD(t *testing.T) {
 	h.EvalListCases(w, r)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	err = json.NewDecoder(w.Body).Decode(&listResp)
+	err = sonic.ConfigStd.NewDecoder(w.Body).Decode(&listResp)
 	require.NoError(t, err)
 
 	for _, c := range listResp {
@@ -105,7 +105,7 @@ func TestEvalCaseCRUD_ValidationErrors(t *testing.T) {
 			Question: "q",
 			ModelID:  "orders",
 		}
-		b, err := json.Marshal(req)
+		b, err := sonic.ConfigStd.Marshal(req)
 		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/ai/eval/cases", bytes.NewReader(b))
@@ -119,7 +119,7 @@ func TestEvalCaseCRUD_ValidationErrors(t *testing.T) {
 			ID:      "id-1",
 			ModelID: "orders",
 		}
-		b, err := json.Marshal(req)
+		b, err := sonic.ConfigStd.Marshal(req)
 		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/ai/eval/cases", bytes.NewReader(b))
@@ -133,7 +133,7 @@ func TestEvalCaseCRUD_ValidationErrors(t *testing.T) {
 			ID:       "id-1",
 			Question: "q",
 		}
-		b, err := json.Marshal(req)
+		b, err := sonic.ConfigStd.Marshal(req)
 		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/ai/eval/cases", bytes.NewReader(b))

@@ -14,8 +14,8 @@ package i18n
 import (
 	"context"
 	"embed"
-	"encoding/json"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"slices"
 	"strings"
 	"sync"
@@ -121,7 +121,7 @@ func loadBundles() {
 			return
 		}
 		var b bundle
-		if err := json.Unmarshal(raw, &b); err != nil {
+		if err := sonic.ConfigStd.Unmarshal(raw, &b); err != nil {
 			errBundles = fmt.Errorf("parse locale %q: %w", loc, err)
 			return
 		}

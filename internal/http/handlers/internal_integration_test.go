@@ -3,7 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -148,7 +148,7 @@ func TestInternalIntegration_Endpoints(t *testing.T) {
 	})
 
 	t.Run("POST /internal/history/query", func(t *testing.T) {
-		payload, _ := json.Marshal(internalapi.QueryHistoryRequest{
+		payload, _ := sonic.ConfigStd.Marshal(internalapi.QueryHistoryRequest{
 			Entry: query.HistoryEntry{DatasourceID: integrationDSID, Status: "success"},
 		})
 		rec := env.do(t, http.MethodPost, "/internal/history/query", payload, integrationToken, "query")
@@ -161,7 +161,7 @@ func TestInternalIntegration_Endpoints(t *testing.T) {
 	})
 
 	t.Run("POST /internal/eval-results", func(t *testing.T) {
-		payload, _ := json.Marshal(internalapi.EvalResultsRequest{
+		payload, _ := sonic.ConfigStd.Marshal(internalapi.EvalResultsRequest{
 			RunID: "run_1", Provider: "openai", Model: "gpt-4o",
 			Results: []internalapi.EvalResultMetrics{},
 		})
@@ -175,7 +175,7 @@ func TestInternalIntegration_Endpoints(t *testing.T) {
 	})
 
 	t.Run("POST /internal/query/compile", func(t *testing.T) {
-		payload, _ := json.Marshal(internalapi.CompileRequest{LogicalQuery: integrationLogicalQuery()})
+		payload, _ := sonic.ConfigStd.Marshal(internalapi.CompileRequest{LogicalQuery: integrationLogicalQuery()})
 		rec := env.do(t, http.MethodPost, "/internal/query/compile", payload, integrationToken, "ai")
 		assertStatus(t, rec, http.StatusOK)
 		raw := rec.Body.Bytes()
@@ -188,7 +188,7 @@ func TestInternalIntegration_Endpoints(t *testing.T) {
 	})
 
 	t.Run("POST /internal/query/run", func(t *testing.T) {
-		payload, _ := json.Marshal(internalapi.RunRequest{LogicalQuery: integrationLogicalQuery()})
+		payload, _ := sonic.ConfigStd.Marshal(internalapi.RunRequest{LogicalQuery: integrationLogicalQuery()})
 		rec := env.do(t, http.MethodPost, "/internal/query/run", payload, integrationToken, "query")
 		assertStatus(t, rec, http.StatusOK)
 		var body internalapi.RunResponse
@@ -199,7 +199,7 @@ func TestInternalIntegration_Endpoints(t *testing.T) {
 	})
 
 	t.Run("POST /internal/query/dry-run", func(t *testing.T) {
-		payload, _ := json.Marshal(internalapi.DryRunRequest{LogicalQuery: integrationLogicalQuery()})
+		payload, _ := sonic.ConfigStd.Marshal(internalapi.DryRunRequest{LogicalQuery: integrationLogicalQuery()})
 		rec := env.do(t, http.MethodPost, "/internal/query/dry-run", payload, integrationToken, "query")
 		assertStatus(t, rec, http.StatusOK)
 		var body internalapi.DryRunResponse
@@ -292,7 +292,7 @@ func assertAPIError(t *testing.T, rec *httptest.ResponseRecorder, wantCode strin
 func assertAPIErrorBytes(t *testing.T, raw []byte, wantCode string) {
 	t.Helper()
 	var env internalapi.Error
-	if err := json.Unmarshal(raw, &env); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(raw, &env); err != nil {
 		t.Fatalf("decode error envelope: %v body=%s", err, string(raw))
 	}
 	if env.Code != wantCode {
@@ -310,7 +310,7 @@ func decodeJSONBody(t *testing.T, rec *httptest.ResponseRecorder, dst any) {
 
 func decodeJSONBytes(t *testing.T, raw []byte, dst any) {
 	t.Helper()
-	if err := json.Unmarshal(raw, dst); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(raw, dst); err != nil {
 		t.Fatalf("decode: %v body=%s", err, string(raw))
 	}
 }
@@ -318,12 +318,9 @@ func decodeJSONBytes(t *testing.T, raw []byte, dst any) {
 func assertGoldenJSON(t *testing.T, name string, got []byte) {
 	t.Helper()
 	path := "testdata/internal_golden/" + name
-	var gotNorm bytes.Buffer
-	if err := json.Compact(&gotNorm, got); err != nil {
-		t.Fatalf("compact got: %v", err)
-	}
+	gotNorm := compactJSONForGolden(t, "got", got)
 	if os.Getenv("UPDATE_INTERNAL_GOLDEN") == "1" {
-		if err := os.WriteFile(path, append(gotNorm.Bytes(), '\n'), 0o600); err != nil {
+		if err := os.WriteFile(path, append(gotNorm, '\n'), 0o600); err != nil {
 			t.Fatalf("write golden %s: %v", name, err)
 		}
 		return
@@ -332,13 +329,24 @@ func assertGoldenJSON(t *testing.T, name string, got []byte) {
 	if err != nil {
 		t.Fatalf("read golden %s: %v", name, err)
 	}
-	var wantNorm bytes.Buffer
-	if err := json.Compact(&wantNorm, want); err != nil {
-		t.Fatalf("compact want: %v", err)
+	wantNorm := compactJSONForGolden(t, "want", want)
+	if !bytes.Equal(gotNorm, wantNorm) {
+		t.Fatalf("golden %s mismatch:\ngot:  %s\nwant: %s", name, string(gotNorm), string(wantNorm))
 	}
-	if !bytes.Equal(gotNorm.Bytes(), wantNorm.Bytes()) {
-		t.Fatalf("golden %s mismatch:\ngot:  %s\nwant: %s", name, gotNorm.String(), wantNorm.String())
+}
+
+func compactJSONForGolden(t *testing.T, label string, raw []byte) []byte {
+	t.Helper()
+
+	var value any
+	if err := sonic.ConfigStd.Unmarshal(raw, &value); err != nil {
+		t.Fatalf("compact %s decode: %v", label, err)
 	}
+	out, err := sonic.ConfigStd.Marshal(value)
+	if err != nil {
+		t.Fatalf("compact %s encode: %v", label, err)
+	}
+	return out
 }
 
 func mustEncryptDSN(t *testing.T, plaintext string) string {

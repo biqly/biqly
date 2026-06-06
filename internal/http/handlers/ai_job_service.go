@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"log/slog"
 	"strings"
 
@@ -45,7 +46,7 @@ func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID, userID stri
 	scopeSchemas := []string{}
 	if kind == "describe_batch" { //nolint:nestif
 		var batchReq ai.DescribeBatchRequest
-		if err := json.Unmarshal(req, &batchReq); err != nil {
+		if err := sonic.ConfigStd.Unmarshal(req, &batchReq); err != nil {
 			return nil, errors.New("invalid request payload")
 		}
 		ds := strings.TrimSpace(batchReq.DatasourceID)
@@ -71,7 +72,7 @@ func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID, userID stri
 	}
 	if kind == "embed_metadata" {
 		var er embedMetadataRequest
-		if err := json.Unmarshal(req, &er); err != nil {
+		if err := sonic.ConfigStd.Unmarshal(req, &er); err != nil {
 			return nil, errors.New("invalid request payload")
 		}
 		ds := strings.TrimSpace(er.DatasourceID)
@@ -127,7 +128,7 @@ func validateAIJobRequest(kind string, raw json.RawMessage) error {
 	switch kind {
 	case "query", "preview", "run":
 		var req aiQueryRequest
-		if err := json.Unmarshal(raw, &req); err != nil {
+		if err := sonic.ConfigStd.Unmarshal(raw, &req); err != nil {
 			return errors.New("invalid request payload")
 		}
 		if req.Question == "" {
@@ -138,7 +139,7 @@ func validateAIJobRequest(kind string, raw json.RawMessage) error {
 		}
 	case "describe":
 		var req ai.DescribeRequest
-		if err := json.Unmarshal(raw, &req); err != nil {
+		if err := sonic.ConfigStd.Unmarshal(raw, &req); err != nil {
 			return errors.New("invalid request payload")
 		}
 		if req.DatasourceID == "" || req.Table == "" {
@@ -146,7 +147,7 @@ func validateAIJobRequest(kind string, raw json.RawMessage) error {
 		}
 	case "describe_batch":
 		var req ai.DescribeBatchRequest
-		if err := json.Unmarshal(raw, &req); err != nil {
+		if err := sonic.ConfigStd.Unmarshal(raw, &req); err != nil {
 			return errors.New("invalid request payload")
 		}
 		if req.DatasourceID == "" || len(req.Tables) == 0 {
@@ -157,7 +158,7 @@ func validateAIJobRequest(kind string, raw json.RawMessage) error {
 		}
 	case "embed_metadata":
 		var req embedMetadataRequest
-		if err := json.Unmarshal(raw, &req); err != nil {
+		if err := sonic.ConfigStd.Unmarshal(raw, &req); err != nil {
 			return errors.New("invalid request payload")
 		}
 		if req.DatasourceID == "" {
@@ -251,7 +252,7 @@ func (s *AIJobService) processJob(ctx context.Context, job *metadata.AIJob, repo
 			return nil, err
 		}
 		var req aiQueryRequest
-		if err := json.Unmarshal(job.RequestJSON, &req); err != nil {
+		if err := sonic.ConfigStd.Unmarshal(job.RequestJSON, &req); err != nil {
 			return nil, errors.New("invalid request payload")
 		}
 		resp, err := s.ai.executeAIQueryPhase(ctx, req, phase, report)
@@ -261,7 +262,7 @@ func (s *AIJobService) processJob(ctx context.Context, job *metadata.AIJob, repo
 		return encodeAIJobResult(resp)
 	case "describe":
 		var req ai.DescribeRequest
-		if err := json.Unmarshal(job.RequestJSON, &req); err != nil {
+		if err := sonic.ConfigStd.Unmarshal(job.RequestJSON, &req); err != nil {
 			return nil, errors.New("invalid request payload")
 		}
 		result, err := s.ai.executeMetadataDescribeJob(ctx, req, report)
@@ -271,7 +272,7 @@ func (s *AIJobService) processJob(ctx context.Context, job *metadata.AIJob, repo
 		return encodeDescribeJobResult(result)
 	case "describe_batch":
 		var req ai.DescribeBatchRequest
-		if err := json.Unmarshal(job.RequestJSON, &req); err != nil {
+		if err := sonic.ConfigStd.Unmarshal(job.RequestJSON, &req); err != nil {
 			return nil, errors.New("invalid request payload")
 		}
 		result, err := s.ai.executeMetadataDescribeBatchJob(ctx, job.ID, req, report)
@@ -284,7 +285,7 @@ func (s *AIJobService) processJob(ctx context.Context, job *metadata.AIJob, repo
 		return encodeDescribeBatchJobResult(result)
 	case "embed_metadata":
 		var req embedMetadataRequest
-		if err := json.Unmarshal(job.RequestJSON, &req); err != nil {
+		if err := sonic.ConfigStd.Unmarshal(job.RequestJSON, &req); err != nil {
 			return nil, errors.New("invalid request payload")
 		}
 		result, err := s.ai.executeEmbedMetadataJob(ctx, req, report)
@@ -314,5 +315,5 @@ func encodeEmbedMetadataJobResult(result *embedMetadataResponse) (json.RawMessag
 	if result == nil {
 		return nil, nil
 	}
-	return json.Marshal(result)
+	return sonic.ConfigStd.Marshal(result)
 }

@@ -1,7 +1,7 @@
 package jsonextract
 
 import (
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"testing"
 )
 
@@ -16,7 +16,7 @@ func TestExtractJSONObject_BracesInsideString(t *testing.T) {
 		TableDescription string `json:"table_description"`
 		Columns          []any  `json:"columns"`
 	}
-	if err := json.Unmarshal([]byte(obj), &payload); err != nil {
+	if err := sonic.ConfigStd.Unmarshal([]byte(obj), &payload); err != nil {
 		t.Fatalf("unmarshal: %v\nobj=%q", err, obj)
 	}
 	if payload.TableDescription != "Use } carefully" {

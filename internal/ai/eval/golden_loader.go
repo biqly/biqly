@@ -1,8 +1,8 @@
 package eval
 
 import (
-	"encoding/json"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"os"
 	"path/filepath"
 
@@ -11,9 +11,9 @@ import (
 )
 
 type rawGoldenCase struct {
-	ID       string              `json:"id"`
-	Question string              `json:"question"`
-	ModelID  string              `json:"model_id"`
+	ID       string             `json:"id"`
+	Question string             `json:"question"`
+	ModelID  string             `json:"model_id"`
 	Expected query.LogicalQuery `json:"expected"`
 }
 
@@ -33,7 +33,7 @@ func LoadGoldenCasesFromDir(dir string) ([]GoldenCase, error) {
 		}
 
 		var raw rawGoldenCase
-		if err := json.Unmarshal(data, &raw); err != nil {
+		if err := sonic.ConfigStd.Unmarshal(data, &raw); err != nil {
 			return nil, fmt.Errorf("failed to parse golden case JSON in file %s: %w", file, err)
 		}
 
@@ -56,7 +56,7 @@ func SaveGoldenCaseToDir(dir string, id string, question string, modelID string,
 		Expected: expected,
 	}
 
-	data, err := json.MarshalIndent(raw, "", "  ")
+	data, err := sonic.ConfigStd.MarshalIndent(raw, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal golden case: %w", err)
 	}

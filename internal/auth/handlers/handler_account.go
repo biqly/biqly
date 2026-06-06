@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"github.com/bytedance/sonic"
 	"io"
 	"log/slog"
 	"net/http"
@@ -77,7 +77,7 @@ func (h *AuthHandler) handleDeleteAccount(w http.ResponseWriter, r *http.Request
 		return
 	}
 	var req auth.DeleteAccountRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
 		h.respondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -127,7 +127,7 @@ func (h *AuthHandler) handleRevokeSession(w http.ResponseWriter, r *http.Request
 
 func (h *AuthHandler) handleUnlockAccount(w http.ResponseWriter, r *http.Request) {
 	var req auth.UnlockAccountRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}

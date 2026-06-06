@@ -2,8 +2,8 @@ package eval
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"github.com/bytedance/sonic"
 
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 )
@@ -24,7 +24,7 @@ func NewGoldenStubProvider() providerpkg.Provider {
 func NewGoldenStubProviderForCases(cases []GoldenCase) providerpkg.Provider {
 	byQ := make(map[string]string, len(cases))
 	for _, c := range cases {
-		b, err := json.Marshal(c.Expected)
+		b, err := sonic.ConfigStd.Marshal(c.Expected)
 		if err != nil {
 			continue
 		}

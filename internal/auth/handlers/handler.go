@@ -5,8 +5,8 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
+	"github.com/bytedance/sonic"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -78,7 +78,12 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 		}
 		r.Post("/login", h.handleLogin)
 	})
-	r.Post("/register", h.handleRegister)
+	r.Group(func(r chi.Router) {
+		if h.limiter != nil {
+			r.Use(h.limiter.Limit(5, time.Minute, "register"))
+		}
+		r.Post("/register", h.handleRegister)
+	})
 	r.Post("/refresh", h.handleRefresh)
 	r.Post("/logout", h.handleLogout)
 	r.Post("/forgot-password", h.handleForgotPassword)
@@ -164,7 +169,7 @@ func (h *AuthHandler) RegisterInternalRoutes(r chi.Router) {
 
 func (h *AuthHandler) handleRegister(w http.ResponseWriter, r *http.Request) {
 	var req auth.RegisterRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -184,7 +189,7 @@ func (h *AuthHandler) handleRegister(w http.ResponseWriter, r *http.Request) {
 
 func (h *AuthHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var req auth.LoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -217,7 +222,7 @@ func (h *AuthHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 func (h *AuthHandler) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	var req auth.RefreshRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -237,7 +242,7 @@ func (h *AuthHandler) handleRefresh(w http.ResponseWriter, r *http.Request) {
 
 func (h *AuthHandler) handleLogout(w http.ResponseWriter, r *http.Request) {
 	var req auth.RefreshRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -273,7 +278,7 @@ func (h *AuthHandler) handleSetActiveWorkspace(w http.ResponseWriter, r *http.Re
 	}
 
 	var req auth.SetActiveWorkspaceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -305,7 +310,7 @@ type VerifyResponse struct {
 
 func (h *AuthHandler) handleVerify(w http.ResponseWriter, r *http.Request) {
 	var req VerifyRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -556,7 +561,7 @@ type OAuthExchangeRequest struct {
 
 func (h *AuthHandler) handleOAuthExchange(w http.ResponseWriter, r *http.Request) {
 	var req OAuthExchangeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Code == "" {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil || req.Code == "" {
 		h.respondError(w, http.StatusBadRequest, "code is required")
 		return
 	}
@@ -609,7 +614,7 @@ func (h *AuthHandler) handlePasskeyRegisterBegin(w http.ResponseWriter, r *http.
 		return
 	}
 
-	sessionJSON, err := json.Marshal(session)
+	sessionJSON, err := sonic.ConfigStd.Marshal(session)
 	if err != nil {
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -645,7 +650,7 @@ func (h *AuthHandler) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http
 	}
 
 	var session webauthn.SessionData
-	if err := json.Unmarshal(sessionJSON, &session); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(sessionJSON, &session); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid session data")
 		return
 	}
@@ -671,7 +676,7 @@ func (h *AuthHandler) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http
 
 func (h *AuthHandler) handlePasskeyLoginBegin(w http.ResponseWriter, r *http.Request) {
 	var req PasskeyLoginBeginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -682,7 +687,7 @@ func (h *AuthHandler) handlePasskeyLoginBegin(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	sessionJSON, err := json.Marshal(session)
+	sessionJSON, err := sonic.ConfigStd.Marshal(session)
 	if err != nil {
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -713,7 +718,7 @@ func (h *AuthHandler) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Re
 	}
 
 	var session webauthn.SessionData
-	if err := json.Unmarshal(sessionJSON, &session); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(sessionJSON, &session); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid session data")
 		return
 	}
@@ -786,7 +791,7 @@ func (h *AuthHandler) handleUpdatePasskey(w http.ResponseWriter, r *http.Request
 	var req struct {
 		Name string `json:"name"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -832,7 +837,7 @@ func (h *AuthHandler) handleEmailAction(
 	var req struct {
 		Email string `json:"email"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -854,7 +859,7 @@ func (h *AuthHandler) handleForgotPassword(w http.ResponseWriter, r *http.Reques
 
 func (h *AuthHandler) handleResetPassword(w http.ResponseWriter, r *http.Request) {
 	var req ResetPasswordRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -870,7 +875,7 @@ func (h *AuthHandler) handleResetPassword(w http.ResponseWriter, r *http.Request
 
 func (h *AuthHandler) handleMagicLinkRequest(w http.ResponseWriter, r *http.Request) {
 	var req auth.MagicLinkRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -893,7 +898,7 @@ func (h *AuthHandler) handleMagicLinkRequest(w http.ResponseWriter, r *http.Requ
 
 func (h *AuthHandler) handleMagicLinkConsume(w http.ResponseWriter, r *http.Request) {
 	var req auth.MagicLinkConsumeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -946,7 +951,7 @@ func (h *AuthHandler) handleRequestEmailChange(w http.ResponseWriter, r *http.Re
 	}
 
 	var req auth.RequestEmailChangeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -972,7 +977,7 @@ func (h *AuthHandler) handleConfirmEmailChange(w http.ResponseWriter, r *http.Re
 	token := r.URL.Query().Get("token")
 	if token == "" {
 		var req ConfirmEmailChangeRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 			h.respondError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
@@ -1005,7 +1010,7 @@ func (h *AuthHandler) handleAdminInviteUser(w http.ResponseWriter, r *http.Reque
 	}
 
 	var req auth.InviteUserRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -1072,7 +1077,7 @@ func (h *AuthHandler) handleClaimInvitation(w http.ResponseWriter, r *http.Reque
 	}
 
 	var req auth.ClaimInvitationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}

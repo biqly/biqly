@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -225,7 +226,7 @@ func (h *DatasourceHandler) datasourceDraft(_ context.Context, req createDatasou
 				ext[k] = v
 			}
 		}
-		cpRaw, err := json.Marshal(ext)
+		cpRaw, err := sonic.ConfigStd.Marshal(ext)
 		if err != nil {
 			return nil, "", http.StatusBadRequest, "invalid connection_params", err
 		}

@@ -540,12 +540,12 @@ func TestExpandSelectedWithJoinBridges_AddsIntermediateTables(t *testing.T) {
 		{table: tables[2], score: 8},
 	}
 	out := expandSelectedWithJoinBridges(selected, relations, idx, 10)
-	keys := make(map[string]bool)
+	keys := make(map[string]struct{})
 	for _, b := range out {
-		keys[tableKey(b.table.SchemaName, b.table.TableName)] = true
+		keys[tableKey(b.table.SchemaName, b.table.TableName)] = struct{}{}
 	}
 	for _, need := range []string{"sales.header", "sales.detail", "prod.product", "prod.productcategory"} {
-		if !keys[need] {
+		if _, ok := keys[need]; !ok {
 			t.Fatalf("missing %s, got %v", need, keys)
 		}
 	}

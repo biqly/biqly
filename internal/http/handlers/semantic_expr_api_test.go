@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"github.com/bytedance/sonic"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -144,7 +145,7 @@ func TestCreateDimensionRejectsInvalidExpressionASTBeforeRepoWrite(t *testing.T)
 }
 
 func TestSemanticExpressionAPIResponseIncludesASTFields(t *testing.T) {
-	dimJSON, err := json.Marshal(pkgsemantic.Dimension{
+	dimJSON, err := sonic.ConfigStd.Marshal(pkgsemantic.Dimension{
 		ID:             "dim_1",
 		ModelID:        "model_1",
 		Name:           "margin",
@@ -159,7 +160,7 @@ func TestSemanticExpressionAPIResponseIncludesASTFields(t *testing.T) {
 		t.Fatalf("dimension response JSON = %s, want calculated_expr", dimJSON)
 	}
 
-	metricJSON, err := json.Marshal(pkgsemantic.Metric{
+	metricJSON, err := sonic.ConfigStd.Marshal(pkgsemantic.Metric{
 		ID:          "metric_1",
 		ModelID:     "model_1",
 		Name:        "net_revenue",
@@ -285,7 +286,7 @@ func TestGetModelLineage(t *testing.T) {
 	}
 
 	var resp LineageResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
@@ -368,7 +369,7 @@ func TestCompileExpression(t *testing.T) {
 		}
 
 		var resp compileExpressionResponse
-		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		if err := sonic.ConfigStd.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 			t.Fatalf("failed to decode response: %v", err)
 		}
 
@@ -406,7 +407,7 @@ func TestCompileExpression(t *testing.T) {
 		}
 
 		var resp compileExpressionResponse
-		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		if err := sonic.ConfigStd.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 			t.Fatalf("failed to decode response: %v", err)
 		}
 

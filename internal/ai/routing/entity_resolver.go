@@ -14,7 +14,7 @@ func appendQuestionEntityTables(
 	tables []metadata.Table,
 	relations []metadata.Relation,
 	idx tableIndex,
-	tokens map[string]bool,
+	tokens map[string]struct{},
 	maxN, maxHops int,
 ) []tableBundle {
 	if len(tokens) == 0 || len(selected) >= maxN {
@@ -44,7 +44,7 @@ func appendQuestionEntityTables(
 			if len(tok) < 3 {
 				continue
 			}
-			if tokens[tok] {
+			if _, ok := tokens[tok]; ok {
 				matched = true
 				break
 			}
@@ -101,7 +101,7 @@ func appendEntityResolverTables(
 	columnsByTable map[string][]metadata.Column,
 	relations []metadata.Relation,
 	idx tableIndex,
-	tokens map[string]bool,
+	tokens map[string]struct{},
 	maxN, maxHops int,
 ) []tableBundle {
 	if !wantsReadableLabelsQuestion(tokens) {
@@ -137,13 +137,13 @@ func appendEntityResolverTables(
 // entityTokensFromQuestion drops "name"-like tokens ("name", "names",
 // "fullname", "label") so what remains identifies the entity ("customer",
 // "product") rather than the field being requested.
-func entityTokensFromQuestion(tokens map[string]bool) map[string]bool {
-	out := make(map[string]bool, len(tokens))
+func entityTokensFromQuestion(tokens map[string]struct{}) map[string]struct{} {
+	out := make(map[string]struct{}, len(tokens))
 	for tok := range tokens {
 		if isNameLikeToken(tok) {
 			continue
 		}
-		out[tok] = true
+		out[tok] = struct{}{}
 	}
 	return out
 }
@@ -163,7 +163,7 @@ func findEntityCandidates(
 	idx tableIndex,
 	adj map[string][]string,
 	selectedKeys map[string]struct{},
-	entityTokens map[string]bool,
+	entityTokens map[string]struct{},
 	maxHops int,
 ) []entityCandidate {
 	visited := make(map[string]int, len(selectedKeys))
@@ -194,7 +194,9 @@ func findEntityCandidates(
 				continue
 			}
 			tname := strings.ToLower(t.TableName)
-			if entityTokens[tname] || entityTokens[singularize(tname)] {
+			_, hasToken := entityTokens[tname]
+			_, hasSingular := entityTokens[singularize(tname)]
+			if hasToken || hasSingular {
 				cands = append(cands, entityCandidate{key: nb, hops: d + 1})
 			}
 		}
@@ -255,7 +257,7 @@ func addDisplayPartners(
 	columnsByTable map[string][]metadata.Column,
 	idx tableIndex,
 	adj map[string][]string,
-	entityTokens map[string]bool,
+	entityTokens map[string]struct{},
 	entityCands []entityCandidate,
 	maxN, maxHops int,
 ) ([]tableBundle, map[string]struct{}) {
@@ -263,7 +265,9 @@ func addDisplayPartners(
 	for _, b := range selected {
 		bk := tableKey(b.table.SchemaName, b.table.TableName)
 		tname := strings.ToLower(b.table.TableName)
-		if entityTokens[tname] || entityTokens[singularize(tname)] {
+		_, hasToken := entityTokens[tname]
+		_, hasSingular := entityTokens[singularize(tname)]
+		if hasToken || hasSingular {
 			entityKeys = append(entityKeys, bk)
 		}
 	}
@@ -271,15 +275,15 @@ func addDisplayPartners(
 		entityKeys = append(entityKeys, c.key)
 	}
 
-	visitedEntity := make(map[string]bool, len(entityKeys))
+	visitedEntity := make(map[string]struct{}, len(entityKeys))
 	for _, ek := range entityKeys {
 		if len(selected) >= maxN {
 			break
 		}
-		if visitedEntity[ek] {
+		if _, ok := visitedEntity[ek]; ok {
 			continue
 		}
-		visitedEntity[ek] = true
+		visitedEntity[ek] = struct{}{}
 		if _, ok := selectedKeys[ek]; !ok {
 			continue
 		}
@@ -354,6 +358,6 @@ func bundleSliceContains(bundles []tableBundle, key string) bool {
 	return false
 }
 
-func wantsReadableLabelsQuestion(tokens map[string]bool) bool {
+func wantsReadableLabelsQuestion(tokens map[string]struct{}) bool {
 	return activeRoutingLexicon().HasAnyToken(tokens, activeRoutingLexicon().ReadableLabelTokens)
 }

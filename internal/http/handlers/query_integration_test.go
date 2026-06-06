@@ -3,7 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -20,7 +20,7 @@ func TestQueryHandlerIntegration_CompileAndRun(t *testing.T) {
 	router.Post("/api/query/compile", handler.Compile)
 	router.Post("/api/query/run", handler.Run)
 
-	body, err := json.Marshal(integrationLogicalQuery())
+	body, err := sonic.ConfigStd.Marshal(integrationLogicalQuery())
 	if err != nil {
 		t.Fatalf("marshal logical query: %v", err)
 	}
@@ -35,7 +35,7 @@ func TestQueryHandlerIntegration_CompileAndRun(t *testing.T) {
 		SQL  string `json:"sql"`
 		Args []any  `json:"args"`
 	}
-	if err := json.Unmarshal(compileRec.Body.Bytes(), &compiled); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(compileRec.Body.Bytes(), &compiled); err != nil {
 		t.Fatalf("decode compile response: %v", err)
 	}
 	if !strings.Contains(compiled.SQL, `"public"."orders"`) {
@@ -63,7 +63,7 @@ func TestQueryHandlerIntegration_CompileAndRun(t *testing.T) {
 			RowCount int `json:"row_count"`
 		} `json:"stats"`
 	}
-	if err := json.Unmarshal(runRec.Body.Bytes(), &result); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(runRec.Body.Bytes(), &result); err != nil {
 		t.Fatalf("decode run response: %v", err)
 	}
 	if result.Stats.RowCount != 1 || len(result.Rows) != 1 || result.Rows[0][0] != "TR" {

@@ -1,7 +1,7 @@
 package ai
 
 import (
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"testing"
 
 	"github.com/biqly/biqly/internal/ai/prompt"
@@ -15,7 +15,7 @@ func TestFilterSessionFromPriorTurns(t *testing.T) {
 			{Field: "order_date", Operator: query.OpBetween, Value: []any{"2025-04-01", "2025-04-30"}},
 		},
 	}
-	raw, err := json.Marshal(prevLQ)
+	raw, err := sonic.ConfigStd.Marshal(prevLQ)
 	require.NoError(t, err)
 	turns := []prompt.ConversationTurn{
 		{Question: "geçen ay satışlar", LogicalQuery: string(raw)},

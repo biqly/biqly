@@ -1,9 +1,9 @@
 package security
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"reflect"
 	"slices"
 )
@@ -81,7 +81,7 @@ func rowFilterValueKey(value any) string {
 	if valueType != nil {
 		typeName = valueType.String()
 	}
-	data, err := json.Marshal(value)
+	data, err := sonic.ConfigStd.Marshal(value)
 	if err != nil {
 		return typeName + ":" + fmt.Sprintf("%#v", value)
 	}

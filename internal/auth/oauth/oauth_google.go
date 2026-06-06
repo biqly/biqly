@@ -2,9 +2,9 @@ package oauth
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"net/http"
 
 	"github.com/biqly/biqly/internal/auth"
@@ -59,7 +59,7 @@ func (p *GoogleProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (
 		Name          string `json:"name"`
 		Picture       string `json:"picture"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&rawProfile); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(resp.Body).Decode(&rawProfile); err != nil {
 		return nil, fmt.Errorf("decode google userinfo: %w", err)
 	}
 

@@ -7,7 +7,7 @@ import (
 	"github.com/biqly/biqly/internal/metadata"
 )
 
-func scoreTable(table metadata.Table, columns []metadata.Column, tokens map[string]bool) float64 {
+func scoreTable(table metadata.Table, columns []metadata.Column, tokens map[string]struct{}) float64 {
 	w := activeRoutingWeights()
 	lex := activeRoutingLexicon()
 	score := weightedTokenScore(tokens, table.SchemaName+" "+table.TableName, w.TableName)
@@ -15,13 +15,14 @@ func scoreTable(table metadata.Table, columns []metadata.Column, tokens map[stri
 		score += weightedTokenScore(tokens, *table.Description, w.TableDescription)
 	}
 	score = w.ApplyTableBoosts(table.TableName, tokens, score, lex)
+	revenueQ := lex.HasAnyToken(tokens, lex.RevenueTokens)
 	for _, col := range columns {
 		score += weightedTokenScore(tokens, col.ColumnName, w.ColumnName)
 		score += weightedTokenScore(tokens, col.DataType, w.ColumnDataType)
 		if col.Description != nil {
 			score += weightedTokenScore(tokens, *col.Description, w.ColumnDescription)
 		}
-		if isRevenueLikeQuestion(tokens) && isRevenueLikeColumn(col) {
+		if revenueQ && isRevenueLikeColumn(col, lex) {
 			score += w.RevenueColumnBoost
 		}
 	}
@@ -36,35 +37,35 @@ func scoreTable(table metadata.Table, columns []metadata.Column, tokens map[stri
 	return score
 }
 
-func TokenSet(text string) map[string]bool {
+func TokenSet(text string) map[string]struct{} {
 	return tokenSet(text)
 }
 
 // WeightedTokenScore adds weight for every question token that also appears in
 // text's token set. Exported so HTTP handlers reuse the exact same scoring as
 // the table router.
-func WeightedTokenScore(questionTokens map[string]bool, text string, weight float64) float64 {
+func WeightedTokenScore(questionTokens map[string]struct{}, text string, weight float64) float64 {
 	return weightedTokenScore(questionTokens, text, weight)
 }
 
-func weightedTokenScore(questionTokens map[string]bool, text string, weight float64) float64 {
+func weightedTokenScore(questionTokens map[string]struct{}, text string, weight float64) float64 {
 	textTokens := tokenSet(text)
 	score := 0.0
 	for token := range questionTokens {
-		if textTokens[token] {
+		if _, ok := textTokens[token]; ok {
 			score += weight
 		}
 	}
 	return score
 }
 
-func tokenSet(text string) map[string]bool {
+func tokenSet(text string) map[string]struct{} {
 	normalized := normalizeText(text)
 	fields := strings.Fields(normalized)
-	tokens := make(map[string]bool, len(fields))
+	tokens := make(map[string]struct{}, len(fields))
 	for _, token := range fields {
 		for _, expanded := range expandToken(token) {
-			tokens[expanded] = true
+			tokens[expanded] = struct{}{}
 		}
 	}
 	return tokens
@@ -106,23 +107,36 @@ var turkishLowerReplacer = strings.NewReplacer(
 
 func normalizeText(text string) string {
 	text = strings.ToLower(turkishLowerReplacer.Replace(text))
-	out := make([]rune, 0, len(text))
+	needsNormalization := false
+	for _, r := range text {
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) {
+			needsNormalization = true
+			break
+		}
+	}
+	if !needsNormalization {
+		return text
+	}
+
+	var sb strings.Builder
+	sb.Grow(len(text))
 	for _, r := range text {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) {
-			out = append(out, r)
-			continue
+			sb.WriteRune(r)
+		} else {
+			sb.WriteRune(' ')
 		}
-		out = append(out, ' ')
 	}
-	return string(out)
+	return sb.String()
 }
 
-func isRevenueLikeQuestion(tokens map[string]bool) bool {
-	return activeRoutingLexicon().HasAnyToken(tokens, activeRoutingLexicon().RevenueTokens)
+func isRevenueLikeQuestion(tokens map[string]struct{}) bool {
+	lex := activeRoutingLexicon()
+	return lex.HasAnyToken(tokens, lex.RevenueTokens)
 }
 
-func isRevenueLikeColumn(col metadata.Column) bool {
-	return activeRoutingLexicon().HasAnyToken(tokenSet(col.ColumnName), activeRoutingLexicon().RevenueColumnTokens)
+func isRevenueLikeColumn(col metadata.Column, lex *Lexicon) bool {
+	return lex.HasAnyToken(tokenSet(col.ColumnName), lex.RevenueColumnTokens)
 }
 
 func tableNameMatchesSubstrings(tableName string, substrings []string) bool {

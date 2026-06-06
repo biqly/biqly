@@ -3,8 +3,8 @@ package eval
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"time"
 
 	platformdb "github.com/biqly/biqly/internal/platform/db"
@@ -94,13 +94,13 @@ func (*EvalRepository) saveRunResultsTx(ctx context.Context, tx *sql.Tx, runID, 
 	for _, res := range results {
 		gotLQ := ""
 		if res.Got != nil {
-			data, err := json.Marshal(res.Got)
+			data, err := sonic.ConfigStd.Marshal(res.Got)
 			if err != nil {
 				return fmt.Errorf("marshal got logical query for case %s: %w", res.Case.ID, err)
 			}
 			gotLQ = string(data)
 		}
-		data, err := json.Marshal(res.Case.Expected)
+		data, err := sonic.ConfigStd.Marshal(res.Case.Expected)
 		if err != nil {
 			return fmt.Errorf("marshal expected logical query for case %s: %w", res.Case.ID, err)
 		}
@@ -144,7 +144,7 @@ func (*EvalRepository) saveRunResultsTx(ctx context.Context, tx *sql.Tx, runID, 
 	if promptTemplateVersions == nil {
 		promptTemplateVersions = map[string]int{}
 	}
-	promptTemplateVersionsJSON, err := json.Marshal(promptTemplateVersions)
+	promptTemplateVersionsJSON, err := sonic.ConfigStd.Marshal(promptTemplateVersions)
 	if err != nil {
 		return fmt.Errorf("marshal prompt template versions: %w", err)
 	}
@@ -383,5 +383,5 @@ func (s promptTemplateVersionScanTarget) Scan(src any) error {
 		*s.dest = nil
 		return nil
 	}
-	return json.Unmarshal(b, s.dest)
+	return sonic.ConfigStd.Unmarshal(b, s.dest)
 }

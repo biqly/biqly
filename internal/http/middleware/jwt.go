@@ -3,9 +3,9 @@ package middleware
 import (
 	"context"
 	"crypto/rsa"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -105,7 +105,7 @@ func (p *PublicKeyProvider) getConfig(ctx context.Context) (*jwtConfig, error) {
 		Issuer    string `json:"issuer"`
 		Audience  string `json:"audience"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return nil, fmt.Errorf("decode public-key response: %w", err)
 	}
 
@@ -235,7 +235,7 @@ func extractBearer(r *http.Request) string {
 func writeAuthError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(map[string]string{"error": msg}); err != nil {
+	if err := sonic.ConfigStd.NewEncoder(w).Encode(map[string]string{"error": msg}); err != nil {
 		slog.Warn("write auth error response failed", "status", status, "error", err)
 	}
 }
@@ -292,7 +292,7 @@ func RequireVerifiedEmail() func(http.Handler) http.Handler {
 			if !EmailVerified(r.Context()) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusForbidden)
-				_ = json.NewEncoder(w).Encode(map[string]string{
+				_ = sonic.ConfigStd.NewEncoder(w).Encode(map[string]string{
 					"error": "email_verification_required",
 					"hint":  "Confirm your email address to enable write actions.",
 				})

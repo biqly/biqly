@@ -2,6 +2,7 @@ package datasource
 
 import (
 	"fmt"
+	"slices"
 	"sync"
 )
 
@@ -44,5 +45,6 @@ func (r *Registry) List() []string {
 	for t := range r.drivers {
 		types = append(types, t)
 	}
+	slices.Sort(types)
 	return types
 }

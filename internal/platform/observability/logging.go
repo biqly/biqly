@@ -30,3 +30,14 @@ func ContextWithLogger(ctx context.Context, l *slog.Logger) context.Context {
 	}
 	return context.WithValue(ctx, loggerCtxKey{}, l)
 }
+
+// LoggerFromContext retrieves the request-scoped logger from context, falling back
+// to slog.Default() if none is found.
+func LoggerFromContext(ctx context.Context) *slog.Logger {
+	if ctx != nil {
+		if l, ok := ctx.Value(loggerCtxKey{}).(*slog.Logger); ok {
+			return l
+		}
+	}
+	return slog.Default()
+}

@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"github.com/bytedance/sonic"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -135,7 +135,7 @@ func TestAIProviders_List(t *testing.T) {
 		t.Fatalf("expected 200, got %d (%s)", rec.Code, rec.Body.String())
 	}
 	var got []ai.ProviderRow
-	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 	if len(got) != 2 {
@@ -201,7 +201,7 @@ func TestAIProviders_TestConnection(t *testing.T) {
 		t.Fatalf("expected 200, got %d (%s)", rec.Code, rec.Body.String())
 	}
 	var got ai.ConnectionTestResult
-	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 	if got.Status != "connected" || got.LatencyMS != 42 {

@@ -2,9 +2,9 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/config"
@@ -102,13 +102,13 @@ func marshalAnthropicRequest(model string, maxTokens int) func(string, float64) 
 			MaxTokens:   maxTokens,
 			Temperature: temperature,
 		}
-		return json.Marshal(reqBody)
+		return sonic.ConfigStd.Marshal(reqBody)
 	}
 }
 
 func parseAnthropicResponse(respBody []byte) (GenerationResult, error) {
 	var ar anthropicResponse
-	if err := json.Unmarshal(respBody, &ar); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(respBody, &ar); err != nil {
 		return GenerationResult{}, fmt.Errorf("unmarshal response: %w", err)
 	}
 	if ar.Error != nil {

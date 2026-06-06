@@ -3,7 +3,7 @@ package audit
 
 import (
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"log/slog"
 	"time"
 )
@@ -95,5 +95,5 @@ func (l *Logger) Close() error {
 
 // Marshal serializes an event to JSON for storage.
 func Marshal(event Event) ([]byte, error) {
-	return json.Marshal(event)
+	return sonic.ConfigStd.Marshal(event)
 }

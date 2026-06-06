@@ -2,7 +2,7 @@ package http
 
 import (
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	stdhttp "net/http"
 	"net/http/httptest"
 	"testing"
@@ -28,7 +28,7 @@ func TestRouter_InternalRoutesRequireToken(t *testing.T) {
 		t.Fatalf("status: got %d, want 401", w.Code)
 	}
 	var env internalapi.Error
-	if err := json.NewDecoder(w.Body).Decode(&env); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(w.Body).Decode(&env); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 	if env.Code != internalapi.CodeUnauthorized {

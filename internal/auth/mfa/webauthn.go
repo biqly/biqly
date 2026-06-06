@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
+	"github.com/bytedance/sonic"
 	"io"
 	"net/http"
 	"time"
@@ -339,7 +339,7 @@ func AssertionBackupFlags(bodyBytes []byte) (backupEligible bool, backupState bo
 				AuthenticatorData string `json:"authenticatorData"`
 			} `json:"response"`
 		}
-		if err := json.Unmarshal(bodyBytes, &reqPayload); err == nil && reqPayload.Response.AuthenticatorData != "" {
+		if err := sonic.ConfigStd.Unmarshal(bodyBytes, &reqPayload); err == nil && reqPayload.Response.AuthenticatorData != "" {
 			authData, err := base64.RawURLEncoding.DecodeString(reqPayload.Response.AuthenticatorData)
 			if err != nil {
 				authData, err = base64.URLEncoding.DecodeString(reqPayload.Response.AuthenticatorData)

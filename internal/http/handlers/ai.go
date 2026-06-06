@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -585,7 +586,7 @@ func (h *AIHandler) EmbedMetadata(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	if req.ClientSessionID != "" { //nolint:nestif
-		b, err := json.Marshal(req)
+		b, err := sonic.ConfigStd.Marshal(req)
 		if err != nil {
 			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to marshal job request", err)
 			return
@@ -843,7 +844,7 @@ func semanticModelConfidence(models []semantic.SemanticModel, selected semantic.
 	return 0.75
 }
 
-func scoreSemanticModelForQuestion(model semantic.SemanticModel, tokens map[string]bool) float64 {
+func scoreSemanticModelForQuestion(model semantic.SemanticModel, tokens map[string]struct{}) float64 {
 	score := routing.WeightedTokenScore(tokens, model.Name, 4)
 	score += routing.WeightedTokenScore(tokens, model.BaseTable, 3)
 	if model.Label != nil {

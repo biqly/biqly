@@ -2,9 +2,9 @@ package eval
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"strings"
 
 	"github.com/biqly/biqly/internal/ai/jsonextract"
@@ -27,11 +27,11 @@ func JudgeLogicalQuery(ctx context.Context, provider providerpkg.Provider, quest
 	if expected == nil || got == nil {
 		return false, "missing logical query", nil
 	}
-	expJSON, err := json.MarshalIndent(expected, "", "  ")
+	expJSON, err := sonic.ConfigStd.MarshalIndent(expected, "", "  ")
 	if err != nil {
 		return false, "", fmt.Errorf("marshal expected: %w", err)
 	}
-	gotJSON, err := json.MarshalIndent(got, "", "  ")
+	gotJSON, err := sonic.ConfigStd.MarshalIndent(got, "", "  ")
 	if err != nil {
 		return false, "", fmt.Errorf("marshal got: %w", err)
 	}
@@ -80,7 +80,7 @@ Respond with JSON only:
 	}
 	cleaned := jsonextract.CleanAIResponseForJSON(gen.Content)
 	var v judgeVerdict
-	if err := json.Unmarshal([]byte(cleaned), &v); err != nil {
+	if err := sonic.ConfigStd.Unmarshal([]byte(cleaned), &v); err != nil {
 		return false, "", fmt.Errorf("parse judge response: %w", err)
 	}
 	return v.Pass, v.Rationale, nil

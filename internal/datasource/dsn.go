@@ -1,9 +1,9 @@
 package datasource
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"net/url"
 	"strings"
 )
@@ -76,7 +76,7 @@ func ParseConnectionParams(raw []byte) (map[string]string, error) {
 		return map[string]string{}, nil
 	}
 	var m map[string]string
-	if err := json.Unmarshal(raw, &m); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(raw, &m); err != nil {
 		return nil, fmt.Errorf("connection_params: %w", err)
 	}
 	if m == nil {

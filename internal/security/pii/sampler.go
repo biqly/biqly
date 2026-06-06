@@ -13,7 +13,7 @@ import (
 // from a live datasource connection using its SQL dialect. Identifiers are
 // quoted through the dialect; no user input reaches the query.
 func NewDBSampleFetcher(db *sql.DB, d dialect.Dialect) SampleFetcher {
-	return func(ctx context.Context, col pkgmetadata.Column, limit int) ([]string, error) {
+	return func(ctx context.Context, col pkgmetadata.Column, limit int) (samples []string, err error) {
 		colRef := d.QuoteIdentSegment(col.ColumnName)
 		tableRef := d.QuoteIdentSegment(col.SchemaName) + "." + d.QuoteIdentSegment(col.TableName)
 		// SelectWithLimit owns LIMIT vs TOP placement per dialect; the WHERE
@@ -30,23 +30,23 @@ func NewDBSampleFetcher(db *sql.DB, d dialect.Dialect) SampleFetcher {
 			return nil, fmt.Errorf("sample %s: %w", tableRef, err)
 		}
 		defer func() {
-			if err := rows.Close(); err != nil {
-				_ = err
+			if closeErr := rows.Close(); closeErr != nil && err == nil {
+				err = closeErr
 			}
 		}()
 
-		samples := make([]string, 0, limit)
+		samples = make([]string, 0, limit)
 		for rows.Next() {
 			var v sql.NullString
-			if err := rows.Scan(&v); err != nil {
-				return nil, fmt.Errorf("scan sample value: %w", err)
+			if scanErr := rows.Scan(&v); scanErr != nil {
+				return nil, fmt.Errorf("scan sample value: %w", scanErr)
 			}
 			if v.Valid {
 				samples = append(samples, v.String)
 			}
 		}
-		if err := rows.Err(); err != nil {
-			return nil, fmt.Errorf("iterate samples: %w", err)
+		if scanErr := rows.Err(); scanErr != nil {
+			return nil, fmt.Errorf("iterate samples: %w", scanErr)
 		}
 		return samples, nil
 	}

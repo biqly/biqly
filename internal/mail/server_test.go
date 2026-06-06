@@ -2,7 +2,7 @@ package mail
 
 import (
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -108,7 +108,7 @@ func TestAPIClientRoundTrip(t *testing.T) {
 		gotToken = r.Header.Get("X-Internal-Token")
 		body, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
-		require.NoError(t, json.Unmarshal(body, &gotReq))
+		require.NoError(t, sonic.ConfigStd.Unmarshal(body, &gotReq))
 		w.WriteHeader(http.StatusAccepted)
 	}))
 	t.Cleanup(srv.Close)

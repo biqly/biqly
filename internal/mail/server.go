@@ -2,8 +2,8 @@ package mail
 
 import (
 	"crypto/subtle"
-	"encoding/json"
 	"errors"
+	"github.com/bytedance/sonic"
 	"log/slog"
 	"net/http"
 
@@ -39,7 +39,7 @@ func (s *Server) handleSend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req sendRequest
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}

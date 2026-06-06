@@ -1,7 +1,7 @@
 package query
 
 import (
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"strconv"
 
 	"github.com/biqly/biqly/internal/semantic"
@@ -69,7 +69,7 @@ func MarshalSQLArgs(args []any) (*string, error) {
 	if args == nil {
 		return nil, nil //nolint:nilnil // nil args serialize as SQL NULL
 	}
-	b, err := json.Marshal(args)
+	b, err := sonic.ConfigStd.Marshal(args)
 	if err != nil {
 		return nil, err
 	}

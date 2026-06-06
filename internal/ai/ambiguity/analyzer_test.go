@@ -2,7 +2,7 @@ package ambiguity
 
 import (
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"reflect"
 	"testing"
 	"time"
@@ -34,13 +34,13 @@ func TestAmbiguityResultJSON(t *testing.T) {
 		ResolvedQuestion: "Son 30 günde sipariş veren müşterileri göster",
 	}
 
-	got, err := json.Marshal(result)
+	got, err := sonic.ConfigStd.Marshal(result)
 	if err != nil {
-		t.Fatalf("json.Marshal(%#v) error = %v", result, err)
+		t.Fatalf("sonic.ConfigStd.Marshal(%#v) error = %v", result, err)
 	}
 	want := `{"is_ambiguous":true,"ambiguities":[{"term":"aktif müşteri","type":"semantic","interpretations":[{"label":"Son 30 günde sipariş veren müşteri","description":"Müşterinin yakın zamanda sipariş vermiş olması","semantic_mapping":{"type":"dimension","name":"last_order_date"},"confidence":0.92}]}],"resolved_question":"Son 30 günde sipariş veren müşterileri göster"}`
 	if string(got) != want {
-		t.Errorf("json.Marshal(%#v) = %s, want %s", result, got, want)
+		t.Errorf("sonic.ConfigStd.Marshal(%#v) = %s, want %s", result, got, want)
 	}
 }
 

@@ -44,16 +44,16 @@ type EmbeddingReader interface {
 	ListColumnEmbeddings(ctx context.Context, datasourceID string) ([]metadata.ColumnEmbedding, error)
 }
 
-// TableRouter selects relevant tables and builds a synthetic semantic model.
-// When both an Embedder and EmbeddingReader are configured (and embeddings
-// have been precomputed for the datasource), scoring blends keyword overlap
-// with cosine similarity between the question and each table embedding.
 // MetadataTranslator overlays entity_translations onto metadata rows for routing.
 type MetadataTranslator interface {
 	ApplyTableTranslations(ctx context.Context, tables []metadata.Table, loc i18n.Locale) error
 	ApplyColumnTranslations(ctx context.Context, cols []metadata.Column, loc i18n.Locale) error
 }
 
+// TableRouter selects relevant tables and builds a synthetic semantic model.
+// When both an Embedder and EmbeddingReader are configured (and embeddings
+// have been precomputed for the datasource), scoring blends keyword overlap
+// with cosine similarity between the question and each table embedding.
 type TableRouter struct {
 	reader          MetadataReader
 	translator      MetadataTranslator
@@ -93,13 +93,13 @@ func (r *TableRouter) SetTimeGrainStore(store TimeGrainStore) {
 	r.timeGrains = store
 }
 
-// SetRoutingLimits overrides auto-model caps (zero fields use defaults).
 // SetMetadataTranslator enables localized descriptions for keyword routing and
 // is required for Turkish embedding refresh (entity_translations).
 func (r *TableRouter) SetMetadataTranslator(t MetadataTranslator) {
 	r.translator = t
 }
 
+// SetRoutingLimits overrides auto-model caps (zero fields use defaults).
 func (r *TableRouter) SetRoutingLimits(limits Limits) {
 	r.limits = limits.withDefaults()
 }

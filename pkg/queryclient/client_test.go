@@ -2,8 +2,8 @@ package queryclient_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"github.com/bytedance/sonic"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -58,13 +58,13 @@ func TestCompile_RoundTrip(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		var req internalapi.CompileRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Fatalf("decode: %v", err)
 		}
 		if req.LogicalQuery.DatasourceID != "ds_1" {
 			t.Errorf("unexpected LQ: %+v", req.LogicalQuery)
 		}
-		if err := json.NewEncoder(w).Encode(internalapi.CompileResponse{
+		if err := sonic.ConfigStd.NewEncoder(w).Encode(internalapi.CompileResponse{
 			SQL:         "SELECT SUM(revenue) FROM orders",
 			Args:        []any{},
 			Fingerprint: "abc123",
@@ -90,7 +90,7 @@ func TestCompile_RetriesTransientStatus(t *testing.T) {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
-		if err := json.NewEncoder(w).Encode(internalapi.CompileResponse{SQL: "SELECT 1"}); err != nil {
+		if err := sonic.ConfigStd.NewEncoder(w).Encode(internalapi.CompileResponse{SQL: "SELECT 1"}); err != nil {
 			t.Fatalf("encode response: %v", err)
 		}
 	})
@@ -138,7 +138,7 @@ func TestRequestIDPropagation(t *testing.T) {
 		if got := r.Header.Get("traceparent"); got != sampleTraceparent {
 			t.Fatalf("traceparent: got %q, want %q", got, sampleTraceparent)
 		}
-		if err := json.NewEncoder(w).Encode(internalapi.CompileResponse{SQL: "SELECT 1"}); err != nil {
+		if err := sonic.ConfigStd.NewEncoder(w).Encode(internalapi.CompileResponse{SQL: "SELECT 1"}); err != nil {
 			t.Fatalf("encode response: %v", err)
 		}
 	})
@@ -156,13 +156,13 @@ const sampleTraceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-
 func TestRun_PassesOverrides(t *testing.T) {
 	c := fakeServer(t, func(w http.ResponseWriter, r *http.Request) {
 		var req internalapi.RunRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Fatalf("decode request: %v", err)
 		}
 		if req.MaxRows != 50 || req.TimeoutMs != 1000 {
 			t.Errorf("overrides lost: %+v", req)
 		}
-		_ = json.NewEncoder(w).Encode(internalapi.RunResponse{
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(internalapi.RunResponse{
 			Columns:    []pkgquery.ResultColumn{{Name: "revenue"}},
 			Rows:       [][]any{{42.0}},
 			RowCount:   1,
@@ -185,7 +185,7 @@ func TestDryRun_HitsDryRunPath(t *testing.T) {
 		if !strings.HasSuffix(r.URL.Path, "/internal/query/dry-run") {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-		_ = json.NewEncoder(w).Encode(internalapi.DryRunResponse{
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(internalapi.DryRunResponse{
 			SQL: "EXPLAIN SELECT 1", Fingerprint: "fp",
 		})
 	})
@@ -219,7 +219,7 @@ func TestCompile_ErrorClass(t *testing.T) {
 			c := fakeServer(t, func(w http.ResponseWriter, _ *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tt.status)
-				_ = json.NewEncoder(w).Encode(internalapi.Error{
+				_ = sonic.ConfigStd.NewEncoder(w).Encode(internalapi.Error{
 					Code: tt.code, Error: tt.code + " happened",
 				})
 			})
@@ -240,7 +240,7 @@ func TestCompile_ErrorClass(t *testing.T) {
 
 func TestContextCancellation(t *testing.T) {
 	c := fakeServer(t, func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(internalapi.CompileResponse{SQL: "x"})
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(internalapi.CompileResponse{SQL: "x"})
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

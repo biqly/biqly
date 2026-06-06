@@ -2,9 +2,9 @@ package ai
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"io"
 	"net/http"
 	"sort"
@@ -120,7 +120,7 @@ func doRemoteModelsRequest(req *http.Request, timeout time.Duration) ([]RemoteMo
 	}
 
 	var env remoteModelsEnvelope
-	if err := json.Unmarshal(body, &env); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(body, &env); err != nil {
 		return nil, fmt.Errorf("decode models response: %w", err)
 	}
 	if len(env.Data) == 0 {

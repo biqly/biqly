@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"io"
 	"os"
 	"path/filepath"
@@ -162,7 +162,7 @@ func (e *SFTExporter) Export(ctx context.Context, opts SFTExportOptions) (*SFTEx
 			},
 			Text: renderGemma4SFTText(promptpkg.SystemDirective, user, assistant),
 		}
-		line, err := json.Marshal(rec)
+		line, err := sonic.ConfigStd.Marshal(rec)
 		if err != nil {
 			result.Skipped++
 			continue
@@ -249,7 +249,7 @@ func (e *SFTExporter) collectItems(ctx context.Context, opts SFTExportOptions) (
 
 	if opts.IncludeGolden {
 		for _, c := range evalpkg.DefaultGoldenCases() {
-			lqBytes, err := json.Marshal(c.Expected)
+			lqBytes, err := sonic.ConfigStd.Marshal(c.Expected)
 			if err != nil {
 				skipped++
 				continue
@@ -315,7 +315,7 @@ func (e *SFTExporter) buildFromDB(
 
 func validateTrainingLogicalQuery(raw []byte, model *semantic.SemanticModel, v *query.Validator) error {
 	var lq query.LogicalQuery
-	if err := json.Unmarshal(raw, &lq); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(raw, &lq); err != nil {
 		return fmt.Errorf("parse logical_query: %w", err)
 	}
 	if len(lq.Select) == 0 {
@@ -331,7 +331,7 @@ func validateTrainingLogicalQuery(raw []byte, model *semantic.SemanticModel, v *
 
 func canonicalTrainingLogicalQuery(raw []byte) (string, error) {
 	var lq query.LogicalQuery
-	if err := json.Unmarshal(raw, &lq); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(raw, &lq); err != nil {
 		return "", err
 	}
 	lq.EnsureVersion()
@@ -340,19 +340,19 @@ func canonicalTrainingLogicalQuery(raw []byte) (string, error) {
 	}
 	lq.EnsureGroupBySelected()
 	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
+	enc := sonic.ConfigStd.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)
 	if err := enc.Encode(&lq); err != nil {
 		return "", err
 	}
 	var m map[string]any
-	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(buf.Bytes(), &m); err != nil {
 		return "", err
 	}
 	delete(m, "datasource_id")
 	delete(m, "model_id")
 	buf.Reset()
-	enc = json.NewEncoder(&buf)
+	enc = sonic.ConfigStd.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)
 	if err := enc.Encode(m); err != nil {
 		return "", err

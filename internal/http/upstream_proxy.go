@@ -1,7 +1,7 @@
 package http
 
 import (
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
@@ -64,7 +64,7 @@ func newUpstreamProxy(targetURL, envVarName, serviceLabel string) (http.Handler,
 			slog.ErrorContext(r.Context(), logTag, "error", err, "path", r.URL.Path)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadGateway)
-			if err := json.NewEncoder(w).Encode(internalapi.Error{
+			if err := sonic.ConfigStd.NewEncoder(w).Encode(internalapi.Error{
 				Code:  internalapi.CodeUpstream,
 				Error: bodyMessage,
 			}); err != nil {

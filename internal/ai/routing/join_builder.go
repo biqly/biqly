@@ -11,27 +11,29 @@ func buildJoins(selected []tableBundle, relations []metadata.Relation) []semanti
 	if len(selected) < 2 {
 		return nil
 	}
-	allKeys := make(map[string]bool, len(selected))
+	allKeys := make(map[string]struct{}, len(selected))
 	for _, bundle := range selected {
-		allKeys[tableKey(bundle.table.SchemaName, bundle.table.TableName)] = true
+		allKeys[tableKey(bundle.table.SchemaName, bundle.table.TableName)] = struct{}{}
 	}
 
-	seen := make(map[string]bool)
+	seen := make(map[string]struct{})
 	joins := make([]semantic.Join, 0, len(relations))
 	for _, rel := range relations {
 		fromKey := tableKey(rel.FromSchema, rel.FromTable)
 		toKey := tableKey(rel.ToSchema, rel.ToTable)
-		if !allKeys[fromKey] || !allKeys[toKey] {
+		_, okFrom := allKeys[fromKey]
+		_, okTo := allKeys[toKey]
+		if !okFrom || !okTo {
 			continue
 		}
 		dedupe := rel.ConstraintName
 		if dedupe == "" {
 			dedupe = fromKey + "|" + toKey + "|" + rel.FromColumn + "|" + rel.ToColumn
 		}
-		if seen[dedupe] {
+		if _, ok := seen[dedupe]; ok {
 			continue
 		}
-		seen[dedupe] = true
+		seen[dedupe] = struct{}{}
 		jname := rel.ConstraintName
 		if jname == "" {
 			jname = fmt.Sprintf("%s_%s_%s_to_%s", rel.FromTable, rel.FromColumn, rel.ToTable, rel.ToColumn)

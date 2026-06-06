@@ -24,14 +24,22 @@ func pruneAutoSemanticModel(
 	model.Metrics = pruneMetrics(model.Metrics, tokens, limits, countQ)
 }
 
-func isCountLikeQuestion(question string, tokens map[string]bool) bool {
-	if tokens["kaç"] || tokens["adet"] || tokens["count"] || tokens["quantity"] {
+func isCountLikeQuestion(question string, tokens map[string]struct{}) bool {
+	_, okKac := tokens["kaç"]
+	_, okAdet := tokens["adet"]
+	_, okCount := tokens["count"]
+	_, okQuantity := tokens["quantity"]
+	if okKac || okAdet || okCount || okQuantity {
 		return true
 	}
-	if tokens["how"] && tokens["many"] {
+	_, okHow := tokens["how"]
+	_, okMany := tokens["many"]
+	if okHow && okMany {
 		return true
 	}
-	if tokens["number"] && tokens["of"] {
+	_, okNumber := tokens["number"]
+	_, okOf := tokens["of"]
+	if okNumber && okOf {
 		return true
 	}
 	q := strings.ToLower(strings.TrimSpace(question))
@@ -46,7 +54,7 @@ func isCountLikeQuestion(question string, tokens map[string]bool) bool {
 
 func pruneDimensions(
 	dims []semantic.Dimension,
-	tokens map[string]bool,
+	tokens map[string]struct{},
 	columnScores map[string]float64,
 	limits Limits,
 	countQ bool,
@@ -82,7 +90,7 @@ func pruneDimensions(
 	return out
 }
 
-func dimensionMandatoryForPrune(d semantic.Dimension, tokens map[string]bool, countQ bool) bool {
+func dimensionMandatoryForPrune(d semantic.Dimension, tokens map[string]struct{}, countQ bool) bool {
 	if strings.HasSuffix(d.Name, "_ts_day") || strings.HasSuffix(d.Name, "_ts_hour") {
 		return questionMentionsTimeGrain(tokens)
 	}
@@ -106,19 +114,19 @@ func isDateOrTimeDimension(d semantic.Dimension) bool {
 	return d.Type == "date" || strings.Contains(d.Name, "date") || strings.Contains(d.Name, "_ts_")
 }
 
-func questionMentionsTimeGrain(tokens map[string]bool) bool {
+func questionMentionsTimeGrain(tokens map[string]struct{}) bool {
 	for _, w := range []string{
 		"dün", "yesterday", "today", "bugün", "week", "hafta", "month", "ay",
 		"year", "yıl", "quarter", "daily", "günlük", "hourly", "saat",
 	} {
-		if tokens[w] {
+		if _, ok := tokens[w]; ok {
 			return true
 		}
 	}
 	return false
 }
 
-func scoreDimensionForPrune(d semantic.Dimension, tokens map[string]bool, columnScores map[string]float64) float64 {
+func scoreDimensionForPrune(d semantic.Dimension, tokens map[string]struct{}, columnScores map[string]float64) float64 {
 	score := weightedTokenScore(tokens, d.Name, 4)
 	score += weightedTokenScore(tokens, d.ColumnRef, 3)
 	for _, syn := range d.Synonyms {
@@ -139,7 +147,7 @@ func scoreDimensionForPrune(d semantic.Dimension, tokens map[string]bool, column
 	return score
 }
 
-func pruneMetrics(metrics []semantic.Metric, tokens map[string]bool, limits Limits, countQ bool) []semantic.Metric {
+func pruneMetrics(metrics []semantic.Metric, tokens map[string]struct{}, limits Limits, countQ bool) []semantic.Metric {
 	if len(metrics) <= limits.MaxMetrics {
 		return metrics
 	}
@@ -181,7 +189,7 @@ func pruneMetrics(metrics []semantic.Metric, tokens map[string]bool, limits Limi
 	return out
 }
 
-func metricMandatoryForPrune(m semantic.Metric, tokens map[string]bool, countQ bool) bool {
+func metricMandatoryForPrune(m semantic.Metric, tokens map[string]struct{}, countQ bool) bool {
 	if m.Name == "row_count" {
 		return true
 	}
@@ -204,7 +212,7 @@ func metricAllowedForCountQuestion(m semantic.Metric) bool {
 	return false
 }
 
-func scoreMetricForPrune(m semantic.Metric, tokens map[string]bool) float64 {
+func scoreMetricForPrune(m semantic.Metric, tokens map[string]struct{}) float64 {
 	score := weightedTokenScore(tokens, m.Name, 4)
 	score += weightedTokenScore(tokens, m.Expression, 3)
 	for _, syn := range m.Synonyms {

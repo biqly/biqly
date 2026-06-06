@@ -2,9 +2,9 @@ package oauth
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"net/http"
 	"strconv"
 
@@ -59,7 +59,7 @@ func (p *GitHubProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (
 		AvatarURL string `json:"avatar_url"`
 		Email     string `json:"email"`
 	}
-	if err := json.NewDecoder(respProfile.Body).Decode(&rawProfile); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(respProfile.Body).Decode(&rawProfile); err != nil {
 		return nil, fmt.Errorf("decode github user profile: %w", err)
 	}
 
@@ -87,7 +87,7 @@ func (p *GitHubProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (
 				Primary  bool   `json:"primary"`
 				Verified bool   `json:"verified"`
 			}
-			if err := json.NewDecoder(respEmails.Body).Decode(&rawEmails); err == nil {
+			if err := sonic.ConfigStd.NewDecoder(respEmails.Body).Decode(&rawEmails); err == nil {
 				for _, e := range rawEmails {
 					if e.Primary && e.Verified {
 						email = e.Email

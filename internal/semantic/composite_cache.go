@@ -2,11 +2,11 @@ package semantic
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"time"
 
+	"github.com/bytedance/sonic"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -60,7 +60,7 @@ func (c *redisCompositeCache) Get(ctx context.Context, compositeID string) (*Sem
 		return nil, false
 	}
 	var entry cachedResolvedComposite
-	if err := json.Unmarshal(raw, &entry); err != nil || entry.Resolved == nil {
+	if err := sonic.Unmarshal(raw, &entry); err != nil || entry.Resolved == nil {
 		return nil, false
 	}
 	return entry.Resolved, true
@@ -70,7 +70,7 @@ func (c *redisCompositeCache) Set(ctx context.Context, compositeID string, versi
 	if model == nil {
 		return
 	}
-	payload, err := json.Marshal(cachedResolvedComposite{Version: version, Resolved: model})
+	payload, err := sonic.Marshal(cachedResolvedComposite{Version: version, Resolved: model})
 	if err != nil {
 		return
 	}

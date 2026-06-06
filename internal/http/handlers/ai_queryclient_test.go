@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -89,7 +89,7 @@ func TestAIHandlerRunUsesQueryClientRun(t *testing.T) {
 func writeUpstreamJSON(t *testing.T, w http.ResponseWriter, value any) {
 	t.Helper()
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(value); err != nil {
+	if err := sonic.ConfigStd.NewEncoder(w).Encode(value); err != nil {
 		t.Fatalf("encode upstream response: %v", err)
 	}
 }

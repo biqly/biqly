@@ -3,10 +3,11 @@ package semantic
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/bytedance/sonic"
 
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 )
@@ -90,6 +91,7 @@ func resolveComponents(ctx context.Context, composite *CompositeModel, provider 
 
 // ValidateComposite checks whether a draft composite model can be published.
 // Errors block publish; warnings describe risky but valid configurations.
+//
 //nolint:gocognit
 func ValidateComposite(ctx context.Context, composite *CompositeModel, provider ComponentProvider) (*SemanticModel, PublishValidationResult) {
 	result := PublishValidationResult{Valid: true}
@@ -248,11 +250,11 @@ func (r *CompositeRepository) PublishComposite(ctx context.Context, id, publishe
 		Composite *CompositeModel `json:"composite"`
 		Resolved  *SemanticModel  `json:"resolved"`
 	}{Composite: composite, Resolved: resolved}
-	payload, err := json.Marshal(snapshot)
+	payload, err := sonic.Marshal(snapshot)
 	if err != nil {
-		return nil, fmt.Errorf("publish composite marshal context: %w", err)
+		return nil, fmt.Errorf("marshal snapshot context: %w", err)
 	}
-	validationPayload, err := json.Marshal(validation)
+	validationPayload, err := sonic.Marshal(validation)
 	if err != nil {
 		return nil, fmt.Errorf("publish composite marshal validation: %w", err)
 	}
@@ -291,7 +293,7 @@ func (r *CompositeRepository) RollbackComposite(ctx context.Context, id string, 
 	}
 	nextVersion := current.Version + 1
 	validation := PublishValidationResult{Valid: true, Warnings: []string{fmt.Sprintf("rolled back from version %d to version %d", current.Version, targetVersion)}}
-	validationPayload, err := json.Marshal(validation)
+	validationPayload, err := sonic.Marshal(validation)
 	if err != nil {
 		return nil, fmt.Errorf("rollback composite marshal validation: %w", err)
 	}
@@ -375,7 +377,7 @@ func (r *CompositeRepository) GetPublishedResolvedComposite(ctx context.Context,
 	var snapshot struct {
 		Resolved *SemanticModel `json:"resolved"`
 	}
-	if err := json.Unmarshal(raw, &snapshot); err != nil {
+	if err := sonic.Unmarshal(raw, &snapshot); err != nil {
 		return nil, fmt.Errorf("decode composite snapshot: %w", err)
 	}
 	if snapshot.Resolved == nil {

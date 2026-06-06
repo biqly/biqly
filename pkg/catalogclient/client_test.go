@@ -2,8 +2,8 @@ package catalogclient_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"github.com/bytedance/sonic"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -48,7 +48,7 @@ func fakeServer(t *testing.T, handler http.HandlerFunc) *catalogclient.Client {
 
 func encodeTestJSON(t *testing.T, w http.ResponseWriter, v any) {
 	t.Helper()
-	if err := json.NewEncoder(w).Encode(v); err != nil {
+	if err := sonic.ConfigStd.NewEncoder(w).Encode(v); err != nil {
 		t.Fatalf("encode response: %v", err)
 	}
 }
@@ -163,7 +163,7 @@ func TestCreateAIHistory_ReturnsID(t *testing.T) {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
 		var req internalapi.AIHistoryRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Fatalf("decode: %v", err)
 		}
 		if req.Entry.DatasourceID != "ds_1" {
@@ -194,7 +194,7 @@ func TestCreateEvalResults_PostsBatch(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		var req internalapi.EvalResultsRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Fatalf("decode: %v", err)
 		}
 		if req.RunID != "run_1" || req.Provider != "openai" || req.Model != "gpt-4o" {

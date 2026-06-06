@@ -3,6 +3,7 @@ package metadata
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -37,7 +38,7 @@ func upsertRelationsChunk(ctx context.Context, q execContexter, datasourceID str
 	for _, rel := range relations {
 		row := make([]string, 0, relationUpsertRowCols)
 		for range relationUpsertRowCols {
-			row = append(row, fmt.Sprintf("$%d", placeholder))
+			row = append(row, "$"+strconv.Itoa(placeholder))
 			placeholder++
 		}
 		values = append(values, "("+strings.Join(row, ",")+")")
@@ -48,7 +49,7 @@ func upsertRelationsChunk(ctx context.Context, q execContexter, datasourceID str
 		)
 	}
 
-	query := fmt.Sprintf(relationUpsertValueQuery, strings.Join(values, ","))
+	query := strings.Replace(relationUpsertValueQuery, "%s", strings.Join(values, ","), 1)
 	if _, err := q.ExecContext(ctx, query, args...); err != nil {
 		return fmt.Errorf("upsert relations batch: %w", err)
 	}

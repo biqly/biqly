@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"strings"
 
 	"github.com/biqly/biqly/internal/ai"
@@ -263,7 +264,7 @@ func encodeAIJobResult(resp *ai.Response) (json.RawMessage, error) {
 	if resp == nil {
 		return nil, nil
 	}
-	b, err := json.Marshal(resp)
+	b, err := sonic.ConfigStd.Marshal(resp)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +294,7 @@ func encodeDescribeJobResult(result *ai.DescribeResult) (json.RawMessage, error)
 	if result == nil {
 		return nil, nil
 	}
-	b, err := json.Marshal(result)
+	b, err := sonic.ConfigStd.Marshal(result)
 	if err != nil {
 		return nil, err
 	}
@@ -304,7 +305,7 @@ func encodeDescribeBatchJobResult(result *ai.DescribeBatchResult) (json.RawMessa
 	if result == nil {
 		return nil, nil
 	}
-	b, err := json.Marshal(result)
+	b, err := sonic.ConfigStd.Marshal(result)
 	if err != nil {
 		return nil, err
 	}
@@ -388,7 +389,7 @@ func (h *AIHandler) executeMetadataDescribeBatchJob(
 				}
 				nextPreview = append(nextPreview, ai.DescribeBatchTableKey(ns, nt))
 			}
-			detail, err := json.Marshal(ai.DescribeBatchJobProgress{
+			detail, err := sonic.ConfigStd.Marshal(ai.DescribeBatchJobProgress{
 				Total:          total,
 				Index:          i,
 				CurrentSchema:  schema,

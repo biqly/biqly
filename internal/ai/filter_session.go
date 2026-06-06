@@ -1,8 +1,8 @@
 package ai
 
 import (
-	"encoding/json"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"regexp"
 	"strings"
 
@@ -65,7 +65,7 @@ func parseLogicalQueryFromTurn(t promptpkg.ConversationTurn) *query.LogicalQuery
 		return nil
 	}
 	var lq query.LogicalQuery
-	if err := json.Unmarshal([]byte(raw), &lq); err != nil {
+	if err := sonic.ConfigStd.Unmarshal([]byte(raw), &lq); err != nil {
 		return nil
 	}
 	return &lq

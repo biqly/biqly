@@ -69,3 +69,34 @@ func TestDefaultSingleton(t *testing.T) {
 		t.Fatal("Default() must return the same singleton")
 	}
 }
+
+func TestMetricsLabelCardinality(t *testing.T) {
+	reg := prometheus.NewRegistry()
+	m := NewMetrics(reg)
+
+	// Record known and unknown ambiguity sources
+	m.RecordAmbiguityAnalysis(10, "rule_based", true)
+	m.RecordAmbiguityAnalysis(10, "llm", true)
+	m.RecordAmbiguityAnalysis(10, "unbounded_random_source_1", true)
+	m.RecordAmbiguityAnalysis(10, "unbounded_random_source_2", true)
+
+	if got := testutil.ToFloat64(m.ambiguityBySource.WithLabelValues("rule_based")); got != 1 {
+		t.Fatalf("rule_based source count = %v, want 1", got)
+	}
+	if got := testutil.ToFloat64(m.ambiguityBySource.WithLabelValues("llm")); got != 1 {
+		t.Fatalf("llm source count = %v, want 1", got)
+	}
+	if got := testutil.ToFloat64(m.ambiguityBySource.WithLabelValues("other")); got != 2 {
+		t.Fatalf("other source count = %v, want 2", got)
+	}
+
+	// Record known and unknown AI repair error codes
+	m.RecordAIRepair(true, 1, []string{"UNKNOWN_DIMENSION", "UNKNOWN_METRIC", "UNKNOWN_FIELD", "SOME_RANDOM_CODE_1", "SOME_RANDOM_CODE_2"})
+
+	if got := testutil.ToFloat64(m.aiRepairByErrorCode.WithLabelValues("UNKNOWN_DIMENSION")); got != 1 {
+		t.Fatalf("UNKNOWN_DIMENSION count = %v, want 1", got)
+	}
+	if got := testutil.ToFloat64(m.aiRepairByErrorCode.WithLabelValues("other")); got != 2 {
+		t.Fatalf("other error code count = %v, want 2", got)
+	}
+}

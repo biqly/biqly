@@ -1,8 +1,8 @@
 package query
 
 import (
-	"encoding/json"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"strings"
 	"time"
 
@@ -171,7 +171,7 @@ func (ve ValidationErrors) ToRepairJSON() string {
 	if len(ve) == 0 {
 		return "[]"
 	}
-	data, err := json.Marshal(ve)
+	data, err := sonic.ConfigStd.Marshal(ve)
 	if err != nil {
 		return "[]"
 	}

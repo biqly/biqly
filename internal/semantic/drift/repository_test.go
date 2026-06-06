@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"encoding/json"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"io"
 	"strings"
 	"sync"
@@ -240,7 +240,7 @@ func TestRepositoryListUnresolved(t *testing.T) {
 	ctx := context.Background()
 
 	now := time.Now()
-	driftsJSON, err := json.Marshal([]DriftItem{
+	driftsJSON, err := sonic.ConfigStd.Marshal([]DriftItem{
 		{Type: DriftTypeColumnDropped, Field: "age", ColumnRef: "public.users.age"},
 	})
 	require.NoError(t, err)

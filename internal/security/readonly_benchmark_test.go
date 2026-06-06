@@ -42,7 +42,7 @@ func BenchmarkStripSQLLiteralsAndComments(b *testing.B) {
 			b.ReportAllocs()
 			var result string
 			for b.Loop() {
-				result = stripSQLLiteralsAndComments(query.sql)
+				result, _ = stripSQLLiteralsAndComments(query.sql)
 			}
 			benchmarkReadonlyResult = result
 		})
@@ -65,7 +65,7 @@ func benchmarkStripSQLLiteralsAndCommentsWithPool(sql string) string {
 	}
 	out.Reset()
 	out.Grow(len(sql))
-	writeStrippedSQLLiteralsAndComments(sql, out)
+	_ = writeStrippedSQLLiteralsAndComments(sql, out)
 	result := out.String()
 	benchmarkReadonlyPool.Put(out)
 	return result

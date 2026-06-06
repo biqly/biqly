@@ -331,8 +331,10 @@ func (*Detector) isTypeCompatible(physicalType, semanticType string) bool {
 		return strings.Contains(p, "geom") || strings.Contains(p, "geog") || strings.Contains(p, "point") ||
 			strings.Contains(p, "polygon") || strings.Contains(p, "line")
 	case "text":
-		// Anything can be represented as text semantically, but usually varchar, char, text, uuid, json.
-		return true
+		// Matches varchar, char, text, uuid, json, clob, xml, string, etc.
+		return strings.Contains(p, "char") || strings.Contains(p, "text") || strings.Contains(p, "uuid") ||
+			strings.Contains(p, "json") || strings.Contains(p, "xml") || strings.Contains(p, "clob") ||
+			strings.Contains(p, "string")
 	default:
 		return true
 	}

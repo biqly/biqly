@@ -2,9 +2,9 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"io"
 	"log/slog"
 	"net/http"
@@ -131,7 +131,7 @@ const maxJSONRequestBytes = 1 << 20 // 1 MiB
 func decodeJSON[T any](w http.ResponseWriter, r *http.Request) (*T, bool) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxJSONRequestBytes)
 	var v T
-	if err := json.NewDecoder(r.Body).Decode(&v); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&v); err != nil {
 		if isMaxBytesError(err) {
 			writeError(w, http.StatusRequestEntityTooLarge, "request body too large")
 		} else {
@@ -145,7 +145,7 @@ func decodeJSON[T any](w http.ResponseWriter, r *http.Request) (*T, bool) {
 func decodeJSONAllowEmpty[T any](w http.ResponseWriter, r *http.Request) (*T, bool) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxJSONRequestBytes)
 	var v T
-	if err := json.NewDecoder(r.Body).Decode(&v); err != nil && !errors.Is(err, io.EOF) {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&v); err != nil && !errors.Is(err, io.EOF) {
 		if isMaxBytesError(err) {
 			writeError(w, http.StatusRequestEntityTooLarge, "request body too large")
 			return nil, false

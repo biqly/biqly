@@ -50,9 +50,9 @@ func DetectGlossary(question string, entries []prompt.GlossaryEntry, model *sema
 	return ambiguities
 }
 
-func glossaryTermMatches(questionTokens map[string]bool, term string) bool {
+func glossaryTermMatches(questionTokens map[string]struct{}, term string) bool {
 	for token := range routing.TokenSet(term) {
-		if !questionTokens[token] {
+		if _, ok := questionTokens[token]; !ok {
 			return false
 		}
 	}

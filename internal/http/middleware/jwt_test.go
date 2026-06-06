@@ -5,8 +5,8 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/json"
 	"encoding/pem"
+	"github.com/bytedance/sonic"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -46,7 +46,7 @@ func newKeyServer(t *testing.T, pubPEM, audience string) *httptest.Server {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(map[string]string{
 			"public_key": pubPEM,
 			"issuer":     "biqly-auth",
 			"audience":   audience,

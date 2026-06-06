@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"net/http"
 
 	"github.com/biqly/biqly/internal/auth/rbac"
@@ -59,7 +59,7 @@ type grantProviderWorkspaceReq struct {
 
 func decodeGrantRequest[T any](w http.ResponseWriter, r *http.Request) (T, bool) {
 	var req T
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.WriteError(w, http.StatusBadRequest, "invalid json")
 		return req, false
 	}
@@ -206,7 +206,7 @@ func (h *RBACHandler) handlePutMyAIPreferences(w http.ResponseWriter, r *http.Re
 		return
 	}
 	var req putAIPrefsReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.WriteError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
@@ -282,7 +282,7 @@ type internalPutAIPrefReq struct {
 func (h *RBACHandler) handleInternalPutUserAIPreference(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "id")
 	var req internalPutAIPrefReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.WriteError(w, http.StatusBadRequest, "invalid json")
 		return
 	}

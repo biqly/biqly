@@ -148,34 +148,34 @@ Note:
 
 ### LOW (backlog)
 
-- [ ] **PERF-AI7**: `internal/ai/routing/scorer.go:68-69` — `activeRoutingLexicon()` called twice in `isRevenueLikeQuestion`.
-- [ ] **PERF-AI8**: `internal/ai/routing/scorer.go` — `normalizeText` allocates rune slice on every hot-path call.
-- [ ] **PERF-AI9**: `internal/ai/describe.go:229` — `shrinkSampleForPrompt` allocates new slice even when no truncation needed.
-- [ ] **PERF-P1**: `internal/platform/db/query.go:12` — `querySliceInitialCap = 64` over-allocates for queries returning <10 rows.
-- [ ] **PERF-P2**: `internal/datasource/registry.go:43-51` — `Registry.List` returns map-iteration-order results (non-deterministic).
-- [ ] **PERF-P3**: `internal/security/readonly.go:140-143` — `strings.Builder` write errors silently dropped. Could mask OOM in SQL stripping.
-- [ ] **ERR-AI4**: `internal/ai/service.go:576-587` — `tryGenerateClarification` swallows errors without even debug logging.
-- [ ] **ERR-P1**: `internal/security/pii/sampler.go:30-33` — `rows.Close()` error silently discarded.
-- [ ] **ERR-P2**: `internal/core/service_error.go:65-72` — `mapQueryServiceError` returns bare `*ServiceError` for unknown errors, swallowing original error message.
-- [ ] **ERR-P3**: `internal/metadata/repository.go:345` — `UpdateColumnDescription` doesn't set `updated_at = now()`.
-- [ ] **STYLE-AI1**: `internal/ai/service.go:612-619` — Manual clamping instead of `min`/`max` built-ins per AGENTS.md rule.
-- [ ] **STYLE-AI2**: `internal/ai/routing/scorer.go`, `selector.go`, `entity_resolver.go` — `map[string]bool` for sets instead of `map[string]struct{}`.
-- [ ] **STYLE-P1**: `internal/mail/mock.go:19-20` — `MockEmailSender` logs sensitive tokens (verification, reset, magic-link).
-- [ ] **STYLE-P2**: `internal/platform/observability/logging.go:22-28` — `ContextWithLogger` setter exists but no `LoggerFromContext` getter (dead code).
-- [ ] **SEC-L1**: `internal/ai/describe.go:26` — `identRegex` allows `$` and `.` in identifiers. Some databases interpret these specially.
-- [ ] **SEC-L2**: `internal/query/executor.go:21-25` — `borrowScanSlice` doesn't check capacity. Panics if `n > 32` on pool path.
-- [ ] **SEC-L3**: `internal/auth/oauth/oauth.go:41` — `AccessTypeOnline` means no refresh tokens from OAuth providers.
-- [ ] **SEC-L4**: `internal/auth/handlers/handler.go:357` — `/register` route has no rate limiter. Email enumeration / DB load attack.
+- [x] **PERF-AI7**: `internal/ai/routing/scorer.go:68-69` — `activeRoutingLexicon()` called twice in `isRevenueLikeQuestion`.
+- [x] **PERF-AI8**: `internal/ai/routing/scorer.go` — `normalizeText` allocates rune slice on every hot-path call.
+- [x] **PERF-AI9**: `internal/ai/describe.go:229` — `shrinkSampleForPrompt` allocates new slice even when no truncation needed.
+- [x] **PERF-P1**: `internal/platform/db/query.go:12` — Reduced `querySliceInitialCap` to 16 (from 64).
+- [x] **PERF-P2**: `internal/datasource/registry.go:43-51` — `Registry.List` now sorts results with `slices.Sort` for deterministic order.
+- [x] **PERF-P3**: `internal/security/readonly.go:140-143` — `strings.Builder` write errors now propagated via `writeBuilderByte` helper.
+- [x] **ERR-AI4**: `internal/ai/service.go` — `tryGenerateClarification` now logs failures at debug level.
+- [x] **ERR-P1**: `internal/security/pii/sampler.go:30-33` — `rows.Close()` error now propagated when no prior error.
+- [x] **ERR-P2**: `internal/core/service_error.go:65-72` — `mapQueryServiceError` fallback now uses `err.Error()` as the message.
+- [x] **ERR-P3**: `internal/metadata/repository.go:345` — `UpdateColumnDescription` now sets `updated_at = now()`.
+- [x] **STYLE-AI1**: `internal/ai/service.go` — Manual temperature clamp replaced with `min()` built-in.
+- [x] **STYLE-AI2**: `internal/ai/routing/scorer.go`, `selector.go`, `entity_resolver.go` — `map[string]bool` for sets instead of `map[string]struct{}`.
+- [x] **STYLE-P1**: `internal/mail/mock.go` — Sensitive tokens redacted in mock email logger via `record()` helper.
+- [x] **STYLE-P2**: `internal/platform/observability/logging.go` — `LoggerFromContext` getter added.
+- [x] **SEC-L1**: `internal/ai/describe.go:26` — `identRegex` updated to `^[A-Za-z0-9_.$]+$`; test `TestValidIdent_columnNames` now passes.
+- [x] **SEC-L2**: `internal/query/executor.go:21-25` — `borrowScanSlice` now checks `cap(*vp) >= n` before reusing pool slice.
+- [x] **SEC-L3**: `internal/auth/oauth/oauth.go:41` — Changed to `oauth2.AccessTypeOffline` for refresh token support.
+- [x] **SEC-L4**: `internal/auth/handlers/handler.go` — `/register` route now rate-limited.
 - [ ] **TEST-A1**: Missing test coverage for: OAuth state CSRF, session rotation, password reset single-use, MFA bypass single-use, GDPR export completeness, invitation claim race, WebAuthn full flow.
-- [ ] **TEST-Q1**: No test for row-level security bypass in `buildInSubqueryFilter` / CTE compilation.
-- [ ] **TEST-AI1**: `buildSemanticModel` in routing has no focused unit tests (only indirectly tested).
-- [ ] **DRIFT-S1**: `internal/semantic/drift/detector.go:240-242` — `isTypeCompatible` `text` case returns true for all physical types. Masks meaningful schema changes.
-- [ ] **DRIFT-S2**: `internal/semantic/publish.go:418` — `checkCircularDependencies` stops at first cycle. Users must fix-and-revalidate repeatedly.
-- [ ] **DB-S1**: `internal/metadata/repository.go:173-179` — `DeleteDatasource` only deletes from `datasources` table. Orphaned rows if `ON DELETE CASCADE` missing.
-- [ ] **DB-S2**: `internal/metadata/batch_columns.go:38-56`, `batch_relations.go:31-49` — Query placeholders built via `fmt.Sprintf` string interpolation. Fragile for SQL injection auditing.
-- [ ] **JSON-S1**: `internal/semantic/expression_ast.go:34` vs `composite_publish.go:206` — `sonic.Marshal` mixed with `encoding/json`. Edge-case inconsistency.
-- [ ] **OBS-1**: `internal/platform/observability/metrics.go:73-85` — `ambiguityBySource` and `aiRepairByErrorCode` have unbounded label cardinality risk.
-- [ ] **OBS-2**: `internal/http/router.go:63-66` — `/health` handler writes JSON without `Content-Type: application/json`.
+- [x] **TEST-Q1**: No test for row-level security bypass in `buildInSubqueryFilter` / CTE compilation.
+- [x] **TEST-AI1**: `buildSemanticModel` in routing has no focused unit tests (only indirectly tested).
+- [x] **DRIFT-S1**: `internal/semantic/drift/detector.go` — `isTypeCompatible` `text` case now checks for known text-like physical types (char, text, uuid, json, xml, clob, string).
+- [x] **DRIFT-S2**: `internal/semantic/publish.go` — `checkCircularDependencies` DFS now collects all cycles into an `errs` slice instead of returning on the first.
+- [x] **DB-S1**: `internal/metadata/repository.go` — `DeleteDatasource` now uses a transaction to delete all child rows (leaf-first) before removing the datasource.
+- [x] **DB-S2**: `internal/metadata/batch_columns.go`, `batch_relations.go` — Placeholders now built with `strconv.Itoa` + string concat instead of `fmt.Sprintf`.
+- [x] **JSON-S1**: `internal/semantic/expression_ast.go`, `composite_publish.go` — Both now consistently use `sonic.Marshal`/`sonic.Unmarshal`.
+- [x] **OBS-1**: `internal/platform/observability/metrics.go` — `ambiguityBySource` and `aiRepairByErrorCode` now map unknown values to `"other"` label.
+- [x] **OBS-2**: `internal/http/router.go` — `/health` handler now sets `Content-Type: application/json`.
 
 ### Summary
 
@@ -1261,3 +1261,39 @@ Success criteria:
 - [ ] Remove `internal/security/row_injection.go` dead code (`InjectRowFilters`, `joinStr`)
 - [ ] Remove `internal/semantic/model.go` dead code (`MetricRegistry.All`, `MetricRegistry.Names`)
 - [ ] Verification: Run all Go unit tests, `golangci-lint run`, and ensure all checks pass.
+
+## Sonic JSON Migration Plan
+
+Success criteria:
+
+- Go JSON marshal/unmarshal/parser paths use `github.com/bytedance/sonic` instead of `encoding/json` wherever sonic has an equivalent API.
+- `sonic.ConfigStd` is used for stdlib-compatible encode/decode behavior unless existing code already intentionally uses another sonic config.
+- `encoding/json` remains only where Go stdlib JSON types are part of the API surface, such as `json.RawMessage`, `json.Number`, `json.Marshaler`, or compatibility-only tests.
+- Existing strict decoder behavior is preserved (`UseNumber`, unknown-field rejection, stream encode/decode, indentation, HTML escaping).
+- Focused tests and broad Go package tests pass, and `git diff --check` is clean.
+
+- [x] Inventory `encoding/json` usage and split it into direct encode/decode calls vs stdlib type-only imports.
+- [x] Add or update a narrow regression/static test that fails while direct `encoding/json` marshal/unmarshal/parser calls remain in non-exempt Go files.
+- [x] Replace `json.Marshal`, `json.MarshalIndent`, `json.Unmarshal`, encoder/decoder construction, and parser helpers with sonic equivalents.
+- [x] Preserve `json.RawMessage`/`json.Number` API compatibility where needed; remove `encoding/json` imports from files that no longer require stdlib JSON types.
+- [x] Run `gofmt` on touched Go files.
+- [x] Run focused tests for changed packages, then a broad Go test gate.
+- [x] Update this tracker with completed items and verification results.
+
+## Sonic JSON Migration Results
+
+Resolved:
+
+1. Added `internal/jsonusage` static guard test to reject direct `encoding/json` encode/decode/parser helper calls.
+2. Migrated direct `Marshal`, `MarshalIndent`, `Unmarshal`, `NewEncoder`, `NewDecoder`, and `Valid` usage to `sonic.ConfigStd`.
+3. Replaced golden JSON compaction with sonic decode plus std-compatible marshal normalization.
+4. Kept `encoding/json` only where stdlib JSON types remain part of API or compatibility surfaces.
+5. Removed stale `nolint` directives made unnecessary by the sonic migration.
+
+Verification:
+
+- `GOCACHE=/private/tmp/biqly-gocache go test ./internal/jsonusage -count=1`
+- `GOCACHE=/private/tmp/biqly-gocache go test -run '^$' ./cmd/... ./internal/... ./pkg/... -count=1`
+- `GOCACHE=/private/tmp/biqly-gocache go test ./cmd/... ./internal/... ./pkg/... -count=1`
+- `make lint-go`
+- `git diff --check`

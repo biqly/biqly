@@ -3,7 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/csv"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -228,7 +228,7 @@ func (h *PIIHandler) ComplianceSummary(w http.ResponseWriter, r *http.Request) {
 		cw := csv.NewWriter(w)
 		_ = cw.Write([]string{"datasource_id", "datasource_name", "total_columns", "pii_detected", "reviewed", "unreviewed", "by_type"})
 		for _, s := range summaries {
-			byType, err := json.Marshal(s.ByType)
+			byType, err := sonic.ConfigStd.Marshal(s.ByType)
 			if err != nil {
 				continue
 			}

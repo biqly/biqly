@@ -24,17 +24,7 @@ func (e *ServiceError) Unwrap() error {
 // ToServiceError maps known query-layer failures to a ServiceError while preserving
 // the original error for logging via Unwrap. Returns nil when err is nil.
 func ToServiceError(err error) *ServiceError {
-	if err == nil {
-		return nil
-	}
-	if se, ok := errors.AsType[*ServiceError](err); ok {
-		return se
-	}
-	mapped := mapQueryServiceError(err)
-	if mapped == nil {
-		return nil
-	}
-	return &ServiceError{Status: mapped.Status, Message: mapped.Message, cause: err}
+	return MapQueryServiceError(err)
 }
 
 // ErrAsError returns nil for a nil *ServiceError; otherwise returns se as error.
@@ -62,7 +52,11 @@ func MapQueryServiceError(err error) *ServiceError {
 	if se, ok := errors.AsType[*ServiceError](err); ok {
 		return se
 	}
-	return mapQueryServiceError(err)
+	mapped := mapQueryServiceError(err)
+	if mapped != nil && mapped.cause == nil {
+		mapped.cause = err
+	}
+	return mapped
 }
 
 func mapQueryServiceError(err error) *ServiceError {
@@ -83,5 +77,5 @@ func mapQueryServiceError(err error) *ServiceError {
 	if valErrs, ok := errors.AsType[query.ValidationErrors](err); ok {
 		return &ServiceError{Status: http.StatusBadRequest, Message: valErrs.Error()}
 	}
-	return &ServiceError{Status: http.StatusInternalServerError, Message: "query failed"}
+	return &ServiceError{Status: http.StatusInternalServerError, Message: err.Error()}
 }

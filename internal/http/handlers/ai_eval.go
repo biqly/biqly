@@ -2,9 +2,9 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"log/slog"
 	"net/http"
 	"os"
@@ -56,12 +56,12 @@ func logicalQueryToMap(lq *query.LogicalQuery) map[string]any {
 	if lq == nil {
 		return map[string]any{}
 	}
-	b, err := json.Marshal(lq)
+	b, err := sonic.ConfigStd.Marshal(lq)
 	if err != nil {
 		return map[string]any{"_marshal_error": err.Error()}
 	}
 	var m map[string]any
-	if err := json.Unmarshal(b, &m); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(b, &m); err != nil {
 		return map[string]any{}
 	}
 	return m
@@ -497,7 +497,7 @@ func (*AIHandler) EvalListCases(w http.ResponseWriter, r *http.Request) {
 
 func (*AIHandler) EvalCreateCase(w http.ResponseWriter, r *http.Request) {
 	var req evalCaseWire
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
 		return
 	}

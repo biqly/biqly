@@ -1,8 +1,8 @@
 package routing
 
 import (
-	"encoding/json"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"log/slog"
 	"os"
 	"sync"
@@ -91,7 +91,7 @@ func loadRoutingLexicon(path string) (*Lexicon, error) {
 
 func parseRoutingLexiconJSON(raw []byte) (*Lexicon, error) {
 	var lex Lexicon
-	if err := json.Unmarshal(raw, &lex); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(raw, &lex); err != nil {
 		return nil, err
 	}
 	if lex.TokenSynonyms == nil {
@@ -131,9 +131,9 @@ func mergeStringSliceField(dst *[]string, src []string) {
 	}
 }
 
-func (*Lexicon) HasAnyToken(tokens map[string]bool, vocabulary []string) bool {
+func (*Lexicon) HasAnyToken(tokens map[string]struct{}, vocabulary []string) bool {
 	for _, t := range vocabulary {
-		if tokens[t] {
+		if _, ok := tokens[t]; ok {
 			return true
 		}
 	}
@@ -147,7 +147,7 @@ func (lex *Lexicon) ExpandTokenSynonyms(token string) []string {
 	return lex.TokenSynonyms[token]
 }
 
-func (lex *Lexicon) MatchIntents(tokens map[string]bool, intents []string) bool {
+func (lex *Lexicon) MatchIntents(tokens map[string]struct{}, intents []string) bool {
 	for _, intent := range intents {
 		switch intent {
 		case "catalog":

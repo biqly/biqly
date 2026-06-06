@@ -3,7 +3,7 @@ package ai
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"time"
 
 	ambiguitypkg "github.com/biqly/biqly/internal/ai/ambiguity"
@@ -23,7 +23,7 @@ type ambiguityAnalysisCacheEntry struct {
 }
 
 func ambiguityAnalysisCacheKey(question string, model *semantic.SemanticModel, glossary []promptpkg.GlossaryEntry, confidenceThreshold float64, llmEnabled bool) string {
-	payload, err := json.Marshal(struct { //nolint:musttag // cache key fields are explicitly tagged
+	payload, err := sonic.ConfigStd.Marshal(struct {
 		Question            string                    `json:"question"`
 		Model               *semantic.SemanticModel   `json:"model"`
 		Glossary            []promptpkg.GlossaryEntry `json:"glossary"`

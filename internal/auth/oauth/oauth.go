@@ -36,7 +36,7 @@ type oauthProviderBase struct {
 }
 
 func (p oauthProviderBase) GetAuthURL(state string) string {
-	return p.oauthCfg.AuthCodeURL(state, oauth2.AccessTypeOnline)
+	return p.oauthCfg.AuthCodeURL(state, oauth2.AccessTypeOffline)
 }
 
 func (p oauthProviderBase) ExchangeCode(ctx context.Context, code string) (*oauth2.Token, error) {

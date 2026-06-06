@@ -3,8 +3,8 @@ package middleware
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"io"
 	"net/http"
 	"strings"
@@ -146,7 +146,7 @@ func (c *AuthClient) CheckPermission(ctx context.Context, userID, permission, sc
 	}
 	c.permMu.RUnlock()
 
-	body, err := json.Marshal(map[string]string{
+	body, err := sonic.ConfigStd.Marshal(map[string]string{
 		"user_id":    userID,
 		"permission": permission,
 		"scope_type": scopeType,
@@ -180,7 +180,7 @@ func (c *AuthClient) CheckDatasourceAccess(ctx context.Context, userID, datasour
 	}
 	c.dsMu.RUnlock()
 
-	body, err := json.Marshal(map[string]string{
+	body, err := sonic.ConfigStd.Marshal(map[string]string{
 		"user_id":       userID,
 		"datasource_id": datasourceID,
 		"level":         level,
@@ -235,7 +235,7 @@ func (c *AuthClient) UserAIAccess(ctx context.Context, userID string) (*UserAIAc
 		return nil, fmt.Errorf("user ai access: status %d", resp.StatusCode)
 	}
 	var out UserAIAccess
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return nil, err
 	}
 	if out.Preferences == nil {
@@ -271,14 +271,14 @@ func (c *AuthClient) ListUserAIPreferences(ctx context.Context, userID string) (
 	var out struct {
 		Preferences []UserAIPreference `json:"preferences"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return nil, err
 	}
 	return out.Preferences, nil
 }
 
 func (c *AuthClient) SetUserAIPreference(ctx context.Context, userID, purpose, modelID string) error {
-	body, err := json.Marshal(map[string]string{
+	body, err := sonic.ConfigStd.Marshal(map[string]string{
 		"purpose":  purpose,
 		"model_id": modelID,
 	})
@@ -377,7 +377,7 @@ func (c *AuthClient) GetUserEmail(ctx context.Context, userID string) (string, e
 	var body struct {
 		Email string `json:"email"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return "", err
 	}
 	return body.Email, nil
@@ -403,7 +403,7 @@ func (c *AuthClient) fetchDatasourceIDs(ctx context.Context, path string) ([]str
 	var body struct {
 		DatasourceIDs []string `json:"datasource_ids"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return nil, err
 	}
 	return body.DatasourceIDs, nil
@@ -430,7 +430,7 @@ func (c *AuthClient) postBool(ctx context.Context, path string, body []byte) (bo
 	var result struct {
 		Allowed bool `json:"allowed"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := sonic.ConfigStd.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return false, err
 	}
 	return result.Allowed, nil
@@ -561,7 +561,7 @@ func extractDatasourceIDFromBody(r *http.Request) string {
 	var probe struct {
 		DatasourceID string `json:"datasource_id"`
 	}
-	if err := json.Unmarshal(buf, &probe); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(buf, &probe); err != nil {
 		return ""
 	}
 	return probe.DatasourceID

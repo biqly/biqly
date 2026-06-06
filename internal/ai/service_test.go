@@ -2,8 +2,8 @@ package ai
 
 import (
 	"context"
-	"encoding/json"
 	stderrors "errors"
+	"github.com/bytedance/sonic"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -174,7 +174,7 @@ func stubLLMServer(t *testing.T, replies []string) *httptest.Server {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		require.NoError(t, json.NewEncoder(w).Encode(body))
+		require.NoError(t, sonic.ConfigStd.NewEncoder(w).Encode(body))
 	}))
 }
 
@@ -570,7 +570,7 @@ func TestProcessQuestionInheritsFiltersOnRefineFollowUp(t *testing.T) {
 			{Field: "order_date", Operator: query.OpBetween, Value: []any{"2025-04-01", "2025-04-30"}},
 		},
 	}
-	prevRaw, err := json.Marshal(prevLQ)
+	prevRaw, err := sonic.ConfigStd.Marshal(prevLQ)
 	require.NoError(t, err)
 	prior := []prompt.ConversationTurn{
 		{Question: "geçen ay satışlar", LogicalQuery: string(prevRaw)},

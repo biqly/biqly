@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"os"
 	"testing"
 	"time"
@@ -100,7 +100,7 @@ func TestBackfillExpressions(t *testing.T) {
 	}
 
 	var dimAST map[string]any
-	if err := json.Unmarshal([]byte(dimJSON.String), &dimAST); err != nil {
+	if err := sonic.ConfigStd.Unmarshal([]byte(dimJSON.String), &dimAST); err != nil {
 		t.Fatalf("failed to unmarshal dimension AST JSON: %v", err)
 	}
 	if dimAST["type"] != "binary" || dimAST["op"] != "subtract" {
@@ -118,7 +118,7 @@ func TestBackfillExpressions(t *testing.T) {
 	}
 
 	var metAST map[string]any
-	if err := json.Unmarshal([]byte(metJSON.String), &metAST); err != nil {
+	if err := sonic.ConfigStd.Unmarshal([]byte(metJSON.String), &metAST); err != nil {
 		t.Fatalf("failed to unmarshal metric AST JSON: %v", err)
 	}
 	if metAST["type"] != "binary" || metAST["op"] != "divide" {

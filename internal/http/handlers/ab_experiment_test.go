@@ -3,7 +3,7 @@ package handlers
 import (
 	"context"
 	"database/sql/driver"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -55,7 +55,7 @@ func TestABExperimentHandler(t *testing.T) {
 
 		assert.Equal(t, http.StatusCreated, rec.Code)
 		var resp abtest.Experiment
-		err := json.NewDecoder(rec.Body).Decode(&resp)
+		err := sonic.ConfigStd.NewDecoder(rec.Body).Decode(&resp)
 		assert.Nil(t, err)
 		assert.Equal(t, "exp-123", resp.ID)
 		assert.Equal(t, "Clarification Test", resp.Name)
@@ -78,7 +78,7 @@ func TestABExperimentHandler(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, rec.Code)
 		var resp []abtest.Experiment
-		err := json.NewDecoder(rec.Body).Decode(&resp)
+		err := sonic.ConfigStd.NewDecoder(rec.Body).Decode(&resp)
 		assert.Nil(t, err)
 		assert.Len(t, resp, 1)
 		assert.Equal(t, "exp-123", resp[0].ID)
@@ -109,7 +109,7 @@ func TestABExperimentHandler(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, rec.Code)
 		var resp abExperimentDetailResponse
-		err := json.NewDecoder(rec.Body).Decode(&resp)
+		err := sonic.ConfigStd.NewDecoder(rec.Body).Decode(&resp)
 		assert.Nil(t, err)
 		assert.Equal(t, "exp-123", resp.Experiment.ID)
 		assert.Len(t, resp.Variants, 2)

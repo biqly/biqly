@@ -47,7 +47,10 @@ func (*ReadOnlyChecker) Check(sql string) error {
 		return errors.New("empty query")
 	}
 
-	cleaned := stripSQLLiteralsAndComments(trimmed)
+	cleaned, err := stripSQLLiteralsAndComments(trimmed)
+	if err != nil {
+		return fmt.Errorf("strip sql literals and comments: %w", err)
+	}
 	cleanedTrim := strings.TrimSpace(cleaned)
 	if cleanedTrim == "" {
 		return errors.New("empty query after stripping comments")
@@ -92,7 +95,7 @@ func hasMultipleStatements(cleaned string) bool {
 // surrounding token boundaries.
 //
 //nolint:gocognit
-func writeStrippedSQLLiteralsAndComments(sql string, out *strings.Builder) {
+func writeStrippedSQLLiteralsAndComments(sql string, out *strings.Builder) error {
 	i := 0
 	n := len(sql)
 	for i < n {
@@ -119,55 +122,62 @@ func writeStrippedSQLLiteralsAndComments(sql string, out *strings.Builder) {
 		}
 
 		if c == '\'' {
-			writeBuilderByte(out, '\'')
-			i++
-			for i < n {
-				if sql[i] == '\'' {
-					if i+1 < n && sql[i+1] == '\'' {
-						i += 2
-						continue
-					}
-					writeBuilderByte(out, '\'')
-					i++
-					break
-				}
-				i++
+			var err error
+			i, err = skipStringLiteral(sql, i, n, '\'', out)
+			if err != nil {
+				return err
 			}
 			continue
 		}
 
 		if c == '"' {
-			writeBuilderByte(out, '"')
-			i++
-			for i < n {
-				if sql[i] == '"' {
-					if i+1 < n && sql[i+1] == '"' {
-						i += 2
-						continue
-					}
-					writeBuilderByte(out, '"')
-					i++
-					break
-				}
-				i++
+			var err error
+			i, err = skipStringLiteral(sql, i, n, '"', out)
+			if err != nil {
+				return err
 			}
 			continue
 		}
 
-		writeBuilderByte(out, c)
+		if err := writeBuilderByte(out, c); err != nil {
+			return err
+		}
 		i++
 	}
+	return nil
 }
 
-func writeBuilderByte(out *strings.Builder, b byte) {
-	if err := out.WriteByte(b); err != nil {
-		return
+func skipStringLiteral(sql string, i, n int, quote byte, out *strings.Builder) (int, error) {
+	if err := writeBuilderByte(out, quote); err != nil {
+		return i, err
 	}
+	i++
+	for i < n {
+		if sql[i] == quote {
+			if i+1 < n && sql[i+1] == quote {
+				i += 2
+				continue
+			}
+			if err := writeBuilderByte(out, quote); err != nil {
+				return i, err
+			}
+			i++
+			break
+		}
+		i++
+	}
+	return i, nil
 }
 
-func stripSQLLiteralsAndComments(sql string) string {
+func writeBuilderByte(out *strings.Builder, b byte) error {
+	return out.WriteByte(b)
+}
+
+func stripSQLLiteralsAndComments(sql string) (string, error) {
 	var out strings.Builder
 	out.Grow(len(sql))
-	writeStrippedSQLLiteralsAndComments(sql, &out)
-	return out.String()
+	if err := writeStrippedSQLLiteralsAndComments(sql, &out); err != nil {
+		return "", err
+	}
+	return out.String(), nil
 }

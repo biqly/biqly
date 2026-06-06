@@ -8,8 +8,8 @@ import (
 
 // querySliceInitialCap is the starting capacity for QuerySlice's result slice.
 // Most repository list calls return on the order of tens to a few hundred
-// rows; 64 amortizes the typical case to ~2 growth cycles instead of ~7.
-const querySliceInitialCap = 64
+// rows; 16 amortizes the typical case while reducing memory overhead for small queries.
+const querySliceInitialCap = 16
 
 // QuerySlice runs query with args and collects rows using scan.
 func QuerySlice[T any](ctx context.Context, db *sql.DB, query string, args []any, scan func(Scanner) (T, error)) (out []T, err error) {

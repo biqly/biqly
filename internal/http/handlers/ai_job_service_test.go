@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"github.com/bytedance/sonic"
 	"testing"
 
 	"github.com/biqly/biqly/internal/ai"
@@ -9,7 +10,7 @@ import (
 )
 
 func TestValidateAIJobRequestDescribe(t *testing.T) {
-	valid, err := json.Marshal(ai.DescribeRequest{
+	valid, err := sonic.ConfigStd.Marshal(ai.DescribeRequest{
 		DatasourceID: "ds_1",
 		Schema:       "public",
 		Table:        "users",
@@ -17,7 +18,7 @@ func TestValidateAIJobRequestDescribe(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, validateAIJobRequest("describe", valid))
 
-	missingTable, err := json.Marshal(ai.DescribeRequest{DatasourceID: "ds_1"})
+	missingTable, err := sonic.ConfigStd.Marshal(ai.DescribeRequest{DatasourceID: "ds_1"})
 	require.NoError(t, err)
 	require.EqualError(t, validateAIJobRequest("describe", missingTable), "datasource_id and table are required")
 }

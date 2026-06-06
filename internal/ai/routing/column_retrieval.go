@@ -12,7 +12,7 @@ func rankColumnsForSemanticModel(
 	selected []tableBundle,
 	columnsByTable map[string][]metadata.Column,
 	relations []metadata.Relation,
-	questionTokens map[string]bool,
+	questionTokens map[string]struct{},
 	columnScores map[string]float64,
 	maxColsPerTable int,
 ) map[string][]metadata.Column {
@@ -20,9 +20,9 @@ func rankColumnsForSemanticModel(
 		maxColsPerTable = DefaultRoutingLimits().MaxColumnsPerTable
 	}
 	tokens := questionTokens
-	selectedKeys := make(map[string]bool, len(selected))
+	selectedKeys := make(map[string]struct{}, len(selected))
 	for _, bundle := range selected {
-		selectedKeys[tableKey(bundle.table.SchemaName, bundle.table.TableName)] = true
+		selectedKeys[tableKey(bundle.table.SchemaName, bundle.table.TableName)] = struct{}{}
 	}
 	relationCols := relationColumnsForSelectedTables(relations, selectedKeys)
 
@@ -42,8 +42,8 @@ func rankColumnsForSemanticModel(
 func rankColumnsForTable(
 	cols []metadata.Column,
 	columnScores map[string]float64,
-	relationCols map[string]bool,
-	tokens map[string]bool,
+	relationCols map[string]struct{},
+	tokens map[string]struct{},
 	maxCols int,
 ) []metadata.Column {
 	if maxCols <= 0 {
@@ -54,14 +54,14 @@ func rankColumnsForTable(
 		score    float64
 		priority int
 	}
-	kept := make(map[string]bool)
+	kept := make(map[string]struct{})
 	out := make([]metadata.Column, 0, min(len(cols), maxCols))
 	add := func(col metadata.Column) {
 		key := columnKey(col.SchemaName, col.TableName, col.ColumnName)
-		if kept[key] {
+		if _, ok := kept[key]; ok {
 			return
 		}
-		kept[key] = true
+		kept[key] = struct{}{}
 		out = append(out, col)
 	}
 
@@ -97,7 +97,7 @@ func rankColumnsForTable(
 	return out
 }
 
-func scoreColumnForQuestion(col metadata.Column, tokens map[string]bool, embeddingScore float64) float64 {
+func scoreColumnForQuestion(col metadata.Column, tokens map[string]struct{}, embeddingScore float64) float64 {
 	keyword := scoreColumnKeywords(col, tokens)
 	w := activeRoutingWeights()
 	if embeddingScore > 0 {
@@ -106,13 +106,14 @@ func scoreColumnForQuestion(col metadata.Column, tokens map[string]bool, embeddi
 	return keyword
 }
 
-func scoreColumnKeywords(col metadata.Column, tokens map[string]bool) float64 {
+func scoreColumnKeywords(col metadata.Column, tokens map[string]struct{}) float64 {
 	w := activeRoutingWeights()
 	score := weightedTokenScore(tokens, col.ColumnName, w.ColumnKeywordName)
 	if col.Description != nil {
 		score += weightedTokenScore(tokens, *col.Description, w.ColumnKeywordDescription)
 	}
-	if isRevenueLikeQuestion(tokens) && isRevenueLikeColumn(col) {
+	lex := activeRoutingLexicon()
+	if lex.HasAnyToken(tokens, lex.RevenueTokens) && isRevenueLikeColumn(col, lex) {
 		score += w.ColumnRevenueBoost
 	}
 	if isDisplayNameColumn(col.ColumnName) && wantsReadableLabelsQuestion(tokens) {

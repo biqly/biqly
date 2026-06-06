@@ -3,9 +3,9 @@ package query
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"sort"
 )
 
@@ -73,7 +73,7 @@ func ComputeFingerprint(in FingerprintInputs) (string, error) {
 		CTEs:            in.LogicalQuery.CTEs,
 	}
 
-	raw, err := json.Marshal(c)
+	raw, err := sonic.ConfigStd.Marshal(c)
 	if err != nil {
 		return "", fmt.Errorf("marshal query fingerprint inputs: %w", err)
 	}

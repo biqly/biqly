@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"encoding/json"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"io"
 	"log/slog"
 	"net/http"
@@ -18,9 +18,9 @@ import (
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/semantic/drift"
-	"github.com/stretchr/testify/require"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // --- Simple SQL Mock Driver for Handler Tests ---
@@ -165,7 +165,7 @@ type mockStmt struct {
 	query string
 }
 
-func (*mockStmt) Close() error { return nil }
+func (*mockStmt) Close() error  { return nil }
 func (*mockStmt) NumInput() int { return -1 }
 func (s *mockStmt) Exec(args []driver.Value) (driver.Result, error) {
 	s.conn.db.logCall("EXEC: "+s.query, args)
@@ -194,7 +194,7 @@ type mockRows struct {
 }
 
 func (r *mockRows) Columns() []string { return r.cols }
-func (*mockRows) Close() error      { return nil }
+func (*mockRows) Close() error        { return nil }
 func (r *mockRows) Next(dest []driver.Value) error {
 	if r.pos >= len(r.rows) {
 		return io.EOF
@@ -231,7 +231,7 @@ func TestDriftHandler(t *testing.T) {
 	router.Post("/api/v1/drift/{id}/resolve", handler.Resolve)
 
 	now := time.Now()
-	driftsJSON, err := json.Marshal([]drift.DriftItem{
+	driftsJSON, err := sonic.ConfigStd.Marshal([]drift.DriftItem{
 		{Type: drift.DriftTypeColumnDropped, Field: "age", ColumnRef: "public.users.age", Description: "Dropped"},
 	})
 	require.NoError(t, err)
@@ -253,7 +253,7 @@ func TestDriftHandler(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, rec.Code)
 		var resp []driftReportResponse
-		err := json.NewDecoder(rec.Body).Decode(&resp)
+		err := sonic.ConfigStd.NewDecoder(rec.Body).Decode(&resp)
 		assert.NoError(t, err)
 		assert.Len(t, resp, 1)
 		assert.Equal(t, "report-123", resp[0].ID)
@@ -279,7 +279,7 @@ func TestDriftHandler(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, rec.Code)
 		var resp []driftReportResponse
-		err := json.NewDecoder(rec.Body).Decode(&resp)
+		err := sonic.ConfigStd.NewDecoder(rec.Body).Decode(&resp)
 		assert.NoError(t, err)
 		assert.Len(t, resp, 1)
 		assert.Equal(t, "ds-1", resp[0].DatasourceID)
@@ -296,7 +296,7 @@ func TestDriftHandler(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, rec.Code)
 		var resp map[string]any
-		err := json.NewDecoder(rec.Body).Decode(&resp)
+		err := sonic.ConfigStd.NewDecoder(rec.Body).Decode(&resp)
 		assert.NoError(t, err)
 		success, ok := resp["success"].(bool)
 		assert.True(t, ok)

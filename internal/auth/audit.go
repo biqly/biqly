@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/bytedance/sonic"
 	"log/slog"
 	"strings"
 	"time"
@@ -43,7 +44,7 @@ func (s *AuditService) Log(ctx context.Context, userID *string, action string, r
 	var metaJSON []byte
 	if metadata != nil {
 		var err error
-		metaJSON, err = json.Marshal(metadata)
+		metaJSON, err = sonic.ConfigStd.Marshal(metadata)
 		if err != nil {
 			return fmt.Errorf("marshal audit metadata: %w", err)
 		}
@@ -90,12 +91,12 @@ func (s *AuditService) emitStructured(ctx context.Context, userID *string, actio
 }
 
 func maskAuditMetadata(metadata any) any {
-	bs, err := json.Marshal(metadata)
+	bs, err := sonic.ConfigStd.Marshal(metadata)
 	if err != nil {
 		return nil
 	}
 	var m map[string]any
-	if err := json.Unmarshal(bs, &m); err != nil {
+	if err := sonic.ConfigStd.Unmarshal(bs, &m); err != nil {
 		return nil
 	}
 	for k, v := range m {

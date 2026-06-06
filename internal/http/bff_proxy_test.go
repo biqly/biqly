@@ -3,7 +3,7 @@ package http
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	stdhttp "net/http"
 	"net/http/httptest"
 	"sync"
@@ -58,7 +58,7 @@ func TestRouter_BFFRoutesFrontendTrafficToAllServices(t *testing.T) {
 		var body struct {
 			Service string `json:"service"`
 		}
-		if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		if err := sonic.ConfigStd.NewDecoder(rec.Body).Decode(&body); err != nil {
 			t.Fatalf("decode %s %s: %v", tc.method, tc.path, err)
 		}
 		if body.Service != tc.want {
@@ -105,7 +105,7 @@ func newTraceUpstream(t *testing.T, service string) *traceUpstream {
 			t.Errorf("%s: traceparent got %q, want %q", service, got, sampleTraceparent)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(map[string]string{"service": service}); err != nil {
+		if err := sonic.ConfigStd.NewEncoder(w).Encode(map[string]string{"service": service}); err != nil {
 			t.Fatalf("%s: encode response: %v", service, err)
 		}
 	}))

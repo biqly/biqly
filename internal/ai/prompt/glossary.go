@@ -197,7 +197,7 @@ func SelectGlossaryForQuestion(question string, entries []GlossaryEntry, model *
 	return defaultGlossarySlice(entries, model)
 }
 
-func glossaryMatchScore(qTokens map[string]bool, term string) float64 {
+func glossaryMatchScore(qTokens map[string]struct{}, term string) float64 {
 	if len(qTokens) == 0 {
 		return 0
 	}
@@ -207,7 +207,7 @@ func glossaryMatchScore(qTokens map[string]bool, term string) float64 {
 	}
 	var hits float64
 	for t := range tTokens {
-		if qTokens[t] {
+		if _, ok := qTokens[t]; ok {
 			hits++
 		}
 	}

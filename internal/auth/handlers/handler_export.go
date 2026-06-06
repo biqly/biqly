@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"encoding/json"
+	"github.com/bytedance/sonic"
 	"log/slog"
 	"net/http"
 
@@ -33,7 +33,7 @@ func (h *AuthHandler) handleMeExport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Content-Disposition", "attachment; filename=biqly_user_data.json")
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(data); err != nil { //nolint:musttag // nested auth/workspace types carry json tags
+	if err := sonic.ConfigStd.NewEncoder(w).Encode(data); err != nil {
 		return
 	}
 }
