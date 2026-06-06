@@ -4,6 +4,15 @@ bin/
 *.test
 *.out
 coverage.out
+# Stray Go test binaries / coverage profiles left in the repo root by
+# `go test -c` / `go test -coverprofile` (e.g. auth.test, app.test,
+# workspace.test, handlers.test, rbac.test). Covered by *.test/*.out above,
+# listed explicitly to document the intent and keep the workspace clean.
+/auth.test
+/app.test
+/workspace.test
+/handlers.test
+/rbac.test
 *.exe
 semgrep.sarif
 

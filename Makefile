@@ -1,4 +1,4 @@
-.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai test test-go test-frontend eval eval-regression lint lint-go lint-frontend format-frontend check-frontend precommit semgrep-scan helm-deps helm-lint helm-template clean migrate-up migrate-down docker-up docker-down seed-adventureworks
+.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai test test-go test-frontend coverage-gate eval eval-regression lint lint-go lint-frontend format-frontend check-frontend precommit semgrep-scan helm-deps helm-lint helm-template clean migrate-up migrate-down docker-up docker-down seed-adventureworks
 
 BINARY_NAME=biqly
 GO_FILES=$(shell find . -name '*.go' -not -path './vendor/*')
@@ -63,6 +63,14 @@ test: test-go test-frontend
 
 test-go:
 	@go test -v -race -coverprofile=coverage.out ./...
+
+# coverage-gate enforces per-package coverage floors for critical packages
+# (datasource drivers + dialect) using the profile produced by `make test-go`.
+# Generates coverage.out first when it is missing so the target is runnable on
+# its own. See scripts/coveragecheck for the floors.
+coverage-gate:
+	@test -f coverage.out || go test -coverprofile=coverage.out ./internal/dialect/... ./internal/datasource/...
+	@go run ./scripts/coveragecheck -profile coverage.out
 
 test-frontend:
 	@npm --prefix frontend run test
