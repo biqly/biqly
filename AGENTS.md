@@ -51,7 +51,7 @@ if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
 }
 ```
 
-### optional / pointer fields (`new` with expression)
+### pointer fields (`new` with expression)
 
 - go 1.26: `new(expr)` allocates a variable of the expression's type, initializes it to `expr`, and returns `*T`.
 - use `new(expr)` instead of copying to a local and taking its address — common for optional JSON/API pointer fields.
@@ -118,6 +118,30 @@ if len(encoded) < chunk {
 
 // after
 chunk = min(chunk, len(encoded))
+```
+
+### slice containment check (`slices.Contains`)
+
+- go 1.21+: use `slices.Contains(slice, value)` instead of manual loops or custom helper functions to check if a slice contains a value.
+- applies to any comparable slice type.
+
+example:
+
+```go
+// before
+func contains(values []string, want string) bool {
+ for _, v := range values {
+  if v == want {
+   return true
+  }
+ }
+ return false
+}
+
+// after
+import "slices"
+
+slices.Contains(values, want)
 ```
 
 ## go — performance rules

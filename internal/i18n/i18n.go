@@ -262,10 +262,9 @@ func matchSupported(tag string) (Locale, bool) {
 	if idx := strings.IndexAny(lower, "-_"); idx > 0 {
 		lower = lower[:idx]
 	}
-	for _, loc := range SupportedLocales {
-		if string(loc) == lower {
-			return loc, true
-		}
+	loc := Locale(lower)
+	if isSupported(loc) {
+		return loc, true
 	}
 	return "", false
 }

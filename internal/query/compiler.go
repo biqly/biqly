@@ -140,6 +140,21 @@ func addTableFromColumnRef(tables map[string]struct{}, colRef string, resolver *
 	}
 }
 
+func addTableForField(
+	tables map[string]struct{},
+	field string,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
+	resolver *SchemaResolver,
+) {
+	if dim, ok := dimMap[field]; ok {
+		addTableFromColumnRef(tables, dim.ColumnRef, resolver)
+	}
+	if metric, ok := metricMap[field]; ok {
+		addTableFromColumnRef(tables, metric.Expression, resolver)
+	}
+}
+
 //nolint:gocognit // table extraction walks select, filters, joins, and CTEs
 func tablesReferencedInLogicalQuery(
 	lq *LogicalQuery,
@@ -179,12 +194,7 @@ func tablesReferencedInLogicalQuery(
 				}
 			}
 			for _, ob := range item.Window.OrderBy {
-				if dim, ok := dimMap[ob.Field]; ok {
-					addTableFromColumnRef(tables, dim.ColumnRef, resolver)
-				}
-				if m, ok := metricMap[ob.Field]; ok {
-					addTableFromColumnRef(tables, m.Expression, resolver)
-				}
+				addTableForField(tables, ob.Field, dimMap, metricMap, resolver)
 			}
 		}
 	}
@@ -196,12 +206,7 @@ func tablesReferencedInLogicalQuery(
 	}
 
 	for _, f := range lq.Filters {
-		if dim, ok := dimMap[f.Field]; ok {
-			addTableFromColumnRef(tables, dim.ColumnRef, resolver)
-		}
-		if m, ok := metricMap[f.Field]; ok {
-			addTableFromColumnRef(tables, m.Expression, resolver)
-		}
+		addTableForField(tables, f.Field, dimMap, metricMap, resolver)
 	}
 
 	for _, gb := range lq.GroupBy {
@@ -211,12 +216,7 @@ func tablesReferencedInLogicalQuery(
 	}
 
 	for _, ob := range lq.OrderBy {
-		if dim, ok := dimMap[ob.Field]; ok {
-			addTableFromColumnRef(tables, dim.ColumnRef, resolver)
-		}
-		if m, ok := metricMap[ob.Field]; ok {
-			addTableFromColumnRef(tables, m.Expression, resolver)
-		}
+		addTableForField(tables, ob.Field, dimMap, metricMap, resolver)
 	}
 
 	return tables
@@ -802,29 +802,9 @@ func (c *Compiler) buildWhere(filters []Filter, dimMap map[string]*semantic.Dime
 	parts := make([]string, 0, len(filters))
 
 	for _, f := range filters {
-		if dim, ok := dimMap[f.Field]; ok && monthGrainFilterUsesDateTrunc(dim, f) {
-			anchor, ok := calendarAnchorTime(f.Value)
-			if !ok {
-				return "", fmt.Errorf("month grain filter on %q: expected calendar anchor value", f.Field)
-			}
-			expr, err := c.dateTruncCompareExpr(TimeGrainMonth, resolver.PhysicalColumnRef(dim.ColumnRef), f.Operator, len(*args)+1)
-			if err != nil {
-				return "", err
-			}
-			*args = append(*args, anchor.UTC())
-			parts = append(parts, expr)
-			continue
-		}
-		if dim, ok := dimMap[f.Field]; ok && quarterGrainFilterUsesDateTrunc(dim, f) {
-			anchor, ok := calendarAnchorTime(f.Value)
-			if !ok {
-				return "", fmt.Errorf("quarter grain filter on %q: expected calendar anchor value", f.Field)
-			}
-			expr, err := c.dateTruncCompareExpr(TimeGrainQuarter, resolver.PhysicalColumnRef(dim.ColumnRef), f.Operator, len(*args)+1)
-			if err != nil {
-				return "", err
-			}
-			*args = append(*args, anchor.UTC())
+		if expr, ok, err := c.calendarGrainFilterExpr(f, dimMap, resolver, args); err != nil {
+			return "", err
+		} else if ok {
 			parts = append(parts, expr)
 			continue
 		}
@@ -843,6 +823,37 @@ func (c *Compiler) buildWhere(filters []Filter, dimMap map[string]*semantic.Dime
 	}
 
 	return strings.Join(parts, " AND "), nil
+}
+
+func (c *Compiler) calendarGrainFilterExpr(
+	f Filter,
+	dimMap map[string]*semantic.Dimension,
+	resolver *SchemaResolver,
+	args *[]any,
+) (string, bool, error) {
+	dim, ok := dimMap[f.Field]
+	if !ok {
+		return "", false, nil
+	}
+	var grain string
+	switch {
+	case monthGrainFilterUsesDateTrunc(dim, f):
+		grain = TimeGrainMonth
+	case quarterGrainFilterUsesDateTrunc(dim, f):
+		grain = TimeGrainQuarter
+	default:
+		return "", false, nil
+	}
+	anchor, ok := calendarAnchorTime(f.Value)
+	if !ok {
+		return "", false, fmt.Errorf("%s grain filter on %q: expected calendar anchor value", grain, f.Field)
+	}
+	expr, err := c.dateTruncCompareExpr(grain, resolver.PhysicalColumnRef(dim.ColumnRef), f.Operator, len(*args)+1)
+	if err != nil {
+		return "", false, err
+	}
+	*args = append(*args, anchor.UTC())
+	return expr, true, nil
 }
 
 // resolveFilterLHS returns SQL for the left-hand side of a filter (quoted column, metric expression, or date_trunc).

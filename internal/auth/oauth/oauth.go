@@ -2,7 +2,6 @@ package oauth
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/biqly/biqly/internal/auth"
@@ -18,16 +17,35 @@ type OAuthProvider interface {
 func NewOAuthProvider(name string, cfg *auth.Config) (OAuthProvider, error) {
 	switch name {
 	case "github":
-		if cfg.GitHubClientID == "" || cfg.GitHubClientSecret == "" {
-			return nil, errors.New("github oauth credentials not configured")
+		if err := requireCredentials(name, cfg.GitHubClientID, cfg.GitHubClientSecret); err != nil {
+			return nil, err
 		}
 		return NewGitHubProvider(cfg.GitHubClientID, cfg.GitHubClientSecret, cfg.GitHubRedirectURL), nil
 	case "google":
-		if cfg.GoogleClientID == "" || cfg.GoogleClientSecret == "" {
-			return nil, errors.New("google oauth credentials not configured")
+		if err := requireCredentials(name, cfg.GoogleClientID, cfg.GoogleClientSecret); err != nil {
+			return nil, err
 		}
 		return NewGoogleProvider(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL), nil
 	default:
 		return nil, fmt.Errorf("unsupported oauth provider: %s", name)
 	}
+}
+
+type oauthProviderBase struct {
+	oauthCfg *oauth2.Config
+}
+
+func (p oauthProviderBase) GetAuthURL(state string) string {
+	return p.oauthCfg.AuthCodeURL(state, oauth2.AccessTypeOnline)
+}
+
+func (p oauthProviderBase) ExchangeCode(ctx context.Context, code string) (*oauth2.Token, error) {
+	return p.oauthCfg.Exchange(ctx, code)
+}
+
+func requireCredentials(name, clientID, clientSecret string) error {
+	if clientID == "" || clientSecret == "" {
+		return fmt.Errorf("%s oauth credentials not configured", name)
+	}
+	return nil
 }

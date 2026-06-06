@@ -84,23 +84,24 @@ func (c *Compiler) buildNeqFilter(f Filter, lhsSQL string, _ *semantic.SemanticM
 }
 
 func (c *Compiler) buildGtFilter(f Filter, lhsSQL string, _ *semantic.SemanticModel, args *[]any) (string, []any, error) {
-	*args = append(*args, f.Value)
-	return lhsSQL + " > " + c.dialect.Placeholder(len(*args)), nil, nil
+	return c.buildComparisonFilter(f, lhsSQL, args, ">")
 }
 
 func (c *Compiler) buildGteFilter(f Filter, lhsSQL string, _ *semantic.SemanticModel, args *[]any) (string, []any, error) {
-	*args = append(*args, f.Value)
-	return lhsSQL + " >= " + c.dialect.Placeholder(len(*args)), nil, nil
+	return c.buildComparisonFilter(f, lhsSQL, args, ">=")
 }
 
 func (c *Compiler) buildLtFilter(f Filter, lhsSQL string, _ *semantic.SemanticModel, args *[]any) (string, []any, error) {
-	*args = append(*args, f.Value)
-	return lhsSQL + " < " + c.dialect.Placeholder(len(*args)), nil, nil
+	return c.buildComparisonFilter(f, lhsSQL, args, "<")
 }
 
 func (c *Compiler) buildLteFilter(f Filter, lhsSQL string, _ *semantic.SemanticModel, args *[]any) (string, []any, error) {
+	return c.buildComparisonFilter(f, lhsSQL, args, "<=")
+}
+
+func (c *Compiler) buildComparisonFilter(f Filter, lhsSQL string, args *[]any, op string) (string, []any, error) {
 	*args = append(*args, f.Value)
-	return lhsSQL + " <= " + c.dialect.Placeholder(len(*args)), nil, nil
+	return lhsSQL + " " + op + " " + c.dialect.Placeholder(len(*args)), nil, nil
 }
 
 func (c *Compiler) buildInOperatorFilter(f Filter, lhsSQL string, model *semantic.SemanticModel, args *[]any) (string, []any, error) {

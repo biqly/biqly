@@ -13,12 +13,12 @@ import (
 )
 
 type GoogleProvider struct {
-	oauthCfg *oauth2.Config
+	oauthProviderBase
 }
 
 func NewGoogleProvider(clientID, clientSecret, redirectURL string) *GoogleProvider {
 	return &GoogleProvider{
-		oauthCfg: &oauth2.Config{
+		oauthProviderBase: oauthProviderBase{oauthCfg: &oauth2.Config{
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
 			RedirectURL:  redirectURL,
@@ -27,16 +27,8 @@ func NewGoogleProvider(clientID, clientSecret, redirectURL string) *GoogleProvid
 				"https://www.googleapis.com/auth/userinfo.profile",
 				"https://www.googleapis.com/auth/userinfo.email",
 			},
-		},
+		}},
 	}
-}
-
-func (p *GoogleProvider) GetAuthURL(state string) string {
-	return p.oauthCfg.AuthCodeURL(state, oauth2.AccessTypeOnline)
-}
-
-func (p *GoogleProvider) ExchangeCode(ctx context.Context, code string) (*oauth2.Token, error) {
-	return p.oauthCfg.Exchange(ctx, code)
 }
 
 func (p *GoogleProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (*auth.OAuthUserInfo, error) {

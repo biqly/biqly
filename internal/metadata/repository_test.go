@@ -762,10 +762,6 @@ func TestQueryAndAIHistory(t *testing.T) {
 
 	now := time.Now()
 
-	strPtr := func(s string) *string { return &s }
-	intPtr := func(i int) *int { return &i }
-	floatPtr := func(f float64) *float64 { return &f }
-
 	state.queries = []queryMock{
 		{
 			Pattern: "INSERT INTO query_history",
@@ -814,14 +810,14 @@ func TestQueryAndAIHistory(t *testing.T) {
 	// 1. CreateQueryHistory
 	entry := &pkgquery.HistoryEntry{
 		DatasourceID: "ds-1",
-		ModelID:      strPtr("m-1"),
-		UserID:       strPtr("u-1"),
+		ModelID:      new("m-1"),
+		UserID:       new("u-1"),
 		LogicalQuery: logicalquery.LogicalQuery{Version: "v1"},
-		CompiledSQL:  strPtr("SELECT 1"),
-		SQLArgs:      strPtr("[]"),
+		CompiledSQL:  new("SELECT 1"),
+		SQLArgs:      new("[]"),
 		Status:       "success",
-		RowCount:     intPtr(10),
-		DurationMs:   intPtr(250),
+		RowCount:     new(10),
+		DurationMs:   new(250),
 		Fingerprint:  "fp",
 	}
 	err := repo.CreateQueryHistory(ctx, entry)
@@ -840,8 +836,7 @@ func TestQueryAndAIHistory(t *testing.T) {
 	assert.Equal(t, "qh-123", historyEntry.ID)
 
 	// 4. ListSuccessfulAIQueries
-	mID := "m-1"
-	successfulQueries, err := repo.ListSuccessfulAIQueries(ctx, "ds-1", &mID, 5)
+	successfulQueries, err := repo.ListSuccessfulAIQueries(ctx, "ds-1", new("m-1"), 5)
 	assert.NoError(t, err)
 	assert.Len(t, successfulQueries, 1)
 	assert.Equal(t, "how many users?", successfulQueries[0].Question)
@@ -849,21 +844,21 @@ func TestQueryAndAIHistory(t *testing.T) {
 	// 5. CreateAIQueryHistory
 	aiEntry := &AIQueryHistoryEntry{
 		DatasourceID:       "ds-1",
-		ModelID:            strPtr("m-1"),
-		UserID:             strPtr("u-1"),
+		ModelID:            new("m-1"),
+		UserID:             new("u-1"),
 		Question:           "how many users?",
 		PromptContext:      map[string]any{},
 		AIResponse:         map[string]any{},
 		LogicalQuery:       map[string]any{"version": "v1"},
-		ConfidenceScore:    floatPtr(0.95),
+		ConfidenceScore:    new(0.95),
 		Warnings:           []string{"warn1"},
 		OutcomeStatus:      "success",
 		RetryCount:         0,
 		NeedsClarification: false,
-		ModelUsed:          strPtr("gpt-4"),
-		TokenCount:         intPtr(10),
-		CostUSD:            floatPtr(0.05),
-		LatencyMs:          intPtr(120),
+		ModelUsed:          new("gpt-4"),
+		TokenCount:         new(10),
+		CostUSD:            new(0.05),
+		LatencyMs:          new(120),
 	}
 	err = repo.CreateAIQueryHistory(ctx, aiEntry)
 	assert.NoError(t, err)
@@ -1009,14 +1004,13 @@ func TestTimeGrains_PromptTemplates_And_BusinessGlossary(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "bg-1", bgID)
 
-	isActive := true
 	err = repo.UpdateBusinessGlossary(ctx, "bg-1", BusinessGlossaryUpdate{
 		Term:       "musteri_updated",
 		Definition: "updated_definition",
 		MapsToType: "table",
 		MapsToName: "users",
 		Aliases:    []string{"customer"},
-		IsActive:   &isActive,
+		IsActive:   new(true),
 	})
 	assert.NoError(t, err)
 

@@ -25,8 +25,7 @@ func (h *AuthHandler) handleMeExport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.audit != nil {
-		resType := "user"
-		if err := h.audit.Log(r.Context(), &userID, auth.AuditGDPRDataDump, &resType, &userID,
+		if err := h.audit.Log(r.Context(), &userID, auth.AuditGDPRDataDump, new("user"), &userID,
 			map[string]any{"sessions": len(data.Sessions), "audit_entries": len(data.AuditEntries)}, nil); err != nil {
 			slog.WarnContext(r.Context(), "auth audit log failed", "action", auth.AuditGDPRDataDump, "error", err)
 		}

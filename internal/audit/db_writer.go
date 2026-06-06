@@ -104,17 +104,23 @@ func (w *DBWriter) worker() {
 		}
 		batch = batch[:0]
 	}
+	receive := func(event Event, ok bool) bool {
+		if !ok {
+			flush()
+			return false
+		}
+		batch = append(batch, event)
+		if len(batch) >= defaultBatchSize {
+			flush()
+		}
+		return true
+	}
 
 	for {
 		select {
 		case event, ok := <-w.ch:
-			if !ok {
-				flush()
+			if !receive(event, ok) {
 				return
-			}
-			batch = append(batch, event)
-			if len(batch) >= defaultBatchSize {
-				flush()
 			}
 		case <-ticker.C:
 			flush()
@@ -123,13 +129,8 @@ func (w *DBWriter) worker() {
 			for {
 				select {
 				case event, ok := <-w.ch:
-					if !ok {
-						flush()
+					if !receive(event, ok) {
 						return
-					}
-					batch = append(batch, event)
-					if len(batch) >= defaultBatchSize {
-						flush()
 					}
 				default:
 					flush()

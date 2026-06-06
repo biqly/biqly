@@ -14,27 +14,19 @@ import (
 )
 
 type GitHubProvider struct {
-	oauthCfg *oauth2.Config
+	oauthProviderBase
 }
 
 func NewGitHubProvider(clientID, clientSecret, redirectURL string) *GitHubProvider {
 	return &GitHubProvider{
-		oauthCfg: &oauth2.Config{
+		oauthProviderBase: oauthProviderBase{oauthCfg: &oauth2.Config{
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
 			RedirectURL:  redirectURL,
 			Endpoint:     github.Endpoint,
 			Scopes:       []string{"read:user", "user:email"},
-		},
+		}},
 	}
-}
-
-func (p *GitHubProvider) GetAuthURL(state string) string {
-	return p.oauthCfg.AuthCodeURL(state, oauth2.AccessTypeOnline)
-}
-
-func (p *GitHubProvider) ExchangeCode(ctx context.Context, code string) (*oauth2.Token, error) {
-	return p.oauthCfg.Exchange(ctx, code)
 }
 
 //nolint:gocognit // profile fetch plus optional secondary emails API when primary email is private

@@ -40,11 +40,7 @@ func backfillExpressions(ctx context.Context, db *sql.DB) (err error) { //nolint
 		}
 	}()
 
-	type dimUpdate struct {
-		id   string
-		json []byte
-	}
-	var dimUpdates []dimUpdate
+	var dimUpdates []expressionUpdate
 
 	for dimRows.Next() {
 		var id, exprStr string
@@ -64,7 +60,7 @@ func backfillExpressions(ctx context.Context, db *sql.DB) (err error) { //nolint
 		if err != nil {
 			return fmt.Errorf("marshal dimension ast: %w", err)
 		}
-		dimUpdates = append(dimUpdates, dimUpdate{id: id, json: jsonBytes})
+		dimUpdates = append(dimUpdates, expressionUpdate{id: id, json: jsonBytes})
 	}
 	if err := dimRows.Err(); err != nil {
 		return err
@@ -81,11 +77,7 @@ func backfillExpressions(ctx context.Context, db *sql.DB) (err error) { //nolint
 		}
 	}()
 
-	type metUpdate struct {
-		id   string
-		json []byte
-	}
-	var metUpdates []metUpdate
+	var metUpdates []expressionUpdate
 
 	for metRows.Next() {
 		var id, exprStr string
@@ -105,7 +97,7 @@ func backfillExpressions(ctx context.Context, db *sql.DB) (err error) { //nolint
 		if err != nil {
 			return fmt.Errorf("marshal metric ast: %w", err)
 		}
-		metUpdates = append(metUpdates, metUpdate{id: id, json: jsonBytes})
+		metUpdates = append(metUpdates, expressionUpdate{id: id, json: jsonBytes})
 	}
 	if err := metRows.Err(); err != nil {
 		return err
@@ -136,10 +128,8 @@ func backfillExpressions(ctx context.Context, db *sql.DB) (err error) { //nolint
 		}
 	}()
 
-	for _, u := range dimUpdates {
-		if _, err := dimStmt.ExecContext(ctx, u.json, u.id); err != nil {
-			return fmt.Errorf("update dimension %s: %w", u.id, err)
-		}
+	if err := executeExpressionUpdates(ctx, dimStmt, dimUpdates, "dimension"); err != nil {
+		return err
 	}
 
 	metStmt, err := tx.PrepareContext(ctx, `UPDATE semantic_metrics SET expr_json = $1::jsonb WHERE id = $2::uuid`)
@@ -152,10 +142,8 @@ func backfillExpressions(ctx context.Context, db *sql.DB) (err error) { //nolint
 		}
 	}()
 
-	for _, u := range metUpdates {
-		if _, err := metStmt.ExecContext(ctx, u.json, u.id); err != nil {
-			return fmt.Errorf("update metric %s: %w", u.id, err)
-		}
+	if err := executeExpressionUpdates(ctx, metStmt, metUpdates, "metric"); err != nil {
+		return err
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -164,5 +152,19 @@ func backfillExpressions(ctx context.Context, db *sql.DB) (err error) { //nolint
 	committed = true
 
 	slog.Info("backfill completed", "dimensions_updated", len(dimUpdates), "metrics_updated", len(metUpdates))
+	return nil
+}
+
+type expressionUpdate struct {
+	id   string
+	json []byte
+}
+
+func executeExpressionUpdates(ctx context.Context, stmt *sql.Stmt, updates []expressionUpdate, label string) error {
+	for _, u := range updates {
+		if _, err := stmt.ExecContext(ctx, u.json, u.id); err != nil {
+			return fmt.Errorf("update %s %s: %w", label, u.id, err)
+		}
+	}
 	return nil
 }

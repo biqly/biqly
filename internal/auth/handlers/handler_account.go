@@ -125,7 +125,7 @@ func (h *AuthHandler) handleRevokeSession(w http.ResponseWriter, r *http.Request
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	h.auditLog(r, &userID, auth.AuditSessionRevoked, ptrStr("session"), &sessionID, nil)
+	h.auditLog(r, &userID, auth.AuditSessionRevoked, new("session"), &sessionID, nil)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -163,7 +163,7 @@ func (h *AuthHandler) handleAdminForceLogout(w http.ResponseWriter, r *http.Requ
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	h.auditLog(r, &actor, auth.AuditAdminForceLogout, ptrStr("user"), &targetID, nil)
+	h.auditLog(r, &actor, auth.AuditAdminForceLogout, new("user"), &targetID, nil)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -186,7 +186,7 @@ func (h *AuthHandler) handleAdminRestoreAccount(w http.ResponseWriter, r *http.R
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	h.auditLog(r, &actor, auth.AuditAccountRestored, ptrStr("user"), &targetID, nil)
+	h.auditLog(r, &actor, auth.AuditAccountRestored, new("user"), &targetID, nil)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -220,7 +220,7 @@ func (h *AuthHandler) handleAdminGenerateMFABypass(w http.ResponseWriter, r *htt
 		return
 	}
 
-	h.auditLog(r, &actor, auth.AuditMFABypassGenerated, ptrStr("user"), &targetID, nil)
+	h.auditLog(r, &actor, auth.AuditMFABypassGenerated, new("user"), &targetID, nil)
 	h.respondJSON(w, http.StatusOK, map[string]string{"bypass_code": bypassCode})
 }
 
@@ -233,5 +233,3 @@ func (h *AuthHandler) auditLog(r *http.Request, userID *string, action string, r
 		slog.WarnContext(r.Context(), "auth audit log failed", "action", action, "error", err)
 	}
 }
-
-func ptrStr(s string) *string { return &s }

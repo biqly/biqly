@@ -10,8 +10,8 @@ import (
 func TestDetectScope_QualifierWithoutMetric(t *testing.T) {
 	model := &semantic.SemanticModel{
 		Metrics: []semantic.Metric{
-			{Name: "revenue", Label: strPtr("Gelir")},
-			{Name: "order_count", Label: strPtr("Sipariş sayısı")},
+			{Name: "revenue", Label: new("Gelir")},
+			{Name: "order_count", Label: new("Sipariş sayısı")},
 		},
 	}
 
@@ -36,5 +36,3 @@ func TestDetectScope_SingleMetricMentioned(t *testing.T) {
 		t.Fatalf("DetectScope() = %#v, want no ambiguities when one metric is explicit", got)
 	}
 }
-
-func strPtr(s string) *string { return &s }

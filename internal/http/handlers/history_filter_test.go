@@ -7,13 +7,11 @@ import (
 	pkgquery "github.com/biqly/biqly/pkg/query"
 )
 
-func ptrString(s string) *string { return &s }
-
 func sampleRows() []pkgmetadata.AIQueryHistoryEntry {
 	return []pkgmetadata.AIQueryHistoryEntry{
-		{ID: "1", UserID: ptrString("alice"), Question: "q1", AIResponse: map[string]string{"sql": "select 1"}},
-		{ID: "2", UserID: ptrString("bob"), Question: "q2", AIResponse: map[string]string{"sql": "select 2"}},
-		{ID: "3", UserID: ptrString("alice"), Question: "q3", AIResponse: map[string]string{"sql": "select 3"}},
+		{ID: "1", UserID: new("alice"), Question: "q1", AIResponse: map[string]string{"sql": "select 1"}},
+		{ID: "2", UserID: new("bob"), Question: "q2", AIResponse: map[string]string{"sql": "select 2"}},
+		{ID: "3", UserID: new("alice"), Question: "q3", AIResponse: map[string]string{"sql": "select 3"}},
 		{ID: "4", UserID: nil, Question: "q-legacy"},
 	}
 }
@@ -114,7 +112,7 @@ func TestMaskAIHistoryRow_NilSafe(t *testing.T) {
 func TestMaskAIHistoryRow_ZeroesSensitiveFields(t *testing.T) {
 	row := pkgmetadata.AIQueryHistoryEntry{
 		ID:            "1",
-		UserID:        ptrString("alice"),
+		UserID:        new("alice"),
 		Question:      "secret question",
 		PromptContext: map[string]any{"k": "v"},
 		AIResponse:    map[string]any{"sql": "select 1"},

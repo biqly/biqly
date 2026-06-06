@@ -476,10 +476,7 @@ func (h *RBACHandler) handleRequestAccess(w http.ResponseWriter, r *http.Request
 		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
 		return
 	}
-	dsID := chi.URLParam(r, "id")
-	action := "datasource.request_access"
-	resType := "datasource"
-	err := h.audit.Log(r.Context(), &userID, action, &resType, &dsID, nil, nil)
+	err := h.audit.Log(r.Context(), &userID, "datasource.request_access", new("datasource"), new(chi.URLParam(r, "id")), nil, nil)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
@@ -699,8 +696,7 @@ func (h *RBACHandler) handleAdminAssignRole(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if h.audit != nil {
-		resType := "user_role"
-		if err := h.audit.Log(r.Context(), &caller, auth.AuditRoleAssigned, &resType, &userID,
+		if err := h.audit.Log(r.Context(), &caller, auth.AuditRoleAssigned, new("user_role"), &userID,
 			map[string]any{"role_id": req.RoleID}, nil); err != nil {
 			slog.WarnContext(r.Context(), "auth audit log failed", "action", auth.AuditRoleAssigned, "error", err)
 		}
@@ -712,8 +708,7 @@ func (h *RBACHandler) auditSoD(r *http.Request, caller, action string) {
 	if h.audit == nil {
 		return
 	}
-	resType := "user"
-	if err := h.audit.Log(r.Context(), &caller, auth.AuditAdminBlockSod, &resType, &caller,
+	if err := h.audit.Log(r.Context(), &caller, auth.AuditAdminBlockSod, new("user"), &caller,
 		map[string]any{"blocked_action": action}, nil); err != nil {
 		slog.WarnContext(r.Context(), "auth audit log failed", "action", auth.AuditAdminBlockSod, "error", err)
 	}
@@ -741,9 +736,7 @@ func (h *RBACHandler) handleAdminListAuditLog(w http.ResponseWriter, r *http.Req
 		writeError(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	exportAction := auth.AuditAuditExport
-	resType := "audit_log"
-	if err := h.audit.Log(r.Context(), &caller, exportAction, &resType, nil,
+	if err := h.audit.Log(r.Context(), &caller, auth.AuditAuditExport, new("audit_log"), nil,
 		map[string]any{"format": "json", "count": len(entries)}, nil); err != nil {
 		slog.Warn("audit export event failed", "error", err)
 	}
@@ -868,8 +861,7 @@ func (h *RBACHandler) handleAdminRemoveRole(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if h.audit != nil {
-		resType := "user_role"
-		if err := h.audit.Log(r.Context(), &caller, auth.AuditRoleRemoved, &resType, &userID,
+		if err := h.audit.Log(r.Context(), &caller, auth.AuditRoleRemoved, new("user_role"), &userID,
 			map[string]any{"role_id": roleID}, nil); err != nil {
 			slog.Warn("audit role removal failed", "error", err)
 		}

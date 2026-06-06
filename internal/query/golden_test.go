@@ -48,9 +48,9 @@ func fixtureManyToMany() semanticContextFixture {
 			BaseSchema: "public",
 			BaseTable:  "students",
 			Dimensions: []semantic.Dimension{
-				{Name: "student_name", ColumnRef: "students.name", Type: "text", Label: ptrStr("Student Name")},
+				{Name: "student_name", ColumnRef: "students.name", Type: "text", Label: new("Student Name")},
 				{Name: "student_id", ColumnRef: "students.id", Type: "number"},
-				{Name: "course_title", ColumnRef: "courses.title", Type: "text", Label: ptrStr("Course Title")},
+				{Name: "course_title", ColumnRef: "courses.title", Type: "text", Label: new("Course Title")},
 				{Name: "course_id", ColumnRef: "courses.id", Type: "number"},
 				{Name: "course_credits", ColumnRef: "courses.credits", Type: "number"},
 			},
@@ -100,7 +100,7 @@ func fixtureManyToOne() semanticContextFixture {
 			BaseSchema: "public",
 			BaseTable:  "orders",
 			Dimensions: []semantic.Dimension{
-				{Name: "customer_name", ColumnRef: "customers.name", Type: "text", Label: ptrStr("Customer Name")},
+				{Name: "customer_name", ColumnRef: "customers.name", Type: "text", Label: new("Customer Name")},
 				{Name: "customer_id", ColumnRef: "customers.id", Type: "number"},
 				{Name: "order_date", ColumnRef: "orders.created_at", Type: "date"},
 			},
@@ -143,8 +143,8 @@ func fixtureOneToMany() semanticContextFixture {
 			BaseSchema: "public",
 			BaseTable:  "departments",
 			Dimensions: []semantic.Dimension{
-				{Name: "department_name", ColumnRef: "departments.name", Type: "text", Label: ptrStr("Department Name")},
-				{Name: "employee_name", ColumnRef: "employees.name", Type: "text", Label: ptrStr("Employee Name")},
+				{Name: "department_name", ColumnRef: "departments.name", Type: "text", Label: new("Department Name")},
+				{Name: "employee_name", ColumnRef: "employees.name", Type: "text", Label: new("Employee Name")},
 			},
 			Metrics: []semantic.Metric{
 				{Name: "employee_count", Expression: "employees.id", Aggregation: "count"},
@@ -220,8 +220,8 @@ func fixtureMultiHop() semanticContextFixture {
 			BaseSchema: "public",
 			BaseTable:  "orders",
 			Dimensions: []semantic.Dimension{
-				{Name: "customer_name", ColumnRef: "customers.name", Type: "text", Label: ptrStr("Customer Name")},
-				{Name: "product_name", ColumnRef: "products.name", Type: "text", Label: ptrStr("Product Name")},
+				{Name: "customer_name", ColumnRef: "customers.name", Type: "text", Label: new("Customer Name")},
+				{Name: "product_name", ColumnRef: "products.name", Type: "text", Label: new("Product Name")},
 				{Name: "order_status", ColumnRef: "orders.status", Type: "text"},
 			},
 			Metrics: []semantic.Metric{
@@ -281,7 +281,7 @@ func fixtureDisplayPriority() semanticContextFixture {
 			BaseSchema: "public",
 			BaseTable:  "customers",
 			Dimensions: []semantic.Dimension{
-				{Name: "name", ColumnRef: "customers.name", Type: "text", Label: ptrStr("Customer Name"), Synonyms: []string{"customer", "müşteri"}},
+				{Name: "name", ColumnRef: "customers.name", Type: "text", Label: new("Customer Name"), Synonyms: []string{"customer", "müşteri"}},
 				{Name: "email", ColumnRef: "customers.email", Type: "text"},
 				{Name: "customer_id", ColumnRef: "customers.id", Type: "number"},
 				{Name: "external_key", ColumnRef: "customers.external_key", Type: "text"},
@@ -314,8 +314,6 @@ func fixtureDisplayPriority() semanticContextFixture {
 		},
 	}
 }
-
-func ptrStr(s string) *string { return &s }
 
 // fixtureCalculated returns a semantic model with calculated dimensions.
 func fixtureCalculated() semanticContextFixture {

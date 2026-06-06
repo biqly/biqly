@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -100,7 +101,7 @@ func TestRBACServiceChecksResourceScopedRole(t *testing.T) {
 	).Scan(&analystRoleID))
 
 	rbacRepo := NewRBACRepository(dbPool)
-	require.NoError(t, rbacRepo.AssignRole(ctx, userID, analystRoleID, ptrString(string(ScopeDatasource)), ptrString(datasourceA)))
+	require.NoError(t, rbacRepo.AssignRole(ctx, userID, analystRoleID, new(string(ScopeDatasource)), new(datasourceA)))
 
 	rbacSvc := NewRBACService(rbacRepo)
 
@@ -208,23 +209,10 @@ func TestRBACServiceInheritsGlobalRolePermissions(t *testing.T) {
 		t.Fatalf("GetUserRoles(%q) error = %v, want nil", userID, err)
 	}
 	for _, role := range []string{"admin", "developer", "analyst", "viewer"} {
-		if !slicesContainString(roles, role) {
+		if !slices.Contains(roles, role) {
 			t.Errorf("GetUserRoles(%q) contains %q = false, want true; roles = %v", userID, role, roles)
 		}
 	}
-}
-
-func ptrString(v string) *string {
-	return &v
-}
-
-func slicesContainString(values []string, want string) bool {
-	for _, value := range values {
-		if value == want {
-			return true
-		}
-	}
-	return false
 }
 
 type rbacScopeDriver struct{}

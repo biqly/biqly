@@ -167,9 +167,9 @@ func (*Client) Authenticate(ctx context.Context, s Settings, username, password 
 		return nil, err
 	}
 	defer func() {
-		if closeErr := conn.Close(); closeErr != nil {
+		if closeErr := closeLDAPConn(conn, "service"); closeErr != nil {
 			result = nil
-			err = errors.Join(err, fmt.Errorf("ldap: close service connection: %w", closeErr))
+			err = errors.Join(err, closeErr)
 		}
 	}()
 
@@ -204,9 +204,9 @@ func (*Client) Authenticate(ctx context.Context, s Settings, username, password 
 		return nil, err
 	}
 	defer func() {
-		if closeErr := userConn.Close(); closeErr != nil {
+		if closeErr := closeLDAPConn(userConn, "user"); closeErr != nil {
 			result = nil
-			err = errors.Join(err, fmt.Errorf("ldap: close user connection: %w", closeErr))
+			err = errors.Join(err, closeErr)
 		}
 	}()
 	if err := userConn.Bind(entry.DN, password); err != nil {
@@ -231,11 +231,21 @@ func (*Client) TestConnection(ctx context.Context, s Settings) (err error) {
 		return err
 	}
 	defer func() {
-		if closeErr := conn.Close(); closeErr != nil {
-			err = errors.Join(err, fmt.Errorf("ldap: close connection: %w", closeErr))
+		if closeErr := closeLDAPConn(conn, ""); closeErr != nil {
+			err = errors.Join(err, closeErr)
 		}
 	}()
 	return s.bindService(conn)
+}
+
+func closeLDAPConn(conn *ldapv3.Conn, role string) error {
+	if err := conn.Close(); err != nil {
+		if role == "" {
+			return fmt.Errorf("ldap: close connection: %w", err)
+		}
+		return fmt.Errorf("ldap: close %s connection: %w", role, err)
+	}
+	return nil
 }
 
 func attrOr(v, def string) string {

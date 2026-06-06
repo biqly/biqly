@@ -38,9 +38,9 @@ func TestDashboardRepository_CRUD(t *testing.T) {
 
 	workspaceID := "9da3108c-02a8-4eb8-b9a5-1d0b30177729"
 	d := &Dashboard{
-		WorkspaceID: &workspaceID,
+		WorkspaceID: new(workspaceID),
 		Name:        "Sales Dashboard",
-		Description: ptr("Daily sales KPI and charts"),
+		Description: new("Daily sales KPI and charts"),
 		Widgets:     json.RawMessage(`[{"id": "w1", "type": "kpi", "title": "Revenue"}]`),
 	}
 
@@ -87,8 +87,4 @@ func TestDashboardRepository_CRUD(t *testing.T) {
 
 	_, err = repo.Get(ctx, d.ID)
 	assert.Error(t, err)
-}
-
-func ptr(s string) *string {
-	return &s
 }

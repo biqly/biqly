@@ -210,11 +210,7 @@ func (r *Repository) ListVariants(ctx context.Context, experimentID string) (var
 	if err != nil {
 		return nil, fmt.Errorf("list ab variants: %w", err)
 	}
-	defer func() {
-		if closeErr := rows.Close(); closeErr != nil {
-			err = errors.Join(err, fmt.Errorf("close ab variant rows: %w", closeErr))
-		}
-	}()
+	defer closeRows(&err, rows, "close ab variant rows")
 	variants = make([]Variant, 0, 2)
 	for rows.Next() {
 		var variant Variant
@@ -291,11 +287,7 @@ func (r *Repository) queryExperiments(ctx context.Context, query string, args ..
 	if err != nil {
 		return nil, fmt.Errorf("query ab experiments: %w", err)
 	}
-	defer func() {
-		if closeErr := rows.Close(); closeErr != nil {
-			err = errors.Join(err, fmt.Errorf("close ab experiment rows: %w", closeErr))
-		}
-	}()
+	defer closeRows(&err, rows, "close ab experiment rows")
 	experiments = make([]Experiment, 0, 4)
 	for rows.Next() {
 		var experiment Experiment
@@ -340,6 +332,12 @@ func scanExperiment(row rowScanner, experiment *Experiment) error {
 		experiment.CreatedBy = createdBy.String
 	}
 	return nil
+}
+
+func closeRows(errp *error, rows rowsScanner, label string) {
+	if closeErr := rows.Close(); closeErr != nil {
+		*errp = errors.Join(*errp, fmt.Errorf("%s: %w", label, closeErr))
+	}
 }
 
 func nullString(value string) sql.NullString {

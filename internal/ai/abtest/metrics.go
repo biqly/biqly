@@ -3,7 +3,6 @@ package abtest
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 )
@@ -47,11 +46,7 @@ func (m *MetricsCollector) ComputeMetrics(
 	if err != nil {
 		return nil, fmt.Errorf("query ab experiment metrics: %w", err)
 	}
-	defer func() {
-		if closeErr := rows.Close(); closeErr != nil {
-			err = errors.Join(err, fmt.Errorf("close ab experiment metrics rows: %w", closeErr))
-		}
-	}()
+	defer closeRows(&err, rows, "close ab experiment metrics rows")
 
 	for rows.Next() {
 		var em ExperimentMetrics
