@@ -34,47 +34,91 @@ func NewValidator(maxRows int) *Validator {
 
 // Validate checks a LogicalQuery for correctness.
 //
-//nolint:gocyclo,gocognit,funlen // validates select, filters, group_by, having, order_by, windows, and case items
-func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) error {
-	var errs ValidationErrors
+// validationLookups holds the per-model lookup tables shared across the
+// individual Validate sub-checks, computed once per Validate call.
+type validationLookups struct {
+	dimMap         map[string]bool
+	dimTypes       map[string]string
+	allowedFields  map[string]bool
+	metricRegistry *semantic.MetricRegistry
+	dimensionNames []string
+	metricNames    []string
+	allFieldNames  []string
+}
 
-	// Build lookup maps from the semantic model — single source of truth.
+func newValidationLookups(model *semantic.SemanticModel) validationLookups {
 	dimMap := make(map[string]bool, len(model.Dimensions))
+	dimTypes := make(map[string]string, len(model.Dimensions))
+	allowedFields := make(map[string]bool, len(model.Dimensions)+len(model.Metrics))
 	for _, d := range model.Dimensions {
 		dimMap[d.Name] = true
+		dimTypes[d.Name] = strings.ToLower(strings.TrimSpace(d.Type))
+		allowedFields[d.Name] = true
 	}
+	for _, m := range model.Metrics {
+		allowedFields[m.Name] = true
+	}
+	return validationLookups{
+		dimMap:         dimMap,
+		dimTypes:       dimTypes,
+		allowedFields:  allowedFields,
+		metricRegistry: semantic.NewMetricRegistry(model.Metrics),
+		dimensionNames: getDimensionNames(model),
+		metricNames:    getMetricNames(model),
+		allFieldNames:  getAllFieldNames(model),
+	}
+}
 
-	metricRegistry := semantic.NewMetricRegistry(model.Metrics)
-	dimensionNames := getDimensionNames(model)
-	metricNames := getMetricNames(model)
-	allFieldNames := getAllFieldNames(model)
+func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) error {
+	lk := newValidationLookups(model)
 
+	var errs ValidationErrors
+	errs = append(errs, validateSelectItems(lq, model, lk)...)
+	errs = append(errs, validateHavingClause(lq, lk)...)
+	errs = append(errs, validateFilterClauses(lq, model, lk)...)
+	errs = append(errs, validateFromAndCTEs(lq)...)
+	if err := validateCalendarGrainYearCoverage(lq, model); err != nil {
+		errs = append(errs, err)
+	}
+	errs = append(errs, validateGroupByClauses(lq, lk)...)
+	errs = append(errs, validateOrderByClauses(lq.OrderBy, lk.dimMap, lk.metricRegistry, lk.allFieldNames, "order_by")...)
+	errs = append(errs, v.validateLimitOffset(lq)...)
+
+	if len(errs) > 0 {
+		return errs
+	}
+	return nil
+}
+
+// validateSelectItems checks each SELECT item against the model.
+func validateSelectItems(lq *LogicalQuery, model *semantic.SemanticModel, lk validationLookups) ValidationErrors {
+	var errs ValidationErrors
 	for _, item := range lq.Select {
 		switch item.Type {
 		case SelectTypeDimension:
-			if !dimMap[item.Name] {
+			if !lk.dimMap[item.Name] {
 				errs = append(errs, &ValidationError{
 					Field:               "select",
 					Code:                errmsg.CodeUnknownDimension,
 					Message:             errmsg.UnknownDimensionMsg(item.Name),
 					Value:               item.Name,
-					AllowedAlternatives: suggestAlternatives(item.Name, dimensionNames),
+					AllowedAlternatives: suggestAlternatives(item.Name, lk.dimensionNames),
 				})
 			}
 		case SelectTypeMetric:
-			if !metricRegistry.Has(item.Name) {
+			if !lk.metricRegistry.Has(item.Name) {
 				errs = append(errs, &ValidationError{
 					Field:               "select",
 					Code:                errmsg.CodeUnknownMetric,
 					Message:             errmsg.UnknownMetricMsg(item.Name),
 					Value:               item.Name,
-					AllowedAlternatives: suggestAlternatives(item.Name, metricNames),
+					AllowedAlternatives: suggestAlternatives(item.Name, lk.metricNames),
 				})
 			}
 		case SelectTypeWindow:
-			errs = append(errs, validateWindowSelect(item, model, dimMap, metricRegistry, dimensionNames, metricNames, allFieldNames)...)
+			errs = append(errs, validateWindowSelect(item, model, lk.dimMap, lk.metricRegistry, lk.dimensionNames, lk.metricNames, lk.allFieldNames)...)
 		case SelectTypeCase:
-			errs = append(errs, validateCaseSelect(item, dimMap, dimensionNames)...)
+			errs = append(errs, validateCaseSelect(item, lk.dimMap, lk.dimensionNames)...)
 		default:
 			errs = append(errs, &ValidationError{
 				Field:               "select",
@@ -85,16 +129,21 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 			})
 		}
 	}
+	return errs
+}
 
-	// HAVING — each field must be a metric (post-aggregation).
+// validateHavingClause requires each HAVING field to be a metric with a
+// HAVING-legal operator.
+func validateHavingClause(lq *LogicalQuery, lk validationLookups) ValidationErrors {
+	var errs ValidationErrors
 	for _, f := range lq.Having {
-		if !metricRegistry.Has(f.Field) {
+		if !lk.metricRegistry.Has(f.Field) {
 			errs = append(errs, &ValidationError{
 				Field:               "having",
 				Code:                errmsg.CodeUnknownMetric,
 				Message:             "having field must reference a metric: " + f.Field,
 				Value:               f.Field,
-				AllowedAlternatives: suggestAlternatives(f.Field, metricNames),
+				AllowedAlternatives: suggestAlternatives(f.Field, lk.metricNames),
 			})
 		}
 		if !slices.Contains(havingOps, f.Operator) {
@@ -107,24 +156,21 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 			})
 		}
 	}
+	return errs
+}
 
-	// Check filters
-	allowedFields := make(map[string]bool, len(model.Dimensions)+len(model.Metrics))
-	for _, d := range model.Dimensions {
-		allowedFields[d.Name] = true
-	}
-	for _, m := range model.Metrics {
-		allowedFields[m.Name] = true
-	}
-
+// validateFilterClauses checks WHERE filters: known field, valid operator,
+// subquery shape, and date/value-type compatibility.
+func validateFilterClauses(lq *LogicalQuery, model *semantic.SemanticModel, lk validationLookups) ValidationErrors {
+	var errs ValidationErrors
 	for _, f := range lq.Filters {
-		if !allowedFields[f.Field] {
+		if !lk.allowedFields[f.Field] {
 			errs = append(errs, &ValidationError{
 				Field:               "filters",
 				Code:                errmsg.CodeUnknownField,
 				Message:             errmsg.UnknownFieldMsg(f.Field),
 				Value:               f.Field,
-				AllowedAlternatives: suggestAlternatives(f.Field, allFieldNames),
+				AllowedAlternatives: suggestAlternatives(f.Field, lk.allFieldNames),
 			})
 		}
 		if !slices.Contains(validFilterOps, f.Operator) {
@@ -143,7 +189,13 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 			errs = append(errs, err)
 		}
 	}
+	return errs
+}
 
+// validateFromAndCTEs enforces from_subquery/from_cte exclusivity, non-empty CTE
+// names, and that from_cte references a defined CTE.
+func validateFromAndCTEs(lq *LogicalQuery) ValidationErrors {
+	var errs ValidationErrors
 	if lq.FromSubquery != nil && strings.TrimSpace(lq.FromCTE) != "" {
 		errs = append(errs, &ValidationError{
 			Field:   "from",
@@ -177,26 +229,21 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 			})
 		}
 	}
+	return errs
+}
 
-	if err := validateCalendarGrainYearCoverage(lq, model); err != nil {
-		errs = append(errs, err)
-	}
-
-	// Date/timestamp dimensions are the only ones a time-grain can bucket.
-	dimTypes := make(map[string]string, len(model.Dimensions))
-	for _, d := range model.Dimensions {
-		dimTypes[d.Name] = strings.ToLower(strings.TrimSpace(d.Type))
-	}
-
-	// Check group by
+// validateGroupByClauses checks each GROUP BY field is a known dimension and that
+// any time_grain is valid and applied only to a date/timestamp dimension.
+func validateGroupByClauses(lq *LogicalQuery, lk validationLookups) ValidationErrors {
+	var errs ValidationErrors
 	for _, gb := range lq.GroupBy {
-		if !dimMap[gb.Field] {
+		if !lk.dimMap[gb.Field] {
 			errs = append(errs, &ValidationError{
 				Field:               "group_by",
 				Code:                errmsg.CodeUnknownDimension,
 				Message:             errmsg.UnknownDimensionMsg(gb.Field),
 				Value:               gb.Field,
-				AllowedAlternatives: suggestAlternatives(gb.Field, dimensionNames),
+				AllowedAlternatives: suggestAlternatives(gb.Field, lk.dimensionNames),
 			})
 			continue
 		}
@@ -213,7 +260,7 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 			})
 			continue
 		}
-		if t := dimTypes[gb.Field]; t != "date" && t != "timestamp" && t != "datetime" {
+		if t := lk.dimTypes[gb.Field]; t != "date" && t != "timestamp" && t != "datetime" {
 			errs = append(errs, &ValidationError{
 				Field:   "group_by.time_grain",
 				Code:    errmsg.CodeTimeGrainOnNonDate,
@@ -222,10 +269,12 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 			})
 		}
 	}
+	return errs
+}
 
-	errs = append(errs, validateOrderByClauses(lq.OrderBy, dimMap, metricRegistry, allFieldNames, "order_by")...)
-
-	// Check limit
+// validateLimitOffset checks non-negative limit/offset and the max-rows ceiling.
+func (v *Validator) validateLimitOffset(lq *LogicalQuery) ValidationErrors {
+	var errs ValidationErrors
 	if lq.Limit < 0 {
 		errs = append(errs, &ValidationError{
 			Field:   "limit",
@@ -241,8 +290,6 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 			Value:   strconv.Itoa(lq.Limit),
 		})
 	}
-
-	// Check offset
 	if lq.Offset < 0 {
 		errs = append(errs, &ValidationError{
 			Field:   "offset",
@@ -250,11 +297,7 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 			Message: "offset must be non-negative",
 		})
 	}
-
-	if len(errs) > 0 {
-		return errs
-	}
-	return nil
+	return errs
 }
 
 // validateDateFilterValueType catches the common AI mistake of comparing a raw

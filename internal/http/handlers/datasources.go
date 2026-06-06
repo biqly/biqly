@@ -16,6 +16,7 @@ import (
 	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/security"
+	"github.com/biqly/biqly/internal/semantic"
 	"github.com/biqly/biqly/internal/semantic/drift"
 	"github.com/google/uuid"
 )
@@ -114,42 +115,68 @@ func (h *DatasourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, ds)
 }
 
-//nolint:gocyclo,gocognit,funlen // branches over datasource types, config shapes, and update vs create
 func (h *DatasourceHandler) datasourceDraft(_ context.Context, req createDatasourceRequest, id string, existing *metadata.Datasource) (*metadata.Datasource, string, int, string, error) {
+	driverType, mode, status, msg, err := h.validateDatasourceDraftRequest(&req, existing)
+	if status != 0 {
+		return nil, "", status, msg, err
+	}
+
+	ds := newDatasourceDraftBase(req, id, driverType, existing)
+
+	switch mode {
+	case metadata.DSNModeRaw:
+		return h.buildRawModeDraft(req, ds, existing)
+	case metadata.DSNModeStructured:
+		return h.buildStructuredModeDraft(req, ds, existing, driverType)
+	default:
+		return nil, "", http.StatusBadRequest, "unsupported datasource mode", nil
+	}
+}
+
+// validateDatasourceDraftRequest validates the request and resolves the driver
+// type and DSN mode. It returns status==0 on success; a non-zero status carries
+// the HTTP status, client message, and optional error for the failure.
+func (h *DatasourceHandler) validateDatasourceDraftRequest(req *createDatasourceRequest, existing *metadata.Datasource) (driverType, mode string, status int, msg string, err error) {
 	if strings.TrimSpace(req.Name) == "" || strings.TrimSpace(req.Type) == "" {
-		return nil, "", http.StatusBadRequest, "name and type are required", nil
+		return "", "", http.StatusBadRequest, "name and type are required", nil
 	}
 	if req.Config == "" {
 		req.Config = "{}"
 	}
 
-	driverType := datasource.NormalizeDriverType(req.Type)
-	if _, err := h.deps.DriverReg.Get(driverType); err != nil {
-		return nil, "", http.StatusBadRequest, "unsupported datasource type", err
+	driverType = datasource.NormalizeDriverType(req.Type)
+	if _, gerr := h.deps.DriverReg.Get(driverType); gerr != nil {
+		return "", "", http.StatusBadRequest, "unsupported datasource type", gerr
 	}
 
-	mode := resolveCreateDatasourceMode(&req)
+	mode = resolveCreateDatasourceMode(req)
 	if mode == "" && existing != nil {
 		mode = strings.TrimSpace(existing.DSNMode)
 	}
 	if mode != metadata.DSNModeRaw && mode != metadata.DSNModeStructured {
-		return nil, "", http.StatusBadRequest, "set mode to raw or structured, or supply only dsn or only structured connection fields", nil
+		return "", "", http.StatusBadRequest, "set mode to raw or structured, or supply only dsn or only structured connection fields", nil
 	}
 	if mode == metadata.DSNModeStructured && strings.TrimSpace(req.DSN) != "" {
-		return nil, "", http.StatusBadRequest, "omit dsn when mode is structured", nil
+		return "", "", http.StatusBadRequest, "omit dsn when mode is structured", nil
 	}
-	if mode == metadata.DSNModeRaw && req.Connection != nil {
-		hasConnPayload := strings.TrimSpace(req.Connection.Host) != "" ||
-			req.Connection.Port != nil ||
-			strings.TrimSpace(req.Connection.Username) != "" ||
-			req.Connection.Password != "" ||
-			strings.TrimSpace(req.Connection.DatabaseName) != "" ||
-			len(req.Connection.ConnectionParams) > 0
-		if hasConnPayload {
-			return nil, "", http.StatusBadRequest, "omit connection when mode is raw", nil
-		}
+	if mode == metadata.DSNModeRaw && req.Connection != nil && connectionHasPayload(req.Connection) {
+		return "", "", http.StatusBadRequest, "omit connection when mode is raw", nil
 	}
+	return driverType, mode, 0, "", nil
+}
 
+// connectionHasPayload reports whether any structured connection field is set.
+func connectionHasPayload(c *connectionRequest) bool {
+	return strings.TrimSpace(c.Host) != "" ||
+		c.Port != nil ||
+		strings.TrimSpace(c.Username) != "" ||
+		c.Password != "" ||
+		strings.TrimSpace(c.DatabaseName) != "" ||
+		len(c.ConnectionParams) > 0
+}
+
+// newDatasourceDraftBase builds the common Datasource fields shared by both DSN modes.
+func newDatasourceDraftBase(req createDatasourceRequest, id, driverType string, existing *metadata.Datasource) *metadata.Datasource {
 	ds := &metadata.Datasource{
 		ID:       id,
 		Name:     strings.TrimSpace(req.Name),
@@ -164,110 +191,119 @@ func (h *DatasourceHandler) datasourceDraft(_ context.Context, req createDatasou
 		ds.LastSyncAt = existing.LastSyncAt
 		ds.CreatedAt = existing.CreatedAt
 	}
+	return ds
+}
 
-	switch mode {
-	case metadata.DSNModeRaw:
-		dsnPlain := strings.TrimSpace(req.DSN)
-		if dsnPlain == "" {
-			if existing == nil || strings.TrimSpace(existing.DSNEncrypted) == "" {
-				return nil, "", http.StatusBadRequest, "dsn is required when mode is raw", nil
-			}
-			runtimeDSN, err := metadata.RuntimeDSN(existing, h.deps.Encryptor)
-			if err != nil {
-				return nil, "", http.StatusInternalServerError, "failed to decrypt DSN", err
-			}
-			ds.DSNEncrypted = existing.DSNEncrypted
-			ds.DSNMode = metadata.DSNModeRaw
-			return ds, runtimeDSN, http.StatusOK, "", nil
+// buildRawModeDraft completes a raw-DSN datasource draft, reusing the existing
+// encrypted DSN when the request omits a new one.
+func (h *DatasourceHandler) buildRawModeDraft(req createDatasourceRequest, ds, existing *metadata.Datasource) (*metadata.Datasource, string, int, string, error) {
+	dsnPlain := strings.TrimSpace(req.DSN)
+	if dsnPlain == "" {
+		if existing == nil || strings.TrimSpace(existing.DSNEncrypted) == "" {
+			return nil, "", http.StatusBadRequest, "dsn is required when mode is raw", nil
 		}
-		encStr, err := encryptSecret(h.deps.Encryptor, dsnPlain)
+		runtimeDSN, err := metadata.RuntimeDSN(existing, h.deps.Encryptor)
 		if err != nil {
-			return nil, "", http.StatusInternalServerError, "failed to encrypt DSN", err
+			return nil, "", http.StatusInternalServerError, "failed to decrypt DSN", err
 		}
-		ds.DSNEncrypted = encStr
+		ds.DSNEncrypted = existing.DSNEncrypted
 		ds.DSNMode = metadata.DSNModeRaw
-		return ds, dsnPlain, http.StatusOK, "", nil
-	case metadata.DSNModeStructured:
-		if req.Connection == nil {
-			return nil, "", http.StatusBadRequest, "connection is required when mode is structured", nil
-		}
-		c := req.Connection
-		host := strings.TrimSpace(c.Host)
-		if host == "" {
-			return nil, "", http.StatusBadRequest, "connection.host is required", nil
-		}
-		ds.Host = new(strings.TrimSpace(c.Host))
-
-		port := datasource.DefaultPort(driverType)
-		if c.Port != nil && *c.Port > 0 {
-			port = *c.Port
-		}
-		ds.Port = new(port)
-
-		if u := optionalStringPtr(c.Username); u != nil {
-			ds.Username = u
-		}
-		if db := optionalStringPtr(c.DatabaseName); db != nil {
-			ds.DatabaseName = db
-		}
-		defaults := datasource.DriverConnectionDefaults(driverType)
-		ssl := strings.TrimSpace(c.SSLMode)
-		if ssl == "" {
-			ssl = defaults.SSLMode
-		}
-		if ssl != "" {
-			ds.SSLMode = new(ssl)
-		}
-
-		ext := map[string]string{}
-		for k, v := range c.ConnectionParams {
-			k = strings.TrimSpace(k)
-			if k != "" {
-				ext[k] = v
-			}
-		}
-		cpRaw, err := sonic.ConfigStd.Marshal(ext)
-		if err != nil {
-			return nil, "", http.StatusBadRequest, "invalid connection_params", err
-		}
-		ds.ConnectionParams = append(json.RawMessage(nil), cpRaw...)
-
-		password := c.Password
-		if password == "" && existing != nil && existing.DSNMode == metadata.DSNModeStructured {
-			password, err = security.ConnectionDSN(h.deps.Encryptor, existing.PasswordEncrypted)
-			if err != nil {
-				return nil, "", http.StatusInternalServerError, "failed to decrypt password", err
-			}
-			ds.PasswordEncrypted = existing.PasswordEncrypted
-		}
-
-		fields := datasource.ConnectionFields{
-			Host:         host,
-			Port:         port,
-			Username:     strings.TrimSpace(c.Username),
-			Password:     password,
-			DatabaseName: strings.TrimSpace(c.DatabaseName),
-			SSLMode:      ssl,
-			Extra:        ext,
-		}
-		runtimeDSN, err := datasource.ComposeDSN(driverType, fields)
-		if err != nil {
-			return nil, "", http.StatusBadRequest, err.Error(), err
-		}
-
-		if c.Password != "" || ds.PasswordEncrypted == "" {
-			passEnc, err := encryptSecret(h.deps.Encryptor, c.Password)
-			if err != nil {
-				return nil, "", http.StatusInternalServerError, "failed to encrypt password", err
-			}
-			ds.PasswordEncrypted = passEnc
-		}
-		ds.DSNMode = metadata.DSNModeStructured
-		ds.DSNEncrypted = ""
 		return ds, runtimeDSN, http.StatusOK, "", nil
-	default:
-		return nil, "", http.StatusBadRequest, "unsupported datasource mode", nil
 	}
+	encStr, err := encryptSecret(h.deps.Encryptor, dsnPlain)
+	if err != nil {
+		return nil, "", http.StatusInternalServerError, "failed to encrypt DSN", err
+	}
+	ds.DSNEncrypted = encStr
+	ds.DSNMode = metadata.DSNModeRaw
+	return ds, dsnPlain, http.StatusOK, "", nil
+}
+
+// buildStructuredModeDraft completes a structured-connection datasource draft,
+// composing the runtime DSN and encrypting the password.
+func (h *DatasourceHandler) buildStructuredModeDraft(req createDatasourceRequest, ds, existing *metadata.Datasource, driverType string) (*metadata.Datasource, string, int, string, error) {
+	if req.Connection == nil {
+		return nil, "", http.StatusBadRequest, "connection is required when mode is structured", nil
+	}
+	c := req.Connection
+	host := strings.TrimSpace(c.Host)
+	if host == "" {
+		return nil, "", http.StatusBadRequest, "connection.host is required", nil
+	}
+	ds.Host = new(host)
+
+	port := datasource.DefaultPort(driverType)
+	if c.Port != nil && *c.Port > 0 {
+		port = *c.Port
+	}
+	ds.Port = new(port)
+
+	if u := optionalStringPtr(c.Username); u != nil {
+		ds.Username = u
+	}
+	if db := optionalStringPtr(c.DatabaseName); db != nil {
+		ds.DatabaseName = db
+	}
+
+	defaults := datasource.DriverConnectionDefaults(driverType)
+	ssl := strings.TrimSpace(c.SSLMode)
+	if ssl == "" {
+		ssl = defaults.SSLMode
+	}
+	if ssl != "" {
+		ds.SSLMode = new(ssl)
+	}
+
+	ext := connectionParamsMap(c.ConnectionParams)
+	cpRaw, err := sonic.ConfigStd.Marshal(ext)
+	if err != nil {
+		return nil, "", http.StatusBadRequest, "invalid connection_params", err
+	}
+	ds.ConnectionParams = append(json.RawMessage(nil), cpRaw...)
+
+	password := c.Password
+	if password == "" && existing != nil && existing.DSNMode == metadata.DSNModeStructured {
+		password, err = security.ConnectionDSN(h.deps.Encryptor, existing.PasswordEncrypted)
+		if err != nil {
+			return nil, "", http.StatusInternalServerError, "failed to decrypt password", err
+		}
+		ds.PasswordEncrypted = existing.PasswordEncrypted
+	}
+
+	runtimeDSN, err := datasource.ComposeDSN(driverType, datasource.ConnectionFields{
+		Host:         host,
+		Port:         port,
+		Username:     strings.TrimSpace(c.Username),
+		Password:     password,
+		DatabaseName: strings.TrimSpace(c.DatabaseName),
+		SSLMode:      ssl,
+		Extra:        ext,
+	})
+	if err != nil {
+		return nil, "", http.StatusBadRequest, err.Error(), err
+	}
+
+	if c.Password != "" || ds.PasswordEncrypted == "" {
+		passEnc, encErr := encryptSecret(h.deps.Encryptor, c.Password)
+		if encErr != nil {
+			return nil, "", http.StatusInternalServerError, "failed to encrypt password", encErr
+		}
+		ds.PasswordEncrypted = passEnc
+	}
+	ds.DSNMode = metadata.DSNModeStructured
+	ds.DSNEncrypted = ""
+	return ds, runtimeDSN, http.StatusOK, "", nil
+}
+
+// connectionParamsMap returns a trimmed-key copy of the connection params, dropping empty keys.
+func connectionParamsMap(params map[string]string) map[string]string {
+	ext := make(map[string]string, len(params))
+	for k, v := range params {
+		if k = strings.TrimSpace(k); k != "" {
+			ext[k] = v
+		}
+	}
+	return ext
 }
 
 func writeDatasourcePayloadError(ctx context.Context, w http.ResponseWriter, status int, message string, err error) {
@@ -478,8 +514,6 @@ func (h *DatasourceHandler) TestDraft(w http.ResponseWriter, r *http.Request) {
 }
 
 // SyncMetadata introspects and persists the schema of a datasource.
-//
-//nolint:gocyclo,gocognit,funlen // sync, embedding refresh, and drift detection share one orchestration path
 func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request) {
 	id, ok := requireURLParam(w, r, "id")
 	if !ok {
@@ -494,261 +528,34 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 	}
 	defer func() { _ = resolved.DB.Close() }()
 	ds := resolved.Record
-	driver := resolved.Driver
-	db := resolved.DB
 
-	result, err := driver.Introspect(ctx, db)
+	result, err := resolved.Driver.Introspect(ctx, resolved.DB)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "introspection failed", err)
 		return
 	}
 
-	schemaIDs := make(map[string]string, len(result.Schemas))
-	tableIDs := make(map[[2]string]string, len(result.Tables))
-
-	// Store schemas
-	for _, s := range result.Schemas {
-		if ctx.Err() != nil {
-			return
-		}
-		schema := metadata.Schema{
-			ID:           uuid.New().String(),
-			DatasourceID: ds.ID,
-			SchemaName:   s.Name,
-		}
-		schemaID, err := h.deps.MetaRepo.UpsertSchema(ctx, ds.ID, schema)
-		if err != nil {
-			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to save schemas", err)
-			return
-		}
-		schemaIDs[s.Name] = schemaID
+	schemaIDs, ok := h.storeSchemas(ctx, w, ds.ID, result)
+	if !ok {
+		return
+	}
+	tableIDs, ok := h.storeTables(ctx, w, ds.ID, result, schemaIDs)
+	if !ok {
+		return
+	}
+	if !h.storeColumns(ctx, w, ds.ID, result, tableIDs) {
+		return
+	}
+	if !h.storeRelations(ctx, w, ds.ID, result) {
+		return
 	}
 
-	// Store tables (description from native DB comment when present)
-	for _, t := range result.Tables {
-		if ctx.Err() != nil {
-			return
-		}
-		schemaID, ok := schemaIDs[t.SchemaName]
-		if !ok {
-			writeInternalError(ctx, w, http.StatusInternalServerError, "metadata sync failed",
-				fmt.Errorf("missing schema for table %s.%s", t.SchemaName, t.TableName))
-			return
-		}
-
-		table := metadata.Table{
-			ID:           uuid.New().String(),
-			DatasourceID: ds.ID,
-			SchemaID:     schemaID,
-			SchemaName:   t.SchemaName,
-			TableName:    t.TableName,
-			TableType:    t.TableType,
-			RowEstimate:  t.RowEstimate,
-		}
-		if t.Comment != "" {
-			table.Description = new(t.Comment)
-		}
-		tableID, err := h.deps.MetaRepo.UpsertTable(ctx, ds.ID, table)
-		if err != nil {
-			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to save tables", err)
-			return
-		}
-		tableIDs[[2]string{t.SchemaName, t.TableName}] = tableID
-	}
-
-	// Build FK lookup so column rows carry referenced_table/_column even when the
-	// driver-level introspection only reports relations separately.
-	type fkTarget struct {
-		schema string
-		table  string
-		column string
-	}
-	fkBySource := make(map[[3]string]fkTarget, len(result.Relations))
-	for _, rel := range result.Relations {
-		fkBySource[[3]string{rel.FromSchema, rel.FromTable, rel.FromColumn}] = fkTarget{
-			schema: rel.ToSchema,
-			table:  rel.ToTable,
-			column: rel.ToColumn,
-		}
-	}
-
-	// Store columns (description from native DB comment when present)
-	colBatch := make([]metadata.Column, 0, 100)
-	for _, c := range result.Columns {
-		if ctx.Err() != nil {
-			return
-		}
-		tableID, ok := tableIDs[[2]string{c.SchemaName, c.TableName}]
-		if !ok {
-			writeInternalError(ctx, w, http.StatusInternalServerError, "metadata sync failed",
-				fmt.Errorf("missing table for column %s.%s.%s", c.SchemaName, c.TableName, c.ColumnName))
-			return
-		}
-
-		col := metadata.Column{
-			ID:               uuid.New().String(),
-			DatasourceID:     ds.ID,
-			TableID:          tableID,
-			SchemaName:       c.SchemaName,
-			TableName:        c.TableName,
-			ColumnName:       c.ColumnName,
-			DataType:         c.DataType,
-			Nullable:         c.Nullable,
-			OrdinalPosition:  &c.OrdinalPosition,
-			CharMaxLength:    c.CharMaxLength,
-			NumericPrecision: c.NumericPrecision,
-			NumericScale:     c.NumericScale,
-			ColumnDefault:    new(c.ColumnDefault),
-			IsPrimaryKey:     c.IsPrimaryKey,
-			IsForeignKey:     c.IsForeignKey,
-		}
-		if target, isFK := fkBySource[[3]string{c.SchemaName, c.TableName, c.ColumnName}]; isFK {
-			col.IsForeignKey = true
-			col.ReferencedSchema = new(target.schema)
-			col.ReferencedTable = new(target.table)
-			col.ReferencedColumn = new(target.column)
-		}
-		if c.Comment != "" {
-			col.Description = new(c.Comment)
-		}
-		colBatch = append(colBatch, col)
-		if len(colBatch) >= 100 {
-			if err := h.deps.MetaRepo.UpsertColumns(ctx, ds.ID, colBatch); err != nil {
-				writeInternalError(ctx, w, http.StatusInternalServerError, "failed to save columns", err)
-				return
-			}
-			colBatch = colBatch[:0]
-		}
-	}
-	if len(colBatch) > 0 {
-		if err := h.deps.MetaRepo.UpsertColumns(ctx, ds.ID, colBatch); err != nil {
-			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to save columns", err)
-			return
-		}
-	}
-
-	// Store relations
-	relBatch := make([]metadata.Relation, 0, 100)
-	for _, rel := range result.Relations {
-		if ctx.Err() != nil {
-			return
-		}
-		relation := metadata.Relation{
-			ID:               uuid.New().String(),
-			DatasourceID:     ds.ID,
-			ConstraintName:   rel.ConstraintName,
-			FromSchema:       rel.FromSchema,
-			FromTable:        rel.FromTable,
-			FromColumn:       rel.FromColumn,
-			ToSchema:         rel.ToSchema,
-			ToTable:          rel.ToTable,
-			ToColumn:         rel.ToColumn,
-			RelationshipType: rel.RelationshipType,
-		}
-		relBatch = append(relBatch, relation)
-		if len(relBatch) >= 100 {
-			if err := h.deps.MetaRepo.UpsertRelations(ctx, ds.ID, relBatch); err != nil {
-				writeInternalError(ctx, w, http.StatusInternalServerError, "failed to save relations", err)
-				return
-			}
-			relBatch = relBatch[:0]
-		}
-	}
-	if len(relBatch) > 0 {
-		if err := h.deps.MetaRepo.UpsertRelations(ctx, ds.ID, relBatch); err != nil {
-			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to save relations", err)
-			return
-		}
-	}
-
-	// Update sync timestamp
 	if err := h.deps.MetaRepo.UpdateDatasourceSync(ctx, ds.ID); err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to update sync timestamp", err)
 		return
 	}
 
-	// 1. Fetch final column/table state
-	freshColumns, err := h.deps.MetaRepo.ListColumns(ctx, ds.ID, "", "")
-	if err != nil {
-		slog.ErrorContext(ctx, "failed to list columns for drift check", "datasource_id", ds.ID, "error", err)
-	}
-	freshTables, err := h.deps.MetaRepo.ListTables(ctx, ds.ID, "")
-	if err != nil {
-		slog.ErrorContext(ctx, "failed to list tables for drift check", "datasource_id", ds.ID, "error", err)
-	}
-
-	// 2. Load all active semantic models for this datasource
-	models, err := h.deps.SemanticRepo.ListModels(ctx, ds.ID)
-	if err != nil {
-		slog.ErrorContext(ctx, "failed to list models for drift check", "datasource_id", ds.ID, "error", err)
-	}
-
-	// 3. Compare and check for drift
-	for _, model := range models {
-		if !model.IsActive {
-			continue
-		}
-		// Fetch full model to ensure dimensions, metrics, joins are populated
-		fullModel, err := h.deps.SemanticRepo.GetFullModel(ctx, model.ID)
-		if err != nil {
-			slog.ErrorContext(ctx, "failed to fetch full model for drift check", "model_id", model.ID, "error", err)
-			continue
-		}
-
-		report, err := h.deps.DriftDetector.Compare(ctx, *fullModel, freshColumns, freshTables)
-		if err != nil {
-			slog.ErrorContext(ctx, "drift comparison failed", "model_id", model.ID, "error", err)
-			continue
-		}
-
-		if report != nil && len(report.Drifts) > 0 { //nolint:nestif
-			// Persist via driftRepo
-			if err := h.deps.DriftRepo.InsertReport(ctx, report); err != nil {
-				slog.ErrorContext(ctx, "failed to insert drift report", "model_id", model.ID, "error", err)
-				continue
-			}
-
-			// Emit audit event if critical/warning
-			if report.Severity == drift.SeverityCritical || report.Severity == drift.SeverityWarning {
-				driftSummaries := make([]string, 0, len(report.Drifts))
-				for _, item := range report.Drifts {
-					driftSummaries = append(driftSummaries, fmt.Sprintf("%s: %s", item.Type, item.Description))
-				}
-				summaryStr := strings.Join(driftSummaries, "; ")
-
-				h.deps.AuditLogger.Log(ctx, audit.Event{
-					EventType:    audit.EventDriftDetected,
-					DatasourceID: ds.ID,
-					ModelID:      model.ID,
-					Details: map[string]any{
-						"drift_count": len(report.Drifts),
-						"severity":    report.Severity,
-						"summary":     summaryStr,
-					},
-				})
-
-				select {
-				case driftNotifySem <- struct{}{}:
-					go func(r *drift.DriftReport, mName string, creator *string, parent context.Context) {
-						defer func() { <-driftNotifySem }()
-						notifyCtx, cancel := context.WithTimeout(context.WithoutCancel(parent), 15*time.Second)
-						defer cancel()
-
-						var frontendURL string
-						if h.deps.Config != nil {
-							frontendURL = h.deps.Config.Mail.FrontendURL
-						}
-
-						if err := h.deps.DriftNotifier.NotifyOwner(notifyCtx, r, mName, creator, frontendURL); err != nil {
-							slog.Error("failed to notify owner about schema drift", "model_id", r.ModelID, "error", err)
-						}
-					}(report, fullModel.Name, fullModel.CreatedBy, ctx)
-				default:
-					slog.Warn("drift notification skipped due to backpressure", "model_id", report.ModelID)
-				}
-			}
-		}
-	}
+	h.detectSchemaDrift(ctx, ds.ID)
 
 	response := map[string]any{
 		"success":   true,
@@ -760,6 +567,282 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 	h.appendPostSyncPIIScan(ctx, r, resolved, response)
 
 	writeJSON(w, http.StatusOK, response)
+}
+
+// storeSchemas upserts introspected schemas and returns a name→id map. The bool
+// is false (and the response already written, except on context cancellation)
+// when the caller should stop.
+func (h *DatasourceHandler) storeSchemas(ctx context.Context, w http.ResponseWriter, dsID string, result *datasource.IntrospectionResult) (map[string]string, bool) {
+	schemaIDs := make(map[string]string, len(result.Schemas))
+	for _, s := range result.Schemas {
+		if ctx.Err() != nil {
+			return nil, false
+		}
+		schemaID, err := h.deps.MetaRepo.UpsertSchema(ctx, dsID, metadata.Schema{
+			ID:           uuid.New().String(),
+			DatasourceID: dsID,
+			SchemaName:   s.Name,
+		})
+		if err != nil {
+			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to save schemas", err)
+			return nil, false
+		}
+		schemaIDs[s.Name] = schemaID
+	}
+	return schemaIDs, true
+}
+
+// storeTables upserts introspected tables and returns a (schema,table)→id map.
+func (h *DatasourceHandler) storeTables(ctx context.Context, w http.ResponseWriter, dsID string, result *datasource.IntrospectionResult, schemaIDs map[string]string) (map[[2]string]string, bool) {
+	tableIDs := make(map[[2]string]string, len(result.Tables))
+	for _, t := range result.Tables {
+		if ctx.Err() != nil {
+			return nil, false
+		}
+		schemaID, ok := schemaIDs[t.SchemaName]
+		if !ok {
+			writeInternalError(ctx, w, http.StatusInternalServerError, "metadata sync failed",
+				fmt.Errorf("missing schema for table %s.%s", t.SchemaName, t.TableName))
+			return nil, false
+		}
+
+		table := metadata.Table{
+			ID:           uuid.New().String(),
+			DatasourceID: dsID,
+			SchemaID:     schemaID,
+			SchemaName:   t.SchemaName,
+			TableName:    t.TableName,
+			TableType:    t.TableType,
+			RowEstimate:  t.RowEstimate,
+		}
+		if t.Comment != "" {
+			table.Description = new(t.Comment)
+		}
+		tableID, err := h.deps.MetaRepo.UpsertTable(ctx, dsID, table)
+		if err != nil {
+			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to save tables", err)
+			return nil, false
+		}
+		tableIDs[[2]string{t.SchemaName, t.TableName}] = tableID
+	}
+	return tableIDs, true
+}
+
+// fkTarget is the referenced side of a foreign key, keyed by source column.
+type fkTarget struct {
+	schema string
+	table  string
+	column string
+}
+
+// storeColumns upserts introspected columns (in batches), enriching each with FK
+// target info derived from the introspected relations.
+func (h *DatasourceHandler) storeColumns(ctx context.Context, w http.ResponseWriter, dsID string, result *datasource.IntrospectionResult, tableIDs map[[2]string]string) bool {
+	fkBySource := make(map[[3]string]fkTarget, len(result.Relations))
+	for _, rel := range result.Relations {
+		fkBySource[[3]string{rel.FromSchema, rel.FromTable, rel.FromColumn}] = fkTarget{
+			schema: rel.ToSchema,
+			table:  rel.ToTable,
+			column: rel.ToColumn,
+		}
+	}
+
+	colBatch := make([]metadata.Column, 0, 100)
+	flush := func() bool {
+		if err := h.deps.MetaRepo.UpsertColumns(ctx, dsID, colBatch); err != nil {
+			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to save columns", err)
+			return false
+		}
+		colBatch = colBatch[:0]
+		return true
+	}
+
+	for _, c := range result.Columns {
+		if ctx.Err() != nil {
+			return false
+		}
+		tableID, ok := tableIDs[[2]string{c.SchemaName, c.TableName}]
+		if !ok {
+			writeInternalError(ctx, w, http.StatusInternalServerError, "metadata sync failed",
+				fmt.Errorf("missing table for column %s.%s.%s", c.SchemaName, c.TableName, c.ColumnName))
+			return false
+		}
+		colBatch = append(colBatch, buildSyncColumn(dsID, tableID, c, fkBySource))
+		if len(colBatch) >= 100 {
+			if !flush() {
+				return false
+			}
+		}
+	}
+	if len(colBatch) > 0 {
+		return flush()
+	}
+	return true
+}
+
+// buildSyncColumn maps an introspected column to a metadata.Column, applying FK
+// target info and the native DB comment when present.
+func buildSyncColumn(dsID, tableID string, c datasource.ColumnInfo, fkBySource map[[3]string]fkTarget) metadata.Column {
+	col := metadata.Column{
+		ID:               uuid.New().String(),
+		DatasourceID:     dsID,
+		TableID:          tableID,
+		SchemaName:       c.SchemaName,
+		TableName:        c.TableName,
+		ColumnName:       c.ColumnName,
+		DataType:         c.DataType,
+		Nullable:         c.Nullable,
+		OrdinalPosition:  &c.OrdinalPosition,
+		CharMaxLength:    c.CharMaxLength,
+		NumericPrecision: c.NumericPrecision,
+		NumericScale:     c.NumericScale,
+		ColumnDefault:    new(c.ColumnDefault),
+		IsPrimaryKey:     c.IsPrimaryKey,
+		IsForeignKey:     c.IsForeignKey,
+	}
+	if target, isFK := fkBySource[[3]string{c.SchemaName, c.TableName, c.ColumnName}]; isFK {
+		col.IsForeignKey = true
+		col.ReferencedSchema = new(target.schema)
+		col.ReferencedTable = new(target.table)
+		col.ReferencedColumn = new(target.column)
+	}
+	if c.Comment != "" {
+		col.Description = new(c.Comment)
+	}
+	return col
+}
+
+// storeRelations upserts introspected foreign-key relations in batches.
+func (h *DatasourceHandler) storeRelations(ctx context.Context, w http.ResponseWriter, dsID string, result *datasource.IntrospectionResult) bool {
+	relBatch := make([]metadata.Relation, 0, 100)
+	flush := func() bool {
+		if err := h.deps.MetaRepo.UpsertRelations(ctx, dsID, relBatch); err != nil {
+			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to save relations", err)
+			return false
+		}
+		relBatch = relBatch[:0]
+		return true
+	}
+
+	for _, rel := range result.Relations {
+		if ctx.Err() != nil {
+			return false
+		}
+		relBatch = append(relBatch, metadata.Relation{
+			ID:               uuid.New().String(),
+			DatasourceID:     dsID,
+			ConstraintName:   rel.ConstraintName,
+			FromSchema:       rel.FromSchema,
+			FromTable:        rel.FromTable,
+			FromColumn:       rel.FromColumn,
+			ToSchema:         rel.ToSchema,
+			ToTable:          rel.ToTable,
+			ToColumn:         rel.ToColumn,
+			RelationshipType: rel.RelationshipType,
+		})
+		if len(relBatch) >= 100 {
+			if !flush() {
+				return false
+			}
+		}
+	}
+	if len(relBatch) > 0 {
+		return flush()
+	}
+	return true
+}
+
+// detectSchemaDrift compares every active semantic model against the freshly
+// synced schema, persisting and notifying on drift. Failures here are logged but
+// never fail the sync (metadata is already persisted).
+func (h *DatasourceHandler) detectSchemaDrift(ctx context.Context, dsID string) {
+	freshColumns, err := h.deps.MetaRepo.ListColumns(ctx, dsID, "", "")
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to list columns for drift check", "datasource_id", dsID, "error", err)
+	}
+	freshTables, err := h.deps.MetaRepo.ListTables(ctx, dsID, "")
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to list tables for drift check", "datasource_id", dsID, "error", err)
+	}
+	models, err := h.deps.SemanticRepo.ListModels(ctx, dsID)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to list models for drift check", "datasource_id", dsID, "error", err)
+	}
+
+	for _, model := range models {
+		if !model.IsActive {
+			continue
+		}
+		h.checkModelDrift(ctx, dsID, model.ID, freshColumns, freshTables)
+	}
+}
+
+// checkModelDrift runs drift detection for a single model and persists/notifies
+// when drift is found.
+func (h *DatasourceHandler) checkModelDrift(ctx context.Context, dsID, modelID string, freshColumns []metadata.Column, freshTables []metadata.Table) {
+	fullModel, err := h.deps.SemanticRepo.GetFullModel(ctx, modelID)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to fetch full model for drift check", "model_id", modelID, "error", err)
+		return
+	}
+
+	report, err := h.deps.DriftDetector.Compare(ctx, *fullModel, freshColumns, freshTables)
+	if err != nil {
+		slog.ErrorContext(ctx, "drift comparison failed", "model_id", modelID, "error", err)
+		return
+	}
+	if report == nil || len(report.Drifts) == 0 {
+		return
+	}
+
+	if err := h.deps.DriftRepo.InsertReport(ctx, report); err != nil {
+		slog.ErrorContext(ctx, "failed to insert drift report", "model_id", modelID, "error", err)
+		return
+	}
+
+	if report.Severity == drift.SeverityCritical || report.Severity == drift.SeverityWarning {
+		h.emitDriftNotification(ctx, dsID, modelID, report, fullModel)
+	}
+}
+
+// emitDriftNotification records a drift audit event and dispatches an owner
+// notification (best-effort, bounded by driftNotifySem backpressure).
+func (h *DatasourceHandler) emitDriftNotification(ctx context.Context, dsID, modelID string, report *drift.DriftReport, fullModel *semantic.SemanticModel) {
+	driftSummaries := make([]string, 0, len(report.Drifts))
+	for _, item := range report.Drifts {
+		driftSummaries = append(driftSummaries, fmt.Sprintf("%s: %s", item.Type, item.Description))
+	}
+
+	h.deps.AuditLogger.Log(ctx, audit.Event{
+		EventType:    audit.EventDriftDetected,
+		DatasourceID: dsID,
+		ModelID:      modelID,
+		Details: map[string]any{
+			"drift_count": len(report.Drifts),
+			"severity":    report.Severity,
+			"summary":     strings.Join(driftSummaries, "; "),
+		},
+	})
+
+	select {
+	case driftNotifySem <- struct{}{}:
+		go func(rep *drift.DriftReport, mName string, creator *string, parent context.Context) {
+			defer func() { <-driftNotifySem }()
+			notifyCtx, cancel := context.WithTimeout(context.WithoutCancel(parent), 15*time.Second)
+			defer cancel()
+
+			var frontendURL string
+			if h.deps.Config != nil {
+				frontendURL = h.deps.Config.Mail.FrontendURL
+			}
+
+			if err := h.deps.DriftNotifier.NotifyOwner(notifyCtx, rep, mName, creator, frontendURL); err != nil {
+				slog.Error("failed to notify owner about schema drift", "model_id", rep.ModelID, "error", err)
+			}
+		}(report, fullModel.Name, fullModel.CreatedBy, ctx)
+	default:
+		slog.Warn("drift notification skipped due to backpressure", "model_id", report.ModelID)
+	}
 }
 
 // appendPostSyncPIIScan runs the post-sync PII scan (opt-out via

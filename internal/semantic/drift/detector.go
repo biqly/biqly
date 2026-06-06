@@ -14,33 +14,47 @@ import (
 // Detector compares semantic models with actual physical table schemas.
 type Detector struct{}
 
+// expressionParser parses a calculated-expression / metric string into an AST.
+type expressionParser = func(string) (pkgsemantic.ExprNode, error)
+
 // NewDetector creates a new Detector.
 func NewDetector() *Detector {
 	return &Detector{}
 }
 
 // Compare checks a model against the current state of tables and columns, returning a report.
-//
-//nolint:gocyclo,gocognit,funlen // compares dimensions, metrics, joins, and tables with multiple drift types
 func (d *Detector) Compare(_ context.Context, model semantic.SemanticModel, columns []metadata.Column, tables []metadata.Table) (*DriftReport, error) {
-	expressionParser := semantic.CurrentExpressionParser()
+	parser := semantic.CurrentExpressionParser()
+	colMap := d.buildColumnMap(columns)
+	tableMap := d.buildTableMap(tables)
+
+	drifts := d.checkBaseSchemaTable(model, tables, tableMap)
+	drifts = append(drifts, d.checkDimensions(model, colMap, parser)...)
+	drifts = append(drifts, d.checkMetrics(model, colMap, parser)...)
+	drifts = append(drifts, d.checkJoins(model, colMap, tableMap)...)
+	drifts = append(drifts, d.checkAddedColumns(model, columns)...)
+
+	return d.buildReport(model, drifts), nil
+}
+
+func (d *Detector) buildColumnMap(columns []metadata.Column) map[string]metadata.Column {
 	colMap := make(map[string]metadata.Column, len(columns))
 	for _, col := range columns {
-		key := d.normalizeKey(col.SchemaName, col.TableName, col.ColumnName)
-		colMap[key] = col
+		colMap[d.normalizeKey(col.SchemaName, col.TableName, col.ColumnName)] = col
 	}
+	return colMap
+}
 
+func (d *Detector) buildTableMap(tables []metadata.Table) map[string]metadata.Table {
 	tableMap := make(map[string]metadata.Table, len(tables))
 	for _, tbl := range tables {
-		key := d.normalizeKey(tbl.SchemaName, tbl.TableName, "")
-		tableMap[key] = tbl
+		tableMap[d.normalizeKey(tbl.SchemaName, tbl.TableName, "")] = tbl
 	}
+	return tableMap
+}
 
-	var drifts []DriftItem
-
-	// 1. Check base schema and table existence
-	baseTableKey := d.normalizeKey(model.BaseSchema, model.BaseTable, "")
-
+// checkBaseSchemaTable verifies the model's base schema and table still exist.
+func (d *Detector) checkBaseSchemaTable(model semantic.SemanticModel, tables []metadata.Table, tableMap map[string]metadata.Table) []DriftItem {
 	schemaExists := false
 	for _, tbl := range tables {
 		if strings.EqualFold(tbl.SchemaName, model.BaseSchema) {
@@ -50,132 +64,143 @@ func (d *Detector) Compare(_ context.Context, model semantic.SemanticModel, colu
 	}
 
 	if !schemaExists {
-		drifts = append(drifts, DriftItem{
+		return []DriftItem{{
 			Type:        DriftTypeSchemaDropped,
 			Field:       "",
 			ColumnRef:   model.BaseSchema,
 			NewValue:    "dropped",
 			Description: fmt.Sprintf("Base schema %q no longer exists", model.BaseSchema),
-		})
-	} else {
-		if _, exists := tableMap[baseTableKey]; !exists {
-			drifts = append(drifts, DriftItem{
-				Type:        DriftTypeTableDropped,
-				Field:       "",
-				ColumnRef:   fmt.Sprintf("%s.%s", model.BaseSchema, model.BaseTable),
-				NewValue:    "dropped",
-				Description: fmt.Sprintf("Base table %q no longer exists in schema %q", model.BaseTable, model.BaseSchema),
-			})
-		}
+		}}
 	}
 
-	// 2. Validate Dimensions
+	baseTableKey := d.normalizeKey(model.BaseSchema, model.BaseTable, "")
+	if _, exists := tableMap[baseTableKey]; !exists {
+		return []DriftItem{{
+			Type:        DriftTypeTableDropped,
+			Field:       "",
+			ColumnRef:   fmt.Sprintf("%s.%s", model.BaseSchema, model.BaseTable),
+			NewValue:    "dropped",
+			Description: fmt.Sprintf("Base table %q no longer exists in schema %q", model.BaseTable, model.BaseSchema),
+		}}
+	}
+	return nil
+}
+
+// checkDimensions validates each active dimension's column (or calculated
+// expression dependencies) against the physical schema.
+func (d *Detector) checkDimensions(model semantic.SemanticModel, colMap map[string]metadata.Column, parser expressionParser) []DriftItem {
+	var drifts []DriftItem
 	for _, dim := range model.Dimensions {
 		if !dim.IsActive {
 			continue
 		}
-
-		// Handle calculated expression dependencies
-		if strings.TrimSpace(dim.CalculatedExpression) != "" { //nolint:nestif
-			expr := dim.CalculatedExpr
-			if expr == nil && expressionParser != nil {
-				if parsed, err := expressionParser(dim.CalculatedExpression); err == nil {
-					expr = parsed
-				}
-			}
-			if expr != nil {
-				depCols, _, _ := pkgsemantic.ExprDependencies(expr)
-				for _, depCol := range depCols {
-					var ref string
-					if depCol.Table != "" {
-						ref = depCol.Table + "." + depCol.Column
-					} else {
-						ref = depCol.Column
-					}
-					refSchema, refTable, refCol := d.parseColumnRef(ref, model.BaseSchema, model.BaseTable)
-					colKey := d.normalizeKey(refSchema, refTable, refCol)
-					if _, exists := colMap[colKey]; !exists {
-						drifts = append(drifts, DriftItem{
-							Type:        DriftTypeColumnDropped,
-							Field:       dim.Name,
-							ColumnRef:   fmt.Sprintf("%s.%s.%s", refSchema, refTable, refCol),
-							NewValue:    "dropped",
-							Description: fmt.Sprintf("Dimension calculated expression references dropped column %q", depCol.Column),
-						})
-					}
-				}
-			}
+		if strings.TrimSpace(dim.CalculatedExpression) != "" {
+			drifts = append(drifts, d.calculatedDimensionDrifts(model, dim, colMap, parser)...)
 			continue
 		}
+		drifts = append(drifts, d.regularDimensionDrifts(model, dim, colMap)...)
+	}
+	return drifts
+}
 
-		// Regular column reference
-		refSchema, refTable, refCol := d.parseColumnRef(dim.ColumnRef, model.BaseSchema, model.BaseTable)
-		colKey := d.normalizeKey(refSchema, refTable, refCol)
+// calculatedDimensionDrifts reports columns referenced by a calculated
+// dimension expression that no longer exist.
+func (d *Detector) calculatedDimensionDrifts(model semantic.SemanticModel, dim semantic.Dimension, colMap map[string]metadata.Column, parser expressionParser) []DriftItem {
+	expr := dim.CalculatedExpr
+	if expr == nil && parser != nil {
+		if parsed, err := parser(dim.CalculatedExpression); err == nil {
+			expr = parsed
+		}
+	}
+	if expr == nil {
+		return nil
+	}
 
-		dbCol, exists := colMap[colKey]
-		if !exists {
+	var drifts []DriftItem
+	depCols, _, _ := pkgsemantic.ExprDependencies(expr)
+	for _, depCol := range depCols {
+		refSchema, refTable, refCol := d.parseColumnRef(exprDepRef(depCol), model.BaseSchema, model.BaseTable)
+		if _, exists := colMap[d.normalizeKey(refSchema, refTable, refCol)]; !exists {
 			drifts = append(drifts, DriftItem{
 				Type:        DriftTypeColumnDropped,
 				Field:       dim.Name,
 				ColumnRef:   fmt.Sprintf("%s.%s.%s", refSchema, refTable, refCol),
 				NewValue:    "dropped",
-				Description: fmt.Sprintf("Column %q no longer exists for dimension %q", refCol, dim.Name),
-			})
-		} else if !d.isTypeCompatible(dbCol.DataType, dim.Type) {
-			drifts = append(drifts, DriftItem{
-				Type:        DriftTypeTypeChanged,
-				Field:       dim.Name,
-				ColumnRef:   fmt.Sprintf("%s.%s.%s", refSchema, refTable, refCol),
-				OldValue:    dim.Type,
-				NewValue:    dbCol.DataType,
-				Description: fmt.Sprintf("Column %q type changed from %q to incompatible physical type %q for dimension %q", refCol, dim.Type, dbCol.DataType, dim.Name),
+				Description: fmt.Sprintf("Dimension calculated expression references dropped column %q", depCol.Column),
 			})
 		}
 	}
+	return drifts
+}
 
-	// 3. Validate Metrics
+// regularDimensionDrifts reports a dropped or type-incompatible physical column
+// backing a non-calculated dimension.
+func (d *Detector) regularDimensionDrifts(model semantic.SemanticModel, dim semantic.Dimension, colMap map[string]metadata.Column) []DriftItem {
+	refSchema, refTable, refCol := d.parseColumnRef(dim.ColumnRef, model.BaseSchema, model.BaseTable)
+	dbCol, exists := colMap[d.normalizeKey(refSchema, refTable, refCol)]
+	if !exists {
+		return []DriftItem{{
+			Type:        DriftTypeColumnDropped,
+			Field:       dim.Name,
+			ColumnRef:   fmt.Sprintf("%s.%s.%s", refSchema, refTable, refCol),
+			NewValue:    "dropped",
+			Description: fmt.Sprintf("Column %q no longer exists for dimension %q", refCol, dim.Name),
+		}}
+	}
+	if !d.isTypeCompatible(dbCol.DataType, dim.Type) {
+		return []DriftItem{{
+			Type:        DriftTypeTypeChanged,
+			Field:       dim.Name,
+			ColumnRef:   fmt.Sprintf("%s.%s.%s", refSchema, refTable, refCol),
+			OldValue:    dim.Type,
+			NewValue:    dbCol.DataType,
+			Description: fmt.Sprintf("Column %q type changed from %q to incompatible physical type %q for dimension %q", refCol, dim.Type, dbCol.DataType, dim.Name),
+		}}
+	}
+	return nil
+}
+
+// checkMetrics reports metric expressions that reference dropped columns.
+func (d *Detector) checkMetrics(model semantic.SemanticModel, colMap map[string]metadata.Column, parser expressionParser) []DriftItem {
+	var drifts []DriftItem
 	for _, met := range model.Metrics {
 		if !met.IsActive {
 			continue
 		}
-
 		expr := met.Expr
-		if expr == nil && expressionParser != nil {
-			if parsed, err := expressionParser(met.Expression); err == nil {
+		if expr == nil && parser != nil {
+			if parsed, err := parser(met.Expression); err == nil {
 				expr = parsed
 			}
 		}
-
-		if expr != nil {
-			depCols, _, _ := pkgsemantic.ExprDependencies(expr)
-			for _, depCol := range depCols {
-				var ref string
-				if depCol.Table != "" {
-					ref = depCol.Table + "." + depCol.Column
-				} else {
-					ref = depCol.Column
-				}
-				refSchema, refTable, refCol := d.parseColumnRef(ref, model.BaseSchema, model.BaseTable)
-				colKey := d.normalizeKey(refSchema, refTable, refCol)
-				if _, exists := colMap[colKey]; !exists {
-					drifts = append(drifts, DriftItem{
-						Type:        DriftTypeMetricBroken,
-						Field:       met.Name,
-						ColumnRef:   fmt.Sprintf("%s.%s.%s", refSchema, refTable, refCol),
-						NewValue:    "dropped",
-						Description: fmt.Sprintf("Metric %q references dropped column %q", met.Name, depCol.Column),
-					})
-				}
+		if expr == nil {
+			continue
+		}
+		depCols, _, _ := pkgsemantic.ExprDependencies(expr)
+		for _, depCol := range depCols {
+			refSchema, refTable, refCol := d.parseColumnRef(exprDepRef(depCol), model.BaseSchema, model.BaseTable)
+			if _, exists := colMap[d.normalizeKey(refSchema, refTable, refCol)]; !exists {
+				drifts = append(drifts, DriftItem{
+					Type:        DriftTypeMetricBroken,
+					Field:       met.Name,
+					ColumnRef:   fmt.Sprintf("%s.%s.%s", refSchema, refTable, refCol),
+					NewValue:    "dropped",
+					Description: fmt.Sprintf("Metric %q references dropped column %q", met.Name, depCol.Column),
+				})
 			}
 		}
 	}
+	return drifts
+}
 
-	// 4. Validate Joins
+// checkJoins validates that each active join's source/target tables and columns
+// still exist.
+func (d *Detector) checkJoins(model semantic.SemanticModel, colMap map[string]metadata.Column, tableMap map[string]metadata.Table) []DriftItem {
+	var drifts []DriftItem
 	for _, join := range model.Joins {
 		if !join.IsActive {
 			continue
 		}
-
 		fromSchema := join.FromSchema
 		if fromSchema == "" {
 			fromSchema = model.BaseSchema
@@ -185,11 +210,7 @@ func (d *Detector) Compare(_ context.Context, model semantic.SemanticModel, colu
 			toSchema = model.BaseSchema
 		}
 
-		fromTableKey := d.normalizeKey(fromSchema, join.FromTable, "")
-		toTableKey := d.normalizeKey(toSchema, join.ToTable, "")
-
-		// Check if source/target tables exist
-		if _, exists := tableMap[fromTableKey]; !exists {
+		if _, exists := tableMap[d.normalizeKey(fromSchema, join.FromTable, "")]; !exists {
 			drifts = append(drifts, DriftItem{
 				Type:        DriftTypeJoinBroken,
 				Field:       join.Name,
@@ -198,7 +219,7 @@ func (d *Detector) Compare(_ context.Context, model semantic.SemanticModel, colu
 			})
 			continue
 		}
-		if _, exists := tableMap[toTableKey]; !exists {
+		if _, exists := tableMap[d.normalizeKey(toSchema, join.ToTable, "")]; !exists {
 			drifts = append(drifts, DriftItem{
 				Type:        DriftTypeJoinBroken,
 				Field:       join.Name,
@@ -208,11 +229,7 @@ func (d *Detector) Compare(_ context.Context, model semantic.SemanticModel, colu
 			continue
 		}
 
-		// Check columns
-		fromColKey := d.normalizeKey(fromSchema, join.FromTable, join.FromColumn)
-		toColKey := d.normalizeKey(toSchema, join.ToTable, join.ToColumn)
-
-		if _, exists := colMap[fromColKey]; !exists {
+		if _, exists := colMap[d.normalizeKey(fromSchema, join.FromTable, join.FromColumn)]; !exists {
 			drifts = append(drifts, DriftItem{
 				Type:        DriftTypeJoinBroken,
 				Field:       join.Name,
@@ -220,7 +237,7 @@ func (d *Detector) Compare(_ context.Context, model semantic.SemanticModel, colu
 				Description: fmt.Sprintf("Join %q references missing source column %q", join.Name, join.FromColumn),
 			})
 		}
-		if _, exists := colMap[toColKey]; !exists {
+		if _, exists := colMap[d.normalizeKey(toSchema, join.ToTable, join.ToColumn)]; !exists {
 			drifts = append(drifts, DriftItem{
 				Type:        DriftTypeJoinBroken,
 				Field:       join.Name,
@@ -229,9 +246,11 @@ func (d *Detector) Compare(_ context.Context, model semantic.SemanticModel, colu
 			})
 		}
 	}
+	return drifts
+}
 
-	// 5. Check ColumnAdded (Informational)
-	// Find columns in the base table that are NOT mapped in model dimensions or joins
+// checkAddedColumns reports physical base-table columns not yet modeled (informational).
+func (d *Detector) checkAddedColumns(model semantic.SemanticModel, columns []metadata.Column) []DriftItem {
 	mappedColumns := make(map[string]bool)
 	for _, dim := range model.Dimensions {
 		if !dim.IsActive || strings.TrimSpace(dim.CalculatedExpression) != "" {
@@ -243,21 +262,27 @@ func (d *Detector) Compare(_ context.Context, model semantic.SemanticModel, colu
 		}
 	}
 
+	var drifts []DriftItem
 	for _, col := range columns {
-		if strings.EqualFold(col.SchemaName, model.BaseSchema) && strings.EqualFold(col.TableName, model.BaseTable) {
-			colLower := strings.ToLower(col.ColumnName)
-			if !mappedColumns[colLower] {
-				drifts = append(drifts, DriftItem{
-					Type:        DriftTypeColumnAdded,
-					Field:       "",
-					ColumnRef:   fmt.Sprintf("%s.%s.%s", col.SchemaName, col.TableName, col.ColumnName),
-					NewValue:    col.DataType,
-					Description: fmt.Sprintf("New column %q found in table %q (not yet modeled)", col.ColumnName, model.BaseTable),
-				})
-			}
+		if !strings.EqualFold(col.SchemaName, model.BaseSchema) || !strings.EqualFold(col.TableName, model.BaseTable) {
+			continue
+		}
+		if !mappedColumns[strings.ToLower(col.ColumnName)] {
+			drifts = append(drifts, DriftItem{
+				Type:        DriftTypeColumnAdded,
+				Field:       "",
+				ColumnRef:   fmt.Sprintf("%s.%s.%s", col.SchemaName, col.TableName, col.ColumnName),
+				NewValue:    col.DataType,
+				Description: fmt.Sprintf("New column %q found in table %q (not yet modeled)", col.ColumnName, model.BaseTable),
+			})
 		}
 	}
+	return drifts
+}
 
+// buildReport assembles a DriftReport from the collected drift items, computing
+// the worst severity and resolved flag.
+func (*Detector) buildReport(model semantic.SemanticModel, drifts []DriftItem) *DriftReport {
 	if len(drifts) == 0 {
 		return &DriftReport{
 			ModelID:      model.ID,
@@ -265,17 +290,19 @@ func (d *Detector) Compare(_ context.Context, model semantic.SemanticModel, colu
 			DetectedAt:   time.Now(),
 			Severity:     SeverityInfo,
 			Resolved:     true,
-		}, nil
+		}
 	}
 
-	// Determine worst severity
 	worstSeverity := SeverityInfo
 	for _, item := range drifts {
-		itemSev := GetDriftSeverity(item.Type)
-		if itemSev == SeverityCritical {
+		switch GetDriftSeverity(item.Type) {
+		case SeverityCritical:
 			worstSeverity = SeverityCritical
-		} else if itemSev == SeverityWarning && worstSeverity != SeverityCritical {
-			worstSeverity = SeverityWarning
+		case SeverityWarning:
+			if worstSeverity != SeverityCritical {
+				worstSeverity = SeverityWarning
+			}
+		case SeverityInfo:
 		}
 	}
 
@@ -286,7 +313,16 @@ func (d *Detector) Compare(_ context.Context, model semantic.SemanticModel, colu
 		Drifts:       drifts,
 		Severity:     worstSeverity,
 		Resolved:     false,
-	}, nil
+	}
+}
+
+// exprDepRef renders an expression column dependency as a "table.column" (or
+// bare "column") reference string.
+func exprDepRef(dep pkgsemantic.ColumnRefExpr) string {
+	if dep.Table != "" {
+		return dep.Table + "." + dep.Column
+	}
+	return dep.Column
 }
 
 func (*Detector) normalizeKey(schema, table, column string) string {
