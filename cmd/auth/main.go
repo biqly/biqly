@@ -234,7 +234,7 @@ func newRouter(state *appState, authHandler *handlers.AuthHandler, rbacHandler *
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
 
-	httpsOnly := len(cfg.WebAuthnOrigins) > 0 && strings.HasPrefix(cfg.WebAuthnOrigins[0], "https")
+	httpsOnly := os.Getenv("BI_ENV") == "production" || (len(cfg.WebAuthnOrigins) > 0 && strings.HasPrefix(cfg.WebAuthnOrigins[0], "https"))
 	r.Use(bimw.SecurityHeaders(bimw.SecurityHeadersConfig{
 		HSTSEnabled:           httpsOnly,
 		HSTSIncludeSubdomains: true,

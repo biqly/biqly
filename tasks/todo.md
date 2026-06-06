@@ -13,15 +13,15 @@
 - [x] **Yüksek**: AI eval/regresyon paketini CI kapısı yap
   - [x] Ensure `make eval-regression` (real model or stub golden tests) runs on every pull request and push to `main`.
   - [x] Explicitly add the regression test execution step to `.github/workflows/test.yml` (currently only runs `go test ./...` which does not execute some of these benchmarks strictly).
-  - [ ] Enforce failing the build if accuracy rates drop below acceptable thresholds in `internal/ai/eval_regression_test.go`.
+  - [x] Enforce failing the build if accuracy rates drop below acceptable thresholds in `internal/ai/eval_regression_test.go`.
 - [ ] **Orta**: Veri-kaynağı sürücüleri için lehçe entegrasyon testleri & test kapsam kapıları
   - [ ] Address low test coverage in critical packages (like `datasource/{postgres,mysql,clickhouse,sqlserver}`, `dashboard`, `queue`, and `config` which currently have thin coverage, e.g., 1 test each).
   - [ ] Implement live/test database connection integration tests for each datasource adapter (`mysql`, `clickhouse`, `sqlserver` drivers under `internal/datasource/`, similar to `postgres`).
   - [ ] Verify that physical queries compiled by dialect packages execute correctly against each database type.
   - [ ] Bind package-level test coverage thresholds as a gate in the CI workflow (leveraging the already-generated `coverage.out`).
-- [ ] **Orta**: Güvenlik başlıklarına CSP + X-Frame-Options; prod’da HSTS zorunlu
-  - [ ] Enforce strict Content Security Policy (`default-src 'self'; frame-ancestors 'none'`) and X-Frame-Options (`DENY`) on all public router definitions (`internal/http/router.go`, `internal/http/service_middleware.go`, `cmd/auth/main.go`).
-  - [ ] Configure `HSTSEnabled: true` automatically in production environments (e.g., when running in production mode, overriding standard development configuration defaults).
+- [x] **Orta**: Güvenlik başlıklarına CSP + X-Frame-Options; prod'da HSTS zorunlu
+  - [x] Enforce strict Content Security Policy (`default-src 'self'; frame-ancestors 'none'`) and X-Frame-Options (`DENY`) on all public router definitions (`internal/http/router.go`, `internal/http/service_middleware.go`, `cmd/auth/main.go`).
+  - [x] Configure `HSTSEnabled: true` automatically in production environments (e.g., when running in production mode, overriding standard development configuration defaults).
 - [ ] **Orta**: AIConfig’i ve Service.Process’i ayrıştır
   - [ ] **AIConfig decomposition**: Separate the God-object `config.AIConfig` struct (45 fields, 13 methods, complexity score 84 - CRITICAL) in `internal/config/config.go` into purpose-based sub-configs (query/embedding/translation/ambiguity/routing).
   - [ ] **Service.Process refactoring**: Refactor `ProcessQuestion` in `internal/ai/service.go` by extracting self-consistency (voting) and repair/retry loop branches into separate, named helper functions, enabling the complete retirement of `//nolint:gocyclo,gocognit,funlen` directives.
@@ -83,12 +83,14 @@ Full codebase review of `internal/`, `pkg/`, `cmd/`, `services/`. Findings group
 ### MEDIUM (plan and fix)
 
 Success criteria:
+
 - Each MEDIUM item is verified against current code before changing it.
 - Fixed items have minimal code changes plus focused test/build evidence where practical.
 - Items closed without code are documented with the repo-specific reason.
 - `gofmt` and focused Go tests pass for touched backend packages before this section is marked done.
 
 Execution plan:
+
 - [x] Triage MEDIUM items by package and confirm which findings are still live.
 - [x] Fix error-handling and API semantics items first (`ERR-*`, `API-*`, `BUG-*`).
 - [x] Fix performance/concurrency items with measured/minimal structural changes.
@@ -132,18 +134,21 @@ Execution plan:
 #### MEDIUM Results (2026-06-06)
 
 Resolved:
+
 - Error paths now report provider/marshal/fingerprint/compiler/auth-response failures instead of silently falling back.
 - Hot-path/perf items reduced cache growth, env parsing, provider-build lock scope, validator allocations, read-only checker allocation, queue-status round trips, and metric graph dependency scans.
 - Concurrency/architecture fixes replaced TOCTOU known-device writes, WaitGroup fanout, mutable semantic globals, and internal imports from public `pkg/*client` packages.
 - Security/config fixes hash mail rate-limit keys, strip `X-Admin-Key`, auth-gate standalone QueryRouter `/api`, remove hardcoded metadata DSN credentials, and validate float ranges.
 
 Verification:
+
 - `GOCACHE=/private/tmp/biqly-gocache go test ./internal/query ./internal/metadata ./internal/semantic/drift ./internal/ai/ambiguity ./internal/ai/abtest ./internal/security ./internal/config`
 - `GOCACHE=/private/tmp/biqly-gocache go test -run '^$' ./internal/ai/... ./internal/http ./internal/http/handlers ./internal/http/middleware ./internal/semantic/... ./internal/auth ./internal/security ./internal/config ./internal/mail ./internal/metadata ./pkg/...`
 - Unsandboxed: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/query ./internal/ai/... ./internal/http ./internal/http/handlers ./internal/http/middleware ./internal/semantic/... ./internal/auth ./internal/security ./internal/config ./internal/mail ./internal/metadata ./pkg/...`
 - `git diff --check`
 
 Note:
+
 - `BUG-S2` was verified stale: current `NewMetricRegistry` already uses `&metrics[i]`; no code change was needed for that item.
 
 ### LOW (backlog)

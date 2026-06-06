@@ -269,6 +269,7 @@ type AIConfig struct {
 }
 
 // Load reads configuration from environment variables.
+//
 //nolint:funlen
 func Load() (*Config, error) {
 	cfg := &Config{
@@ -284,7 +285,7 @@ func Load() (*Config, error) {
 			Host:               getEnv("BI_HTTP_HOST", "0.0.0.0"),
 			Port:               getEnvAsInt("BI_HTTP_PORT", 8888),
 			CORSAllowedOrigins: splitCSV(getEnv("BI_CORS_ALLOWED_ORIGINS", "")),
-			HSTSEnabled:        getEnvAsBool("BI_HSTS_ENABLED", false),
+			HSTSEnabled:        getEnvAsBool("BI_HSTS_ENABLED", os.Getenv("BI_ENV") == "production"),
 		},
 		Logging: LoggingConfig{
 			Level:  strings.ToLower(strings.TrimSpace(getEnv("BI_LOG_LEVEL", "info"))),
