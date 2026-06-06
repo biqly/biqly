@@ -161,51 +161,21 @@ type ServicesConfig struct {
 	AIURL      string
 }
 
-// AIConfig holds AI provider configuration.
-type AIConfig struct {
-	// Provider/model selection is sourced exclusively from the ai_providers /
-	// ai_models tables (managed at runtime via the admin API). The connection
-	// fields below (Provider/Model/BaseURL/APIKey/tuning) are NOT read from the
-	// environment anymore — they are populated only by the ProviderStore from
-	// the resolved DB model, layered over the operational knobs in this struct.
-	Provider    string
-	APIKey      string
-	BaseURL     string
-	Model       string
-	MaxTokens   int
-	Temperature float64
-	TopP        float64
-	NumCtx      int
-	// HTTPTimeoutSeconds is the operational request budget used to size the HTTP
-	// server write timeout (BI_AI_HTTP_TIMEOUT_SECONDS). The per-provider LLM
-	// timeout is a separate value stored on each ai_providers row.
-	HTTPTimeoutSeconds int
-	RateLimitPerMinute int
-	// MaxPromptInputRunes caps the semantic-model section of NL→query prompts (~4 chars/rune ≈ 1 token).
-	MaxPromptInputRunes int
-	// DescribeMaxCellRunes truncates each sampled cell in AI Describe before sending to the LLM.
-	DescribeMaxCellRunes int
-	// DescribeMaxSampleRows is a hard cap on rows sampled for Describe (wide tables × many columns).
-	DescribeMaxSampleRows int
-	// TranslationModel enables a post-processing translation/normalization layer
-	// for AI-generated metadata descriptions.
-	TranslationModel string
-	// TranslationBaseURL is the OpenAI-compatible base URL for the translation model.
-	TranslationBaseURL string
-	// TranslationAPIKey is used for translation requests. Empty falls back to APIKey.
-	TranslationAPIKey string
-	// TranslationTargetLanguage is the human-readable target language name.
-	TranslationTargetLanguage string
-	// TranslationTargetCode is the BCP-47/ISO target language code.
-	TranslationTargetCode string
-	// TranslationHTTPTimeoutSeconds is the HTTP timeout for translation requests.
-	TranslationHTTPTimeoutSeconds int
-	// MaxRetries caps how many times the validator can re-prompt the model after parse/validation failure.
-	MaxRetries int
-	// MultiCandidateCount enables self-consistency voting: when >1, the service
-	// generates this many candidates per question (stepped temperatures) and
-	// selects the majority. 1 = single-shot (default).
-	MultiCandidateCount int
+// QueryLLMConfig overrides the connection used by the NL-to-LogicalQuery path
+// (typically a smarter model) without disturbing describe / metadata work,
+// which prefers cheaper coverage on a smaller local model. All fields are
+// optional: empty falls back to the matching base AIConfig connection setting.
+type QueryLLMConfig struct {
+	QueryProvider           string
+	QueryModel              string
+	QueryBaseURL            string
+	QueryAPIKey             string
+	QueryHTTPTimeoutSeconds int
+}
+
+// EmbeddingConfig groups the settings for vector-based table retrieval and the
+// embed-metadata pipeline.
+type EmbeddingConfig struct {
 	// EmbeddingModel names the embeddings model used for vector-based table
 	// retrieval. Empty disables the embedder; the router uses keyword-only scoring.
 	EmbeddingModel string
@@ -231,17 +201,29 @@ type AIConfig struct {
 	// EmbeddingDenyTables lists "schema.table" pairs to exclude from
 	// embedding even when the schema is otherwise allowed.
 	EmbeddingDenyTables []string
+}
 
-	// Query* fields let the NL-to-LogicalQuery path use a different model
-	// (typically a smarter one) without disturbing describe / metadata work,
-	// which prefers cheaper coverage on a smaller local model. All four are
-	// optional: empty falls back to the matching base BI_AI_* setting.
-	QueryProvider           string
-	QueryModel              string
-	QueryBaseURL            string
-	QueryAPIKey             string
-	QueryHTTPTimeoutSeconds int
+// TranslationConfig groups the post-processing translation/normalization layer
+// for AI-generated metadata descriptions.
+type TranslationConfig struct {
+	// TranslationModel enables a post-processing translation/normalization layer
+	// for AI-generated metadata descriptions.
+	TranslationModel string
+	// TranslationBaseURL is the OpenAI-compatible base URL for the translation model.
+	TranslationBaseURL string
+	// TranslationAPIKey is used for translation requests. Empty falls back to APIKey.
+	TranslationAPIKey string
+	// TranslationTargetLanguage is the human-readable target language name.
+	TranslationTargetLanguage string
+	// TranslationTargetCode is the BCP-47/ISO target language code.
+	TranslationTargetCode string
+	// TranslationHTTPTimeoutSeconds is the HTTP timeout for translation requests.
+	TranslationHTTPTimeoutSeconds int
+}
 
+// RoutingConfig groups the hybrid table-router tuning knobs and the caps used
+// when synthesizing semantic models from raw introspected metadata.
+type RoutingConfig struct {
 	// RoutingLexiconPath overrides embedded NL token synonyms and intent vocabulary (JSON).
 	RoutingLexiconPath string
 	// RoutingWeightsPath overrides table-routing score weights and boost rules (JSON).
@@ -256,8 +238,10 @@ type AIConfig struct {
 	RouteMaxDateGrainExtras int
 	// RouteSlimNumericMetrics when true emits only sum_/max_ per numeric column (not avg_/min_).
 	RouteSlimNumericMetrics bool
-	// ResponseCacheTTLSeconds sets the time-to-live for cached AI query responses.
-	ResponseCacheTTLSeconds int
+}
+
+// AmbiguityConfig groups the pre-LLM semantic ambiguity clarification knobs.
+type AmbiguityConfig struct {
 	// AmbiguityCheckEnabled toggles pre-LLM semantic ambiguity clarification.
 	AmbiguityCheckEnabled bool
 	// AmbiguityConfidenceThreshold is the minimum interpretation confidence to count toward clarification.
@@ -266,6 +250,51 @@ type AIConfig struct {
 	AmbiguityMaxOptions int
 	// AmbiguityLLMEnabled enables the provider-backed ambiguity fallback after deterministic checks pass.
 	AmbiguityLLMEnabled bool
+}
+
+// AIConfig holds AI provider configuration. The purpose-specific knobs are
+// grouped into embedded sub-configs (query / embedding / translation / routing /
+// ambiguity); their fields are promoted, so cfg.AI.EmbeddingModel and friends
+// keep resolving unchanged across the codebase.
+type AIConfig struct {
+	// Provider/model selection is sourced exclusively from the ai_providers /
+	// ai_models tables (managed at runtime via the admin API). The connection
+	// fields below (Provider/Model/BaseURL/APIKey/tuning) are NOT read from the
+	// environment anymore — they are populated only by the ProviderStore from
+	// the resolved DB model, layered over the operational knobs in this struct.
+	Provider    string
+	APIKey      string
+	BaseURL     string
+	Model       string
+	MaxTokens   int
+	Temperature float64
+	TopP        float64
+	NumCtx      int
+	// HTTPTimeoutSeconds is the operational request budget used to size the HTTP
+	// server write timeout (BI_AI_HTTP_TIMEOUT_SECONDS). The per-provider LLM
+	// timeout is a separate value stored on each ai_providers row.
+	HTTPTimeoutSeconds int
+	RateLimitPerMinute int
+	// MaxPromptInputRunes caps the semantic-model section of NL→query prompts (~4 chars/rune ≈ 1 token).
+	MaxPromptInputRunes int
+	// DescribeMaxCellRunes truncates each sampled cell in AI Describe before sending to the LLM.
+	DescribeMaxCellRunes int
+	// DescribeMaxSampleRows is a hard cap on rows sampled for Describe (wide tables × many columns).
+	DescribeMaxSampleRows int
+	// MaxRetries caps how many times the validator can re-prompt the model after parse/validation failure.
+	MaxRetries int
+	// MultiCandidateCount enables self-consistency voting: when >1, the service
+	// generates this many candidates per question (stepped temperatures) and
+	// selects the majority. 1 = single-shot (default).
+	MultiCandidateCount int
+	// ResponseCacheTTLSeconds sets the time-to-live for cached AI query responses.
+	ResponseCacheTTLSeconds int
+
+	QueryLLMConfig
+	EmbeddingConfig
+	TranslationConfig
+	RoutingConfig
+	AmbiguityConfig
 }
 
 // Load reads configuration from environment variables.
@@ -322,41 +351,49 @@ func Load() (*Config, error) {
 			// is intentionally NOT read from the environment — it comes only from
 			// the ai_providers / ai_models tables via the ProviderStore. Only the
 			// operational knobs below are environment-driven.
-			HTTPTimeoutSeconds:    getEnvAsInt("BI_AI_HTTP_TIMEOUT_SECONDS", 300),
-			RateLimitPerMinute:    getEnvAsInt("BI_AI_RATE_LIMIT_PER_MINUTE", 20),
-			MaxPromptInputRunes:   getEnvAsInt("BI_AI_MAX_PROMPT_RUNES", 80000),
-			DescribeMaxCellRunes:  getEnvAsInt("BI_AI_DESCRIBE_MAX_CELL_RUNES", 500),
-			DescribeMaxSampleRows: getEnvAsInt("BI_AI_DESCRIBE_MAX_SAMPLE_ROWS", 12),
-			TranslationTargetLanguage: getEnv(
-				"BI_AI_TRANSLATION_TARGET_LANGUAGE",
-				"Turkish",
-			),
-			TranslationTargetCode:         getEnv("BI_AI_TRANSLATION_TARGET_CODE", "tr"),
-			TranslationHTTPTimeoutSeconds: getEnvAsInt("BI_AI_TRANSLATION_HTTP_TIMEOUT_SECONDS", 120),
-			MaxRetries:                    getEnvAsInt("BI_AI_MAX_RETRIES", 2),
-			MultiCandidateCount:           getEnvAsInt("BI_AI_MULTI_CANDIDATE_COUNT", 1),
-			EmbeddingHTTPTimeoutSeconds: getEnvAsInt(
-				"BI_AI_EMBEDDING_HTTP_TIMEOUT_SECONDS",
-				getEnvAsInt("BI_AI_HTTP_TIMEOUT_SECONDS", 600),
-			),
-			EmbeddingWeight:         getEnvAsFloat("BI_AI_EMBEDDING_WEIGHT", 30.0),
-			EmbeddingDenySchemas:    splitCSV(getEnv("BI_AI_EMBEDDING_DENY_SCHEMAS", "")),
-			EmbeddingDenyTables:     splitCSV(getEnv("BI_AI_EMBEDDING_DENY_TABLES", "")),
-			RoutingLexiconPath:      getEnv("BI_AI_ROUTING_LEXICON_PATH", ""),
-			RoutingWeightsPath:      getEnv("BI_AI_ROUTING_WEIGHTS_PATH", ""),
-			RouteMaxDimensions:      getEnvAsInt("BI_AI_ROUTE_MAX_DIMENSIONS", 0),
-			RouteMaxMetrics:         getEnvAsInt("BI_AI_ROUTE_MAX_METRICS", 0),
-			RouteMaxColumnsPerTable: getEnvAsInt("BI_AI_ROUTE_MAX_COLUMNS_PER_TABLE", 0),
-			RouteMaxDateGrainExtras: getEnvAsInt("BI_AI_ROUTE_MAX_DATE_GRAIN_EXTRAS", 0),
-			RouteSlimNumericMetrics: getEnvAsBool("BI_AI_ROUTE_SLIM_NUMERIC_METRICS", true),
+			HTTPTimeoutSeconds:      getEnvAsInt("BI_AI_HTTP_TIMEOUT_SECONDS", 300),
+			RateLimitPerMinute:      getEnvAsInt("BI_AI_RATE_LIMIT_PER_MINUTE", 20),
+			MaxPromptInputRunes:     getEnvAsInt("BI_AI_MAX_PROMPT_RUNES", 80000),
+			DescribeMaxCellRunes:    getEnvAsInt("BI_AI_DESCRIBE_MAX_CELL_RUNES", 500),
+			DescribeMaxSampleRows:   getEnvAsInt("BI_AI_DESCRIBE_MAX_SAMPLE_ROWS", 12),
+			MaxRetries:              getEnvAsInt("BI_AI_MAX_RETRIES", 2),
+			MultiCandidateCount:     getEnvAsInt("BI_AI_MULTI_CANDIDATE_COUNT", 1),
 			ResponseCacheTTLSeconds: getEnvAsInt("BI_AI_RESPONSE_CACHE_TTL", 3600),
-			AmbiguityCheckEnabled:   getEnvAsBool("BI_AI_AMBIGUITY_CHECK_ENABLED", true),
-			AmbiguityConfidenceThreshold: getEnvAsFloat(
-				"BI_AI_AMBIGUITY_CONFIDENCE_THRESHOLD",
-				0.70,
-			),
-			AmbiguityMaxOptions: getEnvAsInt("BI_AI_AMBIGUITY_MAX_OPTIONS", 5),
-			AmbiguityLLMEnabled: getEnvAsBool("BI_AI_AMBIGUITY_LLM_ENABLED", false),
+			TranslationConfig: TranslationConfig{
+				TranslationTargetLanguage: getEnv(
+					"BI_AI_TRANSLATION_TARGET_LANGUAGE",
+					"Turkish",
+				),
+				TranslationTargetCode:         getEnv("BI_AI_TRANSLATION_TARGET_CODE", "tr"),
+				TranslationHTTPTimeoutSeconds: getEnvAsInt("BI_AI_TRANSLATION_HTTP_TIMEOUT_SECONDS", 120),
+			},
+			EmbeddingConfig: EmbeddingConfig{
+				EmbeddingHTTPTimeoutSeconds: getEnvAsInt(
+					"BI_AI_EMBEDDING_HTTP_TIMEOUT_SECONDS",
+					getEnvAsInt("BI_AI_HTTP_TIMEOUT_SECONDS", 600),
+				),
+				EmbeddingWeight:      getEnvAsFloat("BI_AI_EMBEDDING_WEIGHT", 30.0),
+				EmbeddingDenySchemas: splitCSV(getEnv("BI_AI_EMBEDDING_DENY_SCHEMAS", "")),
+				EmbeddingDenyTables:  splitCSV(getEnv("BI_AI_EMBEDDING_DENY_TABLES", "")),
+			},
+			RoutingConfig: RoutingConfig{
+				RoutingLexiconPath:      getEnv("BI_AI_ROUTING_LEXICON_PATH", ""),
+				RoutingWeightsPath:      getEnv("BI_AI_ROUTING_WEIGHTS_PATH", ""),
+				RouteMaxDimensions:      getEnvAsInt("BI_AI_ROUTE_MAX_DIMENSIONS", 0),
+				RouteMaxMetrics:         getEnvAsInt("BI_AI_ROUTE_MAX_METRICS", 0),
+				RouteMaxColumnsPerTable: getEnvAsInt("BI_AI_ROUTE_MAX_COLUMNS_PER_TABLE", 0),
+				RouteMaxDateGrainExtras: getEnvAsInt("BI_AI_ROUTE_MAX_DATE_GRAIN_EXTRAS", 0),
+				RouteSlimNumericMetrics: getEnvAsBool("BI_AI_ROUTE_SLIM_NUMERIC_METRICS", true),
+			},
+			AmbiguityConfig: AmbiguityConfig{
+				AmbiguityCheckEnabled: getEnvAsBool("BI_AI_AMBIGUITY_CHECK_ENABLED", true),
+				AmbiguityConfidenceThreshold: getEnvAsFloat(
+					"BI_AI_AMBIGUITY_CONFIDENCE_THRESHOLD",
+					0.70,
+				),
+				AmbiguityMaxOptions: getEnvAsInt("BI_AI_AMBIGUITY_MAX_OPTIONS", 5),
+				AmbiguityLLMEnabled: getEnvAsBool("BI_AI_AMBIGUITY_LLM_ENABLED", false),
+			},
 		},
 		NATS: NATSConfig{
 			URL:           getEnv("BI_NATS_URL", ""),

@@ -13,6 +13,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
 	ambiguitypkg "github.com/biqly/biqly/internal/ai/ambiguity"
 	evalpkg "github.com/biqly/biqly/internal/ai/eval"
@@ -249,8 +250,6 @@ func WithAmbiguityAnalysisObserver(observer AmbiguityAnalysisObserver) ProcessOp
 // ProcessQuestion handles a natural language question. On parse or validation
 // failure the LLM is re-prompted with the prior output and error message, up
 // to s.maxRetries additional attempts.
-//
-//nolint:gocyclo,gocognit,funlen // orchestrates ambiguity check, cache, multi-candidate voting, and repair/retry loop
 func (s *Service) ProcessQuestion(ctx context.Context, question string, model *semantic.SemanticModel, opts ...ProcessOption) (*AIResponse, error) {
 	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.ProcessQuestion")
 	defer span.End()
@@ -264,47 +263,8 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		opt(&options)
 	}
 
-	if options.ambiguityCheck { //nolint:nestif
-		glossary := options.ambiguityGlossary
-		if glossary == nil {
-			glossary = options.glossary
-		}
-		cacheKey := ambiguityAnalysisCacheKey(question, model, glossary, options.ambiguityConfidenceThreshold, options.ambiguityLLMCheck)
-		result, source, cached := s.getCachedAmbiguityAnalysis(cacheKey)
-		if cached && options.ambiguityObserver != nil {
-			options.ambiguityObserver(0, source, result.IsAmbiguous)
-		}
-		if !cached {
-			cacheable := true
-			source = "rule_based"
-			start := time.Now()
-			result = ambiguitypkg.Analyze(ctx, question, model, glossary, options.ambiguityConfidenceThreshold)
-			if options.ambiguityObserver != nil {
-				options.ambiguityObserver(time.Since(start).Milliseconds(), source, result.IsAmbiguous)
-			}
-			if !result.IsAmbiguous && options.ambiguityLLMCheck {
-				analysisCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-				start = time.Now()
-				llmResult, err := ambiguitypkg.NewLLMAnalyzer(s.client).Analyze(analysisCtx, i18n.FromContext(ctx), question, model, glossary)
-				cancel()
-				source = "llm"
-				if err != nil {
-					cacheable = false
-					slog.WarnContext(ctx, "LLM ambiguity analysis failed", "error", err)
-				} else {
-					result = llmResult
-				}
-				if options.ambiguityObserver != nil {
-					options.ambiguityObserver(time.Since(start).Milliseconds(), source, result.IsAmbiguous)
-				}
-			}
-			if cacheable {
-				s.cacheAmbiguityAnalysis(cacheKey, result, source)
-			}
-		}
-		if result.IsAmbiguous {
-			return ambiguityClarificationResponse(i18n.FromContext(ctx), result, options.ambiguityMaxOptions), nil
-		}
+	if resp, done := s.checkAmbiguity(ctx, question, model, &options); done {
+		return resp, nil
 	}
 
 	filterSess := FilterSessionFromPriorTurns(options.priorTurns)
@@ -331,189 +291,280 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		}
 	}
 
-	var (
-		prompt             = basePrompt
-		promptStats        = baseStats
-		lastRaw            string
-		lastGen            providerpkg.GenerationResult
-		retryWarnings      []string
-		lq                 *query.LogicalQuery
-		warnings           []string
-		validationErrCount int
-		parseErr           error
-		validationErrors   query.ValidationErrors
-		repairDetails      []RepairDetail
-	)
+	resp, state, err := s.generateWithRetries(ctx, span, question, model, &options, basePrompt, baseStats, filterSess, followIntent)
+	if err != nil {
+		return nil, err
+	}
+	if resp != nil {
+		s.cacheResponse(ctx, cacheKey, resp)
+		return resp, nil
+	}
+	return s.buildFailureResponse(ctx, question, model, state), nil
+}
+
+// checkAmbiguity runs the optional pre-LLM ambiguity analysis. It returns
+// (response, true) when the question is ambiguous and the caller should return
+// the clarification response immediately, or (nil, false) to continue with
+// generation.
+func (s *Service) checkAmbiguity(ctx context.Context, question string, model *semantic.SemanticModel, options *processOptions) (*AIResponse, bool) {
+	if !options.ambiguityCheck {
+		return nil, false
+	}
+	glossary := options.ambiguityGlossary
+	if glossary == nil {
+		glossary = options.glossary
+	}
+	cacheKey := ambiguityAnalysisCacheKey(question, model, glossary, options.ambiguityConfidenceThreshold, options.ambiguityLLMCheck)
+	result, source, cached := s.getCachedAmbiguityAnalysis(cacheKey)
+	if cached {
+		if options.ambiguityObserver != nil {
+			options.ambiguityObserver(0, source, result.IsAmbiguous)
+		}
+	} else {
+		result = s.analyzeAmbiguity(ctx, question, model, glossary, options, cacheKey)
+	}
+	if result.IsAmbiguous {
+		return ambiguityClarificationResponse(i18n.FromContext(ctx), result, options.ambiguityMaxOptions), true
+	}
+	return nil, false
+}
+
+// analyzeAmbiguity runs the deterministic ambiguity check and, when configured,
+// the LLM fallback, caching the result unless the LLM call failed.
+func (s *Service) analyzeAmbiguity(ctx context.Context, question string, model *semantic.SemanticModel, glossary []promptpkg.GlossaryEntry, options *processOptions, cacheKey string) ambiguitypkg.Result {
+	source := "rule_based"
+	start := time.Now()
+	result := ambiguitypkg.Analyze(ctx, question, model, glossary, options.ambiguityConfidenceThreshold)
+	if options.ambiguityObserver != nil {
+		options.ambiguityObserver(time.Since(start).Milliseconds(), source, result.IsAmbiguous)
+	}
+
+	cacheable := true
+	if !result.IsAmbiguous && options.ambiguityLLMCheck {
+		analysisCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		start = time.Now()
+		llmResult, err := ambiguitypkg.NewLLMAnalyzer(s.client).Analyze(analysisCtx, i18n.FromContext(ctx), question, model, glossary)
+		cancel()
+		source = "llm"
+		if err != nil {
+			cacheable = false
+			slog.WarnContext(ctx, "LLM ambiguity analysis failed", "error", err)
+		} else {
+			result = llmResult
+		}
+		if options.ambiguityObserver != nil {
+			options.ambiguityObserver(time.Since(start).Milliseconds(), source, result.IsAmbiguous)
+		}
+	}
+	if cacheable {
+		s.cacheAmbiguityAnalysis(cacheKey, result, source)
+	}
+	return result
+}
+
+// genLoopState captures the terminal state of the generate/validate/repair loop
+// when no attempt produced a usable query, so the clarification builders can
+// assemble the failure response.
+type genLoopState struct {
+	lq                 *query.LogicalQuery
+	lastRaw            string
+	lastGen            providerpkg.GenerationResult
+	retryWarnings      []string
+	warnings           []string
+	validationErrCount int
+	parseErr           error
+	prompt             string
+	promptStats        promptpkg.Stats
+	repairDetails      []RepairDetail
+}
+
+// generateWithRetries runs single-shot generation plus the repair/retry loop. It
+// returns a fully-formed success response, or (nil, state, nil) with the terminal
+// loop state for the caller to assemble a clarification response, or a non-nil
+// error when the provider call itself fails.
+func (s *Service) generateWithRetries(
+	ctx context.Context,
+	span trace.Span,
+	question string,
+	model *semantic.SemanticModel,
+	options *processOptions,
+	basePrompt string,
+	baseStats promptpkg.Stats,
+	filterSess *FilterSessionState,
+	followIntent FollowUpIntent,
+) (*AIResponse, *genLoopState, error) {
+	st := &genLoopState{prompt: basePrompt, promptStats: baseStats}
+	var validationErrors query.ValidationErrors
 
 	for attempt := range s.maxRetries + 1 {
-		gen, genErr := s.client.Generate(ctx, prompt)
+		gen, genErr := s.client.Generate(ctx, st.prompt)
 		if genErr != nil {
 			span.RecordError(genErr)
 			span.SetStatus(codes.Error, genErr.Error())
-			return nil, fmt.Errorf("AI generation failed: %w", genErr)
+			return nil, nil, fmt.Errorf("AI generation failed: %w", genErr)
 		}
-		lastGen = gen
-		lastRaw = gen.Content
+		st.lastGen = gen
+		st.lastRaw = gen.Content
 
-		lq, warnings, validationErrCount, validationErrors, parseErr = s.parseAndValidate(gen.Content, model)
+		st.lq, st.warnings, st.validationErrCount, validationErrors, st.parseErr = s.parseAndValidate(gen.Content, model)
 
 		// Dry-run check (e.g. EXPLAIN) only when the query parsed and passed
 		// semantic validation; otherwise the SQL would not be compilable anyway.
 		var sqlErr error
-		if parseErr == nil && validationErrCount == 0 && options.sqlValidator != nil {
-			sqlErr = options.sqlValidator(ctx, lq)
+		if st.parseErr == nil && st.validationErrCount == 0 && options.sqlValidator != nil {
+			sqlErr = options.sqlValidator(ctx, st.lq)
 			if sqlErr != nil {
-				warnings = append(warnings, "dry-run failed: "+sqlErr.Error())
+				st.warnings = append(st.warnings, "dry-run failed: "+sqlErr.Error())
 			}
 		}
 
-		if parseErr == nil && validationErrCount == 0 && sqlErr == nil {
-			if inheritNotes := ApplyFilterSession(lq, filterSess, followIntent); len(inheritNotes) > 0 {
-				warnings = append(warnings, inheritNotes...)
+		if st.parseErr == nil && st.validationErrCount == 0 && sqlErr == nil {
+			if inheritNotes := ApplyFilterSession(st.lq, filterSess, followIntent); len(inheritNotes) > 0 {
+				st.warnings = append(st.warnings, inheritNotes...)
 			}
-			retries := attempt
-			span.SetAttributes(attribute.Int("ai.retries", retries))
-			templateLocale, templateVersions, bundleVersion := promptTemplateTrace(ctx, question)
-			resp := &AIResponse{
-				Result: &AIResult{
-					LogicalQuery: lq,
-					Confidence:   computeConfidence(validationErrCount, retries),
-					Warnings:     append(retryWarnings, warnings...),
-				},
-				Metadata: &AIMetadata{
-					Prompt:                      prompt,
-					RawResponse:                 gen.Content,
-					RetryCount:                  retries,
-					PromptStats:                 &promptStats,
-					TokenUsage:                  providerpkg.TokenUsageFromGeneration(promptStats, gen),
-					PromptTemplateLocale:        templateLocale,
-					PromptTemplateVersions:      templateVersions,
-					PromptTemplateBundleVersion: bundleVersion,
-					RepairDetails:               repairDetails,
-				},
-			}
-			s.cacheResponse(ctx, cacheKey, resp)
-			return resp, nil
+			span.SetAttributes(attribute.Int("ai.retries", attempt))
+			return s.buildSuccessResponse(ctx, question, st, attempt), nil, nil
 		}
 
-		// Out of attempts — fall through to error/warning response.
+		// Out of attempts — fall through to the failure/clarification path.
 		if attempt == s.maxRetries {
 			break
 		}
 
 		// Re-prompt with the failure context for the next attempt.
-		failureMsg := failureMessageFor(parseErr, sqlErr, warnings)
-		retryWarnings = append(retryWarnings, fmt.Sprintf("retry %d (context %s): %s", attempt+1, promptpkg.ContextTierLabel(contextTierForAttempt(attempt+1)), failureMsg))
+		failureMsg := failureMessageFor(st.parseErr, sqlErr, st.warnings)
+		st.retryWarnings = append(st.retryWarnings, fmt.Sprintf("retry %d (context %s): %s", attempt+1, promptpkg.ContextTierLabel(contextTierForAttempt(attempt+1)), failureMsg))
 		nextTier := contextTierForAttempt(attempt + 1)
-		expanded, _ := s.buildPrompt(ctx, question, model, nextTier, &options, filterSess, followIntent)
-
+		expanded, _ := s.buildPrompt(ctx, question, model, nextTier, options, filterSess, followIntent)
 		locale := promptpkg.LocaleForQuestion(question, i18n.FromContext(ctx))
-		if len(validationErrors) > 0 { //nolint:nestif
-			var filteredErrors query.ValidationErrors
-			if attempt == 0 {
-				for _, ve := range validationErrors {
-					if ve.Code == errmsg.CodeUnknownField || ve.Code == errmsg.CodeUnknownDimension || ve.Code == errmsg.CodeUnknownMetric {
-						filteredErrors = append(filteredErrors, ve)
-					}
-				}
-				if len(filteredErrors) == 0 {
-					filteredErrors = validationErrors
-				}
-			} else {
-				filteredErrors = validationErrors
-			}
 
-			// Build repair detail
-			var errorCodes []string
-			for _, ve := range filteredErrors {
-				if ve.Code != "" {
-					errorCodes = append(errorCodes, ve.Code)
-				}
-			}
-			errorsJSON := filteredErrors.ToRepairJSON()
+		st.prompt = s.buildNextAttemptPrompt(ctx, locale, expanded, gen.Content, failureMsg, validationErrors, attempt, st)
+		st.promptStats = promptpkg.MeasurePrompt(st.prompt, s.queryModel, nextTier, s.aiCfg)
+	}
 
-			// Record the same strategy text the repair prompt will use (1-indexed attempt).
-			strategyStr := promptpkg.RepairStrategy(locale, attempt+1)
+	return nil, st, nil
+}
 
-			repairDetails = append(repairDetails, RepairDetail{
-				Attempt:    attempt + 1,
-				ErrorCodes: errorCodes,
-				ErrorsJSON: errorsJSON,
-				Strategy:   strategyStr,
-			})
+// buildNextAttemptPrompt selects between a validation-error repair prompt and a
+// generic retry prompt, recording a RepairDetail on st for the former.
+func (s *Service) buildNextAttemptPrompt(ctx context.Context, locale i18n.Locale, expanded, lastResponse, failureMsg string, validationErrors query.ValidationErrors, attempt int, st *genLoopState) string {
+	if len(validationErrors) == 0 {
+		return s.promptBuilder.BuildRetry(ctx, locale, expanded, lastResponse, failureMsg)
+	}
 
-			prompt = s.promptBuilder.BuildRepairPrompt(ctx, locale, expanded, gen.Content, filteredErrors, attempt+1)
-		} else {
-			prompt = s.promptBuilder.BuildRetry(ctx, locale, expanded, gen.Content, failureMsg)
+	filteredErrors := filterValidationErrors(validationErrors, attempt)
+
+	var errorCodes []string
+	for _, ve := range filteredErrors {
+		if ve.Code != "" {
+			errorCodes = append(errorCodes, ve.Code)
 		}
-		promptStats = promptpkg.MeasurePrompt(prompt, s.queryModel, nextTier, s.aiCfg)
 	}
 
-	failureReason := failureMessageFor(parseErr, nil, warnings)
+	// Record the same strategy text the repair prompt will use (1-indexed attempt).
+	strategyStr := promptpkg.RepairStrategy(locale, attempt+1)
+	st.repairDetails = append(st.repairDetails, RepairDetail{
+		Attempt:    attempt + 1,
+		ErrorCodes: errorCodes,
+		ErrorsJSON: filteredErrors.ToRepairJSON(),
+		Strategy:   strategyStr,
+	})
 
-	if parseErr != nil {
-		clarification := s.tryGenerateClarification(ctx, question, model, failureReason)
-		templateLocale, templateVersions, bundleVersion := promptTemplateTrace(ctx, question)
-		return newClarificationResponse(&clarificationInputs{
-			LogicalQuery:                nil,
-			Confidence:                  0,
-			Warnings:                    append(retryWarnings, append(warnings, parseErr.Error())...),
-			Prompt:                      prompt,
-			RawResponse:                 lastRaw,
-			RetryCount:                  s.maxRetries,
-			PromptStats:                 promptStats,
-			Gen:                         lastGen,
-			Clarification:               clarification,
-			FailureReason:               failureReason,
-			Source:                      "ai",
-			PromptTemplateLocale:        templateLocale,
-			PromptTemplateVersions:      templateVersions,
-			PromptTemplateBundleVersion: bundleVersion,
-			RepairDetails:               repairDetails,
-		}), nil
+	return s.promptBuilder.BuildRepairPrompt(ctx, locale, expanded, lastResponse, filteredErrors, attempt+1)
+}
+
+// filterValidationErrors narrows the first repair attempt to unknown-field /
+// dimension / metric errors (the highest-signal ones), falling back to the full
+// set when none match or on later attempts.
+func filterValidationErrors(validationErrors query.ValidationErrors, attempt int) query.ValidationErrors {
+	if attempt != 0 {
+		return validationErrors
 	}
-
-	clarification := ""
-	if validationErrCount > 0 {
-		clarification = s.tryGenerateClarification(ctx, question, model, failureReason)
-		templateLocale, templateVersions, bundleVersion := promptTemplateTrace(ctx, question)
-		return newClarificationResponse(&clarificationInputs{
-			LogicalQuery:                nil,
-			Confidence:                  0,
-			Warnings:                    append(retryWarnings, warnings...),
-			Prompt:                      prompt,
-			RawResponse:                 lastRaw,
-			RetryCount:                  s.maxRetries,
-			PromptStats:                 promptStats,
-			Gen:                         lastGen,
-			Clarification:               clarification,
-			FailureReason:               failureReason,
-			Source:                      "validator",
-			PromptTemplateLocale:        templateLocale,
-			PromptTemplateVersions:      templateVersions,
-			PromptTemplateBundleVersion: bundleVersion,
-			RepairDetails:               repairDetails,
-		}), nil
+	var filtered query.ValidationErrors
+	for _, ve := range validationErrors {
+		if ve.Code == errmsg.CodeUnknownField || ve.Code == errmsg.CodeUnknownDimension || ve.Code == errmsg.CodeUnknownMetric {
+			filtered = append(filtered, ve)
+		}
 	}
+	if len(filtered) == 0 {
+		return validationErrors
+	}
+	return filtered
+}
 
+// buildSuccessResponse assembles the AIResponse for an attempt that produced a
+// valid, compilable query.
+func (*Service) buildSuccessResponse(ctx context.Context, question string, st *genLoopState, retries int) *AIResponse {
 	templateLocale, templateVersions, bundleVersion := promptTemplateTrace(ctx, question)
-	return newClarificationResponse(&clarificationInputs{
-		LogicalQuery:                lq,
-		Confidence:                  computeConfidence(validationErrCount, s.maxRetries),
-		Warnings:                    append(retryWarnings, warnings...),
-		Prompt:                      prompt,
-		RawResponse:                 lastRaw,
+	return &AIResponse{
+		Result: &AIResult{
+			LogicalQuery: st.lq,
+			Confidence:   computeConfidence(st.validationErrCount, retries),
+			Warnings:     joinWarnings(st.retryWarnings, st.warnings),
+		},
+		Metadata: &AIMetadata{
+			Prompt:                      st.prompt,
+			RawResponse:                 st.lastGen.Content,
+			RetryCount:                  retries,
+			PromptStats:                 &st.promptStats,
+			TokenUsage:                  providerpkg.TokenUsageFromGeneration(st.promptStats, st.lastGen),
+			PromptTemplateLocale:        templateLocale,
+			PromptTemplateVersions:      templateVersions,
+			PromptTemplateBundleVersion: bundleVersion,
+			RepairDetails:               st.repairDetails,
+		},
+	}
+}
+
+// buildFailureResponse assembles a clarification response after the retry loop
+// exhausted without a usable query, branching on parse vs validation failure.
+func (s *Service) buildFailureResponse(ctx context.Context, question string, model *semantic.SemanticModel, st *genLoopState) *AIResponse {
+	failureReason := failureMessageFor(st.parseErr, nil, st.warnings)
+	templateLocale, templateVersions, bundleVersion := promptTemplateTrace(ctx, question)
+
+	in := &clarificationInputs{
+		Prompt:                      st.prompt,
+		RawResponse:                 st.lastRaw,
 		RetryCount:                  s.maxRetries,
-		PromptStats:                 promptStats,
-		Gen:                         lastGen,
-		Clarification:               clarification,
+		PromptStats:                 st.promptStats,
+		Gen:                         st.lastGen,
 		FailureReason:               failureReason,
-		Source:                      "ai",
 		PromptTemplateLocale:        templateLocale,
 		PromptTemplateVersions:      templateVersions,
 		PromptTemplateBundleVersion: bundleVersion,
-		RepairDetails:               repairDetails,
-	}), nil
+		RepairDetails:               st.repairDetails,
+	}
+
+	switch {
+	case st.parseErr != nil:
+		in.Warnings = joinWarnings(st.retryWarnings, st.warnings, []string{st.parseErr.Error()})
+		in.Clarification = s.tryGenerateClarification(ctx, question, model, failureReason)
+		in.Source = "ai"
+	case st.validationErrCount > 0:
+		in.Warnings = joinWarnings(st.retryWarnings, st.warnings)
+		in.Clarification = s.tryGenerateClarification(ctx, question, model, failureReason)
+		in.Source = "validator"
+	default:
+		in.LogicalQuery = st.lq
+		in.Confidence = computeConfidence(st.validationErrCount, s.maxRetries)
+		in.Warnings = joinWarnings(st.retryWarnings, st.warnings)
+		in.Source = "ai"
+	}
+	return newClarificationResponse(in)
+}
+
+// joinWarnings concatenates warning groups into a fresh slice, avoiding aliasing
+// the first group's backing array.
+func joinWarnings(groups ...[]string) []string {
+	total := 0
+	for _, g := range groups {
+		total += len(g)
+	}
+	out := make([]string, 0, total)
+	for _, g := range groups {
+		out = append(out, g...)
+	}
+	return out
 }
 
 func ambiguityClarificationResponse(locale i18n.Locale, result ambiguitypkg.Result, maxOptions int) *AIResponse {

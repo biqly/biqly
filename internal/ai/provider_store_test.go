@@ -88,7 +88,7 @@ func TestChatConfigForPurposeResolved(t *testing.T) {
 		MaxRetries:          3,
 		MultiCandidateCount: 2,
 		MaxPromptInputRunes: 80000,
-		QueryModel:          "should-be-cleared",
+		QueryLLMConfig:      config.QueryLLMConfig{QueryModel: "should-be-cleared"},
 	}
 	store := NewProviderStore(nil, nil, &fallback)
 	store.resolved[PurposeQuery] = &resolvedModel{
@@ -194,9 +194,11 @@ func TestPurposeProviderFallsBackWhenUnresolved(t *testing.T) {
 
 func TestEffectiveConfigForEmbeddings_ClearsEnvWhenUnresolved(t *testing.T) {
 	fallback := config.AIConfig{
-		EmbeddingModel:  "env-embed",
-		EmbeddingAPIKey: "env-key",
-		BaseURL:         "https://api.openai.com/v1",
+		EmbeddingConfig: config.EmbeddingConfig{
+			EmbeddingModel:  "env-embed",
+			EmbeddingAPIKey: "env-key",
+		},
+		BaseURL: "https://api.openai.com/v1",
 	}
 	store := NewProviderStore(nil, nil, &fallback)
 
@@ -223,7 +225,7 @@ func TestEffectiveConfigForEmbeddings_ClearsEnvWhenUnresolved(t *testing.T) {
 }
 
 func TestModelLabelForPurpose(t *testing.T) {
-	fallback := config.AIConfig{Model: "env-describe", QueryModel: "qwen-env"}
+	fallback := config.AIConfig{Model: "env-describe", QueryLLMConfig: config.QueryLLMConfig{QueryModel: "qwen-env"}}
 	store := NewProviderStore(nil, nil, &fallback)
 	store.resolved[PurposeQuery] = &resolvedModel{
 		ModelID:     "mimo-v2.5",

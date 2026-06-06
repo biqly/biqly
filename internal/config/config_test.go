@@ -6,7 +6,7 @@ import (
 )
 
 func TestAIConfig_EffectiveEmbeddingAPIKey(t *testing.T) {
-	c := AIConfig{APIKey: "main", EmbeddingAPIKey: "  emb  "}
+	c := AIConfig{APIKey: "main", EmbeddingConfig: EmbeddingConfig{EmbeddingAPIKey: "  emb  "}}
 	if got := c.EffectiveEmbeddingAPIKey(); got != "emb" {
 		t.Fatalf("want dedicated trimmed key, got %q", got)
 	}
@@ -30,7 +30,7 @@ func TestAIConfig_AIHTTPTimeout(t *testing.T) {
 }
 
 func TestAIConfig_EmbeddingHTTPTimeout(t *testing.T) {
-	c := AIConfig{HTTPTimeoutSeconds: 12, EmbeddingHTTPTimeoutSeconds: 45}
+	c := AIConfig{HTTPTimeoutSeconds: 12, EmbeddingConfig: EmbeddingConfig{EmbeddingHTTPTimeoutSeconds: 45}}
 	if got := c.EmbeddingHTTPTimeout(); got != 45*time.Second {
 		t.Fatalf("configured embedding timeout: got %s", got)
 	}
@@ -44,7 +44,7 @@ func TestAIConfig_EmbeddingHTTPTimeout(t *testing.T) {
 }
 
 func TestAIConfig_TranslationHTTPTimeout(t *testing.T) {
-	c := AIConfig{HTTPTimeoutSeconds: 12, TranslationHTTPTimeoutSeconds: 45}
+	c := AIConfig{HTTPTimeoutSeconds: 12, TranslationConfig: TranslationConfig{TranslationHTTPTimeoutSeconds: 45}}
 	if got := c.TranslationHTTPTimeout(); got != 45*time.Second {
 		t.Fatalf("configured translation timeout: got %s", got)
 	}
@@ -58,7 +58,7 @@ func TestAIConfig_TranslationHTTPTimeout(t *testing.T) {
 }
 
 func TestAIConfig_AIRequestTimeout(t *testing.T) {
-	c := AIConfig{HTTPTimeoutSeconds: 12, EmbeddingHTTPTimeoutSeconds: 45, TranslationHTTPTimeoutSeconds: 60}
+	c := AIConfig{HTTPTimeoutSeconds: 12, EmbeddingConfig: EmbeddingConfig{EmbeddingHTTPTimeoutSeconds: 45}, TranslationConfig: TranslationConfig{TranslationHTTPTimeoutSeconds: 60}}
 	if got := c.AIRequestTimeout(); got != 90*time.Second {
 		t.Fatalf("request timeout should include the largest AI subrequest timeout plus buffer: got %s", got)
 	}
@@ -70,11 +70,13 @@ func TestAIConfig_AIRequestTimeout(t *testing.T) {
 
 func TestAIConfig_EffectiveTranslationConfig(t *testing.T) {
 	c := AIConfig{
-		APIKey:             "main",
-		BaseURL:            "https://chat.example/v1/",
-		TranslationModel:   "translategemma:4b",
-		TranslationBaseURL: "https://translate.example/v1/",
-		TranslationAPIKey:  "  translate  ",
+		APIKey:  "main",
+		BaseURL: "https://chat.example/v1/",
+		TranslationConfig: TranslationConfig{
+			TranslationModel:   "translategemma:4b",
+			TranslationBaseURL: "https://translate.example/v1/",
+			TranslationAPIKey:  "  translate  ",
+		},
 	}
 	if got := c.EffectiveTranslationAPIKey(); got != "translate" {
 		t.Fatalf("want dedicated trimmed key, got %q", got)
@@ -86,7 +88,7 @@ func TestAIConfig_EffectiveTranslationConfig(t *testing.T) {
 		t.Fatal("translation model plus base URL should enable translation")
 	}
 
-	fallback := AIConfig{APIKey: "main", BaseURL: "https://chat.example/v1", TranslationModel: "x"}
+	fallback := AIConfig{APIKey: "main", BaseURL: "https://chat.example/v1", TranslationConfig: TranslationConfig{TranslationModel: "x"}}
 	if got := fallback.EffectiveTranslationAPIKey(); got != "main" {
 		t.Fatalf("want main key fallback, got %q", got)
 	}
@@ -97,13 +99,13 @@ func TestAIConfig_EffectiveTranslationConfig(t *testing.T) {
 		t.Fatal("translation should use BI_AI_BASE_URL when dedicated URL is empty")
 	}
 
-	if (AIConfig{TranslationModel: "x"}).TranslationConfigured() {
+	if (AIConfig{TranslationConfig: TranslationConfig{TranslationModel: "x"}}).TranslationConfigured() {
 		t.Fatal("translation model without any base URL should not enable translation")
 	}
 }
 
 func TestAIConfig_EffectiveEmbeddingBaseURL(t *testing.T) {
-	c := AIConfig{EmbeddingBaseURL: "https://embed.example/v1/"}
+	c := AIConfig{EmbeddingConfig: EmbeddingConfig{EmbeddingBaseURL: "https://embed.example/v1/"}}
 	if got := c.EffectiveEmbeddingBaseURL(); got != "https://embed.example/v1" {
 		t.Fatalf("trim: got %q", got)
 	}
@@ -200,18 +202,18 @@ func TestAIConfig_EmbeddingsConfigured(t *testing.T) {
 		t.Fatal("empty config should not enable embeddings")
 	}
 	ok := AIConfig{
-		Provider:       "openai",
-		APIKey:         "k",
-		EmbeddingModel: "text-embedding-3-small",
+		Provider:        "openai",
+		APIKey:          "k",
+		EmbeddingConfig: EmbeddingConfig{EmbeddingModel: "text-embedding-3-small"},
 	}
 	if !ok.EmbeddingsConfigured() {
 		t.Fatal("model + key + default openai base should enable")
 	}
 	noURL := AIConfig{
-		Provider:       "anthropic",
-		APIKey:         "k",
-		BaseURL:        "",
-		EmbeddingModel: "x",
+		Provider:        "anthropic",
+		APIKey:          "k",
+		BaseURL:         "",
+		EmbeddingConfig: EmbeddingConfig{EmbeddingModel: "x"},
 	}
 	if noURL.EmbeddingsConfigured() {
 		t.Fatal("anthropic without any base URL should not enable (no default host for embeddings)")

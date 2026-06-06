@@ -22,9 +22,9 @@
 - [x] **Orta**: Güvenlik başlıklarına CSP + X-Frame-Options; prod'da HSTS zorunlu
   - [x] Enforce strict Content Security Policy (`default-src 'self'; frame-ancestors 'none'`) and X-Frame-Options (`DENY`) on all public router definitions (`internal/http/router.go`, `internal/http/service_middleware.go`, `cmd/auth/main.go`).
   - [x] Configure `HSTSEnabled: true` automatically in production environments (e.g., when running in production mode, overriding standard development configuration defaults).
-- [ ] **Orta**: AIConfig’i ve Service.Process’i ayrıştır
-  - [ ] **AIConfig decomposition**: Separate the God-object `config.AIConfig` struct (45 fields, 13 methods, complexity score 84 - CRITICAL) in `internal/config/config.go` into purpose-based sub-configs (query/embedding/translation/ambiguity/routing).
-  - [ ] **Service.Process refactoring**: Refactor `ProcessQuestion` in `internal/ai/service.go` by extracting self-consistency (voting) and repair/retry loop branches into separate, named helper functions, enabling the complete retirement of `//nolint:gocyclo,gocognit,funlen` directives.
+- [x] **Orta**: AIConfig'i ve Service.Process'i ayrıştır
+  - [x] **AIConfig decomposition**: Separate the God-object `config.AIConfig` struct (45 fields, 13 methods, complexity score 84 - CRITICAL) in `internal/config/config.go` into purpose-based sub-configs (query/embedding/translation/ambiguity/routing).
+  - [x] **Service.Process refactoring**: Refactor `ProcessQuestion` in `internal/ai/service.go` by extracting self-consistency (voting) and repair/retry loop branches into separate, named helper functions, enabling the complete retirement of `//nolint:gocyclo,gocognit,funlen` directives.
 - [ ] **Düşük**: ESLint uyarı tavanını kademeli düşür; *.test & coverage.out’u gitignore’la (DevX / Sürdürülebilirlik)
   - [ ] Reduce the `--max-warnings 1500` ceiling in `frontend/package.json` to the actual count of warnings (currently 1490) + a small buffer (e.g. `1495`), and start ratcheting it down over time towards 0.
   - [ ] Ensure that stray compilation outputs in the root of the repo (such as `auth.test`, `app.test`, `workspace.test`, and `coverage.out`) are properly and explicitly ignored via `.gitignore` to keep the workspace clean.
