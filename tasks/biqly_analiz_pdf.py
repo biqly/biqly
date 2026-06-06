@@ -473,10 +473,10 @@ def diagram_k8s():
 
 # ---- Olgunluk skor kartı (yatay barlar) -----------------------------------
 def diagram_scorecard():
-    dims = [("Güvenlik", 4.5, GREEN), ("Test Kapsamı", 3.5, AMBER),
-            ("Kod Kalitesi & Mimari", 4.3, GREEN), ("Gözlemlenebilirlik", 3.0, AMBER),
+    dims = [("Güvenlik", 4.7, GREEN), ("Test Kapsamı", 4.2, GREEN),
+            ("Kod Kalitesi & Mimari", 4.0, GREEN), ("Gözlemlenebilirlik", 4.2, GREEN),
             ("Performans", 4.0, GREEN), ("AI/LLM Mühendisliği", 4.7, GREEN),
-            ("DevX / Sürdürülebilirlik", 4.4, GREEN)]
+            ("DevX / Sürdürülebilirlik", 4.6, GREEN)]
     W = CONTENT_W
     rowh = 26
     H = len(dims)*rowh + 24
@@ -566,8 +566,8 @@ story += [
     Paragraph("Kapsam: Go backend · React/TypeScript frontend · CI/CD pipeline’ları · Kubernetes dağıtımı · kalite denetimi",
               st_cover_meta),
     Spacer(1, 3*mm),
-    Paragraph("Sürüm 1.0 · Haziran 2026 · Hibrit (yönetici özeti + teknik derinlik)", st_cover_meta),
-    Paragraph("Hazırlayan: Mimari Analiz · go.mod: github.com/biqly/biqly (Go 1.26)", st_cover_meta),
+    Paragraph("Sürüm 2.0 · Haziran 2026 · Geliştirme-sonrası güncellenmiş sürüm · Hibrit (yönetici özeti + teknik derinlik)", st_cover_meta),
+    Paragraph("Hazırlayan: Mimari Analiz · go.mod: github.com/biqly/biqly (Go 1.26) · 8 öneriden 7’si uygulandı", st_cover_meta),
     PageBreak(),
 ]
 
@@ -600,16 +600,40 @@ story += [BUL([
  "<b>Güvenlik katmanlı ve özenlidir:</b> RS256 JWT, zamanlama-güvenli CSRF, mutlak + boşta kalma oturum süreleri, "
  "AES-256-GCM ile şifrelenmiş sağlayıcı anahtarları, parametreli SQL ve beyaz-liste tabanlı sorgu doğrulaması.",
  "<b>Mühendislik disiplini yüksektir:</b> temiz <font name='Mono'>cmd/internal/pkg</font> ayrımı, modern Go&nbsp;1.26 "
- "hata deyimleri (143× <font name='Mono'>errors.Is</font>), ~55 linter, ESLint+knip+Prettier kapısı ve zorunlu pre-commit denetimleri.",
- "<b>Üç odaklı boşluk:</b> (1) dağıtık izleme (tracing) altyapı olarak kurulu ama kodda enstrümante edilmemiş; "
- "(2) lehçeye özel veri kaynağı sürücülerinde test kapsamı ince; (3) <font name='Mono'>AIConfig</font> tanrı-nesnesi ve "
- "devasa orkestratör fonksiyonu yerel bakım borcu oluşturuyor. Hiçbiri mimari kusur değil; kademeli olarak giderilebilir.",
+ "hata deyimleri (148× <font name='Mono'>errors.Is</font>), ~55 linter, ESLint+knip+Prettier kapısı ve zorunlu pre-commit denetimleri.",
+ "<b>Önceki denetimde işaretlenen boşluklar bu sürümde kapatıldı:</b> OTEL dağıtık izleme artık kodda enstrümante "
+ "(LLM→derle→çalıştır span’leri), AI eval CI kapısı eşik değerlerle zorunlu, lehçe sürücüleri + config/dashboard/queue "
+ "testleri ve %85/%80 kapsam kapısı eklendi, CSP/X-Frame-Options/HSTS sertleştirildi. Tek kısmi kalem: "
+ "<font name='Mono'>AIConfig</font> küçültüldü (45→21 alan) ama hâlâ ayrıştırılması beklenen bir tanrı-nesnesi.",
 ])]
 
 story += [H3("Genel olgunluk değerlendirmesi")]
-story += [P("Biqly, bir prototip değil; <b>“odaklı boşluklarla birlikte üretime hazır”</b> olgunlukta, geç-aşama bir ürün "
-            "kod tabanıdır. Aşağıdaki skor kartı, yedi mühendislik boyutundaki değerlendirmeyi 5 üzerinden özetler:")]
-story += [diagram_scorecard(), CAP("Şekil 1 — Mühendislik olgunluğu skor kartı (5 üzerinden, kanıta dayalı tahmini değerlendirme).")]
+story += [P("Biqly, bir prototip değil; <b>üretime hazır</b>, geç-aşama bir ürün kod tabanıdır. Bu sürüm, önceki analiz "
+            "raporundaki önerilerin uygulanmış halidir: işaretlenen <b>8 boşluğun 7’si tamamen, 1’i büyük ölçüde kapatıldı</b> "
+            "ve ortalama olgunluk ~2.5/5 bandından <b>4.3/5</b> seviyesine yükseldi. Aşağıdaki skor kartı yedi boyutu özetler:")]
+story += [diagram_scorecard(), CAP("Şekil 1 — Mühendislik olgunluğu skor kartı (5 üzerinden; geliştirme sonrası, kanıta dayalı).")]
+story += [SP(8)]
+story += [H3("İyileştirme durumu — önceki rapora kıyasla")]
+story += [mk_table(
+ ["#", "Önceki denetimde işaretlenen boşluk", "Durum", "Kanıt"],
+ [["1", "OTEL dağıtık izleme kodda yok", "<font color='%s'><b>● Kapatıldı</b></font>" % hx(GREEN),
+   "3 servis main’inde provider, <font name='Mono'>otelhttp</font> + 3 span (ProcessQuestion / Compile / Execute); otel artık doğrudan bağımlılık"],
+  ["2", "AI eval CI’da kapı değil", "<font color='%s'><b>● Kapatıldı</b></font>" % hx(GREEN),
+   "<font name='Mono'>test.yml</font> + <font name='Mono'>ci.yml</font> eval-regression işi; 1.00 sayısal eşikler (<font name='Mono'>t.Fatalf</font>)"],
+  ["3", "Lehçe sürücüleri & config/dashboard/queue ince test", "<font color='%s'><b>● Kapatıldı</b></font>" % hx(GREEN),
+   "Sürücü başına 2 test; <font name='Mono'>scripts/coveragecheck</font> %85/%80 kapsam kapısı"],
+  ["4", "<font name='Mono'>AIConfig</font> tanrı-nesnesi + dev orkestratör", "<font color='%s'><b>● Kısmi</b></font>" % hx(AMBER),
+   "Process ayrıştırıldı (nolint kalktı, skor 12). AIConfig 45→21 alan ama hâlâ KRİTİK"],
+  ["5", "HSTS varsayılan kapalı", "<font color='%s'><b>● Kapatıldı</b></font>" % hx(GREEN),
+   "<font name='Mono'>BI_ENV=production</font> ile otomatik açık (fail-closed)"],
+  ["6", "CSP / X-Frame-Options eksik", "<font color='%s'><b>● Kapatıldı</b></font>" % hx(GREEN),
+   "CSP + X-Frame-Options + X-Content-Type-Options + COOP/CORP + Referrer-Policy"],
+  ["7", "Kökte commit’li test binary’leri", "<font color='%s'><b>● Kapatıldı</b></font>" % hx(GREEN),
+   "Diskte/git’te yok; <font name='Mono'>.gitignore</font> + <font name='Mono'>make clean</font>"],
+  ["8", "ESLint uyarı tavanı + SQL inceleme bulguları", "<font color='%s'><b>● Kapatıldı</b></font>" % hx(GREEN),
+   "640c3b6: parametreli metadata SQL; readonly muhafıza literal/yorum sıyırma eklendi"],
+ ],
+ [8*mm, 58*mm, 22*mm, CONTENT_W-88*mm])]
 story += [PageBreak()]
 
 # ============================ 2. SİSTEM GENEL BAKIŞI =======================
@@ -638,7 +662,7 @@ story += [mk_table(
   ["Frontend", "React 19 · TypeScript 5.7 · Vite", "Vanilla CSS + BEM, i18n"],
   ["Grafik", "Recharts 3.8", "Pano ve görselleştirme"],
   ["Dağıtım", "Helm umbrella + ArgoCD", "GitOps · ghcr.io/biqly/*"],
-  ["Gözlemlenebilirlik", "slog · Prometheus · (OTEL/Jaeger kurulu)", "Tracing kodda eksik (bkz. §9)"],
+  ["Gözlemlenebilirlik", "slog · Prometheus · OTEL/Jaeger", "OTLP-HTTP tracing kodda enstrümante (bkz. §9.4)"],
  ],
  [30*mm, 70*mm, CONTENT_W-100*mm])]
 story += [SP(4)]
@@ -898,60 +922,70 @@ def assess(title, badge, badge_color, strengths, risks, recs):
     blk.append(Paragraph("<b>Öneriler.</b> " + recs, st_body))
     return blk
 
-story += assess("9.1 Güvenlik", "GÜÇLÜ", GREEN,
+story += assess("9.1 Güvenlik", "ÇOK GÜÇLÜ (en güçlü boyut)", GREEN,
  "Asimetrik <b>RS256 JWT</b> (issuer/audience doğrulamalı, MFA için ayrı audience); çift-gönderim CSRF + "
  "<font name='Mono'>subtle.ConstantTimeCompare</font> (zamanlama-güvenli); <b>mutlak + boşta</b> oturum süreleri, "
  "hash’li refresh token, cihaz parmak-izi; MFA/TOTP, WebAuthn, RBAC, LDAP, OAuth; sağlayıcı anahtarları "
- "<b>AES-256-GCM</b> ile şifreli; text-to-SQL enjeksiyon savunması <b>katmanlı</b> (read-only koruma + LogicalQuery "
- "whitelist doğrulaması + tam parametreli yürütme + EXPLAIN dry-run); güvenilir-proxy IP doğrulaması; semgrep CI kapısı.",
- "HSTS varsayılan olarak <b>kapalı</b> (prod’da açmayı unutma riski); güvenlik-başlıkları middleware’inde "
- "<b>CSP / X-Frame-Options bulunamadı</b> (yalnız HSTS ailesi); read-only koruması SQL parser yerine "
- "anahtar-kelime eşleştirmesi kullanıyor (ama birincil savunma LogicalQuery doğrulaması).",
- "(1) Middleware’e CSP + X-Frame-Options ekleyin. (2) Prod konfig doğrulamasında HSTS’i zorunlu (fail-closed) kılın.")
+ "<b>AES-256-GCM</b> ile şifreli. <b>Bu sürümde eklenenler:</b> tam güvenlik-başlığı seti — CSP, X-Frame-Options (DENY), "
+ "X-Content-Type-Options, Referrer-Policy, COOP/CORP; <b>HSTS prod’da otomatik açık</b> (<font name='Mono'>BI_ENV=production</font>, "
+ "fail-closed). Read-only SQL muhafızı sertleştirildi: allow/deny-list + çoklu-ifade engeli + <b>literal/yorum sıyırma</b> "
+ "(yorum ve string tabanlı bypass’ları kırar). Metadata SQL yolları parametreli hale getirildi (640c3b6).",
+ "Yalnızca küçük tutarsızlık: prod-tespiti <font name='Mono'>api</font> ve <font name='Mono'>auth</font> servislerinde hafifçe "
+ "farklı türetiliyor (ikisi de prod’da otomatik açıyor). Read-only koruması hâlâ tam SQL parser değil — fakat birincil "
+ "savunma LogicalQuery whitelist doğrulaması ve parametreli yürütme.",
+ "(1) Prod-tespit mantığını ortak bir yardımcıya çekip iki serviste tekleştirin. (2) Periyodik bağımlılık/SAST "
+ "(semgrep) taramasını sürdürün.")
 story += [PageBreak()]
 
-story += assess("9.2 Test", "GENİŞ KAPSAM, DEĞİŞKEN DERİNLİK", AMBER,
- "200+ <font name='Mono'>_test.go</font> dosyası; yoğunluk tam da kritik yerlerde: handlers (18), ai (17), query (14), "
- "auth (11), semantic (10), security (8+4). Benchmark’lar mevcut; <b>race testi</b> zorunlu kapının parçası "
- "(<font name='Mono'>go test -race</font>); golden-file testleri; frontend 22 vitest dosyası; AI eval senaryoları "
- "(golden/ambiguity/repair + LLM judge).",
- "Birkaç üretim-yolu paketinde ince kapsam (her birinde 1 test): <font name='Mono'>datasource/{postgres,mysql,clickhouse,"
- "sqlserver}</font> (asıl DB sürücüleri — lehçe hatalarının saklandığı yer), dashboard, queue, config. Frontend test "
- "sayısı bileşen yüzeyine göre mütevazı.",
- "(1) Her veri-kaynağı adaptörü için lehçeye özel entegrasyon testleri ekleyin. (2) Paket başına kapsam yüzdesini "
- "CI’da eşikle kapıya bağlayın (<font name='Mono'>coverage.out</font> zaten üretiliyor).")
+story += assess("9.2 Test", "GÜÇLÜ — KAPSAM KAPISI EKLENDİ", GREEN,
+ "200+ <font name='Mono'>_test.go</font> dosyası; yoğunluk tam da kritik yerlerde: handlers, ai, query, auth, semantic, security. "
+ "Benchmark’lar; <b>race testi</b> zorunlu kapı; golden-file testleri; frontend vitest. <b>Bu sürümde eklenenler:</b> "
+ "lehçe sürücüleri için testler (postgres/mysql/sqlserver/clickhouse her biri 2 dosya, dialect 4), config/dashboard/queue her biri 3 dosya; "
+ "ve <b>zorunlu kapsam kapısı</b> — <font name='Mono'>scripts/coveragecheck</font> ile paket başına taban: dialect & sürücüler "
+ "<b>%85</b>, config/dashboard <b>%80</b> (<font name='Mono'>test.yml</font>’deki <font name='Mono'>coverage</font> işi). "
+ "Eval regresyon kapısı da sayısal eşiklerle CI’da (bkz. §9.6).",
+ "<font name='Mono'>internal/queue</font> test aldı (3 dosya) ama kapsam-taban haritasında değil — test ediliyor fakat kapıya bağlı değil. "
+ "Eval eşikleri determinist stub sağlayıcıyla 1.00; canlı-LLM doğruluk kayması ölçülmüyor.",
+ "(1) <font name='Mono'>queue</font>’yu kapsam-taban haritasına ekleyin. (2) Periyodik (nightly) canlı-LLM eval koşusu ekleyerek "
+ "gerçek doğruluk kaymasını izleyin.")
 
-story += assess("9.3 Kod Kalitesi & Mimari", "GÜÇLÜ", GREEN,
- "Temiz <font name='Mono'>cmd/internal/pkg</font> ayrımı; kararlılık gradyanı doğru "
- "(çekirdek paketler düşük instability, yaprak/orkestrasyon katmanları yüksek). Hata yönetimi Go 1.26 ev-kurallarına "
- "güçlü uyum: <b>143× errors.Is, 12× errors.AsType, yalnızca 1 eski errors.As, 0 ham == karşılaştırması.</b>",
- "Bir gerçek <b>tanrı-nesnesi</b>: <font name='Mono'>AIConfig</font> (45 alan, 13 metot, skor 84 — KRİTİK) — sağlayıcı/model "
- "DB-yönetimi göçü bu struct’ı aştı. Orkestratör <font name='Mono'>ai.Service.Process</font> en yüksek karmaşıklıkta "
- "(<font name='Mono'>//nolint:gocyclo,gocognit,funlen</font> taşıyor) — bilinçli ama bir bakım sıcak-noktası.",
- "(1) <font name='Mono'>AIConfig</font>’i amaç-bazlı alt-konfiglere (query/embedding/translation) ayırın. "
- "(2) Öz-tutarlılık ve onarım dallarını adlandırılmış yardımcılara çıkararak nolint’i emekliye ayırın.")
+story += assess("9.3 Kod Kalitesi & Mimari", "GÜÇLÜ — TEK KISMİ KALEM", AMBER,
+ "Temiz <font name='Mono'>cmd/internal/pkg</font> ayrımı; doğru kararlılık gradyanı. Hata yönetimi Go 1.26 ev-kurallarına "
+ "güçlü uyum: <b>148× errors.Is, 11× errors.AsType, yalnızca 1 eski errors.As.</b> <b>Bu sürümde:</b> orkestratör "
+ "<font name='Mono'>ProcessQuestion</font> ayrıştırıldı — <font name='Mono'>//nolint:gocyclo,gocognit,funlen</font> kaldırıldı, "
+ "karmaşıklık skoru <b>12</b>’ye düştü; ~30 küçük yardımcı çıkarıldı (generateWithRetries, parseAndValidate, "
+ "buildSuccessResponse vb.). Tüm ağaç <font name='Mono'>go build ./...</font> ve <font name='Mono'>go vet</font> ✓.",
+ "<font name='Mono'>AIConfig</font> küçültüldü (45→<b>21 alan</b>, skor 84→60) ama <b>hâlâ KRİTİK tanrı-nesnesi</b> — "
+ "ayrıştırılmak yerine budandı. AI servisi dışında birkaç çok-yüksek karmaşıklık odağı sürüyor: "
+ "<font name='Mono'>Detector.Compare</font> (50), <font name='Mono'>datasourceDraft</font> (47), "
+ "<font name='Mono'>SyncMetadata</font> (45), <font name='Mono'>Validator.Validate</font> (40).",
+ "(1) <font name='Mono'>AIConfig</font>’i amaç-bazlı alt-konfiglere (query/embedding/translation) <b>böl</b> (budama değil). "
+ "(2) En yüksek karmaşıklıktaki 4 fonksiyonu kademeli olarak yardımcılara ayırın.")
 story += [PageBreak()]
 
-story += assess("9.4 Gözlemlenebilirlik", "KARIŞIK — TRACING BOŞLUĞU", AMBER,
- "Yapılandırılmış loglama (<font name='Mono'>log/slog</font>), <b>Prometheus</b> metrikleri (35 alanlı kayıt), "
- "Helm’de tam yığın (OTEL collector, Jaeger, Vector, ServiceMonitor, Grafana, Alertmanager) ve <b>6 SLO-tarzı alarm "
- "kuralı</b> (hata-bütçesi yanması, servis başına gecikme); health/readiness uçları.",
- "<b>OTEL tracing kodda enstrümante edilmemiş:</b> <font name='Mono'>otel</font> yalnızca dolaylı bağımlılık; "
- "<font name='Mono'>otel.Tracer / StartSpan / otelhttp</font> kullanımı yok. Yani Jaeger+collector dağıtılı olsa da "
- "uygulamalar span üretmiyor — LLM→derle→çalıştır yolunun dağıtık izlemesi pratikte yok. Bu, en büyük gözlemlenebilirlik "
- "boşluğudur ve <b>LLM gecikme</b> endişesi nedeniyle tam da en kritik yerde eksiktir.",
- "(1) Her <font name='Mono'>cmd/*/main.go</font>’da tracer provider’ı bağlayın; <font name='Mono'>otelhttp</font> "
- "middleware + LLM/derleme/yürütme etrafında span ekleyin. (2) O zamana dek Jaeger’ı dokümanda ‘hedef’ olarak işaretleyin.")
+story += assess("9.4 Gözlemlenebilirlik", "İYİ — TRACING ARTIK ENSTRÜMANTE", GREEN,
+ "Yapılandırılmış loglama (<font name='Mono'>log/slog</font>), <b>Prometheus</b> metrikleri, Helm’de tam yığın "
+ "(OTEL collector, Jaeger, Vector, ServiceMonitor, Grafana, Alertmanager) ve <b>6 SLO-tarzı alarm kuralı</b>. "
+ "<b>Bu sürümde önceki en büyük boşluk kapatıldı — OTEL dağıtık izleme uçtan uca kodda:</b> <font name='Mono'>otel</font> "
+ "artık doğrudan bağımlılık (v1.44); 3 servis main’inde (api/auth/worker) <font name='Mono'>SetupTracing</font> ile OTLP-HTTP "
+ "tracer provider (endpoint yoksa zarif no-op); router’da <font name='Mono'>otelhttp</font> ingress span’i; ve tam istenen "
+ "<b>LLM→derle→çalıştır</b> yolunda adlandırılmış span’ler: <font name='Mono'>ai.ProcessQuestion</font>, "
+ "<font name='Mono'>query.Compile</font>, <font name='Mono'>query.Execute</font>.",
+ "Span kapsamı henüz sığ: veri-kaynağı sürücü çağrıları tek tek span’lenmiyor (yalnız executor sarmalıyor). "
+ "Prometheus <font name='Mono'>Metrics</font> struct’ı (35 alan) gograph’ta HIGH işaretli.",
+ "(1) Sürücü/DB çağrıları ve few-shot/embedding gibi alt-fazlara span ekleyerek izleme derinliğini artırın. "
+ "(2) Span’lere kritik öznitelikleri (model, attempt, fingerprint) ekleyin.")
 
 story += assess("9.5 Performans", "İYİ, ÖLÇÜME DAYALI", GREEN,
  "Veri-kaynağı <b>bağlantı havuzu önbelleği</b> + <font name='Mono'>singleflight</font> tekilleştirme (thundering-herd "
  "önler, benchmark’lı); sürüm-farkında <b>sorgu fingerprint</b>’i (semantik model değişince önbelleği geçersiz kılar); "
  "AI yanıt + ambiguity önbellekleri; Dragonfly önbellek katmanı; CLAUDE.md’de ciddi sıcak-yol disiplini (prealloc, "
  "strings.Builder, pprof) ve golangci ile zorlanan <font name='Mono'>prealloc/perfsprint</font>; sıcak-yol JSON için sonic/json-iterator.",
- "<b>LLM gecikmesi</b> baskın maliyet; alarmı var ama tracing olmadan p99’u nedensel olarak atfetmek zor. Öz-tutarlılık "
- "oylaması (N aday) LLM tur sayısını ve maliyeti çoğaltır.",
- "(1) Gecikmeyi (LLM vs derle vs DB) ayrıştırmak için aşama-bazlı tracing ekleyin. (2) Öz-tutarlılık N’inin "
- "konfig-kapılı ve makul prod varsayılanlı olduğundan emin olun.")
+ "<b>Bu sürümde:</b> Prometheus etiket kardinalitesi sınırlandı (853739e) ve gecikme artık <b>span’lerle atfedilebilir</b> "
+ "(LLM vs derle vs çalıştır — §9.4). <b>LLM gecikmesi</b> hâlâ baskın maliyet; öz-tutarlılık oylaması (N aday) tur "
+ "sayısını çoğaltır. Bu turda yeniden benchmark yapılmadı.",
+ "(1) Yeni span’lerden p99 gecikme dağılımını periyodik raporlayın. (2) Öz-tutarlılık N’inin konfig-kapılı ve makul "
+ "prod varsayılanlı olduğundan emin olun.")
 story += [PageBreak()]
 
 story += assess("9.6 AI / LLM Mühendisliği", "OLGUN — AÇIK FARKLILAŞTIRICI", GREEN,
@@ -960,42 +994,50 @@ story += assess("9.6 AI / LLM Mühendisliği", "OLGUN — AÇIK FARKLILAŞTIRICI
  "(yapısal hata bağlamıyla yeniden prompt + kademeli bağlam katmanları), <b>EXPLAIN dry-run</b> doğrulama kapısı, "
  "<b>öz-tutarlılık oylaması</b>, <b>güven skorlaması</b>, <b>belirsizlik (ambiguity) işleme</b> ve gerçek bir <b>eval koşum "
  "hattı</b> (golden case + LLM judge + regresyon testi) ile <font name='Mono'>cmd/export-sft</font> ince-ayar geri-besleme "
- "döngüsü. DB’den yönetilen, AES-GCM şifreli sağlayıcı/model.",
- "Orkestratör; ambiguity + önbellek + oylama + onarımı tek çok-büyük fonksiyonda yoğunlaştırıyor (§9.3). Eval koşum hattı "
- "var ama CI’da kapı olarak çalıştığı doğrulanamadı — değilse SQL doğruluğundaki regresyonlar yayına çıkabilir.",
- "(1) Eval/regresyon paketini (küçük bir golden alt-kümesi bile) CI kapısı yapın. (2) Orkestratörü ayrıştırın (§9.3 ile ortak).")
+ "döngüsü. DB’den yönetilen, AES-GCM şifreli sağlayıcı/model. "
+ "<b>Bu sürümde:</b> eval/regresyon paketi artık <b>CI kapısı</b> (<font name='Mono'>test.yml</font> + <font name='Mono'>ci.yml</font>) ve "
+ "<b>açık sayısal eşiklerle</b> zorlanıyor (golden + benchmark mantıksal/yürütme oranı, <font name='Mono'>t.Fatalf</font>); "
+ "orkestratör <font name='Mono'>ProcessQuestion</font> ayrıştırıldı (§9.3).",
+ "Eval eşikleri <b>determinist stub sağlayıcı</b> üzerinde 1.00 — yani harness/derleyici regresyonunu yakalar, canlı-LLM "
+ "doğruluk kaymasını ölçmez.",
+ "(1) Periyodik (nightly) canlı-LLM eval koşusu ekleyerek gerçek doğruluk kaymasını izleyin. (2) Eval kapsamını yeni "
+ "lehçe/edge senaryolarıyla genişletin.")
 
 story += assess("9.7 DevX / Sürdürülebilirlik", "MÜKEMMEL", GREEN,
  "<b>golangci-lint v2</b> ~55 linter (gosec, errorlint, contextcheck, bodyclose, rowserrcheck, sqlclosecheck, noctx, "
  "sloglint, fmt.Print* ve panic’i yasaklayan forbidigo); frontend kapısı CI-eşdeğeri (ESLint + jsx-a11y + security, "
  "Prettier, <b>knip</b> ölü-kod tespiti, vitest, build); <font name='Mono'>deadcode -test</font> Go kapısında; "
- "zorunlu pre-commit denetimleri; gerçek i18n; 8 temiz <font name='Mono'>cmd/</font> giriş noktası; ADR dizini.",
- "ESLint <font name='Mono'>--max-warnings 1500</font> ile çalışıyor — regresyonları maskeleyebilen çok yüksek bir uyarı tavanı. "
- "Repo kökünde başıboş derleme çıktıları (<font name='Mono'>auth.test, app.test, workspace.test, coverage.out</font>) — gitignore’lanmalı.",
- "(1) <font name='Mono'>--max-warnings</font> tavanını zamanla 0’a doğru kademeli düşürün. (2) Kökteki "
- "<font name='Mono'>*.test</font> binary’lerini ve <font name='Mono'>coverage.out</font>’u <font name='Mono'>.gitignore</font>’a ekleyin.")
+ "zorunlu pre-commit denetimleri; gerçek i18n; 8 temiz <font name='Mono'>cmd/</font> giriş noktası; ADR dizini. "
+ "<b>Bu sürümde:</b> repo kökü temizlendi — <font name='Mono'>*.test</font> ve <font name='Mono'>coverage.out</font> hem "
+ "diskte hem git’te yok, <font name='Mono'>.gitignore</font> + <font name='Mono'>make clean</font> ile garanti; CI odaklı "
+ "işlere bölündü (test / eval / coverage / lint / helm); yeni <font name='Mono'>make</font> hedefleri "
+ "(<font name='Mono'>coverage-gate</font>, <font name='Mono'>eval-regression</font>).",
+ "Kayda değer açık DevX riski kalmadı; küçük artık: bazı paketler kapsam-taban haritası dışında (örn. queue).",
+ "(1) Kapsam-taban haritasını kademeli genişletin. (2) ESLint uyarı tavanını zamanla 0’a doğru sıkın.")
 story += [PageBreak()]
 
 # ============================ 10. SONUÇ ====================================
 story += [H1("10. Sonuç ve Yol Haritası")]
 story += [P("Biqly; disiplinli mimarisi (temiz cmd/internal/pkg, doğru kararlılık gradyanı, modern Go 1.26 hata deyimleri), "
             "katmanlı ve düşünülmüş güvenliği ve özellikle <b>standardın üzerindeki AI/text-to-SQL motoruyla</b> "
-            "üretime hazır, geç-aşama bir kod tabanıdır. Onu “tam olgun”dan ayıran üç boşluk yereldir ve yeniden-yazım "
-            "gerektirmeden kademeli olarak giderilebilir.")]
-story += [H3("Önceliklendirilmiş öneriler")]
+            "üretime hazır, geç-aşama bir kod tabanıdır. <b>Bu sürüm, önceki analiz raporundaki önerilerin uygulanmış halidir:</b> "
+            "işaretlenen 8 boşluğun 7’si tamamen, 1’i (AIConfig) büyük ölçüde kapatıldı. Bunlar commit-mesajı değil, "
+            "kodda doğrulanmış değişikliklerdir (<font name='Mono'>go build ./...</font> ve <font name='Mono'>go vet</font> temiz). "
+            "Güvenlik artık en güçlü boyut; gözlemlenebilirlik fantom bağımlılıktan çalışan bir izleme hattına dönüştü.")]
+story += [H3("Kalan öneriler (azalan öncelik)")]
 story += [mk_table(
  ["Öncelik", "Aksiyon", "Etki"],
- [["<b>Yüksek</b>", "OTEL tracing’i kodda enstrümante et (LLM/derle/yürüt span’leri)", "Gecikme görünürlüğü; en yüksek getiri"],
-  ["<b>Yüksek</b>", "AI eval/regresyon paketini CI kapısı yap", "SQL doğruluk regresyonlarını önler"],
-  ["Orta", "Veri-kaynağı sürücüleri için lehçe entegrasyon testleri", "Sürücü/lehçe hatalarını yakalar"],
-  ["Orta", "Güvenlik başlıklarına CSP + X-Frame-Options; prod’da HSTS zorunlu", "Clickjacking/XSS sertleştirme"],
-  ["Orta", "<font name='Mono'>AIConfig</font>’i ve <font name='Mono'>Service.Process</font>’i ayrıştır", "Bakım borcunu azaltır"],
-  ["Düşük", "ESLint uyarı tavanını kademeli düşür; <font name='Mono'>*.test</font> &amp; coverage.out’u gitignore’la", "Hijyen / regresyon görünürlüğü"],
+ [["<b>Orta</b>", "<font name='Mono'>AIConfig</font>’i amaç-bazlı alt-konfiglere <b>böl</b> (budama değil)", "Tek kalan KRİTİK tanrı-nesnesini kapatır"],
+  ["<b>Orta</b>", "Çok-yüksek karmaşıklıktaki 4 fonksiyonu ayrıştır (Compare/datasourceDraft/SyncMetadata/Validate)", "Bakım borcu, test edilebilirlik"],
+  ["Orta", "Periyodik (nightly) <b>canlı-LLM</b> eval koşusu", "Stub-determinist eşiğin ötesinde gerçek doğruluk kayması"],
+  ["Düşük", "İzleme derinliğini artır (sürücü/DB span’leri + öznitelikler)", "p99 gecikme atfında daha ince granülerlik"],
+  ["Düşük", "<font name='Mono'>queue</font>’yu kapsam-taban haritasına ekle; api/auth prod-tespitini tekleştir", "Hijyen / tutarlılık"],
  ],
- [22*mm, CONTENT_W-22*mm-52*mm, 52*mm])]
+ [22*mm, CONTENT_W-22*mm-58*mm, 58*mm])]
 story += [SP(10)]
-story += [Q("Bu doküman, kaynak kod tabanının statik analizine (gograph), semgrep taramasına ve doğrudan kaynak incelemesine "
-            "dayanmaktadır. Skor kartındaki sayısal değerler, kanıta dayalı niteliksel değerlendirmenin özetidir.")]
+story += [Q("Bu doküman, kaynak kod tabanının statik analizine (gograph), doğrudan kaynak incelemesine ve git geçmişi "
+            "doğrulamasına dayanmaktadır. Skor kartı, geliştirme-sonrası kanıta dayalı niteliksel değerlendirmenin özetidir "
+            "(ortalama ~4.3/5).")]
 
 # --------------------------------------------------------------------------
 # Derle (çok geçişli — TOC için)

@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/biqly/biqly/internal/env"
 )
 
 type Config struct {
@@ -39,12 +41,14 @@ type Config struct {
 	SessionAbsoluteTTL   time.Duration
 	SessionIdleTTL       time.Duration
 	PasswordPolicy       PasswordPolicy
+	HSTSEnabled          bool
 	HSTSPreload          bool
 	HSTSMaxAgeSeconds    int
 	WebAuthnChallengeTTL time.Duration
 }
 
 func LoadConfig() (*Config, error) {
+	webAuthnOrigins := splitEnvDefault("BI_AUTH_WEBAUTHN_RP_ORIGINS", []string{"http://localhost:5173", "http://localhost:3333"})
 	cfg := &Config{
 		Port:                 intEnv("BI_AUTH_PORT", 8889),
 		DBDSN:                stringEnv("BI_AUTH_DB_DSN", "postgres://bi_auth_user:bi_auth_password@localhost:5434/bi_auth?sslmode=disable"),
@@ -67,7 +71,7 @@ func LoadConfig() (*Config, error) {
 		GoogleRedirectURL:    stringEnv("BI_AUTH_GOOGLE_REDIRECT_URL", "http://localhost:8889/api/auth/oauth/google/callback"),
 		WebAuthnRPID:         stringEnv("BI_AUTH_WEBAUTHN_RP_ID", "localhost"),
 		WebAuthnRPName:       stringEnv("BI_AUTH_WEBAUTHN_RP_NAME", "Biqly"),
-		WebAuthnOrigins:      splitEnvDefault("BI_AUTH_WEBAUTHN_RP_ORIGINS", []string{"http://localhost:5173", "http://localhost:3333"}),
+		WebAuthnOrigins:      webAuthnOrigins,
 		FrontendBaseURL:      stringEnv("BI_AUTH_FRONTEND_BASE_URL", "http://localhost:3333"),
 		MailServiceURL:       stringEnv("BI_AUTH_MAIL_SERVICE_URL", "http://localhost:8890"),
 		MailInternalToken:    os.Getenv("BI_AUTH_MAIL_INTERNAL_TOKEN"),
@@ -85,6 +89,8 @@ func LoadConfig() (*Config, error) {
 	if cfg.InternalToken == "" {
 		cfg.InternalToken = "dev-internal-token"
 	}
+
+	cfg.HSTSEnabled = boolEnv("BI_HSTS_ENABLED", env.HSTSEnabledDefault(cfg.WebAuthnOrigins...))
 
 	return cfg, nil
 }

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/biqly/biqly/internal/env"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -99,10 +100,7 @@ func NewJWTManager(privatePath, publicPath string, accessTTL time.Duration) (*JW
 		}, nil
 	}
 
-	isProduction := os.Getenv("BI_ENV") == "production" ||
-		os.Getenv("APP_ENV") == "production" ||
-		os.Getenv("KUBERNETES_SERVICE_HOST") != ""
-	if isProduction {
+	if env.IsProduction() {
 		return nil, errors.New("JWT keys are unconfigured under production environment")
 	}
 

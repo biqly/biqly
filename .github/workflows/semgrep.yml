@@ -14,8 +14,9 @@ on:
       - 'README.md'
       - '.github/**'
   schedule:
-    # Run weekly on Sunday at 00:00 UTC
+    # Weekly SAST: Sunday 00:00 UTC (complements dependabot weekly + CI govulncheck)
     - cron: '0 0 * * 0'
+  workflow_dispatch:
 
 permissions:
   contents: read

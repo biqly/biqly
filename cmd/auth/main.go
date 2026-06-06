@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -234,11 +233,10 @@ func newRouter(state *appState, authHandler *handlers.AuthHandler, rbacHandler *
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
 
-	httpsOnly := os.Getenv("BI_ENV") == "production" || (len(cfg.WebAuthnOrigins) > 0 && strings.HasPrefix(cfg.WebAuthnOrigins[0], "https"))
 	r.Use(bimw.SecurityHeaders(bimw.SecurityHeadersConfig{
-		HSTSEnabled:           httpsOnly,
+		HSTSEnabled:           cfg.HSTSEnabled,
 		HSTSIncludeSubdomains: true,
-		HSTSPreload:           httpsOnly && cfg.HSTSPreload,
+		HSTSPreload:           cfg.HSTSEnabled && cfg.HSTSPreload,
 		HSTSMaxAgeSeconds:     cfg.HSTSMaxAgeSeconds,
 		ContentSecurityPolicy: "default-src 'self'; frame-ancestors 'none'",
 	}))
@@ -263,14 +261,14 @@ func newRouter(state *appState, authHandler *handlers.AuthHandler, rbacHandler *
 	r.Handle("/metrics", promhttp.Handler())
 
 	r.Route("/api/auth", func(r chi.Router) {
-		r.Use(biqauth.CSRF(httpsOnly))
+		r.Use(biqauth.CSRF(cfg.HSTSEnabled))
 		authHandler.RegisterAuthRoutes(r)
 		rbacHandler.RegisterAuthRoutes(r, authHandler.AuthMiddleware())
 		authHandler.RegisterAccountAdminRoutes(r, authHandler.AuthMiddleware())
 	})
 
 	r.Route("/auth", func(r chi.Router) {
-		r.Use(biqauth.CSRF(httpsOnly))
+		r.Use(biqauth.CSRF(cfg.HSTSEnabled))
 		authHandler.RegisterAuthRoutes(r)
 		rbacHandler.RegisterAuthRoutes(r, authHandler.AuthMiddleware())
 		authHandler.RegisterAccountAdminRoutes(r, authHandler.AuthMiddleware())

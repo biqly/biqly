@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/biqly/biqly/internal/env"
 )
 
 // Config holds all application configuration.
@@ -317,7 +319,7 @@ func Load() (*Config, error) {
 			Host:               getEnv("BI_HTTP_HOST", "0.0.0.0"),
 			Port:               getEnvAsInt("BI_HTTP_PORT", 8888),
 			CORSAllowedOrigins: splitCSV(getEnv("BI_CORS_ALLOWED_ORIGINS", "")),
-			HSTSEnabled:        getEnvAsBool("BI_HSTS_ENABLED", os.Getenv("BI_ENV") == "production"),
+			HSTSEnabled:        getEnvAsBool("BI_HSTS_ENABLED", env.HSTSEnabledDefault()),
 		},
 		Logging: LoggingConfig{
 			Level:  strings.ToLower(strings.TrimSpace(getEnv("BI_LOG_LEVEL", "info"))),
