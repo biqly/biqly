@@ -36,7 +36,7 @@ func newTokenUsage(prompt, completion, total int) *TokenUsage {
 
 // TokenUsageEstimate derives token counts from prompt stats and the completion
 // text when the provider did not return usage. Returns nil when both are zero.
-func TokenUsageEstimate(stats promptpkg.PromptStats, completion string) *TokenUsage {
+func TokenUsageEstimate(stats promptpkg.Stats, completion string) *TokenUsage {
 	promptTok := stats.EstPromptTokens
 	completionTok := promptpkg.EstimateTokens(completion)
 	if promptTok == 0 && completionTok == 0 {
@@ -47,7 +47,7 @@ func TokenUsageEstimate(stats promptpkg.PromptStats, completion string) *TokenUs
 
 // TokenUsageFromGeneration prefers provider-reported usage and falls back to a
 // local estimate derived from prompt stats and the completion text.
-func TokenUsageFromGeneration(stats promptpkg.PromptStats, result GenerationResult) *TokenUsage {
+func TokenUsageFromGeneration(stats promptpkg.Stats, result GenerationResult) *TokenUsage {
 	if u := result.Usage; u != nil && (u.Prompt > 0 || u.Completion > 0) {
 		return newTokenUsage(u.Prompt, u.Completion, u.Total)
 	}
@@ -56,7 +56,7 @@ func TokenUsageFromGeneration(stats promptpkg.PromptStats, result GenerationResu
 
 func logLLMCompletion(ctx context.Context, provider, model string, estPromptTokens int, result GenerationResult) {
 	fromAPI := result.Usage != nil && (result.Usage.Prompt > 0 || result.Usage.Completion > 0)
-	usage := TokenUsageFromGeneration(promptpkg.PromptStats{EstPromptTokens: estPromptTokens}, result)
+	usage := TokenUsageFromGeneration(promptpkg.Stats{EstPromptTokens: estPromptTokens}, result)
 
 	args := []any{
 		"provider", provider,

@@ -60,7 +60,7 @@ type TableRouter struct {
 	embedder        Embedder
 	embeddingReader EmbeddingReader
 	embeddingWeight float64
-	limits          RoutingLimits
+	limits          Limits
 	timeGrains      TimeGrainStore
 }
 
@@ -100,7 +100,7 @@ func (r *TableRouter) SetMetadataTranslator(t MetadataTranslator) {
 	r.translator = t
 }
 
-func (r *TableRouter) SetRoutingLimits(limits RoutingLimits) {
+func (r *TableRouter) SetRoutingLimits(limits Limits) {
 	r.limits = limits.withDefaults()
 }
 
@@ -175,6 +175,7 @@ type embeddingSignals struct {
 // Route selects tables for a question and returns a semantic model over them.
 // includeBaseTables / includeViews restrict which metadata objects participate in routing
 // (BASE TABLE vs VIEW). When both are true, behavior matches an unscoped datasource.
+//
 //nolint:funlen
 func (r *TableRouter) Route(
 	ctx context.Context,
@@ -261,12 +262,13 @@ func (r *TableRouter) Route(
 	}
 
 	selected, result, err := r.selectTables(tables, columnsByTable, question, tableScope, embedSignals.tableBoost)
-	if result != nil {
-		result.ensureDebug().QuestionLocale = string(questionLocale)
-	}
 	if err != nil {
 		return nil, result, err
 	}
+	if result == nil {
+		return nil, nil, errors.New("select tables: missing routing result")
+	}
+	result.ensureDebug().QuestionLocale = string(questionLocale)
 	if len(schemaPartitions) > 0 {
 		result.ensureDebug().SchemaPartitions = schemaPartitions
 	}

@@ -164,7 +164,7 @@ func TestInternalIntegration_Endpoints(t *testing.T) {
 	t.Run("POST /internal/eval-results", func(t *testing.T) {
 		payload, _ := json.Marshal(internalapi.EvalResultsRequest{ //nolint:musttag // nested eval types omit json tags by design
 			RunID: "run_1", Provider: "openai", Model: "gpt-4o",
-			Results: []ai.EvalResultWithMetrics{},
+			Results: []ai.ResultWithMetrics{},
 		})
 		rec := env.do(t, http.MethodPost, "/internal/eval-results", payload, integrationToken, "ai")
 		assertStatus(t, rec, http.StatusCreated)

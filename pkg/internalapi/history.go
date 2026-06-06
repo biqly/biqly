@@ -44,12 +44,12 @@ type QueryHistoryResponse struct {
 
 // EvalResultsRequest is the body of POST /internal/eval-results.
 type EvalResultsRequest struct {
-	RunID            string                     `json:"run_id"`
-	Provider         string                     `json:"provider"`
-	Model            string                     `json:"model"`
-	ContextVersion   int                        `json:"context_version"`
-	ContextUpdatedAt time.Time                  `json:"context_updated_at"`
-	Results          []ai.EvalResultWithMetrics `json:"results"`
+	RunID            string                 `json:"run_id"`
+	Provider         string                 `json:"provider"`
+	Model            string                 `json:"model"`
+	ContextVersion   int                    `json:"context_version"`
+	ContextUpdatedAt time.Time              `json:"context_updated_at"`
+	Results          []ai.ResultWithMetrics `json:"results"`
 }
 
 // EvalResultsResponse acknowledges a persisted eval result batch.

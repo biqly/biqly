@@ -60,7 +60,7 @@ type SFTExportResult struct {
 type SFTExporter struct {
 	meta      *metadata.Repository
 	semantic  *semantic.Repository
-	builder   *promptpkg.PromptBuilder
+	builder   *promptpkg.Builder
 	validator *query.Validator
 }
 
@@ -69,7 +69,7 @@ func NewSFTExporter(meta *metadata.Repository, semanticRepo *semantic.Repository
 	return &SFTExporter{
 		meta:      meta,
 		semantic:  semanticRepo,
-		builder:   &promptpkg.PromptBuilder{},
+		builder:   &promptpkg.Builder{},
 		validator: validator,
 	}
 }
@@ -264,7 +264,7 @@ func (e *SFTExporter) collectItems(ctx context.Context, opts SFTExportOptions) (
 				continue
 			}
 			add("golden", c.Question, lqBytes, "golden:"+c.ID, func() (string, string, error) {
-				user := e.builder.Build(ctx, c.Question, c.Model, promptpkg.PromptConfig{
+				user := e.builder.Build(ctx, c.Question, c.Model, promptpkg.Config{
 					MaxRunes: opts.MaxPromptRunes,
 					Locale:   i18n.DefaultLocale,
 					Dialect:  "postgres",
@@ -305,7 +305,7 @@ func (e *SFTExporter) buildFromDB(
 			dialect = ds.Type
 		}
 	}
-	user := e.builder.Build(ctx, question, model, promptpkg.PromptConfig{
+	user := e.builder.Build(ctx, question, model, promptpkg.Config{
 		MaxRunes: maxPromptRunes,
 		Locale:   i18n.DefaultLocale,
 		Dialect:  dialect,

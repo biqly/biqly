@@ -5,7 +5,7 @@ import (
 	"github.com/biqly/biqly/internal/semantic"
 )
 
-// DefaultGoldenCases returns the built-in text-to-SQL golden set used by HTTP
+// OrdersModel DefaultGoldenCases returns the built-in text-to-SQL golden set used by HTTP
 // eval endpoints and tests. Keep cases small and self-consistent — expand over
 // time or load from testdata in a follow-up.
 // OrdersModel returns the mock Orders semantic model used by the built-in seed cases.

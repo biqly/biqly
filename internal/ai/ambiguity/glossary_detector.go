@@ -10,7 +10,7 @@ import (
 )
 
 // DetectGlossary returns glossary terms that map to more than one semantic target.
-func DetectGlossary(question string, entries []prompt.GlossaryEntry, model *semantic.SemanticModel) []AmbiguityItem {
+func DetectGlossary(question string, entries []prompt.GlossaryEntry, model *semantic.SemanticModel) []Item {
 	selected := prompt.SelectGlossaryForQuestion(question, entries, model)
 	questionTokens := routing.TokenSet(question)
 	byTerm := make(map[string][]prompt.GlossaryEntry)
@@ -35,13 +35,13 @@ func DetectGlossary(question string, entries []prompt.GlossaryEntry, model *sema
 	}
 	sort.Strings(terms)
 
-	var ambiguities []AmbiguityItem
+	var ambiguities []Item
 	for _, term := range terms {
 		interpretations := glossaryInterpretations(byTerm[term])
 		if len(interpretations) < 2 {
 			continue
 		}
-		ambiguities = append(ambiguities, AmbiguityItem{
+		ambiguities = append(ambiguities, Item{
 			Term:            term,
 			Type:            "semantic",
 			Interpretations: interpretations,

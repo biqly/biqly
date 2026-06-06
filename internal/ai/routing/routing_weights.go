@@ -16,9 +16,9 @@ type TableBoostRule struct {
 	Boost           float64  `json:"boost"`
 }
 
-// RoutingWeights configures keyword-scoring magnitudes for table routing.
+// Weights RoutingWeights configures keyword-scoring magnitudes for table routing.
 // Defaults are embedded; override with BI_AI_ROUTING_WEIGHTS_PATH (JSON).
-type RoutingWeights struct {
+type Weights struct {
 	TableName                  float64          `json:"table_name"`
 	TableDescription           float64          `json:"table_description"`
 	ColumnName                 float64          `json:"column_name"`
@@ -40,13 +40,13 @@ type RoutingWeights struct {
 }
 
 var (
-	routingWeights     *RoutingWeights
+	routingWeights     *Weights
 	routingWeightsOnce sync.Once
 	errRoutingWeights  error
 )
 
 // ActiveRoutingWeights returns the active routing weights (embedded default or file override).
-func ActiveRoutingWeights() (*RoutingWeights, error) {
+func ActiveRoutingWeights() (*Weights, error) {
 	routingWeightsOnce.Do(func() {
 		routingWeights, errRoutingWeights = loadRoutingWeights("")
 	})
@@ -56,14 +56,14 @@ func ActiveRoutingWeights() (*RoutingWeights, error) {
 	return routingWeights, nil
 }
 
-func activeRoutingWeights() *RoutingWeights {
+func activeRoutingWeights() *Weights {
 	w, err := ActiveRoutingWeights()
 	if err != nil {
 		slog.Error("routing weights unavailable, using embedded defaults", "error", err)
 		fallback, parseErr := parseRoutingWeightsJSON(embeddedRoutingWeightsJSON)
 		if parseErr != nil {
 			slog.Error("embedded routing weights invalid", "error", parseErr)
-			return &RoutingWeights{}
+			return &Weights{}
 		}
 		return fallback
 	}
@@ -83,7 +83,7 @@ func InitRoutingWeights(path string) error {
 	return nil
 }
 
-func loadRoutingWeights(path string) (*RoutingWeights, error) {
+func loadRoutingWeights(path string) (*Weights, error) {
 	w, err := parseRoutingWeightsJSON(embeddedRoutingWeightsJSON)
 	if err != nil {
 		return nil, fmt.Errorf("embedded routing weights: %w", err)
@@ -103,72 +103,44 @@ func loadRoutingWeights(path string) (*RoutingWeights, error) {
 	return w, nil
 }
 
-func parseRoutingWeightsJSON(raw []byte) (*RoutingWeights, error) {
-	var w RoutingWeights
+func parseRoutingWeightsJSON(raw []byte) (*Weights, error) {
+	var w Weights
 	if err := json.Unmarshal(raw, &w); err != nil {
 		return nil, err
 	}
 	return &w, nil
 }
 
-func mergeRoutingWeights(base, override *RoutingWeights) {
-	if override.TableName > 0 {
-		base.TableName = override.TableName
-	}
-	if override.TableDescription > 0 {
-		base.TableDescription = override.TableDescription
-	}
-	if override.ColumnName > 0 {
-		base.ColumnName = override.ColumnName
-	}
-	if override.ColumnDataType > 0 {
-		base.ColumnDataType = override.ColumnDataType
-	}
-	if override.ColumnDescription > 0 {
-		base.ColumnDescription = override.ColumnDescription
-	}
-	if override.RevenueColumnBoost > 0 {
-		base.RevenueColumnBoost = override.RevenueColumnBoost
-	}
-	if override.ReadableLabelColumnBoost > 0 {
-		base.ReadableLabelColumnBoost = override.ReadableLabelColumnBoost
-	}
-	if override.ColumnKeywordMatch > 0 {
-		base.ColumnKeywordMatch = override.ColumnKeywordMatch
-	}
-	if override.ColumnKeywordName > 0 {
-		base.ColumnKeywordName = override.ColumnKeywordName
-	}
-	if override.ColumnKeywordDescription > 0 {
-		base.ColumnKeywordDescription = override.ColumnKeywordDescription
-	}
-	if override.ColumnRevenueBoost > 0 {
-		base.ColumnRevenueBoost = override.ColumnRevenueBoost
-	}
-	if override.ColumnDisplayNameBoost > 0 {
-		base.ColumnDisplayNameBoost = override.ColumnDisplayNameBoost
-	}
-	if override.SelectionRelativeThreshold > 0 {
-		base.SelectionRelativeThreshold = override.SelectionRelativeThreshold
-	}
-	if override.EntityPathBridgeScore > 0 {
-		base.EntityPathBridgeScore = override.EntityPathBridgeScore
-	}
-	if override.EntityPathTargetScore > 0 {
-		base.EntityPathTargetScore = override.EntityPathTargetScore
-	}
-	if override.ResolverPathBridgeScore > 0 {
-		base.ResolverPathBridgeScore = override.ResolverPathBridgeScore
-	}
-	if override.ResolverPathTargetScore > 0 {
-		base.ResolverPathTargetScore = override.ResolverPathTargetScore
-	}
+func mergeRoutingWeights(base, override *Weights) {
+	mergePositiveWeight(&base.TableName, override.TableName)
+	mergePositiveWeight(&base.TableDescription, override.TableDescription)
+	mergePositiveWeight(&base.ColumnName, override.ColumnName)
+	mergePositiveWeight(&base.ColumnDataType, override.ColumnDataType)
+	mergePositiveWeight(&base.ColumnDescription, override.ColumnDescription)
+	mergePositiveWeight(&base.RevenueColumnBoost, override.RevenueColumnBoost)
+	mergePositiveWeight(&base.ReadableLabelColumnBoost, override.ReadableLabelColumnBoost)
+	mergePositiveWeight(&base.ColumnKeywordMatch, override.ColumnKeywordMatch)
+	mergePositiveWeight(&base.ColumnKeywordName, override.ColumnKeywordName)
+	mergePositiveWeight(&base.ColumnKeywordDescription, override.ColumnKeywordDescription)
+	mergePositiveWeight(&base.ColumnRevenueBoost, override.ColumnRevenueBoost)
+	mergePositiveWeight(&base.ColumnDisplayNameBoost, override.ColumnDisplayNameBoost)
+	mergePositiveWeight(&base.SelectionRelativeThreshold, override.SelectionRelativeThreshold)
+	mergePositiveWeight(&base.EntityPathBridgeScore, override.EntityPathBridgeScore)
+	mergePositiveWeight(&base.EntityPathTargetScore, override.EntityPathTargetScore)
+	mergePositiveWeight(&base.ResolverPathBridgeScore, override.ResolverPathBridgeScore)
+	mergePositiveWeight(&base.ResolverPathTargetScore, override.ResolverPathTargetScore)
 	if len(override.TableBoostRules) > 0 {
 		base.TableBoostRules = override.TableBoostRules
 	}
 }
 
-func (w *RoutingWeights) ApplyTableBoosts(tableName string, tokens map[string]bool, score float64, lex *RoutingLexicon) float64 {
+func mergePositiveWeight(base *float64, override float64) {
+	if override > 0 {
+		*base = override
+	}
+}
+
+func (w *Weights) ApplyTableBoosts(tableName string, tokens map[string]bool, score float64, lex *Lexicon) float64 {
 	if w == nil || lex == nil {
 		return score
 	}

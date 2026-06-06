@@ -12,9 +12,9 @@ import (
 )
 
 func TestAmbiguityResultJSON(t *testing.T) {
-	result := AmbiguityResult{
+	result := Result{
 		IsAmbiguous: true,
-		Ambiguities: []AmbiguityItem{
+		Ambiguities: []Item{
 			{
 				Term: "aktif müşteri",
 				Type: "semantic",
@@ -59,9 +59,9 @@ func TestAnalyze_MergesRuleBasedAmbiguities(t *testing.T) {
 	}
 
 	got := Analyze(context.Background(), "Ciro göster", model, glossary, 0)
-	want := AmbiguityResult{
+	want := Result{
 		IsAmbiguous: true,
-		Ambiguities: []AmbiguityItem{
+		Ambiguities: []Item{
 			{
 				Term: "ciro",
 				Type: "semantic",
@@ -104,7 +104,7 @@ func TestAnalyze_MergesRuleBasedAmbiguities(t *testing.T) {
 }
 
 func TestFilterAmbiguities_RequiresTwoInterpretationsAboveThreshold(t *testing.T) {
-	ambiguities := []AmbiguityItem{
+	ambiguities := []Item{
 		{
 			Term: "ciro",
 			Type: "semantic",
@@ -163,15 +163,15 @@ func TestAnalyze_QuestionExamples(t *testing.T) {
 func TestAnalyzeWithDetectorsRunsDetectorsInParallel(t *testing.T) {
 	started := make(chan struct{}, 2)
 	release := make(chan struct{})
-	detector := func() []AmbiguityItem {
+	detector := func() []Item {
 		started <- struct{}{}
 		<-release
-		return []AmbiguityItem{}
+		return []Item{}
 	}
 
 	done := make(chan struct{})
 	go func() {
-		analyzeWithDetectors(context.Background(), []func() []AmbiguityItem{detector, detector}, 0, time.Second)
+		analyzeWithDetectors(context.Background(), []func() []Item{detector, detector}, 0, time.Second)
 		close(done)
 	}()
 
@@ -197,10 +197,10 @@ func TestAnalyzeWithDetectorsStopsWaitingAtTimeout(t *testing.T) {
 	start := time.Now()
 	got := analyzeWithDetectors(
 		context.Background(),
-		[]func() []AmbiguityItem{
-			func() []AmbiguityItem {
+		[]func() []Item{
+			func() []Item {
 				<-release
-				return []AmbiguityItem{}
+				return []Item{}
 			},
 		},
 		0,

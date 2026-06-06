@@ -10,10 +10,9 @@ import (
 )
 
 func TestTableRouter_TurkishQuestionUsesLocaleEmbeddings(t *testing.T) {
-	descEN := "social posts"
 	reader := fakeMetadataReader{
 		tables: []metadata.Table{
-			{DatasourceID: "ds1", SchemaName: "public", TableName: "tweets", TableType: "BASE TABLE", Description: &descEN},
+			{DatasourceID: "ds1", SchemaName: "public", TableName: "tweets", TableType: "BASE TABLE", Description: new("social posts")},
 			{DatasourceID: "ds1", SchemaName: "public", TableName: "users", TableType: "BASE TABLE"},
 		},
 		columns: []metadata.Column{

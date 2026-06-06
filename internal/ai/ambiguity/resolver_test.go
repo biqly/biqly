@@ -8,9 +8,9 @@ import (
 )
 
 func TestResolveChoiceRewritesQuestion(t *testing.T) {
-	result := AmbiguityResult{
+	result := Result{
 		IsAmbiguous: true,
-		Ambiguities: []AmbiguityItem{
+		Ambiguities: []Item{
 			{
 				Term: "aktif",
 				Type: "semantic",

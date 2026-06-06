@@ -74,20 +74,20 @@ func (h *AIHandler) evalAIConfigured() error {
 	return errors.New("AI is not configured (set BI_AI_MODEL and BI_AI_API_KEY, or BI_AI_BASE_URL for keyless local LLM)")
 }
 
-func (h *AIHandler) evalModesFromRequest(ctx context.Context, r *http.Request) (ai.EvalMode, string, string, []ai.GoldenCase, error) {
-	modes := ai.EvalModeLogical | ai.EvalModeExecution
+func (h *AIHandler) evalModesFromRequest(ctx context.Context, r *http.Request) (ai.Mode, string, string, []ai.GoldenCase, error) {
+	modes := ai.ModeLogical | ai.ModeExecution
 	parts := []string{"logical", "execution"}
 
 	if r.URL.Query().Get("judge") == "1" || strings.Contains(r.URL.Query().Get("modes"), "judge") {
-		modes |= ai.EvalModeJudge
+		modes |= ai.ModeJudge
 		parts = append(parts, "judge")
 	}
 	if r.URL.Query().Get("logical") == "0" {
-		modes &^= ai.EvalModeLogical
+		modes &^= ai.ModeLogical
 		parts = removeMode(parts, "logical")
 	}
 	if r.URL.Query().Get("execution") == "0" {
-		modes &^= ai.EvalModeExecution
+		modes &^= ai.ModeExecution
 		parts = removeMode(parts, "execution")
 	}
 
@@ -138,7 +138,7 @@ func removeMode(parts []string, mode string) []string {
 	return out
 }
 
-func (h *AIHandler) executeGoldenCasesWithMetrics(ctx context.Context, r *http.Request) (*evalRunResponseWire, []ai.EvalResultWithMetrics, error) {
+func (h *AIHandler) executeGoldenCasesWithMetrics(ctx context.Context, r *http.Request) (*evalRunResponseWire, []ai.ResultWithMetrics, error) {
 	if err := h.evalAIConfigured(); err != nil {
 		return nil, nil, err
 	}
@@ -147,11 +147,11 @@ func (h *AIHandler) executeGoldenCasesWithMetrics(ctx context.Context, r *http.R
 	if err != nil {
 		return nil, nil, err
 	}
-	opts := ai.EvalSuiteOptions{
+	opts := ai.SuiteOptions{
 		Cases: cases,
 		Modes: modes,
 	}
-	if modes&ai.EvalModeJudge != 0 {
+	if modes&ai.ModeJudge != 0 {
 		opts.Judge = h.service.LLMProvider()
 	}
 
@@ -160,7 +160,7 @@ func (h *AIHandler) executeGoldenCasesWithMetrics(ctx context.Context, r *http.R
 	return wire, result.ToEvalResultsWithMetrics(), nil
 }
 
-func suiteResultToWire(result *ai.EvalSuiteResult, opts ai.EvalSuiteOptions, suiteName, modesLabel string) *evalRunResponseWire {
+func suiteResultToWire(result *ai.SuiteResult, opts ai.SuiteOptions, suiteName, modesLabel string) *evalRunResponseWire {
 	out := make([]evalTestCaseWire, 0, len(result.Cases))
 	for _, c := range result.Cases {
 		tc := evalTestCaseWire{
@@ -180,7 +180,7 @@ func suiteResultToWire(result *ai.EvalSuiteResult, opts ai.EvalSuiteOptions, sui
 		}
 		tc.LogicalMatch = new(c.LogicalMatch)
 		tc.ExecutionMatch = new(c.ExecutionMatch)
-		if opts.Modes&ai.EvalModeJudge != 0 && opts.Judge != nil {
+		if opts.Modes&ai.ModeJudge != 0 && opts.Judge != nil {
 			tc.JudgeMatch = new(c.JudgeMatch)
 			tc.JudgeRationale = c.JudgeReason
 		}
@@ -277,8 +277,8 @@ func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) { //no
 		send(fmt.Sprintf("Failed to load suite: %v", err))
 		return
 	}
-	opts := ai.EvalSuiteOptions{Cases: cases, Modes: modes}
-	if modes&ai.EvalModeJudge != 0 {
+	opts := ai.SuiteOptions{Cases: cases, Modes: modes}
+	if modes&ai.ModeJudge != 0 {
 		opts.Judge = h.service.LLMProvider()
 	}
 	exec := ai.MemoryResultExecutor{}
@@ -314,7 +314,7 @@ func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) { //no
 			bundleVersion = resp.Metadata.PromptTemplateBundleVersion
 		}
 
-		cr := ai.EvalCaseResult{
+		cr := ai.CaseResult{
 			Case:                        c,
 			Got:                         respLQ,
 			Confidence:                  confidence,
@@ -324,7 +324,7 @@ func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) { //no
 		if resp.Metadata != nil && resp.Metadata.TokenUsage != nil {
 			cr.TokenCount = resp.Metadata.TokenUsage.Total
 		}
-		if modes&ai.EvalModeLogical != 0 {
+		if modes&ai.ModeLogical != 0 {
 			cr.LogicalMatch, cr.LogicalReason = ai.LogicalQueryEqual(respLQ, &c.Expected)
 			if cr.LogicalMatch {
 				logicalPassed++
@@ -333,7 +333,7 @@ func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) { //no
 			cr.LogicalMatch = true
 			logicalPassed++
 		}
-		if modes&ai.EvalModeExecution != 0 {
+		if modes&ai.ModeExecution != 0 {
 			cr.ExecutionMatch, cr.ExecutionReason = ai.CompareExecutionResults(ctx, exec, c.Model, &c.Expected, respLQ)
 			if cr.ExecutionMatch {
 				execPassed++
@@ -342,7 +342,7 @@ func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) { //no
 			cr.ExecutionMatch = true
 			execPassed++
 		}
-		if modes&ai.EvalModeJudge != 0 && opts.Judge != nil { //nolint:nestif
+		if modes&ai.ModeJudge != 0 && opts.Judge != nil { //nolint:nestif
 			ok, rationale, jerr := ai.JudgeLogicalQuery(ctx, opts.Judge, c.Question, c.Model, &c.Expected, respLQ)
 			if jerr != nil {
 				cr.JudgeMatch = false
@@ -470,9 +470,9 @@ func (h *AIHandler) EvalRegression(w http.ResponseWriter, r *http.Request) {
 }
 
 type evalCaseWire struct {
-	ID       string              `json:"id"`
-	Question string              `json:"question"`
-	ModelID  string              `json:"model_id"`
+	ID       string             `json:"id"`
+	Question string             `json:"question"`
+	ModelID  string             `json:"model_id"`
 	Expected query.LogicalQuery `json:"expected"`
 }
 

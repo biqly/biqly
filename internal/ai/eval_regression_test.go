@@ -67,9 +67,9 @@ func TestEvalRegressionGate(t *testing.T) {
 		MaxRetries:  0,
 	}
 	svc := NewServiceWithProvider(&cfg, query.NewValidator(1000), evalpkg.NewGoldenStubProvider())
-	opts := evalpkg.EvalSuiteOptions{
+	opts := evalpkg.SuiteOptions{
 		Cases: evalpkg.DefaultGoldenCases(),
-		Modes: evalpkg.EvalModeLogical | evalpkg.EvalModeExecution,
+		Modes: evalpkg.ModeLogical | evalpkg.ModeExecution,
 	}
 	result := evalpkg.RunGoldenSuite(context.Background(), svc, opts)
 	if result.Failed > 0 {
@@ -91,9 +91,9 @@ func TestBenchmarkSuiteRegressionGate(t *testing.T) {
 		MaxRetries:  0,
 	}
 	svc := NewServiceWithProvider(&cfg, query.NewValidator(1000), evalpkg.NewGoldenStubProviderForCases(evalpkg.BenchmarkCases()))
-	opts := evalpkg.EvalSuiteOptions{
+	opts := evalpkg.SuiteOptions{
 		Cases: evalpkg.BenchmarkCases(),
-		Modes: evalpkg.EvalModeLogical | evalpkg.EvalModeExecution,
+		Modes: evalpkg.ModeLogical | evalpkg.ModeExecution,
 	}
 	result := evalpkg.RunGoldenSuite(context.Background(), svc, opts)
 	if result.PassRate < 1.0 {

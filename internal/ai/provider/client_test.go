@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	"github.com/biqly/biqly/internal/ai/prompt"
@@ -82,18 +83,20 @@ func TestAnthropicGenerateAtParsesUsage(t *testing.T) {
 }
 
 func TestTokenUsageFromGenerationPrefersAPI(t *testing.T) {
-	stats := prompt.PromptStats{EstPromptTokens: 999}
+	stats := prompt.Stats{EstPromptTokens: 999}
 	api := GenerationResult{
 		Content: "x",
 		Usage:   &TokenUsage{Prompt: 10, Completion: 5, Total: 15},
 	}
 	got := TokenUsageFromGeneration(stats, api)
-	if got.Prompt != 10 || got.Completion != 5 || got.Total != 15 {
-		t.Fatalf("got %+v", got)
+	want := &TokenUsage{Prompt: 10, Completion: 5, Total: 15}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("TokenUsageFromGeneration API usage = %+v, want %+v", got, want)
 	}
 
 	est := TokenUsageFromGeneration(stats, GenerationResult{Content: "abcdabcd"})
-	if est.Prompt != 999 || est.Completion != 2 || est.Total != 1001 {
-		t.Fatalf("estimate fallback = %+v", est)
+	wantEstimate := &TokenUsage{Prompt: 999, Completion: 2, Total: 1001}
+	if !reflect.DeepEqual(est, wantEstimate) {
+		t.Fatalf("TokenUsageFromGeneration estimate fallback = %+v, want %+v", est, wantEstimate)
 	}
 }

@@ -19,7 +19,7 @@ type synonymTarget struct {
 }
 
 // DetectSynonyms returns question synonyms that map to more than one semantic field.
-func DetectSynonyms(locale i18n.Locale, question string, model *semantic.SemanticModel) []AmbiguityItem {
+func DetectSynonyms(locale i18n.Locale, question string, model *semantic.SemanticModel) []Item {
 	if model == nil {
 		return nil
 	}
@@ -40,13 +40,13 @@ func DetectSynonyms(locale i18n.Locale, question string, model *semantic.Semanti
 	}
 	sort.Strings(terms)
 
-	var ambiguities []AmbiguityItem
+	var ambiguities []Item
 	for _, term := range terms {
 		interpretations := synonymInterpretations(bySynonym[term])
 		if len(interpretations) < 2 {
 			continue
 		}
-		ambiguities = append(ambiguities, AmbiguityItem{
+		ambiguities = append(ambiguities, Item{
 			Term:            term,
 			Type:            "semantic",
 			Interpretations: interpretations,

@@ -72,7 +72,6 @@ type CompositeConfig struct {
 }
 
 // AuthConfig wires the monolith to the standalone auth service.
-
 // When Enabled is false, all /api/* routes fall back to the legacy
 // APIKeyAuth middleware. When Enabled is true, /api/* routes verify a JWT
 // against the auth service's public key, and routes can additionally enforce

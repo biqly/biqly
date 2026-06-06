@@ -4,11 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"os"
 	"testing"
 	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/biqly/biqly/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -64,23 +63,7 @@ func TestNewDBWriter_NilDB(t *testing.T) {
 
 func openTestDBPool(t *testing.T) *sql.DB {
 	t.Helper()
-	dsn := os.Getenv("BI_METADATA_DB_DSN")
-	if dsn == "" {
-		//nolint:gosec // local test default DSN only
-		dsn = "postgres://bi_user:bi_password@localhost:5432/bi_metadata?sslmode=disable"
-	}
-	dbPool, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Skip("skipping database tests; DB not available:", err)
-	}
-	t.Cleanup(func() { require.NoError(t, dbPool.Close()) })
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	if err := dbPool.PingContext(ctx); err != nil {
-		t.Skip("skipping database tests; ping failed:", err)
-	}
-	return dbPool
+	return testutil.OpenMetadataDB(t)
 }
 
 func TestDBWriter_Integration(t *testing.T) {

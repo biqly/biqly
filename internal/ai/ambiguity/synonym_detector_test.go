@@ -19,7 +19,7 @@ func ciroAmbiguityModel() *semantic.SemanticModel {
 	}
 }
 
-func assertDetectSynonyms(t *testing.T, model *semantic.SemanticModel, question string, want []AmbiguityItem) {
+func assertDetectSynonyms(t *testing.T, model *semantic.SemanticModel, question string, want []Item) {
 	t.Helper()
 	got := DetectSynonyms(i18n.LocaleEN, question, model)
 	if !reflect.DeepEqual(got, want) {
@@ -28,7 +28,7 @@ func assertDetectSynonyms(t *testing.T, model *semantic.SemanticModel, question 
 }
 
 func TestDetectSynonyms(t *testing.T) {
-	assertDetectSynonyms(t, ciroAmbiguityModel(), "Ciro göster", []AmbiguityItem{
+	assertDetectSynonyms(t, ciroAmbiguityModel(), "Ciro göster", []Item{
 		{
 			Term: "ciro",
 			Type: "semantic",
@@ -68,7 +68,7 @@ func fuzzyCiroAmbiguityModel() *semantic.SemanticModel {
 }
 
 func TestDetectSynonyms_FuzzyQuestionMatch(t *testing.T) {
-	assertDetectSynonyms(t, fuzzyCiroAmbiguityModel(), "Cirp göster", []AmbiguityItem{
+	assertDetectSynonyms(t, fuzzyCiroAmbiguityModel(), "Cirp göster", []Item{
 		{
 			Term: "ciro",
 			Type: "semantic",

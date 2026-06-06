@@ -25,20 +25,20 @@ var vagueTemporalPhrases = []vagueTemporal{
 }
 
 // DetectTemporal flags vague relative time phrases that need a concrete window.
-func DetectTemporal(locale i18n.Locale, question string, model *semantic.SemanticModel) []AmbiguityItem {
+func DetectTemporal(locale i18n.Locale, question string, model *semantic.SemanticModel) []Item {
 	normalized := strings.ToLower(strings.TrimSpace(question))
 	if normalized == "" {
 		return nil
 	}
 
 	dateDim, hasDateDim := firstDateDimension(model)
-	var ambiguities []AmbiguityItem
+	var ambiguities []Item
 	for _, entry := range vagueTemporalPhrases {
 		if !strings.Contains(normalized, entry.phrase) {
 			continue
 		}
 		interpretations := temporalInterpretations(locale, entry.interpretationKeys, dateDim, hasDateDim)
-		ambiguities = append(ambiguities, AmbiguityItem{
+		ambiguities = append(ambiguities, Item{
 			Term:            entry.phrase,
 			Type:            "temporal",
 			Interpretations: interpretations,

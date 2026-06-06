@@ -14,19 +14,19 @@ import (
 	"github.com/biqly/biqly/internal/i18n"
 )
 
-// PromptTemplateSnapshot is the active prompt template content plus its DB version.
-type PromptTemplateSnapshot struct {
+// TemplateSnapshot PromptTemplateSnapshot is the active prompt template content plus its DB version.
+type TemplateSnapshot struct {
 	Name    string      `json:"name"`
 	Locale  i18n.Locale `json:"locale"`
 	Content string      `json:"content"`
 	Version int         `json:"version"`
 }
 
-// PromptTemplateStore loads static prompt sections (system_rules, output_format, retry, clarification).
-type PromptTemplateStore interface {
+// TemplateStore PromptTemplateStore loads static prompt sections (system_rules, output_format, retry, clarification).
+type TemplateStore interface {
 	Template(ctx context.Context, loc i18n.Locale, name string) string
-	Snapshot(ctx context.Context, loc i18n.Locale, name string) PromptTemplateSnapshot
-	SnapshotForUser(ctx context.Context, userID string, loc i18n.Locale, name string) PromptTemplateSnapshot
+	Snapshot(ctx context.Context, loc i18n.Locale, name string) TemplateSnapshot
+	SnapshotForUser(ctx context.Context, userID string, loc i18n.Locale, name string) TemplateSnapshot
 }
 
 type embedPromptStore struct{}
@@ -35,8 +35,8 @@ func (s embedPromptStore) Template(ctx context.Context, loc i18n.Locale, name st
 	return s.Snapshot(ctx, loc, name).Content
 }
 
-func (embedPromptStore) Snapshot(_ context.Context, loc i18n.Locale, name string) PromptTemplateSnapshot {
-	return PromptTemplateSnapshot{
+func (embedPromptStore) Snapshot(_ context.Context, loc i18n.Locale, name string) TemplateSnapshot {
+	return TemplateSnapshot{
 		Name:    name,
 		Locale:  loc,
 		Content: promptTemplateFromEmbed(loc, name),
@@ -44,7 +44,7 @@ func (embedPromptStore) Snapshot(_ context.Context, loc i18n.Locale, name string
 	}
 }
 
-func (s embedPromptStore) SnapshotForUser(ctx context.Context, _ string, loc i18n.Locale, name string) PromptTemplateSnapshot {
+func (s embedPromptStore) SnapshotForUser(ctx context.Context, _ string, loc i18n.Locale, name string) TemplateSnapshot {
 	return s.Snapshot(ctx, loc, name)
 }
 
@@ -52,7 +52,7 @@ type dbPromptStore struct {
 	repo   promptTemplateRepo
 	router VariantResolver
 	mu     sync.RWMutex
-	cache  map[string]PromptTemplateSnapshot // key: name+"\x00"+locale
+	cache  map[string]TemplateSnapshot // key: name+"\x00"+locale
 }
 
 type promptTemplateRepo interface {
@@ -74,7 +74,7 @@ type VariantResolver interface {
 }
 
 type promptStoreWrapper struct {
-	store PromptTemplateStore
+	store TemplateStore
 }
 
 var activePromptStore atomic.Value
@@ -83,7 +83,7 @@ func init() {
 	activePromptStore.Store(promptStoreWrapper{store: embedPromptStore{}})
 }
 
-func getActivePromptStore() PromptTemplateStore {
+func getActivePromptStore() TemplateStore {
 	loaded, ok := activePromptStore.Load().(promptStoreWrapper)
 	if !ok {
 		return embedPromptStore{}
@@ -93,7 +93,7 @@ func getActivePromptStore() PromptTemplateStore {
 
 // SetPromptTemplateStore switches template resolution to the database (with
 // embedded-file fallback). Call once at app startup after migrations.
-func SetPromptTemplateStore(store PromptTemplateStore) {
+func SetPromptTemplateStore(store TemplateStore) {
 	activePromptStore.Store(promptStoreWrapper{store: store})
 }
 
@@ -141,15 +141,15 @@ func SeedPromptTemplatesFromEmbed(ctx context.Context, repo promptTemplateRepo) 
 }
 
 // NewDBPromptTemplateStore resolves templates from metadata DB with in-memory cache.
-func NewDBPromptTemplateStore(repo promptTemplateRepo) PromptTemplateStore {
-	return &dbPromptStore{repo: repo, cache: make(map[string]PromptTemplateSnapshot)}
+func NewDBPromptTemplateStore(repo promptTemplateRepo) TemplateStore {
+	return &dbPromptStore{repo: repo, cache: make(map[string]TemplateSnapshot)}
 }
 
 func (s *dbPromptStore) Template(ctx context.Context, loc i18n.Locale, name string) string {
 	return s.Snapshot(ctx, loc, name).Content
 }
 
-func (s *dbPromptStore) Snapshot(ctx context.Context, loc i18n.Locale, name string) PromptTemplateSnapshot {
+func (s *dbPromptStore) Snapshot(ctx context.Context, loc i18n.Locale, name string) TemplateSnapshot {
 	if loc == "" {
 		loc = i18n.DefaultLocale
 	}
@@ -186,12 +186,12 @@ func (s *dbPromptStore) Snapshot(ctx context.Context, loc i18n.Locale, name stri
 		}
 		version = 1
 	}
-	snap := PromptTemplateSnapshot{Name: name, Locale: loc, Content: body, Version: version}
+	snap := TemplateSnapshot{Name: name, Locale: loc, Content: body, Version: version}
 	s.cache[key] = snap
 	return snap
 }
 
-func (s *dbPromptStore) SnapshotForUser(ctx context.Context, userID string, loc i18n.Locale, name string) PromptTemplateSnapshot {
+func (s *dbPromptStore) SnapshotForUser(ctx context.Context, userID string, loc i18n.Locale, name string) TemplateSnapshot {
 	if loc == "" {
 		loc = i18n.DefaultLocale
 	}
@@ -226,7 +226,7 @@ func (s *dbPromptStore) SnapshotForUser(ctx context.Context, userID string, loc 
 		return activeSnap
 	}
 
-	return PromptTemplateSnapshot{
+	return TemplateSnapshot{
 		Name:    name,
 		Locale:  loc,
 		Content: content,
@@ -252,8 +252,8 @@ func (s *dbPromptStore) load(ctx context.Context, name string, loc i18n.Locale) 
 	return body, 1, err
 }
 
-// PromptLocaleForQuestion picks the prompt bundle from the detected question locale.
-func PromptLocaleForQuestion(question string, uiLocale i18n.Locale) i18n.Locale {
+// LocaleForQuestion PromptLocaleForQuestion picks the prompt bundle from the detected question locale.
+func LocaleForQuestion(question string, uiLocale i18n.Locale) i18n.Locale {
 	if strings.TrimSpace(question) != "" {
 		if loc, ok := lingua.DetectQuestionLocaleConfident(question); ok {
 			return loc
@@ -273,8 +273,8 @@ func promptTemplate(ctx context.Context, loc i18n.Locale, name string) string {
 	return getActivePromptStore().Template(ctx, loc, name)
 }
 
-// PromptTemplateBundleVersions reports active versions for the editable prompt bundle.
-func PromptTemplateBundleVersions(ctx context.Context, loc i18n.Locale) map[string]int {
+// TemplateBundleVersions PromptTemplateBundleVersions reports active versions for the editable prompt bundle.
+func TemplateBundleVersions(ctx context.Context, loc i18n.Locale) map[string]int {
 	userID := UserIDFromContext(ctx)
 	out := make(map[string]int, len(KnownPromptTemplateNames()))
 	for _, name := range KnownPromptTemplateNames() {
@@ -339,7 +339,7 @@ func ReseedAllPromptTemplatesFromEmbed(ctx context.Context, repo promptTemplateR
 	}
 	if s, ok := getActivePromptStore().(*dbPromptStore); ok {
 		s.mu.Lock()
-		s.cache = make(map[string]PromptTemplateSnapshot)
+		s.cache = make(map[string]TemplateSnapshot)
 		s.mu.Unlock()
 	}
 	return SeedPromptTemplatesFromEmbed(ctx, repo)

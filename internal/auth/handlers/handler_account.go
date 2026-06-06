@@ -12,7 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// RegisterAccountRoutes wires §18.1 account-security endpoints under /auth.
+// RegisterAccountSelfRoutes wires §18.1 account-security endpoints under /auth.
 // Public:  /auth/unlock-account
 // Self:    /auth/me/freeze, /auth/me/unfreeze, /auth/me/account (DELETE), /auth/me/sessions
 // Admin:   /auth/admin/users/{id}/force-logout, /auth/admin/users/{id}/restore

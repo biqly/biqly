@@ -10,27 +10,25 @@ import (
 )
 
 type testPromptStore struct {
-	templates map[string]PromptTemplateSnapshot
+	templates map[string]TemplateSnapshot
 }
 
 func (s testPromptStore) Template(ctx context.Context, loc i18n.Locale, name string) string {
 	return s.Snapshot(ctx, loc, name).Content
 }
 
-func (s testPromptStore) Snapshot(_ context.Context, loc i18n.Locale, name string) PromptTemplateSnapshot {
+func (s testPromptStore) Snapshot(_ context.Context, loc i18n.Locale, name string) TemplateSnapshot {
 	if v, ok := s.templates[name+"\x00"+string(loc)]; ok {
 		return v
 	}
-	return PromptTemplateSnapshot{Name: name, Locale: loc, Content: "", Version: 0}
+	return TemplateSnapshot{Name: name, Locale: loc, Content: "", Version: 0}
 }
 
-func (s testPromptStore) SnapshotForUser(ctx context.Context, _ string, loc i18n.Locale, name string) PromptTemplateSnapshot {
+func (s testPromptStore) SnapshotForUser(ctx context.Context, _ string, loc i18n.Locale, name string) TemplateSnapshot {
 	return s.Snapshot(ctx, loc, name)
 }
 
-
-
-func withPromptStore(t *testing.T, store PromptTemplateStore) {
+func withPromptStore(t *testing.T, store TemplateStore) {
 	t.Helper()
 	prev := getActivePromptStore()
 	SetPromptTemplateStore(store)
@@ -79,7 +77,7 @@ func TestTurkishEditablePromptDefaultsAreLocalized(t *testing.T) {
 }
 
 func TestBuildRetryUsesEditableTemplate(t *testing.T) {
-	withPromptStore(t, testPromptStore{templates: map[string]PromptTemplateSnapshot{
+	withPromptStore(t, testPromptStore{templates: map[string]TemplateSnapshot{
 		"retry\x00tr": {
 			Name:    "retry",
 			Locale:  i18n.LocaleTR,
@@ -88,7 +86,7 @@ func TestBuildRetryUsesEditableTemplate(t *testing.T) {
 		},
 	}})
 
-	pb := &PromptBuilder{}
+	pb := &Builder{}
 	got := pb.BuildRetry(context.Background(), i18n.LocaleTR, "ORIGINAL", "BAD", "BROKEN")
 	if !strings.Contains(got, "CUSTOM RETRY ORIGINAL BAD BROKEN") {
 		t.Fatalf("expected retry template to render from store, got %q", got)
@@ -96,7 +94,7 @@ func TestBuildRetryUsesEditableTemplate(t *testing.T) {
 }
 
 func TestBuildClarificationUsesEditableTemplate(t *testing.T) {
-	withPromptStore(t, testPromptStore{templates: map[string]PromptTemplateSnapshot{
+	withPromptStore(t, testPromptStore{templates: map[string]TemplateSnapshot{
 		"clarification\x00tr": {
 			Name:    "clarification",
 			Locale:  i18n.LocaleTR,
@@ -105,7 +103,7 @@ func TestBuildClarificationUsesEditableTemplate(t *testing.T) {
 		},
 	}})
 
-	pb := &PromptBuilder{}
+	pb := &Builder{}
 	model := &semantic.SemanticModel{Name: "tweets"}
 	got := pb.BuildClarification(context.Background(), i18n.LocaleTR, "silinen tweetler", model, "ambiguous")
 	if !strings.Contains(got, "CUSTOM CLARIFY silinen tweetler tweets ambiguous") {
@@ -114,7 +112,7 @@ func TestBuildClarificationUsesEditableTemplate(t *testing.T) {
 }
 
 func TestPromptTemplateBundleVersionsReturnsActiveVersions(t *testing.T) {
-	withPromptStore(t, testPromptStore{templates: map[string]PromptTemplateSnapshot{
+	withPromptStore(t, testPromptStore{templates: map[string]TemplateSnapshot{
 		"system_rules\x00tr":  {Name: "system_rules", Locale: i18n.LocaleTR, Version: 2},
 		"output_format\x00tr": {Name: "output_format", Locale: i18n.LocaleTR, Version: 5},
 		"retry\x00tr":         {Name: "retry", Locale: i18n.LocaleTR, Version: 8},
@@ -122,7 +120,7 @@ func TestPromptTemplateBundleVersionsReturnsActiveVersions(t *testing.T) {
 		"prompt_layout\x00tr": {Name: "prompt_layout", Locale: i18n.LocaleTR, Version: 14},
 	}})
 
-	got := PromptTemplateBundleVersions(context.Background(), i18n.LocaleTR)
+	got := TemplateBundleVersions(context.Background(), i18n.LocaleTR)
 	if got["system_rules"] != 2 || got["output_format"] != 5 || got["retry"] != 8 || got["clarification"] != 13 || got["prompt_layout"] != 14 {
 		t.Fatalf("unexpected version bundle: %#v", got)
 	}

@@ -50,6 +50,17 @@ func (p *scriptedProvider) GenerateAt(ctx context.Context, promptStr string, _ f
 	return p.Generate(ctx, promptStr)
 }
 
+func requireProcessQuestionResponse(t *testing.T, resp *AIResponse, err error) *AIResponse {
+	t.Helper()
+	if err != nil {
+		t.Fatalf("ProcessQuestion error = %v, want nil", err)
+	}
+	if resp == nil {
+		t.Fatal("ProcessQuestion returned nil response")
+	}
+	return resp
+}
+
 func TestParseAndValidateNormalizesLogicalQueryContext(t *testing.T) {
 	service := &Service{validator: query.NewValidator(1000)}
 	model := &semantic.SemanticModel{
@@ -147,7 +158,7 @@ func TestParseAndValidateOrdersTimeSeriesGroupBy(t *testing.T) {
 	}
 }
 
-// stubLLMServer returns an httptest.Server whose /chat/completions endpoint
+// stubLLMServer returns a httptest.Server whose /chat/completions endpoint
 // emits successive responses from `replies`, cycling on the last one.
 func stubLLMServer(t *testing.T, replies []string) *httptest.Server {
 	t.Helper()
@@ -185,9 +196,7 @@ func TestProcessQuestionRetriesOnInvalidJSON(t *testing.T) {
 	}
 
 	resp, err := svc.ProcessQuestion(context.Background(), "kaç sipariş var", model)
-	if err != nil {
-		t.Fatalf("ProcessQuestion error = %v, want nil", err)
-	}
+	resp = requireProcessQuestionResponse(t, resp, err)
 	if resp.Result == nil || resp.Result.LogicalQuery == nil {
 		t.Fatalf("expected LogicalQuery after successful retry, got nil; warnings=%v", resp.Result.Warnings)
 	}
@@ -213,9 +222,7 @@ func TestProcessQuestionReturnsAmbiguityClarificationBeforeLLM(t *testing.T) {
 	}
 
 	resp, err := svc.ProcessQuestion(context.Background(), "Ciro göster", model, WithAmbiguityCheck(true), WithLLMAmbiguityCheck(true))
-	if err != nil {
-		t.Fatalf("ProcessQuestion() error = %v, want nil", err)
-	}
+	resp = requireProcessQuestionResponse(t, resp, err)
 	if got := client.calls.Load(); got != 0 {
 		t.Errorf("ProcessQuestion() provider calls = %d, want 0", got)
 	}
@@ -250,9 +257,7 @@ func TestProcessQuestionReturnsLLMAmbiguityClarificationWhenRuleBasedClean(t *te
 		WithAmbiguityCheck(true),
 		WithLLMAmbiguityCheck(true),
 	)
-	if err != nil {
-		t.Fatalf("ProcessQuestion() error = %v, want nil", err)
-	}
+	resp = requireProcessQuestionResponse(t, resp, err)
 	if got := client.calls.Load(); got != 1 {
 		t.Errorf("ProcessQuestion() provider calls = %d, want 1", got)
 	}
@@ -280,9 +285,7 @@ func TestProcessQuestionCachesLLMAmbiguityAnalysis(t *testing.T) {
 
 	for range 2 {
 		resp, err := svc.ProcessQuestion(context.Background(), "Show active customers", model, opts...)
-		if err != nil {
-			t.Fatalf("ProcessQuestion() error = %v, want nil", err)
-		}
+		resp = requireProcessQuestionResponse(t, resp, err)
 		if resp.Clarification == nil {
 			t.Fatalf("ProcessQuestion() clarification = nil, want structured clarification")
 		}
@@ -303,9 +306,7 @@ func TestProcessQuestionAmbiguityCheckIsOptIn(t *testing.T) {
 	}
 
 	resp, err := svc.ProcessQuestion(context.Background(), "Ciro göster", model)
-	if err != nil {
-		t.Fatalf("ProcessQuestion() error = %v, want nil", err)
-	}
+	resp = requireProcessQuestionResponse(t, resp, err)
 	if got := client.calls.Load(); got != 1 {
 		t.Errorf("ProcessQuestion() provider calls = %d, want 1", got)
 	}
@@ -334,9 +335,7 @@ func TestProcessQuestionUsesUnmergedAmbiguityGlossary(t *testing.T) {
 		WithAmbiguityGlossary(ambiguityGlossary),
 		WithAmbiguityCheck(true),
 	)
-	if err != nil {
-		t.Fatalf("ProcessQuestion() error = %v, want nil", err)
-	}
+	resp = requireProcessQuestionResponse(t, resp, err)
 	if got := client.calls.Load(); got != 0 {
 		t.Errorf("ProcessQuestion() provider calls = %d, want 0", got)
 	}
@@ -372,9 +371,7 @@ func TestProcessQuestionRetriesOnSQLDryRunFailure(t *testing.T) {
 	}
 
 	resp, err := svc.ProcessQuestion(context.Background(), "kaç sipariş var", model, WithSQLValidator(failingValidator))
-	if err != nil {
-		t.Fatalf("ProcessQuestion error = %v, want nil", err)
-	}
+	resp = requireProcessQuestionResponse(t, resp, err)
 	if resp.Result == nil || resp.Result.LogicalQuery == nil {
 		t.Fatalf("expected query after dry-run retry; result=%+v", resp.Result)
 	}
@@ -395,9 +392,7 @@ func TestProcessQuestionGivesUpAfterMaxRetries(t *testing.T) {
 
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x"}
 	resp, err := svc.ProcessQuestion(context.Background(), "q", model)
-	if err != nil {
-		t.Fatalf("ProcessQuestion error = %v, want nil", err)
-	}
+	resp = requireProcessQuestionResponse(t, resp, err)
 	if resp.Result != nil && resp.Result.LogicalQuery != nil {
 		t.Errorf("expected nil LogicalQuery after exhausted retries, got %+v", resp.Result.LogicalQuery)
 	}
@@ -425,9 +420,7 @@ func TestProcessQuestionDoesNotReturnInvalidLogicalQueryAfterValidationRetries(t
 		Metrics:      []semantic.Metric{{Name: "row_count", Aggregation: "count", Expression: "*"}},
 	}
 	resp, err := svc.ProcessQuestion(context.Background(), "yıllara göre siparişler", model)
-	if err != nil {
-		t.Fatalf("ProcessQuestion error = %v, want nil", err)
-	}
+	resp = requireProcessQuestionResponse(t, resp, err)
 	if resp.Result != nil && resp.Result.LogicalQuery != nil {
 		t.Fatalf("expected nil LogicalQuery after exhausted validation retries, got %+v", resp.Result.LogicalQuery)
 	}
@@ -458,9 +451,7 @@ func TestProcessQuestionEmitsClarificationAfterExhaustedRetries(t *testing.T) {
 	}
 
 	resp, err := svc.ProcessQuestion(context.Background(), "ne kadar", model)
-	if err != nil {
-		t.Fatalf("ProcessQuestion error = %v, want nil", err)
-	}
+	resp = requireProcessQuestionResponse(t, resp, err)
 	if resp.Clarification == nil || !resp.Clarification.NeedsClarification {
 		t.Errorf("expected NeedsClarification=true after exhausted retries, got false")
 	}
@@ -496,9 +487,7 @@ func TestProcessQuestionMultiCandidateMajority(t *testing.T) {
 	}
 
 	resp, err := svc.ProcessQuestion(context.Background(), "kaç sipariş var", model)
-	if err != nil {
-		t.Fatalf("ProcessQuestion error = %v, want nil", err)
-	}
+	resp = requireProcessQuestionResponse(t, resp, err)
 	if resp.Result == nil || resp.Result.LogicalQuery == nil || resp.Result.LogicalQuery.Limit != 10 {
 		t.Fatalf("expected majority limit=10, got %+v", resp.Result)
 	}
@@ -546,9 +535,7 @@ func TestProcessQuestionMultiCandidateNoMajorityFallsBack(t *testing.T) {
 	}
 
 	resp, err := svc.ProcessQuestion(context.Background(), "kaç sipariş var", model)
-	if err != nil {
-		t.Fatalf("ProcessQuestion error = %v, want nil", err)
-	}
+	resp = requireProcessQuestionResponse(t, resp, err)
 	if resp.Result == nil || resp.Result.LogicalQuery == nil {
 		t.Fatalf("expected fallback path to produce a query, got nil")
 	}
@@ -590,9 +577,7 @@ func TestProcessQuestionInheritsFiltersOnRefineFollowUp(t *testing.T) {
 	}
 
 	resp, err := svc.ProcessQuestion(context.Background(), "bölgeye göre grupla", model, WithPriorTurns(prior))
-	if err != nil {
-		t.Fatalf("ProcessQuestion error = %v", err)
-	}
+	resp = requireProcessQuestionResponse(t, resp, err)
 	if resp.Result == nil || resp.Result.LogicalQuery == nil || len(resp.Result.LogicalQuery.Filters) != 1 {
 		t.Fatalf("expected inherited order_date filter, got %+v", resp.Result)
 	}

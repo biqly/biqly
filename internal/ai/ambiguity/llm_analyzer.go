@@ -17,14 +17,14 @@ import (
 // LLMAnalyzer detects ambiguities that are not covered by deterministic rules.
 type LLMAnalyzer struct {
 	client  provider.Provider
-	builder *prompt.PromptBuilder
+	builder *prompt.Builder
 }
 
 // NewLLMAnalyzer creates an analyzer backed by the configured LLM provider.
 func NewLLMAnalyzer(client provider.Provider) *LLMAnalyzer {
 	return &LLMAnalyzer{
 		client:  client,
-		builder: &prompt.PromptBuilder{},
+		builder: &prompt.Builder{},
 	}
 }
 
@@ -43,43 +43,43 @@ type llmAmbiguityItem struct {
 
 // Analyze asks the LLM for structured ambiguity candidates and converts them
 // into the shared result shape used by clarification responses.
-func (a *LLMAnalyzer) Analyze(ctx context.Context, locale i18n.Locale, question string, model *semantic.SemanticModel, glossary []prompt.GlossaryEntry) (AmbiguityResult, error) {
+func (a *LLMAnalyzer) Analyze(ctx context.Context, locale i18n.Locale, question string, model *semantic.SemanticModel, glossary []prompt.GlossaryEntry) (Result, error) {
 	if a == nil || a.client == nil {
-		return AmbiguityResult{}, errors.New("LLM ambiguity analyzer requires a provider")
+		return Result{}, errors.New("LLM ambiguity analyzer requires a provider")
 	}
 
 	analysisPrompt := a.builder.BuildAmbiguityAnalysis(ctx, locale, question, model, glossary)
 	gen, err := a.client.Generate(ctx, analysisPrompt)
 	if err != nil {
-		return AmbiguityResult{}, fmt.Errorf("generate ambiguity analysis: %w", err)
+		return Result{}, fmt.Errorf("generate ambiguity analysis: %w", err)
 	}
 
 	var response llmAmbiguityResponse
 	if err := json.Unmarshal([]byte(jsonextract.TrimToJSONObject(gen.Content)), &response); err != nil {
-		return AmbiguityResult{}, fmt.Errorf("parse ambiguity analysis: %w", err)
+		return Result{}, fmt.Errorf("parse ambiguity analysis: %w", err)
 	}
 	if !response.IsAmbiguous && !response.ClarificationNeeded {
-		return AmbiguityResult{}, nil
+		return Result{}, nil
 	}
 
 	items := response.Ambiguities
 	if len(items) == 0 {
 		items = response.AmbiguousTerms
 	}
-	ambiguities := make([]AmbiguityItem, 0, len(items))
+	ambiguities := make([]Item, 0, len(items))
 	for _, item := range items {
 		interpretations := llmInterpretations(item)
 		if strings.TrimSpace(item.Term) == "" || len(interpretations) < 2 {
 			continue
 		}
-		ambiguities = append(ambiguities, AmbiguityItem{
+		ambiguities = append(ambiguities, Item{
 			Term:            strings.TrimSpace(item.Term),
 			Type:            "llm",
 			Interpretations: interpretations,
 		})
 	}
 
-	return AmbiguityResult{
+	return Result{
 		IsAmbiguous: len(ambiguities) > 0,
 		Ambiguities: ambiguities,
 	}, nil

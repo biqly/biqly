@@ -9,17 +9,14 @@ import (
 	"github.com/biqly/biqly/internal/semantic"
 )
 
-// EvalMode selects which checks RunGoldenSuite performs.
-type EvalMode uint8
+// Mode EvalMode selects which checks RunGoldenSuite performs.
+type Mode uint8
 
 const (
-	EvalModeLogical EvalMode = 1 << iota
-	EvalModeExecution
-	EvalModeJudge
+	ModeLogical Mode = 1 << iota
+	ModeExecution
+	ModeJudge
 )
-
-// EvalModeAll runs logical, execution, and LLM judge checks.
-const EvalModeAll = EvalModeLogical | EvalModeExecution | EvalModeJudge
 
 // ResultExecutor runs a LogicalQuery and returns tabular results.
 type ResultExecutor interface {
@@ -41,16 +38,16 @@ type QuestionResult struct {
 	PromptTemplateBundleVersion int
 }
 
-// EvalSuiteOptions configures a golden / benchmark eval run.
-type EvalSuiteOptions struct {
+// SuiteOptions EvalSuiteOptions configures a golden / benchmark eval run.
+type SuiteOptions struct {
 	Cases    []GoldenCase
-	Modes    EvalMode
+	Modes    Mode
 	Executor ResultExecutor
 	Judge    providerpkg.Provider
 }
 
-// EvalCaseResult is the outcome for one eval case.
-type EvalCaseResult struct {
+// CaseResult EvalCaseResult is the outcome for one eval case.
+type CaseResult struct {
 	Case                        GoldenCase
 	Got                         *query.LogicalQuery
 	LogicalMatch                bool
@@ -68,24 +65,24 @@ type EvalCaseResult struct {
 }
 
 // Pass returns true when all enabled modes passed for this case.
-func (r EvalCaseResult) Pass(opts EvalSuiteOptions) bool {
+func (r CaseResult) Pass(opts SuiteOptions) bool {
 	if r.Err != nil {
 		return false
 	}
-	if opts.Modes&EvalModeLogical != 0 && !r.LogicalMatch {
+	if opts.Modes&ModeLogical != 0 && !r.LogicalMatch {
 		return false
 	}
-	if opts.Modes&EvalModeExecution != 0 && !r.ExecutionMatch {
+	if opts.Modes&ModeExecution != 0 && !r.ExecutionMatch {
 		return false
 	}
-	if opts.Modes&EvalModeJudge != 0 && opts.Judge != nil && !r.JudgeMatch {
+	if opts.Modes&ModeJudge != 0 && opts.Judge != nil && !r.JudgeMatch {
 		return false
 	}
 	return true
 }
 
-// EvalSuiteResult aggregates a full suite run.
-type EvalSuiteResult struct {
+// SuiteResult EvalSuiteResult aggregates a full suite run.
+type SuiteResult struct {
 	Total           int
 	LogicalPassed   int
 	ExecutionPassed int
@@ -94,29 +91,30 @@ type EvalSuiteResult struct {
 	Failed          int
 	PassRate        float64
 	AvgConfidence   float64
-	Cases           []EvalCaseResult
+	Cases           []CaseResult
 }
 
 // RunGoldenSuite runs each case through the AI service and optional checks.
+//
 //nolint:gocognit
-func RunGoldenSuite(ctx context.Context, processor QuestionProcessor, opts EvalSuiteOptions) *EvalSuiteResult {
+func RunGoldenSuite(ctx context.Context, processor QuestionProcessor, opts SuiteOptions) *SuiteResult {
 	cases := opts.Cases
 	if len(cases) == 0 {
 		cases = DefaultGoldenCases()
 	}
 	if opts.Modes == 0 {
-		opts.Modes = EvalModeLogical
+		opts.Modes = ModeLogical
 	}
-	if opts.Executor == nil && opts.Modes&EvalModeExecution != 0 {
+	if opts.Executor == nil && opts.Modes&ModeExecution != 0 {
 		opts.Executor = MemoryResultExecutor{}
 	}
 
-	out := &EvalSuiteResult{Total: len(cases)}
+	out := &SuiteResult{Total: len(cases)}
 	var confSum float64
 	var confN int
 
 	for _, c := range cases {
-		cr := EvalCaseResult{Case: c}
+		cr := CaseResult{Case: c}
 		start := time.Now()
 
 		resp, err := processor.EvaluateQuestion(ctx, c.Question, c.Model)
@@ -140,7 +138,7 @@ func RunGoldenSuite(ctx context.Context, processor QuestionProcessor, opts EvalS
 		cr.PromptTemplateVersions = resp.PromptTemplateVersions
 		cr.PromptTemplateBundleVersion = resp.PromptTemplateBundleVersion
 
-		if opts.Modes&EvalModeLogical != 0 {
+		if opts.Modes&ModeLogical != 0 {
 			cr.LogicalMatch, cr.LogicalReason = LogicalQueryEqual(resp.LogicalQuery, &c.Expected)
 			if cr.LogicalMatch {
 				out.LogicalPassed++
@@ -149,7 +147,7 @@ func RunGoldenSuite(ctx context.Context, processor QuestionProcessor, opts EvalS
 			cr.LogicalMatch = true
 		}
 
-		if opts.Modes&EvalModeExecution != 0 && opts.Executor != nil {
+		if opts.Modes&ModeExecution != 0 && opts.Executor != nil {
 			cr.ExecutionMatch, cr.ExecutionReason = compareExecution(ctx, opts.Executor, c.Model, &c.Expected, resp.LogicalQuery)
 			if cr.ExecutionMatch {
 				out.ExecutionPassed++
@@ -158,7 +156,7 @@ func RunGoldenSuite(ctx context.Context, processor QuestionProcessor, opts EvalS
 			cr.ExecutionMatch = true
 		}
 
-		if opts.Modes&EvalModeJudge != 0 && opts.Judge != nil { //nolint:nestif
+		if opts.Modes&ModeJudge != 0 && opts.Judge != nil { //nolint:nestif
 			ok, rationale, jerr := JudgeLogicalQuery(ctx, opts.Judge, c.Question, c.Model, &c.Expected, resp.LogicalQuery)
 			if jerr != nil {
 				cr.JudgeMatch = false
@@ -212,8 +210,8 @@ func compareExecution(ctx context.Context, exec ResultExecutor, model *semantic.
 }
 
 // ToEvalResultsWithMetrics converts suite results for persistence.
-func (r *EvalSuiteResult) ToEvalResultsWithMetrics() []EvalResultWithMetrics {
-	out := make([]EvalResultWithMetrics, 0, len(r.Cases))
+func (r *SuiteResult) ToEvalResultsWithMetrics() []ResultWithMetrics {
+	out := make([]ResultWithMetrics, 0, len(r.Cases))
 	for _, c := range r.Cases {
 		reason := c.LogicalReason
 		if reason == "" && !c.ExecutionMatch {
@@ -227,7 +225,7 @@ func (r *EvalSuiteResult) ToEvalResultsWithMetrics() []EvalResultWithMetrics {
 		if c.Got != nil {
 			got = c.Got
 		}
-		er := EvalResult{
+		er := Result{
 			Case:   c.Case,
 			Got:    got,
 			Match:  match,
@@ -236,8 +234,8 @@ func (r *EvalSuiteResult) ToEvalResultsWithMetrics() []EvalResultWithMetrics {
 		if c.Err != nil {
 			er.Reason = c.Err.Error()
 		}
-		out = append(out, EvalResultWithMetrics{
-			EvalResult:                  er,
+		out = append(out, ResultWithMetrics{
+			Result:                      er,
 			Confidence:                  c.Confidence,
 			LatencyMs:                   c.LatencyMs,
 			TokenCount:                  c.TokenCount,

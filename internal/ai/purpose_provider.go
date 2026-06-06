@@ -10,7 +10,7 @@ import (
 	"github.com/biqly/biqly/internal/config"
 )
 
-// PurposeProvider is a providerpkg.Provider that resolves the live backend for
+// ConfigResolver PurposeProvider is a providerpkg.Provider that resolves the live backend for
 // a single purpose from a ProviderStore on every call. It rebuilds the
 // underlying provider only when the store's cache version changes, so admin
 // edits to the default model take effect without a process restart. When the

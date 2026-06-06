@@ -272,10 +272,8 @@ func (s *DescribeService) apply(ctx context.Context, cols []metadata.Column, res
 		columnDescriptions = result.originalColumns
 	}
 
-	if tableDescription != "" && len(cols) > 0 {
-		desc := tableDescription
-		// Apply to the first matching table_id (all sampled cols share the same table).
-		if err := s.metaRepo.UpdateTableDescription(ctx, cols[0].TableID, &desc); err != nil {
+	if tableDescription != "" && len(cols) > 0 { // Apply to the first matching table_id (all sampled cols share the same table).
+		if err := s.metaRepo.UpdateTableDescription(ctx, cols[0].TableID, new(tableDescription)); err != nil {
 			return fmt.Errorf("update table description: %w", err)
 		}
 	}
@@ -288,8 +286,7 @@ func (s *DescribeService) apply(ctx context.Context, cols []metadata.Column, res
 		if !ok {
 			continue
 		}
-		desc := cd.Description
-		if err := s.metaRepo.UpdateColumnDescription(ctx, col.ID, &desc); err != nil {
+		if err := s.metaRepo.UpdateColumnDescription(ctx, col.ID, new(cd.Description)); err != nil {
 			return fmt.Errorf("update column %s: %w", cd.Name, err)
 		}
 	}

@@ -55,12 +55,12 @@ func TestSelectGlossaryForQuestion(t *testing.T) {
 }
 
 func TestPromptBuildIncludesBusinessGlossary(t *testing.T) {
-	pb := &PromptBuilder{}
+	pb := &Builder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "orders"}
 	glossary := []GlossaryEntry{
 		{Term: "ciro", MapsToName: "revenue", MapsToType: "metric", Definition: "toplam satış", Source: "glossary"},
 	}
-	got := pb.Build(context.Background(), "q", model, PromptConfig{
+	got := pb.Build(context.Background(), "q", model, Config{
 		Locale:   i18n.DefaultLocale,
 		Glossary: glossary,
 	})

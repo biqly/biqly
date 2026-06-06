@@ -216,8 +216,8 @@ func TestCreateEvalResults_PostsBatch(t *testing.T) {
 		Model:            "gpt-4o",
 		ContextVersion:   3,
 		ContextUpdatedAt: now,
-		Results: []ai.EvalResultWithMetrics{{
-			EvalResult: ai.EvalResult{
+		Results: []ai.ResultWithMetrics{{
+			Result: ai.Result{
 				Case: ai.GoldenCase{
 					ID:       "case_1",
 					Question: "total revenue",

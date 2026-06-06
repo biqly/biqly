@@ -84,13 +84,13 @@ type anthropicResponse struct {
 }
 
 // Generate sends a prompt at the configured temperature.
-func (p *AnthropicProvider) Generate(ctx context.Context, prompt string) (GenerationResult, error) {
-	return p.base.generate(ctx, prompt)
+func (a *AnthropicProvider) Generate(ctx context.Context, prompt string) (GenerationResult, error) {
+	return a.base.generate(ctx, prompt)
 }
 
 // GenerateAt sends a prompt with an explicit temperature override.
-func (p *AnthropicProvider) GenerateAt(ctx context.Context, prompt string, temperature float64) (GenerationResult, error) {
-	return p.base.generateAt(ctx, prompt, temperature)
+func (a *AnthropicProvider) GenerateAt(ctx context.Context, prompt string, temperature float64) (GenerationResult, error) {
+	return a.base.generateAt(ctx, prompt, temperature)
 }
 
 func marshalAnthropicRequest(model string, maxTokens int) func(string, float64) ([]byte, error) {

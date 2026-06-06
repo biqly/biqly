@@ -17,7 +17,7 @@ type EvalResultsInput struct {
 	Model            string
 	ContextVersion   int
 	ContextUpdatedAt time.Time
-	Results          []ai.EvalResultWithMetrics
+	Results          []ai.ResultWithMetrics
 }
 
 // CreateAIHistory persists an AI query history row. The returned id is the

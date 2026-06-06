@@ -10,7 +10,7 @@ import (
 )
 
 func TestPromptBuildIncludesFewShotExamples(t *testing.T) {
-	pb := &PromptBuilder{}
+	pb := &Builder{}
 	model := &semantic.SemanticModel{
 		ID:           "m",
 		DatasourceID: "d",
@@ -21,7 +21,7 @@ func TestPromptBuildIncludesFewShotExamples(t *testing.T) {
 		{Question: "kaç sipariş var", LogicalQuery: `{"select":[{"type":"metric","name":"row_count"}]}`},
 		{Question: "    ", LogicalQuery: "junk"}, // should be skipped (empty question)
 	}
-	got := pb.Build(context.Background(), "ne kadar sipariş var", model, PromptConfig{
+	got := pb.Build(context.Background(), "ne kadar sipariş var", model, Config{
 		Locale:   i18n.DefaultLocale,
 		Dialect:  "postgres",
 		Examples: examples,
@@ -42,9 +42,9 @@ func TestPromptBuildIncludesFewShotExamples(t *testing.T) {
 }
 
 func TestPromptBuildIncludesSoftDeleteRules(t *testing.T) {
-	pb := &PromptBuilder{}
+	pb := &Builder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x", BaseSchema: "public", BaseTable: "t"}
-	got := pb.Build(context.Background(), "q", model, PromptConfig{
+	got := pb.Build(context.Background(), "q", model, Config{
 		Locale: i18n.DefaultLocale,
 	})
 	if !strings.Contains(got, "Soft-delete") {
@@ -62,7 +62,7 @@ func TestPromptBuildIncludesSoftDeleteRules(t *testing.T) {
 }
 
 func TestPromptBuildIncludesEnumValues(t *testing.T) {
-	pb := &PromptBuilder{}
+	pb := &Builder{}
 	model := &semantic.SemanticModel{
 		ID: "m", DatasourceID: "d", Name: "x", BaseSchema: "public", BaseTable: "orders",
 		Dimensions: []semantic.Dimension{{
@@ -75,7 +75,7 @@ func TestPromptBuildIncludesEnumValues(t *testing.T) {
 			},
 		}},
 	}
-	got := pb.Build(context.Background(), "kaç sipariş kargolandı", model, PromptConfig{Locale: i18n.DefaultLocale})
+	got := pb.Build(context.Background(), "kaç sipariş kargolandı", model, Config{Locale: i18n.DefaultLocale})
 	if !strings.Contains(got, "values: 1=pending, 3=shipped") {
 		t.Errorf("expected enum values in dimension line, got excerpt:\n%s", truncatePrompt(got, 1200))
 	}
@@ -109,9 +109,9 @@ func truncatePrompt(s string, maxLen int) string {
 }
 
 func TestPromptBuildOmitsFewShotSectionWhenEmpty(t *testing.T) {
-	pb := &PromptBuilder{}
+	pb := &Builder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x"}
-	got := pb.Build(context.Background(), "q", model, PromptConfig{
+	got := pb.Build(context.Background(), "q", model, Config{
 		Locale: i18n.DefaultLocale,
 	})
 	if strings.Contains(got, "Successful Past Queries") {
@@ -120,14 +120,14 @@ func TestPromptBuildOmitsFewShotSectionWhenEmpty(t *testing.T) {
 }
 
 func TestPromptBuildIncludesPriorTurns(t *testing.T) {
-	pb := &PromptBuilder{}
+	pb := &Builder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "public.orders"}
 	turns := []ConversationTurn{
 		{Question: "ne kadar sipariş var", LogicalQuery: `{"select":[{"type":"metric","name":"row_count"}]}`, Note: "executed"},
 		{Question: "    "}, // blank — should be skipped
 		{Question: "müşteri kırılımı yap"},
 	}
-	got := pb.Build(context.Background(), "şimdi son çeyrek için filtrele", model, PromptConfig{
+	got := pb.Build(context.Background(), "şimdi son çeyrek için filtrele", model, Config{
 		Locale:     i18n.DefaultLocale,
 		PriorTurns: turns,
 	})
@@ -150,9 +150,9 @@ func TestPromptBuildIncludesPriorTurns(t *testing.T) {
 }
 
 func TestPromptBuildOmitsPriorTurnsHeaderWhenEmpty(t *testing.T) {
-	pb := &PromptBuilder{}
+	pb := &Builder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x"}
-	got := pb.Build(context.Background(), "q", model, PromptConfig{
+	got := pb.Build(context.Background(), "q", model, Config{
 		Locale: i18n.DefaultLocale,
 	})
 	if strings.Contains(got, "Prior Turns in This Conversation") {
@@ -161,9 +161,9 @@ func TestPromptBuildOmitsPriorTurnsHeaderWhenEmpty(t *testing.T) {
 }
 
 func TestPromptBuildIncludesDialectGuide(t *testing.T) {
-	pb := &PromptBuilder{}
+	pb := &Builder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "public.orders"}
-	got := pb.Build(context.Background(), "q", model, PromptConfig{
+	got := pb.Build(context.Background(), "q", model, Config{
 		Locale:  i18n.DefaultLocale,
 		Dialect: "mysql",
 	})
@@ -179,9 +179,9 @@ func TestPromptBuildIncludesDialectGuide(t *testing.T) {
 }
 
 func TestPromptBuildIncludesPlanningSteps(t *testing.T) {
-	pb := &PromptBuilder{}
+	pb := &Builder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x", BaseSchema: "public", BaseTable: "t"}
-	got := pb.Build(context.Background(), "q", model, PromptConfig{
+	got := pb.Build(context.Background(), "q", model, Config{
 		Locale: i18n.DefaultLocale,
 	})
 	if !strings.Contains(got, "## Planning Steps") {
@@ -199,9 +199,9 @@ func TestPromptBuildIncludesPlanningSteps(t *testing.T) {
 }
 
 func TestPromptBuildIncludesFailureExamples(t *testing.T) {
-	pb := &PromptBuilder{}
+	pb := &Builder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x"}
-	got := pb.Build(context.Background(), "q", model, PromptConfig{
+	got := pb.Build(context.Background(), "q", model, Config{
 		Locale:  i18n.DefaultLocale,
 		Dialect: "postgres",
 	})
@@ -233,7 +233,7 @@ func TestNormalizeDialectName(t *testing.T) {
 }
 
 func TestPromptBuildFiltersFewShotByLocale(t *testing.T) {
-	pb := &PromptBuilder{}
+	pb := &Builder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "public.orders",
 		Metrics: []semantic.Metric{{Name: "row_count", Aggregation: "count", Expression: "*"}}}
 	examples := []FewShotExample{
@@ -241,7 +241,7 @@ func TestPromptBuildFiltersFewShotByLocale(t *testing.T) {
 		{Question: "en_only", LogicalQuery: `{"select":[{"type":"metric","name":"row_count"}]}`, Locale: "en"},
 		{Question: "global", LogicalQuery: `{"select":[{"type":"metric","name":"row_count"}]}`, Locale: ""},
 	}
-	got := pb.Build(context.Background(), "q", model, PromptConfig{
+	got := pb.Build(context.Background(), "q", model, Config{
 		Locale:   "tr",
 		Examples: examples,
 	})
@@ -257,13 +257,13 @@ func TestPromptBuildFiltersFewShotByLocale(t *testing.T) {
 }
 
 func TestPromptBuildLoadsLocaleSpecificTemplate(t *testing.T) {
-	pb := &PromptBuilder{}
+	pb := &Builder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x", BaseSchema: "public", BaseTable: "t"}
 	// Verify the loader produces non-empty output for tr and that the locale-specific
 	// template is wired (presence of the stable Turkish rules header proves the
 	// bundle was read for the chosen locale).
-	got := pb.Build(context.Background(), "q", model, PromptConfig{
-		Locale: i18n.Locale("tr"),
+	got := pb.Build(context.Background(), "q", model, Config{
+		Locale: "tr",
 	})
 	if !strings.Contains(got, "Bir Business Intelligence sorgu motorusun") {
 		t.Errorf("expected tr-locale prompt to include the embedded rules header")
@@ -271,7 +271,7 @@ func TestPromptBuildLoadsLocaleSpecificTemplate(t *testing.T) {
 }
 
 func TestPromptBuildIncludesSampleData(t *testing.T) {
-	pb := &PromptBuilder{}
+	pb := &Builder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "public.orders"}
 	samples := []TableSample{
 		{
@@ -284,7 +284,7 @@ func TestPromptBuildIncludesSampleData(t *testing.T) {
 		},
 		{Schema: "public", Table: "empty", Rows: nil}, // skipped
 	}
-	got := pb.Build(context.Background(), "q", model, PromptConfig{
+	got := pb.Build(context.Background(), "q", model, Config{
 		Locale:  i18n.DefaultLocale,
 		Samples: samples,
 	})

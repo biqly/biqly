@@ -217,13 +217,19 @@ func ActiveFilterInstructions(session *FilterSessionState, intent FollowUpIntent
 	if len(session.Filters) > 0 {
 		_, _ = b.WriteString("WHERE filters to preserve:\n")
 		for _, f := range session.Filters {
-			fmt.Fprintf(&b, "- %s %s %v\n", f.Field, f.Operator, f.Value)
+			_, err := fmt.Fprintf(&b, "- %s %s %v\n", f.Field, f.Operator, f.Value)
+			if err != nil {
+				return ""
+			}
 		}
 	}
 	if len(session.Having) > 0 {
 		_, _ = b.WriteString("HAVING filters to preserve:\n")
 		for _, f := range session.Having {
-			fmt.Fprintf(&b, "- %s %s %v\n", f.Field, f.Operator, f.Value)
+			_, err := fmt.Fprintf(&b, "- %s %s %v\n", f.Field, f.Operator, f.Value)
+			if err != nil {
+				return ""
+			}
 		}
 	}
 	return b.String()

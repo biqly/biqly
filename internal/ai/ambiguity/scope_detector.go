@@ -15,7 +15,7 @@ var scopeQualifiers = []string{
 }
 
 // DetectScope flags qualitative qualifiers when it is unclear which metric they modify.
-func DetectScope(locale i18n.Locale, question string, model *semantic.SemanticModel) []AmbiguityItem {
+func DetectScope(locale i18n.Locale, question string, model *semantic.SemanticModel) []Item {
 	if model == nil || len(model.Metrics) < 2 {
 		return nil
 	}
@@ -59,7 +59,7 @@ func DetectScope(locale i18n.Locale, question string, model *semantic.SemanticMo
 		return interpretations[i].Label < interpretations[j].Label
 	})
 
-	return []AmbiguityItem{{
+	return []Item{{
 		Term:            qualifier,
 		Type:            "scope",
 		Interpretations: interpretations,

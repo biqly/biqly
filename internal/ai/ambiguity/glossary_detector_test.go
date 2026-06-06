@@ -30,7 +30,7 @@ func TestDetectGlossary(t *testing.T) {
 	}
 
 	got := DetectGlossary("Aktif müşterileri göster", entries, nil)
-	want := []AmbiguityItem{
+	want := []Item{
 		{
 			Term: "aktif",
 			Type: "semantic",

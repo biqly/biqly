@@ -8,9 +8,9 @@ import (
 	"sync"
 )
 
-// RoutingLexicon holds token expansion and intent vocabulary for table routing.
+// Lexicon RoutingLexicon holds token expansion and intent vocabulary for table routing.
 // Defaults are embedded; override with BI_AI_ROUTING_LEXICON_PATH (JSON).
-type RoutingLexicon struct {
+type Lexicon struct {
 	TokenSynonyms            map[string][]string `json:"token_synonyms"`
 	CategoryProductTokens    []string            `json:"category_product_tokens"`
 	QuantityTokens           []string            `json:"quantity_tokens"`
@@ -25,13 +25,13 @@ type RoutingLexicon struct {
 }
 
 var (
-	routingLexicon     *RoutingLexicon
+	routingLexicon     *Lexicon
 	routingLexiconOnce sync.Once
 	errRoutingLexicon  error
 )
 
 // ActiveRoutingLexicon returns the active routing lexicon (embedded default or file override).
-func ActiveRoutingLexicon() (*RoutingLexicon, error) {
+func ActiveRoutingLexicon() (*Lexicon, error) {
 	routingLexiconOnce.Do(func() {
 		routingLexicon, errRoutingLexicon = loadRoutingLexicon("")
 	})
@@ -41,14 +41,14 @@ func ActiveRoutingLexicon() (*RoutingLexicon, error) {
 	return routingLexicon, nil
 }
 
-func activeRoutingLexicon() *RoutingLexicon {
+func activeRoutingLexicon() *Lexicon {
 	lex, err := ActiveRoutingLexicon()
 	if err != nil {
 		slog.Error("routing lexicon unavailable, using embedded defaults", "error", err)
 		fallback, parseErr := parseRoutingLexiconJSON(embeddedRoutingLexiconJSON)
 		if parseErr != nil {
 			slog.Error("embedded routing lexicon invalid", "error", parseErr)
-			return &RoutingLexicon{}
+			return &Lexicon{}
 		}
 		return fallback
 	}
@@ -69,7 +69,7 @@ func InitRoutingLexicon(path string) error {
 	return nil
 }
 
-func loadRoutingLexicon(path string) (*RoutingLexicon, error) {
+func loadRoutingLexicon(path string) (*Lexicon, error) {
 	lex, err := parseRoutingLexiconJSON(embeddedRoutingLexiconJSON)
 	if err != nil {
 		return nil, fmt.Errorf("embedded routing lexicon: %w", err)
@@ -89,8 +89,8 @@ func loadRoutingLexicon(path string) (*RoutingLexicon, error) {
 	return lex, nil
 }
 
-func parseRoutingLexiconJSON(raw []byte) (*RoutingLexicon, error) {
-	var lex RoutingLexicon
+func parseRoutingLexiconJSON(raw []byte) (*Lexicon, error) {
+	var lex Lexicon
 	if err := json.Unmarshal(raw, &lex); err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func parseRoutingLexiconJSON(raw []byte) (*RoutingLexicon, error) {
 	return &lex, nil
 }
 
-func mergeRoutingLexicon(base, override *RoutingLexicon) {
+func mergeRoutingLexicon(base, override *Lexicon) {
 	if len(override.TokenSynonyms) > 0 {
 		for k, v := range override.TokenSynonyms {
 			base.TokenSynonyms[k] = v
@@ -131,7 +131,7 @@ func mergeStringSliceField(dst *[]string, src []string) {
 	}
 }
 
-func (*RoutingLexicon) HasAnyToken(tokens map[string]bool, vocabulary []string) bool {
+func (*Lexicon) HasAnyToken(tokens map[string]bool, vocabulary []string) bool {
 	for _, t := range vocabulary {
 		if tokens[t] {
 			return true
@@ -140,14 +140,14 @@ func (*RoutingLexicon) HasAnyToken(tokens map[string]bool, vocabulary []string) 
 	return false
 }
 
-func (lex *RoutingLexicon) ExpandTokenSynonyms(token string) []string {
+func (lex *Lexicon) ExpandTokenSynonyms(token string) []string {
 	if lex == nil || lex.TokenSynonyms == nil {
 		return nil
 	}
 	return lex.TokenSynonyms[token]
 }
 
-func (lex *RoutingLexicon) MatchIntents(tokens map[string]bool, intents []string) bool {
+func (lex *Lexicon) MatchIntents(tokens map[string]bool, intents []string) bool {
 	for _, intent := range intents {
 		switch intent {
 		case "catalog":
@@ -169,7 +169,7 @@ func (lex *RoutingLexicon) MatchIntents(tokens map[string]bool, intents []string
 	return len(intents) > 0
 }
 
-func (lex *RoutingLexicon) MetricSynonymList(key string) []string {
+func (lex *Lexicon) MetricSynonymList(key string) []string {
 	if lex == nil || lex.MetricSynonyms == nil {
 		return nil
 	}

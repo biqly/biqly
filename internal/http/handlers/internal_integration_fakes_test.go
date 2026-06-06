@@ -116,7 +116,7 @@ func (integrationCatalog) CreateQueryHistory(_ context.Context, entry *query.His
 
 type integrationEvalRepo struct{}
 
-func (integrationEvalRepo) SaveRunResults(context.Context, string, string, string, int, time.Time, []ai.EvalResultWithMetrics) error {
+func (integrationEvalRepo) SaveRunResults(context.Context, string, string, string, int, time.Time, []ai.ResultWithMetrics) error {
 	return nil
 }
 

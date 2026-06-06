@@ -3,6 +3,7 @@ package ai
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/biqly/biqly/internal/ai/lingua"
@@ -296,23 +297,38 @@ func buildTableEmbeddingText(t *metadata.Table, cols []metadata.Column) string {
 	var sb strings.Builder
 	_, _ = fmt.Fprintf(&sb, "Table: %s.%s", t.SchemaName, t.TableName)
 	if t.Description != nil && strings.TrimSpace(*t.Description) != "" {
-		fmt.Fprintf(&sb, "\nDescription: %s", strings.TrimSpace(*t.Description))
-	}
-	if len(cols) > 0 {
-		sb.WriteString("\nColumns: ")
-		const maxCols = 60 // cap for very wide tables
-		for i, c := range cols {
-			if i >= maxCols {
-				fmt.Fprintf(&sb, ", … (+%d more)", len(cols)-maxCols)
-				break
-			}
-			if i > 0 {
-				sb.WriteString(", ")
-			}
-			fmt.Fprintf(&sb, "%s (%s)", c.ColumnName, c.DataType)
+		_, err := fmt.Fprintf(&sb, "\nDescription: %s", strings.TrimSpace(*t.Description))
+		if err != nil {
+			return ""
 		}
 	}
+	writeTableEmbeddingColumns(&sb, cols)
 	return sb.String()
+}
+
+func writeTableEmbeddingColumns(sb *strings.Builder, cols []metadata.Column) {
+	if len(cols) == 0 {
+		return
+	}
+
+	sb.WriteString("\nColumns: ")
+	const maxCols = 60 // cap for very wide tables
+	limit := min(len(cols), maxCols)
+	for i := range limit {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		c := cols[i]
+		sb.WriteString(c.ColumnName)
+		sb.WriteString(" (")
+		sb.WriteString(c.DataType)
+		sb.WriteString(")")
+	}
+	if extra := len(cols) - limit; extra > 0 {
+		sb.WriteString(", … (+")
+		sb.WriteString(strconv.Itoa(extra))
+		sb.WriteString(" more)")
+	}
 }
 
 // buildColumnEmbeddingText assembles a compact semantic description for one
@@ -320,18 +336,33 @@ func buildTableEmbeddingText(t *metadata.Table, cols []metadata.Column) string {
 // heuristics already use PK/FK/date/type from metadata.
 func buildColumnEmbeddingText(c *metadata.Column) string {
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "Column: %s.%s.%s", c.SchemaName, c.TableName, c.ColumnName)
-	fmt.Fprintf(&sb, "\nTable: %s.%s", c.SchemaName, c.TableName)
-	fmt.Fprintf(&sb, "\nData type: %s", c.DataType)
+	_, err := fmt.Fprintf(&sb, "Column: %s.%s.%s", c.SchemaName, c.TableName, c.ColumnName)
+	if err != nil {
+		return ""
+	}
+	_, err = fmt.Fprintf(&sb, "\nTable: %s.%s", c.SchemaName, c.TableName)
+	if err != nil {
+		return ""
+	}
+	_, err = fmt.Fprintf(&sb, "\nData type: %s", c.DataType)
+	if err != nil {
+		return ""
+	}
 	if c.Description != nil && strings.TrimSpace(*c.Description) != "" {
-		fmt.Fprintf(&sb, "\nDescription: %s", strings.TrimSpace(*c.Description))
+		_, err := fmt.Fprintf(&sb, "\nDescription: %s", strings.TrimSpace(*c.Description))
+		if err != nil {
+			return ""
+		}
 	}
 	if c.ReferencedTable != nil && c.ReferencedColumn != nil && *c.ReferencedTable != "" && *c.ReferencedColumn != "" {
 		refSchema := c.SchemaName
 		if c.ReferencedSchema != nil && *c.ReferencedSchema != "" {
 			refSchema = *c.ReferencedSchema
 		}
-		fmt.Fprintf(&sb, "\nReferences: %s.%s.%s", refSchema, *c.ReferencedTable, *c.ReferencedColumn)
+		_, err := fmt.Fprintf(&sb, "\nReferences: %s.%s.%s", refSchema, *c.ReferencedTable, *c.ReferencedColumn)
+		if err != nil {
+			return ""
+		}
 	}
 	return sb.String()
 }

@@ -10,7 +10,7 @@ import (
 func pruneAutoSemanticModel(
 	model *semantic.SemanticModel,
 	question string,
-	limits RoutingLimits,
+	limits Limits,
 	columnScores map[string]float64,
 ) {
 	if model == nil {
@@ -48,7 +48,7 @@ func pruneDimensions(
 	dims []semantic.Dimension,
 	tokens map[string]bool,
 	columnScores map[string]float64,
-	limits RoutingLimits,
+	limits Limits,
 	countQ bool,
 ) []semantic.Dimension {
 	if len(dims) <= limits.MaxDimensions {
@@ -139,7 +139,7 @@ func scoreDimensionForPrune(d semantic.Dimension, tokens map[string]bool, column
 	return score
 }
 
-func pruneMetrics(metrics []semantic.Metric, tokens map[string]bool, limits RoutingLimits, countQ bool) []semantic.Metric {
+func pruneMetrics(metrics []semantic.Metric, tokens map[string]bool, limits Limits, countQ bool) []semantic.Metric {
 	if len(metrics) <= limits.MaxMetrics {
 		return metrics
 	}

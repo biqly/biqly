@@ -239,7 +239,7 @@ the app runs in the **`biqly` kubernetes namespace** in the default kubeconfig c
 
 ### deploy folder (`deploy/`)
 
-```
+```text
 deploy/
 ├── helm/biqly/            # main helm chart (umbrella)
 │   ├── Chart.yaml
@@ -255,6 +255,7 @@ deploy/
 ```
 
 key points:
+
 - namespace is declared in `values.yaml` (`global.namespace.name: biqly`) and created by the chart.
 - argocd syncs from `main` branch, helm path `deploy/helm/biqly`, with `values-prod.yaml`.
 - image tags are bumped automatically by argocd image updater (commits like `chore(deploy): bump image tags`).
@@ -264,13 +265,14 @@ key points:
 ### ci / github actions (`.github/workflows/`)
 
 | workflow | trigger | purpose |
-|---|---|---|
+| --- | --- | --- |
 | `ci.yml` | push/pr to `main` | backend (go test + lint + build) + frontend quality gate + docker build & push |
 | `test.yml` | push/pr to `main` | go test only (lighter gate, also runs on prs) |
 | `build-*.yml` | push/pr to `main` | per-service docker builds (auth, ai, query, catalog, mail, migrate) |
 | `semgrep.yml` | push/pr to `main` | sast security scan |
 
 notes:
+
 - `ci.yml` skips when only `deploy/**` changes.
 - docker images are pushed to `ghcr.io/biqly/*` and tagged with the git sha.
 - golangci-lint version is pinned in `ci.yml` (`v2.12.2`) — match locally with `make lint-go`.

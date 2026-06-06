@@ -60,19 +60,17 @@ func buildSemanticModel(
 	selected []tableBundle,
 	columnsByTable map[string][]metadata.Column,
 	relations []metadata.Relation,
-	limits RoutingLimits,
+	limits Limits,
 	timeGrains []metadata.TimeGrain,
 ) *semantic.SemanticModel {
 	limits = limits.withDefaults()
 	base := selected[0].table
-	label := "Auto-detected tables"
-	description := "Generated from datasource metadata for an AI question."
 	model := &semantic.SemanticModel{
 		ID:           autoModelPrefix + strings.Join(bundleLabels(selected), ","),
 		DatasourceID: datasourceID,
 		Name:         autoModelPrefix + strings.Join(bundleLabels(selected), ","),
-		Label:        &label,
-		Description:  &description,
+		Label:        new("Auto-detected tables"),
+		Description:  new("Generated from datasource metadata for an AI question."),
 		BaseSchema:   base.SchemaName,
 		BaseTable:    base.TableName,
 		IsActive:     true,
@@ -114,7 +112,7 @@ func relationColumnsForSelectedTables(relations []metadata.Relation, selectedKey
 	return out
 }
 
-func buildDimensions(selected []tableBundle, columnsByTable map[string][]metadata.Column, limits RoutingLimits, timeGrains []metadata.TimeGrain) []semantic.Dimension {
+func buildDimensions(selected []tableBundle, columnsByTable map[string][]metadata.Column, limits Limits, timeGrains []metadata.TimeGrain) []semantic.Dimension {
 	limits = limits.withDefaults()
 	maxDims := limits.MaxDimensions
 	maxDateGrains := limits.MaxDateGrainExtras
@@ -261,7 +259,7 @@ func singularize(name string) string {
 	}
 }
 
-func buildMetrics(selected []tableBundle, columnsByTable map[string][]metadata.Column, limits RoutingLimits) []semantic.Metric {
+func buildMetrics(selected []tableBundle, columnsByTable map[string][]metadata.Column, limits Limits) []semantic.Metric {
 	limits = limits.withDefaults()
 	maxMetrics := limits.MaxMetrics
 	lex := activeRoutingLexicon()

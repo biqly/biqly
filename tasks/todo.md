@@ -1,5 +1,32 @@
 # Todo list
 
+## Migration Command Duplicate Cleanup
+
+Success criteria:
+
+- Auth, mail, and metadata migration commands reuse one shared migration helper package for `up`/`down` behavior.
+- Command-specific DSN, directory, usage, and metadata backfill behavior stay unchanged.
+- Edited Go files are gofmt'd, diagnostics pass, focused Go tests pass, and whitespace checks pass.
+
+- [x] Extract shared SQL migration helpers into one internal package.
+- [x] Replace duplicated helper bodies in `cmd/auth-migrate`, `cmd/mail-migrate`, and `cmd/migrate`.
+- [x] Run diagnostics, focused Go tests, and `git diff --check`, then document results.
+
+## Migration Command Duplicate Cleanup Results
+
+Resolved:
+
+1. Added `internal/dbmigrate` with shared migration tracking, `Up`, `Down`, `ResolveMigrationsDir`, `Connect`, `DefaultCommandTimeout`, `RunCLI`, SQL execution, filename pairing, and already-applied PostgreSQL error handling.
+2. Replaced duplicated setup and helper bodies in `cmd/auth-migrate`, `cmd/mail-migrate`, and `cmd/migrate` with calls to `dbmigrate` while preserving command-specific DSN/env/usage/default-directory behavior and the metadata `backfill` command.
+3. Added unit coverage for `ResolveMigrationsDir(".")`, migration filename pairing, and already-applied error classification.
+
+Verification:
+
+- `get_errors` on `internal/dbmigrate`, `cmd/auth-migrate`, and `cmd/mail-migrate`: no compile errors; IDE still reports SQL dialect configuration warnings for raw SQL strings in `internal/dbmigrate`. `cmd/migrate` diagnostics returned a stale-offset tool error after the file shrank, so Go tests were used as the compile check.
+- `GOCACHE=/private/tmp/biqly-gocache go test ./internal/dbmigrate ./cmd/auth-migrate ./cmd/mail-migrate ./cmd/migrate -count=1`
+- `GOCACHE=/private/tmp/biqly-gocache golangci-lint run --enable-only=dupl ./internal/dbmigrate ./cmd/auth-migrate ./cmd/mail-migrate ./cmd/migrate`
+- `git diff --check -- internal/dbmigrate/migrate.go internal/dbmigrate/migrate_test.go cmd/auth-migrate/main.go cmd/mail-migrate/main.go cmd/migrate/main.go tasks/todo.md`
+
 ## Errcheck Lint Cleanup
 
 Success criteria:

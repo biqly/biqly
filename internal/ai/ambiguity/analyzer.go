@@ -15,15 +15,15 @@ import (
 const defaultConfidenceThreshold = 0.70
 const ruleBasedAnalysisTimeout = 2 * time.Second
 
-// AmbiguityResult describes whether a question needs user clarification.
-type AmbiguityResult struct {
-	IsAmbiguous      bool            `json:"is_ambiguous"`
-	Ambiguities      []AmbiguityItem `json:"ambiguities,omitempty"`
-	ResolvedQuestion string          `json:"resolved_question,omitempty"`
+// Result AmbiguityResult describes whether a question needs user clarification.
+type Result struct {
+	IsAmbiguous      bool   `json:"is_ambiguous"`
+	Ambiguities      []Item `json:"ambiguities,omitempty"`
+	ResolvedQuestion string `json:"resolved_question,omitempty"`
 }
 
-// AmbiguityItem describes one ambiguous term in the user's question.
-type AmbiguityItem struct {
+// Item AmbiguityItem describes one ambiguous term in the user's question.
+type Item struct {
 	Term            string           `json:"term"`
 	Type            string           `json:"type"`
 	Interpretations []Interpretation `json:"interpretations"`
@@ -44,17 +44,17 @@ type SemanticMapping struct {
 }
 
 // Analyze runs rule-based ambiguity detectors before LogicalQuery generation.
-func Analyze(ctx context.Context, question string, model *semantic.SemanticModel, glossary []prompt.GlossaryEntry, confidenceThreshold float64) AmbiguityResult {
+func Analyze(ctx context.Context, question string, model *semantic.SemanticModel, glossary []prompt.GlossaryEntry, confidenceThreshold float64) Result {
 	locale := i18n.FromContext(ctx)
-	return analyzeWithDetectors(ctx, []func() []AmbiguityItem{
-		func() []AmbiguityItem { return DetectGlossary(question, glossary, model) },
-		func() []AmbiguityItem { return DetectSynonyms(locale, question, model) },
-		func() []AmbiguityItem { return DetectTemporal(locale, question, model) },
-		func() []AmbiguityItem { return DetectScope(locale, question, model) },
+	return analyzeWithDetectors(ctx, []func() []Item{
+		func() []Item { return DetectGlossary(question, glossary, model) },
+		func() []Item { return DetectSynonyms(locale, question, model) },
+		func() []Item { return DetectTemporal(locale, question, model) },
+		func() []Item { return DetectScope(locale, question, model) },
 	}, confidenceThreshold, ruleBasedAnalysisTimeout)
 }
 
-func analyzeWithDetectors(ctx context.Context, detectors []func() []AmbiguityItem, confidenceThreshold float64, timeout time.Duration) AmbiguityResult {
+func analyzeWithDetectors(ctx context.Context, detectors []func() []Item, confidenceThreshold float64, timeout time.Duration) Result {
 	if confidenceThreshold <= 0 {
 		confidenceThreshold = defaultConfidenceThreshold
 	}
@@ -63,7 +63,7 @@ func analyzeWithDetectors(ctx context.Context, detectors []func() []AmbiguityIte
 
 	type detectorResult struct {
 		index int
-		group []AmbiguityItem
+		group []Item
 	}
 	results := make(chan detectorResult, len(detectors))
 	for index, detector := range detectors {
@@ -76,7 +76,7 @@ func analyzeWithDetectors(ctx context.Context, detectors []func() []AmbiguityIte
 		}()
 	}
 
-	groups := make([][]AmbiguityItem, len(detectors))
+	groups := make([][]Item, len(detectors))
 	completed := 0
 	for completed < len(detectors) {
 		select {
@@ -90,24 +90,24 @@ func analyzeWithDetectors(ctx context.Context, detectors []func() []AmbiguityIte
 	return ambiguityResult(groups, confidenceThreshold)
 }
 
-func ambiguityResult(groups [][]AmbiguityItem, confidenceThreshold float64) AmbiguityResult {
+func ambiguityResult(groups [][]Item, confidenceThreshold float64) Result {
 	ambiguities := mergeAmbiguities(groups...)
 	ambiguities = filterAmbiguities(ambiguities, confidenceThreshold)
-	return AmbiguityResult{
+	return Result{
 		IsAmbiguous: len(ambiguities) > 0,
 		Ambiguities: ambiguities,
 	}
 }
 
-func mergeAmbiguities(groups ...[]AmbiguityItem) []AmbiguityItem {
-	byTerm := make(map[string]*AmbiguityItem)
+func mergeAmbiguities(groups ...[]Item) []Item {
+	byTerm := make(map[string]*Item)
 	for _, group := range groups {
 		for _, item := range group {
 			term := strings.ToLower(strings.TrimSpace(item.Term))
 			key := item.Type + "|" + term
 			merged, ok := byTerm[key]
 			if !ok {
-				merged = &AmbiguityItem{
+				merged = &Item{
 					Term: term,
 					Type: item.Type,
 				}
@@ -125,7 +125,7 @@ func mergeAmbiguities(groups ...[]AmbiguityItem) []AmbiguityItem {
 	}
 	sort.Strings(keys)
 
-	ambiguities := make([]AmbiguityItem, 0, len(keys))
+	ambiguities := make([]Item, 0, len(keys))
 	for _, key := range keys {
 		item := byTerm[key]
 		sort.Slice(item.Interpretations, func(i, j int) bool {
@@ -136,7 +136,7 @@ func mergeAmbiguities(groups ...[]AmbiguityItem) []AmbiguityItem {
 	return ambiguities
 }
 
-func mergeInterpretation(item *AmbiguityItem, interpretation Interpretation) {
+func mergeInterpretation(item *Item, interpretation Interpretation) {
 	key := interpretationKey(item.Type, interpretation)
 	for i := range item.Interpretations {
 		current := item.Interpretations[i]
@@ -160,8 +160,8 @@ func interpretationKey(ambiguityType string, interpretation Interpretation) stri
 	return key
 }
 
-func filterAmbiguities(ambiguities []AmbiguityItem, threshold float64) []AmbiguityItem {
-	filtered := make([]AmbiguityItem, 0, len(ambiguities))
+func filterAmbiguities(ambiguities []Item, threshold float64) []Item {
+	filtered := make([]Item, 0, len(ambiguities))
 	for _, item := range ambiguities {
 		interpretations := make([]Interpretation, 0, len(item.Interpretations))
 		for _, interpretation := range item.Interpretations {

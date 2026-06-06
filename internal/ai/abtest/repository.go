@@ -136,7 +136,7 @@ func (r *Repository) ListExperiments(ctx context.Context, status string) ([]Expe
 	query := `
 		SELECT id, name, description, template_name, locale, status, started_at, ended_at, created_by, created_at, updated_at
 		FROM ab_experiments`
-	args := []any{}
+	var args []any
 	if status != "" {
 		query += ` WHERE status = $1`
 		args = append(args, status)

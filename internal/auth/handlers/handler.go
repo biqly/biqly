@@ -160,9 +160,7 @@ func (h *AuthHandler) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip := r.RemoteAddr
-	ua := r.UserAgent()
-	resp, err := h.service.Register(r.Context(), req, &ua, &ip)
+	resp, err := h.service.Register(r.Context(), req, new(r.UserAgent()), new(r.RemoteAddr))
 	if errors.Is(err, auth.ErrSelfSignupDisabled) {
 		h.respondError(w, http.StatusForbidden, err.Error())
 		return
@@ -182,9 +180,7 @@ func (h *AuthHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip := r.RemoteAddr
-	ua := r.UserAgent()
-	resp, err := h.service.Login(r.Context(), req, &ua, &ip)
+	resp, err := h.service.Login(r.Context(), req, new(r.UserAgent()), new(r.RemoteAddr))
 	if errors.Is(err, auth.ErrInvalidCredentials) || errors.Is(err, auth.ErrInactiveUser) {
 		// Return identical message for both to prevent account enumeration:
 		// an attacker probing emails must not be able to distinguish
@@ -217,9 +213,7 @@ func (h *AuthHandler) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip := r.RemoteAddr
-	ua := r.UserAgent()
-	resp, err := h.service.Refresh(r.Context(), req, &ua, &ip)
+	resp, err := h.service.Refresh(r.Context(), req, new(r.UserAgent()), new(r.RemoteAddr))
 	if errors.Is(err, auth.ErrSessionNotFound) || errors.Is(err, auth.ErrSessionExpired) || errors.Is(err, auth.ErrSessionRevoked) ||
 		errors.Is(err, auth.ErrSessionAbsoluteExpired) || errors.Is(err, auth.ErrSessionIdleExpired) {
 		h.respondError(w, http.StatusUnauthorized, err.Error())
@@ -497,9 +491,7 @@ func (h *AuthHandler) handleOAuthCallback(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	ua := r.UserAgent()
-	ip := r.RemoteAddr
-	resp, err := h.service.LoginOrRegisterOAuth(r.Context(), providerName, token, userInfo, &ua, &ip)
+	resp, err := h.service.LoginOrRegisterOAuth(r.Context(), providerName, token, userInfo, new(r.UserAgent()), new(r.RemoteAddr))
 	if errors.Is(err, auth.ErrSelfSignupDisabled) {
 		h.respondError(w, http.StatusForbidden, err.Error())
 		return
@@ -698,9 +690,7 @@ func (h *AuthHandler) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Re
 
 	h.clearSessionCookie(w, r, "webauthn_login_session")
 
-	ip := r.RemoteAddr
-	ua := r.UserAgent()
-	resp, err := h.service.CreateTokenResponseForUser(r.Context(), user, &ua, &ip)
+	resp, err := h.service.CreateTokenResponseForUser(r.Context(), user, new(r.UserAgent()), new(r.RemoteAddr))
 	if err != nil {
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -874,9 +864,7 @@ func (h *AuthHandler) handleMagicLinkConsume(w http.ResponseWriter, r *http.Requ
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	ua := r.UserAgent()
-	ip := r.RemoteAddr
-	resp, err := h.service.ConsumeMagicLink(r.Context(), req.Token, &ua, &ip)
+	resp, err := h.service.ConsumeMagicLink(r.Context(), req.Token, new(r.UserAgent()), new(r.RemoteAddr))
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrMagicLinkInvalid), errors.Is(err, auth.ErrMagicLinkUsed):

@@ -73,9 +73,9 @@ func TestClarificationFromRoutingBuildsOptionsAndCandidates(t *testing.T) {
 }
 
 func TestClarificationFromAmbiguityBuildsOptionsAndDetail(t *testing.T) {
-	result := ambiguity.AmbiguityResult{
+	result := ambiguity.Result{
 		IsAmbiguous: true,
-		Ambiguities: []ambiguity.AmbiguityItem{
+		Ambiguities: []ambiguity.Item{
 			{
 				Term: "ciro",
 				Type: "semantic",
@@ -118,9 +118,9 @@ func TestClarificationFromAmbiguityBuildsOptionsAndDetail(t *testing.T) {
 }
 
 func TestClarificationFromAmbiguityWithMaxOptionsCapsChoices(t *testing.T) {
-	result := ambiguity.AmbiguityResult{
+	result := ambiguity.Result{
 		IsAmbiguous: true,
-		Ambiguities: []ambiguity.AmbiguityItem{
+		Ambiguities: []ambiguity.Item{
 			{
 				Term: "ciro",
 				Type: "semantic",

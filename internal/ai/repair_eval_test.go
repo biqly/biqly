@@ -31,9 +31,9 @@ func TestRepairLoopEvalRegressionGate(t *testing.T) {
 			cfg := config.AIConfig{Model: "stub", MaxTokens: 2048, Temperature: 0, MaxRetries: 2}
 			svc := NewServiceWithProvider(&cfg, query.NewValidator(1000), provider)
 
-			opts := evalpkg.EvalSuiteOptions{
+			opts := evalpkg.SuiteOptions{
 				Cases: []evalpkg.GoldenCase{rc.GoldenCase},
-				Modes: evalpkg.EvalModeLogical | evalpkg.EvalModeExecution,
+				Modes: evalpkg.ModeLogical | evalpkg.ModeExecution,
 			}
 			result := evalpkg.RunGoldenSuite(context.Background(), svc, opts)
 			if result.Failed > 0 {

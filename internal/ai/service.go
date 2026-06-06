@@ -24,7 +24,7 @@ import (
 // Service orchestrates the AI text-to-query flow.
 type Service struct {
 	client              providerpkg.Provider
-	promptBuilder       *promptpkg.PromptBuilder
+	promptBuilder       *promptpkg.Builder
 	validator           *query.Validator
 	aiCfg               config.AIConfig
 	queryModel          string
@@ -54,7 +54,7 @@ func newService(cfg *config.AIConfig, validator *query.Validator, provider provi
 	effective := cfg.EffectiveQueryConfig()
 	return &Service{
 		client:              provider,
-		promptBuilder:       &promptpkg.PromptBuilder{},
+		promptBuilder:       &promptpkg.Builder{},
 		validator:           validator,
 		aiCfg:               effective,
 		queryModel:          effective.Model,
@@ -392,7 +392,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		nextTier := contextTierForAttempt(attempt + 1)
 		expanded, _ := s.buildPrompt(ctx, question, model, nextTier, &options, filterSess, followIntent)
 
-		locale := promptpkg.PromptLocaleForQuestion(question, i18n.FromContext(ctx))
+		locale := promptpkg.LocaleForQuestion(question, i18n.FromContext(ctx))
 		if len(validationErrors) > 0 { //nolint:nestif
 			var filteredErrors query.ValidationErrors
 			if attempt == 0 {
@@ -501,7 +501,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 	}), nil
 }
 
-func ambiguityClarificationResponse(locale i18n.Locale, result ambiguitypkg.AmbiguityResult, maxOptions int) *AIResponse {
+func ambiguityClarificationResponse(locale i18n.Locale, result ambiguitypkg.Result, maxOptions int) *AIResponse {
 	clarification := ClarificationFromAmbiguityWithMaxOptions(locale, result, maxOptions)
 	if clarification == nil {
 		return nil
@@ -534,7 +534,7 @@ type clarificationInputs struct {
 	Prompt                      string
 	RawResponse                 string
 	RetryCount                  int
-	PromptStats                 promptpkg.PromptStats
+	PromptStats                 promptpkg.Stats
 	Gen                         providerpkg.GenerationResult
 	Clarification               string
 	FailureReason               string
@@ -573,8 +573,8 @@ func newClarificationResponse(in *clarificationInputs) *AIResponse {
 }
 
 func promptTemplateTrace(ctx context.Context, question string) (locale string, versions map[string]int, bundleVersion int) {
-	loc := promptpkg.PromptLocaleForQuestion(question, i18n.FromContext(ctx))
-	versions = promptpkg.PromptTemplateBundleVersions(ctx, loc)
+	loc := promptpkg.LocaleForQuestion(question, i18n.FromContext(ctx))
+	versions = promptpkg.TemplateBundleVersions(ctx, loc)
 	for _, v := range versions {
 		if v > bundleVersion {
 			bundleVersion = v
@@ -592,15 +592,15 @@ func (s *Service) buildPrompt(
 	options *processOptions,
 	filterSess *FilterSessionState,
 	followIntent FollowUpIntent,
-) (string, promptpkg.PromptStats) {
+) (string, promptpkg.Stats) {
 	tiered := applyContextTier(options, tier)
-	promptRunes := promptpkg.PromptRunesForTier(s.maxPromptRunes, tier, s.aiCfg, s.queryModel)
+	promptRunes := promptpkg.RunesForTier(s.maxPromptRunes, tier, s.aiCfg, s.queryModel)
 	start := time.Now()
 	prompt := s.promptBuilder.Build(
 		ctx,
 		question,
 		model,
-		promptpkg.PromptConfig{
+		promptpkg.Config{
 			MaxRunes:     promptRunes,
 			Locale:       i18n.FromContext(ctx),
 			Dialect:      options.targetDialect,
@@ -659,7 +659,7 @@ func (s *Service) tryMultiCandidate(
 	prompt string,
 	model *semantic.SemanticModel,
 	options *processOptions,
-	stats *promptpkg.PromptStats,
+	stats *promptpkg.Stats,
 	filterSess *FilterSessionState,
 	followIntent FollowUpIntent,
 ) (*AIResponse, bool) {
@@ -920,7 +920,7 @@ func formatFingerprintValue(val any) string {
 // surface to the user. Failures are swallowed: clarification is best-effort
 // and must never mask the underlying validation/parse error to the caller.
 func (s *Service) tryGenerateClarification(ctx context.Context, question string, model *semantic.SemanticModel, failureReason string) string {
-	loc := promptpkg.PromptLocaleForQuestion(question, i18n.FromContext(ctx))
+	loc := promptpkg.LocaleForQuestion(question, i18n.FromContext(ctx))
 	prompt := s.promptBuilder.BuildClarification(ctx, loc, question, model, failureReason)
 	gen, err := s.client.Generate(ctx, prompt)
 	var content string
@@ -1025,7 +1025,7 @@ func normalizeLogicalQueryContext(lq *query.LogicalQuery, model *semantic.Semant
 	if lq.ModelID == "" {
 		lq.ModelID = model.Name
 	}
-	if model != nil && len(model.Dimensions) > 0 {
+	if len(model.Dimensions) > 0 {
 		names := make([]string, 0, len(model.Dimensions))
 		for i := range model.Dimensions {
 			names = append(names, model.Dimensions[i].Name)

@@ -18,8 +18,8 @@ type GoldenCase struct {
 	Expected query.LogicalQuery
 }
 
-// EvalResult records what the runner observed for one case.
-type EvalResult struct {
+// Result EvalResult records what the runner observed for one case.
+type Result struct {
 	Case   GoldenCase
 	Got    *query.LogicalQuery
 	Match  bool

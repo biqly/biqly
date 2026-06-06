@@ -11,8 +11,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// EvalResultRecord is the persisted form of an eval run result.
-type EvalResultRecord struct {
+// ResultRecord EvalResultRecord is the persisted form of an eval run result.
+type ResultRecord struct {
 	ID               string    `json:"id"`
 	RunID            string    `json:"run_id"`
 	Provider         string    `json:"provider"`
@@ -31,8 +31,8 @@ type EvalResultRecord struct {
 	CreatedAt        time.Time `json:"created_at"`
 }
 
-// EvalRunSummary is the aggregate summary of an eval run.
-type EvalRunSummary struct {
+// RunSummary EvalRunSummary is the aggregate summary of an eval run.
+type RunSummary struct {
 	RunID                       string         `json:"run_id"`
 	Provider                    string         `json:"provider"`
 	Model                       string         `json:"model"`
@@ -80,7 +80,7 @@ func NewEvalRepository(db *sql.DB) *EvalRepository {
 }
 
 // SaveRunResults persists all results from one eval run.
-func (r *EvalRepository) SaveRunResults(ctx context.Context, runID, provider, model string, contextVersion int, contextUpdatedAt time.Time, results []EvalResultWithMetrics) error {
+func (r *EvalRepository) SaveRunResults(ctx context.Context, runID, provider, model string, contextVersion int, contextUpdatedAt time.Time, results []ResultWithMetrics) error {
 	if len(results) == 0 {
 		return nil
 	}
@@ -90,7 +90,7 @@ func (r *EvalRepository) SaveRunResults(ctx context.Context, runID, provider, mo
 	})
 }
 
-func (*EvalRepository) saveRunResultsTx(ctx context.Context, tx *sql.Tx, runID, provider, model string, contextVersion int, contextUpdatedAt time.Time, results []EvalResultWithMetrics) error {
+func (*EvalRepository) saveRunResultsTx(ctx context.Context, tx *sql.Tx, runID, provider, model string, contextVersion int, contextUpdatedAt time.Time, results []ResultWithMetrics) error {
 	for _, res := range results {
 		gotLQ := ""
 		if res.Got != nil {
@@ -177,7 +177,7 @@ func (*EvalRepository) saveRunResultsTx(ctx context.Context, tx *sql.Tx, runID, 
 }
 
 // GetRunResults returns all results for a given run.
-func (r *EvalRepository) GetRunResults(ctx context.Context, runID string) ([]EvalResultRecord, error) {
+func (r *EvalRepository) GetRunResults(ctx context.Context, runID string) ([]ResultRecord, error) {
 	return platformdb.QuerySliceErr(ctx, r.db, "query eval results",
 		`SELECT id, run_id, provider, model, context_version, context_updated_at,
 			case_id, question, expected_lq, got_lq, match, reason,
@@ -187,8 +187,8 @@ func (r *EvalRepository) GetRunResults(ctx context.Context, runID string) ([]Eva
 }
 
 // GetRunSummary returns the aggregate summary for a run.
-func (r *EvalRepository) GetRunSummary(ctx context.Context, runID string) (*EvalRunSummary, error) {
-	var s EvalRunSummary
+func (r *EvalRepository) GetRunSummary(ctx context.Context, runID string) (*RunSummary, error) {
+	var s RunSummary
 	err := r.db.QueryRowContext(ctx,
 		`SELECT run_id, provider, model, context_version, total_cases, passed, failed,
 			avg_confidence, avg_latency_ms, total_tokens, completed_at,
@@ -206,7 +206,7 @@ func (r *EvalRepository) GetRunSummary(ctx context.Context, runID string) (*Eval
 }
 
 // ListRuns returns all eval runs, most recent first.
-func (r *EvalRepository) ListRuns(ctx context.Context, limit int) ([]EvalRunSummary, error) {
+func (r *EvalRepository) ListRuns(ctx context.Context, limit int) ([]RunSummary, error) {
 	if limit <= 0 {
 		limit = 20
 	}
@@ -229,12 +229,12 @@ func (r *EvalRepository) GenerateRegressionReport(ctx context.Context, baselineR
 		return nil, fmt.Errorf("get current results: %w", err)
 	}
 
-	baselineMap := make(map[string]EvalResultRecord)
+	baselineMap := make(map[string]ResultRecord)
 	for _, res := range baseline {
 		baselineMap[res.CaseID] = res
 	}
 
-	currentMap := make(map[string]EvalResultRecord)
+	currentMap := make(map[string]ResultRecord)
 	for _, res := range current {
 		currentMap[res.CaseID] = res
 	}
@@ -308,9 +308,9 @@ func (r *EvalRepository) GenerateRegressionReport(ctx context.Context, baselineR
 	return &report, nil
 }
 
-// EvalResultWithMetrics extends EvalResult with runtime metrics for persistence.
-type EvalResultWithMetrics struct {
-	EvalResult
+// ResultWithMetrics EvalResultWithMetrics extends EvalResult with runtime metrics for persistence.
+type ResultWithMetrics struct {
+	Result
 	Confidence                  float64        `json:"confidence"`
 	LatencyMs                   int64          `json:"latency_ms"`
 	TokenCount                  int            `json:"token_count"`
@@ -318,16 +318,16 @@ type EvalResultWithMetrics struct {
 	PromptTemplateBundleVersion int            `json:"prompt_template_bundle_version,omitempty"`
 }
 
-func scanEvalResultRecord(s platformdb.Scanner) (EvalResultRecord, error) {
-	var rec EvalResultRecord
+func scanEvalResultRecord(s platformdb.Scanner) (ResultRecord, error) {
+	var rec ResultRecord
 	if err := s.Scan(&rec.ID, &rec.RunID, &rec.Provider, &rec.Model, &rec.ContextVersion, &rec.ContextUpdatedAt, &rec.CaseID, &rec.Question, &rec.ExpectedLQ, &rec.GotLQ, &rec.Match, &rec.Reason, &rec.Confidence, &rec.LatencyMs, &rec.TokenCount, &rec.CreatedAt); err != nil {
 		return rec, fmt.Errorf("scan eval result: %w", err)
 	}
 	return rec, nil
 }
 
-func scanEvalRunSummary(s platformdb.Scanner) (EvalRunSummary, error) {
-	var summary EvalRunSummary
+func scanEvalRunSummary(s platformdb.Scanner) (RunSummary, error) {
+	var summary RunSummary
 	if err := s.Scan(
 		&summary.RunID,
 		&summary.Provider,

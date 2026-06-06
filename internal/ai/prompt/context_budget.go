@@ -20,8 +20,8 @@ type ModelContextProfile struct {
 	Source              string // "registry", "num_ctx", "default"
 }
 
-// PromptStats summarizes prompt size for logging and API responses.
-type PromptStats struct {
+// Stats PromptStats summarizes prompt size for logging and API responses.
+type Stats struct {
 	PromptRunes           int    `json:"prompt_runes"`
 	EstPromptTokens       int    `json:"est_prompt_tokens"`
 	EstCompletionReserve  int    `json:"est_completion_reserve,omitempty"`
@@ -98,8 +98,8 @@ func inputTokenBudget(cfg config.AIConfig, contextWindow int) int {
 	return budget
 }
 
-// PromptRunesForTier scales the base rune budget by progressive context tier.
-func PromptRunesForTier(baseRunes, tier int, cfg config.AIConfig, model string) int {
+// RunesForTier scales the base rune budget by progressive context tier.
+func RunesForTier(baseRunes, tier int, cfg config.AIConfig, model string) int {
 	if baseRunes <= 0 {
 		baseRunes = EffectiveMaxPromptRunes(cfg, model)
 	}
@@ -143,10 +143,10 @@ func ContextTierLabel(tier int) string {
 }
 
 // MeasurePrompt builds stats for a built prompt string.
-func MeasurePrompt(prompt, model string, tier int, cfg config.AIConfig) PromptStats {
+func MeasurePrompt(prompt, model string, tier int, cfg config.AIConfig) Stats {
 	profile := LookupModelContextProfile(model, cfg.NumCtx)
 	maxRunes := EffectiveMaxPromptRunes(cfg, model)
-	return PromptStats{
+	return Stats{
 		PromptRunes:          utf8.RuneCountInString(prompt),
 		EstPromptTokens:      EstimateTokens(prompt),
 		EstCompletionReserve: completionReserveTokens(cfg),

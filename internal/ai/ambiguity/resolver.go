@@ -21,7 +21,7 @@ func Resolve(ctx context.Context, question, choice string, model *semantic.Seman
 }
 
 // ResolveChoice rewrites a question using the selected ambiguity interpretation.
-func ResolveChoice(question, choice string, result AmbiguityResult) (string, error) {
+func ResolveChoice(question, choice string, result Result) (string, error) {
 	ambiguityIndex, interpretationIndex, err := parseClarificationChoice(choice)
 	if err != nil {
 		return "", err

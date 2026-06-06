@@ -24,7 +24,7 @@ func TestPruneAutoSemanticModel_CountQuestionDropsNumericSums(t *testing.T) {
 			{Name: "max_created_at", Expression: "timeline_tweets.created_at", Aggregation: "max"},
 		},
 	}
-	limits := RoutingLimits{MaxDimensions: 3, MaxMetrics: 4}
+	limits := Limits{MaxDimensions: 3, MaxMetrics: 4}
 	pruneAutoSemanticModel(model, "dün kaç adet tweet atılmıştır?", limits, nil)
 
 	if len(model.Metrics) > 4 {
@@ -44,7 +44,7 @@ func TestPruneAutoSemanticModel_CountQuestionDropsNumericSums(t *testing.T) {
 }
 
 func TestRoutingLimitsFromConfig_ZeroUsesDefaults(t *testing.T) {
-	limits := RoutingLimitsFromConfig(0, 0, 0, 0, true)
+	limits := LimitsFromConfig(0, 0, 0, 0, true)
 	def := DefaultRoutingLimits()
 	if limits.MaxDimensions != def.MaxDimensions {
 		t.Fatalf("MaxDimensions = %d, want %d", limits.MaxDimensions, def.MaxDimensions)

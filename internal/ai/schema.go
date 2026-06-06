@@ -28,14 +28,14 @@ type AIResult struct {
 	SQL               string              `json:"sql,omitempty"`
 	Args              []any               `json:"args,omitempty"`
 	Warnings          []string            `json:"warnings,omitempty"`
-	Result            *query.Result  `json:"result,omitempty"`
+	Result            *query.Result       `json:"result,omitempty"`
 	Confidence        float64             `json:"confidence"`
 	VisualizationHint *VisualizationHint  `json:"visualization_hint,omitempty"`
 }
 
 type AIMetadata struct {
 	ModelUsed                   string                      `json:"model_used,omitempty"`
-	PromptStats                 *promptpkg.PromptStats      `json:"prompt_stats,omitempty"`
+	PromptStats                 *promptpkg.Stats            `json:"prompt_stats,omitempty"`
 	TokenUsage                  *providerpkg.TokenUsage     `json:"token_usage,omitempty"`
 	CostUSD                     float64                     `json:"cost_usd,omitempty"`
 	LatencyMs                   int                         `json:"latency_ms,omitempty"`
@@ -100,7 +100,7 @@ type Clarification struct {
 
 // AmbiguityDetail carries the analyzer evidence needed to render semantic choices.
 type AmbiguityDetail struct {
-	Ambiguities []ambiguitypkg.AmbiguityItem `json:"ambiguities"`
+	Ambiguities []ambiguitypkg.Item `json:"ambiguities"`
 }
 
 // ClarificationOption is a single discrete answer a user can pick.
@@ -160,14 +160,14 @@ func ClarificationFromRouting(result *routing.TableRoutingResult, question strin
 }
 
 // ClarificationFromAmbiguity wraps semantic ambiguities into selectable options.
-func ClarificationFromAmbiguity(result ambiguitypkg.AmbiguityResult) *Clarification {
+func ClarificationFromAmbiguity(result ambiguitypkg.Result) *Clarification {
 	return ClarificationFromAmbiguityWithMaxOptions(i18n.DefaultLocale, result, 0)
 }
 
 // ClarificationFromAmbiguityWithMaxOptions wraps semantic ambiguities into a
 // bounded list of selectable options. A non-positive maximum leaves the list
 // uncapped for backward compatibility.
-func ClarificationFromAmbiguityWithMaxOptions(locale i18n.Locale, result ambiguitypkg.AmbiguityResult, maxOptions int) *Clarification {
+func ClarificationFromAmbiguityWithMaxOptions(locale i18n.Locale, result ambiguitypkg.Result, maxOptions int) *Clarification {
 	if !result.IsAmbiguous || len(result.Ambiguities) == 0 {
 		return nil
 	}

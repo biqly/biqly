@@ -1,8 +1,8 @@
 package routing
 
-// RoutingLimits caps auto-generated semantic models before they reach the LLM prompt.
+// Limits RoutingLimits caps auto-generated semantic models before they reach the LLM prompt.
 // Zero values fall back to DefaultRoutingLimits().
-type RoutingLimits struct {
+type Limits struct {
 	MaxDimensions      int
 	MaxMetrics         int
 	MaxColumnsPerTable int
@@ -13,8 +13,8 @@ type RoutingLimits struct {
 }
 
 // DefaultRoutingLimits returns conservative caps tuned for NL→query prompts.
-func DefaultRoutingLimits() RoutingLimits {
-	return RoutingLimits{
+func DefaultRoutingLimits() Limits {
+	return Limits{
 		MaxDimensions:      56,
 		MaxMetrics:         32,
 		MaxColumnsPerTable: 14,
@@ -23,7 +23,7 @@ func DefaultRoutingLimits() RoutingLimits {
 	}
 }
 
-func (l RoutingLimits) withDefaults() RoutingLimits {
+func (l Limits) withDefaults() Limits {
 	d := DefaultRoutingLimits()
 	if l.MaxDimensions <= 0 {
 		l.MaxDimensions = d.MaxDimensions
@@ -40,9 +40,9 @@ func (l RoutingLimits) withDefaults() RoutingLimits {
 	return l
 }
 
-// RoutingLimitsFromConfig maps BI_AI_ROUTE_* env settings onto RoutingLimits.
-func RoutingLimitsFromConfig(maxDims, maxMetrics, maxCols, maxDateGrains int, slimNumeric bool) RoutingLimits {
-	return RoutingLimits{
+// LimitsFromConfig maps BI_AI_ROUTE_* env settings onto RoutingLimits.
+func LimitsFromConfig(maxDims, maxMetrics, maxCols, maxDateGrains int, slimNumeric bool) Limits {
+	return Limits{
 		MaxDimensions:      maxDims,
 		MaxMetrics:         maxMetrics,
 		MaxColumnsPerTable: maxCols,

@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	_ "net/http/pprof" // #nosec G108 — local interface only, used for diagnostics
@@ -31,7 +32,7 @@ func main() {
 			WriteTimeout: 10 * time.Second,
 			IdleTimeout:  30 * time.Second,
 		}
-		if err := pprofSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := pprofSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("pprof server failed", "error", err)
 		}
 	}()
@@ -106,7 +107,7 @@ func main() {
 	// Start server
 	go func() {
 		slog.Info("starting HTTP server", "addr", cfg.HTTPAddr())
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("server failed", "error", err)
 			os.Exit(1)
 		}

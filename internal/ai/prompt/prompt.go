@@ -71,8 +71,8 @@ func withPooledBuffer(fn func(*bytes.Buffer)) string {
 	return out
 }
 
-// PromptConfig contains options to configure prompt construction.
-type PromptConfig struct {
+// Config PromptConfig contains options to configure prompt construction.
+type Config struct {
 	MaxRunes     int
 	Locale       i18n.Locale
 	Dialect      string
@@ -120,8 +120,8 @@ type CompositeJoinHint struct {
 	Relationship string
 }
 
-// PromptBuilder constructs the AI prompt with semantic context.
-type PromptBuilder struct{}
+// Builder PromptBuilder constructs the AI prompt with semantic context.
+type Builder struct{}
 
 // FewShotExample is a successful prior (question, logical_query) pair injected
 // into the prompt to steer the model toward the project's house style.
@@ -146,12 +146,12 @@ type ConversationTurn struct {
 // Build creates the full prompt for the AI.
 //
 //nolint:funlen // prompt assembly spans many optional sections with shared budget logic
-func (b *PromptBuilder) Build(ctx context.Context, question string, model *semantic.SemanticModel, cfg PromptConfig) string {
+func (b *Builder) Build(ctx context.Context, question string, model *semantic.SemanticModel, cfg Config) string {
 	maxPromptRunes := cfg.MaxRunes
 	if maxPromptRunes <= 0 {
 		maxPromptRunes = 80000
 	}
-	locale := PromptLocaleForQuestion(question, cfg.Locale)
+	locale := LocaleForQuestion(question, cfg.Locale)
 	targetDialect := cfg.Dialect
 	examples := cfg.Examples
 	samples := cfg.Samples
@@ -308,7 +308,7 @@ func (b *PromptBuilder) Build(ctx context.Context, question string, model *seman
 // keys. This block restores that domain-level context so the LLM understands
 // the model is cross-domain, how the domains connect, which date dimension
 // aligns time grains, and which dimensions were renamed to avoid collisions.
-func (b *PromptBuilder) writeCompositeContext(sb *bytes.Buffer, cc *CompositeContext) { //nolint:revive // keeps PromptBuilder method grouping
+func (b *Builder) writeCompositeContext(sb *bytes.Buffer, cc *CompositeContext) { //nolint:revive // keeps PromptBuilder method grouping
 	if cc == nil {
 		return
 	}
@@ -349,7 +349,7 @@ func (b *PromptBuilder) writeCompositeContext(sb *bytes.Buffer, cc *CompositeCon
 // model can resolve follow-ups like "now filter to last quarter" or "same
 // breakdown but by region". Each turn shows the user's question and, if
 // available, the prior LogicalQuery the assistant produced.
-func (*PromptBuilder) writePriorTurns(sb *bytes.Buffer, turns []ConversationTurn) {
+func (*Builder) writePriorTurns(sb *bytes.Buffer, turns []ConversationTurn) {
 	if len(turns) == 0 {
 		return
 	}
@@ -373,7 +373,7 @@ func (*PromptBuilder) writePriorTurns(sb *bytes.Buffer, turns []ConversationTurn
 // writeSampleData appends a compact JSON block of concrete rows so the LLM can
 // see actual values (formats, casing, enum-like fields). Skipped silently if
 // no samples were provided.
-func (*PromptBuilder) writeSampleData(sb *bytes.Buffer, samples []TableSample) {
+func (*Builder) writeSampleData(sb *bytes.Buffer, samples []TableSample) {
 	if len(samples) == 0 {
 		return
 	}
@@ -396,7 +396,7 @@ func (*PromptBuilder) writeSampleData(sb *bytes.Buffer, samples []TableSample) {
 // when matching the active locale; locale-empty rows are always eligible and
 // rows tagged for a different locale are filtered out. Skipped silently if no
 // rows survive the filter.
-func (*PromptBuilder) writeFewShotExamples(sb *bytes.Buffer, examples []FewShotExample, locale i18n.Locale) {
+func (*Builder) writeFewShotExamples(sb *bytes.Buffer, examples []FewShotExample, locale i18n.Locale) {
 	if len(examples) == 0 {
 		return
 	}
@@ -423,7 +423,7 @@ func (*PromptBuilder) writeFewShotExamples(sb *bytes.Buffer, examples []FewShotE
 	}
 }
 
-func (*PromptBuilder) writeDimensions(sb *bytes.Buffer, dims []semantic.Dimension, budgetRunes int) int {
+func (*Builder) writeDimensions(sb *bytes.Buffer, dims []semantic.Dimension, budgetRunes int) int {
 	if budgetRunes <= 0 {
 		writePromptString(sb, "(dimensions omitted — size budget)\n")
 		return len(dims)
@@ -495,7 +495,7 @@ func (*PromptBuilder) writeDimensions(sb *bytes.Buffer, dims []semantic.Dimensio
 	return omitted
 }
 
-func (*PromptBuilder) writeMetrics(sb *bytes.Buffer, metrics []semantic.Metric, budgetRunes int) int {
+func (*Builder) writeMetrics(sb *bytes.Buffer, metrics []semantic.Metric, budgetRunes int) int {
 	if budgetRunes <= 0 {
 		writePromptString(sb, "(metrics omitted — size budget)\n")
 		return len(metrics)
@@ -523,8 +523,8 @@ func (*PromptBuilder) writeMetrics(sb *bytes.Buffer, metrics []semantic.Metric, 
 // BuildAmbiguityAnalysis asks the LLM to identify unclear terms before
 // LogicalQuery generation. The result is structured JSON consumed by the
 // ambiguity analyzer, never SQL.
-func (*PromptBuilder) BuildAmbiguityAnalysis(ctx context.Context, locale i18n.Locale, question string, model *semantic.SemanticModel, glossary []GlossaryEntry) string {
-	locale = PromptLocaleForQuestion(question, locale)
+func (*Builder) BuildAmbiguityAnalysis(ctx context.Context, locale i18n.Locale, question string, model *semantic.SemanticModel, glossary []GlossaryEntry) string {
+	locale = LocaleForQuestion(question, locale)
 	if model == nil {
 		model = &semantic.SemanticModel{}
 	}
@@ -554,8 +554,8 @@ func (*PromptBuilder) BuildAmbiguityAnalysis(ctx context.Context, locale i18n.Lo
 // BuildClarification asks the LLM to produce a single, user-facing clarifying
 // question explaining what is ambiguous about the original request, given the
 // available semantic model. Output is plain text (no JSON) — short, natural.
-func (*PromptBuilder) BuildClarification(ctx context.Context, locale i18n.Locale, question string, model *semantic.SemanticModel, failureReason string) string {
-	locale = PromptLocaleForQuestion(question, locale)
+func (*Builder) BuildClarification(ctx context.Context, locale i18n.Locale, question string, model *semantic.SemanticModel, failureReason string) string {
+	locale = LocaleForQuestion(question, locale)
 	tmpl := promptTemplate(ctx, locale, "clarification")
 	if tmpl != "" {
 		if model == nil {
@@ -613,7 +613,7 @@ func (*PromptBuilder) BuildClarification(ctx context.Context, locale i18n.Locale
 // previous attempt produced unparseable or semantically-invalid output. The
 // original prompt is reused as the source of truth for the schema; the
 // addendum carries the model's failed response and the validation error.
-func (*PromptBuilder) BuildRetry(ctx context.Context, locale i18n.Locale, originalPrompt, lastResponse, validationError string) string {
+func (*Builder) BuildRetry(ctx context.Context, locale i18n.Locale, originalPrompt, lastResponse, validationError string) string {
 	tmpl := promptTemplate(ctx, locale, "retry")
 	if tmpl != "" {
 		return renderPromptTemplate(tmpl, map[string]any{
@@ -662,7 +662,7 @@ func RepairStrategy(locale i18n.Locale, attempt int) string {
 }
 
 // BuildRepairPrompt builds a highly-focused corrective prompt to guide the LLM to fix the validation errors.
-func (*PromptBuilder) BuildRepairPrompt(ctx context.Context, locale i18n.Locale, originalPrompt, lastResponse string, errs query.ValidationErrors, attempt int) string {
+func (*Builder) BuildRepairPrompt(ctx context.Context, locale i18n.Locale, originalPrompt, lastResponse string, errs query.ValidationErrors, attempt int) string {
 	tmpl := promptTemplate(ctx, locale, "repair")
 	if tmpl == "" {
 		tmpl = promptTemplate(ctx, locale, "retry")

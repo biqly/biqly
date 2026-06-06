@@ -74,7 +74,7 @@ func NewAIHandler(deps *app.AIDeps) *AIHandler {
 	)
 	router.SetMetadataTranslator(deps.MetaRepo)
 	router.SetTimeGrainStore(deps.TimeGrains)
-	router.SetRoutingLimits(routing.RoutingLimitsFromConfig(
+	router.SetRoutingLimits(routing.LimitsFromConfig(
 		deps.Config.AI.RouteMaxDimensions,
 		deps.Config.AI.RouteMaxMetrics,
 		deps.Config.AI.RouteMaxColumnsPerTable,

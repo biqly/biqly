@@ -41,8 +41,8 @@ func TestEffectiveMaxPromptRunes_RespectsEnvCap(t *testing.T) {
 func TestPromptRunesForTier_ExpandsOnRetry(t *testing.T) {
 	cfg := config.AIConfig{Model: "gpt-4o", MaxTokens: 4096, MaxPromptInputRunes: 100_000}
 	base := 40_000
-	compact := PromptRunesForTier(base, 0, cfg, cfg.Model)
-	expanded := PromptRunesForTier(base, 2, cfg, cfg.Model)
+	compact := RunesForTier(base, 0, cfg, cfg.Model)
+	expanded := RunesForTier(base, 2, cfg, cfg.Model)
 	if expanded <= compact {
 		t.Fatalf("expanded runes %d should exceed compact %d", expanded, compact)
 	}

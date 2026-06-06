@@ -29,7 +29,7 @@ type internalSemanticRepo interface {
 }
 
 type internalEvalRepo interface {
-	SaveRunResults(ctx context.Context, runID, provider, model string, contextVersion int, contextUpdatedAt time.Time, results []ai.EvalResultWithMetrics) error
+	SaveRunResults(ctx context.Context, runID, provider, model string, contextVersion int, contextUpdatedAt time.Time, results []ai.ResultWithMetrics) error
 }
 
 type internalQueryRunner interface {

@@ -14,7 +14,7 @@ import (
 const ambiguityAnalysisCacheTTL = 5 * time.Minute
 
 type ambiguityAnalysisCacheEntry struct {
-	result    ambiguitypkg.AmbiguityResult
+	result    ambiguitypkg.Result
 	source    string
 	expiresAt time.Time
 }
@@ -41,23 +41,23 @@ func ambiguityAnalysisCacheKey(question string, model *semantic.SemanticModel, g
 	return hex.EncodeToString(sum[:])
 }
 
-func (s *Service) getCachedAmbiguityAnalysis(key string) (ambiguitypkg.AmbiguityResult, string, bool) {
+func (s *Service) getCachedAmbiguityAnalysis(key string) (ambiguitypkg.Result, string, bool) {
 	value, ok := s.ambiguityCache.Load(key)
 	if !ok {
-		return ambiguitypkg.AmbiguityResult{}, "", false
+		return ambiguitypkg.Result{}, "", false
 	}
 	entry, ok := value.(ambiguityAnalysisCacheEntry)
 	if !ok {
-		return ambiguitypkg.AmbiguityResult{}, "", false
+		return ambiguitypkg.Result{}, "", false
 	}
 	if time.Now().After(entry.expiresAt) {
 		s.ambiguityCache.Delete(key)
-		return ambiguitypkg.AmbiguityResult{}, "", false
+		return ambiguitypkg.Result{}, "", false
 	}
 	return entry.result, entry.source, true
 }
 
-func (s *Service) cacheAmbiguityAnalysis(key string, result ambiguitypkg.AmbiguityResult, source string) {
+func (s *Service) cacheAmbiguityAnalysis(key string, result ambiguitypkg.Result, source string) {
 	s.ambiguityCache.Store(key, ambiguityAnalysisCacheEntry{
 		result:    result,
 		source:    source,
