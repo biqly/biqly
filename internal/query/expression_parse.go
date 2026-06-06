@@ -13,8 +13,8 @@ import (
 )
 
 func init() {
-	internalsemantic.CalculatedExpressionValidator = ValidateExpression
-	internalsemantic.ExpressionParser = ParseExpression
+	internalsemantic.RegisterCalculatedExpressionValidator(ValidateExpression)
+	internalsemantic.RegisterExpressionParser(ParseExpression)
 }
 
 type TokenType int

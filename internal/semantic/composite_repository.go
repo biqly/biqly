@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"sync"
 
 	"github.com/google/uuid"
+	"golang.org/x/sync/errgroup"
 
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 )
@@ -118,33 +118,35 @@ func (r *CompositeRepository) GetFullComposite(ctx context.Context, id string) (
 		components  []ComponentModelRef
 		crossJoins  []CrossModelJoin
 		resolutions []DimensionConflictResolution
-		compErr     error
-		joinErr     error
-		resErr      error
 	)
-	var wg sync.WaitGroup
-	wg.Add(3)
-	go func() {
-		defer wg.Done()
-		components, compErr = r.GetComponents(ctx, id)
-	}()
-	go func() {
-		defer wg.Done()
-		crossJoins, joinErr = r.GetCrossModelJoins(ctx, id)
-	}()
-	go func() {
-		defer wg.Done()
-		resolutions, resErr = r.GetDimensionResolutions(ctx, id)
-	}()
-	wg.Wait()
 
-	switch {
-	case compErr != nil:
-		return nil, fmt.Errorf("get components: %w", compErr)
-	case joinErr != nil:
-		return nil, fmt.Errorf("get cross joins: %w", joinErr)
-	case resErr != nil:
-		return nil, fmt.Errorf("get dimension resolutions: %w", resErr)
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.Go(func() error {
+		var err error
+		components, err = r.GetComponents(groupCtx, id)
+		if err != nil {
+			return fmt.Errorf("get components: %w", err)
+		}
+		return nil
+	})
+	group.Go(func() error {
+		var err error
+		crossJoins, err = r.GetCrossModelJoins(groupCtx, id)
+		if err != nil {
+			return fmt.Errorf("get cross joins: %w", err)
+		}
+		return nil
+	})
+	group.Go(func() error {
+		var err error
+		resolutions, err = r.GetDimensionResolutions(groupCtx, id)
+		if err != nil {
+			return fmt.Errorf("get dimension resolutions: %w", err)
+		}
+		return nil
+	})
+	if err := group.Wait(); err != nil {
+		return nil, err
 	}
 
 	composite.Components = components

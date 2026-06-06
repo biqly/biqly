@@ -3,13 +3,13 @@ package queryclient
 import (
 	"context"
 
-	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/pkg/internalapi"
+	"github.com/biqly/biqly/pkg/logicalquery"
 )
 
 // Compile validates a LogicalQuery and returns the parameterized SQL plus the
 // canonical fingerprint. It does NOT execute the query.
-func (c *Client) Compile(ctx context.Context, lq *query.LogicalQuery) (*internalapi.CompileResponse, error) {
+func (c *Client) Compile(ctx context.Context, lq *logicalquery.LogicalQuery) (*internalapi.CompileResponse, error) {
 	req := internalapi.CompileRequest{LogicalQuery: *lq}
 	var resp internalapi.CompileResponse
 	if err := c.do(ctx, "/compile", req, &resp); err != nil {
@@ -23,7 +23,7 @@ func (c *Client) Compile(ctx context.Context, lq *query.LogicalQuery) (*internal
 // BI_QUERY_MAX_ROWS and BI_QUERY_TIMEOUT_SECONDS respectively.
 //
 // Pass 0 for either to use the server default.
-func (c *Client) Run(ctx context.Context, lq *query.LogicalQuery, maxRows, timeoutMs int) (*internalapi.RunResponse, error) {
+func (c *Client) Run(ctx context.Context, lq *logicalquery.LogicalQuery, maxRows, timeoutMs int) (*internalapi.RunResponse, error) {
 	req := internalapi.RunRequest{
 		LogicalQuery: *lq,
 		MaxRows:      maxRows,
@@ -38,7 +38,7 @@ func (c *Client) Run(ctx context.Context, lq *query.LogicalQuery, maxRows, timeo
 
 // DryRun validates and compiles a LogicalQuery without executing it. Use this
 // when you only need the SQL/fingerprint for audit, caching, or preview.
-func (c *Client) DryRun(ctx context.Context, lq *query.LogicalQuery) (*internalapi.DryRunResponse, error) {
+func (c *Client) DryRun(ctx context.Context, lq *logicalquery.LogicalQuery) (*internalapi.DryRunResponse, error) {
 	req := internalapi.DryRunRequest{LogicalQuery: *lq}
 	var resp internalapi.DryRunResponse
 	if err := c.do(ctx, "/dry-run", req, &resp); err != nil {

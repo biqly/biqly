@@ -43,9 +43,9 @@ func BuildMetricGraph(composite *CompositeModel, resolved *SemanticModel) *Metri
 	}
 
 	ownerByTable := componentAliasByTable(composite, resolved)
-	metricNames := make(map[string]struct{}, len(resolved.Metrics))
+	metricNames := make(map[string]string, len(resolved.Metrics))
 	for _, m := range resolved.Metrics {
-		metricNames[strings.ToLower(m.Name)] = struct{}{}
+		metricNames[strings.ToLower(m.Name)] = m.Name
 	}
 
 	for _, m := range resolved.Metrics {
@@ -53,18 +53,13 @@ func BuildMetricGraph(composite *CompositeModel, resolved *SemanticModel) *Metri
 			Name:             m.Name,
 			SourceModelAlias: ownerByTable[tableOfRef(m.Expression)],
 		}
-		for _, other := range resolved.Metrics {
-			if other.Name == m.Name {
-				continue
-			}
-			if expressionReferences(m.Expression, other.Name) {
-				node.DependsOn = append(node.DependsOn, other.Name)
-				graph.Edges = append(graph.Edges, MetricEdge{
-					From: m.Name,
-					To:   other.Name,
-					Type: MetricEdgeDerivesFrom,
-				})
-			}
+		for _, dependency := range referencedMetricNames(m.Expression, metricNames, m.Name) {
+			node.DependsOn = append(node.DependsOn, dependency)
+			graph.Edges = append(graph.Edges, MetricEdge{
+				From: m.Name,
+				To:   dependency,
+				Type: MetricEdgeDerivesFrom,
+			})
 		}
 		graph.Nodes[m.Name] = node
 	}
@@ -149,27 +144,37 @@ func tableOfRef(ref string) string {
 	}
 }
 
-// expressionReferences reports whether expr references the given metric name as
-// a whole identifier token.
-func expressionReferences(expr, name string) bool {
-	if name == "" {
-		return false
-	}
-	lowerExpr := strings.ToLower(expr)
-	lowerName := strings.ToLower(name)
-	idx := 0
-	for {
-		pos := strings.Index(lowerExpr[idx:], lowerName)
-		if pos < 0 {
-			return false
+func referencedMetricNames(expr string, metricNames map[string]string, self string) []string {
+	seen := make(map[string]struct{})
+	var out []string
+	start := -1
+	flush := func(end int) {
+		if start < 0 {
+			return
 		}
-		start := idx + pos
-		end := start + len(lowerName)
-		if isTokenBoundary(lowerExpr, start-1) && isTokenBoundary(lowerExpr, end) {
-			return true
+		token := strings.ToLower(expr[start:end])
+		start = -1
+		name, ok := metricNames[token]
+		if !ok || name == self {
+			return
 		}
-		idx = end
+		if _, ok := seen[name]; ok {
+			return
+		}
+		seen[name] = struct{}{}
+		out = append(out, name)
 	}
+	for i := range len(expr) {
+		if isTokenBoundary(expr, i) {
+			flush(i)
+			continue
+		}
+		if start < 0 {
+			start = i
+		}
+	}
+	flush(len(expr))
+	return out
 }
 
 func isTokenBoundary(s string, i int) bool {

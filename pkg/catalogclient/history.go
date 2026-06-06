@@ -4,10 +4,9 @@ import (
 	"context"
 	"time"
 
-	ai "github.com/biqly/biqly/internal/ai/eval"
-	"github.com/biqly/biqly/internal/metadata"
-	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/pkg/internalapi"
+	"github.com/biqly/biqly/pkg/metadata"
+	"github.com/biqly/biqly/pkg/query"
 )
 
 // EvalResultsInput is the batch persisted by POST /internal/eval-results.
@@ -17,7 +16,7 @@ type EvalResultsInput struct {
 	Model            string
 	ContextVersion   int
 	ContextUpdatedAt time.Time
-	Results          []ai.ResultWithMetrics
+	Results          []internalapi.EvalResultMetrics
 }
 
 // CreateAIHistory persists an AI query history row. The returned id is the

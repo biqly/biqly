@@ -3,26 +3,10 @@ package metadata
 import (
 	"context"
 	"fmt"
-	"time"
 
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 	"github.com/lib/pq"
 )
-
-// BusinessGlossaryRow is the API shape for a curated glossary term.
-type BusinessGlossaryRow struct {
-	ID           string    `json:"id"`
-	DatasourceID string    `json:"datasource_id"`
-	ModelID      string    `json:"model_id,omitempty"`
-	Term         string    `json:"term"`
-	Definition   string    `json:"definition,omitempty"`
-	MapsToType   string    `json:"maps_to_type"`
-	MapsToName   string    `json:"maps_to_name"`
-	Aliases      []string  `json:"aliases,omitempty"`
-	IsActive     bool      `json:"is_active"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
-}
 
 // BusinessGlossaryInsert is input for creating a glossary term.
 type BusinessGlossaryInsert struct {

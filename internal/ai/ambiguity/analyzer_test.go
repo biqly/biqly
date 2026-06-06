@@ -163,7 +163,7 @@ func TestAnalyze_QuestionExamples(t *testing.T) {
 func TestAnalyzeWithDetectorsRunsDetectorsInParallel(t *testing.T) {
 	started := make(chan struct{}, 2)
 	release := make(chan struct{})
-	detector := func() []Item {
+	detector := func(context.Context) []Item {
 		started <- struct{}{}
 		<-release
 		return []Item{}
@@ -171,7 +171,7 @@ func TestAnalyzeWithDetectorsRunsDetectorsInParallel(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		analyzeWithDetectors(context.Background(), []func() []Item{detector, detector}, 0, time.Second)
+		analyzeWithDetectors(context.Background(), []func(context.Context) []Item{detector, detector}, 0, time.Second)
 		close(done)
 	}()
 
@@ -197,8 +197,8 @@ func TestAnalyzeWithDetectorsStopsWaitingAtTimeout(t *testing.T) {
 	start := time.Now()
 	got := analyzeWithDetectors(
 		context.Background(),
-		[]func() []Item{
-			func() []Item {
+		[]func(context.Context) []Item{
+			func(context.Context) []Item {
 				<-release
 				return []Item{}
 			},

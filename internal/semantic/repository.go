@@ -547,9 +547,7 @@ func (r *Repository) PublishModel(ctx context.Context, id, publishedBy string, c
 	}); err != nil {
 		return nil, fmt.Errorf("publish model: %w", err)
 	}
-	if OnModelPublish != nil {
-		OnModelPublish(ctx, model.ID)
-	}
+	notifyModelPublished(ctx, model.ID)
 	published, err := r.GetPublishedFullModel(ctx, model.ID)
 	if err != nil {
 		return nil, fmt.Errorf("publish model reload: %w", err)
@@ -593,9 +591,7 @@ func (r *Repository) RollbackModel(ctx context.Context, id string, targetVersion
 	}); err != nil {
 		return nil, fmt.Errorf("rollback model: %w", err)
 	}
-	if OnModelPublish != nil {
-		OnModelPublish(ctx, current.ID)
-	}
+	notifyModelPublished(ctx, current.ID)
 	published, err := r.GetPublishedFullModel(ctx, current.ID)
 	if err != nil {
 		return nil, fmt.Errorf("rollback model reload: %w", err)

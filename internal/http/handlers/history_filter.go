@@ -38,7 +38,7 @@ func FilterAIHistoryForUser(rows []pkgmetadata.AIQueryHistoryEntry, userID strin
 		return rows
 	}
 
-	result := rows[:0]
+	result := make([]pkgmetadata.AIQueryHistoryEntry, 0, len(rows))
 	for _, row := range rows {
 		if row.UserID != nil && *row.UserID == userID {
 			result = append(result, row)

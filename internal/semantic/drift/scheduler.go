@@ -2,6 +2,7 @@ package drift
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -146,7 +147,9 @@ func (s *Scheduler) checkDatasourceDrift(ctx context.Context, dsID string) {
 		}
 
 		latest, err := s.repo.GetLatestByModel(ctx, model.ID)
-		if err != nil {
+		if errors.Is(err, ErrNoDriftReport) {
+			latest = nil
+		} else if err != nil {
 			slog.ErrorContext(ctx, "scheduler failed to fetch latest drift report", "model_id", model.ID, "error", err)
 		}
 

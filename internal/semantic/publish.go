@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/biqly/biqly/internal/errmsg"
 	pkgsemantic "github.com/biqly/biqly/pkg/semantic"
@@ -16,11 +17,47 @@ const (
 	ModelStatusPublished = "published"
 )
 
-// CalculatedExpressionValidator is registered by internal/query to validate calculated expressions.
-var CalculatedExpressionValidator func(expr string) error
+var calculatedExpressionValidatorRegistry struct {
+	mu        sync.RWMutex
+	validator func(expr string) error
+}
 
-// OnModelPublish is registered by external packages to perform actions (like cache invalidation) on model publish/rollback.
-var OnModelPublish func(ctx context.Context, modelID string)
+var modelPublishHooks struct {
+	mu    sync.RWMutex
+	hooks []func(ctx context.Context, modelID string)
+}
+
+// RegisterCalculatedExpressionValidator registers the calculated-expression validator.
+func RegisterCalculatedExpressionValidator(validator func(expr string) error) {
+	calculatedExpressionValidatorRegistry.mu.Lock()
+	defer calculatedExpressionValidatorRegistry.mu.Unlock()
+	calculatedExpressionValidatorRegistry.validator = validator
+}
+
+func currentCalculatedExpressionValidator() func(expr string) error {
+	calculatedExpressionValidatorRegistry.mu.RLock()
+	defer calculatedExpressionValidatorRegistry.mu.RUnlock()
+	return calculatedExpressionValidatorRegistry.validator
+}
+
+// RegisterModelPublishHook registers a callback for semantic model publish/rollback events.
+func RegisterModelPublishHook(hook func(ctx context.Context, modelID string)) {
+	if hook == nil {
+		return
+	}
+	modelPublishHooks.mu.Lock()
+	defer modelPublishHooks.mu.Unlock()
+	modelPublishHooks.hooks = append(modelPublishHooks.hooks, hook)
+}
+
+func notifyModelPublished(ctx context.Context, modelID string) {
+	modelPublishHooks.mu.RLock()
+	hooks := append([]func(context.Context, string){}, modelPublishHooks.hooks...)
+	modelPublishHooks.mu.RUnlock()
+	for _, hook := range hooks {
+		hook(ctx, modelID)
+	}
+}
 
 var reBracket = regexp.MustCompile(`\[([^\]]+)\]`)
 
@@ -386,8 +423,8 @@ func validateCalculatedExpression(expr string, columnSet datasourceColumnSet, de
 		return errors.New("calculated expression is empty")
 	}
 
-	if CalculatedExpressionValidator != nil {
-		if err := CalculatedExpressionValidator(expr); err != nil {
+	if validator := currentCalculatedExpressionValidator(); validator != nil {
+		if err := validator(expr); err != nil {
 			return err
 		}
 	}
@@ -617,10 +654,11 @@ func getOrParseExpr(exprStr string, ast pkgsemantic.ExprNode) pkgsemantic.ExprNo
 		return ast
 	}
 	exprStr = strings.TrimSpace(exprStr)
-	if exprStr == "" || exprStr == "*" || ExpressionParser == nil {
+	parser := CurrentExpressionParser()
+	if exprStr == "" || exprStr == "*" || parser == nil {
 		return nil
 	}
-	parsed, err := ExpressionParser(exprStr)
+	parsed, err := parser(exprStr)
 	if err != nil {
 		return nil
 	}

@@ -139,7 +139,7 @@ func TestCreateEvalResults_RejectsMissingRunID(t *testing.T) {
 func TestCreateEvalResults_RejectsMissingProvider(t *testing.T) {
 	t.Parallel()
 	h := &InternalHandler{}
-	body, err := json.Marshal(internalapi.EvalResultsRequest{RunID: "run_1"}) //nolint:musttag // nested eval types omit json tags by design
+	body, err := json.Marshal(internalapi.EvalResultsRequest{RunID: "run_1"})
 	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/internal/eval-results", bytes.NewReader(body))

@@ -1,7 +1,8 @@
 package internalapi
 
 import (
-	"github.com/biqly/biqly/internal/query"
+	"github.com/biqly/biqly/pkg/logicalquery"
+	pkgquery "github.com/biqly/biqly/pkg/query"
 )
 
 // CompileRequest is the body of POST /internal/query/compile.
@@ -10,7 +11,7 @@ import (
 // against the published semantic model identified by LogicalQuery.ModelID
 // and the datasource identified by LogicalQuery.DatasourceID.
 type CompileRequest struct {
-	LogicalQuery query.LogicalQuery `json:"logical_query"`
+	LogicalQuery logicalquery.LogicalQuery `json:"logical_query"`
 	// DryRun toggles EXPLAIN-only compilation. When true, the service MAY
 	// run the result through the dialect's EXPLAIN wrapper without executing.
 	DryRun bool `json:"dry_run,omitempty"`
@@ -28,7 +29,7 @@ type CompileResponse struct {
 
 // RunRequest is the body of POST /internal/query/run.
 type RunRequest struct {
-	LogicalQuery query.LogicalQuery `json:"logical_query"`
+	LogicalQuery logicalquery.LogicalQuery `json:"logical_query"`
 	// MaxRows overrides BI_QUERY_MAX_ROWS for this single request when > 0.
 	// Servers SHOULD cap the value at the global BI_QUERY_MAX_ROWS to prevent
 	// callers from raising the ceiling.
@@ -40,12 +41,12 @@ type RunRequest struct {
 
 // RunResponse is the body of POST /internal/query/run.
 type RunResponse struct {
-	Columns     []query.ResultColumn `json:"columns"`
-	Rows        [][]any              `json:"rows"`
-	RowCount    int                  `json:"row_count"`
-	DurationMs  int64                `json:"duration_ms"`
-	Fingerprint string               `json:"fingerprint"`
-	SQL         string               `json:"sql,omitempty"`
+	Columns     []pkgquery.ResultColumn `json:"columns"`
+	Rows        [][]any                 `json:"rows"`
+	RowCount    int                     `json:"row_count"`
+	DurationMs  int64                   `json:"duration_ms"`
+	Fingerprint string                  `json:"fingerprint"`
+	SQL         string                  `json:"sql,omitempty"`
 	// Truncated is true when the executor stopped at MaxRows.
 	Truncated bool `json:"truncated,omitempty"`
 }
@@ -55,7 +56,7 @@ type RunResponse struct {
 // Servers MUST NOT execute the query against the user database; they only
 // compile and (optionally) wrap with EXPLAIN to validate syntax.
 type DryRunRequest struct {
-	LogicalQuery query.LogicalQuery `json:"logical_query"`
+	LogicalQuery logicalquery.LogicalQuery `json:"logical_query"`
 }
 
 // DryRunResponse is the body of POST /internal/query/dry-run.

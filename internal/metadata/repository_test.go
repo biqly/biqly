@@ -1204,24 +1204,10 @@ func TestAIJobs_And_AIMetrics(t *testing.T) {
 			},
 		},
 		{
-			Pattern: "SELECT COUNT(*) FROM ai_jobs WHERE status IN", // GetAIQueueStatus count pending
-			Cols:    []string{"count"},
+			Pattern: "WITH my_job AS", // GetAIQueueStatus
+			Cols:    []string{"total_pending", "id", "status", "position"},
 			Rows: [][]driver.Value{
-				{int64(2)},
-			},
-		},
-		{
-			Pattern: "SELECT id, status, created_at FROM ai_jobs WHERE client_session_id =", // GetAIQueueStatus my job
-			Cols:    []string{"id", "status", "created_at"},
-			Rows: [][]driver.Value{
-				{"job-1", "pending", now},
-			},
-		},
-		{
-			Pattern: "SELECT COUNT(*) + 1 FROM ai_jobs WHERE status IN", // GetAIQueueStatus position
-			Cols:    []string{"count"},
-			Rows: [][]driver.Value{
-				{int64(1)},
+				{int64(2), "job-1", "pending", int64(1)},
 			},
 		},
 		{

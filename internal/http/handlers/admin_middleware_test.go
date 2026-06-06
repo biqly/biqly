@@ -68,6 +68,22 @@ func TestAdminKeyMiddleware_AcceptsXAdminKey(t *testing.T) {
 	}
 }
 
+func TestAdminKeyMiddleware_StripsXAdminKey(t *testing.T) {
+	h := AdminKeyMiddleware("s3cret")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("X-Admin-Key"); got != "" {
+			t.Fatalf("downstream X-Admin-Key = %q, want stripped", got)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/ai/jobs/admin/stale", nil)
+	r.Header.Set("X-Admin-Key", "s3cret")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 with X-Admin-Key, got %d", w.Code)
+	}
+}
+
 func TestAdminKeyMiddleware_RejectsWrongKey(t *testing.T) {
 	h := AdminKeyMiddleware("s3cret")(adminTestHandler())
 	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/ai/jobs/admin/stale", nil)

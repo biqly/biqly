@@ -35,7 +35,11 @@ func QueryRouter(deps *app.Dependencies) http.Handler {
 	}))
 	r.Get("/metrics", MetricsHandler)
 
+	authMW := buildAPIAuthMiddleware(deps)
+	authClient := NewAuthClient(deps)
 	r.Route("/api", func(r chi.Router) {
+		r.Use(authMW)
+		r.Use(bimw.RequirePermission(authClient, "query:execute"))
 		registerQueryAPIRoutes(r, deps.QueryDeps())
 	})
 

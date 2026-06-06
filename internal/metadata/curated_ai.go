@@ -10,25 +10,6 @@ import (
 	"github.com/lib/pq"
 )
 
-// FewShotCuratedRow is the API shape for a row in few_shot_examples.
-type FewShotCuratedRow struct {
-	ID           string          `json:"id"`
-	DatasourceID string          `json:"datasource_id"`
-	ModelID      string          `json:"model_id,omitempty"`
-	Question     string          `json:"question"`
-	LogicalQuery json.RawMessage `json:"logical_query"`
-	Tags         []string        `json:"tags"`
-	Dialect      string          `json:"dialect"`
-	Locale       string          `json:"locale,omitempty"`
-	CreatedBy    string          `json:"created_by,omitempty"`
-	CreatedAt    time.Time       `json:"created_at"`
-	UpdatedAt    time.Time       `json:"updated_at"`
-	Name         string          `json:"name"`
-	Description  string          `json:"description"`
-	IsFewShot    bool            `json:"is_few_shot"`
-	IsFavorite   bool            `json:"is_favorite"`
-}
-
 // FewShotCuratedInsert is input for creating a curated few-shot example.
 type FewShotCuratedInsert struct {
 	DatasourceID string

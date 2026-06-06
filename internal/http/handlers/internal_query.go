@@ -41,19 +41,36 @@ func (h *InternalQueryHandler) SetQueryMetricsRecorder(m QueryMetricsRecorder) {
 // returns the parameterized SQL. It DOES NOT execute the query, so it is
 // safe to call from any caller that needs a deterministic SQL fingerprint
 // without touching user data.
+func (h *InternalQueryHandler) compileToSQL(w http.ResponseWriter, r *http.Request, lq *query.LogicalQuery) (string, []any, string, bool) {
+	result, ok := h.compileLogicalQuery(w, r, lq)
+	if !ok {
+		return "", nil, "", false
+	}
+	fingerprint, err := fingerprintFor(&result.LogicalQuery, result.Model)
+	if err != nil {
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "query failed", err)
+		return "", nil, "", false
+	}
+	return result.Compiled.SQL, result.Compiled.Args, fingerprint, true
+}
+
+// Compile validates a LogicalQuery against the published semantic model and
+// returns the parameterized SQL. It DOES NOT execute the query, so it is
+// safe to call from any caller that needs a deterministic SQL fingerprint
+// without touching user data.
 func (h *InternalQueryHandler) Compile(w http.ResponseWriter, r *http.Request) {
 	req, ok := decodeJSON[internalapi.CompileRequest](w, r)
 	if !ok {
 		return
 	}
-	result, ok := h.compileLogicalQuery(w, r, &req.LogicalQuery)
+	sql, args, fingerprint, ok := h.compileToSQL(w, r, &req.LogicalQuery)
 	if !ok {
 		return
 	}
 	writeJSON(w, http.StatusOK, internalapi.CompileResponse{
-		SQL:         result.Compiled.SQL,
-		Args:        result.Compiled.Args,
-		Fingerprint: fingerprintFor(&result.LogicalQuery, result.Model),
+		SQL:         sql,
+		Args:        args,
+		Fingerprint: fingerprint,
 	})
 }
 
@@ -88,8 +105,13 @@ func (h *InternalQueryHandler) Run(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	fingerprint, err := fingerprintFor(&result.LogicalQuery, result.Model)
+	if err != nil {
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "query failed", err)
+		return
+	}
 	resp := internalapi.RunResponse{
-		Fingerprint: fingerprintFor(&result.LogicalQuery, result.Model),
+		Fingerprint: fingerprint,
 		SQL:         result.Compiled.SQL,
 	}
 	if result.Result != nil {
@@ -110,14 +132,14 @@ func (h *InternalQueryHandler) DryRun(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	result, ok := h.compileLogicalQuery(w, r, &req.LogicalQuery)
+	sql, args, fingerprint, ok := h.compileToSQL(w, r, &req.LogicalQuery)
 	if !ok {
 		return
 	}
 	writeJSON(w, http.StatusOK, internalapi.DryRunResponse{
-		SQL:         result.Compiled.SQL,
-		Args:        result.Compiled.Args,
-		Fingerprint: fingerprintFor(&result.LogicalQuery, result.Model),
+		SQL:         sql,
+		Args:        args,
+		Fingerprint: fingerprint,
 	})
 }
 
@@ -153,7 +175,7 @@ func (h *InternalQueryHandler) compileLogicalQuery(
 // semantic-model revision naturally invalidates downstream fingerprint caches.
 // PermissionScope is left empty for the internal surface; row-level filter
 // injection is handled by /api/query/* through CompileWithPermissions.
-func fingerprintFor(lq *query.LogicalQuery, model *semantic.SemanticModel) string {
+func fingerprintFor(lq *query.LogicalQuery, model *semantic.SemanticModel) (string, error) {
 	in := query.FingerprintInputs{
 		LogicalQuery: lq,
 		DatasourceID: lq.DatasourceID,

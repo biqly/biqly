@@ -4,6 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"sort"
 )
 
@@ -34,7 +36,11 @@ type FingerprintInputs struct {
 // is expected to encode the resolved composite snapshot version (which in turn
 // rolls forward whenever any component model is republished), so a component
 // change naturally invalidates cached composite fingerprints.
-func ComputeFingerprint(in FingerprintInputs) string {
+func ComputeFingerprint(in FingerprintInputs) (string, error) {
+	if in.LogicalQuery == nil {
+		return "", errors.New("logical query is required")
+	}
+
 	type canonical struct {
 		DatasourceID    string       `json:"datasource_id"`
 		ModelID         string       `json:"model_id"`
@@ -69,10 +75,10 @@ func ComputeFingerprint(in FingerprintInputs) string {
 
 	raw, err := json.Marshal(c)
 	if err != nil {
-		return ""
+		return "", fmt.Errorf("marshal query fingerprint inputs: %w", err)
 	}
 	sum := sha256.Sum256(raw)
-	return hex.EncodeToString(sum[:])
+	return hex.EncodeToString(sum[:]), nil
 }
 
 func sortedFilters(in []Filter) []Filter {

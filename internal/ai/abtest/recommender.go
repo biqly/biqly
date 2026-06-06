@@ -20,15 +20,19 @@ type Recommendation struct {
 
 // Recommender generates recommendations based on experiment metrics.
 type Recommender struct {
-	repo      *Repository
-	collector *MetricsCollector
+	repo                   *Repository
+	collector              *MetricsCollector
+	minSampleSizeThreshold int
+	significanceThreshold  float64
 }
 
 // NewRecommender creates a new Recommender.
 func NewRecommender(repo *Repository, collector *MetricsCollector) *Recommender {
 	return &Recommender{
-		repo:      repo,
-		collector: collector,
+		repo:                   repo,
+		collector:              collector,
+		minSampleSizeThreshold: minSampleSizeThresholdFromEnv(),
+		significanceThreshold:  significanceThresholdFromEnv(),
 	}
 }
 
@@ -153,7 +157,11 @@ func (*Recommender) locateControl(variants []Variant, metricsMap map[string]Expe
 	return controlVariant, controlMetrics, nil
 }
 
-func (*Recommender) getMinSampleSizeThreshold() int {
+func (r *Recommender) getMinSampleSizeThreshold() int {
+	return r.minSampleSizeThreshold
+}
+
+func minSampleSizeThresholdFromEnv() int {
 	minSampleSize := 100
 	if val := os.Getenv("BI_AB_MIN_SAMPLE_SIZE"); val != "" {
 		if i, err := strconv.Atoi(val); err == nil {
@@ -163,7 +171,11 @@ func (*Recommender) getMinSampleSizeThreshold() int {
 	return minSampleSize
 }
 
-func (*Recommender) getSignificanceThreshold() float64 {
+func (r *Recommender) getSignificanceThreshold() float64 {
+	return r.significanceThreshold
+}
+
+func significanceThresholdFromEnv() float64 {
 	alpha := 0.05
 	if val := os.Getenv("BI_AB_SIGNIFICANCE_THRESHOLD"); val != "" {
 		if f, err := strconv.ParseFloat(val, 64); err == nil {

@@ -12,7 +12,6 @@ import (
 
 	"log/slog"
 
-	ai "github.com/biqly/biqly/internal/ai/eval"
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/query"
@@ -162,9 +161,9 @@ func TestInternalIntegration_Endpoints(t *testing.T) {
 	})
 
 	t.Run("POST /internal/eval-results", func(t *testing.T) {
-		payload, _ := json.Marshal(internalapi.EvalResultsRequest{ //nolint:musttag // nested eval types omit json tags by design
+		payload, _ := json.Marshal(internalapi.EvalResultsRequest{
 			RunID: "run_1", Provider: "openai", Model: "gpt-4o",
-			Results: []ai.ResultWithMetrics{},
+			Results: []internalapi.EvalResultMetrics{},
 		})
 		rec := env.do(t, http.MethodPost, "/internal/eval-results", payload, integrationToken, "ai")
 		assertStatus(t, rec, http.StatusCreated)

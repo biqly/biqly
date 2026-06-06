@@ -2,6 +2,8 @@ package mail
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -231,7 +233,7 @@ func (s *SMTPEmailSender) checkRateLimit(ctx context.Context, email string) erro
 		return nil
 	}
 	day := time.Now().UTC().Format("20060102")
-	key := "email_count:" + email + ":" + day
+	key := "email_count:" + emailRateLimitKey(email) + ":" + day
 	count, err := s.redis.Incr(ctx, key).Result()
 	if err != nil {
 		slog.Warn("email rate-limit redis call failed; allowing send", "err", err, "to", emailaddr.Mask(email))
@@ -249,6 +251,11 @@ func (s *SMTPEmailSender) checkRateLimit(ctx context.Context, email string) erro
 		return ErrEmailRateLimited
 	}
 	return nil
+}
+
+func emailRateLimitKey(email string) string {
+	sum := sha256.Sum256([]byte(strings.ToLower(strings.TrimSpace(email))))
+	return hex.EncodeToString(sum[:16])
 }
 
 func (s *SMTPEmailSender) runWorker() {

@@ -1,5 +1,34 @@
 # Todo list
 
+## Prioritized Architectural & Observability Recommendations (2026-06-06)
+
+- [ ] **Yüksek**: OTEL tracing'i kodda enstrümante et (LLM/derle/yürüt span'leri)
+  - [ ] Initialize a global Tracer Provider at startup in `cmd/api/main.go`, `cmd/auth/main.go`, and the standalone microservice entrypoints (`services/*/cmd/main.go`).
+  - [ ] Implement trace provider setup/teardown in `internal/platform/observability/trace.go`.
+  - [ ] Wrap public HTTP routers with `otelhttp` middleware to propagate span contexts across endpoints.
+  - [ ] Instrument text-to-query pipeline phases:
+    - [ ] `ProcessQuestion` in `internal/ai/service.go` (ambiguity analysis, LLM generate).
+    - [ ] `Compile` in `internal/query/compiler.go` (logical query translation to dialect SQL).
+    - [ ] `Execute` in `internal/query/executor.go` (physical query execution against target database).
+- [ ] **Yüksek**: AI eval/regresyon paketini CI kapısı yap
+  - [ ] Ensure `make eval-regression` (real model or stub golden tests) runs on every pull request and push to `main`.
+  - [ ] Explicitly add the regression test execution step to `.github/workflows/test.yml` (currently only runs `go test ./...` which does not execute some of these benchmarks strictly).
+  - [ ] Enforce failing the build if accuracy rates drop below acceptable thresholds in `internal/ai/eval_regression_test.go`.
+- [ ] **Orta**: Veri-kaynağı sürücüleri için lehçe entegrasyon testleri & test kapsam kapıları
+  - [ ] Address low test coverage in critical packages (like `datasource/{postgres,mysql,clickhouse,sqlserver}`, `dashboard`, `queue`, and `config` which currently have thin coverage, e.g., 1 test each).
+  - [ ] Implement live/test database connection integration tests for each datasource adapter (`mysql`, `clickhouse`, `sqlserver` drivers under `internal/datasource/`, similar to `postgres`).
+  - [ ] Verify that physical queries compiled by dialect packages execute correctly against each database type.
+  - [ ] Bind package-level test coverage thresholds as a gate in the CI workflow (leveraging the already-generated `coverage.out`).
+- [ ] **Orta**: Güvenlik başlıklarına CSP + X-Frame-Options; prod’da HSTS zorunlu
+  - [ ] Enforce strict Content Security Policy (`default-src 'self'; frame-ancestors 'none'`) and X-Frame-Options (`DENY`) on all public router definitions (`internal/http/router.go`, `internal/http/service_middleware.go`, `cmd/auth/main.go`).
+  - [ ] Configure `HSTSEnabled: true` automatically in production environments (e.g., when running in production mode, overriding standard development configuration defaults).
+- [ ] **Orta**: AIConfig’i ve Service.Process’i ayrıştır
+  - [ ] **AIConfig decomposition**: Separate the God-object `config.AIConfig` struct (45 fields, 13 methods, complexity score 84 - CRITICAL) in `internal/config/config.go` into purpose-based sub-configs (query/embedding/translation/ambiguity/routing).
+  - [ ] **Service.Process refactoring**: Refactor `ProcessQuestion` in `internal/ai/service.go` by extracting self-consistency (voting) and repair/retry loop branches into separate, named helper functions, enabling the complete retirement of `//nolint:gocyclo,gocognit,funlen` directives.
+- [ ] **Düşük**: ESLint uyarı tavanını kademeli düşür; *.test & coverage.out’u gitignore’la (DevX / Sürdürülebilirlik)
+  - [ ] Reduce the `--max-warnings 1500` ceiling in `frontend/package.json` to the actual count of warnings (currently 1490) + a small buffer (e.g. `1495`), and start ratcheting it down over time towards 0.
+  - [ ] Ensure that stray compilation outputs in the root of the repo (such as `auth.test`, `app.test`, `workspace.test`, and `coverage.out`) are properly and explicitly ignored via `.gitignore` to keep the workspace clean.
+
 ## Backend Go Code Review (2026-06-06)
 
 Full codebase review of `internal/`, `pkg/`, `cmd/`, `services/`. Findings grouped by severity.
@@ -53,39 +82,69 @@ Full codebase review of `internal/`, `pkg/`, `cmd/`, `services/`. Findings group
 
 ### MEDIUM (plan and fix)
 
-- [ ] **ERR-AI1**: `internal/ai/describe.go:152-153` — Double `%w` wrapping: `fmt.Errorf("%w: %w", ...)`. Second `%w` should be `%v`.
-- [ ] **ERR-AI2**: `internal/ai/service.go:82-85` — `NewProvider` error silently swallowed, falls back to OpenAI without logging.
-- [ ] **ERR-AI3**: `internal/ai/eval/eval_repository.go` — `json.Marshal` errors silently swallowed. Empty `got_lq` persisted without warning.
-- [ ] **ERR-Q1**: `internal/query/compiler.go:455-460` — Unknown aggregation functions silently fall through to `COUNT(...)`. Typo produces wrong query.
-- [ ] **ERR-Q2**: `internal/query/fingerprint.go:70-73` — `ComputeFingerprint` returns empty string on marshal error. Cache collisions + broken audit.
-- [ ] **ERR-Q3**: `internal/query/compiler.go:109-111` — `context.TODO()` substituted for nil context. No timeout/cancellation/trace.
-- [ ] **ERR-H1**: `internal/http/middleware/jwt.go:234-240` — `writeAuthError` silently drops JSON encode errors.
-- [ ] **PERF-AI4**: `internal/ai/ambiguity_cache.go` — Unbounded `sync.Map` ambiguity cache. No background eviction = memory leak.
-- [ ] **PERF-AI5**: `internal/ai/abtest/recommender.go` — `os.Getenv` + `strconv.Atoi` on every `Recommend` call. Should be read once at construction.
-- [ ] **PERF-AI6**: `internal/ai/purpose_provider.go:68-80` — Mutex held during provider construction (DNS resolution, HTTP client setup).
-- [ ] **PERF-Q1**: `internal/query/validator.go:357` — `NewMetricRegistry` built per loop iteration in `validateWindowSelect`.
-- [ ] **PERF-Q2**: `internal/query/validation_helpers.go` — `getDimensionNames`/`getMetricNames` allocate new slices every call inside validation loop.
-- [ ] **PERF-Q3**: `internal/query/expr_compiler.go:46-48` — New `ReadOnlyChecker` allocated per expression node compilation.
-- [ ] **PERF-M1**: `internal/metadata/ai_jobs.go:271-310` — Three sequential queries for `GetAIQueueStatus`. Should be combined into one.
-- [ ] **PERF-S1**: `internal/semantic/metric_graph.go:49-59` — `BuildMetricGraph` is O(n^2) in metric count. Should pre-build name set.
-- [ ] **CONC-AI1**: `internal/ai/ambiguity/analyzer.go:49-67` — Detectors run in goroutines without `ctx` propagation. Can't short-circuit on cancellation.
-- [ ] **CONC-S1**: `internal/semantic/composite_repository.go:101-125` — `sync.WaitGroup` without `errgroup`. Failed goroutine doesn't cancel others.
-- [ ] **CONC-A1**: `internal/auth/account_state.go:227-252` — `RecordKnownDevice` TOCTOU race. Two concurrent requests both see `exists=false`, both return `isNew=true`, duplicate emails.
-- [ ] **CONC-Q1**: `internal/query/compiler.go:86-91` — `CompileWithPermissions` clone drops `compileCtx`. Latent bug for pre-context-constructed compilers.
-- [ ] **ARCH-S1**: `internal/semantic/expression_ast.go:12`, `publish.go:23-24` — Global mutable `ExpressionParser` / `CalculatedExpressionValidator` / `OnModelPublish` set in `init()`. Not thread-safe for concurrent test runs.
-- [ ] **ARCH-P1**: `pkg/aiclient`, `pkg/catalogclient`, `pkg/queryclient` import `internal/` packages. Breaks Go's internal package convention; `pkg/` unusable externally.
-- [ ] **ARCH-AI1**: `internal/ai/response_cache.go:24-33` — `semantic.OnModelPublish` global function pointer mutated by `init()`. Multiple cache instances race.
-- [ ] **BUG-S1**: `internal/security/composite_permissions.go:73` — `fmt.Sprintf("%v")` for dedup comparison produces false matches between different types.
-- [ ] **BUG-S2**: `internal/semantic/model.go:107-116` — `NewMetricRegistry` stores pointers to loop variable. Slice reallocation causes dangling pointers.
-- [ ] **BUG-H3**: `internal/http/handlers/history_filter.go:41` — `FilterAIHistoryForUser` mutates input slice in-place via `rows[:0]`.
-- [ ] **BUG-Q2**: `internal/query/compiler.go:742` — `sqlComparator` default case returns `"="` for unknown operators instead of error.
-- [ ] **API-S1**: `internal/semantic/drift/detector.go:152`, `drift/repository.go:73` — `return nil, nil` anti-pattern. Callers can't distinguish "no data" from "error".
-- [ ] **API-S2**: `internal/security/encryption.go:98-103` — `IsEncrypted` heuristic misidentifies long base64 blobs as encrypted. Callers propagate decryption errors.
-- [ ] **CONF-1**: `internal/config/config.go:229` — Default `BI_METADATA_DB_DSN` contains hardcoded credentials `bi_user:bi_password`.
-- [ ] **CONF-2**: `internal/config/config.go:488-499` — Float config values (thresholds, weights) loaded without range validation.
-- [ ] **SEC-M1**: `internal/mail/smtp.go:147-163` — Rate limit uses raw email in Redis key. PII exposure if Redis is shared.
-- [ ] **SEC-M2**: `internal/http/handlers/admin_middleware.go:12-28` — `X-Admin-Key` header not stripped before proxy forwarding. Could leak to upstream.
-- [ ] **SEC-M3**: `internal/http/query_router.go:45-47` — Standalone QueryRouter mounts `/api` with no auth middleware. Unauthenticated if deployed directly.
+Success criteria:
+- Each MEDIUM item is verified against current code before changing it.
+- Fixed items have minimal code changes plus focused test/build evidence where practical.
+- Items closed without code are documented with the repo-specific reason.
+- `gofmt` and focused Go tests pass for touched backend packages before this section is marked done.
+
+Execution plan:
+- [x] Triage MEDIUM items by package and confirm which findings are still live.
+- [x] Fix error-handling and API semantics items first (`ERR-*`, `API-*`, `BUG-*`).
+- [x] Fix performance/concurrency items with measured/minimal structural changes.
+- [x] Fix config/security/architecture items or document justified closure where a finding is not actionable in this slice.
+- [x] Run focused verification and record results.
+
+- [x] **ERR-AI1**: `internal/ai/describe.go:152-153` — Double `%w` wrapping: `fmt.Errorf("%w: %w", ...)`. Second `%w` should be `%v`.
+- [x] **ERR-AI2**: `internal/ai/service.go:82-85` — `NewProvider` error silently swallowed, falls back to OpenAI without logging.
+- [x] **ERR-AI3**: `internal/ai/eval/eval_repository.go` — `json.Marshal` errors silently swallowed. Empty `got_lq` persisted without warning.
+- [x] **ERR-Q1**: `internal/query/compiler.go:455-460` — Unknown aggregation functions silently fall through to `COUNT(...)`. Typo produces wrong query.
+- [x] **ERR-Q2**: `internal/query/fingerprint.go:70-73` — `ComputeFingerprint` returns empty string on marshal error. Cache collisions + broken audit.
+- [x] **ERR-Q3**: `internal/query/compiler.go:109-111` — `context.TODO()` substituted for nil context. No timeout/cancellation/trace.
+- [x] **ERR-H1**: `internal/http/middleware/jwt.go:234-240` — `writeAuthError` silently drops JSON encode errors.
+- [x] **PERF-AI4**: `internal/ai/ambiguity_cache.go` — Unbounded `sync.Map` ambiguity cache. No background eviction = memory leak.
+- [x] **PERF-AI5**: `internal/ai/abtest/recommender.go` — `os.Getenv` + `strconv.Atoi` on every `Recommend` call. Should be read once at construction.
+- [x] **PERF-AI6**: `internal/ai/purpose_provider.go:68-80` — Mutex held during provider construction (DNS resolution, HTTP client setup).
+- [x] **PERF-Q1**: `internal/query/validator.go:357` — `NewMetricRegistry` built per loop iteration in `validateWindowSelect`.
+- [x] **PERF-Q2**: `internal/query/validation_helpers.go` — `getDimensionNames`/`getMetricNames` allocate new slices every call inside validation loop.
+- [x] **PERF-Q3**: `internal/query/expr_compiler.go:46-48` — New `ReadOnlyChecker` allocated per expression node compilation.
+- [x] **PERF-M1**: `internal/metadata/ai_jobs.go:271-310` — Three sequential queries for `GetAIQueueStatus`. Should be combined into one.
+- [x] **PERF-S1**: `internal/semantic/metric_graph.go:49-59` — `BuildMetricGraph` is O(n^2) in metric count. Should pre-build name set.
+- [x] **CONC-AI1**: `internal/ai/ambiguity/analyzer.go:49-67` — Detectors run in goroutines without `ctx` propagation. Can't short-circuit on cancellation.
+- [x] **CONC-S1**: `internal/semantic/composite_repository.go:101-125` — `sync.WaitGroup` without `errgroup`. Failed goroutine doesn't cancel others.
+- [x] **CONC-A1**: `internal/auth/account_state.go:227-252` — `RecordKnownDevice` TOCTOU race. Two concurrent requests both see `exists=false`, both return `isNew=true`, duplicate emails.
+- [x] **CONC-Q1**: `internal/query/compiler.go:86-91` — `CompileWithPermissions` clone drops `compileCtx`. Latent bug for pre-context-constructed compilers.
+- [x] **ARCH-S1**: `internal/semantic/expression_ast.go:12`, `publish.go:23-24` — Global mutable `ExpressionParser` / `CalculatedExpressionValidator` / `OnModelPublish` set in `init()`. Not thread-safe for concurrent test runs.
+- [x] **ARCH-P1**: `pkg/aiclient`, `pkg/catalogclient`, `pkg/queryclient` import `internal/` packages. Breaks Go's internal package convention; `pkg/` unusable externally.
+- [x] **ARCH-AI1**: `internal/ai/response_cache.go:24-33` — `semantic.OnModelPublish` global function pointer mutated by `init()`. Multiple cache instances race.
+- [x] **BUG-S1**: `internal/security/composite_permissions.go:73` — `fmt.Sprintf("%v")` for dedup comparison produces false matches between different types.
+- [x] **BUG-S2**: `internal/semantic/model.go:107-116` — `NewMetricRegistry` stores pointers to loop variable. Slice reallocation causes dangling pointers.
+- [x] **BUG-H3**: `internal/http/handlers/history_filter.go:41` — `FilterAIHistoryForUser` mutates input slice in-place via `rows[:0]`.
+- [x] **BUG-Q2**: `internal/query/compiler.go:742` — `sqlComparator` default case returns `"="` for unknown operators instead of error.
+- [x] **API-S1**: `internal/semantic/drift/detector.go:152`, `drift/repository.go:73` — `return nil, nil` anti-pattern. Callers can't distinguish "no data" from "error".
+- [x] **API-S2**: `internal/security/encryption.go:98-103` — `IsEncrypted` heuristic misidentifies long base64 blobs as encrypted. Callers propagate decryption errors.
+- [x] **CONF-1**: `internal/config/config.go:229` — Default `BI_METADATA_DB_DSN` contains hardcoded credentials `bi_user:bi_password`.
+- [x] **CONF-2**: `internal/config/config.go:488-499` — Float config values (thresholds, weights) loaded without range validation.
+- [x] **SEC-M1**: `internal/mail/smtp.go:147-163` — Rate limit uses raw email in Redis key. PII exposure if Redis is shared.
+- [x] **SEC-M2**: `internal/http/handlers/admin_middleware.go:12-28` — `X-Admin-Key` header not stripped before proxy forwarding. Could leak to upstream.
+- [x] **SEC-M3**: `internal/http/query_router.go:45-47` — Standalone QueryRouter mounts `/api` with no auth middleware. Unauthenticated if deployed directly.
+
+#### MEDIUM Results (2026-06-06)
+
+Resolved:
+- Error paths now report provider/marshal/fingerprint/compiler/auth-response failures instead of silently falling back.
+- Hot-path/perf items reduced cache growth, env parsing, provider-build lock scope, validator allocations, read-only checker allocation, queue-status round trips, and metric graph dependency scans.
+- Concurrency/architecture fixes replaced TOCTOU known-device writes, WaitGroup fanout, mutable semantic globals, and internal imports from public `pkg/*client` packages.
+- Security/config fixes hash mail rate-limit keys, strip `X-Admin-Key`, auth-gate standalone QueryRouter `/api`, remove hardcoded metadata DSN credentials, and validate float ranges.
+
+Verification:
+- `GOCACHE=/private/tmp/biqly-gocache go test ./internal/query ./internal/metadata ./internal/semantic/drift ./internal/ai/ambiguity ./internal/ai/abtest ./internal/security ./internal/config`
+- `GOCACHE=/private/tmp/biqly-gocache go test -run '^$' ./internal/ai/... ./internal/http ./internal/http/handlers ./internal/http/middleware ./internal/semantic/... ./internal/auth ./internal/security ./internal/config ./internal/mail ./internal/metadata ./pkg/...`
+- Unsandboxed: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/query ./internal/ai/... ./internal/http ./internal/http/handlers ./internal/http/middleware ./internal/semantic/... ./internal/auth ./internal/security ./internal/config ./internal/mail ./internal/metadata ./pkg/...`
+- `git diff --check`
+
+Note:
+- `BUG-S2` was verified stale: current `NewMetricRegistry` already uses `&metrics[i]`; no code change was needed for that item.
 
 ### LOW (backlog)
 

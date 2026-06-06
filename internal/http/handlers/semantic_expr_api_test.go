@@ -177,10 +177,10 @@ func TestSemanticExpressionAPIResponseIncludesASTFields(t *testing.T) {
 
 func restoreExpressionParser(t *testing.T, parser func(string) (pkgsemantic.ExprNode, error)) {
 	t.Helper()
-	previous := internalsemantic.ExpressionParser
-	internalsemantic.ExpressionParser = parser
+	previous := internalsemantic.CurrentExpressionParser()
+	internalsemantic.RegisterExpressionParser(parser)
 	t.Cleanup(func() {
-		internalsemantic.ExpressionParser = previous
+		internalsemantic.RegisterExpressionParser(previous)
 	})
 }
 

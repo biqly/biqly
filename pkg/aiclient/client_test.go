@@ -9,12 +9,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/biqly/biqly/internal/ai"
-	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/pkg/aiclient"
 	"github.com/biqly/biqly/pkg/common/requestid"
 	"github.com/biqly/biqly/pkg/common/tracecontext"
 	"github.com/biqly/biqly/pkg/internalapi"
+	"github.com/biqly/biqly/pkg/logicalquery"
+	pkgquery "github.com/biqly/biqly/pkg/query"
 )
 
 const testToken = "tok"
@@ -70,10 +70,10 @@ func TestRequestIDPropagation(t *testing.T) {
 const sampleTraceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
 
 func TestQuery_RoundTrip(t *testing.T) {
-	wantLQ := query.LogicalQuery{
+	wantLQ := logicalquery.LogicalQuery{
 		DatasourceID: "ds_1",
 		ModelID:      "m_1",
-		Select:       []query.SelectItem{{Type: "metric", Name: "revenue"}},
+		Select:       []logicalquery.SelectItem{{Type: "metric", Name: "revenue"}},
 		Limit:        100,
 	}
 	c := fakeServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -90,13 +90,13 @@ func TestQuery_RoundTrip(t *testing.T) {
 		if req.DatasourceID != "ds_1" || req.Question != "total revenue" {
 			t.Errorf("unexpected request: %+v", req)
 		}
-		_ = json.NewEncoder(w).Encode(ai.Response{
-			Result: &ai.AIResult{
+		_ = json.NewEncoder(w).Encode(aiclient.Response{
+			Result: &aiclient.AIResult{
 				LogicalQuery: &wantLQ,
 				Confidence:   0.92,
 				Warnings:     []string{"ok"},
 			},
-			Metadata: &ai.AIMetadata{
+			Metadata: &aiclient.AIMetadata{
 				ModelUsed: "gpt-4o",
 			},
 		})
@@ -122,12 +122,12 @@ func TestQuery_NeedsClarification(t *testing.T) {
 		if !strings.HasSuffix(r.URL.Path, "/api/ai/query") {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-		_ = json.NewEncoder(w).Encode(ai.Response{
-			Clarification: &ai.ClarificationResponse{
+		_ = json.NewEncoder(w).Encode(aiclient.Response{
+			Clarification: &aiclient.ClarificationResponse{
 				NeedsClarification:    true,
 				ClarificationQuestion: "Which table?",
 			},
-			Result: &ai.AIResult{
+			Result: &aiclient.AIResult{
 				Confidence: 0,
 			},
 		})
@@ -151,17 +151,17 @@ func TestRun_ReturnsResult(t *testing.T) {
 		if !strings.HasSuffix(r.URL.Path, "/api/ai/query/run") {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-		lq := query.LogicalQuery{DatasourceID: "ds_1", ModelID: "m_1", Limit: 10}
-		_ = json.NewEncoder(w).Encode(ai.Response{
-			Result: &ai.AIResult{
+		lq := logicalquery.LogicalQuery{DatasourceID: "ds_1", ModelID: "m_1", Limit: 10}
+		_ = json.NewEncoder(w).Encode(aiclient.Response{
+			Result: &aiclient.AIResult{
 				LogicalQuery: &lq,
 				SQL:          "SELECT 1",
 				Args:         []any{},
 				Confidence:   0.88,
-				Result: &query.Result{
-					Columns: []query.ResultColumn{{Name: "revenue"}},
+				Result: &pkgquery.Result{
+					Columns: []pkgquery.ResultColumn{{Name: "revenue"}},
 					Rows:    [][]any{{42.0}},
-					Stats:   query.Stats{RowCount: 1, DurationMs: 3},
+					Stats:   pkgquery.Stats{RowCount: 1, DurationMs: 3},
 				},
 			},
 		})
@@ -184,9 +184,9 @@ func TestPreview_ReturnsSQL(t *testing.T) {
 		if !strings.HasSuffix(r.URL.Path, "/api/ai/query/preview") {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-		lq := query.LogicalQuery{DatasourceID: "ds_1", Limit: 5}
-		_ = json.NewEncoder(w).Encode(ai.Response{
-			Result: &ai.AIResult{
+		lq := logicalquery.LogicalQuery{DatasourceID: "ds_1", Limit: 5}
+		_ = json.NewEncoder(w).Encode(aiclient.Response{
+			Result: &aiclient.AIResult{
 				LogicalQuery: &lq,
 				SQL:          "SELECT SUM(amount) FROM orders",
 				Args:         []any{int64(100)},
@@ -252,7 +252,7 @@ func TestDescribe_RoundTrip(t *testing.T) {
 		if req.DatasourceID != "ds_1" || req.Table != "orders" {
 			t.Errorf("unexpected request: %+v", req)
 		}
-		_ = json.NewEncoder(w).Encode(ai.DescribeResult{
+		_ = json.NewEncoder(w).Encode(aiclient.DescribeResponse{
 			Schema:      "public",
 			Table:       "orders",
 			Description: "Customer orders",

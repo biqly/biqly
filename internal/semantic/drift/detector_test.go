@@ -40,16 +40,19 @@ func TestDetectorCompare(t *testing.T) { //nolint:funlen,gocognit
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if report != nil {
-			t.Fatalf("expected nil report, got drifts: %+v", report.Drifts)
+		if report == nil {
+			t.Fatal("Compare() report = nil, want explicit no-drift report")
+		}
+		if len(report.Drifts) != 0 {
+			t.Fatalf("Compare() drifts = %+v, want none", report.Drifts)
 		}
 	})
 
 	for _, tc := range []struct {
-		name      string
-		tables    []metadata.Table
-		columns   []metadata.Column
-		wantType  DriftType
+		name     string
+		tables   []metadata.Table
+		columns  []metadata.Column
+		wantType DriftType
 	}{
 		{
 			name: "Schema Dropped",

@@ -17,6 +17,8 @@ type (
 	Column                 = pkgmetadata.Column
 	ColumnEmbedding        = pkgmetadata.ColumnEmbedding
 	Relation               = pkgmetadata.Relation
+	FewShotCuratedRow      = pkgmetadata.FewShotCuratedRow
+	BusinessGlossaryRow    = pkgmetadata.BusinessGlossaryRow
 	AIQueryHistoryEntry    = pkgmetadata.AIQueryHistoryEntry
 	PermissionPolicyRecord = pkgmetadata.PermissionPolicyRecord
 	PermissionRowFilter    = pkgmetadata.PermissionRowFilter

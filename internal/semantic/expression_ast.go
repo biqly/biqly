@@ -3,17 +3,34 @@ package semantic
 import (
 	"log/slog"
 	"strings"
+	"sync"
 
 	pkgsemantic "github.com/biqly/biqly/pkg/semantic"
 	"github.com/bytedance/sonic"
 )
 
-// ExpressionParser is registered by internal/query to parse semantic expressions
-// without introducing an import cycle from internal/semantic back to query.
-var ExpressionParser func(expr string) (pkgsemantic.ExprNode, error)
+var expressionParserRegistry struct {
+	mu     sync.RWMutex
+	parser func(expr string) (pkgsemantic.ExprNode, error)
+}
+
+// RegisterExpressionParser registers the parser used to hydrate semantic expression ASTs.
+func RegisterExpressionParser(parser func(expr string) (pkgsemantic.ExprNode, error)) {
+	expressionParserRegistry.mu.Lock()
+	defer expressionParserRegistry.mu.Unlock()
+	expressionParserRegistry.parser = parser
+}
+
+// CurrentExpressionParser returns the registered semantic expression parser.
+func CurrentExpressionParser() func(expr string) (pkgsemantic.ExprNode, error) {
+	expressionParserRegistry.mu.RLock()
+	defer expressionParserRegistry.mu.RUnlock()
+	return expressionParserRegistry.parser
+}
 
 func hydrateExpressionASTs(model *SemanticModel) {
-	if model == nil || ExpressionParser == nil {
+	parser := CurrentExpressionParser()
+	if model == nil || parser == nil {
 		return
 	}
 	for i := range model.Dimensions {
@@ -24,7 +41,7 @@ func hydrateExpressionASTs(model *SemanticModel) {
 		if expr == "" {
 			continue
 		}
-		parsed, err := ExpressionParser(expr)
+		parsed, err := parser(expr)
 		if err != nil {
 			slog.Warn("semantic dimension calculated expression parse failed", "dimension", model.Dimensions[i].Name, "error", err)
 			continue
@@ -39,7 +56,7 @@ func hydrateExpressionASTs(model *SemanticModel) {
 		if expr == "" || expr == "*" {
 			continue
 		}
-		parsed, err := ExpressionParser(expr)
+		parsed, err := parser(expr)
 		if err != nil {
 			slog.Warn("semantic metric expression parse failed", "metric", model.Metrics[i].Name, "error", err)
 			continue

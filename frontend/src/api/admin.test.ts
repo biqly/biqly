@@ -10,6 +10,7 @@ describe('admin API', () => {
   it('lists audit log entries with filters', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
+      headers: new Headers(),
       text: () =>
         Promise.resolve(
           JSON.stringify({

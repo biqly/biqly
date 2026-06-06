@@ -73,6 +73,7 @@ func NewService(cfg *config.AIConfig, validator *query.Validator) *Service {
 	// should call NewServiceWithProvider for explicit error handling.
 	provider, err := providerpkg.NewProvider(*cfg)
 	if err != nil {
+		slog.Warn("AI provider configuration invalid, falling back to OpenAI client", "provider", cfg.Provider, "error", err)
 		provider = providerpkg.NewClient(*cfg)
 	}
 	return newService(cfg, validator, provider)

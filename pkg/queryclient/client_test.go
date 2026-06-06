@@ -10,11 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/pkg/common/httpclient"
 	"github.com/biqly/biqly/pkg/common/requestid"
 	"github.com/biqly/biqly/pkg/common/tracecontext"
 	"github.com/biqly/biqly/pkg/internalapi"
+	"github.com/biqly/biqly/pkg/logicalquery"
+	pkgquery "github.com/biqly/biqly/pkg/query"
 	"github.com/biqly/biqly/pkg/queryclient"
 )
 
@@ -42,11 +43,11 @@ func fakeServer(t *testing.T, handler http.HandlerFunc) *queryclient.Client {
 	return queryclient.New(srv.URL, queryclient.WithAuthToken(testToken), queryclient.WithCaller("test"))
 }
 
-func sampleLQ() *query.LogicalQuery {
-	return &query.LogicalQuery{
+func sampleLQ() *logicalquery.LogicalQuery {
+	return &logicalquery.LogicalQuery{
 		DatasourceID: "ds_1",
 		ModelID:      "m_1",
-		Select:       []query.SelectItem{{Type: "metric", Name: "revenue"}},
+		Select:       []logicalquery.SelectItem{{Type: "metric", Name: "revenue"}},
 		Limit:        100,
 	}
 }
@@ -162,7 +163,7 @@ func TestRun_PassesOverrides(t *testing.T) {
 			t.Errorf("overrides lost: %+v", req)
 		}
 		_ = json.NewEncoder(w).Encode(internalapi.RunResponse{
-			Columns:    []query.ResultColumn{{Name: "revenue"}},
+			Columns:    []pkgquery.ResultColumn{{Name: "revenue"}},
 			Rows:       [][]any{{42.0}},
 			RowCount:   1,
 			DurationMs: 5,

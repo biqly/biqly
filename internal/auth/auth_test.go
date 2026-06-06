@@ -227,6 +227,7 @@ func TestEmailChangeContract(t *testing.T) {
 		NewEmail: "new@example.com",
 	}
 	assert.Equal(t, "user-1", req.UserID)
+	assert.Equal(t, "old@example.com", req.OldEmail)
 	assert.Equal(t, "new@example.com", req.NewEmail)
 }
 

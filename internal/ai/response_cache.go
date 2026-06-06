@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/biqly/biqly/internal/semantic"
@@ -23,19 +24,23 @@ type ResponseCache interface {
 	Close() error
 }
 
-// globalCache is used by semantic.OnModelPublish to invalidate cache items.
+// globalCache is used by the semantic publish hook to invalidate cache items.
 var globalCache ResponseCache
+var globalCacheMu sync.RWMutex
 
 func init() {
-	semantic.OnModelPublish = func(ctx context.Context, modelID string) {
-		if globalCache != nil {
-			if err := globalCache.InvalidateModel(ctx, modelID); err != nil {
+	semantic.RegisterModelPublishHook(func(ctx context.Context, modelID string) {
+		globalCacheMu.RLock()
+		cache := globalCache
+		globalCacheMu.RUnlock()
+		if cache != nil {
+			if err := cache.InvalidateModel(ctx, modelID); err != nil {
 				slog.Error("failed to invalidate LLM response cache", "model_id", modelID, "error", err)
 			} else {
 				slog.Info("invalidated LLM response cache for model", "model_id", modelID)
 			}
 		}
-	}
+	})
 }
 
 // RedisResponseCache is a Redis-backed implementation of ResponseCache.
@@ -46,7 +51,9 @@ type RedisResponseCache struct {
 // NewRedisResponseCache creates a new RedisResponseCache and registers it globally.
 func NewRedisResponseCache(client *redis.Client) *RedisResponseCache {
 	cache := &RedisResponseCache{client: client}
+	globalCacheMu.Lock()
 	globalCache = cache
+	globalCacheMu.Unlock()
 	return cache
 }
 

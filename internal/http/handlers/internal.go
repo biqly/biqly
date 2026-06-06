@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	evalpkg "github.com/biqly/biqly/internal/ai/eval"
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/pkg/internalapi"
 )
@@ -312,7 +313,7 @@ func (h *InternalHandler) CreateEvalResults(w http.ResponseWriter, r *http.Reque
 		req.Model,
 		req.ContextVersion,
 		req.ContextUpdatedAt,
-		req.Results,
+		evalResultsFromWire(req.Results),
 	); err != nil {
 		writeInternalAPIError(r.Context(), w, http.StatusInternalServerError,
 			internalapi.CodeInternal, "failed to record eval results", err)
@@ -322,6 +323,30 @@ func (h *InternalHandler) CreateEvalResults(w http.ResponseWriter, r *http.Reque
 		RunID:      req.RunID,
 		TotalCases: len(req.Results),
 	})
+}
+
+func evalResultsFromWire(results []internalapi.EvalResultMetrics) []evalpkg.ResultWithMetrics {
+	out := make([]evalpkg.ResultWithMetrics, 0, len(results))
+	for _, result := range results {
+		out = append(out, evalpkg.ResultWithMetrics{
+			Result: evalpkg.Result{
+				Case: evalpkg.GoldenCase{
+					ID:       result.Case.ID,
+					Question: result.Case.Question,
+					Expected: result.Case.Expected,
+				},
+				Got:    result.Got,
+				Match:  result.Match,
+				Reason: result.Reason,
+			},
+			Confidence:                  result.Confidence,
+			LatencyMs:                   result.LatencyMs,
+			TokenCount:                  result.TokenCount,
+			PromptTemplateVersions:      result.PromptTemplateVersions,
+			PromptTemplateBundleVersion: result.PromptTemplateBundleVersion,
+		})
+	}
+	return out
 }
 
 // --- helpers (scoped to the /internal/* surface) ----------------------------

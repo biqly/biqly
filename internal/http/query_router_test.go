@@ -33,6 +33,23 @@ func TestQueryRouter_OnlyMountsQueryPublicRoutes(t *testing.T) {
 	}
 }
 
+func TestQueryRouter_APIRequiresAuthWhenEnabled(t *testing.T) {
+	t.Parallel()
+	handler := QueryRouter(&app.Dependencies{
+		Config: &config.Config{
+			Auth:  config.AuthConfig{Enabled: true, ServiceURL: "http://auth.local"},
+			Query: config.QueryConfig{MaxRuntimeSeconds: 60},
+		},
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.Background(), stdhttp.MethodPost, "/api/query/compile", nil)
+	handler.ServeHTTP(rec, req)
+	if rec.Code != stdhttp.StatusUnauthorized {
+		t.Fatalf("status without JWT: got %d, want 401", rec.Code)
+	}
+}
+
 func TestQueryRouter_InternalQueryRoutesRequireToken(t *testing.T) {
 	t.Parallel()
 	handler := QueryRouter(&app.Dependencies{

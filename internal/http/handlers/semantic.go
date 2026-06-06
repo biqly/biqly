@@ -595,10 +595,11 @@ func expressionNodeFromRequest(raw json.RawMessage, expression string, field str
 		return expr, nil
 	}
 	expression = strings.TrimSpace(expression)
-	if expression == "" || expression == "*" || semantic.ExpressionParser == nil {
+	parser := semantic.CurrentExpressionParser()
+	if expression == "" || expression == "*" || parser == nil {
 		return nil, nil //nolint:nilnil // empty expression means no AST to validate
 	}
-	expr, err := semantic.ExpressionParser(expression)
+	expr, err := parser(expression)
 	if err != nil {
 		return nil, fmt.Errorf("invalid %s: %w", field, err)
 	}
@@ -1339,10 +1340,11 @@ func getOrParseExprInHandler(exprStr string, ast pkgsemantic.ExprNode) pkgsemant
 		return ast
 	}
 	exprStr = strings.TrimSpace(exprStr)
-	if exprStr == "" || exprStr == "*" || semantic.ExpressionParser == nil {
+	parser := semantic.CurrentExpressionParser()
+	if exprStr == "" || exprStr == "*" || parser == nil {
 		return nil
 	}
-	parsed, err := semantic.ExpressionParser(exprStr)
+	parsed, err := parser(exprStr)
 	if err != nil {
 		return nil
 	}

@@ -269,6 +269,7 @@ type AIConfig struct {
 }
 
 // Load reads configuration from environment variables.
+//nolint:funlen
 func Load() (*Config, error) {
 	cfg := &Config{
 		Drift: DriftConfig{
@@ -290,7 +291,7 @@ func Load() (*Config, error) {
 			Format: strings.ToLower(strings.TrimSpace(getEnv("BI_LOG_FORMAT", "json"))),
 		},
 		Metadata: MetadataConfig{
-			DSN: getEnv("BI_METADATA_DB_DSN", "postgres://bi_user:bi_password@localhost:5432/bi_metadata?sslmode=disable"),
+			DSN: getEnv("BI_METADATA_DB_DSN", "postgres://localhost:5432/bi_metadata?sslmode=disable"),
 		},
 		Redis: RedisConfig{
 			DSN: getEnv("BI_REDIS_DSN", "redis://localhost:6379"),
@@ -392,6 +393,15 @@ func Load() (*Config, error) {
 	}
 	if cfg.Security.EncryptionKey == "change-this-to-a-secure-32-byte-key!!" {
 		return nil, errors.New("BI_ENCRYPTION_KEY must be changed from its default value")
+	}
+	if err := validateFloatRange("BI_PII_DETECTION_THRESHOLD", cfg.PII.DetectionThreshold, 0, 1); err != nil {
+		return nil, err
+	}
+	if err := validateFloatRange("BI_AI_AMBIGUITY_CONFIDENCE_THRESHOLD", cfg.AI.AmbiguityConfidenceThreshold, 0, 1); err != nil {
+		return nil, err
+	}
+	if err := validateFloatRange("BI_AI_EMBEDDING_WEIGHT", cfg.AI.EmbeddingWeight, 0, 100); err != nil {
+		return nil, err
 	}
 
 	return cfg, nil
@@ -618,6 +628,13 @@ func getEnvAsFloat(key string, defaultVal float64) float64 {
 		return defaultVal
 	}
 	return val
+}
+
+func validateFloatRange(key string, val, minVal, maxVal float64) error {
+	if val < minVal || val > maxVal {
+		return fmt.Errorf("%s must be between %g and %g, got %g", key, minVal, maxVal, val)
+	}
+	return nil
 }
 
 func getEnvAsBool(key string, defaultVal bool) bool {

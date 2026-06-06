@@ -105,6 +105,65 @@ func TestCompiler_RejectsUnknownGroupByAndOrderBy(t *testing.T) {
 	}
 }
 
+func TestCompiler_RejectsUnknownAggregation(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "orders",
+		BaseSchema: "public",
+		BaseTable:  "orders",
+		Metrics: []semantic.Metric{
+			{Name: "bad_metric", Expression: "orders.amount", Aggregation: "totl", IsActive: true},
+		},
+	}
+	lq := LogicalQuery{
+		Select: []SelectItem{{Type: SelectTypeMetric, Name: "bad_metric"}},
+	}
+
+	_, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
+	if err == nil || !strings.Contains(err.Error(), "unsupported aggregation function") {
+		t.Fatalf("Compile() error = %v, want unsupported aggregation function", err)
+	}
+}
+
+func TestCompiler_RejectsNilContext(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "orders",
+		BaseSchema: "public",
+		BaseTable:  "orders",
+		Dimensions: []semantic.Dimension{
+			{Name: "country", ColumnRef: "orders.country", Type: "text"},
+		},
+	}
+	lq := LogicalQuery{
+		Select: []SelectItem{{Type: SelectTypeDimension, Name: "country"}},
+	}
+
+	var nilCtx context.Context
+	_, err := NewCompiler(dialect.PostgresDialect{}).Compile(nilCtx, &lq, model)
+	if err == nil || !strings.Contains(err.Error(), "requires non-nil context") {
+		t.Fatalf("Compile(nil) error = %v, want non-nil context error", err)
+	}
+}
+
+func TestCompiler_RejectsUnknownHavingComparator(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "orders",
+		BaseSchema: "public",
+		BaseTable:  "orders",
+		Metrics: []semantic.Metric{
+			{Name: "order_count", Expression: "orders.id", Aggregation: "count"},
+		},
+	}
+	lq := LogicalQuery{
+		Select: []SelectItem{{Type: SelectTypeMetric, Name: "order_count"}},
+		Having: []Filter{{Field: "order_count", Operator: "approx", Value: 1}},
+	}
+
+	_, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
+	if err == nil || !strings.Contains(err.Error(), "operator") {
+		t.Fatalf("Compile() error = %v, want unsupported comparator operator", err)
+	}
+}
+
 func TestCompiler_OmitsJoinsWhenQueryUsesOnlyBaseTable(t *testing.T) {
 	// Two FKs from product to billofmaterials (component vs assembly). If the logical query
 	// only references product columns, we must not JOIN billofmaterials twice (or at all).

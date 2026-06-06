@@ -3,9 +3,9 @@ package internalapi
 import (
 	"time"
 
-	ai "github.com/biqly/biqly/internal/ai/eval"
-	"github.com/biqly/biqly/internal/metadata"
-	"github.com/biqly/biqly/internal/query"
+	"github.com/biqly/biqly/pkg/logicalquery"
+	"github.com/biqly/biqly/pkg/metadata"
+	"github.com/biqly/biqly/pkg/query"
 )
 
 // AIHistoryRequest is the body of POST /internal/ai-history.
@@ -44,16 +44,38 @@ type QueryHistoryResponse struct {
 
 // EvalResultsRequest is the body of POST /internal/eval-results.
 type EvalResultsRequest struct {
-	RunID            string                 `json:"run_id"`
-	Provider         string                 `json:"provider"`
-	Model            string                 `json:"model"`
-	ContextVersion   int                    `json:"context_version"`
-	ContextUpdatedAt time.Time              `json:"context_updated_at"`
-	Results          []ai.ResultWithMetrics `json:"results"`
+	RunID            string              `json:"run_id"`
+	Provider         string              `json:"provider"`
+	Model            string              `json:"model"`
+	ContextVersion   int                 `json:"context_version"`
+	ContextUpdatedAt time.Time           `json:"context_updated_at"`
+	Results          []EvalResultMetrics `json:"results"`
 }
 
 // EvalResultsResponse acknowledges a persisted eval result batch.
 type EvalResultsResponse struct {
 	RunID      string `json:"run_id"`
 	TotalCases int    `json:"total_cases"`
+}
+
+// EvalResultMetrics is the wire shape for one persisted eval case result.
+type EvalResultMetrics struct {
+	Case                        EvalGoldenCase             `json:"case"`
+	Got                         *logicalquery.LogicalQuery `json:"got,omitempty"`
+	Match                       bool                       `json:"match"`
+	Reason                      string                     `json:"reason"`
+	Confidence                  float64                    `json:"confidence"`
+	LatencyMs                   int64                      `json:"latency_ms"`
+	TokenCount                  int                        `json:"token_count"`
+	PromptTemplateVersions      map[string]int             `json:"prompt_template_versions,omitempty"`
+	PromptTemplateBundleVersion int                        `json:"prompt_template_bundle_version,omitempty"`
+}
+
+// EvalGoldenCase is the public wire shape for an eval benchmark case.
+type EvalGoldenCase struct {
+	ID          string                    `json:"id"`
+	Question    string                    `json:"question"`
+	Expected    logicalquery.LogicalQuery `json:"expected"`
+	Tags        []string                  `json:"tags,omitempty"`
+	Description string                    `json:"description,omitempty"`
 }

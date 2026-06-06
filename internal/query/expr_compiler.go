@@ -39,6 +39,8 @@ var dialectFunctions = map[string]map[string]string{
 	},
 }
 
+var exprReadOnlyChecker = security.NewReadOnlyChecker()
+
 // CompileExpr emits safe SQL from a canonical semantic expression AST.
 func CompileExpr(expr pkgsemantic.ExprNode, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig) (string, error) {
 	d = normalizeExprDialect(d)
@@ -47,8 +49,7 @@ func CompileExpr(expr pkgsemantic.ExprNode, d dialect.Dialect, resolver *SchemaR
 		return "", err
 	}
 	if sql != "" {
-		checker := security.NewReadOnlyChecker()
-		if err := checker.Check("SELECT " + sql); err != nil {
+		if err := exprReadOnlyChecker.Check("SELECT " + sql); err != nil {
 			slog.Error("expression compiled to unsafe SQL, aborting compilation", "error", err)
 			return "", err
 		}

@@ -11,7 +11,10 @@ import (
 	"github.com/biqly/biqly/internal/semantic"
 )
 
-const ambiguityAnalysisCacheTTL = 5 * time.Minute
+const (
+	ambiguityAnalysisCacheTTL        = 5 * time.Minute
+	ambiguityAnalysisCacheMaxEntries = 512
+)
 
 type ambiguityAnalysisCacheEntry struct {
 	result    ambiguitypkg.Result
@@ -58,9 +61,35 @@ func (s *Service) getCachedAmbiguityAnalysis(key string) (ambiguitypkg.Result, s
 }
 
 func (s *Service) cacheAmbiguityAnalysis(key string, result ambiguitypkg.Result, source string) {
+	now := time.Now()
+	if count := s.pruneAmbiguityAnalysisCache(now); count >= ambiguityAnalysisCacheMaxEntries {
+		evicted := false
+		s.ambiguityCache.Range(func(cacheKey, _ any) bool {
+			s.ambiguityCache.Delete(cacheKey)
+			evicted = true
+			return false
+		})
+		if !evicted {
+			return
+		}
+	}
 	s.ambiguityCache.Store(key, ambiguityAnalysisCacheEntry{
 		result:    result,
 		source:    source,
-		expiresAt: time.Now().Add(ambiguityAnalysisCacheTTL),
+		expiresAt: now.Add(ambiguityAnalysisCacheTTL),
 	})
+}
+
+func (s *Service) pruneAmbiguityAnalysisCache(now time.Time) int {
+	count := 0
+	s.ambiguityCache.Range(func(key, value any) bool {
+		entry, ok := value.(ambiguityAnalysisCacheEntry)
+		if !ok || now.After(entry.expiresAt) {
+			s.ambiguityCache.Delete(key)
+			return true
+		}
+		count++
+		return true
+	})
+	return count
 }

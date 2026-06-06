@@ -1,8 +1,10 @@
 package security
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 )
 
@@ -69,6 +71,19 @@ func containsRowFilter(filters []RowFilter, candidate RowFilter) bool {
 	return slices.ContainsFunc(filters, func(f RowFilter) bool {
 		return f.Field == candidate.Field &&
 			f.Operator == candidate.Operator &&
-			fmt.Sprintf("%v", f.Value) == fmt.Sprintf("%v", candidate.Value)
+			rowFilterValueKey(f.Value) == rowFilterValueKey(candidate.Value)
 	})
+}
+
+func rowFilterValueKey(value any) string {
+	valueType := reflect.TypeOf(value)
+	typeName := "<nil>"
+	if valueType != nil {
+		typeName = valueType.String()
+	}
+	data, err := json.Marshal(value)
+	if err != nil {
+		return typeName + ":" + fmt.Sprintf("%#v", value)
+	}
+	return typeName + ":" + string(data)
 }

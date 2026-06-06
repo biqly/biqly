@@ -45,6 +45,9 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 	}
 
 	metricRegistry := semantic.NewMetricRegistry(model.Metrics)
+	dimensionNames := getDimensionNames(model)
+	metricNames := getMetricNames(model)
+	allFieldNames := getAllFieldNames(model)
 
 	for _, item := range lq.Select {
 		switch item.Type {
@@ -55,7 +58,7 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 					Code:                errmsg.CodeUnknownDimension,
 					Message:             errmsg.UnknownDimensionMsg(item.Name),
 					Value:               item.Name,
-					AllowedAlternatives: suggestAlternatives(item.Name, getDimensionNames(model)),
+					AllowedAlternatives: suggestAlternatives(item.Name, dimensionNames),
 				})
 			}
 		case SelectTypeMetric:
@@ -65,13 +68,13 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 					Code:                errmsg.CodeUnknownMetric,
 					Message:             errmsg.UnknownMetricMsg(item.Name),
 					Value:               item.Name,
-					AllowedAlternatives: suggestAlternatives(item.Name, getMetricNames(model)),
+					AllowedAlternatives: suggestAlternatives(item.Name, metricNames),
 				})
 			}
 		case SelectTypeWindow:
-			errs = append(errs, validateWindowSelect(item, model)...)
+			errs = append(errs, validateWindowSelect(item, model, dimMap, metricRegistry, dimensionNames, metricNames, allFieldNames)...)
 		case SelectTypeCase:
-			errs = append(errs, validateCaseSelect(item, model)...)
+			errs = append(errs, validateCaseSelect(item, dimMap, dimensionNames)...)
 		default:
 			errs = append(errs, &ValidationError{
 				Field:               "select",
@@ -91,7 +94,7 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 				Code:                errmsg.CodeUnknownMetric,
 				Message:             "having field must reference a metric: " + f.Field,
 				Value:               f.Field,
-				AllowedAlternatives: suggestAlternatives(f.Field, getMetricNames(model)),
+				AllowedAlternatives: suggestAlternatives(f.Field, metricNames),
 			})
 		}
 		if !slices.Contains(havingOps, f.Operator) {
@@ -121,7 +124,7 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 				Code:                errmsg.CodeUnknownField,
 				Message:             errmsg.UnknownFieldMsg(f.Field),
 				Value:               f.Field,
-				AllowedAlternatives: suggestAlternatives(f.Field, getAllFieldNames(model)),
+				AllowedAlternatives: suggestAlternatives(f.Field, allFieldNames),
 			})
 		}
 		if !slices.Contains(validFilterOps, f.Operator) {
@@ -193,7 +196,7 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 				Code:                errmsg.CodeUnknownDimension,
 				Message:             errmsg.UnknownDimensionMsg(gb.Field),
 				Value:               gb.Field,
-				AllowedAlternatives: suggestAlternatives(gb.Field, getDimensionNames(model)),
+				AllowedAlternatives: suggestAlternatives(gb.Field, dimensionNames),
 			})
 			continue
 		}
@@ -220,7 +223,7 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 		}
 	}
 
-	errs = append(errs, validateOrderByClauses(lq.OrderBy, dimMap, metricRegistry, model, "order_by")...)
+	errs = append(errs, validateOrderByClauses(lq.OrderBy, dimMap, metricRegistry, allFieldNames, "order_by")...)
 
 	// Check limit
 	if lq.Limit < 0 {
@@ -316,7 +319,7 @@ func validateOrderByClauses(
 	orderBy []OrderBy,
 	dimMap map[string]bool,
 	metricRegistry *semantic.MetricRegistry,
-	model *semantic.SemanticModel,
+	allFieldNames []string,
 	field string,
 ) ValidationErrors {
 	var errs ValidationErrors
@@ -327,7 +330,7 @@ func validateOrderByClauses(
 				Code:                errmsg.CodeUnknownField,
 				Message:             errmsg.UnknownFieldMsg(ob.Field),
 				Value:               ob.Field,
-				AllowedAlternatives: suggestAlternatives(ob.Field, getAllFieldNames(model)),
+				AllowedAlternatives: suggestAlternatives(ob.Field, allFieldNames),
 			})
 		}
 		if ob.Direction != "" && ob.Direction != OrderAsc && ob.Direction != OrderDesc {
@@ -343,7 +346,15 @@ func validateOrderByClauses(
 	return errs
 }
 
-func validateWindowSelect(item SelectItem, model *semantic.SemanticModel) ValidationErrors {
+func validateWindowSelect(
+	item SelectItem,
+	_ *semantic.SemanticModel,
+	dimMap map[string]bool,
+	metricRegistry *semantic.MetricRegistry,
+	dimensionNames []string,
+	metricNames []string,
+	allFieldNames []string,
+) ValidationErrors {
 	var errs ValidationErrors
 	if item.Window == nil {
 		errs = append(errs, &ValidationError{
@@ -354,11 +365,6 @@ func validateWindowSelect(item SelectItem, model *semantic.SemanticModel) Valida
 		return errs
 	}
 	w := item.Window
-	metricRegistry := semantic.NewMetricRegistry(model.Metrics)
-	dimMap := make(map[string]bool, len(model.Dimensions))
-	for _, d := range model.Dimensions {
-		dimMap[d.Name] = true
-	}
 
 	if w.Metric != "" && !metricRegistry.Has(w.Metric) {
 		errs = append(errs, &ValidationError{
@@ -366,7 +372,7 @@ func validateWindowSelect(item SelectItem, model *semantic.SemanticModel) Valida
 			Code:                errmsg.CodeUnknownMetric,
 			Message:             "unknown metric reference: " + w.Metric,
 			Value:               w.Metric,
-			AllowedAlternatives: suggestAlternatives(w.Metric, getMetricNames(model)),
+			AllowedAlternatives: suggestAlternatives(w.Metric, metricNames),
 		})
 	}
 	allowedAgg := map[string]bool{
@@ -389,15 +395,15 @@ func validateWindowSelect(item SelectItem, model *semantic.SemanticModel) Valida
 				Code:                errmsg.CodeUnknownDimension,
 				Message:             errmsg.UnknownDimensionMsg(p),
 				Value:               p,
-				AllowedAlternatives: suggestAlternatives(p, getDimensionNames(model)),
+				AllowedAlternatives: suggestAlternatives(p, dimensionNames),
 			})
 		}
 	}
-	errs = append(errs, validateOrderByClauses(w.OrderBy, dimMap, metricRegistry, model, "select.window.order_by")...)
+	errs = append(errs, validateOrderByClauses(w.OrderBy, dimMap, metricRegistry, allFieldNames, "select.window.order_by")...)
 	return errs
 }
 
-func validateCaseSelect(item SelectItem, model *semantic.SemanticModel) ValidationErrors {
+func validateCaseSelect(item SelectItem, dimMap map[string]bool, dimensionNames []string) ValidationErrors {
 	var errs ValidationErrors
 	if item.Case == nil || len(item.Case.Branches) == 0 {
 		errs = append(errs, &ValidationError{
@@ -422,20 +428,16 @@ func validateCaseSelect(item SelectItem, model *semantic.SemanticModel) Validati
 				Message: fmt.Sprintf("case branch %d missing when filters", i),
 			})
 		}
-		errs = append(errs, validateCaseThen(br.Then, model, "select.case")...)
+		errs = append(errs, validateCaseThen(br.Then, dimMap, dimensionNames, "select.case")...)
 	}
 	if item.Case.Else != nil {
-		errs = append(errs, validateCaseThen(*item.Case.Else, model, "select.case")...)
+		errs = append(errs, validateCaseThen(*item.Case.Else, dimMap, dimensionNames, "select.case")...)
 	}
 	return errs
 }
 
-func validateCaseThen(then CaseThen, model *semantic.SemanticModel, field string) ValidationErrors {
+func validateCaseThen(then CaseThen, dimMap map[string]bool, dimensionNames []string, field string) ValidationErrors {
 	var errs ValidationErrors
-	dimMap := make(map[string]bool, len(model.Dimensions))
-	for _, d := range model.Dimensions {
-		dimMap[d.Name] = true
-	}
 	switch strings.ToLower(strings.TrimSpace(then.Type)) {
 	case CaseThenTypeDimension, "":
 		if then.Dimension == "" || !dimMap[then.Dimension] {
@@ -444,7 +446,7 @@ func validateCaseThen(then CaseThen, model *semantic.SemanticModel, field string
 				Code:                errmsg.CodeUnknownDimension,
 				Message:             "unknown case then dimension: " + then.Dimension,
 				Value:               then.Dimension,
-				AllowedAlternatives: suggestAlternatives(then.Dimension, getDimensionNames(model)),
+				AllowedAlternatives: suggestAlternatives(then.Dimension, dimensionNames),
 			})
 		}
 	case CaseThenTypeLiteral:

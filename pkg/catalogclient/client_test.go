@@ -10,14 +10,13 @@ import (
 	"testing"
 	"time"
 
-	ai "github.com/biqly/biqly/internal/ai/eval"
-	"github.com/biqly/biqly/internal/metadata"
-	"github.com/biqly/biqly/internal/query"
-	"github.com/biqly/biqly/internal/semantic"
 	"github.com/biqly/biqly/pkg/catalogclient"
 	"github.com/biqly/biqly/pkg/common/requestid"
 	"github.com/biqly/biqly/pkg/common/tracecontext"
 	"github.com/biqly/biqly/pkg/internalapi"
+	"github.com/biqly/biqly/pkg/logicalquery"
+	"github.com/biqly/biqly/pkg/metadata"
+	"github.com/biqly/biqly/pkg/semantic"
 )
 
 // testToken is the bearer token every test server asserts. Centralised so
@@ -195,7 +194,7 @@ func TestCreateEvalResults_PostsBatch(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		var req internalapi.EvalResultsRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil { //nolint:musttag // nested eval types omit json tags by design
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Fatalf("decode: %v", err)
 		}
 		if req.RunID != "run_1" || req.Provider != "openai" || req.Model != "gpt-4o" {
@@ -216,16 +215,14 @@ func TestCreateEvalResults_PostsBatch(t *testing.T) {
 		Model:            "gpt-4o",
 		ContextVersion:   3,
 		ContextUpdatedAt: now,
-		Results: []ai.ResultWithMetrics{{
-			Result: ai.Result{
-				Case: ai.GoldenCase{
-					ID:       "case_1",
-					Question: "total revenue",
-					Expected: query.LogicalQuery{Select: []query.SelectItem{{Type: "metric", Name: "revenue"}}},
-				},
-				Got:   &query.LogicalQuery{Select: []query.SelectItem{{Type: "metric", Name: "revenue"}}},
-				Match: true,
+		Results: []internalapi.EvalResultMetrics{{
+			Case: internalapi.EvalGoldenCase{
+				ID:       "case_1",
+				Question: "total revenue",
+				Expected: logicalquery.LogicalQuery{Select: []logicalquery.SelectItem{{Type: "metric", Name: "revenue"}}},
 			},
+			Got:        &logicalquery.LogicalQuery{Select: []logicalquery.SelectItem{{Type: "metric", Name: "revenue"}}},
+			Match:      true,
 			Confidence: 0.98,
 			LatencyMs:  1200,
 			TokenCount: 321,

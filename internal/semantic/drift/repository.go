@@ -10,6 +10,9 @@ import (
 	"github.com/bytedance/sonic"
 )
 
+// ErrNoDriftReport indicates a model has no stored drift reports yet.
+var ErrNoDriftReport = errors.New("no drift report found")
+
 // Repository handles database operations for drift reports.
 type Repository struct {
 	db *sql.DB
@@ -104,7 +107,7 @@ func (r *Repository) GetLatestByModel(ctx context.Context, modelID string) (*Dri
 		&rpt.CreatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil //nolint:nilnil // no prior report is not an error
+		return nil, ErrNoDriftReport
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get latest by model scan: %w", err)

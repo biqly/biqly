@@ -55,7 +55,7 @@ func setCSRFCookie(w http.ResponseWriter, secure bool) string {
 	}
 	token := base64.URLEncoding.EncodeToString(tokenBytes)
 
-	cookie := &http.Cookie{ //nolint:gosec // G124: Secure follows server TLS config (false only in local dev)
+	cookie := &http.Cookie{ //nolint:gosec // nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure // Secure follows server TLS config (false only in local dev)
 		Name:     "csrf_token",
 		Value:    token,
 		Path:     "/",

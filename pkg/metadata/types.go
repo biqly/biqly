@@ -116,6 +116,40 @@ type Relation struct {
 	CreatedAt        time.Time `json:"created_at" db:"created_at"`
 }
 
+// FewShotCuratedRow is the API shape for a curated few-shot example.
+type FewShotCuratedRow struct {
+	ID           string          `json:"id"`
+	DatasourceID string          `json:"datasource_id"`
+	ModelID      string          `json:"model_id,omitempty"`
+	Question     string          `json:"question"`
+	LogicalQuery json.RawMessage `json:"logical_query"`
+	Tags         []string        `json:"tags"`
+	Dialect      string          `json:"dialect"`
+	Locale       string          `json:"locale,omitempty"`
+	CreatedBy    string          `json:"created_by,omitempty"`
+	CreatedAt    time.Time       `json:"created_at"`
+	UpdatedAt    time.Time       `json:"updated_at"`
+	Name         string          `json:"name"`
+	Description  string          `json:"description"`
+	IsFewShot    bool            `json:"is_few_shot"`
+	IsFavorite   bool            `json:"is_favorite"`
+}
+
+// BusinessGlossaryRow is the API shape for a curated glossary term.
+type BusinessGlossaryRow struct {
+	ID           string    `json:"id"`
+	DatasourceID string    `json:"datasource_id"`
+	ModelID      string    `json:"model_id,omitempty"`
+	Term         string    `json:"term"`
+	Definition   string    `json:"definition,omitempty"`
+	MapsToType   string    `json:"maps_to_type"`
+	MapsToName   string    `json:"maps_to_name"`
+	Aliases      []string  `json:"aliases,omitempty"`
+	IsActive     bool      `json:"is_active"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
 // AIQueryHistoryEntry represents one natural-language AI query attempt.
 type AIQueryHistoryEntry struct {
 	ID                 string    `json:"id" db:"id"`

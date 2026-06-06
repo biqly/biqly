@@ -105,13 +105,18 @@ func (e *Encryption) Decrypt(encoded string) (string, error) {
 	return string(plaintext), nil
 }
 
-// IsEncrypted checks if a value looks like our encrypted format (base64, sufficiently long).
-// This is a heuristic used during migration to detect plaintext DSNs.
-func (*Encryption) IsEncrypted(value string) bool {
+// IsEncrypted checks if a value authenticates as ciphertext produced by Encrypt.
+// This is used during migration to distinguish plaintext DSNs from stored secrets.
+func (e *Encryption) IsEncrypted(value string) bool {
 	decoded, err := base64.StdEncoding.DecodeString(value)
 	if err != nil {
 		return false
 	}
-	// Encrypted value = 12-byte nonce + at least some ciphertext
-	return len(decoded) > 12
+	nonceSize := e.aead.NonceSize()
+	if len(decoded) < nonceSize {
+		return false
+	}
+	nonce, ciphertext := decoded[:nonceSize], decoded[nonceSize:]
+	_, err = e.aead.Open(nil, nonce, ciphertext, nil)
+	return err == nil
 }

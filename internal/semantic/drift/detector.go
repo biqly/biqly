@@ -23,6 +23,7 @@ func NewDetector() *Detector {
 //
 //nolint:gocyclo,gocognit,funlen // compares dimensions, metrics, joins, and tables with multiple drift types
 func (d *Detector) Compare(_ context.Context, model semantic.SemanticModel, columns []metadata.Column, tables []metadata.Table) (*DriftReport, error) {
+	expressionParser := semantic.CurrentExpressionParser()
 	colMap := make(map[string]metadata.Column, len(columns))
 	for _, col := range columns {
 		key := d.normalizeKey(col.SchemaName, col.TableName, col.ColumnName)
@@ -77,8 +78,8 @@ func (d *Detector) Compare(_ context.Context, model semantic.SemanticModel, colu
 		// Handle calculated expression dependencies
 		if strings.TrimSpace(dim.CalculatedExpression) != "" { //nolint:nestif
 			expr := dim.CalculatedExpr
-			if expr == nil && semantic.ExpressionParser != nil {
-				if parsed, err := semantic.ExpressionParser(dim.CalculatedExpression); err == nil {
+			if expr == nil && expressionParser != nil {
+				if parsed, err := expressionParser(dim.CalculatedExpression); err == nil {
 					expr = parsed
 				}
 			}
@@ -139,8 +140,8 @@ func (d *Detector) Compare(_ context.Context, model semantic.SemanticModel, colu
 		}
 
 		expr := met.Expr
-		if expr == nil && semantic.ExpressionParser != nil {
-			if parsed, err := semantic.ExpressionParser(met.Expression); err == nil {
+		if expr == nil && expressionParser != nil {
+			if parsed, err := expressionParser(met.Expression); err == nil {
 				expr = parsed
 			}
 		}
@@ -258,7 +259,13 @@ func (d *Detector) Compare(_ context.Context, model semantic.SemanticModel, colu
 	}
 
 	if len(drifts) == 0 {
-		return nil, nil //nolint:nilnil // no drifts detected is a normal outcome
+		return &DriftReport{
+			ModelID:      model.ID,
+			DatasourceID: model.DatasourceID,
+			DetectedAt:   time.Now(),
+			Severity:     SeverityInfo,
+			Resolved:     true,
+		}, nil
 	}
 
 	// Determine worst severity

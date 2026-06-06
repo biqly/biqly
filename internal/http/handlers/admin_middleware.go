@@ -22,6 +22,7 @@ func AdminKeyMiddleware(adminKey string) func(http.Handler) http.Handler {
 				writeError(w, http.StatusUnauthorized, "invalid or missing admin API key")
 				return
 			}
+			r.Header.Del("X-Admin-Key")
 			next.ServeHTTP(w, r)
 		})
 	}

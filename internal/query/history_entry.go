@@ -19,16 +19,20 @@ func BuildQueryHistoryEntry(
 	queryErr error,
 ) (*HistoryEntry, error) {
 	lq.EnsureVersion()
+	fingerprint, err := ComputeFingerprint(FingerprintInputs{
+		LogicalQuery:   lq,
+		DatasourceID:   lq.DatasourceID,
+		ContextVersion: semanticModelVersionForFingerprint(model),
+	})
+	if err != nil {
+		return nil, err
+	}
 	entry := &HistoryEntry{
 		DatasourceID: lq.DatasourceID,
 		ModelID:      HistoryModelID(model),
 		LogicalQuery: *lq,
 		Status:       status,
-		Fingerprint: ComputeFingerprint(FingerprintInputs{
-			LogicalQuery:   lq,
-			DatasourceID:   lq.DatasourceID,
-			ContextVersion: semanticModelVersionForFingerprint(model),
-		}),
+		Fingerprint:  fingerprint,
 	}
 	if cq != nil {
 		entry.CompiledSQL = new(cq.SQL)

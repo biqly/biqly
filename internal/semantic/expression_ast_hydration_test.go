@@ -8,10 +8,10 @@ import (
 )
 
 func TestHydrateExpressionASTsParsesDimensionAndMetricExpressions(t *testing.T) {
-	previous := ExpressionParser
-	t.Cleanup(func() { ExpressionParser = previous })
+	previous := CurrentExpressionParser()
+	t.Cleanup(func() { RegisterExpressionParser(previous) })
 
-	ExpressionParser = func(expr string) (pkgsemantic.ExprNode, error) {
+	RegisterExpressionParser(func(expr string) (pkgsemantic.ExprNode, error) {
 		switch expr {
 		case "orders.total_amount - 10":
 			return pkgsemantic.BinaryExpr{
@@ -29,7 +29,7 @@ func TestHydrateExpressionASTsParsesDimensionAndMetricExpressions(t *testing.T) 
 			t.Fatalf("ExpressionParser(%q) called unexpectedly", expr)
 			return nil, nil //nolint:nilnil // unreachable after Fatalf
 		}
-	}
+	})
 
 	model := &SemanticModel{
 		Dimensions: []Dimension{{Name: "net_amount", CalculatedExpression: "orders.total_amount - 10"}},
@@ -47,12 +47,12 @@ func TestHydrateExpressionASTsParsesDimensionAndMetricExpressions(t *testing.T) 
 }
 
 func TestHydrateExpressionASTsLeavesNilOnParseError(t *testing.T) {
-	previous := ExpressionParser
-	t.Cleanup(func() { ExpressionParser = previous })
+	previous := CurrentExpressionParser()
+	t.Cleanup(func() { RegisterExpressionParser(previous) })
 
-	ExpressionParser = func(string) (pkgsemantic.ExprNode, error) {
+	RegisterExpressionParser(func(string) (pkgsemantic.ExprNode, error) {
 		return nil, errors.New("parse failed")
-	}
+	})
 	model := &SemanticModel{
 		Dimensions: []Dimension{{Name: "bad_dim", CalculatedExpression: "not valid"}},
 		Metrics:    []Metric{{Name: "bad_metric", Expression: "not valid"}},

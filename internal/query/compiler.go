@@ -55,6 +55,9 @@ func NewCompiler(d dialect.Dialect) *Compiler {
 // Compile converts a LogicalQuery + semantic model into SQL.
 func (c *Compiler) Compile(ctx context.Context, lq *LogicalQuery, model *semantic.SemanticModel) (*CompiledQuery, error) {
 	comp := c.withCompileCtx(ctx)
+	if comp.err != nil {
+		return nil, comp.err
+	}
 	args := make([]any, 0, 8)
 	withPrefix, err := comp.buildWithClause(lq.CTEs, model, &args)
 	if err != nil {
@@ -93,12 +96,21 @@ func (c *Compiler) CompileWithPermissions(
 		// Clone so the masking policy and rowFilters are scoped to this compilation; nested
 		// subquery/CTE compilation reuses the same compiler and must apply
 		// the same policy.
-		c = &Compiler{dialect: c.dialect, pii: piiConfig, rowFilters: rowFilters}
+		c = &Compiler{
+			dialect:    c.dialect,
+			pii:        piiConfig,
+			compileCtx: c.compileCtx,
+			rowFilters: rowFilters,
+			err:        c.err,
+		}
 	}
 	if len(rowFilters) == 0 && piiConfig == nil {
 		return c.Compile(ctx, lq, model)
 	}
 	comp := c.withCompileCtx(ctx)
+	if comp.err != nil {
+		return nil, comp.err
+	}
 	args := make([]any, 0, 8)
 	withPrefix, err := comp.buildWithClause(lq.CTEs, model, &args)
 	if err != nil {
@@ -118,9 +130,15 @@ func (c *Compiler) CompileWithPermissions(
 	return cq, nil
 }
 
-func (c *Compiler) withCompileCtx(ctx context.Context) *Compiler { //nolint:contextcheck // stores request ctx for nested subquery compilation
+func (c *Compiler) withCompileCtx(ctx context.Context) *Compiler {
 	if ctx == nil {
-		ctx = context.TODO()
+		return &Compiler{
+			dialect:    c.dialect,
+			pii:        c.pii,
+			compileCtx: context.Background(),
+			rowFilters: c.rowFilters,
+			err:        errors.New("query compiler requires non-nil context"),
+		}
 	}
 	return &Compiler{dialect: c.dialect, pii: c.pii, compileCtx: ctx, rowFilters: c.rowFilters, err: c.err}
 }
@@ -426,6 +444,10 @@ func (c *Compiler) metricAggregate(
 	if metric.Expr != nil {
 		return c.aggregateExpr(metric.Aggregation, expr)
 	}
+	if !isSupportedAggregation(metric.Aggregation) {
+		c.err = fmt.Errorf("unsupported aggregation function: %s", metric.Aggregation)
+		return ""
+	}
 	return c.dialect.Aggregate(metric.Aggregation, expr)
 }
 
@@ -472,10 +494,17 @@ func (c *Compiler) aggregateExpr(fn, expr string) string {
 		}
 		return "MAX(" + expr + ")"
 	default:
-		if c.dialect.Name() == "clickhouse" {
-			return "count(" + expr + ")"
-		}
-		return "COUNT(" + expr + ")"
+		c.err = fmt.Errorf("unsupported aggregation function: %s", fn)
+		return ""
+	}
+}
+
+func isSupportedAggregation(fn string) bool {
+	switch strings.ToLower(strings.TrimSpace(fn)) {
+	case "", "custom", "none", "count", "count_distinct", "sum", "avg", "min", "max":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -540,6 +569,9 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]*semantic.D
 				return nil, validationErrWithCode("select", errmsg.UnknownMetricMsg(item.Name), errmsg.CodeUnknownMetric, item.Name, suggestAlternatives(item.Name, metricKeys))
 			}
 			agg := c.metricAggregate(metric, resolver, dimMap, metricMap, model)
+			if c.err != nil {
+				return nil, c.err
+			}
 			alias := item.Alias
 			if alias == "" {
 				alias = metric.Name
@@ -767,7 +799,10 @@ func (c *Compiler) buildHaving(
 		switch f.Operator {
 		case OpEq, OpNeq, OpGt, OpGte, OpLt, OpLte:
 			args = append(args, f.Value)
-			op := sqlComparator(f.Operator)
+			op, err := sqlComparator(f.Operator)
+			if err != nil {
+				return "", nil, fmt.Errorf("having field %q: %w", f.Field, err)
+			}
 			p := emitPlaceholder()
 			parts = append(parts, aggSQL+" "+op+" "+p)
 		case OpBetween:
@@ -792,22 +827,22 @@ func (c *Compiler) buildHaving(
 
 // sqlComparator translates a logical operator to a SQL comparator. Only
 // basic scalar operators are mapped; HAVING only uses these.
-func sqlComparator(op string) string {
+func sqlComparator(op string) (string, error) {
 	switch op {
 	case OpEq:
-		return "="
+		return "=", nil
 	case OpNeq:
-		return "!="
+		return "!=", nil
 	case OpGt:
-		return ">"
+		return ">", nil
 	case OpGte:
-		return ">="
+		return ">=", nil
 	case OpLt:
-		return "<"
+		return "<", nil
 	case OpLte:
-		return "<="
+		return "<=", nil
 	default:
-		return "="
+		return "", fmt.Errorf("unsupported comparator operator: %s", op)
 	}
 }
 

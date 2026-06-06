@@ -4,9 +4,9 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/biqly/biqly/internal/metadata"
-	"github.com/biqly/biqly/internal/semantic"
 	"github.com/biqly/biqly/pkg/internalapi"
+	"github.com/biqly/biqly/pkg/metadata"
+	"github.com/biqly/biqly/pkg/semantic"
 )
 
 // Health calls /internal/health. Cheap — does not touch the database — so

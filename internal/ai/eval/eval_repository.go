@@ -94,16 +94,19 @@ func (*EvalRepository) saveRunResultsTx(ctx context.Context, tx *sql.Tx, runID, 
 	for _, res := range results {
 		gotLQ := ""
 		if res.Got != nil {
-			if data, err := json.Marshal(res.Got); err == nil {
-				gotLQ = string(data)
+			data, err := json.Marshal(res.Got)
+			if err != nil {
+				return fmt.Errorf("marshal got logical query for case %s: %w", res.Case.ID, err)
 			}
+			gotLQ = string(data)
 		}
-		expectedLQ := ""
-		if data, err := json.Marshal(res.Case.Expected); err == nil {
-			expectedLQ = string(data)
+		data, err := json.Marshal(res.Case.Expected)
+		if err != nil {
+			return fmt.Errorf("marshal expected logical query for case %s: %w", res.Case.ID, err)
 		}
+		expectedLQ := string(data)
 
-		_, err := tx.ExecContext(ctx,
+		_, err = tx.ExecContext(ctx,
 			`INSERT INTO eval_results (
 				id, run_id, provider, model, context_version, context_updated_at,
 				case_id, question, expected_lq, got_lq, match, reason,

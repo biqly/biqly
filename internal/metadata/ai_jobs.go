@@ -337,47 +337,58 @@ type AIQueueStatus struct {
 func (r *Repository) GetAIQueueStatus(ctx context.Context, sessionID string) (*AIQueueStatus, error) {
 	status := &AIQueueStatus{MyJobStatus: "idle"}
 
-	err := r.db.QueryRowContext(ctx, `
-		SELECT COUNT(*) FROM ai_jobs WHERE status IN ($1, $2)
-	`, AIJobStatusPending, AIJobStatusQueued).Scan(&status.TotalPending)
-	if err != nil {
-		return nil, fmt.Errorf("count pending: %w", err)
-	}
-
 	if sessionID == "" {
-		return status, nil
-	}
-
-	var myJobID string
-	var myStatus string
-	var myCreated time.Time
-	err = r.db.QueryRowContext(ctx, `
-		SELECT id, status, created_at FROM ai_jobs
-		WHERE client_session_id = $1
-		  AND status IN ($2, $3, $4)
-		ORDER BY created_at ASC
-		LIMIT 1
-	`, sessionID, AIJobStatusPending, AIJobStatusQueued, AIJobStatusRunning).Scan(&myJobID, &myStatus, &myCreated)
-	if errors.Is(err, sql.ErrNoRows) {
-		return status, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("get my job: %w", err)
-	}
-
-	status.MyJobID = myJobID
-	status.MyJobStatus = myStatus
-
-	if myStatus == AIJobStatusPending || myStatus == AIJobStatusQueued {
-		var position int
-		err = r.db.QueryRowContext(ctx, `
-			SELECT COUNT(*) + 1 FROM ai_jobs
-			WHERE status IN ($1, $2)
-			  AND created_at < $3
-		`, AIJobStatusPending, AIJobStatusQueued, myCreated).Scan(&position)
-		if err == nil {
-			status.MyPosition = new(position)
+		err := r.db.QueryRowContext(ctx, `
+			SELECT COUNT(*) FROM ai_jobs WHERE status IN ($1, $2)
+		`, AIJobStatusPending, AIJobStatusQueued).Scan(&status.TotalPending)
+		if err != nil {
+			return nil, fmt.Errorf("count pending: %w", err)
 		}
+		return status, nil
+	}
+
+	var myJobID sql.NullString
+	var myStatus sql.NullString
+	var position sql.NullInt64
+	err := r.db.QueryRowContext(ctx, `
+		WITH my_job AS (
+			SELECT id, status, created_at FROM ai_jobs
+			WHERE client_session_id = $1
+			  AND status IN ($2, $3, $4)
+			ORDER BY created_at ASC
+			LIMIT 1
+		),
+		pending_count AS (
+			SELECT COUNT(*) AS total_pending
+			FROM ai_jobs
+			WHERE status IN ($2, $3)
+		)
+		SELECT pending_count.total_pending,
+		       my_job.id,
+		       my_job.status,
+		       CASE
+		           WHEN my_job.status IN ($2, $3) THEN (
+		               SELECT COUNT(*) + 1
+		               FROM ai_jobs
+		               WHERE status IN ($2, $3)
+		                 AND created_at < my_job.created_at
+		           )
+		       END AS position
+		FROM pending_count
+		LEFT JOIN my_job ON TRUE
+	`, sessionID, AIJobStatusPending, AIJobStatusQueued, AIJobStatusRunning).Scan(&status.TotalPending, &myJobID, &myStatus, &position)
+	if err != nil {
+		return nil, fmt.Errorf("get ai queue status: %w", err)
+	}
+
+	if !myJobID.Valid {
+		return status, nil
+	}
+	status.MyJobID = myJobID.String
+	status.MyJobStatus = myStatus.String
+	if position.Valid {
+		pos := int(position.Int64)
+		status.MyPosition = new(pos)
 	}
 
 	return status, nil

@@ -191,6 +191,9 @@ func (c *Compiler) dateTruncCompareExpr(part, columnRef, op string, argIndex int
 	}
 	lhs := c.dialect.DateTrunc(part, columnRef)
 	rhs := c.dialect.DateTruncPlaceholder(part, c.dialect.Placeholder(argIndex))
-	cmp := sqlComparator(op)
+	cmp, err := sqlComparator(op)
+	if err != nil {
+		return "", err
+	}
 	return fmt.Sprintf("%s %s %s", lhs, cmp, rhs), nil
 }

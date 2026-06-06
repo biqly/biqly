@@ -2,6 +2,15 @@ package query
 
 import "testing"
 
+func mustComputeFingerprint(t *testing.T, in FingerprintInputs) string {
+	t.Helper()
+	fingerprint, err := ComputeFingerprint(in)
+	if err != nil {
+		t.Fatalf("ComputeFingerprint(%+v) error = %v", in, err)
+	}
+	return fingerprint
+}
+
 func TestComputeFingerprintIsStable(t *testing.T) {
 	in := FingerprintInputs{
 		LogicalQuery: &LogicalQuery{
@@ -21,13 +30,28 @@ func TestComputeFingerprintIsStable(t *testing.T) {
 		DatasourceID:   "ds1",
 		ContextVersion: "3",
 	}
-	a := ComputeFingerprint(in)
-	b := ComputeFingerprint(in)
+	a := mustComputeFingerprint(t, in)
+	b := mustComputeFingerprint(t, in)
 	if a == "" {
 		t.Fatal("fingerprint must not be empty")
 	}
 	if a != b {
 		t.Errorf("fingerprint is non-deterministic: %q vs %q", a, b)
+	}
+}
+
+func TestComputeFingerprintReturnsMarshalError(t *testing.T) {
+	_, err := ComputeFingerprint(FingerprintInputs{
+		LogicalQuery: &LogicalQuery{
+			ModelID: "orders",
+			Filters: []Filter{
+				{Field: "country", Operator: OpEq, Value: func() {}},
+			},
+		},
+		DatasourceID: "ds1",
+	})
+	if err == nil {
+		t.Fatal("ComputeFingerprint() error = nil, want marshal error")
 	}
 }
 
@@ -38,10 +62,10 @@ func TestComputeFingerprintIgnoresVersionField(t *testing.T) {
 		Select:       []SelectItem{{Type: SelectTypeMetric, Name: "order_count"}},
 		Limit:        10,
 	}
-	a := ComputeFingerprint(FingerprintInputs{LogicalQuery: &base, DatasourceID: "ds1"})
+	a := mustComputeFingerprint(t, FingerprintInputs{LogicalQuery: &base, DatasourceID: "ds1"})
 
 	base.Version = "v2-experimental"
-	b := ComputeFingerprint(FingerprintInputs{LogicalQuery: &base, DatasourceID: "ds1"})
+	b := mustComputeFingerprint(t, FingerprintInputs{LogicalQuery: &base, DatasourceID: "ds1"})
 
 	if a != b {
 		t.Errorf("fingerprint must not depend on LogicalQuery.Version: %q vs %q", a, b)
@@ -60,11 +84,11 @@ func TestComputeFingerprintCanonicalizesFilterOrder(t *testing.T) {
 			DatasourceID: "ds1",
 		}
 	}
-	a := ComputeFingerprint(mk([]Filter{
+	a := mustComputeFingerprint(t, mk([]Filter{
 		{Field: "country", Operator: OpEq, Value: "TR"},
 		{Field: "created_at", Operator: OpGte, Value: "2026-01-01"},
 	}))
-	b := ComputeFingerprint(mk([]Filter{
+	b := mustComputeFingerprint(t, mk([]Filter{
 		{Field: "created_at", Operator: OpGte, Value: "2026-01-01"},
 		{Field: "country", Operator: OpEq, Value: "TR"},
 	}))
@@ -79,8 +103,8 @@ func TestComputeFingerprintDistinguishesContextVersion(t *testing.T) {
 		ModelID:      "orders",
 		Select:       []SelectItem{{Type: SelectTypeMetric, Name: "order_count"}},
 	}
-	a := ComputeFingerprint(FingerprintInputs{LogicalQuery: &lq, DatasourceID: "ds1", ContextVersion: "1"})
-	b := ComputeFingerprint(FingerprintInputs{LogicalQuery: &lq, DatasourceID: "ds1", ContextVersion: "2"})
+	a := mustComputeFingerprint(t, FingerprintInputs{LogicalQuery: &lq, DatasourceID: "ds1", ContextVersion: "1"})
+	b := mustComputeFingerprint(t, FingerprintInputs{LogicalQuery: &lq, DatasourceID: "ds1", ContextVersion: "2"})
 	if a == b {
 		t.Error("different context versions must produce different fingerprints")
 	}
@@ -92,8 +116,8 @@ func TestComputeFingerprintDistinguishesPermissionScope(t *testing.T) {
 		ModelID:      "orders",
 		Select:       []SelectItem{{Type: SelectTypeMetric, Name: "order_count"}},
 	}
-	a := ComputeFingerprint(FingerprintInputs{LogicalQuery: &lq, DatasourceID: "ds1", PermissionScope: "user-a"})
-	b := ComputeFingerprint(FingerprintInputs{LogicalQuery: &lq, DatasourceID: "ds1", PermissionScope: "user-b"})
+	a := mustComputeFingerprint(t, FingerprintInputs{LogicalQuery: &lq, DatasourceID: "ds1", PermissionScope: "user-a"})
+	b := mustComputeFingerprint(t, FingerprintInputs{LogicalQuery: &lq, DatasourceID: "ds1", PermissionScope: "user-b"})
 	if a == b {
 		t.Error("different permission scopes must produce different fingerprints")
 	}

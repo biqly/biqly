@@ -61,48 +61,68 @@ func (p *PurposeProvider) GenerateAt(ctx context.Context, prompt string, tempera
 }
 
 func (p *PurposeProvider) current(ctx context.Context) providerpkg.Provider {
+	p.mu.Lock()
+	resolver := p.resolver
+	fallback := p.fallback
+	p.mu.Unlock()
+
 	var cfg config.AIConfig
 	var ok bool
-	if p.resolver != nil {
-		cfg, ok = p.resolver.ChatConfigForPurpose(ctx, p.purpose)
+	if resolver != nil {
+		cfg, ok = resolver.ChatConfigForPurpose(ctx, p.purpose)
 	} else {
 		cfg, ok = p.store.ChatConfigForPurpose(p.purpose)
 	}
 	if !ok {
-		if p.fallback != nil {
-			return p.fallback
+		if fallback != nil {
+			return fallback
 		}
 		return notConfiguredProvider{purpose: p.purpose}
 	}
 	version := p.store.CacheVersion()
 	userKey := ""
-	if p.resolver != nil {
+	if resolver != nil {
 		userKey = userConfigCacheKey(ctx)
 	}
 
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	if p.built != nil && p.builtVersion == version && p.builtUserKey == userKey {
-		return p.built
+		prov := p.built
+		p.mu.Unlock()
+		return prov
 	}
+	p.mu.Unlock()
+
 	prov, err := providerpkg.NewProvider(cfg)
 	if err != nil {
 		slog.Warn("purpose provider build failed", "purpose", p.purpose, "error", err)
+		p.mu.Lock()
 		p.builtVersion = version
 		p.builtUserKey = userKey
 		p.built = nil
-		if p.fallback != nil {
-			return p.fallback
+		p.mu.Unlock()
+		if fallback != nil {
+			return fallback
 		}
 		return notConfiguredProvider{purpose: p.purpose, err: err}
 	}
-	if p.built != nil {
-		closeProvider(p.built)
+
+	p.mu.Lock()
+	if p.built != nil && p.builtVersion == version && p.builtUserKey == userKey {
+		cached := p.built
+		p.mu.Unlock()
+		closeProvider(prov)
+		return cached
 	}
+	old := p.built
 	p.built = prov
 	p.builtVersion = version
 	p.builtUserKey = userKey
-	return p.built
+	p.mu.Unlock()
+	if old != nil {
+		closeProvider(old)
+	}
+	return prov
 }
 
 func userConfigCacheKey(ctx context.Context) string {

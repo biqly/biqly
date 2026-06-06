@@ -70,6 +70,7 @@ func TestEncryptionIsEncrypted(t *testing.T) {
 
 	assert.False(t, enc.IsEncrypted("plaintext"))
 	assert.False(t, enc.IsEncrypted("not-base64"))
+	assert.False(t, enc.IsEncrypted("c29tZS1sb25nLWJhc2U2NC1ibG9iLXRoYXQtaXMtbm90LWNpcGhlcnRleHQ="))
 }
 
 func base64Short() string {

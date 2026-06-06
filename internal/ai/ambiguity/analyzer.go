@@ -46,15 +46,15 @@ type SemanticMapping struct {
 // Analyze runs rule-based ambiguity detectors before LogicalQuery generation.
 func Analyze(ctx context.Context, question string, model *semantic.SemanticModel, glossary []prompt.GlossaryEntry, confidenceThreshold float64) Result {
 	locale := i18n.FromContext(ctx)
-	return analyzeWithDetectors(ctx, []func() []Item{
-		func() []Item { return DetectGlossary(question, glossary, model) },
-		func() []Item { return DetectSynonyms(locale, question, model) },
-		func() []Item { return DetectTemporal(locale, question, model) },
-		func() []Item { return DetectScope(locale, question, model) },
+	return analyzeWithDetectors(ctx, []func(context.Context) []Item{
+		func(context.Context) []Item { return DetectGlossary(question, glossary, model) },
+		func(context.Context) []Item { return DetectSynonyms(locale, question, model) },
+		func(context.Context) []Item { return DetectTemporal(locale, question, model) },
+		func(context.Context) []Item { return DetectScope(locale, question, model) },
 	}, confidenceThreshold, ruleBasedAnalysisTimeout)
 }
 
-func analyzeWithDetectors(ctx context.Context, detectors []func() []Item, confidenceThreshold float64, timeout time.Duration) Result {
+func analyzeWithDetectors(ctx context.Context, detectors []func(context.Context) []Item, confidenceThreshold float64, timeout time.Duration) Result {
 	if confidenceThreshold <= 0 {
 		confidenceThreshold = defaultConfidenceThreshold
 	}
@@ -68,7 +68,12 @@ func analyzeWithDetectors(ctx context.Context, detectors []func() []Item, confid
 	results := make(chan detectorResult, len(detectors))
 	for index, detector := range detectors {
 		go func() {
-			result := detectorResult{index: index, group: detector()}
+			select {
+			case <-analysisCtx.Done():
+				return
+			default:
+			}
+			result := detectorResult{index: index, group: detector(analysisCtx)}
 			select {
 			case results <- result:
 			case <-analysisCtx.Done():
