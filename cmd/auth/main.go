@@ -53,6 +53,14 @@ func main() {
 	// are machine-parseable and correlatable by request_id in aggregation.
 	observability.SetupLogging(os.Getenv("BI_AUTH_LOG_LEVEL"), os.Getenv("BI_AUTH_LOG_FORMAT"))
 
+	{
+		shutdownTracing, tracErr := observability.SetupTracing(context.Background(), "biqly-auth")
+		if tracErr != nil {
+			slog.Warn("tracing setup failed, continuing without traces", "error", tracErr)
+		}
+		defer func() { _ = shutdownTracing(context.Background()) }()
+	}
+
 	db, err := sql.Open("pgx", cfg.DBDSN)
 	if err != nil {
 		slog.Error("open database", "err", err)

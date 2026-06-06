@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/http/handlers"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
@@ -151,5 +153,5 @@ func Router(deps *app.Dependencies) http.Handler {
 		registerQueryInternalRoutes(r, deps.QueryDeps())
 	})
 
-	return r
+	return otelhttp.NewHandler(r, "biqly-api")
 }

@@ -47,6 +47,16 @@ func main() {
 
 	ctx := context.Background()
 
+	shutdownTracing, err := observability.SetupTracing(ctx, "biqly-api")
+	if err != nil {
+		slog.Warn("tracing setup failed, continuing without traces", "error", err)
+	}
+	defer func() {
+		if shutdownErr := shutdownTracing(context.Background()); shutdownErr != nil {
+			slog.Warn("trace provider shutdown error", "error", shutdownErr)
+		}
+	}()
+
 	// Wire dependencies
 	deps, err := app.NewDependencies(ctx, cfg)
 	if err != nil {

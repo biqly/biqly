@@ -2,14 +2,14 @@
 
 ## Prioritized Architectural & Observability Recommendations (2026-06-06)
 
-- [ ] **Yüksek**: OTEL tracing'i kodda enstrümante et (LLM/derle/yürüt span'leri)
-  - [ ] Initialize a global Tracer Provider at startup in `cmd/api/main.go`, `cmd/auth/main.go`, and the standalone microservice entrypoints (`services/*/cmd/main.go`).
-  - [ ] Implement trace provider setup/teardown in `internal/platform/observability/trace.go`.
-  - [ ] Wrap public HTTP routers with `otelhttp` middleware to propagate span contexts across endpoints.
-  - [ ] Instrument text-to-query pipeline phases:
-    - [ ] `ProcessQuestion` in `internal/ai/service.go` (ambiguity analysis, LLM generate).
-    - [ ] `Compile` in `internal/query/compiler.go` (logical query translation to dialect SQL).
-    - [ ] `Execute` in `internal/query/executor.go` (physical query execution against target database).
+- [x] **Yüksek**: OTEL tracing'i kodda enstrümante et (LLM/derle/yürüt span'leri)
+  - [x] Initialize a global Tracer Provider at startup in `cmd/api/main.go`, `cmd/auth/main.go`, and the standalone microservice entrypoints (`services/*/cmd/main.go`).
+  - [x] Implement trace provider setup/teardown in `internal/platform/observability/trace.go`.
+  - [x] Wrap public HTTP routers with `otelhttp` middleware to propagate span contexts across endpoints.
+  - [x] Instrument text-to-query pipeline phases:
+    - [x] `ProcessQuestion` in `internal/ai/service.go` (ambiguity analysis, LLM generate).
+    - [x] `Compile` in `internal/query/compiler.go` (logical query translation to dialect SQL).
+    - [x] `Execute` in `internal/query/executor.go` (physical query execution against target database).
 - [ ] **Yüksek**: AI eval/regresyon paketini CI kapısı yap
   - [ ] Ensure `make eval-regression` (real model or stub golden tests) runs on every pull request and push to `main`.
   - [ ] Explicitly add the regression test execution step to `.github/workflows/test.yml` (currently only runs `go test ./...` which does not execute some of these benchmarks strictly).

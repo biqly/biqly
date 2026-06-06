@@ -7,6 +7,10 @@ import (
 	"regexp"
 	"strings"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+
 	"github.com/biqly/biqly/internal/dialect"
 	"github.com/biqly/biqly/internal/errmsg"
 	"github.com/biqly/biqly/internal/security"
@@ -54,24 +58,46 @@ func NewCompiler(d dialect.Dialect) *Compiler {
 
 // Compile converts a LogicalQuery + semantic model into SQL.
 func (c *Compiler) Compile(ctx context.Context, lq *LogicalQuery, model *semantic.SemanticModel) (*CompiledQuery, error) {
+	if ctx == nil {
+		return nil, errors.New("query compiler requires non-nil context")
+	}
+	ctx, span := otel.Tracer("biqly/query").Start(ctx, "query.Compile")
+	defer span.End()
+	if model != nil {
+		span.SetAttributes(
+			attribute.String("model.id", model.ID),
+			attribute.String("dialect", c.dialect.Name()),
+		)
+	}
+
 	comp := c.withCompileCtx(ctx)
 	if comp.err != nil {
+		span.RecordError(comp.err)
+		span.SetStatus(codes.Error, comp.err.Error())
 		return nil, comp.err
 	}
 	args := make([]any, 0, 8)
 	withPrefix, err := comp.buildWithClause(lq.CTEs, model, &args)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return nil, err
 	}
 	fromClause, err := comp.resolveFromClause(lq, model, &args)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return nil, err
 	}
 	cq, err := comp.compileStatement(ctx, lq, model, fromClause, withPrefix, &args, comp.rowFilters)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return nil, err
 	}
 	if comp.err != nil {
+		span.RecordError(comp.err)
+		span.SetStatus(codes.Error, comp.err.Error())
 		return nil, comp.err
 	}
 	return cq, nil

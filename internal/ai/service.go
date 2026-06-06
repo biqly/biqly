@@ -10,6 +10,10 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+
 	ambiguitypkg "github.com/biqly/biqly/internal/ai/ambiguity"
 	evalpkg "github.com/biqly/biqly/internal/ai/eval"
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
@@ -248,6 +252,13 @@ func WithAmbiguityAnalysisObserver(observer AmbiguityAnalysisObserver) ProcessOp
 //
 //nolint:gocyclo,gocognit,funlen // orchestrates ambiguity check, cache, multi-candidate voting, and repair/retry loop
 func (s *Service) ProcessQuestion(ctx context.Context, question string, model *semantic.SemanticModel, opts ...ProcessOption) (*AIResponse, error) {
+	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.ProcessQuestion")
+	defer span.End()
+	if model != nil {
+		span.SetAttributes(attribute.String("model.id", model.ID))
+	}
+	span.SetAttributes(attribute.Int("question.length", len(question)))
+
 	options := processOptions{}
 	for _, opt := range opts {
 		opt(&options)
@@ -337,6 +348,8 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 	for attempt := range s.maxRetries + 1 {
 		gen, genErr := s.client.Generate(ctx, prompt)
 		if genErr != nil {
+			span.RecordError(genErr)
+			span.SetStatus(codes.Error, genErr.Error())
 			return nil, fmt.Errorf("AI generation failed: %w", genErr)
 		}
 		lastGen = gen
@@ -359,6 +372,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 				warnings = append(warnings, inheritNotes...)
 			}
 			retries := attempt
+			span.SetAttributes(attribute.Int("ai.retries", retries))
 			templateLocale, templateVersions, bundleVersion := promptTemplateTrace(ctx, question)
 			resp := &AIResponse{
 				Result: &AIResult{

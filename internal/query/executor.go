@@ -7,6 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+
 	"github.com/biqly/biqly/internal/security"
 )
 
@@ -45,6 +49,15 @@ func NewExecutor(maxRows int, timeout time.Duration) *Executor {
 
 // Execute runs a compiled query and returns results.
 func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (result *Result, err error) {
+	ctx, span := otel.Tracer("biqly/query").Start(ctx, "query.Execute")
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
+
 	// Safety check
 	if err := e.checker.Check(cq.SQL); err != nil {
 		return nil, fmt.Errorf("security check failed: %w", err)
@@ -59,10 +72,9 @@ func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (
 
 	start := time.Now()
 
-	// Execute query
-	rows, err := db.QueryContext(ctx, cq.SQL, cq.Args...)
-	if err != nil {
-		return nil, fmt.Errorf("query execution failed: %w", err)
+	rows, queryErr := db.QueryContext(ctx, cq.SQL, cq.Args...)
+	if queryErr != nil {
+		return nil, fmt.Errorf("query execution failed: %w", queryErr)
 	}
 	defer func() {
 		if closeErr := rows.Close(); closeErr != nil && err == nil {
@@ -70,7 +82,20 @@ func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (
 		}
 	}()
 
-	// Get column info
+	res, scanErr := e.scanRows(rows, start)
+	if scanErr != nil {
+		return nil, scanErr
+	}
+
+	span.SetAttributes(
+		attribute.Int("db.rows_returned", res.Stats.RowCount),
+		attribute.Bool("db.truncated", res.Stats.Truncated),
+	)
+
+	return res, nil
+}
+
+func (e *Executor) scanRows(rows *sql.Rows, start time.Time) (*Result, error) {
 	colTypes, err := rows.ColumnTypes()
 	if err != nil {
 		return nil, fmt.Errorf("get column types: %w", err)
@@ -84,7 +109,6 @@ func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (
 		}
 	}
 
-	// Read rows
 	capacity := e.maxRows
 	if capacity <= 0 {
 		capacity = 64
@@ -137,7 +161,6 @@ func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (
 			return nil, fmt.Errorf("scan row: %w", err)
 		}
 
-		// Convert to plain values
 		allCells = append(allCells, vals...)
 		count++
 	}
@@ -151,13 +174,11 @@ func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (
 		resultRows[i] = allCells[i*numCols : (i+1)*numCols]
 	}
 
-	duration := time.Since(start).Milliseconds()
-
 	return &Result{
 		Columns: columns,
 		Rows:    resultRows,
 		Stats: Stats{
-			DurationMs: duration,
+			DurationMs: time.Since(start).Milliseconds(),
 			RowCount:   len(resultRows),
 			Truncated:  truncated,
 		},

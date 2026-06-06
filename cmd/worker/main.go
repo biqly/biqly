@@ -26,6 +26,12 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	shutdownTracing, tracErr := observability.SetupTracing(context.Background(), "biqly-worker")
+	if tracErr != nil {
+		slog.Warn("tracing setup failed, continuing without traces", "error", tracErr)
+	}
+	defer func() { _ = shutdownTracing(context.Background()) }()
+
 	if cfg.NATS.URL == "" {
 		slog.Error("BI_NATS_URL is required for worker")
 		os.Exit(1)
