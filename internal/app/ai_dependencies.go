@@ -75,7 +75,7 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		embedMeta = ai.NewEmbedMetadataService(embedder, metaRepo)
 	}
 
-	if err := routing.InitRouting(cfg.AI.RoutingLexiconPath, cfg.AI.RoutingWeightsPath); err != nil {
+	if err := routing.InitRouting(cfg.AI.Routing.LexiconPath, cfg.AI.Routing.WeightsPath); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("routing config: %w", err)
 	}

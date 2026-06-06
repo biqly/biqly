@@ -225,11 +225,11 @@ func (s *ProviderStore) ModelLabelForPurpose(p Purpose) string {
 			return m
 		}
 	case PurposeEmbedding:
-		if m := strings.TrimSpace(s.fallback.EmbeddingModel); m != "" {
+		if m := strings.TrimSpace(s.fallback.Embedding.Model); m != "" {
 			return m
 		}
 	case PurposeTranslation:
-		if m := strings.TrimSpace(s.fallback.TranslationModel); m != "" {
+		if m := strings.TrimSpace(s.fallback.Translation.Model); m != "" {
 			return m
 		}
 	}
@@ -290,8 +290,8 @@ func (s *ProviderStore) chatConfigFromResolved(rm *resolvedModel) config.AIConfi
 	if rm.MaxPromptInputRunes > 0 {
 		cfg.MaxPromptInputRunes = rm.MaxPromptInputRunes
 	}
-	cfg.QueryProvider, cfg.QueryModel, cfg.QueryBaseURL, cfg.QueryAPIKey = "", "", "", ""
-	cfg.QueryHTTPTimeoutSeconds = 0
+	cfg.Query.Provider, cfg.Query.Model, cfg.Query.BaseURL, cfg.Query.APIKey = "", "", "", ""
+	cfg.Query.HTTPTimeoutSeconds = 0
 	return cfg
 }
 
@@ -352,19 +352,19 @@ func (s *ProviderStore) ChatConfigForPurpose(p Purpose) (config.AIConfig, bool) 
 func (s *ProviderStore) EffectiveConfig() config.AIConfig {
 	cfg := s.fallback
 	if rm, ok := s.resolvedFor(PurposeEmbedding); ok {
-		cfg.EmbeddingModel = rm.ModelID
-		cfg.EmbeddingBaseURL = rm.BaseURL
-		cfg.EmbeddingAPIKey = rm.APIKey
+		cfg.Embedding.Model = rm.ModelID
+		cfg.Embedding.BaseURL = rm.BaseURL
+		cfg.Embedding.APIKey = rm.APIKey
 		if rm.HTTPTimeoutSeconds > 0 {
-			cfg.EmbeddingHTTPTimeoutSeconds = rm.HTTPTimeoutSeconds
+			cfg.Embedding.HTTPTimeoutSeconds = rm.HTTPTimeoutSeconds
 		}
 	}
 	if rm, ok := s.resolvedFor(PurposeTranslation); ok {
-		cfg.TranslationModel = rm.ModelID
-		cfg.TranslationBaseURL = rm.BaseURL
-		cfg.TranslationAPIKey = rm.APIKey
+		cfg.Translation.Model = rm.ModelID
+		cfg.Translation.BaseURL = rm.BaseURL
+		cfg.Translation.APIKey = rm.APIKey
 		if rm.HTTPTimeoutSeconds > 0 {
-			cfg.TranslationHTTPTimeoutSeconds = rm.HTTPTimeoutSeconds
+			cfg.Translation.HTTPTimeoutSeconds = rm.HTTPTimeoutSeconds
 		}
 	}
 	return cfg
@@ -376,10 +376,10 @@ func (s *ProviderStore) EffectiveConfig() config.AIConfig {
 func (s *ProviderStore) EffectiveConfigForEmbeddings() config.AIConfig {
 	cfg := s.EffectiveConfig()
 	if !s.HasResolved(PurposeEmbedding) {
-		cfg.EmbeddingModel = ""
-		cfg.EmbeddingBaseURL = ""
-		cfg.EmbeddingAPIKey = ""
-		cfg.EmbeddingHTTPTimeoutSeconds = 0
+		cfg.Embedding.Model = ""
+		cfg.Embedding.BaseURL = ""
+		cfg.Embedding.APIKey = ""
+		cfg.Embedding.HTTPTimeoutSeconds = 0
 	}
 	return cfg
 }
@@ -895,10 +895,10 @@ func (s *ProviderStore) TestConnection(ctx context.Context, providerID, modelID 
 	// right endpoint so the test reflects how the model is actually used.
 	if Purpose(purpose) == PurposeEmbedding {
 		cfg := s.fallback
-		cfg.EmbeddingModel = modelID
-		cfg.EmbeddingBaseURL = prov.BaseURL
-		cfg.EmbeddingAPIKey = apiKey
-		cfg.EmbeddingHTTPTimeoutSeconds = 30
+		cfg.Embedding.Model = modelID
+		cfg.Embedding.BaseURL = prov.BaseURL
+		cfg.Embedding.APIKey = apiKey
+		cfg.Embedding.HTTPTimeoutSeconds = 30
 		embedder := providerpkg.NewOpenAIEmbedder(cfg)
 		defer func() { _ = embedder.Close() }()
 		if _, err := embedder.Embed(testCtx, []string{"connectivity check"}); err != nil {
@@ -914,7 +914,7 @@ func (s *ProviderStore) TestConnection(ctx context.Context, providerID, modelID 
 	cfg.Model = modelID
 	cfg.MaxTokens = 16
 	cfg.HTTPTimeoutSeconds = 30
-	cfg.QueryProvider, cfg.QueryModel, cfg.QueryBaseURL, cfg.QueryAPIKey = "", "", "", ""
+	cfg.Query.Provider, cfg.Query.Model, cfg.Query.BaseURL, cfg.Query.APIKey = "", "", "", ""
 
 	p, err := providerpkg.NewProvider(cfg)
 	if err != nil {

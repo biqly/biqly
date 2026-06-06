@@ -22,14 +22,14 @@ type aiRuntimeSettingsResponse struct {
 	// QueryProvider always report the effective values so the UI can show
 	// "AI Sorgu modeli: X" alongside "Describe modeli: Y" — frontend hides
 	// the dedicated row when override is false to avoid duplicate badges.
-	QueryModelOverride        bool   `json:"query_model_override"`
-	QueryProvider             string `json:"query_provider,omitempty"`
-	QueryModel                string `json:"query_model,omitempty"`
-	QueryBaseURL              string `json:"query_base_url,omitempty"`
-	QueryBaseURLEffective     string `json:"query_base_url_effective,omitempty"`
-	QueryAPIKeyConfigured     bool   `json:"query_api_key_configured,omitempty"`
-	QueryAPIKeyDedicated      bool   `json:"query_api_key_dedicated,omitempty"`
-	QueryHTTPTimeoutSeconds   int    `json:"query_http_timeout_seconds,omitempty"`
+	QueryModelOverride      bool   `json:"query_model_override"`
+	QueryProvider           string `json:"query_provider,omitempty"`
+	QueryModel              string `json:"query_model,omitempty"`
+	QueryBaseURL            string `json:"query_base_url,omitempty"`
+	QueryBaseURLEffective   string `json:"query_base_url_effective,omitempty"`
+	QueryAPIKeyConfigured   bool   `json:"query_api_key_configured,omitempty"`
+	QueryAPIKeyDedicated    bool   `json:"query_api_key_dedicated,omitempty"`
+	QueryHTTPTimeoutSeconds int    `json:"query_http_timeout_seconds,omitempty"`
 
 	EmbeddingsEnabled         bool   `json:"embeddings_enabled"`
 	EmbeddingModel            string `json:"embedding_model,omitempty"`
@@ -47,10 +47,10 @@ type aiRuntimeSettingsResponse struct {
 	TranslationTargetLanguage   string `json:"translation_target_language,omitempty"`
 	TranslationTargetCode       string `json:"translation_target_code,omitempty"`
 
-	MaxPromptInputRunes      int `json:"max_prompt_input_runes,omitempty"`
-	EffectiveMaxPromptRunes  int `json:"effective_max_prompt_runes,omitempty"`
-	ContextWindowTokens      int `json:"context_window_tokens,omitempty"`
-	ContextWindowSource      string `json:"context_window_source,omitempty"`
+	MaxPromptInputRunes     int    `json:"max_prompt_input_runes,omitempty"`
+	EffectiveMaxPromptRunes int    `json:"effective_max_prompt_runes,omitempty"`
+	ContextWindowTokens     int    `json:"context_window_tokens,omitempty"`
+	ContextWindowSource     string `json:"context_window_source,omitempty"`
 
 	// DBManaged reports whether provider/model selection is sourced from the
 	// ai_providers / ai_models tables (admin-managed) rather than env vars.
@@ -88,7 +88,7 @@ func embeddingBaseURLEffectiveLabel(cfg config.AIConfig) string {
 	if eff == "" {
 		return "— (set BI_AI_EMBEDDING_BASE_URL or BI_AI_BASE_URL for OpenAI-compatible providers)"
 	}
-	if strings.TrimSpace(cfg.EmbeddingBaseURL) != "" {
+	if strings.TrimSpace(cfg.Embedding.BaseURL) != "" {
 		return eff
 	}
 	if strings.TrimSpace(cfg.BaseURL) != "" {
@@ -102,7 +102,7 @@ func translationBaseURLEffectiveLabel(cfg config.AIConfig) string {
 	if eff == "" {
 		return "— (set BI_AI_TRANSLATION_BASE_URL or BI_AI_BASE_URL)"
 	}
-	if strings.TrimSpace(cfg.TranslationBaseURL) != "" {
+	if strings.TrimSpace(cfg.Translation.BaseURL) != "" {
 		return eff
 	}
 	return eff + " (from BI_AI_BASE_URL; override with BI_AI_TRANSLATION_BASE_URL)"
@@ -121,7 +121,7 @@ func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 			cfg.Provider, cfg.Model, cfg.BaseURL, cfg.APIKey = dc.Provider, dc.Model, dc.BaseURL, dc.APIKey
 		}
 		if qc, ok := h.deps.AIProviderStore.ChatConfigForPurpose(ai.PurposeQuery); ok {
-			cfg.QueryProvider, cfg.QueryModel, cfg.QueryBaseURL, cfg.QueryAPIKey = qc.Provider, qc.Model, qc.BaseURL, qc.APIKey
+			cfg.Query.Provider, cfg.Query.Model, cfg.Query.BaseURL, cfg.Query.APIKey = qc.Provider, qc.Model, qc.BaseURL, qc.APIKey
 		}
 	}
 	queryCfg := cfg.EffectiveQueryConfig()
@@ -139,9 +139,9 @@ func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 	out.QueryBaseURL = queryCfg.BaseURL
 	out.QueryBaseURLEffective = effectiveAIBaseURL(queryCfg)
 	out.QueryAPIKeyConfigured = strings.TrimSpace(queryCfg.APIKey) != ""
-	out.QueryAPIKeyDedicated = strings.TrimSpace(cfg.QueryAPIKey) != ""
-	if cfg.QueryHTTPTimeoutSeconds > 0 {
-		out.QueryHTTPTimeoutSeconds = cfg.QueryHTTPTimeoutSeconds
+	out.QueryAPIKeyDedicated = strings.TrimSpace(cfg.Query.APIKey) != ""
+	if cfg.Query.HTTPTimeoutSeconds > 0 {
+		out.QueryHTTPTimeoutSeconds = cfg.Query.HTTPTimeoutSeconds
 	}
 	out.MaxPromptInputRunes = queryCfg.MaxPromptInputRunes
 	out.EffectiveMaxPromptRunes = prompt.EffectiveMaxPromptRunes(queryCfg, queryCfg.Model)
@@ -151,21 +151,21 @@ func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 	embedCfg := cfg
 	if embedCfg.EmbeddingsConfigured() {
 		out.EmbeddingsEnabled = true
-		out.EmbeddingModel = strings.TrimSpace(embedCfg.EmbeddingModel)
-		out.EmbeddingBaseURL = embedCfg.EmbeddingBaseURL
+		out.EmbeddingModel = strings.TrimSpace(embedCfg.Embedding.Model)
+		out.EmbeddingBaseURL = embedCfg.Embedding.BaseURL
 		out.EmbeddingBaseURLEffective = embeddingBaseURLEffectiveLabel(embedCfg)
 		out.EmbeddingAPIKeyConfigured = strings.TrimSpace(embedCfg.EffectiveEmbeddingAPIKey()) != ""
-		out.EmbeddingAPIKeyDedicated = strings.TrimSpace(embedCfg.EmbeddingAPIKey) != ""
+		out.EmbeddingAPIKeyDedicated = strings.TrimSpace(embedCfg.Embedding.APIKey) != ""
 	}
 	if cfg.TranslationConfigured() {
 		out.TranslationEnabled = true
-		out.TranslationModel = strings.TrimSpace(cfg.TranslationModel)
-		out.TranslationBaseURL = cfg.TranslationBaseURL
+		out.TranslationModel = strings.TrimSpace(cfg.Translation.Model)
+		out.TranslationBaseURL = cfg.Translation.BaseURL
 		out.TranslationBaseURLEffective = translationBaseURLEffectiveLabel(cfg)
 		out.TranslationAPIKeyConfigured = strings.TrimSpace(cfg.EffectiveTranslationAPIKey()) != ""
-		out.TranslationAPIKeyDedicated = strings.TrimSpace(cfg.TranslationAPIKey) != ""
-		out.TranslationTargetLanguage = cfg.TranslationTargetLanguage
-		out.TranslationTargetCode = cfg.TranslationTargetCode
+		out.TranslationAPIKeyDedicated = strings.TrimSpace(cfg.Translation.APIKey) != ""
+		out.TranslationTargetLanguage = cfg.Translation.TargetLanguage
+		out.TranslationTargetCode = cfg.Translation.TargetCode
 	}
 	out.DBManaged = true
 	if h.deps.AIProviderStore != nil {

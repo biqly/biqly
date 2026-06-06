@@ -423,13 +423,13 @@ func setupAI(
 	if effectiveCfg.EmbeddingsConfigured() {
 		embedder = providerpkg.NewOpenAIEmbedder(effectiveCfg)
 		embedMeta = ai.NewEmbedMetadataService(embedder, metaRepo).
-			WithDeniedSchemas(cfg.AI.EmbeddingDenySchemas).
-			WithDeniedTables(cfg.AI.EmbeddingDenyTables)
+			WithDeniedSchemas(cfg.AI.Embedding.DenySchemas).
+			WithDeniedTables(cfg.AI.Embedding.DenyTables)
 	}
 
 	evalRepo := evalpkg.NewEvalRepository(db)
 
-	if err := routing.InitRouting(cfg.AI.RoutingLexiconPath, cfg.AI.RoutingWeightsPath); err != nil {
+	if err := routing.InitRouting(cfg.AI.Routing.LexiconPath, cfg.AI.Routing.WeightsPath); err != nil {
 		return aiBundle{}, fmt.Errorf("routing config: %w", err)
 	}
 

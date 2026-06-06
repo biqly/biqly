@@ -18,7 +18,7 @@ type OpenAIEmbedder struct {
 // NewOpenAIEmbedder configures an embedder using BI_AI_EMBEDDING_* with
 // fallback to the main LLM BaseURL/APIKey. Call only when EmbeddingsConfigured().
 func NewOpenAIEmbedder(cfg config.AIConfig) *OpenAIEmbedder {
-	model := strings.TrimSpace(cfg.EmbeddingModel)
+	model := strings.TrimSpace(cfg.Embedding.Model)
 	http := newHTTPProvider(cfg.EmbeddingHTTPTimeout(), cfg.EffectiveEmbeddingBaseURL(), cfg.EffectiveEmbeddingAPIKey())
 	return &OpenAIEmbedder{
 		base: baseEmbedder{

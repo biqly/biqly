@@ -71,16 +71,16 @@ func NewAIHandler(deps *app.AIDeps) *AIHandler {
 		metadataReader,
 		deps.Embedder,
 		embeddingReader,
-		deps.Config.AI.EmbeddingWeight,
+		deps.Config.AI.Embedding.Weight,
 	)
 	router.SetMetadataTranslator(deps.MetaRepo)
 	router.SetTimeGrainStore(deps.TimeGrains)
 	router.SetRoutingLimits(routing.LimitsFromConfig(
-		deps.Config.AI.RouteMaxDimensions,
-		deps.Config.AI.RouteMaxMetrics,
-		deps.Config.AI.RouteMaxColumnsPerTable,
-		deps.Config.AI.RouteMaxDateGrainExtras,
-		deps.Config.AI.RouteSlimNumericMetrics,
+		deps.Config.AI.Routing.MaxDimensions,
+		deps.Config.AI.Routing.MaxMetrics,
+		deps.Config.AI.Routing.MaxColumnsPerTable,
+		deps.Config.AI.Routing.MaxDateGrainExtras,
+		deps.Config.AI.Routing.SlimNumericMetrics,
 	))
 	return &AIHandler{
 		service:     svc,
@@ -223,12 +223,12 @@ func (h *AIHandler) standardProcessOptions(ctx context.Context, req aiQueryReque
 		ai.WithGlossary(prompt.SelectGlossaryForQuestion(req.Question, prompt.MergeGlossaryEntries(catalog, external), model)),
 		ai.WithAmbiguityGlossary(combineGlossaryEntries(catalog, external)),
 	}
-	if h.deps.Config.AI.AmbiguityCheckEnabled {
+	if h.deps.Config.AI.Ambiguity.CheckEnabled {
 		opts = append(opts,
 			ai.WithAmbiguityCheck(true),
-			ai.WithAmbiguityConfidenceThreshold(h.deps.Config.AI.AmbiguityConfidenceThreshold),
-			ai.WithAmbiguityMaxOptions(h.deps.Config.AI.AmbiguityMaxOptions),
-			ai.WithLLMAmbiguityCheck(h.deps.Config.AI.AmbiguityLLMEnabled),
+			ai.WithAmbiguityConfidenceThreshold(h.deps.Config.AI.Ambiguity.ConfidenceThreshold),
+			ai.WithAmbiguityMaxOptions(h.deps.Config.AI.Ambiguity.MaxOptions),
+			ai.WithLLMAmbiguityCheck(h.deps.Config.AI.Ambiguity.LLMEnabled),
 		)
 		if h.metrics != nil {
 			opts = append(opts, ai.WithAmbiguityAnalysisObserver(h.metrics.RecordAmbiguityAnalysis))

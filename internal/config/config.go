@@ -165,97 +165,100 @@ type ServicesConfig struct {
 // (typically a smarter model) without disturbing describe / metadata work,
 // which prefers cheaper coverage on a smaller local model. All fields are
 // optional: empty falls back to the matching base AIConfig connection setting.
+// QueryLLMConfig overrides the connection used by the NL-to-LogicalQuery path
+// (typically a smarter model) without disturbing describe / metadata work,
+// which prefers cheaper coverage on a smaller local model. All fields are
+// optional: empty falls back to the matching base AIConfig connection setting.
 type QueryLLMConfig struct {
-	QueryProvider           string
-	QueryModel              string
-	QueryBaseURL            string
-	QueryAPIKey             string
-	QueryHTTPTimeoutSeconds int
+	Provider           string
+	Model              string
+	BaseURL            string
+	APIKey             string
+	HTTPTimeoutSeconds int
 }
 
 // EmbeddingConfig groups the settings for vector-based table retrieval and the
 // embed-metadata pipeline.
 type EmbeddingConfig struct {
-	// EmbeddingModel names the embeddings model used for vector-based table
-	// retrieval. Empty disables the embedder; the router uses keyword-only scoring.
-	EmbeddingModel string
-	// EmbeddingBaseURL, when set, is the OpenAI-compatible base for POST …/embeddings.
-	// Empty means use BaseURL (LLM), then provider default for OpenAI.
-	EmbeddingBaseURL string
-	// EmbeddingAPIKey, when set, is used only for embedding requests.
-	// Empty means use APIKey (LLM).
-	EmbeddingAPIKey string
-	// EmbeddingHTTPTimeoutSeconds overrides provider HTTP timeout for
-	// embedding requests, which can run longer than chat completions when
-	// refreshing an entire catalog.
-	EmbeddingHTTPTimeoutSeconds int
-	// EmbeddingWeight scales the cosine-similarity contribution to the
-	// hybrid table-routing score. 0 disables the boost even when embeddings
-	// are present; 30 (default) makes a perfect match comparable to a fully
-	// matched table-name token.
-	EmbeddingWeight float64
-	// EmbeddingDenySchemas lists schema names whose tables MUST NOT be
-	// embedded — table/column identifiers will not be sent to an external
-	// embedding API. Use for schemas holding regulated data.
-	EmbeddingDenySchemas []string
-	// EmbeddingDenyTables lists "schema.table" pairs to exclude from
-	// embedding even when the schema is otherwise allowed.
-	EmbeddingDenyTables []string
+	// Model names the embeddings model used for vector-based table retrieval.
+	// Empty disables the embedder; the router uses keyword-only scoring.
+	Model string
+	// BaseURL, when set, is the OpenAI-compatible base for POST …/embeddings.
+	// Empty means use the LLM BaseURL, then the provider default for OpenAI.
+	BaseURL string
+	// APIKey, when set, is used only for embedding requests. Empty falls back
+	// to the LLM APIKey.
+	APIKey string
+	// HTTPTimeoutSeconds overrides the provider HTTP timeout for embedding
+	// requests, which can run longer than chat completions when refreshing an
+	// entire catalog.
+	HTTPTimeoutSeconds int
+	// Weight scales the cosine-similarity contribution to the hybrid
+	// table-routing score. 0 disables the boost even when embeddings are
+	// present; 30 (default) makes a perfect match comparable to a fully matched
+	// table-name token.
+	Weight float64
+	// DenySchemas lists schema names whose tables MUST NOT be embedded —
+	// table/column identifiers will not be sent to an external embedding API.
+	// Use for schemas holding regulated data.
+	DenySchemas []string
+	// DenyTables lists "schema.table" pairs to exclude from embedding even when
+	// the schema is otherwise allowed.
+	DenyTables []string
 }
 
 // TranslationConfig groups the post-processing translation/normalization layer
 // for AI-generated metadata descriptions.
 type TranslationConfig struct {
-	// TranslationModel enables a post-processing translation/normalization layer
-	// for AI-generated metadata descriptions.
-	TranslationModel string
-	// TranslationBaseURL is the OpenAI-compatible base URL for the translation model.
-	TranslationBaseURL string
-	// TranslationAPIKey is used for translation requests. Empty falls back to APIKey.
-	TranslationAPIKey string
-	// TranslationTargetLanguage is the human-readable target language name.
-	TranslationTargetLanguage string
-	// TranslationTargetCode is the BCP-47/ISO target language code.
-	TranslationTargetCode string
-	// TranslationHTTPTimeoutSeconds is the HTTP timeout for translation requests.
-	TranslationHTTPTimeoutSeconds int
+	// Model enables a post-processing translation/normalization layer for
+	// AI-generated metadata descriptions.
+	Model string
+	// BaseURL is the OpenAI-compatible base URL for the translation model.
+	BaseURL string
+	// APIKey is used for translation requests. Empty falls back to the LLM APIKey.
+	APIKey string
+	// TargetLanguage is the human-readable target language name.
+	TargetLanguage string
+	// TargetCode is the BCP-47/ISO target language code.
+	TargetCode string
+	// HTTPTimeoutSeconds is the HTTP timeout for translation requests.
+	HTTPTimeoutSeconds int
 }
 
 // RoutingConfig groups the hybrid table-router tuning knobs and the caps used
 // when synthesizing semantic models from raw introspected metadata.
 type RoutingConfig struct {
-	// RoutingLexiconPath overrides embedded NL token synonyms and intent vocabulary (JSON).
-	RoutingLexiconPath string
-	// RoutingWeightsPath overrides table-routing score weights and boost rules (JSON).
-	RoutingWeightsPath string
-	// RouteMaxDimensions caps dimensions in auto-generated semantic models (prompt size).
-	RouteMaxDimensions int
-	// RouteMaxMetrics caps metrics in auto-generated semantic models.
-	RouteMaxMetrics int
-	// RouteMaxColumnsPerTable caps ranked columns per wide table during auto-routing.
-	RouteMaxColumnsPerTable int
-	// RouteMaxDateGrainExtras caps date-grain dimension variants per date column.
-	RouteMaxDateGrainExtras int
-	// RouteSlimNumericMetrics when true emits only sum_/max_ per numeric column (not avg_/min_).
-	RouteSlimNumericMetrics bool
+	// LexiconPath overrides embedded NL token synonyms and intent vocabulary (JSON).
+	LexiconPath string
+	// WeightsPath overrides table-routing score weights and boost rules (JSON).
+	WeightsPath string
+	// MaxDimensions caps dimensions in auto-generated semantic models (prompt size).
+	MaxDimensions int
+	// MaxMetrics caps metrics in auto-generated semantic models.
+	MaxMetrics int
+	// MaxColumnsPerTable caps ranked columns per wide table during auto-routing.
+	MaxColumnsPerTable int
+	// MaxDateGrainExtras caps date-grain dimension variants per date column.
+	MaxDateGrainExtras int
+	// SlimNumericMetrics when true emits only sum_/max_ per numeric column (not avg_/min_).
+	SlimNumericMetrics bool
 }
 
 // AmbiguityConfig groups the pre-LLM semantic ambiguity clarification knobs.
 type AmbiguityConfig struct {
-	// AmbiguityCheckEnabled toggles pre-LLM semantic ambiguity clarification.
-	AmbiguityCheckEnabled bool
-	// AmbiguityConfidenceThreshold is the minimum interpretation confidence to count toward clarification.
-	AmbiguityConfidenceThreshold float64
-	// AmbiguityMaxOptions caps the selectable clarification options returned to the user.
-	AmbiguityMaxOptions int
-	// AmbiguityLLMEnabled enables the provider-backed ambiguity fallback after deterministic checks pass.
-	AmbiguityLLMEnabled bool
+	// CheckEnabled toggles pre-LLM semantic ambiguity clarification.
+	CheckEnabled bool
+	// ConfidenceThreshold is the minimum interpretation confidence to count toward clarification.
+	ConfidenceThreshold float64
+	// MaxOptions caps the selectable clarification options returned to the user.
+	MaxOptions int
+	// LLMEnabled enables the provider-backed ambiguity fallback after deterministic checks pass.
+	LLMEnabled bool
 }
 
-// AIConfig holds AI provider configuration. The purpose-specific knobs are
-// grouped into embedded sub-configs (query / embedding / translation / routing /
-// ambiguity); their fields are promoted, so cfg.AI.EmbeddingModel and friends
-// keep resolving unchanged across the codebase.
+// AIConfig holds AI provider configuration. The purpose-specific knobs live in
+// named sub-configs (Query / Embedding / Translation / Routing / Ambiguity);
+// only the shared connection + operational knobs remain at the top level.
 type AIConfig struct {
 	// Provider/model selection is sourced exclusively from the ai_providers /
 	// ai_models tables (managed at runtime via the admin API). The connection
@@ -290,11 +293,11 @@ type AIConfig struct {
 	// ResponseCacheTTLSeconds sets the time-to-live for cached AI query responses.
 	ResponseCacheTTLSeconds int
 
-	QueryLLMConfig
-	EmbeddingConfig
-	TranslationConfig
-	RoutingConfig
-	AmbiguityConfig
+	Query       QueryLLMConfig
+	Embedding   EmbeddingConfig
+	Translation TranslationConfig
+	Routing     RoutingConfig
+	Ambiguity   AmbiguityConfig
 }
 
 // Load reads configuration from environment variables.
@@ -359,40 +362,40 @@ func Load() (*Config, error) {
 			MaxRetries:              getEnvAsInt("BI_AI_MAX_RETRIES", 2),
 			MultiCandidateCount:     getEnvAsInt("BI_AI_MULTI_CANDIDATE_COUNT", 1),
 			ResponseCacheTTLSeconds: getEnvAsInt("BI_AI_RESPONSE_CACHE_TTL", 3600),
-			TranslationConfig: TranslationConfig{
-				TranslationTargetLanguage: getEnv(
+			Translation: TranslationConfig{
+				TargetLanguage: getEnv(
 					"BI_AI_TRANSLATION_TARGET_LANGUAGE",
 					"Turkish",
 				),
-				TranslationTargetCode:         getEnv("BI_AI_TRANSLATION_TARGET_CODE", "tr"),
-				TranslationHTTPTimeoutSeconds: getEnvAsInt("BI_AI_TRANSLATION_HTTP_TIMEOUT_SECONDS", 120),
+				TargetCode:         getEnv("BI_AI_TRANSLATION_TARGET_CODE", "tr"),
+				HTTPTimeoutSeconds: getEnvAsInt("BI_AI_TRANSLATION_HTTP_TIMEOUT_SECONDS", 120),
 			},
-			EmbeddingConfig: EmbeddingConfig{
-				EmbeddingHTTPTimeoutSeconds: getEnvAsInt(
+			Embedding: EmbeddingConfig{
+				HTTPTimeoutSeconds: getEnvAsInt(
 					"BI_AI_EMBEDDING_HTTP_TIMEOUT_SECONDS",
 					getEnvAsInt("BI_AI_HTTP_TIMEOUT_SECONDS", 600),
 				),
-				EmbeddingWeight:      getEnvAsFloat("BI_AI_EMBEDDING_WEIGHT", 30.0),
-				EmbeddingDenySchemas: splitCSV(getEnv("BI_AI_EMBEDDING_DENY_SCHEMAS", "")),
-				EmbeddingDenyTables:  splitCSV(getEnv("BI_AI_EMBEDDING_DENY_TABLES", "")),
+				Weight:      getEnvAsFloat("BI_AI_EMBEDDING_WEIGHT", 30.0),
+				DenySchemas: splitCSV(getEnv("BI_AI_EMBEDDING_DENY_SCHEMAS", "")),
+				DenyTables:  splitCSV(getEnv("BI_AI_EMBEDDING_DENY_TABLES", "")),
 			},
-			RoutingConfig: RoutingConfig{
-				RoutingLexiconPath:      getEnv("BI_AI_ROUTING_LEXICON_PATH", ""),
-				RoutingWeightsPath:      getEnv("BI_AI_ROUTING_WEIGHTS_PATH", ""),
-				RouteMaxDimensions:      getEnvAsInt("BI_AI_ROUTE_MAX_DIMENSIONS", 0),
-				RouteMaxMetrics:         getEnvAsInt("BI_AI_ROUTE_MAX_METRICS", 0),
-				RouteMaxColumnsPerTable: getEnvAsInt("BI_AI_ROUTE_MAX_COLUMNS_PER_TABLE", 0),
-				RouteMaxDateGrainExtras: getEnvAsInt("BI_AI_ROUTE_MAX_DATE_GRAIN_EXTRAS", 0),
-				RouteSlimNumericMetrics: getEnvAsBool("BI_AI_ROUTE_SLIM_NUMERIC_METRICS", true),
+			Routing: RoutingConfig{
+				LexiconPath:        getEnv("BI_AI_ROUTING_LEXICON_PATH", ""),
+				WeightsPath:        getEnv("BI_AI_ROUTING_WEIGHTS_PATH", ""),
+				MaxDimensions:      getEnvAsInt("BI_AI_ROUTE_MAX_DIMENSIONS", 0),
+				MaxMetrics:         getEnvAsInt("BI_AI_ROUTE_MAX_METRICS", 0),
+				MaxColumnsPerTable: getEnvAsInt("BI_AI_ROUTE_MAX_COLUMNS_PER_TABLE", 0),
+				MaxDateGrainExtras: getEnvAsInt("BI_AI_ROUTE_MAX_DATE_GRAIN_EXTRAS", 0),
+				SlimNumericMetrics: getEnvAsBool("BI_AI_ROUTE_SLIM_NUMERIC_METRICS", true),
 			},
-			AmbiguityConfig: AmbiguityConfig{
-				AmbiguityCheckEnabled: getEnvAsBool("BI_AI_AMBIGUITY_CHECK_ENABLED", true),
-				AmbiguityConfidenceThreshold: getEnvAsFloat(
+			Ambiguity: AmbiguityConfig{
+				CheckEnabled: getEnvAsBool("BI_AI_AMBIGUITY_CHECK_ENABLED", true),
+				ConfidenceThreshold: getEnvAsFloat(
 					"BI_AI_AMBIGUITY_CONFIDENCE_THRESHOLD",
 					0.70,
 				),
-				AmbiguityMaxOptions: getEnvAsInt("BI_AI_AMBIGUITY_MAX_OPTIONS", 5),
-				AmbiguityLLMEnabled: getEnvAsBool("BI_AI_AMBIGUITY_LLM_ENABLED", false),
+				MaxOptions: getEnvAsInt("BI_AI_AMBIGUITY_MAX_OPTIONS", 5),
+				LLMEnabled: getEnvAsBool("BI_AI_AMBIGUITY_LLM_ENABLED", false),
 			},
 		},
 		NATS: NATSConfig{
@@ -435,10 +438,10 @@ func Load() (*Config, error) {
 	if err := validateFloatRange("BI_PII_DETECTION_THRESHOLD", cfg.PII.DetectionThreshold, 0, 1); err != nil {
 		return nil, err
 	}
-	if err := validateFloatRange("BI_AI_AMBIGUITY_CONFIDENCE_THRESHOLD", cfg.AI.AmbiguityConfidenceThreshold, 0, 1); err != nil {
+	if err := validateFloatRange("BI_AI_AMBIGUITY_CONFIDENCE_THRESHOLD", cfg.AI.Ambiguity.ConfidenceThreshold, 0, 1); err != nil {
 		return nil, err
 	}
-	if err := validateFloatRange("BI_AI_EMBEDDING_WEIGHT", cfg.AI.EmbeddingWeight, 0, 100); err != nil {
+	if err := validateFloatRange("BI_AI_EMBEDDING_WEIGHT", cfg.AI.Embedding.Weight, 0, 100); err != nil {
 		return nil, err
 	}
 
@@ -456,7 +459,7 @@ func (c AIConfig) AIHTTPTimeout() time.Duration {
 
 // EmbeddingHTTPTimeout returns the HTTP timeout for embedding requests.
 func (c AIConfig) EmbeddingHTTPTimeout() time.Duration {
-	seconds := c.EmbeddingHTTPTimeoutSeconds
+	seconds := c.Embedding.HTTPTimeoutSeconds
 	if seconds <= 0 {
 		seconds = c.HTTPTimeoutSeconds
 	}
@@ -488,20 +491,20 @@ func (c AIConfig) AIRequestTimeout() time.Duration {
 // avoid building a duplicate provider when nothing changed.
 func (c AIConfig) EffectiveQueryConfig() AIConfig {
 	out := c
-	if s := strings.TrimSpace(c.QueryProvider); s != "" {
+	if s := strings.TrimSpace(c.Query.Provider); s != "" {
 		out.Provider = s
 	}
-	if s := strings.TrimSpace(c.QueryModel); s != "" {
+	if s := strings.TrimSpace(c.Query.Model); s != "" {
 		out.Model = s
 	}
-	if s := strings.TrimSpace(c.QueryBaseURL); s != "" {
+	if s := strings.TrimSpace(c.Query.BaseURL); s != "" {
 		out.BaseURL = s
 	}
-	if s := strings.TrimSpace(c.QueryAPIKey); s != "" {
+	if s := strings.TrimSpace(c.Query.APIKey); s != "" {
 		out.APIKey = s
 	}
-	if c.QueryHTTPTimeoutSeconds > 0 {
-		out.HTTPTimeoutSeconds = c.QueryHTTPTimeoutSeconds
+	if c.Query.HTTPTimeoutSeconds > 0 {
+		out.HTTPTimeoutSeconds = c.Query.HTTPTimeoutSeconds
 	}
 	return out
 }
@@ -529,16 +532,16 @@ func (c AIConfig) QueryLLMConfigured() bool {
 // callers should reuse the base AI provider instead of constructing a second
 // one that points at the same endpoint and model.
 func (c AIConfig) HasQueryOverride() bool {
-	return strings.TrimSpace(c.QueryProvider) != "" ||
-		strings.TrimSpace(c.QueryModel) != "" ||
-		strings.TrimSpace(c.QueryBaseURL) != "" ||
-		strings.TrimSpace(c.QueryAPIKey) != "" ||
-		c.QueryHTTPTimeoutSeconds > 0
+	return strings.TrimSpace(c.Query.Provider) != "" ||
+		strings.TrimSpace(c.Query.Model) != "" ||
+		strings.TrimSpace(c.Query.BaseURL) != "" ||
+		strings.TrimSpace(c.Query.APIKey) != "" ||
+		c.Query.HTTPTimeoutSeconds > 0
 }
 
 // EffectiveEmbeddingAPIKey returns BI_AI_EMBEDDING_API_KEY when set, otherwise BI_AI_API_KEY.
 func (c AIConfig) EffectiveEmbeddingAPIKey() string {
-	if s := strings.TrimSpace(c.EmbeddingAPIKey); s != "" {
+	if s := strings.TrimSpace(c.Embedding.APIKey); s != "" {
 		return s
 	}
 	return c.APIKey
@@ -547,7 +550,7 @@ func (c AIConfig) EffectiveEmbeddingAPIKey() string {
 // EffectiveEmbeddingBaseURL resolves the embeddings HTTP base (no trailing path).
 // Order: BI_AI_EMBEDDING_BASE_URL, then BI_AI_BASE_URL, then OpenAI default when provider is OpenAI-compatible.
 func (c AIConfig) EffectiveEmbeddingBaseURL() string {
-	if s := strings.TrimSpace(c.EmbeddingBaseURL); s != "" {
+	if s := strings.TrimSpace(c.Embedding.BaseURL); s != "" {
 		return strings.TrimRight(s, "/")
 	}
 	if s := strings.TrimSpace(c.BaseURL); s != "" {
@@ -564,7 +567,7 @@ func (c AIConfig) EffectiveEmbeddingBaseURL() string {
 
 // EmbeddingsConfigured reports whether vector table routing / embed-metadata can call an embeddings API.
 func (c AIConfig) EmbeddingsConfigured() bool {
-	if strings.TrimSpace(c.EmbeddingModel) == "" {
+	if strings.TrimSpace(c.Embedding.Model) == "" {
 		return false
 	}
 	if strings.TrimSpace(c.EffectiveEmbeddingAPIKey()) == "" {
@@ -575,7 +578,7 @@ func (c AIConfig) EmbeddingsConfigured() bool {
 
 // EffectiveTranslationAPIKey returns BI_AI_TRANSLATION_API_KEY when set, otherwise BI_AI_API_KEY.
 func (c AIConfig) EffectiveTranslationAPIKey() string {
-	if s := strings.TrimSpace(c.TranslationAPIKey); s != "" {
+	if s := strings.TrimSpace(c.Translation.APIKey); s != "" {
 		return s
 	}
 	return c.APIKey
@@ -583,7 +586,7 @@ func (c AIConfig) EffectiveTranslationAPIKey() string {
 
 // EffectiveTranslationBaseURL resolves the OpenAI-compatible translation base URL.
 func (c AIConfig) EffectiveTranslationBaseURL() string {
-	if s := strings.TrimSpace(c.TranslationBaseURL); s != "" {
+	if s := strings.TrimSpace(c.Translation.BaseURL); s != "" {
 		return strings.TrimRight(s, "/")
 	}
 	return strings.TrimRight(strings.TrimSpace(c.BaseURL), "/")
@@ -591,7 +594,7 @@ func (c AIConfig) EffectiveTranslationBaseURL() string {
 
 // TranslationHTTPTimeout returns the HTTP timeout for translation requests.
 func (c AIConfig) TranslationHTTPTimeout() time.Duration {
-	seconds := c.TranslationHTTPTimeoutSeconds
+	seconds := c.Translation.HTTPTimeoutSeconds
 	if seconds <= 0 {
 		seconds = c.HTTPTimeoutSeconds
 	}
@@ -603,7 +606,7 @@ func (c AIConfig) TranslationHTTPTimeout() time.Duration {
 
 // TranslationConfigured reports whether metadata description translation is enabled.
 func (c AIConfig) TranslationConfigured() bool {
-	if strings.TrimSpace(c.TranslationModel) == "" {
+	if strings.TrimSpace(c.Translation.Model) == "" {
 		return false
 	}
 	return strings.TrimSpace(c.EffectiveTranslationBaseURL()) != ""

@@ -6,7 +6,7 @@ import (
 )
 
 func TestAIConfig_EffectiveEmbeddingAPIKey(t *testing.T) {
-	c := AIConfig{APIKey: "main", EmbeddingConfig: EmbeddingConfig{EmbeddingAPIKey: "  emb  "}}
+	c := AIConfig{APIKey: "main", Embedding: EmbeddingConfig{APIKey: "  emb  "}}
 	if got := c.EffectiveEmbeddingAPIKey(); got != "emb" {
 		t.Fatalf("want dedicated trimmed key, got %q", got)
 	}
@@ -30,7 +30,7 @@ func TestAIConfig_AIHTTPTimeout(t *testing.T) {
 }
 
 func TestAIConfig_EmbeddingHTTPTimeout(t *testing.T) {
-	c := AIConfig{HTTPTimeoutSeconds: 12, EmbeddingConfig: EmbeddingConfig{EmbeddingHTTPTimeoutSeconds: 45}}
+	c := AIConfig{HTTPTimeoutSeconds: 12, Embedding: EmbeddingConfig{HTTPTimeoutSeconds: 45}}
 	if got := c.EmbeddingHTTPTimeout(); got != 45*time.Second {
 		t.Fatalf("configured embedding timeout: got %s", got)
 	}
@@ -44,7 +44,7 @@ func TestAIConfig_EmbeddingHTTPTimeout(t *testing.T) {
 }
 
 func TestAIConfig_TranslationHTTPTimeout(t *testing.T) {
-	c := AIConfig{HTTPTimeoutSeconds: 12, TranslationConfig: TranslationConfig{TranslationHTTPTimeoutSeconds: 45}}
+	c := AIConfig{HTTPTimeoutSeconds: 12, Translation: TranslationConfig{HTTPTimeoutSeconds: 45}}
 	if got := c.TranslationHTTPTimeout(); got != 45*time.Second {
 		t.Fatalf("configured translation timeout: got %s", got)
 	}
@@ -58,7 +58,7 @@ func TestAIConfig_TranslationHTTPTimeout(t *testing.T) {
 }
 
 func TestAIConfig_AIRequestTimeout(t *testing.T) {
-	c := AIConfig{HTTPTimeoutSeconds: 12, EmbeddingConfig: EmbeddingConfig{EmbeddingHTTPTimeoutSeconds: 45}, TranslationConfig: TranslationConfig{TranslationHTTPTimeoutSeconds: 60}}
+	c := AIConfig{HTTPTimeoutSeconds: 12, Embedding: EmbeddingConfig{HTTPTimeoutSeconds: 45}, Translation: TranslationConfig{HTTPTimeoutSeconds: 60}}
 	if got := c.AIRequestTimeout(); got != 90*time.Second {
 		t.Fatalf("request timeout should include the largest AI subrequest timeout plus buffer: got %s", got)
 	}
@@ -72,10 +72,10 @@ func TestAIConfig_EffectiveTranslationConfig(t *testing.T) {
 	c := AIConfig{
 		APIKey:  "main",
 		BaseURL: "https://chat.example/v1/",
-		TranslationConfig: TranslationConfig{
-			TranslationModel:   "translategemma:4b",
-			TranslationBaseURL: "https://translate.example/v1/",
-			TranslationAPIKey:  "  translate  ",
+		Translation: TranslationConfig{
+			Model:   "translategemma:4b",
+			BaseURL: "https://translate.example/v1/",
+			APIKey:  "  translate  ",
 		},
 	}
 	if got := c.EffectiveTranslationAPIKey(); got != "translate" {
@@ -88,7 +88,7 @@ func TestAIConfig_EffectiveTranslationConfig(t *testing.T) {
 		t.Fatal("translation model plus base URL should enable translation")
 	}
 
-	fallback := AIConfig{APIKey: "main", BaseURL: "https://chat.example/v1", TranslationConfig: TranslationConfig{TranslationModel: "x"}}
+	fallback := AIConfig{APIKey: "main", BaseURL: "https://chat.example/v1", Translation: TranslationConfig{Model: "x"}}
 	if got := fallback.EffectiveTranslationAPIKey(); got != "main" {
 		t.Fatalf("want main key fallback, got %q", got)
 	}
@@ -99,13 +99,13 @@ func TestAIConfig_EffectiveTranslationConfig(t *testing.T) {
 		t.Fatal("translation should use BI_AI_BASE_URL when dedicated URL is empty")
 	}
 
-	if (AIConfig{TranslationConfig: TranslationConfig{TranslationModel: "x"}}).TranslationConfigured() {
+	if (AIConfig{Translation: TranslationConfig{Model: "x"}}).TranslationConfigured() {
 		t.Fatal("translation model without any base URL should not enable translation")
 	}
 }
 
 func TestAIConfig_EffectiveEmbeddingBaseURL(t *testing.T) {
-	c := AIConfig{EmbeddingConfig: EmbeddingConfig{EmbeddingBaseURL: "https://embed.example/v1/"}}
+	c := AIConfig{Embedding: EmbeddingConfig{BaseURL: "https://embed.example/v1/"}}
 	if got := c.EffectiveEmbeddingBaseURL(); got != "https://embed.example/v1" {
 		t.Fatalf("trim: got %q", got)
 	}
@@ -139,7 +139,7 @@ func TestAIConfig_EffectiveQueryConfigOverrides(t *testing.T) {
 
 	t.Run("model override only", func(t *testing.T) {
 		c := base
-		c.QueryModel = "gpt-4o"
+		c.Query.Model = "gpt-4o"
 		if !c.HasQueryOverride() {
 			t.Error("HasQueryOverride should be true when QueryModel set")
 		}
@@ -154,11 +154,11 @@ func TestAIConfig_EffectiveQueryConfigOverrides(t *testing.T) {
 
 	t.Run("full provider swap", func(t *testing.T) {
 		c := base
-		c.QueryProvider = "openai"
-		c.QueryModel = "gpt-4o"
-		c.QueryBaseURL = "https://api.openai.com/v1"
-		c.QueryAPIKey = "sk-xxx"
-		c.QueryHTTPTimeoutSeconds = 60
+		c.Query.Provider = "openai"
+		c.Query.Model = "gpt-4o"
+		c.Query.BaseURL = "https://api.openai.com/v1"
+		c.Query.APIKey = "sk-xxx"
+		c.Query.HTTPTimeoutSeconds = 60
 		got := c.EffectiveQueryConfig()
 		if got.Provider != "openai" || got.Model != "gpt-4o" || got.BaseURL != "https://api.openai.com/v1" || got.APIKey != "sk-xxx" || got.HTTPTimeoutSeconds != 60 {
 			t.Errorf("expected full override, got %+v", got)
@@ -202,18 +202,18 @@ func TestAIConfig_EmbeddingsConfigured(t *testing.T) {
 		t.Fatal("empty config should not enable embeddings")
 	}
 	ok := AIConfig{
-		Provider:        "openai",
-		APIKey:          "k",
-		EmbeddingConfig: EmbeddingConfig{EmbeddingModel: "text-embedding-3-small"},
+		Provider:  "openai",
+		APIKey:    "k",
+		Embedding: EmbeddingConfig{Model: "text-embedding-3-small"},
 	}
 	if !ok.EmbeddingsConfigured() {
 		t.Fatal("model + key + default openai base should enable")
 	}
 	noURL := AIConfig{
-		Provider:        "anthropic",
-		APIKey:          "k",
-		BaseURL:         "",
-		EmbeddingConfig: EmbeddingConfig{EmbeddingModel: "x"},
+		Provider:  "anthropic",
+		APIKey:    "k",
+		BaseURL:   "",
+		Embedding: EmbeddingConfig{Model: "x"},
 	}
 	if noURL.EmbeddingsConfigured() {
 		t.Fatal("anthropic without any base URL should not enable (no default host for embeddings)")

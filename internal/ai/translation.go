@@ -34,7 +34,7 @@ func NewTranslationServiceFromConfig(cfg config.AIConfig) *TranslationService {
 		Provider:           "openai-compatible",
 		BaseURL:            cfg.EffectiveTranslationBaseURL(),
 		APIKey:             cfg.EffectiveTranslationAPIKey(),
-		Model:              strings.TrimSpace(cfg.TranslationModel),
+		Model:              strings.TrimSpace(cfg.Translation.Model),
 		MaxTokens:          cfg.MaxTokens,
 		Temperature:        0,
 		TopP:               cfg.TopP,
@@ -44,8 +44,8 @@ func NewTranslationServiceFromConfig(cfg config.AIConfig) *TranslationService {
 	return NewTranslationService(
 		providerpkg.NewClient(translationCfg),
 		translationCfg.Model,
-		cfg.TranslationTargetLanguage,
-		cfg.TranslationTargetCode,
+		cfg.Translation.TargetLanguage,
+		cfg.Translation.TargetCode,
 	)
 }
 

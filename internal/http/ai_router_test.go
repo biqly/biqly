@@ -19,7 +19,7 @@ func TestAIRouter_UsesAIRequestTimeout(t *testing.T) {
 			Query: config.QueryConfig{MaxRuntimeSeconds: 60},
 			AI: config.AIConfig{
 				HTTPTimeoutSeconds: 12,
-				TranslationConfig:  config.TranslationConfig{TranslationHTTPTimeoutSeconds: 90},
+				Translation:        config.TranslationConfig{HTTPTimeoutSeconds: 90},
 			},
 		},
 	}

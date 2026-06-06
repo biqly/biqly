@@ -88,7 +88,7 @@ func TestChatConfigForPurposeResolved(t *testing.T) {
 		MaxRetries:          3,
 		MultiCandidateCount: 2,
 		MaxPromptInputRunes: 80000,
-		QueryLLMConfig:      config.QueryLLMConfig{QueryModel: "should-be-cleared"},
+		Query:               config.QueryLLMConfig{Model: "should-be-cleared"},
 	}
 	store := NewProviderStore(nil, nil, &fallback)
 	store.resolved[PurposeQuery] = &resolvedModel{
@@ -120,8 +120,8 @@ func TestChatConfigForPurposeResolved(t *testing.T) {
 		t.Errorf("fallback tuning lost: %+v", cfg)
 	}
 	// BI_AI_QUERY_* overrides neutralized so the DB selection is authoritative.
-	if cfg.QueryModel != "" {
-		t.Errorf("expected QueryModel cleared, got %q", cfg.QueryModel)
+	if cfg.Query.Model != "" {
+		t.Errorf("expected QueryModel cleared, got %q", cfg.Query.Model)
 	}
 }
 
@@ -140,13 +140,13 @@ func TestEffectiveConfigOverlaysEmbeddingAndTranslation(t *testing.T) {
 	}
 
 	cfg := store.EffectiveConfig()
-	if cfg.EmbeddingModel != "text-embedding-3-small" || cfg.EmbeddingBaseURL != "https://emb.example/v1" || cfg.EmbeddingAPIKey != "emb-key" {
+	if cfg.Embedding.Model != "text-embedding-3-small" || cfg.Embedding.BaseURL != "https://emb.example/v1" || cfg.Embedding.APIKey != "emb-key" {
 		t.Errorf("embedding overlay missing: %+v", cfg)
 	}
-	if cfg.EmbeddingHTTPTimeoutSeconds != 600 {
-		t.Errorf("embedding timeout not applied: %d", cfg.EmbeddingHTTPTimeoutSeconds)
+	if cfg.Embedding.HTTPTimeoutSeconds != 600 {
+		t.Errorf("embedding timeout not applied: %d", cfg.Embedding.HTTPTimeoutSeconds)
 	}
-	if cfg.TranslationModel != "gpt-4o-mini" || cfg.TranslationAPIKey != "tr-key" {
+	if cfg.Translation.Model != "gpt-4o-mini" || cfg.Translation.APIKey != "tr-key" {
 		t.Errorf("translation overlay missing: %+v", cfg)
 	}
 }
@@ -194,9 +194,9 @@ func TestPurposeProviderFallsBackWhenUnresolved(t *testing.T) {
 
 func TestEffectiveConfigForEmbeddings_ClearsEnvWhenUnresolved(t *testing.T) {
 	fallback := config.AIConfig{
-		EmbeddingConfig: config.EmbeddingConfig{
-			EmbeddingModel:  "env-embed",
-			EmbeddingAPIKey: "env-key",
+		Embedding: config.EmbeddingConfig{
+			Model:  "env-embed",
+			APIKey: "env-key",
 		},
 		BaseURL: "https://api.openai.com/v1",
 	}
@@ -206,8 +206,8 @@ func TestEffectiveConfigForEmbeddings_ClearsEnvWhenUnresolved(t *testing.T) {
 	if cfg.EmbeddingsConfigured() {
 		t.Fatal("expected embeddings disabled when DB has no embedding model")
 	}
-	if cfg.EmbeddingModel != "" {
-		t.Errorf("EmbeddingModel = %q, want empty", cfg.EmbeddingModel)
+	if cfg.Embedding.Model != "" {
+		t.Errorf("EmbeddingModel = %q, want empty", cfg.Embedding.Model)
 	}
 
 	store.resolved[PurposeEmbedding] = &resolvedModel{
@@ -219,13 +219,13 @@ func TestEffectiveConfigForEmbeddings_ClearsEnvWhenUnresolved(t *testing.T) {
 	if !cfg2.EmbeddingsConfigured() {
 		t.Fatal("expected embeddings enabled when DB embedding model is resolved")
 	}
-	if cfg2.EmbeddingModel != "db-embed" {
-		t.Errorf("EmbeddingModel = %q, want db-embed", cfg2.EmbeddingModel)
+	if cfg2.Embedding.Model != "db-embed" {
+		t.Errorf("EmbeddingModel = %q, want db-embed", cfg2.Embedding.Model)
 	}
 }
 
 func TestModelLabelForPurpose(t *testing.T) {
-	fallback := config.AIConfig{Model: "env-describe", QueryLLMConfig: config.QueryLLMConfig{QueryModel: "qwen-env"}}
+	fallback := config.AIConfig{Model: "env-describe", Query: config.QueryLLMConfig{Model: "qwen-env"}}
 	store := NewProviderStore(nil, nil, &fallback)
 	store.resolved[PurposeQuery] = &resolvedModel{
 		ModelID:     "mimo-v2.5",
