@@ -3,10 +3,10 @@ package handlers
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -393,7 +393,8 @@ func (h *AuthHandler) internalTokenMiddleware(next http.Handler) http.Handler {
 			}
 		}
 
-		if tokenHeader != h.config.InternalToken {
+		want := h.config.InternalToken
+		if want == "" || tokenHeader == "" || subtle.ConstantTimeCompare([]byte(tokenHeader), []byte(want)) != 1 {
 			h.respondError(w, http.StatusForbidden, "forbidden: invalid internal token")
 			return
 		}
@@ -506,13 +507,15 @@ func (h *AuthHandler) handleOAuthCallback(w http.ResponseWriter, r *http.Request
 
 	token, err := provider.ExchangeCode(r.Context(), codeParam)
 	if err != nil {
-		h.respondError(w, http.StatusBadGateway, fmt.Sprintf("failed to exchange code: %v", err))
+		slog.ErrorContext(r.Context(), "oauth code exchange failed", "provider", providerName, "err", err)
+		h.respondError(w, http.StatusBadGateway, "oauth provider unavailable")
 		return
 	}
 
 	userInfo, err := provider.GetUserInfo(r.Context(), token)
 	if err != nil {
-		h.respondError(w, http.StatusBadGateway, fmt.Sprintf("failed to get user info: %v", err))
+		slog.ErrorContext(r.Context(), "oauth userinfo failed", "provider", providerName, "err", err)
+		h.respondError(w, http.StatusBadGateway, "oauth provider unavailable")
 		return
 	}
 
@@ -613,7 +616,7 @@ func (h *AuthHandler) handlePasskeyRegisterBegin(w http.ResponseWriter, r *http.
 	}
 
 	sessionB64 := base64.StdEncoding.EncodeToString(sessionJSON)
-	h.setSessionCookie(w, r, "webauthn_register_session", sessionB64, 300)
+	h.setSessionCookie(w, r, "webauthn_register_session", signProtectedCookie(h.config.InternalToken, sessionB64), 300)
 
 	h.respondJSON(w, http.StatusOK, creation)
 }
@@ -630,7 +633,12 @@ func (h *AuthHandler) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http
 		return
 	}
 
-	sessionJSON, err := base64.StdEncoding.DecodeString(cookie.Value)
+	sessionB64, ok := verifyProtectedCookie(h.config.InternalToken, cookie.Value)
+	if !ok {
+		h.respondError(w, http.StatusBadRequest, "invalid session cookie")
+		return
+	}
+	sessionJSON, err := base64.StdEncoding.DecodeString(sessionB64)
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid session cookie format")
 		return
@@ -681,7 +689,7 @@ func (h *AuthHandler) handlePasskeyLoginBegin(w http.ResponseWriter, r *http.Req
 	}
 
 	sessionB64 := base64.StdEncoding.EncodeToString(sessionJSON)
-	h.setSessionCookie(w, r, "webauthn_login_session", sessionB64, 300)
+	h.setSessionCookie(w, r, "webauthn_login_session", signProtectedCookie(h.config.InternalToken, sessionB64), 300)
 
 	h.respondJSON(w, http.StatusOK, assertion)
 }
@@ -693,7 +701,12 @@ func (h *AuthHandler) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	sessionJSON, err := base64.StdEncoding.DecodeString(cookie.Value)
+	sessionB64, ok := verifyProtectedCookie(h.config.InternalToken, cookie.Value)
+	if !ok {
+		h.respondError(w, http.StatusBadRequest, "invalid session cookie")
+		return
+	}
+	sessionJSON, err := base64.StdEncoding.DecodeString(sessionB64)
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid session cookie format")
 		return

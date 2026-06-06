@@ -275,7 +275,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		PIIPolicies: providePIIPolicyService(cfg, metaRepo, auditLogger),
 	})
 
-	aiBits, err := setupAI(ctx, cfg, db, metaRepo, reg, encryptor)
+	aiBits, err := setupAI(ctx, cfg, db, metaRepo, reg, encryptor, poolCache)
 	if err != nil {
 		return nil, err
 	}
@@ -396,6 +396,7 @@ func setupAI(
 	metaRepo *metadata.Repository,
 	reg *datasource.Registry,
 	encryptor *security.Encryption,
+	poolCache *datasource.PoolCache,
 ) (aiBundle, error) {
 	providerStore := provideProviderStore(ctx, cfg, db, encryptor)
 
@@ -413,7 +414,9 @@ func setupAI(
 	}
 
 	translator := ai.NewTranslationServiceFromConfig(effectiveCfg)
-	describer := ai.NewDescribeService(client, metaRepo, reg, translator, 10, cfg.AI.DescribeMaxCellRunes, cfg.AI.DescribeMaxSampleRows, encryptor).WithModel(describeModel)
+	describer := ai.NewDescribeService(client, metaRepo, reg, translator, 10, cfg.AI.DescribeMaxCellRunes, cfg.AI.DescribeMaxSampleRows, encryptor).
+		WithModel(describeModel).
+		WithPoolCache(poolCache)
 
 	var embedder ai.Embedder
 	var embedMeta *ai.EmbedMetadataService

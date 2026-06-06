@@ -117,7 +117,7 @@ func TestInvitationFlow(t *testing.T) {
 	assert.Equal(t, inviteEmail, reinvited.Email)
 	assert.Equal(t, "developer", reinvited.RoleName)
 
-	// 7. Claim invitation — must succeed, create user, mark email verified, and log in
+	// 7. Claim invitation — must succeed, create user, and issue session pending verification
 	claimUA := "Invite-Claim-Agent"
 	claimIP := "192.168.1.1"
 	claimResp, err := env.service.ClaimInvitation(env.ctx, token, "NewSecPass1!", "Invited User", claimUA, claimIP)
@@ -126,13 +126,14 @@ func TestInvitationFlow(t *testing.T) {
 	assert.NotEmpty(t, claimResp.AccessToken)
 	assert.NotEmpty(t, claimResp.RefreshToken)
 	assert.Equal(t, inviteEmail, claimResp.Email)
+	assert.True(t, claimResp.VerificationPending)
 
 	// Verify claimed user details in DB
 	claimedUser, err := env.userRepo.GetUserByID(env.ctx, claimResp.UserID)
 	require.NoError(t, err)
 	assert.Equal(t, inviteEmail, claimedUser.Email)
 	assert.Equal(t, "Invited User", *claimedUser.DisplayName)
-	assert.True(t, claimedUser.EmailVerified)
+	assert.False(t, claimedUser.EmailVerified)
 	assert.True(t, claimedUser.IsActive)
 
 	// Verify the claimed user was assigned the 'developer' global role
@@ -169,22 +170,26 @@ func TestInvitationManagement(t *testing.T) {
 	assert.Equal(t, "viewer", invites[1].RoleName)
 
 	invitationID := invites[0].ID
+	resentEmail := "invite2@example.com"
 
-	// 4. Resend invitation by super admin — must succeed without invalidating emailed links
-	oldToken := invites[0].Token
-	require.NotNil(t, oldToken)
+	// 4. Resend invitation by super admin — must succeed and issue a fresh token via email
 	err = env.service.ResendInvitation(env.ctx, env.superUser.ID, invitationID)
 	require.NoError(t, err)
 
-	// Fetch updated list and check the token is preserved
-	invitesUpdated, err := env.service.ListInvitations(env.ctx, env.superUser.ID)
-	require.NoError(t, err)
-	require.NotNil(t, invitesUpdated[0].Token)
-	assert.Equal(t, *oldToken, *invitesUpdated[0].Token)
+	require.Contains(t, env.mockMailer.SentEmails, resentEmail)
+	require.GreaterOrEqual(t, len(env.mockMailer.SentEmails[resentEmail]), 2)
+	latestMsg := env.mockMailer.SentEmails[resentEmail][len(env.mockMailer.SentEmails[resentEmail])-1]
+	tokenStart := len("Invitation token: ")
+	tokenEnd := tokenStart
+	for tokenEnd < len(latestMsg) && latestMsg[tokenEnd] != ',' {
+		tokenEnd++
+	}
+	newToken := latestMsg[tokenStart:tokenEnd]
+	require.NotEmpty(t, newToken)
 
-	resentInvite, err := env.service.GetInvitation(env.ctx, *oldToken)
+	resentInvite, err := env.service.GetInvitation(env.ctx, newToken)
 	require.NoError(t, err)
-	assert.Equal(t, "invite2@example.com", resentInvite.Email)
+	assert.Equal(t, resentEmail, resentInvite.Email)
 
 	// 5. Revoke invitation by normal user — must fail
 	err = env.service.RevokeInvitation(env.ctx, env.normalUser.ID, invitationID)

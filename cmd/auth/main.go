@@ -119,6 +119,7 @@ func main() {
 
 	magicLinkRepo := biqauth.NewMagicLinkRepository(db)
 	authSvc.SetMagicLinkRepository(magicLinkRepo)
+	authSvc.SetAuditService(auditSvc)
 
 	limiter := biqauth.NewRateLimiter(redisClient)
 	authHandler := handlers.NewAuthHandler(authSvc, webAuthnSvc, jwtMgr, cfg, limiter)

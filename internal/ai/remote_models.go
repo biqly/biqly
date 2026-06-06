@@ -14,6 +14,15 @@ import (
 
 const defaultRemoteModelsTimeout = 20 * time.Second
 
+var remoteModelsHTTPClient = &http.Client{
+	Timeout: defaultRemoteModelsTimeout,
+	Transport: &http.Transport{
+		MaxIdleConns:        32,
+		MaxIdleConnsPerHost: 8,
+		IdleConnTimeout:     90 * time.Second,
+	},
+}
+
 // RemoteModelOption is a model id returned by a provider's remote catalog API.
 type RemoteModelOption struct {
 	ID      string `json:"id"`
@@ -82,8 +91,14 @@ func listAnthropicModels(ctx context.Context, baseURL, apiKey string, timeout ti
 }
 
 func doRemoteModelsRequest(req *http.Request, timeout time.Duration) ([]RemoteModelOption, error) {
-	client := &http.Client{Timeout: timeout}
-	resp, err := client.Do(req)
+	if timeout <= 0 {
+		timeout = defaultRemoteModelsTimeout
+	}
+	ctx, cancel := context.WithTimeout(req.Context(), timeout)
+	defer cancel()
+	req = req.Clone(ctx)
+
+	resp, err := remoteModelsHTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}

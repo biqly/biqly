@@ -184,6 +184,26 @@ func scanUser(s platformdb.Scanner) (*User, error) {
 	return &user, nil
 }
 
+func scanUserPublic(s platformdb.Scanner) (*User, error) {
+	var user User
+	var usernameNull, displayNameNull, avatarURLNull sql.NullString
+	var lastLoginNull sql.NullTime
+
+	if err := s.Scan(
+		&user.ID, &user.Email, &usernameNull, &displayNameNull, &avatarURLNull,
+		&user.IsActive, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt, &lastLoginNull,
+	); err != nil {
+		return nil, err
+	}
+
+	user.Username = platformdb.StringPtrFromNull(usernameNull)
+	user.DisplayName = platformdb.StringPtrFromNull(displayNameNull)
+	user.AvatarURL = platformdb.StringPtrFromNull(avatarURLNull)
+	user.LastLoginAt = platformdb.TimePtrFromNull(lastLoginNull)
+
+	return &user, nil
+}
+
 func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*User, error) {
 	query := `
 		SELECT id, email, username, display_name, avatar_url, password_hash, is_active, email_verified, created_at, updated_at, last_login_at
@@ -216,7 +236,7 @@ func (r *UserRepository) GetUserByID(ctx context.Context, id string) (*User, err
 
 func (r *UserRepository) ListUsers(ctx context.Context) ([]User, error) {
 	query := `
-		SELECT id, email, username, display_name, avatar_url, password_hash, is_active, email_verified, created_at, updated_at, last_login_at
+		SELECT id, email, username, display_name, avatar_url, is_active, email_verified, created_at, updated_at, last_login_at
 		FROM users
 		ORDER BY created_at DESC
 	`
@@ -228,7 +248,7 @@ func (r *UserRepository) ListUsers(ctx context.Context) ([]User, error) {
 
 	var users []User
 	for rows.Next() {
-		user, err := scanUser(rows)
+		user, err := scanUserPublic(rows)
 		if err != nil {
 			return nil, err
 		}

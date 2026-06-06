@@ -539,6 +539,11 @@ func TestCSRF(t *testing.T) {
 	}
 	require.NotNil(t, csrfCookie)
 	assert.NotEmpty(t, csrfCookie.Value)
+	assert.True(t, csrfCookie.HttpOnly)
+
+	headerToken := rrGET.Header().Get("X-CSRF-Token")
+	require.NotEmpty(t, headerToken)
+	assert.Equal(t, csrfCookie.Value, headerToken)
 
 	reqPOSTNoCookie, err := http.NewRequestWithContext(ctx, http.MethodPost, "/", http.NoBody)
 	require.NoError(t, err)
@@ -556,7 +561,7 @@ func TestCSRF(t *testing.T) {
 	reqPOSTSuccess, err := http.NewRequestWithContext(ctx, http.MethodPost, "/", http.NoBody)
 	require.NoError(t, err)
 	reqPOSTSuccess.AddCookie(csrfCookie)
-	reqPOSTSuccess.Header.Set("X-CSRF-Token", csrfCookie.Value)
+	reqPOSTSuccess.Header.Set("X-CSRF-Token", headerToken)
 	rrPOSTSuccess := httptest.NewRecorder()
 	handler.ServeHTTP(rrPOSTSuccess, reqPOSTSuccess)
 	assert.Equal(t, http.StatusOK, rrPOSTSuccess.Code)

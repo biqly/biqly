@@ -12,6 +12,9 @@ func (s *Service) GenerateMFABypassCode(ctx context.Context, actorUserID, target
 	if !isSuper {
 		return "", ErrSuperAdminRequired
 	}
+	if actorUserID == targetUserID {
+		return "", ErrSuperAdminRequired
+	}
 
 	if s.mfaSvc == nil {
 		return "", ErrMFANotEnabled

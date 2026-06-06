@@ -70,7 +70,7 @@ func resolveAccessibleDatasources(ctx context.Context, cfg *config.Config) (map[
 		return nil, false, nil
 	}
 
-	authClient := bimw.NewAuthClient(cfg.Auth.ServiceURL, cfg.Auth.InternalToken)
+	authClient := bimw.SharedAuthClient(cfg.Auth.ServiceURL, cfg.Auth.InternalToken)
 	allowed, err := authClient.ListUserDatasources(ctx, userID)
 	if err != nil {
 		return nil, false, fmt.Errorf("list user datasources: %w", err)

@@ -3,8 +3,9 @@ package queue
 import "context"
 
 const (
-	AIJobSubject = "biqly.ai.jobs"
-	AIJobStream  = "BIQLY_AI_JOBS"
+	AIJobSubject    = "biqly.ai.jobs"
+	AIJobDLQSubject = "biqly.ai.jobs.dlq"
+	AIJobStream     = "BIQLY_AI_JOBS"
 )
 
 type AIJobPublisher interface {

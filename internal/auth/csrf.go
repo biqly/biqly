@@ -2,10 +2,13 @@ package auth
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"log"
 	"net/http"
 )
+
+const csrfHeaderName = "X-CSRF-Token"
 
 func CSRF(secure bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -13,7 +16,10 @@ func CSRF(secure bool) func(http.Handler) http.Handler {
 			if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions || r.Method == http.MethodTrace {
 				cookie, err := r.Cookie("csrf_token")
 				if err != nil || cookie.Value == "" {
-					setCSRFCookie(w, secure)
+					token := setCSRFCookie(w, secure)
+					w.Header().Set(csrfHeaderName, token)
+				} else {
+					w.Header().Set(csrfHeaderName, cookie.Value)
 				}
 				next.ServeHTTP(w, r)
 				return
@@ -25,13 +31,13 @@ func CSRF(secure bool) func(http.Handler) http.Handler {
 				return
 			}
 
-			headerToken := r.Header.Get("X-CSRF-Token")
+			headerToken := r.Header.Get(csrfHeaderName)
 			if headerToken == "" {
 				http.Error(w, "Required CSRF token is missing", http.StatusForbidden)
 				return
 			}
 
-			if cookie.Value != headerToken {
+			if subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(headerToken)) != 1 {
 				http.Error(w, "CSRF token mismatch", http.StatusForbidden)
 				return
 			}
@@ -41,22 +47,23 @@ func CSRF(secure bool) func(http.Handler) http.Handler {
 	}
 }
 
-func setCSRFCookie(w http.ResponseWriter, secure bool) {
+func setCSRFCookie(w http.ResponseWriter, secure bool) string {
 	tokenBytes := make([]byte, 32)
 	if _, err := rand.Read(tokenBytes); err != nil {
 		log.Printf("csrf: failed to generate random token: %v", err)
-		return
+		return ""
 	}
 	token := base64.URLEncoding.EncodeToString(tokenBytes)
 
-	//nolint:gosec // G124: CSRF cookie needs HttpOnly=false for React access and Secure is set dynamically
-	http.SetCookie(w, &http.Cookie{ // nosemgrep: go.lang.security.audit.net.cookie-missing-httponly.cookie-missing-httponly,go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
+	cookie := &http.Cookie{ //nolint:gosec // G124: Secure follows server TLS config (false only in local dev)
 		Name:     "csrf_token",
 		Value:    token,
 		Path:     "/",
 		MaxAge:   86400 * 7,
-		HttpOnly: false,
+		HttpOnly: true,
 		Secure:   secure,
-		SameSite: http.SameSiteLaxMode,
-	})
+		SameSite: http.SameSiteStrictMode,
+	}
+	http.SetCookie(w, cookie)
+	return token
 }

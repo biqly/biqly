@@ -91,7 +91,7 @@ func (s *Service) InviteUser(ctx context.Context, actorUserID, email, roleName s
 		ON CONFLICT (email)
 		DO UPDATE SET token = EXCLUDED.token, role_id = EXCLUDED.role_id, invited_by = EXCLUDED.invited_by, expires_at = EXCLUDED.expires_at, claimed_at = NULL, created_at = NOW()
 	`
-	_, err = s.userRepo.db.ExecContext(ctx, query, normEmail, token, roleID, actorUserID, expiresAt)
+	_, err = s.userRepo.db.ExecContext(ctx, query, normEmail, hashMagicLink(token), roleID, actorUserID, expiresAt)
 	if err != nil {
 		return fmt.Errorf("upsert invitation: %w", err)
 	}
@@ -113,18 +113,18 @@ func (s *Service) GetInvitation(ctx context.Context, token string) (*Invitation,
 		return nil, ErrInvitationNotFound
 	}
 
+	tokenHash := hashMagicLink(token)
 	query := `
-		SELECT ui.id, ui.email, ui.token, ui.role_id, r.name as role_name, ui.invited_by, ui.created_at, ui.expires_at, ui.claimed_at
+		SELECT ui.id, ui.email, ui.role_id, r.name as role_name, ui.invited_by, ui.created_at, ui.expires_at, ui.claimed_at
 		FROM user_invitations ui
 		JOIN roles r ON ui.role_id = r.id
-		WHERE ui.token = $1
+		WHERE ui.token = $1 OR ui.token = $2
 	`
 	var invite Invitation
 	var claimedAtNull sql.NullTime
-	var tokenNull sql.NullString
 
-	err := s.userRepo.db.QueryRowContext(ctx, query, token).Scan(
-		&invite.ID, &invite.Email, &tokenNull, &invite.RoleID, &invite.RoleName,
+	err := s.userRepo.db.QueryRowContext(ctx, query, tokenHash, token).Scan(
+		&invite.ID, &invite.Email, &invite.RoleID, &invite.RoleName,
 		&invite.InvitedBy, &invite.CreatedAt, &invite.ExpiresAt, &claimedAtNull,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -133,9 +133,6 @@ func (s *Service) GetInvitation(ctx context.Context, token string) (*Invitation,
 		return nil, fmt.Errorf("get invitation: %w", err)
 	}
 
-	if tokenNull.Valid {
-		invite.Token = new(tokenNull.String)
-	}
 	if claimedAtNull.Valid {
 		invite.ClaimedAt = new(claimedAtNull.Time)
 		return nil, ErrInvitationClaimed
@@ -178,86 +175,124 @@ func (s *Service) ClaimInvitation(ctx context.Context, token, password, displayN
 	// 4. Run database transaction to create user and claim invite
 	var user User
 	err = platformdb.RunInTx(ctx, s.userRepo.db, func(tx *sql.Tx) error {
-		// Double check user doesn't already exist (race condition)
-		var exists bool
-		if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", invite.Email).Scan(&exists); err != nil {
-			return fmt.Errorf("check user existence: %w", err)
-		}
-		if exists {
-			return errors.New("user already exists with this email")
-		}
-
-		// Insert User (pre-verified)
-		userInsertQuery := `
-			INSERT INTO users (email, password_hash, display_name, password_changed_at, email_verified)
-			VALUES ($1, $2, $3, NOW(), TRUE)
-			RETURNING id, email, username, display_name, avatar_url, is_active, email_verified, created_at, updated_at
-		`
-		var usernameNull, displayNameNull, avatarURLNull sql.NullString
-		if err := tx.QueryRowContext(ctx, userInsertQuery, invite.Email, hash, sanitizedDisplayName).Scan(
-			&user.ID, &user.Email, &usernameNull, &displayNameNull, &avatarURLNull,
-			&user.IsActive, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
-		); err != nil {
-			return fmt.Errorf("insert user: %w", err)
-		}
-
-		if err := insertPasswordHistory(ctx, tx, user.ID, hash); err != nil {
-			return fmt.Errorf("insert password history: %w", err)
-		}
-
-		// Create personal workspace
-		workspaceQuery := `
-			INSERT INTO workspaces (name, slug, is_personal, created_by)
-			VALUES ($1, $2, TRUE, $3)
-			RETURNING id
-		`
-		workspaceSlug := user.ID + "-personal"
-		workspaceName := sanitizedDisplayName + "'s Workspace"
-
-		var workspaceID string
-		if err := tx.QueryRowContext(ctx, workspaceQuery, workspaceName, workspaceSlug, user.ID).Scan(&workspaceID); err != nil {
-			return fmt.Errorf("create personal workspace: %w", err)
-		}
-
-		// Assign the global role preconfigured in the invitation
-		userRoleQuery := `
-			INSERT INTO user_roles (user_id, role_id, scope_type, scope_id)
-			VALUES ($1, $2, 'global', '00000000-0000-0000-0000-000000000000')
-		`
-		if _, err := tx.ExecContext(ctx, userRoleQuery, user.ID, invite.RoleID); err != nil {
-			return fmt.Errorf("assign role: %w", err)
-		}
-
-		// Add user as admin to their personal workspace
-		var adminRoleID string
-		if err := tx.QueryRowContext(ctx, "SELECT id FROM roles WHERE name = 'admin'").Scan(&adminRoleID); err != nil {
-			return fmt.Errorf("get admin role: %w", err)
-		}
-
-		workspaceMemberQuery := `
-			INSERT INTO workspace_members (workspace_id, user_id, role_id)
-			VALUES ($1, $2, $3)
-		`
-		if _, err := tx.ExecContext(ctx, workspaceMemberQuery, workspaceID, user.ID, adminRoleID); err != nil {
-			return fmt.Errorf("add member to workspace: %w", err)
-		}
-
-		// Update invitation as claimed and clear token
-		claimQuery := `
-			UPDATE user_invitations
-			SET claimed_at = NOW(), token = NULL
-			WHERE id = $1
-		`
-		if _, err := tx.ExecContext(ctx, claimQuery, invite.ID); err != nil {
-			return fmt.Errorf("mark invitation claimed: %w", err)
-		}
-		return nil
+		var txErr error
+		user, txErr = claimInvitationInTx(ctx, tx, invite, hash, sanitizedDisplayName)
+		return txErr
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return s.CreateTokenResponseForUser(ctx, &user, &userAgent, &ipAddress)
+	return s.finishClaimInvitation(ctx, user, userAgent, ipAddress)
+}
+
+func claimInvitationInTx(ctx context.Context, tx *sql.Tx, invite *Invitation, hash, sanitizedDisplayName string) (User, error) {
+	var user User
+	var exists bool
+	if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", invite.Email).Scan(&exists); err != nil {
+		return user, fmt.Errorf("check user existence: %w", err)
+	}
+	if exists {
+		return user, errors.New("user already exists with this email")
+	}
+
+	userInsertQuery := `
+		INSERT INTO users (email, password_hash, display_name, password_changed_at, email_verified)
+		VALUES ($1, $2, $3, NOW(), FALSE)
+		RETURNING id, email, username, display_name, avatar_url, is_active, email_verified, created_at, updated_at
+	`
+	var usernameNull, displayNameNull, avatarURLNull sql.NullString
+	if err := tx.QueryRowContext(ctx, userInsertQuery, invite.Email, hash, sanitizedDisplayName).Scan(
+		&user.ID, &user.Email, &usernameNull, &displayNameNull, &avatarURLNull,
+		&user.IsActive, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt,
+	); err != nil {
+		return user, fmt.Errorf("insert user: %w", err)
+	}
+
+	if err := insertPasswordHistory(ctx, tx, user.ID, hash); err != nil {
+		return user, fmt.Errorf("insert password history: %w", err)
+	}
+
+	workspaceQuery := `
+		INSERT INTO workspaces (name, slug, is_personal, created_by)
+		VALUES ($1, $2, TRUE, $3)
+		RETURNING id
+	`
+	workspaceSlug := user.ID + "-personal"
+	workspaceName := sanitizedDisplayName + "'s Workspace"
+
+	var workspaceID string
+	if err := tx.QueryRowContext(ctx, workspaceQuery, workspaceName, workspaceSlug, user.ID).Scan(&workspaceID); err != nil {
+		return user, fmt.Errorf("create personal workspace: %w", err)
+	}
+
+	userRoleQuery := `
+		INSERT INTO user_roles (user_id, role_id, scope_type, scope_id)
+		VALUES ($1, $2, 'global', '00000000-0000-0000-0000-000000000000')
+	`
+	if _, err := tx.ExecContext(ctx, userRoleQuery, user.ID, invite.RoleID); err != nil {
+		return user, fmt.Errorf("assign role: %w", err)
+	}
+
+	var adminRoleID string
+	if err := tx.QueryRowContext(ctx, "SELECT id FROM roles WHERE name = 'admin'").Scan(&adminRoleID); err != nil {
+		return user, fmt.Errorf("get admin role: %w", err)
+	}
+
+	workspaceMemberQuery := `
+		INSERT INTO workspace_members (workspace_id, user_id, role_id)
+		VALUES ($1, $2, $3)
+	`
+	if _, err := tx.ExecContext(ctx, workspaceMemberQuery, workspaceID, user.ID, adminRoleID); err != nil {
+		return user, fmt.Errorf("add member to workspace: %w", err)
+	}
+
+	claimQuery := `
+		UPDATE user_invitations
+		SET claimed_at = NOW(), token = NULL
+		WHERE id = $1
+	`
+	if _, err := tx.ExecContext(ctx, claimQuery, invite.ID); err != nil {
+		return user, fmt.Errorf("mark invitation claimed: %w", err)
+	}
+	return user, nil
+}
+
+func (s *Service) finishClaimInvitation(ctx context.Context, user User, userAgent, ipAddress string) (*TokenResponse, error) {
+	roles, err := s.rbacRepo.GetUserRoles(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	workspaceID, err := s.userRepo.GetActiveOrPersonalWorkspaceID(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	accessToken, err := s.jwtMgr.GenerateTokenWithVerification(user.ID, user.Email, user.EmailVerified, roles, workspaceID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("generate access token: %w", err)
+	}
+
+	refreshToken, err := s.sessionMgr.CreateSession(ctx, user.ID, &userAgent, &ipAddress, s.config.JWTRefreshTTL)
+	if err != nil {
+		return nil, fmt.Errorf("create session: %w", err)
+	}
+
+	if s.emailSender != nil {
+		s.sendRegisterVerification(ctx, user.ID, user.Email)
+	}
+
+	s.auditEvent(ctx, user.ID, AuditRegisterSuccess, &ipAddress)
+
+	return &TokenResponse{
+		AccessToken:         accessToken,
+		RefreshToken:        refreshToken,
+		UserID:              user.ID,
+		Email:               user.Email,
+		Roles:               roles,
+		VerificationPending: true,
+	}, nil
 }
 
 // IsSuperAdmin helper checks if a user is a super admin using their roles.
@@ -280,7 +315,7 @@ func (s *Service) ListInvitations(ctx context.Context, actorUserID string) ([]*I
 	}
 
 	query := `
-		SELECT ui.id, ui.email, ui.token, ui.role_id, r.name as role_name, COALESCE(u.display_name, u.email, ui.invited_by::text) as invited_by, ui.created_at, ui.expires_at, ui.claimed_at
+		SELECT ui.id, ui.email, ui.role_id, r.name as role_name, COALESCE(u.display_name, u.email, ui.invited_by::text) as invited_by, ui.created_at, ui.expires_at, ui.claimed_at
 		FROM user_invitations ui
 		JOIN roles r ON ui.role_id = r.id
 		LEFT JOIN users u ON ui.invited_by = u.id
@@ -296,16 +331,12 @@ func (s *Service) ListInvitations(ctx context.Context, actorUserID string) ([]*I
 	for rows.Next() {
 		var invite Invitation
 		var claimedAtNull sql.NullTime
-		var tokenNull sql.NullString
 		err := rows.Scan(
-			&invite.ID, &invite.Email, &tokenNull, &invite.RoleID, &invite.RoleName,
+			&invite.ID, &invite.Email, &invite.RoleID, &invite.RoleName,
 			&invite.InvitedBy, &invite.CreatedAt, &invite.ExpiresAt, &claimedAtNull,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan invitation: %w", err)
-		}
-		if tokenNull.Valid {
-			invite.Token = new(tokenNull.String)
 		}
 		if claimedAtNull.Valid {
 			invite.ClaimedAt = new(claimedAtNull.Time)
@@ -383,7 +414,7 @@ func (s *Service) ResendInvitation(ctx context.Context, actorUserID, invitationI
 		SET token = $1, expires_at = $2, claimed_at = NULL, created_at = NOW(), invited_by = $3
 		WHERE id = $4
 	`
-	_, err = s.userRepo.db.ExecContext(ctx, updateQuery, token, expiresAt, actorUserID, invitationID)
+	_, err = s.userRepo.db.ExecContext(ctx, updateQuery, hashMagicLink(token), expiresAt, actorUserID, invitationID)
 	if err != nil {
 		return fmt.Errorf("update invitation token: %w", err)
 	}

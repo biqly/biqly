@@ -3,7 +3,9 @@ package rbac
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
+	"sync"
 	"time"
 )
 
@@ -48,12 +50,36 @@ type PermissionCheck struct {
 	ScopeID    string
 }
 
+type checkCacheEntry struct {
+	allowed bool
+	at      time.Time
+}
+
 type Service struct {
-	repo *RBACRepository
+	repo       *RBACRepository
+	checkMu    sync.RWMutex
+	checkCache map[string]checkCacheEntry
+	checkTTL   time.Duration
 }
 
 func NewRBACService(repo *RBACRepository) *Service {
-	return &Service{repo: repo}
+	return &Service{
+		repo:       repo,
+		checkCache: make(map[string]checkCacheEntry),
+		checkTTL:   2 * time.Minute,
+	}
+}
+
+func checkCacheKey(check PermissionCheck) string {
+	return fmt.Sprintf("%s:%s:%s:%s", check.UserID, check.Permission, check.ScopeType, check.ScopeID)
+}
+
+func (s *Service) evictExpiredCheckLocked(now time.Time) {
+	for k, e := range s.checkCache {
+		if now.Sub(e.at) >= s.checkTTL {
+			delete(s.checkCache, k)
+		}
+	}
 }
 
 func (s *Service) HasRole(ctx context.Context, userID, role string) (bool, error) {
@@ -73,11 +99,21 @@ func (s *Service) Check(ctx context.Context, check PermissionCheck) (bool, error
 		return false, errors.New("user_id and permission are required")
 	}
 
+	cacheKey := checkCacheKey(check)
+	s.checkMu.RLock()
+	if e, ok := s.checkCache[cacheKey]; ok && time.Since(e.at) < s.checkTTL {
+		allowed := e.allowed
+		s.checkMu.RUnlock()
+		return allowed, nil
+	}
+	s.checkMu.RUnlock()
+
 	isSuper, err := s.IsSuperAdmin(ctx, check.UserID)
 	if err != nil {
 		return false, err
 	}
 	if isSuper {
+		s.storeCheckResult(cacheKey, true)
 		return true, nil
 	}
 
@@ -86,6 +122,7 @@ func (s *Service) Check(ctx context.Context, check PermissionCheck) (bool, error
 		return false, err
 	}
 	if slices.Contains(globalPerms, check.Permission) {
+		s.storeCheckResult(cacheKey, true)
 		return true, nil
 	}
 
@@ -95,6 +132,7 @@ func (s *Service) Check(ctx context.Context, check PermissionCheck) (bool, error
 			return false, err
 		}
 		if slices.Contains(scopedPerms, check.Permission) {
+			s.storeCheckResult(cacheKey, true)
 			return true, nil
 		}
 	}
@@ -105,11 +143,21 @@ func (s *Service) Check(ctx context.Context, check PermissionCheck) (bool, error
 			return false, err
 		}
 		if slices.Contains(wsPerms, check.Permission) {
+			s.storeCheckResult(cacheKey, true)
 			return true, nil
 		}
 	}
 
+	s.storeCheckResult(cacheKey, false)
 	return false, nil
+}
+
+func (s *Service) storeCheckResult(key string, allowed bool) {
+	now := time.Now()
+	s.checkMu.Lock()
+	s.checkCache[key] = checkCacheEntry{allowed: allowed, at: now}
+	s.evictExpiredCheckLocked(now)
+	s.checkMu.Unlock()
 }
 
 func (s *Service) RequireAny(ctx context.Context, userID string, permissions ...string) (bool, error) {

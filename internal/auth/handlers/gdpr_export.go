@@ -22,6 +22,7 @@ type GDPRExport struct {
 	DatasourceAccesses []rbac.DatasourceAccess   `json:"datasource_accesses"`
 	Shares             []workspace.ResourceShare `json:"shares"`
 	AuditEntries       []auth.AuditEntry         `json:"audit_entries"`
+	Warnings           []string                  `json:"warnings,omitempty"`
 }
 
 type GDPROAuthAccount struct {
@@ -85,39 +86,58 @@ func (e *GDPRExporter) Export(ctx context.Context, userID string) (*GDPRExport, 
 	}
 
 	if e.ws != nil {
-		if ws, err := e.ws.ListForUser(ctx, userID); err == nil {
+		ws, err := e.ws.ListForUser(ctx, userID)
+		if err != nil {
+			out.Warnings = append(out.Warnings, fmt.Sprintf("workspaces: %v", err))
+		} else {
 			out.Workspaces = ws
 		}
 	}
 
 	if e.webAuthn != nil {
-		if pk, err := e.webAuthn.GetUserPasskeys(ctx, userID); err == nil {
+		pk, err := e.webAuthn.GetUserPasskeys(ctx, userID)
+		if err != nil {
+			out.Warnings = append(out.Warnings, fmt.Sprintf("passkeys: %v", err))
+		} else {
 			out.Passkeys = pk
 		}
 	}
 
-	if accounts, err := e.queryOAuthAccounts(ctx, userID); err == nil {
+	if accounts, err := e.queryOAuthAccounts(ctx, userID); err != nil {
+		out.Warnings = append(out.Warnings, fmt.Sprintf("oauth_accounts: %v", err))
+	} else {
 		out.OAuthAccounts = accounts
 	}
 
-	if sessions, err := e.querySessions(ctx, userID); err == nil {
+	if sessions, err := e.querySessions(ctx, userID); err != nil {
+		out.Warnings = append(out.Warnings, fmt.Sprintf("sessions: %v", err))
+	} else {
 		out.Sessions = sessions
 	}
 
 	if e.dsAccess != nil {
-		if ds, err := e.dsAccess.ListUserAccess(ctx, userID); err == nil {
+		ds, err := e.dsAccess.ListUserAccess(ctx, userID)
+		if err != nil {
+			out.Warnings = append(out.Warnings, fmt.Sprintf("datasource_accesses: %v", err))
+		} else {
 			out.DatasourceAccesses = ds
 		}
 	}
 
 	if e.sharing != nil {
-		if shares, err := e.sharing.ListOwned(ctx, userID, "", ""); err == nil {
+		shares, err := e.sharing.ListOwned(ctx, userID, "", "")
+		if err != nil {
+			out.Warnings = append(out.Warnings, fmt.Sprintf("shares: %v", err))
+		} else {
 			out.Shares = shares
 		}
 	}
 
 	if e.audit != nil {
-		if entries, err := e.audit.List(ctx, auth.AuditFilter{UserID: userID, Limit: 1000}); err == nil {
+		entries, err := e.audit.List(ctx, auth.AuditFilter{UserID: userID, Limit: 1000})
+		if err != nil {
+			out.Warnings = append(out.Warnings, fmt.Sprintf("audit_entries: %v", err))
+		} else {
 			out.AuditEntries = entries
 		}
 	}

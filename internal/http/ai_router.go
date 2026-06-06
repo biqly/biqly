@@ -9,7 +9,6 @@ import (
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
 )
 
 // AIRouter sets up only the routes owned by the AI Service.
@@ -20,18 +19,12 @@ func AIRouter(deps *app.Dependencies) http.Handler {
 	r.Use(requestIDPropagationMiddleware)
 	r.Use(traceContextPropagationMiddleware)
 	r.Use(bimw.RealIP)
-	r.Use(middleware.Logger)
+	r.Use(requestLoggerMiddleware)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(aiServiceRequestTimeout(deps)))
 	r.Use(bimw.Locale)
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"https://*", "http://*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Accept-Language", "Authorization", "Content-Type", "X-CSRF-Token", "X-Locale"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
-		MaxAge:           300,
-	}))
+	r.Use(serviceCORS(deps))
+	r.Use(serviceSecurityHeaders(deps))
 
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)

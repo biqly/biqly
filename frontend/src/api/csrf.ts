@@ -1,39 +1,37 @@
-const CSRF_COOKIE_NAME = 'csrf_token'
+const CSRF_HEADER_NAME = 'X-CSRF-Token'
 const AUTH_CSRF_BOOTSTRAP_PATH = '/api/auth/me'
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS', 'TRACE'])
 
-function readCookie(name: string): string | null {
-  const prefix = `${name}=`
-  const cookie = document.cookie
-    .split(';')
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(prefix))
+let cachedCSRFToken: string | null = null
 
-  return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : null
+function captureCSRFTokenFromResponse(response: Response): void {
+  const token = response.headers.get(CSRF_HEADER_NAME)
+  if (token) {
+    cachedCSRFToken = token
+  }
 }
 
 async function ensureCSRFToken(): Promise<string> {
-  let token = readCookie(CSRF_COOKIE_NAME)
-  if (token) {
-    return token
+  if (cachedCSRFToken) {
+    return cachedCSRFToken
   }
 
-  await fetch(AUTH_CSRF_BOOTSTRAP_PATH, {
+  const response = await fetch(AUTH_CSRF_BOOTSTRAP_PATH, {
     method: 'GET',
     credentials: 'same-origin',
   })
+  captureCSRFTokenFromResponse(response)
 
-  token = readCookie(CSRF_COOKIE_NAME)
-  if (!token) {
+  if (!cachedCSRFToken) {
     throw new Error('Unable to initialize CSRF token')
   }
 
-  return token
+  return cachedCSRFToken
 }
 
 function mergeHeaders(headers: HeadersInit | undefined, csrfToken: string): Headers {
   const merged = new Headers(headers)
-  merged.set('X-CSRF-Token', csrfToken)
+  merged.set(CSRF_HEADER_NAME, csrfToken)
   return merged
 }
 
@@ -43,7 +41,9 @@ export async function csrfFetch(
 ): Promise<Response> {
   const method = (init.method || 'GET').toUpperCase()
   if (SAFE_METHODS.has(method)) {
-    return fetch(input, { ...init, credentials: init.credentials ?? 'same-origin' })
+    const response = await fetch(input, { ...init, credentials: init.credentials ?? 'same-origin' })
+    captureCSRFTokenFromResponse(response)
+    return response
   }
 
   const token = await ensureCSRFToken()

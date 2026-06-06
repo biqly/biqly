@@ -25,7 +25,7 @@ type PasswordPolicy struct {
 func DefaultPasswordPolicy() PasswordPolicy {
 	return PasswordPolicy{
 		MinLength:      8,
-		MaxLength:      128, // bcrypt input cap
+		MaxLength:      72, // bcrypt byte cap
 		RequireUpper:   true,
 		RequireLower:   true,
 		RequireDigit:   true,
@@ -46,8 +46,8 @@ func (p PasswordPolicy) Validate(password string, identityFields ...string) erro
 	if length < p.MinLength {
 		return fmt.Errorf("password must be at least %d characters long", p.MinLength)
 	}
-	if p.MaxLength > 0 && length > p.MaxLength {
-		return fmt.Errorf("password must be at most %d characters long", p.MaxLength)
+	if p.MaxLength > 0 && len(password) > p.MaxLength {
+		return fmt.Errorf("password must be at most %d bytes long", p.MaxLength)
 	}
 
 	var hasUpper, hasLower, hasDigit, hasSpecial bool

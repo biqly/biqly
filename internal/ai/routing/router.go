@@ -286,11 +286,9 @@ func (r *TableRouter) Route(
 		return nil, result, nil
 	}
 
+	questionTokens := tokenSet(question)
 	tblIdx := indexTables(tables)
 	if len(selected) > 0 && !result.Manual && len(nonEmptyScope(tableScope)) == 0 {
-		// tokenSet(question) was previously recomputed by each helper.
-		// Compute once per request and thread the result through.
-		questionTokens := tokenSet(question)
 		selected = appendEntityResolverTables(selected, columnsByTable, relations, tblIdx, questionTokens, maxExpandedAutoTables, nameResolverMaxHops)
 		selected = appendQuestionEntityTables(selected, tables, relations, tblIdx, questionTokens, maxExpandedAutoTables, nameResolverMaxHops)
 		beforeBridge := bundleKeySet(selected)
@@ -314,7 +312,7 @@ func (r *TableRouter) Route(
 	result.ensureDebug().EliminatedCandidates = eliminatedCandidateLabels(result.Candidates)
 
 	limits := r.limits.withDefaults()
-	columnsForModel := rankColumnsForSemanticModel(connected, columnsByTable, relations, question, embedSignals.columnScores, limits.MaxColumnsPerTable)
+	columnsForModel := rankColumnsForSemanticModel(connected, columnsByTable, relations, questionTokens, embedSignals.columnScores, limits.MaxColumnsPerTable)
 	var timeGrains []metadata.TimeGrain
 	if r.timeGrains != nil {
 		var err error

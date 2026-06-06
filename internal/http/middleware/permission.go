@@ -17,7 +17,10 @@ import (
 // maxDatasourceProbeBodyBytes caps how much of a JSON body the middleware will
 // buffer to extract `datasource_id`. AI/query payloads stay well under this; we
 // just need enough to read the first top-level field reliably.
-const maxDatasourceProbeBodyBytes = 1 << 20 // 1 MiB
+const (
+	maxDatasourceProbeBodyBytes = 1 << 20 // 1 MiB
+	maxAuthClientCacheEntries   = 4096
+)
 
 const RoleSuperAdmin = "super_admin"
 
@@ -54,6 +57,11 @@ type wsDSEntry struct {
 	at  time.Time
 }
 
+var (
+	sharedAuthMu      sync.Mutex
+	sharedAuthClients = make(map[string]*AuthClient)
+)
+
 func NewAuthClient(baseURL, internalToken string) *AuthClient {
 	return &AuthClient{
 		baseURL:       strings.TrimRight(baseURL, "/"),
@@ -63,6 +71,68 @@ func NewAuthClient(baseURL, internalToken string) *AuthClient {
 		dsCache:       make(map[string]dsEntry),
 		wsDSCache:     make(map[string]wsDSEntry),
 		cacheTTL:      5 * time.Minute,
+	}
+}
+
+// SharedAuthClient returns a process-wide AuthClient for the given base URL and
+// internal token so callers do not allocate a new HTTP client per request.
+func SharedAuthClient(baseURL, internalToken string) *AuthClient {
+	key := strings.TrimRight(baseURL, "/") + "\x00" + internalToken
+	sharedAuthMu.Lock()
+	defer sharedAuthMu.Unlock()
+	if c, ok := sharedAuthClients[key]; ok {
+		return c
+	}
+	c := NewAuthClient(baseURL, internalToken)
+	sharedAuthClients[key] = c
+	return c
+}
+
+func (c *AuthClient) evictExpiredPermLocked(now time.Time) {
+	for k, e := range c.permCache {
+		if now.Sub(e.at) >= c.cacheTTL {
+			delete(c.permCache, k)
+		}
+	}
+	if len(c.permCache) > maxAuthClientCacheEntries {
+		for k := range c.permCache {
+			delete(c.permCache, k)
+			if len(c.permCache) <= maxAuthClientCacheEntries/2 {
+				break
+			}
+		}
+	}
+}
+
+func (c *AuthClient) evictExpiredDSLocked(now time.Time) {
+	for k, e := range c.dsCache {
+		if now.Sub(e.at) >= c.cacheTTL {
+			delete(c.dsCache, k)
+		}
+	}
+	if len(c.dsCache) > maxAuthClientCacheEntries {
+		for k := range c.dsCache {
+			delete(c.dsCache, k)
+			if len(c.dsCache) <= maxAuthClientCacheEntries/2 {
+				break
+			}
+		}
+	}
+}
+
+func (c *AuthClient) evictExpiredWSDSLocked(now time.Time) {
+	for k, e := range c.wsDSCache {
+		if now.Sub(e.at) >= c.cacheTTL {
+			delete(c.wsDSCache, k)
+		}
+	}
+	if len(c.wsDSCache) > maxAuthClientCacheEntries {
+		for k := range c.wsDSCache {
+			delete(c.wsDSCache, k)
+			if len(c.wsDSCache) <= maxAuthClientCacheEntries/2 {
+				break
+			}
+		}
 	}
 }
 
@@ -91,8 +161,10 @@ func (c *AuthClient) CheckPermission(ctx context.Context, userID, permission, sc
 		return false, err
 	}
 
+	now := time.Now()
 	c.permMu.Lock()
-	c.permCache[cacheKey] = permEntry{allowed: allowed, at: time.Now()}
+	c.permCache[cacheKey] = permEntry{allowed: allowed, at: now}
+	c.evictExpiredPermLocked(now)
 	c.permMu.Unlock()
 
 	return allowed, nil
@@ -122,8 +194,10 @@ func (c *AuthClient) CheckDatasourceAccess(ctx context.Context, userID, datasour
 		return false, err
 	}
 
+	now := time.Now()
 	c.dsMu.Lock()
-	c.dsCache[cacheKey] = dsEntry{allowed: allowed, at: time.Now()}
+	c.dsCache[cacheKey] = dsEntry{allowed: allowed, at: now}
+	c.evictExpiredDSLocked(now)
 	c.dsMu.Unlock()
 
 	return allowed, nil
@@ -267,8 +341,10 @@ func (c *AuthClient) ListWorkspaceDatasources(ctx context.Context, workspaceID s
 		return nil, err
 	}
 
+	now := time.Now()
 	c.wsDSMu.Lock()
-	c.wsDSCache[workspaceID] = wsDSEntry{ids: append([]string(nil), ids...), at: time.Now()}
+	c.wsDSCache[workspaceID] = wsDSEntry{ids: append([]string(nil), ids...), at: now}
+	c.evictExpiredWSDSLocked(now)
 	c.wsDSMu.Unlock()
 	return ids, nil
 }

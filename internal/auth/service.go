@@ -59,6 +59,7 @@ type Service struct {
 	platformSettings *PlatformSettingsRepository
 	ldapConfig       *LDAPConfigRepository
 	ldapAuth         ldap.Authenticator
+	auditSvc         *AuditService
 }
 
 func (s *Service) UserRepo() *UserRepository {
@@ -166,6 +167,8 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest, userAgent, 
 	if s.emailSender != nil {
 		s.sendRegisterVerification(ctx, user.ID, user.Email)
 	}
+
+	s.auditEvent(ctx, user.ID, AuditRegisterSuccess, ipAddress)
 
 	return &TokenResponse{
 		AccessToken:         accessToken,
@@ -364,6 +367,8 @@ func (s *Service) issueSession(ctx context.Context, user *User, userAgent, ipAdd
 	}
 
 	passwordExpired := s.isPasswordExpired(ctx, user.ID)
+
+	s.auditEvent(ctx, user.ID, AuditLoginSuccess, ipAddress)
 
 	return &TokenResponse{
 		AccessToken:     accessToken,

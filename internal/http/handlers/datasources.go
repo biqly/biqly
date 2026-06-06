@@ -19,6 +19,10 @@ import (
 	"github.com/google/uuid"
 )
 
+const driftNotifyMaxConcurrent = 8
+
+var driftNotifySem = make(chan struct{}, driftNotifyMaxConcurrent)
+
 // DatasourceHandler handles datasource CRUD operations.
 type DatasourceHandler struct {
 	deps *app.CatalogDeps
@@ -722,20 +726,25 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 					},
 				})
 
-				// Queue notification
-				go func(r *drift.DriftReport, mName string, creator *string, parent context.Context) {
-					notifyCtx, cancel := context.WithTimeout(context.WithoutCancel(parent), 15*time.Second)
-					defer cancel()
+				select {
+				case driftNotifySem <- struct{}{}:
+					go func(r *drift.DriftReport, mName string, creator *string, parent context.Context) {
+						defer func() { <-driftNotifySem }()
+						notifyCtx, cancel := context.WithTimeout(context.WithoutCancel(parent), 15*time.Second)
+						defer cancel()
 
-					var frontendURL string
-					if h.deps.Config != nil {
-						frontendURL = h.deps.Config.Mail.FrontendURL
-					}
+						var frontendURL string
+						if h.deps.Config != nil {
+							frontendURL = h.deps.Config.Mail.FrontendURL
+						}
 
-					if err := h.deps.DriftNotifier.NotifyOwner(notifyCtx, r, mName, creator, frontendURL); err != nil {
-						slog.Error("failed to notify owner about schema drift", "model_id", r.ModelID, "error", err)
-					}
-				}(report, fullModel.Name, fullModel.CreatedBy, ctx)
+						if err := h.deps.DriftNotifier.NotifyOwner(notifyCtx, r, mName, creator, frontendURL); err != nil {
+							slog.Error("failed to notify owner about schema drift", "model_id", r.ModelID, "error", err)
+						}
+					}(report, fullModel.Name, fullModel.CreatedBy, ctx)
+				default:
+					slog.Warn("drift notification skipped due to backpressure", "model_id", report.ModelID)
+				}
 			}
 		}
 	}

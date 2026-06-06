@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -31,6 +32,7 @@ type DescribeService struct {
 	model                string
 	metaRepo             *metadata.Repository
 	driverReg            *datasource.Registry
+	poolCache            *datasource.PoolCache
 	translator           *TranslationService
 	encryptor            *security.Encryption
 	sampleRows           int
@@ -67,6 +69,11 @@ func NewDescribeService(client providerpkg.Provider, metaRepo *metadata.Reposito
 // service keeps the wire-up call chain compact.
 func (s *DescribeService) WithModel(model string) *DescribeService {
 	s.model = model
+	return s
+}
+
+func (s *DescribeService) WithPoolCache(p *datasource.PoolCache) *DescribeService {
+	s.poolCache = p
 	return s
 }
 
@@ -151,11 +158,18 @@ func (s *DescribeService) Describe(ctx context.Context, req DescribeRequest) (*D
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", core.ErrLoadDatasource, err)
 	}
-	db, err := driver.Open(ctx, dsn)
+	var db *sql.DB
+	if s.poolCache != nil {
+		db, err = s.poolCache.Get(ctx, driver, ds.ID, dsn)
+	} else {
+		db, err = driver.Open(ctx, dsn)
+		if err == nil {
+			defer func() { _ = db.Close() }()
+		}
+	}
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", core.ErrConnection, err)
 	}
-	defer func() { _ = db.Close() }()
 
 	sample, err := FetchTableSample(ctx, db, driver.Dialect(), cols, req.Schema, req.Table, limit, s.maxCellRunes)
 	if err != nil {

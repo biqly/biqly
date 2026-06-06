@@ -54,5 +54,9 @@ func (s *Service) ChangePassword(ctx context.Context, userID, currentPassword, n
 	if err != nil {
 		return err
 	}
-	return s.userRepo.UpdateUserPassword(ctx, userID, hash)
+	if err := s.userRepo.UpdateUserPassword(ctx, userID, hash); err != nil {
+		return err
+	}
+	s.auditEvent(ctx, userID, AuditPasswordChanged, nil)
+	return nil
 }

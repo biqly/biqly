@@ -13,6 +13,8 @@ import (
 	"github.com/biqly/biqly/pkg/internalapi"
 )
 
+const maxUpstreamProxyBodyBytes = 1 << 20 // 1 MiB
+
 // newUpstreamProxy returns a ReverseProxy that forwards to targetURL, copying
 // request-id and traceparent into outgoing requests and emitting a 502 JSON
 // error envelope on connection failure.
@@ -70,5 +72,10 @@ func newUpstreamProxy(targetURL, envVarName, serviceLabel string) (http.Handler,
 			}
 		},
 	}
-	return proxy, true
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Body != nil {
+			r.Body = http.MaxBytesReader(w, r.Body, maxUpstreamProxyBodyBytes)
+		}
+		proxy.ServeHTTP(w, r)
+	}), true
 }

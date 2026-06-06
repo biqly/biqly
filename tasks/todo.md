@@ -25,31 +25,31 @@ Full codebase review of `internal/`, `pkg/`, `cmd/`, `services/`. Findings group
 
 ### HIGH (fix soon)
 
-- [ ] **SEC-A6**: `internal/auth/handlers/handler.go:289-299` — Internal token comparison uses `!=` instead of `subtle.ConstantTimeCompare`. Timing side-channel.
-- [ ] **SEC-A7**: `internal/auth/invitation.go:339-360` — `ListInvitations` returns raw invitation tokens in response. Admin can misuse unclaimed tokens.
-- [ ] **SEC-A8**: `internal/auth/handlers/handler.go:506-510` — OAuth callback leaks provider error messages to client (internal URLs, tokens).
-- [ ] **SEC-A9**: `internal/auth/service_mfa_admin.go` — Super admin can generate MFA bypass code for self, defeating MFA purpose.
-- [ ] **SEC-A10**: `internal/auth/invitation.go:194-199` — Invitation tokens stored plaintext in database (unlike magic link tokens which are hashed).
-- [ ] **SEC-A11**: `internal/auth/csrf.go` — CSRF cookie `HttpOnly: false` + double-submit pattern vulnerable to subdomain XSS.
-- [ ] **SEC-A12**: `internal/auth/handlers/handler.go:451-455` — WebAuthn session in cookie without HMAC/integrity protection.
-- [ ] **SEC-A13**: `internal/auth/password_policy.go:44-46` — `MaxLength: 128` but bcrypt silently truncates at 72 bytes. Effective password strength capped.
-- [ ] **SEC-A14**: `internal/auth/invitation.go:261-311` — Invitation claim issues tokens without email verification. Intercepted link = full access.
-- [ ] **SEC-H1**: `internal/http/ai_router.go:28`, `catalog_router.go:27`, `query_router.go:27` — Wildcard CORS `https://*` with `AllowCredentials: true` in standalone service routers.
-- [ ] **SEC-H2**: `internal/http/middleware/realip.go:16-22` — `RealIP` trusts `X-Forwarded-For` without trusted proxy configuration. Defeats IP-based security.
-- [ ] **SEC-H3**: `internal/http/ai_router.go:19`, `catalog_router.go:19`, `query_router.go:19` — Standalone routers missing `SecurityHeaders` and `requestLoggerMiddleware`.
-- [ ] **SEC-H4**: `internal/http/upstream_proxy.go:46-72` — No request body size limit on proxy-forwarded requests. Multi-GB body attack.
-- [ ] **PERF-H1**: `internal/http/handlers/history_filter.go:69`, `helpers.go:73` — `NewAuthClient` created per-request. Connection churn + idle connection leak.
-- [ ] **PERF-H2**: `internal/http/middleware/permission.go:42-49` — Permission/datasource caches grow unbounded (no eviction beyond TTL-on-read).
-- [ ] **PERF-A1**: `internal/auth/rbac/rbac.go:62-95` — Up to 4 recursive SQL queries per permission check with no caching.
-- [ ] **PERF-AI1**: `internal/ai/describe.go:133-136` — New DB connection opened per `Describe` call. No pooling.
-- [ ] **PERF-AI2**: `internal/ai/remote_models.go` — New `http.Client` per remote models request. No connection reuse.
-- [ ] **PERF-AI3**: `internal/ai/routing/router.go` — `tokenSet(question)` computed multiple times per `Route()` call (4+ tokenizations).
-- [ ] **REL-H1**: `internal/http/handlers/datasources.go:726-738` — Drift notification fires in unbounded goroutines. No worker pool or backpressure.
-- [ ] **REL-H2**: `internal/queue/nats.go:84-103` — No dead-letter queue. Permanently failed jobs disappear after `MaxDeliver: 3`.
-- [ ] **REL-H3**: `internal/metadata/embeddings.go:177-191` — Embedding upsert race condition. Concurrent writes can overwrite each other's locale vectors.
-- [ ] **AUDIT-H1**: `internal/auth/service.go`, `service_password.go` — No audit logging for login, registration, password change/reset events.
-- [ ] **AUDIT-H2**: `internal/auth/handlers/gdpr_export.go:87-123` — GDPR export silently swallows errors. Incomplete exports with no indication.
-- [ ] **AUDIT-H3**: `internal/auth/repository.go:188-199` — `ListUsers` returns password hashes in scanned rows.
+- [x] **SEC-A6**: `internal/auth/handlers/handler.go:289-299` — Internal token comparison uses `!=` instead of `subtle.ConstantTimeCompare`. Timing side-channel.
+- [x] **SEC-A7**: `internal/auth/invitation.go:339-360` — `ListInvitations` returns raw invitation tokens in response. Admin can misuse unclaimed tokens.
+- [x] **SEC-A8**: `internal/auth/handlers/handler.go:506-510` — OAuth callback leaks provider error messages to client (internal URLs, tokens).
+- [x] **SEC-A9**: `internal/auth/service_mfa_admin.go` — Super admin can generate MFA bypass code for self, defeating MFA purpose.
+- [x] **SEC-A10**: `internal/auth/invitation.go:194-199` — Invitation tokens stored plaintext in database (unlike magic link tokens which are hashed).
+- [x] **SEC-A11**: `internal/auth/csrf.go` — CSRF cookie `HttpOnly: false` + double-submit pattern vulnerable to subdomain XSS.
+- [x] **SEC-A12**: `internal/auth/handlers/handler.go:451-455` — WebAuthn session in cookie without HMAC/integrity protection.
+- [x] **SEC-A13**: `internal/auth/password_policy.go:44-46` — `MaxLength: 128` but bcrypt silently truncates at 72 bytes. Effective password strength capped.
+- [x] **SEC-A14**: `internal/auth/invitation.go:261-311` — Invitation claim issues tokens without email verification. Intercepted link = full access.
+- [x] **SEC-H1**: `internal/http/ai_router.go:28`, `catalog_router.go:27`, `query_router.go:27` — Wildcard CORS `https://*` with `AllowCredentials: true` in standalone service routers.
+- [x] **SEC-H2**: `internal/http/middleware/realip.go:16-22` — `RealIP` trusts `X-Forwarded-For` without trusted proxy configuration. Defeats IP-based security.
+- [x] **SEC-H3**: `internal/http/ai_router.go:19`, `catalog_router.go:19`, `query_router.go:19` — Standalone routers missing `SecurityHeaders` and `requestLoggerMiddleware`.
+- [x] **SEC-H4**: `internal/http/upstream_proxy.go:46-72` — No request body size limit on proxy-forwarded requests. Multi-GB body attack.
+- [x] **PERF-H1**: `internal/http/handlers/history_filter.go:69`, `helpers.go:73` — `NewAuthClient` created per-request. Connection churn + idle connection leak.
+- [x] **PERF-H2**: `internal/http/middleware/permission.go:42-49` — Permission/datasource caches grow unbounded (no eviction beyond TTL-on-read).
+- [x] **PERF-A1**: `internal/auth/rbac/rbac.go:62-95` — Up to 4 recursive SQL queries per permission check with no caching.
+- [x] **PERF-AI1**: `internal/ai/describe.go:133-136` — New DB connection opened per `Describe` call. No pooling.
+- [x] **PERF-AI2**: `internal/ai/remote_models.go` — New `http.Client` per remote models request. No connection reuse.
+- [x] **PERF-AI3**: `internal/ai/routing/router.go` — `tokenSet(question)` computed multiple times per `Route()` call (4+ tokenizations).
+- [x] **REL-H1**: `internal/http/handlers/datasources.go:726-738` — Drift notification fires in unbounded goroutines. No worker pool or backpressure.
+- [x] **REL-H2**: `internal/queue/nats.go:84-103` — No dead-letter queue. Permanently failed jobs disappear after `MaxDeliver: 3`.
+- [x] **REL-H3**: `internal/metadata/embeddings.go:177-191` — Embedding upsert race condition. Concurrent writes can overwrite each other's locale vectors.
+- [x] **AUDIT-H1**: `internal/auth/service.go`, `service_password.go` — No audit logging for login, registration, password change/reset events.
+- [x] **AUDIT-H2**: `internal/auth/handlers/gdpr_export.go:87-123` — GDPR export silently swallows errors. Incomplete exports with no indication.
+- [x] **AUDIT-H3**: `internal/auth/repository.go:188-199` — `ListUsers` returns password hashes in scanned rows.
 
 ### MEDIUM (plan and fix)
 

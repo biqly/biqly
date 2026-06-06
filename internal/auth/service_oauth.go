@@ -87,6 +87,8 @@ func (s *Service) LoginOrRegisterOAuth(ctx context.Context, provider string, tok
 		slog.ErrorContext(ctx, "failed to update last login on oauth login", "userID", user.ID, "err", err)
 	}
 
+	s.auditEvent(ctx, user.ID, AuditLoginSuccess, ipAddress)
+
 	MetricLoginAttempts.WithLabelValues(provider, "success").Inc()
 
 	return &TokenResponse{

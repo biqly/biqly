@@ -12,14 +12,14 @@ func rankColumnsForSemanticModel(
 	selected []tableBundle,
 	columnsByTable map[string][]metadata.Column,
 	relations []metadata.Relation,
-	question string,
+	questionTokens map[string]bool,
 	columnScores map[string]float64,
 	maxColsPerTable int,
 ) map[string][]metadata.Column {
 	if maxColsPerTable <= 0 {
 		maxColsPerTable = DefaultRoutingLimits().MaxColumnsPerTable
 	}
-	tokens := tokenSet(question)
+	tokens := questionTokens
 	selectedKeys := make(map[string]bool, len(selected))
 	for _, bundle := range selected {
 		selectedKeys[tableKey(bundle.table.SchemaName, bundle.table.TableName)] = true

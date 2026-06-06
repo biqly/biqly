@@ -13,6 +13,7 @@ import (
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/core"
+	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/semantic"
 	"github.com/biqly/biqly/pkg/catalogclient"
 	"github.com/biqly/biqly/pkg/queryclient"
@@ -60,8 +61,12 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		describeModel = describeCfg.Model
 	}
 
+	poolCache := datasource.NewPoolCache()
+
 	translator := ai.NewTranslationServiceFromConfig(effectiveCfg)
-	describer := ai.NewDescribeService(aiClient, metaRepo, reg, translator, 10, cfg.AI.DescribeMaxCellRunes, cfg.AI.DescribeMaxSampleRows, encryptor).WithModel(describeModel)
+	describer := ai.NewDescribeService(aiClient, metaRepo, reg, translator, 10, cfg.AI.DescribeMaxCellRunes, cfg.AI.DescribeMaxSampleRows, encryptor).
+		WithModel(describeModel).
+		WithPoolCache(poolCache)
 
 	var embedder ai.Embedder
 	var embedMeta *ai.EmbedMetadataService
@@ -117,6 +122,7 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		Validator:       validator,
 		Executor:        executor,
 		QueryService:    queryService,
+		PoolCache:       poolCache,
 		CatalogClient:   catalogHTTPClient,
 		QueryClient:     queryHTTPClient,
 		AIClient:        aiClient,

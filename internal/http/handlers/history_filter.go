@@ -66,7 +66,7 @@ func resolveWorkspaceDatasourceFilter(ctx context.Context, cfg *config.Config) (
 		return nil, false
 	}
 
-	client := bimw.NewAuthClient(cfg.Auth.ServiceURL, cfg.Auth.InternalToken)
+	client := bimw.SharedAuthClient(cfg.Auth.ServiceURL, cfg.Auth.InternalToken)
 	allowed, err := client.ListUserDatasources(ctx, userID)
 	if err != nil {
 		slog.ErrorContext(ctx, "history: failed to list user datasources", "user_id", userID, "err", err)

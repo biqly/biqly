@@ -1,6 +1,11 @@
 package auth
 
 const (
+	AuditLoginSuccess    = "auth.login.success"
+	AuditRegisterSuccess = "auth.register.success"
+	AuditPasswordChanged = "auth.password.changed"
+	AuditPasswordReset   = "auth.password.reset"
+
 	AuditSessionRevoked = "session.revoked"
 
 	AuditMFABypassGenerated = "mfa.bypass_code_generated" //nolint:gosec // audit event name, not a credential

@@ -47,7 +47,7 @@ func ConnectNATS(cfg NATSConfig) (*NATSQueue, error) {
 	defer cancel()
 	_, err = js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
 		Name:      cfg.Stream,
-		Subjects:  []string{cfg.Subject},
+		Subjects:  []string{cfg.Subject, AIJobDLQSubject},
 		Retention: jetstream.WorkQueuePolicy,
 		MaxAge:    7 * 24 * time.Hour,
 	})
@@ -80,14 +80,13 @@ func (q *NATSQueue) Subscribe(ctx context.Context, group string, handler func(ct
 	if err != nil {
 		return fmt.Errorf("create consumer: %w", err)
 	}
+	const maxDeliver = 3
 	_, err = cons.Consume(func(msg jetstream.Msg) {
 		jobID := string(msg.Data())
 		hctx, cancel := context.WithTimeout(ctx, 35*time.Minute)
 		defer cancel()
 		if err := handler(hctx, jobID); err != nil {
-			if nakErr := msg.Nak(); nakErr != nil {
-				slog.Warn("nack ai job message", "job_id", jobID, "error", nakErr)
-			}
+			q.handleAIJobFailure(ctx, msg, jobID, maxDeliver)
 			return
 		}
 		if ackErr := msg.Ack(); ackErr != nil {
@@ -95,6 +94,24 @@ func (q *NATSQueue) Subscribe(ctx context.Context, group string, handler func(ct
 		}
 	})
 	return err
+}
+
+func (q *NATSQueue) handleAIJobFailure(ctx context.Context, msg jetstream.Msg, jobID string, maxDeliver uint64) {
+	meta, metaErr := msg.Metadata()
+	if metaErr != nil || meta.NumDelivered < maxDeliver {
+		if nakErr := msg.Nak(); nakErr != nil {
+			slog.Warn("nack ai job message", "job_id", jobID, "error", nakErr)
+		}
+		return
+	}
+	if _, dlqErr := q.js.Publish(ctx, AIJobDLQSubject, msg.Data()); dlqErr != nil {
+		slog.Error("publish ai job to dlq", "job_id", jobID, "error", dlqErr)
+	} else {
+		slog.Warn("ai job moved to dlq after max deliveries", "job_id", jobID, "deliveries", meta.NumDelivered)
+	}
+	if termErr := msg.Term(); termErr != nil {
+		slog.Warn("term ai job message after dlq", "job_id", jobID, "error", termErr)
+	}
 }
 
 func (q *NATSQueue) Close() error {
