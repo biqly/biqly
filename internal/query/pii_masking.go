@@ -90,7 +90,12 @@ func (c *Compiler) piiAccessForDim(dim *semantic.Dimension, resolver *SchemaReso
 func (c *Compiler) dimensionOutputSQL(dim *semantic.Dimension, resolver *SchemaResolver) string {
 	access, piiType, found := c.piiAccessForDim(dim, resolver)
 	if !found || access == pii.AccessRaw {
-		return c.dimensionSQL(dim, resolver)
+		sql, err := c.dimensionSQL(dim, resolver)
+		if err != nil {
+			c.err = err
+			return ""
+		}
+		return sql
 	}
 	if access == pii.AccessMasked {
 		colRef := c.dialect.QuoteIdent(resolver.PhysicalColumnRef(dim.ColumnRef))

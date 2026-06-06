@@ -114,3 +114,21 @@ func TestReadOnlyCheckerRejectsNonSelectPrefix(t *testing.T) {
 		t.Fatal("expected UPDATE to be rejected")
 	}
 }
+
+func TestReadOnlyCheckerRejectsNewDangerousKeywords(t *testing.T) {
+	checker := NewReadOnlyChecker()
+	cases := []string{
+		`SELECT 1; SET role='admin'`,
+		`SELECT 1; RESET ALL`,
+		`SELECT 1; COPY users TO '/tmp/users.txt'`,
+		`SELECT 1; DO $$ BEGIN END $$`,
+		`SELECT 1; LOCK TABLE users`,
+		`SELECT 1; VACUUM`,
+		`SELECT 1; REINDEX DATABASE postgres`,
+	}
+	for _, q := range cases {
+		if err := checker.Check(q); err == nil {
+			t.Errorf("expected query to be rejected: %s", q)
+		}
+	}
+}

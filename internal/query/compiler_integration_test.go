@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/biqly/biqly/internal/dialect"
@@ -282,8 +283,6 @@ func TestCompiler_PermissionInjectionDoesNotMatchCTEWhere(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Locate the FIRST top-level WHERE that comes AFTER the closing paren of
-	// the CTE body; the row-filter predicate must appear after that point.
 	cteEnd := indexOfStr(cq.SQL, ") ")
 	if cteEnd < 0 {
 		t.Fatalf("expected CTE body close in SQL: %s", cq.SQL)
@@ -292,8 +291,15 @@ func TestCompiler_PermissionInjectionDoesNotMatchCTEWhere(t *testing.T) {
 	if tenantPos < 0 {
 		t.Fatalf("expected tenant_id row filter in SQL: %s", cq.SQL)
 	}
-	if tenantPos < cteEnd {
-		t.Fatalf("row filter leaked into CTE body. SQL: %s", cq.SQL)
+
+	// Since SEC-Q4 enforces row filters recursively, we expect the tenant_id
+	// filter to appear inside the CTE body (before cteEnd) AND in the outer query (after cteEnd).
+	if tenantPos > cteEnd {
+		t.Fatalf("expected row filter inside CTE body. SQL: %s", cq.SQL)
+	}
+	outerTenantIndex := strings.Index(cq.SQL[cteEnd:], "tenant_id")
+	if outerTenantIndex < 0 {
+		t.Fatalf("expected row filter in outer query. SQL: %s", cq.SQL)
 	}
 }
 

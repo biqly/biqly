@@ -3,12 +3,24 @@ package auth
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
 )
+
+func HashToken(token string) string {
+	h := sha256.New()
+	h.Write([]byte(token))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func (*SessionManager) HashToken(token string) string {
+	return HashToken(token)
+}
 
 var (
 	ErrSessionNotFound        = errors.New("session not found")
@@ -81,7 +93,7 @@ func (m *SessionManager) createSession(ctx context.Context, userID string, userA
 		INSERT INTO sessions (user_id, refresh_token, user_agent, ip_address, device_fingerprint, expires_at, absolute_expires_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
-	_, err = m.db.ExecContext(ctx, query, userID, token, userAgent, ipAddress, fp, expiresAt, absoluteExpiresAt)
+	_, err = m.db.ExecContext(ctx, query, userID, HashToken(token), userAgent, ipAddress, fp, expiresAt, absoluteExpiresAt)
 	if err != nil {
 		return "", fmt.Errorf("insert session: %w", err)
 	}
@@ -184,7 +196,7 @@ func (m *SessionManager) RotateSession(ctx context.Context, oldToken string, ttl
 		FROM sessions
 		WHERE refresh_token = $1
 	`
-	err := m.db.QueryRowContext(ctx, queryGet, oldToken).Scan(
+	err := m.db.QueryRowContext(ctx, queryGet, HashToken(oldToken)).Scan(
 		&sessionID, &userID, &userAgentNull, &ipAddressNull,
 		&createdAt, &expiresAt, &lastActiveAt, &absoluteExpiresAt, &revokedAtNull,
 	)
@@ -241,7 +253,7 @@ func (m *SessionManager) RotateSession(ctx context.Context, oldToken string, ttl
 
 func (m *SessionManager) RevokeSession(ctx context.Context, token string) error {
 	query := `UPDATE sessions SET revoked_at = NOW() WHERE refresh_token = $1 AND revoked_at IS NULL`
-	_, err := m.db.ExecContext(ctx, query, token)
+	_, err := m.db.ExecContext(ctx, query, HashToken(token))
 	return err
 }
 

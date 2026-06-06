@@ -1139,7 +1139,7 @@ func TestCuratedAI(t *testing.T) {
 	assert.NoError(t, err)
 
 	// 7. UpdateLatestAIQueryHistoryRating
-	err = repo.UpdateLatestAIQueryHistoryRating(ctx, "ds-1", "positive")
+	err = repo.UpdateLatestAIQueryHistoryRating(ctx, "ds-1", "positive", "user-1", "how long?")
 	assert.NoError(t, err)
 
 	// 8. ListModelSuccessRates

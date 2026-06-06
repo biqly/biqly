@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -423,7 +424,7 @@ func (s *Service) Refresh(ctx context.Context, req RefreshRequest, userAgent, ip
 
 	// Fetch user ID from the newly created session
 	var userID string
-	err = s.sessionMgr.db.QueryRowContext(ctx, "SELECT user_id FROM sessions WHERE refresh_token = $1", newRefreshToken).Scan(&userID)
+	err = s.sessionMgr.db.QueryRowContext(ctx, "SELECT user_id FROM sessions WHERE refresh_token = $1", s.sessionMgr.HashToken(newRefreshToken)).Scan(&userID)
 	if err != nil {
 		MetricTokenRefreshes.WithLabelValues("failed").Inc()
 		return nil, fmt.Errorf("query session user: %w", err)
@@ -511,4 +512,54 @@ func (s *Service) sendRegisterVerification(ctx context.Context, userID, email st
 	if err := s.emailSender.SendEmailVerification(ctx, email, token); err != nil {
 		slog.ErrorContext(ctx, "failed to send email verification", "email", email, "err", err)
 	}
+}
+
+var (
+	localOAuthStateMap = make(map[string]string)
+	localOAuthStateMu  sync.RWMutex
+)
+
+// StoreOAuthState stores the OAuth state in Redis bound to a bindToken and provider.
+func (s *Service) StoreOAuthState(ctx context.Context, provider, bindToken, state string) error {
+	key := fmt.Sprintf("oauth_state:%s:%s", bindToken, provider)
+	if s.redisClient == nil {
+		localOAuthStateMu.Lock()
+		localOAuthStateMap[key] = state
+		localOAuthStateMu.Unlock()
+		// Clean up after 300s
+		go func() {
+			time.Sleep(300 * time.Second)
+			localOAuthStateMu.Lock()
+			delete(localOAuthStateMap, key)
+			localOAuthStateMu.Unlock()
+		}()
+		return nil
+	}
+	return s.redisClient.Set(ctx, key, state, 300*time.Second).Err()
+}
+
+// VerifyOAuthState verifies that the OAuth state stored in Redis matches the expected state.
+// It also clears the state key.
+func (s *Service) VerifyOAuthState(ctx context.Context, provider, bindToken, expectedState string) (bool, error) {
+	key := fmt.Sprintf("oauth_state:%s:%s", bindToken, provider)
+	if s.redisClient == nil {
+		localOAuthStateMu.Lock()
+		storedState, exists := localOAuthStateMap[key]
+		if exists {
+			delete(localOAuthStateMap, key)
+		}
+		localOAuthStateMu.Unlock()
+		if !exists {
+			return false, nil
+		}
+		return storedState == expectedState, nil
+	}
+	storedState, err := s.redisClient.Get(ctx, key).Result()
+	if errors.Is(err, redis.Nil) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	s.redisClient.Del(ctx, key)
+	return storedState == expectedState, nil
 }

@@ -197,7 +197,7 @@ func (h *DatasourceHandler) datasourceDraft(_ context.Context, req createDatasou
 		if c.Port != nil && *c.Port > 0 {
 			port = *c.Port
 		}
-		ds.Port = new(datasource.DefaultPort(driverType))
+		ds.Port = new(port)
 
 		if u := optionalStringPtr(c.Username); u != nil {
 			ds.Username = u
@@ -211,7 +211,7 @@ func (h *DatasourceHandler) datasourceDraft(_ context.Context, req createDatasou
 			ssl = defaults.SSLMode
 		}
 		if ssl != "" {
-			ds.SSLMode = new(strings.TrimSpace(c.SSLMode))
+			ds.SSLMode = new(ssl)
 		}
 
 		ext := map[string]string{}

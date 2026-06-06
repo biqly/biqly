@@ -139,3 +139,20 @@ func TestConnectNATS_EmptyURLError(t *testing.T) {
 	assert.Nil(t, client)
 	assert.Contains(t, err.Error(), "nats url is empty")
 }
+
+func TestLocalAIJobQueue_ConcurrencyAndDeadlockFix(t *testing.T) {
+	q := NewLocalAIJobQueue(1)
+
+	// Publish first job to fill the buffer
+	assert.NoError(t, q.Publish(context.Background(), "job_1"))
+
+	// Publish second job with a timeout context; it should block and then return timeout/deadline exceeded
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	err := q.Publish(ctx, "job_2")
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
+
+	// Verify we can still close the queue safely (proves mutex is not locked during block)
+	assert.NoError(t, q.Close())
+}

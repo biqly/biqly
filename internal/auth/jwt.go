@@ -99,6 +99,13 @@ func NewJWTManager(privatePath, publicPath string, accessTTL time.Duration) (*JW
 		}, nil
 	}
 
+	isProduction := os.Getenv("BI_ENV") == "production" ||
+		os.Getenv("APP_ENV") == "production" ||
+		os.Getenv("KUBERNETES_SERVICE_HOST") != ""
+	if isProduction {
+		return nil, errors.New("JWT keys are unconfigured under production environment")
+	}
+
 	slog.Warn("JWT key paths not configured or missing; generating in-memory development RSA key pair")
 	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {

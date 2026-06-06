@@ -271,14 +271,20 @@ func (r *UserRepository) RecordKnownDevice(ctx context.Context, userID, fingerpr
 	return true, nil
 }
 
+func hashUnlockToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
+
 func (r *UserRepository) CreateUnlockToken(ctx context.Context, userID string, ttl time.Duration) (string, error) {
 	tok, err := generateOpaque(32)
 	if err != nil {
 		return "", err
 	}
+	hashed := hashUnlockToken(tok)
 	_, err = r.db.ExecContext(ctx,
 		`INSERT INTO account_unlock_tokens (token, user_id, expires_at) VALUES ($1, $2, $3)`,
-		tok, userID, time.Now().Add(ttl),
+		hashed, userID, time.Now().Add(ttl),
 	)
 	if err != nil {
 		return "", fmt.Errorf("insert unlock token: %w", err)
@@ -288,11 +294,12 @@ func (r *UserRepository) CreateUnlockToken(ctx context.Context, userID string, t
 
 func (r *UserRepository) ConsumeUnlockToken(ctx context.Context, token string) (string, error) {
 	var userID string
+	hashed := hashUnlockToken(token)
 	err := r.db.QueryRowContext(ctx, `
 		UPDATE account_unlock_tokens SET consumed_at = NOW()
 		WHERE token = $1 AND consumed_at IS NULL AND expires_at > NOW()
 		RETURNING user_id
-	`, token).Scan(&userID)
+	`, hashed).Scan(&userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", ErrUnlockTokenInvalid
 	}

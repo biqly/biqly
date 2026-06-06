@@ -22,12 +22,11 @@ var reBracket = regexp.MustCompile(`\[([^\]]+)\]`)
 
 // Compiler compiles a LogicalQuery into dialect-specific SQL.
 type Compiler struct {
-	dialect dialect.Dialect
-	// pii holds the per-user PII masking policy for the current compilation.
-	// Nil means no masking. Set via CompileWithPermissions only.
-	pii *PIIMaskingConfig
-	// compileCtx is the request context for nested subquery compilation.
+	dialect    dialect.Dialect
+	pii        *PIIMaskingConfig
 	compileCtx context.Context
+	rowFilters []security.RowFilter
+	err        error
 }
 
 // NewCompiler creates a new SQL compiler for the given dialect.
@@ -65,7 +64,14 @@ func (c *Compiler) Compile(ctx context.Context, lq *LogicalQuery, model *semanti
 	if err != nil {
 		return nil, err
 	}
-	return comp.compileStatement(ctx, lq, model, fromClause, withPrefix, &args, nil)
+	cq, err := comp.compileStatement(ctx, lq, model, fromClause, withPrefix, &args, comp.rowFilters)
+	if err != nil {
+		return nil, err
+	}
+	if comp.err != nil {
+		return nil, comp.err
+	}
+	return cq, nil
 }
 
 // CompileWithPermissions compiles a LogicalQuery with row-level security
@@ -83,11 +89,11 @@ func (c *Compiler) CompileWithPermissions(
 	rowFilters []security.RowFilter,
 	piiConfig *PIIMaskingConfig,
 ) (*CompiledQuery, error) {
-	if piiConfig != nil {
-		// Clone so the masking policy is scoped to this compilation; nested
+	if piiConfig != nil || len(rowFilters) > 0 {
+		// Clone so the masking policy and rowFilters are scoped to this compilation; nested
 		// subquery/CTE compilation reuses the same compiler and must apply
 		// the same policy.
-		c = &Compiler{dialect: c.dialect, pii: piiConfig}
+		c = &Compiler{dialect: c.dialect, pii: piiConfig, rowFilters: rowFilters}
 	}
 	if len(rowFilters) == 0 && piiConfig == nil {
 		return c.Compile(ctx, lq, model)
@@ -102,14 +108,21 @@ func (c *Compiler) CompileWithPermissions(
 	if err != nil {
 		return nil, err
 	}
-	return comp.compileStatement(ctx, lq, model, fromClause, withPrefix, &args, rowFilters)
+	cq, err := comp.compileStatement(ctx, lq, model, fromClause, withPrefix, &args, rowFilters)
+	if err != nil {
+		return nil, err
+	}
+	if comp.err != nil {
+		return nil, comp.err
+	}
+	return cq, nil
 }
 
 func (c *Compiler) withCompileCtx(ctx context.Context) *Compiler { //nolint:contextcheck // stores request ctx for nested subquery compilation
 	if ctx == nil {
 		ctx = context.TODO()
 	}
-	return &Compiler{dialect: c.dialect, pii: c.pii, compileCtx: ctx}
+	return &Compiler{dialect: c.dialect, pii: c.pii, compileCtx: ctx, rowFilters: c.rowFilters, err: c.err}
 }
 
 // buildRowFilterPreds turns the policy row filters into SQL predicate
@@ -305,26 +318,27 @@ func (*Compiler) determineJoins(
 	return out
 }
 
-func (c *Compiler) dimensionSQL(dim *semantic.Dimension, resolver *SchemaResolver) string {
+func (c *Compiler) dimensionSQL(dim *semantic.Dimension, resolver *SchemaResolver) (string, error) {
 	if dim.CalculatedExpr != nil {
-		return CompileExpr(dim.CalculatedExpr, c.dialect, resolver)
+		return CompileExpr(dim.CalculatedExpr, c.dialect, resolver, nil, c.pii)
 	}
 	if expr := strings.TrimSpace(dim.CalculatedExpression); expr != "" {
-		if parsed, err := ParseExpression(expr); err == nil {
-			return CompileExpr(parsed, c.dialect, resolver)
+		parsed, err := ParseExpression(expr)
+		if err != nil {
+			return "", err
 		}
-		return dim.CalculatedExpression
+		return CompileExpr(parsed, c.dialect, resolver, nil, c.pii)
 	}
 	colRef := resolver.PhysicalColumnRef(dim.ColumnRef)
 	if strings.TrimSpace(dim.TimeGrain) == "" {
-		return c.dialect.QuoteIdent(colRef)
+		return c.dialect.QuoteIdent(colRef), nil
 	}
 	part := strings.ToLower(strings.TrimSpace(dim.TimeGrain))
 	switch part {
 	case "year", "quarter", "month":
-		return c.dialect.CalendarPart(part, colRef)
+		return c.dialect.CalendarPart(part, colRef), nil
 	default:
-		return c.dialect.DateTrunc(part, colRef)
+		return c.dialect.DateTrunc(part, colRef), nil
 	}
 }
 
@@ -387,7 +401,12 @@ func (c *Compiler) metricExpressionRef(
 	model *semantic.SemanticModel,
 ) string {
 	if metric != nil && metric.Expr != nil && strings.TrimSpace(expr) == strings.TrimSpace(metric.Expression) {
-		return CompileExpr(metric.Expr, c.dialect, resolver)
+		sql, err := CompileExpr(metric.Expr, c.dialect, resolver, nil, c.pii)
+		if err != nil {
+			c.err = err
+			return ""
+		}
+		return sql
 	}
 	expr = strings.TrimSpace(expr)
 	if expr == "*" {
@@ -469,7 +488,12 @@ func (c *Compiler) qualifyMetricExpression(
 	model *semantic.SemanticModel,
 ) string {
 	if metric != nil && metric.Expr != nil && strings.TrimSpace(expr) == strings.TrimSpace(metric.Expression) {
-		return CompileExpr(metric.Expr, c.dialect, resolver)
+		sql, err := CompileExpr(metric.Expr, c.dialect, resolver, nil, c.pii)
+		if err != nil {
+			c.err = err
+			return ""
+		}
+		return sql
 	}
 	expr = strings.TrimSpace(expr)
 	if expr == "*" {
@@ -579,7 +603,11 @@ func (c *Compiler) buildWindowExpr(
 	expr := strings.TrimSpace(w.Expression)
 	exprFromAST := false
 	if w.Expr != nil {
-		expr = CompileExpr(w.Expr, c.dialect, resolver)
+		var err error
+		expr, err = CompileExpr(w.Expr, c.dialect, resolver, nil, c.pii)
+		if err != nil {
+			return "", err
+		}
 		exprFromAST = true
 	}
 
@@ -594,7 +622,11 @@ func (c *Compiler) buildWindowExpr(
 		}
 		if expr == "" {
 			if m.Expr != nil {
-				expr = CompileExpr(m.Expr, c.dialect, resolver)
+				var err error
+				expr, err = CompileExpr(m.Expr, c.dialect, resolver, nil, c.pii)
+				if err != nil {
+					return "", err
+				}
 				exprFromAST = true
 			} else {
 				expr = m.Expression
@@ -630,35 +662,15 @@ func (c *Compiler) buildWindowExpr(
 	}
 
 	clauses := make([]string, 0, 4)
-	if len(w.PartitionBy) > 0 {
-		cols := make([]string, 0, len(w.PartitionBy))
-		for _, p := range w.PartitionBy {
-			if dim, ok := dimMap[p]; ok {
-				cols = append(cols, c.dimensionSQL(dim, resolver))
-			} else {
-				return "", fmt.Errorf("unknown window partition_by dimension: %s", p)
-			}
-		}
-		clauses = append(clauses, "PARTITION BY "+strings.Join(cols, ", "))
+	if partBy, err := c.buildWindowPartitionBy(w.PartitionBy, dimMap, resolver); err != nil {
+		return "", err
+	} else if partBy != "" {
+		clauses = append(clauses, partBy)
 	}
-	if len(w.OrderBy) > 0 {
-		parts := make([]string, 0, len(w.OrderBy))
-		for _, ob := range w.OrderBy {
-			dir := strings.ToUpper(strings.TrimSpace(ob.Direction))
-			if dir != "DESC" {
-				dir = "ASC"
-			}
-			var ref string
-			if dim, ok := dimMap[ob.Field]; ok {
-				ref = c.dimensionSQL(dim, resolver)
-			} else if metric, ok := metricMap[ob.Field]; ok {
-				ref = c.metricAggregate(metric, resolver, dimMap, metricMap, model)
-			} else {
-				return "", fmt.Errorf("unknown window order_by field: %s", ob.Field)
-			}
-			parts = append(parts, ref+" "+dir)
-		}
-		clauses = append(clauses, "ORDER BY "+strings.Join(parts, ", "))
+	if orderBy, err := c.buildWindowOrderBy(w.OrderBy, dimMap, metricMap, model, resolver); err != nil {
+		return "", err
+	} else if orderBy != "" {
+		clauses = append(clauses, orderBy)
 	}
 	if frame := strings.TrimSpace(w.Frame); frame != "" {
 		if !isValidFrame(frame) {
@@ -667,6 +679,62 @@ func (c *Compiler) buildWindowExpr(
 		clauses = append(clauses, frame)
 	}
 	return head + " OVER (" + strings.Join(clauses, " ") + ")", nil
+}
+
+func (c *Compiler) buildWindowPartitionBy(
+	partitionBy []string,
+	dimMap map[string]*semantic.Dimension,
+	resolver *SchemaResolver,
+) (string, error) {
+	if len(partitionBy) == 0 {
+		return "", nil
+	}
+	cols := make([]string, 0, len(partitionBy))
+	for _, p := range partitionBy {
+		if dim, ok := dimMap[p]; ok {
+			dimSQL, err := c.dimensionSQL(dim, resolver)
+			if err != nil {
+				return "", err
+			}
+			cols = append(cols, dimSQL)
+		} else {
+			return "", fmt.Errorf("unknown window partition_by dimension: %s", p)
+		}
+	}
+	return "PARTITION BY " + strings.Join(cols, ", "), nil
+}
+
+func (c *Compiler) buildWindowOrderBy(
+	orderBy []OrderBy,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
+	model *semantic.SemanticModel,
+	resolver *SchemaResolver,
+) (string, error) {
+	if len(orderBy) == 0 {
+		return "", nil
+	}
+	parts := make([]string, 0, len(orderBy))
+	for _, ob := range orderBy {
+		dir := strings.ToUpper(strings.TrimSpace(ob.Direction))
+		if dir != "DESC" {
+			dir = "ASC"
+		}
+		var ref string
+		if dim, ok := dimMap[ob.Field]; ok {
+			dimSQL, err := c.dimensionSQL(dim, resolver)
+			if err != nil {
+				return "", err
+			}
+			ref = dimSQL
+		} else if metric, ok := metricMap[ob.Field]; ok {
+			ref = c.metricAggregate(metric, resolver, dimMap, metricMap, model)
+		} else {
+			return "", fmt.Errorf("unknown window order_by field: %s", ob.Field)
+		}
+		parts = append(parts, ref+" "+dir)
+	}
+	return "ORDER BY " + strings.Join(parts, ", "), nil
 }
 
 // buildHaving renders post-aggregation filters. Each filter's Field must be a
@@ -862,7 +930,11 @@ func (c *Compiler) resolveFilterLHS(field string, dimMap map[string]*semantic.Di
 		if c.filterFieldHidden(dim, resolver) {
 			return "", validationErrWithCode("filters", errmsg.HiddenPIIFieldMsg(field), errmsg.CodeHiddenPIIField, field, nil)
 		}
-		return c.dimensionSQL(dim, resolver), nil
+		dimSQL, err := c.dimensionSQL(dim, resolver)
+		if err != nil {
+			return "", err
+		}
+		return dimSQL, nil
 	}
 	if metric, ok := metricMap[field]; ok {
 		return c.qualifyMetricExpression(metric, metric.Expression, resolver, dimMap, metricMap, model), nil

@@ -3,11 +3,13 @@ package auth
 import (
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/biqly/biqly/internal/security"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -62,13 +64,18 @@ func (rl *RateLimiter) Limit(limit int, window time.Duration, keyPrefix string) 
 }
 
 func getIP(r *http.Request) string {
-	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
-		parts := strings.Split(ip, ",")
-		return strings.TrimSpace(parts[0])
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
 	}
-	if ip := r.Header.Get("X-Real-IP"); ip != "" {
-		return ip
+	if security.IsTrustedProxy(host) {
+		if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
+			parts := strings.Split(ip, ",")
+			return strings.TrimSpace(parts[0])
+		}
+		if ip := r.Header.Get("X-Real-IP"); ip != "" {
+			return ip
+		}
 	}
-	parts := strings.Split(r.RemoteAddr, ":")
-	return parts[0]
+	return host
 }

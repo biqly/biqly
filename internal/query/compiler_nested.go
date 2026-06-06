@@ -29,7 +29,7 @@ func (c *Compiler) compileSubqueryBody(
 	args *[]any,
 ) (string, error) {
 	inner := logicalQueryFromBody(body)
-	cq, err := c.compileStatement(c.compileCtx, inner, model, c.buildFrom(model), "", args, nil)
+	cq, err := c.compileStatement(c.compileCtx, inner, model, c.buildFrom(model), "", args, c.rowFilters)
 	if err != nil {
 		return "", err
 	}

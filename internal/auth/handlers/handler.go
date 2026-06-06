@@ -454,7 +454,19 @@ func (h *AuthHandler) handleOAuthRedirect(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	h.setSessionCookie(w, r, "oauth_state_"+providerName, state, 300)
+	bindToken, err := h.generateState()
+	if err != nil {
+		h.respondError(w, http.StatusInternalServerError, "failed to generate bind token")
+		return
+	}
+
+	if err := h.service.StoreOAuthState(r.Context(), providerName, bindToken, state); err != nil {
+		slog.Error("failed to store oauth state", "error", err)
+		h.respondError(w, http.StatusInternalServerError, "failed to initiate oauth")
+		return
+	}
+
+	h.setSessionCookie(w, r, "oauth_bind_"+providerName, bindToken, 300)
 
 	authURL := provider.GetAuthURL(state)
 	if err := oauth.ValidateAuthURL(providerName, authURL); err != nil {
@@ -477,14 +489,20 @@ func (h *AuthHandler) handleOAuthCallback(w http.ResponseWriter, r *http.Request
 	stateParam := r.URL.Query().Get("state")
 	codeParam := r.URL.Query().Get("code")
 
-	cookie, err := r.Cookie("oauth_state_" + providerName)
-	if err != nil || cookie.Value != stateParam || stateParam == "" {
+	cookie, err := r.Cookie("oauth_bind_" + providerName)
+	if err != nil || cookie.Value == "" || stateParam == "" {
+		h.respondError(w, http.StatusBadRequest, "invalid oauth state")
+		return
+	}
+
+	matched, err := h.service.VerifyOAuthState(r.Context(), providerName, cookie.Value, stateParam)
+	if err != nil || !matched {
 		h.respondError(w, http.StatusBadRequest, "invalid oauth state")
 		return
 	}
 
 	// Clear the state cookie
-	h.clearSessionCookie(w, r, "oauth_state_"+providerName)
+	h.clearSessionCookie(w, r, "oauth_bind_"+providerName)
 
 	token, err := provider.ExchangeCode(r.Context(), codeParam)
 	if err != nil {
@@ -558,7 +576,7 @@ func (h *AuthHandler) handleOAuthExchange(w http.ResponseWriter, r *http.Request
 }
 
 func (*AuthHandler) generateState() (string, error) {
-	b := make([]byte, 16)
+	b := make([]byte, 32)
 	_, err := rand.Read(b)
 	if err != nil {
 		return "", err

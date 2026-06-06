@@ -1,9 +1,7 @@
 package security
 
 import (
-	"net/url"
 	"regexp"
-	"strings"
 )
 
 // ConnectionDSN returns a driver-ready DSN from stored metadata.
@@ -16,7 +14,10 @@ func ConnectionDSN(enc *Encryption, stored string) (string, error) {
 	return stored, nil
 }
 
-var dsnPasswordKVRegex = regexp.MustCompile(`(?i)(password\s*=\s*)([^\s;]+)`)
+var (
+	dsnUserPassRegex = regexp.MustCompile(`(?i)([^:\s/]+):([^@\s:]+)@`)
+	dsnPasswordRegex = regexp.MustCompile(`(?i)\b(pass|password)\b\s*=\s*([^\s;&]+)`)
+)
 
 // RedactDSN returns a copy of dsn safe to log: any embedded password is
 // replaced with "***". Supports URL-style DSNs (postgres://, mysql://, etc.)
@@ -25,19 +26,9 @@ func RedactDSN(dsn string) string {
 	if dsn == "" {
 		return ""
 	}
-	if u, err := url.Parse(dsn); err == nil && u.Scheme != "" {
-		if u.User != nil {
-			user := u.User.Username()
-			if user != "" {
-				u.User = url.UserPassword(user, "***")
-			} else {
-				u.User = nil
-			}
-			return u.String()
-		}
-	}
-	if strings.Contains(dsn, "password") || strings.Contains(dsn, "PASSWORD") {
-		return dsnPasswordKVRegex.ReplaceAllString(dsn, "${1}***")
-	}
+	// Redact user:pass@ format
+	dsn = dsnUserPassRegex.ReplaceAllString(dsn, "${1}:***@")
+	// Redact pass= or password= format
+	dsn = dsnPasswordRegex.ReplaceAllString(dsn, "${1}=***")
 	return dsn
 }

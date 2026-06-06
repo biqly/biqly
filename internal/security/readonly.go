@@ -19,6 +19,7 @@ func init() {
 		"CALL", "EXEC", "EXECUTE",
 		"XP_CMDSHELL", "OPENROWSET", "PG_READ_FILE",
 		"LOAD_FILE", "DBLINK", "LO_IMPORT",
+		"SET", "RESET", "COPY", "DO", "LOCK", "VACUUM", "REINDEX",
 	}
 	dangerousKeywords = dangerous
 	dangerousKeywordPatterns = make([]*regexp.Regexp, 0, len(dangerous)+1)

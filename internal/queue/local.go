@@ -18,17 +18,24 @@ func NewLocalAIJobQueue(buffer int) *LocalAIJobQueue {
 	return &LocalAIJobQueue{ch: make(chan string, buffer)}
 }
 
-func (q *LocalAIJobQueue) Publish(_ context.Context, jobID string) error {
+func (q *LocalAIJobQueue) Publish(ctx context.Context, jobID string) (err error) {
 	q.mu.Lock()
-	defer q.mu.Unlock()
 	if q.closed {
+		q.mu.Unlock()
 		return context.Canceled
 	}
+	q.mu.Unlock()
+
+	defer func() {
+		if r := recover(); r != nil {
+			err = context.Canceled
+		}
+	}()
+
 	select {
+	case <-ctx.Done():
+		return ctx.Err()
 	case q.ch <- jobID:
-		return nil
-	default:
-		q.ch <- jobID
 		return nil
 	}
 }

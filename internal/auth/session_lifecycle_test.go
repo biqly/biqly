@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -43,20 +44,22 @@ func rotateSessionWithToken(t *testing.T, ctx context.Context, dbPool *sql.DB, u
 // the rolling expires_at would still allow it.
 func TestRotateSession_AbsoluteExpiry(t *testing.T) {
 	dbPool, ctx, userID := setupRotateSessionUser(t, "rotate-absolute@example.invalid")
-	rotateSessionWithToken(t, ctx, dbPool, userID, "absolute-test-token", `
+	hashedToken := HashToken("absolute-test-token")
+	rotateSessionWithToken(t, ctx, dbPool, userID, "absolute-test-token", fmt.Sprintf(`
 		INSERT INTO sessions (user_id, refresh_token, expires_at, absolute_expires_at, last_active_at)
-		VALUES ($1, 'absolute-test-token', NOW() + INTERVAL '1 hour', NOW() - INTERVAL '1 second', NOW())
-	`, ErrSessionAbsoluteExpired)
+		VALUES ($1, '%s', NOW() + INTERVAL '1 hour', NOW() - INTERVAL '1 second', NOW())
+	`, hashedToken), ErrSessionAbsoluteExpired)
 }
 
 // TestRotateSession_IdleExpiry rejects rotation when last_active_at is older
 // than the configured idle TTL.
 func TestRotateSession_IdleExpiry(t *testing.T) {
 	dbPool, ctx, userID := setupRotateSessionUser(t, "rotate-idle@example.invalid")
-	rotateSessionWithToken(t, ctx, dbPool, userID, "idle-test-token", `
+	hashedToken := HashToken("idle-test-token")
+	rotateSessionWithToken(t, ctx, dbPool, userID, "idle-test-token", fmt.Sprintf(`
 		INSERT INTO sessions (user_id, refresh_token, expires_at, absolute_expires_at, last_active_at)
-		VALUES ($1, 'idle-test-token', NOW() + INTERVAL '1 hour', NOW() + INTERVAL '30 days', NOW() - INTERVAL '5 hours')
-	`, ErrSessionIdleExpired)
+		VALUES ($1, '%s', NOW() + INTERVAL '1 hour', NOW() + INTERVAL '30 days', NOW() - INTERVAL '5 hours')
+	`, hashedToken), ErrSessionIdleExpired)
 }
 
 // TestRotateSession_PreservesAbsoluteExpiry ensures the new (rotated) session
@@ -74,11 +77,12 @@ func TestRotateSession_PreservesAbsoluteExpiry(t *testing.T) {
 		`INSERT INTO users (email, password_hash) VALUES ('rotate-preserve@example.invalid', '$2a$04$xxx') RETURNING id`,
 	).Scan(&userID))
 
+	hashedToken := HashToken("preserve-test-token")
 	// Original absolute expiry: 10 minutes from now.
 	_, err := dbPool.ExecContext(ctx, `
 		INSERT INTO sessions (user_id, refresh_token, expires_at, absolute_expires_at, last_active_at)
-		VALUES ($1, 'preserve-test-token', NOW() + INTERVAL '5 minutes', NOW() + INTERVAL '10 minutes', NOW())
-	`, userID)
+		VALUES ($1, $2, NOW() + INTERVAL '5 minutes', NOW() + INTERVAL '10 minutes', NOW())
+	`, userID, hashedToken)
 	require.NoError(t, err)
 
 	mgr := NewSessionManager(dbPool)
@@ -92,10 +96,10 @@ func TestRotateSession_PreservesAbsoluteExpiry(t *testing.T) {
 
 	var originalAbsolute, rotatedAbsolute, rotatedExpires time.Time
 	require.NoError(t, dbPool.QueryRowContext(ctx,
-		`SELECT absolute_expires_at FROM sessions WHERE refresh_token = 'preserve-test-token'`,
+		`SELECT absolute_expires_at FROM sessions WHERE refresh_token = $1`, hashedToken,
 	).Scan(&originalAbsolute))
 	require.NoError(t, dbPool.QueryRowContext(ctx,
-		`SELECT absolute_expires_at, expires_at FROM sessions WHERE refresh_token = $1`, newToken,
+		`SELECT absolute_expires_at, expires_at FROM sessions WHERE refresh_token = $1`, HashToken(newToken),
 	).Scan(&rotatedAbsolute, &rotatedExpires))
 
 	// Absolute expiry carries over verbatim.

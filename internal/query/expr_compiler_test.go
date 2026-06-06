@@ -1,6 +1,7 @@
 package query
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/biqly/biqly/internal/dialect"
@@ -151,7 +152,10 @@ func TestCompileExprAcrossDialects(t *testing.T) {
 	for _, tt := range tests {
 		for _, d := range dialects {
 			t.Run(tt.name+"/"+d.Name(), func(t *testing.T) {
-				got := CompileExpr(tt.expr, d, resolver)
+				got, err := CompileExpr(tt.expr, d, resolver, nil, nil)
+				if err != nil {
+					t.Fatalf("unexpected error compiling: %v", err)
+				}
 				if want := tt.want[d.Name()]; got != want {
 					t.Fatalf("CompileExpr(%s, %s) = %s, want %s", tt.name, d.Name(), got, want)
 				}
@@ -162,9 +166,63 @@ func TestCompileExprAcrossDialects(t *testing.T) {
 
 func TestCompileExprSafetyNet(t *testing.T) {
 	expr := pkgsemantic.ColumnRefExpr{Column: "1; DROP TABLE users"}
-	got := CompileExpr(expr, dialect.SQLServerDialect{}, nil)
+	got, err := CompileExpr(expr, dialect.SQLServerDialect{}, nil, nil, nil)
+	if err == nil {
+		t.Fatalf("expected CompileExpr to return error for unsafe SQL")
+	}
 	if got != "" {
 		t.Fatalf("expected CompileExpr to return empty string for unsafe SQL, got: %q", got)
 	}
 }
 
+func TestCompileExprParameterization(t *testing.T) {
+	expr := pkgsemantic.BinaryExpr{
+		Op:    pkgsemantic.OpEq,
+		Left:  pkgsemantic.ColumnRefExpr{Column: "status"},
+		Right: pkgsemantic.LiteralExpr{Value: "active"},
+	}
+	args := []any{}
+	got, err := CompileExpr(expr, dialect.Postgres, nil, &args, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	wantSQL := `("status" = $1)`
+	if got != wantSQL {
+		t.Errorf("got SQL %q, want %q", got, wantSQL)
+	}
+	if len(args) != 1 || args[0] != "active" {
+		t.Errorf("got args %v, want ['active']", args)
+	}
+}
+
+func TestCompileExprPIIMasking(t *testing.T) {
+	expr := pkgsemantic.ColumnRefExpr{Column: "email"}
+	piiConfig := &PIIMaskingConfig{
+		ColumnAccess: map[string]string{
+			"email": "masked",
+		},
+		ColumnTypes: map[string]string{
+			"email": "email",
+		},
+	}
+	got, err := CompileExpr(expr, dialect.Postgres, nil, nil, piiConfig)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(got, "email") && !strings.Contains(got, "CONCAT") {
+		t.Errorf("expected masked email SQL, got %q", got)
+	}
+
+	piiConfigHidden := &PIIMaskingConfig{
+		ColumnAccess: map[string]string{
+			"email": "hidden",
+		},
+	}
+	gotHidden, err := CompileExpr(expr, dialect.Postgres, nil, nil, piiConfigHidden)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotHidden != "'***'" {
+		t.Errorf("expected hidden literal, got %q", gotHidden)
+	}
+}

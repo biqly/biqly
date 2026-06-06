@@ -61,7 +61,11 @@ func (c *Compiler) buildCaseThen(
 		if !ok {
 			return "", fmt.Errorf("unknown case then dimension: %s", then.Dimension)
 		}
-		return c.dimensionSQL(dim, resolver), nil
+		dimSQL, err := c.dimensionSQL(dim, resolver)
+		if err != nil {
+			return "", err
+		}
+		return dimSQL, nil
 	case CaseThenTypeLiteral:
 		return c.formatLiteral(then.Literal, args)
 	default:

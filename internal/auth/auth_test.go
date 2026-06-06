@@ -630,3 +630,10 @@ func TestEmailVerificationAndReset(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, reg.UserID, loginResp.UserID)
 }
+
+func TestJWTManagerProductionFailFast(t *testing.T) {
+	t.Setenv("BI_ENV", "production")
+	_, err := NewJWTManager("", "", 10*time.Minute)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "JWT keys are unconfigured under production environment")
+}

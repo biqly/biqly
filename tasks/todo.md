@@ -6,22 +6,22 @@ Full codebase review of `internal/`, `pkg/`, `cmd/`, `services/`. Findings group
 
 ### CRITICAL (fix immediately)
 
-- [ ] **SEC-Q1**: `internal/query/compiler.go:312-316` — Silent fallback to raw expression on parse failure. `CalculatedExpression` raw string injected into SQL when `ParseExpression` fails, bypassing readonly checker. Second-order SQL injection vector.
-- [ ] **SEC-Q2**: `internal/query/expr_compiler.go:46-51` — `CompileExpr` silently returns empty string on unsafe SQL instead of error. Callers use the empty string unconditionally, producing malformed queries.
-- [ ] **SEC-Q3**: `internal/query/expr_compiler.go:102-122` — `literalSQL` uses manual string escaping instead of parameterized queries. String literals embedded via `strings.ReplaceAll(v, "'", "''")` instead of placeholders.
-- [ ] **SEC-Q4**: `internal/query/compiler_nested.go:32` — Row-level security filters skipped for nested subqueries and CTEs. `rowFilters` always nil in `compileSubqueryBody`, allowing data exfiltration through CTEs.
-- [ ] **SEC-Q5**: `internal/query/compiler.go:308-378` — PII masking only applied to dimensions, not to metric expressions referencing PII columns. Metric `Expression` bypasses PII masking via `metricExpressionRef`.
-- [ ] **SEC-A1**: `internal/auth/handlers/handler.go:493` — OAuth state stored in cookie without server-side validation or session binding. 16-byte entropy is low; should be 32+ and server-stored.
-- [ ] **SEC-A2**: `internal/auth/ratelimit.go:73-79` — Rate limiter bypass via `X-Forwarded-For` / `X-Real-IP` header spoofing. No trusted proxy validation.
-- [ ] **SEC-A3**: `internal/auth/jwt.go:99-106` — In-memory dev RSA key silently generated in production when env vars missing. Every pod restart invalidates all tokens.
-- [ ] **SEC-A4**: `internal/auth/session.go:74-80` — Refresh tokens stored as plaintext in database. DB compromise = all active sessions compromised.
-- [ ] **SEC-A5**: `internal/auth/account_state.go:259-264` — Unlock tokens stored plaintext. DB leak allows account unlock bypass.
-- [ ] **SEC-S1**: `internal/security/readonly.go:19-30` — `dangerousKeywords` omits `SET`, `RESET`, `COPY`, `DO`, `LOCK`, `VACUUM`, `REINDEX`. `SET role='admin'` bypasses readonly enforcement.
-- [ ] **SEC-S2**: `internal/security/dsn.go:28-30` — DSN redaction misses URL-encoded passwords and `pass=` parameter (MySQL).
-- [ ] **BUG-H1**: `internal/http/handlers/datasources.go:200` — Port always assigned as `datasource.DefaultPort(driverType)` instead of resolved `port` variable. Custom ports silently ignored.
-- [ ] **BUG-H2**: `internal/http/handlers/datasources.go:214` — SSLMode reads from `c.SSLMode` instead of resolved `ssl` variable. Default SSL mode not persisted.
-- [ ] **BUG-M1**: `internal/metadata/curated_ai.go:153-160` — `UpdateLatestAIQueryHistoryRating` updates the most recent query for the entire datasource, not the specific query that received feedback. Cross-user rating corruption.
-- [ ] **BUG-Q1**: `internal/queue/local.go:25-32` — Local queue `Publish` has `select/default` that falls through to blocking send on full channel = publisher deadlock.
+- [x] **SEC-Q1**: `internal/query/compiler.go:312-316` — Silent fallback to raw expression on parse failure. `CalculatedExpression` raw string injected into SQL when `ParseExpression` fails, bypassing readonly checker. Second-order SQL injection vector.
+- [x] **SEC-Q2**: `internal/query/expr_compiler.go:46-51` — `CompileExpr` silently returns empty string on unsafe SQL instead of error. Callers use the empty string unconditionally, producing malformed queries.
+- [x] **SEC-Q3**: `internal/query/expr_compiler.go:102-122` — `literalSQL` uses manual string escaping instead of parameterized queries. String literals embedded via `strings.ReplaceAll(v, "'", "''")` instead of placeholders.
+- [x] **SEC-Q4**: `internal/query/compiler_nested.go:32` — Row-level security filters skipped for nested subqueries and CTEs. `rowFilters` always nil in `compileSubqueryBody`, allowing data exfiltration through CTEs.
+- [x] **SEC-Q5**: `internal/query/compiler.go:308-378` — PII masking only applied to dimensions, not to metric expressions referencing PII columns. Metric `Expression` bypasses PII masking via `metricExpressionRef`.
+- [x] **SEC-A1**: `internal/auth/handlers/handler.go:493` — OAuth state stored in cookie without server-side validation or session binding. 16-byte entropy is low; should be 32+ and server-stored.
+- [x] **SEC-A2**: `internal/auth/ratelimit.go:73-79` — Rate limiter bypass via `X-Forwarded-For` / `X-Real-IP` header spoofing. No trusted proxy validation.
+- [x] **SEC-A3**: `internal/auth/jwt.go:99-106` — In-memory dev RSA key silently generated in production when env vars missing. Every pod restart invalidates all tokens.
+- [x] **SEC-A4**: `internal/auth/session.go:74-80` — Refresh tokens stored as plaintext in database. DB compromise = all active sessions compromised.
+- [x] **SEC-A5**: `internal/auth/account_state.go:259-264` — Unlock tokens stored plaintext. DB leak allows account unlock bypass.
+- [x] **SEC-S1**: `internal/security/readonly.go:19-30` — `dangerousKeywords` omits `SET`, `RESET`, `COPY`, `DO`, `LOCK`, `VACUUM`, `REINDEX`. `SET role='admin'` bypasses readonly enforcement.
+- [x] **SEC-S2**: `internal/security/dsn.go:28-30` — DSN redaction misses URL-encoded passwords and `pass=` parameter (MySQL).
+- [x] **BUG-H1**: `internal/http/handlers/datasources.go:200` — Port always assigned as `datasource.DefaultPort(driverType)` instead of resolved `port` variable. Custom ports silently ignored.
+- [x] **BUG-H2**: `internal/http/handlers/datasources.go:214` — SSLMode reads from `c.SSLMode` instead of resolved `ssl` variable. Default SSL mode not persisted.
+- [x] **BUG-M1**: `internal/metadata/curated_ai.go:153-160` — `UpdateLatestAIQueryHistoryRating` updates the most recent query for the entire datasource, not the specific query that received feedback. Cross-user rating corruption.
+- [x] **BUG-Q1**: `internal/queue/local.go:25-32` — Local queue `Publish` has `select/default` that falls through to blocking send on full channel = publisher deadlock.
 
 ### HIGH (fix soon)
 

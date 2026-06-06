@@ -8,6 +8,7 @@ import (
 
 	"github.com/biqly/biqly/internal/dialect"
 	"github.com/biqly/biqly/internal/security"
+	"github.com/biqly/biqly/internal/security/pii"
 	pkgsemantic "github.com/biqly/biqly/pkg/semantic"
 )
 
@@ -39,17 +40,20 @@ var dialectFunctions = map[string]map[string]string{
 }
 
 // CompileExpr emits safe SQL from a canonical semantic expression AST.
-func CompileExpr(expr pkgsemantic.ExprNode, d dialect.Dialect, resolver *SchemaResolver) string {
+func CompileExpr(expr pkgsemantic.ExprNode, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig) (string, error) {
 	d = normalizeExprDialect(d)
-	sql := compileExpr(expr, d, resolver)
+	sql, err := compileExpr(expr, d, resolver, args, piiConfig)
+	if err != nil {
+		return "", err
+	}
 	if sql != "" {
 		checker := security.NewReadOnlyChecker()
 		if err := checker.Check("SELECT " + sql); err != nil {
 			slog.Error("expression compiled to unsafe SQL, aborting compilation", "error", err)
-			return ""
+			return "", err
 		}
 	}
-	return sql
+	return sql, nil
 }
 
 func normalizeExprDialect(d dialect.Dialect) dialect.Dialect {
@@ -74,28 +78,47 @@ func normalizeExprDialect(d dialect.Dialect) dialect.Dialect {
 	return d
 }
 
-func compileExpr(expr pkgsemantic.ExprNode, d dialect.Dialect, resolver *SchemaResolver) string {
+func compileExpr(expr pkgsemantic.ExprNode, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig) (string, error) {
 	switch e := expr.(type) {
 	case nil:
-		return ""
+		return "", nil
 	case pkgsemantic.LiteralExpr:
-		return literalSQL(e.Value)
+		if args != nil {
+			*args = append(*args, e.Value)
+			return d.Placeholder(len(*args)), nil
+		}
+		return literalSQL(e.Value), nil
 	case pkgsemantic.ColumnRefExpr:
-		return columnRefSQL(e, d, resolver)
+		colPath := e.Column
+		if e.Table != "" {
+			colPath = e.Table + "." + e.Column
+		}
+		var physicalPath string
+		if resolver != nil {
+			physicalPath = resolver.PhysicalColumnRef(colPath)
+		} else {
+			physicalPath = colPath
+		}
+		if piiConfig != nil {
+			if masked, ok := maskColumnRef(colPath, physicalPath, d, piiConfig); ok {
+				return masked, nil
+			}
+		}
+		return d.QuoteIdent(physicalPath), nil
 	case pkgsemantic.MetricRefExpr:
-		return d.QuoteIdent(e.Name)
+		return d.QuoteIdent(e.Name), nil
 	case pkgsemantic.DimensionRefExpr:
-		return d.QuoteIdent(e.Name)
+		return d.QuoteIdent(e.Name), nil
 	case pkgsemantic.BinaryExpr:
-		return binaryExprSQL(e, d, resolver)
+		return binaryExprSQL(e, d, resolver, args, piiConfig)
 	case pkgsemantic.UnaryExpr:
-		return unaryExprSQL(e, d, resolver)
+		return unaryExprSQL(e, d, resolver, args, piiConfig)
 	case pkgsemantic.FunctionCallExpr:
-		return functionCallSQL(e, d, resolver)
+		return functionCallSQL(e, d, resolver, args, piiConfig)
 	case pkgsemantic.CaseExpr:
-		return caseExprSQL(e, d, resolver)
+		return caseExprSQL(e, d, resolver, args, piiConfig)
 	default:
-		return ""
+		return "", nil
 	}
 }
 
@@ -121,65 +144,63 @@ func literalSQL(value any) string {
 	}
 }
 
-func columnRefSQL(ref pkgsemantic.ColumnRefExpr, d dialect.Dialect, resolver *SchemaResolver) string {
-	return d.QuoteIdent(columnRefPath(ref, resolver))
-}
-
-func columnRefPath(ref pkgsemantic.ColumnRefExpr, resolver *SchemaResolver) string {
-	columnRef := ref.Column
-	if ref.Table != "" {
-		columnRef = ref.Table + "." + ref.Column
+func binaryExprSQL(expr pkgsemantic.BinaryExpr, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig) (string, error) {
+	left, err := compileExpr(expr.Left, d, resolver, args, piiConfig)
+	if err != nil {
+		return "", err
 	}
-	if resolver != nil {
-		return resolver.PhysicalColumnRef(columnRef)
+	right, err := compileExpr(expr.Right, d, resolver, args, piiConfig)
+	if err != nil {
+		return "", err
 	}
-	return columnRef
-}
-
-func binaryExprSQL(expr pkgsemantic.BinaryExpr, d dialect.Dialect, resolver *SchemaResolver) string {
-	left := compileExpr(expr.Left, d, resolver)
-	right := compileExpr(expr.Right, d, resolver)
 	if expr.Op == pkgsemantic.OpConcat {
 		switch d.Name() {
 		case "mysql":
-			return "CONCAT(" + left + ", " + right + ")"
+			return "CONCAT(" + left + ", " + right + ")", nil
 		case "sqlserver":
-			return "(" + left + " + " + right + ")"
+			return "(" + left + " + " + right + ")", nil
 		case "clickhouse":
-			return "concat(" + left + ", " + right + ")"
+			return "concat(" + left + ", " + right + ")", nil
 		default:
-			return "(" + left + " || " + right + ")"
+			return "(" + left + " || " + right + ")", nil
 		}
 	}
-	return "(" + left + " " + binaryOpSQL(expr.Op) + " " + right + ")"
+	return "(" + left + " " + binaryOpSQL(expr.Op) + " " + right + ")", nil
 }
 
-func unaryExprSQL(expr pkgsemantic.UnaryExpr, d dialect.Dialect, resolver *SchemaResolver) string {
-	inner := compileExpr(expr.Expr, d, resolver)
+func unaryExprSQL(expr pkgsemantic.UnaryExpr, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig) (string, error) {
+	inner, err := compileExpr(expr.Expr, d, resolver, args, piiConfig)
+	if err != nil {
+		return "", err
+	}
 	switch expr.Op {
 	case pkgsemantic.OpNot:
-		return "(NOT " + inner + ")"
+		return "(NOT " + inner + ")", nil
 	case pkgsemantic.OpNegate:
-		return "(-" + inner + ")"
+		return "(-" + inner + ")", nil
 	default:
-		return "(" + strings.ToUpper(string(expr.Op)) + " " + inner + ")"
+		return "(" + strings.ToUpper(string(expr.Op)) + " " + inner + ")", nil
 	}
 }
 
-func functionCallSQL(expr pkgsemantic.FunctionCallExpr, d dialect.Dialect, resolver *SchemaResolver) string {
-	if sql, ok := dateTruncSQL(expr, d, resolver); ok {
-		return sql
+func functionCallSQL(expr pkgsemantic.FunctionCallExpr, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig) (string, error) {
+	if sql, ok := dateTruncSQL(expr, d, resolver, piiConfig); ok {
+		return sql, nil
 	}
 
-	args := make([]string, 0, len(expr.Args))
+	funcArgs := make([]string, 0, len(expr.Args))
 	for _, arg := range expr.Args {
-		args = append(args, compileExpr(arg, d, resolver))
+		compiled, err := compileExpr(arg, d, resolver, args, piiConfig)
+		if err != nil {
+			return "", err
+		}
+		funcArgs = append(funcArgs, compiled)
 	}
 	name := functionNameSQL(expr.Name, d)
-	return name + "(" + strings.Join(args, ", ") + ")"
+	return name + "(" + strings.Join(funcArgs, ", ") + ")", nil
 }
 
-func dateTruncSQL(expr pkgsemantic.FunctionCallExpr, d dialect.Dialect, resolver *SchemaResolver) (string, bool) {
+func dateTruncSQL(expr pkgsemantic.FunctionCallExpr, d dialect.Dialect, resolver *SchemaResolver, piiConfig *PIIMaskingConfig) (string, bool) {
 	if !strings.EqualFold(expr.Name, "DATE_TRUNC") || len(expr.Args) != 2 {
 		return "", false
 	}
@@ -189,11 +210,30 @@ func dateTruncSQL(expr pkgsemantic.FunctionCallExpr, d dialect.Dialect, resolver
 		return "", false
 	}
 
-	column, ok := dateTruncColumnRef(expr.Args[1], resolver)
+	ref, ok := expr.Args[1].(pkgsemantic.ColumnRefExpr)
 	if !ok {
 		return "", false
 	}
-	return d.DateTrunc(part, column), true
+
+	colPath := ref.Column
+	if ref.Table != "" {
+		colPath = ref.Table + "." + ref.Column
+	}
+	var physicalPath string
+	if resolver != nil {
+		physicalPath = resolver.PhysicalColumnRef(colPath)
+	} else {
+		physicalPath = colPath
+	}
+
+	if piiConfig != nil {
+		access, _, found := piiConfig.lookup(colPath, physicalPath)
+		if found && access != pii.AccessRaw && access != pii.AccessMasked {
+			return pii.HiddenLiteral, true
+		}
+	}
+
+	return d.DateTrunc(part, physicalPath), true
 }
 
 func literalString(expr pkgsemantic.ExprNode) (string, bool) {
@@ -205,25 +245,29 @@ func literalString(expr pkgsemantic.ExprNode) (string, bool) {
 	return value, ok
 }
 
-func dateTruncColumnRef(expr pkgsemantic.ExprNode, resolver *SchemaResolver) (string, bool) {
-	ref, ok := expr.(pkgsemantic.ColumnRefExpr)
-	if !ok {
-		return "", false
-	}
-	return columnRefPath(ref, resolver), true
-}
-
-func caseExprSQL(expr pkgsemantic.CaseExpr, d dialect.Dialect, resolver *SchemaResolver) string {
+func caseExprSQL(expr pkgsemantic.CaseExpr, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig) (string, error) {
 	chunks := make([]string, 0, 2+len(expr.Conditions)*4)
 	chunks = append(chunks, "CASE")
 	for _, condition := range expr.Conditions {
-		chunks = append(chunks, " WHEN ", compileExpr(condition.When, d, resolver), " THEN ", compileExpr(condition.Then, d, resolver))
+		compiledWhen, err := compileExpr(condition.When, d, resolver, args, piiConfig)
+		if err != nil {
+			return "", err
+		}
+		compiledThen, err := compileExpr(condition.Then, d, resolver, args, piiConfig)
+		if err != nil {
+			return "", err
+		}
+		chunks = append(chunks, " WHEN ", compiledWhen, " THEN ", compiledThen)
 	}
 	if expr.ElseExpr != nil {
-		chunks = append(chunks, " ELSE ", compileExpr(expr.ElseExpr, d, resolver))
+		compiledElse, err := compileExpr(expr.ElseExpr, d, resolver, args, piiConfig)
+		if err != nil {
+			return "", err
+		}
+		chunks = append(chunks, " ELSE ", compiledElse)
 	}
 	chunks = append(chunks, " END")
-	return strings.Join(chunks, "")
+	return strings.Join(chunks, ""), nil
 }
 
 func binaryOpSQL(op pkgsemantic.BinaryOp) string {
@@ -269,4 +313,22 @@ func functionNameSQL(name string, d dialect.Dialect) string {
 		}
 	}
 	return upper
+}
+
+func maskColumnRef(colPath, physicalPath string, d dialect.Dialect, piiConfig *PIIMaskingConfig) (string, bool) {
+	if piiConfig == nil {
+		return "", false
+	}
+	access, piiType, found := piiConfig.lookup(colPath, physicalPath)
+	if !found {
+		return "", false
+	}
+	if access != pii.AccessRaw && access != pii.AccessMasked {
+		return pii.HiddenLiteral, true
+	}
+	if access == pii.AccessMasked {
+		colSQL := d.QuoteIdent(physicalPath)
+		return piiConfig.strategy().MaskExpression(colSQL, piiType, d), true
+	}
+	return "", false
 }

@@ -95,3 +95,29 @@ func TestConnectionDSN_roundTrip(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestRedactDSN_URLAndMySQLDetails(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{
+			"postgres://alice:hunter%402@host:5432/db",
+			"postgres://alice:***@host:5432/db",
+		},
+		{
+			"alice:hunter2@tcp(127.0.0.1:3306)/db?pass=secret&foo=bar",
+			"alice:***@tcp(127.0.0.1:3306)/db?pass=***&foo=bar",
+		},
+		{
+			"host=localhost pass=secret password=secret2",
+			"host=localhost pass=*** password=***",
+		},
+	}
+	for _, tc := range cases {
+		got := security.RedactDSN(tc.in)
+		if got != tc.want {
+			t.Errorf("RedactDSN(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}

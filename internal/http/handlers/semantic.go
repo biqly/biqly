@@ -857,6 +857,7 @@ type removeTableResponse struct {
 
 // RemoveTable cascade-deletes joins, dimensions, and metrics referencing the
 // given table. Rejects the request if the table is the model's base table.
+//
 //nolint:gocognit
 func (h *SemanticHandler) RemoveTable(w http.ResponseWriter, r *http.Request) {
 	modelID, ok := requireURLParam(w, r, "id")
@@ -1400,11 +1401,14 @@ func (h *SemanticHandler) CompileExpression(w http.ResponseWriter, r *http.Reque
 	}
 
 	resolver := query.NewSchemaResolver(model, nil)
-	compiledSQL := query.CompileExpr(expr, driver.Dialect(), resolver)
+	compiledSQL, err := query.CompileExpr(expr, driver.Dialect(), resolver, nil, nil)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusBadRequest, "failed to compile expression", err)
+		return
+	}
 
 	writeJSON(w, http.StatusOK, compileExpressionResponse{
 		SQL:  compiledSQL,
 		Expr: expr,
 	})
 }
-

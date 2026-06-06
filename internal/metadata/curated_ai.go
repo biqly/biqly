@@ -148,12 +148,14 @@ func (r *Repository) InsertAIFeedback(ctx context.Context, question, datasourceI
 	return err
 }
 
-// UpdateLatestAIQueryHistoryRating sets user_rating on the most recent ai_query_history row for a datasource.
-func (r *Repository) UpdateLatestAIQueryHistoryRating(ctx context.Context, datasourceID, rating string) error {
+// UpdateLatestAIQueryHistoryRating sets user_rating on the most recent ai_query_history row for a datasource, specific user, and question.
+func (r *Repository) UpdateLatestAIQueryHistoryRating(ctx context.Context, datasourceID, rating, userID, question string) error {
 	_, err := r.db.ExecContext(ctx,
 		`UPDATE ai_query_history SET user_rating = $1
-		 WHERE id = (SELECT id FROM ai_query_history WHERE datasource_id = $2::uuid ORDER BY created_at DESC LIMIT 1)`,
-		rating, datasourceID,
+		 WHERE id = (SELECT id FROM ai_query_history
+		             WHERE datasource_id = $2::uuid AND user_id = $3 AND question = $4
+		             ORDER BY created_at DESC LIMIT 1)`,
+		rating, datasourceID, userID, question,
 	)
 	return err
 }
