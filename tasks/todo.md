@@ -10,9 +10,9 @@
     - [x] `ProcessQuestion` in `internal/ai/service.go` (ambiguity analysis, LLM generate).
     - [x] `Compile` in `internal/query/compiler.go` (logical query translation to dialect SQL).
     - [x] `Execute` in `internal/query/executor.go` (physical query execution against target database).
-- [ ] **Yüksek**: AI eval/regresyon paketini CI kapısı yap
-  - [ ] Ensure `make eval-regression` (real model or stub golden tests) runs on every pull request and push to `main`.
-  - [ ] Explicitly add the regression test execution step to `.github/workflows/test.yml` (currently only runs `go test ./...` which does not execute some of these benchmarks strictly).
+- [x] **Yüksek**: AI eval/regresyon paketini CI kapısı yap
+  - [x] Ensure `make eval-regression` (real model or stub golden tests) runs on every pull request and push to `main`.
+  - [x] Explicitly add the regression test execution step to `.github/workflows/test.yml` (currently only runs `go test ./...` which does not execute some of these benchmarks strictly).
   - [ ] Enforce failing the build if accuracy rates drop below acceptable thresholds in `internal/ai/eval_regression_test.go`.
 - [ ] **Orta**: Veri-kaynağı sürücüleri için lehçe entegrasyon testleri & test kapsam kapıları
   - [ ] Address low test coverage in critical packages (like `datasource/{postgres,mysql,clickhouse,sqlserver}`, `dashboard`, `queue`, and `config` which currently have thin coverage, e.g., 1 test each).
