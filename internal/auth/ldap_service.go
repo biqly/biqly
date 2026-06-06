@@ -14,18 +14,18 @@ var ErrLDAPNotConfigured = errors.New("ldap is not configured")
 
 // SetLDAP wires the directory config repository and authenticator so the Login
 // flow can fall back to LDAP and the admin API can manage the configuration.
-func (s *AuthService) SetLDAP(repo *LDAPConfigRepository, authenticator ldap.Authenticator) {
+func (s *Service) SetLDAP(repo *LDAPConfigRepository, authenticator ldap.Authenticator) {
 	s.ldapConfig = repo
 	s.ldapAuth = authenticator
 }
 
-func (s *AuthService) ldapReady() bool {
+func (s *Service) ldapReady() bool {
 	return s.ldapConfig != nil && s.ldapAuth != nil
 }
 
 // GetLDAPConfig returns the stored configuration (bind password decrypted for
 // service use; handlers must not serialize it back to clients).
-func (s *AuthService) GetLDAPConfig(ctx context.Context) (LDAPConfig, error) {
+func (s *Service) GetLDAPConfig(ctx context.Context) (LDAPConfig, error) {
 	if s.ldapConfig == nil {
 		return LDAPConfig{}, ErrLDAPNotConfigured
 	}
@@ -33,7 +33,7 @@ func (s *AuthService) GetLDAPConfig(ctx context.Context) (LDAPConfig, error) {
 }
 
 // UpdateLDAPConfig persists the configuration.
-func (s *AuthService) UpdateLDAPConfig(ctx context.Context, in LDAPConfig, updatedBy string) (LDAPConfig, error) {
+func (s *Service) UpdateLDAPConfig(ctx context.Context, in LDAPConfig, updatedBy string) (LDAPConfig, error) {
 	if s.ldapConfig == nil {
 		return LDAPConfig{}, ErrLDAPNotConfigured
 	}
@@ -43,7 +43,7 @@ func (s *AuthService) UpdateLDAPConfig(ctx context.Context, in LDAPConfig, updat
 // TestLDAPConnection probes the directory with the supplied configuration. When
 // the bind password is blank the stored one is used (so the admin UI can test
 // without re-entering the secret).
-func (s *AuthService) TestLDAPConnection(ctx context.Context, in LDAPConfig) error {
+func (s *Service) TestLDAPConnection(ctx context.Context, in LDAPConfig) error {
 	if !s.ldapReady() {
 		return ErrLDAPNotConfigured
 	}
@@ -56,7 +56,7 @@ func (s *AuthService) TestLDAPConnection(ctx context.Context, in LDAPConfig) err
 }
 
 // LDAPEnabled reports whether directory sign-in is turned on.
-func (s *AuthService) LDAPEnabled(ctx context.Context) bool {
+func (s *Service) LDAPEnabled(ctx context.Context) bool {
 	if !s.ldapReady() {
 		return false
 	}
@@ -86,7 +86,7 @@ func settingsFromLDAPConfig(c LDAPConfig) ldap.Settings {
 //     valid in the directory but not provisioned locally (auto-create off) —
 //     the caller then returns a generic invalid-credentials error;
 //   - (nil, err)   on a connectivity/configuration error.
-func (s *AuthService) tryLDAP(ctx context.Context, username, password string) (*User, error) {
+func (s *Service) tryLDAP(ctx context.Context, username, password string) (*User, error) {
 	if !s.ldapReady() {
 		return nil, nil //nolint:nilnil // LDAP disabled; caller treats as not authenticated
 	}

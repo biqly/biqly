@@ -45,7 +45,7 @@ type GDPRSessionRecord struct {
 type GDPRExporter struct {
 	db       *sql.DB
 	userRepo *auth.UserRepository
-	ws       *workspace.WorkspaceService
+	ws       *workspace.Service
 	dsAccess *rbac.DatasourceAccessService
 	sharing  *workspace.SharingService
 	audit    *auth.AuditService
@@ -55,7 +55,7 @@ type GDPRExporter struct {
 func NewGDPRExporter(
 	db *sql.DB,
 	userRepo *auth.UserRepository,
-	ws *workspace.WorkspaceService,
+	ws *workspace.Service,
 	dsAccess *rbac.DatasourceAccessService,
 	sharing *workspace.SharingService,
 	audit *auth.AuditService,

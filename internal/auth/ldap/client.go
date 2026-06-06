@@ -18,9 +18,7 @@ import (
 	ldapv3 "github.com/go-ldap/ldap/v3"
 )
 
-// Security modes for the LDAP connection.
 const (
-	SecurityNone     = "none"
 	SecurityStartTLS = "starttls"
 	SecurityLDAPS    = "ldaps"
 )

@@ -44,7 +44,7 @@ type MFAService interface {
 	GenerateBypassCode(ctx context.Context, userID string) (string, error)
 }
 
-type AuthService struct {
+type Service struct {
 	userRepo         *UserRepository
 	rbacRepo         *rbac.RBACRepository
 	sessionMgr       *SessionManager
@@ -60,26 +60,26 @@ type AuthService struct {
 	ldapAuth         ldap.Authenticator
 }
 
-func (s *AuthService) UserRepo() *UserRepository {
+func (s *Service) UserRepo() *UserRepository {
 	return s.userRepo
 }
 
-func (s *AuthService) RBACRepo() *rbac.RBACRepository {
+func (s *Service) RBACRepo() *rbac.RBACRepository {
 	return s.rbacRepo
 }
 
 // SetMagicLinkRepository wires the magic-link repository post-construction.
 // Optional; if unset the magic-link endpoints reply as if the address has
 // no account, preventing enumeration when the feature is disabled.
-func (s *AuthService) SetMagicLinkRepository(r *MagicLinkRepository) { s.magicLinks = r }
+func (s *Service) SetMagicLinkRepository(r *MagicLinkRepository) { s.magicLinks = r }
 
 // SetWorkspaceService wires the workspace service after construction to avoid
 // a constructor-arg ripple through tests; required for active-workspace switching.
-func (s *AuthService) SetWorkspaceService(ws WorkspaceService) { s.workspaceSvc = ws }
+func (s *Service) SetWorkspaceService(ws WorkspaceService) { s.workspaceSvc = ws }
 
 // SetMFAService wires the MFA service after construction. Optional; if unset
 // MFA checks are skipped and login proceeds with single factor.
-func (s *AuthService) SetMFAService(m MFAService) { s.mfaSvc = m }
+func (s *Service) SetMFAService(m MFAService) { s.mfaSvc = m }
 
 func NewAuthService(
 	userRepo *UserRepository,
@@ -89,8 +89,8 @@ func NewAuthService(
 	config *Config,
 	redisClient *redis.Client,
 	emailSender mail.EmailSender,
-) *AuthService {
-	return &AuthService{
+) *Service {
+	return &Service{
 		userRepo:    userRepo,
 		rbacRepo:    rbacRepo,
 		sessionMgr:  sessionMgr,
@@ -101,7 +101,7 @@ func NewAuthService(
 	}
 }
 
-func (s *AuthService) Register(ctx context.Context, req RegisterRequest, userAgent, ipAddress *string) (*TokenResponse, error) {
+func (s *Service) Register(ctx context.Context, req RegisterRequest, userAgent, ipAddress *string) (*TokenResponse, error) {
 	enabled, err := s.SelfSignupEnabled(ctx)
 	if err != nil {
 		return nil, err
@@ -176,7 +176,7 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest, userAge
 	}, nil
 }
 
-func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ipAddress *string) (*TokenResponse, error) { //nolint:funlen,gocognit
+func (s *Service) Login(ctx context.Context, req LoginRequest, userAgent, ipAddress *string) (*TokenResponse, error) { //nolint:funlen,gocognit
 	email, emailErr := NormalizeEmail(req.Email)
 	if emailErr != nil {
 		email = strings.TrimSpace(strings.ToLower(req.Email))
@@ -294,7 +294,7 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest, userAgent, ip
 	return s.issueSession(ctx, user, userAgent, ipAddress, method)
 }
 
-func (s *AuthService) activeWorkspaceRequiresMFA(ctx context.Context, userID string) (bool, error) {
+func (s *Service) activeWorkspaceRequiresMFA(ctx context.Context, userID string) (bool, error) {
 	if s.workspaceSvc == nil {
 		return false, nil
 	}
@@ -309,7 +309,7 @@ func (s *AuthService) activeWorkspaceRequiresMFA(ctx context.Context, userID str
 	return required, nil
 }
 
-func (s *AuthService) issueSession(ctx context.Context, user *User, userAgent, ipAddress *string, method string) (*TokenResponse, error) {
+func (s *Service) issueSession(ctx context.Context, user *User, userAgent, ipAddress *string, method string) (*TokenResponse, error) {
 	roles, err := s.rbacRepo.GetUserRoles(ctx, user.ID)
 	if err != nil {
 		return nil, err
@@ -377,7 +377,7 @@ func (s *AuthService) issueSession(ctx context.Context, user *User, userAgent, i
 // isPasswordExpired reports whether the user's password is older than the
 // configured BI_AUTH_PASSWORD_MAX_AGE_DAYS (0 = disabled). Errors during the
 // lookup are treated as "not expired" so they cannot lock the user out.
-func (s *AuthService) isPasswordExpired(ctx context.Context, userID string) bool {
+func (s *Service) isPasswordExpired(ctx context.Context, userID string) bool {
 	days := s.config.PasswordMaxAgeDays
 	if days <= 0 {
 		return false
@@ -390,7 +390,7 @@ func (s *AuthService) isPasswordExpired(ctx context.Context, userID string) bool
 }
 
 // CompleteMFALogin redeems a challenge token + TOTP/recovery code for a full session.
-func (s *AuthService) CompleteMFALogin(ctx context.Context, req MFALoginRequest, userAgent, ipAddress *string) (*TokenResponse, error) {
+func (s *Service) CompleteMFALogin(ctx context.Context, req MFALoginRequest, userAgent, ipAddress *string) (*TokenResponse, error) {
 	if s.mfaSvc == nil {
 		return nil, ErrMFANotEnabled
 	}
@@ -413,7 +413,7 @@ func (s *AuthService) CompleteMFALogin(ctx context.Context, req MFALoginRequest,
 	return s.issueSession(ctx, user, userAgent, ipAddress, "mfa")
 }
 
-func (s *AuthService) Refresh(ctx context.Context, req RefreshRequest, userAgent, ipAddress *string) (*TokenResponse, error) {
+func (s *Service) Refresh(ctx context.Context, req RefreshRequest, userAgent, ipAddress *string) (*TokenResponse, error) {
 	// Rotate session
 	newRefreshToken, err := s.sessionMgr.RotateSession(ctx, req.RefreshToken, s.config.JWTRefreshTTL, userAgent, ipAddress)
 	if err != nil {
@@ -469,11 +469,11 @@ func (s *AuthService) Refresh(ctx context.Context, req RefreshRequest, userAgent
 	}, nil
 }
 
-func (s *AuthService) Logout(ctx context.Context, token string) error {
+func (s *Service) Logout(ctx context.Context, token string) error {
 	return s.sessionMgr.RevokeSession(ctx, token)
 }
 
-func (s *AuthService) GetMe(ctx context.Context, userID string) (*UserResponse, error) {
+func (s *Service) GetMe(ctx context.Context, userID string) (*UserResponse, error) {
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -499,7 +499,7 @@ func (s *AuthService) GetMe(ctx context.Context, userID string) (*UserResponse, 
 	}, nil
 }
 
-func (s *AuthService) sendRegisterVerification(ctx context.Context, userID, email string) {
+func (s *Service) sendRegisterVerification(ctx context.Context, userID, email string) {
 	token, err := s.generateSecureToken()
 	if err != nil {
 		return

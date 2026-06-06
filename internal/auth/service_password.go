@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func (s *AuthService) recordLoginFailure(ctx context.Context, email string, user *User) {
+func (s *Service) recordLoginFailure(ctx context.Context, email string, user *User) {
 	if s.redisClient == nil {
 		return
 	}
@@ -32,7 +32,7 @@ func (s *AuthService) recordLoginFailure(ctx context.Context, email string, user
 	}
 }
 
-func (s *AuthService) ForgotPassword(ctx context.Context, email string) error {
+func (s *Service) ForgotPassword(ctx context.Context, email string) error {
 	normalizedEmail, err := NormalizeEmail(email)
 	if err != nil {
 		return err
@@ -62,7 +62,7 @@ func (s *AuthService) ForgotPassword(ctx context.Context, email string) error {
 	return nil
 }
 
-func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword string) error {
+func (s *Service) ResetPassword(ctx context.Context, token, newPassword string) error {
 	userID, err := s.userRepo.VerifyPasswordResetToken(ctx, token)
 	if err != nil {
 		return err

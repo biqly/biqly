@@ -85,6 +85,29 @@ func NewWebAuthnService(cfg *auth.Config, repo *auth.UserRepository) (*WebAuthnS
 	}, nil
 }
 
+func decodeSessionChallenge(challenge string) ([]byte, error) {
+	challengeBytes, err := base64.RawURLEncoding.DecodeString(challenge)
+	if err != nil {
+		return base64.URLEncoding.DecodeString(challenge)
+	}
+	return challengeBytes, nil
+}
+
+func sessionChallengeExpiry(session *webauthn.SessionData, ttl time.Duration) time.Time {
+	if !session.Expires.IsZero() {
+		return session.Expires
+	}
+	return time.Now().Add(ttl)
+}
+
+func (s *WebAuthnService) persistSessionChallenge(ctx context.Context, session *webauthn.SessionData, userID *string) error {
+	challengeBytes, err := decodeSessionChallenge(session.Challenge)
+	if err != nil {
+		return err
+	}
+	return s.repo.SaveWebAuthnChallenge(ctx, challengeBytes, userID, sessionChallengeExpiry(session, s.ttl))
+}
+
 func (s *WebAuthnService) BeginRegistration(ctx context.Context, user *auth.User) (*protocol.CredentialCreation, *webauthn.SessionData, error) {
 	creds, err := s.repo.GetPasskeysByUserID(ctx, user.ID)
 	if err != nil {
@@ -101,20 +124,7 @@ func (s *WebAuthnService) BeginRegistration(ctx context.Context, user *auth.User
 		return nil, nil, err
 	}
 
-	challengeBytes, err := base64.RawURLEncoding.DecodeString(session.Challenge)
-	if err != nil {
-		challengeBytes, err = base64.URLEncoding.DecodeString(session.Challenge)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
-	expiresAt := session.Expires
-	if expiresAt.IsZero() {
-		expiresAt = time.Now().Add(s.ttl)
-	}
-	err = s.repo.SaveWebAuthnChallenge(ctx, challengeBytes, &user.ID, expiresAt)
-	if err != nil {
+	if err := s.persistSessionChallenge(ctx, session, &user.ID); err != nil {
 		return nil, nil, err
 	}
 
@@ -122,12 +132,9 @@ func (s *WebAuthnService) BeginRegistration(ctx context.Context, user *auth.User
 }
 
 func (s *WebAuthnService) FinishRegistration(ctx context.Context, user *auth.User, session *webauthn.SessionData, request *http.Request, name string) (*webauthn.Credential, error) {
-	challengeBytes, err := base64.RawURLEncoding.DecodeString(session.Challenge)
+	challengeBytes, err := decodeSessionChallenge(session.Challenge)
 	if err != nil {
-		challengeBytes, err = base64.URLEncoding.DecodeString(session.Challenge)
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 
 	uid, err := s.repo.GetWebAuthnChallenge(ctx, challengeBytes)
@@ -166,26 +173,13 @@ func (s *WebAuthnService) FinishRegistration(ctx context.Context, user *auth.Use
 }
 
 func (s *WebAuthnService) BeginLogin(ctx context.Context, emailOrUsername string) (*protocol.CredentialAssertion, *webauthn.SessionData, error) {
-	if emailOrUsername == "" { //nolint:nestif // discoverable login when identifier is omitted
+	if emailOrUsername == "" {
 		assertion, session, err := s.webAuthn.BeginDiscoverableLogin()
 		if err != nil {
 			return nil, nil, err
 		}
 
-		challengeBytes, err := base64.RawURLEncoding.DecodeString(session.Challenge)
-		if err != nil {
-			challengeBytes, err = base64.URLEncoding.DecodeString(session.Challenge)
-			if err != nil {
-				return nil, nil, err
-			}
-		}
-
-		expiresAt := session.Expires
-		if expiresAt.IsZero() {
-			expiresAt = time.Now().Add(s.ttl)
-		}
-		err = s.repo.SaveWebAuthnChallenge(ctx, challengeBytes, nil, expiresAt)
-		if err != nil {
+		if err := s.persistSessionChallenge(ctx, session, nil); err != nil {
 			return nil, nil, err
 		}
 
@@ -215,20 +209,7 @@ func (s *WebAuthnService) BeginLogin(ctx context.Context, emailOrUsername string
 		return nil, nil, err
 	}
 
-	challengeBytes, err := base64.RawURLEncoding.DecodeString(session.Challenge)
-	if err != nil {
-		challengeBytes, err = base64.URLEncoding.DecodeString(session.Challenge)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
-	expiresAt := session.Expires
-	if expiresAt.IsZero() {
-		expiresAt = time.Now().Add(s.ttl)
-	}
-	err = s.repo.SaveWebAuthnChallenge(ctx, challengeBytes, &user.ID, expiresAt)
-	if err != nil {
+	if err := s.persistSessionChallenge(ctx, session, &user.ID); err != nil {
 		return nil, nil, err
 	}
 
@@ -236,12 +217,9 @@ func (s *WebAuthnService) BeginLogin(ctx context.Context, emailOrUsername string
 }
 
 func (s *WebAuthnService) FinishLogin(ctx context.Context, session *webauthn.SessionData, request *http.Request) (*auth.User, error) {
-	challengeBytes, err := base64.RawURLEncoding.DecodeString(session.Challenge)
+	challengeBytes, err := decodeSessionChallenge(session.Challenge)
 	if err != nil {
-		challengeBytes, err = base64.URLEncoding.DecodeString(session.Challenge)
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 
 	uid, err := s.repo.GetWebAuthnChallenge(ctx, challengeBytes)

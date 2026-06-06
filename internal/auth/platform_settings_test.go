@@ -9,10 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/biqly/biqly/internal/auth/rbac"
+	"github.com/biqly/biqly/internal/testutil"
 )
 
 func TestSelfSignupDisabledBlocksRegister(t *testing.T) {
-	dbPool := openTestDBPool(t)
+	dbPool := testutil.OpenAuthDB(t)
 	ctx := context.Background()
 
 	_, _ = dbPool.ExecContext(ctx, "UPDATE platform_settings SET self_signup_enabled = false WHERE id = 1")
@@ -38,7 +39,7 @@ func TestSelfSignupDisabledBlocksRegister(t *testing.T) {
 }
 
 func TestSuperAdminUpdatesPlatformSettings(t *testing.T) {
-	dbPool := openTestDBPool(t)
+	dbPool := testutil.OpenAuthDB(t)
 	ctx := context.Background()
 
 	config := &Config{JWTAccessTTL: 5 * time.Minute, JWTRefreshTTL: 24 * time.Hour}

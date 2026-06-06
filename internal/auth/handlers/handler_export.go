@@ -9,9 +9,8 @@ import (
 )
 
 func (h *AuthHandler) handleMeExport(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 	if h.gdpr == nil {

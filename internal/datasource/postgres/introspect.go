@@ -15,11 +15,7 @@ func (*Driver) introspectSchemas(ctx context.Context, db *sql.DB) ([]datasource.
 		WHERE schema_name NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
 		ORDER BY schema_name
 	`
-	return datasource.QueryAll(ctx, db, query, nil, func(rows *sql.Rows) (datasource.SchemaInfo, error) {
-		var s datasource.SchemaInfo
-		err := rows.Scan(&s.Name)
-		return s, err
-	})
+	return datasource.QueryAll(ctx, db, query, nil, datasource.ScanSchemaName)
 }
 
 func (*Driver) introspectTables(ctx context.Context, db *sql.DB) ([]datasource.TableInfo, error) {
@@ -146,13 +142,5 @@ func (*Driver) introspectRelations(ctx context.Context, db *sql.DB) ([]datasourc
 			AND tc.table_schema = ccu.table_schema
 		WHERE tc.constraint_type = 'FOREIGN KEY'
 	`
-	return datasource.QueryAll(ctx, db, query, nil, func(rows *sql.Rows) (datasource.RelationInfo, error) {
-		var r datasource.RelationInfo
-		r.RelationshipType = datasource.DefaultRelationshipType
-		err := rows.Scan(
-			&r.ConstraintName, &r.FromSchema, &r.FromTable, &r.FromColumn,
-			&r.ToSchema, &r.ToTable, &r.ToColumn,
-		)
-		return r, err
-	})
+	return datasource.QueryAll(ctx, db, query, nil, datasource.ScanForeignKeyRelation)
 }

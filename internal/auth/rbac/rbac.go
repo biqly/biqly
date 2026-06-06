@@ -48,15 +48,15 @@ type PermissionCheck struct {
 	ScopeID    string
 }
 
-type RBACService struct {
+type Service struct {
 	repo *RBACRepository
 }
 
-func NewRBACService(repo *RBACRepository) *RBACService {
-	return &RBACService{repo: repo}
+func NewRBACService(repo *RBACRepository) *Service {
+	return &Service{repo: repo}
 }
 
-func (s *RBACService) HasRole(ctx context.Context, userID, role string) (bool, error) {
+func (s *Service) HasRole(ctx context.Context, userID, role string) (bool, error) {
 	roles, err := s.repo.GetUserRoles(ctx, userID)
 	if err != nil {
 		return false, err
@@ -64,11 +64,11 @@ func (s *RBACService) HasRole(ctx context.Context, userID, role string) (bool, e
 	return slices.Contains(roles, role), nil
 }
 
-func (s *RBACService) IsSuperAdmin(ctx context.Context, userID string) (bool, error) {
+func (s *Service) IsSuperAdmin(ctx context.Context, userID string) (bool, error) {
 	return s.HasRole(ctx, userID, RoleSuperAdmin)
 }
 
-func (s *RBACService) Check(ctx context.Context, check PermissionCheck) (bool, error) {
+func (s *Service) Check(ctx context.Context, check PermissionCheck) (bool, error) {
 	if check.UserID == "" || check.Permission == "" {
 		return false, errors.New("user_id and permission are required")
 	}
@@ -112,7 +112,7 @@ func (s *RBACService) Check(ctx context.Context, check PermissionCheck) (bool, e
 	return false, nil
 }
 
-func (s *RBACService) RequireAny(ctx context.Context, userID string, permissions ...string) (bool, error) {
+func (s *Service) RequireAny(ctx context.Context, userID string, permissions ...string) (bool, error) {
 	isSuper, err := s.IsSuperAdmin(ctx, userID)
 	if err != nil {
 		return false, err
@@ -133,7 +133,7 @@ func (s *RBACService) RequireAny(ctx context.Context, userID string, permissions
 	return false, nil
 }
 
-func (s *RBACService) GetEffectivePermissions(ctx context.Context, userID, workspaceID string) ([]string, error) {
+func (s *Service) GetEffectivePermissions(ctx context.Context, userID, workspaceID string) ([]string, error) {
 	isSuper, err := s.IsSuperAdmin(ctx, userID)
 	if err != nil {
 		return nil, err

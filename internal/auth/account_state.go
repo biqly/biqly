@@ -19,7 +19,6 @@ var (
 	ErrAccountFrozen        = errors.New("account is frozen")
 	ErrAccountDeleted       = errors.New("account is deleted")
 	ErrUnlockTokenInvalid   = errors.New("unlock token is invalid or expired")
-	ErrPasswordExpired      = errors.New("password expired; reset required")
 	ErrAccountAlreadyFrozen = errors.New("account is already frozen")
 	ErrAccountNotFrozen     = errors.New("account is not frozen")
 )

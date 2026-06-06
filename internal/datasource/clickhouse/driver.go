@@ -39,11 +39,7 @@ func (*Driver) introspectRelations(_ context.Context, _ *sql.DB) ([]datasource.R
 
 func (*Driver) introspectSchemas(ctx context.Context, db *sql.DB) ([]datasource.SchemaInfo, error) {
 	query := `SELECT DISTINCT database FROM system.tables WHERE database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA')`
-	return datasource.QueryAll(ctx, db, query, nil, func(rows *sql.Rows) (datasource.SchemaInfo, error) {
-		var s datasource.SchemaInfo
-		err := rows.Scan(&s.Name)
-		return s, err
-	})
+	return datasource.QueryAll(ctx, db, query, nil, datasource.ScanSchemaName)
 }
 
 func (*Driver) introspectTables(ctx context.Context, db *sql.DB) ([]datasource.TableInfo, error) {

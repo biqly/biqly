@@ -13,9 +13,8 @@ type updatePlatformSettingsRequest struct {
 }
 
 func (h *AuthHandler) handleAdminGetPlatformSettings(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 	isSuper, err := h.service.IsSuperAdmin(r.Context(), userID)
@@ -36,9 +35,8 @@ func (h *AuthHandler) handleAdminGetPlatformSettings(w http.ResponseWriter, r *h
 }
 
 func (h *AuthHandler) handleAdminUpdatePlatformSettings(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 	var req updatePlatformSettingsRequest

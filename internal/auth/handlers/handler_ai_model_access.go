@@ -67,9 +67,8 @@ func decodeGrantRequest[T any](w http.ResponseWriter, r *http.Request) (T, bool)
 }
 
 func (*RBACHandler) handleAdminGrant(w http.ResponseWriter, r *http.Request, grant func(context.Context, string) error) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		response.WriteError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := requireContextUserID(w, r)
+	if !ok {
 		return
 	}
 	if err := grant(r.Context(), userID); err != nil {

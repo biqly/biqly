@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-func (s *AuthService) CreateTokenResponseForUser(ctx context.Context, user *User, userAgent, ipAddress *string) (*TokenResponse, error) {
+func (s *Service) CreateTokenResponseForUser(ctx context.Context, user *User, userAgent, ipAddress *string) (*TokenResponse, error) {
 	roles, err := s.rbacRepo.GetUserRoles(ctx, user.ID)
 	if err != nil {
 		return nil, err
@@ -36,16 +36,16 @@ func (s *AuthService) CreateTokenResponseForUser(ctx context.Context, user *User
 }
 
 // AdminForceLogout revokes every active session for the target user.
-func (s *AuthService) AdminForceLogout(ctx context.Context, targetUserID string) error {
+func (s *Service) AdminForceLogout(ctx context.Context, targetUserID string) error {
 	return s.sessionMgr.RevokeAllUserSessions(ctx, targetUserID)
 }
 
 // ListActiveSessions returns active sessions for the user.
-func (s *AuthService) ListActiveSessions(ctx context.Context, userID string) ([]ActiveSessionInfo, error) {
+func (s *Service) ListActiveSessions(ctx context.Context, userID string) ([]ActiveSessionInfo, error) {
 	return s.sessionMgr.ListActiveSessions(ctx, userID)
 }
 
 // RevokeSession revokes a specific session owned by the user.
-func (s *AuthService) RevokeSession(ctx context.Context, userID, sessionID string) error {
+func (s *Service) RevokeSession(ctx context.Context, userID, sessionID string) error {
 	return s.sessionMgr.RevokeSessionByID(ctx, userID, sessionID)
 }

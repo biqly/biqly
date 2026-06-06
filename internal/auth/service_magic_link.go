@@ -13,7 +13,7 @@ import (
 // persisted (hashed) and emailed; otherwise the call is silently dropped.
 // A per-address cooldown (MagicLinkRequestCooldown) is enforced via Redis
 // when available.
-func (s *AuthService) RequestMagicLink(ctx context.Context, email, ipAddress string) error {
+func (s *Service) RequestMagicLink(ctx context.Context, email, ipAddress string) error {
 	normalized, err := NormalizeEmail(email)
 	if err != nil {
 		return err
@@ -59,7 +59,7 @@ func (s *AuthService) RequestMagicLink(ctx context.Context, email, ipAddress str
 // ConsumeMagicLink atomically validates and marks the token used, then
 // returns a fresh session. Errors map to ErrMagicLinkInvalid / ErrMagicLinkUsed
 // so handlers can return a uniform 400 without leaking which case happened.
-func (s *AuthService) ConsumeMagicLink(ctx context.Context, plain string, userAgent, ipAddress *string) (*TokenResponse, error) {
+func (s *Service) ConsumeMagicLink(ctx context.Context, plain string, userAgent, ipAddress *string) (*TokenResponse, error) {
 	if s.magicLinks == nil {
 		return nil, ErrMagicLinkInvalid
 	}

@@ -43,7 +43,7 @@ type ClaimInvitationRequest struct {
 }
 
 // InviteUser creates or updates an invitation for a given email and sends an email.
-func (s *AuthService) InviteUser(ctx context.Context, actorUserID, email, roleName string) error {
+func (s *Service) InviteUser(ctx context.Context, actorUserID, email, roleName string) error {
 	// 1. Authorize: actor must be a super admin.
 	isSuper, err := s.IsSuperAdmin(ctx, actorUserID)
 	if err != nil {
@@ -108,7 +108,7 @@ func (s *AuthService) InviteUser(ctx context.Context, actorUserID, email, roleNa
 }
 
 // GetInvitation retrieves a valid, unclaimed invitation by token.
-func (s *AuthService) GetInvitation(ctx context.Context, token string) (*Invitation, error) {
+func (s *Service) GetInvitation(ctx context.Context, token string) (*Invitation, error) {
 	if token == "" {
 		return nil, ErrInvitationNotFound
 	}
@@ -149,7 +149,7 @@ func (s *AuthService) GetInvitation(ctx context.Context, token string) (*Invitat
 }
 
 // ClaimInvitation claims the invitation, creates the user account and workspace, and logs in.
-func (s *AuthService) ClaimInvitation(ctx context.Context, token, password, displayName, userAgent, ipAddress string) (*TokenResponse, error) {
+func (s *Service) ClaimInvitation(ctx context.Context, token, password, displayName, userAgent, ipAddress string) (*TokenResponse, error) {
 	// 1. Retrieve and validate invitation
 	invite, err := s.GetInvitation(ctx, token)
 	if err != nil {
@@ -177,7 +177,6 @@ func (s *AuthService) ClaimInvitation(ctx context.Context, token, password, disp
 
 	// 4. Run database transaction to create user and claim invite
 	var user User
-	var workspaceID string
 	err = platformdb.RunInTx(ctx, s.userRepo.db, func(tx *sql.Tx) error {
 		// Double check user doesn't already exist (race condition)
 		var exists bool
@@ -215,6 +214,7 @@ func (s *AuthService) ClaimInvitation(ctx context.Context, token, password, disp
 		workspaceSlug := user.ID + "-personal"
 		workspaceName := sanitizedDisplayName + "'s Workspace"
 
+		var workspaceID string
 		if err := tx.QueryRowContext(ctx, workspaceQuery, workspaceName, workspaceSlug, user.ID).Scan(&workspaceID); err != nil {
 			return fmt.Errorf("create personal workspace: %w", err)
 		}
@@ -257,33 +257,11 @@ func (s *AuthService) ClaimInvitation(ctx context.Context, token, password, disp
 		return nil, err
 	}
 
-	// 5. Generate active session
-	roles, err := s.rbacRepo.GetUserRoles(ctx, user.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	accessToken, err := s.jwtMgr.GenerateTokenWithVerification(user.ID, user.Email, user.EmailVerified, roles, workspaceID, nil)
-	if err != nil {
-		return nil, fmt.Errorf("generate access token: %w", err)
-	}
-
-	refreshToken, err := s.sessionMgr.CreateSession(ctx, user.ID, &userAgent, &ipAddress, s.config.JWTRefreshTTL)
-	if err != nil {
-		return nil, fmt.Errorf("create session: %w", err)
-	}
-
-	return &TokenResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		UserID:       user.ID,
-		Email:        user.Email,
-		Roles:        roles,
-	}, nil
+	return s.CreateTokenResponseForUser(ctx, &user, &userAgent, &ipAddress)
 }
 
 // IsSuperAdmin helper checks if a user is a super admin using their roles.
-func (s *AuthService) IsSuperAdmin(ctx context.Context, userID string) (bool, error) {
+func (s *Service) IsSuperAdmin(ctx context.Context, userID string) (bool, error) {
 	roles, err := s.rbacRepo.GetUserRoles(ctx, userID)
 	if err != nil {
 		return false, err
@@ -292,7 +270,7 @@ func (s *AuthService) IsSuperAdmin(ctx context.Context, userID string) (bool, er
 }
 
 // ListInvitations lists all user invitations.
-func (s *AuthService) ListInvitations(ctx context.Context, actorUserID string) ([]*Invitation, error) {
+func (s *Service) ListInvitations(ctx context.Context, actorUserID string) ([]*Invitation, error) {
 	isSuper, err := s.IsSuperAdmin(ctx, actorUserID)
 	if err != nil {
 		return nil, fmt.Errorf("check super admin: %w", err)
@@ -341,7 +319,7 @@ func (s *AuthService) ListInvitations(ctx context.Context, actorUserID string) (
 }
 
 // RevokeInvitation deletes an invitation, rendering its token invalid.
-func (s *AuthService) RevokeInvitation(ctx context.Context, actorUserID, invitationID string) error {
+func (s *Service) RevokeInvitation(ctx context.Context, actorUserID, invitationID string) error {
 	isSuper, err := s.IsSuperAdmin(ctx, actorUserID)
 	if err != nil {
 		return fmt.Errorf("check super admin: %w", err)
@@ -367,7 +345,7 @@ func (s *AuthService) RevokeInvitation(ctx context.Context, actorUserID, invitat
 }
 
 // ResendInvitation updates an invitation with a fresh token and expiration, and triggers email delivery.
-func (s *AuthService) ResendInvitation(ctx context.Context, actorUserID, invitationID string) error {
+func (s *Service) ResendInvitation(ctx context.Context, actorUserID, invitationID string) error {
 	isSuper, err := s.IsSuperAdmin(ctx, actorUserID)
 	if err != nil {
 		return fmt.Errorf("check super admin: %w", err)

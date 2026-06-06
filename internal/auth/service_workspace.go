@@ -12,7 +12,7 @@ import (
 //
 // Rejects switching to a workspace the user is not a member of (ErrNotWorkspaceOwner
 // returned as a generic membership error to avoid leaking workspace existence).
-func (s *AuthService) SetActiveWorkspace(ctx context.Context, userID, workspaceID string) (*SetActiveWorkspaceResponse, error) {
+func (s *Service) SetActiveWorkspace(ctx context.Context, userID, workspaceID string) (*SetActiveWorkspaceResponse, error) {
 	if workspaceID == "" {
 		return nil, errors.New("workspace_id is required")
 	}

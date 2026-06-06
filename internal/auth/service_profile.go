@@ -4,7 +4,7 @@ import (
 	"context"
 )
 
-func (s *AuthService) UpdateProfile(ctx context.Context, userID string, req UpdateProfileRequest) (*UserResponse, error) {
+func (s *Service) UpdateProfile(ctx context.Context, userID string, req UpdateProfileRequest) (*UserResponse, error) {
 	displayName, err := SanitizeDisplayName(req.DisplayName)
 	if err != nil {
 		return nil, err
@@ -20,7 +20,7 @@ func (s *AuthService) UpdateProfile(ctx context.Context, userID string, req Upda
 	return s.GetMe(ctx, userID)
 }
 
-func (s *AuthService) ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error {
+func (s *Service) ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error {
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
 		return err

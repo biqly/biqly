@@ -1,5 +1,138 @@
 # Todo list
 
+## Backend Go Code Review (2026-06-06)
+
+Full codebase review of `internal/`, `pkg/`, `cmd/`, `services/`. Findings grouped by severity.
+
+### CRITICAL (fix immediately)
+
+- [ ] **SEC-Q1**: `internal/query/compiler.go:312-316` — Silent fallback to raw expression on parse failure. `CalculatedExpression` raw string injected into SQL when `ParseExpression` fails, bypassing readonly checker. Second-order SQL injection vector.
+- [ ] **SEC-Q2**: `internal/query/expr_compiler.go:46-51` — `CompileExpr` silently returns empty string on unsafe SQL instead of error. Callers use the empty string unconditionally, producing malformed queries.
+- [ ] **SEC-Q3**: `internal/query/expr_compiler.go:102-122` — `literalSQL` uses manual string escaping instead of parameterized queries. String literals embedded via `strings.ReplaceAll(v, "'", "''")` instead of placeholders.
+- [ ] **SEC-Q4**: `internal/query/compiler_nested.go:32` — Row-level security filters skipped for nested subqueries and CTEs. `rowFilters` always nil in `compileSubqueryBody`, allowing data exfiltration through CTEs.
+- [ ] **SEC-Q5**: `internal/query/compiler.go:308-378` — PII masking only applied to dimensions, not to metric expressions referencing PII columns. Metric `Expression` bypasses PII masking via `metricExpressionRef`.
+- [ ] **SEC-A1**: `internal/auth/handlers/handler.go:493` — OAuth state stored in cookie without server-side validation or session binding. 16-byte entropy is low; should be 32+ and server-stored.
+- [ ] **SEC-A2**: `internal/auth/ratelimit.go:73-79` — Rate limiter bypass via `X-Forwarded-For` / `X-Real-IP` header spoofing. No trusted proxy validation.
+- [ ] **SEC-A3**: `internal/auth/jwt.go:99-106` — In-memory dev RSA key silently generated in production when env vars missing. Every pod restart invalidates all tokens.
+- [ ] **SEC-A4**: `internal/auth/session.go:74-80` — Refresh tokens stored as plaintext in database. DB compromise = all active sessions compromised.
+- [ ] **SEC-A5**: `internal/auth/account_state.go:259-264` — Unlock tokens stored plaintext. DB leak allows account unlock bypass.
+- [ ] **SEC-S1**: `internal/security/readonly.go:19-30` — `dangerousKeywords` omits `SET`, `RESET`, `COPY`, `DO`, `LOCK`, `VACUUM`, `REINDEX`. `SET role='admin'` bypasses readonly enforcement.
+- [ ] **SEC-S2**: `internal/security/dsn.go:28-30` — DSN redaction misses URL-encoded passwords and `pass=` parameter (MySQL).
+- [ ] **BUG-H1**: `internal/http/handlers/datasources.go:200` — Port always assigned as `datasource.DefaultPort(driverType)` instead of resolved `port` variable. Custom ports silently ignored.
+- [ ] **BUG-H2**: `internal/http/handlers/datasources.go:214` — SSLMode reads from `c.SSLMode` instead of resolved `ssl` variable. Default SSL mode not persisted.
+- [ ] **BUG-M1**: `internal/metadata/curated_ai.go:153-160` — `UpdateLatestAIQueryHistoryRating` updates the most recent query for the entire datasource, not the specific query that received feedback. Cross-user rating corruption.
+- [ ] **BUG-Q1**: `internal/queue/local.go:25-32` — Local queue `Publish` has `select/default` that falls through to blocking send on full channel = publisher deadlock.
+
+### HIGH (fix soon)
+
+- [ ] **SEC-A6**: `internal/auth/handlers/handler.go:289-299` — Internal token comparison uses `!=` instead of `subtle.ConstantTimeCompare`. Timing side-channel.
+- [ ] **SEC-A7**: `internal/auth/invitation.go:339-360` — `ListInvitations` returns raw invitation tokens in response. Admin can misuse unclaimed tokens.
+- [ ] **SEC-A8**: `internal/auth/handlers/handler.go:506-510` — OAuth callback leaks provider error messages to client (internal URLs, tokens).
+- [ ] **SEC-A9**: `internal/auth/service_mfa_admin.go` — Super admin can generate MFA bypass code for self, defeating MFA purpose.
+- [ ] **SEC-A10**: `internal/auth/invitation.go:194-199` — Invitation tokens stored plaintext in database (unlike magic link tokens which are hashed).
+- [ ] **SEC-A11**: `internal/auth/csrf.go` — CSRF cookie `HttpOnly: false` + double-submit pattern vulnerable to subdomain XSS.
+- [ ] **SEC-A12**: `internal/auth/handlers/handler.go:451-455` — WebAuthn session in cookie without HMAC/integrity protection.
+- [ ] **SEC-A13**: `internal/auth/password_policy.go:44-46` — `MaxLength: 128` but bcrypt silently truncates at 72 bytes. Effective password strength capped.
+- [ ] **SEC-A14**: `internal/auth/invitation.go:261-311` — Invitation claim issues tokens without email verification. Intercepted link = full access.
+- [ ] **SEC-H1**: `internal/http/ai_router.go:28`, `catalog_router.go:27`, `query_router.go:27` — Wildcard CORS `https://*` with `AllowCredentials: true` in standalone service routers.
+- [ ] **SEC-H2**: `internal/http/middleware/realip.go:16-22` — `RealIP` trusts `X-Forwarded-For` without trusted proxy configuration. Defeats IP-based security.
+- [ ] **SEC-H3**: `internal/http/ai_router.go:19`, `catalog_router.go:19`, `query_router.go:19` — Standalone routers missing `SecurityHeaders` and `requestLoggerMiddleware`.
+- [ ] **SEC-H4**: `internal/http/upstream_proxy.go:46-72` — No request body size limit on proxy-forwarded requests. Multi-GB body attack.
+- [ ] **PERF-H1**: `internal/http/handlers/history_filter.go:69`, `helpers.go:73` — `NewAuthClient` created per-request. Connection churn + idle connection leak.
+- [ ] **PERF-H2**: `internal/http/middleware/permission.go:42-49` — Permission/datasource caches grow unbounded (no eviction beyond TTL-on-read).
+- [ ] **PERF-A1**: `internal/auth/rbac/rbac.go:62-95` — Up to 4 recursive SQL queries per permission check with no caching.
+- [ ] **PERF-AI1**: `internal/ai/describe.go:133-136` — New DB connection opened per `Describe` call. No pooling.
+- [ ] **PERF-AI2**: `internal/ai/remote_models.go` — New `http.Client` per remote models request. No connection reuse.
+- [ ] **PERF-AI3**: `internal/ai/routing/router.go` — `tokenSet(question)` computed multiple times per `Route()` call (4+ tokenizations).
+- [ ] **REL-H1**: `internal/http/handlers/datasources.go:726-738` — Drift notification fires in unbounded goroutines. No worker pool or backpressure.
+- [ ] **REL-H2**: `internal/queue/nats.go:84-103` — No dead-letter queue. Permanently failed jobs disappear after `MaxDeliver: 3`.
+- [ ] **REL-H3**: `internal/metadata/embeddings.go:177-191` — Embedding upsert race condition. Concurrent writes can overwrite each other's locale vectors.
+- [ ] **AUDIT-H1**: `internal/auth/service.go`, `service_password.go` — No audit logging for login, registration, password change/reset events.
+- [ ] **AUDIT-H2**: `internal/auth/handlers/gdpr_export.go:87-123` — GDPR export silently swallows errors. Incomplete exports with no indication.
+- [ ] **AUDIT-H3**: `internal/auth/repository.go:188-199` — `ListUsers` returns password hashes in scanned rows.
+
+### MEDIUM (plan and fix)
+
+- [ ] **ERR-AI1**: `internal/ai/describe.go:152-153` — Double `%w` wrapping: `fmt.Errorf("%w: %w", ...)`. Second `%w` should be `%v`.
+- [ ] **ERR-AI2**: `internal/ai/service.go:82-85` — `NewProvider` error silently swallowed, falls back to OpenAI without logging.
+- [ ] **ERR-AI3**: `internal/ai/eval/eval_repository.go` — `json.Marshal` errors silently swallowed. Empty `got_lq` persisted without warning.
+- [ ] **ERR-Q1**: `internal/query/compiler.go:455-460` — Unknown aggregation functions silently fall through to `COUNT(...)`. Typo produces wrong query.
+- [ ] **ERR-Q2**: `internal/query/fingerprint.go:70-73` — `ComputeFingerprint` returns empty string on marshal error. Cache collisions + broken audit.
+- [ ] **ERR-Q3**: `internal/query/compiler.go:109-111` — `context.TODO()` substituted for nil context. No timeout/cancellation/trace.
+- [ ] **ERR-H1**: `internal/http/middleware/jwt.go:234-240` — `writeAuthError` silently drops JSON encode errors.
+- [ ] **PERF-AI4**: `internal/ai/ambiguity_cache.go` — Unbounded `sync.Map` ambiguity cache. No background eviction = memory leak.
+- [ ] **PERF-AI5**: `internal/ai/abtest/recommender.go` — `os.Getenv` + `strconv.Atoi` on every `Recommend` call. Should be read once at construction.
+- [ ] **PERF-AI6**: `internal/ai/purpose_provider.go:68-80` — Mutex held during provider construction (DNS resolution, HTTP client setup).
+- [ ] **PERF-Q1**: `internal/query/validator.go:357` — `NewMetricRegistry` built per loop iteration in `validateWindowSelect`.
+- [ ] **PERF-Q2**: `internal/query/validation_helpers.go` — `getDimensionNames`/`getMetricNames` allocate new slices every call inside validation loop.
+- [ ] **PERF-Q3**: `internal/query/expr_compiler.go:46-48` — New `ReadOnlyChecker` allocated per expression node compilation.
+- [ ] **PERF-M1**: `internal/metadata/ai_jobs.go:271-310` — Three sequential queries for `GetAIQueueStatus`. Should be combined into one.
+- [ ] **PERF-S1**: `internal/semantic/metric_graph.go:49-59` — `BuildMetricGraph` is O(n^2) in metric count. Should pre-build name set.
+- [ ] **CONC-AI1**: `internal/ai/ambiguity/analyzer.go:49-67` — Detectors run in goroutines without `ctx` propagation. Can't short-circuit on cancellation.
+- [ ] **CONC-S1**: `internal/semantic/composite_repository.go:101-125` — `sync.WaitGroup` without `errgroup`. Failed goroutine doesn't cancel others.
+- [ ] **CONC-A1**: `internal/auth/account_state.go:227-252` — `RecordKnownDevice` TOCTOU race. Two concurrent requests both see `exists=false`, both return `isNew=true`, duplicate emails.
+- [ ] **CONC-Q1**: `internal/query/compiler.go:86-91` — `CompileWithPermissions` clone drops `compileCtx`. Latent bug for pre-context-constructed compilers.
+- [ ] **ARCH-S1**: `internal/semantic/expression_ast.go:12`, `publish.go:23-24` — Global mutable `ExpressionParser` / `CalculatedExpressionValidator` / `OnModelPublish` set in `init()`. Not thread-safe for concurrent test runs.
+- [ ] **ARCH-P1**: `pkg/aiclient`, `pkg/catalogclient`, `pkg/queryclient` import `internal/` packages. Breaks Go's internal package convention; `pkg/` unusable externally.
+- [ ] **ARCH-AI1**: `internal/ai/response_cache.go:24-33` — `semantic.OnModelPublish` global function pointer mutated by `init()`. Multiple cache instances race.
+- [ ] **BUG-S1**: `internal/security/composite_permissions.go:73` — `fmt.Sprintf("%v")` for dedup comparison produces false matches between different types.
+- [ ] **BUG-S2**: `internal/semantic/model.go:107-116` — `NewMetricRegistry` stores pointers to loop variable. Slice reallocation causes dangling pointers.
+- [ ] **BUG-H3**: `internal/http/handlers/history_filter.go:41` — `FilterAIHistoryForUser` mutates input slice in-place via `rows[:0]`.
+- [ ] **BUG-Q2**: `internal/query/compiler.go:742` — `sqlComparator` default case returns `"="` for unknown operators instead of error.
+- [ ] **API-S1**: `internal/semantic/drift/detector.go:152`, `drift/repository.go:73` — `return nil, nil` anti-pattern. Callers can't distinguish "no data" from "error".
+- [ ] **API-S2**: `internal/security/encryption.go:98-103` — `IsEncrypted` heuristic misidentifies long base64 blobs as encrypted. Callers propagate decryption errors.
+- [ ] **CONF-1**: `internal/config/config.go:229` — Default `BI_METADATA_DB_DSN` contains hardcoded credentials `bi_user:bi_password`.
+- [ ] **CONF-2**: `internal/config/config.go:488-499` — Float config values (thresholds, weights) loaded without range validation.
+- [ ] **SEC-M1**: `internal/mail/smtp.go:147-163` — Rate limit uses raw email in Redis key. PII exposure if Redis is shared.
+- [ ] **SEC-M2**: `internal/http/handlers/admin_middleware.go:12-28` — `X-Admin-Key` header not stripped before proxy forwarding. Could leak to upstream.
+- [ ] **SEC-M3**: `internal/http/query_router.go:45-47` — Standalone QueryRouter mounts `/api` with no auth middleware. Unauthenticated if deployed directly.
+
+### LOW (backlog)
+
+- [ ] **PERF-AI7**: `internal/ai/routing/scorer.go:68-69` — `activeRoutingLexicon()` called twice in `isRevenueLikeQuestion`.
+- [ ] **PERF-AI8**: `internal/ai/routing/scorer.go` — `normalizeText` allocates rune slice on every hot-path call.
+- [ ] **PERF-AI9**: `internal/ai/describe.go:229` — `shrinkSampleForPrompt` allocates new slice even when no truncation needed.
+- [ ] **PERF-P1**: `internal/platform/db/query.go:12` — `querySliceInitialCap = 64` over-allocates for queries returning <10 rows.
+- [ ] **PERF-P2**: `internal/datasource/registry.go:43-51` — `Registry.List` returns map-iteration-order results (non-deterministic).
+- [ ] **PERF-P3**: `internal/security/readonly.go:140-143` — `strings.Builder` write errors silently dropped. Could mask OOM in SQL stripping.
+- [ ] **ERR-AI4**: `internal/ai/service.go:576-587` — `tryGenerateClarification` swallows errors without even debug logging.
+- [ ] **ERR-P1**: `internal/security/pii/sampler.go:30-33` — `rows.Close()` error silently discarded.
+- [ ] **ERR-P2**: `internal/core/service_error.go:65-72` — `mapQueryServiceError` returns bare `*ServiceError` for unknown errors, swallowing original error message.
+- [ ] **ERR-P3**: `internal/metadata/repository.go:345` — `UpdateColumnDescription` doesn't set `updated_at = now()`.
+- [ ] **STYLE-AI1**: `internal/ai/service.go:612-619` — Manual clamping instead of `min`/`max` built-ins per AGENTS.md rule.
+- [ ] **STYLE-AI2**: `internal/ai/routing/scorer.go`, `selector.go`, `entity_resolver.go` — `map[string]bool` for sets instead of `map[string]struct{}`.
+- [ ] **STYLE-P1**: `internal/mail/mock.go:19-20` — `MockEmailSender` logs sensitive tokens (verification, reset, magic-link).
+- [ ] **STYLE-P2**: `internal/platform/observability/logging.go:22-28` — `ContextWithLogger` setter exists but no `LoggerFromContext` getter (dead code).
+- [ ] **SEC-L1**: `internal/ai/describe.go:26` — `identRegex` allows `$` and `.` in identifiers. Some databases interpret these specially.
+- [ ] **SEC-L2**: `internal/query/executor.go:21-25` — `borrowScanSlice` doesn't check capacity. Panics if `n > 32` on pool path.
+- [ ] **SEC-L3**: `internal/auth/oauth/oauth.go:41` — `AccessTypeOnline` means no refresh tokens from OAuth providers.
+- [ ] **SEC-L4**: `internal/auth/handlers/handler.go:357` — `/register` route has no rate limiter. Email enumeration / DB load attack.
+- [ ] **TEST-A1**: Missing test coverage for: OAuth state CSRF, session rotation, password reset single-use, MFA bypass single-use, GDPR export completeness, invitation claim race, WebAuthn full flow.
+- [ ] **TEST-Q1**: No test for row-level security bypass in `buildInSubqueryFilter` / CTE compilation.
+- [ ] **TEST-AI1**: `buildSemanticModel` in routing has no focused unit tests (only indirectly tested).
+- [ ] **DRIFT-S1**: `internal/semantic/drift/detector.go:240-242` — `isTypeCompatible` `text` case returns true for all physical types. Masks meaningful schema changes.
+- [ ] **DRIFT-S2**: `internal/semantic/publish.go:418` — `checkCircularDependencies` stops at first cycle. Users must fix-and-revalidate repeatedly.
+- [ ] **DB-S1**: `internal/metadata/repository.go:173-179` — `DeleteDatasource` only deletes from `datasources` table. Orphaned rows if `ON DELETE CASCADE` missing.
+- [ ] **DB-S2**: `internal/metadata/batch_columns.go:38-56`, `batch_relations.go:31-49` — Query placeholders built via `fmt.Sprintf` string interpolation. Fragile for SQL injection auditing.
+- [ ] **JSON-S1**: `internal/semantic/expression_ast.go:34` vs `composite_publish.go:206` — `sonic.Marshal` mixed with `encoding/json`. Edge-case inconsistency.
+- [ ] **OBS-1**: `internal/platform/observability/metrics.go:73-85` — `ambiguityBySource` and `aiRepairByErrorCode` have unbounded label cardinality risk.
+- [ ] **OBS-2**: `internal/http/router.go:63-66` — `/health` handler writes JSON without `Content-Type: application/json`.
+
+### Summary
+
+| Area | CRITICAL | HIGH | MEDIUM | LOW | Total |
+| ------ | ---------- | ------ | ------ | ----- | ----- |
+| Query Engine | 3 | 2 | 5 | 3 | 13 |
+| Auth | 5 | 4 | 5 | 5 | 19 |
+| Security | 2 | 0 | 3 | 1 | 6 |
+| HTTP/App | 2 | 6 | 4 | 1 | 13 |
+| AI | 0 | 3 | 4 | 4 | 11 |
+| Semantic | 0 | 0 | 3 | 2 | 5 |
+| Metadata/Queue | 1 | 2 | 2 | 3 | 8 |
+| Platform/Config | 0 | 0 | 2 | 3 | 5 |
+| pkg/ | 0 | 1 | 1 | 0 | 2 |
+| **Total** | **13** | **18** | **29** | **22** | **82** |
+
 ## Migration Command Duplicate Cleanup
 
 Success criteria:

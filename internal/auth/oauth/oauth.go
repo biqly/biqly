@@ -8,13 +8,13 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type OAuthProvider interface {
+type Provider interface {
 	GetAuthURL(state string) string
 	ExchangeCode(ctx context.Context, code string) (*oauth2.Token, error)
 	GetUserInfo(ctx context.Context, token *oauth2.Token) (*auth.OAuthUserInfo, error)
 }
 
-func NewOAuthProvider(name string, cfg *auth.Config) (OAuthProvider, error) {
+func NewOAuthProvider(name string, cfg *auth.Config) (Provider, error) {
 	switch name {
 	case "github":
 		if err := requireCredentials(name, cfg.GitHubClientID, cfg.GitHubClientSecret); err != nil {

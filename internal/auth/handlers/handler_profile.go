@@ -9,9 +9,8 @@ import (
 )
 
 func (h *AuthHandler) handleUpdateProfile(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 	var req auth.UpdateProfileRequest
@@ -28,9 +27,8 @@ func (h *AuthHandler) handleUpdateProfile(w http.ResponseWriter, r *http.Request
 }
 
 func (h *AuthHandler) handleChangePassword(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 	var req auth.ChangePasswordRequest
@@ -60,9 +58,8 @@ func (h *AuthHandler) handleChangePassword(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *AuthHandler) handleMeGenerateMFABypass(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 	code, err := h.service.GenerateMFABypassCode(r.Context(), userID, userID)

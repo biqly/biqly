@@ -36,7 +36,7 @@ func generateOAuthCallbackCode() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-func (s *AuthService) IssueOAuthCallbackCode(ctx context.Context, resp *TokenResponse) (string, error) {
+func (s *Service) IssueOAuthCallbackCode(ctx context.Context, resp *TokenResponse) (string, error) {
 	if s.redisClient == nil {
 		return "", ErrOAuthExchangeUnavailable
 	}
@@ -65,7 +65,7 @@ func (s *AuthService) IssueOAuthCallbackCode(ctx context.Context, resp *TokenRes
 	return code, nil
 }
 
-func (s *AuthService) RedeemOAuthCallbackCode(ctx context.Context, code string) (*TokenResponse, error) {
+func (s *Service) RedeemOAuthCallbackCode(ctx context.Context, code string) (*TokenResponse, error) {
 	if s.redisClient == nil {
 		return nil, ErrOAuthExchangeUnavailable
 	}

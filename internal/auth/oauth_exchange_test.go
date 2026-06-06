@@ -31,7 +31,7 @@ func TestOAuthCallbackCodeIssueAndRedeem(t *testing.T) {
 		}
 	}()
 
-	svc := &AuthService{redisClient: rdb}
+	svc := &Service{redisClient: rdb}
 	resp := &TokenResponse{
 		AccessToken:  "access",
 		RefreshToken: "refresh",

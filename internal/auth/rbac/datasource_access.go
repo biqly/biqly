@@ -14,12 +14,6 @@ import (
 
 type AccessLevel string
 
-const (
-	AccessRead  AccessLevel = "read"
-	AccessWrite AccessLevel = "write"
-	AccessAdmin AccessLevel = "admin"
-)
-
 var ErrDatasourceAccessDenied = errors.New("datasource access denied")
 
 type DatasourceAccess struct {
@@ -34,11 +28,11 @@ type DatasourceAccess struct {
 type DatasourceAccessService struct {
 	db       *sql.DB
 	redis    *redis.Client
-	rbac     *RBACService
+	rbac     *Service
 	cacheTTL time.Duration
 }
 
-func NewDatasourceAccessService(db *sql.DB, redisClient *redis.Client, rbac *RBACService) *DatasourceAccessService {
+func NewDatasourceAccessService(db *sql.DB, redisClient *redis.Client, rbac *Service) *DatasourceAccessService {
 	return &DatasourceAccessService{
 		db:       db,
 		redis:    redisClient,

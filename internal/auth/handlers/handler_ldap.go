@@ -45,9 +45,8 @@ func (req ldapConfigRequest) toConfig() auth.LDAPConfig {
 // requireSuperAdmin returns the caller's user id when they are a super admin,
 // or writes the appropriate error response and returns ("", false).
 func (h *AuthHandler) requireSuperAdmin(w http.ResponseWriter, r *http.Request) (string, bool) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return "", false
 	}
 	isSuper, err := h.service.IsSuperAdmin(r.Context(), userID)

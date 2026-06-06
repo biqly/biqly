@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"database/sql"
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
@@ -16,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,6 +22,7 @@ import (
 
 	"github.com/biqly/biqly/internal/auth/rbac"
 	"github.com/biqly/biqly/internal/mail"
+	"github.com/biqly/biqly/internal/testutil"
 )
 
 func TestPasswordHashing(t *testing.T) {
@@ -249,50 +248,12 @@ func TestPasswordHistoryMigrationAndContract(t *testing.T) {
 	assert.ErrorIs(t, ErrPasswordReused, ErrPasswordReused)
 }
 
-func OpenTestDBPool(t *testing.T) *sql.DB {
-	t.Helper()
-	dsn := os.Getenv("BI_AUTH_DB_DSN")
-	if dsn == "" {
-		//nolint:gosec
-		dsn = "postgres://bi_user:bi_password@localhost:5432/bi_auth?sslmode=disable"
-	}
-	dbPool, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Skip("skipping database tests; DB not available:", err)
-	}
-	t.Cleanup(func() {
-		if err := dbPool.Close(); err != nil {
-			t.Errorf("failed to close database pool: %v", err)
-		}
-	})
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	if err := dbPool.PingContext(ctx); err != nil {
-		t.Skip("skipping database tests; ping failed:", err)
-	}
-	return dbPool
-}
-
-func openTestDBPool(t *testing.T) *sql.DB {
-	return OpenTestDBPool(t)
-}
-
 func TestIntegrationAuthFlow(t *testing.T) {
-	dbPool := openTestDBPool(t)
+	dbPool := testutil.OpenAuthDB(t)
 	ctx := context.Background()
 
 	// Clear test tables to keep tests clean and repeatable
-	_, err := dbPool.ExecContext(ctx, "DELETE FROM sessions")
-	require.NoError(t, err)
-	_, err = dbPool.ExecContext(ctx, "DELETE FROM workspace_members")
-	require.NoError(t, err)
-	_, err = dbPool.ExecContext(ctx, "DELETE FROM workspaces")
-	require.NoError(t, err)
-	_, err = dbPool.ExecContext(ctx, "DELETE FROM user_roles")
-	require.NoError(t, err)
-	_, err = dbPool.ExecContext(ctx, "DELETE FROM users")
-	require.NoError(t, err)
+	testutil.ResetAuthUserTables(ctx, t, dbPool)
 
 	config := &Config{
 		JWTAccessTTL:  5 * time.Minute,
@@ -396,22 +357,11 @@ func TestIntegrationAuthFlow(t *testing.T) {
 }
 
 func TestOAuthFlow(t *testing.T) {
-	dbPool := openTestDBPool(t)
+	dbPool := testutil.OpenAuthDB(t)
 	ctx := context.Background()
 
 	// Clean tables
-	_, err := dbPool.ExecContext(ctx, "DELETE FROM sessions")
-	require.NoError(t, err)
-	_, err = dbPool.ExecContext(ctx, "DELETE FROM oauth_accounts")
-	require.NoError(t, err)
-	_, err = dbPool.ExecContext(ctx, "DELETE FROM workspace_members")
-	require.NoError(t, err)
-	_, err = dbPool.ExecContext(ctx, "DELETE FROM workspaces")
-	require.NoError(t, err)
-	_, err = dbPool.ExecContext(ctx, "DELETE FROM user_roles")
-	require.NoError(t, err)
-	_, err = dbPool.ExecContext(ctx, "DELETE FROM users")
-	require.NoError(t, err)
+	testutil.ResetAuthIntegrationTables(ctx, t, dbPool, "DELETE FROM oauth_accounts")
 
 	config := &Config{
 		JWTAccessTTL:  5 * time.Minute,
@@ -486,12 +436,9 @@ func TestBruteForceLockout(t *testing.T) {
 	email := "brute@example.com"
 	rClient.Del(ctx, "login_failures:"+email)
 
-	dbPool := openTestDBPool(t)
+	dbPool := testutil.OpenAuthDB(t)
 
-	_, err = dbPool.ExecContext(ctx, "DELETE FROM sessions")
-	require.NoError(t, err)
-	_, err = dbPool.ExecContext(ctx, "DELETE FROM users")
-	require.NoError(t, err)
+	testutil.ExecAuthSQL(ctx, t, dbPool, "DELETE FROM sessions", "DELETE FROM users")
 
 	config := &Config{
 		JWTAccessTTL:  5 * time.Minute,
@@ -616,15 +563,14 @@ func TestCSRF(t *testing.T) {
 }
 
 func TestEmailVerificationAndReset(t *testing.T) {
-	dbPool := openTestDBPool(t)
+	dbPool := testutil.OpenAuthDB(t)
 	ctx := context.Background()
 
-	_, err := dbPool.ExecContext(ctx, "DELETE FROM email_verification_tokens")
-	require.NoError(t, err)
-	_, err = dbPool.ExecContext(ctx, "DELETE FROM password_reset_tokens")
-	require.NoError(t, err)
-	_, err = dbPool.ExecContext(ctx, "DELETE FROM users")
-	require.NoError(t, err)
+	testutil.ExecAuthSQL(ctx, t, dbPool,
+		"DELETE FROM email_verification_tokens",
+		"DELETE FROM password_reset_tokens",
+		"DELETE FROM users",
+	)
 
 	config := &Config{
 		JWTAccessTTL:  5 * time.Minute,

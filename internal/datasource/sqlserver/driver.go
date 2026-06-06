@@ -34,20 +34,12 @@ func (d *Driver) Introspect(ctx context.Context, db *sql.DB) (*datasource.Intros
 
 func (*Driver) introspectSchemas(ctx context.Context, db *sql.DB) ([]datasource.SchemaInfo, error) {
 	query := `SELECT name FROM sys.schemas WHERE name NOT IN ('dbo', 'guest', 'INFORMATION_SCHEMA', 'sys')`
-	return datasource.QueryAll(ctx, db, query, nil, func(rows *sql.Rows) (datasource.SchemaInfo, error) {
-		var s datasource.SchemaInfo
-		err := rows.Scan(&s.Name)
-		return s, err
-	})
+	return datasource.QueryAll(ctx, db, query, nil, datasource.ScanSchemaName)
 }
 
 func (*Driver) introspectTables(ctx context.Context, db *sql.DB) ([]datasource.TableInfo, error) {
 	query := `SELECT s.name, t.name, CASE t.type WHEN 'U' THEN 'BASE TABLE' WHEN 'V' THEN 'VIEW' END, NULL FROM sys.tables t JOIN sys.schemas s ON t.schema_id = s.schema_id UNION ALL SELECT s.name, v.name, 'VIEW', NULL FROM sys.views v JOIN sys.schemas s ON v.schema_id = s.schema_id`
-	return datasource.QueryAll(ctx, db, query, nil, func(rows *sql.Rows) (datasource.TableInfo, error) {
-		var t datasource.TableInfo
-		err := rows.Scan(&t.SchemaName, &t.TableName, &t.TableType, &t.RowEstimate)
-		return t, err
-	})
+	return datasource.QueryAll(ctx, db, query, nil, datasource.ScanTableInfo)
 }
 
 func (*Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasource.ColumnInfo, error) {
@@ -57,20 +49,7 @@ FROM sys.columns c
 JOIN sys.objects o ON c.object_id = o.object_id AND o.type IN ('U', 'V') AND o.is_ms_shipped = 0
 JOIN sys.schemas s ON o.schema_id = s.schema_id
 ORDER BY s.name, o.name, c.column_id`
-	return datasource.QueryAll(ctx, db, query, nil, func(rows *sql.Rows) (datasource.ColumnInfo, error) {
-		var c datasource.ColumnInfo
-		var nullable int
-		var columnDefault sql.NullString
-		err := rows.Scan(&c.SchemaName, &c.TableName, &c.ColumnName, &c.DataType, &nullable, &c.OrdinalPosition, &c.CharMaxLength, &c.NumericPrecision, &c.NumericScale, &columnDefault)
-		if err != nil {
-			return c, err
-		}
-		c.Nullable = nullable == 1
-		if columnDefault.Valid {
-			c.ColumnDefault = columnDefault.String
-		}
-		return c, nil
-	})
+	return datasource.QueryAll(ctx, db, query, nil, datasource.ScanStandardColumnInfo)
 }
 
 func (*Driver) introspectRelations(ctx context.Context, db *sql.DB) ([]datasource.RelationInfo, error) {
@@ -84,12 +63,7 @@ JOIN sys.schemas rs ON ro.schema_id = rs.schema_id
 JOIN sys.columns pc ON fkc.parent_object_id = pc.object_id AND fkc.parent_column_id = pc.column_id
 JOIN sys.columns rc ON fkc.referenced_object_id = rc.object_id AND fkc.referenced_column_id = rc.column_id
 ORDER BY ps.name, po.name, fk.name, fkc.constraint_column_id`
-	return datasource.QueryAll(ctx, db, query, nil, func(rows *sql.Rows) (datasource.RelationInfo, error) {
-		var r datasource.RelationInfo
-		r.RelationshipType = datasource.DefaultRelationshipType
-		err := rows.Scan(&r.ConstraintName, &r.FromSchema, &r.FromTable, &r.FromColumn, &r.ToSchema, &r.ToTable, &r.ToColumn)
-		return r, err
-	})
+	return datasource.QueryAll(ctx, db, query, nil, datasource.ScanForeignKeyRelation)
 }
 
 // Compile-time check

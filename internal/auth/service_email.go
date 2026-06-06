@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func (s *AuthService) RequestEmailChange(ctx context.Context, userID, newEmail string) (*EmailChangeRequest, error) {
+func (s *Service) RequestEmailChange(ctx context.Context, userID, newEmail string) (*EmailChangeRequest, error) {
 	normalizedEmail, err := NormalizeEmail(newEmail)
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func (s *AuthService) RequestEmailChange(ctx context.Context, userID, newEmail s
 	return req, nil
 }
 
-func (s *AuthService) ConfirmEmailChange(ctx context.Context, token string) (*EmailChangeRequest, error) {
+func (s *Service) ConfirmEmailChange(ctx context.Context, token string) (*EmailChangeRequest, error) {
 	if strings.TrimSpace(token) == "" {
 		return nil, errors.New("token is required")
 	}
@@ -73,12 +73,12 @@ func (s *AuthService) ConfirmEmailChange(ctx context.Context, token string) (*Em
 	return req, nil
 }
 
-func (s *AuthService) VerifyEmail(ctx context.Context, token string) error {
+func (s *Service) VerifyEmail(ctx context.Context, token string) error {
 	_, err := s.userRepo.VerifyEmailToken(ctx, token)
 	return err
 }
 
-func (s *AuthService) AdminResendUserVerification(ctx context.Context, targetUserID string) error {
+func (s *Service) AdminResendUserVerification(ctx context.Context, targetUserID string) error {
 	user, err := s.userRepo.GetUserByID(ctx, targetUserID)
 	if err != nil {
 		return err
@@ -86,7 +86,7 @@ func (s *AuthService) AdminResendUserVerification(ctx context.Context, targetUse
 	return s.ResendVerificationEmail(ctx, user.Email)
 }
 
-func (s *AuthService) ResendVerificationEmail(ctx context.Context, email string) error {
+func (s *Service) ResendVerificationEmail(ctx context.Context, email string) error {
 	normalizedEmail, err := NormalizeEmail(email)
 	if err != nil {
 		return err

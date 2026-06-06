@@ -61,13 +61,8 @@ func TestNewDBWriter_NilDB(t *testing.T) {
 	assert.Nil(t, w)
 }
 
-func openTestDBPool(t *testing.T) *sql.DB {
-	t.Helper()
-	return testutil.OpenMetadataDB(t)
-}
-
 func TestDBWriter_Integration(t *testing.T) {
-	db := openTestDBPool(t)
+	db := testutil.OpenMetadataDB(t)
 	ctx := context.Background()
 
 	// Ensure clean start
@@ -118,7 +113,7 @@ func TestDBWriter_Integration(t *testing.T) {
 }
 
 func TestDBWriter_CloseFlushes(t *testing.T) {
-	db := openTestDBPool(t)
+	db := testutil.OpenMetadataDB(t)
 	ctx := context.Background()
 
 	// Ensure clean start

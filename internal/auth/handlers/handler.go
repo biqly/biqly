@@ -38,13 +38,22 @@ func contextUserID(r *http.Request) (string, bool) {
 	return userID, ok && userID != ""
 }
 
+func (h *AuthHandler) requireUserID(w http.ResponseWriter, r *http.Request) (string, bool) {
+	userID, ok := contextUserID(r)
+	if !ok {
+		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return "", false
+	}
+	return userID, true
+}
+
 type AuthHandler struct {
-	service  *auth.AuthService
+	service  *auth.Service
 	webAuthn *mfa.WebAuthnService
 	jwtMgr   *auth.JWTManager
 	config   *auth.Config
 	limiter  *auth.RateLimiter
-	mfa      *mfa.MFAService
+	mfa      *mfa.Service
 	gdpr     *GDPRExporter
 	audit    *auth.AuditService
 }
@@ -52,7 +61,7 @@ type AuthHandler struct {
 func (h *AuthHandler) SetGDPRExporter(g *GDPRExporter)      { h.gdpr = g }
 func (h *AuthHandler) SetAuditService(a *auth.AuditService) { h.audit = a }
 
-func NewAuthHandler(service *auth.AuthService, webAuthn *mfa.WebAuthnService, jwtMgr *auth.JWTManager, config *auth.Config, limiter *auth.RateLimiter) *AuthHandler {
+func NewAuthHandler(service *auth.Service, webAuthn *mfa.WebAuthnService, jwtMgr *auth.JWTManager, config *auth.Config, limiter *auth.RateLimiter) *AuthHandler {
 	return &AuthHandler{
 		service:  service,
 		webAuthn: webAuthn,
@@ -243,9 +252,8 @@ func (h *AuthHandler) handleLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) handleMe(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 
@@ -259,9 +267,8 @@ func (h *AuthHandler) handleMe(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) handleSetActiveWorkspace(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 
@@ -564,9 +571,8 @@ type PasskeyLoginBeginRequest struct {
 }
 
 func (h *AuthHandler) handlePasskeyRegisterBegin(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 
@@ -595,9 +601,8 @@ func (h *AuthHandler) handlePasskeyRegisterBegin(w http.ResponseWriter, r *http.
 }
 
 func (h *AuthHandler) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 
@@ -700,9 +705,8 @@ func (h *AuthHandler) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Re
 }
 
 func (h *AuthHandler) handleMePasskeys(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 
@@ -716,9 +720,8 @@ func (h *AuthHandler) handleMePasskeys(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) handleDeletePasskey(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 
@@ -738,9 +741,8 @@ func (h *AuthHandler) handleDeletePasskey(w http.ResponseWriter, r *http.Request
 }
 
 func (h *AuthHandler) handleUpdatePasskey(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 
@@ -907,9 +909,8 @@ func (h *AuthHandler) handleResendVerification(w http.ResponseWriter, r *http.Re
 }
 
 func (h *AuthHandler) handleRequestEmailChange(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 
@@ -967,9 +968,8 @@ func (h *AuthHandler) handleConfirmEmailChange(w http.ResponseWriter, r *http.Re
 }
 
 func (h *AuthHandler) handleAdminInviteUser(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 
@@ -982,10 +982,10 @@ func (h *AuthHandler) handleAdminInviteUser(w http.ResponseWriter, r *http.Reque
 	err := h.service.InviteUser(r.Context(), userID, req.Email, req.RoleName)
 	switch {
 	case errors.Is(err, auth.ErrNotSuperAdmin):
-		h.respondError(w, http.StatusForbidden, err.Error())
+		h.respondError(w, http.StatusForbidden, auth.ErrNotSuperAdmin.Error())
 		return
 	case errors.Is(err, auth.ErrRoleNotFound):
-		h.respondError(w, http.StatusNotFound, err.Error())
+		h.respondError(w, http.StatusNotFound, auth.ErrRoleNotFound.Error())
 		return
 	case err != nil:
 		h.respondError(w, http.StatusBadRequest, err.Error())
@@ -1073,9 +1073,8 @@ func decodeInvitationRouteToken(raw string) (string, error) {
 }
 
 func (h *AuthHandler) handleAdminListInvitations(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 
@@ -1156,9 +1155,8 @@ func (h *AuthHandler) handleAdminInvitationAction(
 	action func(context.Context, string, string) error,
 	okMessage string,
 ) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -1188,9 +1186,7 @@ func (h *AuthHandler) handleAdminResendInvitation(w http.ResponseWriter, r *http
 }
 
 func (h *AuthHandler) handleAdminResendUserVerification(w http.ResponseWriter, r *http.Request) {
-	_, ok := r.Context().Value(userIDKey).(string)
-	if !ok {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	if _, ok := h.requireUserID(w, r); !ok {
 		return
 	}
 

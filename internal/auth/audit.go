@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -229,5 +228,3 @@ func (s *AuditService) List(ctx context.Context, filter AuditFilter) ([]AuditEnt
 	}
 	return entries, rows.Err()
 }
-
-var ErrAuditImmutable = errors.New("audit_log is append-only")

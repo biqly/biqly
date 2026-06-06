@@ -8,8 +8,6 @@ import (
 	"time"
 )
 
-var ErrAIModelAccessDenied = errors.New("ai model access denied")
-
 type AIProviderWorkspaceGrant struct {
 	WorkspaceID string    `json:"workspace_id"`
 	ProviderID  string    `json:"provider_id"`
@@ -55,11 +53,11 @@ type UserAIAccess struct {
 
 type AIModelAccessService struct {
 	db   *sql.DB
-	rbac *RBACService
+	rbac *Service
 }
 
 // NewAIModelAccessService wires AI model grant storage.
-func NewAIModelAccessService(db *sql.DB, rbac *RBACService) *AIModelAccessService {
+func NewAIModelAccessService(db *sql.DB, rbac *Service) *AIModelAccessService {
 	return &AIModelAccessService{db: db, rbac: rbac}
 }
 

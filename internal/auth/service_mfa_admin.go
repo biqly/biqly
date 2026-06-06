@@ -4,7 +4,7 @@ import (
 	"context"
 )
 
-func (s *AuthService) GenerateMFABypassCode(ctx context.Context, actorUserID, targetUserID string) (string, error) {
+func (s *Service) GenerateMFABypassCode(ctx context.Context, actorUserID, targetUserID string) (string, error) {
 	isSuper, err := s.IsSuperAdmin(ctx, actorUserID)
 	if err != nil {
 		return "", err

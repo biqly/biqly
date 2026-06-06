@@ -7,12 +7,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/biqly/biqly/internal/testutil"
 	"github.com/stretchr/testify/require"
 )
 
 func setupRotateSessionUser(t *testing.T, email string) (*sql.DB, context.Context, string) {
 	t.Helper()
-	dbPool := openTestDBPool(t)
+	dbPool := testutil.OpenAuthDB(t)
 	ctx := context.Background()
 	t.Cleanup(func() { _, _ = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email = $1", email) })
 	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email = $1", email)
@@ -61,9 +62,11 @@ func TestRotateSession_IdleExpiry(t *testing.T) {
 // TestRotateSession_PreservesAbsoluteExpiry ensures the new (rotated) session
 // row inherits the original absolute_expires_at — rotation must not extend it.
 func TestRotateSession_PreservesAbsoluteExpiry(t *testing.T) {
-	dbPool := openTestDBPool(t)
+	dbPool := testutil.OpenAuthDB(t)
 	ctx := context.Background()
-	defer func() { _, _ = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email = 'rotate-preserve@example.invalid'") }()
+	defer func() {
+		_, _ = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email = 'rotate-preserve@example.invalid'")
+	}()
 
 	_, _ = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email = 'rotate-preserve@example.invalid'")
 	var userID string

@@ -2,7 +2,6 @@ package dashboard
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"testing"
 
@@ -11,13 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func openTestDBPool(t *testing.T) *sql.DB {
-	t.Helper()
-	return testutil.OpenMetadataDB(t)
-}
-
 func TestDashboardRepository_CRUD(t *testing.T) {
-	db := openTestDBPool(t)
+	db := testutil.OpenMetadataDB(t)
 	ctx := context.Background()
 
 	// Run migration manually or ensure table exists for integration test

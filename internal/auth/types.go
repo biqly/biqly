@@ -189,13 +189,6 @@ type Permission = rbac.Permission
 
 type ScopeType = rbac.ScopeType
 
-const (
-	ScopeGlobal     = rbac.ScopeGlobal
-	ScopeWorkspace  = rbac.ScopeWorkspace
-	ScopeDatasource = rbac.ScopeDatasource
-	ScopeModel      = rbac.ScopeModel
-)
-
 type PasskeyInfo struct {
 	ID         string     `json:"id"`
 	Name       string     `json:"name"`

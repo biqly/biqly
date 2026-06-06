@@ -28,7 +28,7 @@ type Workspace struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-type WorkspaceMember struct {
+type Member struct {
 	WorkspaceID string    `json:"workspace_id"`
 	UserID      string    `json:"user_id"`
 	Email       string    `json:"email,omitempty"`
@@ -39,7 +39,7 @@ type WorkspaceMember struct {
 	InvitedBy   *string   `json:"invited_by,omitempty"`
 }
 
-type WorkspaceDatasource struct {
+type Datasource struct {
 	WorkspaceID    string    `json:"workspace_id"`
 	DatasourceID   string    `json:"datasource_id"`
 	DatasourceName string    `json:"datasource_name,omitempty"`
@@ -47,16 +47,16 @@ type WorkspaceDatasource struct {
 	AttachedAt     time.Time `json:"attached_at"`
 }
 
-type WorkspaceService struct {
+type Service struct {
 	db    *sql.DB
 	dsAcc *rbac.DatasourceAccessService
 }
 
-func NewWorkspaceService(db *sql.DB, dsAcc *rbac.DatasourceAccessService) *WorkspaceService {
-	return &WorkspaceService{db: db, dsAcc: dsAcc}
+func NewWorkspaceService(db *sql.DB, dsAcc *rbac.DatasourceAccessService) *Service {
+	return &Service{db: db, dsAcc: dsAcc}
 }
 
-func (s *WorkspaceService) Create(ctx context.Context, name, description, createdBy string) (*Workspace, error) {
+func (s *Service) Create(ctx context.Context, name, description, createdBy string) (*Workspace, error) {
 	slug := slugify(name)
 	if slug == "" {
 		return nil, errors.New("invalid workspace name")
@@ -99,7 +99,7 @@ func (s *WorkspaceService) Create(ctx context.Context, name, description, create
 	return &ws, nil
 }
 
-func (s *WorkspaceService) Get(ctx context.Context, id string) (*Workspace, error) {
+func (s *Service) Get(ctx context.Context, id string) (*Workspace, error) {
 	var ws Workspace
 	var desc sql.NullString
 	err := s.db.QueryRowContext(ctx, `
@@ -118,7 +118,7 @@ func (s *WorkspaceService) Get(ctx context.Context, id string) (*Workspace, erro
 	return &ws, nil
 }
 
-func (s *WorkspaceService) ListForUser(ctx context.Context, userID string) ([]Workspace, error) {
+func (s *Service) ListForUser(ctx context.Context, userID string) ([]Workspace, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT w.id, w.name, w.slug, w.description, w.is_personal, w.mfa_required, w.created_by, w.created_at, w.updated_at
 		FROM workspaces w
@@ -146,7 +146,7 @@ func (s *WorkspaceService) ListForUser(ctx context.Context, userID string) ([]Wo
 	return list, rows.Err()
 }
 
-func (s *WorkspaceService) ListAll(ctx context.Context) ([]Workspace, error) {
+func (s *Service) ListAll(ctx context.Context) ([]Workspace, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, name, slug, description, is_personal, mfa_required, created_by, created_at, updated_at
 		FROM workspaces
@@ -175,7 +175,7 @@ func (s *WorkspaceService) ListAll(ctx context.Context) ([]Workspace, error) {
 	return list, nil
 }
 
-func (s *WorkspaceService) Update(ctx context.Context, id, callerID, name, description string, mfaRequired *bool) (*Workspace, error) {
+func (s *Service) Update(ctx context.Context, id, callerID, name, description string, mfaRequired *bool) (*Workspace, error) {
 	if err := s.requireOwner(ctx, id, callerID); err != nil {
 		return nil, err
 	}
@@ -200,7 +200,7 @@ func (s *WorkspaceService) Update(ctx context.Context, id, callerID, name, descr
 	return s.Get(ctx, id)
 }
 
-func (s *WorkspaceService) Delete(ctx context.Context, id, callerID string) error {
+func (s *Service) Delete(ctx context.Context, id, callerID string) error {
 	ws, err := s.Get(ctx, id)
 	if err != nil {
 		return err
@@ -216,7 +216,7 @@ func (s *WorkspaceService) Delete(ctx context.Context, id, callerID string) erro
 	return err
 }
 
-func (s *WorkspaceService) ListMembers(ctx context.Context, workspaceID string) ([]WorkspaceMember, error) {
+func (s *Service) ListMembers(ctx context.Context, workspaceID string) ([]Member, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT wm.workspace_id, wm.user_id, u.email, u.display_name, wm.role_id, r.name, wm.joined_at, wm.invited_by
 		FROM workspace_members wm
@@ -230,9 +230,9 @@ func (s *WorkspaceService) ListMembers(ctx context.Context, workspaceID string) 
 	}
 	defer func() { _ = rows.Close() }()
 
-	var list []WorkspaceMember
+	var list []Member
 	for rows.Next() {
-		var m WorkspaceMember
+		var m Member
 		var invitedBy sql.NullString
 		var displayName sql.NullString
 		if err := rows.Scan(&m.WorkspaceID, &m.UserID, &m.Email, &displayName, &m.RoleID, &m.RoleName, &m.JoinedAt, &invitedBy); err != nil {
@@ -249,7 +249,7 @@ func (s *WorkspaceService) ListMembers(ctx context.Context, workspaceID string) 
 	return list, rows.Err()
 }
 
-func (s *WorkspaceService) AddMember(ctx context.Context, workspaceID, userID, roleID, invitedBy string) error {
+func (s *Service) AddMember(ctx context.Context, workspaceID, userID, roleID, invitedBy string) error {
 	if err := s.requireOwnerOrAdmin(ctx, workspaceID, invitedBy); err != nil {
 		return err
 	}
@@ -270,7 +270,7 @@ func (s *WorkspaceService) AddMember(ctx context.Context, workspaceID, userID, r
 	return nil
 }
 
-func (s *WorkspaceService) UpdateMemberRole(ctx context.Context, workspaceID, userID, roleID, callerID string) error {
+func (s *Service) UpdateMemberRole(ctx context.Context, workspaceID, userID, roleID, callerID string) error {
 	if err := s.requireOwnerOrAdmin(ctx, workspaceID, callerID); err != nil {
 		return err
 	}
@@ -281,7 +281,7 @@ func (s *WorkspaceService) UpdateMemberRole(ctx context.Context, workspaceID, us
 	return err
 }
 
-func (s *WorkspaceService) RemoveMember(ctx context.Context, workspaceID, userID, callerID string) error {
+func (s *Service) RemoveMember(ctx context.Context, workspaceID, userID, callerID string) error {
 	if err := s.requireOwnerOrAdmin(ctx, workspaceID, callerID); err != nil {
 		return err
 	}
@@ -305,7 +305,7 @@ func (s *WorkspaceService) RemoveMember(ctx context.Context, workspaceID, userID
 	return err
 }
 
-func (s *WorkspaceService) IsMember(ctx context.Context, workspaceID, userID string) (bool, error) {
+func (s *Service) IsMember(ctx context.Context, workspaceID, userID string) (bool, error) {
 	var exists bool
 	err := s.db.QueryRowContext(ctx,
 		`SELECT EXISTS(SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2)`,
@@ -313,7 +313,7 @@ func (s *WorkspaceService) IsMember(ctx context.Context, workspaceID, userID str
 	return exists, err
 }
 
-func (s *WorkspaceService) IsMFARequired(ctx context.Context, workspaceID string) (bool, error) {
+func (s *Service) IsMFARequired(ctx context.Context, workspaceID string) (bool, error) {
 	var required bool
 	err := s.db.QueryRowContext(ctx,
 		`SELECT mfa_required FROM workspaces WHERE id = $1`,
@@ -324,7 +324,7 @@ func (s *WorkspaceService) IsMFARequired(ctx context.Context, workspaceID string
 	return required, err
 }
 
-func (s *WorkspaceService) SetMFARequired(ctx context.Context, workspaceID, callerID string, required bool) error {
+func (s *Service) SetMFARequired(ctx context.Context, workspaceID, callerID string, required bool) error {
 	if err := s.requireOwnerOrAdmin(ctx, workspaceID, callerID); err != nil {
 		return err
 	}
@@ -335,7 +335,7 @@ func (s *WorkspaceService) SetMFARequired(ctx context.Context, workspaceID, call
 	return err
 }
 
-func (s *WorkspaceService) ListDatasources(ctx context.Context, workspaceID string) ([]WorkspaceDatasource, error) {
+func (s *Service) ListDatasources(ctx context.Context, workspaceID string) ([]Datasource, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT workspace_id, datasource_id, access_level, attached_at
 		FROM workspace_datasources
@@ -347,9 +347,9 @@ func (s *WorkspaceService) ListDatasources(ctx context.Context, workspaceID stri
 	}
 	defer func() { _ = rows.Close() }()
 
-	var list []WorkspaceDatasource
+	var list []Datasource
 	for rows.Next() {
-		var wd WorkspaceDatasource
+		var wd Datasource
 		if err := rows.Scan(&wd.WorkspaceID, &wd.DatasourceID, &wd.AccessLevel, &wd.AttachedAt); err != nil {
 			return nil, err
 		}
@@ -361,7 +361,7 @@ func (s *WorkspaceService) ListDatasources(ctx context.Context, workspaceID stri
 	return list, nil
 }
 
-func (s *WorkspaceService) AttachDatasource(ctx context.Context, workspaceID, datasourceID, level, callerID string) error {
+func (s *Service) AttachDatasource(ctx context.Context, workspaceID, datasourceID, level, callerID string) error {
 	if err := s.requireOwnerOrAdmin(ctx, workspaceID, callerID); err != nil {
 		return err
 	}
@@ -387,7 +387,7 @@ func (s *WorkspaceService) AttachDatasource(ctx context.Context, workspaceID, da
 	return nil
 }
 
-func (s *WorkspaceService) DetachDatasource(ctx context.Context, workspaceID, datasourceID, callerID string) error {
+func (s *Service) DetachDatasource(ctx context.Context, workspaceID, datasourceID, callerID string) error {
 	if err := s.requireOwnerOrAdmin(ctx, workspaceID, callerID); err != nil {
 		return err
 	}
@@ -403,7 +403,7 @@ func (s *WorkspaceService) DetachDatasource(ctx context.Context, workspaceID, da
 	return err
 }
 
-func (s *WorkspaceService) invalidateAllMembers(ctx context.Context, workspaceID string) error {
+func (s *Service) invalidateAllMembers(ctx context.Context, workspaceID string) error {
 	rows, err := s.db.QueryContext(ctx, `SELECT user_id FROM workspace_members WHERE workspace_id = $1`, workspaceID)
 	if err != nil {
 		return err
@@ -422,7 +422,7 @@ func (s *WorkspaceService) invalidateAllMembers(ctx context.Context, workspaceID
 	return rows.Err()
 }
 
-func (s *WorkspaceService) requireOwner(ctx context.Context, workspaceID, userID string) error {
+func (s *Service) requireOwner(ctx context.Context, workspaceID, userID string) error {
 	ws, err := s.Get(ctx, workspaceID)
 	if err != nil {
 		return err
@@ -433,7 +433,7 @@ func (s *WorkspaceService) requireOwner(ctx context.Context, workspaceID, userID
 	return nil
 }
 
-func (s *WorkspaceService) requireOwnerOrAdmin(ctx context.Context, workspaceID, userID string) error {
+func (s *Service) requireOwnerOrAdmin(ctx context.Context, workspaceID, userID string) error {
 	ws, err := s.Get(ctx, workspaceID)
 	if err != nil {
 		return err

@@ -9,7 +9,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, provider string, token *oauth2.Token, userInfo *OAuthUserInfo, userAgent, ipAddress *string) (*TokenResponse, error) {
+func (s *Service) LoginOrRegisterOAuth(ctx context.Context, provider string, token *oauth2.Token, userInfo *OAuthUserInfo, userAgent, ipAddress *string) (*TokenResponse, error) {
 	email, err := NormalizeEmail(userInfo.Email)
 	if err != nil {
 		MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()

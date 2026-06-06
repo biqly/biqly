@@ -47,9 +47,8 @@ func (h *AuthHandler) handleAccountFreezeToggle(
 	conflictErr error,
 	auditAction string,
 ) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 	if err := action(r.Context(), userID); err != nil {
@@ -73,9 +72,8 @@ func (h *AuthHandler) handleUnfreezeAccount(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *AuthHandler) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 	var req auth.DeleteAccountRequest
@@ -97,9 +95,8 @@ func (h *AuthHandler) handleDeleteAccount(w http.ResponseWriter, r *http.Request
 }
 
 func (h *AuthHandler) handleListSessions(w http.ResponseWriter, r *http.Request) {
-	userID, ok := contextUserID(r)
+	userID, ok := h.requireUserID(w, r)
 	if !ok {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 	sessions, err := h.service.ListActiveSessions(r.Context(), userID)
@@ -111,9 +108,8 @@ func (h *AuthHandler) handleListSessions(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *AuthHandler) handleRevokeSession(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 	sessionID := chi.URLParam(r, "id")
@@ -149,9 +145,8 @@ func (h *AuthHandler) handleUnlockAccount(w http.ResponseWriter, r *http.Request
 }
 
 func (h *AuthHandler) handleAdminForceLogout(w http.ResponseWriter, r *http.Request) {
-	actor, ok := r.Context().Value(userIDKey).(string)
-	if !ok || actor == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	actor, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 	targetID := chi.URLParam(r, "id")
@@ -168,9 +163,8 @@ func (h *AuthHandler) handleAdminForceLogout(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *AuthHandler) handleAdminRestoreAccount(w http.ResponseWriter, r *http.Request) {
-	actor, ok := r.Context().Value(userIDKey).(string)
-	if !ok || actor == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	actor, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 	targetID := chi.URLParam(r, "id")
@@ -191,9 +185,8 @@ func (h *AuthHandler) handleAdminRestoreAccount(w http.ResponseWriter, r *http.R
 }
 
 func (h *AuthHandler) handleAdminGenerateMFABypass(w http.ResponseWriter, r *http.Request) {
-	actor, ok := r.Context().Value(userIDKey).(string)
-	if !ok || actor == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	actor, ok := h.requireUserID(w, r)
+	if !ok {
 		return
 	}
 	targetID := chi.URLParam(r, "id")
@@ -228,8 +221,7 @@ func (h *AuthHandler) auditLog(r *http.Request, userID *string, action string, r
 	if h.audit == nil {
 		return
 	}
-	ip := r.RemoteAddr
-	if err := h.audit.Log(r.Context(), userID, action, resource, resourceID, metadata, &ip); err != nil {
+	if err := h.audit.Log(r.Context(), userID, action, resource, resourceID, metadata, new(r.RemoteAddr)); err != nil {
 		slog.WarnContext(r.Context(), "auth audit log failed", "action", action, "error", err)
 	}
 }

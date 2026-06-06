@@ -14,36 +14,35 @@ import (
 )
 
 var (
-	ErrMFAAlreadyEnabled = errors.New("mfa already enabled")
-	ErrMFANotEnabled     = errors.New("mfa not enabled")
-	ErrMFACodeInvalid    = errors.New("invalid mfa code")
+	ErrMFANotEnabled  = errors.New("mfa not enabled")
+	ErrMFACodeInvalid = errors.New("invalid mfa code")
 )
 
 const recoveryCodeCount = 10
 
-type MFAEnrollResult struct {
+type EnrollResult struct {
 	Secret        string
 	OTPAuthURL    string
 	RecoveryCodes []string
 }
 
-type MFAService struct {
-	repo     *MFARepository
+type Service struct {
+	repo     *Repository
 	userRepo *auth.UserRepository
 	issuer   string
 }
 
-func NewMFAService(repo *MFARepository, userRepo *auth.UserRepository, issuer string) *MFAService {
+func NewMFAService(repo *Repository, userRepo *auth.UserRepository, issuer string) *Service {
 	if issuer == "" {
 		issuer = "Biqly"
 	}
-	return &MFAService{repo: repo, userRepo: userRepo, issuer: issuer}
+	return &Service{repo: repo, userRepo: userRepo, issuer: issuer}
 }
 
 // Enroll creates a pending TOTP enrollment. Caller must call Verify with a
 // code from the authenticator to activate it. Re-enrolling overwrites any
 // pending or active enrollment for that user.
-func (s *MFAService) Enroll(ctx context.Context, userID, accountLabel string) (*MFAEnrollResult, error) {
+func (s *Service) Enroll(ctx context.Context, userID, accountLabel string) (*EnrollResult, error) {
 	secret, err := GenerateTOTPSecret()
 	if err != nil {
 		return nil, err
@@ -58,7 +57,7 @@ func (s *MFAService) Enroll(ctx context.Context, userID, accountLabel string) (*
 		return nil, err
 	}
 
-	return &MFAEnrollResult{
+	return &EnrollResult{
 		Secret:        secret,
 		OTPAuthURL:    BuildOTPAuthURL(s.issuer, accountLabel, secret),
 		RecoveryCodes: plainCodes,
@@ -66,7 +65,7 @@ func (s *MFAService) Enroll(ctx context.Context, userID, accountLabel string) (*
 }
 
 // Verify activates a pending enrollment by checking a TOTP code.
-func (s *MFAService) Verify(ctx context.Context, userID, code string) error {
+func (s *Service) Verify(ctx context.Context, userID, code string) error {
 	enrol, err := s.repo.Get(ctx, userID)
 	if err != nil {
 		return err
@@ -84,7 +83,7 @@ func (s *MFAService) Verify(ctx context.Context, userID, code string) error {
 
 // VerifyCode validates either a TOTP code, a recovery code, or a bypass code on an enabled
 // enrollment. Recovery codes and bypass codes are single-use.
-func (s *MFAService) VerifyCode(ctx context.Context, userID, code string) error {
+func (s *Service) VerifyCode(ctx context.Context, userID, code string) error {
 	enrol, err := s.repo.Get(ctx, userID)
 	if err != nil {
 		return err
@@ -126,7 +125,7 @@ func (s *MFAService) VerifyCode(ctx context.Context, userID, code string) error 
 	return ErrMFACodeInvalid
 }
 
-func (s *MFAService) GenerateBypassCode(ctx context.Context, userID string) (string, error) {
+func (s *Service) GenerateBypassCode(ctx context.Context, userID string) (string, error) {
 	enrol, err := s.repo.Get(ctx, userID)
 	if err != nil {
 		return "", err
@@ -153,12 +152,12 @@ func (s *MFAService) GenerateBypassCode(ctx context.Context, userID string) (str
 	return bypassCode, nil
 }
 
-func (s *MFAService) Disable(ctx context.Context, userID string) error {
+func (s *Service) Disable(ctx context.Context, userID string) error {
 	return s.repo.Disable(ctx, userID)
 }
 
 // Status returns nil enrollment for users who have never enrolled.
-func (s *MFAService) Status(ctx context.Context, userID string) (*MFAEnrollment, error) {
+func (s *Service) Status(ctx context.Context, userID string) (*Enrollment, error) {
 	enrol, err := s.repo.Get(ctx, userID)
 	if errors.Is(err, ErrMFANotEnrolled) {
 		return nil, nil //nolint:nilnil // not enrolled is a normal state, not an error
@@ -167,7 +166,7 @@ func (s *MFAService) Status(ctx context.Context, userID string) (*MFAEnrollment,
 }
 
 // RegenerateRecoveryCodes issues a fresh set of recovery codes, invalidating prior ones.
-func (s *MFAService) RegenerateRecoveryCodes(ctx context.Context, userID string) ([]string, error) {
+func (s *Service) RegenerateRecoveryCodes(ctx context.Context, userID string) ([]string, error) {
 	enrol, err := s.repo.Get(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -186,7 +185,7 @@ func (s *MFAService) RegenerateRecoveryCodes(ctx context.Context, userID string)
 }
 
 // IsEnabled reports whether MFA is active for a user. Returns false on not-enrolled.
-func (s *MFAService) IsEnabled(ctx context.Context, userID string) (bool, error) {
+func (s *Service) IsEnabled(ctx context.Context, userID string) (bool, error) {
 	enrol, err := s.repo.Get(ctx, userID)
 	if errors.Is(err, ErrMFANotEnrolled) {
 		return false, nil

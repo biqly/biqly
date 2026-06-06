@@ -11,7 +11,7 @@ import (
 
 // SetMFA attaches the MFA service to the handler. Routes registered later
 // will return 503 if this is nil.
-func (h *AuthHandler) SetMFA(svc *mfa.MFAService) { h.mfa = svc }
+func (h *AuthHandler) SetMFA(svc *mfa.Service) { h.mfa = svc }
 
 func (h *AuthHandler) requireMFA(w http.ResponseWriter) bool {
 	if h.mfa == nil {
@@ -21,13 +21,29 @@ func (h *AuthHandler) requireMFA(w http.ResponseWriter) bool {
 	return true
 }
 
-func (h *AuthHandler) handleMFAEnroll(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) requireMFAUser(w http.ResponseWriter, r *http.Request) (string, bool) {
 	if !h.requireMFA(w) {
-		return
+		return "", false
 	}
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	return h.requireUserID(w, r)
+}
+
+func (h *AuthHandler) parseAndVerifyMFACode(w http.ResponseWriter, r *http.Request, userID string) bool {
+	var req auth.MFAVerifyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid request body")
+		return false
+	}
+	if err := h.mfa.VerifyCode(r.Context(), userID, req.Code); err != nil {
+		h.respondError(w, http.StatusUnauthorized, mfa.ErrMFACodeInvalid.Error())
+		return false
+	}
+	return true
+}
+
+func (h *AuthHandler) handleMFAEnroll(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.requireMFAUser(w, r)
+	if !ok {
 		return
 	}
 	email, ok := r.Context().Value(emailKey).(string)
@@ -50,12 +66,8 @@ func (h *AuthHandler) handleMFAEnroll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) handleMFAVerify(w http.ResponseWriter, r *http.Request) {
-	if !h.requireMFA(w) {
-		return
-	}
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireMFAUser(w, r)
+	if !ok {
 		return
 	}
 	var req auth.MFAVerifyRequest
@@ -75,23 +87,11 @@ func (h *AuthHandler) handleMFAVerify(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) handleMFADisable(w http.ResponseWriter, r *http.Request) {
-	if !h.requireMFA(w) {
+	userID, ok := h.requireMFAUser(w, r)
+	if !ok {
 		return
 	}
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-	var req auth.MFAVerifyRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		// Disable still allowed without code? Require code to prevent
-		// hijacked session from silently dropping MFA.
-		h.respondError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if err := h.mfa.VerifyCode(r.Context(), userID, req.Code); err != nil {
-		h.respondError(w, http.StatusUnauthorized, mfa.ErrMFACodeInvalid.Error())
+	if !h.parseAndVerifyMFACode(w, r, userID) {
 		return
 	}
 	if err := h.mfa.Disable(r.Context(), userID); err != nil {
@@ -102,12 +102,8 @@ func (h *AuthHandler) handleMFADisable(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) handleMFAStatus(w http.ResponseWriter, r *http.Request) {
-	if !h.requireMFA(w) {
-		return
-	}
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
+	userID, ok := h.requireMFAUser(w, r)
+	if !ok {
 		return
 	}
 	enrol, err := h.mfa.Status(r.Context(), userID)
@@ -125,21 +121,11 @@ func (h *AuthHandler) handleMFAStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) handleMFARegenerateRecovery(w http.ResponseWriter, r *http.Request) {
-	if !h.requireMFA(w) {
+	userID, ok := h.requireMFAUser(w, r)
+	if !ok {
 		return
 	}
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-	var req auth.MFAVerifyRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if err := h.mfa.VerifyCode(r.Context(), userID, req.Code); err != nil {
-		h.respondError(w, http.StatusUnauthorized, mfa.ErrMFACodeInvalid.Error())
+	if !h.parseAndVerifyMFACode(w, r, userID) {
 		return
 	}
 	codes, err := h.mfa.RegenerateRecoveryCodes(r.Context(), userID)
@@ -156,9 +142,7 @@ func (h *AuthHandler) handleMFALogin(w http.ResponseWriter, r *http.Request) {
 		h.respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	ip := r.RemoteAddr
-	ua := r.UserAgent()
-	resp, err := h.service.CompleteMFALogin(r.Context(), req, &ua, &ip)
+	resp, err := h.service.CompleteMFALogin(r.Context(), req, new(r.UserAgent()), new(r.RemoteAddr))
 	switch {
 	case errors.Is(err, auth.ErrInvalidCredentials), errors.Is(err, mfa.ErrMFACodeInvalid), errors.Is(err, mfa.ErrMFANotEnrolled):
 		h.respondError(w, http.StatusUnauthorized, auth.ErrInvalidCredentials.Error())

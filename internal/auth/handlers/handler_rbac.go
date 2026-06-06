@@ -21,12 +21,12 @@ import (
 )
 
 type RBACHandler struct {
-	rbac          *rbac.RBACService
+	rbac          *rbac.Service
 	rbacRepo      *rbac.RBACRepository
 	userRepo      *auth.UserRepository
 	dsAccess      *rbac.DatasourceAccessService
 	aiModelAccess *rbac.AIModelAccessService
-	ws            *workspace.WorkspaceService
+	ws            *workspace.Service
 	sharing       *workspace.SharingService
 	audit         *auth.AuditService
 	jwtMgr        *auth.JWTManager
@@ -34,12 +34,12 @@ type RBACHandler struct {
 }
 
 func NewRBACHandler(
-	rbacSvc *rbac.RBACService,
+	rbacSvc *rbac.Service,
 	rbacRepo *rbac.RBACRepository,
 	userRepo *auth.UserRepository,
 	dsAccess *rbac.DatasourceAccessService,
 	aiModelAccess *rbac.AIModelAccessService,
-	ws *workspace.WorkspaceService,
+	ws *workspace.Service,
 	sharing *workspace.SharingService,
 	audit *auth.AuditService,
 	jwtMgr *auth.JWTManager,
@@ -200,6 +200,15 @@ func (h *RBACHandler) RegisterInternalRoutes(r chi.Router, internalMW func(http.
 	})
 }
 
+func requireContextUserID(w http.ResponseWriter, r *http.Request) (string, bool) {
+	userID, ok := contextUserID(r)
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
+		return "", false
+	}
+	return userID, true
+}
+
 // handleMyPermissions returns the caller's effective global permissions plus a
 // super-admin flag, so the UI can disable controls the user is not allowed to
 // use. This is a convenience mirror of the server-side checks — never the sole
@@ -232,9 +241,8 @@ func (h *RBACHandler) handleMyPermissions(w http.ResponseWriter, r *http.Request
 // === Workspace ===
 
 func (h *RBACHandler) handleListWorkspaces(w http.ResponseWriter, r *http.Request) {
-	userID, ok := contextUserID(r)
+	userID, ok := requireContextUserID(w, r)
 	if !ok {
-		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
 		return
 	}
 	isSuper, err := h.rbac.IsSuperAdmin(r.Context(), userID)
@@ -260,9 +268,8 @@ func (h *RBACHandler) handleListWorkspaces(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *RBACHandler) handleCreateWorkspace(w http.ResponseWriter, r *http.Request) {
-	userID, ok := contextUserID(r)
+	userID, ok := requireContextUserID(w, r)
 	if !ok {
-		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
 		return
 	}
 	var req struct {
@@ -291,9 +298,8 @@ func (h *RBACHandler) handleGetWorkspace(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *RBACHandler) handleUpdateWorkspace(w http.ResponseWriter, r *http.Request) {
-	userID, ok := contextUserID(r)
+	userID, ok := requireContextUserID(w, r)
 	if !ok {
-		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
 		return
 	}
 	var req struct {
@@ -314,9 +320,8 @@ func (h *RBACHandler) handleUpdateWorkspace(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *RBACHandler) handleDeleteWorkspace(w http.ResponseWriter, r *http.Request) {
-	userID, ok := contextUserID(r)
+	userID, ok := requireContextUserID(w, r)
 	if !ok {
-		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
 		return
 	}
 	if err := h.ws.Delete(r.Context(), chi.URLParam(r, "id"), userID); err != nil {
@@ -336,9 +341,8 @@ func (h *RBACHandler) handleListMembers(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *RBACHandler) handleAddMember(w http.ResponseWriter, r *http.Request) {
-	userID, ok := contextUserID(r)
+	userID, ok := requireContextUserID(w, r)
 	if !ok {
-		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
 		return
 	}
 	var req struct {
@@ -357,9 +361,8 @@ func (h *RBACHandler) handleAddMember(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RBACHandler) handleUpdateMemberRole(w http.ResponseWriter, r *http.Request) {
-	userID, ok := contextUserID(r)
+	userID, ok := requireContextUserID(w, r)
 	if !ok {
-		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
 		return
 	}
 	var req struct {
@@ -377,9 +380,8 @@ func (h *RBACHandler) handleUpdateMemberRole(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *RBACHandler) handleRemoveMember(w http.ResponseWriter, r *http.Request) {
-	userID, ok := contextUserID(r)
+	userID, ok := requireContextUserID(w, r)
 	if !ok {
-		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
 		return
 	}
 	if err := h.ws.RemoveMember(r.Context(), chi.URLParam(r, "id"), chi.URLParam(r, "userId"), userID); err != nil {
@@ -399,9 +401,8 @@ func (h *RBACHandler) handleListWorkspaceDatasources(w http.ResponseWriter, r *h
 }
 
 func (h *RBACHandler) handleAttachDatasource(w http.ResponseWriter, r *http.Request) {
-	userID, ok := contextUserID(r)
+	userID, ok := requireContextUserID(w, r)
 	if !ok {
-		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
 		return
 	}
 	var req struct {
@@ -423,9 +424,8 @@ func (h *RBACHandler) handleAttachDatasource(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *RBACHandler) handleDetachDatasource(w http.ResponseWriter, r *http.Request) {
-	userID, ok := contextUserID(r)
+	userID, ok := requireContextUserID(w, r)
 	if !ok {
-		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
 		return
 	}
 	if err := h.ws.DetachDatasource(r.Context(), chi.URLParam(r, "id"), chi.URLParam(r, "dsId"), userID); err != nil {
@@ -438,9 +438,8 @@ func (h *RBACHandler) handleDetachDatasource(w http.ResponseWriter, r *http.Requ
 // === Datasource access ===
 
 func (h *RBACHandler) handleListMyDatasources(w http.ResponseWriter, r *http.Request) {
-	userID, ok := contextUserID(r)
+	userID, ok := requireContextUserID(w, r)
 	if !ok {
-		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
 		return
 	}
 	ids, err := h.dsAccess.ListAccessibleDatasourceIDs(r.Context(), userID)
@@ -452,9 +451,8 @@ func (h *RBACHandler) handleListMyDatasources(w http.ResponseWriter, r *http.Req
 }
 
 func (h *RBACHandler) handleCheckMyDatasource(w http.ResponseWriter, r *http.Request) {
-	userID, ok := contextUserID(r)
+	userID, ok := requireContextUserID(w, r)
 	if !ok {
-		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
 		return
 	}
 	dsID := chi.URLParam(r, "id")
@@ -471,9 +469,8 @@ func (h *RBACHandler) handleCheckMyDatasource(w http.ResponseWriter, r *http.Req
 }
 
 func (h *RBACHandler) handleRequestAccess(w http.ResponseWriter, r *http.Request) {
-	userID, ok := contextUserID(r)
+	userID, ok := requireContextUserID(w, r)
 	if !ok {
-		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
 		return
 	}
 	err := h.audit.Log(r.Context(), &userID, "datasource.request_access", new("datasource"), new(chi.URLParam(r, "id")), nil, nil)
@@ -487,9 +484,8 @@ func (h *RBACHandler) handleRequestAccess(w http.ResponseWriter, r *http.Request
 // === Sharing ===
 
 func (h *RBACHandler) handleCreateShare(w http.ResponseWriter, r *http.Request) {
-	userID, ok := contextUserID(r)
+	userID, ok := requireContextUserID(w, r)
 	if !ok {
-		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
 		return
 	}
 	var req workspace.ShareRequest
@@ -506,9 +502,8 @@ func (h *RBACHandler) handleCreateShare(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *RBACHandler) handleListShares(w http.ResponseWriter, r *http.Request) {
-	userID, ok := contextUserID(r)
+	userID, ok := requireContextUserID(w, r)
 	if !ok {
-		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
 		return
 	}
 	resourceType := r.URL.Query().Get("resource_type")
@@ -534,9 +529,8 @@ func (h *RBACHandler) handleListShares(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RBACHandler) handleRevokeShare(w http.ResponseWriter, r *http.Request) {
-	userID, ok := contextUserID(r)
+	userID, ok := requireContextUserID(w, r)
 	if !ok {
-		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
 		return
 	}
 	if err := h.sharing.Revoke(r.Context(), chi.URLParam(r, "id"), userID); err != nil {

@@ -11,12 +11,6 @@ import (
 
 type SharePermission string
 
-const (
-	ShareView    SharePermission = "view"
-	ShareExecute SharePermission = "execute"
-	ShareEdit    SharePermission = "edit"
-)
-
 var ErrShareNotFound = errors.New("share not found")
 
 type ResourceShare struct {

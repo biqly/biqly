@@ -5,12 +5,13 @@ import (
 	"testing"
 
 	"github.com/biqly/biqly/internal/auth/rbac"
+	"github.com/biqly/biqly/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAuditLogAppendOnlyTriggers(t *testing.T) {
-	dbPool := openTestDBPool(t)
+	dbPool := testutil.OpenAuthDB(t)
 	ctx := context.Background()
 
 	svc := NewAuditService(dbPool)
@@ -30,7 +31,7 @@ func TestAuditLogAppendOnlyTriggers(t *testing.T) {
 }
 
 func TestSeparationOfDutiesBlocksSelfSuperAdminChange(t *testing.T) {
-	dbPool := openTestDBPool(t)
+	dbPool := testutil.OpenAuthDB(t)
 	ctx := context.Background()
 
 	const email = "sod_test@example.com"
@@ -71,7 +72,7 @@ func TestSeparationOfDutiesBlocksSelfSuperAdminChange(t *testing.T) {
 }
 
 func TestAuditFilterDateRange(t *testing.T) {
-	dbPool := openTestDBPool(t)
+	dbPool := testutil.OpenAuthDB(t)
 	ctx := context.Background()
 
 	svc := NewAuditService(dbPool)
