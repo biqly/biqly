@@ -1,10 +1,13 @@
 package eval
 
 import (
+	"errors"
 	"fmt"
-	"github.com/bytedance/sonic"
 	"os"
 	"path/filepath"
+	"strings"
+
+	"github.com/bytedance/sonic"
 
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
@@ -15,6 +18,23 @@ type rawGoldenCase struct {
 	Question string             `json:"question"`
 	ModelID  string             `json:"model_id"`
 	Expected query.LogicalQuery `json:"expected"`
+}
+
+// sanitizeID validates that id is a safe filename component with no path
+// traversal. It returns the base name or an error if the id is empty, contains
+// path separators, or resolves to a directory traversal ("..").
+func sanitizeID(id string) (string, error) {
+	if id == "" {
+		return "", errors.New("empty id")
+	}
+	if strings.ContainsAny(id, `/\`) {
+		return "", fmt.Errorf("id contains path separator: %q", id)
+	}
+	clean := filepath.Base(id)
+	if clean == "." || clean == ".." {
+		return "", fmt.Errorf("invalid id: %q", id)
+	}
+	return clean, nil
 }
 
 // LoadGoldenCasesFromDir scans and loads all *.json files in the given directory.
@@ -49,6 +69,11 @@ func LoadGoldenCasesFromDir(dir string) ([]GoldenCase, error) {
 
 // SaveGoldenCaseToDir saves a golden case to a JSON file in the directory.
 func SaveGoldenCaseToDir(dir string, id string, question string, modelID string, expected query.LogicalQuery) error {
+	safeID, err := sanitizeID(id)
+	if err != nil {
+		return fmt.Errorf("invalid golden case id: %w", err)
+	}
+
 	raw := rawGoldenCase{
 		ID:       id,
 		Question: question,
@@ -65,7 +90,7 @@ func SaveGoldenCaseToDir(dir string, id string, question string, modelID string,
 		return fmt.Errorf("failed to create golden cases directory: %w", err)
 	}
 
-	filename := filepath.Join(dir, id+".json")
+	filename := filepath.Join(dir, safeID+".json")
 	if err := os.WriteFile(filename, data, 0600); err != nil {
 		return fmt.Errorf("failed to write golden case file: %w", err)
 	}
@@ -74,7 +99,12 @@ func SaveGoldenCaseToDir(dir string, id string, question string, modelID string,
 
 // DeleteGoldenCaseFromDir removes a golden case JSON file from the directory.
 func DeleteGoldenCaseFromDir(dir string, id string) error {
-	filename := filepath.Join(dir, id+".json")
+	safeID, err := sanitizeID(id)
+	if err != nil {
+		return fmt.Errorf("invalid golden case id: %w", err)
+	}
+
+	filename := filepath.Join(dir, safeID+".json")
 	if err := os.Remove(filename); err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("case %s not found", id)

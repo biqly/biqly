@@ -80,7 +80,9 @@ export function LockedState({ datasourceId, datasourceName }: LockedStateProps) 
           <button
             type="button"
             className="btn btn-primary locked-state-btn"
-            onClick={handleRequest}
+            onClick={() => {
+              void handleRequest()
+            }}
             disabled={requesting}
           >
             {requesting ? t('common.loading') : t('datasources.btn_request_access')}

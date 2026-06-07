@@ -27,7 +27,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const navigate = useNavigate()
 
   useEffect(() => {
-    navigateRef = navigate
+    navigateRef = (path) => {
+      void navigate(path)
+    }
     return () => {
       navigateRef = null
     }

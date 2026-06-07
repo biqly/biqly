@@ -154,5 +154,5 @@ func (h *AuthHandler) handleMFALogin(w http.ResponseWriter, r *http.Request) {
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	h.respondJSON(w, http.StatusOK, resp)
+	h.respondTokenResponse(w, r, http.StatusOK, resp)
 }

@@ -264,7 +264,9 @@ export default function Evaluation() {
         {activeTab === 'run' && (
           <EvalRunTab
             running={running}
-            runEvaluation={runEvaluation}
+            runEvaluation={() => {
+              void runEvaluation()
+            }}
             showDemo={showDemo}
             runError={runError}
             activeData={activeData}
@@ -280,7 +282,9 @@ export default function Evaluation() {
             runHistory={runHistory}
             selectedRun={selectedRun}
             setSelectedRun={setSelectedRun}
-            loadRunDetail={loadRunDetail}
+            loadRunDetail={(runId) => {
+              void loadRunDetail(runId)
+            }}
             localeTag={localeTag}
             t={t}
           />
@@ -296,7 +300,9 @@ export default function Evaluation() {
             setCurrentId={setCurrentId}
             regression={regression}
             regressionLoading={regressionLoading}
-            runRegression={runRegression}
+            runRegression={() => {
+              void runRegression()
+            }}
             configured={adminApi.configured}
             localeTag={localeTag}
             t={t}

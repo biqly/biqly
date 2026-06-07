@@ -331,7 +331,9 @@ export default function Settings() {
                 className="settings-security-card"
                 status={mfaStatus}
                 recoveryCodes={mfaNewRecoveryCodes}
-                onEnable={handleMFAEnrollStart}
+                onEnable={() => {
+                  void handleMFAEnrollStart()
+                }}
                 onDisable={openMFADisableModal}
                 onRegenerate={openMFARegenModal}
               />
@@ -521,7 +523,9 @@ export default function Settings() {
         title={t('passkeys.delete_title')}
         message={t('passkeys.delete_confirm')}
         confirmLabel={deleting ? '...' : undefined}
-        onConfirm={handleDeleteConfirm}
+        onConfirm={() => {
+          void handleDeleteConfirm()
+        }}
         onCancel={() => setDeleteTarget(null)}
       />
 
@@ -532,7 +536,13 @@ export default function Settings() {
         subtitle={t('passkeys.modal_desc')}
         onClose={() => setAddModalOpen(false)}
       >
-        <form onSubmit={handleRegisterSubmit} className="page-stack" style={{ gap: '1rem' }}>
+        <form
+          onSubmit={(e) => {
+            void handleRegisterSubmit(e)
+          }}
+          className="page-stack"
+          style={{ gap: '1rem' }}
+        >
           <div className="form-group" style={{ margin: 0 }}>
             <label htmlFor="passkey-name">{t('passkeys.modal_label_name')}</label>
             <input
@@ -584,7 +594,13 @@ export default function Settings() {
         subtitle={t('passkeys.rename_desc')}
         onClose={() => setRenameTarget(null)}
       >
-        <form onSubmit={handleRenameSubmit} className="page-stack" style={{ gap: '1rem' }}>
+        <form
+          onSubmit={(e) => {
+            void handleRenameSubmit(e)
+          }}
+          className="page-stack"
+          style={{ gap: '1rem' }}
+        >
           <div className="form-group" style={{ margin: 0 }}>
             <label htmlFor="rename-passkey-name">{t('passkeys.modal_label_name')}</label>
             <input
@@ -638,7 +654,13 @@ export default function Settings() {
       >
         <div className="page-stack" style={{ gap: '1.5rem' }}>
           {!mfaShowRecovery ? (
-            <form onSubmit={handleMFAVerifySubmit} className="page-stack" style={{ gap: '1rem' }}>
+            <form
+              onSubmit={(e) => {
+                void handleMFAVerifySubmit(e)
+              }}
+              className="page-stack"
+              style={{ gap: '1rem' }}
+            >
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <h4 style={{ margin: 0 }}>{t('mfa.step_scan')}</h4>
                 <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
@@ -735,7 +757,13 @@ export default function Settings() {
         subtitle={t('mfa.disable_desc')}
         onClose={() => setMfaDisableOpen(false)}
       >
-        <form onSubmit={handleMFADisableSubmit} className="page-stack" style={{ gap: '1rem' }}>
+        <form
+          onSubmit={(e) => {
+            void handleMFADisableSubmit(e)
+          }}
+          className="page-stack"
+          style={{ gap: '1rem' }}
+        >
           <OTPCodeInput
             id="mfa-disable-input"
             value={mfaDisableCode}
@@ -770,7 +798,13 @@ export default function Settings() {
         subtitle={t('mfa.disable_desc')}
         onClose={() => setMfaRegenOpen(false)}
       >
-        <form onSubmit={handleMFARegenSubmit} className="page-stack" style={{ gap: '1rem' }}>
+        <form
+          onSubmit={(e) => {
+            void handleMFARegenSubmit(e)
+          }}
+          className="page-stack"
+          style={{ gap: '1rem' }}
+        >
           <OTPCodeInput
             id="mfa-regen-input"
             value={mfaRegenCode}

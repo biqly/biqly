@@ -450,7 +450,9 @@ export default function FewShotExamples() {
                         <button
                           type="button"
                           className="btn btn-sm btn-danger"
-                          onClick={() => handleDelete(ex.id)}
+                          onClick={() => {
+                            void handleDelete(ex.id)
+                          }}
                         >
                           {t('common.delete')}
                         </button>
@@ -634,7 +636,9 @@ export default function FewShotExamples() {
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={handleSave}
+                onClick={() => {
+                  void handleSave()
+                }}
                 disabled={loading}
               >
                 {loading ? t('common.saving') : t('common.save')}

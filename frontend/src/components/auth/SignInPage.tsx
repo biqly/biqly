@@ -160,7 +160,7 @@ export default function SignInPage() {
     setError(null)
     try {
       const resp = await apiMFALogin(mfaToken, mfaCode.trim())
-      await loginWithTokens(resp.access_token, resp.refresh_token, resp.roles)
+      await loginWithTokens(resp.access_token, resp.roles)
       navigate('/datasources')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : '2FA Verification failed')
@@ -208,7 +208,7 @@ export default function SignInPage() {
       }
 
       const finishResp = await apiPasskeyLoginFinish(credentialJson)
-      await loginWithTokens(finishResp.access_token, finishResp.refresh_token, finishResp.roles)
+      await loginWithTokens(finishResp.access_token, finishResp.roles)
       navigate('/datasources')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Passkey login failed')
@@ -253,7 +253,12 @@ export default function SignInPage() {
         )}
 
         {mfaRequired ? (
-          <form onSubmit={handleMFALoginSubmit} className="auth-form">
+          <form
+            onSubmit={(e) => {
+              void handleMFALoginSubmit(e)
+            }}
+            className="auth-form"
+          >
             <h2
               className="auth-title"
               style={{ fontSize: '1.25rem', marginBottom: '0.5rem', textAlign: 'center' }}
@@ -330,7 +335,12 @@ export default function SignInPage() {
           </form>
         ) : (
           <>
-            <form onSubmit={handleSubmit} className="auth-form">
+            <form
+              onSubmit={(e) => {
+                void handleSubmit(e)
+              }}
+              className="auth-form"
+            >
               {ldapEnabled && (
                 <div className="auth-info" role="status" aria-live="polite">
                   {t('auth.ldap_hint')}
@@ -451,7 +461,9 @@ export default function SignInPage() {
               <button
                 type="button"
                 className={`social-btn social-btn--passkey ${passkeyLoading ? 'passkey-pulse' : ''}`}
-                onClick={handlePasskeyLogin}
+                onClick={() => {
+                  void handlePasskeyLogin()
+                }}
                 disabled={loading || passkeyLoading}
               >
                 🔑 {t('auth.passkey_continue')}

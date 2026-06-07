@@ -420,7 +420,9 @@ export default function QueryBuilder() {
                 <button
                   type="button"
                   className="btn btn-sm"
-                  onClick={createSemanticModel}
+                  onClick={() => {
+                    void createSemanticModel()
+                  }}
                   disabled={generatingModel}
                 >
                   {generatingModel
@@ -702,7 +704,9 @@ export default function QueryBuilder() {
                 <button
                   type="button"
                   className="visualize-btn"
-                  onClick={runQuery}
+                  onClick={() => {
+                    void runQuery()
+                  }}
                   disabled={loading}
                 >
                   {loading ? t('query_builder.running') : 'Visualize'}

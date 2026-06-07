@@ -254,7 +254,9 @@ export function AccountProfileSection() {
               <button
                 type="button"
                 className="settings-profile-avatar-remove"
-                onClick={handleAvatarRemove}
+                onClick={() => {
+                  void handleAvatarRemove()
+                }}
                 title={t('settings.profile_picture_remove')}
               >
                 <svg
@@ -294,7 +296,9 @@ export function AccountProfileSection() {
         </div>
 
         <form
-          onSubmit={handleProfileSubmit}
+          onSubmit={(e) => {
+            void handleProfileSubmit(e)
+          }}
           className="settings-profile-block"
           style={{ borderTop: 'none', paddingTop: 0 }}
         >
@@ -347,7 +351,9 @@ export function AccountProfileSection() {
         aria-labelledby="settings-email-change-heading"
       >
         <form
-          onSubmit={handleEmailSubmit}
+          onSubmit={(e) => {
+            void handleEmailSubmit(e)
+          }}
           className="settings-profile-block"
           style={{ borderTop: 'none', paddingTop: 0 }}
         >
@@ -392,7 +398,9 @@ export function AccountProfileSection() {
         aria-labelledby="settings-password-heading"
       >
         <form
-          onSubmit={handlePasswordSubmit}
+          onSubmit={(e) => {
+            void handlePasswordSubmit(e)
+          }}
           className="settings-profile-block"
           style={{ borderTop: 'none', paddingTop: 0 }}
         >
@@ -460,10 +468,12 @@ export function AccountProfileSection() {
                 <Link
                   to="/auth/forgot-password"
                   className="settings-profile-link"
-                  onClick={async (e) => {
+                  onClick={(e) => {
                     e.preventDefault()
-                    await logout()
-                    navigate('/auth/forgot-password')
+                    void (async () => {
+                      await logout()
+                      void navigate('/auth/forgot-password')
+                    })()
                   }}
                 >
                   {t('settings.profile_forgot_password')}
@@ -487,7 +497,9 @@ export function AccountProfileSection() {
             <button
               type="button"
               className="btn btn-secondary btn-sm btn-auto-width"
-              onClick={handleGenerateBypass}
+              onClick={() => {
+                void handleGenerateBypass()
+              }}
               disabled={bypassGenerating}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >

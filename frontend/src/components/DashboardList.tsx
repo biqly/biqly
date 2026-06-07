@@ -158,7 +158,9 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
                     <button
                       type="button"
                       className="dashboard-list-card__delete"
-                      onClick={(e) => handleDelete(e, d.id, d.name)}
+                      onClick={(e) => {
+                        void handleDelete(e, d.id, d.name)
+                      }}
                       title={t('customDashboards.delete_tooltip')}
                       aria-label={t('customDashboards.delete_tooltip')}
                     >
@@ -193,7 +195,12 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
         className="modal-card--dashboard"
         labelledBy="dashboard-create-title"
       >
-        <form onSubmit={handleCreate} className="dashboard-create-form">
+        <form
+          onSubmit={(e) => {
+            void handleCreate(e)
+          }}
+          className="dashboard-create-form"
+        >
           {formError && <ErrorAlert error={formError} />}
           <div className="form-group">
             <label htmlFor="dash-name">{t('customDashboards.name_label')}</label>

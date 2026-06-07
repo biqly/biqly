@@ -44,7 +44,7 @@ export default function OAuthCallback() {
           navigate(`/auth/signin?mfa_token=${encodeURIComponent(resp.mfa_token)}`)
           return
         }
-        await loginWithTokens(resp.access_token, resp.refresh_token, resp.roles ?? [])
+        await loginWithTokens(resp.access_token, resp.roles ?? [])
         navigate('/datasources')
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : t('auth.oauth_failed')
@@ -71,7 +71,13 @@ export default function OAuthCallback() {
         {error ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div className="auth-error">{error}</div>
-            <button type="button" className="auth-btn" onClick={() => navigate('/auth/signin')}>
+            <button
+              type="button"
+              className="auth-btn"
+              onClick={() => {
+                void navigate('/auth/signin')
+              }}
+            >
               {t('auth.back_to_login')}
             </button>
           </div>

@@ -250,7 +250,9 @@ export function AIModelPreferencesSection() {
                         type="button"
                         className="ai-purpose-pref__clear"
                         disabled={saving}
-                        onClick={() => handleClear(purpose)}
+                        onClick={() => {
+                          void handleClear(purpose)
+                        }}
                       >
                         {t('settings.ai_models.clear')}
                       </button>
@@ -283,7 +285,9 @@ export function AIModelPreferencesSection() {
               type="button"
               className="btn btn-primary btn-sm btn-auto-width"
               disabled={saving || loading}
-              onClick={handleSave}
+              onClick={() => {
+                void handleSave()
+              }}
             >
               {saving ? '…' : t('settings.ai_models.save')}
             </button>

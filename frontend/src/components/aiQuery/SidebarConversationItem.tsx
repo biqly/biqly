@@ -102,7 +102,9 @@ export function SidebarConversationItem({
           <button
             type="button"
             className="btn-conv-action delete-btn"
-            onClick={handleDelete}
+            onClick={() => {
+              void handleDelete()
+            }}
             title={t('ai_query.delete_btn') ?? 'Delete'}
           >
             🗑️

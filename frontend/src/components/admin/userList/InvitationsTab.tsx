@@ -175,7 +175,9 @@ export function InvitationsTab({
                               <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                                 <button
                                   type="button"
-                                  onClick={() => handleResend(inv.id)}
+                                  onClick={() => {
+                                    void handleResend(inv.id)
+                                  }}
                                   disabled={actionLoadingId === inv.id}
                                   className="admin-btn-secondary"
                                 >
@@ -183,7 +185,9 @@ export function InvitationsTab({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleRevoke(inv.id)}
+                                  onClick={() => {
+                                    void handleRevoke(inv.id)
+                                  }}
                                   disabled={actionLoadingId === inv.id}
                                   className="admin-btn-danger"
                                 >

@@ -334,7 +334,9 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
 
               <div style={{ marginTop: 24 }}>
                 <button
-                  onClick={handleSave}
+                  onClick={() => {
+                    void handleSave()
+                  }}
                   disabled={isSavingDisabled || !canEdit}
                   style={isSavingDisabled || !canEdit ? btnPrimaryDisabled : btnPrimary}
                 >

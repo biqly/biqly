@@ -45,8 +45,9 @@ describe('admin API', () => {
         method: 'GET',
       }),
     )
-    expect(fetchMock.mock.calls[0]?.[1]?.headers).toBeInstanceOf(Headers)
-    const headers = fetchMock.mock.calls[0]![1]!.headers as Headers
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(init.headers).toBeInstanceOf(Headers)
+    const headers = init.headers as Headers
     expect(headers.get('Authorization')).toBe('Bearer token-1')
     expect(result).toEqual({
       entries: [

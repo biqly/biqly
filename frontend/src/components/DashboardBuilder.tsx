@@ -348,7 +348,9 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                   <button
                     type="button"
                     className="btn btn-primary"
-                    onClick={handleSaveLayout}
+                    onClick={() => {
+                      void handleSaveLayout()
+                    }}
                     disabled={!isDirty}
                   >
                     💾 Save Dashboard

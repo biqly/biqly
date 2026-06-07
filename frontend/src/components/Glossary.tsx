@@ -181,8 +181,8 @@ export default function Glossary() {
         })
         loadTerms()
         resetForm()
-      } catch (err: any) {
-        setFormError(err.message ?? 'Failed to update glossary term')
+      } catch (err: unknown) {
+        setFormError(err instanceof Error ? err.message : 'Failed to update glossary term')
       }
     } else {
       try {
@@ -193,8 +193,8 @@ export default function Glossary() {
         })
         loadTerms()
         resetForm()
-      } catch (err: any) {
-        setFormError(err.message ?? 'Failed to create glossary term')
+      } catch (err: unknown) {
+        setFormError(err instanceof Error ? err.message : 'Failed to create glossary term')
       }
     }
   }
@@ -483,7 +483,9 @@ export default function Glossary() {
                         <button
                           type="button"
                           className="btn btn-sm btn-danger"
-                          onClick={() => handleDelete(term.id)}
+                          onClick={() => {
+                            void handleDelete(term.id)
+                          }}
                         >
                           {t('common.delete')}
                         </button>
@@ -765,7 +767,9 @@ export default function Glossary() {
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={handleSave}
+                onClick={() => {
+                  void handleSave()
+                }}
                 disabled={loading}
               >
                 {loading ? t('common.saving') : t('common.save')}

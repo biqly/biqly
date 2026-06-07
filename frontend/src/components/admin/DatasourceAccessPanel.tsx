@@ -123,7 +123,9 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
       {!canEdit && <ReadOnlyNote />}
 
       <form
-        onSubmit={onGrant}
+        onSubmit={(e) => {
+          void onGrant(e)
+        }}
         style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}
       >
         <label className="admin-form-label" style={{ gap: 4, minWidth: 240 }}>
@@ -205,7 +207,9 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
                             size="sm"
                             value={r.access_level}
                             options={levelOptions}
-                            onChange={(v) => onChangeLevel(r.id, v as DatasourceAccessLevel)}
+                            onChange={(v) => {
+                              void onChangeLevel(r.id, v as DatasourceAccessLevel)
+                            }}
                             className={`admin-level-${r.access_level}`}
                             disabled={!canEdit}
                           />
@@ -215,7 +219,9 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
                         </td>
                         <td className="admin-td" style={{ textAlign: 'right' }}>
                           <button
-                            onClick={() => onRevoke(r.user_id, r.datasource_id)}
+                            onClick={() => {
+                              void onRevoke(r.user_id, r.datasource_id)
+                            }}
                             className="admin-btn-secondary"
                             disabled={!canEdit}
                           >

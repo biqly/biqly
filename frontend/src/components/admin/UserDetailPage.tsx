@@ -251,7 +251,9 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
           {!(isSelf && user.isActive) && (
             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
               <button
-                onClick={handleToggleActive}
+                onClick={() => {
+                  void handleToggleActive()
+                }}
                 disabled={!canManageUsers}
                 className={user.isActive ? 'admin-btn-deactivate' : 'admin-btn-activate'}
               >
@@ -287,7 +289,9 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
               {!user.emailVerified && (
                 <button
                   type="button"
-                  onClick={handleResendVerification}
+                  onClick={() => {
+                    void handleResendVerification()
+                  }}
                   disabled={verificationSending}
                   className="admin-btn-resend"
                 >
@@ -334,7 +338,9 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
           </p>
           <button
             type="button"
-            onClick={handleGenerateBypassCode}
+            onClick={() => {
+              void handleGenerateBypassCode()
+            }}
             disabled={bypassGenerating}
             className="admin-btn-resend"
           >
@@ -412,7 +418,9 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
                     </td>
                     <td className="admin-td" style={{ textAlign: 'right' }}>
                       <button
-                        onClick={() => handleRevokeRole(ur.role_id)}
+                        onClick={() => {
+                          void handleRevokeRole(ur.role_id)
+                        }}
                         className="admin-btn-revoke"
                         disabled={!canManageRoles}
                       >
@@ -431,7 +439,13 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
           <h3 style={{ marginTop: 0, marginBottom: 16 }}>
             {t('admin.user_detail.assign_new_role')}
           </h3>
-          <form onSubmit={handleAssignRole} className="page-stack" style={{ gap: 12 }}>
+          <form
+            onSubmit={(e) => {
+              void handleAssignRole(e)
+            }}
+            className="page-stack"
+            style={{ gap: 12 }}
+          >
             <label className="admin-form-label">
               <span>{t('admin.user_detail.select_role')}</span>
               <Select

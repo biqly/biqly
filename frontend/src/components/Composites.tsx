@@ -372,7 +372,9 @@ export default function Composites() {
                     type="button"
                     className="composites-delete-btn"
                     aria-label={t('composites.aria_delete')}
-                    onClick={() => handleDelete(c.id)}
+                    onClick={() => {
+                      void handleDelete(c.id)
+                    }}
                   >
                     ×
                   </button>
@@ -401,7 +403,9 @@ export default function Composites() {
                   <button
                     type="button"
                     className="btn-secondary"
-                    onClick={handleValidate}
+                    onClick={() => {
+                      void handleValidate()
+                    }}
                     disabled={loading}
                   >
                     {t('composites.validate')}
@@ -409,7 +413,9 @@ export default function Composites() {
                   <button
                     type="button"
                     className="btn-primary"
-                    onClick={handlePublish}
+                    onClick={() => {
+                      void handlePublish()
+                    }}
                     disabled={loading}
                   >
                     {t('composites.publish')}
@@ -417,7 +423,9 @@ export default function Composites() {
                   <button
                     type="button"
                     className="btn-secondary"
-                    onClick={handleRollback}
+                    onClick={() => {
+                      void handleRollback()
+                    }}
                     disabled={loading}
                   >
                     {t('composites.rollback')}
@@ -467,7 +475,9 @@ export default function Composites() {
                       <button
                         type="button"
                         className="btn-icon-danger"
-                        onClick={() => handleRemoveComponent(c.model_id)}
+                        onClick={() => {
+                          void handleRemoveComponent(c.model_id)
+                        }}
                         aria-label={t('composites.aria_remove')}
                       >
                         ×
@@ -508,7 +518,9 @@ export default function Composites() {
                   <button
                     type="button"
                     className="btn-secondary"
-                    onClick={handleAddComponent}
+                    onClick={() => {
+                      void handleAddComponent()
+                    }}
                     disabled={!addModelId || !addAlias.trim() || usedAliases.has(addAlias.trim())}
                   >
                     {t('composites.add')}
@@ -520,7 +532,13 @@ export default function Composites() {
                 <div className="section-head-row">
                   <h3>{t('composites.cross_joins_title')}</h3>
                   <div>
-                    <button type="button" className="btn-secondary" onClick={loadSuggestions}>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => {
+                        void loadSuggestions()
+                      }}
+                    >
                       {t('composites.suggest')}
                     </button>
                     <button
@@ -558,7 +576,9 @@ export default function Composites() {
                       <button
                         type="button"
                         className="btn-icon-danger"
-                        onClick={() => handleRemoveCrossJoin(j.id)}
+                        onClick={() => {
+                          void handleRemoveCrossJoin(j.id)
+                        }}
                         aria-label={t('composites.aria_delete')}
                       >
                         ×
@@ -578,7 +598,9 @@ export default function Composites() {
                         <button
                           type="button"
                           className="btn-link"
-                          onClick={() => applySuggestion(s)}
+                          onClick={() => {
+                            void applySuggestion(s)
+                          }}
                         >
                           {t('composites.apply')}
                         </button>
@@ -605,7 +627,9 @@ export default function Composites() {
                               key={dim}
                               type="button"
                               className={`date-dim-chip ${active ? 'active' : ''}`}
-                              onClick={() => handleSetCanonicalDate(c.alias, dim)}
+                              onClick={() => {
+                                void handleSetCanonicalDate(c.alias, dim)
+                              }}
                             >
                               {dim}
                             </button>
@@ -626,12 +650,12 @@ export default function Composites() {
                       <span className="resolution-name">{res.dimension_name}</span>
                       <Select
                         value={res.resolution}
-                        onChange={(v) =>
-                          handleResolutionChange({
+                        onChange={(v) => {
+                          void handleResolutionChange({
                             ...res,
                             resolution: v,
                           })
-                        }
+                        }}
                         options={[
                           { value: 'use_primary', label: t('composites.resolution_use_primary') },
                           { value: 'rename', label: t('composites.resolution_rename') },
@@ -696,7 +720,9 @@ export default function Composites() {
             <button
               type="button"
               className="btn-primary"
-              onClick={handleCreate}
+              onClick={() => {
+                void handleCreate()
+              }}
               disabled={!newName.trim()}
             >
               {t('composites.create')}
@@ -717,7 +743,9 @@ export default function Composites() {
           components={detail?.components ?? []}
           dimensionsByAlias={dimensionsByAlias}
           initial={editingJoin ?? undefined}
-          onSubmit={handleSubmitCrossJoin}
+          onSubmit={(payload) => {
+            void handleSubmitCrossJoin(payload)
+          }}
           onCancel={() => {
             setShowCrossJoin(false)
             setEditingJoin(null)

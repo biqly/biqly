@@ -190,7 +190,9 @@ export function ActiveUsersTab({
                           {!u.emailVerified && (
                             <button
                               type="button"
-                              onClick={() => handleResendVerification(u.id)}
+                              onClick={() => {
+                                void handleResendVerification(u.id)
+                              }}
                               disabled={verificationLoadingId === u.id}
                               className="admin-btn-secondary"
                             >

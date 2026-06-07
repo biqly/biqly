@@ -236,7 +236,12 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
           {isPersonal ? (
             <p className="ws-settings__readonly-note">{t('admin.workspaces.personal_readonly')}</p>
           ) : (
-            <form onSubmit={onSave} className="ws-settings__form">
+            <form
+              onSubmit={(e) => {
+                void onSave(e)
+              }}
+              className="ws-settings__form"
+            >
               <label className="ws-settings__field">
                 <span>{t('admin.workspaces.name')}</span>
                 <input value={editName} onChange={(e) => setEditName(e.target.value)} required />
@@ -300,7 +305,9 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                       <td className="ws-settings__cell-actions">
                         <button
                           type="button"
-                          onClick={() => onRemoveMember(m.user_id)}
+                          onClick={() => {
+                            void onRemoveMember(m.user_id)
+                          }}
                           className="ws-settings__btn-danger"
                           disabled={!canManageMembers}
                         >
@@ -315,7 +322,12 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
           )}
 
           {canManageMembers ? (
-            <form onSubmit={onInviteMember} className="ws-settings__toolbar">
+            <form
+              onSubmit={(e) => {
+                void onInviteMember(e)
+              }}
+              className="ws-settings__toolbar"
+            >
               <label className="admin-form-label ws-settings__field-240">
                 <span className="admin-label-text">{t('admin.fields.user')}</span>
                 <Select
@@ -373,7 +385,9 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                       <td className="ws-settings__cell-actions">
                         <button
                           type="button"
-                          onClick={() => onDetachDS(d.datasource_id)}
+                          onClick={() => {
+                            void onDetachDS(d.datasource_id)
+                          }}
                           className="ws-settings__btn-danger"
                           disabled={!canManageDatasources}
                         >
@@ -388,7 +402,12 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
           )}
 
           {canManageDatasources ? (
-            <form onSubmit={onAttachDS} className="ws-settings__toolbar">
+            <form
+              onSubmit={(e) => {
+                void onAttachDS(e)
+              }}
+              className="ws-settings__toolbar"
+            >
               <label className="admin-form-label ws-settings__field-240">
                 <span className="admin-label-text">{t('admin.workspaces.datasource_name')}</span>
                 <Select

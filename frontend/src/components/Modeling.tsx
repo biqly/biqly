@@ -824,7 +824,9 @@ export default function Modeling() {
           <button
             className="btn btn-primary"
             type="button"
-            onClick={createModel}
+            onClick={() => {
+              void createModel()
+            }}
             disabled={!datasourceId || creatingModel}
           >
             {creatingModel ? t('modeling.creating') : t('modeling.create_from_metadata')}
@@ -843,7 +845,9 @@ export default function Modeling() {
             <button
               className="btn btn-secondary"
               type="button"
-              onClick={publishModel}
+              onClick={() => {
+                void publishModel()
+              }}
               disabled={publishing || model.status === 'published'}
             >
               {publishing
@@ -857,7 +861,9 @@ export default function Modeling() {
             <button
               className="btn btn-danger-outline"
               type="button"
-              onClick={removeModel}
+              onClick={() => {
+                void removeModel()
+              }}
               title={t('modeling.delete_model_title')}
             >
               {t('common.delete')}
@@ -905,23 +911,43 @@ export default function Modeling() {
               suggestedJoins={suggestedJoins}
               highlightJoinId={highlightJoinId}
               onHighlightJoin={setHighlightJoinId}
-              onSchemaToggle={requestSchemaToggle}
+              onSchemaToggle={(schemaName, isExcluded) => {
+                void requestSchemaToggle(schemaName, isExcluded)
+              }}
               onRenameTable={renameTable}
-              onMakeBase={requestMakeBase}
-              onRemoveTable={requestTableRemoval}
+              onMakeBase={(schema, table) => {
+                void requestMakeBase(schema, table)
+              }}
+              onRemoveTable={(schema, table) => {
+                void requestTableRemoval(schema, table)
+              }}
               onToggleTableVisibility={toggleTableVisibility}
               onOpenBaseSwap={() => setBaseSwapOpen(true)}
-              onDeleteJoin={deleteJoin}
-              onAddSuggestedJoin={addSuggestedJoin}
-              onReactivateJoin={reactivateJoin}
+              onDeleteJoin={(joinId) => {
+                void deleteJoin(joinId)
+              }}
+              onAddSuggestedJoin={(join) => {
+                void addSuggestedJoin(join)
+              }}
+              onReactivateJoin={(join) => {
+                void reactivateJoin(join)
+              }}
               onEditDimension={setEditingDimension}
               onEditDimensionValues={setEnumDimension}
-              onDeleteDimension={deleteDimension}
-              onReactivateDimension={reactivateDimension}
+              onDeleteDimension={(dimensionId) => {
+                void deleteDimension(dimensionId)
+              }}
+              onReactivateDimension={(dimension) => {
+                void reactivateDimension(dimension)
+              }}
               onOpenAddMetric={() => setAddMetricOpen(true)}
               onEditMetric={setEditingMetric}
-              onDeleteMetric={deleteMetric}
-              onReactivateMetric={reactivateMetric}
+              onDeleteMetric={(metricId) => {
+                void deleteMetric(metricId)
+              }}
+              onReactivateMetric={(metric) => {
+                void reactivateMetric(metric)
+              }}
               t={t}
             />
 
@@ -952,7 +978,9 @@ export default function Modeling() {
               canSave={canSaveJoin}
               saving={savingJoin}
               loading={loading}
-              onSave={saveJoin}
+              onSave={() => {
+                void saveJoin()
+              }}
               t={t}
             />
           </section>

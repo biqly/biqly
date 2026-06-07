@@ -274,7 +274,9 @@ export function AIModelSharingPanel() {
                 type="button"
                 className="btn btn-primary btn-sm"
                 disabled={submitting || !targetID || !resourceID}
-                onClick={handleGrant}
+                onClick={() => {
+                  void handleGrant()
+                }}
               >
                 {t('admin.ai_model_access.grant_btn')}
               </button>
@@ -312,7 +314,9 @@ export function AIModelSharingPanel() {
                   <button
                     type="button"
                     className="btn btn-secondary btn-sm"
-                    onClick={() => revoke(item.onRevoke)}
+                    onClick={() => {
+                      void revoke(item.onRevoke)
+                    }}
                   >
                     {t('admin.ai_model_access.revoke_btn')}
                   </button>

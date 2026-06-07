@@ -21,6 +21,8 @@ import {
 } from '../../api/auth'
 import type { AuthUser } from '../../types/auth'
 
+const LEGACY_REFRESH_TOKEN_KEY = 'biqly_refresh_token'
+
 // classifySessionExpiry inspects the server-returned error message and maps it
 // to one of the i18n reasons so the signin page can show the right banner.
 function classifySessionExpiry(err: unknown): string {
@@ -52,7 +54,7 @@ interface AuthContextType {
     email: string,
     password: string,
   ) => Promise<{ mfaRequired?: boolean; mfaToken?: string } | void>
-  loginWithTokens: (accessToken: string, refreshToken: string, roles?: string[]) => Promise<void>
+  loginWithTokens: (accessToken: string, roles?: string[]) => Promise<void>
   register: (email: string, password: string, displayName: string) => Promise<void>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
@@ -94,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRoles([])
     setPermissions([])
     setIsSuperAdmin(false)
-    localStorage.removeItem('biqly_refresh_token')
+    localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY)
   }
 
   // loadPermissions fetches the caller's effective permissions so the UI can
@@ -112,15 +114,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const handleAuthSuccess = async (
-    accToken: string,
-    refToken: string,
-    nextRoles: string[] = [],
-  ) => {
+  const handleAuthSuccess = async (accToken: string, nextRoles: string[] = []) => {
     lastTokenAtRef.current = Date.now()
     setAccessToken(accToken)
     setRoles(nextRoles)
-    localStorage.setItem('biqly_refresh_token', refToken)
+    localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY)
     try {
       const profile = await apiGetMe(accToken)
       setUser(profile)
@@ -149,28 +147,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (resp.mfa_required) {
       return { mfaRequired: true, mfaToken: resp.mfa_token }
     }
-    await handleAuthSuccess(resp.access_token, resp.refresh_token, resp.roles)
+    await handleAuthSuccess(resp.access_token, resp.roles)
     return undefined
   }
 
-  const loginWithTokens = async (accToken: string, refToken: string, nextRoles: string[] = []) => {
-    await handleAuthSuccess(accToken, refToken, nextRoles)
+  const loginWithTokens = async (accToken: string, nextRoles: string[] = []) => {
+    await handleAuthSuccess(accToken, nextRoles)
   }
 
   const register = async (email: string, password: string, displayName: string) => {
     const resp = await apiRegister(email, password, displayName)
-    await handleAuthSuccess(resp.access_token, resp.refresh_token, resp.roles)
+    await handleAuthSuccess(resp.access_token, resp.roles)
   }
 
   const logout = async () => {
-    const refToken = localStorage.getItem('biqly_refresh_token')
     clearAuth()
-    if (refToken) {
-      try {
-        await apiLogout(refToken)
-      } catch {
-        /* ignore */
-      }
+    try {
+      await apiLogout()
+    } catch {
+      /* ignore */
     }
   }
 
@@ -197,15 +192,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const initAuth = async () => {
-      const refToken = localStorage.getItem('biqly_refresh_token')
-      if (!refToken) {
-        setLoading(false)
-        return
-      }
+      const legacyRefresh = localStorage.getItem(LEGACY_REFRESH_TOKEN_KEY)
 
       try {
-        const resp = await apiRefresh(refToken)
-        await handleAuthSuccess(resp.access_token, resp.refresh_token, resp.roles)
+        const resp = legacyRefresh ? await apiRefresh(legacyRefresh) : await apiRefresh()
+        await handleAuthSuccess(resp.access_token, resp.roles)
       } catch {
         clearAuth()
       } finally {
@@ -213,7 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    initAuth()
+    void initAuth()
   }, [])
 
   // Silent refresh: the interval covers active tabs, while the visibility and
@@ -230,18 +221,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (refreshInFlightRef.current) {
         return
       }
-      const refToken = localStorage.getItem('biqly_refresh_token')
-      if (!refToken) {
-        clearAuth()
-        return
-      }
       refreshInFlightRef.current = true
       try {
-        const resp = await apiRefresh(refToken)
+        const resp = await apiRefresh()
         lastTokenAtRef.current = Date.now()
         setAccessToken(resp.access_token)
         setRoles(resp.roles)
-        localStorage.setItem('biqly_refresh_token', resp.refresh_token)
         await loadPermissions(resp.access_token)
       } catch (err: unknown) {
         // Refresh failed — classify the server-side reason so the next sign-in
@@ -267,7 +252,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    const interval = window.setInterval(silentRefresh, TOKEN_REFRESH_MS)
+    const interval = window.setInterval(() => {
+      void silentRefresh()
+    }, TOKEN_REFRESH_MS)
     document.addEventListener('visibilitychange', refreshIfStale)
     window.addEventListener('focus', refreshIfStale)
     return () => {

@@ -20,7 +20,7 @@ import (
 func TestHandleCSRF(t *testing.T) {
 	h := &AuthHandler{}
 	r := chi.NewRouter()
-	r.Use(auth.CSRF(false))
+	r.Use(auth.CSRF(8889))
 	r.Get("/csrf", h.handleCSRF)
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/csrf", http.NoBody)

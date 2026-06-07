@@ -105,7 +105,9 @@ export default function Home() {
               key={action.path}
               type="button"
               className="home-quick-action"
-              onClick={() => navigate(action.path)}
+              onClick={() => {
+                void navigate(action.path)
+              }}
             >
               <span className="home-quick-action__icon" aria-hidden="true">
                 {action.icon}
@@ -158,7 +160,12 @@ function RecentQueries() {
         <EmptyState
           title={t('home.recent_empty_title')}
           description={t('home.recent_empty_desc')}
-          action={{ label: t('home.recent_empty_cta'), onClick: () => navigate('/ai-query') }}
+          action={{
+            label: t('home.recent_empty_cta'),
+            onClick: () => {
+              void navigate('/ai-query')
+            },
+          }}
         />
       ) : (
         <ul className="home-list">
@@ -167,7 +174,9 @@ function RecentQueries() {
               <button
                 type="button"
                 className="home-list-item home-list-item--button"
-                onClick={() => navigate('/ai-query', { state: { question: item.question } })}
+                onClick={() => {
+                  void navigate('/ai-query', { state: { question: item.question } })
+                }}
                 aria-label={`${t('home.open_aria')}: ${item.question}`}
               >
                 <span className="home-list-item__title">{item.question}</span>
@@ -224,7 +233,12 @@ function Favorites() {
         <EmptyState
           title={t('home.favorites_empty_title')}
           description={t('home.favorites_empty_desc')}
-          action={{ label: t('home.favorites_empty_cta'), onClick: () => navigate('/saved') }}
+          action={{
+            label: t('home.favorites_empty_cta'),
+            onClick: () => {
+              void navigate('/saved')
+            },
+          }}
         />
       ) : (
         <ul className="home-list">
@@ -233,7 +247,9 @@ function Favorites() {
               <button
                 type="button"
                 className="home-list-item home-list-item--button"
-                onClick={() => navigate('/saved')}
+                onClick={() => {
+                  void navigate('/saved')
+                }}
                 aria-label={`${t('home.open_aria')}: ${item.name}`}
               >
                 <span className="home-list-item__title">{item.name}</span>
@@ -244,7 +260,9 @@ function Favorites() {
               <button
                 type="button"
                 className="home-fav-star"
-                onClick={() => unfavorite(item)}
+                onClick={() => {
+                  void unfavorite(item)
+                }}
                 aria-label={t('home.unfavorite')}
                 title={t('home.unfavorite')}
               >

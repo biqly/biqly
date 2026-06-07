@@ -59,7 +59,12 @@ export default function ForgotPasswordPage() {
             {t('auth.forgot_success')}
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="auth-form">
+          <form
+            onSubmit={(e) => {
+              void handleSubmit(e)
+            }}
+            className="auth-form"
+          >
             {error && <div className="auth-error">{error}</div>}
 
             <div className="form-group">

@@ -275,7 +275,9 @@ export function AvatarCropModal({ imageSrc, onClose, onSave }: AvatarCropModalPr
           <button
             type="button"
             className="btn btn-primary btn-sm"
-            onClick={handleSave}
+            onClick={() => {
+              void handleSave()
+            }}
             disabled={saving || !imgElement}
           >
             {saving ? '…' : t('common.save')}

@@ -2,16 +2,18 @@ package datasource
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"errors"
 	"fmt"
+	"hash/maphash"
 	"log/slog"
+	"strconv"
 	"sync"
 
 	"golang.org/x/sync/singleflight"
 )
+
+var poolKeySeed = maphash.MakeSeed()
 
 // PoolCache reuses *sql.DB pools across query executions so we don't pay the
 // open/close cost on every query. Pools are keyed by datasource ID + a hash
@@ -118,8 +120,10 @@ func (p *PoolCache) Close() error {
 // credentials in long-lived map keys. The datasource ID is kept in clear so
 // Invalidate(datasourceID) can scan by prefix.
 func poolKey(datasourceID, dsn string) string {
-	sum := sha256.Sum256([]byte(dsn))
-	return datasourceID + "|" + hex.EncodeToString(sum[:8])
+	var h maphash.Hash
+	h.SetSeed(poolKeySeed)
+	_, _ = h.WriteString(dsn)
+	return datasourceID + "|" + strconv.FormatUint(h.Sum64(), 16)
 }
 
 func hasKeyPrefix(s, prefix string) bool {

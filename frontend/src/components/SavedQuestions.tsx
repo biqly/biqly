@@ -491,7 +491,9 @@ export default function SavedQuestions() {
                           <input
                             type="checkbox"
                             checked={checked}
-                            onChange={() => toggleFewShot(q)}
+                            onChange={() => {
+                              void toggleFewShot(q)
+                            }}
                             onClick={(e) => e.stopPropagation()}
                             aria-label={t('saved_questions.fewshot_aria', { name: q.name })}
                           />
@@ -541,9 +543,13 @@ export default function SavedQuestions() {
               runLoading={runLoading}
               runError={runError}
               runResult={runResult}
-              onRun={runQuery}
+              onRun={() => {
+                void runQuery()
+              }}
               onOpenEdit={openEdit}
-              onDelete={handleDelete}
+              onDelete={() => {
+                void handleDelete()
+              }}
               t={t}
             />
           </div>
@@ -560,7 +566,9 @@ export default function SavedQuestions() {
         form={form}
         onChange={handleFormChange}
         onClose={() => setIsNewModalOpen(false)}
-        onSave={() => handleSave(false)}
+        onSave={() => {
+          void handleSave(false)
+        }}
         t={t}
       />
 
@@ -574,7 +582,9 @@ export default function SavedQuestions() {
         form={form}
         onChange={handleFormChange}
         onClose={() => setIsEditModalOpen(false)}
-        onSave={() => handleSave(true)}
+        onSave={() => {
+          void handleSave(true)
+        }}
         t={t}
       />
     </div>

@@ -152,7 +152,12 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
                       </td>
                       <td>{new Date(share.created_at).toLocaleDateString()}</td>
                       <td>
-                        <button onClick={() => onRevoke(share.id)} className="shared-list__revoke">
+                        <button
+                          onClick={() => {
+                            void onRevoke(share.id)
+                          }}
+                          className="shared-list__revoke"
+                        >
                           {t('common.delete')}
                         </button>
                       </td>

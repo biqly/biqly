@@ -87,6 +87,8 @@ func (r *Repository) ListAIQueryHistoryFiltered(ctx context.Context, filter AIHi
 	}
 	if filter.PageSize <= 0 {
 		filter.PageSize = 10
+	} else if filter.PageSize > 200 {
+		filter.PageSize = 200
 	}
 
 	where, args := buildAIHistoryWhere(filter)
@@ -114,7 +116,9 @@ func (r *Repository) ListAIQueryHistoryFiltered(ctx context.Context, filter AIHi
 		}
 	}()
 
-	entries := make([]AIQueryHistoryEntry, 0, filter.PageSize)
+	// Keep capacity allocation independent from user input to avoid
+	// untrusted-allocation findings while preserving append-based growth.
+	entries := make([]AIQueryHistoryEntry, 0)
 	for rows.Next() {
 		entry, err := scanAIHistoryEntry(rows)
 		if err != nil {

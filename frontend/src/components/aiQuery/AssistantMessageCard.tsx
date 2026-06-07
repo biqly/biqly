@@ -438,7 +438,14 @@ export function AssistantMessageCard({
 
       {!result.result && result.sql && (
         <div className="btn-run-query-container">
-          <button type="button" className="btn btn-primary" disabled={loading} onClick={runQuery}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={loading}
+            onClick={() => {
+              void runQuery()
+            }}
+          >
             {loading ? t('ai_query.loading_executing') : t('ai_query.btn_run_query')}
           </button>
         </div>
@@ -529,8 +536,12 @@ export function AssistantMessageCard({
 
       <div className="feedback-row-wrapper">
         <FeedbackSection
-          onSubmitPositive={submitPositiveFeedback}
-          onSubmitNegative={submitNegativeFeedback}
+          onSubmitPositive={() => {
+            void submitPositiveFeedback()
+          }}
+          onSubmitNegative={(categories, text) => {
+            void submitNegativeFeedback(categories, text)
+          }}
         />
         {result.logical_query && (
           <button
@@ -542,7 +553,9 @@ export function AssistantMessageCard({
               alignItems: 'center',
               gap: '0.25rem',
             }}
-            onClick={handleSaveToLibrary}
+            onClick={() => {
+              void handleSaveToLibrary()
+            }}
             title={t('saved_questions.new')}
           >
             💾 {t('saved_questions.new')}

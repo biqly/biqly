@@ -109,7 +109,13 @@ export default function TimeGrains() {
         <div className="card-intro">
           <div className="card-header-row">
             <h2>{t('time_grains.title') || 'Time Grains'}</h2>
-            <button type="button" className="btn-back" onClick={() => navigate('/settings')}>
+            <button
+              type="button"
+              className="btn-back"
+              onClick={() => {
+                void navigate('/settings')
+              }}
+            >
               ← {t('time_grains.back_to_settings') || 'Back to Settings'}
             </button>
           </div>
@@ -313,7 +319,9 @@ export default function TimeGrains() {
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={handleSave}
+                onClick={() => {
+                  void handleSave()
+                }}
                 disabled={loading}
               >
                 {loading ? t('common.saving') || 'Saving…' : t('common.save') || 'Save'}

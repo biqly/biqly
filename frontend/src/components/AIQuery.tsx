@@ -445,7 +445,9 @@ export default function AIQuery() {
           embeddingRunning={embeddingActive}
           selectedDatasourceName={selectedDatasourceName}
           semanticModelName={semanticModelName}
-          onRefreshEmbeddings={refreshMetadataEmbeddings}
+          onRefreshEmbeddings={() => {
+            void refreshMetadataEmbeddings()
+          }}
         />
 
         <ChatPanel
@@ -465,7 +467,9 @@ export default function AIQuery() {
           aiElapsedMs={aiElapsedMs}
           includePastQueries={includePastQueries}
           setIncludePastQueries={setIncludePastQueries}
-          onSendQuery={sendQuery}
+          onSendQuery={(q, execute, clarificationChoice) => {
+            void sendQuery(q, execute, clarificationChoice)
+          }}
           onAbort={abort}
           get={get}
           postData={postData}

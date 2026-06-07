@@ -155,7 +155,9 @@ export function PIIDetectionPanel({ token }: { token: string }) {
           />
         </div>
         <button
-          onClick={handleRescan}
+          onClick={() => {
+            void handleRescan()
+          }}
           disabled={!canEdit || !selectedDS || scanning}
           style={!canEdit || !selectedDS || scanning ? btnPrimaryDisabled : btnPrimary}
         >
@@ -292,7 +294,9 @@ export function PIIDetectionPanel({ token }: { token: string }) {
                       <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {showConfirm && (
                           <button
-                            onClick={() => handleConfirm(col)}
+                            onClick={() => {
+                              void handleConfirm(col)
+                            }}
                             disabled={!canEdit}
                             style={canEdit ? btnSmall : btnSmallDisabled}
                           >
@@ -300,7 +304,9 @@ export function PIIDetectionPanel({ token }: { token: string }) {
                           </button>
                         )}
                         <button
-                          onClick={() => handleDismiss(col)}
+                          onClick={() => {
+                            void handleDismiss(col)
+                          }}
                           disabled={!canEdit}
                           style={canEdit ? btnSmallDanger : btnSmallDisabled}
                         >

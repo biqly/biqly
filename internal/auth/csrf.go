@@ -10,13 +10,13 @@ import (
 
 const csrfHeaderName = "X-CSRF-Token"
 
-func CSRF(secure bool) func(http.Handler) http.Handler {
+func CSRF(listenPort int) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions || r.Method == http.MethodTrace {
 				cookie, err := r.Cookie("csrf_token")
 				if err != nil || cookie.Value == "" {
-					token := setCSRFCookie(w, secure)
+					token := setCSRFCookie(w, r, listenPort)
 					w.Header().Set(csrfHeaderName, token)
 				} else {
 					w.Header().Set(csrfHeaderName, cookie.Value)
@@ -47,7 +47,7 @@ func CSRF(secure bool) func(http.Handler) http.Handler {
 	}
 }
 
-func setCSRFCookie(w http.ResponseWriter, secure bool) string {
+func setCSRFCookie(w http.ResponseWriter, r *http.Request, listenPort int) string {
 	tokenBytes := make([]byte, 32)
 	if _, err := rand.Read(tokenBytes); err != nil {
 		log.Printf("csrf: failed to generate random token: %v", err)
@@ -55,15 +55,30 @@ func setCSRFCookie(w http.ResponseWriter, secure bool) string {
 	}
 	token := base64.URLEncoding.EncodeToString(tokenBytes)
 
-	cookie := &http.Cookie{ //nolint:gosec // nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure // Secure follows server TLS config (false only in local dev)
+	if CookieSecure(r, listenPort) {
+		http.SetCookie(w, &http.Cookie{
+			Name:     "csrf_token",
+			Value:    token,
+			Path:     "/",
+			MaxAge:   86400 * 7,
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteStrictMode,
+		})
+		return token
+	}
+
+	// Local HTTP dev on :8889: Secure must be false or browsers drop the cookie.
+	// codeql[go/cookie-secure-not-set]
+	//nolint:gosec // G124: Secure intentionally false for local HTTP dev on :8889
+	http.SetCookie(w, &http.Cookie{
 		Name:     "csrf_token",
 		Value:    token,
 		Path:     "/",
 		MaxAge:   86400 * 7,
 		HttpOnly: true,
-		Secure:   secure,
+		Secure:   false,
 		SameSite: http.SameSiteStrictMode,
-	}
-	http.SetCookie(w, cookie)
+	})
 	return token
 }

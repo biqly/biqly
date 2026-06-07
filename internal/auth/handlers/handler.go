@@ -185,7 +185,7 @@ func (h *AuthHandler) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respondJSON(w, http.StatusCreated, resp)
+	h.respondTokenResponse(w, r, http.StatusCreated, resp)
 }
 
 func (h *AuthHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -218,19 +218,22 @@ func (h *AuthHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respondJSON(w, http.StatusOK, resp)
+	h.respondTokenResponse(w, r, http.StatusOK, resp)
 }
 
 func (h *AuthHandler) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	var req auth.RefreshRequest
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid request body")
+	_ = sonic.ConfigStd.NewDecoder(r.Body).Decode(&req)
+	req.RefreshToken = h.refreshTokenFromRequest(r, req.RefreshToken)
+	if req.RefreshToken == "" {
+		h.respondError(w, http.StatusBadRequest, "refresh token required")
 		return
 	}
 
 	resp, err := h.service.Refresh(r.Context(), req, new(r.UserAgent()), new(r.RemoteAddr))
 	if errors.Is(err, auth.ErrSessionNotFound) || errors.Is(err, auth.ErrSessionExpired) || errors.Is(err, auth.ErrSessionRevoked) ||
 		errors.Is(err, auth.ErrSessionAbsoluteExpired) || errors.Is(err, auth.ErrSessionIdleExpired) {
+		h.clearRefreshTokenCookie(w, r)
 		h.respondError(w, http.StatusUnauthorized, err.Error())
 		return
 	} else if err != nil {
@@ -238,22 +241,26 @@ func (h *AuthHandler) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respondJSON(w, http.StatusOK, resp)
+	h.respondTokenResponse(w, r, http.StatusOK, resp)
 }
 
 func (h *AuthHandler) handleLogout(w http.ResponseWriter, r *http.Request) {
 	var req auth.RefreshRequest
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid request body")
+	_ = sonic.ConfigStd.NewDecoder(r.Body).Decode(&req)
+	token := h.refreshTokenFromRequest(r, req.RefreshToken)
+	if token == "" {
+		h.clearRefreshTokenCookie(w, r)
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
-	err := h.service.Logout(r.Context(), req.RefreshToken)
+	err := h.service.Logout(r.Context(), token)
 	if err != nil {
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
+	h.clearRefreshTokenCookie(w, r)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -426,7 +433,7 @@ func (*AuthHandler) respondError(w http.ResponseWriter, status int, message stri
 }
 
 func (h *AuthHandler) secureCookie(r *http.Request) bool {
-	return r.URL.Scheme == "https" || r.Header.Get("X-Forwarded-Proto") == "https" || h.config.Port != 8889
+	return auth.CookieSecure(r, h.config.Port)
 }
 
 //nolint:gosec // G124: false positive as Secure is set dynamically based on HTTPS
@@ -445,6 +452,45 @@ func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, r *http.Request, n
 
 func (h *AuthHandler) clearSessionCookie(w http.ResponseWriter, r *http.Request, name string) {
 	h.setSessionCookie(w, r, name, "", -1)
+}
+
+const refreshTokenCookieName = "biqly_refresh_token" //nolint:gosec // G101: cookie name, not a credential
+
+func (h *AuthHandler) refreshTokenMaxAge() int {
+	secs := int(h.config.JWTRefreshTTL.Seconds())
+	if secs < 1 {
+		return 1
+	}
+	return secs
+}
+
+func (h *AuthHandler) setRefreshTokenCookie(w http.ResponseWriter, r *http.Request, token string) {
+	h.setSessionCookie(w, r, refreshTokenCookieName, token, h.refreshTokenMaxAge())
+}
+
+func (h *AuthHandler) clearRefreshTokenCookie(w http.ResponseWriter, r *http.Request) {
+	h.clearSessionCookie(w, r, refreshTokenCookieName)
+}
+
+func (*AuthHandler) refreshTokenFromRequest(r *http.Request, bodyToken string) string {
+	if bodyToken != "" {
+		return bodyToken
+	}
+	cookie, err := r.Cookie(refreshTokenCookieName)
+	if err != nil || cookie.Value == "" {
+		return ""
+	}
+	return cookie.Value
+}
+
+// respondTokenResponse stores the refresh token in an httpOnly cookie and omits
+// it from the JSON body so browser clients never persist it in localStorage.
+func (h *AuthHandler) respondTokenResponse(w http.ResponseWriter, r *http.Request, status int, resp *auth.TokenResponse) {
+	if resp != nil && resp.RefreshToken != "" {
+		h.setRefreshTokenCookie(w, r, resp.RefreshToken)
+		resp.RefreshToken = ""
+	}
+	h.respondJSON(w, status, resp)
 }
 
 func (h *AuthHandler) handleOAuthRedirect(w http.ResponseWriter, r *http.Request) {
@@ -581,7 +627,7 @@ func (h *AuthHandler) handleOAuthExchange(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	h.respondJSON(w, http.StatusOK, resp)
+	h.respondTokenResponse(w, r, http.StatusOK, resp)
 }
 
 func (*AuthHandler) generateState() (string, error) {
@@ -738,7 +784,7 @@ func (h *AuthHandler) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	h.respondJSON(w, http.StatusOK, resp)
+	h.respondTokenResponse(w, r, http.StatusOK, resp)
 }
 
 func (h *AuthHandler) handleMePasskeys(w http.ResponseWriter, r *http.Request) {
@@ -917,7 +963,7 @@ func (h *AuthHandler) handleMagicLinkConsume(w http.ResponseWriter, r *http.Requ
 		}
 		return
 	}
-	h.respondJSON(w, http.StatusOK, resp)
+	h.respondTokenResponse(w, r, http.StatusOK, resp)
 }
 
 func (h *AuthHandler) handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
@@ -1099,7 +1145,7 @@ func (h *AuthHandler) handleClaimInvitation(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	h.respondJSON(w, http.StatusOK, resp)
+	h.respondTokenResponse(w, r, http.StatusOK, resp)
 }
 
 func decodeInvitationRouteToken(raw string) (string, error) {

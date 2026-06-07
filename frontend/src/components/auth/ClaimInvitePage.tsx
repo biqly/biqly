@@ -75,13 +75,15 @@ export default function ClaimInvitePage() {
     try {
       const resp = await apiClaimInvitation(token, password, displayName)
       setSuccess(true)
-      setTimeout(async () => {
-        try {
-          await loginWithTokens(resp.access_token, resp.refresh_token, resp.roles)
-          navigate('/')
-        } catch {
-          navigate('/auth/signin')
-        }
+      setTimeout(() => {
+        void (async () => {
+          try {
+            await loginWithTokens(resp.access_token, resp.roles)
+            void navigate('/')
+          } catch {
+            void navigate('/auth/signin')
+          }
+        })()
       }, 2000)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to complete account setup')
@@ -134,12 +136,23 @@ export default function ClaimInvitePage() {
             <div className="auth-error" role="alert" aria-live="assertive">
               {error}
             </div>
-            <button type="button" className="auth-btn" onClick={() => navigate('/auth/signin')}>
+            <button
+              type="button"
+              className="auth-btn"
+              onClick={() => {
+                void navigate('/auth/signin')
+              }}
+            >
               {t('auth.back_to_login')}
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="auth-form">
+          <form
+            onSubmit={(e) => {
+              void handleSubmit(e)
+            }}
+            className="auth-form"
+          >
             {error && (
               <div className="auth-error" role="alert" aria-live="assertive">
                 {error}

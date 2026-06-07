@@ -414,16 +414,30 @@ export default function Datasources() {
                       <button type="button" className="btn btn-sm" onClick={() => edit(ds)}>
                         {t('datasources.edit')}
                       </button>
-                      <button type="button" className="btn btn-sm" onClick={() => test(ds.id)}>
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={() => {
+                          void test(ds.id)
+                        }}
+                      >
                         {t('datasources.test')}
                       </button>
-                      <button type="button" className="btn btn-sm" onClick={() => sync(ds.id)}>
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={() => {
+                          void sync(ds.id)
+                        }}
+                      >
                         {t('datasources.sync')}
                       </button>
                       <button
                         type="button"
                         className="btn btn-sm btn-danger"
-                        onClick={() => del(ds.id)}
+                        onClick={() => {
+                          void del(ds.id)
+                        }}
                       >
                         {t('datasources.delete')}
                       </button>
@@ -450,8 +464,12 @@ export default function Datasources() {
         onFormChange={setForm}
         onStructuredChange={setStructured}
         onDriverChange={setDriver}
-        onTest={testDraft}
-        onSave={save}
+        onTest={() => {
+          void testDraft()
+        }}
+        onSave={() => {
+          void save()
+        }}
       />
     </div>
   )

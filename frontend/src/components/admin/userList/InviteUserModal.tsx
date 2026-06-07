@@ -119,7 +119,13 @@ export function InviteUserModal({ open, onClose, token, onSuccess, t }: InviteUs
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="page-stack" style={gap16}>
+          <form
+            onSubmit={(e) => {
+              void handleSubmit(e)
+            }}
+            className="page-stack"
+            style={gap16}
+          >
             {inviteError && (
               <div className="admin-err-box">
                 {t('auth.invite_user_failed', { error: inviteError })}

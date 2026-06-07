@@ -261,14 +261,14 @@ func newRouter(state *appState, authHandler *handlers.AuthHandler, rbacHandler *
 	r.Handle("/metrics", promhttp.Handler())
 
 	r.Route("/api/auth", func(r chi.Router) {
-		r.Use(biqauth.CSRF(cfg.HSTSEnabled))
+		r.Use(biqauth.CSRF(cfg.Port))
 		authHandler.RegisterAuthRoutes(r)
 		rbacHandler.RegisterAuthRoutes(r, authHandler.AuthMiddleware())
 		authHandler.RegisterAccountAdminRoutes(r, authHandler.AuthMiddleware())
 	})
 
 	r.Route("/auth", func(r chi.Router) {
-		r.Use(biqauth.CSRF(cfg.HSTSEnabled))
+		r.Use(biqauth.CSRF(cfg.Port))
 		authHandler.RegisterAuthRoutes(r)
 		rbacHandler.RegisterAuthRoutes(r, authHandler.AuthMiddleware())
 		authHandler.RegisterAccountAdminRoutes(r, authHandler.AuthMiddleware())

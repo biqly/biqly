@@ -103,14 +103,16 @@ export async function apiOAuthExchange(code: string): Promise<TokenResponse> {
   return apiFetch<TokenResponse>('POST', `${AUTH_API_BASE}/oauth/exchange`, { code })
 }
 
-export async function apiRefresh(refreshToken: string): Promise<TokenResponse> {
-  return apiFetch<TokenResponse>('POST', `${AUTH_API_BASE}/refresh`, {
-    refresh_token: refreshToken,
-  })
+export async function apiRefresh(refreshToken?: string): Promise<TokenResponse> {
+  return apiFetch<TokenResponse>(
+    'POST',
+    `${AUTH_API_BASE}/refresh`,
+    refreshToken ? { refresh_token: refreshToken } : {},
+  )
 }
 
-export async function apiLogout(refreshToken: string): Promise<void> {
-  await apiFetch<void>('POST', `${AUTH_API_BASE}/logout`, { refresh_token: refreshToken })
+export async function apiLogout(): Promise<void> {
+  await apiFetch<void>('POST', `${AUTH_API_BASE}/logout`, {})
 }
 
 export async function apiGetMe(accessToken: string): Promise<AuthUser> {

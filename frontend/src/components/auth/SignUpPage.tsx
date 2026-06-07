@@ -146,7 +146,12 @@ export default function SignUpPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="auth-form">
+        <form
+          onSubmit={(e) => {
+            void handleSubmit(e)
+          }}
+          className="auth-form"
+        >
           {error && (
             <div className="auth-error" role="alert" aria-live="assertive">
               {error}

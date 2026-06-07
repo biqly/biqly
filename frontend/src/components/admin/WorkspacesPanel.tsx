@@ -90,7 +90,9 @@ export function WorkspacesPanel({ token }: { token: string }) {
       <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.workspaces.title')}</h2>
 
       <form
-        onSubmit={onCreate}
+        onSubmit={(e) => {
+          void onCreate(e)
+        }}
         style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}
       >
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -193,7 +195,12 @@ export function WorkspacesPanel({ token }: { token: string }) {
                         {t('admin.workspaces.settings')}
                       </button>
                       {!w.is_personal && (
-                        <button onClick={() => onDelete(w.id, w.name)} style={btnSecondary}>
+                        <button
+                          onClick={() => {
+                            void onDelete(w.id, w.name)
+                          }}
+                          style={btnSecondary}
+                        >
                           {t('common.delete')}
                         </button>
                       )}

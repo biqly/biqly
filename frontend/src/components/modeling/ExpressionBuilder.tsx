@@ -142,8 +142,9 @@ export function ExpressionBuilder({
           setErrorMsg(errMsg)
           setCompiledSQL('')
         }
-      } catch (err: any) {
-        setErrorMsg('Network error: ' + err.message)
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err)
+        setErrorMsg('Network error: ' + message)
         setCompiledSQL('')
       } finally {
         setLoading(false)

@@ -72,7 +72,13 @@ export default function VerifyEmailPage() {
         {status === 'error' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div className="auth-error">{error}</div>
-            <button type="button" className="auth-btn" onClick={() => navigate('/auth/signin')}>
+            <button
+              type="button"
+              className="auth-btn"
+              onClick={() => {
+                void navigate('/auth/signin')
+              }}
+            >
               {t('auth.back_to_login')}
             </button>
           </div>

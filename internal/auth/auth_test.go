@@ -520,7 +520,7 @@ func TestRateLimiting(t *testing.T) {
 
 func TestCSRF(t *testing.T) {
 	ctx := context.Background()
-	handler := CSRF(false)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := CSRF(8889)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -541,6 +541,7 @@ func TestCSRF(t *testing.T) {
 	require.NotNil(t, csrfCookie)
 	assert.NotEmpty(t, csrfCookie.Value)
 	assert.True(t, csrfCookie.HttpOnly)
+	assert.False(t, csrfCookie.Secure)
 
 	headerToken := rrGET.Header().Get("X-CSRF-Token")
 	require.NotEmpty(t, headerToken)

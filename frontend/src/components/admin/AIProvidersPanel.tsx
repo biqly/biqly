@@ -292,7 +292,9 @@ export function AIProvidersPanel() {
                   setEditingProvider(p)
                   setProviderModalOpen(true)
                 }}
-                onDelete={() => handleDeleteProvider(p)}
+                onDelete={() => {
+                  void handleDeleteProvider(p)
+                }}
                 canEdit={canEdit}
               />
             ))}
@@ -367,7 +369,9 @@ export function AIProvidersPanel() {
                         <button
                           style={linkBtn}
                           disabled={!canEdit}
-                          onClick={() => handleSetDefault(m)}
+                          onClick={() => {
+                            void handleSetDefault(m)
+                          }}
                         >
                           {t('admin.ai_providers.set_default')}
                         </button>
@@ -385,7 +389,9 @@ export function AIProvidersPanel() {
                       <button
                         style={{ ...linkBtn, color: 'var(--error, #ef4444)' }}
                         disabled={!canEdit}
-                        onClick={() => handleDeleteModel(m)}
+                        onClick={() => {
+                          void handleDeleteModel(m)
+                        }}
                       >
                         {t('common.delete')}
                       </button>
@@ -419,7 +425,9 @@ export function AIProvidersPanel() {
             setProviderModalOpen(false)
             setEditingProvider(null)
           }}
-          onSaved={onProviderSaved}
+          onSaved={() => {
+            void onProviderSaved()
+          }}
         />
       )}
 
@@ -431,7 +439,9 @@ export function AIProvidersPanel() {
             setModelModalOpen(false)
             setEditingModel(null)
           }}
-          onSaved={onModelSaved}
+          onSaved={() => {
+            void onModelSaved()
+          }}
         />
       )}
     </div>
@@ -650,7 +660,14 @@ function ProviderModal({
 
         {editing && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button type="button" style={secondaryBtn} disabled={testing} onClick={runTest}>
+            <button
+              type="button"
+              style={secondaryBtn}
+              disabled={testing}
+              onClick={() => {
+                void runTest()
+              }}
+            >
               {testing ? t('admin.ai_providers.testing') : t('admin.ai_providers.test_connection')}
             </button>
             {testResult && (
@@ -675,7 +692,13 @@ function ProviderModal({
           <button style={secondaryBtn} onClick={onClose}>
             {t('common.cancel')}
           </button>
-          <button style={primaryBtn} disabled={saving} onClick={save}>
+          <button
+            style={primaryBtn}
+            disabled={saving}
+            onClick={() => {
+              void save()
+            }}
+          >
             {t('common.save')}
           </button>
         </div>
@@ -920,7 +943,13 @@ function ModelModal({
           <button style={secondaryBtn} onClick={onClose}>
             {t('common.cancel')}
           </button>
-          <button style={primaryBtn} disabled={saving} onClick={save}>
+          <button
+            style={primaryBtn}
+            disabled={saving}
+            onClick={() => {
+              void save()
+            }}
+          >
             {t('common.save')}
           </button>
         </div>

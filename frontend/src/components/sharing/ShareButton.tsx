@@ -133,7 +133,12 @@ export function ShareButton({ resourceType, resourceID, onShared }: Props) {
               </button>
             </div>
 
-            <form onSubmit={onSubmit} className="share-modal__form">
+            <form
+              onSubmit={(e) => {
+                void onSubmit(e)
+              }}
+              className="share-modal__form"
+            >
               <div className="share-modal__mode-tabs">
                 <button
                   type="button"

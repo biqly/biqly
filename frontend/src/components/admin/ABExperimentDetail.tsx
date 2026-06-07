@@ -327,7 +327,11 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
                           type="button"
                           className="btn btn-secondary btn-sm"
                           style={{ color: '#ef4444' }}
-                          onClick={() => v.id && handleDeleteVariant(v.id)}
+                          onClick={() => {
+                            if (v.id) {
+                              void handleDeleteVariant(v.id)
+                            }
+                          }}
                         >
                           {t('common.delete')}
                         </button>
