@@ -114,7 +114,7 @@ global:
       io.cilium/lb-ipam-ips: "192.168.0.164"
   dragonfly:
     enabled: true
-    image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.34.1
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.38.1
     service:
       port: 6379
     resources:
@@ -196,10 +196,10 @@ global:
     tracing:
       otelCollector:
         enabled: true
-        image: otel/opentelemetry-collector-contrib:0.116.1
+        image: otel/opentelemetry-collector-contrib:0.153.0
       jaeger:
         enabled: true
-        image: jaegertracing/all-in-one:1.62.0
+        image: jaegertracing/all-in-one:1.76.0
     alertmanager:
       enabled: false
       webhookURLSecret:
