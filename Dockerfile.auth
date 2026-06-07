@@ -1,14 +1,30 @@
+# Auth service image: ships the runtime binary plus the auth migration binary.
 FROM golang:1.26.4-alpine AS builder
-WORKDIR /app
+
+RUN apk --no-cache add ca-certificates
+
+WORKDIR /src
+
 COPY go.mod go.sum ./
 RUN go mod download
-COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /auth ./cmd/auth/
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /auth-migrate ./cmd/auth-migrate/
 
-FROM gcr.io/distroless/static-debian12:nonroot
+COPY . .
+
+ARG TARGETARCH
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
+    go build -ldflags="-s -w" -o /auth ./cmd/auth
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
+    go build -ldflags="-s -w" -o /auth-migrate ./cmd/auth-migrate
+
+FROM scratch
+
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /auth /auth
 COPY --from=builder /auth-migrate /auth-migrate
 COPY migrations/auth /migrations/auth
+
 EXPOSE 8889
+
+USER 65534:65534
+
 ENTRYPOINT ["/auth"]

@@ -67,7 +67,7 @@ Helm release name is still `argocd-image-updater`; the Deployment is `argocd-ima
 
 Successful write-back updates `deploy/helm/biqly/.argocd-source-biqly.yaml` (not `values-prod.yaml` — helmvalues alias mapping failed for multi-image apps).
 
-Tracked images: **ai**, **query**, **catalog**, **frontend**, **auth** (`auth.image.tag` + `auth.migrate.image.tag` on `ghcr.io/biqly/biqly-auth`), **migrate** (metadata DB job).
+Tracked images: **ai**, **query**, **catalog**, **frontend**, **auth** (`auth.image.tag` + `auth.migrate.image.tag` on `ghcr.io/biqly/auth`), **mail** (`mail.image.tag` + `mail.migrate.image.tag` on `ghcr.io/biqly/mail`), **migrate** (metadata DB job).
 
 ### GitHub Actions vs Image Updater
 
@@ -76,7 +76,7 @@ Tracked images: **ai**, **query**, **catalog**, **frontend**, **auth** (`auth.im
 | `.github/workflows/build-*.yml` | Builds and pushes `ghcr.io/biqly/*:sha-<commit>` to GHCR |
 | Argo CD Image Updater (cluster) | Polls GHCR, commits helm parameter overrides to `.argocd-source-biqly.yaml` |
 
-The workflow runner does **not** edit `.argocd-source-biqly.yaml`. If auth tags are missing there, either the cluster `ImageUpdater` CR is stale (re-apply `deploy/argocd/image-updater.yaml`) or no new `biqly-auth` image was published yet (`build-auth.yml` only runs when auth paths change).
+The workflow runner does **not** edit `.argocd-source-biqly.yaml`. If auth tags are missing there, either the cluster `ImageUpdater` CR is stale (re-apply `deploy/argocd/image-updater.yaml`) or no new `auth` image was published yet (`build-auth.yml` only runs when auth paths change).
 
 ### Expected `.argocd-source-biqly.yaml` shape
 

@@ -36,31 +36,31 @@ spec:
               name: catalog.image.repository
               tag: catalog.image.tag
         - alias: frontend
-          imageName: ghcr.io/biqly/biqly-frontend
+          imageName: ghcr.io/biqly/frontend
           manifestTargets:
             helm:
               name: frontend.image.repository
               tag: frontend.image.tag
         - alias: auth
-          imageName: ghcr.io/biqly/biqly-auth
+          imageName: ghcr.io/biqly/auth
           manifestTargets:
             helm:
               name: auth.image.repository
               tag: auth.image.tag
         - alias: auth-migrate
-          imageName: ghcr.io/biqly/biqly-auth
+          imageName: ghcr.io/biqly/auth
           manifestTargets:
             helm:
               name: auth.migrate.image.repository
               tag: auth.migrate.image.tag
         - alias: mail
-          imageName: ghcr.io/biqly/biqly-mail
+          imageName: ghcr.io/biqly/mail
           manifestTargets:
             helm:
               name: mail.image.repository
               tag: mail.image.tag
         - alias: mail-migrate
-          imageName: ghcr.io/biqly/biqly-mail
+          imageName: ghcr.io/biqly/mail
           manifestTargets:
             helm:
               name: mail.migrate.image.repository

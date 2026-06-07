@@ -57,7 +57,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/biqly/biqly-auth
+          images: ghcr.io/biqly/auth
           tags: |
             type=sha,format=long,prefix=sha-
             type=raw,value=latest,enable={{is_default_branch}}

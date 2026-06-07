@@ -18,7 +18,7 @@ global:
 
 replicaCount: 1
 image:
-  repository: biqly-frontend
+  repository: frontend
   tag: latest
   pullPolicy: IfNotPresent
 service:

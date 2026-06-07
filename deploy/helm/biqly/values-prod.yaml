@@ -55,20 +55,20 @@ auth:
   enabled: true
   replicaCount: 1
   image:
-    repository: biqly-auth
+    repository: auth
     tag: sha-38de6ea19634422920df5b7f49e8fad6b49ed3bf
   migrate:
     image:
-      repository: biqly-auth
+      repository: auth
       tag: sha-38de6ea19634422920df5b7f49e8fad6b49ed3bf
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
 
-# biqly-mail image is now published by CI (ghcr.io/biqly/biqly-mail). Prod
+# mail image is now published by CI (ghcr.io/biqly/mail). Prod
 # requires the bi_mail database and the BI_MAIL_DB_DSN / BI_MAIL_INTERNAL_TOKEN
 # secret values to be provisioned, and (optionally) the ArgoCD image-updater
-# list extended to track biqly-mail for sha-pinned tags instead of latest.
+# list extended to track mail for sha-pinned tags instead of latest.
 mail:
   enabled: true
   replicaCount: 1
@@ -80,11 +80,11 @@ mail:
     BI_MAIL_SMTP_FROM: no-reply@il1.nl
     BI_MAIL_SMTP_SENDER_NAME: "ABI"
   image:
-    repository: biqly-mail
+    repository: mail
     tag: latest
   migrate:
     image:
-      repository: biqly-mail
+      repository: mail
       tag: latest
 
 frontend:
