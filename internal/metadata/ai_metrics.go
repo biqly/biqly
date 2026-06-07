@@ -17,19 +17,19 @@ const (
 
 // AIMetricsSummary is the centralized AI text-to-SQL operations dashboard.
 type AIMetricsSummary struct {
-	TotalQueries         int     `json:"total_queries"`
-	SuccessCount         int     `json:"success_count"`
-	FailedCount          int     `json:"failed_count"`
-	PartialCount         int     `json:"partial_count"`
-	ClarificationCount   int     `json:"clarification_count"`
-	SuccessRate          float64 `json:"success_rate"`
-	FailureRate          float64 `json:"failure_rate"`
-	AvgRetryCount        float64 `json:"avg_retry_count"`
-	AvgLatencyMs         float64 `json:"avg_latency_ms"`
-	TotalCost            float64 `json:"total_cost"`
-	TotalTokens          int     `json:"total_tokens"`
-	PositiveFeedback     int     `json:"positive_feedback"`
-	NegativeFeedback     int     `json:"negative_feedback"`
+	TotalQueries       int     `json:"total_queries"`
+	SuccessCount       int     `json:"success_count"`
+	FailedCount        int     `json:"failed_count"`
+	PartialCount       int     `json:"partial_count"`
+	ClarificationCount int     `json:"clarification_count"`
+	SuccessRate        float64 `json:"success_rate"`
+	FailureRate        float64 `json:"failure_rate"`
+	AvgRetryCount      float64 `json:"avg_retry_count"`
+	AvgLatencyMs       float64 `json:"avg_latency_ms"`
+	TotalCost          float64 `json:"total_cost"`
+	TotalTokens        int     `json:"total_tokens"`
+	PositiveFeedback   int     `json:"positive_feedback"`
+	NegativeFeedback   int     `json:"negative_feedback"`
 }
 
 // AIMetricsDayRow is daily AI pipeline aggregates for charts.

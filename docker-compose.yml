@@ -12,29 +12,29 @@ services:
       - ./migrations:/migrations:ro
       - ./scripts/init-metadata-db.sh:/docker-entrypoint-initdb.d/001-init-metadata-db.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bi_user -d bi_metadata"]
+      test: [ "CMD-SHELL", "pg_isready -U bi_user -d bi_metadata" ]
       interval: 5s
       timeout: 3s
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.34.1
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 5
 
   nats:
     image: nats:2.10-alpine
-    command: ["-js", "-m", "8222"]
+    command: [ "-js", "-m", "8222" ]
     ports:
       - "4222:4222"
       - "8222:8222"
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -98,7 +98,7 @@ services:
       - auth_data:/var/lib/postgresql
       - ./migrations/auth:/migrations:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bi_auth_user -d bi_auth"]
+      test: [ "CMD-SHELL", "pg_isready -U bi_auth_user -d bi_auth" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -107,8 +107,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.auth
-    entrypoint: ["/auth-migrate"]
-    command: ["-dir", "/migrations/auth", "up"]
+    entrypoint: [ "/auth-migrate" ]
+    command: [ "-dir", "/migrations/auth", "up" ]
     environment:
       BI_AUTH_DB_DSN: postgres://bi_auth_user:bi_auth_password@auth-db:5432/bi_auth?sslmode=disable
     depends_on:
@@ -135,7 +135,7 @@ services:
       mail:
         condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:8889/health"]
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8889/health" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -151,7 +151,7 @@ services:
     volumes:
       - mail_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bi_mail_user -d bi_mail"]
+      test: [ "CMD-SHELL", "pg_isready -U bi_mail_user -d bi_mail" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -160,8 +160,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.mail
-    entrypoint: ["/mail-migrate"]
-    command: ["-dir", "/migrations/mail", "up"]
+    entrypoint: [ "/mail-migrate" ]
+    command: [ "-dir", "/migrations/mail", "up" ]
     environment:
       BI_MAIL_DB_DSN: postgres://bi_mail_user:bi_mail_password@mail-db:5432/bi_mail?sslmode=disable
     depends_on:
