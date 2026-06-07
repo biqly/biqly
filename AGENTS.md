@@ -184,6 +184,8 @@ or run everything in one command: `make precommit` (= `make lint` + `make test`)
 
 Run `gofmt -w` on every touched `.go` file before linting. Formatting drift is a blocker, even when the code compiles.
 
+Run `npx prettier --check` (or `npm --prefix frontend run format:check`) on every touched frontend file alongside `eslint` and `tsc`. ESLint and tsc passing does NOT catch Prettier drift, and CI runs `format:check` as a separate gate that will fail the build. Editing a file (e.g. adding an import) can leave neighboring code in a non-Prettier-compliant shape, so always re-run Prettier on touched frontend files before commit.
+
 `deadcode -test` must be scoped through `go list` and exclude `/frontend` because `frontend/node_modules` can contain third-party Go packages. Treat findings as blockers to triage before commit, but do not blindly delete: exported APIs, alternate build tags, reflection/linkname paths, and future integration seams may need an explicit keep decision.
 
 Default cleanup strategy for deadcode results: clean up only genuinely dead internal code under `internal/` that is unused in production and tests. Preserve public SDK APIs under `pkg/` and test-only helpers unless a focused review proves they are obsolete.

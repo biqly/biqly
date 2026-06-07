@@ -29,6 +29,14 @@ Run `deadcode -test $(go list ./... | grep -v '/frontend')` before commits that 
 
 Run `gofmt -w` on every touched `.go` file before linting or testing. Formatting drift is a blocker, even when the code compiles.
 
+### Frontend Formatting Gate Before Commit
+
+Run `npx prettier --check` (or `npm --prefix frontend run format:check`) on every touched frontend file, alongside `eslint` and `tsc`. ESLint + tsc passing does NOT catch Prettier drift — CI runs `format:check` as a separate gate (part of `make check-frontend`) that fails the build independently.
+
+**Why it bites**: editing a file (e.g. adding an import line) can reflow neighboring code into a shape Prettier considers non-canonical (a multi-line import that now fits on one line, etc.). The functional edit is fine and lint/tsc stay green, but `format:check` flags the file. Real example: adding a `useAuth` import to `useAIJobs.tsx` left a `../types/ai` type import in multi-line form that Prettier wanted collapsed.
+
+**Rule**: After editing any frontend file, run `prettier --write` (or `--check`) on it before commit. Do not rely on eslint/tsc to surface formatting issues.
+
 ### Go Min/Max Modernization
 
 Use Go's built-in `min` / `max` for simple clamps and two-value comparisons, such as `chunk = min(chunk, len(encoded))`. Keep explicit `if` statements when branches have side effects, extra logic, or clearer domain meaning.
@@ -201,3 +209,4 @@ Docker daemon must be running for migration testing. When Docker is unavailable:
 6. **Don't optimize without benchmark numbers** — every "maybe faster" hypothesis tested was either same speed or slower.
 7. **Don't commit with lint errors** — `make lint-go` / `make lint-frontend` / `make test-go` must all pass cleanly (zero errors).
 8. **Don't use Tailwind CSS** — vanilla CSS with BEM naming in `frontend/src/styles/`.
+9. **Don't trust eslint+tsc to catch Prettier drift** — run `prettier --check`/`--write` on touched frontend files; CI's `format:check` is a separate gate.
