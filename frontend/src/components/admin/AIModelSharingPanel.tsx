@@ -75,7 +75,7 @@ export function AIModelSharingPanel() {
   }, [accessToken, toast])
 
   useEffect(() => {
-    reload()
+    void reload()
   }, [reload])
 
   const providerName = useMemo(() => {

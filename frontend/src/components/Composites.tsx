@@ -77,7 +77,7 @@ export default function Composites() {
   }, [datasourceId, get])
 
   useEffect(() => {
-    loadComposites()
+    void loadComposites()
   }, [loadComposites])
 
   const loadDetail = useCallback(
@@ -97,7 +97,7 @@ export default function Composites() {
 
   useEffect(() => {
     if (selectedId) {
-      loadDetail(selectedId)
+      void loadDetail(selectedId)
     } else {
       setDetail(null)
     }
@@ -107,7 +107,7 @@ export default function Composites() {
   useEffect(() => {
     const comps = detail?.components ?? []
     let cancelled = false
-    ;(async () => {
+    ;void (async () => {
       const next: Record<string, SemanticModelDetail> = {}
       for (const c of comps) {
         const m = await get<SemanticModelDetail>(

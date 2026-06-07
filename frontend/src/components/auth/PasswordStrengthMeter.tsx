@@ -24,7 +24,7 @@ export default function PasswordStrengthMeter({ password, onValidityChange }: Pr
 
   useEffect(() => {
     let alive = true
-    apiGetPasswordPolicy().then((p) => {
+    void apiGetPasswordPolicy().then((p) => {
       if (alive) {
         setPolicy(p)
       }

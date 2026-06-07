@@ -30,7 +30,7 @@ export default function SignUpPage() {
 
   useEffect(() => {
     let cancelled = false
-    apiGetPasswordPolicy()
+    void apiGetPasswordPolicy()
       .then((policy) => {
         if (!cancelled) {
           setSignupAllowed(selfSignupEnabledFromPolicy(policy))
@@ -76,7 +76,7 @@ export default function SignUpPage() {
 
     try {
       await register(email, password, displayName)
-      navigate('/datasources')
+      void navigate('/datasources')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registration failed')
     } finally {
@@ -113,7 +113,7 @@ export default function SignUpPage() {
               href="/auth/signin"
               onClick={(e) => {
                 e.preventDefault()
-                navigate('/auth/signin')
+                void navigate('/auth/signin')
               }}
             >
               {t('auth.back_to_login')}
@@ -138,7 +138,7 @@ export default function SignUpPage() {
               href="/auth/signin"
               onClick={(e) => {
                 e.preventDefault()
-                navigate('/auth/signin')
+                void navigate('/auth/signin')
               }}
             >
               {t('auth.btn_signin')}

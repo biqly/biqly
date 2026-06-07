@@ -106,7 +106,7 @@ export default function SavedQuestions() {
   // Reload questions when selected DS or Model changes
   useEffect(() => {
     if (datasourceId) {
-      fetchQuestions(datasourceId, semanticModelId)
+      void fetchQuestions(datasourceId, semanticModelId)
       setRunResult(null)
       setRunError(null)
       setRunLoading(false)
@@ -323,7 +323,7 @@ export default function SavedQuestions() {
     if (isEdit && selectedQuestion) {
       const res = await putData<SavedQuestion>(`/api/ai/examples/${selectedQuestion.id}`, payload)
       if (res || apiError === null) {
-        fetchQuestions(datasourceId, semanticModelId)
+        void fetchQuestions(datasourceId, semanticModelId)
         setIsEditModalOpen(false)
         setSelectedQuestion({
           ...selectedQuestion,
@@ -342,7 +342,7 @@ export default function SavedQuestions() {
     } else {
       const res = await postData<SavedQuestion>('/api/ai/examples', payload)
       if (res) {
-        fetchQuestions(datasourceId, semanticModelId)
+        void fetchQuestions(datasourceId, semanticModelId)
         setIsNewModalOpen(false)
         // Automatically select the newly created question
         setSelectedQuestion(res)
@@ -361,7 +361,7 @@ export default function SavedQuestions() {
     const res = await deleteData(`/api/ai/examples/${id}`)
     if (res || apiError === null) {
       setSelectedQuestion(null)
-      fetchQuestions(datasourceId, semanticModelId)
+      void fetchQuestions(datasourceId, semanticModelId)
     }
   }
 
@@ -514,7 +514,7 @@ export default function SavedQuestions() {
                       className={`saved-question-fav${q.is_favorite ? ' is-active' : ''}`}
                       onClick={(e) => {
                         e.stopPropagation()
-                        toggleFavorite(q)
+                        void toggleFavorite(q)
                       }}
                       aria-label={
                         q.is_favorite

@@ -135,7 +135,7 @@ export function ResultTable({
             <button
               className="context-menu-item"
               onClick={() => {
-                navigator.clipboard.writeText(String(contextMenu.value))
+                void navigator.clipboard.writeText(String(contextMenu.value))
                 closeContextMenu()
               }}
             >

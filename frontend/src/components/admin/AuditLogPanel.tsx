@@ -104,7 +104,7 @@ export function AuditLogPanel({ token }: { token: string }) {
   }
 
   useEffect(() => {
-    reload({ userID, action, page: currentPage, pageSize })
+    void reload({ userID, action, page: currentPage, pageSize })
   }, [token, currentPage])
 
   function onSubmit(e: React.SubmitEvent<HTMLFormElement>) {
@@ -112,7 +112,7 @@ export function AuditLogPanel({ token }: { token: string }) {
     if (currentPage !== 1) {
       setCurrentPage(1)
     } else {
-      reload({ userID, action, page: 1, pageSize })
+      void reload({ userID, action, page: 1, pageSize })
     }
   }
 
@@ -151,7 +151,7 @@ export function AuditLogPanel({ token }: { token: string }) {
               const nextSize = Number(v)
               setPageSize(nextSize)
               setCurrentPage(1)
-              reload({ userID, action, page: 1, pageSize: nextSize })
+              void reload({ userID, action, page: 1, pageSize: nextSize })
             }}
           />
         </label>
@@ -165,7 +165,7 @@ export function AuditLogPanel({ token }: { token: string }) {
             setAction('')
             setPageSize(DEFAULT_AUDIT_PAGE_SIZE)
             setCurrentPage(1)
-            reload({ userID: '', action: '', page: 1, pageSize: DEFAULT_AUDIT_PAGE_SIZE })
+            void reload({ userID: '', action: '', page: 1, pageSize: DEFAULT_AUDIT_PAGE_SIZE })
           }}
           className="admin-btn-secondary"
         >

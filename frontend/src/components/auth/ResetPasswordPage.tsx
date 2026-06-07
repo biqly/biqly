@@ -55,7 +55,7 @@ export default function ResetPasswordPage() {
       await apiResetPassword(token, password)
       setSuccess(true)
       setTimeout(() => {
-        navigate('/auth/signin')
+        void navigate('/auth/signin')
       }, 3000)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('auth.reset_failed'))
@@ -77,7 +77,7 @@ export default function ResetPasswordPage() {
               href="/auth/signin"
               onClick={(e) => {
                 e.preventDefault()
-                navigate('/auth/signin')
+                void navigate('/auth/signin')
               }}
             >
               {t('auth.back_to_login')}

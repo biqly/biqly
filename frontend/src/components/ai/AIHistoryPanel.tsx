@@ -65,7 +65,7 @@ export function AIHistoryPanel() {
   }, [accessToken, currentPage, showAll, isAdmin])
 
   useEffect(() => {
-    load()
+    void load()
   }, [load])
 
   useEffect(() => {

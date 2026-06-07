@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
               href="/auth/signin"
               onClick={(e) => {
                 e.preventDefault()
-                navigate('/auth/signin')
+                void navigate('/auth/signin')
               }}
             >
               {t('auth.back_to_login')}

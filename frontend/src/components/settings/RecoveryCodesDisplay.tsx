@@ -13,7 +13,7 @@ export function RecoveryCodesDisplay({
 }: RecoveryCodesDisplayProps) {
   const t = useT()
   const copyCodes = () => {
-    navigator.clipboard.writeText(codes.join('\n'))
+    void navigator.clipboard.writeText(codes.join('\n'))
     alert(t('mfa.recovery_copied'))
   }
 

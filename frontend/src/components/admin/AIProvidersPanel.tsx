@@ -95,12 +95,12 @@ export function AIProvidersPanel() {
   )
 
   useEffect(() => {
-    reloadTop()
+    void reloadTop()
   }, [reloadTop])
 
   useEffect(() => {
     if (selectedProvider) {
-      reloadModels(selectedProvider.id)
+      void reloadModels(selectedProvider.id)
     } else {
       setModels([])
     }

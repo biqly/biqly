@@ -41,7 +41,7 @@ export function useAdminLookups(token: string) {
         }
       }
     }
-    load()
+    void load()
     return () => {
       cancelled = true
     }

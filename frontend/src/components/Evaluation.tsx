@@ -84,7 +84,7 @@ export default function Evaluation() {
   const handleTabHover = (hoveredTab: 'run' | 'history' | 'regression') => {
     const comp = TAB_COMPONENTS[hoveredTab]
     if (comp && typeof comp.preload === 'function') {
-      comp.preload()
+      void comp.preload()
     }
   }
 
@@ -92,7 +92,7 @@ export default function Evaluation() {
     const timer = setTimeout(() => {
       Object.values(TAB_COMPONENTS).forEach((comp) => {
         if (comp && typeof comp.preload === 'function') {
-          comp.preload()
+          void comp.preload()
         }
       })
     }, 1500)
@@ -200,7 +200,7 @@ export default function Evaluation() {
       }
     } catch {
       setShowDemo(true)
-      import('./evaluation/demoData').then((m) => setEvalData(m.DEMO_DATA))
+      void import('./evaluation/demoData').then((m) => setEvalData(m.DEMO_DATA))
     } finally {
       setRunning(false)
     }
@@ -251,7 +251,7 @@ export default function Evaluation() {
             href="/settings"
             onClick={(e) => {
               e.preventDefault()
-              navigate('/settings')
+              void navigate('/settings')
             }}
           >
             {t('evaluation.admin_key_open_settings')}

@@ -81,7 +81,7 @@ export default function Glossary() {
   }
 
   useEffect(() => {
-    loadTerms()
+    void loadTerms()
   }, [selectedDatasourceId, selectedModelId])
 
   const resetForm = () => {
@@ -179,7 +179,7 @@ export default function Glossary() {
           ...payload,
           is_active: true,
         })
-        loadTerms()
+        void loadTerms()
         resetForm()
       } catch (err: unknown) {
         setFormError(err instanceof Error ? err.message : 'Failed to update glossary term')
@@ -191,7 +191,7 @@ export default function Glossary() {
           datasource_id: formDatasourceId,
           model_id: formModelId || undefined,
         })
-        loadTerms()
+        void loadTerms()
         resetForm()
       } catch (err: unknown) {
         setFormError(err instanceof Error ? err.message : 'Failed to create glossary term')

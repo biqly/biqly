@@ -26,7 +26,7 @@ export default function VerifyEmailPage() {
         await apiVerifyEmail(token)
         setStatus('success')
         setTimeout(() => {
-          navigate('/auth/signin')
+          void navigate('/auth/signin')
         }, 3000)
       } catch (err: unknown) {
         setStatus('error')
@@ -34,7 +34,7 @@ export default function VerifyEmailPage() {
       }
     }
 
-    verify()
+    void verify()
   }, [t])
 
   return (

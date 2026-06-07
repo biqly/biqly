@@ -58,7 +58,7 @@ export default tseslint.config(
       // Ratchet plan: the rules below are 'warn' because the existing code
       // predates linting. New code should treat them as errors; promote them
       // one by one as the warning count reaches zero.
-      '@typescript-eslint/no-floating-promises': 'warn',
+      '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-misused-promises': 'error',
       '@typescript-eslint/await-thenable': 'error',
       '@typescript-eslint/no-unnecessary-condition': 'warn',

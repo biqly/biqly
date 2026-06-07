@@ -74,7 +74,7 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
   }
 
   useEffect(() => {
-    loadData()
+    void loadData()
   }, [token, userID])
 
   const isSelf = currentUser?.id === userID
@@ -156,7 +156,7 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
     }
     try {
       await updateUserActiveStatus(token, userID, nextState)
-      loadData()
+      void loadData()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -177,7 +177,7 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
       )
       // reset scope id
       setScopeID('')
-      loadData()
+      void loadData()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -193,7 +193,7 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
     }
     try {
       await removeRole(token, userID, roleID)
-      loadData()
+      void loadData()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -360,7 +360,7 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
                   type="button"
                   className="admin-btn-secondary"
                   onClick={() => {
-                    navigator.clipboard.writeText(bypassCode)
+                    void navigator.clipboard.writeText(bypassCode)
                     alert(t('admin.user_detail.mfa_bypass_copied'))
                   }}
                 >

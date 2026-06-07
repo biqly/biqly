@@ -68,7 +68,7 @@ export function RolesPanel({ token }: { token: string }) {
         }
       }
     }
-    loadMeta()
+    void loadMeta()
     return () => {
       cancelled = true
     }
@@ -96,7 +96,7 @@ export function RolesPanel({ token }: { token: string }) {
     if (!selectedRoleId) {
       return
     }
-    loadRolePermissions(selectedRoleId)
+    void loadRolePermissions(selectedRoleId)
   }, [selectedRoleId, loadRolePermissions])
 
   const permsByResource = useMemo(() => {

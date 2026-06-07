@@ -105,7 +105,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
       }
     }
 
-    loadPolicy()
+    void loadPolicy()
     return () => {
       cancelled = true
     }

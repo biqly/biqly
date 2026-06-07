@@ -9,7 +9,7 @@ export function useSemanticModels(datasourceId: string | null, options?: { all?:
 
   const reload = useCallback(() => {
     if (options?.all) {
-      get<SemanticModelSummary[]>('/api/semantic/models').then((data) => {
+      void get<SemanticModelSummary[]>('/api/semantic/models').then((data) => {
         setModels(data ?? [])
       })
       return
@@ -18,7 +18,7 @@ export function useSemanticModels(datasourceId: string | null, options?: { all?:
       setModels([])
       return
     }
-    get<SemanticModelSummary[]>(
+    void get<SemanticModelSummary[]>(
       `/api/semantic/models?datasource_id=${encodeURIComponent(datasourceId)}`,
     ).then((data) => {
       setModels(data ?? [])

@@ -17,7 +17,7 @@ export function useModelDetail(modelId: string | null, options?: Options) {
       return
     }
     const query = options?.includeInactive ? '?include_inactive=true' : ''
-    get<SemanticModelDetail>(`/api/semantic/models/${encodeURIComponent(modelId)}${query}`).then(
+    void get<SemanticModelDetail>(`/api/semantic/models/${encodeURIComponent(modelId)}${query}`).then(
       (data) => {
         setModel(data)
       },

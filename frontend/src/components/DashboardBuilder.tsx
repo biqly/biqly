@@ -108,14 +108,14 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
   }, [dashboardId, get])
 
   useEffect(() => {
-    fetchDashboard()
+    void fetchDashboard()
   }, [fetchDashboard])
 
   // Load Saved Questions when selected DS/Model changes in modal
   useEffect(() => {
     if (selDatasourceId && isConfigModalOpen) {
       const url = `/api/ai/examples?datasource_id=${encodeURIComponent(selDatasourceId)}${selModelId ? `&model_id=${encodeURIComponent(selModelId)}` : ''}`
-      get<SavedQuestion[]>(url).then((res) => {
+      void get<SavedQuestion[]>(url).then((res) => {
         setSavedQuestions(res ?? [])
       })
     } else {
@@ -161,7 +161,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
     const res = await putData(`/api/dashboards/${dashboardId}`, payload)
     if (res) {
       setIsDirty(false)
-      fetchDashboard()
+      void fetchDashboard()
     }
   }
 
@@ -340,7 +340,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                     className="btn btn-secondary"
                     onClick={() => {
                       setIsEditMode(false)
-                      fetchDashboard()
+                      void fetchDashboard()
                     }}
                   >
                     Cancel
@@ -937,7 +937,7 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
     }
 
     // Execute Saved logical_query
-    postData<QueryResultPayload>('/api/query/run', widget.logical_query).then((res) => {
+    void postData<QueryResultPayload>('/api/query/run', widget.logical_query).then((res) => {
       if (res?.rows && res.columns) {
         setColumns(res.columns)
         const mapped = res.rows.map((row) => {

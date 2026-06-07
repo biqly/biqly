@@ -37,7 +37,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   useEffect(() => {
     if (!loading && !user) {
-      navigate('/auth/signin')
+      void navigate('/auth/signin')
     }
   }, [user, loading, navigate])
 
@@ -64,7 +64,7 @@ export function GuestGuard({ children }: AuthGuardProps) {
 
   useEffect(() => {
     if (!loading && user) {
-      navigate('/')
+      void navigate('/')
     }
   }, [user, loading, navigate])
 

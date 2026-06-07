@@ -993,7 +993,7 @@ export default function TableBrowser() {
                   params.set('model', modelId)
                 }
                 const qs = params.toString()
-                navigate(qs ? `/modeling?${qs}` : '/modeling')
+                void navigate(qs ? `/modeling?${qs}` : '/modeling')
               }}
             />
 

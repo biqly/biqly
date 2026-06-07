@@ -107,7 +107,7 @@ export default function Datasources() {
   }
 
   useEffect(() => {
-    load()
+    void load()
   }, [accessToken])
 
   const resetForm = () => {
@@ -196,7 +196,7 @@ export default function Datasources() {
       : await postData('/api/datasources', payload, authRequestOptions(accessToken))
     if (saved) {
       closeForm()
-      load()
+      void load()
     }
   }
 
@@ -251,7 +251,7 @@ export default function Datasources() {
       return
     }
     await deleteData(`/api/datasources/${id}`, authRequestOptions(accessToken))
-    load()
+    void load()
   }
 
   const test = async (id: string) => {
@@ -287,7 +287,7 @@ export default function Datasources() {
         ...syncResult,
         [id]: t('datasources.sync_result', { tables: res.tables, columns: res.columns }),
       })
-      load()
+      void load()
     } else {
       setSyncResult({ ...syncResult, [id]: t('datasources.sync_failed') })
     }

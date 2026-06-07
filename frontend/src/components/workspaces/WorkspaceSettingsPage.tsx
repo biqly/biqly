@@ -90,7 +90,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
   }, [token, workspaceID])
 
   useEffect(() => {
-    load()
+    void load()
   }, [load])
 
   const isPersonal = workspace?.is_personal ?? false
@@ -113,7 +113,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
       await updateWorkspace(token, workspaceID, editName, editDesc || undefined, editMFARequired)
       setSuccess(t('admin.workspaces.save_success'))
       setTimeout(() => setSuccess(null), 3000)
-      load()
+      void load()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -128,7 +128,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
       await addWorkspaceMember(token, workspaceID, inviteUserID.trim(), inviteRoleID)
       setInviteUserID('')
       setInviteRoleID('')
-      load()
+      void load()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -144,7 +144,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
     }
     try {
       await removeWorkspaceMember(token, workspaceID, userID)
-      load()
+      void load()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -153,7 +153,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
   async function onChangeRole(userID: string, roleID: string) {
     try {
       await updateWorkspaceMemberRole(token, workspaceID, userID, roleID)
-      load()
+      void load()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -167,7 +167,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
     try {
       await attachWorkspaceDatasource(token, workspaceID, attachDsID.trim())
       setAttachDsID('')
-      load()
+      void load()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -183,7 +183,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
     }
     try {
       await detachWorkspaceDatasource(token, workspaceID, dsID)
-      load()
+      void load()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }

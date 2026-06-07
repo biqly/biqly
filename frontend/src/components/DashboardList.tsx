@@ -41,7 +41,7 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
   }
 
   useEffect(() => {
-    fetchDashboards()
+    void fetchDashboards()
   }, [])
 
   const closeCreateModal = () => {
@@ -76,7 +76,7 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
     const res = await postData<Dashboard>('/api/dashboards', payload)
     if (res) {
       closeCreateModal()
-      fetchDashboards()
+      void fetchDashboards()
       onSelect(res.id)
     }
   }
@@ -94,7 +94,7 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
 
     const res = await deleteData(`/api/dashboards/${id}`)
     if (res || error === null) {
-      fetchDashboards()
+      void fetchDashboards()
     }
   }
 

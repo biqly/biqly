@@ -61,7 +61,7 @@ export default function Metadata() {
 
   useEffect(() => {
     setInitLoading(true)
-    Promise.all([
+    void Promise.all([
       get<Datasource[]>('/api/datasources').then((data) => {
         if (!data) {
           return
@@ -126,7 +126,7 @@ export default function Metadata() {
       return
     }
     setTablesLoading(true)
-    get<TableRow[]>(`/api/datasources/${datasourceId}/tables`, descriptionLocaleOpts)
+    void get<TableRow[]>(`/api/datasources/${datasourceId}/tables`, descriptionLocaleOpts)
       .then((data) => setTables(data ?? []))
       .finally(() => setTablesLoading(false))
     setOpenTableId(null)
@@ -178,7 +178,7 @@ export default function Metadata() {
     if (!tab) {
       return
     }
-    get<ColumnRow[]>(
+    void get<ColumnRow[]>(
       `/api/datasources/${datasourceId}/columns?schema=${encodeURIComponent(tab.schema_name)}&table=${encodeURIComponent(tab.table_name)}`,
       descriptionLocaleOpts,
     ).then((data) => setColumns(data ?? []))
@@ -251,7 +251,7 @@ export default function Metadata() {
   const refreshDescribeTarget = (row: TableRow) => {
     refreshTables()
     if (openTableId === row.id) {
-      get<ColumnRow[]>(
+      void get<ColumnRow[]>(
         `/api/datasources/${datasourceId}/columns?schema=${encodeURIComponent(row.schema_name)}&table=${encodeURIComponent(row.table_name)}`,
         descriptionLocaleOpts,
       ).then((d) => setColumns(d ?? []))

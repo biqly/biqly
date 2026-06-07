@@ -8,7 +8,7 @@ export function useDatasources() {
   const [datasources, setDatasources] = useState<Datasource[]>([])
 
   const reload = useCallback(() => {
-    get<Datasource[]>('/api/datasources').then((data) => {
+    void get<Datasource[]>('/api/datasources').then((data) => {
       setDatasources(data ?? [])
     })
   }, [get])

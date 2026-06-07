@@ -71,7 +71,7 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
   }
 
   useEffect(() => {
-    reload()
+    void reload()
   }, [token, currentPage])
 
   async function onGrant(e: React.SubmitEvent<HTMLFormElement>) {
@@ -84,7 +84,7 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
       setUserID('')
       setDatasourceID('')
       setCurrentPage(1)
-      reload()
+      void reload()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -101,7 +101,7 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
     try {
       await revokeDatasourceAccess(token, uid, dsid)
       setCurrentPage(1)
-      reload()
+      void reload()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -110,7 +110,7 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
   async function onChangeLevel(id: string, newLevel: 'read' | 'write' | 'admin') {
     try {
       await updateDatasourceAccess(token, id, newLevel)
-      reload()
+      void reload()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }

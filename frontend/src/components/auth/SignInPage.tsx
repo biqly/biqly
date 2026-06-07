@@ -133,7 +133,7 @@ export default function SignInPage() {
         return
       }
       failureCountRef.current = 0
-      navigate('/datasources')
+      void navigate('/datasources')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed')
       // Exponential client-side backoff. Server already rate-limits, this is
@@ -161,7 +161,7 @@ export default function SignInPage() {
     try {
       const resp = await apiMFALogin(mfaToken, mfaCode.trim())
       await loginWithTokens(resp.access_token, resp.roles)
-      navigate('/datasources')
+      void navigate('/datasources')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : '2FA Verification failed')
     } finally {
@@ -209,7 +209,7 @@ export default function SignInPage() {
 
       const finishResp = await apiPasskeyLoginFinish(credentialJson)
       await loginWithTokens(finishResp.access_token, finishResp.roles)
-      navigate('/datasources')
+      void navigate('/datasources')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Passkey login failed')
     } finally {
@@ -236,7 +236,7 @@ export default function SignInPage() {
                 href="/auth/signup"
                 onClick={(e) => {
                   e.preventDefault()
-                  navigate('/auth/signup')
+                  void navigate('/auth/signup')
                 }}
               >
                 {t('auth.btn_signup')}
@@ -399,7 +399,7 @@ export default function SignInPage() {
                   className="form-link"
                   onClick={(e) => {
                     e.preventDefault()
-                    navigate('/auth/forgot-password')
+                    void navigate('/auth/forgot-password')
                   }}
                 >
                   {t('auth.forgot_password')}

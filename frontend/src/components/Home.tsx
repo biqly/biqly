@@ -146,7 +146,7 @@ function RecentQueries() {
   const [items, setItems] = useState<RecentQuery[] | null>(null)
 
   useEffect(() => {
-    get<{ entries: RecentQuery[] }>('/api/ai/query/history?limit=8').then((data) => {
+    void get<{ entries: RecentQuery[] }>('/api/ai/query/history?limit=8').then((data) => {
       setItems(data?.entries ?? [])
     })
   }, [get])
@@ -198,7 +198,7 @@ function Favorites() {
   const [items, setItems] = useState<SavedQuestion[] | null>(null)
 
   useEffect(() => {
-    get<SavedQuestion[]>('/api/ai/examples/favorites?limit=8').then((data) => {
+    void get<SavedQuestion[]>('/api/ai/examples/favorites?limit=8').then((data) => {
       setItems(data ?? [])
     })
   }, [get])

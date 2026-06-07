@@ -29,7 +29,7 @@ export default function OAuthCallback() {
       if (!code) {
         setError(t('auth.oauth_failed'))
         setTimeout(() => {
-          navigate('/auth/signin')
+          void navigate('/auth/signin')
         }, 3000)
         return
       }
@@ -41,16 +41,16 @@ export default function OAuthCallback() {
       try {
         const resp = await apiOAuthExchange(code)
         if (resp.mfa_required && resp.mfa_token) {
-          navigate(`/auth/signin?mfa_token=${encodeURIComponent(resp.mfa_token)}`)
+          void navigate(`/auth/signin?mfa_token=${encodeURIComponent(resp.mfa_token)}`)
           return
         }
         await loginWithTokens(resp.access_token, resp.roles ?? [])
-        navigate('/datasources')
+        void navigate('/datasources')
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : t('auth.oauth_failed')
         setError(message)
         setTimeout(() => {
-          navigate('/auth/signin')
+          void navigate('/auth/signin')
         }, 3000)
       }
     }

@@ -111,18 +111,18 @@ export default function Admin() {
   const selectedUserID = userIdParam || null
 
   const handleTabHover = (hoveredTab: AdminTab) => {
-    TAB_COMPONENTS[hoveredTab].preload()
+    void TAB_COMPONENTS[hoveredTab].preload()
     if (hoveredTab === 'users') {
-      UserDetailPage.preload()
+      void UserDetailPage.preload()
     }
   }
 
   useEffect(() => {
     const timer = setTimeout(() => {
       Object.values(TAB_COMPONENTS).forEach((comp) => {
-        comp.preload()
+        void comp.preload()
       })
-      UserDetailPage.preload()
+      void UserDetailPage.preload()
     }, 1500)
     return () => clearTimeout(timer)
   }, [])

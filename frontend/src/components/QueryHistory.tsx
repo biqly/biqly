@@ -99,7 +99,7 @@ export default function QueryHistory() {
   ])
 
   useEffect(() => {
-    loadHistory()
+    void loadHistory()
   }, [loadHistory])
 
   useEffect(() => {
@@ -143,7 +143,7 @@ export default function QueryHistory() {
   }
 
   const handleRerun = (question: string) => {
-    navigate('/ai-query', { state: { question } })
+    void navigate('/ai-query', { state: { question } })
   }
 
   const getStatusBadge = (entry: AIHistoryEntry) => {

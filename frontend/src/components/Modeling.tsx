@@ -131,8 +131,8 @@ export default function Modeling() {
       setModelId('')
     }
 
-    get<TableRow[]>(`/api/datasources/${datasourceId}/tables`).then((data) => setTables(data ?? []))
-    get<ColumnRow[]>(`/api/datasources/${datasourceId}/columns`).then((data) =>
+    void get<TableRow[]>(`/api/datasources/${datasourceId}/tables`).then((data) => setTables(data ?? []))
+    void get<ColumnRow[]>(`/api/datasources/${datasourceId}/columns`).then((data) =>
       setColumns(data ?? []),
     )
   }, [datasourceId, loadedDatasources, datasources])
@@ -156,7 +156,7 @@ export default function Modeling() {
       setSuggestedJoins([])
       return
     }
-    get<SuggestedJoin[]>(`/api/semantic/models/${modelId}/suggested-joins`).then((data) => {
+    void get<SuggestedJoin[]>(`/api/semantic/models/${modelId}/suggested-joins`).then((data) => {
       setSuggestedJoins(data ?? [])
     })
   }, [modelId])

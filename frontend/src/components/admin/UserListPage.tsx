@@ -82,7 +82,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
 
   useEffect(() => {
     if (subTab === 'invitations') {
-      loadInvitations()
+      void loadInvitations()
     }
   }, [token, inviteCurrentPage, debouncedInviteSearch, inviteStatusFilter, subTab])
 
@@ -125,7 +125,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
         }
       }
     }
-    load()
+    void load()
     return () => {
       cancelled = true
     }
@@ -152,7 +152,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     try {
       await apiResendInvitation(token, id)
       setActionMessage({ type: 'success', text: t('auth.invite_resend_success') })
-      loadInvitations()
+      void loadInvitations()
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Resend failed'
       setActionMessage({ type: 'error', text: message })
@@ -195,7 +195,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     try {
       await apiRevokeInvitation(token, id)
       setActionMessage({ type: 'success', text: t('auth.invite_revoke_success') })
-      loadInvitations()
+      void loadInvitations()
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Revoke failed'
       setActionMessage({ type: 'error', text: message })
@@ -304,7 +304,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
         token={token}
         onSuccess={() => {
           if (subTab === 'invitations') {
-            loadInvitations()
+            void loadInvitations()
           }
         }}
         t={t}

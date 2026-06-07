@@ -151,7 +151,7 @@ export function AIModelPreferencesSection() {
   }, [toast, accessToken])
 
   useEffect(() => {
-    load()
+    void load()
   }, [load])
 
   const modelsByPurpose = useMemo(() => {

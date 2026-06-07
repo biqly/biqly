@@ -236,7 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sessionStorage.setItem('biqly_session_expired_reason', reason)
         clearAuth()
         if (window.location.pathname !== '/auth/signin') {
-          navigate('/auth/signin?expired=' + reason)
+          void navigate('/auth/signin?expired=' + reason)
         }
       } finally {
         refreshInFlightRef.current = false

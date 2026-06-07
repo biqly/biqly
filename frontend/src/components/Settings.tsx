@@ -84,7 +84,7 @@ export default function Settings() {
   }, [registrationError])
 
   const goTo = (path: string) => {
-    navigate(path)
+    void navigate(path)
   }
 
   const fetchPasskeys = async () => {
@@ -116,8 +116,8 @@ export default function Settings() {
   }
 
   useEffect(() => {
-    fetchPasskeys()
-    fetchMFAStatus()
+    void fetchPasskeys()
+    void fetchMFAStatus()
   }, [accessToken])
 
   const handleDeleteConfirm = async () => {

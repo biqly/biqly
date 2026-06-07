@@ -75,7 +75,7 @@ export default function FewShotExamples() {
     }
 
     setInitLoading(true)
-    get<FewShotExample[]>(url)
+    void get<FewShotExample[]>(url)
       .then((data) => {
         if (data) {
           setExamples(data)

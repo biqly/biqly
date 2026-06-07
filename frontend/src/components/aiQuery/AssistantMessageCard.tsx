@@ -54,7 +54,7 @@ function SampleDataModal({
     const [schema, ...rest] = tableName.split('.')
     const tName = rest.length > 0 ? rest.join('.') : schema
     const url = `/api/datasources/${datasourceId}/tables/${schema ?? 'public'}/${tName}/sample`
-    get<SampleData>(url).then((data) => {
+    void get<SampleData>(url).then((data) => {
       setSample(data)
       setLoading(false)
     })
@@ -252,7 +252,7 @@ export function AssistantMessageCard({
     params.set('model_id', String(modelId))
 
     const path = `/saved?${params.toString()}`
-    navigate(path)
+    void navigate(path)
   }
 
   return (

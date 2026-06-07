@@ -50,7 +50,7 @@ export default function ClaimInvitePage() {
       }
     }
 
-    verifyToken()
+    void verifyToken()
   }, [t])
 
   const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {

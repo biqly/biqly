@@ -46,7 +46,7 @@ export default function AIUsageDashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([
+    void Promise.all([
       get<{ summary: AIUsageSummary; daily: DayUsage[] }>('/api/ai/usage').then((data) => {
         if (data) {
           setSummary(data.summary)

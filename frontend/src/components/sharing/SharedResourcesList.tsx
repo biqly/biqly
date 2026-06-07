@@ -52,7 +52,7 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
   }, [accessToken, resourceType, refreshKey, currentPage])
 
   useEffect(() => {
-    load()
+    void load()
   }, [load])
 
   useEffect(() => {
@@ -72,7 +72,7 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
     }
     try {
       await deleteShare(accessToken, id)
-      load()
+      void load()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }

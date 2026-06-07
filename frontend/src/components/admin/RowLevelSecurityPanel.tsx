@@ -93,7 +93,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
       }
     }
 
-    loadPolicy()
+    void loadPolicy()
     return () => {
       cancelled = true
     }

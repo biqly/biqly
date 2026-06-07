@@ -55,29 +55,15 @@ func setCSRFCookie(w http.ResponseWriter, r *http.Request, listenPort int) strin
 	}
 	token := base64.URLEncoding.EncodeToString(tokenBytes)
 
-	if CookieSecure(r, listenPort) {
-		http.SetCookie(w, &http.Cookie{
-			Name:     "csrf_token",
-			Value:    token,
-			Path:     "/",
-			MaxAge:   86400 * 7,
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteStrictMode,
-		})
-		return token
-	}
-
-	// Local HTTP dev on :8889: Secure must be false or browsers drop the cookie.
-	// codeql[go/cookie-secure-not-set]
-	//nolint:gosec // G124: Secure intentionally false for local HTTP dev on :8889
+	// nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
+	//nolint:gosec // G124: Secure is set dynamically via CookieSecure.
 	http.SetCookie(w, &http.Cookie{
 		Name:     "csrf_token",
 		Value:    token,
 		Path:     "/",
 		MaxAge:   86400 * 7,
 		HttpOnly: true,
-		Secure:   false,
+		Secure:   CookieSecure(r, listenPort),
 		SameSite: http.SameSiteStrictMode,
 	})
 	return token

@@ -52,7 +52,7 @@ export function WorkspaceSelector({ token }: { token: string }) {
         }
       }
     }
-    load()
+    void load()
     return () => {
       cancelled = true
     }

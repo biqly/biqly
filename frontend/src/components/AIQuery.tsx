@@ -104,7 +104,7 @@ export default function AIQuery() {
 
   useEffect(() => {
     let cancelled = false
-    get<AIRuntimeSettings>('/api/ai/settings').then((data) => {
+    void get<AIRuntimeSettings>('/api/ai/settings').then((data) => {
       if (cancelled) {
         return
       }
@@ -134,12 +134,12 @@ export default function AIQuery() {
       return
     }
     let cancelled = false
-    get<TableOption[]>(`/api/datasources/${datasourceId}/tables`).then((data) => {
+    void get<TableOption[]>(`/api/datasources/${datasourceId}/tables`).then((data) => {
       if (!cancelled) {
         setTables(data ?? [])
       }
     })
-    get<CompositeModelSummary[]>(`/api/semantic/composites?datasource_id=${datasourceId}`).then(
+    void get<CompositeModelSummary[]>(`/api/semantic/composites?datasource_id=${datasourceId}`).then(
       (data) => {
         if (!cancelled) {
           setComposites((data ?? []).filter((c) => c.status === 'published'))

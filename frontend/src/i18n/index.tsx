@@ -285,7 +285,7 @@ export function useLocaleSection(section: LocaleSectionName): boolean {
   useEffect(() => {
     let cancelled = false
     setReady(sectionReady(locale, section) && sectionReady(FALLBACK_LOCALE, section))
-    Promise.all([
+    void Promise.all([
       loadLocaleSection(locale, section),
       loadLocaleSection(FALLBACK_LOCALE, section),
     ]).then(() => {

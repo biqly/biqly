@@ -43,7 +43,7 @@ export function WorkspacesPanel({ token }: { token: string }) {
   }
 
   useEffect(() => {
-    reload()
+    void reload()
   }, [token, currentPage])
 
   async function onCreate(e: React.SubmitEvent<HTMLFormElement>) {
@@ -58,7 +58,7 @@ export function WorkspacesPanel({ token }: { token: string }) {
       if (currentPage !== 1) {
         setCurrentPage(1)
       } else {
-        reload()
+        void reload()
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -75,7 +75,7 @@ export function WorkspacesPanel({ token }: { token: string }) {
     }
     try {
       await deleteWorkspace(token, id)
-      reload()
+      void reload()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
