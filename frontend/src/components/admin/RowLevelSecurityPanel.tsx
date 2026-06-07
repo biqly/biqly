@@ -124,7 +124,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
     if (fields.length === 0) {
       return
     }
-    const firstField = fields[0] || ''
+    const firstField = fields[0] ?? ''
     setFilters([...filters, { field: firstField, operator: 'eq', value: '' }])
     setSaveSuccess(false)
   }
@@ -193,8 +193,8 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
       id: policy?.id,
       user_id: `role:${selectedRole}`,
       datasource_id: selectedDS,
-      allowed_models: policy?.allowed_models || [],
-      denied_fields: policy?.denied_fields || [],
+      allowed_models: policy?.allowed_models ?? [],
+      denied_fields: policy?.denied_fields ?? [],
       row_filters: filters,
     }
 
@@ -300,7 +300,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
 
                         <Select
                           size="sm"
-                          value={f.operator || 'eq'}
+                          value={f.operator ?? 'eq'}
                           options={FILTER_OPERATOR_OPTIONS}
                           onChange={(v) => handleFilterChange(i, 'operator', v)}
                           disabled={!canEdit}

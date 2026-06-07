@@ -1,3 +1,4 @@
+import type { TFunction } from '../../i18n'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
 import type { WindowFuncRow } from './types'
@@ -9,7 +10,7 @@ interface WindowFuncStepProps {
   removeWindowFunc: (i: number) => void
   addWindowFunc: () => void
   onClear: () => void
-  t: any
+  t: TFunction
 }
 
 export function WindowFuncStep({

@@ -66,7 +66,7 @@ export default function Modeling() {
   const [tables, setTables] = useState<TableRow[]>([])
   const [columns, setColumns] = useState<ColumnRow[]>([])
   const { models, loading: modelsLoading, setModels } = useSemanticModels(datasourceId)
-  const [modelId, setModelId] = useState(routeModelId || modelParam)
+  const [modelId, setModelId] = useState(routeModelId ?? modelParam)
 
   useEffect(() => {
     if (routeModelId) {
@@ -224,8 +224,8 @@ export default function Modeling() {
       keys.add(tableKey(model.base_schema, model.base_table))
     }
     for (const join of (model?.joins ?? []).filter((j) => j.is_active !== false)) {
-      keys.add(tableKey(join.from_schema || model?.base_schema || '', join.from_table))
-      keys.add(tableKey(join.to_schema || model?.base_schema || '', join.to_table))
+      keys.add(tableKey(join.from_schema ?? model?.base_schema ?? '', join.from_table))
+      keys.add(tableKey(join.to_schema ?? model?.base_schema ?? '', join.to_table))
     }
     const baseKey = model ? tableKey(model.base_schema, model.base_table) : ''
     const preferred = includedTables.filter((t) => keys.has(tableKey(t.schema_name, t.table_name)))
@@ -281,8 +281,8 @@ export default function Modeling() {
         if (j.is_active === false) {
           return false
         }
-        const fs = j.from_schema || base
-        const ts = j.to_schema || base
+        const fs = j.from_schema ?? base
+        const ts = j.to_schema ?? base
         return (fs === schema && j.from_table === table) || (ts === schema && j.to_table === table)
       }).length
       const dims = (model.dimensions ?? []).filter(
@@ -338,8 +338,8 @@ export default function Modeling() {
         if (j.is_active === false) {
           return false
         }
-        const fs = j.from_schema || base
-        const ts = j.to_schema || base
+        const fs = j.from_schema ?? base
+        const ts = j.to_schema ?? base
         return fs === schema || ts === schema
       }).length
       const dims = (model.dimensions ?? []).filter(
@@ -458,8 +458,8 @@ export default function Modeling() {
   const highlightedColumns = useMemo(() => {
     const out = new Map<string, Set<string>>()
     for (const j of (model?.joins ?? []).filter((jj) => jj.is_active !== false)) {
-      const fk = tableKey(j.from_schema || model?.base_schema || '', j.from_table)
-      const tk = tableKey(j.to_schema || model?.base_schema || '', j.to_table)
+      const fk = tableKey(j.from_schema ?? model?.base_schema ?? '', j.from_table)
+      const tk = tableKey(j.to_schema ?? model?.base_schema ?? '', j.to_table)
       if (!out.has(fk)) {
         out.set(fk, new Set())
       }
@@ -551,7 +551,7 @@ export default function Modeling() {
     if (!model) {
       return
     }
-    const name = model.label || model.name
+    const name = model.label ?? model.name
     const ok = await confirm({
       title: t('modeling.confirm_delete_model_title'),
       message: t('modeling.confirm_delete_model_body', { name }),
@@ -764,8 +764,8 @@ export default function Modeling() {
       return null
     }
     return new Set([
-      tableKey(join.from_schema || model?.base_schema || '', join.from_table),
-      tableKey(join.to_schema || model?.base_schema || '', join.to_table),
+      tableKey(join.from_schema ?? model?.base_schema ?? '', join.from_table),
+      tableKey(join.to_schema ?? model?.base_schema ?? '', join.to_table),
     ])
   }, [highlightJoinId, joins, model])
 
@@ -779,11 +779,11 @@ export default function Modeling() {
     }
     return {
       from:
-        tableKey(join.from_schema || model?.base_schema || '', join.from_table) +
+        tableKey(join.from_schema ?? model?.base_schema ?? '', join.from_table) +
         '::' +
         join.from_column,
       to:
-        tableKey(join.to_schema || model?.base_schema || '', join.to_table) + '::' + join.to_column,
+        tableKey(join.to_schema ?? model?.base_schema ?? '', join.to_table) + '::' + join.to_column,
     }
   }, [highlightJoinId, joins, model])
 
@@ -817,7 +817,7 @@ export default function Modeling() {
               models.length === 0 ? t('modeling.no_models') : t('modeling.model_placeholder')
             }
             header={t('modeling.model_header')}
-            options={models.map((m) => ({ value: m.id, label: m.label || m.name, hint: m.status }))}
+            options={models.map((m) => ({ value: m.id, label: m.label ?? m.name, hint: m.status }))}
           />
         </div>
         <div className="modeling-toolbar-actions">
@@ -870,7 +870,7 @@ export default function Modeling() {
       {isLocked ? (
         <LockedState
           datasourceId={datasourceId}
-          datasourceName={datasources.find((d) => d.id === datasourceId)?.name || dsParam}
+          datasourceName={datasources.find((d) => d.id === datasourceId)?.name ?? dsParam}
         />
       ) : (
         <>
@@ -1018,7 +1018,7 @@ export default function Modeling() {
           model={model}
           includedTables={includedTables}
           columns={columns}
-          metric={editingMetric || undefined}
+          metric={editingMetric ?? undefined}
           onClose={() => {
             setAddMetricOpen(false)
             setEditingMetric(null)

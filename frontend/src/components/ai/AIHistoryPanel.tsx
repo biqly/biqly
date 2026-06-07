@@ -204,7 +204,7 @@ export function AIHistoryPanel() {
                                 className="ai-history__mono"
                                 style={{ ...tdStyle, fontFamily: 'var(--font-mono, monospace)' }}
                               >
-                                {entry.model_used || '—'}
+                                {entry.model_used ?? '—'}
                               </td>
                               <td style={tdStyle}>
                                 {entry.latency_ms != null ? `${entry.latency_ms}ms` : '—'}

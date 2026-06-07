@@ -1,7 +1,11 @@
 import { useState } from 'react'
 
 import { apiPasskeyRegisterBegin, apiPasskeyRegisterFinish } from '../api/auth'
-import { base64urlToBuffer, bufferToBase64url } from '../utils/webauthn'
+import {
+  base64urlToBuffer,
+  bufferToBase64url,
+  type PasskeyCreationOptionsJSON,
+} from '../utils/webauthn'
 
 export function usePasskeyRegistration(accessToken: string) {
   const [registering, setRegistering] = useState(false)
@@ -23,24 +27,35 @@ export function usePasskeyRegistration(accessToken: string) {
     try {
       // 1. Begin Registration on Backend
       const beginResp = await apiPasskeyRegisterBegin(accessToken)
-      const publicKeyOptions = beginResp.publicKey || beginResp
+      const publicKeyOptions = (beginResp.publicKey ?? beginResp) as PasskeyCreationOptionsJSON
 
-      if (!publicKeyOptions) {
+      if (
+        !publicKeyOptions?.challenge ||
+        !publicKeyOptions.user?.id ||
+        !publicKeyOptions.rp ||
+        !publicKeyOptions.pubKeyCredParams
+      ) {
         throw new Error('Invalid options from server')
       }
 
-      // Convert challenge, user id, and excluded credentials IDs to ArrayBuffer
       const options: CredentialCreationOptions = {
         publicKey: {
-          ...publicKeyOptions,
+          rp: publicKeyOptions.rp,
+          pubKeyCredParams: publicKeyOptions.pubKeyCredParams,
           challenge: base64urlToBuffer(publicKeyOptions.challenge),
           user: {
-            ...publicKeyOptions.user,
             id: base64urlToBuffer(publicKeyOptions.user.id),
+            name: publicKeyOptions.user.name ?? 'user',
+            displayName:
+              publicKeyOptions.user.displayName ?? publicKeyOptions.user.name ?? 'Passkey',
           },
-          excludeCredentials: publicKeyOptions.excludeCredentials?.map((cred: any) => ({
-            ...cred,
+          timeout: publicKeyOptions.timeout,
+          authenticatorSelection: publicKeyOptions.authenticatorSelection,
+          attestation: publicKeyOptions.attestation,
+          excludeCredentials: publicKeyOptions.excludeCredentials?.map((cred) => ({
+            type: cred.type ?? 'public-key',
             id: base64urlToBuffer(cred.id),
+            transports: cred.transports,
           })),
         },
       }
@@ -71,7 +86,7 @@ export function usePasskeyRegistration(accessToken: string) {
     } catch (err: unknown) {
       const errorObject = err as Record<string, any>
       if (errorObject?.name !== 'NotAllowedError') {
-        setError(errorObject?.message || 'Passkey registration failed')
+        setError(errorObject?.message ?? 'Passkey registration failed')
       }
       return false
     } finally {

@@ -1,3 +1,4 @@
+import type { TFunction } from '../../i18n'
 import type { EvalRunDetail, EvalRunSummary } from '../../types/ai'
 import { getRateColor } from '../../utils/formatters'
 import { KPICard } from '../ui/KPICard'
@@ -8,7 +9,7 @@ interface EvalHistoryTabProps {
   setSelectedRun: (r: EvalRunDetail | null) => void
   loadRunDetail: (id: string) => void
   localeTag: string
-  t: any
+  t: TFunction
 }
 
 export function EvalHistoryTab({

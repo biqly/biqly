@@ -9,6 +9,7 @@ import { Cell } from 'recharts/es6/component/Cell'
 import { ResponsiveContainer } from 'recharts/es6/component/ResponsiveContainer'
 import { Tooltip as RechartsTooltip } from 'recharts/es6/component/Tooltip'
 import { Pie } from 'recharts/es6/polar/Pie'
+import type { TFunction } from '../../i18n'
 
 import {
   chartAxisStroke,
@@ -44,7 +45,7 @@ interface EvalRunTabProps {
   } | null
   pieData: { name: string; value: number; fill: string }[]
   trendData: any[]
-  t: any
+  t: TFunction
 }
 
 function DiffView({
@@ -70,7 +71,7 @@ function DiffView({
   )
 }
 
-function TestCaseRow({ tc, t }: { tc: EvalTestCase; t: any }) {
+function TestCaseRow({ tc, t }: { tc: EvalTestCase; t: TFunction }) {
   const [open, setOpen] = useState(false)
   const isFail = tc.status === 'fail'
 
@@ -218,9 +219,9 @@ export function EvalRunTab({
               <thead>
                 <tr>
                   <th style={{ width: '80px' }}>ID</th>
-                  <th>{t('evaluation.table_col_question')}</th>
-                  <th style={{ width: '100px' }}>{t('evaluation.table_col_status')}</th>
-                  <th style={{ width: '110px' }}>{t('evaluation.table_col_confidence')}</th>
+                  <th>{t('evaluation.col_question')}</th>
+                  <th style={{ width: '100px' }}>{t('evaluation.col_status')}</th>
+                  <th style={{ width: '110px' }}>{t('evaluation.col_confidence')}</th>
                   <th style={{ width: '140px' }}></th>
                 </tr>
               </thead>

@@ -183,7 +183,7 @@ export function MetadataDescribeModal({
                   </div>
                 </div>
               </div>
-              <ErrorAlert error={error || apiError} />
+              <ErrorAlert error={error ?? apiError} />
               <div className="modal-actions">
                 <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
                   {t('metadata.bulk_cancel')}

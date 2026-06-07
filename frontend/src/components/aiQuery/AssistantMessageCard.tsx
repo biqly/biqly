@@ -374,7 +374,7 @@ export function AssistantMessageCard({
             )
             .map((s, i) => (
               <span key={i} className="wf-badge">
-                {t('ai_query.window_fn_badge', { name: s.window?.aggregation || s.name })}
+                {t('ai_query.window_fn_badge', { name: s.window?.aggregation ?? s.name })}
               </span>
             ))}
         </div>

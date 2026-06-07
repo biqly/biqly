@@ -129,7 +129,7 @@ export default function Composites() {
   const modelNames = useMemo(() => {
     const m: Record<string, string> = {}
     for (const model of models) {
-      m[model.id] = model.label || model.name
+      m[model.id] = model.label ?? model.name
     }
     return m
   }, [models])
@@ -365,7 +365,7 @@ export default function Composites() {
                     className="composites-list-btn"
                     onClick={() => setSelectedId(c.id)}
                   >
-                    <span className="composite-name">{c.label || c.name}</span>
+                    <span className="composite-name">{c.label ?? c.name}</span>
                     <span className={`composite-status status-${c.status}`}>{c.status}</span>
                   </button>
                   <button
@@ -391,7 +391,7 @@ export default function Composites() {
             <>
               <div className="composite-detail-head">
                 <div>
-                  <h2>{detail.label || detail.name}</h2>
+                  <h2>{detail.label ?? detail.name}</h2>
                   {detail.description && <p>{detail.description}</p>}
                   <span className={`composite-status status-${detail.status}`}>
                     {detail.status} · v{detail.version}
@@ -487,7 +487,7 @@ export default function Composites() {
                     }}
                     options={availableModels.map((m) => ({
                       value: m.id,
-                      label: m.label || m.name,
+                      label: m.label ?? m.name,
                     }))}
                     placeholder={t('composites.model_select')}
                   />

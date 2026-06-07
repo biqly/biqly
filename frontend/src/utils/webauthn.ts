@@ -1,3 +1,28 @@
+/** Base64url credential descriptor from Biqly auth API (before buffer conversion). */
+export interface WebAuthnCredentialDescriptorJSON {
+  id: string
+  type?: PublicKeyCredentialType
+  transports?: AuthenticatorTransport[]
+}
+
+export interface PasskeyRequestOptionsJSON {
+  challenge: string
+  allowCredentials?: WebAuthnCredentialDescriptorJSON[]
+  excludeCredentials?: WebAuthnCredentialDescriptorJSON[]
+  timeout?: number
+  rpId?: string
+  userVerification?: UserVerificationRequirement
+  user?: { id: string; name?: string; displayName?: string }
+}
+
+/** Registration begin payload from auth API (base64url fields before buffer conversion). */
+export interface PasskeyCreationOptionsJSON extends PasskeyRequestOptionsJSON {
+  rp: PublicKeyCredentialRpEntity
+  pubKeyCredParams: PublicKeyCredentialParameters[]
+  authenticatorSelection?: AuthenticatorSelectionCriteria
+  attestation?: AttestationConveyancePreference
+}
+
 export function bufferToBase64url(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer)
   let binary = ''

@@ -45,7 +45,7 @@ export function AddMetricModal({
   t,
 }: AddMetricModalProps) {
   const [name, setName] = useState(metric ? metric.name : '')
-  const [label, setLabel] = useState(metric ? metric.label || '' : '')
+  const [label, setLabel] = useState(metric ? (metric.label ?? '') : '')
   const [mode, setMode] = useState<'simple' | 'custom'>(
     metric ? (metric.aggregation === 'custom' ? 'custom' : 'simple') : 'simple',
   )
@@ -57,14 +57,14 @@ export function AddMetricModal({
   let initialTable: string = model.base_table
   let initialColumn = ''
   if (parts.length === 3) {
-    initialSchema = parts[0] || model.base_schema
-    initialTable = parts[1] || model.base_table
-    initialColumn = parts[2] || ''
+    initialSchema = parts[0] ?? model.base_schema
+    initialTable = parts[1] ?? model.base_table
+    initialColumn = parts[2] ?? ''
   } else if (parts.length === 2) {
-    initialTable = parts[0] || model.base_table
-    initialColumn = parts[1] || ''
+    initialTable = parts[0] ?? model.base_table
+    initialColumn = parts[1] ?? ''
   } else if (parts.length === 1) {
-    initialColumn = parts[0] || ''
+    initialColumn = parts[0] ?? ''
   }
 
   const [selectedSchema, setSelectedSchema] = useState(initialSchema)
@@ -73,7 +73,7 @@ export function AddMetricModal({
   const [selectedAggregation, setSelectedAggregation] = useState<
     'count' | 'sum' | 'avg' | 'min' | 'max' | 'count_distinct'
   >(metric && metric.aggregation !== 'custom' ? (metric.aggregation as any) : 'sum')
-  const [format, setFormat] = useState(metric ? metric.format || '' : '')
+  const [format, setFormat] = useState(metric ? (metric.format ?? '') : '')
 
   // Custom Mode state
   const [expression, setExpression] = useState(metric ? metric.expression : '')
@@ -88,8 +88,8 @@ export function AddMetricModal({
       keys.add(`${model.base_schema}.${model.base_table}`)
       ;(model.joins ?? []).forEach((j) => {
         if (j.is_active !== false) {
-          keys.add(`${j.from_schema || model.base_schema}.${j.from_table}`)
-          keys.add(`${j.to_schema || model.base_schema}.${j.to_table}`)
+          keys.add(`${j.from_schema ?? model.base_schema}.${j.from_table}`)
+          keys.add(`${j.to_schema ?? model.base_schema}.${j.to_table}`)
         }
       })
     }
@@ -314,7 +314,7 @@ export function AddMetricModal({
                   disabled={saving}
                   options={availableTables.map((tbl) => ({
                     value: tbl.table_name,
-                    label: tbl.label || tbl.table_name,
+                    label: tbl.label ?? tbl.table_name,
                   }))}
                 />
               </div>

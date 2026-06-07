@@ -242,9 +242,9 @@ export function AIProvidersPanel() {
                         <>
                           <div
                             className="admin-ai-purpose-card__model"
-                            title={modelHint || modelLabel}
+                            title={modelHint ?? modelLabel}
                           >
-                            {modelLabel || modelHint || '—'}
+                            {modelLabel ?? modelHint ?? '—'}
                           </div>
                           {modelHint && modelHint !== modelLabel && (
                             <div className="admin-ai-purpose-card__hint">

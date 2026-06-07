@@ -16,6 +16,6 @@ export function rowsToChartData(rows: any[][] | undefined) {
         }
       }
       return obj
-    }) || []
+    }) ?? []
   )
 }

@@ -79,7 +79,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
       setDatasources(ds)
       setRoles(rRes.roles)
       setEditName(ws.name)
-      setEditDesc(ws.description || '')
+      setEditDesc(ws.description ?? '')
       setEditMFARequired(ws.mfa_required)
       setError(null)
     } catch (e) {

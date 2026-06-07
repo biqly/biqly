@@ -83,7 +83,7 @@ export default function FewShotExamples() {
           // Fallback to offline local storage
           try {
             let local = JSON.parse(
-              localStorage.getItem('biqly_fewshot') || '[]',
+              localStorage.getItem('biqly_fewshot') ?? '[]',
             ) as FewShotExample[]
             if (selectedDatasourceId) {
               local = local.filter((ex) => ex.datasource_id === selectedDatasourceId)
@@ -149,7 +149,7 @@ export default function FewShotExamples() {
     setFormTags(ex.tags.join(', '))
     setFormDialect(ex.dialect)
     setFormDatasourceId(ex.datasource_id)
-    setFormModelId(ex.model_id || '')
+    setFormModelId(ex.model_id ?? '')
     setFormError(null)
     setShowForm(true)
     setSidebarSearch('')
@@ -318,7 +318,7 @@ export default function FewShotExamples() {
   }, [activeModelDetail, sidebarSearch])
 
   const getDatasourceName = (dsId: string) => {
-    return datasources.find((d) => d.id === dsId)?.name || dsId
+    return datasources.find((d) => d.id === dsId)?.name ?? dsId
   }
 
   const getModelName = (modelId: string | undefined) => {
@@ -326,7 +326,7 @@ export default function FewShotExamples() {
       return t('few_shot.option_raw_tables')
     }
     const m = allModels.find((model) => model.id === modelId)
-    return m ? m.label || m.name : modelId
+    return m ? (m.label ?? m.name) : modelId
   }
 
   if (initLoading && examples.length === 0) {
@@ -377,7 +377,7 @@ export default function FewShotExamples() {
                 options={[
                   { value: '', label: t('few_shot.option_all_models') },
                   { value: 'raw_tables', label: t('few_shot.option_raw_tables') },
-                  ...filterModels.map((m) => ({ value: m.id, label: m.label || m.name })),
+                  ...filterModels.map((m) => ({ value: m.id, label: m.label ?? m.name })),
                 ]}
                 onChange={setSelectedModelId}
               />
@@ -498,7 +498,7 @@ export default function FewShotExamples() {
                       onChange={setFormModelId}
                       options={[
                         { value: '', label: t('few_shot.option_raw_tables') },
-                        ...formModels.map((m) => ({ value: m.id, label: m.label || m.name })),
+                        ...formModels.map((m) => ({ value: m.id, label: m.label ?? m.name })),
                       ]}
                     />
                   </div>
@@ -582,7 +582,7 @@ export default function FewShotExamples() {
                           type="button"
                           className="field-badge-btn"
                           onClick={() => handleInsertField(d.name)}
-                          title={d.description || d.label || d.name}
+                          title={d.description ?? d.label ?? d.name}
                         >
                           <span>{d.name}</span>
                           <span className="field-badge-btn__type">dim</span>
@@ -594,7 +594,7 @@ export default function FewShotExamples() {
                           type="button"
                           className="field-badge-btn"
                           onClick={() => handleInsertField(m.name)}
-                          title={m.description || m.label || m.name}
+                          title={m.description ?? m.label ?? m.name}
                         >
                           <span>{m.name}</span>
                           <span className="field-badge-btn__type">met</span>

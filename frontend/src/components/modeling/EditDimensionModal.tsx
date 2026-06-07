@@ -33,7 +33,7 @@ export function EditDimensionModal({
   putData,
   t,
 }: EditDimensionModalProps) {
-  const [label, setLabel] = useState(dimension.label || '')
+  const [label, setLabel] = useState(dimension.label ?? '')
   const [type, setType] = useState(dimension.type)
   const [sourceMode, setSourceMode] = useState<'column' | 'calculated'>(
     dimension.calculated_expression ? 'calculated' : 'column',
@@ -46,14 +46,14 @@ export function EditDimensionModal({
   let initialTable: string = model.base_table
   let initialColumn = ''
   if (parts.length === 3) {
-    initialSchema = parts[0] || model.base_schema
-    initialTable = parts[1] || model.base_table
-    initialColumn = parts[2] || ''
+    initialSchema = parts[0] ?? model.base_schema
+    initialTable = parts[1] ?? model.base_table
+    initialColumn = parts[2] ?? ''
   } else if (parts.length === 2) {
-    initialTable = parts[0] || model.base_table
-    initialColumn = parts[1] || ''
+    initialTable = parts[0] ?? model.base_table
+    initialColumn = parts[1] ?? ''
   } else if (parts.length === 1) {
-    initialColumn = parts[0] || ''
+    initialColumn = parts[0] ?? ''
   }
 
   const [selectedSchema, setSelectedSchema] = useState(initialSchema)
@@ -62,7 +62,7 @@ export function EditDimensionModal({
 
   // Calculated expression fields
   const [calculatedExpression, setCalculatedExpression] = useState(
-    dimension.calculated_expression || '',
+    dimension.calculated_expression ?? '',
   )
   const [calculatedExpr, setCalculatedExpr] = useState<SemanticExprNode | undefined>(
     dimension.calculated_expr,
@@ -74,8 +74,8 @@ export function EditDimensionModal({
       keys.add(`${model.base_schema}.${model.base_table}`)
       ;(model.joins ?? []).forEach((j) => {
         if (j.is_active !== false) {
-          keys.add(`${j.from_schema || model.base_schema}.${j.from_table}`)
-          keys.add(`${j.to_schema || model.base_schema}.${j.to_table}`)
+          keys.add(`${j.from_schema ?? model.base_schema}.${j.from_table}`)
+          keys.add(`${j.to_schema ?? model.base_schema}.${j.to_table}`)
         }
       })
     }
@@ -275,7 +275,7 @@ export function EditDimensionModal({
                   disabled={saving}
                   options={availableTables.map((tbl) => ({
                     value: tbl.table_name,
-                    label: tbl.label || tbl.table_name,
+                    label: tbl.label ?? tbl.table_name,
                   }))}
                 />
               </div>

@@ -4,7 +4,6 @@ import { useCallback, useMemo, useState } from 'react'
 
 import { jobQuestionPreview, type TrackedAIJob, useAIJobs } from '../hooks/useAIJobs'
 import { type TranslationKey, useT } from '../i18n'
-import type { AIJobKind } from '../types/ai'
 
 const PIPELINE_PHASES = [
   'queued',
@@ -140,7 +139,7 @@ function JobCard({
     <article className={`ai-job-card${active ? ' ai-job-card--active' : ''}`}>
       <header className="ai-job-card__head">
         <div className="ai-job-card__titles">
-          <strong className="ai-job-card__title">{job.questionPreview || kindLabel}</strong>
+          <strong className="ai-job-card__title">{job.questionPreview ?? kindLabel}</strong>
           <span className="ai-job-card__meta">
             {kindLabel} · {job.progress_pct}%
             {scopeLine ? ` · ${t('ai_jobs.scope_schemas', { schemas: scopeLine })}` : ''}
@@ -190,7 +189,7 @@ function JobCard({
           )}
           {job.status === 'cancelled' && (
             <p className="ai-job-card__cancelled">
-              {job.error_message || job.phase_message || t('ai_jobs.cancelled')}
+              {(job.error_message ?? job.phase_message) || t('ai_jobs.cancelled')}
             </p>
           )}
           {job.status === 'succeeded' && (
@@ -229,7 +228,7 @@ function StaleJobsPanel({
         {staleJobs.map((job) => (
           <li key={job.id} className="ai-job-panel__stale-item">
             <span>
-              {job.questionPreview || job.kind} · {job.status} · {job.progress_pct}%
+              {job.questionPreview ?? job.kind} · {job.status} · {job.progress_pct}%
             </span>
             <button
               type="button"

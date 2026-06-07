@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 
-import { localeLanguageTag } from '../../../i18n'
+import { localeLanguageTag, type TFunction } from '../../../i18n'
 import type { AuthUser } from '../../../types/auth'
 import { LoadingOverlay } from '../../ui/LoadingOverlay'
 import { Pagination } from '../../ui/Pagination'
@@ -23,7 +23,7 @@ interface ActiveUsersTabProps {
   totalItems: number
   pageSize: number
   locale: 'en' | 'tr'
-  t: any
+  t: TFunction
   loading?: boolean
 }
 
@@ -159,7 +159,7 @@ export function ActiveUsersTab({
                           </div>
                         </div>
                       </td>
-                      <td className="admin-td">{u.displayName || t('common.em_dash')}</td>
+                      <td className="admin-td">{u.displayName ?? t('common.em_dash')}</td>
                       <td className="admin-td">
                         <span
                           className={u.isActive ? 'admin-badge-active' : 'admin-badge-inactive'}
@@ -220,7 +220,7 @@ export function ActiveUsersTab({
                           </span>
                           <span className="admin-subtext">
                             {(u.passkeyCount ?? 0) > 0
-                              ? t('admin.users.passkeys_count', { count: u.passkeyCount })
+                              ? t('admin.users.passkeys_count', { count: u.passkeyCount ?? 0 })
                               : t('admin.users.passkeys_none')}
                           </span>
                         </div>
@@ -230,7 +230,7 @@ export function ActiveUsersTab({
                       </td>
                       <td className="admin-td" style={{ textAlign: 'right' }}>
                         <button
-                          onClick={() => onSelectUser(u.id, u.displayName?.trim() || u.email)}
+                          onClick={() => onSelectUser(u.id, u.displayName?.trim() ?? u.email)}
                           className="admin-btn-primary"
                         >
                           {t('admin.users.manage')}

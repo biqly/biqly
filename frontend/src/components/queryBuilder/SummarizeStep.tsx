@@ -1,3 +1,4 @@
+import type { TFunction } from '../../i18n'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
 import type { SelectItem } from './types'
@@ -16,7 +17,7 @@ interface SummarizeStepProps {
   onClear: () => void
   metricFieldOptions: (metrics: any[]) => any[]
   dimOptionsForGroupRow: (dims: any[], groupBy: string[], i: number) => any[]
-  t: any
+  t: TFunction
 }
 
 export function SummarizeStep({

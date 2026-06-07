@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Bar } from 'recharts/es6/cartesian/Bar'
 import { CartesianGrid } from 'recharts/es6/cartesian/CartesianGrid'
 import { Line } from 'recharts/es6/cartesian/Line'
@@ -7,7 +7,7 @@ import { YAxis } from 'recharts/es6/cartesian/YAxis'
 import { BarChart } from 'recharts/es6/chart/BarChart'
 import { LineChart } from 'recharts/es6/chart/LineChart'
 import { PieChart } from 'recharts/es6/chart/PieChart'
-import { Cell } from 'recharts/es6/component/Cell'
+
 // @ts-ignore
 import { Legend } from 'recharts/es6/component/Legend'
 import { ResponsiveContainer } from 'recharts/es6/component/ResponsiveContainer'
@@ -18,6 +18,7 @@ import { useApi } from '../hooks/useApi'
 import { useDatasources } from '../hooks/useDatasources'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useT } from '../i18n'
+import type { LogicalQuery, QueryResultPayload, SelectField } from '../types/ai'
 import { chartAxisStroke, chartGridStroke, chartTooltipStyle } from '../utils/chartConfig'
 import { chartColor } from '../utils/constants'
 import { ErrorAlert } from './ui/ErrorAlert'
@@ -32,7 +33,7 @@ interface Widget {
   w: number // column span (1-12)
   h: 'small' | 'medium' | 'large'
   saved_query_id?: string
-  logical_query?: any
+  logical_query?: LogicalQuery
   chart_type?: 'line' | 'bar' | 'pie'
   config?: {
     xAxisColumn?: string
@@ -59,7 +60,7 @@ interface SavedQuestion {
   id: string
   name: string
   question: string
-  logical_query: any
+  logical_query: LogicalQuery
   datasource_id: string
   model_id?: string
 }
@@ -128,13 +129,14 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
     const q = savedQuestions.find((item) => item.id === qId)
     if (q?.logical_query) {
       // Find columns referenced in select block
-      const selectItems = q.logical_query.select || []
-      const cols = selectItems.map((item: any) => item.alias || item.name)
+      const selectItems = q.logical_query.select ?? []
+      const cols = selectItems.map((item: SelectField) => item.alias ?? item.name)
       setAvailableColumns(cols)
       if (cols.length > 0) {
-        setXAxisColumn(cols[0])
-        setValueColumn(cols[0])
-        setYAxisColumns([cols[0]])
+        const firstCol = cols[0] ?? ''
+        setXAxisColumn(firstCol)
+        setValueColumn(firstCol)
+        setYAxisColumns([firstCol])
         setVisibleColumns(cols)
       } else {
         setXAxisColumn('')
@@ -186,8 +188,8 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
     setActiveConfigWidget(w)
     setConfigTitle(w.title)
     setConfigType(w.type)
-    setConfigChartType(w.chart_type || 'line')
-    setConfigContent(w.content || '')
+    setConfigChartType(w.chart_type ?? 'line')
+    setConfigContent(w.content ?? '')
     setConfigWidth(w.w || 6)
     setConfigHeight(w.h || 'medium')
 
@@ -196,18 +198,18 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
       const q = savedQuestions.find((item) => item.id === w.saved_query_id)
       if (w.logical_query?.datasource_id) {
         setSelDatasourceId(w.logical_query.datasource_id)
-        setSelModelId(w.logical_query.model_id || '')
+        setSelModelId(w.logical_query.model_id ?? '')
       }
       setSelQuestionId(w.saved_query_id)
 
-      const selectItems = w.logical_query?.select || []
-      const cols = selectItems.map((item: any) => item.alias || item.name)
+      const selectItems = w.logical_query?.select ?? []
+      const cols = selectItems.map((item: SelectField) => item.alias ?? item.name)
       setAvailableColumns(cols)
 
-      setXAxisColumn(w.config?.xAxisColumn || '')
-      setYAxisColumns(w.config?.yAxisColumns || [])
-      setValueColumn(w.config?.valueColumn || '')
-      setVisibleColumns(w.config?.visibleColumns || [])
+      setXAxisColumn(w.config?.xAxisColumn ?? '')
+      setYAxisColumns(w.config?.yAxisColumns ?? [])
+      setValueColumn(w.config?.valueColumn ?? '')
+      setVisibleColumns(w.config?.visibleColumns ?? [])
     } else {
       if (datasources.length > 0) {
         setSelDatasourceId(datasources[0]!.id)
@@ -708,7 +710,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                             }}
                             options={[
                               { value: '', label: 'All Models' },
-                              ...models.map((m) => ({ value: m.id, label: m.label || m.name })),
+                              ...models.map((m) => ({ value: m.id, label: m.label ?? m.name })),
                             ]}
                           />
                         </div>
@@ -915,10 +917,12 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
   )
 }
 
+type ChartRow = Record<string, unknown>
+
 function WidgetRenderer({ widget }: { widget: Widget }) {
   const { postData, loading, error } = useApi()
-  const [data, setData] = useState<any[] | null>(null)
-  const [columns, setColumns] = useState<any[]>([])
+  const [data, setData] = useState<ChartRow[] | null>(null)
+  const [columns, setColumns] = useState<QueryResultPayload['columns']>([])
 
   useEffect(() => {
     if (widget.type === 'text') {
@@ -931,12 +935,12 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
     }
 
     // Execute Saved logical_query
-    postData<any>('/api/query/run', widget.logical_query).then((res) => {
+    postData<QueryResultPayload>('/api/query/run', widget.logical_query).then((res) => {
       if (res?.rows && res.columns) {
         setColumns(res.columns)
-        const mapped = res.rows.map((row: any[]) => {
-          const obj: Record<string, any> = {}
-          res.columns.forEach((col: any, idx: number) => {
+        const mapped = res.rows.map((row) => {
+          const obj: ChartRow = {}
+          res.columns.forEach((col, idx) => {
             obj[col.name] = row[idx]
           })
           return obj
@@ -960,7 +964,7 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
           lineHeight: '1.5',
         }}
       >
-        {widget.content || <span style={{ color: 'var(--text-muted)' }}>Empty text widget.</span>}
+        {widget.content ?? <span style={{ color: 'var(--text-muted)' }}>Empty text widget.</span>}
       </div>
     )
   }
@@ -1042,18 +1046,21 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
   }
 
   if (widget.type === 'kpi') {
-    const valCol = widget.config?.valueColumn || columns[0]?.name
-    const val = data[0]?.[valCol] !== undefined ? data[0][valCol] : 'N/A'
-    let formattedVal = val
+    const valCol = widget.config?.valueColumn ?? columns[0]?.name ?? ''
+    const val = valCol && data[0]?.[valCol] !== undefined ? data[0][valCol] : 'N/A'
+    let formattedVal: string | number = 'N/A'
     if (typeof val === 'number') {
-      if (val % 1 !== 0) {
-        formattedVal = val.toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })
-      } else {
-        formattedVal = val.toLocaleString()
-      }
+      formattedVal =
+        val % 1 !== 0
+          ? val.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })
+          : val.toLocaleString()
+    } else if (val !== null && val !== undefined && typeof val !== 'object') {
+      formattedVal = String(val)
+    } else if (typeof val === 'object') {
+      formattedVal = JSON.stringify(val)
     }
     return (
       <div
@@ -1084,8 +1091,8 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
   }
 
   if (widget.type === 'chart') {
-    const xKey = widget.config?.xAxisColumn || columns[0]?.name
-    const yKeys = widget.config?.yAxisColumns || []
+    const xKey = widget.config?.xAxisColumn ?? columns[0]?.name
+    const yKeys = widget.config?.yAxisColumns ?? []
 
     if (!xKey || yKeys.length === 0) {
       return (
@@ -1107,9 +1114,10 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
 
     if (widget.chart_type === 'pie') {
       const pieKey = yKeys[0]
-      const pieData = data.map((row) => ({
-        name: row[xKey]?.toString() || 'Other',
+      const pieData = data.map((row, idx) => ({
+        name: String(row[xKey] ?? 'Other'),
         value: Number(row[pieKey!]) || 0,
+        fill: chartColor(idx),
       }))
 
       return (
@@ -1124,11 +1132,7 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
                 cy="50%"
                 outerRadius="80%"
                 label
-              >
-                {pieData.map((_, idx) => (
-                  <Cell key={idx} fill={chartColor(idx)} />
-                ))}
-              </Pie>
+              />
               <Tooltip contentStyle={chartTooltipStyle} />
               <Legend />
             </PieChart>
@@ -1176,7 +1180,7 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
   }
 
   if (widget.type === 'table') {
-    const showCols = widget.config?.visibleColumns || columns.map((col) => col.name)
+    const showCols = widget.config?.visibleColumns ?? columns.map((col) => col.name)
     if (showCols.length === 0) {
       return (
         <div
@@ -1212,11 +1216,13 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
               <tr key={idx}>
                 {showCols.map((col) => {
                   const val = row[col]
-                  let displayVal = val
+                  let displayVal: React.ReactNode
                   if (typeof val === 'object' && val !== null) {
                     displayVal = JSON.stringify(val)
                   } else if (val === null || val === undefined) {
                     displayVal = <em style={{ color: 'var(--text-muted)' }}>null</em>
+                  } else {
+                    displayVal = String(val)
                   }
                   return (
                     <td key={col} style={{ padding: '0.4rem 0.5rem' }}>

@@ -5,8 +5,8 @@ import type { SemanticDimension, SemanticJoin, SemanticMetric } from '../../type
 type Translate = (key: TranslationKey, params?: Record<string, string | number>) => string
 
 export function joinEdgeLabel(j: SemanticJoin, baseSchema?: string): string {
-  const fromS = j.from_schema?.trim() || baseSchema || ''
-  const toS = j.to_schema?.trim() || baseSchema || ''
+  const fromS = j.from_schema?.trim() ?? baseSchema ?? ''
+  const toS = j.to_schema?.trim() ?? baseSchema ?? ''
   const from = fromS
     ? `${fromS}.${j.from_table}.${j.from_column}`
     : `${j.from_table}.${j.from_column}`
@@ -16,8 +16,8 @@ export function joinEdgeLabel(j: SemanticJoin, baseSchema?: string): string {
 }
 
 export function isCrossSchemaJoin(j: SemanticJoin, baseSchema?: string): boolean {
-  const fromS = j.from_schema?.trim() || baseSchema || ''
-  const toS = j.to_schema?.trim() || baseSchema || ''
+  const fromS = j.from_schema?.trim() ?? baseSchema ?? ''
+  const toS = j.to_schema?.trim() ?? baseSchema ?? ''
   if (!fromS || !toS) {
     return false
   }

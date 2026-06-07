@@ -75,7 +75,7 @@ export default function Settings() {
     error: registrationError,
     setError: setRegistrationError,
     registerPasskey,
-  } = usePasskeyRegistration(accessToken || '')
+  } = usePasskeyRegistration(accessToken ?? '')
 
   useEffect(() => {
     if (registrationError) {
@@ -288,7 +288,7 @@ export default function Settings() {
 
   return (
     <div className="settings-page">
-      {(error || successMessage) && (
+      {(error ?? successMessage) && (
         <div className="settings-alerts">
           {error && (
             <div className="card-lead-margin" style={{ margin: 0 }}>

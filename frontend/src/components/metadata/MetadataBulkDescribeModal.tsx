@@ -195,7 +195,7 @@ export function MetadataBulkDescribeModal({
             <p className="bulk-modal-subtitle">{t('metadata.bulk_modal_subtitle')}</p>
             <ModelBadgeRow
               primaryLabel={t('metadata.describe_badge_label')}
-              primaryModel={describeModel || aiRuntime?.llm_model}
+              primaryModel={describeModel ?? aiRuntime?.llm_model}
               primaryNote={dbManaged ? activeDescribe?.provider_name : undefined}
               translationModel={
                 aiRuntime?.translation_enabled ? aiRuntime?.translation_model : undefined
@@ -423,7 +423,7 @@ export function MetadataBulkDescribeModal({
                         </td>
                         <td className="bulk-col-detail" style={{ color: 'var(--text-secondary)' }}>
                           <span className="bulk-col-detail-inner" title={e.message}>
-                            {e.message || (e.status === 'pending' ? t('common.em_dash') : '')}
+                            {e.message ?? (e.status === 'pending' ? t('common.em_dash') : '')}
                           </span>
                         </td>
                       </tr>

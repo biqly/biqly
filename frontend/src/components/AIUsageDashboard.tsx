@@ -232,7 +232,7 @@ function ModelSuccessRates({ models }: { models: ModelStats[] }) {
           <tbody>
             {models.map((m) => (
               <tr key={m.model_id}>
-                <td>{m.model_name || m.model_id}</td>
+                <td>{m.model_name ?? m.model_id}</td>
                 <td style={{ textAlign: 'right' }}>{m.total_queries}</td>
                 <td style={{ textAlign: 'right', color: 'var(--success)' }}>{m.success_count}</td>
                 <td style={{ textAlign: 'right', color: 'var(--error)' }}>{m.failure_count}</td>
@@ -264,7 +264,7 @@ function ModelSuccessRates({ models }: { models: ModelStats[] }) {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={models.map((m) => ({
-                name: m.model_name || m.model_id,
+                name: m.model_name ?? m.model_id,
                 success_rate: m.success_rate,
                 confidence: m.avg_confidence * 100,
               }))}

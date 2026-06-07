@@ -211,7 +211,7 @@ export function AccountProfileSection() {
     return null
   }
 
-  const initials = (user.displayName || user.email).slice(0, 2).toUpperCase()
+  const initials = (user.displayName ?? user.email).slice(0, 2).toUpperCase()
 
   return (
     <>

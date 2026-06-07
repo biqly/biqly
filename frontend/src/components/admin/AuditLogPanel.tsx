@@ -219,11 +219,11 @@ export function AuditLogPanel({ token }: { token: string }) {
                       </td>
                       <td className="admin-td-mono">
                         {entry.user_id
-                          ? userMap.get(entry.user_id) || entry.user_id
+                          ? (userMap.get(entry.user_id) ?? entry.user_id)
                           : t('admin.audit.system_user')}
                       </td>
                       <td className="admin-td-mono">{formatResource(entry, dsMap, wsMap)}</td>
-                      <td className="admin-td-mono">{entry.ip_address || '-'}</td>
+                      <td className="admin-td-mono">{entry.ip_address ?? '-'}</td>
                       <td className="admin-td-metadata">{formatMetadata(entry.metadata)}</td>
                     </tr>
                   ))}

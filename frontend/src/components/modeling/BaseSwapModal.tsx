@@ -47,7 +47,7 @@ export function BaseSwapModal({
               const key = `${tbl.schema_name}.${tbl.table_name}`
               return {
                 value: key,
-                label: `${tbl.label || tbl.table_name} — ${tbl.schema_name}.${tbl.table_name}`,
+                label: `${tbl.label ?? tbl.table_name} — ${tbl.schema_name}.${tbl.table_name}`,
               }
             })}
           />

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 
-import { localeLanguageTag } from '../../../i18n'
+import { localeLanguageTag, type TFunction } from '../../../i18n'
 import type { Invitation } from '../../../types/auth'
 import { LoadingOverlay } from '../../ui/LoadingOverlay'
 import { Pagination } from '../../ui/Pagination'
@@ -24,7 +24,7 @@ interface InvitationsTabProps {
   inviteTotalItems: number
   pageSize: number
   locale: 'en' | 'tr'
-  t: any
+  t: TFunction
 }
 
 export function InvitationsTab({

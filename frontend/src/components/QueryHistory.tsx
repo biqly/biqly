@@ -135,7 +135,7 @@ export default function QueryHistory() {
   }, [datasources])
 
   const modelMap = useMemo(() => {
-    return new Map(models.map((m) => [m.id, m.label || m.name]))
+    return new Map(models.map((m) => [m.id, m.label ?? m.name]))
   }, [models])
 
   const toggleDetail = (id: string) => {
@@ -199,7 +199,7 @@ export default function QueryHistory() {
               value={selectedModelId}
               options={[
                 { value: '', label: t('glossary.option_all_models') },
-                ...filteredModels.map((m) => ({ value: m.id, label: m.label || m.name })),
+                ...filteredModels.map((m) => ({ value: m.id, label: m.label ?? m.name })),
               ]}
               onChange={setSelectedModelId}
             />
@@ -339,9 +339,9 @@ export default function QueryHistory() {
                         const badge = getStatusBadge(entry)
                         const isExpanded = expandedId === entry.id
                         const datasourceName =
-                          datasourceMap.get(entry.datasource_id) || entry.datasource_id
+                          datasourceMap.get(entry.datasource_id) ?? entry.datasource_id
                         const modelName = entry.model_id
-                          ? modelMap.get(entry.model_id) || entry.model_id
+                          ? (modelMap.get(entry.model_id) ?? entry.model_id)
                           : '—'
 
                         return (

@@ -1,3 +1,4 @@
+import type { TFunction } from '../../i18n'
 import type { Datasource } from '../../types/metadata'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import { Modal } from '../ui/Modal'
@@ -15,7 +16,7 @@ interface SavedQuestionFormModalProps {
   onChange: (patch: Partial<SavedQuestionFormState>) => void
   onClose: () => void
   onSave: () => void
-  t: any
+  t: TFunction
 }
 
 const DIALECTS = ['postgresql', 'mysql', 'sqlserver', 'clickhouse']
@@ -59,7 +60,7 @@ export function SavedQuestionFormModal({
             onChange={(val) => onChange({ modelId: val })}
             options={[
               { value: '', label: t('saved_questions.label_all_models') },
-              ...semanticModels.map((m) => ({ value: m.id, label: m.label || m.name })),
+              ...semanticModels.map((m) => ({ value: m.id, label: m.label ?? m.name })),
             ]}
           />
         </div>

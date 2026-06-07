@@ -136,13 +136,13 @@ export default function AIQuery() {
     let cancelled = false
     get<TableOption[]>(`/api/datasources/${datasourceId}/tables`).then((data) => {
       if (!cancelled) {
-        setTables(data || [])
+        setTables(data ?? [])
       }
     })
     get<CompositeModelSummary[]>(`/api/semantic/composites?datasource_id=${datasourceId}`).then(
       (data) => {
         if (!cancelled) {
-          setComposites((data || []).filter((c) => c.status === 'published'))
+          setComposites((data ?? []).filter((c) => c.status === 'published'))
         }
       },
     )
@@ -152,12 +152,12 @@ export default function AIQuery() {
   }, [datasourceId, get])
 
   const tableLabel = (table: TableOption) =>
-    table.label || `${table.schema_name}.${table.table_name}`
+    table.label ?? `${table.schema_name}.${table.table_name}`
 
   const tablesInTypeScope = useMemo(
     () =>
       tables.filter((table) => {
-        const typ = (table.table_type || '').toUpperCase()
+        const typ = (table.table_type ?? '').toUpperCase()
         if (typ === 'VIEW') {
           return includeViews
         }
@@ -177,7 +177,7 @@ export default function AIQuery() {
       }
       return (
         tableLabel(table).toLowerCase().includes(search) ||
-        (table.description || '').toLowerCase().includes(search)
+        (table.description ?? '').toLowerCase().includes(search)
       )
     })
   }, [tablesInTypeScope, tableSearch])
@@ -220,8 +220,8 @@ export default function AIQuery() {
 
   const semanticModelName = useMemo(
     () =>
-      semanticModels.find((m) => m.id === semanticModelId)?.label ||
-      semanticModels.find((m) => m.id === semanticModelId)?.name ||
+      semanticModels.find((m) => m.id === semanticModelId)?.label ??
+      semanticModels.find((m) => m.id === semanticModelId)?.name ??
       '',
     [semanticModels, semanticModelId],
   )

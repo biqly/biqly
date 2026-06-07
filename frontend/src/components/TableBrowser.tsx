@@ -565,7 +565,7 @@ export default function TableBrowser() {
       return
     }
 
-    const finalValue = finalChips.length > 1 ? JSON.stringify(finalChips) : finalChips[0] || ''
+    const finalValue = finalChips.length > 1 ? JSON.stringify(finalChips) : (finalChips[0] ?? '')
 
     if (editingFilterId) {
       setFilters((prev) =>
@@ -668,7 +668,7 @@ export default function TableBrowser() {
 
   const getDimensionLabel = (name: string) => {
     const dim = activeDimensions.find((d) => d.name === name)
-    return dim ? dim.label || dim.name : name
+    return dim ? (dim.label ?? dim.name) : name
   }
 
   const formatFilterValue = (value: string) => {
@@ -732,7 +732,7 @@ export default function TableBrowser() {
   const filterFieldOpts = useMemo(() => {
     return activeDimensions.map((d) => ({
       value: d.name,
-      label: d.label || d.name,
+      label: d.label ?? d.name,
     }))
   }, [activeDimensions])
 

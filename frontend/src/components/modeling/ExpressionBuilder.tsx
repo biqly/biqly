@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import type { LooseTFunction } from '../../i18n'
 import type {
   ColumnRow,
   SemanticExprNode,
@@ -63,7 +64,7 @@ interface ExpressionBuilderProps {
   initialNode?: SemanticExprNode
   initialText?: string
   onChange: (node: SemanticExprNode, textExpression: string) => void
-  t: (key: string, vars?: any) => string
+  t: LooseTFunction
 }
 
 export function ExpressionBuilder({
@@ -77,7 +78,7 @@ export function ExpressionBuilder({
   const [mode, setMode] = useState<'visual' | 'text'>('text')
   const [textInput, setTextInput] = useState(initialText)
   const [astNode, setAstNode] = useState<SemanticExprNode>(
-    initialNode || { type: 'literal', value: '' },
+    initialNode ?? { type: 'literal', value: '' },
   )
 
   const [compiledSQL, setCompiledSQL] = useState('')
@@ -90,8 +91,8 @@ export function ExpressionBuilder({
     keys.add(`${model.base_schema}.${model.base_table}`)
     ;(model.joins ?? []).forEach((j) => {
       if (j.is_active !== false) {
-        keys.add(`${j.from_schema || model.base_schema}.${j.from_table}`)
-        keys.add(`${j.to_schema || model.base_schema}.${j.to_table}`)
+        keys.add(`${j.from_schema ?? model.base_schema}.${j.from_table}`)
+        keys.add(`${j.to_schema ?? model.base_schema}.${j.to_table}`)
       }
     })
     return Array.from(keys).map((k) => {
@@ -129,15 +130,15 @@ export function ExpressionBuilder({
         })
         const data = await res.json()
         if (res.ok) {
-          setCompiledSQL(data.sql || '')
+          setCompiledSQL(data.sql ?? '')
           setErrorMsg(null)
           if (data.expr) {
             setAstNode(data.expr)
           }
           // Notify parent of latest valid state
-          onChange(data.expr || astNode, payload.expression || data.sql || '')
+          onChange(data.expr ?? astNode, payload.expression ?? data.sql ?? '')
         } else {
-          setErrorMsg(data.error || 'Failed to compile expression')
+          setErrorMsg(data.error ?? 'Failed to compile expression')
           setCompiledSQL('')
         }
       } catch (err: any) {
@@ -205,19 +206,19 @@ export function ExpressionBuilder({
           defaultValue = {
             type: 'column_ref',
             table: model.base_table,
-            column: modelColumns[0]?.column_name || '',
+            column: modelColumns[0]?.column_name ?? '',
           }
           break
         case 'metric_ref':
           defaultValue = {
             type: 'metric_ref',
-            name: modelMetrics[0]?.name || '',
+            name: modelMetrics[0]?.name ?? '',
           }
           break
         case 'dimension_ref':
           defaultValue = {
             type: 'dimension_ref',
-            name: modelDimensions[0]?.name || '',
+            name: modelDimensions[0]?.name ?? '',
           }
           break
         case 'binary':
@@ -269,20 +270,14 @@ export function ExpressionBuilder({
             value={node.type}
             onChange={(e) => handleTypeChange(e.target.value)}
           >
-            <option value="literal">{t('modeling.expr_literal', 'Literal (Constant)')}</option>
-            <option value="column_ref">{t('modeling.expr_column_ref', 'Table Column')}</option>
-            <option value="dimension_ref">
-              {t('modeling.expr_dimension_ref', 'Dimension Reference')}
-            </option>
-            <option value="metric_ref">{t('modeling.expr_metric_ref', 'Metric Reference')}</option>
-            <option value="binary">
-              {t('modeling.expr_binary', 'Math / Comparison Operator')}
-            </option>
-            <option value="unary">
-              {t('modeling.expr_unary', 'Unary Operator (NOT / Negate)')}
-            </option>
-            <option value="function_call">{t('modeling.expr_function', 'Function Call')}</option>
-            <option value="case">{t('modeling.expr_case', 'Case Expression (Conditional)')}</option>
+            <option value="literal">{t('modeling.expr_literal')}</option>
+            <option value="column_ref">{t('modeling.expr_column_ref')}</option>
+            <option value="dimension_ref">{t('modeling.expr_dimension_ref')}</option>
+            <option value="metric_ref">{t('modeling.expr_metric_ref')}</option>
+            <option value="binary">{t('modeling.expr_binary')}</option>
+            <option value="unary">{t('modeling.expr_unary')}</option>
+            <option value="function_call">{t('modeling.expr_function')}</option>
+            <option value="case">{t('modeling.expr_case')}</option>
           </select>
         </div>
 
@@ -292,7 +287,7 @@ export function ExpressionBuilder({
               <input
                 type="text"
                 className="input-text"
-                placeholder={t('modeling.expr_literal_val_placeholder', 'Enter value...')}
+                placeholder={t('modeling.expr_literal_val_placeholder')}
                 value={node.value !== null ? String(node.value) : ''}
                 onChange={(e) => {
                   const val = e.target.value
@@ -310,7 +305,7 @@ export function ExpressionBuilder({
             <div className="ast-column-editor">
               <select
                 className="ast-select"
-                value={node.table || ''}
+                value={node.table ?? ''}
                 onChange={(e) => {
                   onChangeNode({
                     ...node,
@@ -335,7 +330,7 @@ export function ExpressionBuilder({
                 }}
               >
                 {modelColumns
-                  .filter((c) => c.table_name === (node.table || model.base_table))
+                  .filter((c) => c.table_name === (node.table ?? model.base_table))
                   .map((c) => (
                     <option key={c.id} value={c.column_name}>
                       {c.column_name} ({c.data_type})
@@ -359,7 +354,7 @@ export function ExpressionBuilder({
               >
                 {modelDimensions.map((d) => (
                   <option key={d.id} value={d.name}>
-                    {d.label || d.name}
+                    {d.label ?? d.name}
                   </option>
                 ))}
               </select>
@@ -380,7 +375,7 @@ export function ExpressionBuilder({
               >
                 {modelMetrics.map((m) => (
                   <option key={m.id} value={m.name}>
-                    {m.label || m.name}
+                    {m.label ?? m.name}
                   </option>
                 ))}
               </select>
@@ -449,7 +444,7 @@ export function ExpressionBuilder({
                     const func = ALLOWED_FUNCTIONS.find((f) => f.name === e.target.value)
                     const argsCount = func ? (func.arity === -1 ? 1 : func.arity) : 1
                     const newArgs: SemanticExprNode[] = Array.from({ length: argsCount }).map(
-                      (_, i) => node.args?.[i] || { type: 'literal', value: '' },
+                      (_, i) => node.args?.[i] ?? { type: 'literal', value: '' },
                     )
                     onChangeNode({
                       type: 'function_call',
@@ -472,14 +467,14 @@ export function ExpressionBuilder({
                 </span>
               </div>
               <div className="ast-func-args">
-                {(node.args || []).map((arg, idx) => (
+                {(node.args ?? []).map((arg, idx) => (
                   <div key={idx} className="ast-func-arg-row">
                     <span className="ast-arg-label">Arg {idx + 1}:</span>
                     <div className="ast-sub-expr">
                       <ExpressionNodeBuilder
                         node={arg}
                         onChangeNode={(newArg) => {
-                          const updated = [...(node.args || [])]
+                          const updated = [...(node.args ?? [])]
                           updated[idx] = newArg
                           onChangeNode({ ...node, args: updated })
                         }}
@@ -509,11 +504,11 @@ export function ExpressionBuilder({
                     onClick={() => {
                       onChangeNode({
                         ...node,
-                        args: [...(node.args || []), { type: 'literal', value: '' }],
+                        args: [...(node.args ?? []), { type: 'literal', value: '' }],
                       })
                     }}
                   >
-                    + {t('modeling.expr_add_arg', 'Add Argument')}
+                    + {t('modeling.expr_add_arg')}
                   </button>
                 )}
               </div>
@@ -523,17 +518,17 @@ export function ExpressionBuilder({
           {node.type === 'case' && (
             <div className="ast-case-editor">
               <div className="ast-case-conditions">
-                {(node.conditions || []).map((cond, idx) => (
+                {(node.conditions ?? []).map((cond, idx) => (
                   <div key={idx} className="ast-case-cond-row">
                     <div className="ast-case-cond-block">
                       <span className="ast-case-label">WHEN</span>
                       <ExpressionNodeBuilder
                         node={cond.when}
                         onChangeNode={(when) => {
-                          const updated = [...(node.conditions || [])]
+                          const updated = [...(node.conditions ?? [])]
                           updated[idx] = {
                             when,
-                            then: updated[idx]?.then || { type: 'literal', value: '' },
+                            then: updated[idx]?.then ?? { type: 'literal', value: '' },
                           }
                           onChangeNode({ ...node, conditions: updated })
                         }}
@@ -544,9 +539,9 @@ export function ExpressionBuilder({
                       <ExpressionNodeBuilder
                         node={cond.then}
                         onChangeNode={(then) => {
-                          const updated = [...(node.conditions || [])]
+                          const updated = [...(node.conditions ?? [])]
                           updated[idx] = {
-                            when: updated[idx]?.when || { type: 'literal', value: '' },
+                            when: updated[idx]?.when ?? { type: 'literal', value: '' },
                             then,
                           }
                           onChangeNode({ ...node, conditions: updated })
@@ -576,7 +571,7 @@ export function ExpressionBuilder({
                     onChangeNode({
                       ...node,
                       conditions: [
-                        ...(node.conditions || []),
+                        ...(node.conditions ?? []),
                         {
                           when: { type: 'literal', value: true },
                           then: { type: 'literal', value: '' },
@@ -585,14 +580,14 @@ export function ExpressionBuilder({
                     })
                   }}
                 >
-                  + {t('modeling.expr_add_when', 'Add WHEN Condition')}
+                  + {t('modeling.expr_add_when')}
                 </button>
               </div>
 
               <div className="ast-case-else">
                 <span className="ast-case-label">ELSE</span>
                 <ExpressionNodeBuilder
-                  node={node.else || { type: 'literal', value: '' }}
+                  node={node.else ?? { type: 'literal', value: '' }}
                   onChangeNode={(elseNode) => onChangeNode({ ...node, else: elseNode })}
                 />
               </div>
@@ -611,14 +606,14 @@ export function ExpressionBuilder({
           className={`toggle-btn ${mode === 'text' ? 'active' : ''}`}
           onClick={toggleMode}
         >
-          {t('modeling.expr_mode_text', 'Advanced Text Mode')}
+          {t('modeling.expr_mode_text')}
         </button>
         <button
           type="button"
           className={`toggle-btn ${mode === 'visual' ? 'active' : ''}`}
           onClick={toggleMode}
         >
-          {t('modeling.expr_mode_visual', 'Visual Tree Mode')}
+          {t('modeling.expr_mode_visual')}
         </button>
       </div>
 
@@ -638,9 +633,7 @@ export function ExpressionBuilder({
               rows={4}
               disabled={loading}
             />
-            <div className="editor-intellisense-help">
-              {t('modeling.metric_intellisense_hint', 'Type [ or a letter for autocomplete')}
-            </div>
+            <div className="editor-intellisense-help">{t('modeling.metric_intellisense_hint')}</div>
           </div>
         )}
       </div>
@@ -648,9 +641,9 @@ export function ExpressionBuilder({
       {errorMsg && <div className="expression-builder-error">{errorMsg}</div>}
 
       <div className="expression-builder-preview">
-        <h4>{t('modeling.generated_sql', 'Generated SQL Preview')}</h4>
+        <h4>{t('modeling.generated_sql')}</h4>
         {loading ? (
-          <div className="preview-loading">{t('modeling.running', 'Compiling…')}</div>
+          <div className="preview-loading">{t('modeling.running')}</div>
         ) : (
           <code className="sql-preview-code">
             {compiledSQL || '-- Type an expression or build one visually to see SQL --'}

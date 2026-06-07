@@ -1,6 +1,7 @@
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
 import type { FilterRow } from './types'
+import type { TFunction } from '../../i18n'
 
 interface FilterStepProps {
   filters: FilterRow[]
@@ -9,7 +10,7 @@ interface FilterStepProps {
   removeFilter: (i: number) => void
   addFilter: () => void
   onClear: () => void
-  t: any
+  t: TFunction
 }
 
 export function FilterStep({

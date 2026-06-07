@@ -1,3 +1,4 @@
+import type { TFunction } from '../../i18n'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
 import type { SelectItem } from './types'
@@ -11,7 +12,7 @@ interface FieldsStepProps {
   addSelectItem: () => void
   dimFieldOptions: (dims: any[]) => any[]
   metricFieldOptions: (metrics: any[]) => any[]
-  t: any
+  t: TFunction
 }
 
 export function FieldsStep({

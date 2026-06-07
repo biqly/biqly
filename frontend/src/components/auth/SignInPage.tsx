@@ -10,7 +10,11 @@ import {
 } from '../../api/auth'
 import abiLogo from '../../assets/abi-logo.png'
 import { useT } from '../../i18n'
-import { base64urlToBuffer, bufferToBase64url } from '../../utils/webauthn'
+import {
+  base64urlToBuffer,
+  bufferToBase64url,
+  type PasskeyRequestOptionsJSON,
+} from '../../utils/webauthn'
 import { useAuth } from './AuthProvider'
 
 const FAILED_LOGIN_BACKOFFS_MS = [0, 1000, 2000, 4000, 8000]
@@ -124,7 +128,7 @@ export default function SignInPage() {
     try {
       const mfaResult = await login(email, password)
       if (mfaResult && mfaResult.mfaRequired) {
-        setMfaToken(mfaResult.mfaToken || '')
+        setMfaToken(mfaResult.mfaToken ?? '')
         setMfaRequired(true)
         return
       }
@@ -170,14 +174,15 @@ export default function SignInPage() {
     setError(null)
     try {
       const beginResp = await apiPasskeyLoginBegin()
-      const publicKeyOptions = beginResp.publicKey
+      const publicKeyOptions = beginResp.publicKey as PasskeyRequestOptionsJSON
 
       const options: CredentialRequestOptions = {
         publicKey: {
           ...publicKeyOptions,
           challenge: base64urlToBuffer(publicKeyOptions.challenge),
-          allowCredentials: publicKeyOptions.allowCredentials?.map((cred: any) => ({
+          allowCredentials: publicKeyOptions.allowCredentials?.map((cred) => ({
             ...cred,
+            type: cred.type ?? 'public-key',
             id: base64urlToBuffer(cred.id),
           })),
         },

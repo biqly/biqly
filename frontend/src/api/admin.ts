@@ -150,7 +150,7 @@ export async function listAuditLog(
     undefined,
     { token },
   )
-  return { entries: data?.entries || [], total: data?.total || 0 }
+  return { entries: data?.entries ?? [], total: data?.total ?? 0 }
 }
 
 // === Datasource access ===
@@ -587,7 +587,7 @@ export async function listShares(
     undefined,
     { token },
   )
-  return data || { shares: [], total: 0 }
+  return data ?? { shares: [], total: 0 }
 }
 
 export async function createShare(

@@ -397,7 +397,7 @@ export default function QueryBuilder() {
         {isLocked ? (
           <LockedState
             datasourceId={datasourceId}
-            datasourceName={datasources.find((d) => d.id === datasourceId)?.name || dsParam}
+            datasourceName={datasources.find((d) => d.id === datasourceId)?.name ?? dsParam}
           />
         ) : (
           <>
@@ -730,8 +730,8 @@ export default function QueryBuilder() {
             <div className="card-header-row card-header-row--spaced">
               <h2>
                 {t('query_builder.results_title', {
-                  rows: result.stats?.row_count || 0,
-                  ms: result.stats?.duration_ms || 0,
+                  rows: result.stats?.row_count ?? 0,
+                  ms: result.stats?.duration_ms ?? 0,
                 })}
               </h2>
               <ChartTypeSelector
@@ -750,8 +750,8 @@ export default function QueryBuilder() {
           ) : (
             <h2>
               {t('query_builder.results_title', {
-                rows: result.stats?.row_count || 0,
-                ms: result.stats?.duration_ms || 0,
+                rows: result.stats?.row_count ?? 0,
+                ms: result.stats?.duration_ms ?? 0,
               })}
             </h2>
           )}

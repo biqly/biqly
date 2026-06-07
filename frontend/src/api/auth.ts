@@ -308,8 +308,8 @@ export async function apiListInvitations(
   const query = new URLSearchParams({
     page: String(params.page),
     page_size: String(params.pageSize),
-    search: params.search || '',
-    status: params.status || 'all',
+    search: params.search ?? '',
+    status: params.status ?? 'all',
   })
   return apiFetch<{ invitations: Invitation[]; total: number }>(
     'GET',

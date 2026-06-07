@@ -119,9 +119,9 @@ function detectBrowserLocale(): Locale {
   if (typeof navigator === 'undefined') {
     return DEFAULT_LOCALE
   }
-  const candidates = [
+  const candidates: string[] = [
     navigator.language,
-    ...(Array.isArray(navigator.languages) ? navigator.languages : []),
+    ...(Array.isArray(navigator.languages) ? [...navigator.languages] : []),
   ]
   for (const raw of candidates) {
     if (!raw) {
@@ -205,6 +205,11 @@ interface I18nContextValue {
   t: (key: TranslationKey, params?: Record<string, string | number>) => string
   supported: readonly Locale[]
 }
+
+export type TFunction = I18nContextValue['t']
+
+/** For call sites with dynamic or not-yet-indexed translation keys. */
+export type LooseTFunction = (key: string, params?: Record<string, string | number>) => string
 
 const I18nContext = createContext<I18nContextValue | null>(null)
 

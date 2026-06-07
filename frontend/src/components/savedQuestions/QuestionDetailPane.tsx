@@ -3,6 +3,7 @@ import { EmptyState } from '../ui/EmptyState'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import type { SavedQuestion, SavedQuestionSemanticModel } from './types'
+import type { TFunction } from '../../i18n'
 
 interface QuestionDetailPaneProps {
   selectedQuestion: SavedQuestion | null
@@ -17,7 +18,7 @@ interface QuestionDetailPaneProps {
   onRun: (logicalQuery: Record<string, unknown>) => void
   onOpenEdit: (q: SavedQuestion) => void
   onDelete: (id: string) => void
-  t: any
+  t: TFunction
 }
 
 export function QuestionDetailPane({
@@ -52,7 +53,7 @@ export function QuestionDetailPane({
           >
             <strong>{t('saved_questions.label_select_model')}:</strong>
             <code>
-              {semanticModels.find((m) => m.id === selectedQuestion.model_id)?.label ||
+              {semanticModels.find((m) => m.id === selectedQuestion.model_id)?.label ??
                 selectedQuestion.model_id}
             </code>
           </span>

@@ -55,7 +55,7 @@ export function AIUsageAdminPanel() {
   const t = useT()
   const { get } = useApi()
   const { accessToken } = useAuth()
-  const { users, loading: lookupsLoading } = useAdminLookups(accessToken || '')
+  const { users, loading: lookupsLoading } = useAdminLookups(accessToken ?? '')
   const [days, setDays] = useState(30)
   const [totals, setTotals] = useState<AIUsageTotals | null>(null)
   const [rows, setRows] = useState<AIUsageBreakdownRow[]>([])
@@ -85,7 +85,7 @@ export function AIUsageAdminPanel() {
   const userLabelByID = useMemo(() => {
     const map = new Map<string, string>()
     for (const u of users) {
-      const label = u.displayName?.trim() || u.email?.trim() || u.id
+      const label = (u.displayName?.trim() ?? u.email?.trim()) || u.id
       map.set(u.id, label)
     }
     return map
@@ -260,7 +260,7 @@ export function AIUsageAdminPanel() {
               ) : (
                 pageRows.map((row) => {
                   const userLabel = row.user_id
-                    ? userLabelByID.get(row.user_id) || row.user_id
+                    ? (userLabelByID.get(row.user_id) ?? row.user_id)
                     : t('admin.ai_usage.anonymous')
                   const key = `${row.user_id}:${row.model_used}`
                   return (

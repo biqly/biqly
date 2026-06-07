@@ -1,5 +1,5 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
@@ -119,13 +119,13 @@ export default function Glossary() {
   const openEdit = (term: BusinessGlossaryTerm) => {
     setEditId(term.id)
     setFormTerm(term.term)
-    setFormDefinition(term.definition || '')
+    setFormDefinition(term.definition ?? '')
     setFormMapsToType(term.maps_to_type)
     setFormMapsToName(term.maps_to_name)
-    setFormAliases(term.aliases || [])
+    setFormAliases(term.aliases ?? [])
     setAliasInput('')
     setFormDatasourceId(term.datasource_id)
-    setFormModelId(term.model_id || '')
+    setFormModelId(term.model_id ?? '')
     setFormError(null)
     setShowForm(true)
     setSidebarSearch('')
@@ -182,7 +182,7 @@ export default function Glossary() {
         loadTerms()
         resetForm()
       } catch (err: any) {
-        setFormError(err.message || 'Failed to update glossary term')
+        setFormError(err.message ?? 'Failed to update glossary term')
       }
     } else {
       try {
@@ -194,7 +194,7 @@ export default function Glossary() {
         loadTerms()
         resetForm()
       } catch (err: any) {
-        setFormError(err.message || 'Failed to create glossary term')
+        setFormError(err.message ?? 'Failed to create glossary term')
       }
     }
   }
@@ -249,8 +249,8 @@ export default function Glossary() {
     return terms.filter((term) => {
       return (
         term.term.toLowerCase().includes(q) ||
-        term.definition?.toLowerCase().includes(q) ||
-        term.maps_to_name.toLowerCase().includes(q) ||
+        (term.definition?.toLowerCase().includes(q) ??
+          term.maps_to_name.toLowerCase().includes(q)) ||
         term.maps_to_type.toLowerCase().includes(q) ||
         term.aliases?.some((a) => a.toLowerCase().includes(q))
       )
@@ -287,7 +287,7 @@ export default function Glossary() {
   }, [activeModelDetail, sidebarSearch])
 
   const getDatasourceName = (dsId: string) => {
-    return datasources.find((d) => d.id === dsId)?.name || dsId
+    return datasources.find((d) => d.id === dsId)?.name ?? dsId
   }
 
   const getModelName = (modelId: string | undefined) => {
@@ -295,7 +295,7 @@ export default function Glossary() {
       return t('glossary.option_all_models')
     }
     const m = allModels.find((model) => model.id === modelId)
-    return m ? m.label || m.name : modelId
+    return m ? (m.label ?? m.name) : modelId
   }
 
   // Populate maps_to_name select options
@@ -304,12 +304,12 @@ export default function Glossary() {
       return []
     }
     if (formMapsToType === 'dimension') {
-      return (activeModelDetail.dimensions || [])
+      return (activeModelDetail.dimensions ?? [])
         .filter((d) => d.is_active !== false)
         .map((d) => ({ value: d.name, label: d.label ? `${d.name} (${d.label})` : d.name }))
     }
     if (formMapsToType === 'metric') {
-      return (activeModelDetail.metrics || [])
+      return (activeModelDetail.metrics ?? [])
         .filter((m) => m.is_active !== false)
         .map((m) => ({ value: m.name, label: m.label ? `${m.name} (${m.label})` : m.name }))
     }
@@ -367,7 +367,7 @@ export default function Glossary() {
               value={selectedModelId}
               options={[
                 { value: '', label: t('glossary.option_all_models') },
-                ...filterModels.map((m) => ({ value: m.id, label: m.label || m.name })),
+                ...filterModels.map((m) => ({ value: m.id, label: m.label ?? m.name })),
               ]}
               onChange={setSelectedModelId}
             />
@@ -412,7 +412,7 @@ export default function Glossary() {
                       }}
                       title={term.definition}
                     >
-                      {term.definition || (
+                      {term.definition ?? (
                         <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>—</span>
                       )}
                     </td>
@@ -533,7 +533,7 @@ export default function Glossary() {
                       }}
                       options={[
                         { value: '', label: t('glossary.option_all_models') },
-                        ...formModels.map((m) => ({ value: m.id, label: m.label || m.name })),
+                        ...formModels.map((m) => ({ value: m.id, label: m.label ?? m.name })),
                       ]}
                       disabled={!!editId}
                     />
@@ -696,8 +696,8 @@ export default function Glossary() {
                         className="field-badge-btn"
                         onClick={() => handleInsertField(activeModelDetail.name, 'model')}
                         title={
-                          activeModelDetail.description ||
-                          activeModelDetail.label ||
+                          activeModelDetail.description ??
+                          activeModelDetail.label ??
                           activeModelDetail.name
                         }
                       >
@@ -711,7 +711,7 @@ export default function Glossary() {
                           type="button"
                           className="field-badge-btn"
                           onClick={() => handleInsertField(d.name, 'dimension')}
-                          title={d.description || d.label || d.name}
+                          title={d.description ?? d.label ?? d.name}
                         >
                           <span>{d.name}</span>
                           <span className="field-badge-btn__type">dim</span>
@@ -724,7 +724,7 @@ export default function Glossary() {
                           type="button"
                           className="field-badge-btn"
                           onClick={() => handleInsertField(m.name, 'metric')}
-                          title={m.description || m.label || m.name}
+                          title={m.description ?? m.label ?? m.name}
                         >
                           <span>{m.name}</span>
                           <span className="field-badge-btn__type">met</span>

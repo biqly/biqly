@@ -66,7 +66,7 @@ export function shareUserSelectOptions(users: AuthUser[], loading?: boolean): Se
   return users.map((u) => ({
     value: u.id,
     label: u.displayName ? `${u.displayName} · ${u.email}` : u.email,
-    hint: u.username || undefined,
+    hint: u.username ?? undefined,
   }))
 }
 

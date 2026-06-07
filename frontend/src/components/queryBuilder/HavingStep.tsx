@@ -1,6 +1,7 @@
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
 import type { HavingRow } from './types'
+import type { TFunction } from '../../i18n'
 
 interface HavingStepProps {
   having: HavingRow[]
@@ -9,7 +10,7 @@ interface HavingStepProps {
   removeHaving: (i: number) => void
   addHaving: () => void
   onClear: () => void
-  t: any
+  t: TFunction
 }
 
 export function HavingStep({

@@ -39,7 +39,7 @@ export async function csrfFetch(
   input: RequestInfo | URL,
   init: RequestInit = {},
 ): Promise<Response> {
-  const method = (init.method || 'GET').toUpperCase()
+  const method = (init.method ?? 'GET').toUpperCase()
   if (SAFE_METHODS.has(method)) {
     const response = await fetch(input, { ...init, credentials: init.credentials ?? 'same-origin' })
     captureCSRFTokenFromResponse(response)

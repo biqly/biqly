@@ -116,10 +116,10 @@ export default function SavedQuestions() {
     const params = new URLSearchParams(window.location.search)
     const isPrefill = params.get('prefill') === '1'
     if (isPrefill) {
-      const prefQuestion = params.get('question') || ''
-      const prefLq = params.get('logical_query') || ''
-      const prefDs = params.get('datasource_id') || ''
-      const prefModel = params.get('model_id') || ''
+      const prefQuestion = params.get('question') ?? ''
+      const prefLq = params.get('logical_query') ?? ''
+      const prefDs = params.get('datasource_id') ?? ''
+      const prefModel = params.get('model_id') ?? ''
 
       if (prefDs) {
         setDatasourceId(prefDs)
@@ -186,7 +186,7 @@ export default function SavedQuestions() {
         logical_query: q.logical_query,
         tags: q.tags,
         dialect: q.dialect,
-        locale: q.locale || '',
+        locale: q.locale ?? '',
         name: q.name,
         description: q.description,
         is_few_shot: updatedIsFewShot,
@@ -219,7 +219,7 @@ export default function SavedQuestions() {
         logical_query: q.logical_query,
         tags: q.tags,
         dialect: q.dialect,
-        locale: q.locale || '',
+        locale: q.locale ?? '',
         name: q.name,
         description: q.description,
         is_few_shot: q.is_few_shot,
@@ -274,14 +274,14 @@ export default function SavedQuestions() {
   const openEdit = (q: SavedQuestion) => {
     setForm({
       datasourceId: q.datasource_id,
-      modelId: q.model_id || '',
+      modelId: q.model_id ?? '',
       name: q.name,
       description: q.description,
       question: q.question,
       logicalQuery: JSON.stringify(q.logical_query, null, 2),
       tags: q.tags.join(', '),
       dialect: q.dialect,
-      locale: q.locale || '',
+      locale: q.locale ?? '',
       isFewShot: q.is_few_shot,
     })
     setFormError(null)
@@ -420,7 +420,7 @@ export default function SavedQuestions() {
                 { value: '', label: t('saved_questions.label_all_models') },
                 ...semanticModels.map((m) => ({
                   value: m.id,
-                  label: m.label || m.name,
+                  label: m.label ?? m.name,
                   hint: m.status,
                 })),
               ]}

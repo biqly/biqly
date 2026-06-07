@@ -78,7 +78,7 @@ export function useEntityActions({
     }
     openRename({
       kind: 'model',
-      current: model.label || model.name,
+      current: model.label ?? model.name,
       title: t('modeling.rename_model_title'),
       subtitle: model.name,
     })
@@ -87,7 +87,7 @@ export function useEntityActions({
   const renameTable = (table: TableRow) => {
     openRename({
       kind: 'table',
-      current: table.label || table.table_name,
+      current: table.label ?? table.table_name,
       table,
       title: t('modeling.rename_table_title'),
       subtitle: `${table.schema_name}.${table.table_name}`,
@@ -100,7 +100,7 @@ export function useEntityActions({
     }
     openRename({
       kind: 'dimension',
-      current: dimension.label || dimension.name,
+      current: dimension.label ?? dimension.name,
       dimension,
       title: t('modeling.rename_dimension_title'),
       subtitle: dimension.column_ref,
@@ -113,7 +113,7 @@ export function useEntityActions({
     }
     openRename({
       kind: 'metric',
-      current: metric.label || metric.name,
+      current: metric.label ?? metric.name,
       metric,
       title: t('modeling.rename_metric_title'),
       subtitle: `${metric.aggregation}(${metric.expression})`,
@@ -152,7 +152,7 @@ export function useEntityActions({
       title: t('modeling.confirm_delete_dimension_title'),
       message: dimension
         ? t('modeling.confirm_delete_dimension_body_named', {
-            name: dimension.label || dimension.name,
+            name: dimension.label ?? dimension.name,
           })
         : t('modeling.confirm_delete_dimension_body_generic'),
       variant: 'danger',
@@ -175,7 +175,7 @@ export function useEntityActions({
     const ok = await confirm({
       title: t('modeling.confirm_delete_metric_title'),
       message: metric
-        ? t('modeling.confirm_delete_metric_body_named', { name: metric.label || metric.name })
+        ? t('modeling.confirm_delete_metric_body_named', { name: metric.label ?? metric.name })
         : t('modeling.confirm_delete_metric_body_generic'),
       variant: 'danger',
       confirmLabel: t('common.delete'),

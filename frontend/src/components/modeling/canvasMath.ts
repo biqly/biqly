@@ -172,8 +172,8 @@ export function computeJoinPath(
   positions: Record<string, Pt>,
   cardLayouts: Map<string, CardLayout>,
 ): JoinPath | null {
-  const fromKey = tableKey(join.from_schema || baseSchema, join.from_table)
-  const toKey = tableKey(join.to_schema || baseSchema, join.to_table)
+  const fromKey = tableKey(join.from_schema ?? baseSchema, join.from_table)
+  const toKey = tableKey(join.to_schema ?? baseSchema, join.to_table)
   const fromPos = positions[fromKey]
   const toPos = positions[toKey]
   const fromLayout = cardLayouts.get(fromKey)

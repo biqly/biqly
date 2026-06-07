@@ -127,7 +127,7 @@ export default function Metadata() {
     }
     setTablesLoading(true)
     get<TableRow[]>(`/api/datasources/${datasourceId}/tables`, descriptionLocaleOpts)
-      .then((data) => setTables(data || []))
+      .then((data) => setTables(data ?? []))
       .finally(() => setTablesLoading(false))
     setOpenTableId(null)
     setColumns([])
@@ -181,7 +181,7 @@ export default function Metadata() {
     get<ColumnRow[]>(
       `/api/datasources/${datasourceId}/columns?schema=${encodeURIComponent(tab.schema_name)}&table=${encodeURIComponent(tab.table_name)}`,
       descriptionLocaleOpts,
-    ).then((data) => setColumns(data || []))
+    ).then((data) => setColumns(data ?? []))
   }, [datasourceId, openTableId, editLocale, descriptionLocaleOpts, get, tables])
 
   const activeDescribeBatchJob = useMemo(
@@ -210,7 +210,7 @@ export default function Metadata() {
       `/api/datasources/${datasourceId}/columns?schema=${encodeURIComponent(tab.schema_name)}&table=${encodeURIComponent(tab.table_name)}`,
       descriptionLocaleOpts,
     )
-    setColumns(data || [])
+    setColumns(data ?? [])
   }
 
   const saveDescription = async () => {
@@ -254,7 +254,7 @@ export default function Metadata() {
       get<ColumnRow[]>(
         `/api/datasources/${datasourceId}/columns?schema=${encodeURIComponent(row.schema_name)}&table=${encodeURIComponent(row.table_name)}`,
         descriptionLocaleOpts,
-      ).then((d) => setColumns(d || []))
+      ).then((d) => setColumns(d ?? []))
     }
   }
 

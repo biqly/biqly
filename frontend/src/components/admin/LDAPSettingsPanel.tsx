@@ -95,7 +95,7 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
       if (res.status === 'ok') {
         toast.success(t('admin.ldap.test_ok'))
       } else {
-        toast.error(t('admin.ldap.test_failed', { error: res.message || '' }))
+        toast.error(t('admin.ldap.test_failed', { error: res.message ?? '' }))
       }
     } catch (e) {
       toast.error(

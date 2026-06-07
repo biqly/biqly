@@ -252,7 +252,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
           waiter.settleError('Job succeeded without result')
         }
       } else if (job.status === 'failed') {
-        waiter.settleError(job.error_message || 'Job failed')
+        waiter.settleError(job.error_message ?? 'Job failed')
       } else if (job.status === 'cancelled') {
         waiter.settleError(job.phase_message || 'Job cancelled')
       }
@@ -603,7 +603,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
               schema: entry.schema,
               table: entry.table,
               status: 'skipped',
-              message: match.message || opts.skipExistingMessage,
+              message: match.message ?? opts.skipExistingMessage,
             }
             skipped++
           } else {
@@ -611,7 +611,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
               schema: entry.schema,
               table: entry.table,
               status: 'error',
-              message: match.message || opts.networkErrorMessage,
+              message: match.message ?? opts.networkErrorMessage,
             }
             errCount++
           }

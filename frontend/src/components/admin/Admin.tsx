@@ -14,10 +14,18 @@ import { LoadingScreen } from '../ui/LoadingScreen'
 import { AdminNav } from './AdminNav'
 import { type AdminTab, isAdminTab } from './adminNavConfig'
 
-const lazyWithPreload = <T extends ComponentType<any>>(factory: () => Promise<{ default: T }>) => {
-  const Component = lazy(factory) as any
+type PreloadableComponent<T extends ComponentType> = LazyExoticComponent<T> & {
+  preload: () => Promise<{ default: T }>
+}
+
+type AdminLazyPanel = PreloadableComponent<ComponentType<any>>
+
+const lazyWithPreload = <T extends ComponentType<any>>(
+  factory: () => Promise<{ default: T }>,
+): PreloadableComponent<T> => {
+  const Component = lazy(factory) as PreloadableComponent<T>
   Component.preload = factory
-  return Component as LazyExoticComponent<T> & { preload: () => Promise<{ default: T }> }
+  return Component
 }
 
 const RolesPanel = lazyWithPreload(() =>
@@ -71,7 +79,7 @@ const ABExperimentPanel = lazyWithPreload(() =>
 
 const pendingStyle: React.CSSProperties = { padding: 24 }
 
-const TAB_COMPONENTS: Record<AdminTab, any> = {
+const TAB_COMPONENTS: Record<AdminTab, AdminLazyPanel> = {
   users: UserListPage,
   roles: RolesPanel,
   datasource_access: DatasourceAccessPanel,
@@ -103,11 +111,8 @@ export default function Admin() {
   const selectedUserID = userIdParam || null
 
   const handleTabHover = (hoveredTab: AdminTab) => {
-    const comp = TAB_COMPONENTS[hoveredTab]
-    if (comp && typeof comp.preload === 'function') {
-      comp.preload()
-    }
-    if (hoveredTab === 'users' && typeof UserDetailPage.preload === 'function') {
+    TAB_COMPONENTS[hoveredTab].preload()
+    if (hoveredTab === 'users') {
       UserDetailPage.preload()
     }
   }
@@ -115,13 +120,9 @@ export default function Admin() {
   useEffect(() => {
     const timer = setTimeout(() => {
       Object.values(TAB_COMPONENTS).forEach((comp) => {
-        if (comp && typeof comp.preload === 'function') {
-          comp.preload()
-        }
+        comp.preload()
       })
-      if (typeof UserDetailPage.preload === 'function') {
-        UserDetailPage.preload()
-      }
+      UserDetailPage.preload()
     }, 1500)
     return () => clearTimeout(timer)
   }, [])

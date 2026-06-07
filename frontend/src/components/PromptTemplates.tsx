@@ -139,7 +139,7 @@ export default function PromptTemplates() {
         return
       }
 
-      const start = customStart !== undefined ? customStart : textarea.selectionStart
+      const start = customStart ?? textarea.selectionStart
       const end = textarea.selectionEnd
       const text = textarea.value
 

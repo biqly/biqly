@@ -92,7 +92,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
         }
         setPolicy(policyData)
         setDeniedFields(policyData.denied_fields || [])
-        setPIIPolicy(policyData.pii_policy || {})
+        setPIIPolicy(policyData.pii_policy ?? {})
         setPIIColumns(piiCols)
       } catch (err) {
         if (!cancelled) {
@@ -182,9 +182,9 @@ export function FieldPermissionPanel({ token }: { token: string }) {
       id: policy?.id,
       user_id: `role:${selectedRole}`,
       datasource_id: selectedDS,
-      allowed_models: policy?.allowed_models || [],
+      allowed_models: policy?.allowed_models ?? [],
       denied_fields: deniedFields,
-      row_filters: policy?.row_filters || [],
+      row_filters: policy?.row_filters ?? [],
       pii_policy: piiPolicy,
     }
 
@@ -193,7 +193,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
       const res = await upsertSecurityPolicy(token, policyToSave)
       setPolicy(res)
       setDeniedFields(res.denied_fields || [])
-      setPIIPolicy(res.pii_policy || {})
+      setPIIPolicy(res.pii_policy ?? {})
       setSaveSuccess(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -217,7 +217,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
   const piiKey = (col: PIIColumn) => `${col.schema}.${col.table}.${col.column}`
 
   const piiAccessFor = (col: PIIColumn): PIIAccessLevel | '' =>
-    piiPolicy[piiKey(col)]?.access || piiPolicy[`${col.table}.${col.column}`]?.access || ''
+    piiPolicy[piiKey(col)]?.access ?? piiPolicy[`${col.table}.${col.column}`]?.access ?? ''
 
   const handlePIIAccessChange = (col: PIIColumn, access: string) => {
     const key = piiKey(col)

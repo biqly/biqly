@@ -33,7 +33,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
   const canEdit = hasPermission('admin:roles')
   const hasRawPIIAccess =
     isSuperAdmin || roles.some((role) => ['admin', 'super_admin'].includes(role.toLowerCase()))
-  const reviewer = user?.email || 'admin'
+  const reviewer = user?.email ?? 'admin'
 
   const { datasources, loading: loadingDS } = useDatasources()
   const [selectedDS, setSelectedDS] = useState<string>('')
@@ -98,9 +98,9 @@ export function PIIDetectionPanel({ token }: { token: string }) {
   }
 
   const handleConfirm = async (col: PIIColumn) => {
-    const piiType = pendingType[col.column_id] || col.pii_type
+    const piiType = pendingType[col.column_id] ?? col.pii_type
     const maskingStrategy = normalizePIIMaskingStrategy(
-      pendingStrategy[col.column_id] || col.masking_strategy,
+      pendingStrategy[col.column_id] ?? col.masking_strategy,
     )
     setError(null)
     try {
@@ -198,7 +198,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
               <tbody>
                 {columns.map((col) => {
                   const selectedStrategy = normalizePIIMaskingStrategy(
-                    pendingStrategy[col.column_id] || col.masking_strategy,
+                    pendingStrategy[col.column_id] ?? col.masking_strategy,
                   )
                   const pendingPIIType = pendingType[col.column_id]
                   const typeChanged = pendingPIIType != null && pendingPIIType !== col.pii_type
@@ -223,7 +223,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
                       <td style={tdStyle}>
                         {canEdit && !col.reviewed_by ? (
                           <select
-                            value={pendingType[col.column_id] || col.pii_type}
+                            value={pendingType[col.column_id] ?? col.pii_type}
                             onChange={(e) =>
                               setPendingType((prev) => ({
                                 ...prev,

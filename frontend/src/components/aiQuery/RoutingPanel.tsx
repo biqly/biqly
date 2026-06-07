@@ -34,10 +34,10 @@ export function RoutingPanel({
   onRefreshEmbeddings,
 }: RoutingPanelProps) {
   const tableLabel = (table: (typeof tables)[number]) =>
-    table.label || `${table.schema_name}.${table.table_name}`
+    table.label ?? `${table.schema_name}.${table.table_name}`
 
   const tablesInTypeScope = tables.filter((table) => {
-    const typ = (table.table_type || '').toUpperCase()
+    const typ = (table.table_type ?? '').toUpperCase()
     if (typ === 'VIEW') {
       return includeViews
     }
@@ -55,7 +55,7 @@ export function RoutingPanel({
       }
       return (
         tableLabel(table).toLowerCase().includes(search) ||
-        (table.description || '').toLowerCase().includes(search)
+        (table.description ?? '').toLowerCase().includes(search)
       )
     })
   })()
@@ -136,7 +136,7 @@ export function RoutingPanel({
           </button>
         )}
       </div>
-      {embeddingsAvailable && (embeddingStatus || embeddingError || aiRuntimeErr) && (
+      {embeddingsAvailable && (embeddingStatus ?? embeddingError ?? aiRuntimeErr) && (
         <div className="query-config-embed-status">
           {embeddingStatus && <span className="ai-embedding-status">{embeddingStatus}</span>}
           {embeddingError && <span className="ai-embedding-error">{embeddingError}</span>}
@@ -168,12 +168,12 @@ export function RoutingPanel({
               { value: '', label: t('ai_query.semantic_model_auto') },
               ...semanticModels.map((m) => ({
                 value: m.id,
-                label: m.label || m.name,
+                label: m.label ?? m.name,
                 hint: m.status,
               })),
               ...(composites ?? []).map((c) => ({
                 value: `composite:${c.id}`,
-                label: `⧉ ${c.label || c.name}`,
+                label: `⧉ ${c.label ?? c.name}`,
                 hint: c.status,
               })),
             ]}

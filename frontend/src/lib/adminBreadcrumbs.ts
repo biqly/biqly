@@ -1,8 +1,6 @@
 import { ADMIN_TAB_LABEL_KEYS, type AdminTab, isAdminTab } from '../components/admin/adminNavConfig'
 import type { Crumb } from '../components/ui/Breadcrumbs'
-import type { useT } from '../i18n'
-
-type TFunction = ReturnType<typeof useT>
+import type { TFunction } from '../i18n'
 
 function adminTabLabel(tabParam: string, t: TFunction): string {
   if (!isAdminTab(tabParam)) {
@@ -18,7 +16,7 @@ export function appendAdminBreadcrumbs(
   navigate: (path: string) => void,
 ): void {
   const params = new URLSearchParams(search)
-  const tabParam = params.get('tab') || 'users'
+  const tabParam = params.get('tab') ?? 'users'
   const tabLabel = adminTabLabel(tabParam, t)
   if (!tabLabel) {
     return
@@ -50,13 +48,13 @@ export function appendAdminBreadcrumbs(
   }
 
   if (tabParam === 'users' && userId) {
-    const label = params.get('userLabel')?.trim() || t('admin.user_detail.title')
+    const label = params.get('userLabel')?.trim() ?? t('admin.user_detail.title')
     crumbs.push({ label })
     return
   }
 
   if (tabParam === 'workspaces' && workspaceId) {
-    const label = params.get('workspaceLabel')?.trim() || t('admin.workspaces.settings')
+    const label = params.get('workspaceLabel')?.trim() ?? t('admin.workspaces.settings')
     crumbs.push({ label })
   }
 }

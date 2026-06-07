@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { useConfirm } from '../../hooks/useConfirm'
+import type { TFunction } from '../../i18n'
 import type { Conversation } from '../../types/ai'
 
 interface SidebarConversationItemProps {
@@ -9,7 +10,7 @@ interface SidebarConversationItemProps {
   onSelect: () => void
   onRename: (id: string, newTitle: string) => void
   onDelete: (id: string) => void
-  t: any
+  t: TFunction
 }
 
 export function SidebarConversationItem({
@@ -76,12 +77,12 @@ export function SidebarConversationItem({
           onKeyDown={handleKeyDown}
           onClick={(e) => e.stopPropagation()}
           className="conv-edit-input"
-          placeholder={t('ai_query.rename_placeholder') || 'Enter title...'}
+          placeholder={t('ai_query.rename_placeholder') ?? 'Enter title...'}
         />
       ) : (
         <div className="conv-item-content">
           <span className="conv-title" onDoubleClick={handleStartEdit}>
-            {conv.title || t('ai_query.conv_current')}
+            {conv.title ?? t('ai_query.conv_current')}
           </span>
           <span className="conv-time">
             {t('ai_query.conv_messages', { count: conv.messages.length })}
@@ -94,7 +95,7 @@ export function SidebarConversationItem({
             type="button"
             className="btn-conv-action edit-btn"
             onClick={handleStartEdit}
-            title={t('ai_query.rename_btn') || 'Rename'}
+            title={t('ai_query.rename_btn') ?? 'Rename'}
           >
             ✏️
           </button>
@@ -102,7 +103,7 @@ export function SidebarConversationItem({
             type="button"
             className="btn-conv-action delete-btn"
             onClick={handleDelete}
-            title={t('ai_query.delete_btn') || 'Delete'}
+            title={t('ai_query.delete_btn') ?? 'Delete'}
           >
             🗑️
           </button>

@@ -403,7 +403,7 @@ export function Select<T extends string = string>({
                   id={`${baseId}-opt-${idx}`}
                   role="option"
                   aria-selected={isSelected}
-                  aria-disabled={opt.disabled || undefined}
+                  aria-disabled={opt.disabled ?? undefined}
                   data-index={idx}
                   className={classes.join(' ')}
                   onMouseEnter={() => !opt.disabled && setActiveIndex(idx)}

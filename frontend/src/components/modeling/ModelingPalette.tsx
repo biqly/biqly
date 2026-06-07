@@ -113,7 +113,7 @@ export function ModelingPalette({
       <div className="modeling-side-body">
         <div>
           <span className="modeling-kicker">{t('modeling.semantic_layer')}</span>
-          <h2>{model?.label || model?.name || t('modeling.no_model_selected')}</h2>
+          <h2>{model?.label ?? model?.name ?? t('modeling.no_model_selected')}</h2>
           <p>{t('modeling.semantic_description')}</p>
         </div>
         <div className="modeling-stat-grid">
@@ -212,7 +212,7 @@ export function ModelingPalette({
                     >
                       <div className="modeling-join-pill-header">
                         <strong>
-                          {table.label || table.table_name}
+                          {table.label ?? table.table_name}
                           {isBase && (
                             <span
                               className="modeling-base-badge"
@@ -375,7 +375,7 @@ export function ModelingPalette({
                 dims.map((dimension) => (
                   <div className="modeling-join-pill" key={dimension.id}>
                     <div className="modeling-join-pill-header">
-                      <strong>{dimension.label || dimension.name}</strong>
+                      <strong>{dimension.label ?? dimension.name}</strong>
                       <span className="modeling-pill-actions">
                         <button
                           className="modeling-rename-btn"
@@ -414,7 +414,7 @@ export function ModelingPalette({
                       key={dimension.id}
                     >
                       <div className="modeling-join-pill-header">
-                        <strong>{dimension.label || dimension.name}</strong>
+                        <strong>{dimension.label ?? dimension.name}</strong>
                         <button
                           className="modeling-add-btn"
                           onClick={() => onReactivateDimension(dimension)}
@@ -450,7 +450,7 @@ export function ModelingPalette({
                 metrics.map((metric) => (
                   <div className="modeling-join-pill" key={metric.id}>
                     <div className="modeling-join-pill-header">
-                      <strong>{metric.label || metric.name}</strong>
+                      <strong>{metric.label ?? metric.name}</strong>
                       <span className="modeling-pill-actions">
                         <button
                           className="modeling-rename-btn"
@@ -482,7 +482,7 @@ export function ModelingPalette({
                       key={metric.id}
                     >
                       <div className="modeling-join-pill-header">
-                        <strong>{metric.label || metric.name}</strong>
+                        <strong>{metric.label ?? metric.name}</strong>
                         <button
                           className="modeling-add-btn"
                           onClick={() => onReactivateMetric(metric)}

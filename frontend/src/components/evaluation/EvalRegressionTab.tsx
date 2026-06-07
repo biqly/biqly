@@ -1,3 +1,4 @@
+import type { TFunction } from '../../i18n'
 import type { EvalRunSummary, RegressionReport } from '../../types/ai'
 import { Select } from '../ui/Select'
 
@@ -12,7 +13,7 @@ interface EvalRegressionTabProps {
   runRegression: () => void
   configured: boolean
   localeTag: string
-  t: any
+  t: TFunction
 }
 
 export function EvalRegressionTab({

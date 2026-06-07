@@ -34,8 +34,8 @@ export function useModelingCanvas(
   const cardLayouts = useMemo(() => {
     const joinColumns = new Map<string, Set<string>>()
     for (const join of (model?.joins ?? []).filter((j) => j.is_active !== false)) {
-      const fromKey = tableKey(join.from_schema || model?.base_schema || '', join.from_table)
-      const toKey = tableKey(join.to_schema || model?.base_schema || '', join.to_table)
+      const fromKey = tableKey(join.from_schema ?? model?.base_schema ?? '', join.from_table)
+      const toKey = tableKey(join.to_schema ?? model?.base_schema ?? '', join.to_table)
       if (!joinColumns.has(fromKey)) {
         joinColumns.set(fromKey, new Set())
       }

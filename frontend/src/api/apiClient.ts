@@ -91,7 +91,7 @@ export async function fetchJSON<T>(
     // carry a real identity (audit, RBAC); the key remains the fallback for
     // sessions-less contexts.
     const bearer =
-      init?.token || globalAccessToken || (init?.useAdminKey ? resolveAdminApiKey() : '')
+      init?.token ?? globalAccessToken ?? (init?.useAdminKey ? resolveAdminApiKey() : '')
     if (bearer) {
       headers.set('Authorization', `Bearer ${bearer}`)
     }

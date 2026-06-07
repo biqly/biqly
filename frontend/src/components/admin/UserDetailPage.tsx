@@ -233,7 +233,7 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
           </div>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
             <h2 style={{ margin: 0, fontSize: 22 }}>
-              {user.displayName || t('admin.user_detail.unnamed_user')}
+              {user.displayName ?? t('admin.user_detail.unnamed_user')}
             </h2>
             <span style={{ fontSize: 14, color: 'var(--text-secondary)', fontWeight: 500 }}>
               {user.email}
