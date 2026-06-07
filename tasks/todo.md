@@ -23,6 +23,39 @@
 - [x] **`internal/queue`'yu kapsam-taban haritasına ekle.** `scripts/coveragecheck/main.go` `floors` map'ine `internal/queue` %40 taban eklendi (mevcut ~%42.5).
 - [x] **Flaky `TestMFABypassCodeFlow` izolasyonunu düzelt.** `mfatest` artık global tablo silmiyor; benzersiz e-posta seed + `t.Cleanup` ile kullanıcı bazlı teardown (`webauthn_flow_test` deseni).
 - [ ] **ESLint uyarı tavanını zamanla 0'a doğru sık.** Frontend kapısı CI-eşdeğeri ama uyarı tavanı > 0; kademeli olarak sıfıra indir.
+  - **Mevcut durum**: `--max-warnings 1495` (gerçek uyarı: 1463, 26 kural, 100+ dosya)
+  - **Hedef**: Kural gruplarını öncelik sırasıyla `error`'a promote et, her grupta `max-warnings`'ı düşür.
+  - **Faz 1 — En yüksek etki, mekanik düzeltme (~830 uyarı, %57)**
+    - [ ] `@typescript-eslint/prefer-nullish-coalescing` (262) — `||` → `??` değişimleri; `eslint --fix` ile otomatik düzeltilebilir. Yoğun dosyalar: `ExpressionBuilder.tsx` (26), `Modeling.tsx` (25), `Glossary.tsx` (19), `DashboardBuilder.tsx` (18), `AddMetricModal.tsx` (11). Best practice: çalıştır `npx eslint --fix src/` sonra diff'i gözden geçir; yanlış pozitif (bilinçli `||` fallback) varsa satır bazlı `// eslint-disable-next-line` ekle.
+    - [ ] `@typescript-eslint/no-unsafe-call` (199) — `any` tipindeki değerlere çağrı. Yoğun dosyalar: `EvalRegressionTab.tsx` (42), `EvalHistoryTab.tsx` (27), `ActiveUsersTab.tsx` (23), `EvalRunTab.tsx` (20), `InvitationsTab.tsx` (18). Best practice: API response tiplerini proper interface'lere cast et; `as unknown as ProperType` yerine tipli generic fetch fonksiyonları kullan; `any` parametreli callback'lerde tip parametresi ekle.
+    - [ ] `@typescript-eslint/no-unsafe-assignment` (124) — `any`'den değişkene atama. Yoğun dosyalar: `DashboardBuilder.tsx` (18), `api/auth.ts` (16), `FilterStep.tsx` (7). Best practice: API response'ları için zod/schema veya explicit interface tanımla; `JSON.parse()` sonrası generic type assertion yerine validate et.
+    - [ ] `@typescript-eslint/no-unsafe-member-access` (96) — `any` üzerinde özellik erişimi. Yoğun dosyalar: `DashboardBuilder.tsx` (34), `api/auth.ts` (24), `ExpressionBuilder.tsx` (7). Best practice: üsttekilerle birlikte çözülür; `api/auth.ts` ve `DashboardBuilder.tsx` ortak hedef — tip güvenli API client + dashboard state interface.
+  - **Faz 2 — Promise/async güvenlik (~256 uyarı, %17)**
+    - [ ] `@typescript-eslint/no-misused-promises` (130) — Promise dönen fonksiyonun void beklenen yere geçilmesi (onClick, event handler). Yoğun dosyalar: `Modeling.tsx` (14), `Composites.tsx` (13), `AIProvidersPanel.tsx` (8). Best practice: event handler'larda `void handleAsync()` wrapper veya `(e) => { void handleSubmit(e) }` kalıbı kullan; fire-and-forget'ler için `void` operatörü yeterli.
+    - [ ] `@typescript-eslint/no-floating-promises` (126) — `await`siz Promise çağrısı (özellikle `void` dönüşlü). Yoğun dosyalar: `WorkspaceSettingsPage.tsx` (7), `DashboardBuilder.tsx` (5), `SavedQuestions.tsx` (5). Best practice: `useEffect` içindeki async çağrıları IIFE ile `void (async () => { ... })()` sarmula veya yardımcı hook (`useAsyncEffect`) oluştur; event handler dışındaki çağrıları `await` ile işaretle.
+  - **Faz 3 — Tip güvenliği ve kod kalitesi (~310 uyarı, %21)**
+    - [ ] `@typescript-eslint/no-unnecessary-condition` (127) — Her zaman `true`/`false` olan koşullar. Yoğun dosyalar: `AIProvidersPanel.tsx` (9), `AIModelSharingPanel.tsx` (8), `RowLevelSecurityPanel.tsx` (7). Best practice: çoğu yanlış daraltılmış tip (type narrowing) kaynaklı — union type'ları daralt veya gereksiz `if`'leri kaldır; TypeScript'in type checker'ı ile çelişen koşulları düzelt.
+    - [ ] `@typescript-eslint/no-explicit-any` (80) — Açık `any` kullanımı. Yoğun dosyalar: `DashboardBuilder.tsx` (13), `api/auth.ts` (10), `FieldsStep.tsx` (7). Best practice: `unknown` + type guard kullan; generic fonksiyonlarda tip parametresi ekle; üçüncü parti kütüphane callback'lerinde `// eslint-disable-next-line @typescript-eslint/no-explicit-any` ile istisna işaretle.
+    - [ ] `@typescript-eslint/no-unsafe-argument` (35) — `any` değerinin tipli parametreye geçilmesi. Best practice: Faz 1'deki `no-unsafe-*` düzeltmeleriyle çoğu çözülür; kalanlar için cast yerine proper tip tanımla.
+    - [ ] `@typescript-eslint/no-unsafe-return` (7) — `any` dönen fonksiyonlar. Best practice: dönüş tipini explicit belirle.
+    - [ ] `@typescript-eslint/no-redundant-type-constituents` (8) — Gereksiz tip birleşimleri (`string | string`). Best practice: `--fix` ile otomatik çözülebilir.
+    - [ ] `@typescript-eslint/consistent-type-imports` (5) — `import { X }` yerine `import type { X }`. Best practice: `--fix` ile otomatik çözülebilir.
+    - [ ] `@typescript-eslint/no-unused-vars` (28) — Kullanılmayan değişkenler. Best practice: `_` prefix kuralı zaten config'de; kalanları sil veya prefix'le.
+  - **Faz 4 — React hook'ları ve a11y (~164 uyarı, %11)**
+    - [ ] `react-hooks/set-state-in-effect` (112) — `useEffect` içinde `setState` (v7 yeni kuralı). Yoğun dosyalar: `TableBrowser.tsx` (8), `Modeling.tsx` (7), `SavedQuestions.tsx` (5). Best practice: `useEffect` + `setState` kalıbını `useSyncExternalStore`, derived state veya `useMemo` ile değiştir; ilk yükleme için `use()` hook'u veya Suspense pattern değerlendir.
+    - [ ] `react-hooks/exhaustive-deps` (30) — Eksik bağımlılık dizisi. Best practice: her `useEffect`/`useCallback`/`useMemo` bağımlılık dizisini review et; yanlış bağımlılık yoksa `// eslint-disable-next-line react-hooks/exhaustive-deps` ile gerekçeli istisna ekle.
+    - [ ] `react-refresh/only-export-components` (34) — Dosyada component dışı export. Best practice: utility fonksiyon ve sabitleri ayrı dosyaya taşı; `allowConstantExport: true` zaten config'de ama kalanlar için dosya böl.
+    - [ ] `react-hooks/refs` (4), `react-hooks/immutability` (2), `react-hooks/purity` (1) — v7 yenileri. Best practice: ref mutate'lerini event handler'a taşı; immutable state update'leri ensure et; side effect'leri `useEffect`'e taşı.
+    - [ ] `jsx-a11y/no-autofocus` (18) — `autoFocus` attribute. Best practice: `autoFocus` yerine `useRef` + `el.focus()` programatik odak; modal açılışında `useEffect` ile focus trap uygula.
+  - **Faz 5 — Kalan düşük sayılı kurallar (~33 uyarı, %2)**
+    - [ ] `complexity` (24) + `max-depth` (1) — Yüksek karmaşıklıklı fonksiyonlar. Best practice: büyük fonksiyonları alt-fonksiyonlara böl; early return ile iç içe `if`'leri azalt.
+    - [ ] `@typescript-eslint/no-base-to-string` (5) — `toString()` geçersiz tip. Best practice: `String()` veya template literal kullan.
+    - [ ] `@typescript-eslint/no-empty-function` (3) — Boş fonksiyon gövdeleri. Best practice: `() => {}` yerine `noop` yardımcısı veya `_` prefix parametre.
+    - [ ] `@typescript-eslint/ban-ts-comment` (1), `@typescript-eslint/prefer-for-of` (1) — Tek seferlik düzeltmeler.
+  - **Sıkma stratejisi**
+    - [ ] Her faz tamamlandığında `max-warnings`'ı mevcut uyarı sayısı + küçük tampon (10-20) olarak güncelle.
+    - [ ] Hedef timetable: Faz 1 → ~665 uyarı (`max-warnings 680`), Faz 2 → ~405 uyarı (`max-warnings 420`), Faz 3 → ~95 uyarı (`max-warnings 110`), Faz 4+5 → 0 (`max-warnings 0`).
+    - [ ] Son adımda `eslint.config.js`'teki tüm `'warn'` kurallarını `'error'` yap ve `--max-warnings 0` ile kesin sıfır uyarı politikası getir.
 
 ### Notlar
 

@@ -207,38 +207,10 @@ func (r *TableRouter) Route(
 	}
 
 	// Tables, columns, and relations come from three independent metadata DB
-	// queries. Running them concurrently roughly cuts cold-cache table-router
-	// latency by 3x — the actual DB roundtrips dominate this stage.
-	var (
-		tables    []metadata.Table
-		columns   []metadata.Column
-		relations []metadata.Relation
-		tablesErr error
-		colsErr   error
-		relErr    error
-	)
-	var listWG sync.WaitGroup
-	listWG.Add(3)
-	go func() {
-		defer listWG.Done()
-		tables, tablesErr = r.reader.ListTables(ctx, datasourceID, "")
-	}()
-	go func() {
-		defer listWG.Done()
-		columns, colsErr = r.reader.ListColumns(ctx, datasourceID, "", "")
-	}()
-	go func() {
-		defer listWG.Done()
-		relations, relErr = r.reader.ListRelations(ctx, datasourceID)
-	}()
-	listWG.Wait()
-	switch {
-	case tablesErr != nil:
-		return nil, nil, fmt.Errorf("list tables: %w", tablesErr)
-	case colsErr != nil:
-		return nil, nil, fmt.Errorf("list columns: %w", colsErr)
-	case relErr != nil:
-		return nil, nil, fmt.Errorf("list relations: %w", relErr)
+	// queries, fetched concurrently inside loadRoutingMetadata.
+	tables, columns, relations, err := r.loadRoutingMetadata(ctx, datasourceID)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	if err := validateManualScopeAgainstTypeScope(indexTables(tables), tableScope, includeBaseTables, includeViews); err != nil {
@@ -254,19 +226,11 @@ func (r *TableRouter) Route(
 		}, nil
 	}
 
-	columnsByTable := groupColumnsByTable(columns, len(tables))
-
 	questionLocale := lingua.DetectQuestionLocale(question)
-	questionLocaleProfile, _ := i18n.LocaleProfileFor(questionLocale)
-	if r.translator != nil && questionLocaleProfile.UsesMetadataTranslations {
-		if err := r.translator.ApplyTableTranslations(ctx, tables, questionLocale); err != nil {
-			return nil, nil, fmt.Errorf("apply table translations: %w", err)
-		}
-		if err := r.translator.ApplyColumnTranslations(ctx, columns, questionLocale); err != nil {
-			return nil, nil, fmt.Errorf("apply column translations: %w", err)
-		}
-		columnsByTable = groupColumnsByTable(columns, len(tables))
+	if err := r.applyTranslations(ctx, tables, columns, questionLocale); err != nil {
+		return nil, nil, err
 	}
+	columnsByTable := groupColumnsByTable(columns, len(tables))
 
 	// Hybrid boost from precomputed embeddings, when configured. Skipped
 	// silently on any error so a transient embedding-API failure or missing
@@ -330,16 +294,7 @@ func (r *TableRouter) Route(
 
 	limits := r.limits.withDefaults()
 	columnsForModel := rankColumnsForSemanticModel(connected, columnsByTable, relations, questionTokens, embedSignals.columnScores, limits.MaxColumnsPerTable)
-	var timeGrains []metadata.TimeGrain
-	if r.timeGrains != nil {
-		var err error
-		timeGrains, err = r.timeGrains.List(ctx)
-		if err != nil {
-			timeGrains = DefaultTimeGrains
-		}
-	} else {
-		timeGrains = DefaultTimeGrains
-	}
+	timeGrains := r.loadTimeGrains(ctx)
 	model = buildSemanticModel(datasourceID, connected, columnsForModel, relations, limits, timeGrains)
 	if !result.Manual {
 		pruneAutoSemanticModel(model, question, limits, embedSignals.columnScores)
@@ -356,6 +311,81 @@ func (r *TableRouter) Route(
 		)
 	}
 	return model, result, nil
+}
+
+// loadRoutingMetadata fetches tables, columns, and relations for a datasource.
+// The three queries are independent, so they run concurrently — DB roundtrips
+// dominate this stage and parallelism roughly cuts cold-cache latency by 3x.
+func (r *TableRouter) loadRoutingMetadata(ctx context.Context, datasourceID string) (
+	tables []metadata.Table,
+	columns []metadata.Column,
+	relations []metadata.Relation,
+	err error,
+) {
+	var (
+		tablesErr error
+		colsErr   error
+		relErr    error
+	)
+	var listWG sync.WaitGroup
+	listWG.Add(3)
+	go func() {
+		defer listWG.Done()
+		tables, tablesErr = r.reader.ListTables(ctx, datasourceID, "")
+	}()
+	go func() {
+		defer listWG.Done()
+		columns, colsErr = r.reader.ListColumns(ctx, datasourceID, "", "")
+	}()
+	go func() {
+		defer listWG.Done()
+		relations, relErr = r.reader.ListRelations(ctx, datasourceID)
+	}()
+	listWG.Wait()
+	switch {
+	case tablesErr != nil:
+		return nil, nil, nil, fmt.Errorf("list tables: %w", tablesErr)
+	case colsErr != nil:
+		return nil, nil, nil, fmt.Errorf("list columns: %w", colsErr)
+	case relErr != nil:
+		return nil, nil, nil, fmt.Errorf("list relations: %w", relErr)
+	}
+	return tables, columns, relations, nil
+}
+
+// applyTranslations mutates tables/columns in place with locale-specific
+// metadata translations when the locale uses them and a translator is wired.
+// It is a no-op otherwise, so callers can group columns afterwards unconditionally.
+func (r *TableRouter) applyTranslations(
+	ctx context.Context,
+	tables []metadata.Table,
+	columns []metadata.Column,
+	loc i18n.Locale,
+) error {
+	profile, _ := i18n.LocaleProfileFor(loc)
+	if r.translator == nil || !profile.UsesMetadataTranslations {
+		return nil
+	}
+	if err := r.translator.ApplyTableTranslations(ctx, tables, loc); err != nil {
+		return fmt.Errorf("apply table translations: %w", err)
+	}
+	if err := r.translator.ApplyColumnTranslations(ctx, columns, loc); err != nil {
+		return fmt.Errorf("apply column translations: %w", err)
+	}
+	return nil
+}
+
+// loadTimeGrains returns the configured time grains, falling back to the
+// defaults when no provider is wired or the lookup fails.
+func (r *TableRouter) loadTimeGrains(ctx context.Context) []metadata.TimeGrain {
+	if r.timeGrains == nil {
+		return DefaultTimeGrains
+	}
+	timeGrains, err := r.timeGrains.List(ctx)
+	if err != nil {
+		return DefaultTimeGrains
+	}
+	return timeGrains
 }
 
 func (*TableRouter) selectTables(
