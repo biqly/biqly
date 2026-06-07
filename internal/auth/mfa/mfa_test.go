@@ -20,7 +20,7 @@ func TestMFABypassCodeFlow(t *testing.T) {
 	assert.ErrorIs(t, err, mfa.ErrMFANotEnrolled)
 
 	// Enroll target user in MFA
-	enrollResult, err := stack.MFA.Enroll(stack.Ctx, users.TargetUserID, "target@example.com")
+	enrollResult, err := stack.MFA.Enroll(stack.Ctx, users.TargetUserID, users.TargetEmail)
 	require.NoError(t, err)
 
 	// 2. Try to generate bypass code when MFA enrollment is pending (not verified yet)

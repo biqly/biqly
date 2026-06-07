@@ -3,6 +3,7 @@ package mfatest
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/biqly/biqly/internal/auth/mfa"
 	"github.com/biqly/biqly/internal/auth/rbac"
 	"github.com/biqly/biqly/internal/testutil"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,16 +30,23 @@ type IntegrationStack struct {
 
 type BypassTestUsers struct {
 	TargetUserID  string
+	TargetEmail   string
 	NormalActorID string
 	SuperActorID  string
 }
 
-func ResetCoreAuthTables(ctx context.Context, t *testing.T, db *sql.DB) {
+func uniqueTestEmail(t *testing.T, local string) string {
 	t.Helper()
-	// user_mfa first, then the shared helper which clears the tables that
-	// reference users (sessions, workspaces, …) before users itself.
-	testutil.ExecAuthSQL(ctx, t, db, "DELETE FROM user_mfa")
-	testutil.ResetAuthUserTables(ctx, t, db)
+	return fmt.Sprintf("%s-%s@example.com", local, uuid.NewString()[:8])
+}
+
+func deleteTestUsers(ctx context.Context, t *testing.T, db *sql.DB, ids ...string) {
+	t.Helper()
+	for _, id := range ids {
+		if _, err := db.ExecContext(ctx, "DELETE FROM users WHERE id = $1", id); err != nil {
+			t.Fatalf("cleanup test user %s: %v", id, err)
+		}
+	}
 }
 
 func NewIntegrationStack(t *testing.T) *IntegrationStack {
@@ -45,7 +54,6 @@ func NewIntegrationStack(t *testing.T) *IntegrationStack {
 
 	db := testutil.OpenAuthDB(t)
 	ctx := context.Background()
-	ResetCoreAuthTables(ctx, t, db)
 
 	config := &auth.Config{
 		JWTAccessTTL:  5 * time.Minute,
@@ -82,19 +90,23 @@ func (s *IntegrationStack) SeedBypassTestUsers(t *testing.T) BypassTestUsers {
 	t.Helper()
 
 	var users BypassTestUsers
+	users.TargetEmail = uniqueTestEmail(t, "target")
+	normalEmail := uniqueTestEmail(t, "normal")
+	superEmail := uniqueTestEmail(t, "super")
+
 	require.NoError(t, s.DB.QueryRowContext(s.Ctx,
 		`INSERT INTO users (email, display_name, password_hash, email_verified)
-		 VALUES ($1, 'Target User', 'hash', TRUE) RETURNING id`, "target@example.com",
+		 VALUES ($1, 'Target User', 'hash', TRUE) RETURNING id`, users.TargetEmail,
 	).Scan(&users.TargetUserID))
 
 	require.NoError(t, s.DB.QueryRowContext(s.Ctx,
 		`INSERT INTO users (email, display_name, password_hash, email_verified)
-		 VALUES ('normal@example.com', 'Normal User', 'hash', TRUE) RETURNING id`,
+		 VALUES ($1, 'Normal User', 'hash', TRUE) RETURNING id`, normalEmail,
 	).Scan(&users.NormalActorID))
 
 	require.NoError(t, s.DB.QueryRowContext(s.Ctx,
 		`INSERT INTO users (email, display_name, password_hash, email_verified)
-		 VALUES ('super@example.com', 'Super Admin User', 'hash', TRUE) RETURNING id`,
+		 VALUES ($1, 'Super Admin User', 'hash', TRUE) RETURNING id`, superEmail,
 	).Scan(&users.SuperActorID))
 
 	var saRoleID string
@@ -102,6 +114,10 @@ func (s *IntegrationStack) SeedBypassTestUsers(t *testing.T) BypassTestUsers {
 		`SELECT id FROM roles WHERE name = $1`, rbac.RoleSuperAdmin,
 	).Scan(&saRoleID))
 	require.NoError(t, s.RBACRepo.AssignRole(s.Ctx, users.SuperActorID, saRoleID, nil, nil))
+
+	t.Cleanup(func() {
+		deleteTestUsers(s.Ctx, t, s.DB, users.TargetUserID, users.NormalActorID, users.SuperActorID)
+	})
 
 	return users
 }

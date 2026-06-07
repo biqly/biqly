@@ -20,8 +20,8 @@
   - Tamamlandı (2026-06-07): datasource span'leri (`datasource.Ping/Open/Introspect/IntrospectSchemas|Tables|Columns|Relations/Query`), AI alt-fazları (`ai.PromptBuild`, `ai.AmbiguityAnalyze`, `ai.LLMGenerate`, `ai.MultiCandidate`, `ai.TableRoute`, `ai.RouteEmbedding`, `ai.LoadFewShot`, `ai.Embed`, `ai.EmbedMetadata`, `ai.ProviderGenerate`), kritik öznitelikler (`ai.model`, `ai.attempt`, `query.fingerprint`, `model.id`, token sayıları, route confidence).
   - `query.LogicalQueryFingerprint` + `observability.WithQueryFingerprint` ile compile→execute fingerprint zinciri.
   - Doğrulama: `go build ./internal/...` + `go test ./internal/query/... ./internal/datasource/... ./internal/ai/... ./internal/core/... ./internal/platform/observability/... ./internal/http/handlers/...` geçti.
-- [ ] **`internal/queue`'yu kapsam-taban haritasına ekle.** Doğrulandı: `scripts/coveragecheck/main.go` `floors` map'inde queue yok (test ediliyor ama kapıya bağlı değil). Bir taban % belirleyip ekle.
-- [ ] **Flaky `TestMFABypassCodeFlow` izolasyonunu düzelt.** `internal/auth/mfa/mfa_test.go` — paylaşılan test DB seed/FK kaynaklı kararsızlık; testi izole et.
+- [x] **`internal/queue`'yu kapsam-taban haritasına ekle.** `scripts/coveragecheck/main.go` `floors` map'ine `internal/queue` %40 taban eklendi (mevcut ~%42.5).
+- [x] **Flaky `TestMFABypassCodeFlow` izolasyonunu düzelt.** `mfatest` artık global tablo silmiyor; benzersiz e-posta seed + `t.Cleanup` ile kullanıcı bazlı teardown (`webauthn_flow_test` deseni).
 - [ ] **ESLint uyarı tavanını zamanla 0'a doğru sık.** Frontend kapısı CI-eşdeğeri ama uyarı tavanı > 0; kademeli olarak sıfıra indir.
 
 ### Notlar

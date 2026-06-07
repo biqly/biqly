@@ -32,6 +32,7 @@ var floors = map[string]float64{
 	"github.com/biqly/biqly/internal/datasource/sqlserver":  85.0,
 	"github.com/biqly/biqly/internal/config":                80.0,
 	"github.com/biqly/biqly/internal/dashboard":             80.0,
+	"github.com/biqly/biqly/internal/queue":                 40.0,
 }
 
 type counts struct {
