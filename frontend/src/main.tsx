@@ -25,15 +25,15 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <ConfirmProvider>
           <ToastProvider>
             <ShortcutsProvider>
-              <AIJobsProvider>
-                <BrowserRouter>
-                  <AuthProvider>
+              <BrowserRouter>
+                <AuthProvider>
+                  <AIJobsProvider>
                     <App />
                     <AppUpdateGate />
                     <AIJobTracker />
-                  </AuthProvider>
-                </BrowserRouter>
-              </AIJobsProvider>
+                  </AIJobsProvider>
+                </AuthProvider>
+              </BrowserRouter>
             </ShortcutsProvider>
           </ToastProvider>
         </ConfirmProvider>

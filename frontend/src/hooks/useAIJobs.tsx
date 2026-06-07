@@ -12,14 +12,13 @@ import {
 import { fetchJSON, type FetchJSONResult } from '../api/apiClient'
 import type { DescribeBatchConflictBody } from '../api/describeBatchConflict'
 import { runMetadataDescribeDirect } from '../api/metadataDescribe'
+import { useAuth } from '../components/auth/AuthProvider'
 import type { BulkEntry } from '../components/metadata/bulkProgress'
-import { getLocale } from '../i18n'
 import type {
   AIJob,
   AIJobKind,
   AIJobListResponse,
   AIQueryResponse,
-  DescribeBatchJobProgress,
 } from '../types/ai'
 import type { DescribeBatchResult, DescribeResult } from '../types/metadata'
 import { getAIClientSessionId } from '../utils/aiSession'
@@ -159,6 +158,7 @@ function parseResult<TResult>(job: AIJob): TResult | null {
 
 export function AIJobsProvider({ children }: { children: ReactNode }) {
   const sessionId = useMemo(() => getAIClientSessionId(), [])
+  const { accessToken } = useAuth()
   const [jobs, setJobs] = useState<TrackedAIJob[]>([])
   const [expanded, setExpanded] = useState(false)
   const [minimized, setMinimized] = useState(true)
@@ -174,6 +174,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   const runJobRef = useRef<AIJobsContextValue['runJob'] | null>(null)
   const isMountedRef = useRef(true)
   const bulkRunIdRef = useRef(0)
+  const resumedRef = useRef(false)
 
   const applyBulkProgressFromJob = useCallback((job: AIJob, queue: BulkEntry[]): BulkEntry[] => {
     const progress = job.progress_json
@@ -364,7 +365,6 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     isMountedRef.current = true
-    void resumeActiveJobs()
     return () => {
       isMountedRef.current = false
       pollingIdsRef.current.clear()
@@ -374,7 +374,23 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       }
       callbacksRef.current.clear()
     }
-  }, [resumeActiveJobs, stopPollLoop])
+  }, [stopPollLoop])
+
+  // Resume active jobs only once an access token is available. The provider
+  // mounts before AuthProvider hydrates the session, so firing the request
+  // unauthenticated would return 401. Reset on sign-out so a later sign-in
+  // resumes again.
+  useEffect(() => {
+    if (!accessToken) {
+      resumedRef.current = false
+      return
+    }
+    if (resumedRef.current) {
+      return
+    }
+    resumedRef.current = true
+    void resumeActiveJobs()
+  }, [accessToken, resumeActiveJobs])
 
   const runJob = useCallback(
     async <TRequest extends object, TResult = AIQueryResponse>(

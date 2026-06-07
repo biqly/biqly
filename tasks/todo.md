@@ -59,14 +59,25 @@ go-redis v9 güvenilir ama performans odaklı alternatifler daha agresif:
   | Pipeline `SET`/`GET` | `389664` | `418962` | `750333` | `670333` | rueidis p99 biraz iyi, ortalama go-redis iyi |
 
   Bu ölçüm rueidis'e geçiş için yeterli performans gerekçesi göstermedi. Staging/Dragonfly hattında farklı sonuç çıkmadıkça migration başlatma.
+- Canlı Dragonfly sonucu (`docker.dragonflydb.io/dragonflydb/dragonfly:v1.34.1`, `127.0.0.1:6379`, Apple M4, darwin/arm64, `-benchtime=10s -count=5`, toplam `495.595s`):
+
+  | Benchmark | go-redis median ns/op | rueidis median ns/op | go-redis median p99_ns/op | rueidis median p99_ns/op | Sonuç |
+  | --- | ---: | ---: | ---: | ---: | --- |
+  | `GET` | `449545` | `442002` | `929375` | `1038333` | yakın; p99 go-redis daha iyi |
+  | `SET` | `440736` | `456810` | `940333` | `1175875` | go-redis daha iyi |
+  | `MSET` | `670924` | `786056` | `1227500` | `2391917` | go-redis belirgin daha iyi |
+  | Pipeline `SET`/`GET` | `1207217` | `3362068` | `2933459` | `9429833` | go-redis çok daha iyi |
+
+  Dragonfly hedefinde de rueidis'e geçiş için performans gerekçesi yok; özellikle pipeline workload'u bu implementasyonda regression olur.
 - rueidis uyumu: native builder API ile production koduna direct swap yüksek churn yaratır. Server-assisted client-side caching `DoCache`/`DoMultiCache` ile var; mevcut `internal/ai/response_cache.go` ve `internal/semantic/composite_cache.go` TTL'li `GET`/`SET` payload cache olduğu için en iyi adaylar, fakat invalidation davranışı staging'de doğrulanmalı.
 - valkey-go uyumu: `valkeycompat.NewAdapter` go-redis benzeri API sağlıyor; benchmark modülündeki `TestValkeyCompatAPISurface` canlı Redis/Dragonfly/Valkey hedefiyle `Set`, `Get`, `Cache`, `Pipelined` yüzeyini doğruluyor. Dragonfly/Redis protokol desteği pratikte hedef sürümle live test gerektirir.
-- Risk kararı: production client migration şu an yapılmadı ve lokal ölçüm sonrası önerilmiyor. Mevcut kullanım `INCR`/`EXPIRE`, `GET`/`SET`, `SCAN`/`DEL` ve DI'da doğrudan `*redis.Client` tiplerine bağlı. Ancak staging/Dragonfly ölçümü anlamlı fark gösterirse en düşük riskli sıra: önce ince `internal/platform/cache` adapter, sonra `internal/auth/ratelimit.go` + `internal/mail/smtp.go` pilotu, en son AI/semantic cache client-side caching denemesi.
+- Risk kararı: production client migration şu an yapılmadı ve iki lokal ölçüm sonrası önerilmiyor. Mevcut kullanım `INCR`/`EXPIRE`, `GET`/`SET`, `SCAN`/`DEL` ve DI'da doğrudan `*redis.Client` tiplerine bağlı. Ancak staging'de farklı ve anlamlı fark gösterilirse en düşük riskli sıra: önce ince `internal/platform/cache` adapter, sonra `internal/auth/ratelimit.go` + `internal/mail/smtp.go` pilotu, en son AI/semantic cache client-side caching denemesi.
 - Review / verification:
   - `gofmt -w benchmarks/redisclient/redis_client_bench_test.go`
   - `go test ./...` (`benchmarks/redisclient`; `REDIS_BENCH_ADDR` yokken live test/bench skip ederek compile doğruladı.)
   - `go vet ./...` (`benchmarks/redisclient`)
   - `REDIS_BENCH_ADDR=127.0.0.1:6379 go test -run TestValkeyCompatAPISurface -bench . -benchtime=10s -count=5`
+  - `docker compose up -d redis` + aynı benchmark komutu (`dragonfly:v1.34.1`)
 
 ### Değişecek dosyalar (go-redis → alternatif client)
 

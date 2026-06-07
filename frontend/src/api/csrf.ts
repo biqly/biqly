@@ -1,5 +1,5 @@
 const CSRF_HEADER_NAME = 'X-CSRF-Token'
-const AUTH_CSRF_BOOTSTRAP_PATH = '/api/auth/me'
+const AUTH_CSRF_BOOTSTRAP_PATH = '/api/auth/csrf'
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS', 'TRACE'])
 
 let cachedCSRFToken: string | null = null

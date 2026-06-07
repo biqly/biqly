@@ -116,6 +116,7 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 	r.Post("/passkey/login-finish", h.handlePasskeyLoginFinish)
 
 	r.Get("/password-policy", h.handlePasswordPolicy)
+	r.Get("/csrf", h.handleCSRF)
 
 	h.RegisterAccountPublicRoutes(r)
 
