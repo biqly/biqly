@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 )
 
 func adminTestHandler() http.Handler {
@@ -81,6 +83,33 @@ func TestAdminKeyMiddleware_StripsXAdminKey(t *testing.T) {
 	h.ServeHTTP(w, r)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200 with X-Admin-Key, got %d", w.Code)
+	}
+}
+
+func TestAdminKeyMiddleware_SuperAdminJWTPasses(t *testing.T) {
+	// A verified super_admin identity from the outer JWT middleware is a
+	// sufficient credential — no shared admin key needed, even when one is
+	// configured and the Bearer token is the user's session JWT.
+	h := AdminKeyMiddleware("s3cret")(adminTestHandler())
+	ctx := context.WithValue(context.Background(), bimw.UserRolesKey, []string{bimw.RoleSuperAdmin})
+	r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/ai/providers", nil)
+	r.Header.Set("Authorization", "Bearer some.session.jwt")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 for super_admin JWT identity, got %d", w.Code)
+	}
+}
+
+func TestAdminKeyMiddleware_NonAdminJWTRejected(t *testing.T) {
+	h := AdminKeyMiddleware("s3cret")(adminTestHandler())
+	ctx := context.WithValue(context.Background(), bimw.UserRolesKey, []string{"analyst"})
+	r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/ai/providers", nil)
+	r.Header.Set("Authorization", "Bearer some.session.jwt")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for non-admin JWT identity, got %d", w.Code)
 	}
 }
 

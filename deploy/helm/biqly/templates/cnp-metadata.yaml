@@ -23,4 +23,15 @@ spec:
               protocol: TCP
             - port: {{ .Values.global.networkPolicy.metadata.ports.redis | quote }}
               protocol: TCP
+    # JWT public-key fetches and permission checks against the auth service.
+    # Without this, BI_AUTH_ENABLED=true leaves catalog/query unable to verify
+    # tokens (every /api request answers 503 "auth key unavailable").
+    - toEndpoints:
+        - matchLabels:
+            app.kubernetes.io/component: auth
+            app.kubernetes.io/part-of: biqly
+      toPorts:
+        - ports:
+            - port: "8889"
+              protocol: TCP
 {{- end }}

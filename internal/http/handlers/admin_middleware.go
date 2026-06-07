@@ -4,15 +4,25 @@ import (
 	"crypto/subtle"
 	"net/http"
 	"strings"
+
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 )
 
-// AdminKeyMiddleware rejects requests when BI_ADMIN_API_KEY is unset or the
-// key does not match. Comparison is constant-time. The Authorization header
-// MUST use the Bearer scheme — an earlier version accepted raw tokens.
+// AdminKeyMiddleware guards operational AI admin endpoints. A caller passes
+// when it already carries a verified super_admin identity (JWT roles populated
+// by the outer auth middleware, or the admin-key bypass) or presents the
+// configured BI_ADMIN_API_KEY. Comparison is constant-time. The Authorization
+// header MUST use the Bearer scheme — an earlier version accepted raw tokens.
 func AdminKeyMiddleware(adminKey string) func(http.Handler) http.Handler {
 	expected := []byte(strings.TrimSpace(adminKey))
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Super admins authenticated by the outer JWT middleware don't
+			// need the shared key — their session token is the credential.
+			if bimw.HasRole(r.Context(), bimw.RoleSuperAdmin) {
+				next.ServeHTTP(w, r)
+				return
+			}
 			if len(expected) == 0 {
 				writeError(w, http.StatusForbidden, "admin endpoints require BI_ADMIN_API_KEY to be configured")
 				return
