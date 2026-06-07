@@ -232,12 +232,14 @@ def diagram_architecture():
     cx = W/2
     gap = 9
 
-    # --- Üst katman ---
-    box(d, cx-78, H-32, 156, 28, "İstemci (Tarayıcı / SPA)", NAVY, fs=8.5)
-    box(d, cx-150, H-104, 300, 36,
-        "Gateway «lan-gw» · Gateway API (HTTPRoute)\nhost: abi.il1.nl · PathPrefix ile doğrudan yönlendirme",
-        PURPLE, fs=7.6)
-    arrow(d, cx, H-32, cx, H-68, SLATE, w=1.2, label="HTTPS", lfs=7)
+    # --- Üst katman (edge: Cloudflare Tunnel) ---
+    box(d, cx-90, H-30, 180, 26, "İstemci (İnternet / Tarayıcı)", NAVY, fs=8.2)
+    box(d, cx-150, H-78, 300, 26, "Cloudflare (yönetilen edge · TLS · WAF)", colors.HexColor("#F38020"), fs=7.8)
+    box(d, cx-150, H-126, 300, 30,
+        "cloudflared tunnel  (ns: kube-system)\nabi.il1.nl → path-bazlı ingress (named tunnel)",
+        PURPLE, fs=7.4)
+    arrow(d, cx, H-30, cx, H-52, SLATE, w=1.2, label="HTTPS abi.il1.nl", lfs=6.8)
+    arrow(d, cx, H-78, cx, H-96, SLATE, w=1.2)
 
     # --- Mikroservis satırı (prod: her biri ayrı Deployment) ---
     sy = H-225
@@ -256,10 +258,10 @@ def diagram_architecture():
         xs.append(x+pw/2)
     svc_top, svc_bot = sy+36, sy
 
-    # Gateway -> ilk 5 servise ortogonal bus (mail iç servis)
-    grail = H-150
+    # edge -> ilk 5 servise ortogonal bus (mail iç servis)
+    grail = H-160
     exposed = xs[:5]
-    _vseg(d, cx, H-104, grail, SLATE, 1.2)
+    _vseg(d, cx, H-126, grail, SLATE, 1.2)
     _hseg(d, min(exposed), max(exposed), grail, SLATE, 1.0)
     for i, xc in enumerate(exposed):
         arrow(d, xc, grail, xc, svc_top, SLATE, 0.9)
@@ -300,8 +302,8 @@ def diagram_architecture():
     d.add(String(0, 16, "Prod: 6 bağımsız mikroservis Deployment’ı + Postgres StatefulSet + Dragonfly + NATS. «api» BFF binary "
                  "yalnızca local/docker-compose; ayrı worker pod’u yok — NATS tüketicisi ai pod’u içinde çalışır.",
                  fontName="Body-Italic", fontSize=6.4, fillColor=SLATE))
-    d.add(String(0, 6, "Servisler arası: ai→catalog/query (tipli HTTP istemci), tüm servisler→auth (JWT açık-anahtar + izin), "
-                 "auth→mail.   - - - kesik: dış LLM / iç asenkron çağrı.",
+    d.add(String(0, 6, "Edge: public istekler Cloudflare→cloudflared (kube-system) tünelinden path-bazlı gelir; LAN içi yol Cilium "
+                 "Gateway «lan-gw» (ns: gateway). Servisler arası: ai→catalog/query, tüm servisler→auth (JWT açık-anahtar).",
                  fontName="Body-Italic", fontSize=6.4, fillColor=SLATE))
     return d
 
@@ -408,8 +410,9 @@ def diagram_k8s():
     gap = 9
     pad = 14  # namespace iç boşluğu
 
-    # gateway (ns dışında, üstte)
-    box(d, cx-100, H-30, 200, 26, "Gateway «lan-gw»  (ns: gateway)", PURPLE, fs=7.8)
+    # edge (ns dışında, üstte): cloudflared (public) + cilium gateway (LAN)
+    box(d, cx-180, H-30, 175, 26, "cloudflared tunnel\n(ns: kube-system · public)", colors.HexColor("#F38020"), fs=6.8)
+    box(d, cx+5, H-30, 175, 26, "Cilium Gateway «lan-gw»\n(ns: gateway · LAN)", PURPLE, fs=6.8)
 
     # namespace çerçevesi
     ns_top = H-44
@@ -561,11 +564,11 @@ story += [
     Paragraph('<font color="#CBD5E1">Doğal dilden SQL üreten (Text-to-SQL) yapay zekâ destekli iş zekâsı platformu</font>',
               S("cs2", fontName="Body", fontSize=11, leading=16, textColor=colors.HexColor("#CBD5E1"))),
     Spacer(1, 78*mm),
-    Paragraph("Kapsam: Go backend · React/TypeScript frontend · CI/CD pipeline’ları · Kubernetes dağıtımı · kalite denetimi",
+    Paragraph("Kapsam: Go backend · React/TypeScript frontend · CI/CD pipeline’ları · mikroservis K8s dağıtımı · kalite denetimi",
               st_cover_meta),
     Spacer(1, 3*mm),
-    Paragraph("Sürüm 2.0 · Haziran 2026 · Geliştirme-sonrası güncellenmiş sürüm · Hibrit (yönetici özeti + teknik derinlik)", st_cover_meta),
-    Paragraph("Hazırlayan: Mimari Analiz · go.mod: github.com/biqly/biqly (Go 1.26) · 8 öneriden 7’si uygulandı", st_cover_meta),
+    Paragraph("Sürüm 3.0 · Haziran 2026 · Geliştirme-sonrası + canlı küme (kubectl) doğrulamalı · Hibrit (yönetici özeti + teknik derinlik)", st_cover_meta),
+    Paragraph("Hazırlayan: Mimari Analiz · go.mod: github.com/biqly/biqly (Go 1.26) · prod: cloudflared + Cilium Gateway mikroservis", st_cover_meta),
     PageBreak(),
 ]
 
@@ -680,11 +683,13 @@ story += [PageBreak()]
 
 # ============================ 3. MİMARİ GENEL BAKIŞ ========================
 story += [H1("3. Mimari Genel Bakış")]
-story += [P("Sistem prod ortamında <b>bağımsız mikroservislerden</b> oluşur. Bir <b>Kubernetes Gateway (Gateway API)</b>, "
-            "tek dış host (<font name='Mono'>abi.il1.nl</font>) üzerinden gelen istekleri <b>PathPrefix</b> kurallarıyla "
-            "doğrudan ilgili servise yönlendirir — araya giren merkezi bir BFF/proxy pod’u yoktur. Her servis kendi "
-            "Deployment’ı olarak çalışır, JWT’yi sınırda doğrular ve servisler arası tüm çağrılar tipli HTTP+JSON "
-            "istemcileriyle (<font name='Mono'>pkg/*client</font>) yalnızca küme içinden yapılır.")]
+story += [P("Sistem prod ortamında <b>bağımsız mikroservislerden</b> oluşur. Public istekler <b>Cloudflare</b> üzerinden, "
+            "kümede <font name='Mono'>kube-system</font> namespace’inde çalışan bir <b>cloudflared tüneli</b> ile içeri girer; "
+            "tünel, tek dış host (<font name='Mono'>abi.il1.nl</font>) için <b>path-bazlı ingress</b> kurallarıyla istekleri "
+            "doğrudan ilgili servise iletir — araya giren merkezi bir BFF/proxy pod’u yoktur. (LAN içi erişim için ayrıca bir "
+            "<b>Cilium Gateway API</b> ağ geçidi «lan-gw», <font name='Mono'>gateway</font> namespace’inde aynı path "
+            "yönlendirmesini sağlar.) Her servis kendi Deployment’ı olarak çalışır, JWT’yi sınırda doğrular; servisler arası "
+            "tüm çağrılar tipli HTTP istemcileriyle (<font name='Mono'>pkg/*client</font>) yalnızca küme içinden yapılır.")]
 story += [diagram_architecture(),
           CAP("Şekil 2 — Prod mikroservis topolojisi: Gateway API path-yönlendirmesi ve servisler arası çağrı grafiği.")]
 
@@ -911,6 +916,10 @@ story += [BUL([
  "argocd-image-updater <font name='Mono'>sha-</font> etiketlerini git’e yazarak imajları otomatik yükseltir.",
  "<b>Göçler:</b> PreSync hook Job’ları (sync-wave ile sıralı); metadata göçü catalog imajının sha’sıyla kilit-adımda çalışır; "
  "ConfigMap <font name='Mono'>migrations.biqly.io/revision</font> anotasyonu senkron tetikler.",
+ "<b>Edge / giriş:</b> public trafik <font name='Mono'>kube-system</font>’deki <b>cloudflared</b> named-tunnel’ı "
+ "(<font name='Mono'>abi.il1.nl</font>) üzerinden path-bazlı olarak doğrudan servislere; LAN içi yol Cilium "
+ "<b>«lan-gw»</b> (<font name='Mono'>gateway</font> ns, LoadBalancer 192.168.0.179) + HTTPRoute’lar. Frontend pod’u "
+ "<font name='Mono'>nginx-unprivileged</font> (dropped-caps init, ayrık API proxy timeout’ları).",
 ])]
 story += [PageBreak()]
 
@@ -967,8 +976,8 @@ story += assess("9.3 Kod Kalitesi & Mimari", "GÜÇLÜ — TEK KISMİ KALEM", AM
  "güçlü uyum: <b>148× errors.Is, 11× errors.AsType, yalnızca 1 eski errors.As.</b> <b>Bu sürümde:</b> orkestratör "
  "<font name='Mono'>ProcessQuestion</font> ayrıştırıldı — <font name='Mono'>//nolint:gocyclo,gocognit,funlen</font> kaldırıldı, "
  "karmaşıklık skoru <b>12</b>’ye düştü; ~30 küçük yardımcı çıkarıldı (generateWithRetries, parseAndValidate, "
- "buildSuccessResponse vb.). Tüm ağaç <font name='Mono'>go build ./...</font> ve <font name='Mono'>go vet</font> ✓.",
- "<b>Bu turda 4 yüksek-karmaşıklık fonksiyonu LOW/MEDIUM’a indirildi</b>: <font name='Mono'>Detector.Compare</font> 50→1, "
+ "buildSuccessResponse vb.). Tüm ağaç <font name='Mono'>go build ./...</font> ve <font name='Mono'>go vet</font> ✓. "
+ "<b>Bu turda ayrıca 4 yüksek-karmaşıklık fonksiyonu LOW/MEDIUM’a indirildi</b>: <font name='Mono'>Detector.Compare</font> 50→1, "
  "<font name='Mono'>datasourceDraft</font> 47→4, <font name='Mono'>SyncMetadata</font> 45→9, <font name='Mono'>Validator.Validate</font> 40→3 "
  "(toplam nolint 53→49); <font name='Mono'>pgarray</font> paketi <font name='Mono'>lib/pq</font> bağımlılığını tekleştirdi.",
  "<font name='Mono'>AIConfig</font> adlandırılmış alt-konfiglere geçirildi (Query/Embedding/Translation/Routing/Ambiguity — "
@@ -1034,12 +1043,13 @@ story += [PageBreak()]
 
 # ============================ 10. SONUÇ ====================================
 story += [H1("10. Sonuç ve Yol Haritası")]
-story += [P("Biqly; canlı kümede <b>saf mikroservis</b> olarak çalışan (her servis ayrı Deployment, Gateway API path-yönlendirmesi), "
-            "disiplinli, katmanlı-güvenlikli ve <b>standardın üzerindeki AI/text-to-SQL motoruyla</b> üretime hazır, geç-aşama "
+story += [P("Biqly; canlı kümede <b>saf mikroservis</b> olarak çalışan (her servis ayrı Deployment; public edge "
+            "<b>cloudflared</b> tüneli, LAN’da Cilium Gateway — her ikisi de path-bazlı yönlendirme), disiplinli, "
+            "katmanlı-güvenlikli ve <b>standardın üzerindeki AI/text-to-SQL motoruyla</b> üretime hazır, geç-aşama "
             "bir kod tabanıdır. Bu doküman, önceki raporlardaki önerilerin uygulanmış halidir: ilk denetimdeki <b>8 boşluğun "
             "7’si tamamen kapatıldı</b>; bu turda ayrıca 4 yüksek-karmaşıklık fonksiyonu indirildi, prod-tespiti birleştirildi ve "
-            "catalog’daki kimliksiz-erişim açığı kapatıldı. Tüm değişiklikler kodda doğrulandı "
-            "(<font name='Mono'>go build ./...</font> ve <font name='Mono'>go vet</font> temiz).")]
+            "catalog’daki kimliksiz-erişim açığı kapatıldı. Tüm değişiklikler kodda ve canlı kümede doğrulandı "
+            "(<font name='Mono'>go build ./...</font> · <font name='Mono'>go vet</font> · kubectl).")]
 story += [H3("Kalan öneriler (azalan öncelik)")]
 story += [mk_table(
  ["Öncelik", "Aksiyon", "Etki"],
