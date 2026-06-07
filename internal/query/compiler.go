@@ -100,6 +100,11 @@ func (c *Compiler) Compile(ctx context.Context, lq *LogicalQuery, model *semanti
 		span.SetStatus(codes.Error, comp.err.Error())
 		return nil, comp.err
 	}
+	if lq != nil {
+		if fp, fpErr := LogicalQueryFingerprint(lq, model); fpErr == nil && fp != "" {
+			span.SetAttributes(attribute.String("query.fingerprint", fp))
+		}
+	}
 	return cq, nil
 }
 

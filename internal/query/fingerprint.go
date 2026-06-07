@@ -5,8 +5,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/bytedance/sonic"
 	"sort"
+
+	"github.com/bytedance/sonic"
+
+	"github.com/biqly/biqly/internal/semantic"
 )
 
 // FingerprintInputs collects the pieces that uniquely identify a query run
@@ -20,6 +23,20 @@ type FingerprintInputs struct {
 	DatasourceID    string
 	ContextVersion  string
 	PermissionScope string
+}
+
+// LogicalQueryFingerprint computes the audit/cache fingerprint for a logical
+// query and optional semantic model version context.
+func LogicalQueryFingerprint(lq *LogicalQuery, model *semantic.SemanticModel) (string, error) {
+	if lq == nil {
+		return "", errors.New("logical query required")
+	}
+	lq.EnsureVersion()
+	return ComputeFingerprint(FingerprintInputs{
+		LogicalQuery:   lq,
+		DatasourceID:   lq.DatasourceID,
+		ContextVersion: semanticModelVersionForFingerprint(model),
+	})
 }
 
 // ComputeFingerprint produces a stable hex SHA-256 over a canonical projection

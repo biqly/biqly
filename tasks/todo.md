@@ -16,7 +16,10 @@
 
 ### Düşük öncelik
 
-- [ ] **OTEL izleme derinliğini artır (sürücü/DB span'leri).** Doğrulandı: yalnız 3 adlandırılmış span var — `ai.ProcessQuestion` (`internal/ai/service.go:254`), `query.Compile` (`internal/query/compiler.go:64`), `query.Execute` (`internal/query/executor.go:52`) + router otelhttp ingress. Veri-kaynağı sürücü çağrıları ve few-shot/embedding alt-fazları span'lenmiyor. Aksiyon: alt-fazlara span ekle + span'lere kritik öznitelikler (model, attempt, fingerprint).
+- [x] **OTEL izleme derinliğini artır (sürücü/DB span'leri).** Doğrulandı: yalnız 3 adlandırılmış span var — `ai.ProcessQuestion` (`internal/ai/service.go:254`), `query.Compile` (`internal/query/compiler.go:64`), `query.Execute` (`internal/query/executor.go:52`) + router otelhttp ingress. Veri-kaynağı sürücü çağrıları ve few-shot/embedding alt-fazları span'lenmiyor. Aksiyon: alt-fazlara span ekle + span'lere kritik öznitelikler (model, attempt, fingerprint).
+  - Tamamlandı (2026-06-07): datasource span'leri (`datasource.Ping/Open/Introspect/IntrospectSchemas|Tables|Columns|Relations/Query`), AI alt-fazları (`ai.PromptBuild`, `ai.AmbiguityAnalyze`, `ai.LLMGenerate`, `ai.MultiCandidate`, `ai.TableRoute`, `ai.RouteEmbedding`, `ai.LoadFewShot`, `ai.Embed`, `ai.EmbedMetadata`, `ai.ProviderGenerate`), kritik öznitelikler (`ai.model`, `ai.attempt`, `query.fingerprint`, `model.id`, token sayıları, route confidence).
+  - `query.LogicalQueryFingerprint` + `observability.WithQueryFingerprint` ile compile→execute fingerprint zinciri.
+  - Doğrulama: `go build ./internal/...` + `go test ./internal/query/... ./internal/datasource/... ./internal/ai/... ./internal/core/... ./internal/platform/observability/... ./internal/http/handlers/...` geçti.
 - [ ] **`internal/queue`'yu kapsam-taban haritasına ekle.** Doğrulandı: `scripts/coveragecheck/main.go` `floors` map'inde queue yok (test ediliyor ama kapıya bağlı değil). Bir taban % belirleyip ekle.
 - [ ] **Flaky `TestMFABypassCodeFlow` izolasyonunu düzelt.** `internal/auth/mfa/mfa_test.go` — paylaşılan test DB seed/FK kaynaklı kararsızlık; testi izole et.
 - [ ] **ESLint uyarı tavanını zamanla 0'a doğru sık.** Frontend kapısı CI-eşdeğeri ama uyarı tavanı > 0; kademeli olarak sıfıra indir.

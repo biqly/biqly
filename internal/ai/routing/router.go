@@ -7,6 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+
 	"github.com/biqly/biqly/internal/ai/lingua"
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
@@ -184,7 +188,20 @@ func (r *TableRouter) Route(
 	tableScope []string,
 	includeBaseTables bool,
 	includeViews bool,
-) (*semantic.SemanticModel, *TableRoutingResult, error) {
+) (model *semantic.SemanticModel, result *TableRoutingResult, err error) {
+	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.TableRoute")
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
+	span.SetAttributes(
+		attribute.String("datasource.id", datasourceID),
+		attribute.Bool("ai.embedding_enabled", r.embedder != nil && r.embeddingReader != nil && r.embeddingWeight > 0),
+	)
+
 	if !includeBaseTables && !includeViews {
 		return nil, nil, ErrTypeScopeEmpty
 	}
@@ -323,7 +340,7 @@ func (r *TableRouter) Route(
 	} else {
 		timeGrains = DefaultTimeGrains
 	}
-	model := buildSemanticModel(datasourceID, connected, columnsForModel, relations, limits, timeGrains)
+	model = buildSemanticModel(datasourceID, connected, columnsForModel, relations, limits, timeGrains)
 	if !result.Manual {
 		pruneAutoSemanticModel(model, question, limits, embedSignals.columnScores)
 	}
@@ -332,6 +349,12 @@ func (r *TableRouter) Route(
 		contextSource = "manual"
 	}
 	applyModelContextToRouting(result, model, contextSource, nil)
+	if result != nil {
+		span.SetAttributes(
+			attribute.Float64("ai.route.confidence", result.Confidence),
+			attribute.String("ai.ranking_method", result.RankingMethod),
+		)
+	}
 	return model, result, nil
 }
 
@@ -363,6 +386,13 @@ func (r *TableRouter) embeddingSignals(ctx context.Context, datasourceID, questi
 	if r.embedder == nil || r.embeddingReader == nil || r.embeddingWeight <= 0 {
 		return embeddingSignals{}
 	}
+
+	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.RouteEmbedding")
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("datasource.id", datasourceID),
+		attribute.String("ai.embedding.model", r.embedder.Model()),
+	)
 	storedTables, tableErr := r.embeddingReader.ListTableEmbeddings(ctx, datasourceID)
 	storedColumns, columnErr := r.embeddingReader.ListColumnEmbeddings(ctx, datasourceID)
 	if (tableErr != nil || len(storedTables) == 0) && (columnErr != nil || len(storedColumns) == 0) {
@@ -370,6 +400,10 @@ func (r *TableRouter) embeddingSignals(ctx context.Context, datasourceID, questi
 	}
 	qVecs, err := r.embedder.Embed(ctx, []string{question})
 	if err != nil || len(qVecs) == 0 || len(qVecs[0]) == 0 {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
 		return embeddingSignals{}
 	}
 	q := qVecs[0]

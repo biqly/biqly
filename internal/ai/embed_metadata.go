@@ -6,6 +6,10 @@ import (
 	"strconv"
 	"strings"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+
 	"github.com/biqly/biqly/internal/ai/lingua"
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
@@ -117,7 +121,20 @@ func (s *EmbedMetadataService) EmbedForTables(ctx context.Context, datasourceID 
 }
 
 //nolint:gocognit
-func (s *EmbedMetadataService) embedForFilter(ctx context.Context, datasourceID string, allowed map[string]bool) ([]EmbedTableResult, error) {
+func (s *EmbedMetadataService) embedForFilter(ctx context.Context, datasourceID string, allowed map[string]bool) (results []EmbedTableResult, err error) {
+	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.EmbedMetadata")
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
+	span.SetAttributes(
+		attribute.String("datasource.id", datasourceID),
+		attribute.String("ai.embedding.model", s.embedder.Model()),
+	)
+
 	tables, err := s.writer.ListTables(ctx, datasourceID, "")
 	if err != nil {
 		return nil, fmt.Errorf("list tables: %w", err)
@@ -165,7 +182,7 @@ func (s *EmbedMetadataService) embedForFilter(ctx context.Context, datasourceID 
 	}
 
 	locales := embeddingLocalesWritten()
-	results := make([]EmbedTableResult, 0, (len(tables)+len(cols))*len(locales))
+	results = make([]EmbedTableResult, 0, (len(tables)+len(cols))*len(locales))
 	for _, loc := range locales {
 		locTables := tables
 		locCols := cols
@@ -192,6 +209,11 @@ func (s *EmbedMetadataService) embedForFilter(ctx context.Context, datasourceID 
 			results = append(results, columnResults...)
 		}
 	}
+	span.SetAttributes(
+		attribute.Int("db.table_count", len(tables)),
+		attribute.Int("db.column_count", len(cols)),
+		attribute.Int("ai.embedding.results", len(results)),
+	)
 	return results, nil
 }
 

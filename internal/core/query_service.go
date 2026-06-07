@@ -9,6 +9,7 @@ import (
 
 	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/metadata"
+	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/security"
 	"github.com/biqly/biqly/internal/semantic"
@@ -176,6 +177,9 @@ func (s *QueryService) Run(ctx context.Context, lq *query.LogicalQuery) (*RunRes
 	}
 	defer cleanup()
 
+	if fp, fpErr := query.LogicalQueryFingerprint(&compiled.LogicalQuery, compiled.Model); fpErr == nil {
+		ctx = observability.WithQueryFingerprint(ctx, fp)
+	}
 	result, err := s.executor.Execute(ctx, db, compiled.Compiled)
 	if err != nil {
 		s.recordHistory(ctx, &compiled.LogicalQuery, compiled.Model, compiled.Compiled, nil, QueryStatusFailed, err)

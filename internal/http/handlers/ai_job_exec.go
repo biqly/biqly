@@ -13,6 +13,7 @@ import (
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/core"
 	"github.com/biqly/biqly/internal/metadata"
+	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -192,6 +193,9 @@ func (h *AIHandler) finishAIRunResult(ctx context.Context, req aiQueryRequest, m
 	}
 	resp.Result.SQL = cq.SQL
 	resp.Result.Args = cq.Args
+	if fp, fpErr := query.LogicalQueryFingerprint(logicalQuery, model); fpErr == nil {
+		ctx = observability.WithQueryFingerprint(ctx, fp)
+	}
 	result, err := h.deps.Executor.Execute(ctx, db, cq)
 	if err != nil {
 		persistQueryHistory(ctx, h.deps.MetaRepo, logicalQuery, model, cq, nil, queryStatusFailed, err)

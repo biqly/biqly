@@ -253,10 +253,13 @@ func WithAmbiguityAnalysisObserver(observer AmbiguityAnalysisObserver) ProcessOp
 func (s *Service) ProcessQuestion(ctx context.Context, question string, model *semantic.SemanticModel, opts ...ProcessOption) (*AIResponse, error) {
 	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.ProcessQuestion")
 	defer span.End()
+	span.SetAttributes(
+		attribute.String("ai.model", s.queryModel),
+		attribute.Int("question.length", len(question)),
+	)
 	if model != nil {
 		span.SetAttributes(attribute.String("model.id", model.ID))
 	}
-	span.SetAttributes(attribute.Int("question.length", len(question)))
 
 	options := processOptions{}
 	for _, opt := range opts {
@@ -332,6 +335,12 @@ func (s *Service) checkAmbiguity(ctx context.Context, question string, model *se
 // analyzeAmbiguity runs the deterministic ambiguity check and, when configured,
 // the LLM fallback, caching the result unless the LLM call failed.
 func (s *Service) analyzeAmbiguity(ctx context.Context, question string, model *semantic.SemanticModel, glossary []promptpkg.GlossaryEntry, options *processOptions, cacheKey string) ambiguitypkg.Result {
+	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.AmbiguityAnalyze")
+	defer span.End()
+	if model != nil {
+		span.SetAttributes(attribute.String("model.id", model.ID))
+	}
+
 	source := "rule_based"
 	start := time.Now()
 	result := ambiguitypkg.Analyze(ctx, question, model, glossary, options.ambiguityConfidenceThreshold)
@@ -359,6 +368,10 @@ func (s *Service) analyzeAmbiguity(ctx context.Context, question string, model *
 	if cacheable {
 		s.cacheAmbiguityAnalysis(cacheKey, result, source)
 	}
+	span.SetAttributes(
+		attribute.String("ai.ambiguity.source", source),
+		attribute.Bool("ai.ambiguity.detected", result.IsAmbiguous),
+	)
 	return result
 }
 
@@ -376,6 +389,51 @@ type genLoopState struct {
 	prompt             string
 	promptStats        promptpkg.Stats
 	repairDetails      []RepairDetail
+}
+
+func (s *Service) generateAtWithSpan(ctx context.Context, prompt string, temperature float64, attempt int) (providerpkg.GenerationResult, error) {
+	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.LLMGenerate")
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("ai.model", s.queryModel),
+		attribute.Int("ai.attempt", attempt),
+		attribute.Float64("ai.temperature", temperature),
+	)
+	gen, err := s.client.GenerateAt(ctx, prompt, temperature)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return providerpkg.GenerationResult{}, err
+	}
+	if gen.Usage != nil {
+		span.SetAttributes(
+			attribute.Int("ai.tokens.prompt", gen.Usage.Prompt),
+			attribute.Int("ai.tokens.completion", gen.Usage.Completion),
+		)
+	}
+	return gen, nil
+}
+
+func (s *Service) generateWithSpan(ctx context.Context, prompt string, attempt int) (providerpkg.GenerationResult, error) {
+	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.LLMGenerate")
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("ai.model", s.queryModel),
+		attribute.Int("ai.attempt", attempt),
+	)
+	gen, err := s.client.Generate(ctx, prompt)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return providerpkg.GenerationResult{}, err
+	}
+	if gen.Usage != nil {
+		span.SetAttributes(
+			attribute.Int("ai.tokens.prompt", gen.Usage.Prompt),
+			attribute.Int("ai.tokens.completion", gen.Usage.Completion),
+		)
+	}
+	return gen, nil
 }
 
 // generateWithRetries runs single-shot generation plus the repair/retry loop. It
@@ -397,7 +455,7 @@ func (s *Service) generateWithRetries(
 	var validationErrors query.ValidationErrors
 
 	for attempt := range s.maxRetries + 1 {
-		gen, genErr := s.client.Generate(ctx, st.prompt)
+		gen, genErr := s.generateWithSpan(ctx, st.prompt, attempt)
 		if genErr != nil {
 			span.RecordError(genErr)
 			span.SetStatus(codes.Error, genErr.Error())
@@ -659,6 +717,17 @@ func (s *Service) buildPrompt(
 	filterSess *FilterSessionState,
 	followIntent FollowUpIntent,
 ) (string, promptpkg.Stats) {
+	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.PromptBuild")
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("ai.model", s.queryModel),
+		attribute.Int("ai.context_tier", tier),
+		attribute.Int("ai.few_shot.count", len(options.fewShot)),
+	)
+	if model != nil {
+		span.SetAttributes(attribute.String("model.id", model.ID))
+	}
+
 	tiered := applyContextTier(options, tier)
 	promptRunes := promptpkg.RunesForTier(s.maxPromptRunes, tier, s.aiCfg, s.queryModel)
 	start := time.Now()
@@ -734,6 +803,16 @@ func (s *Service) tryMultiCandidate(
 		return nil, false
 	}
 
+	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.MultiCandidate")
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("ai.model", s.queryModel),
+		attribute.Int("ai.candidate_count", n),
+	)
+	if model != nil {
+		span.SetAttributes(attribute.String("model.id", model.ID))
+	}
+
 	type candidate struct {
 		idx      int
 		lq       *query.LogicalQuery
@@ -761,7 +840,7 @@ func (s *Service) tryMultiCandidate(
 			}
 			ch := make(chan genResult, 1)
 			go func() {
-				g, err := s.client.GenerateAt(ctx, prompt, temp)
+				g, err := s.generateAtWithSpan(ctx, prompt, temp, idx)
 				ch <- genResult{g, err}
 			}()
 

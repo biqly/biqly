@@ -13,6 +13,9 @@ import (
 	"strings"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/ai/abtest"
 	"github.com/biqly/biqly/internal/ai/ambiguity"
@@ -23,6 +26,7 @@ import (
 	"github.com/biqly/biqly/internal/dialect"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/metadata"
+	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
 	"github.com/google/uuid"
@@ -451,6 +455,9 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, mode
 	resp.Result.SQL = cq.SQL
 	resp.Result.Args = cq.Args
 
+	if fp, fpErr := query.LogicalQueryFingerprint(logicalQuery, model); fpErr == nil {
+		ctx = observability.WithQueryFingerprint(ctx, fp)
+	}
 	result, err := h.deps.Executor.Execute(ctx, db, cq)
 	if err != nil {
 		persistQueryHistory(ctx, h.deps.MetaRepo, logicalQuery, model, cq, nil, queryStatusFailed, err)
@@ -1036,9 +1043,13 @@ func (h *AIHandler) loadSampleData(ctx context.Context, db *sql.DB, d dialect.Di
 // the frontend can override which exemplars hit the prompt without breaking
 // the simpler Query/Preview paths.
 func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *semantic.SemanticModel, exampleIDs []string, includePastQueries bool) []prompt.FewShotExample {
+	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.LoadFewShot")
+	defer span.End()
+
 	if model == nil {
 		return nil
 	}
+	span.SetAttributes(attribute.String("model.id", model.ID))
 	var modelID *string
 	if model.ID != "" {
 		modelID = new(model.ID)
@@ -1098,6 +1109,7 @@ func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *seman
 		}
 	}
 
+	span.SetAttributes(attribute.Int("ai.few_shot.count", len(out)))
 	return out
 }
 

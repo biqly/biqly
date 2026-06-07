@@ -11,6 +11,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 
+	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/internal/security"
 )
 
@@ -87,10 +88,14 @@ func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (
 		return nil, scanErr
 	}
 
-	span.SetAttributes(
+	attrs := []attribute.KeyValue{
 		attribute.Int("db.rows_returned", res.Stats.RowCount),
 		attribute.Bool("db.truncated", res.Stats.Truncated),
-	)
+	}
+	if fp := observability.QueryFingerprint(ctx); fp != "" {
+		attrs = append(attrs, attribute.String("query.fingerprint", fp))
+	}
+	span.SetAttributes(attrs...)
 
 	return res, nil
 }

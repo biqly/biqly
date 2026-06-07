@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
 )
 
@@ -32,7 +36,20 @@ func (p *baseProvider) generate(ctx context.Context, prompt string) (GenerationR
 	return p.generateAt(ctx, prompt, p.temperature)
 }
 
-func (p *baseProvider) generateAt(ctx context.Context, prompt string, temperature float64) (GenerationResult, error) {
+func (p *baseProvider) generateAt(ctx context.Context, prompt string, temperature float64) (result GenerationResult, err error) {
+	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.ProviderGenerate")
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
+	span.SetAttributes(
+		attribute.String("ai.model", p.model),
+		attribute.Float64("ai.temperature", temperature),
+	)
+
 	estPrompt := promptpkg.EstimateTokens(prompt)
 	body, err := p.hooks.marshal(prompt, temperature)
 	if err != nil {
@@ -43,7 +60,7 @@ func (p *baseProvider) generateAt(ctx context.Context, prompt string, temperatur
 		headers = map[string]string{}
 	}
 
-	result, err := execHTTPPostRetry(ctx, p.http.client, httpPostSpec{
+	result, err = execHTTPPostRetry(ctx, p.http.client, httpPostSpec{
 		URL:     p.http.url(p.hooks.path),
 		Headers: headers,
 		Body:    body,
@@ -60,6 +77,12 @@ func (p *baseProvider) generateAt(ctx context.Context, prompt string, temperatur
 	})
 	if err != nil {
 		return GenerationResult{}, err
+	}
+	if result.Usage != nil {
+		span.SetAttributes(
+			attribute.Int("ai.tokens.prompt", result.Usage.Prompt),
+			attribute.Int("ai.tokens.completion", result.Usage.Completion),
+		)
 	}
 	logLLMCompletion(ctx, p.logName, p.model, estPrompt, result)
 	return result, nil
@@ -80,10 +103,23 @@ type baseEmbedder struct {
 	model string
 }
 
-func (e *baseEmbedder) embed(ctx context.Context, texts []string) ([][]float32, error) {
+func (e *baseEmbedder) embed(ctx context.Context, texts []string) (out [][]float32, err error) {
 	if len(texts) == 0 {
 		return nil, nil
 	}
+
+	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.Embed")
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}()
+	span.SetAttributes(
+		attribute.String("ai.embedding.model", e.model),
+		attribute.Int("ai.embedding.batch_size", len(texts)),
+	)
 	body, err := e.hooks.marshal(texts)
 	if err != nil {
 		return nil, fmt.Errorf("marshal embedding request: %w", err)
