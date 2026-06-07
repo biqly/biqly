@@ -1,5 +1,23 @@
 # Todo list
 
+## Sonic JSON Migration Results
+
+Resolved:
+
+1. Added `internal/jsonusage` static guard test to reject direct `encoding/json` encode/decode/parser helper calls.
+2. Migrated direct `Marshal`, `MarshalIndent`, `Unmarshal`, `NewEncoder`, `NewDecoder`, and `Valid` usage to `sonic.ConfigStd`.
+3. Replaced golden JSON compaction with sonic decode plus std-compatible marshal normalization.
+4. Kept `encoding/json` only where stdlib JSON types remain part of API or compatibility surfaces.
+5. Removed stale `nolint` directives made unnecessary by the sonic migration.
+
+Verification:
+
+- `GOCACHE=/private/tmp/biqly-gocache go test ./internal/jsonusage -count=1`
+- `GOCACHE=/private/tmp/biqly-gocache go test -run '^$' ./cmd/... ./internal/... ./pkg/... -count=1`
+- `GOCACHE=/private/tmp/biqly-gocache go test ./cmd/... ./internal/... ./pkg/... -count=1`
+- `make lint-go`
+- `git diff --check`
+
 ## Prioritized Architectural & Observability Recommendations (2026-06-06)
 
 - [x] **Yüksek**: OTEL tracing'i kodda enstrümante et (LLM/derle/yürüt span'leri)
@@ -1240,78 +1258,3 @@ All tasks are completed successfully:
 1. **Frontend**: Translation keys added for English and Turkish. Masking strategy dropdown rendered for unreviewed columns in the PII Detection Panel. Local edits are stored in `pendingStrategy` state and transmitted via `updateColumnPII` upon clicking Confirm.
 2. **Backend**: Added column-level strategy mapping in `PIIMaskingConfig` and parsed `PIIMaskingStrategy` from database records. Integrated this strategy in the query compiler: columns with `"full"` strategy resolve to `pii.HiddenLiteral` (full mask) instead of the partial masking expression.
 3. **Verification**: Frontend build and tests pass successfully. Backend linter and unit tests (including a new compiler test for strategy overrides) pass successfully.
-
-## Dead Code Cleanup Plan
-
-Success criteria:
-
-- Remove genuinely dead code inside internal/ packages that is not used in production or tests.
-- Public client SDKs (pkg/) and test-only code are preserved.
-- The project compiles and all tests pass successfully.
-- golangci-lint run returns 0 issues.
-
-- [ ] Remove `internal/ai/service.go` dead code (`WithDeniedFields`)
-- [ ] Remove `internal/ai/sft_export.go` dead code (`WriteJSONL`)
-- [ ] Remove `internal/ai/eval/benchmark_cases.go` dead code (`BenchmarkCaseIDs`, `NormalizeBenchmarkQuestion`)
-- [ ] Remove `internal/ai/routing/composite_router.go` (entire file is dead)
-- [ ] Remove `internal/app/datasource_resolve.go` dead code (`ResolveDatasourceDB`)
-- [ ] Remove `internal/auth/audit.go` dead code (`WithLogger`, `LogResult`)
-- [ ] Remove `internal/auth/magiclink.go` dead code (`PurgeExpired`)
-- [ ] Remove `internal/auth/service_account_lifecycle.go` dead code (`PurgeExpiredAccounts`)
-- [ ] Remove `internal/auth/service_oauth.go` dead code (`UnlinkOAuth`)
-- [ ] Remove `internal/auth/session.go` dead code (`TouchSession`)
-- [ ] Remove `internal/auth/handlers/handler.go` dead code (`RegisterRoutes` helper)
-- [ ] Remove `internal/auth/handlers/handler_rbac.go` dead code (`RegisterRoutes` helper)
-- [ ] Remove `internal/auth/workspace/sharing.go` dead code (`CheckAccess`)
-- [ ] Remove `internal/http/handlers/ai_examples.go` dead code (`ListFavorites`)
-- [ ] Remove `internal/http/handlers/internal.go` dead code (`NewInternalHandler`)
-- [ ] Remove `internal/http/middleware/jwt.go` dead code (`PublicKeyProvider.Get`, `Permissions`, `WorkspaceDatasourceFilter`)
-- [ ] Remove `internal/i18n/i18n.go` dead code (`MetadataTranslationLocales`)
-- [ ] Remove `internal/metadata/translations.go` dead code (`LocalizedDescription`)
-- [ ] Remove `internal/platform/db/pool.go` dead code (`Close`)
-- [ ] Remove `internal/platform/logger/logger.go` dead code (`NewWithFile`)
-- [ ] Remove `internal/platform/observability/logging.go` dead code (`LoggerFrom`)
-- [ ] Remove `internal/platform/redis/redis.go` (entire file is dead, along with its test file `redis_key_test.go`)
-- [ ] Remove `internal/query/composite_fanout.go` (entire file is dead)
-- [ ] Remove `internal/query/composite_validator.go` (entire file is dead)
-- [ ] Remove `internal/query/expression_parse.go` dead code (`TokenType.String`)
-- [ ] Remove `internal/security/permissions.go` dead code (`FilterAllowedFields`, `GetPIIPolicy`)
-- [ ] Remove `internal/security/row_injection.go` dead code (`InjectRowFilters`, `joinStr`)
-- [ ] Remove `internal/semantic/model.go` dead code (`MetricRegistry.All`, `MetricRegistry.Names`)
-- [ ] Verification: Run all Go unit tests, `golangci-lint run`, and ensure all checks pass.
-
-## Sonic JSON Migration Plan
-
-Success criteria:
-
-- Go JSON marshal/unmarshal/parser paths use `github.com/bytedance/sonic` instead of `encoding/json` wherever sonic has an equivalent API.
-- `sonic.ConfigStd` is used for stdlib-compatible encode/decode behavior unless existing code already intentionally uses another sonic config.
-- `encoding/json` remains only where Go stdlib JSON types are part of the API surface, such as `json.RawMessage`, `json.Number`, `json.Marshaler`, or compatibility-only tests.
-- Existing strict decoder behavior is preserved (`UseNumber`, unknown-field rejection, stream encode/decode, indentation, HTML escaping).
-- Focused tests and broad Go package tests pass, and `git diff --check` is clean.
-
-- [x] Inventory `encoding/json` usage and split it into direct encode/decode calls vs stdlib type-only imports.
-- [x] Add or update a narrow regression/static test that fails while direct `encoding/json` marshal/unmarshal/parser calls remain in non-exempt Go files.
-- [x] Replace `json.Marshal`, `json.MarshalIndent`, `json.Unmarshal`, encoder/decoder construction, and parser helpers with sonic equivalents.
-- [x] Preserve `json.RawMessage`/`json.Number` API compatibility where needed; remove `encoding/json` imports from files that no longer require stdlib JSON types.
-- [x] Run `gofmt` on touched Go files.
-- [x] Run focused tests for changed packages, then a broad Go test gate.
-- [x] Update this tracker with completed items and verification results.
-
-## Sonic JSON Migration Results
-
-Resolved:
-
-1. Added `internal/jsonusage` static guard test to reject direct `encoding/json` encode/decode/parser helper calls.
-2. Migrated direct `Marshal`, `MarshalIndent`, `Unmarshal`, `NewEncoder`, `NewDecoder`, and `Valid` usage to `sonic.ConfigStd`.
-3. Replaced golden JSON compaction with sonic decode plus std-compatible marshal normalization.
-4. Kept `encoding/json` only where stdlib JSON types remain part of API or compatibility surfaces.
-5. Removed stale `nolint` directives made unnecessary by the sonic migration.
-
-Verification:
-
-- `GOCACHE=/private/tmp/biqly-gocache go test ./internal/jsonusage -count=1`
-- `GOCACHE=/private/tmp/biqly-gocache go test -run '^$' ./cmd/... ./internal/... ./pkg/... -count=1`
-- `GOCACHE=/private/tmp/biqly-gocache go test ./cmd/... ./internal/... ./pkg/... -count=1`
-- `make lint-go`
-- `git diff --check`

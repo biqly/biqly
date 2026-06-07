@@ -22,10 +22,56 @@ import { LoadingScreen } from './components/ui/LoadingScreen'
 import { ThemeToggle } from './components/ui/ThemeToggle'
 import { LocaleSection, type TranslationKey, useLocaleSection, useT } from './i18n'
 
-const lazyWithPreload = <T extends ComponentType<any>>(factory: () => Promise<{ default: T }>) => {
-  const Component = lazy(factory) as any
+interface Preloadable {
+  preload: () => Promise<unknown>
+}
+
+type PreloadableComponent<T extends ComponentType<RouteComponentProps>> = LazyExoticComponent<T> & {
+  preload: () => Promise<{ default: T }>
+}
+
+const lazyWithPreload = <T extends ComponentType<RouteComponentProps>>(
+  factory: () => Promise<{ default: T }>,
+): PreloadableComponent<T> => {
+  const Component = lazy(factory) as PreloadableComponent<T>
   Component.preload = factory
-  return Component as LazyExoticComponent<T> & { preload: () => Promise<{ default: T }> }
+  return Component
+}
+
+const handleNavHover = (component: Preloadable) => {
+  void component.preload()
+}
+
+const getInitials = (name?: string, email?: string) => {
+  if (name) {
+    const parts = name.split(' ')
+    const first = parts[0]
+    const second = parts[1]
+    if (first && second && first[0] && second[0]) {
+      return (first[0] + second[0]).toUpperCase()
+    }
+    return name.slice(0, 2).toUpperCase()
+  }
+  if (email) {
+    return email.slice(0, 2).toUpperCase()
+  }
+  return 'U'
+}
+
+const computeRoleLabel = (roles: string[]): string => {
+  if (roles.includes('super_admin')) {
+    return 'Super Admin'
+  }
+  if (roles.includes('admin')) {
+    return 'Admin'
+  }
+  if (roles.includes('developer')) {
+    return 'Developer'
+  }
+  if (roles.includes('analyst')) {
+    return 'Analyst'
+  }
+  return 'User'
 }
 
 const Home = lazyWithPreload(() => import('./components/Home'))
@@ -61,6 +107,7 @@ import { useAuth } from './components/auth/AuthProvider'
 import { WorkspaceSelector } from './components/workspaces/WorkspaceSelector'
 import { useUrlSearch } from './hooks/useQueryParam'
 import { appendAdminBreadcrumbs } from './lib/adminBreadcrumbs'
+import type { AuthUser } from './types/auth'
 
 type RouteSectionKey = 'data' | 'query' | 'ai' | 'analytics' | 'preferences'
 type NavigateFn = (path: string) => void
@@ -85,7 +132,7 @@ interface AppRouteDef {
   eyebrowKey: TranslationKey
   descriptionKey: TranslationKey
   icon: ReactNode
-  component: LazyExoticComponent<ComponentType<RouteComponentProps>>
+  component: LazyExoticComponent<ComponentType<RouteComponentProps>> & Preloadable
   hidden?: boolean
 }
 
@@ -412,6 +459,65 @@ const AuthLoading = () => {
   )
 }
 
+interface SidebarFooterProps {
+  user: AuthUser | null
+  roleLabel: string
+  onLogout: () => void
+}
+
+function SidebarFooter({ user, roleLabel, onLogout }: SidebarFooterProps) {
+  const t = useT()
+  const isLocalApi =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  const apiLabel = isLocalApi
+    ? t('common.local_api')
+    : `API · ${typeof window !== 'undefined' ? window.location.host : ''}/api`
+
+  return (
+    <div className="sidebar-footer">
+      {user && (
+        <>
+          <Link
+            to="/settings"
+            className="sidebar-user"
+            onMouseEnter={() => handleNavHover(Settings)}
+            onFocus={() => handleNavHover(Settings)}
+          >
+            <div className="user-avatar">
+              {user.avatarUrl ? (
+                <img src={user.avatarUrl} alt="" />
+              ) : (
+                getInitials(user.displayName, user.email)
+              )}
+            </div>
+            <div className="user-details">
+              <span className="user-name">
+                {user.displayName?.trim() ? user.displayName : user.email}
+              </span>
+              <span className="user-role">{roleLabel}</span>
+            </div>
+          </Link>
+          <button type="button" className="btn sidebar-logout-btn" onClick={onLogout}>
+            <span className="sidebar-logout-btn__icon" aria-hidden="true">
+              🚪
+            </span>
+            {t('auth.logout')}
+          </button>
+        </>
+      )}
+      <div className="header-controls">
+        <LanguageSwitcher />
+        <ThemeToggle />
+      </div>
+      <div className="sidebar-footer__api">
+        <span className="status-dot" aria-hidden="true" />
+        <span>{apiLabel}</span>
+      </div>
+    </div>
+  )
+}
+
 function App() {
   const t = useT()
   const authReady = useLocaleSection('auth')
@@ -421,31 +527,7 @@ function App() {
   const navigate = useNavigate()
   const { user, accessToken, logout, roles } = useAuth()
   const isAdmin = roles.some((role) => role === 'super_admin' || role === 'admin')
-  const roleLabel = roles.includes('super_admin')
-    ? 'Super Admin'
-    : roles.includes('admin')
-      ? 'Admin'
-      : roles.includes('developer')
-        ? 'Developer'
-        : roles.includes('analyst')
-          ? 'Analyst'
-          : 'User'
-
-  const getInitials = (name?: string, email?: string) => {
-    if (name) {
-      const parts = name.split(' ')
-      const first = parts[0]
-      const second = parts[1]
-      if (first && second && first[0] && second[0]) {
-        return (first[0] + second[0]).toUpperCase()
-      }
-      return name.slice(0, 2).toUpperCase()
-    }
-    if (email) {
-      return email.slice(0, 2).toUpperCase()
-    }
-    return 'U'
-  }
+  const roleLabel = computeRoleLabel(roles)
 
   const routes: AppRoute[] = useMemo(
     () =>
@@ -538,9 +620,9 @@ function App() {
       onClick: hasAdminOrEvalTab
         ? () => {
             const next = new URLSearchParams()
-            next.set('tab', new URLSearchParams(effectiveSearch).get('tab') || 'users')
+            next.set('tab', new URLSearchParams(effectiveSearch).get('tab') ?? 'users')
             startTransition(() => {
-              navigate(`${activeRoute.path}?${next.toString()}`)
+              void navigate(`${activeRoute.path}?${next.toString()}`)
             })
           }
         : () => startTransition(() => navigate(activeRoute.path)),
@@ -550,7 +632,7 @@ function App() {
       appendAdminBreadcrumbs(crumbs, effectiveSearch, t, (p) => startTransition(() => navigate(p)))
     } else if (activeRoute.path === '/evaluation') {
       const searchParams = new URLSearchParams(effectiveSearch)
-      const tabParam = searchParams.get('tab') || 'run'
+      const tabParam = searchParams.get('tab') ?? 'run'
 
       let tabLabel = ''
       if (tabParam === 'run') {
@@ -613,18 +695,10 @@ function App() {
     }
   }, [activeRoute, activePath, t])
 
-  const handleNavHover = (component: any) => {
-    if (component && typeof component.preload === 'function') {
-      component.preload()
-    }
-  }
-
   useEffect(() => {
     const timer = setTimeout(() => {
       routes.forEach((route) => {
-        if ((route.component as any).preload) {
-          ;(route.component as any).preload()
-        }
+        void route.component.preload()
       })
     }, 1000)
     return () => clearTimeout(timer)
@@ -654,7 +728,7 @@ function App() {
 
     event.preventDefault()
     startTransition(() => {
-      navigate(path)
+      void navigate(path)
     })
     setMobileNavOpen(false)
   }
@@ -823,57 +897,14 @@ function App() {
                   ))}
                 </div>
 
-                <div className="sidebar-footer">
-                  {user && (
-                    <>
-                      <Link
-                        to="/settings"
-                        className="sidebar-user"
-                        onMouseEnter={() => handleNavHover(Settings)}
-                        onFocus={() => handleNavHover(Settings)}
-                      >
-                        <div className="user-avatar">
-                          {user.avatarUrl ? (
-                            <img src={user.avatarUrl} alt="" />
-                          ) : (
-                            getInitials(user.displayName, user.email)
-                          )}
-                        </div>
-                        <div className="user-details">
-                          <span className="user-name">{user.displayName || user.email}</span>
-                          <span className="user-role">{roleLabel}</span>
-                        </div>
-                      </Link>
-                      <button
-                        type="button"
-                        className="btn sidebar-logout-btn"
-                        onClick={() => {
-                          void logout()
-                          navigate('/auth/signin')
-                        }}
-                      >
-                        <span className="sidebar-logout-btn__icon" aria-hidden="true">
-                          🚪
-                        </span>
-                        {t('auth.logout')}
-                      </button>
-                    </>
-                  )}
-                  <div className="header-controls">
-                    <LanguageSwitcher />
-                    <ThemeToggle />
-                  </div>
-                  <div className="sidebar-footer__api">
-                    <span className="status-dot" aria-hidden="true" />
-                    <span>
-                      {typeof window !== 'undefined' &&
-                      (window.location.hostname === 'localhost' ||
-                        window.location.hostname === '127.0.0.1')
-                        ? t('common.local_api')
-                        : `API · ${typeof window !== 'undefined' ? window.location.host : ''}/api`}
-                    </span>
-                  </div>
-                </div>
+                <SidebarFooter
+                  user={user}
+                  roleLabel={roleLabel}
+                  onLogout={() => {
+                    void logout()
+                    void navigate('/auth/signin')
+                  }}
+                />
               </aside>
 
               <main id="main-content" className="main" tabIndex={-1}>
