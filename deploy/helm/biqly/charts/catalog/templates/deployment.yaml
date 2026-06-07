@@ -89,6 +89,15 @@ spec:
                 name: {{ .Values.global.secretNames.db }}
             - secretRef:
                 name: {{ .Values.global.secretNames.security }}
+          env:
+            # Shared internal token so the catalog service can authenticate to the
+            # auth service's /internal/auth/public-key endpoint for JWT
+            # verification (BI_AUTH_ENABLED=true).
+            - name: BI_AUTH_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.secretNames.authSecret }}
+                  key: BI_AUTH_INTERNAL_TOKEN
           livenessProbe:
             httpGet:
               path: /health

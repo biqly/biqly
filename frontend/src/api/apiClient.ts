@@ -9,6 +9,16 @@ export interface RequestOptions extends Omit<RequestInit, 'body'> {
   useAdminKey?: boolean
 }
 
+// Module-level access token kept in sync by AuthProvider. With JWT enforcement
+// on the backend (BI_AUTH_ENABLED=true) every /api request must carry a Bearer
+// token, so fetchJSON falls back to this when a call site does not pass one
+// explicitly.
+let globalAccessToken: string | null = null
+
+export function setGlobalAccessToken(token: string | null): void {
+  globalAccessToken = token
+}
+
 function parseResponseBody(text: string): unknown {
   if (!text) {
     return null
@@ -76,13 +86,11 @@ export async function fetchJSON<T>(
     if (!headers.has('X-Locale')) {
       headers.set('X-Locale', getLocale())
     }
-    if (init?.token) {
-      headers.set('Authorization', `Bearer ${init.token}`)
-    } else if (init?.useAdminKey) {
-      const adminKey = resolveAdminApiKey()
-      if (adminKey) {
-        headers.set('Authorization', `Bearer ${adminKey}`)
-      }
+    // Precedence: explicit per-call token > admin API key > session token.
+    const bearer =
+      init?.token || (init?.useAdminKey ? resolveAdminApiKey() : '') || globalAccessToken
+    if (bearer) {
+      headers.set('Authorization', `Bearer ${bearer}`)
     }
 
     const res = await csrfFetch(url, {

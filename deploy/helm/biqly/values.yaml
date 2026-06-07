@@ -159,6 +159,9 @@ global:
     BI_QUERY_MAX_RUNTIME_SECONDS: "60"
     BI_REDIS_DSN: redis://biqly-dragonfly:6379
     BI_AUTH_ENABLED: "true"
+    # Every JWT-enforcing service needs the auth service URL to fetch the JWT
+    # public key — without it BI_AUTH_ENABLED=true makes /api answer 503.
+    BI_AUTH_SERVICE_URL: http://biqly-auth:8889
     # PII detection & role-based masking (see docs/pii-detection-masking.md)
     BI_PII_ENABLED: "true"
     BI_PII_DETECTION_THRESHOLD: "0.6"

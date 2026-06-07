@@ -18,6 +18,7 @@ import {
   apiRegister,
   apiSetActiveWorkspace,
 } from '../../api/auth'
+import { setGlobalAccessToken } from '../../api/apiClient'
 import type { AuthUser } from '../../types/auth'
 
 // classifySessionExpiry inspects the server-returned error message and maps it
@@ -79,6 +80,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // second call with the already-rotated token trips the server's token-family
   // theft protection, revoking every session.
   const refreshInFlightRef = useRef(false)
+
+  // Mirror the session token into the apiClient module so every fetch —
+  // including call sites that don't thread the token explicitly — sends
+  // Authorization. Required now that the backend enforces JWTs on /api.
+  useEffect(() => {
+    setGlobalAccessToken(accessToken)
+  }, [accessToken])
 
   const clearAuth = () => {
     setUser(null)

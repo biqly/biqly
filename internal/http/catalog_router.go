@@ -33,9 +33,16 @@ func CatalogRouter(deps *app.Dependencies) http.Handler {
 	r.Get("/ready", ReadinessHandler(deps, nil))
 	r.Get("/metrics", MetricsHandler)
 
+	// /api is the catalog's user-facing surface, reached directly through the
+	// gateway — it must enforce auth itself (BI_AUTH_ENABLED=true → JWT with
+	// admin-key bypass; otherwise legacy API key). The auth client additionally
+	// wires per-datasource access checks on routes that carry a datasource_id.
+	authMW := buildAPIAuthMiddleware(deps)
+	authClient := NewAuthClient(deps)
 	r.Route("/api", func(r chi.Router) {
+		r.Use(authMW)
 		r.Use(CatalogMetricsMiddleware(GetMetrics()))
-		registerCatalogAPIRoutes(r, deps.CatalogDeps(), nil)
+		registerCatalogAPIRoutes(r, deps.CatalogDeps(), authClient)
 	})
 
 	r.Route("/internal", func(r chi.Router) {
