@@ -5,7 +5,6 @@ import { apiFetch } from '../api/apiClient'
 import { resolveAdminApiKey } from '../utils/env'
 
 export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
-type BodyMethod = 'postData' | 'putData' | 'patchData'
 
 export async function request<T>(
   method: Method,
@@ -98,37 +97,38 @@ function withAdminHeaders(options?: RequestOptions): RequestOptions {
  */
 export function useAdminApi() {
   const api = useApi()
-
-  const bodyRequest = useCallback(
-    <T = unknown>(method: BodyMethod, url: string, body: unknown, options?: RequestOptions) =>
-      api[method]<T>(url, body, withAdminHeaders(options)),
-    [api],
-  )
+  const {
+    get: baseGet,
+    postData: basePost,
+    putData: basePut,
+    patchData: basePatch,
+    deleteData: baseDelete,
+  } = api
 
   const get = useCallback(
     <T = unknown>(url: string, options?: RequestOptions) =>
-      api.get<T>(url, withAdminHeaders(options)),
-    [api],
+      baseGet<T>(url, withAdminHeaders(options)),
+    [baseGet],
   )
   const postData = useCallback(
     <T = unknown>(url: string, body: unknown, options?: RequestOptions) =>
-      bodyRequest<T>('postData', url, body, options),
-    [bodyRequest],
+      basePost<T>(url, body, withAdminHeaders(options)),
+    [basePost],
   )
   const putData = useCallback(
     <T = unknown>(url: string, body: unknown, options?: RequestOptions) =>
-      bodyRequest<T>('putData', url, body, options),
-    [bodyRequest],
+      basePut<T>(url, body, withAdminHeaders(options)),
+    [basePut],
   )
   const patchData = useCallback(
     <T = unknown>(url: string, body: unknown, options?: RequestOptions) =>
-      bodyRequest<T>('patchData', url, body, options),
-    [bodyRequest],
+      basePatch<T>(url, body, withAdminHeaders(options)),
+    [basePatch],
   )
   const deleteData = useCallback(
     <T = unknown>(url: string, options?: RequestOptions) =>
-      api.deleteData<T>(url, withAdminHeaders(options)),
-    [api],
+      baseDelete<T>(url, withAdminHeaders(options)),
+    [baseDelete],
   )
 
   const configured = resolveAdminApiKey().length > 0

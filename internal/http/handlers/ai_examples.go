@@ -79,6 +79,24 @@ func (h *AIExamplesHandler) ListExamples(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, examples)
 }
 
+// ListFavorites returns favorited few-shot examples across datasources, newest first.
+func (h *AIExamplesHandler) ListFavorites(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	limit := 0
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			limit = n
+		}
+	}
+
+	examples, err := h.deps.MetaRepo.ListFavoriteExamples(ctx, limit)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list favorites", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, examples)
+}
+
 // CreateExample creates a new few-shot example.
 func (h *AIExamplesHandler) CreateExample(w http.ResponseWriter, r *http.Request) {
 	input, ok := decodeJSON[createFewShotExampleRequest](w, r)
