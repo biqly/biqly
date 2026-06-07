@@ -177,8 +177,9 @@ before any `git commit`, run the linters AND tests for the code you changed, and
 1. **go**: `gofmt -w <touched .go files>` + `make lint-go` (golangci-lint) + `make test-go` (go test -race) + `deadcode -test $(go list ./... | grep -v '/frontend')`
 2. **react / frontend**: `make lint-frontend` (eslint) + `make test-frontend` (vitest)
 3. **frontend full gate** (same as CI): `make check-frontend` (lint + format:check + knip + test + build)
+4. **AI eval** (when touching `internal/ai/eval/`, golden cases, eval handlers, or `cmd/eval-live/`): `make eval-regression` — stub provider, no API key; same gate as `.github/workflows/test.yml`. Do **not** run `make eval-live` before commit (real LLM; nightly workflow only).
 
-or run everything in one command: `make precommit` (= `make lint` + `make test`)
+or run everything in one command: `make precommit` (= `make lint` + `make test`). `make precommit` does **not** include `make eval-regression`; run that separately when AI eval code changes.
 
 `make lint-go` / `golangci-lint run` scans the whole repo, not only files you edited. if you add or enable linters (e.g. `.golangci.yml`), fix all new findings across the codebase in the same change before commit.
 

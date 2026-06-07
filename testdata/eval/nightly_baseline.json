@@ -1,0 +1,78 @@
+{
+  "suite": "biqly-nightly-v1",
+  "pass_rate": 1,
+  "total": 17,
+  "passed": 17,
+  "failed": 0,
+  "cases": {
+    "bench-cancelled-total": {
+      "question": "iptal edilen siparişlerin tutarı",
+      "match": true
+    },
+    "bench-de-shipped-sum": {
+      "question": "Almanya shipped sipariş tutarı",
+      "match": true
+    },
+    "bench-pending-count": {
+      "question": "bekleyen sipariş sayısı",
+      "match": true
+    },
+    "bench-shipped-count-by-country": {
+      "question": "ülkeye göre shipped sipariş adedi",
+      "match": true
+    },
+    "bench-top-country-by-revenue": {
+      "question": "en yüksek tutarlı ülke hangisi",
+      "match": true
+    },
+    "count-orders": {
+      "question": "kaç sipariş var",
+      "match": true
+    },
+    "edge-colloquial-count": {
+      "question": "toplam kaç tane sipariş",
+      "match": true
+    },
+    "edge-country-starts-with-d": {
+      "question": "ülkesi D ile başlayan sipariş sayısı",
+      "match": true
+    },
+    "edge-english-total-count": {
+      "question": "how many orders are there",
+      "match": true
+    },
+    "edge-lowest-country-amount": {
+      "question": "en düşük tutarlı ülke hangisi",
+      "match": true
+    },
+    "edge-multistatus-in": {
+      "question": "pending veya cancelled sipariş sayısı",
+      "match": true
+    },
+    "edge-status-contains-ship": {
+      "question": "durumu ship içeren sipariş adedi",
+      "match": true
+    },
+    "edge-tr-shipped-colloquial": {
+      "question": "kargolanan siparişlerin toplam tutarı",
+      "match": true
+    },
+    "orders-by-country": {
+      "question": "ülkeye göre sipariş sayısı",
+      "match": true
+    },
+    "orders-by-status-count": {
+      "question": "duruma göre sipariş adedi",
+      "match": true
+    },
+    "shipped-orders-total": {
+      "question": "shipped olan siparişlerin toplam tutarı",
+      "match": true
+    },
+    "sum-total-amount": {
+      "question": "tüm siparişlerin tutar toplamı",
+      "match": true
+    }
+  },
+  "at": "0001-01-01T00:00:00Z"
+}

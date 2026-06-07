@@ -107,6 +107,29 @@ func TestEvalRegressionGate(t *testing.T) {
 }
 
 func TestBenchmarkSuiteRegressionGate(t *testing.T) {
+	runStubSuiteRegression(t, evalpkg.BenchmarkCases(), benchmarkPassThreshold)
+}
+
+func TestNightlySuiteSelfConsistent(t *testing.T) {
+	sv := NewSchemaValidatorWith(query.NewValidator(1000))
+	for _, c := range evalpkg.NightlyCases() {
+		raw, err := marshalLogicalQuery(c.Expected)
+		if err != nil {
+			t.Errorf("[%s] marshal: %v", c.ID, err)
+			continue
+		}
+		if _, err := sv.Validate(raw, c.Model); err != nil {
+			t.Errorf("[%s] validate: %v", c.ID, err)
+		}
+	}
+}
+
+func TestNightlySuiteRegressionGate(t *testing.T) {
+	runStubSuiteRegression(t, evalpkg.NightlyCases(), benchmarkPassThreshold)
+}
+
+func runStubSuiteRegression(t *testing.T, cases []evalpkg.GoldenCase, threshold float64) {
+	t.Helper()
 	cfg := config.AIConfig{
 		Connection: config.AIConnectionConfig{Model: "stub"},
 		Generation: config.AIGenerationConfig{
@@ -115,9 +138,9 @@ func TestBenchmarkSuiteRegressionGate(t *testing.T) {
 			MaxRetries:  0,
 		},
 	}
-	svc := NewServiceWithProvider(&cfg, query.NewValidator(1000), evalpkg.NewGoldenStubProviderForCases(evalpkg.BenchmarkCases()))
+	svc := NewServiceWithProvider(&cfg, query.NewValidator(1000), evalpkg.NewGoldenStubProviderForCases(cases))
 	opts := evalpkg.SuiteOptions{
-		Cases: evalpkg.BenchmarkCases(),
+		Cases: cases,
 		Modes: evalpkg.ModeLogical | evalpkg.ModeExecution,
 	}
 	result := evalpkg.RunGoldenSuite(context.Background(), svc, opts)
@@ -125,12 +148,12 @@ func TestBenchmarkSuiteRegressionGate(t *testing.T) {
 	logicalRate := float64(result.LogicalPassed) / float64(result.Total)
 	executionRate := float64(result.ExecutionPassed) / float64(result.Total)
 
-	if logicalRate < benchmarkPassThreshold {
-		t.Fatalf("benchmark logical accuracy %.2f below threshold %.2f (%d/%d passed)",
-			logicalRate, benchmarkPassThreshold, result.LogicalPassed, result.Total)
+	if logicalRate < threshold {
+		t.Fatalf("logical accuracy %.2f below threshold %.2f (%d/%d passed)",
+			logicalRate, threshold, result.LogicalPassed, result.Total)
 	}
-	if executionRate < benchmarkPassThreshold {
-		t.Fatalf("benchmark execution accuracy %.2f below threshold %.2f (%d/%d passed)",
-			executionRate, benchmarkPassThreshold, result.ExecutionPassed, result.Total)
+	if executionRate < threshold {
+		t.Fatalf("execution accuracy %.2f below threshold %.2f (%d/%d passed)",
+			executionRate, threshold, result.ExecutionPassed, result.Total)
 	}
 }

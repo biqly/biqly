@@ -171,6 +171,8 @@ func TestLoadSuccess(t *testing.T) {
 	t.Setenv("BI_METADATA_DB_DSN", "postgres://example/db?sslmode=disable")
 	t.Setenv("BI_HTTP_PORT", "1234")
 	t.Setenv("BI_ENV", "production")
+	t.Setenv("BI_AUTH_ENABLED", "true")
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
 
 	cfg, err := Load()
 	if err != nil {
@@ -184,5 +186,45 @@ func TestLoadSuccess(t *testing.T) {
 	}
 	if cfg.Metadata.DSN != "postgres://example/db?sslmode=disable" {
 		t.Errorf("Metadata.DSN = %q", cfg.Metadata.DSN)
+	}
+}
+
+func TestLoadProductionRequiresAuthEnabled(t *testing.T) {
+	t.Setenv("BI_ENCRYPTION_KEY", "a-real-32-byte-key-value-1234567")
+	t.Setenv("BI_METADATA_DB_DSN", "postgres://example/db?sslmode=disable")
+	t.Setenv("BI_ENV", "production")
+	t.Setenv("BI_AUTH_ENABLED", "false")
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("Load should reject BI_AUTH_ENABLED=false in production")
+	}
+}
+
+func TestLoadKubernetesRequiresAuthEnabled(t *testing.T) {
+	t.Setenv("BI_ENCRYPTION_KEY", "a-real-32-byte-key-value-1234567")
+	t.Setenv("BI_METADATA_DB_DSN", "postgres://example/db?sslmode=disable")
+	t.Setenv("BI_ENV", "development")
+	t.Setenv("BI_AUTH_ENABLED", "false")
+	t.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("Load should reject BI_AUTH_ENABLED=false when running in Kubernetes")
+	}
+}
+
+func TestLoadDevelopmentAllowsAuthDisabled(t *testing.T) {
+	t.Setenv("BI_ENCRYPTION_KEY", "a-real-32-byte-key-value-1234567")
+	t.Setenv("BI_METADATA_DB_DSN", "postgres://example/db?sslmode=disable")
+	t.Setenv("BI_ENV", "development")
+	t.Setenv("BI_AUTH_ENABLED", "false")
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Auth.Enabled {
+		t.Fatal("expected auth disabled in development when BI_AUTH_ENABLED=false")
 	}
 }

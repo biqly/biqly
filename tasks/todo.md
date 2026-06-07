@@ -11,8 +11,8 @@
   - Taşınan gruplar: `AIConnectionConfig` (Provider/APIKey/BaseURL/Model/HTTPTimeout/RateLimit), `AIGenerationConfig` (MaxTokens/Temperature/TopP/NumCtx/MaxPromptInputRunes/MaxRetries/MultiCandidateCount), `AIDescribeConfig` (MaxCellRunes/MaxSampleRows), `AICacheConfig` (ResponseTTLSeconds).
   - Tüm çağrı yerleri güncellendi (ai/provider/service/provider_store, prompt/context_budget, http/handlers, app dependencies + testler). `go test ./internal/config/... ./internal/ai/... ./internal/http/...` geçti.
 - [x] **Kalan yüksek-karmaşıklık fonksiyonlarını kademeli ayrıştır.** Raporun işaretlediği üç odak: `ValidateContext` (39), `ValidateComposite` (27), `PasswordPolicy.Validate` (25). Her birini küçük yardımcılara böl, davranışı test ile sabitle.
-- [ ] **Periyodik (nightly) canlı-LLM eval koşusu ekle.** Mevcut eval/regresyon kapısı determinist stub sağlayıcı üzerinde 1.00 — yani harness/derleyici regresyonunu yakalar, canlı-LLM doğruluk kaymasını ölçmez. Nightly cron iş akışı + gerçek sağlayıcıyla golden koşu + kayma raporu ekle. (Eval kapsamını yeni lehçe/edge senaryolarıyla da genişlet.)
-- [ ] **Prod'da `BI_AUTH_ENABLED`'ı zorunlu (fail-closed) invariant yap.** Doğrulandı: `internal/config/config.go:413` varsayılan `false`. Helm prod değerleri `true` set etse de kod seviyesinde prod'da kapalıyken savunma ağ-güvenine düşüyor. Aksiyon: `env.IsProduction()` iken `BI_AUTH_ENABLED=false` ise başlatmada fail-closed (panik/refuse).
+- [x] **Periyodik (nightly) canlı-LLM eval koşusu ekle.** Mevcut eval/regresyon kapısı determinist stub sağlayıcı üzerinde 1.00 — yani harness/derleyici regresyonunu yakalar, canlı-LLM doğruluk kaymasını ölçmez. Nightly cron iş akışı + gerçek sağlayıcıyla golden koşu + kayma raporu ekle. (Eval kapsamını yeni lehçe/edge senaryolarıyla da genişlet.)
+- [x] **Prod'da `BI_AUTH_ENABLED`'ı zorunlu (fail-closed) invariant yap.** Doğrulandı: `internal/config/config.go:413` varsayılan `false`. Helm prod değerleri `true` set etse de kod seviyesinde prod'da kapalıyken savunma ağ-güvenine düşüyor. Aksiyon: `env.IsProduction()` iken `BI_AUTH_ENABLED=false` ise başlatmada fail-closed (panik/refuse).
 
 ### Düşük öncelik
 

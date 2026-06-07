@@ -1,0 +1,55 @@
+name: Nightly live LLM eval
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  eval-live:
+    name: Live LLM golden eval
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ github.token }}
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Run live eval against real provider
+        env:
+          BI_AI_API_KEY: ${{ secrets.BI_AI_API_KEY }}
+          BI_AI_MODEL: ${{ secrets.BI_AI_MODEL }}
+          BI_AI_PROVIDER: ${{ secrets.BI_AI_PROVIDER }}
+          BI_AI_BASE_URL: ${{ secrets.BI_AI_BASE_URL }}
+          BI_AI_QUERY_MODEL: ${{ secrets.BI_AI_QUERY_MODEL }}
+          BI_AI_QUERY_API_KEY: ${{ secrets.BI_AI_QUERY_API_KEY }}
+          BI_AI_QUERY_BASE_URL: ${{ secrets.BI_AI_QUERY_BASE_URL }}
+        run: |
+          if [ -z "${BI_AI_API_KEY:-}" ] && [ -z "${BI_AI_QUERY_API_KEY:-}" ] && [ -z "${BI_AI_BASE_URL:-}" ] && [ -z "${BI_AI_QUERY_BASE_URL:-}" ]; then
+            echo "Skipping nightly live eval: no LLM credentials configured in repository secrets."
+            exit 0
+          fi
+          go run ./cmd/eval-live \
+            -baseline testdata/eval/nightly_baseline.json \
+            -output eval-live-report.json \
+            -min-pass-rate 0.85 \
+            -fail-on-drift=true
+
+      - name: Upload eval report
+        if: always() && hashFiles('eval-live-report.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-live-report
+          path: eval-live-report.json
+          retention-days: 30

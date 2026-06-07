@@ -4,10 +4,10 @@ import (
 	"context"
 	"github.com/bytedance/sonic"
 	"os"
+	"strconv"
 	"testing"
 
 	evalpkg "github.com/biqly/biqly/internal/ai/eval"
-	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/query"
 )
 
@@ -88,51 +88,39 @@ func TestGoldenSeedSelfConsistent(t *testing.T) {
 	}
 }
 
-// TestGoldenEvalAgainstLiveLLM runs the seed set against the real configured
-// LLM. Skipped by default — CI-friendly. Enable by exporting the standard AI
-// env vars (BI_AI_API_KEY, BI_AI_BASE_URL, BI_AI_MODEL) and BI_AI_GOLDEN_EVAL=1.
+// TestGoldenEvalAgainstLiveLLM runs the nightly suite against the real configured
+// LLM. Skipped by default — enable with BI_AI_GOLDEN_EVAL=1 and provider env vars.
 func TestGoldenEvalAgainstLiveLLM(t *testing.T) {
 	if os.Getenv("BI_AI_GOLDEN_EVAL") != "1" {
 		t.Skip("set BI_AI_GOLDEN_EVAL=1 to run live LLM golden evaluation")
 	}
-	cfg := config.AIConfig{
-		Connection: config.AIConnectionConfig{
-			Provider: os.Getenv("BI_AI_PROVIDER"),
-			APIKey:   os.Getenv("BI_AI_API_KEY"),
-			BaseURL:  os.Getenv("BI_AI_BASE_URL"),
-			Model:    os.Getenv("BI_AI_MODEL"),
-		},
-		Generation: config.AIGenerationConfig{
-			MaxTokens:   2048,
-			Temperature: 0.0,
-			MaxRetries:  1,
-		},
-	}
+	cfg := evalpkg.LiveAIConfigFromEnv()
 	if !cfg.QueryLLMConfigured() {
 		t.Skip("BI_AI_MODEL and BI_AI_API_KEY (or BI_AI_BASE_URL for keyless local LLM) are required for live golden eval")
 	}
 	svc := NewService(&cfg, query.NewValidator(1000))
-
-	cases := evalpkg.DefaultGoldenCases()
-	pass := 0
-	for _, c := range cases {
-		resp, err := svc.ProcessQuestion(context.Background(), c.Question, c.Model)
-		if err != nil {
-			t.Errorf("[%s] error: %v", c.ID, err)
-			continue
-		}
-		var respLQ *query.LogicalQuery
-		if resp != nil && resp.Result != nil {
-			respLQ = resp.Result.LogicalQuery
-		}
-		ok, reason := evalpkg.LogicalQueryEqual(respLQ, &c.Expected)
-		if !ok {
-			t.Errorf("[%s] mismatch: %s; got=%+v", c.ID, reason, respLQ)
-			continue
-		}
-		pass++
+	opts := evalpkg.SuiteOptions{
+		Cases: evalpkg.NightlyCases(),
+		Modes: evalpkg.ModeLogical | evalpkg.ModeExecution,
 	}
-	t.Logf("golden eval: %d / %d passed", pass, len(cases))
+	result := evalpkg.RunGoldenSuite(context.Background(), svc, opts)
+	minRate := evalpkg.DefaultLiveMinPassRate
+	if os.Getenv("BI_AI_GOLDEN_MIN_PASS_RATE") != "" {
+		if v, err := strconv.ParseFloat(os.Getenv("BI_AI_GOLDEN_MIN_PASS_RATE"), 64); err == nil {
+			minRate = v
+		}
+	}
+	if result.PassRate < minRate {
+		for _, c := range result.Cases {
+			if !c.Pass(opts) {
+				t.Errorf("[%s] failed: logical=%v exec=%v err=%v reason=%s",
+					c.Case.ID, c.LogicalMatch, c.ExecutionMatch, c.Err, c.LogicalReason)
+			}
+		}
+		t.Fatalf("live pass rate %.2f below threshold %.2f (%d/%d passed)",
+			result.PassRate, minRate, result.Passed, result.Total)
+	}
+	t.Logf("live eval: %d / %d passed (rate %.2f)", result.Passed, result.Total, result.PassRate)
 }
 
 // marshalLogicalQuery produces the JSON the schema validator expects.

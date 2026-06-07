@@ -232,83 +232,25 @@ func (r *EvalRepository) GenerateRegressionReport(ctx context.Context, baselineR
 		return nil, fmt.Errorf("get current results: %w", err)
 	}
 
-	baselineMap := make(map[string]ResultRecord)
+	baselineMap := make(map[string]caseOutcome, len(baseline))
 	for _, res := range baseline {
-		baselineMap[res.CaseID] = res
+		baselineMap[res.CaseID] = caseOutcome{
+			Question: res.Question,
+			Match:    res.Match,
+			Reason:   res.Reason,
+		}
 	}
 
-	currentMap := make(map[string]ResultRecord)
+	currentMap := make(map[string]caseOutcome, len(current))
 	for _, res := range current {
-		currentMap[res.CaseID] = res
-	}
-
-	var report RegressionReport
-	report.BaselineRunID = baselineRunID
-	report.CurrentRunID = currentRunID
-
-	// Check current cases against baseline
-	for caseID, cur := range currentMap {
-		base, exists := baselineMap[caseID]
-		if !exists {
-			// New case - if it fails, it's a new failure
-			if !cur.Match {
-				report.NewFailures = append(report.NewFailures, RegressionChange{
-					CaseID:   caseID,
-					Question: cur.Question,
-					WasMatch: true, // no prior data = assumed pass
-					IsMatch:  false,
-					IsReason: cur.Reason,
-				})
-			}
-			continue
-		}
-
-		// Both exist - compare
-		switch {
-		case base.Match && !cur.Match:
-			report.NewFailures = append(report.NewFailures, RegressionChange{
-				CaseID:    caseID,
-				Question:  cur.Question,
-				WasMatch:  true,
-				IsMatch:   false,
-				WasReason: base.Reason,
-				IsReason:  cur.Reason,
-			})
-		case !base.Match && cur.Match:
-			report.FixedFailures = append(report.FixedFailures, RegressionChange{
-				CaseID:    caseID,
-				Question:  cur.Question,
-				WasMatch:  false,
-				IsMatch:   true,
-				WasReason: base.Reason,
-			})
-		case base.Reason != cur.Reason:
-			report.ChangedCases = append(report.ChangedCases, RegressionChange{
-				CaseID:    caseID,
-				Question:  cur.Question,
-				WasMatch:  base.Match,
-				IsMatch:   cur.Match,
-				WasReason: base.Reason,
-				IsReason:  cur.Reason,
-			})
+		currentMap[res.CaseID] = caseOutcome{
+			Question: res.Question,
+			Match:    res.Match,
+			Reason:   res.Reason,
 		}
 	}
 
-	// Check baseline cases no longer in current
-	for caseID, base := range baselineMap {
-		if _, exists := currentMap[caseID]; !exists && !base.Match {
-			// Was failing, now missing - could be fixed or removed
-			report.FixedFailures = append(report.FixedFailures, RegressionChange{
-				CaseID:    caseID,
-				Question:  base.Question,
-				WasMatch:  false,
-				IsMatch:   true,
-				WasReason: base.Reason,
-			})
-		}
-	}
-
-	return &report, nil
+	return buildRegressionReport(baselineRunID, currentRunID, baselineMap, currentMap), nil
 }
 
 // ResultWithMetrics EvalResultWithMetrics extends EvalResult with runtime metrics for persistence.

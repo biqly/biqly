@@ -454,6 +454,9 @@ func Load() (*Config, error) {
 	if err := validateFloatRange("BI_AI_EMBEDDING_WEIGHT", cfg.AI.Embedding.Weight, 0, 100); err != nil {
 		return nil, err
 	}
+	if env.IsProduction() && !cfg.Auth.Enabled {
+		return nil, errors.New("BI_AUTH_ENABLED must be true in production")
+	}
 
 	return cfg, nil
 }

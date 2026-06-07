@@ -149,6 +149,11 @@ Golden test pattern:
 
 This was consistently followed across EXPR_AST (9 phases), GO_PERF (6 slices), PII (2 slices), AB_TEST (3 phases), and duplicate cleanup (3 refactorings).
 
+### AI Eval: Two Tiers
+
+- **PR / pre-commit (stub)**: `make eval-regression` — deterministic stub provider, 1.00 pass threshold; catches harness/compiler regressions only. Not part of `make precommit`; run when eval code or golden cases change.
+- **Nightly (live LLM)**: `make eval-live` / `.github/workflows/eval-nightly.yml` — real provider + baseline drift report; requires API secrets. Never gate local commits on this.
+
 ### Stale Item Cleanup
 
 Close items explicitly with rationale when investigation shows no current issue:
