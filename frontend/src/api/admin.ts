@@ -582,13 +582,19 @@ export async function listShares(
     params.set('resource_type', opts.resourceType)
   }
   const suffix = params.toString() ? `?${params.toString()}` : ''
-  const data = await apiFetch<{ shares: ResourceShare[]; total: number } | null>(
+  const data = await apiFetch<{ shares: ResourceShare[] | null; total: number } | null>(
     'GET',
     `${AUTH_API_BASE}/shares${suffix}`,
     undefined,
     { token },
   )
-  return data ?? { shares: [], total: 0 }
+  if (!data) {
+    return { shares: [], total: 0 }
+  }
+  return {
+    shares: data.shares ?? [],
+    total: data.total,
+  }
 }
 
 export async function createShare(

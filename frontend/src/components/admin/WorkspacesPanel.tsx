@@ -274,12 +274,6 @@ const btnSettings: React.CSSProperties = {
   fontWeight: 500,
 }
 
-const textMuted: React.CSSProperties = {
-  color: 'var(--text-secondary, #8a8a92)',
-  fontSize: 14,
-  padding: 16,
-}
-
 const errStyle: React.CSSProperties = {
   color: 'var(--error, crimson)',
   padding: 16,

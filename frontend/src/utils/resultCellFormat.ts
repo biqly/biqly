@@ -44,9 +44,6 @@ function getNumberFormat(options: Intl.NumberFormatOptions): Intl.NumberFormat {
 }
 
 function parseNumeric(value: unknown): number | null {
-  if (value === null || value === undefined) {
-    return null
-  }
   if (typeof value === 'boolean') {
     return null
   }
@@ -137,7 +134,7 @@ function formatNonNumericCell(value: unknown): string {
   if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
     return String(value)
   }
-  if (typeof value === 'object' && value !== null) {
+  if (typeof value === 'object') {
     return JSON.stringify(value)
   }
   return ''

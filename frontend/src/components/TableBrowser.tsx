@@ -271,17 +271,13 @@ export default function TableBrowser() {
   const [locale] = useLocale()
   const localeTag = localeNumberTag(locale)
   const formatInt = useCallback((n: number) => n.toLocaleString(localeTag), [localeTag])
-  const { get, postData, error } = useApi()
+  const { postData, error } = useApi()
 
   const { datasources, loading: dsLoading } = useDatasources()
   const [datasourceId, setDatasourceId] = useState('')
   const { models, loading: modelsLoading } = useSemanticModels(datasourceId)
   const [modelId, setModelId] = useState('')
-  const {
-    model: modelDetail,
-    setModel: setModelDetail,
-    loading: modelLoading,
-  } = useModelDetail(modelId)
+  const { model: modelDetail, loading: modelLoading } = useModelDetail(modelId)
   const [selectedTableKey, setSelectedTableKey] = useState('')
   const [columnOrder, setColumnOrder] = useState<string[]>([])
   const [dragColumn, setDragColumn] = useState<string | null>(null)

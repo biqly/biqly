@@ -127,7 +127,7 @@ export default function QueryBuilder() {
   const [orderBy, setOrderBy] = useState<string>('')
   const [orderDir, setOrderDir] = useState('asc')
   const [limit, setLimit] = useState(100)
-  const [offset, setOffset] = useState(0)
+  const [offset] = useState(0)
   const [mode, setMode] = useState<'simple' | 'advanced'>('simple')
   const havingState = useArrayState<HavingRow>([])
   const windowFunctionState = useArrayState<WindowFuncRow>([])

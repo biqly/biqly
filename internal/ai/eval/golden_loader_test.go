@@ -67,6 +67,23 @@ func TestGoldenLoader(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestGoldenLoader_RejectsUnsafeIDs(t *testing.T) {
+	tempDir := t.TempDir()
+	expectedQuery := query.LogicalQuery{
+		Select: []query.SelectItem{{Type: "metric", Name: "row_count"}},
+		Limit:  50,
+	}
+
+	unsafeIDs := []string{"", "..", "../escape", `foo\bar`, "foo/bar"}
+	for _, id := range unsafeIDs {
+		err := SaveGoldenCaseToDir(tempDir, id, "question", "orders", expectedQuery)
+		require.Error(t, err, "save should reject id %q", id)
+
+		err = DeleteGoldenCaseFromDir(tempDir, id)
+		require.Error(t, err, "delete should reject id %q", id)
+	}
+}
+
 func TestGoldenLoader_CorruptJSON(t *testing.T) {
 	tempDir := t.TempDir()
 

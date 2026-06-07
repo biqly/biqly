@@ -28,7 +28,7 @@ const DIALECTS = ['postgresql', 'mysql', 'bigquery', 'snowflake', 'duckdb']
 export default function FewShotExamples() {
   const t = useT()
   const confirm = useConfirm()
-  const { get, postData, putData, deleteData, loading, error } = useApi()
+  const { get, postData, putData, deleteData, loading } = useApi()
   const [examples, setExamples] = useState<FewShotExample[]>([])
 
   // Filtering & Metadata States

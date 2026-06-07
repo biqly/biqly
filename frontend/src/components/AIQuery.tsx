@@ -169,19 +169,6 @@ export default function AIQuery() {
     [tables, includeBaseTables, includeViews],
   )
 
-  const filteredTables = useMemo(() => {
-    const search = tableSearch.trim().toLowerCase()
-    return tablesInTypeScope.filter((table) => {
-      if (!search) {
-        return true
-      }
-      return (
-        tableLabel(table).toLowerCase().includes(search) ||
-        (table.description ?? '').toLowerCase().includes(search)
-      )
-    })
-  }, [tablesInTypeScope, tableSearch])
-
   const allowedLabels = useMemo(
     () => new Set(tablesInTypeScope.map((t) => tableLabel(t))),
     [tablesInTypeScope],

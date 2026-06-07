@@ -55,7 +55,7 @@ func setCSRFCookie(w http.ResponseWriter, r *http.Request, listenPort int) strin
 	}
 	token := base64.URLEncoding.EncodeToString(tokenBytes)
 
-	cookie := &http.Cookie{ //nolint:gosec // G124: Secure defaults true; CookieSecure only allows plain HTTP on the local dev auth port.
+	WriteResponseCookie(w, r, listenPort, &http.Cookie{
 		Name:     "csrf_token",
 		Value:    token,
 		Path:     "/",
@@ -63,10 +63,6 @@ func setCSRFCookie(w http.ResponseWriter, r *http.Request, listenPort int) strin
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
-	}
-	if !CookieSecure(r, listenPort) {
-		cookie.Secure = false
-	}
-	http.SetCookie(w, cookie)
+	})
 	return token
 }

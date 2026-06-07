@@ -989,7 +989,6 @@ const cardHeaderStyle: React.CSSProperties = {
   fontWeight: 600,
   fontSize: 14,
 }
-const purposeRowStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 12 }
 const gridStyle: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',

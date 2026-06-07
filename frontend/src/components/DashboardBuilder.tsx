@@ -17,7 +17,6 @@ import { Pie } from 'recharts/es6/polar/Pie'
 import { useApi } from '../hooks/useApi'
 import { useDatasources } from '../hooks/useDatasources'
 import { useSemanticModels } from '../hooks/useSemanticModels'
-import { useT } from '../i18n'
 import type { LogicalQuery, QueryResultPayload, SelectField } from '../types/ai'
 import { chartAxisStroke, chartGridStroke, chartTooltipStyle } from '../utils/chartConfig'
 import { chartColor } from '../utils/constants'
@@ -66,7 +65,6 @@ interface SavedQuestion {
 }
 
 export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuilderProps) {
-  const t = useT()
   const { get, putData, loading, error } = useApi()
   const [dashboard, setDashboard] = useState<Dashboard | null>(null)
   const [widgets, setWidgets] = useState<Widget[]>([])
@@ -195,7 +193,6 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
 
     // Prefill linking query states if present
     if (w.saved_query_id) {
-      const q = savedQuestions.find((item) => item.id === w.saved_query_id)
       if (w.logical_query?.datasource_id) {
         setSelDatasourceId(w.logical_query.datasource_id)
         setSelModelId(w.logical_query.model_id)
@@ -1050,7 +1047,7 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
   if (widget.type === 'kpi') {
     const valCol = widget.config?.valueColumn ?? columns[0]?.name ?? ''
     const val = valCol && data[0]?.[valCol] !== undefined ? data[0][valCol] : 'N/A'
-    let formattedVal: string | number = 'N/A'
+    let formattedVal: string | number
     if (typeof val === 'number') {
       formattedVal =
         val % 1 !== 0
@@ -1251,6 +1248,4 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
       </div>
     )
   }
-
-  return null
 }

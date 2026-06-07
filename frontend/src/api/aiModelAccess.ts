@@ -37,13 +37,43 @@ export interface AIModelAccessGrants {
   model_roles: AIModelRoleGrant[]
 }
 
+/** Go encodes empty slices as JSON null; normalize before iteration. */
+type AIModelAccessGrantsRaw = {
+  [K in keyof AIModelAccessGrants]: AIModelAccessGrants[K] | null | undefined
+}
+
+function normalizeAIModelAccessGrants(raw: AIModelAccessGrantsRaw): AIModelAccessGrants {
+  return {
+    provider_workspaces: raw.provider_workspaces ?? [],
+    model_workspaces: raw.model_workspaces ?? [],
+    provider_roles: raw.provider_roles ?? [],
+    model_roles: raw.model_roles ?? [],
+  }
+}
+
 const adminOpts = { useAdminKey: true as const }
 
+const emptyAIModelAccessGrants = (): AIModelAccessGrants => ({
+  provider_workspaces: [],
+  model_workspaces: [],
+  provider_roles: [],
+  model_roles: [],
+})
+
 export async function listAIModelAccess(token: string): Promise<AIModelAccessGrants> {
-  return apiFetch<AIModelAccessGrants>('GET', `${AUTH_API_BASE}/admin/ai-model-access`, undefined, {
-    token,
-    ...adminOpts,
-  })
+  const raw = await apiFetch<AIModelAccessGrantsRaw | null>(
+    'GET',
+    `${AUTH_API_BASE}/admin/ai-model-access`,
+    undefined,
+    {
+      token,
+      ...adminOpts,
+    },
+  )
+  if (!raw) {
+    return emptyAIModelAccessGrants()
+  }
+  return normalizeAIModelAccessGrants(raw)
 }
 
 export async function grantProviderWorkspace(

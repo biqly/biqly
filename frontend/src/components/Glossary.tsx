@@ -282,18 +282,6 @@ export default function Glossary() {
     )
   }, [activeModelDetail, sidebarSearch])
 
-  const getDatasourceName = (dsId: string) => {
-    return datasources.find((d) => d.id === dsId)?.name ?? dsId
-  }
-
-  const getModelName = (modelId: string | undefined) => {
-    if (!modelId) {
-      return t('glossary.option_all_models')
-    }
-    const m = allModels.find((model) => model.id === modelId)
-    return m ? (m.label ?? m.name) : modelId
-  }
-
   // Populate maps_to_name select options
   const mapsToNameOptions = useMemo(() => {
     if (!formModelId || !activeModelDetail) {
@@ -309,17 +297,14 @@ export default function Glossary() {
         .filter((m) => m.is_active !== false)
         .map((m) => ({ value: m.name, label: m.label ? `${m.name} (${m.label})` : m.name }))
     }
-    {
-      return [
-        {
-          value: activeModelDetail.name,
-          label: activeModelDetail.label
-            ? `${activeModelDetail.name} (${activeModelDetail.label})`
-            : activeModelDetail.name,
-        },
-      ]
-    }
-    return []
+    return [
+      {
+        value: activeModelDetail.name,
+        label: activeModelDetail.label
+          ? `${activeModelDetail.name} (${activeModelDetail.label})`
+          : activeModelDetail.name,
+      },
+    ]
   }, [activeModelDetail, formMapsToType, formModelId])
 
   if (initLoading && terms.length === 0) {

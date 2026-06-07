@@ -709,8 +709,6 @@ export default function Modeling() {
     closeRename,
     renameModel,
     renameTable,
-    renameDimension,
-    renameMetric,
     deleteJoin,
     deleteDimension,
     deleteMetric,

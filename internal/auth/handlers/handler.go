@@ -432,20 +432,14 @@ func (*AuthHandler) respondError(w http.ResponseWriter, status int, message stri
 	response.WriteError(w, status, message)
 }
 
-func (h *AuthHandler) secureCookie(r *http.Request) bool {
-	return auth.CookieSecure(r, h.config.Port)
-}
-
-//nolint:gosec // G124: false positive as Secure is set dynamically based on HTTPS
 func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, r *http.Request, name, value string, maxAge int) {
-	// nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
-	http.SetCookie(w, &http.Cookie{
+	auth.WriteResponseCookie(w, r, h.config.Port, &http.Cookie{
 		Name:     name,
 		Value:    value,
 		Path:     "/",
 		MaxAge:   maxAge,
 		HttpOnly: true,
-		Secure:   h.secureCookie(r),
+		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 	})
 }

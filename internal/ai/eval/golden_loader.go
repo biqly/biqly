@@ -37,6 +37,10 @@ func sanitizeID(id string) (string, error) {
 	return clean, nil
 }
 
+func goldenCaseFileName(safeID string) string {
+	return safeID + ".json"
+}
+
 // LoadGoldenCasesFromDir scans and loads all *.json files in the given directory.
 func LoadGoldenCasesFromDir(dir string) ([]GoldenCase, error) {
 	files, err := filepath.Glob(filepath.Join(dir, "*.json"))
@@ -90,8 +94,19 @@ func SaveGoldenCaseToDir(dir string, id string, question string, modelID string,
 		return fmt.Errorf("failed to create golden cases directory: %w", err)
 	}
 
-	filename := filepath.Join(dir, safeID+".json")
-	if err := os.WriteFile(filename, data, 0600); err != nil {
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return fmt.Errorf("failed to open golden cases directory: %w", err)
+	}
+	defer func() { _ = root.Close() }()
+
+	file, err := root.OpenFile(goldenCaseFileName(safeID), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return fmt.Errorf("failed to write golden case file: %w", err)
+	}
+	defer func() { _ = file.Close() }()
+
+	if _, err := file.Write(data); err != nil {
 		return fmt.Errorf("failed to write golden case file: %w", err)
 	}
 	return nil
@@ -104,8 +119,13 @@ func DeleteGoldenCaseFromDir(dir string, id string) error {
 		return fmt.Errorf("invalid golden case id: %w", err)
 	}
 
-	filename := filepath.Join(dir, safeID+".json")
-	if err := os.Remove(filename); err != nil {
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return fmt.Errorf("failed to open golden cases directory: %w", err)
+	}
+	defer func() { _ = root.Close() }()
+
+	if err := root.Remove(goldenCaseFileName(safeID)); err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("case %s not found", id)
 		}

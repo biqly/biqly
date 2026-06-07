@@ -1175,5 +1175,9 @@ func paginateSlice[T any](r *http.Request, items []T) (paginated []T, total int)
 		end = total
 	}
 
-	return items[start:end], total
+	paginated = items[start:end]
+	if paginated == nil {
+		paginated = []T{}
+	}
+	return paginated, total
 }

@@ -338,6 +338,9 @@ func listGrants[G any](ctx context.Context, db *sql.DB, query string, scan func(
 		}
 		grants = append(grants, g)
 	}
+	if grants == nil {
+		grants = make([]G, 0)
+	}
 	return grants, rows.Err()
 }
 

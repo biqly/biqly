@@ -55,7 +55,7 @@ interface ABExperimentDetailProps {
 
 export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimentDetailProps) {
   const t = useT()
-  const { get, postData, putData, deleteData, loading } = useAdminApi()
+  const { get, postData, putData, deleteData } = useAdminApi()
 
   const [exp, setExp] = useState<Experiment | null>(null)
   const [variants, setVariants] = useState<Variant[]>([])
@@ -156,7 +156,6 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
   const isDraft = exp.status === 'draft'
   const isRunning = exp.status === 'running'
   const isPaused = exp.status === 'paused'
-  const isCompleted = exp.status === 'completed'
 
   const totalTraffic = variants.reduce((sum, v) => sum + v.traffic_pct, 0)
   const controlCount = variants.filter((v) => v.is_control).length
