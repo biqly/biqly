@@ -44,7 +44,11 @@ spec:
             - sh
             - -ec
             - |
-              cp -a /usr/share/nginx/html/. /work/
+              # cp -r (not -a): the initContainer runs as uid 101 with all
+              # capabilities dropped, so it cannot preserve the root ownership of
+              # the baked files. We only need the file contents readable by nginx
+              # (also uid 101), so copy without attribute preservation.
+              cp -r /usr/share/nginx/html/. /work/
               key="${BI_ADMIN_API_KEY:-}"
               esc=$(printf '%s' "$key" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
               printf 'window.__BIQLY_ENV__ = {"adminApiKey":"%s"};\n' "$esc" > /work/env-config.js
