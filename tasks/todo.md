@@ -171,7 +171,7 @@ Note:
 - [x] **SEC-L2**: `internal/query/executor.go:21-25` — `borrowScanSlice` now checks `cap(*vp) >= n` before reusing pool slice.
 - [x] **SEC-L3**: `internal/auth/oauth/oauth.go:41` — Changed to `oauth2.AccessTypeOffline` for refresh token support.
 - [x] **SEC-L4**: `internal/auth/handlers/handler.go` — `/register` route now rate-limited.
-- [ ] **TEST-A1**: Missing test coverage for: OAuth state CSRF, session rotation, password reset single-use, MFA bypass single-use, GDPR export completeness, invitation claim race, WebAuthn full flow.
+- [x] **TEST-A1**: Test coverage added: OAuth state CSRF (`oauth_state_test.go`), session rotation (`session_lifecycle_test.go`), password reset single-use (`auth_test.go`), MFA bypass single-use (`mfa_test.go`), GDPR export completeness (`handlers/gdpr_export_test.go`), invitation claim race (`invitation_test.go`), WebAuthn full flow with software authenticator (`mfa/webauthn_flow_test.go`).
 - [x] **TEST-Q1**: No test for row-level security bypass in `buildInSubqueryFilter` / CTE compilation.
 - [x] **TEST-AI1**: `buildSemanticModel` in routing has no focused unit tests (only indirectly tested).
 - [x] **DRIFT-S1**: `internal/semantic/drift/detector.go` — `isTypeCompatible` `text` case now checks for known text-like physical types (char, text, uuid, json, xml, clob, string).
@@ -181,6 +181,19 @@ Note:
 - [x] **JSON-S1**: `internal/semantic/expression_ast.go`, `composite_publish.go` — Both now consistently use `sonic.Marshal`/`sonic.Unmarshal`.
 - [x] **OBS-1**: `internal/platform/observability/metrics.go` — `ambiguityBySource` and `aiRepairByErrorCode` now map unknown values to `"other"` label.
 - [x] **OBS-2**: `internal/http/router.go` — `/health` handler now sets `Content-Type: application/json`.
+
+#### LOW backlog closure notes (2026-06-07)
+
+Regressions found and fixed while restoring the DB-backed test suite (these tests silently skip without a local Postgres, so they had rotted):
+
+1. `internal/auth/invitation.go` — claim set `token = NULL`, making `GetInvitation` return *not found* instead of `ErrInvitationClaimed` after claim. Token (stored hashed) is now kept; single-use stays enforced via `claimed_at`.
+2. `TestInvitationFlow` step 6 expected re-invites to keep old links valid — impossible since tokens are stored hashed (bc34e61); test now asserts token rotation.
+3. `internal/auth/mfatest/setup.go` + `auth_test.go` cleanup deleted `users` before `workspaces`/`sessions`, violating FKs; both now use the shared reset helpers.
+4. `active_workspace_test.go` compared against `workspace.ErrNotWorkspaceOwner` while `auth.Service` returns the same-message `auth.ErrNotWorkspaceOwner` sentinel.
+
+Also fixed (prod): anonymous (expired-token) requests to `/ai/usage/breakdown` now get 401 instead of 403, and the frontend `AuthProvider` silently refreshes on tab wake/focus (sleep killed the 14-min interval before the 15-min token expired).
+
+Local dev DBs: `bi_metadata` (through 042a), `bi_auth` (035a), `bi_mail` (001a) migrated in the docker (colima) Postgres.
 
 ### Summary
 

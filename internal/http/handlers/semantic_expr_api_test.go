@@ -368,12 +368,18 @@ func TestCompileExpression(t *testing.T) {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
 		}
 
-		var resp compileExpressionResponse
+		// Decode only the asserted field: compileExpressionResponse carries an
+		// interface-typed Expr that cannot be unmarshalled into directly.
+		var resp struct {
+			SQL string `json:"sql"`
+		}
 		if err := sonic.ConfigStd.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 			t.Fatalf("failed to decode response: %v", err)
 		}
 
-		expected := `("orders"."revenue" - "orders"."cost")`
+		// Bare column refs compile unqualified: the resolver only qualifies
+		// table-prefixed refs (joined models must not get a forced base table).
+		expected := `("revenue" - "cost")`
 		if resp.SQL != expected {
 			t.Fatalf("expected SQL %q, got %q", expected, resp.SQL)
 		}
@@ -406,12 +412,18 @@ func TestCompileExpression(t *testing.T) {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
 		}
 
-		var resp compileExpressionResponse
+		// Decode only the asserted field: compileExpressionResponse carries an
+		// interface-typed Expr that cannot be unmarshalled into directly.
+		var resp struct {
+			SQL string `json:"sql"`
+		}
 		if err := sonic.ConfigStd.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 			t.Fatalf("failed to decode response: %v", err)
 		}
 
-		expected := `("orders"."revenue" - "orders"."cost")`
+		// Bare column refs compile unqualified: the resolver only qualifies
+		// table-prefixed refs (joined models must not get a forced base table).
+		expected := `("revenue" - "cost")`
 		if resp.SQL != expected {
 			t.Fatalf("expected SQL %q, got %q", expected, resp.SQL)
 		}

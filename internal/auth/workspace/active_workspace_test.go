@@ -64,7 +64,9 @@ func TestSetActiveWorkspace(t *testing.T) {
 
 	t.Run("rejects non-member workspace", func(t *testing.T) {
 		_, err := svc.SetActiveWorkspace(ctx, aliceResp.UserID, bobPersonal)
-		require.ErrorIs(t, err, ErrNotWorkspaceOwner)
+		// auth.Service returns the auth package's sentinel, not this package's
+		// same-message ErrNotWorkspaceOwner — errors.Is distinguishes them.
+		require.ErrorIs(t, err, auth.ErrNotWorkspaceOwner)
 	})
 
 	t.Run("switches to team workspace and reissues token with claim", func(t *testing.T) {

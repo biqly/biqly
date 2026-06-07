@@ -22,7 +22,9 @@ func TestBackfillExpressions(t *testing.T) {
 	if err != nil {
 		t.Skip("Database not available:", err)
 	}
-	defer func() { _ = db.Close() }()
+	// Registered first so it runs LAST (cleanups are LIFO) — a deferred Close
+	// would fire before the row-cleanup t.Cleanup callbacks and break them.
+	t.Cleanup(func() { _ = db.Close() })
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -48,7 +50,7 @@ func TestBackfillExpressions(t *testing.T) {
 
 	_, err = db.ExecContext(ctx,
 		`INSERT INTO datasources (id, name, type, dsn_encrypted) VALUES ($1, $2, 'postgres', 'enc')`,
-		datasourceID, "backfill-test-ds")
+		datasourceID, "backfill-test-ds-"+datasourceID)
 	if err != nil {
 		t.Fatalf("failed to seed datasource: %v", err)
 	}

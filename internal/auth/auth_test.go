@@ -572,10 +572,9 @@ func TestEmailVerificationAndReset(t *testing.T) {
 	dbPool := testutil.OpenAuthDB(t)
 	ctx := context.Background()
 
-	testutil.ExecAuthSQL(ctx, t, dbPool,
+	testutil.ResetAuthIntegrationTables(ctx, t, dbPool,
 		"DELETE FROM email_verification_tokens",
 		"DELETE FROM password_reset_tokens",
-		"DELETE FROM users",
 	)
 
 	config := &Config{

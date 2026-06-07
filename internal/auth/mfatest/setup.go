@@ -34,11 +34,10 @@ type BypassTestUsers struct {
 
 func ResetCoreAuthTables(ctx context.Context, t *testing.T, db *sql.DB) {
 	t.Helper()
-	testutil.ExecAuthSQL(ctx, t, db,
-		"DELETE FROM user_mfa",
-		"DELETE FROM user_roles",
-		"DELETE FROM users",
-	)
+	// user_mfa first, then the shared helper which clears the tables that
+	// reference users (sessions, workspaces, …) before users itself.
+	testutil.ExecAuthSQL(ctx, t, db, "DELETE FROM user_mfa")
+	testutil.ResetAuthUserTables(ctx, t, db)
 }
 
 func NewIntegrationStack(t *testing.T) *IntegrationStack {
