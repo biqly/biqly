@@ -131,7 +131,9 @@ export default function Modeling() {
       setModelId('')
     }
 
-    void get<TableRow[]>(`/api/datasources/${datasourceId}/tables`).then((data) => setTables(data ?? []))
+    void get<TableRow[]>(`/api/datasources/${datasourceId}/tables`).then((data) =>
+      setTables(data ?? []),
+    )
     void get<ColumnRow[]>(`/api/datasources/${datasourceId}/columns`).then((data) =>
       setColumns(data ?? []),
     )

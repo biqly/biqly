@@ -141,8 +141,8 @@ export function AIModelPreferencesSection() {
       const data = await fetchUserAIModels(accessToken ?? undefined)
       setDbManaged(data.db_managed)
       setRestricted(data.restricted)
-      setModels(data.models ?? [])
-      setChoices(data.preferences ?? {})
+      setModels(data.models)
+      setChoices(data.preferences)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e))
     } finally {
@@ -178,7 +178,7 @@ export function AIModelPreferencesSection() {
         return modelID ? [{ purpose, model_id: modelID }] : []
       })
       const res = await putUserAIPreferences(preferences, accessToken ?? undefined)
-      setChoices(res.preferences ?? {})
+      setChoices(res.preferences)
       toast.success(t('settings.ai_models.saved'))
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e))

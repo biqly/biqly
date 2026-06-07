@@ -21,14 +21,14 @@ import { buildQueryPayload } from './queryBuilder/logicalQuery'
 import { NotebookStep } from './queryBuilder/NotebookStep'
 import {
   addFilterRow,
-  addGroupByRow as appendGroupByRow,
   addHavingRow,
+  addGroupByRow as appendGroupByRow,
+  removeGroupByRow as dropGroupByRow,
   patchFilterRow,
+  updateGroupByRow as patchGroupByRow,
   patchHavingRow,
   removeFilterRow,
-  removeGroupByRow as dropGroupByRow,
   removeHavingRow,
-  updateGroupByRow as patchGroupByRow,
 } from './queryBuilder/rowState'
 import { SortStep } from './queryBuilder/SortStep'
 import { SummarizeStep } from './queryBuilder/SummarizeStep'
@@ -64,7 +64,7 @@ interface QueryExplainResponse {
 
 export default function QueryBuilder() {
   const t = useT()
-  const { get, postData, loading, error } = useApi()
+  const { postData, loading, error } = useApi()
   const [dsParam, setDsParam] = useQueryParam('ds')
   const { datasources, loading: dsLoading } = useDatasources()
   const loadedDatasources = !dsLoading
@@ -496,7 +496,7 @@ export default function QueryBuilder() {
                       }
                       return (
                         <div key={j.id || index} className="notebook-join-flow">
-                          <span className="notebook-join-type">{j.join_type || 'LEFT'}</span>
+                          <span className="notebook-join-type">{j.join_type}</span>
                           <span className="notebook-tag notebook-tag--table">{j.from_table}</span>
                           <span className="notebook-join-connector">
                             <span className="notebook-join-line"></span>

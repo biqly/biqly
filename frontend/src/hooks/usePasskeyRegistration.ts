@@ -13,7 +13,6 @@ export function usePasskeyRegistration(accessToken: string) {
 
   const registerPasskey = async (name: string): Promise<boolean> => {
     const isSupported =
-      window.PublicKeyCredential &&
       typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function'
 
     if (!isSupported) {
@@ -29,12 +28,8 @@ export function usePasskeyRegistration(accessToken: string) {
       const beginResp = await apiPasskeyRegisterBegin(accessToken)
       const publicKeyOptions = resolvePasskeyRegisterOptions(beginResp)
 
-      if (
-        !publicKeyOptions?.challenge ||
-        !publicKeyOptions.user?.id ||
-        !publicKeyOptions.rp ||
-        !publicKeyOptions.pubKeyCredParams
-      ) {
+      const user = publicKeyOptions.user
+      if (!publicKeyOptions.challenge || !user?.id) {
         throw new Error('Invalid options from server')
       }
 
@@ -44,10 +39,9 @@ export function usePasskeyRegistration(accessToken: string) {
           pubKeyCredParams: publicKeyOptions.pubKeyCredParams,
           challenge: base64urlToBuffer(publicKeyOptions.challenge),
           user: {
-            id: base64urlToBuffer(publicKeyOptions.user.id),
-            name: publicKeyOptions.user.name ?? 'user',
-            displayName:
-              publicKeyOptions.user.displayName ?? publicKeyOptions.user.name ?? 'Passkey',
+            id: base64urlToBuffer(user.id),
+            name: user.name ?? 'user',
+            displayName: user.displayName ?? user.name ?? 'Passkey',
           },
           timeout: publicKeyOptions.timeout,
           authenticatorSelection: publicKeyOptions.authenticatorSelection,
@@ -76,7 +70,7 @@ export function usePasskeyRegistration(accessToken: string) {
         response: {
           clientDataJSON: bufferToBase64url(response.clientDataJSON),
           attestationObject: bufferToBase64url(response.attestationObject),
-          transports: response.getTransports ? response.getTransports() : [],
+          transports: response.getTransports(),
         },
       }
 
@@ -85,8 +79,8 @@ export function usePasskeyRegistration(accessToken: string) {
       return true
     } catch (err: unknown) {
       const errorObject = err as Record<string, any>
-      if (errorObject?.name !== 'NotAllowedError') {
-        setError(errorObject?.message ?? 'Passkey registration failed')
+      if (errorObject.name !== 'NotAllowedError') {
+        setError(errorObject.message ?? 'Passkey registration failed')
       }
       return false
     } finally {

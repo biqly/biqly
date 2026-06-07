@@ -70,12 +70,9 @@ export function MetadataBulkDescribeModal({
     schemas?: string
   } | null>(null)
   const dbManaged = aiRuntime?.db_managed === true
-  const activeDescribe = dbManaged
-    ? aiRuntime?.active_models?.find((m) => m.purpose === 'describe')
-    : undefined
-  const activeTranslation = dbManaged
-    ? aiRuntime?.active_models?.find((m) => m.purpose === 'translation')
-    : undefined
+  const managedRuntime = dbManaged ? aiRuntime : null
+  const activeDescribe = managedRuntime?.active_models?.find((m) => m.purpose === 'describe')
+  const activeTranslation = managedRuntime?.active_models?.find((m) => m.purpose === 'translation')
 
   useEffect(() => {
     if (!open) {
@@ -198,7 +195,7 @@ export function MetadataBulkDescribeModal({
               primaryModel={describeModel ?? aiRuntime?.llm_model}
               primaryNote={dbManaged ? activeDescribe?.provider_name : undefined}
               translationModel={
-                aiRuntime?.translation_enabled ? aiRuntime?.translation_model : undefined
+                aiRuntime?.translation_enabled ? aiRuntime.translation_model : undefined
               }
               translationNote={dbManaged ? activeTranslation?.provider_name : undefined}
             />

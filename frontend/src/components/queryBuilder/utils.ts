@@ -11,7 +11,7 @@ export function joinEdgeLabel(j: SemanticJoin, baseSchema?: string): string {
     ? `${fromS}.${j.from_table}.${j.from_column}`
     : `${j.from_table}.${j.from_column}`
   const to = toS ? `${toS}.${j.to_table}.${j.to_column}` : `${j.to_table}.${j.to_column}`
-  const jt = j.join_type ? ` ${j.join_type}` : ''
+  const jt = ` ${j.join_type}`
   return `${from} → ${to}${jt}`
 }
 

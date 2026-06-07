@@ -42,7 +42,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
 
   // Auto-select first datasource
   useEffect(() => {
-    if (datasources && datasources.length > 0 && !selectedDS) {
+    if (datasources.length > 0 && !selectedDS) {
       const firstDS = datasources[0]
       if (firstDS) {
         setSelectedDS(firstDS.id)
@@ -52,7 +52,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
 
   // Auto-select first model
   useEffect(() => {
-    if (models && models.length > 0) {
+    if (models.length > 0) {
       const firstModel = models[0]
       if (firstModel) {
         setSelectedModel(firstModel.id)
@@ -81,7 +81,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
           return
         }
         setPolicy(policyData)
-        setFilters(policyData.row_filters || [])
+        setFilters(policyData.row_filters)
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : String(err))
@@ -111,11 +111,11 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
   }, [model])
 
   const dsOptions = useMemo(
-    () => datasourceSelectOptions(datasources ?? [], loadingDS),
+    () => datasourceSelectOptions(datasources, loadingDS),
     [datasources, loadingDS],
   )
   const modelOptions = useMemo(
-    () => semanticModelSelectOptions(models ?? [], loadingModels),
+    () => semanticModelSelectOptions(models, loadingModels),
     [models, loadingModels],
   )
   const fieldOptions = useMemo(() => fieldSelectOptions(fields), [fields])
@@ -174,7 +174,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
       } else {
         updated[index] = { field: item.field, operator: op, value: val }
       }
-    } else if (key === 'field') {
+    } else {
       updated[index] = { field: val, operator: item.operator, value: item.value }
     }
     setFilters(updated)
@@ -202,7 +202,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
       setLoadingPolicy(true)
       const res = await upsertSecurityPolicy(token, policyToSave)
       setPolicy(res)
-      setFilters(res.row_filters || [])
+      setFilters(res.row_filters)
       setSaveSuccess(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))

@@ -174,7 +174,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   const applyBulkProgressFromJob = useCallback((job: AIJob, queue: BulkEntry[]): BulkEntry[] => {
     const progress = job.progress_json
     if (!progress) {
-      const msg = job.phase_message?.trim()
+      const msg = job.phase_message.trim()
       if (!msg) {
         return queue
       }
@@ -345,7 +345,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     if (error) {
       return
     }
-    if (status === 404 || !data?.jobs?.length) {
+    if (status === 404 || !data?.jobs.length) {
       return
     }
     for (const job of data.jobs) {
@@ -482,7 +482,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     for (const id of activeIds) {
       await pollJob(id)
     }
-    return data.cancelled ?? 0
+    return data.cancelled
   }, [jobs, pollJob, sessionId])
 
   const listStaleJobs = useCallback(
@@ -522,7 +522,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       for (const id of ids) {
         await pollJob(id)
       }
-      return data.cancelled ?? 0
+      return data.cancelled
     },
     [pollJob],
   )
@@ -590,7 +590,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
             continue
           }
           if (match.status === 'ok') {
-            const cols = match.result?.columns?.length ?? 0
+            const cols = match.result?.columns.length ?? 0
             queue[i] = {
               schema: entry.schema,
               table: entry.table,
@@ -661,7 +661,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
               queue[i] = { schema, table, status: 'error', message: opts.networkErrorMessage }
               errCount++
             } else {
-              const cols = data.columns?.length ?? 0
+              const cols = data.columns.length
               queue[i] = { schema, table, status: 'ok', message: opts.okColumnsMessage(cols) }
               ok++
             }

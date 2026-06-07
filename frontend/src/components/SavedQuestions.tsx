@@ -543,12 +543,12 @@ export default function SavedQuestions() {
               runLoading={runLoading}
               runError={runError}
               runResult={runResult}
-              onRun={() => {
-                void runQuery()
+              onRun={(logicalQuery) => {
+                void runQuery(logicalQuery)
               }}
               onOpenEdit={openEdit}
-              onDelete={() => {
-                void handleDelete()
+              onDelete={(id) => {
+                void handleDelete(id)
               }}
               t={t}
             />

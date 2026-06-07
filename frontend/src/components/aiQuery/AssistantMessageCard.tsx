@@ -68,7 +68,7 @@ function SampleDataModal({
       labelledBy="sample-data-title"
     >
       <LoadingOverlay loading={loading} />
-      {sample?.columns && sample?.rows && (
+      {sample && (
         <div className="results-table-scroll">
           <table className="results-table">
             <thead>
@@ -149,8 +149,10 @@ export function AssistantMessageCard({
       return
     }
     const mapped = raw === 'number' ? 'table' : raw
-    if (mapped === 'bar' || mapped === 'line' || mapped === 'pie' || mapped === 'table') {
+    if (mapped === 'bar' || mapped === 'line' || mapped === 'pie') {
       setChartType(mapped)
+    } else {
+      setChartType('table')
     }
   }, [result?.visualization_hint?.chart_type, result?.result?.chart_suggestions])
 
@@ -452,7 +454,7 @@ export function AssistantMessageCard({
       )}
       {error && <ErrorAlert error={error} />}
 
-      {result.result?.columns && result.result.rows && (
+      {result.result && (
         <div className="results-section">
           <div className="results-header">
             <h3>{t('ai_query.results_title', { rows: result.result.stats?.row_count ?? 0 })}</h3>

@@ -17,11 +17,11 @@ export function useModelDetail(modelId: string | null, options?: Options) {
       return
     }
     const query = options?.includeInactive ? '?include_inactive=true' : ''
-    void get<SemanticModelDetail>(`/api/semantic/models/${encodeURIComponent(modelId)}${query}`).then(
-      (data) => {
-        setModel(data)
-      },
-    )
+    void get<SemanticModelDetail>(
+      `/api/semantic/models/${encodeURIComponent(modelId)}${query}`,
+    ).then((data) => {
+      setModel(data)
+    })
   }, [get, modelId, options?.includeInactive])
 
   useEffect(() => {

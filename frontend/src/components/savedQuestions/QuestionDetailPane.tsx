@@ -146,7 +146,7 @@ export function QuestionDetailPane({
         </div>
       )}
 
-      {runResult?.columns && runResult.rows && (
+      {runResult && (
         <div className="results-section" style={{ marginTop: '1.5rem' }}>
           <ResultTable
             columns={runResult.columns}

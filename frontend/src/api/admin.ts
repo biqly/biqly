@@ -70,7 +70,7 @@ export async function getRolePermissions(token: string, roleID: string): Promise
     undefined,
     { token },
   )
-  return data.permission_ids ?? []
+  return data.permission_ids
 }
 
 export async function setRolePermissions(
@@ -151,7 +151,7 @@ export async function listAuditLog(
     undefined,
     { token },
   )
-  return { entries: data?.entries ?? [], total: data?.total ?? 0 }
+  return { entries: data.entries ?? [], total: data.total ?? 0 }
 }
 
 // === Datasource access ===
@@ -233,7 +233,7 @@ export async function getMyDatasources(token: string): Promise<string[]> {
     undefined,
     { token },
   )
-  return data.datasource_ids || []
+  return data.datasource_ids
 }
 
 // === Workspaces ===
@@ -344,8 +344,8 @@ export async function listUsers(
     { token },
   )
   return {
-    users: (data.users || []).map(normalizeAuthUser),
-    total: data.total || 0,
+    users: data.users.map(normalizeAuthUser),
+    total: data.total,
   }
 }
 

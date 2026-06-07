@@ -983,7 +983,7 @@ export default function TableBrowser() {
               error={error}
               t={t}
               onOpenModeling={() => {
-                const modelId = modelDetail?.id
+                const modelId = modelDetail.id
                 const dsId = datasourceId
                 const params = new URLSearchParams()
                 if (dsId) {
@@ -1203,7 +1203,7 @@ export default function TableBrowser() {
                 detailRow.row,
                 result.columns.map((c) => c.name),
                 t('table_browser.row_detail_title', { n: formatInt(detailRow.displayIndex) }),
-                selectedTableKey ?? modelDetail?.base_table,
+                selectedTableKey || modelDetail?.base_table,
               )
             : t('table_browser.row_detail')
         }

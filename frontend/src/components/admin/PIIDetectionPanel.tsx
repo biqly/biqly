@@ -47,7 +47,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
   const [pendingStrategy, setPendingStrategy] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    if (datasources && datasources.length > 0 && !selectedDS) {
+    if (datasources.length > 0 && !selectedDS) {
       const firstDS = datasources[0]
       if (firstDS) {
         setSelectedDS(firstDS.id)
@@ -129,12 +129,12 @@ export function PIIDetectionPanel({ token }: { token: string }) {
   }
 
   const dsOptions = useMemo(
-    () => datasourceSelectOptions(datasources ?? [], loadingDS),
+    () => datasourceSelectOptions(datasources, loadingDS),
     [datasources, loadingDS],
   )
 
   const totalDetected = scanSummary
-    ? Object.values(scanSummary.detected || {}).reduce((sum, n) => sum + n, 0)
+    ? Object.values(scanSummary.detected).reduce((sum, n) => sum + n, 0)
     : 0
 
   return (

@@ -44,7 +44,7 @@ export default function OAuthCallback() {
           void navigate(`/auth/signin?mfa_token=${encodeURIComponent(resp.mfa_token)}`)
           return
         }
-        await loginWithTokens(resp.access_token, resp.roles ?? [])
+        await loginWithTokens(resp.access_token, resp.roles)
         void navigate('/datasources')
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : t('auth.oauth_failed')

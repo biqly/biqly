@@ -170,9 +170,7 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
                   {d.description && <p className="dashboard-list-card__desc">{d.description}</p>}
                 </div>
                 <div className="dashboard-list-card__meta">
-                  <span>
-                    {t('customDashboards.widgets_count', { count: d.widgets?.length || 0 })}
-                  </span>
+                  <span>{t('customDashboards.widgets_count', { count: d.widgets.length })}</span>
                   <span>
                     {new Date(d.created_at).toLocaleDateString(undefined, {
                       month: 'short',

@@ -91,7 +91,7 @@ export default function Metadata() {
         if (cancelled) {
           return
         }
-        const prefId = res.preferences?.describe
+        const prefId = res.preferences.describe
         if (!prefId) {
           setEffectiveDescribeModel(null)
           return

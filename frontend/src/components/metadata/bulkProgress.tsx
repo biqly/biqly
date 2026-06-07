@@ -180,7 +180,7 @@ export function BulkQueuePreview({
     if (e.status === 'ok' || e.status === 'error' || e.status === 'skipped') {
       return false
     }
-    return e.status === 'pending' || e.status === 'running'
+    return true
   })
   const preview = progress?.pending_preview?.length
     ? progress.pending_preview
@@ -191,7 +191,7 @@ export function BulkQueuePreview({
   }
 
   const current =
-    progress?.current_schema && progress?.current_table
+    progress?.current_schema && progress.current_table
       ? `${progress.current_schema}.${progress.current_table}`
       : entries.find((e) => e.status === 'running')
         ? `${entries.find((e) => e.status === 'running')!.schema}.${entries.find((e) => e.status === 'running')!.table}`

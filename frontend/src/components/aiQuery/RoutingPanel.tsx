@@ -80,7 +80,7 @@ export function RoutingPanel({
     dbManaged && activeQuery
       ? activeQuery.display_name
       : aiRuntime?.query_model_override
-        ? aiRuntime?.query_model
+        ? aiRuntime.query_model
         : aiRuntime?.llm_model
   const queryNote = dbManaged
     ? activeQuery?.provider_name
@@ -90,7 +90,7 @@ export function RoutingPanel({
         ? t('ai_query.model_badge_legacy')
         : undefined
   const embeddingsAvailable = dbManaged
-    ? Boolean(activeEmbedding?.model_id?.trim())
+    ? Boolean(activeEmbedding?.model_id.trim())
     : aiRuntime?.embeddings_enabled === true
   const embeddingBadge = embeddingsAvailable
     ? dbManaged
@@ -98,11 +98,15 @@ export function RoutingPanel({
       : aiRuntime?.embedding_model
     : undefined
   const embeddingNote = dbManaged ? activeEmbedding?.provider_name : undefined
-  const translationBadge = dbManaged
-    ? activeTranslation?.display_name
-    : aiRuntime?.translation_enabled
-      ? aiRuntime?.translation_model
-      : undefined
+  const translationBadge = (() => {
+    if (dbManaged) {
+      return activeTranslation?.display_name
+    }
+    if (!aiRuntime?.translation_enabled) {
+      return undefined
+    }
+    return aiRuntime.translation_model
+  })()
   const translationNote = dbManaged ? activeTranslation?.provider_name : undefined
 
   return (

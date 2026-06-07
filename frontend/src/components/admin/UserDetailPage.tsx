@@ -78,7 +78,7 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
   }, [token, userID])
 
   const isSelf = currentUser?.id === userID
-  const isSuperAdmin = currentUserRoles?.includes('super_admin') ?? false
+  const isSuperAdmin = currentUserRoles.includes('super_admin')
 
   const assignableRoleOptions = useMemo(() => roleSelectOptions(availableRoles), [availableRoles])
   const scopeTypeOptions = useMemo(

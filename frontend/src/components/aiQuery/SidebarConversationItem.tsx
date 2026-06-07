@@ -77,7 +77,7 @@ export function SidebarConversationItem({
           onKeyDown={handleKeyDown}
           onClick={(e) => e.stopPropagation()}
           className="conv-edit-input"
-          placeholder={t('ai_query.rename_placeholder') ?? 'Enter title...'}
+          placeholder={t('ai_query.rename_placeholder')}
         />
       ) : (
         <div className="conv-item-content">
@@ -95,17 +95,17 @@ export function SidebarConversationItem({
             type="button"
             className="btn-conv-action edit-btn"
             onClick={handleStartEdit}
-            title={t('ai_query.rename_btn') ?? 'Rename'}
+            title={t('ai_query.rename_btn')}
           >
             ✏️
           </button>
           <button
             type="button"
             className="btn-conv-action delete-btn"
-            onClick={() => {
-              void handleDelete()
+            onClick={(e) => {
+              void handleDelete(e)
             }}
-            title={t('ai_query.delete_btn') ?? 'Delete'}
+            title={t('ai_query.delete_btn')}
           >
             🗑️
           </button>

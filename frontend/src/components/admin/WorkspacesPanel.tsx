@@ -32,8 +32,8 @@ export function WorkspacesPanel({ token }: { token: string }) {
     setLoading(true)
     try {
       const res = await listWorkspaces(token, currentPage, pageSize)
-      setItems(res.workspaces || [])
-      setTotalItems(res.total || 0)
+      setItems(res.workspaces)
+      setTotalItems(res.total)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))

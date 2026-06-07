@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import type { useT } from '../../i18n'
 import type {
@@ -84,15 +84,13 @@ export function AddMetricModal({
   // Get active tables in model
   const modelTableKeys = useMemo(() => {
     const keys = new Set<string>()
-    if (model) {
-      keys.add(`${model.base_schema}.${model.base_table}`)
-      ;(model.joins ?? []).forEach((j) => {
-        if (j.is_active !== false) {
-          keys.add(`${j.from_schema ?? model.base_schema}.${j.from_table}`)
-          keys.add(`${j.to_schema ?? model.base_schema}.${j.to_table}`)
-        }
-      })
-    }
+    keys.add(`${model.base_schema}.${model.base_table}`)
+    ;(model.joins ?? []).forEach((j) => {
+      if (j.is_active !== false) {
+        keys.add(`${j.from_schema ?? model.base_schema}.${j.from_table}`)
+        keys.add(`${j.to_schema ?? model.base_schema}.${j.to_table}`)
+      }
+    })
     return keys
   }, [model])
 

@@ -80,8 +80,8 @@ export default function QueryHistory() {
         status: statusFilter || undefined,
         search: debouncedSearch || undefined,
       })
-      setEntries(res.entries || [])
-      setTotalItems(res.total ?? 0)
+      setEntries(res.entries)
+      setTotalItems(res.total)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))

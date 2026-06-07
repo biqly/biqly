@@ -85,7 +85,7 @@ export function AIUsageAdminPanel() {
   const userLabelByID = useMemo(() => {
     const map = new Map<string, string>()
     for (const u of users) {
-      const label = (u.displayName?.trim() ?? u.email?.trim()) || u.id
+      const label = u.displayName?.trim() || u.email.trim() || u.id
       map.set(u.id, label)
     }
     return map
@@ -102,7 +102,7 @@ export function AIUsageAdminPanel() {
           return
         }
         setTotals(data.totals)
-        setRows(data.rows || [])
+        setRows(data.rows)
         setError(null)
       })
       .catch((err) => {

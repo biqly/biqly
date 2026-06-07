@@ -83,7 +83,7 @@ export default function Evaluation() {
 
   const handleTabHover = (hoveredTab: 'run' | 'history' | 'regression') => {
     const comp = TAB_COMPONENTS[hoveredTab]
-    if (comp && typeof comp.preload === 'function') {
+    if (typeof comp.preload === 'function') {
       void comp.preload()
     }
   }
@@ -91,7 +91,7 @@ export default function Evaluation() {
   useEffect(() => {
     const timer = setTimeout(() => {
       Object.values(TAB_COMPONENTS).forEach((comp) => {
-        if (comp && typeof comp.preload === 'function') {
+        if (typeof comp.preload === 'function') {
           void comp.preload()
         }
       })
@@ -131,7 +131,7 @@ export default function Evaluation() {
       return
     } // don't reload if already selected
     // Auto-select latest run when on history tab
-    if (activeTab === 'history' && runHistory.length > 0 && !selectedRun) {
+    if (activeTab === 'history' && runHistory.length > 0) {
       // Show list, don't auto-select
     }
   }, [activeTab, runHistory, selectedRun])

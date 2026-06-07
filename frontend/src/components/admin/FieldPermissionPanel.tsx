@@ -49,7 +49,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
   const [loadingFields, setLoadingFields] = useState(false)
 
   useEffect(() => {
-    if (datasources && datasources.length > 0 && !selectedDS) {
+    if (datasources.length > 0 && !selectedDS) {
       const firstDS = datasources[0]
       if (firstDS) {
         setSelectedDS(firstDS.id)
@@ -58,7 +58,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
   }, [datasources, selectedDS])
 
   useEffect(() => {
-    if (models && models.length > 0) {
+    if (models.length > 0) {
       const firstModel = models[0]
       if (firstModel) {
         setSelectedModel(firstModel.id)
@@ -91,7 +91,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
           return
         }
         setPolicy(policyData)
-        setDeniedFields(policyData.denied_fields || [])
+        setDeniedFields(policyData.denied_fields)
         setPIIPolicy(policyData.pii_policy ?? {})
         setPIIColumns(piiCols)
       } catch (err) {
@@ -192,7 +192,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
       setLoadingPolicy(true)
       const res = await upsertSecurityPolicy(token, policyToSave)
       setPolicy(res)
-      setDeniedFields(res.denied_fields || [])
+      setDeniedFields(res.denied_fields)
       setPIIPolicy(res.pii_policy ?? {})
       setSaveSuccess(true)
     } catch (err) {
@@ -267,11 +267,11 @@ export function FieldPermissionPanel({ token }: { token: string }) {
   const isSavingDisabled = !selectedModel || !modelName || loadingPolicy
 
   const dsOptions = useMemo(
-    () => datasourceSelectOptions(datasources ?? [], loadingDS),
+    () => datasourceSelectOptions(datasources, loadingDS),
     [datasources, loadingDS],
   )
   const modelOptions = useMemo(
-    () => semanticModelSelectOptions(models ?? [], loadingModels),
+    () => semanticModelSelectOptions(models, loadingModels),
     [models, loadingModels],
   )
 

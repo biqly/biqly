@@ -70,8 +70,8 @@ export function AIProvidersPanel() {
     setError(null)
     try {
       const [provs, active] = await Promise.all([listProviders(), listActiveModels()])
-      setProviders(provs ?? [])
-      setActiveModels(active ?? [])
+      setProviders(provs)
+      setActiveModels(active)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -84,7 +84,7 @@ export function AIProvidersPanel() {
       setModelsLoading(true)
       try {
         const rows = await listModels(providerID)
-        setModels(rows ?? [])
+        setModels(rows)
       } catch (e) {
         toast.error(e instanceof Error ? e.message : String(e))
       } finally {
@@ -216,9 +216,9 @@ export function AIProvidersPanel() {
             <div className="admin-ai-purpose-grid">
               {PURPOSES.map((purpose) => {
                 const m = activeByPurpose(purpose)
-                const providerLabel = m?.provider_name?.trim()
-                const modelLabel = m?.display_name?.trim()
-                const modelHint = m?.model_id?.trim()
+                const providerLabel = m?.provider_name.trim()
+                const modelLabel = m?.display_name.trim()
+                const modelHint = m?.model_id.trim()
                 return (
                   <div key={purpose} className="admin-ai-purpose-card">
                     <div className="admin-ai-purpose-card__head">
@@ -739,8 +739,8 @@ function ModelModal({
     setRemoteError(null)
     try {
       const rows = await listProviderRemoteModels(provider.id)
-      setRemoteModels(rows ?? [])
-      if ((rows?.length ?? 0) === 0) {
+      setRemoteModels(rows)
+      if (rows.length === 0) {
         setRemoteError(t('admin.ai_providers.fields.remote_models_failed'))
         setUseManualModelID(true)
       }

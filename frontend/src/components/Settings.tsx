@@ -95,7 +95,7 @@ export default function Settings() {
     setError(null)
     try {
       const data = await apiGetPasskeys(accessToken)
-      setPasskeys(data || [])
+      setPasskeys(data)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load passkeys')
     } finally {

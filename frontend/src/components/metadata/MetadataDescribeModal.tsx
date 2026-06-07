@@ -45,12 +45,9 @@ export function MetadataDescribeModal({
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const dbManaged = aiRuntime?.db_managed === true
-  const activeDescribe = dbManaged
-    ? aiRuntime?.active_models?.find((m) => m.purpose === 'describe')
-    : undefined
-  const activeTranslation = dbManaged
-    ? aiRuntime?.active_models?.find((m) => m.purpose === 'translation')
-    : undefined
+  const managedRuntime = dbManaged ? aiRuntime : null
+  const activeDescribe = managedRuntime?.active_models?.find((m) => m.purpose === 'describe')
+  const activeTranslation = managedRuntime?.active_models?.find((m) => m.purpose === 'translation')
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -131,9 +128,9 @@ export function MetadataDescribeModal({
               primaryNote={dbManaged ? activeDescribe?.provider_name : undefined}
               translationModel={
                 result?.translation_applied
-                  ? result?.translation_model
+                  ? result.translation_model
                   : aiRuntime?.translation_enabled
-                    ? aiRuntime?.translation_model
+                    ? aiRuntime.translation_model
                     : undefined
               }
               translationNote={dbManaged ? activeTranslation?.provider_name : undefined}

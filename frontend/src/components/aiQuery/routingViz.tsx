@@ -334,16 +334,17 @@ export function ClarificationCard({
   onSkip: () => void
 }) {
   const t = useT()
-  const structured = clarification?.options?.filter((o) => o.label?.trim()) ?? []
+  const structured = (clarification?.options ?? []).filter((o) => o.label.trim())
   const useStructured = structured.length > 0
   const isAmbiguity = clarification?.source === 'ambiguity_analyzer'
+  const ambiguities = clarification?.ambiguity_detail?.ambiguities ?? []
   return (
     <div className={`clarification-card${isAmbiguity ? ' clarification-card--ambiguity' : ''}`}>
       <div className="clarification-title">{t('ai_query.clarification_title')}</div>
       {clarification?.reason && <p className="clarification-reason">{clarification.reason}</p>}
-      {isAmbiguity && clarification?.ambiguity_detail?.ambiguities?.length ? (
+      {isAmbiguity && ambiguities.length > 0 ? (
         <ul className="clarification-ambiguity-terms">
-          {clarification.ambiguity_detail.ambiguities.map((item) => (
+          {ambiguities.map((item) => (
             <li key={item.term}>
               <strong>{item.term}</strong>
               <span className="clarification-ambiguity-type">{item.type}</span>
@@ -484,7 +485,7 @@ export function LogicalQueryMetaBadges({ lq }: { lq: LogicalQuery }) {
     badges.push(t('ai_query.lq_default_schema', { schema: lq.default_schema }))
   }
   const schemaMap = lq.table_schemas ?? {}
-  const mapped = Object.entries(schemaMap).filter(([, s]) => s?.trim())
+  const mapped = Object.entries(schemaMap).filter(([, s]) => s.trim())
   if (mapped.length > 0) {
     badges.push(
       t('ai_query.lq_schema_map', { map: mapped.map(([tb, s]) => `${tb}→${s}`).join(', ') }),

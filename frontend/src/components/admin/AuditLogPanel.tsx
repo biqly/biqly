@@ -93,8 +93,8 @@ export function AuditLogPanel({ token }: { token: string }) {
         page: nextFilters.page,
         pageSize: nextFilters.pageSize,
       })
-      setEntries(res.entries || [])
-      setTotalItems(res.total || 0)
+      setEntries(res.entries)
+      setTotalItems(res.total)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))

@@ -61,7 +61,7 @@ export default function Composites() {
   const [suggestions, setSuggestions] = useState<SuggestedCrossJoin[]>([])
 
   useEffect(() => {
-    if (datasources && datasources.length > 0 && !datasourceId) {
+    if (datasources.length > 0 && !datasourceId) {
       setDatasourceId(datasources[0]?.id ?? '')
     }
   }, [datasources, datasourceId])
@@ -106,8 +106,7 @@ export default function Composites() {
   // Load full model details for each component (dimensions + names).
   useEffect(() => {
     const comps = detail?.components ?? []
-    let cancelled = false
-    ;void (async () => {
+    void (async () => {
       const next: Record<string, SemanticModelDetail> = {}
       for (const c of comps) {
         const m = await get<SemanticModelDetail>(
@@ -117,13 +116,8 @@ export default function Composites() {
           next[c.model_id] = m
         }
       }
-      if (!cancelled) {
-        setComponentModels(next)
-      }
+      setComponentModels(next)
     })()
-    return () => {
-      cancelled = true
-    }
   }, [detail?.components, get])
 
   const modelNames = useMemo(() => {
@@ -330,7 +324,7 @@ export default function Composites() {
           <Select
             value={datasourceId}
             onChange={setDatasourceId}
-            options={(datasources ?? []).map((d) => ({ value: d.id, label: d.name }))}
+            options={datasources.map((d) => ({ value: d.id, label: d.name }))}
             placeholder={t('composites.datasource_placeholder')}
             ariaLabel={t('composites.datasource_placeholder')}
           />
@@ -621,7 +615,7 @@ export default function Composites() {
                         {(dimensionsByAlias[c.alias] ?? []).map((dim) => {
                           const active =
                             detail.canonical_date?.model_alias === c.alias &&
-                            detail.canonical_date?.dimension_name === dim
+                            detail.canonical_date.dimension_name === dim
                           return (
                             <button
                               key={dim}

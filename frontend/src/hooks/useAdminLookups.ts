@@ -26,9 +26,9 @@ export function useAdminLookups(token: string) {
           listWorkspaces(token),
         ])
         if (!cancelled) {
-          setUsers(uRes.users || [])
-          setDatasources(dsData || [])
-          setWorkspaces(wsRes.workspaces || [])
+          setUsers(uRes.users)
+          setDatasources(dsData)
+          setWorkspaces(wsRes.workspaces)
           setError(null)
         }
       } catch (err) {

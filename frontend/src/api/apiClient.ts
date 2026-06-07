@@ -31,7 +31,7 @@ function parseResponseBody(text: string): unknown {
 }
 
 function responseError(status: number, data: unknown): string {
-  if (data && typeof data === 'object' && data !== null) {
+  if (data && typeof data === 'object') {
     const obj = data as Record<string, unknown>
     const err = obj.error ?? obj.message
     if (typeof err === 'string' && err.trim()) {
@@ -60,18 +60,17 @@ export async function fetchJSON<T>(
   const timeout = init?.timeout ?? 30_000
 
   const controller = new AbortController()
-  let didTimeout = false
+  const startedAt = Date.now()
   const timeoutId = setTimeout(() => {
-    didTimeout = true
     controller.abort()
   }, timeout)
 
   const signal = init?.signal
     ? (() => {
         const merged = new AbortController()
-        init.signal?.addEventListener('abort', () => merged.abort())
+        init.signal.addEventListener('abort', () => merged.abort())
         controller.signal.addEventListener('abort', () => merged.abort())
-        if (init.signal?.aborted || controller.signal.aborted) {
+        if (init.signal.aborted || controller.signal.aborted) {
           merged.abort()
         }
         return merged.signal
@@ -121,7 +120,7 @@ export async function fetchJSON<T>(
     if (err instanceof Error) {
       const aborted = err instanceof DOMException && err.name === 'AbortError'
       if (aborted || err.message.includes('aborted')) {
-        errMsg = didTimeout ? 'Request timed out' : 'Request aborted'
+        errMsg = Date.now() - startedAt >= timeout ? 'Request timed out' : 'Request aborted'
       } else {
         errMsg = err.message
       }

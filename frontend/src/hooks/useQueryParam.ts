@@ -43,7 +43,7 @@ export function useQueryParam(key: string): [string, (next: string) => void] {
       if (current === next) {
         return
       }
-      if (next === '' || next == null) {
+      if (next === '') {
         params.delete(key)
       } else {
         params.set(key, next)

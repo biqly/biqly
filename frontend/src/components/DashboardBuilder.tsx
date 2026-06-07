@@ -102,7 +102,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
     const data = await get<Dashboard>(`/api/dashboards/${dashboardId}`)
     if (data) {
       setDashboard(data)
-      setWidgets(data.widgets || [])
+      setWidgets(data.widgets)
       setIsDirty(false)
     }
   }, [dashboardId, get])
@@ -191,14 +191,14 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
     setConfigChartType(w.chart_type ?? 'line')
     setConfigContent(w.content ?? '')
     setConfigWidth(w.w || 6)
-    setConfigHeight(w.h || 'medium')
+    setConfigHeight(w.h)
 
     // Prefill linking query states if present
     if (w.saved_query_id) {
       const q = savedQuestions.find((item) => item.id === w.saved_query_id)
       if (w.logical_query?.datasource_id) {
         setSelDatasourceId(w.logical_query.datasource_id)
-        setSelModelId(w.logical_query.model_id ?? '')
+        setSelModelId(w.logical_query.model_id)
       }
       setSelQuestionId(w.saved_query_id)
 
@@ -938,19 +938,19 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
 
     // Execute Saved logical_query
     void postData<QueryResultPayload>('/api/query/run', widget.logical_query).then((res) => {
-      if (res?.rows && res.columns) {
-        setColumns(res.columns)
-        const mapped = res.rows.map((row) => {
-          const obj: ChartRow = {}
-          res.columns.forEach((col, idx) => {
-            obj[col.name] = row[idx]
-          })
-          return obj
-        })
-        setData(mapped)
-      } else {
+      if (!res) {
         setData([])
+        return
       }
+      setColumns(res.columns)
+      const mapped = res.rows.map((row) => {
+        const obj: ChartRow = {}
+        res.columns.forEach((col, idx) => {
+          obj[col.name] = row[idx]
+        })
+        return obj
+      })
+      setData(mapped)
     })
   }, [widget.logical_query, widget.type, postData])
 
@@ -1059,9 +1059,9 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
               maximumFractionDigits: 2,
             })
           : val.toLocaleString()
-    } else if (val !== null && val !== undefined && typeof val !== 'object') {
+    } else if (typeof val !== 'object') {
       formattedVal = String(val)
-    } else if (typeof val === 'object') {
+    } else {
       formattedVal = JSON.stringify(val)
     }
     return (
@@ -1181,7 +1181,7 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
     )
   }
 
-  if (widget.type === 'table') {
+  {
     const showCols = widget.config?.visibleColumns ?? columns.map((col) => col.name)
     if (showCols.length === 0) {
       return (

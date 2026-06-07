@@ -291,7 +291,7 @@ export default function SignUpPage() {
 
       {/* Terms of Use Modal */}
       <Modal open={termsOpen} title={t('auth.terms_of_use')} onClose={() => setTermsOpen(false)}>
-        {locale?.startsWith('tr') ? <TermsOfUseTR /> : <TermsOfUseEN />}
+        {locale.startsWith('tr') ? <TermsOfUseTR /> : <TermsOfUseEN />}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
           <button
             type="button"
@@ -313,7 +313,7 @@ export default function SignUpPage() {
         title={t('auth.privacy_policy')}
         onClose={() => setPrivacyOpen(false)}
       >
-        {locale?.startsWith('tr') ? <PrivacyPolicyTR /> : <PrivacyPolicyEN />}
+        {locale.startsWith('tr') ? <PrivacyPolicyTR /> : <PrivacyPolicyEN />}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
           <button
             type="button"

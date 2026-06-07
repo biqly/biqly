@@ -54,7 +54,7 @@ export function ABExperimentForm({ experiment, onSave, onCancel }: ABExperimentF
     }
 
     let result: Experiment | null = null
-    if (isEdit && experiment?.id) {
+    if (isEdit && experiment.id) {
       // For updates, the API only takes name and description (active parameters cannot be modified)
       result = await putData<Experiment>(`/api/ai/ab-experiments/${experiment.id}`, {
         name: payload.name,

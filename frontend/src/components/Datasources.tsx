@@ -378,7 +378,7 @@ export default function Datasources() {
                           aria-label={t('datasources.copy_id_aria', { id: ds.id })}
                           className="ds-record__id"
                           onClick={() => {
-                            navigator.clipboard?.writeText(ds.id).catch(() => {})
+                            navigator.clipboard.writeText(ds.id).catch(() => {})
                           }}
                         >
                           <span aria-hidden="true">id · {ds.id.slice(0, 8)}…</span>

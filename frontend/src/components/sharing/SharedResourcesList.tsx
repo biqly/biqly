@@ -41,8 +41,8 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
         pageSize,
         resourceType,
       })
-      setItems(res.shares || [])
-      setTotalItems(res.total || 0)
+      setItems(res.shares)
+      setTotalItems(res.total)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))

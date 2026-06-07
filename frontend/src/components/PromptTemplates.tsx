@@ -160,7 +160,7 @@ export default function PromptTemplates() {
 
   const checkSuggestions = useCallback(
     (val: string, cursorIndex: number) => {
-      const activeParams = TEMPLATE_PARAMS[selectedName] || []
+      const activeParams = TEMPLATE_PARAMS[selectedName]
       if (activeParams.length === 0) {
         setShowSuggestions(false)
         return
@@ -461,7 +461,7 @@ export default function PromptTemplates() {
         </div>
 
         {/* Clickable parameter pills */}
-        {TEMPLATE_PARAMS[selectedName]?.length > 0 && (
+        {TEMPLATE_PARAMS[selectedName].length > 0 && (
           <div
             style={{
               marginBottom: '1rem',

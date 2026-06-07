@@ -63,10 +63,10 @@ export function AIModelSharingPanel() {
         listModels(),
       ])
       setGrants(g)
-      setWorkspaces((ws.workspaces ?? []).map((w) => ({ id: w.id, name: w.name })))
-      setRoles((rs.roles ?? []).map((r) => ({ id: r.id, name: r.name })))
-      setProviders(provs ?? [])
-      setModels(allModels ?? [])
+      setWorkspaces(ws.workspaces.map((w) => ({ id: w.id, name: w.name })))
+      setRoles(rs.roles.map((r) => ({ id: r.id, name: r.name })))
+      setProviders(provs)
+      setModels(allModels)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e))
     } finally {
@@ -114,41 +114,42 @@ export function AIModelSharingPanel() {
     if (!grants || !accessToken) {
       return []
     }
+    const token = accessToken
     const items: GrantListItem[] = []
-    for (const g of grants.provider_workspaces ?? []) {
+    for (const g of grants.provider_workspaces) {
       items.push({
         key: `pw-${g.workspace_id}-${g.provider_id}`,
         targetBadge: 'workspace',
         resourceBadge: 'provider',
         label: `${workspaceName(g.workspace_id)} → ${providerName(g.provider_id)}`,
-        onRevoke: () => revokeProviderWorkspace(accessToken, g.workspace_id, g.provider_id),
+        onRevoke: () => revokeProviderWorkspace(token, g.workspace_id, g.provider_id),
       })
     }
-    for (const g of grants.model_workspaces ?? []) {
+    for (const g of grants.model_workspaces) {
       items.push({
         key: `mw-${g.workspace_id}-${g.model_id}`,
         targetBadge: 'workspace',
         resourceBadge: 'model',
         label: `${workspaceName(g.workspace_id)} → ${modelLabel(g.model_id)}`,
-        onRevoke: () => revokeModelWorkspace(accessToken, g.workspace_id, g.model_id),
+        onRevoke: () => revokeModelWorkspace(token, g.workspace_id, g.model_id),
       })
     }
-    for (const g of grants.provider_roles ?? []) {
+    for (const g of grants.provider_roles) {
       items.push({
         key: `pr-${g.role_id}-${g.provider_id}`,
         targetBadge: 'role',
         resourceBadge: 'provider',
         label: `${roleName(g.role_id)} → ${providerName(g.provider_id)}`,
-        onRevoke: () => revokeProviderRole(accessToken, g.role_id, g.provider_id),
+        onRevoke: () => revokeProviderRole(token, g.role_id, g.provider_id),
       })
     }
-    for (const g of grants.model_roles ?? []) {
+    for (const g of grants.model_roles) {
       items.push({
         key: `mr-${g.role_id}-${g.model_id}`,
         targetBadge: 'role',
         resourceBadge: 'model',
         label: `${roleName(g.role_id)} → ${modelLabel(g.model_id)}`,
-        onRevoke: () => revokeModelRole(accessToken, g.role_id, g.model_id),
+        onRevoke: () => revokeModelRole(token, g.role_id, g.model_id),
       })
     }
     items.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))

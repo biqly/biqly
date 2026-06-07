@@ -37,9 +37,6 @@ function readMode(): ThemeMode {
 }
 
 function resolveSystem(): ResolvedTheme {
-  if (typeof window === 'undefined' || !window.matchMedia) {
-    return 'dark'
-  }
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
 }
 
@@ -76,9 +73,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [mode])
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) {
-      return
-    }
     if (mode !== 'system') {
       return
     }

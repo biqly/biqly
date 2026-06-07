@@ -139,13 +139,13 @@ export default function AIQuery() {
         setTables(data ?? [])
       }
     })
-    void get<CompositeModelSummary[]>(`/api/semantic/composites?datasource_id=${datasourceId}`).then(
-      (data) => {
-        if (!cancelled) {
-          setComposites((data ?? []).filter((c) => c.status === 'published'))
-        }
-      },
-    )
+    void get<CompositeModelSummary[]>(
+      `/api/semantic/composites?datasource_id=${datasourceId}`,
+    ).then((data) => {
+      if (!cancelled) {
+        setComposites((data ?? []).filter((c) => c.status === 'published'))
+      }
+    })
     return () => {
       cancelled = true
     }

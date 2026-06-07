@@ -49,7 +49,7 @@ export default function SignInPage() {
           return
         }
         setSignupAllowed(selfSignupEnabledFromPolicy(policy))
-        setLdapEnabled(policy?.ldap_enabled === true)
+        setLdapEnabled(policy.ldap_enabled === true)
       })
       .catch(() => {
         if (!cancelled) {

@@ -54,8 +54,8 @@ export function AIHistoryPanel() {
         pageSize,
         showAll: isAdmin ? showAll : undefined,
       })
-      setEntries(res.entries || [])
-      setTotalItems(res.total || 0)
+      setEntries(res.entries)
+      setTotalItems(res.total)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))

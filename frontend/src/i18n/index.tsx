@@ -27,7 +27,7 @@ export const LOCALE_OPTIONS: Record<Locale, { label: string; short: string; lang
   }
 
 export function localeLanguageTag(locale: Locale): string {
-  return LOCALE_OPTIONS[locale]?.languageTag ?? LOCALE_OPTIONS[FALLBACK_LOCALE].languageTag
+  return LOCALE_OPTIONS[locale].languageTag
 }
 
 type LeafKeys<T, Prefix extends string = ''> = {
@@ -178,7 +178,7 @@ function interpolate(template: string, params?: Record<string, string | number>)
   }
   return template.replace(/\{\{\s*([\w]+)\s*\}\}/g, (_, key: string) => {
     const v = params[key]
-    return v === undefined || v === null ? `{{${key}}}` : String(v)
+    return v === undefined ? `{{${key}}}` : String(v)
   })
 }
 

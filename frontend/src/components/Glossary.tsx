@@ -51,7 +51,7 @@ export default function Glossary() {
 
   // Default datasource configuration
   useEffect(() => {
-    if (datasources && datasources.length > 0 && !selectedDatasourceId) {
+    if (datasources.length > 0 && !selectedDatasourceId) {
       const firstDs = datasources[0]
       if (firstDs) {
         setSelectedDatasourceId(firstDs.id)
@@ -154,10 +154,6 @@ export default function Glossary() {
     setFormError(null)
     if (!formTerm.trim()) {
       setFormError(t('glossary.err_term_required'))
-      return
-    }
-    if (!formMapsToType) {
-      setFormError(t('glossary.err_maps_to_type_required'))
       return
     }
     if (!formMapsToName.trim()) {
@@ -313,7 +309,7 @@ export default function Glossary() {
         .filter((m) => m.is_active !== false)
         .map((m) => ({ value: m.name, label: m.label ? `${m.name} (${m.label})` : m.name }))
     }
-    if (formMapsToType === 'model') {
+    {
       return [
         {
           value: activeModelDetail.name,
