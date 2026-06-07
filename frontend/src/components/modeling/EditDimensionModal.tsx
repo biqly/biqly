@@ -1,12 +1,12 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import type { useT } from '../../i18n'
 import type {
   ColumnRow,
   SemanticDimension,
+  SemanticExprNode,
   SemanticModelDetail,
   TableRow,
-  SemanticExprNode,
 } from '../../types/semantic'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'

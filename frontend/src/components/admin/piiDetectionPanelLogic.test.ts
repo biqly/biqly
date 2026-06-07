@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   DEFAULT_PII_MASKING_STRATEGY,
-  piiMaskingStrategyLabelKey,
   normalizePIIMaskingStrategy,
+  piiMaskingStrategyLabelKey,
   piiStrategyChanged,
   shouldShowPIIConfirmAction,
 } from './piiDetectionPanelLogic'

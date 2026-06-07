@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { setGlobalAccessToken } from '../../api/apiClient'
 import {
   apiGetMe,
   apiGetMyPermissions,
@@ -18,7 +19,6 @@ import {
   apiRegister,
   apiSetActiveWorkspace,
 } from '../../api/auth'
-import { setGlobalAccessToken } from '../../api/apiClient'
 import type { AuthUser } from '../../types/auth'
 
 // classifySessionExpiry inspects the server-returned error message and maps it

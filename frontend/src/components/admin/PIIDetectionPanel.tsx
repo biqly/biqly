@@ -10,9 +10,9 @@ import { Select } from '../ui/Select'
 import { datasourceSelectOptions } from './adminSelectOptions'
 import {
   normalizePIIMaskingStrategy,
+  PII_MASKING_STRATEGIES,
   piiMaskingStrategyLabelKey,
   piiStrategyChanged,
-  PII_MASKING_STRATEGIES,
   shouldShowPIIConfirmAction,
 } from './piiDetectionPanelLogic'
 import { ReadOnlyNote } from './ReadOnlyNote'

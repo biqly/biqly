@@ -15,20 +15,20 @@ import type {
   ColumnRow,
   GenerateSemanticModelResponse,
   SemanticDimension,
-  SemanticMetric,
   SemanticJoin,
+  SemanticMetric,
   SemanticModelDetail,
   SemanticModelSummary,
   TableRow,
 } from '../types/semantic'
+import { DriftPanel } from './admin/DriftPanel'
 import { AddMetricModal } from './modeling/AddMetricModal'
 import { BaseSwapModal } from './modeling/BaseSwapModal'
-import { activeEntities, inactiveEntities } from './modeling/entityActions'
 import { EditDimensionModal } from './modeling/EditDimensionModal'
+import { activeEntities, inactiveEntities } from './modeling/entityActions'
 import { EnumValuesModal } from './modeling/EnumValuesModal'
 import { JoinEditor } from './modeling/JoinEditor'
 import { ModelingCanvas } from './modeling/ModelingCanvas'
-import { DriftPanel } from './admin/DriftPanel'
 import { ModelingPalette } from './modeling/ModelingPalette'
 import type { JoinForm, SuggestedJoin, Tab } from './modeling/types'
 import { publishModelRequest, suggestedJoinToPayload } from './modeling/types'

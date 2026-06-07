@@ -3,10 +3,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { useT } from '../../i18n'
 import type {
   ColumnRow,
+  SemanticExprNode,
+  SemanticMetric,
   SemanticModelDetail,
   TableRow,
-  SemanticMetric,
-  SemanticExprNode,
 } from '../../types/semantic'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'

@@ -1,8 +1,9 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+
 import type {
-  SemanticModelDetail,
-  SemanticExprNode,
   ColumnRow,
+  SemanticExprNode,
+  SemanticModelDetail,
   TableRow,
 } from '../../types/semantic'
 
