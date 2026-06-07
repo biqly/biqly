@@ -14,12 +14,7 @@ import type { DescribeBatchConflictBody } from '../api/describeBatchConflict'
 import { runMetadataDescribeDirect } from '../api/metadataDescribe'
 import { useAuth } from '../components/auth/AuthProvider'
 import type { BulkEntry } from '../components/metadata/bulkProgress'
-import type {
-  AIJob,
-  AIJobKind,
-  AIJobListResponse,
-  AIQueryResponse,
-} from '../types/ai'
+import type { AIJob, AIJobKind, AIJobListResponse, AIQueryResponse } from '../types/ai'
 import type { DescribeBatchResult, DescribeResult } from '../types/metadata'
 import { getAIClientSessionId } from '../utils/aiSession'
 import { createJobWaiter, type JobCallbacks, type JobWaiterHandle } from './jobWaiter'
