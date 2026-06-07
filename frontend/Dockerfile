@@ -11,15 +11,13 @@ COPY . .
 RUN npm run build
 
 # Runtime: nginx serving the built bundle. SPA fallback to index.html.
-FROM nginx:1.30-alpine
+# nginx-unprivileged runs entirely as a non-root user (uid 101) and writes its
+# pid and temp files under /tmp, so no root is required at runtime.
+FROM ghcr.io/nginx/nginx-unprivileged:1.31.1-alpine
 
-RUN rm -rf /usr/share/nginx/html/* \
-    && rm /etc/nginx/conf.d/default.conf
-
+# The base image already ships a default.conf (listen 8080); our COPY overwrites
+# it. dist/ is copied over the image's default html (index.html is replaced).
 COPY --from=builder /src/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 3333
-
-# nginx official image already drops to the unprivileged user via its
-# entrypoint scripts; we keep the default CMD.

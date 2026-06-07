@@ -227,86 +227,82 @@ def _hseg(d, x1, x2, y, color, w=0.9, dashed=False):
     d.add(ln)
 
 def diagram_architecture():
-    W, H = CONTENT_W, 430
+    W, H = CONTENT_W, 460
     d = Drawing(W, H)
     cx = W/2
     gap = 9
 
-    # --- Katman kutuları ---
+    # --- Üst katman ---
     box(d, cx-78, H-32, 156, 28, "İstemci (Tarayıcı / SPA)", NAVY, fs=8.5)
-    box(d, cx-92, H-98, 184, 32, "Gateway  «lan-gw»\n(Gateway API · HTTP→HTTPS)", PURPLE, fs=7.8)
+    box(d, cx-150, H-104, 300, 36,
+        "Gateway «lan-gw» · Gateway API (HTTPRoute)\nhost: abi.il1.nl · PathPrefix ile doğrudan yönlendirme",
+        PURPLE, fs=7.6)
+    arrow(d, cx, H-32, cx, H-68, SLATE, w=1.2, label="HTTPS", lfs=7)
 
-    fy = H-176
-    box(d, cx-186, fy, 168, 34, "frontend\n(nginx · statik SPA)", TEAL, fs=8)
-    api_x = cx+18
-    box(d, api_x, fy, 168, 34, "api  (BFF / Ağ Geçidi)\nchi · JWT doğrulama", BLUE, fs=8)
-    api_cx = api_x + 84
-
-    # peer servisler
-    py = H-280
-    peers = [("ai\n(NL→Sorgu)", GREEN), ("catalog\n(metadata)", GREEN),
-             ("query\n(motor)", GREEN), ("auth\n(kimlik)", AMBER),
-             ("mail", AMBER), ("worker\n(NATS işçi)", SLATE)]
-    n = len(peers)
+    # --- Mikroservis satırı (prod: her biri ayrı Deployment) ---
+    sy = H-225
+    svcs = [("frontend\n:8080", TEAL, "/"),
+            ("catalog\n:8080", GREEN, "/api/datasources·\nmetadata·semantic"),
+            ("query\n:8081", GREEN, "/api/query"),
+            ("ai\n:8082", GREEN, "/api/ai"),
+            ("auth\n:8889", AMBER, "/api/auth"),
+            ("mail\n:8890", AMBER, "iç servis")]
+    n = len(svcs)
     pw = (W - (n-1)*gap)/n
     xs = []
-    for i, (t, c) in enumerate(peers):
+    for i, (t, c, _) in enumerate(svcs):
         x = i*(pw+gap)
-        box(d, x, py, pw, 36, t, c, fs=7.3)
+        box(d, x, sy, pw, 36, t, c, fs=7.4)
         xs.append(x+pw/2)
-    peers_top, peers_bot = py+36, py
+    svc_top, svc_bot = sy+36, sy
 
-    # alt sıra: Harici LLM + 3 veri deposu (LLM ai altına, NATS worker altına hizalı)
+    # Gateway -> ilk 5 servise ortogonal bus (mail iç servis)
+    grail = H-150
+    exposed = xs[:5]
+    _vseg(d, cx, H-104, grail, SLATE, 1.2)
+    _hseg(d, min(exposed), max(exposed), grail, SLATE, 1.0)
+    for i, xc in enumerate(exposed):
+        arrow(d, xc, grail, xc, svc_top, SLATE, 0.9)
+        d.add(String(xc, svc_top+4, svcs[i][2].split("\n")[0], fontName="Body",
+                     fontSize=5.8, fillColor=SLATE, textAnchor="middle"))
+    # auth -> mail (iç çağrı)
+    arrow(d, xs[4], sy+18, xs[5], sy+18, AMBER, 0.9, dashed=True)
+
+    # --- Alt sıra: Harici LLM + 3 veri deposu ---
     dy = 34
     bottom = [("Harici LLM\n(OpenAI uyumlu)", PURPLE),
-              ("PostgreSQL\n(metadata·auth·mail)", TEAL),
-              ("Dragonfly\n(Redis önbellek)", RED),
-              ("NATS / JetStream\n(iş kuyruğu)", PURPLE)]
+              ("PostgreSQL :5432\n(StatefulSet · 3 DB)", TEAL),
+              ("Dragonfly :6379\n(Redis önbellek)", RED),
+              ("NATS :4222\n(JetStream)", PURPLE)]
     bw4 = (W - 3*gap)/4
     bxs = []
     for i, (t, c) in enumerate(bottom):
         x = i*(bw4+gap)
-        box(d, x, dy, bw4, 38, t, c, fs=7.2)
+        box(d, x, dy, bw4, 38, t, c, fs=7.0)
         bxs.append(x+bw4/2)
     ds_top = dy+38
     llm_cx, pg_cx, df_cx, nats_cx = bxs
 
-    # --- Bağlantılar (ortogonal) ---
-    # İstemci -> Gateway
-    arrow(d, cx, H-32, cx, H-66, SLATE, w=1.2, label="HTTPS · abi.il1.nl", lfs=7)
-    # Gateway -> frontend / api (kısa dik kollar üzerinden)
-    grail = H-128
-    _vseg(d, cx, H-98, grail, SLATE, 1.2)
-    _hseg(d, cx-102, api_cx, grail, SLATE, 1.0)
-    arrow(d, cx-102, grail, cx-102, fy+34, SLATE, w=1.1)   # frontend
-    arrow(d, api_cx, grail, api_cx, fy+34, SLATE, w=1.1)   # api
-
-    # api -> ilk 5 peer (ortogonal dağıtım barası)
-    arail = H-228
-    _vseg(d, api_cx, fy, arail, BLUE, 1.2)
-    served = xs[:5]
-    _hseg(d, min(served+[api_cx]), max(served+[api_cx]), arail, BLUE, 1.0)
-    for xc in served:
-        arrow(d, xc, arail, xc, peers_top, BLUE, 0.9)
-
-    # backend servisleri -> veri katmanı (ortogonal bara)
-    drail = 92
-    data_peers = [xs[1], xs[2], xs[3]]  # catalog, query, auth
+    # backend servisleri -> veri katmanı (ortogonal bus)
+    drail = 96
+    data_peers = [xs[1], xs[2], xs[4]]  # catalog, query, auth
     for xc in data_peers:
-        _vseg(d, xc, peers_bot, drail, TEAL, 0.8)
+        _vseg(d, xc, svc_bot, drail, TEAL, 0.8)
     _hseg(d, min(data_peers+[pg_cx, df_cx]), max(data_peers+[pg_cx, df_cx]), drail, TEAL, 0.9)
     arrow(d, pg_cx, drail, pg_cx, ds_top, TEAL, 1.0)
     arrow(d, df_cx, drail, df_cx, ds_top, TEAL, 1.0)
 
-    # ai -> Harici LLM (sol kenar, dik, kesik)
-    arrow(d, xs[0], peers_bot, llm_cx, ds_top, PURPLE, 1.0, dashed=True, label="LLM", lfs=6.5)
-    # worker -> NATS (sağ kenar, dik)
-    arrow(d, xs[5], peers_bot, nats_cx, ds_top, PURPLE, 1.0, label="pub/sub", lfs=6.5)
+    # ai -> Harici LLM (kesik) ve ai -> NATS (içinde tüketici)
+    arrow(d, xs[3], svc_bot, llm_cx, ds_top, PURPLE, 1.0, dashed=True, label="LLM", lfs=6.5)
+    arrow(d, xs[3], svc_bot, nats_cx, ds_top, PURPLE, 0.9, label="JetStream (ai-içi tüketici)", lfs=6)
 
     # açıklama
-    d.add(String(0, 8, "düz çizgi: HTTP/JSON    ·    - - - kesik: dış LLM çağrısı (HTTPS)    ·    pub/sub: NATS    ·    "
-                 "tüm servisler ayrıca auth’tan JWT açık-anahtarını çeker",
-                 fontName="Body-Italic", fontSize=6.6, fillColor=SLATE))
+    d.add(String(0, 16, "Prod: 6 bağımsız mikroservis Deployment’ı + Postgres StatefulSet + Dragonfly + NATS. «api» BFF binary "
+                 "yalnızca local/docker-compose; ayrı worker pod’u yok — NATS tüketicisi ai pod’u içinde çalışır.",
+                 fontName="Body-Italic", fontSize=6.4, fillColor=SLATE))
+    d.add(String(0, 6, "Servisler arası: ai→catalog/query (tipli HTTP istemci), tüm servisler→auth (JWT açık-anahtar + izin), "
+                 "auth→mail.   - - - kesik: dış LLM / iç asenkron çağrı.",
+                 fontName="Body-Italic", fontSize=6.4, fillColor=SLATE))
     return d
 
 # ---- Genel dikey akış diyagramı -------------------------------------------
@@ -424,8 +420,8 @@ def diagram_k8s():
 
     # servis satırı
     sy = H-150
-    svcs = [("frontend\n:8080", TEAL), ("ai", GREEN), ("catalog", GREEN),
-            ("query", GREEN), ("auth\n:8889", AMBER), ("mail\n:8890", AMBER)]
+    svcs = [("frontend\n:8080", TEAL), ("catalog\n:8080", GREEN), ("query\n:8081", GREEN),
+            ("ai\n:8082", GREEN), ("auth\n:8889", AMBER), ("mail\n:8890", AMBER)]
     n = len(svcs)
     sw = (W-2*pad-(n-1)*gap)/n
     sxs = []
@@ -467,16 +463,18 @@ def diagram_k8s():
     d.add(String(pad, drail+4, "veri erişimi: metadata/oturum (PostgreSQL) · önbellek (Dragonfly) · iş kuyruğu (NATS)",
                  fontName="Body-Italic", fontSize=6.5, fillColor=SLATE, textAnchor="start"))
 
-    # migrate job
-    box(d, W-pad-180, dy-32, 180, 22, "PreSync Job: migrate (sync-wave -10)", NAVY, fs=6.8)
+    # notlar
+    d.add(String(pad, dy-14, "PreSync Job: migrate (sync-wave -10)   ·   ai pod’u NATS tüketicisini içinde çalıştırır (ayrı worker yok)   ·   "
+                 "postgresql ayrıca LoadBalancer VIP (192.168.0.164:5432)",
+                 fontName="Body-Italic", fontSize=6.4, fillColor=SLATE, textAnchor="start"))
     return d
 
 # ---- Olgunluk skor kartı (yatay barlar) -----------------------------------
 def diagram_scorecard():
-    dims = [("Güvenlik", 4.7, GREEN), ("Test Kapsamı", 4.2, GREEN),
-            ("Kod Kalitesi & Mimari", 4.0, GREEN), ("Gözlemlenebilirlik", 4.2, GREEN),
+    dims = [("Güvenlik", 4.7, GREEN), ("Test Kapsamı", 4.5, GREEN),
+            ("Kod Kalitesi & Mimari", 4.2, GREEN), ("Gözlemlenebilirlik", 4.2, GREEN),
             ("Performans", 4.0, GREEN), ("AI/LLM Mühendisliği", 4.7, GREEN),
-            ("DevX / Sürdürülebilirlik", 4.6, GREEN)]
+            ("DevX / Sürdürülebilirlik", 4.7, GREEN)]
     W = CONTENT_W
     rowh = 26
     H = len(dims)*rowh + 24
@@ -601,16 +599,23 @@ story += [BUL([
  "AES-256-GCM ile şifrelenmiş sağlayıcı anahtarları, parametreli SQL ve beyaz-liste tabanlı sorgu doğrulaması.",
  "<b>Mühendislik disiplini yüksektir:</b> temiz <font name='Mono'>cmd/internal/pkg</font> ayrımı, modern Go&nbsp;1.26 "
  "hata deyimleri (148× <font name='Mono'>errors.Is</font>), ~55 linter, ESLint+knip+Prettier kapısı ve zorunlu pre-commit denetimleri.",
- "<b>Önceki denetimde işaretlenen boşluklar bu sürümde kapatıldı:</b> OTEL dağıtık izleme artık kodda enstrümante "
- "(LLM→derle→çalıştır span’leri), AI eval CI kapısı eşik değerlerle zorunlu, lehçe sürücüleri + config/dashboard/queue "
- "testleri ve %85/%80 kapsam kapısı eklendi, CSP/X-Frame-Options/HSTS sertleştirildi. Tek kısmi kalem: "
- "<font name='Mono'>AIConfig</font> küçültüldü (45→21 alan) ama hâlâ ayrıştırılması beklenen bir tanrı-nesnesi.",
+ "<b>Mimari — prod’da saf mikroservis (canlı küme ile doğrulandı):</b> 6 bağımsız servis Deployment’ı "
+ "(ai/auth/catalog/query/frontend/mail) + Postgres StatefulSet + Dragonfly + NATS; Gateway API HTTPRoute’ları "
+ "path’e göre doğrudan her servise yönlendirir. <font name='Mono'>cmd/api</font> all-in-one binary yalnızca "
+ "local/docker-compose içindir; NATS tüketicisi ayrı worker pod’u değil, ai pod’u içinde çalışır.",
+ "<b>Bu turda da iyileştirmeler sürdü:</b> 4 yüksek-karmaşıklık fonksiyonu LOW/MEDIUM’a indirildi "
+ "(Compare 50→1, datasourceDraft 47→4, SyncMetadata 45→9, Validate 40→3), prod-tespiti tek "
+ "<font name='Mono'>env.IsProduction()</font> yardımcısında birleştirildi, <b>catalog’daki kimliksiz-erişim açığı kapatıldı</b>, "
+ "CI’ya <font name='Mono'>govulncheck</font> eklendi. Tek kısmi kalem hâlâ <font name='Mono'>AIConfig</font>: "
+ "adlandırılmış alt-konfiglere geçirildi ama tanrı-nesnesi skoru değişmedi (21 alan, KRİTİK).",
 ])]
 
 story += [H3("Genel olgunluk değerlendirmesi")]
-story += [P("Biqly, bir prototip değil; <b>üretime hazır</b>, geç-aşama bir ürün kod tabanıdır. Bu sürüm, önceki analiz "
-            "raporundaki önerilerin uygulanmış halidir: işaretlenen <b>8 boşluğun 7’si tamamen, 1’i büyük ölçüde kapatıldı</b> "
-            "ve ortalama olgunluk ~2.5/5 bandından <b>4.3/5</b> seviyesine yükseldi. Aşağıdaki skor kartı yedi boyutu özetler:")]
+story += [P("Biqly, bir prototip değil; <b>üretime hazır</b>, geç-aşama bir mikroservis kod tabanıdır. Bu doküman, önceki "
+            "raporlardaki önerilerin uygulanmış halidir: ilk denetimdeki <b>8 boşluğun 7’si tamamen kapatıldı</b>, "
+            "kalan AIConfig kalemi de büyük ölçüde ilerletildi. Tüm değişiklikler kodda doğrulandı "
+            "(<font name='Mono'>go build ./...</font> ve <font name='Mono'>go vet</font> temiz). Ortalama olgunluk "
+            "~2.5/5 bandından <b>4.4/5</b> seviyesine yükseldi. Aşağıdaki skor kartı yedi boyutu özetler:")]
 story += [diagram_scorecard(), CAP("Şekil 1 — Mühendislik olgunluğu skor kartı (5 üzerinden; geliştirme sonrası, kanıta dayalı).")]
 story += [SP(8)]
 story += [H3("İyileştirme durumu — önceki rapora kıyasla")]
@@ -622,8 +627,8 @@ story += [mk_table(
    "<font name='Mono'>test.yml</font> + <font name='Mono'>ci.yml</font> eval-regression işi; 1.00 sayısal eşikler (<font name='Mono'>t.Fatalf</font>)"],
   ["3", "Lehçe sürücüleri & config/dashboard/queue ince test", "<font color='%s'><b>● Kapatıldı</b></font>" % hx(GREEN),
    "Sürücü başına 2 test; <font name='Mono'>scripts/coveragecheck</font> %85/%80 kapsam kapısı"],
-  ["4", "<font name='Mono'>AIConfig</font> tanrı-nesnesi + dev orkestratör", "<font color='%s'><b>● Kısmi</b></font>" % hx(AMBER),
-   "Process ayrıştırıldı (nolint kalktı, skor 12). AIConfig 45→21 alan ama hâlâ KRİTİK"],
+  ["4", "<font name='Mono'>AIConfig</font> + yüksek-karmaşıklık fonksiyonları", "<font color='%s'><b>● Kısmi</b></font>" % hx(AMBER),
+   "4 fonksiyon LOW/MEDIUM’a indi (Compare 50→1 …); AIConfig adlandırılmış alt-konfiglere geçti ama skor 60/KRİTİK değişmedi"],
   ["5", "HSTS varsayılan kapalı", "<font color='%s'><b>● Kapatıldı</b></font>" % hx(GREEN),
    "<font name='Mono'>BI_ENV=production</font> ile otomatik açık (fail-closed)"],
   ["6", "CSP / X-Frame-Options eksik", "<font color='%s'><b>● Kapatıldı</b></font>" % hx(GREEN),
@@ -666,41 +671,47 @@ story += [mk_table(
  ],
  [30*mm, 70*mm, CONTENT_W-100*mm])]
 story += [SP(4)]
-story += [Q("Mimari notu: Backend bir <b>modüler monolittir ve mikroservislere bölünebilir.</b> Aynı "
-            "<font name='Mono'>internal/</font> paketleri farklı binary’lere bağlanır. Bir isteğin süreç-içi mi "
-            "işleneceği yoksa eş servise mi proxy’leneceği saf bir konfigürasyon kararıdır "
-            "(<font name='Mono'>BI_*_SERVICE_URL</font> ortam değişkeninin varlığı).")]
+story += [Q("Mimari notu: <b>Prod ortamında sistem saf mikroservis olarak çalışır</b> — her servis kendi Deployment’ı, "
+            "imajı ve portuyla; Gateway API HTTPRoute’ları istekleri path’e göre doğrudan ilgili servise yönlendirir "
+            "(canlı küme ile doğrulandı, §8.3). Kod tabanı aynı <font name='Mono'>internal/</font> paketlerini paylaşacak "
+            "şekilde modüler kurgulanmıştır; bu sayede tek bir <font name='Mono'>cmd/api</font> all-in-one binary tüm "
+            "servisleri süreç-içi sunabilir — bu yalnızca <b>local/docker-compose geliştirme</b> içindir, prod’da kullanılmaz.")]
 story += [PageBreak()]
 
 # ============================ 3. MİMARİ GENEL BAKIŞ ========================
 story += [H1("3. Mimari Genel Bakış")]
-story += [P("Sistem; bir <b>API/BFF (Backend-for-Frontend) ağ geçidi</b> ile onun arkasındaki eş servislerden oluşur. "
-            "Ağ geçidi kimlik doğrulama ve yetkilendirmeyi sınırda uygular; doğrulanmış istekleri ya süreç-içi işler "
-            "ya da ilgili eş servise ters-proxy’ler. Servisler arası tüm çağrılar tipli HTTP+JSON istemcileri üzerinden "
-            "ve yalnızca küme içinden yapılır.")]
+story += [P("Sistem prod ortamında <b>bağımsız mikroservislerden</b> oluşur. Bir <b>Kubernetes Gateway (Gateway API)</b>, "
+            "tek dış host (<font name='Mono'>abi.il1.nl</font>) üzerinden gelen istekleri <b>PathPrefix</b> kurallarıyla "
+            "doğrudan ilgili servise yönlendirir — araya giren merkezi bir BFF/proxy pod’u yoktur. Her servis kendi "
+            "Deployment’ı olarak çalışır, JWT’yi sınırda doğrular ve servisler arası tüm çağrılar tipli HTTP+JSON "
+            "istemcileriyle (<font name='Mono'>pkg/*client</font>) yalnızca küme içinden yapılır.")]
 story += [diagram_architecture(),
-          CAP("Şekil 2 — Mantıksal servis topolojisi ve servisler arası çağrı grafiği.")]
+          CAP("Şekil 2 — Prod mikroservis topolojisi: Gateway API path-yönlendirmesi ve servisler arası çağrı grafiği.")]
 
-story += [H2("3.1 Servisler / Çalıştırılabilir Binary’ler")]
+story += [H2("3.1 Prod Servisleri ve Çalıştırılabilir Binary’ler")]
+story += [P("Prod’da <b>6 servis</b> ayrı Deployment olarak çalışır (her biri kendi imajı/portu). "
+            "<font name='Mono'>api</font> ve <font name='Mono'>worker</font> binary’leri prod’da <b>dağıtılmaz</b> — "
+            "<font name='Mono'>api</font> local all-in-one, NATS tüketicisi ise ai servisinin içine gömülüdür.")]
 story += [mk_table(
- ["Binary", "Sorumluluk", "Protokol"],
- [["api", "Ana API sunucusu / BFF. Tüm bağımlılıkları bağlar; catalog/query/AI’yi süreç-içi sunar veya eş servislere proxy’ler. AI iş tüketicisini başlatır.", "HTTP (chi) · pprof"],
-  ["auth", "Bağımsız kimlik servisi. JWT üretimi, oturum, RBAC, MFA, LDAP, OAuth, magic-link, davet. JWT açık anahtarını yayınlar.", "HTTP · /metrics"],
-  ["ai", "Bağımsız AI servisi. NL→sorgu hattı + iş tüketicisi. Ağa güvenir; yetkilendirmeyi proxy uygular.", "HTTP"],
-  ["catalog", "Veri kaynakları, metadata, semantik modeller, panolar, izinler, drift.", "HTTP"],
-  ["query", "Sorgu motoru: mantıksal sorguyu derler / çalıştırır / EXPLAIN ile doğrular.", "HTTP"],
-  ["worker", "Başsız arka plan işçisi. NATS’tan AI işlerini tüketir.", "NATS tüketici"],
-  ["mail", "İşlemsel e-posta işçisi. SMTP gönderimi, yeniden deneme, blok listesi.", "HTTP"],
-  ["migrate / auth-migrate / mail-migrate", "İlgili veritabanlarının şema göçleri (CLI).", "CLI"],
-  ["export-sft", "Gemma ince-ayarı için SFT veri kümesi (JSONL) dışa aktarımı.", "CLI"],
+ ["Servis (port)", "Sorumluluk", "Dağıtım"],
+ [["catalog :8080", "Veri kaynakları, metadata, semantik modeller, panolar, izinler, drift.", "Deployment"],
+  ["query :8081", "Sorgu motoru: mantıksal sorguyu derler / çalıştırır / EXPLAIN ile doğrular.", "Deployment"],
+  ["ai :8082", "NL→sorgu hattı. <b>NATS iş tüketicisini süreç-içinde çalıştırır</b> (ayrı worker yok).", "Deployment"],
+  ["auth :8889", "Kimlik: JWT üretimi/açık-anahtar, oturum, RBAC, MFA, LDAP, OAuth, magic-link.", "Deployment"],
+  ["mail :8890", "İşlemsel e-posta (iç servis): SMTP, yeniden deneme, blok listesi.", "Deployment"],
+  ["frontend :8080", "Statik React SPA (nginx).", "Deployment"],
+  ["api · worker", "all-in-one BFF / başsız işçi — <b>yalnızca local/docker-compose</b>.", "Prod’da yok"],
+  ["migrate · export-sft", "Şema göçleri (PreSync Job) ve SFT veri kümesi dışa aktarımı.", "Job / CLI"],
  ],
- [34*mm, CONTENT_W-34*mm-26*mm, 26*mm])]
+ [30*mm, CONTENT_W-30*mm-24*mm, 24*mm])]
 
-story += [H2("3.2 Servisler Arası İletişim")]
+story += [H2("3.2 Yönlendirme ve Servisler Arası İletişim")]
 story += [BUL([
- "<b>api (ağ geçidi)</b> → <font name='Mono'>/api/datasources,/semantic,/metadata,/dashboards,/permissions</font> → <b>catalog</b>; "
- "<font name='Mono'>/api/query/*</font> → <b>query</b>; <font name='Mono'>/api/ai/*</font> → <b>ai</b>.",
- "<b>ai servisi</b> → catalogclient (model/metadata/few-shot/sözlük), queryclient (compile/run/dry-run), geçmişi catalog’a yazar.",
+ "<b>Gateway API HTTPRoute (PathPrefix → servis):</b> <font name='Mono'>/</font>→frontend; "
+ "<font name='Mono'>/api/datasources·metadata·semantic·permissions·dashboards</font>→catalog; "
+ "<font name='Mono'>/api/query</font>→query; <font name='Mono'>/api/ai</font>→ai; <font name='Mono'>/api/auth</font>→auth.",
+ "<b>ai servisi</b> → <font name='Mono'>BI_CATALOG_SERVICE_URL=http://biqly-catalog:8080</font>, "
+ "<font name='Mono'>BI_QUERY_SERVICE_URL=http://biqly-query:8081</font> (catalogclient/queryclient).",
  "<b>Tüm servisler</b> → auth <font name='Mono'>/internal/auth/public-key</font> (JWT RSA açık anahtarı), "
  "<font name='Mono'>/check-permission</font>, <font name='Mono'>/check-datasource-access</font>.",
  "<b>auth</b> → mail (işlemsel e-posta gönderimi).",
@@ -928,13 +939,15 @@ story += assess("9.1 Güvenlik", "ÇOK GÜÇLÜ (en güçlü boyut)", GREEN,
  "hash’li refresh token, cihaz parmak-izi; MFA/TOTP, WebAuthn, RBAC, LDAP, OAuth; sağlayıcı anahtarları "
  "<b>AES-256-GCM</b> ile şifreli. <b>Bu sürümde eklenenler:</b> tam güvenlik-başlığı seti — CSP, X-Frame-Options (DENY), "
  "X-Content-Type-Options, Referrer-Policy, COOP/CORP; <b>HSTS prod’da otomatik açık</b> (<font name='Mono'>BI_ENV=production</font>, "
- "fail-closed). Read-only SQL muhafızı sertleştirildi: allow/deny-list + çoklu-ifade engeli + <b>literal/yorum sıyırma</b> "
- "(yorum ve string tabanlı bypass’ları kırar). Metadata SQL yolları parametreli hale getirildi (640c3b6).",
- "Yalnızca küçük tutarsızlık: prod-tespiti <font name='Mono'>api</font> ve <font name='Mono'>auth</font> servislerinde hafifçe "
- "farklı türetiliyor (ikisi de prod’da otomatik açıyor). Read-only koruması hâlâ tam SQL parser değil — fakat birincil "
- "savunma LogicalQuery whitelist doğrulaması ve parametreli yürütme.",
- "(1) Prod-tespit mantığını ortak bir yardımcıya çekip iki serviste tekleştirin. (2) Periyodik bağımlılık/SAST "
- "(semgrep) taramasını sürdürün.")
+ "fail-closed). Read-only SQL muhafızı sertleştirildi: allow/deny-list + çoklu-ifade engeli + <b>literal/yorum sıyırma</b>. "
+ "<b>Bu turda:</b> prod-tespiti tek <font name='Mono'>env.IsProduction()</font> yardımcısında birleştirildi (api+auth ortak, testli); "
+ "<b>catalog’daki kimliksiz-erişim açığı kapatıldı</b> (<font name='Mono'>/api/*</font> rotaları middleware’siz mount ediliyordu → "
+ "artık JWT zorunlu); JWT admin-bypass zamanlama-güvenli ve boş-anahtar fail-closed; super-admin JWT kapısı; "
+ "Cilium egress (catalog/query→auth) düzeltildi; CI’ya <font name='Mono'>govulncheck</font> + manuel semgrep tetikleyici eklendi.",
+ "<font name='Mono'>BI_AUTH_ENABLED=false</font> iken savunma kısmen ağ-güvenine dayanır. Read-only koruması hâlâ tam SQL "
+ "parser değil — fakat birincil savunma LogicalQuery whitelist doğrulaması ve parametreli yürütmedir.",
+ "(1) Prod’da <font name='Mono'>BI_AUTH_ENABLED</font>’ı zorunlu (fail-closed) bir invariant yapın. "
+ "(2) <font name='Mono'>govulncheck</font>/semgrep taramalarını sürdürün.")
 story += [PageBreak()]
 
 story += assess("9.2 Test", "GÜÇLÜ — KAPSAM KAPISI EKLENDİ", GREEN,
@@ -955,19 +968,22 @@ story += assess("9.3 Kod Kalitesi & Mimari", "GÜÇLÜ — TEK KISMİ KALEM", AM
  "<font name='Mono'>ProcessQuestion</font> ayrıştırıldı — <font name='Mono'>//nolint:gocyclo,gocognit,funlen</font> kaldırıldı, "
  "karmaşıklık skoru <b>12</b>’ye düştü; ~30 küçük yardımcı çıkarıldı (generateWithRetries, parseAndValidate, "
  "buildSuccessResponse vb.). Tüm ağaç <font name='Mono'>go build ./...</font> ve <font name='Mono'>go vet</font> ✓.",
- "<font name='Mono'>AIConfig</font> küçültüldü (45→<b>21 alan</b>, skor 84→60) ama <b>hâlâ KRİTİK tanrı-nesnesi</b> — "
- "ayrıştırılmak yerine budandı. AI servisi dışında birkaç çok-yüksek karmaşıklık odağı sürüyor: "
- "<font name='Mono'>Detector.Compare</font> (50), <font name='Mono'>datasourceDraft</font> (47), "
- "<font name='Mono'>SyncMetadata</font> (45), <font name='Mono'>Validator.Validate</font> (40).",
- "(1) <font name='Mono'>AIConfig</font>’i amaç-bazlı alt-konfiglere (query/embedding/translation) <b>böl</b> (budama değil). "
- "(2) En yüksek karmaşıklıktaki 4 fonksiyonu kademeli olarak yardımcılara ayırın.")
+ "<b>Bu turda 4 yüksek-karmaşıklık fonksiyonu LOW/MEDIUM’a indirildi</b>: <font name='Mono'>Detector.Compare</font> 50→1, "
+ "<font name='Mono'>datasourceDraft</font> 47→4, <font name='Mono'>SyncMetadata</font> 45→9, <font name='Mono'>Validator.Validate</font> 40→3 "
+ "(toplam nolint 53→49); <font name='Mono'>pgarray</font> paketi <font name='Mono'>lib/pq</font> bağımlılığını tekleştirdi.",
+ "<font name='Mono'>AIConfig</font> adlandırılmış alt-konfiglere geçirildi (Query/Embedding/Translation/Routing/Ambiguity — "
+ "gömülü→isimli), <b>ama tanrı-nesnesi skoru değişmedi</b> (21 alan / 13 metot / 93 dış çağrı = skor 60, hâlâ KRİTİK). "
+ "Geri kalan çok-yüksek odaklar: <font name='Mono'>ValidateContext</font> (39), <font name='Mono'>ValidateComposite</font> (27), "
+ "<font name='Mono'>PasswordPolicy.Validate</font> (25).",
+ "(1) <font name='Mono'>AIConfig</font>’in üst-seviye alanlarını gerçekten <b>dışarı taşıyın</b> (rename değil, taşıma). "
+ "(2) Kalan 3 yüksek-karmaşıklık fonksiyonunu kademeli ayrıştırın.")
 story += [PageBreak()]
 
 story += assess("9.4 Gözlemlenebilirlik", "İYİ — TRACING ARTIK ENSTRÜMANTE", GREEN,
  "Yapılandırılmış loglama (<font name='Mono'>log/slog</font>), <b>Prometheus</b> metrikleri, Helm’de tam yığın "
  "(OTEL collector, Jaeger, Vector, ServiceMonitor, Grafana, Alertmanager) ve <b>6 SLO-tarzı alarm kuralı</b>. "
  "<b>Bu sürümde önceki en büyük boşluk kapatıldı — OTEL dağıtık izleme uçtan uca kodda:</b> <font name='Mono'>otel</font> "
- "artık doğrudan bağımlılık (v1.44); 3 servis main’inde (api/auth/worker) <font name='Mono'>SetupTracing</font> ile OTLP-HTTP "
+ "artık doğrudan bağımlılık (v1.44); servis giriş noktalarında <font name='Mono'>SetupTracing</font> ile OTLP-HTTP "
  "tracer provider (endpoint yoksa zarif no-op); router’da <font name='Mono'>otelhttp</font> ingress span’i; ve tam istenen "
  "<b>LLM→derle→çalıştır</b> yolunda adlandırılmış span’ler: <font name='Mono'>ai.ProcessQuestion</font>, "
  "<font name='Mono'>query.Compile</font>, <font name='Mono'>query.Execute</font>.",
@@ -1018,26 +1034,27 @@ story += [PageBreak()]
 
 # ============================ 10. SONUÇ ====================================
 story += [H1("10. Sonuç ve Yol Haritası")]
-story += [P("Biqly; disiplinli mimarisi (temiz cmd/internal/pkg, doğru kararlılık gradyanı, modern Go 1.26 hata deyimleri), "
-            "katmanlı ve düşünülmüş güvenliği ve özellikle <b>standardın üzerindeki AI/text-to-SQL motoruyla</b> "
-            "üretime hazır, geç-aşama bir kod tabanıdır. <b>Bu sürüm, önceki analiz raporundaki önerilerin uygulanmış halidir:</b> "
-            "işaretlenen 8 boşluğun 7’si tamamen, 1’i (AIConfig) büyük ölçüde kapatıldı. Bunlar commit-mesajı değil, "
-            "kodda doğrulanmış değişikliklerdir (<font name='Mono'>go build ./...</font> ve <font name='Mono'>go vet</font> temiz). "
-            "Güvenlik artık en güçlü boyut; gözlemlenebilirlik fantom bağımlılıktan çalışan bir izleme hattına dönüştü.")]
+story += [P("Biqly; canlı kümede <b>saf mikroservis</b> olarak çalışan (her servis ayrı Deployment, Gateway API path-yönlendirmesi), "
+            "disiplinli, katmanlı-güvenlikli ve <b>standardın üzerindeki AI/text-to-SQL motoruyla</b> üretime hazır, geç-aşama "
+            "bir kod tabanıdır. Bu doküman, önceki raporlardaki önerilerin uygulanmış halidir: ilk denetimdeki <b>8 boşluğun "
+            "7’si tamamen kapatıldı</b>; bu turda ayrıca 4 yüksek-karmaşıklık fonksiyonu indirildi, prod-tespiti birleştirildi ve "
+            "catalog’daki kimliksiz-erişim açığı kapatıldı. Tüm değişiklikler kodda doğrulandı "
+            "(<font name='Mono'>go build ./...</font> ve <font name='Mono'>go vet</font> temiz).")]
 story += [H3("Kalan öneriler (azalan öncelik)")]
 story += [mk_table(
  ["Öncelik", "Aksiyon", "Etki"],
- [["<b>Orta</b>", "<font name='Mono'>AIConfig</font>’i amaç-bazlı alt-konfiglere <b>böl</b> (budama değil)", "Tek kalan KRİTİK tanrı-nesnesini kapatır"],
-  ["<b>Orta</b>", "Çok-yüksek karmaşıklıktaki 4 fonksiyonu ayrıştır (Compare/datasourceDraft/SyncMetadata/Validate)", "Bakım borcu, test edilebilirlik"],
+ [["<b>Orta</b>", "<font name='Mono'>AIConfig</font>’in üst-seviye alanlarını gerçekten dışarı taşı (rename değil)", "Tek kalan KRİTİK tanrı-nesnesini kapatır"],
+  ["Orta", "Kalan yüksek-karmaşıklık fonksiyonları (ValidateContext 39 · ValidateComposite 27 · PasswordPolicy.Validate 25)", "Bakım borcu, test edilebilirlik"],
   ["Orta", "Periyodik (nightly) <b>canlı-LLM</b> eval koşusu", "Stub-determinist eşiğin ötesinde gerçek doğruluk kayması"],
-  ["Düşük", "İzleme derinliğini artır (sürücü/DB span’leri + öznitelikler)", "p99 gecikme atfında daha ince granülerlik"],
-  ["Düşük", "<font name='Mono'>queue</font>’yu kapsam-taban haritasına ekle; api/auth prod-tespitini tekleştir", "Hijyen / tutarlılık"],
+  ["Orta", "Prod’da <font name='Mono'>BI_AUTH_ENABLED</font>’ı zorunlu invariant yap", "Ağ-güvenine düşmeyi engeller (fail-closed)"],
+  ["Düşük", "İzleme derinliği (sürücü/DB span’leri); flaky <font name='Mono'>TestMFABypassCodeFlow</font> izolasyonu", "Gözlem granülerliği / CI kararlılığı"],
+  ["Düşük", "<font name='Mono'>queue</font>’yu kapsam-taban haritasına ekle", "Hijyen / tutarlılık"],
  ],
  [22*mm, CONTENT_W-22*mm-58*mm, 58*mm])]
 story += [SP(10)]
-story += [Q("Bu doküman, kaynak kod tabanının statik analizine (gograph), doğrudan kaynak incelemesine ve git geçmişi "
-            "doğrulamasına dayanmaktadır. Skor kartı, geliştirme-sonrası kanıta dayalı niteliksel değerlendirmenin özetidir "
-            "(ortalama ~4.3/5).")]
+story += [Q("Bu doküman; kaynak kod statik analizine (gograph), doğrudan kaynak incelemesine, git geçmişi doğrulamasına "
+            "ve <b>canlı Kubernetes kümesinin kubectl ile incelenmesine</b> dayanır. Skor kartı, geliştirme-sonrası kanıta "
+            "dayalı niteliksel değerlendirmenin özetidir (ortalama ~4.4/5).")]
 
 # --------------------------------------------------------------------------
 # Derle (çok geçişli — TOC için)
