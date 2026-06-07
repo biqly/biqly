@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import type { LooseTFunction } from '../../i18n'
-import type {
-  ColumnRow,
-  SemanticExprNode,
-  SemanticModelDetail,
-  TableRow,
-} from '../../types/semantic'
+import type { ColumnRow, SemanticExprNode, SemanticModelDetail } from '../../types/semantic'
+import { isRecord } from '../../utils/record'
 
 // Whitelisted SQL functions with arity hints (-1 = variadic)
 export interface FunctionInfo {
@@ -128,17 +124,22 @@ export function ExpressionBuilder({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         })
-        const data = await res.json()
-        if (res.ok) {
-          setCompiledSQL(data.sql ?? '')
+        const data: unknown = await res.json()
+        if (res.ok && isRecord(data)) {
+          const sql = typeof data.sql === 'string' ? data.sql : ''
+          const expr = data.expr as SemanticExprNode | undefined
+          setCompiledSQL(sql)
           setErrorMsg(null)
-          if (data.expr) {
-            setAstNode(data.expr)
+          if (expr) {
+            setAstNode(expr)
           }
-          // Notify parent of latest valid state
-          onChange(data.expr ?? astNode, payload.expression ?? data.sql ?? '')
+          onChange(expr ?? astNode, payload.expression ?? sql)
         } else {
-          setErrorMsg(data.error ?? 'Failed to compile expression')
+          const errMsg =
+            isRecord(data) && typeof data.error === 'string'
+              ? data.error
+              : 'Failed to compile expression'
+          setErrorMsg(errMsg)
           setCompiledSQL('')
         }
       } catch (err: any) {

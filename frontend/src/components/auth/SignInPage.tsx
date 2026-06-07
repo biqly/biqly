@@ -13,7 +13,7 @@ import { useT } from '../../i18n'
 import {
   base64urlToBuffer,
   bufferToBase64url,
-  type PasskeyRequestOptionsJSON,
+  resolvePasskeyLoginOptions,
 } from '../../utils/webauthn'
 import { useAuth } from './AuthProvider'
 
@@ -174,7 +174,7 @@ export default function SignInPage() {
     setError(null)
     try {
       const beginResp = await apiPasskeyLoginBegin()
-      const publicKeyOptions = beginResp.publicKey as PasskeyRequestOptionsJSON
+      const publicKeyOptions = resolvePasskeyLoginOptions(beginResp)
 
       const options: CredentialRequestOptions = {
         publicKey: {

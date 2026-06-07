@@ -4,7 +4,7 @@ import { apiPasskeyRegisterBegin, apiPasskeyRegisterFinish } from '../api/auth'
 import {
   base64urlToBuffer,
   bufferToBase64url,
-  type PasskeyCreationOptionsJSON,
+  resolvePasskeyRegisterOptions,
 } from '../utils/webauthn'
 
 export function usePasskeyRegistration(accessToken: string) {
@@ -27,7 +27,7 @@ export function usePasskeyRegistration(accessToken: string) {
     try {
       // 1. Begin Registration on Backend
       const beginResp = await apiPasskeyRegisterBegin(accessToken)
-      const publicKeyOptions = (beginResp.publicKey ?? beginResp) as PasskeyCreationOptionsJSON
+      const publicKeyOptions = resolvePasskeyRegisterOptions(beginResp)
 
       if (
         !publicKeyOptions?.challenge ||

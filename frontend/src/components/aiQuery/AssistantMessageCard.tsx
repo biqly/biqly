@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { useT } from '../../i18n'
+import type { QueryResultPayload } from '../../types/ai'
 import { rowsToChartData } from '../../utils/chartData'
 import { normalizeAIQueryResponse } from '../../utils/normalizeAIQueryResponse'
 import { buildPivotTable } from '../../utils/pivotTable'
@@ -177,7 +178,7 @@ export function AssistantMessageCard({
     setLoading(true)
     setError(null)
     try {
-      const res = await postData<any>('/api/query/run', result.logical_query, {
+      const res = await postData<QueryResultPayload>('/api/query/run', result.logical_query, {
         timeout: AI_QUERY_TIMEOUT_MS,
       })
       if (res) {

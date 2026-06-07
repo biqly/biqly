@@ -1,3 +1,31 @@
+/** Raw user payload from auth API (snake_case or camelCase). */
+export interface AuthUserRaw {
+  id?: string
+  email?: string
+  username?: string
+  displayName?: string
+  display_name?: string
+  avatarUrl?: string
+  avatar_url?: string
+  isActive?: boolean
+  is_active?: boolean
+  emailVerified?: boolean
+  email_verified?: boolean
+  hasPassword?: boolean
+  has_password?: boolean
+  mfaEnabled?: boolean
+  mfa_enabled?: boolean
+  mfaPending?: boolean
+  mfa_pending?: boolean
+  passkeyCount?: number
+  passkey_count?: number
+  active_workspace_id?: string
+  createdAt?: string
+  created_at?: string
+  updatedAt?: string
+  updated_at?: string
+}
+
 export interface AuthUser {
   id: string
   email: string

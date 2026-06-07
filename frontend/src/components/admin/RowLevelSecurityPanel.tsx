@@ -134,7 +134,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
     setSaveSuccess(false)
   }
 
-  const handleFilterChange = (index: number, key: keyof PermissionRowFilter, val: any) => {
+  const handleFilterChange = (index: number, key: keyof PermissionRowFilter, val: string) => {
     const updated = [...filters]
     const item = updated[index]
     if (!item) {
@@ -142,7 +142,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
     }
 
     if (key === 'operator') {
-      const op = val as string
+      const op = val
       if (op === 'is_null' || op === 'is_not_null') {
         updated[index] = { field: item.field, operator: op, value: null }
       } else if (op === 'in' || op === 'not_in') {
@@ -156,11 +156,11 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
       const op = item.operator
       if (op === 'in' || op === 'not_in') {
         try {
-          const parsed = JSON.parse(val)
+          const parsed: unknown = JSON.parse(val)
           updated[index] = {
             field: item.field,
             operator: op,
-            value: Array.isArray(parsed) ? parsed : [val],
+            value: Array.isArray(parsed) ? parsed.map(String) : [val],
           }
         } catch {
           updated[index] = {
@@ -175,7 +175,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
         updated[index] = { field: item.field, operator: op, value: val }
       }
     } else if (key === 'field') {
-      updated[index] = { field: val as string, operator: item.operator, value: item.value }
+      updated[index] = { field: val, operator: item.operator, value: item.value }
     }
     setFilters(updated)
     setSaveSuccess(false)

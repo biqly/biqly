@@ -11,6 +11,7 @@ import { useLocale, useT } from '../i18n'
 import type { SemanticDimension, SemanticMetric, SemanticModelDetail } from '../types/semantic'
 import { modelListHint, modelListLabel } from '../types/semantic'
 import { localeNumberTag } from '../utils/formatters'
+import { parseJsonStringArray } from '../utils/record'
 import { formatResultCell } from '../utils/resultCellFormat'
 import { columnRefMatchesTable, splitTableKey, tableKey } from './modeling/utils'
 import { buildQueryPayload } from './queryBuilder/logicalQuery'
@@ -649,11 +650,7 @@ export default function TableBrowser() {
 
     let chips: string[] = []
     if (filter.value.startsWith('[') && filter.value.endsWith(']')) {
-      try {
-        chips = JSON.parse(filter.value)
-      } catch {
-        chips = [filter.value]
-      }
+      chips = parseJsonStringArray(filter.value) ?? [filter.value]
     } else if (filter.value) {
       chips = [filter.value]
     }

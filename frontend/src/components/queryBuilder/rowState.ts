@@ -24,7 +24,7 @@ export function defaultHavingRow(): HavingRow {
 export function patchFilterRow(
   existing: FilterRow | undefined,
   field: keyof FilterRow,
-  value: any,
+  value: FilterRow[keyof FilterRow],
   id = newRowId(),
 ): FilterRow {
   return {

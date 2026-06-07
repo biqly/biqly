@@ -7,6 +7,8 @@ import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useT } from '../i18n'
 import { QuestionDetailPane } from './savedQuestions/QuestionDetailPane'
 import { SavedQuestionFormModal } from './savedQuestions/SavedQuestionFormModal'
+import type { QueryResultPayload } from '../types/ai'
+import { parseJsonRecord } from '../utils/record'
 import type { SavedQuestion, SavedQuestionFormState } from './savedQuestions/types'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
@@ -241,7 +243,7 @@ export default function SavedQuestions() {
     setRunError(null)
     setRunResult(null)
     try {
-      const res = await postData<any>('/api/query/run', logicalQuery)
+      const res = await postData<QueryResultPayload>('/api/query/run', logicalQuery)
       if (res) {
         setRunResult(res)
       } else {
@@ -295,10 +297,8 @@ export default function SavedQuestions() {
       return
     }
 
-    let parsedLq: Record<string, unknown>
-    try {
-      parsedLq = JSON.parse(form.logicalQuery)
-    } catch {
+    const parsedLq = parseJsonRecord(form.logicalQuery)
+    if (!parsedLq) {
       setFormError(t('saved_questions.validation_error_json'))
       return
     }
@@ -321,7 +321,7 @@ export default function SavedQuestions() {
     }
 
     if (isEdit && selectedQuestion) {
-      const res = await putData<any>(`/api/ai/examples/${selectedQuestion.id}`, payload)
+      const res = await putData<SavedQuestion>(`/api/ai/examples/${selectedQuestion.id}`, payload)
       if (res || apiError === null) {
         fetchQuestions(datasourceId, semanticModelId)
         setIsEditModalOpen(false)

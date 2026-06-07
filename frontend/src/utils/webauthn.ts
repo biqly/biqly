@@ -23,6 +23,49 @@ export interface PasskeyCreationOptionsJSON extends PasskeyRequestOptionsJSON {
   attestation?: AttestationConveyancePreference
 }
 
+export type PasskeyRegisterBeginResponse =
+  | PasskeyCreationOptionsJSON
+  | { publicKey: PasskeyCreationOptionsJSON }
+
+export type PasskeyLoginBeginResponse =
+  | PasskeyRequestOptionsJSON
+  | { publicKey: PasskeyRequestOptionsJSON }
+
+export function resolvePasskeyLoginOptions(
+  response: PasskeyLoginBeginResponse,
+): PasskeyRequestOptionsJSON {
+  return 'publicKey' in response ? response.publicKey : response
+}
+
+export function resolvePasskeyRegisterOptions(
+  response: PasskeyRegisterBeginResponse,
+): PasskeyCreationOptionsJSON {
+  return 'publicKey' in response ? response.publicKey : response
+}
+
+export interface PasskeyAttestationCredentialJSON {
+  id: string
+  rawId: string
+  type: string
+  response: {
+    clientDataJSON: string
+    attestationObject: string
+    transports?: string[]
+  }
+}
+
+export interface PasskeyAssertionCredentialJSON {
+  id: string
+  rawId: string
+  type: string
+  response: {
+    clientDataJSON: string
+    authenticatorData: string
+    signature: string
+    userHandle: string | null
+  }
+}
+
 export function bufferToBase64url(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer)
   let binary = ''

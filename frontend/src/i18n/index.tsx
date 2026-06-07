@@ -119,10 +119,11 @@ function detectBrowserLocale(): Locale {
   if (typeof navigator === 'undefined') {
     return DEFAULT_LOCALE
   }
-  const candidates: string[] = [
-    navigator.language,
-    ...(Array.isArray(navigator.languages) ? [...navigator.languages] : []),
-  ]
+  const language = typeof navigator.language === 'string' ? navigator.language : ''
+  const languages = Array.isArray(navigator.languages)
+    ? navigator.languages.filter((lang): lang is string => typeof lang === 'string')
+    : []
+  const candidates: string[] = [language, ...languages]
   for (const raw of candidates) {
     if (!raw) {
       continue
@@ -175,9 +176,9 @@ function interpolate(template: string, params?: Record<string, string | number>)
   if (!params || !template.includes('{{')) {
     return template
   }
-  return template.replace(/\{\{\s*([\w]+)\s*\}\}/g, (_, k) => {
-    const v = params[k]
-    return v === undefined || v === null ? `{{${k}}}` : String(v)
+  return template.replace(/\{\{\s*([\w]+)\s*\}\}/g, (_, key: string) => {
+    const v = params[key]
+    return v === undefined || v === null ? `{{${key}}}` : String(v)
   })
 }
 

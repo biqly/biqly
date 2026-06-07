@@ -6,6 +6,7 @@ import { useDatasources } from '../hooks/useDatasources'
 import { useModelDetail } from '../hooks/useModelDetail'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useT } from '../i18n'
+import { parseJsonRecord } from '../utils/record'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingScreen } from './ui/LoadingScreen'
@@ -157,10 +158,8 @@ export default function FewShotExamples() {
 
   const handleSave = async () => {
     setFormError(null)
-    let lq: Record<string, unknown>
-    try {
-      lq = JSON.parse(formLq)
-    } catch {
+    const lq = parseJsonRecord(formLq)
+    if (!lq) {
       setFormError(t('few_shot.err_invalid_lq'))
       return
     }

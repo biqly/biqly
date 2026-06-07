@@ -1,4 +1,4 @@
-import { ADMIN_TAB_LABEL_KEYS, type AdminTab, isAdminTab } from '../components/admin/adminNavConfig'
+import { ADMIN_TAB_LABEL_KEYS, isAdminTab } from '../components/admin/adminNavConfig'
 import type { Crumb } from '../components/ui/Breadcrumbs'
 import type { TFunction } from '../i18n'
 

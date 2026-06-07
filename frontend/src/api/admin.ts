@@ -3,6 +3,7 @@ import type {
   AIQueueStatus,
   AuditLogEntry,
   AuthUser,
+  AuthUserRaw,
   DatasourceAccess,
   Permission,
   PlatformSettings,
@@ -336,7 +337,7 @@ export async function listUsers(
     params.set('status', filters.status)
   }
   const suffix = params.toString() ? `?${params.toString()}` : ''
-  const data = await apiFetch<{ users: any[]; total: number }>(
+  const data = await apiFetch<{ users: AuthUserRaw[]; total: number }>(
     'GET',
     `${AUTH_API_BASE}/admin/users${suffix}`,
     undefined,
@@ -349,7 +350,7 @@ export async function listUsers(
 }
 
 export async function getUserDetail(token: string, id: string): Promise<AuthUser> {
-  const data = await apiFetch<any>('GET', `${AUTH_API_BASE}/admin/users/${id}`, undefined, {
+  const data = await apiFetch<AuthUserRaw>('GET', `${AUTH_API_BASE}/admin/users/${id}`, undefined, {
     token,
   })
   return normalizeAuthUser(data)
@@ -621,7 +622,7 @@ export async function deleteShare(token: string, shareID: string): Promise<void>
 export interface PermissionRowFilter {
   field: string
   operator?: string
-  value?: any
+  value?: string | string[] | null
 }
 
 export type PIIAccessLevel = 'raw' | 'masked' | 'hidden'

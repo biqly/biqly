@@ -64,7 +64,7 @@ export function ChatPanel({
         {activeConversation && activeConversation.messages.length > 0 ? (
           (() => {
             const conv = activeConversation
-            return conv.messages.map((message: any, index: number) => {
+            return conv.messages.map((message, index) => {
               if (message.role === 'user') {
                 return (
                   <div key={index} className="chat-bubble user-bubble">

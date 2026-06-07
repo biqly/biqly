@@ -1,11 +1,18 @@
 import type {
   AuthUser,
+  AuthUserRaw,
   Invitation,
   PasskeyInfo,
   PasswordPolicy,
   SetActiveWorkspaceResponse,
   TokenResponse,
 } from '../types/auth'
+import type {
+  PasskeyAssertionCredentialJSON,
+  PasskeyAttestationCredentialJSON,
+  PasskeyLoginBeginResponse,
+  PasskeyRegisterBeginResponse,
+} from '../utils/webauthn'
 import { apiFetch } from './apiClient'
 
 const AUTH_API_BASE = '/api/auth'
@@ -57,22 +64,22 @@ export function clearPasswordPolicyCache(): void {
   inflightPolicy = null
 }
 
-export function normalizeAuthUser(raw: any): AuthUser {
+export function normalizeAuthUser(raw: AuthUserRaw): AuthUser {
   return {
-    id: raw.id,
-    email: raw.email,
+    id: raw.id ?? '',
+    email: raw.email ?? '',
     username: raw.username,
     displayName: raw.displayName ?? raw.display_name,
     avatarUrl: raw.avatarUrl ?? raw.avatar_url,
-    isActive: raw.isActive ?? raw.is_active,
-    emailVerified: raw.emailVerified ?? raw.email_verified,
+    isActive: raw.isActive ?? raw.is_active ?? false,
+    emailVerified: raw.emailVerified ?? raw.email_verified ?? false,
     hasPassword: raw.hasPassword ?? raw.has_password,
     mfaEnabled: raw.mfaEnabled ?? raw.mfa_enabled,
     mfaPending: raw.mfaPending ?? raw.mfa_pending,
     passkeyCount: raw.passkeyCount ?? raw.passkey_count,
     active_workspace_id: raw.active_workspace_id,
-    createdAt: raw.createdAt ?? raw.created_at,
-    updatedAt: raw.updatedAt ?? raw.updated_at,
+    createdAt: raw.createdAt ?? raw.created_at ?? '',
+    updatedAt: raw.updatedAt ?? raw.updated_at ?? '',
   }
 }
 
@@ -107,7 +114,9 @@ export async function apiLogout(refreshToken: string): Promise<void> {
 }
 
 export async function apiGetMe(accessToken: string): Promise<AuthUser> {
-  const data = await apiFetch<any>('GET', `${AUTH_API_BASE}/me`, undefined, { token: accessToken })
+  const data = await apiFetch<AuthUserRaw>('GET', `${AUTH_API_BASE}/me`, undefined, {
+    token: accessToken,
+  })
   return normalizeAuthUser(data)
 }
 
@@ -136,7 +145,7 @@ export async function apiUpdateProfile(
   displayName: string,
   avatarUrl?: string,
 ): Promise<AuthUser> {
-  const data = await apiFetch<any>(
+  const data = await apiFetch<AuthUserRaw>(
     'PATCH',
     `${AUTH_API_BASE}/me/profile`,
     { display_name: displayName, avatar_url: avatarUrl },
@@ -193,15 +202,22 @@ export async function apiSetActiveWorkspace(
   )
 }
 
-export async function apiPasskeyRegisterBegin(accessToken: string): Promise<any> {
-  return apiFetch<any>('POST', `${AUTH_API_BASE}/passkey/register-begin`, undefined, {
-    token: accessToken,
-  })
+export async function apiPasskeyRegisterBegin(
+  accessToken: string,
+): Promise<PasskeyRegisterBeginResponse> {
+  return apiFetch<PasskeyRegisterBeginResponse>(
+    'POST',
+    `${AUTH_API_BASE}/passkey/register-begin`,
+    undefined,
+    {
+      token: accessToken,
+    },
+  )
 }
 
 export async function apiPasskeyRegisterFinish(
   accessToken: string,
-  credential: any,
+  credential: PasskeyAttestationCredentialJSON,
   name?: string,
 ): Promise<{ status: string }> {
   let url = `${AUTH_API_BASE}/passkey/register-finish`
@@ -211,11 +227,17 @@ export async function apiPasskeyRegisterFinish(
   return apiFetch<{ status: string }>('POST', url, credential, { token: accessToken })
 }
 
-export async function apiPasskeyLoginBegin(email?: string): Promise<any> {
-  return apiFetch<any>('POST', `${AUTH_API_BASE}/passkey/login-begin`, email ? { email } : {})
+export async function apiPasskeyLoginBegin(email?: string): Promise<PasskeyLoginBeginResponse> {
+  return apiFetch<PasskeyLoginBeginResponse>(
+    'POST',
+    `${AUTH_API_BASE}/passkey/login-begin`,
+    email ? { email } : {},
+  )
 }
 
-export async function apiPasskeyLoginFinish(credential: any): Promise<TokenResponse> {
+export async function apiPasskeyLoginFinish(
+  credential: PasskeyAssertionCredentialJSON,
+): Promise<TokenResponse> {
   return apiFetch<TokenResponse>('POST', `${AUTH_API_BASE}/passkey/login-finish`, credential)
 }
 
@@ -278,15 +300,8 @@ export async function apiInviteUser(
   )
 }
 
-export async function apiGetInvitation(token: string): Promise<{
-  id: string
-  email: string
-  role_id: string
-  role_name: string
-  invited_by: string
-  expires_at: string
-}> {
-  return apiFetch<any>('GET', `${AUTH_API_BASE}/invitations/${encodeURIComponent(token)}`)
+export async function apiGetInvitation(token: string): Promise<Invitation> {
+  return apiFetch<Invitation>('GET', `${AUTH_API_BASE}/invitations/${encodeURIComponent(token)}`)
 }
 
 export async function apiClaimInvitation(

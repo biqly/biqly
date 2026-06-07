@@ -20,10 +20,16 @@ import type { EvalRunResponse } from './evaluation/demoData'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingScreen } from './ui/LoadingScreen'
 
-const lazyWithPreload = <T extends ComponentType<any>>(factory: () => Promise<{ default: T }>) => {
-  const Component = lazy(factory) as any
+type PreloadableComponent<T extends ComponentType> = LazyExoticComponent<T> & {
+  preload: () => Promise<{ default: T }>
+}
+
+const lazyWithPreload = <T extends ComponentType<any>>(
+  factory: () => Promise<{ default: T }>,
+): PreloadableComponent<T> => {
+  const Component = lazy(factory) as PreloadableComponent<T>
   Component.preload = factory
-  return Component as LazyExoticComponent<T> & { preload: () => Promise<{ default: T }> }
+  return Component
 }
 
 const EvalRunTab = lazyWithPreload(() =>

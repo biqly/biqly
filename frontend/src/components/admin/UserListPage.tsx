@@ -153,8 +153,9 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
       await apiResendInvitation(token, id)
       setActionMessage({ type: 'success', text: t('auth.invite_resend_success') })
       loadInvitations()
-    } catch (e: any) {
-      setActionMessage({ type: 'error', text: e.message ?? 'Resend failed' })
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Resend failed'
+      setActionMessage({ type: 'error', text: message })
     } finally {
       setActionLoadingId(null)
     }
@@ -195,8 +196,9 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
       await apiRevokeInvitation(token, id)
       setActionMessage({ type: 'success', text: t('auth.invite_revoke_success') })
       loadInvitations()
-    } catch (e: any) {
-      setActionMessage({ type: 'error', text: e.message ?? 'Revoke failed' })
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Revoke failed'
+      setActionMessage({ type: 'error', text: message })
     } finally {
       setActionLoadingId(null)
     }
