@@ -126,7 +126,7 @@ global:
         memory: 1Gi
   nats:
     enabled: true
-    image: nats:2.10-alpine
+    image: nats:2.12.6-alpine
     service:
       clientPort: 4222
       monitorPort: 8222
