@@ -109,9 +109,24 @@ func TestInvitationFlow(t *testing.T) {
 	assert.Equal(t, inviteEmail, invite.Email)
 	assert.Equal(t, "developer", invite.RoleName)
 
-	// 6. Re-inviting a pending email must not invalidate links already sent.
+	// 6. Re-inviting a pending email rotates the token: the old link dies and
+	// the newly emailed link takes over. (Tokens are stored hashed, so the
+	// previous plaintext cannot be resent — rotation is the only consistent
+	// behavior.)
 	err = env.service.InviteUser(env.ctx, env.superUser.ID, inviteEmail, "developer")
 	require.NoError(t, err)
+	_, err = env.service.GetInvitation(env.ctx, token)
+	assert.ErrorIs(t, err, ErrInvitationNotFound, "old token must be invalidated by re-invite")
+
+	require.Len(t, env.mockMailer.SentEmails[inviteEmail], 2)
+	msg = env.mockMailer.SentEmails[inviteEmail][1]
+	tokenEnd = tokenStart
+	for tokenEnd < len(msg) && msg[tokenEnd] != ',' {
+		tokenEnd++
+	}
+	token = msg[tokenStart:tokenEnd]
+	require.NotEmpty(t, token)
+
 	reinvited, err := env.service.GetInvitation(env.ctx, token)
 	require.NoError(t, err)
 	assert.Equal(t, inviteEmail, reinvited.Email)
@@ -210,4 +225,64 @@ func TestInvitationRouteTokenDecoding(t *testing.T) {
 	token, err := url.PathUnescape("iY7nsYpBr9xdk5_Pn5xSwiVbo-iGTcM53WtyK8A1iHY%3D")
 	require.NoError(t, err)
 	assert.Equal(t, "iY7nsYpBr9xdk5_Pn5xSwiVbo-iGTcM53WtyK8A1iHY=", token)
+}
+
+// inviteAndExtractToken invites email as the super admin and returns the raw
+// invitation token captured from the mock mailer.
+func (env *invitationTestEnv) inviteAndExtractToken(t *testing.T, email string) string {
+	t.Helper()
+	require.NoError(t, env.service.InviteUser(env.ctx, env.superUser.ID, email, "developer"))
+	require.Contains(t, env.mockMailer.SentEmails, email)
+	msgs := env.mockMailer.SentEmails[email]
+	msg := msgs[len(msgs)-1]
+	require.Contains(t, msg, "Invitation token: ")
+	tokenStart := len("Invitation token: ")
+	tokenEnd := tokenStart
+	for tokenEnd < len(msg) && msg[tokenEnd] != ',' {
+		tokenEnd++
+	}
+	token := msg[tokenStart:tokenEnd]
+	require.NotEmpty(t, token)
+	return token
+}
+
+// TestInvitationClaimRace fires concurrent claims for the same token and
+// requires that exactly one wins: the users.email unique constraint must
+// serialize the inserts so a double-claim cannot mint two accounts or two
+// sessions from one invitation.
+func TestInvitationClaimRace(t *testing.T) {
+	env := newInvitationTestEnv(t)
+	raceEmail := "race-claim@example.com"
+	token := env.inviteAndExtractToken(t, raceEmail)
+
+	const attempts = 8
+	results := make(chan error, attempts)
+	start := make(chan struct{})
+	for range attempts {
+		go func() {
+			<-start
+			_, err := env.service.ClaimInvitation(
+				env.ctx, token, "RaceSecPass1!", "Race User", "Race-Agent", "10.0.0.1")
+			results <- err
+		}()
+	}
+	close(start)
+
+	successes := 0
+	for range attempts {
+		if err := <-results; err == nil {
+			successes++
+		}
+	}
+	assert.Equal(t, 1, successes, "exactly one concurrent claim must succeed")
+
+	// Exactly one user row exists for the invited email.
+	var userCount int
+	require.NoError(t, env.dbPool.QueryRowContext(env.ctx,
+		"SELECT COUNT(*) FROM users WHERE email = $1", raceEmail).Scan(&userCount))
+	assert.Equal(t, 1, userCount)
+
+	// The invitation is consumed: further lookups must report it claimed.
+	_, err := env.service.GetInvitation(env.ctx, token)
+	assert.ErrorIs(t, err, ErrInvitationClaimed)
 }

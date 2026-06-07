@@ -267,6 +267,13 @@ func (h *AIExamplesHandler) GetAIUsageBreakdown(w http.ResponseWriter, r *http.R
 	hasViewDetails := canViewAIHistoryDetails(ctx, h.authClient, userID)
 
 	if !hasViewDetails {
+		// An expired/invalid token is dropped by the optional JWT middleware,
+		// leaving no identity. Answer 401 (not 403) so browser clients know to
+		// refresh their session instead of treating it as a permission denial.
+		if isAnonymousRequest(ctx) {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
 		writeError(w, http.StatusForbidden, "forbidden")
 		return
 	}

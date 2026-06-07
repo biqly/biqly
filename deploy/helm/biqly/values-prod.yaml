@@ -15,6 +15,7 @@ global:
     BI_QUERY_MAX_ROWS: "10000"
     BI_QUERY_MAX_RUNTIME_SECONDS: "60"
     BI_REDIS_DSN: redis://biqly-dragonfly:6379
+    BI_AUTH_ENABLED: "true"
     # PII detection & role-based masking (see docs/pii-detection-masking.md)
     BI_PII_ENABLED: "true"
     BI_PII_DETECTION_THRESHOLD: "0.6"

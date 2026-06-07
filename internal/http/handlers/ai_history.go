@@ -13,6 +13,13 @@ import (
 	"github.com/biqly/biqly/internal/metadata"
 )
 
+// isAnonymousRequest reports whether the request carries no authenticated
+// identity at all — e.g. OptionalJWTAuth dropped an expired or invalid token.
+// Handlers use it to answer 401 instead of 403 so clients re-authenticate.
+func isAnonymousRequest(ctx context.Context) bool {
+	return bimw.UserID(ctx) == "" && len(bimw.UserRoles(ctx)) == 0
+}
+
 func canViewAIHistoryDetails(ctx context.Context, authClient *bimw.AuthClient, userID string) bool {
 	if authClient == nil {
 		return true
@@ -31,6 +38,7 @@ func canViewAIHistoryDetails(ctx context.Context, authClient *bimw.AuthClient, u
 
 // AIHistory returns a paginated AI query history list. Filtering and pagination
 // are applied in the database; heavy fields are masked per permission rules.
+//
 //nolint:gocognit
 func (h *AIHandler) AIHistory(w http.ResponseWriter, r *http.Request) {
 	userID := bimw.UserID(r.Context())

@@ -415,3 +415,116 @@ func TestOptionalJWTAuth_NonJWTBearerNotRejected(t *testing.T) {
 		t.Fatalf("expected pass-through 200, reached=%v code=%d", reached, w.Code)
 	}
 }
+
+func TestJWTAuthWithAdminBypass_AdminKeyBypasses(t *testing.T) {
+	priv, pub := newSigningKey(t)
+	srv := newKeyServer(t, pub, "biqly")
+	defer srv.Close()
+	_ = priv
+
+	adminKey := "s3cret-admin-api-key"
+	provider := NewPublicKeyProvider(srv.URL, "tok")
+	mw := JWTAuthWithAdminBypass(provider, adminKey)
+
+	// Case 1: Authorization: Bearer <adminKey>
+	var gotUserID string
+	var gotRoles []string
+	var gotEmailVerified bool
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUserID = UserID(r.Context())
+		gotRoles = UserRoles(r.Context())
+		gotEmailVerified = EmailVerified(r.Context())
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+	req.Header.Set("Authorization", "Bearer "+adminKey)
+	w := httptest.NewRecorder()
+	mw(handler).ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Bearer adminKey: expected 200, got %d", w.Code)
+	}
+	if gotUserID != "admin" {
+		t.Fatalf("Bearer adminKey: expected UserID='admin', got %q", gotUserID)
+	}
+	if len(gotRoles) != 1 || gotRoles[0] != RoleSuperAdmin {
+		t.Fatalf("Bearer adminKey: expected roles=[%s], got %+v", RoleSuperAdmin, gotRoles)
+	}
+	if !gotEmailVerified {
+		t.Fatalf("Bearer adminKey: expected EmailVerified=true")
+	}
+
+	// Case 2: X-API-Key: <adminKey>
+	gotUserID = ""
+	gotRoles = nil
+	gotEmailVerified = false
+
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+	req.Header.Set("X-API-Key", adminKey)
+	w = httptest.NewRecorder()
+	mw(handler).ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("X-API-Key adminKey: expected 200, got %d", w.Code)
+	}
+	if gotUserID != "admin" {
+		t.Fatalf("X-API-Key adminKey: expected UserID='admin', got %q", gotUserID)
+	}
+	if len(gotRoles) != 1 || gotRoles[0] != RoleSuperAdmin {
+		t.Fatalf("X-API-Key adminKey: expected roles=[%s], got %+v", RoleSuperAdmin, gotRoles)
+	}
+	if !gotEmailVerified {
+		t.Fatalf("X-API-Key adminKey: expected EmailVerified=true")
+	}
+
+	// Case 3: Invalid admin key and no valid JWT -> Rejected
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+	req.Header.Set("Authorization", "Bearer invalid-admin-key")
+	w = httptest.NewRecorder()
+	mw(handler).ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("invalid adminKey expected 401, got %d", w.Code)
+	}
+}
+
+func TestJWTAuthWithAdminBypass_FallbackToJWT(t *testing.T) {
+	priv, pub := newSigningKey(t)
+	srv := newKeyServer(t, pub, "biqly")
+	defer srv.Close()
+
+	tokenStr := signToken(t, priv, JWTClaims{
+		Email:                 "u@x.com",
+		Roles:                 []string{"developer"},
+		WorkspaceID:           "ws-1",
+		AccessibleDatasources: []string{"ds-a"},
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   "user-1",
+			Issuer:    "biqly-auth",
+			Audience:  jwt.ClaimStrings{"biqly"},
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	})
+
+	provider := NewPublicKeyProvider(srv.URL, "tok")
+	mw := JWTAuthWithAdminBypass(provider, "s3cret-admin-api-key")
+
+	var gotUserID string
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUserID = UserID(r.Context())
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+	req.Header.Set("Authorization", "Bearer "+tokenStr)
+	w := httptest.NewRecorder()
+	mw(handler).ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("JWT fallback expected 200, got %d", w.Code)
+	}
+	if gotUserID != "user-1" {
+		t.Fatalf("JWT fallback expected UserID='user-1', got %q", gotUserID)
+	}
+}

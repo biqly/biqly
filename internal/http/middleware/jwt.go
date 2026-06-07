@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"crypto/rsa"
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"github.com/bytedance/sonic"
@@ -133,6 +134,55 @@ func JWTAuth(provider *PublicKeyProvider, bypassPaths ...string) func(http.Handl
 				}
 			}
 
+			tokenStr := extractBearer(r)
+			if tokenStr == "" {
+				writeAuthError(w, http.StatusUnauthorized, "missing bearer token")
+				return
+			}
+
+			cfg, err := provider.getConfig(r.Context())
+			if err != nil {
+				writeAuthError(w, http.StatusServiceUnavailable, "auth key unavailable")
+				return
+			}
+
+			claims, err := verifyJWTClaims(cfg, tokenStr)
+			if err != nil {
+				writeAuthError(w, http.StatusUnauthorized, "invalid token")
+				return
+			}
+
+			next.ServeHTTP(w, r.WithContext(applyJWTClaims(r.Context(), claims)))
+		})
+	}
+}
+
+// JWTAuthWithAdminBypass verifies the Bearer JWT against the auth service's public key,
+// but also allows a request carrying a valid admin API key matching adminKey.
+// When the admin key matches, context is populated with UserID = "admin", UserRoles = []string{RoleSuperAdmin},
+// and EmailVerified = true, which bypasses downstream permission/datasource checks.
+func JWTAuthWithAdminBypass(provider *PublicKeyProvider, adminKey string, bypassPaths ...string) func(http.Handler) http.Handler {
+	expected := []byte(strings.TrimSpace(adminKey))
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			for _, p := range bypassPaths {
+				if p != "" && strings.HasPrefix(r.URL.Path, p) {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
+			// Check if the request presents the admin API key.
+			provided := extractAPIKey(r)
+			if len(expected) > 0 && len(provided) > 0 && subtle.ConstantTimeCompare(provided, expected) == 1 {
+				ctx := context.WithValue(r.Context(), UserIDKey, "admin")
+				ctx = context.WithValue(ctx, UserRolesKey, []string{RoleSuperAdmin})
+				ctx = context.WithValue(ctx, EmailVerifiedKey, true)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+
+			// Fallback to standard JWT verification.
 			tokenStr := extractBearer(r)
 			if tokenStr == "" {
 				writeAuthError(w, http.StatusUnauthorized, "missing bearer token")

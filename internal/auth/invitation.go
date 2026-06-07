@@ -247,9 +247,12 @@ func claimInvitationInTx(ctx context.Context, tx *sql.Tx, invite *Invitation, ha
 		return user, fmt.Errorf("add member to workspace: %w", err)
 	}
 
+	// The (hashed) token is kept on purpose: single-use is enforced by the
+	// claimed_at check in GetInvitation, and keeping the token lets a repeat
+	// visit to the invite link answer "already claimed" instead of "not found".
 	claimQuery := `
 		UPDATE user_invitations
-		SET claimed_at = NOW(), token = NULL
+		SET claimed_at = NOW()
 		WHERE id = $1
 	`
 	if _, err := tx.ExecContext(ctx, claimQuery, invite.ID); err != nil {

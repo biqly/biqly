@@ -1,4 +1,12 @@
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react'
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import {
@@ -52,6 +60,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
+// Access tokens live 15 minutes (BI_AUTH_JWT_ACCESS_TTL); refresh slightly
+// earlier so in-flight requests never carry an expired token.
+const TOKEN_REFRESH_MS = 14 * 60 * 1000
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const [user, setUser] = useState<AuthUser | null>(null)
@@ -60,6 +72,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [permissions, setPermissions] = useState<string[]>([])
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
+  // When the current access token was obtained; drives the staleness check on
+  // tab wake. A ref (not state) so event listeners see the latest value.
+  const lastTokenAtRef = useRef(0)
+  // Prevents concurrent refresh calls: the refresh token rotates on use, and a
+  // second call with the already-rotated token trips the server's token-family
+  // theft protection, revoking every session.
+  const refreshInFlightRef = useRef(false)
 
   const clearAuth = () => {
     setUser(null)
@@ -90,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refToken: string,
     nextRoles: string[] = [],
   ) => {
+    lastTokenAtRef.current = Date.now()
     setAccessToken(accToken)
     setRoles(nextRoles)
     localStorage.setItem('biqly_refresh_token', refToken)
@@ -188,42 +208,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth()
   }, [])
 
-  // Silent refresh timer
+  // Silent refresh: the interval covers active tabs, while the visibility and
+  // focus listeners cover wake-from-sleep and throttled background tabs where
+  // the timer did not fire before the 15-minute access token expired. Without
+  // the wake path, the first requests after resume go out with a stale token
+  // (401 from the auth service, 403 from optional-JWT services).
   useEffect(() => {
     if (!accessToken) {
       return
     }
 
-    // Refresh every 14 minutes (since access token expires in 15 minutes)
-    const interval = window.setInterval(
-      async () => {
-        const refToken = localStorage.getItem('biqly_refresh_token')
-        if (!refToken) {
-          clearAuth()
-          return
+    const silentRefresh = async () => {
+      if (refreshInFlightRef.current) {
+        return
+      }
+      const refToken = localStorage.getItem('biqly_refresh_token')
+      if (!refToken) {
+        clearAuth()
+        return
+      }
+      refreshInFlightRef.current = true
+      try {
+        const resp = await apiRefresh(refToken)
+        lastTokenAtRef.current = Date.now()
+        setAccessToken(resp.access_token)
+        setRoles(resp.roles)
+        localStorage.setItem('biqly_refresh_token', resp.refresh_token)
+        await loadPermissions(resp.access_token)
+      } catch (err: unknown) {
+        // Refresh failed — classify the server-side reason so the next sign-in
+        // screen can render an explanatory banner (idle/absolute/revoked) and
+        // not just bounce the user to a blank login form.
+        const reason = classifySessionExpiry(err)
+        sessionStorage.setItem('biqly_session_expired_reason', reason)
+        clearAuth()
+        if (window.location.pathname !== '/auth/signin') {
+          navigate('/auth/signin?expired=' + reason)
         }
-        try {
-          const resp = await apiRefresh(refToken)
-          setAccessToken(resp.access_token)
-          setRoles(resp.roles)
-          localStorage.setItem('biqly_refresh_token', resp.refresh_token)
-          await loadPermissions(resp.access_token)
-        } catch (err: unknown) {
-          // Refresh failed — classify the server-side reason so the next sign-in
-          // screen can render an explanatory banner (idle/absolute/revoked) and
-          // not just bounce the user to a blank login form.
-          const reason = classifySessionExpiry(err)
-          sessionStorage.setItem('biqly_session_expired_reason', reason)
-          clearAuth()
-          if (window.location.pathname !== '/auth/signin') {
-            navigate('/auth/signin?expired=' + reason)
-          }
-        }
-      },
-      14 * 60 * 1000,
-    )
+      } finally {
+        refreshInFlightRef.current = false
+      }
+    }
 
-    return () => window.clearInterval(interval)
+    const refreshIfStale = () => {
+      if (
+        document.visibilityState === 'visible' &&
+        Date.now() - lastTokenAtRef.current >= TOKEN_REFRESH_MS
+      ) {
+        void silentRefresh()
+      }
+    }
+
+    const interval = window.setInterval(silentRefresh, TOKEN_REFRESH_MS)
+    document.addEventListener('visibilitychange', refreshIfStale)
+    window.addEventListener('focus', refreshIfStale)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', refreshIfStale)
+      window.removeEventListener('focus', refreshIfStale)
+    }
   }, [accessToken, navigate])
 
   return (

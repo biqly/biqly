@@ -20,7 +20,7 @@ func buildAPIAuthMiddleware(deps *app.Dependencies) func(http.Handler) http.Hand
 			slog.Error("BI_AUTH_ENABLED is true but BI_AUTH_SERVICE_URL is empty — JWT verification will fail")
 		}
 		provider := bimw.NewPublicKeyProvider(authCfg.ServiceURL, authCfg.InternalToken)
-		return bimw.JWTAuth(provider)
+		return bimw.JWTAuthWithAdminBypass(provider, deps.Config.Security.APIKey)
 	}
 
 	if deps.Config.Security.APIKey == "" {
@@ -64,7 +64,7 @@ func buildAIAuthMiddleware(deps *app.Dependencies) func(http.Handler) http.Handl
 		if authCfg.ServiceURL == "" {
 			slog.Error("BI_AUTH_ENABLED is true but BI_AUTH_SERVICE_URL is empty — JWT verification will fail")
 		}
-		return bimw.JWTAuth(bimw.NewPublicKeyProvider(authCfg.ServiceURL, authCfg.InternalToken))
+		return bimw.JWTAuthWithAdminBypass(bimw.NewPublicKeyProvider(authCfg.ServiceURL, authCfg.InternalToken), deps.Config.Security.APIKey)
 	}
 	if authCfg.ServiceURL != "" {
 		return bimw.OptionalJWTAuth(bimw.NewPublicKeyProvider(authCfg.ServiceURL, authCfg.InternalToken))
