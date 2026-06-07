@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	platformdb "github.com/biqly/biqly/internal/platform/db"
-	"github.com/lib/pq"
+	"github.com/biqly/biqly/internal/platform/db/pgarray"
 )
 
 // BusinessGlossaryInsert is input for creating a glossary term.
@@ -46,7 +46,7 @@ func (r *Repository) ListBusinessGlossary(ctx context.Context, datasourceID, mod
 
 func scanBusinessGlossaryRow(s platformdb.Scanner) (BusinessGlossaryRow, error) {
 	var e BusinessGlossaryRow
-	var aliases pq.StringArray
+	var aliases pgarray.StringArray
 	if err := s.Scan(&e.ID, &e.DatasourceID, &e.ModelID, &e.Term, &e.Definition,
 		&e.MapsToType, &e.MapsToName, &aliases, &e.IsActive, &e.CreatedAt, &e.UpdatedAt); err != nil {
 		return e, fmt.Errorf("scan business glossary: %w", err)
@@ -66,7 +66,7 @@ func (r *Repository) InsertBusinessGlossary(ctx context.Context, in BusinessGlos
 		`INSERT INTO business_glossary_terms (datasource_id, model_id, term, definition, maps_to_type, maps_to_name, aliases)
 		 VALUES ($1::uuid, $2::uuid, $3, NULLIF($4, ''), $5, $6, $7)
 		 RETURNING id::text`,
-		in.DatasourceID, modelID, in.Term, in.Definition, in.MapsToType, in.MapsToName, pq.Array(in.Aliases),
+		in.DatasourceID, modelID, in.Term, in.Definition, in.MapsToType, in.MapsToName, pgarray.Strings(in.Aliases),
 	).Scan(&id)
 	return id, err
 }
@@ -82,7 +82,7 @@ func (r *Repository) UpdateBusinessGlossary(ctx context.Context, id string, in B
 		 SET term = $1, definition = NULLIF($2, ''), maps_to_type = $3, maps_to_name = $4,
 		     aliases = $5::text[], is_active = $6, updated_at = NOW()
 		 WHERE id = $7::uuid`,
-		in.Term, in.Definition, in.MapsToType, in.MapsToName, pq.Array(in.Aliases), active, id,
+		in.Term, in.Definition, in.MapsToType, in.MapsToName, pgarray.Strings(in.Aliases), active, id,
 	)
 	return err
 }

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lib/pq"
+	"github.com/biqly/biqly/internal/platform/db/pgarray"
 )
 
 const (
@@ -56,7 +56,7 @@ func (r *Repository) CreateAIJob(ctx context.Context, job *AIJob) error {
 			datasource_id, scope_schemas, request_json, user_id
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::uuid, $9, $10::jsonb, $11)`,
 		job.ID, job.ClientSessionID, job.Kind, job.Status, job.Phase, job.PhaseMessage, job.ProgressPct,
-		job.DatasourceID, pq.Array(scopeSchemas), job.RequestJSON, job.UserID,
+		job.DatasourceID, pgarray.Strings(scopeSchemas), job.RequestJSON, job.UserID,
 	)
 	if err != nil {
 		return fmt.Errorf("create ai job: %w", err)
@@ -148,7 +148,7 @@ func (r *Repository) FindConflictingDescribeBatch(
 		  AND datasource_id = $1::uuid
 		  AND scope_schemas && $2::text[]
 		ORDER BY created_at ASC
-		LIMIT 1`, datasourceID, pq.Array(scopeSchemas))
+		LIMIT 1`, datasourceID, pgarray.Strings(scopeSchemas))
 	job, err := scanAIJob(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil //nolint:nilnil // optional result
@@ -297,7 +297,7 @@ func (r *Repository) CancelAIJobs(ctx context.Context, ids []string) (int, error
 		SET status = $1, phase = 'cancelled', phase_message = 'cancelled by user',
 		    progress_pct = 0, finished_at = NOW(), updated_at = NOW()
 		WHERE id = ANY($2) AND status IN ($3, $4, $5)`,
-		AIJobStatusCancelled, pq.Array(ids), AIJobStatusPending, AIJobStatusQueued, AIJobStatusRunning)
+		AIJobStatusCancelled, pgarray.Strings(ids), AIJobStatusPending, AIJobStatusQueued, AIJobStatusRunning)
 	if err != nil {
 		return 0, fmt.Errorf("cancel ai jobs: %w", err)
 	}
@@ -427,7 +427,7 @@ func scanAIJobFromScanner(scanner aiJobScanner) (*AIJob, error) {
 	var progress []byte
 	var errMsg sql.NullString
 	var dsID sql.NullString
-	var scope pq.StringArray
+	var scope pgarray.StringArray
 	var started, finished sql.NullTime
 	var userID sql.NullString
 	err := scanner.Scan(

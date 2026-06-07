@@ -7,7 +7,7 @@ import (
 	"time"
 
 	platformdb "github.com/biqly/biqly/internal/platform/db"
-	"github.com/lib/pq"
+	"github.com/biqly/biqly/internal/platform/db/pgarray"
 )
 
 // FewShotCuratedInsert is input for creating a curated few-shot example.
@@ -73,7 +73,7 @@ func (r *Repository) ListFavoriteExamples(ctx context.Context, limit int) ([]Few
 func scanFewShotCuratedRow(s platformdb.Scanner) (FewShotCuratedRow, error) {
 	var e FewShotCuratedRow
 	var mid, createdBy, locale string
-	var tags pq.StringArray
+	var tags pgarray.StringArray
 	if err := s.Scan(&e.ID, &e.DatasourceID, &mid, &e.Question, &e.LogicalQuery, &tags, &e.Dialect, &locale, &createdBy, &e.CreatedAt, &e.UpdatedAt, &e.Name, &e.Description, &e.IsFewShot, &e.IsFavorite); err != nil {
 		return e, fmt.Errorf("scan few-shot curated: %w", err)
 	}
@@ -90,7 +90,7 @@ func (r *Repository) InsertFewShotCurated(ctx context.Context, in FewShotCurated
 	err := r.db.QueryRowContext(ctx,
 		`INSERT INTO few_shot_examples (datasource_id, model_id, question, logical_query, tags, dialect, locale, name, description, is_few_shot, is_favorite)
 		 VALUES ($1::uuid, NULLIF($2,'')::uuid, $3, $4, $5::text[], $6, NULLIF($7,''), $8, $9, $10, $11) RETURNING id::text`,
-		in.DatasourceID, in.ModelID, in.Question, in.LogicalQuery, pq.Array(in.Tags), in.Dialect, in.Locale, in.Name, in.Description, in.IsFewShot, in.IsFavorite,
+		in.DatasourceID, in.ModelID, in.Question, in.LogicalQuery, pgarray.Strings(in.Tags), in.Dialect, in.Locale, in.Name, in.Description, in.IsFewShot, in.IsFavorite,
 	).Scan(&id)
 	if err != nil {
 		return "", err
@@ -115,7 +115,7 @@ func (r *Repository) DeleteFewShotCurated(ctx context.Context, id string) (bool,
 func (r *Repository) UpdateFewShotCurated(ctx context.Context, id string, in FewShotCuratedUpdate) error {
 	_, err := r.db.ExecContext(ctx,
 		`UPDATE few_shot_examples SET question = $1, logical_query = $2, tags = $3::text[], dialect = $4, locale = NULLIF($5,''), name = $6, description = $7, is_few_shot = $8, is_favorite = $9, updated_at = NOW() WHERE id = $10::uuid`,
-		in.Question, in.LogicalQuery, pq.Array(in.Tags), in.Dialect, in.Locale, in.Name, in.Description, in.IsFewShot, in.IsFavorite, id,
+		in.Question, in.LogicalQuery, pgarray.Strings(in.Tags), in.Dialect, in.Locale, in.Name, in.Description, in.IsFewShot, in.IsFavorite, id,
 	)
 	return err
 }
@@ -124,7 +124,7 @@ func (r *Repository) UpdateFewShotCurated(ctx context.Context, id string, in Few
 func (r *Repository) InsertAIFeedback(ctx context.Context, question, datasourceID, rating string, categories []string, text string) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO ai_feedback (question, datasource_id, rating, categories, feedback_text) VALUES ($1, $2::uuid, $3, $4::text[], $5)`,
-		question, datasourceID, rating, pq.Array(categories), text,
+		question, datasourceID, rating, pgarray.Strings(categories), text,
 	)
 	return err
 }

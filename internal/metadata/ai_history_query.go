@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/lib/pq"
+	"github.com/biqly/biqly/internal/platform/db/pgarray"
 )
 
 const aiHistorySelectCols = `id, datasource_id, model_id, user_id, question, prompt_context,
@@ -56,7 +56,7 @@ func buildAIHistoryWhere(filter AIHistoryListFilter) (string, []any) {
 		args = append(args, filter.DatasourceID)
 		parts = append(parts, fmt.Sprintf("datasource_id = $%d::uuid", len(args)))
 	} else if len(filter.DatasourceIDs) > 0 {
-		args = append(args, pq.Array(filter.DatasourceIDs))
+		args = append(args, pgarray.Strings(filter.DatasourceIDs))
 		parts = append(parts, fmt.Sprintf("datasource_id = ANY($%d::uuid[])", len(args)))
 	}
 	if filter.ModelID != "" {

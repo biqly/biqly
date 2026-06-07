@@ -1,6 +1,111 @@
 # Todo list
 
-## Sonic JSON Migration Results
+## pgarray Abstraction — lib/pq Tek Noktada Toplama (2026-06-07)
+
+Postgres `text[]` kodlama/çözme için kullanılan `lib/pq` helper'ları (`pq.Array`, `pq.StringArray`) 11 dosyaya dağılmıştı. Driver zaten pgx (`database/sql` + `pgx/v5/stdlib`); lib/pq sadece array codec olarak kullanılıyordu. İleride pgx native / pgtype'a geçişi tek dosyaya indirmek için tek bir abstraction'da toplandı.
+
+### Yapılanlar
+
+- [x] `internal/platform/db/pgarray/array.go` oluşturuldu — lib/pq'yu import eden **tek** paket.
+  - `func Strings(v []string) any` → query param (Valuer), `pq.Array` yerine.
+  - `type StringArray = pq.StringArray` → scan target + Valuer.
+  - `func Scan(dst any) any` → pointer scan hedefi (`pq.Array(&slice)` yerine).
+- [x] 11 dosyada doğrudan `pq.*` kullanımları `pgarray.*` ile değiştirildi, `github.com/lib/pq` import'ları kaldırıldı:
+  - `internal/metadata/`: `repository.go`, `business_glossary.go`, `ai_time_grains.go`, `ai_history_query.go`, `permissions.go`, `translations.go`, `curated_ai.go`, `ai_jobs.go`
+  - `internal/auth/repository.go`, `internal/auth/mfa/mfa_repository.go`
+  - `internal/ai/provider_store.go`
+- [x] Davranış birebir aynı (`pgarray.Strings` = `pq.Array`, `StringArray` = type alias) — sadece indirection eklendi.
+
+### Sonuç / doğrulama
+
+- `lib/pq` artık yalnızca `internal/platform/db/pgarray/array.go` içinde import ediliyor (grep ile doğrulandı; başka `pq.Array`/`pq.StringArray` kalmadı).
+- `gofmt -w` tüm dokunan dosyalara uygulandı.
+- `go build ./...` ve `go vet ./internal/{metadata,auth,ai,platform/db}/...` temiz.
+- `golangci-lint run` dokunan paketlerde **0 issues**.
+- In-memory testler geçti (`internal/metadata`, `internal/ai`, `internal/platform/db`). Başarısız iki test (`auth/mfa`, `auth/workspace`) **temiz ağaçta da** FK constraint hatasıyla düşüyor → paylaşılan test DB seed sorunu, bu değişiklikle ilgisiz.
+
+### İleride pgx native / pgtype'a geçiş
+
+Artık 11 dosya yerine sadece `pgarray/array.go` içindeki üç sembolün gövdesi değişecek. `database/sql` + pgx stdlib'de kalınırsa `pgtype` muadilleri; tam pgxpool migrasyonunda Go slice'ları doğrudan geçilip `lib/pq` tamamen kaldırılabilir.
+
+## Redis Client Migration Evaluation (go-redis → rueidis / valkey-go) (2026-06-07)
+
+go-redis v9 güvenilir ama performans odaklı alternatifler daha agresif:
+
+- **rueidis**: automatic pipelining, client-side caching, paralel workload'larda go-redis'e göre yüksek throughput iddiası. Kendi benchmark'larında ciddi farklar var.
+- **valkey-go**: Valkey/Redis için optimize, benzer performans hikayesi.
+
+### Değerlendirme kriterleri
+
+- [x] go-redis v9 ile rueidis arasında gerçek benchmark karşılaştırması yaz (GET/SET/MSET pipeline, P99 latency, connection pooling).
+- [x] rueidis client-side caching'in mevcut cache yapısına uyumunu analiz et.
+- [x] valkey-go API uyumluluğunu kontrol et (Dragonfly/Redis desteği).
+- [x] Migration riskini değerlendir: API farkları, test coverage, community/bakım durumu.
+
+### Sonuç (2026-06-07)
+
+- Eklendi: `benchmarks/redisclient` izole Go modülü. `go-redis/v9 v9.19.0`, `rueidis v1.0.75`, `valkey-go v1.0.75` pin'li.
+- Benchmark kapsamı: single `GET`, single `SET`, batched `MSET`, pipelined `SET`/`GET`; normal `ns/op` yanında bounded `p99_ns/op` metriği raporlanıyor. Connection pool etkisi `REDIS_BENCH_POOL_SIZE` ile ölçülebilir (`go-redis` `PoolSize`, rueidis için en yakın `PipelineMultiplex` bağlantı sayısı).
+- Çalıştırma:
+  - `cd benchmarks/redisclient`
+  - `REDIS_BENCH_ADDR=127.0.0.1:6379 go test -run TestValkeyCompatAPISurface -bench . -benchtime=10s -count=5`
+- Canlı lokal sonuç (`127.0.0.1:6379`, Apple M4, darwin/arm64, `-benchtime=10s -count=5`, toplam `471.606s`):
+
+  | Benchmark | go-redis median ns/op | rueidis median ns/op | go-redis median p99_ns/op | rueidis median p99_ns/op | Sonuç |
+  | --- | ---: | ---: | ---: | ---: | --- |
+  | `GET` | `396704` | `487313` | `1058792` | `2753250` | go-redis daha iyi |
+  | `SET` | `369127` | `413086` | `693292` | `1292750` | go-redis daha iyi; ortalama noisy |
+  | `MSET` | `445711` | `509089` | `873542` | `1164958` | go-redis daha iyi |
+  | Pipeline `SET`/`GET` | `389664` | `418962` | `750333` | `670333` | rueidis p99 biraz iyi, ortalama go-redis iyi |
+
+  Bu ölçüm rueidis'e geçiş için yeterli performans gerekçesi göstermedi. Staging/Dragonfly hattında farklı sonuç çıkmadıkça migration başlatma.
+- rueidis uyumu: native builder API ile production koduna direct swap yüksek churn yaratır. Server-assisted client-side caching `DoCache`/`DoMultiCache` ile var; mevcut `internal/ai/response_cache.go` ve `internal/semantic/composite_cache.go` TTL'li `GET`/`SET` payload cache olduğu için en iyi adaylar, fakat invalidation davranışı staging'de doğrulanmalı.
+- valkey-go uyumu: `valkeycompat.NewAdapter` go-redis benzeri API sağlıyor; benchmark modülündeki `TestValkeyCompatAPISurface` canlı Redis/Dragonfly/Valkey hedefiyle `Set`, `Get`, `Cache`, `Pipelined` yüzeyini doğruluyor. Dragonfly/Redis protokol desteği pratikte hedef sürümle live test gerektirir.
+- Risk kararı: production client migration şu an yapılmadı ve lokal ölçüm sonrası önerilmiyor. Mevcut kullanım `INCR`/`EXPIRE`, `GET`/`SET`, `SCAN`/`DEL` ve DI'da doğrudan `*redis.Client` tiplerine bağlı. Ancak staging/Dragonfly ölçümü anlamlı fark gösterirse en düşük riskli sıra: önce ince `internal/platform/cache` adapter, sonra `internal/auth/ratelimit.go` + `internal/mail/smtp.go` pilotu, en son AI/semantic cache client-side caching denemesi.
+- Review / verification:
+  - `gofmt -w benchmarks/redisclient/redis_client_bench_test.go`
+  - `go test ./...` (`benchmarks/redisclient`; `REDIS_BENCH_ADDR` yokken live test/bench skip ederek compile doğruladı.)
+  - `go vet ./...` (`benchmarks/redisclient`)
+  - `REDIS_BENCH_ADDR=127.0.0.1:6379 go test -run TestValkeyCompatAPISurface -bench . -benchtime=10s -count=5`
+
+### Değişecek dosyalar (go-redis → alternatif client)
+
+**Doğrudan `*redis.Client` kullanan paketler:**
+
+| Dosya | Kullanım |
+| --- | --- |
+| `internal/app/dependencies.go:454` | `redis.NewClient(opt)` — monolith DI |
+| `internal/app/providers.go:71` | `redis.NewClient(opt)` — provider DI |
+| `cmd/auth/main.go:207-212` | `newRedisClient` — auth service |
+| `cmd/mail/main.go:56-63` | `redis.NewClient(opts)` — mail service |
+| `internal/auth/service.go:54,92` | `redisClient *redis.Client` — auth service struct |
+| `internal/auth/ratelimit.go:17,20` | `redisClient *redis.Client` — rate limiter |
+| `internal/auth/oauth_exchange.go:12` | Redis import — OAuth state |
+| `internal/mail/smtp.go:28,45` | `redis *redis.Client` — mail rate limit |
+| `internal/ai/response_cache.go:48,52` | `client *redis.Client` — AI response cache |
+| `internal/semantic/composite_cache.go:28,39` | `client *redis.Client` — composite cache |
+| `internal/auth/rbac/datasource_access.go:30,35` | `redis *redis.Client` — datasource access |
+| `internal/auth/auth_test.go:18,426,482` | `redis.NewClient(opts)` — test setup |
+| `internal/auth/oauth_exchange_test.go:10,22` | `redis.NewClient(opts)` — test setup |
+
+**Değişim stratejisi:**
+
+1. **Abstraction layer** (düşük risk): `internal/platform/cache` gibi bir wrapper yaz, tüm consumer'lar interface üzerinden erişsin. Sonra alttaki implementasyonu değiştir.
+2. **Direct swap** (yüksek risk): Tüm `*redis.Client` → yeni client tipi. API farkları büyükse her dosyada ciddi değişiklik.
+3. **Hybrid**: Önce abstraction layer, sonra bir servis (örn. auth rate limiter) üzerinden pilot migration.
+
+**Önerilen sıralama:**
+
+- [x] 1. Benchmark ile go-redis vs rueidis karşılaştırması yap (gerçi proje mevcut load'ta bottleneck mi emin ol).
+- [ ] 2. Eğer fark anlamlıysa: `internal/platform/cache` abstraction layer oluştur.
+- [ ] 3. Pilot olarak `internal/auth/ratelimit.go` ve `internal/mail/smtp.go`'yu migrate et (basit SET/GET/INCR pattern'leri).
+- [ ] 4. `internal/ai/response_cache.go` ve `internal/semantic/composite_cache.go` — client-side caching'den faydalanacak en verimli yerler.
+- [ ] 5. DI entrypoint'leri (`dependencies.go`, `providers.go`, `cmd/*/main.go`) güncelle.
+- [ ] 6. Test altyapısını güncelle (`auth_test.go`, `oauth_exchange_test.go`).
+- [ ] 7. `go.mod`'dan go-redis dependency'sini temizle.
+- [ ] 8. Staging'de load test ile doğrula.
+
+## Sonic JSON Migration Results (2026-06-06)
 
 Resolved:
 

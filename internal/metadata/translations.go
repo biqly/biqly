@@ -7,7 +7,7 @@ import (
 
 	"github.com/biqly/biqly/internal/i18n"
 	platformdb "github.com/biqly/biqly/internal/platform/db"
-	"github.com/lib/pq"
+	"github.com/biqly/biqly/internal/platform/db/pgarray"
 )
 
 // Entity types stored in entity_translations.entity_type.
@@ -67,7 +67,7 @@ func (r *Repository) GetEntityTranslations(
 		  AND lang = ANY($3::text[])
 	`
 	langs := uniqueLangs(string(lang), string(i18n.DefaultLocale))
-	rows, err := r.db.QueryContext(ctx, q, entityType, pq.Array(entityIDs), pq.Array(langs))
+	rows, err := r.db.QueryContext(ctx, q, entityType, pgarray.Strings(entityIDs), pgarray.Strings(langs))
 	if err != nil {
 		return nil, fmt.Errorf("query entity translations: %w", err)
 	}

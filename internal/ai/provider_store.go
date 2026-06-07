@@ -14,8 +14,8 @@ import (
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/config"
 	platformdb "github.com/biqly/biqly/internal/platform/db"
+	"github.com/biqly/biqly/internal/platform/db/pgarray"
 	"github.com/biqly/biqly/internal/security"
-	"github.com/lib/pq"
 )
 
 // Purpose identifies which AI workload a model serves. Each purpose can have at
@@ -318,7 +318,7 @@ func (s *ProviderStore) ActiveModelUUIDsByProviders(ctx context.Context, provide
 		SELECT m.provider_id::text, m.id::text
 		FROM ai_models m JOIN ai_providers p ON p.id = m.provider_id
 		WHERE m.is_active = true AND p.is_active = true AND m.provider_id = ANY($1::uuid[])`
-	rows, err := s.db.QueryContext(ctx, q, pq.Array(providerIDs))
+	rows, err := s.db.QueryContext(ctx, q, pgarray.Strings(providerIDs))
 	if err != nil {
 		return nil, fmt.Errorf("list active models by providers: %w", err)
 	}

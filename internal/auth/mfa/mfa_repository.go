@@ -6,8 +6,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/biqly/biqly/internal/platform/db/pgarray"
 	"github.com/biqly/biqly/internal/security"
-	"github.com/lib/pq"
 )
 
 var ErrMFANotEnrolled = errors.New("mfa not enrolled")
@@ -66,14 +66,14 @@ func (r *Repository) Upsert(ctx context.Context, userID, method, secret string, 
 			verified_at = NULL,
 			updated_at = NOW()
 	`
-	_, err = r.db.ExecContext(ctx, query, userID, method, []byte(encSecret), pq.Array(recoveryHashes))
+	_, err = r.db.ExecContext(ctx, query, userID, method, []byte(encSecret), pgarray.Strings(recoveryHashes))
 	return err
 }
 
 func (r *Repository) Get(ctx context.Context, userID string) (*Enrollment, error) {
 	var enc []byte
-	var codes pq.StringArray
-	var bypassCodes pq.StringArray
+	var codes pgarray.StringArray
+	var bypassCodes pgarray.StringArray
 	var enrol Enrollment
 	var verifiedAt, lastUsedAt sql.NullTime
 	err := r.db.QueryRowContext(ctx, `
@@ -142,7 +142,7 @@ func (r *Repository) ConsumeRecoveryCode(ctx context.Context, userID, hash strin
 func (r *Repository) ReplaceRecoveryCodes(ctx context.Context, userID string, hashes []string) error {
 	_, err := r.db.ExecContext(ctx,
 		`UPDATE user_mfa SET recovery_codes = $2, updated_at = NOW() WHERE user_id = $1`,
-		userID, pq.Array(hashes))
+		userID, pgarray.Strings(hashes))
 	return err
 }
 

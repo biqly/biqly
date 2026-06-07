@@ -8,11 +8,11 @@ import (
 	"time"
 
 	platformdb "github.com/biqly/biqly/internal/platform/db"
+	"github.com/biqly/biqly/internal/platform/db/pgarray"
 	"github.com/biqly/biqly/internal/security"
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 	"golang.org/x/oauth2"
 )
 
@@ -595,7 +595,7 @@ func (r *UserRepository) GetPasskeysByUserID(ctx context.Context, userID string)
 		var signCount int64
 		var aaguidStr sql.NullString
 
-		err = rows.Scan(&credID, &pubKey, &attType, pq.Array(&transports), &signCount, &aaguidStr)
+		err = rows.Scan(&credID, &pubKey, &attType, pgarray.Scan(&transports), &signCount, &aaguidStr)
 		if err != nil {
 			return nil, err
 		}
@@ -657,7 +657,7 @@ func (r *UserRepository) SavePasskey(ctx context.Context, userID string, cred *w
 		cred.ID,
 		cred.PublicKey,
 		cred.AttestationType,
-		pq.Array(transports),
+		pgarray.Strings(transports),
 		int64(cred.Authenticator.SignCount),
 		name,
 		aaguidStr,

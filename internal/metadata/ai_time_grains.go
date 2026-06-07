@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lib/pq"
+	"github.com/biqly/biqly/internal/platform/db/pgarray"
 )
 
 // TimeGrain represents a customizable time grain configuration.
@@ -47,7 +47,7 @@ func (r *Repository) ListTimeGrains(ctx context.Context) ([]TimeGrain, error) {
 			&tg.Grain,
 			&tg.Suffix,
 			&tg.RequiresTime,
-			pq.Array(&tg.Synonyms),
+			pgarray.Scan(&tg.Synonyms),
 			&tg.CreatedAt,
 			&tg.UpdatedAt,
 		)
@@ -71,7 +71,7 @@ func (r *Repository) UpdateTimeGrain(ctx context.Context, tg TimeGrain) error {
 		SET suffix = $2, requires_time = $3, synonyms = $4, updated_at = now()
 		WHERE grain = $1
 	`
-	res, err := r.db.ExecContext(ctx, query, tg.Grain, tg.Suffix, tg.RequiresTime, pq.Array(tg.Synonyms))
+	res, err := r.db.ExecContext(ctx, query, tg.Grain, tg.Suffix, tg.RequiresTime, pgarray.Strings(tg.Synonyms))
 	if err != nil {
 		return fmt.Errorf("update time grain: %w", err)
 	}
@@ -98,7 +98,7 @@ func (r *Repository) UpsertTimeGrain(ctx context.Context, tg TimeGrain) error {
 			synonyms = EXCLUDED.synonyms,
 			updated_at = now()
 	`
-	_, err := r.db.ExecContext(ctx, query, tg.Grain, tg.Suffix, tg.RequiresTime, pq.Array(tg.Synonyms))
+	_, err := r.db.ExecContext(ctx, query, tg.Grain, tg.Suffix, tg.RequiresTime, pgarray.Strings(tg.Synonyms))
 	if err != nil {
 		return fmt.Errorf("upsert time grain: %w", err)
 	}

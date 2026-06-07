@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	platformdb "github.com/biqly/biqly/internal/platform/db"
+	"github.com/biqly/biqly/internal/platform/db/pgarray"
 	pkgquery "github.com/biqly/biqly/pkg/query"
 	"github.com/bytedance/sonic"
-	"github.com/lib/pq"
 )
 
 // Repository handles metadata database operations.
@@ -664,7 +664,7 @@ func (r *Repository) CreateAIQueryHistory(ctx context.Context, entry *AIQueryHis
 		aiResponseJSON,
 		logicalQueryJSON,
 		entry.ConfidenceScore,
-		pq.Array(entry.Warnings),
+		pgarray.Strings(entry.Warnings),
 		outcome,
 		entry.RetryCount,
 		entry.NeedsClarification,
@@ -727,7 +727,7 @@ func scanAIHistoryEntry(s platformdb.Scanner) (AIQueryHistoryEntry, error) {
 	var modelID, userID, outcome, modelUsed sql.NullString
 	var promptCtx, aiResp, logicalQ []byte
 	var confidence, cost sql.NullFloat64
-	var warnings pq.StringArray
+	var warnings pgarray.StringArray
 	var retryCount sql.NullInt64
 	var needsClarification sql.NullBool
 	var promptTokens, completionTokens, tokenCount, latencyMs sql.NullInt64
@@ -845,7 +845,7 @@ func scanPermissionPolicy(s platformdb.Scanner) (PermissionPolicyRecord, error) 
 	var (
 		policy     PermissionPolicyRecord
 		rowFilters []byte
-		denied     pq.StringArray
+		denied     pgarray.StringArray
 	)
 	if err := s.Scan(&denied, &rowFilters); err != nil {
 		return policy, fmt.Errorf("scan permission policy: %w", err)

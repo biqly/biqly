@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bytedance/sonic"
 	platformdb "github.com/biqly/biqly/internal/platform/db"
-	"github.com/lib/pq"
+	"github.com/biqly/biqly/internal/platform/db/pgarray"
+	"github.com/bytedance/sonic"
 )
 
 // ListSecurityPolicies returns all security policy records.
@@ -97,8 +97,8 @@ func (r *Repository) UpsertSecurityPolicy(ctx context.Context, policy *SecurityP
 		policy.ID,
 		policy.UserID,
 		policy.DatasourceID,
-		pq.StringArray(policy.AllowedModels),
-		pq.StringArray(policy.DeniedFields),
+		pgarray.StringArray(policy.AllowedModels),
+		pgarray.StringArray(policy.DeniedFields),
 		rowFiltersJSON,
 		piiPolicyJSON,
 	)
@@ -111,8 +111,8 @@ func (r *Repository) UpsertSecurityPolicy(ctx context.Context, policy *SecurityP
 func scanSecurityPolicy(s platformdb.Scanner) (SecurityPolicy, error) {
 	var (
 		policy     SecurityPolicy
-		allowed    pq.StringArray
-		denied     pq.StringArray
+		allowed    pgarray.StringArray
+		denied     pgarray.StringArray
 		rowFilters []byte
 		piiPolicy  []byte
 	)
