@@ -55,83 +55,6 @@ services:
       - ./testdata/adventureworks:/adventureworks
       - ./scripts/init-adventureworks.sh:/docker-entrypoint-initdb.d/10-adventureworks.sh:ro
 
-  # SQL Server on Linux for local Biqly testing (port 1433).
-  # Default image: Azure SQL Edge — SQL Server engine, native on linux/arm64 and linux/amd64 (incl. Apple Silicon).
-  # Full SQL Server 2022 on x86_64 Linux only: docker compose --profile sqlserver-2022 up -d test-sqlserver-2022 sqlserver-init-2022
-  test-sqlserver:
-    image: mcr.microsoft.com/azure-sql-edge:latest
-    environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Test_password123!}
-      MSSQL_PID: Developer
-    ports:
-      - "1433:1433"
-    volumes:
-      - sqlserver_data:/var/opt/mssql
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pidof sqlservr > /dev/null && bash -c 'echo > /dev/tcp/127.0.0.1/1433'",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 45s
-
-  sqlserver-init:
-    image: mcr.microsoft.com/mssql-tools:latest
-    platform: linux/amd64
-    environment:
-      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Test_password123!}
-      SQL_HOST: test-sqlserver
-    depends_on:
-      test-sqlserver:
-        condition: service_healthy
-    volumes:
-      - ./scripts/init-sqlserver-db.sql:/init.sql:ro
-    entrypoint: ["/bin/bash", "-lc", "/opt/mssql-tools/bin/sqlcmd -S \"$SQL_HOST\" -U sa -P \"$MSSQL_SA_PASSWORD\" -C -i /init.sql"]
-    restart: "no"
-
-  # Optional: Microsoft SQL Server 2022 (linux/amd64 only — Linux CI/VMs, not Apple Silicon).
-  test-sqlserver-2022:
-    profiles: [sqlserver-2022]
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    platform: linux/amd64
-    environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Test_password123!}
-      MSSQL_PID: Developer
-    ports:
-      - "1434:1433"
-    volumes:
-      - sqlserver_2022_data:/var/opt/mssql
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b -o /dev/null || exit 1',
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 60s
-
-  sqlserver-init-2022:
-    profiles: [sqlserver-2022]
-    image: mcr.microsoft.com/mssql-tools:latest
-    platform: linux/amd64
-    environment:
-      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Test_password123!}
-      SQL_HOST: test-sqlserver-2022
-    depends_on:
-      test-sqlserver-2022:
-        condition: service_healthy
-    volumes:
-      - ./scripts/init-sqlserver-db.sql:/init.sql:ro
-    entrypoint: ["/bin/bash", "-lc", "/opt/mssql-tools/bin/sqlcmd -S \"$SQL_HOST\" -U sa -P \"$MSSQL_SA_PASSWORD\" -C -i /init.sql"]
-    restart: "no"
-
   migrate:
     build:
       context: .
@@ -151,16 +74,6 @@ services:
     env_file:
       - path: .env
         required: false
-    environment:
-      BI_HTTP_PORT: 8888
-      BI_METADATA_DB_DSN: postgres://bi_user:bi_password@metadata-db:5432/bi_metadata?sslmode=disable
-      BI_REDIS_DSN: redis://redis:6379
-      BI_QUERY_TIMEOUT_SECONDS: 30
-      BI_QUERY_MAX_ROWS: 10000
-      BI_QUERY_MAX_RUNTIME_SECONDS: 60
-      BI_AUTH_ENABLED: "true"
-      BI_AUTH_SERVICE_URL: http://auth:8889
-      BI_AUTH_INTERNAL_TOKEN: dev-internal-token
     ports:
       - "8888:8888"
     depends_on:
@@ -207,17 +120,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.auth
-    environment:
-      BI_AUTH_PORT: 8889
-      BI_AUTH_DB_DSN: postgres://bi_auth_user:bi_auth_password@auth-db:5432/bi_auth?sslmode=disable
-      BI_AUTH_REDIS_DSN: redis://redis:6379
-      BI_AUTH_INTERNAL_TOKEN: dev-internal-token
-      BI_AUTH_RATE_LIMIT_PER_MINUTE: 60
-      BI_AUTH_WEBAUTHN_RP_ID: localhost
-      BI_AUTH_WEBAUTHN_RP_NAME: Biqly
-      BI_AUTH_WEBAUTHN_RP_ORIGINS: http://localhost:5173,http://localhost:3333
-      BI_AUTH_MAIL_SERVICE_URL: http://mail:8890
-      BI_AUTH_MAIL_INTERNAL_TOKEN: dev-internal-token
+    env_file:
+      - path: .env
+        required: false
     ports:
       - "8889:8889"
     depends_on:
@@ -268,13 +173,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.mail
-    environment:
-      BI_MAIL_PORT: 8890
-      BI_MAIL_DB_DSN: postgres://bi_mail_user:bi_mail_password@mail-db:5432/bi_mail?sslmode=disable
-      BI_MAIL_REDIS_DSN: redis://redis:6379
-      BI_MAIL_INTERNAL_TOKEN: dev-internal-token
-      BI_MAIL_FRONTEND_BASE_URL: http://localhost:3333
-      BI_MAIL_EMAIL_DEFAULT_LOCALE: en
+    env_file:
+      - path: .env
+        required: false
     ports:
       - "8890:8890"
     depends_on:
@@ -300,7 +201,5 @@ services:
 volumes:
   metadata_data:
   test_data:
-  sqlserver_data:
-  sqlserver_2022_data:
   auth_data:
   mail_data:
