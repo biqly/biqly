@@ -86,9 +86,12 @@ export async function fetchJSON<T>(
     if (!headers.has('X-Locale')) {
       headers.set('X-Locale', getLocale())
     }
-    // Precedence: explicit per-call token > admin API key > session token.
+    // Precedence: explicit per-call token > session token > admin API key.
+    // A logged-in user's own JWT wins over the shared admin key so requests
+    // carry a real identity (audit, RBAC); the key remains the fallback for
+    // sessions-less contexts.
     const bearer =
-      init?.token || (init?.useAdminKey ? resolveAdminApiKey() : '') || globalAccessToken
+      init?.token || globalAccessToken || (init?.useAdminKey ? resolveAdminApiKey() : '')
     if (bearer) {
       headers.set('Authorization', `Bearer ${bearer}`)
     }

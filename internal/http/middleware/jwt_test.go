@@ -424,7 +424,7 @@ func TestJWTAuthWithAdminBypass_AdminKeyBypasses(t *testing.T) {
 
 	adminKey := "s3cret-admin-api-key"
 	provider := NewPublicKeyProvider(srv.URL, "tok")
-	mw := JWTAuthWithAdminBypass(provider, adminKey)
+	mw := JWTAuthWithAdminBypass(provider, []string{adminKey})
 
 	// Case 1: Authorization: Bearer <adminKey>
 	var gotUserID string
@@ -488,6 +488,40 @@ func TestJWTAuthWithAdminBypass_AdminKeyBypasses(t *testing.T) {
 	}
 }
 
+// TestJWTAuthWithAdminBypass_SecondKeyAccepted pins that every configured key
+// is a valid bypass credential — BI_API_KEY and BI_ADMIN_API_KEY gate
+// different layers but both must pass the JWT-enforcement edge. Empty entries
+// (an unset key) must not allow empty credentials through.
+func TestJWTAuthWithAdminBypass_SecondKeyAccepted(t *testing.T) {
+	_, pub := newSigningKey(t)
+	srv := newKeyServer(t, pub, "biqly")
+	defer srv.Close()
+
+	provider := NewPublicKeyProvider(srv.URL, "tok")
+	mw := JWTAuthWithAdminBypass(provider, []string{"", "admin-only-key"})
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+	req.Header.Set("Authorization", "Bearer admin-only-key")
+	w := httptest.NewRecorder()
+	mw(handler).ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("second key: expected 200, got %d", w.Code)
+	}
+
+	// The blank first entry must not be matchable.
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+	req.Header.Set("X-API-Key", "")
+	w = httptest.NewRecorder()
+	mw(handler).ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("empty credential: expected 401, got %d", w.Code)
+	}
+}
+
 func TestJWTAuthWithAdminBypass_FallbackToJWT(t *testing.T) {
 	priv, pub := newSigningKey(t)
 	srv := newKeyServer(t, pub, "biqly")
@@ -508,7 +542,7 @@ func TestJWTAuthWithAdminBypass_FallbackToJWT(t *testing.T) {
 	})
 
 	provider := NewPublicKeyProvider(srv.URL, "tok")
-	mw := JWTAuthWithAdminBypass(provider, "s3cret-admin-api-key")
+	mw := JWTAuthWithAdminBypass(provider, []string{"s3cret-admin-api-key"})
 
 	var gotUserID string
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

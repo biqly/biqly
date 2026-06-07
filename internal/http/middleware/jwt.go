@@ -157,12 +157,31 @@ func JWTAuth(provider *PublicKeyProvider, bypassPaths ...string) func(http.Handl
 	}
 }
 
+// matchesAnyKey reports whether provided constant-time-matches any accepted key.
+func matchesAnyKey(provided []byte, keys [][]byte) bool {
+	if len(provided) == 0 {
+		return false
+	}
+	for _, key := range keys {
+		if subtle.ConstantTimeCompare(provided, key) == 1 {
+			return true
+		}
+	}
+	return false
+}
+
 // JWTAuthWithAdminBypass verifies the Bearer JWT against the auth service's public key,
-// but also allows a request carrying a valid admin API key matching adminKey.
-// When the admin key matches, context is populated with UserID = "admin", UserRoles = []string{RoleSuperAdmin},
+// but also allows a request carrying a valid API key matching any of adminKeys
+// (e.g. BI_API_KEY and BI_ADMIN_API_KEY — distinct keys gating different layers).
+// When a key matches, context is populated with UserID = "admin", UserRoles = []string{RoleSuperAdmin},
 // and EmailVerified = true, which bypasses downstream permission/datasource checks.
-func JWTAuthWithAdminBypass(provider *PublicKeyProvider, adminKey string, bypassPaths ...string) func(http.Handler) http.Handler {
-	expected := []byte(strings.TrimSpace(adminKey))
+func JWTAuthWithAdminBypass(provider *PublicKeyProvider, adminKeys []string, bypassPaths ...string) func(http.Handler) http.Handler {
+	expected := make([][]byte, 0, len(adminKeys))
+	for _, k := range adminKeys {
+		if k = strings.TrimSpace(k); k != "" {
+			expected = append(expected, []byte(k))
+		}
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			for _, p := range bypassPaths {
@@ -172,9 +191,8 @@ func JWTAuthWithAdminBypass(provider *PublicKeyProvider, adminKey string, bypass
 				}
 			}
 
-			// Check if the request presents the admin API key.
-			provided := extractAPIKey(r)
-			if len(expected) > 0 && len(provided) > 0 && subtle.ConstantTimeCompare(provided, expected) == 1 {
+			// Check if the request presents one of the accepted API keys.
+			if matchesAnyKey(extractAPIKey(r), expected) {
 				ctx := context.WithValue(r.Context(), UserIDKey, "admin")
 				ctx = context.WithValue(ctx, UserRolesKey, []string{RoleSuperAdmin})
 				ctx = context.WithValue(ctx, EmailVerifiedKey, true)
