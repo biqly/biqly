@@ -36,12 +36,28 @@ func DefaultPasswordPolicy() PasswordPolicy {
 
 const specialChars = "!@#$%^&*()_+-=[]{}|;:',.<>/?~`\" \t"
 
-// Validate returns nil when the password satisfies all configured rules and the
-// optional identityFields contributors (email, username, display name) are not
-// embedded within it. identityFields entries are matched case-insensitively
-// after stripping non-alphanumerics — both as substrings of the password and
-// as prefixes — to catch trivial composes like "alice2024!".
-func (p PasswordPolicy) Validate(password string, identityFields ...string) error {
+type passwordCharClasses struct {
+	upper, lower, digit, special bool
+}
+
+func classifyPasswordChars(password string) passwordCharClasses {
+	var classes passwordCharClasses
+	for _, char := range password {
+		switch {
+		case unicode.IsUpper(char):
+			classes.upper = true
+		case unicode.IsLower(char):
+			classes.lower = true
+		case unicode.IsDigit(char):
+			classes.digit = true
+		case strings.ContainsRune(specialChars, char) || unicode.IsPunct(char) || unicode.IsSymbol(char):
+			classes.special = true
+		}
+	}
+	return classes
+}
+
+func (p PasswordPolicy) validatePasswordLength(password string) error {
 	length := utf8.RuneCountInString(password)
 	if length < p.MinLength {
 		return fmt.Errorf("password must be at least %d characters long", p.MinLength)
@@ -49,34 +65,26 @@ func (p PasswordPolicy) Validate(password string, identityFields ...string) erro
 	if p.MaxLength > 0 && len(password) > p.MaxLength {
 		return fmt.Errorf("password must be at most %d bytes long", p.MaxLength)
 	}
+	return nil
+}
 
-	var hasUpper, hasLower, hasDigit, hasSpecial bool
-	for _, char := range password {
-		switch {
-		case unicode.IsUpper(char):
-			hasUpper = true
-		case unicode.IsLower(char):
-			hasLower = true
-		case unicode.IsDigit(char):
-			hasDigit = true
-		case strings.ContainsRune(specialChars, char) || unicode.IsPunct(char) || unicode.IsSymbol(char):
-			hasSpecial = true
-		}
-	}
-
-	if p.RequireUpper && !hasUpper {
+func (p PasswordPolicy) validateRequiredCharClasses(classes passwordCharClasses) error {
+	if p.RequireUpper && !classes.upper {
 		return errors.New("password must contain at least one uppercase letter")
 	}
-	if p.RequireLower && !hasLower {
+	if p.RequireLower && !classes.lower {
 		return errors.New("password must contain at least one lowercase letter")
 	}
-	if p.RequireDigit && !hasDigit {
+	if p.RequireDigit && !classes.digit {
 		return errors.New("password must contain at least one digit")
 	}
-	if p.RequireSpecial && !hasSpecial {
+	if p.RequireSpecial && !classes.special {
 		return errors.New("password must contain at least one special character")
 	}
+	return nil
+}
 
+func validatePasswordIdentityFields(password string, identityFields []string) error {
 	normalized := normalizePassword(password)
 	for _, field := range identityFields {
 		token := normalizePassword(field)
@@ -89,18 +97,35 @@ func (p PasswordPolicy) Validate(password string, identityFields ...string) erro
 			return errors.New("password must not contain your email or name")
 		}
 	}
+	return nil
+}
 
+func (p PasswordPolicy) validatePasswordStrength(password string) error {
 	if IsCommonPassword(password) {
 		return errors.New("password is too common; please choose a less guessable one")
 	}
-
-	if p.MinScore > 0 {
-		score := PasswordScore(password)
-		if score < p.MinScore {
-			return errors.New("password is not strong enough; try a longer passphrase with more variety")
-		}
+	if p.MinScore > 0 && PasswordScore(password) < p.MinScore {
+		return errors.New("password is not strong enough; try a longer passphrase with more variety")
 	}
 	return nil
+}
+
+// Validate returns nil when the password satisfies all configured rules and the
+// optional identityFields contributors (email, username, display name) are not
+// embedded within it. identityFields entries are matched case-insensitively
+// after stripping non-alphanumerics — both as substrings of the password and
+// as prefixes — to catch trivial composes like "alice2024!".
+func (p PasswordPolicy) Validate(password string, identityFields ...string) error {
+	if err := p.validatePasswordLength(password); err != nil {
+		return err
+	}
+	if err := p.validateRequiredCharClasses(classifyPasswordChars(password)); err != nil {
+		return err
+	}
+	if err := validatePasswordIdentityFields(password, identityFields); err != nil {
+		return err
+	}
+	return p.validatePasswordStrength(password)
 }
 
 // PasswordScore returns a 0..4 strength bucket using a lightweight heuristic

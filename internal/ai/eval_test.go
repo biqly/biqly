@@ -96,13 +96,17 @@ func TestGoldenEvalAgainstLiveLLM(t *testing.T) {
 		t.Skip("set BI_AI_GOLDEN_EVAL=1 to run live LLM golden evaluation")
 	}
 	cfg := config.AIConfig{
-		Provider:    os.Getenv("BI_AI_PROVIDER"),
-		APIKey:      os.Getenv("BI_AI_API_KEY"),
-		BaseURL:     os.Getenv("BI_AI_BASE_URL"),
-		Model:       os.Getenv("BI_AI_MODEL"),
-		MaxTokens:   2048,
-		Temperature: 0.0,
-		MaxRetries:  1,
+		Connection: config.AIConnectionConfig{
+			Provider: os.Getenv("BI_AI_PROVIDER"),
+			APIKey:   os.Getenv("BI_AI_API_KEY"),
+			BaseURL:  os.Getenv("BI_AI_BASE_URL"),
+			Model:    os.Getenv("BI_AI_MODEL"),
+		},
+		Generation: config.AIGenerationConfig{
+			MaxTokens:   2048,
+			Temperature: 0.0,
+			MaxRetries:  1,
+		},
 	}
 	if !cfg.QueryLLMConfigured() {
 		t.Skip("BI_AI_MODEL and BI_AI_API_KEY (or BI_AI_BASE_URL for keyless local LLM) are required for live golden eval")

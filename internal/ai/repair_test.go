@@ -19,7 +19,10 @@ func TestProcessQuestionRepairLoop(t *testing.T) {
 	}
 	client := &scriptedProvider{replies: replies}
 
-	cfg := config.AIConfig{Provider: "test", Model: "test", MaxRetries: 2}
+	cfg := config.AIConfig{
+		Connection: config.AIConnectionConfig{Provider: "test", Model: "test"},
+		Generation: config.AIGenerationConfig{MaxRetries: 2},
+	}
 	svc := NewServiceWithProvider(&cfg, query.NewValidator(100), client)
 
 	model := &semantic.SemanticModel{

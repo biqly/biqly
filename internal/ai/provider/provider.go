@@ -23,12 +23,12 @@ type Provider interface {
 // NewProvider returns a Provider for the configured backend. Unknown providers
 // are an error so callers fail fast at startup rather than mid-request.
 func NewProvider(cfg config.AIConfig) (Provider, error) {
-	switch strings.ToLower(strings.TrimSpace(cfg.Provider)) {
+	switch strings.ToLower(strings.TrimSpace(cfg.Connection.Provider)) {
 	case "", "openai", "openai-compatible":
 		return NewClient(cfg), nil
 	case "anthropic":
 		return NewAnthropicProvider(cfg), nil
 	default:
-		return nil, fmt.Errorf("unsupported AI provider %q (supported: openai, openai-compatible, anthropic)", cfg.Provider)
+		return nil, fmt.Errorf("unsupported AI provider %q (supported: openai, openai-compatible, anthropic)", cfg.Connection.Provider)
 	}
 }

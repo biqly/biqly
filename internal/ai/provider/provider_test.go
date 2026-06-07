@@ -21,7 +21,13 @@ func TestNewProviderRoutesByName(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			p, err := NewProvider(config.AIConfig{Provider: c.provider, APIKey: "x", Model: "m"})
+			p, err := NewProvider(config.AIConfig{
+				Connection: config.AIConnectionConfig{
+					Provider: c.provider,
+					APIKey:   "x",
+					Model:    "m",
+				},
+			})
 			if err != nil {
 				t.Fatalf("NewProvider(%q) error = %v, want nil", c.provider, err)
 			}
@@ -35,7 +41,9 @@ func TestNewProviderRoutesByName(t *testing.T) {
 }
 
 func TestNewProviderRejectsUnknown(t *testing.T) {
-	if _, err := NewProvider(config.AIConfig{Provider: "cohere"}); err == nil {
+	if _, err := NewProvider(config.AIConfig{
+		Connection: config.AIConnectionConfig{Provider: "cohere"},
+	}); err == nil {
 		t.Errorf("expected error for unsupported provider, got nil")
 	}
 }

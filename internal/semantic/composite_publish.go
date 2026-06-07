@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/bytedance/sonic"
 
@@ -91,105 +90,27 @@ func resolveComponents(ctx context.Context, composite *CompositeModel, provider 
 
 // ValidateComposite checks whether a draft composite model can be published.
 // Errors block publish; warnings describe risky but valid configurations.
-//
-//nolint:gocognit
 func ValidateComposite(ctx context.Context, composite *CompositeModel, provider ComponentProvider) (*SemanticModel, PublishValidationResult) {
-	result := PublishValidationResult{Valid: true}
-	addError := func(format string, args ...any) {
-		result.Errors = append(result.Errors, fmt.Sprintf(format, args...))
-		result.Valid = false
-	}
-	addWarning := func(format string, args ...any) {
-		result.Warnings = append(result.Warnings, fmt.Sprintf(format, args...))
-	}
+	sink := newValidationSink()
+	validateCompositeMetadata(composite, sink.addError)
 
-	if strings.TrimSpace(composite.Name) == "" {
-		addError("composite name is required")
-	}
-	if len(composite.Components) < 2 {
-		addError("composite model requires at least two component models")
-	}
-
-	primaryCount := 0
-	aliases := make(map[string]bool, len(composite.Components))
-	for _, comp := range composite.Components {
-		if aliases[comp.Alias] {
-			addError("duplicate component alias %q", comp.Alias)
-		}
-		aliases[comp.Alias] = true
-		if comp.Role == ComponentRolePrimary {
-			primaryCount++
-		}
-	}
-	if primaryCount == 0 {
-		addError("composite model requires exactly one primary component; none found")
-	}
-	if primaryCount > 1 {
-		addError("composite model requires exactly one primary component; found %d", primaryCount)
-	}
+	aliases := validateCompositeComponentLayout(composite, sink.addError)
 
 	components, compResult := resolveComponents(ctx, composite, provider)
-	result.Errors = append(result.Errors, compResult.Errors...)
-	if !compResult.Valid {
-		result.Valid = false
+	sink.merge(compResult)
+
+	validateCompositeCrossJoins(composite, aliases, components, sink.addError)
+	validateCompositeCanonicalDate(composite, aliases, components, sink.addError, sink.addWarning)
+
+	if !sink.result.Valid {
+		return nil, sink.finish()
 	}
 
-	for _, j := range composite.CrossModelJoins {
-		if !j.IsActive {
-			continue
-		}
-		if !aliases[j.FromModel] {
-			addError("cross join %q references unknown alias %q", j.Name, j.FromModel)
-		}
-		if !aliases[j.ToModel] {
-			addError("cross join %q references unknown alias %q", j.Name, j.ToModel)
-		}
-		if from, ok := components[j.FromModel]; ok && !dimensionExists(from, j.FromDimension) {
-			addError("cross join %q references unknown dimension %q on %q", j.Name, j.FromDimension, j.FromModel)
-		}
-		if to, ok := components[j.ToModel]; ok && !dimensionExists(to, j.ToDimension) {
-			addError("cross join %q references unknown dimension %q on %q", j.Name, j.ToDimension, j.ToModel)
-		}
+	resolved, ok := validateCompositeResolution(composite, components, &sink)
+	if !ok {
+		return nil, sink.finish()
 	}
-
-	if composite.CanonicalDate != nil {
-		ref := composite.CanonicalDate
-		if !aliases[ref.ModelAlias] {
-			addError("canonical date references unknown alias %q", ref.ModelAlias)
-		} else if model, ok := components[ref.ModelAlias]; ok && !dimensionExists(model, ref.DimensionName) {
-			addError("canonical date references unknown dimension %q on %q", ref.DimensionName, ref.ModelAlias)
-		}
-	} else {
-		addWarning("no canonical date defined; cross-domain time filtering may be ambiguous")
-	}
-
-	if !result.Valid {
-		return nil, result
-	}
-
-	resolver := NewCompositeResolver()
-	resolved, err := resolver.Resolve(composite, components)
-	if err != nil {
-		addError("resolve composite: %s", err)
-		return nil, result
-	}
-
-	graph := BuildMetricGraph(composite, resolved)
-	if err := DetectCircularDependencies(graph); err != nil {
-		addError("metric dependency: %s", err)
-	}
-
-	for _, j := range activeCrossJoins(composite.CrossModelJoins) {
-		switch j.Relationship {
-		case RelationshipManyToMany:
-			addWarning("cross join %q is many_to_many; aggregated metrics may fan out and double-count", j.Name)
-		case RelationshipOneToMany:
-			addWarning("cross join %q is one_to_many; verify metric grain to avoid fanout", j.Name)
-		}
-	}
-
-	result.EstimatedPromptSize = estimatePromptSize(*resolved)
-	return resolved, result
+	return resolved, sink.finish()
 }
 
 func dimensionExists(model *SemanticModel, name string) bool {

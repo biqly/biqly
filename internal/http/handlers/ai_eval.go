@@ -224,8 +224,8 @@ func (h *AIHandler) EvalRun(w http.ResponseWriter, r *http.Request) {
 	if h.deps.EvalRepo != nil {
 		runID := uuid.New().String()
 		ctx := r.Context()
-		model := h.deps.Config.AI.Model
-		provider := h.deps.Config.AI.Provider
+		model := h.deps.Config.AI.Connection.Model
+		provider := h.deps.Config.AI.Connection.Provider
 		if provider == "" {
 			provider = "openai-compatible"
 		}

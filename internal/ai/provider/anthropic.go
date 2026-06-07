@@ -23,17 +23,19 @@ type AnthropicProvider struct {
 
 // NewAnthropicProvider configures the Anthropic adapter from AIConfig.
 func NewAnthropicProvider(cfg config.AIConfig) *AnthropicProvider {
-	baseURL := cfg.BaseURL
+	conn := cfg.Connection
+	gen := cfg.Generation
+	baseURL := conn.BaseURL
 	if baseURL == "" {
 		baseURL = anthropicDefaultBaseURL
 	}
-	http := newHTTPProvider(cfg.AIHTTPTimeout(), baseURL, cfg.APIKey)
+	http := newHTTPProvider(cfg.AIHTTPTimeout(), baseURL, conn.APIKey)
 	return &AnthropicProvider{
 		base: baseProvider{
 			http:        http,
-			model:       cfg.Model,
-			maxTokens:   cfg.MaxTokens,
-			temperature: cfg.Temperature,
+			model:       conn.Model,
+			maxTokens:   gen.MaxTokens,
+			temperature: gen.Temperature,
 			logName:     "anthropic",
 			hooks: providerHooks{
 				path: "/messages",
@@ -43,7 +45,7 @@ func NewAnthropicProvider(cfg config.AIConfig) *AnthropicProvider {
 						"anthropic-version": anthropicAPIVersion,
 					}
 				},
-				marshal: marshalAnthropicRequest(cfg.Model, cfg.MaxTokens),
+				marshal: marshalAnthropicRequest(conn.Model, gen.MaxTokens),
 				parse:   parseAnthropicResponse,
 			},
 		},

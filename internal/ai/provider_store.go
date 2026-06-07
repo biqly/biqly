@@ -219,9 +219,9 @@ func (s *ProviderStore) ModelLabelForPurpose(p Purpose) string {
 	}
 	switch p {
 	case PurposeQuery:
-		return s.fallback.EffectiveQueryConfig().Model
+		return s.fallback.EffectiveQueryConfig().Connection.Model
 	case PurposeDescribe, PurposeJudge:
-		if m := strings.TrimSpace(s.fallback.Model); m != "" {
+		if m := strings.TrimSpace(s.fallback.Connection.Model); m != "" {
 			return m
 		}
 	case PurposeEmbedding:
@@ -233,7 +233,7 @@ func (s *ProviderStore) ModelLabelForPurpose(p Purpose) string {
 			return m
 		}
 	}
-	return s.fallback.EffectiveQueryConfig().Model
+	return s.fallback.EffectiveQueryConfig().Connection.Model
 }
 
 // ChatConfigForModelUUID loads a single active model row by its metadata UUID.
@@ -274,21 +274,21 @@ func (s *ProviderStore) ChatConfigForModelUUID(ctx context.Context, modelUUID st
 
 func (s *ProviderStore) chatConfigFromResolved(rm *resolvedModel) config.AIConfig {
 	cfg := s.fallback
-	cfg.Provider = rm.ProviderType
-	cfg.Model = rm.ModelID
-	cfg.BaseURL = rm.BaseURL
-	cfg.APIKey = rm.APIKey
+	cfg.Connection.Provider = rm.ProviderType
+	cfg.Connection.Model = rm.ModelID
+	cfg.Connection.BaseURL = rm.BaseURL
+	cfg.Connection.APIKey = rm.APIKey
 	if rm.MaxTokens > 0 {
-		cfg.MaxTokens = rm.MaxTokens
+		cfg.Generation.MaxTokens = rm.MaxTokens
 	}
-	cfg.Temperature = rm.Temperature
-	cfg.TopP = rm.TopP
-	cfg.NumCtx = rm.NumCtx
+	cfg.Generation.Temperature = rm.Temperature
+	cfg.Generation.TopP = rm.TopP
+	cfg.Generation.NumCtx = rm.NumCtx
 	if rm.HTTPTimeoutSeconds > 0 {
-		cfg.HTTPTimeoutSeconds = rm.HTTPTimeoutSeconds
+		cfg.Connection.HTTPTimeoutSeconds = rm.HTTPTimeoutSeconds
 	}
 	if rm.MaxPromptInputRunes > 0 {
-		cfg.MaxPromptInputRunes = rm.MaxPromptInputRunes
+		cfg.Generation.MaxPromptInputRunes = rm.MaxPromptInputRunes
 	}
 	cfg.Query.Provider, cfg.Query.Model, cfg.Query.BaseURL, cfg.Query.APIKey = "", "", "", ""
 	cfg.Query.HTTPTimeoutSeconds = 0
@@ -908,12 +908,12 @@ func (s *ProviderStore) TestConnection(ctx context.Context, providerID, modelID 
 	}
 
 	cfg := s.fallback
-	cfg.Provider = prov.ProviderType
-	cfg.BaseURL = prov.BaseURL
-	cfg.APIKey = apiKey
-	cfg.Model = modelID
-	cfg.MaxTokens = 16
-	cfg.HTTPTimeoutSeconds = 30
+	cfg.Connection.Provider = prov.ProviderType
+	cfg.Connection.BaseURL = prov.BaseURL
+	cfg.Connection.APIKey = apiKey
+	cfg.Connection.Model = modelID
+	cfg.Generation.MaxTokens = 16
+	cfg.Connection.HTTPTimeoutSeconds = 30
 	cfg.Query.Provider, cfg.Query.Model, cfg.Query.BaseURL, cfg.Query.APIKey = "", "", "", ""
 
 	p, err := providerpkg.NewProvider(cfg)

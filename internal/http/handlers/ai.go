@@ -93,7 +93,7 @@ func (h *AIHandler) queryModelUsedLabel() string {
 	if h.deps.AIProviderStore != nil {
 		return h.deps.AIProviderStore.ModelLabelForPurpose(ai.PurposeQuery)
 	}
-	return h.deps.Config.AI.EffectiveQueryConfig().Model
+	return h.deps.Config.AI.EffectiveQueryConfig().Connection.Model
 }
 
 type aiQueryRequest struct {

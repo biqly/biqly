@@ -5,36 +5,75 @@ import (
 	"time"
 )
 
+func conn(fields ...any) AIConnectionConfig {
+	c := AIConnectionConfig{}
+	for i := 0; i+1 < len(fields); i += 2 {
+		k, ok := fields[i].(string)
+		if !ok {
+			continue
+		}
+		switch k {
+		case "provider":
+			if v, ok := fields[i+1].(string); ok {
+				c.Provider = v
+			}
+		case "api_key":
+			if v, ok := fields[i+1].(string); ok {
+				c.APIKey = v
+			}
+		case "base_url":
+			if v, ok := fields[i+1].(string); ok {
+				c.BaseURL = v
+			}
+		case "model":
+			if v, ok := fields[i+1].(string); ok {
+				c.Model = v
+			}
+		case "http_timeout":
+			if v, ok := fields[i+1].(int); ok {
+				c.HTTPTimeoutSeconds = v
+			}
+		}
+	}
+	return c
+}
+
 func TestAIConfig_EffectiveEmbeddingAPIKey(t *testing.T) {
-	c := AIConfig{APIKey: "main", Embedding: EmbeddingConfig{APIKey: "  emb  "}}
+	c := AIConfig{
+		Connection: conn("api_key", "main"),
+		Embedding:  EmbeddingConfig{APIKey: "  emb  "},
+	}
 	if got := c.EffectiveEmbeddingAPIKey(); got != "emb" {
 		t.Fatalf("want dedicated trimmed key, got %q", got)
 	}
-	c2 := AIConfig{APIKey: "only"}
+	c2 := AIConfig{Connection: conn("api_key", "only")}
 	if got := c2.EffectiveEmbeddingAPIKey(); got != "only" {
 		t.Fatalf("want fallback to main, got %q", got)
 	}
 }
 
 func TestAIConfig_AIHTTPTimeout(t *testing.T) {
-	c := AIConfig{HTTPTimeoutSeconds: 12}
+	c := AIConfig{Connection: AIConnectionConfig{HTTPTimeoutSeconds: 12}}
 	if got := c.AIHTTPTimeout(); got != 12*time.Second {
 		t.Fatalf("configured timeout: got %s", got)
 	}
 	if got := (AIConfig{}).AIHTTPTimeout(); got != 300*time.Second {
 		t.Fatalf("default timeout: got %s", got)
 	}
-	if got := (AIConfig{HTTPTimeoutSeconds: -1}).AIHTTPTimeout(); got != 300*time.Second {
+	if got := (AIConfig{Connection: AIConnectionConfig{HTTPTimeoutSeconds: -1}}).AIHTTPTimeout(); got != 300*time.Second {
 		t.Fatalf("non-positive timeout should default: got %s", got)
 	}
 }
 
 func TestAIConfig_EmbeddingHTTPTimeout(t *testing.T) {
-	c := AIConfig{HTTPTimeoutSeconds: 12, Embedding: EmbeddingConfig{HTTPTimeoutSeconds: 45}}
+	c := AIConfig{
+		Connection: AIConnectionConfig{HTTPTimeoutSeconds: 12},
+		Embedding:  EmbeddingConfig{HTTPTimeoutSeconds: 45},
+	}
 	if got := c.EmbeddingHTTPTimeout(); got != 45*time.Second {
 		t.Fatalf("configured embedding timeout: got %s", got)
 	}
-	fallback := AIConfig{HTTPTimeoutSeconds: 12}
+	fallback := AIConfig{Connection: AIConnectionConfig{HTTPTimeoutSeconds: 12}}
 	if got := fallback.EmbeddingHTTPTimeout(); got != 12*time.Second {
 		t.Fatalf("embedding timeout should fall back to AI timeout: got %s", got)
 	}
@@ -44,11 +83,14 @@ func TestAIConfig_EmbeddingHTTPTimeout(t *testing.T) {
 }
 
 func TestAIConfig_TranslationHTTPTimeout(t *testing.T) {
-	c := AIConfig{HTTPTimeoutSeconds: 12, Translation: TranslationConfig{HTTPTimeoutSeconds: 45}}
+	c := AIConfig{
+		Connection:  AIConnectionConfig{HTTPTimeoutSeconds: 12},
+		Translation: TranslationConfig{HTTPTimeoutSeconds: 45},
+	}
 	if got := c.TranslationHTTPTimeout(); got != 45*time.Second {
 		t.Fatalf("configured translation timeout: got %s", got)
 	}
-	fallback := AIConfig{HTTPTimeoutSeconds: 12}
+	fallback := AIConfig{Connection: AIConnectionConfig{HTTPTimeoutSeconds: 12}}
 	if got := fallback.TranslationHTTPTimeout(); got != 12*time.Second {
 		t.Fatalf("translation timeout should fall back to AI timeout: got %s", got)
 	}
@@ -58,11 +100,15 @@ func TestAIConfig_TranslationHTTPTimeout(t *testing.T) {
 }
 
 func TestAIConfig_AIRequestTimeout(t *testing.T) {
-	c := AIConfig{HTTPTimeoutSeconds: 12, Embedding: EmbeddingConfig{HTTPTimeoutSeconds: 45}, Translation: TranslationConfig{HTTPTimeoutSeconds: 60}}
+	c := AIConfig{
+		Connection:  AIConnectionConfig{HTTPTimeoutSeconds: 12},
+		Embedding:   EmbeddingConfig{HTTPTimeoutSeconds: 45},
+		Translation: TranslationConfig{HTTPTimeoutSeconds: 60},
+	}
 	if got := c.AIRequestTimeout(); got != 90*time.Second {
 		t.Fatalf("request timeout should include the largest AI subrequest timeout plus buffer: got %s", got)
 	}
-	chatOnly := AIConfig{HTTPTimeoutSeconds: 12}
+	chatOnly := AIConfig{Connection: AIConnectionConfig{HTTPTimeoutSeconds: 12}}
 	if got := chatOnly.AIRequestTimeout(); got != 42*time.Second {
 		t.Fatalf("request timeout should include chat timeout plus buffer: got %s", got)
 	}
@@ -70,8 +116,7 @@ func TestAIConfig_AIRequestTimeout(t *testing.T) {
 
 func TestAIConfig_EffectiveTranslationConfig(t *testing.T) {
 	c := AIConfig{
-		APIKey:  "main",
-		BaseURL: "https://chat.example/v1/",
+		Connection: conn("api_key", "main", "base_url", "https://chat.example/v1/"),
 		Translation: TranslationConfig{
 			Model:   "translategemma:4b",
 			BaseURL: "https://translate.example/v1/",
@@ -88,7 +133,10 @@ func TestAIConfig_EffectiveTranslationConfig(t *testing.T) {
 		t.Fatal("translation model plus base URL should enable translation")
 	}
 
-	fallback := AIConfig{APIKey: "main", BaseURL: "https://chat.example/v1", Translation: TranslationConfig{Model: "x"}}
+	fallback := AIConfig{
+		Connection:  conn("api_key", "main", "base_url", "https://chat.example/v1"),
+		Translation: TranslationConfig{Model: "x"},
+	}
 	if got := fallback.EffectiveTranslationAPIKey(); got != "main" {
 		t.Fatalf("want main key fallback, got %q", got)
 	}
@@ -109,11 +157,11 @@ func TestAIConfig_EffectiveEmbeddingBaseURL(t *testing.T) {
 	if got := c.EffectiveEmbeddingBaseURL(); got != "https://embed.example/v1" {
 		t.Fatalf("trim: got %q", got)
 	}
-	c2 := AIConfig{BaseURL: "https://chat.example/v1", Provider: "openai"}
+	c2 := AIConfig{Connection: conn("base_url", "https://chat.example/v1", "provider", "openai")}
 	if got := c2.EffectiveEmbeddingBaseURL(); got != "https://chat.example/v1" {
 		t.Fatalf("fallback to BaseURL: got %q", got)
 	}
-	c3 := AIConfig{Provider: "openai"}
+	c3 := AIConfig{Connection: conn("provider", "openai")}
 	if got := c3.EffectiveEmbeddingBaseURL(); got != "https://api.openai.com/v1" {
 		t.Fatalf("openai default: got %q", got)
 	}
@@ -121,16 +169,18 @@ func TestAIConfig_EffectiveEmbeddingBaseURL(t *testing.T) {
 
 func TestAIConfig_EffectiveQueryConfigOverrides(t *testing.T) {
 	base := AIConfig{
-		Provider:           "openai-compatible",
-		APIKey:             "ollama",
-		BaseURL:            "http://local/v1",
-		Model:              "gemma4:e4b",
-		HTTPTimeoutSeconds: 300,
+		Connection: conn(
+			"provider", "openai-compatible",
+			"api_key", "ollama",
+			"base_url", "http://local/v1",
+			"model", "gemma4:e4b",
+			"http_timeout", 300,
+		),
 	}
 	t.Run("no overrides reuses base", func(t *testing.T) {
 		got := base.EffectiveQueryConfig()
-		if got.Model != "gemma4:e4b" || got.BaseURL != "http://local/v1" || got.APIKey != "ollama" {
-			t.Errorf("expected base fields preserved, got %+v", got)
+		if got.Connection.Model != "gemma4:e4b" || got.Connection.BaseURL != "http://local/v1" || got.Connection.APIKey != "ollama" {
+			t.Errorf("expected base fields preserved, got %+v", got.Connection)
 		}
 		if base.HasQueryOverride() {
 			t.Error("HasQueryOverride should be false for empty overrides")
@@ -144,11 +194,11 @@ func TestAIConfig_EffectiveQueryConfigOverrides(t *testing.T) {
 			t.Error("HasQueryOverride should be true when QueryModel set")
 		}
 		got := c.EffectiveQueryConfig()
-		if got.Model != "gpt-4o" {
-			t.Errorf("model not overridden: %q", got.Model)
+		if got.Connection.Model != "gpt-4o" {
+			t.Errorf("model not overridden: %q", got.Connection.Model)
 		}
-		if got.BaseURL != base.BaseURL {
-			t.Errorf("base URL must fall back when not overridden: %q", got.BaseURL)
+		if got.Connection.BaseURL != base.Connection.BaseURL {
+			t.Errorf("base URL must fall back when not overridden: %q", got.Connection.BaseURL)
 		}
 	})
 
@@ -160,8 +210,9 @@ func TestAIConfig_EffectiveQueryConfigOverrides(t *testing.T) {
 		c.Query.APIKey = "sk-xxx"
 		c.Query.HTTPTimeoutSeconds = 60
 		got := c.EffectiveQueryConfig()
-		if got.Provider != "openai" || got.Model != "gpt-4o" || got.BaseURL != "https://api.openai.com/v1" || got.APIKey != "sk-xxx" || got.HTTPTimeoutSeconds != 60 {
-			t.Errorf("expected full override, got %+v", got)
+		conn := got.Connection
+		if conn.Provider != "openai" || conn.Model != "gpt-4o" || conn.BaseURL != "https://api.openai.com/v1" || conn.APIKey != "sk-xxx" || conn.HTTPTimeoutSeconds != 60 {
+			t.Errorf("expected full override, got %+v", conn)
 		}
 	})
 }
@@ -170,28 +221,27 @@ func TestAIConfig_QueryLLMConfigured(t *testing.T) {
 	if (AIConfig{}).QueryLLMConfigured() {
 		t.Fatal("empty config should not enable query LLM")
 	}
-	if (AIConfig{Model: "gpt-4o"}).QueryLLMConfigured() {
+	if (AIConfig{Connection: conn("model", "gpt-4o")}).QueryLLMConfigured() {
 		t.Fatal("openai without key or base URL should not enable")
 	}
 	local := AIConfig{
-		Provider: "openai-compatible",
-		BaseURL:  "http://127.0.0.1:12434/v1",
-		Model:    "local",
+		Connection: conn(
+			"provider", "openai-compatible",
+			"base_url", "http://127.0.0.1:12434/v1",
+			"model", "local",
+		),
 	}
 	if !local.QueryLLMConfigured() {
 		t.Fatal("keyless local openai-compatible should enable when base URL set")
 	}
 	withKey := AIConfig{
-		Provider: "openai",
-		APIKey:   "sk-test",
-		Model:    "gpt-4o",
+		Connection: conn("provider", "openai", "api_key", "sk-test", "model", "gpt-4o"),
 	}
 	if !withKey.QueryLLMConfigured() {
 		t.Fatal("api key + model should enable")
 	}
 	if (AIConfig{
-		Provider: "anthropic",
-		Model:    "claude-3",
+		Connection: conn("provider", "anthropic", "model", "claude-3"),
 	}).QueryLLMConfigured() {
 		t.Fatal("anthropic without API key should not enable")
 	}
@@ -202,18 +252,15 @@ func TestAIConfig_EmbeddingsConfigured(t *testing.T) {
 		t.Fatal("empty config should not enable embeddings")
 	}
 	ok := AIConfig{
-		Provider:  "openai",
-		APIKey:    "k",
-		Embedding: EmbeddingConfig{Model: "text-embedding-3-small"},
+		Connection: conn("provider", "openai", "api_key", "k"),
+		Embedding:  EmbeddingConfig{Model: "text-embedding-3-small"},
 	}
 	if !ok.EmbeddingsConfigured() {
 		t.Fatal("model + key + default openai base should enable")
 	}
 	noURL := AIConfig{
-		Provider:  "anthropic",
-		APIKey:    "k",
-		BaseURL:   "",
-		Embedding: EmbeddingConfig{Model: "x"},
+		Connection: conn("provider", "anthropic", "api_key", "k"),
+		Embedding:  EmbeddingConfig{Model: "x"},
 	}
 	if noURL.EmbeddingsConfigured() {
 		t.Fatal("anthropic without any base URL should not enable (no default host for embeddings)")

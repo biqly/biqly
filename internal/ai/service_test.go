@@ -185,7 +185,15 @@ func TestProcessQuestionRetriesOnInvalidJSON(t *testing.T) {
 	})
 	defer srv.Close()
 
-	cfg := config.AIConfig{Provider: "openai", BaseURL: srv.URL, APIKey: "x", Model: "test", MaxRetries: 2}
+	cfg := config.AIConfig{
+		Connection: config.AIConnectionConfig{
+			Provider: "openai",
+			BaseURL:  srv.URL,
+			APIKey:   "x",
+			Model:    "test",
+		},
+		Generation: config.AIGenerationConfig{MaxRetries: 2},
+	}
 	svc := NewService(&cfg, query.NewValidator(1000))
 
 	model := &semantic.SemanticModel{
@@ -351,7 +359,15 @@ func TestProcessQuestionRetriesOnSQLDryRunFailure(t *testing.T) {
 	})
 	defer srv.Close()
 
-	cfg := config.AIConfig{Provider: "openai", BaseURL: srv.URL, APIKey: "x", Model: "test", MaxRetries: 2}
+	cfg := config.AIConfig{
+		Connection: config.AIConnectionConfig{
+			Provider: "openai",
+			BaseURL:  srv.URL,
+			APIKey:   "x",
+			Model:    "test",
+		},
+		Generation: config.AIGenerationConfig{MaxRetries: 2},
+	}
 	svc := NewService(&cfg, query.NewValidator(1000))
 
 	model := &semantic.SemanticModel{
@@ -387,7 +403,15 @@ func TestProcessQuestionGivesUpAfterMaxRetries(t *testing.T) {
 	srv := stubLLMServer(t, []string{"junk1", "junk2", "junk3"})
 	defer srv.Close()
 
-	cfg := config.AIConfig{Provider: "openai", BaseURL: srv.URL, APIKey: "x", Model: "test", MaxRetries: 1}
+	cfg := config.AIConfig{
+		Connection: config.AIConnectionConfig{
+			Provider: "openai",
+			BaseURL:  srv.URL,
+			APIKey:   "x",
+			Model:    "test",
+		},
+		Generation: config.AIGenerationConfig{MaxRetries: 1},
+	}
 	svc := NewService(&cfg, query.NewValidator(1000))
 
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "x"}
@@ -409,7 +433,15 @@ func TestProcessQuestionDoesNotReturnInvalidLogicalQueryAfterValidationRetries(t
 	})
 	defer srv.Close()
 
-	cfg := config.AIConfig{Provider: "openai", BaseURL: srv.URL, APIKey: "x", Model: "test", MaxRetries: 1}
+	cfg := config.AIConfig{
+		Connection: config.AIConnectionConfig{
+			Provider: "openai",
+			BaseURL:  srv.URL,
+			APIKey:   "x",
+			Model:    "test",
+		},
+		Generation: config.AIGenerationConfig{MaxRetries: 1},
+	}
 	svc := NewService(&cfg, query.NewValidator(1000))
 
 	model := &semantic.SemanticModel{
@@ -440,7 +472,15 @@ func TestProcessQuestionEmitsClarificationAfterExhaustedRetries(t *testing.T) {
 	})
 	defer srv.Close()
 
-	cfg := config.AIConfig{Provider: "openai", BaseURL: srv.URL, APIKey: "x", Model: "test", MaxRetries: 1}
+	cfg := config.AIConfig{
+		Connection: config.AIConnectionConfig{
+			Provider: "openai",
+			BaseURL:  srv.URL,
+			APIKey:   "x",
+			Model:    "test",
+		},
+		Generation: config.AIGenerationConfig{MaxRetries: 1},
+	}
 	svc := NewService(&cfg, query.NewValidator(1000))
 
 	model := &semantic.SemanticModel{
@@ -470,12 +510,16 @@ func TestProcessQuestionMultiCandidateMajority(t *testing.T) {
 	defer srv.Close()
 
 	cfg := config.AIConfig{
-		Provider:            "openai",
-		BaseURL:             srv.URL,
-		APIKey:              "x",
-		Model:               "test",
-		MaxRetries:          2,
-		MultiCandidateCount: 3,
+		Connection: config.AIConnectionConfig{
+			Provider: "openai",
+			BaseURL:  srv.URL,
+			APIKey:   "x",
+			Model:    "test",
+		},
+		Generation: config.AIGenerationConfig{
+			MaxRetries:          2,
+			MultiCandidateCount: 3,
+		},
 	}
 	svc := NewService(&cfg, query.NewValidator(1000))
 
@@ -518,12 +562,16 @@ func TestProcessQuestionMultiCandidateNoMajorityFallsBack(t *testing.T) {
 	defer srv.Close()
 
 	cfg := config.AIConfig{
-		Provider:            "openai",
-		BaseURL:             srv.URL,
-		APIKey:              "x",
-		Model:               "test",
-		MaxRetries:          1,
-		MultiCandidateCount: 3,
+		Connection: config.AIConnectionConfig{
+			Provider: "openai",
+			BaseURL:  srv.URL,
+			APIKey:   "x",
+			Model:    "test",
+		},
+		Generation: config.AIGenerationConfig{
+			MaxRetries:          1,
+			MultiCandidateCount: 3,
+		},
 	}
 	svc := NewService(&cfg, query.NewValidator(1000))
 
@@ -554,7 +602,15 @@ func TestProcessQuestionInheritsFiltersOnRefineFollowUp(t *testing.T) {
 	})
 	defer srv.Close()
 
-	cfg := config.AIConfig{Provider: "openai", BaseURL: srv.URL, APIKey: "x", Model: "test", MaxRetries: 0}
+	cfg := config.AIConfig{
+		Connection: config.AIConnectionConfig{
+			Provider: "openai",
+			BaseURL:  srv.URL,
+			APIKey:   "x",
+			Model:    "test",
+		},
+		Generation: config.AIGenerationConfig{MaxRetries: 0},
+	}
 	svc := NewService(&cfg, query.NewValidator(1000))
 
 	model := &semantic.SemanticModel{

@@ -410,11 +410,11 @@ func setupAI(
 	queryClient := providerpkg.Provider(queryPP)
 	describeModel := ""
 	if describeCfg, ok := providerStore.ChatConfigForPurpose(ai.PurposeDescribe); ok {
-		describeModel = describeCfg.Model
+		describeModel = describeCfg.Connection.Model
 	}
 
 	translator := ai.NewTranslationServiceFromConfig(effectiveCfg)
-	describer := ai.NewDescribeService(client, metaRepo, reg, translator, 10, cfg.AI.DescribeMaxCellRunes, cfg.AI.DescribeMaxSampleRows, encryptor).
+	describer := ai.NewDescribeService(client, metaRepo, reg, translator, 10, cfg.AI.Describe.MaxCellRunes, cfg.AI.Describe.MaxSampleRows, encryptor).
 		WithModel(describeModel).
 		WithPoolCache(poolCache)
 

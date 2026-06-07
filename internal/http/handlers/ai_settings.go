@@ -69,10 +69,11 @@ type activeModelSummary struct {
 }
 
 func effectiveAIBaseURL(cfg config.AIConfig) string {
-	if strings.TrimSpace(cfg.BaseURL) != "" {
-		return cfg.BaseURL
+	conn := cfg.Connection
+	if strings.TrimSpace(conn.BaseURL) != "" {
+		return conn.BaseURL
 	}
-	switch strings.ToLower(strings.TrimSpace(cfg.Provider)) {
+	switch strings.ToLower(strings.TrimSpace(conn.Provider)) {
 	case "", "openai", "openai-compatible":
 		return "https://api.openai.com/v1 (default when BI_AI_BASE_URL is empty)"
 	case "anthropic":
@@ -91,7 +92,7 @@ func embeddingBaseURLEffectiveLabel(cfg config.AIConfig) string {
 	if strings.TrimSpace(cfg.Embedding.BaseURL) != "" {
 		return eff
 	}
-	if strings.TrimSpace(cfg.BaseURL) != "" {
+	if strings.TrimSpace(cfg.Connection.BaseURL) != "" {
 		return eff + " (from BI_AI_BASE_URL; override with BI_AI_EMBEDDING_BASE_URL)"
 	}
 	return eff + " (default when embedding URL env vars are empty)"
@@ -118,33 +119,39 @@ func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 		// query connections, so the UI reflects what actually runs.
 		cfg = h.deps.AIProviderStore.EffectiveConfig()
 		if dc, ok := h.deps.AIProviderStore.ChatConfigForPurpose(ai.PurposeDescribe); ok {
-			cfg.Provider, cfg.Model, cfg.BaseURL, cfg.APIKey = dc.Provider, dc.Model, dc.BaseURL, dc.APIKey
+			cfg.Connection.Provider = dc.Connection.Provider
+			cfg.Connection.Model = dc.Connection.Model
+			cfg.Connection.BaseURL = dc.Connection.BaseURL
+			cfg.Connection.APIKey = dc.Connection.APIKey
 		}
 		if qc, ok := h.deps.AIProviderStore.ChatConfigForPurpose(ai.PurposeQuery); ok {
-			cfg.Query.Provider, cfg.Query.Model, cfg.Query.BaseURL, cfg.Query.APIKey = qc.Provider, qc.Model, qc.BaseURL, qc.APIKey
+			cfg.Query.Provider = qc.Connection.Provider
+			cfg.Query.Model = qc.Connection.Model
+			cfg.Query.BaseURL = qc.Connection.BaseURL
+			cfg.Query.APIKey = qc.Connection.APIKey
 		}
 	}
 	queryCfg := cfg.EffectiveQueryConfig()
-	profile := prompt.LookupModelContextProfile(queryCfg.Model, queryCfg.NumCtx)
+	profile := prompt.LookupModelContextProfile(queryCfg.Connection.Model, queryCfg.Generation.NumCtx)
 	out := aiRuntimeSettingsResponse{
-		Provider:         cfg.Provider,
-		LLMModel:         cfg.Model,
-		BaseURL:          cfg.BaseURL,
+		Provider:         cfg.Connection.Provider,
+		LLMModel:         cfg.Connection.Model,
+		BaseURL:          cfg.Connection.BaseURL,
 		BaseURLEffective: effectiveAIBaseURL(cfg),
-		APIKeyConfigured: strings.TrimSpace(cfg.APIKey) != "",
+		APIKeyConfigured: strings.TrimSpace(cfg.Connection.APIKey) != "",
 	}
 	out.QueryModelOverride = cfg.HasQueryOverride()
-	out.QueryProvider = queryCfg.Provider
-	out.QueryModel = queryCfg.Model
-	out.QueryBaseURL = queryCfg.BaseURL
+	out.QueryProvider = queryCfg.Connection.Provider
+	out.QueryModel = queryCfg.Connection.Model
+	out.QueryBaseURL = queryCfg.Connection.BaseURL
 	out.QueryBaseURLEffective = effectiveAIBaseURL(queryCfg)
-	out.QueryAPIKeyConfigured = strings.TrimSpace(queryCfg.APIKey) != ""
+	out.QueryAPIKeyConfigured = strings.TrimSpace(queryCfg.Connection.APIKey) != ""
 	out.QueryAPIKeyDedicated = strings.TrimSpace(cfg.Query.APIKey) != ""
 	if cfg.Query.HTTPTimeoutSeconds > 0 {
 		out.QueryHTTPTimeoutSeconds = cfg.Query.HTTPTimeoutSeconds
 	}
-	out.MaxPromptInputRunes = queryCfg.MaxPromptInputRunes
-	out.EffectiveMaxPromptRunes = prompt.EffectiveMaxPromptRunes(queryCfg, queryCfg.Model)
+	out.MaxPromptInputRunes = queryCfg.Generation.MaxPromptInputRunes
+	out.EffectiveMaxPromptRunes = prompt.EffectiveMaxPromptRunes(queryCfg, queryCfg.Connection.Model)
 	out.ContextWindowTokens = profile.ContextWindowTokens
 	out.ContextWindowSource = profile.Source
 	// cfg already carries the DB-resolved embedding/translation overlay.

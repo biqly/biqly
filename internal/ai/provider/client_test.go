@@ -30,9 +30,11 @@ func TestClientGenerateAtParsesOpenAIUsage(t *testing.T) {
 	defer srv.Close()
 
 	client := NewClient(config.AIConfig{
-		BaseURL: srv.URL,
-		APIKey:  "x",
-		Model:   "gpt-test",
+		Connection: config.AIConnectionConfig{
+			BaseURL: srv.URL,
+			APIKey:  "x",
+			Model:   "gpt-test",
+		},
 	})
 	gen, err := client.GenerateAt(context.Background(), "list orders", 0)
 	if err != nil {
@@ -66,9 +68,11 @@ func TestAnthropicGenerateAtParsesUsage(t *testing.T) {
 	defer srv.Close()
 
 	p := NewAnthropicProvider(config.AIConfig{
-		BaseURL: srv.URL,
-		APIKey:  "x",
-		Model:   "claude-test",
+		Connection: config.AIConnectionConfig{
+			BaseURL: srv.URL,
+			APIKey:  "x",
+			Model:   "claude-test",
+		},
 	})
 	gen, err := p.GenerateAt(context.Background(), "count rows", 0)
 	if err != nil {

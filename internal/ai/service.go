@@ -48,11 +48,11 @@ func (s *Service) WithCache(cache ResponseCache) *Service {
 }
 
 func newService(cfg *config.AIConfig, validator *query.Validator, provider providerpkg.Provider) *Service {
-	maxR := cfg.MaxPromptInputRunes
+	maxR := cfg.Generation.MaxPromptInputRunes
 	if maxR <= 0 {
 		maxR = 80000
 	}
-	retries := cfg.MaxRetries
+	retries := cfg.Generation.MaxRetries
 	if retries < 0 {
 		retries = 0
 	}
@@ -62,11 +62,11 @@ func newService(cfg *config.AIConfig, validator *query.Validator, provider provi
 		promptBuilder:       &promptpkg.Builder{},
 		validator:           validator,
 		aiCfg:               effective,
-		queryModel:          effective.Model,
+		queryModel:          effective.Connection.Model,
 		maxPromptRunes:      maxR,
 		maxRetries:          retries,
-		multiCandidateCount: cfg.MultiCandidateCount,
-		baseTemperature:     cfg.Temperature,
+		multiCandidateCount: cfg.Generation.MultiCandidateCount,
+		baseTemperature:     cfg.Generation.Temperature,
 	}
 }
 
@@ -78,7 +78,7 @@ func NewService(cfg *config.AIConfig, validator *query.Validator) *Service {
 	// should call NewServiceWithProvider for explicit error handling.
 	provider, err := providerpkg.NewProvider(*cfg)
 	if err != nil {
-		slog.Warn("AI provider configuration invalid, falling back to OpenAI client", "provider", cfg.Provider, "error", err)
+		slog.Warn("AI provider configuration invalid, falling back to OpenAI client", "provider", cfg.Connection.Provider, "error", err)
 		provider = providerpkg.NewClient(*cfg)
 	}
 	return newService(cfg, validator, provider)
@@ -1024,7 +1024,7 @@ func (s *Service) cacheResponse(ctx context.Context, key string, resp *AIRespons
 	if resp.Result.Confidence < 0.85 {
 		return
 	}
-	ttl := time.Duration(s.aiCfg.ResponseCacheTTLSeconds) * time.Second
+	ttl := time.Duration(s.aiCfg.Cache.ResponseTTLSeconds) * time.Second
 	if ttl <= 0 {
 		ttl = 1 * time.Hour
 	}

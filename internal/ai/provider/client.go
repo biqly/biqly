@@ -22,25 +22,27 @@ type Client struct {
 
 // NewClient creates a new AI client.
 func NewClient(cfg config.AIConfig) *Client {
-	baseURL := cfg.BaseURL
-	if cfg.Provider == "openai" && baseURL == "" {
+	conn := cfg.Connection
+	gen := cfg.Generation
+	baseURL := conn.BaseURL
+	if conn.Provider == "openai" && baseURL == "" {
 		baseURL = "https://api.openai.com/v1"
 	}
-	http := newHTTPProvider(cfg.AIHTTPTimeout(), baseURL, cfg.APIKey)
+	http := newHTTPProvider(cfg.AIHTTPTimeout(), baseURL, conn.APIKey)
 	c := &Client{
-		topP:   cfg.TopP,
-		numCtx: cfg.NumCtx,
+		topP:   gen.TopP,
+		numCtx: gen.NumCtx,
 	}
 	c.base = baseProvider{
 		http:        http,
-		model:       cfg.Model,
-		maxTokens:   cfg.MaxTokens,
-		temperature: cfg.Temperature,
+		model:       conn.Model,
+		maxTokens:   gen.MaxTokens,
+		temperature: gen.Temperature,
 		logName:     openAIProviderName,
 		hooks: providerHooks{
 			path:    "/chat/completions",
 			headers: func(p httpProvider) map[string]string { return p.bearerAuthHeaders() },
-			marshal: c.marshalOpenAIRequest(cfg.Model, cfg.MaxTokens),
+			marshal: c.marshalOpenAIRequest(conn.Model, gen.MaxTokens),
 			parse:   parseOpenAIResponse,
 		},
 	}

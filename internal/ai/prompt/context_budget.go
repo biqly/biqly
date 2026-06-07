@@ -68,11 +68,11 @@ func LookupModelContextProfile(model string, numCtx int) ModelContextProfile {
 // EffectiveMaxPromptRunes derives the prompt rune cap from model context window,
 // completion reserve, and the configured BI_AI_MAX_PROMPT_RUNES ceiling.
 func EffectiveMaxPromptRunes(cfg config.AIConfig, model string) int {
-	profile := LookupModelContextProfile(model, cfg.NumCtx)
+	profile := LookupModelContextProfile(model, cfg.Generation.NumCtx)
 	inputTokens := inputTokenBudget(cfg, profile.ContextWindowTokens)
 	runes := inputTokens * charsPerTokenEstimate
-	if cfg.MaxPromptInputRunes > 0 && cfg.MaxPromptInputRunes < runes {
-		return cfg.MaxPromptInputRunes
+	if cfg.Generation.MaxPromptInputRunes > 0 && cfg.Generation.MaxPromptInputRunes < runes {
+		return cfg.Generation.MaxPromptInputRunes
 	}
 	if runes < 16_000 {
 		return 16_000
@@ -84,7 +84,7 @@ func inputTokenBudget(cfg config.AIConfig, contextWindow int) int {
 	if contextWindow <= 0 {
 		contextWindow = defaultContextWindowTokens
 	}
-	reserve := cfg.MaxTokens
+	reserve := cfg.Generation.MaxTokens
 	if reserve <= 0 {
 		reserve = 4096
 	}
@@ -144,7 +144,7 @@ func ContextTierLabel(tier int) string {
 
 // MeasurePrompt builds stats for a built prompt string.
 func MeasurePrompt(prompt, model string, tier int, cfg config.AIConfig) Stats {
-	profile := LookupModelContextProfile(model, cfg.NumCtx)
+	profile := LookupModelContextProfile(model, cfg.Generation.NumCtx)
 	maxRunes := EffectiveMaxPromptRunes(cfg, model)
 	return Stats{
 		PromptRunes:          utf8.RuneCountInString(prompt),
@@ -159,7 +159,7 @@ func MeasurePrompt(prompt, model string, tier int, cfg config.AIConfig) Stats {
 }
 
 func completionReserveTokens(cfg config.AIConfig) int {
-	r := cfg.MaxTokens
+	r := cfg.Generation.MaxTokens
 	if r <= 0 {
 		return 4096
 	}

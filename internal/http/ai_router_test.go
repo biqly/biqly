@@ -18,8 +18,8 @@ func TestAIRouter_UsesAIRequestTimeout(t *testing.T) {
 		Config: &config.Config{
 			Query: config.QueryConfig{MaxRuntimeSeconds: 60},
 			AI: config.AIConfig{
-				HTTPTimeoutSeconds: 12,
-				Translation:        config.TranslationConfig{HTTPTimeoutSeconds: 90},
+				Connection:  config.AIConnectionConfig{HTTPTimeoutSeconds: 12},
+				Translation: config.TranslationConfig{HTTPTimeoutSeconds: 90},
 			},
 		},
 	}
@@ -34,7 +34,7 @@ func TestAIRouter_OnlyMountsAIRoutes(t *testing.T) {
 	handler := AIRouter(&app.Dependencies{
 		Config: &config.Config{
 			Query: config.QueryConfig{MaxRuntimeSeconds: 60, MaxRows: 1000},
-			AI:    config.AIConfig{Model: "test-model"},
+			AI:    config.AIConfig{Connection: config.AIConnectionConfig{Model: "test-model"}},
 		},
 		Validator: query.NewValidator(1000),
 	})
@@ -60,7 +60,7 @@ func TestAIRouter_InternalHealthRequiresToken(t *testing.T) {
 		Config: &config.Config{
 			Query:    config.QueryConfig{MaxRuntimeSeconds: 60, MaxRows: 1000},
 			Security: config.SecurityConfig{InternalAPIToken: "secret-token"},
-			AI:       config.AIConfig{Model: "test-model"},
+			AI:       config.AIConfig{Connection: config.AIConnectionConfig{Model: "test-model"}},
 		},
 		Validator: query.NewValidator(1000),
 	})

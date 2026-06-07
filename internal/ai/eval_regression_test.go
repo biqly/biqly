@@ -69,10 +69,12 @@ func TestBenchmarkSuiteSelfConsistent(t *testing.T) {
 
 func TestEvalRegressionGate(t *testing.T) {
 	cfg := config.AIConfig{
-		Model:       "stub",
-		MaxTokens:   2048,
-		Temperature: 0,
-		MaxRetries:  0,
+		Connection: config.AIConnectionConfig{Model: "stub"},
+		Generation: config.AIGenerationConfig{
+			MaxTokens:   2048,
+			Temperature: 0,
+			MaxRetries:  0,
+		},
 	}
 	svc := NewServiceWithProvider(&cfg, query.NewValidator(1000), evalpkg.NewGoldenStubProvider())
 	opts := evalpkg.SuiteOptions{
@@ -106,10 +108,12 @@ func TestEvalRegressionGate(t *testing.T) {
 
 func TestBenchmarkSuiteRegressionGate(t *testing.T) {
 	cfg := config.AIConfig{
-		Model:       "stub",
-		MaxTokens:   2048,
-		Temperature: 0,
-		MaxRetries:  0,
+		Connection: config.AIConnectionConfig{Model: "stub"},
+		Generation: config.AIGenerationConfig{
+			MaxTokens:   2048,
+			Temperature: 0,
+			MaxRetries:  0,
+		},
 	}
 	svc := NewServiceWithProvider(&cfg, query.NewValidator(1000), evalpkg.NewGoldenStubProviderForCases(evalpkg.BenchmarkCases()))
 	opts := evalpkg.SuiteOptions{

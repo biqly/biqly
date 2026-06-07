@@ -29,20 +29,28 @@ func TestLookupModelContextProfile(t *testing.T) {
 
 func TestEffectiveMaxPromptRunes_RespectsEnvCap(t *testing.T) {
 	cfg := config.AIConfig{
-		Model:               "gpt-4o",
-		MaxTokens:           4096,
-		MaxPromptInputRunes: 50_000,
+		Connection: config.AIConnectionConfig{Model: "gpt-4o"},
+		Generation: config.AIGenerationConfig{
+			MaxTokens:           4096,
+			MaxPromptInputRunes: 50_000,
+		},
 	}
-	if got := EffectiveMaxPromptRunes(cfg, cfg.Model); got != 50_000 {
+	if got := EffectiveMaxPromptRunes(cfg, cfg.Connection.Model); got != 50_000 {
 		t.Fatalf("EffectiveMaxPromptRunes = %d, want env cap 50000", got)
 	}
 }
 
 func TestPromptRunesForTier_ExpandsOnRetry(t *testing.T) {
-	cfg := config.AIConfig{Model: "gpt-4o", MaxTokens: 4096, MaxPromptInputRunes: 100_000}
+	cfg := config.AIConfig{
+		Connection: config.AIConnectionConfig{Model: "gpt-4o"},
+		Generation: config.AIGenerationConfig{
+			MaxTokens:           4096,
+			MaxPromptInputRunes: 100_000,
+		},
+	}
 	base := 40_000
-	compact := RunesForTier(base, 0, cfg, cfg.Model)
-	expanded := RunesForTier(base, 2, cfg, cfg.Model)
+	compact := RunesForTier(base, 0, cfg, cfg.Connection.Model)
+	expanded := RunesForTier(base, 2, cfg, cfg.Connection.Model)
 	if expanded <= compact {
 		t.Fatalf("expanded runes %d should exceed compact %d", expanded, compact)
 	}
@@ -61,7 +69,10 @@ func TestApplyContextTier_ExpandsFewShot(t *testing.T) {
 }
 
 func TestMeasurePrompt(t *testing.T) {
-	cfg := config.AIConfig{Model: "gpt-4o", MaxTokens: 4096}
+	cfg := config.AIConfig{
+		Connection: config.AIConnectionConfig{Model: "gpt-4o"},
+		Generation: config.AIGenerationConfig{MaxTokens: 4096},
+	}
 	text := strings.Repeat("x", 4000)
 	stats := MeasurePrompt(text, "gpt-4o", 1, cfg)
 	if stats.PromptRunes != 4000 {

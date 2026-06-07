@@ -31,19 +31,23 @@ func NewTranslationServiceFromConfig(cfg config.AIConfig) *TranslationService {
 	}
 
 	translationCfg := config.AIConfig{
-		Provider:           "openai-compatible",
-		BaseURL:            cfg.EffectiveTranslationBaseURL(),
-		APIKey:             cfg.EffectiveTranslationAPIKey(),
-		Model:              strings.TrimSpace(cfg.Translation.Model),
-		MaxTokens:          cfg.MaxTokens,
-		Temperature:        0,
-		TopP:               cfg.TopP,
-		NumCtx:             cfg.NumCtx,
-		HTTPTimeoutSeconds: int(cfg.TranslationHTTPTimeout().Seconds()),
+		Connection: config.AIConnectionConfig{
+			Provider:           "openai-compatible",
+			BaseURL:            cfg.EffectiveTranslationBaseURL(),
+			APIKey:             cfg.EffectiveTranslationAPIKey(),
+			Model:              strings.TrimSpace(cfg.Translation.Model),
+			HTTPTimeoutSeconds: int(cfg.TranslationHTTPTimeout().Seconds()),
+		},
+		Generation: config.AIGenerationConfig{
+			MaxTokens:   cfg.Generation.MaxTokens,
+			Temperature: 0,
+			TopP:        cfg.Generation.TopP,
+			NumCtx:      cfg.Generation.NumCtx,
+		},
 	}
 	return NewTranslationService(
 		providerpkg.NewClient(translationCfg),
-		translationCfg.Model,
+		translationCfg.Connection.Model,
 		cfg.Translation.TargetLanguage,
 		cfg.Translation.TargetCode,
 	)

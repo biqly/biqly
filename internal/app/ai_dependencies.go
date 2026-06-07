@@ -58,13 +58,13 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 	aiQueryClient := ai.NewPurposeProvider(providerStore, ai.PurposeQuery, nil, nil)
 	describeModel := ""
 	if describeCfg, ok := providerStore.ChatConfigForPurpose(ai.PurposeDescribe); ok {
-		describeModel = describeCfg.Model
+		describeModel = describeCfg.Connection.Model
 	}
 
 	poolCache := datasource.NewPoolCache()
 
 	translator := ai.NewTranslationServiceFromConfig(effectiveCfg)
-	describer := ai.NewDescribeService(aiClient, metaRepo, reg, translator, 10, cfg.AI.DescribeMaxCellRunes, cfg.AI.DescribeMaxSampleRows, encryptor).
+	describer := ai.NewDescribeService(aiClient, metaRepo, reg, translator, 10, cfg.AI.Describe.MaxCellRunes, cfg.AI.Describe.MaxSampleRows, encryptor).
 		WithModel(describeModel).
 		WithPoolCache(poolCache)
 

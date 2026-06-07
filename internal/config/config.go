@@ -258,43 +258,46 @@ type AmbiguityConfig struct {
 	LLMEnabled bool
 }
 
-// AIConfig holds AI provider configuration. The purpose-specific knobs live in
-// named sub-configs (Query / Embedding / Translation / Routing / Ambiguity);
-// only the shared connection + operational knobs remain at the top level.
-type AIConfig struct {
-	// Provider/model selection is sourced exclusively from the ai_providers /
-	// ai_models tables (managed at runtime via the admin API). The connection
-	// fields below (Provider/Model/BaseURL/APIKey/tuning) are NOT read from the
-	// environment anymore — they are populated only by the ProviderStore from
-	// the resolved DB model, layered over the operational knobs in this struct.
-	Provider    string
-	APIKey      string
-	BaseURL     string
-	Model       string
-	MaxTokens   int
-	Temperature float64
-	TopP        float64
-	NumCtx      int
-	// HTTPTimeoutSeconds is the operational request budget used to size the HTTP
-	// server write timeout (BI_AI_HTTP_TIMEOUT_SECONDS). The per-provider LLM
-	// timeout is a separate value stored on each ai_providers row.
+// AIConnectionConfig groups shared LLM HTTP connection settings. Provider/model
+// selection is sourced from ai_providers / ai_models via ProviderStore; only
+// HTTPTimeoutSeconds and RateLimitPerMinute are environment-driven operational knobs.
+type AIConnectionConfig struct {
+	Provider           string
+	APIKey             string
+	BaseURL            string
+	Model              string
 	HTTPTimeoutSeconds int
 	RateLimitPerMinute int
-	// MaxPromptInputRunes caps the semantic-model section of NL→query prompts (~4 chars/rune ≈ 1 token).
-	MaxPromptInputRunes int
-	// DescribeMaxCellRunes truncates each sampled cell in AI Describe before sending to the LLM.
-	DescribeMaxCellRunes int
-	// DescribeMaxSampleRows is a hard cap on rows sampled for Describe (wide tables × many columns).
-	DescribeMaxSampleRows int
-	// MaxRetries caps how many times the validator can re-prompt the model after parse/validation failure.
-	MaxRetries int
-	// MultiCandidateCount enables self-consistency voting: when >1, the service
-	// generates this many candidates per question (stepped temperatures) and
-	// selects the majority. 1 = single-shot (default).
-	MultiCandidateCount int
-	// ResponseCacheTTLSeconds sets the time-to-live for cached AI query responses.
-	ResponseCacheTTLSeconds int
+}
 
+// AIGenerationConfig groups token/generation tuning shared across chat paths.
+type AIGenerationConfig struct {
+	MaxTokens           int
+	Temperature         float64
+	TopP                float64
+	NumCtx              int
+	MaxPromptInputRunes int
+	MaxRetries          int
+	MultiCandidateCount int
+}
+
+// AIDescribeConfig groups sampling limits for the AI Describe metadata path.
+type AIDescribeConfig struct {
+	MaxCellRunes  int
+	MaxSampleRows int
+}
+
+// AICacheConfig groups AI query response cache tuning.
+type AICacheConfig struct {
+	ResponseTTLSeconds int
+}
+
+// AIConfig holds AI provider configuration as purpose-based sub-configs only.
+type AIConfig struct {
+	Connection  AIConnectionConfig
+	Generation  AIGenerationConfig
+	Describe    AIDescribeConfig
+	Cache       AICacheConfig
 	Query       QueryLLMConfig
 	Embedding   EmbeddingConfig
 	Translation TranslationConfig
@@ -351,19 +354,24 @@ func Load() (*Config, error) {
 			AIURL:      strings.TrimRight(getEnv("BI_AI_SERVICE_URL", ""), "/"),
 		},
 		AI: AIConfig{
-			// Connection/model selection (Provider/Model/BaseURL/APIKey/tuning,
-			// plus the per-purpose Query*/Embedding*/Translation* model fields)
-			// is intentionally NOT read from the environment — it comes only from
-			// the ai_providers / ai_models tables via the ProviderStore. Only the
-			// operational knobs below are environment-driven.
-			HTTPTimeoutSeconds:      getEnvAsInt("BI_AI_HTTP_TIMEOUT_SECONDS", 300),
-			RateLimitPerMinute:      getEnvAsInt("BI_AI_RATE_LIMIT_PER_MINUTE", 20),
-			MaxPromptInputRunes:     getEnvAsInt("BI_AI_MAX_PROMPT_RUNES", 80000),
-			DescribeMaxCellRunes:    getEnvAsInt("BI_AI_DESCRIBE_MAX_CELL_RUNES", 500),
-			DescribeMaxSampleRows:   getEnvAsInt("BI_AI_DESCRIBE_MAX_SAMPLE_ROWS", 12),
-			MaxRetries:              getEnvAsInt("BI_AI_MAX_RETRIES", 2),
-			MultiCandidateCount:     getEnvAsInt("BI_AI_MULTI_CANDIDATE_COUNT", 1),
-			ResponseCacheTTLSeconds: getEnvAsInt("BI_AI_RESPONSE_CACHE_TTL", 3600),
+			// Connection/model selection is intentionally NOT read from the environment —
+			// it comes only from ai_providers / ai_models via ProviderStore.
+			Connection: AIConnectionConfig{
+				HTTPTimeoutSeconds: getEnvAsInt("BI_AI_HTTP_TIMEOUT_SECONDS", 300),
+				RateLimitPerMinute: getEnvAsInt("BI_AI_RATE_LIMIT_PER_MINUTE", 20),
+			},
+			Generation: AIGenerationConfig{
+				MaxPromptInputRunes: getEnvAsInt("BI_AI_MAX_PROMPT_RUNES", 80000),
+				MaxRetries:          getEnvAsInt("BI_AI_MAX_RETRIES", 2),
+				MultiCandidateCount: getEnvAsInt("BI_AI_MULTI_CANDIDATE_COUNT", 1),
+			},
+			Describe: AIDescribeConfig{
+				MaxCellRunes:  getEnvAsInt("BI_AI_DESCRIBE_MAX_CELL_RUNES", 500),
+				MaxSampleRows: getEnvAsInt("BI_AI_DESCRIBE_MAX_SAMPLE_ROWS", 12),
+			},
+			Cache: AICacheConfig{
+				ResponseTTLSeconds: getEnvAsInt("BI_AI_RESPONSE_CACHE_TTL", 3600),
+			},
 			Translation: TranslationConfig{
 				TargetLanguage: getEnv(
 					"BI_AI_TRANSLATION_TARGET_LANGUAGE",
@@ -452,7 +460,7 @@ func Load() (*Config, error) {
 
 // AIHTTPTimeout returns the provider HTTP timeout as time.Duration.
 func (c AIConfig) AIHTTPTimeout() time.Duration {
-	seconds := c.HTTPTimeoutSeconds
+	seconds := c.Connection.HTTPTimeoutSeconds
 	if seconds <= 0 {
 		seconds = 300
 	}
@@ -463,7 +471,7 @@ func (c AIConfig) AIHTTPTimeout() time.Duration {
 func (c AIConfig) EmbeddingHTTPTimeout() time.Duration {
 	seconds := c.Embedding.HTTPTimeoutSeconds
 	if seconds <= 0 {
-		seconds = c.HTTPTimeoutSeconds
+		seconds = c.Connection.HTTPTimeoutSeconds
 	}
 	if seconds <= 0 {
 		seconds = 300
@@ -494,19 +502,19 @@ func (c AIConfig) AIRequestTimeout() time.Duration {
 func (c AIConfig) EffectiveQueryConfig() AIConfig {
 	out := c
 	if s := strings.TrimSpace(c.Query.Provider); s != "" {
-		out.Provider = s
+		out.Connection.Provider = s
 	}
 	if s := strings.TrimSpace(c.Query.Model); s != "" {
-		out.Model = s
+		out.Connection.Model = s
 	}
 	if s := strings.TrimSpace(c.Query.BaseURL); s != "" {
-		out.BaseURL = s
+		out.Connection.BaseURL = s
 	}
 	if s := strings.TrimSpace(c.Query.APIKey); s != "" {
-		out.APIKey = s
+		out.Connection.APIKey = s
 	}
 	if c.Query.HTTPTimeoutSeconds > 0 {
-		out.HTTPTimeoutSeconds = c.Query.HTTPTimeoutSeconds
+		out.Connection.HTTPTimeoutSeconds = c.Query.HTTPTimeoutSeconds
 	}
 	return out
 }
@@ -516,15 +524,15 @@ func (c AIConfig) EffectiveQueryConfig() AIConfig {
 // keyless local OpenAI-compatible server (Ollama, llama-server, etc.).
 func (c AIConfig) QueryLLMConfigured() bool {
 	cfg := c.EffectiveQueryConfig()
-	if strings.TrimSpace(cfg.Model) == "" {
+	if strings.TrimSpace(cfg.Connection.Model) == "" {
 		return false
 	}
-	if strings.TrimSpace(cfg.APIKey) != "" {
+	if strings.TrimSpace(cfg.Connection.APIKey) != "" {
 		return true
 	}
-	switch strings.ToLower(strings.TrimSpace(cfg.Provider)) {
+	switch strings.ToLower(strings.TrimSpace(cfg.Connection.Provider)) {
 	case "", "openai", "openai-compatible":
-		return strings.TrimSpace(cfg.BaseURL) != ""
+		return strings.TrimSpace(cfg.Connection.BaseURL) != ""
 	default:
 		return false
 	}
@@ -546,7 +554,7 @@ func (c AIConfig) EffectiveEmbeddingAPIKey() string {
 	if s := strings.TrimSpace(c.Embedding.APIKey); s != "" {
 		return s
 	}
-	return c.APIKey
+	return c.Connection.APIKey
 }
 
 // EffectiveEmbeddingBaseURL resolves the embeddings HTTP base (no trailing path).
@@ -555,10 +563,10 @@ func (c AIConfig) EffectiveEmbeddingBaseURL() string {
 	if s := strings.TrimSpace(c.Embedding.BaseURL); s != "" {
 		return strings.TrimRight(s, "/")
 	}
-	if s := strings.TrimSpace(c.BaseURL); s != "" {
+	if s := strings.TrimSpace(c.Connection.BaseURL); s != "" {
 		return strings.TrimRight(s, "/")
 	}
-	p := strings.ToLower(strings.TrimSpace(c.Provider))
+	p := strings.ToLower(strings.TrimSpace(c.Connection.Provider))
 	switch p {
 	case "", "openai", "openai-compatible":
 		return "https://api.openai.com/v1"
@@ -583,7 +591,7 @@ func (c AIConfig) EffectiveTranslationAPIKey() string {
 	if s := strings.TrimSpace(c.Translation.APIKey); s != "" {
 		return s
 	}
-	return c.APIKey
+	return c.Connection.APIKey
 }
 
 // EffectiveTranslationBaseURL resolves the OpenAI-compatible translation base URL.
@@ -591,14 +599,14 @@ func (c AIConfig) EffectiveTranslationBaseURL() string {
 	if s := strings.TrimSpace(c.Translation.BaseURL); s != "" {
 		return strings.TrimRight(s, "/")
 	}
-	return strings.TrimRight(strings.TrimSpace(c.BaseURL), "/")
+	return strings.TrimRight(strings.TrimSpace(c.Connection.BaseURL), "/")
 }
 
 // TranslationHTTPTimeout returns the HTTP timeout for translation requests.
 func (c AIConfig) TranslationHTTPTimeout() time.Duration {
 	seconds := c.Translation.HTTPTimeoutSeconds
 	if seconds <= 0 {
-		seconds = c.HTTPTimeoutSeconds
+		seconds = c.Connection.HTTPTimeoutSeconds
 	}
 	if seconds <= 0 {
 		seconds = 120

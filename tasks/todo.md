@@ -1,5 +1,31 @@
 # Todo list
 
+## Teknik Analiz Raporu — Kalan Boşluklar (2026-06-07)
+
+`tasks/biqly_analiz.pdf` (Sürüm 3.0) raporundaki kalan öneriler kod tabanında doğrulandı. İlk denetimdeki 8 boşluğun 7'si kapatılmış; aşağıdakiler hâlâ açık. Öncelik sırasıyla:
+
+### Orta öncelik
+
+- [x] **AIConfig tanrı-nesnesini gerçekten parçala (rename değil, taşıma).** Önceki turda alt-konfig isimlendirmesi skoru düşürmemişti (21 alan / 13 metot / 93 dış çağrı = skor 60, KRİTİK). Bu turda üst-seviye bağlantı/tuning alanları fiziksel olarak taşındı.
+  - Tamamlandı: `AIConfig` artık yalnızca 9 üst-seviye alt-struct barındırıyor — `Connection`, `Generation`, `Describe`, `Cache`, `Query`, `Embedding`, `Translation`, `Routing`, `Ambiguity` (`internal/config/config.go`).
+  - Taşınan gruplar: `AIConnectionConfig` (Provider/APIKey/BaseURL/Model/HTTPTimeout/RateLimit), `AIGenerationConfig` (MaxTokens/Temperature/TopP/NumCtx/MaxPromptInputRunes/MaxRetries/MultiCandidateCount), `AIDescribeConfig` (MaxCellRunes/MaxSampleRows), `AICacheConfig` (ResponseTTLSeconds).
+  - Tüm çağrı yerleri güncellendi (ai/provider/service/provider_store, prompt/context_budget, http/handlers, app dependencies + testler). `go test ./internal/config/... ./internal/ai/... ./internal/http/...` geçti.
+- [x] **Kalan yüksek-karmaşıklık fonksiyonlarını kademeli ayrıştır.** Raporun işaretlediği üç odak: `ValidateContext` (39), `ValidateComposite` (27), `PasswordPolicy.Validate` (25). Her birini küçük yardımcılara böl, davranışı test ile sabitle.
+- [ ] **Periyodik (nightly) canlı-LLM eval koşusu ekle.** Mevcut eval/regresyon kapısı determinist stub sağlayıcı üzerinde 1.00 — yani harness/derleyici regresyonunu yakalar, canlı-LLM doğruluk kaymasını ölçmez. Nightly cron iş akışı + gerçek sağlayıcıyla golden koşu + kayma raporu ekle. (Eval kapsamını yeni lehçe/edge senaryolarıyla da genişlet.)
+- [ ] **Prod'da `BI_AUTH_ENABLED`'ı zorunlu (fail-closed) invariant yap.** Doğrulandı: `internal/config/config.go:413` varsayılan `false`. Helm prod değerleri `true` set etse de kod seviyesinde prod'da kapalıyken savunma ağ-güvenine düşüyor. Aksiyon: `env.IsProduction()` iken `BI_AUTH_ENABLED=false` ise başlatmada fail-closed (panik/refuse).
+
+### Düşük öncelik
+
+- [ ] **OTEL izleme derinliğini artır (sürücü/DB span'leri).** Doğrulandı: yalnız 3 adlandırılmış span var — `ai.ProcessQuestion` (`internal/ai/service.go:254`), `query.Compile` (`internal/query/compiler.go:64`), `query.Execute` (`internal/query/executor.go:52`) + router otelhttp ingress. Veri-kaynağı sürücü çağrıları ve few-shot/embedding alt-fazları span'lenmiyor. Aksiyon: alt-fazlara span ekle + span'lere kritik öznitelikler (model, attempt, fingerprint).
+- [ ] **`internal/queue`'yu kapsam-taban haritasına ekle.** Doğrulandı: `scripts/coveragecheck/main.go` `floors` map'inde queue yok (test ediliyor ama kapıya bağlı değil). Bir taban % belirleyip ekle.
+- [ ] **Flaky `TestMFABypassCodeFlow` izolasyonunu düzelt.** `internal/auth/mfa/mfa_test.go` — paylaşılan test DB seed/FK kaynaklı kararsızlık; testi izole et.
+- [ ] **ESLint uyarı tavanını zamanla 0'a doğru sık.** Frontend kapısı CI-eşdeğeri ama uyarı tavanı > 0; kademeli olarak sıfıra indir.
+
+### Notlar
+
+- Tüm tespitler kaynak kodda satır/dosya bazında doğrulandı; rapordaki "kapatıldı" işaretli 7 kalem yeniden açılmadı.
+- Önce davranış-koruyan testler, sonra refactor sırası izlenmeli (özellikle AIConfig taşıması ve fonksiyon ayrıştırmalarında).
+
 ## pgarray Abstraction — lib/pq Tek Noktada Toplama (2026-06-07)
 
 Postgres `text[]` kodlama/çözme için kullanılan `lib/pq` helper'ları (`pq.Array`, `pq.StringArray`) 11 dosyaya dağılmıştı. Driver zaten pgx (`database/sql` + `pgx/v5/stdlib`); lib/pq sadece array codec olarak kullanılıyordu. İleride pgx native / pgtype'a geçişi tek dosyaya indirmek için tek bir abstraction'da toplandı.

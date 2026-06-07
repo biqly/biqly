@@ -120,162 +120,30 @@ func containsMessage(messages []string, needle string) bool {
 
 // ValidateContext checks whether a draft semantic model can be safely
 // published. Errors block publish; warnings describe risky but valid context.
-//
-//nolint:gocyclo,gocognit,funlen // aggregates dimension, metric, join, and catalog consistency checks
 func ValidateContext(ctx context.Context, model SemanticModel, catalog CatalogReader) PublishValidationResult {
-	result := PublishValidationResult{
-		Valid:               true,
-		EstimatedPromptSize: estimatePromptSize(model),
-	}
-	addError := func(format string, args ...any) {
-		result.Errors = append(result.Errors, fmt.Sprintf(format, args...))
-		result.Valid = false
-	}
-	addWarning := func(format string, args ...any) {
-		result.Warnings = append(result.Warnings, fmt.Sprintf(format, args...))
+	sink := newValidationSinkWithPromptSize(model)
+	validateModelRequiredFields(model, sink.addError)
+
+	vc, ok := loadValidationCatalog(ctx, model, catalog, sink.addError)
+	if !ok {
+		return sink.finish()
 	}
 
-	if strings.TrimSpace(model.Name) == "" {
-		addError("model name is required")
-	}
-	if strings.TrimSpace(model.BaseTable) == "" {
-		addError("base table is required")
-	}
-	if len(model.Dimensions) == 0 {
-		addError("model has no active dimensions; AI cannot generate queries without at least one dimension")
-	}
+	validateDuplicateNames("dimension", model.Dimensions, func(d Dimension) string { return d.Name }, sink.addError)
+	validateDuplicateNames("metric", model.Metrics, func(m Metric) string { return m.Name }, sink.addError)
+	validateDuplicateNames("relationship", model.Joins, func(j Join) string { return j.Name }, sink.addError)
 
-	columns, err := catalog.ListSemanticColumns(ctx, model.DatasourceID)
-	if err != nil {
-		addError("load datasource columns: %s", err)
-		return result
-	}
-	relations, err := catalog.ListSemanticRelations(ctx, model.DatasourceID)
-	if err != nil {
-		addError("load datasource relations: %s", err)
-		return result
-	}
-	policies, err := catalog.ListSemanticPolicies(ctx, model.DatasourceID)
-	if err != nil {
-		addError("load permission policies: %s", err)
-		return result
-	}
-	columnSet := buildColumnSet(columns)
+	allowedDims, allowedMets := allowedFieldMaps(model)
+	validateContextDimensions(model, vc.columns, allowedDims, allowedMets, sink.addError)
+	validateContextMetrics(model, vc.columns, allowedDims, allowedMets, sink.addError)
+	validateContextJoins(model, vc.columns, vc.relations, sink.addError, sink.addWarning)
 
-	validateDuplicateNames("dimension", model.Dimensions, func(d Dimension) string { return d.Name }, addError)
-	validateDuplicateNames("metric", model.Metrics, func(m Metric) string { return m.Name }, addError)
-	validateDuplicateNames("relationship", model.Joins, func(j Join) string { return j.Name }, addError)
-
-	// Build map of allowed dimensions and metrics for reference checking
-	allowedDims := make(map[string]bool, len(model.Dimensions))
-	for _, d := range model.Dimensions {
-		allowedDims[strings.ToLower(d.Name)] = true
-	}
-	allowedMets := make(map[string]bool, len(model.Metrics))
-	for _, m := range model.Metrics {
-		allowedMets[strings.ToLower(m.Name)] = true
-	}
-
-	for _, dim := range model.Dimensions {
-		if dim.CalculatedExpression != "" { //nolint:nestif
-			// Validate calculated expression
-			if err := validateCalculatedExpression(dim.CalculatedExpression, columnSet, model.BaseSchema); err != nil {
-				addError("dimension %q calculated expression invalid: %s", dim.Name, err)
-			}
-			expr := getOrParseExpr(dim.CalculatedExpression, dim.CalculatedExpr)
-			if expr != nil {
-				if err := pkgsemantic.ValidateExprStrict(expr, columnSet, allowedMets, allowedDims, false, 0); err != nil {
-					addError("dimension %q calculated expression invalid: %s", dim.Name, err)
-				}
-			}
-		} else if !columnSet.has(model.BaseSchema, dim.ColumnRef) {
-			addError("%s: %s", errmsg.DimensionUnknownColumn, dim.ColumnRef)
-		}
-	}
-
-	for _, metric := range model.Metrics {
-		fnLower := strings.ToLower(strings.TrimSpace(metric.Aggregation))
-		if fnLower == "custom" || strings.Contains(metric.Expression, "[") { //nolint:nestif
-			matches := reBracket.FindAllStringSubmatch(metric.Expression, -1)
-			for _, match := range matches {
-				token := strings.TrimSpace(match[1])
-				isDimOrMetric := false
-				for _, d := range model.Dimensions {
-					if strings.EqualFold(d.Name, token) {
-						isDimOrMetric = true
-						break
-					}
-				}
-				for _, m := range model.Metrics {
-					if strings.EqualFold(m.Name, token) {
-						isDimOrMetric = true
-						break
-					}
-				}
-				if isDimOrMetric {
-					continue
-				}
-
-				ref := token
-				if !strings.Contains(token, ".") {
-					ref = model.BaseTable + "." + token
-				}
-				if !columnSet.has(model.BaseSchema, ref) {
-					addError("%s: %s", errmsg.MetricExpressionUnknownColumn, token)
-				}
-			}
-		} else {
-			for _, ref := range columnRefsInExpression(metric.Expression) {
-				if !columnSet.has(model.BaseSchema, ref) {
-					addError("%s: %s", errmsg.MetricExpressionUnknownColumn, ref)
-				}
-			}
-		}
-
-		expr := getOrParseExpr(metric.Expression, metric.Expr)
-		if expr != nil {
-			allowMets := strings.ToLower(strings.TrimSpace(metric.Aggregation)) == "custom"
-			if err := pkgsemantic.ValidateExprStrict(expr, columnSet, allowedMets, allowedDims, allowMets, 0); err != nil {
-				addError("metric %q expression invalid: %s", metric.Name, err)
-			}
-		}
-	}
-
-	for _, join := range model.Joins {
-		if !columnSet.hasTableColumn(model.BaseSchema, join.FromTable, join.FromColumn) {
-			addError("%s: %s.%s", errmsg.JoinUnknownFromColumn, join.FromTable, join.FromColumn)
-		}
-		if !columnSet.hasTableColumn(model.BaseSchema, join.ToTable, join.ToColumn) {
-			addError("%s: %s.%s", errmsg.JoinUnknownToColumn, join.ToTable, join.ToColumn)
-		}
-		if !relationExists(model.BaseSchema, join, relations) {
-			addWarning("join does not match datasource metadata relation: %s (manual join)", join.Name)
-		}
-		switch strings.ToLower(strings.TrimSpace(join.Relationship)) {
-		case "", RelationshipOneToOne, RelationshipManyToOne:
-		case RelationshipOneToMany, RelationshipManyToMany:
-			addWarning("join can fan out aggregations: %s uses %s", join.Name, join.Relationship)
-		default:
-			addError("join has invalid relationship type: %s", join.Relationship)
-		}
-	}
-
-	// Circular dependency validation
 	for _, cycleErr := range checkCircularDependencies(model) {
-		addError("%s", cycleErr)
+		sink.addError("%s", cycleErr)
 	}
-
-	validatePolicies(model, policies, addError)
-
-	if result.EstimatedPromptSize > 60000 {
-		addWarning("semantic context prompt estimate is high: %d runes", result.EstimatedPromptSize)
-	}
-
-	for _, msg := range EnforceBudget(model, DefaultContextBudget(), result.EstimatedPromptSize) {
-		addWarning("%s", msg)
-	}
-
-	return result
+	validatePolicies(model, vc.policies, sink.addError)
+	appendContextBudgetWarnings(model, &sink.result, sink.addWarning)
+	return sink.finish()
 }
 
 func validatePolicies(model SemanticModel, policies []CatalogPolicy, addError func(string, ...any)) {

@@ -63,11 +63,13 @@ func TestMaskSecret(t *testing.T) {
 
 func TestChatConfigForPurposeFallback(t *testing.T) {
 	fallback := config.AIConfig{
-		Provider:            "openai",
-		Model:               "gpt-4o",
-		BaseURL:             "https://api.openai.com/v1",
-		APIKey:              "env-key",
-		MaxPromptInputRunes: 80000,
+		Connection: config.AIConnectionConfig{
+			Provider: "openai",
+			Model:    "gpt-4o",
+			BaseURL:  "https://api.openai.com/v1",
+			APIKey:   "env-key",
+		},
+		Generation: config.AIGenerationConfig{MaxPromptInputRunes: 80000},
 	}
 	store := NewProviderStore(nil, nil, &fallback)
 
@@ -76,19 +78,23 @@ func TestChatConfigForPurposeFallback(t *testing.T) {
 	if ok {
 		t.Fatal("expected ok=false when nothing resolved")
 	}
-	if cfg.Model != "gpt-4o" || cfg.APIKey != "env-key" {
+	if cfg.Connection.Model != "gpt-4o" || cfg.Connection.APIKey != "env-key" {
 		t.Errorf("fallback config not returned: %+v", cfg)
 	}
 }
 
 func TestChatConfigForPurposeResolved(t *testing.T) {
 	fallback := config.AIConfig{
-		Provider:            "openai",
-		Model:               "gpt-4o",
-		MaxRetries:          3,
-		MultiCandidateCount: 2,
-		MaxPromptInputRunes: 80000,
-		Query:               config.QueryLLMConfig{Model: "should-be-cleared"},
+		Connection: config.AIConnectionConfig{
+			Provider: "openai",
+			Model:    "gpt-4o",
+		},
+		Generation: config.AIGenerationConfig{
+			MaxRetries:          3,
+			MultiCandidateCount: 2,
+			MaxPromptInputRunes: 80000,
+		},
+		Query: config.QueryLLMConfig{Model: "should-be-cleared"},
 	}
 	store := NewProviderStore(nil, nil, &fallback)
 	store.resolved[PurposeQuery] = &resolvedModel{
@@ -106,17 +112,17 @@ func TestChatConfigForPurposeResolved(t *testing.T) {
 	if !ok {
 		t.Fatal("expected ok=true when resolved")
 	}
-	if cfg.Provider != "anthropic" || cfg.Model != "claude-sonnet-4" || cfg.APIKey != "db-key" {
+	if cfg.Connection.Provider != "anthropic" || cfg.Connection.Model != "claude-sonnet-4" || cfg.Connection.APIKey != "db-key" {
 		t.Errorf("connection fields not overridden: %+v", cfg)
 	}
-	if cfg.MaxTokens != 2048 || cfg.Temperature != 0.2 || cfg.HTTPTimeoutSeconds != 90 {
+	if cfg.Generation.MaxTokens != 2048 || cfg.Generation.Temperature != 0.2 || cfg.Connection.HTTPTimeoutSeconds != 90 {
 		t.Errorf("model tuning not applied: %+v", cfg)
 	}
-	if cfg.MaxPromptInputRunes != 40000 {
-		t.Errorf("expected per-model max prompt runes, got %d", cfg.MaxPromptInputRunes)
+	if cfg.Generation.MaxPromptInputRunes != 40000 {
+		t.Errorf("expected per-model max prompt runes, got %d", cfg.Generation.MaxPromptInputRunes)
 	}
 	// Non-connection knobs carry through from fallback.
-	if cfg.MaxRetries != 3 || cfg.MultiCandidateCount != 2 {
+	if cfg.Generation.MaxRetries != 3 || cfg.Generation.MultiCandidateCount != 2 {
 		t.Errorf("fallback tuning lost: %+v", cfg)
 	}
 	// BI_AI_QUERY_* overrides neutralized so the DB selection is authoritative.
@@ -126,7 +132,7 @@ func TestChatConfigForPurposeResolved(t *testing.T) {
 }
 
 func TestEffectiveConfigOverlaysEmbeddingAndTranslation(t *testing.T) {
-	store := NewProviderStore(nil, nil, &config.AIConfig{Model: "gpt-4o"})
+	store := NewProviderStore(nil, nil, &config.AIConfig{Connection: config.AIConnectionConfig{Model: "gpt-4o"}})
 	store.resolved[PurposeEmbedding] = &resolvedModel{
 		ModelID:            "text-embedding-3-small",
 		BaseURL:            "https://emb.example/v1",
@@ -177,7 +183,7 @@ func (s *stubProvider) GenerateAt(ctx context.Context, prompt string, _ float64)
 
 func TestPurposeProviderFallsBackWhenUnresolved(t *testing.T) {
 	fallback := &stubProvider{reply: "from-fallback"}
-	store := NewProviderStore(nil, nil, &config.AIConfig{Model: "gpt-4o"})
+	store := NewProviderStore(nil, nil, &config.AIConfig{Connection: config.AIConnectionConfig{Model: "gpt-4o"}})
 	pp := NewPurposeProvider(store, PurposeQuery, fallback, nil)
 
 	res, err := pp.Generate(context.Background(), "hello")
@@ -194,11 +200,11 @@ func TestPurposeProviderFallsBackWhenUnresolved(t *testing.T) {
 
 func TestEffectiveConfigForEmbeddings_ClearsEnvWhenUnresolved(t *testing.T) {
 	fallback := config.AIConfig{
+		Connection: config.AIConnectionConfig{BaseURL: "https://api.openai.com/v1"},
 		Embedding: config.EmbeddingConfig{
 			Model:  "env-embed",
 			APIKey: "env-key",
 		},
-		BaseURL: "https://api.openai.com/v1",
 	}
 	store := NewProviderStore(nil, nil, &fallback)
 
@@ -225,7 +231,10 @@ func TestEffectiveConfigForEmbeddings_ClearsEnvWhenUnresolved(t *testing.T) {
 }
 
 func TestModelLabelForPurpose(t *testing.T) {
-	fallback := config.AIConfig{Model: "env-describe", Query: config.QueryLLMConfig{Model: "qwen-env"}}
+	fallback := config.AIConfig{
+		Connection: config.AIConnectionConfig{Model: "env-describe"},
+		Query:        config.QueryLLMConfig{Model: "qwen-env"},
+	}
 	store := NewProviderStore(nil, nil, &fallback)
 	store.resolved[PurposeQuery] = &resolvedModel{
 		ModelID:     "mimo-v2.5",
