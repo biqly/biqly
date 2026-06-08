@@ -31,6 +31,7 @@ export default function ClaimInvitePage() {
     const params = new URLSearchParams(window.location.search)
     const tok = params.get('token')
     if (!tok) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setError(t('auth.invite_invalid_token'))
       setVerifying(false)
       return

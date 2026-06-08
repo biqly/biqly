@@ -3,6 +3,7 @@ import '../styles/dashboards.css'
 import { useCallback, useEffect, useState } from 'react'
 
 import { useApi } from '../hooks/useApi'
+import { useAutofocus } from '../hooks/useAutofocus'
 import { useConfirm } from '../hooks/useConfirm'
 import { useT } from '../i18n'
 import { EmptyState } from './ui/EmptyState'
@@ -32,6 +33,7 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
+  const createNameInputRef = useAutofocus<HTMLInputElement>(isModalOpen)
 
   const fetchDashboards = useCallback(async () => {
     const data = await get<Dashboard[]>('/api/dashboards')
@@ -41,6 +43,7 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
   }, [get])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchDashboards()
   }, [fetchDashboards])
 
@@ -205,10 +208,10 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
             <input
               id="dash-name"
               type="text"
+              ref={createNameInputRef}
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={t('customDashboards.name_placeholder')}
-              autoFocus
               required
             />
           </div>

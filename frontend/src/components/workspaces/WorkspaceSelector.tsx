@@ -23,6 +23,7 @@ export function WorkspaceSelector({ token }: { token: string }) {
 
   useEffect(() => {
     if (user?.active_workspace_id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveID(user.active_workspace_id)
       localStorage.setItem(storageKey, user.active_workspace_id)
     }

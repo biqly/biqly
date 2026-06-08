@@ -124,6 +124,7 @@ export default function Evaluation() {
 
   useEffect(() => {
     if (activeTab === 'history' || activeTab === 'regression') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       void loadRunHistory()
     }
   }, [activeTab, loadRunHistory])

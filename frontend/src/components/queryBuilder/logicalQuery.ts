@@ -31,7 +31,7 @@ export function buildQueryPayload(state: QueryBuilderFormState) {
         if (typeof f.value === 'string' && f.value.startsWith('[') && f.value.endsWith(']')) {
           try {
             parsedValue = JSON.parse(f.value)
-          } catch (e) {
+          } catch {
             // fallback to raw value if invalid JSON
           }
         }

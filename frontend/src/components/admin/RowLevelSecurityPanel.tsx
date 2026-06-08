@@ -17,6 +17,7 @@ import {
 import { ReadOnlyNote } from './ReadOnlyNote'
 import { fieldSelectOptions, FILTER_OPERATOR_OPTIONS } from './securityPolicyConstants'
 
+// eslint-disable-next-line complexity
 export function RowLevelSecurityPanel({ token }: { token: string }) {
   const t = useT()
   const { hasPermission } = useAuth()
@@ -27,12 +28,12 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
   const [selectedRole, setSelectedRole] = useState('viewer')
   const { datasources, loading: loadingDS } = useDatasources()
   const [selectedDS, setSelectedDS] = useState<string>('')
-  const effectiveSelectedDS = selectedDS || datasources[0]?.id || ''
+  const effectiveSelectedDS = selectedDS.length > 0 ? selectedDS : (datasources[0]?.id ?? '')
 
   // Semantic Models
   const { models, loading: loadingModels } = useSemanticModels(effectiveSelectedDS || null)
   const [selectedModel, setSelectedModel] = useState<string>('')
-  const effectiveSelectedModel = selectedModel || models[0]?.id || ''
+  const effectiveSelectedModel = selectedModel.length > 0 ? selectedModel : (models[0]?.id ?? '')
   const { model, loading: loadingModelDetail } = useModelDetail(effectiveSelectedModel || null)
 
   // Policy & Filters

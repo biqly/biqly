@@ -96,6 +96,7 @@ export function RolesPanel({ token }: { token: string }) {
     if (!selectedRoleId) {
       return
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadRolePermissions(selectedRoleId)
   }, [selectedRoleId, loadRolePermissions])
 

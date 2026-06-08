@@ -51,8 +51,8 @@ function ValidationErrorBanner({
 
 export function TableBrowserModelContent({
   t,
-  modelDetail,
-  datasourceId,
+  modelDetail: _modelDetail,
+  datasourceId: _datasourceId,
   activeDimensions,
   filters,
   popoverOpen,

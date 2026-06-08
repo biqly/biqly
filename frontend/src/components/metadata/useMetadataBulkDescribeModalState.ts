@@ -54,6 +54,7 @@ export function useMetadataBulkDescribeModalState({
     if (!open) {
       return
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setBulkTypeEnabled(Object.fromEntries(typeOptions.map((ty) => [ty, true])))
     setBulkSchemaRestrict(false)
     setBulkSchemasSelected([])
@@ -79,6 +80,7 @@ export function useMetadataBulkDescribeModalState({
 
   useEffect(() => {
     if (!datasourceId || bulkScopeSchemas.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBulkScopeConflict(null)
       return
     }

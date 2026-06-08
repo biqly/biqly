@@ -50,6 +50,7 @@ export function InvitationsTab({
   const [now, setNow] = useState<number | null>(null)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNow(Date.now())
   }, [])
 

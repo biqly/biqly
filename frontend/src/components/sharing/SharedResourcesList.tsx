@@ -52,10 +52,12 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
   }, [accessToken, currentPage, pageSize, resourceType])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load()
   }, [load, refreshKey])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1)
   }, [resourceType])
 

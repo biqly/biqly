@@ -143,6 +143,7 @@ export function useSelectDropdown<T extends string>({
 
   useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSearch('')
       setActiveIndex(-1)
       return
@@ -161,6 +162,7 @@ export function useSelectDropdown<T extends string>({
       return
     }
     const first = findNextEnabled(-1, 1)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveIndex(first)
   }, [search, open, searchable, findNextEnabled])
 

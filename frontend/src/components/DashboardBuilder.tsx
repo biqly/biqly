@@ -91,6 +91,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
   }, [dashboardId, get])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchDashboard()
   }, [fetchDashboard])
 
@@ -102,6 +103,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
         setSavedQuestions(res ?? [])
       })
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSavedQuestions([])
     }
   }, [selDatasourceId, selModelId, isConfigModalOpen, get])

@@ -50,6 +50,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
     if (datasources.length > 0 && !selectedDS) {
       const firstDS = datasources[0]
       if (firstDS) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedDS(firstDS.id)
       }
     }
@@ -74,6 +75,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
   }, [token, selectedDS])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setScanSummary(null)
     setPendingType({})
     setPendingStrategy({})

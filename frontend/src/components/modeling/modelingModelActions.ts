@@ -7,7 +7,7 @@ import type {
 } from '../../types/semantic'
 import { schemaImpact, tableImpact } from './modelingImpact'
 import type { JoinForm, SuggestedJoin } from './types'
-import { publishModelRequest, suggestedJoinToPayload } from './types'
+import { suggestedJoinToPayload } from './types'
 import { buildJoinPayload, canSaveJoinForm } from './utils'
 
 type ConfirmFn = (opts: {

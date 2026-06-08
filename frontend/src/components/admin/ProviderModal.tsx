@@ -8,6 +8,7 @@ import {
   testProvider,
   updateProvider,
 } from '../../api/aiProviders'
+import { useAutofocus } from '../../hooks/useAutofocus'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
 import { Modal } from '../ui/Modal'
@@ -81,6 +82,7 @@ export function ProviderModal({
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null)
+  const nameInputRef = useAutofocus<HTMLInputElement>()
 
   const onTypeChange = (next: AIProviderType) => {
     setType(next)
@@ -151,9 +153,9 @@ export function ProviderModal({
         <ModalField label={t('admin.ai_providers.fields.name')}>
           <input
             style={aiModalInputStyle}
+            ref={nameInputRef}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            autoFocus
           />
         </ModalField>
         <ModalField label={t('admin.ai_providers.fields.type')}>

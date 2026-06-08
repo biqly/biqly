@@ -20,7 +20,11 @@ import {
 import { ReadOnlyNote } from './ReadOnlyNote'
 
 const DEFAULT_FIELD_PAGE_SIZE = 15
+const EMPTY_DENIED_FIELDS: string[] = []
+const EMPTY_PII_POLICY: Record<string, PIIColumnAccess> = {}
+const EMPTY_PII_COLUMNS: PIIColumn[] = []
 
+// eslint-disable-next-line complexity
 export function FieldPermissionPanel({ token }: { token: string }) {
   const t = useT()
   const { hasPermission } = useAuth()
@@ -79,9 +83,10 @@ export function FieldPermissionPanel({ token }: { token: string }) {
     piiColumns: [],
   })
   const policy = policyState.key === policyScopeKey ? policyState.policy : null
-  const deniedFields = policyState.key === policyScopeKey ? policyState.deniedFields : []
-  const piiPolicy = policyState.key === policyScopeKey ? policyState.piiPolicy : {}
-  const piiColumns = policyState.key === policyScopeKey ? policyState.piiColumns : []
+  const deniedFields =
+    policyState.key === policyScopeKey ? policyState.deniedFields : EMPTY_DENIED_FIELDS
+  const piiPolicy = policyState.key === policyScopeKey ? policyState.piiPolicy : EMPTY_PII_POLICY
+  const piiColumns = policyState.key === policyScopeKey ? policyState.piiColumns : EMPTY_PII_COLUMNS
 
   const updatePolicyFields = useCallback(
     (

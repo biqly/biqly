@@ -9,6 +9,7 @@ import {
   type RemoteModelOption,
   updateModel,
 } from '../../api/aiProviders'
+import { useAutofocus } from '../../hooks/useAutofocus'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
 import { Modal } from '../ui/Modal'
@@ -29,7 +30,6 @@ function RemoteModelIdPicker({
   t,
   providerId,
   modelID,
-  displayName,
   remoteModels,
   loadingRemote,
   remoteError,
@@ -41,7 +41,6 @@ function RemoteModelIdPicker({
   t: ReturnType<typeof useT>
   providerId: string
   modelID: string
-  displayName: string
   remoteModels: RemoteModelOption[]
   loadingRemote: boolean
   remoteError: string | null
@@ -50,6 +49,9 @@ function RemoteModelIdPicker({
   onFetchRemote: () => void
   onToggleManual: () => void
 }) {
+  const remoteModelIdInputRef = useAutofocus<HTMLInputElement>(
+    remoteModels.length === 0 || useManualModelID,
+  )
   const remoteModelOptions = useMemo(() => {
     const opts = remoteModels.map((m) => ({
       value: m.id,
@@ -77,9 +79,9 @@ function RemoteModelIdPicker({
         ) : (
           <input
             style={{ ...aiModalInputStyle, flex: 1 }}
+            ref={remoteModelIdInputRef}
             value={modelID}
             onChange={(e) => onModelIDChange(e.target.value)}
-            autoFocus
             placeholder="gpt-4o"
             list={remoteModels.length > 0 ? `remote-models-${providerId}` : undefined}
           />
@@ -176,6 +178,7 @@ export function ModelModal({
   }, [provider.id, t])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchRemoteModels()
   }, [fetchRemoteModels])
 
@@ -235,7 +238,6 @@ export function ModelModal({
             t={t}
             providerId={provider.id}
             modelID={modelID}
-            displayName={displayName}
             remoteModels={remoteModels}
             loadingRemote={loadingRemote}
             remoteError={remoteError}

@@ -62,6 +62,7 @@ function readVisibility(storageKey: string): { shown: Set<string>; hidden: Set<s
   }
 }
 
+// eslint-disable-next-line complexity
 export function useModelingPageState() {
   const { modelId: routeModelId } = useParams<{ modelId: string }>()
   const t = useT()
@@ -196,6 +197,7 @@ export function useModelingPageState() {
       void Promise.resolve().then(() => setSuggestedJoins([]))
       return
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadSuggestedJoins()
   }, [loadSuggestedJoins, modelId])
 

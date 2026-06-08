@@ -1,3 +1,4 @@
+import type { rowsToChartData } from '../../utils/chartData'
 import { formatResultCell } from '../../utils/resultCellFormat'
 import type { MetadataTFunction } from '../metadata/utils'
 import { ChartContainer, type ChartKind } from '../ui/ChartContainer'
@@ -20,7 +21,7 @@ export function QueryBuilderResults({
   t,
 }: {
   result: QueryBuilderResult
-  chartData: ReturnType<typeof import('../../utils/chartData').rowsToChartData>
+  chartData: ReturnType<typeof rowsToChartData>
   chartType: ChartKind
   setChartType: (value: ChartKind) => void
   t: MetadataTFunction

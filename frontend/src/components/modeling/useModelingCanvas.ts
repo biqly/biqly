@@ -15,7 +15,7 @@ import {
   zoomViewportAtPoint,
 } from './canvasMath'
 import { COL_LIMIT } from './constants'
-import type { CardLayout, Pt, Viewport } from './types'
+import type { Pt, Viewport } from './types'
 import { tableKey } from './utils'
 
 export function useModelingCanvas(
@@ -52,11 +52,13 @@ export function useModelingCanvas(
   }, [tableCards, columns, model])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPositions({})
     setViewport({ scale: 1, tx: 0, ty: 0 })
   }, [modelId])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPositions(layoutInitialPositions(tableCards, cardLayouts))
   }, [tableCards, cardLayouts])
 

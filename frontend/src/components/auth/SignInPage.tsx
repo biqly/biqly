@@ -71,6 +71,7 @@ export default function SignInPage() {
     const params = new URLSearchParams(window.location.search)
     const token = params.get('mfa_token')
     if (token) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMfaToken(token)
       setMfaRequired(true)
       // Clean query string
@@ -87,6 +88,7 @@ export default function SignInPage() {
       return
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSessionBanner(sessionExpiredBanner(reason, t))
     window.history.replaceState(null, '', '/auth/signin')
   }, [t])

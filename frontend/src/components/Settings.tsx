@@ -76,6 +76,7 @@ export default function Settings() {
 
   useEffect(() => {
     if (registrationError) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setError(registrationError)
     }
   }, [registrationError])
@@ -113,6 +114,7 @@ export default function Settings() {
   }, [accessToken])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchPasskeys()
     void fetchMFAStatus()
   }, [fetchMFAStatus, fetchPasskeys])

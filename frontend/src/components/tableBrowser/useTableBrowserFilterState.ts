@@ -45,11 +45,10 @@ export function useTableBrowserFilterState({
     key: string
     filters: TableBrowserFilter[]
   }>({ key: '', filters: [] })
-  const filtersRaw = filtersState.key === scopeKey ? filtersState.filters : []
-  const filters = useMemo(
-    () => filtersRaw.filter((f) => defaultColumnOrder.includes(f.field)),
-    [filtersRaw, defaultColumnOrder],
-  )
+  const filters = useMemo(() => {
+    const scopedFilters = filtersState.key === scopeKey ? filtersState.filters : []
+    return scopedFilters.filter((f) => defaultColumnOrder.includes(f.field))
+  }, [filtersState, scopeKey, defaultColumnOrder])
   const [popoverOpen, setPopoverOpen] = useState(false)
   const [popoverField, setPopoverField] = useState('')
   const [popoverOperator, setPopoverOperator] = useState('contains')

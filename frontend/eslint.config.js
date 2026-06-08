@@ -38,48 +38,43 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
 
       // React / Vite
-      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
-      // New opinionated react-hooks v7 rules: surface as warnings while the
-      // existing codebase is cleaned up incrementally.
-      'react-hooks/set-state-in-effect': 'warn',
-      'react-hooks/refs': 'warn',
-      'react-hooks/immutability': 'warn',
-      'react-hooks/purity': 'warn',
+      'react-refresh/only-export-components': ['error', { allowConstantExport: true }],
+      'react-hooks/set-state-in-effect': 'error',
+      'react-hooks/refs': 'error',
+      'react-hooks/immutability': 'error',
+      'react-hooks/purity': 'error',
 
       // TypeScript safety
       '@typescript-eslint/no-unused-vars': [
-        'warn',
+        'error',
         {
           argsIgnorePattern: '^_',
           varsIgnorePattern: '^_',
           caughtErrorsIgnorePattern: '^_',
         },
       ],
-      // Ratchet plan: the rules below are 'warn' because the existing code
-      // predates linting. New code should treat them as errors; promote them
-      // one by one as the warning count reaches zero.
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-misused-promises': 'error',
       '@typescript-eslint/await-thenable': 'error',
       '@typescript-eslint/no-unnecessary-condition': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-unsafe-call': 'warn',
-      '@typescript-eslint/no-unsafe-assignment': 'warn',
+      '@typescript-eslint/no-unsafe-call': 'error',
+      '@typescript-eslint/no-unsafe-assignment': 'error',
       '@typescript-eslint/no-unsafe-member-access': 'error',
-      '@typescript-eslint/no-unsafe-argument': 'warn',
-      '@typescript-eslint/no-unsafe-return': 'warn',
-      '@typescript-eslint/prefer-nullish-coalescing': 'warn',
-      '@typescript-eslint/no-redundant-type-constituents': 'warn',
-      '@typescript-eslint/no-base-to-string': 'warn',
-      '@typescript-eslint/no-empty-function': 'warn',
-      '@typescript-eslint/ban-ts-comment': 'warn',
-      '@typescript-eslint/prefer-for-of': 'warn',
-      '@typescript-eslint/consistent-type-imports': ['warn', { prefer: 'type-imports' }],
+      '@typescript-eslint/no-unsafe-argument': 'error',
+      '@typescript-eslint/no-unsafe-return': 'error',
+      '@typescript-eslint/prefer-nullish-coalescing': 'error',
+      '@typescript-eslint/no-redundant-type-constituents': 'error',
+      '@typescript-eslint/no-base-to-string': 'error',
+      '@typescript-eslint/no-empty-function': 'error',
+      '@typescript-eslint/ban-ts-comment': 'error',
+      '@typescript-eslint/prefer-for-of': 'error',
+      '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
 
       // Code quality
-      complexity: ['warn', 20],
-      'max-depth': ['warn', 4],
-      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      complexity: ['error', 20],
+      'max-depth': ['error', 4],
+      'no-console': ['error', { allow: ['warn', 'error'] }],
       'no-debugger': 'error',
       // null: ignore keeps the idiomatic `x == null` null/undefined check.
       eqeqeq: ['error', 'always', { null: 'ignore' }],
@@ -87,18 +82,18 @@ export default tseslint.config(
 
       // Security-ish
       'security/detect-object-injection': 'off',
-      'security/detect-non-literal-regexp': 'warn',
-      'security/detect-unsafe-regex': 'warn',
+      'security/detect-non-literal-regexp': 'error',
+      'security/detect-unsafe-regex': 'error',
       'security/detect-eval-with-expression': 'error',
 
       // Imports
-      'simple-import-sort/imports': 'warn',
-      'simple-import-sort/exports': 'warn',
+      'simple-import-sort/imports': 'error',
+      'simple-import-sort/exports': 'error',
 
       // Accessibility
-      'jsx-a11y/alt-text': 'warn',
-      'jsx-a11y/anchor-is-valid': 'warn',
-      'jsx-a11y/no-autofocus': 'warn',
+      'jsx-a11y/alt-text': 'error',
+      'jsx-a11y/anchor-is-valid': 'error',
+      'jsx-a11y/no-autofocus': 'error',
     },
   },
 

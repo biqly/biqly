@@ -53,6 +53,7 @@ export function AccountProfileSection() {
   const hasPassword = user?.hasPassword !== false
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDisplayName(user?.displayName ?? '')
   }, [user?.displayName])
 

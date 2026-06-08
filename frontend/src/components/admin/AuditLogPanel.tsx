@@ -109,6 +109,7 @@ export function AuditLogPanel({ token }: { token: string }) {
   )
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void reload({ userID, action, page: currentPage, pageSize })
     // Filter fields apply on submit; reload when auth or page changes only.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional filter-on-submit

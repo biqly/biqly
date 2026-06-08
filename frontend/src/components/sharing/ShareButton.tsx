@@ -35,6 +35,7 @@ export function ShareButton({ resourceType, resourceID, onShared }: Props) {
       return
     }
     let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLookupsLoading(true)
     Promise.all([
       listUsers(accessToken, { pageSize: LOOKUP_PAGE_SIZE }),

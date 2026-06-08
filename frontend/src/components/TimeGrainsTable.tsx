@@ -1,5 +1,5 @@
-import { LoadingOverlay } from './ui/LoadingOverlay'
 import type { TFunction } from '../i18n'
+import { LoadingOverlay } from './ui/LoadingOverlay'
 
 interface TimeGrain {
   grain: string

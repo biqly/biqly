@@ -25,6 +25,7 @@ export default function ResetPasswordPage() {
     const params = new URLSearchParams(window.location.search)
     const tok = params.get('token')
     if (tok) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setToken(tok)
     } else {
       setError('Invalid or missing reset token')

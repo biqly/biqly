@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import type { KeyboardEvent } from 'react'
 
+import { useAutofocus } from '../../hooks/useAutofocus'
 import { useT } from '../../i18n'
 
 interface InlineEditProps {
@@ -27,6 +28,7 @@ export function InlineEdit({
   onCancel,
 }: InlineEditProps) {
   const t = useT()
+  const editInputRef = useAutofocus<HTMLTextAreaElement>(editing)
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Escape') {
       event.preventDefault()
@@ -57,9 +59,9 @@ export function InlineEdit({
     >
       {editing ? (
         <textarea
+          ref={editInputRef}
           className="metadata-inline-field metadata-inline-field--fit-rows"
           title={t('common.inline_edit_save_hint')}
-          autoFocus
           rows={rows}
           value={value}
           onChange={(event) => onChange(event.target.value)}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import {
   type AIModel,
@@ -16,7 +16,6 @@ import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
-import { Select } from '../ui/Select'
 import { AIModelSharingPanel } from './AIModelSharingPanel'
 import { PURPOSES } from './aiProviderModalShared'
 import { ModelModal } from './ModelModal'
@@ -74,11 +73,13 @@ export function AIProvidersPanel() {
   )
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void reloadTop()
   }, [reloadTop])
 
   useEffect(() => {
     if (selectedProvider) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       void reloadModels(selectedProvider.id)
     } else {
       setModels([])
@@ -532,28 +533,6 @@ const trRow: React.CSSProperties = {
   borderBottom: '1px solid var(--border, rgba(255,255,255,0.06))',
 }
 const tdStyle: React.CSSProperties = { padding: '10px 16px', color: 'var(--text-primary, #f4f4f5)' }
-const formStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 14 }
-const inputStyle: React.CSSProperties = {
-  padding: '8px 10px',
-  background: 'var(--bg-input, rgba(255,255,255,0.04))',
-  border: '1px solid var(--border, rgba(255,255,255,0.1))',
-  borderRadius: 6,
-  color: 'var(--text-primary, #f4f4f5)',
-  fontSize: 13,
-  width: '100%',
-}
-const checkboxRow: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  fontSize: 13,
-}
-const modalActions: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'flex-end',
-  gap: 8,
-  marginTop: 8,
-}
 const primaryBtn: React.CSSProperties = {
   padding: '8px 14px',
   background: 'var(--accent, #6366f1)',

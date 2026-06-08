@@ -13,6 +13,7 @@ import {
 import { SortStep } from './SortStep'
 import { SummarizeStep } from './SummarizeStep'
 import type { CTERow, FilterRow, HavingRow, SelectItem, WindowFuncRow } from './types'
+import type { filterFieldOptions } from './utils'
 import { dimFieldOptions, dimOptionsForGroupRow, metricFieldOptions } from './utils'
 import { WindowFuncStep } from './WindowFuncStep'
 
@@ -70,7 +71,7 @@ export function QueryBuilderNotebook({
 }: {
   modelDetail: SemanticModelDetail
   filters: FilterRow[]
-  filterFieldOpts: ReturnType<typeof import('./utils').filterFieldOptions>
+  filterFieldOpts: ReturnType<typeof filterFieldOptions>
   updateFilter: (i: number, field: keyof FilterRow, v: string) => void
   removeFilter: (i: number) => void
   addFilter: () => void
@@ -99,7 +100,7 @@ export function QueryBuilderNotebook({
   setLimit: (value: number) => void
   mode: 'simple' | 'advanced'
   having: HavingRow[]
-  metricOptsHaving: ReturnType<typeof import('./utils').metricFieldOptions>
+  metricOptsHaving: ReturnType<typeof metricFieldOptions>
   updateHaving: (i: number, field: keyof HavingRow, v: string) => void
   removeHaving: (i: number) => void
   addHaving: () => void

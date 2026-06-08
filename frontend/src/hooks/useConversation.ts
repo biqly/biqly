@@ -17,7 +17,11 @@ export function loadConversations(
   }
   try {
     const raw = storage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : []
+    if (!raw) {
+      return []
+    }
+    const parsed: unknown = JSON.parse(raw)
+    return Array.isArray(parsed) ? (parsed as Conversation[]) : []
   } catch {
     return []
   }

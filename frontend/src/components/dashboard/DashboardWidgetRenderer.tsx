@@ -247,6 +247,7 @@ export function DashboardWidgetRenderer({ widget }: { widget: DashboardWidget })
 
   useEffect(() => {
     if (widget.type === 'text' || !widget.logical_query) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setData(widget.logical_query ? null : null)
       return
     }

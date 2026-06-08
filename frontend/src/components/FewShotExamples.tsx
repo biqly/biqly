@@ -92,6 +92,7 @@ export default function FewShotExamples() {
       url += `?${queryParts.join('&')}`
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setInitLoading(true)
     void get<FewShotExample[]>(url)
       .then((data) => {

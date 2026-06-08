@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 
+import { useAutofocus } from '../../hooks/useAutofocus'
 import { useT } from '../../i18n'
 import { Modal } from './Modal'
 
@@ -25,6 +26,7 @@ export function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   const t = useT()
+  const confirmButtonRef = useAutofocus<HTMLButtonElement>(open)
 
   const confirmText = confirmLabel ?? t('common.confirm_ok')
   const cancelText = cancelLabel ?? t('common.confirm_cancel')
@@ -39,9 +41,9 @@ export function ConfirmDialog({
           </button>
           <button
             type="button"
+            ref={confirmButtonRef}
             className={`btn ${variant === 'danger' ? 'btn-danger' : variant === 'warning' ? 'btn-danger-outline' : 'btn-primary'}`}
             onClick={onConfirm}
-            autoFocus
           >
             {confirmText}
           </button>

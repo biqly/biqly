@@ -90,6 +90,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
   }, [token, workspaceID])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch on scope change.
     void load()
   }, [load])
 

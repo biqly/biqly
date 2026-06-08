@@ -42,20 +42,20 @@
     - [x] `@typescript-eslint/consistent-type-imports` (5 → 0) — `import()` inline type annotation'lar `import type` ile değiştirildi (`AssistantMessageCard`, `routingViz`, `modeling/types`). Kural `error`'a promote edildi.
     - [x] `@typescript-eslint/no-unused-vars` (28 → 0; gerçekte 3) — Kullanılmayan `Datasource`/`CardLayout` import'ları silindi; `catch` binding kaldırıldı. Kural `error`'a promote edildi. `max-warnings` 290 → 248. Testler geçti (95/95).
   - **Faz 4 — React hook'ları ve a11y (~164 uyarı, %11)**
-    - [ ] `react-hooks/set-state-in-effect` (112) — `useEffect` içinde `setState` (v7 yeni kuralı). Yoğun dosyalar: `TableBrowser.tsx` (8), `Modeling.tsx` (7), `SavedQuestions.tsx` (5). Best practice: `useEffect` + `setState` kalıbını `useSyncExternalStore`, derived state veya `useMemo` ile değiştir; ilk yükleme için `use()` hook'u veya Suspense pattern değerlendir.
-    - [ ] `react-hooks/exhaustive-deps` (30) — Eksik bağımlılık dizisi. Best practice: her `useEffect`/`useCallback`/`useMemo` bağımlılık dizisini review et; yanlış bağımlılık yoksa `// eslint-disable-next-line react-hooks/exhaustive-deps` ile gerekçeli istisna ekle.
-    - [ ] `react-refresh/only-export-components` (34) — Dosyada component dışı export. Best practice: utility fonksiyon ve sabitleri ayrı dosyaya taşı; `allowConstantExport: true` zaten config'de ama kalanlar için dosya böl.
-    - [ ] `react-hooks/refs` (4), `react-hooks/immutability` (2), `react-hooks/purity` (1) — v7 yenileri. Best practice: ref mutate'lerini event handler'a taşı; immutable state update'leri ensure et; side effect'leri `useEffect`'e taşı.
-    - [ ] `jsx-a11y/no-autofocus` (18) — `autoFocus` attribute. Best practice: `autoFocus` yerine `useRef` + `el.focus()` programatik odak; modal açılışında `useEffect` ile focus trap uygula.
+    - [x] `react-hooks/set-state-in-effect` (112) — `useEffect` içinde `setState` (v7 yeni kuralı). Yoğun dosyalar: `TableBrowser.tsx` (8), `Modeling.tsx` (7), `SavedQuestions.tsx` (5). Best practice: `useEffect` + `setState` kalıbını `useSyncExternalStore`, derived state veya `useMemo` ile değiştir; ilk yükleme için `use()` hook'u veya Suspense pattern değerlendir.
+    - [x] `react-hooks/exhaustive-deps` (30) — Eksik bağımlılık dizisi. Best practice: her `useEffect`/`useCallback`/`useMemo` bağımlılık dizisini review et; yanlış bağımlılık yoksa `// eslint-disable-next-line react-hooks/exhaustive-deps` ile gerekçeli istisna ekle.
+    - [x] `react-refresh/only-export-components` (34) — Dosyada component dışı export. Best practice: utility fonksiyon ve sabitleri ayrı dosyaya taşı; `allowConstantExport: true` zaten config'de ama kalanlar için dosya böl.
+    - [x] `react-hooks/refs` (4), `react-hooks/immutability` (2), `react-hooks/purity` (1) — v7 yenileri. Best practice: ref mutate'lerini event handler'a taşı; immutable state update'leri ensure et; side effect'leri `useEffect`'e taşı.
+    - [x] `jsx-a11y/no-autofocus` (18) — `autoFocus` attribute. Best practice: `autoFocus` yerine `useRef` + `el.focus()` programatik odak; modal açılışında `useEffect` ile focus trap uygula.
   - **Faz 5 — Kalan düşük sayılı kurallar (~33 uyarı, %2)**
-    - [ ] `complexity` (24) + `max-depth` (1) — Yüksek karmaşıklıklı fonksiyonlar. Best practice: büyük fonksiyonları alt-fonksiyonlara böl; early return ile iç içe `if`'leri azalt.
-    - [ ] `@typescript-eslint/no-base-to-string` (5) — `toString()` geçersiz tip. Best practice: `String()` veya template literal kullan.
-    - [ ] `@typescript-eslint/no-empty-function` (3) — Boş fonksiyon gövdeleri. Best practice: `() => {}` yerine `noop` yardımcısı veya `_` prefix parametre.
-    - [ ] `@typescript-eslint/ban-ts-comment` (1), `@typescript-eslint/prefer-for-of` (1) — Tek seferlik düzeltmeler.
+    - [x] `complexity` (24) + `max-depth` (1) — Yüksek karmaşıklıklı fonksiyonlar. Best practice: büyük fonksiyonları alt-fonksiyonlara böl; early return ile iç içe `if`'leri azalt.
+    - [x] `@typescript-eslint/no-base-to-string` (5) — `toString()` geçersiz tip. Best practice: `String()` veya template literal kullan.
+    - [x] `@typescript-eslint/no-empty-function` (3) — Boş fonksiyon gövdeleri. Best practice: `() => {}` yerine `noop` yardımcısı veya `_` prefix parametre.
+    - [x] `@typescript-eslint/ban-ts-comment` (1), `@typescript-eslint/prefer-for-of` (1) — Tek seferlik düzeltmeler.
   - **Sıkma stratejisi**
-    - [ ] Her faz tamamlandığında `max-warnings`'ı mevcut uyarı sayısı + küçük tampon (10-20) olarak güncelle.
-    - [ ] Hedef timetable: Faz 1 → ~665 uyarı (`max-warnings 680`), Faz 2 → ~405 uyarı (`max-warnings 420`), Faz 3 → ~95 uyarı (`max-warnings 110`), Faz 4+5 → 0 (`max-warnings 0`).
-    - [ ] Son adımda `eslint.config.js`'teki tüm `'warn'` kurallarını `'error'` yap ve `--max-warnings 0` ile kesin sıfır uyarı politikası getir.
+    - [x] Her faz tamamlandığında `max-warnings`'ı mevcut uyarı sayısı + küçük tampon (10-20) olarak güncelle.
+    - [x] Hedef timetable: Faz 1 → ~665 uyarı (`max-warnings 680`), Faz 2 → ~405 uyarı (`max-warnings 420`), Faz 3 → ~95 uyarı (`max-warnings 110`), Faz 4+5 → 0 (`max-warnings 0`).
+    - [x] Son adımda `eslint.config.js`'teki tüm `'warn'` kurallarını `'error'` yap ve `--max-warnings 0` ile kesin sıfır uyarı politikası getir.
 
 ### Notlar
 

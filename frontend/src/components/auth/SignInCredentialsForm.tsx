@@ -1,7 +1,7 @@
 import type { SubmitEvent } from 'react'
 
-import type { TFunction } from '../../i18n'
 import { useAutofocus } from '../../hooks/useAutofocus'
+import type { TFunction } from '../../i18n'
 
 export function SignInCredentialsForm({
   t,

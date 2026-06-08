@@ -1,3 +1,4 @@
+import { useAutofocus } from '../../hooks/useAutofocus'
 import { useT } from '../../i18n'
 import { normalizeOTPCode } from './otp'
 
@@ -17,12 +18,14 @@ export function OTPCodeInput({
   autoFocus = false,
 }: OTPCodeInputProps) {
   const t = useT()
+  const inputRef = useAutofocus<HTMLInputElement>(autoFocus)
 
   return (
     <div className="form-group" style={{ margin: 0 }}>
       <label htmlFor={id}>{t('mfa.label_code')}</label>
       <input
         id={id}
+        ref={inputRef}
         type="text"
         pattern="[0-9]*"
         inputMode="numeric"
@@ -32,7 +35,6 @@ export function OTPCodeInput({
         onChange={(event) => onChange(normalizeOTPCode(event.target.value))}
         placeholder={t('mfa.placeholder_code')}
         disabled={disabled}
-        autoFocus={autoFocus}
         className="mfa-otp-input"
       />
     </div>

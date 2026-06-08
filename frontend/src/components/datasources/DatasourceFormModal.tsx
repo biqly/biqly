@@ -5,6 +5,7 @@ import {
   driverStructuredDefaults,
   isInsecureSslMode,
 } from '../../dbDrivers'
+import { useAutofocus } from '../../hooks/useAutofocus'
 import { useT } from '../../i18n'
 import { DriverTileGrid } from '../DriverTileGrid'
 import { Modal } from '../ui/Modal'
@@ -62,6 +63,7 @@ export function DatasourceFormModal({
   onSave,
 }: DatasourceFormModalProps) {
   const t = useT()
+  const datasourceNameInputRef = useAutofocus<HTMLInputElement>(open)
   const driverConnHints = driverStructuredDefaults(form.type)
   const defaultPortHint = driverDefaultPort(form.type)
 
@@ -109,11 +111,11 @@ export function DatasourceFormModal({
           <input
             id="datasource-name"
             name="name"
+            ref={datasourceNameInputRef}
             value={form.name}
             onChange={(e) => onFormChange({ ...form, name: e.target.value })}
             placeholder="prod-orders-db"
             autoComplete="off"
-            autoFocus
           />
         </div>
 

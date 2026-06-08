@@ -1,5 +1,5 @@
-import { ErrorAlert } from './ui/ErrorAlert'
 import type { TFunction } from '../i18n'
+import { ErrorAlert } from './ui/ErrorAlert'
 
 interface TimeGrain {
   grain: string

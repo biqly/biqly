@@ -270,6 +270,7 @@ export default function PromptTemplates() {
   }, [get])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load()
   }, [load])
 
@@ -284,6 +285,7 @@ export default function PromptTemplates() {
   )
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDraft(currentRow?.content ?? '')
     setDirty(false)
     setSaveOk(null)

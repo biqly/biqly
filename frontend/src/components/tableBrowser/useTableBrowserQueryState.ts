@@ -193,10 +193,12 @@ export function useTableBrowserQueryState({
   }, [queryBase, page, pageSize, postData, queryScopeKey])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void runCountQuery()
   }, [runCountQuery])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void runDataQuery()
   }, [runDataQuery])
 

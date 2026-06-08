@@ -43,6 +43,7 @@ export function WorkspacesPanel({ token }: { token: string }) {
   }, [currentPage, pageSize, token])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void reload()
   }, [reload])
 

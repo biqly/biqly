@@ -1,3 +1,4 @@
+import { useAutofocus } from '../../hooks/useAutofocus'
 import type { useT } from '../../i18n'
 import type {
   ColumnRow,
@@ -69,6 +70,8 @@ export function ModelingModals({
   onCloseEnumDimension: () => void
   onEnumSaved: () => Promise<void>
 }) {
+  const renameInputRef = useAutofocus<HTMLInputElement>(Boolean(renameTarget))
+
   return (
     <>
       {renameTarget && (
@@ -90,7 +93,7 @@ export function ModelingModals({
               <label htmlFor="modeling-rename-value">{t('modeling.display_name_label')}</label>
               <input
                 id="modeling-rename-value"
-                autoFocus
+                ref={renameInputRef}
                 value={renameValue}
                 onChange={(event) => onRenameValueChange(event.target.value)}
                 placeholder={renameTarget.current}

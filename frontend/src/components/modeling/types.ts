@@ -1,4 +1,4 @@
-import type { SemanticDimension, SemanticMetric, TableRow } from '../../types/semantic'
+import type { ColumnRow, SemanticDimension, SemanticMetric, TableRow } from '../../types/semantic'
 
 export interface SuggestedJoin {
   from_schema: string
@@ -53,7 +53,7 @@ export interface JoinPath {
 }
 
 export interface CardLayout {
-  columnsShown: import('../../types/semantic').ColumnRow[]
+  columnsShown: ColumnRow[]
   columnIndex: Map<string, number>
   height: number
   hiddenCount: number

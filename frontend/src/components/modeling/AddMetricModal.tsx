@@ -1,3 +1,4 @@
+import { useAutofocus } from '../../hooks/useAutofocus'
 import type { TranslationKey, useT } from '../../i18n'
 import type { ColumnRow, SemanticMetric, SemanticModelDetail, TableRow } from '../../types/semantic'
 import { Modal } from '../ui/Modal'
@@ -29,6 +30,8 @@ export function AddMetricModal({
   t,
 }: AddMetricModalProps) {
   const state = useAddMetricModalState(model, includedTables, columns, metric)
+  const metricNameInputRef = useAutofocus<HTMLInputElement>(!metric)
+  const metricLabelInputRef = useAutofocus<HTMLInputElement>(!!metric)
 
   const submit = async () => {
     const body = state.buildSubmitBody()
@@ -68,7 +71,7 @@ export function AddMetricModal({
             <label htmlFor="metric-name">{t('modeling.metric_name_label')}</label>
             <input
               id="metric-name"
-              autoFocus={!metric}
+              ref={metricNameInputRef}
               value={state.name}
               onChange={(e) => state.setName(e.target.value)}
               disabled={state.saving || !!metric}
@@ -79,7 +82,7 @@ export function AddMetricModal({
             <label htmlFor="metric-label">{t('modeling.metric_label_label')}</label>
             <input
               id="metric-label"
-              autoFocus={!!metric}
+              ref={metricLabelInputRef}
               value={state.label}
               onChange={(e) => state.setLabel(e.target.value)}
               disabled={state.saving}

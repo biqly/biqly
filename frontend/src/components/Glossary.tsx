@@ -54,6 +54,7 @@ export default function Glossary() {
     if (datasources.length > 0 && !selectedDatasourceId) {
       const firstDs = datasources[0]
       if (firstDs) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedDatasourceId(firstDs.id)
       }
     }
@@ -81,6 +82,7 @@ export default function Glossary() {
   }, [get, selectedDatasourceId, selectedModelId])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadTerms()
   }, [loadTerms])
 

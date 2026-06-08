@@ -4,7 +4,6 @@ import type { PivotTableData } from '../../utils/pivotTable'
 import { ResultTable } from '../ResultTable'
 import { ChartContainer } from '../ui/ChartContainer'
 import { ChartTypeSelector } from '../ui/ChartTypeSelector'
-import { ErrorAlert } from '../ui/ErrorAlert'
 import {
   CandidateComparisonPanel,
   ClarificationCard,
