@@ -48,7 +48,7 @@ jobs:
 
       - name: Upload eval report
         if: always() && hashFiles('eval-live-report.json') != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: eval-live-report
           path: eval-live-report.json
