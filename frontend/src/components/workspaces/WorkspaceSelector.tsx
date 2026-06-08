@@ -56,7 +56,7 @@ export function WorkspaceSelector({ token }: { token: string }) {
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [activeID, token])
 
   if (loading || workspaces.length === 0) {
     return null

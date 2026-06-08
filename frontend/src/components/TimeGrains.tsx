@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { useApi } from '../hooks/useApi'
 import { useT } from '../i18n'
+import { TimeGrainsEditModal } from './TimeGrainsEditModal'
+import { TimeGrainsTable } from './TimeGrainsTable'
 import { ErrorAlert } from './ui/ErrorAlert'
-import { LoadingOverlay } from './ui/LoadingOverlay'
 import { LoadingScreen } from './ui/LoadingScreen'
 
 interface TimeGrain {
@@ -29,7 +30,7 @@ export default function TimeGrains() {
   const [formError, setFormError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
-  const fetchGrains = () => {
+  const fetchGrains = useCallback(() => {
     get<TimeGrain[]>('/api/ai/settings/time-grains')
       .then((data) => {
         if (data) {
@@ -40,11 +41,11 @@ export default function TimeGrains() {
       .catch(() => {
         setInitLoading(false)
       })
-  }
+  }, [get])
 
   useEffect(() => {
     fetchGrains()
-  }, [])
+  }, [fetchGrains])
 
   const startEdit = (tg: TimeGrain) => {
     setEditingGrain(tg)
@@ -133,100 +134,7 @@ export default function TimeGrains() {
 
         {error && <ErrorAlert error={error} />}
 
-        <LoadingOverlay loading={loading}>
-          <div style={{ minHeight: grains.length === 0 && loading ? 120 : 'auto' }}>
-            {grains.length > 0 ? (
-              <table className="results-table">
-                <thead>
-                  <tr>
-                    <th>{t('time_grains.col_grain') || 'Time Grain'}</th>
-                    <th>{t('time_grains.col_suffix') || 'Suffix'}</th>
-                    <th>{t('time_grains.col_requires_time') || 'Requires Time Column'}</th>
-                    <th>{t('time_grains.col_synonyms') || 'Synonyms'}</th>
-                    <th className="actions">{t('common.actions') || 'Actions'}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {grains.map((tg) => (
-                    <tr key={tg.grain}>
-                      <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{tg.grain}</td>
-                      <td>
-                        <code style={{ fontSize: '0.78rem', color: 'var(--accent)' }}>
-                          {tg.suffix}
-                        </code>
-                      </td>
-                      <td>
-                        {tg.requires_time ? (
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              padding: '0.15rem 0.5rem',
-                              background: 'rgba(16,185,129,0.1)',
-                              color: 'var(--success)',
-                              borderRadius: '999px',
-                              fontSize: '0.72rem',
-                              fontWeight: 500,
-                            }}
-                          >
-                            {t('common.yes') || 'Yes'}
-                          </span>
-                        ) : (
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              padding: '0.15rem 0.5rem',
-                              background: 'rgba(255,255,255,0.04)',
-                              color: 'var(--text-muted)',
-                              borderRadius: '999px',
-                              fontSize: '0.72rem',
-                            }}
-                          >
-                            {t('common.no') || 'No'}
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                          {tg.synonyms.map((syn) => (
-                            <span
-                              key={syn}
-                              style={{
-                                display: 'inline-block',
-                                padding: '0.15rem 0.5rem',
-                                background: 'rgba(99,102,241,0.08)',
-                                borderRadius: '0.3rem',
-                                fontSize: '0.72rem',
-                                color: 'var(--accent)',
-                                border: '1px solid rgba(99,102,241,0.15)',
-                              }}
-                            >
-                              {syn}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="actions">
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-ghost"
-                          onClick={() => startEdit(tg)}
-                        >
-                          {t('common.edit') || 'Edit'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                {loading ? '' : t('common.no_data') || 'No data found'}
-              </div>
-            )}
-          </div>
-        </LoadingOverlay>
+        <TimeGrainsTable grains={grains} loading={loading} onEdit={startEdit} t={t} />
       </div>
 
       {successMessage && (
@@ -244,92 +152,22 @@ export default function TimeGrains() {
         </div>
       )}
 
-      {/* Edit Modal */}
-      {editingGrain && (
-        <div className="modal-backdrop" onClick={cancelEdit}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>
-                {t('time_grains.edit_title') || 'Edit Time Grain'}: {editingGrain.grain}
-              </h2>
-              <button className="modal-close" onClick={cancelEdit}>
-                ×
-              </button>
-            </div>
-            <div className="modal-body">
-              <div className="form-group">
-                <label htmlFor="tg-suffix">{t('time_grains.label_suffix') || 'Suffix'}</label>
-                <input
-                  id="tg-suffix"
-                  type="text"
-                  value={formSuffix}
-                  onChange={(e) => setFormSuffix(e.target.value)}
-                />
-              </div>
-
-              <div
-                className="form-group"
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'flex-start',
-                  gap: '0.75rem',
-                  marginTop: '1rem',
-                }}
-              >
-                <input
-                  id="tg-requires-time"
-                  type="checkbox"
-                  checked={formRequiresTime}
-                  onChange={(e) => setFormRequiresTime(e.target.checked)}
-                  style={{ width: 'auto', marginTop: '0.2rem' }}
-                />
-                <div>
-                  <label
-                    htmlFor="tg-requires-time"
-                    style={{ marginBottom: '0.1rem', cursor: 'pointer' }}
-                  >
-                    {t('time_grains.label_requires_time') || 'Requires Time Column'}
-                  </label>
-                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
-                    {t('time_grains.label_requires_time_hint') ||
-                      'If checked, this grain only matches datetime/timestamp types.'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="form-group" style={{ marginTop: '1.25rem' }}>
-                <label htmlFor="tg-synonyms">
-                  {t('time_grains.label_synonyms') || 'Synonyms (comma-separated)'}
-                </label>
-                <textarea
-                  id="tg-synonyms"
-                  value={formSynonyms}
-                  onChange={(e) => setFormSynonyms(e.target.value)}
-                  placeholder={t('time_grains.placeholder_synonyms') || 'e.g., daily, per day, day'}
-                  rows={4}
-                />
-              </div>
-
-              {formError && <ErrorAlert error={formError} />}
-            </div>
-            <div className="modal-actions">
-              <button type="button" className="btn btn-ghost" onClick={cancelEdit}>
-                {t('common.cancel') || 'Cancel'}
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => {
-                  void handleSave()
-                }}
-                disabled={loading}
-              >
-                {loading ? t('common.saving') || 'Saving…' : t('common.save') || 'Save'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <TimeGrainsEditModal
+        editingGrain={editingGrain}
+        formSuffix={formSuffix}
+        setFormSuffix={setFormSuffix}
+        formRequiresTime={formRequiresTime}
+        setFormRequiresTime={setFormRequiresTime}
+        formSynonyms={formSynonyms}
+        setFormSynonyms={setFormSynonyms}
+        formError={formError}
+        loading={loading}
+        onCancel={cancelEdit}
+        onSave={() => {
+          void handleSave()
+        }}
+        t={t}
+      />
     </div>
   )
 }

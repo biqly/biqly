@@ -6,7 +6,7 @@ describe('createJobWaiter', () => {
   it('resolves with the result on settleComplete and invokes onComplete once', async () => {
     const onComplete = vi.fn()
     const onError = vi.fn()
-    const promise = new Promise<unknown | null>((resolve) => {
+    const promise = new Promise<unknown>((resolve) => {
       const waiter = createJobWaiter(resolve, { onComplete, onError })
       waiter.settleComplete({ ok: true })
       waiter.settleComplete({ ok: false })
@@ -18,7 +18,7 @@ describe('createJobWaiter', () => {
 
   it('resolves null on settleError and invokes onError once', async () => {
     const onError = vi.fn()
-    const promise = new Promise<unknown | null>((resolve) => {
+    const promise = new Promise<unknown>((resolve) => {
       const waiter = createJobWaiter(resolve, { onError })
       waiter.settleError('failed')
       waiter.settleError('again')
@@ -31,7 +31,7 @@ describe('createJobWaiter', () => {
   it('resolves null on settleDismiss without invoking callbacks', async () => {
     const onComplete = vi.fn()
     const onError = vi.fn()
-    const promise = new Promise<unknown | null>((resolve) => {
+    const promise = new Promise<unknown>((resolve) => {
       const waiter = createJobWaiter(resolve, { onComplete, onError })
       waiter.settleDismiss()
       waiter.settleError('late')

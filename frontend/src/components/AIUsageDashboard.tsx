@@ -61,7 +61,7 @@ export default function AIUsageDashboard() {
     ]).finally(() => {
       setLoading(false)
     })
-  }, [])
+  }, [get])
 
   if (loading) {
     return <AIUsageSkeleton heading={t('dashboard.ai_usage_last_30')} />

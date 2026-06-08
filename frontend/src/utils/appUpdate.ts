@@ -1,3 +1,5 @@
+import { unknownToDisplayString } from './formatters'
+
 const UPDATE_CHECK_INTERVAL_MS = 60_000
 const MIN_RELOAD_INTERVAL_MS = 15_000
 const STORAGE_LAST_RELOAD = 'biqly:last_update_reload_ts'
@@ -95,7 +97,7 @@ function errorString(err: unknown): string {
   if (err instanceof Error) {
     return `${err.name}: ${err.message}`
   }
-  return String(err ?? '')
+  return unknownToDisplayString(err)
 }
 
 export function isLikelyAssetLoadFailure(err: unknown): boolean {

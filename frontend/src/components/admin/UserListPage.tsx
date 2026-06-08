@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { listUsers, resendUserVerification } from '../../api/admin'
 import { apiListInvitations, apiResendInvitation, apiRevokeInvitation } from '../../api/auth'
@@ -58,7 +58,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     text: string
   } | null>(null)
 
-  const loadInvitations = async () => {
+  const loadInvitations = useCallback(async () => {
     if (!isSuperAdmin) {
       return
     }
@@ -78,13 +78,14 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     } finally {
       setInvitesLoading(false)
     }
-  }
+  }, [debouncedInviteSearch, inviteCurrentPage, inviteStatusFilter, isSuperAdmin, pageSize, token])
 
   useEffect(() => {
     if (subTab === 'invitations') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       void loadInvitations()
     }
-  }, [token, inviteCurrentPage, debouncedInviteSearch, inviteStatusFilter, subTab])
+  }, [loadInvitations, subTab])
 
   useEffect(() => {
     const id = window.setTimeout(() => setDebouncedSearch(search.trim()), 300)
@@ -131,13 +132,25 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     }
   }, [token, currentPage, debouncedSearch, statusFilter, subTab])
 
-  useEffect(() => {
+  const handleSearchChange = (value: string) => {
     setCurrentPage(1)
-  }, [debouncedSearch, statusFilter])
+    setSearch(value)
+  }
 
-  useEffect(() => {
+  const handleStatusFilterChange = (value: 'all' | 'active' | 'inactive') => {
+    setCurrentPage(1)
+    setStatusFilter(value)
+  }
+
+  const handleInviteSearchChange = (value: string) => {
     setInviteCurrentPage(1)
-  }, [debouncedInviteSearch, inviteStatusFilter])
+    setInviteSearch(value)
+  }
+
+  const handleInviteStatusFilterChange = (value: 'all' | 'pending' | 'claimed' | 'expired') => {
+    setInviteCurrentPage(1)
+    setInviteStatusFilter(value)
+  }
 
   const handleResend = async (id: string) => {
     const ok = await confirm({
@@ -257,9 +270,9 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
       {subTab === 'active' ? (
         <ActiveUsersTab
           search={search}
-          setSearch={setSearch}
+          setSearch={handleSearchChange}
           statusFilter={statusFilter}
-          setStatusFilter={setStatusFilter}
+          setStatusFilter={handleStatusFilterChange}
           actionMessage={actionMessage}
           setActionMessage={setActionMessage}
           displayedUsers={displayedUsers}
@@ -278,9 +291,9 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
       ) : (
         <InvitationsTab
           inviteSearch={inviteSearch}
-          setInviteSearch={setInviteSearch}
+          setInviteSearch={handleInviteSearchChange}
           inviteStatusFilter={inviteStatusFilter}
-          setInviteStatusFilter={setInviteStatusFilter}
+          setInviteStatusFilter={handleInviteStatusFilterChange}
           actionMessage={actionMessage}
           setActionMessage={setActionMessage}
           invitations={invitations}

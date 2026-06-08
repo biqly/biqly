@@ -1,11 +1,11 @@
+import type { TFunction } from '../../i18n'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
-import type { TFunction } from '../../i18n'
 
 interface SortStepProps {
   orderBy: string
   orderDir: string
-  orderByOpts: { value: string; label: string; hint: string }[]
+  orderByOpts: { value: string; label: string; hint?: string }[]
   setOrderBy: (v: string) => void
   setOrderDir: (v: string) => void
   onClear: () => void

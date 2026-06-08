@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { localeLanguageTag, type TFunction } from '../../../i18n'
 import type { Invitation } from '../../../types/auth'
@@ -47,11 +47,20 @@ export function InvitationsTab({
   locale,
   t,
 }: InvitationsTabProps) {
+  const [now, setNow] = useState<number | null>(null)
+
+  useEffect(() => {
+    setNow(Date.now())
+  }, [])
+
   const getInviteStatus = (inv: Invitation): 'claimed' | 'expired' | 'pending' => {
     if (inv.claimed_at) {
       return 'claimed'
     }
-    const isExpired = new Date(inv.expires_at).getTime() < Date.now()
+    if (now == null) {
+      return 'pending'
+    }
+    const isExpired = new Date(inv.expires_at).getTime() < now
     return isExpired ? 'expired' : 'pending'
   }
 

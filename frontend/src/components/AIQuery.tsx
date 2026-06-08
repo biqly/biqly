@@ -1,6 +1,6 @@
 import '../styles/aiQuery.css'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 
 import { jobIsActive, useAIJobs } from '../hooks/useAIJobs'
@@ -18,7 +18,7 @@ import type {
   PriorTurn,
 } from '../types/ai'
 import type { CompositeModelSummary } from '../types/composite'
-import type { Datasource } from '../types/metadata'
+import { pickValidIdOrFirst } from '../utils/effectiveSelection'
 import { localeNumberTag } from '../utils/formatters'
 import { normalizeAIQueryResponse } from '../utils/normalizeAIQueryResponse'
 import { ChatPanel } from './aiQuery/ChatPanel'
@@ -51,7 +51,11 @@ export default function AIQuery() {
   const { datasources } = useDatasources()
   const [tables, setTables] = useState<TableOption[]>([])
   const [dsParam, setDsParam] = useQueryParam('ds')
-  const [datasourceId, setDatasourceId] = useState(dsParam)
+  const [selectedDatasourceId, setSelectedDatasourceId] = useState(dsParam)
+  const datasourceId = useMemo(
+    () => pickValidIdOrFirst(selectedDatasourceId, datasources),
+    [selectedDatasourceId, datasources],
+  )
   const { models: semanticModels } = useSemanticModels(datasourceId)
   const [semanticModelId, setSemanticModelId] = useState<string>('')
   const [composites, setComposites] = useState<CompositeModelSummary[]>([])
@@ -73,34 +77,34 @@ export default function AIQuery() {
   const [aiElapsedMs, setAiElapsedMs] = useState(0)
 
   const aiBusy = queryAction !== null
+  const displayElapsedMs = aiBusy ? aiElapsedMs : 0
 
   useEffect(() => {
     if (!aiBusy) {
-      setAiElapsedMs(0)
       return
     }
     const t0 = performance.now()
-    setAiElapsedMs(0)
     const id = window.setInterval(() => {
       setAiElapsedMs(Math.round(performance.now() - t0))
     }, 200)
     return () => window.clearInterval(id)
   }, [aiBusy])
 
-  useEffect(() => {
-    if (datasources.length > 0) {
-      setDatasourceId((prev) => {
-        if (prev && datasources.some((d) => d.id === prev)) {
-          return prev
-        }
-        return datasources[0]?.id ?? ''
-      })
-    }
-  }, [datasources])
-
-  useEffect(() => {
-    setDsParam(datasourceId)
-  }, [datasourceId, setDsParam])
+  const setDatasourceId = useCallback(
+    (id: string) => {
+      setSelectedDatasourceId(id)
+      setDsParam(id)
+      setSelectedTables([])
+      setTableSearch('')
+      setIncludeBaseTables(true)
+      setIncludeViews(true)
+      setTables([])
+      setEmbeddingStatus(null)
+      setSemanticModelId('')
+      setComposites([])
+    },
+    [setDsParam],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -122,14 +126,6 @@ export default function AIQuery() {
   }, [get, t])
 
   useEffect(() => {
-    setSelectedTables([])
-    setTableSearch('')
-    setIncludeBaseTables(true)
-    setIncludeViews(true)
-    setTables([])
-    setEmbeddingStatus(null)
-    setSemanticModelId('')
-    setComposites([])
     if (!datasourceId) {
       return
     }
@@ -173,9 +169,10 @@ export default function AIQuery() {
     () => new Set(tablesInTypeScope.map((t) => tableLabel(t))),
     [tablesInTypeScope],
   )
-  useEffect(() => {
-    setSelectedTables((prev) => prev.filter((s) => allowedLabels.has(s)))
-  }, [allowedLabels])
+  const effectiveSelectedTables = useMemo(
+    () => selectedTables.filter((label) => allowedLabels.has(label)),
+    [selectedTables, allowedLabels],
+  )
 
   const recentPriorTurns = useMemo(() => {
     if (!activeConversation) {
@@ -293,7 +290,7 @@ export default function AIQuery() {
       composite_id: isComposite ? semanticModelId.slice('composite:'.length) : undefined,
       question: q,
       clarification_choice: clarificationChoice,
-      tables: autoTableRouting ? undefined : selectedTables,
+      tables: autoTableRouting ? undefined : effectiveSelectedTables,
       include_base_tables: includeBaseTables,
       include_views: includeViews,
       conversation_id: activeConversation?.id,
@@ -301,7 +298,7 @@ export default function AIQuery() {
     }
   }
 
-  const applyAIResponse = (q: string, res: AIQueryResponse | unknown) => {
+  const applyAIResponse = (q: string, res: unknown) => {
     const flat = normalizeAIQueryResponse(res)
     if (!flat) {
       return
@@ -416,7 +413,7 @@ export default function AIQuery() {
           setSemanticModelId={setSemanticModelId}
           composites={composites}
           tables={tables}
-          selectedTables={selectedTables}
+          selectedTables={effectiveSelectedTables}
           setSelectedTables={setSelectedTables}
           tableSearch={tableSearch}
           setTableSearch={setTableSearch}
@@ -451,7 +448,7 @@ export default function AIQuery() {
           error={error}
           jobError={jobError}
           queryAction={queryAction}
-          aiElapsedMs={aiElapsedMs}
+          aiElapsedMs={displayElapsedMs}
           includePastQueries={includePastQueries}
           setIncludePastQueries={setIncludePastQueries}
           onSendQuery={(q, execute, clarificationChoice) => {

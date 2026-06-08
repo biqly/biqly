@@ -49,7 +49,7 @@ export function ChatPanel({
 
     prevConvIdRef.current = currentId
     prevMsgCountRef.current = currentCount
-  }, [activeConversation?.messages.length, activeConversationId])
+  }, [activeConversation, activeConversationId])
 
   const loadingLabel = loading && queryAction !== null ? t('ai_query.loading_thinking') : ''
 

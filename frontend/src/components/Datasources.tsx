@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { getMyDatasources } from '../api/admin'
 import { driverLabelKey, driverLogoUrl, driverStructuredDefaults } from '../dbDrivers'
@@ -6,6 +6,7 @@ import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
 import { useT } from '../i18n'
 import type { Datasource } from '../types/metadata'
+import { noop } from '../utils/constants'
 import { useAuth } from './auth/AuthProvider'
 import { buildDatasourceAccessView } from './datasources/accessView'
 import { DatasourceFormModal } from './datasources/DatasourceFormModal'
@@ -89,7 +90,7 @@ export default function Datasources() {
     return dateFormatter.format(date)
   }
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setInitLoading(true)
     try {
       const options = authRequestOptions(accessToken)
@@ -104,11 +105,11 @@ export default function Datasources() {
     } finally {
       setInitLoading(false)
     }
-  }
+  }, [accessToken, get])
 
   useEffect(() => {
     void load()
-  }, [accessToken])
+  }, [load])
 
   const resetForm = () => {
     setEditingId(null)
@@ -378,7 +379,7 @@ export default function Datasources() {
                           aria-label={t('datasources.copy_id_aria', { id: ds.id })}
                           className="ds-record__id"
                           onClick={() => {
-                            navigator.clipboard.writeText(ds.id).catch(() => {})
+                            navigator.clipboard.writeText(ds.id).catch(noop)
                           }}
                         >
                           <span aria-hidden="true">id · {ds.id.slice(0, 8)}…</span>

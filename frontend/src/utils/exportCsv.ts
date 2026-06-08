@@ -1,8 +1,10 @@
+import { unknownToDisplayString } from './formatters'
+
 function escapeCsvValue(value: unknown): string {
   if (value === null || value === undefined) {
     return ''
   }
-  const raw = typeof value === 'object' ? JSON.stringify(value) : String(value)
+  const raw = unknownToDisplayString(value)
   if (/[",\n\r]/.test(raw)) {
     return `"${raw.replace(/"/g, '""')}"`
   }

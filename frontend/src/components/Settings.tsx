@@ -1,5 +1,5 @@
 import QRCode from 'qrcode'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import {
@@ -19,13 +19,10 @@ import { useAuth } from './auth/AuthProvider'
 import { AccountProfileSection } from './settings/AccountProfileSection'
 import { AIModelPreferencesSection } from './settings/AIModelPreferencesSection'
 import { MFASection, type MFAStatus } from './settings/MFASection'
-import { OTPCodeInput } from './settings/OTPCodeInput'
 import { PasskeyTable } from './settings/PasskeyTable'
-import { RecoveryCodesDisplay } from './settings/RecoveryCodesDisplay'
+import { SettingsAuthModals } from './settings/SettingsAuthModals'
 import { SettingsLinkCard } from './settings/SettingsLinkCard'
-import { ConfirmDialog } from './ui/ConfirmDialog'
 import { ErrorAlert } from './ui/ErrorAlert'
-import { Modal } from './ui/Modal'
 
 export default function Settings() {
   const navigate = useNavigate()
@@ -87,7 +84,7 @@ export default function Settings() {
     void navigate(path)
   }
 
-  const fetchPasskeys = async () => {
+  const fetchPasskeys = useCallback(async () => {
     if (!accessToken) {
       return
     }
@@ -101,9 +98,9 @@ export default function Settings() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [accessToken])
 
-  const fetchMFAStatus = async () => {
+  const fetchMFAStatus = useCallback(async () => {
     if (!accessToken) {
       return
     }
@@ -113,12 +110,12 @@ export default function Settings() {
     } catch (err: unknown) {
       console.error('Failed to load MFA status', err)
     }
-  }
+  }, [accessToken])
 
   useEffect(() => {
     void fetchPasskeys()
     void fetchMFAStatus()
-  }, [accessToken])
+  }, [fetchMFAStatus, fetchPasskeys])
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget || !accessToken) {
@@ -517,320 +514,46 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Delete Confirmation Dialog */}
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        title={t('passkeys.delete_title')}
-        message={t('passkeys.delete_confirm')}
-        confirmLabel={deleting ? '...' : undefined}
-        onConfirm={() => {
-          void handleDeleteConfirm()
-        }}
-        onCancel={() => setDeleteTarget(null)}
+      <SettingsAuthModals
+        t={t}
+        deleteTarget={deleteTarget}
+        deleting={deleting}
+        onDeleteConfirm={() => void handleDeleteConfirm()}
+        onDeleteCancel={() => setDeleteTarget(null)}
+        addModalOpen={addModalOpen}
+        newPasskeyName={newPasskeyName}
+        registering={registering}
+        onAddModalClose={() => setAddModalOpen(false)}
+        onPasskeyNameChange={setNewPasskeyName}
+        onRegisterSubmit={(e) => void handleRegisterSubmit(e)}
+        renameTarget={renameTarget}
+        renamingName={renamingName}
+        renaming={renaming}
+        onRenameModalClose={() => setRenameTarget(null)}
+        onRenamingNameChange={setRenamingName}
+        onRenameSubmit={(e) => void handleRenameSubmit(e)}
+        mfaEnrollOpen={mfaEnrollOpen}
+        mfaShowRecovery={mfaShowRecovery}
+        mfaQrCode={mfaQrCode}
+        mfaEnrollData={mfaEnrollData}
+        mfaVerifyCode={mfaVerifyCode}
+        mfaVerifying={mfaVerifying}
+        onMfaEnrollClose={() => setMfaEnrollOpen(false)}
+        onMfaVerifyCodeChange={setMfaVerifyCode}
+        onMfaVerifySubmit={(e) => void handleMFAVerifySubmit(e)}
+        mfaDisableOpen={mfaDisableOpen}
+        mfaDisableCode={mfaDisableCode}
+        mfaDisabling={mfaDisabling}
+        onMfaDisableClose={() => setMfaDisableOpen(false)}
+        onMfaDisableCodeChange={setMfaDisableCode}
+        onMfaDisableSubmit={(e) => void handleMFADisableSubmit(e)}
+        mfaRegenOpen={mfaRegenOpen}
+        mfaRegenCode={mfaRegenCode}
+        mfaRegening={mfaRegening}
+        onMfaRegenClose={() => setMfaRegenOpen(false)}
+        onMfaRegenCodeChange={setMfaRegenCode}
+        onMfaRegenSubmit={(e) => void handleMFARegenSubmit(e)}
       />
-
-      {/* Register Passkey Prompt Name Modal */}
-      <Modal
-        open={addModalOpen}
-        title={t('passkeys.modal_title')}
-        subtitle={t('passkeys.modal_desc')}
-        onClose={() => setAddModalOpen(false)}
-      >
-        <form
-          onSubmit={(e) => {
-            void handleRegisterSubmit(e)
-          }}
-          className="page-stack"
-          style={{ gap: '1rem' }}
-        >
-          <div className="form-group" style={{ margin: 0 }}>
-            <label htmlFor="passkey-name">{t('passkeys.modal_label_name')}</label>
-            <input
-              id="passkey-name"
-              type="text"
-              required
-              value={newPasskeyName}
-              onChange={(e) => setNewPasskeyName(e.target.value)}
-              placeholder={t('passkeys.modal_placeholder_name')}
-              disabled={registering}
-              autoFocus
-            />
-          </div>
-          <div className="flex-gap-center-end" style={{ marginTop: '0.5rem' }}>
-            <button
-              type="button"
-              className="btn btn-secondary btn-auto-width"
-              onClick={() => setAddModalOpen(false)}
-              disabled={registering}
-            >
-              {t('common.confirm_cancel')}
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary btn-auto-width"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              disabled={registering || !newPasskeyName.trim()}
-            >
-              {registering ? (
-                <>
-                  <div
-                    className="spinner"
-                    style={{ width: '12px', height: '12px', borderTopColor: '#fff', margin: 0 }}
-                  ></div>
-                  {t('passkeys.modal_submit')}...
-                </>
-              ) : (
-                t('passkeys.modal_submit')
-              )}
-            </button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Rename Passkey Modal */}
-      <Modal
-        open={renameTarget !== null}
-        title={t('passkeys.rename_title')}
-        subtitle={t('passkeys.rename_desc')}
-        onClose={() => setRenameTarget(null)}
-      >
-        <form
-          onSubmit={(e) => {
-            void handleRenameSubmit(e)
-          }}
-          className="page-stack"
-          style={{ gap: '1rem' }}
-        >
-          <div className="form-group" style={{ margin: 0 }}>
-            <label htmlFor="rename-passkey-name">{t('passkeys.modal_label_name')}</label>
-            <input
-              id="rename-passkey-name"
-              type="text"
-              required
-              value={renamingName}
-              onChange={(e) => setRenamingName(e.target.value)}
-              placeholder={t('passkeys.modal_placeholder_name')}
-              disabled={renaming}
-              autoFocus
-            />
-          </div>
-          <div className="flex-gap-center-end" style={{ marginTop: '0.5rem' }}>
-            <button
-              type="button"
-              className="btn btn-secondary btn-auto-width"
-              onClick={() => setRenameTarget(null)}
-              disabled={renaming}
-            >
-              {t('common.confirm_cancel')}
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary btn-auto-width"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              disabled={renaming || !renamingName.trim()}
-            >
-              {renaming ? (
-                <>
-                  <div
-                    className="spinner"
-                    style={{ width: '12px', height: '12px', borderTopColor: '#fff', margin: 0 }}
-                  ></div>
-                  {t('passkeys.modal_submit')}...
-                </>
-              ) : (
-                t('passkeys.modal_submit')
-              )}
-            </button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* 2FA Enrollment Modal */}
-      <Modal
-        open={mfaEnrollOpen}
-        title={t('mfa.modal_enroll_title')}
-        subtitle={t('mfa.modal_enroll_desc')}
-        onClose={() => setMfaEnrollOpen(false)}
-      >
-        <div className="page-stack" style={{ gap: '1.5rem' }}>
-          {!mfaShowRecovery ? (
-            <form
-              onSubmit={(e) => {
-                void handleMFAVerifySubmit(e)
-              }}
-              className="page-stack"
-              style={{ gap: '1rem' }}
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <h4 style={{ margin: 0 }}>{t('mfa.step_scan')}</h4>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  {t('mfa.step_scan_desc')}
-                </p>
-              </div>
-
-              {mfaQrCode && (
-                <div className="mfa-qr-container">
-                  <img
-                    src={mfaQrCode}
-                    alt="2FA QR Code"
-                    style={{ display: 'block', width: '180px', height: '180px' }}
-                  />
-                </div>
-              )}
-
-              {mfaEnrollData && (
-                <div
-                  style={{
-                    fontSize: '0.85rem',
-                    backgroundColor: 'rgba(255,255,255,0.02)',
-                    padding: '0.75rem',
-                    borderRadius: '0.25rem',
-                    border: '1px dashed var(--border)',
-                  }}
-                >
-                  <strong>{t('mfa.step_manual')}</strong>
-                  <div
-                    style={{
-                      fontFamily: 'monospace',
-                      fontSize: '1rem',
-                      color: 'var(--accent)',
-                      marginTop: '0.25rem',
-                      letterSpacing: '1px',
-                    }}
-                  >
-                    {mfaEnrollData.secret}
-                  </div>
-                </div>
-              )}
-
-              <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <h4 style={{ margin: 0 }}>{t('mfa.step_verify')}</h4>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  {t('mfa.step_verify_desc')}
-                </p>
-              </div>
-
-              <OTPCodeInput
-                id="mfa-verify-input"
-                value={mfaVerifyCode}
-                onChange={setMfaVerifyCode}
-                disabled={mfaVerifying}
-                autoFocus
-              />
-
-              <div className="flex-gap-center-end" style={{ marginTop: '0.5rem' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-auto-width"
-                  onClick={() => setMfaEnrollOpen(false)}
-                  disabled={mfaVerifying}
-                >
-                  {t('common.confirm_cancel')}
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary btn-auto-width"
-                  disabled={mfaVerifying || mfaVerifyCode.length !== 6}
-                >
-                  {mfaVerifying ? '...' : t('mfa.verify_btn')}
-                </button>
-              </div>
-            </form>
-          ) : (
-            mfaEnrollData && (
-              <RecoveryCodesDisplay
-                codes={mfaEnrollData.recovery_codes}
-                variant="confirmation"
-                onDone={() => setMfaEnrollOpen(false)}
-              />
-            )
-          )}
-        </div>
-      </Modal>
-
-      {/* 2FA Disable Modal */}
-      <Modal
-        open={mfaDisableOpen}
-        title={t('mfa.disable_title')}
-        subtitle={t('mfa.disable_desc')}
-        onClose={() => setMfaDisableOpen(false)}
-      >
-        <form
-          onSubmit={(e) => {
-            void handleMFADisableSubmit(e)
-          }}
-          className="page-stack"
-          style={{ gap: '1rem' }}
-        >
-          <OTPCodeInput
-            id="mfa-disable-input"
-            value={mfaDisableCode}
-            onChange={setMfaDisableCode}
-            disabled={mfaDisabling}
-            autoFocus
-          />
-          <div className="flex-gap-center-end" style={{ marginTop: '0.5rem' }}>
-            <button
-              type="button"
-              className="btn btn-secondary btn-auto-width"
-              onClick={() => setMfaDisableOpen(false)}
-              disabled={mfaDisabling}
-            >
-              {t('common.confirm_cancel')}
-            </button>
-            <button
-              type="submit"
-              className="btn btn-danger btn-auto-width"
-              disabled={mfaDisabling || mfaDisableCode.length !== 6}
-            >
-              {mfaDisabling ? '...' : t('mfa.disable_submit')}
-            </button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* 2FA Regenerate Recovery Modal */}
-      <Modal
-        open={mfaRegenOpen}
-        title={t('mfa.regenerate_recovery_btn')}
-        subtitle={t('mfa.disable_desc')}
-        onClose={() => setMfaRegenOpen(false)}
-      >
-        <form
-          onSubmit={(e) => {
-            void handleMFARegenSubmit(e)
-          }}
-          className="page-stack"
-          style={{ gap: '1rem' }}
-        >
-          <OTPCodeInput
-            id="mfa-regen-input"
-            value={mfaRegenCode}
-            onChange={setMfaRegenCode}
-            disabled={mfaRegening}
-            autoFocus
-          />
-          <div className="flex-gap-center-end" style={{ marginTop: '0.5rem' }}>
-            <button
-              type="button"
-              className="btn btn-secondary btn-auto-width"
-              onClick={() => setMfaRegenOpen(false)}
-              disabled={mfaRegening}
-            >
-              {t('common.confirm_cancel')}
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary btn-auto-width"
-              disabled={mfaRegening || mfaRegenCode.length !== 6}
-            >
-              {mfaRegening ? '...' : t('mfa.regenerate_recovery_btn')}
-            </button>
-          </div>
-        </form>
-      </Modal>
     </div>
   )
 }

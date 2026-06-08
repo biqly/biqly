@@ -76,16 +76,19 @@ export function AIUsageAdminPanel() {
 
   const totalItems = rows.length
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
+  const clampedCurrentPage = Math.min(currentPage, totalPages)
 
   const pageRows = useMemo(() => {
-    const start = (currentPage - 1) * pageSize
+    const start = (clampedCurrentPage - 1) * pageSize
     return rows.slice(start, start + pageSize)
-  }, [rows, currentPage, pageSize])
+  }, [rows, clampedCurrentPage, pageSize])
 
   const userLabelByID = useMemo(() => {
     const map = new Map<string, string>()
     for (const u of users) {
-      const label = u.displayName?.trim() || u.email.trim() || u.id
+      const displayName = u.displayName?.trim() ?? ''
+      const email = u.email.trim()
+      const label = displayName.length > 0 ? displayName : email.length > 0 ? email : u.id
       map.set(u.id, label)
     }
     return map
@@ -93,7 +96,6 @@ export function AIUsageAdminPanel() {
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
     get<{ totals: AIUsageTotals; rows: AIUsageBreakdownRow[] }>(
       `/api/ai/usage/breakdown?days=${days}`,
     )
@@ -119,16 +121,6 @@ export function AIUsageAdminPanel() {
       cancelled = true
     }
   }, [days, get])
-
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [days])
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages)
-    }
-  }, [currentPage, totalPages])
 
   const thStyle: React.CSSProperties = {
     textAlign: 'left',
@@ -174,7 +166,11 @@ export function AIUsageAdminPanel() {
             <Select
               value={String(days)}
               options={periodOptions}
-              onChange={(v) => setDays(Number(v))}
+              onChange={(v) => {
+                setLoading(true)
+                setCurrentPage(1)
+                setDays(Number(v))
+              }}
               size="sm"
             />
           </label>
@@ -288,7 +284,7 @@ export function AIUsageAdminPanel() {
           </table>
           {rows.length > 0 && (
             <Pagination
-              currentPage={currentPage}
+              currentPage={clampedCurrentPage}
               totalPages={totalPages}
               onPageChange={setCurrentPage}
               totalItems={totalItems}

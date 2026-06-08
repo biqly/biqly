@@ -171,7 +171,7 @@ export interface TableRoutingResult {
   join_paths?: string[]
   confidence: number
   ranking_method?: 'keyword' | 'vector' | 'hybrid' | 'manual' | 'semantic'
-  context_source?: 'auto' | 'manual' | 'semantic_model' | string
+  context_source?: 'auto' | 'manual' | 'semantic_model'
   context_key?: string
   context_updated_at?: string
   candidates?: TableRoutingCandidate[]

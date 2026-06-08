@@ -12,3 +12,8 @@ export const CHART_COLORS = [
 export function chartColor(index: number): string {
   return CHART_COLORS[index % CHART_COLORS.length] ?? CHART_COLORS[0]
 }
+
+/** Intentional no-op for optional callbacks and placeholder handlers. */
+export function noop(): void {
+  /* intentional */
+}

@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react'
 
 import { jobQuestionPreview, type TrackedAIJob, useAIJobs } from '../hooks/useAIJobs'
 import { type TranslationKey, useT } from '../i18n'
+import { jobKindLabel } from './AIJobTrackerUtils'
 
 const PIPELINE_PHASES = [
   'queued',
@@ -105,6 +106,40 @@ function JobPipeline({ job }: { job: TrackedAIJob }) {
   )
 }
 
+function JobCardBody({ job }: { job: TrackedAIJob }) {
+  const t = useT()
+  const queueLine = describeBatchQueueLine(job)
+  const active = isActive(job)
+
+  return (
+    <div className="ai-job-card__body">
+      <JobPipeline job={job} />
+      {queueLine?.current && (
+        <p className="ai-job-card__hint">
+          {t('ai_jobs.queue_current', { table: queueLine.current })}
+        </p>
+      )}
+      {queueLine?.next && (
+        <p className="ai-job-card__hint">{t('ai_jobs.queue_next', { tables: queueLine.next })}</p>
+      )}
+      {job.status === 'failed' && job.error_message && (
+        <p className="ai-job-card__error" role="alert">
+          {job.error_message}
+        </p>
+      )}
+      {job.status === 'cancelled' && (
+        <p className="ai-job-card__cancelled">
+          {(job.error_message ?? job.phase_message) || t('ai_jobs.cancelled')}
+        </p>
+      )}
+      {job.status === 'succeeded' && <p className="ai-job-card__ok">{t('ai_jobs.completed')}</p>}
+      {active && job.status === 'queued' && (
+        <p className="ai-job-card__hint">{t('ai_jobs.stuck_hint')}</p>
+      )}
+    </div>
+  )
+}
+
 function JobCard({
   job,
   expanded,
@@ -121,19 +156,7 @@ function JobCard({
   const t = useT()
   const active = isActive(job)
   const scopeLine = describeBatchScopeLine(job)
-  const queueLine = describeBatchQueueLine(job)
-  const kindLabel =
-    job.kind === 'describe_batch'
-      ? t('ai_jobs.kind_describe_batch')
-      : job.kind === 'describe'
-        ? t('ai_jobs.kind_describe')
-        : job.kind === 'embed_metadata'
-          ? t('ai_jobs.kind_embed_metadata')
-          : job.kind === 'run'
-            ? t('ai_jobs.kind_run')
-            : job.kind === 'preview'
-              ? t('ai_jobs.kind_preview')
-              : t('ai_jobs.kind_query')
+  const kindLabel = jobKindLabel(job, t)
 
   return (
     <article className={`ai-job-card${active ? ' ai-job-card--active' : ''}`}>
@@ -169,37 +192,7 @@ function JobCard({
           )}
         </div>
       </header>
-      {expanded && (
-        <div className="ai-job-card__body">
-          <JobPipeline job={job} />
-          {queueLine?.current && (
-            <p className="ai-job-card__hint">
-              {t('ai_jobs.queue_current', { table: queueLine.current })}
-            </p>
-          )}
-          {queueLine?.next && (
-            <p className="ai-job-card__hint">
-              {t('ai_jobs.queue_next', { tables: queueLine.next })}
-            </p>
-          )}
-          {job.status === 'failed' && job.error_message && (
-            <p className="ai-job-card__error" role="alert">
-              {job.error_message}
-            </p>
-          )}
-          {job.status === 'cancelled' && (
-            <p className="ai-job-card__cancelled">
-              {(job.error_message ?? job.phase_message) || t('ai_jobs.cancelled')}
-            </p>
-          )}
-          {job.status === 'succeeded' && (
-            <p className="ai-job-card__ok">{t('ai_jobs.completed')}</p>
-          )}
-          {active && job.status === 'queued' && (
-            <p className="ai-job-card__hint">{t('ai_jobs.stuck_hint')}</p>
-          )}
-        </div>
-      )}
+      {expanded && <JobCardBody job={job} />}
     </article>
   )
 }

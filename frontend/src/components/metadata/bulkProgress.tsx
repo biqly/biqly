@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+
 import type { TranslationKey } from '../../i18n'
 import { useT } from '../../i18n'
 import { TagBadge } from '../ui/TagBadge'

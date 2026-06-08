@@ -1,6 +1,11 @@
 import { ModelBadgeRow } from '../ui/ModelBadgeRow'
-import { MultiSelect } from '../ui/MultiSelect'
 import { Select } from '../ui/Select'
+import { RoutingPanelManualScope } from './RoutingPanelManualScope'
+import {
+  filterRoutingTables,
+  resolveRoutingModelBadges,
+  routingEmbedButtonLabel,
+} from './routingPanelUtils'
 import type { RoutingPanelProps } from './types'
 
 export function RoutingPanel({
@@ -33,81 +38,28 @@ export function RoutingPanel({
   semanticModelName,
   onRefreshEmbeddings,
 }: RoutingPanelProps) {
-  const tableLabel = (table: (typeof tables)[number]) =>
-    table.label ?? `${table.schema_name}.${table.table_name}`
-
-  const tablesInTypeScope = tables.filter((table) => {
-    const typ = (table.table_type ?? '').toUpperCase()
-    if (typ === 'VIEW') {
-      return includeViews
-    }
-    if (typ === 'BASE TABLE') {
-      return includeBaseTables
-    }
-    return includeBaseTables
+  const filteredTables = filterRoutingTables(tables, {
+    includeBaseTables,
+    includeViews,
+    tableSearch,
   })
 
-  const filteredTables = (() => {
-    const search = tableSearch.trim().toLowerCase()
-    return tablesInTypeScope.filter((table) => {
-      if (!search) {
-        return true
-      }
-      return (
-        tableLabel(table).toLowerCase().includes(search) ||
-        (table.description ?? '').toLowerCase().includes(search)
-      )
-    })
-  })()
+  const embedButtonLabel = routingEmbedButtonLabel(
+    t,
+    embeddingLoading,
+    embeddingRunning,
+    semanticModelId,
+  )
 
-  const embedButtonLabel =
-    embeddingLoading || embeddingRunning
-      ? t('ai_query.embed_refreshing_short')
-      : semanticModelId
-        ? t('ai_query.embed_refresh_model')
-        : t('ai_query.embed_refresh')
-
-  // When provider/model selection is DB-managed, the active model per purpose
-  // is authoritative; otherwise fall back to the env-backed fields.
-  const dbManaged = aiRuntime?.db_managed === true
-  const activeFor = (purpose: 'query' | 'embedding' | 'translation') =>
-    aiRuntime?.active_models?.find((m) => m.purpose === purpose)
-  const activeQuery = activeFor('query')
-  const activeEmbedding = activeFor('embedding')
-  const activeTranslation = activeFor('translation')
-
-  const queryModel =
-    dbManaged && activeQuery
-      ? activeQuery.display_name
-      : aiRuntime?.query_model_override
-        ? aiRuntime.query_model
-        : aiRuntime?.llm_model
-  const queryNote = dbManaged
-    ? activeQuery?.provider_name
-    : aiRuntime?.query_model_override
-      ? undefined
-      : aiRuntime
-        ? t('ai_query.model_badge_legacy')
-        : undefined
-  const embeddingsAvailable = dbManaged
-    ? Boolean(activeEmbedding?.model_id.trim())
-    : aiRuntime?.embeddings_enabled === true
-  const embeddingBadge = embeddingsAvailable
-    ? dbManaged
-      ? activeEmbedding?.display_name
-      : aiRuntime?.embedding_model
-    : undefined
-  const embeddingNote = dbManaged ? activeEmbedding?.provider_name : undefined
-  const translationBadge = (() => {
-    if (dbManaged) {
-      return activeTranslation?.display_name
-    }
-    if (!aiRuntime?.translation_enabled) {
-      return undefined
-    }
-    return aiRuntime.translation_model
-  })()
-  const translationNote = dbManaged ? activeTranslation?.provider_name : undefined
+  const {
+    queryModel,
+    queryNote,
+    embeddingsAvailable,
+    embeddingBadge,
+    embeddingNote,
+    translationBadge,
+    translationNote,
+  } = resolveRoutingModelBadges(aiRuntime, t)
 
   return (
     <header className="query-config-header">
@@ -211,49 +163,20 @@ export function RoutingPanel({
       </div>
 
       {!autoTableRouting && (
-        <div className="form-group">
-          <span className="ai-scope-label">{t('ai_query.scope_label')}</span>
-          <div className="ai-scope-type-filters" role="group">
-            <label className="ai-scope-type-option">
-              <input
-                type="checkbox"
-                checked={includeBaseTables}
-                onChange={(e) => setIncludeBaseTables(e.target.checked)}
-                disabled={!datasourceId || tables.length === 0}
-              />
-              <span>{t('ai_query.scope_base_tables')}</span>
-            </label>
-            <label className="ai-scope-type-option">
-              <input
-                type="checkbox"
-                checked={includeViews}
-                onChange={(e) => setIncludeViews(e.target.checked)}
-                disabled={!datasourceId || tables.length === 0}
-              />
-              <span>{t('ai_query.scope_views')}</span>
-            </label>
-          </div>
-          <input
-            value={tableSearch}
-            onChange={(e) => setTableSearch(e.target.value)}
-            placeholder={t('ai_query.table_search_placeholder')}
-            disabled={!datasourceId || tables.length === 0}
-            autoComplete="off"
-          />
-          <MultiSelect
-            display="inline"
-            className="ai-scope-multiselect"
-            ariaLabel={t('ai_query.selected_tables_aria')}
-            value={selectedTables}
-            onChange={setSelectedTables}
-            disabled={!datasourceId || tables.length === 0 || (!includeBaseTables && !includeViews)}
-            maxHeight={Math.min(288, Math.max(120, (filteredTables.length || 3) * 36))}
-            options={filteredTables.map((table) => {
-              const label = tableLabel(table)
-              return { value: label, label }
-            })}
-          />
-        </div>
+        <RoutingPanelManualScope
+          t={t}
+          datasourceId={datasourceId}
+          tables={tables}
+          includeBaseTables={includeBaseTables}
+          setIncludeBaseTables={setIncludeBaseTables}
+          includeViews={includeViews}
+          setIncludeViews={setIncludeViews}
+          tableSearch={tableSearch}
+          setTableSearch={setTableSearch}
+          selectedTables={selectedTables}
+          setSelectedTables={setSelectedTables}
+          filteredTables={filteredTables}
+        />
       )}
     </header>
   )

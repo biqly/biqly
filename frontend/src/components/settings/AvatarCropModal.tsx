@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useT } from '../../i18n'
 
@@ -52,7 +52,7 @@ export function AvatarCropModal({ imageSrc, onClose, onSave }: AvatarCropModalPr
     }
   }
 
-  const draw = () => {
+  const draw = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas || !imgElement) {
       return
@@ -86,11 +86,11 @@ export function AvatarCropModal({ imageSrc, onClose, onSave }: AvatarCropModalPr
     ctx.strokeStyle = 'var(--accent, #6366f1)'
     ctx.lineWidth = 2.5
     ctx.stroke()
-  }
+  }, [imgElement, pan.x, pan.y, zoom])
 
   useEffect(() => {
     draw()
-  }, [zoom, pan, imgElement])
+  }, [draw])
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!imgElement) {

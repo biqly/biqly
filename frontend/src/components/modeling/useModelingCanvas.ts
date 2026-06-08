@@ -28,8 +28,11 @@ export function useModelingCanvas(
   const [viewport, setViewport] = useState<Viewport>({ scale: 1, tx: 0, ty: 0 })
 
   const viewportRef = useRef(viewport)
-  viewportRef.current = viewport
   const wrapRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    viewportRef.current = viewport
+  }, [viewport])
 
   const cardLayouts = useMemo(() => {
     const joinColumns = new Map<string, Set<string>>()

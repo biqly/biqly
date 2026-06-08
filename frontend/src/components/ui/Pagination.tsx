@@ -1,4 +1,5 @@
 import { useT } from '../../i18n'
+import { PaginationControls } from './PaginationControls'
 
 interface PaginationProps {
   currentPage: number
@@ -6,7 +7,6 @@ interface PaginationProps {
   onPageChange: (page: number) => void
   totalItems?: number
   itemsPerPage?: number
-  /** When true, show range and controls even if there is only one page (admin tables). */
   alwaysShow?: boolean
 }
 
@@ -58,72 +58,16 @@ export function Pagination({
           ? t('table_browser.range_of_total', { start, end, total: totalItems })
           : t('table_browser.page_number', { page: currentPage })}
       </div>
-
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-        <button
-          type="button"
-          onClick={() => onPageChange(1)}
-          disabled={singlePage || currentPage === 1}
-          style={singlePage || currentPage === 1 ? btnDisabled : btnActive}
-          title={t('table_browser.first_page')}
-        >
-          «
-        </button>
-        <button
-          type="button"
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={singlePage || currentPage === 1}
-          style={singlePage || currentPage === 1 ? btnDisabled : btnActive}
-        >
-          {t('table_browser.prev_page')}
-        </button>
-
-        <span style={{ fontSize: 13, color: 'var(--text-primary, #f4f4f5)', margin: '0 8px' }}>
-          {currentPage} / {safeTotalPages}
-        </span>
-
-        <button
-          type="button"
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={singlePage || currentPage === safeTotalPages}
-          style={singlePage || currentPage === safeTotalPages ? btnDisabled : btnActive}
-        >
-          {t('table_browser.next_page')}
-        </button>
-        <button
-          type="button"
-          onClick={() => onPageChange(safeTotalPages)}
-          disabled={singlePage || currentPage === safeTotalPages}
-          style={singlePage || currentPage === safeTotalPages ? btnDisabled : btnActive}
-          title={t('table_browser.last_page')}
-        >
-          »
-        </button>
-      </div>
+      <PaginationControls
+        currentPage={currentPage}
+        safeTotalPages={safeTotalPages}
+        singlePage={singlePage}
+        onPageChange={onPageChange}
+        prevLabel={t('table_browser.prev_page')}
+        nextLabel={t('table_browser.next_page')}
+        firstTitle={t('table_browser.first_page')}
+        lastTitle={t('table_browser.last_page')}
+      />
     </div>
   )
-}
-
-const btnActive: React.CSSProperties = {
-  padding: '6px 12px',
-  background: 'var(--bg-card-raised, rgba(255, 255, 255, 0.08))',
-  color: 'var(--text-primary, #f4f4f5)',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 6,
-  cursor: 'pointer',
-  fontSize: 13,
-  fontWeight: 500,
-  transition: 'all 150ms',
-}
-
-const btnDisabled: React.CSSProperties = {
-  padding: '6px 12px',
-  background: 'transparent',
-  color: 'var(--text-muted, #8a8a92)',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 6,
-  cursor: 'not-allowed',
-  fontSize: 13,
-  fontWeight: 500,
-  opacity: 0.5,
 }

@@ -7,6 +7,7 @@ import { useDatasources } from '../../hooks/useDatasources'
 import { useSemanticModels } from '../../hooks/useSemanticModels'
 import { useT } from '../../i18n'
 import type { SemanticModelFieldRow, SemanticModelFieldsPage } from '../../types/semantic'
+import { pickValidIdOrFirst } from '../../utils/effectiveSelection'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Pagination } from '../ui/Pagination'
@@ -28,15 +29,19 @@ export function FieldPermissionPanel({ token }: { token: string }) {
 
   const [selectedRole, setSelectedRole] = useState('viewer')
   const { datasources, loading: loadingDS } = useDatasources()
-  const [selectedDS, setSelectedDS] = useState<string>('')
+  const [selectedDSInput, setSelectedDSInput] = useState<string>('')
+  const selectedDS = useMemo(
+    () => pickValidIdOrFirst(selectedDSInput, datasources),
+    [selectedDSInput, datasources],
+  )
 
   const { models, loading: loadingModels } = useSemanticModels(selectedDS || null)
-  const [selectedModel, setSelectedModel] = useState<string>('')
+  const [selectedModelInput, setSelectedModelInput] = useState<string>('')
+  const selectedModel = useMemo(
+    () => pickValidIdOrFirst(selectedModelInput, models),
+    [selectedModelInput, models],
+  )
 
-  const [policy, setPolicy] = useState<SecurityPolicy | null>(null)
-  const [deniedFields, setDeniedFields] = useState<string[]>([])
-  const [piiPolicy, setPIIPolicy] = useState<Record<string, PIIColumnAccess>>({})
-  const [piiColumns, setPIIColumns] = useState<PIIColumn[]>([])
   const [loadingPolicy, setLoadingPolicy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -48,32 +53,56 @@ export function FieldPermissionPanel({ token }: { token: string }) {
   const [fieldPageSize] = useState(DEFAULT_FIELD_PAGE_SIZE)
   const [loadingFields, setLoadingFields] = useState(false)
 
-  useEffect(() => {
-    if (datasources.length > 0 && !selectedDS) {
-      const firstDS = datasources[0]
-      if (firstDS) {
-        setSelectedDS(firstDS.id)
-      }
-    }
-  }, [datasources, selectedDS])
+  const setSelectedDS = useCallback((id: string) => {
+    setSelectedDSInput(id)
+    setSelectedModelInput('')
+    setFieldPage(1)
+  }, [])
 
-  useEffect(() => {
-    if (models.length > 0) {
-      const firstModel = models[0]
-      if (firstModel) {
-        setSelectedModel(firstModel.id)
-      }
-    } else {
-      setSelectedModel('')
-    }
-  }, [models])
+  const setSelectedModel = useCallback((id: string) => {
+    setSelectedModelInput(id)
+    setFieldPage(1)
+  }, [])
+
+  const policyScopeKey = `${selectedRole}:${selectedDS}`
+  const [policyState, setPolicyState] = useState<{
+    key: string
+    policy: SecurityPolicy | null
+    deniedFields: string[]
+    piiPolicy: Record<string, PIIColumnAccess>
+    piiColumns: PIIColumn[]
+  }>({
+    key: '',
+    policy: null,
+    deniedFields: [],
+    piiPolicy: {},
+    piiColumns: [],
+  })
+  const policy = policyState.key === policyScopeKey ? policyState.policy : null
+  const deniedFields = policyState.key === policyScopeKey ? policyState.deniedFields : []
+  const piiPolicy = policyState.key === policyScopeKey ? policyState.piiPolicy : {}
+  const piiColumns = policyState.key === policyScopeKey ? policyState.piiColumns : []
+
+  const updatePolicyFields = useCallback(
+    (
+      patch: Partial<{
+        policy: SecurityPolicy | null
+        deniedFields: string[]
+        piiPolicy: Record<string, PIIColumnAccess>
+        piiColumns: PIIColumn[]
+      }>,
+    ) => {
+      setPolicyState((prev) =>
+        prev.key === policyScopeKey
+          ? { ...prev, ...patch }
+          : { ...prev, key: policyScopeKey, ...patch },
+      )
+    },
+    [policyScopeKey],
+  )
 
   useEffect(() => {
     if (!selectedRole || !selectedDS) {
-      setPolicy(null)
-      setDeniedFields([])
-      setPIIPolicy({})
-      setPIIColumns([])
       return
     }
 
@@ -90,10 +119,13 @@ export function FieldPermissionPanel({ token }: { token: string }) {
         if (cancelled) {
           return
         }
-        setPolicy(policyData)
-        setDeniedFields(policyData.denied_fields)
-        setPIIPolicy(policyData.pii_policy ?? {})
-        setPIIColumns(piiCols)
+        setPolicyState({
+          key: policyScopeKey,
+          policy: policyData,
+          deniedFields: policyData.denied_fields,
+          piiPolicy: policyData.pii_policy ?? {},
+          piiColumns: piiCols,
+        })
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : String(err))
@@ -109,16 +141,18 @@ export function FieldPermissionPanel({ token }: { token: string }) {
     return () => {
       cancelled = true
     }
-  }, [token, selectedRole, selectedDS])
+  }, [token, selectedRole, selectedDS, policyScopeKey])
 
   const loadFields = useCallback(async () => {
     if (!selectedModel) {
-      setModelName(null)
-      setFieldRows([])
-      setFieldTotal(0)
+      void Promise.resolve().then(() => {
+        setModelName(null)
+        setFieldRows([])
+        setFieldTotal(0)
+      })
       return
     }
-    setLoadingFields(true)
+    void Promise.resolve().then(() => setLoadingFields(true))
     const params = new URLSearchParams({
       page: String(fieldPage),
       page_size: String(fieldPageSize),
@@ -145,12 +179,9 @@ export function FieldPermissionPanel({ token }: { token: string }) {
   }, [selectedModel, fieldPage, fieldPageSize])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadFields()
   }, [loadFields])
-
-  useEffect(() => {
-    setFieldPage(1)
-  }, [selectedModel, selectedRole, selectedDS])
 
   const handleToggleField = (fieldName: string) => {
     if (!modelName) {
@@ -167,7 +198,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
       updated = [...deniedFields, qualified]
     }
 
-    setDeniedFields(updated)
+    updatePolicyFields({ deniedFields: updated })
     setSaveSuccess(false)
   }
 
@@ -191,9 +222,11 @@ export function FieldPermissionPanel({ token }: { token: string }) {
     try {
       setLoadingPolicy(true)
       const res = await upsertSecurityPolicy(token, policyToSave)
-      setPolicy(res)
-      setDeniedFields(res.denied_fields)
-      setPIIPolicy(res.pii_policy ?? {})
+      updatePolicyFields({
+        policy: res,
+        deniedFields: res.denied_fields,
+        piiPolicy: res.pii_policy ?? {},
+      })
       setSaveSuccess(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -221,16 +254,14 @@ export function FieldPermissionPanel({ token }: { token: string }) {
 
   const handlePIIAccessChange = (col: PIIColumn, access: string) => {
     const key = piiKey(col)
-    setPIIPolicy((prev) => {
-      const next = { ...prev }
-      delete next[`${col.table}.${col.column}`]
-      if (access === '') {
-        delete next[key]
-      } else {
-        next[key] = { access: access as PIIAccessLevel }
-      }
-      return next
-    })
+    const next = { ...piiPolicy }
+    delete next[`${col.table}.${col.column}`]
+    if (access === '') {
+      delete next[key]
+    } else {
+      next[key] = { access: access as PIIAccessLevel }
+    }
+    updatePolicyFields({ piiPolicy: next })
     setSaveSuccess(false)
   }
 
@@ -239,7 +270,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
     for (const col of piiColumns) {
       next[piiKey(col)] = { access: roleDefaultAccess(col.pii_type) }
     }
-    setPIIPolicy(next)
+    updatePolicyFields({ piiPolicy: next })
     setSaveSuccess(false)
   }
 

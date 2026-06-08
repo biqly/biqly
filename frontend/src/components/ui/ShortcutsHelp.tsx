@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 
 import type { ShortcutDef, ShortcutKeys } from '../../hooks/useKeyboardShortcuts'
 import { useT } from '../../i18n'
+import { noop } from '../../utils/constants'
 import { Modal } from './Modal'
 
 const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(navigator.userAgent)
@@ -38,7 +39,7 @@ export function ShortcutsHelp({ open, shortcuts, onClose }: ShortcutsHelpProps) 
       keys: { key: '?' },
       description: t('shortcuts.show_help'),
       group: t('shortcuts.group_general'),
-      handler: () => {},
+      handler: noop,
     }
     const all = [help, ...shortcuts]
     const buckets = new Map<string, ShortcutDef[]>()

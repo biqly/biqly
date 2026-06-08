@@ -27,11 +27,13 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
   const [selectedRole, setSelectedRole] = useState('viewer')
   const { datasources, loading: loadingDS } = useDatasources()
   const [selectedDS, setSelectedDS] = useState<string>('')
+  const effectiveSelectedDS = selectedDS || datasources[0]?.id || ''
 
   // Semantic Models
-  const { models, loading: loadingModels } = useSemanticModels(selectedDS || null)
+  const { models, loading: loadingModels } = useSemanticModels(effectiveSelectedDS || null)
   const [selectedModel, setSelectedModel] = useState<string>('')
-  const { model, loading: loadingModelDetail } = useModelDetail(selectedModel || null)
+  const effectiveSelectedModel = selectedModel || models[0]?.id || ''
+  const { model, loading: loadingModelDetail } = useModelDetail(effectiveSelectedModel || null)
 
   // Policy & Filters
   const [policy, setPolicy] = useState<SecurityPolicy | null>(null)
@@ -40,33 +42,9 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
   const [error, setError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
 
-  // Auto-select first datasource
-  useEffect(() => {
-    if (datasources.length > 0 && !selectedDS) {
-      const firstDS = datasources[0]
-      if (firstDS) {
-        setSelectedDS(firstDS.id)
-      }
-    }
-  }, [datasources, selectedDS])
-
-  // Auto-select first model
-  useEffect(() => {
-    if (models.length > 0) {
-      const firstModel = models[0]
-      if (firstModel) {
-        setSelectedModel(firstModel.id)
-      }
-    } else {
-      setSelectedModel('')
-    }
-  }, [models])
-
   // Fetch policy when role or datasource changes
   useEffect(() => {
-    if (!selectedRole || !selectedDS) {
-      setPolicy(null)
-      setFilters([])
+    if (!selectedRole || !effectiveSelectedDS) {
       return
     }
 
@@ -76,7 +54,11 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
       setError(null)
       setSaveSuccess(false)
       try {
-        const policyData = await getSecurityPolicyByKeys(token, `role:${selectedRole}`, selectedDS)
+        const policyData = await getSecurityPolicyByKeys(
+          token,
+          `role:${selectedRole}`,
+          effectiveSelectedDS,
+        )
         if (cancelled) {
           return
         }
@@ -97,7 +79,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
     return () => {
       cancelled = true
     }
-  }, [token, selectedRole, selectedDS])
+  }, [token, selectedRole, effectiveSelectedDS])
 
   const fields = useMemo(() => {
     const names: string[] = []
@@ -182,7 +164,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
   }
 
   const handleSave = async () => {
-    if (!selectedDS) {
+    if (!effectiveSelectedDS) {
       return
     }
     setError(null)
@@ -192,7 +174,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
     const policyToSave: SecurityPolicy = {
       id: policy?.id,
       user_id: `role:${selectedRole}`,
-      datasource_id: selectedDS,
+      datasource_id: effectiveSelectedDS,
       allowed_models: policy?.allowed_models ?? [],
       denied_fields: policy?.denied_fields ?? [],
       row_filters: filters,
@@ -228,9 +210,15 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
         <div style={labelStyle} className="admin-form-label">
           <span style={labelTextStyle}>Datasource</span>
           <Select
-            value={selectedDS}
+            value={effectiveSelectedDS}
             options={dsOptions}
-            onChange={setSelectedDS}
+            onChange={(value) => {
+              setSelectedDS(value)
+              setSelectedModel('')
+              setPolicy(null)
+              setFilters([])
+              setSaveSuccess(false)
+            }}
             disabled={loadingDS || dsOptions.every((o) => o.disabled)}
           />
         </div>
@@ -238,10 +226,10 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
         <div style={labelStyle} className="admin-form-label">
           <span style={labelTextStyle}>Semantic Model</span>
           <Select
-            value={selectedModel}
+            value={effectiveSelectedModel}
             options={modelOptions}
             onChange={setSelectedModel}
-            disabled={!selectedDS || loadingModels}
+            disabled={!effectiveSelectedDS || loadingModels}
           />
         </div>
       </div>

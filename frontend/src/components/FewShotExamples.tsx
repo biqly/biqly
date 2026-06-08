@@ -25,6 +25,24 @@ interface FewShotExample {
 
 const DIALECTS = ['postgresql', 'mysql', 'bigquery', 'snowflake', 'duckdb']
 
+function filterLocalFewShotExamples(
+  examples: FewShotExample[],
+  datasourceId: string,
+  modelId: string,
+): FewShotExample[] {
+  if (!datasourceId) {
+    return examples
+  }
+  const filtered = examples.filter((ex) => ex.datasource_id === datasourceId)
+  if (!modelId) {
+    return filtered
+  }
+  if (modelId === 'raw_tables') {
+    return filtered.filter((ex) => !ex.model_id)
+  }
+  return filtered.filter((ex) => ex.model_id === modelId)
+}
+
 export default function FewShotExamples() {
   const t = useT()
   const confirm = useConfirm()
@@ -83,20 +101,10 @@ export default function FewShotExamples() {
         } else {
           // Fallback to offline local storage
           try {
-            let local = JSON.parse(
+            const local = JSON.parse(
               localStorage.getItem('biqly_fewshot') ?? '[]',
             ) as FewShotExample[]
-            if (selectedDatasourceId) {
-              local = local.filter((ex) => ex.datasource_id === selectedDatasourceId)
-              if (selectedModelId) {
-                if (selectedModelId === 'raw_tables') {
-                  local = local.filter((ex) => !ex.model_id)
-                } else {
-                  local = local.filter((ex) => ex.model_id === selectedModelId)
-                }
-              }
-            }
-            setExamples(local)
+            setExamples(filterLocalFewShotExamples(local, selectedDatasourceId, selectedModelId))
           } catch {
             /* empty */
           }

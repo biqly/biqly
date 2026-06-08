@@ -56,7 +56,7 @@ export default function OAuthCallback() {
     }
 
     void handleCallback()
-  }, [loginWithTokens, t])
+  }, [loginWithTokens, navigate, t])
 
   return (
     <div className="auth-page">

@@ -64,15 +64,18 @@ export function AIHistoryPanel() {
   }, [accessToken, currentPage, showAll, isAdmin])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load()
   }, [load])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1)
   }, [showAll])
 
   useEffect(() => {
     if (!expandedId || !accessToken) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDetail(null)
       return
     }

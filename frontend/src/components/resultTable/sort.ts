@@ -1,3 +1,4 @@
+import { unknownToDisplayString } from '../../utils/formatters'
 import type { IndexedRow, SortDirection } from './types'
 
 export type { SortDirection }
@@ -17,7 +18,7 @@ export function compareCellValues(av: unknown, bv: unknown, dir: 1 | -1): number
   if (!isNaN(an) && !isNaN(bn)) {
     return (an - bn) * dir
   }
-  return String(av).localeCompare(String(bv)) * dir
+  return unknownToDisplayString(av).localeCompare(unknownToDisplayString(bv)) * dir
 }
 
 export function indexRows(rows: unknown[][]): IndexedRow[] {

@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+
 import {
   createContext,
   type ReactNode,
@@ -64,23 +66,25 @@ function matchesEvent(keys: ShortcutKeys, event: KeyboardEvent): boolean {
 export function ShortcutsProvider({ children }: { children: ReactNode }) {
   const registry = useRef(new Map<string, ShortcutDef>())
   const [helpOpen, setHelpOpen] = useState(false)
-  const [, setVersion] = useState(0)
+  const [shortcuts, setShortcuts] = useState<ShortcutDef[]>([])
 
-  const bump = useCallback(() => setVersion((v) => v + 1), [])
+  const syncShortcuts = useCallback(() => {
+    setShortcuts(Array.from(registry.current.values()))
+  }, [])
 
   const register = useCallback(
     (def: ShortcutDef) => {
       registry.current.set(def.id, def)
-      bump()
+      syncShortcuts()
       return () => {
         registry.current.delete(def.id)
-        bump()
+        syncShortcuts()
       }
     },
-    [bump],
+    [syncShortcuts],
   )
 
-  const list = useCallback(() => Array.from(registry.current.values()), [])
+  const list = useCallback(() => shortcuts, [shortcuts])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -110,7 +114,7 @@ export function ShortcutsProvider({ children }: { children: ReactNode }) {
   return (
     <ShortcutsContext.Provider value={value}>
       {children}
-      <ShortcutsHelp open={helpOpen} shortcuts={list()} onClose={() => setHelpOpen(false)} />
+      <ShortcutsHelp open={helpOpen} shortcuts={shortcuts} onClose={() => setHelpOpen(false)} />
     </ShortcutsContext.Provider>
   )
 }
@@ -123,7 +127,10 @@ export function useShortcut(def: ShortcutDef) {
   }
   const { register } = ctx
   const handlerRef = useRef(def.handler)
-  handlerRef.current = def.handler
+
+  useEffect(() => {
+    handlerRef.current = def.handler
+  }, [def.handler])
 
   const { id, description, group, allowInInput } = def
   const { key, mod, shift, alt } = def.keys

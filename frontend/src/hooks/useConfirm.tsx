@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+
 import { createContext, type ReactNode, useCallback, useContext, useRef, useState } from 'react'
 
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'

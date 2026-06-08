@@ -1,3 +1,4 @@
+import { unknownToDisplayString } from '../../utils/formatters'
 import type { ContextMenuState } from './types'
 
 export function isContextMenuKey(key: string, shiftKey: boolean): boolean {
@@ -10,7 +11,7 @@ export function buildContextMenuFromPointer(
   colName: string,
   value: unknown,
 ): ContextMenuState {
-  return { x, y, colName, value: String(value ?? '') }
+  return { x, y, colName, value: unknownToDisplayString(value) }
 }
 
 export function buildContextMenuFromCellRect(

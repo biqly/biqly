@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { createWorkspace, deleteWorkspace, listWorkspaces } from '../../api/admin'
 import { useConfirm } from '../../hooks/useConfirm'
@@ -28,7 +28,7 @@ export function WorkspacesPanel({ token }: { token: string }) {
   const totalPages = Math.ceil(totalItems / pageSize)
   const displayedItems = items
 
-  async function reload() {
+  const reload = useCallback(async () => {
     setLoading(true)
     try {
       const res = await listWorkspaces(token, currentPage, pageSize)
@@ -40,11 +40,11 @@ export function WorkspacesPanel({ token }: { token: string }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentPage, pageSize, token])
 
   useEffect(() => {
     void reload()
-  }, [token, currentPage])
+  }, [reload])
 
   async function onCreate(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import {
   grantDatasourceAccess,
@@ -56,7 +56,7 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
   )
   const levelOptions = useMemo(() => datasourceAccessLevelOptions(), [])
 
-  async function reload() {
+  const reload = useCallback(async () => {
     setLoading(true)
     try {
       const res = await listDatasourceAccess(token, currentPage, pageSize)
@@ -68,11 +68,11 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentPage, pageSize, token])
 
   useEffect(() => {
     void reload()
-  }, [token, currentPage])
+  }, [reload])
 
   async function onGrant(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()

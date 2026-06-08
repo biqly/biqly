@@ -49,11 +49,11 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
     } finally {
       setLoading(false)
     }
-  }, [accessToken, resourceType, refreshKey, currentPage])
+  }, [accessToken, currentPage, pageSize, resourceType])
 
   useEffect(() => {
     void load()
-  }, [load])
+  }, [load, refreshKey])
 
   useEffect(() => {
     setCurrentPage(1)

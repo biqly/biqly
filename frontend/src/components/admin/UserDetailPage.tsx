@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 
 import {
   assignRole,
@@ -11,11 +11,15 @@ import {
   updateUserActiveStatus,
 } from '../../api/admin'
 import { useConfirm } from '../../hooks/useConfirm'
-import { localeLanguageTag, useLocale, useT } from '../../i18n'
+import { useLocale, useT } from '../../i18n'
 import type { AuthUser, Role, UserRoleInfo } from '../../types/auth'
 import { useAuth } from '../auth/AuthProvider'
-import { Select } from '../ui/Select'
 import { roleSelectOptions } from './adminSelectOptions'
+import {
+  UserDetailMfaSupportCard,
+  UserDetailProfileCard,
+  UserDetailRolesPanel,
+} from './UserDetailSections'
 
 interface UserDetailPageProps {
   token: string
@@ -51,7 +55,7 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
   const [bypassGenerating, setBypassGenerating] = useState(false)
   const [bypassError, setBypassError] = useState<string | null>(null)
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true)
       const [u, ur, arRes] = await Promise.all([
@@ -71,11 +75,11 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [token, userID])
 
   useEffect(() => {
     void loadData()
-  }, [token, userID])
+  }, [loadData])
 
   const isSelf = currentUser?.id === userID
   const isSuperAdmin = currentUserRoles.includes('super_admin')
@@ -215,272 +219,43 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
 
   return (
     <div className="page-stack" style={{ gap: 24 }}>
-      {/* User profile details card */}
-      <div className="admin-card">
-        <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div className="admin-avatar-circle" style={{ overflow: 'hidden' }}>
-            {user.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt=""
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            ) : user.displayName ? (
-              user.displayName.slice(0, 2).toUpperCase()
-            ) : (
-              user.email.slice(0, 2).toUpperCase()
-            )}
-          </div>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <h2 style={{ margin: 0, fontSize: 22 }}>
-              {user.displayName ?? t('admin.user_detail.unnamed_user')}
-            </h2>
-            <span style={{ fontSize: 14, color: 'var(--text-secondary)', fontWeight: 500 }}>
-              {user.email}
-            </span>
-            <span
-              style={{
-                fontSize: 12,
-                color: 'var(--text-muted)',
-                fontFamily: 'var(--font-mono, monospace)',
-              }}
-            >
-              UUID: {user.id}
-            </span>
-          </div>
-          {!(isSelf && user.isActive) && (
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-              <button
-                onClick={() => {
-                  void handleToggleActive()
-                }}
-                disabled={!canManageUsers}
-                className={user.isActive ? 'admin-btn-deactivate' : 'admin-btn-activate'}
-              >
-                {user.isActive
-                  ? t('admin.user_detail.suspend_account')
-                  : t('admin.user_detail.activate_account')}
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="admin-grid">
-          <div className="admin-grid-item">
-            <span className="admin-label">{t('admin.user_detail.account_status')}</span>
-            <span className={user.isActive ? 'admin-badge-active' : 'admin-badge-inactive'}>
-              {user.isActive
-                ? t('admin.users.status_active')
-                : t('admin.user_detail.status_locked')}
-            </span>
-          </div>
-          <div className="admin-grid-item">
-            <span className="admin-label">{t('admin.user_detail.email_verification')}</span>
-            <div
-              style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}
-            >
-              <span
-                className={user.emailVerified ? 'admin-badge-verified' : 'admin-badge-unverified'}
-              >
-                {user.emailVerified
-                  ? t('admin.user_detail.email_approved')
-                  : t('admin.user_detail.email_pending')}
-              </span>
-              {!user.emailVerified && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    void handleResendVerification()
-                  }}
-                  disabled={verificationSending}
-                  className="admin-btn-resend"
-                >
-                  {verificationSending ? '...' : t('admin.user_detail.resend_verification')}
-                </button>
-              )}
-              {verificationMessage && (
-                <span
-                  className={
-                    verificationMessage.type === 'success'
-                      ? 'admin-badge-active'
-                      : 'admin-badge-inactive'
-                  }
-                  style={{ background: 'transparent', padding: 0 }}
-                >
-                  {verificationMessage.text}
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="admin-grid-item">
-            <span className="admin-label">{t('admin.user_detail.created_at')}</span>
-            <span className="admin-val">
-              {new Date(user.createdAt).toLocaleString(localeLanguageTag(locale))}
-            </span>
-          </div>
-          <div className="admin-grid-item">
-            <span className="admin-label">{t('admin.user_detail.updated_at')}</span>
-            <span className="admin-val">
-              {new Date(user.updatedAt).toLocaleString(localeLanguageTag(locale))}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2FA Support — super_admin only, single-use bypass code */}
+      <UserDetailProfileCard
+        t={t}
+        locale={locale}
+        user={user}
+        isSelf={isSelf}
+        canManageUsers={canManageUsers}
+        verificationSending={verificationSending}
+        verificationMessage={verificationMessage}
+        onToggleActive={() => void handleToggleActive()}
+        onResendVerification={() => void handleResendVerification()}
+      />
       {isSuperAdmin && (
-        <div className="admin-card">
-          <h3 style={{ marginTop: 0, marginBottom: 8 }}>
-            {t('admin.user_detail.mfa_support_title')}
-          </h3>
-          <p className="admin-text-muted" style={{ padding: 0, marginTop: 0, marginBottom: 16 }}>
-            {t('admin.user_detail.mfa_support_desc')}
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              void handleGenerateBypassCode()
-            }}
-            disabled={bypassGenerating}
-            className="admin-btn-resend"
-          >
-            {bypassGenerating ? '...' : t('admin.user_detail.mfa_generate_bypass')}
-          </button>
-          {bypassError && (
-            <div className="admin-err-text" style={{ padding: '12px 0 0' }}>
-              {bypassError}
-            </div>
-          )}
-          {bypassCode && (
-            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <span className="admin-label">{t('admin.user_detail.mfa_bypass_generated')}</span>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <code className="admin-bypass-code-box">{bypassCode}</code>
-                <button
-                  type="button"
-                  className="admin-btn-secondary"
-                  onClick={() => {
-                    void navigator.clipboard.writeText(bypassCode)
-                    alert(t('admin.user_detail.mfa_bypass_copied'))
-                  }}
-                >
-                  {t('admin.user_detail.copy')}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        <UserDetailMfaSupportCard
+          t={t}
+          bypassGenerating={bypassGenerating}
+          bypassCode={bypassCode}
+          bypassError={bypassError}
+          onGenerate={() => void handleGenerateBypassCode()}
+        />
       )}
-
-      {/* User Roles lists and Assign role form */}
-      <div className="admin-roles-grid">
-        {/* Roles list */}
-        <div className="admin-card" style={{ minWidth: 0, overflow: 'hidden' }}>
-          <h3 style={{ marginTop: 0, marginBottom: 16 }}>
-            {t('admin.user_detail.assigned_roles', { count: userRoles.length })}
-          </h3>
-          {userRoles.length === 0 ? (
-            <div className="admin-text-muted">{t('admin.user_detail.no_roles')}</div>
-          ) : (
-            <table className="admin-table">
-              <thead>
-                <tr className="admin-thead-row">
-                  <th className="admin-th">{t('admin.user_detail.role_name')}</th>
-                  <th className="admin-th">{t('admin.user_detail.scope')}</th>
-                  <th className="admin-th">{t('admin.user_detail.scope_id')}</th>
-                  <th className="admin-th"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {userRoles.map((ur) => (
-                  <tr key={`${ur.role_id}-${ur.scope_type}-${ur.scope_id}`} className="admin-tr">
-                    <td className="admin-td" style={{ fontWeight: 600 }}>
-                      {ur.role_name}
-                    </td>
-                    <td className="admin-td">
-                      <span
-                        className={
-                          ur.scope_type === 'global'
-                            ? 'admin-badge-global'
-                            : 'admin-badge-workspace'
-                        }
-                      >
-                        {ur.scope_type}
-                      </span>
-                    </td>
-                    <td
-                      className="admin-td"
-                      style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 12 }}
-                    >
-                      {ur.scope_id === '00000000-0000-0000-0000-000000000000'
-                        ? t('admin.user_detail.all_or_none')
-                        : ur.scope_id}
-                    </td>
-                    <td className="admin-td" style={{ textAlign: 'right' }}>
-                      <button
-                        onClick={() => {
-                          void handleRevokeRole(ur.role_id)
-                        }}
-                        className="admin-btn-revoke"
-                        disabled={!canManageRoles}
-                      >
-                        {t('admin.user_detail.remove_role')}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        {/* Assign role form */}
-        <div className="admin-card" style={{ minWidth: 0, overflow: 'hidden' }}>
-          <h3 style={{ marginTop: 0, marginBottom: 16 }}>
-            {t('admin.user_detail.assign_new_role')}
-          </h3>
-          <form
-            onSubmit={(e) => {
-              void handleAssignRole(e)
-            }}
-            className="page-stack"
-            style={{ gap: 12 }}
-          >
-            <label className="admin-form-label">
-              <span>{t('admin.user_detail.select_role')}</span>
-              <Select
-                value={selectedRoleID}
-                options={assignableRoleOptions}
-                onChange={setSelectedRoleID}
-                disabled={!canManageRoles || assignableRoleOptions.length === 0}
-              />
-            </label>
-
-            <label className="admin-form-label">
-              <span>{t('admin.user_detail.scope_type')}</span>
-              <Select value={scopeType} options={scopeTypeOptions} onChange={setScopeType} />
-            </label>
-
-            {scopeType === 'workspace' && (
-              <label className="admin-form-label">
-                <span>{t('admin.user_detail.workspace_uuid')}</span>
-                <input
-                  type="text"
-                  placeholder={t('admin.user_detail.workspace_uuid_placeholder')}
-                  value={scopeID}
-                  onChange={(e) => setScopeID(e.target.value)}
-                  className="admin-input"
-                  required
-                />
-              </label>
-            )}
-
-            <button type="submit" className="admin-btn-submit" disabled={!canManageRoles}>
-              {t('admin.user_detail.assign_role')}
-            </button>
-          </form>
-        </div>
-      </div>
+      <UserDetailRolesPanel
+        t={t}
+        userRoles={userRoles}
+        canManageRoles={canManageRoles}
+        assignableRoleOptions={assignableRoleOptions}
+        selectedRoleID={selectedRoleID}
+        scopeType={scopeType}
+        scopeID={scopeID}
+        scopeTypeOptions={scopeTypeOptions}
+        onRoleChange={setSelectedRoleID}
+        onScopeTypeChange={setScopeType}
+        onScopeIdChange={setScopeID}
+        onAssignRole={(event) => {
+          void handleAssignRole(event)
+        }}
+        onRevokeRole={(roleId) => void handleRevokeRole(roleId)}
+      />
     </div>
   )
 }

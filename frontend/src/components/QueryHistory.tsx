@@ -8,6 +8,7 @@ import { useDatasources } from '../hooks/useDatasources'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useT } from '../i18n'
 import type { AIHistoryEntry } from '../types/auth'
+import { pickValidId } from '../utils/effectiveSelection'
 import { useAuth } from './auth/AuthProvider'
 import { EmptyState } from './ui/EmptyState'
 import { LoadingOverlay } from './ui/LoadingOverlay'
@@ -34,10 +35,7 @@ export default function QueryHistory() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [detail, setDetail] = useState<AIHistoryEntry | null>(null)
-  const [detailLoading, setDetailLoading] = useState(false)
 
-  const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
 
@@ -48,23 +46,26 @@ export default function QueryHistory() {
     return models.filter((m) => m.datasource_id === selectedDatasourceId)
   }, [models, selectedDatasourceId])
 
+  const effectiveModelId = useMemo(
+    () => pickValidId(selectedModelId, filteredModels),
+    [selectedModelId, filteredModels],
+  )
+
+  const filterKey = `${selectedDatasourceId}|${effectiveModelId}|${statusFilter}|${debouncedSearch}`
+  const [pageState, setPageState] = useState({ key: filterKey, page: 1 })
+  const currentPage = pageState.key === filterKey ? pageState.page : 1
+  const setCurrentPage = useCallback(
+    (page: number) => setPageState({ key: filterKey, page }),
+    [filterKey],
+  )
+
+  const [detailCache, setDetailCache] = useState<Record<string, AIHistoryEntry | null>>({})
+  const [inFlightDetailId, setInFlightDetailId] = useState<string | null>(null)
+
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(searchInput), 300)
     return () => window.clearTimeout(timer)
   }, [searchInput])
-
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [selectedDatasourceId, selectedModelId, statusFilter, debouncedSearch])
-
-  useEffect(() => {
-    if (selectedModelId) {
-      const exists = filteredModels.some((m) => m.id === selectedModelId)
-      if (!exists) {
-        setSelectedModelId('')
-      }
-    }
-  }, [selectedDatasourceId, filteredModels, selectedModelId])
 
   const loadHistory = useCallback(async () => {
     if (!accessToken) {
@@ -76,7 +77,7 @@ export default function QueryHistory() {
         page: currentPage,
         pageSize,
         datasourceId: selectedDatasourceId || undefined,
-        modelId: selectedModelId || undefined,
+        modelId: effectiveModelId || undefined,
         status: statusFilter || undefined,
         search: debouncedSearch || undefined,
       })
@@ -93,7 +94,7 @@ export default function QueryHistory() {
     currentPage,
     pageSize,
     selectedDatasourceId,
-    selectedModelId,
+    effectiveModelId,
     statusFilter,
     debouncedSearch,
   ])
@@ -103,32 +104,39 @@ export default function QueryHistory() {
   }, [loadHistory])
 
   useEffect(() => {
-    if (!expandedId || !accessToken) {
-      setDetail(null)
+    if (!expandedId || !accessToken || expandedId in detailCache) {
       return
     }
     let cancelled = false
-    setDetailLoading(true)
+    void Promise.resolve().then(() => {
+      if (!cancelled) {
+        setInFlightDetailId(expandedId)
+      }
+    })
     getAIHistoryDetail(accessToken, expandedId)
       .then((data) => {
         if (!cancelled) {
-          setDetail(data)
+          setDetailCache((prev) => ({ ...prev, [expandedId]: data }))
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setDetail(null)
+          setDetailCache((prev) => ({ ...prev, [expandedId]: null }))
         }
       })
       .finally(() => {
         if (!cancelled) {
-          setDetailLoading(false)
+          setInFlightDetailId((prev) => (prev === expandedId ? null : prev))
         }
       })
     return () => {
       cancelled = true
     }
-  }, [expandedId, accessToken])
+  }, [expandedId, accessToken, detailCache])
+
+  const detail = expandedId ? (detailCache[expandedId] ?? null) : null
+  const detailLoading =
+    expandedId !== null && !(expandedId in detailCache) && inFlightDetailId === expandedId
 
   const datasourceMap = useMemo(() => {
     return new Map(datasources.map((d) => [d.id, d.name]))

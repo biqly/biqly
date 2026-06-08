@@ -14,3 +14,23 @@ export function getRateColor(rate: number): string {
 export function localeNumberTag(locale: Locale): string {
   return localeLanguageTag(locale)
 }
+
+/** Safe display string for unknown cell/query values (avoids implicit object toString). */
+export function unknownToDisplayString(value: unknown): string {
+  if (value === null || value === undefined) {
+    return ''
+  }
+  if (typeof value === 'string') {
+    return value
+  }
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value)
+  }
+  if (typeof value === 'object') {
+    return JSON.stringify(value)
+  }
+  if (typeof value === 'symbol') {
+    return value.description ?? ''
+  }
+  return ''
+}

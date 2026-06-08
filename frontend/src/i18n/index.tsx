@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import {
   createContext,
   type ReactNode,
@@ -236,9 +237,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const t = useCallback(
-    (key: TranslationKey, params?: Record<string, string | number>) =>
-      translate(locale, key, params),
-    // version participates so consumers update when admin/auth chunks land.
+    (key: TranslationKey, params?: Record<string, string | number>) => {
+      void version
+      return translate(locale, key, params)
+    },
     [locale, version],
   )
 
@@ -278,27 +280,29 @@ export function useLocale() {
  */
 export function useLocaleSection(section: LocaleSectionName): boolean {
   const { locale } = useI18n()
-  const [ready, setReady] = useState(
-    () => sectionReady(locale, section) && sectionReady(FALLBACK_LOCALE, section),
-  )
+  const sectionKey = `${locale}:${section}`
+  const syncReady = sectionReady(locale, section) && sectionReady(FALLBACK_LOCALE, section)
+  const [loadState, setLoadState] = useState<{ key: string; ready: boolean }>({
+    key: '',
+    ready: false,
+  })
 
   useEffect(() => {
     let cancelled = false
-    setReady(sectionReady(locale, section) && sectionReady(FALLBACK_LOCALE, section))
     void Promise.all([
       loadLocaleSection(locale, section),
       loadLocaleSection(FALLBACK_LOCALE, section),
     ]).then(() => {
       if (!cancelled) {
-        setReady(true)
+        setLoadState({ key: sectionKey, ready: true })
       }
     })
     return () => {
       cancelled = true
     }
-  }, [locale, section])
+  }, [locale, section, sectionKey])
 
-  return ready
+  return syncReady || (loadState.key === sectionKey && loadState.ready)
 }
 
 /** Gates children until the named lazy locale section has loaded. */

@@ -1,11 +1,14 @@
+/* eslint-disable react-refresh/only-export-components */
 import type { ReactNode } from 'react'
 
 import type { TranslationKey } from '../../i18n'
 import { useLocale, useT } from '../../i18n'
 import type {
   AIQueryResponse,
+  Clarification,
   EmbedMetadataResponse,
   LogicalQuery,
+  LogicalQueryCandidate,
   PromptStats,
   TableRoutingCandidate,
   TokenUsage,
@@ -196,75 +199,24 @@ function RoutingDebugList({ items }: { items: string[] | undefined }) {
   )
 }
 
-export function TableRoutingViz({
-  routing,
+function routingCandidateScore(c: TableRoutingCandidate): number {
+  const v = c.total_score ?? c.score ?? c.relevance_score
+  return typeof v === 'number' && Number.isFinite(v) ? v : 0
+}
+
+function RoutingCandidatesList({
+  candidates,
+  maxScore,
+  t,
 }: {
-  routing: NonNullable<AIQueryResponse['table_routing']>
+  candidates: TableRoutingCandidate[]
+  maxScore: number
+  t: ReturnType<typeof useT>
 }) {
-  const t = useT()
-  const [locale] = useLocale()
-  const localeTag = localeNumberTag(locale)
-  const methodLabel = routingMethodLabel(routing.ranking_method, t)
-  const sourceLabel = contextSourceLabel(routing.context_source, t)
-  const candidateScore = (c: TableRoutingCandidate) => {
-    const v = c.total_score ?? c.score ?? c.relevance_score
-    return typeof v === 'number' && Number.isFinite(v) ? v : 0
-  }
-  const maxScore = Math.max(...(routing.candidates ?? []).map(candidateScore), 0)
-  const selectedDims = compactList(routing.selected_dimensions)
-  const selectedMetrics = compactList(routing.selected_metrics)
-  const selectedTables = compactItems(routing.selected_tables)
-  const selectedModels = compactList(routing.selected_models)
   return (
-    <div className="table-routing-viz">
-      <div className="routing-header">
-        <span>{t('ai_query.routing_header', { method: methodLabel })}</span>
-        <span className="routing-confidence">{Math.round(routing.confidence * 100)}%</span>
-      </div>
-      <div className="routing-context-grid">
-        <div>
-          <span>{t('ai_query.routing_source')}</span>
-          <strong>{sourceLabel}</strong>
-        </div>
-        {selectedModels && (
-          <div>
-            <span>{t('ai_query.routing_model')}</span>
-            <strong>{selectedModels}</strong>
-          </div>
-        )}
-        {selectedTables && (
-          <div>
-            <span>{t('ai_query.routing_tables')}</span>
-            <RoutingTableList items={routing.selected_tables} />
-          </div>
-        )}
-        {selectedDims && (
-          <div>
-            <span>{t('ai_query.routing_dimensions')}</span>
-            <strong>{selectedDims}</strong>
-          </div>
-        )}
-        {selectedMetrics && (
-          <div>
-            <span>{t('ai_query.routing_metrics')}</span>
-            <strong>{selectedMetrics}</strong>
-          </div>
-        )}
-        {(routing.join_paths?.length ?? 0) > 0 && (
-          <div>
-            <span>{t('ai_query.routing_join_paths')}</span>
-            <RoutingDebugList items={routing.join_paths} />
-          </div>
-        )}
-        {routing.context_updated_at && (
-          <div>
-            <span>{t('ai_query.routing_context_time')}</span>
-            <strong>{new Date(routing.context_updated_at).toLocaleString(localeTag)}</strong>
-          </div>
-        )}
-      </div>
-      {(routing.candidates ?? []).map((c: TableRoutingCandidate) => {
-        const score = candidateScore(c)
+    <>
+      {candidates.map((c) => {
+        const score = routingCandidateScore(c)
         const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
         return (
           <div key={c.table} className="routing-candidate">
@@ -286,35 +238,129 @@ export function TableRoutingViz({
           </div>
         )
       })}
-      {routing.debug && (
-        <div className="routing-debug">
-          {routing.debug.relation_expansion && routing.debug.relation_expansion.length > 0 && (
-            <div>
-              <span>{t('ai_query.routing_debug_relation')}</span>
-              <code>{routing.debug.relation_expansion.join(' | ')}</code>
-            </div>
-          )}
-          {routing.debug.bridge_tables && routing.debug.bridge_tables.length > 0 && (
-            <div>
-              <span>{t('ai_query.routing_debug_bridge')}</span>
-              <RoutingDebugList items={routing.debug.bridge_tables} />
-            </div>
-          )}
-          {routing.debug.schema_partitions && routing.debug.schema_partitions.length > 0 && (
-            <div>
-              <span>{t('ai_query.routing_debug_schema_parts')}</span>
-              <RoutingDebugList items={routing.debug.schema_partitions} />
-            </div>
-          )}
-          {routing.debug.eliminated_candidates &&
-            routing.debug.eliminated_candidates.length > 0 && (
-              <div>
-                <span>{t('ai_query.routing_debug_eliminated')}</span>
-                <RoutingDebugList items={routing.debug.eliminated_candidates} />
-              </div>
-            )}
+    </>
+  )
+}
+
+function RoutingDebugPanel({
+  debug,
+  t,
+}: {
+  debug: NonNullable<NonNullable<AIQueryResponse['table_routing']>['debug']>
+  t: ReturnType<typeof useT>
+}) {
+  return (
+    <div className="routing-debug">
+      {debug.relation_expansion && debug.relation_expansion.length > 0 && (
+        <div>
+          <span>{t('ai_query.routing_debug_relation')}</span>
+          <code>{debug.relation_expansion.join(' | ')}</code>
         </div>
       )}
+      {debug.bridge_tables && debug.bridge_tables.length > 0 && (
+        <div>
+          <span>{t('ai_query.routing_debug_bridge')}</span>
+          <RoutingDebugList items={debug.bridge_tables} />
+        </div>
+      )}
+      {debug.schema_partitions && debug.schema_partitions.length > 0 && (
+        <div>
+          <span>{t('ai_query.routing_debug_schema_parts')}</span>
+          <RoutingDebugList items={debug.schema_partitions} />
+        </div>
+      )}
+      {debug.eliminated_candidates && debug.eliminated_candidates.length > 0 && (
+        <div>
+          <span>{t('ai_query.routing_debug_eliminated')}</span>
+          <RoutingDebugList items={debug.eliminated_candidates} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RoutingContextSummary({
+  routing,
+  localeTag,
+  t,
+}: {
+  routing: NonNullable<AIQueryResponse['table_routing']>
+  localeTag: string
+  t: ReturnType<typeof useT>
+}) {
+  const sourceLabel = contextSourceLabel(routing.context_source, t)
+  const selectedDims = compactList(routing.selected_dimensions)
+  const selectedMetrics = compactList(routing.selected_metrics)
+  const selectedTables = compactItems(routing.selected_tables)
+  const selectedModels = compactList(routing.selected_models)
+
+  return (
+    <div className="routing-context-grid">
+      <div>
+        <span>{t('ai_query.routing_source')}</span>
+        <strong>{sourceLabel}</strong>
+      </div>
+      {selectedModels && (
+        <div>
+          <span>{t('ai_query.routing_model')}</span>
+          <strong>{selectedModels}</strong>
+        </div>
+      )}
+      {selectedTables && (
+        <div>
+          <span>{t('ai_query.routing_tables')}</span>
+          <RoutingTableList items={routing.selected_tables} />
+        </div>
+      )}
+      {selectedDims && (
+        <div>
+          <span>{t('ai_query.routing_dimensions')}</span>
+          <strong>{selectedDims}</strong>
+        </div>
+      )}
+      {selectedMetrics && (
+        <div>
+          <span>{t('ai_query.routing_metrics')}</span>
+          <strong>{selectedMetrics}</strong>
+        </div>
+      )}
+      {(routing.join_paths?.length ?? 0) > 0 && (
+        <div>
+          <span>{t('ai_query.routing_join_paths')}</span>
+          <RoutingDebugList items={routing.join_paths} />
+        </div>
+      )}
+      {routing.context_updated_at && (
+        <div>
+          <span>{t('ai_query.routing_context_time')}</span>
+          <strong>{new Date(routing.context_updated_at).toLocaleString(localeTag)}</strong>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function TableRoutingViz({
+  routing,
+}: {
+  routing: NonNullable<AIQueryResponse['table_routing']>
+}) {
+  const t = useT()
+  const [locale] = useLocale()
+  const localeTag = localeNumberTag(locale)
+  const methodLabel = routingMethodLabel(routing.ranking_method, t)
+  const candidates = routing.candidates ?? []
+  const maxScore = Math.max(...candidates.map(routingCandidateScore), 0)
+
+  return (
+    <div className="table-routing-viz">
+      <div className="routing-header">
+        <span>{t('ai_query.routing_header', { method: methodLabel })}</span>
+        <span className="routing-confidence">{Math.round(routing.confidence * 100)}%</span>
+      </div>
+      <RoutingContextSummary routing={routing} localeTag={localeTag} t={t} />
+      <RoutingCandidatesList candidates={candidates} maxScore={maxScore} t={t} />
+      {routing.debug && <RoutingDebugPanel debug={routing.debug} t={t} />}
       {routing.reasoning && <p className="routing-reasoning">{routing.reasoning}</p>}
     </div>
   )
@@ -329,7 +375,7 @@ export function ClarificationCard({
 }: {
   question: string
   options: string[]
-  clarification?: import('../../types/ai').Clarification
+  clarification?: Clarification
   onSelect: (choice: string) => void
   onSkip: () => void
 }) {
@@ -389,7 +435,7 @@ export function CandidateComparisonPanel({
   candidates,
   onUse,
 }: {
-  candidates: import('../../types/ai').LogicalQueryCandidate[]
+  candidates: LogicalQueryCandidate[]
   onUse: (i: number) => void
 }) {
   const t = useT()

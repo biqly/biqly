@@ -1,9 +1,9 @@
+import type { TFunction } from '../../i18n'
 import { ResultTable } from '../ResultTable'
 import { EmptyState } from '../ui/EmptyState'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import type { SavedQuestion, SavedQuestionSemanticModel } from './types'
-import type { TFunction } from '../../i18n'
 
 interface QuestionDetailPaneProps {
   selectedQuestion: SavedQuestion | null

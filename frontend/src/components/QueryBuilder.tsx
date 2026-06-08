@@ -1,6 +1,6 @@
 import '../styles/queryBuilder.css'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import { useApi } from '../hooks/useApi'
 import { useArrayState } from '../hooks/useArrayState'
@@ -12,38 +12,29 @@ import { useT } from '../i18n'
 import type { GenerateSemanticModelResponse } from '../types/semantic'
 import { modelListHint, modelListLabel } from '../types/semantic'
 import { rowsToChartData } from '../utils/chartData'
-import { formatResultCell } from '../utils/resultCellFormat'
-import { CteStep } from './queryBuilder/CteStep'
-import { FieldsStep } from './queryBuilder/FieldsStep'
-import { FilterStep } from './queryBuilder/FilterStep'
-import { HavingStep } from './queryBuilder/HavingStep'
+import { pickPublishedModelId, pickValidIdOrFirst } from '../utils/effectiveSelection'
 import { buildQueryPayload } from './queryBuilder/logicalQuery'
-import { NotebookStep } from './queryBuilder/NotebookStep'
+import {
+  QueryBuilderDraftModelWarning,
+  QueryBuilderEmptyModelSetup,
+  QueryBuilderGeneratedModelBanner,
+} from './queryBuilder/QueryBuilderModelSetup'
+import { QueryBuilderNotebook } from './queryBuilder/QueryBuilderNotebook'
+import { QueryBuilderResults } from './queryBuilder/QueryBuilderResults'
 import {
   addFilterRow,
-  addHavingRow,
   addGroupByRow as appendGroupByRow,
-  removeGroupByRow as dropGroupByRow,
+  addHavingRow,
   patchFilterRow,
-  updateGroupByRow as patchGroupByRow,
   patchHavingRow,
   removeFilterRow,
+  removeGroupByRow as dropGroupByRow,
   removeHavingRow,
+  updateGroupByRow as patchGroupByRow,
 } from './queryBuilder/rowState'
-import { SortStep } from './queryBuilder/SortStep'
-import { SummarizeStep } from './queryBuilder/SummarizeStep'
 import type { CTERow, FilterRow, HavingRow, SelectItem, WindowFuncRow } from './queryBuilder/types'
 import { newRowId } from './queryBuilder/types'
-import {
-  dimFieldOptions,
-  dimOptionsForGroupRow,
-  filterFieldOptions,
-  metricFieldOptions,
-  orderByFieldOptions,
-} from './queryBuilder/utils'
-import { WindowFuncStep } from './queryBuilder/WindowFuncStep'
-import { ChartContainer } from './ui/ChartContainer'
-import { ChartTypeSelector } from './ui/ChartTypeSelector'
+import { filterFieldOptions, metricFieldOptions, orderByFieldOptions } from './queryBuilder/utils'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingScreen } from './ui/LoadingScreen'
 import { LockedState } from './ui/LockedState'
@@ -68,9 +59,24 @@ export default function QueryBuilder() {
   const [dsParam, setDsParam] = useQueryParam('ds')
   const { datasources, loading: dsLoading } = useDatasources()
   const loadedDatasources = !dsLoading
-  const [datasourceId, setDatasourceId] = useState(dsParam)
-  const [modelId, setModelId] = useState('')
+  const [selectedDatasourceId, setSelectedDatasourceId] = useState(dsParam)
+  const [selectedModelId, setSelectedModelId] = useState('')
+  const datasourceId = useMemo(
+    () => pickValidIdOrFirst(selectedDatasourceId, datasources),
+    [selectedDatasourceId, datasources],
+  )
+  const setDatasourceId = useCallback(
+    (id: string) => {
+      setSelectedDatasourceId(id)
+      setDsParam(id)
+    },
+    [setDsParam],
+  )
   const { models, loading: modelsLoading, setModels } = useSemanticModels(datasourceId)
+  const modelId = useMemo(
+    () => pickPublishedModelId(selectedModelId, models),
+    [selectedModelId, models],
+  )
   const {
     model: modelDetail,
     loading: modelDetailLoading,
@@ -88,35 +94,6 @@ export default function QueryBuilder() {
     }
     return !datasources.some((d) => d.id === datasourceId)
   }, [loadedDatasources, datasourceId, datasources])
-
-  useEffect(() => {
-    setDsParam(datasourceId)
-  }, [datasourceId, setDsParam])
-
-  // Set default datasourceId
-  useEffect(() => {
-    if (datasources.length > 0 && !datasourceId) {
-      setDatasourceId(datasources[0]!.id)
-    }
-  }, [datasources, datasourceId])
-
-  // Set default modelId
-  useEffect(() => {
-    if (models.length > 0) {
-      setModelId((prev) => {
-        if (prev && models.some((m) => m.id === prev)) {
-          return prev
-        }
-        const published = models.filter((m) => m.status === 'published')
-        if (published.length > 0) {
-          return published[0]!.id
-        }
-        return models[0]?.id ?? ''
-      })
-    } else {
-      setModelId('')
-    }
-  }, [models])
 
   const selectItemsState = useArrayState<SelectItem>([])
   const filterState = useArrayState<FilterRow>([])
@@ -178,7 +155,7 @@ export default function QueryBuilder() {
         const next = prev.filter((m) => m.id !== summary.id)
         return [summary, ...next]
       })
-      setModelId(res.model.id)
+      setSelectedModelId(res.model.id)
       setModelDetail(res.model)
     } finally {
       setGeneratingModel(false)
@@ -360,7 +337,7 @@ export default function QueryBuilder() {
             {datasourceId && models.length > 0 && (
               <Select
                 value={modelId}
-                onChange={setModelId}
+                onChange={setSelectedModelId}
                 placeholder={t('query_builder.placeholder_pick_model')}
                 disabled={models.length === 0}
                 options={models.map((m) => ({
@@ -401,319 +378,75 @@ export default function QueryBuilder() {
           />
         ) : (
           <>
-            {/* Semantic Model Warning/Setup */}
-            {modelId && models.find((m) => m.id === modelId)?.status !== 'published' ? (
-              <p
-                className="hint-text"
-                style={{ marginBottom: '1rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}
-              >
-                {t('query_builder.draft_model_warning')}
-              </p>
-            ) : null}
-
-            {datasourceId && models.length === 0 ? (
-              <div className="semantic-model-setup" style={{ marginBottom: '1rem' }}>
-                <div>
-                  <strong>{t('query_builder.model_setup_title')}</strong>
-                  <p>{t('query_builder.model_setup_body')}</p>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  onClick={() => {
-                    void createSemanticModel()
-                  }}
-                  disabled={generatingModel}
-                >
-                  {generatingModel
-                    ? t('query_builder.model_setup_generating')
-                    : t('query_builder.model_setup_create')}
-                </button>
-              </div>
-            ) : null}
-
-            {generatedModel ? (
-              <div
-                className={
-                  generatedModel.validation?.valid === false
-                    ? 'semantic-model-setup semantic-model-setup--error'
-                    : 'semantic-model-setup semantic-model-setup--success'
-                }
-                style={{ marginBottom: '1rem' }}
-              >
-                <div>
-                  <strong>
-                    {generatedModel.published
-                      ? t('query_builder.model_setup_created_published')
-                      : t('query_builder.model_setup_created_draft')}
-                  </strong>
-                  <p>
-                    {t('query_builder.model_setup_summary', {
-                      dimensions: generatedModel.model.dimensions?.length ?? 0,
-                      metrics: generatedModel.model.metrics?.length ?? 0,
-                      joins: generatedModel.model.joins?.length ?? 0,
-                    })}
-                  </p>
-                  {generatedModel.validation?.errors?.length ? (
-                    <ul>
-                      {generatedModel.validation.errors.map((msg) => (
-                        <li key={msg}>{msg}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-
-            {/* Notebook Steps Stack */}
+            <QueryBuilderDraftModelWarning
+              show={Boolean(
+                modelId && models.find((m) => m.id === modelId)?.status !== 'published',
+              )}
+              t={t}
+            />
+            <QueryBuilderEmptyModelSetup
+              show={Boolean(datasourceId && models.length === 0)}
+              generatingModel={generatingModel}
+              onCreate={() => {
+                void createSemanticModel()
+              }}
+              t={t}
+            />
+            <QueryBuilderGeneratedModelBanner generatedModel={generatedModel} t={t} />
             {modelDetail && (
-              <div className="query-builder-notebook">
-                {/* Step 1: Data */}
-                <NotebookStep label="Data" themeClass="data">
-                  <span className="notebook-tag notebook-tag--blue">{modelDetail.base_table}</span>
-                </NotebookStep>
-
-                {/* Step 2: Joins (Read-only display of relationships defined on semantic layer) */}
-                {modelDetail.joins && modelDetail.joins.length > 0 && (
-                  <NotebookStep label="Join data" themeClass="join">
-                    {modelDetail.joins.map((j, index) => {
-                      const getCardinality = (rel?: string) => {
-                        if (!rel) {
-                          return '1:1'
-                        }
-                        switch (rel) {
-                          case 'many_to_one':
-                            return 'N:1'
-                          case 'one_to_many':
-                            return '1:N'
-                          case 'one_to_one':
-                            return '1:1'
-                          case 'many_to_many':
-                            return 'N:N'
-                          default:
-                            return rel.replace(/_/g, '-')
-                        }
-                      }
-                      return (
-                        <div key={j.id || index} className="notebook-join-flow">
-                          <span className="notebook-join-type">{j.join_type}</span>
-                          <span className="notebook-tag notebook-tag--table">{j.from_table}</span>
-                          <span className="notebook-join-connector">
-                            <span className="notebook-join-line"></span>
-                            <span className="notebook-join-cardinality">
-                              {getCardinality(j.relationship)}
-                            </span>
-                            <span className="notebook-join-line"></span>
-                          </span>
-                          <span className="notebook-tag notebook-tag--table">{j.to_table}</span>
-                          <span className="notebook-join-on-clause">
-                            <span className="notebook-join-on-label">ON</span>
-                            <code className="notebook-join-expression">
-                              <span className="notebook-join-table-prefix">{j.from_table}</span>.
-                              {j.from_column} ={' '}
-                              <span className="notebook-join-table-prefix">{j.to_table}</span>.
-                              {j.to_column}
-                            </code>
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </NotebookStep>
-                )}
-
-                {/* Step 3: Filter (Toggled if filters list is not empty) */}
-                <FilterStep
-                  filters={filters}
-                  filterFieldOpts={filterFieldOpts}
-                  updateFilter={updateFilter}
-                  removeFilter={removeFilter}
-                  addFilter={addFilter}
-                  onClear={() => setFilters([])}
-                  t={t}
-                />
-
-                {/* Step 4: Fields (Shown if NOT summarized) */}
-                {!isSummarized && (
-                  <FieldsStep
-                    selectItems={selectItems}
-                    dimensions={dimensions}
-                    metrics={metrics}
-                    updateSelectItem={updateSelectItem}
-                    removeSelectItem={removeSelectItem}
-                    addSelectItem={addSelectItem}
-                    dimFieldOptions={dimFieldOptions}
-                    metricFieldOptions={metricFieldOptions}
-                    t={t}
-                  />
-                )}
-
-                {/* Step 5: Summarize (Aggregations and Group by columns) */}
-                <SummarizeStep
-                  selectItems={selectItems}
-                  groupBy={groupBy}
-                  dimensions={dimensions}
-                  metrics={metrics}
-                  updateSelectItem={updateSelectItem}
-                  removeSelectItem={removeSelectItem}
-                  addMetricSelectItem={addMetricSelectItem}
-                  updateGroupByRow={updateGroupByRow}
-                  removeGroupByRow={removeGroupByRow}
-                  addGroupByRow={addGroupByRow}
-                  onClear={() => {
-                    setIsSummarized(false)
-                    setGroupBy([])
-                    setSelectItems([])
-                  }}
-                  metricFieldOptions={metricFieldOptions}
-                  dimOptionsForGroupRow={dimOptionsForGroupRow}
-                  t={t}
-                />
-
-                {/* Step 6: Sort (If orderBy is active) */}
-                <SortStep
-                  orderBy={orderBy}
-                  orderDir={orderDir}
-                  orderByOpts={orderByOpts}
-                  setOrderBy={setOrderBy}
-                  setOrderDir={setOrderDir}
-                  onClear={() => setOrderBy('')}
-                  t={t}
-                />
-
-                {/* Step 7: Limit */}
-                <NotebookStep
-                  label="Row limit"
-                  themeClass="limit"
-                  onClose={() => setLimit(100)}
-                  closeTitle={t('common.cancel')}
-                >
-                  <input
-                    type="number"
-                    min={1}
-                    inputMode="numeric"
-                    value={limit}
-                    onChange={(e) => setLimit(Number(e.target.value))}
-                    style={{ width: '6rem' }}
-                  />
-                </NotebookStep>
-
-                {/* Advanced Step: Having (Advanced Mode only) */}
-                {mode === 'advanced' && (
-                  <HavingStep
-                    having={having}
-                    metricOptsHaving={metricOptsHaving}
-                    updateHaving={updateHaving}
-                    removeHaving={removeHaving}
-                    addHaving={addHaving}
-                    onClear={() => setHaving([])}
-                    t={t}
-                  />
-                )}
-
-                {/* Advanced Step: Window function (Advanced Mode only) */}
-                {mode === 'advanced' && (
-                  <WindowFuncStep
-                    windowFunctions={windowFunctions}
-                    updateWindowFunc={updateWindowFunc}
-                    removeWindowFunc={removeWindowFunc}
-                    addWindowFunc={addWindowFunc}
-                    onClear={() => windowFunctionState.setItems([])}
-                    t={t}
-                  />
-                )}
-
-                {/* Advanced Step: CTEs (Advanced Mode only) */}
-                {mode === 'advanced' && (
-                  <CteStep
-                    ctes={ctes}
-                    updateCTE={updateCTE}
-                    removeCTE={removeCTE}
-                    addCTE={addCTE}
-                    onClear={() => cteState.setItems([])}
-                    t={t}
-                  />
-                )}
-              </div>
+              <QueryBuilderNotebook
+                modelDetail={modelDetail}
+                filters={filters}
+                filterFieldOpts={filterFieldOpts}
+                updateFilter={updateFilter}
+                removeFilter={removeFilter}
+                addFilter={addFilter}
+                setFilters={setFilters}
+                isSummarized={isSummarized}
+                selectItems={selectItems}
+                dimensions={dimensions}
+                metrics={metrics}
+                updateSelectItem={updateSelectItem}
+                removeSelectItem={removeSelectItem}
+                addSelectItem={addSelectItem}
+                groupBy={groupBy}
+                addMetricSelectItem={addMetricSelectItem}
+                updateGroupByRow={updateGroupByRow}
+                removeGroupByRow={removeGroupByRow}
+                addGroupByRow={addGroupByRow}
+                setIsSummarized={setIsSummarized}
+                setGroupBy={setGroupBy}
+                setSelectItems={setSelectItems}
+                orderBy={orderBy}
+                orderDir={orderDir}
+                orderByOpts={orderByOpts}
+                setOrderBy={setOrderBy}
+                setOrderDir={setOrderDir}
+                limit={limit}
+                setLimit={setLimit}
+                mode={mode}
+                having={having}
+                metricOptsHaving={metricOptsHaving}
+                updateHaving={updateHaving}
+                removeHaving={removeHaving}
+                addHaving={addHaving}
+                setHaving={setHaving}
+                windowFunctions={windowFunctions}
+                updateWindowFunc={updateWindowFunc}
+                removeWindowFunc={removeWindowFunc}
+                addWindowFunc={addWindowFunc}
+                clearWindowFunctions={() => windowFunctionState.setItems([])}
+                ctes={ctes}
+                updateCTE={updateCTE}
+                removeCTE={removeCTE}
+                addCTE={addCTE}
+                clearCtes={() => cteState.setItems([])}
+                toggleSummarize={toggleSummarize}
+                loading={loading}
+                runQuery={runQuery}
+                t={t}
+              />
             )}
-
-            {/* Notebook Bottom Action Toolbar */}
-            {modelDetail && (
-              <div className="notebook-toolbar">
-                <button
-                  type="button"
-                  className={`toolbar-btn toolbar-btn--filter ${filters.length > 0 ? 'active' : ''}`}
-                  onClick={addFilter}
-                >
-                  + Filter
-                </button>
-                <button
-                  type="button"
-                  className={`toolbar-btn toolbar-btn--summarize ${isSummarized ? 'active' : ''}`}
-                  onClick={toggleSummarize}
-                >
-                  + Summarize
-                </button>
-                <button
-                  type="button"
-                  className={`toolbar-btn toolbar-btn--sort ${orderBy ? 'active' : ''}`}
-                  onClick={() => {
-                    if (!orderBy) {
-                      const firstOpt = orderByOpts.find((o) => o.value)
-                      if (firstOpt) {
-                        setOrderBy(firstOpt.value)
-                      }
-                    }
-                  }}
-                >
-                  + Sort
-                </button>
-                <button type="button" className="toolbar-btn toolbar-btn--limit" onClick={() => {}}>
-                  Limit ({limit})
-                </button>
-                {mode === 'advanced' && (
-                  <>
-                    <button
-                      type="button"
-                      className={`toolbar-btn toolbar-btn--advanced ${having.length > 0 ? 'active' : ''}`}
-                      onClick={addHaving}
-                    >
-                      + Having
-                    </button>
-                    <button
-                      type="button"
-                      className={`toolbar-btn toolbar-btn--advanced ${windowFunctions.length > 0 ? 'active' : ''}`}
-                      onClick={addWindowFunc}
-                    >
-                      + Window Func
-                    </button>
-                    <button
-                      type="button"
-                      className={`toolbar-btn toolbar-btn--advanced ${ctes.length > 0 ? 'active' : ''}`}
-                      onClick={addCTE}
-                    >
-                      + CTE
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Footer Actions */}
-            {modelDetail && (
-              <div className="visualize-btn-container">
-                <button
-                  type="button"
-                  className="visualize-btn"
-                  onClick={() => {
-                    void runQuery()
-                  }}
-                  disabled={loading}
-                >
-                  {loading ? t('query_builder.running') : 'Visualize'}
-                </button>
-              </div>
-            )}
-
             <ErrorAlert error={error} />
           </>
         )}
@@ -727,66 +460,14 @@ export default function QueryBuilder() {
         </div>
       )}
 
-      {/* Query Results */}
       {result && (
-        <div className="card">
-          {chartData.length > 0 ? (
-            <div className="card-header-row card-header-row--spaced">
-              <h2>
-                {t('query_builder.results_title', {
-                  rows: result.stats?.row_count ?? 0,
-                  ms: result.stats?.duration_ms ?? 0,
-                })}
-              </h2>
-              <ChartTypeSelector
-                value={chartType}
-                onChange={setChartType}
-                variant="group"
-                ariaLabel={t('ai_query.chart_type_aria')}
-                labels={{
-                  bar: t('ai_query.chart_bar'),
-                  line: t('ai_query.chart_line'),
-                  pie: t('ai_query.chart_pie'),
-                  table: t('ai_query.chart_table'),
-                }}
-              />
-            </div>
-          ) : (
-            <h2>
-              {t('query_builder.results_title', {
-                rows: result.stats?.row_count ?? 0,
-                ms: result.stats?.duration_ms ?? 0,
-              })}
-            </h2>
-          )}
-
-          {chartData.length > 0 && <ChartContainer data={chartData} type={chartType} />}
-
-          {result.columns && result.rows && (
-            <div className="results-table-scroll">
-              <table className="results-table">
-                <thead>
-                  <tr>
-                    {result.columns.map((col) => (
-                      <th key={col.name}>{col.name}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.rows.map((row, i) => (
-                    <tr key={i}>
-                      {row.map((cell, j) => (
-                        <td key={j}>
-                          {formatResultCell(cell, result.columns?.[j]?.name ?? '', {})}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <QueryBuilderResults
+          result={result}
+          chartData={chartData}
+          chartType={chartType}
+          setChartType={setChartType}
+          t={t}
+        />
       )}
     </div>
   )

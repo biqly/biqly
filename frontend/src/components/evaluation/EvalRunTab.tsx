@@ -9,8 +9,8 @@ import { Cell } from 'recharts/es6/component/Cell'
 import { ResponsiveContainer } from 'recharts/es6/component/ResponsiveContainer'
 import { Tooltip as RechartsTooltip } from 'recharts/es6/component/Tooltip'
 import { Pie } from 'recharts/es6/polar/Pie'
-import type { TFunction } from '../../i18n'
 
+import type { TFunction } from '../../i18n'
 import {
   chartAxisStroke,
   chartGridStroke,

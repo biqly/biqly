@@ -18,7 +18,9 @@ import type {
   SuggestedJoinsResponse,
 } from '../types/composite'
 import type { SemanticModelDetail } from '../types/semantic'
-import { CompositeCanvas } from './composites/CompositeCanvas'
+import { pickValidIdOrFirst } from '../utils/effectiveSelection'
+import { CompositeDetailPanel } from './composites/CompositeDetailPanel'
+import { CompositesSidebar } from './composites/CompositesSidebar'
 import { CrossJoinEditor } from './composites/CrossJoinEditor'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
@@ -32,11 +34,17 @@ export default function Composites() {
   const confirm = useConfirm()
   const { datasources } = useDatasources()
 
-  const [datasourceId, setDatasourceId] = useState('')
+  const [selectedDatasourceId, setSelectedDatasourceId] = useState('')
+  const datasourceId = useMemo(
+    () => pickValidIdOrFirst(selectedDatasourceId, datasources),
+    [selectedDatasourceId, datasources],
+  )
   const [composites, setComposites] = useState<CompositeModelSummary[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [detail, setDetail] = useState<CompositeModelDetail | null>(null)
-  const [initLoading, setInitLoading] = useState(false)
+  const [detailState, setDetailState] = useState<{
+    id: string | null
+    detail: CompositeModelDetail | null
+  }>({ id: null, detail: null })
 
   const { models } = useSemanticModels(datasourceId || null)
   const [componentModels, setComponentModels] = useState<Record<string, SemanticModelDetail>>({})
@@ -60,12 +68,6 @@ export default function Composites() {
   const [validation, setValidation] = useState<CompositeValidationResult | null>(null)
   const [suggestions, setSuggestions] = useState<SuggestedCrossJoin[]>([])
 
-  useEffect(() => {
-    if (datasources.length > 0 && !datasourceId) {
-      setDatasourceId(datasources[0]?.id ?? '')
-    }
-  }, [datasources, datasourceId])
-
   const loadComposites = useCallback(async () => {
     if (!datasourceId) {
       return
@@ -77,31 +79,53 @@ export default function Composites() {
   }, [datasourceId, get])
 
   useEffect(() => {
-    void loadComposites()
-  }, [loadComposites])
+    if (!datasourceId) {
+      return
+    }
+    let cancelled = false
+    void get<CompositeModelSummary[]>(
+      `/api/semantic/composites?datasource_id=${encodeURIComponent(datasourceId)}`,
+    ).then((list) => {
+      if (!cancelled) {
+        setComposites(list ?? [])
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [datasourceId, get])
 
   const loadDetail = useCallback(
     async (id: string) => {
-      setInitLoading(true)
-      try {
-        const full = await get<CompositeModelDetail>(`/api/semantic/composites/${id}`)
-        setDetail(full)
+      const full = await get<CompositeModelDetail>(`/api/semantic/composites/${id}`)
+      if (full) {
+        setDetailState({ id, detail: full })
         setValidation(null)
         setSuggestions([])
-      } finally {
-        setInitLoading(false)
       }
     },
     [get],
   )
 
+  const detail = selectedId && detailState.id === selectedId ? detailState.detail : null
+  const initLoading = Boolean(selectedId && detailState.id !== selectedId)
+
   useEffect(() => {
-    if (selectedId) {
-      void loadDetail(selectedId)
-    } else {
-      setDetail(null)
+    if (!selectedId) {
+      return
     }
-  }, [selectedId, loadDetail])
+    let cancelled = false
+    void get<CompositeModelDetail>(`/api/semantic/composites/${selectedId}`).then((full) => {
+      if (!cancelled && full) {
+        setDetailState({ id: selectedId, detail: full })
+        setValidation(null)
+        setSuggestions([])
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedId, get])
 
   // Load full model details for each component (dimensions + names).
   useEffect(() => {
@@ -323,7 +347,7 @@ export default function Composites() {
         <div className="composites-ds-select">
           <Select
             value={datasourceId}
-            onChange={setDatasourceId}
+            onChange={setSelectedDatasourceId}
             options={datasources.map((d) => ({ value: d.id, label: d.name }))}
             placeholder={t('composites.datasource_placeholder')}
             ariaLabel={t('composites.datasource_placeholder')}
@@ -342,41 +366,13 @@ export default function Composites() {
       {error && <ErrorAlert error={error} />}
 
       <div className="composites-layout">
-        <aside className="composites-sidebar">
-          <div className="composites-sidebar-header">
-            <h2>{t('composites.sidebar_title')}</h2>
-          </div>
-          {composites.length === 0 ? (
-            <div style={{ padding: '1rem' }}>
-              <EmptyState description={t('composites.empty_list')} />
-            </div>
-          ) : (
-            <ul>
-              {composites.map((c) => (
-                <li key={c.id} className={c.id === selectedId ? 'active' : ''}>
-                  <button
-                    type="button"
-                    className="composites-list-btn"
-                    onClick={() => setSelectedId(c.id)}
-                  >
-                    <span className="composite-name">{c.label ?? c.name}</span>
-                    <span className={`composite-status status-${c.status}`}>{c.status}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="composites-delete-btn"
-                    aria-label={t('composites.aria_delete')}
-                    onClick={() => {
-                      void handleDelete(c.id)
-                    }}
-                  >
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </aside>
+        <CompositesSidebar
+          t={t}
+          composites={composites}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          onDelete={(id) => void handleDelete(id)}
+        />
 
         <section className="composites-detail">
           {!selectedId ? (
@@ -384,286 +380,41 @@ export default function Composites() {
           ) : initLoading || !detail ? (
             <LoadingScreen />
           ) : (
-            <>
-              <div className="composite-detail-head">
-                <div>
-                  <h2>{detail.label ?? detail.name}</h2>
-                  {detail.description && <p>{detail.description}</p>}
-                  <span className={`composite-status status-${detail.status}`}>
-                    {detail.status} · v{detail.version}
-                  </span>
-                </div>
-                <div className="composite-actions">
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => {
-                      void handleValidate()
-                    }}
-                    disabled={loading}
-                  >
-                    {t('composites.validate')}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    onClick={() => {
-                      void handlePublish()
-                    }}
-                    disabled={loading}
-                  >
-                    {t('composites.publish')}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => {
-                      void handleRollback()
-                    }}
-                    disabled={loading}
-                  >
-                    {t('composites.rollback')}
-                  </button>
-                </div>
-              </div>
-
-              {validation && (
-                <div className={`composite-validation ${validation.valid ? 'valid' : 'invalid'}`}>
-                  <strong>
-                    {validation.valid
-                      ? t('composites.validation_success')
-                      : t('composites.validation_errors')}
-                  </strong>
-                  {(validation.errors ?? []).map((e, i) => (
-                    <div key={`err-${i}`} className="validation-error">
-                      {e.field ? `${e.field}: ` : ''}
-                      {e.message}
-                    </div>
-                  ))}
-                  {(validation.warnings ?? []).map((wn, i) => (
-                    <div key={`warn-${i}`} className="validation-warning">
-                      {wn.message}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="composite-canvas-wrap">
-                <CompositeCanvas
-                  components={detail.components ?? []}
-                  crossJoins={detail.cross_model_joins ?? []}
-                  modelNames={modelNames}
-                />
-              </div>
-
-              <div className="composite-section">
-                <h3>{t('composites.components_title')}</h3>
-                <ul className="component-list">
-                  {(detail.components ?? []).map((c) => (
-                    <li key={c.model_id}>
-                      <span className="component-alias">{c.alias}</span>
-                      <span className="component-model">
-                        {modelNames[c.model_id] ?? c.model_id}
-                      </span>
-                      <span className={`component-role role-${c.role}`}>{c.role}</span>
-                      <button
-                        type="button"
-                        className="btn-icon-danger"
-                        onClick={() => {
-                          void handleRemoveComponent(c.model_id)
-                        }}
-                        aria-label={t('composites.aria_remove')}
-                      >
-                        ×
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                <div className="component-add-row">
-                  <Select
-                    value={addModelId}
-                    onChange={(v) => {
-                      setAddModelId(v)
-                      const m = availableModels.find((x) => x.id === v)
-                      if (m && !addAlias) {
-                        setAddAlias(m.name)
-                      }
-                    }}
-                    options={availableModels.map((m) => ({
-                      value: m.id,
-                      label: m.label ?? m.name,
-                    }))}
-                    placeholder={t('composites.model_select')}
-                  />
-                  <input
-                    type="text"
-                    placeholder={t('composites.alias_placeholder')}
-                    value={addAlias}
-                    onChange={(e) => setAddAlias(e.target.value)}
-                  />
-                  <Select
-                    value={addRole}
-                    onChange={(v) => setAddRole(v)}
-                    options={[
-                      { value: 'primary', label: 'primary' },
-                      { value: 'secondary', label: 'secondary' },
-                    ]}
-                  />
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => {
-                      void handleAddComponent()
-                    }}
-                    disabled={!addModelId || !addAlias.trim() || usedAliases.has(addAlias.trim())}
-                  >
-                    {t('composites.add')}
-                  </button>
-                </div>
-              </div>
-
-              <div className="composite-section">
-                <div className="section-head-row">
-                  <h3>{t('composites.cross_joins_title')}</h3>
-                  <div>
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={() => {
-                        void loadSuggestions()
-                      }}
-                    >
-                      {t('composites.suggest')}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={() => {
-                        setEditingJoin(null)
-                        setShowCrossJoin(true)
-                      }}
-                      disabled={(detail.components ?? []).length < 2}
-                    >
-                      {t('composites.add_join')}
-                    </button>
-                  </div>
-                </div>
-                <ul className="cross-join-list">
-                  {(detail.cross_model_joins ?? []).map((j) => (
-                    <li key={j.id}>
-                      <span>
-                        {j.from_model}.{j.from_dimension} → {j.to_model}.{j.to_dimension}
-                      </span>
-                      <span className="join-meta">
-                        {j.join_type} · {j.relationship}
-                      </span>
-                      <button
-                        type="button"
-                        className="btn-link"
-                        onClick={() => {
-                          setEditingJoin(j)
-                          setShowCrossJoin(true)
-                        }}
-                      >
-                        {t('composites.edit')}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-icon-danger"
-                        onClick={() => {
-                          void handleRemoveCrossJoin(j.id)
-                        }}
-                        aria-label={t('composites.aria_delete')}
-                      >
-                        ×
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                {suggestions.length > 0 && (
-                  <div className="cross-join-suggestions">
-                    <h4>{t('composites.suggested_joins')}</h4>
-                    {suggestions.map((s, i) => (
-                      <div key={`sug-${i}`} className="suggestion-row">
-                        <span>
-                          {s.from_model}.{s.from_dimension} → {s.to_model}.{s.to_dimension}
-                        </span>
-                        <span className="suggestion-reason">{s.reason}</span>
-                        <button
-                          type="button"
-                          className="btn-link"
-                          onClick={() => {
-                            void applySuggestion(s)
-                          }}
-                        >
-                          {t('composites.apply')}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="composite-section">
-                <h3>{t('composites.canonical_date_title')}</h3>
-                <p className="section-hint">{t('composites.canonical_date_hint')}</p>
-                <div className="canonical-date-grid">
-                  {(detail.components ?? []).map((c) => (
-                    <div key={c.alias} className="canonical-date-model">
-                      <strong>{c.alias}</strong>
-                      <div className="canonical-date-dims">
-                        {(dimensionsByAlias[c.alias] ?? []).map((dim) => {
-                          const active =
-                            detail.canonical_date?.model_alias === c.alias &&
-                            detail.canonical_date.dimension_name === dim
-                          return (
-                            <button
-                              key={dim}
-                              type="button"
-                              className={`date-dim-chip ${active ? 'active' : ''}`}
-                              onClick={() => {
-                                void handleSetCanonicalDate(c.alias, dim)
-                              }}
-                            >
-                              {dim}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="composite-section">
-                <h3>{t('composites.conflicts_title')}</h3>
-                <p className="section-hint">{t('composites.conflicts_hint')}</p>
-                <ul className="resolution-list">
-                  {(detail.conflict_resolutions ?? []).map((res) => (
-                    <li key={res.dimension_name}>
-                      <span className="resolution-name">{res.dimension_name}</span>
-                      <Select
-                        value={res.resolution}
-                        onChange={(v) => {
-                          void handleResolutionChange({
-                            ...res,
-                            resolution: v,
-                          })
-                        }}
-                        options={[
-                          { value: 'use_primary', label: t('composites.resolution_use_primary') },
-                          { value: 'rename', label: t('composites.resolution_rename') },
-                          { value: 'merge', label: t('composites.resolution_merge') },
-                        ]}
-                      />
-                    </li>
-                  ))}
-                  {(detail.conflict_resolutions ?? []).length === 0 && (
-                    <li className="resolution-empty">{t('composites.no_conflicts')}</li>
-                  )}
-                </ul>
-              </div>
-            </>
+            <CompositeDetailPanel
+              t={t}
+              detail={detail}
+              loading={loading}
+              validation={validation}
+              modelNames={modelNames}
+              dimensionsByAlias={dimensionsByAlias}
+              suggestions={suggestions}
+              addModelId={addModelId}
+              addAlias={addAlias}
+              addRole={addRole}
+              availableModels={availableModels}
+              usedAliases={usedAliases}
+              onValidate={() => void handleValidate()}
+              onPublish={() => void handlePublish()}
+              onRollback={() => void handleRollback()}
+              onAddModelIdChange={setAddModelId}
+              onAddAliasChange={setAddAlias}
+              onAddRoleChange={setAddRole}
+              onAddComponent={() => void handleAddComponent()}
+              onRemoveComponent={(modelId) => void handleRemoveComponent(modelId)}
+              onLoadSuggestions={() => void loadSuggestions()}
+              onAddJoin={() => {
+                setEditingJoin(null)
+                setShowCrossJoin(true)
+              }}
+              onEditJoin={(join) => {
+                setEditingJoin(join)
+                setShowCrossJoin(true)
+              }}
+              onRemoveCrossJoin={(joinId) => void handleRemoveCrossJoin(joinId)}
+              onApplySuggestion={(s) => void applySuggestion(s)}
+              onSetCanonicalDate={(alias, dim) => void handleSetCanonicalDate(alias, dim)}
+              onResolutionChange={(res) => void handleResolutionChange(res)}
+            />
           )}
         </section>
       </div>
@@ -682,7 +433,6 @@ export default function Composites() {
                 type="text"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                autoFocus
                 placeholder="e.g. sales_overview"
               />
             </div>

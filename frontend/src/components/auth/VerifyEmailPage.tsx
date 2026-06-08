@@ -35,7 +35,7 @@ export default function VerifyEmailPage() {
     }
 
     void verify()
-  }, [t])
+  }, [navigate, t])
 
   return (
     <div className="auth-page">

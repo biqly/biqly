@@ -6,6 +6,7 @@ import {
   type LazyExoticComponent,
   startTransition,
   Suspense,
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -43,6 +44,12 @@ const EvalRegressionTab = lazyWithPreload(() =>
   import('./evaluation/EvalRegressionTab').then((m) => ({ default: m.EvalRegressionTab })),
 )
 
+const TAB_COMPONENTS = {
+  run: EvalRunTab,
+  history: EvalHistoryTab,
+  regression: EvalRegressionTab,
+} as const
+
 // DEMO_DATA is lazy-loaded from ./evaluation/demoData.ts
 
 // ─── Main Component ────────────────────────────────────────────────
@@ -76,12 +83,6 @@ export default function Evaluation() {
   const [regression, setRegression] = useState<RegressionReport | null>(null)
   const [regressionLoading, setRegressionLoading] = useState(false)
 
-  const TAB_COMPONENTS = {
-    run: EvalRunTab,
-    history: EvalHistoryTab,
-    regression: EvalRegressionTab,
-  }
-
   const handleTabHover = (hoveredTab: 'run' | 'history' | 'regression') => {
     const comp = TAB_COMPONENTS[hoveredTab]
     if (typeof comp.preload === 'function') {
@@ -110,7 +111,7 @@ export default function Evaluation() {
     setCurrentParam(currentId)
   }, [currentId, setCurrentParam])
 
-  const loadRunHistory = async () => {
+  const loadRunHistory = useCallback(async () => {
     if (!adminApi.configured || historyLoaded) {
       return
     }
@@ -119,13 +120,13 @@ export default function Evaluation() {
       setRunHistory(data)
     }
     setHistoryLoaded(true)
-  }
+  }, [adminApi, historyLoaded])
 
   useEffect(() => {
     if (activeTab === 'history' || activeTab === 'regression') {
       void loadRunHistory()
     }
-  }, [activeTab])
+  }, [activeTab, loadRunHistory])
 
   useEffect(() => {
     if (selectedRun) {

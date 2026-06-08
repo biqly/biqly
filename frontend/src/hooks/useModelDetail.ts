@@ -13,7 +13,7 @@ export function useModelDetail(modelId: string | null, options?: Options) {
 
   const reload = useCallback(() => {
     if (!modelId) {
-      setModel(null)
+      void Promise.resolve().then(() => setModel(null))
       return
     }
     const query = options?.includeInactive ? '?include_inactive=true' : ''

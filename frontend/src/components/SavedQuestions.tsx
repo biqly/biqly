@@ -5,10 +5,11 @@ import { useConfirm } from '../hooks/useConfirm'
 import { useDatasources } from '../hooks/useDatasources'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useT } from '../i18n'
+import type { QueryResultPayload } from '../types/ai'
+import { pickValidId, pickValidIdOrFirst } from '../utils/effectiveSelection'
+import { parseJsonRecord } from '../utils/record'
 import { QuestionDetailPane } from './savedQuestions/QuestionDetailPane'
 import { SavedQuestionFormModal } from './savedQuestions/SavedQuestionFormModal'
-import type { QueryResultPayload } from '../types/ai'
-import { parseJsonRecord } from '../utils/record'
 import type { SavedQuestion, SavedQuestionFormState } from './savedQuestions/types'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
@@ -23,9 +24,33 @@ export default function SavedQuestions() {
 
   // Selectors State
   const { datasources } = useDatasources()
-  const [datasourceId, setDatasourceId] = useState('')
+  const [prefill] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('prefill') !== '1') {
+      return null
+    }
+    return {
+      datasourceId: params.get('datasource_id') ?? '',
+      modelId: params.get('model_id') ?? '',
+      question: params.get('question') ?? '',
+      logicalQuery: params.get('logical_query') ?? '',
+    }
+  })
+  const [selectedDatasourceId, setSelectedDatasourceId] = useState(
+    () => prefill?.datasourceId ?? '',
+  )
+  const datasourceId = useMemo(
+    () => pickValidIdOrFirst(selectedDatasourceId, datasources),
+    [selectedDatasourceId, datasources],
+  )
   const { models: semanticModels } = useSemanticModels(datasourceId)
-  const [semanticModelId, setSemanticModelId] = useState('')
+  const [selectedSemanticModelId, setSelectedSemanticModelId] = useState(
+    () => prefill?.modelId ?? '',
+  )
+  const semanticModelId = useMemo(
+    () => pickValidId(selectedSemanticModelId, semanticModels),
+    [selectedSemanticModelId, semanticModels],
+  )
 
   const [initLoading, setInitLoading] = useState(true)
 
@@ -35,36 +60,43 @@ export default function SavedQuestions() {
   const [selectedQuestion, setSelectedQuestion] = useState<SavedQuestion | null>(null)
 
   // Modal State
-  const [isNewModalOpen, setIsNewModalOpen] = useState(false)
+  const [isNewModalOpen, setIsNewModalOpen] = useState(() => prefill !== null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
   // Form Fields State
-  const [form, setForm] = useState<SavedQuestionFormState>({
-    datasourceId: '',
-    modelId: '',
-    name: '',
-    description: '',
-    question: '',
-    logicalQuery: '',
-    tags: '',
-    dialect: 'postgresql',
-    locale: '',
-    isFewShot: true,
+  const [form, setForm] = useState<SavedQuestionFormState>(() => {
+    if (!prefill) {
+      return {
+        datasourceId: '',
+        modelId: '',
+        name: '',
+        description: '',
+        question: '',
+        logicalQuery: '',
+        tags: '',
+        dialect: 'postgresql',
+        locale: '',
+        isFewShot: true,
+      }
+    }
+    return {
+      datasourceId: prefill.datasourceId,
+      modelId: prefill.modelId,
+      name: prefill.question,
+      description: '',
+      question: prefill.question,
+      logicalQuery: prefill.logicalQuery,
+      tags: '',
+      dialect: 'postgresql',
+      locale: '',
+      isFewShot: true,
+    }
   })
 
   const handleFormChange = (patch: Partial<SavedQuestionFormState>) => {
     setForm((prev) => ({ ...prev, ...patch }))
   }
-
-  // Inline execution state
-  const [runLoading, setRunLoading] = useState(false)
-  const [runError, setRunError] = useState<string | null>(null)
-  const [runResult, setRunResult] = useState<{
-    columns: { name: string; type?: string }[]
-    rows: unknown[][]
-    stats?: { duration_ms?: number }
-  } | null>(null)
 
   // Fetch Saved Questions
   const fetchQuestions = useCallback(
@@ -86,67 +118,47 @@ export default function SavedQuestions() {
     [get],
   )
 
-  // Set default datasourceId
   useEffect(() => {
-    if (datasources.length > 0 && !datasourceId) {
-      setDatasourceId(datasources[0]!.id)
+    if (prefill) {
+      window.history.replaceState(null, '', window.location.pathname)
     }
-  }, [datasources, datasourceId])
+  }, [prefill])
 
-  // Set default semanticModelId when semanticModels change
-  useEffect(() => {
-    setSemanticModelId((prev) => {
-      if (prev && semanticModels.some((m) => m.id === prev)) {
-        return prev
-      }
-      return ''
-    })
-  }, [semanticModels])
+  const questionsScopeKey = `${datasourceId}:${semanticModelId}`
+  const [runState, setRunState] = useState<{
+    scopeKey: string
+    questionId: string | null
+    loading: boolean
+    error: string | null
+    result: {
+      columns: { name: string; type?: string }[]
+      rows: unknown[][]
+      stats?: { duration_ms?: number }
+    } | null
+  }>({ scopeKey: '', questionId: null, loading: false, error: null, result: null })
+
+  const runLoading =
+    runState.scopeKey === questionsScopeKey &&
+    runState.questionId === (selectedQuestion?.id ?? null) &&
+    runState.loading
+  const runError =
+    runState.scopeKey === questionsScopeKey &&
+    runState.questionId === (selectedQuestion?.id ?? null)
+      ? runState.error
+      : null
+  const runResult =
+    runState.scopeKey === questionsScopeKey &&
+    runState.questionId === (selectedQuestion?.id ?? null)
+      ? runState.result
+      : null
 
   // Reload questions when selected DS or Model changes
   useEffect(() => {
     if (datasourceId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       void fetchQuestions(datasourceId, semanticModelId)
-      setRunResult(null)
-      setRunError(null)
-      setRunLoading(false)
     }
   }, [datasourceId, semanticModelId, fetchQuestions])
-
-  // Handle URL Prefill
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const isPrefill = params.get('prefill') === '1'
-    if (isPrefill) {
-      const prefQuestion = params.get('question') ?? ''
-      const prefLq = params.get('logical_query') ?? ''
-      const prefDs = params.get('datasource_id') ?? ''
-      const prefModel = params.get('model_id') ?? ''
-
-      if (prefDs) {
-        setDatasourceId(prefDs)
-        if (prefModel) {
-          setSemanticModelId(prefModel)
-        }
-      }
-
-      setForm({
-        name: prefQuestion,
-        question: prefQuestion,
-        logicalQuery: prefLq,
-        description: '',
-        tags: '',
-        dialect: 'postgresql',
-        locale: '',
-        isFewShot: true,
-        datasourceId: prefDs,
-        modelId: prefModel,
-      })
-
-      setIsNewModalOpen(true)
-      window.history.replaceState(null, '', window.location.pathname)
-    }
-  }, [])
 
   // Filter list by search term
   const filtered = useMemo(() => {
@@ -164,12 +176,36 @@ export default function SavedQuestions() {
     })
   }, [questions, search])
 
-  // Reset Run State when selected question changes
-  useEffect(() => {
-    setRunResult(null)
-    setRunError(null)
-    setRunLoading(false)
-  }, [selectedQuestion])
+  const selectQuestion = useCallback(
+    (question: SavedQuestion | null) => {
+      setSelectedQuestion(question)
+      setRunState({
+        scopeKey: questionsScopeKey,
+        questionId: question?.id ?? null,
+        loading: false,
+        error: null,
+        result: null,
+      })
+    },
+    [questionsScopeKey],
+  )
+
+  const setDatasourceId = useCallback(
+    (id: string) => {
+      setSelectedDatasourceId(id)
+      setSelectedSemanticModelId('')
+      selectQuestion(null)
+    },
+    [selectQuestion],
+  )
+
+  const setSemanticModelId = useCallback(
+    (id: string) => {
+      setSelectedSemanticModelId(id)
+      selectQuestion(null)
+    },
+    [selectQuestion],
+  )
 
   // Toggle IsFewShot checkbox state immediately
   const toggleFewShot = async (q: SavedQuestion) => {
@@ -239,20 +275,41 @@ export default function SavedQuestions() {
 
   // Inline Execute
   const runQuery = async (logicalQuery: Record<string, unknown>) => {
-    setRunLoading(true)
-    setRunError(null)
-    setRunResult(null)
+    const questionId = selectedQuestion?.id ?? null
+    setRunState({
+      scopeKey: questionsScopeKey,
+      questionId,
+      loading: true,
+      error: null,
+      result: null,
+    })
     try {
       const res = await postData<QueryResultPayload>('/api/query/run', logicalQuery)
       if (res) {
-        setRunResult(res)
+        setRunState({
+          scopeKey: questionsScopeKey,
+          questionId,
+          loading: false,
+          error: null,
+          result: res,
+        })
       } else {
-        setRunError('Failed to run query')
+        setRunState({
+          scopeKey: questionsScopeKey,
+          questionId,
+          loading: false,
+          error: 'Failed to run query',
+          result: null,
+        })
       }
     } catch (err: unknown) {
-      setRunError(err instanceof Error ? err.message : 'Execution failed')
-    } finally {
-      setRunLoading(false)
+      setRunState({
+        scopeKey: questionsScopeKey,
+        questionId,
+        loading: false,
+        error: err instanceof Error ? err.message : 'Execution failed',
+        result: null,
+      })
     }
   }
 
@@ -479,7 +536,7 @@ export default function SavedQuestions() {
                         borderColor: isSelected ? 'var(--accent)' : undefined,
                         background: isSelected ? 'var(--bg-card-raised)' : undefined,
                       }}
-                      onClick={() => setSelectedQuestion(q)}
+                      onClick={() => selectQuestion(q)}
                     >
                       <div className="saved-question-item__top">
                         <h3>{q.name}</h3>

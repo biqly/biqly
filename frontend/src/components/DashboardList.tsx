@@ -1,6 +1,6 @@
 import '../styles/dashboards.css'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
@@ -33,16 +33,16 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
   const [description, setDescription] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
 
-  const fetchDashboards = async () => {
+  const fetchDashboards = useCallback(async () => {
     const data = await get<Dashboard[]>('/api/dashboards')
     if (data) {
       setDashboards(data)
     }
-  }
+  }, [get])
 
   useEffect(() => {
     void fetchDashboards()
-  }, [])
+  }, [fetchDashboards])
 
   const closeCreateModal = () => {
     setIsModalOpen(false)

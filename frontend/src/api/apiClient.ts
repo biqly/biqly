@@ -30,6 +30,59 @@ function parseResponseBody(text: string): unknown {
   }
 }
 
+function mergeAbortSignals(
+  timeoutController: AbortController,
+  external?: AbortSignal | null,
+): AbortSignal {
+  if (!external) {
+    return timeoutController.signal
+  }
+  const merged = new AbortController()
+  external.addEventListener('abort', () => merged.abort())
+  timeoutController.signal.addEventListener('abort', () => merged.abort())
+  if (external.aborted || timeoutController.signal.aborted) {
+    merged.abort()
+  }
+  return merged.signal
+}
+
+function buildFetchHeaders(
+  init: (RequestInit & RequestOptions) | undefined,
+  body: BodyInit | null | undefined,
+): Headers {
+  const headers = new Headers(init?.headers)
+  if (body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
+  }
+  if (!headers.has('X-Locale')) {
+    headers.set('X-Locale', getLocale())
+  }
+  const bearer = init?.token ?? globalAccessToken ?? (init?.useAdminKey ? resolveAdminApiKey() : '')
+  if (bearer) {
+    headers.set('Authorization', `Bearer ${bearer}`)
+  }
+  return headers
+}
+
+function fetchNetworkErrorMessage(
+  err: unknown,
+  timedOut: boolean,
+  startedAt: number,
+  timeout: number,
+): string {
+  if (!(err instanceof Error)) {
+    return 'Network error'
+  }
+  const aborted = err instanceof DOMException && err.name === 'AbortError'
+  if (aborted || err.message.includes('aborted')) {
+    if (timedOut || Date.now() - startedAt >= timeout) {
+      return 'Request timed out'
+    }
+    return 'Request aborted'
+  }
+  return err.message
+}
+
 function responseError(status: number, data: unknown): string {
   if (data && typeof data === 'object') {
     const obj = data as Record<string, unknown>
@@ -60,40 +113,17 @@ export async function fetchJSON<T>(
   const timeout = init?.timeout ?? 30_000
 
   const controller = new AbortController()
+  let timedOut = false
   const startedAt = Date.now()
   const timeoutId = setTimeout(() => {
+    timedOut = true
     controller.abort()
   }, timeout)
 
-  const signal = init?.signal
-    ? (() => {
-        const merged = new AbortController()
-        init.signal.addEventListener('abort', () => merged.abort())
-        controller.signal.addEventListener('abort', () => merged.abort())
-        if (init.signal.aborted || controller.signal.aborted) {
-          merged.abort()
-        }
-        return merged.signal
-      })()
-    : controller.signal
+  const signal = mergeAbortSignals(controller, init?.signal)
 
   try {
-    const headers = new Headers(init?.headers)
-    if (body && !headers.has('Content-Type')) {
-      headers.set('Content-Type', 'application/json')
-    }
-    if (!headers.has('X-Locale')) {
-      headers.set('X-Locale', getLocale())
-    }
-    // Precedence: explicit per-call token > session token > admin API key.
-    // A logged-in user's own JWT wins over the shared admin key so requests
-    // carry a real identity (audit, RBAC); the key remains the fallback for
-    // sessions-less contexts.
-    const bearer =
-      init?.token ?? globalAccessToken ?? (init?.useAdminKey ? resolveAdminApiKey() : '')
-    if (bearer) {
-      headers.set('Authorization', `Bearer ${bearer}`)
-    }
+    const headers = buildFetchHeaders(init, body)
 
     const res = await csrfFetch(url, {
       ...init,
@@ -116,16 +146,11 @@ export async function fetchJSON<T>(
 
     return { data: data as T, status: res.status, error: null }
   } catch (err) {
-    let errMsg = 'Network error'
-    if (err instanceof Error) {
-      const aborted = err instanceof DOMException && err.name === 'AbortError'
-      if (aborted || err.message.includes('aborted')) {
-        errMsg = Date.now() - startedAt >= timeout ? 'Request timed out' : 'Request aborted'
-      } else {
-        errMsg = err.message
-      }
+    return {
+      data: null,
+      status: 0,
+      error: fetchNetworkErrorMessage(err, timedOut, startedAt, timeout),
     }
-    return { data: null, status: 0, error: errMsg }
   } finally {
     clearTimeout(timeoutId)
   }

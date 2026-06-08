@@ -1,5 +1,5 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
@@ -60,7 +60,7 @@ export default function Glossary() {
   }, [datasources, selectedDatasourceId])
 
   // Load Glossary Terms
-  const loadTerms = async () => {
+  const loadTerms = useCallback(async () => {
     if (!selectedDatasourceId) {
       return
     }
@@ -78,11 +78,11 @@ export default function Glossary() {
     } finally {
       setInitLoading(false)
     }
-  }
+  }, [get, selectedDatasourceId, selectedModelId])
 
   useEffect(() => {
     void loadTerms()
-  }, [selectedDatasourceId, selectedModelId])
+  }, [loadTerms])
 
   const resetForm = () => {
     setFormTerm('')

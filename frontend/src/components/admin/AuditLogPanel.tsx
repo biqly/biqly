@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+/* eslint-disable react-refresh/only-export-components */
+
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { listAuditLog } from '../../api/admin'
 import { useAdminLookups } from '../../hooks/useAdminLookups'
@@ -84,27 +86,32 @@ export function AuditLogPanel({ token }: { token: string }) {
   )
   const pageSizeOptions = useMemo(() => numberSelectOptions(AUDIT_PAGE_SIZE_OPTIONS), [])
 
-  async function reload(nextFilters = { userID, action, page: currentPage, pageSize }) {
-    setLoading(true)
-    try {
-      const res = await listAuditLog(token, {
-        userID: nextFilters.userID,
-        action: nextFilters.action,
-        page: nextFilters.page,
-        pageSize: nextFilters.pageSize,
-      })
-      setEntries(res.entries)
-      setTotalItems(res.total)
-      setError(null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setLoading(false)
-    }
-  }
+  const reload = useCallback(
+    async (nextFilters = { userID, action, page: currentPage, pageSize }) => {
+      setLoading(true)
+      try {
+        const res = await listAuditLog(token, {
+          userID: nextFilters.userID,
+          action: nextFilters.action,
+          page: nextFilters.page,
+          pageSize: nextFilters.pageSize,
+        })
+        setEntries(res.entries)
+        setTotalItems(res.total)
+        setError(null)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+      } finally {
+        setLoading(false)
+      }
+    },
+    [action, currentPage, pageSize, token, userID],
+  )
 
   useEffect(() => {
     void reload({ userID, action, page: currentPage, pageSize })
+    // Filter fields apply on submit; reload when auth or page changes only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional filter-on-submit
   }, [token, currentPage])
 
   function onSubmit(e: React.SubmitEvent<HTMLFormElement>) {

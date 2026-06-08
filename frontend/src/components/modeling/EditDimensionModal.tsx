@@ -107,6 +107,7 @@ export function EditDimensionModal({
 
   const [isFirstRender, setIsFirstRender] = useState(true)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsFirstRender(false)
   }, [])
 
@@ -117,6 +118,7 @@ export function EditDimensionModal({
     if (availableTables.length > 0) {
       const found = availableTables.find((t) => t.table_name === selectedTable)
       if (!found && availableTables[0]) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedTable(availableTables[0].table_name)
       }
     } else {
@@ -131,6 +133,7 @@ export function EditDimensionModal({
     if (availableColumns.length > 0) {
       const found = availableColumns.find((c) => c.column_name === selectedColumn)
       if (!found && availableColumns[0]) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedColumn(availableColumns[0].column_name)
       }
     } else {
@@ -206,7 +209,6 @@ export function EditDimensionModal({
             <label htmlFor="dim-label">{t('modeling.metric_label_label')}</label>
             <input
               id="dim-label"
-              autoFocus
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               disabled={saving}

@@ -2,7 +2,7 @@ import type { DriverId } from '../dbDrivers'
 import { DRIVER_IDS, driverLabelKey, driverLogoUrl } from '../dbDrivers'
 import type { TranslationKey } from '../i18n'
 
-interface Props<T extends DriverId | string = string> {
+interface Props<T extends string = DriverId> {
   value: string
   onChange: (id: string) => void
   ariaLabel?: string

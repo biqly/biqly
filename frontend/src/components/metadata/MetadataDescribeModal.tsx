@@ -4,8 +4,9 @@ import { type DescribeResult, runMetadataDescribeDirect } from '../../api/metada
 import { useT } from '../../i18n'
 import type { AIRuntimeSettings } from '../../types/ai'
 import type { ColumnRow, TableRow } from '../../types/semantic'
-import { ErrorAlert } from '../ui/ErrorAlert'
 import { ModelBadgeRow } from '../ui/ModelBadgeRow'
+import { MetadataDescribeForm } from './MetadataDescribeForm'
+import { MetadataDescribeResults } from './MetadataDescribeResults'
 
 interface MetadataDescribeModalProps {
   table: TableRow
@@ -152,159 +153,33 @@ export function MetadataDescribeModal({
           </p>
 
           {!result && (
-            <>
-              <div className="modal-form-row">
-                <div className="form-group">
-                  <label htmlFor="describe-sample-size">{t('metadata.describe_sample_size')}</label>
-                  <input
-                    id="describe-sample-size"
-                    name="sample_size"
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={form.sample_size}
-                    onChange={(e) => setForm({ ...form, sample_size: Number(e.target.value) })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>{t('metadata.describe_options')}</label>
-                  <div className="checkbox-row">
-                    <input
-                      id="auto-apply"
-                      name="auto_apply"
-                      type="checkbox"
-                      checked={form.auto_apply}
-                      onChange={(e) => setForm({ ...form, auto_apply: e.target.checked })}
-                    />
-                    <label htmlFor="auto-apply">{t('metadata.describe_auto_apply')}</label>
-                  </div>
-                </div>
-              </div>
-              <ErrorAlert error={error ?? apiError} />
-              <div className="modal-actions">
-                <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
-                  {t('metadata.bulk_cancel')}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  onClick={() => void runDescribe()}
-                  disabled={running}
-                >
-                  {running ? t('metadata.describe_analyzing') : t('metadata.describe_generate')}
-                </button>
-              </div>
-            </>
+            <MetadataDescribeForm
+              t={t}
+              sampleSize={form.sample_size}
+              autoApply={form.auto_apply}
+              running={running}
+              error={error}
+              apiError={apiError}
+              onSampleSizeChange={(size) => setForm({ ...form, sample_size: size })}
+              onAutoApplyChange={(checked) => setForm({ ...form, auto_apply: checked })}
+              onClose={onClose}
+              onRun={() => void runDescribe()}
+            />
           )}
 
           {result && (
-            <>
-              {result.model && (
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  {t('metadata.describe_model_line')} <code translate="no">{result.model}</code>
-                  {result.translation_applied && result.translation_model ? (
-                    <>
-                      {t('metadata.describe_translation_sep')}{' '}
-                      <code translate="no">{result.translation_model}</code>
-                    </>
-                  ) : null}
-                </div>
-              )}
-              <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
-                {t('metadata.describe_rows_sampled', { n: result.sample_rows })}{' '}
-                {result.applied ? (
-                  <span className="success">{t('metadata.describe_all_applied')}</span>
-                ) : (
-                  t('metadata.describe_review_apply')
-                )}
-              </p>
-              {result.translation_error && (
-                <p style={{ margin: 0, color: 'var(--error)' }}>
-                  {t('metadata.describe_translation_failed')} {result.translation_error}
-                </p>
-              )}
-
-              <div>
-                <h3 style={{ marginBottom: '0.4rem' }}>{t('metadata.describe_section_table')}</h3>
-                <div className="suggestion-block">
-                  {result.description || (
-                    <em style={{ color: 'var(--text-secondary)' }}>
-                      {t('metadata.describe_empty_paren')}
-                    </em>
-                  )}
-                </div>
-                {!result.applied && result.description && (
-                  <div className="modal-actions">
-                    <button
-                      type="button"
-                      className="btn btn-sm"
-                      onClick={() => void applySuggestion('table', '', result.description)}
-                    >
-                      {t('metadata.describe_apply_table')}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <h3 style={{ marginBottom: '0.4rem' }}>{t('metadata.describe_section_columns')}</h3>
-                <table className="results-table">
-                  <thead>
-                    <tr>
-                      <th>{t('metadata.describe_col_column')}</th>
-                      <th>{t('metadata.describe_col_suggestion')}</th>
-                      {!result.applied && (
-                        <th style={{ textAlign: 'right' }}>{t('metadata.describe_col_action')}</th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.columns.map((c) => (
-                      <tr key={c.name}>
-                        <td>
-                          <code>{c.name}</code>
-                        </td>
-                        <td>
-                          {c.description || (
-                            <em style={{ color: 'var(--text-secondary)' }}>
-                              {t('metadata.describe_empty_paren')}
-                            </em>
-                          )}
-                        </td>
-                        {!result.applied && (
-                          <td className="actions">
-                            {c.description && (
-                              <button
-                                type="button"
-                                className="btn btn-sm"
-                                onClick={() =>
-                                  void applySuggestion('column', c.name, c.description)
-                                }
-                              >
-                                {t('metadata.describe_apply')}
-                              </button>
-                            )}
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => {
-                    setResult(null)
-                    onClose()
-                  }}
-                >
-                  {t('metadata.describe_close_footer')}
-                </button>
-              </div>
-            </>
+            <MetadataDescribeResults
+              result={result}
+              t={t}
+              onApplyTable={(description) => void applySuggestion('table', '', description)}
+              onApplyColumn={(name, description) =>
+                void applySuggestion('column', name, description)
+              }
+              onClose={() => {
+                setResult(null)
+                onClose()
+              }}
+            />
           )}
         </div>
       </section>

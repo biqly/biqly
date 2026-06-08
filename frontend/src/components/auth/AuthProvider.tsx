@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+
 import {
   createContext,
   type ReactNode,
@@ -90,20 +92,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setGlobalAccessToken(accessToken)
   }, [accessToken])
 
-  const clearAuth = () => {
+  const clearAuth = useCallback(() => {
     setUser(null)
     setAccessToken(null)
     setRoles([])
     setPermissions([])
     setIsSuperAdmin(false)
     localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY)
-  }
+  }, [])
 
   // loadPermissions fetches the caller's effective permissions so the UI can
   // disable controls the user is not allowed to use. Failure is non-fatal:
   // the backend still enforces every mutation, so we just fall back to an
   // empty permission set (controls disabled) rather than blocking sign-in.
-  const loadPermissions = async (accToken: string) => {
+  const loadPermissions = useCallback(async (accToken: string) => {
     try {
       const p = await apiGetMyPermissions(accToken)
       setPermissions(p.permissions)
@@ -112,22 +114,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setPermissions([])
       setIsSuperAdmin(false)
     }
-  }
+  }, [])
 
-  const handleAuthSuccess = async (accToken: string, nextRoles: string[] = []) => {
-    lastTokenAtRef.current = Date.now()
-    setAccessToken(accToken)
-    setRoles(nextRoles)
-    localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY)
-    try {
-      const profile = await apiGetMe(accToken)
-      setUser(profile)
-    } catch (err) {
-      clearAuth()
-      throw err
-    }
-    await loadPermissions(accToken)
-  }
+  const handleAuthSuccess = useCallback(
+    async (accToken: string, nextRoles: string[] = []) => {
+      lastTokenAtRef.current = Date.now()
+      setAccessToken(accToken)
+      setRoles(nextRoles)
+      localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY)
+      try {
+        const profile = await apiGetMe(accToken)
+        setUser(profile)
+      } catch (err) {
+        clearAuth()
+        throw err
+      }
+      await loadPermissions(accToken)
+    },
+    [clearAuth, loadPermissions],
+  )
 
   const hasPermission = useCallback(
     (...perms: string[]) => {
@@ -205,7 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     void initAuth()
-  }, [])
+  }, [clearAuth, handleAuthSuccess])
 
   // Silent refresh: the interval covers active tabs, while the visibility and
   // focus listeners cover wake-from-sleep and throttled background tabs where
@@ -262,7 +267,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       document.removeEventListener('visibilitychange', refreshIfStale)
       window.removeEventListener('focus', refreshIfStale)
     }
-  }, [accessToken, navigate])
+  }, [accessToken, clearAuth, loadPermissions, navigate])
 
   return (
     <AuthContext.Provider

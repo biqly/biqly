@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+
 import {
   createContext,
   type ReactNode,
@@ -6,6 +8,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
 } from 'react'
 
 export type ThemeMode = 'system' | 'light' | 'dark'
@@ -40,11 +43,18 @@ function resolveSystem(): ResolvedTheme {
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
 }
 
-function resolveTheme(mode: ThemeMode): ResolvedTheme {
-  if (mode === 'system') {
-    return resolveSystem()
-  }
-  return mode
+function subscribeSystemTheme(onStoreChange: () => void) {
+  const mq = window.matchMedia('(prefers-color-scheme: light)')
+  mq.addEventListener('change', onStoreChange)
+  return () => mq.removeEventListener('change', onStoreChange)
+}
+
+function getSystemThemeSnapshot(): ResolvedTheme {
+  return resolveSystem()
+}
+
+function getServerThemeSnapshot(): ResolvedTheme {
+  return 'light'
 }
 
 function applyDocumentTheme(theme: ResolvedTheme) {
@@ -57,12 +67,19 @@ function applyDocumentTheme(theme: ResolvedTheme) {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>(readMode)
-  const [resolved, setResolved] = useState<ResolvedTheme>(() => resolveTheme(readMode()))
+  const systemTheme = useSyncExternalStore(
+    subscribeSystemTheme,
+    getSystemThemeSnapshot,
+    getServerThemeSnapshot,
+  )
+
+  const resolved = useMemo<ResolvedTheme>(
+    () => (mode === 'system' ? systemTheme : mode),
+    [mode, systemTheme],
+  )
 
   useEffect(() => {
-    const next = resolveTheme(mode)
-    setResolved(next)
-    applyDocumentTheme(next)
+    applyDocumentTheme(resolved)
     try {
       if (typeof window !== 'undefined') {
         window.localStorage.setItem(STORAGE_KEY, mode)
@@ -70,21 +87,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
-  }, [mode])
-
-  useEffect(() => {
-    if (mode !== 'system') {
-      return
-    }
-    const mq = window.matchMedia('(prefers-color-scheme: light)')
-    const handler = () => {
-      const next = resolveSystem()
-      setResolved(next)
-      applyDocumentTheme(next)
-    }
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [mode])
+  }, [mode, resolved])
 
   const setMode = useCallback((next: ThemeMode) => {
     setModeState(next)

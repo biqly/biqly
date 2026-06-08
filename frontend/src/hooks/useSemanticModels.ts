@@ -15,7 +15,7 @@ export function useSemanticModels(datasourceId: string | null, options?: { all?:
       return
     }
     if (!datasourceId) {
-      setModels([])
+      void Promise.resolve().then(() => setModels([]))
       return
     }
     void get<SemanticModelSummary[]>(

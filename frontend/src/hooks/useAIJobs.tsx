@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import {
   createContext,
   type ReactNode,
@@ -10,13 +11,11 @@ import {
 } from 'react'
 
 import { fetchJSON, type FetchJSONResult } from '../api/apiClient'
-import type { DescribeBatchConflictBody } from '../api/describeBatchConflict'
-import { runMetadataDescribeDirect } from '../api/metadataDescribe'
 import { useAuth } from '../components/auth/AuthProvider'
 import type { BulkEntry } from '../components/metadata/bulkProgress'
 import type { AIJob, AIJobKind, AIJobListResponse, AIQueryResponse } from '../types/ai'
-import type { DescribeBatchResult, DescribeResult } from '../types/metadata'
 import { getAIClientSessionId } from '../utils/aiSession'
+import { buildInitialBulkQueue, runBulkDescribeEnqueue } from './bulkDescribeRunner'
 import { createJobWaiter, type JobCallbacks, type JobWaiterHandle } from './jobWaiter'
 export { fetchJSON }
 export type { FetchJSONResult }
@@ -360,14 +359,16 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     isMountedRef.current = true
+    const pollingIds = pollingIdsRef
+    const callbacks = callbacksRef
     return () => {
       isMountedRef.current = false
-      pollingIdsRef.current.clear()
+      pollingIds.current.clear()
       stopPollLoop()
-      for (const waiter of callbacksRef.current.values()) {
+      for (const waiter of callbacks.current.values()) {
         waiter.settleDismiss()
       }
-      callbacksRef.current.clear()
+      callbacks.current.clear()
     }
   }, [stopPollLoop])
 
@@ -462,7 +463,9 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     [finishJob, pollJob, upsertJob],
   )
 
-  runJobRef.current = runJob
+  useEffect(() => {
+    runJobRef.current = runJob
+  }, [runJob])
 
   const cancelAllActiveJobs = useCallback(async () => {
     const { data, status, error } = await fetchJSON<{ cancelled: number }>(
@@ -559,222 +562,56 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       setBulkSummary(null)
       setMinimized(false)
 
-      const queue: BulkEntry[] = targets.map((row) => {
-        if (skipExisting && row.description) {
-          return {
-            schema: row.schema_name,
-            table: row.table_name,
-            status: 'skipped',
-            message: opts.skipExistingMessage,
-          }
-        }
-        return { schema: row.schema_name, table: row.table_name, status: 'pending' }
-      })
+      const queue = buildInitialBulkQueue(targets, skipExisting, opts.skipExistingMessage)
       setBulkEntries(queue)
       bulkEntriesRef.current = queue
 
-      const applyBatchResult = (batch: DescribeBatchResult) => {
-        let ok = 0
-        let errCount = 0
-        let skipped = 0
-        for (let i = 0; i < queue.length; i++) {
-          const entry = queue[i]
-          if (!entry || entry.status === 'skipped') {
-            skipped++
-            continue
-          }
-          const match = batch.entries.find(
-            (e) => e.schema === entry.schema && e.table === entry.table,
-          )
-          if (!match) {
-            continue
-          }
-          if (match.status === 'ok') {
-            const cols = match.result?.columns.length ?? 0
-            queue[i] = {
-              schema: entry.schema,
-              table: entry.table,
-              status: 'ok',
-              message: opts.okColumnsMessage(cols),
-            }
-            ok++
-          } else if (match.status === 'skipped') {
-            queue[i] = {
-              schema: entry.schema,
-              table: entry.table,
-              status: 'skipped',
-              message: match.message ?? opts.skipExistingMessage,
-            }
-            skipped++
-          } else {
-            queue[i] = {
-              schema: entry.schema,
-              table: entry.table,
-              status: 'error',
-              message: match.message ?? opts.networkErrorMessage,
-            }
-            errCount++
-          }
-        }
-        setBulkEntries([...queue])
-        setBulkSummary({ ok, error: errCount, skipped })
-      }
-
-      const runSequential = async () => {
-        let ok = 0
-        let errCount = 0
-        const skipped = queue.filter((q) => q.status === 'skipped').length
-        const runOne = runJobRef.current
-        if (!runOne) {
-          setBulkRunning(false)
-          return
-        }
-
-        for (let i = 0; i < targets.length; i++) {
-          if (bulkCancelRef.current) {
-            break
-          }
-          const row = targets[i]
-          const entry = queue[i]
-          if (!row || !entry || entry.status === 'skipped') {
-            continue
-          }
-
-          const schema = row.schema_name
-          const table = row.table_name
-          queue[i] = { schema, table, status: 'running' }
-          setBulkEntries([...queue])
-
-          try {
-            const request = {
-              datasource_id: datasourceId,
-              schema,
-              table,
-              sample_size: sampleSize,
-              auto_apply: true,
-            }
-            let data = await runOne<typeof request, DescribeResult>('describe', request)
-            if (data === 'fallback') {
-              data = await runMetadataDescribeDirect(request)
-            }
-            if (!data) {
-              queue[i] = { schema, table, status: 'error', message: opts.networkErrorMessage }
-              errCount++
-            } else {
-              const cols = data.columns.length
-              queue[i] = { schema, table, status: 'ok', message: opts.okColumnsMessage(cols) }
-              ok++
-            }
-          } catch (err) {
-            queue[i] = {
-              schema,
-              table,
-              status: 'error',
-              message: err instanceof Error ? err.message : opts.networkErrorMessage,
-            }
-            errCount++
-          }
-          setBulkEntries([...queue])
-        }
-
-        setBulkSummary({ ok, error: errCount, skipped })
-      }
-
       const isStale = () => !isMountedRef.current || bulkRunIdRef.current !== runId
 
-      void (async () => {
-        bulkBatchJobIdRef.current = null
-        const batchRequest = {
-          datasource_id: datasourceId,
-          tables: targets.map((row) => ({
-            schema: row.schema_name,
-            table: row.table_name,
-          })),
-          sample_size: sampleSize,
-          auto_apply: true,
-          skip_existing: skipExisting,
-        }
-
-        const {
-          data: enqueued,
-          status,
-          error,
-        } = await fetchJSON<AIJob | DescribeBatchConflictBody>('/api/ai/jobs', {
-          method: 'POST',
-          body: JSON.stringify({
-            client_session_id: sessionId,
-            kind: 'describe_batch',
-            request: batchRequest,
-          }),
-        })
-        if (isStale()) {
-          return
-        }
-
-        if (error) {
-          setBulkEntries((prev) => {
-            const next = prev.map((entry) =>
-              entry.status === 'running'
-                ? { ...entry, status: 'error' as const, message: error }
-                : entry,
-            )
-            bulkEntriesRef.current = next
-            return next
-          })
-          setBulkRunning(false)
-          bulkBatchJobIdRef.current = null
-          opts.onFinished?.()
-          return
-        }
-
-        if (status === 409 && enqueued && typeof enqueued === 'object' && 'error' in enqueued) {
-          const conflict = enqueued
-          onConflict?.(conflict.error, conflict.existing_job_id)
-          setBulkRunning(false)
-          onFinished?.()
-          return
-        }
-
-        if (status >= 200 && status < 300 && enqueued && isValidJobId((enqueued as AIJob).id)) {
-          const job = enqueued as AIJob
-          bulkBatchJobIdRef.current = job.id
-          upsertJob({
-            ...job,
-            questionPreview: jobQuestionPreview('describe_batch', batchRequest),
-          })
-          startPolling(job.id)
-
-          const batchResult = await new Promise<DescribeBatchResult | null>((resolve) => {
-            const waiter = createJobWaiter<DescribeBatchResult>(resolve)
-            callbacksRef.current.set(job.id, waiter)
-          })
-          bulkBatchJobIdRef.current = null
-
-          if (isStale() || bulkCancelRef.current) {
-            if (isMountedRef.current) {
-              setBulkRunning(false)
-            }
-            onFinished?.()
-            return
-          }
-
-          if (batchResult) {
-            applyBatchResult(batchResult)
+      void runBulkDescribeEnqueue({
+        sessionId,
+        datasourceId,
+        targets,
+        sampleSize,
+        skipExisting,
+        skipExistingMessage: opts.skipExistingMessage,
+        networkErrorMessage: opts.networkErrorMessage,
+        okColumnsMessage: opts.okColumnsMessage,
+        queue,
+        isStale,
+        isCancelled: () => bulkCancelRef.current,
+        onConflict,
+        setBulkEntries: (updater) => {
+          if (typeof updater === 'function') {
+            setBulkEntries((prev) => {
+              const next = updater(prev)
+              bulkEntriesRef.current = next
+              return next
+            })
           } else {
-            await runSequential()
+            setBulkEntries(updater)
+            bulkEntriesRef.current = updater
           }
-        } else {
-          if (isStale()) {
-            return
+        },
+        setBulkSummary,
+        setBulkRunning,
+        setBulkBatchJobId: (id) => {
+          bulkBatchJobIdRef.current = id
+        },
+        upsertJob,
+        startPolling,
+        registerWaiter: (jobId, waiter) => {
+          callbacksRef.current.set(jobId, waiter)
+        },
+        runOne: <TReq extends object, TRes>(kind: 'describe', request: TReq) => {
+          const runOne = runJobRef.current
+          if (!runOne) {
+            return Promise.resolve<TRes | 'fallback' | null>(null)
           }
-          await runSequential()
-        }
-
-        if (!isStale()) {
-          setBulkRunning(false)
-        }
-        onFinished?.()
-      })()
+          return runOne<TReq, TRes>(kind, request)
+        },
+        onFinished,
+      })
     },
     [sessionId, startPolling, upsertJob],
   )
