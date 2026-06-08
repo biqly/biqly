@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 	"time"
+
+	platformdb "github.com/biqly/biqly/internal/platform/db"
 )
 
 const (
@@ -53,12 +55,15 @@ func Ping(ctx context.Context, driverName, dsn string) error {
 	return db.PingContext(ctx)
 }
 
-// OpenPool opens a pooled *sql.DB and applies MaxOpen/MaxIdle plus the
-// package-default ConnMaxLifetime/ConnMaxIdleTime. ctx is reserved for future
-// checks.
+// OpenPool opens a pooled, OTel-instrumented *sql.DB and applies MaxOpen/MaxIdle
+// plus the package-default ConnMaxLifetime/ConnMaxIdleTime. ctx is reserved for
+// future checks. SQL text is suppressed in spans (recordStatement=false) because
+// these connect to user-supplied data sources whose queries may embed business
+// data — only timing and operation kind are recorded.
 func OpenPool(ctx context.Context, driverName, dsn string, limits PoolLimits) (*sql.DB, error) {
 	_ = ctx
-	db, err := sql.Open(driverName, dsn)
+	system := dbSystemForDriver(driverName)
+	db, err := platformdb.OpenInstrumented(driverName, dsn, system, "datasource:"+system, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open %s connection: %w", driverName, err)
 	}
@@ -67,4 +72,21 @@ func OpenPool(ctx context.Context, driverName, dsn string, limits PoolLimits) (*
 	db.SetConnMaxLifetime(DefaultConnMaxLifetime)
 	db.SetConnMaxIdleTime(DefaultConnMaxIdleTime)
 	return db, nil
+}
+
+// dbSystemForDriver maps a registered sql driver name to the OTel db.system
+// value. Unknown drivers fall back to the driver name itself.
+func dbSystemForDriver(driverName string) string {
+	switch driverName {
+	case "pgx", "postgres", "postgresql":
+		return "postgresql"
+	case "mysql":
+		return "mysql"
+	case "clickhouse":
+		return "clickhouse"
+	case "sqlserver", "mssql":
+		return "mssql"
+	default:
+		return driverName
+	}
 }

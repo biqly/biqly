@@ -30,9 +30,11 @@ func DefaultConfig(dsn string) Config {
 	}
 }
 
-// NewPool creates a configured database/sql connection pool.
+// NewPool creates a configured, OTel-instrumented database/sql connection pool
+// for the internal metadata database. Each query becomes a span (with SQL text)
+// under the active trace so DB time is visible in distributed traces.
 func NewPool(ctx context.Context, cfg Config) (*sql.DB, error) {
-	db, err := sql.Open("pgx", cfg.DSN)
+	db, err := OpenInstrumented("pgx", cfg.DSN, "postgresql", "biqly-postgresql", true)
 	if err != nil {
 		return nil, fmt.Errorf("open connection: %w", err)
 	}

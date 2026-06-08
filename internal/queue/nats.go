@@ -9,6 +9,10 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const aiJobMaxDeliver = 3
@@ -69,8 +73,17 @@ func ConnectNATS(cfg NATSConfig) (*NATSQueue, error) {
 }
 
 func (q *NATSQueue) Publish(ctx context.Context, jobID string) error {
-	_, err := q.js.Publish(ctx, q.subj, []byte(jobID))
-	if err != nil {
+	ctx, span := otel.Tracer("biqly/queue").Start(ctx, "nats.publish "+q.subj,
+		trace.WithSpanKind(trace.SpanKindProducer),
+		trace.WithAttributes(
+			attribute.String("peer.service", "biqly-nats"),
+			attribute.String("messaging.system", "nats"),
+			attribute.String("messaging.destination.name", q.subj),
+		))
+	defer span.End()
+	if _, err := q.js.Publish(ctx, q.subj, []byte(jobID)); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return fmt.Errorf("publish ai job: %w", err)
 	}
 	return nil

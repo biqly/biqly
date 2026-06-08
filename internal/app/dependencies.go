@@ -29,6 +29,7 @@ import (
 	"github.com/biqly/biqly/internal/mail"
 	"github.com/biqly/biqly/internal/metadata"
 	platformdb "github.com/biqly/biqly/internal/platform/db"
+	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/queue"
 	"github.com/biqly/biqly/internal/security"
@@ -475,6 +476,9 @@ func newRedisResponseCache(ctx context.Context, dsn string) ai.ResponseCache {
 		return nil
 	}
 	redisClient := redis.NewClient(opt)
+	if instrErr := observability.InstrumentRedis(redisClient, "biqly-dragonfly"); instrErr != nil {
+		slog.Warn("LLM Response Cache Redis tracing instrumentation failed", "error", instrErr)
+	}
 	if pingErr := redisClient.Ping(ctx).Err(); pingErr != nil {
 		slog.Warn("LLM Response Cache Redis ping failed; cache disabled", "error", pingErr)
 		return nil

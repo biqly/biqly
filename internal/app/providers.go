@@ -10,6 +10,7 @@ import (
 
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/metadata"
+	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/security"
 	"github.com/biqly/biqly/internal/semantic"
@@ -69,6 +70,9 @@ func provideCompositeCache(ctx context.Context, cfg *config.Config) semantic.Res
 		return nil
 	}
 	client := redis.NewClient(opt)
+	if instrErr := observability.InstrumentRedis(client, "biqly-dragonfly"); instrErr != nil {
+		slog.Warn("composite cache Redis tracing instrumentation failed", "error", instrErr)
+	}
 	if pingErr := client.Ping(ctx).Err(); pingErr != nil {
 		slog.Warn("composite cache Redis ping failed; cache disabled", "error", pingErr)
 		return nil

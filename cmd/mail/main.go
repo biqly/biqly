@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -22,6 +21,8 @@ import (
 
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/mail"
+	platformdb "github.com/biqly/biqly/internal/platform/db"
+	"github.com/biqly/biqly/internal/platform/observability"
 )
 
 func main() {
@@ -36,7 +37,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	db, err := sql.Open("pgx", cfg.DBDSN)
+	db, err := platformdb.OpenInstrumented("pgx", cfg.DBDSN, "postgresql", "biqly-postgresql", true)
 	if err != nil {
 		slog.Error("open database", "err", err)
 		os.Exit(1)
@@ -61,6 +62,9 @@ func main() {
 			os.Exit(1)
 		}
 		redisClient = redis.NewClient(opts)
+		if instrErr := observability.InstrumentRedis(redisClient, "biqly-dragonfly"); instrErr != nil {
+			slog.Warn("redis tracing instrumentation failed", "err", instrErr)
+		}
 		defer func() { _ = redisClient.Close() }()
 	}
 

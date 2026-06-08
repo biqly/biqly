@@ -22,6 +22,7 @@ import (
 	bihttp "github.com/biqly/biqly/internal/http"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/mail"
+	platformdb "github.com/biqly/biqly/internal/platform/db"
 	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/internal/security"
 	"github.com/biqly/biqly/pkg/common/requestid"
@@ -86,7 +87,7 @@ func (r *authRuntime) close() {
 }
 
 func newAuthRuntime(cfg *biqauth.Config) (*authRuntime, error) {
-	db, err := sql.Open("pgx", cfg.DBDSN)
+	db, err := platformdb.OpenInstrumented("pgx", cfg.DBDSN, "postgresql", "biqly-postgresql", true)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +256,11 @@ func newRedisClient(dsn string) (*redis.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse redis dsn: %w", err)
 	}
-	return redis.NewClient(opts), nil
+	client := redis.NewClient(opts)
+	if instrErr := observability.InstrumentRedis(client, "biqly-dragonfly"); instrErr != nil {
+		slog.Warn("redis tracing instrumentation failed", "error", instrErr)
+	}
+	return client, nil
 }
 
 // propagateRequestID copies chi's request ID into the shared requestid context
