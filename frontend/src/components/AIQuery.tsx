@@ -178,7 +178,7 @@ export default function AIQuery() {
     if (!activeConversation) {
       return undefined
     }
-    const MAX = 5
+    const maxRecentTurns = 5
     const turns: PriorTurn[] = []
     const msgs = activeConversation.messages
     for (let i = 0; i < msgs.length; i++) {
@@ -194,7 +194,7 @@ export default function AIQuery() {
         note: next?.role === 'assistant' && next.ai_response?.sql ? 'executed' : undefined,
       })
     }
-    return turns.slice(-MAX)
+    return turns.slice(-maxRecentTurns)
   }, [activeConversation])
 
   const selectedDatasourceName = useMemo(

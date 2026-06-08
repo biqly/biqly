@@ -98,6 +98,7 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.global.secretNames.authSecret }}
                   key: BI_AUTH_INTERNAL_TOKEN
+            {{- include "biqly.otelHeadersEnv" . | nindent 12 }}
           livenessProbe:
             httpGet:
               path: /health

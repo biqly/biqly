@@ -224,7 +224,7 @@ func (h *RBACHandler) handleMyPermissions(w http.ResponseWriter, r *http.Request
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	perms, err := h.rbac.GetEffectivePermissions(r.Context(), userID, "")
+	perms, err := h.rbac.EffectivePermissions(r.Context(), userID, "")
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
@@ -991,7 +991,7 @@ func (h *RBACHandler) handleInternalInvalidateCache(w http.ResponseWriter, r *ht
 }
 
 func (h *RBACHandler) handleInternalPublicKey(w http.ResponseWriter, r *http.Request) {
-	pem, err := h.jwtMgr.GetPublicKeyPEM()
+	pem, err := h.jwtMgr.PublicKeyPEM()
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)
 		return

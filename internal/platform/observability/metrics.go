@@ -71,7 +71,7 @@ type Metrics struct {
 // process-wide default registry.
 func NewMetrics(reg prometheus.Registerer) *Metrics {
 	f := promauto.With(reg)
-	return &Metrics{
+	m := &Metrics{
 		queriesTotal: f.NewCounter(prometheus.CounterOpts{
 			Name: "bi_queries_total", Help: "Total number of queries.",
 		}),
@@ -121,6 +121,7 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 		ambiguityLatencyMS: f.NewHistogram(prometheus.HistogramOpts{
 			Name: "biqly_ambiguity_latency_ms", Help: "Ambiguity analysis latency in milliseconds.", Buckets: ambiguityLatencyMSBuckets,
 		}),
+		// Label cardinality bounded via VecLabelLimits["biqly_ambiguity_by_source"].
 		ambiguityBySource: f.NewCounterVec(prometheus.CounterOpts{
 			Name: "biqly_ambiguity_by_source", Help: "Total detected ambiguities by analyzer source.",
 		}, []string{"source"}),
@@ -135,6 +136,7 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 		aiRepairSuccess: f.NewCounter(prometheus.CounterOpts{
 			Name: "bi_ai_repair_success_total", Help: "Total number of AI requests successfully repaired.",
 		}),
+		// Label cardinality bounded via VecLabelLimits["bi_ai_repair_by_error_code_total"].
 		aiRepairByErrorCode: f.NewCounterVec(prometheus.CounterOpts{
 			Name: "bi_ai_repair_by_error_code_total", Help: "Total query repairs by validation error code.",
 		}, []string{"code"}),
@@ -184,6 +186,10 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 			Name: "model_publish_duration_seconds", Help: "Semantic model publish duration in seconds.", Buckets: prometheus.DefBuckets,
 		}),
 	}
+	if g, ok := reg.(prometheus.Gatherer); ok {
+		registerCardinalityCollector(reg, g)
+	}
+	return m
 }
 
 var (
@@ -246,10 +252,7 @@ func (m *Metrics) RecordAmbiguityAnalysis(latencyMs int64, source string, detect
 	m.ambiguityLatencyMS.Observe(float64(latencyMs))
 	if detected {
 		m.ambiguityDetected.Inc()
-		cleanSource := "other"
-		if source == "rule_based" || source == "llm" {
-			cleanSource = source
-		}
+		cleanSource := BoundLabel(source, []string{"rule_based", "llm"}, "other")
 		m.ambiguityBySource.WithLabelValues(cleanSource).Inc()
 	}
 }
@@ -311,15 +314,13 @@ func (m *Metrics) RecordAIRepair(success bool, attempts int, errorCodes []string
 	if attempts > 0 {
 		m.aiRepairAttempts.Observe(float64(attempts))
 	}
+	allowedRepairCodes := []string{
+		"UNKNOWN_DIMENSION", "UNKNOWN_METRIC", "UNKNOWN_FIELD", "INVALID_OPERATOR",
+		"INVALID_TIME_GRAIN", "TIME_GRAIN_ON_NON_DATE", "INVALID_SELECT_TYPE",
+		"ROW_LIMIT_EXCEEDED", "NEGATIVE_OFFSET", "DATE_VALUE_TYPE_MISMATCH",
+		"AMBIGUOUS_YEAR_COVERAGE", "HIDDEN_PII_FIELD",
+	}
 	for _, code := range errorCodes {
-		cleanCode := "other"
-		switch code {
-		case "UNKNOWN_DIMENSION", "UNKNOWN_METRIC", "UNKNOWN_FIELD", "INVALID_OPERATOR",
-			"INVALID_TIME_GRAIN", "TIME_GRAIN_ON_NON_DATE", "INVALID_SELECT_TYPE",
-			"ROW_LIMIT_EXCEEDED", "NEGATIVE_OFFSET", "DATE_VALUE_TYPE_MISMATCH",
-			"AMBIGUOUS_YEAR_COVERAGE", "HIDDEN_PII_FIELD":
-			cleanCode = code
-		}
-		m.aiRepairByErrorCode.WithLabelValues(cleanCode).Inc()
+		m.aiRepairByErrorCode.WithLabelValues(BoundLabel(code, allowedRepairCodes, "other")).Inc()
 	}
 }

@@ -341,88 +341,88 @@ These rules are enforced by `make lint-go` (golangci-lint via `.golangci.yml`) a
 
 ### Go Naming (golangci-lint enforced: `revive` var-naming, `errname`, `recvcheck`)
 
-Kaynaklar: [Effective Go — Names](https://go.dev/doc/effective_go#names), [Google Go Style — Naming](https://google.github.io/styleguide/go/decisions#names).
+Sources: [Effective Go — Names](https://go.dev/doc/effective_go#names), [Google Go Style — Naming](https://google.github.io/styleguide/go/decisions#names).
 
-#### General
+#### General (Go)
 
-- **MixedCaps**: Go'da `camelCase` (unexported) ve `PascalCase` (exported) kullanılır. Snake_case yok (`MAX_SIZE` değil, `MaxSize`).
-- **Underscore yok**: Paket, fonksiyon, değişken, sabit isimlerinde underscore kullanılmaz. İstisna: `_test.go` test fonksiyonları ve `cgo/syscall` seviyesindeki isimler.
-- **Tek harf değişkenler**: Sadece kısa kapsamlı döngü sayaçları (`i`, `j`), receiver'lar, ve yaygın kısaltmalar (`r` for `io.Reader`, `w` for `io.Writer`, `ctx` for `context.Context`, `err` for `error`). 10 satırdan geniş kapsamda açıklayıcı isim zorunlu.
+- **MixedCaps**: Go uses `camelCase` (unexported) and `PascalCase` (exported). No snake_case (use `MaxSize`, not `MAX_SIZE`).
+- **No underscores**: Do not use underscores in package, function, variable, or constant names. Exceptions: `_test.go` files and name matching for cgo/syscall interfaces.
+- **Single-letter variables**: Only use them for short-lived loop indices (`i`, `j`), method receivers, or standard abbreviations (`r` for `io.Reader`, `w` for `io.Writer`, `ctx` for `context.Context`, `err` for `error`). For scopes wider than 10 lines, descriptive names are required.
 
 #### Receiver
 
-- Receiver ismi kısa olmalı (1-2 harf), tip adının kısaltması, ve aynı tipin tüm metotlarında tutarlı.
-- **DOĞRU**: `func (s *Service)`, `func (r *Repository)`, `func (h *AuthHandler)`, `func (m *JWTManager)`
-- **YANLIŞ**: `func (this *Service)`, `func (self *Scanner)`, `func (svc *Service)`
+- Receiver names must be short (1-2 characters), usually abbreviations of the type name, and consistent across all methods of the type.
+- **CORRECT**: `func (s *Service)`, `func (r *Repository)`, `func (h *AuthHandler)`, `func (m *JWTManager)`
+- **INCORRECT**: `func (this *Service)`, `func (self *Scanner)`, `func (svc *Service)`
 
 #### Functions
 
-- **`Get` prefix'i yasak**: Go konvansiyonunda `Get` kullanılmaz. `GetUser` → `User`, `GetCount` → `Count`, `GetPublicKey` → `PublicKey`.
-  - İstisna: HTTP GET kavramı (REST handler isimleri `GetMe` gibi endpoint tanımları olabilir, ama metot ismi değil).
-  - Ağır hesaplama veya uzak çağrı için `Compute`, `Fetch`, `Resolve` kullanılabilir.
-- **Exported fonksiyonlar**: `PascalCase`. Paket adı ile tekrar olmamalı (`datasource.DatasourceConfig` → `datasource.Config`).
-- **Unexported fonksiyonlar**: `camelCase`. Helper fonksiyonlar açıklayıcı olmalı (`composePostgresDSN`, `introspectStep`).
+- **No `Get` prefix**: Go convention avoids `Get` prefixes. Prefer `User` over `GetUser`, `Count` over `GetCount`, and `PublicKey` over `GetPublicKey`.
+  - Exception: HTTP GET concept (REST handler names like `GetMe` are acceptable as endpoint definitions, but not regular methods).
+  - Use `Compute`, `Fetch`, or `Resolve` for expensive computations or remote network calls.
+- **Exported functions**: `PascalCase`. Do not repeat the package name (`datasource.Config`, not `datasource.DatasourceConfig`).
+- **Unexported functions**: `camelCase`. Helper functions should be descriptive (`composePostgresDSN`, `introspectStep`).
 
 #### Interfaces
 
-- Tek-metot arayüzleri metod adı + `-er` soneki: `Reader`, `Writer`, `Stringer`, `Scanner`, `Embedder`.
-- Çok-metot arayüzleri açıklayıcı isim: `Driver`, `ResponseCache`, `ModelLoader`, `TemplateStore`.
-- Test-only küçük arayüzler (package-internal): `scanner`, `rowsScanner`, `rowScanner` — küçük harf, net amaç.
+- Single-method interfaces are named by method name + `-er` suffix: `Reader`, `Writer`, `Stringer`, `Scanner`, `Embedder`.
+- Multi-method interfaces should have a descriptive noun: `Driver`, `ResponseCache`, `ModelLoader`, `TemplateStore`.
+- Test-only small internal interfaces (package-private): `scanner`, `rowsScanner`, `rowScanner` — lowercase and focused.
 
-#### Constants
+#### Constants (Go)
 
-- `MixedCaps` (exported: `PascalCase`, unexported: `camelCase`). `UPPER_SNAKE_CASE` veya `kPrefix` yasak.
-- **DOĞRU**: `const MaxRetries = 3`, `const defaultTimeout = 30 * time.Second`
-- **YANLIŞ**: `const MAX_RETRIES = 3`, `const kMaxRetries = 3`
-- Sabitin rolünü tanımlayın, değerini değil: `const Twelve = 12` kötü.
+- `MixedCaps` (exported: `PascalCase`, unexported: `camelCase`). Do not use `UPPER_SNAKE_CASE` or `kPrefix`.
+- **CORRECT**: `const MaxRetries = 3`, `const defaultTimeout = 30 * time.Second`
+- **INCORRECT**: `const MAX_RETRIES = 3`, `const kMaxRetries = 3`
+- Name constants by their role/meaning, not their value: `const Twelve = 12` is bad practice.
 
 #### Error Variables
 
-- Sentinel hatalar: `Err` prefix + PascalCase. `ErrNotFound`, `ErrUnauthorized`, `ErrCircuitOpen`.
-- **DOĞRU**: `var ErrInvalidCredentials = errors.New("ldap: invalid credentials")`
-- **YANLIŞ**: `var NotFound = errors.New(...)`, `var errInvalid = errors.New(...)`
-- Hata tipleri: `Error` soneki. `TimeoutError`, `ServiceError`, `PathError`.
+- Sentinel errors: `Err` prefix + PascalCase. `ErrNotFound`, `ErrUnauthorized`, `ErrCircuitOpen`.
+- **CORRECT**: `var ErrInvalidCredentials = errors.New("ldap: invalid credentials")`
+- **INCORRECT**: `var NotFound = errors.New(...)`, `var errInvalid = errors.New(...)`
+- Error types: `Error` suffix. `TimeoutError`, `ServiceError`, `PathError`.
 
 #### Initialisms / Acronyms
 
-- `URL`, `ID`, `HTTP`, `JSON`, `SQL`, `API`, `DB`, `DSN`, `JWT`, `PII`, `RBAC`, `MFA`, `OTEL`, `NATS`, `CORS`, `CSRF`, `OAuth`, `LDAP`, `SMTP`, `TOTP`, `DNS`, `TCP`, `IP`, `SSH`, `SSL`, `TLS`, `CPU`, `RAM`, `OS`.
-- Tüm harfler aynı kategoride: `URL` veya `url`, asla `Url`. `XMLAPI` → exported, `xmlAPI` → unexported.
-- `ID` her zaman `ID` (büyük), asla `Id`. `userID` değil `userId`; `APIKey` değil `ApiKey`.
+- Standard abbreviations must be consistently cased: `URL`, `ID`, `HTTP`, `JSON`, `SQL`, `API`, `DB`, `DSN`, `JWT`, `PII`, `RBAC`, `MFA`, `OTEL`, `NATS`, `CORS`, `CSRF`, `OAuth`, `LDAP`, `SMTP`, `TOTP`, `DNS`, `TCP`, `IP`, `SSH`, `SSL`, `TLS`, `CPU`, `RAM`, `OS`.
+- All letters must share the same casing: `URL` or `url`, never `Url`. `XMLAPI` $\rightarrow$ exported, `xmlAPI` $\rightarrow$ unexported.
+- `ID` is always `ID` (capitalized), never `Id`. E.g., `userID` not `userId`, and `APIKey` not `ApiKey`.
 
 #### Repetition / Stutter
 
-- Paket adı + tip adı tekrarından kaçının: `datasource.DatasourceInfo` → `datasource.Info`. `config.Config` kabul edilebilir (standart kalıp).
-- Değişken adı tip tekrarı yapmamalı: `var userCount int` → `var users int` (sayma bağlamı netse).
+- Avoid repeating package names in type names: `datasource.Info` instead of `datasource.DatasourceInfo`. `config.Config` is an acceptable exception (standard pattern).
+- Variable names should not stutter their type: `var users int` instead of `var userCount int` (if count context is clear).
 
 ### TypeScript / React Naming (ESLint enforced: `@typescript-eslint/naming-convention`)
 
-Kaynaklar: [Google TypeScript Style Guide — Naming](https://google.github.io/styleguide/tsguide.html#naming).
+Sources: [Google TypeScript Style Guide — Naming](https://google.github.io/styleguide/tsguide.html#naming).
 
-#### General
+#### General (TypeScript/React)
 
 - **`UpperCamelCase`**: class, interface, type, enum, decorator, type parameter, React component.
 - **`lowerCamelCase`**: variable, parameter, function, method, property, module alias.
-- **`CONSTANT_CASE`**: global constant values, enum values. Sadece module-level veya `static readonly` class field'leri.
-- **`I` prefix interface'lere yok**: `IAuthProvider` değil `AuthProvider` (veya `AuthStorage` gibi amaç-belirten isim).
+- **`CONSTANT_CASE`**: global constant values, enum values. Only for module-level or `static readonly` class fields.
+- **No `I` prefix for interfaces**: `AuthProvider`, not `IAuthProvider` (or use a purpose-built name like `AuthStorage`).
 
 #### React Specific
 
-- **Component'ler**: `UpperCamelCase` — `QueryHistory`, `DatasourceForm`, `ExpressionBuilder`.
-- **Handler'lar**: `handle` + Event adı — `handleSubmit`, `handleClick`, `handleKeyDown`. DOM event prop'ları: `onClick`, `onChange`, `onSubmit`.
-- **Boolean state**: `is` / `has` / `should` prefix — `isLoading`, `hasPermission`, `shouldRefresh`, `isOpen`, `canEdit`.
-- **useState isimleri**: `[value, setValue]` çifti tutarlı — `[open, setOpen]`, `[loading, setLoading]`, `[error, setError]`. Kısa ve net.
-- **Custom hook'lar**: `use` prefix — `useAuth`, `useT`, `useAIJobs`, `useLocale`.
+- **Components**: `UpperCamelCase` — `QueryHistory`, `DatasourceForm`, `ExpressionBuilder`.
+- **Handlers**: `handle` + event name — `handleSubmit`, `handleClick`, `handleKeyDown`. DOM event props use `on` prefix: `onClick`, `onChange`, `onSubmit`.
+- **Boolean states**: `is` / `has` / `should` / `can` prefix — `isLoading`, `hasPermission`, `shouldRefresh`, `isOpen`, `canEdit`.
+- **useState names**: consistent `[value, setValue]` pairs — `[open, setOpen]`, `[loading, setLoading]`, `[error, setError]`. Keep it concise.
+- **Custom hooks**: `use` prefix — `useAuth`, `useT`, `useAIJobs`, `useLocale`.
 
 #### Abbreviations
 
-- Kısaltmalar tam kelime gibi davranılır: `loadHttpUrl` (iyi), `loadHTTPURL` (kötü). İstisna: platform isimleri (`XMLHttpRequest`).
-- Anlaşılmaz kısaltmalar yasak: `n`, `nErr`, `cstmrId`, `wgcConnections`. Yaygın kısaltmalar kabul: `url`, `dns`, `id`, `http`.
-- **`Id` değil `ID`**: `customerId` → `customerID` (Google TS style) — ancak bu projede `camelCase` kuralına göre `id` tamamen küçük normalize olabilir. Tutarlılık önemli.
+- Treat abbreviations as regular words: `loadHttpUrl` (good), `loadHTTPURL` (bad). Exception: platform names (`XMLHttpRequest`).
+- Do not use confusing abbreviations: `n`, `nErr`, `cstmrId`, `wgcConnections`. Common abbreviations are acceptable: `url`, `dns`, `id`, `http`.
+- **`ID` over `Id`**: `customerID` instead of `customerId` (Google TS style) — though local `camelCase` might normalize `id` as lowercase. Consistency is key.
 
-#### Constants
+#### Constants (TypeScript/React)
 
-- Module-level sabitler: `CONSTANT_CASE`. `CHART_COLORS`, `AI_QUERY_TIMEOUT_MS`, `STORAGE_KEY`.
-- Fonksiyon içinde: `lowerCamelCase`. `const maxRetries = 3` (modül seviyesinde değilse büyük harf yazma).
+- Module-level constants: `CONSTANT_CASE`. `CHART_COLORS`, `AI_QUERY_TIMEOUT_MS`, `STORAGE_KEY`.
+- Inside functions: `lowerCamelCase`. `const maxRetries = 3` (do not use uppercase for local function-scoped constants).
 
 ## Anti-Patterns to Avoid
 

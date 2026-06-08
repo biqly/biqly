@@ -43,4 +43,15 @@ data:
         {"type":"timeseries","title":"Model publish error rate","targets":[{"expr":"sum(rate(model_publish_errors_total[5m])) / clamp_min(sum(rate(model_publish_total[5m])), 1)"}]}
       ]
     }
+  biqly-cardinality.json: |
+    {
+      "title": "Biqly Metric Cardinality",
+      "schemaVersion": 39,
+      "panels": [
+        {"type":"timeseries","title":"Top metric series count","targets":[{"expr":"topk(15, bi_prom_metric_series_total)"}]},
+        {"type":"timeseries","title":"Label cardinality by metric","targets":[{"expr":"topk(20, bi_prom_label_cardinality)"}]},
+        {"type":"stat","title":"Metrics over series warn threshold","targets":[{"expr":"count(bi_prom_metric_series_total > 100)"}]},
+        {"type":"table","title":"High label cardinality","targets":[{"expr":"bi_prom_label_cardinality > 16","format":"table","instant":true}]}
+      ]
+    }
 {{- end }}

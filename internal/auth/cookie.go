@@ -1,13 +1,21 @@
 package auth
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/biqly/biqly/internal/env"
+)
 
 const localHTTPDevPort = 8889
 
 // CookieSecure reports whether Set-Cookie should include the Secure attribute.
-// TLS-terminated requests are always secure; the auth dev server on :8889 over
-// plain HTTP omits Secure so browsers accept cookies during local development.
+// Production is always fail-closed (Secure=true). Non-production: TLS-terminated
+// requests are secure; only the local auth dev server on :8889 over plain HTTP
+// omits Secure so browsers accept cookies during local development.
 func CookieSecure(r *http.Request, listenPort int) bool {
+	if env.IsProduction() {
+		return true
+	}
 	if r.URL.Scheme == "https" || r.Header.Get("X-Forwarded-Proto") == "https" {
 		return true
 	}

@@ -181,7 +181,7 @@ func (s *Service) RequireAny(ctx context.Context, userID string, permissions ...
 	return false, nil
 }
 
-func (s *Service) GetEffectivePermissions(ctx context.Context, userID, workspaceID string) ([]string, error) {
+func (s *Service) EffectivePermissions(ctx context.Context, userID, workspaceID string) ([]string, error) {
 	isSuper, err := s.IsSuperAdmin(ctx, userID)
 	if err != nil {
 		return nil, err

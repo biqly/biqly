@@ -143,6 +143,7 @@ global:
     automountServiceAccountToken: false
   secretNames:
     config: biqly-config
+    otel: biqly-otel-secrets
     aiConfig: biqly-ai-config
     db: biqly-db
     security: biqly-security
@@ -194,16 +195,25 @@ global:
       vectorConfig:
         enabled: true
     tracing:
+      # App-side OTLP export (biqly-config + biqly.otelEnv). Independent of in-cluster collector.
+      enabled: true
+      serviceName: biqly
+      otlpEndpoint: http://biqly-otel-collector:4318
+      sampler: parentbased_traceidratio
+      samplerArg: "0.25"
+      otlpHeadersSecret:
+        name: biqly-otel-secrets
+        key: OTEL_EXPORTER_OTLP_HEADERS
+      # Set create: true + OTEL_EXPORTER_OTLP_HEADERS only for local/dev; prod uses a pre-created secret.
+      otelSecret:
+        create: false
+        OTEL_EXPORTER_OTLP_HEADERS: ""
       otelCollector:
         enabled: true
         image: otel/opentelemetry-collector-contrib:0.153.0
       jaeger:
         enabled: true
         image: jaegertracing/all-in-one:1.76.0
-      # Injected into biqly-config when otelCollector.enabled (see templates/configmaps.yaml).
-      otlpEndpoint: http://biqly-otel-collector:4318
-      sampler: parentbased_traceidratio
-      samplerArg: "0.25"
     alertmanager:
       enabled: false
       webhookURLSecret:

@@ -30,7 +30,7 @@ func AnomalyWarningMessages(result *Result) []string {
 		return nil
 	}
 	n := len(result.Anomalies)
-	out := make([]string, 0, 1+min(n, anomalyWarningDetailLimit)) //nolint:builtins // cap slice growth
+	out := make([]string, 0, 1+min(n, anomalyWarningDetailLimit))
 	out = append(out, fmt.Sprintf("%d outlier value(s) detected in the result (IQR method). Review highlighted cells.", n))
 	for i, a := range result.Anomalies {
 		if i >= anomalyWarningDetailLimit {

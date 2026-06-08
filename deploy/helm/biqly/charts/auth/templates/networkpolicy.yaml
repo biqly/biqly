@@ -53,6 +53,14 @@ spec:
           port: {{ . }}
         {{- end }}
     {{- end }}
+    {{- if and .Values.global.observability.tracing.enabled .Values.networkPolicy.egress.otel.enabled }}
+    - to: []
+      ports:
+        {{- range .Values.networkPolicy.egress.otel.ports }}
+        - protocol: TCP
+          port: {{ . }}
+        {{- end }}
+    {{- end }}
     {{- if .Values.networkPolicy.egress.mail.enabled }}
     - to:
         - podSelector:

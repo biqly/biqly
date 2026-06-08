@@ -110,6 +110,10 @@ networkPolicy:
         - accounts.google.com
       ports:
         - 443
+    otel:
+      enabled: true
+      ports:
+        - 443
     mail:
       enabled: true
       ports:

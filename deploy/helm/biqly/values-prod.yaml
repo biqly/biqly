@@ -36,6 +36,14 @@ global:
       vectorConfig:
         enabled: false
     tracing:
+      enabled: true
+      serviceName: biqly
+      otlpEndpoint: https://otel.il1.nl
+      sampler: parentbased_traceidratio
+      samplerArg: "0.25"
+      otlpHeadersSecret:
+        name: biqly-otel-secrets
+        key: OTEL_EXPORTER_OTLP_HEADERS
       otelCollector:
         enabled: false
       jaeger:

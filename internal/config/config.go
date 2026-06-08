@@ -524,6 +524,7 @@ func validateLoadedConfig(cfg *Config) error {
 	if err := validateFloatRange("BI_AI_EMBEDDING_WEIGHT", cfg.AI.Embedding.Weight, 0, 100); err != nil {
 		return err
 	}
+	// Fail-closed: auth must stay enabled in production/Kubernetes (see TestProductionAuthEnabledFailClosed).
 	if env.IsProduction() && !cfg.Auth.Enabled {
 		return errors.New("BI_AUTH_ENABLED must be true in production")
 	}

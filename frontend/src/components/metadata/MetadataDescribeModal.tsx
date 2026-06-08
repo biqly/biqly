@@ -51,13 +51,13 @@ export function MetadataDescribeModal({
   const activeTranslation = managedRuntime?.active_models?.find((m) => m.purpose === 'translation')
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose()
       }
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
   const runDescribe = async () => {

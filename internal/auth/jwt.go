@@ -282,7 +282,7 @@ func generateJTI() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-func (m *JWTManager) GetPublicKeyPEM() (string, error) {
+func (m *JWTManager) PublicKeyPEM() (string, error) {
 	pubASN1, err := x509.MarshalPKIXPublicKey(m.publicKey)
 	if err != nil {
 		return "", err

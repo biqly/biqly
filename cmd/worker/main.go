@@ -26,7 +26,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	shutdownTracing, tracErr := observability.SetupTracing(context.Background(), "biqly-worker")
+	shutdownTracing, tracErr := observability.SetupTracing(context.Background(), "worker")
 	if tracErr != nil {
 		slog.Warn("tracing setup failed, continuing without traces", "error", tracErr)
 	}

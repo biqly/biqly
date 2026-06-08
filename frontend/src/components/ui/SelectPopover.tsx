@@ -46,7 +46,7 @@ export function SelectPopover<T extends string>({
   searchPlaceholder: string
   emptyLabel: string
 }) {
-  const onKeyDown = (e: KeyboardEvent) => handleSelectTriggerKeyDown(e, keyboardCtx)
+  const handleListKeyDown = (e: KeyboardEvent) => handleSelectTriggerKeyDown(e, keyboardCtx)
 
   return (
     <div
@@ -77,7 +77,7 @@ export function SelectPopover<T extends string>({
                 e.key === 'Enter' ||
                 e.key === 'Escape'
               ) {
-                onKeyDown(e)
+                handleListKeyDown(e)
               }
               if (e.key === ' ') {
                 e.stopPropagation()
@@ -96,7 +96,7 @@ export function SelectPopover<T extends string>({
           maxHeight: searchable ? Math.max(120, popover.maxHeight - 44) : popover.maxHeight,
         }}
         tabIndex={-1}
-        onKeyDown={onKeyDown}
+        onKeyDown={handleListKeyDown}
       >
         {displayOptions.length === 0 && (
           <li className="ui-select-empty" role="option" aria-disabled="true">

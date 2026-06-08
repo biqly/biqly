@@ -99,4 +99,8 @@ func TestMetricsLabelCardinality(t *testing.T) {
 	if got := testutil.ToFloat64(m.aiRepairByErrorCode.WithLabelValues("other")); got != 2 {
 		t.Fatalf("other error code count = %v, want 2", got)
 	}
+
+	if err := CheckGatheredCardinality(reg); err != nil {
+		t.Fatalf("CheckGatheredCardinality: %v", err)
+	}
 }

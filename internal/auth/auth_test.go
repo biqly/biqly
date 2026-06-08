@@ -58,7 +58,7 @@ func TestJWTManager(t *testing.T) {
 	assert.Equal(t, datasources, claims.AccessibleDatasources)
 
 	// Validate public key export
-	pubPEM, err := mgr.GetPublicKeyPEM()
+	pubPEM, err := mgr.PublicKeyPEM()
 	require.NoError(t, err)
 	assert.Contains(t, pubPEM, "RSA PUBLIC KEY")
 }

@@ -59,7 +59,7 @@ func main() {
 
 func setupAuthObservability() func(context.Context) error {
 	observability.SetupLogging(os.Getenv("BI_AUTH_LOG_LEVEL"), os.Getenv("BI_AUTH_LOG_FORMAT"))
-	shutdownTracing, tracErr := observability.SetupTracing(context.Background(), "biqly-auth")
+	shutdownTracing, tracErr := observability.SetupTracing(context.Background(), "auth")
 	if tracErr != nil {
 		slog.Warn("tracing setup failed, continuing without traces", "error", tracErr)
 	}

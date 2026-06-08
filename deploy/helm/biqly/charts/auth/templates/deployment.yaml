@@ -129,6 +129,7 @@ spec:
                   name: {{ $.Values.global.secretNames.authSecret }}
                   key: BI_AUTH_GOOGLE_CLIENT_SECRET
                   optional: true
+            {{- include "biqly.otelEnv" . | nindent 12 }}
           livenessProbe:
             httpGet:
               path: /health

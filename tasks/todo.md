@@ -1,93 +1,93 @@
 # Todo list
 
-## Teknik Mimari Analizi — Kalan Aksiyonlar (2026-06-08)
+## Technical Architecture Analysis — Remaining Actions (2026-06-08)
 
-`tasks/biqly_analiz.pdf` (Sürüm 3.0) §10 Sonuç ve Yol Haritası'ndaki açık kalemler, codebase'de doğrulanarak güncellendi. ESLint sıfır-uyarı zaten ulaşıldı; aşağıdakiler hâlâ açık.
+The open items from §10 Conclusion and Roadmap in `tasks/biqly_analiz.pdf` (Version 3.0) have been verified against the codebase and updated. ESLint zero-warnings has already been achieved; the following items are still open.
 
-### Orta öncelik
+### Orta öncelik (2026-06-08)
 
-- [x] **AIConfig erişim metotlarını/çağrı fan-out'unu azalt.** 13 erişim metodu → 5 exported metot (`ResolvedQuery`, `ResolvedEmbedding`, `ResolvedTranslation`, `HTTPTimeout`, `RequestTimeout`) + 3 view tipi (`AIQueryView`, `AIEmbeddingView`, `AITranslationView`). Dış çağrı: 93 → 58. `make lint-go` temiz.
-  - **Dosyalar**: `internal/config/config.go`, `internal/ai/service.go`, `internal/ai/provider/*.go`, `internal/app/dependencies.go`, `internal/http/handlers/ai.go` + testler.
+- [x] **Reduce AIConfig getter methods/fan-out.** 13 getter methods $\rightarrow$ 5 exported methods (`ResolvedQuery`, `ResolvedEmbedding`, `ResolvedTranslation`, `HTTPTimeout`, `RequestTimeout`) + 3 view types (`AIQueryView`, `AIEmbeddingView`, `AITranslationView`). External calls: 93 $\rightarrow$ 58. `make lint-go` clean.
+  - **Files**: `internal/config/config.go`, `internal/ai/service.go`, `internal/ai/provider/*.go`, `internal/app/dependencies.go`, `internal/http/handlers/ai.go` + tests.
 
-- [x] **TableRouter.Route'u dallanmadan arındır.** `Route` 61 satıra indirildi; `funlen` nolint kaldırıldı; mantık `routeLoadAndFilter`, `routePrepareSelection`, `routeAnnotateResult`, `routeExpandSelection`, `routeFinalize` helper'larına taşındı. `go test ./internal/ai/routing/...` geçiyor.
-  - **Dosyalar**: `internal/ai/routing/router.go` + mevcut test dosyaları.
+- [x] **Remove branching in TableRouter.Route.** `Route` has been reduced to 61 lines; the `funlen` nolint was removed; logic was moved to helper functions: `routeLoadAndFilter`, `routePrepareSelection`, `routeAnnotateResult`, `routeExpandSelection`, and `routeFinalize`. `go test ./internal/ai/routing/...` passes.
+  - **Files**: `internal/ai/routing/router.go` + existing test files.
 
-### Düşük öncelik
+### Düşük öncelik (2026-06-08)
 
-- [ ] **Repo genelindeki ~162 nolint direktifini kademeli azalt.** Dokümanda ~47 denmiş ama gerçek sayı 162 (123 production + 39 test). Dağılım: `gocognit` (21), `nestif` (18), `funlen` (10+), `recvcheck` (8), `nilnil` (8), `gosec` (13), diğerleri. Strateji: önce production dosyalardaki `funlen`/`gocognit`/`nestif` gruplarını refaktörle çöz (fonksiyon bölme, early return), sonra `gosec` ve `nilnil` için justified kalmayanları temizle.
-  - **Kabul kriteri**: nolint sayısı <80; yeni nolint eklenmiyor; her kaldırılan nolint için ilgili linter geçiyor.
-  - **Dosyalar**: `grep -rl '//nolint' --include='*.go' .` ile tespit edilen 40+ dosya.
+- [x] **Gradually reduce repository-wide nolint directives.** Current baseline: **75** (`rg -c 'nolint' --glob '*.go'`); the target of <80 has been met. This round: `builtins` (`enrich_viz.go`) and `revive` (`permissions.go`) were removed. Remaining directives are mostly justified `gosec`/`nilnil`/test fixtures.
+  - **Acceptance Criteria**: nolint count <80; no new nolints added; corresponding linter passes for every removed nolint.
+  - **Files**: 40+ files detected via `grep -rl '//nolint' --include='*.go' .`.
 
-- [ ] **Go: `Get` prefix'li ~104 fonksiyonu kademeli yeniden adlandır.** Google Go Style Guide'a göre `Get` prefix'i yasak (`GetUser` → `User`, `GetPublicKeyPEM` → `PublicKeyPEM`, `GetEffectivePermissions` → `EffectivePermissions`). Yoğun dosyalar: `internal/auth/rbac/rbac_repository.go` (8), `internal/auth/oauth/*.go` (3), `internal/auth/service.go` (2). Yeniden adlandırma calling-site bazlı; her PR'da 1-2 dosya hedefi.
-  - **Kabul kriteri**: Yeni kod `Get` prefix kullanmıyor; mevcut `Get`'ler kademeli azalıyor; `make lint-go` ve `go test` her adımda temiz.
-  - **Dosyalar**: `internal/auth/rbac/*.go`, `internal/auth/service.go`, `internal/auth/oauth/*.go`, `internal/security/permissions.go`, `internal/auth/mfa/*.go`, `internal/auth/jwt.go`.
+- [ ] **Go: Gradually rename functions with `Get` prefix.** This round: `PublicKeyPEM`, `EffectivePermissions`, `RowFilters`. Up next: `internal/auth/rbac/rbac_repository.go` (8), `internal/auth/oauth/*.go`, `internal/auth/service.go`.
+  - **Acceptance Criteria**: New code does not use `Get` prefix; existing `Get` prefixes are gradually reduced; `make lint-go` and `go test` remain clean at each step.
+  - **Files**: `internal/auth/rbac/*.go`, `internal/auth/service.go`, `internal/auth/oauth/*.go`, `internal/security/permissions.go`, `internal/auth/mfa/*.go`, `internal/auth/jwt.go`.
 
-- [ ] **Frontend: handler/event isimlendirme tutarlılığını sağla.** Bazı dosyalarda `onKey` / `onKeyDown` karışımı, `handleClick` / `onClick` tutarsızlığı var. Kural: `handle` + event adı (component içi), `on` + event adı (prop olarak). `tasks/lessons.md → Naming Conventions` kurallarına göre.
-  - **Kabul kriteri**: Yeni kod tutarlı; mevcut tutarsızlıklar fırsat oldukça düzeltiliyor.
-  - **Dosyalar**: `frontend/src/App.tsx`, `frontend/src/components/ui/*.tsx`, `frontend/src/components/settings/*.tsx`.
+- [ ] **Frontend: Ensure handler/event naming consistency.** This round: `MetadataDescribeModal` (`onKey` $\rightarrow$ `handleKeyDown`), `SelectPopover` (`handleListKeyDown`). Rule: `handle*` for internal handlers, `on*` for DOM props.
+  - **Acceptance Criteria**: New code is consistent; existing inconsistencies are fixed opportunistically.
+  - **Files**: `frontend/src/App.tsx`, `frontend/src/components/ui/*.tsx`, `frontend/src/components/settings/*.tsx`.
 
-- [ ] **Frontend: `CONSTANT_CASE` kullanımını tutarlı hale getir.** Modül-level sabitler `CONSTANT_CASE` olmalı (`CHART_COLORS`, `AI_QUERY_TIMEOUT_MS` — zaten doğru). Fonksiyon içi sabitler `lowerCamelCase` olmalı. Kontrol: `const [A-Z_]+ =` pattern'ini tarama, yanlış yerlerde büyük harf kullanımı varsa düzelt.
-  - **Kabul kriteri**: ESLint naming rules geçiyor; tutarsızlık kalmamış.
-  - **Dosyalar**: `frontend/src/utils/*.ts`, `frontend/src/components/**/*.tsx`.
+- [x] **Frontend: Make `CONSTANT_CASE` usage consistent.** Function-scoped `const MAX` $\rightarrow$ `maxRecentTurns` (`AIQuery.tsx`); module-level constants are already `CONSTANT_CASE`.
+  - **Acceptance Criteria**: ESLint naming rules pass; no inconsistencies remain.
+  - **Files**: `frontend/src/utils/*.ts`, `frontend/src/components/**/*.tsx`.
 
-- [x] **Repo genelindeki naming convention kurallarını lessons.md'de belgele.** `tasks/lessons.md → Naming Conventions` bölümü Go ve TypeScript/React için best-practice kuralları içeriyor. Yeni kod yazılırken bu bölüm referans alınacak.
-  - [x] Go naming kuralları (receiver, function, interface, constant, error var, initialisms, stutter).
-  - [x] TypeScript/React naming kuralları (casing, handlers, booleans, useState, custom hooks, abbreviations, constants).
+- [x] **Document repository-wide naming convention rules in lessons.md.** The `tasks/lessons.md → Naming Conventions` section has been updated to include best-practice rules for Go and TypeScript/React. This section will serve as a reference when writing new code.
+  - [x] Go naming rules (receiver, function, interface, constant, error var, initialisms, stutter).
+  - [x] TypeScript/React naming rules (casing, handlers, booleans, useState, custom hooks, abbreviations, constants).
 
-- [x] **`internal/queue` kapsam tabanını yükselt (%40 → en az %60).** Floor %60 (`scripts/coveragecheck/main.go:35`); paket kapsamı %62.5. Local queue testleri (idempotent close, connect error) + mock JetStream ile NATS publish/DLQ yolları; canlı NATS sunucusu gerekmez.
-  - **Kabul kriteri**: `scripts/coveragecheck/main.go`'daki floor %60; `make coverage-gate` geçiyor; yeni testler NATS olmadan da çalışıyor (local queue yolu).
-  - **Dosyalar**: `internal/queue/*.go`, `scripts/coveragecheck/main.go`.
+- [x] **Raise `internal/queue` coverage floor (%40 $\rightarrow$ at least %60).** Floor set to %60 (`scripts/coveragecheck/main.go:35`); package coverage is at %62.5. Added local queue tests (idempotent close, connect error) and mock JetStream for NATS publish/DLQ paths; no live NATS server required.
+  - **Acceptance Criteria**: Floor in `scripts/coveragecheck/main.go` is %60; `make coverage-gate` passes; new tests run without a live NATS server (local queue path).
+  - **Files**: `internal/queue/*.go`, `scripts/coveragecheck/main.go`.
 
-- [x] **Kritik paketlerin kapsam tabanlarını kademeli yükselt.** `internal/ai/routing` floor %80 (mevcut %83.5), `internal/auth` floor %10 (mevcut %13.2). Makefile + CI coverage profiline eklendi.
-  - **Kabul kriteri**: En az 2 yeni paket `scripts/coveragecheck/main.go` floors map'ine eklenmiş; her biri için `make coverage-gate` geçiyor.
-  - **Dosyalar**: `scripts/coveragecheck/main.go`, yeni test dosyaları.
+- [x] **Gradually raise coverage floors for critical packages.** `internal/ai/routing` floor is at %80 (currently %83.5), `internal/auth` floor is at %10 (currently %13.2). Added to Makefile + CI coverage profile.
+  - **Acceptance Criteria**: At least 2 new packages added to the floors map in `scripts/coveragecheck/main.go`; `make coverage-gate` passes for each.
+  - **Files**: `scripts/coveragecheck/main.go`, new test files.
 
-- [x] **Canlı-eval baseline'ını periyodik güncelle.** `edge-not-shipped-count` (`neq` filtresi, TR lehçe) eklendi; `testdata/eval/nightly_baseline.json` 17→18 case ile yenilendi (`go run scripts/gen-nightly-baseline/main.go`).
-  - **Kabul kriteri**: Her sprint'te en az 1 yeni golden case eklenmiş; baseline commit'i güncel.
-  - **Dosyalar**: `internal/ai/eval/`, `cmd/eval-live/`, `.github/workflows/eval-nightly.yml`.
+- [x] **Periodically update live-eval baseline.** Added `edge-not-shipped-count` (`neq` filter, TR locale); `testdata/eval/nightly_baseline.json` updated from 17 $\rightarrow$ 18 cases (`go run scripts/gen-nightly-baseline/main.go`).
+  - **Acceptance Criteria**: At least 1 new golden case added per sprint; baseline commit is up to date.
+  - **Files**: `internal/ai/eval/`, `cmd/eval-live/`, `.github/workflows/eval-nightly.yml`.
 
-- [x] **Span'lere kritik öznitelikler ekleme (devam eden iyileştirme).** `ai.tokens.{prompt,completion,total}`, `ai.route.confidence` (clarification dahil defer), `db.system`/`datasource.driver`, `query.compile.duration_ms`, `query.execute.duration_ms`. OTEL sampler: `parentbased_traceidratio` varsayılan %25 (`OTEL_TRACES_SAMPLER*`), Helm `global.observability.tracing.*`.
-  - **Kabul kriteri**: Her yeni span özniteliği Jaeger'da görülebilir; trace örnekleme oranı prod yüküne göre ayarlanmış.
-  - **Dosyalar**: `internal/ai/service.go`, `internal/ai/routing/router.go`, `internal/datasource/*.go`, `internal/platform/observability/*.go`.
+- [x] **Add critical attributes to spans (ongoing improvement).** Added `ai.tokens.{prompt,completion,total}`, `ai.route.confidence` (defer including clarification), `db.system`/`datasource.driver`, `query.compile.duration_ms`, `query.execute.duration_ms`. OTEL sampler: `parentbased_traceidratio` defaults to 25% (`OTEL_TRACES_SAMPLER*`), Helm `global.observability.tracing.*`.
+  - **Acceptance Criteria**: Every new span attribute is visible in Jaeger; trace sampling rate is adjusted for production load.
+  - **Files**: `internal/ai/service.go`, `internal/ai/routing/router.go`, `internal/datasource/*.go`, `internal/platform/observability/*.go`.
 
-- [ ] **Prometheus etiket kardinalitesini izleme.** `internal/platform/observability/metrics.go` — 35 alan, kardinalite sınırlandırması yapılmış (`853739e`) ama aktif olarak izlenmeli. Yüksek kardinaliteli etiketler (user_id, query_id) varsa Prometheus bellek şişer.
-  - **Kabul kriteri**: Grafana dashboard'da etiket kardinalite metrikleri görünür; yeni etiket eklenirken kardinalite limiti kontrolü yapılıyor.
-  - **Dosyalar**: `internal/platform/observability/metrics.go`, Helm Grafana dashboard config.
+- [x] **Monitor Prometheus label cardinality.** Added `bi_prom_metric_series_total` + `bi_prom_label_cardinality` collector; `VecLabelLimits`/`CheckGatheredCardinality`/`BoundLabel`; Grafana `biqly-cardinality.json`.
+  - **Acceptance Criteria**: Label cardinality metrics are visible in the Grafana dashboard; cardinality limits are checked when adding new labels.
+  - **Files**: `internal/platform/observability/metrics.go`, Helm Grafana dashboard config.
 
-- [ ] **Dev çerez istisnasının prod'a sızmadığını periyodik doğrula.** Local-dev'de port 8889'da `Secure=false` çerez istisnası var. `env.IsProduction()` fail-closed ile korunuyor ama bu invariant test ile sürekli doğrulanmalı.
-  - **Kabul kriteri**: CI'da `TestProductionAuthEnabledFailClosed` geçiyor; manuel doğrulama en az ayda bir.
-  - **Dosyalar**: `internal/auth/cookie.go`, `internal/config/config.go`.
+- [x] **Periodically verify dev cookie exemption does not leak to prod.** `CookieSecure` is fail-closed in prod/K8s; CI: `TestProductionAuthEnabledFailClosed`, `TestProductionCookieSecureFailClosed`.
+  - **Acceptance Criteria**: `TestProductionAuthEnabledFailClosed` passes in CI; manual verification runs at least monthly (`go test -run 'TestProduction(AuthEnabledFailClosed|CookieSecureFailClosed)' ./internal/config/... ./internal/auth/...`).
+  - **Files**: `internal/auth/cookie.go`, `internal/config/config.go`.
 
-### Tamamlanan (önceki turlarda)
+### Completed (in previous rounds)
+ 
+ - [x] AIConfig fields split into 9 sub-structs
+ - [x] ValidateContext/ValidateComposite/PasswordPolicy.Validate reduced to single-digit complexity
+ - [x] Nightly live-LLM eval + drift gate added
+ - [x] Auth fail-closed invariant in prod (`env.IsProduction()`)
+ - [x] OTEL span depth increased from 3 $\rightarrow$ 16+
+ - [x] queue package added to coverage floor monitoring (40%)
+ - [x] Flaky TestMFABypassCodeFlow stabilized
+ - [x] ESLint warnings reduced to zero (`--max-warnings 0`)
+ - [x] CSP + X-Frame-Options + prod HSTS security headers implemented
+ - [x] CodeQL + govulncheck + semgrep SAST scans enabled
+ 
+ ---
 
-- [x] AIConfig alanları 9 alt-struct'a bölündü
-- [x] ValidateContext/ValidateComposite/PasswordPolicy.Validate tek-haneye indirildi
-- [x] Nightly canlı-LLM eval + drift kapısı eklendi
-- [x] Prod'da auth fail-closed invariant (`env.IsProduction()`)
-- [x] OTEL span derinliği 3→16+
-- [x] queue kapsam tabanına alındı (%40)
-- [x] Flaky TestMFABypassCodeFlow stabilize edildi
-- [x] ESLint sıfır-uyarıya çekildi (`--max-warnings 0`)
-- [x] CSP + X-Frame-Options + prod HSTS güvenlik başlıkları
-- [x] CodeQL + govulncheck + semgrep SAST taramaları aktif
+## Technical Analysis Report — Remaining Gaps (2026-06-07)
+ 
+ The remaining recommendations from the `tasks/biqly_analiz.pdf` report (Version 3.0) were verified in the codebase. 7 of the 8 gaps from the initial audit have been resolved; the following are still open. In order of priority:
 
----
+### Orta öncelik (2026-06-07)
 
-## Teknik Analiz Raporu — Kalan Boşluklar (2026-06-07)
+- [x] **Physically decompose the AIConfig god-object (move fields, do not just rename).** The previous renaming of nested configs did not improve the metrics (21 fields / 13 methods / 93 external calls = score of 60, CRITICAL). In this round, top-level connection/tuning fields were physically relocated.
+  - Completed: `AIConfig` now contains only 9 top-level sub-structs — `Connection`, `Generation`, `Describe`, `Cache`, `Query`, `Embedding`, `Translation`, `Routing`, and `Ambiguity` (`internal/config/config.go`).
+  - Groups relocated: `AIConnectionConfig` (Provider/APIKey/BaseURL/Model/HTTPTimeout/RateLimit), `AIGenerationConfig` (MaxTokens/Temperature/TopP/NumCtx/MaxPromptInputRunes/MaxRetries/MultiCandidateCount), `AIDescribeConfig` (MaxCellRunes/MaxSampleRows), and `AICacheConfig` (ResponseTTLSeconds).
+  - All call sites updated (ai/provider/service/provider_store, prompt/context_budget, http/handlers, app dependencies + tests). `go test ./internal/config/... ./internal/ai/... ./internal/http/...` passes.
+- [x] **Gradually decompose the remaining high-complexity functions.** The three target functions highlighted in the report: `ValidateContext` (39), `ValidateComposite` (27), and `PasswordPolicy.Validate` (25). Split each into smaller helper functions and secure behavior with tests.
+- [x] **Add periodic (nightly) live-LLM eval runs.** The current regression gate on the deterministic stub provider is 1.00 — which catches harness/compiler regressions but does not measure live-LLM accuracy drift. Add a nightly cron workflow + golden run with a real provider + drift reporting. (Also expand the evaluation suite with new dialect/edge cases.)
+- [x] **Make `BI_AUTH_ENABLED` a required (fail-closed) invariant in production.** Verified: `internal/config/config.go:413` defaults to `false`. Although Helm production values set it to `true`, having it disabled at the code level in production relies entirely on network-level security. Action: If `env.IsProduction()` is true and `BI_AUTH_ENABLED=false`, fail-closed during startup (panic/refuse).
 
-`tasks/biqly_analiz.pdf` (Sürüm 3.0) raporundaki kalan öneriler kod tabanında doğrulandı. İlk denetimdeki 8 boşluğun 7'si kapatılmış; aşağıdakiler hâlâ açık. Öncelik sırasıyla:
-
-### Orta öncelik
-
-- [x] **AIConfig tanrı-nesnesini gerçekten parçala (rename değil, taşıma).** Önceki turda alt-konfig isimlendirmesi skoru düşürmemişti (21 alan / 13 metot / 93 dış çağrı = skor 60, KRİTİK). Bu turda üst-seviye bağlantı/tuning alanları fiziksel olarak taşındı.
-  - Tamamlandı: `AIConfig` artık yalnızca 9 üst-seviye alt-struct barındırıyor — `Connection`, `Generation`, `Describe`, `Cache`, `Query`, `Embedding`, `Translation`, `Routing`, `Ambiguity` (`internal/config/config.go`).
-  - Taşınan gruplar: `AIConnectionConfig` (Provider/APIKey/BaseURL/Model/HTTPTimeout/RateLimit), `AIGenerationConfig` (MaxTokens/Temperature/TopP/NumCtx/MaxPromptInputRunes/MaxRetries/MultiCandidateCount), `AIDescribeConfig` (MaxCellRunes/MaxSampleRows), `AICacheConfig` (ResponseTTLSeconds).
-  - Tüm çağrı yerleri güncellendi (ai/provider/service/provider_store, prompt/context_budget, http/handlers, app dependencies + testler). `go test ./internal/config/... ./internal/ai/... ./internal/http/...` geçti.
-- [x] **Kalan yüksek-karmaşıklık fonksiyonlarını kademeli ayrıştır.** Raporun işaretlediği üç odak: `ValidateContext` (39), `ValidateComposite` (27), `PasswordPolicy.Validate` (25). Her birini küçük yardımcılara böl, davranışı test ile sabitle.
-- [x] **Periyodik (nightly) canlı-LLM eval koşusu ekle.** Mevcut eval/regresyon kapısı determinist stub sağlayıcı üzerinde 1.00 — yani harness/derleyici regresyonunu yakalar, canlı-LLM doğruluk kaymasını ölçmez. Nightly cron iş akışı + gerçek sağlayıcıyla golden koşu + kayma raporu ekle. (Eval kapsamını yeni lehçe/edge senaryolarıyla da genişlet.)
-- [x] **Prod'da `BI_AUTH_ENABLED`'ı zorunlu (fail-closed) invariant yap.** Doğrulandı: `internal/config/config.go:413` varsayılan `false`. Helm prod değerleri `true` set etse de kod seviyesinde prod'da kapalıyken savunma ağ-güvenine düşüyor. Aksiyon: `env.IsProduction()` iken `BI_AUTH_ENABLED=false` ise başlatmada fail-closed (panik/refuse).
-
-### Düşük öncelik
+### Düşük öncelik (2026-06-07)
 
 - [x] **OTEL izleme derinliğini artır (sürücü/DB span'leri).** Doğrulandı: yalnız 3 adlandırılmış span var — `ai.ProcessQuestion` (`internal/ai/service.go:254`), `query.Compile` (`internal/query/compiler.go:64`), `query.Execute` (`internal/query/executor.go:52`) + router otelhttp ingress. Veri-kaynağı sürücü çağrıları ve few-shot/embedding alt-fazları span'lenmiyor. Aksiyon: alt-fazlara span ekle + span'lere kritik öznitelikler (model, attempt, fingerprint).
   - Tamamlandı (2026-06-07): datasource span'leri (`datasource.Ping/Open/Introspect/IntrospectSchemas|Tables|Columns|Relations/Query`), AI alt-fazları (`ai.PromptBuild`, `ai.AmbiguityAnalyze`, `ai.LLMGenerate`, `ai.MultiCandidate`, `ai.TableRoute`, `ai.RouteEmbedding`, `ai.LoadFewShot`, `ai.Embed`, `ai.EmbedMetadata`, `ai.ProviderGenerate`), kritik öznitelikler (`ai.model`, `ai.attempt`, `query.fingerprint`, `model.id`, token sayıları, route confidence).

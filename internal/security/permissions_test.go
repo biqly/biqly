@@ -14,8 +14,8 @@ func TestPermissionManager_NilPolicyFailsClosed(t *testing.T) {
 	if FieldIsDenied(nil, "orders.amount", "amount") != true {
 		t.Fatal("FieldIsDenied with nil policy must return true")
 	}
-	if got := pm.GetRowFilters(nil); got != nil {
-		t.Fatalf("GetRowFilters with nil policy must return nil, got %v", got)
+	if got := pm.RowFilters(nil); got != nil {
+		t.Fatalf("RowFilters with nil policy must return nil, got %v", got)
 	}
 }
 

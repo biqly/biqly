@@ -15,7 +15,8 @@ data:
   {{- range $key, $value := .Values.global.config }}
   {{ $key }}: {{ $value | quote }}
   {{- end }}
-  {{- if .Values.global.observability.tracing.otelCollector.enabled }}
+  {{- if .Values.global.observability.tracing.enabled }}
+  OTEL_SERVICE_NAME: {{ .Values.global.observability.tracing.serviceName | default "biqly" | quote }}
   OTEL_EXPORTER_OTLP_ENDPOINT: {{ .Values.global.observability.tracing.otlpEndpoint | default "http://biqly-otel-collector:4318" | quote }}
   OTEL_TRACES_SAMPLER: {{ .Values.global.observability.tracing.sampler | default "parentbased_traceidratio" | quote }}
   OTEL_TRACES_SAMPLER_ARG: {{ .Values.global.observability.tracing.samplerArg | default "0.25" | quote }}

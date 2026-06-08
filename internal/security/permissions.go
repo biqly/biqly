@@ -70,9 +70,9 @@ func FieldIsDenied(policy *PermissionPolicy, qualifiedField, plainField string) 
 	return slices.Contains(policy.DeniedFields, qualifiedField) || slices.Contains(policy.DeniedFields, plainField)
 }
 
-// GetRowFilters returns the mandatory row filters for a user.
+// RowFilters returns the mandatory row filters for a user.
 // A nil policy returns nil — the executor must not run without a policy.
-func (*PermissionManager) GetRowFilters(policy *PermissionPolicy) []RowFilter {
+func (*PermissionManager) RowFilters(policy *PermissionPolicy) []RowFilter {
 	if policy == nil {
 		return nil
 	}
@@ -81,7 +81,7 @@ func (*PermissionManager) GetRowFilters(policy *PermissionPolicy) []RowFilter {
 
 // HasFieldAccess checks if a user can access a specific field.
 // Fail-closed: nil policy denies.
-func (pm *PermissionManager) HasFieldAccess(policy *PermissionPolicy, modelName, fieldName string) bool { //nolint:revive // method receiver groups permission helpers
+func (*PermissionManager) HasFieldAccess(policy *PermissionPolicy, modelName, fieldName string) bool {
 	if policy == nil {
 		return false
 	}

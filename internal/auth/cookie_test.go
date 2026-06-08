@@ -36,6 +36,44 @@ func TestCookieSecure(t *testing.T) {
 	}
 }
 
+func TestProductionCookieSecureFailClosed(t *testing.T) {
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "http://example.com/", http.NoBody)
+
+	t.Run("production env", func(t *testing.T) {
+		t.Setenv("BI_ENV", "production")
+		t.Setenv("KUBERNETES_SERVICE_HOST", "")
+		if !CookieSecure(req, localHTTPDevPort) {
+			t.Fatal("CookieSecure must be true in production even on local dev port over HTTP")
+		}
+	})
+
+	t.Run("kubernetes", func(t *testing.T) {
+		t.Setenv("BI_ENV", "development")
+		t.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
+		if !CookieSecure(req, localHTTPDevPort) {
+			t.Fatal("CookieSecure must be true in Kubernetes even on local dev port over HTTP")
+		}
+	})
+}
+
+func TestWriteResponseCookieSecureInProduction(t *testing.T) {
+	t.Setenv("BI_ENV", "production")
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "http://example.com/", http.NoBody)
+	//nolint:gosec // G124: Secure is applied by WriteResponseCookie; this test asserts production behavior.
+	WriteResponseCookie(rr, req, localHTTPDevPort, &http.Cookie{Name: "session", Value: "token"})
+
+	cookies := rr.Result().Cookies()
+	if len(cookies) != 1 {
+		t.Fatalf("cookies = %d, want 1", len(cookies))
+	}
+	if !cookies[0].Secure {
+		t.Fatal("production must set Secure on session cookie even on port 8889 over HTTP")
+	}
+}
+
 func TestCSRFCookieSecureInProduction(t *testing.T) {
 	t.Parallel()
 
