@@ -39,10 +39,11 @@ global:
       enabled: true
       serviceName: biqly
       otlpEndpoint: https://otel.il1.nl
-      # Temporarily 100% while investigating latency / building the service
-      # dependency graph. Dial back to parentbased_traceidratio @ 0.25 afterwards.
-      sampler: always_on
-      samplerArg: "0.25"
+      # Parent-based ratio keeps trace volume (and the export load it adds to the
+      # single-node cluster) bounded while still capturing connected cross-service
+      # traces. Raise temporarily to always_on only for focused investigation.
+      sampler: parentbased_traceidratio
+      samplerArg: "0.1"
       otlpHeadersSecret:
         name: biqly-otel-secrets
         key: OTEL_EXPORTER_OTLP_HEADERS
