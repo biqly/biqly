@@ -39,7 +39,7 @@ func LiveAIConfigFromEnv() config.AIConfig {
 			MultiCandidateCount: envIntDefault("BI_AI_MULTI_CANDIDATE_COUNT", 1),
 		},
 	}
-	return cfg.EffectiveQueryConfig()
+	return cfg.ResolvedQuery().Config
 }
 
 func firstNonEmpty(values ...string) string {

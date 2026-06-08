@@ -65,7 +65,7 @@ func NewAIHandler(deps *app.AIDeps) *AIHandler {
 	if provider == nil {
 		provider = deps.AIClient
 	}
-	svc := ai.NewServiceWithProvider(new(deps.Config.AI.EffectiveQueryConfig()), deps.Validator, provider).WithCache(deps.ResponseCache)
+	svc := ai.NewServiceWithProvider(new(deps.Config.AI.ResolvedQuery().Config), deps.Validator, provider).WithCache(deps.ResponseCache)
 	metadataReader := routing.MetadataReader(deps.MetaRepo)
 	var embeddingReader routing.EmbeddingReader = deps.MetaRepo
 	if deps.CatalogClient != nil {
@@ -97,7 +97,7 @@ func (h *AIHandler) queryModelUsedLabel() string {
 	if h.deps.AIProviderStore != nil {
 		return h.deps.AIProviderStore.ModelLabelForPurpose(ai.PurposeQuery)
 	}
-	return h.deps.Config.AI.EffectiveQueryConfig().Connection.Model
+	return h.deps.Config.AI.ResolvedQuery().Config.Connection.Model
 }
 
 type aiQueryRequest struct {

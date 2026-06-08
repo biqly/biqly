@@ -28,7 +28,7 @@ func NewClient(cfg config.AIConfig) *Client {
 	if conn.Provider == "openai" && baseURL == "" {
 		baseURL = "https://api.openai.com/v1"
 	}
-	http := newHTTPProvider(cfg.AIHTTPTimeout(), baseURL, conn.APIKey)
+	http := newHTTPProvider(cfg.HTTPTimeout(), baseURL, conn.APIKey)
 	c := &Client{
 		topP:   gen.TopP,
 		numCtx: gen.NumCtx,

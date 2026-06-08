@@ -85,7 +85,7 @@ func effectiveAIBaseURL(cfg config.AIConfig) string {
 
 // embeddingBaseURLEffectiveLabel explains which URL embeddings HTTP calls use.
 func embeddingBaseURLEffectiveLabel(cfg config.AIConfig) string {
-	eff := cfg.EffectiveEmbeddingBaseURL()
+	eff := cfg.ResolvedEmbedding().BaseURL
 	if eff == "" {
 		return "— (set BI_AI_EMBEDDING_BASE_URL or BI_AI_BASE_URL for OpenAI-compatible providers)"
 	}
@@ -99,7 +99,7 @@ func embeddingBaseURLEffectiveLabel(cfg config.AIConfig) string {
 }
 
 func translationBaseURLEffectiveLabel(cfg config.AIConfig) string {
-	eff := cfg.EffectiveTranslationBaseURL()
+	eff := cfg.ResolvedTranslation().BaseURL
 	if eff == "" {
 		return "— (set BI_AI_TRANSLATION_BASE_URL or BI_AI_BASE_URL)"
 	}
@@ -131,7 +131,8 @@ func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 			cfg.Query.APIKey = qc.Connection.APIKey
 		}
 	}
-	queryCfg := cfg.EffectiveQueryConfig()
+	queryView := cfg.ResolvedQuery()
+	queryCfg := queryView.Config
 	profile := prompt.LookupModelContextProfile(queryCfg.Connection.Model, queryCfg.Generation.NumCtx)
 	out := aiRuntimeSettingsResponse{
 		Provider:         cfg.Connection.Provider,
@@ -140,7 +141,7 @@ func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 		BaseURLEffective: effectiveAIBaseURL(cfg),
 		APIKeyConfigured: strings.TrimSpace(cfg.Connection.APIKey) != "",
 	}
-	out.QueryModelOverride = cfg.HasQueryOverride()
+	out.QueryModelOverride = queryView.Override
 	out.QueryProvider = queryCfg.Connection.Provider
 	out.QueryModel = queryCfg.Connection.Model
 	out.QueryBaseURL = queryCfg.Connection.BaseURL
@@ -155,21 +156,22 @@ func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 	out.ContextWindowTokens = profile.ContextWindowTokens
 	out.ContextWindowSource = profile.Source
 	// cfg already carries the DB-resolved embedding/translation overlay.
-	embedCfg := cfg
-	if embedCfg.EmbeddingsConfigured() {
+	embedView := cfg.ResolvedEmbedding()
+	if embedView.Configured() {
 		out.EmbeddingsEnabled = true
-		out.EmbeddingModel = strings.TrimSpace(embedCfg.Embedding.Model)
-		out.EmbeddingBaseURL = embedCfg.Embedding.BaseURL
-		out.EmbeddingBaseURLEffective = embeddingBaseURLEffectiveLabel(embedCfg)
-		out.EmbeddingAPIKeyConfigured = strings.TrimSpace(embedCfg.EffectiveEmbeddingAPIKey()) != ""
-		out.EmbeddingAPIKeyDedicated = strings.TrimSpace(embedCfg.Embedding.APIKey) != ""
+		out.EmbeddingModel = embedView.Model
+		out.EmbeddingBaseURL = cfg.Embedding.BaseURL
+		out.EmbeddingBaseURLEffective = embeddingBaseURLEffectiveLabel(cfg)
+		out.EmbeddingAPIKeyConfigured = strings.TrimSpace(embedView.APIKey) != ""
+		out.EmbeddingAPIKeyDedicated = strings.TrimSpace(cfg.Embedding.APIKey) != ""
 	}
-	if cfg.TranslationConfigured() {
+	trView := cfg.ResolvedTranslation()
+	if trView.Configured() {
 		out.TranslationEnabled = true
-		out.TranslationModel = strings.TrimSpace(cfg.Translation.Model)
+		out.TranslationModel = trView.Model
 		out.TranslationBaseURL = cfg.Translation.BaseURL
 		out.TranslationBaseURLEffective = translationBaseURLEffectiveLabel(cfg)
-		out.TranslationAPIKeyConfigured = strings.TrimSpace(cfg.EffectiveTranslationAPIKey()) != ""
+		out.TranslationAPIKeyConfigured = strings.TrimSpace(trView.APIKey) != ""
 		out.TranslationAPIKeyDedicated = strings.TrimSpace(cfg.Translation.APIKey) != ""
 		out.TranslationTargetLanguage = cfg.Translation.TargetLanguage
 		out.TranslationTargetCode = cfg.Translation.TargetCode

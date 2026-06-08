@@ -3,8 +3,8 @@ package provider
 import (
 	"context"
 	"fmt"
+
 	"github.com/bytedance/sonic"
-	"strings"
 
 	"github.com/biqly/biqly/internal/config"
 )
@@ -16,18 +16,18 @@ type OpenAIEmbedder struct {
 }
 
 // NewOpenAIEmbedder configures an embedder using BI_AI_EMBEDDING_* with
-// fallback to the main LLM BaseURL/APIKey. Call only when EmbeddingsConfigured().
+// fallback to the main LLM BaseURL/APIKey. Call only when ResolvedEmbedding().Configured().
 func NewOpenAIEmbedder(cfg config.AIConfig) *OpenAIEmbedder {
-	model := strings.TrimSpace(cfg.Embedding.Model)
-	http := newHTTPProvider(cfg.EmbeddingHTTPTimeout(), cfg.EffectiveEmbeddingBaseURL(), cfg.EffectiveEmbeddingAPIKey())
+	emb := cfg.ResolvedEmbedding()
+	http := newHTTPProvider(emb.HTTPTimeout, emb.BaseURL, emb.APIKey)
 	return &OpenAIEmbedder{
 		base: baseEmbedder{
 			http:  http,
-			model: model,
+			model: emb.Model,
 			hooks: embeddingHooks{
 				path:    "/embeddings",
 				headers: func(p httpProvider) map[string]string { return p.bearerAuthHeaders() },
-				marshal: marshalOpenAIEmbeddingRequest(model),
+				marshal: marshalOpenAIEmbeddingRequest(emb.Model),
 				parse:   parseOpenAIEmbeddingResponse,
 			},
 		},

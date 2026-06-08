@@ -29,7 +29,7 @@ func NewAnthropicProvider(cfg config.AIConfig) *AnthropicProvider {
 	if baseURL == "" {
 		baseURL = anthropicDefaultBaseURL
 	}
-	http := newHTTPProvider(cfg.AIHTTPTimeout(), baseURL, conn.APIKey)
+	http := newHTTPProvider(cfg.HTTPTimeout(), baseURL, conn.APIKey)
 	return &AnthropicProvider{
 		base: baseProvider{
 			http:        http,

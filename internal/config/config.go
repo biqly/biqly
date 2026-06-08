@@ -305,6 +305,64 @@ type AIConfig struct {
 	Ambiguity   AmbiguityConfig
 }
 
+// AIQueryView is the resolved NL-to-LogicalQuery path (BI_AI_QUERY_* overrides applied).
+type AIQueryView struct {
+	Config   AIConfig
+	Override bool
+}
+
+// Configured reports whether the query LLM path can call a provider.
+func (v AIQueryView) Configured() bool {
+	cfg := v.Config.Connection
+	if strings.TrimSpace(cfg.Model) == "" {
+		return false
+	}
+	if strings.TrimSpace(cfg.APIKey) != "" {
+		return true
+	}
+	switch strings.ToLower(strings.TrimSpace(cfg.Provider)) {
+	case "", "openai", "openai-compatible":
+		return strings.TrimSpace(cfg.BaseURL) != ""
+	default:
+		return false
+	}
+}
+
+// AIEmbeddingView is the resolved embedding HTTP connection.
+type AIEmbeddingView struct {
+	Model       string
+	BaseURL     string
+	APIKey      string
+	HTTPTimeout time.Duration
+}
+
+// Configured reports whether vector routing / embed-metadata can call an embeddings API.
+func (v AIEmbeddingView) Configured() bool {
+	if strings.TrimSpace(v.Model) == "" {
+		return false
+	}
+	if strings.TrimSpace(v.APIKey) == "" {
+		return false
+	}
+	return strings.TrimSpace(v.BaseURL) != ""
+}
+
+// AITranslationView is the resolved translation HTTP connection.
+type AITranslationView struct {
+	Model       string
+	BaseURL     string
+	APIKey      string
+	HTTPTimeout time.Duration
+}
+
+// Configured reports whether metadata description translation is enabled.
+func (v AITranslationView) Configured() bool {
+	if strings.TrimSpace(v.Model) == "" {
+		return false
+	}
+	return strings.TrimSpace(v.BaseURL) != ""
+}
+
 // Load reads configuration from environment variables.
 //
 //nolint:funlen
@@ -461,8 +519,8 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-// AIHTTPTimeout returns the provider HTTP timeout as time.Duration.
-func (c AIConfig) AIHTTPTimeout() time.Duration {
+// HTTPTimeout returns the base provider HTTP timeout.
+func (c AIConfig) HTTPTimeout() time.Duration {
 	seconds := c.Connection.HTTPTimeoutSeconds
 	if seconds <= 0 {
 		seconds = 300
@@ -470,39 +528,22 @@ func (c AIConfig) AIHTTPTimeout() time.Duration {
 	return time.Duration(seconds) * time.Second
 }
 
-// EmbeddingHTTPTimeout returns the HTTP timeout for embedding requests.
-func (c AIConfig) EmbeddingHTTPTimeout() time.Duration {
-	seconds := c.Embedding.HTTPTimeoutSeconds
-	if seconds <= 0 {
-		seconds = c.Connection.HTTPTimeoutSeconds
+// RequestTimeout returns the server-side request budget for AI endpoints.
+func (c AIConfig) RequestTimeout() time.Duration {
+	timeout := c.HTTPTimeout()
+	emb := c.ResolvedEmbedding()
+	if emb.HTTPTimeout > timeout {
+		timeout = emb.HTTPTimeout
 	}
-	if seconds <= 0 {
-		seconds = 300
-	}
-	return time.Duration(seconds) * time.Second
-}
-
-// AIRequestTimeout returns the server-side request budget for AI endpoints.
-func (c AIConfig) AIRequestTimeout() time.Duration {
-	timeout := c.AIHTTPTimeout()
-	if embeddingTimeout := c.EmbeddingHTTPTimeout(); embeddingTimeout > timeout {
-		timeout = embeddingTimeout
-	}
-	if translationTimeout := c.TranslationHTTPTimeout(); translationTimeout > timeout {
-		timeout = translationTimeout
+	tr := c.ResolvedTranslation()
+	if tr.HTTPTimeout > timeout {
+		timeout = tr.HTTPTimeout
 	}
 	return timeout + 30*time.Second
 }
 
-// EffectiveQueryConfig returns an AIConfig whose Provider/APIKey/BaseURL/Model
-// are overridden by BI_AI_QUERY_* when those are set, so the NL-to-LogicalQuery
-// path can route to a smarter (or just different) model than describe /
-// metadata work. Every other tuning knob (max tokens, retries, etc.) is shared
-// with the base config — this is a transport override, not a separate runtime.
-//
-// HasQueryOverride() reports whether any field was overridden so callers can
-// avoid building a duplicate provider when nothing changed.
-func (c AIConfig) EffectiveQueryConfig() AIConfig {
+// ResolvedQuery applies BI_AI_QUERY_* overrides for the NL-to-LogicalQuery path.
+func (c AIConfig) ResolvedQuery() AIQueryView {
 	out := c
 	if s := strings.TrimSpace(c.Query.Provider); s != "" {
 		out.Connection.Provider = s
@@ -519,50 +560,58 @@ func (c AIConfig) EffectiveQueryConfig() AIConfig {
 	if c.Query.HTTPTimeoutSeconds > 0 {
 		out.Connection.HTTPTimeoutSeconds = c.Query.HTTPTimeoutSeconds
 	}
-	return out
-}
-
-// QueryLLMConfigured reports whether the NL-to-LogicalQuery path (and golden eval) can call an LLM.
-// Uses EffectiveQueryConfig. Model is required. API key may be omitted when BaseURL targets a
-// keyless local OpenAI-compatible server (Ollama, llama-server, etc.).
-func (c AIConfig) QueryLLMConfigured() bool {
-	cfg := c.EffectiveQueryConfig()
-	if strings.TrimSpace(cfg.Connection.Model) == "" {
-		return false
-	}
-	if strings.TrimSpace(cfg.Connection.APIKey) != "" {
-		return true
-	}
-	switch strings.ToLower(strings.TrimSpace(cfg.Connection.Provider)) {
-	case "", "openai", "openai-compatible":
-		return strings.TrimSpace(cfg.Connection.BaseURL) != ""
-	default:
-		return false
+	return AIQueryView{
+		Config: out,
+		Override: strings.TrimSpace(c.Query.Provider) != "" ||
+			strings.TrimSpace(c.Query.Model) != "" ||
+			strings.TrimSpace(c.Query.BaseURL) != "" ||
+			strings.TrimSpace(c.Query.APIKey) != "" ||
+			c.Query.HTTPTimeoutSeconds > 0,
 	}
 }
 
-// HasQueryOverride reports whether any BI_AI_QUERY_* knob is set. When false,
-// callers should reuse the base AI provider instead of constructing a second
-// one that points at the same endpoint and model.
-func (c AIConfig) HasQueryOverride() bool {
-	return strings.TrimSpace(c.Query.Provider) != "" ||
-		strings.TrimSpace(c.Query.Model) != "" ||
-		strings.TrimSpace(c.Query.BaseURL) != "" ||
-		strings.TrimSpace(c.Query.APIKey) != "" ||
-		c.Query.HTTPTimeoutSeconds > 0
+// ResolvedEmbedding resolves BI_AI_EMBEDDING_* with fallbacks to the base connection.
+func (c AIConfig) ResolvedEmbedding() AIEmbeddingView {
+	seconds := c.Embedding.HTTPTimeoutSeconds
+	if seconds <= 0 {
+		seconds = c.Connection.HTTPTimeoutSeconds
+	}
+	if seconds <= 0 {
+		seconds = 300
+	}
+	return AIEmbeddingView{
+		Model:       strings.TrimSpace(c.Embedding.Model),
+		BaseURL:     resolveEmbeddingBaseURL(c),
+		APIKey:      resolveEmbeddingAPIKey(c),
+		HTTPTimeout: time.Duration(seconds) * time.Second,
+	}
 }
 
-// EffectiveEmbeddingAPIKey returns BI_AI_EMBEDDING_API_KEY when set, otherwise BI_AI_API_KEY.
-func (c AIConfig) EffectiveEmbeddingAPIKey() string {
+// ResolvedTranslation resolves BI_AI_TRANSLATION_* with fallbacks to the base connection.
+func (c AIConfig) ResolvedTranslation() AITranslationView {
+	seconds := c.Translation.HTTPTimeoutSeconds
+	if seconds <= 0 {
+		seconds = c.Connection.HTTPTimeoutSeconds
+	}
+	if seconds <= 0 {
+		seconds = 120
+	}
+	return AITranslationView{
+		Model:       strings.TrimSpace(c.Translation.Model),
+		BaseURL:     resolveTranslationBaseURL(c),
+		APIKey:      resolveTranslationAPIKey(c),
+		HTTPTimeout: time.Duration(seconds) * time.Second,
+	}
+}
+
+func resolveEmbeddingAPIKey(c AIConfig) string {
 	if s := strings.TrimSpace(c.Embedding.APIKey); s != "" {
 		return s
 	}
 	return c.Connection.APIKey
 }
 
-// EffectiveEmbeddingBaseURL resolves the embeddings HTTP base (no trailing path).
-// Order: BI_AI_EMBEDDING_BASE_URL, then BI_AI_BASE_URL, then OpenAI default when provider is OpenAI-compatible.
-func (c AIConfig) EffectiveEmbeddingBaseURL() string {
+func resolveEmbeddingBaseURL(c AIConfig) string {
 	if s := strings.TrimSpace(c.Embedding.BaseURL); s != "" {
 		return strings.TrimRight(s, "/")
 	}
@@ -578,51 +627,18 @@ func (c AIConfig) EffectiveEmbeddingBaseURL() string {
 	}
 }
 
-// EmbeddingsConfigured reports whether vector table routing / embed-metadata can call an embeddings API.
-func (c AIConfig) EmbeddingsConfigured() bool {
-	if strings.TrimSpace(c.Embedding.Model) == "" {
-		return false
-	}
-	if strings.TrimSpace(c.EffectiveEmbeddingAPIKey()) == "" {
-		return false
-	}
-	return strings.TrimSpace(c.EffectiveEmbeddingBaseURL()) != ""
-}
-
-// EffectiveTranslationAPIKey returns BI_AI_TRANSLATION_API_KEY when set, otherwise BI_AI_API_KEY.
-func (c AIConfig) EffectiveTranslationAPIKey() string {
+func resolveTranslationAPIKey(c AIConfig) string {
 	if s := strings.TrimSpace(c.Translation.APIKey); s != "" {
 		return s
 	}
 	return c.Connection.APIKey
 }
 
-// EffectiveTranslationBaseURL resolves the OpenAI-compatible translation base URL.
-func (c AIConfig) EffectiveTranslationBaseURL() string {
+func resolveTranslationBaseURL(c AIConfig) string {
 	if s := strings.TrimSpace(c.Translation.BaseURL); s != "" {
 		return strings.TrimRight(s, "/")
 	}
 	return strings.TrimRight(strings.TrimSpace(c.Connection.BaseURL), "/")
-}
-
-// TranslationHTTPTimeout returns the HTTP timeout for translation requests.
-func (c AIConfig) TranslationHTTPTimeout() time.Duration {
-	seconds := c.Translation.HTTPTimeoutSeconds
-	if seconds <= 0 {
-		seconds = c.Connection.HTTPTimeoutSeconds
-	}
-	if seconds <= 0 {
-		seconds = 120
-	}
-	return time.Duration(seconds) * time.Second
-}
-
-// TranslationConfigured reports whether metadata description translation is enabled.
-func (c AIConfig) TranslationConfigured() bool {
-	if strings.TrimSpace(c.Translation.Model) == "" {
-		return false
-	}
-	return strings.TrimSpace(c.EffectiveTranslationBaseURL()) != ""
 }
 
 func getEnv(key, defaultVal string) string {

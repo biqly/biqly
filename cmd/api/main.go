@@ -110,7 +110,7 @@ func main() {
 		Addr:         cfg.HTTPAddr(),
 		Handler:      router,
 		ReadTimeout:  15 * time.Second,
-		WriteTimeout: cfg.AI.AIRequestTimeout(),
+		WriteTimeout: cfg.AI.RequestTimeout(),
 		IdleTimeout:  120 * time.Second,
 	}
 

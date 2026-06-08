@@ -123,7 +123,7 @@ func Router(deps *app.Dependencies) http.Handler {
 		// describe/embed, job submit). The downstream AI service trusts the
 		// network and does no JWT verification of its own.
 		r.Group(func(r chi.Router) {
-			r.Use(middleware.Timeout(deps.Config.AI.AIRequestTimeout()))
+			r.Use(middleware.Timeout(deps.Config.AI.RequestTimeout()))
 			r.Use(bimw.RequirePermission(authClient, "ai:query"))
 			dsAccess := bimw.RequireDatasourceAccess(authClient, "read")
 			if deps.Config.Services.AIURL != "" {

@@ -25,7 +25,7 @@ func main() {
 	flag.Parse()
 
 	cfg := evalpkg.LiveAIConfigFromEnv()
-	if !cfg.QueryLLMConfigured() {
+	if !cfg.ResolvedQuery().Configured() {
 		slog.Error("live eval requires BI_AI_MODEL (or BI_AI_QUERY_MODEL) and BI_AI_API_KEY or BI_AI_BASE_URL")
 		os.Exit(2)
 	}

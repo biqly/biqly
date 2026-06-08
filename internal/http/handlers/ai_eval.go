@@ -68,7 +68,7 @@ func logicalQueryToMap(lq *query.LogicalQuery) map[string]any {
 }
 
 func (h *AIHandler) evalAIConfigured() error {
-	if h.deps.Config.AI.QueryLLMConfigured() {
+	if h.deps.Config.AI.ResolvedQuery().Configured() {
 		return nil
 	}
 	return errors.New("AI is not configured (set BI_AI_MODEL and BI_AI_API_KEY, or BI_AI_BASE_URL for keyless local LLM)")

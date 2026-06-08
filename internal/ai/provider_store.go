@@ -219,7 +219,7 @@ func (s *ProviderStore) ModelLabelForPurpose(p Purpose) string {
 	}
 	switch p {
 	case PurposeQuery:
-		return s.fallback.EffectiveQueryConfig().Connection.Model
+		return s.fallback.ResolvedQuery().Config.Connection.Model
 	case PurposeDescribe, PurposeJudge:
 		if m := strings.TrimSpace(s.fallback.Connection.Model); m != "" {
 			return m
@@ -233,7 +233,7 @@ func (s *ProviderStore) ModelLabelForPurpose(p Purpose) string {
 			return m
 		}
 	}
-	return s.fallback.EffectiveQueryConfig().Connection.Model
+	return s.fallback.ResolvedQuery().Config.Connection.Model
 }
 
 // ChatConfigForModelUUID loads a single active model row by its metadata UUID.

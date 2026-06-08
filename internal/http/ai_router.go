@@ -57,7 +57,7 @@ func AIRouter(deps *app.Dependencies) http.Handler {
 }
 
 func aiServiceRequestTimeout(deps *app.Dependencies) time.Duration {
-	return deps.Config.AI.AIRequestTimeout()
+	return deps.Config.AI.RequestTimeout()
 }
 
 // registerAIAPIRoutes mounts the AI API routes. When authClient is non-nil,

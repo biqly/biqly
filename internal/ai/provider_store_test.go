@@ -209,7 +209,7 @@ func TestEffectiveConfigForEmbeddings_ClearsEnvWhenUnresolved(t *testing.T) {
 	store := NewProviderStore(nil, nil, &fallback)
 
 	cfg := store.EffectiveConfigForEmbeddings()
-	if cfg.EmbeddingsConfigured() {
+	if cfg.ResolvedEmbedding().Configured() {
 		t.Fatal("expected embeddings disabled when DB has no embedding model")
 	}
 	if cfg.Embedding.Model != "" {
@@ -222,7 +222,7 @@ func TestEffectiveConfigForEmbeddings_ClearsEnvWhenUnresolved(t *testing.T) {
 		BaseURL: "https://embed.example/v1",
 	}
 	cfg2 := store.EffectiveConfigForEmbeddings()
-	if !cfg2.EmbeddingsConfigured() {
+	if !cfg2.ResolvedEmbedding().Configured() {
 		t.Fatal("expected embeddings enabled when DB embedding model is resolved")
 	}
 	if cfg2.Embedding.Model != "db-embed" {
@@ -233,7 +233,7 @@ func TestEffectiveConfigForEmbeddings_ClearsEnvWhenUnresolved(t *testing.T) {
 func TestModelLabelForPurpose(t *testing.T) {
 	fallback := config.AIConfig{
 		Connection: config.AIConnectionConfig{Model: "env-describe"},
-		Query:        config.QueryLLMConfig{Model: "qwen-env"},
+		Query:      config.QueryLLMConfig{Model: "qwen-env"},
 	}
 	store := NewProviderStore(nil, nil, &fallback)
 	store.resolved[PurposeQuery] = &resolvedModel{

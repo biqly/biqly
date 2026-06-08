@@ -56,13 +56,13 @@ func newService(cfg *config.AIConfig, validator *query.Validator, provider provi
 	if retries < 0 {
 		retries = 0
 	}
-	effective := cfg.EffectiveQueryConfig()
+	queryView := cfg.ResolvedQuery()
 	return &Service{
 		client:              provider,
 		promptBuilder:       &promptpkg.Builder{},
 		validator:           validator,
-		aiCfg:               effective,
-		queryModel:          effective.Connection.Model,
+		aiCfg:               queryView.Config,
+		queryModel:          queryView.Config.Connection.Model,
 		maxPromptRunes:      maxR,
 		maxRetries:          retries,
 		multiCandidateCount: cfg.Generation.MultiCandidateCount,

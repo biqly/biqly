@@ -70,7 +70,7 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 
 	var embedder ai.Embedder
 	var embedMeta *ai.EmbedMetadataService
-	if effectiveCfg.EmbeddingsConfigured() {
+	if effectiveCfg.ResolvedEmbedding().Configured() {
 		embedder = providerpkg.NewOpenAIEmbedder(effectiveCfg)
 		embedMeta = ai.NewEmbedMetadataService(embedder, metaRepo)
 	}

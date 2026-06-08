@@ -26,17 +26,18 @@ type TranslationService struct {
 
 // NewTranslationServiceFromConfig returns nil when the optional translation layer is not configured.
 func NewTranslationServiceFromConfig(cfg config.AIConfig) *TranslationService {
-	if !cfg.TranslationConfigured() {
+	tr := cfg.ResolvedTranslation()
+	if !tr.Configured() {
 		return nil
 	}
 
 	translationCfg := config.AIConfig{
 		Connection: config.AIConnectionConfig{
 			Provider:           "openai-compatible",
-			BaseURL:            cfg.EffectiveTranslationBaseURL(),
-			APIKey:             cfg.EffectiveTranslationAPIKey(),
-			Model:              strings.TrimSpace(cfg.Translation.Model),
-			HTTPTimeoutSeconds: int(cfg.TranslationHTTPTimeout().Seconds()),
+			BaseURL:            tr.BaseURL,
+			APIKey:             tr.APIKey,
+			Model:              tr.Model,
+			HTTPTimeoutSeconds: int(tr.HTTPTimeout.Seconds()),
 		},
 		Generation: config.AIGenerationConfig{
 			MaxTokens:   cfg.Generation.MaxTokens,

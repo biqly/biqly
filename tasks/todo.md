@@ -1,5 +1,63 @@
 # Todo list
 
+## Teknik Mimari Analizi — Kalan Aksiyonlar (2026-06-08)
+
+`tasks/biqly_analiz.pdf` (Sürüm 3.0) §10 Sonuç ve Yol Haritası'ndaki açık kalemler, codebase'de doğrulanarak güncellendi. ESLint sıfır-uyarı zaten ulaşıldı; aşağıdakiler hâlâ açık.
+
+### Orta öncelik
+
+- [x] **AIConfig erişim metotlarını/çağrı fan-out'unu azalt.** 13 erişim metodu → 5 exported metot (`ResolvedQuery`, `ResolvedEmbedding`, `ResolvedTranslation`, `HTTPTimeout`, `RequestTimeout`) + 3 view tipi (`AIQueryView`, `AIEmbeddingView`, `AITranslationView`). Dış çağrı: 93 → 58. `make lint-go` temiz.
+  - **Dosyalar**: `internal/config/config.go`, `internal/ai/service.go`, `internal/ai/provider/*.go`, `internal/app/dependencies.go`, `internal/http/handlers/ai.go` + testler.
+
+- [ ] **TableRouter.Route'u dallanmadan arındır.** `Route` fonksiyonu ~136 satır, `//nolint:funlen` ile bastırılmış, 21 dallanma noktası (`internal/ai/routing/router.go:184-318`). Karmaşıklık hâlâ yüksek (~27).
+  - **Kabul kriteri**: `Route` ≤80 satır, `funlen`/`gocyclo`/`gocognit` nolint kaldırılmış, davranış testleri (`internal/ai/routing/table_router_test.go`) geçiyor.
+  - **Dosyalar**: `internal/ai/routing/router.go` + mevcut test dosyaları.
+
+### Düşük öncelik
+
+- [ ] **Repo genelindeki ~162 nolint direktifini kademeli azalt.** Dokümanda ~47 denmiş ama gerçek sayı 162 (123 production + 39 test). Dağılım: `gocognit` (21), `nestif` (18), `funlen` (10+), `recvcheck` (8), `nilnil` (8), `gosec` (13), diğerleri. Strateji: önce production dosyalardaki `funlen`/`gocognit`/`nestif` gruplarını refaktörle çöz (fonksiyon bölme, early return), sonra `gosec` ve `nilnil` için justified kalmayanları temizle.
+  - **Kabul kriteri**: nolint sayısı <80; yeni nolint eklenmiyor; her kaldırılan nolint için ilgili linter geçiyor.
+  - **Dosyalar**: `grep -rl '//nolint' --include='*.go' .` ile tespit edilen 40+ dosya.
+
+- [ ] **`internal/queue` kapsam tabanını yükselt (%40 → en az %60).** Mevcut taban %40 (`scripts/coveragecheck/main.go:35`). Queue kritik bir altyapı paketi — NATS publish/subscribe, local fallback, job lifecycle yönetimi. Mevcut ~%42.5 kapsama sahip; daha fazla birim test ile %60+ mümkün.
+  - **Kabul kriteri**: `scripts/coveragecheck/main.go`'daki floor %60; `make coverage-gate` geçiyor; yeni testler NATS olmadan da çalışıyor (local queue yolu).
+  - **Dosyalar**: `internal/queue/*.go`, `scripts/coveragecheck/main.go`.
+
+- [ ] **Kritik paketlerin kapsam tabanlarını kademeli yükselt.** Mevcut tabanlar: dialect & sürücüler %85, config/dashboard %80. Queue (%40) yukarıda ayrı. Hedef: `internal/ai/routing` ve `internal/auth` için de kapsam tabanı ekleyip zamanla yükseltmek.
+  - **Kabul kriteri**: En az 2 yeni paket `scripts/coveragecheck/main.go` floors map'ine eklenmiş; her biri için `make coverage-gate` geçiyor.
+  - **Dosyalar**: `scripts/coveragecheck/main.go`, yeni test dosyaları.
+
+- [ ] **Canlı-eval baseline'ını periyodik güncelle.** `eval-nightly.yml` mevcut, `-min-pass-rate 0.85 -fail-on-drift` ile çalışıyor. Golden case baseline yeni lehçe/edge senaryoları eklendikçe güncel tutulmalı; yoksa drift raporu yanıltıcı olur.
+  - **Kabul kriteri**: Her sprint'te en az 1 yeni golden case eklenmiş; baseline commit'i güncel.
+  - **Dosyalar**: `internal/ai/eval/`, `cmd/eval-live/`, `.github/workflows/eval-nightly.yml`.
+
+- [ ] **Span'lere kritik öznitelikler ekleme (devam eden iyileştirme).** Mevcut: 16+ span, `ai.model`, `ai.attempt`, `query.fingerprint` ekli. Kalan: LLM token kullanımı (prompt/completion/total), route confidence score, datasource driver tipi, derleme süresi dağılımı.
+  - **Kabul kriteri**: Her yeni span özniteliği Jaeger'da görülebilir; trace örnekleme oranı prod yüküne göre ayarlanmış.
+  - **Dosyalar**: `internal/ai/service.go`, `internal/ai/routing/router.go`, `internal/datasource/*.go`, `internal/platform/observability/*.go`.
+
+- [ ] **Prometheus etiket kardinalitesini izleme.** `internal/platform/observability/metrics.go` — 35 alan, kardinalite sınırlandırması yapılmış (`853739e`) ama aktif olarak izlenmeli. Yüksek kardinaliteli etiketler (user_id, query_id) varsa Prometheus bellek şişer.
+  - **Kabul kriteri**: Grafana dashboard'da etiket kardinalite metrikleri görünür; yeni etiket eklenirken kardinalite limiti kontrolü yapılıyor.
+  - **Dosyalar**: `internal/platform/observability/metrics.go`, Helm Grafana dashboard config.
+
+- [ ] **Dev çerez istisnasının prod'a sızmadığını periyodik doğrula.** Local-dev'de port 8889'da `Secure=false` çerez istisnası var. `env.IsProduction()` fail-closed ile korunuyor ama bu invariant test ile sürekli doğrulanmalı.
+  - **Kabul kriteri**: CI'da `TestProductionAuthEnabledFailClosed` geçiyor; manuel doğrulama en az ayda bir.
+  - **Dosyalar**: `internal/auth/cookie.go`, `internal/config/config.go`.
+
+### Tamamlanan (önceki turlarda)
+
+- [x] AIConfig alanları 9 alt-struct'a bölündü
+- [x] ValidateContext/ValidateComposite/PasswordPolicy.Validate tek-haneye indirildi
+- [x] Nightly canlı-LLM eval + drift kapısı eklendi
+- [x] Prod'da auth fail-closed invariant (`env.IsProduction()`)
+- [x] OTEL span derinliği 3→16+
+- [x] queue kapsam tabanına alındı (%40)
+- [x] Flaky TestMFABypassCodeFlow stabilize edildi
+- [x] ESLint sıfır-uyarıya çekildi (`--max-warnings 0`)
+- [x] CSP + X-Frame-Options + prod HSTS güvenlik başlıkları
+- [x] CodeQL + govulncheck + semgrep SAST taramaları aktif
+
+---
+
 ## Teknik Analiz Raporu — Kalan Boşluklar (2026-06-07)
 
 `tasks/biqly_analiz.pdf` (Sürüm 3.0) raporundaki kalan öneriler kod tabanında doğrulandı. İlk denetimdeki 8 boşluğun 7'si kapatılmış; aşağıdakiler hâlâ açık. Öncelik sırasıyla:

@@ -893,7 +893,10 @@ story += [mk_table(
  [["ci.yml", "Ana hat. backend (vet → test -race+cov → <b>AI eval regresyon kapısı</b> → tüm cmd/* derle), lint (golangci v2.12.2), frontend (npm run check = eslint+prettier+knip+vitest+build), docker-api & docker-frontend push."],
   ["test.yml", "Hafif kapı (PR’larda da): go test, golangci-lint, <b>helm lint + template</b>."],
   ["build-{ai,query,catalog,auth,mail,migrate}.yml", "Servis başına Docker imaj derleme/push (QEMU+buildx, linux/arm64). Etiket: <font name='Mono'>sha-&lt;commit&gt;</font>. migrate her main push’ında derlenir."],
-  ["semgrep.yml", "SAST: p/security-audit, p/golang, p/react, p/typescript, p/owasp-top-ten → SARIF → fail-gate → GitHub Security. Push/PR + haftalık cron."],
+  ["semgrep.yml", "SAST: p/security-audit, p/golang, p/react, p/typescript, p/owasp-top-ten → SARIF → fail-gate → GitHub Security. Push/PR + haftalık cron + manuel."],
+  ["codeql.yml", "CodeQL Advanced SAST: diller Go (autobuild) + JS/TS + Actions; push/PR + haftalık cron (Pzr 03:38)."],
+  ["eval-nightly.yml", "Gecelik (cron 02:00) <b>canlı-LLM</b> doğruluk koşusu: <font name='Mono'>cmd/eval-live</font> · min-pass 0.85 · drift’te başarısız; kimlik yoksa atlar."],
+  ["govulncheck", "Her CI koşusunda <font name='Mono'>govulncheck ./...</font> ile bilinen-zafiyet taraması."],
  ],
  [42*mm, CONTENT_W-42*mm])]
 
@@ -1053,25 +1056,25 @@ story += [H1("10. Sonuç ve Yol Haritası")]
 story += [P("Biqly; canlı kümede <b>saf mikroservis</b> olarak çalışan (her servis ayrı Deployment; public edge "
             "<b>cloudflared</b> tüneli, LAN’da Cilium Gateway — her ikisi de path-bazlı yönlendirme), disiplinli, "
             "katmanlı-güvenlikli ve <b>standardın üzerindeki AI/text-to-SQL motoruyla</b> üretime hazır, geç-aşama "
-            "bir kod tabanıdır. Bu doküman, önceki raporlardaki önerilerin uygulanmış halidir: ilk denetimdeki <b>8 boşluğun "
-            "7’si tamamen kapatıldı</b>; bu turda ayrıca 4 yüksek-karmaşıklık fonksiyonu indirildi, prod-tespiti birleştirildi ve "
-            "catalog’daki kimliksiz-erişim açığı kapatıldı. Tüm değişiklikler kodda ve canlı kümede doğrulandı "
-            "(<font name='Mono'>go build ./...</font> · <font name='Mono'>go vet</font> · kubectl).")]
+            "bir kod tabanıdır. Bu doküman, ardışık denetim turlarındaki önerilerin uygulanmış halidir: önceki yol "
+            "haritasındaki <b>8 maddeden 7’si bu turda kapatıldı</b> — validatörler tek-haneye indirildi, prod auth "
+            "fail-closed invariant oldu, nightly canlı-LLM eval + drift kapısı eklendi, OTEL span’leri 3→16 derinleşti, "
+            "flaky MFA testi izole edildi, queue kapsam kapısına alındı, ESLint sıfır-uyarıya çekildi. Yalnızca "
+            "<font name='Mono'>AIConfig</font> kısmen açık. Tüm değişiklikler kodda ve canlı kümede doğrulandı "
+            "(build · vet · lint 0-uyarı · MFA testi · kubectl).")]
 story += [H3("Kalan öneriler (azalan öncelik)")]
 story += [mk_table(
  ["Öncelik", "Aksiyon", "Etki"],
- [["<b>Orta</b>", "<font name='Mono'>AIConfig</font>’in üst-seviye alanlarını gerçekten dışarı taşı (rename değil)", "Tek kalan KRİTİK tanrı-nesnesini kapatır"],
-  ["Orta", "Kalan yüksek-karmaşıklık fonksiyonları (ValidateContext 39 · ValidateComposite 27 · PasswordPolicy.Validate 25)", "Bakım borcu, test edilebilirlik"],
-  ["Orta", "Periyodik (nightly) <b>canlı-LLM</b> eval koşusu", "Stub-determinist eşiğin ötesinde gerçek doğruluk kayması"],
-  ["Orta", "Prod’da <font name='Mono'>BI_AUTH_ENABLED</font>’ı zorunlu invariant yap", "Ağ-güvenine düşmeyi engeller (fail-closed)"],
-  ["Düşük", "İzleme derinliği (sürücü/DB span’leri); flaky <font name='Mono'>TestMFABypassCodeFlow</font> izolasyonu", "Gözlem granülerliği / CI kararlılığı"],
-  ["Düşük", "<font name='Mono'>queue</font>’yu kapsam-taban haritasına ekle", "Hijyen / tutarlılık"],
+ [["<b>Orta</b>", "<font name='Mono'>AIConfig</font>’in erişim metotlarını/çağrı fan-out’unu azalt (alanlar 21→9 yapıldı)", "Son KRİTİK god-object şeklini çözer"],
+  ["Düşük", "<font name='Mono'>TableRouter.Route</font>’u dallanmadan arındır (karmaşıklık 27)", "Bakım borcu, test edilebilirlik"],
+  ["Düşük", "Repo genelindeki ~47 <font name='Mono'>nolint</font> direktifini kademeli azalt", "Linter kapsamını genişletir"],
+  ["Düşük", "queue kapsam tabanını (%40) ve kritik paketleri yükselt; canlı-eval baseline’ını güncel tut", "Test güveni / regresyon erken yakalama"],
  ],
  [22*mm, CONTENT_W-22*mm-58*mm, 58*mm])]
 story += [SP(10)]
 story += [Q("Bu doküman; kaynak kod statik analizine (gograph), doğrudan kaynak incelemesine, git geçmişi doğrulamasına "
-            "ve <b>canlı Kubernetes kümesinin kubectl ile incelenmesine</b> dayanır. Skor kartı, geliştirme-sonrası kanıta "
-            "dayalı niteliksel değerlendirmenin özetidir (ortalama ~4.4/5).")]
+            "ve <b>canlı Kubernetes kümesinin kubectl ile incelenmesine</b> (cloudflared + Cilium Gateway dâhil) dayanır. "
+            "Skor kartı, geliştirme-sonrası kanıta dayalı niteliksel değerlendirmenin özetidir (ortalama ~4.5/5).")]
 
 # --------------------------------------------------------------------------
 # Derle (çok geçişli — TOC için)
