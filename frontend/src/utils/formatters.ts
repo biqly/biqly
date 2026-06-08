@@ -16,6 +16,35 @@ export function localeNumberTag(locale: Locale): string {
 }
 
 /** Safe display string for unknown cell/query values (avoids implicit object toString). */
+/** Human-readable duration from milliseconds (ms, s, or min as appropriate). */
+export function formatDurationMs(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) {
+    return '—'
+  }
+  const rounded = Math.round(ms)
+  if (rounded < 1000) {
+    return `${rounded} ms`
+  }
+  const totalSeconds = rounded / 1000
+  if (totalSeconds < 60) {
+    return totalSeconds < 10 ? `${totalSeconds.toFixed(1)} s` : `${Math.round(totalSeconds)} s`
+  }
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = Math.round(totalSeconds % 60)
+  if (minutes < 60) {
+    if (seconds === 0) {
+      return `${minutes} min`
+    }
+    return `${minutes} min ${seconds} s`
+  }
+  const hours = Math.floor(minutes / 60)
+  const remMinutes = minutes % 60
+  if (remMinutes === 0) {
+    return `${hours} h`
+  }
+  return `${hours} h ${remMinutes} min`
+}
+
 export function unknownToDisplayString(value: unknown): string {
   if (value === null || value === undefined) {
     return ''

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAdminLookups } from '../../hooks/useAdminLookups'
 import { useApi } from '../../hooks/useApi'
 import { useT } from '../../i18n'
+import { formatDurationMs } from '../../utils/formatters'
 import { useAuth } from '../auth/AuthProvider'
 import { KPICard } from '../ui/KPICard'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
@@ -257,7 +258,7 @@ export function AIUsageAdminPanel() {
                 pageRows.map((row) => {
                   const userLabel = row.user_id
                     ? (userLabelByID.get(row.user_id) ?? row.user_id)
-                    : t('admin.ai_usage.anonymous')
+                    : '—'
                   const key = `${row.user_id}:${row.model_used}`
                   return (
                     <tr key={key}>
@@ -274,7 +275,7 @@ export function AIUsageAdminPanel() {
                       </td>
                       <td style={tdStyle}>{formatUSD(row.total_cost_usd)}</td>
                       <td style={tdStyle}>
-                        {row.avg_latency_ms > 0 ? `${Math.round(row.avg_latency_ms)}ms` : '—'}
+                        {formatDurationMs(row.avg_latency_ms)}
                       </td>
                     </tr>
                   )

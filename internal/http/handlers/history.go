@@ -6,6 +6,7 @@ import (
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/ai/routing"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
@@ -43,7 +44,7 @@ func (h *AIHandler) recordAIHistory(
 	routeResult *routing.TableRoutingResult,
 	resp *ai.Response,
 ) {
-	entry := buildAIHistoryEntry(req, model, routeResult, resp)
+	entry := buildAIHistoryEntry(ctx, req, model, routeResult, resp)
 	if h.deps.CatalogClient != nil {
 		if _, err := h.deps.CatalogClient.CreateAIHistory(ctx, entry); err != nil {
 			slog.ErrorContext(ctx, "create AI query history via catalog failed", "error", err)
@@ -55,7 +56,15 @@ func (h *AIHandler) recordAIHistory(
 	}
 }
 
+func historyUserID(ctx context.Context) string {
+	if id := ai.UserIDFromContext(ctx); id != "" {
+		return id
+	}
+	return bimw.UserID(ctx)
+}
+
 func buildAIHistoryEntry(
+	ctx context.Context,
 	req aiQueryRequest,
 	model *semantic.SemanticModel,
 	routeResult *routing.TableRoutingResult,
@@ -110,6 +119,9 @@ func buildAIHistoryEntry(
 		Warnings:        warnings,
 		ABExperimentID:  nullIfEmpty(abExpID),
 		ABVariantID:     nullIfEmpty(abVarID),
+	}
+	if userID := historyUserID(ctx); userID != "" {
+		entry.UserID = new(userID)
 	}
 	enrichAIHistoryEntry(entry, resp)
 	return entry
