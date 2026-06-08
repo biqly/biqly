@@ -5,7 +5,7 @@
  * @param rows - 2D array of values from the API
  * @returns Array of objects with name and value properties
  */
-export function rowsToChartData(rows: any[][] | undefined) {
+export function rowsToChartData(rows: unknown[][] | undefined) {
   return (
     rows?.map((row) => {
       const obj: { name: string; value?: number } = { name: String(row[0]) }

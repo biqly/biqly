@@ -44,7 +44,7 @@ interface EvalRunTabProps {
     test_cases: EvalTestCase[]
   } | null
   pieData: { name: string; value: number; fill: string }[]
-  trendData: any[]
+  trendData: { date: string; pass_rate: number; pass_rate_pct: number }[]
   t: TFunction
 }
 
@@ -200,7 +200,12 @@ export function EvalRunTab({
                       <YAxis stroke={chartAxisStroke} domain={[0, 100]} tick={smallChartTick} />
                       <RechartsTooltip
                         contentStyle={chartTooltipStyle}
-                        formatter={(v: any) => (v != null ? `${v}%` : '')}
+                        formatter={(v) => {
+                          if (typeof v === 'number' || typeof v === 'string') {
+                            return `${v}%`
+                          }
+                          return ''
+                        }}
                       />
                       <Bar dataKey="pass_rate_pct" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                     </BarChart>

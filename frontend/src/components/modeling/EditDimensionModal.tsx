@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import type { useT } from '../../i18n'
+import type { TranslationKey, useT } from '../../i18n'
 import type {
   ColumnRow,
   SemanticDimension,
@@ -307,7 +307,7 @@ export function EditDimensionModal({
                 setCalculatedExpression(textExpr)
                 setCalculatedExpr(node)
               }}
-              t={(key, vars) => t(key as any, vars)}
+              t={(key, vars) => t(key as TranslationKey, vars)}
             />
           </div>
         )}

@@ -1,17 +1,21 @@
 import type { TFunction } from '../../i18n'
+import type { SemanticDimension, SemanticMetric } from '../../types/semantic'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
 import type { SelectItem } from './types'
+import type { dimFieldOptions, metricFieldOptions } from './utils'
+
+type FieldSelectOption = ReturnType<typeof dimFieldOptions>[number]
 
 interface FieldsStepProps {
   selectItems: SelectItem[]
-  dimensions: any[]
-  metrics: any[]
+  dimensions: SemanticDimension[]
+  metrics: SemanticMetric[]
   updateSelectItem: (i: number, field: keyof SelectItem, v: string) => void
   removeSelectItem: (i: number) => void
   addSelectItem: () => void
-  dimFieldOptions: (dims: any[]) => any[]
-  metricFieldOptions: (metrics: any[]) => any[]
+  dimFieldOptions: (dims: SemanticDimension[]) => FieldSelectOption[]
+  metricFieldOptions: (metrics: SemanticMetric[]) => ReturnType<typeof metricFieldOptions>
   t: TFunction
 }
 

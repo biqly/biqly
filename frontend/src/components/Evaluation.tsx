@@ -24,6 +24,7 @@ type PreloadableComponent<T extends ComponentType> = LazyExoticComponent<T> & {
   preload: () => Promise<{ default: T }>
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- React.lazy + named exports; props differ per tab
 const lazyWithPreload = <T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>,
 ): PreloadableComponent<T> => {

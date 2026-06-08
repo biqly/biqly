@@ -81,6 +81,10 @@ func (s *AIModelAccessService) UserAIAccess(ctx context.Context, userID string) 
 	if err != nil {
 		return nil, err
 	}
+	return s.userAIAccessWithRestricted(ctx, userID, restricted)
+}
+
+func (s *AIModelAccessService) userAIAccessWithRestricted(ctx context.Context, userID string, restricted bool) (*UserAIAccess, error) {
 	out := &UserAIAccess{
 		Restricted:  restricted,
 		Preferences: map[string]string{},
@@ -185,16 +189,23 @@ func (s *AIModelAccessService) CanUseModel(ctx context.Context, userID, modelID 
 	if !restricted {
 		return true, nil
 	}
-	access, err := s.UserAIAccess(ctx, userID)
+	access, err := s.userAIAccessWithRestricted(ctx, userID, restricted)
 	if err != nil {
 		return false, err
 	}
-	for _, id := range access.ModelIDs {
-		if id == modelID {
-			return true, nil
-		}
+	return hasModelID(access, modelID), nil
+}
+
+func hasModelID(access *UserAIAccess, modelID string) bool {
+	if access == nil {
+		return false
 	}
-	return false, nil
+	modelIDSet := make(map[string]struct{}, len(access.ModelIDs))
+	for _, id := range access.ModelIDs {
+		modelIDSet[id] = struct{}{}
+	}
+	_, ok := modelIDSet[modelID]
+	return ok
 }
 
 func (s *AIModelAccessService) SetUserPreference(ctx context.Context, userID, purpose, modelID string) error {

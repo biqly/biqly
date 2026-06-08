@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import type { useT } from '../../i18n'
+import type { TranslationKey, useT } from '../../i18n'
 import type {
   ColumnRow,
   SemanticExprNode,
@@ -20,6 +20,12 @@ const METRIC_AGGREGATION_OPTIONS = [
   { value: 'min', label: 'min' },
   { value: 'max', label: 'max' },
 ] as const
+
+type StandardAggregation = (typeof METRIC_AGGREGATION_OPTIONS)[number]['value']
+
+function isStandardAggregation(value: string): value is StandardAggregation {
+  return METRIC_AGGREGATION_OPTIONS.some((opt) => opt.value === value)
+}
 
 export interface AddMetricModalProps {
   model: SemanticModelDetail
@@ -70,9 +76,11 @@ export function AddMetricModal({
   const [selectedSchema, setSelectedSchema] = useState(initialSchema)
   const [selectedTable, setSelectedTable] = useState(initialTable)
   const [selectedColumn, setSelectedColumn] = useState(initialColumn)
-  const [selectedAggregation, setSelectedAggregation] = useState<
-    'count' | 'sum' | 'avg' | 'min' | 'max' | 'count_distinct'
-  >(metric && metric.aggregation !== 'custom' ? (metric.aggregation as any) : 'sum')
+  const [selectedAggregation, setSelectedAggregation] = useState<StandardAggregation>(
+    metric && metric.aggregation !== 'custom' && isStandardAggregation(metric.aggregation)
+      ? metric.aggregation
+      : 'sum',
+  )
   const [format, setFormat] = useState(metric ? (metric.format ?? '') : '')
 
   // Custom Mode state
@@ -357,7 +365,7 @@ export function AddMetricModal({
                 setExpression(textExpr)
                 setAstNode(node)
               }}
-              t={(key, vars) => t(key as any, vars)}
+              t={(key, vars) => t(key as TranslationKey, vars)}
             />
           </div>
         )}

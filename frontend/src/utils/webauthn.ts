@@ -1,4 +1,4 @@
-/** Base64url credential descriptor from Biqly auth API (before buffer conversion). */
+/** Base64url credential descriptor from the auth API (before buffer conversion). */
 export interface WebAuthnCredentialDescriptorJSON {
   id: string
   type?: PublicKeyCredentialType

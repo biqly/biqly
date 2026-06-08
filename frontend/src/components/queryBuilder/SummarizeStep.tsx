@@ -1,13 +1,15 @@
 import type { TFunction } from '../../i18n'
+import type { SemanticDimension, SemanticMetric } from '../../types/semantic'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
 import type { SelectItem } from './types'
+import type { dimOptionsForGroupRow, metricFieldOptions } from './utils'
 
 interface SummarizeStepProps {
   selectItems: SelectItem[]
   groupBy: string[]
-  dimensions: any[]
-  metrics: any[]
+  dimensions: SemanticDimension[]
+  metrics: SemanticMetric[]
   updateSelectItem: (i: number, field: keyof SelectItem, v: string) => void
   removeSelectItem: (i: number) => void
   addMetricSelectItem: (v: string) => void
@@ -15,8 +17,12 @@ interface SummarizeStepProps {
   removeGroupByRow: (i: number) => void
   addGroupByRow: () => void
   onClear: () => void
-  metricFieldOptions: (metrics: any[]) => any[]
-  dimOptionsForGroupRow: (dims: any[], groupBy: string[], i: number) => any[]
+  metricFieldOptions: (metrics: SemanticMetric[]) => ReturnType<typeof metricFieldOptions>
+  dimOptionsForGroupRow: (
+    dims: SemanticDimension[],
+    groupBy: string[],
+    i: number,
+  ) => ReturnType<typeof dimOptionsForGroupRow>
   t: TFunction
 }
 

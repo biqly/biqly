@@ -78,7 +78,7 @@ export function usePasskeyRegistration(accessToken: string) {
       await apiPasskeyRegisterFinish(accessToken, credentialJson, name.trim())
       return true
     } catch (err: unknown) {
-      const errorObject = err as Record<string, any>
+      const errorObject = err as { name?: string; message?: string }
       if (errorObject.name !== 'NotAllowedError') {
         setError(errorObject.message ?? 'Passkey registration failed')
       }

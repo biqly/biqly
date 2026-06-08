@@ -24,7 +24,7 @@ test('handles non-numeric values gracefully', () => {
     ['Jan', 'invalid'],
     ['Feb', null],
   ]
-  const result = rowsToChartData(rows as any)
+  const result = rowsToChartData(rows)
   expect(result).toEqual([
     { name: 'Jan', value: 0 },
     { name: 'Feb', value: 0 },

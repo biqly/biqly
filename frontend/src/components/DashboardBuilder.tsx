@@ -626,7 +626,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                     <Select
                       id="w-height"
                       value={configHeight}
-                      onChange={(val: any) => setConfigHeight(val)}
+                      onChange={setConfigHeight}
                       options={[
                         { value: 'small', label: 'Small (180px)' },
                         { value: 'medium', label: 'Medium (300px)' },
@@ -643,7 +643,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                   <Select
                     id="w-type"
                     value={configType}
-                    onChange={(val: any) => setConfigType(val)}
+                    onChange={setConfigType}
                     options={[
                       { value: 'text', label: 'Text Block' },
                       { value: 'kpi', label: 'KPI Summary Card' },
@@ -770,7 +770,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                               <Select
                                 id="w-chart-type"
                                 value={configChartType}
-                                onChange={(val: any) => setConfigChartType(val)}
+                                onChange={setConfigChartType}
                                 options={[
                                   { value: 'line', label: '📈 Line Chart' },
                                   { value: 'bar', label: '📊 Bar Chart' },

@@ -18,8 +18,11 @@ type PreloadableComponent<T extends ComponentType> = LazyExoticComponent<T> & {
   preload: () => Promise<{ default: T }>
 }
 
-type AdminLazyPanel = PreloadableComponent<ComponentType<any>>
+interface AdminLazyPanel {
+  preload: () => Promise<unknown>
+}
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- React.lazy + named exports; props differ per panel
 const lazyWithPreload = <T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>,
 ): PreloadableComponent<T> => {
