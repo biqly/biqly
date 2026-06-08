@@ -274,9 +274,7 @@ export function AIUsageAdminPanel() {
                         {formatTokens(row.prompt_tokens, row.completion_tokens, row.total_tokens)}
                       </td>
                       <td style={tdStyle}>{formatUSD(row.total_cost_usd)}</td>
-                      <td style={tdStyle}>
-                        {formatDurationMs(row.avg_latency_ms)}
-                      </td>
+                      <td style={tdStyle}>{formatDurationMs(row.avg_latency_ms)}</td>
                     </tr>
                   )
                 })
