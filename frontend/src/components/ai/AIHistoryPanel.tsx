@@ -326,9 +326,3 @@ const tdStyle: React.CSSProperties = {
   padding: '12px 16px',
   color: 'var(--text-primary, #f4f4f5)',
 }
-
-const errStyle: React.CSSProperties = {
-  color: 'var(--error, crimson)',
-  padding: 16,
-  fontWeight: 600,
-}
