@@ -1,0 +1,40 @@
+name: Mirror Argo CD Image Updater
+
+# Upstream lives on quay.io; our cluster cannot reach quay reliably. Mirror to GHCR
+# so the argocd-image-updater controller can pull from ghcr.io/biqly/* instead.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/mirror-argocd-image-updater.yml
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  UPSTREAM_IMAGE: quay.io/argoprojlabs/argocd-image-updater:v1.2.0
+  TARGET_IMAGE: ghcr.io/biqly/argocd-image-updater:v1.2.0
+
+jobs:
+  mirror:
+    name: Mirror to GHCR
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Copy upstream image to GHCR
+        run: |
+          set -euo pipefail
+          docker pull "${UPSTREAM_IMAGE}"
+          docker tag "${UPSTREAM_IMAGE}" "${TARGET_IMAGE}"
+          docker push "${TARGET_IMAGE}"
+          echo "Mirrored ${UPSTREAM_IMAGE} -> ${TARGET_IMAGE}"

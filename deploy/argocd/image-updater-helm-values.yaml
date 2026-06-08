@@ -1,4 +1,15 @@
 # Helm values for: helm upgrade --install argocd-image-updater argo/argocd-image-updater -n argocd -f deploy/argocd/image-updater-helm-values.yaml
+#
+# Controller image is mirrored to GHCR (see .github/workflows/mirror-argocd-image-updater.yml)
+# because quay.io is unreachable from the cluster.
+image:
+  repository: ghcr.io/biqly/argocd-image-updater
+  tag: v1.2.0
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: ghcr-registry
+
 createClusterRoles: true
 rbac:
   enabled: true

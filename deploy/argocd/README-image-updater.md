@@ -34,6 +34,15 @@ Non-interactive (after you have the PAT):
 BIQLY_GITHUB_TOKEN='github_pat_...' ./deploy/argocd/setup-github-pat.sh
 ```
 
+## Controller image (GHCR mirror)
+
+The Helm chart pulls `ghcr.io/biqly/argocd-image-updater:v1.2.0`, mirrored from `quay.io/argoprojlabs/argocd-image-updater:v1.2.0` because the cluster cannot reach quay.io.
+
+- Workflow: `.github/workflows/mirror-argocd-image-updater.yml` (weekly + manual dispatch)
+- Helm override: `deploy/argocd/image-updater-helm-values.yaml` (`image.repository`, `imagePullSecrets: ghcr-registry`)
+
+After bumping the upstream version in the workflow, run the workflow once, then update `image.tag` in the values file and reinstall.
+
 ## Install / reinstall
 
 ```bash
