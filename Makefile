@@ -69,7 +69,7 @@ test-go:
 # Generates coverage.out first when it is missing so the target is runnable on
 # its own. See scripts/coveragecheck for the floors.
 coverage-gate:
-	@test -f coverage.out || go test -coverprofile=coverage.out ./internal/dialect/... ./internal/datasource/... ./internal/config/... ./internal/dashboard/... ./internal/queue/...
+	@test -f coverage.out || go test -coverprofile=coverage.out ./internal/dialect/... ./internal/datasource/... ./internal/config/... ./internal/dashboard/... ./internal/queue/... ./internal/ai/routing/... ./internal/auth
 	@go run ./scripts/coveragecheck -profile coverage.out
 
 test-frontend:

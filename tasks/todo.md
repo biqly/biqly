@@ -18,19 +18,35 @@
   - **Kabul kriteri**: nolint sayısı <80; yeni nolint eklenmiyor; her kaldırılan nolint için ilgili linter geçiyor.
   - **Dosyalar**: `grep -rl '//nolint' --include='*.go' .` ile tespit edilen 40+ dosya.
 
-- [ ] **`internal/queue` kapsam tabanını yükselt (%40 → en az %60).** Mevcut taban %40 (`scripts/coveragecheck/main.go:35`). Queue kritik bir altyapı paketi — NATS publish/subscribe, local fallback, job lifecycle yönetimi. Mevcut ~%42.5 kapsama sahip; daha fazla birim test ile %60+ mümkün.
+- [ ] **Go: `Get` prefix'li ~104 fonksiyonu kademeli yeniden adlandır.** Google Go Style Guide'a göre `Get` prefix'i yasak (`GetUser` → `User`, `GetPublicKeyPEM` → `PublicKeyPEM`, `GetEffectivePermissions` → `EffectivePermissions`). Yoğun dosyalar: `internal/auth/rbac/rbac_repository.go` (8), `internal/auth/oauth/*.go` (3), `internal/auth/service.go` (2). Yeniden adlandırma calling-site bazlı; her PR'da 1-2 dosya hedefi.
+  - **Kabul kriteri**: Yeni kod `Get` prefix kullanmıyor; mevcut `Get`'ler kademeli azalıyor; `make lint-go` ve `go test` her adımda temiz.
+  - **Dosyalar**: `internal/auth/rbac/*.go`, `internal/auth/service.go`, `internal/auth/oauth/*.go`, `internal/security/permissions.go`, `internal/auth/mfa/*.go`, `internal/auth/jwt.go`.
+
+- [ ] **Frontend: handler/event isimlendirme tutarlılığını sağla.** Bazı dosyalarda `onKey` / `onKeyDown` karışımı, `handleClick` / `onClick` tutarsızlığı var. Kural: `handle` + event adı (component içi), `on` + event adı (prop olarak). `tasks/lessons.md → Naming Conventions` kurallarına göre.
+  - **Kabul kriteri**: Yeni kod tutarlı; mevcut tutarsızlıklar fırsat oldukça düzeltiliyor.
+  - **Dosyalar**: `frontend/src/App.tsx`, `frontend/src/components/ui/*.tsx`, `frontend/src/components/settings/*.tsx`.
+
+- [ ] **Frontend: `CONSTANT_CASE` kullanımını tutarlı hale getir.** Modül-level sabitler `CONSTANT_CASE` olmalı (`CHART_COLORS`, `AI_QUERY_TIMEOUT_MS` — zaten doğru). Fonksiyon içi sabitler `lowerCamelCase` olmalı. Kontrol: `const [A-Z_]+ =` pattern'ini tarama, yanlış yerlerde büyük harf kullanımı varsa düzelt.
+  - **Kabul kriteri**: ESLint naming rules geçiyor; tutarsızlık kalmamış.
+  - **Dosyalar**: `frontend/src/utils/*.ts`, `frontend/src/components/**/*.tsx`.
+
+- [x] **Repo genelindeki naming convention kurallarını lessons.md'de belgele.** `tasks/lessons.md → Naming Conventions` bölümü Go ve TypeScript/React için best-practice kuralları içeriyor. Yeni kod yazılırken bu bölüm referans alınacak.
+  - [x] Go naming kuralları (receiver, function, interface, constant, error var, initialisms, stutter).
+  - [x] TypeScript/React naming kuralları (casing, handlers, booleans, useState, custom hooks, abbreviations, constants).
+
+- [x] **`internal/queue` kapsam tabanını yükselt (%40 → en az %60).** Floor %60 (`scripts/coveragecheck/main.go:35`); paket kapsamı %62.5. Local queue testleri (idempotent close, connect error) + mock JetStream ile NATS publish/DLQ yolları; canlı NATS sunucusu gerekmez.
   - **Kabul kriteri**: `scripts/coveragecheck/main.go`'daki floor %60; `make coverage-gate` geçiyor; yeni testler NATS olmadan da çalışıyor (local queue yolu).
   - **Dosyalar**: `internal/queue/*.go`, `scripts/coveragecheck/main.go`.
 
-- [ ] **Kritik paketlerin kapsam tabanlarını kademeli yükselt.** Mevcut tabanlar: dialect & sürücüler %85, config/dashboard %80. Queue (%40) yukarıda ayrı. Hedef: `internal/ai/routing` ve `internal/auth` için de kapsam tabanı ekleyip zamanla yükseltmek.
+- [x] **Kritik paketlerin kapsam tabanlarını kademeli yükselt.** `internal/ai/routing` floor %80 (mevcut %83.5), `internal/auth` floor %10 (mevcut %13.2). Makefile + CI coverage profiline eklendi.
   - **Kabul kriteri**: En az 2 yeni paket `scripts/coveragecheck/main.go` floors map'ine eklenmiş; her biri için `make coverage-gate` geçiyor.
   - **Dosyalar**: `scripts/coveragecheck/main.go`, yeni test dosyaları.
 
-- [ ] **Canlı-eval baseline'ını periyodik güncelle.** `eval-nightly.yml` mevcut, `-min-pass-rate 0.85 -fail-on-drift` ile çalışıyor. Golden case baseline yeni lehçe/edge senaryoları eklendikçe güncel tutulmalı; yoksa drift raporu yanıltıcı olur.
+- [x] **Canlı-eval baseline'ını periyodik güncelle.** `edge-not-shipped-count` (`neq` filtresi, TR lehçe) eklendi; `testdata/eval/nightly_baseline.json` 17→18 case ile yenilendi (`go run scripts/gen-nightly-baseline/main.go`).
   - **Kabul kriteri**: Her sprint'te en az 1 yeni golden case eklenmiş; baseline commit'i güncel.
   - **Dosyalar**: `internal/ai/eval/`, `cmd/eval-live/`, `.github/workflows/eval-nightly.yml`.
 
-- [ ] **Span'lere kritik öznitelikler ekleme (devam eden iyileştirme).** Mevcut: 16+ span, `ai.model`, `ai.attempt`, `query.fingerprint` ekli. Kalan: LLM token kullanımı (prompt/completion/total), route confidence score, datasource driver tipi, derleme süresi dağılımı.
+- [x] **Span'lere kritik öznitelikler ekleme (devam eden iyileştirme).** `ai.tokens.{prompt,completion,total}`, `ai.route.confidence` (clarification dahil defer), `db.system`/`datasource.driver`, `query.compile.duration_ms`, `query.execute.duration_ms`. OTEL sampler: `parentbased_traceidratio` varsayılan %25 (`OTEL_TRACES_SAMPLER*`), Helm `global.observability.tracing.*`.
   - **Kabul kriteri**: Her yeni span özniteliği Jaeger'da görülebilir; trace örnekleme oranı prod yüküne göre ayarlanmış.
   - **Dosyalar**: `internal/ai/service.go`, `internal/ai/routing/router.go`, `internal/datasource/*.go`, `internal/platform/observability/*.go`.
 

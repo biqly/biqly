@@ -11,15 +11,25 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
+const aiJobMaxDeliver = 3
+
 type NATSConfig struct {
 	URL     string
 	Stream  string
 	Subject string
 }
 
+// jetStreamClient is the subset of jetstream.JetStream used by NATSQueue.
+// It exists so unit tests can inject mocks without a live NATS server.
+type jetStreamClient interface {
+	CreateOrUpdateStream(ctx context.Context, cfg jetstream.StreamConfig) (jetstream.Stream, error)
+	CreateOrUpdateConsumer(ctx context.Context, stream string, cfg jetstream.ConsumerConfig) (jetstream.Consumer, error)
+	Publish(ctx context.Context, subject string, payload []byte, opts ...jetstream.PublishOpt) (*jetstream.PubAck, error)
+}
+
 type NATSQueue struct {
 	nc     *nats.Conn
-	js     jetstream.JetStream
+	js     jetStreamClient
 	stream string
 	subj   string
 }
@@ -75,18 +85,17 @@ func (q *NATSQueue) Subscribe(ctx context.Context, group string, handler func(ct
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: q.subj,
 		AckWait:       30 * time.Minute,
-		MaxDeliver:    3,
+		MaxDeliver:    aiJobMaxDeliver,
 	})
 	if err != nil {
 		return fmt.Errorf("create consumer: %w", err)
 	}
-	const maxDeliver = 3
 	_, err = cons.Consume(func(msg jetstream.Msg) {
 		jobID := string(msg.Data())
 		hctx, cancel := context.WithTimeout(ctx, 35*time.Minute)
 		defer cancel()
 		if err := handler(hctx, jobID); err != nil {
-			q.handleAIJobFailure(ctx, msg, jobID, maxDeliver)
+			q.handleAIJobFailure(ctx, msg, jobID)
 			return
 		}
 		if ackErr := msg.Ack(); ackErr != nil {
@@ -96,9 +105,9 @@ func (q *NATSQueue) Subscribe(ctx context.Context, group string, handler func(ct
 	return err
 }
 
-func (q *NATSQueue) handleAIJobFailure(ctx context.Context, msg jetstream.Msg, jobID string, maxDeliver uint64) {
+func (q *NATSQueue) handleAIJobFailure(ctx context.Context, msg jetstream.Msg, jobID string) {
 	meta, metaErr := msg.Metadata()
-	if metaErr != nil || meta.NumDelivered < maxDeliver {
+	if metaErr != nil || meta.NumDelivered < aiJobMaxDeliver {
 		if nakErr := msg.Nak(); nakErr != nil {
 			slog.Warn("nack ai job message", "job_id", jobID, "error", nakErr)
 		}

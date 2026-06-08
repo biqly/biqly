@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel/codes"
 
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
+	"github.com/biqly/biqly/internal/platform/observability"
 )
 
 // providerHooks configures endpoint-specific request/response handling for
@@ -78,11 +79,8 @@ func (p *baseProvider) generateAt(ctx context.Context, prompt string, temperatur
 	if err != nil {
 		return GenerationResult{}, err
 	}
-	if result.Usage != nil {
-		span.SetAttributes(
-			attribute.Int("ai.tokens.prompt", result.Usage.Prompt),
-			attribute.Int("ai.tokens.completion", result.Usage.Completion),
-		)
+	if usage := TokenUsageFromGeneration(promptpkg.Stats{EstPromptTokens: estPrompt}, result); usage != nil {
+		observability.SetAITokenAttributes(span, usage.Prompt, usage.Completion, usage.Total)
 	}
 	logLLMCompletion(ctx, p.logName, p.model, estPrompt, result)
 	return result, nil

@@ -189,6 +189,13 @@ func (r *TableRouter) Route(
 ) (model *semantic.SemanticModel, result *TableRoutingResult, err error) {
 	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.TableRoute")
 	defer func() {
+		if result != nil {
+			span.SetAttributes(
+				attribute.Float64("ai.route.confidence", result.Confidence),
+				attribute.String("ai.ranking_method", result.RankingMethod),
+				attribute.Bool("ai.route.needs_clarification", result.NeedsClarification),
+			)
+		}
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
@@ -232,12 +239,6 @@ func (r *TableRouter) Route(
 
 	selected = r.routeExpandSelection(selected, tables, columnsByTable, relations, question, tableScope, result)
 	model, result, err = r.routeFinalize(ctx, datasourceID, selected, relations, columnsByTable, question, embedSignals, result)
-	if result != nil {
-		span.SetAttributes(
-			attribute.Float64("ai.route.confidence", result.Confidence),
-			attribute.String("ai.ranking_method", result.RankingMethod),
-		)
-	}
 	return model, result, err
 }
 

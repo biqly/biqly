@@ -83,6 +83,16 @@ func EdgeCases() []GoldenCase {
 				Limit:   100,
 			},
 		},
+		{
+			ID:       "edge-not-shipped-count",
+			Question: "shipped olmayan sipariş sayısı",
+			Model:    base,
+			Expected: query.LogicalQuery{
+				Select:  []query.SelectItem{{Type: "metric", Name: "row_count"}},
+				Filters: []query.Filter{{Field: "status", Operator: "neq", Value: "shipped"}},
+				Limit:   100,
+			},
+		},
 	}
 }
 

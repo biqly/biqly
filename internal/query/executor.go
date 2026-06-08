@@ -51,6 +51,7 @@ func NewExecutor(maxRows int, timeout time.Duration) *Executor {
 // Execute runs a compiled query and returns results.
 func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (result *Result, err error) {
 	ctx, span := otel.Tracer("biqly/query").Start(ctx, "query.Execute")
+	observability.SetDBSystemAttributes(span, observability.DBSystem(ctx))
 	defer func() {
 		if err != nil {
 			span.RecordError(err)
@@ -91,6 +92,7 @@ func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (
 	attrs := []attribute.KeyValue{
 		attribute.Int("db.rows_returned", res.Stats.RowCount),
 		attribute.Bool("db.truncated", res.Stats.Truncated),
+		attribute.Int64("query.execute.duration_ms", res.Stats.DurationMs),
 	}
 	if fp := observability.QueryFingerprint(ctx); fp != "" {
 		attrs = append(attrs, attribute.String("query.fingerprint", fp))

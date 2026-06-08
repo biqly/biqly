@@ -73,7 +73,7 @@ jobs:
         run: go mod download
 
       - name: Generate coverage profile
-        run: go test -coverprofile=coverage.out ./internal/dialect/... ./internal/datasource/... ./internal/config/... ./internal/dashboard/... ./internal/queue/...
+        run: go test -coverprofile=coverage.out ./internal/dialect/... ./internal/datasource/... ./internal/config/... ./internal/dashboard/... ./internal/queue/... ./internal/ai/routing/... ./internal/auth
 
       - name: Coverage gate
         run: go run ./scripts/coveragecheck -profile coverage.out

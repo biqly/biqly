@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/biqly/biqly/internal/dialect"
 	"github.com/biqly/biqly/internal/errmsg"
+	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/internal/security"
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -62,7 +64,12 @@ func (c *Compiler) Compile(ctx context.Context, lq *LogicalQuery, model *semanti
 		return nil, errors.New("query compiler requires non-nil context")
 	}
 	ctx, span := otel.Tracer("biqly/query").Start(ctx, "query.Compile")
-	defer span.End()
+	compileStart := time.Now()
+	defer func() {
+		span.SetAttributes(attribute.Int64("query.compile.duration_ms", time.Since(compileStart).Milliseconds()))
+		span.End()
+	}()
+	observability.SetDBSystemAttributes(span, observability.DBSystem(ctx))
 	if model != nil {
 		span.SetAttributes(
 			attribute.String("model.id", model.ID),

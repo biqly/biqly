@@ -22,6 +22,7 @@ import (
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/errmsg"
 	"github.com/biqly/biqly/internal/i18n"
+	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -405,11 +406,8 @@ func (s *Service) generateAtWithSpan(ctx context.Context, prompt string, tempera
 		span.SetStatus(codes.Error, err.Error())
 		return providerpkg.GenerationResult{}, err
 	}
-	if gen.Usage != nil {
-		span.SetAttributes(
-			attribute.Int("ai.tokens.prompt", gen.Usage.Prompt),
-			attribute.Int("ai.tokens.completion", gen.Usage.Completion),
-		)
+	if usage := providerpkg.TokenUsageFromGeneration(promptpkg.Stats{}, gen); usage != nil {
+		observability.SetAITokenAttributes(span, usage.Prompt, usage.Completion, usage.Total)
 	}
 	return gen, nil
 }
@@ -427,11 +425,8 @@ func (s *Service) generateWithSpan(ctx context.Context, prompt string, attempt i
 		span.SetStatus(codes.Error, err.Error())
 		return providerpkg.GenerationResult{}, err
 	}
-	if gen.Usage != nil {
-		span.SetAttributes(
-			attribute.Int("ai.tokens.prompt", gen.Usage.Prompt),
-			attribute.Int("ai.tokens.completion", gen.Usage.Completion),
-		)
+	if usage := providerpkg.TokenUsageFromGeneration(promptpkg.Stats{}, gen); usage != nil {
+		observability.SetAITokenAttributes(span, usage.Prompt, usage.Completion, usage.Total)
 	}
 	return gen, nil
 }

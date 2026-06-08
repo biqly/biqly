@@ -141,6 +141,9 @@ func (s *QueryService) Compile(ctx context.Context, lq *query.LogicalQuery) (*Co
 }
 
 func (s *QueryService) CompileWithContext(ctx context.Context, lq *query.LogicalQuery, model *semantic.SemanticModel, driver datasource.Driver) (*query.CompiledQuery, *ServiceError) {
+	if driver != nil {
+		ctx = observability.WithDBSystem(ctx, driver.Type())
+	}
 	query.RepairMisnamedCalendarGrainDimensions(lq, dimensionNames(model))
 	lq.EnsureGroupBySelected()
 	if err := s.validator.Validate(lq, model); err != nil {
@@ -179,6 +182,9 @@ func (s *QueryService) Run(ctx context.Context, lq *query.LogicalQuery) (*RunRes
 
 	if fp, fpErr := query.LogicalQueryFingerprint(&compiled.LogicalQuery, compiled.Model); fpErr == nil {
 		ctx = observability.WithQueryFingerprint(ctx, fp)
+	}
+	if compiled.Driver != nil {
+		ctx = observability.WithDBSystem(ctx, compiled.Driver.Type())
 	}
 	result, err := s.executor.Execute(ctx, db, compiled.Compiled)
 	if err != nil {

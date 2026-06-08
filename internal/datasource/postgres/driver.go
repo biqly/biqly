@@ -25,7 +25,7 @@ func NewDriver() *Driver {
 
 // Introspect discovers the schema of a PostgreSQL database.
 func (d *Driver) Introspect(ctx context.Context, db *sql.DB) (*datasource.IntrospectionResult, error) {
-	return datasource.ComposeIntrospection(ctx, db, datasource.IntrospectSteps{
+	return datasource.ComposeIntrospection(ctx, db, d.Type(), datasource.IntrospectSteps{
 		Schemas:   d.introspectSchemas,
 		Tables:    d.introspectTables,
 		Columns:   d.introspectColumns,

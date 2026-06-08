@@ -48,6 +48,7 @@ func SetupTracing(ctx context.Context, serviceName string) (shutdown func(contex
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(res),
+		sdktrace.WithSampler(newTraceSampler()),
 	)
 	otel.SetTracerProvider(tp)
 

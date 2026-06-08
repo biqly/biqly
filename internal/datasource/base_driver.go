@@ -85,7 +85,7 @@ type IntrospectSteps struct {
 }
 
 // ComposeIntrospection runs introspection steps and assembles the result.
-func ComposeIntrospection(ctx context.Context, db *sql.DB, steps IntrospectSteps) (result *IntrospectionResult, err error) {
+func ComposeIntrospection(ctx context.Context, db *sql.DB, dbSystem string, steps IntrospectSteps) (result *IntrospectionResult, err error) {
 	ctx, span := otel.Tracer("biqly/datasource").Start(ctx, "datasource.Introspect")
 	defer func() {
 		if err != nil {
@@ -94,6 +94,9 @@ func ComposeIntrospection(ctx context.Context, db *sql.DB, steps IntrospectSteps
 		}
 		span.End()
 	}()
+	if dbSystem != "" {
+		span.SetAttributes(attribute.String("db.system", dbSystem), attribute.String("datasource.driver", dbSystem))
+	}
 
 	schemas, err := introspectStep(ctx, "datasource.IntrospectSchemas", steps.Schemas, db)
 	if err != nil {

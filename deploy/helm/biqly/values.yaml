@@ -200,6 +200,10 @@ global:
       jaeger:
         enabled: true
         image: jaegertracing/all-in-one:1.76.0
+      # Injected into biqly-config when otelCollector.enabled (see templates/configmaps.yaml).
+      otlpEndpoint: http://biqly-otel-collector:4318
+      sampler: parentbased_traceidratio
+      samplerArg: "0.25"
     alertmanager:
       enabled: false
       webhookURLSecret:

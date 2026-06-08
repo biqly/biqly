@@ -337,6 +337,93 @@ These rules are enforced by `make lint-go` (golangci-lint via `.golangci.yml`) a
 
 - In `**/*.test.{ts,tsx}` and `**/test/**`: `no-explicit-any` and `no-non-null-assertion` are relaxed. Test code often needs `any` for partial mocks and `!` for asserting test preconditions. Production code has no such exemptions.
 
+## Naming Conventions — Best Practices
+
+### Go Naming (golangci-lint enforced: `revive` var-naming, `errname`, `recvcheck`)
+
+Kaynaklar: [Effective Go — Names](https://go.dev/doc/effective_go#names), [Google Go Style — Naming](https://google.github.io/styleguide/go/decisions#names).
+
+#### General
+
+- **MixedCaps**: Go'da `camelCase` (unexported) ve `PascalCase` (exported) kullanılır. Snake_case yok (`MAX_SIZE` değil, `MaxSize`).
+- **Underscore yok**: Paket, fonksiyon, değişken, sabit isimlerinde underscore kullanılmaz. İstisna: `_test.go` test fonksiyonları ve `cgo/syscall` seviyesindeki isimler.
+- **Tek harf değişkenler**: Sadece kısa kapsamlı döngü sayaçları (`i`, `j`), receiver'lar, ve yaygın kısaltmalar (`r` for `io.Reader`, `w` for `io.Writer`, `ctx` for `context.Context`, `err` for `error`). 10 satırdan geniş kapsamda açıklayıcı isim zorunlu.
+
+#### Receiver
+
+- Receiver ismi kısa olmalı (1-2 harf), tip adının kısaltması, ve aynı tipin tüm metotlarında tutarlı.
+- **DOĞRU**: `func (s *Service)`, `func (r *Repository)`, `func (h *AuthHandler)`, `func (m *JWTManager)`
+- **YANLIŞ**: `func (this *Service)`, `func (self *Scanner)`, `func (svc *Service)`
+
+#### Functions
+
+- **`Get` prefix'i yasak**: Go konvansiyonunda `Get` kullanılmaz. `GetUser` → `User`, `GetCount` → `Count`, `GetPublicKey` → `PublicKey`.
+  - İstisna: HTTP GET kavramı (REST handler isimleri `GetMe` gibi endpoint tanımları olabilir, ama metot ismi değil).
+  - Ağır hesaplama veya uzak çağrı için `Compute`, `Fetch`, `Resolve` kullanılabilir.
+- **Exported fonksiyonlar**: `PascalCase`. Paket adı ile tekrar olmamalı (`datasource.DatasourceConfig` → `datasource.Config`).
+- **Unexported fonksiyonlar**: `camelCase`. Helper fonksiyonlar açıklayıcı olmalı (`composePostgresDSN`, `introspectStep`).
+
+#### Interfaces
+
+- Tek-metot arayüzleri metod adı + `-er` soneki: `Reader`, `Writer`, `Stringer`, `Scanner`, `Embedder`.
+- Çok-metot arayüzleri açıklayıcı isim: `Driver`, `ResponseCache`, `ModelLoader`, `TemplateStore`.
+- Test-only küçük arayüzler (package-internal): `scanner`, `rowsScanner`, `rowScanner` — küçük harf, net amaç.
+
+#### Constants
+
+- `MixedCaps` (exported: `PascalCase`, unexported: `camelCase`). `UPPER_SNAKE_CASE` veya `kPrefix` yasak.
+- **DOĞRU**: `const MaxRetries = 3`, `const defaultTimeout = 30 * time.Second`
+- **YANLIŞ**: `const MAX_RETRIES = 3`, `const kMaxRetries = 3`
+- Sabitin rolünü tanımlayın, değerini değil: `const Twelve = 12` kötü.
+
+#### Error Variables
+
+- Sentinel hatalar: `Err` prefix + PascalCase. `ErrNotFound`, `ErrUnauthorized`, `ErrCircuitOpen`.
+- **DOĞRU**: `var ErrInvalidCredentials = errors.New("ldap: invalid credentials")`
+- **YANLIŞ**: `var NotFound = errors.New(...)`, `var errInvalid = errors.New(...)`
+- Hata tipleri: `Error` soneki. `TimeoutError`, `ServiceError`, `PathError`.
+
+#### Initialisms / Acronyms
+
+- `URL`, `ID`, `HTTP`, `JSON`, `SQL`, `API`, `DB`, `DSN`, `JWT`, `PII`, `RBAC`, `MFA`, `OTEL`, `NATS`, `CORS`, `CSRF`, `OAuth`, `LDAP`, `SMTP`, `TOTP`, `DNS`, `TCP`, `IP`, `SSH`, `SSL`, `TLS`, `CPU`, `RAM`, `OS`.
+- Tüm harfler aynı kategoride: `URL` veya `url`, asla `Url`. `XMLAPI` → exported, `xmlAPI` → unexported.
+- `ID` her zaman `ID` (büyük), asla `Id`. `userID` değil `userId`; `APIKey` değil `ApiKey`.
+
+#### Repetition / Stutter
+
+- Paket adı + tip adı tekrarından kaçının: `datasource.DatasourceInfo` → `datasource.Info`. `config.Config` kabul edilebilir (standart kalıp).
+- Değişken adı tip tekrarı yapmamalı: `var userCount int` → `var users int` (sayma bağlamı netse).
+
+### TypeScript / React Naming (ESLint enforced: `@typescript-eslint/naming-convention`)
+
+Kaynaklar: [Google TypeScript Style Guide — Naming](https://google.github.io/styleguide/tsguide.html#naming).
+
+#### General
+
+- **`UpperCamelCase`**: class, interface, type, enum, decorator, type parameter, React component.
+- **`lowerCamelCase`**: variable, parameter, function, method, property, module alias.
+- **`CONSTANT_CASE`**: global constant values, enum values. Sadece module-level veya `static readonly` class field'leri.
+- **`I` prefix interface'lere yok**: `IAuthProvider` değil `AuthProvider` (veya `AuthStorage` gibi amaç-belirten isim).
+
+#### React Specific
+
+- **Component'ler**: `UpperCamelCase` — `QueryHistory`, `DatasourceForm`, `ExpressionBuilder`.
+- **Handler'lar**: `handle` + Event adı — `handleSubmit`, `handleClick`, `handleKeyDown`. DOM event prop'ları: `onClick`, `onChange`, `onSubmit`.
+- **Boolean state**: `is` / `has` / `should` prefix — `isLoading`, `hasPermission`, `shouldRefresh`, `isOpen`, `canEdit`.
+- **useState isimleri**: `[value, setValue]` çifti tutarlı — `[open, setOpen]`, `[loading, setLoading]`, `[error, setError]`. Kısa ve net.
+- **Custom hook'lar**: `use` prefix — `useAuth`, `useT`, `useAIJobs`, `useLocale`.
+
+#### Abbreviations
+
+- Kısaltmalar tam kelime gibi davranılır: `loadHttpUrl` (iyi), `loadHTTPURL` (kötü). İstisna: platform isimleri (`XMLHttpRequest`).
+- Anlaşılmaz kısaltmalar yasak: `n`, `nErr`, `cstmrId`, `wgcConnections`. Yaygın kısaltmalar kabul: `url`, `dns`, `id`, `http`.
+- **`Id` değil `ID`**: `customerId` → `customerID` (Google TS style) — ancak bu projede `camelCase` kuralına göre `id` tamamen küçük normalize olabilir. Tutarlılık önemli.
+
+#### Constants
+
+- Module-level sabitler: `CONSTANT_CASE`. `CHART_COLORS`, `AI_QUERY_TIMEOUT_MS`, `STORAGE_KEY`.
+- Fonksiyon içinde: `lowerCamelCase`. `const maxRetries = 3` (modül seviyesinde değilse büyük harf yazma).
+
 ## Anti-Patterns to Avoid
 
 1. **Don't add `fmt.Sprintf` in hot-path predicate builders** — use direct string concatenation or `strings.Builder`.

@@ -7,12 +7,15 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+
+	"github.com/biqly/biqly/internal/platform/observability"
 )
 
 // QueryAll runs query and collects one element per row using scan.
 // It closes rows and returns rows.Err() after iteration.
 func QueryAll[T any](ctx context.Context, db *sql.DB, query string, args []any, scan func(*sql.Rows) (T, error)) (out []T, err error) {
 	ctx, span := otel.Tracer("biqly/datasource").Start(ctx, "datasource.Query")
+	observability.SetDBSystemAttributes(span, observability.DBSystem(ctx))
 	defer func() {
 		if err != nil {
 			span.RecordError(err)

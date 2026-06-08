@@ -140,6 +140,19 @@ func TestConnectNATS_EmptyURLError(t *testing.T) {
 	assert.Contains(t, err.Error(), "nats url is empty")
 }
 
+func TestConnectNATS_ConnectErrorAppliesDefaults(t *testing.T) {
+	client, err := ConnectNATS(NATSConfig{URL: "nats://127.0.0.1:1"})
+	assert.Error(t, err)
+	assert.Nil(t, client)
+	assert.Contains(t, err.Error(), "nats connect")
+}
+
+func TestLocalAIJobQueue_DoubleCloseIsIdempotent(t *testing.T) {
+	q := NewLocalAIJobQueue(4)
+	assert.NoError(t, q.Close())
+	assert.NoError(t, q.Close())
+}
+
 func TestLocalAIJobQueue_ConcurrencyAndDeadlockFix(t *testing.T) {
 	q := NewLocalAIJobQueue(1)
 
